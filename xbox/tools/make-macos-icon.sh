@@ -16,6 +16,11 @@ work=$(mktemp -d "${TMPDIR:-/tmp}/oskiewar-icon.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 iconset="$work/Oskiewar.iconset"
 mkdir -p "$iconset" "$(dirname "$out")"
+# iOS masks the square master itself; macOS shows it as drawn, so the Mac
+# icon gets its rounded plate, margin and shadow here.
+plated="$work/mac-master.png"
+swift "$repo_root/xbox/tools/mac-icon-plate.swift" "$master" "$plated"
+master="$plated"
 
 for size in 16 32 128 256 512; do
   sips -s format png -z "$size" "$size" "$master" \

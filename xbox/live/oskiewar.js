@@ -116,6 +116,13 @@ const survivalActive = () => gameMode === "survival";
 const lobbyActive = () => gameMode === "fight" && fightOpponent === "versus-lobby";
 const versusActive = () => gameMode === "fight" && fightOpponent === "versus";
 const versusLane = () => lobbyActive() || versusActive();
+// Freeskate: one rider alone on the long park, no guns, no clock, no rounds —
+// a room for working on the skating itself. `?opponent=freeskate`.
+const freeskateActive = () => gameMode === "fight" && fightOpponent === "freeskate";
+// Rooms with one body in them: the versus lobby and freeskate park the
+// second chair off the map, respawn instead of ending a round, and hand the
+// fighter back whole.
+const soloRoom = () => lobbyActive() || freeskateActive();
 // The station. The tower became a cube, and the cube has now been opened to
 // vacuum: @jeffrey asked for "a large space map", and the cube's own comment
 // had already named the condition for growing one — "a tile-authored map is
@@ -265,6 +272,23 @@ const skateRopes = [];
 const chainLinks = 16;
 const chainLength = 44;
 
+// The long park opens with a half-pipe: two 540-unit quarter circles facing
+// each other across an eight-tile flat, a deck behind each coping, and a bank
+// down to the course. The run of each transition equals its rise, so it is a
+// true circle and arrives at the coping vertical — which is what lets a rider
+// air straight up out of it and land back in (see `skateVert`).
+const halfpipeRadius = 540;
+const halfpipe = { leftCoping: 2, rightCoping: 22, floorFrom: 8, floorTo: 16 };
+const halfpipeFeatures = [
+  { from: 0, to: 2, kind: "flat", lift: halfpipeRadius },
+  { from: 2, to: 8, kind: "transition", rise: halfpipeRadius, dir: -1 },
+  { from: 8, to: 16, kind: "flat" },
+  { from: 16, to: 22, kind: "transition", rise: halfpipeRadius, dir: 1 },
+  { from: 22, to: 24, kind: "flat", lift: halfpipeRadius },
+  { from: 24, to: 32, kind: "bank", rise: halfpipeRadius, dir: -1 },
+  { from: 32, to: 40, kind: "flat" },
+];
+
 function configureWorldMap(name) {
   // A normal round keeps its current workshop/local variant. Only entering
   // or leaving the long course needs to replace the world dimensions.
@@ -275,8 +299,7 @@ function configureWorldMap(name) {
   if (gridField.length !== gridCols * gridRows) gridField = new Float32Array(gridCols * gridRows);
   worldRight = gridLeft + gridWidth + wallThickness;
   const features = skateparkMap ? [
-    ...parkFeatures.slice(0, -1),
-    { from: 36, to: 40, kind: "flat" },
+    ...halfpipeFeatures,
     ...[40, 140, 240].flatMap((from) => [
       { from, to: from + 40, kind: "flat" },
       { from: from + 40, to: from + 46, kind: "bank", rise: 270, dir: 1 },
@@ -290,6 +313,10 @@ function configureWorldMap(name) {
     right: gridLeft + feature.to * tileSize, lift: feature.lift || 0 }));
   parkRight = gridLeft + gridWidth;
   terrainSamples = gridCols * 6;
+  // The drawn silhouette is sampled from these segments. Without a rebuild
+  // the long park kept the station's outline, and past its first few
+  // thousand units a rider skated on ground nobody could see.
+  rebuildTerrainProfile();
 }
 
 function resetSkateRopes() {
@@ -424,9 +451,20 @@ function updateSkateRopes(dt) {
   }
 }
 
+// Loops are for riding, and for speed. A rider hugs the loop, so gravity
+// pulls them off it at a share of its weight — about 2,400 going in makes it
+// round where full weight wanted 3,000 no push could reach. Holding DOWN
+// pumps round it like the half-pipe, and making it all the way round sends
+// the rider out a tenth faster than they went in.
+const loopGravityShare = .65;
+// Just under half the half-pipe's pump (2,600). A plain number: this runs
+// before `skatePumpAcceleration` is declared.
+const loopPump = 1170;
+const loopExitBonus = 1.1;
 function skateLoopStep(player, input, dt, now) {
   if (!(player.skateLoop >= 0)) {
-    if (!player.skateboard || !player.grounded || Math.abs(player.skateVx) < 1300)
+    if (!(player.skateboard || isHeadOnly(player)) || !player.grounded ||
+        Math.abs(player.skateVx) < 1300)
       return false;
     const nextX = player.x + player.skateVx * dt;
     const index = skateLoops.findIndex((loop) =>
@@ -440,8 +478,20 @@ function skateLoopStep(player, input, dt, now) {
   }
   const loop = skateLoops[player.skateLoop];
   const angle = player.loopAngle;
-  player.loopSpeed += (-fallGravity() * Math.sin(angle) + input.horizontal * 500) * dt;
+  const loopGravity = fallGravity() * loopGravityShare;
+  player.loopSpeed += (-loopGravity * Math.sin(angle) + input.horizontal * 500) * dt;
+  if (input.vertical < 0 && player.loopSpeed)
+    player.loopSpeed += Math.sign(player.loopSpeed) * loopPump * dt;
   player.loopAngle += player.loopSpeed / loop.radius * dt;
+  // Round the loop the wheels (or a rolling head) keep clicking, every
+  // hundred units of track, as they do on the ground.
+  player.skateRollDistance = (player.skateRollDistance || 0) + Math.abs(player.loopSpeed) * dt;
+  if (player.skateRollDistance >= 100) {
+    player.skateRollDistance %= 100;
+    const head = !player.skateboard;
+    playDrum(head ? "block" : "hat", (head ? .08 : .12) +
+      Math.min(.35, Math.abs(player.loopSpeed) / 8400), panPlayer(player));
+  }
   const theta = player.loopAngle;
   player.x = loop.x + Math.sin(theta) * loop.radius;
   player.y = floorY - loop.radius + Math.cos(theta) * loop.radius;
@@ -451,10 +501,13 @@ function skateLoopStep(player, input, dt, now) {
   player.skateRotation = -theta;
   const completed = Math.abs(theta) >= Math.PI * 2;
   const lostGrip = Math.cos(theta) < 0 && player.loopSpeed ** 2 / loop.radius <
-    -fallGravity() * Math.cos(theta);
-  if (completed || lostGrip || !player.skateboard) {
+    -loopGravity * Math.cos(theta);
+  if (completed || lostGrip || !(player.skateboard || isHeadOnly(player))) {
     if (completed) { player.x = loop.x + Math.sign(player.loopSpeed) * 12;
-      player.y = floorY; player.vy = 0; player.grounded = true; }
+      player.y = floorY; player.vy = 0; player.grounded = true;
+      player.vx = clamp(player.vx * loopExitBonus, -skateTop, skateTop);
+      emitSignal("skate-loop", player.pad, player.skateLoop, Math.round(Math.abs(player.vx)));
+      playDrum("whoosh", .9, panPlayer(player)); }
     player.skateVx = player.vx;
     player.skateLoop = -1;
     player.skateRotation = 0;
@@ -479,18 +532,40 @@ function skateBoostStep(player, previousX, now) {
   playDrum("whoosh", 1, panPlayer(player));
 }
 
-function drawSkateParkFeatures() {
+// A loop is part of the course, built like it: a band of the ground's own
+// material the width of the track, its riding face on the inside (photo
+// concrete under the realistic theme), a thick outer shell and two side
+// faces, lit and depth-sorted with the terrain it rises out of.
+const loopShell = 60;
+const loopSegments = 64;
+function drawLoopTrack(loop, ground) {
+  const face = mixColor(ground, [255, 255, 255], .1);
+  const side = mixColor(ground, [0, 0, 0], .22);
+  const shell = mixColor(ground, [0, 0, 0], .12);
+  const ring = (angle, radius, z) => ({
+    x: loop.x + Math.sin(angle) * radius,
+    y: floorY - loop.radius + Math.cos(angle) * radius, z });
+  const inner = loop.radius, outer = loop.radius + loopShell;
+  for (let i = 0; i < loopSegments; i++) {
+    const a = i / loopSegments * Math.PI * 2, b = (i + 1) / loopSegments * Math.PI * 2;
+    const ia = ring(a, inner, -90), ib = ring(b, inner, -90);
+    const ib2 = ring(b, inner, 90), ia2 = ring(a, inner, 90);
+    const projected = [ia, ib, ib2, ia2].map((p) => projectPoint(p.x, p.y, p.z));
+    if (!photoSurface("concrete", ...projected)) worldQuad(ia, ib, ib2, ia2, face);
+    worldQuad(ring(a, outer, -90), ring(b, outer, -90), ring(b, outer, 90),
+      ring(a, outer, 90), shell);
+    for (const z of [-90, 90])
+      worldQuad(ring(a, inner, z), ring(b, inner, z), ring(b, outer, z),
+        ring(a, outer, z), side);
+  }
+}
+
+function drawSkateParkFeatures(ground = [110, 116, 128]) {
   if (!skateparkMap || survivalActive()) return;
   const visible = (x, radius = 0) => Math.abs(x - cameraCenter) < cameraWidth + radius;
   for (const loop of skateLoops) {
-    if (!visible(loop.x, loop.radius)) continue;
-    for (let i = 0; i < 96; i++) {
-      const a = i / 96 * Math.PI * 2, b = (i + 1) / 96 * Math.PI * 2;
-      for (const z of [-90, 90]) worldCapsule(
-        loop.x + Math.sin(a) * loop.radius, floorY - loop.radius + Math.cos(a) * loop.radius, z,
-        loop.x + Math.sin(b) * loop.radius, floorY - loop.radius + Math.cos(b) * loop.radius, z,
-        10, [92, 212, 240]);
-    }
+    if (!visible(loop.x, loop.radius + loopShell)) continue;
+    drawLoopTrack(loop, ground);
   }
   for (const pad of skateBoosts) {
     if (!visible(pad.left, 240)) continue;
@@ -647,7 +722,15 @@ const parkDecks = parkDeckPlan.map((deck, index) => ({
 // they must never be visible at the same time — a survival runner standing
 // on a station deck would be standing on furniture from another map. So the
 // mode picks the table, once, and everything downstream asks here.
-const activeLedges = () => survivalActive() ? platforms : parkDecks;
+// Freeskate has none: the station's decks hang over the long park's opening
+// half-pipe, and a rider coming down from a vert air stood on one.
+// `activeLedges` is read while the module is still loading, before the fight
+// state exists, so the freeskate question is only asked once freeskate has
+// been entered at least once.
+const noLedges = [];
+let freeskateEntered = false;
+const activeLedges = () => survivalActive() ? platforms
+  : freeskateEntered && freeskateActive() ? noLedges : parkDecks;
 // The station's landmarks, by column. On a ten-wide cube a bare `3` was
 // readable as "left of centre"; on twenty it is just a digit, and there were
 // a dozen of them scattered through spawn, pickup and re-serve code all
@@ -845,6 +928,20 @@ const walkSpeed = 880;
 const runStartSpeed = 1100;
 const runTopSpeed = 1950;
 const runAcceleration = 690;
+// Momentum, after Runman: speed is the thing a player keeps, not a number
+// the legs reset. Chained dashes build an overdrive past the run's top, which
+// bleeds back slowly unless it is fed; a hit costs a share of it, never all.
+const runOverdriveTop = 2600;
+const runDashKick = 250;
+const runOverdriveBleed = 300;
+const runHitKeep = .65;
+// The board's stick push stops adding here; past it only slopes, pumps,
+// pads and kick-pushes carry a rider faster.
+const skatePushTop = 2700;
+const skateKick = 400;
+const skateTop = 4200;
+// A lone head's stick push; past it, only slopes carry it faster.
+const headRollPush = 1300;
 // Vertical feel. The apex is the design constant — how high a fighter can
 // reach never changed — so every impulse here is paired with a gravity that
 // spends less time getting there. Rise is lighter than fall so the arc reads
@@ -1503,7 +1600,7 @@ const players = [
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
     skateboard: false, skateVx: 0, skateWallSide: 0,
     suppressedDirections: [],
-    lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, runSince: 0,
+    lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, runSince: 0, runSpeed: 0, runDir: 0, runBled: false, runReleasedAt: 0,
     walkSince: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
@@ -1534,7 +1631,7 @@ const players = [
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
     skateboard: false, skateVx: 0, skateWallSide: 0,
     suppressedDirections: [],
-    lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, runSince: 0,
+    lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, runSince: 0, runSpeed: 0, runDir: 0, runBled: false, runReleasedAt: 0,
     walkSince: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
@@ -1559,7 +1656,7 @@ const players = [
 // Survival and the versus lobby are both one-body rooms — the second chair
 // is parked off the map until somebody takes it.
 const activePlayers = () =>
-  survivalActive() || lobbyActive() ? [players[0]] : players;
+  survivalActive() || soloRoom() ? [players[0]] : players;
 const impacts = [];
 
 // Every impact gets a number, in order, for the life of the run. A watcher
@@ -2465,7 +2562,7 @@ function roundIsTimed() {
   if (globalThis.__oskiewarTimedTraining === true) return true;
   // Every round that reaches a re-simulation was a timed, recorded round.
   if (resimActive) return resimTimed;
-  if (fightOpponent === "trainingbot" || versusLane()) return false;
+  if (fightOpponent === "trainingbot" || versusLane() || freeskateActive()) return false;
   return !(players[1].npc && !players[1].bot);
 }
 
@@ -3832,6 +3929,111 @@ function beginTraining(now) {
   }
 }
 
+// Freeskate's instrument: the rider's ground speed, named by tier, bottom
+// left — so the skating can be tuned by eye and by number at once.
+const speedTiers = [
+  [runOverdriveTop, "zoom", [255, 92, 188]],
+  [runTopSpeed, "sprint", [255, 176, 48]],
+  [walkSpeed + 120, "run", [96, 214, 255]],
+  [0, "walk", [230, 236, 248]],
+];
+function drawFreeskateSpeed() {
+  const rider = players[0];
+  const speed = Math.abs(rider.skateboard && rider.grounded ? rider.skateVx : rider.vx);
+  const [, tier, ink] = speedTiers.find(([floor]) => speed >= floor);
+  const safe = hudSafeRect();
+  const size = compactLayout() ? 30 : 44;
+  const x = safe.left + 8, y = safe.bottom - size;
+  typeWrite(tier, x + 3, y + 4, size, ...contrastShadow(ink));
+  typeWrite(tier, x, y, size, ...ink);
+  const number = String(Math.round(speed));
+  const small = Math.round(size * .5);
+  const numberX = x + handleWidth(tier, size) + 14;
+  typeWrite(number, numberX + 2, y + size - small + 3, small, ...contrastShadow(ink));
+  typeWrite(number, numberX, y + size - small, small, ...ink);
+}
+
+// Freeskate never ends to the right. The long park repeats every 9,000
+// units from its first chain onward — ramps, pads and chains alike — so a
+// rider crossing x 20,250 is moved back one period to 11,250, where the
+// course around them is identical, and the camera moves with them. The
+// circuit is a pad, the middle loop, a chain and a pad, forever. Never
+// mid-trick: a rider on a chain or inside a loop wraps once they are off it.
+const freeskateLap = { from: 20250, span: 9000 };
+function wrapFreeskate() {
+  if (!freeskateActive()) return;
+  const rider = players[0];
+  if (rider.x < freeskateLap.from || rider.vx <= 0 ||
+      rider.ropeIndex >= 0 || rider.skateLoop >= 0) return;
+  const shift = -freeskateLap.span;
+  const moved = [rider, cameraDoll.position, cameraDoll.target];
+  for (const item of balls) if (item.heldBy === rider.pad) moved.push(item);
+  for (const object of moved) {
+    object.x += shift;
+    // The frame that entered this tick moves too, or paint would blend the
+    // rider across the whole period in one frame.
+    const previous = renderPreviousState?.get(object);
+    if (previous && Number.isFinite(previous.x)) previous.x += shift;
+  }
+  cameraCenter += shift;
+  cameraDoll.dirty = true;
+  emitSignal("freeskate-lap", rider.pad, 1, 0);
+}
+
+function freeskateRequested() {
+  return String(globalThis.__oskiewarOpponent || "").trim().toLowerCase() === "freeskate";
+}
+
+// Freeskate boots straight onto the long park: the local rider on a board,
+// the second chair parked past the wall like the lobby's, and every weapon
+// pickup cleared so nothing on the course is a fight.
+function beginFreeskate(now) {
+  gameMode = "fight";
+  selfPlay = false;
+  fightOpponent = "freeskate";
+  freeskateEntered = true;
+  finishReplay();
+  seriesName = "";
+  matchName = "";
+  previousRoundName = "";
+  configureWorldMap("skatepark");
+  const rider = players[0];
+  // Dropped in the middle of the half-pipe's flat, facing a wall.
+  rider.spawnX = tileCenterX(Math.floor((halfpipe.floorFrom + halfpipe.floorTo) / 2));
+  // A host can start the rider anywhere on the course, for looking at a
+  // stretch of it without riding there first.
+  const startX = Number(globalThis.__oskiewarFreeskateStart);
+  if (Number.isFinite(startX) && startX > worldLeft && startX < worldRight) rider.spawnX = startX;
+  rider.npc = false;
+  rider.bot = false;
+  rider.spiderDummy = false;
+  rider.remote = false;
+  applyRoster(rider, rider.rosterIndex);
+  const chair = players[1];
+  chair.npc = true;
+  chair.bot = false;
+  chair.spiderDummy = false;
+  chair.remote = false;
+  applyRoster(chair, -1);
+  selecting = false;
+  shellMode = "GAME";
+  gameplayStarted = true;
+  titleTransitionAt = null;
+  resetRound(now, true);
+  chair.alive = false;
+  chair.respawnAt = Infinity;
+  chair.x = worldRight + gridWidth;
+  chair.y = floorY;
+  chair.name = "";
+  for (const pickup of [...gunPickups, ...saberPickups, ...grenadePickups])
+    pickup.active = false;
+  // The rider starts on the board, so the loose board that dismounting
+  // throws stays put away until they come off it; no other ball rolls here.
+  for (const item of balls) item.active = false;
+  roundStartedAt = now - roundIntroDurationUs();
+  emitSignal("freeskate", 0, 1, 0);
+}
+
 // The versus lobby: one fighter, an empty chair, and the address as the
 // invitation. Everything a visitor can do here is practice — their own moves
 // are named back at them — until the relay seats a rival, at which point
@@ -4085,6 +4287,8 @@ function updateLobbyMortality(now) {
   player.pounding = player.pogoDive = player.pogoHit = false;
   player.jumpHeld = false;
   player.runSince = player.walkSince = 0;
+  player.runSpeed = 0;
+  player.runDir = 0;
   player.jumpPoseUntil = player.landPoseUntil = player.hopUntil = 0;
   player.inputX = player.inputY = player.vx = 0;
   player.stance = "HIT";
@@ -6332,7 +6536,8 @@ function gameBoot() {
     else startSelfPlay(startedAt);
     return;
   }
-  if (survivalRequested()) beginSurvival(startedAt);
+  if (freeskateRequested()) beginFreeskate(startedAt);
+  else if (survivalRequested()) beginSurvival(startedAt);
   else if (versusRequested()) {
     versusRoomName = sessionName;
     beginVersusLobby(startedAt, { title: true });
@@ -6401,6 +6606,7 @@ function resetRound(now, resetMatch = false, keepMap = false) {
     player.dashUntil = 0;
     player.dashVx = 0;
     player.runSince = 0;
+    player.runSpeed = 0;
     player.walkSince = 0;
     player.attackKind = "";
     player.attackUntil = 0;
@@ -6829,17 +7035,30 @@ function updateCameraDoll(dt, now) {
   }
   if (skateparkMap && !survivalActive() && shellMode === "GAME") {
     const rider = players[netSession?.seat || 0];
-    const width = Math.max(1100, 900 * cameraAspect) * playerCameraZoom;
+    // Off the board, the shot keeps the board in it: the frame widens to hold
+    // rider and board together, so a bail never loses the thing to go back to.
+    const board = !rider.skateboard && balls.find((item) =>
+      item.type === "skateboard" && item.active && item.heldBy < 0);
+    const spanX = board ? Math.abs(board.x - rider.x) : 0;
+    const spanY = board ? Math.abs(board.y - rider.y) : 0;
+    const width = Math.max(1100, 900 * cameraAspect, spanX + 700,
+      (spanY + 600) * cameraAspect) * playerCameraZoom;
     const half = width / 2;
-    const desiredX = clamp(rider.x + clamp(rider.vx * .18, -300, 300),
+    const focusX = board ? (rider.x + board.x) / 2 : rider.x;
+    const focusY = board ? (rider.y + board.y) / 2 : rider.y;
+    const desiredX = clamp(focusX + clamp(rider.vx * .18, -300, 300),
       worldLeft + half, worldRight - half);
-    const desiredY = rider.y - 180;
+    const desiredY = focusY - 180;
     const blend = 1 - Math.exp(-dt * 9);
     cameraCenter += (desiredX - cameraCenter) * blend;
     cameraCenterY += (desiredY - cameraCenterY) * blend;
     cameraWidth = width;
+    // The same orbit the fight camera takes from the right stick, a drag,
+    // the wheel or a trackpad: turn round the rider and tilt over them.
     cameraDoll.track({ target: { x: cameraCenter, y: cameraCenterY, z: 0 },
-      position: { x: cameraCenter, y: cameraCenterY, z: -width * 1.35 },
+      position: { x: cameraCenter + Math.sin(playerCameraYaw) * width * 1.35,
+        y: cameraCenterY - width * playerCameraPitch,
+        z: -Math.cos(playerCameraYaw) * width * 1.35 },
       width, perspective: 0, fov: 55, roll: 0 }, dt, 12);
     return;
   }
@@ -7481,6 +7700,7 @@ function drawBodyTree(tree, t) {
 }
 
 function updatePowerups(now) {
+  if (freeskateActive()) return;
   while (roundElapsedUs >= nextPowerupAtUs) {
     // Only the slot marked `cycle` is the rotation's business. Asking whether
     // ANY gun pickup is on the map would let an untouched space laser sitting
@@ -8131,6 +8351,73 @@ function bounceBallOffBody(ball, player, now, segmentIndex = -1) {
   emitSignal("bodybounce", player.pad, direction, Math.round(speed));
 }
 
+// The boomerboard. Off the board, hold B (enter) and the deck comes home:
+// it swings out on a boomerang's arc, tightening and speeding up as it
+// closes, spinning the whole way, and lands under the rider's feet mounted,
+// carrying their speed. A tap is still a punch — the call waits for a hold.
+const boomerboardHoldUs = 180000;
+const boomerboardCatch = 70;
+function updateBoomerboard(dt, now) {
+  for (const player of activePlayers()) {
+    const board = balls.find((item) => item.type === "skateboard" &&
+      item.active && item.heldBy < 0);
+    // A lone head can call it too, and rides it home.
+    const calling = !player.skateboard && player.alive &&
+      Boolean(inputPads[player.pad]?.down?.includes("B"));
+    if (!calling) {
+      player.boomerSince = 0;
+      if (board && board.recalledBy === player.pad) {
+        board.recalling = false;
+        board.recalledBy = -1;
+      }
+      continue;
+    }
+    if (!player.boomerSince) player.boomerSince = now;
+    if (!board || now - player.boomerSince < boomerboardHoldUs) continue;
+    if (!board.recalling) {
+      board.recalling = true;
+      board.recalledBy = player.pad;
+      // The arc bows out on the side the deck is already drifting toward.
+      board.boomerSide = Math.sign(board.vx || 1) * (board.x < player.x ? -1 : 1) || 1;
+      emitSignal("boomerboard", player.pad, 1, 0);
+      playDrum("whoosh", .7, panPlayer(player));
+    }
+    const feetX = player.x, feetY = player.y - skateAxleDrop - skateWheelRadius;
+    const dx = feetX - board.x, dy = feetY - board.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance < boomerboardCatch) {
+      board.recalling = false;
+      board.recalledBy = -1;
+      board.releasedBy = -1;
+      board.active = false;
+      board.heldBy = -1;
+      resetSkate(player);
+      player.skateboard = true;
+      player.skateVx = player.vx;
+      player.skatePitch = skateContact(player.x, player.y).pitch;
+      player.boomerSince = 0;
+      player.lastButton = "BOOMERBOARD";
+      player.lastButtonAt = now;
+      playDrum("clap", .9, panPlayer(player));
+      emitSignal("skate-mount", player.pad, 2, 0);
+      continue;
+    }
+    const held = (now - player.boomerSince - boomerboardHoldUs) / 1000000;
+    const speed = Math.min(3600, 1100 + held * 4200);
+    const ux = dx / distance, uy = dy / distance;
+    const bow = Math.min(.85, distance / 1400);
+    const wantVx = (ux - uy * board.boomerSide * bow) * speed;
+    const wantVy = (uy + ux * board.boomerSide * bow) * speed;
+    const grip = 1 - Math.exp(-dt * 7);
+    board.vx += (wantVx - board.vx) * grip;
+    board.vy += (wantVy - board.vy) * grip;
+    board.x += board.vx * dt;
+    board.y += board.vy * dt;
+    board.z += (player.z - board.z) * grip;
+    board.rotation = (board.rotation || 0) + dt * 22 * board.boomerSide;
+  }
+}
+
 function updateBall(ball, dt, now) {
   // A popped ball is gone, not retired — a crater should cost the round its
   // ball for a moment, not for good. It re-inflates over the middle once its
@@ -8224,6 +8511,9 @@ function updateBall(ball, dt, now) {
         now < ball.safeUntil))
       continue;
     if (!nearRunner(player, ball.x, ball.y, ball.z, ball.radius + travel)) continue;
+    // A board its rider has just let go of passes through them for a moment
+    // instead of being booted, bounced or caught against their own feet.
+    if (ball.releasedBy === player.pad && now - (ball.releasedAt || 0) < 200000) continue;
     const boxes = sampleCombatBoxes(player, now);
     for (const strike of boxes.hit) {
       const distance = pointBoxDistance(strike, ball.x, ball.y, ball.z);
@@ -8246,6 +8536,9 @@ function updateBall(ball, dt, now) {
         now < ball.safeUntil))
       continue;
     if (!nearRunner(player, ball.x, ball.y, ball.z, ball.radius + travel)) continue;
+    // A board its rider has just let go of passes through them for a moment
+    // instead of being booted, bounced or caught against their own feet.
+    if (ball.releasedBy === player.pad && now - (ball.releasedAt || 0) < 200000) continue;
     if (player.blocking) {
       const guard = sampleCombatBoxes(player, now).guard[0];
       const distance = guard ? pointBoxDistance(guard, ball.x, ball.y, ball.z) : Infinity;
@@ -8267,11 +8560,17 @@ function updateBall(ball, dt, now) {
       ball.x, ball.y, ball.z);
     const bodyDistance = bodyContact.bodyDistance;
     if (Math.min(headDistance, bodyDistance) > ball.radius) continue;
+    // Its own rider can catch a released board at any speed — but not in the
+    // first fifth of a second, while it still lies against their feet.
+    const released = ball.releasedBy === player.pad;
+    const ownRelease = released && now - (ball.releasedAt || 0) > 200000;
     if (ball.type === "skateboard" && headDistance > ball.radius &&
         bodyDistance <= ball.radius && !player.skateboard &&
         // A thrown deck is a weapon until it slows down — nobody catches a
-        // board shot out of the air with their shins.
-        Math.hypot(ball.vx, ball.vy) < 900) {
+        // board shot out of the air with their shins. A board its rider just
+        // let go of is the exception: landing back on it is the point.
+        (released ? ownRelease : Math.hypot(ball.vx, ball.vy) < 900)) {
+      ball.releasedBy = -1;
       resetSkate(player);
       player.skateboard = true;
       player.skateVx = player.vx;
@@ -8317,39 +8616,41 @@ function directionTap(player, direction, now) {
   player.pendingMoveLabel = direction === "UP" ? "ULTRA AIR" : "DASH " + direction;
   playDrum("clap", 1.05, panPlayer(player));
   if (direction === "UP") {
-    player.vy = -ultraJumpVelocity;
+    player.vy = -ultraJumpVelocity * (freeskateActive() ? .6 : 1);
     player.grounded = false;
     player.jumpHeld = false;
     emitSignal("ultrajump", player.pad, 1, 0);
   } else if (direction === "DOWN") {
-    if (player.skateboard && !player.grounded) {
-      // Airborne on the board, the second tap is a throw, not a dive: the
-      // deck shoots straight down like a spiked item, and whoever it lands
-      // on takes it like one. The rider pops up off the release.
-      // The one-ball economy: like a dismount, the round's ball is
-      // redressed as the board so exactly one object ever exists.
-      // The station carries its own board, so there is nothing to redress:
-      // the old one-object economy borrowed the round's ball and handed it
-      // back at the bell, which is exactly the trick that stopped being
-      // necessary when the board became furniture with an entry of its own.
+    if (player.skateboard) {
+      // Double-down on the board lets go of it. It used to fire the deck
+      // straight down at 2,600 like a spiked item; now it is released, riding
+      // on at the rider's own speed a hand's width below their feet, so a
+      // rider can let go mid-air and land back on it — or, on the ground,
+      // step off and leave it rolling. Released, it is nobody's weapon, and
+      // its rider can catch it again at any speed (see `releasedBy`).
       const board = balls.find((item) => item.type === "skateboard");
+      // Half the roll goes with it: a release is letting go, not a launch.
+      const rolling = (player.grounded ? player.skateVx : player.vx) * .5;
       resetSkate(player);
       if (board) {
         board.active = true;
         board.heldBy = -1;
-        board.spawnOwner = player.pad;
-        board.lastHitBy = player.pad;
+        board.spawnOwner = -1;
+        board.lastHitBy = -1;
+        board.releasedBy = player.pad;
+        board.releasedAt = now;
         board.x = player.x;
-        board.y = player.y + 40;
+        board.y = player.y - skateAxleDrop - skateWheelRadius;
         board.z = player.z;
-        board.vx = player.vx * .35;
-        board.vy = Math.max(2600, player.vy + 2600);
+        board.vx = rolling;
+        board.vy = player.grounded ? 0 : Math.max(0, player.vy) + 60;
       }
-      player.vy = Math.min(player.vy, -420);
-      player.pendingMoveLabel = "BOARD SHOT";
-      playDrum("whoosh", 1, panPlayer(player));
-      playDrum("kick", .8, panPlayer(player));
-      emitSignal("board-shot", player.pad, 1, 0);
+      // The rider keeps their own momentum through the release, drifting on
+      // above the board rather than stopping dead in the air over it.
+      if (!player.grounded) player.knockVx = rolling;
+      player.pendingMoveLabel = "RELEASE";
+      playDrum("whoosh", .55, panPlayer(player));
+      emitSignal("board-release", player.pad, 1, 0);
       return true;
     }
     if (player.pounding) {
@@ -8385,8 +8686,39 @@ function directionTap(player, direction, now) {
     }
   } else {
     player.facing = direction === "RIGHT" ? 1 : -1;
-    player.dashVx = player.facing * 2400;
+    // Out of a vert air, a dash breaks the lock: the rider leaves the pipe's
+    // plane sideways — over the coping onto the deck, or back out across
+    // the pipe.
+    if (player.skateVert) {
+      player.skateVert = 0;
+      // A step sideways, not a launch: enough to clear the lip onto the deck
+      // (or drop back toward the flat), not enough to sail the whole bank.
+      player.skateVx = player.facing * 600;
+      player.vx = player.skateVx;
+      player.pendingMoveLabel = "VERT OUT";
+      playDrum("whoosh", .8, panPlayer(player));
+      emitSignal("skate-vert-out", player.pad, player.facing, Math.round(Math.abs(player.skateVx)));
+      return true;
+    }
+    if (player.skateboard && player.grounded) {
+      // A dash on the board is a kick-push: it adds to the roll rather than
+      // replacing it. Pushing against the roll scrubs it instead.
+      const rolling = player.skateVx || 0;
+      player.skateVx = Math.sign(rolling) === -player.facing
+        ? rolling * .5
+        : player.facing * Math.min(skateTop, Math.abs(rolling) + skateKick);
+      emitSignal("skate-push", player.pad, player.facing,
+        Math.round(Math.abs(player.skateVx)));
+      return true;
+    }
+    // On foot the dash leaves at whichever is faster, the dash itself or the
+    // speed already carried plus a kick, and hands that speed to the run.
+    const carried = Math.sign(player.vx) === player.facing ? Math.abs(player.vx) : 0;
+    const exit = Math.min(runOverdriveTop,
+      Math.max(player.runSpeed || 0, carried) + runDashKick);
+    player.dashVx = player.facing * Math.max(2400, exit);
     player.dashUntil = now + 110000;
+    player.runSpeed = Math.max(runStartSpeed, exit);
     emitSignal("dash", player.pad, player.facing, 0);
   }
   return true;
@@ -8421,7 +8753,7 @@ function killPlayer(target, killerPad, now, cause = "KO") {
   if (!target.alive) return;
   recordFightHit(killerPad, true);
   releaseCarriedBall(target, now);
-  if (!lobbyActive()) {
+  if (!soloRoom()) {
     if (!deathCinematic && killerPad !== target.pad)
       deathCinematic = { startedAt: now, loserPad: target.pad,
         winnerPad: killerPad, cause };
@@ -8431,7 +8763,7 @@ function killPlayer(target, killerPad, now, cause = "KO") {
   target.headBustedAt = now;
   target.respawnAt = now + 1200000;
   target.vx = 0;
-  if (!lobbyActive()) target.vy = 0;
+  if (!soloRoom()) target.vy = 0;
   target.stance = "HIT";
   target.lastButton = cause;
   target.lastButtonAt = now;
@@ -8442,7 +8774,7 @@ function killPlayer(target, killerPad, now, cause = "KO") {
   spawnImpact({ x: target.x, y: target.y - 120, z: target.z, life: .55,
     duration: .55, death: true, explosion: false });
   playDrum("whoosh", 1.15, panPlayer(target));
-  if (!lobbyActive()) emitSignal("killcam", killerPad, target.pad, 1);
+  if (!soloRoom()) emitSignal("killcam", killerPad, target.pad, 1);
   playDrum("snare", 1.15, panPlayer(target));
   updateLobbyMortality(now);
   if (killerPad === target.pad) queueSoloDeathReplay(target, now);
@@ -8977,7 +9309,7 @@ function updatePlayer(player, pad, dt, now) {
     // fighter blasted out of a jump hung in mid-air in its jump pose for the
     // whole respawn beat. @jeffrey: "it seems possible to die in the waiting
     // room but keep jumping stilll" — that is what a frozen hop looks like.
-    if (lobbyActive() && now < player.respawnAt) settleCorpse(player, dt);
+    if (soloRoom() && now < player.respawnAt) settleCorpse(player, dt);
     if (now >= player.respawnAt) {
       player.x = player.spawnX;
       player.y = terrainFloorAt(player.spawnX);
@@ -9008,7 +9340,7 @@ function updatePlayer(player, pad, dt, now) {
       // The waiting room hands back a whole body and a swept floor: parts,
       // corpses and scattered limbs are round furniture, and the lobby has
       // no round to rebuild the one or clear the others.
-      if (lobbyActive()) {
+      if (soloRoom()) {
         player.removedParts = [];
         player.partDamage = {};
         player.fallenBodyGeometry = null;
@@ -9030,6 +9362,9 @@ function updatePlayer(player, pad, dt, now) {
   player.suppressedDirections = player.suppressedDirections.filter((button) =>
     pad.down.includes(button));
   const headOnly = isHeadOnly(player);
+  // A lone head rolls on the board's physics — surface-following, gravity
+  // along the curve, pumping, lip launches and vert — with a softer push.
+  const rollingHead = headOnly && !player.skateboard;
   const pogo = isPogo(player);
   const legCount = ["left-leg", "right-leg"]
     .filter((part) => hasPart(player, part)).length;
@@ -9204,32 +9539,63 @@ function updatePlayer(player, pad, dt, now) {
     player.dashUntil = 0;
     player.dashVx = 0;
     player.runSince = 0;
+    player.runSpeed = 0;
   }
   const dashRunningOut = player.grounded && input.horizontal &&
     player.dashUntil > 0 && now >= player.dashUntil;
   if (dashRunningOut && !player.runSince) {
     player.runSince = now;
   }
-  if (!player.grounded || !input.horizontal || player.blocking ||
-      player.ducking || hitStunned) player.runSince = 0;
+  // A carried run survives the air: a jump keeps the speed it left with.
+  // Letting go on the ground, turning round, guarding or ducking ends it; a
+  // hit bleeds a share of it once, where it used to stop the run dead.
+  if (hitStunned && !player.runBled) {
+    player.runSpeed = (player.runSpeed || 0) * runHitKeep;
+    player.runBled = true;
+  } else if (!hitStunned) player.runBled = false;
+  const turned = input.horizontal && player.runDir && input.horizontal !== player.runDir;
+  // A double-tap dash lets go of the stick between its taps, so a release
+  // on the ground only ends the run once it has lasted longer than a tap.
+  if (player.grounded && !input.horizontal) {
+    if (!player.runReleasedAt) player.runReleasedAt = now;
+  } else player.runReleasedAt = 0;
+  const letGo = player.runReleasedAt && now - player.runReleasedAt > 180000;
+  if (letGo || turned || player.blocking ||
+      player.ducking || (player.grounded && hitStunned)) {
+    player.runSince = 0;
+    player.runSpeed = 0;
+  }
   const walkingCleanly = player.grounded && input.horizontal && !player.blocking &&
     !player.ducking && !hitStunned && now >= player.dashUntil;
   if (!walkingCleanly) player.walkSince = 0;
   else if (!player.walkSince) player.walkSince = now;
   else if (!player.runSince && now - player.walkSince >= 650000)
     player.runSince = now;
+  // The run starts from the speed already under the fighter, not from a
+  // standing start: landing a fast jump, stepping off a board, or coming out
+  // of a dash all keep what they had.
+  if (player.runSince && !player.runSpeed)
+    player.runSpeed = Math.max(runStartSpeed, Math.abs(player.vx - player.windVx -
+      player.knockVx));
+  if (player.runSpeed && input.horizontal) {
+    player.runDir = input.horizontal;
+    if (!player.runSince) player.runSince = now;
+    player.runSpeed = player.runSpeed < runTopSpeed
+      ? Math.min(runTopSpeed, player.runSpeed + runAcceleration * dt)
+      : Math.max(runTopSpeed, player.runSpeed - runOverdriveBleed * dt);
+    player.runSpeed = Math.min(runOverdriveTop, player.runSpeed);
+  }
+  if (!player.runSpeed) player.runDir = 0;
   const headAirControl = player.grounded ? .55
     : lerp(.55, .9, player.headBounceCharge || 0);
   const mobility = headOnly ? headAirControl
     : pogo ? .68 : legCount === 1 ? .72 : 1;
-  const runSpeed = player.runSince
-    ? Math.min(runTopSpeed, runStartSpeed +
-      (now - player.runSince) / 1000000 * runAcceleration) : 0;
+  const runSpeed = player.runSpeed || 0;
   let controlledVx = aimLocked ? 0
     : player.blocking ? player.shieldVx || 0
     : now < player.dashUntil && Math.abs(player.dashVx) > 0
     ? player.dashVx
-    : player.runSince ? input.horizontal * runSpeed * mobility
+    : runSpeed && input.horizontal ? input.horizontal * runSpeed * mobility
     : player.ducking && player.grounded ? 0
     : input.horizontal * walkSpeed * mobility;
   if (player.skateboard && player.skateWallSide) {
@@ -9243,7 +9609,7 @@ function updatePlayer(player, pad, dt, now) {
       player.skateVx = -side * Math.max(720, Math.abs(player.skateVx) * .42);
       controlledVx = player.skateVx;
     } else controlledVx = 0;
-  } else if (player.skateboard && player.grounded && !player.blocking) {
+  } else if ((player.skateboard || rollingHead) && player.grounded && !player.blocking) {
     // Steering, and ONLY while steering. This used to run every frame against
     // a target of `input.horizontal * 2700`, which on an idle stick is zero —
     // so a coasting skater was being dragged to a standstill at 3.2 a second
@@ -9252,16 +9618,21 @@ function updatePlayer(player, pad, dt, now) {
     // drop and a 268-unit one, because the servo ate gravity as fast as
     // gravity arrived. Let go of the stick now and you coast, which is what
     // rolling IS.
-    const skateTarget = input.horizontal * 2700;
+    const skateTarget = input.horizontal * (player.skateboard ? skatePushTop : headRollPush);
     // Carving is steering against the roll, and it has to stay in scope: the
     // scrape it makes is played further down, and hoisting the steer into a
     // block took both of these with it.
     const carving = Boolean(input.horizontal) &&
       Math.sign(skateTarget) !== Math.sign(player.skateVx);
+    // The stick pushes up to the push top and no further. It used to servo
+    // toward 2,700 from either side, so a rider a pad or a drop had carried
+    // past it was dragged back down for holding forward.
     if (input.horizontal) {
       const turnRate = carving ? 1.8 : 3.2;
-      player.skateVx += (skateTarget - player.skateVx) *
-        (1 - Math.exp(-dt * turnRate));
+      const pushing = !carving && Math.abs(player.skateVx) < Math.abs(skateTarget);
+      if (carving || pushing)
+        player.skateVx += (skateTarget - player.skateVx) *
+          (1 - Math.exp(-dt * turnRate));
     }
     // Gravity along the surface, resolved honestly rather than by a tuned
     // constant. The old line was `slope * 1900`, and `slope` is tan(angle) —
@@ -9286,10 +9657,12 @@ function updatePlayer(player, pad, dt, now) {
     // cheat code. Direction comes from the roll rather than the stick,
     // because pumping adds to the speed you have, it does not steer.
     const pumping = input.vertical < 0 && Math.abs(terrainSlope) > .18;
+    // The slope's share caps at 45°: a pump is legs through a transition,
+    // not thrust up a wall that has already gone vertical.
     if (pumping && player.skateVx)
       player.skateVx += Math.sign(player.skateVx) *
-        Math.abs(terrainSlope) * skatePumpAcceleration * dt;
-    player.skateVx = clamp(player.skateVx, -4200, 4200);
+        Math.min(1, Math.abs(terrainSlope)) * skatePumpAcceleration * dt;
+    player.skateVx = clamp(player.skateVx, -skateTop, skateTop);
     // Leaving the lip. A rider climbing a transition is carrying real upward
     // speed -- `skateVx * slope` -- and the moment the ground stops climbing
     // under them, that speed has nowhere to go but into the air. Reading the
@@ -9302,17 +9675,33 @@ function updatePlayer(player, pad, dt, now) {
     const surfaceVy = player.skateVx * terrainSlope;
     const aheadSlope = clamp(terrainTangentAt(
       player.x + player.skateVx * .05), -2.5, 2.5);
+    // Compare like with like: the look-ahead is clamped, so the slope under
+    // the rider is too. Unclamped, a transition steeper than 2.5 read as
+    // flattening ahead and threw the rider off halfway up the wall.
     if (surfaceVy < -skateLaunchFloor &&
-        (aheadSlope - terrainSlope) * Math.sign(player.skateVx) > .2) {
+        (aheadSlope - clamp(terrainSlope, -2.5, 2.5)) * Math.sign(player.skateVx) > .2) {
       player.vy = surfaceVy;
       player.grounded = false;
       player.skateAirAt = now;
+      // Vert. Leaving a coping the transition has already turned vertical,
+      // the rider goes straight up — no sideways speed to carry them onto
+      // the deck — and falls back onto the same wall, where the landing
+      // turns the fall into roll speed back down. Height is kept pass to
+      // pass, and a pump through the bottom adds to it.
+      if (Math.abs(terrainSlope) > 2) {
+        player.skateVert = Math.sign(player.skateVx);
+        player.vy = -Math.abs(player.skateVx) * Math.hypot(1, terrainSlope);
+        player.x -= player.skateVert * 6;
+        player.skateVx = 0;
+      }
       playDrum("whoosh", .5 + Math.min(.45, -surfaceVy / 4000),
         panPlayer(player));
       emitSignal("skate-air", player.pad,
         Math.round(-surfaceVy), Math.round(player.skateVx));
     }
-    if (!input.horizontal) player.skateVx *= Math.exp(-dt * .65);
+    // Rolling resistance. A board on smooth concrete barely slows; the old
+    // .65 bled a third of a pump away every second and no pipe could be ridden.
+    if (!input.horizontal) player.skateVx *= Math.exp(-dt * .15);
     controlledVx = player.skateVx;
     const skateSpeed = Math.abs(player.skateVx);
     const carveDir = carving ? Math.sign(skateTarget) : 0;
@@ -9323,11 +9712,22 @@ function updatePlayer(player, pad, dt, now) {
         Math.round(skateSpeed / 42) / 100);
     }
     player.skateCarveDir = carveDir;
-  } else if (player.skateboard && !player.grounded) {
+  } else if ((player.skateboard || rollingHead) && !player.grounded) {
     // Keep the board's launch momentum instead of borrowing walking speed
     // in the air and reviving a different skateVx on landing.
     controlledVx = player.skateVx;
-  } else if (!player.skateboard) player.skateVx = 0;
+  } else if (!player.skateboard && !rollingHead) {
+    // Stepping off a rolling board lands running at the board's speed.
+    if (player.skateVx && player.grounded && input.horizontal &&
+        Math.sign(player.skateVx) === input.horizontal) {
+      player.runSpeed = Math.min(runOverdriveTop,
+        Math.max(runStartSpeed, Math.abs(player.skateVx)));
+      player.runDir = input.horizontal;
+      player.runSince = player.runSince || now;
+      controlledVx = input.horizontal * player.runSpeed * mobility;
+    }
+    player.skateVx = 0;
+  }
   player.vx = controlledVx + player.windVx + player.knockVx;
   if (inputChanged) telemetry("FIGHT_MOVE", player.name +
     " pad=" + (player.pad + 1) +
@@ -9365,8 +9765,11 @@ function updatePlayer(player, pad, dt, now) {
     player.jumpLaunchAt = 0;
     player.jumpPoseUntil = now +
       (player.crouchJump ? crouchJumpPoseUs : jumpPoseUs);
-    const jumpScale = player.skateboard ? 1.12
-      : pogo ? .88 : legCount === 1 ? .78 : 1;
+    // Freeskate keeps the park's light gravity for the pipe and the loops,
+    // but a jump at that weight floated six hundred units up; launching at
+    // three quarters brings it back to the station's classic apex.
+    const jumpScale = (player.skateboard ? 1.12
+      : pogo ? .88 : legCount === 1 ? .78 : 1) * (freeskateActive() ? .75 : 1);
     player.vy = Math.min(player.vy,
       -(player.crouchJump ? crouchJumpVelocity : jumpVelocity) * jumpScale);
     player.jumpHeld = true;
@@ -9435,7 +9838,10 @@ function updatePlayer(player, pad, dt, now) {
   const previousX = player.x;
   const previousY = player.y;
   const wasGrounded = player.grounded;
-  player.vy += (player.vy < 0 ? riseGravity() : fallGravity()) * dt;
+  // A vert air is a board thrown up a wall, not a jump: one gravity both
+  // ways, the same the wall rolls under, or every air would climb higher
+  // than the speed that launched it could carry.
+  player.vy += (player.vy < 0 && !player.skateVert ? riseGravity() : fallGravity()) * dt;
   // Keeping DOWN held through a pound drives it down harder. The button is
   // the only thing that makes a pound faster, so the height you fell from and
   // the pressure you kept on it are the two dials on the crater.
@@ -9445,6 +9851,25 @@ function updatePlayer(player, pad, dt, now) {
       player.vy + poundHoldAcceleration * dt);
   player.x += player.vx * dt;
   player.y += player.vy * dt;
+  // The ground is a height field, so flying sideways into a steep face used
+  // to land the fighter on top of it — up through a half-pipe wall. In the
+  // air, stepping into ground well above the feet is a wall: the step is
+  // taken back and the sideways speed spent, and they fall down its face.
+  // On the ground the same holds for legs: a transition steeper than about
+  // 55° is a wall to someone on foot — only a board rolls up it — or a
+  // runner walked straight up the vertical face of a half-pipe.
+  const stepRise = terrainFloorAt(previousX) - terrainFloorAt(player.x);
+  const footWall = wasGrounded && !player.skateboard && !rollingHead &&
+    stepRise > Math.abs(player.x - previousX) * 1.4 + 2;
+  const airWall = !wasGrounded && !player.skateVert && !(player.skateLoop >= 0) &&
+      !(player.ropeIndex >= 0) && terrainFloorAt(player.x) < player.y - 40 &&
+      terrainFloorAt(previousX) >= previousY - 40;
+  if (player.x !== previousX && (footWall || airWall)) {
+    player.x = previousX;
+    player.vx = player.knockVx = player.windVx = player.dashVx = 0;
+    if (player.skateboard) player.skateVx = 0;
+    player.runSpeed = 0;
+  }
   // A bodyless head is a ball, and a ball that slides without turning reads
   // as a sticker on the floor. Ground contact sets the spin to the true
   // rolling rate for the 22-unit radius; the spin then integrates every
@@ -9505,15 +9930,51 @@ function updatePlayer(player, pad, dt, now) {
       player.grounded = true;
     }
   }
-  if (player.skateboard) {
+  // A fast rider can cross a coping in a single step and never be seen on
+  // the lip. Crossing out of a transition over its coping is leaving the lip:
+  // back inside it, straight up, with the speed the wall was carrying.
+  if ((player.skateboard || rollingHead) && wasGrounded && !player.skateVert) {
+    const wall = parkSegments.find((segment) => segment.kind === "transition" &&
+      previousX > segment.left && previousX < segment.right);
+    const coping = wall && (wall.dir > 0 ? wall.right : wall.left);
+    if (wall && (player.x - coping) * wall.dir > 0) {
+      // Tangent speed from the horizontal share. The wall is near vertical
+      // here, so the divisor is small — clamping it at .2 capped the launch
+      // at a third of what the wall was carrying.
+      const speed = Math.abs(player.skateVx) / Math.max(.05, Math.cos(player.skatePitch || 0));
+      player.skateVert = wall.dir;
+      player.x = coping - wall.dir * 6;
+      // Height stays where the trucks held it; snapping down to the curve
+      // under the lip threw away a hundred units of the air.
+      player.y = Math.min(previousY, player.y);
+      player.vy = -speed;
+      player.vx = player.skateVx = 0;
+      player.grounded = false;
+      player.skateAirAt = now;
+      emitSignal("skate-air", player.pad, Math.round(speed), 0);
+    }
+  }
+  if (player.skateboard || rollingHead) {
     const contact = skateContact(player.x, previousY);
+    // Inside a valley — the concave face of a transition, where the ground
+    // curves up to meet the board — a rolling board cannot leave the surface:
+    // the ground is always on the far side of its path. Only a crest can
+    // throw it. Without this, a rider rolling down a steep wall outran the
+    // ground by more than one frame's snap and fell the rest of the way.
+    const bend = terrainTangentAt(player.x + 8) - terrainTangentAt(player.x - 8);
+    // A transition is concave by construction; asking its segment beats a
+    // finite difference that reaches across the coping onto the deck.
+    const valley = bend < .002 || parkSegments.some((segment) =>
+      segment.kind === "transition" && player.x > segment.left && player.x < segment.right);
     const supported = player.grounded || (wasGrounded && player.vy >= 0 &&
-      Math.abs(player.y - contact.y) < Math.max(24, Math.abs(player.vx * dt) * 2.5));
+      (valley || Math.abs(player.y - contact.y) <
+        Math.max(24, Math.abs(player.vx * dt) * 2.5)));
     if (supported && !player.skateWallSide) {
       player.y = contact.y;
       const tangentX = Math.cos(contact.pitch);
       const tangentY = Math.sin(contact.pitch);
       if (!wasGrounded) {
+        player.skateVert = 0;
         // Inelastic contact removes normal velocity. A downward impact at a
         // lip must count against uphill momentum, not become an upward boost.
         player.skateVx = (player.vx * tangentX + landingSpeed * tangentY) * tangentX;
@@ -9533,7 +9994,9 @@ function updatePlayer(player, pad, dt, now) {
       player.skateRollDistance = (player.skateRollDistance || 0) + Math.abs(distance);
       if (player.skateContacts && player.skateRollDistance >= 100) {
         player.skateRollDistance %= 100;
-        playDrum("hat", .12 + Math.min(.35, Math.abs(player.vx) / 8400), panPlayer(player));
+        // A rolling head clicks like the wheels, a register lower.
+        playDrum(rollingHead ? "block" : "hat",
+          (rollingHead ? .08 : .12) + Math.min(.35, Math.abs(player.vx) / 8400), panPlayer(player));
         emitSignal("skate-roll", player.pad, Math.round(Math.abs(player.vx)), player.skateContacts);
       }
       if (!wasGrounded) {
@@ -10479,6 +10942,7 @@ function gameSim() {
     updateSkateRopes(dt);
     resolvePlayerStanding(now);
     resolvePlayerPushboxes();
+    wrapFreeskate();
     updatePowerups(now);
     updateBodyTrees(dt, now);
     updateBullets(dt, now);
@@ -10489,7 +10953,8 @@ function gameSim() {
     // After the exchange resolves, so a frame that landed a hit reads as the
     // recovery it has become rather than as the active frame it was.
     recordFrameMeter(now);
-    for (const item of balls) updateBall(item, dt, now);
+    updateBoomerboard(dt, now);
+    for (const item of balls) if (!item.recalling) updateBall(item, dt, now);
     updateDetachedParts(dt);
     updateCamera(dt);
     updateCameraDoll(dt, now);
@@ -10546,7 +11011,7 @@ function gameSim() {
   for (let cell = 0; cell < gridField.length; cell++)
     gridField[cell] = gridField[cell] < .01 ? 0
       : gridField[cell] * Math.exp(-dt * 1.6);
-  if (!survivalActive() && !lobbyActive() &&
+  if (!survivalActive() && !soloRoom() &&
       (players.some((player) => !player.alive) ||
       (timedRound && roundElapsedUs >= roundDurationUs))) {
     if (timedRound && roundElapsedUs >= roundDurationUs &&
@@ -11597,7 +12062,9 @@ function resolveRunnerBounds(player, t) {
   const ceiling = (survivalActive() ? survivalCeilingY : ceilingY) +
     wallThickness;
   const standingTop = runnerBounds(player, t).top;
-  if (standingTop < ceiling) {
+  // The long park is open sky. The station's roof capped every half-pipe air
+  // at the same height however hard the rider pumped.
+  if (standingTop < ceiling && !(skateparkMap && !survivalActive())) {
     player.y += ceiling - standingTop;
     if (player.vy < 0) player.vy = 0;
   }
@@ -12017,9 +12484,12 @@ function skateFrame(player) {
 function resetSkate(player) {
   player.skateboard = false;
   player.skateVx = player.skateWallSide = player.skatePitch = 0;
+  player.skateVert = 0;
   player.skateSpin = player.skateRollDistance = player.skateCarveDir = 0;
   player.skateContacts = 0;
   player.walkSince = player.runSince = 0;
+  player.runSpeed = 0;
+  player.runDir = 0;
 }
 
 function dismountSkateboard(target, now) {
@@ -12029,6 +12499,7 @@ function dismountSkateboard(target, now) {
   if (!board) return true;
   board.active = true;
   board.heldBy = -1;
+  board.releasedBy = -1;
   board.x = target.x - target.facing * 58;
   board.y = target.y - skateAxleDrop - skateWheelRadius;
   board.z = target.z;
@@ -12572,9 +13043,12 @@ function drawControlLegend(ink) {
       : drawPadButton(cap, x, y, size,
         button.startsWith("Arrow") ? directionActive(button) : held.includes(button));
     if (action) {
+      // The action wears its button's colour, so a glance matches the word
+      // to the cap: A's green kick, B's red punch, X's blue shield, Y's gold.
+      const actionInk = padButtonInk[cap] || ink;
       const labelX = x + width + 10, labelY = y + Math.round(size * .25);
-      typeWrite(action, labelX + 2, labelY + 3, size, ...contrastShadow(ink));
-      typeWrite(action, labelX, labelY, size, ...ink);
+      typeWrite(action, labelX + 2, labelY + 3, size, ...contrastShadow(actionInk));
+      typeWrite(action, labelX, labelY, size, ...actionInk);
     }
   }
   let legendBottom = safe.top + controls.length * step;
@@ -14386,41 +14860,72 @@ function shadowSurfaceY(x, y) {
 
 // Project the existing pose onto the receiving surface: no shadow map,
 // offscreen blur, physics changes, or second character render.
+//
+// Each shadow vertex carries the depth of the floor point it lands on, a
+// hair in front of it. The shadow used to lie at one flat depth, the
+// fighter's own; the floor recedes under it, so wherever the floor sat
+// nearer than that plane it bit the shadow's edges into a ragged line. The
+// fighter's depth still bounds it from the front, so the shadow never
+// draws over the feet it is cast from. Limbs end in round caps, the way the
+// bodies do, instead of notching at every joint.
 function drawPoseShadow(player, t, color) {
   const world = player.replayGeometry || player.frozenGeometry || runnerWorldGeometry(player, t);
   const surface = shadowSurfaceY(player.x, player.y);
+  const behindFighter = projectPoint(player.x, player.y, player.z).z + .004;
   const project = (x, y, z) => {
     const height = Math.max(0, surface - y);
     const sx = clamp(x + globalLight.x / globalLight.y * height, worldLeft, worldRight);
     const sz = clamp(z + globalLight.z / globalLight.y * height, worldNear + 4, worldFar - 4);
-    return projectPoint(sx, shadowSurfaceY(sx, surface - 5) - 2, sz);
+    const point = projectPoint(sx, shadowSurfaceY(sx, surface - 5) - 2, sz);
+    point.z = Math.max(point.z - .003, behindFighter);
+    return point;
   };
-  const previousDepth = triangleDepth;
-  triangleDepth = projectPoint(player.x, player.y, player.z).z + .018;
+  const drawable = (...values) => values.every(value =>
+    Number.isFinite(value) && Math.abs(value) < 12000);
+  // Limb width and caps are laid out in screen space, so near the back edge
+  // they spilled past the floor onto the wall. Every vertex stays inside the
+  // floor's own band on screen, between its far and near edges.
+  const farY = projectPoint(player.x, surface, worldFar - 4).y;
+  const nearY = projectPoint(player.x, surface, worldNear + 4).y;
+  const top = Math.min(farY, nearY), bottom = Math.max(farY, nearY);
+  const onFloor = (p) => ({ x: p.x, y: clamp(p.y, top, bottom), z: p.z });
+  const face = (a, b, c) => {
+    if (!drawable(a.x, a.y, b.x, b.y, c.x, c.y)) return;
+    a = onFloor(a); b = onFloor(b); c = onFloor(c);
+    emitTriangle(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, ...color);
+  };
+  const cap = (center, radius) => {
+    for (let side = 0; side < 10; side++) {
+      const a = side * Math.PI / 5, b = (side + 1) * Math.PI / 5;
+      face(center,
+        { x: center.x + Math.cos(a) * radius, y: center.y + Math.sin(a) * radius, z: center.z },
+        { x: center.x + Math.cos(b) * radius, y: center.y + Math.sin(b) * radius, z: center.z });
+    }
+  };
   for (const segment of world.segments) {
     if (segment.hitboxOnly) continue;
     const a = project(segment.x1, segment.y1, segment.z1);
     const b = project(segment.x2, segment.y2, segment.z2);
     const dx = b.x-a.x, dy = b.y-a.y, length = Math.hypot(dx,dy);
-    if (![a.x,a.y,b.x,b.y,length].every(Number.isFinite) || length < .01 ||
-        Math.max(Math.abs(a.x),Math.abs(a.y),Math.abs(b.x),Math.abs(b.y)) > 12000) continue;
+    if (!drawable(a.x, a.y, b.x, b.y, length) || length < .01) continue;
     const radius = Math.max(1, segment.width * cameraScale() * .48);
     const nx = -dy / length * radius, ny = dx / length * radius;
-    screenTriangle(a.x+nx,a.y+ny,a.x-nx,a.y-ny,b.x+nx,b.y+ny,...color);
-    screenTriangle(a.x-nx,a.y-ny,b.x-nx,b.y-ny,b.x+nx,b.y+ny,...color);
+    const a1 = { x: a.x + nx, y: a.y + ny, z: a.z }, a2 = { x: a.x - nx, y: a.y - ny, z: a.z };
+    const b1 = { x: b.x + nx, y: b.y + ny, z: b.z }, b2 = { x: b.x - nx, y: b.y - ny, z: b.z };
+    face(a1, a2, b1);
+    face(a2, b2, b1);
+    cap(a, radius);
+    cap(b, radius);
   }
   const head = project(world.head.x, world.head.y, world.head.z);
   for (let side = 0; side < 12; side++) {
     const a = side * Math.PI / 6, b = (side + 1) * Math.PI / 6;
-    const first = project(world.head.x + Math.cos(a)*world.head.radius,
-      world.head.y, world.head.z + Math.sin(a)*world.head.radius);
-    const second = project(world.head.x + Math.cos(b)*world.head.radius,
-      world.head.y, world.head.z + Math.sin(b)*world.head.radius);
-    if ([head.x,head.y,first.x,first.y,second.x,second.y].every(value =>
-        Number.isFinite(value) && Math.abs(value) < 12000))
-      screenTriangle(head.x,head.y,first.x,first.y,second.x,second.y,...color);
+    face(head,
+      project(world.head.x + Math.cos(a)*world.head.radius,
+        world.head.y, world.head.z + Math.sin(a)*world.head.radius),
+      project(world.head.x + Math.cos(b)*world.head.radius,
+        world.head.y, world.head.z + Math.sin(b)*world.head.radius));
   }
-  triangleDepth = previousDepth;
 }
 
 function updateSceneLighting(now) {
@@ -15346,7 +15851,8 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   if (!socialPreview) {
     const x = button.x - (hovered ? 2 : 0);
     const y = button.y - (hovered ? 3 : 0);
-    const startInk = transitionInk || ink;
+    // START sits on the floor sheet, dark in either theme, so it is white.
+    const startInk = transitionInk || [255, 255, 255];
     const startX = x + (button.width - button.textWidth) / 2;
     const startY = y + (button.height - button.textSize) / 2 - 2;
     typeWrite(prompt, startX + 3, startY + 4, button.textSize,
@@ -16028,8 +16534,11 @@ function gamePaint() {
     if (!player.remote) player.handleColors = fighterProfile(player.name).colors;
   refreshPhotoTheme();
   globalThis.__oskiewarGraphicsThemeStatus = photoThemeActive ? "photorealistic" : "flat";
-  visualTheme = photoThemeActive && !consoleHost()
-    ? { light: 0, sunset: 0 } : displayTheme();
+  // The photographic materials ride the ordinary day/night palette. They
+  // used to force night so they would match the underpass photograph behind
+  // them; that plate is retired for a plain sky, and at night the long
+  // park's ground sank into it and read as missing.
+  visualTheme = displayTheme();
   const replayOven = typeof capabilities === "function" &&
     capabilities().replayOven === true;
   const reelHud = typeof capabilities === "function" &&
@@ -16082,9 +16591,9 @@ function gamePaint() {
   renderFlags = globalThis.__oskiewarRenderFlags || renderFlags;
   updateSceneLighting(run.monotonicUs);
   wipe(...outside);
-  if (photoThemeActive && visualTheme.light < .5) themeSprite(0,0,0,1672,941,viewCenterX(),viewHeight/2,
-    viewWidth(),viewHeight,0,false,1.49);
-  else if (renderFlags.sky !== false) drawSkyAtmosphere(sky, arena);
+  // A plain sky behind every theme. The underpass photograph was busy behind
+  // the fighters and painted its own floor wherever a course had none.
+  if (renderFlags.sky !== false) drawSkyAtmosphere(sky, arena);
   if (PAL_SELECT && selecting) {
     box(0, 0, viewWidth(), viewHeight, ...menuArena);
     drawSelectionScreen(t, menuInk, menuPanel);
@@ -16117,7 +16626,7 @@ function gamePaint() {
   drawTerrainBackWall(spanLeft, spanRight, worldFar, ground);
   drawTerrainSurface(spanLeft, spanRight, groundNear, worldFar, ground);
   drawTerrainFrontWall(spanLeft, spanRight, groundNear, ground);
-  drawSkateParkFeatures();
+  drawSkateParkFeatures(ground);
   // No grass in vacuum. The blades were the tower's lawn and the cube kept
   // them out of habit; on a hull they read as moss on a spaceship.
   if (renderFlags.grass !== false && !space)
@@ -16322,6 +16831,7 @@ function gamePaint() {
   // self-play and marketing reels have no learner to serve.
   if (!replayOven && !selfPlay && renderFlags.keys !== false)
     drawControlLegend(titleInk);
+  if (freeskateActive()) drawFreeskateSpeed();
   const resultUiReady = cinematicAge < 0 || cinematicAge >= 1.1;
   // A reel opens on the matchup. Both names, both palettes, stacked up top
   // where the fighters are not — a stranger scrolling past should know who is

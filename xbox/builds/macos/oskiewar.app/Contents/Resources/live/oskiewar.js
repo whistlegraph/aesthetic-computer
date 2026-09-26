@@ -8,6 +8,23 @@
 // front of a palette. Rebase once, here, so time starts at zero whatever the
 // host reports. The host builds a fresh object per call, so this rewrites
 // that copy rather than allocating another.
+// QuickJS on the console has no structuredClone, and replay capture and
+// rollback both lean on it. Typed arrays, aliases, cycles, Sets and Maps
+// survive; JSON would corrupt them.
+globalThis.structuredClone ||= function clone(value, seen = new Map()) {
+  if (value === null || typeof value !== "object") return value;
+  if (seen.has(value)) return seen.get(value);
+  if (value instanceof ArrayBuffer) return value.slice(0);
+  if (ArrayBuffer.isView(value)) return new value.constructor(value);
+  const copy = Array.isArray(value) ? [] : value instanceof Set ? new Set()
+    : value instanceof Map ? new Map() : {};
+  seen.set(value, copy);
+  if (value instanceof Set) for (const entry of value) copy.add(clone(entry, seen));
+  else if (value instanceof Map) for (const [key, entry] of value)
+    copy.set(clone(key, seen), clone(entry, seen));
+  else for (const key of Object.keys(value)) copy[key] = clone(value[key], seen);
+  return copy;
+};
 const hostRuntime = runtime;
 let clockEpoch = null;
 // Rollback netplay's hooks into the clock and the side effects. The session
@@ -81,7 +98,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 104;
+const buildVersion = 161;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -99,35 +116,56 @@ const survivalActive = () => gameMode === "survival";
 const lobbyActive = () => gameMode === "fight" && fightOpponent === "versus-lobby";
 const versusActive = () => gameMode === "fight" && fightOpponent === "versus";
 const versusLane = () => lobbyActive() || versusActive();
-// The cube. @jeffrey climbed the tower and asked for the opposite: a small
-// closed box — "like a 10ft by 10ft cube" — with nothing in it but two
-// fighters and a pistol. The map is now a lattice of square tiles
-// rather than a pile of hand numbers: ten tiles wide, ten tiles tall, each
-// tile 90 units on a side, which makes a fighter (180 tall) exactly two
-// tiles and the room exactly the phrase that asked for it. Simulation stays
+// Freeskate: one rider alone on the long park, no guns, no clock, no rounds —
+// a room for working on the skating itself. `?opponent=freeskate`.
+const freeskateActive = () => gameMode === "fight" && fightOpponent === "freeskate";
+// Rooms with one body in them: the versus lobby and freeskate park the
+// second chair off the map, respawn instead of ending a round, and hand the
+// fighter back whole.
+const soloRoom = () => lobbyActive() || freeskateActive();
+// The station. The tower became a cube, and the cube has now been opened to
+// vacuum: @jeffrey asked for "a large space map", and the cube's own comment
+// had already named the condition for growing one — "a tile-authored map is
+// exactly the shape a future rung would be written in." So the lattice is
+// what grew. Twenty tiles wide by fourteen tall at the same 90 units a side,
+// which is four times the cube's floor area and still frames whole on one
+// screen at the widest shot, because a fighter you cannot see is a fighter
+// you cannot read.
+//
+// What changed besides the number: the plaster shell is gone. There is no
+// back wall, no ceiling slab and no side wall, because the map is outside
+// now — stars behind, a planet below the deck, and a hull you stand on
+// rather than a room you are sealed into. Gravity is station gravity, a
+// little over half a G (`spaceGravityScale`), so a jump hangs and the
+// floating decks overhead are reachable on legs alone. Simulation stays
 // continuous — nothing about motion quantizes — but the STRUCTURE is
-// addressable: spawns, pickups and lanes are authored in tile coordinates,
-// a grid overlay draws the lattice on the back wall, and `gridField` below
-// holds one number per tile so per-tile computation (heat, ownership,
+// addressable: spawns, pickups, decks and lanes are authored in tile
+// coordinates, the lattice draws as a faint nav hologram, and `gridField`
+// below holds one number per tile so per-tile computation (heat, ownership,
 // weather) has a surface to run on.
 const tileSize = 90;
-const gridCols = 10;
-const gridRows = 10;
+let gridCols = 40;
+const gridRows = 16;
 // Tile (0, 0) starts flush at the floor-left corner of the PLAYABLE box, so
 // every tile edge lands on a clean multiple of 90. The walls stand outside
 // the lattice: the structural shell is one wallThickness beyond each face,
 // and `resolveRunnerBounds` pushes off the faces themselves.
 const wallThickness = 40;
 const gridLeft = 0;
-const gridWidth = gridCols * tileSize;
+let gridWidth = gridCols * tileSize;
 const gridHeight = gridRows * tileSize;
 const worldLeft = gridLeft - wallThickness;
-const worldRight = gridLeft + gridWidth + wallThickness;
+let worldRight = gridLeft + gridWidth + wallThickness;
 const ceilingY = floorY - gridHeight - wallThickness;
-// The cube is as deep as it is wide. Fighters live near z = 0; depth is the
-// room's third dimension for the eye, not for the fight.
-const worldNear = -gridWidth / 2;
-const worldFar = gridWidth / 2;
+// Depth is the eye's dimension, not the fight's — fighters live near z = 0 —
+// so it is authored rather than derived. It was the cube's own width back
+// when those were the same number; widening the map to twenty tiles must not
+// also push the far plane twice as far out, because every camera stand-off,
+// every killcam orbit and the whole ±30000 native coordinate budget were
+// tuned against this depth and not against the floor's span.
+const roomDepth = 900;
+const worldNear = -roomDepth / 2;
+const worldFar = roomDepth / 2;
 // Address helpers: world position to tile and back. Rows count UP from the
 // floor, because in a fight the floor is where everything starts. All three
 // clamp, so a body pressed into a wall still names a real tile.
@@ -136,17 +174,419 @@ const tileCol = (x) =>
 const tileRow = (y) =>
   Math.min(gridRows - 1, Math.max(0, Math.floor((floorY - y) / tileSize)));
 const tileCenterX = (col) => gridLeft + (col + .5) * tileSize;
-const tileTopY = (row) => floorY - (row + 1) * tileSize;
 // One number per tile, row-major from the floor-left corner. Today impacts
 // write heat into it and the overlay draws that heat fading; tomorrow it is
 // wherever tiled computation over the map wants to live.
-const gridField = new Float32Array(gridCols * gridRows);
+let gridField = new Float32Array(gridCols * gridRows);
 const gridFieldIndex = (x, y) => tileRow(y) * gridCols + tileCol(x);
-// The floor stays flat wall to wall — see terrainFloorAt for why the ramps
-// went. A flat floor has nothing finer to say than one sample per tile.
-const terrainAmplitude = 0;
-const terrainSamples = gridCols;
+// Whether a point is on the lattice at all. `tileCol` and `tileRow` CLAMP,
+// which is right for a body pressed into a wall — it still stands somewhere —
+// and wrong for anything that happens off the map, because every one of those
+// lands on the same corner cell. On plaster that was invisible. Against black
+// space it was a lit bar across the top corners of the frame: the title
+// screen's own bouncing letters, stamping heat outside the box, all of it
+// clamped into row thirteen at columns zero and nineteen.
+const onGridField = (x, y) =>
+  x >= gridLeft && x <= gridLeft + gridWidth &&
+  y <= floorY && y >= floorY - gridHeight;
+// The park. The floor stopped being flat.
+//
+// Every piece of this was already here and switched off: `terrainFloorAt` has
+// carried a heightfield since the tower, `terrainTangentAt` differentiates it,
+// and the skate physics have been feeding that slope into `skateVx` all along
+// — `player.skateVx += terrainSlope * 1900 * dt` is a line that has done
+// nothing for months because the amplitude was zero. What was missing was a
+// shape worth riding.
+//
+// So the profile is authored rather than noised. A run of segments in tile
+// coordinates, each one a real skatepark feature, walked left to right:
+//
+//   flat        the ground, and the halfpipe's own flat bottom
+//   transition  a quarter-circle, horizontal where it meets the flat and
+//               vertical at the coping — which is what a transition IS, and
+//               why it is an arc and not a straight ramp
+//   bank        a straight incline, for launching off rather than carving in
+//
+// A transition's run equals its height because a quarter circle's does. That
+// is not a simplification, it is the geometry: radius R gives you R of run
+// and R of rise, tangent flat at the bottom and vertical at the lip.
+// `lift` raises the segment's base off the ground, or — negative — digs it in.
+// That sign is what makes a halfpipe possible in a game seen from the side: a
+// pipe built UP from the floor is two humps with their ridable faces pointing
+// away from you, and you would have to climb the back of one to use it. Dug
+// IN, the same two arcs face each other, the flat bottom is genuinely a floor,
+// and a skater can ride straight through at speed from either end. So the
+// halfpipe here is a bowl, which is what a halfpipe is from the side anyway.
+// Read it left to right and it is a run: drop off the left quarterpipe, carry
+// the speed into the halfpipe, out across the middle, up the kicker and over
+// the funbox, and finish on the right quarterpipe. The middle ten tiles are
+// deliberately flat and deliberately in the middle — that is where the bell
+// rings, and a fight that opens with both fighters sliding down a transition
+// is a fight nobody chose the start of.
+const parkFeatures = [
+  { from: 0,  to: 4,  kind: "transition", rise: 360, dir: -1 },
+  { from: 4,  to: 6,  kind: "flat" },
+  { from: 6,  to: 9,  kind: "transition", rise: 270, dir: -1, lift: -270 },
+  { from: 9,  to: 12, kind: "flat", lift: -270 },
+  { from: 12, to: 15, kind: "transition", rise: 270, dir: 1, lift: -270 },
+  { from: 15, to: 25, kind: "flat" },
+  { from: 25, to: 28, kind: "bank", rise: 180, dir: 1 },
+  { from: 28, to: 30, kind: "flat", lift: 180 },
+  { from: 30, to: 33, kind: "bank", rise: 180, dir: -1 },
+  { from: 33, to: 36, kind: "flat" },
+  { from: 36, to: 40, kind: "transition", rise: 360, dir: 1 },
+];
+// Resolved once into world units so the per-frame walk compares numbers
+// rather than rebuilding them. `terrainFloorAt` runs for every foot, every
+// grass blade and every render sample, so it is worth the twenty bytes.
+let parkSegments = parkFeatures.map((feature) => ({
+  ...feature,
+  left: gridLeft + feature.from * tileSize,
+  right: gridLeft + feature.to * tileSize,
+  lift: feature.lift || 0,
+}));
+const parkLeft = parkSegments[0].left;
+let parkRight = parkSegments[parkSegments.length - 1].right;
+// The lowest ground in the park. `floorY` used to be it — it
+// was the whole world's bottom, and a dozen places lean on that: the camera
+// clamps its aim to it, the ground's near skirt hangs from it, the terrain
+// span stops at it. A bowl dug three tiles into the floor makes every one of
+// those assumptions wrong by exactly the depth of the bowl, and the symptom
+// is a fighter riding out of frame at the bottom of the pipe.
+let parkDeepest = floorY + Math.max(0,
+  ...parkSegments.map((segment) => -segment.lift));
+// Enough samples that an arc reads as an arc. One per tile drew the halfpipe
+// as a staircase — 90 units is most of a fighter wide, and a transition turns
+// through ninety degrees in three of them.
+let terrainSamples = gridCols * 6;
 let terrainPhase = 0;
+// The long park is selected by ?map=skatepark; the host's deal owns the map.
+let skateparkMap = globalThis.__oskiewarMap === "skatepark";
+const skateLoops = [
+  { x: 6300, radius: 320 }, { x: 15300, radius: 420 },
+  { x: 24300, radius: 500 },
+];
+const skateBoosts = [2400, 5400, 10800, 14400, 19800, 23400, 27000]
+  .map((x) => ({ left: x, right: x + 240, speed: 3900 }));
+const skateRopes = [];
+const chainLinks = 16;
+const chainLength = 44;
+
+// The long park opens with a half-pipe: two 540-unit quarter circles facing
+// each other across an eight-tile flat, a deck behind each coping, and a bank
+// down to the course. The run of each transition equals its rise, so it is a
+// true circle and arrives at the coping vertical — which is what lets a rider
+// air straight up out of it and land back in (see `skateVert`).
+const halfpipeRadius = 540;
+const halfpipe = { leftCoping: 2, rightCoping: 22, floorFrom: 8, floorTo: 16 };
+const halfpipeFeatures = [
+  { from: 0, to: 2, kind: "flat", lift: halfpipeRadius },
+  { from: 2, to: 8, kind: "transition", rise: halfpipeRadius, dir: -1 },
+  { from: 8, to: 16, kind: "flat" },
+  { from: 16, to: 22, kind: "transition", rise: halfpipeRadius, dir: 1 },
+  { from: 22, to: 24, kind: "flat", lift: halfpipeRadius },
+  { from: 24, to: 32, kind: "bank", rise: halfpipeRadius, dir: -1 },
+  { from: 32, to: 40, kind: "flat" },
+];
+
+function configureWorldMap(name) {
+  // A normal round keeps its current workshop/local variant. Only entering
+  // or leaving the long course needs to replace the world dimensions.
+  if (name !== "skatepark" && !skateparkMap) return;
+  skateparkMap = name === "skatepark";
+  gridCols = skateparkMap ? 320 : 40;
+  gridWidth = gridCols * tileSize;
+  if (gridField.length !== gridCols * gridRows) gridField = new Float32Array(gridCols * gridRows);
+  worldRight = gridLeft + gridWidth + wallThickness;
+  const features = skateparkMap ? [
+    ...halfpipeFeatures,
+    ...[40, 140, 240].flatMap((from) => [
+      { from, to: from + 40, kind: "flat" },
+      { from: from + 40, to: from + 46, kind: "bank", rise: 270, dir: 1 },
+      { from: from + 46, to: from + 50, kind: "flat", lift: 270 },
+      { from: from + 50, to: from + 56, kind: "bank", rise: 270, dir: -1 },
+      { from: from + 56, to: Math.min(320, from + 100), kind: "flat" },
+    ]),
+  ] : parkFeatures;
+  parkSegments = features.map((feature) => ({ ...feature,
+    left: gridLeft + feature.from * tileSize,
+    right: gridLeft + feature.to * tileSize, lift: feature.lift || 0 }));
+  parkRight = gridLeft + gridWidth;
+  terrainSamples = gridCols * 6;
+  // The drawn silhouette is sampled from these segments. Without a rebuild
+  // the long park kept the station's outline, and past its first few
+  // thousand units a rider skated on ground nobody could see.
+  rebuildTerrainProfile();
+}
+
+function resetSkateRopes() {
+  skateRopes.length = 0;
+  if (!skateparkMap) return;
+  for (const x of [3600, 9900, 18900]) {
+    const anchorY = floorY - 850;
+    skateRopes.push({ x, y: anchorY, z: 0,
+      nodes: Array.from({ length: chainLinks + 1 }, (_, index) => ({
+        x, y: anchorY + index * chainLength,
+        px: x, py: anchorY + index * chainLength,
+      })) });
+  }
+}
+
+function releaseSkateRope(player) {
+  const rope = skateRopes[player.ropeIndex];
+  const node = rope?.nodes[Math.round(player.ropeLink)];
+  if (node) {
+    player.vx = clamp((node.x - node.px) / (rope.dt || 1 / 60), -4200, 4200);
+    player.vy = clamp((node.y - node.py) / (rope.dt || 1 / 60), -4200, 4200);
+    player.skateVx = player.vx;
+    player.knockVx = player.skateboard ? 0 : player.vx;
+  }
+  player.ropeIndex = -1;
+  player.grounded = false;
+}
+
+// Hold grab through a crossing to latch. A fresh grab edge detaches.
+function skateRopeInput(player, input, grabHeld, dt, grabPressed = grabHeld) {
+  if (!grabHeld) player.ropeGrabLocked = false;
+  if (player.ropeIndex >= 0 && (!player.alive || isHeadOnly(player) ||
+      isPogo(player) || player.hitStunUntil > runtime().monotonicUs)) {
+    releaseSkateRope(player);
+    return false;
+  }
+  if (player.ropeIndex >= 0 && grabPressed) {
+    releaseSkateRope(player);
+    player.ropeGrabLocked = true;
+    return false;
+  }
+  if (player.ropeIndex < 0 && grabHeld && !player.ropeGrabLocked && player.heldBall < 0 &&
+      player.heldPart < 0 && player.heldPlayer < 0) {
+    let nearest = null;
+    // Test the swept hand volume against each link, so a fast crossing counts.
+    const hand = { x1: player.x, y1: player.y - 125, z1: player.z,
+      x2: player.x + player.vx * dt, y2: player.y - 125 + player.vy * dt,
+      z2: player.z, width: 64 };
+    skateRopes.forEach((rope, ropeIndex) => {
+      rope.nodes.slice(1).forEach((node, index) => {
+        const before = rope.nodes[index];
+        const box = { left: Math.min(node.x, before.x) - 6,
+          right: Math.max(node.x, before.x) + 6,
+          top: Math.min(node.y, before.y) - 6, bottom: Math.max(node.y, before.y) + 6,
+          near: rope.z - 8, far: rope.z + 8 };
+        const hit = segmentBoxEntry(hand, box, hand.width / 2);
+        const distance = Math.hypot(node.x - hand.x1, node.y - hand.y1);
+        if (hit !== null && (!nearest || distance < nearest.distance))
+          nearest = { ropeIndex, link: index + 1, distance };
+      });
+    });
+    if (nearest) {
+      player.ropeIndex = nearest.ropeIndex;
+      player.ropeLink = nearest.link;
+      const node = skateRopes[player.ropeIndex].nodes[nearest.link];
+      node.px = node.x - clamp(player.vx, -3000, 3000) / 60;
+      node.py = node.y - clamp(player.vy, -3000, 3000) / 60;
+      player.skateLoop = -1;
+      player.lastButton = "ROPE";
+      emitSignal("rope-grab", player.pad, nearest.ropeIndex, nearest.link);
+    }
+  }
+  if (!(player.ropeIndex >= 0)) return false;
+  player.ropeLink = clamp(player.ropeLink - input.vertical * dt * 3,
+    2, chainLinks);
+  const rope = skateRopes[player.ropeIndex];
+  const node = rope.nodes[Math.round(player.ropeLink)];
+  node.px -= input.horizontal * 2100 * dt * dt;
+  player.inputX = input.horizontal;
+  player.inputY = input.vertical;
+  player.grounded = false;
+  player.attackKind = "";
+  player.attackUntil = 0;
+  player.blocking = false;
+  player.stance = "ROPE";
+  return true;
+}
+
+// Verlet chain with a fixed anchor and distance constraints, stepped once per
+// simulation tick. Nodes, previous positions and attachments all roll back.
+function updateSkateRopes(dt) {
+  if (!skateparkMap || survivalActive()) return;
+  for (const rope of skateRopes) {
+    const timeScale = dt / (rope.dt || dt);
+    rope.dt = dt;
+    for (let i = 1; i < rope.nodes.length; i++) {
+      const node = rope.nodes[i];
+      const vx = (node.x - node.px) * .997 * timeScale;
+      const vy = (node.y - node.py) * .997 * timeScale;
+      node.px = node.x; node.py = node.y;
+      node.x += vx; node.y += vy + fallGravity() * dt * dt;
+    }
+    const riders = players.filter((player) => player.alive &&
+      skateRopes[player.ropeIndex] === rope);
+    const inverseMass = (index) => index === 0 ? 0 :
+      riders.some((rider) => Math.abs(rider.ropeLink - index) < 1) ? .125 : 1;
+    for (let pass = 0; pass < 32; pass++) {
+      rope.nodes[0].x = rope.x; rope.nodes[0].y = rope.y;
+      for (let i = 1; i < rope.nodes.length; i++) {
+        const a = rope.nodes[i - 1], b = rope.nodes[i];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const length = Math.hypot(dx, dy) || 1;
+        const error = (length - chainLength) / length;
+        const wa = inverseMass(i - 1), wb = inverseMass(i);
+        const sum = wa + wb;
+        b.x -= dx * error * wb / sum; b.y -= dy * error * wb / sum;
+        a.x += dx * error * wa / sum; a.y += dy * error * wa / sum;
+      }
+    }
+  }
+  for (const player of players) {
+    if (!(player.ropeIndex >= 0)) continue;
+    if (!player.alive) { releaseSkateRope(player); continue; }
+    const rope = skateRopes[player.ropeIndex];
+    const link = Math.floor(player.ropeLink), blend = player.ropeLink - link;
+    const a = rope.nodes[link], b = rope.nodes[Math.min(link + 1, chainLinks)];
+    const x = lerp(a.x, b.x, blend), y = lerp(a.y, b.y, blend) + 125;
+    player.vx = (x - player.x) / Math.max(dt, .001);
+    player.vy = (y - player.y) / Math.max(dt, .001);
+    player.x = x; player.y = y; player.z = rope.z;
+    player.grounded = false;
+  }
+}
+
+// Loops are for riding, and for speed. A rider hugs the loop, so gravity
+// pulls them off it at a share of its weight — about 2,400 going in makes it
+// round where full weight wanted 3,000 no push could reach. Holding DOWN
+// pumps round it like the half-pipe, and making it all the way round sends
+// the rider out a tenth faster than they went in.
+const loopGravityShare = .65;
+// Just under half the half-pipe's pump (2,600). A plain number: this runs
+// before `skatePumpAcceleration` is declared.
+const loopPump = 1170;
+const loopExitBonus = 1.1;
+function skateLoopStep(player, input, dt, now) {
+  if (!(player.skateLoop >= 0)) {
+    if (!(player.skateboard || isHeadOnly(player)) || !player.grounded ||
+        Math.abs(player.skateVx) < 1300)
+      return false;
+    const nextX = player.x + player.skateVx * dt;
+    const index = skateLoops.findIndex((loop) =>
+      Math.min(player.x, nextX) <= loop.x && Math.max(player.x, nextX) >= loop.x &&
+      Math.abs(player.y - floorY) < 30 && Math.abs(player.z) < 90 &&
+      now >= (player.loopCooldownUntil || 0));
+    if (index < 0) return false;
+    player.skateLoop = index;
+    player.loopAngle = 0;
+    player.loopSpeed = player.skateVx;
+  }
+  const loop = skateLoops[player.skateLoop];
+  const angle = player.loopAngle;
+  const loopGravity = fallGravity() * loopGravityShare;
+  player.loopSpeed += (-loopGravity * Math.sin(angle) + input.horizontal * 500) * dt;
+  if (input.vertical < 0 && player.loopSpeed)
+    player.loopSpeed += Math.sign(player.loopSpeed) * loopPump * dt;
+  player.loopAngle += player.loopSpeed / loop.radius * dt;
+  // Round the loop the wheels (or a rolling head) keep clicking, every
+  // hundred units of track, as they do on the ground.
+  player.skateRollDistance = (player.skateRollDistance || 0) + Math.abs(player.loopSpeed) * dt;
+  if (player.skateRollDistance >= 100) {
+    player.skateRollDistance %= 100;
+    const head = !player.skateboard;
+    playDrum(head ? "block" : "hat", (head ? .08 : .12) +
+      Math.min(.35, Math.abs(player.loopSpeed) / 8400), panPlayer(player));
+  }
+  const theta = player.loopAngle;
+  player.x = loop.x + Math.sin(theta) * loop.radius;
+  player.y = floorY - loop.radius + Math.cos(theta) * loop.radius;
+  player.vx = Math.cos(theta) * player.loopSpeed;
+  player.vy = -Math.sin(theta) * player.loopSpeed;
+  player.grounded = false;
+  player.skateRotation = -theta;
+  const completed = Math.abs(theta) >= Math.PI * 2;
+  const lostGrip = Math.cos(theta) < 0 && player.loopSpeed ** 2 / loop.radius <
+    -loopGravity * Math.cos(theta);
+  if (completed || lostGrip || !(player.skateboard || isHeadOnly(player))) {
+    if (completed) { player.x = loop.x + Math.sign(player.loopSpeed) * 12;
+      player.y = floorY; player.vy = 0; player.grounded = true;
+      player.vx = clamp(player.vx * loopExitBonus, -skateTop, skateTop);
+      emitSignal("skate-loop", player.pad, player.skateLoop, Math.round(Math.abs(player.vx)));
+      playDrum("whoosh", .9, panPlayer(player)); }
+    player.skateVx = player.vx;
+    player.skateLoop = -1;
+    player.skateRotation = 0;
+    player.loopCooldownUntil = now + 600000;
+  }
+  return true;
+}
+
+function skateBoostStep(player, previousX, now) {
+  if (!skateparkMap || !player.skateboard || !player.grounded ||
+      Math.abs(player.y - terrainFloorAt(player.x)) > 12 ||
+      Math.abs(player.z) > 100 || now < (player.boostUntil || 0)) return;
+  const pad = skateBoosts.find((pad) => Math.max(previousX, player.x) >= pad.left &&
+    Math.min(previousX, player.x) <= pad.right);
+  if (!pad) return;
+  player.skateVx = (Math.sign(player.skateVx) || player.facing) * pad.speed;
+  player.vx = player.skateVx;
+  player.boostUntil = now + 350000;
+  player.lastButton = "BOOST";
+  player.lastButtonAt = now;
+  emitSignal("skate-boost", player.pad, player.facing, pad.speed);
+  playDrum("whoosh", 1, panPlayer(player));
+}
+
+// A loop is part of the course, built like it: a band of the ground's own
+// material the width of the track, its riding face on the inside (photo
+// concrete under the realistic theme), a thick outer shell and two side
+// faces, lit and depth-sorted with the terrain it rises out of.
+const loopShell = 60;
+const loopSegments = 64;
+function drawLoopTrack(loop, ground) {
+  const face = mixColor(ground, [255, 255, 255], .1);
+  const side = mixColor(ground, [0, 0, 0], .22);
+  const shell = mixColor(ground, [0, 0, 0], .12);
+  const ring = (angle, radius, z) => ({
+    x: loop.x + Math.sin(angle) * radius,
+    y: floorY - loop.radius + Math.cos(angle) * radius, z });
+  const inner = loop.radius, outer = loop.radius + loopShell;
+  for (let i = 0; i < loopSegments; i++) {
+    const a = i / loopSegments * Math.PI * 2, b = (i + 1) / loopSegments * Math.PI * 2;
+    const ia = ring(a, inner, -90), ib = ring(b, inner, -90);
+    const ib2 = ring(b, inner, 90), ia2 = ring(a, inner, 90);
+    const projected = [ia, ib, ib2, ia2].map((p) => projectPoint(p.x, p.y, p.z));
+    if (!photoSurface("concrete", ...projected)) worldQuad(ia, ib, ib2, ia2, face);
+    worldQuad(ring(a, outer, -90), ring(b, outer, -90), ring(b, outer, 90),
+      ring(a, outer, 90), shell);
+    for (const z of [-90, 90])
+      worldQuad(ring(a, inner, z), ring(b, inner, z), ring(b, outer, z),
+        ring(a, outer, z), side);
+  }
+}
+
+function drawSkateParkFeatures(ground = [110, 116, 128]) {
+  if (!skateparkMap || survivalActive()) return;
+  const visible = (x, radius = 0) => Math.abs(x - cameraCenter) < cameraWidth + radius;
+  for (const loop of skateLoops) {
+    if (!visible(loop.x, loop.radius + loopShell)) continue;
+    drawLoopTrack(loop, ground);
+  }
+  for (const pad of skateBoosts) {
+    if (!visible(pad.left, 240)) continue;
+    for (let x = pad.left; x < pad.right; x += 40) {
+      const y = terrainFloorAt(x) - 8;
+      worldCapsule(x, y, -70, x + 22, y, 0, 9, [255, 212, 66]);
+      worldCapsule(x + 22, y, 0, x, y, 70, 9, [255, 212, 66]);
+    }
+  }
+  for (const rope of skateRopes) {
+    if (!visible(rope.x, chainLinks * chainLength)) continue;
+    worldCapsule(rope.x - 70, rope.y, rope.z, rope.x + 70, rope.y, rope.z,
+      18, [108, 130, 150]);
+    for (let i = 1; i < rope.nodes.length; i++) {
+      const a = rope.nodes[i - 1], b = rope.nodes[i];
+      worldCapsule(a.x, a.y, rope.z, b.x, b.y, rope.z, 8,
+        i % 2 ? [220, 225, 236] : [120, 150, 178]);
+    }
+  }
+}
+
 function terrainSeed(value) {
   let hash = 2166136261;
   for (const character of String(value || "oskiewar")) {
@@ -156,20 +596,33 @@ function terrainSeed(value) {
   return (hash >>> 0) / 4294967296 * Math.PI * 2;
 }
 function terrainFloorAt(x) {
-  // The cube's floor is flat — amplitude zero — and this runs for every
-  // grass blade and every foot every frame. The constant answers first; the
-  // heightfield math below wakes the day the amplitude does.
-  if (!terrainAmplitude) return floorY;
-  const nx = clamp((x - worldLeft) / (worldRight - worldLeft), 0, 1);
-  const edge = Math.sin(nx * Math.PI) ** 2;
-  const broad = Math.sin(nx * Math.PI * 3 + terrainPhase);
-  const detail = Math.sin(nx * Math.PI * 7 - terrainPhase * .63) * .34;
-  // No side skate ramps — @jeffrey asked for them gone back in the tower,
-  // and the cube keeps the verdict: the floor is flat wall to wall, the
-  // walls stand square out of it, and `resolveRunnerBounds` is what keeps a
-  // body off them.
-  const terrainNoise = (broad + detail) * terrainAmplitude * edge;
-  return floorY - terrainNoise;
+  // Outside the park the ground is flat, so the walls have something square
+  // to stand out of and a body pushed past the lip still has a floor.
+  if (x <= parkLeft) return floorY - parkSegments[0].lift - (parkSegments[0].rise || 0);
+  if (x >= parkRight) return floorY -
+    (parkSegments[parkSegments.length - 1].rise || 0) -
+    parkSegments[parkSegments.length - 1].lift;
+  for (const segment of parkSegments) {
+    if (x < segment.left || x > segment.right) continue;
+    if (segment.kind === "flat") return floorY - segment.lift;
+    const run = segment.right - segment.left;
+    // How far up the feature we are, measured from ITS bottom: `dir` says
+    // which end that is. A transition rising to the right has its flat end on
+    // the left, and the same arc mirrored has it on the right.
+    const along = segment.dir > 0
+      ? (x - segment.left) / run : (segment.right - x) / run;
+    if (segment.kind === "bank")
+      return floorY - segment.lift - segment.rise * along;
+    // The quarter circle. Centre sits one radius below the flat end, so the
+    // surface leaves the ground horizontally and arrives at the coping
+    // vertical — which is the difference between a transition you can pump
+    // and a ramp you merely climb.
+    const radius = segment.rise;
+    const dx = along * radius;
+    return floorY - segment.lift -
+      (radius - Math.sqrt(Math.max(0, radius * radius - dx * dx)));
+  }
+  return floorY;
 }
 function terrainTangentAt(x, span = 12) {
   const left = terrainFloorAt(clamp(x - span, worldLeft, worldRight));
@@ -184,12 +637,14 @@ let stageTop = 112;
 let stageBottom = 930;
 let viewHeight = 1080;
 let cameraAspect = (stageRight - stageLeft) / (stageBottom - stageTop);
-// The lattice is off: a 10x10 cube holds a plain jump (apex 322, tiles are
-// 90) but has no room for a rung a fighter could stand under, and the point
-// of the cube is that there is nowhere to go but at each other. The ledge
-// machinery below stays, because a tile-authored map is exactly the shape a
-// future rung would be written in. The wind flag rides its own switch and is
-// still off.
+// `PLATFORM` is the TOWER's single centre platform, and it stays off. It is
+// not a general "are there ledges" switch, however much it reads like one:
+// the tower hung one slab over a floor, `platformY` still names that slab,
+// and a dormant family of tower-era regressions is gated on this constant
+// being true. The station's decks are a different object with a different
+// shape, so they get their own table below rather than borrowing this flag
+// and waking tests that ask whether a tapped hop clears a platform that no
+// longer exists. The wind flag rides its own switch and is still off.
 const PLATFORM = false;
 const WIND_FLAG = false;
 const survivalLevelCount = 32;
@@ -198,15 +653,108 @@ const survivalCeilingY = floorY - (survivalLevelCount + 2) * survivalStepY;
 // A deterministic, hand-tuned zig-zag. Adjacent decks always overlap a
 // normal jump's horizontal budget and sit below its 322-unit apex; variation
 // comes from where the safe landing moves, not from impossible dice rolls.
+//
+// These numbers were authored against the cube's 900-unit floor and the
+// climb still wants exactly that column of air — so when the station doubled
+// the floor's width the ladder was RECENTRED, not respaced. The rung spacing
+// is the tuned part; where the column stands is not. `survivalFrameWidth` is
+// the cube's old framing kept by the same argument: a lens wide enough for a
+// twenty-tile station would shrink the climb to a thread up the middle.
+const survivalCenterShift = gridWidth / 2 - 450;
+const survivalFrameWidth = 1020;
 const survivalCenters = [450, 280, 620, 390, 680, 250, 520, 710];
 const survivalWidths = [470, 390, 420, 360, 440, 380, 410, 370];
 const platforms = Array.from({ length: survivalLevelCount }, (_, index) => {
-  const center = survivalCenters[index % survivalCenters.length];
+  const center = survivalCenters[index % survivalCenters.length] +
+    survivalCenterShift;
   const width = survivalWidths[index % survivalWidths.length];
   return { level: index + 1, left: center - width / 2,
     right: center + width / 2, y: floorY - (index + 1) * survivalStepY };
 });
-const platformsEnabled = () => PLATFORM || survivalActive();
+// The station's decks. This is the sentence the cube's own comment promised —
+// "a tile-authored map is exactly the shape a future rung would be written
+// in" — being cashed. The cube had no room for a deck a fighter could stand
+// under; twenty by fourteen tiles under station gravity has room for five.
+//
+// Said in tiles because the map is a lattice: which column a deck starts at,
+// which row its surface sits on, how many tiles wide it runs. Two low decks
+// out at the flanks, two mid decks pinched toward the middle, one high deck
+// straddling the centre line — so the shape of the map is a funnel upward,
+// and the fighter who takes the top deck has taken the one place both mid
+// decks feed into.
+//
+// The rows are chosen against one number: 586, the apex station gravity buys
+// a held jump. Every step between ADJACENT decks is under it — floor to a low
+// deck is 270, low to mid is 360, mid to top is 270 — and every step that
+// skips a tier is over it. Floor to a mid deck is 630, and that 630 is the
+// whole design: it is what stops the stack from being a straight hop up the
+// middle and makes the climb a route instead. Out to a flank, up, back in
+// along the mid deck, up again.
+//
+// This is what the first layout got wrong. Mid decks at row 6 put them 540
+// off the floor — under the apex, so a player could take one straight up and
+// `jumpReach` would offer it to a bot, and the flanks stopped meaning
+// anything. A deck you can only reach with a perfect double-tap is a deck the
+// bots stand under and stare at; a deck you reach by going somewhere first is
+// a route; and a deck you can reach from anywhere is not a deck, it is a step.
+// Decks over the park, not instead of it. The rows are still priced against
+// the 586-unit apex — the flat reaches row 3, row 3 reaches row 7, and the
+// floor does NOT reach row 7 at 630 — so the climb keeps its route. What
+// changed is that the park is now the interesting way to travel and the decks
+// are the high ground above it. The bridge over the halfpipe is reachable
+// from the flat beside the bowl and not from the bottom of it, which is the
+// point of a bowl.
+const parkDeckPlan = [
+  { col: 8,  row: 5, cols: 5 },
+  { col: 15, row: 3, cols: 4 },
+  { col: 21, row: 3, cols: 4 },
+  { col: 18, row: 7, cols: 4 },
+  { col: 31, row: 5, cols: 4 },
+];
+const parkDecks = parkDeckPlan.map((deck, index) => ({
+  level: index + 1,
+  left: gridLeft + deck.col * tileSize,
+  right: gridLeft + (deck.col + deck.cols) * tileSize,
+  y: floorY - deck.row * tileSize,
+}));
+// Two ladders, one machinery. The climb's thirty-two rungs and the station's
+// five decks are the same shape and are read by the same four routines, but
+// they must never be visible at the same time — a survival runner standing
+// on a station deck would be standing on furniture from another map. So the
+// mode picks the table, once, and everything downstream asks here.
+// Freeskate has none: the station's decks hang over the long park's opening
+// half-pipe, and a rider coming down from a vert air stood on one.
+// `activeLedges` is read while the module is still loading, before the fight
+// state exists, so the freeskate question is only asked once freeskate has
+// been entered at least once.
+const noLedges = [];
+let freeskateEntered = false;
+const activeLedges = () => survivalActive() ? platforms
+  : freeskateEntered && freeskateActive() ? noLedges : parkDecks;
+// The station's landmarks, by column. On a ten-wide cube a bare `3` was
+// readable as "left of centre"; on twenty it is just a digit, and there were
+// a dozen of them scattered through spawn, pickup and re-serve code all
+// meaning something. Name them once.
+//
+// The spawns stayed close. It is tempting to open a map four times the size
+// by standing the fighters four times as far apart, and it is wrong twice
+// over: the opening exchange is the tuned part of this game, and the intro
+// camera and the reel's opening lens are both built to travel between two
+// faces 270 units apart — spreading the spawns whipped the intro at 207px a
+// frame and opened the reel's close lens before the first blow. So the bell
+// is unchanged from the cube: two fighters three tiles apart, astride the
+// centre line. The map's size is where you GO, not where you start, and the
+// corners, the decks and the climb are what spend it.
+const spawnColLeft = 18;
+const spawnColRight = 21;
+// Not corners any more: the ends of this map are quarterpipe transitions, and
+// a pistol resting on a vertical wall is a pistol nobody can pick up. These
+// are the two flat aprons either side of the park instead — still a run away
+// from the bell, still costing you your back to reach.
+const cornerColLeft = 5;
+const cornerColRight = 34;
+const centerX = gridLeft + gridWidth / 2;
+const platformsEnabled = () => survivalActive() || parkDecks.length > 0;
 // Version-one furniture — the wind flag's pole, the store's demos, the tests —
 // still asks for "the platform" by name. In a one-room cube the floor is the
 // only platform, so the name now means the whole playable span of it.
@@ -218,7 +766,7 @@ const platformY = floorY;
 // ask this, so a rung that moves takes its furniture with it.
 function surfaceYAt(x, y) {
   let surface = terrainFloorAt(x);
-  if (platformsEnabled()) for (const ledge of platforms)
+  if (platformsEnabled()) for (const ledge of activeLedges())
     if (ledge.y < surface && ledge.y >= y - 1 &&
       x >= ledge.left && x <= ledge.right) surface = ledge.y;
   return surface;
@@ -231,7 +779,7 @@ function surfaceYAt(x, y) {
 function ledgeCrossed(x, previousY, y, rise = 0, inset = 0) {
   if (!platformsEnabled()) return null;
   let hit = null;
-  for (const ledge of platforms) {
+  for (const ledge of activeLedges()) {
     const top = ledge.y - rise;
     if (previousY > top || y < top) continue;
     if (x < ledge.left + inset || x > ledge.right - inset) continue;
@@ -243,7 +791,7 @@ function ledgeCrossed(x, previousY, y, rise = 0, inset = 0) {
 // know whether it is supported and whether it may be booted.
 function ledgeSupports(x, y, radius = 0) {
   if (!platformsEnabled()) return false;
-  for (const ledge of platforms)
+  for (const ledge of activeLedges())
     if (x >= ledge.left + radius && x <= ledge.right - radius &&
       Math.abs(y - (ledge.y - radius)) <= 2) return true;
   return false;
@@ -361,16 +909,58 @@ const replaySlowest = .18;
 const replayActionLead = 8;
 const replayRampPerSecond = 3.2;
 const instantReplayMaxFrames = 240;
-const walkSpeed = 1060;
-const runStartSpeed = 1320;
-const runTopSpeed = 2350;
-const runAcceleration = 820;
+// Legs, slowed about a sixth on @jeffrey's ear. The station is twice the
+// cube's width, and the first thing a bigger floor does is make a fighter
+// read as skating across it -- the same stride that felt urgent crossing 900
+// units looks weightless crossing 1,800. Every number here moved by the same
+// fraction, including the acceleration, so time-to-top-speed is unchanged and
+// only the ground covered is: a run still winds up over the same beat.
+//
+// This is load-bearing beyond feel. `jumpReach` prices a bot's jump in
+// walkSpeed, so the arcs it will commit to narrow with the stride, and the
+// deck spacing above stays exactly as reachable as it was.
+// What a pump is worth, and how much upward speed a lip has to be giving you
+// before it counts as an air rather than a bump. The launch floor exists so
+// rolling over a gentle crest does not pop a rider off the ground every time.
+const skatePumpAcceleration = 2600;
+const skateLaunchFloor = 380;
+const walkSpeed = 880;
+const runStartSpeed = 1100;
+const runTopSpeed = 1950;
+const runAcceleration = 690;
+// Momentum, after Runman: speed is the thing a player keeps, not a number
+// the legs reset. Chained dashes build an overdrive past the run's top, which
+// bleeds back slowly unless it is fed; a hit costs a share of it, never all.
+const runOverdriveTop = 2600;
+const runDashKick = 250;
+const runOverdriveBleed = 300;
+const runHitKeep = .65;
+// The board's stick push stops adding here; past it only slopes, pumps,
+// pads and kick-pushes carry a rider faster.
+const skatePushTop = 2700;
+const skateKick = 400;
+const skateTop = 4200;
+// A lone head's stick push; past it, only slopes carry it faster.
+const headRollPush = 1300;
 // Vertical feel. The apex is the design constant — how high a fighter can
 // reach never changed — so every impulse here is paired with a gravity that
 // spends less time getting there. Rise is lighter than fall so the arc reads
 // as intent going up and commitment coming down.
-const riseGravity = 4800;
-const fallGravity = 7200;
+const riseGravityFull = 4800;
+const fallGravityFull = 7200;
+// Station gravity. The space map spins up a little over half a G, and that
+// one number is what makes the floating decks a place you can go: at full
+// weight a jump tops out at 322 units — three and a half tiles — and the
+// lowest deck sits three tiles up with nothing above it worth reaching. At
+// .55 the apex is 586, so the deck stack overhead is climbable on legs, a
+// knocked fighter sails instead of dropping, and the hover board's airtime
+// becomes the traversal it is for. The climb keeps full weight: survival's
+// thirty-two rungs are spaced against the 322 apex, and floating that run
+// would let a runner skip rungs the ladder exists to make them earn.
+const spaceGravityScale = .55;
+const gravityScale = () => survivalActive() ? 1 : spaceGravityScale;
+const riseGravity = () => riseGravityFull * gravityScale();
+const fallGravity = () => fallGravityFull * gravityScale();
 const jumpVelocity = 1760;
 const crouchJumpVelocity = 1960;
 const ultraJumpVelocity = 3960;
@@ -403,6 +993,10 @@ let cameraCenter = (worldLeft + worldRight) / 2;
 let cameraWidth = worldRight - worldLeft;
 let cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
 let cameraContainFloor = 0;
+// What the containment floor was last frame, so its rate of growth can be
+// measured. See `updateCameraDoll` — the doll eases toward the floor, and an
+// ease that is not led always sits behind a target that keeps moving.
+let previousContainmentWidth = 0;
 // Two different distances, because they answer two different questions.
 //
 // `cameraPin` is where a single projected point stops being allowed to get any
@@ -574,7 +1168,8 @@ class FightCamDoll {
       z: baseUp.z * rollCos - baseRight.z * rollSin };
     this.view = { forward, right, up,
       centerX: (stageLeft + stageRight) / 2,
-      centerY: (stageTop + stageBottom) / 2,
+      centerY: (stageTop + stageBottom) / 2 +
+        (stageBottom - stageTop) * consoleFrameDrop(),
       orthoScale: (stageRight - stageLeft) / this.width,
       focal: (stageRight - stageLeft) /
         (2 * Math.tan(this.fov * Math.PI / 360)) };
@@ -585,16 +1180,18 @@ class FightCamDoll {
   // that wants to survive contact with the near plane has to see the honest
   // depth first — `project` is where it gets clamped, and a clamp is a lie for
   // anything behind the lens.
-  toView(point) {
+  toView(point, out = {}) {
     if (this.dirty || !this.view) this.prepare();
     const { forward, right, up } = this.view;
-    const delta = { x: point.x - this.position.x, y: point.y - this.position.y,
-      z: point.z - this.position.z };
-    return { x: dot3(delta, right), y: dot3(delta, up),
-      z: dot3(delta, forward) };
+    const x = point.x - this.position.x, y = point.y - this.position.y;
+    const z = point.z - this.position.z;
+    out.x = x * right.x + y * right.y + z * right.z;
+    out.y = x * up.x + y * up.y + z * up.z;
+    out.z = x * forward.x + y * forward.y + z * forward.z;
+    return out;
   }
 
-  projectView(view) {
+  projectView(view, out = {}) {
     if (this.dirty || !this.view) this.prepare();
     const { centerX, centerY, orthoScale, focal } = this.view;
     const depth = Math.max(cameraNear, view.z);
@@ -602,9 +1199,10 @@ class FightCamDoll {
     const orthoY = centerY - view.y * orthoScale;
     const perspectiveX = centerX + view.x * focal / depth;
     const perspectiveY = centerY - view.y * focal / depth;
-    return { x: lerp(orthoX, perspectiveX, this.perspective),
-      y: lerp(orthoY, perspectiveY, this.perspective),
-      z: clamp(depth / 16000 * 2.8 - 1.4, -1.4, 1.4) };
+    out.x = lerp(orthoX, perspectiveX, this.perspective);
+    out.y = lerp(orthoY, perspectiveY, this.perspective);
+    out.z = clamp(depth / 16000 * 2.8 - 1.4, -1.4, 1.4);
+    return out;
   }
 
   // A lone point cannot be clipped, so it is held at the pin rather than
@@ -656,6 +1254,53 @@ function screenRect(x, y, width, height, color) {
   const [r, g, b] = color;
   screenTriangle(x, y, x + width, y, x + width, y + height, r, g, b);
   screenTriangle(x, y, x + width, y + height, x, y + height, r, g, b);
+}
+// On the native shell `box` and `line` are CPU-composited UNDER every GPU
+// triangle — App.cpp paints rects, lines and block text into the CPU frame,
+// uploads that as the scene texture, then draws the depth pass over it — so
+// the frame meter, keycaps, clock and bot scaffolding sank behind the
+// fighters and terrain. @jeffrey on the console, 2026-09-20: "the frame
+// counter and stuff in the debug ui ... feels like its behind stuff". HUD
+// boxes and lines ride the triangle pass there, at a depth in front of any
+// body (bodies bottom out near -1.42; the shell maps (z + 1.5) / 3 into the
+// depth buffer, LESS_EQUAL). The web shell keeps box/line as they were.
+const nativeTrianglePass = typeof triangle3d === "function";
+const hudDepth = -1.48;
+function hudBox(x, y, width, height, ...color) {
+  if (!nativeTrianglePass) { box(x, y, width, height, ...color); return; }
+  const previous = triangleDepth;
+  triangleDepth = hudDepth;
+  screenRect(x, y, width, height, color);
+  triangleDepth = previous;
+}
+function hudLine(x1, y1, x2, y2, width, ...color) {
+  if (!nativeTrianglePass) { line(x1, y1, x2, y2, width, ...color); return; }
+  const dx = x2 - x1, dy = y2 - y1;
+  const length = Math.hypot(dx, dy) || 1;
+  const nx = -dy / length * Math.max(1, width) / 2;
+  const ny = dx / length * Math.max(1, width) / 2;
+  const previous = triangleDepth;
+  triangleDepth = hudDepth;
+  const [r, g, b] = color;
+  screenTriangle(x1 + nx, y1 + ny, x2 + nx, y2 + ny, x2 - nx, y2 - ny, r, g, b);
+  screenTriangle(x1 + nx, y1 + ny, x2 - nx, y2 - ny, x1 - nx, y1 - ny, r, g, b);
+  triangleDepth = previous;
+}
+function hudWorldLine(x1, y1, z1, x2, y2, z2, width, color) {
+  const segment = worldSegment(x1, y1, z1, x2, y2, z2);
+  if (!segment) return;
+  hudLine(segment.from.x, segment.from.y, segment.to.x, segment.to.y,
+    width, ...color);
+}
+function hudCircle(x, y, radius, width, color) {
+  let lastX = x + radius, lastY = y;
+  for (let i = 1; i <= 12; i++) {
+    const angle = i * Math.PI * 2 / 12;
+    const nextX = x + Math.cos(angle) * radius;
+    const nextY = y + Math.sin(angle) * radius;
+    hudLine(lastX, lastY, nextX, nextY, width, ...color);
+    lastX = nextX; lastY = nextY;
+  }
 }
 function screenStrokeRect(x, y, width, height, thickness, color) {
   screenRect(x, y, width, thickness, color);
@@ -740,19 +1385,22 @@ function bandContains(vertex) {
     vertex.y >= -viewHeight * guardBand &&
     vertex.y <= viewHeight * (1 + guardBand);
 }
+// Scratch vertices never escape synchronous face submission or clipping.
+const triangleView = [{}, {}, {}];
+const triangleScreen = [{}, {}, {}];
 function worldTriangle(a, b, c, color) {
-  const viewA = cameraDoll.toView(a);
-  const viewB = cameraDoll.toView(b);
-  const viewC = cameraDoll.toView(c);
+  const viewA = cameraDoll.toView(a, triangleView[0]);
+  const viewB = cameraDoll.toView(b, triangleView[1]);
+  const viewC = cameraDoll.toView(c, triangleView[2]);
   // Nearly every face a frame submits sits whole in front of the lens and
   // whole inside the guard band, and the console's interpreter was paying
   // for six array allocations per face on the way to discovering that.
   // Plain compares decide the common case; only a face that actually
   // crosses a plane pays for the Sutherland-Hodgman walk.
   if (viewA.z >= cameraNear && viewB.z >= cameraNear && viewC.z >= cameraNear) {
-    const pa = cameraDoll.projectView(viewA);
-    const pb = cameraDoll.projectView(viewB);
-    const pc = cameraDoll.projectView(viewC);
+    const pa = cameraDoll.projectView(viewA, triangleScreen[0]);
+    const pb = cameraDoll.projectView(viewB, triangleScreen[1]);
+    const pc = cameraDoll.projectView(viewC, triangleScreen[2]);
     if (bandContains(pa) && bandContains(pb) && bandContains(pc)) {
       projectedTriangle(pa, pb, pc, color);
       return;
@@ -776,8 +1424,6 @@ function worldTriangle(a, b, c, color) {
 function projectPoint(x, y, z = 0) {
   return cameraDoll.project({ x, y, z });
 }
-const screenX = (x, z = 0) => projectPoint(x, cameraCenterY, z).x;
-const screenY = (y, z = 0) => projectPoint(cameraCenter, y, z).y;
 const panAt = (x, z = 0) => clamp(
   (projectPoint(x, cameraCenterY, z).x - viewCenterX()) /
     Math.max(1, (stageRight - stageLeft) / 2 - 55), -1, 1);
@@ -871,6 +1517,8 @@ const hueOf = ([red, green, blue]) => {
 };
 
 function selfPlayWardrobe(pad) {
+  if (typeof globalThis.__oskiewarJevPad === 'function')
+    return { name: pad === 0 ? 'JEV PINK' : 'JEV BLUE', rgb: pad === 0 ? [255, 90, 170] : [65, 195, 255] };
   const round = matchName || seriesName;
   const first = cssColorBook[Math.floor(
     hashUnit(round + " one") * cssColorBook.length) % cssColorBook.length];
@@ -909,30 +1557,50 @@ function losAngelesSun() {
   return { light: light * light * (3 - 2 * light), sunset };
 }
 
+function consoleHost() {
+  const caps = typeof capabilities === "function" ? capabilities() : {};
+  return caps.platform === "xbox-uwp" || caps.platform === "xbox";
+}
+
+function consoleFrameDrop() {
+  return consoleHost() ? .1 : 0;
+}
+
 function displayTheme() {
   const sun = losAngelesSun();
   const caps = typeof capabilities === "function" ? capabilities() : {};
-  if (caps.platform === "web" || caps.platform === "macos") {
+  if (caps.platform === "xbox-uwp" || caps.platform === "xbox")
+    return { light: 1, sunset: 0 };
+  if ((caps.platform === "web" || caps.platform === "macos") &&
+      (caps.colorScheme === "light" || caps.colorScheme === "dark")) {
     return { ...sun, light: caps.colorScheme === "light" ? 1 : 0 };
   }
   return sun;
 }
+// Nameless until somebody says who they are. These two used to boot as
+// @JEFFREY and @OSKIE — the first and third entries of the local roster — and
+// every path that failed to learn a real identity quietly fell through to
+// them. That is how an anonymous visitor alone in a dead room was shown
+// "@JEFFREY vs @OSKIE" and told "YOU ARE @OSKIE — RIGHT SIDE". An empty name
+// is the honest state and the wire already speaks it: spectatorState sends ""
+// as NOBODY, and the HUD reads it as "THE SECOND FIGHTER".
 const players = [
-  { name: "@JEFFREY", rosterIndex: 0, handleColors: fighterRoster[0].colors,
+  { name: "", rosterIndex: -1, handleColors: anonymousFighter.colors,
     // Spawn marks stand on the centers of tiles 3 and 6 — mirrored across
     // the cube's middle, three tiles from the pistol's corner. Three
     // matters: a pickup takes any limb within 90, a standing fighter's arms
     // reach most of a tile past the mark, and two tiles of gap was close
     // enough that the bell handed the weapon out before anyone moved.
-    pad: 0, spawnX: tileCenterX(3), x: tileCenterX(3), y: floorY, z: 0,
+    pad: 0, spawnX: tileCenterX(spawnColLeft), x: tileCenterX(spawnColLeft),
+    y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: 1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
-    lastButtonAt: 0, color: [190, 42, 58], hit: 0,
+    lastButtonAt: 0, color: anonymousFighter.color.slice(), hit: 0,
     hitSegment: -1, hitSegmentUntil: 0, hitStunUntil: 0,
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
     skateboard: false, skateVx: 0, skateWallSide: 0,
     suppressedDirections: [],
-    lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, runSince: 0,
+    lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, runSince: 0, runSpeed: 0, runDir: 0, runBled: false, runReleasedAt: 0,
     walkSince: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
@@ -952,9 +1620,10 @@ const players = [
     jumpHeld: false, airJumpsUsed: 0, hopUntil: 0, sinkUntil: 0,
     sinkFrom: 0,
     crouchJump: false, attackMomentum: 1 },
-  { name: "@OSKIE", rosterIndex: 2, handleColors: fighterRoster[2].colors,
+  { name: "", rosterIndex: -1, handleColors: [],
     npc: false, bot: false, remote: false,
-    pad: 1, spawnX: tileCenterX(6), x: tileCenterX(6), y: floorY, z: 0,
+    pad: 1, spawnX: tileCenterX(spawnColRight), x: tileCenterX(spawnColRight),
+    y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: -1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: 0, color: [38, 82, 176], hit: 0,
@@ -962,7 +1631,7 @@ const players = [
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
     skateboard: false, skateVx: 0, skateWallSide: 0,
     suppressedDirections: [],
-    lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, runSince: 0,
+    lastTap: {}, lastRelease: {}, dashUntil: 0, dashVx: 0, runSince: 0, runSpeed: 0, runDir: 0, runBled: false, runReleasedAt: 0,
     walkSince: 0, roundWins: 0,
     attackKind: "", attackStartedAt: 0,
     attackUntil: 0, attackHit: false, blocking: false, blockFlash: 0,
@@ -987,23 +1656,66 @@ const players = [
 // Survival and the versus lobby are both one-body rooms — the second chair
 // is parked off the map until somebody takes it.
 const activePlayers = () =>
-  survivalActive() || lobbyActive() ? [players[0]] : players;
+  survivalActive() || soloRoom() ? [players[0]] : players;
 const impacts = [];
+
+// Every impact gets a number, in order, for the life of the run. A watcher
+// cannot be told "here is a new spark" by a stateless frame that repeats the
+// same list ten times — it has to be able to tell which ones it has already
+// seen, and a position is not an identity. The counter is simulation state:
+// a rollback that re-spawns an impact must re-issue the same number.
+let impactSequence = 0;
+
+function spawnImpact(impact) {
+  impact.id = ++impactSequence;
+  impacts.push(impact);
+  return impact;
+}
+
 const detachedParts = [];
 const bullets = [];
 const grenades = [];
-// The cube's whole arsenal, said out loud: one pistol, nothing else. The
-// SMG, the rocket launcher and the grenades belonged to a tower where
-// height priced a weapon; a one-room box has no shelf to price them on,
-// and a 900-wide fight gives a spray weapon nothing to miss. The blade
-// came and went inside one build — @jeffrey tried the sword-and-pistol
-// standoff and asked for fists and one gun instead. The pistol sits on a
-// corner tile, three tiles behind the far spawn mark, so the bell opens
-// with a choice instead of a handout: turn your back on the other fighter
-// to arm up, or rush the middle bare-handed.
+// The station's arsenal, said out loud: a pistol on the floor, a space laser
+// at the top of the climb, a light saber over each fighter's own head. The
+// cube could carry exactly one weapon, and the comment here used to say why
+// — "a one-room box has no shelf to price them on". A station HAS shelves.
+// Height is the price again, the way it was in the tower, and each of the
+// three is priced differently on purpose:
+//
+//   pistol — floor, far corner, behind the right spawn. The oldest bargain
+//     in this game and unchanged: turn your back on the other fighter to arm
+//     up, or rush the middle bare-handed. Six rounds that ricochet forever.
+//   space laser — the high centre deck, three jumps up, contested from both
+//     sides. Four bolts, no ricochet, and fast enough that it is a line you
+//     draw rather than a shot you lead. Missing it costs the bolt outright.
+//   light saber — one on each low deck, mirrored, one jump off your own
+//     spawn. It is the only free weapon and the only fair one, and it buys
+//     reach on every hand strike rather than a projectile.
+//
+// The blade came and went inside one build back in the cube — @jeffrey tried
+// a sword-and-pistol standoff and asked for fists and one gun instead. The
+// objection was to a duel in a phone booth, and the whole drawing machinery
+// (`swordHeld`, the hilt pinned to the item forearm) survived it intact. A
+// map with distance in it is the condition that was missing.
+//
+// `cycle` marks the slot the ten-second powerup rotation owns. Only the
+// pistol carries it, so an untouched laser can never stall the reload that
+// keeps the floor fight fed.
 const gunPickups = [
-  { kind: "HANDGUN", amount: 6, x: tileCenterX(9), startsActive: true,
-    y: floorY, z: 0 },
+  { kind: "HANDGUN", amount: 6, x: tileCenterX(cornerColRight),
+    startsActive: true, cycle: true, y: floorY, z: 0 },
+  { kind: "SPACE LASER", amount: 4, x: centerX, startsActive: true,
+    cycle: false, y: parkDecks[3].y, z: 0 },
+];
+// A saber is not ammunition, so it is not a gun pickup: taking one sets a
+// state a fighter keeps until the arm holding it comes off. Mirrored across
+// the two low decks, centred on each deck rather than on a tile, because the
+// deck is the landmark a player actually reads.
+const saberPickups = [
+  { kind: "LIGHT SABER", x: (parkDecks[1].left + parkDecks[1].right) / 2,
+    y: parkDecks[1].y, z: 0, startsActive: true },
+  { kind: "LIGHT SABER", x: (parkDecks[2].left + parkDecks[2].right) / 2,
+    y: parkDecks[2].y, z: 0, startsActive: true },
 ];
 const grenadePickups = [];
 // No trees. Two grew out of the tower's side walls and were the only thing
@@ -1016,7 +1728,7 @@ const bodyTrees = [];
 const treeRipenUs = 18000000;
 const treeTimeBonusUs = 15000000;
 const airParticles = [];
-for (const pickup of [...gunPickups, ...grenadePickups]) {
+for (const pickup of [...gunPickups, ...saberPickups, ...grenadePickups]) {
   pickup.active = Boolean(pickup.startsActive);
   pickup.respawnAt = 0;
   // A pickup names its tile and floats seventy above that tile's surface —
@@ -1025,9 +1737,9 @@ for (const pickup of [...gunPickups, ...grenadePickups]) {
   pickup.y = surfaceYAt(pickup.x, pickup.y) - 70;
 }
 // Every kind carries a gravity factor so redressing the match ball in place
-// can never leave a previous kind's float behind. The skateboard is out of
-// the deck — @jeffrey asked for no boards on this map — so the series draw
-// below can only ever deal a ball.
+// can never leave a previous kind's float behind.
+//
+// The skateboard is map furniture; it never replaces the match ball.
 const ballKinds = [
   { type: "soccer", spawnOwner: 0, radius: 38, mass: .72, hitScale: 1.12,
     bounce: .58, drag: .994, windFactor: .58, gravityFactor: 1 },
@@ -1035,20 +1747,223 @@ const ballKinds = [
     bounce: .76, drag: .989, windFactor: .34, gravityFactor: 1 },
   { type: "beach", spawnOwner: -1, radius: 46, mass: .34, hitScale: 1.25,
     bounce: .82, drag: .998, windFactor: 1.35, gravityFactor: .62 },
+  { type: "skateboard", spawnOwner: -1, radius: 52, mass: .9, hitScale: .7,
+    bounce: .34, drag: .992, windFactor: .5, gravityFactor: .5,
+    series: false },
 ];
 let matchBallType = ballKinds[0].type;
-// A match inflates exactly one ball and keeps it for every round.
+const skateBoardKind = ballKinds.find((kind) => kind.type === "skateboard");
+// A match inflates exactly one ball and keeps it for every round, and the
+// station parks exactly one board on the floor at centre. Two entries in one
+// array because they are the same kind of object to every routine that
+// touches them — swept contact, ledge support, shadows, the wire format —
+// and because the board's whole mount path is written against a ball rolling
+// into a shin.
 const balls = [{ ...ballKinds[0], z: 0, vx: 0, vy: 0, rotation: 0,
   x: players[0].spawnX, y: floorY - ballKinds[0].radius,
   active: true, serveAt: 0, lastHitBy: 0, safeUntil: 0, safePlayers: 0,
+  heldBy: -1 },
+{ ...skateBoardKind, z: 0, vx: 0, vy: 0, rotation: 0,
+  x: tileCenterX(cornerColLeft), y: floorY - skateBoardKind.radius,
+  active: true, serveAt: 0, lastHitBy: -1, safeUntil: 0, safePlayers: 0,
   heldBy: -1 }];
 // Version-one replay/spectator consumers still read the first ball by name.
 const ball = balls[0];
+// The board is not gated by `ballEnabled`. That switch is the ball's — it
+// takes the serve, the cross-wack and the BALLED death off the map together —
+// and the board shares none of them.
+let skateBoardEnabled = true;
 // The ball is out of the round — @jeffrey asked for the cube bare. All of
 // the ball's machinery (serve, boot, carry, cross-wack, the BALLED death)
 // sleeps behind this switch exactly as it always did for the test harness;
 // flipping it back on is the whole re-installation.
 let ballEnabled = false;
+
+function mapHash(text) {
+  let hash = 2166136261;
+  for (const character of String(text || "oskiewar")) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+let currentMapName = "HALFPIPE";
+let currentMapId = "halfpipe";
+let workshopBase = null;
+// Workshop edits are local practice state. They never enter rollback matches
+// or the competitive replay ledger; documents are saved separately.
+let workshopMap = null;
+let workshopRevision = 0;
+let workshopHistory = [];
+let workshopHighlight = false;
+let workshopTainted = false;
+
+let localMapIndex = -1;
+let localMapInstalled = false;
+const localMapVariants = [null, {
+  name: "BOWL",
+  features: [
+    { from: 0, to: 12, kind: "flat" },
+    { from: 12, to: 16, kind: "transition", rise: 360, dir: -1, lift: -360 },
+    { from: 16, to: 24, kind: "flat", lift: -360 },
+    { from: 24, to: 28, kind: "transition", rise: 360, dir: 1, lift: -360 },
+    { from: 28, to: 40, kind: "flat" },
+  ],
+  decks: [{ col: 9, cols: 4, row: 3 }, { col: 27, cols: 4, row: 3 }],
+}, {
+  name: "HIGH GROUND",
+  features: [
+    { from: 0, to: 12, kind: "flat" },
+    { from: 12, to: 16, kind: "bank", rise: 270, dir: 1 },
+    { from: 16, to: 24, kind: "flat", lift: 270 },
+    { from: 24, to: 28, kind: "bank", rise: 270, dir: -1 },
+    { from: 28, to: 40, kind: "flat" },
+  ],
+  decks: [{ col: 7, cols: 4, row: 3 }, { col: 18, cols: 4, row: 7 },
+    { col: 29, cols: 4, row: 3 }],
+}];
+
+function rotateLocalMap(keepMap) {
+  if (skateparkMap || !localVersusActive() || workshopTainted ||
+      globalThis.__oskiewarPublishedMap) return;
+  if (!keepMap || localMapIndex < 0)
+    localMapIndex = (localMapIndex + 1) % localMapVariants.length;
+  const variant = localMapVariants[localMapIndex];
+  const map = variant ? { ...workshopBase, ...variant,
+    features: variant.features.map(f => ({ lift: 0, rise: 0, dir: 1, ...f })) }
+    : workshopBase;
+  installWorkshopMap(map, true);
+  currentMapId = ["halfpipe", "bowl", "high-ground"][localMapIndex];
+  localMapInstalled = true;
+}
+
+function workshopSnapshot() {
+  return { format: "ac.oskiewar.map", version: 1,
+    name: workshopMap?.name || currentMapName,
+    features: parkSegments.map(({ from, to, kind, lift, rise, dir }) =>
+      ({ from, to, kind, lift: lift || 0, rise: rise || 0, dir: dir || 1 })),
+    decks: parkDecks.map(d => ({ col: (d.left - gridLeft) / tileSize,
+      cols: (d.right - d.left) / tileSize, row: (floorY - d.y) / tileSize })),
+    spawns: players.map(p => (p.spawnX - gridLeft) / tileSize - .5),
+    pickups: workshopMap?.pickups.map(p => ({ ...p })) ||
+      [...gunPickups, ...saberPickups, ...grenadePickups].filter(p => p.startsActive)
+        .map(p => ({ kind: p.kind || "GRENADE", col: tileCol(p.x), amount: p.amount || 0 })),
+    skateboard: skateBoardEnabled };
+}
+
+function installWorkshopMap(map, cycleHandgun = false) {
+  if (skateparkMap) { configureWorldMap("station"); resetSkateRopes(); }
+  localMapInstalled = false;
+  workshopMap = map;
+  parkSegments.splice(0, parkSegments.length, ...map.features.map(f => ({ ...f,
+    left: gridLeft + f.from * tileSize, right: gridLeft + f.to * tileSize })));
+  parkDeepest = floorY + Math.max(0, ...parkSegments.map(s => -s.lift));
+  rebuildTerrainProfile();
+  parkDecks.splice(0, parkDecks.length, ...map.decks.map((d, i) => ({ level: i + 1,
+    left: gridLeft + d.col * tileSize, right: gridLeft + (d.col + d.cols) * tileSize,
+    y: floorY - d.row * tileSize })));
+  players.forEach((p, i) => { p.spawnX = tileCenterX(map.spawns[i]); });
+  installMapPickups(gunPickups, map.pickups.filter(p =>
+    !["GRENADE", "LIGHT SABER"].includes(p.kind)), "gun");
+  // Portable maps contain authored pickups, not the built-in refill policy.
+  const pistol = gunPickups.find(p => p.kind === "HANDGUN");
+  if (cycleHandgun && pistol) pistol.cycle = true;
+  installMapPickups(saberPickups, map.pickups.filter(p => p.kind === "LIGHT SABER"), "saber");
+  installMapPickups(grenadePickups, map.pickups.filter(p => p.kind === "GRENADE"), "grenade");
+  skateBoardEnabled = map.skateboard;
+  currentMapName = map.name;
+  currentMapId = "workshop-" + mapHash(JSON.stringify(map)).toString(36);
+  // Reconcile newly raised floors without restarting the players' exchange.
+  for (const p of players) {
+    const ground = terrainFloorAt(p.x);
+    if (p.y > ground || p.grounded) { p.y = ground; p.vy = 0; p.grounded = true; }
+  }
+  renderPreviousState = null;
+}
+
+function workshopCommand(command) {
+  if (!globalThis.__oskiewarWorkshopEnabled) throw new Error("Coach editing is off");
+  if ((netSession && netSession.seat !== 0) || roundViewer || survivalActive() || resimActive)
+    throw new Error("Edit through the room host; survival and replay editing are unavailable");
+  if (!command || typeof command !== "object") throw new Error("Expected a workshop command");
+  const { op } = command;
+  if (op === "inspect") return { room: "ow-" + (versusRoomName || sessionName),
+    revision: workshopRevision, map: workshopSnapshot(),
+    highlights: workshopHighlight, undo: workshopHistory.length,
+    units: { columns: gridCols, tileSize, floorY },
+    players: players.map(p => ({ x: p.x, y: p.y, spawnX: p.spawnX })) };
+  if (op === "highlight") {
+    if (typeof command.enabled !== "boolean") throw new Error("Supply enabled: true or false");
+    workshopHighlight = command.enabled;
+    return workshopCommand({ op: "inspect" });
+  }
+  if (command.revision !== workshopRevision) throw new Error("Map changed; inspect and use its revision");
+  if (!["apply", "drop", "undo", "reset-round", "restart-level"].includes(op))
+    throw new Error("Unknown workshop operation");
+  let map;
+  if (op === "undo") {
+    if (!workshopHistory.length) throw new Error("Nothing to undo");
+    map = workshopHistory[workshopHistory.length - 1];
+  } else {
+    map = op === "apply" ? command.map : workshopSnapshot();
+    if (op === "drop") map.pickups.push(command.item);
+  }
+  map = globalThis.__oskiewarValidateMap(map);
+  if (netSession) {
+    const session = netSession;
+    if (session.send({ t: "workshop", o: session.originUs }) === false)
+      throw new Error("The peer connection is not ready for editing");
+    workshopTainted = true;
+    netLaneBlockedUntil = Date.now() + NET_DESYNC_COOLDOWN_MS;
+    netEnd("workshop");
+  }
+  if (op === "undo") workshopHistory.pop();
+  else if (!["reset-round", "restart-level"].includes(op)) {
+    workshopHistory.push(workshopSnapshot());
+    if (workshopHistory.length > 20) workshopHistory.shift();
+  }
+  workshopTainted = true;
+  workshopRevision++;
+  installWorkshopMap(map);
+  if (op === "reset-round" || op === "restart-level")
+    resetRound(runtime().monotonicUs, op === "restart-level");
+  return workshopCommand({ op: "inspect" });
+}
+
+function installMapPickups(target, authored, type) {
+  target.length = 0;
+  for (const entry of authored) {
+    const x = tileCenterX(entry.col);
+    target.push({
+      ...(type === "gun" ? { kind: entry.kind, amount: entry.amount,
+        cycle: Boolean(entry.cycle) } : {}),
+      ...(type === "saber" ? { kind: "LIGHT SABER" } : {}),
+      ...(type === "grenade" ? { amount: entry.amount } : {}),
+      x, y: terrainFloorAt(x) - 70, z: 0,
+      active: true, startsActive: true, respawnAt: 0,
+    });
+  }
+}
+
+function resetWorkshopMap() {
+  if (!workshopMap) return;
+  if (!localMapInstalled &&
+      (globalThis.__oskiewarWorkshopEnabled || globalThis.__oskiewarPublishedMap) &&
+      !survivalActive() && !roundViewer && !resimActive) {
+    installWorkshopMap(workshopMap);
+    return;
+  }
+  const spawns = players.map(p => p.spawnX);
+  installWorkshopMap(workshopBase, true);
+  workshopMap = null;
+  workshopHistory = [];
+  workshopRevision++;
+  currentMapName = "HALFPIPE";
+  currentMapId = "halfpipe";
+  if (versusLane() || survivalActive()) players.forEach((p, i) => { p.spawnX = spawns[i]; });
+}
+
+
 // Physics remains an exact 60 Hz story. Rendering may happen between those
 // authored instants—especially during slow motion—so retain the state that
 // entered each tick and blend only presentation coordinates toward the state
@@ -1164,10 +2079,8 @@ let acFeed = {};
 // is still moving and this is the shape we may want to compare against. Flip
 // it true and the wheel comes back exactly as it was.
 const PAL_SELECT = false;
-// The frame recorder remains intact for future review tooling, but replay is
-// not part of the match flow. One flag restores the viewer, its controls and
-// its offer together; production currently moves directly through results.
-const INSTANT_REPLAY = false;
+// Keep recent frames for match review and automatic solo-death replays.
+const INSTANT_REPLAY = true;
 let selecting = false;
 // Self-play is a harness mode: both fighters run the bot, no pad can enter or
 // leave it, and rounds roll over on their own.
@@ -1207,8 +2120,15 @@ function trainingOpponentKind() {
   if (requested === "dummy" || requested === "spiderdummy" ||
       requested === "trainingbot") return requested;
   // One kind for the whole visit: a title returned to after a knockout must
-  // not re-deal the opponent out from under the player.
-  if (!trainingOpponent) trainingOpponent = "trainingbot";
+  // not re-deal the opponent out from under the player. The web's empty
+  // door spars with the bot; the console's stands a dummy up instead —
+  // @jeffrey on the Xbox, 2026-09-20: "make it so we can play against dummy
+  // as opposed to bot ... the dummy goes away and gets replaced by players"
+  // (a second local controller promotes that chair through
+  // `updateLocalVersus`). An inert dummy is also one bot brain fewer in the
+  // console's interpreted sim.
+  if (!trainingOpponent) trainingOpponent =
+    globalThis.__oskiewarVersusCapable === true ? "trainingbot" : "dummy";
   return trainingOpponent;
 }
 // The versus lane's room. One name for the whole visit — the shell writes it
@@ -1219,6 +2139,21 @@ function trainingOpponentKind() {
 let versusRoomName = "";
 let versusNextAt = 0;
 let versusRivalName = "";
+// The raw handle the seat last offered, kept beside the name it produced. The
+// comparison that decides whether to re-dress has to be against this and not
+// against the result: an anonymous arrival offers "", which is falsy, so the
+// old guard skipped the re-dress entirely and left the PREVIOUS player's name
+// and colors on the chair. Leaving and rejoining inside the 2.5 s grace is
+// exactly how somebody ends up wearing a stranger.
+let versusRivalOffered = "";
+
+// The handle riding the freshest pad frame, cleaned to the shape a nameplate
+// and the state schema both accept. One reader, so the re-dress test and the
+// dressing itself can never disagree about what was offered.
+function versusOfferedName() {
+  return String(globalThis.__oskiewarRemotePad?.name || "").toUpperCase()
+    .replace(/[^@A-Z0-9_-]/g, "").slice(0, 24);
+}
 // How long an empty wire keeps the rival seated. Long enough to ride out a
 // dropped packet or a phone switching antennas, short enough that a closed
 // tab reads as "they left" while the fighter is still warm.
@@ -1226,7 +2161,7 @@ const versusChallengerGraceMs = 2500;
 // The fight streams faster than a grandstand needs, because for the
 // challenger this feed IS the game — their own presses come back to them
 // as pictures through it.
-const versusSnapshotIntervalUs = 33000;
+const versusSnapshotIntervalMs = 33;
 // How long a visitor who arrived through a shared address waits for a host
 // before deciding the room is theirs to claim.
 const versusClaimAfterUs = 2500000;
@@ -1239,10 +2174,14 @@ let versusInputMinNextAt = 0;
 // race can walk them right back on as a challenger.
 let versusFallbackBridge = null;
 
+let versusSeatGraceUntil = 0;
+
 function versusChallengerFresh() {
   // In a rollback fight the rival's presence is the session itself; the
   // sim must not read the wall clock to decide whether the fight goes on.
   if (netSession) return true;
+  // And for a moment after one ends badly, while the rival is changing lanes.
+  if (Date.now() < versusSeatGraceUntil) return true;
   const remote = globalThis.__oskiewarRemotePad;
   if (!remote || !Number.isFinite(remote.at)) return false;
   return Date.now() - remote.at < versusChallengerGraceMs;
@@ -1282,6 +2221,15 @@ let windTargetMph = 0;
 let windTargetDirection = 1;
 let nextWindChangeAt = 0;
 let replay = null;
+// Round names in the order they were minted, each with the demo tick it was
+// minted on. A rollback can rewind past a round rollover, so this ledger has
+// to rewind with it — `replay.roundIds` is derived from it rather than being
+// appended to directly, which is what keeps a re-simulated rollover from
+// filing the same round twice.
+let replayRoundMarks = [];
+// The frame a finished round is waiting to be confirmed past before it is
+// filed. -1 when nothing is waiting. See saveRoundReplay.
+let replayPendingSaveFrame = -1;
 let replayLastCommand = [-1, -1];
 let replayNextCheckpointAt = 0;
 let matchName = "";
@@ -1296,10 +2244,12 @@ let previousRoundName = "";
 let roundReplayFrames = [];
 let roundReplayLastAt = 0;
 let instantReplay = null;
+let soloDeathReplayPending = null;
 let replayOfferPrevious = [];
 let shellMode = "MENU";
 let gameplayStarted = false;
 let shellPrevious = [];
+let startInputPending = false;
 let shellRawPrevious = [];
 // Whether the stick was already leaned last frame, so a held lean reads as
 // one gesture at the title rather than a machine-gun of entries.
@@ -1312,12 +2262,9 @@ let dummyGuideStartedAt = null;
 // (App.cpp overflows int64 converting QPC ticks past ~10 days of uptime),
 // and a >= 0 sentinel then swallows every legitimate timestamp.
 let titleTransitionAt = null;
-// The wordmark is a toy: every letter of "oskiewar" and of "start" keeps its
-// own swell and shudder, and the prompt keeps one shared bounce the letters
-// take in turn. Paint owns these because they are pointer feel, not state.
+// The wordmark is a toy: every letter keeps its own swell and shudder.
+// Paint owns these because they are pointer feel, not state.
 const titleToys = [];
-const promptToys = [];
-let promptBounce = 0;
 let titleToyAt = -1;
 // Which letter the pointer currently owns. The letters never hold still — each
 // one bobs and drifts a good fraction of its own width — so a bare hit test
@@ -1338,6 +2285,55 @@ let renderFlags = {};
 // Temporary live combat inspector. Keep this explicit so the production view
 // can return to a clean presentation without changing combat geometry.
 let debugHitboxes = false;
+// The frame meter, the way a training mode has one: one pip per simulation
+// frame, colored by what the fighter was DOING on that frame, so a player can
+// read an exchange back instead of guessing at it.
+//
+// Street Fighter 6's legend, kept because it is the one people already know:
+// green is startup, red is active, blue is recovery, yellow is stun. What
+// those mean HERE is a question about this game rather than that one, and the
+// honest answers are not all flattering:
+//
+// Startup, active and recovery come from the same integer-frame table as
+// the collision sampler. A landed strike remains in recovery until its
+// original action deadline. Stun still takes precedence over the action.
+//
+// Shielding gets a color of its own because holding a shield is a stance in
+// this game rather than a reaction, and folding it into stun would say
+// something false about who is in control.
+const frameMeterLength = 120;
+const frameMeterStates = {
+  neutral:  { ink: [92, 100, 124], label: "" },
+  startup:  { ink: [86, 226, 120], label: "STARTUP" },
+  active:   { ink: [255, 66, 72], label: "ACTIVE" },
+  recovery: { ink: [72, 150, 255], label: "RECOVERY" },
+  stun:     { ink: [255, 208, 64], label: "STUN" },
+  shield:   { ink: [186, 118, 255], label: "SHIELD" },
+  airborne: { ink: [54, 62, 86], label: "" },
+};
+const frameMeters = [[], []];
+// What a fighter is on this exact frame, in one word. Ordered by what beats
+// what: being stunned outranks anything you were trying to do, and a swing
+// outranks the shield you are no longer really holding.
+function frameMeterState(player, now) {
+  if (!player.alive) return "neutral";
+  if (now < player.hitStunUntil) return "stun";
+  if (player.attackKind && now < player.attackUntil) {
+    if (player.attackHit) return "recovery";
+    return meleeFrame(player, now).phase;
+  }
+  if (player.blocking) return "shield";
+  if (!player.grounded) return "airborne";
+  return "neutral";
+}
+function recordFrameMeter(now) {
+  if (!debugHitboxes) return;
+  for (const player of players) {
+    const meter = frameMeters[player.pad];
+    meter.push(frameMeterState(player, now));
+    if (meter.length > frameMeterLength) meter.shift();
+  }
+}
 // One FIGHT_DEBUG_PERF telemetry line per debug toggle, so the console's log
 // can prove the fps row drew without narrating every frame.
 let debugPerfReported = false;
@@ -1379,12 +2375,47 @@ let viewerSystemPrevious = [];
 let roundViewerStatus = "CONNECTING";
 let roundViewerDemo = null;
 let roundViewerDemoStartedAt = 0;
-// When the last authoritative LIVE frame landed, in engine microseconds. The
-// grandstand runs at display rate but the wire only arrives ~30×/s and
-// irregularly, so the frames in between dead-reckon off this mark (see
-// updateRoundViewer) instead of freezing on the last snap.
+// When the last authoritative LIVE frame landed, on the WALL clock in
+// milliseconds. Wall, not sim: the frame arrives in a socket callback, where
+// the sim clock is not running, and comparing an arrival stamped by one clock
+// against a deadline read from the other drifted by every dropped tick until
+// the coast fuse below stopped tripping at all.
 let roundViewerLiveAt = 0;
+// The grandstand's playout buffer. Wire frames are no longer painted the
+// instant they land — they queue here with their arrival time and the render
+// reads a clock held a little behind the newest of them, so every frame is
+// drawn by interpolating the two that bracket it. Extrapolation is what is
+// left when the buffer runs dry, not the normal case: a body that coasts on
+// stale velocity walks through the floor and then snaps back, which is the
+// whole of what "glitchy" meant on a guest screen.
+let roundViewerFrames = [];
+// The playout clock, in the same wall milliseconds the queue is stamped in.
+// It advances on the simulation's own dt so the picture moves at the sim's
+// rate, and leans gently toward (now − delay) so it neither runs dry nor
+// falls further and further behind.
+let roundViewerPlayoutMs = 0;
+// How far behind the newest arrival the playout clock sits. One wire frame
+// plus the jitter we have actually measured — enough that the next frame is
+// usually already in hand when the clock reaches the last one.
+let roundViewerDelayMs = 70;
+// Wire health, measured from arrivals alone: mean gap, jitter (mean absolute
+// deviation of the gap), and the share of sequence numbers that never came.
+// These are what the connection meter reads, and what sizes the delay above.
+let roundViewerGapMs = 33;
+let roundViewerJitterMs = 0;
+let roundViewerLossPct = 0;
+let roundViewerSeq = -1;
+let roundViewerSeqHeard = 0;
+let roundViewerSeqExpected = 0;
 let roundViewerImpactTick = -1;
+// The newest impact number this watcher has spawned. The host repeats a mark
+// on every frame it is still burning, so this is what tells a repeat from a
+// new spark.
+let roundViewerImpactId = 0;
+// Whether the round being watched has a clock. The wire says so; the watcher
+// must not answer from its own `roundIsTimed()`, which reads a local fight
+// that is not happening.
+let roundViewerTimed = true;
 let livePublishFailed = false;
 
 // Match names are public URLs and must not collide, so they take real
@@ -1444,7 +2475,7 @@ function trackMatchStarted() {
 
 function startReplay(now) {
   const run = runtime();
-  if (!roundIsTimed()) {
+  if (!roundIsRecorded()) {
     seriesName = "";
     matchName = "";
     previousRoundName = "";
@@ -1458,9 +2489,14 @@ function startReplay(now) {
   seedNames(Math.floor(Math.random() * 4294967296));
   const nameSeedUsed = nameSeed;
   seriesName = pronounceableMatchName();
-  matchBallType = seriesBallType(seriesName);
+  // The deal owns the ball in a versus fight — both seats set it from the same
+  // word — so rolling a series ball here would put the two of them in
+  // different fights.
+  if (!versusActive()) matchBallType = seriesBallType(seriesName);
   matchName = "";
   previousRoundName = "";
+  replayRoundMarks = [];
+  replayPendingSaveFrame = -1;
   replay = {
     format: "ac.oskiedemo", version: 1, game: "oskiewar",
     simulation: "oskiewar-physics-1", tickRate: 60,
@@ -1476,7 +2512,17 @@ function startReplay(now) {
       refreshHz: Number(run.refreshHz) || Number(run.measuredHz) || 0,
     },
     startedAt: run.unixMs || 0, startedMonotonicUs: now,
+    // Which room this was played in, so a room can be asked for its own
+    // history. Only a versus fight has one: in the broadcast lane each round
+    // IS its own room and the round id already says so.
+    ...(versusActive() && versusRoomName
+      ? { roomId: "ow-" + versusRoomName, roomName: versusRoomName } : {}),
+    // A versus round runs until somebody falls, so a re-run must not be handed
+    // a clock the original never had. Older demos carry no flag and were all
+    // timed, which is what the reader below assumes.
+    timed: roundIsTimed(),
     nameSeed: nameSeedUsed, ballType: matchBallType,
+    map: skateparkMap ? "skatepark" : "station",
     fighters: players.map((player) => player.name),
     nations: players.map((player) => player.nation || ""),
     commands: [], events: [], checkpoints: [], rounds: [], impacts: [],
@@ -1502,16 +2548,34 @@ function startReplay(now) {
 // this wire too, by choice rather than freedom: it runs one room, one stream,
 // no series and no demo, because the shared URL must keep meaning this fight.
 function roundIsTimed() {
+  // A watcher is answering about somebody else's round. Everything below reads
+  // this machine's own fight, which for a watcher is not running — and a
+  // watcher that has not been served a frame yet has no round to report at
+  // all, so it must not paint a countdown for one. A stored demo still falls
+  // through: it IS a local re-run, and it was a timed round when recorded.
+  if (roundViewer && roundViewerMode !== "DEMO")
+    return roundViewerMode === "LIVE" && roundViewerTimed;
   if (survivalActive()) return false;
   // Training runs without a clock — except under the reel harness, where a
   // scripted dummy bout wants the full round apparatus (clock, demo, result
   // card) so it can be recorded and repainted like any match.
   if (globalThis.__oskiewarTimedTraining === true) return true;
   // Every round that reaches a re-simulation was a timed, recorded round.
-  if (resimActive) return true;
-  if (fightOpponent === "trainingbot" || versusLane()) return false;
+  if (resimActive) return resimTimed;
+  if (fightOpponent === "trainingbot" || versusLane() || freeskateActive()) return false;
   return !(players[1].npc && !players[1].bot);
 }
+
+// This machine is the one that writes a versus fight down. Both seats
+// simulate it, but the record needs exactly one author or the two would race
+// for the same round id — the same reason only the host narrates the stream.
+const versusRecorder = () =>
+  versusActive() && (!netSession || netSession.seat === 0);
+
+// Which rounds leave a record. Timed rounds always did, and a versus fight
+// does now: a room's history is the point of the room. The clock was never
+// what made a round worth keeping, it was just the only lane that had one.
+const roundIsRecorded = () => roundIsTimed() || versusRecorder();
 
 // The frame numbers the debug HUD already prints, packed for the wire. Only
 // stages the host actually measured go in — a console reports a real frame and
@@ -1544,7 +2608,12 @@ function spectatorState(now, nextRoundId = "") {
     Math.round((roundDurationUs - roundElapsedUs) / 1000));
   const state = {
     format: "ac.oskiewar.live", version: 1, seq: liveSequence++,
+    map: { id: currentMapId, name: currentMapName, highlights: workshopHighlight,
+      ...(workshopMap ? { workshop: workshopMap } : {}) },
     at: run.unixMs || 0, phase,
+    course: skateparkMap ? "skatepark" : "station",
+    ropes: skateRopes.map((rope) => rope.nodes.map((node) =>
+      [node.x, node.y, node.px, node.py].map((value) => Math.round(value * 100) / 100))),
     previousRoundId: previousRoundName ? "ow-" + previousRoundName : "",
     fighters: players.map((player) => ({
       // The title's still variant seats a fighter with no name yet, and the
@@ -1553,13 +2622,57 @@ function spectatorState(now, nextRoundId = "") {
       name: player.name || "NOBODY", nation: player.nation || "", color: player.color,
       x: player.x, y: player.y,
       z: player.z, vx: player.vx, vy: player.vy, vz: player.vz,
+      skateboard: player.skateboard,
+      ropeIndex: player.ropeIndex, ropeLink: player.ropeLink,
+      skateRotation: player.skateRotation,
       facing: player.facing, alive: player.alive,
       grounded: player.grounded, ducking: player.ducking,
       sinking: now < player.sinkUntil,
       blocking: player.blocking, score: player.score,
       roundWins: player.roundWins, attack: player.attackKind || "",
       removedParts: player.removedParts.slice(),
+      // Three numbers the grandstand already knew how to read and had never
+      // been sent. `applyRoundViewerState` reconstructs the strike spark, the
+      // limb burst and the swing's real arc from them; without them a live
+      // watcher saw a body come apart in silence and every swing froze at one
+      // canned mid-pose. Two decimals is all a fade needs.
+      hit: Math.round((player.hit || 0) * 100) / 100,
+      blockFlash: Math.round((player.blockFlash || 0) * 100) / 100,
+      attackTicks: player.attackKind
+        ? Math.max(0, Math.round((now - player.attackStartedAt) / replayTickUs))
+        : 0,
     })),
+    // Shots and lobs, the fight's projectiles. These used to stay home: a
+    // watcher — and a challenger on an older build — watched fighters flinch
+    // and die with nothing visible in the air between them. Flat number rows
+    // rather than objects, because the relay caps a frame at 8 KiB and 24
+    // rounds plus 12 grenades named longhand is most of that cap on its own.
+    // Velocity rides along so the playout buffer can carry a round smoothly
+    // between arrivals instead of stepping it 140 units at a time.
+    shots: bullets.filter((shot) => shot.life > 0).map((shot) => [
+      Math.round(shot.x), Math.round(shot.y), Math.round(shot.z),
+      Math.round(shot.previousX ?? shot.x),
+      Math.round(shot.previousY ?? shot.y),
+      Math.round(shot.vx || 0), Math.round(shot.vy || 0), shot.owner | 0,
+      (shot.spit ? 1 : 0) | (shot.heavy ? 2 : 0) | (shot.rubber ? 4 : 0)]),
+    // The host's own impact track. A watcher was reconstructing sparks from
+    // the flag edges it could see, which covers a punch landing and nothing
+    // else: a ricochet, a spit splat, a ground pound's crater and a grenade's
+    // own blast raise no flag on any fighter, so they happened in silence on
+    // every screen but the host's. Newest twelve, each with the number that
+    // says whether a watcher has already seen it, and its remaining life so
+    // it is spawned at the age it really is.
+    impacts: impacts.filter((mark) => mark.life > 0).slice(-12)
+      .map((mark) => [mark.id | 0, Math.round(mark.x), Math.round(mark.y),
+        Math.round(mark.z), Math.round((mark.duration || .3) * 1000),
+        Math.round(Math.max(0, mark.life) * 1000),
+        (mark.death ? 1 : 0) | (mark.explosion ? 2 : 0)]),
+    lobs: grenades.filter((lob) => lob.alive).map((lob) => [
+      Math.round(lob.x), Math.round(lob.y), Math.round(lob.z),
+      Math.round(lob.vx || 0), Math.round(lob.vy || 0), lob.owner | 0,
+      (lob.rocket ? 1 : 0) | (lob.exploding ? 2 : 0),
+      Math.round(lob.blastRadius || 0),
+      Math.round(Math.max(0, lob.fuse || 0) * 1000)]),
     ball: { active: ball.active, x: ball.x, y: ball.y,
       z: ball.z, radius: ball.radius, type: ball.type, mass: ball.mass },
     balls: balls.map((item) => ({ active: item.active, x: item.x,
@@ -1572,7 +2685,13 @@ function spectatorState(now, nextRoundId = "") {
       roll: cameraDoll.roll },
     wind: { direction: windDirection, mph: windMph },
     round: { remainingMs, timed, result: roundResult || "",
-      cause: roundCause || "" },
+      cause: roundCause || "",
+      // How long this round has been running, intro included. A timed round
+      // could be reconstructed from `remainingMs` alone, but the versus lane
+      // reports zero there — and a watcher deriving its clock from that zero
+      // pinned itself thirty seconds in the past, which is why it never
+      // counted a round off and never played an intro card.
+      elapsedMs: clamp(Math.round((now - roundStartedAt) / 1000), 0, 3600000) },
     // @jeffrey plays oskiewar.com in Edge on an Xbox, where there are no
     // devtools and the console's own AC_NATIVE_PROFILE line only reaches a
     // Device Portal on the same LAN. The live socket is the one channel that
@@ -1620,7 +2739,8 @@ function publishSpectator(now, { target = matchName, nextRoundId = "",
 // which both points any watcher at the fight and retires this room's publisher
 // so the native shell's single socket is free to follow.
 function publishSession(now) {
-  if (!debugHitboxes || !sessionName || livePublishFailed ||
+  if ((!debugHitboxes && !globalThis.__oskiewarWorkshopEnabled) ||
+      !sessionName || livePublishFailed ||
       typeof publishLive !== "function") return;
   const liveRound = roundIsTimed() && matchName ? matchName : "";
   if (liveRound) {
@@ -1715,11 +2835,15 @@ function recordReplayCheckpoint(now, force = false) {
 function makeRoundReplayFrame(now) {
   const poseTime = (now - startedAt) / 1000000;
   return {
+    ropes: structuredClone(skateRopes),
     players: players.map((player) => ({
+      present: !lobbyActive() || player.pad === 0,
       x: player.x, y: player.y, z: player.z,
       vx: player.vx, vy: player.vy, vz: player.vz,
       facing: player.facing, grounded: player.grounded,
       ducking: player.ducking, alive: player.alive,
+      ropeIndex: player.ropeIndex, ropeLink: player.ropeLink,
+      skateRotation: player.skateRotation, skateboard: player.skateboard,
       blocking: player.blocking, blockFlash: player.blockFlash, hit: player.hit,
       attackKind: player.attackKind,
       attackStartedOffset: player.attackStartedAt - now,
@@ -1770,12 +2894,13 @@ function captureFrameTelemetry(now, force = false) {
 }
 
 function applyRoundReplayFrame(frame, now) {
+  if (frame.ropes) skateRopes.splice(0, skateRopes.length, ...structuredClone(frame.ropes));
   for (let index = 0; index < players.length; index++) {
     const player = players[index];
     const state = frame.players[index];
     for (const key of ["x", "y", "z", "vx", "vy", "vz", "facing",
       "grounded", "ducking", "alive", "blocking", "blockFlash", "hit",
-      "attackKind"]) player[key] = state[key];
+      "attackKind", "ropeIndex", "ropeLink", "skateRotation", "skateboard"]) player[key] = state[key];
     player.attackStartedAt = now + state.attackStartedOffset;
     player.attackUntil = now + state.attackUntilOffset;
     player.replayGeometry = state.geometry;
@@ -1794,9 +2919,21 @@ function applyRoundReplayFrame(frame, now) {
 
 function finishInstantReplay(now) {
   if (!instantReplay) return;
+  const respawn = instantReplay.respawn;
   applyRoundReplayFrame(instantReplay.endFrame, now);
   for (const player of players) delete player.replayGeometry;
   instantReplay = null;
+  if (respawn) {
+    soloDeathReplayPending = null;
+    deathCinematic = null;
+    if (respawn.lobby) beginVersusLobby(now, { title: respawn.title });
+    else {
+      resetRound(now, true);
+      shellMode = respawn.title ? "MENU" : "GAME";
+      gameplayStarted = !respawn.title;
+    }
+    return;
+  }
   roundOverAt = now;
   replayOfferPrevious = padSnapshots[0]?.down?.slice() || [];
 }
@@ -1809,6 +2946,7 @@ function finishInstantReplay(now) {
 function frameAction(frame) {
   let action = 0;
   for (const player of frame.players) {
+    if (player.present === false) continue;
     if (!player.alive) action = Math.max(action, 1);
     if (player.hit) action = Math.max(action, 1);
     if (player.blockFlash > 0) action = Math.max(action, .7 * player.blockFlash);
@@ -1842,11 +2980,12 @@ function replayRampStep(speed, action, elapsedSeconds) {
     Math.min(1, Math.max(0, elapsedSeconds) * replayRampPerSecond);
 }
 
-function startInstantReplay(now) {
+function startInstantReplay(now, respawn = null) {
   if (!INSTANT_REPLAY) return false;
   if (roundReplayFrames.length < 2) return false;
-  const frames = roundReplayFrames.slice();
+  const frames = respawn ? roundReplayFrames.slice(-90) : roundReplayFrames.slice();
   instantReplay = { frames, cursor: 0, lastAt: now, paused: false,
+    respawn,
     previous: padSnapshots[0]?.down?.slice() || [],
     action: replayActionCurve(frames), speed: 1,
     endFrame: frames[frames.length - 1] };
@@ -1855,6 +2994,16 @@ function startInstantReplay(now) {
   applyRoundReplayFrame(frames[0], now);
   telemetry("ROUND_REPLAY", "start frames=" + frames.length);
   return true;
+}
+
+function queueSoloDeathReplay(player, now) {
+  if (player.pad !== 0 || netSession || roundViewer || localVersusActive() ||
+      versusActive() || survivalActive() || soloDeathReplayPending || instantReplay) return;
+  soloDeathReplayPending = { at: now + 500000,
+    title: shellMode === "MENU", lobby: lobbyActive() };
+  deathCinematic = { startedAt: now, loserPad: player.pad,
+    winnerPad: player.pad, cause: roundCause, solo: true };
+  emitSignal("killcam", player.pad, player.pad, 1);
 }
 
 function updateInstantReplay(now, dt) {
@@ -1887,14 +3036,39 @@ function updateInstantReplay(now, dt) {
   applyRoundReplayFrame(instantReplay.frames[Math.floor(instantReplay.cursor)], now);
   instantReplay.previous = down.slice();
   const target = { x: cameraCenter, y: cameraCenterY, z: 0 };
-  cameraDoll.track({ target,
-    position: { x: cameraCenter - cameraWidth * .06,
-      y: cameraCenterY - cameraWidth * .04, z: -cameraWidth * 1.35 },
-    width: cameraWidth, perspective: 0, fov: 55 }, dt, 18);
+  const visible = activePlayers();
+  if (instantReplay.respawn && visible.length) {
+    target.x = visible[0].x; target.y = visible[0].y - 110;
+    target.z = visible[0].z;
+  }
+  cameraDoll.track(deathOrbitShot(target,
+    instantReplay.respawn ? 900 * portraitPull() : Math.max(900 * portraitPull(), cameraWidth),
+    instantReplay.cursor / Math.max(1, instantReplay.frames.length - 1)), dt, 18);
 }
 
+// A finished round in a rollback fight is not finished yet: the frames that
+// ended it are still inside the rollback window, and a rival pad arriving late
+// can take the knockout back. So the round is marked and filed later, from
+// netTick, once both seats have confirmed past its end. A re-simulation
+// reaches this line again and simply re-marks the frame.
 function saveRoundReplay(now) {
   if (!replay) return;
+  if (netSession) { replayPendingSaveFrame = netSession.frame; return; }
+  uploadRoundReplay(now);
+}
+
+// Everything that is waiting, filed now whatever the wire is doing. A rival
+// who has gone will never confirm anything, and the round they lost still
+// happened.
+function flushPendingRoundReplay(now) {
+  if (replayPendingSaveFrame < 0 || !replay) return;
+  replayPendingSaveFrame = -1;
+  uploadRoundReplay(now);
+  if (matchOver) finishReplay();
+}
+
+function uploadRoundReplay(now) {
+  if (!replay || workshopTainted) return;
   recordReplayCheckpoint(now, true);
   const demo = JSON.parse(JSON.stringify(replay));
   demo.matchId = "ow-" + matchName;
@@ -1902,8 +3076,18 @@ function saveRoundReplay(now) {
   demo.roundId = demo.matchId;
   demo.roundName = matchName;
   demo.roundIndex = Math.max(0, replay.roundIds.length - 1);
-  demo.previousRoundId = previousRoundName ? "ow-" + previousRoundName : "";
+  // Read off the ledger rather than off `previousRoundName`, so a rollback
+  // that took a rollover back cannot leave the linkage pointing at a round
+  // that no longer exists.
+  demo.previousRoundId = demo.roundIndex > 0
+    ? replay.roundIds[demo.roundIndex - 1] : "";
   demo.durationTicks = demoTick(now);
+  // The names as they were when the round was PLAYED. `replay.fighters` was
+  // taken when the series opened, which in a versus fight is before the deal
+  // has dressed either seat — so the winner below could be somebody the demo
+  // never listed, and the store refused the round with "Invalid winner".
+  demo.fighters = players.map((player) => player.name);
+  demo.nations = players.map((player) => player.nation || "");
   demo.winner = players[0].score === players[1].score ? null
     : players[0].score > players[1].score ? players[0].name : players[1].name;
   demo.finalRoundWins = players.map((player) => player.roundWins);
@@ -1928,13 +3112,22 @@ function saveRoundReplay(now) {
 }
 
 function finishReplay() {
+  if (replayPendingSaveFrame >= 0 && replay) {
+    replayPendingSaveFrame = -1;
+    uploadRoundReplay(runtime().monotonicUs);
+  }
+  replayRoundMarks = [];
+  replayPendingSaveFrame = -1;
   replay = null;
 }
 
 function emitSignal(event, player = -1, value = 0, value2 = 0) {
-  if (netSilent) return;
+  // Filed first, and filed even while re-simulating: a rollback truncated
+  // these rows and the silent pass is what puts the corrected ones back. What
+  // the silence is for is the PERFORMANCE below — nobody hears a frame twice.
   if (replay) replay.events.push([demoTick(runtime().monotonicUs), event,
     player, Math.round(value * 1000) / 1000, Math.round(value2 * 1000) / 1000]);
+  if (netSilent) return;
   if (typeof gameSignal === "function") gameSignal(event, player, value, value2);
 }
 
@@ -2210,16 +3403,16 @@ function drawDumpIcon(kind, x, y, size) {
   try {
     if (kind === "build")
       for (let row = 0; row < 3; row++)
-        box(x, y + row * unit * 3, size - row * unit * 2, unit * 2, ...ink);
+        hudBox(x, y + row * unit * 3, size - row * unit * 2, unit * 2, ...ink);
     else if (kind === "camera") {
       strokeBox(x, y + unit, size, size - unit * 2, unit, ink);
-      box(x + unit * 3, y + unit * 3, size - unit * 6, size - unit * 6, ...ink);
+      hudBox(x + unit * 3, y + unit * 3, size - unit * 6, size - unit * 6, ...ink);
     } else if (kind === "player") {
-      box(x + unit * 2, y, size - unit * 4, unit * 3, ...ink);
-      box(x, y + unit * 4, size, size - unit * 4, ...ink);
+      hudBox(x + unit * 2, y, size - unit * 4, unit * 3, ...ink);
+      hudBox(x, y + unit * 4, size, size - unit * 4, ...ink);
     } else if (kind === "ball") {
-      box(x + unit * 2, y, size - unit * 4, size, ...ink);
-      box(x, y + unit * 2, size, size - unit * 4, ...ink);
+      hudBox(x + unit * 2, y, size - unit * 4, size, ...ink);
+      hudBox(x, y + unit * 2, size, size - unit * 4, ...ink);
     } else strokeBox(x, y, size, size, unit, ink);
   } catch (_) {}
 }
@@ -2243,12 +3436,12 @@ function errorQrGeometry(width, height) {
 // coalesce into horizontal runs so a full code stays a few hundred draws.
 function drawErrorQr(qr) {
   if (!qr) return;
-  box(qr.left, qr.top, qr.size, qr.size, 250, 250, 247);
+  hudBox(qr.left, qr.top, qr.size, qr.size, 250, 250, 247);
   for (let row = 0; row < qr.count; row++) {
     let run = 0;
     for (let column = 0; column <= qr.count; column++) {
       if (column < qr.count && clientErrorQr.isDark(row, column)) { run++; continue; }
-      if (run) box(qr.left + (column - run + qr.quiet) * qr.cell,
+      if (run) hudBox(qr.left + (column - run + qr.quiet) * qr.cell,
         qr.top + (row + qr.quiet) * qr.cell, run * qr.cell, qr.cell, 7, 8, 14);
       run = 0;
     }
@@ -2352,6 +3545,7 @@ function fighterProfile(handle) {
 }
 
 function syncSignedInFighter() {
+  if (localVersusActive()) return;
   const identity = acFeed?.player;
   if (!identity?.handle || players[0].npc) return;
   const handle = String(identity.handle).toUpperCase();
@@ -2368,6 +3562,13 @@ function syncSignedInFighter() {
 }
 
 function applyRoster(player, index) {
+  if (localVersusActive()) {
+    player.rosterIndex = player.pad === 0 ? 0 : 2;
+    player.name = "PLAYER " + (player.pad + 1);
+    player.color = fighterRoster[player.rosterIndex].color.slice();
+    player.handleColors = [];
+    return;
+  }
   if (player.npc) {
     const fighter = selfPlay && player.bot ? selfPlayFighters[player.pad]
       : player.bot ? botFighter
@@ -2408,7 +3609,20 @@ function applyRoster(player, index) {
     }
     return;
   }
-  const rosterIndex = (index + fighterRoster.length) % fighterRoster.length;
+  // A negative index means there is no roster fighter here — an anonymous
+  // seat, or a remote one whose handle has not arrived. It used to wrap: -1
+  // came out as the LAST roster entry, so an unnamed chair was dressed as a
+  // real person, and `Math.max(0, rosterIndex)` at the two versus callers
+  // floored it to the FIRST one instead. Between them an anonymous fight read
+  // as @JEFFREY against @SAT. Nobody is nobody.
+  if (index < 0) {
+    player.rosterIndex = -1;
+    player.name = anonymousFighter.handle;
+    player.color = anonymousFighter.color.slice();
+    player.handleColors = anonymousFighter.colors;
+    return;
+  }
+  const rosterIndex = index % fighterRoster.length;
   const fighter = fighterRoster[rosterIndex];
   const profile = fighterProfile(fighter.handle);
   player.rosterIndex = rosterIndex;
@@ -2417,18 +3631,21 @@ function applyRoster(player, index) {
   player.handleColors = profile.colors;
 }
 
-// The one door into a fight, and the seam auth will attach to. Training is
-// free and anonymous — it is the front door and must never ask for anything,
-// and `trainingbot` is that door's sparring partner: the bot's brain in a
-// round that stays off the wire. Bot and ppl are what a handle buys, because
-// they persist: a series, a published match, a replay, a ranking. Sign-in
-// belongs on this call, not in front of the game. Nothing opens those doors
-// yet, so only training reaches here.
+// The one door into a fight. Training is free and anonymous — it is the front
+// door and must never ask for anything, and `trainingbot` is that door's
+// sparring partner: the bot's brain in a round that stays off the wire. Bot
+// and ppl are what a handle buys, because they persist: a series, a published
+// match, a replay, a ranking. Nothing opens those two doors yet, so only
+// training reaches here and this call asks for nothing.
+//
+// The seam the sign-in actually landed on is `versusAllowed()`, because versus
+// is the door that opened first: see `startVersusFight`. When bot and ppl open,
+// they gate here on the same reader.
 function startFightAgainst(kind, now) {
   gameMode = "fight";
   selfPlay = false;
-  players[0].spawnX = tileCenterX(3);
-  players[1].spawnX = tileCenterX(6);
+  players[0].spawnX = tileCenterX(spawnColLeft);
+  players[1].spawnX = tileCenterX(spawnColRight);
   const opponent = players[1];
   fightOpponent = kind;
   opponent.npc = kind === "dummy" || kind === "spiderdummy" ||
@@ -2448,19 +3665,182 @@ function startFightAgainst(kind, now) {
 }
 
 function survivalRequested() {
-  const requested = String(globalThis.__oskiewarOpponent || "")
-    .trim().toLowerCase();
-  if (requested === "survival") return true;
-  // The empty front door still opens on the climb wherever the shell cannot
-  // carry a rival's presses inbound — the native publisher reads the relay
-  // and discards, so a versus room there would be a post that never hits
-  // back. The web shell raises the capability flag; nothing else does.
-  return !requested && globalThis.__oskiewarVersusCapable !== true;
+  // The climb is a door asked for by name, and only by name. It used to be
+  // the empty door on any shell that could not raise the versus flag — the
+  // native consoles, whose publisher reads the relay and discards — which
+  // left the Xbox opening on the climb every boot. @jeffrey, on the console:
+  // "i dont like the climbing mode / map ... i want it in vs / dummy mode".
+  // So where versus cannot happen the empty door is the training fight
+  // (`beginTraining`, a sparring partner on the floor), the same landing the
+  // web gets when the relay is out of reach.
+  return String(globalThis.__oskiewarOpponent || "")
+    .trim().toLowerCase() === "survival";
+}
+
+const localVersusActive = () => fightOpponent === "local";
+// The web shell marks a pad `localController` when a physical gamepad is
+// behind it; the console's pad object (QuickJsEngine PadObject) never
+// carried the field, so `localControllerPair()` was false on the Xbox with
+// three controllers plugged in and the dummy's chair never went to player
+// two — @jeffrey, 2026-09-20: "it only sees one controller hmm". The native
+// pad object carries no name or id either (PadObject: index, connected,
+// sticks, triggers, down). What the console does have is `controllers()`,
+// its enumeration of real hardware — a pad whose index sits inside that
+// list is a local controller. The test harness stubs `gamepad` with two
+// always-connected pads and defines no `controllers`, so its fights stay
+// what they were; "connected" alone turned every harness fight into local
+// versus (131 tests).
+let nativeControllerCount = 0;
+let nativeControllerPolls = 0;
+function samplePad(index) {
+  const pad = gamepad(index);
+  if (pad && pad.localController === undefined && pad.connected === true &&
+      typeof controllers === "function") {
+    // Re-enumerate about twice a second; a pad joining mid-title waits at
+    // most that long for its chair.
+    if (index === 0 && nativeControllerPolls++ % 30 === 0)
+      nativeControllerCount = controllers().length;
+    if (index < nativeControllerCount) pad.localController = true;
+  }
+  return pad;
+}
+const localControllerPair = () =>
+  padSnapshots.every((pad) => pad?.localController === true);
+let localControllerPairSeen = false;
+let localControllerMissing = -1;
+
+function startLocalVersus(now) {
+  finishReplay();
+  fightOpponent = "local";
+  for (const player of players) {
+    player.npc = false;
+    player.bot = false;
+    player.spiderDummy = false;
+    player.remote = false;
+  }
+  applyRoster(players[0], Math.max(0, players[0].rosterIndex));
+  localControllerMissing = -1;
+  globalThis.__oskiewarVersusRoom = "";
+  gameSpeed = 1;
+  startFightAgainst("local", now);
+  startInputPending = true;
+  navigationPrevious = padSnapshots.map((pad) => pad?.down?.slice() || []);
+}
+
+function updateLocalVersus(now) {
+  const paired = localControllerPair();
+  const arrived = paired && !localControllerPairSeen;
+  localControllerPairSeen = paired;
+  // A second local pad must never take over a remote fight or a recording.
+  if (roundViewer || netSession || selfPlay || resimActive || versusActive())
+    return false;
+  if (arrived && !localVersusActive()) startLocalVersus(now);
+  if (!localVersusActive()) { localControllerMissing = -1; return false; }
+  if (!paired) {
+    localControllerMissing = padSnapshots.findIndex(
+      (pad) => pad?.localController !== true);
+    return true;
+  }
+  if (localControllerMissing !== -1) {
+    localControllerMissing = -1;
+    // Restart the interrupted round with the match tally intact. Absolute
+    // attack/death timers cannot safely resume after an arbitrary unplug.
+    if (matchOver) startLocalVersus(now);
+    else resetRound(now, false, true);
+    startInputPending = true;
+    navigationPrevious = padSnapshots.map((pad) => pad?.down?.slice() || []);
+  }
+  return false;
 }
 
 function versusRequested() {
   return !String(globalThis.__oskiewarOpponent || "").trim() &&
     globalThis.__oskiewarVersusCapable === true;
+}
+
+// ---------------------------------------------------------------------------
+// The door. @jeffrey: "i think we should require users to axtually login in
+// order to play... and also to make a handle in order to play".
+//
+// Training stays free and anonymous — it is the front door and must never ask
+// for anything — and so does watching: the link a friend sends has to work for
+// whoever opens it, account or no account. What a handle buys is the half of
+// the game with another person on the other end of it, because that half is
+// the half that persists. A fight against a stranger called RIVAL is not worth
+// having; those placeholder names were the symptom, not the problem.
+//
+// The shell owns the account and the panel; this file owns the question of
+// when the door is in the way. Two globals carry it:
+//
+//   __oskiewarAccount      { ready, signedIn, handle, colors }  shell → game
+//   __oskiewarAccountDoor  "" | "login" | "handle"              game → shell
+// The door is built, tested and wired on both sides, and it is held open until
+// the tenant can actually let somebody through it. Native sign-in needs
+// "Passwordless OTP" ticked on the Auth0 application, and as of 26.09.11 the
+// tenant answers `unauthorized_client` — so the only way in is the redirect,
+// which lands on the Universal Login page's Turnstile, which is the loop this
+// whole flow exists to avoid. Requiring an account before there is a working
+// way to make one does not gate the game, it closes it.
+//
+// Flip this to true the moment that grant is on. Everything behind it is
+// already written and covered by tests, which drive it through
+// `setVersusRequiresAccount`.
+let versusRequiresAccount = false;
+
+const accountState = () => globalThis.__oskiewarAccount || null;
+// Nobody is turned away before the shell has finished asking. A silent session
+// check takes a moment, and a door that flashed up inside it would send a
+// signed-in player off to sign in again.
+const accountReady = () => accountState()?.ready === true;
+const accountHandle = () => String(accountState()?.handle || "");
+// A shell with no account system at all is not a locked-out visitor, it is an
+// older build, and it must not be left standing in a waiting room that can
+// never start. The two halves of this door — the panel over there, the refusal
+// here — ship together, and until the shell offers one there is nothing for
+// this to hold shut.
+//
+// Which is the honest shape of it: this is a door, not a lock. The name on the
+// wire has always been whatever the client says it is, and a console can set
+// any global it likes. Enforcement would mean the relay verifying a token on
+// the seat, and that is a different piece of work.
+const versusAllowed = () => !versusRequiresAccount || !accountState() ||
+  (accountReady() && accountState().signedIn === true &&
+    Boolean(accountHandle()));
+
+// Which door, if any, stands between this visitor and a fight. Empty while the
+// shell is still asking, and empty for anyone already through.
+function versusDoor() {
+  if (!versusRequiresAccount) return "";
+  if (!accountState() || !accountReady()) return "";
+  if (accountState().signedIn !== true) return "login";
+  if (!accountHandle()) return "handle";
+  return "";
+}
+
+// Raised only while somebody is actually trying to play a person: standing in
+// the waiting room, or holding a chair. A spectator is never asked for
+// anything, and neither is the title screen.
+// What this file last asked the shell for, so a panel that closes on its own
+// can be told from one that was never open.
+let accountDoorAsked = "";
+
+function updateAccountDoor() {
+  const wanted = shellMode === "GAME" && versusLane() && !roundViewer
+    ? versusDoor() : "";
+  const showing = globalThis.__oskiewarAccountDoor || "";
+  // "never mind" drops every request the panel is holding, this one included.
+  // Left alone, the next frame would simply ask again and the panel would
+  // spring back up — which is not a dismissal, it is a trap. Somebody who
+  // backs out goes to the title screen instead, where the account button
+  // lives, where training is one press away, and where nothing is asking them
+  // for anything.
+  if (accountDoorAsked && wanted && !showing) {
+    accountDoorAsked = "";
+    returnToTitle(runtime().monotonicUs, "account");
+    return;
+  }
+  if (showing !== wanted) globalThis.__oskiewarAccountDoor = wanted;
+  accountDoorAsked = wanted;
 }
 
 function startSurvivalRun(now, botControlled = false) {
@@ -2474,14 +3854,14 @@ function startSurvivalRun(now, botControlled = false) {
   finishReplay();
 
   const runner = players[0];
-  runner.spawnX = tileCenterX(4);
+  runner.spawnX = centerX;
   runner.npc = botControlled;
   runner.bot = botControlled;
   runner.spiderDummy = false;
   applyRoster(runner, botControlled ? -1 : Math.max(0, runner.rosterIndex));
 
   const absent = players[1];
-  absent.spawnX = tileCenterX(9);
+  absent.spawnX = tileCenterX(cornerColRight);
   absent.npc = true;
   absent.bot = false;
   absent.spiderDummy = false;
@@ -2499,13 +3879,14 @@ function startSurvivalRun(now, botControlled = false) {
   survivalPeakLevel = 0;
   cameraCenter = (worldLeft + worldRight) / 2;
   cameraCenterY = floorY - 240;
-  cameraWidth = gridWidth + 120;
+  cameraWidth = survivalFrameWidth;
   cameraContainFloor = 0;
   cameraDoll.snap({ target: { x: cameraCenter, y: cameraCenterY, z: 0 },
     position: { x: cameraCenter, y: cameraCenterY,
-      z: -(gridWidth + 120) * 1.35 },
-    width: gridWidth + 120, perspective: 0, fov: 55, roll: 0 });
-  for (const pickup of [...gunPickups, ...grenadePickups]) pickup.active = false;
+      z: -survivalFrameWidth * 1.35 },
+    width: survivalFrameWidth, perspective: 0, fov: 55, roll: 0 });
+  for (const pickup of [...gunPickups, ...saberPickups, ...grenadePickups])
+    pickup.active = false;
   for (const item of balls) item.active = false;
   emitSignal("survival", 0, 1, 0);
 }
@@ -2548,6 +3929,111 @@ function beginTraining(now) {
   }
 }
 
+// Freeskate's instrument: the rider's ground speed, named by tier, bottom
+// left — so the skating can be tuned by eye and by number at once.
+const speedTiers = [
+  [runOverdriveTop, "zoom", [255, 92, 188]],
+  [runTopSpeed, "sprint", [255, 176, 48]],
+  [walkSpeed + 120, "run", [96, 214, 255]],
+  [0, "walk", [230, 236, 248]],
+];
+function drawFreeskateSpeed() {
+  const rider = players[0];
+  const speed = Math.abs(rider.skateboard && rider.grounded ? rider.skateVx : rider.vx);
+  const [, tier, ink] = speedTiers.find(([floor]) => speed >= floor);
+  const safe = hudSafeRect();
+  const size = compactLayout() ? 30 : 44;
+  const x = safe.left + 8, y = safe.bottom - size;
+  typeWrite(tier, x + 3, y + 4, size, ...contrastShadow(ink));
+  typeWrite(tier, x, y, size, ...ink);
+  const number = String(Math.round(speed));
+  const small = Math.round(size * .5);
+  const numberX = x + handleWidth(tier, size) + 14;
+  typeWrite(number, numberX + 2, y + size - small + 3, small, ...contrastShadow(ink));
+  typeWrite(number, numberX, y + size - small, small, ...ink);
+}
+
+// Freeskate never ends to the right. The long park repeats every 9,000
+// units from its first chain onward — ramps, pads and chains alike — so a
+// rider crossing x 20,250 is moved back one period to 11,250, where the
+// course around them is identical, and the camera moves with them. The
+// circuit is a pad, the middle loop, a chain and a pad, forever. Never
+// mid-trick: a rider on a chain or inside a loop wraps once they are off it.
+const freeskateLap = { from: 20250, span: 9000 };
+function wrapFreeskate() {
+  if (!freeskateActive()) return;
+  const rider = players[0];
+  if (rider.x < freeskateLap.from || rider.vx <= 0 ||
+      rider.ropeIndex >= 0 || rider.skateLoop >= 0) return;
+  const shift = -freeskateLap.span;
+  const moved = [rider, cameraDoll.position, cameraDoll.target];
+  for (const item of balls) if (item.heldBy === rider.pad) moved.push(item);
+  for (const object of moved) {
+    object.x += shift;
+    // The frame that entered this tick moves too, or paint would blend the
+    // rider across the whole period in one frame.
+    const previous = renderPreviousState?.get(object);
+    if (previous && Number.isFinite(previous.x)) previous.x += shift;
+  }
+  cameraCenter += shift;
+  cameraDoll.dirty = true;
+  emitSignal("freeskate-lap", rider.pad, 1, 0);
+}
+
+function freeskateRequested() {
+  return String(globalThis.__oskiewarOpponent || "").trim().toLowerCase() === "freeskate";
+}
+
+// Freeskate boots straight onto the long park: the local rider on a board,
+// the second chair parked past the wall like the lobby's, and every weapon
+// pickup cleared so nothing on the course is a fight.
+function beginFreeskate(now) {
+  gameMode = "fight";
+  selfPlay = false;
+  fightOpponent = "freeskate";
+  freeskateEntered = true;
+  finishReplay();
+  seriesName = "";
+  matchName = "";
+  previousRoundName = "";
+  configureWorldMap("skatepark");
+  const rider = players[0];
+  // Dropped in the middle of the half-pipe's flat, facing a wall.
+  rider.spawnX = tileCenterX(Math.floor((halfpipe.floorFrom + halfpipe.floorTo) / 2));
+  // A host can start the rider anywhere on the course, for looking at a
+  // stretch of it without riding there first.
+  const startX = Number(globalThis.__oskiewarFreeskateStart);
+  if (Number.isFinite(startX) && startX > worldLeft && startX < worldRight) rider.spawnX = startX;
+  rider.npc = false;
+  rider.bot = false;
+  rider.spiderDummy = false;
+  rider.remote = false;
+  applyRoster(rider, rider.rosterIndex);
+  const chair = players[1];
+  chair.npc = true;
+  chair.bot = false;
+  chair.spiderDummy = false;
+  chair.remote = false;
+  applyRoster(chair, -1);
+  selecting = false;
+  shellMode = "GAME";
+  gameplayStarted = true;
+  titleTransitionAt = null;
+  resetRound(now, true);
+  chair.alive = false;
+  chair.respawnAt = Infinity;
+  chair.x = worldRight + gridWidth;
+  chair.y = floorY;
+  chair.name = "";
+  for (const pickup of [...gunPickups, ...saberPickups, ...grenadePickups])
+    pickup.active = false;
+  // The rider starts on the board, so the loose board that dismounting
+  // throws stays put away until they come off it; no other ball rolls here.
+  for (const item of balls) item.active = false;
+  roundStartedAt = now - roundIntroDurationUs();
+  emitSignal("freeskate", 0, 1, 0);
+}
+
 // The versus lobby: one fighter, an empty chair, and the address as the
 // invitation. Everything a visitor can do here is practice — their own moves
 // are named back at them — until the relay seats a rival, at which point
@@ -2565,14 +4051,14 @@ function beginVersusLobby(now, { title = false } = {}) {
   if (!versusRoomName) versusRoomName = sessionName;
   globalThis.__oskiewarVersusRoom = versusRoomName;
   const local = players[0];
-  local.spawnX = tileCenterX(3);
+  local.spawnX = tileCenterX(spawnColLeft);
   local.npc = false;
   local.bot = false;
   local.spiderDummy = false;
   local.remote = false;
-  applyRoster(local, Math.max(0, local.rosterIndex));
+  applyRoster(local, local.rosterIndex);
   const chair = players[1];
-  chair.spawnX = tileCenterX(6);
+  chair.spawnX = tileCenterX(spawnColRight);
   chair.npc = true;
   chair.bot = false;
   chair.spiderDummy = false;
@@ -2587,8 +4073,12 @@ function beginVersusLobby(now, { title = false } = {}) {
   chair.respawnAt = Infinity;
   chair.x = worldRight + gridWidth;
   chair.y = floorY;
-  // An empty chair wears no dummy's name — the wire calls it NOBODY.
+  // An empty chair wears no dummy's name — the wire calls it NOBODY. And the
+  // room forgets who was last in it, so the next person to sit down is dressed
+  // from their own offer rather than inheriting the last one's.
   chair.name = "";
+  versusRivalName = "";
+  versusRivalOffered = "";
   // Spend the countdown before the first frame: arriving is moving, and
   // there is nobody here to count in against anyway.
   roundStartedAt = now - roundIntroDurationUs();
@@ -2601,18 +4091,22 @@ function beginVersusLobby(now, { title = false } = {}) {
 // no npc stillness, their presses riding in off the relay — and open the
 // round with the full countdown so both screens see the same three seconds.
 function startVersusFight(now, resetMatch = true) {
+  // The one gate that matters: this is the call that puts two people in a
+  // round. Everything below it — publishing, the seat, the score — assumes
+  // both ends have a name worth writing down.
+  if (!versusAllowed()) return;
   gameMode = "fight";
   selfPlay = false;
   fightOpponent = "versus";
   const local = players[0];
-  local.spawnX = tileCenterX(3);
+  local.spawnX = tileCenterX(spawnColLeft);
   local.npc = false;
   local.bot = false;
   local.spiderDummy = false;
   local.remote = false;
-  applyRoster(local, Math.max(0, local.rosterIndex));
+  applyRoster(local, local.rosterIndex);
   const rival = players[1];
-  rival.spawnX = tileCenterX(6);
+  rival.spawnX = tileCenterX(spawnColRight);
   rival.npc = false;
   rival.bot = false;
   rival.spiderDummy = false;
@@ -2621,6 +4115,9 @@ function startVersusFight(now, resetMatch = true) {
   shellMode = "GAME";
   gameplayStarted = true;
   titleTransitionAt = null;
+  // A fresh match is a fresh series, and a versus series is now recorded like
+  // any other. A round rollover inside a match keeps the one it has.
+  if (resetMatch) startReplay(now);
   resetRound(now, resetMatch);
   dressVersusRival();
   if (resetMatch && typeof analytics === "function") {
@@ -2643,9 +4140,9 @@ function dressVersusRival() {
   const rival = players[1];
   if (!rival.remote) return;
   const remote = globalThis.__oskiewarRemotePad;
-  const offered = String(remote?.name || "").toUpperCase()
-    .replace(/[^@A-Z0-9_-]/g, "").slice(0, 24);
-  versusRivalName = /^@?[A-Z0-9_-]{1,24}$/.test(offered) ? offered : "RIVAL";
+  const offered = versusOfferedName();
+  versusRivalOffered = offered;
+  versusRivalName = /^@?[A-Z0-9_-]{1,24}$/.test(offered) ? offered : "";
   rival.name = versusRivalName;
   const colors = (Array.isArray(remote?.colors) ? remote.colors : [])
     .filter((entry) => Array.isArray(entry) && entry.length === 3 &&
@@ -2672,8 +4169,19 @@ function publishVersus(now) {
   // the room's one publisher socket.
   if (netSession && netSession.seat !== 0) return;
   if (netSilent || !versusLane() || !versusRoomName || livePublishFailed ||
-      typeof publishLive !== "function" || now < versusNextAt) return;
-  versusNextAt = now + versusSnapshotIntervalUs;
+      typeof publishLive !== "function") return;
+  // A waiting room nobody can be invited into is not a room. Publishing it
+  // would put it in front of the matchmaker as a chair to take.
+  if (!versusAllowed()) return;
+  // Paced on the WALL clock, not the simulation's. The driver runs up to four
+  // owed ticks in one instant to catch up, and a sim-clocked gate let every
+  // one of those emit its own frame — two or three full state builds in the
+  // same millisecond, arriving at the relay as a burst it can only coalesce.
+  // Catch-up is exactly when the fight is busiest, so the cost landed where
+  // there was least room for it. Wall time makes a burst one frame.
+  const wall = runtime().unixMs || 0;
+  if (wall && wall < versusNextAt) return;
+  versusNextAt = wall + versusSnapshotIntervalMs;
   try {
     publishLive("ow-" + versusRoomName, JSON.stringify(spectatorState(now)));
   } catch (error) {
@@ -2698,7 +4206,9 @@ function updateVersusConflict(now) {
   roundViewerMode = "";
   roundViewerDemo = null;
   roundViewerStatus = "CONNECTING";
+  resetRoundViewerPlayout();
   shellMode = "GAME";
+  gameplayStarted = true;
   selecting = false;
   roundResult = "";
   matchOver = false;
@@ -2722,7 +4232,7 @@ function updateVersusSeat(now) {
   // the lobby — a streamed fight one second old is upgraded in place.
   if (netPeerHello && netHostBegin(now)) return;
   const fresh = versusChallengerFresh();
-  if (lobbyActive() && fresh) {
+  if (lobbyActive() && fresh && versusAllowed()) {
     startVersusFight(now, true);
     return;
   }
@@ -2730,43 +4240,61 @@ function updateVersusSeat(now) {
     beginVersusLobby(now);
     return;
   }
-  if (versusActive() && fresh) {
-    const offered = String(globalThis.__oskiewarRemotePad?.name || "")
-      .toUpperCase().replace(/[^@A-Z0-9_-]/g, "").slice(0, 24);
-    if (offered && offered !== versusRivalName) dressVersusRival();
-  }
+  if (versusActive() && fresh && versusOfferedName() !== versusRivalOffered)
+    dressVersusRival();
 }
 
-// The waiting room owes its lone fighter a real death. In a fight the
-// round system rebuilds a destroyed body, but the lobby has no rounds — a
-// fighter blasted apart would hop the empty room forever as a ghost among
-// its own scraps. Losing the torso IS dying here, immediately: the card
-// says so, the beat holds long enough to read, and the respawn sweeps the
-// floor and hands back a whole body.
+// A dead body falling. No input, no collision with anybody, no ledges: a
+// corpse is not a fighter and must not catch a rung it would have caught
+// alive. It drops, it lands on the ground under it, and it stops.
+function settleCorpse(player, dt) {
+  if (player.grounded) return;
+  player.vy += fallGravity() * dt;
+  player.x += player.vx * dt;
+  player.y += player.vy * dt;
+  player.vx *= .96;
+  const terrainY = terrainFloorAt(player.x);
+  if (player.y < terrainY) return;
+  player.y = terrainY;
+  player.vy = 0;
+  player.vx = 0;
+  player.grounded = true;
+}
+
+// Lobby deaths have a respawn beat, but no round or killcam to reset state.
 function updateLobbyMortality(now) {
   if (!lobbyActive()) return;
   const player = players[0];
-  if (!player.alive) {
-    // Deaths from any cause (a self-blast, a shot) arrive here already
-    // down; give them the same readable beat the destruction gets.
-    if (!player.lobbyDeathDressed) {
-      player.lobbyDeathDressed = true;
-      player.respawnAt = Math.max(player.respawnAt || 0, now + 2500000);
-    }
-    return;
+  if (player.alive && hasPart(player, "torso")) return;
+  if (player.lobbyDeathDressed) return;
+  if (player.alive) {
+    player.alive = false;
+    player.lastButton = "DESTROYED";
+    player.lastButtonAt = now;
+    spawnImpact({ x: player.x, y: player.y - 60, z: player.z, life: .55,
+      duration: .55, death: true, explosion: false });
+    playDrum("whoosh", 1.15, panPlayer(player));
   }
-  if (hasPart(player, "torso")) return;
-  player.alive = false;
   player.lobbyDeathDressed = true;
-  player.respawnAt = now + 2500000;
-  player.vx = 0;
-  player.vy = 0;
+  player.respawnAt = Math.max(player.respawnAt || 0, now + 2500000);
+  releaseCarriedBall(player, now);
+  releaseCarriedPart(player, now);
+  releaseCarriedFighter(player, now);
+  dismountSkateboard(player, now);
+  player.attackKind = player.itemAction = "";
+  player.attackUntil = player.itemActionUntil = player.dashUntil = 0;
+  player.attackHit = player.blocking = player.grabHeld = false;
+  player.pounding = player.pogoDive = player.pogoHit = false;
+  player.jumpHeld = false;
+  player.runSince = player.walkSince = 0;
+  player.runSpeed = 0;
+  player.runDir = 0;
+  player.jumpPoseUntil = player.landPoseUntil = player.hopUntil = 0;
+  player.inputX = player.inputY = player.vx = 0;
   player.stance = "HIT";
-  player.lastButton = "DESTROYED";
-  player.lastButtonAt = now;
-  impacts.push({ x: player.x, y: player.y - 60, z: player.z, life: .55,
-    duration: .55, death: true, explosion: false });
-  playDrum("whoosh", 1.15, panPlayer(player));
+  delete player.frozenGeometry;
+  delete player.frozenAt;
+  queueSoloDeathReplay(player, now);
 }
 
 // Deprecated with PAL_SELECT — see the flag.
@@ -2821,7 +4349,7 @@ function returnToTitle(now, reason = "back") {
   cameraCenterY = survivalActive() ? floorY - 240
     : lobbyActive() ? players[0].y - 90
     : (players[0].y + players[1].y) / 2 - 90;
-  cameraWidth = survivalActive() ? gridWidth + 120
+  cameraWidth = survivalActive() ? survivalFrameWidth
     : lobbyActive() ? 980
     : Math.max(980, Math.abs(players[1].x - players[0].x) + 760);
   cameraContainFloor = 0;
@@ -2892,6 +4420,11 @@ function startSelfPlay(now) {
 // build, with nothing lost to the demo schema. State checkpoints remain as a
 // drift meter, not as the picture.
 let resimActive = false;
+// Whether the demo being re-run was a round on a clock. Versus rounds are not,
+// and handing one a countdown it never had would end the re-run early on a
+// fight the original played past. Demos recorded before this field carry no
+// answer and were all timed.
+let resimTimed = true;
 let resimPending = null;
 let resimTick = -1;
 let resimCheckpoints = null;
@@ -2926,8 +4459,10 @@ function advanceResimCommands() {
   }
 }
 function startResim(demo, now) {
+  configureWorldMap(demo.map);
   gameMode = "fight";
   resimActive = true;
+  resimTimed = demo.timed !== false;
   // The reset step is demo tick zero; every later sim step counts one.
   resimTick = 0;
   resimCheckpoints = new Map(
@@ -3021,6 +4556,11 @@ function consumeSystemButtons(now) {
   for (let index = 0; index < padSnapshots.length; index++) {
     const down = padSnapshots[index]?.down || [];
     const previous = navigationPrevious[index];
+    if (down.includes("RightStick") && !previous.includes("RightStick")) {
+      playerCameraYaw = 0;
+      playerCameraPitch = 0;
+      playerCameraZoom = 1;
+    }
     if (down.includes("View") && !previous.includes("View")) {
       debugHitboxes = !debugHitboxes;
       debugPerfReported = false;
@@ -3038,6 +4578,11 @@ function consumeSystemButtons(now) {
 
 // Start lifts the wordmark off a fight that is already running underneath.
 function enterGame(now) {
+  startInputPending = true;
+  if (localControllerPair() && !roundViewer && !netSession && !versusActive()) {
+    startLocalVersus(now);
+    return;
+  }
   if (survivalActive()) {
     startSurvivalRun(now, false);
     globalThis.__oskiewarStartLine = "climb!";
@@ -3070,6 +4615,31 @@ function enterGame(now) {
     dummyGuideStartedAt = now;
   shellPrevious = padSnapshots[0]?.down?.slice() || [];
   if (PAL_SELECT) beginSelect(now);
+}
+
+// Comma and period step the pace mid-fight the way +/- do on the title — a
+// quarter at a time, but never past full speed: slow motion is for reading a
+// bot's tells. A wired fight keeps the clock both seats agreed on, so the
+// keys go dead the moment a rival is real, and a watcher's playout is the
+// host's clock too. Edge-detected against the same unfiltered pad memory the
+// title uses, so a key held across the start steps exactly once.
+const paceLocked = () => netSession !== null || versusActive() ||
+  roundViewer !== null;
+function updateMatchPace(now) {
+  const rawDown = padSnapshots[0]?.down || [];
+  const tap = (button) => rawDown.includes(button) &&
+    !shellRawPrevious.includes(button);
+  const faster = tap("SpeedUp");
+  const slower = tap("SpeedDown");
+  shellRawPrevious = rawDown.slice();
+  if (!faster && !slower) return;
+  const next = paceLocked() ? gameSpeed
+    : clamp(gameSpeed + (faster ? .25 : -.25), .25, 1);
+  if (next === gameSpeed) { playDrum("block", .3, 0); return; }
+  gameSpeed = next;
+  gameSpeedChangedAt = now;
+  playDrum("hat", .55, faster ? .35 : -.35);
+  emitSignal("game-speed", -1, gameSpeed, 0);
 }
 
 function updateShell(now, tapped = false) {
@@ -3116,6 +4686,7 @@ function updateShell(now, tapped = false) {
     if (typeof titleVoice === "function") titleVoice();
     emitSignal("select", -1, 1, 0);
     titleTransitionAt = now;
+    startInputPending = true;
   }
   shellPrevious = down.slice();
   shellStickLive = stickLive;
@@ -3301,18 +4872,44 @@ function updateWind(dt, now) {
 // the same ball -- the name this hashes used to come straight from
 // Math.random, which silently made ball radius and mass unreproducible.
 function seriesBallType(name) {
+  // Only the kinds marked for the series. The hover board lives in `ballKinds`
+  // because it IS one of these objects to the physics, but a match that
+  // inflated a board as its ball would put two boards on a station that is
+  // supposed to hold exactly one.
+  const deck = ballKinds.filter((kind) => kind.series !== false);
   const roll = hashUnit("ball:" + (name || "oskiewar"));
-  return ballKinds[Math.min(ballKinds.length - 1,
-    Math.floor(roll * ballKinds.length))].type;
+  return deck[Math.min(deck.length - 1, Math.floor(roll * deck.length))].type;
 }
 
 function resetBalls(now) {
   Object.assign(balls[0],
-    ballKinds.find((kind) => kind.type === matchBallType) || ballKinds[0]);
+    ballKinds.find((kind) => kind.type === matchBallType && kind.series !== false) ||
+    ballKinds[0]);
   for (const item of balls) {
+    // The board is placed, not served. It lies in the far floor corner from
+    // the pistol, so the bell offers three ways to spend the same seconds:
+    // rush the middle bare-handed, break left for the board, or break right
+    // for the gun. Putting it on the centre line instead would have made it
+    // the only opening move worth making.
+    if (item.type === "skateboard") {
+      item.x = tileCenterX(cornerColLeft);
+      item.y = skateContact(item.x, terrainFloorAt(item.x)).y - skateAxleDrop - skateWheelRadius;
+      item.z = 0;
+      item.vx = 0;
+      item.vy = 0;
+      item.rotation = 0;
+      item.skateSpin = 0;
+      item.heldBy = -1;
+      item.active = skateBoardEnabled;
+      item.serveAt = 0;
+      item.lastHitBy = -1;
+      item.safeUntil = 0;
+      item.safePlayers = 0;
+      continue;
+    }
     const owner = item.spawnOwner >= 0 ? players[item.spawnOwner] : null;
     item.x = owner ? owner.spawnX + owner.facing * 180
-      : gridLeft + gridWidth / 2;
+      : centerX;
     item.y = owner ? terrainFloorAt(item.x) - item.radius
       : terrainFloorAt(item.x) - gridHeight + item.radius + 40;
     // An unowned ball begins airborne over the cube's center tile seam and
@@ -3417,7 +5014,7 @@ function roundDemoState(demo, now) {
     camera.fov = value(30);
     camera.roll = value(31);
   }
-  return { phase: "replay", tick, fighters, ball: replayBall,
+  return { phase: "replay", map: demo.map || "station", tick, fighters, ball: replayBall,
     balls: [replayBall], camera,
     wind: { direction: round[1], mph: round[2] },
     round: { remainingMs: Math.max(0, Math.round((endTick - tick) * 1000 /
@@ -3427,6 +5024,28 @@ function roundDemoState(demo, now) {
 
 function applyRoundViewerState(state, now, dt = 1 / 60) {
   if (!state?.fighters?.length || !state.camera || !state.round) return;
+  workshopHighlight = state.map?.highlights === true;
+  if (state.map?.id && state.map.id !== currentMapId) {
+    if (state.map.workshop && globalThis.__oskiewarValidateMap) {
+      try { installWorkshopMap(globalThis.__oskiewarValidateMap(state.map.workshop)); }
+      catch { return; }
+    } else if (workshopMap) {
+      installWorkshopMap(workshopBase, true);
+      workshopMap = null;
+      currentMapId = "halfpipe";
+      currentMapName = "HALFPIPE";
+    }
+  }
+  if (((state.course || state.map) === "skatepark") !== skateparkMap) {
+    configureWorldMap(state.course || state.map); resetSkateRopes();
+  }
+  if (skateparkMap && Array.isArray(state.ropes) && state.ropes.length === skateRopes.length)
+    state.ropes.forEach((nodes, index) => {
+      if (!Array.isArray(nodes) || nodes.length !== chainLinks + 1 ||
+          nodes.some((row) => !Array.isArray(row) || row.length !== 4 ||
+            row.some((n) => !Number.isFinite(n) || Math.abs(n) > 100000))) return;
+      skateRopes[index].nodes = nodes.map(([x, y, px, py]) => ({ x, y, px, py }));
+    });
   for (let index = 0; index < players.length; index++) {
     const source = state.fighters[index];
     const player = players[index];
@@ -3437,9 +5056,10 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
     // impact track (replayViewerImpacts), so this reconstruction is LIVE-only.
     const wasAlive = player.alive;
     const wasHit = player.hit || 0;
-    const priorLimbs = player.removedParts?.length || 0;
+    const priorParts = player.removedParts?.slice() || [];
     for (const key of ["name", "nation", "color", "x", "y", "z", "facing", "alive",
-      "grounded", "ducking", "blocking", "score", "roundWins", "removedParts"])
+      "grounded", "ducking", "blocking", "score", "roundWins", "removedParts",
+      "ropeIndex", "ropeLink", "skateRotation", "skateboard"])
       if (source[key] !== undefined) player[key] = source[key];
     player.vx = source.vx ?? (player.x - previousX) / Math.max(.001, dt);
     player.vy = source.vy ?? (player.y - previousY) / Math.max(.001, dt);
@@ -3465,13 +5085,37 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
     // burst from the flag edges the wire DOES carry — a fresh hit, a new
     // missing part, a death — so live watchers see the blow land.
     if (roundViewerMode === "LIVE") {
-      if (player.hit > .4 && wasHit <= .4)
+      // Reconstructing the strike spark is the fallback for a host too old to
+      // send its impact track. When the real track is on the frame it wins:
+      // it is the same spark, in the right place, and doubling them reads as
+      // a heavier hit than the one that landed.
+      if (!state.impacts && player.hit > .4 && wasHit <= .4)
         impacts.push({ x: player.x, y: player.y - 90, z: player.z,
           life: .32, duration: .32, death: false, explosion: true });
-      const lostLimb = (player.removedParts?.length || 0) > priorLimbs;
-      if (lostLimb || (wasAlive && !player.alive))
+      const nowParts = player.removedParts || [];
+      // A fighter who came back whole is a new round, not a healed limb.
+      const lost = nowParts.length < priorParts.length ? []
+        : nowParts.filter((part) => !priorParts.includes(part));
+      if (nowParts.length < priorParts.length) clearRoundViewerEffects();
+      if (!state.impacts && (lost.length || (wasAlive && !player.alive)))
         impacts.push({ x: player.x, y: player.y - 60, z: player.z,
           life: .55, duration: .55, death: true, explosion: false });
+      // And the limb itself goes flying. The wire says which part is gone; it
+      // does not say where the pieces went, and the pieces are the part of a
+      // dismemberment anybody actually watches. They are spawned from the
+      // fighter's own pose here and then fall under local physics, so they
+      // land where the body stands rather than where a packet said it did.
+      if (lost.length && detachedParts.length < 48) {
+        // Posed from BEFORE the loss, on a copy: the wire's removedParts are
+        // already applied to the live fighter, and a body's geometry no
+        // longer carries the limbs it has lost — so asking the fighter as it
+        // stands now returns no segments to throw.
+        const pose = runnerWorldGeometry({ ...player, removedParts: priorParts },
+          (now - startedAt) / 1000000);
+        const rival = players[player.pad === 0 ? 1 : 0];
+        for (const part of lost)
+          spawnDetachedPart(player, part, pose, rival?.x ?? player.x, now);
+      }
     }
   }
   const sources = state.balls || [state.ball];
@@ -3482,6 +5126,13 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
       "type", "mass", "heldBy"])
       if (source[key] !== undefined) balls[index][key] = source[key];
   }
+  // A frame that carries no projectile rows is an older host or a stored
+  // demo, and its shots are simply unknown — leaving the arrays alone is the
+  // honest answer. A frame that carries an empty row set is a host saying the
+  // air is clear, and that clears it.
+  if (state.shots) applyWireShots(state.shots);
+  if (state.lobs) applyWireLobs(state.lobs);
+  if (state.impacts) applyWireImpacts(state.impacts);
   cameraCenter = state.camera.x;
   cameraCenterY = state.camera.y;
   cameraWidth = state.camera.width;
@@ -3494,9 +5145,24 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
   roundResult = state.round.result || "";
   roundCause = state.round.cause ||
     (roundResult.includes("BALLED") ? "BALLED" : roundResult ? "ROUND" : "");
-  roundElapsedUs = Math.max(0, roundDurationUs - state.round.remainingMs * 1000);
+  // Whether the round on the wire has a clock is the HOST's fact, not a thing
+  // to re-derive locally: `roundIsTimed()` answers from the machine it runs
+  // on, and a watcher's machine is not in the fight. A demo carries no flag
+  // and was always a timed, recorded round.
+  roundViewerTimed = state.round.timed !== false;
+  // The round's own age, intro included, straight off the wire. Deriving it
+  // from `remainingMs` instead is what broke the versus lane: that field is
+  // zero on an untimed round, so the clock landed a full round duration in
+  // the past, `counting` was never true, and the intro card never drew.
+  const elapsedUs = Number.isFinite(state.round.elapsedMs)
+    ? state.round.elapsedMs * 1000 : null;
+  roundElapsedUs = roundViewerTimed
+    ? Math.max(0, roundDurationUs - state.round.remainingMs * 1000)
+    : elapsedUs === null ? 0
+    : Math.max(0, elapsedUs - roundIntroDurationUs());
   matchOver = state.phase === "match";
-  roundStartedAt = now - roundIntroDurationUs() - roundElapsedUs;
+  roundStartedAt = elapsedUs === null
+    ? now - roundIntroDurationUs() - roundElapsedUs : now - elapsedUs;
   if (roundResult && !hadResult) roundOverAt = now;
   const target = state.camera.target || { x: cameraCenter, y: cameraCenterY, z: 0 };
   cameraDoll.track({ target,
@@ -3506,6 +5172,60 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
     fov: state.camera.fov || 55, roll: state.camera.roll || 0 }, dt, 1000);
 }
 
+// Shots and lobs arrive as the flat number rows spectatorState packs (owner
+// and kind folded into one flag word). They are rebuilt rather than merged:
+// a round has no identity on the wire, so matching this frame's third bullet
+// to last frame's third bullet would be a guess, and a wrong guess teleports
+// a streak across the arena. The arrays themselves keep their identity — the
+// camera's swept-path packer and the render interpolator both hold references
+// to them.
+function applyWireShots(rows) {
+  bullets.length = 0;
+  for (const row of rows) {
+    const [x, y, z, previousX, previousY, vx, vy, owner, flags] = row;
+    bullets.push({ x, y, z, previousX, previousY, vx, vy,
+      owner: owner === 1 ? 1 : 0, life: 1, safeUntil: 0,
+      spit: Boolean(flags & 1), heavy: Boolean(flags & 2),
+      rubber: Boolean(flags & 4),
+      // No bounce history came up the wire, so a watched round draws its
+      // streak and no ricochet tail. drawBulletTrail reads the count first
+      // and an empty one costs it nothing.
+      trail: [], trailCount: 0 });
+  }
+}
+
+// The host's impact track, which repeats each mark for as long as it burns.
+// The id is what makes a repeat readable as a repeat: a watcher spawns only
+// the numbers it has not seen, at the age the frame reports, and then runs
+// them out on its own physics.
+function applyWireImpacts(rows) {
+  if (!rows.length) return;
+  const newest = rows[rows.length - 1][0];
+  // Numbers only climb within one host's run. A lower one is a different
+  // host, or the same one restarted, and nothing before it has been seen.
+  if (newest < roundViewerImpactId) roundViewerImpactId = 0;
+  for (const row of rows) {
+    const [id, x, y, z, durationMs, lifeMs, flags] = row;
+    if (id <= roundViewerImpactId) continue;
+    impacts.push({ x, y, z, duration: durationMs / 1000,
+      life: Math.max(.001, lifeMs / 1000),
+      death: Boolean(flags & 1), explosion: Boolean(flags & 2) });
+  }
+  roundViewerImpactId = Math.max(roundViewerImpactId, newest);
+}
+
+function applyWireLobs(rows) {
+  grenades.length = 0;
+  for (const row of rows) {
+    const [x, y, z, vx, vy, owner, flags, blastRadius, fuseMs] = row;
+    // Only live grenades ride out, so anything here is alive by definition —
+    // which is also what puts it in the render list.
+    grenades.push({ x, y, z, vx, vy, owner: owner === 1 ? 1 : 0, alive: true,
+      rocket: Boolean(flags & 1), exploding: Boolean(flags & 2),
+      blastRadius, blastAge: 0, fuse: fuseMs / 1000, hitPlayers: 0 });
+  }
+}
+
 function handleRoundViewer(message) {
   const now = runtime().monotonicUs;
   matchName = message.roundName || matchName;
@@ -3513,10 +5233,14 @@ function handleRoundViewer(message) {
     roundViewerDemo = null;
     roundViewerMode = "";
     roundViewerStatus = "CONNECTING";
+    resetRoundViewerPlayout();
     return;
   }
   if (message.type === "status") {
     roundViewerStatus = String(message.content?.label || "waiting").toUpperCase();
+    // A room that goes dark keeps no queue: whatever arrives next belongs to
+    // a new timeline, and a stale frame blended into it is a teleport.
+    if (message.content?.live === false) resetRoundViewerPlayout();
     return;
   }
   if (message.type === "demo") {
@@ -3537,6 +5261,7 @@ function handleRoundViewer(message) {
     roundViewerDemo = message.content;
     roundViewerDemoStartedAt = now;
     roundViewerMode = "DEMO";
+    resetRoundViewerPlayout();
     globalThis.__oskiewarReplayReady = true;
     return;
   }
@@ -3547,21 +5272,102 @@ function handleRoundViewer(message) {
   }
   if (netSession && message.type === "state") return;
   if (message.type === "state") {
-    if (roundViewerDemo && !message.live) return;
+    // The room says whether anybody is publishing, and it says so before it
+    // hands over any frame. A frame that arrives while nobody is is the last
+    // thing a host said before it left — kept by the relay and given to
+    // whoever opens the door next. Going LIVE on it paints that frozen round
+    // as a fight in progress, and since one frame can never bracket the
+    // playout clock, nothing in it is ever applied: the fighters keep
+    // whatever names this engine was already holding and the HUD tells the
+    // new arrival which of those two strangers they are.
+    if (!message.live) return;
     if (roundViewerDemo && message.content?.phase === "match") return;
     roundViewerMode = "LIVE";
-    applyRoundViewerState(message.content, now);
-    roundViewerLiveAt = now;
+    queueRoundViewerState(message.content);
   }
 }
 
-// How far past the last authoritative frame the grandstand keeps coasting on
-// wire velocity before it holds still. One frame carries fresh vx/vy, so a
-// short coast is honest and self-correcting — the next frame snaps to truth.
-// Past this the velocity is stale enough that coasting would walk a fighter
-// through a wall or float them past a jump's apex, so a long wire gap freezes
-// the pose instead of inventing motion.
-const liveDeadReckonMaxUs = 150000;
+// A fresh timeline: a room change, a takeover, a host that went away. The
+// queue, the playout clock and the measured health all start over, because
+// every one of them is a statement about a wire that no longer exists.
+// Sparks, debris and fallen limbs belong to one round on one wire. A new
+// round, a new room or a host that went away takes them with it.
+function clearRoundViewerEffects() {
+  impacts.length = 0;
+  detachedParts.length = 0;
+  roundViewerImpactId = 0;
+}
+
+function resetRoundViewerPlayout() {
+  clearRoundViewerEffects();
+  roundViewerFrames = [];
+  roundViewerPlayoutMs = 0;
+  roundViewerLiveAt = 0;
+  roundViewerGapMs = 33;
+  roundViewerJitterMs = 0;
+  roundViewerLossPct = 0;
+  roundViewerSeq = -1;
+  roundViewerSeqHeard = 0;
+  roundViewerSeqExpected = 0;
+}
+
+// A frame lands here, in a socket callback, between one simulation tick and
+// the next paint. Painting it from inside that callback is what smeared every
+// correction across two frames: the render interpolator had already captured
+// the pre-frame pose, so the next paint landed partway into the new state and
+// the one after finished the jump. So the frame is only filed — stamped with
+// its arrival and measured — and the tick decides when it is due.
+function queueRoundViewerState(state) {
+  const at = Date.now();
+  const gap = roundViewerLiveAt ? at - roundViewerLiveAt : 0;
+  roundViewerLiveAt = at;
+  if (gap > 0 && gap < 2000) {
+    roundViewerGapMs += (gap - roundViewerGapMs) * .12;
+    roundViewerJitterMs +=
+      (Math.abs(gap - roundViewerGapMs) - roundViewerJitterMs) * .12;
+  }
+  // Loss read off the host's own sequence numbers, over a rolling window.
+  // This is where the relay's coalescing shows: a frame it dropped inside its
+  // 25 ms gate leaves a hole in the count that nothing else on this side can
+  // see. A takeover or a fresh room rewinds the sequence, which restarts the
+  // window rather than reading as a hundred lost frames.
+  const seq = Number(state?.seq);
+  if (Number.isFinite(seq)) {
+    if (roundViewerSeq >= 0 && seq > roundViewerSeq) {
+      roundViewerSeqExpected += seq - roundViewerSeq;
+      roundViewerSeqHeard += 1;
+      if (roundViewerSeqExpected >= 180) {
+        roundViewerLossPct = clamp(Math.round(
+          (1 - roundViewerSeqHeard / roundViewerSeqExpected) * 100), 0, 100);
+        roundViewerSeqExpected = 0;
+        roundViewerSeqHeard = 0;
+      }
+    } else {
+      roundViewerSeqExpected = 0;
+      roundViewerSeqHeard = 0;
+    }
+    roundViewerSeq = seq;
+  }
+  // One wire frame plus twice the jitter actually measured, held inside a
+  // window where a buffer is still worth more than it costs. The delay itself
+  // moves slowly: resizing it quickly would time-warp the picture.
+  const want = clamp(roundViewerGapMs + roundViewerJitterMs * 2 + 8, 45, 220);
+  roundViewerDelayMs += (want - roundViewerDelayMs) * .05;
+  roundViewerFrames.push({ state, at });
+  // A ceiling, not a working depth: the playout holds about three frames.
+  // This only catches a tab whose simulation parked while the wire kept
+  // arriving, and the clock's own thousand-millisecond reset sorts out the
+  // rest when the tab comes back.
+  if (roundViewerFrames.length > 32) roundViewerFrames.shift();
+}
+
+// How far past the newest frame in hand the grandstand keeps coasting on wire
+// velocity before it holds still. Inside the buffer nothing coasts at all —
+// the pose is blended between two frames the host really sent. Past the
+// buffer the velocity goes stale fast enough that coasting walks a fighter
+// through a wall or floats them past a jump's apex, so a long gap freezes the
+// pose instead of inventing motion.
+const liveDeadReckonMaxMs = 150;
 
 function updateRoundViewer(now, dt) {
   if (roundViewerDemo && roundViewerMode === "DEMO") {
@@ -3570,25 +5376,146 @@ function updateRoundViewer(now, dt) {
       applyRoundViewerState(state, now, dt);
       replayViewerImpacts(state.tick, dt);
     }
-  } else if (roundViewerMode === "LIVE" &&
-      now - roundViewerLiveAt < liveDeadReckonMaxUs) {
-    // Between the ~30 irregular frames a second the wire delivers, coast every
-    // moving body along its last reported velocity so the render runs the same
-    // smooth 60 as a hosted fight instead of teleporting on each arrival.
-    for (const player of players) {
-      if (!player.alive) continue;
-      // Coast the delta only — the host's reported position is truth and may
-      // sit anywhere it says (legacy rooms even ran off the cube). The 150ms
-      // horizon above bounds any overshoot, and the next snap corrects it.
-      player.x += (player.wireVx || 0) * dt;
-      player.y += (player.wireVy || 0) * dt;
-    }
-    for (const ball of balls) {
-      if (!ball.active) continue;
-      ball.x += (ball.vx || 0) * dt;
-      ball.y += (ball.vy || 0) * dt;
-    }
+    return;
   }
+  if (roundViewerMode !== "LIVE" || !roundViewerFrames.length) return;
+  const wall = Date.now();
+  const target = wall - roundViewerDelayMs;
+  // A first frame, or a wire that stopped and came back, sets the clock
+  // outright. Every other tick advances it by the simulation's own dt and
+  // leans a twentieth of the way toward where it belongs. Leaning rather than
+  // snapping is what keeps the picture's rate the sim's rate: a clock pinned
+  // to the wall every tick replays the network's jitter as motion.
+  if (!roundViewerPlayoutMs || Math.abs(target - roundViewerPlayoutMs) > 1000)
+    roundViewerPlayoutMs = target;
+  else roundViewerPlayoutMs += dt * 1000 +
+    (target - roundViewerPlayoutMs) * .05;
+  const play = roundViewerPlayoutMs;
+  // Hold exactly one frame behind the clock: it is the left end of the pair
+  // being blended, and the one to coast from if the buffer runs dry.
+  while (roundViewerFrames.length > 1 && roundViewerFrames[1].at <= play)
+    roundViewerFrames.shift();
+  const before = roundViewerFrames[0].at <= play ? roundViewerFrames[0] : null;
+  const after = before ? roundViewerFrames[1] : roundViewerFrames[0];
+  if (before && after) {
+    const span = Math.max(1, after.at - before.at);
+    const alpha = clamp((play - before.at) / span, 0, 1);
+    applyRoundViewerState(blendRoundViewerStates(before.state, after.state,
+      alpha, (play - before.at) / 1000), now, dt);
+    updateRoundViewerEffects(dt);
+    return;
+  }
+  // Starved, or not yet arrived at the first frame. The newest thing in hand
+  // is the truth; past it the bodies coast on the velocity that frame
+  // reported — measured from that frame's own position, so the reckoning is
+  // never compounded and the next arrival needs no correcting snap.
+  const edge = before || after;
+  applyRoundViewerState(edge.state, now, dt);
+  if (before)
+    coastRoundViewer(Math.min(play - before.at, liveDeadReckonMaxMs) / 1000);
+  updateRoundViewerEffects(dt);
+}
+
+// The half of the fight a watcher is allowed to run for itself. Sparks, their
+// debris and the limbs that came off are cosmetic: nothing here decides a hit
+// or a score, so none of it has to agree with the host bit for bit — it only
+// has to happen. Before this, `impacts` grew for the life of the connection
+// and never drew a mote, because the function that grows an impact's debris
+// ran only in a demo or a hosted sim.
+function updateRoundViewerEffects(dt) {
+  updateResultImpactDebris(dt);
+  if (detachedParts.length) updateDetachedParts(dt, false);
+}
+
+// Dead reckoning, and only past the end of the buffer.
+function coastRoundViewer(seconds) {
+  if (seconds <= 0) return;
+  for (const player of players) {
+    if (!player.alive) continue;
+    // Coast the delta only — the host's reported position is truth and may
+    // sit anywhere it says (legacy rooms even ran off the cube).
+    player.x += (player.wireVx || 0) * seconds;
+    player.y += (player.wireVy || 0) * seconds;
+  }
+  for (const item of balls) {
+    if (!item.active) continue;
+    item.x += (item.vx || 0) * seconds;
+    item.y += (item.vy || 0) * seconds;
+  }
+  // Both ends of a shot move together: the streak's length is the round's
+  // speed, not the size of the gap we are papering over.
+  for (const shot of bullets) {
+    shot.x += (shot.vx || 0) * seconds;
+    shot.y += (shot.vy || 0) * seconds;
+    shot.previousX += (shot.vx || 0) * seconds;
+    shot.previousY += (shot.vy || 0) * seconds;
+  }
+  for (const lob of grenades) {
+    if (lob.exploding) continue;
+    lob.x += (lob.vx || 0) * seconds;
+    lob.y += (lob.vy || 0) * seconds;
+  }
+}
+
+// The pose the grandstand actually paints: two frames the host really sent,
+// blended. Continuous quantities interpolate; everything discrete — who is
+// alive, which limbs are gone, what phase the round is in — comes from the
+// frame already reached, because a fighter must not die before the pose that
+// killed them has finished arriving.
+const blendFighterKeys = ["x", "y", "z", "vx", "vy", "vz", "hit",
+  "blockFlash", "attackTicks"];
+const blendCameraKeys = ["x", "y", "width", "perspective", "fov", "roll"];
+const blendPointKeys = ["x", "y", "z"];
+
+function blendNumbers(from, to, keys, t) {
+  const out = { ...from };
+  if (!to) return out;
+  for (const key of keys) {
+    const a = Number(from?.[key]);
+    const b = Number(to[key]);
+    if (Number.isFinite(a) && Number.isFinite(b)) out[key] = a + (b - a) * t;
+  }
+  return out;
+}
+
+function blendRoundViewerStates(from, to, t, seconds) {
+  const state = { ...from };
+  state.fighters = (from.fighters || []).map((fighter, index) =>
+    blendNumbers(fighter, to.fighters?.[index], blendFighterKeys, t));
+  const blendBall = (ball, other) =>
+    ball ? blendNumbers(ball, other, blendPointKeys, t) : ball;
+  if (from.balls)
+    state.balls = from.balls.map((ball, index) =>
+      blendBall(ball, to.balls?.[index]));
+  if (from.ball) state.ball = blendBall(from.ball, to.ball);
+  if (from.camera) {
+    state.camera = blendNumbers(from.camera, to.camera, blendCameraKeys, t);
+    for (const part of ["position", "target"])
+      if (from.camera[part]) state.camera[part] =
+        blendNumbers(from.camera[part], to.camera?.[part], blendPointKeys, t);
+  }
+  // Projectiles have no identity on the wire, so they are carried forward on
+  // their own reported velocity rather than matched against the next frame's
+  // rows — a wrong match teleports a streak across the arena. A shot flies
+  // straight, so this is not an approximation of the host's path, it IS it.
+  if (from.shots) state.shots = from.shots.map((row) => {
+    const [x, y, z, previousX, previousY, vx, vy, owner, flags] = row;
+    return [x + vx * seconds, y + vy * seconds, z,
+      previousX + vx * seconds, previousY + vy * seconds, vx, vy, owner, flags];
+  });
+  if (from.lobs) state.lobs = from.lobs.map((row, index) => {
+    const [x, y, z, vx, vy, owner, flags, blastRadius, fuseMs] = row;
+    const next = to.lobs?.[index];
+    // A blast's ring grows over a fifth of a second, which is six wire
+    // frames — steppy enough to see. It blends when the next frame plainly
+    // holds the same blast; otherwise the radius stands.
+    const radius = next && next[6] === flags && next[5] === owner
+      ? blastRadius + (next[7] - blastRadius) * t : blastRadius;
+    const moving = flags & 2 ? 0 : seconds;
+    return [x + vx * moving, y + vy * moving, z, vx, vy, owner, flags,
+      radius, fuseMs];
+  });
+  return state;
 }
 
 // The buttons a challenger's pad may carry up the wire — the fight's own
@@ -3596,6 +5523,9 @@ function updateRoundViewer(now, dt) {
 // toggle the host's debug overlay or send their game back to the title.
 const versusInputButtons = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
   "A", "B", "X", "Y", "LeftShoulder", "RightShoulder"];
+// The buttons of the last frame the wire actually took, held apart from the
+// whole frame so a press can be told from a stick twitch.
+let versusInputLastDown = "[]";
 
 // The challenger's half of the versus wire: sample the local pad, ship it on
 // change, and heartbeat while idle so silence can mean absence. Sends pace
@@ -3604,6 +5534,11 @@ const versusInputButtons = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
 function sendChallengerInput(now) {
   if (roundViewer?.seat !== "challenger" ||
       typeof roundViewer.sendInput !== "function") return;
+  // Holding the chair is not the same as sitting in it. A visitor who has not
+  // come through the door sends nothing, so the host reads the seat as empty
+  // and the room stays open for somebody who has — and this visitor keeps
+  // watching the fight, which was never gated.
+  if (!versusAllowed()) return;
   const pad = typeof gamepad === "function" ? gamepad(0) : null;
   if (!pad) return;
   const down = (pad.down || [])
@@ -3611,11 +5546,24 @@ function sendChallengerInput(now) {
   const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
   const frame = { down, leftX: round2(pad.leftX), leftY: round2(pad.leftY) };
   const worn = JSON.stringify(frame);
-  if (worn !== versusInputLastSent) {
-    if (now < versusInputMinNextAt) return;
-  } else if (now < versusInputNextAt) return;
+  // A button edge leaves at once. The 33 ms floor was written to pace a
+  // stick, which drifts continuously and would otherwise send every tick —
+  // but a press is a discrete event, and holding one back for up to two
+  // frames put a third of a display's lag into the one thing a player feels
+  // most. Only the analog half still waits.
+  const pressed = JSON.stringify(down);
+  const edge = pressed !== versusInputLastDown;
+  if (!edge) {
+    if (worn !== versusInputLastSent) {
+      if (now < versusInputMinNextAt) return;
+    } else if (now < versusInputNextAt) return;
+  }
   versusInputMinNextAt = now + 33000;
-  versusInputNextAt = now + 250000;
+  // An unchanged frame is repeated once soon after a change, then settles
+  // into the idle heartbeat. The relay drops what arrives too fast and says
+  // nothing about it, so a lost edge used to be invisible for a quarter of a
+  // second; one cheap echo closes that window without adding a protocol.
+  versusInputNextAt = now + (edge ? 50000 : 250000);
   const identity = acFeed?.player;
   const colors = (Array.isArray(identity?.colors) ? identity.colors : [])
     .map((entry) => Array.isArray(entry)
@@ -3625,7 +5573,10 @@ function sendChallengerInput(now) {
     .slice(0, 4);
   if (roundViewer.sendInput({ seq: versusInputSeq++, ...frame,
     name: identity?.handle ? String(identity.handle).toUpperCase() : "",
-    colors })) versusInputLastSent = worn;
+    colors })) {
+    versusInputLastSent = worn;
+    versusInputLastDown = pressed;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -3661,8 +5612,6 @@ const NET_HELLO_INTERVAL_MS = 1000;
 let netInbox = [];
 let netPeerHello = null;
 let netHelloSentAt = 0;
-const netEmptyPad = Object.freeze({ connected: true, down: Object.freeze([]),
-  leftX: 0, leftY: 0, rightX: 0, rightY: 0 });
 const netPadCache = new Map();
 
 // A recorded mask back into the pad shape the sim reads (see resimPad). One
@@ -3690,6 +5639,7 @@ function netPadFromMask(mask) {
 function netSimScalars() {
   return {
     gameMode,
+    skateparkMap,
     terrainPhase,
     matchBallType,
     ballEnabled,
@@ -3709,6 +5659,7 @@ function netSimScalars() {
     roundCause,
     deathCinematic,
     impactHitboxesUntil,
+    impactSequence,
     fightOpponent,
     survivalStartedAt,
     survivalLavaY,
@@ -3741,6 +5692,7 @@ function netSimScalars() {
 function netRestoreScalars(saved) {
   ({
     gameMode,
+    skateparkMap,
     terrainPhase,
     matchBallType,
     ballEnabled,
@@ -3760,6 +5712,7 @@ function netRestoreScalars(saved) {
     roundCause,
     deathCinematic,
     impactHitboxesUntil,
+    impactSequence,
     fightOpponent,
     survivalStartedAt,
     survivalLavaY,
@@ -3790,9 +5743,18 @@ function netRestoreScalars(saved) {
   } = saved);
 }
 const netSimArrays = () => ({
-  players, balls, bullets, grenades, impacts, detachedParts,
-  gunPickups, grenadePickups, bodyTrees, gridField, resultReactionPrevious,
-  fightHitMarks,
+  players, balls, bullets, grenades, impacts, detachedParts, skateRopes,
+  // `saberPickups` belongs here for the same reason every other array does,
+  // and leaving it out was a real desync: a rollback that does not restore it
+  // re-simulates frames in which a blade was already taken, or takes one that
+  // the rewound timeline had not yet dropped. `swordHeld` itself rides on the
+  // player and was always restored -- which is what made this so quiet. The
+  // two seats agreed about every number they hashed while disagreeing about
+  // whether somebody was holding a sword, and a sword is a 1.5x reach
+  // multiplier in `meleeSpecFor`, so they went on agreeing right up until a
+  // strike landed one frame apart on one screen and not the other.
+  gunPickups, saberPickups, grenadePickups, bodyTrees, gridField,
+  resultReactionPrevious, fightHitMarks,
 });
 
 function netSnapshot() {
@@ -3807,6 +5769,7 @@ function netSnapshot() {
 // grew since the snapshot are removed too — a key the sim added later must not
 // survive a rewind.
 function netRestore(snapshot) {
+  configureWorldMap(snapshot.scalars.skateparkMap ? "skatepark" : "station");
   netRestoreScalars(structuredClone(snapshot.scalars));
   const live = netSimArrays();
   for (const [name, saved] of Object.entries(snapshot.arrays)) {
@@ -3831,18 +5794,42 @@ function netRestore(snapshot) {
 
 // FNV-1a over the state that decides a fight. Exact doubles, not rounded: a
 // last-bit difference is a real desync and must read as one.
+// Debug only: the exact JSON the last hash was taken over, and a ring of it
+// per frame while `__oskiewarHashTrace` is set. A desync report names a
+// frame and two numbers; this is what turns those numbers back into fields.
+let netLastHashText = "";
+const netHashTexts = new Map();
 function netStateHash() {
   const view = players.map((player) => [player.x, player.y, player.z,
     player.vx, player.vy, player.vz, player.facing, player.alive,
     player.grounded, player.ducking, player.blocking, player.score,
     player.roundWins, player.attackKind, player.attackUntil,
     player.hitStunUntil, player.stance, player.gunAmmo, player.grenadeAmmo,
-    player.heldBall, player.removedParts, player.dashUntil]);
+    player.heldBall, player.removedParts, player.dashUntil,
+    // Holding a blade decides how far a hand reaches, so it decides the
+    // fight and belongs in the hash. It is here because it was NOT here: two
+    // seats disagreeing about a sword hashed identically for hundreds of
+    // frames and were found apart only once the reach changed an outcome,
+    // which is the most expensive way to learn about a desync.
+    player.skateboard, player.skateVx, player.skateWallSide,
+    player.skatePitch || 0, player.skateContacts || 0, player.swordHeld, player.ropeIndex, player.ropeLink, player.ropeGrabLocked, player.skateLoop,
+    player.loopAngle, player.loopSpeed, player.loopCooldownUntil, player.skateRotation, player.boostUntil]);
+  view.push(skateparkMap, skateRopes);
   view.push(balls.map((item) => [item.active, item.x, item.y, item.z,
     item.vx, item.vy, item.heldBy]));
-  view.push(bullets.length, grenades.length, roundResult, roundElapsedUs,
+  // Projectiles by position, not just by count. A round whose flight differs
+  // between the two machines kills different fighters, and hashing only the
+  // length let that drift silently: the count matched right up to the frame
+  // one seat's bullet connected and the other's missed.
+  view.push(bullets.map((shot) => [shot.x, shot.y, shot.z, shot.vx, shot.vy,
+    shot.owner, shot.life]));
+  view.push(grenades.map((lob) => [lob.x, lob.y, lob.z, lob.vx, lob.vy,
+    lob.owner, lob.fuse, lob.alive, lob.exploding, lob.blastRadius,
+    lob.hitPlayers]));
+  view.push(roundResult, roundElapsedUs,
     matchOver, roundStartedAt, roundOverAt);
   const text = JSON.stringify(view);
+  if (globalThis.__oskiewarHashTrace) netLastHashText = text;
   let hash = 0x811c9dc5;
   for (let index = 0; index < text.length; index++) {
     hash ^= text.charCodeAt(index);
@@ -3894,13 +5881,13 @@ function netMakeDeal() {
   const rivalColors = netCleanColors(rival.colors);
   const hostNow = Math.max(NET_ORIGIN_US, runtime().monotonicUs);
   const origin = Math.ceil((hostNow + NET_TICK_US) / NET_TICK_US) * NET_TICK_US;
-  return { t: "start", v: 1, origin, delay: NET_INPUT_DELAY,
-    ballType: matchBallType,
+  return { t: "start", v: 2, origin, delay: NET_INPUT_DELAY,
+    ballType: matchBallType, map: skateparkMap ? "skatepark" : "station",
     fighters: [
-      { name: netCleanName(local.name, "@HOST"), rosterIndex: local.rosterIndex,
+      { name: netCleanName(local.name, ""), rosterIndex: local.rosterIndex,
         color: local.color.slice(0, 3),
         handleColors: netCleanColors(local.handleColors) },
-      { name: netCleanName(rival.name, "RIVAL"), rosterIndex: -1,
+      { name: netCleanName(rival.name, ""), rosterIndex: -1,
         color: netAverageColor(rivalColors, [38, 82, 176]),
         handleColors: rivalColors },
     ] };
@@ -3928,12 +5915,28 @@ function netBegin(deal, seat, send) {
     remoteFrame: -1, remoteSimFrame: 0, lastRemoteMask: 0, ackFrame: -1,
     confirmed: -1, hashes: new Map(), peerHashes: new Map(),
     lastPacketAt: Date.now(), startedAt: Date.now(), ticks: 0,
+    // peerStamp is the newest wall-clock mark heard from the rival, echoed
+    // back on our next packet so they can read their own round trip; pingMs is
+    // ours, read from the echoes coming the other way.
+    peerStamp: 0,
     stats: { rollbacks: 0, rolledFrames: 0, maxRollback: 0, stalls: 0,
-      waits: 0, sent: 0, received: 0, desyncs: 0, snapshotMs: 0, resimMs: 0 } };
+      waits: 0, sent: 0, received: 0, desyncs: 0, snapshotMs: 0, resimMs: 0,
+      // `pings` counts measurements, not milliseconds: a round trip under half
+      // a millisecond rounds to zero, and a meter that reads "no measurement
+      // yet" on a LAN would be wrong at exactly the moment it is best.
+      pings: 0, pingMs: 0 } };
   for (let frame = 0; frame < deal.delay; frame++) session.local.set(frame, 0);
   netSession = session;
+  // The relay's clock is the fight's clock: a host who was reading tells at
+  // quarter speed is back at full the moment the rival is real.
+  if (gameSpeed !== 1) {
+    gameSpeed = 1;
+    gameSpeedChangedAt = 0;
+    emitSignal("game-speed", -1, 1, 0);
+  }
   netClockUs = deal.origin;
   try {
+    configureWorldMap(deal.map);
     matchBallType = deal.ballType;
     // The limb poses that collide are phased off this epoch, so both seats
     // must share it; and a rollback fight is never a recorded one.
@@ -3952,13 +5955,28 @@ function netBegin(deal, seat, send) {
 // silence timeout; whatever the leaving seat's game did next stands.
 function netLeave(reason) {
   if (!netSession) return;
-  try { netSession.send({ t: "bye", r: reason }); } catch (_) {}
+  try { netSession.send({ t: "bye", o: netSession.originUs, r: reason }); }
+  catch (_) {}
   netEnd(reason);
 }
 
 function netEnd(reason) {
   if (!netSession) return;
+  // A rival who has gone will never confirm anything, and the round they lost
+  // still happened — the frames past the frontier cannot change with nobody
+  // left to press anything.
+  flushPendingRoundReplay(runtime().monotonicUs);
   const stats = netSession.stats;
+  // A seat in a rollback fight sends net packets, not pads, so the moment
+  // this lane closes the host has heard nothing on the pad wire for as long
+  // as the fight lasted. Read literally that is an empty chair, and an empty
+  // chair resets the match — which would turn a repaired desync into a lost
+  // score. The grace covers the changeover; a rival who has genuinely gone
+  // still times out, just three seconds later.
+  if (reason === "desync" || reason === "desync-peer" || reason === "workshop")
+    versusSeatGraceUntil = Date.now() + 3000;
+  // The stream this seat is about to start watching again is a new timeline.
+  if (roundViewer) resetRoundViewerPlayout();
   // Time never runs backwards: the local clock picks up where the fight's
   // clock stood, so every deadline the fight left behind is still meaningful.
   scaledClockUs = Math.max(scaledClockUs,
@@ -4009,6 +6027,44 @@ function netSimulateFrame(session, frame, silent) {
   }
 }
 
+// A rollback un-happens frames, and the frames it un-happens were written
+// down. Every row in a demo's logs is stamped with the tick it belongs to, so
+// taking the record back to a frame is a truncation — and the silent
+// re-simulation that follows re-files the corrected rows itself, which is why
+// the recorders are NOT muted while it runs. The two cursors that decide when
+// the next row is due are rebuilt from what survives, so they rewind too
+// without having to ride in the snapshot.
+//
+// Without this a versus demo was written from mispredicted frames: it recorded
+// the rival pad this seat had GUESSED, so the stored fight replayed into a
+// different one. That is what "a rollback fight is never a recorded one" meant.
+function replayRewind(session, toFrame) {
+  if (!replay) return;
+  const tick = demoTick(session.originUs + (toFrame + 1) * NET_TICK_US);
+  const keep = (rows) => {
+    if (!Array.isArray(rows)) return rows;
+    let length = rows.length;
+    while (length > 0 && rows[length - 1][0] >= tick) length--;
+    rows.length = length;
+    return rows;
+  };
+  keep(replay.commands);
+  keep(replay.checkpoints);
+  keep(replay.events);
+  keep(replay.impacts);
+  keep(replay.rounds);
+  keep(replayRoundMarks);
+  replay.roundIds = replayRoundMarks.map((mark) => "ow-" + mark[1]);
+  // The dedupe cursor is whatever each pad was last recorded as saying; a
+  // command that was truncated must be writable again.
+  replayLastCommand = [-1, -1];
+  for (const row of replay.commands) replayLastCommand[row[1]] = row[2];
+  replayNextCheckpointAt = replay.checkpoints.length
+    ? session.originUs + (toFrame + 1) * NET_TICK_US : 0;
+  // A round whose end was taken back is not a round to file.
+  if (replayPendingSaveFrame >= toFrame) replayPendingSaveFrame = -1;
+}
+
 // The earliest frame we simulated with a guessed rival pad that has since
 // been contradicted. Frames past `confirmed` are the only candidates.
 function netEarliestMisprediction(session) {
@@ -4027,6 +6083,7 @@ function netRollback(session, toFrame) {
   const started = performance.now();
   const depth = session.frame - toFrame;
   netRestore(session.snapshots.get(toFrame));
+  replayRewind(session, toFrame);
   for (let frame = toFrame; frame < session.frame; frame++)
     netSimulateFrame(session, frame, true);
   session.stats.rollbacks++;
@@ -4054,11 +6111,44 @@ function netPrune(session) {
 
 function netDrainInbox(session) {
   const remoteSeat = session.seat === 0 ? 1 : 0;
-  for (const packet of netInbox) {
+  // Taken as a batch: a hash mismatch inside this loop ends the session and
+  // empties the inbox underneath it.
+  const batch = netInbox.splice(0, netInbox.length);
+  for (const packet of batch) {
     if (!packet || typeof packet !== "object") continue;
+    // A hello inside a session is never the rival still talking: the
+    // challenger stops saying hello the moment it has one. It is somebody with
+    // no session — the same person having reloaded, or a new arrival in the
+    // chair — and it has to be read that way BEFORE the clock below is
+    // touched. Stamping it as a live packet was the deadlock: a tab that is
+    // killed sends no `bye`, so this seat waited on four seconds of silence
+    // that the rejoiner's own 1 Hz hello refreshed forever. This seat went on
+    // simulating against a rival who only ever said hello, and the rejoiner
+    // never got a deal back. Neither could leave. Treating it as a departure
+    // frees both: the lobby is one tick away, and the next hello a second
+    // later deals a fresh session with the fresh identity.
+    if (packet.t === "hello") {
+      // Except a straggler still in flight from before the deal was made,
+      // which would kill a session one frame old.
+      if (Date.now() - session.startedAt > NET_HELLO_INTERVAL_MS * 2)
+        session.peerLeft = true;
+      continue;
+    }
+    // A straggler from the fight before. The shell's inbox is not emptied when
+    // a session ends and packets stay in flight across the changeover, so
+    // without this the old rival's last presses were written into the new
+    // fight at frames it had not reached — on the seat that received them and
+    // nowhere else. Measured: two seats agreed through frame 330 of a rejoined
+    // fight and were found apart at the next checkpoint. An older build sends
+    // no tag and is taken at its word, as it always was.
+    if (packet.o !== undefined && packet.o !== session.originUs) continue;
     session.lastPacketAt = Date.now();
     session.stats.received++;
+    if (packet.t === "workshop" && session.seat === 1) { session.peerWorkshop = true; continue; }
     if (packet.t === "bye") { session.peerLeft = true; continue; }
+    // The rival noticed the divergence first. Same repair from this side, and
+    // no answering packet: a desync that echoed would ping-pong.
+    if (packet.t === "desync") { session.peerDesync = true; continue; }
     if (packet.t === "i" && Array.isArray(packet.m) &&
         Number.isInteger(packet.f)) {
       // m[k] is the pad for frame f + k; the newest is the last.
@@ -4074,11 +6164,25 @@ function netDrainInbox(session) {
       }
       if (Number.isInteger(packet.a)) session.ackFrame = Math.max(session.ackFrame, packet.a);
       if (Number.isInteger(packet.s)) session.remoteSimFrame = Math.max(session.remoteSimFrame, packet.s);
+      // Ping, by echo. `w` is the rival's own mark, which we hold and send
+      // back; `e` is one of ours coming home, so the round trip is a
+      // subtraction in OUR clock and the two machines need no shared time.
+      // It reads up to one frame long, because the rival holds our mark until
+      // their next tick — an honest part of what a press actually costs.
+      if (Number.isInteger(packet.w)) session.peerStamp = packet.w;
+      if (Number.isInteger(packet.e) && packet.e > 0) {
+        const trip = Date.now() - packet.e;
+        if (trip >= 0 && trip < 4000) {
+          session.stats.pingMs = session.stats.pings
+            ? session.stats.pingMs + (trip - session.stats.pingMs) * .15 : trip;
+          session.stats.pings++;
+        }
+      }
       if (Array.isArray(packet.h) && packet.h.length === 2)
         netNotePeerHash(session, packet.h[0], packet.h[1], remoteSeat);
+      if (netSession !== session) return;
     }
   }
-  netInbox.length = 0;
 }
 
 function netNotePeerHash(session, frame, hash) {
@@ -4088,7 +6192,37 @@ function netNotePeerHash(session, frame, hash) {
   if (mine !== hash) {
     session.stats.desyncs++;
     telemetry("NET_DESYNC", "frame " + frame + " mine " + mine + " theirs " + hash);
+    netDesyncRepair(session, frame);
   }
+}
+
+// A desync used to be counted and then lived with: two machines that are no
+// longer playing the same fight went on playing their different ones, and the
+// two people found out when one of them died on a screen where they had not
+// been hit.
+//
+// The repair is to stop pretending there are two authorities. The host has
+// one, so both seats fall back to the lane where the host IS the authority:
+// the challenger goes back to watching the host's stream with its pads going
+// up the wire, and the host resumes the streamed versus fight it was already
+// publishing for the grandstand. The fight does not stop, it does not rewind,
+// and nobody has to re-adopt a state that will not fit through a 2 KiB
+// channel. What it costs is the rollback lane's latency, which is the honest
+// price of one machine having been wrong.
+//
+// Both seats have to agree, or the host sits waiting for packets that are not
+// coming — so the seat that notices says so, and both then refuse to open a
+// rollback session again for a while. Without that cooldown the challenger's
+// next hello would deal a fresh session into the same divergence, one second
+// later, forever.
+const NET_DESYNC_COOLDOWN_MS = 60000;
+let netLaneBlockedUntil = 0;
+
+function netDesyncRepair(session, frame) {
+  netLaneBlockedUntil = Date.now() + NET_DESYNC_COOLDOWN_MS;
+  try { session.send({ t: "desync", o: session.originUs, f: frame }); }
+  catch (_) {}
+  netEnd("desync");
 }
 
 // Our state hash at the newest frame both pads are known for — a frame that
@@ -4111,6 +6245,11 @@ function netExchangeHash(session) {
     netRestore(live);
   }
   session.hashes.set(frame, hash);
+  if (globalThis.__oskiewarHashTrace) {
+    netHashTexts.set(frame, netLastHashText);
+    if (netHashTexts.size > 600)
+      netHashTexts.delete(netHashTexts.keys().next().value);
+  }
   const theirs = session.peerHashes.get(frame);
   if (theirs !== undefined) netNotePeerHash(session, frame, theirs);
   session.pendingHash = [frame, hash];
@@ -4127,8 +6266,13 @@ function netSendInputs(session) {
   const masks = [];
   for (let frame = first; frame <= newest; frame++)
     masks.push(session.local.get(frame) ?? 0);
-  const packet = { t: "i", f: first, m: masks, a: session.remoteFrame,
-    s: session.frame };
+  // `o` is the deal's own origin, which is to say: which fight this is. Frame
+  // numbers restart at zero every session, so an input packet from the fight
+  // before is indistinguishable from a current one by its contents alone — and
+  // it lands on frames the new fight has not reached yet, on one seat only.
+  const packet = { t: "i", o: session.originUs, f: first, m: masks,
+    a: session.remoteFrame, s: session.frame, w: Date.now() };
+  if (session.peerStamp) packet.e = session.peerStamp;
   if (session.pendingHash) { packet.h = session.pendingHash; session.pendingHash = null; }
   if (session.send(packet)) session.stats.sent++;
 }
@@ -4140,6 +6284,20 @@ function netSendInputs(session) {
 function netTick() {
   const session = netSession;
   netDrainInbox(session);
+  if (!netSession) return;
+  // The rival told us the two fights came apart. Drop to the streamed lane,
+  // where there is only one authority, and stay out of the rollback lane long
+  // enough that the next hello is not just the same divergence again.
+  if (session.peerWorkshop) {
+    netLaneBlockedUntil = Date.now() + NET_DESYNC_COOLDOWN_MS;
+    netEnd("workshop");
+    return;
+  }
+  if (session.peerDesync) {
+    netLaneBlockedUntil = Date.now() + NET_DESYNC_COOLDOWN_MS;
+    netEnd("desync-peer");
+    return;
+  }
   if (session.peerLeft || Date.now() - session.lastPacketAt > NET_PEER_LOST_MS) {
     const seat = session.seat;
     netEnd(session.peerLeft ? "rival-left" : "peer-lost");
@@ -4151,6 +6309,10 @@ function netTick() {
   }
   const earliest = netEarliestMisprediction(session);
   if (earliest !== null) netRollback(session, earliest);
+  // A round whose end is now behind the confirmed frontier is a round that
+  // happened. Past this line no rival pad can reach back and unmake it.
+  if (replayPendingSaveFrame >= 0 && session.confirmed >= replayPendingSaveFrame)
+    flushPendingRoundReplay(runtime().monotonicUs);
   const scheduled = session.frame + session.delay;
   if (!session.local.has(scheduled)) {
     const pad = typeof gamepad === "function" ? gamepad(0) : null;
@@ -4175,24 +6337,42 @@ function netTick() {
   session.frame++;
   netPrune(session);
   netExchangeHash(session);
+  // The hash exchange can find the mismatch that ends this session.
+  if (netSession !== session) return;
   // A window into the lane for the debug overlay, the agent tools and the
   // browser harness: what the fight is costing and whether it is one game.
   globalThis.__oskiewarNetStats = { seat: session.seat, frame: session.frame,
+    // Who this fight believes is in it. A desync hash cannot see an identity
+    // fault — two machines can agree perfectly about a fight between two
+    // people who are not there — so the deal's names ride the same window the
+    // harness and the debug overlay already read.
+    names: session.deal.fighters.map((entry) => entry.name),
     confirmed: session.confirmed, remoteFrame: session.remoteFrame,
     hash: session.hashes.get(session.confirmed) ?? 0,
-    hashFrame: session.confirmed, ...session.stats };
+    hashFrame: session.confirmed, ...session.stats,
+    behind: Math.max(0, session.frame - 1 - session.remoteFrame) };
 }
 
 // The challenger announces itself on the net channel until the host answers
 // with a deal; a host that never answers is an older build, and the fight
 // falls back to the streamed lane it always had.
 function netChallengerHello(now) {
+  if (workshopMap) return;
   if (netSession || roundViewer?.seat !== "challenger" ||
-      typeof roundViewer.sendNet !== "function") return;
+      typeof roundViewer.sendNet !== "function" || !versusAllowed()) return;
+  // Not before the shell has finished asking who is here. Identity rides this
+  // packet once and is then frozen into the deal for the whole fight, and a
+  // rejoin IS a fresh page load — so the 1 Hz hello below routinely beat the
+  // session check and dealt a signed-in player in under no name at all. Worse,
+  // resetRound re-applies the deal every round, so the wrong name was restamped
+  // even after the real one arrived. A shell with no account system is an older
+  // build, not a visitor still being asked, and is never held here.
+  if (accountState() && !accountReady()) return;
   const at = Date.now();
+  if (at < netLaneBlockedUntil) return;
   if (at - netHelloSentAt < NET_HELLO_INTERVAL_MS) return;
   netHelloSentAt = at;
-  roundViewer.sendNet({ t: "hello", v: 1, ...netLocalIdentity() });
+  roundViewer.sendNet({ t: "hello", v: 2, ...netLocalIdentity() });
 }
 
 // Packets that arrive before a session exists: the challenger's hello lands
@@ -4200,12 +6380,16 @@ function netChallengerHello(now) {
 // in the inbox for the session to drain.
 function netHandlePreSession(packet) {
   if (!packet || typeof packet !== "object") return;
+  // A packet from the lane we have just fallen out of. Both ends are watching
+  // the same cooldown, so this is a straggler in flight, not an offer.
+  if (Date.now() < netLaneBlockedUntil) return;
+  if (packet.t === "hello" && packet.v !== 2) return;
   if (packet.t === "hello" && !roundViewer) {
     netPeerHello = { name: packet.name, colors: packet.colors, at: Date.now() };
     return;
   }
   if (packet.t === "start" && roundViewer?.seat === "challenger" &&
-      packet.v === 1 && Number.isInteger(packet.origin) &&
+      packet.v === 2 && Number.isInteger(packet.origin) &&
       Number.isInteger(packet.delay) && Array.isArray(packet.fighters) &&
       packet.fighters.length === 2) {
     const bridge = roundViewer;
@@ -4218,6 +6402,10 @@ function netHandlePreSession(packet) {
 // The host's side of the opening: a fresh challenger who said hello gets a
 // deal instead of the streamed fight.
 function netHostBegin(now) {
+  if (workshopMap) return false;
+  // Same door, other side: a deal struck before this seat knows its own handle
+  // names the host for the rest of the fight, on both screens.
+  if (accountState() && !accountReady()) return false;
   const deal = netMakeDeal();
   const room = "ow-" + versusRoomName;
   const send = (content) => typeof globalThis.__oskiewarNetSend === "function"
@@ -4237,39 +6425,27 @@ function netDrainHostInbox() {
   inbox.length = 0;
 }
 
-// A visitor who arrived through a shared address and found nobody hosting
-// takes the room over — the link a friend sent must keep working after the
-// sender's tab closed. The chair-holder claims first; a seat-denied watcher
-// waits three times as long, so two arrivals at a dead address stagger
-// instead of racing, and updateVersusConflict catches the tie anyway.
+// An address with neither a live host nor a saved replay returns to the
+// title. This works before sign-in; Start handles the account door later.
 function updateVersusClaim(now) {
   if (globalThis.__oskiewarVersusCapable !== true || !roundViewer) return false;
-  // A room with a live host is a fight to join; a room with a stored demo is
-  // a replay page and keeps being one — versus rooms never record, so only a
-  // truly empty address falls through to the claim.
-  if (roundViewer.live || roundViewerDemo || roundViewerMode === "DEMO") {
-    versusClaimArmedAt = 0;
-    return false;
-  }
-  if (!versusClaimArmedAt) {
-    versusClaimArmedAt = now;
-    return false;
-  }
-  const wait = roundViewer.seat === "challenger"
-    ? versusClaimAfterUs : versusClaimAfterUs * 3;
-  if (now - versusClaimArmedAt < wait) return false;
+  if (roundViewer.live || roundViewerDemo || roundViewerMode === "DEMO" ||
+      !roundViewer.empty) return false;
   const name = roundViewer.name;
   versusFallbackBridge = roundViewer;
   roundViewerStop?.();
   roundViewerStop = null;
   roundViewer = null;
+  globalThis.__oskiewarRoundBridge = null;
+  globalThis.__oskiewarRoomUnavailable = name;
   roundViewerMode = "";
   roundViewerDemo = null;
   roundViewerStatus = "CONNECTING";
+  resetRoundViewerPlayout();
   versusClaimArmedAt = 0;
   versusRoomName = name;
   globalThis.__oskiewarRemotePad = null;
-  beginVersusLobby(now);
+  beginVersusLobby(now, { title: true });
   telemetry("VERSUS_CLAIM", name);
   return true;
 }
@@ -4295,6 +6471,12 @@ function replayViewerImpacts(tick, dt) {
 }
 
 function gameBoot() {
+  globalThis.__oskiewarWorkshopCommand = workshopCommand;
+  workshopBase ||= workshopSnapshot();
+  if (globalThis.__oskiewarPublishedMap && globalThis.__oskiewarValidateMap) {
+    workshopMap = globalThis.__oskiewarValidateMap(globalThis.__oskiewarPublishedMap);
+    workshopTainted = true;
+  }
   syncGameView();
   // The reel harness may boot with the debug overlay lit — safe-zone crops,
   // stat chassis, input read-outs — to diagnose framing on a rendered reel.
@@ -4322,6 +6504,9 @@ function gameBoot() {
   spectatorQr = typeof qrcode === "function"
     ? spectatorCode("https://oskiewar.com") : null;
   shellPrevious = [];
+  startInputPending = false;
+  localControllerPairSeen = false;
+  localControllerMissing = -1;
   navigationPrevious = [[], []];
   roundViewer = globalThis.__oskiewarRoundBridge || null;
   if (roundViewer?.start) {
@@ -4329,6 +6514,11 @@ function gameBoot() {
     selecting = false;
     roundResult = "";
     matchOver = false;
+    // Watching a fight IS gameplay for the person doing it. This was false on
+    // every watcher, and the whole match HUD hangs off it: no round clock, no
+    // VS or WAITING FOR HOST label, no "you are ..." seat line, no status
+    // tray. That is the "no state updates on screen" @jeffrey reported.
+    gameplayStarted = true;
     matchName = roundViewer.name || "";
     spectatorQr = typeof qrcode === "function"
       ? spectatorCode("https://oskiewar.com/" + matchName) : spectatorQr;
@@ -4340,39 +6530,55 @@ function gameBoot() {
     // A harness cast keeps the pre-versus reading of the empty door: nobody
     // is holding a controller, so "no opponent" means the climb, never a
     // lobby waiting on a friend who cannot exist.
-    if (survivalRequested() || versusRequested())
+    if (!String(globalThis.__oskiewarOpponent || "").trim() ||
+        survivalRequested())
       startSurvivalRun(startedAt, true);
     else startSelfPlay(startedAt);
     return;
   }
-  if (survivalRequested()) beginSurvival(startedAt);
+  if (freeskateRequested()) beginFreeskate(startedAt);
+  else if (survivalRequested()) beginSurvival(startedAt);
   else if (versusRequested()) {
     versusRoomName = sessionName;
     beginVersusLobby(startedAt, { title: true });
   } else beginTraining(startedAt);
 }
 
-function resetRound(now, resetMatch = false) {
+function resetRound(now, resetMatch = false, keepMap = false) {
+  resetWorkshopMap();
+  rotateLocalMap(keepMap);
   if (replay) {
     const nextRoundName = pronounceableMatchName();
-    if (matchName) publishSpectator(now, {
-      target: matchName, nextRoundId: "ow-" + nextRoundName, force: true,
-    });
+    // A versus room is one address for a whole match — the link a friend was
+    // sent, the socket the fight is riding, the code on the wall. Handing over
+    // to a new room between rounds would move every watcher and close the
+    // publisher out from under the fight. Only the broadcast lane hands over,
+    // where each round IS its own room.
+    if (!versusLane()) {
+      if (matchName) publishSpectator(now, {
+        target: matchName, nextRoundId: "ow-" + nextRoundName, force: true,
+      });
+      spectatorQr = typeof qrcode === "function"
+        ? spectatorCode("https://oskiewar.com/" + nextRoundName) : null;
+    }
     previousRoundName = matchName;
     matchName = nextRoundName;
-    replay.roundIds.push("ow-" + matchName);
-    spectatorQr = typeof qrcode === "function"
-      ? spectatorCode("https://oskiewar.com/" + matchName) : null;
+    // Stamped, so a rollback across this rollover takes the entry back with it.
+    replayRoundMarks.push([demoTick(now), matchName]);
+    replay.roundIds = replayRoundMarks.map((mark) => "ow-" + mark[1]);
   }
   // Terrain belongs to the simulation contract, not the spectator URL. A
   // series keeps one landscape across rounds and identical training sims get
   // identical ground even when their public room names differ.
+  configureWorldMap(skateparkMap ? "skatepark" : "station");
+  resetSkateRopes();
   terrainPhase = terrainSeed("oskiewar-physics-1-hills");
   impacts.length = 0;
   detachedParts.length = 0;
   bullets.length = 0;
   grenades.length = 0;
   roundReplayFrames = [];
+  soloDeathReplayPending = null;
   roundReplayLastAt = 0;
   instantReplay = null;
   replayOfferPrevious = [];
@@ -4400,6 +6606,7 @@ function resetRound(now, resetMatch = false) {
     player.dashUntil = 0;
     player.dashVx = 0;
     player.runSince = 0;
+    player.runSpeed = 0;
     player.walkSince = 0;
     player.attackKind = "";
     player.attackUntil = 0;
@@ -4437,7 +6644,15 @@ function resetRound(now, resetMatch = false) {
     player.heldPlayer = -1;
     player.carryArm = "";
     player.grabbedBy = -1;
-    player.skateboard = false;
+    resetSkate(player);
+    player.skateboard = skateparkMap && !survivalActive();
+    player.ropeIndex = -1;
+    player.ropeGrabLocked = false;
+    player.ropeLink = chainLinks;
+    player.skateLoop = -1;
+    player.skateRotation = 0;
+    player.loopCooldownUntil = 0;
+    player.boostUntil = 0;
     player.skateVx = 0;
     player.skateWallSide = 0;
     player.swordHeld = false;
@@ -4501,7 +6716,13 @@ function resetRound(now, resetMatch = false) {
     player.lastButton = "NONE";
     player.lastButtonAt = 0;
   }
-  for (const pickup of [...gunPickups, ...grenadePickups]) {
+  // A blade dropped by a severed arm is round furniture, not map furniture:
+  // it exists because a hand stopped existing, and the bell undoes that. Drop
+  // the dropped ones rather than parking them inactive forever, so a long
+  // match cannot walk this array up one entry per lost arm.
+  saberPickups.length = saberPickups.filter((pickup) => pickup.startsActive)
+    .length;
+  for (const pickup of [...gunPickups, ...saberPickups, ...grenadePickups]) {
     pickup.active = Boolean(pickup.startsActive);
     pickup.respawnAt = 0;
   }
@@ -4511,6 +6732,9 @@ function resetRound(now, resetMatch = false) {
     tree.y = terrainFloorAt(tree.x) - 60;
   }
   gridField.fill(0);
+  // A new round is a new exchange. Carrying the last one's frames across the
+  // bell would draw a history that never happened.
+  for (const meter of frameMeters) meter.length = 0;
   nextPowerupAtUs = powerupIntervalUs;
   powerupSequence = 0;
   roundResult = "";
@@ -4527,7 +6751,6 @@ function resetRound(now, resetMatch = false) {
   lastSimAt = now;
   roundStartedAt = now;
   rollWind(now);
-  resetAirParticles();
   resetBalls(now);
   if (replay) replay.rounds.push([demoTick(now), windDirection, windMph,
     balls.length]);
@@ -4694,11 +6917,11 @@ function terrainSpan() {
   return { left: Math.max(worldLeft, cameraCenter - reach),
     right: Math.min(worldRight, cameraCenter + reach),
     top: Math.max(worldTop, cameraCenterY - reach),
-    bottom: Math.min(floorY, cameraCenterY + reach) };
+    bottom: Math.min(parkDeepest, cameraCenterY + reach) };
 }
 
 function updateCamera(dt) {
-  if (survivalActive()) return;
+  if (survivalActive() || skateparkMap) return;
   const rect = fighterFrameRect();
   // Look slightly ahead of fast movement so zoom starts before a fighter
   // reaches the safe edge instead of reacting after the crossing.
@@ -4725,11 +6948,25 @@ function updateCamera(dt) {
   // Perspective orbit and uneven ground skew the projected silhouette beyond
   // its orthographic pushbox. A small fixed overscan keeps complete bodies in
   // the action-safe rectangle without making the compact room feel distant.
-  const desiredWidth = clamp(rectPackWidth(rect) * 1.08,
-    frameFloorWidth(), maxWidth);
+  const packWidth = rectPackWidth(rect);
+  const desiredWidth = clamp(packWidth * 1.08, frameFloorWidth(), maxWidth);
   const widthSpeed = desiredWidth > cameraWidth ? 17 : 5.5;
   const widthBlend = 1 - Math.exp(-Math.max(0, dt) * widthSpeed);
   cameraWidth += (desiredWidth - cameraWidth) * widthBlend;
+  // An exponential ease always runs a fixed distance behind a target that is
+  // moving steadily, and the distance is the target's rate over the blend —
+  // about 160 units of width when the pair is separating at a walk. In the
+  // cube that debt was invisible: the two walls were 980 apart, so separation
+  // stopped growing before the debt could show. On a station twice that wide
+  // it is ten pixels of fighter hanging outside the action-safe rect, every
+  // frame, for as long as the two of them keep running apart.
+  //
+  // So containment gets a floor, and the ease keeps the rest. `rectPackWidth`
+  // is exactly the width that fits the pack inside the safe rect with nothing
+  // to spare; the 8% overscan above it is comfort and may arrive late. The
+  // camera may therefore be behind on looking good, and never behind on
+  // holding the fight.
+  cameraWidth = Math.max(cameraWidth, Math.min(packWidth, maxWidth));
   const halfWidth = cameraWidth / 2;
   const halfHeight = cameraWidth / cameraAspect / 2;
   // Center comes from the same rect the width did, so the frame pans down as
@@ -4755,7 +6992,7 @@ function updateCamera(dt) {
   let desiredCenterY = halfHeight * 2 >= floorY - ceilingY
     ? (ceilingY + floorY) / 2
     : clamp((rect.top + rect.bottom) / 2 + aimLean,
-      ceilingY + halfHeight, floorY + footRoom - halfHeight);
+      ceilingY + halfHeight, parkDeepest + footRoom - halfHeight);
   // Fold containment into the target before easing. Clamping the live camera
   // after easing caused a one-frame reset whenever a fighter crossed the safe
   // edge; the pack width now absorbs that motion while the center remains
@@ -4773,11 +7010,62 @@ function updateCamera(dt) {
   cameraCenterY += (desiredCenterY - cameraCenterY) * centerBlend;
 }
 
+// A bounded corkscrew stays on the audience side of the arena. Its zoom and
+// orbit follow replay progress, so pausing or scrubbing also pauses the camera.
+function deathOrbitShot(target, width, progress) {
+  const phase = clamp(progress, 0, 1) * Math.PI * 2;
+  const orbit = Math.sin(phase) * .62;
+  const distance = Math.max(width * 1.4, Math.abs(worldNear) + width);
+  return { target, position: {
+    x: target.x + Math.sin(orbit) * distance,
+    y: target.y - distance * (.12 + .09 * Math.sin(phase * 2)),
+    z: target.z - Math.cos(orbit) * distance },
+    width: width * (1 - .18 * Math.sin(phase / 2)),
+    perspective: .65, fov: 55, roll: Math.sin(phase) * .035 };
+}
+
 function updateCameraDoll(dt, now) {
+  if (deathCinematic?.solo && !instantReplay) {
+    const player = players[deathCinematic.loserPad];
+    const width = 680 * portraitPull();
+    const target = { x: player.x, y: player.y - 110, z: player.z };
+    cameraDoll.track(deathOrbitShot(target, width,
+      deathCinematicAge(now) / 1.45), dt, 12);
+    return;
+  }
+  if (skateparkMap && !survivalActive() && shellMode === "GAME") {
+    const rider = players[netSession?.seat || 0];
+    // Off the board, the shot keeps the board in it: the frame widens to hold
+    // rider and board together, so a bail never loses the thing to go back to.
+    const board = !rider.skateboard && balls.find((item) =>
+      item.type === "skateboard" && item.active && item.heldBy < 0);
+    const spanX = board ? Math.abs(board.x - rider.x) : 0;
+    const spanY = board ? Math.abs(board.y - rider.y) : 0;
+    const width = Math.max(1100, 900 * cameraAspect, spanX + 700,
+      (spanY + 600) * cameraAspect) * playerCameraZoom;
+    const half = width / 2;
+    const focusX = board ? (rider.x + board.x) / 2 : rider.x;
+    const focusY = board ? (rider.y + board.y) / 2 : rider.y;
+    const desiredX = clamp(focusX + clamp(rider.vx * .18, -300, 300),
+      worldLeft + half, worldRight - half);
+    const desiredY = focusY - 180;
+    const blend = 1 - Math.exp(-dt * 9);
+    cameraCenter += (desiredX - cameraCenter) * blend;
+    cameraCenterY += (desiredY - cameraCenterY) * blend;
+    cameraWidth = width;
+    // The same orbit the fight camera takes from the right stick, a drag,
+    // the wheel or a trackpad: turn round the rider and tilt over them.
+    cameraDoll.track({ target: { x: cameraCenter, y: cameraCenterY, z: 0 },
+      position: { x: cameraCenter + Math.sin(playerCameraYaw) * width * 1.35,
+        y: cameraCenterY - width * playerCameraPitch,
+        z: -Math.cos(playerCameraYaw) * width * 1.35 },
+      width, perspective: 0, fov: 55, roll: 0 }, dt, 12);
+    return;
+  }
   const introAge = now - roundStartedAt;
   if (survivalActive()) {
     const runner = players[0];
-    const framedWidth = (gridWidth + 120) * playerCameraZoom;
+    const framedWidth = survivalFrameWidth * playerCameraZoom;
     const halfHeight = framedWidth / cameraAspect / 2;
     const desiredY = clamp(runner.y + halfHeight * .18,
       survivalCeilingY + halfHeight, floorY + 40 - halfHeight);
@@ -4835,8 +7123,8 @@ function updateCameraDoll(dt, now) {
       // settles toward the span the returning wide shot uses.
       const shotWidth = Math.min(headGap * 1.7, headGap + 900) * portraitPull();
       if (age < .86) {
-        cameraDoll.track({ target: focus, position: shoulder,
-          width: shotWidth, perspective: 0, fov: 55, roll: 0 }, dt, 11);
+        cameraDoll.track(deathOrbitShot(focus, Math.max(900 * portraitPull(), shotWidth),
+          age / 1.45), dt, 11);
         return;
       }
       // Reels celebrate instead of returning. The lens narrows onto the
@@ -4948,7 +7236,24 @@ function updateCameraDoll(dt, now) {
   // the safe-zone edge.
   const containmentWidth = fighterContainmentRequiredWidth(
     (now - startedAt) / 1000000) * 1.04;
-  cameraContainFloor = Math.max(cameraContainFloor, containmentWidth);
+  // Lead the floor by exactly the debt the doll's own ease is about to run up.
+  // `track` pulls back at speed * 1.9 — 19 here — so a floor growing at R units
+  // a second settles 19 times slower than that, and the doll sits R/19 units of
+  // width behind it for as long as the growth lasts. In the cube that debt was
+  // unreachable: the walls were 980 apart and separation stopped growing long
+  // before it could accumulate. On a station twice that wide, two fighters
+  // running in opposite directions hold the growth up indefinitely, and the
+  // debt reads as a hand hanging outside the action-safe rect every frame.
+  //
+  // Adding the debt to the target is not a fudge — it is what makes the ease
+  // arrive where the fighters actually are rather than where they were. It
+  // costs nothing when nothing is moving apart, because the growth is zero and
+  // the lead is zero, so a settled fight frames exactly as it always did.
+  const containmentGrowth = dt > 0
+    ? Math.max(0, containmentWidth - previousContainmentWidth) / dt : 0;
+  previousContainmentWidth = containmentWidth;
+  cameraContainFloor = Math.max(cameraContainFloor,
+    containmentWidth + containmentGrowth / 19);
   // A small overscan absorbs animated hands and feet before
   // they reach the action-safe edge without loosening the close fight shot.
   const naturalWidth = cameraWidth * 1.015;
@@ -5016,7 +7321,9 @@ function finishRound(now) {
   playDrum("clap", 1.2, roundPan);
   captureFrameTelemetry(now, true);
   saveRoundReplay(now);
-  if (matchOver) finishReplay();
+  // A deferred round still needs its replay to be filed from; the flush that
+  // files it closes the match out afterwards.
+  if (matchOver && !netSession) finishReplay();
 }
 
 function resultCardText() {
@@ -5097,6 +7404,7 @@ function fireGun(player, input) {
   player.gunAimY = pose.dy;
   const smg = player.gunMode === "RUBBER SMG";
   const rocket = player.gunMode === "ROCKET LAUNCHER";
+  const laser = player.gunMode === "SPACE LASER";
   if (rocket) {
     grenades.push({ x: pose.muzzle.x, y: pose.muzzle.y, z: pose.muzzle.z,
       vx: pose.dx * 2850, vy: pose.dy * 2850, owner: player.pad,
@@ -5120,24 +7428,27 @@ function fireGun(player, input) {
   for (let shot = 0; shot < shots; shot++) {
     bullets.push({
       x: pose.muzzle.x, y: pose.muzzle.y, z: pose.muzzle.z,
-      vx: pose.dx * (smg ? 5000 : 4200),
-      vy: pose.dy * (smg ? 5000 : 4200),
-      owner: player.pad, life: 1, rubber: smg, safeUntil: now + 100000,
+      vx: pose.dx * (laser ? 9600 : smg ? 5000 : 4200),
+      vy: pose.dy * (laser ? 9600 : smg ? 5000 : 4200),
+      owner: player.pad, life: 1, rubber: smg, laser,
+      safeUntil: now + 100000,
     });
   }
   while (bullets.length > 24) bullets.shift();
   player.gunAmmo -= shots;
-  player.nextGunShotAt = now + (smg ? 85000 : 220000);
+  player.nextGunShotAt = now + (laser ? 340000 : smg ? 85000 : 220000);
   player.itemAction = "FIRE";
   player.itemActionStartedAt = now;
-  player.itemActionUntil = now + 170000;
-  player.pendingMoveLabel = (smg ? "RUBBER SMG " : "FIRE ") + player.gunAmmo;
+  player.itemActionUntil = now + (laser ? 210000 : 170000);
+  player.pendingMoveLabel =
+    (laser ? "LASER " : smg ? "RUBBER SMG " : "FIRE ") + player.gunAmmo;
   for (let shot = 0; shot < shots; shot++) {
-    playDrum(smg ? "block" : "hat", smg ? .62 + shot * .08 : 1.05,
-      panPlayer(player));
-    playSine((smg ? 310 : 760) + shot * 55, smg ? .055 : .08);
+    playDrum(laser ? "whoosh" : smg ? "block" : "hat",
+      laser ? 1.35 : smg ? .62 + shot * .08 : 1.05, panPlayer(player));
+    playSine(laser ? 1180 : (smg ? 310 : 760) + shot * 55,
+      laser ? .13 : smg ? .055 : .08);
   }
-  emitSignal("bullet", player.pad, pose.dx, pose.dy);
+  emitSignal(laser ? "laser" : "bullet", player.pad, pose.dx, pose.dy);
 }
 
 // The mouth used by both face paint and projectile spawn. Its coordinates are
@@ -5241,8 +7552,8 @@ function updateGunPickups(now) {
   for (const pickup of gunPickups) {
     if (!pickup.active) continue;
     for (const player of players) {
-      if (!player.alive || runnerDistanceToPoint(player, poseTime,
-        pickup.x, pickup.y, pickup.z) > 90 || !availableArm(player)) continue;
+      if (!player.alive || !nearRunner(player, pickup.x, pickup.y, pickup.z, 90) ||
+          runnerDistanceToPoint(player, poseTime, pickup.x, pickup.y, pickup.z) > 90 || !availableArm(player)) continue;
       player.gunAmmo = Math.min(30, player.gunAmmo + pickup.amount);
       player.gunMode = pickup.kind || "HANDGUN";
       player.itemArm = availableArm(player);
@@ -5255,13 +7566,38 @@ function updateGunPickups(now) {
   }
 }
 
+// A saber is picked up the way a gun is and kept the way a limb is. It needs
+// a free arm to take, it lives on `swordHeld` rather than in an ammo count,
+// and `meleeSpecFor` is what spends it — every hand strike gets half again
+// its reach while the blade is in the hand. Nothing here fires.
+function updateSaberPickups(now) {
+  const poseTime = (now - startedAt) / 1000000;
+  for (const pickup of saberPickups) {
+    if (!pickup.active) continue;
+    for (const player of players) {
+      if (!player.alive || player.swordHeld ||
+        !nearRunner(player, pickup.x, pickup.y, pickup.z, 90) ||
+        runnerDistanceToPoint(player, poseTime,
+          pickup.x, pickup.y, pickup.z) > 90 || !availableArm(player)) continue;
+      player.swordHeld = true;
+      player.itemArm = availableArm(player);
+      pickup.active = false;
+      remember(player, "LIGHT SABER");
+      playDrum("clap", 1.25, panPlayer(player));
+      playSine(520, .14);
+      emitSignal("saber", player.pad, 1, 0);
+      break;
+    }
+  }
+}
+
 function updateGrenadePickups(now) {
   const poseTime = (now - startedAt) / 1000000;
   for (const pickup of grenadePickups) {
     if (!pickup.active) continue;
     for (const player of players) {
-      if (!player.alive || runnerDistanceToPoint(player, poseTime,
-        pickup.x, pickup.y, pickup.z) > 90 || !availableArm(player)) continue;
+      if (!player.alive || !nearRunner(player, pickup.x, pickup.y, pickup.z, 90) ||
+          runnerDistanceToPoint(player, poseTime, pickup.x, pickup.y, pickup.z) > 90 || !availableArm(player)) continue;
       player.grenadeAmmo = Math.min(4, player.grenadeAmmo + pickup.amount);
       player.itemArm = availableArm(player);
       pickup.active = false;
@@ -5364,15 +7700,20 @@ function drawBodyTree(tree, t) {
 }
 
 function updatePowerups(now) {
+  if (freeskateActive()) return;
   while (roundElapsedUs >= nextPowerupAtUs) {
-    const occupied = gunPickups.some((pickup) => pickup.active);
-    if (!occupied) {
+    // Only the slot marked `cycle` is the rotation's business. Asking whether
+    // ANY gun pickup is on the map would let an untouched space laser sitting
+    // on the top deck stall the pistol reload for the whole round.
+    const pickup = gunPickups.find((slot) => slot.cycle);
+    // Authored maps may intentionally have no replenishing weapon.
+    if (pickup && !pickup.active) {
       // The cycle's whole job is to keep six more rounds of ammo appearing
-      // somewhere worth crossing the cube for — the corner tiles,
+      // somewhere worth crossing the station for — the corner tiles,
       // alternating, so the reload never lives on one fighter's side.
-      const pickup = gunPickups[0];
       pickup.active = true;
-      pickup.x = tileCenterX(powerupSequence % 2 === 0 ? 0 : 9);
+      pickup.x = tileCenterX(powerupSequence % 2 === 0
+        ? cornerColLeft : cornerColRight);
       pickup.y = surfaceYAt(pickup.x, floorY) - 70;
       pickup.z = 0;
       powerupSequence += 1;
@@ -5382,6 +7723,7 @@ function updatePowerups(now) {
     nextPowerupAtUs += powerupIntervalUs;
   }
   updateGunPickups(now);
+  updateSaberPickups(now);
   updateGrenadePickups(now);
 }
 
@@ -5420,7 +7762,7 @@ function updateBullets(dt, now, combat = true) {
       bullet.vy += 700 * dt;
       bullet.life -= dt * .22;
       if (bullet.life <= 0) {
-        impacts.push({ x: bullet.x, y: bullet.y, z: bullet.z,
+        spawnImpact({ x: bullet.x, y: bullet.y, z: bullet.z,
           life: .16, duration: .16, death: false, explosion: false });
         continue;
       }
@@ -5432,6 +7774,24 @@ function updateBullets(dt, now, combat = true) {
     // Held so the ricochets below can be spotted by the sign they flip.
     const enteredVx = bullet.vx;
     const enteredVy = bullet.vy;
+    // A laser bolt does not ricochet. Everything else in this game's ballistics
+    // is built on the opposite rule — "shots have no clock-based expiry, arena
+    // surfaces ricochet them so a long-travelling round remains part of the
+    // fight" — and that rule is what makes the pistol frightening in a closed
+    // room. The bolt is the other half of the pair: four of them, travelling
+    // more than twice as fast, each spent outright the moment it touches
+    // anything. Fast and honest against slow and haunting, and a laser miss is
+    // a miss for good.
+    if (bullet.laser && (bullet.x - 24 <= worldLeft + wallThickness ||
+        bullet.x + 24 >= worldRight - wallThickness ||
+        bullet.y - 24 <= ceilingY + wallThickness ||
+        bullet.y + 24 >= terrainFloorAt(bullet.x) - wallThickness)) {
+      bullet.life = 0;
+      spawnImpact({ x: bullet.x, y: bullet.y, z: bullet.z,
+        life: .14, duration: .14, death: false, explosion: false });
+      playDrum("hat", 1.4, panAt(bullet.x, bullet.z));
+      continue;
+    }
     // Shots have no clock-based expiry. Arena surfaces ricochet them so a
     // long-travelling round remains part of the fight until contact.
     if (bullet.x - 24 <= worldLeft + wallThickness) {
@@ -5455,7 +7815,7 @@ function updateBullets(dt, now, combat = true) {
         bullet.life -= .18;
         if (Math.abs(bullet.vy) < 90) bullet.life = 0;
         if (bullet.life <= 0) {
-          impacts.push({ x: bullet.x, y: bullet.y, z: bullet.z,
+          spawnImpact({ x: bullet.x, y: bullet.y, z: bullet.z,
             life: .16, duration: .16, death: false, explosion: false });
         } else playDrum("hat", .3, panAt(bullet.x, bullet.z));
         // A splash bounces any bodyless head standing in it — including the
@@ -5489,7 +7849,7 @@ function updateBullets(dt, now, combat = true) {
           Math.abs(a.z - b.z) <= 48) {
         a.life = 0;
         b.life = 0;
-        impacts.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2,
+        spawnImpact({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2,
           z: (a.z + b.z) / 2, life: .18, duration: .18,
           death: false, explosion: false });
         playDrum("hat", 1, 0);
@@ -5515,7 +7875,7 @@ function updateBullets(dt, now, combat = true) {
       fragment.owner = bullet.owner;
       fragment.hitAfter = now + 120000;
       bullet.life = 0;
-      impacts.push({ x: contact.secondPoint.x, y: contact.secondPoint.y,
+      spawnImpact({ x: contact.secondPoint.x, y: contact.secondPoint.y,
         z: contact.secondPoint.z, life: .18, duration: .18,
         death: false, explosion: false });
       playDrum("hat", .72, panAt(fragment.x1, fragment.z1));
@@ -5531,8 +7891,9 @@ function updateBullets(dt, now, combat = true) {
     // Flipping `owner` lets the returned shot hurt whoever fired it.
     if (target.blocking) {
       const shield = shieldGeometry(target);
-      if (Math.hypot(bullet.x - shield.x, bullet.y - shield.y,
-          bullet.z - shield.z) <= shield.radius + 24) {
+      const guard = sampleCombatBoxes(target,now).guard[0];
+      if (guard && segmentBoxEntry({x1:bullet.previousX??bullet.x,y1:bullet.previousY??bullet.y,
+          z1:bullet.z,x2:bullet.x,y2:bullet.y,z2:bullet.z},guard,24)!==null) {
         let nx = bullet.x - shield.x;
         let ny = bullet.y - shield.y;
         const normalLength = Math.hypot(nx, ny);
@@ -5551,14 +7912,14 @@ function updateBullets(dt, now, combat = true) {
         bullet.y = shield.y + ny * (shield.radius + 25);
         bullet.owner = target.pad;
         bullet.life = Math.max(bullet.life, .55);
-        impacts.push({ x: bullet.x, y: bullet.y, z: bullet.z,
+        spawnImpact({ x: bullet.x, y: bullet.y, z: bullet.z,
           life: .18, duration: .18, death: false, explosion: false });
         breakShield(target, now);
         emitSignal("ballblock", target.pad, 1, 0);
         continue;
       }
     }
-    const contact = attackCapsuleContact([{
+    const contact = sweptProjectileContact([{
       x1: bullet.previousX ?? bullet.x, y1: bullet.previousY ?? bullet.y,
       z1: bullet.z, x2: bullet.x, y2: bullet.y, z2: bullet.z,
       width: 48, role: "bullet", part: "bullet",
@@ -5574,7 +7935,7 @@ function updateBullets(dt, now, combat = true) {
       const segmentIndex = endpointHit && !headshot
         ? pointContact.segmentIndex : contact.segmentIndex;
       bullet.life = 0;
-      impacts.push({ x: contact.x, y: contact.y, z: contact.z,
+      spawnImpact({ x: contact.x, y: contact.y, z: contact.z,
         life: .2, duration: .2, death: headshot,
         explosion: false });
       impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 350000);
@@ -5684,6 +8045,8 @@ function updateGrenades(dt, now, combat = true) {
 
 function startMelee(player, kind, now) {
   if (isHeadOnly(player) || isPogo(player)) return;
+  // Every fresh press starts a strike, including during the previous swing.
+  // updatePlayer detects the edge; holding a button does not auto-repeat.
   const spec = meleeSpecs[kind];
   if (!spec) return;
   const attackingPart = kind === "KICK"
@@ -5735,7 +8098,24 @@ function meleePulse(player, now) {
   if (now >= player.attackUntil || player.attackUntil <= player.attackStartedAt) return 0;
   const phase = (now - player.attackStartedAt) /
     (player.attackUntil - player.attackStartedAt);
-  return Math.sin(Math.max(0, Math.min(1, phase)) * Math.PI);
+  return Math.sin(clamp(phase, 0, 1) * Math.PI);
+}
+
+// Collision starts on the input frame and lasts through the original short
+// swing. A landed strike still hits only once; another tap starts a new one.
+const meleeFrames = {
+  PUNCH: { startup: 0, active: 14, recovery: 0 },
+  KICK: { startup: 0, active: 14, recovery: 0 },
+  WHIP: { startup: 0, active: 12, recovery: 0 },
+  BASH: { startup: 0, active: 17, recovery: 0 },
+};
+function meleeFrame(player, now) {
+  const timing = meleeFrames[player.attackKind];
+  if (!timing || now < player.attackStartedAt || now >= player.attackUntil)
+    return { frame: 0, phase: 'neutral', startup: 0, active: 0, recovery: 0 };
+  const frame = Math.floor((now - player.attackStartedAt) / replayTickUs + 1e-7) + 1;
+  return { ...timing, frame, phase: frame <= timing.startup ? 'startup'
+    : frame <= timing.startup + timing.active ? 'active' : 'recovery' };
 }
 
 function meleeTarget(player, now) {
@@ -5751,7 +8131,8 @@ function meleeTarget(player, now) {
   return {
     x: player.x + player.facing * (spec.reach + spec.swell * pulse +
       (lowKick ? 34 * pulse : 0)),
-    y: lowKick ? sweepY : player.y - spec.height,
+    y: lowKick ? sweepY : player.y - (player.attackKind !== 'KICK' &&
+      (player.ducking || player.crouchBlend > .35) ? 68 : spec.height),
     z: player.z,
   };
 }
@@ -5885,7 +8266,7 @@ function returnBall(ball, player, now, shielded, intensity = 1) {
     player.vy = Math.min(player.vy + incomingVy * .16, -Math.max(520, speed * .28));
     player.grounded = false;
   }
-  impacts.push({ x: ball.x, y: ball.y, z: ball.z,
+  spawnImpact({ x: ball.x, y: ball.y, z: ball.z,
     life: .22, duration: .22, death: false, explosion: false });
   impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 350000);
   playDrum(shielded ? "block" : "clap", shielded ? 1.1 : 1.25,
@@ -5917,7 +8298,7 @@ function crossWackBall(ball, hitters, now) {
     hit.player.lastButton = "CROSS WACK";
     hit.player.lastButtonAt = now;
   }
-  impacts.push({ x: ball.x, y: ball.y, z: ball.z,
+  spawnImpact({ x: ball.x, y: ball.y, z: ball.z,
     life: .32, duration: .32, death: false, explosion: true });
   impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 350000);
   playDrum("clap", 1.55, panAt(ball.x, ball.z));
@@ -5942,7 +8323,7 @@ function bootBall(ball, player, now) {
   ball.safePlayers = 1 << player.pad;
   player.lastButton = dashing ? "DASH BOOT" : "BOOT";
   player.lastButtonAt = now;
-  impacts.push({ x: ball.x, y: ball.y, z: ball.z,
+  spawnImpact({ x: ball.x, y: ball.y, z: ball.z,
     life: .16, duration: .16, death: false, explosion: false });
   impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 300000);
   playDrum("kick", 1.12, panAt(ball.x, ball.z));
@@ -5963,11 +8344,78 @@ function bounceBallOffBody(ball, player, now, segmentIndex = -1) {
   ball.safePlayers = 1 << player.pad;
   applyBodyHit(player, segmentIndex, ball.x - ball.vx,
     ball.lastHitBy, now, 760, 110, false);
-  impacts.push({ x: ball.x, y: ball.y, z: ball.z,
+  spawnImpact({ x: ball.x, y: ball.y, z: ball.z,
     life: .16, duration: .16, death: false, explosion: false });
   impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 300000);
   playDrum("block", .82, panAt(ball.x, ball.z));
   emitSignal("bodybounce", player.pad, direction, Math.round(speed));
+}
+
+// The boomerboard. Off the board, hold B (enter) and the deck comes home:
+// it swings out on a boomerang's arc, tightening and speeding up as it
+// closes, spinning the whole way, and lands under the rider's feet mounted,
+// carrying their speed. A tap is still a punch — the call waits for a hold.
+const boomerboardHoldUs = 180000;
+const boomerboardCatch = 70;
+function updateBoomerboard(dt, now) {
+  for (const player of activePlayers()) {
+    const board = balls.find((item) => item.type === "skateboard" &&
+      item.active && item.heldBy < 0);
+    // A lone head can call it too, and rides it home.
+    const calling = !player.skateboard && player.alive &&
+      Boolean(inputPads[player.pad]?.down?.includes("B"));
+    if (!calling) {
+      player.boomerSince = 0;
+      if (board && board.recalledBy === player.pad) {
+        board.recalling = false;
+        board.recalledBy = -1;
+      }
+      continue;
+    }
+    if (!player.boomerSince) player.boomerSince = now;
+    if (!board || now - player.boomerSince < boomerboardHoldUs) continue;
+    if (!board.recalling) {
+      board.recalling = true;
+      board.recalledBy = player.pad;
+      // The arc bows out on the side the deck is already drifting toward.
+      board.boomerSide = Math.sign(board.vx || 1) * (board.x < player.x ? -1 : 1) || 1;
+      emitSignal("boomerboard", player.pad, 1, 0);
+      playDrum("whoosh", .7, panPlayer(player));
+    }
+    const feetX = player.x, feetY = player.y - skateAxleDrop - skateWheelRadius;
+    const dx = feetX - board.x, dy = feetY - board.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance < boomerboardCatch) {
+      board.recalling = false;
+      board.recalledBy = -1;
+      board.releasedBy = -1;
+      board.active = false;
+      board.heldBy = -1;
+      resetSkate(player);
+      player.skateboard = true;
+      player.skateVx = player.vx;
+      player.skatePitch = skateContact(player.x, player.y).pitch;
+      player.boomerSince = 0;
+      player.lastButton = "BOOMERBOARD";
+      player.lastButtonAt = now;
+      playDrum("clap", .9, panPlayer(player));
+      emitSignal("skate-mount", player.pad, 2, 0);
+      continue;
+    }
+    const held = (now - player.boomerSince - boomerboardHoldUs) / 1000000;
+    const speed = Math.min(3600, 1100 + held * 4200);
+    const ux = dx / distance, uy = dy / distance;
+    const bow = Math.min(.85, distance / 1400);
+    const wantVx = (ux - uy * board.boomerSide * bow) * speed;
+    const wantVy = (uy + ux * board.boomerSide * bow) * speed;
+    const grip = 1 - Math.exp(-dt * 7);
+    board.vx += (wantVx - board.vx) * grip;
+    board.vy += (wantVy - board.vy) * grip;
+    board.x += board.vx * dt;
+    board.y += board.vy * dt;
+    board.z += (player.z - board.z) * grip;
+    board.rotation = (board.rotation || 0) + dt * 22 * board.boomerSide;
+  }
 }
 
 function updateBall(ball, dt, now) {
@@ -5978,8 +8426,8 @@ function updateBall(ball, dt, now) {
     ball.active = true;
     // Re-inflate on the far side from wherever it popped, so the fighter who
     // owned the ball's exit does not also own its return.
-    ball.x = ball.x > (worldLeft + worldRight) / 2
-      ? tileCenterX(2) : tileCenterX(7);
+    ball.x = ball.x > centerX
+      ? tileCenterX(cornerColLeft + 1) : tileCenterX(cornerColRight - 1);
     ball.y = ceilingY + ball.radius + 120;
     ball.z = 0;
     ball.vx = 0;
@@ -6004,17 +8452,21 @@ function updateBall(ball, dt, now) {
       return;
     }
   }
-  const platformSupported = ledgeSupports(ball.x, ball.y, ball.radius);
-  const floorSupported = ball.y >= terrainFloorAt(ball.x) - ball.radius - 2;
+  const isBoard = ball.type === "skateboard";
+  const contactRadius = isBoard ? skateAxleDrop + skateWheelRadius : ball.radius;
+  const platformSupported = ledgeSupports(ball.x, ball.y, contactRadius);
+  const floorSupported = ball.y >= terrainFloorAt(ball.x) - contactRadius - 2;
   const grounded = (platformSupported || floorSupported) && Math.abs(ball.vy) < 180;
   if (!grounded) ball.vx += windAcceleration * (ball.windFactor || .45) * dt;
   ball.vy += 1900 * (ball.gravityFactor || 1) * dt;
   const previous = { x: ball.x, y: ball.y, z: ball.z };
   ball.x += ball.vx * dt;
   ball.y += ball.vy * dt;
-  if (Math.abs(ball.vx) > 20)
-    ball.rotation += ball.vx * dt / Math.max(1, ball.radius);
-  const inset = wallThickness + ball.radius;
+  if (Math.abs(ball.vx) > 20) {
+    if (isBoard) ball.skateSpin = (ball.skateSpin || 0) + ball.vx * dt / skateWheelRadius;
+    else ball.rotation += ball.vx * dt / Math.max(1, contactRadius);
+  }
+  const inset = wallThickness + contactRadius;
   if (ball.x < worldLeft + inset) {
     ball.x = worldLeft + inset;
     ball.vx = Math.abs(ball.vx);
@@ -6027,33 +8479,47 @@ function updateBall(ball, dt, now) {
     ball.vy = Math.abs(ball.vy);
   }
   const ledge = ball.vy >= 0 &&
-    ledgeCrossed(ball.x, previous.y, ball.y, ball.radius, ball.radius);
+    ledgeCrossed(ball.x, previous.y, ball.y, contactRadius, contactRadius);
   if (ledge) {
-    ball.y = ledge.y - ball.radius;
+    ball.y = ledge.y - contactRadius;
     ball.vy = Math.abs(ball.vy) > 180
       ? -Math.abs(ball.vy) * (ball.bounce || .58) : 0;
     ball.vx *= ball.drag || .992;
-  } else if (ball.y > terrainFloorAt(ball.x) - ball.radius) {
-    ball.y = terrainFloorAt(ball.x) - ball.radius;
+  } else if (ball.y > terrainFloorAt(ball.x) - contactRadius) {
+    ball.y = terrainFloorAt(ball.x) - contactRadius;
     ball.vy = Math.abs(ball.vy) > 180
       ? -Math.abs(ball.vy) * (ball.bounce || .62) : 0;
     ball.vx *= ball.drag || .992;
   }
-  const onSurface = (ledgeSupports(ball.x, ball.y, ball.radius) ||
-    ball.y >= terrainFloorAt(ball.x) - ball.radius - 2) && Math.abs(ball.vy) < 180;
+  const onSurface = (ledgeSupports(ball.x, ball.y, contactRadius) ||
+    ball.y >= terrainFloorAt(ball.x) - contactRadius - 2) && Math.abs(ball.vy) < 180;
+  if (isBoard && onSurface) {
+    const contact = skateContact(ball.x, previous.y + contactRadius);
+    ball.y = contact.y - contactRadius;
+    ball.rotation = contact.pitch;
+    const slope = Math.tan(contact.pitch);
+    ball.vx += fallGravity() * slope / (1 + slope * slope) * dt;
+    ball.vx *= Math.exp(-dt * .65);
+  }
   const poseTime = (now - startedAt) / 1000000;
   const hitters = [];
+  // The head test below sweeps from `previous`, so the reach margin carries
+  // this tick's travel as well as the ball's radius.
+  const travel = Math.hypot(ball.x - previous.x, ball.y - previous.y);
   for (const player of players) {
     if (!player.alive || ((ball.safePlayers & (1 << player.pad)) &&
         now < ball.safeUntil))
       continue;
-    if (!player.attackHit && now < player.attackUntil) {
-      const strike = meleeStrike(player, now);
-      const distance = Math.hypot(ball.x - strike.x, ball.y - strike.y,
-        ball.z - strike.z);
-      if (distance <= ball.radius + strike.radius)
-        hitters.push({ player, contact: clamp(1 - distance /
-          (ball.radius + strike.radius), 0, 1) });
+    if (!nearRunner(player, ball.x, ball.y, ball.z, ball.radius + travel)) continue;
+    // A board its rider has just let go of passes through them for a moment
+    // instead of being booted, bounced or caught against their own feet.
+    if (ball.releasedBy === player.pad && now - (ball.releasedAt || 0) < 200000) continue;
+    const boxes = sampleCombatBoxes(player, now);
+    for (const strike of boxes.hit) {
+      const distance = pointBoxDistance(strike, ball.x, ball.y, ball.z);
+      if (distance <= ball.radius) {
+        hitters.push({ player, contact: clamp(1-distance/ball.radius,0,1) }); break;
+      }
     }
   }
   if (hitters.length >= 2) {
@@ -6069,36 +8535,46 @@ function updateBall(ball, dt, now) {
     if (!player.alive || ((ball.safePlayers & (1 << player.pad)) &&
         now < ball.safeUntil))
       continue;
+    if (!nearRunner(player, ball.x, ball.y, ball.z, ball.radius + travel)) continue;
+    // A board its rider has just let go of passes through them for a moment
+    // instead of being booted, bounced or caught against their own feet.
+    if (ball.releasedBy === player.pad && now - (ball.releasedAt || 0) < 200000) continue;
     if (player.blocking) {
-      const shield = shieldGeometry(player);
-      const centerDistance = Math.hypot(ball.x - shield.x, ball.y - shield.y,
-        ball.z - shield.z);
-      const surfaceDistance = Math.max(0, centerDistance - ball.radius);
-      if (surfaceDistance <= shield.radius) {
-        const proximity = clamp(1 - surfaceDistance / shield.radius, 0, 1);
+      const guard = sampleCombatBoxes(player, now).guard[0];
+      const distance = guard ? pointBoxDistance(guard, ball.x, ball.y, ball.z) : Infinity;
+      if (distance <= ball.radius) {
+        const shield = shieldGeometry(player);
+        const proximity = clamp(1-Math.max(0,Math.hypot(ball.x-shield.x,
+          ball.y-shield.y,ball.z-shield.z)-ball.radius)/shield.radius,0,1);
         returnBall(ball, player, now, true, proximity);
         return;
       }
     }
-    const geometry = runnerWorldGeometry(player, poseTime);
-    const currentHeadDistance = Math.max(0, Math.hypot(
-      ball.x - geometry.head.x, ball.y - geometry.head.y,
-      ball.z - geometry.head.z) - geometry.head.radius);
-    const sweptHeadDistance = Math.max(0, pointSegmentDistance(
-      geometry.head.x, geometry.head.y, geometry.head.z,
+    const headBox = sampleCombatBoxes(player,now).hurt.find(b=>b.part==='head');
+    const currentHeadDistance = pointBoxDistance(headBox,ball.x,ball.y,ball.z);
+    const sweptHeadDistance = segmentBoxEntry(
       { x1: previous.x, y1: previous.y, z1: previous.z,
-        x2: ball.x, y2: ball.y, z2: ball.z }) - geometry.head.radius);
+        x2: ball.x, y2: ball.y, z2: ball.z },headBox,ball.radius)!==null ? 0 : Infinity;
     const headDistance = Math.min(currentHeadDistance, sweptHeadDistance);
     const bodyContact = runnerContactToPoint(player, poseTime,
       ball.x, ball.y, ball.z);
     const bodyDistance = bodyContact.bodyDistance;
     if (Math.min(headDistance, bodyDistance) > ball.radius) continue;
+    // Its own rider can catch a released board at any speed — but not in the
+    // first fifth of a second, while it still lies against their feet.
+    const released = ball.releasedBy === player.pad;
+    const ownRelease = released && now - (ball.releasedAt || 0) > 200000;
     if (ball.type === "skateboard" && headDistance > ball.radius &&
         bodyDistance <= ball.radius && !player.skateboard &&
         // A thrown deck is a weapon until it slows down — nobody catches a
-        // board shot out of the air with their shins.
-        Math.hypot(ball.vx, ball.vy) < 900) {
+        // board shot out of the air with their shins. A board its rider just
+        // let go of is the exception: landing back on it is the point.
+        (released ? ownRelease : Math.hypot(ball.vx, ball.vy) < 900)) {
+      ball.releasedBy = -1;
+      resetSkate(player);
       player.skateboard = true;
+      player.skateVx = player.vx;
+      player.skatePitch = skateContact(player.x, player.y).pitch;
       ball.active = false;
       ball.heldBy = -1;
       player.lastButton = "SKATEBOARD";
@@ -6140,39 +8616,41 @@ function directionTap(player, direction, now) {
   player.pendingMoveLabel = direction === "UP" ? "ULTRA AIR" : "DASH " + direction;
   playDrum("clap", 1.05, panPlayer(player));
   if (direction === "UP") {
-    player.vy = -ultraJumpVelocity;
+    player.vy = -ultraJumpVelocity * (freeskateActive() ? .6 : 1);
     player.grounded = false;
     player.jumpHeld = false;
     emitSignal("ultrajump", player.pad, 1, 0);
   } else if (direction === "DOWN") {
-    if (player.skateboard && !player.grounded) {
-      // Airborne on the board, the second tap is a throw, not a dive: the
-      // deck shoots straight down like a spiked item, and whoever it lands
-      // on takes it like one. The rider pops up off the release.
-      // The one-ball economy: like a dismount, the round's ball is
-      // redressed as the board so exactly one object ever exists.
-      const board = balls.find((item) => item.type === "skateboard") ||
-        balls[0];
-      Object.assign(board,
-        ballKinds.find((kind) => kind.type === "skateboard"));
-      player.skateboard = false;
-      player.skateVx = 0;
+    if (player.skateboard) {
+      // Double-down on the board lets go of it. It used to fire the deck
+      // straight down at 2,600 like a spiked item; now it is released, riding
+      // on at the rider's own speed a hand's width below their feet, so a
+      // rider can let go mid-air and land back on it — or, on the ground,
+      // step off and leave it rolling. Released, it is nobody's weapon, and
+      // its rider can catch it again at any speed (see `releasedBy`).
+      const board = balls.find((item) => item.type === "skateboard");
+      // Half the roll goes with it: a release is letting go, not a launch.
+      const rolling = (player.grounded ? player.skateVx : player.vx) * .5;
+      resetSkate(player);
       if (board) {
         board.active = true;
         board.heldBy = -1;
-        board.spawnOwner = player.pad;
-        board.lastHitBy = player.pad;
+        board.spawnOwner = -1;
+        board.lastHitBy = -1;
+        board.releasedBy = player.pad;
+        board.releasedAt = now;
         board.x = player.x;
-        board.y = player.y + 40;
+        board.y = player.y - skateAxleDrop - skateWheelRadius;
         board.z = player.z;
-        board.vx = player.vx * .35;
-        board.vy = Math.max(2600, player.vy + 2600);
+        board.vx = rolling;
+        board.vy = player.grounded ? 0 : Math.max(0, player.vy) + 60;
       }
-      player.vy = Math.min(player.vy, -420);
-      player.pendingMoveLabel = "BOARD SHOT";
-      playDrum("whoosh", 1, panPlayer(player));
-      playDrum("kick", .8, panPlayer(player));
-      emitSignal("board-shot", player.pad, 1, 0);
+      // The rider keeps their own momentum through the release, drifting on
+      // above the board rather than stopping dead in the air over it.
+      if (!player.grounded) player.knockVx = rolling;
+      player.pendingMoveLabel = "RELEASE";
+      playDrum("whoosh", .55, panPlayer(player));
+      emitSignal("board-release", player.pad, 1, 0);
       return true;
     }
     if (player.pounding) {
@@ -6208,8 +8686,39 @@ function directionTap(player, direction, now) {
     }
   } else {
     player.facing = direction === "RIGHT" ? 1 : -1;
-    player.dashVx = player.facing * 2400;
+    // Out of a vert air, a dash breaks the lock: the rider leaves the pipe's
+    // plane sideways — over the coping onto the deck, or back out across
+    // the pipe.
+    if (player.skateVert) {
+      player.skateVert = 0;
+      // A step sideways, not a launch: enough to clear the lip onto the deck
+      // (or drop back toward the flat), not enough to sail the whole bank.
+      player.skateVx = player.facing * 600;
+      player.vx = player.skateVx;
+      player.pendingMoveLabel = "VERT OUT";
+      playDrum("whoosh", .8, panPlayer(player));
+      emitSignal("skate-vert-out", player.pad, player.facing, Math.round(Math.abs(player.skateVx)));
+      return true;
+    }
+    if (player.skateboard && player.grounded) {
+      // A dash on the board is a kick-push: it adds to the roll rather than
+      // replacing it. Pushing against the roll scrubs it instead.
+      const rolling = player.skateVx || 0;
+      player.skateVx = Math.sign(rolling) === -player.facing
+        ? rolling * .5
+        : player.facing * Math.min(skateTop, Math.abs(rolling) + skateKick);
+      emitSignal("skate-push", player.pad, player.facing,
+        Math.round(Math.abs(player.skateVx)));
+      return true;
+    }
+    // On foot the dash leaves at whichever is faster, the dash itself or the
+    // speed already carried plus a kick, and hands that speed to the run.
+    const carried = Math.sign(player.vx) === player.facing ? Math.abs(player.vx) : 0;
+    const exit = Math.min(runOverdriveTop,
+      Math.max(player.runSpeed || 0, carried) + runDashKick);
+    player.dashVx = player.facing * Math.max(2400, exit);
     player.dashUntil = now + 110000;
+    player.runSpeed = Math.max(runStartSpeed, exit);
     emitSignal("dash", player.pad, player.facing, 0);
   }
   return true;
@@ -6244,15 +8753,17 @@ function killPlayer(target, killerPad, now, cause = "KO") {
   if (!target.alive) return;
   recordFightHit(killerPad, true);
   releaseCarriedBall(target, now);
-  if (!deathCinematic && killerPad !== target.pad)
-    deathCinematic = { startedAt: now, loserPad: target.pad,
-      winnerPad: killerPad, cause };
-  freezeFinalFrame(now, deathCinematic?.winnerPad ?? -1);
+  if (!soloRoom()) {
+    if (!deathCinematic && killerPad !== target.pad)
+      deathCinematic = { startedAt: now, loserPad: target.pad,
+        winnerPad: killerPad, cause };
+    freezeFinalFrame(now, deathCinematic?.winnerPad ?? -1);
+  }
   target.alive = false;
   target.headBustedAt = now;
   target.respawnAt = now + 1200000;
   target.vx = 0;
-  target.vy = 0;
+  if (!soloRoom()) target.vy = 0;
   target.stance = "HIT";
   target.lastButton = cause;
   target.lastButtonAt = now;
@@ -6260,11 +8771,13 @@ function killPlayer(target, killerPad, now, cause = "KO") {
   emitSignal(cause === "BALLED" ? "balled" : "ko",
     killerPad, target.pad, players[killerPad]?.score || 0);
   roundCause = cause;
-  impacts.push({ x: target.x, y: target.y - 120, z: target.z, life: .55,
+  spawnImpact({ x: target.x, y: target.y - 120, z: target.z, life: .55,
     duration: .55, death: true, explosion: false });
   playDrum("whoosh", 1.15, panPlayer(target));
-  emitSignal("killcam", killerPad, target.pad, 1);
+  if (!soloRoom()) emitSignal("killcam", killerPad, target.pad, 1);
   playDrum("snare", 1.15, panPlayer(target));
+  updateLobbyMortality(now);
+  if (killerPad === target.pad) queueSoloDeathReplay(target, now);
   // The training opponent is the one everybody gets for free, and its fight is
   // already running under the title screen — so its head is the one number
   // the whole site can share without anybody signing in. The count follows the
@@ -6298,7 +8811,7 @@ function groundPound(player, now) {
   player.lastButton = "GROUND POUND";
   player.lastButtonAt = now;
   const terrainY = terrainFloorAt(player.x);
-  impacts.push({ x: player.x, y: terrainY, z: player.z,
+  spawnImpact({ x: player.x, y: terrainY, z: player.z,
     life: .58, duration: .58, death: false, explosion: true,
     blastRadius: radius, power });
   impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 350000);
@@ -6329,7 +8842,7 @@ function groundPound(player, now) {
     item.vx = 0;
     item.vy = 0;
     item.serveAt = now + 1200000;
-    impacts.push({ x: item.x, y: item.y, z: item.z,
+    spawnImpact({ x: item.x, y: item.y, z: item.z,
       life: .22, duration: .22, death: false, explosion: false });
     emitSignal("ballblock", player.pad, 1, power);
   }
@@ -6347,27 +8860,25 @@ function groundPound(player, now) {
 function resolveMelee(now) {
   const poseTime = (now - startedAt) / 1000000;
   const contacts = [];
+  const samples = players.map(player => sampleCombatBoxes(player, now));
   for (const attacker of players) {
-    if (!attacker.alive || attacker.attackHit || now >= attacker.attackUntil) continue;
-    const attackingLimbs = runnerWorldGeometry(attacker, poseTime).segments
-      .filter((segment) => segment.role?.startsWith("attack-"));
+    const attacking = samples[attacker.pad];
+    if (!attacker.alive || !attacking.hit.length) continue;
     for (const fragment of detachedParts) {
-      let closest = null;
-      for (const limb of attackingLimbs) {
-        const candidate = segmentSegmentClosest(limb, fragment);
-        const separation = candidate.distance - (limb.width + fragment.width) / 2;
-        if (!closest || separation < closest.separation)
-          closest = { ...candidate, separation };
-      }
-      if (!closest || closest.separation > 3) continue;
+      const r = fragment.width/2;
+      const bounds = combatRect('fragment',Math.min(fragment.x1,fragment.x2)-r,
+        Math.min(fragment.y1,fragment.y2)-r,Math.max(fragment.x1,fragment.x2)+r,
+        Math.max(fragment.y1,fragment.y2)+r,(fragment.z1+fragment.z2)/2,
+        Math.abs(fragment.z2-fragment.z1)/2+r);
+      if (!attacking.hit.some(hit=>boxesOverlap(hit,bounds))) continue;
       const spec = meleeSpecFor(attacker, attacker.attackKind);
       fragment.vx += attacker.facing * spec.force * .8;
       fragment.vy -= Math.max(220, spec.lift);
       fragment.owner = attacker.pad;
       fragment.hitAfter = now + 120000;
       attacker.attackHit = true;
-      impacts.push({ x: closest.secondPoint.x, y: closest.secondPoint.y,
-        z: closest.secondPoint.z, life: .18, duration: .18,
+      spawnImpact({ x: (bounds.left+bounds.right)/2, y: (bounds.top+bounds.bottom)/2,
+        z: (bounds.near+bounds.far)/2, life: .18, duration: .18,
         death: false, explosion: false });
       playDrum("clap", .82, panPlayer(attacker));
       emitSignal("part-hit", attacker.pad, -1, spec.force);
@@ -6376,7 +8887,7 @@ function resolveMelee(now) {
     if (attacker.attackHit) continue;
     const target = players[attacker.pad === 0 ? 1 : 0];
     if (!target.alive) continue;
-    const contact = meleeLimbContact(attacker, target, poseTime);
+    const contact = combatBoxContact(attacking, samples[target.pad]);
     if (contact?.separation <= 3) {
       attacker.attackHit = true;
       contacts.push({ attacker, target,
@@ -6386,7 +8897,7 @@ function resolveMelee(now) {
   }
   for (const { attacker, target, strike, headshot, segmentIndex } of contacts) {
     if (!target.alive && contacts.length < 2) continue;
-    impacts.push({ x: strike.x, y: strike.y, z: strike.z,
+    spawnImpact({ x: strike.x, y: strike.y, z: strike.z,
       life: .2, duration: .2, death: false, explosion: false });
     impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 350000);
     const away = Math.sign(target.x - attacker.x) || -attacker.facing;
@@ -6454,21 +8965,15 @@ function resolvePogoAttacks(now) {
   for (const attacker of players) {
     if (!attacker.alive || !isPogo(attacker) || attacker.grounded ||
         attacker.pogoHit) continue;
-    const geometry = runnerWorldGeometry(attacker, poseTime);
-    const torso = geometry.segments.find((segment) => segment.role === "torso");
-    if (!torso) continue;
-    const bottom = { x1: torso.x2, y1: torso.y2, z1: torso.z2,
-      x2: torso.x2, y2: torso.y2, z2: torso.z2,
-      width: torso.width + 6, role: "attack-pogo", part: "torso" };
     const target = players[attacker.pad === 0 ? 1 : 0];
     if (!target.alive) continue;
-    const contact = attackCapsuleContact([bottom], target, poseTime);
+    const contact = combatBoxContact(sampleCombatBoxes(attacker,now),sampleCombatBoxes(target,now));
     if (!contact || contact.separation > 3) continue;
     attacker.pogoHit = true;
     attacker.vy = Math.min(attacker.vy, -985);
     attacker.lastButton = "POGO";
     attacker.lastButtonAt = now;
-    impacts.push({ x: contact.x, y: contact.y, z: contact.z,
+    spawnImpact({ x: contact.x, y: contact.y, z: contact.z,
       life: .2, duration: .2, death: contact.headshot, explosion: false });
     if (contact.headshot) killPlayer(target, attacker.pad, now, "POGO");
     else applyBodyHit(target, contact.segmentIndex, attacker.x,
@@ -6479,10 +8984,11 @@ function resolvePogoAttacks(now) {
 }
 
 function resolvePlayerPushboxes() {
+  if (players.some((p) => p.ropeIndex >= 0 || p.skateLoop >= 0)) return;
   if (!players[0].alive || !players[1].alive) return;
   const poseTime = (runtime().monotonicUs - startedAt) / 1000000;
-  const firstBounds = runnerBounds(players[0], poseTime);
-  const secondBounds = runnerBounds(players[1], poseTime);
+  const firstBounds = combatPushbox(players[0]);
+  const secondBounds = combatPushbox(players[1]);
   const verticalOverlap = Math.min(firstBounds.bottom, secondBounds.bottom) -
     Math.max(firstBounds.top, secondBounds.top);
   // Grounded fighters nudge one another. Once a jumper is clearly above the
@@ -6492,7 +8998,7 @@ function resolvePlayerPushboxes() {
        Math.abs(players[0].y - players[1].y) > 58)) return;
   const left = players[0].x <= players[1].x ? players[0] : players[1];
   const right = left === players[0] ? players[1] : players[0];
-  const pushRadius = (player) => isHeadOnly(player) ? 24 : isPogo(player) ? 38 : 69;
+  const pushRadius = (player) => (combatPushbox(player).right-combatPushbox(player).left)/2;
   const minimumGap = pushRadius(left) + pushRadius(right);
   const overlap = minimumGap - (right.x - left.x);
   if (overlap <= 0) return;
@@ -6768,7 +9274,7 @@ function shieldBash(player, now) {
     target.blocking = false;
     target.knockVx += direction * 420;
   }
-  impacts.push({ x: (player.x + target.x) / 2, y: player.y - 90,
+  spawnImpact({ x: (player.x + target.x) / 2, y: player.y - 90,
     z: (player.z + target.z) / 2, life: .26, duration: .26,
     death: false, explosion: true, blastRadius: 180, power: .35 });
   playDrum("block", 1.25, panPlayer(player));
@@ -6776,6 +9282,7 @@ function shieldBash(player, now) {
 }
 
 function updatePlayer(player, pad, dt, now) {
+  const parkPreviousX = player.x;
   player.previousY = player.y;
   if (player.grabbedBy >= 0) {
     const carrier = players[player.grabbedBy];
@@ -6795,6 +9302,14 @@ function updatePlayer(player, pad, dt, now) {
   }
   if (!player.alive) {
     player.previous = pad.down.slice();
+    // A body that dies off the ground still has to come down. Everything
+    // below this branch is skipped while dead, gravity included, which is
+    // right in a round — the round ends and rebuilds the body, and the
+    // killcam wants the pose held. The waiting room has no round, so a
+    // fighter blasted out of a jump hung in mid-air in its jump pose for the
+    // whole respawn beat. @jeffrey: "it seems possible to die in the waiting
+    // room but keep jumping stilll" — that is what a frozen hop looks like.
+    if (soloRoom() && now < player.respawnAt) settleCorpse(player, dt);
     if (now >= player.respawnAt) {
       player.x = player.spawnX;
       player.y = terrainFloorAt(player.spawnX);
@@ -6825,11 +9340,19 @@ function updatePlayer(player, pad, dt, now) {
       // The waiting room hands back a whole body and a swept floor: parts,
       // corpses and scattered limbs are round furniture, and the lobby has
       // no round to rebuild the one or clear the others.
-      if (lobbyActive()) {
+      if (soloRoom()) {
         player.removedParts = [];
         player.partDamage = {};
         player.fallenBodyGeometry = null;
         player.lobbyDeathDressed = false;
+        delete player.frozenGeometry;
+        delete player.frozenAt;
+        delete player.headBustedAt;
+        player.lastTap = {};
+        player.lastRelease = {};
+        player.airJumpsUsed = 0;
+        player.doubleJumpLinesUntil = 0;
+        deathCinematic = null;
         detachedParts.length = 0;
       }
       player.alive = true;
@@ -6839,6 +9362,9 @@ function updatePlayer(player, pad, dt, now) {
   player.suppressedDirections = player.suppressedDirections.filter((button) =>
     pad.down.includes(button));
   const headOnly = isHeadOnly(player);
+  // A lone head rolls on the board's physics — surface-following, gravity
+  // along the curve, pumping, lip launches and vert — with a softer push.
+  const rollingHead = headOnly && !player.skateboard;
   const pogo = isPogo(player);
   const legCount = ["left-leg", "right-leg"]
     .filter((part) => hasPart(player, part)).length;
@@ -6874,6 +9400,8 @@ function updatePlayer(player, pad, dt, now) {
   player.blocking = !carrying && !headOnly && pad.down.includes("X") &&
     !player.shieldLocked;
   if (player.blocking && !wasBlocking) {
+    player.attackKind = "";
+    player.attackUntil = 0;
     player.shieldCrouched = rawInput.vertical < 0 || player.ducking ||
       player.crouchBlend >= .35;
     player.shieldVx = 0;
@@ -6901,6 +9429,14 @@ function updatePlayer(player, pad, dt, now) {
     ? { horizontal: 0, vertical: player.shieldCrouched ? -1 : 0 } : rawInput;
   const grabHeld = armCount > 0 && !pogo && !hitStunned && !player.blocking &&
     pad.down.includes("A") && pad.down.includes("B");
+  if (skateparkMap && !survivalActive()) {
+    const ropeHeld = skateRopeInput(player, input, grabHeld, dt, grabHeld && !player.grabHeld);
+    if (ropeHeld || skateLoopStep(player, input, dt, now)) {
+      player.previous = pad.down.slice();
+      player.grabHeld = grabHeld;
+      return;
+    }
+  }
   if (grabHeld && !player.grabHeld && player.heldBall < 0 &&
       player.heldPart < 0 &&
       player.heldPlayer < 0) {
@@ -7003,32 +9539,63 @@ function updatePlayer(player, pad, dt, now) {
     player.dashUntil = 0;
     player.dashVx = 0;
     player.runSince = 0;
+    player.runSpeed = 0;
   }
   const dashRunningOut = player.grounded && input.horizontal &&
     player.dashUntil > 0 && now >= player.dashUntil;
   if (dashRunningOut && !player.runSince) {
     player.runSince = now;
   }
-  if (!player.grounded || !input.horizontal || player.blocking ||
-      player.ducking || hitStunned) player.runSince = 0;
+  // A carried run survives the air: a jump keeps the speed it left with.
+  // Letting go on the ground, turning round, guarding or ducking ends it; a
+  // hit bleeds a share of it once, where it used to stop the run dead.
+  if (hitStunned && !player.runBled) {
+    player.runSpeed = (player.runSpeed || 0) * runHitKeep;
+    player.runBled = true;
+  } else if (!hitStunned) player.runBled = false;
+  const turned = input.horizontal && player.runDir && input.horizontal !== player.runDir;
+  // A double-tap dash lets go of the stick between its taps, so a release
+  // on the ground only ends the run once it has lasted longer than a tap.
+  if (player.grounded && !input.horizontal) {
+    if (!player.runReleasedAt) player.runReleasedAt = now;
+  } else player.runReleasedAt = 0;
+  const letGo = player.runReleasedAt && now - player.runReleasedAt > 180000;
+  if (letGo || turned || player.blocking ||
+      player.ducking || (player.grounded && hitStunned)) {
+    player.runSince = 0;
+    player.runSpeed = 0;
+  }
   const walkingCleanly = player.grounded && input.horizontal && !player.blocking &&
     !player.ducking && !hitStunned && now >= player.dashUntil;
   if (!walkingCleanly) player.walkSince = 0;
   else if (!player.walkSince) player.walkSince = now;
   else if (!player.runSince && now - player.walkSince >= 650000)
     player.runSince = now;
+  // The run starts from the speed already under the fighter, not from a
+  // standing start: landing a fast jump, stepping off a board, or coming out
+  // of a dash all keep what they had.
+  if (player.runSince && !player.runSpeed)
+    player.runSpeed = Math.max(runStartSpeed, Math.abs(player.vx - player.windVx -
+      player.knockVx));
+  if (player.runSpeed && input.horizontal) {
+    player.runDir = input.horizontal;
+    if (!player.runSince) player.runSince = now;
+    player.runSpeed = player.runSpeed < runTopSpeed
+      ? Math.min(runTopSpeed, player.runSpeed + runAcceleration * dt)
+      : Math.max(runTopSpeed, player.runSpeed - runOverdriveBleed * dt);
+    player.runSpeed = Math.min(runOverdriveTop, player.runSpeed);
+  }
+  if (!player.runSpeed) player.runDir = 0;
   const headAirControl = player.grounded ? .55
     : lerp(.55, .9, player.headBounceCharge || 0);
   const mobility = headOnly ? headAirControl
     : pogo ? .68 : legCount === 1 ? .72 : 1;
-  const runSpeed = player.runSince
-    ? Math.min(runTopSpeed, runStartSpeed +
-      (now - player.runSince) / 1000000 * runAcceleration) : 0;
+  const runSpeed = player.runSpeed || 0;
   let controlledVx = aimLocked ? 0
     : player.blocking ? player.shieldVx || 0
     : now < player.dashUntil && Math.abs(player.dashVx) > 0
     ? player.dashVx
-    : player.runSince ? input.horizontal * runSpeed * mobility
+    : runSpeed && input.horizontal ? input.horizontal * runSpeed * mobility
     : player.ducking && player.grounded ? 0
     : input.horizontal * walkSpeed * mobility;
   if (player.skateboard && player.skateWallSide) {
@@ -7042,27 +9609,101 @@ function updatePlayer(player, pad, dt, now) {
       player.skateVx = -side * Math.max(720, Math.abs(player.skateVx) * .42);
       controlledVx = player.skateVx;
     } else controlledVx = 0;
-  } else if (player.skateboard && player.grounded && !player.blocking) {
-    const skateTarget = input.horizontal * 2700;
-    const carving = Math.sign(skateTarget) !== 0 &&
+  } else if ((player.skateboard || rollingHead) && player.grounded && !player.blocking) {
+    // Steering, and ONLY while steering. This used to run every frame against
+    // a target of `input.horizontal * 2700`, which on an idle stick is zero —
+    // so a coasting skater was being dragged to a standstill at 3.2 a second
+    // by the same line that turns them. On a flat cube nobody could tell;
+    // dropped into a three-tile bowl it is the difference between a 1,400-unit
+    // drop and a 268-unit one, because the servo ate gravity as fast as
+    // gravity arrived. Let go of the stick now and you coast, which is what
+    // rolling IS.
+    const skateTarget = input.horizontal * (player.skateboard ? skatePushTop : headRollPush);
+    // Carving is steering against the roll, and it has to stay in scope: the
+    // scrape it makes is played further down, and hoisting the steer into a
+    // block took both of these with it.
+    const carving = Boolean(input.horizontal) &&
       Math.sign(skateTarget) !== Math.sign(player.skateVx);
-    const turnRate = carving ? 1.8 : 3.2;
-    player.skateVx += (skateTarget - player.skateVx) *
-      (1 - Math.exp(-dt * turnRate));
-    const terrainSlope = clamp(terrainTangentAt(player.x), -2.5, 2.5);
-    player.skateVx += terrainSlope * 1900 * dt;
-    player.skateVx = clamp(player.skateVx, -4200, 4200);
-    if (!input.horizontal) player.skateVx *= Math.max(0, 1 - dt * .65);
-    controlledVx = player.skateVx;
-    // The board is audible: wheel ticks come faster and harder with speed,
-    // and a carve against the roll scrapes once as it bites.
-    const skateSpeed = Math.abs(player.skateVx);
-    if (skateSpeed > 260 && now >= (player.skateNextRollAt || 0)) {
-      const pace = skateSpeed / 4200;
-      player.skateNextRollAt = now + (260 - 190 * pace) * 1000;
-      playDrum("hat", .1 + pace * .3, panPlayer(player));
-      emitSignal("skate-roll", player.pad, Math.round(pace * 100) / 100, 0);
+    // The stick pushes up to the push top and no further. It used to servo
+    // toward 2,700 from either side, so a rider a pad or a drop had carried
+    // past it was dragged back down for holding forward.
+    if (input.horizontal) {
+      const turnRate = carving ? 1.8 : 3.2;
+      const pushing = !carving && Math.abs(player.skateVx) < Math.abs(skateTarget);
+      if (carving || pushing)
+        player.skateVx += (skateTarget - player.skateVx) *
+          (1 - Math.exp(-dt * turnRate));
     }
+    // Gravity along the surface, resolved honestly rather than by a tuned
+    // constant. The old line was `slope * 1900`, and `slope` is tan(angle) —
+    // which runs away to infinity as a transition goes vertical and had to be
+    // clamped at 2.5 to stop it. The horizontal share of gravity on a slope is
+    // g·sin·cos, which in terms of tan is g·t/(1+t²): it peaks at 45° exactly
+    // as it should, falls off toward vertical exactly as it should, and needs
+    // no clamp because it cannot exceed half of g.
+    const contact = skateContact(player.x, player.y);
+    const terrainSlope = Math.tan(contact.pitch);
+    player.skateVx += fallGravity() * terrainSlope /
+      (1 + terrainSlope * terrainSlope) * dt;
+    // Pumping. The one thing a skater does that a rolling object does not:
+    // crouch through the bottom of a transition and stand up through the
+    // face, and come out with more speed than you went in with. Holding DOWN
+    // on a slope is that, and it is the only way to gain speed in the bowl
+    // without pushing — which is what makes a bowl worth being in rather than
+    // a hole to cross.
+    //
+    // Priced against the slope, so it pays on a transition and pays nothing
+    // on the flat: a crouch in the middle of the park is a crouch, not a
+    // cheat code. Direction comes from the roll rather than the stick,
+    // because pumping adds to the speed you have, it does not steer.
+    const pumping = input.vertical < 0 && Math.abs(terrainSlope) > .18;
+    // The slope's share caps at 45°: a pump is legs through a transition,
+    // not thrust up a wall that has already gone vertical.
+    if (pumping && player.skateVx)
+      player.skateVx += Math.sign(player.skateVx) *
+        Math.min(1, Math.abs(terrainSlope)) * skatePumpAcceleration * dt;
+    player.skateVx = clamp(player.skateVx, -skateTop, skateTop);
+    // Leaving the lip. A rider climbing a transition is carrying real upward
+    // speed -- `skateVx * slope` -- and the moment the ground stops climbing
+    // under them, that speed has nowhere to go but into the air. Reading the
+    // ground a frame ahead is what catches the crest: the coping at the top
+    // of a quarterpipe, the edge of the funbox, the lip of the bowl.
+    //
+    // Without this a skater simply walks over the top of every ramp with the
+    // speed quietly deleted, which is the difference between a skatepark and
+    // a set of hills.
+    const surfaceVy = player.skateVx * terrainSlope;
+    const aheadSlope = clamp(terrainTangentAt(
+      player.x + player.skateVx * .05), -2.5, 2.5);
+    // Compare like with like: the look-ahead is clamped, so the slope under
+    // the rider is too. Unclamped, a transition steeper than 2.5 read as
+    // flattening ahead and threw the rider off halfway up the wall.
+    if (surfaceVy < -skateLaunchFloor &&
+        (aheadSlope - clamp(terrainSlope, -2.5, 2.5)) * Math.sign(player.skateVx) > .2) {
+      player.vy = surfaceVy;
+      player.grounded = false;
+      player.skateAirAt = now;
+      // Vert. Leaving a coping the transition has already turned vertical,
+      // the rider goes straight up — no sideways speed to carry them onto
+      // the deck — and falls back onto the same wall, where the landing
+      // turns the fall into roll speed back down. Height is kept pass to
+      // pass, and a pump through the bottom adds to it.
+      if (Math.abs(terrainSlope) > 2) {
+        player.skateVert = Math.sign(player.skateVx);
+        player.vy = -Math.abs(player.skateVx) * Math.hypot(1, terrainSlope);
+        player.x -= player.skateVert * 6;
+        player.skateVx = 0;
+      }
+      playDrum("whoosh", .5 + Math.min(.45, -surfaceVy / 4000),
+        panPlayer(player));
+      emitSignal("skate-air", player.pad,
+        Math.round(-surfaceVy), Math.round(player.skateVx));
+    }
+    // Rolling resistance. A board on smooth concrete barely slows; the old
+    // .65 bled a third of a pump away every second and no pipe could be ridden.
+    if (!input.horizontal) player.skateVx *= Math.exp(-dt * .15);
+    controlledVx = player.skateVx;
+    const skateSpeed = Math.abs(player.skateVx);
     const carveDir = carving ? Math.sign(skateTarget) : 0;
     if (carveDir && skateSpeed > 900 && player.skateCarveDir !== carveDir) {
       playDrum("whoosh", .45 + Math.min(.4, skateSpeed / 4200 * .5),
@@ -7071,7 +9712,22 @@ function updatePlayer(player, pad, dt, now) {
         Math.round(skateSpeed / 42) / 100);
     }
     player.skateCarveDir = carveDir;
-  } else if (!player.skateboard) player.skateVx = 0;
+  } else if ((player.skateboard || rollingHead) && !player.grounded) {
+    // Keep the board's launch momentum instead of borrowing walking speed
+    // in the air and reviving a different skateVx on landing.
+    controlledVx = player.skateVx;
+  } else if (!player.skateboard && !rollingHead) {
+    // Stepping off a rolling board lands running at the board's speed.
+    if (player.skateVx && player.grounded && input.horizontal &&
+        Math.sign(player.skateVx) === input.horizontal) {
+      player.runSpeed = Math.min(runOverdriveTop,
+        Math.max(runStartSpeed, Math.abs(player.skateVx)));
+      player.runDir = input.horizontal;
+      player.runSince = player.runSince || now;
+      controlledVx = input.horizontal * player.runSpeed * mobility;
+    }
+    player.skateVx = 0;
+  }
   player.vx = controlledVx + player.windVx + player.knockVx;
   if (inputChanged) telemetry("FIGHT_MOVE", player.name +
     " pad=" + (player.pad + 1) +
@@ -7109,8 +9765,11 @@ function updatePlayer(player, pad, dt, now) {
     player.jumpLaunchAt = 0;
     player.jumpPoseUntil = now +
       (player.crouchJump ? crouchJumpPoseUs : jumpPoseUs);
-    const jumpScale = player.skateboard ? 1.12
-      : pogo ? .88 : legCount === 1 ? .78 : 1;
+    // Freeskate keeps the park's light gravity for the pipe and the loops,
+    // but a jump at that weight floated six hundred units up; launching at
+    // three quarters brings it back to the station's classic apex.
+    const jumpScale = (player.skateboard ? 1.12
+      : pogo ? .88 : legCount === 1 ? .78 : 1) * (freeskateActive() ? .75 : 1);
     player.vy = Math.min(player.vy,
       -(player.crouchJump ? crouchJumpVelocity : jumpVelocity) * jumpScale);
     player.jumpHeld = true;
@@ -7176,9 +9835,13 @@ function updatePlayer(player, pad, dt, now) {
   }
   if (player.pendingMoveLabel) remember(player, player.pendingMoveLabel);
 
+  const previousX = player.x;
   const previousY = player.y;
   const wasGrounded = player.grounded;
-  player.vy += (player.vy < 0 ? riseGravity : fallGravity) * dt;
+  // A vert air is a board thrown up a wall, not a jump: one gravity both
+  // ways, the same the wall rolls under, or every air would climb higher
+  // than the speed that launched it could carry.
+  player.vy += (player.vy < 0 && !player.skateVert ? riseGravity() : fallGravity()) * dt;
   // Keeping DOWN held through a pound drives it down harder. The button is
   // the only thing that makes a pound faster, so the height you fell from and
   // the pressure you kept on it are the two dials on the crater.
@@ -7188,6 +9851,25 @@ function updatePlayer(player, pad, dt, now) {
       player.vy + poundHoldAcceleration * dt);
   player.x += player.vx * dt;
   player.y += player.vy * dt;
+  // The ground is a height field, so flying sideways into a steep face used
+  // to land the fighter on top of it — up through a half-pipe wall. In the
+  // air, stepping into ground well above the feet is a wall: the step is
+  // taken back and the sideways speed spent, and they fall down its face.
+  // On the ground the same holds for legs: a transition steeper than about
+  // 55° is a wall to someone on foot — only a board rolls up it — or a
+  // runner walked straight up the vertical face of a half-pipe.
+  const stepRise = terrainFloorAt(previousX) - terrainFloorAt(player.x);
+  const footWall = wasGrounded && !player.skateboard && !rollingHead &&
+    stepRise > Math.abs(player.x - previousX) * 1.4 + 2;
+  const airWall = !wasGrounded && !player.skateVert && !(player.skateLoop >= 0) &&
+      !(player.ropeIndex >= 0) && terrainFloorAt(player.x) < player.y - 40 &&
+      terrainFloorAt(previousX) >= previousY - 40;
+  if (player.x !== previousX && (footWall || airWall)) {
+    player.x = previousX;
+    player.vx = player.knockVx = player.windVx = player.dashVx = 0;
+    if (player.skateboard) player.skateVx = 0;
+    player.runSpeed = 0;
+  }
   // A bodyless head is a ball, and a ball that slides without turning reads
   // as a sticker on the floor. Ground contact sets the spin to the true
   // rolling rate for the 22-unit radius; the spin then integrates every
@@ -7204,6 +9886,13 @@ function updatePlayer(player, pad, dt, now) {
     if (player.grounded) player.headRollRate = clamp(player.vx / 22, -6, 6);
     player.headRoll = (player.headRoll || 0) + (player.headRollRate || 0) * dt;
   }
+  // Walking down a slope is not a new landing on every other tick.
+  const nextFloor = terrainFloorAt(player.x);
+  const followingFloor = wasGrounded && player.vy >= 0 &&
+    Math.abs(previousY - terrainFloorAt(previousX)) < 3 &&
+    nextFloor - previousY <= Math.max(20, Math.abs(player.vx * dt) * 2.5);
+  if (followingFloor) player.y = Math.max(player.y, nextFloor);
+  const landingSpeed = player.vy;
   player.grounded = false;
   // A sinking fighter is transparent to the rung it left and to nothing else.
   // A window long enough to clear one lip — .25s, 290 units of fall — is
@@ -7226,7 +9915,8 @@ function updatePlayer(player, pad, dt, now) {
       player.vy = 0;
       player.grounded = true;
     }
-  } else if (player.y >= terrainFloorAt(player.x)) {
+  } else if (player.y >= terrainFloorAt(player.x) &&
+      (!player.skateboard || player.vy >= 0)) {
     const terrainY = terrainFloorAt(player.x);
     player.y = terrainY;
     if (headOnly) {
@@ -7239,6 +9929,82 @@ function updatePlayer(player, pad, dt, now) {
       player.vy = 0;
       player.grounded = true;
     }
+  }
+  // A fast rider can cross a coping in a single step and never be seen on
+  // the lip. Crossing out of a transition over its coping is leaving the lip:
+  // back inside it, straight up, with the speed the wall was carrying.
+  if ((player.skateboard || rollingHead) && wasGrounded && !player.skateVert) {
+    const wall = parkSegments.find((segment) => segment.kind === "transition" &&
+      previousX > segment.left && previousX < segment.right);
+    const coping = wall && (wall.dir > 0 ? wall.right : wall.left);
+    if (wall && (player.x - coping) * wall.dir > 0) {
+      // Tangent speed from the horizontal share. The wall is near vertical
+      // here, so the divisor is small — clamping it at .2 capped the launch
+      // at a third of what the wall was carrying.
+      const speed = Math.abs(player.skateVx) / Math.max(.05, Math.cos(player.skatePitch || 0));
+      player.skateVert = wall.dir;
+      player.x = coping - wall.dir * 6;
+      // Height stays where the trucks held it; snapping down to the curve
+      // under the lip threw away a hundred units of the air.
+      player.y = Math.min(previousY, player.y);
+      player.vy = -speed;
+      player.vx = player.skateVx = 0;
+      player.grounded = false;
+      player.skateAirAt = now;
+      emitSignal("skate-air", player.pad, Math.round(speed), 0);
+    }
+  }
+  if (player.skateboard || rollingHead) {
+    const contact = skateContact(player.x, previousY);
+    // Inside a valley — the concave face of a transition, where the ground
+    // curves up to meet the board — a rolling board cannot leave the surface:
+    // the ground is always on the far side of its path. Only a crest can
+    // throw it. Without this, a rider rolling down a steep wall outran the
+    // ground by more than one frame's snap and fell the rest of the way.
+    const bend = terrainTangentAt(player.x + 8) - terrainTangentAt(player.x - 8);
+    // A transition is concave by construction; asking its segment beats a
+    // finite difference that reaches across the coping onto the deck.
+    const valley = bend < .002 || parkSegments.some((segment) =>
+      segment.kind === "transition" && player.x > segment.left && player.x < segment.right);
+    const supported = player.grounded || (wasGrounded && player.vy >= 0 &&
+      (valley || Math.abs(player.y - contact.y) <
+        Math.max(24, Math.abs(player.vx * dt) * 2.5)));
+    if (supported && !player.skateWallSide) {
+      player.y = contact.y;
+      const tangentX = Math.cos(contact.pitch);
+      const tangentY = Math.sin(contact.pitch);
+      if (!wasGrounded) {
+        player.skateVert = 0;
+        // Inelastic contact removes normal velocity. A downward impact at a
+        // lip must count against uphill momentum, not become an upward boost.
+        player.skateVx = (player.vx * tangentX + landingSpeed * tangentY) * tangentX;
+      } else {
+        // Carry tangent speed around the curve; fixed horizontal speed would
+        // invent vertical energy whenever the slope steepens.
+        player.skateVx *= tangentX / Math.max(.001,
+          Math.cos(player.skatePitch || 0));
+      }
+      player.vx = player.skateVx;
+      player.skatePitch = contact.pitch;
+      player.skateContacts = Number(contact.left) + Number(contact.right);
+      player.grounded = true;
+      player.vy = 0;
+      const distance = (player.x - previousX) / Math.max(.15, Math.cos(contact.pitch));
+      player.skateSpin = (player.skateSpin || 0) + distance / skateWheelRadius;
+      player.skateRollDistance = (player.skateRollDistance || 0) + Math.abs(distance);
+      if (player.skateContacts && player.skateRollDistance >= 100) {
+        player.skateRollDistance %= 100;
+        // A rolling head clicks like the wheels, a register lower.
+        playDrum(rollingHead ? "block" : "hat",
+          (rollingHead ? .08 : .12) + Math.min(.35, Math.abs(player.vx) / 8400), panPlayer(player));
+        emitSignal("skate-roll", player.pad, Math.round(Math.abs(player.vx)), player.skateContacts);
+      }
+      if (!wasGrounded) {
+        playDrum("clap", clamp(landingSpeed / 2000, .2, 1), panPlayer(player));
+        playDrum("block", clamp(landingSpeed / 2800, .15, .7), panPlayer(player));
+        emitSignal("skate-land", player.pad, Math.round(landingSpeed), player.skateContacts);
+      }
+    } else player.skateContacts = 0;
   }
   if (!wasGrounded && player.grounded) {
     const onBooster = boosterXs.some((x) => Math.abs(player.x - x) <= boosterRadius);
@@ -7261,6 +10027,7 @@ function updatePlayer(player, pad, dt, now) {
     } else player.airJumpsUsed = 0;
   }
   resolveRunnerBounds(player, (now - startedAt) / 1000000);
+  skateBoostStep(player, parkPreviousX, now);
   player.hit = Math.max(0, player.hit - dt * 4);
   player.blockFlash = Math.max(0, player.blockFlash - dt * 6);
   player.previous = pad.down.slice();
@@ -7343,21 +10110,21 @@ function botDown(player, now) {
 //
 // One jump's ceiling, from the same numbers the fighter's legs use: with up
 // held, the rise is v²/2g, and everything above it is out of reach.
-const jumpApex = jumpVelocity * jumpVelocity / (2 * riseGravity);
+const jumpApex = () => jumpVelocity * jumpVelocity / (2 * riseGravity());
 // A jump's horizontal budget onto a deck `dy` above the takeoff: the whole
 // rise, then the fall from the apex down to the deck's height, walked at
 // walking speed. Scaled down hard — the bot is committing to a lip, and a
 // landing at the very end of the arc is a landing it can miss by one frame.
 const botAirCommit = .6;
 function jumpReach(dy) {
-  const riseSeconds = jumpVelocity / riseGravity;
-  const fallSeconds = Math.sqrt(2 * Math.max(0, jumpApex - dy) / fallGravity);
+  const riseSeconds = jumpVelocity / riseGravity();
+  const fallSeconds = Math.sqrt(2 * Math.max(0, jumpApex() - dy) / fallGravity());
   return walkSpeed * (riseSeconds + fallSeconds) * botAirCommit;
 }
 // Where the feet are. Level 0 is the arena floor; a rung answers by its level.
 function botFooting(player) {
   if (!player.grounded) return null;
-  if (platformsEnabled()) for (const ledge of platforms)
+  if (platformsEnabled()) for (const ledge of activeLedges())
     if (Math.abs(player.y - ledge.y) <= 3 &&
       player.x >= ledge.left && player.x <= ledge.right) return { ...ledge };
   return { level: 0, left: platformLeft, right: platformRight, y: floorY };
@@ -7388,7 +10155,7 @@ function botScene(player, opponent, now) {
   const view = botViewport();
   const footing = botFooting(player);
   const rungs = [];
-  if (platformsEnabled()) for (const ledge of platforms)
+  if (platformsEnabled()) for (const ledge of activeLedges())
     if (rungInView(view, ledge))
       rungs.push({ level: ledge.level, left: ledge.left, right: ledge.right,
         y: ledge.y, dy: player.y - ledge.y });
@@ -7416,7 +10183,7 @@ function botScene(player, opponent, now) {
       attacking: Boolean(opponent.attackKind) && now < opponent.attackUntil,
       attackStartedAt: opponent.attackStartedAt };
   }
-  for (const pickup of [...gunPickups, ...grenadePickups])
+  for (const pickup of [...gunPickups, ...saberPickups, ...grenadePickups])
     if (pickup.active && pointInView(view, pickup.x, pickup.y))
       scene.pickups.push({ kind: pickup.kind || "item",
         x: pickup.x, y: pickup.y, dx: pickup.x - player.x });
@@ -7435,9 +10202,15 @@ function botOptions(player, scene) {
   options.push({ kind: "walk", level: footing.level, y: footing.y,
     left: footing.left, right: footing.right });
   const inset = survivalTune().landingInset;
-  for (const rung of scene.rungs) {
+  const visible = new Set(scene.rungs.map(r=>r.level));
+  const maxReach = jumpReach(0);
+  const nearby = queryBoxTree(platformBoxTree(), combatRect('jump-window',
+    footing.left-maxReach, footing.y-jumpApex(), footing.right+maxReach, footing.y));
+  for (const box of nearby) {
+    const rung = box.ledge;
+    if (!visible.has(rung.level)) continue;
     const dy = footing.y - rung.y;
-    if (dy <= 0 || dy > jumpApex) continue;
+    if (dy <= 0 || dy > jumpApex()) continue;
     const landLeft = rung.left + inset;
     const landRight = rung.right - inset;
     if (landRight < landLeft) continue;
@@ -7467,6 +10240,17 @@ function botOptions(player, scene) {
   return options;
 }
 
+let platformTreeSource = null, platformTreeRevision = -1, platformTree = null;
+function platformBoxTree() {
+  const ledges = activeLedges();
+  if (platformTreeSource !== ledges || platformTreeRevision !== workshopRevision) {
+    platformTreeSource = ledges; platformTreeRevision = workshopRevision;
+    platformTree = buildBoxTree(ledges.map(ledge => combatRect('platform-'+ledge.level,
+      ledge.left,ledge.y,ledge.right,ledge.y+12,0,18,{ledge})));
+  }
+  return platformTree;
+}
+
 // The climb's subgoal: the highest deck one jump reaches from this footing,
 // the nearest of them when two tie. On the ladder that is the deck above —
 // two decks is 470 and the apex is 322 — but the choice is made from the
@@ -7482,6 +10266,36 @@ function highestJump(options) {
 }
 
 function botPad(player, opponent, now) {
+  if (selfPlay && typeof globalThis.__oskiewarJevPad === 'function') {
+    const scene = botScene(player, opponent, now);
+    scene.self.ducking = player.ducking;
+    scene.self.attackFrame = meleeFrame(player, now).frame;
+    scene.self.recoveryMs = Math.max(0, (player.attackUntil-now)/1000);
+    scene.self.combat = {
+      punch: Boolean(availableArm(player)),
+      kickLeft: hasPart(player, 'left-leg'), kickRight: hasPart(player, 'right-leg'),
+      item: Boolean(heldItem(player)), stunned: now < player.hitStunUntil,
+      headOnly: isHeadOnly(player), pogo: isPogo(player),
+    };
+    if (scene.opponent) {
+      scene.opponent.grounded = opponent.grounded;
+      scene.opponent.vx = opponent.vx; scene.opponent.vy = opponent.vy;
+      scene.opponent.ducking = opponent.ducking;
+      scene.opponent.headOnly = isHeadOnly(opponent);
+      scene.opponent.pogo = isPogo(opponent);
+      scene.opponent.blocking = opponent.blocking;
+      scene.opponent.attackFrame = meleeFrame(opponent, now).frame;
+      scene.opponent.recoveryMs = Math.max(0, (opponent.attackUntil-now)/1000);
+      // The parent calls this only when preparing a model request, not every
+      // simulation tick. Probes read clones and never advance the live fight.
+      scene.strikeOptions = () => jevStrikeOptions(player, opponent,
+        runtime().simMonotonicUs || runtime().monotonicUs);
+    }
+    const down = globalThis.__oskiewarJevPad(player.pad, { ...scene,
+      round: matchName, alive: player.alive && opponent.alive });
+    return { connected: true, down: Array.isArray(down) ? down.filter(button =>
+      ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','A','B','X','Y'].includes(button)) : [], leftX: 0, leftY: 0 };
+  }
   if (!player.bot) {
     player.botPresses = {};
     return { connected: true, down: [], leftX: 0, leftY: 0 };
@@ -7771,7 +10585,7 @@ function finishSurvival(now, result) {
   if (result === "LAVA") {
     runner.alive = false;
     runner.stance = "HIT";
-    impacts.push({ x: runner.x, y: survivalLavaY, z: runner.z,
+    spawnImpact({ x: runner.x, y: survivalLavaY, z: runner.z,
       life: 1.2, duration: 1.2, death: true, explosion: true,
       blastRadius: 240, power: .8 });
     playDrum("kick", 1.25, panPlayer(runner));
@@ -7810,7 +10624,26 @@ function gameSim() {
   const now = runtime().monotonicUs;
   const dt = Math.min(0.04, Math.max(0.001, (now - lastSimAt) / 1000000));
   lastSimAt = now;
-  simulateAirParticles(dt, now);
+  // Whether a door is in the way is state, not decoration: the same answer
+  // gates the fight, the claim and the wire, so it is settled once on the tick
+  // rather than re-asked by each of them mid-paint.
+  updateAccountDoor();
+  if (instantReplay?.respawn || soloDeathReplayPending && now >= soloDeathReplayPending.at) {
+    padSnapshots[0] = samplePad(0);
+    inputPads[0] = padSnapshots[0];
+    if (!instantReplay) {
+      const resume = soloDeathReplayPending;
+      captureRoundReplay(now, true);
+      if (startInstantReplay(now, resume)) {
+        shellMode = "GAME";
+        gameplayStarted = true;
+      } else soloDeathReplayPending = null;
+    }
+    if (instantReplay?.respawn) {
+      updateInstantReplay(now, dt);
+      return;
+    }
+  }
   if (resimPending) {
     startResim(resimPending, now);
     resimPending = null;
@@ -7826,7 +10659,7 @@ function gameSim() {
     // inputPads[0], and the debug toggle wants a View edge — none of that
     // may wait on the host's echo, so the local pad is sampled here exactly
     // as it would be in a hosted fight.
-    padSnapshots[0] = gamepad(0);
+    padSnapshots[0] = samplePad(0);
     inputPads[0] = padSnapshots[0];
     const down = padSnapshots[0]?.down || [];
     if (down.includes("View") && !viewerSystemPrevious.includes("View")) {
@@ -7844,13 +10677,19 @@ function gameSim() {
     updateVersusClaim(now);
     return;
   }
-  padSnapshots[0] = gamepad(0);
-  padSnapshots[1] = gamepad(1);
+  padSnapshots[0] = samplePad(0);
+  padSnapshots[1] = samplePad(1);
   inputPads[0] = padSnapshots[0];
   inputPads[1] = padSnapshots[1];
-  const cameraPad = padSnapshots[0] || {};
-  const cameraX = Number(cameraPad.rightX) || 0;
-  const cameraY = Number(cameraPad.rightY) || 0;
+  if (updateLocalVersus(now)) {
+    consumeSystemButtons(now);
+    return;
+  }
+  const cameraPads = localVersusActive() ? padSnapshots : [padSnapshots[0]];
+  const cameraX = clamp(cameraPads.reduce((sum, pad) =>
+    sum + (Number(pad?.rightX) || 0), 0), -1, 1);
+  const cameraY = clamp(cameraPads.reduce((sum, pad) =>
+    sum + (Number(pad?.rightY) || 0), 0), -1, 1);
   if (Math.abs(cameraX) > .08)
     playerCameraYaw = clamp(playerCameraYaw + cameraX * dt * 1.15, -.62, .62);
   if (Math.abs(cameraY) > .08)
@@ -7858,12 +10697,25 @@ function gameSim() {
   // Triggers zoom, but only on a pad whose triggers are analog -- on anything
   // else the shell is still aliasing them to A and X, and stealing those two
   // buttons would cost a small pad its item and shield.
-  if (cameraPad.analogTriggers) {
-    // Right pulls in, left pushes out, and they cancel when both are held.
-    const push = (Number(cameraPad.leftTrigger) || 0) -
-      (Number(cameraPad.rightTrigger) || 0);
-    if (Math.abs(push) > .08)
-      playerCameraZoom = clamp(playerCameraZoom + push * dt * .9, .55, 1.9);
+  // Either couch seat can steer the shared camera. Digital M30 shoulders
+  // remain combat buttons, even beside a controller with analog triggers.
+  const push = clamp(cameraPads.reduce((sum, pad) => sum + (pad?.analogTriggers
+    ? (Number(pad.leftTrigger) || 0) - (Number(pad.rightTrigger) || 0) : 0), 0), -1, 1);
+  if (Math.abs(push) > .08)
+    playerCameraZoom = clamp(playerCameraZoom + push * dt * .9, .55, 1.9);
+  // A mouse or a finger on the shell's canvas orbits the same lens the
+  // right stick does: a drag turns yaw and pitch, the wheel or a pinch
+  // dollies. The shell banks the gesture between ticks and this drains it,
+  // so a fast flick is not lost to a slow frame.
+  const orbit = globalThis.__oskiewarTouch?.orbit;
+  if (orbit) {
+    if (orbit.yaw)
+      playerCameraYaw = clamp(playerCameraYaw + orbit.yaw, -.62, .62);
+    if (orbit.pitch)
+      playerCameraPitch = clamp(playerCameraPitch + orbit.pitch, -.24, .28);
+    if (orbit.zoom)
+      playerCameraZoom = clamp(playerCameraZoom * Math.exp(orbit.zoom), .55, 1.9);
+    orbit.yaw = orbit.pitch = orbit.zoom = 0;
   }
   // A tap anywhere on the wordmark screen is a start press — read before
   // the tap queue is wiped for the tick. The shell already turns first-visit
@@ -7879,6 +10731,7 @@ function gameSim() {
   // The wordmark screen is a live training round, so the shell reads start
   // and then falls straight through into the fight it is sitting on top of.
   if (shellMode === "MENU") updateShell(now, titleTapped);
+  else updateMatchPace(now);
   // The versus seat watches from the title on — a friend can take the chair
   // while the host is still reading the wordmark, and the fight lifts it.
   updateVersusSeat(now);
@@ -7900,6 +10753,16 @@ function gameSim() {
           : botPad(player, players[player.pad ? 0 : 1], now)
         : player.npc ? { connected: true, down: [], leftX: 0, leftY: 0 }
           : padSnapshots[player.pad];
+  // Start belongs to the shell, including its hold and transition frames.
+  // The first neutral sample releases gameplay for the next fresh press.
+  if (!players[0].bot && !players[0].remote && !netFrameInputs && !resimActive) {
+    const pad = inputPads[0];
+    if (shellMode === "MENU" || startInputPending) {
+      startInputPending = shellMode === "MENU" || pad.down.length > 0 ||
+        Math.abs(pad.leftX || 0) > .08 || Math.abs(pad.leftY || 0) > .08;
+      inputPads[0] = { ...pad, down: [], leftX: 0, leftY: 0 };
+    }
+  }
   if (debugHitboxes && now >= nextInputDebugAt) {
     nextInputDebugAt = now + 500000;
     const values = players.map((player) => {
@@ -8012,6 +10875,10 @@ function gameSim() {
       else if (versusActive() && versusChallengerFresh())
         startVersusFight(now, matchOver);
       else if (versusActive()) beginVersusLobby(now);
+      else if (localVersusActive()) {
+        if (matchOver) startLocalVersus(now);
+        else resetRound(now, false);
+      }
       else returnToTitle(now, "round-end");
     }
     return;
@@ -8072,15 +10939,22 @@ function gameSim() {
     updateWind(dt, now);
     updatePlayer(players[0], inputPads[0], dt, now);
     updatePlayer(players[1], inputPads[1], dt, now);
+    updateSkateRopes(dt);
     resolvePlayerStanding(now);
     resolvePlayerPushboxes();
+    wrapFreeskate();
     updatePowerups(now);
     updateBodyTrees(dt, now);
     updateBullets(dt, now);
     updateGrenades(dt, now);
     resolveMelee(now);
     resolvePogoAttacks(now);
-    for (const item of balls) updateBall(item, dt, now);
+    updateLobbyMortality(now);
+    // After the exchange resolves, so a frame that landed a hit reads as the
+    // recovery it has become rather than as the active frame it was.
+    recordFrameMeter(now);
+    updateBoomerboard(dt, now);
+    for (const item of balls) if (!item.recalling) updateBall(item, dt, now);
     updateDetachedParts(dt);
     updateCamera(dt);
     updateCameraDoll(dt, now);
@@ -8096,9 +10970,11 @@ function gameSim() {
       // exists without motes — so a hit stamps its cell exactly once, and
       // the overlay on the back wall shows the fight's last half-second as
       // cooling squares.
-      const cell = gridFieldIndex(impact.x, impact.y);
-      gridField[cell] = Math.min(1, gridField[cell] +
-        (impact.explosion ? 1 : impact.death ? .9 : .55));
+      if (onGridField(impact.x, impact.y)) {
+        const cell = gridFieldIndex(impact.x, impact.y);
+        gridField[cell] = Math.min(1, gridField[cell] +
+          (impact.explosion ? 1 : impact.death ? .9 : .55));
+      }
       const count = impact.explosion ? 24 : impact.death ? 10 : 6;
       impact.debris = Array.from({ length: count }, (_, index) => {
         const angle = index / count * Math.PI * 2 +
@@ -8114,7 +10990,7 @@ function gameSim() {
       });
     }
     for (const mote of impact.debris) {
-      mote.vy += fallGravity * .72 * dt;
+      mote.vy += fallGravity() * .72 * dt;
       mote.x += mote.vx * dt;
       mote.y += mote.vy * dt;
       mote.z += mote.vz * dt;
@@ -8135,7 +11011,7 @@ function gameSim() {
   for (let cell = 0; cell < gridField.length; cell++)
     gridField[cell] = gridField[cell] < .01 ? 0
       : gridField[cell] * Math.exp(-dt * 1.6);
-  if (!survivalActive() && !lobbyActive() &&
+  if (!survivalActive() && !soloRoom() &&
       (players.some((player) => !player.alive) ||
       (timedRound && roundElapsedUs >= roundDurationUs))) {
     if (timedRound && roundElapsedUs >= roundDurationUs &&
@@ -8161,7 +11037,7 @@ function updateResultImpactDebris(dt) {
       });
     }
     for (const mote of impact.debris) {
-      mote.vy += fallGravity * .72 * dt;
+      mote.vy += fallGravity() * .72 * dt;
       mote.x += mote.vx * dt; mote.y += mote.vy * dt; mote.z += mote.vz * dt;
       const surface = terrainFloorAt(mote.x) - mote.radius;
       if (mote.y > surface) {
@@ -8275,15 +11151,128 @@ function damagedPartColor(color, player, part) {
   return mixColor(color, [244, 34, 50], amount);
 }
 
+function generatedAppearance(player) {
+  const selected = globalThis.__oskiewarFighterAppearance;
+  if (!selected || Date.now() >= selected.validUntil || player?.pad !== 0 || player.npc ||
+      netSession || roundViewer || versusLane() || survivalActive() || shellMode !== "GAME") return null;
+  return selected.appearance;
+}
+function generatedPartColor(appearance, segment) {
+  const role = segment.role || "";
+  if (/foot/.test(role)) return appearance.shoes;
+  if (/thigh|shin|leg/.test(role)) return appearance.pants;
+  if (/forearm|hand/.test(role) && appearance.sleeves === "short") return appearance.skin;
+  return appearance.shirt;
+}
+
+// Retained photographic materials use the same projected poses and collision
+// surfaces as the vector theme. Assets are uploaded by the native host once.
+let photoThemeActive = false;
+let photoEffectsActive = false, photoWeaponsActive = false;
+function roundGraphicsTheme() {
+  const requested = globalThis.__oskiewarGraphicsTheme;
+  if (requested === "flat" || requested === "photorealistic") return requested;
+  // The console ships the retained atlases in its package, so it wears the
+  // photographic materials unless a host asks for vectors.
+  const caps = typeof capabilities === "function" ? capabilities() : {};
+  return caps.platform === "xbox-uwp" || caps.platform === "xbox"
+    ? "photorealistic" : "flat";
+}
+function refreshPhotoTheme() {
+  photoThemeActive = roundGraphicsTheme() === "photorealistic" &&
+    typeof themeReady === "function" && typeof themeSprite === "function" && themeReady();
+  photoEffectsActive = photoThemeActive && typeof themeAssetReady === "function" && themeAssetReady(2);
+  photoWeaponsActive = photoThemeActive && typeof themeAssetReady === "function" && themeAssetReady(3);
+}
+const photoExplosionFrames = [[24,64,400,400],[462,53,400,400],
+  [908,34,400,400],[1352,37,400,400],[37,458,400,400],
+  [472,453,400,400],[917,470,400,400],[1368,484,400,400]];
+const photoWeaponRegions = { grenade:[160,82,330,520],
+  launcher:[629,218,610,270], smg:[8,780,624,320], flash:[640,760,606,370] };
+function photoEffectSprite(asset, region, x, y, width, height,
+    angle = 0, flip = false, depth = triangleDepth, depthWrite = true) {
+  if (!(asset === 2 ? photoEffectsActive : photoWeaponsActive) ||
+      ![x,y,width,height,angle,depth].every(Number.isFinite) ||
+      width <= 0 || height <= 0 || width > 30000 || height > 30000 ||
+      Math.abs(x) > 30000 || Math.abs(y) > 30000) return false;
+  return themeSprite(asset,...region,x,y,width,height,angle,flip,
+    clamp(depth,-1.49,1.49),depthWrite) !== false;
+}
+function photoExplosionFrame(age) {
+  return photoExplosionFrames[Math.min(7,Math.floor(clamp(age,0,1)*8))];
+}
+function drawPhotoExplosion(x,y,radius,age,depth=triangleDepth) {
+  if (!photoEffectsActive || !Number.isFinite(age) || !Number.isFinite(radius)) return false;
+  const diameter = Math.min(1800,Math.max(12,radius*2.25));
+  if (x+diameter/2<0 || y+diameter/2<0 || x-diameter/2>viewWidth() || y-diameter/2>viewHeight) return true;
+  return photoEffectSprite(2,photoExplosionFrame(age),x,y,diameter,diameter,0,false,depth,false);
+}
+function drawPhotoHeldWeapon(mode,hand,barrel,flip,depth) {
+  if (!photoWeaponsActive || !["RUBBER SMG","ROCKET LAUNCHER"].includes(mode)) return false;
+  const region = photoWeaponRegions[mode === "ROCKET LAUNCHER" ? "launcher" : "smg"];
+  const dx=barrel.x-hand.x,dy=barrel.y-hand.y;
+  const angle=Math.atan2(dy,dx)-(flip?Math.PI:0),c=Math.cos(angle),s=Math.sin(angle);
+  const width=Math.max(24,Math.hypot(dx,dy)/.58),height=width*region[3]/region[2];
+  const ox=(flip?-1:1)*width*.08,oy=-height*.25;
+  return photoEffectSprite(3,region,hand.x+ox*c-oy*s,hand.y+ox*s+oy*c,
+    width,height,angle,flip,depth,true);
+}
+const photoRegions = {
+  acHead: [80, 104, 285, 285], xboxHead: [524, 104, 285, 285],
+  acLimb: [1058, 48, 104, 372], xboxLimb: [1503, 48, 104, 372],
+  gun: [51, 543, 365, 253], skateboard: [460, 611, 412, 136],
+  platform: [900, 606, 418, 162], rocket: [1368, 542, 372, 236],
+  concrete: [970, 625, 270, 43], wall: [930, 698, 350, 55],
+};
+function photoSprite(region, x, y, width, height, angle = 0, flip = false,
+    depth = triangleDepth) {
+  if (!photoThemeActive || ![x, y, width, height, angle, depth].every(Number.isFinite) ||
+      width <= 0 || height <= 0 || width > 30000 || height > 30000 ||
+      Math.abs(x) > 30000 || Math.abs(y) > 30000) return false;
+  return themeSprite(1, ...photoRegions[region], x, y, width, height,
+    angle, flip, depth) !== false;
+}
+function photoLimb(segment, seat) {
+  const dx = segment.x2 - segment.x1, dy = segment.y2 - segment.y1;
+  const length = Math.hypot(dx, dy);
+  if (length < .001) return;
+  const width = Math.max(2, segment.width);
+  photoSprite(seat === 0 ? "acLimb" : "xboxLimb",
+    (segment.x1 + segment.x2) / 2, (segment.y1 + segment.y2) / 2,
+    width, length + width,
+    Math.atan2(dy, dx) - Math.PI / 2);
+}
+function photoSurface(region, a, b, c, d) {
+  // Tall structural faces keep their shaded map color. Stretching a thin
+  // texture strip over them made the back of the arena look like a curtain.
+  if (region === "wall") return false;
+  if (!photoThemeActive || typeof themeQuad !== "function") return false;
+  const points = [a, b, c, d];
+  if (points.some(p => ![p.x,p.y,p.z].every(Number.isFinite) ||
+      Math.abs(p.x) > 30000 || Math.abs(p.y) > 30000)) return false;
+  // Structural faces use the material atlas, never a stretched skybox crop.
+  return themeQuad(1, ...photoRegions[region],
+    a.x,a.y,a.z, b.x,b.y,b.z, c.x,c.y,c.z, d.x,d.y,d.z) !== false;
+}
+
 function drawSkeletonSegments(segments, color, outline, player = null) {
+  if (photoThemeActive && player) {
+    for (const segment of segments)
+      if (!segment.hitboxOnly) photoLimb(segment, player.pad);
+    return;
+  }
   const edge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
-  for (const segment of segments.filter((item) => !item.hitboxOnly))
+  if (player?.skateboard) segments = segments.slice().sort((a, b) => b.depth - a.depth);
+  for (const segment of segments) {
+    if (segment.hitboxOnly) continue;
     filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
       segment.width + edge * 2, outline);
+  }
   for (const [index, segment] of segments.entries()) {
     if (segment.hitboxOnly) continue;
-    drawPaletteCapsule(segment, player && !player.npc
-      ? player.handleColors : null, index, color, player);
+    const appearance = generatedAppearance(player);
+    drawPaletteCapsule(segment, appearance ? null : player && !player.npc
+      ? player.handleColors : null, index, appearance ? generatedPartColor(appearance, segment) : color, player);
   }
 }
 
@@ -8338,6 +11327,15 @@ function drawPaletteCapsule(segment, colors, coordinate, fallback, player = null
 
 function drawFighterSilhouette(geometry, color, outline, player = null) {
   drawSkeletonSegments(geometry.segments, color, outline, player);
+  if (photoThemeActive && player) {
+    const head = geometry.head, seat = player.pad === 0 ? 0 : 1;
+    const radius = Math.max(2, head.radius);
+    photoSprite(seat ? "xboxHead" : "acHead", head.x, head.y,
+      radius * 2, radius * 2,
+      isHeadOnly(player) ? player.headRoll || 0 : player.skateRotation || 0,
+      (seat === 0 ? 1 : -1) !== (player.facing || 1), triangleDepth - .01);
+    return;
+  }
   const headEdge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
   // The neck connector and solid head are emitted into the same triangle
   // silhouette pass, so the head cannot detach as a separate line-layer ring.
@@ -8345,9 +11343,24 @@ function drawFighterSilhouette(geometry, color, outline, player = null) {
     geometry.head.radius + headEdge, outline);
   // AC stores the @ glyph first; the face is the identity anchor for the same
   // palette that distorts continuously across the body below it.
-  const headColor = player && !player.npc && player.handleColors?.length
+  const appearance = generatedAppearance(player);
+  const headColor = appearance ? appearance.skin : player && !player.npc && player.handleColors?.length
     ? player.handleColors[0] : color;
   filledDisc(geometry.head.x, geometry.head.y, geometry.head.radius, headColor);
+  if (appearance) {
+    const { x, y, radius: r } = geometry.head;
+    if (appearance.hairStyle !== "none") {
+      filledCapsule(x - r * .7, y - r * .65, x + r * .7, y - r * .65,
+        r * (appearance.hairStyle === "curly" ? .75 : .48), appearance.hair);
+      if (appearance.hairStyle === "long") for (const side of [-1, 1])
+        filledCapsule(x + side * r * .86, y - r * .3, x + side * r * .86, y + r * .85, r * .3, appearance.hair);
+    }
+    if (appearance.beard) filledCapsule(x - r * .4, y + r * .68, x + r * .4, y + r * .68, r * .4, appearance.hair);
+    if (appearance.glasses) {
+      for (const side of [-1, 1]) hudCircle(x + side * r * .34, y - r * .08, r * .23, Math.max(1, r * .08), [18, 20, 28]);
+      filledCapsule(x - r * .1, y - r * .08, x + r * .1, y - r * .08, Math.max(1, r * .06), [18, 20, 28]);
+    }
+  }
   if (player && isHeadOnly(player)) {
     // The shell rolls from distance travelled while the face is drawn later in
     // stable screen space. A visible chord makes circular geometry's rotation
@@ -8420,8 +11433,10 @@ function fighterAnimationPhase(player, now = null) {
   } else if (Math.abs(player.vx) > 40) {
     state = "WALK";
   }
-  const [steps, authoredTicksPerStep, basePhase, loop] =
+  const [authoredSteps, authoredTicksPerStep, basePhase, loop] =
     fighterAnimationSpecs[state] || fighterAnimationSpecs.IDLE;
+  const timing = meleeFrames[state];
+  const steps = timing ? timing.startup+timing.active+timing.recovery : authoredSteps;
   // Descending terrain advances planted-foot exchanges faster. The result is
   // still integer-tick animation, but the legs keep pace with downhill speed
   // instead of the body skating through a leisurely flat-ground cycle.
@@ -8438,8 +11453,8 @@ function fighterAnimationPhase(player, now = null) {
   const rawStep = Math.floor(rawTick / ticksPerStep);
   const step = loop ? rawStep % steps : Math.min(steps - 1, rawStep);
   let phase = basePhase;
-  if (["PUNCH", "KICK", "WHIP", "BASH", "FIRE", "THROW", "REACH"]
-      .includes(state)) {
+  if (timing) phase = meleeFrame(player,now).phase.toUpperCase();
+  else if (["FIRE", "THROW", "REACH"].includes(state)) {
     const section = step / Math.max(1, steps - 1);
     phase = section < .3 ? "STARTUP" : section < .68 ? "ACTIVE" : "RECOVERY";
   } else if (state === "JUMP" || state === "FALL") {
@@ -8458,11 +11473,33 @@ function fighterAnimationPhase(player, now = null) {
     frameNow: stateStartedAt + rawTick * replayTickUs };
 }
 
+// Only share poses during one interpolated paint. Simulation and rollback
+// always rebuild, because a hit may change limbs between queries in one tick.
+const renderPoses = new Map();
+let sharingRenderPoses = false;
 function runnerWorldGeometry(player, t) {
+  const cached = sharingRenderPoses && renderPoses.get(player);
+  if (cached && (!player.spiderDummy || cached.t === t)) return cached.pose;
+  const pose = buildRunnerWorldGeometry(player, t);
+  if (player.skateRotation) {
+  const c = Math.cos(player.skateRotation), s = Math.sin(player.skateRotation);
+  const rotate = (x, y) => ({ x: player.x + (x - player.x) * c - (y - player.y) * s,
+    y: player.y + (x - player.x) * s + (y - player.y) * c });
+  Object.assign(pose.head, rotate(pose.head.x, pose.head.y));
+  for (const segment of pose.segments) {
+    const a = rotate(segment.x1, segment.y1), b = rotate(segment.x2, segment.y2);
+    segment.x1 = a.x; segment.y1 = a.y; segment.x2 = b.x; segment.y2 = b.y;
+  }
+  }
+  if (sharingRenderPoses) renderPoses.set(player, { t, pose });
+  return pose;
+}
+
+function buildRunnerWorldGeometry(player, t, at = null) {
   if (player.spiderDummy) return spiderDummyWorldGeometry(player, t);
   // Rendering consumes the same fixed 60 Hz phase clock as simulation. The
   // display can remain uncapped without inventing in-between combat poses.
-  const animation = fighterAnimationPhase(player);
+  const animation = fighterAnimationPhase(player, at);
   const poseNow = animation.frameNow;
   const poseCycle = animation.progress * Math.PI * 2;
   const speed = Math.min(1, Math.abs(player.vx) / 1500);
@@ -8605,7 +11642,7 @@ function runnerWorldGeometry(player, t) {
     segment(x - 48, feet - 12, x + 8, feet, 11, "left-shin");
     segment(x, hipY, x + 48, feet - 12, 11, "right-thigh");
     segment(x + 48, feet - 12, x - 8, feet, 11, "right-shin");
-  } else if (player.skateboard && player.grounded) {
+  } else if (player.skateboard) {
     // The deck is drawn tilted along the terrain, so each foot plants on
     // the deck's own top at its x — flat foot heights ran the board
     // through the shins on every slope.
@@ -8662,10 +11699,10 @@ function runnerWorldGeometry(player, t) {
       10, "right-upper-arm");
     segment(x + 42, elbowY - 10 + balance, x + 66, handY + balance,
       10, "right-forearm");
-  } else if (player.grabHeld) {
+  } else if (player.grabHeld || player.ropeIndex >= 0) {
     const held = player.heldBall >= 0 ? balls[player.heldBall] : null;
-    const clutchX = held?.x ?? x + player.facing * 126;
-    const clutchY = held?.y ?? feet - 92;
+    const clutchX = player.ropeIndex >= 0 ? x : held?.x ?? x + player.facing * 126;
+    const clutchY = player.ropeIndex >= 0 ? feet - 125 : held?.y ?? feet - 92;
     const spread = held ? Math.max(12, held.radius * .34) : 20;
     const hands = [
       { shoulderX: leftShoulderX, x: clutchX - player.facing * 5,
@@ -8718,6 +11755,50 @@ function runnerWorldGeometry(player, t) {
       "right-upper-arm");
     segment(x + 30 - arm * .45, elbowY, x + 36 - arm * .6, handY, 10,
       "right-forearm");
+  }
+  if (player.skateboard && !headOnly) {
+    const deck = skateFrame(player);
+    const pitch = (player.skatePitch || 0) * .35;
+    const c = Math.cos(pitch), sn = Math.sin(pitch);
+    const transform = (px, py, depth) => ({
+      x: x + (px - x) * c - (py - feet) * sn,
+      y: feet - skateAxleDrop - skateWheelRadius + (px - x) * sn + (py - feet) * c,
+      z: z + depth,
+    });
+    Object.assign(head, transform(head.x, head.y, 0));
+    for (const bone of segments) {
+      const side = bone.part.startsWith("left-") ? -1 : bone.part.startsWith("right-") ? 1 : 0;
+      const depth = side * (bone.part.includes("arm") ? 15 : 9);
+      const a = transform(bone.x1, bone.y1, depth);
+      const b = transform(bone.x2, bone.y2, depth);
+      if (bone.role === "shoulders") {
+        a.z = z - 15;
+        b.z = z + 15;
+      }
+      Object.assign(bone, { x1: a.x, y1: a.y, z1: a.z, x2: b.x, y2: b.y, z2: b.z });
+    }
+    if (player.attackKind !== "KICK" || !attackPulse) {
+      for (const [role, direction, part] of [["lead", player.facing, actionLeg],
+          ["rear", -player.facing, rearLeg]]) {
+        if (!hasPart(player, part)) continue;
+        const side = part === "left-leg" ? -1 : 1;
+        const hip = transform(x, hipY, side * 7);
+        const foot = deck(direction * skateTruck, -4, side * 9);
+        const dx = foot.x - hip.x, dy = foot.y - hip.y, dz = foot.z - hip.z;
+        const distance = Math.hypot(dx, dy, dz) || 1;
+        const length = Math.max(48, distance / 1.98);
+        const bend = Math.sqrt(Math.max(0, length * length - distance * distance / 4));
+        const norm = Math.hypot(dx, dy) || 1;
+        const knee = { x: (hip.x + foot.x) / 2 + dy / norm * bend * player.facing,
+          y: (hip.y + foot.y) / 2 - dx / norm * bend * player.facing,
+          z: (hip.z + foot.z) / 2 };
+        const thigh = segments.find((bone) => bone.role === role + "-thigh");
+        const shin = segments.find((bone) => bone.role === role + "-shin");
+        for (const [bone, a, b] of [[thigh, hip, knee], [shin, knee, foot]])
+          if (bone) Object.assign(bone, { x1: a.x, y1: a.y, z1: a.z,
+            x2: b.x, y2: b.y, z2: b.z });
+      }
+    }
   }
   return { head, segments };
 }
@@ -8785,7 +11866,7 @@ function projectRunnerWorldGeometry(world) {
     segments: world.segments.map((segment) => {
       const a = projectPoint(segment.x1, segment.y1, segment.z1);
       const b = projectPoint(segment.x2, segment.y2, segment.z2);
-      return { x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+      return { x1: a.x, y1: a.y, x2: b.x, y2: b.y, depth: (a.z + b.z) / 2,
         width: Math.max(1.5, segment.width * cameraScale()),
         role: segment.role, part: segment.part,
         hitboxOnly: segment.hitboxOnly };
@@ -8857,6 +11938,7 @@ function fighterContainmentRequiredWidth(t) {
 // aspect-aware correction recenters their shared frame and moves the dolly
 // back far enough for landscape, portrait, live, and replay projection alike.
 function containFighters(t) {
+  if (skateparkMap && !survivalActive()) return;
   const gameplayContainment = !roundResult &&
     runtime().monotonicUs - roundStartedAt >= roundIntroDurationUs();
   if (gameplayContainment) {
@@ -8942,9 +12024,7 @@ function containFighters(t) {
 }
 
 function resolveRunnerBounds(player, t) {
-  // Walls use a stable fighting-game pushbox. Animated hands and feet remain
-  // the actual hit geometry, but cannot shove the root back and forth at an
-  // arena edge as a pose changes.
+  // Walls use a stable pushbox independent of the character renderer.
   const halfWidth = isHeadOnly(player) ? 24 : isPogo(player) ? 38
     : player.ducking ? 76 : 62;
   const leftWall = worldLeft + wallThickness;
@@ -8982,7 +12062,9 @@ function resolveRunnerBounds(player, t) {
   const ceiling = (survivalActive() ? survivalCeilingY : ceilingY) +
     wallThickness;
   const standingTop = runnerBounds(player, t).top;
-  if (standingTop < ceiling) {
+  // The long park is open sky. The station's roof capped every half-pipe air
+  // at the same height however hard the rider pumped.
+  if (standingTop < ceiling && !(skateparkMap && !survivalActive())) {
     player.y += ceiling - standingTop;
     if (player.vy < 0) player.vy = 0;
   }
@@ -9002,9 +12084,7 @@ function pointSegmentDistance(px, py, pz, segment) {
     py - (segment.y1 + dy * amount), pz - (segment.z1 + dz * amount));
 }
 
-// Closest points between two finite 3D line segments. Fighter limbs use the
-// rendered capsule width around these lines, so collision and silhouette share
-// the same geometry instead of maintaining a hidden rectangular hitbox.
+// Closest points for loose debris, independent of the character renderer.
 function segmentSegmentClosest(first, second) {
   const d1x = first.x2 - first.x1;
   const d1y = first.y2 - first.y1;
@@ -9058,75 +12138,226 @@ function segmentSegmentClosest(first, second) {
       firstPoint.y - secondPoint.y, firstPoint.z - secondPoint.z) };
 }
 
-function attackCapsuleContact(attackingLimbs, target, t) {
-  const targetGeometry = runnerWorldGeometry(target, t);
-  if (!attackingLimbs.length) return null;
-  const head = targetGeometry.head;
-  const headCapsule = { x1: head.x, y1: head.y, z1: head.z,
-    x2: head.x, y2: head.y, z2: head.z, width: head.radius * 2 };
-  let headContact = null;
-  let bodyContact = null;
-  for (const attackingLimb of attackingLimbs) {
-    const headClosest = segmentSegmentClosest(attackingLimb, headCapsule);
-    const headSeparation = headClosest.distance -
-      (attackingLimb.width + headCapsule.width) / 2;
-    if (!headContact || headSeparation < headContact.separation)
-      headContact = { closest: headClosest, separation: headSeparation };
-    for (let index = 0; index < targetGeometry.segments.length; index++) {
-      const targetLimb = targetGeometry.segments[index];
-      const closest = segmentSegmentClosest(attackingLimb, targetLimb);
-      const separation = closest.distance -
-        (attackingLimb.width + targetLimb.width) / 2;
-      if (!bodyContact || separation < bodyContact.separation)
-        bodyContact = { closest, separation, segmentIndex: index };
-    }
-  }
-  const headshot = headContact.separation <= 3;
-  const contact = headshot ? headContact : bodyContact;
-  if (!contact) return null;
-  return {
-    x: (contact.closest.firstPoint.x + contact.closest.secondPoint.x) / 2,
-    y: (contact.closest.firstPoint.y + contact.closest.secondPoint.y) / 2,
-    z: (contact.closest.firstPoint.z + contact.closest.secondPoint.z) / 2,
-    separation: contact.separation,
-    segmentIndex: headshot ? -1 : contact.segmentIndex,
-    headshot,
-  };
-}
 
 function meleeLimbContact(attacker, target, t) {
-  const attackingGeometry = runnerWorldGeometry(attacker, t);
-  const attackingLimbs = attackingGeometry.segments.filter((segment) =>
-    segment.role?.startsWith("attack-"));
-  return attackCapsuleContact(attackingLimbs, target, t);
+  const now = runtime().simMonotonicUs || runtime().monotonicUs;
+  return combatBoxContact(sampleCombatBoxes(attacker, now), sampleCombatBoxes(target, now));
 }
 
+// World-space rectangles with a shallow Z interval. Visual line width never
+// changes these authored radii. The same records feed collision, Tab and Jev.
+function combatRect(id, left, top, right, bottom, z = 0, depth = 18, extra = {}) {
+  return { id, left, top, right, bottom, near: z - depth, far: z + depth, ...extra };
+}
+function boxesOverlap(a, b) {
+  return a.left <= b.right && a.right >= b.left && a.top <= b.bottom &&
+    a.bottom >= b.top && a.near <= b.far && a.far >= b.near;
+}
+function boxBounds(items) {
+  return { left: Math.min(...items.map(b => b.left)), right: Math.max(...items.map(b => b.right)),
+    top: Math.min(...items.map(b => b.top)), bottom: Math.max(...items.map(b => b.bottom)),
+    near: Math.min(...items.map(b => b.near)), far: Math.max(...items.map(b => b.far)) };
+}
+function buildBoxTree(items) {
+  if (!items.length) return null;
+  const bounds = boxBounds(items);
+  if (items.length <= 3) return { bounds, items };
+  const horizontal = bounds.right - bounds.left >= bounds.bottom - bounds.top;
+  const sorted = items.slice().sort((a,b) => horizontal
+    ? (a.left+a.right)-(b.left+b.right) : (a.top+a.bottom)-(b.top+b.bottom));
+  const middle = Math.floor(sorted.length / 2);
+  return { bounds, children: [buildBoxTree(sorted.slice(0,middle)), buildBoxTree(sorted.slice(middle))] };
+}
+function queryBoxTree(tree, area, found = []) {
+  if (!tree || !boxesOverlap(tree.bounds, area)) return found;
+  if (tree.items) for (const item of tree.items) { if (boxesOverlap(item, area)) found.push(item); }
+  else for (const child of tree.children) queryBoxTree(child, area, found);
+  return found;
+}
+function pointBoxDistance(box, x, y, z = 0) {
+  return Math.hypot(Math.max(box.left-x,0,x-box.right),
+    Math.max(box.top-y,0,y-box.bottom), Math.max(box.near-z,0,z-box.far));
+}
+// Slab test on an expanded AABB: a fast projectile cannot skip a thin hurtbox.
+function segmentBoxEntry(segment, box, radius = 0) {
+  let enter = 0, leave = 1;
+  for (const [axis,low,high] of [['x','left','right'],['y','top','bottom'],['z','near','far']]) {
+    const origin = segment[axis+'1'], delta = segment[axis+'2']-origin;
+    if (Math.abs(delta)<1e-9) {
+      if (origin<box[low]-radius || origin>box[high]+radius) return null;
+    } else {
+      const a=(box[low]-radius-origin)/delta,b=(box[high]+radius-origin)/delta;
+      enter=Math.max(enter,Math.min(a,b));leave=Math.min(leave,Math.max(a,b));
+      if(enter>leave)return null;
+    }
+  }
+  return enter;
+}
+function sweptProjectileContact(segments,target,t) {
+  const now=runtime().simMonotonicUs || runtime().monotonicUs;
+  const boxes=sampleCombatBoxes(target,now);
+  let result=null;
+  for(const s of segments) {
+    const r=s.width/2;
+    const area=combatRect('sweep',Math.min(s.x1,s.x2)-r,Math.min(s.y1,s.y2)-r,
+      Math.max(s.x1,s.x2)+r,Math.max(s.y1,s.y2)+r,(s.z1+s.z2)/2,Math.abs(s.z2-s.z1)/2+r);
+    for(const hurt of queryBoxTree(boxes.tree,area)) {
+      const amount=segmentBoxEntry(s,hurt,r);
+      if(amount===null || (result && amount>=result.amount))continue;
+      result={amount,x:s.x1+(s.x2-s.x1)*amount,y:s.y1+(s.y2-s.y1)*amount,
+        z:s.z1+(s.z2-s.z1)*amount,separation:0,headshot:hurt.part==='head',segmentIndex:hurt.segmentIndex};
+    }
+  }
+  return result;
+}
+function combatPushbox(player) {
+  const half = isHeadOnly(player) ? 24 : isPogo(player) ? 38 : 69;
+  const height = isHeadOnly(player) ? 44 : isPogo(player) ? 116 : player.ducking ? 118 : 180;
+  return combatRect('push', player.x-half, player.y-height, player.x+half, player.y, player.z);
+}
+function sampleCombatBoxes(player, now, world = null) {
+  world ||= runnerWorldGeometry(player, (now-startedAt)/1e6);
+  const hurt = [];
+  const head = world.head;
+  hurt.push(combatRect('head', head.x-22, head.y-22, head.x+22, head.y+22, head.z, 22,
+    { part: 'head', segmentIndex: -1 }));
+  for (let i=0; i<world.segments.length; i++) {
+    const s = world.segments[i];
+    // Each independently damageable region has its own rectangle, including
+    // limbs extended during recovery. Missing limbs never produce hurtboxes.
+    const radius = s.part === 'torso' ? 14 : s.hitboxOnly ? 16 : 10;
+    hurt.push(combatRect(s.role+'-'+i, Math.min(s.x1,s.x2)-radius,
+      Math.min(s.y1,s.y2)-radius, Math.max(s.x1,s.x2)+radius,
+      Math.max(s.y1,s.y2)+radius, (s.z1+s.z2)/2,
+      Math.abs(s.z2-s.z1)/2+radius, { part:s.part, segmentIndex:i }));
+  }
+  const frame = meleeFrame(player, now);
+  const hit = [];
+  if(player.alive && isPogo(player) && !player.grounded && !player.pogoHit) {
+    const torso=world.segments.find(s=>s.role==='torso');
+    if(torso)hit.push(combatRect('pogo',torso.x2-10,torso.y2-10,
+      torso.x2+10,torso.y2+10,torso.z2,10,{part:'torso'}));
+  }
+  if (player.alive && !player.attackHit && !player.blocking && now >= player.hitStunUntil &&
+      frame.phase === 'active' && !isHeadOnly(player) && !isPogo(player)) {
+    const kick = player.attackKind === 'KICK';
+    const part = kick ? player.facing > 0 ? 'right-leg' : 'left-leg' : itemHand(player);
+    if (part && hasPart(player, part)) {
+      const tip = meleeTarget(player, now);
+      const halfX = kick ? 26 : 22;
+      const halfY = kick && player.lowKick ? 17 : 20;
+      const inner = player.x+player.facing*(kick ? 42 : 30);
+      const outer = tip.x+player.facing*halfX;
+      hit.push(combatRect(player.attackKind.toLowerCase(), Math.min(inner,outer),
+        tip.y-halfY, Math.max(inner,outer), tip.y+halfY, tip.z, 18, { part }));
+    }
+  }
+  const guard = [];
+  if (player.blocking) {
+    const shield = shieldGeometry(player);
+    guard.push(combatRect('guard', shield.x-shield.radius, shield.y-shield.radius,
+      shield.x+shield.radius, shield.y+shield.radius, shield.z, shield.radius));
+  }
+  return { hurt, hit, guard, push: combatPushbox(player), frame,
+    tree: buildBoxTree(hurt) };
+}
+function combatBoxContact(attacker, target) {
+  let result = null;
+  for (const hit of attacker.hit) {
+    const overlaps = queryBoxTree(target.tree, hit).sort((a,b) =>
+      (a.part === 'head' ? -1 : b.part === 'head' ? 1 : a.segmentIndex-b.segmentIndex));
+    const hurt = overlaps[0];
+    if (!hurt) continue;
+    result = { x:(Math.max(hit.left,hurt.left)+Math.min(hit.right,hurt.right))/2,
+      y:(Math.max(hit.top,hurt.top)+Math.min(hit.bottom,hurt.bottom))/2,
+      z:(Math.max(hit.near,hurt.near)+Math.min(hit.far,hurt.far))/2,
+      separation: 0, headshot:hurt.part === 'head', segmentIndex:hurt.segmentIndex,
+      hitbox:hit.id, hurtbox:hurt.id };
+    if (result.headshot) break;
+  }
+  return result;
+}
+
+// Sample the game's real strike capsules against the opponent's current
+// hurtboxes. This is reach evidence at fixed positions, not a predicted hit:
+// travel, input latency, shields and the opponent's next move can change it.
+function jevStrikeOptions(player, opponent, now) {
+  if (!player.alive || !opponent.alive || isHeadOnly(player) || isPogo(player)) return {};
+  const t = (now - startedAt) / 1000000;
+  const target = sampleCombatBoxes(opponent, now);
+  const facing = Math.sign(opponent.x - player.x) || player.facing;
+  const result = {};
+  for (const [action, kind, crouched] of [
+    ['punch', itemMelee[heldItem(player)] || 'PUNCH', false],
+    ['kick', 'KICK', false], ['low_kick', 'KICK', true],
+    ['crouch_punch', itemMelee[heldItem(player)] || 'PUNCH', true],
+  ]) {
+    const part = kind === 'KICK' ? facing > 0 ? 'right-leg' : 'left-leg' : itemHand(player);
+    if (!part || !hasPart(player, part) || (crouched && !player.grounded)) continue;
+    const probe = { ...player, facing, vx: 0, blocking: false,
+      ducking: crouched, crouchBlend: crouched ? 1 : 0,
+      grabHeld: false, itemAction: '', hitStunUntil: 0, attackHit: false,
+      attackKind: kind, lowKick: crouched && kind === 'KICK',
+      attackStartedAt: now, attackUntil: now + meleeSpecs[kind].windowUs };
+    let closest = null, clearance = Infinity;
+    const timing = meleeFrames[kind];
+    for (let frame=timing.startup; frame<timing.startup+timing.active; frame++) {
+      const at = now + replayTickUs * frame;
+      const geometry = buildRunnerWorldGeometry(probe, t, at);
+      const sample = sampleCombatBoxes(probe, at, geometry);
+      for (const hit of sample.hit) for (const hurt of target.hurt)
+        clearance = Math.min(clearance,Math.hypot(
+          Math.max(hit.left-hurt.right,hurt.left-hit.right,0),
+          Math.max(hit.top-hurt.bottom,hurt.top-hit.bottom,0),
+          Math.max(hit.near-hurt.far,hurt.near-hit.far,0)));
+      const contact = combatBoxContact(sample, target);
+      if (contact && (!closest || contact.separation < closest.separation)) closest = contact;
+    }
+    result[action] = { canHit: Boolean(closest && closest.separation <= 3),
+      clearance: Number.isFinite(clearance) ? Math.round(clearance) : null,
+      headshot: Boolean(closest?.headshot), facing,
+      startupMs:Math.round(timing.startup*replayTickUs/1000),
+      totalMs:Math.round(meleeSpecs[kind].windowUs/1000) };
+  }
+  return result;
+}
+
+// A cheap reject in front of a pose build. Nothing attached to a fighter
+// reaches farther than `runnerReach` from a point ninety units above where
+// it stands (a body is ~190 tall, an outstretched leg ~150 wide), so a
+// point beyond reach + its own contact margin cannot touch it and the
+// exact answer is not worth building. The three pickup updaters and the
+// ball asked `runnerContactToPoint`/`sampleCombatBoxes` — the whole limb
+// tree — for every pair every tick: 4.4 ms + 3 ms of the console's frame
+// with nobody near anything (phase table, Xbox Series X, 2026-09-20).
+const runnerReach = 300;
+function nearRunner(player, x, y, z, margin) {
+  const dx = x - player.x, dy = y - (player.y - 90), dz = (z || 0) - (player.z || 0);
+  const reach = runnerReach + margin;
+  return dx * dx + dy * dy + dz * dz <= reach * reach;
+}
 function runnerDistanceToPoint(player, t, px, py, pz = 0) {
   const contact = runnerContactToPoint(player, t, px, py, pz);
   return Math.min(contact.headDistance, contact.bodyDistance);
 }
 
 function runnerContactToPoint(player, t, px, py, pz = 0) {
-  const geometry = runnerWorldGeometry(player, t);
-  const headDistance = Math.max(0,
-    Math.hypot(px - geometry.head.x, py - geometry.head.y,
-      pz - geometry.head.z) - geometry.head.radius);
-  let bodyDistance = Infinity;
-  let segmentIndex = -1;
-  for (let index = 0; index < geometry.segments.length; index++) {
-    const segment = geometry.segments[index];
-    const distance = Math.max(0,
-      pointSegmentDistance(px, py, pz, segment) - segment.width / 2);
-    if (distance < bodyDistance) {
-      bodyDistance = distance;
-      segmentIndex = index;
-    }
+  const now = runtime().simMonotonicUs || runtime().monotonicUs;
+  const boxes = sampleCombatBoxes(player, now);
+  let headDistance = Infinity, bodyDistance = Infinity, segmentIndex = -1;
+  for (const hurt of boxes.hurt) {
+    const distance = pointBoxDistance(hurt, px, py, pz);
+    if (hurt.part === 'head') headDistance = distance;
+    else if (distance < bodyDistance) { bodyDistance=distance;segmentIndex=hurt.segmentIndex; }
   }
   return { headDistance, bodyDistance, segmentIndex };
 }
 
-function detachPart(player, part, geometry, sourceX, now) {
-  if (!hasPart(player, part)) return;
+// The flying half of a dismemberment, separated from the bookkeeping half so
+// that a watcher can spawn the same debris. A watcher is told WHICH limb came
+// off (`removedParts` rides the wire) but not where its pieces went, and the
+// pieces are the part of a limb loss anybody actually sees.
+function spawnDetachedPart(player, part, geometry, sourceX, now) {
   const direction = Math.sign(player.x - sourceX) || player.facing || 1;
   for (const segment of geometry.segments.filter((item) =>
     item.part === part && !item.hitboxOnly)) {
@@ -9139,6 +12370,11 @@ function detachPart(player, part, geometry, sourceX, now) {
       spin: direction * (3.5 + detachedParts.length % 4),
       life: 2.6, part, owner: player.pad, heldBy: -1, hitAfter: now + 180000 });
   }
+}
+
+function detachPart(player, part, geometry, sourceX, now) {
+  if (!hasPart(player, part)) return;
+  spawnDetachedPart(player, part, geometry, sourceX, now);
   player.removedParts.push(part);
   player.partDamage[part] = Math.max(player.partDamage[part] || 0,
     part === "torso" ? 3 : 2);
@@ -9172,6 +12408,16 @@ function damagePart(target, segmentIndex, sourceX, sourcePad, now) {
     if (target.grenadeAmmo > 0) grenadePickups.push({
       amount: target.grenadeAmmo, x: target.x, y: target.y - 70, z: target.z,
       active: true, startsActive: false, respawnAt: Infinity });
+    // The blade goes where the hand went. A saber is held, not carried, so
+    // losing the item arm has to put it back on the map — otherwise the one
+    // weapon a fighter can keep all round would quietly cease to exist and
+    // the reach it was buying would vanish with no object to explain it.
+    if (target.swordHeld) {
+      saberPickups.push({ kind: "LIGHT SABER", x: target.x,
+        y: target.y - 70, z: target.z,
+        active: true, startsActive: false, respawnAt: Infinity });
+      target.swordHeld = false;
+    }
     target.gunAmmo = 0;
     target.grenadeAmmo = 0;
     target.itemArm = "";
@@ -9200,17 +12446,62 @@ function damageAllLimbs(target, sourceX, sourcePad, now) {
   }
 }
 
+const skateTruck = 32;
+const skateWheelRadius = 8;
+const skateAxleDrop = 10;
+
+function skateContact(x, y) {
+  // Solve the truck chord against the supporting ledge or heightfield.
+  let pitch = 0, left = 0, right = 0;
+  for (let i = 0; i < 6; i++) {
+    const span = skateTruck * Math.cos(pitch);
+    left = surfaceYAt(x - span, y - 2);
+    right = surfaceYAt(x + span, y - 2);
+    pitch = Math.atan2(right - left, span * 2);
+  }
+  const c = Math.cos(pitch), sn = Math.sin(pitch);
+  const wheelX = -sn * skateAxleDrop;
+  left = surfaceYAt(x - skateTruck * c + wheelX, y - 2);
+  right = surfaceYAt(x + skateTruck * c + wheelX, y - 2);
+  const deckY = Math.min(left + skateTruck * sn, right - skateTruck * sn) -
+    skateAxleDrop * c - skateWheelRadius;
+  return { pitch, y: deckY + skateAxleDrop + skateWheelRadius,
+    left: Math.abs(deckY - skateTruck * sn + skateAxleDrop * c + skateWheelRadius - left) < 3,
+    right: Math.abs(deckY + skateTruck * sn + skateAxleDrop * c + skateWheelRadius - right) < 3 };
+}
+
+function skateFrame(player) {
+  const pitch = player.skateWallSide ? Math.PI / 2 : player.skatePitch || 0;
+  const c = Math.cos(pitch), sn = Math.sin(pitch);
+  const down = player.skateWallSide > 0 ? -1 : 1;
+  return (along, height = 0, across = 0) => ({
+    x: player.x + c * along - sn * height * down,
+    y: player.y - skateAxleDrop - skateWheelRadius + sn * along + c * height * down,
+    z: player.z + across,
+  });
+}
+
+function resetSkate(player) {
+  player.skateboard = false;
+  player.skateVx = player.skateWallSide = player.skatePitch = 0;
+  player.skateVert = 0;
+  player.skateSpin = player.skateRollDistance = player.skateCarveDir = 0;
+  player.skateContacts = 0;
+  player.walkSince = player.runSince = 0;
+  player.runSpeed = 0;
+  player.runDir = 0;
+}
+
 function dismountSkateboard(target, now) {
   if (!target.skateboard) return false;
-  target.skateboard = false;
-  target.skateVx = 0;
-  target.skateWallSide = 0;
-  const board = balls.find((item) => item.type === "skateboard") || balls[0];
-  Object.assign(board, ballKinds.find((kind) => kind.type === "skateboard"));
+  resetSkate(target);
+  const board = balls.find((item) => item.type === "skateboard");
+  if (!board) return true;
   board.active = true;
   board.heldBy = -1;
+  board.releasedBy = -1;
   board.x = target.x - target.facing * 58;
-  board.y = terrainFloorAt(board.x) - board.radius;
+  board.y = target.y - skateAxleDrop - skateWheelRadius;
   board.z = target.z;
   board.vx = -target.facing * 720;
   board.vy = -260;
@@ -9249,7 +12540,11 @@ function applyBodyHit(target, segmentIndex, sourceX, sourcePad, now,
   emitSignal("bodyhit", sourcePad, target.pad, segmentIndex);
 }
 
-function updateDetachedParts(dt) {
+// `combat` is false on a watcher: the limbs still tumble, settle and draw,
+// but they do not damage anybody. The fight they belong to is being decided
+// on another machine, and a watcher that scored its own hits would fight the
+// wire for the rest of the round. Same switch `updateBullets` already has.
+function updateDetachedParts(dt, combat = true) {
   const now = runtime().monotonicUs;
   for (const fragment of detachedParts) {
     if (fragment.heldBy >= 0) {
@@ -9299,7 +12594,7 @@ function updateDetachedParts(dt) {
       fragment.spin *= .78;
     }
     const speed = Math.hypot(fragment.vx, fragment.vy);
-    if (speed > 650 && now >= (fragment.hitAfter || 0)) {
+    if (combat && speed > 650 && now >= (fragment.hitAfter || 0)) {
       for (const target of players) {
         if (!target.alive || target.pad === fragment.owner) continue;
         const contact = runnerContactToPoint(target,
@@ -9319,8 +12614,11 @@ function updateDetachedParts(dt) {
     }
     // Dismembered anatomy remains a physical arena object. It can settle,
     // be picked up again, thrown, and strike either fighter for the rest of
-    // the round rather than evaporating on a cosmetic timer.
-    fragment.life = Math.max(fragment.life, 1);
+    // the round rather than evaporating on a cosmetic timer. On a watcher it
+    // is only scenery, and scenery that never expires is a leak: the wire
+    // says which limbs are gone, not which pieces are still worth drawing.
+    if (combat) fragment.life = Math.max(fragment.life, 1);
+    else fragment.life -= dt;
   }
   for (let index = detachedParts.length - 1; index >= 0; index--) {
     if (detachedParts[index].life > 0 || detachedParts[index].heldBy >= 0) continue;
@@ -9330,14 +12628,6 @@ function updateDetachedParts(dt) {
       else if (player.heldPart > index) player.heldPart--;
     }
   }
-}
-
-function runnerBodyDistanceToPoint(geometry, px, py, pz = 0) {
-  let distance = Infinity;
-  for (const segment of geometry.segments)
-    distance = Math.min(distance,
-      Math.max(0, pointSegmentDistance(px, py, pz, segment) - segment.width / 2));
-  return distance;
 }
 
 // Comic Relief's packaged horizontal metrics, normalized from its 2048-unit
@@ -9568,9 +12858,9 @@ function drawKeycap(label, x, y, size, pressed, fade = 1) {
     ? mixColor([210, 220, 240], [40, 46, 62], visualTheme.light)
     : mixColor([112, 122, 146], [96, 104, 124], visualTheme.light));
   if (!pressed)
-    box(x + 2, y + 4, width, height, ...veil(mixColor([6, 8, 18], [92, 99, 112],
+    hudBox(x + 2, y + 4, width, height, ...veil(mixColor([6, 8, 18], [92, 99, 112],
       visualTheme.light * .7)));
-  box(x, y + drop, width, height, ...face);
+  hudBox(x, y + drop, width, height, ...face);
   strokeBox(x, y + drop, width, height, 2, edge);
   typeWrite(label, x + padX, y + drop + Math.round((height - size) / 2), size,
     ...veil(pressed ? [12, 14, 26] : [238, 242, 252]));
@@ -9705,8 +12995,8 @@ function drawM30Cluster(x, y, size, held, directionActive, ink) {
 // logout button now sit in that corner and the legend used to run straight
 // through them on a narrow view.
 function drawControlLegend(ink) {
-  if (typeof capabilities === "function" &&
-      capabilities().inputFamily === "touch") return;
+  const device = typeof capabilities === "function" ? capabilities() : {};
+  if (device.showControlLegend === false || device.inputFamily === "touch") return;
   const safe = hudSafeRect();
   const pad = localPad();
   const held = pad.down || [];
@@ -9722,15 +13012,14 @@ function drawControlLegend(ink) {
   const dash = legendFighter.lastButton === "DASH" &&
     runtime().monotonicUs - legendFighter.lastButtonAt < 700000;
   const controls = [
-    ["LEFT", "ArrowLeft", directionActive("ArrowLeft") ? "MOVE" : ""],
-    ["RIGHT", "ArrowRight", dash ? "DASH >>" :
-      directionActive("ArrowRight") ? "MOVE" : ""],
-    ["STICK_UP", "ArrowUp", directionActive("ArrowUp") ? "AIR" : ""],
-    ["DOWN", "ArrowDown", directionActive("ArrowDown") ? "CROUCH" : ""],
-    ["A", "A", both ? "GRAB" : held.includes("A") ? "KICK" : ""],
-    ["B", "B", !both && held.includes("B") ? "PUNCH" : ""],
-    ["X", "X", held.includes("X") ? "SHIELD" : ""],
-    ["Y", "Y", held.includes("Y") ? "USE ITEM" : ""],
+    ["LEFT", "ArrowLeft", "MOVE"],
+    ["RIGHT", "ArrowRight", dash ? "DASH >>" : "MOVE"],
+    ["STICK_UP", "ArrowUp", "AIR"],
+    ["DOWN", "ArrowDown", "CROUCH"],
+    ["A", "A", both ? "GRAB" : "KICK"],
+    ["B", "B", both ? "GRAB" : itemMelee[heldItem(legendFighter)] || "PUNCH"],
+    ["X", "X", "SHIELD"],
+    ["Y", "Y", "USE ITEM"],
   ];
   if (survivalActive()) controls.length = 4;
   const keyboard = keycapFamily();
@@ -9738,6 +13027,10 @@ function drawControlLegend(ink) {
   // page — the drawn controller carries its d-pad, so no rows remain.
   const m30 = !keyboard && !survivalActive() && m30Seated();
   if (m30) controls.length = 0;
+  const pressed = controls.filter(([, button, action]) =>
+    (button.startsWith("Arrow") ? directionActive(button) : held.includes(button)) ||
+    action === "DASH >>");
+  controls.splice(0, controls.length, ...pressed);
   const keyboardCap = { LEFT: "A", RIGHT: "D", STICK_UP: "W", DOWN: "S",
     A: "SPACE", B: "ENTER", X: "SHIFT", Y: "ALT" };
   const step = Math.round(size * 1.82);
@@ -9749,8 +13042,14 @@ function drawControlLegend(ink) {
         directionActive(button))
       : drawPadButton(cap, x, y, size,
         button.startsWith("Arrow") ? directionActive(button) : held.includes(button));
-    if (action) typeWrite(action, x + width + 10,
-      y + Math.round(size * .25), size, ...ink);
+    if (action) {
+      // The action wears its button's colour, so a glance matches the word
+      // to the cap: A's green kick, B's red punch, X's blue shield, Y's gold.
+      const actionInk = padButtonInk[cap] || ink;
+      const labelX = x + width + 10, labelY = y + Math.round(size * .25);
+      typeWrite(action, labelX + 2, labelY + 3, size, ...contrastShadow(actionInk));
+      typeWrite(action, labelX, labelY, size, ...actionInk);
+    }
   }
   let legendBottom = safe.top + controls.length * step;
   if (m30) legendBottom = drawM30Cluster(x, legendBottom, size, held,
@@ -9877,6 +13176,7 @@ function drawHandle(handle, x, y, size, colors, fallback) {
 }
 
 function drawFace(player, head, color, t, now = runtime().monotonicUs) {
+  if (photoThemeActive) color = [20, 12, 26];
   if (head.radius < 5) return;
   const bodyDepth = triangleDepth;
   triangleDepth = bodyDepth - .012;
@@ -9886,7 +13186,7 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   // in flat face-space and spun around the head's center on the way to the
   // canvas — eyes, mouth, hair, tears, hearts, all of it — instead of the old
   // look where the head traveled and the face stayed nailed upright.
-  const roll = isHeadOnly(player) ? player.headRoll || 0 : 0;
+  const roll = isHeadOnly(player) ? player.headRoll || 0 : photoThemeActive ? player.skateRotation || 0 : 0;
   const cosRoll = Math.cos(roll), sinRoll = Math.sin(roll);
   const spin = (x, y) => roll === 0 ? { x, y } : {
     x: head.x + (x - head.x) * cosRoll - (y - head.y) * sinRoll,
@@ -9929,10 +13229,10 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
     stroke(head.x - r * .08, head.y - r * .18,
       head.x + r * .42, head.y - r * .5, width * .72, hair);
   }
-  const eyeY = head.y - r * .18;
-  const eyeGap = r * .34;
-  const faceX = head.x + direction * r * .08;
-  const eyeWidth = Math.max(1.4, r * .1);
+  const eyeY = head.y - r * (photoThemeActive ? .07 : .18);
+  const eyeGap = r * (photoThemeActive ? .30 : .34);
+  const faceX = head.x + direction * r * (photoThemeActive ? .22 : .08);
+  const eyeWidth = Math.max(1.4, r * (photoThemeActive ? .125 : .1));
   const lineWidth = Math.max(1.2, r * .1);
   const blink = player.alive && !player.blocking && !player.attackKind &&
     Math.sin(t * .73 + player.pad * 2.1) > .985;
@@ -9941,6 +13241,12 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   const inertDummy = player.npc && !player.bot;
   const victoryAmount = deathCinematic?.winnerPad === player.pad
     ? clamp(deathCinematicAge(now) / 1.15, 0, 1) : 0;
+  if (photoThemeActive) {
+    // Cover the photographed eyes completely before drawing live gaze and
+    // expressions. Closed lids are opaque, including the baked pupils.
+    const socket = blink ? (player.pad === 0 ? [135,101,190] : [115,162,53]) : [237,234,221];
+    for (const offset of [-eyeGap,eyeGap]) disc(faceX+offset,eyeY,r*.315,socket);
+  }
   if (!player.alive || player.hit > .6 || inertDummy) {
     for (const offset of [-eyeGap, eyeGap]) {
       stroke(faceX + offset - eyeWidth, eyeY - eyeWidth,
@@ -10078,6 +13384,14 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   triangleDepth = bodyDepth;
 }
 
+function itemForearm(player, geometry) {
+  const arm = itemHand(player);
+  return geometry.segments.find(segment => segment.part === arm &&
+    (segment.role === "item-forearm" || segment.role === "attack-forearm")) ||
+    geometry.segments.find(segment => segment.part === arm &&
+      segment.role?.endsWith("forearm"));
+}
+
 function drawInventory(player, now, geometry) {
   // A bodyless head carries nothing visible. The sword rode a phantom
   // forearm and read as a dark clock hand sweeping through the rolled face —
@@ -10086,7 +13400,8 @@ function drawInventory(player, now, geometry) {
   if (isHeadOnly(player)) return;
   const scale = cameraScale();
   const gunColor = player.gunMode === "ROCKET LAUNCHER" ? [48, 61, 52]
-    : player.gunMode === "RUBBER SMG" ? [38, 53, 72] : [63, 43, 76];
+    : player.gunMode === "RUBBER SMG" ? [38, 53, 72]
+    : player.gunMode === "SPACE LASER" ? [58, 92, 122] : [63, 43, 76];
   const grenadeColor = [255, 105, 105];
   const firing = player.itemAction === "FIRE" && now < player.itemActionUntil;
   const throwing = player.itemAction === "THROW" && now < player.itemActionUntil;
@@ -10118,25 +13433,64 @@ function drawInventory(player, now, geometry) {
       const tipY = hand.y + alongY / length * 118 * scale;
       const acrossX = -alongY / length;
       const acrossY = alongX / length;
+      // Steel became light. Three passes down the same line — a wide halo in
+      // the fighter's OWN color, then a narrower saturated sheath, then a
+      // white core — because a blade drawn in one flat tone reads as a stick,
+      // and because in a versus round the two blades then say which fighter
+      // is which from across the map, the way the handle colors already do.
+      // The hum lives in the halo's width: it breathes on the same clock the
+      // pickups bob on, so a held saber is never a still object.
+      const hum = 1 + .12 * Math.sin(now / 82000);
+      const halo = mixColor(player.color, [14, 20, 36], .35);
       filledCapsule(hand.x, hand.y, tipX, tipY,
-        Math.max(3, 7 * scale), [188, 197, 208]);
-      filledCapsule(hand.x + acrossX * 14 * scale, hand.y + acrossY * 14 * scale,
-        hand.x - acrossX * 14 * scale, hand.y - acrossY * 14 * scale,
-        Math.max(2, 5 * scale), [96, 76, 48]);
+        Math.max(4, 13 * scale * hum), halo);
+      filledCapsule(hand.x, hand.y, tipX, tipY,
+        Math.max(3, 8 * scale), player.color);
+      filledCapsule(hand.x, hand.y, tipX, tipY,
+        Math.max(1.5, 3.5 * scale), [244, 252, 255]);
+      // The hilt stays machined and dark: it is the one part of a saber that
+      // is an object, and it is what keeps the blade from reading as a beam
+      // fired out of a bare fist.
+      filledCapsule(hand.x + acrossX * 11 * scale, hand.y + acrossY * 11 * scale,
+        hand.x - acrossX * 11 * scale, hand.y - acrossY * 11 * scale,
+        Math.max(2, 5 * scale), [148, 156, 172]);
       filledCapsule(hand.x, hand.y,
-        hand.x - alongX / length * 16 * scale,
-        hand.y - alongY / length * 16 * scale,
-        Math.max(2, 5 * scale), [34, 30, 40]);
+        hand.x - alongX / length * 18 * scale,
+        hand.y - alongY / length * 18 * scale,
+        Math.max(2, 6 * scale), [34, 30, 40]);
     }
   }
   if ((player.gunAmmo > 0 || firing) && !throwing) {
+    const forearm = photoThemeActive ? itemForearm(player, geometry) : null;
     const pose = gunPose(player, now);
-    const hand = projectPoint(pose.hand.x, pose.hand.y, pose.hand.z);
-    const barrel = projectPoint(pose.muzzle.x, pose.muzzle.y, pose.muzzle.z);
+    const projectedHand = projectPoint(pose.hand.x, pose.hand.y, pose.hand.z);
+    // Render reactions and replay poses may move the drawn skeleton after
+    // projection. Its actual wrist remains the final attachment point.
+    const hand = forearm ? {x:forearm.x2, y:forearm.y2} : projectedHand;
+    const offsetX = hand.x - projectedHand.x, offsetY = hand.y - projectedHand.y;
+    const projectWeapon = (x, y, z) => {
+      const point = projectPoint(x, y, z);
+      return {x:point.x + offsetX, y:point.y + offsetY};
+    };
+    const barrel = projectWeapon(pose.muzzle.x, pose.muzzle.y, pose.muzzle.z);
     const barrelWidth = Math.max(3, 9 * scale);
     const gripWidth = Math.max(2, 6 * scale);
     // Xbox batches its native line layer underneath GPU fighter triangles.
     // Held items therefore use the same depth-aware capsule path as the hand.
+    if (photoThemeActive) {
+      // Place the photograph's grip at the solved wrist. Reflect its local X
+      // before rotation so aiming left does not turn the grip upside down.
+      const dx = barrel.x - hand.x, dy = barrel.y - hand.y;
+      const length = Math.hypot(dx, dy) || 1;
+      const flip = player.facing < 0;
+      const width = Math.max(18, length / .72), height = width * 253 / 365;
+      const angle = Math.atan2(dy, dx) - (flip ? Math.PI : 0);
+      const ox = (flip ? -1 : 1) * width * .25, oy = -height * .1;
+      const c = Math.cos(angle), s = Math.sin(angle);
+      if (!drawPhotoHeldWeapon(player.gunMode,hand,barrel,flip,triangleDepth-.025))
+        photoSprite("gun", hand.x + ox*c - oy*s, hand.y + ox*s + oy*c,
+          width, height, angle, flip, triangleDepth - .025);
+    } else {
     filledCapsule(hand.x, hand.y, barrel.x, barrel.y,
       barrelWidth, gunColor);
     const gripX = hand.x - player.facing * 8 * scale;
@@ -10162,26 +13516,37 @@ function drawInventory(player, now, geometry) {
         barrelWidth * 1.8, gunColor);
       filledDisc(barrel.x, barrel.y, barrelWidth * 1.45, [104, 62, 48]);
     }
+    }
     if (firing) {
+      const flashAngle=Math.atan2(barrel.y-hand.y,barrel.x-hand.x);
+      const flashSize=Math.max(18,54*scale);
+      const photoFlash=photoEffectSprite(3,photoWeaponRegions.flash,
+        barrel.x+Math.cos(flashAngle)*flashSize*.43,
+        barrel.y+Math.sin(flashAngle)*flashSize*.43,
+        flashSize,flashSize*.61,flashAngle,false,triangleDepth-.03,false);
+      if (!photoFlash) {
       const normalX = -pose.dy;
       const normalY = pose.dx;
-      const flashA = projectPoint(
+      const flashA = projectWeapon(
         pose.muzzle.x + pose.dx * 28 + normalX * 18,
         pose.muzzle.y + pose.dy * 28 + normalY * 18, pose.muzzle.z);
-      const flashB = projectPoint(
+      const flashB = projectWeapon(
         pose.muzzle.x + pose.dx * 28 - normalX * 18,
         pose.muzzle.y + pose.dy * 28 - normalY * 18, pose.muzzle.z);
       filledCapsule(barrel.x, barrel.y, flashA.x, flashA.y,
         Math.max(2, 5 * scale), [255, 248, 190]);
       filledCapsule(barrel.x, barrel.y, flashB.x, flashB.y,
         Math.max(2, 5 * scale), [255, 248, 190]);
+      }
     }
   }
   if (throwing || bashing) {
     const target = itemHandTarget(player, now);
     const hand = projectPoint(target.x, target.y, target.z);
-    circle(hand.x, hand.y, Math.max(5, 15 * scale),
-      Math.max(2, 5 * scale), grenadeColor);
+    if (!photoEffectSprite(3,photoWeaponRegions.grenade,hand.x,hand.y,
+        Math.max(8,24*scale),Math.max(12,38*scale),0,false,triangleDepth-.03,true))
+      hudCircle(hand.x, hand.y, Math.max(5, 15 * scale),
+        Math.max(2, 5 * scale), grenadeColor);
   }
 }
 
@@ -10264,8 +13629,11 @@ function drawBrokenRunner(player, age) {
     triangleDepth = projectPoint(midX + dx, midY + dy,
       (segment.z1 + segment.z2) / 2 + dz).z;
     const width = Math.max(2, segment.width * cameraScale());
-    filledCapsule(a.x, a.y, b.x, b.y, width + 3, outline);
-    filledCapsule(a.x, a.y, b.x, b.y, width, player.color);
+    if (photoThemeActive) photoLimb({x1:a.x,y1:a.y,x2:b.x,y2:b.y,width}, player.pad);
+    else {
+      filledCapsule(a.x, a.y, b.x, b.y, width + 3, outline);
+      filledCapsule(a.x, a.y, b.x, b.y, width, player.color);
+    }
   }
   drawDigitalHeadBurst(player, world.head, age);
 }
@@ -10313,7 +13681,7 @@ function drawRunner(player, t, showLabel = true) {
   }
   if (player.fallenBodyGeometry) {
     const fallen = projectRunnerWorldGeometry(player.fallenBodyGeometry);
-    drawSkeletonSegments(fallen.segments, player.color, [8, 12, 24], null);
+    drawSkeletonSegments(fallen.segments, player.color, [8, 12, 24], photoThemeActive ? player : null);
   }
   const geometry = player.replayGeometry
     ? projectRunnerWorldGeometry(player.replayGeometry)
@@ -10342,30 +13710,7 @@ function drawRunner(player, t, showLabel = true) {
     ? mixColor([255, 232, 92], [28, 34, 52], visualTheme.light)
     : [8, 12, 24];
   const displayNow = player.frozenAt || runtime().monotonicUs;
-  if (player.skateboard) {
-    const board = projectPoint(player.x, player.y + 5, player.z);
-    // The tilt probes ask for the surface the rider is actually on: bare
-    // terrain reads the arena floor, which would pitch a rung-riding board
-    // toward the storey below the moment the ground under it sloped.
-    const boardSurface = (probeX) =>
-      Math.min(surfaceYAt(probeX, player.y), player.y + 20);
-    const leftEdge = player.skateWallSide
-      ? projectPoint(player.x, player.y - 67, player.z)
-      : projectPoint(player.x - 72,
-        boardSurface(player.x - 72) + 5, player.z);
-    const boardEdge = player.skateWallSide
-      ? projectPoint(player.x, player.y + 77, player.z)
-      : projectPoint(player.x + 72,
-        boardSurface(player.x + 72) + 5, player.z);
-    const reach = Math.max(.5, Math.hypot(boardEdge.x - leftEdge.x,
-      boardEdge.y - leftEdge.y) / 2);
-    const rotation = Math.atan2(boardEdge.y - leftEdge.y,
-      boardEdge.x - leftEdge.x);
-    // The wallride board reads nose-down whichever wall it is on, so the right
-    // wall needs its underside flipped to keep the wheels on the bricks.
-    drawSkateboardSymbol(board, reach, rotation,
-      player.skateWallSide > 0 ? -1 : 1);
-  }
+  if (player.skateboard) drawSkateboard(player);
   drawFighterSilhouette(geometry, color, outline, player);
   const hitNow = runtime().monotonicUs;
   if (player.hitSegment >= 0 && hitNow < player.hitSegmentUntil &&
@@ -10433,53 +13778,118 @@ function drawDoubleJumpMotion(player, t) {
 // over every recording of it. VIEW (tab) is now the only thing that shows
 // them — `impactHitboxesUntil` still times the flash, but only for someone
 // who has already asked to see the geometry.
-function drawDebugHitboxes(player, t) {
-  // The hud experiment flag prices the debug geometry itself — boxes, crops
-  // and skeletal overlays — while the fps read-out, bug and session name
-  // stay up, because the instrument that measures must not vanish with the
-  // scaffolding it is measuring.
-  if (renderFlags.hud === false) return;
-  const now = runtime().monotonicUs;
-  const impactDebug = debugHitboxes && !roundResult && now < impactHitboxesUntil;
-  if ((!debugHitboxes && !impactDebug) || (!player.alive && !roundResult)) return;
-  const cinematicAge = deathCinematicAge(now);
-  if (deathCinematic?.loserPad === player.pad && cinematicAge >= .11) return;
-  const world = player.replayGeometry || player.frozenGeometry ||
-    runnerWorldGeometry(player, t);
-  const geometry = projectRunnerWorldGeometry(world);
-  const bodyColor = [58, 222, 255];
-  const headColor = [255, 62, 82];
-  const pushColor = [105, 255, 118];
-  const attackColor = [255, 86, 220];
-
-  for (const segment of geometry.segments)
-    filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
-      Math.max(2, segment.width * .22), bodyColor);
-  filledRing(geometry.head.x, geometry.head.y, geometry.head.radius,
-    Math.max(0, geometry.head.radius - Math.max(2,
-      geometry.head.radius * .12)), headColor);
-
-  const halfWidth = player.ducking ? 76 : 62;
-  const top = player.y - (player.ducking ? 132 : 174);
-  const corners = [
-    projectPoint(player.x - halfWidth, top, player.z),
-    projectPoint(player.x + halfWidth, top, player.z),
-    projectPoint(player.x + halfWidth, player.y, player.z),
-    projectPoint(player.x - halfWidth, player.y, player.z),
-  ];
-  for (let index = 0; index < corners.length; index++) {
-    const next = corners[(index + 1) % corners.length];
-    filledCapsule(corners[index].x, corners[index].y,
-      next.x, next.y, 2, pushColor);
-  }
-
-  const displayNow = player.frozenAt || now;
-  if (player.attackKind && displayNow < player.attackUntil) {
-    for (const segment of geometry.segments) {
-      if (!segment.role?.startsWith("attack-")) continue;
-      filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
-        segment.width + 5, attackColor);
+// A capsule needs two half-caps, not two overlapping full discs.
+const debugArcs = [3, 4, 6, 8, 10].map((steps) =>
+  Array.from({ length: steps + 1 }, (_, i) => [
+    Math.cos(Math.PI / 2 + i * Math.PI / steps),
+    Math.sin(Math.PI / 2 + i * Math.PI / steps),
+  ]));
+function debugCapsule(x1, y1, x2, y2, width, color) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const length = Math.hypot(dx, dy);
+  const c = length ? dx / length : 1, sn = length ? dy / length : 0;
+  const radius = width / 2;
+  const nx = -sn * radius, ny = c * radius;
+  const [r, g, b] = color;
+  screenTriangle(x1 + nx, y1 + ny, x1 - nx, y1 - ny,
+    x2 + nx, y2 + ny, r, g, b);
+  screenTriangle(x1 - nx, y1 - ny, x2 - nx, y2 - ny,
+    x2 + nx, y2 + ny, r, g, b);
+  const arc = debugArcs[radius < 6 ? 0 : radius < 13 ? 1 : radius < 26 ? 2 : radius < 52 ? 3 : 4];
+  for (let end = 0; end < 2; end++) {
+    const x = end ? x2 : x1, y = end ? y2 : y1;
+    const scale = end ? -radius : radius;
+    for (let i = 1; i < arc.length; i++) {
+      const a = arc[i - 1], next = arc[i];
+      screenTriangle(x, y, x + (a[0] * c - a[1] * sn) * scale,
+        y + (a[0] * sn + a[1] * c) * scale,
+        x + (next[0] * c - next[1] * sn) * scale,
+        y + (next[0] * sn + next[1] * c) * scale, r, g, b);
     }
+  }
+}
+
+function drawDebugHitboxes(player, t) {
+  if (renderFlags.hud === false || !debugHitboxes || !player.alive) return;
+  const now = player.frozenAt || runtime().simMonotonicUs || runtime().monotonicUs;
+  const boxes = sampleCombatBoxes(player, now);
+  const hurtColor = [82, 226, 116];
+  const pushColor = [255, 158, 54];
+  const attackColor = [255, 58, 64];
+  const guardColor = [186, 118, 255];
+  const draw = (b, color, width = 2) => {
+    const z = (b.near+b.far)/2;
+    const points = [[b.left,b.top],[b.right,b.top],[b.right,b.bottom],[b.left,b.bottom]]
+      .map(([x,y])=>projectPoint(x,y,z));
+    for (let i=0;i<4;i++) {
+      const a=points[i], next=points[(i+1)%4];
+      debugCapsule(a.x,a.y,next.x,next.y,width,color);
+    }
+  };
+  for (const b of boxes.hurt) draw(b,hurtColor);
+  draw(boxes.push,pushColor);
+  for (const b of boxes.guard) draw(b,guardColor,3);
+  for (const b of boxes.hit) draw(b,attackColor,4);
+}
+
+// The frame meter. One pip per simulation frame, oldest on the left, the
+// frame happening now at the right edge -- so an exchange reads left to
+// right the way it happened, and the thing you just did is under your eye
+// rather than across the screen.
+//
+// Two rows, one per fighter, stacked so the frames line up vertically: that
+// column alignment IS the instrument. Reading "my recovery sits under their
+// active" off two rows is the whole reason a frame meter exists, and it is
+// why this is a stacked pair rather than one row per player somewhere
+// convenient.
+function drawFrameMeter() {
+  if (!debugHitboxes || renderFlags.hud === false) return;
+  if (!frameMeters.some((meter) => meter.length)) return;
+  const safe = hudSafeRect();
+  const pip = Math.max(2, Math.min(7, Math.floor(
+    (safe.right - safe.left) * .55 / frameMeterLength) - 1));
+  const gap = pip > 3 ? 1 : 0;
+  // Tall enough to read a color at a glance. The pips are the resolution;
+  // the row height is only whether you can see them, and a meter you have to
+  // lean toward is a meter nobody reads mid-fight.
+  const rowHeight = Math.max(11, pip * 2);
+  const width = frameMeterLength * (pip + gap);
+  // Centred, and lifted clear of the bottom furniture -- the session name,
+  // the bug and the opponent label all live along that edge, and the first
+  // placement laid the meter straight across them.
+  const left = Math.round((safe.left + safe.right - width) / 2);
+  const top = safe.bottom - rowHeight * 2 - 58;
+  for (const player of players) {
+    const meter = frameMeters[player.pad];
+    const y = top + player.pad * (rowHeight + 3);
+    // The empty track, so a meter that has not filled yet reads as a meter
+    // rather than as nothing having happened.
+    hudBox(left, y, width, rowHeight, 16, 19, 30);
+    // Pips never overlap. Group colors while retaining every one-frame gap.
+    for (const key of new Set(meter)) {
+      const state = frameMeterStates[key] || frameMeterStates.neutral;
+      for (let index = 0; index < meter.length; index++) {
+        if (meter[index] !== key) continue;
+        const x = left + width - (meter.length - index) * (pip + gap);
+        hudBox(x, y, pip, rowHeight, ...state.ink);
+      }
+    }
+    // Whose row this is, in their own color, at the left end where it cannot
+    // sit on top of the frames anybody is actually reading.
+    typeWrite("P" + (player.pad + 1), left - 30, y, 15, ...player.color);
+  }
+  // The legend, once, above the pair -- and only the states the last two
+  // seconds actually contained, because a legend listing colors that are not
+  // on screen is a thing to decode rather than a thing to read.
+  const seen = new Set();
+  for (const meter of frameMeters) for (const state of meter)
+    if (frameMeterStates[state]?.label) seen.add(state);
+  let x = left;
+  for (const state of seen) {
+    const entry = frameMeterStates[state];
+    hudBox(x, top - 17, 9, 9, ...entry.ink);
+    typeWrite(entry.label, x + 13, top - 19, 13, 168, 178, 200);
+    x += 20 + entry.label.length * 8;
   }
 }
 
@@ -10490,14 +13900,6 @@ function drawPlayerHud(player, x, pad) {
   let label = "P" + (player.pad + 1) + "  " + player.roundWins + "/" +
     matchWins + "  PTS " + player.score;
   typeWrite(label, x, 14, 22, ...color);
-}
-
-function drawFighterData(player, x) {
-  const profile = fighterProfile(player.name);
-  const mood = profile.mood ? "M " + profile.mood.slice(0, 24) : "M —";
-  const chat = profile.lastChat ? "CHAT " + profile.lastChat.slice(0, 34) : "CHAT —";
-  const ink = mixColor([190, 205, 235], [55, 66, 90], visualTheme.light);
-  typeWrite(mood + "  ·  " + chat, x, 82, 15, ...ink);
 }
 
 function visibleHandle(player) {
@@ -10789,6 +14191,14 @@ function drawFightIntro(introSeconds, titleInk, statusShadow) {
   const touch = typeof capabilities === "function" &&
     capabilities().inputFamily === "touch";
   const nameSize = touch ? 28 : compactLayout() ? 38 : 54;
+  const safe = hudSafeRect();
+  const mapLabel = currentMapName.toLowerCase();
+  const mapSize = Math.min(nameSize, nameSize * (safe.right - safe.left) /
+    Math.max(1, handleWidth(mapLabel, nameSize)));
+  const mapX = centerX - handleWidth(mapLabel, mapSize) / 2;
+  const mapY = safe.top + hudTypeSize + 26;
+  typeWrite(mapLabel, mapX + 2, mapY + 3, mapSize, ...statusShadow);
+  typeWrite(mapLabel, mapX, mapY, mapSize, ...titleInk);
   const drawHeadName = (player) => {
     const head = runnerWorldGeometry(player,
       (runtime().monotonicUs - startedAt) / 1000000).head;
@@ -10888,8 +14298,8 @@ function drawReelSectionProgress(now, titleInk) {
     const width = index === widths.length - 1
       ? safe.right - x : Math.round(available * widths[index]);
     const amount = index < section ? 1 : index === section ? progress : 0;
-    box(x, barY, width, barHeight, ...track);
-    if (amount > 0) box(x, barY, width * amount, barHeight,
+    hudBox(x, barY, width, barHeight, ...track);
+    if (amount > 0) hudBox(x, barY, width * amount, barHeight,
       ...(index === section ? titleInk : done));
     if (index === 1) {
       const markWidth = compactLayout() ? 5 : 6;
@@ -10897,7 +14307,7 @@ function drawReelSectionProgress(now, titleInk) {
         const markX = x + clamp(mark.at, 0, 1) * width;
         const reached = roundElapsedUs / roundDurationUs >= mark.at;
         const impactInk = mark.decisive ? [226, 42, 66] : mark.color;
-        box(markX - markWidth / 2, barY - 3,
+        hudBox(markX - markWidth / 2, barY - 3,
           markWidth, barHeight + 6,
           ...(reached ? impactInk : mixColor(track, impactInk, .72)));
       }
@@ -10994,7 +14404,7 @@ function worldCapsule(x1, y1, z1, x2, y2, z2, width, color,
   triangleDepth = previousDepth;
 }
 
-function worldQuad(a, b, c, d, color) {
+function litQuadColor(a, b, c, color) {
   // Lighting is decided in world space, off the surface the quad names, so it
   // is the same shade however the clipper ends up cutting the face up. The
   // cross, normalize and dot run in scalars: this is every wall panel every
@@ -11008,30 +14418,162 @@ function worldQuad(a, b, c, d, color) {
   const toward = (nx * -globalLight.x + ny * -globalLight.y +
     nz * -globalLight.z) / magnitude;
   const illumination = .72 + Math.max(0, toward) * .28;
-  const lit = [Math.round(color[0] * illumination),
+  return [Math.round(color[0] * illumination),
     Math.round(color[1] * illumination),
     Math.round(color[2] * illumination)];
+}
+function worldQuad(a, b, c, d, color) {
+  const lit = litQuadColor(a, b, c, color);
   worldTriangle(a, b, c, lit);
   worldTriangle(a, c, d, lit);
 }
 
-function drawTerrainSurface(left, right, near, far, color) {
+// Preserve the sampled silhouette, merging only collinear edges.
+const terrainProfile = [];
+function rebuildTerrainProfile() {
+  const points = [];
   const step = (worldRight - worldLeft) / terrainSamples;
-  const first = clamp(Math.floor((left - worldLeft) / step), 0, terrainSamples - 1);
-  const last = clamp(Math.ceil((right - worldLeft) / step), first + 1, terrainSamples);
-  for (let index = first; index < last; index++) {
-    const x1 = worldLeft + index * step;
-    const x2 = worldLeft + (index + 1) * step;
-    const y1 = terrainFloorAt(x1);
-    const y2 = terrainFloorAt(x2);
-    const slope = Math.abs(y2 - y1) / Math.max(1, step);
-    const grain = .5 + .5 * Math.sin(index * 12.9898 + terrainPhase * 4.17);
-    const earthy = mixColor([75, 91, 68], [205, 194, 156], grain * .34);
-    const shade = mixColor(color, earthy, .08 + slope * .22 + grain * .16);
-    worldQuad(
-      { x: x1, y: y1, z: near }, { x: x2, y: y2, z: near },
-      { x: x2, y: y2, z: far }, { x: x1, y: y1, z: far }, shade);
+  for (let i = 0; i <= terrainSamples; i++) {
+    const x = worldLeft + i * step;
+    const point = { x, y: terrainFloorAt(x) };
+    while (points.length > 1) {
+      const a = points[points.length - 2], b = points[points.length - 1];
+      if (Math.abs((b.y - a.y) * (point.x - b.x) -
+          (point.y - b.y) * (b.x - a.x)) > .00001) break;
+      points.pop();
+    }
+    points.push(point);
   }
+  terrainProfile.splice(0, terrainProfile.length, ...points);
+  rebuildTerrainDrawProfile();
+}
+// The drawn silhouette. `terrainProfile` keeps every sampled height exactly
+// (physics and the fidelity test read it); the console draws each profile
+// point as six projections and two faces per pass, so the passes read this
+// thinned copy instead — a point is dropped while every point it stood for
+// stays within `terrainDrawTolerance` world units of the chord that
+// replaces it (about a pixel at fight zoom). Flats were already one edge;
+// this is for the ramps, where six samples a tile all survived.
+const terrainDrawProfile = [];
+const terrainDrawTolerance = 1;
+function rebuildTerrainDrawProfile() {
+  const kept = [];
+  let anchor = 0;
+  kept.push(terrainProfile[0]);
+  for (let index = 2; index <= terrainProfile.length; index++) {
+    const a = terrainProfile[anchor];
+    const candidate = terrainProfile[index] || null;
+    // Try to stretch the chord from the anchor over `index - 1` to `index`;
+    // when a point in between falls off it, `index - 1` becomes the anchor.
+    let fits = candidate !== null;
+    if (fits) {
+      const dx = candidate.x - a.x, dy = candidate.y - a.y;
+      const length = Math.hypot(dx, dy) || 1;
+      for (let between = anchor + 1; between < index; between++) {
+        const point = terrainProfile[between];
+        const distance = Math.abs((point.x - a.x) * dy - (point.y - a.y) * dx) / length;
+        if (distance > terrainDrawTolerance) { fits = false; break; }
+      }
+    }
+    if (!fits) {
+      anchor = index - 1;
+      kept.push(terrainProfile[anchor]);
+    }
+  }
+  terrainDrawProfile.splice(0, terrainDrawProfile.length, ...kept);
+}
+rebuildTerrainProfile();
+
+// The three terrain passes (surface, front wall, back wall) used to hand
+// `worldQuad` four fresh corner objects per segment, and each quad ran its
+// six vertices through the camera — so every profile point was projected
+// twelve times per pass, and the terrain alone cost 8.4 ms of the console's
+// interpreted frame (measured on the Xbox 2026-09-20; sim 5.6 + paint 14 ms
+// at 1080p). Each pass now projects each point ONCE for its top vertex and
+// once for its bottom, keeps the results in two flat scratch arrays, and
+// reads a segment's four corners back from them. Segments that sit wholly
+// in front of the camera and inside the guard band — nearly all of them —
+// go straight to `projectedTriangle`; the rest fall back to `worldQuad`, so
+// the near-plane and band clipping is exactly what it was.
+const terrainScratch = { top: [], bottom: [] };
+function terrainVertex(slot, index, x, y, z) {
+  let vertex = slot[index];
+  if (!vertex) vertex = slot[index] = { view: { x: 0, y: 0, z: 0 },
+    screen: { x: 0, y: 0, z: 0 }, front: false, inBand: false, x: 0, y: 0, z: 0 };
+  vertex.x = x; vertex.y = y; vertex.z = z;
+  const view = cameraDoll.toView(vertex, vertex.view);
+  vertex.front = view.z >= cameraNear;
+  vertex.inBand = vertex.front &&
+    bandContains(cameraDoll.projectView(view, vertex.screen));
+  return vertex;
+}
+// `bottomY` null: the bottom vertex shares the profile's y (the surface
+// pass, top at z `zTop`, bottom at z `zBottom`). Otherwise a wall: both
+// vertices at `zTop`, the bottom one dropped to `bottomY`.
+function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf) {
+  const { top, bottom } = terrainScratch;
+  const wall = bottomY !== null;
+  const terrainProfile = terrainDrawProfile;
+  const count = terrainProfile.length;
+  let previous = -1;
+  for (let index = 0; index < count; index++) {
+    const point = terrainProfile[index];
+    const next = terrainProfile[index + 1];
+    // A point is projected only when a drawn segment touches it.
+    const inSpan = (next && !(next.x < left || point.x > right)) ||
+      (index > 0 && !(point.x < left || terrainProfile[index - 1].x > right));
+    if (!inSpan) { previous = -1; continue; }
+    const a = terrainVertex(top, index, point.x, point.y, zTop);
+    const b = terrainVertex(bottom, index, point.x, wall ? bottomY : point.y,
+      wall ? zTop : zBottom);
+    if (previous >= 0 && previous === index - 1 &&
+        !(point.x < left || terrainProfile[previous].x > right)) {
+      const a1 = top[previous], b1 = bottom[previous];
+      const shade = shadeOf(previous);
+      if (a1.front && a.front && b.front && b1.front) {
+        if (photoSurface(wall ? "wall" : "concrete", a1.screen, a.screen, b.screen, b1.screen)) {
+          previous = index;
+          continue;
+        }
+        const lit = litQuadColor(a1, a, b, shade);
+        if (a1.inBand && a.inBand && b.inBand && b1.inBand) {
+          projectedTriangle(a1.screen, a.screen, b.screen, lit);
+          projectedTriangle(a1.screen, b.screen, b1.screen, lit);
+        } else {
+          // Off the guard band on one side: clip the projected quad once
+          // rather than re-projecting it as two triangles.
+          const face = clipScreenBand([a1.screen, a.screen, b.screen, b1.screen]);
+          for (let corner = 2; corner < face.length; corner++)
+            projectedTriangle(face[0], face[corner - 1], face[corner], lit);
+        }
+      } else worldQuad(a1, a, b, b1, shade);
+    }
+    previous = index;
+  }
+}
+// Per-segment surface shade, cached against the ground color it was mixed
+// from: the slope never changes between rebuilds, and mixing 240 colours a
+// frame was measurable on the console.
+let terrainShadeKey = "";
+const terrainShades = [];
+function terrainSurfaceShades(color) {
+  const terrainProfile = terrainDrawProfile;
+  const key = color.join(",") + "/" + terrainProfile.length;
+  if (key === terrainShadeKey) return terrainShades;
+  terrainShadeKey = key;
+  terrainShades.length = 0;
+  for (let index = 1; index < terrainProfile.length; index++) {
+    const { x: x1, y: y1 } = terrainProfile[index - 1];
+    const { x: x2, y: y2 } = terrainProfile[index];
+    const slope = Math.abs(y2 - y1) / Math.max(1, x2 - x1);
+    terrainShades[index - 1] =
+      mixColor(color, [110, 120, 90], .16 + Math.min(1, slope) * .22);
+  }
+  return terrainShades;
+}
+function drawTerrainSurface(left, right, near, far, color) {
+  const shades = terrainSurfaceShades(color);
+  terrainPass(left, right, near, far, null, (segment) => shades[segment]);
 }
 
 function drawTerrainFrontWall(left, right, near, color) {
@@ -11047,25 +14589,11 @@ function drawTerrainFrontWall(left, right, near, color) {
   // reels the skirt hangs just behind the fighters' plane instead, deep enough
   // that no frame sees under it, and wears the ground color — so everything
   // below the floor line reads as earth.
-  const step = (worldRight - worldLeft) / terrainSamples;
   const reel = reelGroundCamera();
+  const wall = mixColor(color, [63, 54, 46], .36);
   const wallZ = reel ? 55 : near - 2;
-  const wallBottom = floorY + (reel ? 9000 : 720);
-  const first = clamp(Math.floor((left - worldLeft) / step), 0, terrainSamples - 1);
-  const last = clamp(Math.ceil((right - worldLeft) / step), first + 1, terrainSamples);
-  for (let index = first; index < last; index++) {
-    const x1 = worldLeft + index * step;
-    const x2 = worldLeft + (index + 1) * step;
-    const y1 = terrainFloorAt(x1);
-    const y2 = terrainFloorAt(x2);
-    const grain = .5 + .5 * Math.sin(index * 9.71 + terrainPhase * 3.13);
-    const wall = mixColor(color, [63, 54, 46], .3 + grain * .12);
-    worldQuad(
-      { x: x1, y: y1, z: wallZ },
-      { x: x2, y: y2, z: wallZ },
-      { x: x2, y: wallBottom, z: wallZ },
-      { x: x1, y: wallBottom, z: wallZ }, wall);
-  }
+  const wallBottom = parkDeepest + (reel ? 9000 : 720);
+  terrainPass(left, right, wallZ, wallZ, wallBottom, () => wall);
 }
 
 function drawTerrainBackWall(left, right, far, color) {
@@ -11080,79 +14608,74 @@ function drawTerrainBackWall(left, right, far, color) {
   // that one where no reel frame ever looks -- pure cost, and a change to
   // footage whose framing is test-enshrined.
   if (reelGroundCamera()) return;
-  const step = (worldRight - worldLeft) / terrainSamples;
+  const wall = mixColor(color, [63, 54, 46], .36);
   const wallZ = far + 2;
   const wallBottom = floorY + 720;
-  const first = clamp(Math.floor((left - worldLeft) / step), 0, terrainSamples - 1);
-  const last = clamp(Math.ceil((right - worldLeft) / step), first + 1, terrainSamples);
-  for (let index = first; index < last; index++) {
-    const x1 = worldLeft + index * step;
-    const x2 = worldLeft + (index + 1) * step;
-    const y1 = terrainFloorAt(x1);
-    const y2 = terrainFloorAt(x2);
-    // Same grain walk as the front skirt, so the two edges read as one solid
-    // block of earth rather than two differently-eroded walls.
-    const grain = .5 + .5 * Math.sin(index * 9.71 + terrainPhase * 3.13);
-    const wall = mixColor(color, [63, 54, 46], .3 + grain * .12);
-    worldQuad(
-      { x: x1, y: y1, z: wallZ },
-      { x: x2, y: y2, z: wallZ },
-      { x: x2, y: wallBottom, z: wallZ },
-      { x: x1, y: wallBottom, z: wallZ }, wall);
-  }
+  terrainPass(left, right, wallZ, wallZ, wallBottom, () => wall);
 }
 
 function drawRoomSurfaces(left, right, top, bottom, color) {
-  // One plain sheet — @jeffrey: "can the level background be plain colored?
-  // not stripey?" The sixty checkered plaster panels went with the request,
-  // and the hundred-odd faces they cost every frame went with them. The tint
-  // folds the old checker's average plaster into the theme color, so neither
-  // theme shifts, only flattens. Buried deep beneath the floor for the same
-  // reason the panels were: a 9:16 reel sees far below the fighters' feet,
-  // and a wall that stops short lets the clear layer through as sky.
-  const wallBottom = floorY + 3000;
-  const roomTop = survivalActive() ? top - 500 : ceilingY;
-  const shade = mixColor(color, [226, 172, 168], .12);
-  if (survivalActive()) worldQuad({ x: worldLeft, y: roomTop, z: worldFar },
-    { x: worldRight, y: roomTop, z: worldFar },
-    { x: worldRight, y: wallBottom, z: worldFar },
-    { x: worldLeft, y: wallBottom, z: worldFar }, shade);
-  else worldQuad({ x: worldLeft, y: ceilingY, z: worldFar },
-    { x: worldRight, y: ceilingY, z: worldFar },
-    { x: worldRight, y: wallBottom, z: worldFar },
-    { x: worldLeft, y: wallBottom, z: worldFar }, shade);
-  if (!survivalActive()) drawGridOverlay(shade);
-  // The left side is a real wall, but only occupies the rear half of the room.
-  // Segmenting it keeps the diorama corner visible without recreating the old
-  // full-depth opaque slab that could pass in front of the camera and blackout
-  // the fight during an orbit.
-  const sideFloor = terrainFloorAt(worldLeft) + 120;
-  // The side wall keeps its four-quad segmentation — that is what stops a
-  // full-depth slab passing in front of an orbiting camera and blacking out
-  // the fight — but wears one plain pigment now, the old checker's average.
-  const sideShade = mixColor(color, [232, 170, 153], .13);
-  for (let row = 0; row < 2; row++) {
-    for (let depth = 0; depth < 2; depth++) {
-      const y1 = lerp(roomTop, sideFloor, row / 2);
-      const y2 = lerp(roomTop, sideFloor, (row + 1) / 2);
-      const z1 = lerp(0, worldFar, depth / 2);
-      const z2 = lerp(0, worldFar, (depth + 1) / 2);
-      worldQuad({ x: worldLeft, y: y1, z: z1 },
-        { x: worldLeft, y: y1, z: z2 },
-        { x: worldLeft, y: y2, z: z2 },
-        { x: worldLeft, y: y2, z: z1 }, sideShade);
+  // The station has no room to surface. Every plane this function used to
+  // raise — the plaster sheet behind the fighters, the segmented left wall,
+  // the ceiling cap — existed because the map was an interior, and the space
+  // map is not one: what is behind a fighter here is the starfield the
+  // backdrop already painted, and putting a wall in front of it would be
+  // painting over the map's whole idea to save nothing.
+  //
+  // Two things survive, and both survive because they carry information.
+  //
+  // The heat lattice stays: it is the tile field made visible, and on a
+  // station it reads as a nav hologram hanging in the dark, which is a
+  // better home than the plaster it used to be ruled onto.
+  //
+  // The bounds stay, as a containment field rather than as masonry. This is
+  // not decoration — `resolveRunnerBounds` stops a body at exactly these two
+  // planes and `updateBullets` ricochets a pistol round off them, so a fight
+  // in open space still has two hard edges in it and a player who cannot see
+  // them is a player being lied to. Drawn as a pair of lit lines at the far
+  // plane, pulsing, because a wall you can see through is the only honest
+  // drawing of a rule you cannot walk through.
+  if (survivalActive()) {
+    const wallBottom = floorY + 3000;
+    const roomTop = top - 500;
+    const shade = mixColor(color, [226, 172, 168], .12);
+    worldQuad({ x: worldLeft, y: roomTop, z: worldFar },
+      { x: worldRight, y: roomTop, z: worldFar },
+      { x: worldRight, y: wallBottom, z: worldFar },
+      { x: worldLeft, y: wallBottom, z: worldFar }, shade);
+    const sideFloor = terrainFloorAt(worldLeft) + 120;
+    const sideShade = mixColor(color, [232, 170, 153], .13);
+    for (let row = 0; row < 2; row++) {
+      for (let depth = 0; depth < 2; depth++) {
+        const y1 = lerp(roomTop, sideFloor, row / 2);
+        const y2 = lerp(roomTop, sideFloor, (row + 1) / 2);
+        const z1 = lerp(0, worldFar, depth / 2);
+        const z2 = lerp(0, worldFar, (depth + 1) / 2);
+        worldQuad({ x: worldLeft, y: y1, z: z1 },
+          { x: worldLeft, y: y1, z: z2 },
+          { x: worldLeft, y: y2, z: z2 },
+          { x: worldLeft, y: y2, z: z1 }, sideShade);
+      }
     }
+    const climbEdge = mixColor(color, [64, 78, 72], .24);
+    worldLine(worldLeft, top, worldFar - 4, worldLeft, bottom, worldFar - 4,
+      9, climbEdge);
+    worldLine(worldRight, top, worldFar - 4, worldRight, bottom, worldFar - 4,
+      9, climbEdge);
+    return;
   }
-  const edge = mixColor(color, [64, 78, 72], .24);
-  if (!survivalActive()) worldQuad(
-    { x: worldLeft, y: ceilingY, z: worldNear },
-    { x: worldLeft, y: ceilingY, z: worldFar },
-    { x: worldRight, y: ceilingY, z: worldFar },
-    { x: worldRight, y: ceilingY, z: worldNear }, edge);
-  worldLine(worldLeft, top, worldFar - 4, worldLeft, bottom, worldFar - 4,
-    9, edge);
-  worldLine(worldRight, top, worldFar - 4, worldRight, bottom, worldFar - 4,
-    9, edge);
+  // The heat's base is the vacuum it hangs in, so a cooling tile fades to
+  // nothing rather than settling into a visible panel with edges. Only the
+  // bloom is meant to be seen.
+  drawGridOverlay(mixColor(color, [6, 8, 20], .97), false);
+  const pulse = .5 + .5 * Math.sin(runtime().monotonicUs / 520000);
+  const field = mixColor([54, 120, 186], [136, 214, 255], .3 + pulse * .35);
+  for (const edgeX of [worldLeft, worldRight]) {
+    worldLine(edgeX, ceilingY, worldFar - 4, edgeX, floorY, worldFar - 4,
+      9, field);
+    worldLine(edgeX, ceilingY, worldNear + 4, edgeX, floorY, worldNear + 4,
+      5, mixColor(field, [8, 12, 28], .5));
+  }
 }
 
 function drawSurvivalLava(t) {
@@ -11179,27 +14702,71 @@ function drawSurvivalLava(t) {
   }
 }
 
-// The map's addressing, made visible: the same ten-by-ten lattice the spawn
-// marks and pickups are authored on, ruled onto the back wall, with one tint
-// per heated cell of `gridField` fading as the field cools. Seams are thin
-// quads rather than worldLines because the native renderer buries the whole
-// line stratum beneath the world's triangles — the grid would vanish behind
-// its own wall on console, the same way the gun once drew under the floor.
-function drawGridOverlay(shade) {
+// The map's addressing, made visible: the same lattice the spawn marks and
+// pickups are authored on, with the heat of `gridField` showing where the
+// last half-second of the fight landed. Seams are thin quads rather than
+// worldLines because the native renderer buries the whole line stratum
+// beneath the world's triangles — the grid would vanish behind its own wall
+// on console, the same way the gun once drew under the floor.
+//
+// A heated cell used to paint its entire ninety-unit face — a square as tall
+// as a standing fighter, and a busy exchange flipped a dozen of them on and
+// off at once. That is the stripes and the starfield again: a pattern the eye
+// keeps reading behind the two things it is supposed to be watching. On the
+// light theme it was worse than busy, because the slab's base is the vacuum,
+// so what bloomed over the arena was a dark panel rather than heat.
+//
+// So the cell keeps its job and loses its size. Each hot tile draws a small
+// jittered grain patch at its own centre, under half a tile across so two lit
+// neighbours can never fuse back into a checker square. Heat sets how many
+// specks are lit as well as how bright, so cooling reads as a patch thinning
+// out — texture, at a scale that stays decoration.
+function drawGridOverlay(shade, seamInk = null) {
   const gridZ = worldFar - 2;
   const gridTop = floorY - gridHeight;
   const hot = mixColor([255, 138, 92], [204, 58, 46], visualTheme.light);
+  // Sixteen specks over a patch half a tile across, each of them a few units
+  // on a side against the tile's ninety, so the grain is a texture with air in
+  // it rather than a smaller solid square.
+  const grainSteps = 4;
+  const grainSpan = tileSize * .5;
   for (let cell = 0; cell < gridField.length; cell++) {
     const heat = gridField[cell];
-    if (heat < .03) continue;
-    const left = gridLeft + (cell % gridCols) * tileSize;
-    const bottom = floorY - Math.floor(cell / gridCols) * tileSize;
-    worldQuad({ x: left, y: bottom - tileSize, z: gridZ },
-      { x: left + tileSize, y: bottom - tileSize, z: gridZ },
-      { x: left + tileSize, y: bottom, z: gridZ },
-      { x: left, y: bottom, z: gridZ }, mixColor(shade, hot, heat * .55));
+    if (heat < .05) continue;
+    const centerX = gridLeft + (cell % gridCols + .5) * tileSize;
+    const centerY = floorY - (Math.floor(cell / gridCols) + .5) * tileSize;
+    const ink = mixColor(shade, hot, .4 + heat * .55);
+    for (let speck = 0; speck < grainSteps * grainSteps; speck++) {
+      // Hashed off the cell and the speck rather than noised, so a replayed
+      // round grains exactly the way the live one did.
+      const seed = .5 + .5 * Math.sin(cell * 12.9898 + speck * 78.233);
+      // Cooling puts specks out one at a time instead of dimming the lot.
+      if (seed > heat) continue;
+      const size = 2 + seed * 2 + heat * 2.5;
+      const x = centerX + (speck % grainSteps / (grainSteps - 1) - .5) *
+        grainSpan + (seed - .5) * 11;
+      const y = centerY + (Math.floor(speck / grainSteps) / (grainSteps - 1) -
+        .5) * grainSpan + (.5 - seed) * 11;
+      worldQuad({ x: x - size, y: y - size, z: gridZ },
+        { x: x + size, y: y - size, z: gridZ },
+        { x: x + size, y: y + size, z: gridZ },
+        { x: x - size, y: y + size, z: gridZ }, ink);
+    }
   }
-  const seam = mixColor(shade, [30, 34, 48], .22);
+  // The climb's lattice is ruled onto plaster and takes its seam from that
+  // plaster. The station has no plaster, and ruling the same seams across
+  // vacuum drew a cage over the whole frame — brighter than the starfield it
+  // was supposed to hang behind, and carrying a hard bright bar wherever the
+  // ceiling row crossed the top of the shot.
+  //
+  // So the space map passes `false` and gets no seams at all. What it keeps
+  // is the half of this that was always the point: the heat. Cold tiles draw
+  // nothing, so the lattice is invisible until a blow lands and then blooms
+  // where it landed — the tile field showing its own contents rather than
+  // its own graph paper. The ruled version stays for the climb, where there
+  // is a wall to rule it onto.
+  if (seamInk === false) return;
+  const seam = seamInk || mixColor(shade, [30, 34, 48], .22);
   const seamZ = gridZ - 1;
   for (let col = 0; col <= gridCols; col++) {
     const x = gridLeft + col * tileSize;
@@ -11251,6 +14818,19 @@ function drawBoosterPad(t) {
 }
 
 function drawSkyAtmosphere(sky, arena) {
+  // The station's background is one plain color, and the `wipe` at the top of
+  // the frame has already painted it -- so the space map draws no backdrop at
+  // all, and this function is the climb's weather again.
+  //
+  // It was a starfield: a hundred and twenty parallaxing stars, six gradient
+  // bands and a planet limb with a lit rim. @jeffrey asked for the same thing
+  // here he asked for of the cube's plaster -- "can the level background be
+  // plain colored? not stripey?" -- and the answer is the same both times. A
+  // decorative background is a pattern the eye keeps reading during a fight
+  // that has two small figures in it, and every one of those stars was
+  // competing with the thing you are supposed to be watching. The pattern went
+  // and about two hundred screen-space draws a frame went with it.
+  if (!survivalActive()) return;
   // Broad D2D bands are effectively free compared with projected meshes and
   // make the sky feel spatial without rebuilding a textured skybox each frame.
   const bands = 6;
@@ -11276,6 +14856,100 @@ function drawSkyAtmosphere(sky, arena) {
 
 function shadowSurfaceY(x, y) {
   return surfaceYAt(x, y);
+}
+
+// Project the existing pose onto the receiving surface: no shadow map,
+// offscreen blur, physics changes, or second character render.
+//
+// Each shadow vertex carries the depth of the floor point it lands on, a
+// hair in front of it. The shadow used to lie at one flat depth, the
+// fighter's own; the floor recedes under it, so wherever the floor sat
+// nearer than that plane it bit the shadow's edges into a ragged line. The
+// fighter's depth still bounds it from the front, so the shadow never
+// draws over the feet it is cast from. Limbs end in round caps, the way the
+// bodies do, instead of notching at every joint.
+function drawPoseShadow(player, t, color) {
+  const world = player.replayGeometry || player.frozenGeometry || runnerWorldGeometry(player, t);
+  const surface = shadowSurfaceY(player.x, player.y);
+  const behindFighter = projectPoint(player.x, player.y, player.z).z + .004;
+  const project = (x, y, z) => {
+    const height = Math.max(0, surface - y);
+    const sx = clamp(x + globalLight.x / globalLight.y * height, worldLeft, worldRight);
+    const sz = clamp(z + globalLight.z / globalLight.y * height, worldNear + 4, worldFar - 4);
+    const point = projectPoint(sx, shadowSurfaceY(sx, surface - 5) - 2, sz);
+    point.z = Math.max(point.z - .003, behindFighter);
+    return point;
+  };
+  const drawable = (...values) => values.every(value =>
+    Number.isFinite(value) && Math.abs(value) < 12000);
+  // Limb width and caps are laid out in screen space, so near the back edge
+  // they spilled past the floor onto the wall. Every vertex stays inside the
+  // floor's own band on screen, between its far and near edges.
+  const farY = projectPoint(player.x, surface, worldFar - 4).y;
+  const nearY = projectPoint(player.x, surface, worldNear + 4).y;
+  const top = Math.min(farY, nearY), bottom = Math.max(farY, nearY);
+  const onFloor = (p) => ({ x: p.x, y: clamp(p.y, top, bottom), z: p.z });
+  const face = (a, b, c) => {
+    if (!drawable(a.x, a.y, b.x, b.y, c.x, c.y)) return;
+    a = onFloor(a); b = onFloor(b); c = onFloor(c);
+    emitTriangle(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, ...color);
+  };
+  const cap = (center, radius) => {
+    for (let side = 0; side < 10; side++) {
+      const a = side * Math.PI / 5, b = (side + 1) * Math.PI / 5;
+      face(center,
+        { x: center.x + Math.cos(a) * radius, y: center.y + Math.sin(a) * radius, z: center.z },
+        { x: center.x + Math.cos(b) * radius, y: center.y + Math.sin(b) * radius, z: center.z });
+    }
+  };
+  for (const segment of world.segments) {
+    if (segment.hitboxOnly) continue;
+    const a = project(segment.x1, segment.y1, segment.z1);
+    const b = project(segment.x2, segment.y2, segment.z2);
+    const dx = b.x-a.x, dy = b.y-a.y, length = Math.hypot(dx,dy);
+    if (!drawable(a.x, a.y, b.x, b.y, length) || length < .01) continue;
+    const radius = Math.max(1, segment.width * cameraScale() * .48);
+    const nx = -dy / length * radius, ny = dx / length * radius;
+    const a1 = { x: a.x + nx, y: a.y + ny, z: a.z }, a2 = { x: a.x - nx, y: a.y - ny, z: a.z };
+    const b1 = { x: b.x + nx, y: b.y + ny, z: b.z }, b2 = { x: b.x - nx, y: b.y - ny, z: b.z };
+    face(a1, a2, b1);
+    face(a2, b2, b1);
+    cap(a, radius);
+    cap(b, radius);
+  }
+  const head = project(world.head.x, world.head.y, world.head.z);
+  for (let side = 0; side < 12; side++) {
+    const a = side * Math.PI / 6, b = (side + 1) * Math.PI / 6;
+    face(head,
+      project(world.head.x + Math.cos(a)*world.head.radius,
+        world.head.y, world.head.z + Math.sin(a)*world.head.radius),
+      project(world.head.x + Math.cos(b)*world.head.radius,
+        world.head.y, world.head.z + Math.sin(b)*world.head.radius));
+  }
+}
+
+function updateSceneLighting(now) {
+  if (typeof themeLighting !== "function") return;
+  if (!photoThemeActive || renderFlags.lighting === false) { themeLighting([]); return; }
+  const span = worldRight - worldLeft;
+  const lights = [.18,.82].map((part) => {
+    const x = worldLeft + span * part;
+    const point = projectPoint(x, terrainFloorAt(x) - 420, -180);
+    return {x:point.x,y:point.y,radius:Math.max(100,1500*cameraScale()),strength:.65};
+  });
+  for (const impact of impacts) {
+    if (!impact.explosion || lights.length >= 4) continue;
+    const point = projectPoint(impact.x,impact.y,impact.z || 0);
+    lights.push({x:point.x,y:point.y,radius:Math.max(80,700*cameraScale()),strength:1});
+  }
+  for (const player of activePlayers()) {
+    if (lights.length >= 4) break;
+    if (player.itemAction !== "FIRE" || now >= player.itemActionUntil) continue;
+    const pose = gunPose(player, now);
+    const point = projectPoint(pose.muzzle.x,pose.muzzle.y,pose.muzzle.z);
+    lights.push({x:point.x,y:point.y,radius:Math.max(60,450*cameraScale()),strength:.9});
+  }
+  themeLighting(lights);
 }
 
 function drawSpotShadow(x, y, z, radius, color) {
@@ -11322,47 +14996,49 @@ function projectedBallRadius(ball) {
   return Math.max(.5, Math.abs(edge.x - center.x));
 }
 
-// A skateboard on this stage is only ever seen from the side, because the
-// fighters ride a single plane, so it is drawn as a side profile rather than as
-// a board in the round: a kicked deck, two trucks hanging under it, and one
-// wheel apiece. The trucks used to straddle the deck with a wheel on each face,
-// which from the only available angle read as wheels above *and* below the
-// plank. `underside` says which way is down for this board, so a wallride keeps
-// its wheels against the wall instead of hanging them through it.
-function drawSkateboardSymbol(point, radius, rotation = 0, underside = 1) {
-  const alongX = Math.cos(rotation);
-  const alongY = Math.sin(rotation);
-  const downX = -Math.sin(rotation) * underside;
-  const downY = Math.cos(rotation) * underside;
-  const deck = [236, 76, 118];
-  const edge = [34, 25, 39];
-  const truck = [174, 184, 202];
-  const wheel = [242, 226, 158];
-  // Board space: `along` runs nose to tail, `down` points at the ground the
-  // wheels are on. Every measurement below is a fraction of the board's reach,
-  // so a pickup-sized board and a ridden one are the same drawing.
-  const at = (along, down) => ({
-    x: point.x + (alongX * along + downX * down) * radius,
-    y: point.y + (alongY * along + downY * down) * radius,
-  });
-  const plank = (from, to, width, color) =>
-    filledCapsule(from.x, from.y, to.x, to.y,
-      Math.max(.35, radius * width), color);
-  // Nose and tail kick away from the wheels, so the deck reads as a board and
-  // not as a plank even at the size it drops in at.
-  for (const end of [-1, 1]) {
-    plank(at(end * .66, 0), at(end * .93, -.15), .2, edge);
-    plank(at(end * .66, 0), at(end * .9, -.135), .12, deck);
+function drawSkateboard(player) {
+  const at = skateFrame(player);
+  if (photoThemeActive) {
+    const centerWorld = at(0, 5, 0);
+    const center = projectPoint(centerWorld.x, centerWorld.y, centerWorld.z);
+    const left = at(-64, 5, 0), right = at(64, 5, 0);
+    const a = projectPoint(left.x,left.y,left.z), b = projectPoint(right.x,right.y,right.z);
+    const width = Math.hypot(b.x-a.x,b.y-a.y);
+    photoSprite("skateboard", center.x, center.y, width, width * 136 / 412,
+      Math.atan2(b.y-a.y,b.x-a.x), false, center.z - .01);
+    return;
   }
-  plank(at(-.7, 0), at(.7, 0), .22, edge);
-  plank(at(-.68, 0), at(.68, 0), .14, deck);
-  // The wheels tuck up under the deck rather than dangling off long legs, so
-  // the whole board still reads as one object at ball size.
-  for (const direction of [-1, 1]) {
-    plank(at(direction * .44, .07), at(direction * .44, .15), .07, truck);
-    const hub = at(direction * .44, .23);
-    filledDisc(hub.x, hub.y, Math.max(.45, radius * .115), wheel);
-    filledDisc(hub.x, hub.y, Math.max(.2, radius * .042), [22, 25, 34]);
+  const deck = [236, 76, 118], grip = [34, 25, 39], truck = [174, 184, 202];
+  const quad = (a, b, c, d, color) => worldQuad(at(...a), at(...b), at(...c), at(...d), color);
+  const axle = (a, b, width, color) => {
+    const p = at(...a), q = at(...b);
+    worldCapsule(p.x, p.y, p.z, q.x, q.y, q.z, Math.max(.4, width * cameraScale()), color);
+  };
+  // Far wheels, deck, near wheels: preserve occlusion in the Canvas2D host.
+  const wheel = (along, side) => {
+    const spin = player.skateSpin || 0;
+    const center = at(along, skateAxleDrop, side * 15);
+    for (let i = 0; i < 10; i++) {
+      const a = spin + i * Math.PI / 5, b = spin + (i + 1) * Math.PI / 5;
+      worldTriangle(center,
+        at(along + Math.cos(a) * skateWheelRadius,
+          skateAxleDrop + Math.sin(a) * skateWheelRadius, side * 15),
+        at(along + Math.cos(b) * skateWheelRadius,
+          skateAxleDrop + Math.sin(b) * skateWheelRadius, side * 15),
+        i % 5 === 0 ? truck : [243, 210, 103]);
+    }
+  };
+  const near = cameraDoll.position.z < player.z ? -1 : 1;
+  for (const along of [-skateTruck, skateTruck]) wheel(along, -near);
+  quad([-48, -4, -12], [48, -4, -12], [48, -4, 12], [-48, -4, 12], grip);
+  quad([-48, -4, near * 12], [48, -4, near * 12], [48, 0, near * 12], [-48, 0, near * 12], deck);
+  for (const end of [-1, 1])
+    quad([end * 48, -4, -12], [end * 64, -12, -10],
+      [end * 64, -12, 10], [end * 48, -4, 12], deck);
+  for (const along of [-skateTruck, skateTruck]) {
+    axle([along, 0, 0], [along, skateAxleDrop, 0], 4, truck);
+    axle([along, skateAxleDrop, -15], [along, skateAxleDrop, 15], 3, truck);
+    wheel(along, near);
   }
 }
 
@@ -11392,7 +15068,8 @@ function drawBall(ball) {
     }
   };
   if (skateboard) {
-    drawSkateboardSymbol(point, radius, ball.rotation);
+    drawSkateboard({ x: ball.x, y: ball.y + skateAxleDrop + skateWheelRadius,
+      z: ball.z, skatePitch: ball.rotation, skateSpin: ball.skateSpin || 0 });
     return;
   }
   if (beach) {
@@ -11472,19 +15149,19 @@ function drawBotScene(player) {
   const scene = player.botScene;
   const seen = [58, 222, 255];
   for (const rung of scene.rungs)
-    worldLine(rung.left, rung.y, 0, rung.right, rung.y, 0, 3, seen);
+    hudWorldLine(rung.left, rung.y, 0, rung.right, rung.y, 0, 3, seen);
   const goal = player.botSubgoal;
   if (goal && goal.kind === "jump") {
     const band = [120, 255, 120];
-    worldLine(goal.landLeft, goal.y, 0, goal.landRight, goal.y, 0, 6, band);
-    worldLine(goal.aim, goal.y, 0, goal.aim, goal.y - 40, 0, 3, band);
+    hudWorldLine(goal.landLeft, goal.y, 0, goal.landRight, goal.y, 0, 6, band);
+    hudWorldLine(goal.aim, goal.y, 0, goal.aim, goal.y - 40, 0, 3, band);
     const footing = scene.self.footing;
     if (footing)
-      worldLine(goal.takeoffLeft, footing.y, 0, goal.takeoffRight,
+      hudWorldLine(goal.takeoffLeft, footing.y, 0, goal.takeoffRight,
         footing.y, 0, 6, [255, 214, 90]);
   }
   if (scene.lava)
-    worldLine(worldLeft, scene.lava.y, 0, worldRight, scene.lava.y, 0, 3,
+    hudWorldLine(worldLeft, scene.lava.y, 0, worldRight, scene.lava.y, 0, 3,
       [255, 110, 70]);
 }
 
@@ -11505,12 +15182,38 @@ function drawGunPickup(pickup, t) {
   if (!pickup.active) return;
   const bobY = pickup.y + Math.sin(t * 3 + pickup.x * .001) * 8;
   const scale = cameraScale();
+  if (photoThemeActive) {
+    const point = projectPoint(pickup.x,bobY,pickup.z);
+    const width = (pickup.kind === "ROCKET LAUNCHER" ? 105 : 56) * scale;
+    const region=photoWeaponRegions[pickup.kind === "ROCKET LAUNCHER" ? "launcher" : "smg"];
+    if (["ROCKET LAUNCHER","RUBBER SMG"].includes(pickup.kind) &&
+        photoEffectSprite(3,region,point.x,point.y,width,width*region[3]/region[2],0,false,point.z-.02,true)) return;
+    photoSprite("gun", point.x,point.y,width,width * 253 / 365,0,false,point.z-.02);
+    return;
+  }
   const metal = mixColor([202, 212, 228], [52, 59, 72], visualTheme.light);
   const grip = mixColor([126, 106, 88], [40, 43, 52], visualTheme.light);
   const barrelWidth = Math.max(2, 5 * scale);
   const gripWidth = Math.max(2, 4 * scale);
   const smg = pickup.kind === "RUBBER SMG";
   const rocket = pickup.kind === "ROCKET LAUNCHER";
+  if (pickup.kind === "SPACE LASER") {
+    // Short body, long emitter, and a lit coil at the breech so the thing on
+    // the top deck is identifiable as light-bearing from the floor three
+    // decks below. The pulse is on the same 3 Hz bob as every other pickup.
+    const glow = mixColor([96, 226, 255], [236, 255, 255],
+      .4 + .35 * Math.sin(t * 5.2));
+    const shell = mixColor([206, 224, 240], [44, 54, 78], visualTheme.light);
+    worldCapsule(pickup.x - 22, bobY, pickup.z,
+      pickup.x + 14, bobY, pickup.z, barrelWidth * 1.5, shell, -.02);
+    worldCapsule(pickup.x + 14, bobY, pickup.z,
+      pickup.x + 40, bobY, pickup.z, barrelWidth * .7, glow, -.02);
+    worldCapsule(pickup.x - 14, bobY - 9, pickup.z,
+      pickup.x - 2, bobY - 9, pickup.z, barrelWidth * .6, glow, -.02);
+    worldCapsule(pickup.x - 6, bobY + 2, pickup.z,
+      pickup.x - 1, bobY + 22, pickup.z, gripWidth * 1.2, grip, -.02);
+    return;
+  }
   // A handgun-sized world object in gunmetal and grip material, not a glowing
   // pickup glyph with a second silhouette around it.
   // Capsules, not line() — the native renderer buries the whole line
@@ -11537,17 +15240,45 @@ function drawGunPickup(pickup, t) {
   }
 }
 
+// A saber waiting on a deck: the hilt standing upright with a stub of blade
+// lit above it, bobbing on the same clock as every other pickup so the map's
+// loose objects share one heartbeat. Drawn short on purpose — a full-length
+// blade planted in a deck would read as scenery, and this is something you
+// pick up. Capsules rather than lines, for the same reason the pistol is
+// capsules: the native renderer buries the whole line stratum under the
+// world's triangles, and the blade would vanish into the deck it sits on.
+function drawSaberPickup(pickup, t) {
+  if (!pickup.active) return;
+  const bobY = pickup.y + Math.sin(t * 3 + pickup.x * .001) * 8;
+  const pulse = .5 + .5 * Math.sin(t * 5.6 + pickup.x * .002);
+  const glow = mixColor([120, 226, 255], [244, 252, 255], .35 + pulse * .4);
+  const hilt = mixColor([172, 182, 198], [46, 52, 68], visualTheme.light);
+  worldCapsule(pickup.x, bobY + 4, pickup.z,
+    pickup.x, bobY - 34, pickup.z, 13, glow, -.02);
+  worldCapsule(pickup.x, bobY + 4, pickup.z,
+    pickup.x, bobY - 30, pickup.z, 6, [244, 252, 255], -.02);
+  worldCapsule(pickup.x, bobY + 6, pickup.z,
+    pickup.x, bobY + 34, pickup.z, 9, hilt, -.02);
+  worldCapsule(pickup.x - 13, bobY + 8, pickup.z,
+    pickup.x + 13, bobY + 8, pickup.z, 5, hilt, -.02);
+}
+
 function drawBullet(bullet) {
   const previous = projectPoint(bullet.previousX ?? bullet.x,
     bullet.previousY ?? bullet.y, bullet.z);
   const point = projectPoint(bullet.x, bullet.y, bullet.z);
   const blink = Math.floor(runtime().monotonicUs / 65000 + bullet.owner) % 2;
+  // A bolt does not blink. The pistol round's alternating white is what makes
+  // a slow ricochet findable against a busy floor; the laser is gone in four
+  // frames and wants to read as one continuous line of light instead.
   const core = bullet.spit
     ? bullet.heavy ? [255, 92, 174] : [118, 255, 196]
+    : bullet.laser ? [236, 255, 255]
     : blink ? [255, 255, 248]
     : bullet.rubber ? [255, 226, 58] : [255, 178, 76];
   const trail = bullet.spit
     ? bullet.heavy ? [182, 48, 116] : [58, 190, 132]
+    : bullet.laser ? [96, 226, 255]
     : blink ? [255, 244, 178]
     : bullet.rubber ? [214, 178, 42] : [224, 116, 62];
   const scale = cameraScale();
@@ -11569,6 +15300,17 @@ function drawBullet(bullet) {
     return;
   }
   drawBulletTrail(bullet, trail, scale);
+  if (bullet.laser) {
+    // Drawn as the stride itself: at 9,600 units a second the gap between two
+    // frames IS the beam, so a wide cyan sheath over a white core along that
+    // gap is the whole shot. No round cap at the tip — a bolt has a leading
+    // edge, not a head.
+    filledCapsule(previous.x, previous.y, point.x, point.y,
+      Math.max(1.2, 9 * scale), trail);
+    filledCapsule(previous.x, previous.y, point.x, point.y,
+      Math.max(.6, 3.5 * scale), core);
+    return;
+  }
   filledCapsule(previous.x, previous.y, point.x, point.y,
     Math.max(.6, (bullet.rubber ? 4 : 3) * scale), trail);
   filledDisc(point.x, point.y, Math.max(.9, 7 * scale), core);
@@ -11625,6 +15367,8 @@ function drawGrenadePickup(pickup, t) {
   const bobY = pickup.y + Math.sin(t * 3.2 + pickup.x * .001) * 8;
   const point = projectPoint(pickup.x, bobY, pickup.z);
   const scale = cameraScale();
+  if (photoEffectSprite(3,photoWeaponRegions.grenade,point.x,point.y,
+      Math.max(7,20*scale),Math.max(11,32*scale),0,false,point.z-.02,true)) return;
   const shell = mixColor([166, 194, 112], [72, 96, 58], visualTheme.light);
   const fuse = mixColor([210, 218, 232], [45, 50, 60], visualTheme.light);
   const radius = Math.max(3, 9 * scale);
@@ -11639,6 +15383,8 @@ function drawGrenadePickup(pickup, t) {
 function drawGrenade(grenade) {
   const point = projectPoint(grenade.x, grenade.y, grenade.z);
   if (grenade.exploding) {
+    if (drawPhotoExplosion(point.x,point.y,grenadeBlastRadius*cameraScale(),
+        grenade.blastAge/grenadeBlastDuration,point.z-.025)) return;
     const radius = grenade.blastRadius * cameraScale();
     const width = Math.max(3, 10 * cameraScale());
     filledRing(point.x, point.y, radius,
@@ -11646,6 +15392,12 @@ function drawGrenade(grenade) {
     return;
   }
   if (grenade.rocket) {
+    if (photoThemeActive) {
+      const scale = cameraScale();
+      const angle = Math.atan2(grenade.vy,grenade.vx);
+      photoSprite("rocket",point.x,point.y,64*scale,41*scale,angle,false,point.z-.02);
+      return;
+    }
     const length = Math.hypot(grenade.vx, grenade.vy) || 1;
     const tail = projectPoint(grenade.x - grenade.vx / length * 54,
       grenade.y - grenade.vy / length * 54, grenade.z);
@@ -11659,6 +15411,9 @@ function drawGrenade(grenade) {
     return;
   }
   const blink = grenade.fuse < .45 && Math.floor(grenade.fuse * 20) % 2 === 0;
+  if (photoEffectSprite(3,photoWeaponRegions.grenade,point.x,point.y,
+      Math.max(9,30*cameraScale()),Math.max(14,48*cameraScale()),
+      grenade.fuse*5,grenade.vx<0,point.z-.02,true)) return;
   const color = blink ? [255, 255, 255] : players[grenade.owner].color;
   filledDisc(point.x, point.y, Math.max(4, 22 * cameraScale()), color);
   const tail = projectPoint(grenade.x - Math.sign(grenade.vx) * 90,
@@ -11800,11 +15555,11 @@ function drawSelectPortrait(player, x, y, scale, t) {
   const head = { x, y: y - 130 * scale, radius: 34 * scale };
   filledDisc(head.x, head.y, head.radius + Math.max(2, 3 * scale), [8, 12, 24]);
   filledDisc(head.x, head.y, head.radius, color);
-  line(x, y - 94 * scale, x, y + 20 * scale, 12 * scale, ...color);
-  line(x, y - 65 * scale, x - 62 * scale, y - 8 * scale, 10 * scale, ...color);
-  line(x, y - 65 * scale, x + 62 * scale, y - 8 * scale, 10 * scale, ...color);
-  line(x, y + 20 * scale, x - 48 * scale, y + 112 * scale, 11 * scale, ...color);
-  line(x, y + 20 * scale, x + 48 * scale, y + 112 * scale, 11 * scale, ...color);
+  hudLine(x, y - 94 * scale, x, y + 20 * scale, 12 * scale, ...color);
+  hudLine(x, y - 65 * scale, x - 62 * scale, y - 8 * scale, 10 * scale, ...color);
+  hudLine(x, y - 65 * scale, x + 62 * scale, y - 8 * scale, 10 * scale, ...color);
+  hudLine(x, y + 20 * scale, x - 48 * scale, y + 112 * scale, 11 * scale, ...color);
+  hudLine(x, y + 20 * scale, x + 48 * scale, y + 112 * scale, 11 * scale, ...color);
   drawFace(player, head, contrastShadow(color), t);
 }
 
@@ -11935,10 +15690,10 @@ function drawDummyPopLine(titleY, titleSize, transitionInk) {
 
 function titleButtonRect() {
   const compact = compactLayout();
-  const textSize = hudTypeSize;
+  const textSize = compact ? 64 : 60;
   const textWidth = handleWidth("start", textSize);
-  const width = textWidth + (compact ? 54 : 76);
-  const height = textSize + (compact ? 24 : 34);
+  const width = Math.min(viewWidth() - 48, compact ? 320 : 360);
+  const height = 112;
   return { x: viewCenterX() - width / 2,
     y: viewHeight * (compact ? .61 : .64) - (compact ? 10 : 15),
     width, height, textSize, textWidth };
@@ -11961,10 +15716,10 @@ const pointInCell = (point, x, y, width, height) => point && x <= point.x &&
 
 // Screen-space outline, four boxes, no projection — safe anywhere.
 function strokeBox(x, y, width, height, thickness, color) {
-  box(x, y, width, thickness, ...color);
-  box(x, y + height - thickness, width, thickness, ...color);
-  box(x, y, thickness, height, ...color);
-  box(x + width - thickness, y, thickness, height, ...color);
+  hudBox(x, y, width, thickness, ...color);
+  hudBox(x, y + height - thickness, width, thickness, ...color);
+  hudBox(x, y, thickness, height, ...color);
+  hudBox(x + width - thickness, y, thickness, height, ...color);
 }
 
 function drawTitleScreen(t, ink, transitionAge = -1) {
@@ -11999,7 +15754,7 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
       const y = viewHeight *
         (.5 + .45 * Math.cos(t * (.043 + index % 4 * .012) + phase * 1.7));
       const radius = (compact ? 2 : 3) + (index % 3);
-      circle(x, y, radius, Math.max(1.5, radius * .48),
+      hudCircle(x, y, radius, Math.max(1.5, radius * .48),
         animatedTitleColor(index, t * .7));
     }
 
@@ -12059,8 +15814,9 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   }
   const versionX = titleX + titleWidth + lockupGap;
   const versionY = titleY + titleSize - versionSize * 1.15;
-  typeWrite(version, versionX + 2, versionY + 3, versionSize,
-    ...mixColor([8, 10, 24], [73, 43, 55], visualTheme.light * .35));
+  const versionEdge = contrastShadow(transitionInk || ink);
+  for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2], [0, 2]])
+    typeWrite(version, versionX + dx, versionY + dy, versionSize, ...versionEdge);
   typeWrite(version, versionX, versionY, versionSize,
     ...(transitionInk || ink));
   if (survivalActive()) {
@@ -12077,7 +15833,7 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
     strokeBox(titleX, titleY, titleWidth, titleSize, 2, [92, 132, 255]);
     for (const [x, y, advance] of glyphCells) {
       strokeBox(x, y, advance, titleSize, 2, [255, 92, 116]);
-      box(x, y, 2, titleSize, 116, 255, 184);
+      hudBox(x, y, 2, titleSize, 116, 255, 184);
     }
   }
 
@@ -12090,39 +15846,18 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
     globalThis.__oskiewarTouch.titleGlyph = held;
   }
   titleGlyphHot = held;
-  promptBounce += ((hovered ? 1 : 0) - promptBounce) *
-    (1 - Math.exp(-dt * (hovered ? 14 : 6)));
-  const promptPulse = .68 + (Math.sin(t * 3.2) + 1) * .16;
-  const promptInk = transitionInk ||
-    mixColor([196, 142, 18], [255, 238, 82], promptPulse);
-  // The word floats on its own; the rect survives only as the touch target.
-  // Yellow type on a bright sky needs an edge, so a sharp offset shadow
-  // deepens as the background lightens and lifts as it goes to night.
+  const promptInk = transitionInk || [23, 27, 40];
+  const shadowInk = [20, 25, 38];
   if (!socialPreview) {
-    let promptCursor = button.x + (button.width - button.textWidth) / 2;
-    const promptY = button.y + (button.height - button.textSize) / 2 - 2;
-    const offset = Math.max(3, Math.round(button.textSize * .1));
-    const shadowInk = mixColor([10, 12, 30], [86, 26, 116], visualTheme.light);
-    const litInk = hovered
-      ? mixColor(promptInk, [255, 255, 255], .35) : promptInk;
-    for (let index = 0; index < prompt.length; index++) {
-      const character = prompt[index];
-      const advance = comicGlyphAdvance(character, button.textSize);
-      const toy = toyGlyph(promptToys, index,
-        pointInCell(pointer, promptCursor, promptY, advance, button.textSize),
-        dt);
-      // The whole word takes the bounce, but each letter takes it a beat after
-      // the one before, so start reads as a hop travelling along the word.
-      const hop = promptBounce * button.textSize * .3 *
-        Math.abs(Math.sin(t * 5.4 - index * .62));
-      const size = button.textSize * (1 + toy.grow * .2 + toy.kick * .12);
-      const x = promptCursor + (advance - comicGlyphAdvance(character, size)) / 2;
-      const y = promptY - hop - (size - button.textSize) * .5;
-      if (!transitionInk)
-        typeWrite(character, x + offset, y + offset, size, ...shadowInk);
-      typeWrite(character, x, y, size, ...litInk);
-      promptCursor += advance;
-    }
+    const x = button.x - (hovered ? 2 : 0);
+    const y = button.y - (hovered ? 3 : 0);
+    // START sits on the floor sheet, dark in either theme, so it is white.
+    const startInk = transitionInk || [255, 255, 255];
+    const startX = x + (button.width - button.textWidth) / 2;
+    const startY = y + (button.height - button.textSize) / 2 - 2;
+    typeWrite(prompt, startX + 3, startY + 4, button.textSize,
+      ...contrastShadow(startInk));
+    typeWrite(prompt, startX, startY, button.textSize, ...startInk);
     // The pace dial. Quiet unless the clock is off its default — or was just
     // touched, so stepping back to one still answers the keypress — and it
     // lives large in the bottom-right corner, a dashboard readout rather
@@ -12215,17 +15950,17 @@ function hudClockBox(unixMs) {
 // more pixels than the corner owns. Shadowed like the type beside it so it
 // flies on any sky.
 function drawUsFlag(x, y, width, height, ink) {
-  box(x + 2, y + 2, width, height, ...contrastShadow(ink));
+  hudBox(x + 2, y + 2, width, height, ...contrastShadow(ink));
   const stripes = 7;
   for (let stripe = 0; stripe < stripes; stripe++) {
     const top = y + Math.round(stripe * height / stripes);
     const bottom = y + Math.round((stripe + 1) * height / stripes);
-    box(x, top, width, bottom - top,
+    hudBox(x, top, width, bottom - top,
       ...(stripe % 2 ? [238, 242, 247] : [188, 32, 46]));
   }
   const cantonWidth = Math.round(width * .44);
   const cantonHeight = Math.round(height * 4 / stripes);
-  box(x, y, cantonWidth, cantonHeight, 38, 52, 122);
+  hudBox(x, y, cantonWidth, cantonHeight, 38, 52, 122);
   for (let star = 0; star < 6; star++)
     filledDisc(x + Math.round(cantonWidth * (.22 + (star % 3) * .28)),
       y + Math.round(cantonHeight * (star < 3 ? .3 : .7)),
@@ -12262,7 +15997,7 @@ function drawHudClock(clock, y, ink, unixMs) {
       clock.dialX + Math.cos(end) * clock.dialRadius,
       centerY + Math.sin(end) * clock.dialRadius, ...syntax[2]);
   }
-  circle(clock.dialX, centerY, clock.dialRadius, 2, ink);
+  hudCircle(clock.dialX, centerY, clock.dialRadius, 2, ink);
 }
 
 function hudStatusTray(clock = null) {
@@ -12284,9 +16019,9 @@ function hudStatusTray(clock = null) {
 function drawStatusPiano(x, y, lit) {
   const width = 21, height = 14, key = width / 7;
   const left = Math.round(x - width / 2), top = Math.round(y - height / 2);
-  box(left, top, width, height, ...(lit ? [108, 240, 168] : [176, 184, 202]));
+  hudBox(left, top, width, height, ...(lit ? [108, 240, 168] : [176, 184, 202]));
   for (const step of [1, 2, 4, 5, 6])
-    box(Math.round(left + step * key) - 1, top, 2, Math.round(height * .58),
+    hudBox(Math.round(left + step * key) - 1, top, 2, Math.round(height * .58),
       23, 27, 40);
 }
 
@@ -12348,15 +16083,11 @@ function drawDebugBug(x, y, scale = 1) {
   filledDisc(x + 2 * scale, y - 7 * scale, 1.2 * scale, detail);
 }
 
-// The round QR owns the top-right corner whenever it is up, so the HUD clock
-// asks for its footprint before choosing a lane.
-// The versus lane's whole premise is the shareable address, so its QR stays
-// up in play; every other untimed round keeps the code off the fight.
+// The title owns the share code; active maps keep the corner clear.
 function spectatorQrBox() {
+  if (shellMode === "GAME") return null;
   if (typeof capabilities === "function" && capabilities().socialPreview)
     return null;
-  if (!versusLane())
-    if (shellMode === "GAME" && !roundIsTimed()) return null;
   if (!spectatorQr || typeof spectatorQr.getModuleCount !== "function")
     return null;
   const safe = hudSafeRect();
@@ -12373,12 +16104,21 @@ function spectatorQrBox() {
   return { left: safe.right - size, top, size, cell, count, quiet };
 }
 
+// Where the bare frame rate shows with the overlay off: the console, in a
+// fight. The debug read-out itself never asks which screen it is on.
+const bareFrameRateShown = () => nativeTrianglePass && shellMode === "GAME";
 function drawDebugPerformance(ink) {
   // The wordmark screen used to hide this row, but the title is a running
   // fight with a frame budget of its own — debug mode reads the machine, not
   // the match, so the numbers stay up wherever the bug is lit. Only a round's
   // result card still clears the lane, because the card owns it.
-  if (!debugHitboxes || roundResult) return;
+  if (roundResult) return;
+  // The console keeps a bare frame rate on the HUD through a fight even
+  // with the debug overlay off — @jeffrey, 2026-09-20: "when game is
+  // playing lets still show fps in hud". One short word, so the read-out
+  // costs the frame it measures almost nothing.
+  const bare = !debugHitboxes;
+  if (bare) return;
   const metaSize = debugReadoutMetaSize();
   const run = runtime();
   // Every line waits for a real measurement. The read-out used to answer with
@@ -12393,6 +16133,11 @@ function drawDebugPerformance(ink) {
   // an instrument, so it rides behind the number that actually moves.
   const rate = Math.round(displayFps || 0) + " fps" +
     (refreshHz ? " @ " + refreshHz.toFixed(0) + " Hz" : "");
+  if (bare) {
+    const lane = playerHandleLayout(players[0], 0);
+    typeWrite(rate, lane.x, lane.y - metaSize - 6, metaSize, ...ink);
+    return;
+  }
   const renderWidth = Math.round(Number(run.renderWidth) || Number(run.width) || 0);
   const renderHeight = Math.round(Number(run.renderHeight) || Number(run.height) || 0);
   const aa = Math.max(1, Math.round(Number(run.antialiasingSamples) || 1));
@@ -12462,7 +16207,129 @@ function drawAgentLink(x, y, scale = 1, count = 1) {
     Math.max(12, Math.round(13 * scale)), ...shell);
 }
 
+// Connection health, as four bars and one number — the thing every online
+// game owes a player and oskiewar had no way to say. @jeffrey: "can we show a
+// connection health like wifi meter, on the top right of the game".
+//
+// The number is whatever this seat can honestly measure, which is not the same
+// on both lanes:
+//
+//   A rollback fight knows its round trip exactly (see netSendInputs: our own
+//   wall mark comes home on the rival's next packet), so it reports ping.
+//   A grandstand or an older-build guest never gets a packet back, so it can
+//   only measure the wire it is being served: how irregular the frames are and
+//   how many of them the relay ate. It reports jitter, and loss when there is
+//   any.
+//   A host in the streamed lane hears the rival only through pads, so its one
+//   honest reading is how long ago the last one arrived.
+//
+// Nothing is invented. A lane with no rival on it draws nothing at all.
+const netHealthPalette = [[245, 90, 96], [250, 200, 80], [180, 235, 120],
+  [108, 240, 168]];
+
+function netHealth() {
+  if (netSession) {
+    const stats = netSession.stats;
+    const ping = Math.round(stats.pingMs || 0);
+    // Nothing has come home yet; a meter that reads four bars before it has
+    // measured anything is a lie told at exactly the moment somebody is
+    // deciding whether the connection is good.
+    let bars = !stats.pings ? 0
+      : ping < 50 ? 4 : ping < 100 ? 3 : ping < 170 ? 2 : 1;
+    // A desync means the two machines are no longer playing the same fight.
+    // The wire may be fast and the connection is still not healthy.
+    if (bars && stats.desyncs) bars = Math.min(bars, 1);
+    return { bars, label: stats.pings ? ping + "MS" : "···",
+      note: stats.desyncs ? "DESYNC" : "" };
+  }
+  if (roundViewerMode === "LIVE" && roundViewerFrames.length) {
+    const jitter = Math.round(roundViewerJitterMs);
+    const loss = roundViewerLossPct;
+    const bars = jitter < 12 && loss < 3 ? 4
+      : jitter < 30 && loss < 10 ? 3
+      : jitter < 60 && loss < 25 ? 2 : 1;
+    return { bars, label: "±" + jitter + "MS",
+      note: loss ? loss + "% LOST" : "" };
+  }
+  // The host's side of a streamed fight. Only while somebody is actually
+  // sitting in the second chair — an empty room has no connection to rate.
+  if (versusLane() && !roundViewer) {
+    const remote = globalThis.__oskiewarRemotePad;
+    if (!remote || !Number.isFinite(remote.at)) return null;
+    const age = Date.now() - remote.at;
+    if (age > versusChallengerGraceMs) return null;
+    return { bars: age < 150 ? 4 : age < 400 ? 3 : age < 1000 ? 2 : 1,
+      label: age + "MS", note: "" };
+  }
+  return null;
+}
+
+// Where the meter stands, and whether it stands at all. Split out so the rest
+// of the top-right corner can measure around it: with no QR up the meter owns
+// that corner, and a label that assumed the corner was free landed on it.
+function netHealthBox() {
+  if (typeof capabilities === "function" &&
+      (capabilities().socialPreview || capabilities().replayOven === true))
+    return null;
+  if (shellMode !== "GAME") return null;
+  const health = netHealth();
+  if (!health) return null;
+  const safe = hudSafeRect();
+  const qr = spectatorQrBox();
+  const compact = compactLayout();
+  const bar = compact ? 5 : 7;
+  const gap = compact ? 3 : 4;
+  const tall = compact ? 19 : 26;
+  const count = 4;
+  const width = count * bar + (count - 1) * gap;
+  // Under the code, never over it: the QR is the address a friend types and
+  // the meter is a readout about the friend who already did.
+  const top = (qr ? qr.top + qr.size + 8 : safe.top) + 2;
+  // Sized off the bars rather than the HUD's own type scale: the reading is a
+  // caption to the meter, and at hudTypeSize it swamped the thing it labels.
+  const size = Math.max(14, Math.round(tall * .8));
+  const label = health.note ? health.label + "  " + health.note : health.label;
+  return { health, bar, gap, tall, count, width, top, base: top + tall,
+    right: safe.right, left: safe.right - Math.max(width,
+      handleWidth(label, size)), size, label };
+}
+
+// The left edge of whatever owns the top-right corner — the round's QR, or
+// the connection meter when no code is up. Anything else that wants to sit up
+// there measures from here instead of from the safe rect, or it draws on top
+// of the corner's furniture.
+function hudTopRightLeft() {
+  const qr = spectatorQrBox();
+  if (qr) return qr.left;
+  return netHealthBox()?.left ?? hudSafeRect().right;
+}
+
+function drawNetHealth(ink) {
+  const box = netHealthBox();
+  if (!box) return;
+  const { health, bar, gap, tall, count, width, base, right, size, label } = box;
+  const lit = netHealthPalette[Math.max(0, health.bars - 1)];
+  const dim = mixColor([58, 64, 78], [196, 201, 212], visualTheme.light);
+  const previousDepth = triangleDepth;
+  triangleDepth = -1.43;
+  for (let index = 0; index < count; index++) {
+    const height = Math.round(tall * (index + 1) / count);
+    const x = right - width + index * (bar + gap);
+    screenRect(x + 2, base - height + 2, bar, height, [24, 26, 34]);
+    screenRect(x, base - height, bar, height,
+      index < health.bars ? lit : dim);
+  }
+  const labelWidth = handleWidth(label, size);
+  const labelY = base + 7;
+  typeWrite(label, right - labelWidth + 2, labelY + 2, size,
+    ...contrastShadow(ink));
+  typeWrite(label, right - labelWidth, labelY, size,
+    ...(health.note ? netHealthPalette[0] : ink));
+  triangleDepth = previousDepth;
+}
+
 function drawSpectatorQr(ink, placement = null) {
+  if (typeof globalThis.__oskiewarJevPad === 'function') return;
   if (typeof capabilities === "function" && capabilities().socialPreview) return;
   const qr = placement || spectatorQrBox();
   if (!qr) return;
@@ -12514,7 +16381,8 @@ function drawImpacts() {
       const edge = projectPoint(impact.x + impact.blastRadius,
         impact.y - 3, impact.z || 0);
       const radius = Math.abs(edge.x - center.x);
-      if ([center.x, center.y, radius].every(Number.isFinite) && radius < 4000) {
+      if ([center.x, center.y, radius].every(Number.isFinite) && radius < 4000 &&
+          !drawPhotoExplosion(center.x,center.y,radius,age,center.z-.025)) {
         filledRing(center.x, center.y, radius,
           Math.max(0, radius - Math.max(7, 22 * (1 - age))),
           mixColor([255, 218, 86], [111, 74, 48], age));
@@ -12547,6 +16415,12 @@ function drawDetachedPart(fragment) {
       Math.abs(second.x) + margin > 30000 ||
       Math.abs(second.y) + margin > 30000 ||
       Math.hypot(second.x - first.x, second.y - first.y) > 30000) return;
+  if (photoThemeActive) {
+    // Ownership changes when a limb is hit; its material keeps its source color.
+    const seat = fragment.color[1] > fragment.color[0] ? 1 : 0;
+    photoLimb({x1:first.x,y1:first.y,x2:second.x,y2:second.y,width}, seat);
+    return;
+  }
   filledCapsule(first.x, first.y, second.x, second.y, width + 3, [9, 12, 22]);
   drawPaletteCapsule({ x1: first.x, y1: first.y, x2: second.x, y2: second.y,
     width, part: fragment.part }, fragment.colors,
@@ -12559,8 +16433,69 @@ function drawSafeZones() {
   drawCornerCrops(actionSafeRect(), 34, 2, [105, 255, 118]);
 }
 
+// The head is the second door on the title screen. START is still anywhere —
+// `tapTitle` in the shell makes the whole frame the button — so the one place
+// that must NOT start a fight is the face, because that is where a player who
+// wants to BE the fighter is already looking. The game publishes the head's
+// screen circle and the shell hit-tests it ahead of the anywhere-button; the
+// ring is drawn here rather than in the shell because only the game knows
+// where the head went this frame.
+//
+// Nothing is drawn unless a wizard is actually mounted (`__oskiewarWizard`),
+// so the Xbox and the reel renderer — which have no DOM to open — never show
+// an affordance that would dud.
+function drawTitleHeadDoor(t, ink, suppressed) {
+  const touch = globalThis.__oskiewarTouch;
+  if (!touch) return;
+  const onTitle = shellMode === "MENU" && titleTransitionAt === null;
+  if (!onTitle || suppressed || !globalThis.__oskiewarWizard) {
+    if (touch.titleHead) touch.titleHead = null;
+    return;
+  }
+  // Only over a seat that is actually yours. The attract loop's "action"
+  // variant dresses BOTH fighters as bots (`beginTraining`), and a ring that
+  // says "add yourself" on a bot's head invites a player to replace somebody
+  // who was never there. No local body on screen, no door.
+  const seat = players[0];
+  if (!seat || !seat.alive || seat.npc || seat.bot) { touch.titleHead = null; return; }
+  const head = runnerWorldGeometry(seat, t).head;
+  if (!head) { touch.titleHead = null; return; }
+  // Radius in screen units is measured, not guessed: the title camera pushes
+  // in and out across the attract loop, and a fixed pixel radius would drift
+  // off the face. Same idiom the killcam tears use.
+  const point = projectPoint(head.x, head.y, head.z);
+  const edge = projectPoint(head.x + head.radius, head.y, head.z);
+  const radius = Math.max(9, Math.hypot(edge.x - point.x, edge.y - point.y));
+  const reach = radius * 1.22;
+  touch.titleHead = { x: point.x, y: point.y, radius: reach };
+  // On the screen-UI lane, so a fighter standing in front of their own face
+  // cannot draw through the invitation.
+  triangleDepth = -1.42;
+  const pulse = (Math.sin(t * 2.4) + 1) / 2;
+  // Gold on its own rather than mixed toward the title ink: ink is near-white
+  // on the night sky and near-black at noon, so mixing gave a different — and
+  // on the light theme, muddy — colour every hour. The dark under-ring is what
+  // carries it across both, the same trick the type beside it uses.
+  const glow = mixColor([230, 205, 92], [255, 250, 226], pulse * .55);
+  const stroke = Math.max(1.5, radius * .085);
+  hudCircle(point.x, point.y, reach, stroke * 2.1, [16, 20, 34]);
+  hudCircle(point.x, point.y, reach, stroke, glow);
+  // The words ride a plate. A meditating fighter fills the whole column under
+  // their own chin, so unplated type landed on shoulders and arms and read as
+  // part of the body; the plate is dark on both themes because the gold is.
+  const label = "add yourself";
+  const size = Math.max(11, Math.round(radius * .44));
+  const width = handleWidth(label, size);
+  const padX = Math.round(size * .55), padY = Math.round(size * .34);
+  const left = point.x - width / 2;
+  const top = point.y + reach + size * .45;
+  hudBox(left - padX, top - padY, width + padX * 2, size + padY * 2, 16, 20, 34);
+  typeWrite(label, left, top, size, ...glow);
+}
+
 function gamePaint() {
   syncGameView();
+  globalThis.__oskiewarLocalVersus = localVersusActive();
   const run = runtime();
   if (globalThis.__oskiewarTouch) {
     globalThis.__oskiewarTouch.screen = shellMode === "MENU"
@@ -12597,6 +16532,12 @@ function gamePaint() {
   // a profile lookup here would answer empty and strip them every frame.
   for (const player of players)
     if (!player.remote) player.handleColors = fighterProfile(player.name).colors;
+  refreshPhotoTheme();
+  globalThis.__oskiewarGraphicsThemeStatus = photoThemeActive ? "photorealistic" : "flat";
+  // The photographic materials ride the ordinary day/night palette. They
+  // used to force night so they would match the underpass photograph behind
+  // them; that plate is retired for a plain sky, and at night the long
+  // park's ground sank into it and read as missing.
   visualTheme = displayTheme();
   const replayOven = typeof capabilities === "function" &&
     capabilities().replayOven === true;
@@ -12611,9 +16552,12 @@ function gamePaint() {
   const reelMinimal = replayOven && reelHud &&
     capabilities().reelFullUi !== true;
   triangleDepth = -1.4;
+  // The station uses a plain light or dark backdrop matching the HUD theme.
+  const space = !survivalActive();
   const skyDay = mixColor([176, 215, 245], [255, 160, 112],
     visualTheme.sunset * .7);
-  const sky = mixColor([7, 8, 28], skyDay, visualTheme.light);
+  const sky = space ? mixColor([6, 8, 22], [235, 241, 248], visualTheme.light)
+    : mixColor([7, 8, 28], skyDay, visualTheme.light);
   // Match the clear color to the arena sky. Camera framing can reveal the
   // clear layer during a jump; a different clear color looked like a flash.
   const outside = sky;
@@ -12623,18 +16567,32 @@ function gamePaint() {
   const arenaDay = mixColor([244, 211, 178], [235, 154, 150],
     visualTheme.sunset * .48);
   const arena = mixColor([24, 18, 42], arenaDay, visualTheme.light);
+  // Pale steel in light mode stays distinct from the brighter backdrop.
   const groundDay = mixColor([142, 184, 116], [190, 151, 103],
     visualTheme.sunset * .38);
-  const ground = mixColor([13, 25, 29], groundDay, visualTheme.light);
-  const platformColor = mixColor([24, 29, 46], [211, 198, 171],
-    visualTheme.light);
+  const ground = space
+    ? mixColor([16, 22, 38], [177, 193, 215], visualTheme.light)
+    : mixColor([13, 25, 29], groundDay, visualTheme.light);
+  // The floating decks are steel with a lit edge. The plate itself stays
+  // near the hull's own value — a near-white slab against vacuum reads as a
+  // UI bar laid over the game rather than as a thing in it — and the LIP
+  // carries the brightness instead, which is the part a player actually has
+  // to judge. On plaster the relationship is the other way round: the deck is
+  // the pale thing and the lip is the dark line under it, because there the
+  // background is what is bright.
+  const platformColor = space
+    ? mixColor([26, 36, 60], [158, 179, 210], visualTheme.light)
+    : mixColor([24, 29, 46], [211, 198, 171], visualTheme.light);
   const titleInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
   const statusShadow = contrastShadow(titleInk);
   const menuArena = mixColor([7, 10, 26], [235, 241, 248], visualTheme.light);
   const menuPanel = mixColor([20, 28, 56], [215, 225, 239], visualTheme.light);
   const menuInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
   renderFlags = globalThis.__oskiewarRenderFlags || renderFlags;
+  updateSceneLighting(run.monotonicUs);
   wipe(...outside);
+  // A plain sky behind every theme. The underpass photograph was busy behind
+  // the fighters and painted its own floor wherever a course had none.
   if (renderFlags.sky !== false) drawSkyAtmosphere(sky, arena);
   if (PAL_SELECT && selecting) {
     box(0, 0, viewWidth(), viewHeight, ...menuArena);
@@ -12668,7 +16626,11 @@ function gamePaint() {
   drawTerrainBackWall(spanLeft, spanRight, worldFar, ground);
   drawTerrainSurface(spanLeft, spanRight, groundNear, worldFar, ground);
   drawTerrainFrontWall(spanLeft, spanRight, groundNear, ground);
-  if (renderFlags.grass !== false) drawTerrainGrass(spanLeft, spanRight, ground);
+  drawSkateParkFeatures(ground);
+  // No grass in vacuum. The blades were the tower's lawn and the cube kept
+  // them out of habit; on a hull they read as moss on a spaceship.
+  if (renderFlags.grass !== false && !space)
+    drawTerrainGrass(spanLeft, spanRight, ground);
   drawBoosterPad(t);
   const platformNear = -520;
   const platformFar = 520;
@@ -12681,8 +16643,10 @@ function gamePaint() {
   // the lips cost none. The span clamp is the same one the terrain uses, and
   // in a room this size its 2600-unit apron usually covers everything — it is
   // here to bound the worst case, not because it culls much today.
-  const ledgeInk = mixColor(platformColor, [26, 24, 34], .42);
-  if (platformsEnabled()) for (const ledge of platforms) {
+  const ledgeInk = space
+    ? mixColor(platformColor, [196, 224, 255], .62)
+    : mixColor(platformColor, [26, 24, 34], .42);
+  if (platformsEnabled()) for (const ledge of activeLedges()) {
     if (ledge.right < spanLeft || ledge.left > spanRight) continue;
     if (ledge.y < spanTop || ledge.y > spanBottom) continue;
     const ledgeLeft = Math.max(ledge.left, spanLeft);
@@ -12696,14 +16660,25 @@ function gamePaint() {
     worldLine(ledgeLeft, ledge.y, platformNear,
       ledgeRight, ledge.y, platformNear, 5, ledgeInk);
   }
+  if (workshopHighlight && globalThis.__oskiewarWorkshopEnabled) {
+    for (const player of players) {
+      const x = player.spawnX, y = terrainFloorAt(x);
+      const ink = player.pad === 0 ? [80, 240, 255] : [255, 100, 210];
+      worldLine(x - 55, y - 4, -50, x + 55, y - 4, -50, 6, ink);
+      worldLine(x, y, 0, x, y - 240, 0, 6, ink);
+      worldLine(x, y - 240, 0, x + 65, y - 210, 0, 6, ink);
+    }
+  }
   drawSurvivalLava(t);
   const shadowInk = mixColor([3, 5, 14], [92, 99, 101],
     visualTheme.light * .72);
   if (renderFlags.shadows !== false) {
     for (const player of activePlayers())
-      if (player.alive || roundResult)
+      if (player.alive || roundResult || deathCinematic) {
+        if (renderFlags.poseShadows !== false) drawPoseShadow(player, t, shadowInk);
         drawSpotShadow(player.x, player.y, player.z, player.ducking ? 52 : 64,
           shadowInk);
+      }
     for (const item of balls)
       if (item.active)
         drawSpotShadow(item.x, item.y, item.z, item.radius * 1.18, shadowInk);
@@ -12740,8 +16715,13 @@ function gamePaint() {
       const viewerLabel = roundViewer.seat === "challenger"
         ? roundViewerMode === "LIVE" ? "VS" : "WAITING FOR HOST"
         : roundViewerMode || roundViewerStatus;
-      typeWrite(viewerLabel, hud.right - viewerLabel.length * 18, hud.top + 7,
-        24, ...(roundViewerMode === "LIVE" ? [210, 42, 62] : titleInk));
+      // Left of the corner's furniture, never on it: that corner is the
+      // round's QR, or the connection meter when there is no code up.
+      const labelSize = 24;
+      const labelRight = hudTopRightLeft() - 14;
+      typeWrite(viewerLabel,
+        labelRight - handleWidth(viewerLabel, labelSize), hud.top + 7,
+        labelSize, ...(roundViewerMode === "LIVE" ? [210, 42, 62] : titleInk));
       // The chair-holder plays through this feed: say which body is theirs
       // while the matchup is still fresh, then get out of the fight's way.
       if (roundViewer.seat === "challenger" && roundViewerMode === "LIVE" &&
@@ -12762,9 +16742,7 @@ function gamePaint() {
       const label = "update ready";
       const size = Math.round(hudTypeSize * .58);
       const width = handleWidth(label, size);
-      const qrBox = spectatorQrBox();
-      const right = qrBox ? qrBox.left - 14 : hud.right;
-      const x = right - width;
+      const x = hudTopRightLeft() - 14 - width;
       const y = hud.top + hudTypeSize + 12;
       typeWrite(label, x + 2, y + 3, size, ...contrastShadow(titleInk));
       typeWrite(label, x, y, size, ...titleInk);
@@ -12778,6 +16756,7 @@ function gamePaint() {
   if (!survivalActive()) {
     for (const tree of bodyTrees) drawBodyTree(tree, t);
     for (const pickup of gunPickups) drawGunPickup(pickup, t);
+    for (const pickup of saberPickups) drawSaberPickup(pickup, t);
     for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
   }
   const showRunnerLabels = matchHud && !reelMinimal &&
@@ -12830,7 +16809,13 @@ function gamePaint() {
   drawBallHitboxes();
   drawSafeZones();
   triangleDepth = -1.42;
+  // On the SCREEN UI layer, not the debug-geometry one above it. The meter is
+  // an instrument being read rather than scenery in the room, and the layering
+  // test is what caught it sitting at the debug depth where a tall enough
+  // piece of world could have drawn straight through it.
+  drawFrameMeter();
   drawImpacts();
+  drawTitleHeadDoor(t, titleInk, reelMinimal);
   const counting = !roundResult && introAge < roundIntroDurationUs();
   // The matchup card announces two names in the middle of the screen, which
   // is exactly where the wordmark sits. On the entry fight the word wins.
@@ -12846,6 +16831,7 @@ function gamePaint() {
   // self-play and marketing reels have no learner to serve.
   if (!replayOven && !selfPlay && renderFlags.keys !== false)
     drawControlLegend(titleInk);
+  if (freeskateActive()) drawFreeskateSpeed();
   const resultUiReady = cinematicAge < 0 || cinematicAge >= 1.1;
   // A reel opens on the matchup. Both names, both palettes, stacked up top
   // where the fighters are not — a stranger scrolling past should know who is
@@ -12864,7 +16850,12 @@ function gamePaint() {
   if (matchHud && survivalActive() && shellMode === "GAME" &&
       gameplayStarted && !roundResult && !counting)
     drawSurvivalHud(titleInk);
-  if (survivalActive() && roundResult && resultUiReady) {
+  if (instantReplay?.respawn) {
+    const label = "replay";
+    const size = compactLayout() ? 34 : 42;
+    typeWrite(label, viewCenterX() - handleWidth(label, size) / 2,
+      hudSafeRect().bottom - size - 12, size, ...titleInk);
+  } else if (survivalActive() && roundResult && resultUiReady) {
     drawSurvivalResult(titleInk, statusShadow);
   } else if (reelMinimal && roundResult && resultUiReady) {
     // One fact, in the middle of the frame: who won. The recording stops on
@@ -12943,7 +16934,17 @@ function gamePaint() {
     // frame, and an instruction painted under it was an instruction hidden.
     if (!reelMinimal) drawVersusHud(t, titleInk, run);
     drawSpectatorQr(titleInk);
+    if (!reelMinimal) drawNetHealth(titleInk);
     drawTouchControls();
+    if (localVersusActive() && localControllerMissing !== -1) {
+      const label = "reconnect player " + (localControllerMissing + 1);
+      const size = compactLayout() ? 30 : 48;
+      const width = handleWidth(label, size);
+      const left = viewCenterX() - width / 2;
+      const top = viewHeight * .43;
+      box(left - 20, top - 16, width + 40, size + 32, 9, 12, 22);
+      typeWrite(label, left, top, size, 255, 235, 130);
+    }
   }
 }
 
@@ -12956,11 +16957,17 @@ const versusLabelNoise = new Set(["NONE", "UP", "DOWN", "LEFT", "RIGHT",
 // the address, and until they arrive every move the lone fighter makes is
 // named back at them — the empty room as training mode.
 function drawVersusHud(t, ink, run) {
-  if (!versusLane() || shellMode !== "GAME") return;
+  if (instantReplay || !versusLane() || shellMode !== "GAME") return;
   if (!lobbyActive()) return;
   const hud = hudSafeRect();
   const compact = compactLayout();
-  const headline = "WAITING ROOM";
+  const door = versusDoor();
+  // Behind the door the address is a lie: nothing is published, so nobody
+  // could arrive at it. Say what is actually in the way instead. The panel
+  // that takes the email or the handle is the shell's, over the top of this;
+  // this is the part that stays legible on a television across a room.
+  const headline = door === "login" ? "SIGN IN TO PLAY"
+    : door === "handle" ? "CHOOSE A HANDLE" : "WAITING ROOM";
   const headSize = compact ? 30 : 44;
   const pulse = .5 + Math.sin(t * 2.4) * .5;
   const headInk = mixColor(ink, [235, 205, 74], .35 + pulse * .45);
@@ -12969,8 +16976,10 @@ function drawVersusHud(t, ink, run) {
   const headY = hud.top + (compact ? 30 : 42);
   typeWrite(headline, headX + 3, headY + 3, headSize, ...contrastShadow(ink));
   typeWrite(headline, headX, headY, headSize, ...headInk);
-  const address = "FIGHT A FRIEND  OSKIEWAR.COM/" +
-    versusRoomName.toUpperCase();
+  const address = door === "login"
+    ? "A FIGHT NEEDS A NAME ON BOTH ENDS"
+    : door === "handle" ? "YOUR HANDLE IS WHAT THE FIGHT WRITES DOWN"
+    : "FIGHT A FRIEND  OSKIEWAR.COM/" + versusRoomName.toUpperCase();
   const addressSize = compact ? 16 : 23;
   const addressWidth = handleWidth(address, addressSize);
   const addressY = headY + headSize + 10;
@@ -13035,15 +17044,19 @@ function paint() {
     return;
   }
   const restore = beginRenderInterpolation(runtime().renderAlpha ?? 1);
+  sharingRenderPoses = true;
   try {
     gamePaint();
   } catch (error) {
     captureClientError("paint", error);
     try { drawClientError(); }
     catch (_) { drawClientErrorFallback(); }
-  } finally { restore(); }
+  } finally {
+    sharingRenderPoses = false;
+    renderPoses.clear();
+    restore();
+  }
 }
-
 function act() {}
 function leave() {
   try {

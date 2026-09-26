@@ -10,15 +10,31 @@
 		</data>
 		<key>Resources/Oskiewar.icns</key>
 		<data>
-		lrUgArAm8ZKKdH0AxHiK6Q4IKXo=
+		HIY6p5CmJvmbbUhR2WoYinJaWdc=
 		</data>
 		<key>Resources/live/oskiewar.js</key>
 		<data>
-		ZavKjh02zHau45BrrseseAhcwYI=
+		UxA7Oh0jcqv9OwbkVfOKmqhnR5s=
 		</data>
 		<key>Resources/live/qr.mjs</key>
 		<data>
 		8ajAzYO/cflbFA/y/aKU5zCkW+E=
+		</data>
+		<key>Resources/live/themes/photorealistic/assets/explosions-v1.png</key>
+		<data>
+		lluvb2MjBupLOKJjlu6LQF/ygE4=
+		</data>
+		<key>Resources/live/themes/photorealistic/assets/props.png</key>
+		<data>
+		3z6hCp84SsT9FaooR2qJrTHvUKA=
+		</data>
+		<key>Resources/live/themes/photorealistic/assets/underpass.png</key>
+		<data>
+		kjokhgKLkQy696ltFJyYLCnmU20=
+		</data>
+		<key>Resources/live/themes/photorealistic/assets/weapons-v2.png</key>
+		<data>
+		PH8lG3KPAUodrKGCx9DNmZk0Jrc=
 		</data>
 	</dict>
 	<key>files2</key>
@@ -34,14 +50,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			N3x5g5nFKCIg+Vrgs8i0aZGlpVXZY9dChacVMDiJCx8=
+			jcuLhnfql/puOrvd6D5aolpORPN3Pf5XjcHrqKOWjwE=
 			</data>
 		</dict>
 		<key>Resources/live/oskiewar.js</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			cfnEkHd5Vh3NiJPx3ltOGS9JuxEWos1pqXxnXmtcV4k=
+			v4U+vZszzcYJfXQr0T0aryVPKjd8tCT1mwEnUcmmjFI=
 			</data>
 		</dict>
 		<key>Resources/live/qr.mjs</key>
@@ -49,6 +65,34 @@
 			<key>hash2</key>
 			<data>
 			EvT+2mR4h70hdShTUSO5rUDk3PeNoBZiSai+8U8G1N8=
+			</data>
+		</dict>
+		<key>Resources/live/themes/photorealistic/assets/explosions-v1.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			GXQmAV6HjksuxMvF4eMLnA1TZvnLbFvCCxlxLEeG53g=
+			</data>
+		</dict>
+		<key>Resources/live/themes/photorealistic/assets/props.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			RAOXv7U2k3eBdARUX68k1jEwLIA0wUkrFNooJF0fHHw=
+			</data>
+		</dict>
+		<key>Resources/live/themes/photorealistic/assets/underpass.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			QpUmY76ZQsk7764ioo/kPc9Hwa4iU1UuIHBKNyJcbMM=
+			</data>
+		</dict>
+		<key>Resources/live/themes/photorealistic/assets/weapons-v2.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			zcFREEaxi24Np5ZEUD19+0HxtvpZs3XJF+nar9gz69Y=
 			</data>
 		</dict>
 	</dict>

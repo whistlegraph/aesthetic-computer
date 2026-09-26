@@ -35,8 +35,10 @@ final class GlyphAtlas {
     private var shelfY = 0
     private var shelfHeight = 0
     private var askedForBundledFonts = false
+    /// Set when a glyph found no room mid frame; the wipe waits for the frame's end.
+    private var overflowed = false
 
-    init(device: MTLDevice, side: Int = 1024, scale: CGFloat = 2) {
+    init(device: MTLDevice, side: Int = 2048, scale: CGFloat = 2) {
         self.side = side
         self.scale = max(1, scale)
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r8Unorm,
@@ -104,10 +106,20 @@ final class GlyphAtlas {
         }
     }
 
+    /// Call before a frame's first write. The sheet is only ever wiped here,
+    /// between frames: a wipe mid frame blanked every glyph already emitted
+    /// against the old packing, and the title wordmark — which steps through
+    /// whole-point sizes as it breathes — overflowed often enough to make the
+    /// first letters of the frame flicker out every few seconds.
+    func beginFrame() {
+        if overflowed || shelfY > side * 3 / 4 { reset() }
+    }
+
     /// Forgets every cached cell and wipes the sheet. Safe between frames; mid
     /// frame it scrambles quads already emitted against the old packing.
     func reset() {
         cells.removeAll(keepingCapacity: true)
+        overflowed = false
         shelfX = 0
         shelfY = 0
         shelfHeight = 0
@@ -258,14 +270,15 @@ final class GlyphAtlas {
     /// The sheet never grows. 1024² holds several hundred cells at HUD sizes —
     /// far more than oskiewar's working set — and growing would mean
     /// re-rasterizing everything while the renderer holds the old texture.
-    /// Overflow instead wipes and refills: the engine rebuilds every draw
-    /// command each frame, so the cost is at most one frame of scrambled cells
-    /// and the refilled sheet holds exactly the glyphs still in use.
+    /// Overflow skips the glyph for this frame and asks `beginFrame` to wipe
+    /// and refill: the engine rebuilds every draw command each frame, so the
+    /// refilled sheet holds exactly the glyphs still in use, and nothing
+    /// already drawn this frame loses its cell.
     private func allocate(width: Int, height: Int) -> (x: Int, y: Int)? {
         guard width <= side, height <= side else { return nil }
         if let slot = shelve(width: width, height: height) { return slot }
-        reset()
-        return shelve(width: width, height: height)
+        overflowed = true
+        return nil
     }
 
     private func shelve(width: Int, height: Int) -> (x: Int, y: Int)? {
