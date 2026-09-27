@@ -98,6 +98,8 @@ if (hostAnalytics)
     if (netSilent) return;
     return hostAnalytics(...args);
   };
+// The account feed (fighters, moods, who is signed in), read by gamePaint.
+const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
 const buildVersion = 167;
@@ -3199,6 +3201,9 @@ let impactHitboxesUntil = 0;
 let nextPowerupAtUs = powerupIntervalUs;
 let powerupSequence = 0;
 let acFeed = {};
+// When the feed was last read off the host, on the game clock; null until
+// the first read.
+let acFeedAt = null;
 // Pal select is retired: you are your own handle, so there is nobody to pick,
 // and the dummy is already the default opponent. The whole two-step screen
 // stays behind this one flag rather than being deleted, because the entry UI
@@ -20273,7 +20278,15 @@ function gamePaint() {
   }
   lastPaintAt = run.monotonicUs;
   const t = (run.monotonicUs - startedAt) / 1000000;
-  if (typeof ac === "function") acFeed = ac();
+  // The feed is a native object graph (fighters, moods, the signed-in
+  // player) rebuilt on every call; a sign-in or a mood is news at one hertz.
+  // The age test is written so a null stamp and a clock that stepped back
+  // (a rollback session's origin) both read as "due".
+  const acFeedAge = run.monotonicUs - acFeedAt;
+  if (hostAc && !(acFeedAge >= 0 && acFeedAge < 1000000)) {
+    acFeed = hostAc();
+    acFeedAt = run.monotonicUs;
+  }
   syncSignedInFighter();
   const localNation = typeof capabilities === "function"
     ? String(capabilities().country || "").toUpperCase() : "";
@@ -21236,10 +21249,17 @@ if(typeof capabilities==='function'){
  sim=function(){cached=null;try{return previousSim();}finally{cached=null;}};
  paint=function(){cached=null;try{return previousPaint();}finally{cached=null;}};
 }
+// The clock too: one host read per paint and one per simulated frame. The
+// frame is the unit, not the sim() call — a rollback resimulates several
+// frames inside one sim(), each under its own netClockUs, and each must read
+// its own time. Inside gameSim the snapshot also pins monotonicUs for the
+// whole tick, so a pose, a deadline and a hitbox never disagree by a
+// microsecond's drift between two reads.
 {
- const liveRuntime=runtime,previousPaint=paint;let snapshot=null;
+ const liveRuntime=runtime,previousPaint=paint,previousGameSim=gameSim;let snapshot=null;
  runtime=function(){return snapshot||liveRuntime();};
  paint=function(){snapshot=liveRuntime();try{return previousPaint();}finally{snapshot=null;}};
+ gameSim=function(){snapshot=liveRuntime();try{return previousGameSim();}finally{snapshot=null;}};
 }
 
 function cameraPlayers(){return freeskateActive() && players[1].dummy?[players[0]]:activePlayers();}
