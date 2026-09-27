@@ -20223,8 +20223,30 @@ function drawTitleHeadDoor(t, ink, suppressed) {
   typeWrite(label, left, top, size, ...glow);
 }
 
+// The console's post pass blurs on the GPU, where the frame has room: camera
+// motion blur across this frame's travel, and a tilt-shift band that keeps the
+// fighters sharp and softens the street above and the water below. The HUD
+// stays sharp in the shader. __oskiewarPost = false turns both off.
+let postCameraX = null, postCameraY = null;
+function steerPostEffects() {
+  if (typeof postEffects !== "function") return;
+  const on = globalThis.__oskiewarPost !== false && shellMode === "GAME" && !selecting;
+  if (!on) { postCameraX = null; postEffects(.5, 1, .2, 0, 0, 0); return; }
+  const scale = cameraScale();
+  const moveX = postCameraX === null ? 0 : (cameraCenter - postCameraX) * scale * .6;
+  const moveY = postCameraY === null ? 0 : (cameraCenterY - postCameraY) * scale * .6;
+  postCameraX = cameraCenter; postCameraY = cameraCenterY;
+  let focus = 0, count = 0;
+  for (const p of activePlayers()) if (p.alive) {
+    focus += projectPoint(p.x, p.y - 80, p.z || 0).y; count++;
+  }
+  const focusY = count ? clamp(focus / count / viewHeight, .15, .85) : .55;
+  postEffects(focusY, .16, .24, 4, clamp(moveX, -24, 24), clamp(moveY, -24, 24));
+}
+
 function gamePaint() {
   governFigureLod(runtime().monotonicUs);
+  steerPostEffects();
   syncGameView();
   globalThis.__oskiewarLocalVersus = localVersusActive();
   const run = runtime();
