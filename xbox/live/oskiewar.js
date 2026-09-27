@@ -11050,13 +11050,35 @@ function groundPound(player, now) {
   player.lastButtonAt = now;
 }
 
+// Whether sampleCombatBoxes could give this fighter a hit box this tick. A
+// necessary condition, not the whole one: it repeats the cheap scalar tests
+// of the two `hit.push` sites (the pogo dive and the active melee frame) and
+// leaves the part and pose tests to the sample itself. A fighter it refuses
+// would have sampled to an empty `hit` and been skipped at the same
+// `continue`; a fighter it passes is sampled exactly as before.
+function couldStrike(player, now) {
+  if (!player.alive) return false;
+  if (isPogo(player)) return !player.grounded && !player.pogoHit;
+  return Boolean(player.attackKind) && now < player.attackUntil &&
+    !player.attackHit && !player.blocking && now >= player.hitStunUntil;
+}
+
 function resolveMelee(now) {
   const poseTime = (now - startedAt) / 1000000;
   const contacts = [];
-  const samples = players.map(player => sampleCombatBoxes(player, now));
+  // Boxes are built on demand. Sampling every fighter up front was two pose
+  // builds a tick — in the park, where nobody attacks, and through most of a
+  // fight — to learn there was nothing to test. A target's boxes are read
+  // only against an attacker that has a hit box, and by then that attacker's
+  // turn has touched nothing of the target's, so the late sample is the
+  // sample the eager map would have taken.
+  const samples = [];
+  const sampleOf = (player) =>
+    samples[player.pad] ||= sampleCombatBoxes(player, now);
   for (const attacker of players) {
-    const attacking = samples[attacker.pad];
-    if (!attacker.alive || !attacking.hit.length) continue;
+    if (!couldStrike(attacker, now)) continue;
+    const attacking = sampleOf(attacker);
+    if (!attacking.hit.length) continue;
     for (const fragment of detachedParts) {
       const r = fragment.width/2;
       const bounds = combatRect('fragment',Math.min(fragment.x1,fragment.x2)-r,
@@ -11080,7 +11102,7 @@ function resolveMelee(now) {
     if (attacker.attackHit) continue;
     const target = players[attacker.pad === 0 ? 1 : 0];
     if (!target.alive) continue;
-    const contact = combatBoxContact(attacking, samples[target.pad]);
+    const contact = combatBoxContact(attacking, sampleOf(target));
     if (contact?.separation <= 3) {
       attacker.attackHit = true;
       contacts.push({ attacker, target,
