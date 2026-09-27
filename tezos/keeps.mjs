@@ -62,7 +62,9 @@ const CONFIG = {
     explorer: 'https://ghostnet.tzkt.io'
   },
   mainnet: {
-    rpc: 'https://rpc.tzbeta.net',  // mainnet.api.tez.ie + ecadinfra both dead (DNS); tzbeta is Foundation-run
+    // mainnet.api.tez.ie + ecadinfra are dead (DNS); tzbeta answers curl but
+    // hangs up on Taquito's node-fetch (Sept 2026), so tzkt's RPC leads.
+    rpc: process.env.TEZOS_RPC || 'https://rpc.tzkt.io/mainnet',
     name: 'Mainnet',
     explorer: 'https://tzkt.io'
   },
