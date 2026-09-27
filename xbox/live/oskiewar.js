@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 169;
+const buildVersion = 170;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -2163,7 +2163,11 @@ let clipView = null;
 function withRenderView(doll, rect, draw) {
   const stageDoll = cameraDoll, previousClip = clipView;
   cameraDoll = doll; clipView = rect;
-  try { draw(); } finally { cameraDoll = stageDoll; clipView = previousClip; }
+  emitFrameView(rect);
+  try { draw(); } finally {
+    cameraDoll = stageDoll; clipView = previousClip;
+    emitFrameView(previousClip);
+  }
 }
 const cameraScale = () => (stageRight - stageLeft) / cameraDoll.width;
 let playerCameraYaw = 0;
@@ -2177,6 +2181,171 @@ let playerCameraPitch = 0;
 // budget on a console whose JS never gets a JIT.
 let playerCameraZoom = 1;
 let triangleDepth = -1.4;
+// ---------------------------------------------------------------------------
+// The frame program. A host that offers `frame(buffer, length, strings)` gets
+// the whole paint as one program — a Float32Array of ops — and runs it with
+// its own interpreter (the web's is xbox/live/frame-vm.mjs). A host without
+// it gets the ops executed here, one host call each, exactly as before: the
+// console keeps its per-call bindings until its native interpreter lands,
+// and the test harness keeps counting triangles. Draw code never knows
+// which; it calls the same primitives either way.
+//
+// The op table (xbox/live/frame-vm.mjs is the other reader; keep them equal):
+//   1 VIEW     clipX clipY clipW clipH        NaN clipX = the whole stage
+//   2 FACE     x1 y1 z1 x2 y2 z2 x3 y3 z3 r g b
+//   3 DISC     x y depth radius r g b
+//   4 CAPSULE  x1 y1 x2 y2 depth width r g b
+//   5 TEXT     font x y size r g b string     font 0 comic 1 ywft 2 system 3 block
+//   6 BOX      x y w h r g b a
+//   7 LINE     x1 y1 x2 y2 width r g b
+//   8 WIPE     r g b
+// Scene-level on purpose: a disc is seven numbers here and a fan of faces in
+// the interpreter, because on the console every typed-array element written
+// from JS costs about as much as a quarter of a host call.
+const FRAME_VIEW = 1, FRAME_FACE = 2, FRAME_DISC = 3, FRAME_CAPSULE = 4,
+  FRAME_TEXT = 5, FRAME_BOX = 6, FRAME_LINE = 7, FRAME_WIPE = 8;
+const hostFrame = typeof frame === "function" ? frame : null;
+let program = new Float32Array(hostFrame ? 1 << 16 : 0);
+let programLength = 0;
+const programStrings = [];
+// True only inside a paint on a host that takes programs. Outside a paint
+// (the harness calling a primitive on its own) every primitive is immediate.
+let programBuffered = false;
+function programRoom(count) {
+  if (programLength + count <= program.length) return;
+  const next = new Float32Array(program.length * 2);
+  next.set(program);
+  program = next;
+}
+function flushFrameProgram() {
+  if (!hostFrame || !programLength) return;
+  hostFrame(program, programLength, programStrings);
+  programLength = 0;
+  programStrings.length = 0;
+}
+// The host's own drawing functions, taken before they are shadowed. The
+// shadows are the emitter: buffered they write an op, immediate they are
+// the old call. Every draw site in the piece keeps calling the old names.
+{
+  const rawTriangle3d = typeof triangle3d === "function" ? triangle3d : null;
+  const rawTriangle = typeof triangle === "function" ? triangle : null;
+  const rawDisc3d = typeof disc3d === "function" ? disc3d : null;
+  const rawCapsule3d = typeof capsule3d === "function" ? capsule3d : null;
+  const rawWipe = wipe, rawBox = box, rawLine = line, rawWrite = write;
+  const rawSystemWrite = systemWrite;
+  const rawComicWrite = typeof comicWrite === "function" ? comicWrite : null;
+  const rawYwftWrite = typeof ywftWrite === "function" ? ywftWrite : null;
+  const text = (font, raw) => function (value, x, y, size, r = 255, g = 255, b = 255) {
+    if (!programBuffered) return raw(value, x, y, size, r, g, b);
+    programRoom(9);
+    const at = programLength;
+    program[at] = FRAME_TEXT; program[at + 1] = font; program[at + 2] = x;
+    program[at + 3] = y; program[at + 4] = size; program[at + 5] = r;
+    program[at + 6] = g; program[at + 7] = b;
+    program[at + 8] = programStrings.push(String(value)) - 1;
+    programLength = at + 9;
+  };
+  if (rawTriangle3d) triangle3d = function (x1, y1, z1, x2, y2, z2, x3, y3, z3, r = 255, g = 255, b = 255) {
+    if (!programBuffered) return rawTriangle3d(x1, y1, z1, x2, y2, z2, x3, y3, z3, r, g, b);
+    programRoom(13);
+    const at = programLength;
+    program[at] = FRAME_FACE;
+    program[at + 1] = x1; program[at + 2] = y1; program[at + 3] = z1;
+    program[at + 4] = x2; program[at + 5] = y2; program[at + 6] = z2;
+    program[at + 7] = x3; program[at + 8] = y3; program[at + 9] = z3;
+    program[at + 10] = r; program[at + 11] = g; program[at + 12] = b;
+    programLength = at + 13;
+  };
+  if (rawTriangle) triangle = function (x1, y1, x2, y2, x3, y3, r = 255, g = 255, b = 255) {
+    if (!programBuffered) return rawTriangle(x1, y1, x2, y2, x3, y3, r, g, b);
+    triangle3d(x1, y1, triangleDepth, x2, y2, triangleDepth, x3, y3, triangleDepth, r, g, b);
+  };
+  if (rawDisc3d) disc3d = function (x, y, depth, radius, r, g, b) {
+    if (!programBuffered) return rawDisc3d(x, y, depth, radius, r, g, b);
+    programRoom(8);
+    const at = programLength;
+    program[at] = FRAME_DISC; program[at + 1] = x; program[at + 2] = y;
+    program[at + 3] = depth; program[at + 4] = radius; program[at + 5] = r;
+    program[at + 6] = g; program[at + 7] = b;
+    programLength = at + 8;
+  };
+  if (rawCapsule3d) capsule3d = function (x1, y1, x2, y2, depth, width, r, g, b) {
+    if (!programBuffered) return rawCapsule3d(x1, y1, x2, y2, depth, width, r, g, b);
+    programRoom(10);
+    const at = programLength;
+    program[at] = FRAME_CAPSULE; program[at + 1] = x1; program[at + 2] = y1;
+    program[at + 3] = x2; program[at + 4] = y2; program[at + 5] = depth;
+    program[at + 6] = width; program[at + 7] = r; program[at + 8] = g;
+    program[at + 9] = b;
+    programLength = at + 10;
+  };
+  wipe = function (r = 0, g = 0, b = 0) {
+    if (!programBuffered) return rawWipe(r, g, b);
+    programRoom(4);
+    const at = programLength;
+    program[at] = FRAME_WIPE; program[at + 1] = r; program[at + 2] = g;
+    program[at + 3] = b;
+    programLength = at + 4;
+  };
+  box = function (x, y, width, height, r = 255, g = 255, b = 255, a = 255) {
+    if (!programBuffered) return a === 255 ? rawBox(x, y, width, height, r, g, b)
+      : rawBox(x, y, width, height, r, g, b, a);
+    programRoom(9);
+    const at = programLength;
+    program[at] = FRAME_BOX; program[at + 1] = x; program[at + 2] = y;
+    program[at + 3] = width; program[at + 4] = height; program[at + 5] = r;
+    program[at + 6] = g; program[at + 7] = b; program[at + 8] = a;
+    programLength = at + 9;
+  };
+  line = function (x1, y1, x2, y2, width, r = 255, g = 255, b = 255) {
+    if (!programBuffered) return rawLine(x1, y1, x2, y2, width, r, g, b);
+    programRoom(9);
+    const at = programLength;
+    program[at] = FRAME_LINE; program[at + 1] = x1; program[at + 2] = y1;
+    program[at + 3] = x2; program[at + 4] = y2; program[at + 5] = width;
+    program[at + 6] = r; program[at + 7] = g; program[at + 8] = b;
+    programLength = at + 9;
+  };
+  write = text(3, rawWrite);
+  systemWrite = text(2, rawSystemWrite);
+  if (rawComicWrite) comicWrite = text(0, rawComicWrite);
+  if (rawYwftWrite) ywftWrite = text(1, rawYwftWrite);
+}
+// A second view names its rectangle for the interpreter; the stage clears it.
+function emitFrameView(rect) {
+  if (!programBuffered) return;
+  programRoom(5);
+  const at = programLength;
+  program[at] = FRAME_VIEW;
+  program[at + 1] = rect ? rect.x : NaN; program[at + 2] = rect ? rect.y : 0;
+  program[at + 3] = rect ? rect.w : 0; program[at + 4] = rect ? rect.h : 0;
+  programLength = at + 5;
+}
+// Immediate DISC and CAPSULE, for the hosts that run the ops here: the fans
+// filledDisc and filledCapsule always drew, now behind the same op shape the
+// interpreter reads. Buffered, the op crosses whole and the host fans it.
+function emitDisc(x, y, radius, r, g, b) {
+  if (!programBuffered) return false;
+  programRoom(8);
+  const at = programLength;
+  program[at] = FRAME_DISC; program[at + 1] = x; program[at + 2] = y;
+  program[at + 3] = triangleDepth; program[at + 4] = radius; program[at + 5] = r;
+  program[at + 6] = g; program[at + 7] = b;
+  programLength = at + 8;
+  return true;
+}
+function emitCapsule(x1, y1, x2, y2, width, r, g, b) {
+  if (!programBuffered) return false;
+  programRoom(10);
+  const at = programLength;
+  program[at] = FRAME_CAPSULE; program[at + 1] = x1; program[at + 2] = y1;
+  program[at + 3] = x2; program[at + 4] = y2; program[at + 5] = triangleDepth;
+  program[at + 6] = width; program[at + 7] = r; program[at + 8] = g;
+  program[at + 9] = b;
+  programLength = at + 10;
+  return true;
+}
+// ---------------------------------------------------------------------------
 // A match frame submits ~2100 faces. Buffering them into a Float32Array first
 // cost 5.7ms a frame where handing each one straight over costs 1.8ms —
 // twelve typed-array element writes in QuickJS are dearer than twelve
@@ -2197,7 +2366,7 @@ const triangleSafe = (value) => value > -32200 && value < 32200;
 function screenTriangle(x1, y1, x2, y2, x3, y3, r = 255, g = 255, b = 255) {
   if (!(triangleSafe(x1) && triangleSafe(y1) && triangleSafe(x2) &&
       triangleSafe(y2) && triangleSafe(x3) && triangleSafe(y3))) return;
-  if (clipView) { scissorTriangle(x1, y1, x2, y2, x3, y3, r, g, b); return; }
+  if (clipView && !programBuffered) { scissorTriangle(x1, y1, x2, y2, x3, y3, r, g, b); return; }
   emitTriangle(x1, y1, triangleDepth, x2, y2, triangleDepth,
     x3, y3, triangleDepth, r, g, b);
 }
@@ -13706,6 +13875,7 @@ const discRingFor = (radius) => discRings[
     : radius < 52 ? 3 : radius < 110 ? 4 : 5];
 
 function filledDisc(x, y, radius, color) {
+  if (emitDisc(x, y, radius, color[0], color[1], color[2])) return;
   // A native fan cannot be scissored, so a second view fans in JS.
   if(nativeDisc && !clipView){nativeDisc(x,y,triangleDepth,radius,color[0],color[1],color[2]);return;}
   const [r, g, b] = color;
@@ -13757,6 +13927,7 @@ function stroke(x1, y1, x2, y2, width, color) {
 
 const capsuleArcs=Object.fromEntries([3,4,6,8,12].map(n=>[n,Array.from({length:n+1},(_,i)=>[Math.cos(i*Math.PI/n),Math.sin(i*Math.PI/n)]).flat()]));
 function filledCapsule(x1, y1, x2, y2, width, color) {
+  if (emitCapsule(x1, y1, x2, y2, width, color[0], color[1], color[2])) return;
   if(nativeCapsule && !clipView){nativeCapsule(x1,y1,x2,y2,triangleDepth,width,color[0],color[1],color[2]);return;}
   if (consoleHost() && width <= 3 && Math.abs(x2-x1)+Math.abs(y2-y1) > 1) {
     stroke(x1,y1,x2,y2,width,color); return;
@@ -21032,23 +21203,31 @@ function sim() {
 }
 
 function paint() {
-  if (clientError) {
-    try { drawClientError(); }
-    catch (_) { drawClientErrorFallback(); }
-    return;
-  }
-  const restore = beginRenderInterpolation(runtime().renderAlpha ?? 1);
-  sharingRenderPoses = true;
+  programBuffered = hostFrame !== null;
+  programLength = 0;
+  programStrings.length = 0;
   try {
-    gamePaint();
-  } catch (error) {
-    captureClientError("paint", error);
-    try { drawClientError(); }
-    catch (_) { drawClientErrorFallback(); }
+    if (clientError) {
+      try { drawClientError(); }
+      catch (_) { drawClientErrorFallback(); }
+      return;
+    }
+    const restore = beginRenderInterpolation(runtime().renderAlpha ?? 1);
+    sharingRenderPoses = true;
+    try {
+      gamePaint();
+    } catch (error) {
+      captureClientError("paint", error);
+      try { drawClientError(); }
+      catch (_) { drawClientErrorFallback(); }
+    } finally {
+      sharingRenderPoses = false;
+      renderPoses.clear();
+      restore();
+    }
   } finally {
-    sharingRenderPoses = false;
-    renderPoses.clear();
-    restore();
+    // One handover per paint: the program the host runs is this paint's.
+    try { flushFrameProgram(); } finally { programBuffered = false; }
   }
 }
 function act() {}

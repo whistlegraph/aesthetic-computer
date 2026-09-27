@@ -136,6 +136,7 @@ final class BundleSchemeHandler: NSObject, WKURLSchemeHandler {
         "/frame-driver.mjs": ("frame-driver", "mjs"),
         "/scene3d-webgl.mjs": ("scene3d-webgl", "mjs"),
         "/scene3d.mjs": ("scene3d", "mjs"),
+        "/frame-vm.mjs": ("frame-vm", "mjs"),
         "/round-room.mjs": ("round-room", "mjs"),
         "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs": ("qr", "mjs"),
         "/aesthetic.computer/lib/product-analytics.mjs": ("product-analytics", "mjs"),

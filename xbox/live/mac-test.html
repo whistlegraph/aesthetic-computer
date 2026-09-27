@@ -38,6 +38,7 @@
   <link rel="modulepreload" href="/oskiewar-midi.mjs">
   <link rel="modulepreload" href="/frame-driver.mjs">
   <link rel="modulepreload" href="/scene3d-webgl.mjs">
+  <link rel="modulepreload" href="/frame-vm.mjs">
   <link rel="modulepreload" href="/scene3d.mjs">
   <link rel="modulepreload" href="/render-quality.mjs">
   <link rel="modulepreload" href="/photo-theme.mjs">
@@ -1018,7 +1019,7 @@
         // without the shell's scene binding.
         version: "CROSS-PLATFORM",
         graphics: typeof scene !== "undefined" && scene ? "WEBGL2" : "CANVAS2D",
-        audio: "WEB AUDIO" };
+        frameProgram: 1, audio: "WEB AUDIO" };
     }
 
     async function readLocalCountry() {
@@ -1548,6 +1549,9 @@
       saveReplay, publishLive, ac, drum, wipe, box, line, triangle,
       write, systemWrite, comicWrite, gameView, flushFaces, canvasContext: context,
       attachScene, beginPaint, presentScene, triangle3d: undefined,
+      // The frame program: the module script installs the interpreter here
+      // once the drawing functions it runs against are settled.
+      frame: undefined,
     };
   </script>
   <script type="module">
@@ -1556,6 +1560,7 @@
     import createOskiewarMidi from "/oskiewar-midi.mjs";
     import createFrameDriver from "/frame-driver.mjs";
     import WebGLOskiewarScene3D from "/scene3d-webgl.mjs";
+    import { createFrameVm } from "/frame-vm.mjs";
     import { renderSurface, nextResolutionScale } from "/render-quality.mjs";
     import createPhotoTheme from "/photo-theme.mjs";
     import mountAccount from "/account.mjs";
@@ -1763,6 +1768,23 @@
     const requestedGraphics = new URLSearchParams(location.search).get("graphics");
     globalThis.__oskiewarGraphicsTheme =
       requestedGraphics === "flat" || sceneAttached ? "flat" : "photorealistic";
+    // The game paints as one program per frame and this shell runs it. The
+    // interpreter draws with the same functions the game used to call
+    // directly, so the strata (CPU layer, depth scene, text) are unchanged.
+    // `?frame=off` keeps the per-call path for comparison.
+    if (new URLSearchParams(location.search).get("frame") !== "off") {
+      const host = globalThis.__fightHost;
+      globalThis.__oskiewarFrameVm = createFrameVm({
+        triangle3d: host.triangle3d, triangle: host.triangle, box: host.box,
+        line: host.line, wipe: host.wipe, write: host.write,
+        systemWrite: host.systemWrite, comicWrite: host.comicWrite,
+      });
+      const run = globalThis.__oskiewarFrameVm.run;
+      host.frame = (program, length, strings) => {
+        globalThis.__oskiewarProgramLength = length;
+        run(program, length, strings);
+      };
+    }
     const photoTheme = createPhotoTheme(globalThis.__fightHost.canvasContext,
       globalThis.__fightHost.flushFaces);
     Object.assign(globalThis.__fightHost, photoTheme);
@@ -1779,11 +1801,11 @@
       const piece = new Function(
         "runtime", "gamepad", "controllers", "capabilities", "telemetry",
         "gameSignal", "saveReplay", "publishLive", "analytics", "ac", "drum", "wipe", "box",
-        "line", "triangle", "triangle3d", "write", "systemWrite", "comicWrite", "gameView", "themeReady", "themeAssetReady", "themeSprite", "themeQuad", "themeLighting",
+        "line", "triangle", "triangle3d", "frame", "write", "systemWrite", "comicWrite", "gameView", "themeReady", "themeAssetReady", "themeSprite", "themeQuad", "themeLighting",
         `${source}\nreturn { boot, sim, paint };`
       )(...["runtime", "gamepad", "controllers", "capabilities", "telemetry",
         "gameSignal", "saveReplay", "publishLive", "analytics", "ac", "drum", "wipe", "box",
-        "line", "triangle", "triangle3d", "write", "systemWrite", "comicWrite", "gameView", "themeReady", "themeAssetReady", "themeSprite", "themeQuad", "themeLighting"]
+        "line", "triangle", "triangle3d", "frame", "write", "systemWrite", "comicWrite", "gameView", "themeReady", "themeAssetReady", "themeSprite", "themeQuad", "themeLighting"]
         .map((name) => globalThis.__fightHost[name]));
       piece.boot();
       performance.mark("oskiewar:booted");

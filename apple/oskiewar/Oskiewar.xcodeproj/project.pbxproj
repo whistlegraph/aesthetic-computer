@@ -18,6 +18,7 @@
 		7729C117BEC5343C9CB8BAFC /* oskiewar-midi.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 26C7F4ADC37CB30558AAE696 /* oskiewar-midi.mjs */; };
 		7D438ADCB6BECAD5D0E6C8F7 /* MetalSceneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 812FA65365747604E58B98E7 /* MetalSceneView.swift */; };
 		82A4DA7DFB26C3E87F9AB609 /* oskiewar.js in Resources */ = {isa = PBXBuildFile; fileRef = AB2FCD0A93F17F907A54302C /* oskiewar.js */; };
+		92EDCBE6EFA5565DACCF8DC1 /* frame-vm.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 06F9EDFF9B652891C2F4DB20 /* frame-vm.mjs */; };
 		98991A7AC85B7CAE426E8D15 /* qr.mjs in Resources */ = {isa = PBXBuildFile; fileRef = A50E50A82D3F715FB8B31490 /* qr.mjs */; };
 		B93964796DBF64A171DD9439 /* GlyphAtlas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59BD48D8076F347B7FF9A774 /* GlyphAtlas.swift */; };
 		C0C46FBB6805F1A1E055FED7 /* OskiewarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43902C050551AD2D6DA0EF9 /* OskiewarApp.swift */; };
@@ -28,6 +29,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		06F9EDFF9B652891C2F4DB20 /* frame-vm.mjs */ = {isa = PBXFileReference; path = "frame-vm.mjs"; sourceTree = "<group>"; };
 		179EE75D06881E64B8C2C164 /* ComicRelief-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ComicRelief-Regular.ttf"; sourceTree = "<group>"; };
 		26C7F4ADC37CB30558AAE696 /* oskiewar-midi.mjs */ = {isa = PBXFileReference; path = "oskiewar-midi.mjs"; sourceTree = "<group>"; };
 		2E725A92F239CBD5114A9A1E /* oskiewar-sfx.mjs */ = {isa = PBXFileReference; path = "oskiewar-sfx.mjs"; sourceTree = "<group>"; };
@@ -106,6 +108,7 @@
 			isa = PBXGroup;
 			children = (
 				4C7C4D62E6C706C3AB30BB3B /* frame-driver.mjs */,
+				06F9EDFF9B652891C2F4DB20 /* frame-vm.mjs */,
 				8265144AA3E23B010A51E65A /* mac-test.html */,
 				26C7F4ADC37CB30558AAE696 /* oskiewar-midi.mjs */,
 				2E725A92F239CBD5114A9A1E /* oskiewar-sfx.mjs */,
@@ -191,6 +194,7 @@
 				4D00E7B7BFD0CDAA972C6F12 /* ComicRelief-Regular.ttf in Resources */,
 				FE65C7B80AB35953E40AA8A7 /* PrivacyInfo.xcprivacy in Resources */,
 				F10250364FF369A809057B31 /* frame-driver.mjs in Resources */,
+				92EDCBE6EFA5565DACCF8DC1 /* frame-vm.mjs in Resources */,
 				6F079803CD79934E3D119B92 /* mac-test.html in Resources */,
 				359F92BBF72AEE001B8BFD71 /* oskiewar-analytics.mjs in Resources */,
 				7729C117BEC5343C9CB8BAFC /* oskiewar-midi.mjs in Resources */,
