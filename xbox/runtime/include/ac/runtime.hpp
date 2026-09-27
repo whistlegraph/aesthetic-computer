@@ -265,6 +265,13 @@ struct Api {
   // Fixed Oskiewar relay only, bounded packets, drained on the JS thread.
   std::function<bool(std::string_view, std::string_view)> net_send = {};
   std::function<std::vector<std::string>()> net_poll = {};
+  // Screen-space post settings the piece may steer each frame, all validated
+  // by the binding: focus band centre, half-height and feather (0..1 of the
+  // screen), tilt-shift radius in pixels, camera motion blur in pixels.
+  struct PostEffects {
+    float focus_y = .5f, band = 1.f, feather = .2f, tilt_px = 0.f;
+    float motion_x = 0.f, motion_y = 0.f;
+  } post_effects;
 };
 
 class Piece {

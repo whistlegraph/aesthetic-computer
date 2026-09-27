@@ -677,6 +677,25 @@ JSValue OskiewarNetPoll(JSContext* context, JSValueConst, int, JSValueConst*) {
   return result;
 }
 
+// postEffects(focusY, band, feather, tiltPx, motionX, motionY). The shader
+// keeps the HUD depth sharp; this only steers the world's blur for the frame.
+JSValue PostEffectsSet(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || argc < 6) return JS_ThrowTypeError(context, "postEffects requires 6 numbers");
+  double v[6]{};
+  for (int i = 0; i < 6; ++i)
+    if (JS_ToFloat64(context, &v[i], argv[i]) || !std::isfinite(v[i]))
+      return JS_ThrowRangeError(context, "postEffects values must be finite");
+  auto& post = scope->api->post_effects;
+  post.focus_y = static_cast<float>(std::clamp(v[0], 0.0, 1.0));
+  post.band = static_cast<float>(std::clamp(v[1], 0.0, 1.0));
+  post.feather = static_cast<float>(std::clamp(v[2], 0.01, 1.0));
+  post.tilt_px = static_cast<float>(std::clamp(v[3], 0.0, 16.0));
+  post.motion_x = static_cast<float>(std::clamp(v[4], -48.0, 48.0));
+  post.motion_y = static_cast<float>(std::clamp(v[5], -48.0, 48.0));
+  return JS_TRUE;
+}
+
 JSValue RuntimeInfo(JSContext* context, JSValueConst, int, JSValueConst*) {
   auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
   if (!scope || !scope->api) return JS_EXCEPTION;
@@ -975,6 +994,7 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "oskiewarNetSend", JS_NewCFunction(context_, OskiewarNetSend, "oskiewarNetSend", 2));
     JS_SetPropertyStr(context_, global, "oskiewarNetPoll", JS_NewCFunction(context_, OskiewarNetPoll, "oskiewarNetPoll", 0));
     JS_SetPropertyStr(context_, global, "runtime", JS_NewCFunction(context_, RuntimeInfo, "runtime", 0));
+    JS_SetPropertyStr(context_, global, "postEffects", JS_NewCFunction(context_, PostEffectsSet, "postEffects", 6));
     JS_SetPropertyStr(context_, global, "gamepad", JS_NewCFunction(context_, GamepadState, "gamepad", 1));
     JS_SetPropertyStr(context_, global, "controllers", JS_NewCFunction(context_, Controllers, "controllers", 0));
     JS_SetPropertyStr(context_, global, "capabilities", JS_NewCFunction(context_, Capabilities, "capabilities", 0));

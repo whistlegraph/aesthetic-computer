@@ -1,11 +1,38 @@
 Texture2D sceneTexture : register(t0);
+Texture2D<float> depthTexture : register(t1);
 SamplerState sceneSampler : register(s0);
 
 cbuffer PostConstants : register(b0) {
   float2 texel;
   float timeSeconds;
   float stencilPass;
+  float focusY;   // centre of the sharp band, 0 top .. 1 bottom
+  float band;     // half-height of the sharp band
+  float feather;  // distance over which blur ramps to full
+  float tiltPx;   // full tilt-shift radius in pixels
+  float2 motion;  // camera travel this frame, pixels
+  float hudDepth; // depth at or in front of which pixels are HUD and stay sharp
+  float pad;
 };
+
+// Twelve taps on a golden-angle spiral: a soft disc without a second pass.
+float3 discBlur(float2 uv, float radiusPx) {
+  float3 sum = 0;
+  [unroll] for (int i = 0; i < 12; ++i) {
+    const float r = sqrt((i + 0.5) / 12.0) * radiusPx;
+    const float a = i * 2.39996323;
+    sum += sceneTexture.Sample(sceneSampler, uv + float2(cos(a), sin(a)) * r * texel).rgb;
+  }
+  return sum / 12.0;
+}
+
+// Camera motion blur: eight taps across the frame's travel, centred.
+float3 motionBlur(float2 uv) {
+  float3 sum = 0;
+  [unroll] for (int i = 0; i < 8; ++i)
+    sum += sceneTexture.Sample(sceneSampler, uv + motion * texel * ((i + 0.5) / 8.0 - 0.5)).rgb;
+  return sum / 8.0;
+}
 
 struct PixelInput {
   float4 position : SV_POSITION;
@@ -53,6 +80,14 @@ float4 main(PixelInput input) : SV_TARGET {
     const float lmax = max(lc, max(max(lnw, lne), max(lsw, lse)));
     const float lb = dot(sampleB, weights);
     color = lb < lmin || lb > lmax ? sampleA : sampleB;
+  }
+  const bool hud = depthTexture.Load(int3(input.position.xy, 0)) <= hudDepth;
+  if (!hud) {
+    const float travel = length(motion);
+    if (travel > 0.75) color = lerp(color, motionBlur(input.uv), saturate(travel / 6.0));
+    const float away = abs(input.uv.y - focusY) - band;
+    const float tilt = tiltPx * smoothstep(0.0, feather, away);
+    if (tilt > 0.35) color = lerp(color, discBlur(input.uv, tilt), saturate(tilt / 2.0));
   }
   color = saturate(color * scan * vignette + dither / 255.0);
   return float4(color, 1.0);

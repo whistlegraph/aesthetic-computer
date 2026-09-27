@@ -49,6 +49,8 @@ struct GpuSpriteVertex {
 
 struct PostConstants {
   float texelX, texelY, timeSeconds, stencilPass;
+  float focusY, band, feather, tiltPx;
+  float motionX, motionY, hudDepth, pad;
 };
 
 static constexpr char kSmokePiece[] = R"JS(
@@ -770,12 +772,24 @@ private:
     depth.Height = m_frameHeight;
     depth.MipLevels = 1;
     depth.ArraySize = 1;
-    depth.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    // Typeless so the post pass can read depth: HUD triangles sit in front of
+    // every body, and the blur leaves them sharp.
+    depth.Format = DXGI_FORMAT_R24G8_TYPELESS;
     depth.SampleDesc.Count = 1;
-    depth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+    depth.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
     ComPtr<ID3D11Texture2D> depthTexture;
     Check(m_device->CreateTexture2D(&depth, nullptr, &depthTexture));
-    Check(m_device->CreateDepthStencilView(depthTexture.Get(), nullptr, &m_triangleDepthView));
+    D3D11_DEPTH_STENCIL_VIEW_DESC depthView{};
+    depthView.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    depthView.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+    Check(m_device->CreateDepthStencilView(depthTexture.Get(), &depthView, &m_triangleDepthView));
+    depthView.Flags = D3D11_DSV_READ_ONLY_DEPTH | D3D11_DSV_READ_ONLY_STENCIL;
+    Check(m_device->CreateDepthStencilView(depthTexture.Get(), &depthView, &m_triangleDepthReadOnly));
+    D3D11_SHADER_RESOURCE_VIEW_DESC depthRead{};
+    depthRead.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+    depthRead.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    depthRead.Texture2D.MipLevels = 1;
+    Check(m_device->CreateShaderResourceView(depthTexture.Get(), &depthRead, &m_triangleDepthRead));
 
     D3D11_DEPTH_STENCIL_DESC depthState{};
     depthState.DepthEnable = TRUE;
@@ -1115,7 +1129,7 @@ private:
     stencil.FrontFace.StencilFunc = D3D11_COMPARISON_EQUAL;
     stencil.BackFace = stencil.FrontFace;
     Check(m_device->CreateDepthStencilState(&stencil, &m_postStencilState));
-    LogTelemetry("AC_NATIVE_POST ready=1 filter=point effects=scan,dither,vignette geometryAA=fxaa stencil=d24s8");
+    LogTelemetry("AC_NATIVE_POST ready=1 filter=point effects=scan,dither,vignette,tiltshift,motionblur geometryAA=fxaa stencil=d24s8");
   }
 
   void UpdatePostConstants(float stencilPass) {
@@ -1123,8 +1137,12 @@ private:
     Check(m_context->Map(m_postConstants.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped));
     const float seconds = m_api ? static_cast<float>((m_api->clock.monotonic_us %
       1000000000ull) / 1000000.0) : 0.f;
+    const auto post = m_api ? m_api->post_effects : ac::xbox::Api::PostEffects{};
+    // HUD triangles are drawn at z <= -1.46; the depth pass maps (z + 1.5) / 3.
     *static_cast<PostConstants*>(mapped.pData) = {
-      1.f / m_frameWidth, 1.f / m_frameHeight, seconds, stencilPass};
+      1.f / m_frameWidth, 1.f / m_frameHeight, seconds, stencilPass,
+      post.focus_y, post.band, post.feather, post.tilt_px,
+      post.motion_x, post.motion_y, (-1.46f + 1.5f) / 3.f, 0.f};
     m_context->Unmap(m_postConstants.Get(), 0);
   }
 
@@ -1141,7 +1159,8 @@ private:
     m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     m_context->VSSetShader(m_postVertexShader.Get(), nullptr, 0);
     m_context->PSSetShader(m_postPixelShader.Get(), nullptr, 0);
-    m_context->PSSetShaderResources(0, 1, m_sceneView.GetAddressOf());
+    ID3D11ShaderResourceView* postInputs[] = {m_sceneView.Get(), m_triangleDepthRead.Get()};
+    m_context->PSSetShaderResources(0, 2, postInputs);
     m_context->PSSetSamplers(0, 1, m_pointSampler.GetAddressOf());
     m_context->PSSetConstantBuffers(0, 1, m_postConstants.GetAddressOf());
     m_context->RSSetState(m_triangleRasterState.Get());
@@ -1158,11 +1177,12 @@ private:
     UpdatePostConstants(1);
     m_context->PSSetSamplers(0, 1, m_linearSampler.GetAddressOf());
     m_context->OMSetDepthStencilState(m_postStencilState.Get(), 1);
+    // Read-only depth-stencil, so the same depth can be sampled for the HUD mask.
     m_context->OMSetRenderTargets(1, m_target.GetAddressOf(),
-      m_triangleDepthView.Get());
+      m_triangleDepthReadOnly.Get());
     m_context->Draw(3, 0);
-    ID3D11ShaderResourceView* nullView = nullptr;
-    m_context->PSSetShaderResources(0, 1, &nullView);
+    ID3D11ShaderResourceView* nullViews[] = {nullptr, nullptr};
+    m_context->PSSetShaderResources(0, 2, nullViews);
     m_context->OMSetDepthStencilState(nullptr, 0);
   }
 
@@ -2782,6 +2802,8 @@ private:
   ComPtr<ID3D11InputLayout> m_triangleInputLayout;
   ComPtr<ID3D11Buffer> m_triangleVertexBuffer;
   ComPtr<ID3D11DepthStencilView> m_triangleDepthView;
+  ComPtr<ID3D11DepthStencilView> m_triangleDepthReadOnly;
+  ComPtr<ID3D11ShaderResourceView> m_triangleDepthRead;
   ComPtr<ID3D11DepthStencilState> m_triangleDepthState;
   ComPtr<ID3D11RasterizerState> m_triangleRasterState;
   ComPtr<ID3D11VertexShader> m_spriteVertexShader;
