@@ -30,6 +30,13 @@ dependency cache already restores in about two seconds. These are clean native
 builds with a warm dependency cache; a fully cold dependency build was not
 measured.
 
+Applied September 27: gameplay-only changes now bypass AppVeyor through a
+native-input filter in `appveyor.yml`. JS continues to publish straight to the
+Xbox, without a Windows package. Generated photo atlases are optional again in
+clean builds; missing local `.rgba` files no longer fail packaging. A fleet
+Windows tower is currently offline, so it is not an available worker. No VM has
+been provisioned and no paid plan changed.
+
 Recommended changes, in order:
 
 1. Use live JS/shader delivery so those edits avoid native builds. Native build
