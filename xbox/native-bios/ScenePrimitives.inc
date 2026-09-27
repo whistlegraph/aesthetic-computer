@@ -14,8 +14,8 @@ struct SceneFloats {
     data=reinterpret_cast<const float*>(bytes+off);count=len/4;return true;
   }
 };
-struct ScenePoint{double x,y,z,u=0,v=0;};
-static ScenePoint SceneMix(ScenePoint a,ScenePoint b,double t){return {a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t,a.z+(b.z-a.z)*t,a.u+(b.u-a.u)*t,a.v+(b.v-a.v)*t};}
+struct ScenePoint{double x,y,z,u=0,v=0,q=1;};
+static ScenePoint SceneMix(ScenePoint a,ScenePoint b,double t){return {a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t,a.z+(b.z-a.z)*t,a.u+(b.u-a.u)*t,a.v+(b.v-a.v)*t,a.q+(b.q-a.q)*t};}
 template<class Distance> static std::vector<ScenePoint> SceneClip(const std::vector<ScenePoint>& in,Distance dist){
   std::vector<ScenePoint> out;out.reserve(in.size()+2);
   for(size_t i=0;i<in.size();i++){auto a=in[i],b=in[(i+1)%in.size()];double da=dist(a),db=dist(b);if(da>=0)out.push_back(a);if((da>=0)!=(db>=0))out.push_back(SceneMix(a,b,da/(da-db)));}
@@ -157,7 +157,13 @@ JSValue DecalMesh(JSContext* ctx,JSValueConst,int argc,JSValueConst* args){
   const auto* f=mesh.faces.data()+i;if(std::abs(f[8])<1e-8)continue;
   int n=4;for(int j=0;j<4;j++)a[j]=mesh.view[size_t(f[j])];
   n=SceneClipFixed(a,n,b,[&](const ScenePoint& p){return p.z-m[17];});if(n<3)continue;
-  for(int j=0;j<n;j++){a[j]=SceneProject(m,b[j]);a[j].z=(std::max)(-1.499,a[j].z-.0005);}
+  for(int j=0;j<n;j++){
+   a[j]=SceneProject(m,b[j]);a[j].z=(std::max)(-1.499,a[j].z-.0005);
+   // UV/depth and 1/depth interpolate linearly in screen space, including
+   // newly clipped vertices. The pixel shader restores the world-space UV.
+   a[j].q=m[16]>.999?1/b[j].z:1;
+   a[j].u*=a[j].q;a[j].v*=a[j].q;
+  }
   n=SceneClipFixed(a,n,b,[&](const ScenePoint& p){return p.x-m[18];});if(n<3)continue;
   n=SceneClipFixed(b,n,a,[&](const ScenePoint& p){return m[20]-p.x;});if(n<3)continue;
   n=SceneClipFixed(a,n,b,[&](const ScenePoint& p){return p.y-m[19];});if(n<3)continue;
@@ -166,7 +172,7 @@ JSValue DecalMesh(JSContext* ctx,JSValueConst,int argc,JSValueConst* args){
    const auto& p=a[0];const auto& q=a[j];const auto& r=a[j+1];
    g.decal_triangle({float(p.x),float(p.y),float(p.z),float(p.u),float(p.v),
     float(q.x),float(q.y),float(q.z),float(q.u),float(q.v),
-    float(r.x),float(r.y),float(r.z),float(r.u),float(r.v),{255,255,255,255}});emitted++;
+    float(r.x),float(r.y),float(r.z),float(r.u),float(r.v),{255,255,255,255},float(p.q),float(q.q),float(r.q)});emitted++;
   }
  }return JS_NewInt32(ctx,emitted);
 }

@@ -4,9 +4,10 @@ struct PixelInput {
   float4 position : SV_POSITION;
   float2 uv : TEXCOORD0;
   float4 color : COLOR0;
+  float reciprocalDepth : TEXCOORD1;
 };
 float4 main(PixelInput input) : SV_TARGET {
-  const float4 sprite = spriteAtlas.Sample(linearSampler, input.uv);
+  const float4 sprite = spriteAtlas.Sample(linearSampler, input.uv / max(input.reciprocalDepth, 0.000001));
   clip(sprite.a - (1.0 / 255.0));
   return float4(input.color.rgb * sprite.rgb, input.color.a * sprite.a);
 }

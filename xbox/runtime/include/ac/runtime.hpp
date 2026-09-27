@@ -57,6 +57,7 @@ struct TexturedTriangle {
   float x2, y2, z2, u2, v2;
   float x3, y3, z3, u3, v3;
   Color color;
+  float q1 = 1, q2 = 1, q3 = 1;
 };
 struct Sprite { float x, y, z, size; Color color; std::uint8_t frame = 0; };
 struct ThemeSprite {

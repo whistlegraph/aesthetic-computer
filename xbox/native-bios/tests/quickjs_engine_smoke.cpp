@@ -196,6 +196,9 @@ int main() {
   assert(retainedDecals && error.empty());retainedDecals->paint(api);
   assert(graphics.decalTriangles==4);
   assert(graphics.lastDecal.u1==0 && graphics.lastDecal.v1==0);
+  assert(std::abs(graphics.lastDecal.q1-.05f)<1e-6f);
+  assert(std::abs(graphics.lastDecal.q3-.025f)<1e-6f);
+  assert(std::abs(graphics.lastDecal.v3/graphics.lastDecal.q3-1.f)<1e-6f);
   graphics.themeAvailable = false;
   auto unavailable = engine.compile({"missing-theme", "test", R"JS(
     function paint() { if (themeReady() || themeAssetReady(2) || themeSprite(0,0,0,1,1,0,0,1,1,0,false,0)) throw Error('missing theme must fall back'); }

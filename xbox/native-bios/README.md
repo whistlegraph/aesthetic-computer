@@ -38,6 +38,10 @@ fixed mesh rather than elapsed riding time. The CPU canvas and GPU texture
 each use 16 MiB. Marks survive rider resets; changing maps or reloading the
 piece starts a new surface.
 
+Revision 54 carries reciprocal view depth with decal UVs through clipping
+and rasterization, so perspective camera movement keeps the texture attached
+to the pool instead of warping it across screen-space triangles.
+
 The photo-disc service recursively searches mounted removable volumes for
 `.jpg`, `.jpeg`, `.jpe`, `.png`, `.tif`, `.tiff`, and `.pcd`. It keeps WinRT
 `StorageFile` objects and paths inside the native host, bounds discovery to

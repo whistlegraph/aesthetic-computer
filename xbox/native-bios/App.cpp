@@ -53,6 +53,7 @@ struct GpuSpriteVertex {
   float x, y, z;
   float u, v;
   float r, g, b, a;
+  float reciprocalDepth = 1;
 };
 
 struct PostConstants {
@@ -936,6 +937,8 @@ private:
         D3D11_INPUT_PER_VERTEX_DATA, 0},
       {"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 20,
         D3D11_INPUT_PER_VERTEX_DATA, 0},
+      {"TEXCOORD", 1, DXGI_FORMAT_R32_FLOAT, 0, 36,
+        D3D11_INPUT_PER_VERTEX_DATA, 0},
     };
     Check(m_device->CreateInputLayout(elements, ARRAYSIZE(elements), vertexBytes.data(),
       vertexBytes.size(), &m_spriteInputLayout));
@@ -1094,18 +1097,18 @@ private:
     auto* output = static_cast<GpuSpriteVertex*>(mapped.pData);
     std::size_t count = 0;
     const auto append = [&output, &count](float x, float y, float z, float u, float v,
-        Color color) {
+        Color color, float reciprocalDepth) {
       output[count++] = {x / 960.f - 1.f, 1.f - y / 540.f,
         (std::max)(0.f, (std::min)(1.f, (z + 1.5f) / 3.f)), u, v,
-        color.r / 255.f, color.g / 255.f, color.b / 255.f, color.a / 255.f};
+        color.r / 255.f, color.g / 255.f, color.b / 255.f, color.a / 255.f, reciprocalDepth};
     };
     for (const auto& triangle : triangles) {
       append(triangle.x1, triangle.y1, triangle.z1, triangle.u1, triangle.v1,
-        triangle.color);
+        triangle.color, triangle.q1);
       append(triangle.x2, triangle.y2, triangle.z2, triangle.u2, triangle.v2,
-        triangle.color);
+        triangle.color, triangle.q2);
       append(triangle.x3, triangle.y3, triangle.z3, triangle.u3, triangle.v3,
-        triangle.color);
+        triangle.color, triangle.q3);
     }
     m_context->Unmap(m_spriteVertexBuffer.Get(), 0);
     const UINT stride = sizeof(GpuSpriteVertex), offset = 0;
