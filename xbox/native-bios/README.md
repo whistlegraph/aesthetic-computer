@@ -198,3 +198,7 @@ archive with SHA-256:
 Only the four core library translation units and their generated headers are
 vendored; the CLI and libc bindings are deliberately excluded. QuickJS-ng is
 MIT licensed; its unmodified license is included beside the source.
+
+Revision 55 adds `skateAudio(speed, volume)`, a separate persistent wheel-rumble
+voice. Speed is normalized 0–1 and volume is clamped 0–0.5; zero mutes it.
+The synthesized loop is allocated once per sample rate, alongside the motor.

@@ -6,6 +6,7 @@
 #include "OskiewarAccountService.hpp"
 #include "../runtime/include/ac/image_effects.hpp"
 #include "../runtime/include/ac/glass_sound.hpp"
+#include "../runtime/include/ac/skate_sound.hpp"
 #include "../runtime/include/ac/decal_atlas.hpp"
 #include "../runtime/include/ac/decal_surface.hpp"
 #include "../runtime/include/ac/theme_assets.hpp"
@@ -306,6 +307,7 @@ class HostSound final : public Sound {
   std::function<void()> on_stop;
   std::function<void(float, float)> on_oscillator;
   std::function<void()> on_oscillator_stop;
+  std::function<void(float, float)> on_skate_audio;
   std::function<void(std::string_view, float, float)> on_drum;
   std::function<int()> get_rate;
   void synth(const SynthVoice& voice) override { if (on_synth) on_synth(voice); }
@@ -314,6 +316,7 @@ class HostSound final : public Sound {
   void oscillator(float frequency, float volume) override {
     if (on_oscillator) on_oscillator(frequency, volume);
   }
+  void skate_audio(float speed, float volume) override { if (on_skate_audio) on_skate_audio(speed, volume); }
   void oscillator_stop() override { if (on_oscillator_stop) on_oscillator_stop(); }
   void drum(std::string_view name, float velocity, float pan) override {
     if (on_drum) on_drum(name, velocity, pan);
@@ -439,6 +442,7 @@ public:
     };
     m_sound->on_synth = [this](const SynthVoice& voice) { PlaySynth(voice); };
     m_sound->on_stop = [this]() {
+      if (m_skateVoice) m_skateVoice->SetVolume(0);
       if (m_voice) { m_voice->Stop(0); m_voice->FlushSourceBuffers(); }
       for (auto* voice : m_glassVoices) if (voice) {
         voice->Stop(0); voice->FlushSourceBuffers();
@@ -446,6 +450,11 @@ public:
     };
     m_sound->on_oscillator = [this](float frequency, float volume) {
       SetOscillator(frequency, volume);
+    };
+    m_sound->on_skate_audio = [this](float speed, float volume) {
+      if (!m_skateVoice) return;
+      m_skateVoice->SetFrequencyRatio(.55f + speed * 1.35f);
+      m_skateVoice->SetVolume(volume);
     };
     m_sound->on_oscillator_stop = [this]() { StopOscillator(); };
     m_sound->on_drum = [this](std::string_view name, float velocity, float pan) {
@@ -1279,6 +1288,15 @@ private:
     Check(m_audio->CreateSourceVoice(&m_oscVoice, &format, 0, 64.0f));
     for (auto& voice : m_glassVoices)
       Check(m_audio->CreateSourceVoice(&voice, &format, 0, XAUDIO2_DEFAULT_FREQ_RATIO));
+    Check(m_audio->CreateSourceVoice(&m_skateVoice, &format, 0, 2.0f));
+    m_skateSamples = synthesize_skate_roll(sampleRate);
+    XAUDIO2_BUFFER skateBuffer{};
+    skateBuffer.AudioBytes = static_cast<UINT32>(m_skateSamples.size() * sizeof(int16_t));
+    skateBuffer.pAudioData = reinterpret_cast<const BYTE*>(m_skateSamples.data());
+    skateBuffer.LoopCount = XAUDIO2_LOOP_INFINITE;
+    Check(m_skateVoice->SubmitSourceBuffer(&skateBuffer));
+    Check(m_skateVoice->SetVolume(0));
+    Check(m_skateVoice->Start(0));
     m_glassSamples = synthesize_glass(sampleRate);
     m_glassShardSamples = synthesize_glass(sampleRate, true);
 
@@ -1314,6 +1332,7 @@ private:
   }
 
   void DestroyAudio() {
+    if (m_skateVoice) { m_skateVoice->DestroyVoice(); m_skateVoice = nullptr; }
     for (auto& voice : m_glassVoices) {
       if (voice) { voice->DestroyVoice(); voice = nullptr; }
     }
@@ -3059,6 +3078,8 @@ private:
   std::array<IXAudio2SourceVoice*, 4> m_glassVoices{};
   std::size_t m_nextGlassVoice = 0;
   std::vector<int16_t> m_glassSamples, m_glassShardSamples;
+  IXAudio2SourceVoice* m_skateVoice = nullptr;
+  std::vector<int16_t> m_skateSamples;
   std::vector<int16_t> m_samples;
   std::vector<int16_t> m_oscSamples;
   std::vector<uint32_t> m_cpuFrame;

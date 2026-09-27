@@ -128,6 +128,18 @@ JSValue Oscillator(JSContext* context, JSValueConst, int argc, JSValueConst* arg
   return JS_UNDEFINED;
 }
 
+JSValue SkateAudio(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  double speed = 0, volume = 0;
+  if (!scope || !scope->api || argc < 2 || JS_ToFloat64(context, &speed, argv[0]) ||
+      JS_ToFloat64(context, &volume, argv[1])) return JS_EXCEPTION;
+  if (!std::isfinite(speed) || !std::isfinite(volume))
+    return JS_ThrowRangeError(context, "skateAudio requires finite values");
+  scope->api->sound.skate_audio(static_cast<float>(std::max(0.0, std::min(1.0, speed))),
+    static_cast<float>(std::max(0.0, std::min(.5, volume))));
+  return JS_UNDEFINED;
+}
+
 JSValue OscillatorStop(JSContext* context, JSValueConst, int, JSValueConst*) {
   auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
   if (!scope || !scope->api) return JS_EXCEPTION;
@@ -984,6 +996,7 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "synth", JS_NewCFunction(context_, Synth, "synth", 2));
     JS_SetPropertyStr(context_, global, "drum", JS_NewCFunction(context_, Drum, "drum", 3));
     JS_SetPropertyStr(context_, global, "oscillator", JS_NewCFunction(context_, Oscillator, "oscillator", 2));
+    JS_SetPropertyStr(context_, global, "skateAudio", JS_NewCFunction(context_, SkateAudio, "skateAudio", 2));
     JS_SetPropertyStr(context_, global, "oscillatorStop", JS_NewCFunction(context_, OscillatorStop, "oscillatorStop", 0));
     JS_SetPropertyStr(context_, global, "write", JS_NewCFunction(context_, Write, "write", 7));
     JS_SetPropertyStr(context_, global, "box", JS_NewCFunction(context_, Box, "box", 7));

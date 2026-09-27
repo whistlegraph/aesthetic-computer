@@ -133,6 +133,7 @@ class Sound {
   virtual int sample_rate() const = 0;
   virtual void oscillator(float, float) {}
   virtual void oscillator_stop() {}
+  virtual void skate_audio(float, float) {}
   virtual void drum(std::string_view, float = 1.0f, float = 0.0f) {}
 };
 
