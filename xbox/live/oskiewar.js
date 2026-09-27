@@ -2183,6 +2183,19 @@ function screenRect(x, y, width, height, color) {
 // body (bodies bottom out near -1.42; the shell maps (z + 1.5) / 3 into the
 // depth buffer, LESS_EQUAL). The web shell keeps box/line as they were.
 const nativeTrianglePass = typeof triangle3d === "function";
+// The other scene and text bindings, resolved the same way, once: a host
+// either has them at boot or never will, and a `typeof` on a hot path is a
+// global lookup the interpreter repeats for every capsule, disc and label.
+const nativeDisc = typeof disc3d === "function" ? disc3d : null;
+const nativeCapsule = typeof capsule3d === "function" ? capsule3d : null;
+const nativeSceneMesh = typeof sceneMesh === "function" ? sceneMesh : null;
+const nativeTriangles3d = typeof triangles3d === "function" ? triangles3d : null;
+const nativePostEffects = typeof postEffects === "function" ? postEffects : null;
+const hostComicWrite = typeof comicWrite === "function" ? comicWrite : null;
+const hostYwftWrite = typeof ywftWrite === "function" ? ywftWrite : null;
+const hostThemeReady = typeof themeReady === "function" ? themeReady : null;
+const hostThemeSprite = typeof themeSprite === "function" ? themeSprite : null;
+const hostThemeAssetReady = typeof themeAssetReady === "function" ? themeAssetReady : null;
 const hudDepth = -1.48;
 function hudBox(x, y, width, height, ...color) {
   if (!nativeTrianglePass) { box(x, y, width, height, ...color); return; }
@@ -13593,7 +13606,7 @@ const discRingFor = (radius) => discRings[
     : radius < 52 ? 3 : radius < 110 ? 4 : 5];
 
 function filledDisc(x, y, radius, color) {
-  if(typeof disc3d==="function"){disc3d(x,y,triangleDepth,radius,color[0],color[1],color[2]);return;}
+  if(nativeDisc){nativeDisc(x,y,triangleDepth,radius,color[0],color[1],color[2]);return;}
   const [r, g, b] = color;
   const ring = discRingFor(radius);
   const originX = x + ring[0] * radius, originY = y + ring[1] * radius;
@@ -13643,7 +13656,7 @@ function stroke(x1, y1, x2, y2, width, color) {
 
 const capsuleArcs=Object.fromEntries([3,4,6,8,12].map(n=>[n,Array.from({length:n+1},(_,i)=>[Math.cos(i*Math.PI/n),Math.sin(i*Math.PI/n)]).flat()]));
 function filledCapsule(x1, y1, x2, y2, width, color) {
-  if(typeof capsule3d==="function"){capsule3d(x1,y1,x2,y2,triangleDepth,width,color[0],color[1],color[2]);return;}
+  if(nativeCapsule){nativeCapsule(x1,y1,x2,y2,triangleDepth,width,color[0],color[1],color[2]);return;}
   if (consoleHost() && width <= 3 && Math.abs(x2-x1)+Math.abs(y2-y1) > 1) {
     stroke(x1,y1,x2,y2,width,color); return;
   }
@@ -13715,9 +13728,9 @@ function roundGraphicsTheme() {
 }
 function refreshPhotoTheme() {
   photoThemeActive = roundGraphicsTheme() === "photorealistic" &&
-    typeof themeReady === "function" && typeof themeSprite === "function" && themeReady();
-  photoEffectsActive = photoThemeActive && typeof themeAssetReady === "function" && themeAssetReady(2);
-  photoWeaponsActive = photoThemeActive && typeof themeAssetReady === "function" && themeAssetReady(3);
+    hostThemeReady !== null && hostThemeSprite !== null && hostThemeReady();
+  photoEffectsActive = photoThemeActive && hostThemeAssetReady !== null && hostThemeAssetReady(2);
+  photoWeaponsActive = photoThemeActive && hostThemeAssetReady !== null && hostThemeAssetReady(3);
 }
 const photoExplosionFrames = [[24,64,400,400],[462,53,400,400],
   [908,34,400,400],[1352,37,400,400],[37,458,400,400],
@@ -15784,9 +15797,8 @@ function handleWidth(handle, size) {
 
 function typeWrite(text, x, y, size, ...color) {
   const visibleText = String(text).toLowerCase();
-  if (typeof comicWrite === "function") comicWrite(visibleText, x, y, size, ...color);
-  else if (typeof ywftWrite === "function")
-    ywftWrite(visibleText, x, y, size, ...color);
+  if (hostComicWrite) hostComicWrite(visibleText, x, y, size, ...color);
+  else if (hostYwftWrite) hostYwftWrite(visibleText, x, y, size, ...color);
   else systemWrite(visibleText, x, y, size, ...color);
 }
 
@@ -20234,9 +20246,9 @@ function drawTitleHeadDoor(t, ink, suppressed) {
 // stays sharp in the shader. __oskiewarPost = false turns both off.
 let postCameraX = null, postCameraY = null;
 function steerPostEffects() {
-  if (typeof postEffects !== "function") return;
+  if (!nativePostEffects) return;
   const on = globalThis.__oskiewarPost !== false && shellMode === "GAME" && !selecting;
-  if (!on) { postCameraX = null; postEffects(.5, 1, .2, 0, 0, 0); return; }
+  if (!on) { postCameraX = null; nativePostEffects(.5, 1, .2, 0, 0, 0); return; }
   const scale = cameraScale();
   const moveX = postCameraX === null ? 0 : (cameraCenter - postCameraX) * scale * .6;
   const moveY = postCameraY === null ? 0 : (cameraCenterY - postCameraY) * scale * .6;
@@ -20246,7 +20258,7 @@ function steerPostEffects() {
     focus += projectPoint(p.x, p.y - 80, p.z || 0).y; count++;
   }
   const focusY = count ? clamp(focus / count / viewHeight, .15, .85) : .55;
-  postEffects(focusY, .16, .24, 4, clamp(moveX, -24, 24), clamp(moveY, -24, 24));
+  nativePostEffects(focusY, .16, .24, 4, clamp(moveX, -24, 24), clamp(moveY, -24, 24));
 }
 
 function gamePaint() {
@@ -21196,9 +21208,9 @@ function captureQuadMesh(draw){
 }
 function drawQuadMesh(mesh){
  if(!mesh)return;
- if(typeof sceneMesh==='function'){
+ if(nativeSceneMesh){
   const scale=cameraScale();for(const a of mesh.capsules||[])worldCapsule(a[0],a[1],a[2],a[3],a[4],a[5],a[6]*scale,a[7],a[8]);
-  const buffers=nativeMeshBuffers(mesh);sceneMesh(buffers.vertices,buffers.faces,mainNativeCamera());return;
+  const buffers=nativeMeshBuffers(mesh);nativeSceneMesh(buffers.vertices,buffers.faces,mainNativeCamera());return;
  }
  if(!mesh.bounds && mesh.vertices.length){
   const v=mesh.vertices;mesh.bounds={minX:Math.min(...v.map(p=>p.x)),maxX:Math.max(...v.map(p=>p.x)),minY:Math.min(...v.map(p=>p.y)),maxY:Math.max(...v.map(p=>p.y)),minZ:Math.min(...v.map(p=>p.z)),maxZ:Math.max(...v.map(p=>p.z))};
@@ -21426,11 +21438,11 @@ function drawSeatFirstPerson(){
  screenRect(rect.x,rect.y,w,h,[151,182,206]);
  // On the console the park meshes go straight to sceneMesh every frame; the
  // kids' fans are rebuilt at 30 Hz and replayed from the buffer in between.
- const nativeMeshes=typeof sceneMesh==='function' && typeof triangles3d==='function';
+ const nativeMeshes=nativeSceneMesh!==null && nativeTriangles3d!==null;
  const kidsDue=!nativeMeshes || !seatInsetBuffer || now>=seatInsetAt || seatInsetRect?.x!==rect.x;
  if(kidsDue){seatInsetAt=now+30000;seatInsetRect=rect;}
  rebuildSeatInset(rect,kidsDue);
- if(typeof triangles3d==='function' && seatInsetCount)triangles3d(seatInsetBuffer,seatInsetCount);
+ if(nativeTriangles3d && seatInsetCount)nativeTriangles3d(seatInsetBuffer,seatInsetCount);
  else if(seatInsetBuffer)for(let i=0;i<seatInsetCount*12;i+=12){const a=seatInsetBuffer;emitTriangle(a[i],a[i+1],a[i+2],a[i+3],a[i+4],a[i+5],a[i+6],a[i+7],a[i+8],a[i+9],a[i+10],a[i+11]);}
  triangleDepth=-1.499;screenRect(rect.x,rect.y+h-3,w,3,[255,145,194]);
  typeWrite('P1 VIEW',rect.x+9,rect.y+7,16,250,239,249);
@@ -21475,9 +21487,9 @@ function rebuildSeatInset(rect,kids=true){
    if(corners.every(p=>p.z<12)||corners.every(p=>p.z>3500))continue;
    if(corners.every(p=>p.z>=12) && (corners.every(p=>p.x*focal/p.z < -rect.w*.5)||corners.every(p=>p.x*focal/p.z > rect.w*.5)||corners.every(p=>p.y*focal/p.z < -rect.h*.5)||corners.every(p=>p.y*focal/p.z > rect.h*.5)))continue;
   }
-  if(typeof sceneMesh==='function'){
+  if(nativeSceneMesh){
    const buffers=nativeMeshBuffers(mesh),camera=new Float32Array([eye.x,eye.y,eye.z,-fz,0,fx,fx*.12,-1,fz*.12,fx,.12,fz,rect.x+rect.w*.5,rect.y+rect.h*.5,0,focal,1,12,rect.x,rect.y,rect.x+rect.w,rect.y+rect.h,-1.497,.000002,globalLight.x,globalLight.y,globalLight.z]);
-   sceneMesh(buffers.vertices,buffers.faces,camera);continue;
+   nativeSceneMesh(buffers.vertices,buffers.faces,camera);continue;
   }
   const vertices=mesh.vertices.map(local);
   const projected=vertices.map(p=>({x:rect.x+rect.w*.5+p.x*focal/Math.max(12,p.z),y:rect.y+rect.h*.5+p.y*focal/Math.max(12,p.z),z:-1.497+Math.min(p.z,6000)/6000*.012}));
