@@ -1,11 +1,10 @@
 #!/usr/bin/env node
-// daily-token.mjs — the daily episode, minted as a hic et nunc token.
+// daily-token.mjs — each day's podcast update, minted as a hic et nunc 1/1.
 //
-//   sketch  — one of @jeffrey's most-played KidLisp $codes, recolored for the
-//             day: `claude -p` reads the episode and picks the piece, palette
-//             and a word; the result is stored as a new $code on AC
-//   render  — the oven grabs the $code as an animated GIF (+ a PNG thumb);
-//             a blank or failed grab gets a second pick, then a date-seeded one
+//   page    — the episode's words set in AC's pixel font by a KidLisp piece,
+//             stored as a new $code on AC
+//   render  — the oven grabs the $code as an animated GIF; the thumbnail is
+//             one of its frames
 //   pin     — GIF, thumb and TZIP-21 metadata to AC's IPFS node (/api/ipfs-add)
 //   mint    — mint_OBJKT on the hic et nunc minter, signed by aesthetic.tez
 //   list    — an objkt ask for the whole edition
@@ -16,7 +15,7 @@
 // Usage:
 //   node bin/daily-token.mjs                      # today's episode
 //   node bin/daily-token.mjs --date 2026-09-26
-//   node bin/daily-token.mjs --dry                # sketch + render only; no pin/mint/list
+//   node bin/daily-token.mjs --dry                # page + render only; no pin/mint/list
 //
 // Secrets come from the environment or --env <file> (repeatable):
 //   AESTHETIC_KEY, AESTHETIC_ADDRESS   the signer (must be aesthetic.tez)
@@ -122,53 +121,46 @@ const buzz = resolve(ROOT, "out", `${slug}.buzzsprout.json`);
 const episodeUrl = existsSync(buzz) ? `${SHOW}/${JSON.parse(readFileSync(buzz, "utf8")).id}` : SHOW;
 console.log(`▸ ${slug}: "${title}"`);
 
-// ── 1. sketch ────────────────────────────────────────────────────────────
-// Freehand model KidLisp renders unevenly, so the day's sketch is a remix of
-// one of @jeffrey's own most-played $codes: the model reads the episode and
-// picks the piece, a three-color palette and a word; the forms stay proven.
-const REMIXES = {
-  roz: ({ a, b, c }) => `fade:${a}-${b}-black-${b}-${a} ink (? ${c} white 0) (1s... 24 64) line w/2 0 w/2 h (spin (2s... -1.125 1.125)) (zoom 1.1) (0.5s (contrast 1.05)) (scroll (? -0.1 0 0.1) (? -0.1 0 0.1)) ink (? ${a} ${b} ${c}) 8 circle w/2 h/2 (? 2 4 8)`,
-  ceo: ({ a, b }) => `(1s (coat fade:black-${a}-${b}-${a}-black:frame 64)) (0.3s (zoom 0.5)) (scroll 1)`,
-  air: ({ a, b, c }) => `fade:${a}-${b}-${a} ink (? ${c} ${b}) 32 line (0.15s (zoom 0.2)) scroll 1 0.25 (0.1s (contrast 1.01)) (0.5s (ink rainbow 96) (repeat 10 point))`,
-  inz: ({ a, word }) => `(${a}) (ink (0.25s... 127 0 rainbow)) (write "${word}" 3 3) (scroll 18 3) (blur 0.1) (1.25s (zoom (? 0.25 1.5)))`,
-};
-const COLORS = ["red", "orange", "yellow", "lime", "green", "cyan", "teal", "blue", "navy", "purple", "magenta", "pink", "salmon", "coral", "gold", "beige", "brown", "maroon", "olive", "white", "gray", "silver", "palegreen", "skyblue", "violet", "indigo", "turquoise", "crimson", "tomato", "orchid"];
+// ── 1. page ──────────────────────────────────────────────────────────────
+// The token's image is the update itself: the episode's words set in AC's
+// pixel font by a KidLisp piece (stored as a real $code), over a slow fade
+// whose colors turn with the date. KidLisp splits on commas even inside a
+// string and treats ; as a comment, so the text is cleaned to what survives.
+const GROUNDS = [
+  ["black", "navy", "yellow"], ["black", "maroon", "orange"], ["black", "teal", "lime"],
+  ["black", "indigo", "pink"], ["black", "olive", "gold"], ["black", "purple", "cyan"],
+  ["navy", "black", "skyblue"],
+];
+const COLS = 82; // characters per line at 512 px in the 6 px pixel font
 
-// A pick that doesn't need the model: stable per date, so reruns agree.
-function defaultPick() {
+const clean = (s) => s
+  .replace(/[\u2018\u2019]/g, "'").replace(/[\u2013\u2014]/g, "-")
+  .replace(/[,;"\\()]/g, "").replace(/[^\x20-\x7e]/g, "");
+
+function page() {
+  const lines = [];
+  for (const para of body.split(/\n\s*\n/)) {
+    let line = "";
+    for (const word of clean(para).split(/\s+/).filter(Boolean)) {
+      if (`${line} ${word}`.trim().length > COLS) { lines.push(line.trim()); line = word; }
+      else line += ` ${word}`;
+    }
+    lines.push(line.trim(), "");
+  }
+  while (lines.at(-1) === "") lines.pop();
+  const lineHeight = Math.min(11, Math.floor(470 / (lines.length + 2)));
+  const top = Math.max(6, Math.round((512 - (lines.length + 2) * lineHeight) / 2));
   let h = 0;
   for (const ch of date) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  const names = Object.keys(REMIXES);
-  return { piece: names[h % names.length], colors: [COLORS[h % 30], COLORS[(h >> 5) % 30], COLORS[(h >> 10) % 30]], word: title.split(/\s+/)[0] };
+  const [a, b, accent] = GROUNDS[h % GROUNDS.length];
+  return [
+    `(wipe fade:${a}-${b}-${a}:frame)`,
+    `(ink ${accent})`,
+    `(write "${clean(title)}" 6 ${top})`,
+    "(ink (2s... white silver white))",
+    ...lines.map((l, i) => (l ? `(write "${l}" 6 ${top + (i + 2) * lineHeight})` : "")).filter(Boolean),
+  ].join("\n");
 }
-
-function choose(feedback = "") {
-  const prompt = `Today's episode of "the daily" becomes a token: a remix of one of these
-KidLisp pieces by @jeffrey, recolored for the day. Pick the piece whose motion
-fits the episode's mood, three colors from the list, and one short word
-(max 12 letters, lowercase) from the episode.
-
-Pieces: roz (spinning radial lines, circles), ceo (slow scrolling color
-bands), air (drifting lines, sparkles), inz (a written word smeared into rainbow)
-
-Colors: ${COLORS.join(" ")}
-${feedback ? `\nThe previous pick failed to render (${feedback}); pick a different piece.\n` : ""}
-Print ONLY one line of JSON: {"piece":"...","colors":["...","...","..."],"word":"..."}
-
-Episode title: ${title}
-Episode script:
-${body}`;
-  const w = spawnSync("claude", ["-p", "--model", "sonnet", "--output-format", "text", "--tools", ""], {
-    input: prompt, encoding: "utf8", timeout: 240000, maxBuffer: 1 << 20,
-  });
-  try {
-    const pick = JSON.parse(w.stdout.match(/\{[\s\S]*\}/)[0]);
-    const ok = REMIXES[pick.piece] && pick.colors?.length === 3 && pick.colors.every((c) => COLORS.includes(c)) && /^[a-z]{1,12}$/.test(pick.word);
-    return ok ? pick : null;
-  } catch { return null; }
-}
-
-const remix = ({ piece, colors: [a, b, c], word }) => REMIXES[piece]({ a, b, c, word });
 
 async function store(source) {
   const headers = { "content-type": "application/json" };
@@ -179,10 +171,8 @@ async function store(source) {
   return j.code;
 }
 
-// A real 512² animated grab of a moving sketch runs to hundreds of KB or
-// more; flat renders (a transparent checkerboard, a still wash with a box —
-// why $r2f and $4bb, which need longer than a grab to develop, are out of
-// the pool) come in under ~150 KB.
+// A full page of text over a moving fade grabs to a couple of MB; a render
+// that failed (the transparent checkerboard, a bare wash) comes in far under.
 const MIN_GIF_BYTES = 300_000;
 async function grab(code, format, size, query) {
   const url = `${OVEN}/grab/${format}/${size}/${size}/$${code}?${new URLSearchParams({ skipCache: "true", ...query })}`;
@@ -193,26 +183,27 @@ async function grab(code, format, size, query) {
 }
 
 if (!receipt.code) {
-  let pick = null, source = null, code = null, gif = null, feedback = "";
-  for (let attempt = 0; attempt < 3 && !gif; attempt++) {
-    pick = (attempt < 2 && choose(feedback)) || defaultPick();
-    source = remix(pick);
-    console.log(`  sketch ${attempt + 1}: $${pick.piece} in ${pick.colors.join("/")} "${pick.word}"`);
+  const source = page();
+  const code = await store(source);
+  console.log(`  page stored as $${code} — rendering…`);
+  let gif = null;
+  for (let attempt = 1; attempt <= 3 && !gif; attempt++) {
     try {
-      code = await store(source);
-      console.log(`  stored $${code} — rendering…`);
-      const bytes = await grab(code, "gif", 512, { duration: "6000", fps: "10" });
-      if (bytes.length < MIN_GIF_BYTES) { feedback = `it rendered blank or still (${bytes.length} bytes)`; console.log(`  ✗ ${feedback}`); continue; }
-      gif = bytes;
+      const bytes = await grab(code, "gif", 512, { duration: "4000", fps: "8" });
+      if (bytes.length >= MIN_GIF_BYTES) gif = bytes;
+      else console.log(`  ✗ attempt ${attempt}: rendered blank (${bytes.length} bytes)`);
     } catch (e) {
-      feedback = e.message;
-      console.log(`  ✗ ${feedback}`);
+      console.log(`  ✗ attempt ${attempt}: ${e.message}`);
     }
   }
-  if (!gif) { console.error("✗ no sketch rendered; refusing to mint"); process.exit(1); }
-  writeFileSync(resolve(dailyDir, `${slug}.gif`), gif);
-  writeFileSync(resolve(dailyDir, `${slug}-thumb.png`), await grab(code, "png", 256, {}));
-  Object.assign(receipt, { code, source, remixOf: pick.piece, gifBytes: gif.length });
+  if (!gif) { console.error("✗ the page didn't render; refusing to mint"); process.exit(1); }
+  const gifPath = resolve(dailyDir, `${slug}.gif`);
+  writeFileSync(gifPath, gif);
+  // The thumbnail is a frame of the GIF: the oven's PNG grab can land before
+  // a static-ish piece has painted.
+  const t = spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-i", gifPath, "-vf", "select=eq(n\\,12),scale=256:256:flags=area", "-frames:v", "1", resolve(dailyDir, `${slug}-thumb.png`)]);
+  if (t.status !== 0) { console.error(`✗ thumbnail: ${t.stderr}`); process.exit(1); }
+  Object.assign(receipt, { code, source, gifBytes: gif.length });
   save();
   console.log(`  ✓ $${code} rendered (${(gif.length / 1024).toFixed(0)} KB) → out/daily/${slug}.gif`);
 }
@@ -241,9 +232,9 @@ if (!receipt.metadataUri) {
   const artifactUri = await pinFile(resolve(dailyDir, `${slug}.gif`), `${slug}.gif`, "image/gif");
   const thumbnailUri = await pinFile(resolve(dailyDir, `${slug}-thumb.png`), `${slug}-thumb.png`, "image/png");
   const metadata = {
-    name: `${title} — the daily, ${date}`,
-    description: `${body}\n\n— the daily from Aesthetic Dot Computer, ${date}. Listen: ${episodeUrl}\nPlay it live: ${AC}/$${receipt.code} (a remix of $${receipt.remixOf})`,
-    tags: ["aesthetic.computer", "kidlisp", "thedaily", "podcast", "generative"],
+    name: title,
+    description: `${body}\n\n— Aesthetic Dot Computer, ${date}. Listen: ${episodeUrl}\nThe page as a live KidLisp piece: ${AC}/${receipt.code}`,
+    tags: ["aesthetic.computer", "kidlisp", "podcast", "devlog", "pixelfont"],
     symbol: "OBJKT",
     artifactUri,
     displayUri: artifactUri,

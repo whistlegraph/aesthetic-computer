@@ -30,12 +30,16 @@ commit log is read from `FETCH_HEAD` after a best-effort fetch. `--stage`
 publishes private for review; `--dry` writes the script only.
 
 **The daily token (bin/daily-token.mjs).** With `DAILY_MINT=1` the episode is
-also minted as a hic et nunc OBJKT signed by aesthetic.tez: `claude -p` picks
-one of @jeffrey's most-played KidLisp pieces ($roz $ceo $air $inz),
-a palette and a word from the episode; the remix is stored as a new $code, the
-oven grabs it as a 512² GIF, AC's own IPFS node pins it (`/api/ipfs-add`, admin-only, the Kubo node Keeps uses) with TZIP-21 metadata (the script
-as description, links to the episode and the live $code), `mint_OBJKT` mints
-`DAILY_EDITIONS` (1, a daily unique) and an objkt ask lists it at `DAILY_PRICE_XTZ` (10).
+also minted as a hic et nunc OBJKT signed by aesthetic.tez, named just the
+episode title. Its image is the update itself: the script set in AC's pixel
+font by a KidLisp piece (stored as a new $code; commas, semicolons, quotes and
+parens are stripped because KidLisp splits on them) over a slow fade whose
+colors turn with the date, grabbed by the oven as a 512² GIF, with a frame as
+the thumbnail. AC's own IPFS node pins it (`/api/ipfs-add`, admin-only, the
+Kubo node Keeps uses) with TZIP-21 metadata (the script as description, links
+to the episode and the live $code), `mint_OBJKT` mints `DAILY_EDITIONS` (1, a
+daily unique) and an objkt ask lists it at `DAILY_PRICE_XTZ` (10). HEN
+metadata is immutable, so a minted day can't be renamed or re-imaged.
 Stages resume from `out/daily/<slug>.token.json`; it refuses to sign with any
 key but aesthetic.tez or below 0.15 XTZ (each day burns ~0.06). Needs
 `AESTHETIC_KEY` in the appliance env (jasellite: `~/.config/ac/tezos-daily.env`,

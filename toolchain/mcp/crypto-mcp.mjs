@@ -41,6 +41,9 @@ const KEEPS = "KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB";
 const HEN = "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton";
 const DAILY_BURN_XTZ = 0.06; // a mint + a listing
 const DAILY_FLOOR_XTZ = 0.15; // daily-token.mjs refuses to sign below this
+// Every hic et nunc mint by aesthetic.tez from here on is a daily token (the
+// last manual one was 2025-11); names are just the episode title.
+const DAILY_SINCE = "2026-09-26";
 
 const get = async (url, opts = {}) => {
   const r = await fetch(url, { ...opts, signal: AbortSignal.timeout(opts.timeout ?? 30_000) });
@@ -197,7 +200,7 @@ function sshScript(script, timeout) {
 }
 
 async function dailyStatus({ limit = 14 } = {}) {
-  const tokens = await get(`${TZKT}/tokens?contract=${HEN}&firstMinter=${TEZOS.aesthetic}&metadata.name.as=*the%20daily,*&sort.desc=id&limit=${Number(limit) || 14}&select=tokenId,metadata.name%20as%20name,totalSupply,firstTime`);
+  const tokens = await get(`${TZKT}/tokens?contract=${HEN}&firstMinter=${TEZOS.aesthetic}&firstTime.ge=${DAILY_SINCE}&sort.desc=id&limit=${Number(limit) || 14}&select=tokenId,metadata.name%20as%20name,totalSupply,firstTime`);
   const rows = [];
   for (const t of tokens) {
     // objkt asks don't escrow, so every edition that left aesthetic.tez sold.
@@ -288,7 +291,7 @@ const TOOLS = [
   },
   {
     name: "daily_token_status",
-    description: "The daily token (the podcast episode minted each night on hic et nunc by jasellite): recent OBJKTs with editions sold, days of gas left on aesthetic.tez, and jasellite's latest log and receipts when it's reachable. Read-only.",
+    description: "The daily token (each night's podcast update, set in AC's pixel font and minted as a hic et nunc 1/1 by jasellite): recent OBJKTs with editions sold, days of gas left on aesthetic.tez, and jasellite's latest log and receipts when it's reachable. Read-only.",
     inputSchema: { type: "object", properties: { limit: { type: "number", description: "How many recent tokens (default 14)" } } },
   },
   {
