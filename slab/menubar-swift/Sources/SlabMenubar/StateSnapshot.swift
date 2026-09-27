@@ -138,6 +138,61 @@ struct GameModeState {
     var gfnRunning = false
 }
 
+/// One machine in the Iris mission fleet, as read by `slab/bin/iris` over ssh:
+/// the desktop badge's mission.json (headline + items) plus the newest run
+/// status files. Machine names come from the untracked config at runtime.
+struct IrisMachine {
+    var name: String
+    var role: String = "lane"        // "controller" | "lane"
+    var online: Bool = false
+    var error: String = ""
+    var heartbeatAge: Int = -1       // seconds since the badge heartbeat, -1 unknown
+    var headline: String = ""
+    var nextStep: String = ""
+    var items: [String] = []
+}
+
+/// One mission task tracked by the controller, grouped by phase in the menu.
+/// `running` tasks carry the lane and its live action from the run status.
+struct IrisTask {
+    var id: String
+    var name: String
+    var url: String = ""
+    var phase: String = ""           // running | queued | blocked | awaiting_review | …
+    var attempts: Int = 0
+    var blocker: String = ""
+    var lane: String = ""
+    var action: String = ""
+    var nextStep: String = ""
+}
+
+/// One recent controller event (started / finished / stopped / progress …).
+struct IrisEvent {
+    var at: String
+    var kind: String
+    var id: String = ""
+    var lane: String = ""
+    var text: String = ""
+}
+
+/// Iris mission state for the menubar, polled off-main via `slab/bin/iris`
+/// (mirrors the Asana bridge). Machines, hosts and the board URL come from
+/// the untracked config — nothing fleet-specific lives in tracked code.
+struct IrisState {
+    var configured: Bool = false
+    var label: String = "Iris: —"    // menu parent title from the helper
+    var boardUrl: String = ""
+    var hasController: Bool = false
+    var pollAge: Int = -1            // seconds since the controller last polled
+    var lastError: String = ""
+    var expiresAt: String = ""       // ISO watch-window end
+    var windowOpen: Bool = false
+    var maxRunsPerTask: Int = 0
+    var machines: [IrisMachine] = []
+    var tasks: [IrisTask] = []
+    var recent: [IrisEvent] = []
+}
+
 struct StateSnapshot {
     var lidClosed: Bool = false
     var sleepDisabled: Bool = false

@@ -69,9 +69,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// refresh only re-sets the wallpaper when the aggregate status changed.
     private var lastDesktopTint: String?
     /// Appearance the last wallpaper Slab actually pushed was rendered for.
-    /// Starts nil so the first push after launch is never mistaken for a
-    /// dark↔light flip. See `pushDesktopPicture`.
-    private var lastAppliedDark: Bool?
+    /// Seeded from the tint Slab persisted last time (`current-color.json`),
+    /// so a dark↔light flip that happens across a Slab restart still counts
+    /// as a flip and repairs the menu bar; nil only when nothing was ever
+    /// published. See `pushDesktopPicture`.
+    private lazy var lastAppliedDark: Bool? = DesktopTint.publishedDark()
     /// Base font size from the most recent `tileNow()` pass. `applyTerminalDecor`
     /// scales typography off this — `.awaiting` ("orange") tiles get bumped
     /// up so focus reads typographically while the cell geometry stays put.
@@ -158,6 +160,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var deployTickCount = 28   // offset from asana so polls don't collide
     private var deployPending = false
     private var deployState = DeployStatusState()
+    /// Iris mission fleet. Polled off-main on a slow cadence via the helper,
+    /// which reads each machine's badge + the controller state over ssh. The
+    /// fleet (names, ssh aliases) lives only in the untracked iris config.
+    private var irisTickCount = 26     // offset from asana/deploy so polls don't collide
+    private var irisPending = false
+    private var irisState = IrisState()
+    /// Optional second status item showing the Iris avatar ("Iris Icon" in
+    /// the Work menu). Created/removed on the main thread when toggled; its
+    /// menu is one stable NSMenu filled lazily in `menuNeedsUpdate(_:)`.
+    private var irisIconItem: NSStatusItem?
+    private let irisIconMenu = NSMenu()
+    private var irisAvatar: NSImage?
+    private var irisAvatarMTime: Date?
+    private let irisHoverCard = IrisHoverCard()
     private var state = StateSnapshot()
     private let passphraseServer = PassphraseServer()
     /// System-wide ⌘⌥T → re-tile agent terminals. Kept alive for the app's
@@ -216,6 +232,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         statusItem.menu = menu
         ResourceGraph.shared.syncEnabled()
+        irisIconMenu.autoenablesItems = false
+        irisIconMenu.delegate = self
+        if UserDefaults.standard.bool(forKey: Paths.irisIconDefaultsKey) { showIrisIcon() }
 
         // A Slab that arrived as a download has no hooks behind it, so it
         // would sit in the menu bar watching nothing. Offer to finish the
@@ -598,6 +617,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     self.refreshDeploy()
                 }
 
+                // Iris missions — lanes move on a minutes cadence; poll ~every
+                // 30 ticks via the helper (two ssh round-trips, off-main).
+                self.irisTickCount += 1
+                if self.irisTickCount >= 30 && !self.irisPending {
+                    self.irisTickCount = 0
+                    self.refreshIris()
+                }
+
                 // No menu rebuild here — it's lazy via menuNeedsUpdate(_:).
                 // Consume any "open this PDF / video" asks (tiny main-thread
                 // stats; see PdfViewer.swift / VideoViewer.swift contracts).
@@ -641,6 +668,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// recent cached snapshot. Pure in-memory work (sub-millisecond), so the
     /// dropdown pops instantly and stays smooth while tracking.
     func menuNeedsUpdate(_ menu: NSMenu) {
+        if menu === irisIconMenu {
+            MenuBuilder.populateIris(menu, state: irisState, target: self)
+            return
+        }
         guard menu === self.menu else { return }
         MenuBuilder.populate(
             menu,
@@ -652,6 +683,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             signalConfigured: signalConfigured,
             asana: asanaState,
             deploy: deployState,
+            iris: irisState,
             target: self
         )
     }
@@ -1355,6 +1387,155 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ShellRunner.runAsync(Paths.asanaHelper, args: ["config"])
         let path = Paths.asanaConfig
         // Give the helper a beat to drop the stub, then open in the editor.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            NSWorkspace.shared.open(URL(fileURLWithPath: path))
+        }
+    }
+
+    // MARK: - Iris missions
+
+    /// Pull the mission fleet off-main via `slab/bin/iris status`. The helper
+    /// always exits 0 and prints one JSON line: `{configured, label, boardUrl,
+    /// machines:[…], controller:{…}|null, tasks:[…], recent:[…]}`. Two ssh
+    /// round-trips inside, so the timeout is generous; nothing here touches
+    /// the main thread until the parse is done.
+    private func refreshIris() {
+        let helper = Paths.irisHelper
+        guard FileManager.default.isExecutableFile(atPath: helper) else {
+            irisState = IrisState(configured: false, label: "Iris: helper missing")
+            return
+        }
+        irisPending = true
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let out = ShellRunner.run(helper, args: ["status"], timeout: 30).output
+            let line = out.split(separator: "\n").last.map(String.init) ?? ""
+            let parsed = Self.parseIris(line)
+            DispatchQueue.main.async {
+                self?.irisState = parsed
+                self?.irisPending = false
+                self?.updateIrisIcon()
+            }
+        }
+    }
+
+    /// Decode one JSON status line into an IrisState. Defensive: any missing
+    /// field collapses to an empty/unconfigured state rather than throwing.
+    private static func parseIris(_ line: String) -> IrisState {
+        guard let data = line.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return IrisState(configured: false, label: "Iris: —") }
+        var s = IrisState()
+        s.configured = (obj["configured"] as? Bool) ?? false
+        s.label = (obj["label"] as? String) ?? s.label
+        s.boardUrl = (obj["boardUrl"] as? String) ?? ""
+        if let c = obj["controller"] as? [String: Any] {
+            s.hasController = true
+            s.pollAge = (c["pollAge"] as? Int) ?? -1
+            s.lastError = (c["lastError"] as? String) ?? ""
+            s.expiresAt = (c["expiresAt"] as? String) ?? ""
+            s.windowOpen = (c["windowOpen"] as? Bool) ?? false
+            s.maxRunsPerTask = (c["maxRunsPerTask"] as? Int) ?? 0
+        }
+        let machines = (obj["machines"] as? [[String: Any]]) ?? []
+        s.machines = machines.map { m in
+            let items = (m["items"] as? [[String: Any]]) ?? []
+            return IrisMachine(
+                name: (m["name"] as? String) ?? "?",
+                role: (m["role"] as? String) ?? "lane",
+                online: (m["online"] as? Bool) ?? false,
+                error: (m["error"] as? String) ?? "",
+                heartbeatAge: (m["heartbeatAge"] as? Int) ?? -1,
+                headline: (m["headline"] as? String) ?? "",
+                nextStep: (m["nextStep"] as? String) ?? "",
+                items: items.compactMap { $0["text"] as? String })
+        }
+        let tasks = (obj["tasks"] as? [[String: Any]]) ?? []
+        s.tasks = tasks.map { t in
+            IrisTask(
+                id: (t["id"] as? String) ?? "",
+                name: (t["name"] as? String) ?? "(untitled)",
+                url: (t["url"] as? String) ?? "",
+                phase: (t["phase"] as? String) ?? "",
+                attempts: (t["attempts"] as? Int) ?? 0,
+                blocker: (t["blocker"] as? String) ?? "",
+                lane: (t["lane"] as? String) ?? "",
+                action: (t["action"] as? String) ?? "",
+                nextStep: (t["nextStep"] as? String) ?? "")
+        }
+        let recent = (obj["recent"] as? [[String: Any]]) ?? []
+        s.recent = recent.map { e in
+            IrisEvent(
+                at: (e["at"] as? String) ?? "",
+                kind: (e["kind"] as? String) ?? "",
+                id: (e["id"] as? String) ?? "",
+                lane: (e["lane"] as? String) ?? "",
+                text: (e["text"] as? String) ?? "")
+        }
+        return s
+    }
+
+    /// Force an immediate Iris re-poll from the submenu's "Refresh now".
+    @objc func refreshIrisNow() {
+        irisTickCount = 0
+        if !irisPending { refreshIris() }
+    }
+
+    /// Open the configured mission board in the browser.
+    @objc func openIrisBoard() {
+        ShellRunner.runAsync(Paths.irisHelper, args: ["open"])
+    }
+
+    /// Open one mission task (its URL rides on the menu item's representedObject).
+    @objc func openIrisTask(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? String, !url.isEmpty,
+              let u = URL(string: url) else { return }
+        NSWorkspace.shared.open(u)
+    }
+
+    /// "Iris Icon" checkbox in the Work menu: show/hide the avatar status item.
+    @objc func toggleIrisIcon() {
+        let on = !UserDefaults.standard.bool(forKey: Paths.irisIconDefaultsKey)
+        UserDefaults.standard.set(on, forKey: Paths.irisIconDefaultsKey)
+        if on { showIrisIcon() } else { hideIrisIcon() }
+    }
+
+    private func showIrisIcon() {
+        guard irisIconItem == nil else { return }
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.button?.imagePosition = .imageOnly
+        item.menu = irisIconMenu
+        irisIconItem = item
+        if let button = item.button { irisHoverCard.attach(to: button) }
+        updateIrisIcon()
+    }
+
+    private func hideIrisIcon() {
+        guard let item = irisIconItem else { return }
+        irisHoverCard.detach()
+        NSStatusBar.system.removeStatusItem(item)
+        irisIconItem = nil
+    }
+
+    /// Re-render the avatar + condition dot and the hover text from the
+    /// cached `irisState`. Main thread, in-memory; the avatar file is
+    /// re-decoded only when its modification date changes.
+    private func updateIrisIcon() {
+        guard let button = irisIconItem?.button else { return }
+        let path = Paths.irisAvatar
+        let mtime = (try? FileManager.default.attributesOfItem(atPath: path)[.modificationDate]) as? Date
+        if mtime != irisAvatarMTime {
+            irisAvatarMTime = mtime
+            irisAvatar = IrisIcon.loadAvatar(at: path)
+        }
+        button.image = IrisIcon.render(avatar: irisAvatar, condition: IrisIcon.condition(for: irisState))
+        button.toolTip = IrisIcon.toolTip(for: irisState)
+        irisHoverCard.update(irisState)
+    }
+
+    /// Ensure the (untracked) Iris config exists, then open it for editing.
+    @objc func openIrisConfig() {
+        ShellRunner.runAsync(Paths.irisHelper, args: ["config"])
+        let path = Paths.irisConfig
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             NSWorkspace.shared.open(URL(fileURLWithPath: path))
         }
@@ -3668,73 +3849,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 PromptSigilOverlayController.shared.terminalsDidRetile()
             }
             guard let pass, pass.nTerm > 0 else { return }
-            // A confirmed population change is the normalization boundary.
-            // Always include every Terminal window: a just-launched prox may
-            // have inherited Terminal's large default even when the grid's
-            // computed font size is identical to the previous pass. Avoiding
-            // previous-pass ID bookkeeping also closes the superseded-layout
-            // race where a stale pass could make a new ID look already handled.
-            let fontTargetIDs = Set(pass.terminalPlacements.map(\.id))
-            guard !fontTargetIDs.isEmpty || !pass.misfitTerminalIDs.isEmpty else { return }
-            // Geometry is already done — the grid snapped above. Terminal
-            // text size catches up asynchronously, and only when needed:
-            // the profile-font write + Default-Font-Size menu dance is the
-            // slow, focus-stealing part of the old tiler.
-            // Apply the grid font to every window. An explicit tile also clears
-            // Terminal's invisible per-window Cmd +/- override via View ▸
-            // Default Font Size.
-            var lines: [String] = []
-            if !fontTargetIDs.isEmpty {
-                lines.append("tell application \"Terminal\"")
-                lines.append("  set _slabIds to id of (every window whose miniaturized is false)")
-                for id in fontTargetIDs.sorted() {
-                    lines.append("  try")
-                    lines.append("    set font size of current settings of (first window whose id is \(id)) to \(pass.fontSize)")
-                    lines.append("  end try")
-                }
-                lines.append("end tell")
-            }
-            if resetZoom {
-                lines.append(contentsOf: [
-                    "tell application \"Terminal\" to activate",
-                    "repeat with _wid in _slabIds",
-                    "  try",
-                    "    tell application \"Terminal\" to set index of (first window whose id is (contents of _wid)) to 1",
-                    "    delay 0.04",
-                    "    tell application \"System Events\" to tell process \"Terminal\" to click menu item \"Default Font Size\" of menu 1 of menu bar item \"View\" of menu bar 1",
-                    "  end try",
-                    "end repeat",
-                ])
-            }
-            // AX gives the wall its immediate snap, but Terminal quantizes AX
-            // size writes to its current character-cell grid. Its own bounds
-            // command can express the exact pixel cell. Finish all windows
-            // after a font change, or only measured outliers otherwise, in
-            // this same single AppleScript process (no extra enumeration).
-            let exactPlacements = !fontTargetIDs.isEmpty
-                ? pass.terminalPlacements.filter { fontTargetIDs.contains($0.id) }
-                : pass.terminalPlacements.filter { pass.misfitTerminalIDs.contains($0.id) }
-            lines.append("tell application \"Terminal\"")
-            for placement in exactPlacements {
-                let b = placement.bounds
-                lines.append("  try")
-                lines.append("    set bounds of (first window whose id is \(placement.id)) to {\(b.left), \(b.top), \(b.right), \(b.bottom)}")
-                lines.append("  end try")
-            }
-            // Font/profile reflow can arrive shortly after the initiating
-            // command. Reassert exact native bounds twice without another
-            // process spawn or Accessibility population read.
-            for delay in [0.06, 0.16] {
-                lines.append("  delay \(delay)")
-                for placement in exactPlacements {
-                    let b = placement.bounds
-                    lines.append("  try")
-                    lines.append("    set bounds of (first window whose id is \(placement.id)) to {\(b.left), \(b.top), \(b.right), \(b.bottom)}")
-                    lines.append("  end try")
-                }
-            }
-            lines.append("end tell")
-            let script = lines.joined(separator: "\n")
+            // Keep the font/reset/settle work bound to this validated census.
+            // Terminal's global AppleScript window list includes closed shells.
+            let script = TerminalTileScript.make(
+                placements: pass.terminalPlacements.map {
+                    TerminalTileScript.Placement(id: $0.id, bounds: $0.bounds)
+                }, fontSize: pass.fontSize, resetZoom: resetZoom)
             self.tileFontQueue.async { [weak self] in
                 guard let self, self.tileGenerationIsCurrent(generation) else { return }
                 _ = ShellRunner.run("/usr/bin/osascript", args: ["-e", script])
@@ -4051,15 +4171,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// The pre-AX tiler, kept verbatim as the no-Accessibility fallback:
-    /// three osascript spawns (two count probes + one bounds script).
+    /// AppleScript fallback when Accessibility is unavailable. Terminal ids
+    /// are captured once, excluding closed/tabless windows, then revalidated.
     private func tileNowLegacy(resetZoom: Bool, geom: ScreenGeom, textSize: TextSize) {
         DispatchQueue.global(qos: .userInitiated).async {
             // Size the grid to everything on screen across both apps. The
             // `is running` guard never launches a quit Terminal.app, so a
             // non-running Terminal contributes zero cells.
             let nIterm = Self.windowCount(app: "iTerm2")
-            let nTerm = Self.windowCount(app: "Terminal")
+            let terminalIDs = ShellRunner.run("/usr/bin/osascript",
+                args: ["-e", TerminalTileScript.liveWindowIDs], timeout: 5).output
+                .split(separator: ",").compactMap {
+                    UInt32($0.trimmingCharacters(in: .whitespacesAndNewlines))
+                }
+            let nTerm = terminalIDs.count
             let n = nIterm + nTerm
             guard n > 0 else { return }
             guard let layout = Self.computeTileLayout(count: n, geom: geom, size: textSize) else { return }
@@ -4086,48 +4211,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 lines.append("end tell")
             }
             if nTerm > 0 {
-                // Terminal.app auto-fit, three ordered passes in ONE osascript
-                // so the sequence is deterministic. Windows are addressed by
-                // id (captured up front) because pass 2 reorders the list.
-                //  1. set each window's profile font to the grid-derived size
-                //  2. View ▸ Default Font Size on each window (System Events) —
-                //     the ONLY reliable way to make a LIVE window adopt a new
-                //     font. A per-window zoom (View ▸ Bigger/Smaller) silently
-                //     overrides the profile font and is invisible to
-                //     AppleScript, so pass 1 alone is a no-op on already-open
-                //     windows (see slab-terminal-font-zoom). Skipped when
-                //     resetZoom is false (frequent auto-retile path).
-                //  3. re-pin pixel bounds LAST so the reflow can't fight the
-                //     cell geometry.
-                // Minimized windows are excluded (matches windowCount): they
-                // neither consume a cell nor get moved.
-                lines.append("tell application \"Terminal\"")
-                lines.append("    set _slabIds to id of (every window whose miniaturized is false)")
-                lines.append("    repeat with _wid in _slabIds")
-                lines.append("      try")
-                lines.append("        set font size of current settings of (first window whose id is (contents of _wid)) to \(layout.fontSize)")
-                lines.append("      end try")
-                lines.append("    end repeat")
-                lines.append("end tell")
-                if resetZoom {
-                    lines.append("tell application \"Terminal\" to activate")
-                    lines.append("repeat with _wid in _slabIds")
-                    lines.append("  try")
-                    lines.append("    tell application \"Terminal\" to set index of (first window whose id is (contents of _wid)) to 1")
-                    lines.append("    delay 0.25")
-                    lines.append("    tell application \"System Events\" to tell process \"Terminal\" to click menu item \"Default Font Size\" of menu 1 of menu bar item \"View\" of menu bar 1")
-                    lines.append("    delay 0.1")
-                    lines.append("  end try")
-                    lines.append("end repeat")
+                let placements = terminalIDs.enumerated().map { j, id in
+                    TerminalTileScript.Placement(id: id,
+                        bounds: layout.cellAt(index: nIterm + j).bounds)
                 }
-                lines.append("tell application \"Terminal\"")
-                for j in 0..<nTerm {
-                    let cell = layout.cellAt(index: nIterm + j)
-                    lines.append("    try")
-                    lines.append("      set bounds of (first window whose id is (item \(j + 1) of _slabIds)) to {\(cell.bounds.left), \(cell.bounds.top), \(cell.bounds.right), \(cell.bounds.bottom)}")
-                    lines.append("    end try")
-                }
-                lines.append("end tell")
+                lines.append(TerminalTileScript.make(placements: placements,
+                    fontSize: layout.fontSize, resetZoom: resetZoom))
             }
             guard !lines.isEmpty else { return }
             let script = lines.joined(separator: "\n")

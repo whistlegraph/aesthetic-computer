@@ -51,6 +51,135 @@ static JSValue js_usb_midi_all_notes_off(JSContext *ctx, JSValueConst this_val, 
 static JSClassID form_class_id = 0;
 static JSClassID painting_class_id = 0;
 
+#include "screen-triangle.h"
+#include "screen-gpu.h"
+#include "comic-font.h"
+#include "oskiewar-math.h"
+
+static JSValue js_oskiewar_math(JSContext *ctx, JSValueConst self,
+    int argc, JSValueConst *argv, int operation) {
+    (void)self;
+    double values[32], result;
+    if (argc > 32) return JS_ThrowRangeError(ctx, "at most 32 components");
+    for (int i=0; i<argc; i++)
+        if (JS_ToFloat64(ctx, &values[i], argv[i]) < 0) return JS_EXCEPTION;
+    double x=argc ? values[0] : NAN, y=argc>1 ? values[1] : NAN;
+    switch(operation) {
+        case 0: result=ow_sin(x);break;
+        case 1: result=ow_sin(x+1.5707963267948966);break;
+        case 2: result=ow_sin(x)/ow_sin(x+1.5707963267948966);break;
+        case 3: result=ow_atan(x);break;
+        case 4: result=ow_atan2(x,y);break;
+        case 5: result=ow_atan2(x,sqrt(1-x*x));break;
+        case 6: result=ow_exp(x);break;
+        default: result=ow_hypot(values,argc);break;
+    }
+    return JS_NewFloat64(ctx,result);
+}
+static JSValue build_oskiewar_math(JSContext *ctx) {
+    JSValue global=JS_GetGlobalObject(ctx);
+    JSValue math=JS_GetPropertyStr(ctx,global,"__acOskiewarMath");
+    if (!JS_IsObject(math)) {
+        JS_FreeValue(ctx,math);math=JS_NewObject(ctx);
+        const char *names[]={"sin","cos","tan","atan","atan2","asin","exp","hypot"};
+        for(int i=0;i<8;i++) JS_SetPropertyStr(ctx,math,names[i],
+            JS_NewCFunctionMagic(ctx,js_oskiewar_math,names[i],i==4?2:1,JS_CFUNC_generic_magic,i));
+        JS_SetPropertyStr(ctx,math,"version",JS_NewString(ctx,"oskiewar-libm-v1"));
+        JS_SetPropertyStr(ctx,global,"__acOskiewarMath",JS_DupValue(ctx,math));
+    }
+    JS_FreeValue(ctx,global);return math;
+}
+
+
+// Pixel-space triangles for games that project their own geometry.
+static JSValue js_screen_triangle(JSContext *ctx, JSValueConst self,
+                                  int argc, JSValueConst *argv) {
+    (void)self;
+    if (argc < 9 || !current_rt) return JS_UNDEFINED;
+    double v[12] = {0,0,0,0,0,0,0,0,0,255,255,255};
+    for (int i=0; i<argc && i<12; i++)
+        if (JS_ToFloat64(ctx, &v[i], argv[i]) < 0) return JS_EXCEPTION;
+    if (ac_gpu_triangle(v)) return JS_UNDEFINED;
+    ACFramebuffer *fb=current_rt->graph->fb;
+    if (!current_rt->depth_buf)
+        current_rt->depth_buf=depth_create(fb->width,fb->height,fb->stride);
+    ACDepthBuffer *db=current_rt->depth_buf;
+    if (!db || db->width!=fb->width || db->height!=fb->height || db->stride!=fb->stride)
+        return JS_UNDEFINED;
+    uint32_t color=0xff000000u;
+    for (int i=0;i<3;i++) {
+        int c=(int)fmax(0,fmin(255,v[9+i]));
+        color |= (uint32_t)c << (16-i*8);
+    }
+    ac_screen_triangle(fb->pixels,db->data,fb->width,fb->height,fb->stride,
+        v[0],v[1],v[2],v[3],v[4],v[5],v[6],v[7],v[8],color);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_gpu_begin(JSContext *ctx, JSValueConst self, int argc, JSValueConst *argv) {
+    (void)self; double c[3]={0,0,0};
+    if (!current_rt) return JS_FALSE;
+    for (int i=0;i<argc && i<3;i++) if (JS_ToFloat64(ctx,&c[i],argv[i])<0) return JS_EXCEPTION;
+    ACFramebuffer *fb=current_rt->graph->fb;
+    return JS_NewBool(ctx,ac_gpu_begin(fb->width,fb->height,c[0],c[1],c[2]));
+}
+static JSValue js_gpu_disc(JSContext *ctx, JSValueConst self, int argc, JSValueConst *argv) {
+    (void)self;
+    double v[8];
+    if (!current_rt || argc<8) return JS_NewInt32(ctx,0);
+    for(int i=0;i<8;i++) {
+      if(JS_ToFloat64(ctx,&v[i],argv[i])<0) return JS_EXCEPTION;
+      if(!isfinite(v[i])) return JS_NewInt32(ctx,0);
+    }
+    if(v[4]<3 || v[4]>32) return JS_NewInt32(ctx,0);
+    return JS_NewInt32(ctx,ac_gpu_disc(v[0],v[1],v[2],v[3],(int)v[4],v[5],v[6],v[7]));
+}
+static JSValue js_gpu_end(JSContext *ctx, JSValueConst self, int argc, JSValueConst *argv) {
+    (void)ctx;(void)self;(void)argc;(void)argv;
+    if(current_rt) ac_gpu_end(current_rt->graph->fb);
+    return JS_UNDEFINED;
+}
+static JSValue js_theme_ready(JSContext *ctx, JSValueConst self, int argc, JSValueConst *argv) {
+    (void)self;(void)argc;(void)argv;
+    return JS_NewBool(ctx,current_rt && ac_gpu_theme_ready());
+}
+static JSValue js_theme_sprite(JSContext *ctx, JSValueConst self, int argc, JSValueConst *argv) {
+    (void)self;int32_t asset;double v[10];
+    if(!current_rt || argc<12)return JS_FALSE;
+    if(JS_ToInt32(ctx,&asset,argv[0])<0)return JS_EXCEPTION;
+    for(int i=0;i<9;i++)if(JS_ToFloat64(ctx,&v[i],argv[i+1])<0)return JS_EXCEPTION;
+    if(JS_ToFloat64(ctx,&v[9],argv[11])<0)return JS_EXCEPTION;
+    int flip=JS_ToBool(ctx,argv[10]);if(flip<0)return JS_EXCEPTION;
+    int depth_write=argc>12?JS_ToBool(ctx,argv[12]):1;if(depth_write<0)return JS_EXCEPTION;
+    return JS_NewBool(ctx,ac_gpu_theme_sprite(asset,v,flip,depth_write));
+}
+static JSValue js_theme_asset_ready(JSContext *ctx, JSValueConst self, int argc, JSValueConst *argv) {
+    (void)self;int32_t asset;
+    if(!current_rt || argc<1)return JS_FALSE;
+    if(JS_ToInt32(ctx,&asset,argv[0])<0)return JS_EXCEPTION;
+    return JS_NewBool(ctx,ac_gpu_theme_asset_ready(asset));
+}
+static JSValue js_theme_quad(JSContext *ctx, JSValueConst self, int argc, JSValueConst *argv) {
+    (void)self;int32_t asset;double v[16];
+    if(!current_rt || argc<17)return JS_FALSE;
+    if(JS_ToInt32(ctx,&asset,argv[0])<0)return JS_EXCEPTION;
+    for(int i=0;i<16;i++)if(JS_ToFloat64(ctx,&v[i],argv[i+1])<0)return JS_EXCEPTION;
+    return JS_NewBool(ctx,ac_gpu_theme_quad(asset,v));
+}
+
+static JSValue js_comic_write(JSContext *ctx, JSValueConst self, int argc, JSValueConst *argv) {
+    (void)self;
+    if (!current_rt || argc<4) return JS_FALSE;
+    const char *text=JS_ToCString(ctx,argv[0]); if(!text)return JS_EXCEPTION;
+    double v[6]={0,0,10,255,255,255};
+    for(int i=1;i<argc && i<7;i++) if(JS_ToFloat64(ctx,&v[i-1],argv[i])<0) {
+      JS_FreeCString(ctx,text);return JS_EXCEPTION;
+    }
+    int ok=ac_comic_draw(current_rt->graph->fb,text,v[0],v[1],v[2],
+      (uint8_t)fmax(0,fmin(255,v[3])),(uint8_t)fmax(0,fmin(255,v[4])),(uint8_t)fmax(0,fmin(255,v[5])));
+    JS_FreeCString(ctx,text);return JS_NewBool(ctx,ok);
+}
+
 // Form class finalizer
 static void js_form_finalizer(JSRuntime *rt, JSValue val) {
     (void)rt;
@@ -3564,7 +3693,8 @@ static JSValue js_read_file_bytes(JSContext *ctx, JSValueConst this_val,
     return ab;
 }
 
-// system.writeFile(path, data) — write a string to disk, returns true/false
+// system.writeFile(path, data, flush=true) — string write. Volatile /tmp
+// telemetry can explicitly skip the system-wide USB flush.
 static JSValue js_write_file(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
     if (argc < 2) return JS_FALSE;
@@ -3580,7 +3710,8 @@ static JSValue js_write_file(JSContext *ctx, JSValueConst this_val, int argc, JS
     if (fp) {
         fputs(data, fp);
         fclose(fp);
-        sync(); // flush to USB
+        if (argc < 3 || !JS_IsBool(argv[2]) || JS_ToBool(ctx, argv[2]))
+            sync(); // durable writes keep the existing flush behavior
         ok = 1;
     }
     JS_FreeCString(ctx, path);
@@ -4035,15 +4166,45 @@ static JSValue js_fetch_post(JSContext *ctx, JSValueConst this_val, int argc, JS
         fclose(hf);
     }
 
-    ac_log("[fetchPost] start: %s (body %ld bytes)\n", url, (long)strlen(body));
+    // Fourth argument, optional: { timeout: seconds, out: "/abs/path" }.
+    // `out` names a response file the caller owns: curl streams into it
+    // unbuffered, it is kept (not read into the 8 KB result slot, not
+    // unlinked) when the request ends, and an HTTP error still writes its
+    // body there so the caller can read the server's message. That is what
+    // lets a piece follow a long server-sent-event stream frame by frame.
+    int timeout = 120;
+    char out_path[256] = "/tmp/ac_fetch.json";
+    int keep = 0;
+    if (argc >= 4 && JS_IsObject(argv[3])) {
+        JSValue jt = JS_GetPropertyStr(ctx, argv[3], "timeout");
+        if (!JS_IsUndefined(jt)) JS_ToInt32(ctx, &timeout, jt);
+        JS_FreeValue(ctx, jt);
+        JSValue jo = JS_GetPropertyStr(ctx, argv[3], "out");
+        if (JS_IsString(jo)) {
+            const char *o = JS_ToCString(ctx, jo);
+            if (o && o[0] == '/' && strlen(o) < sizeof(out_path) && !strchr(o, '"') && !strchr(o, '\'')) {
+                snprintf(out_path, sizeof(out_path), "%s", o);
+                keep = 1;
+            }
+            if (o) JS_FreeCString(ctx, o);
+        }
+        JS_FreeValue(ctx, jo);
+    }
+    if (timeout < 1) timeout = 1;
+    if (timeout > 3600) timeout = 3600;
+    if (keep) unlink(out_path);
+    snprintf(current_rt->fetch_out, sizeof(current_rt->fetch_out), "%s", keep ? out_path : "");
+
+    ac_log("[fetchPost] start: %s (body %ld bytes%s)\n", url, (long)strlen(body), keep ? ", streamed" : "");
     char cmd[2048];
     snprintf(cmd, sizeof(cmd),
-        "sh -c 'curl -fsSL -X POST --retry 1 --connect-timeout 10 --max-time 120 "
+        "sh -c 'curl %s -X POST --retry 1 --connect-timeout 10 --max-time %d "
         "--cacert /etc/pki/tls/certs/ca-bundle.crt "
         "-K /tmp/ac_fetch_headers.txt "
         "-d @/tmp/ac_fetch_body.json "
-        "--output /tmp/ac_fetch.json \"%s\" 2>/tmp/ac_fetch_err;"
-        " echo $? > /tmp/ac_fetch_rc' &", url);
+        "--output %s \"%s\" 2>/tmp/ac_fetch_err;"
+        " echo $? > /tmp/ac_fetch_rc' &",
+        keep ? "-sSL --fail-with-body -N" : "-fsSL", timeout, out_path, url);
     system(cmd);
     current_rt->fetch_pending = 1;
     current_rt->fetch_result[0] = 0;
@@ -4065,6 +4226,10 @@ static JSValue js_fetch_cancel(JSContext *ctx, JSValueConst this_val, int argc, 
         unlink("/tmp/ac_fetch.json");
         unlink("/tmp/ac_fetch_rc");
         unlink("/tmp/ac_fetch_err");
+        if (current_rt->fetch_out[0]) {
+            unlink(current_rt->fetch_out);
+            current_rt->fetch_out[0] = 0;
+        }
         current_rt->fetch_pending = 0;
         current_rt->fetch_result[0] = 0;
         current_rt->fetch_error[0] = 0;
@@ -6076,7 +6241,23 @@ static JSValue js_pty_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSV
     if (argc > 2) JS_ToInt32(ctx, &cols, argv[2]);
     if (argc > 3) JS_ToInt32(ctx, &rows, argv[3]);
 
-    int ok = pty_spawn(&current_rt->pty, cols, rows, cmd, child_argv);
+    // Fifth argument: {raw, cwd} (or a bare boolean for raw). See pty_spawn_ex.
+    int raw = 0;
+    const char *cwd = NULL;
+    if (argc > 4) {
+        if (JS_IsObject(argv[4])) {
+            JSValue jr = JS_GetPropertyStr(ctx, argv[4], "raw");
+            raw = JS_ToBool(ctx, jr) > 0;
+            JS_FreeValue(ctx, jr);
+            JSValue jc = JS_GetPropertyStr(ctx, argv[4], "cwd");
+            if (JS_IsString(jc)) cwd = JS_ToCString(ctx, jc);
+            JS_FreeValue(ctx, jc);
+        } else {
+            raw = JS_ToBool(ctx, argv[4]) > 0;
+        }
+    }
+    int ok = pty_spawn_ex(&current_rt->pty, cols, rows, cmd, child_argv, raw, cwd);
+    if (cwd) JS_FreeCString(ctx, cwd);
 
     // Free ToCString results for args
     for (int i = 1; i < nargs; i++) {
@@ -6153,7 +6334,23 @@ static JSValue js_pty2_spawn(JSContext *ctx, JSValueConst this_val, int argc, JS
     int cols = 80, rows = 24;
     if (argc > 2) JS_ToInt32(ctx, &cols, argv[2]);
     if (argc > 3) JS_ToInt32(ctx, &rows, argv[3]);
-    int ok = pty_spawn(&current_rt->pty2, cols, rows, cmd, child_argv);
+    // Fifth argument: {raw, cwd} (or a bare boolean for raw). See pty_spawn_ex.
+    int raw = 0;
+    const char *cwd = NULL;
+    if (argc > 4) {
+        if (JS_IsObject(argv[4])) {
+            JSValue jr = JS_GetPropertyStr(ctx, argv[4], "raw");
+            raw = JS_ToBool(ctx, jr) > 0;
+            JS_FreeValue(ctx, jr);
+            JSValue jc = JS_GetPropertyStr(ctx, argv[4], "cwd");
+            if (JS_IsString(jc)) cwd = JS_ToCString(ctx, jc);
+            JS_FreeValue(ctx, jc);
+        } else {
+            raw = JS_ToBool(ctx, argv[4]) > 0;
+        }
+    }
+    int ok = pty_spawn_ex(&current_rt->pty2, cols, rows, cmd, child_argv, raw, cwd);
+    if (cwd) JS_FreeCString(ctx, cwd);
     for (int i = 1; i < nargs; i++) JS_FreeCString(ctx, child_argv[i]);
     JS_FreeCString(ctx, cmd);
     if (ok == 0) { current_rt->pty2_active = 1; return JS_TRUE; }
@@ -6772,7 +6969,7 @@ static JSValue js_nopaint_cancel(JSContext *ctx, JSValueConst this_val, int argc
     return JS_UNDEFINED;
 }
 
-static JSValue build_system_obj(JSContext *ctx) {
+static JSValue build_system_diagnostics(JSContext *ctx) {
     JSValue sys = JS_NewObject(ctx);
 
     // Battery info — scan /sys/class/power_supply/ for any battery
@@ -7220,6 +7417,37 @@ static JSValue build_system_obj(JSContext *ctx) {
         JS_SetPropertyStr(ctx, sys, "typec", typec);
     }
 
+    return sys;
+}
+
+static JSValue build_system_obj(JSContext *ctx) {
+    JSValue sys = JS_NewObject(ctx);
+    char buf[64];
+    // Diagnostics need human-time freshness, not per-sim/per-paint sysfs
+    // scans. Keep the cache owned by this context so reload/destruction
+    // cannot leave a JSValue pointing into a freed runtime.
+    JSValue global = JS_GetGlobalObject(ctx);
+    JSValue diagnostics = JS_GetPropertyStr(ctx, global, "__acSystemDiagnostics");
+    JSValue stamp = JS_GetPropertyStr(ctx, global, "__acSystemDiagnosticsAt");
+    double refreshed = 0;
+    if (JS_IsNumber(stamp)) JS_ToFloat64(ctx, &refreshed, stamp);
+    JS_FreeValue(ctx, stamp);
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    double seconds = now.tv_sec + now.tv_nsec / 1e9;
+    if (!JS_IsObject(diagnostics) || seconds - refreshed >= .25 ||
+        strcmp(current_phase, "boot") == 0) {
+        JS_FreeValue(ctx, diagnostics);
+        diagnostics = build_system_diagnostics(ctx);
+        JS_SetPropertyStr(ctx, global, "__acSystemDiagnostics", JS_DupValue(ctx, diagnostics));
+        JS_SetPropertyStr(ctx, global, "__acSystemDiagnosticsAt", JS_NewFloat64(ctx, seconds));
+    }
+    const char *fields[] = {"battery", "hw", "brightness", "typec"};
+    for (int i = 0; i < 4; i++)
+        JS_SetPropertyStr(ctx, sys, fields[i], JS_GetPropertyStr(ctx, diagnostics, fields[i]));
+    JS_FreeValue(ctx, diagnostics);
+    JS_FreeValue(ctx, global);
+
     // system.setPowerRole(port, role) — swap USB-C power role ("source" or "sink")
     JS_SetPropertyStr(ctx, sys, "setPowerRole", JS_NewCFunction(ctx, js_set_power_role, "setPowerRole", 2));
 
@@ -7290,7 +7518,15 @@ static JSValue build_system_obj(JSContext *ctx) {
             ac_log("[fetch] done: curl exit=%d\n", code);
             current_rt->fetch_result[0] = 0;
             current_rt->fetch_error[0] = 0;
-            if (code == 0) {
+            int streamed = current_rt->fetch_out[0] != 0;
+            if (streamed) {
+                // The caller reads its own file; the result slot carries the path.
+                snprintf(current_rt->fetch_result, sizeof(current_rt->fetch_result), "%s", current_rt->fetch_out);
+                current_rt->fetch_out[0] = 0;
+            }
+            if (streamed && code == 0) {
+                unlink("/tmp/ac_fetch_err");
+            } else if (code == 0) {
                 FILE *fp = fopen("/tmp/ac_fetch.json", "r");
                 if (fp) {
                     int n = (int)fread(current_rt->fetch_result,
@@ -7403,13 +7639,18 @@ static JSValue build_system_obj(JSContext *ctx) {
     // + `flashrom --probe` step inside the update thread.
     {
         JSValue firmware = JS_NewObject(ctx);
-        int mtd_ok = (access("/dev/mtd0", F_OK) == 0);
-        char bios_vendor[128] = "";
-        char product_name[128] = "";
-        char bios_version[128] = "";
-        read_sysfs("/sys/class/dmi/id/bios_vendor", bios_vendor, sizeof(bios_vendor));
-        read_sysfs("/sys/class/dmi/id/product_name", product_name, sizeof(product_name));
-        read_sysfs("/sys/class/dmi/id/bios_version", bios_version, sizeof(bios_version));
+        static int mtd_ok;
+        static char bios_vendor[128], product_name[128], bios_version[128];
+        static double firmware_probe_at = -1;
+        if (firmware_probe_at < 0 || seconds - firmware_probe_at >= 1 ||
+            strcmp(current_phase, "boot") == 0) {
+            firmware_probe_at = seconds;
+            mtd_ok = (access("/dev/mtd0", F_OK) == 0);
+            bios_vendor[0] = product_name[0] = bios_version[0] = 0;
+            read_sysfs("/sys/class/dmi/id/bios_vendor", bios_vendor, sizeof(bios_vendor));
+            read_sysfs("/sys/class/dmi/id/product_name", product_name, sizeof(product_name));
+            read_sysfs("/sys/class/dmi/id/bios_version", bios_version, sizeof(bios_version));
+        }
         // Trim trailing newlines from sysfs reads
         for (char *p = bios_vendor; *p; p++) if (*p == '\n') { *p = 0; break; }
         for (char *p = product_name; *p; p++) if (*p == '\n') { *p = 0; break; }
@@ -7523,7 +7764,18 @@ static JSValue build_system_obj(JSContext *ctx) {
 
     // Flash targets: enumerate all devices that could receive an EFI flash
     {
-        JSValue targets = JS_NewArray(ctx);
+        // Hotplug needs second-scale freshness, not two scans per frame.
+        // JS references belong to this context and disappear on reload.
+        JSValue cache_global = JS_GetGlobalObject(ctx);
+        JSValue targets = JS_GetPropertyStr(ctx, cache_global, "__acFlashTargets");
+        JSValue cache_stamp = JS_GetPropertyStr(ctx, cache_global, "__acFlashTargetsAt");
+        double targets_at = -1;
+        if (JS_IsNumber(cache_stamp)) JS_ToFloat64(ctx, &targets_at, cache_stamp);
+        JS_FreeValue(ctx, cache_stamp);
+        if (!JS_IsObject(targets) || seconds - targets_at >= 1 ||
+            strcmp(current_phase, "boot") == 0) {
+        JS_FreeValue(ctx, targets);
+        targets = JS_NewArray(ctx);
         int idx = 0;
         // Check USB (/dev/sda1)
         if (access("/dev/sda1", F_OK) == 0) {
@@ -7592,7 +7844,11 @@ static JSValue build_system_obj(JSContext *ctx) {
             JS_SetPropertyStr(ctx, t, "blank", JS_NewBool(ctx, 1));
             JS_SetPropertyUint32(ctx, targets, idx++, t);
         }
+        JS_SetPropertyStr(ctx, cache_global, "__acFlashTargets", JS_DupValue(ctx, targets));
+        JS_SetPropertyStr(ctx, cache_global, "__acFlashTargetsAt", JS_NewFloat64(ctx, seconds));
+        }
         JS_SetPropertyStr(ctx, sys, "flashTargets", targets);
+        JS_FreeValue(ctx, cache_global);
     }
 
     // Binary fetch for OS update
@@ -7736,6 +7992,24 @@ static JSValue build_system_obj(JSContext *ctx) {
                 current_rt->pty_active = 0;
             }
 
+            if (current_rt->pty.raw) {
+                // Raw line mode: hand the piece every whole line that arrived
+                // since the last frame. The grid below is never touched.
+                static char raw_line[PTY_RAW_BUF];
+                JSValue lines = JS_NewArray(ctx);
+                uint32_t n = 0;
+                int len;
+                // Only the paint build hands lines out: act and sim rebuild this
+                // object too, and a line drained there would never be seen.
+                if (strcmp(current_phase, "paint") == 0)
+                while ((len = pty_next_line(&current_rt->pty, raw_line, (int)sizeof(raw_line))) >= 0)
+                    JS_SetPropertyUint32(ctx, lines, n++, JS_NewStringLen(ctx, raw_line, len));
+                JS_SetPropertyStr(ctx, pty_obj, "raw", JS_TRUE);
+                JS_SetPropertyStr(ctx, pty_obj, "lines", lines);
+                JS_SetPropertyStr(ctx, pty_obj, "overflow", JS_NewBool(ctx, current_rt->pty.raw_overflow));
+                current_rt->pty.raw_overflow = 0;
+            }
+
             JS_SetPropertyStr(ctx, pty_obj, "alive",
                               JS_NewBool(ctx, current_rt->pty.alive));
             JS_SetPropertyStr(ctx, pty_obj, "cursorX",
@@ -7809,6 +8083,24 @@ static JSValue build_system_obj(JSContext *ctx) {
                                   JS_NewInt32(ctx, current_rt->pty2.exit_code));
                 pty_destroy(&current_rt->pty2);
                 current_rt->pty2_active = 0;
+            }
+
+            if (current_rt->pty2.raw) {
+                // Raw line mode: hand the piece every whole line that arrived
+                // since the last frame. The grid below is never touched.
+                static char raw_line[PTY_RAW_BUF];
+                JSValue lines = JS_NewArray(ctx);
+                uint32_t n = 0;
+                int len;
+                // Only the paint build hands lines out: act and sim rebuild this
+                // object too, and a line drained there would never be seen.
+                if (strcmp(current_phase, "paint") == 0)
+                while ((len = pty_next_line(&current_rt->pty2, raw_line, (int)sizeof(raw_line))) >= 0)
+                    JS_SetPropertyUint32(ctx, lines, n++, JS_NewStringLen(ctx, raw_line, len));
+                JS_SetPropertyStr(ctx, pty2_obj, "raw", JS_TRUE);
+                JS_SetPropertyStr(ctx, pty2_obj, "lines", lines);
+                JS_SetPropertyStr(ctx, pty2_obj, "overflow", JS_NewBool(ctx, current_rt->pty2.raw_overflow));
+                current_rt->pty2.raw_overflow = 0;
             }
 
             JS_SetPropertyStr(ctx, pty2_obj, "alive",
@@ -8003,6 +8295,8 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
     // Sound
     JS_SetPropertyStr(ctx, api, "sound", build_sound_obj(ctx, rt));
 
+    JS_SetPropertyStr(ctx, api, "oskiewarMath", build_oskiewar_math(ctx));
+
     // System (battery, etc)
     JS_SetPropertyStr(ctx, api, "system", build_system_obj(ctx));
 
@@ -8077,6 +8371,16 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
 
     // penLock
     JS_SetPropertyStr(ctx, api, "penLock", JS_NewCFunction(ctx, js_pen_lock, "penLock", 0));
+
+    JS_SetPropertyStr(ctx, api, "comicWrite", JS_NewCFunction(ctx, js_comic_write, "comicWrite", 7));
+    JS_SetPropertyStr(ctx, api, "gpuBegin", JS_NewCFunction(ctx, js_gpu_begin, "gpuBegin", 3));
+    JS_SetPropertyStr(ctx, api, "gpuEnd", JS_NewCFunction(ctx, js_gpu_end, "gpuEnd", 0));
+    JS_SetPropertyStr(ctx, api, "themeReady", JS_NewCFunction(ctx, js_theme_ready, "themeReady", 0));
+    JS_SetPropertyStr(ctx, api, "themeAssetReady", JS_NewCFunction(ctx, js_theme_asset_ready, "themeAssetReady", 1));
+    JS_SetPropertyStr(ctx, api, "themeSprite", JS_NewCFunction(ctx, js_theme_sprite, "themeSprite", 12));
+    JS_SetPropertyStr(ctx, api, "themeQuad", JS_NewCFunction(ctx, js_theme_quad, "themeQuad", 17));
+    JS_SetPropertyStr(ctx, api, "disc3d", JS_NewCFunction(ctx, js_gpu_disc, "disc3d", 8));
+    JS_SetPropertyStr(ctx, api, "triangle3d", JS_NewCFunction(ctx, js_screen_triangle, "triangle3d", 12));
 
     // get (stub for texture loading — fps.mjs checks if get is available)
     JS_SetPropertyStr(ctx, api, "get", JS_NULL);

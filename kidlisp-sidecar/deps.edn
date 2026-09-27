@@ -22,6 +22,10 @@
  :aliases
  {:run  {:main-opts ["-m" "ac.kidlisp.core"]}
 
+  ;; clojure -M:test — runs against an in-memory Datomic, no Postgres needed.
+  :test {:extra-paths ["test"]
+         :main-opts ["-e" "(require 'ac.kidlisp.erase-test) (let [r (clojure.test/run-tests 'ac.kidlisp.erase-test)] (shutdown-agents) (System/exit (if (zero? (+ (:fail r) (:error r))) 0 1)))"]}
+
   :uberjar {:deps  {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
             :replace-paths []
             :replace-deps  {com.github.clj-easy/graal-build-time

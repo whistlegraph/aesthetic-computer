@@ -26,6 +26,7 @@
       ["" {:post (h/create conn)
            :get  (h/list-codes conn)}]
       ["/lookup"          {:post (h/batch-lookup conn)}]
+      ["/user/erase"      {:post (h/erase-user conn)}]
       ["/stats/functions" {:get  (h/stats-functions conn)}]
       ["/hash/:hash"      {:get  (h/lookup-hash conn)}]
       ["/:code"           {:get  (h/lookup-code conn)}]

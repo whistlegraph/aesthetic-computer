@@ -709,6 +709,16 @@ final class LedgerHTTPServer {
             return
         }
 
+        // POST /send — a message for one of our sessions' inboxes. Written to
+        // disk (socket first when a harness listens), never typed anywhere.
+        if line.hasPrefix("POST"), line.contains("/send") {
+            let result = inboxSend(decodedBody(data, bodyStart: bodyStart))
+            let body = (try? JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]))
+                ?? Data("{\"ok\":false,\"error\":\"encoding failed\"}".utf8)
+            respond(client, body: body)
+            return
+        }
+
         // POST /wake — queue one bounded continuation through AppDelegate.
         // The response only acknowledges the queue; terminal focus/paste work
         // remains asynchronous so this tailnet server stays responsive.
@@ -771,5 +781,90 @@ final class LedgerHTTPServer {
     private func decodedBody(_ data: Data, bodyStart: Int?) -> [String: Any] {
         guard let start = bodyStart, start <= data.count else { return [:] }
         return (try? JSONSerialization.jsonObject(with: data[start...])) as? [String: Any] ?? [:]
+    }
+
+    // ── inbox drop (mirrors slab/bin/prox-inbox.mjs deliverLocal) ────────
+    // $SLAB_HOME/inbox/<to_id>/: the live harness's inbox.sock gets first try
+    // with a 200 ms ack window; otherwise the line is appended to
+    // messages.jsonl (dir 0700, file 0600) for the session's next turn.
+    private static let inboxIdChars = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+
+    private func inboxSend(_ obj: [String: Any]) -> [String: Any] {
+        let toId = (obj["to_id"] as? String) ?? ""
+        let text = (obj["text"] as? String) ?? ""
+        let from = ((obj["from"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+        guard !toId.isEmpty, toId.count <= 180,
+              toId.unicodeScalars.allSatisfy({ Self.inboxIdChars.contains($0) })
+        else { return ["ok": false, "error": "to_id must be a session id"] }
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, text.count <= 8000
+        else { return ["ok": false, "error": "text must be 1–8000 characters"] }
+        guard !from.isEmpty else { return ["ok": false, "error": "from is required"] }
+
+        let id = ((obj["id"] as? String).flatMap { $0.isEmpty ? nil : String($0.prefix(64)) })
+            ?? UUID().uuidString.lowercased()
+        let message: [String: Any] = [
+            "v": 1,
+            "id": id,
+            "ts": (obj["ts"] as? NSNumber) ?? NSNumber(value: Int64(Date().timeIntervalSince1970 * 1000)),
+            "from": String(from.prefix(120)),
+            "to": String(((obj["to"] as? String) ?? "").prefix(120)),
+            "to_id": toId,
+            "text": text,
+            "urgency": (obj["urgency"] as? String) == "urgent" ? "urgent" : "queue",
+            "kind": "message",
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: message, options: [.sortedKeys]),
+              let line = String(data: data, encoding: .utf8)
+        else { return ["ok": false, "error": "encoding failed"] }
+
+        let dir = "\(Paths.slabHome)/inbox/\(toId)"
+        if inboxSocketDeliver(path: "\(dir)/inbox.sock", line: line) {
+            return ["ok": true, "via": "socket", "id": id]
+        }
+        let fm = FileManager.default
+        try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true,
+                                attributes: [.posixPermissions: 0o700])
+        let file = "\(dir)/messages.jsonl"
+        if !fm.fileExists(atPath: file) {
+            fm.createFile(atPath: file, contents: nil, attributes: [.posixPermissions: 0o600])
+        }
+        guard let fh = FileHandle(forWritingAtPath: file) else {
+            return ["ok": false, "error": "inbox not writable"]
+        }
+        fh.seekToEndOfFile(); fh.write(Data((line + "\n").utf8)); try? fh.close()
+        return ["ok": true, "via": "file", "id": id]
+    }
+
+    // One line out, one JSON line back; anything but {"ok":true} within the
+    // window is a miss and the caller falls through to the file.
+    private func inboxSocketDeliver(path: String, line: String) -> Bool {
+        guard FileManager.default.fileExists(atPath: path) else { return false }
+        let s = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard s >= 0 else { return false }
+        defer { close(s) }
+        var tv = timeval(tv_sec: 0, tv_usec: 200_000)
+        setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+        setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+        var addr = sockaddr_un()
+        addr.sun_family = sa_family_t(AF_UNIX)
+        let bytes = Array(path.utf8)
+        guard bytes.count < MemoryLayout.size(ofValue: addr.sun_path) else { return false }
+        withUnsafeMutableBytes(of: &addr.sun_path) { $0.copyBytes(from: bytes) }
+        let connected = withUnsafePointer(to: &addr) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                connect(s, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }
+        guard connected == 0 else { return false }
+        let out = Data((line + "\n").utf8)
+        let wrote = out.withUnsafeBytes { write(s, $0.baseAddress, $0.count) }
+        guard wrote == out.count else { return false }
+        var buf = [UInt8](repeating: 0, count: 1024)
+        let n = read(s, &buf, buf.count)
+        guard n > 0 else { return false }
+        let reply = String(decoding: buf[0..<n], as: UTF8.self)
+            .split(separator: "\n", maxSplits: 1).first.map(String.init) ?? ""
+        let ack = (try? JSONSerialization.jsonObject(with: Data(reply.utf8))) as? [String: Any]
+        return (ack?["ok"] as? Bool) == true
     }
 }

@@ -12,6 +12,7 @@ import { homedir, hostname } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { deliverLocal } from "./prox-inbox.mjs";
 
 const pexec = promisify(execFile);
 const JOBS = Object.freeze({ mediascholar: "mediascholar.service" });
@@ -343,6 +344,14 @@ export function createWorkerServer(config, ip) {
       if (req.method === "POST" && url.pathname === "/poke") {
         await readBody(req).catch(() => ({}));
         respond(res, 200, { ok: true });
+        return;
+      }
+      // A message for a session on this host. deliverLocal validates to_id
+      // and text and writes only inside the inbox tree; 8000 chars of text
+      // can be 32 KiB of UTF-8, hence the wider body cap.
+      if (req.method === "POST" && url.pathname === "/send") {
+        const { via, id } = await deliverLocal(await readBody(req, 64 * 1024));
+        respond(res, 200, { ok: true, via, id });
         return;
       }
       if (req.method !== "GET") {

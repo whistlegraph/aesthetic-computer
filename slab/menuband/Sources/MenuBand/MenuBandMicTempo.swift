@@ -55,6 +55,7 @@ final class MenuBandMicTempo {
 
     func start() {
         guard !running else { return }
+        menuBandNoteInputNodeAccess("mictempo")
         let input = aue.inputNode
         setSmallIOBuffer()                 // ask CoreAudio for low latency
         let fmt = input.inputFormat(forBus: 0)
@@ -64,6 +65,7 @@ final class MenuBandMicTempo {
             self?.process(b)
         }
         do {
+            MenuBandAudioDevices.bindToRawOutput(aue, label: "MenuBandMicTempo")
             try aue.start()
             running = true
             NSLog("🎧 mic: listening sr=\(Int(sr)) hop=\(hop)")
@@ -80,6 +82,7 @@ final class MenuBandMicTempo {
 
     func stop() {
         guard running else { return }
+        menuBandNoteInputNodeAccess("mictempo")
         aue.inputNode.removeTap(onBus: 0)
         aue.stop()
         analyzeTimer?.invalidate(); analyzeTimer = nil

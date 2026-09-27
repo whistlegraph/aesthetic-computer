@@ -242,6 +242,14 @@ private final class NativeAudio {
     private var cursor = 0
     private let sampleRate = 48_000.0
     private var noiseState: UInt64 = 0x6f736b6965776172
+    // The motor drone: one continuous voice the game steers every sim tick
+    // (oscillator(frequency, gain)) and lets go of (oscillatorStop). Pitch and
+    // gain ease toward their targets inside the render block, so a stop or a
+    // gear change never clicks. The Xbox host has had this since the
+    // onewheel; without it the Mac rode the monowheel in silence.
+    private var oscillatorNode: AVAudioSourceNode?
+    private var oscillatorTargetHz = 220.0, oscillatorTargetGain = 0.0
+    private var oscillatorHz = 220.0, oscillatorGain = 0.0, oscillatorPhase = 0.0
 
     init() {
         guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate,
@@ -252,9 +260,37 @@ private final class NativeAudio {
             engine.connect(player, to: engine.mainMixerNode, format: format)
             players.append(player)
         }
+        let oscillator = AVAudioSourceNode { [unowned self] _, _, frameCount, audioBufferList -> OSStatus in
+            let buffers = UnsafeMutableAudioBufferListPointer(audioBufferList)
+            let step = 1.0 / self.sampleRate
+            for frame in 0..<Int(frameCount) {
+                self.oscillatorHz += (self.oscillatorTargetHz - self.oscillatorHz) * 0.0008
+                self.oscillatorGain += (self.oscillatorTargetGain - self.oscillatorGain) * 0.0015
+                self.oscillatorPhase += self.oscillatorHz * step
+                if self.oscillatorPhase >= 1 { self.oscillatorPhase -= 1 }
+                let angle = self.oscillatorPhase * 2 * Double.pi
+                // A sine with a quieter octave gives the wheel a little grit.
+                let sample = Float((sin(angle) + 0.35 * sin(angle * 2)) * self.oscillatorGain)
+                for buffer in buffers {
+                    buffer.mData?.assumingMemoryBound(to: Float.self)[frame] = sample
+                }
+            }
+            return noErr
+        }
+        engine.attach(oscillator)
+        engine.connect(oscillator, to: engine.mainMixerNode, format: format)
+        oscillatorNode = oscillator
         engine.mainMixerNode.outputVolume = 0.72
         try? engine.start()
     }
+
+    func oscillator(_ frequency: Double, gain: Double) {
+        guard frequency.isFinite, gain.isFinite else { return }
+        oscillatorTargetHz = min(max(frequency, 20), 8_000)
+        oscillatorTargetGain = min(max(gain, 0), 0.5)
+    }
+
+    func oscillatorStop() { oscillatorTargetGain = 0 }
 
     func drum(_ name: String, velocity: Double, pan: Double) {
         let duration: Double
@@ -522,6 +558,22 @@ private final class GameView: NSView {
         host?.mousePressed(point: logicalPoint(event))
     }
 
+    // Trackpad camera, banked into the same orbit the web shell's drag and
+    // pinch feed: pinch dollies, two fingers turning rotate round the rider,
+    // and a two-finger scroll nudges turn and tilt.
+    override func magnify(with event: NSEvent) {
+        host?.orbit(zoom: -Double(event.magnification))
+    }
+    override func rotate(with event: NSEvent) {
+        host?.orbit(yaw: -Double(event.rotation) * Double.pi / 180)
+    }
+    override func scrollWheel(with event: NSEvent) {
+        let scale: Double = event.hasPreciseScrollingDeltas ? 1 : 8
+        let turn: Double = -Double(event.scrollingDeltaX) * scale * 0.0025
+        let tilt: Double = -Double(event.scrollingDeltaY) * scale * 0.0015
+        host?.orbit(yaw: turn, pitch: tilt)
+    }
+
     private func updatePointer(_ event: NSEvent, active: Bool) {
         host?.updatePointer(point: logicalPoint(event), active: active)
     }
@@ -624,6 +676,29 @@ private final class NativeGameHost {
               Object.assign({}, globalThis.__oskiewarRenderFlags, content);
         };
         """)
+        // The photographic theme rides the same atlases the website and the
+        // Xbox use. It turns on only if the core pair loaded; otherwise the
+        // engine keeps its vectors. OSKIEWAR_GRAPHICS=flat asks for vectors.
+        let theme = resources.appendingPathComponent("live/themes/photorealistic/assets")
+        view.scene.loadTheme(["underpass.png", "props.png", "explosions-v1.png", "weapons-v2.png"]
+            .map { name -> URL? in
+                let url = theme.appendingPathComponent(name)
+                return FileManager.default.fileExists(atPath: url.path) ? url : nil
+            })
+        let wantsFlat = ProcessInfo.processInfo.environment["OSKIEWAR_GRAPHICS"] == "flat"
+        // The desk build boots into freeskate while the skating is being
+        // worked on. OSKIEWAR_OPPONENT picks another door (empty = the usual).
+        if let start = ProcessInfo.processInfo.environment["OSKIEWAR_START_X"], let x = Double(start) {
+            javascript.evaluateScript("globalThis.__oskiewarFreeskateStart = \(x);")
+        }
+        let opponent = ProcessInfo.processInfo.environment["OSKIEWAR_OPPONENT"] ?? "freeskate"
+        if let encoded = try? JSONSerialization.data(withJSONObject: [opponent]),
+           let literal = String(data: encoded, encoding: .utf8) {
+            javascript.evaluateScript("globalThis.__oskiewarOpponent = \(literal)[0];")
+        }
+        if view.scene.themeReady && !wantsFlat {
+            javascript.evaluateScript("globalThis.__oskiewarGraphicsTheme = 'photorealistic';")
+        }
         javascript.evaluateScript(qr + "\n" + hello,
             withSourceURL: URL(fileURLWithPath: "oskiewar/oskiewar.js"))
         call("boot")
@@ -662,6 +737,13 @@ private final class NativeGameHost {
 
     func updatePointer(point: CGPoint, active: Bool) {
         javascript.evaluateScript("globalThis.__oskiewarTouch.pointer.x=\(point.x);globalThis.__oskiewarTouch.pointer.y=\(point.y);globalThis.__oskiewarTouch.pointer.active=\(active ? "true" : "false");")
+    }
+
+    func orbit(yaw: Double = 0, pitch: Double = 0, zoom: Double = 0) {
+        guard yaw.isFinite, pitch.isFinite, zoom.isFinite else { return }
+        javascript.evaluateScript(
+            "(function(o){if(!o)return;o.yaw+=\(yaw);o.pitch+=\(pitch);o.zoom+=\(zoom);})" +
+            "(globalThis.__oskiewarTouch&&globalThis.__oskiewarTouch.orbit)")
     }
 
     func clearPointer() {
@@ -782,7 +864,7 @@ private final class NativeGameHost {
         javascript.exceptionHandler = { [weak self] _, exception in
             self?.javascriptError = exception?.toString() ?? "javascript exception"
         }
-        javascript.evaluateScript("globalThis.__oskiewarTouch={pointer:{active:false,x:0,y:0},taps:[]};")
+        javascript.evaluateScript("globalThis.__oskiewarTouch={pointer:{active:false,x:0,y:0},taps:[],orbit:{yaw:0,pitch:0,zoom:0}};")
 
         let wipe: @convention(block) (Double, Double, Double) -> Void = { [weak self] r, g, b in
             self?.renderer.wipe(r, g, b)
@@ -857,6 +939,12 @@ private final class NativeGameHost {
         let synth: @convention(block) (Double, Double) -> Void = { [weak self] frequency, duration in
             self?.audio.synth(frequency, duration: duration)
         }
+        let oscillator: @convention(block) (Double, Double) -> Void = { [weak self] frequency, gain in
+            self?.audio.oscillator(frequency, gain: gain)
+        }
+        let oscillatorStop: @convention(block) () -> Void = { [weak self] in
+            self?.audio.oscillatorStop()
+        }
         let gameSignal: @convention(block) (String, Int32, Double, Double) -> Void =
             { [weak self] event, player, value, value2 in
                 self?.osc.send(event: event, player: player, value: Float(value), value2: Float(value2))
@@ -884,9 +972,44 @@ private final class NativeGameHost {
         javascript.setObject(gamepad, forKeyedSubscript: "gamepad" as NSString)
         javascript.setObject(controllers, forKeyedSubscript: "controllers" as NSString)
         javascript.setObject(capabilities, forKeyedSubscript: "capabilities" as NSString)
+        // The retained-texture contract. Arguments arrive loose (the sprite's
+        // depthWrite is optional), so these read the call's own argument list.
+        let numbers: () -> [Double] = {
+            (JSContext.currentArguments() as? [JSValue] ?? []).map { $0.toDouble() }
+        }
+        let themeReady: @convention(block) () -> Bool = { [weak self] in
+            self?.view.scene.themeReady ?? false
+        }
+        let themeAssetReady: @convention(block) (Int32) -> Bool = { [weak self] id in
+            self?.view.scene.themeAssetReady(Int(id)) ?? false
+        }
+        let themeSprite: @convention(block) () -> Bool = { [weak self] in
+            let v = numbers()
+            guard let self, v.count >= 12 else { return false }
+            let args = JSContext.currentArguments() as? [JSValue] ?? []
+            let depthWrite = v.count < 13 || args[12].isUndefined || args[12].toBool()
+            return self.view.scene.themeSprite(asset: Int(v[0]),
+                source: CGRect(x: v[1], y: v[2], width: v[3], height: v[4]),
+                x: v[5], y: v[6], width: v[7], height: v[8], angle: v[9],
+                flip: args[10].toBool(), depth: v[11], depthWrite: depthWrite)
+        }
+        let themeQuad: @convention(block) () -> Bool = { [weak self] in
+            let v = numbers()
+            guard let self, v.count >= 17, v.allSatisfy(\.isFinite) else { return false }
+            return self.view.scene.themeQuad(asset: Int(v[0]),
+                source: CGRect(x: v[1], y: v[2], width: v[3], height: v[4]),
+                (v[5], v[6], v[7]), (v[8], v[9], v[10]),
+                (v[11], v[12], v[13]), (v[14], v[15], v[16]))
+        }
+        javascript.setObject(themeReady, forKeyedSubscript: "themeReady" as NSString)
+        javascript.setObject(themeAssetReady, forKeyedSubscript: "themeAssetReady" as NSString)
+        javascript.setObject(themeSprite, forKeyedSubscript: "themeSprite" as NSString)
+        javascript.setObject(themeQuad, forKeyedSubscript: "themeQuad" as NSString)
         javascript.setObject(telemetry, forKeyedSubscript: "telemetry" as NSString)
         javascript.setObject(drum, forKeyedSubscript: "drum" as NSString)
         javascript.setObject(synth, forKeyedSubscript: "synth" as NSString)
+        javascript.setObject(oscillator, forKeyedSubscript: "oscillator" as NSString)
+        javascript.setObject(oscillatorStop, forKeyedSubscript: "oscillatorStop" as NSString)
         javascript.setObject(gameSignal, forKeyedSubscript: "gameSignal" as NSString)
         javascript.setObject(saveReplay, forKeyedSubscript: "saveReplay" as NSString)
         javascript.setObject(publishLive, forKeyedSubscript: "publishLive" as NSString)
@@ -897,6 +1020,11 @@ private final class NativeGameHost {
 private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var window: NSWindow!
     private var host: NativeGameHost!
+    // The website's tab plays with the word's spacing every 1.25 s; the
+    // window title does the same, from the same list.
+    private static let titles = ["oskiewar", "oskie war", "os ki ewar", "osk ie war",
+                                 "o skie war", "oskie w ar"]
+    private var titleTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         registerComicFont()
@@ -926,6 +1054,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         window.makeFirstResponder(view)
         host = NativeGameHost(view: view)
         host.start()
+        titleTimer = Timer.scheduledTimer(withTimeInterval: 1.25, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            let index = Int(CACurrentMediaTime() / 1.25) % Self.titles.count
+            self.window.title = Self.titles[index]
+        }
         NSApp.activate(ignoringOtherApps: true)
     }
 

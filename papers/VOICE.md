@@ -53,3 +53,7 @@ the voice in the platter index, paper descriptions, and cards title pages should
 ---
 
 *maintained by @jeffrey — update this when the voice evolves*
+
+## lineage
+
+the plain register above has a reading shelf: [`prose-platter/`](prose-platter/manifest.md) — Hemingway, Tao Lin, Ann Beattie, with the rules the MacNeoPolitan ballad was rewritten by (2026-09-20). go there when a text needs to "just tell it how it is."

@@ -17,6 +17,10 @@ function easel --description 'Open Aesel'
     command $HOME/.local/bin/easel $argv
 end
 
-function aesel --description 'Open Aesel'
+function aesel --description 'Open native Aesel GUI'
     command $HOME/.local/bin/aesel $argv
+end
+
+function a --description 'Open Aesel TUI in pro mode'
+    command $HOME/.local/bin/a $argv
 end

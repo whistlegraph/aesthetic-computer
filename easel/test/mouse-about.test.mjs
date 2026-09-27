@@ -7,7 +7,7 @@ test("mouse reports split across reads never become prompt characters", () => {
   const decoder = new InputDecoder();
   assert.deepEqual(decoder.push("\x1b[<35;4"), []);
   assert.deepEqual(decoder.push(";21Mhi"), ["\x1b[<35;4;21M", "h", "i"]);
-  assert.deepEqual(mouseEvent("\x1b[<35;4;21M"), { x: 4, y: 21, motion: true, wheel: 0, click: false });
+  assert.deepEqual(mouseEvent("\x1b[<35;4;21M"), { x: 4, y: 21, motion: true, wheel: 0, click: false, press: false, drag: false, release: false });
   assert.equal(mouseEvent("\x1b[<0;4;21M").click, true);
   assert.equal(mouseEvent("\x1b[<0;4;21m").click, false);
   assert.equal(mouseEvent("\x1b[<65;4;21M").wheel, 1);

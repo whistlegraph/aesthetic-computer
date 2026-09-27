@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { rotationAt, voicePosition, seatGain, sourceGain, hasFocus } from '../lib/spatial-rehearsal.mjs';
+import { rotationAt, voicePosition, seatGain, sourceGain, hasFocus, ringSeats } from '../lib/spatial-rehearsal.mjs';
 import { createSpatialDataServer } from './spatial-data.mjs';
 import { readFileSync } from 'node:fs';
 
@@ -10,6 +10,20 @@ test('rotation integrates ribbon area independently of frame history', () => {
   const pinned = { ...score, lanes: [{ az: .3, el: .5 }, {}] };
   assert.equal(voicePosition(pinned, 0, 8).angle, .3);
   assert.deepEqual(voicePosition(score, 1, 7), voicePosition(score, 1, 7));
+});
+test('a center seat takes only center lanes and the ring keeps its power', () => {
+  const s = { dur: 10, center: 5, lanes: [{ az: 0 }, { center: true }, { orbitSeconds: 8 }] };
+  assert.equal(ringSeats(s, 6), 5);
+  for (const t of [0, 1.3, 7.7]) {
+    const pc = voicePosition(s, 1, t);
+    assert.deepEqual([0,1,2,3,4,5].map(k => sourceGain(s, pc, k, 6)), [0, 0, 0, 0, 0, 1]);
+    for (const lane of [0, 2]) {
+      const gains = [0,1,2,3,4,5].map(k => sourceGain(s, voicePosition(s, lane, t), k, 6));
+      assert.equal(gains[5], 0);
+      assert.ok(Math.abs(gains.reduce((a, g) => a + g * g, 0) - 1) < 1e-10);
+    }
+  }
+  assert.equal(sourceGain(s, voicePosition(s, 0, 0), 0, 6), 1); // az 0 is ring seat 1, still index 0
 });
 test('routing conserves summed power across 3–6 seats and negative angles', () => {
   for (const n of [3, 4, 5, 6]) for (let a = -7; a < 7; a += .031) {

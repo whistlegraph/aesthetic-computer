@@ -28,6 +28,9 @@
 //   node toolchain/x/x.mjs --as promptdotac reply <post-url-or-id> "hello"
 //   node toolchain/x/x.mjs --as promptdotac post "hello" --dry-run
 //   node toolchain/x/x.mjs --as promptdotac snapshot
+//   node toolchain/x/x.mjs --as promptdotac user <handle>
+//   node toolchain/x/x.mjs --as promptdotac following <handle> [--max-results 1..1000]
+//   node toolchain/x/x.mjs --as promptdotac timeline <handle> [--max-results 5..100]
 //
 // X is pay-per-use. Search reserves against a conservative local daily budget;
 // the X console's Billing Cycle Cap remains the authoritative global guard.
@@ -480,6 +483,76 @@ async function commandSearch() {
   }, null, 2));
 }
 
+// Read-only network lookups. X bills these per resource read like search, so
+// each reserves its worst case against the same local daily ledger first.
+// The per-read rate is an assumption (READ_USD_PER_POST); check the console.
+async function lookupUser(handle, creds) {
+  const username = String(handle || "").replace(/^@/, "").replace(/^https?:\/\/(x|twitter)\.com\//, "").split(/[/?]/)[0];
+  if (!/^[A-Za-z0-9_]{1,15}$/.test(username)) throw new Error(`not an X handle: ${handle}`);
+  const result = await callApi("GET", `/2/users/by/username/${username}`, { query: {
+    "user.fields": "description,public_metrics,url,created_at,location",
+  } }, creds);
+  if (!result.data) throw new Error(`no such X user: @${username}`);
+  return result.data;
+}
+
+function readCount(flag, min, max, fallback) {
+  const count = Number(flags[flag] || fallback);
+  if (!Number.isInteger(count) || count < min || count > max) {
+    throw new Error(`--${flag} must be an integer from ${min} to ${max}`);
+  }
+  return count;
+}
+
+function userSummary(user) {
+  return { id: user.id, username: `@${user.username}`, name: user.name,
+    description: user.description, url: user.url, location: user.location,
+    metrics: user.public_metrics };
+}
+
+async function commandUser() {
+  const name = account();
+  const creds = credentials(name);
+  reserveSearch(name, `user ${positional[1]}`, 1);
+  console.log(JSON.stringify(userSummary(await lookupUser(positional[1], creds)), null, 2));
+}
+
+async function commandFollowing() {
+  const name = account();
+  if (!positional[1]) throw new Error("usage: following <handle> [--max-results 1..1000]");
+  const maxResults = readCount("max-results", 1, 1000, 100);
+  const creds = credentials(name);
+  const budget = reserveSearch(name, `following ${positional[1]}`, maxResults + 1);
+  const user = await lookupUser(positional[1], creds);
+  const result = await callApi("GET", `/2/users/${user.id}/following`, { query: {
+    max_results: maxResults,
+    "user.fields": "description,public_metrics,url,location",
+  } }, creds);
+  console.log(JSON.stringify({ of: `@${user.username}`, count: (result.data || []).length,
+    remainingTodayUsd: budget.remainingUsd, following: (result.data || []).map(userSummary) }, null, 2));
+}
+
+async function commandTimeline() {
+  const name = account();
+  if (!positional[1]) throw new Error("usage: timeline <handle> [--max-results 5..100]");
+  const maxResults = readCount("max-results", 5, 100, 20);
+  const creds = credentials(name);
+  const budget = reserveSearch(name, `timeline ${positional[1]}`, maxResults + 1);
+  const user = await lookupUser(positional[1], creds);
+  const result = await callApi("GET", `/2/users/${user.id}/tweets`, { query: {
+    max_results: maxResults,
+    exclude: "retweets,replies",
+    "tweet.fields": "created_at,public_metrics,entities",
+  } }, creds);
+  const posts = (result.data || []).map((post) => ({
+    id: post.id, url: `https://x.com/${user.username}/status/${post.id}`,
+    createdAt: post.created_at, text: post.text,
+    links: (post.entities?.urls || []).map((u) => u.expanded_url).filter(Boolean),
+  }));
+  console.log(JSON.stringify({ of: `@${user.username}`, count: posts.length,
+    remainingTodayUsd: budget.remainingUsd, posts }, null, 2));
+}
+
 async function commandBudget() {
   const name = account();
   const state = readUsage(name);
@@ -512,7 +585,8 @@ async function commandSnapshot() {
 
 const COMMANDS = { accounts: commandAccounts, me: commandMe,
   search: commandSearch, budget: commandBudget, post: commandPost,
-  reply: commandReply, snapshot: commandSnapshot };
+  reply: commandReply, snapshot: commandSnapshot,
+  user: commandUser, following: commandFollowing, timeline: commandTimeline };
 
 // Only dispatch when run as a program; the spec imports this file for its
 // signing and counting helpers.

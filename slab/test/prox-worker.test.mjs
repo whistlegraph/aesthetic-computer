@@ -72,6 +72,45 @@ test("headless Prox sanitizes its ledger and exposes only allowlisted systemd jo
   assert.equal(status.properties.ActiveState, "inactive");
 });
 
+test("headless Prox drops /send messages into the local inbox and refuses bad ones", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "prox-send-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  // prox-inbox reads SLAB_HOME at call time, so the in-process server can be
+  // pointed at a scratch home for the duration of this test.
+  const previous = process.env.SLAB_HOME;
+  process.env.SLAB_HOME = root;
+  t.after(() => { if (previous === undefined) delete process.env.SLAB_HOME; else process.env.SLAB_HOME = previous; });
+
+  const config = workerConfig({ PROX_WORKER_BIND: "127.0.0.1", PROX_WORKER_LEDGER_DIR: join(root, "ledger") });
+  const server = createWorkerServer(config, "127.0.0.1");
+  const port = await listen(server);
+  t.after(() => close(server));
+  const id = "aaaaaaaa-1111-2222-3333-444444444444";
+  const post = (body) => fetch(`http://127.0.0.1:${port}/send`, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+  });
+
+  const sent = await post({ from: "neo:sip", to: "jasellite:iris", to_id: id, text: "the build finished" });
+  assert.equal(sent.status, 200);
+  const reply = await sent.json();
+  assert.equal(reply.ok, true);
+  assert.equal(reply.via, "file");
+  const lines = (await readFile(join(root, "inbox", id, "messages.jsonl"), "utf8")).trim().split("\n");
+  assert.equal(lines.length, 1);
+  assert.equal(JSON.parse(lines[0]).id, reply.id);
+  assert.equal(JSON.parse(lines[0]).text, "the build finished");
+
+  const noText = await post({ from: "neo:sip", to_id: id });
+  assert.equal(noText.status, 400);
+  assert.equal((await noText.json()).ok, false);
+  const badId = await post({ from: "neo:sip", to_id: "../etc", text: "nope" });
+  assert.equal(badId.status, 400);
+  assert.match((await badId.json()).error, /session id/);
+  const tooLong = await post({ from: "neo:sip", to_id: id, text: "x".repeat(8001) });
+  assert.equal(tooLong.status, 400);
+  assert.match((await tooLong.json()).error, /exceeds 8000/);
+});
+
 test("headless Prox exposes a path-free public Mediascholar status", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "prox-scholar-"));
   t.after(() => rm(root, { recursive: true, force: true }));

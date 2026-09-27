@@ -4,6 +4,7 @@
 # Usage:
 #   ./install.sh                # install everything interactively
 #   ./install.sh --prompt-host  # hooks + agent wrappers only (no audio/sleep daemons)
+#   ./install.sh --sleep-control-only  # repair lid-close toggle permissions only
 #   ./install.sh --no-hooks     # skip Claude Code hook merge
 #   ./install.sh --no-sudoers   # skip passwordless-sudo rule for pmset
 #   ./install.sh --uninstall    # same as ./uninstall.sh
@@ -27,9 +28,11 @@ SUDOERS_FILE=/etc/sudoers.d/slab-pmset
 DO_HOOKS=1
 DO_SUDOERS=1
 PROMPT_HOST_ONLY=0
+SLEEP_CONTROL_ONLY=0
 for arg in "$@"; do
     case "$arg" in
         --prompt-host) PROMPT_HOST_ONLY=1; DO_SUDOERS=0 ;;
+        --sleep-control-only) SLEEP_CONTROL_ONLY=1 ;;
         --no-hooks)   DO_HOOKS=0 ;;
         --no-sudoers) DO_SUDOERS=0 ;;
         --uninstall)  exec "$SLAB_REPO/uninstall.sh" ;;
@@ -40,6 +43,33 @@ done
 say() { printf '\033[1;36m• %s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33m⚠ %s\033[0m\n' "$*"; }
 err() { printf '\033[1;31m✗ %s\033[0m\n' "$*" >&2; }
+
+install_sleep_control() {
+    if sudo -n -l /usr/bin/pmset -a disablesleep 1 >/dev/null 2>&1; then
+        say "sleep-control permission already available"
+        return
+    fi
+    say "installing Slab sleep-control permission (administrator password required)"
+    local rule
+    rule=$(mktemp)
+    sed "s|@USER@|$(id -un)|g" "$SLAB_REPO/sudoers.d/slab-pmset.template" > "$rule"
+    if ! sudo /usr/sbin/visudo -cf "$rule"; then rm -f "$rule"; return 1; fi
+    # Do not overwrite an existing policy that may belong to another user.
+    if [[ -e "$SUDOERS_FILE" ]]; then
+        rm -f "$rule"
+        err "$SUDOERS_FILE exists but does not grant this user sleep control; review it with sudo visudo -f $SUDOERS_FILE"
+        return 1
+    fi
+    if ! sudo /usr/bin/install -o root -g wheel -m 0440 "$rule" "$SUDOERS_FILE"; then rm -f "$rule"; return 1; fi
+    rm -f "$rule"
+    sudo -n -l /usr/bin/pmset -a disablesleep 1 >/dev/null
+    say "sleep-control permission installed"
+}
+
+if [[ $SLEEP_CONTROL_ONLY -eq 1 ]]; then
+    install_sleep_control
+    exit
+fi
 
 # ------------ prereqs ------------
 say "checking prerequisites"
@@ -179,14 +209,7 @@ merge_claude_hooks
 
 # ------------ passwordless sudo for pmset ------------
 if [[ $DO_SUDOERS -eq 1 ]]; then
-    if [[ ! -f "$SUDOERS_FILE" ]]; then
-        say "installing sudoers rule (requires sudo password once)"
-        rendered=$(sed "s|@USER@|$USER_NAME|g" "$SLAB_REPO/sudoers.d/slab-pmset.template")
-        echo "$rendered" | sudo tee "$SUDOERS_FILE" > /dev/null
-        sudo chmod 440 "$SUDOERS_FILE"
-    else
-        say "sudoers rule already present"
-    fi
+    install_sleep_control
 fi
 
 say "install complete"

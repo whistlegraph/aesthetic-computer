@@ -1,0 +1,29 @@
+{
+  "description": "prox inbox drain: hand messages from other sessions to this Codex session at turn boundaries.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /Users/jas/aesthetic-computer/slab/bin/inbox-drain.mjs prompt codex",
+            "statusMessage": "Draining prox inbox",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /Users/jas/aesthetic-computer/slab/bin/inbox-drain.mjs stop codex",
+            "statusMessage": "Checking prox inbox",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

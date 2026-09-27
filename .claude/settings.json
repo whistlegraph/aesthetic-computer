@@ -17,6 +17,26 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/slab/bin/inbox-drain.mjs\" prompt",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/slab/bin/inbox-drain.mjs\" stop",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "SessionStart": [
@@ -54,7 +74,16 @@
       "Bash(fd:*)",
       "Bash(oxlint:*)",
       "Bash(difft:*)",
-      "Bash(tsgo --noEmit:*)"
+      "Bash(tsgo --noEmit:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(git fetch:*)",
+      "Bash(git -C /Users/jas/aesthetic-computer push:*)",
+      "Bash(git -C /Users/jas/aesthetic-computer pull:*)",
+      "Bash(git -C /Users/jas/aesthetic-computer fetch:*)",
+      "Bash(git -C /Users/jas/aesthetic-computer/aesthetic-computer-vault push:*)",
+      "Bash(git -C /Users/jas/aesthetic-computer/aesthetic-computer-vault pull:*)",
+      "Bash(git -C /Users/jas/aesthetic-computer/aesthetic-computer-vault fetch:*)"
     ]
   }
 }

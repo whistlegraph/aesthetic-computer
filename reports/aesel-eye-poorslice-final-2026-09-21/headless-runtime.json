@@ -1,0 +1,32 @@
+{
+  "url": "https://aesthetic.computer/wipe?nogap=true&nolabel=true&autoreload=true&noauth=true",
+  "ready": true,
+  "failure": "",
+  "source": "export function paint({wipe}) { wipe(\"orange\"); }",
+  "canvases": [
+    {
+      "width": 178,
+      "height": 118
+    },
+    {
+      "width": 178,
+      "height": 118
+    },
+    {
+      "width": 178,
+      "height": 118
+    },
+    {
+      "width": 178,
+      "height": 118
+    },
+    {
+      "width": 356,
+      "height": 236
+    },
+    {
+      "width": 178,
+      "height": 118
+    }
+  ]
+}

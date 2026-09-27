@@ -1,0 +1,17 @@
+{
+  "schema": "ac-brush",
+  "version": 1,
+  "id": "line",
+  "operations": [
+    {
+      "op": "stroke",
+      "color": [
+        255,
+        60,
+        140,
+        180
+      ],
+      "radius": 1
+    }
+  ]
+}

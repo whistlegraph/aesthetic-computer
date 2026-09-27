@@ -52,7 +52,7 @@ The API is provided through function parameters. Common APIs:
 - **Graphics**: `wipe`, `ink`, `line`, `box`, `circle`, `plot`, `paste`, etc.
 - **Text**: `write`, `type`, `paste`, `help`
 - **Input**: `event`, `pen`, `hand`, `gamepad`
-- **Audio**: `sound`, `speaker`, `microphone`
+- **Audio**: `sound` (see [Sound](#sound)), `speaker`, `microphone`
 - **UI**: `ui.Button`, `ui.TextInput`, `cursor`
 - **System**: `screen`, `params`, `colon`, `store`, `net`, `clock`, `jump`, `send`
 
@@ -102,6 +102,87 @@ export { boot, sim };
 
 This aligns the musical grid; frame delivery and audio output latency still
 limit onset precision. Do not describe it as sample-accurate synchronization.
+
+## Sound
+
+`sound.synth({ tone, type, duration, attack, decay, volume, pan })` plays one
+voice and returns it: `{ kill(fade), update(props), progress() }`. `tone` is Hz
+or a note name (`"c4"`). `duration` is seconds, or `"🔁"` to hold until
+`voice.kill(fade)` — `fade` in seconds; a fade of 0 clicks.
+
+Types: `sine`, `triangle`, `square`, `sawtooth`, `noise-white` (alias `noise`;
+`tone` sets the resonant filter center), `harp` (aliases `pluck`, `guitar`,
+`string`; Karplus-Strong pluck), `whistle` (aliases `ocarina`, `flute`;
+waveguide flute), `custom` (pass `generator`), `sample`.
+
+Expressive options on the same call:
+
+| option | meaning | example |
+| --- | --- | --- |
+| `slide` | target tone; exponential glide from `tone` over `slideDuration` (default: the whole note; 0.25 s for held voices) | `slide: "g5"` |
+| `vibrato` | semitones at 5 Hz, or `{ rate, depth, delay }` | `vibrato: 0.3` |
+| `tremolo` | depth 0..1 at 6 Hz, or `{ rate, depth }` | `tremolo: { rate: 12, depth: 0.5 }` |
+| `drift` | semitones of slow random pitch wander | `drift: 0.2` |
+| `noise` | 0..1 white noise mixed into the source (breath, rasp) | `noise: 0.3` |
+| `lowpass` | cutoff Hz, or `{ cutoff, resonance, sweep, sweepDuration }` | `lowpass: { cutoff: 400, sweep: 3000, sweepDuration: 0.5 }` |
+| `formant` | vowel `"a"`/`"e"`/`"i"`/`"o"`/`"u"`, `[{ freq, bw, gain }]`, or `{ vowel, scale }` (scale < 1 = bigger body) | `formant: { vowel: "o", scale: 0.8 }` |
+
+`voice.update({ tone, volume, duration, vibrato, tremolo, drift, noise, lowpass, formant, slide })`
+glides tone and volume linearly over `duration` seconds (default 0.1) and
+replaces the modulation settings. Call it from `sim` each frame to drive a
+contour by hand:
+
+```javascript
+let voice, t = 0;
+function act({ event, sound }) {
+  if (event.is("touch")) voice = sound.synth({ type: "sawtooth", tone: 200, duration: "🔁", volume: 0.3 });
+  if (event.is("lift")) { voice?.kill(0.2); voice = undefined; }
+}
+function sim() {
+  if (!voice) return;
+  t += 1 / 60;
+  voice.update({ tone: 200 + 150 * Math.sin(t * 3), duration: 0.05 });
+}
+```
+
+Organic generators return the same voice shape (`kill`; `update` glides numeric
+params over `duration`) and take `volume`, `pan`, and `duration` (seconds or `"🔁"`):
+
+- `sound.howl({ pitch = 220, slide = 330, vowel = "o", scale = 1, vibrato = 0.4, rasp = 0.1, attack = 0.08, release = 0.3, duration = 1.5 })` — source-filter vocal model; the general animal call.
+- `sound.growl({ pitch = 55, rasp = 0.6, size = 1, tremor = 0.5, duration = 1.2 })`
+- `sound.breath({ pressure = 0.6, cutoff = 1200, direction = "out" | "in", duration = 0.8 })`
+- `sound.chirp({ pitch = 2500, slide = 4200, count = 3, rate = 8, duration = 0.5 })`
+- `sound.bubble({ radius, rise })`, `sound.fart({ pressure, pitch, rasp })` — physical models.
+
+### A donkey bray, two ways
+
+Hee — rising, thin, `"i"` — then haw — falling, open `"a"`, raspy — a beat later.
+
+```javascript
+let hawAt;
+function act({ event, sound, clock }) {
+  if (!event.is("touch")) return;
+  sound.howl({ pitch: 300, slide: 520, vowel: "i", scale: 0.9, vibrato: 0.6, rasp: 0.15, duration: 0.5 });
+  hawAt = clock.time().getTime() + 500; // one beat at 120 BPM
+}
+function sim({ sound, clock }) {
+  if (hawAt === undefined || clock.time().getTime() < hawAt) return;
+  hawAt = undefined;
+  sound.howl({ pitch: 260, slide: 140, vowel: "a", scale: 0.8, vibrato: 0.3, rasp: 0.5, attack: 0.03, release: 0.4, duration: 0.7 });
+}
+```
+
+The same bray on `sound.synth`, scheduled the same way:
+
+```javascript
+sound.synth({ type: "sawtooth", tone: 300, slide: 520, duration: 0.5, attack: 0.05, decay: 0.2, volume: 0.35, noise: 0.15, formant: { vowel: "i", scale: 0.9 }, vibrato: 0.6 });
+// a beat later, from sim:
+sound.synth({ type: "sawtooth", tone: 260, slide: 140, duration: 0.7, attack: 0.03, decay: 0.4, volume: 0.4, noise: 0.5, formant: { vowel: "a", scale: 0.8 }, vibrato: 0.3, lowpass: { cutoff: 2500, sweep: 600, sweepDuration: 0.7 } });
+```
+
+When a request names a sound (roar, bray, bark, wind), design it as a pitch
+contour plus a noise layer plus an envelope — never a fixed-pitch stab. Layer
+two or three voices at most.
 
 ## Event Handling
 

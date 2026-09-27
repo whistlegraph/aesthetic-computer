@@ -1,0 +1,10 @@
+{
+  "schema": "ac-brush",
+  "version": 1,
+  "id": "invert",
+  "operations": [
+    {
+      "op": "invert"
+    }
+  ]
+}

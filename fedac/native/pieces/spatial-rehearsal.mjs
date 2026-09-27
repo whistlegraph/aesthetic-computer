@@ -1,14 +1,15 @@
 // Spatial rehearsal, 26.09.18
 // Local synthesis on every seat, coordinated over Wi-Fi. Microphones stay closed.
-import { voicePosition, sourceGain, hasFocus } from '../lib/spatial-rehearsal.mjs';
+import { voicePosition, sourceGain, hasFocus, ringSeats, noteColor, ribbon, eventGain } from '../lib/spatial-rehearsal.mjs';
 
 let config, score, error = '', phase = 'ready', origin = null;
 let lastStatus = -1, lastRead = -1, seenCommand = '';
 let cursors = [], voices = [], mode = 'score', lastBeep = -1;
-let identifyAt = null, glow = 0;
+let identifyAt = null, glow = 0, flyCursors = [];
 let beepCount = 0, outputPeak = 0, maxFrameGap = 0, previousTime = null;
 let networkHalfRttMs = null, runId = null;
 let presence = null, presenceRaw = '', presenceSeen = -Infinity, presencePoll = -Infinity;
+const FRAME_E = new Array(48), FRAME_U = new Float64Array(48); // paint's bounded frame list, allocated once
 
 function seatConnection(i, now) {
   if (!presence || now - presenceSeen > 5) return 'unknown';
@@ -30,15 +31,52 @@ function readJSON(system, path) {
 function runDuration() { return mode === 'beeps' ? 20 : (config?.maxSeconds || score?.dur || 20); }
 function stopVoices() { for (const v of voices) v.voice?.kill?.(0.03); voices = []; }
 
-export function boot({ system, sound }) {
+// Effects a score may carry as dry/wet ribbons over its duration (fxRoom,
+// fxDrive, fxWobble, fxGlitch), with per-seat overrides in score.seatFx[seat].
+// Applied ten times a second to the engine's global mixes; every mix returns
+// to zero when the piece stops, so a rehearsal never leaves a laptop wet.
+const FX_UNITS = { fxRoom: 'room', fxDrive: 'drive', fxWobble: 'wobble', fxGlitch: 'glitch' };
+let fxLast = {}, fxAt = -Infinity;
+function applyFx(sound, t) {
+  if (t - fxAt < 0.1) return;
+  fxAt = t;
+  const mine = score.seatFx?.[config.seat] || {};
+  for (const [key, unit] of Object.entries(FX_UNITS)) {
+    const arr = mine[key] || score[key];
+    if (!arr?.length) continue;
+    const v = Math.max(0, Math.min(1, ribbon({ dur: score.dur, [key]: arr }, key, t)));
+    if (Math.abs((fxLast[key] ?? -1) - v) < 0.005) continue;
+    fxLast[key] = v;
+    sound[unit]?.setMix?.(v);
+  }
+}
+function clearFx(sound) {
+  for (const [key, unit] of Object.entries(FX_UNITS)) if (fxLast[key] > 0) sound[unit]?.setMix?.(0);
+  fxLast = {}; fxAt = -Infinity;
+}
+const hasFx = () => !!(score && (score.seatFx || Object.keys(FX_UNITS).some(k => score[k]?.length)));
+
+let standalone = false; // seat given on the command line: play the baked score on its own clock
+export function boot({ system, sound, colon, params }) {
   sound.microphone.close();
   try {
-    try { config = readJSON(system, '/pieces/spatial-rehearsal-config.json'); }
-    catch (_) { throw Error('Assign a seat with the spatial controller'); }
+    // `spatial-rehearsal:3` or `spatial-rehearsal:3:6` seats this laptop without the
+    // controller (seat 3 of 6; the sixth seat is the held center) and starts the
+    // baked score a few seconds after boot, for rehearsing one part alone.
+    const arg = colon?.[0] ?? params?.[0];
+    if (arg !== undefined && /^\d+$/.test(String(arg))) {
+      const seats = +(colon?.[1] ?? params?.[1] ?? 6);
+      config = { seat: +arg - 1, seats, machineName: 'ac-device', maxSeconds: 0 };
+      standalone = true;
+    } else {
+      try { config = readJSON(system, '/pieces/spatial-rehearsal-config.json'); }
+      catch (_) { throw Error('Assign a seat with the spatial controller, or jump to spatial-rehearsal:<seat>'); }
+    }
     if (!Number.isInteger(config.seats) || config.seats < 2 || config.seats > 16) throw Error('seats must be 2–16');
     if (!Number.isInteger(config.seat) || config.seat < 0 || config.seat >= config.seats) throw Error('seat outside ensemble');
     score = readJSON(system, '/pieces/spatial-rehearsal.nsscore');
     if (!(score.dur > 0) || !score.lanes?.length) throw Error('invalid score');
+    if (!config.maxSeconds) config.maxSeconds = score.dur;
     cursors = score.lanes.map(() => 0);
     system.startSSH?.();
   } catch (e) { error = e.message; phase = 'error'; }
@@ -46,6 +84,7 @@ export function boot({ system, sound }) {
 
 export function sim({ sound, system, screen, wifi }) {
   const now = sound.time;
+  if (standalone && origin === null && !error && now > 0) { origin = now + 3; phase = 'countdown'; mode = 'score'; runId = 'standalone'; }
   if (now - presencePoll > .25) {
     presencePoll = now;
     try {
@@ -71,14 +110,14 @@ export function sim({ sound, system, screen, wifi }) {
       }
       if (cmd.action === 'identify') identifyAt = now + 1 + config.seat * 0.7;
       if (cmd.action === 'stop' || cmd.action === 'arm') {
-        stopVoices(); origin = null; identifyAt = null;
+        stopVoices(); clearFx(sound); origin = null; identifyAt = null;
         phase = error ? 'error' : 'ready';
       }
       if (cmd.action === 'prepare' && !error && Number.isFinite(cmd.startAt) && cmd.startAt > now + 1) {
-        stopVoices(); origin = cmd.startAt; phase = 'prepared'; runId = cmd.id;
+        stopVoices(); clearFx(sound); origin = cmd.startAt; phase = 'prepared'; runId = cmd.id;
         mode = cmd.mode === 'beeps' ? 'beeps' : 'score';
         networkHalfRttMs = cmd.networkHalfRttMs;
-        cursors = score.lanes.map(() => 0); lastBeep = -1; beepCount = 0; outputPeak = 0; maxFrameGap = 0;
+        cursors = score.lanes.map(() => 0); flyCursors = []; lastBeep = -1; beepCount = 0; outputPeak = 0; maxFrameGap = 0;
       }
       if (cmd.action === 'play' && phase === 'prepared' && origin > now + 0.5) phase = 'countdown';
     }
@@ -91,7 +130,7 @@ export function sim({ sound, system, screen, wifi }) {
     const t = now - origin;
     if (t >= 0) phase = 'playing';
     if (t >= runDuration()) {
-      stopVoices(); phase = 'finished';
+      stopVoices(); clearFx(sound); phase = 'finished';
     } else if (t >= 0 && mode === 'beeps') {
       const beat = Math.floor(t);
       if (beat !== lastBeep) {
@@ -102,6 +141,7 @@ export function sim({ sound, system, screen, wifi }) {
         }
       }
     } else if (t >= 0) {
+      if (hasFx()) applyFx(sound, t);
       voices = voices.filter(v => {
         if (t >= v.end) return false;
         v.voice?.update?.({ volume: v.g * sourceGain(score, voicePosition(score, v.lane, t), config.seat, config.seats) });
@@ -112,17 +152,19 @@ export function sim({ sound, system, screen, wifi }) {
         while (cursors[i] < events.length && events[cursors[i]].t <= t) {
           const e = events[cursors[i]++];
           if (e.t + e.dur <= t || t - e.t > 0.1) continue;
-          const g = Math.min(0.65, Math.max(0, e.g * (score.gain ?? 0.35)));
+          const g = eventGain(score, e);
           const gain = sourceGain(score, voicePosition(score, i, t), config.seat, config.seats);
           const voice = sound.synth({ type: e.wave, tone: e.hz || 220,
-            duration: e.t + e.dur - t, volume: g * gain, attack: e.attack ?? 0.01, decay: e.decay ?? 0.04 });
+            duration: e.t + e.dur - t, volume: g * gain, attack: e.attack ?? 0.01, decay: e.decay ?? 0.04,
+            ...(Number.isInteger(e.gm) ? { gmProgram: e.gm } : {}) }); // a GM program when the score names one; `type` is its fallback
           voices.push({ voice, lane: i, end: e.t + e.dur, g });
         }
       }
     }
   }
-  if (now - lastStatus >= 0.1) {
+  if (now - lastStatus >= 0.25) { // 4 Hz: the bridge polls about once a second, and the JSON carries every lane
     lastStatus = now;
+    const activeLanes = new Set(mode === 'score' && phase === 'playing' ? voices.filter(v => v.end > now - origin).map(v => v.lane) : []);
     system.writeFile('/pieces/spatial-rehearsal-status.json', JSON.stringify({
       machineName: config?.machineName || 'ac-device', ip: wifi?.ip || config?.ip || '', seat: config?.seat, seats: config?.seats, phase, mode, runId, error, command: seenCommand, audioTime: now,
       scoreTime: origin === null ? null : Math.min(runDuration(), now - origin), origin,
@@ -134,7 +176,7 @@ export function sim({ sound, system, screen, wifi }) {
         const position = voicePosition(score, i, t);
         return { lane: i, name: lane.name, color: lane.color, position,
           seatGain: sourceGain(score, position, config.seat, config.seats),
-          active: mode === 'score' && phase === 'playing' && voices.some(v => v.lane === i && v.end > t),
+          active: activeLanes.has(i),
         };
       }) : [],
       timing: 'Wi-Fi estimated audio clock; output latency and drift uncalibrated',
@@ -146,9 +188,12 @@ export function sim({ sound, system, screen, wifi }) {
 export function paint({ wipe, ink, box, line, circle, write, screen, sound, system, wifi }) {
   const amp = Math.max(0, sound.speaker?.amplitudes?.left || 0, sound.speaker?.amplitudes?.right || 0);
   const focusTime = origin === null ? 0 : Math.max(0, sound.time - origin);
-  const focused = score && hasFocus(score, config.seat, config.seats, focusTime);
+  // Focus from the live voices (at most 32), not a scan of every event in the score each frame.
+  const focused = score && voices.some(v => v.lane !== undefined && v.end > focusTime && sourceGain(score, voicePosition(score, v.lane, focusTime), config.seat, config.seats) ** 2 >= .9);
   glow = focused && amp > .002 ? Math.min(1, Math.sqrt(amp) * 2.8) : 0;
-  wipe(Math.round(12 + 42 * glow), Math.round(15 + 48 * glow), Math.round(23 + 54 * glow));
+  const own = score?.seatColors?.[config?.seat] || [255, 226, 120];
+  wipe(Math.round(12 + (own[0] * .3 - 12) * glow), Math.round(15 + (own[1] * .3 - 15) * glow), Math.round(23 + (own[2] * .3 - 23) * glow));
+  const w = screen.width, h = screen.height;
   const battery = system?.battery;
   let batteryLabel = 'BAT --';
   if (battery?.percent >= 0) {
@@ -157,71 +202,98 @@ export function paint({ wipe, ink, box, line, circle, write, screen, sound, syst
       batteryLabel += ' ' + Math.floor(battery.minutesLeft / 60) + 'h' + String(battery.minutesLeft % 60).padStart(2, '0');
   }
   ink(...(battery?.percent >= 0 && battery.percent <= 15 ? [255, 165, 120] : [240, 245, 250]));
-  write(batteryLabel, { x: screen.width - 8 - batteryLabel.length * 6, y: 8, font: '6x10', size: 1 });
+  write(batteryLabel, { x: w - 8 - batteryLabel.length * 6, y: 8, font: '6x10', size: 1 });
   ink(210, 225, 240);
   write(config?.machineName || 'ac-device', { x: 75, y: 9, font: '6x10' });
   write(wifi?.ip || config?.ip || 'LAN unavailable', { x: 75, y: 26, font: '6x10' });
   if (error) { ink(255, 140, 130); write(error, { x: 8, y: 55 }); return; }
   if (!score) return;
-  const t = origin === null ? 0 : Math.max(0, Math.min(runDuration(), sound.time - origin));
-  const w = screen.width, h = screen.height;
-  const cx = w * .65, cy = h * .51, radius = Math.min(h * .30, w * .19);
-  // A shared floor plan: front at the top, increasing seat numbers clockwise.
-  // This is the instructed layout, not a sensor estimate of laptop locations.
-  const floor = (angle, r = radius) => [cx + Math.sin(angle) * r, cy - Math.cos(angle) * r];
-  const isLine = score.geometry === 'line', order = isLine ? score.seatOrder : Array.from({length: config.seats}, (_,i)=>i);
-  const lineX = u => w * .36 + u * w * .59;
-  ink(125, 145, 170);
-  if (!isLine) for (let j = 0; j < 64; j++) line(...floor(j / 64 * Math.PI * 2), ...floor((j + 1) / 64 * Math.PI * 2));
-  ink(230, 235, 245);
-  if (isLine) {
-    line(lineX(0),cy,lineX(1),cy);
-    write(score.motion === 'bounce' ? 'BACK AND FORTH' : 'LEFT TO RIGHT', { x: lineX(0), y: cy - 55, font: '6x10' });
-    line(lineX(0),cy+48,lineX(1),cy+48);
-    line(lineX(1),cy+48,lineX(1)-7,cy+43); line(lineX(1),cy+48,lineX(1)-7,cy+53);
-    if (score.motion === 'bounce') {
-      line(lineX(0),cy+48,lineX(0)+7,cy+43); line(lineX(0),cy+48,lineX(0)+7,cy+53);
-    }
-  } else write('YOU', { x: cx - 9, y: cy - 4, font: '6x10' });
-  if (!isLine) { line(cx, cy - 14, cx, cy - 30);
-  line(cx, cy - 30, cx - 4, cy - 24); line(cx, cy - 30, cx + 4, cy - 24); }
+  const t = origin === null ? -1 : Math.min(runDuration(), sound.time - origin);
+  const isCenter = config.seat === score.center;
+
+  // The view into the space: this laptop's notes come from far away as
+  // frames in the screen's own aspect, growing as they approach, filling
+  // the screen exactly when they sound, then fading with the note.
+  //
+  // On a budget. A dense second (Rush E: 726 events, 37 lanes) used to cost
+  // a seat-gain evaluation per event in the look-ahead, a sort of all of
+  // them, and boxes, hatch lines and a label for every frame that passed —
+  // 2,600 line fills in one paint on a software raster. Now: one seat gain
+  // per LANE per frame (the ring turns slowly; an event's gain a second
+  // ahead is its lane's gain now), lanes this seat does not carry are never
+  // scanned, at most NEAR per lane and MAX_FRAMES in all (the nearest win),
+  // repeated ticks in a lane merge, hatching has a per-paint budget, labels
+  // only on frames big enough to read and at most LABELS of them.
+  const LOOK = 3, cx = w * .5, cy = h * .5, MAX_FRAMES = 48, NEAR = 6, LABELS = 16, HATCH_BUDGET = 48, HATCH = 4, MERGE = .08;
+  let count = 0;
   for (let i = 0; i < score.lanes.length; i++) {
-    const p = voicePosition(score, i, t), xy = isLine ? [lineX(p.line), cy - 30] : floor(p.angle, radius * .74);
-    ink(...score.lanes[i].color.map(c => Math.round(c + (255 - c) * .35)));
-    circle(xy[0], xy[1], 4, true);
-  }
-  for (const i of order) {
-    const p = isLine ? [lineX(order.indexOf(i)/(order.length-1)),cy] : floor(i / config.seats * Math.PI * 2), own = i === config.seat;
-    const state = seatConnection(i, sound.time), online = state === 'online';
-    const lost = state === 'offline' || state === 'error';
-    ink(...(lost ? [255, 105, 105] : !online ? [255, 190, 80] : own ? [255, 219, 90] : [195, 208, 225]));
-    box(p[0] - 17, p[1] - 16, 34, 30, own && online ? 'fill' : 'outline');
-    line(p[0] - 20, p[1] + 17, p[0] + 20, p[1] + 17, 2);
-    if (!online) {
-      const label = state === 'offline' ? 'OFFLINE' : state === 'error' ? 'ERROR' : state === 'unstable' ? 'LINK?' : 'UNKNOWN';
-      write(label, { x: p[0] - label.length * 3, y: p[1] + 21, font: '6x10' });
-      if (lost) { line(p[0] - 19, p[1] - 16, p[0] + 19, p[1] + 14); line(p[0] + 19, p[1] - 16, p[0] - 19, p[1] + 14); }
+    const lane = score.lanes[i], evs = lane.events;
+    let j = flyCursors[i] || 0;
+    while (j < evs.length && evs[j].t + evs[j].dur + .6 < t) j++;
+    flyCursors[i] = j;
+    if (j >= evs.length || evs[j].t > t + LOOK) continue;
+    const gain = sourceGain(score, voicePosition(score, i, t), config.seat, config.seats);
+    if (gain * gain < .5) continue;
+    let kept = 0, lastT = -Infinity;
+    for (let k = j; k < evs.length && kept < NEAR; k++) {
+      const e = evs[k];
+      if (e.t > t + LOOK) break;
+      if (e.t - lastT < MERGE && e.dur < .12) continue; // a run of ticks reads as one
+      lastT = e.t;
+      const until = e.t - t;
+      if (count < MAX_FRAMES) { FRAME_E[count] = e; FRAME_U[count] = until; count++; }
+      else { // keep the nearest MAX_FRAMES: replace the farthest if this one is nearer
+        let far = 0; for (let m = 1; m < MAX_FRAMES; m++) if (FRAME_U[m] > FRAME_U[far]) far = m;
+        if (until < FRAME_U[far]) { FRAME_E[far] = e; FRAME_U[far] = until; } else break; // this lane only gets farther
+      }
+      kept++;
     }
-    ink(...(own && online ? [20, 25, 35] : [240, 245, 255]));
-    write(String(i + 1), { x: p[0] - 6, y: p[1] - 11, font: '6x10', size: 2 });
   }
-  const placements = [['FRONT'], ['FRONT', 'RIGHT'], ['REAR', 'RIGHT'], ['REAR', 'LEFT'], ['FRONT', 'LEFT']];
-  ink(245, 245, 250);
+  // far first, so near frames draw on top: insertion sort on the bounded arrays
+  for (let a = 1; a < count; a++) { const e = FRAME_E[a], u = FRAME_U[a]; let b = a - 1; while (b >= 0 && FRAME_U[b] < u) { FRAME_E[b + 1] = FRAME_E[b]; FRAME_U[b + 1] = FRAME_U[b]; b--; } FRAME_E[b + 1] = e; FRAME_U[b + 1] = u; }
+  let hatchLeft = HATCH_BUDGET, labels = 0;
+  for (let n = 0; n < count; n++) {
+    const e = FRAME_E[n], until = FRAME_U[n];
+    const base = noteColor(e.note) || own, sharp = !!(e.note && e.note.includes('#'));
+    const sounding = until <= 0, held = Math.max(.3, e.dur), left = sounding ? Math.max(0, 1 - (-until) / held) : 1;
+    // approaching: grows on a square law; hit: one short blink; then it reverses and recedes over the note
+    const near = sounding ? left : 1 - Math.max(0, Math.min(1, until / LOOK));
+    const blink = sounding && -until < .08;
+    const sc = blink ? 1 : .05 + .95 * Math.pow(near, sounding ? 1.6 : 2.2);
+    const fw = Math.round(w * sc), fh = Math.round(h * sc), x0 = Math.round(cx - fw / 2), y0 = Math.round(cy - fh / 2);
+    const bright = sounding ? .35 + .65 * left : .3 + .7 * near;
+    const cr = Math.round(base[0] * bright), cg = Math.round(base[1] * bright), cb = Math.round(base[2] * bright);
+    const dr = Math.round(cr * .45), dg = Math.round(cg * .45), db = Math.round(cb * .45);
+    if (blink) { // the whole screen is the note for a moment
+      ink(cr, cg, cb); box(x0, y0, fw, fh, 'fill');
+      ink(dr, dg, db); const gap = Math.max(8, Math.ceil(fh / 16)); for (let y = y0 + 4; y < y0 + fh && hatchLeft > 0; y += gap, hatchLeft--) line(x0, y, x0 + fw, y);
+    } else {
+      if (sc > .3 && hatchLeft > 0) { ink(dr, dg, db); const gap = Math.max(sounding ? 6 : 4, Math.ceil(fh / HATCH)); for (let y = y0 + 3; y < y0 + fh - 1 && hatchLeft > 0; y += gap, hatchLeft--) line(x0 + 2, y, x0 + fw - 3, y); }
+      if (sharp) ink(225, 225, 235); else ink(cr, cg, cb);
+      box(x0, y0, fw, fh, 'outline');
+      if (sc > .25) { ink(dr, dg, db); box(x0 + 2, y0 + 2, fw - 4, fh - 4, 'outline'); }
+    }
+    if (e.note && sc > .35 && labels < LABELS) {
+      labels++;
+      if (sharp) ink(225, 225, 235); else ink(cr, cg, cb);
+      write(e.note, { x: x0 + 4, y: y0 + 3, font: '6x10', size: sc > .6 ? 3 : 2 });
+    }
+  }
+  ink(...own);
   write('LAPTOP', { x: 10, y: 10, font: '6x10' });
-  write(String(config.seat + 1), { x: 10, y: 28, font: '6x10', size: 5 });
+  write(isCenter ? 'C' : String(config.seat + 1), { x: 10, y: 28, font: '6x10', size: 5 });
   ink(255, 220, 100);
-  const placement = isLine ? (order.indexOf(config.seat) === 0 ? ['LEFT','END'] : order.indexOf(config.seat) === order.length - 1 ? ['RIGHT','END'] : ['POSITION', String(order.indexOf(config.seat) + 1)]) : config.seats === 5 ? placements[config.seat] : ['AT ' + Math.round(config.seat / config.seats * 360) + ' DEG'];
-  placement.forEach((word, i) => write(word, { x: 10, y: 89 + i * 23, font: '6x10', size: 2 }));
-  ink(215, 225, 240);
-  write(isLine ? 'Facing the laptops:' : 'At center, face 1.', { x: 10, y: 157, font: '6x10' });
-  write(isLine ? order.map(i => i + 1).join(' - ') : 'Speakers inward.', { x: 10, y: 174, font: '6x10' });
-  write('Space evenly.', { x: 10, y: 191, font: '6x10' });
+  const ringN = ringSeats(score, config.seats), ringIdx = config.seat > (score.center ?? 99) ? config.seat - 1 : config.seat;
+  const placement = isCenter ? ['HELD', 'CENTER'] : score.geometry === 'line' ? ['LINE', String(config.seat + 1)] : ringIdx === 0 ? ['FRONT'] : ['AT ' + Math.round(ringIdx / ringN * 360) + ' DEG'];
+  placement.forEach((word, i) => write(word, { x: w - 8 - word.length * 12, y: 28 + i * 23, font: '6x10', size: 2 }));
+  const mv = (score.movements || []).find(m => t >= m.t0 && t < m.t1);
+  ink(180, 199, 223);
+  if (mv) write(mv.name.replace(/·/g, '-'), { x: 10, y: h - 44, font: '6x10' });
   const connected = Array.from({ length: config.seats }, (_, i) => seatConnection(i, sound.time) === 'online').filter(Boolean).length;
   ink(...(connected === config.seats ? [160, 215, 180] : [255, 180, 110]));
-  write(sound.time - presenceSeen > 5 ? 'NETWORK DATA STALE' : connected + '/' + config.seats + ' connected' + (isLine && seatConnection(0,sound.time) === 'offline' ? ' / 1 OFFLINE' : ''), { x: 10, y: h - 29, font: '6x10' });
+  write(sound.time - presenceSeen > 5 ? 'NETWORK DATA STALE' : connected + '/' + config.seats + ' connected', { x: 10, y: h - 29, font: '6x10' });
   ink(180, 199, 223);
-  write((mode === 'beeps' ? 'Pulse' : score.name) + ' / ' + phase, { x: 10, y: h - 14, font: '6x10' });
-
+  write((mode === 'beeps' ? 'Pulse' : score.name) + ' / ' + phase + (t >= 0 ? '  ' + Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0') : ''), { x: 10, y: h - 14, font: '6x10' });
 }
 
 export function act({ event, system }) { if (event.is('keyboard:down:escape')) system.jump('prompt'); }

@@ -241,6 +241,13 @@ if [ -f "$INITRAMFS_SIBLING" ]; then
   do_upload "$INITRAMFS_SIBLING" "os/${CHANNEL_PREFIX}native-notepat-latest.initramfs.cpio.gz" "application/octet-stream"
 fi
 
+# Chromebook kernel partition image (vboot-packed vmlinuz; see docs/chromebook-boot.md)
+KPART_SIBLING="$(dirname "$VMLINUZ")/vmlinuz.kpart"
+if [ -f "$KPART_SIBLING" ]; then
+  echo "  Uploading Chromebook kpart ($(du -sh "$KPART_SIBLING" | cut -f1))..."
+  do_upload "$KPART_SIBLING" "os/${CHANNEL_PREFIX}native-notepat-latest.vmlinuz.kpart" "application/octet-stream"
+fi
+
 # Also upload a template disk image if it exists (non-fatal)
 IMAGE_SIBLING="$(dirname "$VMLINUZ")/ac-os.img"
 if [ -f "$IMAGE_SIBLING" ]; then
@@ -254,6 +261,9 @@ echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.vmlinuz"
 if [ -f "$SLIM_SIBLING" ]; then
   echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.vmlinuz-slim"
   echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.initramfs.cpio.gz"
+fi
+if [ -f "$KPART_SIBLING" ]; then
+  echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.vmlinuz.kpart"
 fi
 echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}releases.json"
 if [ -f "$IMAGE_SIBLING" ]; then

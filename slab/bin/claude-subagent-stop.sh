@@ -3,6 +3,9 @@
 # ping. FIFO-per-session removal keeps each session's count accurate even when
 # subagents finish out of order. Falls back to the globally-oldest marker if
 # the session subdir is empty, so counts can never leak upward.
+# A Claude that Easel is driving is that session's engine, not a rock of its
+# own; Easel keeps the marker, so this hook has nothing to say.
+[[ -n "${EASEL_SESSION_ID:-}" ]] && exit 0
 set -u
 SLAB_HOME=${SLAB_HOME:-$HOME/.local/share/slab}
 SLAB_BIN=${SLAB_BIN:-$HOME/.local/bin}

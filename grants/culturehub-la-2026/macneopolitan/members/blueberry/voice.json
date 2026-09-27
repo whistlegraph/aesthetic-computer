@@ -2,7 +2,7 @@
   "member": "blueberry",
   "aesthetivox": {
     "base_voice": "Allison",
-    "why": "jeffrey's pick 2026-09-20 (liked Allison (Enhanced) in the auditions) \u2014 Allison (Enhanced), on-device, offline; was Kathy (MacinTalk)",
+    "why": "jeffrey's pick 2026-09-20 (liked Allison (Enhanced) in the auditions) — Allison (Enhanced), on-device, offline; was Kathy (MacinTalk)",
     "engine": "macOS AVSpeech Allison (Enhanced), rendered on blueberry's own hardware, sung live by Menu Band's singer",
     "rate_wpm": 165,
     "sing": {
@@ -23,23 +23,24 @@
       "latency_ms": 564,
       "status": "menuband adoption open"
     },
-    "engine_live": "live/hosts/macos/livesing \u2014 the member's own speech synthesizer, sung by live/singer.c SCORE mode on its own hardware",
+    "engine_live": "live/hosts/macos/livesing — the member's own speech synthesizer, sung by live/singer.c SCORE mode on its own hardware",
     "f0_floor": 70,
     "register_midi": [
       50,
       58
     ],
-    "provider_wanted": "undecided \u2014 audition ElevenLabs stock / OpenAI voices",
+    "provider_wanted": "undecided — audition ElevenLabs stock / OpenAI voices",
     "spoken_median_midi": 54.1,
     "spoken_median_hz": 185.9,
     "register_source": "say -v Allison, 60 words of its autobiography",
-    "register_note": "measured by bin/register.mjs \u2014 the composer aims each line's mean at spoken_median_midi (+1 for brightness) and keeps notes inside register_midi"
+    "register_note": "measured by bin/register.mjs — the composer aims each line's mean at spoken_median_midi (+1 for brightness) and keeps notes inside register_midi",
+    "f0_floor_experiment": "MEASURED and NOT adopted, 2026-09-21. The floor Harvest is given was far below these voices (90 Hz for a 256 Hz voice), which in principle lets it accept octave-halved candidates and mistrack. Raising it to 0.55 x the spoken median (141 / 102 / 115 Hz) did help the dialogs (18.5% -> 16.6% word error) but slightly hurt the held-out trio movements and ballad (11.9% -> 12.4%). A wash, so the original value stands and the experiment is recorded instead of shipped. See hear/README.md and the f0f* / ho-* runs."
   },
   "derivation": {
     "vibrato_hz": "4x battery cycles per day (exactly 1.0/day)",
-    "breath_every_s": "longest unbroken uptime, days as seconds (13.1) \u2014 the long-breathed one",
-    "register": "higher and cooler \u2014 the still one, the right channel",
-    "whistle_double": "its chosen Menu Band voice, GM 78 \u2014 same as its sibling, uncoordinated"
+    "breath_every_s": "longest unbroken uptime, days as seconds (13.1) — the long-breathed one",
+    "register": "higher and cooler — the still one, the right channel",
+    "whistle_double": "its chosen Menu Band voice, GM 78 — same as its sibling, uncoordinated"
   },
   "color": "#5A57D3",
   "color_why": "matches its MacPal glyph (macpal/Resources/<name>-glyph.svg): neo = the green gem, blueberry = the blueberry; third/blush = blush pink"

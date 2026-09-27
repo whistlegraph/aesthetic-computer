@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Open Room · Assistant Teaching Professor of Sound and Media Art · UC Santa Cruz · 2026 · WIP</title>
+<meta name="description" content="Jeffrey Alan Scudder's in-progress application for the Assistant Teaching Professor of Sound and Media Art post at UC Santa Cruz (Music Department + Creative Technologies online major). Not yet submitted.">
+<link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+<style>
+  :root {
+    --bg: #11161e; --text: #e6ecf2; --dim: #93a0b3;
+    --pink: #d4929d; --cyan: #7fc2d6; --purple: #b3a4ce; --gold: #dab87e;
+    --green: #b8c895; --red: #d6a098; --citrus: #c8e25f;
+    --box-bg: rgba(228,236,242,0.05); --box-border: rgba(228,236,242,0.16);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not(.dark-mode) {
+      --bg: #f3f6fa; --text: #14202c; --dim: #4a5a6e;
+      --pink: #8e3a5b; --cyan: #1e5566; --purple: #4a3878; --gold: #6e4f10;
+      --green: #3f4f25; --red: #762522; --citrus: #5a7d12;
+      --box-bg: rgba(20,32,44,0.05); --box-border: rgba(20,32,44,0.20);
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--text); }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 16.5px; line-height: 1.62; padding: 1.4em 1.6em 4em; min-height: 100vh;
+  }
+  @media (min-width: 900px) { body { padding: 1.8em 2.2em 5em; } }
+  .mono, code { font-family: 'Berkeley Mono Variable', ui-monospace, Menlo, monospace; font-size: 0.92em; }
+  a { color: var(--cyan); text-decoration: none; border-bottom: 1px solid rgba(127,194,214,0.35); }
+  a:hover { border-bottom-color: var(--cyan); }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  .wip-banner {
+    padding: 0.7em 1em; margin-bottom: 1.6em; border: 1px solid var(--gold); border-left-width: 4px;
+    background: rgba(218,184,126,0.08); font-size: 0.9em; line-height: 1.5; color: var(--text);
+  }
+  .wip-banner strong { color: var(--gold); }
+  .eyebrow { font-size: 0.82em; color: var(--dim); letter-spacing: 0.02em; text-transform: uppercase; margin-bottom: 0.6em; }
+  .eyebrow .tag { color: var(--cyan); }
+  .eyebrow .wip { color: var(--gold); }
+  h1 { font-size: 3.2em; line-height: 0.98; letter-spacing: -0.03em; font-weight: 700; margin: 0.1em 0 0.35em; }
+  h1 em { font-style: normal; color: var(--citrus); }
+  h1 .dot { color: var(--pink); }
+  .sub { color: var(--dim); font-size: 0.98em; margin-bottom: 0.4em; }
+  .sub strong { color: var(--text); }
+  dl.meta { display: grid; grid-template-columns: 9em 1fr; gap: 0.35em 1em; margin: 1.4em 0 2.2em; font-size: 0.92em; }
+  dl.meta dt { color: var(--dim); }
+  dl.meta dd strong { color: var(--text); }
+  dl.meta .due { color: var(--gold); }
+  h2 { font-size: 1.25em; letter-spacing: -0.01em; margin: 2.2em 0 0.7em; padding-top: 1.2em; border-top: 1px solid var(--box-border); }
+  h2 .ord { color: var(--pink); margin-right: 0.5em; font-weight: 400; }
+  h2 .count { float: right; font-size: 0.7em; color: var(--dim); font-weight: 400; margin-top: 0.4em; }
+  p { margin: 0 0 0.9em; }
+  .spine {
+    padding: 1.2em 1.4em; margin: 0 0 1.2em; border: 1px solid var(--box-border); border-left: 3px solid var(--citrus);
+    background: linear-gradient(135deg, rgba(200,226,95,0.08), transparent);
+    font-size: 1.28em; line-height: 1.45; font-weight: 500; letter-spacing: -0.01em;
+  }
+  .spine em { font-style: normal; color: var(--citrus); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.6em; margin: 1em 0; }
+  .card { padding: 0.85em 1em; border-left: 2px solid var(--purple); background: var(--box-bg); border-radius: 0 3px 3px 0; font-size: 0.94em; line-height: 1.55; }
+  .card b { display: block; color: var(--purple); font-weight: 600; margin-bottom: 0.25em; }
+  .card.gold { border-left-color: var(--gold); } .card.gold b { color: var(--gold); }
+  .card.cyan { border-left-color: var(--cyan); } .card.cyan b { color: var(--cyan); }
+  .card.citrus { border-left-color: var(--citrus); } .card.citrus b { color: var(--citrus); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9em; margin: 0.8em 0 1.2em; }
+  th, td { text-align: left; padding: 0.5em 0.6em; border-bottom: 1px dotted var(--box-border); vertical-align: top; }
+  th { color: var(--dim); font-weight: 500; }
+  td.ok { color: var(--green); } td.todo { color: var(--gold); } td.crit { color: var(--red); font-weight: 600; }
+  .tablewrap { overflow-x: auto; }
+  ul.check { list-style: none; font-size: 0.96em; }
+  ul.check li { padding: 0.3em 0; display: flex; gap: 0.6em; }
+  ul.check li::before { width: 1em; text-align: center; font-weight: 600; }
+  ul.check .done::before { content: "✓"; color: var(--green); }
+  ul.check .todo::before { content: "▸"; color: var(--gold); }
+  ul.check .done { color: var(--dim); }
+  blockquote { border-left: 2px solid var(--box-border); padding: 0.2em 0 0.2em 1em; color: var(--text); margin: 0.8em 0 1.2em; }
+  blockquote p:last-child { margin-bottom: 0; }
+  footer { margin-top: 4em; padding-top: 1em; border-top: 1px solid var(--box-border); color: var(--dim); font-size: 0.88em; }
+  footer a { color: var(--dim); }
+  @media (max-width: 560px) { body { padding: 1.2em 1em 3em; font-size: 14px; } h1 { font-size: 2.4em; } dl.meta { grid-template-columns: 1fr; gap: 0.05em; } dl.meta dt { padding-top: 0.6em; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="wip-banner">
+    <strong>▸ WIP · NOT YET SUBMITTED</strong> · application in progress for <strong>Assistant Teaching Professor of Sound and Media Art</strong> at UC Santa Cruz · first review <strong>Oct 12, 2026, 23:59 PT</strong> · this page is the public working record; the confidential materials live off-site.
+  </div>
+
+  <header class="mast">
+    <div class="eyebrow"><span class="tag">UC Santa Cruz · Music · Creative Technologies</span> · 2026 · <span class="wip">work in progress</span></div>
+    <h1>Open<br><em>Room</em><span class="dot">.</span></h1>
+    <p class="sub" style="font-size:1.08em;color:var(--text);font-weight:500">An application to teach creative coding and sound in the University of California's first fully online arts major, using a classroom that is itself a shared runtime.</p>
+    <p class="sub">Application by <strong>@jeffrey</strong> (Jeffrey Alan Scudder) · <a href="https://aesthetic.computer">aesthetic.computer</a></p>
+    <dl class="meta">
+      <dt>Status</dt><dd class="due"><strong>Drafting</strong> · cover letter, teaching statement, and two syllabi outlined 2026-09-20 · references and evaluations not yet requested</dd>
+      <dt>Posting</dt><dd><a href="https://recruit.ucsc.edu/JPF02127">UC Recruit JPF02127</a> · Music Department, Arts Division</dd>
+      <dt>Title</dt><dd>Assistant Teaching Professor of Sound and Media Art · security-of-employment track (analogous to tenure) · Academic Senate</dd>
+      <dt>Program</dt><dd>Core faculty of <a href="https://creative.ucsc.edu/">Creative Technologies</a> — the UC system's first online undergraduate major (first cohort Fall 2024; synchronous, camera-on, lab-based)</dd>
+      <dt>Review</dt><dd class="due"><strong>Monday Oct 12, 2026, 23:59 PT</strong> for full consideration · final Jun 30, 2027</dd>
+      <dt>Start</dt><dd>July 1, 2027 · teaching from September 2027</dd>
+      <dt>Salary</dt><dd>$89,400 – $116,500 · academic year (nine months) · full time</dd>
+      <dt>Screening</dt><dd>Preliminary screen is on the <strong>Teaching Statement alone</strong></dd>
+    </dl>
+  </header>
+
+  <section class="hero" style="margin: 0 0 2.4em">
+    <figure style="margin:0; border: 1px solid var(--box-border); border-radius: 4px; overflow: hidden; background: #f0e6cf;">
+      <img src="header.jpg" width="1536" height="1024" style="display:block; width:100%; height:auto" alt="Colored-pencil and gouache drawing on cream paper divided into six equal panels: a man at a kitchen table with a chartreuse laptop whose lid carries a small paper butterfly; a woman with headphones on a porch swing holding a phone; a young man on a city bus with a phone; a teenager cross-legged on a bunk bed with a black laptop; a woman in a hijab at a laundromat folding table with a small laptop and a basket of clothes; an older man at a garage workbench looking at a phone propped against a coffee can, a soldering iron beside it. Each room has its own light; every screen faces its owner.">
+      <figcaption style="padding: 0.7em 0.95em; font-size: 0.88em; color: var(--dim); border-top: 1px solid var(--box-border); letter-spacing: 0;">
+        <span style="color: var(--text)">▸ The room, as it actually happens</span>
+        &nbsp;·&nbsp; six students, six places, one class &nbsp;·&nbsp; the instructor is one panel among six &nbsp;·&nbsp; nobody's screen faces us
+      </figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <div class="spine">
+      Every student piece is a <em>URL</em>. Every class session is a room people enter from their phones. The instrument is small enough to learn in an hour and open enough to read all the way down.
+    </div>
+    <p>That is the one thing this application argues. Aesthetic Computer was built to be an online classroom before the word "online" was a requirement, and the Creative Technologies major, a two-year, transfer-friendly, camera-on program at a Hispanic-Serving Institution, is the student body it was built for.</p>
+  </section>
+
+  <section>
+    <h2><span class="ord">§</span>What they ask for, and the answer<span class="count">from the posting</span></h2>
+    <div class="grid">
+      <div class="card citrus"><b>Creative coding environments</b>Processing, p5.js, openFrameworks — or "other open-source and/or custom applications." Aesthetic Computer and KidLisp are the custom application; p5.js is taught alongside so students see the same ideas twice.</div>
+      <div class="card cyan"><b>Real-time multimedia</b>Max, Pd, SuperCollider, Orca. The AC runtime is a live-coded, hot-reloading, multiplayer real-time system; Menu Band is a native synth and MIDI instrument.</div>
+      <div class="card gold"><b>Sound and music</b>notepat (a chromatic phone keyboard), Menu Band, and Note(s)pat(ial), a spatial piece for six laptops premiered at CultureHub LA in September 2026 and proposed to ICLC 2027.</div>
+      <div class="card"><b>Online pedagogy</b>UCLA DMA's <em>Interactivity</em> summer section (2024) taught on AC across time zones; synchronous live coding on a shared canvas, asynchronous reading and code review.</div>
+      <div class="card"><b>FLOSS and critical technology</b>The whole platform is public source. Its papers press documents it. Its use of language models is bounded, logged, and written up rather than assumed.</div>
+      <div class="card gold"><b>A just scholarly community</b>Materials are free and forkable, run on the cheapest phone in the class, and the first success comes in the first hour. Student work leaves with the student, at a public address they own.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="ord">§</span>Teaching record<span class="count">from the CV</span></h2>
+    <div class="tablewrap"><table>
+      <tr><th>Year</th><th>Appointment</th></tr>
+      <tr><td>2026</td><td>Author in Residence, UCLA Social Software (Lauren Lee McCarthy + Casey Reas) — <em>Keymaps as Social Software</em></td></tr>
+      <tr><td>2024</td><td>UCLA Design Media Arts · Summer Section: <em>Interactivity</em> (taught on Aesthetic Computer)</td></tr>
+      <tr><td>2019</td><td>Assistant Professor of Emerging Digital Practices, Southern Oregon University</td></tr>
+      <tr><td>2017</td><td>Radical Digital Painting lecture + workshop, Yale School of Art, Graphic Design</td></tr>
+      <tr><td>2016</td><td>Visiting Professor, UCLA Design Media Arts</td></tr>
+      <tr><td>2013–16</td><td>Adjunct Professor, Parsons School of Design</td></tr>
+      <tr><td>2019–</td><td>Workshops: Processing Community Day LA, 35C3 Leipzig, Bauhaus University Weimar, Sibelius Academy Helsinki; NELA Computer Club (biweekly, Los Angeles)</td></tr>
+    </table></div>
+    <p class="sub">Degrees: MFA, Yale School of Art (2013) · BFA, Ringling College of Art + Design (2011).</p>
+  </section>
+
+  <section>
+    <h2><span class="ord">§</span>The two syllabi<span class="count">outlines · PDFs to follow</span></h2>
+    <div class="grid">
+      <div class="card citrus"><b>Introduction to Creative Coding: The Room Is a URL</b>Ten weeks, no prerequisites, no purchases. Copy → change → make → show. Weeks 1–6 on Aesthetic Computer, weeks 7–8 rebuilding a piece in p5.js, week 10 a public showing on phones that aren't the author's. Signature assignment <em>Borrow</em>: make a third piece that needs a classmate's and yours to exist, credited in the first line.</div>
+      <div class="card gold"><b>Instruments You Can Send: Sound, Code, and Listening</b>Ten weeks from notepat to a networked concert. Tone, tuning, time, samples, a listening seminar, two students on one clock, six laptops in six rooms. Signature assignment <em>A scale of your own</em>: a playable non-equal-tempered tuning at a URL, one minute recorded, 300 words on where the ratios came from and what it is bad at.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="ord">§</span>Portfolio<span class="count">three or more recent works</span></h2>
+    <ul class="check">
+      <li class="todo"><span><strong>Aesthetic Computer</strong> (2021–) — the platform as artwork and classroom · <a href="https://github.com/whistlegraph/aesthetic-computer">source</a></span></li>
+      <li class="todo"><span><strong>Note(s)pat(ial)</strong> (2026) — six-laptop spatial performance, CultureHub LA · ICLC 2027 proposal</span></li>
+      <li class="todo"><span><strong>notepat / Menu Band</strong> (2024–26) — the instrument family; keymaps edition, UCLA Social Software</span></li>
+      <li class="todo"><span><strong>Ten Whistlegraphs</strong> (Feral File, 2022) and the Whistlegraph series — Kadist collection</span></li>
+      <li class="todo"><span><strong>KidLisp</strong> (2023–) — the language, the reference, the card deck</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="ord">§</span>Checklist<span class="count">UC Recruit uploads</span></h2>
+    <div class="tablewrap"><table>
+      <tr><th>Document</th><th>State</th></tr>
+      <tr><td>Teaching Statement (screening document)</td><td class="todo">drafted · tuning to UCSC criteria</td></tr>
+      <tr><td>Cover letter</td><td class="todo">drafted · trim to one page</td></tr>
+      <tr><td>Statement of professional achievement</td><td class="todo">drafted</td></tr>
+      <tr><td>Curriculum vitae</td><td class="todo">exists · refresh for 2026</td></tr>
+      <tr><td>Syllabus 1 (creative coding) with assignment + assessment</td><td class="todo">outlined</td></tr>
+      <tr><td>Syllabus 2 with assignment + assessment</td><td class="todo">outlined</td></tr>
+      <tr><td>Portfolio PDF (≥3 works)</td><td class="todo">planned</td></tr>
+      <tr><td>Student evaluations, two courses (required)</td><td class="crit">not in hand · requesting UCLA 2024 + SOU 2019</td></tr>
+      <tr><td>Three to five confidential letters</td><td class="crit">not yet asked · week of Sept 21</td></tr>
+      <tr><td>Lecture deck · student-work PDF (optional)</td><td>possible</td></tr>
+    </table></div>
+  </section>
+
+  <footer>
+    <p>Working record for an application in progress. Tracked on the <a href="https://papers.aesthetic.computer/deadlines/">deadlines board</a>. Posting: <a href="https://recruit.ucsc.edu/JPF02127">recruit.ucsc.edu/JPF02127</a>. Confidential drafts are kept off-site and will not be published here. <span class="mono">2026-09-20</span></p>
+  </footer>
+</main>
+</body>
+</html>

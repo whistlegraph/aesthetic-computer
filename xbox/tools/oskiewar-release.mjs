@@ -316,7 +316,8 @@ async function main() {
       throw new Error(`Xbox is offline: ${probe.reason}`);
     }
     try {
-      run("node", ["xbox/tools/live.mjs", "deploy", "xbox/live/oskiewar.js"]);
+      run("node", ["xbox/tools/live.mjs", args.includes("--hot") ? "hot-deploy" : "deploy",
+        "xbox/live/oskiewar.js"]);
       mark(receipt, "xbox", "current", "explicit uncommitted Xbox development release");
     } catch (error) {
       mark(receipt, "xbox", "failed", error.message);
@@ -334,7 +335,7 @@ async function main() {
     await reconcile(receipt, { dryRun });
     return print(receipt, current);
   }
-  throw new Error("commands: status | deploy [--dry-run] | deploy-xbox-dev | reconcile [--dry-run]");
+  throw new Error("commands: status | deploy [--dry-run] | deploy-xbox-dev [--hot] | reconcile [--dry-run]");
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))

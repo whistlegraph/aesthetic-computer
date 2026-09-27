@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>No Paint brush prototype</title>
+<style>
+  :root { color-scheme: dark; font: 17px system-ui; background: #181428; color: #fff; }
+  body { max-width: 800px; margin: 40px auto; padding: 0 20px; }
+  h1 { font-size: 25px; font-weight: 500; }
+  canvas { width: 100%; image-rendering: pixelated; display: block; margin: 24px 0; background: #000; }
+  nav { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  button, select { font: inherit; padding: 9px 14px; border: 1px solid #777; border-radius: 5px; background: #29213c; color: inherit; }
+  #accept { background: #ff3c8c; color: #181428; border-color: transparent; }
+  textarea { width: 100%; box-sizing: border-box; min-height: 290px; margin: 15px 0; font: 14px monospace; }
+  details { margin-top: 25px; } output { display: block; min-height: 1.5em; margin: 16px 0; }
+  input[type=range] { flex: 1; min-width: 100px; } button:disabled { opacity: .4; }
+</style>
+<h1>No Paint · brush prototype</h1>
+<nav>
+  <select id="brush" aria-label="Brush"><option value="line">Line</option><option value="invert">Invert</option></select>
+  <label for="tick">Time</label><input id="tick" type="range" min="0" max="60" value="30">
+</nav>
+<canvas id="canvas" width="256" height="256" aria-label="Painting preview"></canvas>
+<nav>
+  <button id="reject">No</button><button id="accept">Paint</button>
+  <button id="undo">Undo</button><button id="redo">Redo</button>
+  <button id="save">Save painting</button><button id="open">Open painting</button>
+</nav>
+<output id="status" role="status"></output>
+<details><summary>Brush source</summary>
+  <textarea id="source" aria-label="Canonical brush source" spellcheck="false"></textarea>
+  <nav><button id="apply">Apply source</button><button id="saveBrush">Save brush</button></nav>
+</details>
+<input id="file" type="file" accept="application/json,.json" hidden>
+<script type="module">
+import { renderDocument } from './brush.mjs';
+const $ = id => document.getElementById(id);
+let documentState = { schema: 'ac-painting-prototype', version: 1, width: 256, height: 256,
+  base: Array.from({length: 256 * 256}, () => [24,20,40,255]).flat(), steps: [], cursor: 0 };
+let preview, selected;
+function draw() {
+  const pixels = renderDocument(documentState, preview);
+  $('canvas').width = documentState.width; $('canvas').height = documentState.height;
+  $('canvas').getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(pixels), documentState.width, documentState.height), 0, 0);
+  $('undo').disabled = !documentState.cursor;
+  $('redo').disabled = documentState.cursor === documentState.steps.length;
+  $('accept').disabled = !preview; $('reject').disabled = !preview;
+}
+function propose(brush) {
+  const next = { brush, seed: 42, tick: Number($('tick').value), gesture: preview?.gesture ?? [{x: 12, y: 12, tick: 0}, {x: documentState.width - 1, y: documentState.height - 1, tick: 60}] };
+  renderDocument(documentState, next); // Validate before replacing the working preview.
+  selected = brush; preview = next; draw();
+}
+function action(fn) { return async () => { try { await fn(); $('status').textContent = ''; } catch(e) { $('status').textContent = e.message; } }; }
+async function choose() {
+  const response = await fetch(`fixtures/${$('brush').value}.brush.json`);
+  if (!response.ok) throw new Error('Could not load brush');
+  const brush = await response.json(); propose(brush);
+  $('source').value = JSON.stringify(brush, null, 2);
+}
+function download(value, name) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], {type:'application/json'}));
+  const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+$('brush').onchange = action(choose);
+$('tick').oninput = action(() => propose(selected));
+$('reject').onclick = action(() => { preview = undefined; draw(); });
+$('accept').onclick = action(() => {
+  const next = { ...documentState, steps: [...documentState.steps.slice(0, documentState.cursor), structuredClone(preview)], cursor: documentState.cursor + 1 };
+  renderDocument(next); documentState = next; preview = undefined; draw();
+});
+$('undo').onclick = action(() => { documentState.cursor--; preview = undefined; draw(); });
+$('redo').onclick = action(() => { documentState.cursor++; preview = undefined; draw(); });
+$('save').onclick = () => download(documentState, 'painting.json');
+$('open').onclick = () => $('file').click();
+$('file').onchange = action(async () => {
+  if (!$('file').files[0]) return;
+  if ($('file').files[0].size > 8_000_000) throw new Error('Painting file too large');
+  const next = JSON.parse(await $('file').files[0].text()); renderDocument(next);
+  documentState = next; preview = undefined; draw(); $('file').value = '';
+});
+$('apply').onclick = action(() => propose(JSON.parse($('source').value)));
+$('saveBrush').onclick = () => download(selected, 'brush.json');
+await action(choose)();
+</script>
+</html>

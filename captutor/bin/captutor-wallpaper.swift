@@ -669,8 +669,10 @@ private final class FuserDimensionalView: NSView {
         root.masksToBounds = true
         layer = root
 
-        background.startPoint = CGPoint(x: 0.04, y: 0.94)
-        background.endPoint = CGPoint(x: 0.96, y: 0.06)
+        // Top edge to bottom edge, with a slight lean so it still reads as a
+        // field rather than a ruled sheet.
+        background.startPoint = CGPoint(x: 0.42, y: 1.0)
+        background.endPoint = CGPoint(x: 0.58, y: 0.0)
         root.addSublayer(background)
 
         for glow in [glowA, glowB] {
@@ -810,14 +812,17 @@ private final class FuserDimensionalView: NSView {
         metaballRenderer?.setAppearance(dark: dark)
         CATransaction.begin()
         CATransaction.setAnimationDuration(0.55)
+        // First stop is the top of the screen, under the menu bar. Light mode
+        // puts its lightest tone there and darkens downward; dark mode puts
+        // its darkest tone there and lifts downward. Never the reverse.
         background.colors = (dark ? [
+            accent.mixed(with:NSColor(hex: 0x0F0D12), amount:0.40),
             accent.mixed(with:NSColor(hex: 0x17131C), amount:0.34),
             accent.mixed(with:NSColor(hex: 0x2A2430), amount:0.22),
-            accent.mixed(with:NSColor(hex: 0x0F0D12), amount:0.40),
         ] : [
-            accent.mixed(with:NSColor(hex: 0xFFFFFF), amount:0.42),
+            accent.mixed(with:NSColor(hex: 0xFFFFFF), amount:0.52),
+            accent.mixed(with:NSColor(hex: 0xF7F5F8), amount:0.42),
             accent.mixed(with:NSColor(hex: 0xE9E6ED), amount:0.30),
-            accent.mixed(with:NSColor(hex: 0xF7F5F8), amount:0.48),
         ]).map(\.cgColor)
         let smoke = accent.mixed(with:NSColor.white, amount:dark ? 0.34 : 0.58)
         let silver = accent.mixed(with:NSColor.black, amount:dark ? 0.08 : 0.22)
@@ -889,14 +894,40 @@ private extension NSColor {
 
 private final class AppDelegate: NSObject, NSApplicationDelegate {
     private var windows: [NSWindow] = []
+    private var brand = "fuser"
+    private var prototype = false
+    /// Pending post-flip rebuild; a run of appearance flips ends in one rebuild.
+    private var flipRebuild: DispatchWorkItem?
+    private var appearanceWatch: NSKeyValueObservation?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = CommandLine.arguments
         let brandIndex = args.firstIndex(of: "--brand")
-        let brand = brandIndex.flatMap { index in
+        brand = brandIndex.flatMap { index in
             args.indices.contains(index + 1) ? args[index + 1].lowercased() : nil
         } ?? "fuser"
-        let prototype = args.contains("--prototype")
+        prototype = args.contains("--prototype")
+        rebuildWindows()
+        // macOS's light/dark treatment for the menu bar backdrop (the 74pt
+        // band it draws above desktop-level windows) can wedge on the old
+        // appearance after a flip; only a desktop-level window coming or
+        // going makes WindowServer derive it again. Rebuild once it settles.
+        appearanceWatch = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
+            guard let self else { return }
+            self.flipRebuild?.cancel()
+            let work = DispatchWorkItem { [weak self] in self?.rebuildWindows() }
+            self.flipRebuild = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5, execute: work)
+        }
+        print("Captutor Wallpaper brand=\(brand) prototype=\(prototype) " +
+              "renderer=\(brand == "classic" ? "vector-field" : "realtime-metal-metaballs")")
+        fflush(stdout)
+    }
+
+    private func rebuildWindows() {
+        let retired = windows
+        windows.removeAll()
+        defer { retired.forEach { $0.close() } }
         for screen in NSScreen.screens {
             let window = NSWindow(
                 contentRect: screen.frame,
@@ -920,9 +951,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             window.orderFrontRegardless()
             windows.append(window)
         }
-        print("Captutor Wallpaper brand=\(brand) prototype=\(prototype) " +
-              "renderer=\(brand == "classic" ? "vector-field" : "realtime-metal-metaballs")")
-        fflush(stdout)
     }
 }
 

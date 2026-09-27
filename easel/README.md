@@ -1,22 +1,19 @@
 # Aesel
 
-Aesel by Aesthetic Computer. The canonical command is `aesel`; `ac` and
-`easel` remain compatible. The source directory, `EASEL_*` settings, existing
-thread paths, and bundle ID remain stable so upgrades preserve user data.
+`aesel` opens the native SwiftUI Mac GUI in [`apple/aesel`](../apple/aesel/README.md).
+`a` opens the TUI in pro mode; `ac` and `easel` retain the piece-oriented TUI.
+Install these commands with `cd easel && ./install.sh`. Install the native Mac
+beta from https://aesel.app, or build it with Xcode using `apple/aesel/run.sh mac`.
 
-A coding interface for the terminal. Lives at `easel/` in the
-Aesthetic Computer repository.
+Both interfaces require a verified Aesthetic Computer login and an @handle,
+including pro/private mode and Claude/Codex providers.
 
-```sh
-cd easel && ./install.sh
-ac
-```
-
-`ac` and `aesthetic` open the same full-screen interface in the current
-directory. Pass a directory to open another workspace:
+The Electron GUI is retired. Its shell, installers, updater and release scripts
+have been removed; shared native notebook resources now live in `easel/shared/`.
+The native app uses its own saved threads and does not accept TUI workspace flags.
 
 ```sh
-ac ~/project
+a ~/project
 ```
 
 The interface owns the conversation, streaming, tool activity, interruption,
@@ -240,6 +237,21 @@ aesthetic doctor
 npm test
 ```
 
+## Aesel pro modules
+
+Three dependency-free modules under `src/` carry the pro (terminal harness)
+mode; the TUI wires them in.
+
+- `profile.mjs` — `resolveProfile({ cwd, flags, configPath, env })` decides
+  `piece` or `pro`, and `private`, from `--pro`/`--private`, `EASEL_PRIVATE=1`
+  and the globs in `~/.config/easel/profiles.json` (`exampleConfig()` prints
+  the shape). Pro publishes nothing and passes the engine through; private
+  advertises state only, so the Slab marker carries no subject.
+- `inbox.mjs` — `Inbox` listens on `$SLAB_HOME/inbox/<session>/inbox.sock`,
+  drains `messages.jsonl`, acks each line and emits stamped messages.
+- `transcript.mjs` — `Transcript` writes one `events.jsonl` + `meta.json`
+  per session under `~/.local/share/aesel/transcripts`, whatever the engine.
+
 ## Designing the furniture
 
 Aesel does not draw all of itself. The QR, the live card of the piece and the
@@ -286,3 +298,25 @@ are syntax-checked without executing them, so unfinished fragments keep the last
 working preview. Other runtimes retain their own loader validation. This uses
 ordered HTTPS streaming (SSE); a socket or UDP transport is not required for each
 token to arrive immediately. Disconnects cancel an active response upstream.
+
+## Aesel pro
+
+`ac --pro [dir]` is the same terminal, pointed at ordinary work: no piece, no
+QR, nothing published, and the Claude bridge runs with your own settings,
+skills, hooks and MCP servers (`--setting-sources`, `--strict-mcp-config` and
+the withheld tools are dropped; approvals still come back here, and `/ask` is
+on until you say `/ask off`). `--private` keeps the session's subject out of
+the Slab marker and the transcript index. Both can be set per directory in
+`~/.config/easel/profiles.json` — `/mode` prints the shape and says why the
+current session resolved the way it did.
+
+Every session, pro or not, listens on an inbox: `$SLAB_HOME/inbox/<session>/
+inbox.sock`, advertised as `inbox_socket` in its Slab marker, with
+`messages.jsonl` beside it as the fallback a remote sender can append to. A
+line from another session shows as `↓ host:name · text`, starts a turn if the
+machine is free, queues if it is busy, and with `"urgency": "urgent"` interrupts
+the running turn and goes first. `/inbox` shows the pending count and the last
+few delivered. Nothing on this path types into the terminal.
+
+One transcript per session, whichever engine wrote it, lands under
+`~/.local/share/aesel/transcripts/<session>/` as `events.jsonl` + `meta.json`.

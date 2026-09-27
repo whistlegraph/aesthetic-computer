@@ -22,6 +22,11 @@
 //   `on-request` and `workspace-write` at thread/start. The person watching
 //   this terminal should be the only thing that can approve a command in it.
 //
+//   `passthrough` drops that second flag and the tool withholding — a pro
+//   session is the user's own harness pointed at their own work, so their
+//   settings, skills, hooks and MCP servers are the point. The approval
+//   contract stays: every prompt still comes back to this terminal.
+//
 // What this bridge cannot carry is the other half of Codex's posture: an
 // operating-system sandbox. Codex runs commands with `workspace-write` and
 // `networkAccess: false`; Claude Code has no equivalent, so a command reaches
@@ -82,6 +87,7 @@ export class ClaudeServer extends EventEmitter {
     recoveryInstructions = "",
     // aesel's native tools (ac_api, ac_examples, ac_outline, ac_symbol).
     tools = true,
+    passthrough = false,
   }) {
     super();
     this.cwd = cwd;
@@ -94,6 +100,7 @@ export class ClaudeServer extends EventEmitter {
     this.model = model || DEFAULT_CLAUDE_MODEL;
     this.effort = effort;
     this.recoveryInstructions = recoveryInstructions;
+    this.passthrough = Boolean(passthrough);
     this.child = null;
     this.threadId = null;
     this.turnId = null;
@@ -249,11 +256,10 @@ export class ClaudeServer extends EventEmitter {
       "host",
       "--permission-prompt-tool",
       "stdio",
-      "--setting-sources",
-      "",
-      "--strict-mcp-config",
-      "--disallowed-tools",
-      ...WITHHELD_TOOLS,
+      // Isolation, unless this is the user's own harness: see the file head.
+      ...(this.passthrough
+        ? []
+        : ["--setting-sources", "", "--strict-mcp-config", "--disallowed-tools", ...WITHHELD_TOOLS]),
       "--add-dir",
       this.cwd,
     ];
@@ -264,7 +270,7 @@ export class ClaudeServer extends EventEmitter {
     // "what does circle take?" would cost the round trip the tool exists to
     // save.
     if (this.tools) {
-      args.push("--mcp-config", JSON.stringify(mcpConfig(this.cwd)));
+      args.push("--mcp-config", JSON.stringify(mcpConfig(this.cwd,this.environment)));
       args.push("--allowedTools", `mcp__${SERVER_NAME}`, 'mcp__easel-media');
     }
     if (this.developerInstructions) {
@@ -507,13 +513,14 @@ export class ClaudeServer extends EventEmitter {
     const field = FILE_TOOLS.get(block.name);
     if (field) {
       const path = block.input?.[field];
-      return { id: block.id, type: "fileChange", changes: path ? [{ path }] : [] };
+      return { id: block.id, type: "fileChange", changes: path ? [{ path }] : [], input: block.input };
     }
     if (COMMAND_TOOLS.has(block.name)) {
-      return { id: block.id, type: "commandExecution", command: block.input?.command || block.name };
+      return { id: block.id, type: "commandExecution", command: block.input?.command || block.name, input: block.input };
     }
     const detail = toolDetail(block.input);
-    return { id: block.id, type: "dynamicToolCall", tool: detail ? `${block.name} · ${detail}` : block.name };
+    // The whole input rides along: the interface reads media paths out of it.
+    return { id: block.id, type: "dynamicToolCall", tool: detail ? `${block.name} · ${detail}` : block.name, input: block.input };
   }
 
   #toolResults(message) {

@@ -1,0 +1,7 @@
+{
+  "bottom": ["bar", "gap", "status"],
+  "status": ["handle", "workspace", "media", "model", "activity"],
+  "bar": [95, 70, 135],
+  "prompt": "",
+  "separator": " · "
+}

@@ -221,7 +221,9 @@ export function renderWobble(ev, opts = {}) {
   const norm = 1 / voices;
 
   // State: LFO + one resonant Chamberlin lowpass (the wub filter).
-  let lfoPhase = rng();
+  // opts.phaseSync: start the LFO where the beat grid says (startSec × rate), so a gate lands on the
+  // grid every note. Off by default: existing beds reproduce bit-for-bit with the seeded random phase.
+  let lfoPhase = opts.phaseSync ? (((ev.startSec ?? 0) * pp.lfoHz) % 1 + 1) % 1 : rng();
   const sh = { value: rng() };
   let low = 0, band = 0;
   const damp = 1 / Math.max(0.5, pp.q);         // 1/Q → resonance

@@ -1,5 +1,8 @@
 # Composition Model — *Note(s)pat(ial) Native*
 
+> Superseded for September 24 by `NOTESPATIAL-ARRANGEMENT.md`: one
+> 13-minute score for the spatial-rehearsal piece, no dwelling.
+
 > How the fixed 1:41 of *Special Sign* becomes an 8–12 minute live
 > spatial performance on six salvaged laptops. Companion to the runtime
 > (`fedac/native/pieces/notespatial.mjs`, score data

@@ -134,18 +134,18 @@ export async function updateAtprotoHandle(database, sub, handle) {
 }
 
 export async function deleteAtprotoAccount(database, sub) {
-  const adminPassword = getAdminPassword();
-  if (!adminPassword) {
-    shell.log("🪦 Skipping PDS deletion, missing admin password env.");
-    return { deleted: false, reason: "missing-admin-password" };
-  }
-
   const users = database.db.collection("users");
   const userRecord = await users.findOne({ _id: sub });
 
   if (!userRecord?.atproto?.did) {
     shell.log("🪦 No ATProto DID on record for:", sub);
     return { deleted: false, reason: "missing-did" };
+  }
+
+  const adminPassword = getAdminPassword();
+  if (!adminPassword) {
+    shell.log("🪦 Skipping PDS deletion, missing admin password env.");
+    return { deleted: false, reason: "missing-admin-password" };
   }
 
   const did = userRecord.atproto.did;

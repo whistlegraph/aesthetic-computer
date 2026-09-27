@@ -37,6 +37,11 @@ final class LocalKeyCapture {
     /// Ordinary registered primary-button state from a physical trackpad click.
     var onTrackpadPhysicalClick: ((Bool) -> Void)?
     var cancelShortcut: MenuBandShortcut?
+    /// ⌘⌥R inside focus: the global hotkey never sees keys the capture
+    /// panel owns, and the ⌘ press used to trip the focus gesture instead.
+    /// Matched first and swallowed; the handler runs the same record toggle.
+    var recordShortcut: MenuBandShortcut?
+    var onRecordShortcut: (() -> Void)?
     /// Answers whether the mouse is currently pressed on Menu Band's own
     /// status item. On macOS 27 a mouse-down in the menu bar deactivates an
     /// accessory app even when the press lands on its own piano, so the
@@ -130,6 +135,13 @@ final class LocalKeyCapture {
                     return event
                 }
                 let isDown = (event.type == .keyDown)
+                if isDown, !event.modifierFlags.intersection([.command, .option, .control]).isEmpty {
+                    debugLog("capture keyDown code=\(event.keyCode) mods=\(MenuBandShortcut.carbonModifiers(from: event.modifierFlags)) recordShortcut=\(self.recordShortcut.map { "\($0.keyCode)/\($0.modifiers)" } ?? "nil")")
+                }
+                if self.recordShortcut?.matches(event: event) == true {
+                    if isDown { self.onRecordShortcut?() }
+                    return nil
+                }
                 if isDown, self.cancelShortcut?.matches(event: event) == true {
                     self.disarm(reason: .cancelled)
                     return nil

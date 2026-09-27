@@ -16,6 +16,7 @@ final class CountInWhoosh {
         engine.attach(player)
         guard let fmt = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2) else { return }
         engine.connect(player, to: engine.mainMixerNode, format: fmt)
+        MenuBandAudioDevices.bindToRawOutput(engine, label: "CountInWhoosh")
         do { try engine.start(); started = true }
         catch { NSLog("CountInWhoosh: engine start failed — \(error)") }
     }

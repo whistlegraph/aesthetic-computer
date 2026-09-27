@@ -45,6 +45,9 @@ struct singer {
   singer_note notes[SINGER_MAX_NOTES];
   int nnotes;
 
+  singer_articulation articulation[SINGER_MAX_NOTES];
+  int narticulation;
+
   singer_params p;
 
   // ── audio-thread state (no allocation past here) ──────────────────────
@@ -90,6 +93,16 @@ singer *singer_create(const double *pcm, int n, int fs) {
   singer_params *p = &s->p;
   p->bpm = 124; p->morph = 1.0; p->snap = 0.9; p->depth = 0.15;
   p->level = 2.4; p->f0_floor = 70.0; p->consonant_gain = 1.25;
+  p->sustain_db = 0.0;   // 0 = stretch the whole nucleus (the pre-Sept-21 behaviour)
+  p->gap_ms = 0.0;       // 0 = legato right up to the next onset
+  p->shimmer_frames = 0.0; p->legato_ms = 0.0;
+  p->presence_db = 0.0;  // 0 = no consonant-band lift
+  p->voiced_consonant_mix = 0.0;   // 0 = voiced consonants fully vocoded
+  p->hold_ms = 0.0;      // 0 = a vowel may fill its whole note
+  p->consonant_balance = 0.0;   // 0 = match the consonant region (old); 1 = keep the talker's consonant-to-vowel ratio
+  p->consonant_stretch = 1.0;   // 1 = consonants at speaking rate
+  p->sustain_band = 0;   // 0 = total energy picks the sustain zone; 1 = the 400 Hz–4 kHz formant band
+  p->loop_sustain = 0;   // 0 = frozen-spectrum hold (eased); 1 = wander the nucleus at speaking rate
   p->mode = SINGER_SNAP; p->root_pc = 9;              // A
   int sc[5] = {0, 3, 5, 7, 10};                        // minor pentatonic
   memcpy(p->scale, sc, sizeof(sc)); p->n_scale = 5;
@@ -262,6 +275,7 @@ static int split_syllables(singer *s, int a, int b, int k, unit_t *U) {
 // Place units on the grid, warp vowels, write the f0 line, synthesize, and
 // composite the original consonants back in. Shared by both render paths.
 static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer_params p, int *out_len) {
+  s->narticulation = 0;
   double fp = SINGER_FP_MS;
   int spec = s->fft_size / 2 + 1;
 
@@ -282,12 +296,69 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
     o_src[i] = -1.0; o_u[i] = -1;
   }
 
+  // Sustain zone: only the LOUD core of the nucleus stretches. A voiced run
+  // ("born" = b + or + n) is one nucleus to the detector, but stretching the
+  // quieter voiced edges — a b burst, an n murmur, an l — turns them into
+  // syllables of their own ("horn"). Frames more than `sustain_db` below the
+  // run's peak stay at speaking rate as (vocoded) onset/coda transitions.
+  double sustain_db = getenv("SINGER_SUSTAIN_DB") ? atof(getenv("SINGER_SUSTAIN_DB")) : p.sustain_db;
+  int sustain_band = getenv("SINGER_SUSTAIN_BAND") ? atoi(getenv("SINGER_SUSTAIN_BAND")) : p.sustain_band;
+  double sustain_min_frac = getenv("SINGER_SUSTAIN_MINFRAC") ? atof(getenv("SINGER_SUSTAIN_MINFRAC")) : 0.4;
+  double sustain_min_ms   = getenv("SINGER_SUSTAIN_MINMS")   ? atof(getenv("SINGER_SUSTAIN_MINMS"))   : 60.0;
+  double cgain_env = getenv("SINGER_CGAIN") ? atof(getenv("SINGER_CGAIN")) : 0;
+  if (cgain_env > 0) p.consonant_gain = cgain_env;
+  double gap_fr = (getenv("SINGER_GAP_MS") ? atof(getenv("SINGER_GAP_MS")) : p.gap_ms) / fp;
+  double hold_fr = (getenv("SINGER_HOLD_MS") ? atof(getenv("SINGER_HOLD_MS")) : p.hold_ms) / fp;
+  double cstretch = getenv("SINGER_CSTRETCH") ? atof(getenv("SINGER_CSTRETCH")) : p.consonant_stretch;
+  if (cstretch < 1.0) cstretch = 1.0;
+  double cmix = getenv("SINGER_CMIX") ? atof(getenv("SINGER_CMIX")) : p.voiced_consonant_mix;
+  int loop_sustain = getenv("SINGER_LOOP") ? atoi(getenv("SINGER_LOOP")) : p.loop_sustain;
+  // Wannadash's sing.py: tiny movement through the spectral envelope keeps
+  // a held vowel alive without moving its scored pitch. Opt-in for Chorus.
+  double shimmer = getenv("SINGER_SHIMMER_FRAMES") ? atof(getenv("SINGER_SHIMMER_FRAMES")) : p.shimmer_frames;
+  const int XF = getenv("SINGER_XF") ? atoi(getenv("SINGER_XF")) : 8;   // seam crossfade, frames (40 ms)
   for (int i = 0; i < nu; i++) {
     int a = U[i].a, b = U[i].b, vs = U[i].vs, ve = U[i].ve;
+    if (sustain_db > 0 && ve - vs >= 6) {
+      // Which energy tells a vowel from a voiced consonant? Not the total —
+      // a d-murmur or an n hums as loud as the vowel below 400 Hz. The
+      // formant band does: vowels carry 400 Hz–4 kHz, stops and nasals
+      // barely. `sustain_band` measures the zone there.
+      static double eb[65536];
+      int k0 = (int)(400.0 * s->fft_size / s->fs), k1 = (int)(4000.0 * s->fft_size / s->fs);
+      if (k1 > spec) k1 = spec;
+      for (int f = vs; f < ve; f++) {
+        if (sustain_band) { double e = 0; for (int k = k0; k < k1; k++) e += s->sp[f][k]; eb[f - vs] = log(e + 1e-10); }
+        else eb[f - vs] = s->en[f];
+      }
+      int pk = vs;
+      for (int f = vs; f < ve; f++) if (eb[f - vs] > eb[pk - vs]) pk = f;
+      double floor_en = eb[pk - vs] - sustain_db * log(10.0) / 10.0;   // ln(power)
+      int ss = pk, se = pk + 1;
+      while (ss > vs && eb[ss - 1 - vs] >= floor_en) ss--;
+      while (se < ve && eb[se - vs] >= floor_en) se++;
+      // A core can't be a sliver: a 25 ms zone stretched 24x is one frozen
+      // spectrum for a second (Allison's "Neo" → "n-n-n-neeel"). Widen it
+      // around the peak to at least `sustain_min_frac` of the run and
+      // `sustain_min_ms`, so trimming only removes long murmurs.
+      int minlen = (int)lround(fmax((ve - vs) * sustain_min_frac, sustain_min_ms / fp));
+      while (se - ss < minlen && (ss > vs || se < ve)) {
+        int growLeft = ss > vs && (se >= ve || eb[ss - 1 - vs] >= eb[se - vs]);
+        if (growLeft) ss--; else se++;
+      }
+      if (se - ss >= 4) { vs = ss; ve = se; }                        // keep ≥ 20 ms to sing on
+    }
     int c_on = vs - a, c_co = b - ve;
     if (c_co > 36) { c_co = 36; b = ve + 36; }   // a coda is a release, not the silence after it (≤ 180 ms)
     if (c_on > 60) { a = vs - 60; c_on = 60; }   // likewise an onset (≤ 300 ms)
     int vlen = ve - vs; if (vlen < 1) vlen = 1;
+    // Consonants keep speaking rate by default. But a 20 ms stop burst
+    // between two two-second vowels is nothing to hear, and clear speech
+    // works the other way: talkers lengthen consonants and hold closures
+    // when they need to be understood. `cstretch` > 1 slows the onset and
+    // coda regions (the original audio rides along through the composite).
+    int c_on_out = (int)lround(c_on * cstretch); if (c_on && c_on_out < 1) c_on_out = 1;
+    int c_co_out = (int)lround(c_co * cstretch); if (c_co && c_co_out < 1) c_co_out = 1;
 
     // The vowel may fill its note, and — legato — run up to the next unit's
     // consonant onset when the notes touch; it never sings through a REST.
@@ -295,40 +366,87 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
     // beats of silence after it.)
     double end = U[i].grid + U[i].slot;
     if (i + 1 < nu) {
-      double nextOn = U[i + 1].grid - (double)(U[i + 1].vs - U[i + 1].a) * p.morph;
+      // stop `gap_fr` before the next onset consonant so a stop's closure
+      // (the silence before a b/d/k burst) is silence, not the held vowel
+      double nextOn = U[i + 1].grid - (double)(U[i + 1].vs - U[i + 1].a) * cstretch * p.morph - gap_fr;
       if (nextOn < end) end = nextOn;
     }
-    double avail = end - U[i].grid - c_co - (i + 1 < nu ? 0.0 : c_on);
+    double avail = end - U[i].grid - c_co_out - (i + 1 < nu ? 0.0 : c_on_out);
     if (avail < 1) avail = 1;
     // The vowel fills what the note gives it: a long note sustains (frames
     // are interpolated through the nucleus, never tiled), a note shorter
     // than the spoken word compresses — down to half speed before we let
     // it overrun. Six-times was too low a ceiling: a two-beat "house" went
     // silent after 600 ms and read as cut off.
+    // A singer does not hold one vowel for the whole of a long note and then
+    // stop — they hold it, release it, and leave air. A 3-beat cadence at 100
+    // bpm is 1.8 s, and 1.8 s of one neural voice's vowel reads as a drone
+    // with its consonant lost ("we were here" came back as "weeeeeere").
+    // `hold_ms` caps how long the vowel may sound; the coda still lands at
+    // the end of what is sung, and the rest of the note is air.
+    if (hold_fr > 0 && avail > hold_fr) avail = hold_fr;
     double full = avail / vlen;
     if (full > 24.0) full = 24.0;
     if (full < 0.5) full = 0.5;
     double st = 1.0 + (full - 1.0) * p.morph;
     int vout = (int)lround(vlen * st); if (vout < 1) vout = 1;
 
-    int wlen = c_on + vout + c_co;
-    int o0 = (int)lround(U[i].grid - c_on * p.morph);
-    const int XF = 8;                          // 40 ms seam crossfade where units overlap
+    int wlen = c_on_out + vout + c_co_out;
+    int o0 = (int)lround(U[i].grid - c_on_out * p.morph);
+    if (s->narticulation < SINGER_MAX_NOTES) {
+      const double sec = SINGER_FP_MS / 1000.0;
+      singer_articulation *aout = &s->articulation[s->narticulation++];
+      aout->start = clampi(o0, 0, total) * sec;
+      aout->vowel_start = clampi(o0 + c_on_out, 0, total) * sec;
+      aout->vowel_end = clampi(o0 + c_on_out + vout, 0, total) * sec;
+      aout->end = clampi(o0 + wlen, 0, total) * sec;
+    }
+    if (getenv("SINGER_TRACE")) {
+      double nextOn = i + 1 < nu ? U[i + 1].grid - (double)(U[i + 1].vs - U[i + 1].a) * cstretch * p.morph : -1;
+      fprintf(stderr, "  [unit %2d] src a=%d vs=%d ve=%d b=%d (on %d vow %d coda %d fr) → grid %.0f slot %.0f | avail %.0f full %.2f st %.2f vout %d | out %d..%d nextOn %.0f%s\n",
+              i, a, vs, ve, b, c_on, vlen, c_co, U[i].grid, U[i].slot, avail, full, st, vout,
+              o0, o0 + wlen, nextOn, (nextOn >= 0 && o0 + wlen > nextOn) ? "  OVERRUN" : "");
+    }
     for (int j = 0; j < wlen; j++) {
       int o = o0 + j;
       if (o < 0 || o >= total) continue;
       double srcf; int isc;
-      if (j < c_on)           { srcf = a + j; isc = 1; }
-      else if (j < c_on+vout) {
-        // A singer holds the vowel's FIRST colour and saves the glide for
-        // the end ("naaaa-it", not "naaiiii"): when the vowel is stretched
-        // beyond 2x, ease the source position so most of the output time
-        // sits on the early nucleus and the off-glide happens late.
-        double u = (double)(j - c_on) / (vout > 1 ? vout - 1 : 1);
-        double gamma = st > 2.0 ? 2.2 : 1.0;
-        srcf = vs + pow(u, gamma) * (vlen - 1); isc = 0;
+      if (j < c_on_out)       { srcf = a + (double)j / cstretch; isc = 1; }
+      else if (j < c_on_out+vout) {
+        double u = (double)(j - c_on_out) / (vout > 1 ? vout - 1 : 1);
+        if (loop_sustain && st > 2.0) {
+          // LOOPED sustain: a held note is not one frozen spectrum. Play the
+          // onset third of the nucleus once at speaking rate, then wander the
+          // middle of the nucleus back and forth at speaking rate (its own
+          // breath, jitter and formant drift come along), and finish with the
+          // off-glide at speaking rate — "naaaa-it" with a living "aaaa".
+          double head = 0.30 * (vlen - 1), tail = 0.25 * (vlen - 1);
+          int jj = j - c_on_out;
+          int headFr = (int)lround(head), tailFr = (int)lround(tail);
+          if (jj < headFr) srcf = vs + jj;
+          else if (jj >= vout - tailFr) srcf = vs + (vlen - 1) - (vout - 1 - jj);
+          else {
+            double lo = vs + head, span = (vlen - 1) - head - tail;
+            if (span < 4) span = 4;
+            double t = (double)(jj - headFr), per = 2 * span;
+            double ph = fmod(t, per);
+            srcf = lo + (ph <= span ? ph : per - ph);           // ping-pong, no seam
+          }
+        } else {
+          // A singer holds the vowel's FIRST colour and saves the glide for
+          // the end ("naaaa-it", not "naaiiii"): when the vowel is stretched
+          // beyond 2x, ease the source position so most of the output time
+          // sits on the early nucleus and the off-glide happens late.
+          double gamma = st > 2.0 ? 2.2 : 1.0;
+          srcf = vs + pow(u, gamma) * (vlen - 1);
+        }
+        if (shimmer > 0 && st > 2.0) {
+          srcf += shimmer * sin(2 * M_PI * 0.8 * j * fp / 1000.0) * sin(M_PI * u);
+          srcf = fmax(vs, fmin(ve - 1, srcf));
+        }
+        isc = 0;
       }
-      else                    { srcf = ve + (j - c_on - vout); isc = 1; }
+      else                    { srcf = ve + (double)(j - c_on_out - vout) / cstretch; isc = 1; }
       int l = clampi((int)floor(srcf), 0, s->nframes - 1);
       int hh = clampi(l + 1, 0, s->nframes - 1);
       double fr = srcf - l;
@@ -368,9 +486,21 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
     double tgt_m;
     int u = o_u[o];
     if (u >= 0 && U[u].tgt >= 0) {
+      // Consonants can begin before their syllable's vowel/downbeat. The
+      // speech fragment owning a frame must not move the melody early:
+      // while a written note is active, its pitch owns the score clock.
+      int pitch_u = u;
+      if (p.mode == SINGER_SCORE) {
+        for (int j = nu - 1; j >= 0; j--) {
+          if (o >= U[j].grid && o < U[j].grid + U[j].slot) {
+            pitch_u = j;
+            break;
+          }
+        }
+      }
       // SCORE: the note, plus (1-lock) of the spoken contour around its mean,
       // plus the profile's vibrato easing in over the first 150 ms.
-      tgt_m = U[u].tgt + (midi - umean[u]) * (1.0 - p.lock);
+      tgt_m = U[pitch_u].tgt + (midi - umean[u]) * (1.0 - p.lock);
       double tv = (o - uon[u]) * fp / 1000.0;
       double ramp = tv < 0.15 ? tv / 0.15 : 1.0;
       tgt_m += (p.vib_cents / 100.0) * ramp * sin(2 * M_PI * p.vib_hz * tv);
@@ -390,6 +520,28 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
     o_f0[o] = exp((1 - p.morph) * log(o_sf0[o]) + p.morph * log(note_hz_midi(tgt_m)));
   }
   free(umean); free(ucnt); free(uon);
+
+  // Short log-frequency transitions, as in pop/cult/bin/sing.py.
+  // No interpolation across breath/rest frames and no change to note centers.
+  double legato_ms = getenv("SINGER_LEGATO_MS") ? atof(getenv("SINGER_LEGATO_MS")) : p.legato_ms;
+  int radius = clampi((int)lround(legato_ms / fp), 0, 12);
+  if (radius > 0) {
+    double *smooth = (double *)calloc(total, sizeof(double));
+    for (int o = 0; o < total; o++) {
+      if (o_f0[o] <= 0) continue;
+      double sum = log(o_f0[o]), weights = 1;
+      for (int dir = -1; dir <= 1; dir += 2) {
+        for (int k = 1; k <= radius; k++) {
+          int j = o + dir * k;
+          if (j < 0 || j >= total || o_f0[j] <= 0) break;
+          double w = 0.5 * (1 + cos(M_PI * k / (radius + 1)));
+          sum += w * log(o_f0[j]); weights += w;
+        }
+      }
+      smooth[o] = exp(sum / weights);
+    }
+    memcpy(o_f0, smooth, total * sizeof(double)); free(smooth);
+  }
 
   int ylen = (int)(total * fp / 1000.0 * s->fs);
   double *y = (double *)calloc(ylen, sizeof(double));
@@ -414,14 +566,22 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
     int fl = clampi((int)floor(fpos), 0, total - 1);
     int fh = clampi(fl + 1, 0, total - 1);
     if (o_src[fl] < 0 || o_src[fh] < 0) continue;
-    if (!(o_c[fl] && o_sf0[fl] <= 0) || !(o_c[fh] && o_sf0[fh] <= 0)) continue;
+    if (!o_c[fl] || !o_c[fh]) continue;                 // a consonant region (onset or coda, natural rate)
+    int unvoiced = (o_sf0[fl] <= 0) && (o_sf0[fh] <= 0);
+    // Unvoiced consonants are always the original recording (the vocoder
+    // has nothing to say about a burst or a hiss). Voiced consonants — b d
+    // g m n l r w — are vocoded at the note by default; `cmix` blends the
+    // spoken original back in over them too: their short natural-pitch
+    // moment is what tells "door" from "your" and "beat" from "eat".
+    double m = unvoiced ? 1.0 : cmix;
+    if (m <= 0) continue;
     double ff = fpos - fl;
     double ss = (o_src[fl] * (1 - ff) + o_src[fh] * ff) * spf;
     int sl = clampi((int)floor(ss), 0, s->nx - 1);
     int sh = clampi(sl + 1, 0, s->nx - 1);
     double sfr = ss - sl;
     orig[n] = s->x[sl] * (1 - sfr) + s->x[sh] * sfr;
-    mask[n] = 1.0;
+    mask[n] = m;
   }
   int xf = (int)(0.012 * s->fs);
   double *msm = (double *)calloc(ylen, sizeof(double));
@@ -436,9 +596,36 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
     double v = wsum > 0 ? acc / wsum : 0;
     msm[n] = v > 1 ? 1 : v;
   }
+  // How loud should a spliced-in consonant be? The old answer matched the
+  // vocoded output's own level INSIDE the consonant region — but there the
+  // vocoder has almost nothing to say (an unvoiced frame has no f0, so it
+  // synthesises near-silence), so the match drove real consonants down and
+  // `consonant_gain` was left to shove them back up by ear.
+  // `cbalance` asks the better question: what was this consonant's level
+  // NEXT TO ITS OWN VOWEL in the speech we started from? Match the vocoded
+  // vowel's level and keep that ratio, and the words arrive at the balance
+  // the talker gave them.
+  double cbalance = getenv("SINGER_CBALANCE") ? atof(getenv("SINGER_CBALANCE")) : p.consonant_balance;
   double rw = 0, ro = 0; int cnt = 0;
   for (int n = 0; n < ylen; n++) if (mask[n] > 0.5) { rw += y[n]*y[n]; ro += orig[n]*orig[n]; cnt++; }
   double g = (cnt && ro > 0) ? sqrt(rw / cnt) / sqrt((ro / cnt) + 1e-12) : 1.0;
+  if (cbalance > 0) {
+    // the vowel regions: filled output frames the composite does NOT cover
+    double vw = 0, vo = 0; int vc = 0;
+    for (int n = 0; n < ylen; n++) {
+      if (mask[n] > 0.5) continue;
+      double fpos = n / spf;
+      int fl = clampi((int)floor(fpos), 0, total - 1);
+      if (o_u[fl] < 0 || o_src[fl] < 0) continue;
+      double ss = o_src[fl] * spf;
+      int sl = clampi((int)ss, 0, s->nx - 1);
+      vw += y[n]*y[n]; vo += s->x[sl]*s->x[sl]; vc++;
+    }
+    if (vc && vo > 0) {
+      double gv = sqrt(vw / vc) / sqrt((vo / vc) + 1e-12);
+      g = g * (1 - cbalance) + gv * cbalance;
+    }
+  }
 
   double pk = 0;
   for (int n = 0; n < ylen; n++) {
@@ -446,6 +633,24 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
     if (!isfinite(v)) v = 0.0;
     y[n] = v;
     if (fabs(v) > pk) pk = fabs(v);
+  }
+  // Presence: a peaking EQ around 3 kHz (RBJ biquad, Q 0.8) lifts the
+  // consonant band that a vocoded, pitch-locked vowel line buries. 0 = off.
+  double presence_db = getenv("SINGER_PRESENCE_DB") ? atof(getenv("SINGER_PRESENCE_DB")) : p.presence_db;
+  if (presence_db != 0) {
+    double A = pow(10.0, presence_db / 40.0), w0 = 2 * M_PI * 3000.0 / s->fs, Q = 0.8;
+    double alpha = sin(w0) / (2 * Q), cw = cos(w0);
+    double b0 = 1 + alpha * A, b1 = -2 * cw, b2 = 1 - alpha * A;
+    double a0 = 1 + alpha / A, a1 = -2 * cw, a2 = 1 - alpha / A;
+    b0 /= a0; b1 /= a0; b2 /= a0; a1 /= a0; a2 /= a0;
+    double x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    pk = 0;
+    for (int n = 0; n < ylen; n++) {
+      double x0 = y[n], v = b0 * x0 + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+      x2 = x1; x1 = x0; y2 = y1; y1 = v;
+      if (!isfinite(v)) v = 0.0;
+      y[n] = v; if (fabs(v) > pk) pk = fabs(v);
+    }
   }
   if (!isfinite(pk) || pk <= 0) pk = 1.0;
   for (int n = 0; n < ylen; n++) y[n] = y[n] / pk * 0.8;
@@ -507,9 +712,12 @@ void singer_set_score(singer *s, const singer_note *n, int count) {
   s->nnotes = count;
 }
 int singer_note_count(const singer *s) { return s->nnotes; }
+int singer_articulation_count(const singer *s) { return s->narticulation; }
+const singer_articulation *singer_articulations(const singer *s) { return s->articulation; }
 
 double *singer_render_score(singer *s, double from16, double to16,
                             int *out_len, int *notes_used) {
+  s->narticulation = 0;
   singer_params p = s->p;
   double fp = SINGER_FP_MS;
   double sixt = (60000.0 / p.bpm) / 4.0 / fp;

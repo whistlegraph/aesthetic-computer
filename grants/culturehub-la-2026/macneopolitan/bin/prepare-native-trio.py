@@ -10,7 +10,7 @@ its wedge cues. Never sends prepare/play.
 import concurrent.futures,hashlib,json,os,struct,time,urllib.request
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1];OUT=Path(os.environ.get('TRIO_OUT','/Users/jas/Shelf/culturehub-one-big-voice'))   # TRIO_OUT=… picks the song's shelf folder
-ALLOW=['culturehub-rehearsal','culturehub-concert','trio-fleet']+[p for p in os.environ.get('TRIO_ALLOW_PIECES','').split(',') if p]   # pieces a seat may be showing before we load
+ALLOW=['culturehub-rehearsal','culturehub-concert','trio-fleet','spatial-rehearsal','notespatial-controls','notespatial-live-vol','notespatial-live-263da9','venue-screen','notepat']+[p for p in os.environ.get('TRIO_ALLOW_PIECES','').split(',') if p]   # pieces a seat may be showing before we load
 plan=json.loads((OUT/'plan.json').read_text());assets=json.loads((OUT/'prepared.json').read_text())
 assert assets['arrangementHash']==plan['arrangementHash']
 stems=assets.get('stems') or {'seat-5':assets['centerMix']}   # v1 bundles carry only the Center mix
@@ -39,16 +39,16 @@ def load(node):
     colors=plan.get('colors',{})
     cfg={'schema':'trio-native-v1','receiverId':node['id'],'arrangementHash':plan['arrangementHash'],'bpm':plan['bpm'],'duration':plan['duration'],
      'color':[[143,209,63],[90,87,211],[242,167,185]][node['seat']%3],'seat':node['seat'],'label':node.get('label'),'heldCenter':node['seat']==5,
-     'mix':plan.get('levels',{}).get('mix',.25),
-     'events':[e for e in plan['events'] if mine(e) and e['layer'] not in ('dmx','voice','light')],
+     'mix':plan.get('levels',{}).get('mix',.25),'fx':plan.get('fx') or {'room':.15},   # air: a little room on every Trio seat unless the plan says otherwise
+     'events':[e for e in plan['events'] if mine(e) and e['layer'] not in ('dmx','voice','light') and not e.get('baked')],   # baked layers ride the stem
      'routes':[{k:e[k] for k in ('t','dur','member','phrase','text','gain','role','delay','rgb')} for e in plan['events'] if mine(e) and e['layer']=='voice'],
      'lyrics':plan.get('lyrics',[]),
      'lightCues':[{'t':e['t'],'dur':e['dur'],'rgb':e['rgb']} for e in plan['events'] if mine(e) and e['layer']=='light'],
      'colors':colors,
      # the incoming-notes roll: every sounding event in the room, this seat's own marked `mine`
-     'notes':sorted([{'i':({'taiko':'kick','woodblock':'snare','brush':'hat'}.get(e.get('name'),'perc') if e['layer']=='perc' else 'bass' if e['layer']=='sub' else 'note'),'t':e['t'],'dur':e['dur'],'midi':e.get('note'),'gain':e.get('gain',.05),'label':e.get('name') or e.get('layer'),'mine':mine(e)} for e in plan['events'] if e['layer'] in ('harmony','inst','perc','bed','ornament','sub')]
+     'notes':sorted([{'i':({'taiko':'kick','woodblock':'snare','brush':'hat'}.get(e.get('name'),'perc') if e['layer']=='perc' else 'bass' if e['layer']=='sub' else 'note'),'t':e['t'],'dur':e['dur'],'midi':e.get('note'),'gain':e.get('gain',.05),'label':e.get('name') or e.get('layer'),'mine':mine(e)} for e in plan['events'] if e['layer'] in ('harmony','inst','perc','bed','ornament','sub','drone')]
               +[{'i':'voice','t':e['t'],'dur':e['dur'],'midi':None,'gain':e['gain'],'label':e['role'].upper(),'text':e['text'],'rgb':e['rgb'],'mine':mine(e)} for e in plan['events'] if e['layer']=='voice'],key=lambda n:n['t']),
-     'sections':[{'name':s['name'],'startSec':s['beat']*60/plan['bpm'],'endSec':(plan['sections'][i+1]['beat'] if i+1<len(plan['sections']) else (plan.get('arrangement') or {}).get('total') or plan['duration']*plan['bpm']/60)*60/plan['bpm']} for i,s in enumerate(plan.get('sections',[]))],
+     'sections':[{'name':s['name'],'startSec':s['beat']*60/plan['bpm']+plan.get('leadIn',0),'endSec':(plan['sections'][i+1]['beat'] if i+1<len(plan['sections']) else (plan.get('arrangement') or {}).get('total') or plan['duration']*plan['bpm']/60)*60/plan['bpm']+plan.get('leadIn',0)} for i,s in enumerate(plan.get('sections',[]))],
      'beatsPerBar':plan.get('layers',{}).get('beatsPerBar',4),'midiLow':36,'midiHigh':96,'title':plan.get('title')}
     feed=OUT/'notes'/(node['id']+'.json')   # a folder may carry per-seat notes feeds (femrag-notes.mjs); they win
     if feed.exists():
@@ -77,7 +77,7 @@ def load(node):
             if s.get('arrangementHash')==plan['arrangementHash'] and s['phase']=='ready' and s['centerReady']:
                 assert s['mono'] and s['monoOutput']=='left' and not s['microphoneHot']
                 if stem:assert s['center']['rawSha256']==stem.get('rawSha256',stem['sha256']),(node['id'],'stem mismatch')
-                print(node['id'],'loaded silently;',('stem %d routes'%stem['routes']) if stem else 'no stem',';',len(cfg['events']),'events,',len(cfg['routes']),'notation cues',flush=True)
+                print(node['id'],'loaded silently;',('stem %s'%(('%d routes'%stem['routes']) if 'routes' in stem else stem.get('format','wav'))) if stem else 'no stem',';',len(cfg['events']),'events,',len(cfg['routes']),'notation cues',flush=True)
                 return {**node,'url':url,'previousPiece':previous['piece'],'status':s,'observedAt':time.time(),'assetReadbackVerified':bool(stem)}
         except urllib.error.HTTPError:pass
         time.sleep(.2)

@@ -268,3 +268,25 @@ test("a finished turn reports what it spent, keyed to the model that ran", async
   const { joulesFor, readUsage } = await import("../src/energy.mjs");
   assert.ok(joulesFor(readUsage(spent[0].usage), spent[0].model) > 0);
 });
+
+// Pro is the user's own harness: their settings, skills, hooks and MCP servers
+// are the point, so the isolation flags go — and only those. The approval
+// contract is what keeps every prompt coming back to this terminal.
+test("passthrough keeps the approval contract and drops the isolation", async (t) => {
+  const { root, cleanup } = scratch();
+  const argvFile = path.join(root, "argv.json");
+  const engine = bridge(t, { passthrough: true, environment: { FAKE_CLAUDE_ARGV: argvFile } });
+  await engine.connect();
+  const argv = launches(argvFile).argvs[0];
+  const flag = (name) => flagIn(argv, name);
+
+  assert.equal(flag("--permission-prompt-tool"), "stdio");
+  assert.equal(flag("--permission-prompts"), "host");
+  assert.equal(flag("--permission-mode"), "manual");
+  assert.equal(flag("--add-dir"), directory);
+  assert.ok(!argv.includes("--setting-sources"));
+  assert.ok(!argv.includes("--strict-mcp-config"));
+  assert.ok(!argv.includes("--disallowed-tools"));
+  for (const tool of ["WebFetch", "WebSearch", "Task"]) assert.ok(!argv.includes(tool));
+  cleanup();
+});

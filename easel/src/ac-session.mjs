@@ -1,3 +1,4 @@
+import {verifyAccount, requireHandle} from "./account-access.mjs";
 // ac-session.mjs — the shared Aesthetic Computer sign-in.
 //
 // Every AC desktop app reads one file, ~/.ac-token, minted by `ac-login` with
@@ -160,6 +161,16 @@ export class ACSession extends EventEmitter {
     record.expires_at = this.now() + (next.expires_in || 3600) * 1000;
     this.#write(record);
     return record.access_token;
+  }
+
+  async requireAccount() {
+    const token = await this.token();
+    const account = await verifyAccount(token, {fetch:this.fetch, site:this.site, authDomain:this.authDomain, userAgent:USER_AGENT});
+    const record = this.read();
+    if (record?.access_token !== token) throw new Error("AC account changed. Retry sign-in.");
+    record.user = {...record.user, sub:account.sub, handle:account.handle};
+    this.#write(record);
+    return requireHandle(account);
   }
 
   // Authorization-Code + PKCE against Auth0 with a loopback callback. Resolves

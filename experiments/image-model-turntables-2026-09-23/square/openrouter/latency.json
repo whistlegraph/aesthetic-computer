@@ -1,0 +1,132 @@
+{
+  "provider": "openrouter",
+  "model": "recraft/recraft-v4.1-flash",
+  "request": {
+    "model": "recraft/recraft-v4.1-flash",
+    "prompt": "a square on red",
+    "n": 1
+  },
+  "started_at": "2026-09-23T19:14:35.106393+00:00",
+  "transport": "pooled HTTP/2 when supported; no automatic retries; sequential samples",
+  "samples": [
+    {
+      "sample": 1,
+      "api_network": {
+        "connect_tcp_seconds": 0.09273808400030248,
+        "start_tls_seconds": 0.3490488750012446,
+        "response_headers_seconds": 3.605330332999074,
+        "http_version": "HTTP/2",
+        "status_code": 200,
+        "body_seconds": 0.06658733400035999,
+        "total_seconds": 3.671941708000304
+      },
+      "api_seconds": 3.671956832999058,
+      "decode_download_save_seconds": 0.017336625000098138,
+      "total_seconds": 3.689293457999156,
+      "output": "square/openrouter/sample-01.webp",
+      "bytes": 773276,
+      "media_type": "image/webp",
+      "usage": {
+        "prompt_tokens": 4,
+        "completion_tokens": 4175,
+        "total_tokens": 4179,
+        "cost": 0.007,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.007,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0.007
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 4175
+        }
+      }
+    },
+    {
+      "sample": 2,
+      "api_network": {
+        "response_headers_seconds": 1.4568157920002704,
+        "http_version": "HTTP/2",
+        "status_code": 200,
+        "body_seconds": 0.05795466699964891,
+        "total_seconds": 1.514782791999096
+      },
+      "api_seconds": 1.5148002080004517,
+      "decode_download_save_seconds": 0.010385833998952876,
+      "total_seconds": 1.5251860419994046,
+      "output": "square/openrouter/sample-02.webp",
+      "bytes": 999504,
+      "media_type": "image/webp",
+      "usage": {
+        "prompt_tokens": 4,
+        "completion_tokens": 4175,
+        "total_tokens": 4179,
+        "cost": 0.007,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.007,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0.007
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 4175
+        }
+      }
+    },
+    {
+      "sample": 3,
+      "api_network": {
+        "response_headers_seconds": 1.8185205829995539,
+        "http_version": "HTTP/2",
+        "status_code": 200,
+        "body_seconds": 0.10495804200036218,
+        "total_seconds": 1.923489332999452
+      },
+      "api_seconds": 1.9235009170006379,
+      "decode_download_save_seconds": 0.014260457999625942,
+      "total_seconds": 1.9377613750002638,
+      "output": "square/openrouter/sample-03.webp",
+      "bytes": 979982,
+      "media_type": "image/webp",
+      "usage": {
+        "prompt_tokens": 4,
+        "completion_tokens": 4175,
+        "total_tokens": 4179,
+        "cost": 0.007,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.007,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0.007
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 4175
+        }
+      }
+    }
+  ],
+  "summary": {
+    "api_seconds": {
+      "median": 1.9235009170006379,
+      "min": 1.5148002080004517,
+      "max": 3.671956832999058
+    },
+    "total_seconds": {
+      "median": 1.9377613750002638,
+      "min": 1.5251860419994046,
+      "max": 3.689293457999156
+    }
+  }
+}

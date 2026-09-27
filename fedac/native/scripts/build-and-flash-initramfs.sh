@@ -217,6 +217,7 @@ if [ -d "${PIECES_SRC}" ]; then
     for p in "${PIECES_SRC}"/*.mjs; do
         [ -f "$p" ] && cp "$p" "${INITRAMFS_DIR}/pieces/"
     done
+    bash "${NATIVE_DIR}/scripts/bundle-oskiewar.sh" "${INITRAMFS_DIR}"
     log "Bundled pieces: $(ls "${INITRAMFS_DIR}/pieces/" | tr '\n' ' ')"
 fi
 

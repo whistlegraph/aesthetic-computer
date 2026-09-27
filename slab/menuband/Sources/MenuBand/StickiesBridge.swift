@@ -109,11 +109,10 @@ final class StickiesBridge {
     /// on, and the AX calls just fail. We prompt rather than fail mute.
     func start() {
         guard observer == nil, trustTimer == nil else { return }
-        // Prompts on the first call. The user then grants (or doesn't) at
-        // their leisure, so poll rather than giving up — a bridge that
-        // needs a relaunch to notice its own permission is a bridge that
-        // looks broken.
-        guard ensureAccessibilityTrust() else {
+        // This optional integration starts with the app, including concert
+        // launches. Check silently and notice an existing/new grant through
+        // polling; never interrupt a performance with a system prompt.
+        guard AXIsProcessTrusted() else {
             NSLog("StickiesBridge: awaiting Accessibility permission")
             trustTimer = Timer.scheduledTimer(withTimeInterval: 1,
                                               repeats: true) { [weak self] timer in
@@ -149,11 +148,6 @@ final class StickiesBridge {
         NSWorkspace.shared.notificationCenter.removeObserver(self)
         detachFromStickies()
         releaseAllSoundingNotes()
-    }
-
-    private func ensureAccessibilityTrust() -> Bool {
-        let key = kAXTrustedCheckOptionPrompt.takeUnretainedValue()
-        return AXIsProcessTrustedWithOptions([key: true] as CFDictionary)
     }
 
     @objc private func inputSourceChanged() { rebuildKeyboardLayout() }

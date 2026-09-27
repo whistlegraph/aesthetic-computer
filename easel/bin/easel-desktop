@@ -1,71 +1,29 @@
 #!/usr/bin/env bash
-# Desktop entry point. bin/easel remains the native terminal runtime launcher.
+# Compatibility entry point for the native SwiftUI GUI. Electron is retired.
 set -euo pipefail
-
-usage() {
-    cat <<'HELP'
-Usage: aesel [directory] [--backend ac|claude|codex] [--model NAME]
-                        [--piece FILE] [--resume THREAD_ID]
-                        [--no-autopublish] [--dev]
-       aesel --cwd DIRECTORY [options]
-       ac [directory] [options]
-
-Open the standalone aesel app. With no directory, reopen its last workspace.
-Use `aesel .` to select the current directory when starting the app.
-If aesel is already running, bring its existing window forward; launch options
-apply when the app starts. This command does not create a second instance.
-
-`ac` opens the same making interface inside your terminal, with optional Slab.
-Desktop installation: ~/Applications/aesel.app (or EASEL_DESKTOP_APP).
-HELP
-}
 fail() { printf 'aesel: %s\n' "$*" >&2; exit 1; }
-workspace=''
-dev=false
-arguments=()
-while (($#)); do
-    case "$1" in
-        --dev) dev=true; shift ;;
-        -h|--help) usage; exit 0 ;;
-        --cwd)
-            (($# >= 2)) && [[ -n "$2" ]] || fail '--cwd needs a directory'
-            [[ -z "$workspace" ]] || fail 'supply one workspace directory'
-            workspace="$2"; shift 2 ;;
-        --backend|--model|--piece|--resume)
-            (($# >= 2)) && [[ -n "$2" && "$2" != --* ]] || fail "$1 needs a value"
-            if [[ "$1" == --backend ]]; then
-                case "$2" in ac|claude|codex) ;; *) fail '--backend must be ac, claude, or codex' ;; esac
-            fi
-            arguments+=("$1" "$2"); shift 2 ;;
-        --no-autopublish) arguments+=("$1"); shift ;;
-        --)
-            shift
-            (($# <= 1)) || fail 'supply one workspace directory'
-            if (($#)); then
-                [[ -z "$workspace" ]] || fail 'supply one workspace directory'
-                workspace="$1"; shift
-            fi ;;
-        -*) fail "unknown option: $1 (see aesel --help)" ;;
-        *) [[ -z "$workspace" ]] || fail 'supply one workspace directory'
-           workspace="$1"; shift ;;
-    esac
-done
-[[ "$(uname -s)" == Darwin ]] || fail 'the standalone launcher currently requires macOS; use ac for the terminal interface'
-app_path="${AESEL_DESKTOP_APP:-${EASEL_DESKTOP_APP:-$HOME/Applications/aesel.app}}"
-if $dev; then app_path="$HOME/Applications/Aesel Dev.app"; fi
-# Existing installations keep working until the renamed app is installed.
-if ! $dev && [[ ! -d "$app_path" && -z "${AESEL_DESKTOP_APP:-}${EASEL_DESKTOP_APP:-}" && -d "$HOME/Applications/Easel.app" ]]; then
-    app_path="$HOME/Applications/Easel.app"
+case "${1:-}" in
+    -h|--help)
+        cat <<'HELP'
+Usage: aesel
+       a [directory] [TUI options]
+
+Open the native Aesel Mac app, or activate its existing window.
+The native GUI manages its own saved threads; terminal workspace flags belong to a.
+Install the native Mac beta from https://aesel.app or build apple/aesel with Xcode.
+AESEL_DESKTOP_APP can select a native app bundle explicitly.
+HELP
+        exit 0 ;;
+esac
+[[ $# == 0 ]] || fail 'the native GUI takes no workspace or engine flags; use a for the TUI (see aesel --help)'
+[[ "$(uname -s)" == Darwin ]] || fail 'the native GUI requires macOS; use a for the terminal interface'
+app_path="${AESEL_DESKTOP_APP:-${EASEL_DESKTOP_APP:-}}"
+if [[ -z "$app_path" ]]; then
+    for candidate in "$HOME/Applications/Aesel.app" '/Applications/Aesel.app' "$HOME/Applications/Aesel Native.app" '/Applications/Aesel Native.app'; do
+        if [[ -d "$candidate" ]]; then app_path="$candidate"; break; fi
+    done
 fi
-[[ -d "$app_path" ]] || fail "aesel.app is not installed at $app_path. Install the standalone app or run ac."
-if [[ -n "$workspace" ]]; then
-    [[ -d "$workspace" ]] || fail "workspace directory does not exist: $workspace"
-    workspace="$(cd -- "$workspace" && pwd -P)"
-    arguments=(--cwd "$workspace" "${arguments[@]}")
-fi
-# No -n: macOS activates the existing app rather than launching another copy.
-if ((${#arguments[@]})); then
-    exec open -a "$app_path" --args "${arguments[@]}"
-else
-    exec open -a "$app_path"
-fi
+[[ -n "$app_path" && -d "$app_path" ]] || fail 'Aesel Native.app is not installed. Install the native Mac beta from https://aesel.app or run a.'
+bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_path/Contents/Info.plist" 2>/dev/null || true)
+[[ "$bundle_id" == computer.aesthetic.aesel.native || ( "$bundle_id" == computer.aesthetic.easel && -f "$app_path/Contents/Resources/Session/easel/phone/host.html" && ! -d "$app_path/Contents/Frameworks/Electron Framework.framework" ) ]] || fail 'that bundle is not Aesel Native; the Electron app is retired. Install the native Mac beta from https://aesel.app.'
+exec open -a "$app_path"

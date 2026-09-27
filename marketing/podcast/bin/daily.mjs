@@ -6,6 +6,7 @@
 //             storytelling register (scenes, first person, no salesmanship)
 //   produce — bin/produce.mjs with the club bed + the daily frame
 //   publish — bin/buzzsprout.mjs (public; --stage keeps it private for review)
+//   mint    — with DAILY_MINT=1, bin/daily-token.mjs mints it on hic et nunc
 //
 // Usage:
 //   node bin/daily.mjs                # today, produce + publish
@@ -170,3 +171,12 @@ if (flags.stage) pubArgs.push("--private");
 const b = spawnSync("node", pubArgs, { cwd: ROOT, stdio: "inherit" });
 if (b.status !== 0) { console.error("✗ buzzsprout publish failed"); process.exit(1); }
 console.log(`✓ ${slug} ${flags.stage ? "staged private" : "published"} — ${fm[1].trim()}`);
+
+// ── 5. mint ──────────────────────────────────────────────────────────────
+// The appliance opts in with DAILY_MINT=1: the episode becomes a hic et nunc
+// token (bin/daily-token.mjs). A mint failure never unpublishes the show;
+// the token's own receipt lets the next run resume it.
+if (process.env.DAILY_MINT === "1" && !flags.stage) {
+  const t = spawnSync("node", ["bin/daily-token.mjs", "--date", date], { cwd: ROOT, stdio: "inherit" });
+  if (t.status !== 0) console.error(`✗ ${slug} token failed; rerun node bin/daily-token.mjs --date ${date}`);
+}

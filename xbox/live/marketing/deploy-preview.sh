@@ -24,6 +24,9 @@ rsync -azR \
   xbox/live/oskiewar-sfx.mjs \
   xbox/live/oskiewar-midi.mjs \
   xbox/live/frame-driver.mjs \
+  xbox/live/scene3d-webgl.mjs \
+  xbox/live/scene3d.mjs \
+  xbox/live/frame-vm.mjs \
   xbox/live/round-room.mjs \
   xbox/live/mac-test.html \
   xbox/live/marketing/shell.mjs \

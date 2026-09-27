@@ -1,3 +1,4 @@
+import { createPlaybackClock } from "./playback-clock.mjs";
 // Manages a piece and the transitions between pieces like a
 // hypervisor or shell.
 
@@ -1095,6 +1096,17 @@ const shellHTMLMode = location.search.indexOf("shellhtml") > -1;
 // replies, command confirmations, and the thinking state render in DOM even
 // though the composited prompt never paints. Runs from the prompt system's
 // sim in place of prompt_sim.
+let shellLabelLast = null;
+function shellLabelSync() {
+  const text = currentHUDTxt || "";
+  const plain = currentHUDPlainTxt || stripCodes(text) || "";
+  const color = Array.isArray(currentHUDTextColor) ? currentHUDTextColor.slice(0, 4) : null;
+  const state = text + "\0" + plain + "\0" + (color ? color.join(",") : "");
+  if (state === shellLabelLast) return;
+  shellLabelLast = state;
+  send({ type: "hud:label:shell", content: { text, plain, color } });
+}
+
 let shellPromptLast = null;
 function shellPromptSync($) {
   const input = $.system?.prompt?.input;
@@ -2984,6 +2996,7 @@ let baseReal = Date.now(); // Real time at last baseTime
 let clockFetching = false;
 let lastServerTime = undefined;
 let clockOffset = 0; // Smoothed offset from server
+const playbackClock = createPlaybackClock(() => baseTime + (Date.now() - baseReal));
 
 // 🤖 Robo Class - For sending synthetic events through the act system
 // 🤖 Robo: synthetic pen/event dispatcher decoupled from the hardware pen.
@@ -3129,7 +3142,7 @@ const $commonApi = {
     },
 
     time: function () {
-      return new Date(baseTime + (Date.now() - baseReal));
+      return new Date(playbackClock.time());
     },
   },
 
@@ -7772,6 +7785,7 @@ sound = {
   sounds: [],
   bubbles: [],
   farts: [],
+  organics: [],
   kills: [],
 };
 
@@ -10214,6 +10228,7 @@ async function load(
     if (searchParams.has("autoreload")) autoUpdateForFrame = true;
   }
   if (shellHTMLMode) hideLabel = true; // the shell's DOM corner overlay replaces it
+  shellLabelLast = null; // a fresh piece re-sends its label even if the text repeats
 
     currentColon = colon;
     currentParams = params;
@@ -10414,7 +10429,7 @@ async function startGlobalVersionPoll() {
 
   const fetchVersion = async () => {
     try {
-      const res = await fetch("/api/version");
+      const res = await fetch("/api/version", { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       globalVersionInfo = debug
@@ -10440,21 +10455,33 @@ async function startGlobalVersionPoll() {
     return;
   }
 
-  // Long-poll loop: detect new deployments within ~5 seconds.
+  // Long-poll loop: only a different, valid deployed hash signals an update.
   while (true) {
     try {
       if (!globalVersionInfo?.deployed) {
         await new Promise((r) => setTimeout(r, 5000));
+        await fetchVersion();
         continue;
       }
       updatePollController = new AbortController();
       const res = await fetch(
         `/api/version?current=${globalVersionInfo.deployed}`,
-        { signal: updatePollController.signal },
+        { signal: updatePollController.signal, cache: "no-store" },
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      if (data.changed === false) continue; // Server already waited ~4s
+      if (data.changed === false) continue; // Server held the request open.
+      if (!/^[a-f0-9]{7}$/i.test(data.deployed || "") ||
+          data.deployed === globalVersionInfo.deployed) {
+        // Cached full responses and transient version lookup failures are not
+        // deployments. Back off if a proxy answered without long-polling.
+        await new Promise((r) => setTimeout(r, 5000));
+        continue;
+      }
+      if (!/^[a-f0-9]{7}$/i.test(globalVersionInfo.deployed)) {
+        globalVersionInfo = data;
+        continue; // Establish a baseline after an unavailable initial lookup.
+      }
       globalUpdateReady = true;
       globalVersionInfo = data;
       globalRecentCommits = data.recentCommits || [];
@@ -10859,6 +10886,13 @@ async function makeFrame({ data: { type, content } }) {
       act($api);
     } catch (e) {
       console.warn("️ ✒ Act failure...", e);
+    }
+    return;
+  }
+
+  if (type === "clock:rate") {
+    if (playbackClock.setRate(content?.rate, content?.reset === true)) {
+      send({ type: "clock:state", content: { rate: playbackClock.rate, time: playbackClock.time() } });
     }
     return;
   }
@@ -11550,7 +11584,7 @@ async function makeFrame({ data: { type, content } }) {
   // Media Recorder Events
 
   if (type === "recorder:transcode-progress") {
-    console.log("📼 🚨 DISK.MJS caught transcode-progress EARLY - updating rec.printProgress:", content);
+    if (debug) console.log("📼 Transcode progress:", content);
     $commonApi.rec.printProgress = content;
     if (content === 1) {
       send({ type: "signal", content: "recorder:transcoding-done" });
@@ -11570,6 +11604,9 @@ async function makeFrame({ data: { type, content } }) {
     type === "recorder:export-complete" ||
     type === "tape:posted" ||
     type === "tape:post-error" ||
+    type === "tape:draft-progress" ||
+    type === "tape:draft-ready" ||
+    type === "tape:draft-error" ||
     type === "tape:download-progress" ||
     type === "tape:load-progress" ||
     type === "tape:preloaded" ||
@@ -11619,7 +11656,7 @@ async function makeFrame({ data: { type, content } }) {
         progress: type === "recorder:transcode-progress" ? content : undefined
       };
       try {
-        if (!getPackMode()) console.log("📼 ✅ Calling receive directly for export event:", type);
+        if (debug && !getPackMode()) console.log("📼 ✅ Calling receive directly for export event:", type);
         receive(event);
         return; // Successfully delivered to piece
       } catch (e) {
@@ -12386,6 +12423,7 @@ async function makeFrame({ data: { type, content } }) {
     sound.sounds.length = 0; // Empty the sound command buffer.
     sound.bubbles.length = 0;
     sound.farts.length = 0;
+    sound.organics.length = 0;
     sound.kills.length = 0;
     return;
   }
@@ -12601,6 +12639,7 @@ async function makeFrame({ data: { type, content } }) {
           currentText !== "chat" &&
           currentText !== "laer-klokken" &&
           currentText !== "laklok" &&
+          currentText !== "lairk" && // Enter opens its chat, Escape closes it
           currentText !== "aa" &&
           currentText !== "mail" && // composing — it leaves on its own terms
           currentText !== "amail" &&
@@ -13295,8 +13334,11 @@ async function makeFrame({ data: { type, content } }) {
 
     $sound.synth = function synth({
       tone = 440, // hz, or musical note
-      type = "square", // "sine", "triangle", "square", "sawtooth", "custom"
-      // "noise-white" <-ignores tone
+      // "sine", "triangle", "square", "sawtooth", "noise-white" (alias
+      // "noise" — tone sets the filter centre), "harp" (aliases "pluck",
+      // "guitar", "string"), "whistle" (aliases "ocarina", "flute"),
+      // "sample", "custom"
+      type = "square",
       duration = 0.1, // In seconds... (where beats is a shortcut)
       beats = undefined, // 🧧 Should this be deprecated?
       attack = 0.01, // How quickly the sound starts.
@@ -13306,6 +13348,15 @@ async function makeFrame({ data: { type, content } }) {
       immediate = false, // Bypass the next frame batch for latency-critical input.
       probe = null, // Opt-in main-thread → AudioWorklet profiling metadata.
       generator = null, // Custom waveform generator function for type "custom"
+      // 🐦 Expression — all optional; see lib/sound/synth.mjs `_express`.
+      slide, // hz or note to glide to (exponentially) over slideDuration
+      slideDuration, // seconds; defaults to the note length (0.25 when held)
+      vibrato, // semitones at 5 Hz, or { rate, depth, delay }
+      tremolo, // depth 0..1 at 6 Hz, or { rate, depth }
+      drift, // semitones of slow random pitch wander
+      noise, // 0..1 white-noise breath mixed into the source
+      lowpass, // cutoff hz, or { cutoff, resonance, sweep, sweepDuration }
+      formant, // "a"|"e"|"i"|"o"|"u", bands, or { vowel|bands, scale }
     } = {}) {
       const id = soundId;
       if (volume === undefined) volume = 1;
@@ -13317,6 +13368,14 @@ async function makeFrame({ data: { type, content } }) {
       // console.log("⛈️ Tone:", tone);
       // Add generator to sound data for custom type
       const soundData = { id, type, tone, beats, attack, decay, volume, pan, probe };
+      // `tone` stays top-level (bios telemetry reads it); the expression
+      // rides in `options`, which is what the worklet hands to Synth.
+      const options = { tone };
+      if (slide !== undefined) options.slide = $sound.freq(slide);
+      for (const [key, val] of Object.entries({ slideDuration, vibrato, tremolo, drift, noise, lowpass, formant })) {
+        if (val !== undefined) options[key] = val;
+      }
+      if (Object.keys(options).length > 1) soundData.options = options;
       if (type === "custom" && generator) {
         soundData.generator = generator.toString(); // Convert function to string for postMessage
       }
@@ -13343,6 +13402,7 @@ async function makeFrame({ data: { type, content } }) {
         },
         update: function (properties) {
           if (properties.tone) properties.tone = $sound.freq(properties.tone);
+          if (properties.slide) properties.slide = $sound.freq(properties.slide);
           send({
             type: "synth:update",
             content: { id, properties },
@@ -13422,6 +13482,30 @@ async function makeFrame({ data: { type, content } }) {
         },
       };
     };
+
+    // 🐾 Organic voices (lib/sound/organic.mjs) all ride one record shape,
+    // so a new generator needs no new plumbing here or in the bios.
+    function organic(kind, params) {
+      if (params.duration === "🔁") params = { ...params, duration: Infinity };
+      const id = soundId;
+      sound.organics.push({ id, kind, params });
+      soundId += 1n;
+      return {
+        startedAt: soundTime,
+        id,
+        kind,
+        kill: function (fade) {
+          sound.kills.push({ id, fade });
+        },
+        update: function (properties) {
+          send({ type: "synth:update", content: { id, properties } });
+        },
+      };
+    }
+    $sound.growl = (p = {}) => organic("growl", p);
+    $sound.breath = (p = {}) => organic("breath", p);
+    $sound.howl = (p = {}) => organic("howl", p);
+    $sound.chirp = (p = {}) => organic("chirp", p);
 
     $sound.kill = function (id, fade) {
       sound.kills.push({ id, fade });
@@ -14835,6 +14919,13 @@ async function makeFrame({ data: { type, content } }) {
 
       // TODO: ❤️‍🔥 Why is this being composited by a different thread?
       //       Also... where do I put a scream?
+
+      // 🐚 shellhtml: the composited label stands down, so hand the hosting
+      // shell (prompt.ac) the same string the raster would paint — color
+      // codes and all — whenever it changes. The shell's DOM corner label
+      // then shows exactly what aesthetic.computer shows, kidlisp source
+      // included, instead of re-deriving a label from the slug.
+      if (shellHTMLMode) shellLabelSync();
 
       // System info label (addressability).
       let label;
@@ -17278,6 +17369,7 @@ async function makeFrame({ data: { type, content } }) {
       sound.sounds.length = 0; // Empty the sound command buffer.
       sound.bubbles.length = 0;
       sound.farts.length = 0;
+      sound.organics.length = 0;
       sound.kills.length = 0;
 
       twoDCommands.length = 0; // Empty the 2D GPU command buffer.

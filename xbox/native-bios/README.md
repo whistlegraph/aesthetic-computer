@@ -28,6 +28,20 @@ pieces never receive a general socket. Revision 25 adds the host-mediated `disc`
 clock-chat, and painting endpoints; sandboxed pieces do not receive a general
 HTTP primitive. Runtime failures roll back to the last known good piece.
 
+Revision 53 adds a persistent 2048×2048 RGBA decal surface. `decalClear()`
+starts a new surface and reports availability; `decalStamp(sx, sy, sw, sh,
+x1, y1, x2, y2, x3, y3, x4, y4)` composites one atlas stamp into texture pixels.
+`decalMesh(handle, camera, left, near, width, depth)` projects that texture onto
+an existing retained mesh using world X/Z coordinates. Stamps are composited
+once, dirty pixels upload only when changed, and frame cost depends on the
+fixed mesh rather than elapsed riding time. The CPU canvas and GPU texture
+each use 16 MiB. Marks survive rider resets; changing maps or reloading the
+piece starts a new surface.
+
+Revision 54 carries reciprocal view depth with decal UVs through clipping
+and rasterization, so perspective camera movement keeps the texture attached
+to the pool instead of warping it across screen-space triangles.
+
 The photo-disc service recursively searches mounted removable volumes for
 `.jpg`, `.jpeg`, `.jpe`, `.png`, `.tif`, `.tiff`, and `.pcd`. It keeps WinRT
 `StorageFile` objects and paths inside the native host, bounds discovery to
@@ -147,6 +161,28 @@ and always preserves `AestheticComputer.NativeBios`; system and unrelated dev
 packages are never targeted. `prune` is also available as an explicit command.
 
 ## Build
+
+### Live post shaders (development BIOS 52+)
+
+Edit `PostPixelShader.hlsl`, then send it to the running console:
+
+```sh
+node xbox/tools/live.mjs shader xbox/native-bios/PostPixelShader.hlsl
+node xbox/tools/live.mjs shader-reset
+```
+
+The Xbox compiles HLSL on a worker thread and swaps the pixel shader between
+frames. No game restart, Windows build, commit, or package install is needed.
+The command waits for the console to acknowledge that exact upload and prints
+compiler diagnostics on failure; a failed edit leaves the current shader intact.
+`shader-reset` restores the packaged effect. The last uploaded source is loaded
+again when the app starts, until reset.
+
+Use `main`, shader model `ps_5_0`, and the input/resources in
+`PostPixelShader.hlsl`: scene `t0`, depth `t1`, sampler `s0`, constants `b0`.
+Source is capped at 64 KiB and includes are disabled. The post shader runs before
+HUD/debug overlays, so its effects cannot blur those overlays. This loader and
+the compiler dependency are omitted with `/p:AcDevLivePiece=0`.
 
 AppVeyor builds `NativeBios.sln` for Release x64 and emits the distinct
 `xbox-native-bios-x64` sideload artifact. Assets and its temporary development

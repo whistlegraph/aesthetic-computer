@@ -520,6 +520,10 @@ void audio_set_fx_mix(ACAudio *audio, float mix);
 void audio_set_master_volume(ACAudio *audio, float value);
 // Mono fold on/off (see ACAudio.mono).
 void audio_set_mono(ACAudio *audio, int enabled);
+// Baseline output gain in percent (0..400). The default form must be called
+// before audio_init (config.json "volume"); the other adjusts a live engine.
+void audio_set_default_system_volume(int pct);
+void audio_set_system_volume(ACAudio *audio, int pct);
 void audio_set_drive_mix(ACAudio *audio, float value);
 void audio_set_wobble_mix(ACAudio *audio, float value);
 

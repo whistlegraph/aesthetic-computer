@@ -17,11 +17,22 @@ node --check "%ROOT%\xbox\live\photo-disc.js" || exit /b 1
 node "%ROOT%\xbox\live\tests\controller-probe.test.mjs" || exit /b 1
 node "%ROOT%\xbox\tools\tests\kidlisp-native.test.mjs" || exit /b 1
 
+cl /nologo /std:c++17 /EHsc /W4 ^
+  "%ROOT%\xbox\native-bios\tests\live_shader_smoke.cpp" ^
+  d3dcompiler.lib d3d11.lib /Fe:"%BUILD%\live-shader-smoke.exe" || exit /b 1
+"%BUILD%\live-shader-smoke.exe" "%ROOT%\xbox\native-bios\PostPixelShader.hlsl" || exit /b 1
+
 cl /nologo /std:c++20 /EHsc /W4 ^
   /I"%ROOT%\xbox\runtime\include" ^
   "%ROOT%\xbox\runtime\tests\runtime_contract.cpp" ^
   /Fe:"%BUILD%\runtime-contract.exe" || exit /b 1
 "%BUILD%\runtime-contract.exe" || exit /b 1
+
+cl /nologo /std:c++17 /EHsc /W4 ^
+  /I"%ROOT%\xbox\runtime\include" ^
+  "%ROOT%\xbox\runtime\tests\net_send_queue_contract.cpp" ^
+  /Fe:"%BUILD%\net-send-queue-contract.exe" || exit /b 1
+"%BUILD%\net-send-queue-contract.exe" || exit /b 1
 
 cl /nologo /std:c++20 /EHsc /W4 ^
   /I"%ROOT%\xbox\runtime\include" ^

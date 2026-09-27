@@ -1,4 +1,9 @@
 // Shared deterministic world math. No device or network dependencies.
+export function eventGain(score, event) {
+  const trim = Number.isInteger(event.gm) ? score.gmGains?.[event.gm] ?? 1 : 1;
+  return Math.min(.65, Math.max(0, event.g * (score.gain ?? .35) * (Number.isFinite(trim) ? trim : 1)));
+}
+
 export function ribbon(score, key, t, fallback = 0) {
   const a = score[key];
   if (!a?.length) return fallback;
@@ -26,7 +31,13 @@ export function rotationAt(score, t) {
   return (score.lanes.length > 1 ? 0.15 * t : 0) + Math.PI * area;
 }
 
+// A ring may keep one seat in the middle of the room (score.center = its
+// index; score.ring = how many seats stand on the circle). A lane marked
+// {center: true} sounds only there; every other lane routes around the ring.
+export const ringSeats = (score, seats) => score.ring ?? (Number.isInteger(score.center) ? seats - 1 : seats);
+
 export function voicePosition(score, i, t) {
+  if (score.lanes[i]?.center) return { angle: 0, x: 0, y: 0, z: 0, center: true };
   if (score.geometry === 'line') {
     const lanePath = score.lanes[i].linePosition;
     let u = ribbon(lanePath ? { dur: score.dur, linePosition: lanePath } : score, 'linePosition', t);
@@ -53,6 +64,13 @@ export function voicePosition(score, i, t) {
 }
 
 export function sourceGain(score, position, seat, seats) {
+  if (Number.isInteger(score.center)) {
+    if (position.center) return seat === score.center ? 1 : 0;
+    if (seat === score.center) return 0;
+    const ringIndex = seat > score.center ? seat - 1 : seat;
+    if (score.geometry !== 'line') return seatGain(position.angle, ringIndex, ringSeats(score, seats));
+  }
+  if (position.center) return 0;
   if (score.geometry !== 'line') return seatGain(position.angle, seat, seats);
   const order = score.seatOrder || [], index = order.indexOf(seat);
   if (index < 0 || order.length < 2) return 0;
@@ -77,4 +95,18 @@ export function seatGain(angle, seat, seats) {
 export function hasFocus(score, seat, seats, t) {
   return score.lanes.some((lane, i) => lane.events?.some(e => t >= e.t && t < e.t + e.dur) &&
     sourceGain(score, voicePosition(score, i, t), seat, seats) ** 2 >= .9);
+}
+
+// Notepat's note colors (system/public/aesthetic.computer/lib/note-colors.mjs):
+// ROYGBIV by letter, dayglo an octave above 4, muted an octave below, sharps
+// black. `name` is like "C#5". Unpitched events return null.
+const NOTE_BASE = { c: [255, 50, 50], d: [255, 160, 0], e: [255, 230, 0], f: [50, 200, 50], g: [50, 120, 255], a: [130, 50, 200], b: [180, 80, 255] };
+const NOTE_DAYGLO = { c: [255, 40, 80], d: [255, 180, 0], e: [255, 255, 50], f: [50, 255, 100], g: [50, 200, 255], a: [180, 50, 255], b: [255, 80, 255] };
+const NOTE_MUTED = { c: [139, 26, 26], d: [180, 100, 0], e: [180, 150, 0], f: [20, 90, 20], g: [20, 60, 120], a: [50, 0, 90], b: [90, 30, 150] };
+export function noteColor(name) {
+  const m = /^([A-Ga-g])(#?)(-?\d+)$/.exec(name || '');
+  if (!m) return null;
+  if (m[2]) return [0, 0, 0];
+  const d = +m[3] - 4, map = d >= 1 ? NOTE_DAYGLO : d <= -1 ? NOTE_MUTED : NOTE_BASE;
+  return map[m[1].toLowerCase()];
 }

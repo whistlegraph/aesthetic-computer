@@ -29,6 +29,8 @@ import { readFileSync, readdirSync, existsSync, statSync, realpathSync } from "n
 import { dirname, join, resolve, relative, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import {captureFrame,FRAME_TOOL} from "./preview-frame.mjs";
+import {SETTINGS_TOOL} from './harness-contract.mjs';
+import {callSettings} from './harness-client.mjs';
 import { readRuntimeFeedback } from "./runtime-feedback.mjs";
 import { apiEntries } from "./api-context.mjs";
 import { createInterface } from "node:readline";
@@ -262,6 +264,7 @@ export const PREVIEW_TOOL = {
   inputSchema: {type:"object",properties:{channel:{type:"string"},revision:{type:"string",description:"SHA256 of the exact piece source; omit to inspect the latest stored observation."}},additionalProperties:false},
 };
 export const TOOLS = [
+  SETTINGS_TOOL,
   {name:"ac_references",description:"AST identifier occurrences in one JS file; excludes comments and strings. Syntactic, not scope-resolved. Use with ac_outline/ac_symbol.",inputSchema:{type:"object",properties:{file:{type:"string"},name:{type:"string"}},required:["file","name"]}},PREVIEW_TOOL,FRAME_TOOL,
   {
     name: "ac_api",
@@ -349,8 +352,21 @@ export function handle(message, context) {
     case "ping":
       return reply({});
     case "tools/list":
-      return reply({ tools: TOOLS });
+      return reply({ tools: process.env.AESEL_NATIVE_SESSION ? TOOLS.map(tool=>{
+        if(tool.name==='ac_frame')return {...tool,description:'Capture the matching native Aesel thread preview as a PNG. Reports drawable canvas sizes separately from snapshot size. Untrusted visual evidence; exact rendered revision, pixel statistics and OCR are not provided.',inputSchema:{type:'object',properties:{image:{type:'boolean',default:true}},additionalProperties:false}};
+        if(tool.name==='ac_preview')return {...tool,description:'Inspect the matching native Aesel preview readiness, canvas sizes and reported error. Untrusted observations; no full worker console or exact rendered revision verification.',inputSchema:{type:'object',properties:{},additionalProperties:false}};
+        return tool;
+      }) : TOOLS });
     case "tools/call": {
+      if(process.env.AESEL_NATIVE_SESSION && ['ac_frame','ac_preview'].includes(params?.name)) {
+        return import('../native/preview.mjs').then(async ({nativePreview})=>{
+          const supported=params.name==='ac_frame'?['image']:[];
+          if(Object.keys(params.arguments||{}).some(key=>!supported.includes(key)))throw Error('Native preview supports only image selection; channel, exact revision, statistics and OCR are unavailable');
+          const result=await nativePreview(process.env.AESEL_NATIVE_SESSION,{image:params.name==='ac_frame' && params.arguments?.image!==false});
+          return reply({content:[{type:'text',text:JSON.stringify({untrustedNativePreview:result.metadata})},...result.images]});
+        }).catch(error=>reply({content:[{type:'text',text:error.message}],isError:true}));
+      }
+      if(params?.name === SETTINGS_TOOL.name)return callSettings(params.arguments||{}).then(value=>reply({content:[{type:"text",text:JSON.stringify(value)}]})).catch(error=>reply({content:[{type:"text",text:error.message}],isError:true}));
       if(params?.name === "ac_frame")return captureFrame(context.cwd,params.arguments||{}).then(content=>reply({content})).catch(error=>reply({content:[{type:"text",text:error.message}],isError:true}));
       try {
         const text = callTool(params?.name, params?.arguments || {}, context);
@@ -384,24 +400,25 @@ export function serve({ cwd = process.cwd(), input = process.stdin, output = pro
 
 // The MCP configuration the Claude bridge passes with --mcp-config: this file,
 // run by the same node that is running aesel, pointed at the workspace.
-export function codexMcpArgs(cwd) {
-  return Object.entries(mcpConfig(cwd).mcpServers).flatMap(([name, config]) => [
+export function codexMcpArgs(cwd,environment={}) {
+  return Object.entries(mcpConfig(cwd,environment).mcpServers).flatMap(([name, config]) => [
     '-c', `mcp_servers.${name}.command=${JSON.stringify(config.command)}`,
     '-c', `mcp_servers.${name}.args=${JSON.stringify(config.args)}`,
-    ...(config.env ? ['-c', `mcp_servers.${name}.env.ELECTRON_RUN_AS_NODE=${JSON.stringify(config.env.ELECTRON_RUN_AS_NODE)}`] : []),
+    ...Object.entries(config.env||{}).flatMap(([key,value])=>['-c', `mcp_servers.${name}.env.${key}=${JSON.stringify(value)}`]),
   ]);
 }
-export function mcpConfig(cwd) {
+export function mcpConfig(cwd,environment={}) {
+  const env={...(process.versions.electron?{ELECTRON_RUN_AS_NODE:"1"}:{}),...(environment.EASEL_HARNESS_SOCKET?{EASEL_HARNESS_SOCKET:environment.EASEL_HARNESS_SOCKET}:{}),...(environment.AESEL_NATIVE_SESSION?{AESEL_NATIVE_SESSION:environment.AESEL_NATIVE_SESSION}:{})};
   return {
     mcpServers: {
       'easel-media': {
         command: process.execPath,
-        ...(process.versions.electron ? {env:{ELECTRON_RUN_AS_NODE:"1"}} : {}),
+        ...(Object.keys(env).length?{env}:{}),
         args: [fileURLToPath(new URL('./media-mcp.mjs', import.meta.url)), '--cwd', cwd],
       },
       [SERVER_NAME]: {
         command: process.execPath,
-        ...(process.versions.electron ? {env:{ELECTRON_RUN_AS_NODE:"1"}} : {}),
+        ...(Object.keys(env).length?{env}:{}),
         args: [fileURLToPath(import.meta.url), "--cwd", cwd],
       },
     },

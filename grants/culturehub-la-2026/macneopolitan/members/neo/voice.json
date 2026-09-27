@@ -2,12 +2,12 @@
   "member": "neo",
   "aesthetivox": {
     "base_voice": "Noelle",
-    "why": "jeffrey's pick 2026-09-20 ('noelle is my fav') \u2014 a female Apple voice for the eldest; Noelle (Enhanced), on-device, offline",
+    "why": "jeffrey's pick 2026-09-20 ('noelle is my fav') — a female Apple voice for the eldest; Noelle (Enhanced), on-device, offline",
     "engine": "macOS AVSpeech Noelle (Enhanced), rendered on neo's own hardware, sung live by live/singer.c",
     "rate_wpm": 165,
     "sing": {
       "route": "world-f0-replace (spinging chain; sung-proof via bin/sing-proof.py)",
-      "register": "around C4 (measured spoken median \u2248 59.6 on blueberry; re-measure on neo with bin/register.mjs once installed)",
+      "register": "around C4 (measured spoken median ≈ 59.6 on blueberry; re-measure on neo with bin/register.mjs once installed)",
       "vibrato_hz": 6.4,
       "vibrato_depth_cents": 18,
       "breath_every_s": 5.9,
@@ -23,29 +23,30 @@
       "latency_ms": 564,
       "status": "menuband adoption open"
     },
-    "engine_live": "live/hosts/macos/livesing \u2014 the member's own speech synthesizer, sung by live/singer.c SCORE mode on its own hardware",
+    "engine_live": "live/hosts/macos/livesing — the member's own speech synthesizer, sung by live/singer.c SCORE mode on its own hardware",
     "f0_floor": 90,
     "register_midi": [
       57,
       62
     ],
-    "provider_wanted": "jeffrey-pvc (ElevenLabs, jeffrey's own clone \u2014 wanted; not yet wired to the live path)",
+    "provider_wanted": "jeffrey-pvc (ElevenLabs, jeffrey's own clone — wanted; not yet wired to the live path)",
     "spoken_median_midi": 59.6,
     "spoken_median_hz": 256.3,
     "register_source": "say -v Noelle, 59 words of its autobiography",
-    "register_note": "measured by bin/register.mjs \u2014 the composer aims each line's mean at spoken_median_midi (+1 for brightness) and keeps notes inside register_midi",
+    "register_note": "measured by bin/register.mjs — the composer aims each line's mean at spoken_median_midi (+1 for brightness) and keeps notes inside register_midi",
     "speech_disabled": {
       "provider": "jeffrey",
       "voice": "neutral:0",
-      "why": "neo is more jeffrey \u2014 the eldest sings in the maker's own cloned voice; spoken once via /api/say with exact timestamps, cached under members/neo/speech/, sung live offline",
+      "why": "neo is more jeffrey — the eldest sings in the maker's own cloned voice; spoken once via /api/say with exact timestamps, cached under members/neo/speech/, sung live offline",
       "fallback_synth_voice": "Fred",
-      "note": "jeffrey 2026-09-20: 'I don't like jeffrey's voice anymore for this' \u2014 neo takes a female Apple voice; cache kept, unused"
-    }
+      "note": "jeffrey 2026-09-20: 'I don't like jeffrey's voice anymore for this' — neo takes a female Apple voice; cache kept, unused"
+    },
+    "f0_floor_experiment": "MEASURED and NOT adopted, 2026-09-21. The floor Harvest is given was far below these voices (90 Hz for a 256 Hz voice), which in principle lets it accept octave-halved candidates and mistrack. Raising it to 0.55 x the spoken median (141 / 102 / 115 Hz) did help the dialogs (18.5% -> 16.6% word error) but slightly hurt the held-out trio movements and ballad (11.9% -> 12.4%). A wash, so the original value stands and the experiment is recorded instead of shipped. See hear/README.md and the f0f* / ho-* runs."
   },
   "derivation": {
     "vibrato_hz": "4x battery cycles per day (1.6/day)",
     "breath_every_s": "longest unbroken uptime, days as seconds (5.9)",
-    "register": "low and warm \u2014 the carried, restless one",
+    "register": "low and warm — the carried, restless one",
     "whistle_double": "its chosen Menu Band voice, GM 78"
   },
   "color": "#8FD13F",

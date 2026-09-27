@@ -1,0 +1,45 @@
+{
+  "nativeReady": true,
+  "native60FpsVerified": false,
+  "xbox": {
+    "package": "1.0.0.43",
+    "ciBuild": "1.0.461",
+    "ciJob": "wrlas8rkqjfdsmvg",
+    "commit": "91dc041e44c0d5cb190ce2d83a0d379a05089d0c",
+    "packageSha256": "5ffccaef27c014d380f1ddbd5e21284463f184107298d8f5247ff2d8176040b4",
+    "assetsHashVerified": true,
+    "installed": true,
+    "screenshot": "verification-xbox43.png",
+    "visuallyVerified": [
+      "photographic background",
+      "green fighter head and limbs",
+      "skateboards",
+      "projected terrain"
+    ],
+    "followup": "Shared game v168 replaces the stretched deep-wall crop and places the photo backdrop behind the complete world depth range. Screenshot records the earlier package43 visual check."
+  },
+  "acos": {
+    "visuallyVerified": true,
+    "evidence": "Parent verified actual HDMI readback from the paired AC OS build."
+  },
+  "relay": {
+    "url": "ws://192.168.1.235:7793/oskiewar-live",
+    "xboxLocalStateFile": "oskiewar-relay.txt",
+    "fileReadbackVerified": true
+  },
+  "tests": [
+    "Portable native runtime and QuickJS preflight passed",
+    "Windows GDK and UWP build passed",
+    "Both packaged RGBA hashes match source variants"
+  ],
+  "sharedGame": {
+    "verifiedBuild": 168,
+    "xboxReadyBytes": 1161698,
+    "xboxReadyGeneration": 4,
+    "cameraRegressionTests": "xbox/live/tests/renderer.test.mjs",
+    "cameraFixes": [
+      "Background depth remains behind distant world geometry",
+      "AIR DROP framing follows separation beyond the starting room"
+    ]
+  }
+}

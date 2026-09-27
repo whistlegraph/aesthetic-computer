@@ -104,7 +104,7 @@ final class SingerPreparedPerformance {
             }
             singer.render(lines[index],into:format) { [self] render in
                 guard generation == gen else { status(id,phase:"cancelled"); return }
-                guard let render, render.notesUsed == render.noteCount else {
+                guard let render, render.notesUsed == render.noteCount, render.articulation != nil else {
                     status(id,phase:"error",extra:["reason":"Incomplete phrase render","line":index]); return
                 }
                 Self.applyDynamics(render,line:lines[index],index:index,info:info)
@@ -124,11 +124,13 @@ final class SingerPreparedPerformance {
                     let raw = Data(bytes:render.buffer.floatChannelData![0],count:Int(render.buffer.frameLength)*4)
                     try raw.write(to:dir.appendingPathComponent(rawName),options:.atomic)
                     let rawHash = SHA256.hash(data:raw).map { String(format:"%02x",$0) }.joined()
+                    let a = render.articulation!
                     assets.append(["index":index,"file":name,"sha256":hash,"bytes":bytes.count,
                         "rawFile":rawName,"rawSha256":rawHash,
                         "frames":Int(render.buffer.frameLength),"sampleRate":format.sampleRate,"channels":1,
                         "spanOffset":render.spanOffset,"duration":render.duration,
-                        "notesUsed":render.notesUsed,"noteCount":render.noteCount])
+                        "notesUsed":render.notesUsed,"noteCount":render.noteCount,
+                        "mouthCues":a.cues.map { ["start":$0.start,"end":$0.end,"shape":$0.shape.rawValue] as [String:Any] }])
                     renders.append(render)
                     next(index+1)
                 } catch { status(id,phase:"error",extra:["reason":error.localizedDescription]); return }

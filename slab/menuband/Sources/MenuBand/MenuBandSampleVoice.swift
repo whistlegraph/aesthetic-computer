@@ -305,7 +305,7 @@ final class MenuBandSampleVoice {
             NSLog("MenuBand SampleVoice: monitor device changed — recovering")
             self.recordEngine.stop()
             if self.inputTapInstalled {
-                self.recordEngine.inputNode.removeTap(onBus: 0)
+                                self.recordEngine.inputNode.removeTap(onBus: 0)
                 self.inputTapInstalled = false
             }
             if self.monitorOutputTapInstalled {
@@ -363,6 +363,7 @@ final class MenuBandSampleVoice {
     /// calling while already recording is a no-op. Recording state is
     /// kept in a scratch buffer until `stopRecording` finalizes it.
     func startRecording() {
+        menuBandNoteInputNodeAccess("record.startRecording")
         recordingRequested = true
         guard !recording else { return }
         guard engine != nil else {
@@ -429,14 +430,15 @@ final class MenuBandSampleVoice {
         debugTapBlocksLogged = 0
 
         recording = true
-        let format = inputFormat ?? recordEngine.inputNode.inputFormat(forBus: 0)
+                let format = inputFormat ?? recordEngine.inputNode.inputFormat(forBus: 0)
         NSLog("MenuBand SampleVoice: recording started instantly (input format ch=\(format.channelCount) sr=\(format.sampleRate) recordEngineRunning=\(recordEngine.isRunning))")
     }
 
     private func ensureHotMicRunning(retrying: Bool = false) -> Bool {
+        menuBandNoteInputNodeAccess("record.ensureHotMicRunning")
         if inputTapInstalled, recordEngine.isRunning { return true }
         selectPreferredHardwareInput()
-        let input = recordEngine.inputNode
+                let input = recordEngine.inputNode
         var format = input.inputFormat(forBus: 0)
         // The default-input switch above lands asynchronously in CoreAudio;
         // a node built in the same instant can answer 0 ch / 0 Hz for a
@@ -524,6 +526,7 @@ final class MenuBandSampleVoice {
             recordEngine.mainMixerNode.outputVolume = 0
             do {
                 recordEngine.prepare()
+                MenuBandAudioDevices.bindToRawOutput(recordEngine, label: "MenuBandSampleVoice")
                 try recordEngine.start()
             } catch {
                 // -10868 (format not supported) here means the input node is
@@ -567,6 +570,7 @@ final class MenuBandSampleVoice {
     /// re-attached on the next `ensureHotMicRunning`; nothing about the
     /// recorded samples or the playback graph is touched.
     private func rebuildRecordEngine() {
+        menuBandNoteInputNodeAccess("record.rebuildRecordEngine")
         let old = recordEngine
         if inputTapInstalled {
             old.inputNode.removeTap(onBus: 0)
@@ -637,19 +641,29 @@ final class MenuBandSampleVoice {
         }
         if status == noErr {
             boundInputDeviceID = id
-            // Ask the interface for a 128-frame hardware buffer. At 48 kHz
-            // this is 2.7 ms per block and keeps the direct monitor path close
-            // to hardware-monitor latency without busy-spinning the host.
-            var frames = UInt32(32)
-            var bufferAddress = AudioObjectPropertyAddress(
-                mSelector: kAudioDevicePropertyBufferFrameSize,
-                mScope: kAudioObjectPropertyScopeGlobal,
-                mElement: kAudioObjectPropertyElementMain)
-            let bufferStatus = AudioObjectSetPropertyData(
-                id, &bufferAddress, 0, nil,
-                UInt32(MemoryLayout<UInt32>.size), &frames)
             NSLog("MenuBand SampleVoice: input device → \(device.name) (\(id))")
-            NSLog("MenuBand SampleVoice: input buffer32=\(bufferStatus)")
+            // The IO buffer size is a DEVICE-wide setting shared by every
+            // client, and the playback synth already manages it
+            // (`lowerOutputBufferSizeIfNeeded`: 256 normally, a 512 FLOOR
+            // while the duplex monitor is wired). Forcing 32 frames here
+            // fought that floor on the Scarlett — a 0.67 ms USB cycle that
+            // chopped the whole output until the synth raised it back
+            // (frisbee, 2026-09-25). While monitoring, the duplex engine
+            // owns latency, so leave the buffer alone; otherwise ask for a
+            // gentle 128 frames (2.7 ms at 48 kHz) for the record tap.
+            if !inputMonitoringEnabled {
+                var frames = UInt32(128)
+                var bufferAddress = AudioObjectPropertyAddress(
+                    mSelector: kAudioDevicePropertyBufferFrameSize,
+                    mScope: kAudioObjectPropertyScopeGlobal,
+                    mElement: kAudioObjectPropertyElementMain)
+                let bufferStatus = AudioObjectSetPropertyData(
+                    id, &bufferAddress, 0, nil,
+                    UInt32(MemoryLayout<UInt32>.size), &frames)
+                NSLog("MenuBand SampleVoice: input buffer128=\(bufferStatus)")
+            } else {
+                NSLog("MenuBand SampleVoice: input buffer left to the duplex engine")
+            }
         } else {
             NSLog("MenuBand SampleVoice: could not bind \(device.name) (CoreAudio \(status))")
         }
@@ -750,9 +764,10 @@ final class MenuBandSampleVoice {
     /// survive a stop/start, and the mainMixer silence pin is re-asserted
     /// both sides exactly like `ensureHotMicRunning` does.
     func applyMonitorInputChannelMap() {
+        menuBandNoteInputNodeAccess("record.applyMonitorInputChannelMap")
         guard MenuBandAudioDevices.monitorChannelWasEverSet,
-              let au = recordEngine.inputNode.audioUnit else { return }
-        let clientChannels = Int(recordEngine.inputNode.inputFormat(forBus: 0).channelCount)
+                            let au = recordEngine.inputNode.audioUnit else { return }
+                let clientChannels = Int(recordEngine.inputNode.inputFormat(forBus: 0).channelCount)
         guard clientChannels > 0 else { return }
         let wasRunning = recordEngine.isRunning
         if wasRunning { recordEngine.stop() }
@@ -762,6 +777,7 @@ final class MenuBandSampleVoice {
             recordEngine.mainMixerNode.outputVolume = 0
             do {
                 recordEngine.prepare()
+                MenuBandAudioDevices.bindToRawOutput(recordEngine, label: "MenuBandSampleVoice")
                 try recordEngine.start()
             } catch {
                 NSLog("MenuBand SampleVoice: record engine restart after channel map failed: \(error)")
@@ -779,7 +795,7 @@ final class MenuBandSampleVoice {
             // mic on. Both paths need a continuous input stream.
             if self.recording || !self.hotMicPinReasons.isEmpty { return }
             if self.inputTapInstalled {
-                self.recordEngine.inputNode.removeTap(onBus: 0)
+                                self.recordEngine.inputNode.removeTap(onBus: 0)
                 self.inputTapInstalled = false
             }
             self.recordEngine.stop()
@@ -833,7 +849,7 @@ final class MenuBandSampleVoice {
         hotMicStopWork?.cancel()
         hotMicStopWork = nil
         if inputTapInstalled {
-            recordEngine.inputNode.removeTap(onBus: 0)
+                        recordEngine.inputNode.removeTap(onBus: 0)
             inputTapInstalled = false
         }
         if monitorOutputTapInstalled {
@@ -867,7 +883,7 @@ final class MenuBandSampleVoice {
         inputMonitorPlayer.stop()
         inputMonitorQueueLock.withLock { inputMonitorQueuedBuffers = 0 }
         if inputTapInstalled {
-            recordEngine.inputNode.removeTap(onBus: 0)
+                        recordEngine.inputNode.removeTap(onBus: 0)
             inputTapInstalled = false
         }
         if monitorOutputTapInstalled {

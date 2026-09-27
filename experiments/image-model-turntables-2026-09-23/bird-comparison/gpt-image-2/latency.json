@@ -1,0 +1,60 @@
+{
+  "provider": "openrouter",
+  "model": "openai/gpt-image-2",
+  "request": {
+    "aspect_ratio": "4:3",
+    "quality": "medium",
+    "model": "openai/gpt-image-2",
+    "prompt": "Animation sprite sheet, exactly 12 frames in a precise 4-column by 3-row grid of equal square cells, edge-to-edge sheet with no gutters, no grid lines, no text or numbers. A full 360 degree turntable of ONE identical charming small blue bird figurine standing still, round cobalt-blue body, pale blue belly, short orange conical beak, black bead eyes, two little orange feet, folded wings, short tail, one small feather tuft. Simple matte clay illustration with clean bold silhouette. Pure white background in every cell. Fixed orthographic camera at bird eye level, fixed lighting, identical bird scale, centered body rotation axis and feet baseline in all 12 cells, generous white margin around the entire bird in each cell. The bird rotates in place about its vertical axis; it never walks, flies, tilts or changes pose. Frames read left to right then top to bottom. Row 1: front view at 0 degrees, 30 degrees toward right, 60 degrees toward right, exact right-facing profile at 90 degrees. Row 2: rear-right at 120 degrees, rear-right at 150 degrees, exact back at 180 degrees with beak and belly hidden, rear-left at 210 degrees. Row 3: rear-left at 240 degrees, exact left-facing profile at 270 degrees, front-left at 300 degrees, front-left at 330 degrees. Preserve identical anatomy, colors, proportions and character across all frames. Each cell contains exactly one complete bird, never clipped.",
+    "n": 1
+  },
+  "started_at": "2026-09-23T19:46:22.917647+00:00",
+  "transport": "pooled HTTP/2 when supported; no automatic retries; sequential samples",
+  "samples": [
+    {
+      "sample": 1,
+      "api_network": {
+        "connect_tcp_seconds": 2.7924017910008843,
+        "start_tls_seconds": 2.876566625000123,
+        "response_headers_seconds": 39.33797858300022,
+        "http_version": "HTTP/2",
+        "status_code": 200,
+        "body_seconds": 0.18134612499852665,
+        "total_seconds": 39.51933024999744
+      },
+      "api_seconds": 39.51933545800057,
+      "decode_download_save_seconds": 0.011258583999733673,
+      "total_seconds": 39.5305940420003,
+      "output": "bird-comparison/gpt-image-2/sample-01.png",
+      "bytes": 1514946,
+      "media_type": "image/png",
+      "usage": {
+        "prompt_tokens": 318,
+        "completion_tokens": 1629,
+        "total_tokens": 1947,
+        "cost": 0.05046,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.05046,
+          "upstream_inference_prompt_cost": 0.00159,
+          "upstream_inference_completions_cost": 0.04887
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 1629
+        }
+      }
+    },
+    {
+      "sample": 2,
+      "api_network": {
+        "total_seconds": 180.0212259589971
+      },
+      "failed_after_seconds": 180.02126137499727,
+      "error": "ReadTimeout"
+    }
+  ]
+}

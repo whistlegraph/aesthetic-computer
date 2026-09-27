@@ -23,6 +23,7 @@
 #include <linux/fs.h>   // BLKRRPART for forced partition re-read (install)
 #include <sys/ioctl.h>
 #include <pthread.h>
+#include <stdatomic.h>
 
 #include "drm-display.h"
 #include "version.h"
@@ -38,6 +39,7 @@
 #include "lanserv.h"
 #include "recorder.h"
 #include "camera.h"
+#include "log-mount.h"
 #include <openssl/sha.h>
 #ifdef USE_WAYLAND
 #include "wayland-display.h"
@@ -88,43 +90,77 @@ static void perf_record(PerfRecord *r) {
     perf_buf[perf_buf_count++] = *r;
 }
 
-// Write current buffer as a numbered chunk file, fsync, close, then
-// delete the oldest chunk if we exceed PERF_MAX_CHUNKS.
-void perf_flush(void) {
-    if (!perf_buf || perf_buf_count == 0) return;
+// Media writes must not sit between two vblanks. One bounded worker owns
+// its copied records; the render thread continues filling the next chunk.
+static pthread_t perf_writer;
+static int perf_writer_valid;
+static atomic_int perf_writer_busy;
+typedef struct {
+    int count, sequence;
+    PerfRecord records[PERF_BUF_SIZE];
+} PerfChunk;
 
+static void perf_write_records(const PerfRecord *records, int count, int sequence) {
     char path[128];
-    snprintf(path, sizeof(path), "/mnt/perf/%04d.csv", perf_chunk_seq);
-
-    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (fd < 0) return;
-
-    FILE *f = fdopen(fd, "w");
-    if (!f) { close(fd); return; }
-
+    snprintf(path, sizeof(path), "/mnt/perf/%04d.csv", sequence);
+    FILE *f = fopen(path, "w");
+    if (!f) return;
     fprintf(f, "frame,total_us,act_us,sim_us,paint_us,present_us,voices,events,heap_mb,flags\n");
-    for (int i = 0; i < perf_buf_count; i++) {
-        PerfRecord *r = &perf_buf[i];
+    for (int i = 0; i < count; i++) {
+        const PerfRecord *r = &records[i];
         fprintf(f, "%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",
                 r->frame, r->total_us, r->act_us, r->sim_us,
                 r->paint_us, r->present_us, r->voices, r->events,
                 r->js_heap_mb, r->flags);
     }
     fflush(f);
-    fsync(fd);
-    fclose(f);  // also closes fd
-
-    perf_buf_count = 0;
-
-    // Delete oldest chunk beyond retention window
-    int old_seq = perf_chunk_seq - PERF_MAX_CHUNKS;
-    if (old_seq >= 0) {
-        char old_path[128];
-        snprintf(old_path, sizeof(old_path), "/mnt/perf/%04d.csv", old_seq);
-        unlink(old_path);
+    fsync(fileno(f));
+    fclose(f);
+    if (sequence >= PERF_MAX_CHUNKS) {
+        snprintf(path, sizeof(path), "/mnt/perf/%04d.csv", sequence - PERF_MAX_CHUNKS);
+        unlink(path);
     }
+}
 
+static void *perf_write_chunk(void *opaque) {
+    PerfChunk *chunk = opaque;
+    perf_write_records(chunk->records, chunk->count, chunk->sequence);
+    free(chunk);
+    atomic_store(&perf_writer_busy, 0);
+    return NULL;
+}
+
+static void perf_flush_async(void) {
+    if (!perf_buf || !perf_buf_count || atomic_load(&perf_writer_busy)) return;
+    if (perf_writer_valid) {
+        pthread_join(perf_writer, NULL);
+        perf_writer_valid = 0;
+    }
+    PerfChunk *chunk = malloc(sizeof(*chunk));
+    if (!chunk) return;
+    chunk->count = perf_buf_count;
+    chunk->sequence = perf_chunk_seq;
+    memcpy(chunk->records, perf_buf, perf_buf_count * sizeof(PerfRecord));
+    atomic_store(&perf_writer_busy, 1);
+    if (pthread_create(&perf_writer, NULL, perf_write_chunk, chunk) != 0) {
+        atomic_store(&perf_writer_busy, 0);
+        free(chunk);
+        return;
+    }
+    perf_writer_valid = 1;
+    perf_buf_count = 0;
     perf_chunk_seq++;
+}
+
+// Shutdown retains a synchronous drain, including any in-flight chunk.
+void perf_flush(void) {
+    if (perf_writer_valid) {
+        pthread_join(perf_writer, NULL);
+        perf_writer_valid = 0;
+    }
+    if (!perf_buf || !perf_buf_count) return;
+    perf_write_records(perf_buf, perf_buf_count, perf_chunk_seq++);
+    perf_buf_count = 0;
 }
 
 static void perf_destroy(void) {
@@ -459,6 +495,37 @@ void ac_log_flush(void) {
     }
 }
 
+// fsync a duplicated descriptor so a concurrent log pause/reopen cannot
+// hand the worker an unrelated descriptor. At most one sync is outstanding.
+static pthread_t log_sync_thread;
+static int log_sync_valid;
+static atomic_int log_sync_busy;
+static void *log_sync_worker(void *opaque) {
+    int fd = (int)(intptr_t)opaque;
+    fsync(fd);
+    close(fd);
+    atomic_store(&log_sync_busy, 0);
+    return NULL;
+}
+static void ac_log_flush_async(void) {
+    if (!logfile || !log_dirty || atomic_load(&log_sync_busy)) return;
+    if (log_sync_valid) {
+        pthread_join(log_sync_thread, NULL);
+        log_sync_valid = 0;
+    }
+    fflush(logfile);
+    int fd = dup(fileno(logfile));
+    if (fd < 0) return;
+    atomic_store(&log_sync_busy, 1);
+    if (pthread_create(&log_sync_thread, NULL, log_sync_worker, (void *)(intptr_t)fd) != 0) {
+        atomic_store(&log_sync_busy, 0);
+        close(fd);
+        return;
+    }
+    log_sync_valid = 1;
+    log_dirty = 0;
+}
+
 // Temporarily close the log file (e.g. before flash writes to same partition)
 void ac_log_pause(void) {
     if (logfile) {
@@ -534,6 +601,18 @@ static void mount_minimal_fs(void) {
 char log_dev[32] = "";  // non-static: accessed by js-bindings.c for flash target check
 static void try_mount_log(void) {
     mkdir("/mnt", 0755);
+    // Init already selected the config volume. Reuse its visible mount on
+    // every restart rather than stacking another partition over user state.
+    if (ac_log_existing_mount(log_dev, sizeof(log_dev))) {
+        logfile = fopen("/mnt/ac-native.log", "a");
+        if (logfile) {
+            fprintf(logfile, "\n=== BOOT %s (existing /mnt) ===\n", log_dev);
+            fflush(logfile);
+            fsync(fileno(logfile));
+        }
+        fprintf(stderr, "[ac-native] Reusing existing /mnt (%s)\n", log_dev);
+        return; // A read-only/full volume must not cause a different mount.
+    }
     // Wait for USB block devices to appear (up to 2s after EFI handoff)
     fprintf(stderr, "[ac-native] Waiting for USB block devices...\n");
     for (int w = 0; w < 100; w++) {
@@ -740,6 +819,7 @@ extern int drm_acquire_master(void *display);
 // Boot title — defaults to "notepat", overridden by config.json handle
 int wifi_disabled = 0; // set from config.json "wifi":false (extern'd in js-bindings.c)
 int config_mono = 0;   // set from config.json "mono":true — applied once audio is up
+int config_volume = -1; // config.json "volume" (percent baseline); -1 = card default
 static char boot_title[80] = "notepat";
 static ACColor boot_title_colors[80];
 static int boot_title_colors_len = 0;
@@ -784,6 +864,21 @@ static int parse_config_string(const char *json, const char *key, char *out, int
     if (len <= 0 || len >= out_sz) return 0;
     memcpy(out, q1 + 1, len);
     out[len] = 0;
+    return 1;
+}
+
+// Parse an integer value for `key` ("\"volume\"") out of a flat JSON blob.
+static int parse_config_int(const char *json, const char *key, int *out) {
+    const char *p = strstr(json, key);
+    if (!p) return 0;
+    p = strchr(p + strlen(key), ':');
+    if (!p) return 0;
+    p++;
+    while (*p == ' ' || *p == '\t') p++;
+    char *end = NULL;
+    long v = strtol(p, &end, 10);
+    if (end == p) return 0;
+    *out = (int)v;
     return 1;
 }
 
@@ -917,6 +1012,16 @@ static void load_boot_visual_config(void) {
     if (parse_config_bool(json, "\"mono\"", &mono_val)) {
         config_mono = mono_val ? 1 : 0;
         ac_log("[config] audio: %s\n", config_mono ? "mono" : "stereo");
+    }
+
+    // Read baseline output volume (percent). Baked per stick by
+    // `ac-inscribe --volume`; lets a loud speaker path be tamed without a
+    // rebuild. Applied as the software gain default before audio_init.
+    int volume_val = -1;
+    if (parse_config_int(json, "\"volume\"", &volume_val) && volume_val >= 0 && volume_val <= 400) {
+        config_volume = volume_val;
+        audio_set_default_system_volume(config_volume);
+        ac_log("[config] audio volume: %d%%\n", config_volume);
     }
 
     // Bake Claude/GitHub tokens early so boot-fade badge check (access())
@@ -4968,7 +5073,8 @@ int main(int argc, char *argv[]) {
             // Software cursor on its own overlay buffer (unaffected by KidLisp effects).
             // A piece holding the surface is playing the pad, not pointing with
             // it — drawing a cursor there would track the drummer's palm.
-            if (cursor_fb && input && !(rt && rt->surface_grab) &&
+            if (cursor_fb && input && !(rt && (rt->surface_grab ||
+                strcmp(rt->surface_mode, "display") == 0)) &&
                 (input->pointer_x || input->pointer_y)) {
                 fb_clear(cursor_fb, 0x00000000); // transparent
                 graph_page(&graph, cursor_fb);
@@ -5307,7 +5413,7 @@ int main(int argc, char *argv[]) {
 
             // Sync the USB log in batches instead of on every event.
             if (logfile && log_dirty && main_frame % 300 == 0) {
-                ac_log_flush();
+                ac_log_flush_async();
             }
 
             // ── Record frame perf ──
@@ -5384,7 +5490,7 @@ int main(int argc, char *argv[]) {
 
                 // Flush chunk to disk every 30 seconds (fsync'd, crash-safe)
                 if (main_frame - perf_flush_frame >= PERF_CHUNK_FRAMES) {
-                    perf_flush();
+                    perf_flush_async();
                     perf_flush_frame = main_frame;
                 }
                 #undef TS_US

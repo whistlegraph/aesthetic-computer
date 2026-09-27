@@ -1,0 +1,63 @@
+{
+  "provider": "openrouter",
+  "model": "recraft/recraft-v4.1-flash",
+  "request": {
+    "aspect_ratio": "4:3",
+    "model": "recraft/recraft-v4.1-flash",
+    "prompt": "Animation sprite sheet, exactly 12 frames in a precise 4-column by 3-row grid of equal square cells, edge-to-edge sheet with no gutters, no grid lines, no text or numbers. A full 360 degree turntable of ONE identical charming small blue bird figurine standing still, round cobalt-blue body, pale blue belly, short orange conical beak, black bead eyes, two little orange feet, folded wings, short tail, one small feather tuft. Simple matte clay illustration with clean bold silhouette. Pure white background in every cell. Fixed orthographic camera at bird eye level, fixed lighting, identical bird scale, centered body rotation axis and feet baseline in all 12 cells, generous white margin around the entire bird in each cell. The bird rotates in place about its vertical axis; it never walks, flies, tilts or changes pose. Frames read left to right then top to bottom. Row 1: front view at 0 degrees, 30 degrees toward right, 60 degrees toward right, exact right-facing profile at 90 degrees. Row 2: rear-right at 120 degrees, rear-right at 150 degrees, exact back at 180 degrees with beak and belly hidden, rear-left at 210 degrees. Row 3: rear-left at 240 degrees, exact left-facing profile at 270 degrees, front-left at 300 degrees, front-left at 330 degrees. Preserve identical anatomy, colors, proportions and character across all frames. Each cell contains exactly one complete bird, never clipped.",
+    "n": 1
+  },
+  "started_at": "2026-09-23T19:40:18.940998+00:00",
+  "transport": "pooled HTTP/2 when supported; no automatic retries; sequential samples",
+  "samples": [
+    {
+      "sample": 1,
+      "api_network": {
+        "connect_tcp_seconds": 4.317079332999128,
+        "start_tls_seconds": 1.5511157500004629,
+        "response_headers_seconds": 11.072518333003245,
+        "http_version": "HTTP/2",
+        "status_code": 200,
+        "body_seconds": 0.04457029199693352,
+        "total_seconds": 11.117110250001133
+      },
+      "api_seconds": 11.117126082997856,
+      "decode_download_save_seconds": 0.004700749999756226,
+      "total_seconds": 11.121826832997613,
+      "output": "bird-pilot/take-01/sample-01.webp",
+      "bytes": 450758,
+      "media_type": "image/webp",
+      "usage": {
+        "prompt_tokens": 352,
+        "completion_tokens": 4175,
+        "total_tokens": 4527,
+        "cost": 0.007,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.007,
+          "upstream_inference_prompt_cost": 0,
+          "upstream_inference_completions_cost": 0.007
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 4175
+        }
+      }
+    }
+  ],
+  "summary": {
+    "api_seconds": {
+      "median": 11.117126082997856,
+      "min": 11.117126082997856,
+      "max": 11.117126082997856
+    },
+    "total_seconds": {
+      "median": 11.121826832997613,
+      "min": 11.121826832997613,
+      "max": 11.121826832997613
+    }
+  }
+}

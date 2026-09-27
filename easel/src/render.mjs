@@ -10,6 +10,7 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { MASCOT_HEIGHT, MASCOT_ROW_WIDTH, mascotAt, mascotRow } from "./mascot.mjs";
+import { rowSpan } from "./selection.mjs";
 import { handleCharacterColors } from "./handle-colors.mjs";
 import { aboutMap } from "./about.mjs";
 import { formatJoules } from "./energy.mjs";
@@ -31,6 +32,22 @@ export const palette = {
   you: [255, 90, 160],
   run: [255, 160, 60],
   edit: [130, 255, 130],
+  // A line from another session. Its own colour, because it has to be
+  // unmistakable for what it is not: something the user typed.
+  inbox: [120, 200, 255],
+  // The typing bar in pro: one shade up from the ground, so the line being
+  // written is a place and not just a row.
+  bar: [95, 70, 135],
+  // A reply's cloud: near-white, so the machine's prose reads as a message
+  // in a bubble, dark ink on it, with a deeper purple for what is soft.
+  cloud: [246, 242, 252],
+  cloudInk: [42, 28, 66],
+  cloudSoft: [112, 72, 166],
+  cloudHighlight: [196, 74, 22],
+  // Your own bubble: a pink tint of the cloud, dark pink ink, so the two
+  // voices read as two voices.
+  typedCloud: [248, 228, 240],
+  typedInk: [132, 22, 84],
 };
 
 const truecolor = /truecolor|24bit/i.test(process.env.COLORTERM || "");
@@ -48,15 +65,35 @@ function cube(rgb) {
   const [r, g, b] = rgb.map(nearest);
   return 16 + 36 * r + 6 * g + b;
 }
-const followsSlab = process.env.EASEL_THEME === "slab";
 const themeSlots = new Map(Object.entries({text:7,prompt:13,highlight:3,handle:5,soft:6,muted:8,status:2,error:1,you:9,run:11,edit:10}).map(([role,index]) => [palette[role].join(","),index]));
 export function coloredHandle(account,colors,useColor=true,hover=false){
   if(!useColor)return account;
   const rgb=Array.isArray(colors)&&colors.length===Array.from(account).length?colors:handleCharacterColors(account);
-  return (hover?'\x1b[4m':'')+Array.from(account).map((ch,i)=>`${truecolor?'\x1b[38;2;'+rgb[i].join(';')+'m':'\x1b[38;5;'+cube(rgb[i])+'m'}${ch}`).join('')+'\x1b[0m';
+  // A dark cell behind every letter: the handle's colours are light, and
+  // whatever the window's ground is, they need something to stand on.
+  return '\x1b[48;5;233m'+(hover?'\x1b[4m':'')+Array.from(account).map((ch,i)=>`${truecolor?'\x1b[38;2;'+rgb[i].join(';')+'m':'\x1b[38;5;'+cube(rgb[i])+'m'}${ch}`).join('')+'\x1b[0m'+color.ground;
 }
-const fg = (rgb) => followsSlab ? `\x1b[38;5;${themeSlots.get(rgb.join(",")) ?? 7}m` : (truecolor ? `\x1b[38;2;${rgb.join(";")}m` : `\x1b[38;5;${cube(rgb)}m`);
-const bg = (rgb) => followsSlab ? (rgb === palette.background ? "\x1b[49m" : "\x1b[48;5;13m") : (truecolor ? `\x1b[48;2;${rgb.join(";")}m` : `\x1b[48;5;${cube(rgb)}m`);
+// Ink, by role. In a window Slab dresses the page's own roles follow the
+// window: plain text is the profile's text colour, the muted and soft roles
+// the same dimmed, the highlight its bold colour, and the coloured roles the
+// standard ANSI slots. Everything else — the cloud's inks, the tray's, the
+// outline's — is the interface's own and keeps its exact colour anywhere.
+const exact = (rgb) => (truecolor ? `\x1b[38;2;${rgb.join(";")}m` : `\x1b[38;5;${cube(rgb)}m`);
+const SLAB_INK = new Map([
+  [palette.text.join(","), "\x1b[39m"],
+  [palette.soft.join(","), "\x1b[39m\x1b[2m"],
+  [palette.muted.join(","), "\x1b[39m\x1b[2m"],
+  [palette.highlight.join(","), "\x1b[39m\x1b[1m"],
+]);
+const fg = (rgb) => {
+  if (!followsSlab) return exact(rgb);
+  const key = rgb.join(",");
+  if (SLAB_INK.has(key)) return SLAB_INK.get(key);
+  return themeSlots.has(key) ? `\x1b[38;5;${themeSlots.get(key)}m` : exact(rgb);
+};
+// The ground is the window's own in a Slab window; every other ground the
+// interface paints — the bar, the tray, the cloud — is exact.
+const bg = (rgb) => (followsSlab && rgb === palette.background ? "\x1b[49m" : truecolor ? `\x1b[48;2;${rgb.join(";")}m` : `\x1b[48;5;${cube(rgb)}m`);
 
 // Slab tints the whole Terminal window by session status — lifted while the
 // machine works, pulled toward the prompt's pink when it wants you, settled
@@ -75,6 +112,10 @@ const slabState = join(
 const groundMode = (process.env.EASEL_GROUND || "").toLowerCase();
 const slabManagesWindow =
   process.env.TERM_PROGRAM === "Apple_Terminal" && existsSync(slabState);
+// In a window Slab dresses, the ink follows Slab's theme slots too, so the
+// words sit in the palette the window was given rather than in 24-bit tones
+// Terminal.app renders pale. EASEL_THEME=own keeps the interface's own ink.
+const followsSlab = process.env.EASEL_THEME === "slab" || (process.env.EASEL_THEME !== "own" && slabManagesWindow);
 export const paintsGround =
   groundMode === "paint" || (groundMode !== "inherit" && !slabManagesWindow);
 
@@ -94,6 +135,7 @@ export const color = {
   you: fg(palette.you),
   run: fg(palette.run),
   edit: fg(palette.edit),
+  inbox: fg(palette.inbox),
   block: bg(palette.block) + fg(palette.text),
 };
 
@@ -282,48 +324,122 @@ const STYLES = {
   publish: ["PUB", "handle"],
   notice: ["·", "muted"],
   error: ["!", "error"],
+  inbox: ["↓", "inbox"],
+  // A line you typed, in pro: the prompt glyph and the words, no badge.
+  typed: ["›", "prompt"],
 };
 
-function outputRows(text,width,useColor,tone,code=false){
+const BODY_TONES = { notice: "muted", error: "error", inbox: "inbox", typed: "prompt" };
+
+// The little markdown a reply is written in, read rather than shown: the
+// markers come out and what they marked keeps its meaning as a tone. Bold is
+// bold, inline code is soft, a heading is the highlight, a bullet is a bullet.
+// Offsets are on the cleaned text, which is what gets wrapped and painted.
+export function markdown(source) {
+  const spans = [];
+  const lines = String(source ?? "").split("\n");
+  let offset = 0;
+  const out = lines.map((line) => {
+    let text = line;
+    let lineTone = "";
+    const heading = /^\s{0,3}(#{1,6})\s+(.*)$/.exec(text);
+    if (heading) { text = heading[2]; lineTone = "highlight bold"; }
+    text = text.replace(/^(\s*)[-*+]\s+/, "$1• ");
+    // Inline marks, innermost first: code keeps its insides verbatim.
+    const inline = [];
+    let cleaned = "";
+    let i = 0;
+    while (i < text.length) {
+      let m;
+      if ((m = /^`([^`\n]+)`/.exec(text.slice(i)))) { inline.push({ start: cleaned.length, end: cleaned.length + m[1].length, tone: "soft" }); cleaned += m[1]; i += m[0].length; continue; }
+      if ((m = /^\*\*([^*\n]+)\*\*/.exec(text.slice(i)))) { inline.push({ start: cleaned.length, end: cleaned.length + m[1].length, tone: "bold" }); cleaned += m[1]; i += m[0].length; continue; }
+      if ((m = /^\[([^\]\n]+)\]\((https?:[^)\s]+)\)/.exec(text.slice(i)))) { inline.push({ start: cleaned.length, end: cleaned.length + m[1].length, tone: "soft", url: m[2] }); cleaned += m[1]; i += m[0].length; continue; }
+      cleaned += text[i]; i += 1;
+    }
+    if (lineTone) spans.push({ start: offset, end: offset + cleaned.length, tone: lineTone });
+    else for (const span of inline) spans.push({ ...span, start: span.start + offset, end: span.end + offset });
+    offset += cleaned.length + 1;
+    return cleaned;
+  });
+  return { text: out.join("\n"), spans };
+}
+
+function outputRows(source,width,useColor,tone,code=false,prose=false,ink=null){
+  const read = prose && !code ? markdown(source) : { text: source, spans: [] };
+  const text = read.text;
   const links=Array.from(text.matchAll(/https?:\/\/[^\s<>"'`]+/g),m=>{const url=m[0].replace(/[.,;!?)\]}]+$/g,'');return {start:m.index,end:m.index+url.length,tone:'soft',url};});
   let sourceOffset=0;
   const codeSpans=code?text.split('\n').flatMap(line=>{const tokens=syntaxSpans(line).map(s=>({...s,start:s.start+sourceOffset,end:s.end+sourceOffset}));sourceOffset+=line.length+1;return tokens;}):[];
-  const spans=[...codeSpans.filter(s=>!links.some(l=>s.start<l.end&&s.end>l.start)),...links].sort((a,b)=>a.start-b.start);
+  const marked=read.spans.filter(s=>!links.some(l=>s.start<l.end&&s.end>l.start));
+  const spans=[...codeSpans.filter(s=>!links.some(l=>s.start<l.end&&s.end>l.start)),...marked,...links].sort((a,b)=>a.start-b.start);
   let cursor=0;
   return wrapText(text,width).map(line=>{
     const start=Math.max(cursor,text.indexOf(line,cursor));cursor=start+line.length;
     return syntaxLine(text,spans,start,cursor,(role,value,span)=>{
-      const ink=paint(useColor,role==='text'?tone:role,value);
-      return useColor&&span?.url?`\x1b]8;;${span.url}\x07\x1b[4m${ink}\x1b[24m\x1b]8;;\x07`:ink;
+      const painted=ink?ink(role==='text'?tone:role,value):paint(useColor,role==='text'?tone:role,value);
+      return useColor&&span?.url?`\x1b]8;;${span.url}\x07\x1b[4m${painted}\x1b[24m\x1b]8;;\x07`:painted;
     });
   });
 }
 
-function entryLines(entry, width, useColor) {
+function entryLines(entry, width, useColor, gutter = "wide") {
   const [label, tone] = STYLES[entry.kind] || STYLES.notice;
-  const prefix = `${label.padEnd(4)} `;
-  const continuation = " ".repeat(5);
-  const bodyTone = entry.kind === "notice" ? "muted" : entry.kind === "error" ? "error" : "text";
-  const rows=[],text=cleanText(entry.text),parts=text.split(/(^[ \t]*```[^\n]*$)/m);
+  // Pro reads like a page: your lines and the replies flush left, and only
+  // a notice, an error or an inbox line wears a two-cell mark.
+  const flush = gutter === "narrow" && (entry.kind === "typed" || entry.kind === "assistant");
+  // In pro a reply is a cloud: its prose in dark ink on a near-white ground
+  // with a cell of air around it and rounded ends, so what the machine says
+  // reads as a message and not as more of the page.
+  const cloud = gutter === "narrow" && entry.kind === "assistant" && useColor;
+  const typed = gutter === "narrow" && entry.kind === "typed" && useColor;
+  const prefix = flush ? "" : gutter === "narrow" ? `${label.slice(0, 1)} ` : `${label.padEnd(4)} `;
+  const continuation = " ".repeat(prefix.length);
+  // An inbox line leads with who sent it — `↓ host:name · text` — so the
+  // sender is read before the request, the way the model reads the stamp.
+  const bodyTone = BODY_TONES[entry.kind] || "text";
+  if (entry.kind === "typed" && entry.wave !== undefined && useColor) {
+    // The shimmer: the words in the page's ink with a spark of the prompt's
+    // pink, three letters wide, travelling through them one step per frame —
+    // alive, but quiet enough to sit on any ground Slab gives the window.
+    const spark = [fg(palette.prompt), fg(palette.highlight), fg(palette.prompt)];
+    const hues = { length: 1 };
+    let at = 0;
+    const total = Array.from(cleanText(entry.text)).length + 3;
+    const head = entry.wave % Math.max(1, total);
+    const inkFor = () => { const d = at - head; at += 1; return d >= -2 && d <= 0 ? spark[d + 2] : color.text; };
+    const inner = Math.max(1, width - prefix.length - (TYPED_STYLE === "lines" ? 0 : 4));
+    const painted = wrapText(cleanText(entry.text), inner).map((line) => Array.from(line).map((ch) => `${TYPED_STYLE === "bubble" ? bg(TYPED_TINT.bg) : ""}${inkFor()}${ch}`).join(""));
+    return TYPED_STYLE === "bubble" ? cloudRows(painted, width - prefix.length, TYPED_TINT) : TYPED_STYLE === "outline" ? outlineRows(painted, width - prefix.length, true) : painted.map((row) => `${row}${color.reset}${color.ground}`);
+  }
+  const rows=[],text=cleanText(entry.kind === "inbox" && entry.from ? `${entry.from} · ${entry.text}` : entry.text),parts=text.split(/(^[ \t]*```[^\n]*$)/m);
   let fenced=false;
   for(const part of parts){
     if(/^[ \t]*```/.test(part)){
       fenced=!fenced;
       rows.push(paint(useColor,"muted",part.trim()));continue;
     }
-    if(!fenced){rows.push(...outputRows(part.replace(/^\n|\n$/g,''),Math.max(1,width-5),useColor,bodyTone,entry.kind==='command'||entry.kind==='change'));continue;}
+    // Code, and what a command printed, stand on their own ground — a darker
+    // cell behind every row, the syntax colours on top — so a block reads as
+    // a block and not as more prose.
+    const codeGround=useColor&&(fenced||entry.kind==='command'||entry.kind==='change');
+    const onGround=(line)=>codeGround?`\x1b[48;5;234m${fit(line,Math.max(1,width-prefix.length))}\x1b[49m`:line;
+    if(!fenced){rows.push(...outputRows(part.replace(/^\n|\n$/g,''),Math.max(1,width-prefix.length-(cloud?2:typed?(TYPED_STYLE==='bubble'?2:TYPED_STYLE==='outline'?4:0):0)),useColor,bodyTone,entry.kind==='command'||entry.kind==='change',entry.kind==='assistant',cloud?(r,v)=>cloudInk(r,v,CLOUD_TINT):typed&&TYPED_STYLE==='bubble'?(r,v)=>cloudInk(r,v,TYPED_TINT):null).map(onGround));continue;}
     const code=part.replace(/^\n|\n$/g,''),spans=syntaxSpans(code);
     let offset=0;
     for(const line of code.split("\n")){
       let start=offset,used=0;
       for(const ch of line){
         const w=charWidth(ch);
-        if(used+w>Math.max(1,width-5)&&used){rows.push(syntaxLine(code,spans,start,offset,(tone,value)=>paint(useColor,tone,value)));start=offset;used=0;}
+        if(used+w>Math.max(1,width-5)&&used){rows.push(onGround(syntaxLine(code,spans,start,offset,(tone,value)=>paint(useColor,tone,value))));start=offset;used=0;}
         offset+=ch.length;used+=w;
       }
-      rows.push(syntaxLine(code,spans,start,offset,(tone,value)=>paint(useColor,tone,value)));offset++;
+      rows.push(onGround(syntaxLine(code,spans,start,offset,(tone,value)=>paint(useColor,tone,value))));offset++;
     }
   }
+  if (cloud) return cloudRows(rows, width, CLOUD_TINT);
+  // A typed line in pro is set the way the layout says: outlined, bubbled,
+  // or plain on the page.
+  if (typed) return TYPED_STYLE === "bubble" ? cloudRows(rows, width, TYPED_TINT) : TYPED_STYLE === "outline" ? outlineRows(rows, width) : rows;
   if(entry.kind === "notice" && /^Desktop (thread restored|restart|update)/.test(text)) return rows.map(line=>" ".repeat(Math.max(0,Math.floor((width-textWidth(line))/2)))+line);
   return rows.map((line,index)=>`${paint(useColor,tone,index===0?prefix:continuation)}${line}`);
 }
@@ -567,7 +683,13 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
       `${audience.painted} `
     : paint(useColor, "muted", ` ${workspace}`);
 
-  const transcriptRows = height - 5;
+  // Pro has no header band: four rows at the bottom — air, the bar, air, the
+  // status line — and the rest is the conversation.
+  const pro = state.profile?.name === "pro" && !(state.desktop || state.desktopProsePrompt);
+  // The shape is data — see layout.mjs — so the rows under the transcript are
+  // whatever the layout says, in the order it says them.
+  const shape = { bottom: ["bar", "gap", "status"], status: ["handle", "workspace", "media", "model", "activity"], bar: [95, 70, 135], prompt: "", separator: " · ", ...(state.layout || {}) };
+  const transcriptRows = pro ? height - shape.bottom.length : height - 5;
   // The QR code keeps its own column on the right, so the transcript is
   // narrowed rather than overdrawn. A code is an image, not text: it needs its
   // own black on white to be scannable, so a window with colour switched off or
@@ -580,9 +702,37 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
       ? state.qr
       : null;
   const contentWidth = qr ? width - qr.width - 2 : width - 2;
+  const unruled = new Set();
   const transcript = state.about
     ? aboutMap().flatMap((line) => wrapText(line, contentWidth))
-    : state.entries.flatMap((entry) => entryLines(entry, contentWidth, useColor));
+    : (() => {
+        // In pro the line being worked on is the animation: while the machine
+        // has the floor, the last thing typed runs a colour wave through its
+        // letters, frame by frame on the dance clock, and settles when the
+        // answer lands.
+        // A run of typed lines is one bubble: what you said before the machine
+        // answered, together, rather than a stack of pills.
+        const grouped = pro ? state.entries.reduce((list, entry) => {
+          const last = list[list.length - 1];
+          if (entry.kind === "user" && last?.kind === "user") { last.text = `${last.text}\n${entry.text}`; return list; }
+          list.push(entry.kind === "user" ? { ...entry } : entry);
+          return list;
+        }, []) : state.entries;
+        const working = pro && state.busy ? grouped.reduce((found, entry, index) => (entry.kind === "user" ? index : found), -1) : -1;
+        return grouped.flatMap((entry, index) => {
+          const lines = entryLines(pro && entry.kind === "user" ? { ...entry, kind: "typed", ...(index === working ? { wave: Math.floor((state.mascotMs || 0) / 120) } : {}) } : entry, contentWidth, useColor, pro ? "narrow" : "wide");
+          // A cloud's rows are not ruled; the flag rides along with the row.
+          if (pro && (entry.kind === "assistant" || entry.kind === "user")) for (const line of lines) unruled.add(line);
+          return lines;
+        });
+      })();
+  // Provisional rows: the tools and subtasks running right now, one line each
+  // at the foot of the transcript, gone the moment each one finishes. They
+  // are not entries; nothing of them is kept on the page.
+  const provisional = pro && state.busy && state.toolsNow?.size
+    ? [...state.toolsNow.values()].map((text) => paint(useColor, "muted", clipText(`⋯ ${String(text).replace(/\s+/g, " ")}`, contentWidth)))
+    : [];
+  for (const row of provisional) { transcript.push(row); unruled.add(row); }
   const drawer=drawerRows(state,width,height,useColor);
   const availableRows=transcriptRows-drawer.length;
   const start = state.about ? Math.min(state.aboutScroll || 0, Math.max(0, transcript.length - transcriptRows))
@@ -624,6 +774,83 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
 
   if (state.desktopProsePrompt) prompt = "";
 
+  if (pro) {
+    // Codex's shape: the transcript, a bar to type in with a blank line on
+    // either side, and one muted line under it saying who, where, which model.
+    // Nothing sits between the words and the typing.
+    const barBg = useColor ? bg(state.tray === "light" ? [232, 232, 236] : state.tray === "dark" ? [28, 28, 32] : shape.bar) : "";
+    const ink = (rgb) => (useColor ? fg(rgb) : "");
+    let inner;
+    state.cursorCell = null;
+    if (state.approval) {
+      const choices = cleanText(state.approval.choicesText || "y once  a session  n deny");
+      const room = Math.max(4, width - textWidth("ALLOW ") - textWidth(choices) - 4);
+      inner = `${ink(palette.highlight)}ALLOW${ink(palette.text)} ${clipText(state.approval.subject || "requested action", room)}  ${choices}`;
+    } else {
+      const input = Array.from(cleanText(state.input || ""));
+      const cursor = Math.max(0, Math.min(state.cursor ?? input.length, input.length));
+      const room = Math.max(1, width - 2);
+      const start = Math.max(0, cursor - room + 1);
+      const shown = input.slice(start, start + room);
+      const at = cursor - start;
+      const under = shown[at] || " ";
+      // The cursor is painted by hand: `paint` would hand the row back to the
+      // ground after it, and the bar has to run to the edge.
+      // No painted block: the terminal's own cursor stands here and blinks
+      // the way it does everywhere else. The frame says where it goes.
+      const lead = `${shape.prompt ? `${shape.prompt} ` : ""}${start > 0 ? "‹" : ""}`;
+      inner = `${shape.prompt ? `${ink(palette.prompt)}${shape.prompt}${ink(palette.text)} ` : ""}${start > 0 ? "‹" : ""}${shown.slice(0, at).join("")}${under === " " && at >= shown.length ? "" : under}${shown.slice(at + 1).join("")}`;
+      state.cursorCell = { row: height - shape.bottom.length + shape.bottom.indexOf("bar") + 1, col: 1 + textWidth(lead) + textWidth(shown.slice(0, at).join("")) };
+    }
+    // The words start on the bar's first cell: the purple is the margin.
+    const bar = `${barBg}${ink(palette.text)}${fit(inner, width)}${reset}`;
+    const account = state.account || "";
+    const model = state.model || state.providerSettings?.model || "";
+    const engine = state.providerSettings?.backend || "";
+    const statusLine = proStatus(state, width, useColor, shape).line;
+    const rows = {
+      gap: () => "",
+      bar: () => bar,
+      status: () => statusLine,
+      rule: () => paint(useColor, "muted", "─".repeat(width)),
+      help: () => ` ${paint(useColor, "muted", clipText(state.busy ? requestFeedback(state) : "/help · /layout · /inbox · /mode · /ask · ctrl-c quit", width - 2))}`,
+      header: () => header,
+      path: () => pathLine,
+    };
+    // Notebook lines: a faint rule under the rest of every transcript row,
+    // the way the GUI's page is ruled. Only the blank part of a row is
+    // underlined, so the words sit on the line rather than under a bar.
+    const ruled = shape.lines === true && useColor ? body.map((row, index) => (unruled.has(visible[index]) ? row : ruleRow(row, width))) : body;
+    // The transcript as plain rows, for the selection to read and copy from.
+    state.pageRows = body.map((row) => plainRow(row));
+    // A question takes the page: what is asked, and three answers, nothing
+    // else on screen until one is given.
+    if (state.approval) {
+      const modal = approvalModal(state, width, transcriptRows, useColor);
+      return [...modal, ...shape.bottom.map((name) => (name === "bar" ? `${useColor ? bg(shape.bar) : ""}${fit("", width)}${reset}` : rows[name]?.() ?? ""))].slice(0, height).map((line) => `${ground}${fit(line, width)}${reset}`).join("\n");
+    }
+    // A selection in progress or just made: those cells in reverse video, on
+    // top of whatever the row was painting.
+    const shown = state.selection
+      ? ruled.map((row, index) => {
+          const span = rowSpan(index + 1, state.selection, width);
+          return span ? selectRow(state.pageRows[index], span, width, useColor) : row;
+        })
+      : ruled;
+    // Under the hood: the tray — the air, the bar, the status line — sits on
+    // black, or on white in light mode, whatever ground the window has. The
+    // transcript above is the hood; this is the machinery, and it always
+    // looks like itself.
+    const light = state.tray === "light";
+    const trayGround = useColor ? `${bg(light ? [255, 255, 255] : [0, 0, 0])}${fg(light ? [40, 40, 40] : [230, 230, 230])}` : "";
+    const trayMuted = useColor ? fg(light ? [110, 110, 110] : [150, 150, 150]) : "";
+    const onTray = (row) => (useColor ? `${trayGround}${String(row).replace(/\x1b\[0m/g, `\x1b[0m${trayGround}`).replace(new RegExp(color.ground.replace(/[[\]\\]/g, "\\$&"), "g"), trayGround).replace(new RegExp(color.muted.replace(/[[\]\\]/g, "\\$&"), "g"), trayMuted)}${trayGround}` : row);
+    const trayRows = shape.bottom.map((name) => onTray(name === "bar" ? bar : name === "gap" ? fit("", width) : rows[name]?.() ?? ""));
+    return paintDropdown([...shown, ...trayRows].slice(0, height), state, width, height, useColor, shape)
+      .map((line) => `${ground}${fit(line, width)}${reset}`)
+      .join("\n");
+  }
+
   const rule = paint(useColor, "muted", "─".repeat(width));
   // The little guy keeps the far corner from the QR code. He is one row and he
   // does not move: an animated footer costs a full repaint every few seconds
@@ -638,6 +865,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     : state.hover === "profile" ? " Open profile in browser · click"
     : state.busy
     ? ` ${requestFeedback(state)}`
+    : state.profile?.name === "pro" ? " /help \u00b7 /inbox \u00b7 /mode \u00b7 /ask \u00b7 ctrl-c quit"
     : process.env.EASEL_DESKTOP ? "" : " /settings \u00b7 /login \u00b7 /publish \u00b7 /open \u00b7 /qr \u00b7 ctrl-c quit";
   const footerRoom=width-MASCOT_ROW_WIDTH-3;
   const caption=clipText(helpText,Math.max(1,footerRoom));
@@ -656,6 +884,268 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     .join("\n");
 }
 
+// What the engine is called on the bottom line and in the title: the hosted
+// bridge is Aesthetic Computer's own, so it says so.
+export function providerLabel(engine) {
+  return engine === "ac" ? "aesthetic" : engine || "";
+}
+
+// A path the way fish's prompt shows it: every directory on the way is its
+// first letter, the one you are in is whole — `~/a/c/easel` — so the end,
+// which is the part that tells you where you are, is never the part cut off.
+export function fishPath(path, home = process.env.HOME || "") {
+  if (!path) return "";
+  let rest = path;
+  let head = "";
+  if (home && (path === home || path.startsWith(`${home}/`))) {
+    head = "~";
+    rest = path.slice(home.length);
+  }
+  const parts = rest.split("/").filter(Boolean);
+  const short = parts.map((part, index) => (index === parts.length - 1 ? part : part.startsWith(".") ? part.slice(0, 2) : part[0]));
+  return `${head}${short.length ? `/${short.join("/")}` : head ? "" : "/"}`;
+}
+
+// The window's title, in the menubar's own vocabulary — a mark, the name, the
+// place, the provider, and what the machine is doing when it is doing
+// something — so an Easel tab reads like a Claude or Codex tab from across
+// the room.
+export function windowTitle(state) {
+  const provider = providerLabel(state.providerSettings?.backend);
+  const doing = state.approval ? "◉ approval" : state.busy ? "● working" : state.status === "connecting" ? "◌ connecting" : state.status === "offline" ? "○ offline" : "";
+  const media = state.media ? `${state.media.glyph} ${state.media.name}` : "";
+  return ["🫏 aesel", fishPath(state.workspace), media, provider, doing].filter(Boolean).join(" · ");
+}
+
+// A drop-down: a short list standing on the status line's fact that opened
+// it — provider or model — with the current row marked. Where it sits and
+// which rows are showing are computed once, here, so the frame that paints it
+// and the click that lands on it agree to the cell.
+export function dropdownGeometry(state, width, height, shape = state.layout || {}) {
+  const drop = state.dropdown;
+  if (!drop) return null;
+  const bottom = shape.bottom || ["bar", "gap", "status"];
+  const statusRow = bottom.lastIndexOf("status");
+  // The anchor row is the status line; without one, the bar.
+  const anchor = height - bottom.length + (statusRow >= 0 ? statusRow : Math.max(0, bottom.lastIndexOf("bar")));
+  const facts = proStatus(state, width, false, shape).spans;
+  const span = facts.find((s) => s.name === "model") || facts.find((s) => s.name === "engine");
+  const items = drop.loading ? [{ id: "", label: "loading…", detail: "" }] : drop.items.length ? drop.items : [{ id: "", label: "nothing to choose", detail: "" }];
+  const count = Math.max(1, Math.min(items.length, 10, anchor - 2));
+  const index = Math.max(0, Math.min(drop.index || 0, items.length - 1));
+  const start = Math.max(0, Math.min(index - Math.floor(count / 2), items.length - count));
+  const labelWidth = Math.max(...items.map((item) => textWidth(item.label)));
+  const detailWidth = Math.max(...items.map((item) => textWidth(item.detail || "")));
+  const boxWidth = Math.min(width - 2, 4 + labelWidth + (detailWidth ? 2 + detailWidth : 0) + 1);
+  const x = Math.max(0, Math.min(span ? span.x : 1, width - boxWidth - 1));
+  // Row 0 is the title; rows 1..count are the choices; all sit above the anchor.
+  const top = anchor - count - 1;
+  return { x, top, count, start, index, items, labelWidth, detailWidth, boxWidth, title: "provider · model" };
+}
+
+function paintDropdown(rows, state, width, height, useColor, shape) {
+  const g = dropdownGeometry(state, width, height, shape);
+  if (!g || g.top < 0) return rows;
+  const bar = useColor ? bg(shape.bar || [95, 70, 135]) : "";
+  const reset = useColor ? color.reset : "";
+  const cell = (text, tone) => `${useColor ? (tone === "block" ? bg(palette.block) + fg(palette.text) : bar + fg(palette[tone] || palette.text)) : ""}${fit(text, g.boxWidth)}${reset}${useColor ? color.ground : ""}`;
+  const place = (y, painted) => { if (y >= 0 && y < rows.length) rows[y] = `${fit(rows[y], g.x)}${painted}`; };
+  place(g.top, cell(` ▾ ${g.title}`, "soft"));
+  for (let j = 0; j < g.count; j += 1) {
+    const item = g.items[g.start + j];
+    const selected = g.start + j === g.index;
+    const label = item.label.padEnd(g.labelWidth);
+    const text = item.header ? ` ${label}${g.detailWidth ? `  ${item.detail || ""}` : ""}` : ` ${selected ? "›" : " "} ${label}${g.detailWidth ? `  ${item.detail || ""}` : ""}`;
+    place(g.top + 1 + j, cell(text, selected ? "block" : item.header ? "highlight" : item.muted ? "muted" : "text"));
+  }
+  return rows;
+}
+
+let CORNERS = "flat";
+let TYPED_STYLE = "outline";
+export function setCorners(style) { CORNERS = ["slant", "block", "flat"].includes(style) ? style : "flat"; }
+// How your own lines are set: an outline box (the default), a filled pink
+// bubble, or plain lines on the page.
+export function setTypedStyle(style) { TYPED_STYLE = ["outline", "bubble", "lines"].includes(style) ? style : "outline"; }
+
+// Your words in an outline: rounded box-drawing corners in the prompt's ink,
+// the words inside in the same ink, the ground showing through — the
+// machine's cloud is filled, yours is drawn, and that is the difference.
+function outlineRows(rows, width, painted = false) {
+  while (rows.length > 1 && !paintedWidth(rows[rows.length - 1])) rows.pop();
+  while (rows.length > 1 && !paintedWidth(rows[0])) rows.shift();
+  const inner = Math.min(width - 4, Math.max(4, ...rows.map((row) => paintedWidth(row))));
+  const ink = paint(true, "prompt", "").replace(/\x1b\[0m.*$/, "");
+  const line = (text) => `${ink}${text}${color.reset}${color.ground}`;
+  // The words inside are set in the page's own ink, white on the ground —
+  // the pink is the frame around them, not the words themselves.
+  // Painted rows (the shimmer) keep their own inks; plain rows take the page's.
+  const words = (row) => `${color.text}${fit(painted ? row : row.replace(new RegExp(ink.replace(/[[\]\\]/g, "\\$&"), "g"), color.text), inner)}`;
+  return [line(`╭${"─".repeat(inner + 2)}╮`), ...rows.map((row) => `${line("│ ")}${words(row)}${line(" │")}`), line(`╰${"─".repeat(inner + 2)}╯`)];
+}
+let LIGHT = false;
+// On a light page the cloud is a light gray, not a white that would vanish.
+export function setAppearance(mode) { LIGHT = mode === "light"; }
+const CLOUD_TINT_DARK = { bg: palette.cloud, ink: palette.cloudInk, soft: palette.cloudSoft, highlight: palette.cloudHighlight };
+const CLOUD_TINT_LIGHT = { bg: [226, 220, 238], ink: palette.cloudInk, soft: palette.cloudSoft, highlight: palette.cloudHighlight };
+const CLOUD_TINT = new Proxy({}, { get: (_, key) => (LIGHT ? CLOUD_TINT_LIGHT : CLOUD_TINT_DARK)[key] });
+const TYPED_TINT = { bg: palette.typedCloud, ink: palette.typedInk, soft: [170, 80, 130], highlight: palette.cloudHighlight };
+function cloudInk(role, value, tint = CLOUD_TINT) {
+  const inks = { text: tint.ink, soft: tint.soft, muted: tint.soft, highlight: tint.highlight, error: palette.error, inbox: tint.soft, prompt: tint.ink };
+  const bold = /\bbold\b/.test(role);
+  const base = role.replace(/\bbold\b/, "").trim() || "text";
+  return `${bg(tint.bg)}${fg(inks[base] || tint.ink)}${bold ? "\x1b[1m" : ""}${value}${bold ? "\x1b[22m" : ""}`;
+}
+
+// Rows of a reply wrapped in their cloud: a rounded top edge drawn with the
+// lower half-blocks, the rows on the cloud's ground with a cell of air at
+// either side, a rounded bottom edge with the upper half-blocks. Code inside
+// keeps its own dark ground, the way a code block sits in any bubble.
+function cloudRows(rows, width, tint = CLOUD_TINT) {
+  // Air is the cloud's own; blank rows at either end are not kept.
+  while (rows.length > 1 && !paintedWidth(rows[rows.length - 1])) rows.pop();
+  while (rows.length > 1 && !paintedWidth(rows[0])) rows.shift();
+  const inner = Math.min(width - 2, Math.max(8, ...rows.map((row) => paintedWidth(row))));
+  const edge = fg(tint.bg);
+  const ground = `${color.reset}${color.ground}`;
+  // The edges: plain half-block rows by default, which read as a soft card —
+  // corner glyphs looked stepped or spiky at text size. `corners: slant` cuts
+  // them with the triangles, `corners: block` with the quadrants.
+  const ends = CORNERS === "slant" ? ["◢", "◣", "◥", "◤"] : CORNERS === "block" ? ["▗", "▖", "▝", "▘"] : ["▄", "▄", "▀", "▀"];
+  const top = `${edge}${ends[0]}${"▄".repeat(inner)}${ends[1]}${ground}`;
+  const bottom = `${edge}${ends[2]}${"▀".repeat(inner)}${ends[3]}${ground}`;
+  const body = rows.map((row) => `${bg(tint.bg)}${fg(tint.ink)} ${fit(row.replace(/\x1b\[49m/g, bg(tint.bg)), inner)}${bg(tint.bg)} ${ground}`);
+  return [top, ...body, bottom];
+}
+
+// A painted row without its escapes: the words as they stand on the screen.
+function plainRow(row) {
+  return String(row ?? "").replace(/\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))/g, "");
+}
+
+// A row with part of it selected: the plain words, the chosen cells in
+// reverse video. Selected rows give up their colours for the moment, which is
+// what a selection looks like everywhere else too.
+function selectRow(plain, [from, to], width, useColor) {
+  const chars = Array.from(fit(plain, width));
+  const before = chars.slice(0, from - 1).join("");
+  const chosen = chars.slice(from - 1, to).join("");
+  const after = chars.slice(to).join("");
+  if (!useColor) return `${before}${chosen}${after}`;
+  return `${paint(true, "text", before)}\x1b[7m${paint(true, "text", chosen)}\x1b[27m${paint(true, "text", after)}`;
+}
+
+// The question, centred, with its three answers under it. The row in hand
+// wears the block; y, a and n are written after each answer for the hand
+// that knows them.
+export function approvalModal(state, width, rows, useColor) {
+  const inner = Math.min(width - 4, 76);
+  const subject = wrapText(cleanText(state.approval.subject || "requested action"), inner);
+  const choices = [["Allow once", "y"], ["Allow every time this session", "a"], ["Deny", "n"]];
+  const index = state.approvalIndex || 0;
+  const lines = [
+    paint(useColor, "highlight bold", "allow?"),
+    "",
+    ...subject.map((line) => paint(useColor, "text", line)),
+    "",
+    ...choices.map(([label, key], i) => (i === index ? paint(useColor, "block bold", ` ${label} `) : paint(useColor, "soft", ` ${label} `)) + paint(useColor, "muted", `  ${key}`)),
+  ];
+  const top = Math.max(0, Math.floor((rows - lines.length) / 2));
+  const left = Math.max(0, Math.floor((width - inner) / 2));
+  const out = Array.from({ length: rows }, () => "");
+  lines.forEach((line, i) => { if (top + i < rows) out[top + i] = `${" ".repeat(left)}${line}`; });
+  return out;
+}
+
+// The columns a painted row occupies, escapes not counted.
+function paintedWidth(row) {
+  return textWidth(String(row ?? "").replace(/\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))/g, ""));
+}
+
+// A transcript row on ruled paper: the words as they were, then the rest of
+// the line underlined in the muted ink, faint enough to read as paper.
+function ruleRow(row, width) {
+  // The underline runs the whole row, words included, in the muted ink where
+  // the terminal can colour an underline (SGR 58) and in the text's own ink
+  // where it cannot. The ruled paper is the point; the words sit on it.
+  const ink = truecolor ? `\x1b[58;2;${palette.muted.join(";")}m` : `\x1b[58;5;${cube(palette.muted)}m`;
+  return `\x1b[4m${ink}${fit(row, width).replace(/\x1b\[0m/g, `\x1b[0m\x1b[4m${ink}`)}\x1b[59m\x1b[24m`;
+}
+
+// While the machine works the handle breathes: its colours slide toward the
+// muted ink and back on a slow sine, a few seconds a cycle, so the pulse
+// reads as breathing rather than blinking. Idle, the colours stand still.
+// `28s…`, and `· quiet 20s` once nothing has arrived for a while.
+export function workingTimer(state, now = Date.now()) {
+  const started = state.requestStartedAt || now;
+  // Tenths, so the count is visibly running rather than visibly waiting.
+  const seconds = (Math.max(0, now - started) / 1000).toFixed(1);
+  const quiet = Math.max(0, Math.floor((now - (state.lastRequestEventAt || started)) / 1000));
+  return `${seconds}s…${quiet >= 15 && state.status !== "approval" ? ` · quiet ${quiet}s` : ""}`;
+}
+export const BREATH_MS = 3200;
+export function breathingHandle(account, state) {
+  const base = Array.isArray(state.handleColors) && state.handleColors.length === Array.from(account).length ? state.handleColors : handleCharacterColors(account);
+  if (!state.busy) return base;
+  const phase = 0.5 + 0.5 * Math.sin(((state.mascotMs || 0) / BREATH_MS) * Math.PI * 2);
+  const k = 0.35 + 0.65 * phase;
+  return base.map(([r, g, b]) => [r, g, b].map((v, i) => Math.round(palette.muted[i] + (v - palette.muted[i]) * k)));
+}
+
+// The status line under the bar, and where each fact on it starts, so the
+// frame can paint it and a click can find the model on it.
+export function proStatus(state, width, useColor, shape = state.layout || {}) {
+  const status = shape.status || ["handle", "workspace", "media", "model", "activity"];
+  const separator = shape.separator ?? " · ";
+  const account = state.account || "";
+  const model = state.modelLabel || state.model || state.providerSettings?.model || "";
+  const engine = state.providerSettings?.backend || "";
+  const queuedInbox = (state.queued || []).filter((line) => line?.inbox).length;
+  const plain = {
+    handle: account,
+    workspace: clipText(fishPath(state.workspace || ""), Math.max(8, Math.floor(width / 3))),
+    model,
+    engine: providerLabel(engine),
+    mode: state.mode === "local" ? "local" : "remote",
+    // The media file the session has its hands on, by its own name.
+    media: state.media ? `${state.media.glyph} ${clipText(state.media.name, Math.max(12, Math.floor(width / 4)))}` : "",
+    // The little guy dances on the line while the machine has the floor, and
+    // beside him the seconds, the way Claude Code counts them.
+    activity: state.busy ? `${mascotRow(state.mascotMs ?? 0, true)} ${workingTimer(state)}${state.toolNow ? ` · ${clipText(state.toolNow.replace(/\s+/g, " "), Math.max(12, Math.floor(width / 3)))}` : ""}` : state.selection && !state.selection.active ? "selected · Enter copies · Esc clears" : state.flash && state.flash.until > Date.now() ? state.flash.text : state.status === "connecting" ? "connecting…" : state.status === "offline" ? "offline" : state.scrollOffset ? `${state.scrollOffset} lines above · End latest` : "",
+    inbox: queuedInbox ? `${queuedInbox} inbox queued` : "",
+  };
+  const muted = (text) => paint(useColor, "muted", text);
+  // When the line is short of room, the facts that matter least go first —
+  // the engine, then the place, then the model, then the handle — so what
+  // the machine is doing is the last thing to be cut.
+  const keep = new Set(status);
+  const measure = () => [...keep].reduce((n, name) => (plain[name] ? n + textWidth(plain[name]) + (n ? textWidth(separator) : 0) : n), 1);
+  for (const name of ["engine", "media", "workspace", "model", "handle", "mode", "inbox"]) {
+    if (measure() <= width - 1) break;
+    keep.delete(name);
+  }
+  const spans = [];
+  let line = " ";
+  let x = 1;
+  for (const name of status) {
+    if (!keep.has(name)) continue;
+    const text = plain[name] || "";
+    if (!text) continue;
+    if (spans.length) {
+      line += muted(separator);
+      x += textWidth(separator);
+    }
+    spans.push({ name, x, width: textWidth(text) });
+    // The model underlines under the mouse: it is the one fact that is a control.
+    const hovered = (name === "model" && state.hover === "model") || (name === "engine" && state.hover === "provider");
+    // While the machine works the handle breathes: bright, then muted, on the
+    // dance clock — a pulse you can see from across the room.
+    line += name === "handle" && text.startsWith("@") ? coloredHandle(text, breathingHandle(text, state), useColor) : hovered && useColor ? paint(useColor, "muted", `\x1b[4m${text}\x1b[24m`) : muted(text);
+    x += textWidth(text);
+  }
+  return { line, spans };
+}
+
 export function transcriptLineCount(state, columns = 80, rows = 24, useColor = true) {
   const width = Math.max(32, columns), height = Math.max(10, rows);
   const qr = useColor && state.qr && width >= state.qr.width + 24 && height - 5 >= state.qr.height ? state.qr : null;
@@ -665,6 +1155,22 @@ export function transcriptLineCount(state, columns = 80, rows = 24, useColor = t
 // Terminal mouse coordinates are one-based, like the displayed header row.
 export function headerAction(state, columns, rows, x, y) {
   if (columns < 32 || rows < 10) return "";
+  // Pro draws no header and no model controls. The one thing to click is the
+  // model on the status line, which opens the settings drawer.
+  if (state.profile?.name === "pro") {
+    const shape = { bottom: ["bar", "gap", "status"], ...(state.layout || {}) };
+    // An open drop-down owns the mouse: a row of it picks, anywhere else closes.
+    const g = dropdownGeometry(state, Math.max(32, columns), Math.max(10, rows), shape);
+    if (g) {
+      const row = y - 1 - g.top - 1;
+      if (row >= 0 && row < g.count && x >= g.x + 1 && x <= g.x + g.boxWidth) return `pick:${g.start + row}`;
+      return "dismiss";
+    }
+    const row = shape.bottom.lastIndexOf("status");
+    if (row < 0 || y !== rows - (shape.bottom.length - 1 - row)) return "";
+    const hit = proStatus(state, Math.max(32, columns), false, shape).spans.find((span) => (span.name === "model" || span.name === "engine") && x >= span.x + 1 && x <= span.x + span.width);
+    return hit ? (hit.name === "engine" ? "provider" : "model") : "";
+  }
   if(y===rows-2){const hit=modelControls(state,columns).find(c=>x>=c.x&&x<c.x+c.width);return hit?.action||"";}
   if(state.settings){
     const p=state.settings,options=drawerOptions(p),index=p.index??drawerIndex(p);

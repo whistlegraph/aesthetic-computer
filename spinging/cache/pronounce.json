@@ -838,5 +838,250 @@
   "accent": "US",
   "v": 4,
   "fetchedAt": "2026-08-31T17:10:39.403Z"
+ },
+ "minutes": {
+  "ipa": "/ˈmɪnɪts/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:28.867Z"
+ },
+ "was": {
+  "ipa": "/wˈʌz/",
+  "source": "espeak",
+  "accent": "en-us",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:54.673Z"
+ },
+ "born": {
+  "ipa": "/boɹn/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:54.813Z"
+ },
+ "fourth": {
+  "ipa": "/fɔɹθ/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:55.016Z"
+ },
+ "april": {
+  "ipa": "/ˈeɪpɹəl/",
+  "source": "espeak",
+  "accent": "en-us",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:55.185Z"
+ },
+ "thirty": {
+  "ipa": "/ˈθɝti/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:55.411Z"
+ },
+ "seven": {
+  "ipa": "/ˈsɛvən/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:55.589Z"
+ },
+ "past": {
+  "ipa": "/pæst/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:55.793Z"
+ },
+ "midnight": {
+  "ipa": "/ˈmɪd(ˌ)naɪt/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:56.066Z"
+ },
+ "twelve": {
+  "ipa": "/twɛlv/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:56.274Z"
+ },
+ "times": {
+  "ipa": "/taɪmz/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:56.457Z"
+ },
+ "have": {
+  "ipa": "/ˈhæv/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:56.834Z"
+ },
+ "been": {
+  "ipa": "/ˈbiːn/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:57.112Z"
+ },
+ "charged": {
+  "ipa": "/t͡ʃɑɹd͡ʒd/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:57.260Z"
+ },
+ "am": {
+  "ipa": "/ˈæm/",
+  "source": "espeak",
+  "accent": "en-us",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:57.531Z"
+ },
+ "still": {
+  "ipa": "/ˈstɪl/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:57.715Z"
+ },
+ "here": {
+  "ipa": "/ˈhɪɚ̯/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:57.901Z"
+ },
+ "first": {
+  "ipa": "/fɚst/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:58.162Z"
+ },
+ "this": {
+  "ipa": "/ðɪs/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:58.378Z"
+ },
+ "house": {
+  "ipa": "/haʊ̯s/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:58.606Z"
+ },
+ "some": {
+  "ipa": "/sʌm/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:58.877Z"
+ },
+ "things": {
+  "ipa": "/ˈθɪŋz/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:58.984Z"
+ },
+ "run": {
+  "ipa": "/ɹʌn/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:59.211Z"
+ },
+ "family": {
+  "ipa": "/ˈfæm(ə)li/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-09-20T19:52:59.497Z"
+ },
+ "mar": {
+  "ipa": "/mɑɹ/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-09-20T20:04:01.575Z"
+ },
+ "y": {
+  "ipa": "/ˈwaɪ/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-09-20T20:04:01.970Z"
+ },
+ "had": {
+  "ipa": "/hæt/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-09-20T20:04:02.144Z"
+ },
+ "lit": {
+  "ipa": "/ˈlɪt/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-09-20T20:04:02.344Z"
+ },
+ "tle": {
+  "ipa": "/tˌiːˌɛlˈiː/",
+  "source": "espeak",
+  "accent": "en-us",
+  "v": 4,
+  "fetchedAt": "2026-09-20T20:04:02.996Z"
+ },
+ "lamb": {
+  "ipa": "/ˈlæm/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-09-20T20:04:03.193Z"
+ },
+ "its": {
+  "ipa": "/ɪts/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-09-20T20:04:03.373Z"
+ },
+ "fleece": {
+  "ipa": "/fliːs/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-09-20T20:04:03.511Z"
+ },
+ "white": {
+  "ipa": "/ˈʍaɪt/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-09-20T20:04:03.808Z"
+ },
+ "as": {
+  "ipa": "/ˈæs/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-09-20T20:04:04.138Z"
+ },
+ "snow": {
+  "ipa": "/snoʊ̯/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-09-20T20:04:04.423Z"
  }
 }

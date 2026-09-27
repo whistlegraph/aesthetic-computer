@@ -509,6 +509,7 @@ async function runBuildJob(job) {
       const isoOut = `/tmp/oven-iso-${job.id}`;
       const slimOut = `/tmp/oven-vmlinuz-slim-${job.id}`;
       const initramfsOut = `/tmp/oven-initramfs-${job.id}`;
+      const kpartOut = `/tmp/oven-kpart-${job.id}`;
       // The initramfs and slim kernel are NOT optional, and their extraction
       // must not be allowed to fail quietly. On 2026-08-11 a build compiled
       // the right commit, logged the right stamps, exited 0 — and published
@@ -524,7 +525,11 @@ async function runBuildJob(job) {
         `docker cp ${cid}:/tmp/ac-build/ac-os.iso ${isoOut} 2>/dev/null || docker cp ${cid}:/out/ac-os.iso ${isoOut} 2>/dev/null || true`,
         `docker cp ${cid}:/tmp/ac-build/vmlinuz-slim ${slimOut} 2>/dev/null || docker cp ${cid}:/out/vmlinuz-slim ${slimOut}`,
         `docker cp ${cid}:/tmp/ac-build/initramfs.cpio.gz ${initramfsOut} 2>/dev/null || docker cp ${cid}:/out/initramfs.cpio.gz ${initramfsOut}`,
-        `ls -lh ${slimOut} ${initramfsOut}`,
+        // Chromebook kernel partition image. Required unless the build opted
+        // out with AC_SKIP_KPART=1, for the same reason as the initramfs: a
+        // missing artifact must fail here, not publish a stale sibling.
+        `docker cp ${cid}:/tmp/ac-build/vmlinuz.kpart ${kpartOut} 2>/dev/null || docker cp ${cid}:/out/vmlinuz.kpart ${kpartOut} || [ "${process.env.AC_SKIP_KPART || ""}" = "1" ]`,
+        `ls -lh ${slimOut} ${initramfsOut} ${kpartOut} 2>/dev/null || ls -lh ${slimOut} ${initramfsOut}`,
         `docker rm ${cid} >/dev/null`,
       ].join("\n")], repoDir);
 
@@ -556,6 +561,7 @@ async function runBuildJob(job) {
       const isoUpload = `${uploadDir}/ac-os.iso`;
       const slimUpload = `${uploadDir}/vmlinuz-slim`;
       const initramfsUpload = `${uploadDir}/initramfs.cpio.gz`;
+      const kpartUpload = `${uploadDir}/vmlinuz.kpart`;
       await fs.mkdir(uploadDir, { recursive: true });
       await fs.rename(vmlinuzOut, vmlinuzUpload);
       try { await fs.rename(isoOut, isoUpload); } catch {}
@@ -564,6 +570,9 @@ async function runBuildJob(job) {
       // to be published in this build's place. Fail the job instead.
       await fs.rename(slimOut, slimUpload);
       await fs.rename(initramfsOut, initramfsUpload);
+      try { await fs.rename(kpartOut, kpartUpload); } catch (e) {
+        if (process.env.AC_SKIP_KPART !== "1") throw e;
+      }
       // upload-release.sh auto-detects sibling files (vmlinuz-slim, initramfs.cpio.gz, ac-os.iso)
       await runPhase(job, "upload", "bash", [uploadScript, vmlinuzUpload], NATIVE_DIR, uploadEnv);
 

@@ -6,7 +6,14 @@
 // Follows the same pattern as memory/cli.mjs and papers/cli.mjs.
 
 import { config } from "dotenv";
-config(); // Load .env from at/ directory
+import { dirname, resolve as resolvePath } from "node:path";
+import { fileURLToPath } from "node:url";
+// Credentials: at/.env when devault.fish has copied one here, otherwise the
+// vault's own copy. dotenv never overrides a key that is already set, so the
+// first file found wins and the shell environment beats both.
+const here = dirname(fileURLToPath(import.meta.url));
+config({ path: resolvePath(here, ".env") });
+config({ path: resolvePath(here, "../vault/at/.env") });
 
 const PDS_URL = process.env.PDS_URL || "https://at.aesthetic.computer";
 // Two endpoints, not one. Reads go to the unauthenticated AppView; writes go

@@ -14,8 +14,8 @@ final class LyricCaption {
     private static var slots: [Int: LyricCaption] = [:]
     static func at(_ slot: SingerFace.SimSlot?) -> LyricCaption {
         guard let slot else { return shared }
-        if let c = slots[slot.index] { c.slot = slot; return c }
-        let c = LyricCaption(); c.slot = slot; slots[slot.index] = c; return c
+        if let c = slots[slot.key] { c.slot = slot; return c }
+        let c = LyricCaption(); c.slot = slot; slots[slot.key] = c; return c
     }
     static func hideAll() { shared.hide(line: nil); slots.values.forEach { $0.hide(line: nil) } }
     private var slot: SingerFace.SimSlot?
@@ -93,7 +93,8 @@ final class LyricCaption {
         guard !chars.isEmpty, nsyl > 0 else { return }
 
         var pt = requested > 0 ? requested
-            : slot == nil ? max(22, round(stage.width / 34)) : max(11, round(stage.width / 26))
+            : slot == nil ? max(22, round(stage.width / 34))
+            : slot?.corner == true ? max(13, round(stage.width / 17)) : max(11, round(stage.width / 26))
         let maxWidth = stage.width * 0.86
         var font = LyricCaption.font(pt)
         var widths: [CGFloat] = []

@@ -62,6 +62,16 @@ let package = Package(
                 .unsafeFlags(["-O3", "-ffast-math"]),
             ]
         ),
+        // The singer, offline: Menu Band's own MenuBandSinger.swift (a
+        // SYMLINK, one source of truth) driven from the command line into
+        // WAV files — no device, no window — for the intelligibility loop
+        // that renders every sung line, runs Whisper over it and scores the
+        // words (grants/…/macneopolitan/bin/hear.mjs).
+        .executableTarget(
+            name: "singrender",
+            dependencies: ["CSinger"],
+            path: "Sources/SingRender"
+        ),
         .executableTarget(
             name: "MenuBand",
             dependencies: [

@@ -55,7 +55,6 @@ function triggerMeter(x, y, width, value, r, g, b) {
 function boot() {
   refresh(true);
   telemetry("DASHBOARD_BOOT", JSON.stringify(runtime()));
-  synth(state.caps.online ? 523.25 : 220, 0.08);
 }
 
 function sim() {

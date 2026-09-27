@@ -1,0 +1,151 @@
+% !TEX program = xelatex
+% Prompt Rocks — the last 24 hours of prox, one broadside. Every live Claude,
+% Codex or Easel session the Slab fleet advertised between 2026-09-14 20:00
+% and 2026-09-15 20:00, drawn as the rock it wore, with its name and what it did.
+% Modelled on papers/new-urls-fall-2026/new-urls-fall-2026.tex. Rocks rendered
+% by slab/bin/prox-sigil-export from each session's seed; roster in roster.json.
+\documentclass[10pt]{article}
+\usepackage[paperwidth=12in,paperheight=18in,top=0.55in,bottom=0.5in,left=0.62in,right=0.62in]{geometry}
+\usepackage{fontspec}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,urlcolor=acblue,linkcolor=acdark,pdftitle={Prompt Rocks, the last 24 hours}}
+
+\setmainfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\setmonofont{lmmonolt10-regular.otf}[Scale=0.92,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmonolt10-oblique.otf,
+]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newcommand{\dsep}{{\normalfont\;\textperiodcentered\;}}
+
+\definecolor{acpink}{HTML}{B44887}
+\definecolor{acpurple}{HTML}{7850B4}
+\definecolor{acblue}{HTML}{1559A6}
+\definecolor{acdark}{HTML}{312B38}
+\definecolor{acgray}{HTML}{66636A}
+\definecolor{acpale}{HTML}{F4F1F5}
+\definecolor{acrule}{HTML}{DCD6DF}
+\definecolor{acgreen}{HTML}{2D7650}
+\definecolor{acorange}{HTML}{A85D24}
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{Aesthetic{\acdot}Computer}
+
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+\hyphenpenalty=10000\exhyphenpenalty=10000
+
+\newcommand{\pill}[2]{{\fontsize{6.2pt}{7pt}\selectfont\colorbox{#1!12}{\textcolor{#1}{\bfseries\textls[60]{#2}}}}}
+% \colhead{label}{range}
+\newcommand{\colhead}[2]{%
+  {\color{acdark}\rule{\linewidth}{1.6pt}}\par\vspace{0.28em}%
+  {\ttfamily\fontsize{8pt}{9.5pt}\selectfont\color{acpink}\textls[80]{#1}}\hfill{\ttfamily\fontsize{7.4pt}{9pt}\selectfont\color{acgray}#2}\par\vspace{0.35em}}
+% \rock{image}{host}{name}{agent pill}{window}{status pill}{about}
+\newcommand{\rock}[7]{%
+  \par\nointerlineskip{\color{acrule}\hrule height 0.5pt}\vspace{0.28em}%
+  \begin{minipage}[c]{1.22in}\includegraphics[width=1.22in]{figures/rocks/#1}\end{minipage}\hfill
+  \begin{minipage}[c]{\dimexpr\linewidth-1.34in\relax}
+  {\ttfamily\bfseries\fontsize{12.5pt}{14pt}\selectfont{\color{acgray}#2:}{\color{acdark}#3}}\ \ #4\par\vspace{0.18em}%
+  {\ttfamily\fontsize{7pt}{8.4pt}\selectfont\color{acgray}#5}\ \ #6\par\vspace{0.32em}%
+  {\fontsize{8pt}{9.7pt}\selectfont\color{acdark}\RaggedRight#7\par}
+  \end{minipage}\par\vspace{0.34em}}
+\newcommand{\stat}[2]{{\bfseries\fontsize{26pt}{26pt}\selectfont\color{#1}#2}}
+\newcommand{\statl}[1]{{\ttfamily\fontsize{6.6pt}{8pt}\selectfont\color{acgray}#1}}
+
+\begin{document}
+
+% ═══════════════════════════════════════ masthead
+{\ttfamily\fontsize{8.4pt}{10pt}\selectfont\color{acpink}\textls[80]{BROADSIDE\dsep AESTHETIC.COMPUTER\dsep PROX\dsep 2026-09-14 20:00 TO 2026-09-15 20:00}\par}
+\vspace{0.3em}
+{\acbold\fontsize{54pt}{52pt}\selectfont\color{acdark}Prompt Rocks\ \ {\color{acpink}the last 24 hours}\par}
+\vspace{0.55em}
+\begin{minipage}[t]{0.64\linewidth}\vspace{0pt}
+{\fontsize{11.4pt}{14.2pt}\selectfont\color{acdark}\RaggedRight
+Every Claude, Codex and Easel session the Slab fleet advertised in the last day, drawn as the rock it wore in the menubar, with its pet name, its hours, and what it was doing. Read each column top to bottom: the day runs from the first disk-space question at breakfast to this sheet.\par}
+\vspace{0.45em}
+{\fontsize{8.2pt}{10pt}\selectfont\color{acgray}\href{https://prompt.ac/@jeffrey}{\color{acblue}\textbf{@jeffrey}}\ \textperiodcentered\ \ac{}\ \textperiodcentered\ compiled 2026-09-15 from the prox ledger, the session transcripts and the git record\par}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.32\linewidth}\vspace{0pt}
+\renewcommand{\arraystretch}{0.9}
+\begin{tabularx}{\linewidth}{@{}>{\raggedleft\arraybackslash}X>{\raggedleft\arraybackslash}X>{\raggedleft\arraybackslash}X@{}}
+\stat{acdark}{27} & \stat{acdark}{3} & \stat{acdark}{75}\\
+\statl{ROCKS} & \statl{MACHINES} & \statl{COMMITS}\\[0.5em]
+\stat{acpurple}{13} & \stat{acblue}{11} & \stat{acpink}{1{,}556}\\
+\statl{CLAUDE} & \statl{CODEX} & \statl{CLAUDE TURNS}\\
+\end{tabularx}
+\end{minipage}\par
+\vspace{0.45em}
+{\color{acdark}\rule{\linewidth}{3pt}}\par
+\vspace{0.35em}
+
+% ═══════════════════════════════════════ the rocks: three columns, chronological
+\begin{minipage}[t]{0.315\linewidth}\vspace{0pt}
+\colhead{MORNING}{08:03 to 12:37 on neo}
+\rock{neo-petit.png}{neo}{petit}{\pill{acpurple}{CLAUDE}}{08:03\textendash{}12:39\ \textperiodcentered\ 175 turns}{\pill{acorange}{HIT LIMIT}}{Disk space on neo before the fuser day: a space audit, an app-usage list to decide what to remove, and Photos originals archived to blueberry. Hit the session limit; kerez picked it up.}
+\rock{neo-kalur.png}{neo}{kalur}{\pill{acpurple}{CLAUDE}}{08:38\textendash{}08:39\ \textperiodcentered\ 4 turns}{\pill{acgray}{COMPLETE}}{Cleared the ``you have mail'' banner that every new terminal on neo was printing.}
+\rock{neo-pen.png}{neo}{pen}{\pill{acpurple}{CLAUDE}}{08:38\textendash{}12:39\ \textperiodcentered\ 357 turns}{\pill{acorange}{HIT LIMIT}}{Aesthetic mail census (no outside users yet), the chat scene, laklok, and the New URLs broadside pressed through the papers mill. Hit the session limit; kan took over the inbox watch.}
+\rock{neo-sukig.png}{neo}{sukig}{\pill{acpurple}{CLAUDE}}{08:40\textendash{}16:14\ \textperiodcentered\ 270 turns}{\pill{acorange}{HIT LIMIT}}{Fuser office day: what was on the table, the day-start sweep, PRs and ClickUp, worked through the afternoon until the Fable limit.}
+\rock{neo-regus.png}{neo}{regus}{\pill{acpurple}{CLAUDE}}{10:27\textendash{}10:40\ \textperiodcentered\ 21 turns}{\pill{acgray}{COMPLETE}}{Connected to chicken and closed the PANDA LIVE director-overlay panel the captutor had left floating.}
+\rock{neo-vulup.png}{neo}{vulup}{\pill{acblue}{CODEX}}{10:42\textendash{}10:47}{\pill{acgray}{BLANK}}{One prompt about using six Astra, then nothing recorded.}
+\rock{neo-sedid.png}{neo}{sedid}{\pill{acblue}{CODEX}}{10:48\textendash{}now}{\pill{acgray}{BLANK}}{Research into sites like mimechan. The window has sat blank since.}
+\rock{neo-vurun.png}{neo}{vurun}{\pill{acblue}{CODEX}}{12:10\textendash{}16:08}{\pill{acgray}{COMPLETE}}{After the Hirad meeting: checked on sukig, OCR'd the Downloads folder, pulled the ICP from Airtable; later corrected sotce.net's subscriber counts and deployed.}
+\rock{neo-kerez.png}{neo}{kerez}{\pill{acblue}{CODEX}}{12:37\textendash{}17:33}{\pill{acgray}{COMPLETE}}{Picked up petit's archive: 86 GiB of Photos originals copying to blueberry, both machines kept awake, no errors.}
+\end{minipage}%
+\hfill{\color{acrule}\vrule width 1pt}\hfill
+\begin{minipage}[t]{0.315\linewidth}\vspace{0pt}
+\colhead{AFTERNOON}{12:37 to 16:14 on neo}
+\rock{neo-kan.png}{neo}{kan}{\pill{acblue}{CODEX}}{12:37\textendash{}15:03}{\pill{acgray}{COMPLETE}}{Picked up pen's inbox watch: 15 letters, one unread, both mail services running with no failures logged.}
+\rock{neo-purim.png}{neo}{purim}{\pill{acblue}{CODEX}}{12:55\textendash{}now}{\pill{acgray}{COMPLETE}}{Fuser PRs opened today: Koto rendering its demo, DEPT awaiting review, DixonBaxi next, August's mission queued. The ClickUp watcher kept polling.}
+\rock{neo-zefani.png}{neo}{zefani}{\pill{acpurple}{CLAUDE}}{14:08\textendash{}14:12\ \textperiodcentered\ 11 turns}{\pill{acgray}{COMPLETE}}{A short look at marketing through the posting2 app.}
+\rock{neo-surizo.png}{neo}{surizo}{\pill{acpurple}{CLAUDE}}{14:34\textendash{}16:21\ \textperiodcentered\ 168 turns}{\pill{acgray}{COMPLETE}}{Read Fia's messages and replied; the check and four square images went over with receipts. Born surizu, adopted as a Loopboy at 16:01 and renamed.}
+\rock{neo-rof.png}{neo}{rof}{\pill{acpurple}{CLAUDE}}{14:43\textendash{}15:21\ \textperiodcentered\ 30 turns}{\pill{acgray}{COMPLETE}}{Signal thread with Jayson: the reply went out, was logged and pushed in the vault, and the send rule was unblocked for next time.}
+\rock{neo-fumop.png}{neo}{fumop}{\pill{acpurple}{CLAUDE}}{15:00\textendash{}16:13\ \textperiodcentered\ 96 turns}{\pill{acgray}{COMPLETE}}{Handle colors in laklok and laer-klokken: every author now gets a color, not only the ones online. Shipped with compush and verified live.}
+\rock{neo-num.png}{neo}{num}{\pill{acblue}{CODEX}}{15:22\textendash{}16:13}{\pill{acgray}{COMPLETE}}{Log In regression on aesthetic.computer: an expired saved session had disconnected the button. Fixed, deployed, five regression tests pass.}
+\rock{neo-mivova.png}{neo}{mivova}{\pill{acpurple}{CLAUDE}}{15:54\textendash{}16:13\ \textperiodcentered\ 34 turns}{\pill{acgray}{COMPLETE}}{How Loopboys work and adopting a running rock as one in place. Fia's route set to wake:false so a message pokes the gem instead of typing into a terminal.}
+\rock{neo-losuna.png}{neo}{losuna}{\pill{acblue}{CODEX}}{16:14\textendash{}16:18}{\pill{acgray}{COMPLETE}}{Found a dead prox, read its transcript and working files, and restored it with the recovered context.}
+\end{minipage}%
+\hfill{\color{acrule}\vrule width 1pt}\hfill
+\begin{minipage}[t]{0.315\linewidth}\vspace{0pt}
+\colhead{EVENING, OTHER MACHINES}{16:15 to now; then blueberry, panda}
+\rock{neo-gutil.png}{neo}{gutil}{\pill{acblue}{CODEX}}{16:15\textendash{}16:38}{\pill{acgray}{COMPLETE}}{Slab: the ctrl-ctrl zoom shortcut on cmd+alt arrows, with animated zoom carried through keyboard window navigation.}
+\rock{neo-kam.png}{neo}{kam}{\pill{acblue}{CODEX}}{16:17\textendash{}16:58}{\pill{acorange}{INTERRUPTED}}{Fuser: build, lint and browser checks passed on GitHub and ClickUp; TypeScript and the three test groups were still running when it stopped.}
+\rock{neo-furi.png}{neo}{furi}{\pill{acpurple}{CLAUDE}}{16:55\textendash{}now\ \textperiodcentered\ 290 turns}{\pill{acpink}{AWAITING}}{Steam page and Steam build of oskiewar: the appid in the shell, store images out of the game, depot scripts, a marketing model and a wishlist puller. Last reply stopped arriving after ``i ran it''.}
+\rock{neo-kuf.png}{neo}{kuf}{\pill{acpurple}{CLAUDE}}{18:00\textendash{}now\ \textperiodcentered\ 94 turns}{\pill{acpink}{AWAITING}}{The boot animation was too verbose: empty boot is now the default, preloads come from the real import graph, the worker bundle warms from the shell. Two commits to knot and lith.}
+\rock{neo-lufu.png}{neo}{lufu}{\pill{acblue}{CODEX}}{19:53\textendash{}now}{\pill{acgray}{COMPLETE}}{Asked what prox:kuf was doing, then ``now?'' on the inbox: no new replies, 15 letters, one unread.}
+\rock{neo-zepep.png}{neo}{zepep}{\pill{acpurple}{CLAUDE}}{19:55\textendash{}now\ \textperiodcentered\ 6 turns}{\pill{acgreen}{WORKING}}{This sheet: the last 24 hours of prox as a list, then every rock drawn with its name and what it was about.}
+\rock{blueberry-zevo.png}{blueberry}{zevo}{\pill{acblue}{CODEX}}{09-14 07:55\textendash{}now}{\pill{acgreen}{WORKING}}{Easel for Linux, so a friend at computer club can use it: published, with tool approvals auto-allowed by default and /ask on to restore them.}
+\rock{blueberry-piro.png}{blueberry}{piro}{\pill{acgreen}{EASEL}}{19:49\textendash{}now}{\pill{acpink}{AWAITING}}{An Easel session on blueberry holding a piece.}
+\rock{panda-iris.png}{panda}{iris}{\pill{acorange}{AGENT}}{headless}{\pill{acgray}{COMPLETE}}{Fuser Bot, the headless agent on panda, working ClickUp missions.}
+\end{minipage}%
+\par
+
+% ═══════════════════════════════════════ footer
+\vspace{0.5em}
+{\color{acdark}\rule{\linewidth}{3pt}}\par\vspace{0.45em}
+\begin{minipage}[t]{0.315\linewidth}\vspace{0pt}
+{\ttfamily\fontsize{7.6pt}{9pt}\selectfont\color{acpink}\textls[80]{HOW A ROCK GETS ITS NAME}\par}\vspace{0.3em}
+{\fontsize{7.9pt}{9.6pt}\selectfont\color{acgray}\RaggedRight
+The pet name is drawn from the session id alone: an FNV-1a hash seeds a SplitMix64 stream that picks three to six letters, consonant then vowel, so the same session is always the same word on every machine. A Loopboy keeps the name on its contact route instead, which is why surizu became surizo when it was adopted at 16:01. An Easel rock is named after the piece it holds.\par}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.315\linewidth}\vspace{0pt}
+{\ttfamily\fontsize{7.6pt}{9pt}\selectfont\color{acpink}\textls[80]{HOW A ROCK GETS ITS SHAPE}\par}\vspace{0.3em}
+{\fontsize{7.9pt}{9.6pt}\selectfont\color{acgray}\RaggedRight
+The shape and strata come from a second seed, the session id joined to the current seven-word summary of the latest prompt, so a rock shifts a little with every prompt while the name holds still. The nine rocks still on the ledger are drawn from their live seed. The eighteen that have gone were re-seeded from the last prompt each one answered, the state they were in when they went dark.\par}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.315\linewidth}\vspace{0pt}
+{\ttfamily\fontsize{7.6pt}{9pt}\selectfont\color{acpink}\textls[80]{NOT ON THIS SHEET}\par}\vspace{0.3em}
+{\fontsize{7.9pt}{9.6pt}\selectfont\color{acgray}\RaggedRight
+The fleet memory index could not reach jeffrey-macbook, poorslice, chicken or panda's transcripts, and the ledger history only reaches back to 09:02, so anything that ran and closed before breakfast is missing. Subagents, which wear no rock, are folded into their parents. panda:gitave sits interrupted with an expired login from weeks ago. Rendered by \texttt{slab/bin/prox-sigil-export}; roster in \texttt{roster.json}. Set in YWFT Processing, Latin Modern Sans and Latin Modern Mono. \ac{}\par}
+\end{minipage}\par
+\end{document}

@@ -13,6 +13,7 @@ const absent = (name) => () => {
 export const spawn = absent("spawn");
 export const execFile = absent("execFile");
 export const execFileSync = absent("execFileSync");
+export const request = absent("request");
 export const createServer = absent("createServer");
 export const createInterface = absent("createInterface");
 export const homedir = () => "/home";

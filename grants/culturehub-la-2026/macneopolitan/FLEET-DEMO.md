@@ -380,3 +380,30 @@ room queue (`~/Shelf/venue-queue.json`, twelve items, autoplay off) for the
 on the seats. Known cost: the runner re-prepares each item before staging
 (the stop after every run clears the singers' caches), about a minute
 between songs; keeping caches across a natural end is the next fix.
+
+## The evening, 17:00 — state before doors at 19:00
+
+- **The set ran through the room queue from frisbee** (`~/Shelf/venue-runner2.sh`
+  + supervisor; the `venue` MCP's setlist): Good morning, Sophia, Open me,
+  A B C, What starts with, Sums, Take away, Thirteen days, Vocalise, The
+  record, then Femrag++, Lights out, the lullaby. Peba's MIDI items played
+  once (Artificial Intelligence Bomb complete; Rush E played but its
+  conductor's post-run check failed) and are parked.
+- **Timing:** every sounding layer is baked into the seat stems (deck path,
+  sample-locked); `bin/measure-sync.py` during What starts with: audio clocks
+  0.9965–1.0011 of real time, reported spread median 100 ms / max 251 ms
+  (status polling, not sound); ac4 (left rear) is the seat that stalls.
+  Timestamped scheduling for the engine exists on branch
+  `native-timestamped-scheduling` (cacff7c5a6, unit-tested, not compiled for
+  the laptops, not deployed): oven build + laptop runtime update after the show.
+- **Screens:** laptops are lyric screens (seat colour full-bleed, headline
+  lead line with syllables lit, answers bigger/framed/flash/linger, hums as
+  texture; `LYRICS-SCREENS.md`); singers' faces opaque with 110 captions;
+  the Xbox and ac7 show the live line from blueberry's feed via neo's stage
+  (display agent; the per-face/per-syllable `drawTrioRoom` adoption and the
+  Windows sub page were in progress at 17:00); `oskiewar` MCP wraps the feed
+  and stage. Room volume 100 % (blueberry:8795).
+- **For 19:00:** `node toolchain/mcp/venue-cli.mjs venue_enqueue setlist=setlist-room`
+  then `venue_autoplay on=true` (or the supervisor with runner2) from frisbee
+  with the ssh tunnels to blueberry:8791 and neo:8790 open; each item
+  re-prepares (≈1 min) before it plays.

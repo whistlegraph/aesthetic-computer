@@ -317,3 +317,52 @@ test('code grass gets generated write arguments, never thinking or tool results'
   await engine.startTurn('roll');
   assert.deepEqual(output,[JSON.stringify({source:code,note:'first draft'})]);
 });
+
+test('hosted settings tool returns its result without writing the piece or interrupting its own reply',async t=>{
+ const dir=await mkdtemp(join(tmpdir(),'ac-settings-'));t.after(()=>rm(dir,{recursive:true,force:true}));
+ const file=join(dir,'piece.mjs'),source='export function paint({wipe}) { wipe(0); }\n';await writeFile(file,source);
+ const calls=[],sent=[],events=[];
+ const tool=[{type:'content_block_start',index:0,content_block:{type:'tool_use',id:'settings-one',name:'aesel_settings'}},{type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:JSON.stringify({action:'update',provider:'codex'})}},{type:'content_block_stop',index:0},{type:'message_delta',delta:{stop_reason:'tool_use'}}];
+ const respond=serving(tool,say('I queued Codex for the next reply.'));
+ const engine=new AcServer({piece:{file},token:async()=>'fixture',jev:null,settings:async args=>{calls.push(args);return {status:'queued',provider:'claude',pending:{provider:'codex'}};},fetch:async(_url,options)=>{sent.push(JSON.parse(options.body));return respond();}});
+ engine.on('notification',event=>events.push(event));await engine.startTurn('switch to Codex');
+ assert.deepEqual(calls,[{action:'update',provider:'codex'}]);assert(sent[0].tools.some(tool=>tool.name==='aesel_settings'));
+ assert.match(JSON.stringify(sent[1].messages),/queued/);assert.equal((await readFile(file,'utf8')),source);
+ assert.equal(events.findLast(event=>event.method==='turn/completed').params.turn.status,'completed');
+ assert(!events.some(event=>event.params?.item?.type==='fileChange'));
+});
+
+test('stalled AC headers and streams time out without replaying paid requests', async () => {
+  for (const stage of ['headers','stream']) {
+    let requests=0,signal,completed;
+    const engine=new AcServer({token:async()=>'test',jev:null,networkTimeouts:{connect:10,idle:10},fetch:async(_,options)=>{
+      requests++;signal=options.signal;
+      if(stage==='headers')return new Promise(()=>{});
+      return {ok:true,body:{getReader:()=>({read:()=>new Promise(()=>{}),cancel:async()=>{}})}};
+    }});
+    engine.on('notification',({method,params})=>{if(method==='turn/completed')completed=params.turn;});
+    await engine.startTurn('continue');
+    assert.equal(requests,1);assert.equal(signal.aborted,true);
+    assert.equal(completed.status,'failed');assert.equal(completed.error.network,true);
+  }
+});
+
+test('runtime model identity is grounded and bundled stream progress is coalesced', async () => {
+  const notifications = [];
+  let request;
+  const events = [
+    {type:'content_block_start', index:0, content_block:{type:'text',text:''}},
+    ...['one ', 'two ', 'three'].map(text=>({type:'content_block_delta',index:0,delta:{type:'text_delta',text}})),
+    {type:'content_block_stop',index:0},
+    {type:'message_delta',delta:{stop_reason:'end_turn'}},
+  ];
+  const engine = new AcServer({model:'openai/gpt-5.6-luna',token:async()=>'test',fetch:async(_, options)=>{
+    request=JSON.parse(options.body);
+    return new Response(events.map(event=>`data: ${JSON.stringify(event)}\n`).join(''));
+  }});
+  engine.on('notification', event=>notifications.push(event));
+  await engine.connect();await engine.startTurn('what model are you?');
+  assert.match(request.system.map(block=>block.text).join('\n'),/configured provider model identifier for this request is openai\/gpt-5\.6-luna/);
+  assert.equal(notifications.filter(e=>e.method==='turn/progress'&&e.params.phase==='generating').length,1);
+  assert.equal(notifications.filter(e=>e.method==='item/agentMessage/delta').map(e=>e.params.delta).join(''),'one two three');
+});

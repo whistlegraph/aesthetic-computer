@@ -210,7 +210,7 @@ let login, // A login button in the center of the display.
   notepatBtn, // 🎹 Notepat button (to the right of the commit button)
   kidlispBtn; // KidLisp.com button (shown when in KidLisp mode)
 
-let mimeAdBtn; // MIME promo (top-right ad slot)
+let promoAdBtn; // Shared MIME / Oskiewar promo (top-right ad slot)
 let giveBtn; // GIVE button (top-right slot)
 let soBtn, softBtn; // SO SOFT ad buttons
 let osBtn; // OS button (top-right slot)
@@ -224,7 +224,12 @@ let giveBtnParticles = [];
 // 🎰 Top-right slot: A/B test — pick one randomly on page load
 const TOP_RIGHT_BTN_CHOICES = ["mime", "give", "ad", "os", "products", "blank"];
 // const topRightBtnChoice = TOP_RIGHT_BTN_CHOICES[Math.floor(Math.random() * TOP_RIGHT_BTN_CHOICES.length)];
-const topRightBtnChoice = "mime"; // MIME promo; prompt:products still opts into the product carousel
+const topRightBtnChoice = "mime"; // Shared promo; prompt:products still opts into the product carousel
+const PROMPT_PROMOS = [
+  { label: "mime.ac", url: "https://mime.ac/" },
+  { label: "oskiewar.com", url: "https://oskiewar.com/" },
+];
+const promptPromo = PROMPT_PROMOS[Math.floor(Math.random() * PROMPT_PROMOS.length)];
 
 let clearBtn; // 🧹 "Blank" button (fixed top-right, appears at 32+ chars)
 let clearBtnConfirming = false; // Two-tap confirmation state
@@ -6054,18 +6059,18 @@ function paint($) {
     blankAdBtn = null;
   }
 
-  // MIME occupies the curtain's existing ad slot; typing clears its hit area.
+  // The selected promo occupies the curtain's ad slot; typing clears its hit area.
   if (topRightBtnChoice === "mime" && !productsEnabled && showLoginCurtain && flairEnabled &&
       !$.system.prompt.input.canType && !$.system.prompt.input.text && screen.width >= 112) {
-    const label = "mime.ac";
+    const label = promptPromo.label;
     const pos = { right: 3, top: 3, screen };
-    if (!mimeAdBtn) {
-      mimeAdBtn = new $.ui.TextButton(label, pos, undefined, 5);
-      mimeAdBtn.stickyScrubbing = true;
-    } else mimeAdBtn.reposition(pos, label);
-    const box = mimeAdBtn.btn.box;
-    const down = mimeAdBtn.btn.down;
-    const hover = mimeAdBtn.btn.over;
+    if (!promoAdBtn) {
+      promoAdBtn = new $.ui.TextButton(label, pos, undefined, 5);
+      promoAdBtn.stickyScrubbing = true;
+    } else promoAdBtn.reposition(pos, label);
+    const box = promoAdBtn.btn.box;
+    const down = promoAdBtn.btn.down;
+    const hover = promoAdBtn.btn.over;
     const t = performance.now() / 1000;
     ink(12, 9, 24).box(box.x + 1, box.y + 2, box.w, box.h, "fill");
     ink(...(down ? [55, 33, 66] : hover ? [63, 45, 79] : [35, 28, 48])).box(box, "fill");
@@ -6080,7 +6085,7 @@ function paint($) {
       ink(...(i < 4 ? colors[i] : [125, 227, 215])).write(char, { x, y });
     });
     $.needsPaint();
-  } else mimeAdBtn = null;
+  } else promoAdBtn = null;
 
   // 📦 Explicit product mode takes over the same top-right slot.
   if (flairEnabled && productsEnabled) {
@@ -8050,10 +8055,15 @@ function sim($) {
       }
     });
 
-    if (login) login.btn.disabled = true;
-    if (signup) signup.btn.disabled = true;
+    // The session landed after boot: the logged-out buttons were built for a
+    // user we did not know yet. Drop them (not just disable them) so nothing
+    // in `activated` or `setTheme` can revive them beside the handle.
+    login = undefined;
+    signup = undefined;
     delete $.store["handle:received"];
     profileAction = "profile";
+    // Match whatever curtain state the prompt is in right now.
+    profile.btn.disabled = $.system.prompt.input.canType || theme !== "default";
     $.needsPaint();
   }
 
@@ -8277,7 +8287,7 @@ function act({
           ["signup", signup?.btn],
           ["profile", profile?.btn],
           ["wallet", walletBtn?.btn],
-          ["mime", mimeAdBtn?.btn],
+          [promptPromo.label, promoAdBtn?.btn],
           ["give", giveBtn?.btn],
           ["so", soBtn?.btn],
           ["soft", softBtn?.btn],
@@ -8343,14 +8353,14 @@ function act({
     });
   }
 
-  // The MIME promo uses the same external-link handling as other curtain ads.
-  if (mimeAdBtn && !mimeAdBtn.btn.disabled && curtainVisible && flairEnabled &&
+  // Both promos use the same external-link handling as other curtain ads.
+  if (promoAdBtn && !promoAdBtn.btn.disabled && curtainVisible && flairEnabled &&
       !system.prompt.input.canType && !system.prompt.input.text) {
-    mimeAdBtn.btn.act(e, {
+    promoAdBtn.btn.act(e, {
       down: () => downSound(),
       push: () => {
         pushSound();
-        const url = "https://mime.ac/";
+        const url = promptPromo.url;
         if (net.iframe) send({ type: "post-to-parent", content: { type: "openExternal", url } });
         else jump(url);
       },
@@ -8675,7 +8685,7 @@ function act({
       (notepatBtn?.btn.disabled === false && notepatBtn?.btn.box.contains(e)) ||
       (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
-      (mimeAdBtn?.btn.disabled === false && mimeAdBtn?.btn.box.contains(e)) ||
+      (promoAdBtn?.btn.disabled === false && promoAdBtn?.btn.box.contains(e)) ||
       isOverMotdHandle)
   ) {
     send({ type: "keyboard:lock" });
@@ -8690,7 +8700,7 @@ function act({
       (notepatBtn?.btn.disabled === false && notepatBtn?.btn.box.contains(e)) ||
       (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
-      (mimeAdBtn?.btn.disabled === false && mimeAdBtn?.btn.box.contains(e)) ||
+      (promoAdBtn?.btn.disabled === false && promoAdBtn?.btn.box.contains(e)) ||
       (giveBtn?.btn.disabled === false && giveBtn?.btn.box.contains(e)) ||
       (soBtn?.btn?.disabled === false && soBtn?.btn?.box.contains(e)) ||
       (softBtn?.btn?.disabled === false && softBtn?.btn?.box.contains(e)) ||
@@ -9150,11 +9160,22 @@ function activated($, state) {
   }
   // console.log(state, firstCommandSent)
   // if (state === false && firstCommandSent) return;
-  const hideCurtain = theme !== "default";
-  if (login) login.btn.disabled = state || hideCurtain;
-  if (signup) signup.btn.disabled = state || hideCurtain;
-  if (profile) profile.btn.disabled = state || hideCurtain;
+  setCurtainButtons(state || theme !== "default");
   if (chatTickerButton) chatTickerButton.disabled = state;
+}
+
+// Enable or disable the curtain's buttons. The profile button (a logged-in
+// user) always wins over the login / signup pair, so a session that lands
+// after boot can never show both sets at once.
+function setCurtainButtons(disabled) {
+  if (profile) {
+    profile.btn.disabled = disabled;
+    if (login) login.btn.disabled = true;
+    if (signup) signup.btn.disabled = true;
+    return;
+  }
+  if (login) login.btn.disabled = disabled;
+  if (signup) signup.btn.disabled = disabled;
 }
 
 // 💬 Receive each response in full.
@@ -9446,10 +9467,7 @@ function setTheme(newTheme, $) {
     $["store"]["prompt:theme"] = theme;
     $["store"].persist?.("prompt:theme");
   }
-  const hideCurtain = theme !== "default";
-  if (login) login.btn.disabled = hideCurtain;
-  if (signup) signup.btn.disabled = hideCurtain;
-  if (profile) profile.btn.disabled = hideCurtain;
+  setCurtainButtons(theme !== "default");
 }
 
 async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) {

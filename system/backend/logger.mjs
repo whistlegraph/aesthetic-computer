@@ -29,6 +29,20 @@ async function link(db /*, kv*/) {
 // Actions should essentially follow the create / update / destroy / CRUD model
 // with a colon separating the object for proper parsing on the other end.
 
+// Every AC chat lives in the session server, which takes logs at /chat/log
+// and picks the room from `x-chat-instance` (session-server/session.mjs).
+// Handle and mute changes go to every AC chat; other logs to chat-system.
+// Sotce Net's chat is excluded: AC handle updates don't apply there.
+const CHAT_LOG_URL = dev
+  ? "https://localhost:8889/chat/log"
+  : "https://session-server.aesthetic.computer/chat/log";
+
+function chatTargets(multi) {
+  const system = { name: "chat-system", room: "chat-system.aesthetic.computer" };
+  const clock = { name: "chat-clock", room: "chat-clock.aesthetic.computer" };
+  return multi ? [system, clock] : [system];
+}
+
 async function log(text, data, from = "log") {
   if (!database) {
     console.error("⚠️🪵 Could not log:", from, text);
@@ -64,20 +78,15 @@ async function log(text, data, from = "log") {
     msg.action.match(/handle:(update|strip|colors)/)
   );
   
-  const chatServers = isMultiChatAction ? [
-    { name: "chat-system", url: dev ? "https://localhost:8083/log" : "https://chat-system.aesthetic.computer/log" },
-    { name: "chat-clock", url: dev ? "https://localhost:8085/log" : "https://chat-clock.aesthetic.computer/log" },
-    // Note: chat-sotce is excluded here because AC user handle updates don't apply to Sotce Net
-  ] : [
-    { name: "chat-system", url: dev ? "https://localhost:8083/log" : "https://chat-system.aesthetic.computer/log" }
-  ];
+  const chatServers = chatTargets(isMultiChatAction);
 
   for (const server of chatServers) {
     try {
-      const response = await got.post(server.url, {
+      const response = await got.post(CHAT_LOG_URL, {
         json: msg,
         headers: {
           Authorization: `Bearer ${process.env.LOGGER_KEY}`,
+          "x-chat-instance": server.room,
         },
         https: { rejectUnauthorized: !dev },
         timeout: { request: 10000 }, // 10 seconds
@@ -123,19 +132,15 @@ async function broadcast(text, data, from = "log") {
     msg.action.match(/handle:(update|strip|colors)/)
   );
 
-  const chatServers = isMultiChatAction ? [
-    { name: "chat-system", url: dev ? "https://localhost:8083/log" : "https://chat-system.aesthetic.computer/log" },
-    { name: "chat-clock", url: dev ? "https://localhost:8085/log" : "https://chat-clock.aesthetic.computer/log" },
-  ] : [
-    { name: "chat-system", url: dev ? "https://localhost:8083/log" : "https://chat-system.aesthetic.computer/log" }
-  ];
+  const chatServers = chatTargets(isMultiChatAction);
 
   for (const server of chatServers) {
     try {
-      const response = await got.post(server.url, {
+      const response = await got.post(CHAT_LOG_URL, {
         json: msg,
         headers: {
           Authorization: `Bearer ${process.env.LOGGER_KEY}`,
+          "x-chat-instance": server.room,
         },
         https: { rejectUnauthorized: !dev },
         timeout: { request: 10000 },

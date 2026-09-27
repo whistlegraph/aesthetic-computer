@@ -51,3 +51,38 @@ test("publishes the full Slab prompt lifecycle", async (context) => {
   assert.equal(await exists(active), false);
   assert.equal(await exists(awaiting), false);
 });
+
+test("a private marker never carries the prompt, and pro and the inbox socket are advertised", async (context) => {
+  const root = await mkdtemp(join(tmpdir(), "easel-slab-"));
+  context.after(() => rm(root, { recursive: true, force: true }));
+  const session = new SlabSession({
+    cwd: "/client",
+    pid: process.pid,
+    tty: "ttys099",
+    sessionId: "ac-private",
+    slabHome: root,
+    pro: true,
+    private: true,
+  });
+  const active = join(root, "state", "active-prompts", "ac-private");
+
+  session.start();
+  let marker = await readJson(active);
+  assert.equal(marker.pro, true);
+  assert.equal(marker.private, true);
+  assert.equal(marker.subject, "private");
+  assert.equal(marker.summary, "private");
+  assert.equal(marker.inbox_socket, "");
+
+  session.working("rewrite the client's billing brief");
+  session.inboxSocket("/tmp/inbox/ac-private/inbox.sock");
+  marker = await readJson(active);
+  assert.equal(marker.state, "working", "state is still published");
+  assert.equal(marker.subject, "private", "the prompt is not");
+  assert.equal(marker.summary, "private");
+  assert.equal(marker.inbox_socket, "/tmp/inbox/ac-private/inbox.sock");
+  assert.equal((await stat(active)).mode & 0o777, 0o600);
+  assert.equal(JSON.stringify(marker).includes("billing"), false);
+
+  session.close();
+});

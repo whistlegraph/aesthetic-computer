@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "kind": "aesel-ui",
+  "bundle": "/Users/aesthetic/.local/share/aesel-ui-test/Aesel Native.app",
+  "buildSha256": "37eaf4bff12eb5122703e152860479dc856b182478278c4735a4f77fa19dca1f",
+  "visualInference": false,
+  "reviewer": null,
+  "requiredScenarios": [
+    "notebook",
+    "settings",
+    "preview-expanded",
+    "notebook-narrow"
+  ],
+  "scenarios": [
+    {
+      "name": "notebook",
+      "capturedAt": "2026-09-21T20:26:23.668Z",
+      "instance": "6889A34C-8476-43B5-8FF8-DEFFB828E088",
+      "files": [
+        {
+          "path": "notebook-state.json",
+          "sha256": "0ce232b9d4c0979626353a0afcddf788687adc694072daedbcd435e6fc18ffe0"
+        },
+        {
+          "path": "notebook-app.png",
+          "sha256": "8f98b667d4ad5822c28b2d29d99630246f37850720f4e828acc7fc9a22af61c2"
+        },
+        {
+          "path": "notebook-preview.png",
+          "sha256": "7fec2ef71e6dd09b3933026bc0f61a2fa2d59a57b42eef367085a392dfa78434"
+        },
+        {
+          "path": "notebook-preview.json",
+          "sha256": "e544666f67c48322eecc8144be348b99cbe350cb8365308be3d12a67f1ae809c"
+        }
+      ],
+      "design": "unreviewed",
+      "checks": {
+        "type": "unreviewed",
+        "contrast": "unreviewed",
+        "spacing": "unreviewed",
+        "chrome": "unreviewed",
+        "preview": "unreviewed",
+        "interaction": "unreviewed"
+      },
+      "notes": "",
+      "actions": []
+    }
+  ]
+}

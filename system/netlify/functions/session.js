@@ -26,7 +26,7 @@ const udpUrl = `https://udp.aesthetic.computer`;
 async function fun(event, context) {
   let out,
     status = 200,
-    forceProd = parseInt(event.queryStringParameters.forceProduction) === 1;
+    forceProd = parseInt(event.queryStringParameters?.forceProduction) === 1;
 
   if (dev && !forceProd) {
     let host = event.headers.host.split(":")[0];
@@ -47,81 +47,12 @@ async function fun(event, context) {
       out = { url: `https://${host}:8889`, udp: `https://${host}:8889` };
     }
 
-  } else if (event.queryStringParameters.service === "monolith") {
+  } else {
     out = {
       url: `https://session-server.aesthetic.computer`,
       udp: udpUrl,
       state: "Ready",
     };
-  } else {
-    const { got } = await import("got");
-    const slug = event.path.replace("/session/", ""); // Take everything after the path.
-    const jamSocketToken = process.env.JAMSOCKET_ACCESS_TOKEN;
-    out = {};
-
-    // rep.header("Access-Control-Allow-Origin", corsOrigin);
-
-    // 1. Check to see if we actually should make a backend.
-    if (slug.length === 1) {
-      status = 500;
-      out = { msg: "😇 Sorry. No backend could be spawned!" };
-    }
-
-    // Check to see if an "existing" backend for this slug is still alive.
-
-    // Connect to redis...
-    // const client = !dev
-    // ? createClient({ url: redisConnectionString })
-    // : createClient();
-    // client.on("error", (err) => console.log("🔴 Redis client error!", err));
-    // await client.connect();
-
-    // Check to see if a backend is already available...
-    // const currentBackend = await client.HGET("backends", slug);
-
-    // console.log("🫂  Current backend:", currentBackend);
-
-    // if (currentBackend) {
-    // try {
-    //   out = await got(
-    //     `https://api.jamsocket.com/backend/${currentBackend}/status`,
-    //   ).json();
-    //   out.url = `https://${currentBackend}.jamsocket.run`; // Add URL for client.
-    //   out.udp = udpUrl;
-    //   // console.log("Out:", out);
-    // } catch (err) {
-    //   console.error("🔴 Error:", err);
-    //   status = 500;
-    //   out = err;
-    // }
-    // }
-
-    // if (out?.state !== "Ready") {
-    // Make a new session backend if one doesn't already exist.
-    try {
-      console.log("🟡 Spawning a new session for:", slug);
-      const session = await got
-        .post({
-          url: "https://api.jamsocket.com/user/jas/service/session-server/spawn",
-          json: { grace_period_seconds: 60, lock: slug }, // jamsocket api settings
-          headers: { Authorization: `Bearer ${jamSocketToken}` },
-        })
-        .json(); // Note: A failure will yield a 500 code here to the client.
-
-      // console.log("🫂 Session:", session);
-      // await client.HSET("backends", slug, session.name); // Store the session name in redis using the 'slug' key.
-
-      console.log("Session:", session);
-      out = session;
-      out.udp = udpUrl;
-    } catch (err) {
-      // console.error("🔴 Error:", err);
-      status = 500;
-      out = err;
-    }
-    // }
-
-    // await client.quit(); // Disconnect from redis client.
   }
 
   return {

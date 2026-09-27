@@ -191,11 +191,16 @@ if [ -d "${PIECES_SRC}" ]; then
 fi
 
 # Spatial rehearsal ships with its deterministic routing library and scores.
-# Seat assignment is supplied by the LAN controller, never baked into an image.
+# Seat assignment comes from the LAN controller, or from the command line
+# (spatial-rehearsal:<seat>) for one laptop alone; nothing per-machine is baked.
+# The baked default score is the CultureHub piece, Note(s)pat(ial) Native.
 mkdir -p "${INITRAMFS_DIR}/lib" "${INITRAMFS_DIR}/scores"
 cp "${NATIVE_DIR}/lib/spatial-rehearsal.mjs" "${INITRAMFS_DIR}/lib/"
+# Aesel's Claude bridge translator (pieces/aesel.mjs imports it from /lib).
+cp "${NATIVE_DIR}/lib/aesel-bridge.mjs" "${INITRAMFS_DIR}/lib/"
+cp "${NATIVE_DIR}/lib/aesel-ac.mjs" "${INITRAMFS_DIR}/lib/"
 cp "${NATIVE_DIR}/scores/"*.nsscore "${INITRAMFS_DIR}/scores/"
-cp "${NATIVE_DIR}/scores/sine-line.nsscore" "${INITRAMFS_DIR}/pieces/spatial-rehearsal.nsscore"
+cp "${NATIVE_DIR}/scores/notespatial-native.nsscore" "${INITRAMFS_DIR}/pieces/spatial-rehearsal.nsscore"
 
 # Copy web pieces that run unmodified on native (Wave 1 + clock)
 AC_DISKS_DIR="${NATIVE_DIR}/../../system/public/aesthetic.computer/disks"

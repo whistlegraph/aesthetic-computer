@@ -47,6 +47,11 @@
     --signup-bg: rgb(0, 64, 0);    --signup-edge: #fff;
     --profile-bg: rgb(64, 0, 64);  --profile-text: rgb(255, 100, 255);
     --font: "Berkeley Mono", "Berkeley Mono Web", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    /* The raster draws its 6×10 glyph at a fixed 2× scale — a 12px advance,
+       20px tall — whatever the window. Berkeley Mono advances 0.6em, so one
+       size matches it everywhere; nothing here scales with the viewport. */
+    --type: 20px;
+    --lineh: calc(1.3 * var(--type)); /* the typed line's height; JS updates it as the line wraps */
   }
   @media (prefers-color-scheme: light) {
     :root { /* prompt.mjs scheme.light — legal pad */
@@ -135,37 +140,48 @@
     left: max(8px, env(safe-area-inset-left));
     right: max(8px, env(safe-area-inset-right));
   }
+  /* A textarea, not an input: pasted or typed kidlisp keeps its newlines and
+     wraps by character the way the raster TextInput does; it grows with the
+     text (JS sets the height) and Enter still runs the line. */
   #cmd {
-    width: 100%; min-width: 0; padding: 0; margin: 0;
+    display: block; width: 100%; min-width: 0; padding: 0; margin: 0;
     background: transparent; border: 0; outline: 0;
     color: var(--text); font-family: var(--font);
-    font-size: clamp(20px, 2.6vw, 30px); line-height: 1.3;
+    font-size: var(--type); line-height: 1.3;
+    resize: none; overflow: hidden;
+    white-space: pre-wrap; word-break: break-all;
+    min-height: 1.3em; height: 1.3em;
     caret-color: transparent; /* the block caret below replaces the bar */
   }
   /* ── Native autocomplete — the raster's in-view completions: the best
      match's remainder ghosts onto the typed line, the rest stack beneath
      as faint rows (history rows ride the same rail), Tab completes. ── */
   #ghost {
-    position: absolute; top: 0; left: 0; pointer-events: none;
-    font-size: clamp(20px, 2.6vw, 30px); line-height: 1.3;
-    white-space: pre; color: var(--dim); opacity: .55;
+    position: absolute; top: 0; left: 0; right: 0; pointer-events: none;
+    font-size: var(--type); line-height: 1.3;
+    white-space: pre-wrap; word-break: break-all; color: var(--dim); opacity: .55;
   }
   #ghost .pad { color: transparent; }
   /* ── KidLisp on the line — the runtime's syntax palette, DOM'd: typed
      source renders through a colored underlay while the input's own text
      goes clear (the block caret stays). ── */
   #lisp {
-    position: absolute; top: 0; left: 0; pointer-events: none;
-    font-size: clamp(20px, 2.6vw, 30px); line-height: 1.3;
-    white-space: pre;
+    position: absolute; top: 0; left: 0; right: 0; pointer-events: none;
+    font-size: var(--type); line-height: 1.3;
+    white-space: pre-wrap; word-break: break-all;
   }
   body.kidlisp #cmd { color: transparent; }
   body.kidlisp #cmd::selection { color: transparent; }
   .corner span[style] { text-shadow: 1px 1px 0 rgba(0, 0, 0, .75); }
+  /* The raster shades bright syntax colors on the legal pad so white and
+     yellow tokens stay legible; the DOM line does the same. */
+  @media (prefers-color-scheme: light) {
+    #lisp span[style] { text-shadow: 1px 1px 0 rgba(0, 0, 0, .55); }
+  }
   #results {
     position: absolute; left: 0; right: 0;
-    top: calc(1.3 * clamp(20px, 2.6vw, 30px));
-    font-size: clamp(20px, 2.6vw, 30px); line-height: 1.3;
+    top: var(--lineh);
+    font-size: var(--type); line-height: 1.3;
     white-space: pre; overflow: hidden;
   }
   #results .row { opacity: .4; cursor: var(--cursor-active), pointer; }
@@ -175,10 +191,11 @@
   #results .row.wg { color: rgb(255, 100, 255); }
   #results .row.hist { color: rgb(140, 90, 235); cursor: var(--cursor-active), pointer; }
   #caret {
-    position: absolute; top: 0; left: 0; height: 1.3em; width: .62em;
+    position: absolute; top: 0; left: 0; height: 1.3em; width: .6em;
     background: var(--block); pointer-events: none;
-    font-size: clamp(20px, 2.6vw, 30px);
+    font-size: var(--type);
     animation: blink 1s steps(2, start) infinite;
+    will-change: transform;
   }
   /* The caret only blinks while the line is activated (canType in type.mjs);
      deactivated text sits dimmed behind the curtain, like the raster's. */
@@ -187,18 +204,21 @@
   body.active[data-mode="piece"] #screen.overlay #caret { display: block; }
   body:not(.active) #cmd { opacity: .55; }
   @keyframes blink { 50% { opacity: 0; } }
+  /* The caret mirror: the same box as #cmd, holding the text up to the
+     caret plus a zero-width mark whose offsets are the block's position. */
   #measure {
-    position: absolute; visibility: hidden; white-space: pre;
-    font-family: var(--font); font-size: clamp(20px, 2.6vw, 30px);
+    position: absolute; top: 0; left: 0; right: 0; visibility: hidden;
+    pointer-events: none; white-space: pre-wrap; word-break: break-all;
+    font-family: var(--font); font-size: var(--type); line-height: 1.3;
   }
 
   /* ── Reply + notice — the prompt's answer line and error flashes, DOM'd. ── */
   .reply, .notice {
     position: absolute;
-    top: calc(max(8px, env(safe-area-inset-top)) + clamp(32px, 4vw, 46px));
+    top: calc(max(8px, env(safe-area-inset-top)) + var(--lineh) + 6px);
     left: max(8px, env(safe-area-inset-left));
     right: max(8px, env(safe-area-inset-right));
-    font-size: clamp(16px, 2vw, 22px); line-height: 1.4;
+    font-size: var(--type); line-height: 1.3;
   }
   .reply { color: var(--text); opacity: .92; white-space: pre-wrap; word-break: break-word; }
   .reply .dots { display: none; color: var(--block); letter-spacing: 2px; }
@@ -219,8 +239,8 @@
   body.active .auth, body.typing .auth,
   body.replying .auth, body.submitting .auth { opacity: 0; pointer-events: none; }
   .auth button {
-    font-family: var(--font); font-size: clamp(14px, 1.6vw, 18px);
-    color: #fff; padding: 7px 16px; cursor: var(--cursor-active), pointer;
+    font-family: var(--font); font-size: var(--type);
+    color: #fff; padding: 6px 14px; cursor: var(--cursor-active), pointer;
     border: 1px solid var(--login-edge);
     box-shadow: 2px 2px 0 rgba(0, 0, 0, .55);
     background: var(--login-bg);
@@ -239,8 +259,10 @@
     left: max(8px, env(safe-area-inset-left));
     display: none; cursor: var(--cursor-active), pointer;
     color: #fff; font-family: var(--font);
-    font-size: clamp(20px, 2.6vw, 30px); line-height: 1.3;
+    font-size: var(--type); line-height: 1.3;
     text-shadow: 1px 1px 0 rgba(0, 0, 0, .75);
+    white-space: pre-wrap; word-break: break-all;
+    max-width: calc(100vw - 16px);
   }
   body[data-mode="piece"].live .corner { display: block; }
   body[data-mode="piece"] #screen.overlay ~ .corner { display: none; }
@@ -278,11 +300,11 @@
     <div class="line">
       <span id="ghost" aria-hidden="true"></span>
       <span id="lisp" aria-hidden="true"></span>
-      <input id="cmd" aria-label="Aesthetic Computer prompt"
+      <textarea id="cmd" rows="1" aria-label="Aesthetic Computer prompt"
              autocomplete="off" autocapitalize="off" autocorrect="off"
-             spellcheck="false" enterkeyhint="go" />
+             spellcheck="false" enterkeyhint="go"></textarea>
       <span id="caret"></span>
-      <span id="measure"></span>
+      <div id="measure" aria-hidden="true"><span id="mark"></span></div>
       <div id="results" role="listbox"></div>
     </div>
     <div class="reply" id="reply" hidden><span class="dots">▪▪▪</span><span id="replyText"></span></div>
@@ -308,7 +330,7 @@ const runtimeOrigin = runtimeOverride || (localRuntime
 const { ACFrame } = await import(`${runtimeOrigin}/html/lib/moat.mjs`);
 
 const $ = (id) => document.getElementById(id);
-const $cmd = $("cmd"), $caret = $("caret"), $measure = $("measure");
+const $cmd = $("cmd"), $caret = $("caret"), $measure = $("measure"), $mark = $("mark");
 const $ghost = $("ghost"), $results = $("results"), $lisp = $("lisp");
 const $screen = $("screen"), $corner = $("corner"), $cornerName = $("cornerName");
 const $auth = $("auth"), $login = $("login"), $signup = $("signup"), $profile = $("profile");
@@ -321,6 +343,9 @@ let pendingSubmit = null; // command typed before the runtime's prompt was live
 let promptLive = false; // the runtime's prompt piece is loaded + interactive
 let lastSubmitted = ""; // suppress the runtime echoing a command back as a "reply"
 let noticeTimer, submitTimer;
+let caretAt = -1, lineHeight = 0; // the block caret's last index, the line's last height
+let syncQueued = false, completionsQueued = false; // one measured layout per frame
+let runtimeLabel = null; // the raster HUD label as the runtime last reported it
 
 // ── Blips — the TextInput sounds from lib/type.mjs, rendered with a port
 // of the AC synth envelope (lib/sound/synth.mjs by way of speaker.mjs):
@@ -440,11 +465,17 @@ function setMode(piece) {
   document.title = onPiece ? piece + " · prompt.ac" : "prompt.ac";
   $screen.classList.remove("overlay");
   if (onPiece) { clearReply(); $notice.hidden = true; }
-  // KidLisp pieces wear their syntax colors on the label, like the raster HUD.
-  if (isKidlisp(piece)) $cornerName.replaceChildren(lispSpans(piece));
-  else $cornerName.textContent = piece;
-  // URLs keep AC's canonical kidlisp encoding: underscores for spaces.
-  const urlPiece = piece.replaceAll(" ", "_");
+  // Until the runtime reports its own label (ac:label, below), the slug
+  // stands in — kidlisp slugs in their syntax colors, like the raster HUD.
+  runtimeLabel = null;
+  renderCorner();
+  // URLs keep AC's canonical kidlisp encoding: underscores for spaces —
+  // and a `?` or `#` inside kidlisp source is escaped so the path stays a
+  // path (`(? 2 4 8)` would otherwise start the query string).
+  const encoded = isKidlisp(piece)
+    ? piece.replaceAll(" ", "_").replaceAll("\n", "§").replaceAll("%", "¤").replaceAll(";", "¨")
+    : piece.replaceAll(" ", "_");
+  const urlPiece = encodeURI(encoded).replace(/\?/g, "%3F").replace(/#/g, "%23");
   const target = onPiece
     ? (nestedMount ? location.pathname + location.search + "#" + urlPiece
                    : "/" + urlPiece + location.search)
@@ -483,17 +514,30 @@ frame.onBridgeReady(() => {
 // The runtime reports every load via ac:piece (older builds: url:updated).
 // A `prompt~…~!autorun` load is the prompt mid-execution — treat it as the
 // prompt visually, but only a bare `prompt` accepts dom-input submits.
+// A report can carry URL params (`piece?nolabel=true`); only a tail that
+// reads as a query string is stripped, so kidlisp's own `(? 2 4 8)` survives.
+function stripReportParams(slug) {
+  const q = slug.lastIndexOf("?");
+  if (q === -1) return slug;
+  const tail = slug.slice(q + 1);
+  return /^[\w.-]+(=[^\s()]*)?(&[\w.-]+(=[^\s()]*)?)*$/.test(tail) ? slug.slice(0, q) : slug;
+}
+// encodeKidlispForUrl in lib/kidlisp.mjs, undone: `_` space, `§` newline,
+// `¤` percent, `¨` semicolon.
+function decodeKidlispSlug(text) {
+  return text.replaceAll("_", " ").replaceAll("§", "\n").replaceAll("¤", "%").replaceAll("¨", ";");
+}
 frame.onPiece((slug) => {
-  let name = (slug || "prompt").split("?")[0]; // reports can carry params
-  // Reported kidlisp slugs arrive underscore-encoded; the display form is
-  // the spaced source, exactly what the raster HUD shows. setMode re-encodes
-  // the underscores when it writes the URL.
-  if (isKidlisp(name)) name = name.replaceAll("_", " ");
+  let name = stripReportParams(slug || "prompt");
+  // Reported kidlisp slugs arrive URL-encoded; the display form is the
+  // spaced, multi-line source, exactly what the raster HUD shows. setMode
+  // re-encodes it when it writes the URL.
+  if (isKidlisp(name) || isKidlisp(decodeKidlispSlug(name))) name = decodeKidlispSlug(name);
   const atPrompt = name === "prompt" || name.startsWith("prompt~");
   let payload = atPrompt && name !== "prompt"
     ? decodeURIComponent(name.slice("prompt~".length)).replaceAll("~", " ")
     : "";
-  if (isKidlisp(payload)) payload = payload.replaceAll("_", " ");
+  if (isKidlisp(payload) || isKidlisp(decodeKidlispSlug(payload))) payload = decodeKidlispSlug(payload);
   const autorun = payload.includes("!autorun");
   // A prompt~text report without !autorun is a prefill: the runtime's
   // Backspace-from-a-piece shortcut lands here with the old slug typed and
@@ -510,6 +554,67 @@ frame.onPiece((slug) => {
     sendSubmit(queued);
   }
 });
+
+// ── Corner label — what the raster HUD paints, as DOM. The runtime relays
+// its label string (disk.mjs hud.label → bios → ac:label) with the same
+// `\color\` codes its `write` reads, so a $code piece shows its colored
+// source here exactly as on aesthetic.computer, not a slug. Until the
+// first report lands, the slug stands in.
+function renderCorner() {
+  if (runtimeLabel && runtimeLabel.text) {
+    const { text, color } = runtimeLabel;
+    // The raster shows a slug's ~ separators as spaces (URLs keep theirs).
+    const shown = text.split(" ")[1]?.startsWith("http") ? text : text.replaceAll("~", " ");
+    const base = Array.isArray(color) && color.length >= 3
+      ? `rgb(${color[0]}, ${color[1]}, ${color[2]})` : "";
+    $cornerName.replaceChildren(labelSpans(shown, base));
+  } else if (isKidlisp(currentPiece)) {
+    $cornerName.replaceChildren(lispSpans(currentPiece));
+  } else {
+    $cornerName.textContent = currentPiece;
+  }
+}
+// The `\code\text` scanner from lib/color-codes.mjs: `\\` is a literal
+// backslash, an unterminated `\` is just a character.
+function splitColorCodes(str) {
+  const parts = [""];
+  let i = 0;
+  while (i < str.length) {
+    if (str[i] !== "\\") { parts[parts.length - 1] += str[i]; i += 1; }
+    else if (str[i + 1] === "\\") { parts[parts.length - 1] += "\\"; i += 2; }
+    else {
+      const close = str.indexOf("\\", i + 1);
+      if (close === -1) { parts[parts.length - 1] += "\\"; i += 1; }
+      else { parts.push(str.slice(i + 1, close), ""); i = close + 1; }
+    }
+  }
+  return parts;
+}
+// hudCodeColor in disk.mjs: names, `r,g,b[,a]` triplets, and reset words.
+function codeColor(code, base) {
+  const s = (code || "").trim(), lower = s.toLowerCase();
+  if (!s || lower === "reset" || lower === "default" || lower === "base") return base;
+  if (s.includes(",")) {
+    const c = s.split(",").map((n) => parseInt(n.trim(), 10) || 0);
+    while (c.length < 3) c.push(0);
+    return c.length > 3 ? `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${c[3] / 255})` : `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+  }
+  return CSS.supports("color", lower) ? lower : base;
+}
+function labelSpans(text, base) {
+  const frag = document.createDocumentFragment();
+  const parts = splitColorCodes(text);
+  let color = base;
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2 === 1) { color = codeColor(parts[i], base); continue; }
+    if (!parts[i]) continue;
+    const span = document.createElement("span");
+    if (color) span.style.color = color;
+    span.textContent = parts[i];
+    frag.append(span);
+  }
+  return frag;
+}
 
 // Corner chip → back to the prompt (the DOM twin of the composited label).
 $corner.addEventListener("click", () => jumpPiece("prompt"));
@@ -599,27 +704,52 @@ function submitCommand(value, { remember = true } = {}) {
 // ── Block caret — the raster prompt's blinking block, in DOM. ──────────────
 // A mirror span measures the text before the caret so the block lands exactly
 // on the glyph grid, whatever font actually loaded.
+// The mirror holds the text before the caret and a zero-width mark; the
+// mark's offsets are where the block lands, on any wrapped line, whatever
+// font actually loaded. Every key used to fire this three or four times
+// (input, keyup, selectionchange), each forcing a layout — now the events
+// only schedule it, and it runs once per frame.
 function syncCaret() {
-  const at = $cmd.selectionStart ?? $cmd.value.length;
-  $measure.textContent = $cmd.value.slice(0, at) || "";
-  const x = $measure.offsetWidth - $cmd.scrollLeft;
-  $caret.style.transform = `translateX(${Math.max(0, x)}px)`;
-  $caret.style.animation = "none";
-  void $caret.offsetWidth; // restart the blink at full opacity on movement
-  $caret.style.animation = "";
-  document.body.classList.toggle("typing", $cmd.value.length > 0);
-  renderLisp(); // keep the colored underlay glued to the input's scroll
+  syncQueued = false;
+  const value = $cmd.value;
+  const at = $cmd.selectionStart ?? value.length;
+  $cmd.style.height = "0px"; // measure the wrapped text, then wear that height
+  const h = Math.max($cmd.scrollHeight, 1);
+  $cmd.style.height = h + "px";
+  if (h !== lineHeight) {
+    lineHeight = h;
+    document.documentElement.style.setProperty("--lineh", h + "px");
+  }
+  $measure.replaceChildren(document.createTextNode(value.slice(0, at)), $mark);
+  const x = $mark.offsetLeft, y = $mark.offsetTop;
+  $caret.style.transform = `translate(${Math.max(0, x)}px, ${Math.max(0, y)}px)`;
+  if (at !== caretAt) {
+    caretAt = at;
+    $caret.style.animation = "none";
+    void $caret.offsetWidth; // restart the blink at full opacity on movement
+    $caret.style.animation = "";
+  }
+  document.body.classList.toggle("typing", value.length > 0);
+  renderLisp();
+  if (completionsQueued) { completionsQueued = false; refreshCompletions(); }
 }
-for (const ev of ["input", "click", "keyup", "focus"]) $cmd.addEventListener(ev, syncCaret);
+function scheduleSync() {
+  if (syncQueued) return;
+  syncQueued = true;
+  requestAnimationFrame(syncCaret);
+}
+for (const ev of ["click", "keyup", "focus"]) $cmd.addEventListener(ev, scheduleSync);
 $cmd.addEventListener("input", () => {
   clearReply(); // typing dismisses the last answer
   keypunch(); // every edit punches, like the raster's prompt:text:replace
-  refreshCompletions();
+  completionsQueued = true;
+  scheduleSync();
 });
 document.addEventListener("selectionchange", () => {
-  if (document.activeElement === $cmd) syncCaret();
+  if (document.activeElement === $cmd) scheduleSync();
 });
-document.fonts?.ready?.then(syncCaret);
+document.fonts?.ready?.then(scheduleSync);
+window.addEventListener("resize", scheduleSync); // wraps move with the width
 
 function setTyped(text) {
   $cmd.value = text;
@@ -632,6 +762,8 @@ function setTyped(text) {
 $cmd.addEventListener("keydown", (e) => {
   if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) lastKey = e.key.toLowerCase();
   if (e.key === "Enter") {
+    if (e.shiftKey) return; // Shift+Enter breaks the line — multi-line kidlisp
+    e.preventDefault(); // a textarea would insert a newline
     // Arrow-walking the completion rows makes Enter run the pick, as the
     // raster's navigated filter list does; otherwise the typed line runs.
     if (completionNavigated) acceptCompletion();
@@ -801,6 +933,9 @@ window.addEventListener("message", (event) => {
       showReply(data.text, data.thinking === true);
     } else if (data.type === "ac:notice") {
       showNotice(data.text, data.color);
+    } else if (data.type === "ac:label") {
+      runtimeLabel = data;
+      renderCorner();
     }
     return;
   }
@@ -962,12 +1097,25 @@ const LISP_SPECIAL = ["def", "if", "cond", "later", "once", "lambda", "let", "do
 const LISP_KNOWN = ["wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly", "embed", "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round", "noise", "choose", "?", "...", "..", "overtone", "mic", "amplitude", "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", "flip", "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan", "mask", "unmask", "steal", "putback", "label", "len", "now", "die", "tap", "draw", "not", "range", "mul", "log", "no", "yes", "fade", "jump"];
 const RAINBOW = ["red", "orange", "yellow", "green", "blue", "indigo", "violet"];
 
+// isKidlispSource in lib/kidlisp.mjs, the cases a typed line can hit.
 function isKidlisp(text) {
-  const t = (text || "").trim();
+  const t = (text || "").trim(), lower = t.toLowerCase();
   if (!t) return false;
   if (t.startsWith("(") || t.startsWith(";")) return true;
   if (/^\$[0-9A-Za-z]{4,12}$/.test(t) && (/\d/.test(t) || (/[a-z]/.test(t) && /[A-Z]/.test(t)))) return true;
+  if (lower.startsWith("share")) return false;
+  if (lower.startsWith("fade:") || /^[cp]\d+$/.test(lower) || lower === "rainbow" || lower === "zebra") return true;
+  if (CSS.supports("color", lower) && /^[a-z]+$/.test(lower)) return true; // a bare color name
+  if (/^\d{1,3}(\s+\d{1,3}){2,3}$/.test(t)) return true; // an rgb(a) triplet
   return t.includes(",") || t.includes("\n");
+}
+// shouldUseSyntaxHighlighting: the raster also colors a line whose first
+// word is a nopaint brush, so `line 10 20 30` reads as code, not a command.
+const BRUSHES = ["box", "shape", "line", "rect", "fill", "smear", "spray", "plot", "oval", "circle", "handprint", "word", "paste", "stamp"];
+function colorsTyped(text) {
+  if (isKidlisp(text)) return true;
+  const first = (text || "").trim().split(/\s+/)[0].toLowerCase();
+  return BRUSHES.includes(first);
 }
 
 function lispSpans(source) {
@@ -1047,13 +1195,10 @@ function lispSpans(source) {
 
 function renderLisp() {
   const typed = $cmd.value;
-  const lisp = active && isKidlisp(typed);
+  const lisp = active && colorsTyped(typed);
   document.body.classList.toggle("kidlisp", lisp);
   $lisp.replaceChildren();
-  if (lisp) {
-    $lisp.append(lispSpans(typed));
-    $lisp.style.transform = `translateX(${-$cmd.scrollLeft}px)`;
-  }
+  if (lisp) $lisp.append(lispSpans(typed));
 }
 
 function whistlegraphFromInput(input) {

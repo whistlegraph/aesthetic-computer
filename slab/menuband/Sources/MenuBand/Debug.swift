@@ -19,3 +19,15 @@ func debugLog(_ message: String) {
         }
     }
 }
+
+/// Diagnostic: the FIRST access to any AVAudioEngine's inputNode in this
+/// process builds a private aggregate device, and on the Scarlett that
+/// kills the output stream. Log who did it.
+func menuBandNoteInputNodeAccess(_ label: String) {
+    struct Once { static var logged: Set<String> = [] }
+    guard !Once.logged.contains(label) else { return }
+    Once.logged.insert(label)
+    let frames = Thread.callStackSymbols.dropFirst().prefix(6)
+        .map { $0.split(separator: " ").dropFirst(3).prefix(2).joined(separator: " ") }
+    NSLog("MenuBand INPUTNODE ACCESS [\(label)] ← \(frames.joined(separator: " < "))")
+}

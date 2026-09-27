@@ -236,7 +236,12 @@ export function createHandler({
       if (
         upstream.status === 429 &&
         Array.isArray(data?.errors) &&
-        data.errors.some((error) => Number(error?.code) === 3036)
+        data.errors.some((error) =>
+          Number(error?.code) === 3036 ||
+          // The REST API also wraps this quota error in generic AiError 4006.
+          (Number(error?.code) === 4006 &&
+            /\byou have used up your daily free allocation\b/i.test(error?.message || "")),
+        )
       ) {
         quotaUntil = (Math.floor(now() / 86400000) + 1) * 86400000;
         circuit.failures = 0;

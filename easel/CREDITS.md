@@ -46,20 +46,6 @@ Operational limits: an abrupt server crash during a paid request can leave a
 reservation in `ac-credit-wallets.holds`; reconcile those against provider usage
 before returning credit. Disputes require operator review.
 
-## Live preview and local updates
 
-Source saves flow through `/run` → Redis → session-server code channel → the
-running AC piece. The embedded preview joins the channel directly, so a new piece
-works before public publication. Publishing persists the source in the background;
-it never reloads the page. Identical live pushes and in-flight publishes coalesce.
-Screenshot capture accepts a bare piece route only when the Electron guest was
-explicitly bound to that channel on its initial trusted navigation.
-
-**Restart Agent** checkpoints and replaces the PTY without closing the window or
-preview. It carries successful push/publication identities across this in-process
-handoff. **Reload Interface** reloads renderer assets within the native window;
-this recreates the embedded preview. This installed development build reads UI
-assets from `Resources/easel/desktop-ui`, avoiding Electron's cached archive offsets.
-Use `desktop/scripts/install-dev-ui.sh` to copy subsequent UI edits there. Main-
-process and binary changes still use **Restart App**. An agent restart waits for
-active requests and uploads to finish.
+The native app uses `apple/aesel` and the notebook renderer in `easel/shared`.
+The retired Electron update and development-overlay paths are no longer supported.

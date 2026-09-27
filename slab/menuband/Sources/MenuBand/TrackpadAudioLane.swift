@@ -24,7 +24,7 @@ extension MenuBandController: TrackpadAudioOutput {}
 /// chrome on main; this object owns only the minimum transition state needed
 /// to stage a drum before main-thread congestion can delay it.
 final class TrackpadAudioLane {
-    enum Mode: Equatable { case off, kit, skin, synth }
+    enum Mode: Equatable { case off, kit, skin, synth, split }
 
     private let queue = DispatchQueue(
         label: "computer.aesthetic.menuband.trackpad-audio",
@@ -36,6 +36,9 @@ final class TrackpadAudioLane {
     private var kitState = TrackpadPercussionPad.State()
     private var kitGroups: [TrackpadPercussionPad.Voice: UInt64] = [:]
     private var surfaceEnergy = TrackpadSurfaceEnergy()
+    /// The ⇧Tab-bisected pad, seen from this queue: only fingers that
+    /// landed right of the seam ever reach the drum.
+    private var splitOwnership = TrackpadSplitSurface.Ownership()
 
     init(output: TrackpadAudioOutput) {
         self.output = output
@@ -77,14 +80,16 @@ final class TrackpadAudioLane {
         releaseKitGroups()
         kitState = TrackpadPercussionPad.State()
         surfaceEnergy.reset(at: CACurrentMediaTime())
+        splitOwnership.reset()
         mode = newMode
     }
 
     private func processFrame(contacts: [TrackpadContact], timestamp: Double,
                               callbackTime: Double, shiftDown: Bool,
                               suppressed: Bool) {
+        let previous = contactsByID
         let changes = TrackpadContactChanges.resolve(
-            previous: contactsByID, contacts: contacts
+            previous: previous, contacts: contacts
         )
         // Track contacts even while off/suppressed so enabling the lane beneath
         // resting fingers cannot manufacture a false new strike.
@@ -105,6 +110,27 @@ final class TrackpadAudioLane {
                 changes,
                 callbackTime: callbackTime,
                 synthetic: mode == .synth
+            )
+        case .split:
+            // The slider half is silent here — its finger belongs to the
+            // bend on main. The drum half gets exactly the contacts it owns.
+            let frame = splitOwnership.resolve(previous: previous,
+                                               active: changes.active)
+            let drum = changes.active.filter {
+                splitOwnership.drumIDs.contains($0.identifier)
+            }
+            processSurface(
+                TrackpadContactChanges(
+                    active: drum,
+                    began: frame.drumBegan,
+                    lifted: frame.drumLifted,
+                    activeByID: Dictionary(uniqueKeysWithValues: drum.map {
+                        ($0.identifier, $0.point)
+                    }),
+                    sameCountReplacement: false
+                ),
+                callbackTime: callbackTime,
+                synthetic: false
             )
         }
         _ = timestamp // retained in the API for future scratch-clock staging

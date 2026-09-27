@@ -302,6 +302,30 @@ const sanaImage = () => ({
   seed: 17,
 });
 
+test("wrapped AiError daily quota selects Sana only for subsequent budgeted requests", async () => {
+  for (const key of [undefined, "synthetic-fal"]) {
+    const providers = [];
+    const handler = createHandler({
+      env: { ...env, IMAGE_FAL_KEY: key },
+      now: () => 1000,
+      reserveBudget: async ({ provider }) => {
+        providers.push(provider);
+        return { allowed: true };
+      },
+      fetch: async () => Response.json({ errors: [{
+        code: 4006,
+        message: "AiError: AiError: you have used up your daily free allocation of 10,000 neurons, please upgrade to Cloudflare's Workers Paid plan if you would like to continue usage.",
+      }] }, { status: 429 }),
+      generateSana: async () => sanaImage(),
+    });
+    assert.equal((await handler(event())).statusCode, 429);
+    assert.deepEqual(providers, ["cloudflare"]);
+    const next = await handler(event());
+    assert.equal(next.statusCode, key ? 200 : 429);
+    assert.deepEqual(providers, key ? ["cloudflare", "fal-sana"] : ["cloudflare"]);
+  }
+});
+
 test("confirmed Cloudflare quota routes only a subsequent request to separately reserved Sana", async () => {
   const reservations = [],
     calls = [];
@@ -352,6 +376,7 @@ test("confirmed Cloudflare quota routes only a subsequent request to separately 
 
 test("network errors and capacity429 never select Sana even with its key configured", async () => {
   for (const failure of [
+    () => Response.json({ errors: [{ code: 4006, message: "AiError: model unavailable" }] }, { status: 429 }),
     () => {
       throw new DOMException("timeout", "AbortError");
     },

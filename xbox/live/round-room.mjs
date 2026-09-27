@@ -41,6 +41,9 @@ export class RoundRoom {
     this.timers = { reconnect: null, replay: null };
     this.listener = null;
     this.live = false;
+    this.hostKnown = false;
+    this.replayChecked = false;
+    this.hasReplay = false;
     this.lastState = null;
     this.generation = 0;
     this.stopped = false;
@@ -87,6 +90,7 @@ export class RoundRoom {
         this.seat = String(message.content?.seat || "");
         this.emit("seat", { seat: this.seat });
       } else if (message.type === "oskiewar:status") {
+        this.hostKnown = true;
         this.live = Boolean(message.content?.live);
         this.emit("status", { ...message.content,
           label: this.live ? "live" : "waiting" });
@@ -183,6 +187,9 @@ export class RoundRoom {
       if (generation !== this.generation || this.stopped) return;
       if (response.ok) {
         const replay = (await response.json()).replay;
+        if (generation !== this.generation || this.stopped) return;
+        this.replayChecked = true;
+        this.hasReplay = Boolean(replay);
         if (replay) {
           if (!this.deliverySeen.has("replay")) {
             this.deliverySeen.add("replay");
@@ -192,6 +199,7 @@ export class RoundRoom {
         }
         return;
       }
+      if (response.status === 404) this.replayChecked = true;
     } catch {}
     if (!this.live || force) this.schedule("replay", () => this.loadDemo(force), 1800);
   }
@@ -202,6 +210,10 @@ export class RoundRoom {
       this.timers[slot] = null;
       action();
     }, delay);
+  }
+
+  get empty() {
+    return this.hostKnown && !this.live && this.replayChecked && !this.hasReplay;
   }
 
   clear(slot) {
@@ -216,6 +228,9 @@ export class RoundRoom {
     this.track("round_followed");
     this.live = false;
     this.lastState = null;
+    this.hostKnown = false;
+    this.replayChecked = false;
+    this.hasReplay = false;
     this.deliverySeen = new Set();
     this.clear();
     ++this.generation;

@@ -63,9 +63,39 @@ typedef struct {
   double lock;         // 0 = spoken contour rides on the note, 1 = hard on it
   double vib_hz;       // vibrato rate (profile: 4x battery cycles/day)
   double vib_cents;    // vibrato depth
+  double sustain_db;   // only nucleus frames within this many dB of the
+                       // run's peak are stretched; quieter voiced edges
+                       // (b, n, l, r) keep speaking rate. 0 = whole run.
+  double gap_ms;       // a held vowel stops this long before the next
+                       // unit's onset consonant (a stop's closure). 0 = legato.
+  double presence_db;  // peaking EQ at 3 kHz on the sung output, dB. 0 = off.
+  double voiced_consonant_mix;   // 0…1: how much of the SPOKEN original is
+                       // blended over voiced consonants (b d g m n l r w) in
+                       // onset/coda regions; unvoiced ones are always original.
+  double hold_ms;      // longest a single vowel may sound; the rest of a long
+                       // note is air. 0 = hold it for the whole note.
+  double consonant_balance;   // 0…1: blend toward matching the spliced
+                       // consonant's level to its own vowel's, as spoken,
+                       // instead of to the vocoder's near-silent estimate.
+  double consonant_stretch;   // >1 slows onset/coda consonant regions, the
+                       // way clear speech lengthens them. 1 = speaking rate.
+  int    sustain_band; // 1 = judge the sustain zone by 400 Hz–4 kHz energy
+                       // (vowel vs voiced consonant), 0 = total energy
+  double shimmer_frames; // small spectral read-head movement during held vowels
+  double legato_ms;       // short log-frequency smoothing, 0 = score steps
+  int    loop_sustain; // 1 = a held vowel wanders its nucleus back and forth
+                       // at speaking rate (alive); 0 = eased frozen hold.
 } singer_params;
 
 typedef struct singer singer;
+
+// Articulation boundaries from the most recent render, in seconds relative
+// to buffer[0]. These follow the actual consonant/vowel warp, not note gates.
+typedef struct {
+  double start, vowel_start, vowel_end, end;
+} singer_articulation;
+int singer_articulation_count(const singer *s);
+const singer_articulation *singer_articulations(const singer *s);
 
 // ── lifecycle ──────────────────────────────────────────────────────────
 singer *singer_create(const double *pcm, int n, int fs);

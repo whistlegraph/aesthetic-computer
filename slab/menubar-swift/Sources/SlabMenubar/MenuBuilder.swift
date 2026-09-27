@@ -10,6 +10,7 @@ enum MenuBuilder {
         signalConfigured: Bool,
         asana: AsanaState,
         deploy: DeployStatusState,
+        iris: IrisState,
         target: AppDelegate
     ) -> NSMenu {
         let menu = NSMenu()
@@ -23,6 +24,7 @@ enum MenuBuilder {
             signalConfigured: signalConfigured,
             asana: asana,
             deploy: deploy,
+            iris: iris,
             target: target
         )
         return menu
@@ -42,6 +44,7 @@ enum MenuBuilder {
         signalConfigured: Bool,
         asana: AsanaState,
         deploy: DeployStatusState,
+        iris: IrisState,
         target: AppDelegate
     ) {
         menu.removeAllItems()
@@ -83,6 +86,11 @@ enum MenuBuilder {
         let work = NSMenu()
         work.addItem(buildAsana(state: asana, target: target))
         work.addItem(buildDeploy(state: deploy, target: target))
+        work.addItem(buildIris(state: iris, target: target))
+        let irisIcon = item("Iris Icon", selector: #selector(AppDelegate.toggleIrisIcon), target: target)
+        irisIcon.state = UserDefaults.standard.bool(forKey: Paths.irisIconDefaultsKey) ? .on : .off
+        irisIcon.toolTip = "Show the Iris avatar as its own menubar icon (hover for fleet status, click for this menu)."
+        work.addItem(irisIcon)
         appendOvertime(to: work, target: target)
         menu.addItem(section("Work", symbol: "checkmark.circle.fill", submenu: work))
 
@@ -1186,6 +1194,176 @@ enum MenuBuilder {
             mi.toolTip = task.overdue ? "Overdue \(task.due)" : "Due today"
         }
         return mi
+    }
+
+    /// Iris submenu — the mission fleet at a glance. Machine rows carry the
+    /// badge heartbeat (green dot = fresh, red = stale or unreachable) and the
+    /// badge's own lines; then the controller's watch window; then tasks
+    /// grouped by phase (running → queued → blocked → awaiting review), each
+    /// a click-to-open row; then the last few controller events. Unconfigured
+    /// machines show a one-line setup hint. All names come from the helper.
+    private static func buildIris(state: IrisState, target: AppDelegate) -> NSMenuItem {
+        let parent = NSMenuItem(title: state.label, action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        populateIris(sub, state: state, target: target)
+        parent.submenu = sub
+        return parent
+    }
+
+    /// Fill `sub` with the Iris rows. Shared by the Work › Iris submenu and
+    /// the standalone Iris Icon's click menu, so both always agree.
+    static func populateIris(_ sub: NSMenu, state: IrisState, target: AppDelegate) {
+        sub.removeAllItems()
+        sub.autoenablesItems = false
+
+        if !state.configured {
+            sub.addItem(info("Not set up — list the mission machines:"))
+            sub.addItem(item("Edit Iris config",
+                             selector: #selector(AppDelegate.openIrisConfig), target: target))
+            return
+        }
+
+        for m in state.machines {
+            let fresh = m.online && m.heartbeatAge >= 0 && m.heartbeatAge < 180
+            let hb = m.heartbeatAge < 0 ? "" : " · \(irisAge(m.heartbeatAge))"
+            let title = m.online
+                ? "\(m.name) · \(m.role)\(hb)"
+                : "\(m.name) · \(m.error.isEmpty ? "unreachable" : m.error)"
+            sub.addItem(dotInfo(title, hue: fresh ? 0.33 : 0.99))
+            for line in m.items where !line.isEmpty { sub.addItem(info("    \(line)")) }
+        }
+
+        if state.hasController {
+            sub.addItem(.separator())
+            if state.windowOpen {
+                sub.addItem(info("Window open until \(irisShortDate(state.expiresAt))"))
+            } else {
+                sub.addItem(dotInfo("Window closed \(irisShortDate(state.expiresAt)) — nothing dispatches", hue: 0.99))
+            }
+            if !state.lastError.isEmpty {
+                sub.addItem(dotInfo("Poll error: \(state.lastError)", hue: 0.99))
+            }
+        }
+
+        let groups: [(String, String)] = [
+            ("running", "Running"), ("queued", "Queued"),
+            ("blocked", "Blocked"), ("awaiting_review", "Awaiting review"),
+        ]
+        var shown = Set<String>()
+        for (phase, title) in groups {
+            let ts = state.tasks.filter { $0.phase == phase }
+            if ts.isEmpty { continue }
+            sub.addItem(.separator())
+            sub.addItem(info("\(title) (\(ts.count))"))
+            for t in ts { sub.addItem(irisTaskItem(t, target: target)); shown.insert(t.id) }
+        }
+        let rest = state.tasks.filter { !shown.contains($0.id) }
+        if !rest.isEmpty {
+            sub.addItem(.separator())
+            sub.addItem(info("Other (\(rest.count))"))
+            for t in rest { sub.addItem(irisTaskItem(t, target: target)) }
+        }
+        if state.hasController && state.tasks.isEmpty {
+            sub.addItem(.separator())
+            sub.addItem(info("No missions on the board"))
+        }
+
+        if !state.recent.isEmpty {
+            sub.addItem(.separator())
+            sub.addItem(info("Recent"))
+            for e in state.recent.prefix(6) {
+                let who = [e.lane, e.id].filter { !$0.isEmpty }.joined(separator: " ")
+                let tail = e.text.isEmpty ? "" : " — \(irisTrim(e.text, 70))"
+                sub.addItem(info("    \(irisClock(e.at)) \(e.kind) \(who)\(tail)"))
+            }
+        }
+
+        sub.addItem(.separator())
+        sub.addItem(item("Refresh now", selector: #selector(AppDelegate.refreshIrisNow), target: target))
+        if !state.boardUrl.isEmpty {
+            sub.addItem(item("Open board in browser",
+                             selector: #selector(AppDelegate.openIrisBoard), target: target))
+        }
+        sub.addItem(item("Edit Iris config",
+                         selector: #selector(AppDelegate.openIrisConfig), target: target))
+    }
+
+    /// One mission row. Leading ● is green while running, red when blocked,
+    /// amber when queued; review/other rows get no dot. Running rows append
+    /// the lane and its current action; blocked rows the blocker. The tooltip
+    /// carries the worker's stated next step. `representedObject` is the URL.
+    private static func irisTaskItem(_ t: IrisTask, target: AppDelegate) -> NSMenuItem {
+        var hue: CGFloat? = nil
+        switch t.phase {
+        case "running": hue = 0.33
+        case "blocked": hue = 0.99
+        case "queued": hue = 0.14
+        default: break
+        }
+        var suffix = ""
+        if t.phase == "running" {
+            suffix = "  · \(t.lane)" + (t.action.isEmpty ? "" : ": \(irisTrim(t.action, 60))")
+        } else if t.phase == "blocked", !t.blocker.isEmpty {
+            suffix = "  · \(irisTrim(t.blocker, 60))"
+        }
+        if t.attempts > 0 { suffix += "  · run \(t.attempts)" }
+        let text = (hue == nil ? "" : "● ") + t.name + suffix
+        let mi = NSMenuItem(title: text, action: #selector(AppDelegate.openIrisTask(_:)),
+                            keyEquivalent: "")
+        mi.target = target
+        mi.isEnabled = !t.url.isEmpty
+        mi.representedObject = t.url
+        if let hue = hue {
+            let attr = NSMutableAttributedString(string: text)
+            attr.addAttribute(.foregroundColor,
+                              value: NSColor(deviceHue: hue, saturation: 0.85, brightness: 0.95, alpha: 1.0),
+                              range: NSRange(location: 0, length: 1))
+            mi.attributedTitle = attr
+        }
+        if !t.nextStep.isEmpty { mi.toolTip = t.nextStep }
+        return mi
+    }
+
+    /// A non-clickable row with a colored leading dot (kept enabled so the
+    /// dot's color survives; there is no action, so a click does nothing).
+    private static func dotInfo(_ title: String, hue: CGFloat) -> NSMenuItem {
+        let text = "● \(title)"
+        let it = NSMenuItem(title: text, action: nil, keyEquivalent: "")
+        it.isEnabled = true
+        let attr = NSMutableAttributedString(string: text)
+        attr.addAttribute(.foregroundColor,
+                          value: NSColor(deviceHue: hue, saturation: 0.85, brightness: 0.95, alpha: 1.0),
+                          range: NSRange(location: 0, length: 1))
+        it.attributedTitle = attr
+        return it
+    }
+
+    private static func irisTrim(_ s: String, _ n: Int) -> String {
+        s.count <= n ? s : String(s.prefix(n - 1)) + "…"
+    }
+
+    private static func irisAge(_ sec: Int) -> String {
+        sec < 60 ? "\(sec)s ago" : sec < 3600 ? "\(sec / 60)m ago" : "\(sec / 3600)h ago"
+    }
+
+    /// "2026-09-26T06:59:00.000Z" → "Sep 25 23:59" in the local zone.
+    private static func irisShortDate(_ iso: String) -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let d = f.date(from: iso) ?? { f.formatOptions = [.withInternetDateTime]; return f.date(from: iso) }()
+        guard let date = d else { return iso }
+        let out = DateFormatter()
+        out.dateFormat = "MMM d HH:mm"
+        return out.string(from: date)
+    }
+
+    private static func irisClock(_ iso: String) -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = f.date(from: iso) else { return String(iso.dropFirst(11).prefix(5)) }
+        let out = DateFormatter()
+        out.dateFormat = "HH:mm"
+        return out.string(from: date)
     }
 
     /// Deskflow KVM submenu. Parent title shows the configured label + role

@@ -833,6 +833,7 @@ if (!window.acDISK_SEND) {
 // 🔊 Master volume control (for desktop app sliders, etc.)
 // NOTE: These must be at module scope so window.AC.setMasterVolume works before boot()
 let masterVolume = 1;
+let masterClockRate = 1;
 let speakerProcessorNode = null; // Will be set by boot()
 let backgroundMusicEl = null; // Will be set by boot()
 let backgroundMusicBaseVolume = 1;
@@ -873,6 +874,13 @@ if (!window.AC._biosGuarded) {
   window.AC._biosGuarded = true;
   window.AC.setMasterVolume = (value) => applyMasterVolume(value);
   window.AC.getMasterVolume = () => masterVolume;
+  window.AC.setClockRate = (rate, reset = false) => {
+    if (!Number.isFinite(rate) || rate < 0.25 || rate > 2) return masterClockRate;
+    masterClockRate = rate;
+    window.acDISK_SEND({ type: "clock:rate", content: { rate, reset } });
+    return rate;
+  };
+  window.AC.getClockRate = () => masterClockRate;
   window.acSetMasterVolume = window.AC.setMasterVolume;
   window.acGetMasterVolume = window.AC.getMasterVolume;
 }
@@ -4660,6 +4668,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (firstMessageSent) return;
     firstMessageSent = true;
     send(firstMessage);
+    if (masterClockRate !== 1) send({ type: "clock:rate", content: { rate: masterClockRate } });
     if (!firstMessage.content.pieceSource && window.acPIECE_SOURCE?.promise) {
       window.acPIECE_SOURCE.promise.then(() => {
         const late = pieceSourceHint();
@@ -13127,6 +13136,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "clock:state") {
+      window.AC.clockState = content;
+      window.dispatchEvent(new CustomEvent("ac-clock-state", { detail: content }));
+      return;
+    }
+
     if (type === "tape:telemetry") {
       // Stash on window so an external jam/test harness can read live
       // rate + net-time sync offset numerically.
@@ -13571,6 +13586,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (window.parent !== window) {
         window.parent.postMessage(
           { type: "ac:notice", text: content?.text, color: content?.color },
+          "*",
+        );
+      }
+      return;
+    }
+
+    // The raster's corner label, as text: the shell paints it in DOM so a
+    // kidlisp piece shows its colored source there too, not just its slug.
+    if (type === "hud:label:shell") {
+      if (window.parent !== window) {
+        window.parent.postMessage(
+          {
+            type: "ac:label",
+            text: content?.text || "",
+            plain: content?.plain || "",
+            color: content?.color || null,
+          },
           "*",
         );
       }

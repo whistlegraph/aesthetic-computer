@@ -1,0 +1,17 @@
+{
+  "status": "browser prototype verified",
+  "switchablePrototype": true,
+  "frames": 153,
+  "canvas": [
+    1280,
+    720
+  ],
+  "drawSubmissionMs": {
+    "median": 0.09999999962747097,
+    "p95": 0.19999999925494194
+  },
+  "measurement": "Local Chromium CPU draw submission only; not native GPU completion or FPS. No device test.",
+  "pausedThemeSwitchPreservesTime": true,
+  "errors": [],
+  "nativeVerification": "see native-verification.json"
+}

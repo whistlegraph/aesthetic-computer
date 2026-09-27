@@ -32,6 +32,36 @@ struct ModelChoice: Identifiable {
     let premium: Bool
 }
 
+struct ProviderChoice: Identifiable {
+    let id: String
+    let available: Bool
+    let notice: String
+}
+
+struct ProviderApproval: Identifiable {
+    let id: String
+    let title: String
+    let detail: String
+    let canAccept: Bool
+    let alwaysLabel: String?
+    let alwaysScope: String?
+}
+
+struct SessionNotice: Identifiable {
+    let id = UUID()
+    let text: String
+    let action: String?
+    let working: Bool
+}
+
+struct InspectedRevision { let version: Int; let source: String }
+
+struct SourceRevision: Identifiable {
+    let id: Int
+    let reason: String
+    let at: String
+}
+
 struct SessionSummary: Identifiable {
     let id: String
     let title: String
@@ -46,20 +76,79 @@ struct SessionSummary: Identifiable {
 /// something a view can draw.
 @Observable
 final class Session {
+    static func command(for text: String) -> String? {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let aliases = ["logout":"logout", "log out":"logout", "signout":"logout", "sign out":"logout",
+                       "login":"login", "log in":"login", "signin":"login", "sign in":"login",
+                       "settings":"settings", "help":"help", "stop":"stop", "publish":"publish",
+                       "open":"open", "new":"new", "home":"home"]
+        if normalized.hasPrefix("/") {
+            let name = String(normalized.dropFirst())
+            return name == "buy" ? "buy" : aliases[name]
+        }
+        return aliases[normalized]
+    }
+
+    static let draftPreviewURL = embeddedPreviewURL(URL(string: "https://aesthetic.computer/wipe?noauth=true")!)
+    static func embeddedPreviewURL(_ url: URL) -> URL {
+        guard var target = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
+        if target.host == "prompt.ac" { target.host = "aesthetic.computer" }
+        let flags = ["nogap", "nolabel", "autoreload"]
+        var query = (target.queryItems ?? []).filter { !flags.contains($0.name) }
+        query += flags.map { URLQueryItem(name: $0, value: "true") }
+        target.queryItems = query
+        return target.url ?? url
+    }
+    var notices: [String: SessionNotice] = [:]
     var entries: [Entry] = []
     var history: [SessionSummary] = []
     var medium = "piece"
     var model = ""
     var modelChoices: [ModelChoice] = []
+    var provider = "ac"
+    var providers: [ProviderChoice] = []
+    var accountDeletionBusy = false
+    var accountDeleted = false
+    var accountDeletionDate: Date?
+    var accountDeletionMailed = false
+    var accountDeletionSummary = ""
+    var accountNotice = ""
+    var mcpAutoAllow = true
+    var supportsApprovalPolicy = false
+    var approval: ProviderApproval?
+    var hostOperationID: String?
+    var providerNotice: String { providers.first { $0.id == provider }?.notice ?? "" }
+    var accountReady: Bool { signedIn && !handle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    var accessNotice = "An AC account and @handle are required."
+    var providerReady: Bool {
+        provider == "ac" ? signedIn : providers.contains { $0.id == provider && $0.available }
+    }
+    var canStartTurn: Bool { accountReady && !viewingHistory && providerReady && !busy && hostOperationID == nil && fatal == nil }
     var reportedModel = ""
     var currentThreadID = ""
     var currentSessionID: String { currentThreadID }
     var status: String = "starting"
     var health: Health = .idle
     var route: String = ""
-    var previewURL: URL?
+    var previewURL: URL? = Session.draftPreviewURL
     var shareURL: URL?
     var source = ""
+    var composer = ""
+    var revisions: [SourceRevision] = []
+    var inspectedRevision: InspectedRevision?
+    var currentRevision = 0
+    var selectedRevision: Int?
+    var historicalSource = ""
+    var historicalEntries: [Entry] = []
+    var historicalTranscriptAvailable = true
+    var viewingHistory: Bool { selectedRevision != nil }
+    var displayedRevision: Int { selectedRevision ?? currentRevision }
+    var displayedSource: String { viewingHistory ? historicalSource : source }
+    var displayedEntries: [Entry] { viewingHistory ? historicalEntries : entries }
+    var pieceVersion: Int { currentRevision }
+    var publishedRevision: Int?
+    var autoPublish = true
+    var exportJSON: String?
     var showSignIn = false
     var signInLoading = false
     var signInError: String?
@@ -78,9 +167,34 @@ final class Session {
 
     /// The `<li>` currently receiving streamed deltas. Held as an index because
     /// `Entry` is a value type and SwiftUI needs the array mutated in place.
+    var streamingCode = ""
+    private var codeArguments = ""
+    private var codeItemID = ""
     private var streamingIndex: Int?
 
+    // Decode only the source string of an incomplete write_piece JSON object.
+    // A split escape waits for the next token; draft code is never executed.
+    static func partialSource(_ arguments: String) -> String? {
+        guard let start = arguments.range(of: #"(?<!\\)"source"\s*:\s*""#, options: .regularExpression) else { return nil }
+        var encoded = "", escaped = false
+        for character in arguments[start.upperBound...] {
+            if character == "\"" && !escaped { break }
+            encoded.append(character)
+            if escaped { escaped = false }
+            else if character == "\\" { escaped = true }
+        }
+        if escaped { encoded.removeLast() }
+        guard let data = ("\"" + encoded + "\"").data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(String.self, from: data)
+    }
+
+    private func clearCodePreview() {
+        streamingCode = ""; codeArguments = ""; codeItemID = ""
+    }
+
     func reset() {
+        clearCodePreview()
+        notices.removeAll()
         entries.removeAll()
         streamingIndex = nil
     }
@@ -97,6 +211,51 @@ final class Session {
     func receive(_ event: [String: Any]) {
         guard let type = event["type"] as? String else { return }
         switch type {
+        case "revisionSelection":
+            guard event["threadID"] as? String == currentSessionID,
+                  let version = event["version"] as? Int, let current = event["current"] as? Int else { return }
+            selectedRevision = version == current ? nil : version
+            historicalSource = event["source"] as? String ?? ""
+            historicalTranscriptAvailable = event["transcriptAvailable"] as? Bool ?? false
+            let projection = Session()
+            for entry in event["events"] as? [[String: Any]] ?? [] {
+                if ["you", "note", "bad", "bridge"].contains(entry["type"] as? String ?? "") { projection.receive(entry) }
+            }
+            historicalEntries = projection.entries
+        case "revisionPreview":
+            guard event["threadID"] as? String == currentSessionID,
+                  let version = event["version"] as? Int, let source = event["source"] as? String else { return }
+            inspectedRevision = InspectedRevision(version: version, source: source)
+        case "export":
+            exportJSON = event["json"] as? String
+        case "revisions":
+            revisions = (event["items"] as? [[String: Any]] ?? []).compactMap { item in
+                guard let version = item["version"] as? Int else { return nil }
+                return SourceRevision(id: version, reason: item["summary"] as? String ?? item["reason"] as? String ?? "", at: item["at"] as? String ?? "")
+            }
+            currentRevision = event["current"] as? Int ?? 0
+            publishedRevision = event["published"] as? Int
+            autoPublish = event["autoPublish"] as? Bool ?? true
+        case "publication":
+            shareURL = (event["url"] as? String).flatMap(URL.init(string:))
+        case "providers":
+            mcpAutoAllow = event["mcpAutoAllow"] as? Bool ?? true
+            supportsApprovalPolicy = event["supportsApprovalPolicy"] as? Bool ?? false
+            provider = event["selected"] as? String ?? provider
+            providers = (event["choices"] as? [[String: Any]] ?? []).compactMap { value in
+                guard let id = value["id"] as? String else { return nil }
+                return ProviderChoice(id: id, available: value["available"] as? Bool ?? false, notice: value["notice"] as? String ?? "")
+            }
+        case "hostOperation":
+            hostOperationID = (event["operation"] as? [String: Any])?["id"] as? String
+        case "approval":
+            if let value = event["approval"] as? [String: Any], let id = value["id"] as? String {
+                let params = value["params"] as? [String: Any] ?? [:]
+                let detail = value["detail"] as? String ?? params["message"] as? String ?? params["command"] as? String ?? params["reason"] as? String ?? "Provider action"
+                approval = ProviderApproval(id: id, title: value["title"] as? String ?? "Allow this action?", detail: detail,
+                    canAccept: value["canAccept"] as? Bool ?? true, alwaysLabel: value["alwaysLabel"] as? String,
+                    alwaysScope: value["alwaysScope"] as? String)
+            } else { approval = nil }
         case "credits":
             braincells = event["total"] as? Double
             let dollars = event["dollars"] as? [String: Any]
@@ -124,6 +283,11 @@ final class Session {
             }
 
         case "thread":
+            selectedRevision = nil
+            historicalEntries = []
+            historicalSource = ""
+            inspectedRevision = nil
+            composer = event["composer"] as? String ?? ""
             reportedModel = ""
             currentThreadID = event["id"] as? String ?? ""
             medium = event["medium"] as? String ?? "piece"
@@ -147,14 +311,18 @@ final class Session {
             creditsStatus = "Loading braincells"
             signedIn = true
             handle = event["handle"] as? String ?? ""
-            if handle.isEmpty {
-                append(.note, "Signed in, but this account has no @handle yet. Claim one at aesthetic.computer/handle to publish.")
-            }
+            accessNotice = handle.isEmpty ? "Claim an AC @handle to use Aesel." : ""
+
+        case "accountRequired":
+            signedIn = event["signedIn"] as? Bool ?? false
+            handle = ""
+            accessNotice = event["text"] as? String ?? "An AC account and @handle are required."
 
         case "handleColors":
             if event["handle"] as? String == handle { handleColors = event["colors"] as? [String] ?? [] }
 
         case "signedOut":
+            accessNotice = "An AC account and @handle are required."
             braincells = nil
             braincellDollars = nil
             freeDollars = nil
@@ -166,20 +334,29 @@ final class Session {
             status = "signed out"
 
         case "source":
+            clearCodePreview()
+            currentRevision = event["version"] as? Int ?? currentRevision
             source = event["source"] as? String ?? source
-            previewURL = URL(string: "https://aesthetic.computer/wipe?nogap=true&nolabel=true&noauth=true")
+            previewURL = Self.draftPreviewURL
 
         case "piece":
+            clearCodePreview()
+            currentRevision = event["version"] as? Int ?? 0
             source = event["source"] as? String ?? source
             shareURL = nil
-            previewURL = nil
+            previewURL = Self.draftPreviewURL
             route = event["route"] as? String ?? ""
 
         case "preview":
             if let text = event["url"] as? String {
                 shareURL = URL(string: text)
-                previewURL = shareURL
+                previewURL = Self.draftPreviewURL
             }
+
+        case "notice":
+            let scope = event["scope"] as? String ?? "connection"
+            let text = event["text"] as? String ?? ""
+            notices[scope] = text.isEmpty ? nil : SessionNotice(text: text, action: event["action"] as? String, working: event["working"] as? Bool ?? false)
 
         case "status":
             status = event["text"] as? String ?? status
@@ -195,7 +372,9 @@ final class Session {
             append(.note, event["text"] as? String ?? "")
 
         case "bad":
-            append(.bad, event["text"] as? String ?? "")
+            let text = event["text"] as? String ?? ""
+            // Old transport failures stay in the saved history, not on the paper.
+            if !text.hasPrefix("Publish failed at") && text != "Load failed" { append(.bad, text) }
             health = .failed
 
         case "bridge":
@@ -221,6 +400,7 @@ final class Session {
             reportedModel = params["reported"] as? String ?? reportedModel
 
         case "turn/started":
+            clearCodePreview()
             streamingIndex = nil
             status = "thinking"
             health = .working
@@ -230,6 +410,12 @@ final class Session {
                 status = phase
                 health = .working
             }
+
+        case "item/modelCode/delta":
+            let itemID = params["itemId"] as? String ?? ""
+            if itemID != codeItemID { clearCodePreview(); codeItemID = itemID }
+            codeArguments += params["delta"] as? String ?? ""
+            if let source = Self.partialSource(codeArguments) { streamingCode = source }
 
         case "item/agentMessage/delta":
             let delta = params["delta"] as? String ?? ""
@@ -254,11 +440,15 @@ final class Session {
             }
 
         case "turn/completed":
+            clearCodePreview()
             streamingIndex = nil
             let turn = params["turn"] as? [String: Any] ?? [:]
             if let error = turn["error"] as? [String: Any],
                let message = error["message"] as? String {
-                append(.bad, message)
+                if message != "Load failed" { append(.bad, message) }
+                status = "failed"
+                health = .failed
+            } else if turn["status"] as? String == "failed" {
                 status = "failed"
                 health = .failed
             } else if turn["status"] as? String == "interrupted" {

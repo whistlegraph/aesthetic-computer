@@ -1,0 +1,10 @@
+{
+  "status": "IN_QUEUE",
+  "request_id": "01a0dadb-d8fa-7c61-ac6d-c0c1bf30d1ba",
+  "response_url": "https://queue.fal.run/meshy/v7.1/requests/01a0dadb-d8fa-7c61-ac6d-c0c1bf30d1ba",
+  "status_url": "https://queue.fal.run/meshy/v7.1/requests/01a0dadb-d8fa-7c61-ac6d-c0c1bf30d1ba/status",
+  "cancel_url": "https://queue.fal.run/meshy/v7.1/requests/01a0dadb-d8fa-7c61-ac6d-c0c1bf30d1ba/cancel",
+  "logs": null,
+  "metrics": {},
+  "queue_position": 0
+}

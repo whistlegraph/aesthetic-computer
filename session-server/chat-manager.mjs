@@ -6,6 +6,7 @@ import { WebSocket } from "ws";
 import { promises as fs } from "fs";
 import fetch from "node-fetch";
 import https from "https";
+import { createHmac, timingSafeEqual } from "crypto";
 
 import { filter } from "./filter.mjs";
 import { redact, unredact } from "./redact.mjs";
@@ -496,6 +497,12 @@ export class ChatManager {
         console.log("💬 Trying device token auth for @" + msg.content.handle);
         authorized = await this.authorizeDeviceToken(instance, msg.content.handle, msg.content.token);
       }
+      // An account waiting to be deleted is locked out of chat too
+      // (system/backend/account-deletion.mjs).
+      if (authorized?.sub && (await this.accountLocked(authorized.sub))) {
+        console.log("💬 Refused locked account");
+        authorized = undefined;
+      }
       if (authorized) {
         instance.authorizedConnections[id] = {
           token: msg.content.token,
@@ -649,6 +656,7 @@ export class ChatManager {
       authorized = instance.authorizedConnections[id].user;
     } else {
       authorized = await this.authorize(instance, token);
+      if (authorized?.sub && (await this.accountLocked(authorized.sub))) authorized = undefined;
       if (authorized) {
         instance.authorizedConnections[id] = { token, user: authorized };
       }
@@ -739,6 +747,7 @@ export class ChatManager {
       authorized = instance.authorizedConnections[id].user;
     } else {
       authorized = await this.authorize(instance, token);
+      if (authorized?.sub && (await this.accountLocked(authorized.sub))) authorized = undefined;
       if (authorized) {
         instance.authorizedConnections[id] = { token, user: authorized };
       }
@@ -811,6 +820,7 @@ export class ChatManager {
       authorized = instance.authorizedConnections[id].user;
     } else {
       authorized = await this.authorize(instance, token);
+      if (authorized?.sub && (await this.accountLocked(authorized.sub))) authorized = undefined;
       if (authorized) {
         instance.authorizedConnections[id] = { token, user: authorized };
       }
@@ -837,12 +847,21 @@ export class ChatManager {
   }
 
   async authorizeDeviceToken(instance, handle, token) {
-    // AC device tokens are "hmac.timestamp" — validate by looking up handle in MongoDB
-    if (!token || !token.includes(".") || !handle) return undefined;
+    // AC device tokens are "hmac.timestamp", signed by
+    // system/netlify/functions/device-token.mjs with JWT_SECRET over
+    // "sub:timestamp" (JWT_SECRET, else AC_DEVICE_SECRET — lith's key).
+    // Without the secret nothing can be verified, so device tokens are
+    // refused rather than trusted.
+    const secret = process.env.JWT_SECRET || process.env.AC_DEVICE_SECRET;
+    const parts = /^([0-9a-f]{32})\.([0-9a-z]+)$/.exec(token || "");
+    if (!secret || !parts || !handle) return undefined;
     try {
       const cleanHandle = handle.replace("@", "");
       const doc = await this.db.collection("@handles").findOne({ handle: cleanHandle });
-      if (doc && doc._id) {
+      const expected = doc?._id
+        ? createHmac("sha256", secret).update(`${doc._id}:${parts[2]}`).digest("hex").slice(0, 32)
+        : "";
+      if (expected && timingSafeEqual(Buffer.from(expected), Buffer.from(parts[1]))) {
         console.log("💬 Device token authorized for @" + cleanHandle + " (sub: " + doc._id + ")");
         return { sub: doc._id };
       }
@@ -851,6 +870,18 @@ export class ChatManager {
     } catch (err) {
       console.error("💬 Device token auth error:", err);
       return undefined;
+    }
+  }
+
+  async accountLocked(sub) {
+    try {
+      const pending = await this.db?.collection("account-deletions").findOne(
+        { _id: sub, state: { $in: ["scheduled", "running", "failed"] } },
+        { projection: { _id: 1 } },
+      );
+      return !!pending;
+    } catch {
+      return false;
     }
   }
 
@@ -983,6 +1014,13 @@ export class ChatManager {
       const parsed = typeof body === "string" ? JSON.parse(body) : body;
       console.log(`💬 [${instance.config.name}] Log received from: ${parsed.from || 'unknown'}`);
 
+      // A deleted account (system/backend/account-deletion.mjs) is not a log
+      // line: drop its messages from memory instead of posting anything.
+      if (parsed.action === "account:erase") {
+        this.eraseAccount(instance, parsed.users?.[0]);
+        return { status: 200, body: { status: "success", message: "Account erased" } };
+      }
+
       instance.messages.push(parsed);
       if (instance.messages.length > MAX_MESSAGES) instance.messages.shift();
 
@@ -1001,6 +1039,17 @@ export class ChatManager {
     } catch (err) {
       return { status: 400, body: { status: "error", message: "Malformed log JSON" } };
     }
+  }
+
+  eraseAccount(instance, sub) {
+    if (!sub) return;
+    instance.messages = instance.messages.filter(
+      (msg) => msg.sub !== sub && !(msg.users || []).includes(sub),
+    );
+    delete instance.subsToHandles[sub];
+    // Connected clients redact a muted user's messages; reuse that so the
+    // erased text leaves open screens too.
+    this.broadcast(instance, this.pack("chat-system:mute", { user: sub }));
   }
 
   async handleLogAction(instance, parsed) {

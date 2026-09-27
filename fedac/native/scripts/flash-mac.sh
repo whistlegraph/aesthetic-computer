@@ -85,6 +85,11 @@ fi
 
 KERNEL="${SRC_DIR}/vmlinuz"
 INITRAMFS="${SRC_DIR}/initramfs.cpio.gz"
+# Optional: vboot-packed kernel for stock Chromebook firmware (dev mode,
+# Ctrl+U). When present a third GPT partition of ChromeOS-kernel type is
+# added; UEFI firmware ignores it. See docs/chromebook-boot.md.
+KPART="${SRC_DIR}/vmlinuz.kpart"
+KPART_MB=64
 SPLASH_EFI="${NATIVE_DIR}/bootloader/splash.efi"
 SDBOOT_EFI="${NATIVE_DIR}/boot/systemd-bootx64.efi"
 
@@ -379,7 +384,15 @@ STAGE_MB=$(( $(mb_round_up "${KERNEL_BYTES}") + $(mb_round_up "${INITRD_BYTES}")
 # space". 2× the staged size + 256 MB gives the OTA room to double-buffer.
 # ACBOOT (MAIN) absorbs the difference out of its ~29 GB — negligible.
 EFI_MB=$(( STAGE_MB * 2 + 256 ))
-MAIN_MB=$(( DISK_MB - EFI_MB - 64 ))   # 64 MB GPT + alignment headroom
+if [ -f "${KPART}" ]; then
+    KPART_BYTES=$(stat -f%z "${KPART}")
+    KPART_SHA=$(shasum -a 256 "${KPART}" | awk '{print $1}')
+    [ "${KPART_BYTES}" -le $(( KPART_MB * 1048576 )) ] \
+        || die "vmlinuz.kpart (${KPART_BYTES} bytes) exceeds the ${KPART_MB} MB kernel partition."
+else
+    KPART_MB=0
+fi
+MAIN_MB=$(( DISK_MB - EFI_MB - KPART_MB - 64 ))   # 64 MB GPT + alignment headroom
 
 [ "${MAIN_MB}" -ge $(( STAGE_MB + 64 )) ] \
     || die "USB too small (${DISK_MB} MB) for hybrid layout."
@@ -388,8 +401,13 @@ echo
 log "Target: ${USB_DEV} — ${DEV_NAME} — ${DEV_SIZE}"
 log "Kernel:    ${KERNEL_BYTES} bytes  ${KERNEL_SHA:0:16}…"
 log "Initramfs: ${INITRD_BYTES} bytes  ${INITRD_SHA:0:16}…"
-FREE_MB=$(( DISK_MB - MAIN_MB - EFI_MB - 64 ))
-log "Layout:    ACBOOT=${MAIN_MB}MB  ACEFI=${EFI_MB}MB  free=${FREE_MB}MB"
+FREE_MB=$(( DISK_MB - MAIN_MB - KPART_MB - EFI_MB - 64 ))
+if [ "${KPART_MB}" -gt 0 ]; then
+    log "Chromebook: ${KPART_BYTES} bytes  ${KPART_SHA:0:16}…  (KERN-A partition, ${KPART_MB}MB)"
+    log "Layout:    ACBOOT=${MAIN_MB}MB  KERN-A=${KPART_MB}MB  ACEFI=${EFI_MB}MB  free=${FREE_MB}MB"
+else
+    log "Layout:    ACBOOT=${MAIN_MB}MB  ACEFI=${EFI_MB}MB  free=${FREE_MB}MB  (no Chromebook kpart in ${SRC_DIR})"
+fi
 echo
 if [ -n "${AC_FLASH_YES:-}" ] || [ ! -t 0 ]; then
     log "Auto-confirming wipe (AC_FLASH_YES set or stdin not a TTY)"
@@ -407,11 +425,58 @@ log "Zapping GPT + clearing first 16 MiB…"
 sgdisk --zap-all "${USB_DEV}" >/dev/null
 dd if=/dev/zero of="${USB_DEV}" bs=1m count=16 status=none
 
-log "Creating GPT layout (ACBOOT + ACEFI)…"
-sgdisk \
-    --new=1:0:+${MAIN_MB}M --typecode=1:0700 --change-name=1:ACBOOT \
-    --new=2:0:0           --typecode=2:ef00 --change-name=2:ACEFI \
-    "${USB_DEV}" >/dev/null
+write_gpt() {
+    # sgdisk output is kept visible: a failed primary-header write used to
+    # vanish into /dev/null and surface only as "partition did not appear".
+    if [ "${KPART_MB}" -gt 0 ]; then
+        # Partition 3 sits between ACBOOT and ACEFI on disk; numbering is what
+        # matters to macOS (disk4s3) and vboot scans every kernel-type partition.
+        # Type 7f00 = ChromeOS kernel. Attribute bits (cgpt semantics):
+        # 48-51 priority = 10 (bits 49,51), 52-55 tries = 5 (bits 52,54),
+        # 56 successful = 1 — the same flags chrx/ChromeOS recovery media use, so
+        # the firmware never counts the stick down to unbootable.
+        sgdisk \
+            --new=1:0:+${MAIN_MB}M  --typecode=1:0700 --change-name=1:ACBOOT \
+            --new=3:0:+${KPART_MB}M --typecode=3:7f00 --change-name=3:KERN-A \
+            --attributes=3:set:49 --attributes=3:set:51 \
+            --attributes=3:set:52 --attributes=3:set:54 \
+            --attributes=3:set:56 \
+            --new=2:0:0             --typecode=2:ef00 --change-name=2:ACEFI \
+            "${USB_DEV}" 2>&1 | sed 's/^/[sgdisk] /'
+    else
+        sgdisk \
+            --new=1:0:+${MAIN_MB}M --typecode=1:0700 --change-name=1:ACBOOT \
+            --new=2:0:0           --typecode=2:ef00 --change-name=2:ACEFI \
+            "${USB_DEV}" 2>&1 | sed 's/^/[sgdisk] /'
+    fi
+}
+gpt_ok() {
+    # A readable table lists ACEFI (and KERN-A when requested); a torn write
+    # prints "Main header: ERROR" instead.
+    local table
+    table=$(sgdisk -p "${USB_DEV}" 2>&1)
+    echo "${table}" | grep -q "ERROR" && return 1
+    echo "${table}" | grep -q "ACEFI" || return 1
+    [ "${KPART_MB}" -eq 0 ] || echo "${table}" | grep -q "KERN-A"
+}
+if [ "${KPART_MB}" -gt 0 ]; then
+    log "Creating GPT layout (ACBOOT + KERN-A + ACEFI)…"
+else
+    log "Creating GPT layout (ACBOOT + ACEFI)…"
+fi
+# macOS DiskArbitration re-probes the disk the moment the zap lands and can
+# hold it while sgdisk writes the primary header, leaving a torn table
+# (backup OK, primary ERROR). Verify and retry rather than discover it later.
+for attempt in 1 2 3; do
+    diskutil unmountDisk force "${USB_DEV}" >/dev/null 2>&1 || true
+    write_gpt
+    sleep 1
+    gpt_ok && break
+    [ "${attempt}" -lt 3 ] || die "GPT did not verify after 3 attempts: $(sgdisk -p "${USB_DEV}" 2>&1 | grep -E 'ERROR|Invalid' | tr '\n' ' ')"
+    log "GPT write did not verify (attempt ${attempt}) — re-zapping and retrying…"
+    sleep 2
+    sgdisk --zap-all "${USB_DEV}" >/dev/null 2>&1 || true
+done
 
 # Force macOS to re-read the partition table after sgdisk wrote it. The
 # kernel caches the old layout until we explicitly notify it; without this,
@@ -422,17 +487,29 @@ diskutil list "${USB_DEV}" >/dev/null 2>&1 || true
 
 P1="${USB_DEV}s1"
 P2="${USB_DEV}s2"
+P3="${USB_DEV}s3"
 RAW1="/dev/r$(basename "${P1}")"
 RAW2="/dev/r$(basename "${P2}")"
+RAW3="/dev/r$(basename "${P3}")"
 
-# Wait up to 10s for both partition nodes to materialize.
+# Wait up to 10s for the partition nodes to materialize.
 for i in $(seq 1 20); do
-    [ -e "${P1}" ] && [ -e "${P2}" ] && break
+    if [ -e "${P1}" ] && [ -e "${P2}" ] && { [ "${KPART_MB}" -eq 0 ] || [ -e "${P3}" ]; }; then break; fi
     sleep 0.5
     diskutil list "${USB_DEV}" >/dev/null 2>&1 || true
 done
 [ -e "${P1}" ] || die "Partition ${P1} did not appear after sgdisk + reread."
 [ -e "${P2}" ] || die "Partition ${P2} did not appear after sgdisk + reread."
+if [ "${KPART_MB}" -gt 0 ]; then
+    [ -e "${P3}" ] || die "Partition ${P3} did not appear after sgdisk + reread."
+    log "Writing KERN-A (vboot-packed kernel for Chromebook Ctrl+U boot)…"
+    diskutil unmount "${P3}" >/dev/null 2>&1 || true
+    # conv=sync pads the final block to bs so the raw device accepts it;
+    # the padding lands inside the 64 MB partition, past the kernel blob.
+    dd if="${KPART}" of="${RAW3}" bs=1m conv=sync status=none \
+        || die "dd of vmlinuz.kpart to ${RAW3} failed"
+    sync
+fi
 
 log "Formatting FAT32 partitions…"
 newfs_msdos -F 32 -v ACBOOT "${RAW1}" >/dev/null
@@ -453,6 +530,16 @@ mount_fat() {  # $1=partition device  $2=mount point
     mount_msdos "$1" "$2"
 }
 log "Mounting partitions…"
+# macOS 26+ no longer loads the msdosfs kext (mount_msdos fails with "msdos
+# filesystem is not available"); FAT is mounted by a userland driver that
+# diskutil knows how to reach. diskutil mount also works on older releases.
+mount_fat() {
+    local part="$1" mnt="$2"
+    diskutil unmount "${part}" >/dev/null 2>&1 || true
+    diskutil mount -mountPoint "${mnt}" "${part}" >/dev/null \
+        || mount_msdos "${part}" "${mnt}" \
+        || die "Could not mount ${part} at ${mnt}"
+}
 mount_fat "${P1}" "${M1}"
 mount_fat "${P2}" "${M2}"
 
@@ -461,10 +548,14 @@ log "Writing ACBOOT (kernel-direct boot tree)…"
 mkdir -p "${M1}/EFI/BOOT"
 cp "${KERNEL}"   "${M1}/EFI/BOOT/BOOTX64.EFI"
 cp "${INITRAMFS}" "${M1}/initramfs.cpio.gz"
-# Boot piece: notepat by default. Override per-flash with AC_BOOT_PIECE
-# (e.g. AC_BOOT_PIECE=babypat flash-mac.sh ...). Kernel resolves the
-# name to /pieces/<piece>.mjs at boot — see ac-native.c:3853.
-BOOT_PIECE="${AC_BOOT_PIECE:-notepat}"
+# Boot piece: aesel by default (the Claude session that writes pieces this
+# machine runs). Override per-flash with AC_BOOT_PIECE (e.g.
+# AC_BOOT_PIECE=notepat flash-mac.sh ...) or with usbConfig.piece in the
+# inscription. The kernel resolves the name to /pieces/<piece>.mjs at boot —
+# see the "Boot piece from config" block in ac-native.c. Devices already
+# flashed keep whatever piece their /mnt/config.json names.
+INSCRIBED_PIECE=$(node -e 'try { const c=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).usbConfig||{}; if (typeof c.piece === "string" && /^[a-z0-9-]+$/.test(c.piece)) process.stdout.write(c.piece); } catch {}' "${INSCRIPTION_FILE}")
+BOOT_PIECE="${AC_BOOT_PIECE:-${INSCRIBED_PIECE:-aesel}}"
 
 # Write a device config.json. Base identity fields come from the shell vars
 # (set from the inscription OR the legacy API path); the boot-personalization
@@ -479,16 +570,19 @@ write_device_config() {  # $1=dest  $2=udp(1=include udpMidiBroadcast)
         if (udp === "1") cfg.udpMidiBroadcast = true;
         try {
             const c = (JSON.parse(fs.readFileSync(insc, "utf8")).usbConfig) || {};
+            if (c.token) cfg.token = c.token;
             if (c.city) cfg.city = c.city;
             if (Array.isArray(c.colors) && c.colors.length) cfg.colors = c.colors;
             if (c.mood) cfg.mood = c.mood;
-            if (c.mono) cfg.mono = true;
+            if (typeof c.mono === "boolean") cfg.mono = c.mono;
+            if (Number.isFinite(c.volume)) cfg.volume = Math.max(0, Math.min(400, Math.round(c.volume)));
+            if (["left", "right", "both"].includes(c.monoOutput)) cfg.monoOutput = c.monoOutput;
         } catch (e) { /* no inscription (anon/legacy) — base fields only */ }
         fs.writeFileSync(dest, JSON.stringify(cfg) + "\n");
     ' "$1" "${USER_HANDLE}" "${BOOT_PIECE}" "${USER_SUB}" "${USER_EMAIL}" "$2" "${INSCRIPTION_FILE}"
 }
 write_device_config "${M1}/config.json" 1
-log "  config.json: $(cat "${M1}/config.json")"
+log "  config.json: @${USER_HANDLE}, boot piece ${BOOT_PIECE}"
 
 # Build merged wifi_creds.json (presets + preserved + optional override)
 # once, reuse for both partitions.
@@ -520,7 +614,7 @@ with open(sys.argv[3], 'w') as f:
         && log "Merged $(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))))' "${WIFI_MERGED}") wifi networks (presets + preserved)"
     else
         printf '%s\n' "${WIFI_PRESETS_JSON}" > "${WIFI_MERGED}"
-        log "Wrote 6 preset wifi networks (no previous USB to preserve from)"
+        log "Wrote $(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))))' "${WIFI_MERGED}") preset wifi networks (no previous USB to preserve from)"
     fi
 fi
 cp "${WIFI_MERGED}" "${M1}/wifi_creds.json"
@@ -558,6 +652,13 @@ verify "ACBOOT/EFI/BOOT/BOOTX64.EFI" "${M1}/EFI/BOOT/BOOTX64.EFI"  "${KERNEL_SHA
 verify "ACBOOT/initramfs.cpio.gz"   "${M1}/initramfs.cpio.gz"      "${INITRD_SHA}"
 verify "ACEFI/EFI/BOOT/KERNEL.EFI"  "${M2}/EFI/BOOT/KERNEL.EFI"    "${KERNEL_SHA}"
 verify "ACEFI/initramfs.cpio.gz"    "${M2}/initramfs.cpio.gz"      "${INITRD_SHA}"
+if [ "${KPART_MB}" -gt 0 ]; then
+    # Read the blob's exact length back through the buffered node (the raw
+    # node only allows sector-multiple reads) and compare with the source.
+    got=$(head -c "${KPART_BYTES}" "${P3}" | shasum -a 256 | awk '{print $1}')
+    [ "${got}" = "${KPART_SHA}" ] || die "KERN-A sha mismatch (${got} != ${KPART_SHA})"
+    log "  ✓ KERN-A (ChromeOS kernel partition)  ${got:0:16}…"
+fi
 
 # --- finalize ---
 sync
@@ -567,5 +668,10 @@ diskutil eject "${USB_DEV}" >/dev/null
 trap - EXIT
 rmdir "${M1}" "${M2}" 2>/dev/null || true
 
-log "Done. USB has both kernel-direct (ACBOOT) + systemd-boot (ACEFI) layouts."
-log "Plug into target hardware and boot — UEFI firmware should pick ACEFI (real ESP)."
+if [ "${KPART_MB}" -gt 0 ]; then
+    log "Done. USB has kernel-direct (ACBOOT) + systemd-boot (ACEFI) + ChromeOS kernel (KERN-A) layouts."
+    log "UEFI firmware picks ACEFI. Stock Chromebooks: developer mode, 'crossystem dev_boot_usb=1', then Ctrl+U at the boot screen."
+else
+    log "Done. USB has both kernel-direct (ACBOOT) + systemd-boot (ACEFI) layouts."
+    log "Plug into target hardware and boot — UEFI firmware should pick ACEFI (real ESP)."
+fi

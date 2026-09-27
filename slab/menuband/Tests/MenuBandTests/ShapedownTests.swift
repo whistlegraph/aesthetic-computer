@@ -341,6 +341,10 @@ final class ShapedownTests: XCTestCase {
         XCTAssertEqual(AppDelegate.trackpadPadModeAfterTab(.skin), .fx)
         XCTAssertEqual(AppDelegate.trackpadPadModeAfterTab(.fx), .skin)
         XCTAssertEqual(AppDelegate.trackpadPadModeAfterTab(.synth), .fx)
+        XCTAssertEqual(AppDelegate.trackpadPadModeAfterTab(.split), .fx)
+        XCTAssertEqual(AppDelegate.trackpadPadModeAfterShiftTab(.skin), .split)
+        XCTAssertEqual(AppDelegate.trackpadPadModeAfterShiftTab(.fx), .split)
+        XCTAssertEqual(AppDelegate.trackpadPadModeAfterShiftTab(.split), .skin)
         XCTAssertEqual(AppDelegate.trackpadPadModeAfterTab(.kit), .fx)
     }
 
@@ -1022,6 +1026,31 @@ final class TrackpadAudioLaneTests: XCTestCase {
         lane.flushForTesting()
         XCTAssertEqual(output.skinStrikes, 0)
         XCTAssertEqual(output.marks, 0)
+    }
+
+    func testSplitStrikesOnlyFingersThatLandedOnTheDrumHalf() {
+        let output = TrackpadAudioOutputSpy()
+        let lane = TrackpadAudioLane(output: output)
+        lane.setMode(.split)
+        lane.process(
+            contacts: [
+                TrackpadContact(identifier: 1, point: CGPoint(x: 0.2, y: 0.5), state: 3),
+                TrackpadContact(identifier: 2, point: CGPoint(x: 0.8, y: 0.5), state: 3),
+            ],
+            timestamp: 1, callbackTime: 1,
+            shiftDown: false, suppressed: false
+        )
+        // The slider finger crosses the seam; still no strike from it.
+        lane.process(
+            contacts: [
+                TrackpadContact(identifier: 1, point: CGPoint(x: 0.7, y: 0.5), state: 4),
+                TrackpadContact(identifier: 2, point: CGPoint(x: 0.8, y: 0.5), state: 4),
+            ],
+            timestamp: 1.008, callbackTime: 1.008,
+            shiftDown: false, suppressed: false
+        )
+        lane.flushForTesting()
+        XCTAssertEqual(output.skinStrikes, 1)
     }
 
     func testLeavingKitReleasesHeldArticulation() {

@@ -34,29 +34,36 @@ The vault's `home/.ssh/id_rsa` is your laptop's identity. For oven we want
 a **dedicated** keypair — generated locally, public half authorized on lith,
 private half copied to oven. Rotating the laptop key shouldn't break oven.
 
+The oven service runs as the `oven` user (`oven/infra/oven.service`), so the
+key and its known-hosts file belong in `/home/oven/.ssh/`, owned by `oven`.
+`papers-builder.mjs` resolves both from the service user's home
+(`LITH_SSH_KEY` / `LITH_SSH_KNOWN_HOSTS` override them).
+
 From your laptop:
 
 ```fish
-# 1. Generate a dedicated ed25519 keypair (no passphrase — oven runs as root)
+# 1. Generate a dedicated ed25519 keypair (no passphrase — the service runs unattended)
 set keypath /tmp/oven-to-lith
-ssh-keygen -t ed25519 -f $keypath -N "" -C "oven@aesthetic.computer → lith"
+ssh-keygen -t ed25519 -f $keypath -N "" -C "oven@aesthetic.computer -> lith papers rsync"
 
-# 2. Authorize the public key on lith (write-access to /opt/ac/system/public/papers.aesthetic.computer/)
-ssh -i ~/.config/sops/age/ac-lith/id_rsa root@lith.aesthetic.computer "cat >> /root/.ssh/authorized_keys" < $keypath.pub
+# 2. Authorize the public key on lith, pinned to the oven's address
+#    (write-access to /opt/ac/system/public/papers.aesthetic.computer/)
+set lith_key $VAULT_DIR/home/.ssh/id_rsa   # the key lith/deploy.fish uses
+echo 'from="137.184.237.166" '(cat $keypath.pub) | ssh -i $lith_key root@lith.aesthetic.computer "cat >> /root/.ssh/authorized_keys"
 
-# 3. Copy the private key to oven (find OVEN_HOST from oven/deploy.fish)
-set oven_host (set -q OVEN_HOST; and echo $OVEN_HOST; or echo "<oven droplet IP>")
-scp $keypath root@$oven_host:/root/.ssh/oven-to-lith
-ssh root@$oven_host "chmod 600 /root/.ssh/oven-to-lith"
+# 3. Copy the private key to oven, into the oven user's ~/.ssh
+set oven_key $VAULT_DIR/oven/ssh/oven-deploy-key   # the key oven/sync-source.sh uses
+scp -i $oven_key $keypath root@137.184.237.166:/home/oven/.ssh/oven-to-lith
+ssh -i $oven_key root@137.184.237.166 "chown oven:oven /home/oven/.ssh/oven-to-lith && chmod 600 /home/oven/.ssh/oven-to-lith"
 
-# 4. Pre-seed oven's known_hosts so rsync doesn't prompt on first run
-ssh root@$oven_host "ssh-keyscan -t ed25519 lith.aesthetic.computer > /root/.ssh/oven-known-hosts"
+# 4. Pre-seed the oven user's known_hosts so rsync doesn't prompt on first run
+ssh -i $oven_key root@137.184.237.166 "sudo -u oven sh -c 'ssh-keyscan -t ed25519 lith.aesthetic.computer > /home/oven/.ssh/oven-known-hosts'"
 
 # 5. Wipe the local copy
 rm $keypath $keypath.pub
 
-# 6. Smoke test from oven
-ssh root@$oven_host "rsync -av --dry-run -e 'ssh -i /root/.ssh/oven-to-lith -o UserKnownHostsFile=/root/.ssh/oven-known-hosts' /tmp/ root@lith.aesthetic.computer:/tmp/oven-smoke/"
+# 6. Smoke test from oven, as the service user
+ssh -i $oven_key root@137.184.237.166 "sudo -u oven rsync -av --dry-run -e 'ssh -i /home/oven/.ssh/oven-to-lith -o IdentitiesOnly=yes -o UserKnownHostsFile=/home/oven/.ssh/oven-known-hosts' /tmp/ root@lith.aesthetic.computer:/tmp/oven-smoke/"
 ```
 
 If step 6 prints rsync output without errors, the key works.

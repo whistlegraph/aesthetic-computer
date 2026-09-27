@@ -22,6 +22,9 @@ extern void ac_log(const char *fmt, ...);
 
 // Forward declarations
 static int read_system_volume_card(int card);
+// config.json "volume" (percent) — set before audio_init by ac-native so the
+// baseline software gain is per-stick, not per-build. -1 = not set.
+static int default_system_volume_override = -1;
 
 // qsort comparator for AC_LATENCY_BENCH percentile computation.
 static int bench_cmp_long(const void *a, const void *b) {
@@ -2805,8 +2808,20 @@ ACAudio *audio_init(void) {
     int err = -1;
     int card_idx = 0;
 
-    // AC_AUDIO_DEVICE override — try the env var device before the hardcoded list.
+    // The environment wins; a device selection saved on the boot USB also
+    // applies to every piece (including the prompt) on the next engine start.
     const char *env_dev = getenv("AC_AUDIO_DEVICE");
+    char saved_device[128] = {0};
+    if (!env_dev || !env_dev[0]) {
+        FILE *selection = fopen("/mnt/audio-device", "r");
+        if (selection) {
+            if (fgets(saved_device, sizeof(saved_device), selection)) {
+                saved_device[strcspn(saved_device, "\r\n")] = 0;
+                if (saved_device[0]) env_dev = saved_device;
+            }
+            fclose(selection);
+        }
+    }
     if (env_dev && env_dev[0]) {
         err = snd_pcm_open(&pcm, env_dev, SND_PCM_STREAM_PLAYBACK, 0);
         if (err >= 0) {
@@ -3389,14 +3404,39 @@ ACAudio *audio_init(void) {
     // pushing soft_clip into audible distortion. Volume keys still go
     // up to 400% for very quiet hardware.
     int hw_vol = read_system_volume_card(card_idx);
-    audio->system_volume = (hw_vol >= 0) ? hw_vol : 180;
-    fprintf(stderr, "[audio] System volume: %d%% (hw=%d)\n",
-            audio->system_volume, hw_vol);
+    int sof_default = 180;
+    {
+        // Per-card SOF baselines (no Master mixer, software gain only).
+        // 180% (3.2x linear) suits the Jasper Lake sof-rt5682 + MAX98360A
+        // pipeline, whose topology leaves ~6 dB of headroom. The Gemini
+        // Lake sof-glk-da7219 + MAX98357A path (Lenovo 500e) runs at full
+        // scale: 180% there was painfully loud and clipped into crunch
+        // (2026-09-24). config.json "volume" overrides either.
+        char cid[32] = "";
+        char cid_path[64];
+        snprintf(cid_path, sizeof(cid_path), "/proc/asound/card%d/id", card_idx);
+        FILE *cf = fopen(cid_path, "r");
+        if (cf) {
+            if (fgets(cid, sizeof(cid), cf)) { char *nl = strchr(cid, '\n'); if (nl) *nl = 0; }
+            fclose(cf);
+        }
+        if (strstr(cid, "glkda7219") || strstr(cid, "bxtda7219")) sof_default = 80;
+        if (cid[0]) fprintf(stderr, "[audio] Card id: %s (SOF baseline %d%%)\n", cid, sof_default);
+    }
+    if (default_system_volume_override >= 0) {
+        audio->system_volume = default_system_volume_override;
+        fprintf(stderr, "[audio] System volume: %d%% (config.json volume; hw=%d)\n",
+                audio->system_volume, hw_vol);
+    } else {
+        audio->system_volume = (hw_vol >= 0) ? hw_vol : sof_default;
+        fprintf(stderr, "[audio] System volume: %d%% (hw=%d)\n",
+                audio->system_volume, hw_vol);
+    }
 
     // HDMI audio disabled — opening HDMI PCM streams on the same HDA controller
     // can exhaust controller streams and cause EIO on capture.
     audio->hdmi_pcm = NULL;
-    fprintf(stderr, "[audio] HDMI audio: disabled\n");
+    fprintf(stderr, "[audio] Secondary HDMI audio clone: disabled (primary=%s)\n", audio->audio_device);
 
     // Start audio thread
     audio->running = 1;
@@ -3874,6 +3914,18 @@ void audio_set_master_volume(ACAudio *audio, float value) {
     if (value < 0.0f) value = 0.0f;
     if (value > 2.0f) value = 2.0f;
     audio->target_master_volume = value;
+}
+
+void audio_set_default_system_volume(int pct) {
+    default_system_volume_override = (pct < 0) ? -1 : (pct > 400 ? 400 : pct);
+}
+
+void audio_set_system_volume(ACAudio *audio, int pct) {
+    if (!audio) return;
+    if (pct < 0) pct = 0;
+    if (pct > 400) pct = 400;
+    audio->system_volume = pct;
+    ac_log("[audio] System volume set to %d%%\n", pct);
 }
 
 void audio_set_mono(ACAudio *audio, int enabled) {

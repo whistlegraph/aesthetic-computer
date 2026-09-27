@@ -62,6 +62,8 @@
 	<string>By aesthetic.computer</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Menu Band finds nearby Menu Bands so two machines can play together in sync over peer-to-peer Wi-Fi and Bluetooth, no router needed.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Menu Band looks through the camera only while a singing face is on screen, so its eyes can follow the people in the room. No frames are stored or sent anywhere.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Menu Band records short clips from your microphone when you hold ` so you can play them back as a sampling voice.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

@@ -1,5 +1,0 @@
-Copyright (C) 1998-2025 Roman Czyborra, Paul Hardy, Qianqian Fang, Andrew Miller, Johnnie Weaver, David Corbett, Nils Moskopp, Rebecca Bettencourt, Minseo Lee, Ho-Seok Ee, et al. License: SIL Open Font License version 1.1 and GPLv2+: GNU GPL version 2 or later <http://gnu.org/licenses/gpl.html> with the GNU Font Embedding Exception.
-
-This terminal subset and its conversion script are distributed under SIL OFL 1.1.
-The surrounding Easel application has its own separate license.
-Modified by Aesthetic Computer, 2026-09-15: terminal subset and exact square outlines.

@@ -48,11 +48,11 @@ line after a crash; malformed complete lines remain errors.
 
 ## Required company sharing
 
-Before using Aesel, each signed-in account must acknowledge disclosure version 2: future user messages, assistant replies, and artifact revision references are shared with authorized AC staff for product improvement, with a 30-day retention limit. Declining exits before creating a session or transmitting conversation content. Existing private messages are not backfilled. Account changes require a separate acknowledgment. The disclosure is available through `/sharing`; there is no optional private-use mode.
+Before using Aesel, each signed-in account must acknowledge disclosure version 4: future user messages, assistant replies, and artifact revision references are shared with authorized AC staff for product improvement, with indefinite retention until owner deletion. Declining exits before creating a session or transmitting conversation content. Existing private messages are not backfilled. Account changes require a separate acknowledgment. The disclosure is available through `/sharing`; there is no optional private-use mode.
 
 A `.easel` journal remains on disk. Uploads use authenticated batches of at most 100 records / 256 KiB. Recognizable credentials are redacted on both client and server. Failed uploads remain queued; a new generation cannot start until its user message has been journaled and the pending upload succeeds. `/transcript export FILE.easel` exports the local transcript; `/transcript delete` deletes the uploaded copy, while future messages continue under required sharing.
 
-Uploaded records use consent disclosure version 2. Format readers retain support for historical version 1 consent records. Raw reads require an explicit server-side staff subject allowlist; absent configuration denies all reads. Owners can delete their uploaded transcripts but cannot read arbitrary company records. TTL indexes enforce 30-day retention, and reads exclude expired records immediately.
+New clients use consent disclosure version 4. Format readers retain support for historical versions 1–3, including older clients and queued uploads. Raw reads require an explicit server-side staff subject allowlist; absent configuration denies all reads. Owners can delete their uploaded transcripts but cannot read arbitrary company records. Expiration is a soft marker: records remain readable after 30 days until explicitly deleted.
 
 ## Company access and retention
 
@@ -65,9 +65,14 @@ always scopes to the authenticated owner and accepts `{sessionId}` or explicit
 `{all:true}`.
 
 Records live in Mongo's `easel-transcripts-private` collection. Each row has
-server-assigned receipt and expiry dates. The TTL index deletes after 30 days;
-read queries also exclude expired rows while Mongo's TTL worker catches up.
-Retries do not renew retention or mutate an accepted stable record ID. A partial
+server-assigned receipt and expiry dates. `expiresAt` marks 30 days after receipt,
+but no TTL index deletes records. Initialization removes the legacy
+`easel_transcript_expiry` TTL index and creates a regular expiration index; run
+`ensureTranscriptIndexes(db)` during deployment to migrate existing storage.
+Staff reads include expired records and return `expiredSeqs` for the current
+page, computed at read time without changing the portable record format.
+Uploads report `retentionDays: null` and `expirationDays: 30`.
+Retries do not move the expiration marker or mutate an accepted stable record ID. A partial
 batch failure is retryable with identical IDs. The unique owner/session/sequence
 index prevents two different events from claiming the same position.
 

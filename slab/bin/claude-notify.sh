@@ -9,6 +9,9 @@
 #   3. Speak "help me" with a short fade tail (claude-help.py).
 # The pause flag is cleared by the next UserPromptSubmit (user responded)
 # or by Stop (work ended). Does NOT sleep the Mac.
+# A Claude that Easel is driving is that session's engine, not a rock of its
+# own; Easel keeps the marker, so this hook has nothing to say.
+[[ -n "${EASEL_SESSION_ID:-}" ]] && exit 0
 set -u
 SLAB_HOME=${SLAB_HOME:-$HOME/.local/share/slab}
 SLAB_BIN=${SLAB_BIN:-$HOME/.local/bin}

@@ -14,6 +14,9 @@
 #   others = 0 → "all done" chime (lid open) OR TTS "i'm tired" with fade-out
 #                tail → `pmset sleepnow` (lid closed: stops ambient first, so
 #                the transition to sleep is a gentle dissolve instead of a cut).
+# A Claude that Easel is driving is that session's engine, not a rock of its
+# own; Easel keeps the marker, so this hook has nothing to say.
+[[ -n "${EASEL_SESSION_ID:-}" ]] && exit 0
 set -u
 SLAB_HOME=${SLAB_HOME:-$HOME/.local/share/slab}
 SLAB_BIN=${SLAB_BIN:-$HOME/.local/bin}

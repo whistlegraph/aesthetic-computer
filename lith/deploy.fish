@@ -343,6 +343,13 @@ systemctl reload caddy"
 # Restart lith service, and the Amail SMTP door beside it
 echo -e "$GREEN-> Restarting lith + lith-mail...$NC"
 ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "systemctl restart lith lith-mail"
+
+# Stop automatic transcript deletion immediately, even before the next API call.
+echo -e "$GREEN-> Migrating Aesel transcript expiration to a soft marker...$NC"
+if not ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR/system && node --env-file=.env --input-type=module -e 'const {connect,closePool}=await import(\"./backend/database.mjs\"); const {ensureTranscriptIndexes}=await import(\"./backend/easel-transcripts.mjs\"); try { const {db}=await connect(); await ensureTranscriptIndexes(db); } finally { await closePool(); }'"
+    echo -e "$RED x Transcript retention migration failed.$NC"
+    exit 1
+end
 # Purge the Cloudflare cache so new code is served immediately. Runtime .mjs
 # (kidlisp, disk, graph, …) are STATIC sub-imports without the ?v= cache-bust
 # boot.mjs puts on top-level modules, so the edge would otherwise serve stale

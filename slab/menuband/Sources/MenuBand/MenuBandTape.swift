@@ -57,13 +57,42 @@ final class MenuBandTape {
     /// summed from synthBuffer + micBuffer.
     private let mixFormat: AVAudioFormat
 
-    private let synthBuffer: AVAudioPCMBuffer
-    private let micBuffer: AVAudioPCMBuffer
+    private var synthBuffer: AVAudioPCMBuffer
+    private var micBuffer: AVAudioPCMBuffer
     private let bufferLock = NSLock()
+
+    /// A raw pre-fader stereo stem (tones, percussion). Same 90 s storage
+    /// as the mix stem; written under `bufferLock`; no auto-stop of its
+    /// own (the mix stem ends the take).
+    private final class StereoStem {
+        let buffer: AVAudioPCMBuffer
+        var writeFrame = 0
+        var leadSkip = 0
+        var converter: AVAudioConverter?
+        var converterSrcFormat: AVAudioFormat?
+        init(buffer: AVAudioPCMBuffer) { self.buffer = buffer }
+        func reset(leadSkip: Int) {
+            if let l = buffer.floatChannelData?[0], let r = buffer.floatChannelData?[1] {
+                memset(l, 0, MenuBandTape.maxFrames * MemoryLayout<Float>.size)
+                memset(r, 0, MenuBandTape.maxFrames * MemoryLayout<Float>.size)
+            }
+            writeFrame = 0
+            self.leadSkip = leadSkip
+        }
+    }
+    private var tonesStem: StereoStem
+    private var percStem: StereoStem
+
+    /// Fader positions at REC plus every move during the take, so the
+    /// heard mix can be rebuilt from the raw stems (mix.json on eject).
+    struct MixEvent { let time: Double; let param: String; let value: Float }
+    private var mixSnapshot: [String: Float] = [:]
+    private var mixEvents: [MixEvent] = []
 
     private var synthWriteFrame: Int = 0
     private var micWriteFrame: Int = 0
     private var playFrame: Int = 0
+    private var autoStopQueued = false
 
     /// Leading-transient trim. The hot mic is already running when the
     /// user presses backtick to arm REC, so the first frames captured
@@ -80,6 +109,9 @@ final class MenuBandTape {
     /// stem remains in channels 3–4 for editing, but must not be summed twice
     /// during Menu Band playback or compressed export.
     private var micAlreadyInMix = false
+    /// True when the last take's channels 1–2 already carry the monitored
+    /// voice (monitoring was on), so exports must NOT add the dry stem again.
+    var micWasInMix: Bool { micAlreadyInMix }
 
     private(set) var state: State = .idle {
         didSet { if oldValue != state { postChange() } }
@@ -107,7 +139,7 @@ final class MenuBandTape {
 
     // MARK: - Playback
 
-    let playerNode = AVAudioPlayerNode()
+    lazy var playerNode = AVAudioPlayerNode()
     private weak var engine: AVAudioEngine?
     private weak var playerOutput: AVAudioNode?
     private var playerAttached = false
@@ -125,6 +157,11 @@ final class MenuBandTape {
     /// re-encoding 90 s of audio every time the user drags the
     /// cassette out OR clicks the popover EJECT button after dragging.
     private var cachedEject: EjectResult?
+    private let exportLock = NSLock()
+    private var frozenExport: MenuBandTape?
+    private var isExportSnapshot = false
+    private(set) var takeID = UUID()
+    var exportName: String { Self.makeCuteName(date: recordStartDate) }
 
     init() {
         guard let synth = AVAudioFormat(commonFormat: .pcmFormatFloat32,
@@ -152,7 +189,65 @@ final class MenuBandTape {
         mb.frameLength = AVAudioFrameCount(Self.maxFrames)
         self.synthBuffer = sb
         self.micBuffer = mb
+        guard let tb = AVAudioPCMBuffer(pcmFormat: synth,
+                                         frameCapacity: AVAudioFrameCount(Self.maxFrames)),
+              let pb = AVAudioPCMBuffer(pcmFormat: synth,
+                                         frameCapacity: AVAudioFrameCount(Self.maxFrames))
+        else {
+            fatalError("MenuBandTape: failed to allocate 90s raw stem buffers")
+        }
+        tb.frameLength = AVAudioFrameCount(Self.maxFrames)
+        pb.frameLength = AVAudioFrameCount(Self.maxFrames)
+        self.tonesStem = StereoStem(buffer: tb)
+        self.percStem = StereoStem(buffer: pb)
     }
+
+    /// Retain a stopped take's storage, without copying 111 MB on main.
+    /// The next recording gets new buffers; exports never read live state.
+    private init(snapshotOf source: MenuBandTape) {
+        synthFormat = source.synthFormat
+        micFormat = source.micFormat
+        mixFormat = source.mixFormat
+        synthBuffer = source.synthBuffer
+        micBuffer = source.micBuffer
+        tonesStem = StereoStem(buffer: source.tonesStem.buffer)
+        percStem = StereoStem(buffer: source.percStem.buffer)
+        synthWriteFrame = source.synthWriteFrame
+        micWriteFrame = source.micWriteFrame
+        micAlreadyInMix = source.micAlreadyInMix
+        mixSnapshot = source.mixSnapshot
+        mixEvents = source.mixEvents
+        recordStartDate = source.recordStartDate
+        takeID = source.takeID
+        source.midiLock.lock()
+        midiEvents = source.midiEvents
+        source.midiLock.unlock()
+        isExportSnapshot = true
+    }
+
+    func snapshotForExport() -> MenuBandTape? {
+        dispatchPrecondition(condition: .onQueue(.main))
+        guard state != .recording else { return nil }
+        bufferLock.lock()
+        defer { bufferLock.unlock() }
+        guard max(synthWriteFrame, micWriteFrame) > 0 else { return nil }
+        if let frozenExport { return frozenExport }
+        let snapshot = MenuBandTape(snapshotOf: self)
+        frozenExport = snapshot
+        return snapshot
+    }
+
+    /// AppKit callers enqueue file conversion instead of waiting for it.
+    func ejectAsync(completion: @escaping (EjectResult?) -> Void) {
+        stop()
+        guard let snapshot = snapshotForExport() else { completion(nil); return }
+        Self.exportQueue.async {
+            let result = snapshot.eject()
+            DispatchQueue.main.async { completion(result) }
+        }
+    }
+
+    static let exportQueue = DispatchQueue(label: "menuband.tape-export", qos: .utility)
 
     // MARK: - Engine attach
 
@@ -167,11 +262,28 @@ final class MenuBandTape {
 
     // MARK: - Transport
 
-    func record(micAlreadyInMix: Bool = false) {
+    func record(micAlreadyInMix: Bool = false, mix: [String: Float] = [:]) {
         switch state {
         case .recording: return
         case .playing, .paused: stop()
         case .idle: break
+        }
+        // A background export owns the old buffers. Never clear or overwrite
+        // them when the player immediately starts the next take.
+        if frozenExport != nil {
+            func buffer(_ format: AVAudioFormat) -> AVAudioPCMBuffer {
+                let b = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(Self.maxFrames))!
+                b.frameLength = AVAudioFrameCount(Self.maxFrames)
+                return b
+            }
+            let synth = buffer(synthFormat), mic = buffer(micFormat)
+            let tones = StereoStem(buffer: buffer(synthFormat))
+            let perc = StereoStem(buffer: buffer(synthFormat))
+            bufferLock.lock()
+            synthBuffer = synth; micBuffer = mic
+            tonesStem = tones; percStem = perc
+            frozenExport = nil
+            bufferLock.unlock()
         }
         bufferLock.lock()
         if let l = synthBuffer.floatChannelData?[0],
@@ -184,11 +296,17 @@ final class MenuBandTape {
         }
         synthWriteFrame = 0
         micWriteFrame = 0
+        autoStopQueued = false
         playFrame = 0
         synthLeadSkip = Self.leadTrimFrames
         micLeadSkip = Self.leadTrimFrames
+        tonesStem.reset(leadSkip: Self.leadTrimFrames)
+        percStem.reset(leadSkip: Self.leadTrimFrames)
+        mixSnapshot = mix
+        mixEvents.removeAll()
         self.micAlreadyInMix = micAlreadyInMix
         recordStartDate = Date()
+        takeID = UUID()
         cachedEject = nil
         bufferLock.unlock()
         midiLock.lock()
@@ -286,6 +404,9 @@ final class MenuBandTape {
         let date: Date
         let duration: TimeInterval
         var midi: URL? = nil   // sidecar .mid of the notes played (if any)
+        /// Folder of raw pre-fader stems (tones/percussion/voice .wav) +
+        /// mix.json with the fader positions — rides along on drag-out.
+        var stems: URL? = nil
         // The generative album art (already stamped on `file`). Carried as the
         // in-memory image so downstream artifact-building uses it DIRECTLY —
         // never re-reading it off disk via `icon(forFile:)`, which races the
@@ -298,6 +419,16 @@ final class MenuBandTape {
     private var midiEvents: [MidiFile.Event] = []
     private var midiStart: TimeInterval = 0
     private var midiLock = NSLock()
+
+    /// A fader moved (controller setters). Logged against the take's
+    /// current write position so mix.json can replay the automation.
+    func noteMixParam(_ param: String, _ value: Float) {
+        guard state == .recording else { return }
+        bufferLock.lock()
+        let t = Double(synthWriteFrame) / Self.sampleRate
+        mixEvents.append(MixEvent(time: t, param: param, value: value))
+        bufferLock.unlock()
+    }
 
     /// Called from the synth's note hook (via the controller) on every
     /// note-on/off. Records only while the tape is rolling.
@@ -383,6 +514,13 @@ final class MenuBandTape {
     }
 
     func eject() -> EjectResult? {
+        if !isExportSnapshot {
+            let snapshot = Thread.isMainThread ? snapshotForExport()
+                : DispatchQueue.main.sync { snapshotForExport() }
+            return snapshot?.eject()
+        }
+        exportLock.lock()
+        defer { exportLock.unlock() }
         guard hasRecording else { return nil }
         // Reuse the cached result if the on-disk file is still
         // there. Same take → same file → faster drag, no duplicate
@@ -401,7 +539,11 @@ final class MenuBandTape {
         guard frames > 0 else { return nil }
         let duration = Double(frames) / Self.sampleRate
         let date = recordStartDate
-        let normGain = normalizationGain(from: offset, count: frames)   // master to ~-1 dBFS
+        // No mastering on the way out: the take leaves at the level it was
+        // heard at (the limiter already holds it under 0 dBFS). The old
+        // normalize-to-‑1 dBFS lifted quiet takes up to 24× and changed the
+        // balance against the room. Logged for reference only.
+        let normGain: Float = 1
 
         // Pick a friendly filename + dodge collisions in /tmp.
         let baseName = Self.makeCuteName(date: date)
@@ -557,8 +699,13 @@ final class MenuBandTape {
             }
         }
 
+        let stemsURL = writeStems(baseName: url.deletingPathExtension().lastPathComponent, into: tmpRoot, offset: offset,
+                                  frames: frames, normGain: normGain, duration: duration,
+                                  dateISO: dateISO, icon: icon, midi: midiURL)
+
         NSLog("MenuBandTape: ejected \(baseName).wav (\(duration) s, 4ch, \(events.count) midi ev) → \(url.path)")
-        let result = EjectResult(file: url, date: date, duration: duration, midi: midiURL, cover: icon)
+        let result = EjectResult(file: url, date: date, duration: duration, midi: midiURL,
+                                 stems: stemsURL, cover: icon)
         cachedEject = result
         return result
     }
@@ -607,6 +754,168 @@ final class MenuBandTape {
               let l = scratch.floatChannelData?[0],
               let r = scratch.floatChannelData?[1] else { return }
         writeSynthFrames(left: l, right: r, frames: Int(scratch.frameLength))
+    }
+
+    func ingestTones(_ buffer: AVAudioPCMBuffer) { ingestStereo(buffer, into: tonesStem) }
+    func ingestPercussion(_ buffer: AVAudioPCMBuffer) { ingestStereo(buffer, into: percStem) }
+
+    private func ingestStereo(_ buffer: AVAudioPCMBuffer, into stem: StereoStem) {
+        guard state == .recording else { return }
+        let frames = Int(buffer.frameLength)
+        guard frames > 0 else { return }
+        let inFmt = buffer.format
+        if inFmt.commonFormat == .pcmFormatFloat32,
+           inFmt.channelCount == 2,
+           !inFmt.isInterleaved,
+           abs(inFmt.sampleRate - Self.sampleRate) < 0.5,
+           let inL = buffer.floatChannelData?[0],
+           let inR = buffer.floatChannelData?[1] {
+            writeStereo(stem, left: inL, right: inR, frames: frames)
+            return
+        }
+        if stem.converterSrcFormat != inFmt {
+            stem.converter = AVAudioConverter(from: inFmt, to: synthFormat)
+            stem.converterSrcFormat = inFmt
+        }
+        guard let conv = stem.converter,
+              let scratch = AVAudioPCMBuffer(
+                pcmFormat: synthFormat,
+                frameCapacity: AVAudioFrameCount(
+                    Int(Double(frames) * (Self.sampleRate / inFmt.sampleRate)) + 16))
+        else { return }
+        var supplied = false
+        var err: NSError?
+        let status = conv.convert(to: scratch, error: &err) { _, outStatus in
+            if supplied { outStatus.pointee = .noDataNow; return nil }   // keep filter state (see ingestSynth)
+            supplied = true; outStatus.pointee = .haveData
+            return buffer
+        }
+        guard status != .error,
+              scratch.frameLength > 0,
+              let l = scratch.floatChannelData?[0],
+              let r = scratch.floatChannelData?[1] else { return }
+        writeStereo(stem, left: l, right: r, frames: Int(scratch.frameLength))
+    }
+
+    private func writeStereo(_ stem: StereoStem, left: UnsafePointer<Float>,
+                             right: UnsafePointer<Float>, frames: Int) {
+        bufferLock.lock()
+        defer { bufferLock.unlock() }
+        guard state == .recording,
+              stem === tonesStem || stem === percStem else { return }
+        var left = left, right = right, frames = frames
+        if stem.leadSkip > 0 {
+            let skip = min(stem.leadSkip, frames)
+            stem.leadSkip -= skip
+            left = left.advanced(by: skip)
+            right = right.advanced(by: skip)
+            frames -= skip
+            if frames <= 0 { return }
+        }
+        let take = min(frames, Self.maxFrames - stem.writeFrame)
+        guard take > 0,
+              let dl = stem.buffer.floatChannelData?[0],
+              let dr = stem.buffer.floatChannelData?[1] else { return }
+        memcpy(dl.advanced(by: stem.writeFrame), left,  take * MemoryLayout<Float>.size)
+        memcpy(dr.advanced(by: stem.writeFrame), right, take * MemoryLayout<Float>.size)
+        stem.writeFrame += take
+    }
+
+    // MARK: - Raw stems folder
+
+    /// `<base>-stems/` next to the 4-channel wav: tones.wav + percussion.wav
+    /// (stereo, pre-fader, no normalization), voice.wav (mono, dry input),
+    /// notes.mid, and mix.json describing how the heard mix was built. Same
+    /// trimmed window as the wav so everything lines up sample-for-sample.
+    private func writeStems(baseName: String, into root: URL, offset: Int, frames: Int,
+                            normGain: Float, duration: Double, dateISO: String,
+                            icon: NSImage, midi: URL?) -> URL? {
+        let dir = root.appendingPathComponent("\(baseName)-stems", isDirectory: true)
+        try? FileManager.default.removeItem(at: dir)
+        do { try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true) }
+        catch { NSLog("MenuBandTape: stems dir failed: \(error)"); return nil }
+
+        func writeWav(_ name: String, channels: [UnsafePointer<Float>]) -> Bool {
+            let url = dir.appendingPathComponent(name)
+            guard let out = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: Self.sampleRate,
+                                          channels: AVAudioChannelCount(channels.count), interleaved: true),
+                  let flt = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: Self.sampleRate,
+                                          channels: AVAudioChannelCount(channels.count), interleaved: false),
+                  let converter = AVAudioConverter(from: flt, to: out) else { return false }
+            var file: AVAudioFile?
+            do {
+                file = try AVAudioFile(forWriting: url, settings: out.settings,
+                                       commonFormat: .pcmFormatInt16, interleaved: true)
+            } catch { NSLog("MenuBandTape: stem \(name) open failed: \(error)"); return false }
+            let chunk = 8192
+            var cursor = 0
+            while cursor < frames {
+                let take = min(chunk, frames - cursor)
+                guard let src = AVAudioPCMBuffer(pcmFormat: flt, frameCapacity: AVAudioFrameCount(take)),
+                      let dst = AVAudioPCMBuffer(pcmFormat: out, frameCapacity: AVAudioFrameCount(take))
+                else { return false }
+                src.frameLength = AVAudioFrameCount(take)
+                bufferLock.lock()
+                for (i, ch) in channels.enumerated() {
+                    if let d = src.floatChannelData?[i] {
+                        memcpy(d, ch.advanced(by: offset + cursor), take * MemoryLayout<Float>.size)
+                    }
+                }
+                bufferLock.unlock()
+                var supplied = false
+                var error: NSError?
+                let status = converter.convert(to: dst, error: &error) { _, outStatus in
+                    if supplied { outStatus.pointee = .endOfStream; return nil }
+                    supplied = true; outStatus.pointee = .haveData
+                    return src
+                }
+                if status == .error { return false }
+                do { try file?.write(from: dst) } catch { return false }
+                cursor += take
+            }
+            file = nil
+            return true
+        }
+
+        guard let tl = tonesStem.buffer.floatChannelData?[0], let tr = tonesStem.buffer.floatChannelData?[1],
+              let pl = percStem.buffer.floatChannelData?[0],  let pr = percStem.buffer.floatChannelData?[1],
+              let mc = micBuffer.floatChannelData?[0] else { return nil }
+        guard writeWav("tones.wav", channels: [tl, tr]),
+              writeWav("percussion.wav", channels: [pl, pr]),
+              writeWav("voice.wav", channels: [mc]) else { return nil }
+        if let midi, let data = try? Data(contentsOf: midi) {
+            try? data.write(to: dir.appendingPathComponent("notes.mid"))
+        }
+
+        let lead = Double(offset) / Self.sampleRate
+        let events: [[String: Any]] = mixEvents
+            .map { ["t": max(0, $0.time - lead), "param": $0.param, "value": $0.value] }
+        let json: [String: Any] = [
+            "version": 1,
+            "title": baseName,
+            "date": dateISO,
+            "software": "Menu Band",
+            "sampleRate": Self.sampleRate,
+            "duration": duration,
+            "files": ["tones": "tones.wav", "percussion": "percussion.wav",
+                      "voice": "voice.wav", "notes": "notes.mid",
+                      "mix": "../\(baseName).wav"],
+            "start": mixSnapshot,
+            "events": events,
+            "mixWavNormalizationGain": normGain,
+            "routing": [
+                "tones": "tones.wav × tones → fx (echo/reverb/compressor/duck) → × master → limiter",
+                "percussion": "percussion.wav × percussion → × master → limiter (dry, no fx)",
+                "voice": "voice.wav × mic → fx bus with the tones (only while monitoring = 1)",
+                "note": "stems are raw and pre-fader; \(baseName).wav ch1-2 is the mastered mix as heard, ch3-4 the dry voice",
+            ],
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]) {
+            try? data.write(to: dir.appendingPathComponent("mix.json"))
+        }
+        NSWorkspace.shared.setIcon(icon, forFile: dir.path, options: [])
+        NSLog("MenuBandTape: stems → \(dir.path) (\(mixEvents.count) fader moves)")
+        return dir
     }
 
     func ingestMic(_ buffer: AVAudioPCMBuffer) {
@@ -665,6 +974,7 @@ final class MenuBandTape {
                                    right: UnsafePointer<Float>,
                                    frames: Int) {
         bufferLock.lock()
+        guard state == .recording else { bufferLock.unlock(); return }
         // Drop the leading record-key transient window before anything
         // lands in the buffer. Whole blocks inside the window vanish;
         // a block straddling the boundary advances the source pointer.
@@ -687,11 +997,13 @@ final class MenuBandTape {
             memcpy(dr.advanced(by: off), right, take * MemoryLayout<Float>.size)
             synthWriteFrame += take
         }
-        let bothFull = synthWriteFrame >= Self.maxFrames && micWriteFrame >= Self.maxFrames
+        let shouldStop = synthWriteFrame >= Self.maxFrames && !autoStopQueued
+        if shouldStop { autoStopQueued = true }
+        let id = takeID
         bufferLock.unlock()
-        if bothFull && state == .recording {
+        if shouldStop {
             DispatchQueue.main.async { [weak self] in
-                guard self?.state == .recording else { return }
+                guard self?.state == .recording, self?.takeID == id else { return }
                 self?.stop()
             }
         }
@@ -699,6 +1011,7 @@ final class MenuBandTape {
 
     private func writeMicFrames(mono: UnsafePointer<Float>, frames: Int) {
         bufferLock.lock()
+        guard state == .recording else { bufferLock.unlock(); return }
         // Same leading record-key transient trim as the synth stem,
         // and the SAME frame count, so the two stems stay aligned.
         var mono = mono, frames = frames
@@ -716,14 +1029,7 @@ final class MenuBandTape {
                    take * MemoryLayout<Float>.size)
             micWriteFrame += take
         }
-        let bothFull = synthWriteFrame >= Self.maxFrames && micWriteFrame >= Self.maxFrames
         bufferLock.unlock()
-        if bothFull && state == .recording {
-            DispatchQueue.main.async { [weak self] in
-                guard self?.state == .recording else { return }
-                self?.stop()
-            }
-        }
     }
 
     // MARK: - Playback helpers

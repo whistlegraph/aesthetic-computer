@@ -4,7 +4,7 @@ Easel's donkey companion, painting at a small easel.
 
 `sheet-source.png` is the generated source, with its prompt and Illy provenance alongside it. The route is explicitly fal `openai/gpt-image-2.5/flare/text-to-image`; generation never retries a paid POST or changes providers. `generate.mjs` prints a plan by default; `--generate` requires an externally provided FAL_KEY or AC_VAULT_ENV and refuses to overwrite an existing take.
 
-`node easel/art/aesel/compile.mjs` extracts the16 cells, removes chroma green, samples each256px cell at4:1, and aligns the ground/right anchors. It emits the64px sprite frames, JSON animation manifest and icon pose into `desktop/assets/`. `bash easel/desktop/build/generate-icon.sh` packages the macOS icon.
+`node easel/art/aesel/compile.mjs` extracts the16 cells, removes chroma green, samples each256px cell at4:1, and aligns the ground/right anchors. It emits the64px sprite frames, JSON animation manifest and icon pose into `shared/assets/`. The native app bundles its icons through Xcode asset catalogs.
 
 The animation design follows `xbox/live/oskiewar-frame-design.md`: named poses, explicit frame holds, fixed anchors, and independent state/animation clocks. Oskiewar's current pipeline is geometry-driven; this companion uses generated raster poses under the same timing contract. No reference game sprites were imported or traced.
 

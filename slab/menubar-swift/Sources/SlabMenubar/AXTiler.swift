@@ -207,10 +207,16 @@ enum AXTiler {
                 // otherwise ordinary Terminal windows on current macOS. Keep
                 // CGWindowID as the identity, but recover it by matching this
                 // AX frame to a live layer-0 window owned by the same process.
-                let directID = windowID(w).flatMap { liveIDs.contains($0) ? $0 : nil }
+                let directID = windowID(w)
                 var measuredFrame: CGRect?
                 let id: CGWindowID?
                 if let directID {
+                    // An explicit off-screen/dead identity must never borrow
+                    // a live window's id just because their old frames match.
+                    guard liveIDs.contains(directID) else {
+                        identityCount += 1
+                        continue
+                    }
                     id = directID
                 } else {
                     measuredFrame = frame(w)
@@ -265,15 +271,21 @@ enum AXTiler {
         }
         // A stopped app is an authoritative zero. For a running app, bridge a
         // momentary failed/empty AX response with the very recent last-good
-        // census; genuine closes become visible as soon as the lease expires.
-        if !apps.isEmpty,
+        // census. An explicit list of rejected windows is authoritative;
+        // the lease must not readmit its minimized/closed entries.
+        if !apps.isEmpty, rawCount == 0,
            let prior = cache[cacheKey],
            now.timeIntervalSince(prior.at) <= lastGoodLease {
             // AX may momentarily forget the whole population during menu
             // automation, but the Window Server does not. Conversely, AX can
             // retain a destroyed Terminal window for seconds; intersecting the
             // lease with live Window Server ids distinguishes the two cases.
-            return prior.windows.filter { liveIDs.contains($0.id) }
+            return prior.windows.filter {
+                liveIDs.contains($0.id)
+                    && boolAttr($0.element, kAXMinimizedAttribute) != true
+                    && (bundleId != "com.apple.Terminal"
+                        || !terminalWindowHasNoTabContent($0.element))
+            }
         }
         if apps.isEmpty || readSucceeded { cache.removeValue(forKey: cacheKey) }
         return []
@@ -330,6 +342,9 @@ enum AXTiler {
     /// pixels — AX shares that coordinate space). Position before size so
     /// a window clamped by its old frame still lands in its cell.
     static func setFrame(_ w: AXUIElement, left: Int, top: Int, right: Int, bottom: Int) {
+        // A window can close after the census, including during a settle pass.
+        // Do not revive Terminal's retained, tabless AX surface by moving it.
+        guard !isClosedTerminalWindow(w) else { return }
         var pos = CGPoint(x: left, y: top)
         var size = CGSize(width: right - left, height: bottom - top)
         if let v = AXValueCreate(.cgPoint, &pos) {
@@ -354,6 +369,7 @@ enum AXTiler {
         var requestWidth = targetWidth
         var requestHeight = targetHeight
         for _ in 0..<3 {
+            guard !isClosedTerminalWindow(w) else { return nil }
             setFrame(w, left: left, top: top,
                      right: left + requestWidth, bottom: top + requestHeight)
             guard let actual = frame(w) else { return nil }
@@ -367,6 +383,7 @@ enum AXTiler {
         }
         // Resizing can nudge an edge while Terminal resolves its cell grid.
         // Finish with the canonical origin even if the size was inexact.
+        guard !isClosedTerminalWindow(w) else { return nil }
         var pos = CGPoint(x: left, y: top)
         if let value = AXValueCreate(.cgPoint, &pos) {
             AXUIElementSetAttributeValue(w, kAXPositionAttribute as CFString, value)
@@ -380,6 +397,13 @@ enum AXTiler {
         var ref: CFTypeRef?
         guard AXUIElementCopyAttributeValue(el, attr as CFString, &ref) == .success else { return nil }
         return ref as? Bool
+    }
+
+    private static func isClosedTerminalWindow(_ window: AXUIElement) -> Bool {
+        var pid: pid_t = 0
+        return AXUIElementGetPid(window, &pid) == .success
+            && NSRunningApplication(processIdentifier: pid)?.bundleIdentifier == "com.apple.Terminal"
+            && terminalWindowHasNoTabContent(window)
     }
 
     /// A closed Terminal window can remain in both AX and Window Server for

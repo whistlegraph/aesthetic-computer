@@ -118,3 +118,15 @@ a root LaunchDaemon (`computer.aesthetic.gfn-awdl`) that re-lowers awdl0 every
 Uses sudo on a TTY, or a macOS admin dialog when run from Claude's `!` runner.
 Measured on blueberry: gateway hop stddev 23 ms → 3 ms. Tailscale stays up — with no exit node set, GFN traffic never
 touches it. A USB-C Ethernet adapter beats all of this.
+
+## gfn-window.sh — a GeForce NOW window that can get small
+
+The Mac client will not shrink below 900×600; the floor is a switch in the
+bundle's `GeForceNOW.json`, not a setting, and the command-line flag is
+ignored. `toolchain/macos/gfn-window.sh shrink [W,H]` lowers it (default
+480×300), adds `nv-sdl-force-windowed=true` so the stream stays a window on
+the current Space, and relaunches; `restore` puts NVIDIA's file back from the
+one-time backup in `~/.config/gfn-window/`. Self-contained — hand the file to
+any Mac GFN user. A GFN self-update rewrites the config, so re-run `shrink`
+if the floor returns. Slab's tiler (`AXTiler.swift` stage windows) then
+grids the stream beside the terminals.

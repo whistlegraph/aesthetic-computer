@@ -3248,6 +3248,11 @@ final class PromptSigilOverlayController {
               x + size <= Double(bounds.2), y + size <= Double(bounds.3)
         else { return nil }
         if let id = object["sessionId"] as? String, id != session.sessionId { return nil }
+        if session.hostApp == NativeAeselSession.bundleID {
+            guard let width = object["windowWidth"] as? Double,
+                  let height = object["windowHeight"] as? Double,
+                  abs(width - Double(bounds.2)) < 1, abs(height - Double(bounds.3)) < 1 else { return nil }
+        }
         overlay.setDesktopTitle(object, bounds: bounds, ackPath: path + ".ack")
         return CGRect(x: x, y: y, width: size, height: size)
     }

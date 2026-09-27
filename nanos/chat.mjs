@@ -148,6 +148,19 @@ const request = async (req, res) => {
 
         // 🪧🪵 Respond to log.
 
+        // A deleted account is not a log line: drop its messages instead.
+        if (parsed.action === "account:erase") {
+          const sub = parsed.users?.[0];
+          if (sub) {
+            for (let i = messages.length - 1; i >= 0; i -= 1) {
+              if (messages[i].sub === sub || messages[i].users?.includes(sub)) messages.splice(i, 1);
+            }
+          }
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ status: "success", message: "Account erased" }));
+          return;
+        }
+
         messages.push(parsed);
 
         if (messages.length > MAX_MESSAGES) messages.shift();

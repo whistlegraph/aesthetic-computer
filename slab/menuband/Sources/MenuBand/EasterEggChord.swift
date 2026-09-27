@@ -48,6 +48,7 @@ final class EasterEggChord {
     private func ensureStarted() -> Bool {
         if started { return true }
         do {
+            MenuBandAudioDevices.bindToRawOutput(engine, label: "EasterEggChord")
             try engine.start()
             started = true
             return true

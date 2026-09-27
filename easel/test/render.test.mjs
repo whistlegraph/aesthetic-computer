@@ -1,3 +1,4 @@
+import "./own-ink.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { cleanText, renderFrame, renderGenrePicker, textWidth, wrapText } from "../src/render.mjs";
@@ -270,4 +271,211 @@ test("the energy estimate reaches the gauge row and drops first when squeezed", 
   assert.equal(full.plain, "2 here · 9 peak · ~1.00 Wh");
   assert.equal(audienceReadout({ here: 2, peak: 9, energy: 3600 }, 16, false).plain, "2 here · 9 peak");
   assert.equal(audienceReadout({ energy: 0 }, 80, false).plain, "", "an unmetered session claims nothing");
+});
+
+
+test("an inbox line names its sender and cannot pass for a typed one", () => {
+  const frame = renderFrame(
+    {
+      workspace: "/client",
+      mode: "remote",
+      status: "ready",
+      busy: false,
+      input: "",
+      account: "@tester",
+      model: "claude-sonnet-5",
+      profile: { name: "pro" },
+      entries: [
+        { id: "u", kind: "user", text: "look at the diff" },
+        { id: "i", kind: "inbox", from: "neo:sip", text: "the build finished" },
+      ],
+    },
+    70,
+    12,
+    false,
+  );
+  // In pro a typed line wears the prompt glyph, not a badge; an inbox line
+  // still wears its arrow and its sender, so the two never pass for each other.
+  assert.match(frame, /^ look at the diff/m, "your line sits flush left with no badge");
+  assert.doesNotMatch(frame, /YOU/);
+  assert.match(frame, /^ ↓ neo:sip · the build finished/m, "an inbox line keeps its arrow");
+  // Codex's shape: no header band, a bar with air on both sides, and one
+  // line under it with the handle, the directory and the model.
+  assert.doesNotMatch(frame, /REMOTE · READY/, "pro has no header band");
+  assert.doesNotMatch(frame, /\/publish/);
+  const rows = frame.split("\n");
+  assert.match(rows[rows.length - 3], /^ {3,}$/, "the bar is empty: the terminal's own cursor stands there");
+  assert.equal(rows[rows.length - 2].trim(), "", "air below the bar");
+  assert.match(rows[rows.length - 1], /@tester · \/client · claude-sonnet-5/, "the facts sit under the bar");
+  assert.doesNotMatch(rows[rows.length - 1], /remote/, "the mode is not a fact worth a word");
+});
+
+test("the pro frame takes its shape from the layout", () => {
+  const frame = renderFrame(
+    {
+      workspace: "/client", mode: "remote", status: "ready", busy: false, input: "",
+      account: "@tester", model: "gpt-6-astra", providerSettings: { backend: "codex", model: "gpt-6-astra" },
+      profile: { name: "pro" },
+      layout: { bottom: ["rule", "bar", "status"], status: ["model", "engine"], prompt: ">", separator: " | " },
+      entries: [{ id: "u", kind: "user", text: "hi" }],
+    },
+    60, 10, false,
+  );
+  const rows = frame.split("\n");
+  assert.equal(rows.length, 10);
+  assert.match(rows[7], /^─+$/, "the rule is where the layout put it");
+  assert.match(rows[8], /^> /, "the prompt glyph is the layout's, on the bar's first cell");
+  assert.equal(rows[9].trim(), "gpt-6-astra | codex", "only the facts asked for, with the separator asked for");
+});
+
+test("in pro the model on the status line is the one thing to click, and it opens settings", async () => {
+  const { headerAction, proStatus } = await import("../src/render.mjs");
+  const state = {
+    workspace: "/client", mode: "remote", status: "ready", busy: false, input: "",
+    account: "@tester", model: "claude-sonnet-5", profile: { name: "pro" }, entries: [],
+  };
+  const { spans } = proStatus(state, 80, false);
+  const model = spans.find((span) => span.name === "model");
+  assert.ok(model, "the model is on the line");
+  assert.equal(spans[0].name, "handle");
+  assert.equal(spans[0].x, 1, "the line starts one cell in");
+  // Terminal mouse coordinates are one-based; the status line is the last row.
+  assert.equal(headerAction(state, 80, 24, model.x + 1, 24), "model");
+  assert.equal(headerAction(state, 80, 24, model.x + model.width, 24), "model");
+  assert.equal(headerAction(state, 80, 24, model.x + model.width + 2, 24), "", "past the model is nothing");
+  assert.equal(headerAction(state, 80, 24, model.x + 1, 23), "", "the row above is the air below the bar");
+  assert.equal(headerAction(state, 80, 24, 3, 22), "", "no header band to click in pro");
+  const moved = { ...state, layout: { bottom: ["status", "gap", "bar"] } };
+  const movedModel = proStatus(moved, 80, false, moved.layout).spans.find((span) => span.name === "model");
+  assert.equal(headerAction(moved, 80, 24, movedModel.x + 1, 22), "model", "the click follows the layout");
+});
+
+test("the bottom line names the provider, abbreviates the path the way fish does, and says connecting", async () => {
+  const { fishPath, providerLabel, proStatus, windowTitle } = await import("../src/render.mjs");
+  assert.equal(fishPath("/Users/jas/aesthetic-computer/easel", "/Users/jas"), "~/a/easel");
+  assert.equal(fishPath("/Users/jas/.config/easel", "/Users/jas"), "~/.c/easel");
+  assert.equal(fishPath("/Users/jas", "/Users/jas"), "~");
+  assert.equal(fishPath("/opt/homebrew/bin", "/Users/jas"), "/o/h/bin");
+  assert.equal(providerLabel("ac"), "aesthetic");
+  const state = {
+    workspace: "/Users/jas/aesthetic-computer/easel", mode: "remote", status: "connecting", busy: false, input: "",
+    account: "@tester", model: "claude-sonnet-5", providerSettings: { backend: "ac", model: "claude-sonnet-5" },
+    profile: { name: "pro" }, entries: [],
+  };
+  const { line, spans } = proStatus(state, 100, false);
+  assert.equal(line.trim(), "@tester · ~/a/easel · claude-sonnet-5 · connecting…");
+  assert.deepEqual(spans.map((span) => span.name), ["handle", "workspace", "model", "activity"]);
+  assert.equal(windowTitle(state), "🫏 aesel · ~/a/easel · aesthetic · ◌ connecting");
+  assert.equal(windowTitle({ ...state, status: "ready", busy: true }), "🫏 aesel · ~/a/easel · aesthetic · ● working");
+  assert.equal(windowTitle({ ...state, status: "ready" }), "🫏 aesel · ~/a/easel · aesthetic");
+  assert.equal(proStatus({ ...state, modelLabel: "Claude Opus 5.5", status: "ready" }, 100, false).line.trim(), "@tester · ~/a/easel · Claude Opus 5.5", "the proper name when the list knows it");
+  assert.equal(proStatus({ ...state, status: "ready" }, 34, false).line.trim(), "@tester · claude-sonnet-5", "short of room, the place goes before the model");
+});
+
+test("a drop-down stands on the fact that opened it, and a click on one of its rows picks", async () => {
+  const { dropdownGeometry, headerAction, proStatus } = await import("../src/render.mjs");
+  const base = {
+    workspace: "/client", mode: "remote", status: "ready", busy: false, input: "",
+    account: "@tester", model: "claude-sonnet-5", providerSettings: { backend: "claude", model: "claude-sonnet-5" },
+    profile: { name: "pro" }, entries: [{ id: "u", kind: "user", text: "hi" }],
+  };
+  assert.equal(proStatus(base, 80, false).spans.find((s) => s.name === "engine"), undefined, "the provider is folded into the model");
+  const items = [
+    { header: true, label: "claude", detail: "your claude account" },
+    { id: "claude-opus-5-5", label: "Claude Opus 5.5", detail: "claude-opus-5-5", provider: "claude" },
+    { id: "claude-sonnet-5", label: "Claude Sonnet 5", detail: "claude-sonnet-5", provider: "claude" },
+  ];
+  const state = { ...base, dropdown: { kind: "model", items, index: 2, loading: false } };
+  const g = dropdownGeometry(state, 80, 24);
+  assert.equal(g.count, 3);
+  assert.equal(g.top, 24 - 1 - 3 - 1, "title row, then the rows, all above the status line");
+  const modelSpan = proStatus(state, 80, false).spans.find((s) => s.name === "model");
+  assert.equal(g.x, modelSpan.x, "it stands on the model");
+  const frame = renderFrame(state, 80, 24, false).split("\n");
+  assert.match(frame[g.top], /▾ provider · model/);
+  assert.match(frame[g.top + 1], /claude {2,}/, "a provider heads its group");
+  assert.match(frame[g.top + 2], /  Claude Opus 5.5 {2,}claude-opus-5-5/);
+  assert.match(frame[g.top + 3], /› Claude Sonnet 5 {2,}claude-sonnet-5/, "the current model is marked");
+  assert.equal(headerAction(state, 80, 24, g.x + 2, g.top + 3), "pick:1", "clicking a model row picks it");
+  assert.equal(headerAction(state, 80, 24, g.x + 2, g.top + 4), "pick:2");
+  assert.equal(headerAction(state, 80, 24, 2, 3), "dismiss", "anywhere else closes it");
+  const loading = renderFrame({ ...base, dropdown: { kind: "model", items: [], index: 0, loading: true } }, 80, 24, false);
+  assert.match(loading, /loading…/);
+});
+
+test("a reply's markdown is read, not shown, and pro's page is flush left", async () => {
+  const { markdown } = await import("../src/render.mjs");
+  const read = markdown("## Plan\n- **Airtable** needs `auth` first\n- see [docs](https://example.com/x)");
+  assert.equal(read.text, "Plan\n• Airtable needs auth first\n• see docs");
+  assert.deepEqual(read.spans.map((s) => [s.tone, read.text.slice(s.start, s.end)]), [["highlight bold", "Plan"], ["bold", "Airtable"], ["soft", "auth"], ["soft", "docs"]]);
+  const frame = renderFrame(
+    {
+      workspace: "/client", mode: "remote", status: "ready", busy: false, input: "", account: "@tester",
+      profile: { name: "pro" },
+      entries: [
+        { id: "u", kind: "user", text: "hi" },
+        { id: "a", kind: "assistant", text: "Hi.\n\n- **Airtable** needs authorization before `/mcp` works." },
+        { id: "n", kind: "notice", text: "a notice" },
+      ],
+    },
+    70, 14, false,
+  );
+  assert.match(frame, /^ hi\s*$/m, "the typed line, alone");
+  assert.match(frame, /^ Hi\.\s*$/m, "the reply flush left");
+  assert.match(frame, /^ • Airtable needs authorization before \/mcp works\.\s*$/m, "markers gone, bullet kept");
+  assert.match(frame, /^ · a notice\s*$/m, "a notice keeps a two-cell mark");
+  assert.doesNotMatch(frame, /\*\*|AC {3}/);
+});
+
+test("while the machine works the handle breathes on the dance clock", async () => {
+  const { proStatus } = await import("../src/render.mjs");
+  const base = { workspace: "/c", mode: "remote", status: "ready", input: "", account: "@tester", model: "m", profile: { name: "pro" }, entries: [], busy: true, requestStartedAt: Date.now() };
+  const bright = proStatus({ ...base, mascotMs: 100 }, 80, true).line;
+  const dim = proStatus({ ...base, mascotMs: 700 }, 80, true).line;
+  assert.notEqual(bright, dim, "the handle is painted differently across the beat");
+  assert.equal(proStatus({ ...base, busy: false, mascotMs: 700 }, 80, true).line, proStatus({ ...base, busy: false, mascotMs: 100 }, 80, true).line, "and holds still when idle");
+});
+
+test("in pro a question takes the page with three answers, and a running tool rides the status line", async () => {
+  const { approvalModal, proStatus } = await import("../src/render.mjs");
+  const base = { workspace: "/c", mode: "remote", status: "approval", input: "", account: "@t", model: "m", profile: { name: "pro" }, entries: [{ id: "a", kind: "assistant", text: "I will list the files." }] };
+  const frame = renderFrame({ ...base, approval: { id: 1, subject: "run: ls -la" }, approvalIndex: 1 }, 80, 20, false);
+  assert.match(frame, /allow\?/);
+  assert.match(frame, /run: ls -la/);
+  assert.match(frame, /Allow once {2,}y/);
+  assert.match(frame, /Allow every time this session {2,}a/);
+  assert.match(frame, /Deny {2,}n/);
+  assert.doesNotMatch(frame, /I will list the files/, "the conversation waits behind the question");
+  const rows = approvalModal({ approval: { subject: "x" }, approvalIndex: 0 }, 80, 12, false);
+  assert.equal(rows.length, 12, "the modal fills exactly the transcript rows");
+  const busy = { ...base, status: "working", busy: true, requestStartedAt: Date.now(), toolNow: "/bin/zsh -lc \"git status --short\"" };
+  assert.match(proStatus(busy, 100, false).line, /s… · \/bin\/zsh -lc "git status --short"/, "the tool shows beside the timer");
+  assert.doesNotMatch(renderFrame(busy, 100, 20, false), /RUN/, "and not as a line of the conversation");
+});
+
+test("while the machine works, the line it is working on runs a colour wave, frame by frame", () => {
+  const base = { workspace: "/c", mode: "remote", status: "working", input: "", account: "@t", model: "m", profile: { name: "pro" }, busy: true, requestStartedAt: Date.now(),
+    entries: [{ id: "u0", kind: "user", text: "earlier line" }, { id: "a0", kind: "assistant", text: "ok" }, { id: "u1", kind: "user", text: "make it sing" }] };
+  const a = renderFrame({ ...base, mascotMs: 240 }, 60, 12, true).split("\n");
+  const b = renderFrame({ ...base, mascotMs: 480 }, 60, 12, true).split("\n");
+  const row = (rows) => rows.find((r) => r.includes("make it sing".slice(-4)) && r.includes("\x1b[38;"));
+  const wave = (rows) => rows.find((r) => /make it sing/.test(r.replace(/\x1b\[[0-9;]*m/g, "")) && new Set(r.match(/\x1b\[38;[0-9;]*m/g) || []).size >= 3);
+  assert.ok(wave(a), "the working line carries the spark");
+  assert.notEqual(wave(a), wave(b), "and the hues move between frames");
+  const distinctInks = (r) => new Set(r.match(/\x1b\[38;[0-9;]*m/g) || []).size;
+  const earlier = a.find((r) => r.replace(/\x1b\[[0-9;]*m/g, "").includes("earlier line"));
+  assert.ok(distinctInks(earlier) <= 3, "an earlier line keeps one ink");
+  assert.ok(distinctInks(wave(a)) >= 3, "the spark is its own ink");
+  const idle = renderFrame({ ...base, busy: false, mascotMs: 240 }, 60, 12, true).split("\n");
+  assert.equal(wave(idle), undefined, "and so does the line once the answer has landed");
+});
+
+test("running tools are provisional rows at the foot of the page, and leave when they finish", () => {
+  const base = { workspace: "/c", mode: "remote", status: "tool", input: "", account: "@t", model: "m", profile: { name: "pro" }, busy: true, requestStartedAt: Date.now(),
+    entries: [{ id: "u", kind: "user", text: "check the tree" }] };
+  const running = renderFrame({ ...base, toolsNow: new Map([["t1", "git status --short"], ["t2", "Task · look for the failing test"]]) }, 80, 16, false);
+  assert.match(running, /⋯ git status --short/);
+  assert.match(running, /⋯ Task · look for the failing test/);
+  const done = renderFrame({ ...base, busy: false, toolsNow: new Map() }, 80, 16, false);
+  assert.doesNotMatch(done, /⋯/, "nothing of them stays");
 });

@@ -137,20 +137,30 @@ test("the guard band bounds a near-plane vertex instead of dropping its face", (
 // arena's ground quad runs from `worldNear` to `worldFar`, and in ordinary
 // play the dolly sits between them — so the near edge of the floor is behind
 // the camera every single frame.
+// The floor under these cameras is built to straddle the near plane, from
+// well behind the dolly to the far edge of the stage, and the eye sits a
+// fighter's height above it: the stage's own constants moved when the park
+// arrived (floorY 1800, worldNear -450), and a test pinned to old numbers
+// was looking at a floor nine thousand units overhead.
+function straddlingFloor(renderer, stage, dolly) {
+  renderer.worldQuad(
+    { x: 3000, y: stage.floorY, z: Math.min(stage.worldNear, dolly - 600) },
+    { x: 9000, y: stage.floorY, z: Math.min(stage.worldNear, dolly - 600) },
+    { x: 9000, y: stage.floorY, z: stage.worldFar },
+    { x: 3000, y: stage.floorY, z: stage.worldFar }, [140, 150, 140]);
+}
+
 test("the ground the dolly stands inside of stays inside the host's limits", () => {
   const renderer = createRenderer();
   const stage = renderer.stageGeometry();
   assert.ok(stage.worldNear < 0 && stage.worldFar > 0,
     "the arena has depth on both sides of the stage plane");
+  const eye = stage.floorY - 300;
   for (const perspective of [0, .1, .5, .82, 1]) {
     for (const dolly of [-300, -900, -1500, -2400, -4000]) {
-      place(renderer, { position: { x: 6000, y: 11400, z: dolly },
-        target: { x: 6000, y: 11400, z: 0 }, perspective, width: 1200 });
-      renderer.worldQuad(
-        { x: 3000, y: stage.floorY, z: stage.worldNear },
-        { x: 9000, y: stage.floorY, z: stage.worldNear },
-        { x: 9000, y: stage.floorY, z: stage.worldFar },
-        { x: 3000, y: stage.floorY, z: stage.worldFar }, [140, 150, 140]);
+      place(renderer, { position: { x: 6000, y: eye, z: dolly },
+        target: { x: 6000, y: eye, z: 0 }, perspective, width: 1200 });
+      straddlingFloor(renderer, stage, dolly);
       const faces = renderer.take();
       // The host asserts the coordinate limit itself; reaching here means every
       // vertex cleared it. What is left to check is that the floor is actually
@@ -172,11 +182,7 @@ test("a floor crossing the camera plane keeps covering the lower screen", () => 
   const { height } = renderer.viewport();
   const lowestFloorEdge = (camera) => {
     place(renderer, camera);
-    renderer.worldQuad(
-      { x: 3000, y: stage.floorY, z: stage.worldNear },
-      { x: 9000, y: stage.floorY, z: stage.worldNear },
-      { x: 9000, y: stage.floorY, z: stage.worldFar },
-      { x: 3000, y: stage.floorY, z: stage.worldFar }, [140, 150, 140]);
+    straddlingFloor(renderer, stage, camera.position.z);
     const faces = renderer.take();
     if (!faces.length) return null;
     // The lowest point of the floor's silhouette anywhere across the frame,
@@ -194,8 +200,16 @@ test("a floor crossing the camera plane keeps covering the lower screen", () => 
           target: { x: 6000, y: stage.floorY - eye, z: 0 },
           perspective, width: 900 };
         const lowest = lowestFloorEdge(camera);
-        assert.ok(lowest !== null,
-          `floor vanished at eye ${eye}, perspective ${perspective}`);
+        if (lowest === null) {
+          // No face at all is only right when the whole floor lies under the
+          // frame: a high eye over a short stage looks clean over its far
+          // edge. Anything else is the floor going missing.
+          place(renderer, camera);
+          const farEdge = renderer.projectPoint(6000, stage.floorY, stage.worldFar);
+          assert.ok(farEdge.y >= height,
+            `floor vanished at eye ${eye}, perspective ${perspective}, dolly ${dolly}`);
+          continue;
+        }
         assert.ok(lowest >= height,
           `floor stopped at y ${Math.round(lowest)} (frame is ${height}) ` +
           `with eye ${eye}, perspective ${perspective}, dolly ${dolly}`);
@@ -224,8 +238,8 @@ test("world segments are trimmed at the plane rather than raked across it", () =
 test("clipping does not disturb a scene the camera is entirely outside of", () => {
   const renderer = createRenderer();
   const stage = renderer.stageGeometry();
-  place(renderer, { position: { x: 6000, y: 11400, z: -6000 },
-    target: { x: 6000, y: 11400, z: 0 }, perspective: .82, width: 1200 });
+  place(renderer, { position: { x: 6000, y: stage.floorY - 300, z: -6000 },
+    target: { x: 6000, y: stage.floorY - 300, z: 0 }, perspective: .82, width: 1200 });
   renderer.worldQuad(
     { x: 5400, y: stage.floorY, z: -200 },
     { x: 6600, y: stage.floorY, z: -200 },

@@ -15,10 +15,22 @@ import Security
 /// ES modules. JavaScriptCore has none of those.
 @MainActor
 final class SessionHost: NSObject {
+    private static let instances = NSHashTable<SessionHost>.weakObjects()
+    private static var deletingAccount = false
+    private var deletionToken: String?
+    let automation: AeselAutomation
+    #if os(macOS)
+    let prox: AeselProx
+    #endif
     private var webView: WKWebView!
     private var loginWebView: WKWebView?
+    private var signInAttempt: NativeSignIn?
+    private var signingUp = false
+    private var signInGeneration = UUID()
+    private var signInExchange: Task<Void, Never>?
     private var loginTimeout: Task<Void, Never>?
     private let bundleHandler = BundleSchemeHandler()
+    private let nativeHost = NativeHostConnection()
     private let session: Session
     private let store: SessionStore
     /// Calls that arrive before the page finishes loading. Without this, a
@@ -30,13 +42,20 @@ final class SessionHost: NSObject {
         $0.isEmpty ? nil : $0
     }
 
-    init(session: Session, store: SessionStore) {
+    init(session: Session, store: SessionStore, windowID: String = "main") {
+        automation = AeselAutomation(windowID: windowID)
         self.session = session
         self.store = store
+        #if os(macOS)
+        prox = AeselProx(session: session)
+        #endif
         super.init()
+        Self.instances.add(self)
+        if let issue = store.issue { session.fatal = issue }
 
         let controller = WKUserContentController()
         controller.add(self, name: "aesel")
+        controller.addScriptMessageHandler(nativeHost, contentWorld: .page, name: "aeselHost")
 
         var guides: [String: String] = [:]
         for name in ["pieces.md", "screen.md", "hand.md", "kidlisp.md", "api.json"] {
@@ -66,8 +85,13 @@ final class SessionHost: NSObject {
         configuration.setURLSchemeHandler(bundleHandler, forURLScheme: "aesel-bundle")
         configuration.userContentController = controller
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
+        // This view is the session engine, not a background browser tab.
+        // Suspending it also suspends inference replies and their JS deadlines.
+        configuration.preferences.inactiveSchedulingPolicy = .none
 
         webView = WKWebView(frame: .zero, configuration: configuration)
+        nativeHost.sessionView = webView
+        automation.host = webView
         webView.navigationDelegate = self
         webView.isHidden = true
     }
@@ -87,60 +111,134 @@ final class SessionHost: NSObject {
     // unsupported type" — a harmless error that reads exactly like a real one.
     func ask(_ text: String) { call("void aesel.ask(\(quote(text)));") }
     func publish() { call("void aesel.publish();") }
+    func exportNotebook() { call("void aesel.exportNotebook();") }
+    func importNotebook(_ text: String) { call("void aesel.importNotebook(\(quote(text)));") }
+    func editSource(_ source: String, threadID: String) { call("void aesel.editSource(\(quote(source)), \(quote(threadID)));") }
+    func previewRevision(_ version: Int, threadID: String) { call("void aesel.previewRevision(\(version), \(quote(threadID)));") }
+    func selectRevision(_ version: Int) { call("void aesel.selectRevision(\(version), \(quote(session.currentSessionID)));") }
+    func restoreRevision(_ version: Int, threadID: String) { call("void aesel.restoreRevision(\(version), \(quote(threadID)));") }
+    func setAutoPublish(_ enabled: Bool) { call("void aesel.setAutoPublish(\(enabled ? "true" : "false"));") }
     func stop() { call("void aesel.stop();") }
     func newPiece() { newSession(medium: "piece") }
     func newSession(medium: String) { call("void aesel.newPiece(\(quote(medium)));") }
     func resumeSession(id: String) { call("void aesel.resumeSession(\(quote(id)));") }
     func save() { call("void aesel.save();") }
+    func setDraft(_ text: String, threadID: String) {
+        guard !threadID.isEmpty else { return }
+        call("void aesel.setDraft(\(quote(text)), \(quote(threadID)));")
+    }
     func setModel(model: String) { call("void aesel.setModel(\(quote(model))); ") }
     func setModel(id: String) { setModel(model: id) }
+    func setProvider(_ id: String) { call("void aesel.setProvider(\(quote(id)));") }
+    func refreshProviders() { call("void aesel.refreshProviders();") }
+    func setMcpAutoAllow(_ value: Bool) { call("void aesel.setMcpAutoAllow(\(value ? "true" : "false"));") }
+    func resumeHostTurn() { call("void aesel.resumeTurn();") }
+    func respondToApproval(id: String, decision: String) {
+        call("void aesel.respondToApproval(\(quote(id)), \(quote(decision)));")
+    }
     func adopt(token: String) { call("void aesel.adoptToken(\(quote(token)));") }
     func restore() { call("void aesel.restore();") }
     func refreshCredits() { call("void aesel.refreshCredits();") }
     func accessToken() -> String? { store.token() }
 
+    func prepareAccountDeletion() -> String? {
+        guard session.signedIn, !session.busy, !Self.deletingAccount, let token = store.token() else { return nil }
+        deletionToken = token
+        session.accountNotice = ""
+        session.accountDeletionSummary = ""
+        Task {
+            let summary = await AccountDeletion.preview(token: token)
+            if deletionToken == token { session.accountDeletionSummary = summary ?? "" }
+        }
+        return session.handle.isEmpty ? "your Aesthetic Computer account" : "@\(session.handle)"
+    }
+
+    func cancelAccountDeletion() { deletionToken = nil }
+
+    func deleteAccount() {
+        guard !Self.deletingAccount, let token = deletionToken, store.token() == token else {
+            session.accountNotice = "Your account changed. Reopen account deletion to continue."
+            deletionToken = nil
+            return
+        }
+        deletionToken = nil
+        Self.deletingAccount = true
+        session.accountDeletionBusy = true
+        Task {
+            defer { Self.deletingAccount = false; session.accountDeletionBusy = false }
+            do {
+                let schedule = try await AccountDeletion.delete(token: token)
+                // Collect before clearing the shared Keychain. A different
+                // account signed in during the request must remain signed in.
+                let affected = Self.instances.allObjects.filter { $0.store.token() == token }
+                for host in affected {
+                    host.signOut()
+                    host.session.accountNotice = "Your Aesthetic Computer account is locked and will be deleted. Local notebooks remain on this device."
+                    host.session.accountDeletionDate = schedule.date
+                    host.session.accountDeletionMailed = schedule.mailed
+                    host.session.accountDeleted = true
+                }
+            } catch { session.accountNotice = error.localizedDescription }
+        }
+    }
+
     var signInView: WKWebView {
         if let loginWebView { return loginWebView }
-        let controller = WKUserContentController()
-        controller.add(self, name: "acSignIn")
-        controller.addUserScript(WKUserScript(source: """
-        if (location.origin === 'https://aesthetic.computer') {
-          let delivered = false, requested = false;
-          const startLogin = new URLSearchParams(location.search).has("aeselLogin");
-          setInterval(async () => {
-            if (delivered) return;
-            if (startLogin && !requested && window.acLOGIN) {
-              requested = true;
-              if (!window.auth0Client || !(await window.auth0Client.isAuthenticated())) {
-                window.acLOGIN();
-                return;
-              }
-            }
-            if (!window.auth0Client) return;
-            try {
-              if (!(await window.auth0Client.isAuthenticated())) return;
-              const token = await window.auth0Client.getTokenSilently();
-              if (token) { delivered = true; window.webkit.messageHandlers.acSignIn.postMessage({token}); }
-            } catch (_) { }
-          }, 1000);
-        }
-        """, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         let config = WKWebViewConfiguration()
-        config.userContentController = controller
         let view = WKWebView(frame: .zero, configuration: config)
         view.navigationDelegate = self
-        view.alpha = 0
         loginWebView = view
         return view
     }
 
-    func signIn() {
+    func signIn(signUp: Bool = false) {
+        cancelSignIn()
+        signingUp = signUp
         session.showSignIn = true
         session.signInError = nil
         session.signInLoading = true
-        signInView.alpha = 0
-        armLoginTimeout()
-        signInView.load(URLRequest(url: URL(string: "https://aesthetic.computer/?aeselLogin=1")!))
+        do {
+            let attempt = try NativeSignIn(signUp: signUp)
+            signInAttempt = attempt
+            armLoginTimeout()
+            signInView.load(URLRequest(url: attempt.url))
+        } catch {
+            session.signInLoading = false
+            session.signInError = error.localizedDescription
+        }
+    }
+
+    func retrySignIn() { signIn(signUp: signingUp) }
+
+    func cancelSignIn() {
+        signInGeneration = UUID()
+        signInAttempt = nil
+        signInExchange?.cancel(); signInExchange = nil
+        loginTimeout?.cancel()
+        loginWebView?.stopLoading()
+    }
+
+    private func completeSignIn(_ url: URL) {
+        do {
+            guard let body = try signInAttempt?.exchangeBody(for: url) else { throw NativeSignIn.failure("Sign-in expired") }
+            let generation = signInGeneration
+            loginTimeout?.cancel()
+            session.signInError = nil
+            session.signInLoading = true
+            signInExchange = Task { [weak self] in
+                do {
+                    let token = try await NativeSignIn.exchange(body)
+                    guard let self, !Task.isCancelled, self.signInGeneration == generation, self.session.showSignIn else { return }
+                    guard self.loaded else { throw NativeSignIn.failure("The notebook is still loading. Try again.") }
+                    _ = try await self.webView.callAsyncJavaScript("return await aesel.adoptToken(token);", arguments: ["token": token], in: nil, contentWorld: .page)
+                    guard !Task.isCancelled, self.signInGeneration == generation, self.session.showSignIn else { return }
+                    self.session.signInError = nil; self.session.signInLoading = false; self.session.showSignIn = false
+                } catch {
+                    guard let self, !Task.isCancelled, self.signInGeneration == generation else { return }
+                    self.session.signInLoading = false; self.session.signInError = error.localizedDescription
+                }
+            }
+        } catch { session.signInLoading = false; session.signInError = error.localizedDescription }
     }
 
     private func armLoginTimeout() {
@@ -199,20 +297,8 @@ extension SessionHost: WKScriptMessageHandler {
                 NSLog("[aesel] invalid session message")
                 return
             }
-            if message.name == "acSignIn" {
-                guard session.showSignIn, message.webView === loginWebView,
-                      message.frameInfo.isMainFrame,
-                      message.frameInfo.securityOrigin.protocol == "https",
-                      message.frameInfo.securityOrigin.host == "aesthetic.computer",
-                      [0, 443].contains(message.frameInfo.securityOrigin.port),
-                      let token = body["token"] as? String, !token.isEmpty else { return }
-                loginTimeout?.cancel()
-                adopt(token: token)
-                session.signInLoading = false
-                session.showSignIn = false
-                return
-            }
             let type = body["type"] as? String
+            if let type, type != "persist" { automation.record("session.\(type)") }
             NSLog("[aesel] event \(type ?? "?")")
 
             // `didFinish` is not readiness. It fires when the document has
@@ -240,8 +326,12 @@ extension SessionHost: WKScriptMessageHandler {
             if body["type"] as? String == "persist",
                let key = body["key"] as? String,
                let value = body["value"] as? String {
-                store.write(key: key, value: value)
+                do { try store.write(key: key, value: value) }
+                catch { session.fatal = "Your latest changes could not be saved. " + error.localizedDescription }
                 return
+            }
+            if type == "diagnostic" {
+                NSLog("[aesel] %@ at %@: %@", body["operation"] as? String ?? "request", body["step"] as? String ?? "response", body["message"] as? String ?? "unknown failure")
             }
             session.receive(body)
         }
@@ -249,11 +339,25 @@ extension SessionHost: WKScriptMessageHandler {
 }
 
 extension SessionHost: WKNavigationDelegate {
+    nonisolated func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
+                             decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        MainActor.assumeIsolated {
+            guard webView === loginWebView else { decisionHandler(.allow); return }
+            guard let url = action.request.url else { decisionHandler(.cancel); return }
+            guard NativeSignIn.isCallback(url) else {
+                decisionHandler(url.scheme == "https" ? .allow : .cancel); return
+            }
+            decisionHandler(.cancel)
+            guard action.targetFrame?.isMainFrame == true, session.showSignIn, signInAttempt?.consumed != true else { return }
+            completeSignIn(url)
+        }
+    }
+
     nonisolated func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         MainActor.assumeIsolated {
-            guard webView === loginWebView else { return }
+            guard webView === loginWebView, session.showSignIn, signInAttempt?.consumed != true else { return }
+            session.signInError = nil
             session.signInLoading = true
-            webView.alpha = 0
             armLoginTimeout()
         }
     }
@@ -262,10 +366,12 @@ extension SessionHost: WKNavigationDelegate {
         // Deliberately does not mark the host ready; see the `ready` event.
         MainActor.assumeIsolated {
             if webView === loginWebView {
-                let isCallback = webView.url?.host == "aesthetic.computer"
-                session.signInLoading = isCallback
-                webView.alpha = isCallback ? 0 : 1
-                if isCallback { armLoginTimeout() } else { loginTimeout?.cancel() }
+                guard session.showSignIn, signInAttempt?.consumed != true else { return }
+                session.signInError = nil
+                // The hosted auth page supplies its own sign-in interface.
+                session.signInLoading = false
+                webView.aeselOpacity = 1
+                loginTimeout?.cancel()
             } else { NSLog("[aesel] host page loaded") }
         }
     }
@@ -277,7 +383,9 @@ extension SessionHost: WKNavigationDelegate {
     ) {
         MainActor.assumeIsolated {
             if webView === loginWebView {
-                if (error as NSError).code == NSURLErrorCancelled { return }
+                if NativeSignIn.ignoresNavigationFailure(error as NSError, callbackAccepted: signInAttempt?.consumed == true, presented: session.showSignIn) { return }
+                // Only domain/code enter diagnostics; callback URLs contain secrets.
+                automation.record("signin.navigationFailure.\((error as NSError).domain).\((error as NSError).code)")
                 loginTimeout?.cancel()
                 session.signInLoading = false
                 session.signInError = error.localizedDescription
@@ -292,7 +400,9 @@ extension SessionHost: WKNavigationDelegate {
     ) {
         MainActor.assumeIsolated {
             if webView === loginWebView {
-                if (error as NSError).code == NSURLErrorCancelled { return }
+                if NativeSignIn.ignoresNavigationFailure(error as NSError, callbackAccepted: signInAttempt?.consumed == true, presented: session.showSignIn) { return }
+                // Only domain/code enter diagnostics; callback URLs contain secrets.
+                automation.record("signin.navigationFailure.\((error as NSError).domain).\((error as NSError).code)")
                 loginTimeout?.cancel()
                 session.signInLoading = false
                 session.signInError = error.localizedDescription
@@ -300,98 +410,6 @@ extension SessionHost: WKNavigationDelegate {
         }
     }
 }
-
-/// A session on disk. One JSON file in Documents, which is the container iOS
-/// actually gives an app — there is no ~/.local/share to keep a piece in.
-final class SessionStore {
-    private let url: URL
-    private var values: [String: String]
-
-    init() {
-        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        url = documents.appendingPathComponent("session.json")
-        if let data = try? Data(contentsOf: url),
-           let decoded = try? JSONDecoder().decode([String: String].self, from: data) {
-            values = decoded
-            if let text = values["session"], let oldData = text.data(using: .utf8),
-               var record = (try? JSONSerialization.jsonObject(with: oldData)) as? [String: Any],
-               record.removeValue(forKey: "token") != nil,
-               let clean = try? JSONSerialization.data(withJSONObject: record),
-               let cleanText = String(data: clean, encoding: .utf8) {
-                values["session"] = cleanText
-                if let disk = try? JSONEncoder().encode(values) { try? disk.write(to: url, options: .atomic) }
-            }
-        } else {
-            values = [:]
-        }
-    }
-
-    func write(key: String, value: String) {
-        var value = value
-        if key == "session", let data = value.data(using: .utf8),
-           var record = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
-            if let token = record.removeValue(forKey: "token") as? String { saveToken(token) }
-            if let clean = try? JSONSerialization.data(withJSONObject: record),
-               let text = String(data: clean, encoding: .utf8) { value = text }
-        }
-        values[key] = value
-        guard let data = try? JSONEncoder().encode(values) else { return }
-        // Atomic so a crash mid-write cannot leave a session that parses as
-        // half a piece.
-        try? data.write(to: url, options: .atomic)
-    }
-
-    private var tokenQuery: [String: Any] {
-        [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrService as String: "computer.aesthetic.aesel.session",
-         kSecAttrAccount as String: "access-token"]
-    }
-
-    func clearToken() { SecItemDelete(tokenQuery as CFDictionary) }
-
-    /// The signed-in AC access token, for the app's own calls to AC.
-    func token() -> String? {
-        var query = tokenQuery
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-        var item: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
-              let data = item as? Data, let token = String(data: data, encoding: .utf8), !token.isEmpty else { return nil }
-        return token
-    }
-
-    private func saveToken(_ token: String) {
-        clearToken()
-        guard !token.isEmpty else { return }
-        var query = tokenQuery
-        query[kSecValueData as String] = Data(token.utf8)
-        query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-        let status = SecItemAdd(query as CFDictionary, nil)
-        if status != errSecSuccess { NSLog("[aesel] Keychain save failed (%d); sign in again after relaunch", status) }
-    }
-
-    func seedJSON() -> String? {
-        var values = values
-        // Migrate earlier development sessions out of Documents on next write.
-        var record = ((values["session"]?.data(using: .utf8)).flatMap {
-            try? JSONSerialization.jsonObject(with: $0) as? [String: Any]
-        }) ?? [:]
-        var query = tokenQuery
-        query[kSecReturnData as String] = true
-        var result: CFTypeRef?
-        if SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-           let data = result as? Data, let token = String(data: data, encoding: .utf8) {
-            record["token"] = token
-        }
-        if let data = try? JSONSerialization.data(withJSONObject: record),
-           let text = String(data: data, encoding: .utf8) { values["session"] = text }
-        guard !values.isEmpty,
-              let data = try? JSONSerialization.data(withJSONObject: values, options: []),
-              let text = String(data: data, encoding: .utf8) else { return nil }
-        return text
-    }
-}
-
 
 /// Serves only immutable resources shipped with the app; no listening socket.
 final class BundleSchemeHandler: NSObject, WKURLSchemeHandler {

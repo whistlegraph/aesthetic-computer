@@ -336,7 +336,7 @@ const PREFS_PATH = path.join(app.getPath('userData'), 'preferences.json');
 let preferences = {
   showTrayTitle: true,
   trayTitleText: 'Aesthetic.Computer',  // Short text next to tray icon
-  launchAtLogin: true,
+  launchAtLogin: false,  // opt-in; the app re-syncs the OS login item from this on every boot
   defaultMode: 'ac-pane',
   // Window float behavior. When true, new AC Pane / Notepat windows
   // open with alwaysOnTop so they float above other apps (the old

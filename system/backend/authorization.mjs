@@ -7,6 +7,7 @@
 import { connect } from "./database.mjs";
 import * as KeyValue from "./kv.mjs";
 import { shell } from "./shell.mjs";
+import { accountLocked } from "./account-lock.mjs";
 const dev = process.env.CONTEXT === "dev";
 
 const aestheticBaseURI = "https://aesthetic.us.auth0.com";
@@ -29,6 +30,11 @@ export async function authorize({ authorization }, tenant = "aesthetic") {
 
   const cached = userinfoCache.get(cacheKey);
   if (cached && Date.now() - cached.at < USERINFO_CACHE_MS) {
+    // A lock can land after a token was cached, in this or another process.
+    if (tenant === "aesthetic" && (await accountLocked(cached.user?.sub))) {
+      userinfoCache.delete(cacheKey);
+      return undefined;
+    }
     return { ...cached.user }; // Shallow copy so callers can't mutate the cache.
   }
   if (cached) userinfoCache.delete(cacheKey);
@@ -44,6 +50,11 @@ export async function authorize({ authorization }, tenant = "aesthetic") {
       })
     ).body;
     shell.log(`✅ Authorization successful for \`${tenant}\` user: ${result?.sub}`);
+    // An account waiting to be deleted is locked (account-lock.mjs).
+    if (tenant === "aesthetic" && (await accountLocked(result?.sub))) {
+      shell.log(`🔒 Refused locked account: ${result.sub}`);
+      return undefined;
+    }
     if (result?.sub) {
       if (userinfoCache.size >= USERINFO_CACHE_MAX) {
         userinfoCache.delete(userinfoCache.keys().next().value); // Drop oldest.
@@ -54,6 +65,14 @@ export async function authorize({ authorization }, tenant = "aesthetic") {
   } catch (err) {
     shell.error("❌ Authorization failed:", err?.message || err, err?.code);
     return undefined;
+  }
+}
+
+// Drop every cached authorization for an account, so a lock or deletion
+// takes effect on the next request instead of after the cache expires.
+export function forgetAuthorizations(sub) {
+  for (const [key, entry] of userinfoCache) {
+    if (entry.user?.sub === sub) userinfoCache.delete(key);
   }
 }
 
@@ -447,17 +466,40 @@ export async function setEmailAndReverify(
   }
 }
 
-// Deletes a user from auth0.
+// Blocks or unblocks sign-in for a user in auth0.
+export async function setUserBlocked(userId, blocked, tenant = "aesthetic") {
+  try {
+    const { got } = await import("got");
+    const token = await getAccessToken(got, tenant);
+    const baseURI = tenant === "aesthetic" ? aestheticBaseURI : sotceBaseURI;
+    await got(`${baseURI}/api/v2/users/${encodeURIComponent(userId)}`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}` },
+      json: { blocked },
+    });
+    return true;
+  } catch (error) {
+    shell.error(`⚠️  Could not ${blocked ? "block" : "unblock"} user in Auth0: ${error}`);
+    return false;
+  }
+}
+
+// Deletes a user from auth0. A user that is already gone counts as deleted,
+// so a retried account deletion can finish.
 export async function deleteUser(userId, tenant = "aesthetic") {
   try {
     const { got } = await import("got");
     const token = await getAccessToken(got, tenant);
     const baseURI = tenant === "aesthetic" ? aestheticBaseURI : sotceBaseURI;
 
-    await got(`${baseURI}/api/v2/users/${encodeURIComponent(userId)}`, {
+    const response = await got(`${baseURI}/api/v2/users/${encodeURIComponent(userId)}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
+      throwHttpErrors: false,
     });
+    if (response.statusCode >= 400 && response.statusCode !== 404) {
+      throw new Error(`Auth0 answered ${response.statusCode}`);
+    }
 
     shell.log(
       `❌ User with ID ${userId} deleted from Auth0. Tenant: ${tenant}`,

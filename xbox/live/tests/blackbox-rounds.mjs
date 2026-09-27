@@ -24,6 +24,9 @@ function fileFor(pathname) {
   if (pathname === "/oskiewar-sfx.mjs") return join(here, "oskiewar-sfx.mjs");
   if (pathname === "/oskiewar-voice.mjs") return join(here, "oskiewar-voice.mjs");
   if (pathname === "/frame-driver.mjs") return join(here, "frame-driver.mjs");
+  if (pathname === "/scene3d-webgl.mjs") return join(here, "scene3d-webgl.mjs");
+  if (pathname === "/scene3d.mjs") return join(here, "scene3d.mjs");
+  if (pathname === "/frame-vm.mjs") return join(here, "frame-vm.mjs");
   if (pathname === "/round-room.mjs") return join(here, "round-room.mjs");
   if (pathname === "/oskiewar-midi.mjs") return join(here, "oskiewar-midi.mjs");
   if (pathname === "/oskiewar-fighter.mjs") return join(here, "oskiewar-fighter.mjs");

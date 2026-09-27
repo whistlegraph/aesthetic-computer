@@ -23,10 +23,21 @@ AC pop tracks — and the essays written about them — are work of **@jeffrey /
 ```
 platter (raw material: notes, code, conversations, papers)
   → thread (a vision worth singing)
-    → draft lyrics (in jeffrey-pvc voice + per-genre voice)
-      → vocal + beat (per-lane pipeline)
-        → mix (~1:30 mp3, audio-only)
+    → composition beds (chords + topline + rhythm + rate)
+      → election (one bed becomes the piece's musical genome)
+        → arrangement (dance, texture, sound design, lyrics, vocal)
+          → mix (~1:30 mp3, audio-only)
 ```
+
+New track lanes begin with a neutral batch from
+`node pop/bin/render-composition-beds.mjs`. Compare the beds without genre
+production, then record the choice with `--elect NN`. Do not polish rhythm,
+timbre, visual treatment, or vocal before the harmony/topline election.
+
+An elected genome may also drive a measure-by-measure native performance. The
+C engine owns timing and keeps future measures buffered; agent inference and
+time/weather inputs may shape later measures but never block audio. See
+[`REALTIME-COMPOSITION.md`](REALTIME-COMPOSITION.md).
 
 Audio-only by default. No video, no chrome. If a track later becomes a video lane, that's a recap-side concern, not a `pop` concern.
 
@@ -153,7 +164,20 @@ Voice posture: instrumental. **Headphones required** — on speakers the track c
 
 See [`bracelet/README.md`](bracelet/README.md) for the mapping law, the form, and the per-strike verification. Status: first cut rendered 2026-08-07 (`bracelet`, 1:49, 138 BPM, A minor).
 
-### 11. (open)
+### 11. notespatial (`notespatial/`)
+
+The ring, heard from the middle. *Note(s)pat(ial) Native* — the eleven-chapter
+spatial suite for six AC OS laptops written for the September 24, 2026 CultureHub
+LA performance — printed **binaurally from the center seat** by the studio's
+model of the room (`fedac/native/tools/notespatial-native-render.mjs`: the
+runtime's own envelopes and gm_synth core, per-seat effects, measured KEMAR
+HRTFs), then mastered by the house law with one static gain. The score is the
+release; the room is the instrument. Instrumental, 12:56, headphones.
+
+See [`notespatial/README.md`](notespatial/README.md). Status: master cut and
+packet staged 2026-09-25, awaiting @jeffrey's listen.
+
+### 12. (open)
 
 More lanes will land here as they prove themselves. Candidates: kidlisp-as-instrument tracks, AC-native ensemble cuts, voice-memo-grade demo lane. None of them have earned a swimlane yet — they need a real track first.
 

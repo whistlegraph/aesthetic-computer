@@ -6,7 +6,7 @@ final class TilePopulationObserver {
     private var observers: [pid_t: AXObserver] = [:]
     private var workspaceTokens: [NSObjectProtocol] = []
     private let changed: () -> Void
-    private let bundleIDs: Set<String> = ["com.apple.Terminal", "com.googlecode.iterm2", "computer.aesthetic.app", "computer.aesthetic.easel", "computer.aesthetic.aesel"]
+    private let bundleIDs: Set<String> = ["com.apple.Terminal", "com.googlecode.iterm2", "computer.aesthetic.app", "computer.aesthetic.easel", "computer.aesthetic.aesel", "computer.aesthetic.aesel.native"]
 
     init(changed: @escaping () -> Void) {
         self.changed = changed

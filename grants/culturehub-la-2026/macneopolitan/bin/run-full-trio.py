@@ -11,16 +11,43 @@ LOCAL=(subprocess.run(['scutil','--get','LocalHostName'],capture_output=True,tex
 SUB=os.environ.get('TRIO_SUB','http://127.0.0.1:8788').rstrip('/');DMX=os.environ.get('TRIO_DMX','http://127.0.0.1:8790').rstrip('/')
 def islocal(h):return h.lower()==LOCAL
 RTT_MAX=float(os.environ.get('TRIO_CLOCK_RTT_MAX','0.04'))   # seconds; the 40 ms contract unless explicitly widened
+# The display feed (blueberry:8796 → neo's stage service → Xbox / ac7): a
+# transport heartbeat with the lyric being sung. Best effort, never fatal.
+VIS=os.environ.get('TRIO_VIS','http://192.168.1.234:8796').rstrip('/')
+def lyric_at(t):
+ cur=None;nxt=None
+ for l in plan.get('lyrics',[]):
+  if t>=l['t']-.3 and t<l['t']+l['dur']+.8:cur=l
+  elif l['t']>t and nxt is None:nxt=l
+ return cur,nxt
+def visuals(playing,elapsed):
+ cur,nxt=lyric_at(elapsed) if playing else (None,None)
+ body={'playing':playing,'elapsed':max(-1,min(plan['duration']+1,elapsed)),'title':plan.get('title'),'dance':'trio-round-v1','bpm':plan['bpm'],'duration':plan['duration'],
+  'lyric':cur and {'text':cur['text'],'member':cur['member'],'rgb':cur['rgb'],'t':cur['t'],'dur':cur['dur'],'syllables':cur.get('syllables',[]),
+   'syllable':next((i for i in range(len(cur.get('syllables',[]))-1,-1,-1) if cur['syllables'][i]['t']<=elapsed),-1)},
+  'next':nxt and {'text':nxt['text'],'member':nxt['member'],'rgb':nxt['rgb'],'in':round(nxt['t']-elapsed,2)},
+  'faces':{m:(l and {'text':l['text'],'rgb':l['rgb'],'t':l['t'],'dur':l['dur']}) for m,l in ((m,next((l for l in plan.get('lyrics',[]) if l['member']==m and elapsed>=l['t']-.3 and elapsed<l['t']+l['dur']+.8),None)) for m in ('neo','blueberry','frisbee'))},
+  'sentAt':time.time()}
+ try:
+  raw=json.dumps(body).encode()
+  with urllib.request.urlopen(urllib.request.Request(VIS+'/api/transport',raw,{'Content-Type':'application/json','Origin':VIS},method='POST'),timeout=1) as r:r.read()
+  return True
+ except Exception:return False
 plan=json.loads((OUT/'plan.json').read_text());nodes=json.loads((OUT/'native-loaded.json').read_text())
 bundle=json.loads((OUT/'prepared.json').read_text()) if (OUT/'prepared.json').exists() else {'id':None,'singers':[],'stems':{}}   # a piece without singers has no bundle
 members=[p['member'] for p in plan.get('payloads',[])];runid='full-trio-'+uuid.uuid4().hex[:10];errors=[];quit=threading.Event();record={'runId':runid,'arrangementHash':plan['arrangementHash'],'timing':'Native simulation-frame dispatch; acoustic alignment not calibrated','checks':{},'samples':[]}
 locks={n['id']:threading.Lock() for n in nodes}
-def request(url,data=None,method=None):
+def request(url,data=None,method=None,tries=1):
  raw=None if data is None else json.dumps(data).encode()
- with urllib.request.urlopen(urllib.request.Request(url,data=raw,method=method,headers={'Content-Type':'application/json'}),timeout=2) as r:
-  b=r.read()
-  try:return json.loads(b)
-  except:return b.decode()
+ for attempt in range(tries):   # venue Wi-Fi drops a request now and then; one timeout must not end the show
+  try:
+   with urllib.request.urlopen(urllib.request.Request(url,data=raw,method=method,headers={'Content-Type':'application/json'}),timeout=2) as r:
+    b=r.read()
+    try:return json.loads(b)
+    except:return b.decode()
+  except (urllib.error.URLError,TimeoutError,ConnectionError,OSError) as e:
+   if attempt==tries-1 or isinstance(e,urllib.error.HTTPError):raise
+   time.sleep(.4)
 def save(): (OUT/(runid+'.json')).write_text(json.dumps(record,indent=2))
 def parallel(fn,items):
  with cf.ThreadPoolExecutor(max_workers=12) as p:return list(p.map(fn,items))
@@ -49,7 +76,7 @@ def singercheck(h):
  e=next(x for x in bundle['singers'] if x['member']==h)
  assert s['phase']=='ready' and s['instance']==e['instance'] and s['fingerprint']==e['fingerprint'],(h,s)
  return h,{'clock':skew(h),'logBase':int(shell(h,'wc -l < /tmp/menuband.err')),'receipt':s}
-def status(n):return request(n['url']+'/pieces/trio-fleet-status.json')
+def status(n):return request(n['url']+'/pieces/trio-fleet-status.json',tries=3)
 def command(n,action,**kw):
  with locks[n['id']]:
   c={'id':uuid.uuid4().hex,'action':action,**kw};request(n['url']+'/pieces/trio-fleet-command.json',c,'PUT');return c['id']
@@ -62,7 +89,11 @@ def ack(n,phase):
   time.sleep(.02)
  raise RuntimeError((n['id'],'No '+phase+' acknowledgment'))
 def nativecheck(n):
- s=status(n);time.sleep(.07);s2=status(n)
+ # a seat mid-stall reads the same audioTime twice: try again a few times before calling it stale
+ for attempt in range(6):
+  s=status(n);time.sleep(.07);s2=status(n)
+  if s2['audioTime']>s['audioTime'] and s2['instance']==s['instance']:break
+  time.sleep(.3)
  assert s2['audioTime']>s['audioTime'] and s2['instance']==s['instance'],n['id']+' stale'
  assert s2['phase']=='ready' and not s2['error'] and s2['arrangementHash']==plan['arrangementHash'] and s2['receiverId']==n['id'],s2
  assert s2['mono'] and s2['monoOutput']=='left' and not s2['microphoneHot'] and s2['centerReady'],s2
@@ -105,8 +136,12 @@ def keepalive():
   try:
    parallel(lambda n:command(n,'keepalive',runId=runid),nodes)
    request(SUB+'/api/trio/keepalive',{'runId':runid})
+   t=time.monotonic()-downbeat;record['visuals']=visuals(0<=t<plan['duration'],t)
   except Exception as e:errors.append(str(e));return
-  quit.wait(.5)
+  for _ in range(4):   # the display beat runs at 5 Hz between the 0.5 s keepalives
+   if quit.wait(.1):return
+   t=time.monotonic()-downbeat;visuals(0<=t<plan['duration'],t)
+  quit.wait(.1)
 def lights():
  for e in (x for x in plan['events'] if x['layer']=='dmx'):
   if quit.wait(max(0,downbeat+e['t']-time.monotonic())):return
@@ -133,9 +168,13 @@ def cleanup():
  except Exception as e:results['sub']=str(e)
  try:results['dmx']=cancel_dmx()
  except Exception as e:results['dmx']=str(e)
- for h in members:
-  try:post(h,'stop',{});shell(h,'touch '+cancel);results[h]='stopped; brightness restoration requested'
+ for h in members:   # after a clean finish the singers keep their preparations (stop would clear every cached piece)
+  try:
+   if not record.get('completed'):post(h,'stop',{})
+   shell(h,'touch '+cancel);results[h]=('finished; preparations kept' if record.get('completed') else 'stopped')+'; brightness restoration requested'
   except Exception as e:results[h]=str(e)
+ try:visuals(False,0)
+ except Exception:pass
  record['cleanup']=results;save()
 def interrupted(*_):raise KeyboardInterrupt()
 signal.signal(signal.SIGTERM,interrupted);signal.signal(signal.SIGINT,interrupted)
@@ -153,8 +192,8 @@ try:
  record['brightnessArmed']=dict(parallel(bright,members)) if members else {};subcheck();assert epoch-time.time()>4 and not errors
  def playnative(n):command(n,'play',runId=runid);return n['id'],ack(n,'countdown')
  record['nativeCountdown']=dict(parallel(playnative,nodes));record['subCountdown']=request(SUB+'/api/trio/play',{'runId':runid})
- def sing(h):
-  payload=dict(next(p['info'] for p in plan['payloads'] if p['member']==h));payload.update(preparedId=bundle['id'],startEpoch=f"{hosts[h]['startEpoch']:.6f}");post(h,'play',payload)
+ def sing(h):   # the singers come in after the announcement lead-in, if the plan has one
+  payload=dict(next(p['info'] for p in plan['payloads'] if p['member']==h));payload.update(preparedId=bundle['id'],startEpoch=f"{hosts[h]['startEpoch']+plan.get('leadIn',0):.6f}");post(h,'play',payload)
  if members:parallel(sing,members)
  assert epoch-time.time()>2
  t=threading.Thread(target=lights,daemon=True);threads.append(t);t.start();save();print('FULL SYSTEM CUED. Downbeat in',round(epoch-time.time(),1),'seconds.',flush=True)

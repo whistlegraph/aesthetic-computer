@@ -49,7 +49,7 @@ struct AeselHomeView: View {
                                     Text(medium.name)
                                     Spacer(minLength: 0)
                                     if medium.id != "piece" {
-                                        Text("desktop").font(Paint.font(17)).foregroundStyle(paint.dim)
+                                        Text("coming later").font(Paint.font(17)).foregroundStyle(paint.dim)
                                     }
                                 }
                                 .padding(.horizontal, 12)
@@ -58,7 +58,7 @@ struct AeselHomeView: View {
                                 .background(medium.id == "piece" ? Color(rgb: 0xc81e64) : .clear)
                             }
                             .disabled(medium.id != "piece" || session.busy)
-                            .accessibilityLabel(medium.id == "piece" ? "New piece" : medium.name + ", available on desktop")
+                            .accessibilityLabel(medium.id == "piece" ? "New piece" : medium.name + ", not available in this app yet")
                         }
                     }
                 } else {
@@ -103,7 +103,7 @@ struct AeselHomeView: View {
                 .padding(.bottom, 10)
 
         }
-        .buttonStyle(.plain)
+        .buttonStyle(AeselButtonStyle())
         .foregroundStyle(paint.ink)
         .background { AeselCloth().ignoresSafeArea() }
     }

@@ -1,3 +1,4 @@
+import {retryNetwork, httpError} from "./network.mjs";
 import {createHash} from 'node:crypto';
 import { PieceRevisions, validatePieceSource } from "./revisions.mjs";
 // publish.mjs — put a piece live under the signed-in user's @handle.
@@ -56,6 +57,8 @@ export async function publishPiece({
   cwd = process.cwd(),
   site = SITE,
   onStep = () => {},
+  onRetry = () => {},
+  retryOptions = {},
   source: snapshot,
   // Hosts without a desktop revision ledger can explicitly supply null.
   version: snapshotVersion,
@@ -80,28 +83,34 @@ export async function publishPiece({
   await validatePieceSource(source, plan.path);
   const token = await session.token();
   onStep("requesting upload grant");
-  const presign = await fetch(plan.grantUrl, {
-    headers: { Authorization: `Bearer ${token}`, "User-Agent": USER_AGENT, Accept: "application/json" },
+  const retry = operation => retryNetwork(operation, {...retryOptions, onRetry});
+  const grant = await retry(async signal => {
+    const presign = await fetch(plan.grantUrl, {
+      signal, headers: { Authorization: `Bearer ${token}`, "User-Agent": USER_AGENT, Accept: "application/json" },
+    });
+    const grant = await presign.json().catch(error => { if (error instanceof SyntaxError) return {}; throw error; });
+    if (!presign.ok || !grant.uploadURL) {
+      throw httpError(grant.error || grant.message || `upload grant failed (HTTP ${presign.status})`, presign.status);
+    }
+    return grant;
   });
-  const grant = await presign.json().catch(() => ({}));
-  if (!presign.ok || !grant.uploadURL) {
-    throw new Error(grant.error || grant.message || `upload grant failed (HTTP ${presign.status})`);
-  }
 
   onStep("uploading");
-  const put = await fetch(grant.uploadURL, {
-    method: "PUT",
-    headers: { "Content-Type": plan.mime, "Content-Disposition": "inline", "x-amz-acl": "public-read" },
-    body: source,
+  await retry(async signal => {
+    const put = await fetch(grant.uploadURL, {
+      signal, method: "PUT",
+      headers: { "Content-Type": plan.mime, "Content-Disposition": "inline", "x-amz-acl": "public-read" },
+      body: source,
+    });
+    if (!put.ok) throw httpError(`upload failed (HTTP ${put.status})`, put.status);
   });
-  if (!put.ok) throw new Error(`upload failed (HTTP ${put.status})`);
 
   onStep("verifying");
-  let verified = false;
-  try {
-    const check = await fetch(plan.mediaUrl, { headers: { "User-Agent": USER_AGENT }, redirect: "follow" });
-    verified = check.ok && (await check.text()).trim() === source.trim();
-  } catch {}
+  const verified = await retry(async signal => {
+    const check = await fetch(plan.mediaUrl, { signal, headers: { "User-Agent": USER_AGENT }, redirect: "follow" });
+    if (!check.ok) throw httpError(`verification failed (HTTP ${check.status})`, check.status);
+    return (await check.text()).trim() === source.trim();
+  });
 
   let registration=null;
   const savedVersion=snapshotVersion === undefined ? new PieceRevisions(plan.path).list().findLast(v=>v.revision===createHash('sha256').update(source).digest('hex'))?.version : snapshotVersion;

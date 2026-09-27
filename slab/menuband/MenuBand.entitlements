@@ -6,6 +6,11 @@
     <!-- Microphone sampler: holding ` records from the default input. -->
     <key>com.apple.security.device.audio-input</key>
     <true/>
+    <!-- Lid camera: the singing face's eyes follow the people in the room
+         (SingerGaze). Without this key the hardened runtime denies the
+         camera silently, no prompt. -->
+    <key>com.apple.security.device.camera</key>
+    <true/>
     <!-- We don't need any of the Hardened Runtime exceptions; CoreMIDI,
          AVAudioEngine, CGEventTap, and Carbon RegisterEventHotKey all work
          under default Hardened Runtime. -->
