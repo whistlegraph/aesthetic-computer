@@ -1,4 +1,5 @@
 #include "pch.h"
+#include <cstdio>
 #include "QuickJsEngine.hpp"
 #include "PhotoDiscService.hpp"
 #include "OskiewarLivePublisher.hpp"
@@ -425,7 +426,15 @@ public:
     m_oskiewarAccount = std::make_shared<OskiewarAccountService>(*m_api);
     m_api->system.render_width = m_frameWidth;
     m_api->system.render_height = m_frameHeight;
-    m_api->system.version = "1.0.0.46";
+    {
+      // What capabilities().version reports is the installed package, not a
+      // literal that drifts from Package.appxmanifest.
+      const auto id = Windows::ApplicationModel::Package::Current->Id->Version;
+      char version[32];
+      std::snprintf(version, sizeof version, "%u.%u.%u.%u", unsigned(id.Major),
+        unsigned(id.Minor), unsigned(id.Build), unsigned(id.Revision));
+      m_api->system.version = version;
+    }
     m_api->telemetry = [this](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';

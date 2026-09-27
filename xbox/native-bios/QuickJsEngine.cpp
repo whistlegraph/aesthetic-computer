@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <vector>
 #include <string>
 #include "QuickJsEngine.hpp"
 #include "../runtime/include/ac/theme_assets.hpp"
@@ -15,7 +16,11 @@ extern "C" {
 
 namespace ac::xbox {
 namespace {
-struct CallScope { Api* api; };
+struct RetainedMesh;  // ScenePrimitives.inc
+// Meshes the piece uploads once and draws by handle; owned by the piece, so
+// they live exactly as long as its JS context.
+struct SceneStore { std::vector<std::shared_ptr<RetainedMesh>> meshes; };
+struct CallScope { Api* api; SceneStore scene; };
 #include "ScenePrimitives.inc"
 
 bool ValidOskiewarMatchId(std::string_view value) {
@@ -837,6 +842,10 @@ JSValue Capabilities(JSContext* context, JSValueConst, int, JSValueConst*) {
   JS_SetPropertyStr(context, result, "antialiasingMode",
     JS_NewString(context, scope->api->system.antialiasing_mode.c_str()));
   JS_SetPropertyStr(context, result, "liveLocalState", JS_NewBool(context, true));
+  // The scene API level the piece may assume (xbox/ENGINE.md). Additive only:
+  // 1 = triangles3d/disc3d/capsule3d/sceneMesh, 2 = + postEffects and retained
+  // meshes (meshUpload/meshDraw/meshFree).
+  JS_SetPropertyStr(context, result, "sceneApi", JS_NewInt32(context, 2));
   return result;
 }
 
@@ -969,6 +978,9 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "disc3d", JS_NewCFunction(context_, SceneDisc, "disc3d", 7));
     JS_SetPropertyStr(context_, global, "capsule3d", JS_NewCFunction(context_, SceneCapsule, "capsule3d", 9));
     JS_SetPropertyStr(context_, global, "sceneMesh", JS_NewCFunction(context_, SceneMesh, "sceneMesh", 3));
+    JS_SetPropertyStr(context_, global, "meshUpload", JS_NewCFunction(context_, MeshUpload, "meshUpload", 3));
+    JS_SetPropertyStr(context_, global, "meshDraw", JS_NewCFunction(context_, MeshDraw, "meshDraw", 6));
+    JS_SetPropertyStr(context_, global, "meshFree", JS_NewCFunction(context_, MeshFree, "meshFree", 1));
     JS_SetPropertyStr(context_, global, "triangle3d", JS_NewCFunction(context_, Triangle3d, "triangle3d", 12));
     JS_SetPropertyStr(context_, global, "triangles3d", JS_NewCFunction(context_, Triangles3d, "triangles3d", 2));
     JS_SetPropertyStr(context_, global, "sprites3d", JS_NewCFunction(context_, Sprites3d, "sprites3d", 2));
