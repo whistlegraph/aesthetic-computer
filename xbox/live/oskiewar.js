@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 175;
+const buildVersion = 176;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -9392,13 +9392,13 @@ function updateCameraDoll(dt, now) {
   if (poolOnly() && freeskateActive()) {
     const p = players[0], heading = p.poolYaw || 0;
     poolCameraYaw += Math.atan2(Math.sin(heading-poolCameraYaw), Math.cos(heading-poolCameraYaw)) *
-      (1-Math.exp(-dt*1.8));
-    const angle = poolCameraYaw + .65 + playerCameraYaw;
+      (1-Math.exp(-dt*6));
+    const angle = poolCameraYaw + .14 + playerCameraYaw;
     const zoom = playerCameraZoom, distance = 1350 * zoom;
     const target = { x:p.x+clamp(p.vx*.1,-160,160), y:p.y-85,
       z:(p.z||0)+clamp((p.vz||0)*.1,-160,160) };
     const position = { x:target.x-Math.cos(angle)*distance,
-      y:Math.min(target.y-1050*zoom-playerCameraPitch*600, floorY-pool.radius-300),
+      y:Math.min(target.y-880*zoom-playerCameraPitch*600, floorY-pool.radius-300),
       z:target.z-Math.sin(angle)*distance };
     cameraCenter=target.x; cameraCenterY=target.y; cameraWidth=1650*zoom;
     cameraDoll.track({target,position,width:cameraWidth,perspective:1,fov:58,roll:0},dt,8);
@@ -12090,10 +12090,21 @@ function updateTurn(player, now) {
 function updatePoolPlayer(p, pad, dt, now) {
   const held=pad.down, pressed=key=>held.includes(key)&&!p.previous.includes(key);
   const axis=value=>Math.abs(value)>.18?Math.sign(value)*(Math.abs(value)-.18)/.82:0;
-  let ix=Number(held.includes('ArrowRight'))-Number(held.includes('ArrowLeft')) || axis(pad.leftX||0);
-  let iz=Number(held.includes('ArrowUp'))-Number(held.includes('ArrowDown')) || axis(pad.leftY||0);
-  const inputLength=Math.hypot(ix,iz); if(inputLength>1){ix/=inputLength;iz/=inputLength;}
-  p.previousY=p.y; p.inputX=ix; p.inputZ=iz; p.inputY=held.includes('X')?-1:held.includes('A')?1:0;
+  const turn=Number(held.includes('ArrowRight'))-Number(held.includes('ArrowLeft')) || axis(pad.leftX||0);
+  const throttle=Number(held.includes('ArrowUp'))-Number(held.includes('ArrowDown')) || axis(pad.leftY||0);
+  const forward=Math.max(0,throttle),brake=Math.max(0,-throttle);
+  const oldHeading=p.poolYaw||0;
+  const speedBefore=Math.hypot(p.vx,p.vz||0);
+  const turnRate=p.onewheel?lerp(2.8,1.9,clamp(speedBefore/3000,0,1)):3.2;
+  // Steering changes the rider's heading. Forward always pushes along that heading.
+  p.poolYaw=oldHeading-turn*turnRate*dt;
+  const headingDelta=p.poolYaw-oldHeading;
+  if(p.grounded&&headingDelta){
+    const vx=p.vx,vz=p.vz||0,c=Math.cos(headingDelta),sn=Math.sin(headingDelta);
+    p.vx=vx*c-vz*sn;p.vz=vx*sn+vz*c;
+  }
+  const driveX=Math.cos(p.poolYaw),driveZ=Math.sin(p.poolYaw);
+  p.previousY=p.y; p.inputX=turn; p.inputZ=throttle; p.inputY=held.includes('X')?-1:held.includes('A')?1:0;
   p.ducking=held.includes('X'); p.crouchBlend+=(Number(p.ducking)-(p.crouchBlend||0))*(1-Math.exp(-dt*14));
   p.facing=1; p.turnAt=-1e12; p.footSurf=false; p.strafe=null; p.grabHeld=false;
   if(!held.includes('RightShoulder'))p.shieldLocked=false;
@@ -12113,19 +12124,16 @@ function updatePoolPlayer(p, pad, dt, now) {
   for(let n=0;n<steps;n++){
     let slope=poolSlopeAt(p.x,p.z||0);
     if(p.grounded){
-      let vy=slope.x*p.vx+slope.z*(p.vz||0);
-      const den=1+slope.x*slope.x+slope.z*slope.z;
-      p.vx+=1800*slope.x/den*step; p.vz=(p.vz||0)+1800*slope.z/den*step;
+      const grade=slope.x*driveX+slope.z*driveZ, tangent=Math.hypot(1,grade);
+      let rolling=(p.vx*driveX+(p.vz||0)*driveZ)*tangent;
+      rolling+=1800*grade/tangent*step;
       const top=p.onewheel?(p.wheelTurbo?4800:3100):walkSpeed*(p.ducking?.38:1);
-      const ty=slope.x*ix+slope.z*iz, len=Math.hypot(ix,ty,iz)||1;
-      const ux=ix/len,uy=ty/len,uz=iz/len;
-      const along=p.vx*ux+vy*uy+p.vz*uz;
-      const push=clamp((top*Math.min(1,inputLength)-along)*(p.onewheel?3:12),-5000,p.onewheel?4200:9000);
-      if(inputLength){p.vx+=ux*push*step;p.vz+=uz*push*step;}
-      const drag=Math.exp(-step*(p.onewheel?.16:inputLength?1:14));
-      p.vx*=drag;p.vz*=drag;
-      vy=slope.x*p.vx+slope.z*p.vz;
-      const speed=Math.hypot(p.vx,vy,p.vz);
+      if(forward)rolling+=clamp((top*forward-rolling)*(p.onewheel?3:12),0,p.onewheel?4200:9000)*step;
+      rolling*=Math.exp(-step*(p.onewheel?.16:forward?1:14));
+      // Back spends speed and holds still. It never applies reverse thrust.
+      if(brake)rolling=Math.sign(rolling)*Math.max(0,Math.abs(rolling)-brake*(p.onewheel?5600:4800)*step);
+      p.vx=driveX*rolling/tangent;p.vz=driveZ*rolling/tangent;
+      const speed=Math.abs(rolling);
       p.x+=p.vx*step;p.z=(p.z||0)+p.vz*step;
       slope=poolSlopeAt(p.x,p.z);
       const bent=Math.hypot(p.vx,slope.x*p.vx+slope.z*p.vz,p.vz);
@@ -12140,7 +12148,7 @@ function updatePoolPlayer(p, pad, dt, now) {
         emitSignal('skate-air',p.pad,Math.round(-p.vy),0);
       }
     }else{
-      p.vx+=ix*300*step;p.vz=(p.vz||0)+iz*300*step;
+      p.vx+=driveX*forward*300*step;p.vz=(p.vz||0)+driveZ*forward*300*step;
       p.vy+=1800*step;p.x+=p.vx*step;p.z=(p.z||0)+p.vz*step;p.y+=p.vy*step;
       const floor=poolFloorAt(p.x,p.z);
       if(p.y>=floor){
@@ -12159,10 +12167,6 @@ function updatePoolPlayer(p, pad, dt, now) {
     }
   }
   const horizontal=Math.hypot(p.vx,p.vz||0);
-  if(horizontal>30){
-    const desired=Math.atan2(p.vz,p.vx),heading=p.poolYaw||0;
-    p.poolYaw=heading+Math.atan2(Math.sin(desired-heading),Math.cos(desired-heading))*(1-Math.exp(-dt*12));
-  }
   const slope=poolSlopeAt(p.x,p.z||0),heading=p.poolYaw||0;
   const pitch=p.grounded?Math.atan(slope.x*Math.cos(heading)+slope.z*Math.sin(heading)):0;
   p.skatePitch+=(pitch-(p.skatePitch||0))*(1-Math.exp(-dt*16));

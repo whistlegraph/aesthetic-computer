@@ -174,7 +174,7 @@ test('bubble keeps ground steering and wheel momentum in both control layouts', 
     Object.assign(p, {x:950,y:1800,vx:riding?1700:880,grounded:true,
       skateboard:riding,onewheel:riding,skateVx:riding?1700:0});
     g.api.monowheel.active = !riding;
-    g.pads[0].down = [classic?'X':'RightShoulder','ArrowRight'];
+    g.pads[0].down = [classic?'X':'RightShoulder',classic?'ArrowRight':'ArrowUp'];
     g.tick();
     assert.equal(p.blocking, true);
     assert.ok(p.x > 950 && p.vx > 800, `bubble stopped ${classic?'classic':'3D'} movement`);
@@ -258,12 +258,20 @@ test('pool floor rises on every side and through rounded corners', () => {
   assert.equal(a.terrainFloorAt(cx,720),1320);
 });
 
-test('depth steering turns the monowheel and rider together', () => {
+test('left and right steer the rider, wheel and chase camera without strafing', () => {
   const g=game(),p=g.api.players[0];
   Object.assign(p,{onewheel:true,skateboard:true,vx:0,vz:0,skateVx:0});
-  g.api.monowheel.active=false;g.pads[0].down=['ArrowUp'];
-  for(let i=0;i<30;i++)g.tick();
-  assert.ok(p.z>20);assert.ok(p.poolYaw>1.3);
+  g.api.monowheel.active=false;g.pads[0].down=['ArrowLeft'];
+  const x=p.x,z=p.z;
+  for(let i=0;i<40;i++)g.tick();
+  assert.equal(p.x,x);assert.equal(p.z,z,'turning does not move sideways');
+  assert.ok(p.poolYaw>1.3);
+  g.pads[0].down=['ArrowUp'];
+  for(let i=0;i<20;i++)g.tick();
+  assert.ok(p.z>20);
+  assert.ok(g.api.cameraDoll.position.z<g.api.cameraDoll.target.z-500);
+  const before=p.poolYaw;g.pads[0].down=['ArrowRight'];g.tick();
+  assert.ok(p.poolYaw<before,'right turns clockwise');
   const frame=g.api.monowheelFrame(p),front=frame(50),rear=frame(-50);
   assert.ok(front.z-rear.z>80,'wheel points through depth');
   const pose=g.api.runnerWorldGeometry(p,1);
@@ -272,8 +280,8 @@ test('depth steering turns the monowheel and rider together', () => {
 });
 
 test('pool movement stays on the surface in all four directions and corners', () => {
-  for(const down of [['ArrowRight'],['ArrowLeft'],['ArrowUp'],['ArrowDown'],['ArrowUp','ArrowRight']]){
-    const g=game(),p=g.api.players[0];g.pads[0].down=down;
+  for(const heading of [0,Math.PI,Math.PI/2,-Math.PI/2,Math.PI/4]){
+    const g=game(),p=g.api.players[0];p.poolYaw=heading;g.pads[0].down=['ArrowUp'];
     for(let i=0;i<450;i++){
       g.tick();
       assert.ok([p.x,p.y,p.z,p.vx,p.vy,p.vz].every(Number.isFinite));
@@ -306,10 +314,10 @@ test('raster decals follow pool depth curvature', () => {
 });
 
 test('pool monowheel rides into vert air and returns without passing through the bowl', () => {
-  for(const direction of ['ArrowRight','ArrowUp']){
+  for(const heading of [0,Math.PI/2]){
     const g=game(),p=g.api.players[0];
     Object.assign(p,{onewheel:true,skateboard:true,vx:0,vz:0,skateVx:0});
-    g.api.monowheel.active=false;g.pads[0].down=[direction];
+    g.api.monowheel.active=false;p.poolYaw=heading;g.pads[0].down=['ArrowUp'];
     let air=false,landed=false,maxSpeed=0,turbo=false;
     for(let i=0;i<900;i++){
       g.tick();maxSpeed=Math.max(maxSpeed,p.skateVx);turbo ||= p.wheelTurbo;
@@ -319,4 +327,36 @@ test('pool monowheel rides into vert air and returns without passing through the
     assert.ok(turbo,'compact pool reaches turbo, including charging through airtime');
     assert.ok(air,'wheel launches off the coping');assert.ok(landed,'rider returns to surface');
   }
+});
+
+
+test('forward pushes in the facing direction, and back brakes without reversing', () => {
+  for(const riding of [false,true])for(const heading of [0,Math.PI/2,Math.PI,-Math.PI/2]){
+    const g=game(),p=g.api.players[0],x=1080,z=0;
+    Object.assign(p,{x,z,y:1800,onewheel:riding,skateboard:riding,poolYaw:heading,vx:0,vz:0});
+    g.api.monowheel.active=!riding;g.pads[0].down=['ArrowUp'];
+    for(let i=0;i<15;i++)g.tick();
+    const forward=(p.x-x)*Math.cos(heading)+(p.z-z)*Math.sin(heading);
+    const sideways=-(p.x-x)*Math.sin(heading)+(p.z-z)*Math.cos(heading);
+    assert.ok(forward>20);assert.ok(Math.abs(sideways)<.001);
+    const peak=Math.hypot(p.vx,p.vz);
+    g.pads[0].down=['ArrowDown'];
+    for(let i=0;i<30;i++){
+      g.tick();
+      assert.ok(p.vx*Math.cos(heading)+p.vz*Math.sin(heading)>=-.001,'back never reverses');
+    }
+    assert.ok(peak>100);assert.ok(Math.hypot(p.vx,p.vz)<.001,'back stops');
+    const stopped={x:p.x,z:p.z};
+    for(let i=0;i<30;i++)g.tick();
+    assert.ok(Math.hypot(p.x-stopped.x,p.z-stopped.z)<.001,'holding back stays stopped');
+  }
+});
+
+test('monowheel coasts and carves while the stick turns without forward held', () => {
+  const g=game(),p=g.api.players[0];
+  Object.assign(p,{x:1080,z:0,y:1800,onewheel:true,skateboard:true,poolYaw:0,vx:1400,vz:0});
+  g.api.monowheel.active=false;g.pads[0].down=['ArrowRight'];
+  for(let i=0;i<12;i++)g.tick();
+  assert.ok(p.x>1080&&p.z<0);assert.ok(p.poolYaw<-.2);
+  assert.ok(Math.hypot(p.vx,p.vz)>1200,'turning preserves rolling momentum');
 });
