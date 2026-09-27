@@ -7847,3 +7847,26 @@ test("replays show projectiles, and wind back to play the big moment again", () 
   assert.ok(wentBack, "the replay wound back");
   assert.equal(fight.instantReplayState().active, false, "and then finished");
 });
+
+test("console discs and capsules fan in one native call when the shell offers them", () => {
+  const paintFaces = () => {
+    const match = createFight();
+    match.tick();
+    match.triangles.length = 0;
+    match.fight.paint();
+    return match.triangles.length;
+  };
+  const fallbackFaces = paintFaces();
+  const discs = [], capsules = [];
+  globalThis.disc3d = (...values) => discs.push(values);
+  globalThis.capsule3d = (...values) => capsules.push(values);
+  let nativeFaces;
+  try { nativeFaces = paintFaces(); }
+  finally { delete globalThis.disc3d; delete globalThis.capsule3d; }
+  assert.ok(capsules.length > 0, "fighters draw their bones as native capsules");
+  for (const call of [...discs, ...capsules])
+    assert.ok(call.every(Number.isFinite), JSON.stringify(call));
+  for (const [, , , , z] of capsules) assert.ok(z >= -1.5 && z <= 1.4);
+  assert.ok(nativeFaces < fallbackFaces,
+    `native fans should leave fewer JS faces (${nativeFaces} vs ${fallbackFaces})`);
+});

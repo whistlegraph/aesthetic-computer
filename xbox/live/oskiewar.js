@@ -11262,7 +11262,17 @@ const discRingFor = (radius) => discRings[
   radius < 6 ? 0 : radius < 13 ? 1 : radius < 26 ? 2
     : radius < 52 ? 3 : radius < 110 ? 4 : 5];
 
+// The console shell fans a disc or a capsule in C++ at the current depth, one
+// crossing instead of the ~40 triangle3d calls the fallback makes per capsule;
+// the interpreted JS was the frame budget there.
+const nativeDisc = typeof disc3d === "function";
+const nativeCapsule = typeof capsule3d === "function";
+
 function filledDisc(x, y, radius, color) {
+  if (nativeDisc) {
+    disc3d(x, y, triangleDepth, radius, color[0], color[1], color[2]);
+    return;
+  }
   const [r, g, b] = color;
   const ring = discRingFor(radius);
   const originX = x + ring[0] * radius, originY = y + ring[1] * radius;
@@ -11299,6 +11309,10 @@ function filledRing(x, y, outerRadius, innerRadius, color) {
 }
 
 function filledCapsule(x1, y1, x2, y2, width, color) {
+  if (nativeCapsule) {
+    capsule3d(x1, y1, x2, y2, triangleDepth, width, color[0], color[1], color[2]);
+    return;
+  }
   const [r, g, b] = color;
   const dx = x2 - x1;
   const dy = y2 - y1;
