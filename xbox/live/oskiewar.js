@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 170;
+const buildVersion = 171;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -2045,6 +2045,9 @@ class FightCamDoll {
     this.roll = 0;
     this.dirty = true;
     this.view = null;
+    // Bumped by every prepare, so a program knows when to carry the camera
+    // again without comparing its fields.
+    this.revision = 0;
   }
 
   track(spec, dt, speed = 5) {
@@ -2104,6 +2107,7 @@ class FightCamDoll {
       focal: port ? port.focal : (stageRight - stageLeft) /
         (2 * Math.tan(this.fov * Math.PI / 360)) };
     this.dirty = false;
+    this.revision++;
   }
 
   // World space to camera space, with the near distance left alone. Anything
@@ -2199,11 +2203,18 @@ let triangleDepth = -1.4;
 //   6 BOX      x y w h r g b a
 //   7 LINE     x1 y1 x2 y2 width r g b
 //   8 WIPE     r g b
+//   9 CAMERA   position(3) right(3) up(3) forward(3) centerX centerY
+//              orthoScale focal perspective depthSlope depthBase near
+//              bandMinX bandMaxX bandMinY bandMaxY
+//  10 WORLD    x1 y1 z1 x2 y2 z2 x3 y3 z3 r g b   a world-space face: the
+//              interpreter takes it to the camera, cuts it at the near
+//              plane, projects it and cuts it to the band
 // Scene-level on purpose: a disc is seven numbers here and a fan of faces in
 // the interpreter, because on the console every typed-array element written
 // from JS costs about as much as a quarter of a host call.
 const FRAME_VIEW = 1, FRAME_FACE = 2, FRAME_DISC = 3, FRAME_CAPSULE = 4,
-  FRAME_TEXT = 5, FRAME_BOX = 6, FRAME_LINE = 7, FRAME_WIPE = 8;
+  FRAME_TEXT = 5, FRAME_BOX = 6, FRAME_LINE = 7, FRAME_WIPE = 8,
+  FRAME_CAMERA = 9, FRAME_WORLD = 10;
 const hostFrame = typeof frame === "function" ? frame : null;
 let program = new Float32Array(hostFrame ? 1 << 16 : 0);
 let programLength = 0;
@@ -2256,9 +2267,20 @@ function flushFrameProgram() {
     program[at + 10] = r; program[at + 11] = g; program[at + 12] = b;
     programLength = at + 13;
   };
+  // A flat face on a host without a depth pass. It writes the FACE op itself:
+  // forwarding to triangle3d, which such a host does not have, crashed the
+  // Canvas2D fallback on its first buffered face.
   if (rawTriangle) triangle = function (x1, y1, x2, y2, x3, y3, r = 255, g = 255, b = 255) {
     if (!programBuffered) return rawTriangle(x1, y1, x2, y2, x3, y3, r, g, b);
-    triangle3d(x1, y1, triangleDepth, x2, y2, triangleDepth, x3, y3, triangleDepth, r, g, b);
+    const z = triangleDepth;
+    programRoom(13);
+    const at = programLength;
+    program[at] = FRAME_FACE;
+    program[at + 1] = x1; program[at + 2] = y1; program[at + 3] = z;
+    program[at + 4] = x2; program[at + 5] = y2; program[at + 6] = z;
+    program[at + 7] = x3; program[at + 8] = y3; program[at + 9] = z;
+    program[at + 10] = r; program[at + 11] = g; program[at + 12] = b;
+    programLength = at + 13;
   };
   if (rawDisc3d) disc3d = function (x, y, depth, radius, r, g, b) {
     if (!programBuffered) return rawDisc3d(x, y, depth, radius, r, g, b);
@@ -2344,6 +2366,58 @@ function emitCapsule(x1, y1, x2, y2, width, r, g, b) {
   program[at + 9] = b;
   programLength = at + 10;
   return true;
+}
+// The camera a WORLD face is seen through. Written only when the view being
+// drawn changes — a new doll, a re-prepared doll, a different clip rect — so
+// a frame of one camera carries it once and the inset a few times.
+let programCameraDoll = null, programCameraRevision = -1, programCameraClip;
+function beginFrameProgram() {
+  programBuffered = hostFrame !== null;
+  programLength = 0;
+  programStrings.length = 0;
+  programCameraDoll = null;
+}
+function endFrameProgram() {
+  try { flushFrameProgram(); } finally { programBuffered = false; }
+}
+function emitFrameCamera() {
+  const doll = cameraDoll;
+  if (doll.dirty || !doll.view) doll.prepare();
+  if (doll === programCameraDoll && doll.revision === programCameraRevision &&
+      clipView === programCameraClip) return;
+  programCameraDoll = doll;
+  programCameraRevision = doll.revision;
+  programCameraClip = clipView;
+  const v = doll.view, width = viewWidth();
+  programRoom(25);
+  const at = programLength;
+  program[at] = FRAME_CAMERA;
+  program[at + 1] = doll.position.x; program[at + 2] = doll.position.y;
+  program[at + 3] = doll.position.z;
+  program[at + 4] = v.right.x; program[at + 5] = v.right.y; program[at + 6] = v.right.z;
+  program[at + 7] = v.up.x; program[at + 8] = v.up.y; program[at + 9] = v.up.z;
+  program[at + 10] = v.forward.x; program[at + 11] = v.forward.y;
+  program[at + 12] = v.forward.z;
+  program[at + 13] = v.centerX; program[at + 14] = v.centerY;
+  program[at + 15] = v.orthoScale; program[at + 16] = v.focal;
+  program[at + 17] = doll.perspective; program[at + 18] = doll.depthSlope;
+  program[at + 19] = doll.depthBase; program[at + 20] = cameraNear;
+  program[at + 21] = clipView ? clipView.x : -width * guardBand;
+  program[at + 22] = clipView ? clipView.x + clipView.w : width * (1 + guardBand);
+  program[at + 23] = clipView ? clipView.y : -viewHeight * guardBand;
+  program[at + 24] = clipView ? clipView.y + clipView.h : viewHeight * (1 + guardBand);
+  programLength = at + 25;
+}
+function emitWorldFace(ax, ay, az, bx, by, bz, cx, cy, cz, r, g, b) {
+  emitFrameCamera();
+  programRoom(13);
+  const at = programLength;
+  program[at] = FRAME_WORLD;
+  program[at + 1] = ax; program[at + 2] = ay; program[at + 3] = az;
+  program[at + 4] = bx; program[at + 5] = by; program[at + 6] = bz;
+  program[at + 7] = cx; program[at + 8] = cy; program[at + 9] = cz;
+  program[at + 10] = r; program[at + 11] = g; program[at + 12] = b;
+  programLength = at + 13;
 }
 // ---------------------------------------------------------------------------
 // A match frame submits ~2100 faces. Buffering them into a Float32Array first
@@ -2567,6 +2641,11 @@ function bandContains(vertex) {
 const triangleView = [{}, {}, {}];
 const triangleScreen = [{}, {}, {}];
 function worldTriangle(a, b, c, color) {
+  if (programBuffered) {
+    emitWorldFace(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z,
+      color[0], color[1], color[2]);
+    return;
+  }
   const viewA = cameraDoll.toView(a, triangleView[0]);
   const viewB = cameraDoll.toView(b, triangleView[1]);
   const viewC = cameraDoll.toView(c, triangleView[2]);
@@ -18280,6 +18359,11 @@ function litQuadColor(a, b, c, color) {
 const quadView=[{},{},{},{}],quadScreen=[{},{},{},{}];
 function worldQuad(a, b, c, d, color) {
   const lit = litQuadColor(a, b, c, color);
+  if (programBuffered) {
+    emitWorldFace(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, lit[0], lit[1], lit[2]);
+    emitWorldFace(a.x, a.y, a.z, c.x, c.y, c.z, d.x, d.y, d.z, lit[0], lit[1], lit[2]);
+    return;
+  }
   const va=cameraDoll.toView(a,quadView[0]),vb=cameraDoll.toView(b,quadView[1]),vc=cameraDoll.toView(c,quadView[2]),vd=cameraDoll.toView(d,quadView[3]);
   if(va.z>=cameraNear && vb.z>=cameraNear && vc.z>=cameraNear && vd.z>=cameraNear){
     const pa=cameraDoll.projectView(va,quadScreen[0]),pb=cameraDoll.projectView(vb,quadScreen[1]),pc=cameraDoll.projectView(vc,quadScreen[2]),pd=cameraDoll.projectView(vd,quadScreen[3]);
@@ -21203,9 +21287,7 @@ function sim() {
 }
 
 function paint() {
-  programBuffered = hostFrame !== null;
-  programLength = 0;
-  programStrings.length = 0;
+  beginFrameProgram();
   try {
     if (clientError) {
       try { drawClientError(); }
@@ -21227,7 +21309,7 @@ function paint() {
     }
   } finally {
     // One handover per paint: the program the host runs is this paint's.
-    try { flushFrameProgram(); } finally { programBuffered = false; }
+    endFrameProgram();
   }
 }
 function act() {}
@@ -21622,6 +21704,18 @@ function drawQuadMesh(mesh){
  }
  const meshScale=cameraScale();
  if(!clipView)for(const args of mesh.capsules||[])worldCapsule(args[0],args[1],args[2],args[3],args[4],args[5],args[6]*meshScale,args[7],args[8]);
+ if(programBuffered){
+  // The interpreter takes each face to the camera and clips it; the bounds
+  // cull above already dropped a mesh that is wholly off screen.
+  for(const f of mesh.faces){
+   const [ia,ib,ic,id]=f.ids,a=mesh.vertices[ia],b=mesh.vertices[ib],c=mesh.vertices[ic],d=mesh.vertices[id];
+   const n=f.normal,k=.72+Math.max(0,-n[0]*globalLight.x-n[1]*globalLight.y-n[2]*globalLight.z)*.28;
+   const r=Math.round(f.color[0]*k),g=Math.round(f.color[1]*k),bl=Math.round(f.color[2]*k);
+   emitWorldFace(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z,r,g,bl);
+   emitWorldFace(a.x,a.y,a.z,c.x,c.y,c.z,d.x,d.y,d.z,r,g,bl);
+  }
+  return;
+ }
  if(cameraDoll.dirty)cameraDoll.prepare();
  const v=cameraDoll.view,cam=cameraDoll.position,scale=v.orthoScale,perspective=cameraDoll.perspective;
  for(let i=0;i<mesh.vertices.length;i++){

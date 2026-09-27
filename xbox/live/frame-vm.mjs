@@ -14,14 +14,24 @@
 //   6 BOX      x y w h r g b a
 //   7 LINE     x1 y1 x2 y2 width r g b
 //   8 WIPE     r g b
+//   9 CAMERA   position(3) right(3) up(3) forward(3) centerX centerY
+//              orthoScale focal perspective depthSlope depthBase near
+//              bandMinX bandMaxX bandMinY bandMaxY
+//  10 WORLD    x1 y1 z1 x2 y2 z2 x3 y3 z3 r g b   a world-space face
 //
+// A WORLD face is taken to the current CAMERA here: to camera space, cut at
+// the near plane (Sutherland-Hodgman, before the divide), projected with the
+// ortho-to-perspective blend, cut to the band, and fanned. That is the one
+// clip rule for world geometry; the game no longer projects it.
 // Discs and capsules arrive whole and are fanned here; a face inside a second
 // view (the P1 inset) is scissored to that view's rectangle here. The host's
 // own coordinate limit is honoured the way the console's is: a face that
 // asks for a coordinate past ±32200 is dropped, not drawn.
 
 export const FRAME_VIEW = 1, FRAME_FACE = 2, FRAME_DISC = 3, FRAME_CAPSULE = 4,
-  FRAME_TEXT = 5, FRAME_BOX = 6, FRAME_LINE = 7, FRAME_WIPE = 8;
+  FRAME_TEXT = 5, FRAME_BOX = 6, FRAME_LINE = 7, FRAME_WIPE = 8,
+  FRAME_CAMERA = 9, FRAME_WORLD = 10;
+const opSize = [0, 5, 13, 8, 10, 9, 9, 9, 4, 25, 13];
 
 // Ring tables by radius bucket, as the game fans them: a small disc is a
 // hexagon, a large one thirty-two sides.
@@ -143,9 +153,79 @@ export function createFrameVm(host) {
     }
   }
 
+  // The camera WORLD faces are seen through; filled by a CAMERA op.
+  const cam = new Float64Array(24);
+  let hasCamera = false;
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const toView = (x, y, z) => {
+    const dx = x - cam[0], dy = y - cam[1], dz = z - cam[2];
+    return { x: dx * cam[3] + dy * cam[4] + dz * cam[5],
+      y: dx * cam[6] + dy * cam[7] + dz * cam[8],
+      z: dx * cam[9] + dy * cam[10] + dz * cam[11] };
+  };
+  const project = (v) => {
+    const depth = Math.max(cam[19], v.z);
+    const perspective = cam[16];
+    const orthoX = cam[12] + v.x * cam[14], orthoY = cam[13] - v.y * cam[14];
+    const perspectiveX = cam[12] + v.x * cam[15] / depth;
+    const perspectiveY = cam[13] - v.y * cam[15] / depth;
+    const z = depth * cam[17] + cam[18];
+    return { x: lerp(orthoX, perspectiveX, perspective),
+      y: lerp(orthoY, perspectiveY, perspective),
+      z: z < -1.499 ? -1.499 : z > 1.4 ? 1.4 : z };
+  };
+  const mixVertex = (a, b, t) => ({ x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t),
+    z: lerp(a.z, b.z, t) });
+  function clipPolygon(polygon, distance) {
+    const kept = [];
+    for (let i = 0; i < polygon.length; i++) {
+      const current = polygon[i], next = polygon[(i + 1) % polygon.length];
+      const here = distance(current), there = distance(next);
+      if (here >= 0) kept.push(current);
+      if ((here >= 0) !== (there >= 0)) kept.push(mixVertex(current, next, here / (here - there)));
+    }
+    return kept;
+  }
+  const bandEdges = [
+    (v) => v.x - cam[20], (v) => cam[21] - v.x,
+    (v) => v.y - cam[22], (v) => cam[23] - v.y,
+  ];
+  const inBand = (v) => v.x >= cam[20] && v.x <= cam[21] && v.y >= cam[22] && v.y <= cam[23];
+  function emitProjected(a, b, c, r, g, bl) {
+    if (!(safe(a.x) && safe(a.y) && safe(a.z) && safe(b.x) && safe(b.y) && safe(b.z) &&
+        safe(c.x) && safe(c.y) && safe(c.z))) return;
+    face(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, r, g, bl);
+  }
+  function worldFace(p, at) {
+    if (!hasCamera) return;
+    const r = p[at + 10], g = p[at + 11], b = p[at + 12];
+    const va = toView(p[at + 1], p[at + 2], p[at + 3]);
+    const vb = toView(p[at + 4], p[at + 5], p[at + 6]);
+    const vc = toView(p[at + 7], p[at + 8], p[at + 9]);
+    const near = cam[19];
+    let polygon;
+    if (va.z >= near && vb.z >= near && vc.z >= near) {
+      const pa = project(va), pb = project(vb), pc = project(vc);
+      if (inBand(pa) && inBand(pb) && inBand(pc)) { emitProjected(pa, pb, pc, r, g, b); return; }
+      polygon = [pa, pb, pc];
+    } else {
+      const cut = clipPolygon([va, vb, vc], (v) => v.z - near);
+      if (cut.length < 3) return;
+      polygon = cut.map(project);
+      if (polygon.some((v) => !Number.isFinite(v.x) || !Number.isFinite(v.y))) return;
+    }
+    for (const edge of bandEdges) {
+      if (polygon.length < 3) return;
+      polygon = clipPolygon(polygon, edge);
+    }
+    for (let corner = 2; corner < polygon.length; corner++)
+      emitProjected(polygon[0], polygon[corner - 1], polygon[corner], r, g, b);
+  }
+
   const clipRect = { x: 0, y: 0, w: 0, h: 0 };
   function run(p, length, strings) {
     clip = null;
+    hasCamera = false;
     let at = 0;
     while (at < length) {
       const op = p[at];
@@ -183,6 +263,13 @@ export function createFrameVm(host) {
         case FRAME_WIPE:
           wipe(p[at + 1], p[at + 2], p[at + 3]);
           at += 4; break;
+        case FRAME_CAMERA:
+          for (let i = 0; i < 24; i++) cam[i] = p[at + 1 + i];
+          hasCamera = true;
+          at += 25; break;
+        case FRAME_WORLD:
+          worldFace(p, at);
+          at += 13; break;
         default:
           // An op this interpreter does not know ends the program rather than
           // walking into its arguments as if they were ops.
@@ -197,9 +284,7 @@ export function createFrameVm(host) {
     let at = 0;
     while (at < length) {
       const op = p[at];
-      const size = op === FRAME_VIEW ? 5 : op === FRAME_FACE ? 13 : op === FRAME_DISC ? 8
-        : op === FRAME_CAPSULE ? 10 : op === FRAME_TEXT ? 9 : op === FRAME_BOX ? 9
-        : op === FRAME_LINE ? 9 : op === FRAME_WIPE ? 4 : 0;
+      const size = opSize[op] || 0;
       if (!size) throw new Error(`frame program: unknown op ${op} at ${at}`);
       const args = Array.from(p.subarray(at + 1, at + size));
       if (op === FRAME_TEXT) args[7] = strings[args[7]];
