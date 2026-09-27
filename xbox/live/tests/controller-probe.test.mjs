@@ -65,7 +65,7 @@ const controller = { id: "test-pad", name: "XBOX TEST PAD", vendorId: 1118,
   test.context.paint();
   assert.ok(test.calls.writes.some(([text]) => text.includes("NETWORK NONE")));
   assert.ok(test.calls.writes.some(([text]) => text.includes("NO CONTROLLERS DETECTED")));
-  assert.equal(test.calls.synths[0][0], 220);
+  assert.equal(test.calls.synths.length, 0, "boot stays silent; button presses play the probe tone");
 }
 
 console.log("controller-probe: online/offline, inventory, input, drawing, audio, telemetry OK");

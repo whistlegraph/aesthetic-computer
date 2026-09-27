@@ -58,6 +58,19 @@ struct TexturedTriangle {
   Color color;
 };
 struct Sprite { float x, y, z, size; Color color; std::uint8_t frame = 0; };
+struct ThemeSprite {
+  int asset;
+  float sx, sy, sw, sh, x, y, width, height, angle, z;
+  bool flip;
+  bool depth_write = true;
+};
+struct ThemeQuad {
+  int asset;
+  float sx, sy, sw, sh;
+  float x1, y1, z1, x2, y2, z2, x3, y3, z3, x4, y4, z4;
+  bool flip = false;
+  bool depth_write = true;
+};
 struct Text { std::string value; float x, y, size; Color color; };
 struct SystemText {
   std::string value;
@@ -86,6 +99,10 @@ class Graphics {
   virtual void triangle(const Triangle&) {}
   virtual void textured_triangle(const TexturedTriangle&) {}
   virtual void sprite(const Sprite&) {}
+  virtual bool theme_ready() const { return false; }
+  virtual bool theme_asset_ready(int asset) const { return asset >= 0 && asset < 2 && theme_ready(); }
+  virtual void theme_sprite(const ThemeSprite&) {}
+  virtual void theme_quad(const ThemeQuad&) {}
   virtual void write(const Text&) = 0;
   virtual void system_write(const SystemText&) {}
   virtual void system_glyph(const SystemGlyph&) {}
@@ -226,6 +243,10 @@ struct Api {
   // endpoints. Pieces never receive a general network primitive.
   std::shared_ptr<const AcSnapshot> ac = std::make_shared<const AcSnapshot>();
   PhotoDisc disc;
+  // Device-local Oskiewar identity; the public snapshot never contains tokens.
+  std::function<std::string()> account_state = {};
+  std::function<void(std::string_view, std::string_view)> account_action = {};
+  std::function<bool(std::string_view)> account_report = {};
   // Sandboxed pieces can emit structured diagnostic lines without receiving
   // filesystem, process, Device Portal, or arbitrary WinRT access.
   std::function<void(std::string_view)> telemetry = {};
@@ -241,6 +262,9 @@ struct Api {
   // Latest-only live match state. The native host owns the fixed session-server
   // destination; pieces receive no socket, URL, credential, or response data.
   std::function<void(std::string_view, std::string_view)> live_publish = {};
+  // Fixed Oskiewar relay only, bounded packets, drained on the JS thread.
+  std::function<bool(std::string_view, std::string_view)> net_send = {};
+  std::function<std::vector<std::string>()> net_poll = {};
 };
 
 class Piece {
