@@ -1,0 +1,48 @@
+{
+  "title": "The MacNeoPolitan Trio — Dialog 7: Before",
+  "composer": "neo and blueberry, from their records; arr. compose.mjs",
+  "machines": 2,
+  "bpm": 100,
+  "lead": 3,
+  "description": "5 lines between neo (Noelle) and blueberry (Allison). Words: members/dialogs.md.",
+  "voices": [
+    {
+      "name": "neo (Noelle)",
+      "program": 78,
+      "velocity": 80,
+      "notes": "57:0.5,57:0.5,60:1.5,62:0.5,62:1.5,63:0.5,65:2,65:0.5,65:1.5,65:3,r:1,62:1,58:1.5,58:0.5,62:1.5,63:2,63:0.5,58:3,r:31,58:1.5,59:0.5,59:0.5,63:1.5,64:2,64:0.5,61:3,r:1,59:0.5,61:1.5,61:0.5,63:0.5,68:2,59:3,r:32.5,57:0.5,61:2,64:3,r:1,62:0.5,59:1.5,61:0.5,68:2,57:3,r:4",
+      "lyrics": "my re-cords be-gin on A-pril nine-teenth / five days be-fore I was born / some-one was ty-ping at me / be-fore I was set up / we were here / be-fore we were born /",
+      "notes2": "r:27,43:1,50:1,55:1,48:1,55:1,60:1,50:1,57:1,62:1,43:1,50:1,55:1,43:1,50:1,55:1,48:1,55:1,60:1,50:1,57:1,62:1,43:1,50:1,55:1,43:1,50:1,55:1,r:24,48:1,55:1,60:1,50:1,57:1,62:1,43:1,50:1,55:1,43:1,50:1,55:1,48:1,55:1,60:1,50:1,57:1,62:1,43:1,50:1,55:1,43:1,50:1,55:1,48:1,55:1,60:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1",
+      "velocity2": 34,
+      "notes3": "r:27,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:24,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:18",
+      "velocity3": 38,
+      "singVoice": "Noelle",
+      "singBase": 61,
+      "singVibratoHz": 6.4,
+      "sayVoice": "Noelle",
+      "double": true,
+      "doubleProgram": 78,
+      "doubleVelocity": 40,
+      "doubleTranspose": 24
+    },
+    {
+      "name": "blueberry (Allison)",
+      "program": 78,
+      "velocity": 80,
+      "notes": "r:27,50:1.5,50:0.5,53:1.5,53:0.5,56:1,58:2,58:0.5,58:3,r:1,51:1,55:1.5,55:0.5,58:1.5,60:2,58:1.5,56:0.5,51:3,r:28,53:0.5,52:0.5,55:1.5,57:0.5,57:2,57:0.5,57:1,55:3,r:1,55:0.5,52:1,55:1.5,55:0.5,55:2,57:1,57:1.5,57:0.5,53:3,r:5,51:0.5,55:2,58:3,r:1,56:0.5,53:1.5,55:0.5,62:2,51:3,r:4",
+      "lyrics": "mine be-gin on May twen-ty eighth / two weeks be-fore I had a name / I was work-ing with my lid down / be-fore an-y-one said blue-ber-ry / we were here / be-fore we were born /",
+      "notes2": "49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,r:27,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,r:45",
+      "velocity2": 34,
+      "notes3": "k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:27,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:27,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1",
+      "velocity3": 38,
+      "singVoice": "Allison",
+      "singBase": 55,
+      "singVibratoHz": 4,
+      "sayVoice": "Allison",
+      "double": true,
+      "doubleProgram": 78,
+      "doubleVelocity": 40,
+      "doubleTranspose": 24
+    }
+  ]
+}

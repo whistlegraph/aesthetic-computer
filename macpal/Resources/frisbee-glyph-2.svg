@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <title>Frisbee</title>
+  <g transform="rotate(-14 50 50)">
+    <path d="M8 49C8 31 92 31 92 49v7c0 27-84 27-84 0Z" fill="#2286c5" stroke="#154e79" stroke-width="2.5"/>
+    <ellipse cx="50" cy="47" rx="42" ry="25" fill="#63dcec" stroke="#154e79" stroke-width="2.5"/>
+    <ellipse cx="50" cy="47" rx="34" ry="18.5" fill="#32b7e1" stroke="#baf5f5" stroke-width="2"/>
+    <path d="M21 43c5-8 17-12 30-12" fill="none" stroke="#e2ffff" stroke-width="3" stroke-linecap="round"/>
+    <path d="M21 64c17 11 49 9 61-1" fill="none" stroke="#13639c" stroke-width="2" stroke-linecap="round"/>
+    <path d="M36 46q4-4 8 0m12 0q4-4 8 0" fill="none" stroke="#133c58" stroke-width="3" stroke-linecap="round"/>
+    <g fill="#ec8db1" opacity=".65"><ellipse cx="31" cy="51" rx="4.5" ry="2.5"/><ellipse cx="69" cy="51" rx="4.5" ry="2.5"/></g>
+    <path d="M45 53q5 6 10 0" fill="none" stroke="#133c58" stroke-width="2.4" stroke-linecap="round"/>
+  </g>
+</svg>

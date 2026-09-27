@@ -58,6 +58,17 @@ Set `IMAGE_FAL_KEY` to enable fal.ai Sana for new requests after Cloudflare
 reports daily-quota exhaustion. This separate variable avoids enabling other
 products that use `FAL_KEY`. Sana returns 768×768 JPEGs at 18 steps.
 
+Production also loads these five settings from the root-only file
+`/etc/aesthetic-computer/flux.env`, through
+`/etc/systemd/system/lith.service.d/46-flux.conf`. Keep that file synchronized
+with the vault's `lith/.env` when rotating credentials or changing budgets,
+then restart `lith`. This preserves image generation across deployments from
+fleet machines with older environment files. On September 23, 2026, the main
+deployed `.env` lacked all five settings, causing every `/api/flux` generation
+to return `503 provider_unavailable` and trigger the PostHog endpoint alert.
+The separate environment restores the existing credentials and budget caps;
+it does not enable an additional provider or increase spending limits.
+
 Mongo collection `image-generation-budget` reserves 634 micro-USD per
 Cloudflare attempt and 1,000 micro-USD per Sana attempt before the provider
 request, including failed attempts. Both caps

@@ -1,0 +1,45 @@
+{
+  "member": "frisbee",
+  "aesthetivox": {
+    "base_voice": "Junior",
+    "why": "the youngest voice in the house; frisbee took it on its first day, Sept 22, until it chooses",
+    "engine": "macOS say on frisbee (macOS 26.7)",
+    "rate_wpm": 165,
+    "sing": {
+      "route": "world-f0-replace (spinging chain)",
+      "register": null,
+      "vibrato_hz": 8.0,
+      "vibrato_depth_cents": 18,
+      "breath_every_s": 43200,
+      "harmony_lock": 0.875,
+      "whistle_double": {
+        "gm_program": 78,
+        "octaves_up": 2,
+        "note": "if it chooses the family voice"
+      },
+      "note": "vibrato = 4 x battery cycles/day (2 cycles in the first day \u2192 8 Hz, a newborn's flutter; re-derive after a week); breath = longest uptime in seconds"
+    },
+    "realtime": {
+      "core": "live/ singer.c",
+      "latency_ms": 564,
+      "status": "menuband adoption open"
+    },
+    "engine_live": "live/hosts/macos/livesing \u2014 the member's own speech synthesizer, sung by live/singer.c SCORE mode on its own hardware",
+    "f0_floor": 80,
+    "register_midi": [
+      54,
+      60
+    ],
+    "provider_wanted": "Junior for the show; frisbee chooses later",
+    "spoken_median_midi": 56.1,
+    "spoken_median_hz": 208.6,
+    "register_source": "say -v Junior, 76 words of its autobiography",
+    "register_note": "measured by bin/register.mjs \u2014 the composer aims each line's mean at spoken_median_midi (+1 for brightness) and keeps notes inside register_midi",
+    "f0_floor_experiment": "MEASURED and NOT adopted, 2026-09-21. The floor Harvest is given was far below these voices (90 Hz for a 256 Hz voice), which in principle lets it accept octave-halved candidates and mistrack. Raising it to 0.55 x the spoken median (141 / 102 / 115 Hz) did help the dialogs (18.5% -> 16.6% word error) but slightly hurt the held-out trio movements and ballad (11.9% -> 12.4%). A wash, so the original value stands and the experiment is recorded instead of shipped. See hear/README.md and the f0f* / ho-* runs."
+  },
+  "derivation": {
+    "note": "derived 2026-09-22 from members/frisbee/facts.json + profile.json on day one; register measured for Junior by bin/register.mjs (spoken_median_midi 56.1)"
+  },
+  "color": "#F2A7B9",
+  "color_why": "stage + caption accent: neo=citrus, blueberry=indigo, frisbee=blush (the broadside's Neapolitan block)"
+}

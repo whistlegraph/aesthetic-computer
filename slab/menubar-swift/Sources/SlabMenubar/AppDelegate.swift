@@ -203,7 +203,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Macs (beyond this host) to flip when going dark/light. ssh aliases that
     /// resolve on the LAN/tailnet; unreachable ones are skipped silently.
-    private static let appearanceHosts = ["panda", "chicken", "blueberry"]
+    private static let appearanceHosts = ["neo", "panda", "chicken", "blueberry", "frisbee"]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -1893,7 +1893,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func applyAppearance(_ mode: String) {
         let val = (mode == "dark") ? "true" : "false"
         let osa = "tell application \"System Events\" to tell appearance preferences to set dark mode to \(val)"
-        // Local host (neo). The auto-switch write goes through CFPreferences
+        // Local host. The auto-switch write goes through CFPreferences
         // rather than a fourth async process because it has to land *before*
         // the osascript below, and `runAsync` promises no ordering.
         CFPreferencesSetValue(Self.autoAppearanceKey as CFString, kCFBooleanFalse,
@@ -1905,7 +1905,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // so the AppleScript's double quotes survive untouched on the far end.
         // One arg also sequences the two writes on the far side for free.
         let stopAuto = "defaults write -g \(Self.autoAppearanceKey) -bool false"
-        for host in Self.appearanceHosts {
+        let localHost = Host.current().localizedName?.lowercased()
+        let localHostname = ProcessInfo.processInfo.hostName.lowercased().components(separatedBy: ".").first
+        for host in Self.appearanceHosts where host != localHost && host != localHostname {
             ShellRunner.runAsync("/usr/bin/ssh",
                                  args: ["-o", "ConnectTimeout=4", "-o", "BatchMode=yes",
                                         host, "\(stopAuto); osascript -e '\(osa)'"])

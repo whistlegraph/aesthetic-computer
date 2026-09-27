@@ -1,9 +1,15 @@
+import {createAirBed} from './air-bed-v1.mjs';
+const airBed=createAirBed();
 import {createBatteryWatch} from './battery-watch-power-v2.mjs';
 import {createScoreBrightness} from './score-brightness-audio-v2.mjs';
-import {loadTimeline,paintLook,lookAt} from './score-look-live-v1.mjs';
-let timeline;
+import {loadTimeline,lookAt} from './score-look-live-v2.mjs';
+import {createNotePrism} from './note-prism-v1.mjs';
+import {createPrismMeter} from './prism-meter-v1.mjs';
+const notePrism=createNotePrism(),prismMeter=createPrismMeter();
+import {calmRgb} from './calm-light-v1.mjs';
+let timeline, performanceMode=true;
 const brightnessControl=createScoreBrightness();
-import * as rehearsal from './notespatial-performance-look-v1.mjs';
+import * as rehearsal from './notespatial-performance-prism-v1.mjs';
 
 const batteryWatch = createBatteryWatch();
 let batteryReportAt=-Infinity;
@@ -61,28 +67,26 @@ export function sim(api) {
     wifi.connect(SSID, credential.pass);
     retryAt = sound.time + 30;
   }
-  if (selected) rehearsal.sim(api);
+  if (selected) {rehearsal.sim(api);airBed.update(sound,rehearsal.getPerformanceVisualState());}
 }
-function renderLook(api){const s=rehearsal.getPerformanceVisualState();return paintLook(api,timeline,s.phase==='playing'?s.scoreTime:-1,s.seat,{noteLabels:true});}
+function renderLook(api){
+ const begin=performance.now(),s=rehearsal.getPerformanceVisualState(),t=s.phase==='playing'?s.scoreTime:-1;
+ const look=lookAt(timeline,t,s.seat);
+ const visual=notePrism.paint(api,rehearsal.getIncomingVisualFrames(t),t,look);
+ const timing=prismMeter(begin,performance.now());
+ if(timing)api.system.writeFile('/pieces/prism-performance.json',JSON.stringify({...timing,...visual,
+  renderer:'note-prism-v1',seat:s.seat,phase:s.phase,scoreTime:t,runId:s.runId,at:api.sound.time}));
+ return visual;
+}
 function paintPerformance(api) {
   if (selected) {
     const view = { ...api, overlayWrite: api.write, ...(concert ? { write: () => {} } : {}) };
     if (!flipY) return renderLook(view);
-    if (!renderBuffer || renderBuffer.width !== api.screen.width || renderBuffer.height !== api.screen.height) {
-      renderBuffer = api.painting(api.screen.width, api.screen.height);
-      flipRow = new Uint8Array(api.screen.width * 4);
-    }
-    api.page(renderBuffer);
-    try { renderLook(view); } finally { api.page(); }
-    const pixels = renderBuffer.pixels, stride = api.screen.width * 4;
-    for (let y = 0; y < Math.floor(api.screen.height / 2); y++) {
-      const top = y * stride, bottom = (api.screen.height - 1 - y) * stride;
-      flipRow.set(pixels.subarray(top, top + stride));
-      pixels.copyWithin(top, bottom, bottom + stride);
-      pixels.set(flipRow, bottom);
-    }
-    api.paste(renderBuffer, 0, 0);
-    return;
+    // Flip primitive coordinates; avoid a full RGBA framebuffer copy each frame.
+    const height=api.screen.height;
+    return renderLook({...view,
+      box:(x,y,w,h,...args)=>api.box(x,height-y-h,w,h,...args),
+      line:(x,y,x2,y2)=>api.line(x,height-1-y,x2,height-1-y2)});
   }
   const { wipe, ink, write, screen, wifi } = api;
   wipe(12, 18, 28);
@@ -108,7 +112,7 @@ function paintOriginal(api) {
  paintPerformance(api);
  const batteryStatus=batteryWatch.update(api);
  if(api.sound.time-batteryReportAt>=1){batteryReportAt=api.sound.time;api.system.writeFile('/pieces/battery-display-status.json',JSON.stringify({...batteryStatus,at:api.sound.time}));}
- batteryWatch.paint(api);
+ if(!performanceMode)batteryWatch.paint(api);
 }
 function leaveOriginal() { batteryWatch.leave(); if (selected) rehearsal.leave(); }
 
@@ -119,7 +123,7 @@ export function paint(api) {
   const volume=read(api.system,'/pieces/composition-volume.json');
   if(Number.isFinite(volume?.percent)&&volume.percent>=0&&volume.percent<=100)api.sound.volume.setMix(volume.percent/100);
   api.system.writeFile('/pieces/composition-volume-status.json',JSON.stringify({percent:api.sound.volume.mix*100,id:volume?.id,at:api.sound.time}));
-  try{const controls=JSON.parse(api.system.readFile('/pieces/performance-controls.json'));rehearsal.setVisualMode(controls.noteLabels?'notes':'frames');}catch{}
+  try{const controls=JSON.parse(api.system.readFile('/pieces/performance-controls.json'));performanceMode=controls.mode==='performance';rehearsal.setVisualMode(controls.noteLabels?'notes':'frames');}catch{}
  }
  paintOriginal(api);
  const status=rehearsal.getPerformanceVisualState();
@@ -129,11 +133,11 @@ export function paint(api) {
  if(status.seat!==5||api.sound.time<candleNext)return;
  candleNext=api.sound.time+.04;candleSystem=api.system;
  const gain=t<0?0:Math.min(1,t,Math.max(0,status.scoreDuration-t));
- const rgb=lookAt(timeline,t,5).rgb;
+ const rgb=calmRgb(timeline,t,5);
  const key=rgb.join(',');if(key===lastRgb)return;
  const slots=new Array(64).fill(0);rgb.forEach((v,i)=>slots[40+i]=v);
  const ok=api.system.dmxSend(slots);
  if(ok)lastRgb=key;else candleNext=api.sound.time+1;
  api.system.writeFile('/pieces/center-dmx-live.json',JSON.stringify({ok,active:rgb.some(v=>v>0),scoreTime:t,rgb,address:41}));
 }
-export function leave(){candleSystem?.dmxSend(new Array(64).fill(0));leaveOriginal();}
+export function leave(){airBed.stop();candleSystem?.dmxSend(new Array(64).fill(0));leaveOriginal();}

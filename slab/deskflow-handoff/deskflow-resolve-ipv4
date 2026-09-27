@@ -18,6 +18,23 @@ if [[ -z "$NAME" ]]; then
   exit 64
 fi
 
+# Explicit seat transport addresses take precedence over DHCP/mDNS. They are
+# recorded per host, so a stale offline MagicDNS namesake is never selected.
+configured=$(/usr/bin/python3 - "$HOME/.config/slab/deskflow-handoff.json" "$NAME" <<'PY' 2>/dev/null || true
+import ipaddress, json, sys
+with open(sys.argv[1]) as f:
+    peers = json.load(f).get("transportPeers", {})
+name = sys.argv[2].lower().removesuffix(".local")
+address = peers.get(name, "")
+if address:
+    print(ipaddress.IPv4Address(address))
+PY
+)
+if [[ -n "$configured" ]]; then
+  printf '%s\n' "$configured"
+  exit 0
+fi
+
 # Screen names are inconsistent across the fleet — neo records `neo` while
 # blueberry records `blueberry.local` — so a bare name has to be tried both ways.
 #

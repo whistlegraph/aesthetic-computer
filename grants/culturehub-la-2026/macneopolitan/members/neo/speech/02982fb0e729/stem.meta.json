@@ -1,0 +1,865 @@
+{
+  "stem": "/Users/jas/aesthetic-computer/grants/culturehub-la-2026/macneopolitan/members/neo/speech/02982fb0e729/stem.wav",
+  "fs": 22050,
+  "durationMs": 4226,
+  "lyrics": "I was born on the twen-ty fourth of A-pril thir-ty se-ven min-utes past mid-night",
+  "report": {
+    "lyricWords": 14,
+    "whisperWords": 14,
+    "exact": 14,
+    "inexact": 0,
+    "fallback": 0,
+    "coverage": 1,
+    "witness": {
+      "within120ms": 9,
+      "of": 14,
+      "medianAbsDeltaMs": 101,
+      "timingFrom": "witness",
+      "distrusted": false,
+      "whisperTimingValid": true,
+      "witnessValid": true
+    },
+    "nuclei": {
+      "measured": 20,
+      "wanted": 20
+    },
+    "ipaSources": {
+      "wiktionary": 11,
+      "espeak": 3
+    }
+  },
+  "words": [
+    {
+      "text": "I",
+      "fromMs": 0,
+      "toMs": 93,
+      "whisper": {
+        "fromMs": 40,
+        "toMs": 70,
+        "heard": "I",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 0,
+        "toMs": 93,
+        "deltaMs": 40,
+        "text": "I"
+      },
+      "ipa": "/ə/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "I",
+          "onset": [],
+          "nucleus": [
+            {
+              "ipa": "ə",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [],
+          "fromMs": 0,
+          "toMs": 95,
+          "nucleusFromMs": 50,
+          "nucleusToMs": 95,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "was",
+      "fromMs": 163,
+      "toMs": 267,
+      "whisper": {
+        "fromMs": 70,
+        "toMs": 340,
+        "heard": "was",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 163,
+        "toMs": 267,
+        "deltaMs": -93,
+        "text": "was"
+      },
+      "ipa": "/wˈʌz/",
+      "ipaSource": "espeak",
+      "syllables": [
+        {
+          "text": "was",
+          "onset": [
+            {
+              "ipa": "w",
+              "cls": "approximant",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "ʌ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "z",
+              "cls": "fricative",
+              "voiced": true
+            }
+          ],
+          "fromMs": 165,
+          "toMs": 265,
+          "nucleusFromMs": 165,
+          "nucleusToMs": 225,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "born",
+      "fromMs": 325,
+      "toMs": 580,
+      "whisper": {
+        "fromMs": 340,
+        "toMs": 580,
+        "heard": "born",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 325,
+        "toMs": 580,
+        "deltaMs": 15,
+        "text": "born"
+      },
+      "ipa": "/boɹn/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "born",
+          "onset": [
+            {
+              "ipa": "b",
+              "cls": "plosive",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "o",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "ɹ",
+              "cls": "approximant",
+              "voiced": true
+            },
+            {
+              "ipa": "n",
+              "cls": "nasal",
+              "voiced": true
+            }
+          ],
+          "fromMs": 325,
+          "toMs": 580,
+          "nucleusFromMs": 350,
+          "nucleusToMs": 470,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "on",
+      "fromMs": 639,
+      "toMs": 697,
+      "whisper": {
+        "fromMs": 580,
+        "toMs": 720,
+        "heard": "on",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 639,
+        "toMs": 697,
+        "deltaMs": -59,
+        "text": "on"
+      },
+      "ipa": "/ɑn/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "on",
+          "onset": [],
+          "nucleus": [
+            {
+              "ipa": "ɑ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "n",
+              "cls": "nasal",
+              "voiced": true
+            }
+          ],
+          "fromMs": 640,
+          "toMs": 695,
+          "nucleusFromMs": 660,
+          "nucleusToMs": 685,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "the",
+      "fromMs": 731,
+      "toMs": 801,
+      "whisper": {
+        "fromMs": 720,
+        "toMs": 940,
+        "heard": "the",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 731,
+        "toMs": 801,
+        "deltaMs": -11,
+        "text": "the"
+      },
+      "ipa": "/ðˈə/",
+      "ipaSource": "espeak",
+      "syllables": [
+        {
+          "text": "the",
+          "onset": [
+            {
+              "ipa": "ð",
+              "cls": "fricative",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "ə",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [],
+          "fromMs": 730,
+          "toMs": 800,
+          "nucleusFromMs": 730,
+          "nucleusToMs": 770,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "twenty",
+      "fromMs": 824,
+      "toMs": 1045,
+      "whisper": {
+        "fromMs": 940,
+        "toMs": 1275,
+        "heard": "twenty",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 824,
+        "toMs": 1045,
+        "deltaMs": 116,
+        "text": "twenty"
+      },
+      "ipa": "/ˈtwɛnti/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "twen",
+          "onset": [
+            {
+              "ipa": "t",
+              "cls": "plosive",
+              "voiced": false
+            },
+            {
+              "ipa": "w",
+              "cls": "approximant",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "ɛ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "n",
+              "cls": "nasal",
+              "voiced": true
+            }
+          ],
+          "fromMs": 825,
+          "toMs": 885,
+          "nucleusFromMs": 825,
+          "nucleusToMs": 835,
+          "measured": true
+        },
+        {
+          "text": "ty",
+          "onset": [
+            {
+              "ipa": "t",
+              "cls": "plosive",
+              "voiced": false
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "i",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [],
+          "fromMs": 885,
+          "toMs": 1045,
+          "nucleusFromMs": 900,
+          "nucleusToMs": 1045,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "fourth",
+      "fromMs": 1080,
+      "toMs": 1289,
+      "whisper": {
+        "fromMs": 1275,
+        "toMs": 1610,
+        "heard": "fourth",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 1080,
+        "toMs": 1289,
+        "deltaMs": 195,
+        "text": "fourth"
+      },
+      "ipa": "/fɔɹθ/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "fourth",
+          "onset": [
+            {
+              "ipa": "f",
+              "cls": "fricative",
+              "voiced": false
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "ɔ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "ɹ",
+              "cls": "approximant",
+              "voiced": true
+            },
+            {
+              "ipa": "θ",
+              "cls": "fricative",
+              "voiced": false
+            }
+          ],
+          "fromMs": 1080,
+          "toMs": 1290,
+          "nucleusFromMs": 1135,
+          "nucleusToMs": 1235,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "of",
+      "fromMs": 1324,
+      "toMs": 1370,
+      "whisper": {
+        "fromMs": 1610,
+        "toMs": 1650,
+        "heard": "of",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 1324,
+        "toMs": 1370,
+        "deltaMs": 286,
+        "text": "of"
+      },
+      "ipa": "/ʌv/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "of",
+          "onset": [],
+          "nucleus": [
+            {
+              "ipa": "ʌ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "v",
+              "cls": "fricative",
+              "voiced": true
+            }
+          ],
+          "fromMs": 1325,
+          "toMs": 1370,
+          "nucleusFromMs": 1325,
+          "nucleusToMs": 1330,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "April",
+      "fromMs": 1428,
+      "toMs": 1776,
+      "whisper": {
+        "fromMs": 1650,
+        "toMs": 2260,
+        "heard": "April,",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 1428,
+        "toMs": 1776,
+        "deltaMs": 222,
+        "text": "April"
+      },
+      "ipa": "/ˈeɪpɹəl/",
+      "ipaSource": "espeak",
+      "syllables": [
+        {
+          "text": "A",
+          "onset": [],
+          "nucleus": [
+            {
+              "ipa": "eɪ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [],
+          "fromMs": 1430,
+          "toMs": 1565,
+          "nucleusFromMs": 1430,
+          "nucleusToMs": 1510,
+          "measured": true
+        },
+        {
+          "text": "pril",
+          "onset": [
+            {
+              "ipa": "p",
+              "cls": "plosive",
+              "voiced": false
+            },
+            {
+              "ipa": "ɹ",
+              "cls": "approximant",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "ə",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "l",
+              "cls": "approximant",
+              "voiced": true
+            }
+          ],
+          "fromMs": 1565,
+          "toMs": 1775,
+          "nucleusFromMs": 1595,
+          "nucleusToMs": 1775,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "thirty",
+      "fromMs": 2159,
+      "toMs": 2450,
+      "whisper": {
+        "fromMs": 2260,
+        "toMs": 2410,
+        "heard": "thirty",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 2159,
+        "toMs": 2450,
+        "deltaMs": 101,
+        "text": "thirty"
+      },
+      "ipa": "/ˈθɝti/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "thir",
+          "onset": [
+            {
+              "ipa": "θ",
+              "cls": "fricative",
+              "voiced": false
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "ɝ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [],
+          "fromMs": 2160,
+          "toMs": 2305,
+          "nucleusFromMs": 2250,
+          "nucleusToMs": 2305,
+          "measured": true
+        },
+        {
+          "text": "ty",
+          "onset": [
+            {
+              "ipa": "t",
+              "cls": "plosive",
+              "voiced": false
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "i",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [],
+          "fromMs": 2305,
+          "toMs": 2450,
+          "nucleusFromMs": 2305,
+          "nucleusToMs": 2365,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "seven",
+      "fromMs": 2508,
+      "toMs": 2740,
+      "whisper": {
+        "fromMs": 2410,
+        "toMs": 2560,
+        "heard": "seven",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 2508,
+        "toMs": 2740,
+        "deltaMs": -98,
+        "text": "seven"
+      },
+      "ipa": "/ˈsɛvən/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "se",
+          "onset": [
+            {
+              "ipa": "s",
+              "cls": "fricative",
+              "voiced": false
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "ɛ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [],
+          "fromMs": 2510,
+          "toMs": 2650,
+          "nucleusFromMs": 2560,
+          "nucleusToMs": 2625,
+          "measured": true
+        },
+        {
+          "text": "ven",
+          "onset": [
+            {
+              "ipa": "v",
+              "cls": "fricative",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "ə",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "n",
+              "cls": "nasal",
+              "voiced": true
+            }
+          ],
+          "fromMs": 2650,
+          "toMs": 2740,
+          "nucleusFromMs": 2665,
+          "nucleusToMs": 2710,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "minutes",
+      "fromMs": 2775,
+      "toMs": 3030,
+      "whisper": {
+        "fromMs": 2560,
+        "toMs": 2990,
+        "heard": "minutes",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 2775,
+        "toMs": 3030,
+        "deltaMs": -215,
+        "text": "minutes"
+      },
+      "ipa": "/ˈmɪnɪts/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "min",
+          "onset": [
+            {
+              "ipa": "m",
+              "cls": "nasal",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "ɪ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [],
+          "fromMs": 2775,
+          "toMs": 2900,
+          "nucleusFromMs": 2880,
+          "nucleusToMs": 2900,
+          "measured": true
+        },
+        {
+          "text": "utes",
+          "onset": [
+            {
+              "ipa": "n",
+              "cls": "nasal",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "ɪ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "t",
+              "cls": "plosive",
+              "voiced": false
+            },
+            {
+              "ipa": "s",
+              "cls": "fricative",
+              "voiced": false
+            }
+          ],
+          "fromMs": 2900,
+          "toMs": 3030,
+          "nucleusFromMs": 2900,
+          "nucleusToMs": 2940,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "past",
+      "fromMs": 3077,
+      "toMs": 3355,
+      "whisper": {
+        "fromMs": 2990,
+        "toMs": 3290,
+        "heard": "past",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 3077,
+        "toMs": 3355,
+        "deltaMs": -87,
+        "text": "past"
+      },
+      "ipa": "/pæst/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "past",
+          "onset": [
+            {
+              "ipa": "p",
+              "cls": "plosive",
+              "voiced": false
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "æ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "s",
+              "cls": "fricative",
+              "voiced": false
+            },
+            {
+              "ipa": "t",
+              "cls": "plosive",
+              "voiced": false
+            }
+          ],
+          "fromMs": 3075,
+          "toMs": 3355,
+          "nucleusFromMs": 3145,
+          "nucleusToMs": 3270,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "midnight",
+      "fromMs": 3425,
+      "toMs": 4226,
+      "whisper": {
+        "fromMs": 3290,
+        "toMs": 3980,
+        "heard": "midnight.",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 3425,
+        "toMs": 4226,
+        "deltaMs": -135,
+        "text": "midnight"
+      },
+      "ipa": "/ˈmɪd(ˌ)naɪt/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "mid",
+          "onset": [
+            {
+              "ipa": "m",
+              "cls": "nasal",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "ɪ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "d",
+              "cls": "plosive",
+              "voiced": true
+            }
+          ],
+          "fromMs": 3425,
+          "toMs": 3795,
+          "nucleusFromMs": 3425,
+          "nucleusToMs": 3700,
+          "measured": true
+        },
+        {
+          "text": "night",
+          "onset": [
+            {
+              "ipa": "n",
+              "cls": "nasal",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "aɪ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "t",
+              "cls": "plosive",
+              "voiced": false
+            }
+          ],
+          "fromMs": 3795,
+          "toMs": 4225,
+          "nucleusFromMs": 3835,
+          "nucleusToMs": 3930,
+          "measured": true
+        }
+      ]
+    }
+  ]
+}

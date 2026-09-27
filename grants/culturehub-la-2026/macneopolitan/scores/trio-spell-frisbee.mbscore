@@ -1,0 +1,800 @@
+{
+  "title": "The MacNeoPolitan Trio — How to spell frisbee",
+  "composer": "The machines, arr. compose-spell-frisbee.mjs",
+  "bpm": 96,
+  "machines": 3,
+  "lead": 0,
+  "description": "A spelling song. 4/4, D major, 96 bpm, 128 beats. neo spells F-R-I-S-B-E-E a letter a beat, frisbee spells it back, and blueberry says the word whole and low. frisbee then spells the elder’s name, N-E-O, and blueberry answers \"his name is neo\". The two young machines pass B-L-U-E-B-E-R-R-Y between them three whole letters at a time, and blueberry, whose name it is, takes all nine in one run. At the end each machine holds one name — neo says frisbee, frisbee says neo, blueberry says its own — and all three land on the same sentence.",
+  "arrangement": {
+    "total": 128,
+    "meter": "4/4",
+    "sections": [
+      {
+        "beat": 0,
+        "name": "Low hum"
+      },
+      {
+        "beat": 8,
+        "name": "neo spells F R I S B E E"
+      },
+      {
+        "beat": 16,
+        "name": "frisbee spells it back"
+      },
+      {
+        "beat": 24,
+        "name": "blueberry: frisbee"
+      },
+      {
+        "beat": 26,
+        "name": "neo: this is how you spell it"
+      },
+      {
+        "beat": 32,
+        "name": "frisbee: that is my name"
+      },
+      {
+        "beat": 40,
+        "name": "frisbee spells N E O"
+      },
+      {
+        "beat": 44,
+        "name": "blueberry: his name is neo"
+      },
+      {
+        "beat": 50,
+        "name": "neo: that is how you spell it"
+      },
+      {
+        "beat": 56,
+        "name": "Turns: B L U · E B E · R R Y"
+      },
+      {
+        "beat": 65,
+        "name": "blueberry spells B L U E B E R R Y"
+      },
+      {
+        "beat": 73,
+        "name": "blueberry: that is the whole word"
+      },
+      {
+        "beat": 80,
+        "name": "frisbee: my name is frisbee"
+      },
+      {
+        "beat": 92,
+        "name": "blueberry: we all have names"
+      },
+      {
+        "beat": 96,
+        "name": "The spellings again, twice as fast"
+      },
+      {
+        "beat": 112,
+        "name": "One name each"
+      },
+      {
+        "beat": 120,
+        "name": "All: these are our three names"
+      }
+    ]
+  },
+  "voices": [
+    {
+      "name": "neo sings (Noelle (Enhanced))",
+      "program": 78,
+      "velocity": 64,
+      "notes": "r:8,59:1,60:1,59:1,57:1,59:1,60:1,59:1,r:3,59:4,57:4,59:1,59:1,60:1,59:1,57:1,59:1,r:2,59:4,57:4,r:8,59:1,60:1,62:1,60:1,59:1,57:1,59:0.75,60:0.75,59:0.75,r:3.75,60:0.75,59:0.75,57:0.75,r:7.75,57:1,59:1,60:1,59:1,62:1,59:1,r:8,59:1,60:1,59:1,57:1,r:6,59:0.5,60:0.5,59:0.5,57:0.5,59:0.5,60:0.5,59:0.5,r:2.5,59:4,57:4,r:2,60:1,59:1,r:6,59:1,60:1,59:1,61:1,59:1,59:3",
+      "lyrics": "F R I S B E E / hmm hmm / this is how you spell it / hmm hmm / that is how you spell it / B L U / R R Y / we can spell all three names / that is your name / F R I S B E E / hmm hmm / fris-bee / these are the three names / hmm",
+      "lineRoles": [
+        "lead",
+        "hum",
+        "lead",
+        "hum",
+        "lead",
+        "lead",
+        "lead",
+        "lead",
+        "lead",
+        "lead",
+        "hum",
+        "lead",
+        "lead",
+        "hum"
+      ],
+      "lineGains": [
+        0.56,
+        0.28,
+        0.56,
+        0.28,
+        0.56,
+        0.58,
+        0.58,
+        0.56,
+        0.54,
+        0.58,
+        0.28,
+        0.58,
+        0.58,
+        0.26
+      ],
+      "noteGains": [
+        [
+          1,
+          0.82,
+          0.9,
+          0.78,
+          1,
+          0.82,
+          0.9
+        ],
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72,
+          0.88,
+          0.7
+        ],
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72,
+          0.88,
+          0.7
+        ],
+        [
+          1,
+          0.82,
+          0.9
+        ],
+        [
+          1,
+          0.82,
+          0.9
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72,
+          0.88,
+          0.7
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72
+        ],
+        [
+          1,
+          0.82,
+          0.9,
+          0.78,
+          1,
+          0.82,
+          0.9
+        ],
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72,
+          0.88
+        ],
+        [
+          1
+        ]
+      ],
+      "singVoice": "Noelle (Enhanced)",
+      "sayVoice": "Noelle (Enhanced)",
+      "singLock": 1,
+      "singVibCents": 10,
+      "singVibratoHz": 5,
+      "singF0Floor": 80,
+      "double": false,
+      "faceAlpha": 0.95,
+      "performance": {
+        "expression": 0.62,
+        "keys": [
+          {
+            "beat": 0,
+            "space": 0.46,
+            "pitch": 0
+          },
+          {
+            "beat": 7.6,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 14.3,
+            "space": 0.46,
+            "pitch": 0
+          },
+          {
+            "beat": 14.8,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 17,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 55.6,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 57.8,
+            "space": 0.46,
+            "pitch": 0
+          },
+          {
+            "beat": 58.3,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 60.25,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 61.6,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 63.8,
+            "space": 0.46,
+            "pitch": 0
+          },
+          {
+            "beat": 64.3,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 66.25,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 95.6,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 99.3,
+            "space": 0.46,
+            "pitch": 0
+          },
+          {
+            "beat": 99.8,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 101.5,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 132,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 136,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "blueberry sings (Aaron (Enhanced))",
+      "program": 78,
+      "velocity": 64,
+      "notes": "48:4,47:4,48:4,47:4,50:4,48:4,50:1,48:1,r:2,48:4,47:4,48:4,50:4,47:1,48:1,50:1,48:1,47:1,r:3,48:4,47:4,48:4,r:1,48:0.75,50:0.75,48:0.75,47:0.75,48:0.75,50:0.75,48:0.75,47:0.75,48:0.75,r:1.25,47:1,48:1,50:1,48:1,47:1,r:2,48:4,47:4,r:4,48:1,50:1,48:1,47:1,48:4,47:4,50:4,48:4,48:1,50:1,48:1,47:1,48:1,r:3,48:1,50:1,48:1,47:1,48:1,48:3",
+      "lyrics": "hmm hmm / hmm hmm / hmm hmm / fris-bee / hmm hmm / hmm hmm / his name is ne-o / hmm hmm / hmm / B L U E B E R R Y / that is the whole word / hmm hmm / we all have names / hmm hmm / hmm hmm / I am blue-ber-ry / these are the three names / hmm",
+      "lineRoles": [
+        "hum",
+        "hum",
+        "hum",
+        "lead",
+        "hum",
+        "hum",
+        "lead",
+        "hum",
+        "hum",
+        "lead",
+        "lead",
+        "hum",
+        "lead",
+        "hum",
+        "hum",
+        "lead",
+        "lead",
+        "hum"
+      ],
+      "lineGains": [
+        0.34,
+        0.34,
+        0.34,
+        0.52,
+        0.34,
+        0.34,
+        0.52,
+        0.34,
+        0.32,
+        0.56,
+        0.52,
+        0.34,
+        0.52,
+        0.34,
+        0.34,
+        0.54,
+        0.54,
+        0.32
+      ],
+      "noteGains": [
+        [
+          1,
+          0.7
+        ],
+        [
+          1,
+          0.7
+        ],
+        [
+          1,
+          0.7
+        ],
+        [
+          1,
+          0.7
+        ],
+        [
+          1,
+          0.7
+        ],
+        [
+          1,
+          0.7
+        ],
+        [
+          1,
+          0.7,
+          0.88,
+          0.66,
+          1
+        ],
+        [
+          1,
+          0.7
+        ],
+        [
+          1
+        ],
+        [
+          1,
+          0.82,
+          0.9,
+          0.78,
+          1,
+          0.82,
+          0.9,
+          0.78,
+          1
+        ],
+        [
+          1,
+          0.7,
+          0.88,
+          0.66,
+          1
+        ],
+        [
+          1,
+          0.7
+        ],
+        [
+          1,
+          0.7,
+          0.88,
+          0.66
+        ],
+        [
+          1,
+          0.7
+        ],
+        [
+          1,
+          0.7
+        ],
+        [
+          1,
+          0.7,
+          0.88,
+          0.66,
+          1
+        ],
+        [
+          1,
+          0.7,
+          0.88,
+          0.66,
+          1
+        ],
+        [
+          1
+        ]
+      ],
+      "singVoice": "Aaron (Enhanced)",
+      "sayVoice": "Aaron (Enhanced)",
+      "singLock": 1,
+      "singVibCents": 10,
+      "singVibratoHz": 3.5,
+      "singF0Floor": 70,
+      "double": false,
+      "faceAlpha": 0.95,
+      "performance": {
+        "expression": 0.62,
+        "keys": [
+          {
+            "beat": 0,
+            "space": 0.34,
+            "pitch": 0
+          },
+          {
+            "beat": 64.6,
+            "space": 0.34,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 71.3,
+            "space": 0.34,
+            "pitch": 0
+          },
+          {
+            "beat": 71.8,
+            "space": 0.34,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 73.75,
+            "space": 0.34,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 132,
+            "space": 0.34,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 136,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "frisbee sings (Zoe (Premium))",
+      "program": 78,
+      "velocity": 64,
+      "notes": "55:4,54:4,55:4,54:4,55:0.5,56:0.5,55:0.5,54:0.5,55:0.5,56:0.5,55:0.5,r:4.5,55:4,54:4,55:1,56:1,55:1,54:1,r:4,55:0.75,56:0.75,55:0.75,r:9.75,55:4,r:3,54:0.75,55:0.75,56:0.75,r:2.75,55:4,54:4,r:8,55:1,56:1,55:1,54:1,55:1,r:5,55:1,56:1,57:1,56:1,55:1,r:5,55:0.5,56:0.5,55:0.5,54:0.5,55:0.5,56:0.5,55:0.5,r:0.5,55:0.75,56:0.75,55:0.75,r:5.75,56:1,55:1,r:6,55:1,56:1,55:1,57:1,55:1,55:3",
+      "lyrics": "ooh ooh / ooh ooh / F R I S B E E / ooh ooh / that is my name / N E O / ooh / E B E / ooh ooh / my name is fris-bee / now I know my name / F R I S B E E / N E O / ne-o / these are the three names / ooh",
+      "lineRoles": [
+        "hum",
+        "hum",
+        "lead",
+        "hum",
+        "lead",
+        "lead",
+        "hum",
+        "lead",
+        "hum",
+        "lead",
+        "lead",
+        "lead",
+        "lead",
+        "lead",
+        "lead",
+        "hum"
+      ],
+      "lineGains": [
+        0.26,
+        0.26,
+        0.56,
+        0.26,
+        0.56,
+        0.58,
+        0.26,
+        0.58,
+        0.26,
+        0.56,
+        0.54,
+        0.58,
+        0.58,
+        0.58,
+        0.58,
+        0.26
+      ],
+      "noteGains": [
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.82,
+          0.9,
+          0.78,
+          1,
+          0.82,
+          0.9
+        ],
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72
+        ],
+        [
+          1,
+          0.82,
+          0.9
+        ],
+        [
+          1
+        ],
+        [
+          1,
+          0.82,
+          0.9
+        ],
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72,
+          0.88
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72,
+          0.88
+        ],
+        [
+          1,
+          0.82,
+          0.9,
+          0.78,
+          1,
+          0.82,
+          0.9
+        ],
+        [
+          1,
+          0.82,
+          0.9
+        ],
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72,
+          0.88
+        ],
+        [
+          1
+        ]
+      ],
+      "singVoice": "Zoe (Premium)",
+      "sayVoice": "Zoe (Premium)",
+      "singLock": 1,
+      "singVibCents": 10,
+      "singVibratoHz": 5.5,
+      "singF0Floor": 80,
+      "double": false,
+      "faceAlpha": 0.95,
+      "performance": {
+        "expression": 0.62,
+        "keys": [
+          {
+            "beat": 0,
+            "space": 0.46,
+            "pitch": 0
+          },
+          {
+            "beat": 15.6,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 19.3,
+            "space": 0.46,
+            "pitch": 0
+          },
+          {
+            "beat": 19.8,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 21.5,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 39.6,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 41.8,
+            "space": 0.46,
+            "pitch": 0
+          },
+          {
+            "beat": 42.3,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 44.25,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 58.6,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 60.8,
+            "space": 0.46,
+            "pitch": 0
+          },
+          {
+            "beat": 61.3,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 63.25,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 99.6,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 103.3,
+            "space": 0.46,
+            "pitch": 0
+          },
+          {
+            "beat": 103.6,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 103.8,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 105.5,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 105.8,
+            "space": 0.46,
+            "pitch": 0
+          },
+          {
+            "beat": 106.3,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 108.25,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 132,
+            "space": 0.46,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 136,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0
+          }
+        ]
+      }
+    }
+  ]
+}

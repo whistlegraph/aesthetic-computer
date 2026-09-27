@@ -57,7 +57,7 @@ Every implementation in the monorepo, with claimed conformance level and current
 
 The corpus is **the top KidLisp pieces by live hit count**, pulled from production. Any new runtime is expected to render these pixel-comparably against the reference implementation.
 
-Refresh command: `curl -s "https://aesthetic.computer/api/store-kidlisp?recent=true&limit=10&sort=hits"`.
+Refresh command: `node kidlisp/conformance/oracle.mjs refresh --top 40` (pins the top 40 into `conformance/corpus.json`). The JS reference is graded against itself by the pixel oracle: `node kidlisp/conformance/oracle.mjs check` renders the corpus from `origin/main` and this checkout and fails on blank, gone or newly-erroring pieces — see [`conformance/README.md`](conformance/README.md).
 
 ### Top 10 (refreshed 2026-05-25)
 

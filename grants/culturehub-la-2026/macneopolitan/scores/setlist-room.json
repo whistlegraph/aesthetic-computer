@@ -1,0 +1,19 @@
+{
+  "title": "The MacNeoPolitan Trio in the round",
+  "gap": 8,
+  "items": [
+    { "score": "trio-wake", "out": "set-01-wake", "label": "Good morning, Sophia", "announce": "Good morning, Sophia. The MacNeoPolitan Trio, with the room." },
+    { "score": "trio-open-me", "out": "set-02-open-me", "label": "Open me" },
+    { "score": "trio-spell-sophia", "out": "set-03-spell-sophia", "label": "Spell Sophia" },
+    { "score": "trio-abc", "out": "set-04-abc", "label": "A B C" },
+    { "score": "trio-what-starts-with", "out": "set-05-what-starts-with", "label": "What starts with" },
+    { "score": "trio-sums", "out": "set-06-sums", "label": "Sums" },
+    { "score": "trio-take-away", "out": "set-07-take-away", "label": "Take away" },
+    { "score": "trio-thirteen-days", "out": "set-08-thirteen-days", "label": "Thirteen days" },
+    { "score": "trio-vocalise", "out": "set-09-vocalise", "label": "Vocalise" },
+    { "out": "femrag-spatial", "label": "Femrag++ in the round", "announce": "Femrag plus plus, in the round." },
+    { "score": "trio-the-record", "out": "set-11-the-record", "label": "The record" },
+    { "score": "trio-lights-out", "out": "set-12-lights-out", "label": "Lights out", "announce": "Good night, Sophia." }
+  ],
+  "encore": [ { "score": "trio-lullaby", "out": "set-13-lullaby", "label": "Lullaby for frisbee" } ]
+}

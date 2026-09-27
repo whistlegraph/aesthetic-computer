@@ -1,0 +1,18 @@
+{
+  "artist": "Aesthetic Dot Computer",
+  "title": "amazing grace",
+  "bpm": 70,
+  "introSeconds": 6,
+  "repeatOffsetBeats": 68,
+  "description": "First verse solo; plagal turnaround; same verse returns with separately WORLD-resynthesized Jeffrey harmonies. No new recorded performance.",
+  "upper": ["G3","B3","D4","B3","D4","C4","B3","E4","G3","G3","G3","D4","B3","D4","G3","B3","G4","G4","D4","E4","E4","E4","D4","G4","F#4","D4","F#4","B3"],
+  "lower": ["B2","D3","G3","D3","G3","E3","D3","G3","E3","B2","B2","G3","D3","F#3","B2","D3","B3","B3","G3","G3","E3","C3","G3","B3","A3","F#3","D3","D3"],
+  "upperPan": 0.48,
+  "lowerPan": -0.48,
+  "leadGain": 1.08,
+  "upperGain": 0.29,
+  "lowerGain": 0.34,
+  "bedGain": 0.64,
+  "upperEntryWord": 6,
+  "lowerEntryWord": 0
+}

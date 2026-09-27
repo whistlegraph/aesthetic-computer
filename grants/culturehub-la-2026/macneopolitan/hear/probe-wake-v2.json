@@ -1,0 +1,137 @@
+{
+  "tag": "probe-wake-v2",
+  "at": "2026-09-23T19:50:44.947Z",
+  "model": "ggml-small.en.bin",
+  "flags": {
+    "tag": "probe-wake-v2",
+    "voice": "2",
+    "no-spoken": "1"
+  },
+  "scores": [
+    {
+      "score": "probe-wake.mbscore",
+      "bpm": 69,
+      "voices": [
+        {
+          "member": "frisbee",
+          "voice": "Zoe (Premium)",
+          "lines": [
+            {
+              "line": 1,
+              "role": "lead",
+              "text": "Sophia Sophia",
+              "lyrics": "So-phi-a So-phi-a",
+              "notes": "59:1,57:1,55:1,57:1,55:1,52:1",
+              "duration": 5.2142403628117915,
+              "peak": 0.800000011920929,
+              "spanOffset": 0,
+              "notesUsed": 6,
+              "noteCount": 6,
+              "renderMs": 600,
+              "heard": "of fear.",
+              "wer": 1,
+              "errors": 2,
+              "words": 2,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/var/folders/_j/y9vwyfsn7q541xcvsn_4v7yc0000gn/T/mnp-hear/probe-wake-v2/probe-wake/frisbee/line-01.wav",
+              "spokenWav": null
+            },
+            {
+              "line": 2,
+              "role": "lead",
+              "text": "Sophia",
+              "lyrics": "So-phi-a",
+              "notes": "r:8,59:1,57:1,55:1",
+              "duration": 3.4792743764172336,
+              "peak": 0.800000011920929,
+              "spanOffset": 6.08695652173913,
+              "notesUsed": 3,
+              "noteCount": 3,
+              "renderMs": 339,
+              "heard": "Sophia",
+              "wer": 0,
+              "errors": 0,
+              "words": 1,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/var/folders/_j/y9vwyfsn7q541xcvsn_4v7yc0000gn/T/mnp-hear/probe-wake-v2/probe-wake/frisbee/line-02.wav",
+              "spokenWav": null
+            },
+            {
+              "line": 3,
+              "role": "lead",
+              "text": "Sophia",
+              "lyrics": "So-phi-a",
+              "notes": "r:16,59:1,57:1,55:1.4",
+              "duration": 3.824263038548753,
+              "peak": 0.800000011920929,
+              "spanOffset": 13.043478260869565,
+              "notesUsed": 3,
+              "noteCount": 3,
+              "renderMs": 329,
+              "heard": "So fear",
+              "wer": 2,
+              "errors": 2,
+              "words": 1,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/var/folders/_j/y9vwyfsn7q541xcvsn_4v7yc0000gn/T/mnp-hear/probe-wake-v2/probe-wake/frisbee/line-03.wav",
+              "spokenWav": null
+            },
+            {
+              "line": 4,
+              "role": "lead",
+              "text": "Sophia",
+              "lyrics": "So-phi-a",
+              "notes": "r:24,59:1.2,57:1,55:1",
+              "duration": 3.649251700680272,
+              "peak": 0.800000011920929,
+              "spanOffset": 20,
+              "notesUsed": 3,
+              "noteCount": 3,
+              "renderMs": 304,
+              "heard": "So fear",
+              "wer": 2,
+              "errors": 2,
+              "words": 1,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/var/folders/_j/y9vwyfsn7q541xcvsn_4v7yc0000gn/T/mnp-hear/probe-wake-v2/probe-wake/frisbee/line-04.wav",
+              "spokenWav": null
+            },
+            {
+              "line": 5,
+              "role": "lead",
+              "text": "Sofia",
+              "lyrics": "So-fi-a",
+              "notes": "r:32,59:1,57:1,55:1",
+              "duration": 3.4792743764172336,
+              "peak": 0.800000011920929,
+              "spanOffset": 26.956521739130434,
+              "notesUsed": 3,
+              "noteCount": 3,
+              "renderMs": 3310,
+              "heard": "So fear...",
+              "wer": 2,
+              "errors": 2,
+              "words": 1,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/var/folders/_j/y9vwyfsn7q541xcvsn_4v7yc0000gn/T/mnp-hear/probe-wake-v2/probe-wake/frisbee/line-05.wav",
+              "spokenWav": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "total": {
+    "errors": 8,
+    "words": 6,
+    "wer": 1.3333333333333333,
+    "spokenErrors": 0,
+    "spokenWords": 0,
+    "spokenWer": 0
+  }
+}

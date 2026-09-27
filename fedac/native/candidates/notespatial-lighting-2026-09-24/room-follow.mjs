@@ -1,5 +1,5 @@
 import {readFile,writeFile} from 'node:fs/promises';
-import {fixtureFrame} from './fixture-frame.mjs';
+import {calmRgb} from './calm-light.mjs';
 const timeline=JSON.parse(await readFile(new URL('./notespatial-look.nstimeline',import.meta.url)));
 const base='http://127.0.0.1:8790',source='http://192.168.1.234:8791/api/state';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -15,11 +15,11 @@ try{
    if(!run){run=s.runId;deadline=Date.now()+(timeline.duration-s.scoreTime+5)*1000;console.log('Following',run);}
    const state=await req(base+'/state');
    if(Date.now()/1000-state.bridgeSeen>3)throw Error('Room bridge stale');
-   if(state.queueDepth===0){const f=fixtureFrame(timeline,s.scoreTime).room[index++%4];
-    await req(base+'/command',{...f,color:'rgb',level:88,duration:.75,envelope:{attack:.06,decay:.25}});commands++;
+   if(state.queueDepth===0){const seat=index++%4,f={address:[1,11,31,21][seat],rgb:calmRgb(timeline,s.scoreTime,seat)};
+    await req(base+'/command',{...f,color:'rgb',level:28,duration:3,envelope:{attack:.8,decay:1}});commands++;
    }else skipped++;
   }else if(run)break;
-  await sleep(90);
+  await sleep(140);
  }
 }finally{
  await req(base+'/cancel',{});await sleep(700);

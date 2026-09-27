@@ -11,7 +11,7 @@ function drawNotepatScore(music, elapsed) {
     box:(x,y,w,h,kind)=>{if(kind==='fill')rect(x,y,w,h);else{rect(x,y,w,2);rect(x,y+h-2,w,2);rect(x,y,2,h);rect(x+w-2,y,2,h);}},
     write:(text,{x,y,size=1})=>typeWrite(text,x,y,size*10,...color)};
   triangleDepth=-.8;
-  paintOskiewarNotepat(api,timeline,elapsed,5,{noteLabels:true});
+  paintOskiewarNotepat(api,timeline,elapsed,5,{noteLabels:music.presentationMode!=='performance'});
 }
 function oskiewarScoreNoteName(pitch) {
   return pitch>0?['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][pitch%12]+(Math.floor(pitch/12)-1):'';

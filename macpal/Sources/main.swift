@@ -52,7 +52,7 @@ if profile == "fuser" {
     let name = argValue("--name") ?? "fuser"
     let corner = (argValue("--corner") ?? "TL").uppercased()
     let repo = argValue("--repo") ?? NSString(string: "~/Developer/fuser").expandingTildeInPath
-    let nameToEmoji = ["panda": "🐼", "chicken": "🐔", "neo": "🦋", "blueberry": "🫐"]
+    let nameToEmoji = ["panda": "🐼", "chicken": "🐔", "neo": "🦋", "blueberry": "🫐", "cookie": "🍪", "frisbee": "🥏"]
     // --draggable frees the fuser badge to drag-and-snap between corners (the
     // star already does). Without it the badge stays pinned to --corner. Opt-in
     // per machine so the build minis can keep a fixed corner if they want one.

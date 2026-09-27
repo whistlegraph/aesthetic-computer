@@ -1,0 +1,34 @@
+{
+  "tag": "smoke",
+  "at": "2026-09-21T17:13:25.255Z",
+  "model": "ggml-base.en.bin",
+  "flags": {
+    "tag": "smoke"
+  },
+  "scores": [
+    {
+      "score": "dialog-07-before.mbscore",
+      "bpm": 100,
+      "voices": [
+        {
+          "member": "neo",
+          "voice": "Noelle",
+          "lines": []
+        },
+        {
+          "member": "blueberry",
+          "voice": "Allison",
+          "lines": []
+        }
+      ]
+    }
+  ],
+  "total": {
+    "errors": 0,
+    "words": 0,
+    "wer": 0,
+    "spokenErrors": 0,
+    "spokenWords": 0,
+    "spokenWer": 0
+  }
+}

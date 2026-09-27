@@ -31,9 +31,19 @@ typedef struct {
   int   a, b;        // word span, in WORLD frames
   int   vs, ve;      // vowel nucleus (onset consonant = a..vs, coda = ve..b)
   char  text[48];
+  int   nsyl;        // syllables in this word (0 or 1 = one); SCORE mode
+                     // splits the word into that many sung units
+  int   fixed;       // 1 = vs/ve were MEASURED by the host (wordmeta):
+                     // trust them instead of re-detecting the nucleus
 } singer_word;
 
-typedef enum { SINGER_SNAP = 0, SINGER_MELODY = 1 } singer_mode;
+// SCORE mode: one note per syllable, in lyric order. Time in sixteenths from
+// the score's downbeat. The singer sings exactly these pitches; how much of
+// the spoken contour survives is the profile's `lock`.
+#define SINGER_MAX_NOTES 4096
+typedef struct { double midi; double at16; double dur16; } singer_note;
+
+typedef enum { SINGER_SNAP = 0, SINGER_MELODY = 1, SINGER_SCORE = 2 } singer_mode;
 
 typedef struct {
   double bpm;
@@ -49,6 +59,10 @@ typedef struct {
   int    n_scale;
   int    pattern[SINGER_MAX_PAT];  // step durations in 16ths; negative = rest
   int    n_pattern;
+  // ── the voice profile's constraints (SCORE mode) ──
+  double lock;         // 0 = spoken contour rides on the note, 1 = hard on it
+  double vib_hz;       // vibrato rate (profile: 4x battery cycles/day)
+  double vib_cents;    // vibrato depth
 } singer_params;
 
 typedef struct singer singer;
@@ -80,6 +94,17 @@ double *singer_render_bars(singer *s, int word_start, int bars,
                            int *out_len, int *words_used);
 int singer_word_count(const singer *s);
 int singer_words_ready(const singer *s);   // how many words the analysis covers
+
+// ── SCORE mode ─────────────────────────────────────────────────────────
+// Notes pair with syllables: word w with nsyl k consumes notes in order.
+void singer_set_score(singer *s, const singer_note *n, int count);
+int  singer_note_count(const singer *s);
+// Render the window [from16, to16) of the score — exactly that many
+// sixteenths of audio — singing every syllable whose onset falls inside it
+// and whose source speech is analyzed. Caller owns the buffer. `notes_used`
+// is how many notes were sung (stops at the first unanalyzed one).
+double *singer_render_score(singer *s, double from16, double to16,
+                            int *out_len, int *notes_used);
 
 // ── audio (AUDIO thread — realtime-safe) ───────────────────────────────
 // Hand it a rendered phrase; it takes ownership and plays it on the next bar.

@@ -31,7 +31,7 @@ const RULES = [
   {
     class: "operational-telemetry",
     pattern:
-      /boot-log|bundle-telemetry|kidlisp-log|piece-hit|piece-log|prompt-log|metrics|reports|status|track-|menuband-logs|paper-hit/,
+      /boot-log|bundle-telemetry|kidlisp-log|piece-hit|piece-log|prompt-log|metrics|reports|status|track-|visit-track|menuband-logs|paper-hit/,
     posthog: "existing-lith-silo-only",
     exclusion:
       "Keep raw logs, errors, stacks, IP and performance samples in Lith/Silo.",

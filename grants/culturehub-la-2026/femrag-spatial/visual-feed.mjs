@@ -43,7 +43,7 @@ export function trioPerformance(transport, receivedAt, now = Date.now()) {
     faces[member] = face ? {text:face.text, rgb:face.rgb, t:face.t, dur:face.dur, role:face.role} : null;
   }
   return {title:String(transport.title || 'The MacNeoPolitan Trio').slice(0, 110),
-    source:'MacNeoPolitan Trio · ' + (lyric?.member || ''),
+    source:transport.source !== undefined ? String(transport.source).slice(0, 60) : 'MacNeoPolitan Trio · ' + (lyric?.member || ''),   // a transport may name (or blank) its own second line
     playing:true, phase:'playing', elapsed, duration, bpm:Number(transport.bpm) || 0,
     sentAt:Number(transport.sentAt) || null,
     dance:'trio-round-v1', section:lyric?.member || null, lyric, next, faces, hits:[], notes:[]};

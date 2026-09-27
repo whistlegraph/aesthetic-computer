@@ -5,7 +5,7 @@ import { respond as httpRespond } from "../../backend/http.mjs";
 import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
 import {
   MEDIA_KINDS, MEDIA_THREADS, mediaPipeline, parseMediaThread,
-  mediaThread, resolveMedia, sourceRecord, publicPosts, mediaFile,
+  mediaThread, resolveMedia, sourceRecord, publicPosts, mediaFile, publicMediaUrl,
 } from "../../backend/mime-media.mjs";
 
 const respond = (status, body, headers = {}) => httpRespond(status, body, { "Cache-Control": "no-store", ...headers });
@@ -66,6 +66,7 @@ export function createHandler(connectDb = connect, authorizeUser = authorize) {
           const account = user ? await db.collection("@handles").findOne({ _id: user.sub }) : null;
           return respond(200, { handle: account?.handle ? "@" + account.handle.replace(/^@/, "") : null });
         }
+        if (q.poster) return await servePoster(db, q.poster);
         if (q.file) return await serveFile(db, posts, q.file);
         if (q.media) {
           const op = await resolveMedia(db, q.media, q.code);
@@ -73,7 +74,7 @@ export function createHandler(connectDb = connect, authorizeUser = authorize) {
         }
         if (q.thread) return await getThread(db, posts, q.thread);
         const page = Math.max(0, Math.min(10000, parseInt(q.page) || 0));
-        return q.board ? await getBoard(db, posts, q.board, page) : await getIndex(db, posts, page);
+        return q.board ? await getBoard(db, posts, q.board, page) : await getIndex(db, posts, page, q.feed === "1");
       }
       let body;
       try { body = JSON.parse(event.body || "{}"); }
@@ -98,14 +99,14 @@ async function findOp(db, posts, code) {
 async function serveFile(db, posts, code) {
   const ref = parseMediaThread(code);
   if (ref) {
-    const op = await findOp(db, posts, code);
-    if (!op) return respond(404, { error: "media not found" });
     const record = await sourceRecord(db, code);
     if (!record) return respond(404, { error: "media not found" });
     const file = mediaFile(ref.kind, record);
     const headers = { "Cache-Control": "no-store", "Content-Security-Policy": "sandbox", "X-Content-Type-Options": "nosniff" };
-    return file.url ? respond(302, "", { ...headers, Location: file.url })
-      : respond(200, file.text, { ...headers, "Content-Type": op.board + "; charset=utf-8" });
+    if (file.url) return respond(302, "", { ...headers, Location: file.url });
+    const op = await findOp(db, posts, code);
+    if (!op) return respond(404, { error: "media not found" });
+    return respond(200, file.text, { ...headers, "Content-Type": op.board + "; charset=utf-8" });
   }
   const doc = await posts.findOne({ code });
   if (!doc?.file?.data) return respond(404, { error: "no file" });
@@ -124,6 +125,14 @@ async function serveFile(db, posts, code) {
   };
 }
 
+async function servePoster(db, code) {
+  const ref = parseMediaThread(code);
+  if (ref?.kind !== "tape") return respond(404, { error: "poster not found" });
+  const record = await sourceRecord(db, code);
+  if (!record?.thumbnailUrl) return respond(404, { error: "poster not found" });
+  return respond(302, "", { Location: publicMediaUrl(record.thumbnailUrl), "X-Content-Type-Options": "nosniff" });
+}
+
 function allRoots(activity = true, board) {
   return [
     { $match: { parent: null, ...(board ? { board } : {}) } },
@@ -136,11 +145,11 @@ function allRoots(activity = true, board) {
   ];
 }
 
-async function getIndex(db, posts, page) {
+async function getIndex(db, posts, page, feedOnly = false) {
   const end = (page + 1) * PAGE_SIZE;
   const order = [{ $sort: { when: -1, code: 1 } }, { $limit: end + 1 }];
   const [boards, streams] = await Promise.all([
-    posts.aggregate([
+    feedOnly ? [] : posts.aggregate([
       ...allRoots(false),
       { $group: { _id: "$board", threads: { $sum: 1 }, bumped: { $max: "$bumped" } } },
       { $sort: { bumped: -1, _id: 1 } },

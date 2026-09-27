@@ -26,6 +26,9 @@ ap.add_argument("--width", type=int, default=1080)
 ap.add_argument("--height", type=int, default=1920)
 ap.add_argument("--aspect", type=float, default=1000 / 1840)  # capture w/h
 ap.add_argument("--still", type=int, default=0)   # render just this frame
+ap.add_argument("--props", default="")            # "path:x:y:rotdeg:height;…" (table-top coords)
+ap.add_argument("--fill", type=float, default=0.4)  # phone height / frame height
+ap.add_argument("--yaw", type=float, default=18)    # camera angle off the phone's axis
 args = ap.parse_args(argv)
 
 # ── scene reset ──────────────────────────────────────────────────────────
@@ -91,7 +94,9 @@ mapping.inputs["Rotation"].default_value[2] = math.radians(200)
 wl.new(coord.outputs["Generated"], mapping.inputs["Vector"])
 wl.new(mapping.outputs["Vector"], env.inputs["Vector"])
 wl.new(env.outputs["Color"], wn["Background"].inputs["Color"])
-wn["Background"].inputs["Strength"].default_value = 1.0
+# Dimmed so the window doesn't blow out; the screen is pure emission, so
+# this never touches AC's colours.
+wn["Background"].inputs["Strength"].default_value = 0.6
 
 # ── table: CC0 glTF, top surface moved to z=0, front edge near the camera ─
 bpy.ops.import_scene.gltf(filepath=args.table)
@@ -105,6 +110,39 @@ for o in table:
 shift = Vector((-(mins.x + maxs.x) / 2, -mins.y - 0.09, -maxs.z))
 for o in table:
     if o.parent is None: o.location += shift
+print(f"TABLE {maxs.x - mins.x:.2f} x {maxs.y - mins.y:.2f} m")
+
+def world_bounds(objs):
+    lo = Vector((1e9, 1e9, 1e9)); hi = Vector((-1e9, -1e9, -1e9))
+    for o in objs:
+        if o.type != "MESH": continue
+        for c in o.bound_box:
+            wc = o.matrix_world @ Vector(c)
+            lo = Vector(map(min, lo, wc)); hi = Vector(map(max, hi, wc))
+    return lo, hi
+
+# Desk dressing: each CC0 prop is centered on (x, y), turned, and set down
+# on the table top (z=0).
+for spec in filter(None, args.props.split(";")):
+    path, x, y, rot, fit = spec.rsplit(":", 4)
+    bpy.ops.object.select_all(action="DESELECT")
+    bpy.ops.import_scene.gltf(filepath=path)
+    objs = list(bpy.context.selected_objects)
+    roots = [o for o in objs if o.parent is None]
+    pivot = bpy.data.objects.new("prop-" + os.path.basename(path), None)
+    scene.collection.objects.link(pivot)
+    for o in roots: o.parent = pivot
+    bpy.context.view_layer.update()
+    lo, hi = world_bounds(objs)
+    for o in roots: o.location -= Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))
+    size = hi - lo
+    if fit.startswith("h") and size.z > 0: k = float(fit[1:]) / size.z
+    elif fit.startswith("s") and max(size.x, size.y) > 0: k = float(fit[1:]) / max(size.x, size.y)
+    else: k = 1.0
+    pivot.scale = (k, k, k)
+    pivot.location = (float(x), float(y), 0.0)
+    pivot.rotation_euler = (0, 0, math.radians(float(rot)))
+    print(f"PROP {os.path.basename(path)} {(hi.x - lo.x) * k:.2f}x{(hi.y - lo.y) * k:.2f}x{(hi.z - lo.z) * k:.2f} m (x{k:.2f})")
 
 # ── phone: sized so the screen is exactly the capture's aspect ───────────
 screen_w = 0.066; screen_h = screen_w / args.aspect
@@ -112,14 +150,38 @@ bezel = 0.0035; chin = 0.0045
 phone_w = screen_w + 2 * bezel; phone_h = screen_h + 2 * chin; depth = 0.0082
 lean = math.radians(14)                               # top tips away from camera
 
+# Body = the polished metal frame; its rounded sides catch the room.
 body = slab("phone", phone_w, phone_h, 0.0095, depth)
-bev = body.modifiers.new("soften", "BEVEL"); bev.width = 0.0011; bev.segments = 4
+bev = body.modifiers.new("soften", "BEVEL"); bev.width = 0.0022; bev.segments = 8
 bev.limit_method = "ANGLE"
-body.data.materials.append(material("phone-body", **{
-    "Base Color": (0.018, 0.018, 0.022, 1), "Metallic": 0.35, "Roughness": 0.32}))
+body.modifiers.new("smooth", "WEIGHTED_NORMAL")
+for poly in body.data.polygons: poly.use_smooth = True
+body.data.materials.append(material("phone-frame", **{
+    "Base Color": (0.62, 0.62, 0.64, 1), "Metallic": 1.0, "Roughness": 0.18}))
+
+# The whole face is black glass, so the bezel reads as glass, not frame.
+glass = plate("front-glass", phone_w - 0.0009, phone_h - 0.0009, 0.0091)
+glass.parent = body; glass.location = (0, 0.00045, 0.00012)
+glass.data.materials.append(material("front-glass", **{
+    "Base Color": (0.004, 0.004, 0.005, 1), "Roughness": 0.03,
+    "Coat Weight": 1.0, "Coat Roughness": 0.02}))
+
+# Earpiece slit and side buttons.
+slit = plate("earpiece", 0.011, 0.0011, 0.00055)
+slit.parent = body; slit.location = (0, phone_h - 0.0021, 0.00032)
+slit.data.materials.append(material("slit", **{"Base Color": (0.05, 0.05, 0.055, 1), "Roughness": 0.6}))
+for name, x, y0, length in (("power", phone_w / 2, 0.62, 0.016),
+                            ("vol-up", -phone_w / 2, 0.70, 0.011),
+                            ("vol-down", -phone_w / 2, 0.61, 0.011)):
+    bpy.ops.mesh.primitive_cube_add(size=1)
+    btn = bpy.context.active_object; btn.name = name; btn.parent = body
+    btn.scale = (0.0012, length, 0.0034)
+    btn.location = (x + (0.0004 if x > 0 else -0.0004), phone_h * y0, -depth / 2)
+    b = btn.modifiers.new("round", "BEVEL"); b.width = 0.0005; b.segments = 3
+    btn.data.materials.append(body.data.materials[0])
 
 screen = plate("screen", screen_w, screen_h, 0.0075)
-screen.parent = body; screen.location = (0, chin, 0.00025)
+screen.parent = body; screen.location = (0, chin, 0.0002)
 sm = bpy.data.materials.new("screen"); sm.use_nodes = True
 nodes = sm.node_tree.nodes; links = sm.node_tree.links
 bsdf = nodes["Principled BSDF"]
@@ -141,7 +203,7 @@ screen.data.materials.append(sm)
 # Hole-punch camera, centered in the top bezel region of the screen.
 bpy.ops.mesh.primitive_cylinder_add(radius=0.0017, depth=0.0004, vertices=32)
 punch = bpy.context.active_object; punch.parent = body
-punch.location = (0, chin + screen_h - 0.006, 0.0004)
+punch.location = (0, chin + screen_h - 0.006, 0.00035)
 punch.data.materials.append(material("punch", **{"Base Color": (0, 0, 0, 1), "Roughness": 0.1}))
 
 # Stand/lean: rotate the upright phone back by `lean` about its bottom edge.
@@ -171,17 +233,20 @@ scene.collection.objects.link(cam); scene.camera = cam
 cam_data.lens = 50; cam_data.sensor_fit = "VERTICAL"; cam_data.sensor_height = 36
 bpy.context.view_layer.update()
 center = body.matrix_world @ Vector((0, phone_h / 2, 0))
-fill = 0.78                                            # phone height / frame height
+fill = args.fill                                       # phone height / frame height
 half_fov = math.atan(18 / 50)
 dist = (phone_h / fill) / 2 / math.tan(half_fov)
 normal = (body.matrix_world.to_3x3() @ Vector((0, 0, 1))).normalized()
-pitch_up = math.radians(6)                             # camera sits slightly above
+pitch_up = math.radians(16)                            # camera sits above, looking down
+yaw = math.radians(args.yaw)                           # and off to one side
 
 def place(d):
-    view = (normal * math.cos(pitch_up) + Vector((0, 0, 1)) * math.sin(pitch_up)).normalized()
+    flat = Vector((normal.x, normal.y, 0)).normalized()
+    flat.rotate(__import__("mathutils").Matrix.Rotation(yaw, 3, "Z"))
+    view = (flat * math.cos(pitch_up) + Vector((0, 0, 1)) * math.sin(pitch_up)).normalized()
     return center + view * d
 
-cam_data.dof.use_dof = True; cam_data.dof.aperture_fstop = 2.2
+cam_data.dof.use_dof = True; cam_data.dof.aperture_fstop = 4.0
 cam_data.dof.focus_distance = dist
 aim = bpy.data.objects.new("aim", None); scene.collection.objects.link(aim); aim.location = center
 track = cam.constraints.new("TRACK_TO"); track.target = aim

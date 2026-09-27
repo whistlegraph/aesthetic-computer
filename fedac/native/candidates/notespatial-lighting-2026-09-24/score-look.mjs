@@ -1,3 +1,4 @@
+import {audioLook} from './audio-look.mjs';
 // Shared score-clock lighting/raster reader. No network, DMX, or audio writes.
 export const LOOKS = [
   {name:'Overture', mode:'tide', color:[255,156,80]},
@@ -51,7 +52,10 @@ export function paintLook(api,timeline,t,seat=0,{noteLabels=false}={}) {
   const {width:w,height:h}=screen;
   wipe(4,6,11);
   if(!look.active)return look;
-  const {energy:e,rgb}=look;
+  const audio=audioLook(api.sound);
+  const e=audio.env,rgb=look.rgb;
+  wipe(...rgb.map(v=>Math.round(v/Math.max(1,...rgb)*(22+65*e))));
+  for(let i=0;i<12;i++){const height=h*(.05+.65*audio.bands[i]);ink(...rgb.map(v=>Math.round(v/Math.max(1,...rgb)*(100+155*audio.bands[i]))));box(Math.round(i*w/12),Math.round(h-height),Math.ceil(w/12)-3,Math.ceil(height),'fill');}
   // Raster contrast has its own floor; DMX channel caps must not make screens illegible.
   const peak=Math.max(1,...rgb);
   ink(...rgb.map(v=>Math.round(v/peak*(110+145*e))));

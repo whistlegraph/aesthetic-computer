@@ -28,6 +28,8 @@
   <meta name="twitter:description" content="Comments on Aesthetic Computer media." />
   <meta name="twitter:image" content="https://mime.ac/social/mime.jpg?v=1" />
   <meta name="twitter:image:alt" content="MIME in pink, peach, purple, and mint 3D letters, with a raised .ac." />
+  <link rel="preconnect" href="https://aesthetic.computer" />
+  <link rel="preconnect" href="https://oven.aesthetic.computer" />
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css" />
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.css" />
   <style>
@@ -111,11 +113,11 @@
     a.discussion, form#post button { --button: var(--primary); --button-ink: var(--primary-ink); }
     main { width: 100%; max-width: 660px; margin: 0 auto;
       padding: 16px 12px calc(100px + env(safe-area-inset-bottom)); }
-    .feed-list { display: grid; gap: 18px; }
+    .feed-list { display: grid; gap: 14px; }
     .post { overflow-wrap: anywhere; }
     .post.media-post { background: var(--card); border: 1px solid var(--card-edge); border-radius: 10px; overflow: hidden;
       box-shadow: inset 0 1px 0 var(--shine), 0 3px 0 var(--shadow); }
-    .post .meta { display: flex; align-items: center; gap: 10px; padding: 13px 14px; color: var(--dim); font-size: 12px; }
+    .post .meta { display: flex; align-items: center; gap: 10px; padding: 10px 12px; color: var(--dim); font-size: 12px; }
     .avatar { display: grid; place-items: center; flex-shrink: 0; width: 38px; height: 38px; border-radius: 8px;
       background: var(--button); border: 1px solid var(--card-edge); box-shadow: inset 1px 1px 0 var(--shine), 1px 1px 0 var(--shadow);
       color: var(--ink); font: 22px/1 "YWFTProcessing-Regular", sans-serif; }
@@ -129,14 +131,30 @@
     .name { font-weight: 650; color: var(--author); font-size: 16px; text-decoration: none; }
     .post time { white-space: nowrap; font-size: 11px; }
     .media-label { display: block; color: var(--dim); font-size: 12px; text-decoration: none; }
-    .feed-media { width: 100%; aspect-ratio: 1; max-height: 520px; display: grid; place-items: center;
+    .feed-media { width: 100%; aspect-ratio: 4 / 3; display: grid; place-items: center;
       grid-template: minmax(0, 1fr) / minmax(0, 1fr); overflow: hidden; background: var(--media);
       border-block: 1px solid var(--card-edge); }
+    .feed-media.media-audio { aspect-ratio: auto; min-height: 112px; }
+    .feed-media.media-image, .feed-media.media-video { aspect-ratio: var(--media-ratio, 4 / 3); }
+    .feed-media.media-image > img, .feed-media.media-video > video { object-fit: contain; }
+    .media-loading { position: absolute; z-index: 1; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      padding: 6px 10px; border-radius: 5px; background: var(--card); color: var(--dim); font-size: 12px; pointer-events: none; }
+    .feed-media[data-media-state="ready"] > .media-loading,
+    .feed-media[data-media-state="error"] > .media-loading { display: none; }
+    .media-shield { position: absolute; inset: 0; z-index: 2; touch-action: pan-y pinch-zoom; }
+    .media-toggle { position: absolute; right: 10px; bottom: 10px; z-index: 3;
+      font-size: 12px; background: var(--card); opacity: .94; }
+    .feed-media[data-interacting] { outline: 2px solid var(--link); outline-offset: -2px; }
+    .feed-media[data-interacting] > .media-shield { display: none; }
+    .tape-player { position: absolute; inset: 0 0 48px; width: 100%; height: calc(100% - 48px); border: 0; background: var(--media); z-index: 2; }
+    .feed-media[data-tape][data-interacting] { min-height: 300px; }
+    .feed-media[data-tape][data-interacting] > :first-child { visibility: hidden; }
+    .feed-media > [inert] { pointer-events: none; user-select: none; }
     .save-ribbon { min-width: 44px; padding: 8px; color: var(--author); background: transparent; border: 0; box-shadow: none; }
     .save-ribbon svg { width: 20px; height: 26px; fill: transparent; stroke: currentColor; stroke-width: 2; }
     .save-ribbon[aria-pressed="true"] svg { fill: currentColor; }
     .saved-link { padding: 8px; font-size: 13px; font-weight: 650; }
-    .mime-type { display: block; width: fit-content; margin-top: 5px; padding: 2px 7px; border: 1px solid color-mix(in srgb, var(--author) 40%, var(--card)); border-radius: 4px; color: var(--author); background: var(--card); font-size: 12px; font-weight: 650; }
+    .mime-type { display: block; width: fit-content; margin-top: 2px; color: var(--dim); font-size: 11px; font-weight: 400; }
     .media-error { margin: 20px; padding: 16px; background: var(--card); border-radius: 6px; text-align: center; }
     .feed-media { position: relative; isolation: isolate; }
     .feed-media::before { content: ""; position: absolute; inset: -32px; z-index: -1; pointer-events: none;
@@ -198,6 +216,7 @@
       header, header h1, .wordmark svg { transition: none; }
     }
   </style>
+<script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
   <header>
@@ -364,6 +383,7 @@ function engagementRecord(code) {
 }
 function sampleEngagement() {
   syncPieceFocus();
+  syncVideoPlayback();
   const now = performance.now();
   // A suspended browser must not turn a delayed timer into hours of attention.
   const elapsed = Math.max(0, Math.min(2000, Math.round(now - exposureAt)));
@@ -446,6 +466,7 @@ view.addEventListener("click", (event) => {
   const key = link.matches(".discussion, .all-comments") ? "commentOpens"
     : link.matches(".source-button, .media-label") && link.origin !== location.origin ? "originalOpens" : null;
   if (!key) return;
+  if (key === "originalOpens") window.acVisits?.action("mime_original_open");
   sampleEngagement();
   const record = engagementRecord(post.id);
   record[key] = Math.min(10000, record[key] + 1);
@@ -470,6 +491,98 @@ const ago = (d) => {
   return Math.floor(s / 86400) + "d ago";
 };
 
+// Load nonessential file bodies only as their cards approach the viewport.
+const deferredMedia = new WeakMap();
+const mediaLoader = "IntersectionObserver" in window ? new IntersectionObserver(entries => {
+  for (const entry of entries) if (entry.isIntersecting) {
+    mediaLoader.unobserve(entry.target);
+    deferredMedia.get(entry.target)?.();
+    deferredMedia.delete(entry.target);
+  }
+}, { rootMargin: "700px 0px" }) : null;
+function nearViewport(node, load) {
+  if (!mediaLoader) return load();
+  deferredMedia.set(node, load);
+  mediaLoader.observe(node);
+}
+let interactingMedia = null;
+function exitMediaInteraction() {
+  const frame = interactingMedia;
+  if (!frame) return;
+  frame.querySelector(".tape-player")?.remove();
+  delete frame.dataset.interacting;
+  frame.firstElementChild.inert = true;
+  if (frame.closest(".feed-post") && frame.firstElementChild.tagName === "VIDEO") frame.firstElementChild.muted = true;
+  const button = frame.querySelector(".media-toggle");
+  button.textContent = "Interact";
+  button.setAttribute("aria-pressed", "false");
+  interactingMedia = null;
+}
+function shieldMedia(frame, content, interactive) {
+  content.inert = Boolean(interactive);
+  const shield = el("div", "media-shield");
+  shield.setAttribute("aria-hidden", "true");
+  frame.append(shield);
+  if (!interactive) return;
+  const button = el("button", "media-toggle", "Interact");
+  button.type = "button";
+  button.setAttribute("aria-pressed", "false");
+  button.setAttribute("aria-label", "Interact with this media; toggle to return to scrolling");
+  button.onclick = (event) => {
+    if (interactingMedia === frame) {
+      if (event.isTrusted) window.acVisits?.action("mime_scroll_feed");
+      exitMediaInteraction(); return;
+    }
+    if (event.isTrusted) window.acVisits?.action("mime_interact");
+    exitMediaInteraction();
+    interactingMedia = frame;
+    frame.dataset.interacting = "true";
+    content.inert = false;
+    if (frame.dataset.tape) {
+      if (content.tagName === "VIDEO") content.pause();
+      content.inert = true;
+      const player = el("iframe", "tape-player");
+      player.title = `Tape !${frame.dataset.tape} — audible left/right scrub player`;
+      player.setAttribute("sandbox", "allow-scripts allow-same-origin");
+      player.allow = "autoplay";
+      player.src = "https://aesthetic.computer/video~!" + encodeURIComponent(frame.dataset.tape) + "?nogap=true&nolabel=true&noauth=true" + (window.acAutomation || new URLSearchParams(location.search).has("ac-automation") ? "&ac-automation=1" : "");
+      frame.append(player);
+    }
+    button.textContent = "Scroll feed";
+    button.setAttribute("aria-pressed", "true");
+    syncPieceFocus();
+  };
+  frame.append(button);
+}
+window.addEventListener("keydown", event => {
+  if (event.key === "Escape" && interactingMedia) {
+    const button = interactingMedia.querySelector(".media-toggle");
+    exitMediaInteraction();
+    button.focus({ preventScroll: true });
+  }
+});
+
+// Only the dominant card auto-plays; nearby tapes warm metadata without competing playback.
+function syncVideoPlayback() {
+  if (!activeFeed) return;
+  const videos = [...view.querySelectorAll(".feed-media > video")];
+  const top = header.getBoundingClientRect().bottom;
+  let selected = null, largest = 0;
+  if (!document.hidden && document.hasFocus()) for (const frame of view.querySelectorAll(".feed-media")) {
+    const box = frame.getBoundingClientRect();
+    const visible = Math.max(0, Math.min(innerHeight, box.bottom) - Math.max(top, box.top));
+    const area = visible * box.width;
+    if (area > largest) { selected = frame; largest = area; }
+  }
+  if (!document.hidden && document.hasFocus() && interactingMedia?.isConnected) selected = interactingMedia;
+  for (const video of videos) {
+    if (selected?.contains(video)) {
+      if (interactingMedia === selected) continue; // Native pause/play belongs to the viewer in interaction mode.
+      if (video.paused && video.getAttribute("src")) video.play().catch(() => {});
+    } else if (!video.paused) video.pause();
+  }
+}
+
 let pieceFocused = null, piecePending = null, pieceFocusTimer = 0;
 function stopPiece() {
   clearTimeout(pieceFocusTimer);
@@ -481,6 +594,11 @@ function stopPiece() {
 function syncPieceFocus() {
   if (document.hidden || !document.hasFocus()) { stopPiece(); return; }
   const top = header.getBoundingClientRect().bottom;
+  if (interactingMedia) {
+    const box = interactingMedia.getBoundingClientRect();
+    if (!interactingMedia.isConnected || box.bottom <= top || box.top >= innerHeight) exitMediaInteraction();
+    else if (interactingMedia.querySelector(".piece-preview") === pieceFocused && pieceFocused) return;
+  }
   let focused = null, largest = 0, nearest = Infinity;
   for (const frame of view.querySelectorAll(".feed-media")) {
     const box = frame.getBoundingClientRect();
@@ -503,6 +621,7 @@ function syncPieceFocus() {
     iframe.title = focused.dataset.title;
     iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
     iframe.setAttribute("allow", "autoplay 'none'; camera 'none'; microphone 'none'");
+    iframe.addEventListener("load", () => { iframe.dataset.ready = "true"; }, { once: true });
     iframe.src = focused.dataset.player;
     focused.append(iframe);
     pieceFocused = focused;
@@ -540,6 +659,8 @@ function renderRunnable(post) {
   const image = el("img");
   image.alt = preview.dataset.title;
   image.loading = "lazy";
+  image.decoding = "async";
+  image.addEventListener("load", () => { image.dataset.ready = "true"; }, { once: true });
   image.src = "https://oven.aesthetic.computer/grab/webp/512/512/" + encodeURIComponent(kind.prefix + code);
   image.addEventListener("error", () => {
     image.remove();
@@ -560,6 +681,7 @@ function renderFile(file) {
     media.src = file.url;
     media.alt = file.name;
     media.loading = "lazy";
+    media.decoding = "async";
   } else if (top === "audio") {
     media = el("audio");
     media.controls = true;
@@ -569,25 +691,31 @@ function renderFile(file) {
     media = el("video");
     media.controls = true;
     media.playsInline = true;
-    media.preload = "metadata";
-    media.src = file.url;
+    media.preload = "none";
+    nearViewport(media, () => {
+      media.dataset.loadStarted = performance.now();
+      media.preload = "metadata";
+      if (file.poster) media.poster = file.poster;
+      media.src = file.url;
+    });
   } else if (file.type === "application/pdf" || file.type === "text/html") {
     media = el("iframe", "doc");
     media.setAttribute("sandbox", ""); // markup renders, scripts never run
-    media.src = file.url;
+    media.loading = "lazy";
+    nearViewport(media, () => { media.src = file.url; });
     media.title = file.name;
   } else if (top === "text" || ["application/json", "application/xml", "application/javascript"].includes(file.type)) {
     media = el("pre", "textfile", "…");
-    fetch(file.url).then((r) => { if (!r.ok) throw new Error("File unavailable"); return r.text(); }).then((t) => {
+    nearViewport(media, () => fetch(file.url).then((r) => { if (!r.ok) throw new Error("File unavailable"); return r.text(); }).then((t) => {
       media.textContent = t.length > 8000 ? t.slice(0, 8000) + "\n…[truncated]" : t;
-    }).catch(() => { media.textContent = "file unavailable"; });
+    }).catch(() => { media.textContent = "file unavailable"; }));
   } else if (top === "font") {
     media = el("div", "specimen", "Sphinx of black quartz, judge my vow. 0123456789");
     const face = new FontFace("mc-" + file.url.split("=")[1], `url(${file.url})`);
-    face.load().then((f) => {
+    nearViewport(media, () => face.load().then((f) => {
       document.fonts.add(f);
       media.style.fontFamily = f.family;
-    });
+    }).catch(() => { media.textContent = "Font unavailable"; }));
   } else {
     media = el("a", "blob", "download " + file.name);
     media.href = file.url;
@@ -600,6 +728,7 @@ function renderFile(file) {
       const link = el("a", null, "Open " + file.name);
       link.href = file.url;
       fallback.append(link);
+      media.parentElement?.querySelector(".media-shield")?.remove();
       media.replaceWith(fallback);
     }, { once: true });
   }
@@ -725,7 +854,40 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
     const file = runnable ? renderRunnable(post) : renderFile(post.file);
     const frame = el("div", "feed-media");
     if (inFeed && file.tagName === "VIDEO") { file.muted = true; file.loop = true; }
+    if (post.media?.kind === "tape" && post.media.code) frame.dataset.tape = post.media.code;
     frame.append(file);
+    if (["IMG", "VIDEO", "IFRAME", "PRE"].includes(file.tagName) || runnable) {
+      const label = file.tagName === "VIDEO" ? "video" : file.tagName === "IMG" ? "image" : runnable ? "program" : "preview";
+      const loading = el("span", "media-loading", `Loading ${label}…`);
+      frame.dataset.mediaState = "loading";
+      frame.append(loading);
+      const ready = () => {
+        frame.dataset.mediaState = "ready";
+        if (file.dataset.loadStarted) frame.dataset.mediaLoadMs = Math.round(performance.now() - Number(file.dataset.loadStarted));
+      };
+      file.addEventListener(file.tagName === "VIDEO" ? "loadeddata" : "load", ready, { once: true });
+      file.addEventListener("error", () => { frame.dataset.mediaState = "error"; }, { once: true });
+      if (file.tagName === "PRE" || runnable) {
+        const observer = new MutationObserver(() => {
+          if (file.tagName === "PRE" && file.textContent !== "…" || runnable && file.querySelector("iframe, img")?.dataset.ready) {
+            ready(); observer.disconnect();
+          }
+        });
+        observer.observe(file, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-ready"] });
+      }
+      if (file.tagName === "IMG" && file.complete && file.naturalWidth) ready();
+    }
+    if (["IMG", "VIDEO"].includes(file.tagName)) {
+      frame.classList.add(file.tagName === "IMG" ? "media-image" : "media-video");
+      const fit = () => {
+        const width = file.naturalWidth || file.videoWidth, height = file.naturalHeight || file.videoHeight;
+        if (width && height) frame.style.setProperty("--media-ratio", `${width} / ${height}`);
+      };
+      file.addEventListener(file.tagName === "IMG" ? "load" : "loadedmetadata", fit);
+      fit();
+    }
+    if (file.tagName === "AUDIO") frame.classList.add("media-audio");
+    shieldMedia(frame, file, Boolean(frame.dataset.tape) || runnable || ["IFRAME", "VIDEO", "AUDIO", "PRE", "A"].includes(file.tagName));
     div.append(frame);
   }
   if (post.text) div.append(renderText(post.text));
@@ -945,7 +1107,7 @@ function pages(page, hasMore, path) {
 async function home(page = 0, signal) {
   let state = feedCache?.startPage === page ? feedCache : null;
   if (!state) {
-    const data = await read(API + "?page=" + page, signal);
+    const data = await read(API + "?feed=1&page=" + page, signal);
     state = { startPage: page, nextPage: page + 1,
       hasMore: data.hasMore, nodes: [], codes: new Set(), index: 0, offset: null };
     for (const post of data.recent) {
@@ -962,6 +1124,8 @@ async function home(page = 0, signal) {
   list.setAttribute("aria-label", "Media feed");
   list.append(...state.nodes);
   view.replaceChildren(list);
+  const firstImage = state.nodes[0]?.querySelector(".feed-media > img");
+  if (firstImage) { firstImage.loading = "eager"; firstImage.fetchPriority = "high"; }
   if (!state.nodes.length) list.append(el("p", null, "no media yet"));
   const more = el("div", "feed-more");
   const button = el("button", null, "load more");
@@ -979,9 +1143,10 @@ async function home(page = 0, signal) {
       for (const entry of entries) {
         for (const media of entry.target.querySelectorAll("video, audio")) {
           if (!entry.isIntersecting || entry.intersectionRatio < 0.6) media.pause();
-          else if (media.tagName === "VIDEO" && !document.hidden) media.play().catch(() => {});
+
         }
       }
+      syncVideoPlayback();
     }, { threshold: [0, 0.6] });
     state.nodes.forEach((node) => playbackObserver.observe(node.querySelector(".feed-media") || node));
   }
@@ -994,7 +1159,7 @@ async function home(page = 0, signal) {
     list.setAttribute("aria-busy", "true");
     feedObserver?.disconnect();
     try {
-      const data = await read(API + "?page=" + state.nextPage, signal);
+      const data = await read(API + "?feed=1&page=" + state.nextPage, signal);
       if (signal.aborted) return;
       for (const post of data.recent) {
         if (state.codes.has(post.code)) continue;
@@ -1079,6 +1244,7 @@ async function read(url, signal) {
 }
 
 async function route() {
+  exitMediaInteraction();
   stopPiece();
   rememberFeed();
   activeFeed = null;
@@ -1130,7 +1296,10 @@ window.addEventListener("resize", () => {
   }
 });
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) view.querySelectorAll("video, audio").forEach((media) => media.pause());
+  if (document.hidden) {
+    exitMediaInteraction();
+    view.querySelectorAll("video, audio").forEach((media) => media.pause());
+  }
 });
 window.addEventListener("keydown", (event) => {
   if (!activeFeed?.nodes.length || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||

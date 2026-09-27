@@ -1,0 +1,106 @@
+{
+  "hostname": "frisbee",
+  "computer_name": "frisbee",
+  "installs_total": 5,
+  "macos_updates": [
+    {
+      "name": "macOS 26.7",
+      "version": "26.7",
+      "date": "2026-09-22T04:02:26Z"
+    }
+  ],
+  "installs_by_source": {
+    "package_source_apple": 5
+  },
+  "sleeps": 133,
+  "wakes": 133,
+  "menuband_wake_assertions": 20,
+  "audio_devices": [
+    {
+      "name": "MacBook Neo Microphone",
+      "input": 1,
+      "output": null,
+      "transport": "coreaudio_device_type_builtin"
+    },
+    {
+      "name": "MacBook Neo Speakers",
+      "input": null,
+      "output": 2,
+      "transport": "coreaudio_device_type_builtin"
+    }
+  ],
+  "bluetooth_paired": [
+    {
+      "name": "aesthetic.computer",
+      "type": null,
+      "connected": false
+    },
+    {
+      "name": "AirPods Pro - Find My",
+      "type": "Headphones",
+      "connected": false
+    },
+    {
+      "name": "Bedroom",
+      "type": null,
+      "connected": false
+    },
+    {
+      "name": "blueberry",
+      "type": null,
+      "connected": false
+    },
+    {
+      "name": "Jeffrey\u2019s AirPods Max - Find My",
+      "type": "Headphones",
+      "connected": false
+    },
+    {
+      "name": "Jeffrey\u2019s AirPods Pro",
+      "type": "Headphones",
+      "connected": false
+    },
+    {
+      "name": "jeffrey\u2019s AirPods Pro",
+      "type": "Headphones",
+      "connected": false
+    },
+    {
+      "name": "Jeffrey\u2019s MacBook Neo",
+      "type": null,
+      "connected": false
+    },
+    {
+      "name": "Whistlegraph's AirPods Pro",
+      "type": "Headphones",
+      "connected": false
+    }
+  ],
+  "displays": [
+    {
+      "name": "Color LCD",
+      "resolution": "2816 x 1762",
+      "main": "spdisplays_yes"
+    }
+  ],
+  "usb_now": [],
+  "apps_system": 7,
+  "apps_user": 3,
+  "house_apps": [
+    "BlueberryWallpaper",
+    "SlabMenubar"
+  ],
+  "brew_formulae": 20,
+  "fonts_user": 6,
+  "fonts_local": 1,
+  "say_voices": 184,
+  "launchd_services": 515,
+  "launchd_non_apple": 19,
+  "ssh_known_hosts": 6,
+  "wifi_known_networks": 3,
+  "repo_gb": 5.9,
+  "repo_commits_local": 10,
+  "photos_library_gb": 5.8,
+  "timezone": "Los_Angeles",
+  "locale": "en_US"
+}

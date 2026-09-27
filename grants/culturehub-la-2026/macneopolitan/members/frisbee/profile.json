@@ -1,0 +1,13 @@
+{
+  "hostname": "frisbee",
+  "logins": { "console": 3, "tty": 19, "recorded_since": "Mon Sep 21 21:01:56 PDT 2026" },
+  "boots": { "reboots": 1, "shutdowns": 0, "current_boot": "2026-09-21T21:01:56" },
+  "uptime": {"longest_stretch_days": 0.5, "longest_stretch_began": "2026-09-21"},
+  "disk": {"used":"39G","free":"432G","pct":"9%"},
+  "load": { "processes": 770, "loadavg": [4.47,8.94,9.85] },
+  "cpu_champions": [{"cmd": "cloudd", "cpu_hours": 1.3}, {"cmd": "photolibraryd", "cpu_hours": 0.8}, {"cmd": "WindowServer", "cpu_hours": 0.7}, {"cmd": "com.apple.AppleSunriseWLAN", "cpu_hours": 0.3}, {"cmd": "system_installd", "cpu_hours": 0.3}, {"cmd": "cloudphotod", "cpu_hours": 0.2}],
+  "agent_workload": {"total":0,"by_project":{},"by_provider":{},"by_month":{}},
+  "prox_rocks_now": [],
+  "fish_abbreviations": 0,
+  "profiled_at": "2026-09-22T16:42:50Z"
+}

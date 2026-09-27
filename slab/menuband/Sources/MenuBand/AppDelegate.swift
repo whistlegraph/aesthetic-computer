@@ -21,6 +21,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var jukeStatusItem: MenuBandJukeStatusItem?
 #endif
     private let menuBand = MenuBandController()
+    /// Speech-to-singing pipeline for `.play` payloads that carry `lyrics`.
+    private let singer = MenuBandSinger()
+    private let singerPrepared = SingerPreparedPerformance()
 #if MAC_APP_STORE
     /// Optional direct-download sensor bridge. It supplies contact frames only;
     /// this sandboxed process continues to own the instrument and its display.
@@ -75,6 +78,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Bumped by a stop to cancel every still-pending onset: each scheduled
     /// closure captures the generation and no-ops if it no longer matches.
     private var playGeneration = 0
+    /// A conducted sung sequence is running (keeps the engine warm; Escape
+    /// cancels it). Set when a synced sung score starts, cleared on stop.
+    private var sungSequenceActive = false
 
     private let hoverResponder = HoverResponder()
     /// Bridges typing in the macOS Stickies app to Menu Band note
@@ -385,6 +391,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Current bend amount in [-1, 1] (mapped to ±2 semitones via
     /// the GM default bend range). 0 = no bend.
     private var bendAmount: Float = 0
+    private let singerPerformance = SingerPerformancePlayer()
     /// Current "space" amount in [0, 1], the reverb half of the
     /// bipolar X axis (negative side). 0 = dry/up-front, 1 = big
     /// room. Eases back to 0 alongside the bend spring on release.
@@ -483,6 +490,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var trackpadSurfaceEnergy = TrackpadSurfaceEnergy()
     private var trackpadMembrane = TrackpadMembraneSimulation()
     private var polyrhythmTrainer = PolyrhythmTrainerClock()
+    /// The circles at wall size: one lane per rhythm across the whole
+    /// display, bursting where a finger lands. Lives and dies with the trainer.
+    private var polyrhythmStage: PolyrhythmStageWindow?
     /// Typed division entry — the digits/`/` string being composed while the
     /// circles are out ("7/4", "2/3/4"). Applied live on every keystroke;
     /// goes stale after `polyrhythmEntryTimeout` so `/` returns to walking
@@ -491,15 +501,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var polyrhythmEntryLastKeyAt: CFTimeInterval = -.infinity
     private static let polyrhythmEntryTimeout: CFTimeInterval = 2.0
     /// `/` off the TrackDrum surface: ToneTrials, the scale combo-trials
-    /// director (trial ladder, drop rules, CLEAR banner — ToneTrials.swift).
+    /// director, with desktop lanes anchored beneath the menu-bar keys.
     private let toneTrials = ToneTrials()
-    /// Drives the strip's hit/drop/CLEAR animation between gesture
-    /// repaints; runs only while the trials are up.
+    private let toneTracks = ToneTrialsTracks()
+    /// Animates the desktop lanes only during practice.
     private var toneTrialsRepaintTimer: Timer?
     /// Previous lit-note set, so the trials are fed exactly the notes that
     /// just began (`onLitChanged` itself only reports that the set changed).
     private var toneTrialsLitNotes: Set<UInt8> = []
-    private static let toneTrialsIndexDefaultsKey = "toneTrialsIndex"
     private var trackpadEnergyTimer: Timer?
     private var trackpadOverlayLastDraw: Double = 0
     /// Keep the last percussion surface readable after the final lift, like
@@ -575,10 +584,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Escape must remain available even when the percussion click wall or
         // KeyMap owns AppKit focus. The session tap runs ahead of either local
         // monitor, so this is the reliable way out of a latched trackpad mode.
-        if keyCode == 53 /* kVK_Escape */, isDown,
-           self.pitchBendCursorPushed {
-            DispatchQueue.main.async { self.exitPerformanceFocusFromEscape() }
-            return true
+        if keyCode == 53 /* kVK_Escape */, isDown {
+            // Escape ALWAYS cancels a running conducted sequence, from any app.
+            if self.sungSequenceActive || KeyboardIconRenderer.scoreTitle != nil {
+                DispatchQueue.main.async {
+                    NSLog("⏹ SEQUENCE cancelled by Escape")
+                    self.stopScore(broadcast: true)
+                }
+                return true
+            }
+            if self.pitchBendCursorPushed {
+                DispatchQueue.main.async { self.exitPerformanceFocusFromEscape() }
+                return true
+            }
         }
 
         guard self.pitchBendCursorPushed || self.keyboardPerformanceFocusActive
@@ -596,7 +614,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     // Routed by what's on screen: circles when the
                     // TrackDrum surface is up, ToneTrials otherwise.
                     case .trainer: self.handleTrainerSlash()
-                    case .help: Self.openTips()
+                    case .scales: self.startScaleTracks()
                     }
                 }
             }
@@ -760,7 +778,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// the grid edge IS the cap. ±2 = two octaves down / up — which is also
     /// AVAudioUnitTimePitch's hard limit (±2400 cents) for the radio voice,
     /// so the radio reaches its true floor/ceiling at the grid edges.
-    private static let bendRange: Float = 2.0
+    private static let bendRange = MenuBandController.bendRangeOctaves
     /// Time constant for both axes of the FX surface. A single exponential
     /// response keeps diagonals round and attached to the finger without
     /// overshoot or frame-rate-dependent elasticity.
@@ -1007,6 +1025,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.toneTrials.registerNote(Int(note), at: now)
                 }
                 self.toneTrialsLitNotes = lit
+                self.updateScaleTracks()
             }
             // Subtle flash on every fresh note hit so the icon
             // pulses with playing activity. Only on count
@@ -1324,7 +1343,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Start the Stickies bridge — watches the focused sticky's text
         // and plays a note for each character typed after an `mbN` token,
         // through the same keymap the physical keyboard uses. Requires
-        // Accessibility permission; on first launch the system will prompt.
+        // Accessibility permission; startup checks silently for an existing grant.
         #if !MAC_APP_STORE
         // The bridge reads another app's text through Accessibility. The
         // sandbox permits AX with the user's consent, so this is no longer
@@ -1423,6 +1442,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSNotification.Name("computer.aestheticcomputer.menuband.play"),
             object: nil
         )
+        DistributedNotificationCenter.default().addObserver(self,
+            selector: #selector(handleSlideNotification(_:)),
+            name: NSNotification.Name("computer.aestheticcomputer.menuband.slide"), object: nil)
+
+        for action in ["fleetPrepare", "fleetReady"] {
+            DistributedNotificationCenter.default().addObserver(self,
+                selector: #selector(handleSingerPrepareNotification(_:)),
+                name: NSNotification.Name("computer.aestheticcomputer.menuband." + action), object:nil)
+        }
 
         // Stop: cease the current score everywhere. Posting this (Stop button,
         // hotkey, or `conduct.mjs stop`) cancels pending onsets + silences, and
@@ -1652,7 +1680,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     // Routed by what's on screen: circles when the
                     // TrackDrum surface is up, ToneTrials otherwise.
                     case .trainer: self.handleTrainerSlash()
-                    case .help: Self.openTips()
+                    case .scales: self.startScaleTracks()
                     }
                 }
                 return true
@@ -3548,6 +3576,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ? "M"
             : (voiceLabel ?? String(Int(menuBand.effectiveMelodicProgram) + 1))
         KeyboardIconRenderer.voiceBadgeDigits = badgeText.count
+        // The full-screen singer covers the keyboard. Its synchronous
+        // CoreGraphics icon redraw otherwise steals the face's frame budget.
+        // The ordinary visualizer tick refreshes it when the face closes.
+        if SingerFace.fullscreenVisible {
+            // Drop the retained vector display list too: on newer AppKit it
+            // can otherwise be rasterized again during unrelated CA flushes.
+            if button.image != nil { button.image = nil }
+            return
+        }
         statusItem.length = KeyboardIconRenderer.imageSize.width
         button.image = KeyboardIconRenderer.image(
             litNotes: menuBand.litNotes,
@@ -4499,6 +4536,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         playFromInfo(note.userInfo as? [String: String] ?? [:])
     }
 
+    private func applyCodeSlide(x: Float, y: Float) {
+        guard x.isFinite, y.isFinite else { return }
+        cancelFxRelease()
+        fxXGestureTarget = max(-1, min(Self.fxEchoEnabled ? 1 : 0, x))
+        bendGestureTarget = max(-Self.bendRange, min(Self.bendRange, y))
+        bendEaseAllChannels = true
+        startBendEase()
+    }
+
+    @objc private func handleSlideNotification(_ note: Notification) {
+        let info = note.userInfo as? [String: String] ?? [:]
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if let expression = Double(info["expression"] ?? ""), expression.isFinite {
+                SingerFace.shared.setExpression(expression)
+            }
+            guard ["x","y","space","pitch"].contains(where: { info[$0] != nil }) else { return }
+            let x = Float(info["x"] ?? "") ?? info["space"].flatMap(Float.init).map { -$0 } ?? self.fxX
+            let y = Float(info["y"] ?? "") ?? info["pitch"].flatMap(Float.init).map { $0/12 } ?? self.bendAmount
+            guard x.isFinite, y.isFinite else { return }
+            self.singerPerformance.stop()
+            self.applyCodeSlide(x: x, y: y)
+            NSLog("🎚 slide: space %.3f, pitch %+.2f semitones", max(0,-x), y*12)
+        }
+    }
+
+    @objc private func handleSingerPrepareNotification(_ note: Notification) {
+        let info = note.userInfo as? [String:String] ?? [:]
+        guard let id = info["prepareId"] else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if note.name.rawValue.hasSuffix("fleetReady") { self.singerPrepared.ready(id); return }
+            guard !self.sungSequenceActive else { return }
+            self.singerPrepared.prepare(id,info:info,singer:self.singer,format:self.menuBand.singerVoice.format)
+        }
+    }
+
     @objc private func handleStopNotification(_ note: Notification) {
         stopScore(broadcast: true)
     }
@@ -4570,13 +4644,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func stopScore(broadcast: Bool) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            self.singerPrepared.cancelAll()
             self.playGeneration += 1            // pending onsets become no-ops
+            self.singerPerformance.stop()
+            self.applyCodeSlide(x: 0, y: 0)
+            if self.sungSequenceActive {
+                NSLog("⏹ SEQUENCE END")
+                self.sungSequenceActive = false
+                self.menuBand.keepEngineWarm = false
+            }
+            self.menuBand.stopAllSingers()      // drop any queued sung line (sim slots too)
             self.menuBand.panic()               // silence anything ringing
             if self.menuBand.percussionSplit { self.menuBand.percussionSplit = false }
             self.menuBand.octaveShift = 0
             KeyboardIconRenderer.scoreTitle = nil
             KeyboardIconRenderer.scoreStart = 0
             KeyboardIconRenderer.scoreEnd = 0
+            LyricCaption.hideAll()
+            SingerFace.hideAll()
             self.fleetDriveUntil = 0
             self.fleetClearTimer?.invalidate()
             KeyboardIconRenderer.fleetDriving = false
@@ -4668,6 +4753,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Parse a play spec (from a distributed notification or a fleet message)
     /// and schedule it. Keys are documented on handlePlayNotification.
     func playFromInfo(_ info: [String: String]) {
+        let prepared = info["preparedId"].flatMap { singerPrepared.take($0,info:info) }
+        if info["preparedId"] != nil && prepared == nil {
+            NSLog("Trio prepared play rejected: missing/stale/mismatched preparation")
+            return
+        }
+        if prepared != nil {
+            guard let epoch = Double(info["startEpoch"] ?? ""), epoch.isFinite,
+                  epoch-Date().timeIntervalSince1970 >= 2 else {
+                NSLog("Trio prepared play rejected: insufficient scheduling lead"); return
+            }
+        }
         let program = UInt8(info["program"] ?? "") ?? 78
         let bpm = Double(info["bpm"] ?? "") ?? 132
         let velocity = UInt8(info["velocity"] ?? "") ?? 100
@@ -4694,6 +4790,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             tracks.append(("67:1,72:1,76:1,79:1,81:2,79:1,76:1,74:1,76:1,79:1,76:1,72:3,r:1",
                            velocity))
         }
+        // `lyrics` makes the first track a SUNG voice: its notes light the
+        // keys but the instrument stays silent — the singer sounds them.
+        let sung = SungLine(info: info, bpm: bpm)
+        NSLog("▶ play keys: %@ · lyrics=%@", info.keys.sorted().joined(separator: ","), info["lyrics"].map { "\($0.count) chars" } ?? "nil")
+
+        // Log and bracket each sequence. A synced cue carrying lyrics is a
+        // conducted sung sequence: keep the engine warm for its whole length
+        // so the singer never hits the idle-pause clock hole, and let Escape
+        // cancel it.
+        let isSungSequence = info["lyrics"] != nil && info["startEpoch"] != nil
+        if isSungSequence {
+            NSLog("▶ SEQUENCE START: %@ · bpm=%@ · voice=%@",
+                  info["title"] ?? "(untitled)", info["bpm"] ?? "?", info["singVoice"] ?? "?")
+            self.sungSequenceActive = true
+            self.menuBand.keepEngineWarm = true
+        }
 
         // Fleet tell: a synced cue (carries startEpoch) means a conductor is
         // driving us — light the robot badge through the end of the longest
@@ -4712,8 +4824,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                   epoch, recv, (epoch - recv) * 1000, bpm, tracks.count)
         }
 
+        // `sim=i/n`: the simulator — this payload is member i of n, all on
+        // this one machine: its own singer node (panned), a tile-sized face
+        // and caption instead of the whole display.
+        let simSlot = SingerFace.SimSlot(info["sim"])
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            // Stop may have invalidated the prepared cache between receipt
+            // and this main-queue turn. Never revive that cancelled take.
+            if let id = info["preparedId"], self.singerPrepared.take(id,info:info) == nil { return }
             let gen = self.playGeneration   // stop bumps this to cancel onsets
             // A conducted melody should play THROUGH an active Fluoddity
             // ecosystem, not silently yank it back to GM — only switch
@@ -4814,9 +4933,72 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
 
-            for track in tracks {
+            if let line = sung {
+                // Heavy (speech + WORLD + render) off main; back here only to
+                // check the generation and drop the buffer on the downbeat.
+                // Line by line, in order: each line is scheduled the moment
+                // it is ready, so line 1 sounds on the downbeat while the rest
+                // of a long lyric is still rendering behind it.
+                let voice = simSlot.map { self.menuBand.simSingerVoice($0) } ?? self.menuBand.singerVoice
+                let lines = line.splitLines()
+                func renderLine(_ i: Int) {
+                    guard i < lines.count, self.playGeneration == gen else { return }
+                    let accept: (SungRender?) -> Void = { [weak self] r in
+                        guard let self = self, self.playGeneration == gen else { return }
+                        if let r = r {
+                            if prepared == nil { SingerPreparedPerformance.applyDynamics(r,line:lines[i],index:i,info:info) }
+                            let lead = voice.schedule(r, atEpoch: downbeatEpoch + r.spanOffset)
+                            NSLog("🎤 sing: line %d/%d scheduled %.2f s at downbeat %.3f + %.2f s (lead %+.0f ms, %d/%d notes, peak %.3f)",
+                                  i + 1, lines.count, r.duration, downbeatEpoch, r.spanOffset, lead * 1000,
+                                  r.notesUsed, r.noteCount, r.peak)
+                        } else {
+                            NSLog("🎤 sing: line %d/%d — nothing to sing", i + 1, lines.count)
+                        }
+                        renderLine(i + 1)
+                    }
+                    if let prepared { accept(i < prepared.count ? prepared[i] : nil) }
+                    else { self.singer.render(lines[i], into:voice.format, completion:accept) }
+                }
+                renderLine(0)
+            }
+
+            // Captions: the sung line on screen, the syllable being sung lit.
+            // Follows track 0's onsets — the same clock that lights the keys —
+            // so the words keep time even when the singer runs late.
+            var captionLines: [[String]] = []
+            var lineOfSyllable: [Int] = []
+            var syllableText: [String] = []
+            var lineStart: [Int] = []
+            if let line = sung, info["caption"] != "0" {
+                for lt in line.lineTokens {
+                    let li = captionLines.count
+                    captionLines.append(lt)
+                    lineStart.append(lineOfSyllable.count)
+                    for t in lt { for syl in t.split(separator: "-") { lineOfSyllable.append(li); syllableText.append(String(syl)) } }
+                }
+            }
+            let captionAccent = LyricCaption.color(hex: info["captionColor"])
+            let captionSize = CGFloat(Double(info["captionSize"] ?? "") ?? 0)
+            let caption = LyricCaption.at(simSlot)
+            let face = SingerFace.at(simSlot)
+            if let performance = SingerPerformance.decode(info["performance"]) {
+                face.configure(epoch: downbeatEpoch, bpm: bpm, expression: performance.expression)
+                self.singerPerformance.play(performance, epoch: downbeatEpoch, bpm: bpm) { [weak self] x,y in
+                    self?.applyCodeSlide(x: x, y: y)
+                }
+                NSLog("🎭 performance: %d slide keys; expression %.2f", performance.keys.count, performance.expression)
+            }
+            // `face=neo|blueberry|blush` puts the member's cartoon face up for
+            // the sung part; its mouth follows the same onsets.
+            let faceMember = (info["face"] ?? "0") == "0" ? nil : info["face"]
+            // `faceAlpha=0.7` — the face lets the desktop through (default opaque).
+            let faceAlpha = CGFloat(Double(info["faceAlpha"] ?? "") ?? 1)
+            var sylIndex = 0
+
+            for (ti, track) in tracks.enumerated() {
                 var t = leadIn  // wait for the shared start instant (or 0.2s)
                 let vel = track.vel
+                let lightOnly = sung != nil && ti == 0
                 for token in track.spec.split(separator: ",") {
                     let parts = token.split(separator: ":")
                     guard parts.count == 2, let beats = Double(parts[1]) else { continue }
@@ -4863,6 +5045,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         let display = UInt8(disp)
                         let onEpoch = downbeatEpoch + (onAt - leadIn)
                         let offEpoch = downbeatEpoch + (offAt - leadIn)
+                        if lightOnly {
+                            let si = sylIndex
+                            sylIndex += 1
+                            if si < lineOfSyllable.count {
+                                let li = lineOfSyllable[si], k = si - lineStart[li]
+                                let words = captionLines[li]
+                                let syl = syllableText[si]
+                                if k == 0 {
+                                    DispatchQueue.main.asyncAfter(deadline: at(onEpoch - 0.4)) { [weak self] in
+                                        guard let self = self, self.playGeneration == gen else { return }
+                                        caption.show(line: li, tokens: words, accent: captionAccent, size: captionSize)
+                                        if si == 0, let fm = faceMember { face.show(member: fm, accent: captionAccent, opacity: faceAlpha) }
+                                    }
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: at(onEpoch)) { [weak self] in
+                                    guard let self = self, self.playGeneration == gen else { return }
+                                    caption.highlight(line: li, syllable: k)
+                                }
+                                // lips lead the sound by a frame or two, never behind
+                                if faceMember != nil {
+                                    DispatchQueue.main.asyncAfter(deadline: at(onEpoch - 0.05)) { [weak self] in
+                                        guard let self = self, self.playGeneration == gen else { return }
+                                        face.onset(syl, hold: dur)
+                                    }
+                                }
+                                if si + 1 == lineOfSyllable.count || lineOfSyllable[si + 1] != li {
+                                    DispatchQueue.main.asyncAfter(deadline: at(offEpoch + 1.2)) { [weak self] in
+                                        guard let self = self, self.playGeneration == gen else { return }
+                                        caption.hide(line: li)
+                                    }
+                                }
+                                if si + 1 == lineOfSyllable.count, faceMember != nil {
+                                    DispatchQueue.main.asyncAfter(deadline: at(offEpoch + 1.8)) { [weak self] in
+                                        guard let self = self, self.playGeneration == gen else { return }
+                                        face.hide()
+                                    }
+                                }
+                            }
+                            // Sung note: the refcounted visual-only lit path
+                            // (drumLitOn is just "hold this cell lit").
+                            DispatchQueue.main.asyncAfter(deadline: at(onEpoch)) { [weak self] in
+                                guard let self = self, self.playGeneration == gen else { return }
+                                self.menuBand.drumLitOn(display)
+                            }
+                            DispatchQueue.main.asyncAfter(deadline: at(offEpoch)) { [weak self] in
+                                self?.menuBand.drumLitOff(display)
+                            }
+                            t += dur
+                            continue
+                        }
                         DispatchQueue.main.asyncAfter(deadline: at(onEpoch)) { [weak self] in
                             guard let self = self, self.playGeneration == gen else { return }
                             self.menuBand.startTapNote(midi, velocity: vel, displayNote: display)
@@ -6037,7 +6269,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setTrackpadFighterSuppressed(true)
         #endif
         trackpadPadMode = useTrackDrum ? .skin : .fx
-        polyrhythmTrainer.stop()
+        stopPolyrhythmTrainer()
         stopToneTrials()
         #if MAC_APP_STORE
         trackpadPluginCaptureActive = useTrackDrum
@@ -6192,7 +6424,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #endif
         trackpadFXPrimaryContact.reset()
         trackpadFXLastPrimaryPoint = nil
-        polyrhythmTrainer.stop()
+        stopPolyrhythmTrainer()
         stopToneTrials()
         trackpadPadMode = Self.trackpadPadModeAfterTab(trackpadPadMode)
         // The handoff chime names the destination by pitch, and the choice
@@ -6315,7 +6547,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func restoreFocusedPitchSlider() {
         trackpadFXPrimaryContact.reset()
         trackpadFXLastPrimaryPoint = nil
-        polyrhythmTrainer.stop()
+        stopPolyrhythmTrainer()
         stopToneTrials()
         trackpadPadMode = .fx
         releaseTrackpadPercussion()
@@ -6474,6 +6706,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         bendGestureTarget = targets.bend
         fxXGestureTarget = targets.fxX
         bendEaseAllChannels = false
+        singerPerformance.stop()
         startBendEase()
     }
 
@@ -6594,6 +6827,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fxXGestureTarget = max(Float(-1),
                                min(fxMax, fxXGestureTarget + dx * xSens))
         bendEaseAllChannels = shift
+        singerPerformance.stop() // a physical slide takes over the scored curve
         startBendEase()
         if !pitchBendCursorPushed {
             #if !MAC_APP_STORE
@@ -6803,15 +7037,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             forBend: displayBendAmount / Self.bendRange, echo: fxX,
             keyDown: menuBand.keyboardNotesHeld
         )
-        // The trials strip rides the fx chart image itself, so every path
-        // that shows or refreshes the chart carries it for free.
-        guard trackpadPadMode == .fx,
-              let practice = toneTrials.snapshot(at: CACurrentMediaTime())
-        else { return chart }
-        let dark = NSApp.effectiveAppearance
-            .bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        return ToneTrialsStrip.composite(chart: chart, snapshot: practice,
-                                         dark: dark)
+        return chart
     }
 
     /// Keep the puck attached to the bend that is actually sounding. Drawing
@@ -6826,10 +7052,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             && !NSEvent.modifierFlags.contains(.shift)
     }
 
+    private func stopPolyrhythmTrainer() {
+        polyrhythmTrainer.stop()
+        polyrhythmStage?.hide()
+    }
+
+    /// The stage follows the strip's own refresh: whenever the strip redraws
+    /// with a live snapshot the stage gets the same one, and a nil snapshot
+    /// takes it down.
+    private func syncPolyrhythmStage(_ snapshot: PolyrhythmTrainerSnapshot?) {
+        guard let snapshot else { polyrhythmStage?.hide(); return }
+        let screen = statusItem?.button?.window?.screen ?? NSScreen.main
+        guard let screen else { return }
+        if polyrhythmStage == nil { polyrhythmStage = PolyrhythmStageWindow() }
+        polyrhythmStage?.show(snapshot, on: screen)
+    }
+
     private func togglePolyrhythmTrainer() {
         guard trackpadPadMode == .skin,
               pitchBendCursorPushed || keyboardPerformanceFocusActive else { return }
         polyrhythmTrainer.cyclePattern(at: CACurrentMediaTime())
+        if !polyrhythmTrainer.isActive { polyrhythmStage?.hide() }
         if trackpadEnergyTimer == nil { startTrackpadEnergyDisplay() }
         showPitchBendOverlay()
         debugLog(polyrhythmTrainer.isActive
@@ -6902,57 +7145,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// `/` toggles ToneTrials, hosted on the pitch-slider page — summoning
-    /// it from the skin page hands the pad over first (the quiet Tab flip).
-    /// Ladder position persists across sessions; clearing a trial advances
-    /// it automatically, `-`/`=` skip by hand.
     private func toneTrialsSlashKey() {
-        guard pitchBendCursorPushed || keyboardPerformanceFocusActive else {
-            return
-        }
-        #if MAC_APP_STORE
-        guard trackpadPadMode == .fx else { return }
-        #else
+        if toneTrials.isActive { stopToneTrials() }
+        else { startScaleTracks() }
+    }
+
+    /// `?` always begins at the first scale, including while practicing.
+    private func startScaleTracks() {
+        #if !MAC_APP_STORE
         if trackpadPadMode != .fx { restoreFocusedPitchSlider() }
         #endif
-        if toneTrials.isActive {
-            stopToneTrials()
-            updatePitchBendOverlayImage()
-            // The strip was the reason the overlay stayed up; without a
-            // live gesture, let the bare chart take its leave.
-            pitchBendOverlay?.fadeOut(after: 0.6, duration: 0.4)
-            debugLog("ToneTrials = off")
-        } else {
-            toneTrials.onIndexChange = { index in
-                UserDefaults.standard.set(
-                    index, forKey: Self.toneTrialsIndexDefaultsKey
-                )
-            }
-            toneTrials.start(at: UserDefaults.standard.integer(
-                forKey: Self.toneTrialsIndexDefaultsKey
-            ))
-            toneTrialsLitNotes = Set(menuBand.litNotes)
-            startToneTrialsRepaint()
-            showPitchBendOverlay()
-            debugLog("ToneTrials = trial \(toneTrials.index + 1) "
-                + toneTrials.trial.title)
+        stopPolyrhythmTrainer()
+        toneTrials.start(at: 0)
+        toneTrialsLitNotes = Set(menuBand.litNotes)
+        startToneTrialsRepaint()
+        updateScaleTracks()
+    }
+
+    private func updateScaleTracks() {
+        var target: Int?
+        if toneTrials.isActive, toneTrials.progress < toneTrials.trial.intervals.count,
+           let range = KeyboardIconRenderer.activeRange {
+            let midi = 60 + toneTrials.trial.root + toneTrials.trial.intervals[toneTrials.progress]
+            target = range.contains(midi) ? midi : range.first { $0 % 12 == midi % 12 }
         }
+        if KeyboardIconRenderer.practiceTargetMidi != target {
+            KeyboardIconRenderer.practiceTargetMidi = target
+            updateIcon()
+        }
+        guard let button = statusItem?.button else { return }
+        toneTracks.update(trials: toneTrials, button: button,
+                          now: CACurrentMediaTime())
     }
 
     private func stepToneTrial(by delta: Int) {
         toneTrials.step(by: delta)
-        updatePitchBendOverlayImage()
+        updateScaleTracks()
         debugLog("ToneTrials = trial \(toneTrials.index + 1) "
             + toneTrials.trial.title)
     }
 
-    /// Everything that tears the slider page down funnels through here so
-    /// the strip, its repaint clock, and the note diff reset together.
+    /// End the desktop overlay and note tracking when performance focus ends.
     private func stopToneTrials() {
         guard toneTrials.isActive || toneTrialsRepaintTimer != nil else {
             return
         }
         toneTrials.stop()
+        toneTracks.hide()
+        KeyboardIconRenderer.practiceTargetMidi = nil
+        updateIcon()
         stopToneTrialsRepaint()
         toneTrialsLitNotes = []
     }
@@ -6965,7 +7206,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // The director owns the CLEAR-banner clock; ticking it here is
             // what makes a finished trial load the next one.
             self.toneTrials.update(at: CACurrentMediaTime())
-            self.updatePitchBendOverlayImage()
+            self.updateScaleTracks()
         }
         RunLoop.main.add(timer, forMode: .common)
         toneTrialsRepaintTimer = timer
@@ -6976,7 +7217,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         toneTrialsRepaintTimer = nil
     }
 
-    enum TrackDrumSlashAction: Equatable { case trainer, help }
+    enum TrackDrumSlashAction: Equatable { case trainer, scales }
 
     static func isABCToggleShortcut(
         keyCode: UInt16,
@@ -6996,7 +7237,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard keyCode == UInt16(kVK_ANSI_Slash),
               !flags.contains(.command), !flags.contains(.option),
               !flags.contains(.control) else { return nil }
-        return flags.contains(.shift) ? .help : .trainer
+        return flags.contains(.shift) ? .scales : .trainer
     }
 
     static func trackDrumRateDelta(
@@ -7051,6 +7292,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let overlay = ensurePitchBendOverlay()
         if showingTracktrampSkin {
             let rhythm = polyrhythmTrainer.snapshot(at: CACurrentMediaTime())
+            syncPolyrhythmStage(rhythm)
             overlay.showTracktramp(
                 trackpadMembrane.snapshot(),
                 touches: mtTouches,
@@ -7192,6 +7434,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         trackpadOverlayLastDraw = CACurrentMediaTime()
         if showingTracktrampSkin {
             let rhythm = polyrhythmTrainer.snapshot(at: CACurrentMediaTime())
+            syncPolyrhythmStage(rhythm)
             overlay.updateTracktramp(
                 trackpadMembrane.snapshot(),
                 touches: mtTouches,
@@ -7401,7 +7644,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // somehow already cleared.
         pitchBendModeLatched = false
         trackpadPerformanceSessionActive = false
-        polyrhythmTrainer.stop()
+        stopPolyrhythmTrainer()
         stopToneTrials()
         #if !MAC_APP_STORE
         setTrackpadFighterSuppressed(pianoWaveformWindowDelegate.isShown)

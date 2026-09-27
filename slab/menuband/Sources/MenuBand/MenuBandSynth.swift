@@ -59,6 +59,24 @@ final class MenuBandSynth {
     /// Speaks a language's own name (About-window easter egg) through the
     /// same pre-limiter fx bus, so the spoken voice picks up bend/space/echo.
     private let speechVoice = MenuBandSpeechVoice()
+    /// Sung `.play` lines (MenuBandSinger) sound through this node.
+    let singerVoice = MenuBandSingerVoice()
+    /// The simulator's extra singers: one node per `sim=i/n` slot, so the
+    /// whole band can sing at once (a "both" line) from one machine. Made
+    /// on first use, on the main thread, panned across the stage.
+    private var simSingers: [Int: MenuBandSingerVoice] = [:]
+    func simSingerVoice(_ slot: SingerFace.SimSlot) -> MenuBandSingerVoice {
+        if let v = simSingers[slot.index] { v.pan = slot.pan; return v }
+        let v = MenuBandSingerVoice()
+        v.face = SingerFace.at(slot)
+        v.pan = slot.pan
+        v.attach(to: engine, output: preLimiterMixer)
+        simSingers[slot.index] = v
+        NSLog("🎤 sim: singer %d/%d attached, pan %.2f", slot.index + 1, slot.count, slot.pan)
+        return v
+    }
+    /// Drop every queued sung line, the shared singer's and the sim slots'.
+    func stopAllSingers() { singerVoice.stop(); simSingers.values.forEach { $0.stop() } }
     /// Tab handoff chime + FX-page rub, on the fx bus so both preview the
     /// live bend/space/echo. See `MenuBandSurfaceCue`.
     private let surfaceCue = MenuBandSurfaceCue()
@@ -544,6 +562,9 @@ final class MenuBandSynth {
         speechVoice.attach(
             to: engine, output: preLimiterMixer, dryOutput: postFxMixer
         )
+        // Sung lines: same pre-limiter bus, so a voice conducted over the
+        // fleet is bent and spaced like the instrument it sings with.
+        singerVoice.attach(to: engine, output: preLimiterMixer)
         // Surface cues: same pre-limiter sum bus, so the Tab chime and the
         // pitch-page rub bloom with whatever space/echo the gesture holds.
         surfaceCue.attach(to: engine, output: preLimiterMixer)
@@ -907,6 +928,7 @@ final class MenuBandSynth {
         // channel 9) without an extra audible swap.
         selectMelodicProgram(au, program: currentMelodicProgram)
         selectDrumKit(au)
+        announceBendRange(au)
 
         midiSynth = avUnit
         midiSynthReady = true
@@ -1410,6 +1432,22 @@ final class MenuBandSynth {
         )
         if status != noErr {
             NSLog("MenuBand: MIDISynth EnablePreload(\(enable)) status=\(status)")
+        }
+    }
+
+    /// RPN 0 on every melodic channel: the same bend span MenuBandMIDI
+    /// announces to external receivers. Without it the AU keeps the GM
+    /// default of ±2 semitones, and the whole wheel is a small wobble.
+    private func announceBendRange(_ au: AudioUnit) {
+        for ch: UInt8 in 0..<16 where ch != 9 {
+            let cc: UInt8 = 0xB0 | ch
+            sendMIDIEvent(au, status: cc, data1: 101, data2: 0)
+            sendMIDIEvent(au, status: cc, data1: 100, data2: 0)
+            sendMIDIEvent(au, status: cc, data1: 6,
+                          data2: MenuBandController.bendRangeSemitones)
+            sendMIDIEvent(au, status: cc, data1: 38, data2: 0)
+            sendMIDIEvent(au, status: cc, data1: 101, data2: 127)
+            sendMIDIEvent(au, status: cc, data1: 100, data2: 127)
         }
     }
 
@@ -2215,6 +2253,7 @@ final class MenuBandSynth {
         pluginConnected = true
         pluginUnit = avUnit
         usingPluginInstrument = true
+        announceBendRange(avUnit.audioUnit)
         // Drop the sampler off the bus while the plugin is the melodic
         // voice — drums (ch 9) still need their sampler/MIDISynth path.
         disconnectMelodicSamplerIfNeeded()
@@ -2793,5 +2832,9 @@ final class MenuBandSynth {
         }
         radio.panic()
         sampleVoice.panic()
+        // NOTE: the sung voice is NOT stopped here. panic() fires routinely
+        // mid-performance — releasing held keys, arming percussion, shifting
+        // octave — and a conducted sung sequence must survive those. Only an
+        // explicit stopScore stops it (it calls singerVoice.stop() directly).
     }
 }

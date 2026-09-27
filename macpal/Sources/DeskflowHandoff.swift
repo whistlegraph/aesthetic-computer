@@ -162,7 +162,10 @@ final class DeskflowHandoff {
         guard screen != localScreenName(),
               let clients = handoffConfig()?["clients"] as? [String] else { return nil }
         let token = screen.replacingOccurrences(of: ".local", with: "").lowercased()
-        return clients.first { $0.lowercased().contains(token) }
+        let address = (handoffConfig()?["transportPeers"] as? [String: String])?[token]
+        return clients.first {
+            $0.lowercased().contains(token) || (address != nil && $0.split(separator: "@").last.map(String.init) == address)
+        }
     }
 
     private func readUnipointer(on screen: String, completion: @escaping (UnipointerState?) -> Void) {
@@ -221,10 +224,13 @@ final class DeskflowHandoff {
         case ("neo", "panda.local"):
             steps = [CGVector(dx: 0, dy: -4096), CGVector(dx: 4096, dy: 0)]
         case ("neo", "blueberry.local"): steps = [CGVector(dx: 4096, dy: 0)]
+        case ("neo", "frisbee.local"):
+            steps = [CGVector(dx: 4096, dy: 0), CGVector(dx: 4096, dy: 0)]
         case ("blueberry.local", "panda.local"): steps = [CGVector(dx: 0, dy: -4096)]
         case ("blueberry.local", "chicken.local"):
             steps = [CGVector(dx: 0, dy: -4096), CGVector(dx: -4096, dy: 0)]
         case ("blueberry.local", "neo"): steps = [CGVector(dx: -4096, dy: 0)]
+        case ("blueberry.local", "frisbee.local"): steps = [CGVector(dx: 4096, dy: 0)]
         default: return 0
         }
         for (index, step) in steps.enumerated() {

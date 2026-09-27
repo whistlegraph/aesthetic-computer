@@ -1,0 +1,176 @@
+{
+  "checkedAt": "2026-09-23T18:35:22.195Z",
+  "rows": [
+    {
+      "property": "aesel.app",
+      "status": 200,
+      "destination": "aesel.app",
+      "installed": true
+    },
+    {
+      "property": "aesthetic.computer",
+      "status": 200,
+      "destination": "aesthetic.computer",
+      "installed": true
+    },
+    {
+      "property": "aesthetic.direct",
+      "installed": false,
+      "error": "HTTPS probe failed",
+      "note": "Certificate hostname mismatch in local probe."
+    },
+    {
+      "property": "bills.aesthetic.computer",
+      "status": 200,
+      "destination": "bills.aesthetic.computer",
+      "installed": true
+    },
+    {
+      "property": "digitpain.com",
+      "installed": false,
+      "error": "HTTPS probe failed",
+      "note": "DNS did not resolve in local/public-resolver probe."
+    },
+    {
+      "property": "give.aesthetic.computer",
+      "status": 200,
+      "destination": "give.aesthetic.computer",
+      "installed": true
+    },
+    {
+      "property": "jas.life",
+      "status": 200,
+      "destination": "jas.life",
+      "installed": true
+    },
+    {
+      "property": "justanothersystem.org",
+      "status": 200,
+      "destination": "justanothersystem.org",
+      "installed": true
+    },
+    {
+      "property": "kidlisp.com",
+      "status": 200,
+      "destination": "kidlisp.com",
+      "installed": true
+    },
+    {
+      "property": "l5.aesthetic.computer",
+      "status": 200,
+      "destination": "l5.aesthetic.computer",
+      "installed": true
+    },
+    {
+      "property": "laklok.com",
+      "status": 200,
+      "destination": "laklok.com",
+      "installed": true
+    },
+    {
+      "property": "menuband.app",
+      "status": 200,
+      "destination": "apps.apple.com",
+      "installed": false,
+      "note": "Root redirects to App Store; hosted support/advanced pages have tracker."
+    },
+    {
+      "property": "mime.ac",
+      "status": 200,
+      "destination": "mime.ac",
+      "installed": true
+    },
+    {
+      "property": "nft.aesthetic.computer",
+      "status": 200,
+      "destination": "nft.aesthetic.computer",
+      "installed": true
+    },
+    {
+      "property": "nopaint.art",
+      "status": 200,
+      "destination": "nopaint.art",
+      "installed": true
+    },
+    {
+      "property": "notepat.com",
+      "status": 200,
+      "destination": "notepat.com",
+      "installed": true
+    },
+    {
+      "property": "oskiewar.com",
+      "status": 200,
+      "destination": "oskiewar.com",
+      "installed": true
+    },
+    {
+      "property": "papers.aesthetic.computer",
+      "status": 200,
+      "destination": "papers.aesthetic.computer",
+      "installed": true
+    },
+    {
+      "property": "pop.aesthetic.computer",
+      "status": 200,
+      "destination": "pop.aesthetic.computer",
+      "installed": true
+    },
+    {
+      "property": "processing.aesthetic.computer",
+      "status": 200,
+      "destination": "processing.aesthetic.computer",
+      "installed": true
+    },
+    {
+      "property": "prompt.ac",
+      "status": 200,
+      "destination": "prompt.ac",
+      "installed": true
+    },
+    {
+      "property": "quiltnet.org",
+      "status": 200,
+      "destination": "quiltnet.org",
+      "installed": true
+    },
+    {
+      "property": "rdp.aesthetic.computer",
+      "status": 200,
+      "destination": "rdp.aesthetic.computer",
+      "installed": true
+    },
+    {
+      "property": "sotce.net",
+      "installed": false,
+      "error": "HTTPS probe failed",
+      "eventsReceived": true,
+      "note": "Local TLS probe failed; collector received non-automated visit and interaction."
+    },
+    {
+      "property": "whistlegraph.org",
+      "status": 200,
+      "destination": "whistlegraph.org",
+      "installed": true
+    },
+    {
+      "property": "wipppps.world",
+      "status": 200,
+      "destination": "www.wipppps.world",
+      "installed": false,
+      "note": "Externally hosted; no tracker tag in returned page."
+    }
+  ],
+  "firstRecordedVisit": "2026-09-23T18:34:42.138Z",
+  "browserAndDatabaseVerified": [
+    "oskiewar.com",
+    "nopaint.art",
+    "whistlegraph.org",
+    "jas.life"
+  ],
+  "nonAutomatedEventsObserved": [
+    "aesthetic.computer",
+    "sotce.net"
+  ],
+  "interpretation": "Front-door installation audit, not exhaustive path coverage. Failed probes do not establish global unavailability."
+}

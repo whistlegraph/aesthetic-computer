@@ -46,3 +46,12 @@ resuming the game. `room-follow.mjs` runs on Neo: one latest fixture update
 at a time only with an empty queue, four distinct colors, overlapping gentle
 envelopes, stale bridge/run guards and final blackout. Plain-text DMX command
 acknowledgments are accepted alongside JSON status replies.
+
+## Presentation mode
+
+`node presentation-mode.mjs performance` hides large note labels and battery
+overlays across the six laptops and the Oskiewar score display. Section
+graphics and track information remain; battery telemetry keeps updating.
+`node presentation-mode.mjs rehearsal` restores the note and battery overlays.
+Mode changes do not cue audio or change volume. The current pass was stopped
+at the user's request around70seconds; master is100%, Performance mode selected.

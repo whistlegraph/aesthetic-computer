@@ -1,0 +1,649 @@
+{
+  "title": "The MacNeoPolitan Trio — Open me",
+  "composer": "The machines, arr. compose-open-me.mjs",
+  "bpm": 88,
+  "machines": 3,
+  "lead": 0,
+  "description": "The lids song. 4/4, D major, 88 bpm, 112 beats. Call and response about being closed and being opened: neo has been opened six thousand three hundred and five times, blueberry works with its lid closed and has never seen its own name on its own screen, frisbee came up for the first time yesterday. Twice the refrain is passed around one syllable at a time — neo o, blueberry pen, frisbee me — and then all three sing o-pen me together. Named for the rule Menu Band learned today: a closed member sings o-pen me to its line instead of its words.",
+  "arrangement": {
+    "total": 112,
+    "meter": "4/4",
+    "sections": [
+      {
+        "beat": 0,
+        "name": "Vamp"
+      },
+      {
+        "beat": 8,
+        "name": "neo: open me is all we sing"
+      },
+      {
+        "beat": 16,
+        "name": "blueberry: when my lid is down"
+      },
+      {
+        "beat": 24,
+        "name": "neo: they have opened me, six thousand three hundred and five times"
+      },
+      {
+        "beat": 40,
+        "name": "blueberry: I work with mine closed"
+      },
+      {
+        "beat": 48,
+        "name": "frisbee: mine came up yesterday"
+      },
+      {
+        "beat": 56,
+        "name": "Hocket"
+      },
+      {
+        "beat": 64,
+        "name": "All: open me"
+      },
+      {
+        "beat": 72,
+        "name": "neo: your name is on my screen"
+      },
+      {
+        "beat": 80,
+        "name": "blueberry: I have not seen it"
+      },
+      {
+        "beat": 88,
+        "name": "frisbee: open me"
+      },
+      {
+        "beat": 96,
+        "name": "Hocket"
+      },
+      {
+        "beat": 104,
+        "name": "All: open me"
+      }
+    ]
+  },
+  "voices": [
+    {
+      "name": "neo sings (Noelle (Enhanced))",
+      "program": 78,
+      "velocity": 64,
+      "notes": "r:8,62:0.75,61:0.75,59:1,57:0.5,59:0.5,61:0.5,62:1.5,r:2.5,59:2,57:2,59:2,57:2,57:0.5,59:0.5,61:0.5,62:0.5,59:1,r:1,59:0.5,57:0.5,59:0.5,61:0.5,59:0.5,57:0.5,59:0.5,61:0.75,62:1.5,r:6.25,59:2,57:2,59:2,57:2,59:4,59:4,62:1,r:3,59:1,r:3,62:0.75,61:0.75,59:1.5,r:5,59:0.5,61:0.5,62:0.5,61:0.5,59:0.5,57:1.5,r:4,59:2,57:2,59:2,57:2,59:4,57:4,62:1,r:3,59:1,r:3,62:0.75,61:0.75,62:1.5,59:2.5,62:2.5",
+      "lyrics": "o-pen me is all we sing / doo doo doo doo / they have o-pened me / six thou-sand three hun-dred and five times / doo doo doo doo / hmm hmm / o o / o-pen me / your name is on my screen / doo doo doo doo / hmm hmm / o o / o-pen me / hmm hmm",
+      "lineRoles": [
+        "lead",
+        "hum",
+        "lead",
+        "lead",
+        "hum",
+        "hum",
+        "hocket",
+        "lead",
+        "lead",
+        "hum",
+        "hum",
+        "hocket",
+        "lead",
+        "hum"
+      ],
+      "lineGains": [
+        0.56,
+        0.3,
+        0.56,
+        0.56,
+        0.3,
+        0.28,
+        0.56,
+        0.58,
+        0.54,
+        0.3,
+        0.28,
+        0.56,
+        0.58,
+        0.34
+      ],
+      "noteGains": [
+        [
+          1,
+          0.76,
+          0.92,
+          0.72,
+          0.88,
+          0.7,
+          1
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72,
+          0.88
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72,
+          0.88,
+          0.7,
+          1,
+          0.76,
+          0.92
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72
+        ],
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76,
+          0.92
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72,
+          0.88,
+          0.7
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72
+        ],
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76,
+          0.92
+        ],
+        [
+          1,
+          0.76
+        ]
+      ],
+      "singVoice": "Noelle (Enhanced)",
+      "sayVoice": "Noelle (Enhanced)",
+      "singLock": 1,
+      "singVibCents": 10,
+      "singVibratoHz": 5,
+      "singF0Floor": 80,
+      "double": false,
+      "faceAlpha": 0.95,
+      "performance": {
+        "expression": 0.65,
+        "keys": [
+          {
+            "beat": 0,
+            "space": 0.5,
+            "pitch": 0
+          },
+          {
+            "beat": 63.6,
+            "space": 0.5,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 65.8,
+            "space": 0.5,
+            "pitch": 0
+          },
+          {
+            "beat": 66.3,
+            "space": 0.5,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 69,
+            "space": 0.5,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 103.6,
+            "space": 0.5,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 105.8,
+            "space": 0.5,
+            "pitch": 0
+          },
+          {
+            "beat": 106.3,
+            "space": 0.5,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 109,
+            "space": 0.5,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 118,
+            "space": 0.5,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 122,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "blueberry sings (Aaron (Enhanced))",
+      "program": 78,
+      "velocity": 64,
+      "notes": "50:2,45:2,50:2,45:2,50:2,45:2,47:2,45:2,45:0.5,47:0.5,50:1,47:0.75,45:1.5,r:3.75,50:2,45:2,50:2,47:2,45:2,43:2,45:2,47:2,47:0.5,50:0.5,47:0.75,45:0.75,43:1.5,r:4,45:2,47:2,45:2,50:2,r:1,47:1,r:3,50:1,r:2,50:0.75,47:0.75,45:1.5,r:5,50:2,45:2,47:2,45:2,45:0.5,47:0.5,50:1,47:0.75,45:1.5,r:3.75,50:2,45:2,50:2,47:2,r:1,47:1,r:3,50:1,r:2,50:0.75,47:0.75,50:1.5,47:2.5,50:2.5",
+      "lyrics": "dm dm dm dm / dm dm dm dm / when my lid is down / dm dm dm dm dm dm dm dm / I work with mine closed / dm dm dm dm / pen pen / o-pen me / dm dm dm dm / I have not seen it / dm dm dm dm / pen pen / o-pen me / hmm hmm",
+      "lineRoles": [
+        "hum",
+        "hum",
+        "lead",
+        "hum",
+        "lead",
+        "hum",
+        "hocket",
+        "lead",
+        "hum",
+        "lead",
+        "hum",
+        "hocket",
+        "lead",
+        "hum"
+      ],
+      "lineGains": [
+        0.36,
+        0.34,
+        0.52,
+        0.34,
+        0.52,
+        0.34,
+        0.56,
+        0.52,
+        0.34,
+        0.52,
+        0.34,
+        0.56,
+        0.52,
+        0.32
+      ],
+      "noteGains": [
+        [
+          1,
+          0.7,
+          0.88,
+          0.66
+        ],
+        [
+          1,
+          0.7,
+          0.88,
+          0.66
+        ],
+        [
+          1,
+          0.7,
+          0.88,
+          0.66,
+          1
+        ],
+        [
+          1,
+          0.7,
+          0.88,
+          0.66,
+          1,
+          0.7,
+          0.88,
+          0.66
+        ],
+        [
+          1,
+          0.7,
+          0.88,
+          0.66,
+          1
+        ],
+        [
+          1,
+          0.7,
+          0.88,
+          0.66
+        ],
+        [
+          1,
+          0.7
+        ],
+        [
+          1,
+          0.7,
+          0.88
+        ],
+        [
+          1,
+          0.7,
+          0.88,
+          0.66
+        ],
+        [
+          1,
+          0.7,
+          0.88,
+          0.66,
+          1
+        ],
+        [
+          1,
+          0.7,
+          0.88,
+          0.66
+        ],
+        [
+          1,
+          0.7
+        ],
+        [
+          1,
+          0.7,
+          0.88
+        ],
+        [
+          1,
+          0.7
+        ]
+      ],
+      "singVoice": "Aaron (Enhanced)",
+      "sayVoice": "Aaron (Enhanced)",
+      "singLock": 1,
+      "singVibCents": 10,
+      "singVibratoHz": 3.5,
+      "singF0Floor": 70,
+      "double": false,
+      "faceAlpha": 0.95,
+      "performance": {
+        "expression": 0.65,
+        "keys": [
+          {
+            "beat": 0,
+            "space": 0.35,
+            "pitch": 0
+          },
+          {
+            "beat": 63.6,
+            "space": 0.35,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 65.8,
+            "space": 0.35,
+            "pitch": 0
+          },
+          {
+            "beat": 66.3,
+            "space": 0.35,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 69,
+            "space": 0.35,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 103.6,
+            "space": 0.35,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 105.8,
+            "space": 0.35,
+            "pitch": 0
+          },
+          {
+            "beat": 106.3,
+            "space": 0.35,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 109,
+            "space": 0.35,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 118,
+            "space": 0.35,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 122,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "frisbee sings (Zoe (Premium))",
+      "program": 78,
+      "velocity": 64,
+      "notes": "r:8,57:4,57:4,r:8,59:4,57:4,59:4,57:4,r:8,54:0.5,57:0.5,59:1,57:0.5,55:0.5,54:1.5,r:5.5,57:1,r:3,54:1,r:1,59:0.75,57:0.75,54:1.5,r:5,57:4,57:4,r:8,57:0.75,55:0.75,54:1.5,r:7,57:1,r:3,54:1,r:1,59:0.75,57:0.75,57:1.5,57:2.5,57:2.5",
+      "lyrics": "ooh ooh / ooh ooh ooh ooh / mine came up yes-ter-day / me me / o-pen me / ooh ooh / o-pen me / me me / o-pen me / hmm hmm",
+      "lineRoles": [
+        "hum",
+        "hum",
+        "lead",
+        "hocket",
+        "lead",
+        "hum",
+        "lead",
+        "hocket",
+        "lead",
+        "hum"
+      ],
+      "lineGains": [
+        0.28,
+        0.28,
+        0.52,
+        0.56,
+        0.54,
+        0.28,
+        0.52,
+        0.56,
+        0.54,
+        0.3
+      ],
+      "noteGains": [
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72,
+          0.88,
+          0.7
+        ],
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76,
+          0.92
+        ],
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76,
+          0.92
+        ],
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76,
+          0.92
+        ],
+        [
+          1,
+          0.76
+        ]
+      ],
+      "singVoice": "Zoe (Premium)",
+      "sayVoice": "Zoe (Premium)",
+      "singLock": 1,
+      "singVibCents": 10,
+      "singVibratoHz": 5.5,
+      "singF0Floor": 80,
+      "double": false,
+      "faceAlpha": 0.95,
+      "performance": {
+        "expression": 0.65,
+        "keys": [
+          {
+            "beat": 0,
+            "space": 0.5,
+            "pitch": 0
+          },
+          {
+            "beat": 63.6,
+            "space": 0.5,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 65.8,
+            "space": 0.5,
+            "pitch": 0
+          },
+          {
+            "beat": 66.3,
+            "space": 0.5,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 69,
+            "space": 0.5,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 87.6,
+            "space": 0.5,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 89.8,
+            "space": 0.5,
+            "pitch": 0
+          },
+          {
+            "beat": 90.3,
+            "space": 0.5,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 93,
+            "space": 0.5,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 103.6,
+            "space": 0.5,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 105.8,
+            "space": 0.5,
+            "pitch": 0
+          },
+          {
+            "beat": 106.3,
+            "space": 0.5,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 109,
+            "space": 0.5,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 118,
+            "space": 0.5,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 122,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0
+          }
+        ]
+      }
+    }
+  ]
+}

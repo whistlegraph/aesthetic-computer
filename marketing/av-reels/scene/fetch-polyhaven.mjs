@@ -37,8 +37,12 @@ export async function fetchHdri(id, res, cacheDir) {
 // glTF plus every texture it references, kept at their relative paths.
 export async function fetchModel(id, res, cacheDir) {
   const files = await json(`${API}/${id}`);
-  const gltf = files.gltf?.[res]?.gltf;
-  if (!gltf) throw new Error(`no ${res} gltf for ${id}`);
+  // Not every model ships every resolution: take the asked one, else the
+  // nearest that exists.
+  const order = [res, "1k", "2k", "4k", ...Object.keys(files.gltf || {})];
+  const got = order.find((r) => files.gltf?.[r]?.gltf);
+  const gltf = got && files.gltf[got].gltf;
+  if (!gltf) throw new Error(`no gltf for ${id}`);
   const dir = join(cacheDir, "models", id);
   const main = await download(gltf.url, join(dir, gltf.url.split("/").pop()));
   for (const [rel, file] of Object.entries(gltf.include || {})) await download(file.url, join(dir, rel));

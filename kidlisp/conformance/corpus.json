@@ -1,0 +1,285 @@
+{
+  "refreshed": "2026-09-23",
+  "pieces": [
+    {
+      "code": "bop",
+      "hits": 17671,
+      "handle": "@jeffrey",
+      "source": "purple, ink, line, blur 5",
+      "embeds": false
+    },
+    {
+      "code": "pie",
+      "hits": 12457,
+      "handle": "@jeffrey",
+      "source": "(fps 24)\n(0.25s (wipe (... red yellow blue)))\n(ink green)\n(line 0 height/2 width height/2)\n(ink red)\n(line width/2 0 width/2 height)\n(scroll frame frame)",
+      "embeds": false
+    },
+    {
+      "code": "roz",
+      "hits": 11158,
+      "handle": "@jeffrey",
+      "source": "fade:red-blue-black-blue-red\nink (? rainbow white 0) (1s... 24 64)\nline w/2 0 w/2 h\n(spin (2s... -1.125 1.125)) (zoom 1.1)\n(0.5s (contrast 1.05))\n(scroll (? -0.1 0 0.1) (? -0.1 0 0.1))\nink (? cyan yellow magenta) 8\ncircle w/2 h/2 (? 2 4 8)",
+      "embeds": false
+    },
+    {
+      "code": "ceo",
+      "hits": 10824,
+      "handle": "@jeffrey",
+      "source": "(1s (coat fade:black-red-rainbow-red-black:frame 64)) (0.3s (zoom 0.5)) (scroll 1)",
+      "embeds": false
+    },
+    {
+      "code": "4xa",
+      "hits": 10136,
+      "handle": "@jeffrey",
+      "source": "blue",
+      "embeds": false
+    },
+    {
+      "code": "cow",
+      "hits": 9825,
+      "handle": "@jeffrey",
+      "source": "($39i 0 0 w h 128)\n($r2f 0 0 w h 128)\n(contrast 1.5)",
+      "embeds": true
+    },
+    {
+      "code": "4bb",
+      "hits": 6813,
+      "handle": "@jeffrey",
+      "source": "black, ink (? yellow black) 48, line, scroll 1\nbake, ink (? magenta erase) 64, line, scroll -1\nbake, ink (? lime erase) 16, line, scroll 0 1\nbake, ink (? cyan erase) 48, line, scroll 0 -1\nburn, blur 8, contrast 1.25",
+      "embeds": false
+    },
+    {
+      "code": "wib",
+      "hits": 5995,
+      "handle": "@jeffrey",
+      "source": "(wipe blue)",
+      "embeds": false
+    },
+    {
+      "code": "87a",
+      "hits": 5825,
+      "handle": "@fifi",
+      "source": "fade:lightsteelblue-pink-lightgreen:vertical\nspin -10 \nscroll frame -5\nscroll width/5 frame\nblur 2\nbake\nstamp #dml 270 280 1.2 20\nblur (1s... 1 2)\nzoom (.25s... .8 ?)\nspin -10\nbake\nstamp #o2d 190 h/2 1.3 \nblur 2 \nzoom (.25s... .7 ?) \nbake\nwrite (.25s... \"dog\" \"god\") 160 h/2 zebra\nfps 24\nstamp #dml 60 80 .8 170\nblur 2",
+      "embeds": true
+    },
+    {
+      "code": "39i",
+      "hits": 5801,
+      "handle": "@jeffrey",
+      "source": "black\n(0.1s (ink (? black white) 32)\n(circle ? ? 32))\n(ink (? white black gray) (? 32 96))\nflood ? ?\nscroll (2s... 1 0 -1) (3s... -1 0 1)\n(1.5s (zoom (? 0.5 4)))\n(1s (blur 0.5))\n(2s (contrast 2))\n(0.3s (ink (? white black)) (repeat 30 point))\n(1s... (spin (0.5s... -0.1 0.1))",
+      "embeds": false
+    },
+    {
+      "code": "nsh",
+      "hits": 5679,
+      "handle": "@jeffrey",
+      "source": "kidlisp",
+      "embeds": false
+    },
+    {
+      "code": "dlb",
+      "hits": 5484,
+      "handle": "@snakes",
+      "source": "(melody a.aa.e.aa….deagef.f….ad.409)",
+      "embeds": false
+    },
+    {
+      "code": "pif",
+      "hits": 5341,
+      "handle": "@jeffrey",
+      "source": "($pie 0 0 w/2 h)\n($febs w/2 0 w/2 h)",
+      "embeds": true
+    },
+    {
+      "code": "c4x",
+      "hits": 5302,
+      "handle": "@fifi",
+      "source": "white\nstamp #48q 150 150 1\nscroll frame 12\n#e8j\nblur 2\nbake\nzoom (.5s... .5 1 ?)\nscroll width/2 5\nblur 2\nspin -3\nfps 24\nbake\nwrite \"miracle mindset\" 150 153 white\nscroll width/2\nzoom (1s... 2 .7 ?)\nspin -3",
+      "embeds": true
+    },
+    {
+      "code": "rzo",
+      "hits": 5263,
+      "handle": "@Cozy829",
+      "source": "lisy\n\nlist",
+      "embeds": false
+    },
+    {
+      "code": "isd",
+      "hits": 5222,
+      "handle": "@prutti",
+      "source": "(melody d.d..d.e..g..e.h..e.f..e.fd. 500)",
+      "embeds": false
+    },
+    {
+      "code": "ga1",
+      "hits": 5173,
+      "handle": "@jeffrey",
+      "source": "brown",
+      "embeds": false
+    },
+    {
+      "code": "wa9",
+      "hits": 5136,
+      "handle": "@AwesomeAspen",
+      "source": "shape 214 0 32, 255",
+      "embeds": false
+    },
+    {
+      "code": "17m",
+      "hits": 5050,
+      "handle": "@alki",
+      "source": "(melody adedf 170)",
+      "embeds": false
+    },
+    {
+      "code": "olp",
+      "hits": 4879,
+      "handle": "@sat",
+      "source": "yellow, ink black 10, box",
+      "embeds": false
+    },
+    {
+      "code": "r2f",
+      "hits": 4824,
+      "handle": "@jeffrey",
+      "source": "salmon\nink fade:palegreen-purple (? 20 48)\nbox ? ? (? 2 4 32 64)\nink (? c0 c4 c7 rainbow) (? 32 64 96)\n(repeat 2 (flood ? ?))\ncontrast (? 1.05 0.97 1)\nscroll 0.1\n(0.1s (zoom (? 1.89 1 1.1 1.2)))\nspin (? -0.1 0 0 0 0.1)\nscroll 0 (? 1 -1)\nblur 0.05",
+      "embeds": false
+    },
+    {
+      "code": "wezo",
+      "hits": 4812,
+      "handle": "@jeffrey",
+      "source": "(wipe fade:zebra-rainbow-zebra-rainbow-zebra)\n(zoom 0.25)",
+      "embeds": false
+    },
+    {
+      "code": "bap",
+      "hits": 4757,
+      "handle": "@jeffrey",
+      "source": "purple, line, blur 5",
+      "embeds": false
+    },
+    {
+      "code": "wifz",
+      "hits": 4696,
+      "handle": "@jeffrey",
+      "source": "(wipe fade:zebra-zebra-zebra-rainbow:frame*2)",
+      "embeds": false
+    },
+    {
+      "code": "9ay",
+      "hits": 4655,
+      "handle": "@bash",
+      "source": "chat",
+      "embeds": false
+    },
+    {
+      "code": "epk",
+      "hits": 4457,
+      "handle": "@fifi",
+      "source": "white\nstamp #48q 150 150 1\nscroll frame 12\n#e8j\nblur 2\nbake\nzoom (.5s... .5 1 ?)\nscroll width/4 5\nblur 2\nspin -3\nfps 24\nbake\nwrite \"miracle mindset\" 150 height/2 white\nscroll width/2\nzoom (1s... 2 .7 ?)\nspin -3",
+      "embeds": true
+    },
+    {
+      "code": "bels",
+      "hits": 4176,
+      "handle": "@jeffrey",
+      "source": "brown\nline 0 0 100 100\nscroll -2 1",
+      "embeds": false
+    },
+    {
+      "code": "h6g",
+      "hits": 4072,
+      "handle": "@jeffrey",
+      "source": "(Butterfly",
+      "embeds": false
+    },
+    {
+      "code": "qkn",
+      "hits": 4031,
+      "handle": "@jeffrey",
+      "source": "(Butterfly)",
+      "embeds": false
+    },
+    {
+      "code": "reeb",
+      "hits": 3591,
+      "handle": "@jeffrey",
+      "source": "red, ink erase, line, bake",
+      "embeds": false
+    },
+    {
+      "code": "otoc",
+      "hits": 3581,
+      "handle": "@jeffrey",
+      "source": "(once noise) (spin (0.5s... 1 -1)) (suck 1) (contrast 1.01)",
+      "embeds": false
+    },
+    {
+      "code": "mz4",
+      "hits": 3537,
+      "handle": "@jeffrey",
+      "source": "purple",
+      "embeds": false
+    },
+    {
+      "code": "niy",
+      "hits": 3360,
+      "handle": "@jeffrey",
+      "source": "cyan\n($pie 0 0 w/2 h)\n($febs w/2 0 w/2 h)\n(ink rainbow) (line)",
+      "embeds": true
+    },
+    {
+      "code": "sepb",
+      "hits": 3310,
+      "handle": "@jeffrey",
+      "source": "(3s... ($neio 0 0 w h/2)\n($pif 0 h/2 w h/2))\n(blur 4)\n;(1s (zoom 0.5))\n;(scroll 0 -frame)",
+      "embeds": true
+    },
+    {
+      "code": "inz",
+      "hits": 3106,
+      "handle": "@jeffrey",
+      "source": "(beige)\n(ink (0.25s... 127 0 rainbow))\n(write X 3 3)\n(scroll 18 3)\n(blur 0.1)\n(1.25s (zoom (? 0.25 1.5)))",
+      "embeds": false
+    },
+    {
+      "code": "air",
+      "hits": 3048,
+      "handle": "@jeffrey",
+      "source": "fade:pink-gray-pink\nink (? orange yellow) 32\nline\n(0.15s (zoom 0.2))\nscroll 1 0.25\n(0.1s (contrast 1.01))\n(0.5s (ink rainbow 96) (repeat 10 point))",
+      "embeds": false
+    },
+    {
+      "code": "ri3",
+      "hits": 2937,
+      "handle": "@jeffrey",
+      "source": "red, ink erase 32, line",
+      "embeds": false
+    },
+    {
+      "code": "wes",
+      "hits": 2760,
+      "handle": "@jeffrey",
+      "source": "wipe brown\n(2s... ((line) (line)) (box 0 0 25 25))",
+      "embeds": false
+    },
+    {
+      "code": "4wi",
+      "hits": 2756,
+      "handle": "@jeffrey",
+      "source": "(wipe fade:red-zebra-rainbow-zebra-red:frame*4)",
+      "embeds": false
+    },
+    {
+      "code": "nrb",
+      "hits": 2696,
+      "handle": "@jeffrey",
+      "source": "red, ink black, line 0 15 5 28",
+      "embeds": false
+    }
+  ]
+}

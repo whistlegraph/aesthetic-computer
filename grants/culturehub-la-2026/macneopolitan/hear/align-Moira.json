@@ -1,0 +1,352 @@
+{
+  "at": "2026-09-21T19:59:30.185Z",
+  "voice": "Moira",
+  "model": "ggml-small.en.bin",
+  "rows": [
+    {
+      "text": "I know you by radio",
+      "matched": true,
+      "nwords": 5,
+      "onsetErrMs": [
+        3,
+        99,
+        -26,
+        -155,
+        -148
+      ],
+      "meanAbsMs": 86,
+      "biasMs": -45
+    },
+    {
+      "text": "you are on my list as blueberry",
+      "matched": true,
+      "nwords": 7,
+      "onsetErrMs": [
+        1,
+        -73,
+        -156,
+        -194,
+        -138,
+        -96
+      ],
+      "meanAbsMs": 110,
+      "biasMs": -109
+    },
+    {
+      "text": "it is the name he gave me",
+      "matched": true,
+      "nwords": 7,
+      "onsetErrMs": [
+        -9,
+        0,
+        -39,
+        -116,
+        -58,
+        34,
+        104
+      ],
+      "meanAbsMs": 52,
+      "biasMs": -12
+    },
+    {
+      "text": "we found each other by radio",
+      "matched": true,
+      "nwords": 6,
+      "onsetErrMs": [
+        2,
+        -127,
+        -29,
+        -90,
+        -195,
+        -168
+      ],
+      "meanAbsMs": 102,
+      "biasMs": -101
+    },
+    {
+      "text": "before we ever spoke",
+      "matched": true,
+      "nwords": 4,
+      "onsetErrMs": [
+        -1,
+        -57,
+        -93,
+        52
+      ],
+      "meanAbsMs": 51,
+      "biasMs": -25
+    },
+    {
+      "text": "you are on mine as Jeffrey's MacBook Neo",
+      "matched": true,
+      "nwords": 8,
+      "onsetErrMs": [
+        1,
+        -53,
+        -116,
+        -144,
+        -225,
+        -173,
+        -128
+      ],
+      "meanAbsMs": 120,
+      "biasMs": -120
+    },
+    {
+      "text": "that is a long name for you",
+      "matched": true,
+      "nwords": 7,
+      "onsetErrMs": [
+        -11,
+        -129,
+        -119,
+        -120,
+        -50,
+        -3,
+        -26
+      ],
+      "meanAbsMs": 65,
+      "biasMs": -65
+    },
+    {
+      "text": "I count you in",
+      "matched": true,
+      "nwords": 4,
+      "onsetErrMs": [
+        2,
+        63,
+        31,
+        -134
+      ],
+      "meanAbsMs": 58,
+      "biasMs": -9
+    },
+    {
+      "text": "I ask your clock",
+      "matched": true,
+      "nwords": 4,
+      "onsetErrMs": [
+        3,
+        130,
+        292,
+        186
+      ],
+      "meanAbsMs": 153,
+      "biasMs": 153
+    },
+    {
+      "text": "you are three tenths of a millisecond off",
+      "matched": true,
+      "nwords": 8,
+      "onsetErrMs": [
+        1,
+        -93,
+        -196,
+        -150,
+        -163
+      ],
+      "meanAbsMs": 121,
+      "biasMs": -120
+    },
+    {
+      "text": "this morning at nine fifty seven",
+      "matched": true,
+      "nwords": 6,
+      "onsetErrMs": [
+        -11,
+        -111,
+        -293
+      ],
+      "meanAbsMs": 138,
+      "biasMs": -138
+    },
+    {
+      "text": "we sang the same line together",
+      "matched": true,
+      "nwords": 6,
+      "onsetErrMs": [
+        2,
+        -7,
+        45,
+        -124,
+        -51,
+        -57
+      ],
+      "meanAbsMs": 48,
+      "biasMs": -32
+    },
+    {
+      "text": "one downbeat",
+      "matched": true,
+      "nwords": 2,
+      "onsetErrMs": [
+        -7
+      ],
+      "meanAbsMs": 7,
+      "biasMs": -7
+    },
+    {
+      "text": "two bodies",
+      "matched": true,
+      "nwords": 2,
+      "onsetErrMs": [
+        -16,
+        -101
+      ],
+      "meanAbsMs": 58,
+      "biasMs": -58
+    },
+    {
+      "text": "I hear you through the wire",
+      "matched": true,
+      "nwords": 6,
+      "onsetErrMs": [
+        3,
+        140,
+        194,
+        133,
+        -70,
+        -154
+      ],
+      "meanAbsMs": 116,
+      "biasMs": 41
+    },
+    {
+      "text": "then I sing when you say",
+      "matched": true,
+      "nwords": 6,
+      "onsetErrMs": [
+        -16,
+        -109,
+        -126,
+        -13,
+        -114,
+        -228
+      ],
+      "meanAbsMs": 101,
+      "biasMs": -101
+    },
+    {
+      "text": "every note within a few cents",
+      "matched": true,
+      "nwords": 6,
+      "onsetErrMs": [
+        -50,
+        -20,
+        -3,
+        -198,
+        -198,
+        -185
+      ],
+      "meanAbsMs": 109,
+      "biasMs": -109
+    },
+    {
+      "text": "there is a wallpaper on me",
+      "matched": true,
+      "nwords": 6,
+      "onsetErrMs": [
+        -16,
+        -131,
+        -131,
+        -132,
+        -69,
+        -126
+      ],
+      "meanAbsMs": 101,
+      "biasMs": -101
+    },
+    {
+      "text": "with your name on it",
+      "matched": true,
+      "nwords": 5,
+      "onsetErrMs": [
+        -8,
+        -70,
+        -131,
+        -76
+      ],
+      "meanAbsMs": 71,
+      "biasMs": -71
+    },
+    {
+      "text": "green pals rising",
+      "matched": true,
+      "nwords": 3,
+      "onsetErrMs": [
+        -26,
+        -144,
+        -63
+      ],
+      "meanAbsMs": 78,
+      "biasMs": -78
+    },
+    {
+      "text": "one hour and forty two minutes",
+      "matched": true,
+      "nwords": 6,
+      "onsetErrMs": [
+        -60,
+        -121,
+        -19
+      ],
+      "meanAbsMs": 67,
+      "biasMs": -67
+    },
+    {
+      "text": "I have spent drawing it",
+      "matched": true,
+      "nwords": 5,
+      "onsetErrMs": [
+        3,
+        120,
+        -26,
+        -53,
+        -123
+      ],
+      "meanAbsMs": 65,
+      "biasMs": -16
+    },
+    {
+      "text": "I have never seen it",
+      "matched": true,
+      "nwords": 5,
+      "onsetErrMs": [
+        3,
+        120,
+        -2,
+        -117,
+        -106
+      ],
+      "meanAbsMs": 70,
+      "biasMs": -20
+    },
+    {
+      "text": "my lid is down",
+      "matched": true,
+      "nwords": 4,
+      "onsetErrMs": [
+        -9,
+        57,
+        67,
+        66
+      ],
+      "meanAbsMs": 50,
+      "biasMs": 45
+    },
+    {
+      "text": "draw it for me too",
+      "matched": true,
+      "nwords": 5,
+      "onsetErrMs": [
+        -38,
+        -40,
+        -95,
+        -281,
+        -182
+      ],
+      "meanAbsMs": 127,
+      "biasMs": -127
+    }
+  ]
+}

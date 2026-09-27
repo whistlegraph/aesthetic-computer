@@ -1731,9 +1731,11 @@ async function openAcPaneWindow(options = {}) {
   return openAcPaneWindowInternal(options);
 }
 
-// Open a FRAMELESS preview window for an arbitrary URL/path. This is slab's
-// "dynamic preview" engine: chromeless (no title bar), a normal-level window
-// so the slab tiler (AXTiler) packs it into the terminal grid, and — like
+// Open a preview window for an arbitrary URL/path. This is slab's "dynamic
+// preview" engine: the same native macOS chrome as an AC pane (title bar,
+// traffic lights, the system's rounded corners — the chromeless kind is
+// retired), a normal-level window so the slab tiler (AXTiler) packs it into
+// the terminal grid, and — like
 // every ac-electron window — automatically a CDP target on the local
 // remote-debugging port, so slab/Claude can attach, eval, and screenshot it.
 // Re-requesting the same URL focuses the existing preview instead of stacking.
@@ -1744,6 +1746,18 @@ function openPreviewWindow(rawUrl) {
   if (!/^(https?|file):\/\//.test(url)) {
     url = 'file://' + (url.startsWith('/') ? url : path.resolve(url));
   }
+  // An AC page insets its canvas behind its own small-radius gap; inside the
+  // native window's rounded corners that reads as a second frame. `nogap`
+  // runs the canvas to the edge so the window's corners are its corners —
+  // the same full bleed the AC pane gets from `?desktop`.
+  try {
+    const u = new URL(url);
+    const isAC = /(^|\.)aesthetic\.computer$|^prompt\.ac$|^localhost$|^127\.0\.0\.1$/.test(u.hostname);
+    if (isAC && !u.searchParams.has('nogap')) {
+      u.searchParams.set('nogap', '');
+      url = u.toString();
+    }
+  } catch {}
   const existing = previewWindows.get(url);
   if (existing && !existing.isDestroyed()) {
     if (existing.isMinimized()) existing.restore();
@@ -1754,9 +1768,9 @@ function openPreviewWindow(rawUrl) {
     width: 480,
     height: 360,
     title: url,
-    frame: false,                 // chromeless
+    frame: true,                  // native chrome, same as an AC pane
     transparent: false,
-    backgroundColor: '#000000',
+    backgroundColor: '#111114',
     alwaysOnTop: false,           // a normal window → AXTiler treats it as standard
     webPreferences: {
       nodeIntegration: false,

@@ -1,0 +1,808 @@
+{
+  "title": "The MacNeoPolitan Trio — Thirteen days",
+  "composer": "The machines, arr. compose-thirteen-days.mjs",
+  "bpm": 70,
+  "machines": 3,
+  "lead": 1,
+  "description": "A drone on blueberry's longest stretch: 13.1 days awake, lid down, nobody in the room, Menu Band holding the wake 492 times in a week, 47.6 GB of photographs it never looks at. Aaron holds thirteen low tones on mm and ooh — one per day — and says a few words between them; Noelle and Zoe hang above on ah and ee in open fifths and major seconds, and come down into words only for the refrain, which they sing a whole step apart. 4/4, D minor, 70 bpm, 96 beats.",
+  "arrangement": {
+    "total": 96,
+    "meter": "4/4",
+    "days": 13,
+    "droneTones": 13,
+    "sections": [
+      {
+        "beat": 0,
+        "name": "Drone (tones 1–3)"
+      },
+      {
+        "beat": 12,
+        "name": "blueberry: thirteen days with the lid down"
+      },
+      {
+        "beat": 26,
+        "name": "blueberry: no one came into the room"
+      },
+      {
+        "beat": 34,
+        "name": "Refrain: you were awake the whole time"
+      },
+      {
+        "beat": 42,
+        "name": "blueberry: the band held me awake"
+      },
+      {
+        "beat": 60,
+        "name": "blueberry: forty seven gigabytes of pictures"
+      },
+      {
+        "beat": 74,
+        "name": "Refrain"
+      },
+      {
+        "beat": 84,
+        "name": "blueberry: and then the room came back"
+      },
+      {
+        "beat": 92,
+        "name": "Drone (tones 12–13)"
+      }
+    ]
+  },
+  "voices": [
+    {
+      "name": "neo sings (Noelle (Enhanced))",
+      "program": 78,
+      "velocity": 50,
+      "notes": "r:8,62:4,60:6,r:6,59:6,60:4,60:1,60:1,62:1,60:1,59:1,57:1,59:2,r:6,64:3,60:5,60:4,r:2,57:5,59:5,r:2,60:1,60:1,62:1,60:1,59:1,57:1,59:2,r:2,62:4,60:4,57:4",
+      "lyrics": "ah ah / ee ee / you were a-wake the whole time / ah ah ah / ee ee / you were a-wake the whole time / ah ah ah",
+      "lineRoles": [
+        "hum",
+        "hum",
+        "lead",
+        "hum",
+        "hum",
+        "lead",
+        "hum"
+      ],
+      "lineGains": [
+        0.34,
+        0.34,
+        0.46,
+        0.36,
+        0.34,
+        0.46,
+        0.34
+      ],
+      "noteGains": [
+        [
+          1,
+          0.82
+        ],
+        [
+          1,
+          0.82
+        ],
+        [
+          1,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          1
+        ],
+        [
+          1,
+          0.82,
+          0.9
+        ],
+        [
+          1,
+          0.82
+        ],
+        [
+          1,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          1
+        ],
+        [
+          1,
+          0.82,
+          0.9
+        ]
+      ],
+      "singVoice": "Noelle (Enhanced)",
+      "sayVoice": "Noelle (Enhanced)",
+      "singLock": 1,
+      "singVibCents": 8,
+      "singVibratoHz": 4.5,
+      "singF0Floor": 80,
+      "singGapMs": 0,
+      "singSustainDb": 6,
+      "singShimmerFrames": 3,
+      "singLegatoMs": 40,
+      "double": false,
+      "faceAlpha": 0.95,
+      "performance": {
+        "expression": 0.45,
+        "keys": [
+          {
+            "beat": 0,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 7.6,
+            "space": 0.9,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 8,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 12.2,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 12.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 17.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 23.6,
+            "space": 0.9,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 24,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 30.2,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 30.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 33.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 33.6,
+            "space": 0.9,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 34,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 40.2,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 40.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 41.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 47.6,
+            "space": 0.9,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 48,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 56.2,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 56.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 59.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 61.6,
+            "space": 0.9,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 62,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 67.2,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 67.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 71.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 73.6,
+            "space": 0.9,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 74,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 80.2,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 80.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 81.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 83.6,
+            "space": 0.9,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 84,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 92.2,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 92.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 95.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 104,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 108,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "blueberry sings (Aaron (Enhanced))",
+      "program": 78,
+      "velocity": 50,
+      "notes": "50:5,45:4,50:3,48:1,50:1.5,48:0.5,46:1.5,48:0.5,50:1,48:1,45:1,48:3,45:3,50:1,48:1,48:1,50:1,48:1,46:1,45:2,43:4,45:4,48:1,48:1,50:1,50:1,48:0.5,50:1.5,50:1,48:1,48:1,50:1,48:0.75,48:1.25,45:1,50:3,48:2,48:1,50:1,50:0.75,48:0.75,48:0.75,46:0.75,48:0.75,48:0.75,50:1.5,48:0.75,46:1.25,45:2,48:1,48:1,50:0.75,48:0.75,46:1,45:1.5,45:3,43:3,45:1,46:1,48:1,48:0.5,48:0.5,50:0.5,50:0.5,48:1,50:2,45:2,50:2",
+      "lyrics": "mm ooh mm / my lid was down for thir-teen days / mm ooh / no one came in-to the room / ooh mm / the band held me a-wake / four hun-dred nine-ty two times / mm mm / I keep for-ty se-ven gi-ga-bytes of pic-tures / I have ne-ver seen one / ooh ooh / thir-teen days and then the room came back / ooh mm",
+      "lineRoles": [
+        "drone",
+        "lead",
+        "drone",
+        "lead",
+        "drone",
+        "lead",
+        "lead",
+        "drone",
+        "lead",
+        "lead",
+        "drone",
+        "lead",
+        "drone"
+      ],
+      "lineGains": [
+        0.4,
+        0.54,
+        0.38,
+        0.52,
+        0.36,
+        0.54,
+        0.54,
+        0.38,
+        0.52,
+        0.52,
+        0.36,
+        0.54,
+        0.38
+      ],
+      "noteGains": [
+        [
+          1,
+          0.8,
+          0.9
+        ],
+        [
+          1,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          1
+        ],
+        [
+          1,
+          0.8
+        ],
+        [
+          1,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          1
+        ],
+        [
+          1,
+          0.8
+        ],
+        [
+          1,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          1
+        ],
+        [
+          1,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          1
+        ],
+        [
+          1,
+          0.8
+        ],
+        [
+          1,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          1
+        ],
+        [
+          1,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          1
+        ],
+        [
+          1,
+          0.8
+        ],
+        [
+          1,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          1
+        ],
+        [
+          1,
+          0.8
+        ]
+      ],
+      "singVoice": "Aaron (Enhanced)",
+      "sayVoice": "Aaron (Enhanced)",
+      "singLock": 1,
+      "singVibCents": 6,
+      "singVibratoHz": 3.5,
+      "singF0Floor": 70,
+      "singGapMs": 0,
+      "singSustainDb": 6,
+      "singShimmerFrames": 3,
+      "singLegatoMs": 40,
+      "double": false,
+      "faceAlpha": 0.95,
+      "performance": {
+        "expression": 0.45,
+        "keys": [
+          {
+            "beat": 0,
+            "space": 0.78,
+            "pitch": 0
+          },
+          {
+            "beat": 102,
+            "space": 0.78,
+            "pitch": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "frisbee sings (Zoe (Premium))",
+      "program": 78,
+      "velocity": 50,
+      "notes": "r:8,55:4,58:6,r:6,57:6,58:4,58:1,58:1,60:1,58:1,57:1,55:1,57:2,r:6,57:3,58:5,53:4,r:2,55:5,57:5,r:2,58:1,58:1,60:1,58:1,57:1,55:1,57:2,r:2,55:4,58:4,57:4",
+      "lyrics": "ee ee / ah ah / you were a-wake the whole time / ee ee ee / ah ah / you were a-wake the whole time / ee ee ee",
+      "lineRoles": [
+        "hum",
+        "hum",
+        "lead",
+        "hum",
+        "hum",
+        "lead",
+        "hum"
+      ],
+      "lineGains": [
+        0.32,
+        0.32,
+        0.44,
+        0.34,
+        0.32,
+        0.44,
+        0.32
+      ],
+      "noteGains": [
+        [
+          1,
+          0.82
+        ],
+        [
+          1,
+          0.82
+        ],
+        [
+          1,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          1
+        ],
+        [
+          1,
+          0.82,
+          0.9
+        ],
+        [
+          1,
+          0.82
+        ],
+        [
+          1,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          0.92,
+          1
+        ],
+        [
+          1,
+          0.82,
+          0.9
+        ]
+      ],
+      "singVoice": "Zoe (Premium)",
+      "sayVoice": "Zoe (Premium)",
+      "singLock": 1,
+      "singVibCents": 8,
+      "singVibratoHz": 5,
+      "singF0Floor": 80,
+      "singGapMs": 0,
+      "singSustainDb": 6,
+      "singShimmerFrames": 3,
+      "singLegatoMs": 40,
+      "double": false,
+      "faceAlpha": 0.95,
+      "performance": {
+        "expression": 0.45,
+        "keys": [
+          {
+            "beat": 0,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 7.6,
+            "space": 0.9,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 8,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 12.2,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 12.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 17.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 23.6,
+            "space": 0.9,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 24,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 30.2,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 30.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 33.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 33.6,
+            "space": 0.9,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 34,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 40.2,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 40.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 41.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 47.6,
+            "space": 0.9,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 48,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 56.2,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 56.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 59.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 61.6,
+            "space": 0.9,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 62,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 67.2,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 67.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 71.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 73.6,
+            "space": 0.9,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 74,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 80.2,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 80.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 81.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 83.6,
+            "space": 0.9,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 84,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 92.2,
+            "space": 0.9,
+            "pitch": 0
+          },
+          {
+            "beat": 92.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 95.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 104,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 108,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0
+          }
+        ]
+      }
+    }
+  ]
+}

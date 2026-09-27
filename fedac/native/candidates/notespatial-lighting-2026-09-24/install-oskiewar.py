@@ -20,6 +20,10 @@ if '// NOTEPAT_SCORE_VISUAL_V1_BEGIN' not in text:
     text=text.replace(old,new)
     source.with_suffix('.js.before-notepat-'+stamp).write_text(source.read_text())
     source.write_text(text+'\n'+adapter)
+else:
+    start=text.index('// NOTEPAT_SCORE_VISUAL_V1_BEGIN')
+    end=text.index('// NOTEPAT_SCORE_VISUAL_V1_END',start)+len('// NOTEPAT_SCORE_VISUAL_V1_END')
+    source.write_text(text[:start]+adapter.rstrip()+text[end:])
 text=stage.read_text()
 old="p?.playing && p.dance==='femrag-round-v1' && Number.isFinite(p.elapsed)"
 new="p?.playing && (p.dance==='femrag-round-v1' || p.visual==='notepat-score-v1') && Number.isFinite(p.elapsed)"

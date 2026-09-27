@@ -1,0 +1,12 @@
+{
+  "source": "reflog",
+  "total_commits": 0,
+  "ledger_begins": null,
+  "ledger_ends": null,
+  "first_commit": null,
+  "latest_commit": null,
+  "by_month": {},
+  "lanes_total": 0,
+  "lanes": [],
+  "busiest_day": null
+}

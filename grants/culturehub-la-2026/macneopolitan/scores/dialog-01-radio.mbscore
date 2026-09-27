@@ -1,0 +1,48 @@
+{
+  "title": "The MacNeoPolitan Trio — Dialog 1: Radio",
+  "composer": "neo and blueberry, from their records; arr. compose.mjs",
+  "machines": 2,
+  "bpm": 100,
+  "lead": 3,
+  "description": "4 lines between neo (Noelle) and blueberry (Allison). Words: members/dialogs.md.",
+  "voices": [
+    {
+      "name": "neo (Noelle)",
+      "program": 78,
+      "velocity": 80,
+      "notes": "56:0.5,58:1.5,58:0.5,61:2,63:1.5,63:3,r:1,63:0.5,63:0.5,63:0.5,61:0.5,63:1.5,63:2,61:1.5,60:0.5,56:3,r:30.5,57:0.5,59:0.5,59:0.5,62:1,64:1,66:2,57:3,r:3.5,58:0.5,58:1,59:1,63:1.5,63:0.5,66:2,64:1.5,61:3,r:1,59:0.5,61:1.5,61:0.5,61:0.5,68:2,59:3,r:4",
+      "lyrics": "I know you by ra-dio / you are on my list as blue-ber-ry / it is the name he gave me / we found each o-ther by ra-dio / be-fore we e-ver spoke /",
+      "notes2": "r:24,43:1,50:1,55:1,43:1,50:1,55:1,48:1,55:1,60:1,50:1,57:1,62:1,43:1,50:1,55:1,43:1,50:1,55:1,48:1,55:1,60:1,50:1,57:1,62:1,43:1,50:1,55:1,r:12,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1",
+      "velocity2": 34,
+      "notes3": "r:24,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:36",
+      "velocity3": 38,
+      "singVoice": "Noelle",
+      "singBase": 61,
+      "singVibratoHz": 6.4,
+      "sayVoice": "Noelle",
+      "double": true,
+      "doubleProgram": 78,
+      "doubleVelocity": 40,
+      "doubleTranspose": 24
+    },
+    {
+      "name": "blueberry (Allison)",
+      "program": 78,
+      "velocity": 80,
+      "notes": "r:24,50:0.5,50:0.5,52:0.5,55:1.5,57:0.5,61:2,59:0.5,59:1.5,57:0.5,57:1.5,57:3,r:1,57:0.5,55:0.5,55:0.5,57:2,55:1.5,54:0.5,50:3,r:17,52:0.5,52:1,53:1,57:1.5,57:0.5,60:2,58:1.5,55:3,r:1,53:0.5,55:1.5,55:0.5,55:0.5,62:2,53:3,r:4",
+      "lyrics": "you are on mine as Jef-frey's Mac-Book Ne-o / that is a long name for you / we found each o-ther by ra-dio / be-fore we e-ver spoke /",
+      "notes2": "49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,r:27,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,r:24",
+      "velocity2": 34,
+      "notes3": "k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:27,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1",
+      "velocity3": 38,
+      "singVoice": "Allison",
+      "singBase": 55,
+      "singVibratoHz": 4,
+      "sayVoice": "Allison",
+      "double": true,
+      "doubleProgram": 78,
+      "doubleVelocity": 40,
+      "doubleTranspose": 24
+    }
+  ]
+}

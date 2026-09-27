@@ -60,8 +60,13 @@ for file in deskflow-role-runner deskflow-set-role deskflow-role-state deskflow-
   cp "$HERE/$file" "$HOME/.local/bin/$file"
   chmod 755 "$HOME/.local/bin/$file"
 done
-/usr/bin/xcrun swiftc -O "$HERE/unipointer.swift" \
-  -o "$HOME/.local/bin/unipointer"
+if [[ -n "${UNIPOINTER_PREBUILT:-}" ]]; then
+  cp "$UNIPOINTER_PREBUILT" "$HOME/.local/bin/unipointer"
+  chmod 755 "$HOME/.local/bin/unipointer"
+else
+  /usr/bin/xcrun swiftc -O "$HERE/unipointer.swift" \
+    -o "$HOME/.local/bin/unipointer"
+fi
 rm -f "$HOME/.local/bin/deskflow-role-idle"
 cp "$HERE/deskflow-server.conf" "$HOME/Library/Deskflow/deskflow-handoff-server.conf"
 mkdir -p "$HOME/Library/Deskflow/tls"

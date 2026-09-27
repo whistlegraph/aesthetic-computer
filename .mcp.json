@@ -76,6 +76,19 @@
       "args": [
         "toolchain/robloxplorer/testing-mcp.mjs"
       ]
+    },
+    "venue": {
+      "command": "node",
+      "args": [
+        "toolchain/mcp/ac-venue-mcp.mjs"
+      ]
+    },
+    "analytics": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "toolchain/mcp/analytics-mcp.mjs"
+      ]
     }
   }
 }

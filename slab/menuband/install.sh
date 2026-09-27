@@ -381,52 +381,86 @@ ENTITLEMENTS="${SCRIPT_DIR}/MenuBand.entitlements"
 #      WITHOUT --deep (the launcher is already signed, so there's no
 #      unsigned nested code to recurse into), seals the final launcher
 #      hash correctly.
-if ! codesign_timestamped --force --sign "${SIGN_ID}" \
-    --identifier computer.aestheticcomputer.menubandlauncher \
-    --options runtime \
-    --entitlements "${ENTITLEMENTS}" \
-    --timestamp \
-    "${APP_LAUNCHER_BIN}" 2>&1; then
-    warn "launcher sign failed"
-    exit 1
-fi
-# Sign the embedded QuickLook extensions (if present) BEFORE the outer bundle,
-# each with its own identifier + hardened runtime, so the outer seal covers a
-# stable nested signature (same inner-to-outer rule as the launcher above).
-for qlax in ScorePreview ScoreThumbnail; do
-    QL_AX="${APP_DIR}/Contents/PlugIns/${qlax}.appex"
-    if [[ -d "${QL_AX}" ]]; then
-        if ! codesign_timestamped --force --sign "${SIGN_ID}" \
-            --identifier "computer.aestheticcomputer.menuband.quicklook.${qlax}" \
-            --options runtime \
-            --timestamp \
-            "${QL_AX}" 2>&1; then
-            warn "QuickLook ${qlax} sign failed"
-            exit 1
+# The whole chain is one function so a failure can be retried with a
+# different identity (see the ad-hoc fallback below) without duplicating
+# the order.
+sign_chain() {
+    local id="$1"
+    # An ad-hoc signature ("-") cannot carry a secure timestamp.
+    local ts=(--timestamp)
+    [[ "${id}" == "-" ]] && ts=()
+    if ! codesign_timestamped --force --sign "${id}" \
+        --identifier computer.aestheticcomputer.menubandlauncher \
+        --options runtime \
+        --entitlements "${ENTITLEMENTS}" \
+        ${ts[@]+"${ts[@]}"} \
+        "${APP_LAUNCHER_BIN}" 2>&1; then
+        warn "launcher sign failed"
+        return 1
+    fi
+    # Sign the embedded QuickLook extensions (if present) BEFORE the outer
+    # bundle, each with its own identifier + hardened runtime, so the outer
+    # seal covers a stable nested signature (same inner-to-outer rule as the
+    # launcher above).
+    local qlax QL_AX
+    for qlax in ScorePreview ScoreThumbnail; do
+        QL_AX="${APP_DIR}/Contents/PlugIns/${qlax}.appex"
+        if [[ -d "${QL_AX}" ]]; then
+            if ! codesign_timestamped --force --sign "${id}" \
+                --identifier "computer.aestheticcomputer.menuband.quicklook.${qlax}" \
+                --options runtime \
+                ${ts[@]+"${ts[@]}"} \
+                "${QL_AX}" 2>&1; then
+                warn "QuickLook ${qlax} sign failed"
+                return 1
+            fi
+        fi
+    done
+    # Sign the Help book (a resource bundle — no executable, so no hardened
+    # runtime) before the outer seal, so --deep --strict verify covers a
+    # stable nested signature.
+    local HELP_BUNDLE="${APP_DIR}/Contents/Resources/MenuBand.help"
+    if [[ -d "${HELP_BUNDLE}" ]]; then
+        if ! codesign_timestamped --force --sign "${id}" \
+            --identifier computer.aestheticcomputer.menuband.help \
+            ${ts[@]+"${ts[@]}"} \
+            "${HELP_BUNDLE}" 2>&1; then
+            warn "help book sign failed"
+            return 1
         fi
     fi
-done
-# Sign the Help book (a resource bundle — no executable, so no hardened
-# runtime) before the outer seal, so --deep --strict verify covers a stable
-# nested signature.
-HELP_BUNDLE="${APP_DIR}/Contents/Resources/MenuBand.help"
-if [[ -d "${HELP_BUNDLE}" ]]; then
-    if ! codesign_timestamped --force --sign "${SIGN_ID}" \
-        --identifier computer.aestheticcomputer.menuband.help \
-        --timestamp \
-        "${HELP_BUNDLE}" 2>&1; then
-        warn "help book sign failed"
+    if ! codesign_timestamped --force --sign "${id}" \
+        --identifier computer.aestheticcomputer.menuband \
+        --options runtime \
+        --entitlements "${ENTITLEMENTS}" \
+        ${ts[@]+"${ts[@]}"} \
+        "${APP_DIR}" 2>&1; then
+        warn "codesign failed — bundle is not signed with hardened runtime"
+        return 1
+    fi
+}
+
+if ! sign_chain "${SIGN_ID}"; then
+    # errSecInternalComponent here means the login keychain holding the
+    # Developer ID private key is locked — the normal state of a headless
+    # ssh session on a lid-down Mac. Aborting is WORSE than an ad-hoc
+    # bundle: it strands the fresh build in the stage while the old process
+    # keeps running, and the hand-rolled swap that follows tends to restart
+    # the app before the new bundle lands (blueberry, 2026-09-20: the stale
+    # image whistled a payload the new code would have sung). Fall back to
+    # ad-hoc so the swap + kickstart below still run, in the right order.
+    # Ad-hoc changes the cdhash every build, so the TCC grants (Accessibility,
+    # Input Monitoring) will need re-granting — never ship this bundle.
+    if [[ "${SIGN_ID}" != "-" && ( -n "${SSH_CONNECTION:-}" || "${MENUBAND_ADHOC_FALLBACK:-0}" == "1" ) ]]; then
+        warn "signing with '${SIGN_ID}' failed (locked keychain in a headless session?)"
+        warn "falling back to an AD-HOC signature — local install only, do not package or ship"
+        SIGN_ID="-"
+        sign_chain "${SIGN_ID}" || { warn "ad-hoc signing failed too"; exit 1; }
+    else
+        warn "unlock the login keychain (security unlock-keychain ~/Library/Keychains/login.keychain-db)"
+        warn "or re-run with MENUBAND_ADHOC_FALLBACK=1 to install an ad-hoc signed bundle"
         exit 1
     fi
-fi
-if ! codesign_timestamped --force --sign "${SIGN_ID}" \
-    --identifier computer.aestheticcomputer.menuband \
-    --options runtime \
-    --entitlements "${ENTITLEMENTS}" \
-    --timestamp \
-    "${APP_DIR}" 2>&1; then
-    warn "codesign failed — bundle is not signed with hardened runtime"
-    exit 1
 fi
 ok "signed"
 
@@ -464,6 +498,10 @@ sed -e "s|@HOME@|${REPO_HOME}|g" \
     "${LAUNCHER_PLIST_TMPL}" > "${LAUNCHER_PLIST_PATH}"
 ok "plists written"
 
+# Who is running the OLD image right now — checked again after the restart
+# (see the stale-image guard below).
+PRE_SWAP_PIDS="$(pgrep -x MenuBand | tr '\n' ' ' || true)"
+
 say "atomically replacing installed bundle → ${INSTALLED_APP_DIR}"
 BACKUP_APP_DIR="${REPO_HOME}/Applications/.Menu Band.app.previous-install"
 rm -rf "${BACKUP_APP_DIR}"
@@ -497,6 +535,21 @@ for _svc in "computer.aestheticcomputer.menuband|${PLIST_PATH}" \
     fi
 done
 sleep 1
+
+# Stale-image guard. macOS keeps a running app's executable mapped after the
+# bundle under it is swapped, so a Menu Band that survives the swap — one
+# launchd did not own (a LaunchServices `open`), or one the KeepAlive agent
+# respawned a beat before the swap landed — keeps running the OLD code while
+# `pgrep -fl` swears it is the new binary, and the agent then flaps every 5 s
+# as "duplicate instance". Any pre-swap survivor is terminated so the agent's
+# next spawn is the build we just installed. (blueberry, 2026-09-20: process
+# image UUID matched the morning's build, not the bundle on disk.)
+for _pid in ${PRE_SWAP_PIDS}; do
+    if kill -0 "${_pid}" 2>/dev/null; then
+        warn "MenuBand pid ${_pid} survived the swap (still running the previous image) — terminating it"
+        kill "${_pid}" 2>/dev/null || true
+    fi
+done
 
 # Replacing a signed executable in place occasionally leaves launchd's cached
 # lightweight-code-requirement (LWCR) tied to the previous signature. The job
@@ -538,7 +591,7 @@ printf "\n%sdone.%s\n" "${BOLD}" "${RESET}"
 echo "  bundle:       ${APP_DIR}"
 echo "  binary:       ${APP_BIN}"
 echo "  plist:        ${PLIST_PATH}"
-echo "  signed by:    ${SIGN_ID}"
+echo "  signed by:    $([[ "${SIGN_ID}" == "-" ]] && echo "AD-HOC (local install only)" || echo "${SIGN_ID}")"
 echo "  stdout:       /tmp/menuband.out"
 echo "  stderr:       /tmp/menuband.err"
 echo

@@ -29,7 +29,13 @@ SERVER_NAME=$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.arg
 # outage at the next handoff. Keep it matched to the live interface.
 refresh_local_address() {
   local live current
-  live=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true)
+  # A configured transport address (e.g. Tailscale) must survive LAN changes.
+  live=$(/usr/bin/python3 -c \
+    'import json,sys; print(json.load(open(sys.argv[1])).get("transportAddress", ""))' \
+    "$HANDOFF" 2>/dev/null || true)
+  if [[ -z "$live" ]]; then
+    live=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true)
+  fi
   [[ -n "$live" ]] || return 0
   current=$(/usr/bin/python3 -c \
     'import json,sys; print(json.load(open(sys.argv[1])).get("address", ""))' \

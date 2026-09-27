@@ -1,0 +1,117 @@
+{
+  "tag": "spell-probe7-v0",
+  "at": "2026-09-23T22:15:29.701Z",
+  "model": "ggml-small.en.bin",
+  "flags": {
+    "tag": "spell-probe7-v0",
+    "keep": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/9d4f9efe-53b9-4c09-9eda-1262c18a7422/scratchpad/probes/wav7",
+    "voice": "0",
+    "no-spoken": "1"
+  },
+  "scores": [
+    {
+      "score": "probe7.mbscore",
+      "bpm": 96,
+      "voices": [
+        {
+          "member": "neo",
+          "voice": "Noelle (Enhanced)",
+          "lines": [
+            {
+              "line": 1,
+              "role": "lead",
+              "text": "B L U",
+              "lyrics": "B L U",
+              "notes": "59:0.75,60:0.75,59:0.75",
+              "duration": 1.404263038548753,
+              "peak": 0.800000011920929,
+              "spanOffset": 0,
+              "notesUsed": 3,
+              "noteCount": 3,
+              "renderMs": 642,
+              "heard": "♪ V-L-U ♪",
+              "wer": 0.3333333333333333,
+              "errors": 1,
+              "words": 3,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/9d4f9efe-53b9-4c09-9eda-1262c18a7422/scratchpad/probes/wav7/probe7/neo/line-01.wav",
+              "spokenWav": null
+            },
+            {
+              "line": 2,
+              "role": "lead",
+              "text": "B L U",
+              "lyrics": "B L U",
+              "notes": "r:4.25,59:0.5,60:0.5,59:0.5",
+              "duration": 1.7192743764172336,
+              "peak": 0.800000011920929,
+              "spanOffset": 1.875,
+              "notesUsed": 3,
+              "noteCount": 3,
+              "renderMs": 411,
+              "heard": "B-L-U",
+              "wer": 0,
+              "errors": 0,
+              "words": 3,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/9d4f9efe-53b9-4c09-9eda-1262c18a7422/scratchpad/probes/wav7/probe7/neo/line-02.wav",
+              "spokenWav": null
+            },
+            {
+              "line": 3,
+              "role": "lead",
+              "text": "that is your name",
+              "lyrics": "that is your name",
+              "notes": "r:7.75,59:1,60:1,59:1,57:1",
+              "duration": 3.5942403628117914,
+              "peak": 0.800000011920929,
+              "spanOffset": 3.75,
+              "notesUsed": 4,
+              "noteCount": 4,
+              "renderMs": 1070,
+              "heard": "That is your name.",
+              "wer": 0,
+              "errors": 0,
+              "words": 4,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/9d4f9efe-53b9-4c09-9eda-1262c18a7422/scratchpad/probes/wav7/probe7/neo/line-03.wav",
+              "spokenWav": null
+            },
+            {
+              "line": 4,
+              "role": "lead",
+              "text": "these are our three names",
+              "lyrics": "these are our three names",
+              "notes": "r:13.75,59:1,60:1,59:1,61:1,59:1",
+              "duration": 4.219274376417234,
+              "peak": 0.800000011920929,
+              "spanOffset": 7.5,
+              "notesUsed": 5,
+              "noteCount": 5,
+              "renderMs": 2280,
+              "heard": "These are our three names.",
+              "wer": 0,
+              "errors": 0,
+              "words": 5,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/9d4f9efe-53b9-4c09-9eda-1262c18a7422/scratchpad/probes/wav7/probe7/neo/line-04.wav",
+              "spokenWav": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "total": {
+    "errors": 1,
+    "words": 15,
+    "wer": 0.06666666666666667,
+    "spokenErrors": 0,
+    "spokenWords": 0,
+    "spokenWer": 0
+  }
+}

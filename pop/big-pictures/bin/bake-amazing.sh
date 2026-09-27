@@ -10,7 +10,8 @@ set -euo pipefail
 HERE="$(cd -- "$(dirname -- "$0")" && pwd)"
 LANE="$(cd -- "$HERE/.." && pwd)"
 REPO="$(cd -- "$LANE/../.." && pwd)"
-OUT="$LANE/out/amazing-grace"
+OUT="${OUT:-$LANE/out/amazing-grace}"
+export OUT
 ARCH="$REPO/system/public/assets/pop/big-pictures"
 mkdir -p "$OUT"
 
@@ -20,19 +21,29 @@ BED="${BED:-0.68}"           # C bed gain
 STAMP_AT="${STAMP_AT:-65.8}" # the ac signoff, 1.5 s into the amen ring
 IR="$REPO/pop/cult/samples/cathedral-ir.wav"
 
+if [ -n "${REUSE_STEMS:-}" ]; then
+  cp "$REUSE_STEMS/bed.wav" "$OUT/bed.wav"
+else
 echo "→ engine"
 bash "$LANE/c/build.sh" 2>&1 | grep -v -E "warning|organ_render|\^~|^\s+[0-9]+ \||^$" || true
 "$LANE/c/amazinhym" --intro "$INTRO" --out "$OUT/bed.wav" 2>&1 | grep -E "total|wrote"
+fi
 
 echo "→ sung lead"
-node "$HERE/sing-amazing.mjs" | tail -3
+SING_ARGS=()
+[ "${SMOOTH_VOX:-0}" = 1 ] && SING_ARGS+=(--smooth)
+node "$HERE/sing-amazing.mjs" "${SING_ARGS[@]}" | tail -3
 
+if [ -n "${REUSE_STEMS:-}" ]; then
+  cp "$REUSE_STEMS/stamp.wav" "$OUT/stamp.wav"
+else
 echo "→ stamp"
 STAMP_SRC="$ARCH/ac-stamp/vocal/ac-stamp-vocal.mp3"
 [ -f "$STAMP_SRC" ] || { echo "✗ missing $STAMP_SRC (aws s3 sync the archive down)"; exit 1; }
 ffmpeg -y -loglevel error -i "$STAMP_SRC" \
   -af "asetrate=66150,aresample=44100,acrusher=bits=4:mode=lin:aa=1,aformat=sample_rates=22050,aresample=48000,volume=1.6" \
   -ac 2 "$OUT/stamp.wav"
+fi
 
 echo "→ mix  (vox $VOX · bed $BED · intro $INTRO s · stamp @ $STAMP_AT s)"
 TOTAL=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$OUT/bed.wav")

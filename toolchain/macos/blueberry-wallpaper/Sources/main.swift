@@ -56,6 +56,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
     private var motionEpoch: TimeInterval?
     private var modelWidth: CGFloat = 1
     private var modelHeight: CGFloat = 1
+    private var lastDark: Bool?
 
     // ── slab status tint ──────────────────────────────────────────────────
     // SlabMenubar publishes its aggregate prompt colour (theme-by-status) as
@@ -108,6 +109,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        updateAppearance(animated: false)
         guard let scale = window?.backingScaleFactor else { return }
         sceneView.layer?.contentsScale = scale
     }
@@ -316,9 +318,24 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
 
     private func updateAppearance(animated: Bool) {
         applyAccentColor(animated: animated)
+        let color = backdropColor()
+        // macOS uses the opaque desktop window's backing color when choosing
+        // menu-bar contrast. Keep it in sync with the visible layer, including
+        // appearance flips after launch; a stale light backing creates a pale
+        // top scrim with black menu text over an otherwise dark desktop.
+        window?.backgroundColor = color
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let flipped = lastDark != nil && lastDark != dark
+        lastDark = dark
+        // The menu-bar compositor caches contrast for a desktop window even
+        // after its backing color changes. Re-present it once per mode flip.
+        if flipped, let window {
+            window.orderOut(nil)
+            DispatchQueue.main.async { window.orderFrontRegardless() }
+        }
         CATransaction.begin()
         CATransaction.setAnimationDuration(animated ? 0.65 : 0)
-        background.backgroundColor = backdropColor().cgColor
+        background.backgroundColor = color.cgColor
         CATransaction.commit()
     }
 }

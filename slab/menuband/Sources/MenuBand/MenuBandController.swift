@@ -1282,6 +1282,14 @@ final class MenuBandController {
     /// `midi.start()` so receivers (Live) scale matched.
     static let bendSemitonesPerUnit: CGFloat = 12
 
+    /// The wheel's reach in `bendAmount` units (octaves): the trackpad
+    /// accumulator clamps here and a full-scale 14-bit bend means exactly
+    /// this far. MIDISynth and every external receiver are told the same
+    /// span via RPN 0, so a piano voice bends as far as the sample, radio
+    /// and GM voices — it used to stop at the GM default ±2 semitones.
+    static let bendRangeOctaves: Float = 2
+    static let bendRangeSemitones = UInt8(bendRangeOctaves * 12)
+
     /// Master ambience knob (trackpad X-axis on the bend gesture).
     /// Forwards straight to the synth's global reverb, so it colors
     /// every backend equally and is independent of which instrument
@@ -1305,6 +1313,18 @@ final class MenuBandController {
     /// name picks up whatever bend/space/echo the last gesture left on.
     func speakLanguageName(_ text: String, languageCode: String) {
         synth.speak(text, languageCode: languageCode)
+    }
+
+    /// Where a sung `.play` line sounds (see MenuBandSinger).
+    var singerVoice: MenuBandSingerVoice { synth.singerVoice }
+    /// A sim slot's own singer (`sim=i/n`), made on first use.
+    func simSingerVoice(_ slot: SingerFace.SimSlot) -> MenuBandSingerVoice { synth.simSingerVoice(slot) }
+    func stopAllSingers() { synth.stopAllSingers() }
+    /// Keep the audio engine from idle-pausing (a conducted sung sequence
+    /// must not hit the 60 s pause hole mid-song).
+    var keepEngineWarm: Bool {
+        get { synth.keepEngineWarm }
+        set { synth.keepEngineWarm = newValue }
     }
 
     /// Secondary alphabet voice used by the popover's ABC checkbox.
@@ -1411,7 +1431,7 @@ final class MenuBandController {
         // amount; the MIDI value saturates naturally inside
         // `sendPitchBend` (14-bit signed limit, receiver-side bend
         // range determines audible cap).
-        let result = amount.finiteMagnitudeMultiply(8192)
+        let result = (amount / Self.bendRangeOctaves).finiteMagnitudeMultiply(8192)
         let value = Int16(result.safeClamped(Float(Int16.min), Float(Int16.max)))
         // Remember the current bend so a freshly-allocated round-robin
         // channel can be set to it at noteOn time (see currentBendValue).
@@ -2255,16 +2275,20 @@ final class MenuBandController {
             }
 
         case let .pitchBend(value, channel):
+            // A hardware wheel spans ±1 octave on every voice: rescale it
+            // into the wider ±bendRangeOctaves span MIDISynth and external
+            // receivers are told to expect.
             let amount = Float(value) / 8192.0
+            let scaled = Int16(Float(value) / Self.bendRangeOctaves)
             if !midiMode {
-                synth.sendPitchBend(value: value, channel: channel)
+                synth.sendPitchBend(value: scaled, channel: channel)
                 // Non-MIDI-native backends need their equivalent direct
                 // controls so the Arturia wheel works on every Menu Band voice.
                 synth.setSamplePitchBend(amount: amount)
                 synth.setRadioPitchBend(amount: amount)
                 synth.setGMPitchBend(amount: amount)
             }
-            midi.sendPitchBend(value: value, channel: channel)
+            midi.sendPitchBend(value: scaled, channel: channel)
 
         case .reset:
             releaseAllHardwareMIDINotes()

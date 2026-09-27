@@ -284,7 +284,9 @@ audit() {
 
 clean_contents() {
   [[ -d "$1" ]] || return 0
-  find "$1" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+  if ! find "$1" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +; then
+    skip "could not fully clear $1; continuing with other caches"
+  fi
 }
 
 skip() {

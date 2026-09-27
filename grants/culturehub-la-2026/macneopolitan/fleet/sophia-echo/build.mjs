@@ -3,6 +3,8 @@ import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 const input=process.argv[2],out=process.argv[3];if(!input||!out)throw Error('build.mjs input-folder output-folder');mkdirSync(out,{recursive:true});
 const prepared=JSON.parse(readFileSync(join(input,'prepared-source.json'))),plan=JSON.parse(readFileSync(join(input,'plan-source.json')));
+// Visual fields participate in singer preparation fingerprints: set before preparing.
+for(const payload of plan.payloads){payload.info.faceAlpha='1';payload.info.captionSize='110';}
 const sr=44100,frames=Math.ceil(plan.duration*sr),stems=Array.from({length:6},()=>new Float32Array(frames)),routes=[];
 const sha=b=>createHash('sha256').update(b).digest('hex');
 const phrases=prepared.singers.flatMap(s=>s.phrases.map(p=>({...p,member:s.member}))).sort((a,b)=>a.spanOffset-b.spanOffset);

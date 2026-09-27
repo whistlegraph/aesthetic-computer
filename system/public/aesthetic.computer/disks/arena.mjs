@@ -20,6 +20,7 @@
 
 import { BTN, packCmd, pmove } from "../lib/pmove.mjs";
 import { ARENA_OBSTACLES, ARENA_OBSTACLE_COLORS, ARENA_PHYSICS } from "../lib/arena-world.mjs";
+import { humanoid } from "../lib/humanoid.mjs";
 
 let myHandle = "guest";
 let netServer = null;       // WebSocket (reliable)
@@ -623,86 +624,8 @@ function isGuestHandle(h) {
 // remote's eye coords without offset gymnastics. Face-side (+Z in body-local)
 // gets a darker visor tone so you can tell which way the player is looking.
 function buildRemoteBody(Form, colorRGB, watcher = false) {
-  const [R, G, B] = colorRGB;
-  const a = watcher ? 0.55 : 1.0;
-  const r = R / 255, g = G / 255, b = B / 255;
-  // Tone tiers from the deterministic per-handle hue.
-  const main = [r, g, b, a];
-  const dark = [r * 0.55, g * 0.55, b * 0.55, a];
-  const light = [Math.min(1, r * 1.18), Math.min(1, g * 1.18), Math.min(1, b * 1.18), a];
-  const skinHead = [
-    Math.min(1, r * 0.4 + 0.5),
-    Math.min(1, g * 0.4 + 0.45),
-    Math.min(1, b * 0.4 + 0.4),
-    a,
-  ];
-  const visor = watcher
-    ? [0.55, 0.6, 0.7, a]
-    : [0.08, 0.08, 0.12, a];
-
-  const positions = [];
-  const colors = [];
-  // Push one axis-aligned box (in body-local coords). `faces` can override
-  // each face individually; missing faces fall back to `main`.
-  const pushBox = (xMin, yMin, zMin, xMax, yMax, zMax, faces) => {
-    const top = faces.top ?? faces.main;
-    const bot = faces.bot ?? faces.main;
-    const north = faces.north ?? faces.side ?? faces.main; // -Z
-    const south = faces.south ?? faces.side ?? faces.main; // +Z (face/forward)
-    const east  = faces.east  ?? faces.side ?? faces.main; // +X
-    const west  = faces.west  ?? faces.side ?? faces.main; // -X
-    const v = (x, y, z) => [x, y, z, 1];
-    const quad = (A, B, C, D, c) => {
-      positions.push(A, B, C, A, C, D);
-      for (let i = 0; i < 6; i++) colors.push(c);
-    };
-    quad(v(xMin,yMax,zMin), v(xMin,yMax,zMax), v(xMax,yMax,zMax), v(xMax,yMax,zMin), top);
-    quad(v(xMin,yMin,zMin), v(xMax,yMin,zMin), v(xMax,yMin,zMax), v(xMin,yMin,zMax), bot);
-    quad(v(xMin,yMin,zMin), v(xMin,yMax,zMin), v(xMax,yMax,zMin), v(xMax,yMin,zMin), north);
-    quad(v(xMax,yMin,zMax), v(xMax,yMax,zMax), v(xMin,yMax,zMax), v(xMin,yMin,zMax), south);
-    quad(v(xMax,yMin,zMin), v(xMax,yMax,zMin), v(xMax,yMax,zMax), v(xMax,yMin,zMax), east);
-    quad(v(xMin,yMin,zMax), v(xMin,yMax,zMax), v(xMin,yMax,zMin), v(xMin,yMin,zMin), west);
-  };
-
-  // Body coordinate convention (matches the prior stick figure):
-  //   y=+0.35 head top, y=0 shoulder/eye, y=-1.1 hip, y=-2.0 feet.
-  // +Z is the player's forward direction (they face +Z at yaw=0).
-
-  // Torso — primary handle color.
-  pushBox(-0.30, -1.10, -0.18, 0.30, -0.40, 0.18, {
-    main, top: light, bot: dark, north: dark, south: main,
-  });
-
-  // Head — neutral skin tone with a darker visor on the front (+Z) so the
-  // facing direction reads at a glance.
-  pushBox(-0.22, -0.05, -0.20, 0.22, 0.35, 0.20, {
-    main: skinHead,
-    top: [
-      Math.min(1, skinHead[0] * 1.05),
-      Math.min(1, skinHead[1] * 1.05),
-      Math.min(1, skinHead[2] * 1.05),
-      a,
-    ],
-    bot: dark,
-    south: visor, // +Z = face
-  });
-
-  // Arms — thin boxes on either side of the torso.
-  pushBox(-0.50, -1.05, -0.12, -0.32, -0.40, 0.12, {
-    main: dark, top: main, bot: dark,
-  });
-  pushBox( 0.32, -1.05, -0.12,  0.50, -0.40, 0.12, {
-    main: dark, top: main, bot: dark,
-  });
-
-  // Legs — squarer boxes from hip to feet.
-  pushBox(-0.22, -2.00, -0.14, -0.04, -1.10, 0.14, {
-    main: dark, top: main, bot: [0, 0, 0, a],
-  });
-  pushBox( 0.04, -2.00, -0.14,  0.22, -1.10, 0.14, {
-    main: dark, top: main, bot: [0, 0, 0, a],
-  });
-
+  // The person itself lives in lib/humanoid.mjs, shared with lairk.
+  const { positions, colors } = humanoid(colorRGB, { watcher });
   const f = new Form(
     { type: "triangle", positions, colors },
     { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },

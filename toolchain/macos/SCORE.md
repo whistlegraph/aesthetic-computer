@@ -164,6 +164,24 @@ Final Cut/Xcode data, Docker, and local model stores. `--remote-backed` is
 interactive/explicit only: each surface is kept unless its own remote verifier
 passes, and it is never included in the weekly LaunchAgent.
 
+### Neo headroom
+
+Use [Neo cleanup](NEO-CLEANUP.md) for the verified worktree and local Photos
+procedures, recovery records, and the host's daily schedule.
+
+Keep at least 20 GiB free on Neo for swap and system updates. Its hourly
+`disk-space-watch` checks only filesystem free space and warns at most once
+per day; it never deletes data. Install it with
+`bash toolchain/macos/disk-space-watch.sh --install`. Its current reading is
+`~/.local/share/slab/disk-space/latest.json`.
+
+Neo's Cleaner runs daily at 03:15 at background priority. Inaccessible caches
+are skipped rather than aborting the remaining cleanup. Keep voice evaluation
+and its intermediate audio on Poorslice; keep video/browser rendering and its
+bulk outputs on Panda. Neo holds the controlling sessions and source edits.
+Copy back only the results needed locally. Preserve source, transcripts,
+models, and personal media; move generated bulk only after verifying its copy.
+
 ### Safe regenerable buckets
 
 Always clear first — fully recover with no judgment call:

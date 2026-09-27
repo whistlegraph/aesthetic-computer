@@ -1,0 +1,185 @@
+% !TEX program = xelatex
+% MNPT Scores — the request binder. Every Menu Band score the MacNeoPolitan
+% Trio can sing, numbered so the room can call one out.
+%
+% The pages are here; the data is generated. Build with ../bin/scorebook.sh,
+% which runs ../bin/scorebook.mjs first and never edits scores/ or SONGBOOK.md.
+\documentclass[11pt,letterpaper]{article}
+\usepackage{culturehub-packet}
+\usepackage{multicol}
+\renewcommand{\packetlabel}{MNPT SCORES}
+\hypersetup{pdftitle={MNPT Scores — Menu Band scores for the MacNeoPolitan Trio}}
+\geometry{top=0.72in,bottom=0.78in,left=0.8in,right=0.8in}
+
+\definecolor{acpink}{HTML}{B44887}
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{Aesthetic{\acdot}Computer}
+
+% Member colors and all binder content come from mnpt-scores-entries.tex.
+\input{mnpt-scores-entries}
+
+\fancyhead[L]{\footnotesize\color{acpink}\packetlabel}
+\fancyhead[R]{\footnotesize\color{acgray}\rightmark}
+\fancyfoot[L]{\footnotesize\color{acgray}MacNeoPolitan Trio}
+\fancyfoot[R]{\footnotesize\color{acgray}\thepage}
+
+% ------------------------------------------------------------------- pieces
+\newcommand{\mnsep}{{\color{acgray}\,\textperiodcentered\,}}
+\newcommand{\mnx}[1]{{\color{acgray}\,\texttimes#1}}
+
+% Who is singing: a chip in the member's own color.
+\newcommand{\mnchip}[3]{%
+  \begingroup\setlength{\fboxsep}{1.5pt}%
+  \colorbox{#1}{\color{#2}\bfseries\fontsize{6.6pt}{6.6pt}\selectfont\strut#3}%
+  \endgroup}
+\newcommand{\mnall}{%
+  \begingroup\setlength{\fboxsep}{1.5pt}%
+  \colorbox{acdark}{\color{white}\bfseries\fontsize{6.6pt}{6.6pt}\selectfont\strut all}%
+  \endgroup}
+
+\newlength{\mntagw}\setlength{\mntagw}{7.2em}
+\newcommand{\mnline}[2]{%
+  \par\vspace{0.14em}\noindent
+  \hangindent=\mntagw\hangafter=1\relax
+  \makebox[\mntagw][l]{#1}#2\par}
+\newcommand{\mnhum}[2]{%
+  \par\vspace{0.1em}\noindent
+  \hangindent=\mntagw\hangafter=1\relax
+  \makebox[\mntagw][l]{#1}{\color{acgray}#2}\par}
+\newcommand{\mnsec}[1]{%
+  \par\vspace{0.62em}\noindent
+  {\bfseries\fontsize{8.4pt}{10pt}\selectfont\color{acgray}#1}\par\vspace{0.1em}}
+
+% One score, one page.
+\newcommand{\mnentry}[7]{%
+  \clearpage
+  \markright{#1 \textperiodcentered\ #3}%
+  \pdfbookmark[1]{#1 - #3}{mnpt#1}%
+  \noindent
+  \begin{minipage}[b]{1.32in}%
+    {\fontsize{46pt}{46pt}\selectfont\bfseries\color{#2}#1}%
+  \end{minipage}%
+  \begin{minipage}[b]{\dimexpr\linewidth-1.32in\relax}%
+    {\fontsize{20pt}{22pt}\selectfont\bfseries\color{acdark}#3\par}%
+    \vspace{0.18em}%
+    {\fontsize{9.4pt}{12pt}\selectfont\color{acdark}#4\par}%
+  \end{minipage}%
+  \par\vspace{0.3em}{\color{#2}\rule{\linewidth}{2.2pt}}\par\vspace{0.45em}
+  {\fontsize{9pt}{12pt}\selectfont#5\par}%
+  \mnblurb{#6}\mnnote{#7}%
+  \vspace{0.55em}
+  \fontsize{10pt}{13.2pt}\selectfont}
+\newcommand{\mnblurb}[1]{%
+  \if\relax\detokenize{#1}\relax\else
+    \vspace{0.42em}{\fontsize{9.6pt}{13pt}\selectfont\color{acdark}#1\par}\fi}
+\newcommand{\mnnote}[1]{%
+  \if\relax\detokenize{#1}\relax\else
+    \vspace{0.22em}{\fontsize{9pt}{12pt}\selectfont\color{acgray}Songbook: #1\par}\fi}
+
+% Index rows. Plain paragraphs, not a table, so the index can break pages.
+\newcommand{\mngrouprow}[3]{%
+  \par\vspace{0.7em}\noindent
+  {\bfseries\color{#1}#2}\quad{\color{acgray}\fontsize{8.6pt}{10pt}\selectfont#3}%
+  \par\vspace{0.28em}}
+\newcommand{\mnrow}[5]{%
+  \par\noindent\hangindent=2.66in\hangafter=1\relax
+  \makebox[0.4in][r]{\bfseries\color{#1}#2}\hspace{0.45em}%
+  \makebox[1.75in][l]{#3}\makebox[0.4in][r]{#4}\hspace{0.45em}%
+  {\color{acgray}#5}\par\vspace{0.12em}}
+\newcommand{\mntitlerow}[3]{%
+  \noindent{\bfseries\color{#1}#2}\hspace{0.55em}#3\par\vspace{0.12em}}
+\newcommand{\mncastrow}[4]{#1 & #2 & #3 & #4\\}
+\newcommand{\mnrule}[1]{\item #1}
+
+\newcommand{\mnpagetitle}[2]{%
+  {\acbold\fontsize{26pt}{28pt}\selectfont\color{acdark}#1\par}%
+  \vspace{0.1em}{\fontsize{9.4pt}{12pt}\selectfont\color{acgray}#2\par}%
+  \vspace{0.3em}{\color{acpale}\rule{\linewidth}{1.6pt}}\par\vspace{0.7em}}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+
+\begin{document}
+
+% ---------------------------------------------------------------- the cover
+\thispagestyle{empty}
+\vspace*{1.05in}
+\begin{center}
+{\acbold\fontsize{72pt}{72pt}\selectfont\color{acdark}MNPT Scores\par}
+\vspace{0.7em}
+\noindent
+\textcolor{mnneo}{\rule{1.95in}{0.46in}}\hspace{-0.5pt}%
+\textcolor{mnblueberry}{\rule{1.95in}{0.46in}}\hspace{-0.5pt}%
+\textcolor{mnfrisbee}{\rule{1.95in}{0.46in}}
+\par\vspace{1.25em}
+{\fontsize{15pt}{19pt}\selectfont\color{acdark}Menu Band scores for the MacNeoPolitan Trio\par}
+\vspace{0.5em}
+{\fontsize{11pt}{14pt}\selectfont\color{acgray}\mnptdate\par}
+\vspace{0.15em}
+{\fontsize{9.5pt}{12pt}\selectfont\color{acgray}\mnptedition\par}
+\vspace{2.1em}
+\begin{minipage}{4.5in}\centering
+{\fontsize{10.5pt}{15pt}\selectfont
+\mnptcount\ scores, each with a three-digit request number. Call the number.\par}
+\end{minipage}
+\end{center}
+\vfill
+\palsfooter
+\begin{center}
+{\fontsize{8.4pt}{11pt}\selectfont\color{acgray}%
+Menu Band \textperiodcentered\ \ac \par}
+\end{center}
+\clearpage
+
+% -------------------------------------------------------- the request index
+\mnpagetitle{Request index}{by number \textperiodcentered\ duration is the score's own length at its own tempo}
+{\fontsize{9.2pt}{12.2pt}\selectfont
+\mnptrequestindex
+\par}
+\clearpage
+
+% -------------------------------------------------------- titles + the cast
+\mnpagetitle{Titles}{alphabetical}
+{\fontsize{9.2pt}{12pt}\selectfont
+\begin{multicols}{2}\raggedright
+\mnpttitleindex
+\end{multicols}\par}
+
+\vspace{1.1em}
+\mnpagetitle{The cast}{measured registers, in MIDI note numbers}
+{\fontsize{9.6pt}{13.4pt}\selectfont
+\begin{tabular}{@{}p{0.95in}p{1.7in}p{1.3in}p{1.5in}@{}}
+{\color{acgray}member} & {\color{acgray}voice} & {\color{acgray}speaks at} & {\color{acgray}sings inside}\\
+\mnptcast
+\end{tabular}\par}
+
+\vspace{1.0em}
+{\fontsize{9.4pt}{13pt}\selectfont\color{acdark}
+Every member sings on its own body, in its own synthesizer, on one shared
+clock. In the scores each line carries the tag of the machine that sings it,
+and the tag repeats only when the singer changes. Grey is wordless:
+{\color{acgray}(hum)} is breath on pitch, and {\color{acgray}doo\mnx{4}} is
+that figure four times. A voice that hums under a whole score is named once in
+its cast line rather than between every other line.\par}
+\clearpage
+
+% ------------------------------------------------------------- every score
+\mnptentries
+
+% ------------------------------------------------------------ the appendix
+\clearpage
+\markright{Rules the day taught}
+\mnpagetitle{Rules the day taught}{what the machines proved, and what broke}
+{\fontsize{10pt}{14pt}\selectfont
+\begin{itemize}[leftmargin=1.1em,itemsep=0.7em]
+\mnptrules
+\end{itemize}\par}
+
+\vfill
+{\fontsize{8.6pt}{11.5pt}\selectfont\color{acgray}%
+Generated from \texttt{scores/*.mbscore} and \texttt{SONGBOOK.md} by
+\texttt{bin/scorebook.mjs}; set by \texttt{book/mnpt-scores.tex}. Durations are
+each score's longest voice, in beats, at the score's own tempo. Rebuild after a
+new score lands: \texttt{bin/scorebook.sh}.\par}
+
+\end{document}

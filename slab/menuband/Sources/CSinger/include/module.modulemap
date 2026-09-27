@@ -1,0 +1,4 @@
+module CSinger {
+    header "singer.h"
+    export *
+}

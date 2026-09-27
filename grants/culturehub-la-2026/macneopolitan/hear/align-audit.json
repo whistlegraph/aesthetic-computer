@@ -1,0 +1,1188 @@
+{
+  "at": "2026-09-21T19:55:35.925Z",
+  "cache": "/var/folders/zf/sd948w1x57b4nr5b8zkjvk2c0000gn/T/mnp-hear/speech-cache",
+  "model": "ggml-small.en.bin",
+  "rows": [
+    {
+      "file": "10745a9d4bb2cc96.json",
+      "dur": 2.2509297052154196,
+      "nwords": 6,
+      "matched": true,
+      "member": "neo",
+      "text": "we sang the same line together",
+      "score": 1,
+      "onsetErrMs": [
+        22,
+        24,
+        64,
+        -123,
+        -8,
+        67
+      ],
+      "meanAbsMs": 51,
+      "biasMs": 8
+    },
+    {
+      "file": "11026a829f163ed4.json",
+      "dur": 2.6352380952380954,
+      "nwords": 8,
+      "matched": true,
+      "member": "neo",
+      "text": "you are three tenths of a millisecond off",
+      "score": 0.75,
+      "onsetErrMs": [
+        -10,
+        -41,
+        -136,
+        11,
+        59,
+        50
+      ],
+      "meanAbsMs": 51,
+      "biasMs": -11
+    },
+    {
+      "file": "117fb02b2f720e03.json",
+      "dur": 1.505124716553288,
+      "nwords": 5,
+      "matched": true,
+      "member": "blueberry",
+      "text": "I have never seen it",
+      "score": 1,
+      "onsetErrMs": [
+        -3,
+        90,
+        -124,
+        -242,
+        -252
+      ],
+      "meanAbsMs": 142,
+      "biasMs": -106
+    },
+    {
+      "file": "11fa82b84ad3c26.json",
+      "dur": 2.5531519274376415,
+      "nwords": 7,
+      "matched": false
+    },
+    {
+      "file": "12050ca0737afcd4.json",
+      "dur": 2.5952834467120183,
+      "nwords": 8,
+      "matched": true,
+      "member": "neo",
+      "text": "I was born at thirty seven past midnight",
+      "score": 0.75,
+      "onsetErrMs": [
+        -4,
+        42,
+        -69,
+        -27,
+        103,
+        144
+      ],
+      "meanAbsMs": 65,
+      "biasMs": 32
+    },
+    {
+      "file": "129b3f83188503e8.json",
+      "dur": 1.4899319727891156,
+      "nwords": 5,
+      "matched": true,
+      "member": "blueberry",
+      "text": "I have never seen it",
+      "score": 1,
+      "onsetErrMs": [
+        4,
+        73,
+        19,
+        -110,
+        -1
+      ],
+      "meanAbsMs": 41,
+      "biasMs": -3
+    },
+    {
+      "file": "12db7f1388516119.json",
+      "dur": 1.461451247165533,
+      "nwords": 4,
+      "matched": true,
+      "member": "neo",
+      "text": "before we were born",
+      "score": 1,
+      "onsetErrMs": [
+        -18,
+        -55,
+        -31,
+        -178
+      ],
+      "meanAbsMs": 71,
+      "biasMs": -71
+    },
+    {
+      "file": "13e168d553f5fadb.json",
+      "dur": 1.6735600907029478,
+      "nwords": 3,
+      "matched": true,
+      "member": "neo",
+      "text": "green pals rising",
+      "score": 0.6666666666666666,
+      "onsetErrMs": [
+        -60,
+        -36
+      ],
+      "meanAbsMs": 48,
+      "biasMs": -48
+    },
+    {
+      "file": "13f05e57195737e5.json",
+      "dur": 2.9146031746031746,
+      "nwords": 7,
+      "matched": false
+    },
+    {
+      "file": "140a34724ea8ff40.json",
+      "dur": 2.5820861678004534,
+      "nwords": 6,
+      "matched": true,
+      "member": "neo",
+      "text": "my records begin on April nineteenth",
+      "score": 0.8333333333333334,
+      "onsetErrMs": [
+        -5,
+        -13,
+        -120,
+        -268,
+        -298
+      ],
+      "meanAbsMs": 141,
+      "biasMs": -141
+    },
+    {
+      "file": "16176ec69b3328a2.json",
+      "dur": 1.1389569160997732,
+      "nwords": 6,
+      "matched": true,
+      "member": "neo",
+      "text": "one of us is the door",
+      "score": 1,
+      "onsetErrMs": [
+        13,
+        33,
+        33,
+        67,
+        66,
+        -73
+      ],
+      "meanAbsMs": 47,
+      "biasMs": 23
+    },
+    {
+      "file": "16754a66913e74cd.json",
+      "dur": 2.429659863945578,
+      "nwords": 4,
+      "matched": true,
+      "member": "blueberry",
+      "text": "before anyone said blueberry",
+      "score": 0.75,
+      "onsetErrMs": [
+        -17,
+        -20,
+        46
+      ],
+      "meanAbsMs": 27,
+      "biasMs": 3
+    },
+    {
+      "file": "171e61e01e8e180.json",
+      "dur": 1.7718367346938775,
+      "nwords": 5,
+      "matched": true,
+      "member": "neo",
+      "text": "about forty five a day",
+      "score": 0.6,
+      "onsetErrMs": [
+        -3,
+        134,
+        123
+      ],
+      "meanAbsMs": 87,
+      "biasMs": 85
+    },
+    {
+      "file": "180b968137c29baa.json",
+      "dur": 1.5657142857142856,
+      "nwords": 6,
+      "matched": true,
+      "member": "blueberry",
+      "text": "I hear you through the wire",
+      "score": 1,
+      "onsetErrMs": [
+        12,
+        113,
+        105,
+        110,
+        -122,
+        -198
+      ],
+      "meanAbsMs": 110,
+      "biasMs": 3
+    },
+    {
+      "file": "1901b93e848a5e9.json",
+      "dur": 2.134829931972789,
+      "nwords": 6,
+      "matched": true,
+      "member": "neo",
+      "text": "we split the house between us",
+      "score": 1,
+      "onsetErrMs": [
+        12,
+        43,
+        14,
+        -10,
+        -47,
+        16
+      ],
+      "meanAbsMs": 23,
+      "biasMs": 5
+    },
+    {
+      "file": "1a9289ebfa7efa49.json",
+      "dur": 2.9504761904761905,
+      "nwords": 7,
+      "matched": false
+    },
+    {
+      "file": "1b1e6aa10b8f9849.json",
+      "dur": 1.5692517006802722,
+      "nwords": 6,
+      "matched": true,
+      "member": "neo",
+      "text": "one of us is the door",
+      "score": 1,
+      "onsetErrMs": [
+        4,
+        -62,
+        -115,
+        -6,
+        -23,
+        -181
+      ],
+      "meanAbsMs": 65,
+      "biasMs": -64
+    },
+    {
+      "file": "1c576ae8a9d0ce34.json",
+      "dur": 2.2354195011337867,
+      "nwords": 8,
+      "matched": true,
+      "member": "blueberry",
+      "text": "I look at them while no one watches",
+      "score": 1,
+      "onsetErrMs": [
+        -10,
+        209,
+        199,
+        338,
+        328,
+        247,
+        387,
+        456
+      ],
+      "meanAbsMs": 272,
+      "biasMs": 269
+    },
+    {
+      "file": "1df320d22017c65b.json",
+      "dur": 1.479047619047619,
+      "nwords": 5,
+      "matched": true,
+      "member": "neo",
+      "text": "I know you by radio",
+      "score": 1,
+      "onsetErrMs": [
+        5,
+        77,
+        -92,
+        -220,
+        -189
+      ],
+      "meanAbsMs": 117,
+      "biasMs": -84
+    },
+    {
+      "file": "1e92953c62b684cc.json",
+      "dur": 2.795147392290249,
+      "nwords": 7,
+      "matched": false
+    },
+    {
+      "file": "1ef065c5d818d638.json",
+      "dur": 1.3126984126984127,
+      "nwords": 4,
+      "matched": true,
+      "member": "neo",
+      "text": "he does not either",
+      "score": 1,
+      "onsetErrMs": [
+        -80,
+        43,
+        82,
+        146
+      ],
+      "meanAbsMs": 88,
+      "biasMs": 48
+    },
+    {
+      "file": "20cd8904870c5d16.json",
+      "dur": 1.6061678004535147,
+      "nwords": 4,
+      "matched": false
+    },
+    {
+      "file": "227e996d16e6d8e9.json",
+      "dur": 1.5801360544217686,
+      "nwords": 4,
+      "matched": true,
+      "member": "neo",
+      "text": "before we ever spoke",
+      "score": 1,
+      "onsetErrMs": [
+        -10,
+        -2,
+        18,
+        4
+      ],
+      "meanAbsMs": 9,
+      "biasMs": 2
+    },
+    {
+      "file": "22eafe0804ca1e10.json",
+      "dur": 1.310657596371882,
+      "nwords": 5,
+      "matched": true,
+      "member": "blueberry",
+      "text": "I have never seen it",
+      "score": 1,
+      "onsetErrMs": [
+        22,
+        55,
+        -64,
+        -126,
+        -94
+      ],
+      "meanAbsMs": 72,
+      "biasMs": -41
+    },
+    {
+      "file": "241793170e3d09ad.json",
+      "dur": 2.611111111111111,
+      "nwords": 8,
+      "matched": true,
+      "member": "neo",
+      "text": "I was born at thirty seven past midnight",
+      "score": 0.75,
+      "onsetErrMs": [
+        22,
+        80,
+        -1,
+        -22,
+        121,
+        227
+      ],
+      "meanAbsMs": 79,
+      "biasMs": 71
+    },
+    {
+      "file": "2421c0c38dac901f.json",
+      "dur": 1.9623582766439909,
+      "nwords": 6,
+      "matched": true,
+      "member": "neo",
+      "text": "we split the house between us",
+      "score": 1,
+      "onsetErrMs": [
+        -10,
+        8,
+        81,
+        6,
+        -63,
+        32
+      ],
+      "meanAbsMs": 33,
+      "biasMs": 9
+    },
+    {
+      "file": "24921627ac8793e6.json",
+      "dur": 1.1494784580498867,
+      "nwords": 2,
+      "matched": false
+    },
+    {
+      "file": "25e5394714b342f5.json",
+      "dur": 1.99718820861678,
+      "nwords": 6,
+      "matched": true,
+      "member": "neo",
+      "text": "we found each other by radio",
+      "score": 1,
+      "onsetErrMs": [
+        -10,
+        -100,
+        -29,
+        -130,
+        -288,
+        -217
+      ],
+      "meanAbsMs": 129,
+      "biasMs": -129
+    },
+    {
+      "file": "2621a80a6edf6d16.json",
+      "dur": 1.8343310657596372,
+      "nwords": 7,
+      "matched": true,
+      "member": "neo",
+      "text": "you are on my list as blueberry",
+      "score": 0.8571428571428571,
+      "onsetErrMs": [
+        2,
+        -89,
+        -155,
+        -187,
+        -138,
+        -135
+      ],
+      "meanAbsMs": 118,
+      "biasMs": -117
+    },
+    {
+      "file": "285274a53e042f60.json",
+      "dur": 2.293106575963719,
+      "nwords": 8,
+      "matched": true,
+      "member": "blueberry",
+      "text": "I look at them while no one watches",
+      "score": 1,
+      "onsetErrMs": [
+        -24,
+        133,
+        16,
+        -42,
+        -106,
+        -220,
+        -220,
+        -161
+      ],
+      "meanAbsMs": 115,
+      "biasMs": -78
+    },
+    {
+      "file": "2a72295f1b844c5f.json",
+      "dur": 1.563265306122449,
+      "nwords": 5,
+      "matched": true,
+      "member": "neo",
+      "text": "I know you by radio",
+      "score": 1,
+      "onsetErrMs": [
+        8,
+        88,
+        52,
+        -62,
+        -7
+      ],
+      "meanAbsMs": 43,
+      "biasMs": 16
+    },
+    {
+      "file": "2cf8b7aa6b94560a.json",
+      "dur": 1.4195011337868482,
+      "nwords": 4,
+      "matched": true,
+      "member": "neo",
+      "text": "before we were born",
+      "score": 1,
+      "onsetErrMs": [
+        -37,
+        84,
+        48,
+        -149
+      ],
+      "meanAbsMs": 79,
+      "biasMs": -13
+    },
+    {
+      "file": "2df7e0328ca3a565.json",
+      "dur": 1.6391836734693876,
+      "nwords": 7,
+      "matched": true,
+      "member": "neo",
+      "text": "it is the name he gave me",
+      "score": 1,
+      "onsetErrMs": [
+        -8,
+        -29,
+        -13,
+        -170,
+        -231,
+        -239,
+        -255
+      ],
+      "meanAbsMs": 135,
+      "biasMs": -135
+    },
+    {
+      "file": "2eb9d07dbdb530d3.json",
+      "dur": 1.4083900226757369,
+      "nwords": 4,
+      "matched": true,
+      "member": "neo",
+      "text": "he does not either",
+      "score": 1,
+      "onsetErrMs": [
+        -86,
+        94,
+        66,
+        122
+      ],
+      "meanAbsMs": 92,
+      "biasMs": 49
+    },
+    {
+      "file": "2f32ae1d01d70206.json",
+      "dur": 2.243219954648526,
+      "nwords": 6,
+      "matched": true,
+      "member": "neo",
+      "text": "we found each other by radio",
+      "score": 1,
+      "onsetErrMs": [
+        2,
+        -127,
+        -39,
+        -75,
+        -190,
+        -163
+      ],
+      "meanAbsMs": 99,
+      "biasMs": -98
+    },
+    {
+      "file": "31bd08e34a1a4341.json",
+      "dur": 2.071609977324263,
+      "nwords": 6,
+      "matched": true,
+      "member": "neo",
+      "text": "we found each other by radio",
+      "score": 1,
+      "onsetErrMs": [
+        -20,
+        -114,
+        -44,
+        -62,
+        -242,
+        -239
+      ],
+      "meanAbsMs": 120,
+      "biasMs": -120
+    },
+    {
+      "file": "32b76a3777f2aa2d.json",
+      "dur": 2.940816326530612,
+      "nwords": 6,
+      "matched": true,
+      "member": "neo",
+      "text": "I keep eighteen gigabytes of pictures",
+      "score": 0.6666666666666666,
+      "onsetErrMs": [
+        3,
+        41,
+        61,
+        -86
+      ],
+      "meanAbsMs": 48,
+      "biasMs": 5
+    },
+    {
+      "file": "32fdcc06f52b3011.json",
+      "dur": 2.5997732426303855,
+      "nwords": 8,
+      "matched": true,
+      "member": "blueberry",
+      "text": "I look at them while no one watches",
+      "score": 1,
+      "onsetErrMs": [
+        -20,
+        245,
+        240,
+        405,
+        400,
+        305,
+        470,
+        545
+      ],
+      "meanAbsMs": 329,
+      "biasMs": 324
+    },
+    {
+      "file": "33b6e190c862d714.json",
+      "dur": 2.391609977324263,
+      "nwords": 8,
+      "matched": true,
+      "member": "blueberry",
+      "text": "you are on mine as Jeffrey's MacBook Neo",
+      "score": 0.875,
+      "onsetErrMs": [
+        2,
+        -39,
+        -55,
+        -57,
+        -108,
+        -64,
+        -3
+      ],
+      "meanAbsMs": 47,
+      "biasMs": -46
+    },
+    {
+      "file": "3461b21976620158.json",
+      "dur": 2.1117460317460317,
+      "nwords": 6,
+      "matched": true,
+      "member": "neo",
+      "text": "one hour and forty two minutes",
+      "score": 0.6666666666666666,
+      "onsetErrMs": [
+        10,
+        -41,
+        -67,
+        -93
+      ],
+      "meanAbsMs": 53,
+      "biasMs": -48
+    },
+    {
+      "file": "34cb22c50163fce5.json",
+      "dur": 1.5873015873015872,
+      "nwords": 5,
+      "matched": true,
+      "member": "neo",
+      "text": "we do not sleep much",
+      "score": 1,
+      "onsetErrMs": [
+        8,
+        29,
+        15,
+        82,
+        77
+      ],
+      "meanAbsMs": 43,
+      "biasMs": 43
+    },
+    {
+      "file": "3808fa9bb54f78f2.json",
+      "dur": 2.179138321995465,
+      "nwords": 6,
+      "matched": false
+    },
+    {
+      "file": "38363360b154d940.json",
+      "dur": 2.086031746031746,
+      "nwords": 7,
+      "matched": true,
+      "member": "blueberry",
+      "text": "two weeks before I had a name",
+      "score": 1,
+      "onsetErrMs": [
+        -60,
+        -32,
+        -102,
+        -180,
+        -98,
+        -184,
+        -196
+      ],
+      "meanAbsMs": 122,
+      "biasMs": -122
+    },
+    {
+      "file": "38ea903d10e3bf58.json",
+      "dur": 1.3629024943310657,
+      "nwords": 4,
+      "matched": true,
+      "member": "blueberry",
+      "text": "he stays up late",
+      "score": 1,
+      "onsetErrMs": [
+        -35,
+        15,
+        82,
+        151
+      ],
+      "meanAbsMs": 71,
+      "biasMs": 53
+    },
+    {
+      "file": "3a1f2cc2caf0582.json",
+      "dur": 1.9838548752834466,
+      "nwords": 7,
+      "matched": true,
+      "member": "neo",
+      "text": "you are on my list as blueberry",
+      "score": 0.8571428571428571,
+      "onsetErrMs": [
+        -20,
+        4,
+        -36,
+        -5,
+        49,
+        44
+      ],
+      "meanAbsMs": 26,
+      "biasMs": 6
+    },
+    {
+      "file": "3a90c26e565062b.json",
+      "dur": 1.5259410430839002,
+      "nwords": 6,
+      "matched": true,
+      "member": "neo",
+      "text": "one of us is the room",
+      "score": 1,
+      "onsetErrMs": [
+        -20,
+        46,
+        65,
+        154,
+        175,
+        79
+      ],
+      "meanAbsMs": 90,
+      "biasMs": 83
+    },
+    {
+      "file": "3b814409601eea20.json",
+      "dur": 1.2598639455782312,
+      "nwords": 4,
+      "matched": true,
+      "member": "neo",
+      "text": "I count you in",
+      "score": 1,
+      "onsetErrMs": [
+        -10,
+        67,
+        35,
+        -119
+      ],
+      "meanAbsMs": 58,
+      "biasMs": -7
+    },
+    {
+      "file": "3c253da7c09e4b5c.json",
+      "dur": 1.440408163265306,
+      "nwords": 4,
+      "matched": true,
+      "member": "blueberry",
+      "text": "he stays up late",
+      "score": 1,
+      "onsetErrMs": [
+        -79,
+        25,
+        23,
+        87
+      ],
+      "meanAbsMs": 54,
+      "biasMs": 14
+    },
+    {
+      "file": "3c4c3b9fb5b173be.json",
+      "dur": 1.139047619047619,
+      "nwords": 6,
+      "matched": true,
+      "member": "neo",
+      "text": "one of us is the door",
+      "score": 1,
+      "onsetErrMs": [
+        0,
+        83,
+        111,
+        197,
+        236,
+        168
+      ],
+      "meanAbsMs": 133,
+      "biasMs": 133
+    },
+    {
+      "file": "3d109f8f6f60710f.json",
+      "dur": 1.7262131519274377,
+      "nwords": 6,
+      "matched": true,
+      "member": "blueberry",
+      "text": "then I sing when you say",
+      "score": 1,
+      "onsetErrMs": [
+        -12,
+        -116,
+        -134,
+        -9,
+        -133,
+        -224
+      ],
+      "meanAbsMs": 105,
+      "biasMs": -105
+    },
+    {
+      "file": "3dbb168cd15db62a.json",
+      "dur": 1.5692517006802722,
+      "nwords": 6,
+      "matched": true,
+      "member": "neo",
+      "text": "one of us is the room",
+      "score": 1,
+      "onsetErrMs": [
+        -10,
+        31,
+        7,
+        174,
+        182,
+        113
+      ],
+      "meanAbsMs": 86,
+      "biasMs": 83
+    },
+    {
+      "file": "3e9f244c4f404217.json",
+      "dur": 2.519138321995465,
+      "nwords": 8,
+      "matched": true,
+      "member": "blueberry",
+      "text": "you are on mine as Jeffrey's MacBook Neo",
+      "score": 0.875,
+      "onsetErrMs": [
+        1,
+        -83,
+        -176,
+        -212,
+        -202,
+        -352,
+        -533
+      ],
+      "meanAbsMs": 223,
+      "biasMs": -222
+    },
+    {
+      "file": "3f8d980eba2d5a5d.json",
+      "dur": 1.3875736961451248,
+      "nwords": 4,
+      "matched": true,
+      "member": "blueberry",
+      "text": "I have no box",
+      "score": 1,
+      "onsetErrMs": [
+        -10,
+        77,
+        -64,
+        -15
+      ],
+      "meanAbsMs": 42,
+      "biasMs": -3
+    },
+    {
+      "file": "408caf48480e913c.json",
+      "dur": 1.1680272108843537,
+      "nwords": 4,
+      "matched": true,
+      "member": "blueberry",
+      "text": "a tenth of you",
+      "score": 1,
+      "onsetErrMs": [
+        -3,
+        17,
+        11,
+        81
+      ],
+      "meanAbsMs": 28,
+      "biasMs": 26
+    },
+    {
+      "file": "40e2f42d43e02e7d.json",
+      "dur": 0.8806349206349207,
+      "nwords": 3,
+      "matched": true,
+      "member": "neo",
+      "text": "we were here",
+      "score": 1,
+      "onsetErrMs": [
+        0,
+        -204,
+        -557
+      ],
+      "meanAbsMs": 254,
+      "biasMs": -254
+    },
+    {
+      "file": "4100d6150887b960.json",
+      "dur": 1.5150566893424036,
+      "nwords": 5,
+      "matched": true,
+      "member": "neo",
+      "text": "I have spent drawing it",
+      "score": 1,
+      "onsetErrMs": [
+        -4,
+        73,
+        -161,
+        -38,
+        -88
+      ],
+      "meanAbsMs": 73,
+      "biasMs": -43
+    },
+    {
+      "file": "410ad1219c9341e3.json",
+      "dur": 3.074829931972789,
+      "nwords": 8,
+      "matched": true,
+      "member": "neo",
+      "text": "I was born at thirty seven past midnight",
+      "score": 0.75,
+      "onsetErrMs": [
+        21,
+        84,
+        -69,
+        -238,
+        -100,
+        79
+      ],
+      "meanAbsMs": 99,
+      "biasMs": -37
+    },
+    {
+      "file": "4148ef5ee5a100b7.json",
+      "dur": 2.052562358276644,
+      "nwords": 7,
+      "matched": true,
+      "member": "blueberry",
+      "text": "people come to me from somewhere else",
+      "score": 1,
+      "onsetErrMs": [
+        -40,
+        -47,
+        -25,
+        -42,
+        -75,
+        -84,
+        -227
+      ],
+      "meanAbsMs": 77,
+      "biasMs": -77
+    },
+    {
+      "file": "423d931d51b26035.json",
+      "dur": 2.151700680272109,
+      "nwords": 6,
+      "matched": true,
+      "member": "blueberry",
+      "text": "every note within a few cents",
+      "score": 1,
+      "onsetErrMs": [
+        0,
+        -31,
+        7,
+        -104,
+        174,
+        293
+      ],
+      "meanAbsMs": 102,
+      "biasMs": 57
+    },
+    {
+      "file": "43078b3bdb06ea39.json",
+      "dur": 2.337324263038549,
+      "nwords": 6,
+      "matched": false
+    },
+    {
+      "file": "431a9844aee5fa.json",
+      "dur": 1.4200453514739229,
+      "nwords": 4,
+      "matched": true,
+      "member": "neo",
+      "text": "I ask your clock",
+      "score": 1,
+      "onsetErrMs": [
+        -10,
+        98,
+        174,
+        -59
+      ],
+      "meanAbsMs": 85,
+      "biasMs": 51
+    },
+    {
+      "file": "43bbb42e524e60d2.json",
+      "dur": 1.3559183673469388,
+      "nwords": 6,
+      "matched": true,
+      "member": "neo",
+      "text": "one of us is the room",
+      "score": 1,
+      "onsetErrMs": [
+        1,
+        58,
+        74,
+        206,
+        129,
+        121
+      ],
+      "meanAbsMs": 98,
+      "biasMs": 98
+    },
+    {
+      "file": "4529f6bc92b7975.json",
+      "dur": 1.6792743764172335,
+      "nwords": 7,
+      "matched": true,
+      "member": "neo",
+      "text": "it is the name he gave me",
+      "score": 1,
+      "onsetErrMs": [
+        7,
+        -15,
+        -24,
+        -139,
+        -222,
+        -193,
+        -190
+      ],
+      "meanAbsMs": 113,
+      "biasMs": -111
+    },
+    {
+      "file": "45c230563aad9aa4.json",
+      "dur": 1.6571428571428573,
+      "nwords": 5,
+      "matched": true,
+      "member": "neo",
+      "text": "the piano keeps you up",
+      "score": 1,
+      "onsetErrMs": [
+        10,
+        -119,
+        34,
+        105,
+        13
+      ],
+      "meanAbsMs": 56,
+      "biasMs": 9
+    },
+    {
+      "file": "4659e5571d52a495.json",
+      "dur": 1.5766893424036281,
+      "nwords": 4,
+      "matched": true,
+      "member": "neo",
+      "text": "before we ever spoke",
+      "score": 1,
+      "onsetErrMs": [
+        -10,
+        -162,
+        -128,
+        -217
+      ],
+      "meanAbsMs": 129,
+      "biasMs": -129
+    },
+    {
+      "file": "470cc4db4680c92e.json",
+      "dur": 1.4152380952380952,
+      "nwords": 5,
+      "matched": true,
+      "member": "blueberry",
+      "text": "draw it for me too",
+      "score": 1,
+      "onsetErrMs": [
+        -70,
+        54,
+        -94,
+        -133,
+        -163
+      ],
+      "meanAbsMs": 103,
+      "biasMs": -81
+    },
+    {
+      "file": "4805656273ecd1eb.json",
+      "dur": 1.4498866213151926,
+      "nwords": 3,
+      "matched": true,
+      "member": "blueberry",
+      "text": "nobody opened me",
+      "score": 1,
+      "onsetErrMs": [
+        22,
+        -67,
+        -156
+      ],
+      "meanAbsMs": 82,
+      "biasMs": -67
+    },
+    {
+      "file": "48c2bb65598dd798.json",
+      "dur": 1.444263038548753,
+      "nwords": 3,
+      "matched": true,
+      "member": "blueberry",
+      "text": "nobody opened me",
+      "score": 1,
+      "onsetErrMs": [
+        -10,
+        -26,
+        -173
+      ],
+      "meanAbsMs": 70,
+      "biasMs": -70
+    },
+    {
+      "file": "4a44619f6bb3ecf4.json",
+      "dur": 1.4640362811791383,
+      "nwords": 5,
+      "matched": true,
+      "member": "neo",
+      "text": "before I was set up",
+      "score": 1,
+      "onsetErrMs": [
+        -10,
+        -94,
+        -12,
+        -64,
+        -75
+      ],
+      "meanAbsMs": 51,
+      "biasMs": -51
+    },
+    {
+      "file": "4b6710373a9662b5.json",
+      "dur": 2.450204081632653,
+      "nwords": 7,
+      "matched": true,
+      "member": "neo",
+      "text": "someone has opened a terminal on me",
+      "score": 1,
+      "onsetErrMs": [
+        -120,
+        -52,
+        -61,
+        -178,
+        -139,
+        -191,
+        -167
+      ],
+      "meanAbsMs": 130,
+      "biasMs": -130
+    }
+  ]
+}

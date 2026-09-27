@@ -27,6 +27,21 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SCENE = resolve(HERE, "../scene/phone-scene.py");
 const CACHE = join(homedir(), ".cache", "ac-reel-assets");
 
+// Desk dressing (Poly Haven CC0 ids), in table-top meters around the phone
+// at the origin: +x right, +y away from camera. rot = degrees about z;
+// fit = "h0.45" scales to that height, "s0.24" to that footprint (Poly
+// Haven sizes vary a lot). A 9:16 frame is narrow: the camera looks in from
+// front-right, so the dressing sits along that sightline behind the phone
+// at staggered depths, with small things low in the foreground.
+const PROPS = [
+  { id: "standing_picture_frame_01", x: -0.08, y: 0.26, rot: -30, fit: "h0.18" },
+  { id: "desk_lamp_arm_01", x: -0.24, y: 0.36, rot: 40, fit: "h0.45" },
+  { id: "potted_plant_04", x: 0.10, y: 0.42, rot: 0, fit: "h0.34" },
+  { id: "ceramic_vase_01", x: -0.20, y: 0.12, rot: 0, fit: "h0.2" },
+  { id: "alarm_clock_01", x: 0.12, y: 0.12, rot: -40, fit: "h0.09" },
+  { id: "binder_notebook", x: 0.05, y: -0.13, rot: 20, fit: "s0.22" },
+];
+
 const argv = process.argv.slice(2);
 const flags = {};
 const positional = [];
@@ -65,6 +80,11 @@ const count = Math.round(seconds * FPS);
 console.log(`▸ scene-reel · ${ENGINE} · ${count} frames · ${width}×${height} capture → ${OUT}`);
 const hdri = await fetchHdri(flags.hdri || "lythwood_room", "2k", CACHE);
 const table = await fetchModel(flags.table || "WoodenTable_01", "2k", CACHE);
+// A prop that can't be fetched (some ship no glTF) is skipped, not fatal.
+const props = flags["no-props"] ? [] : (await Promise.all(PROPS.map(async (p) => {
+  try { return `${await fetchModel(p.id, "1k", CACHE)}:${p.x}:${p.y}:${p.rot}:${p.fit}`; }
+  catch (e) { console.log(`  ⚠ prop ${p.id}: ${e.message}`); return null; }
+}))).filter(Boolean);
 
 const frames = join(WORK, "screen");
 if (!existsSync(join(frames, `${String(count).padStart(5, "0")}.png`))) {
@@ -78,7 +98,11 @@ const t0 = Date.now();
 const log = run(BLENDER, ["-b", "--gpu-backend", "vulkan", "-P", SCENE, "--",
   "--frames", frames, "--count", String(count), "--out", rendered,
   "--hdri", hdri, "--table", table, "--engine", ENGINE, "--fps", String(FPS),
-  "--aspect", String(width / height), ...(flags.still ? ["--still", String(flags.still)] : [])]);
+  "--aspect", String(width / height), "--props", props.join(";"),
+  ...(flags.fill ? ["--fill", String(flags.fill)] : []),
+  ...(flags.yaw ? ["--yaw", String(flags.yaw)] : []),
+  ...(flags.still ? ["--still", String(flags.still)] : [])]);
+for (const line of log.split("\n")) if (/^(TABLE|PROP) /.test(line)) console.log(`  ${line}`);
 const done = log.split("\n").find((l) => l.startsWith("SCENE_DONE"));
 console.log(`  blender ${done || "(no summary)"} · wall ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 

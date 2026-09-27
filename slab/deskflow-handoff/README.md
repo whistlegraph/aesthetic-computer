@@ -2,7 +2,8 @@
 
 Neo and Blueberry are both eligible Deskflow controllers. Touching the physical
 trackpad on whichever one is currently a client promotes it to server and moves
-the other fleet machines to it. Chicken and Panda remain clients.
+the other fleet machines to it. Chicken, Panda, and Frisbee remain clients.
+Frisbee sits to Blueberry's right; the Surface remains to Frisbee's right.
 
 The physical-touch signal comes from MacPal's `PhysicalTrackpad` wrapper around
 macOS's private `MultitouchSupport` framework. Remote Deskflow motion does not
@@ -21,7 +22,7 @@ Installed components:
 - `~/.local/bin/deskflow-set-role` — atomically updates role/client target and
   restarts the one launchd-managed core.
 - `~/.local/bin/deskflow-claim-control` — controller-only fan-out to the other
-  three machines.
+  four Macs.
 - `~/.local/bin/deskflow-role-watchdog` — health check that follows the current
   role, verifies a client is connected to its configured server (not merely any
   server), and repairs incomplete fleet topology from the winning generation.
@@ -46,7 +47,7 @@ Installed components:
   remain unavailable until AWDL is restored or the Mac restarts.
 
 The installer also provisions both eligible servers' TLS fingerprints on every
-client and all three client fingerprints on each controller. A TCP socket alone
+client and all four client fingerprints on each controller. A TCP socket alone
 is not considered a successful handoff; Deskflow must complete its mutual trust
 check.
 
@@ -69,8 +70,8 @@ mechanisms keep it honest, both in `deskflow-role-watchdog` (45s):
   against a dead address only loops. It acts only on a genuine change, so a
   server that is really offline does not get its conf rewritten every tick.
 - A **server** keeps the `address` in `~/.config/slab/deskflow-handoff.json`
-  matched to its live interface, so a trackpad claim fans out a reachable address
-  rather than the one it happened to hold at install time.
+  matched to its explicit `transportAddress`, or its live LAN interface when
+  none is configured, so a trackpad claim fans out the intended address.
 
 `serverName` is threaded through `deskflow-set-role`'s optional 4th argument by
 `claim-control`, `yield-control`, `retarget-client`, and `install.sh --server-name`.
@@ -79,13 +80,16 @@ mechanisms keep it honest, both in `deskflow-role-watchdog` (45s):
 `grep remoteHost ~/Library/Deskflow/Deskflow-client-role.conf` on a client
 against `ipconfig getifaddr en0` on the server.
 
-`deskflow-resolve-ipv4` prefers the `.local` form for bare names on purpose — via
-MagicDNS a bare name can return the tailnet address of a long-offline node — and
-discards loopback answers, since mDNS resolves a machine's own name to 127.0.0.1.
+`deskflow-resolve-ipv4` first checks the handoff config's `transportPeers` map
+(machine name without `.local` → explicit IPv4). Without a mapping, it prefers
+the `.local` form for bare names — MagicDNS can return a long-offline namesake —
+and discards loopback answers.
 
 Deskflow transport uses each machine's stable Tailscale address. On the Fuser
 Wi-Fi this keeps Chicken and Panda pointer latency far steadier than the direct
-access-point route. Role-control SSH uses those addresses too; Bonjour `.local`
+access-point route. `transportAddress` pins the local address and `transportPeers`
+pins name resolution; both must stay aligned with the fleet registry. Role-control
+SSH uses those addresses too; Bonjour `.local`
 resolution can select a stalled link-local IPv6 route after wake. Neo's existing
 `computer.aesthetic.deskflow-tailscale-ensure` agent heals a stopped tailnet
 before it can strand the clients. The peer controller is switched synchronously;
@@ -117,5 +121,8 @@ controllers in server mode. Login/resume and the 45-second watchdog also compare
 controller generations: the newer server reasserts the same generation to
 missing clients, while an older server demotes itself.
 
-`install.sh` installs one machine. `deploy.fish` installs the four-machine
-Neo/Blueberry/Chicken/Panda topology from Neo.
+`install.sh` installs one machine. `UNIPOINTER_PREBUILT` can supply an existing
+compatible binary when the destination's Swift compiler and SDK do not match.
+`deploy.fish` installs the five-Mac Neo/Blueberry/Chicken/Panda/Frisbee topology
+from Neo. Deskflow must already be installed, with its TLS identity and macOS
+Accessibility permission, on each destination.
