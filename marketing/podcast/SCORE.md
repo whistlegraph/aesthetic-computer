@@ -35,7 +35,7 @@ one of @jeffrey's most-played KidLisp pieces ($roz $ceo $air $inz),
 a palette and a word from the episode; the remix is stored as a new $code, the
 oven grabs it as a 512² GIF, AC's own IPFS node pins it (`/api/ipfs-add`, admin-only, the Kubo node Keeps uses) with TZIP-21 metadata (the script
 as description, links to the episode and the live $code), `mint_OBJKT` mints
-`DAILY_EDITIONS` (10) and an objkt ask lists them at `DAILY_PRICE_XTZ` (3).
+`DAILY_EDITIONS` (1, a daily unique) and an objkt ask lists it at `DAILY_PRICE_XTZ` (10).
 Stages resume from `out/daily/<slug>.token.json`; it refuses to sign with any
 key but aesthetic.tez or below 0.15 XTZ (each day burns ~0.06). Needs
 `AESTHETIC_KEY` in the appliance env (jasellite: `~/.config/ac/tezos-daily.env`,

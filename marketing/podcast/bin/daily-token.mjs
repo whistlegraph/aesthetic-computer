@@ -21,7 +21,7 @@
 // Secrets come from the environment or --env <file> (repeatable):
 //   AESTHETIC_KEY, AESTHETIC_ADDRESS   the signer (must be aesthetic.tez)
 //   AC_TOKEN or ~/.ac-token            an @jeffrey AC session, for /api/ipfs-add
-// Tuning: DAILY_EDITIONS (10), DAILY_PRICE_XTZ (3), DAILY_ROYALTIES_PERMILLE (150).
+// Tuning: DAILY_EDITIONS (1), DAILY_PRICE_XTZ (10), DAILY_ROYALTIES_PERMILLE (150).
 
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -65,8 +65,8 @@ const OVEN = process.env.OVEN_URL || "https://oven.aesthetic.computer";
 const AC = process.env.AC_URL || "https://aesthetic.computer";
 const SHOW = "https://www.buzzsprout.com/2628235";
 
-const EDITIONS = Number(process.env.DAILY_EDITIONS || 10);
-const PRICE_XTZ = Number(process.env.DAILY_PRICE_XTZ || 3);
+const EDITIONS = Number(process.env.DAILY_EDITIONS || 1);
+const PRICE_XTZ = Number(process.env.DAILY_PRICE_XTZ || 10);
 const ROYALTIES = Number(process.env.DAILY_ROYALTIES_PERMILLE || 150); // HEN is per-mille
 const MIN_BALANCE_XTZ = 0.15; // a mint + a listing burn ~0.06
 
