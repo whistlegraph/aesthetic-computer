@@ -2,9 +2,18 @@ version: 1.0.{build}
 image: Visual Studio 2022
 clone_depth: 1
 
+# Gameplay and preview assets use the live deploy lane. Queue Windows only
+# for native code, its tests, packaged resources, or this build configuration.
 only_commits:
   files:
-    - xbox/
+    - xbox/native-bios/
+    - xbox/runtime/
+    - xbox/assets/
+    - xbox/themes/photorealistic/native/
+    - xbox/test-native-windows.cmd
+    - system/backend/kidlisp-ast.mjs
+    - system/public/type/webfonts/ywft-processing-regular.ttf
+    - system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf
     - appveyor.yml
 
 clone_script:

@@ -7,7 +7,7 @@ const source = await readFile(new URL('../oskiewar.js', import.meta.url), 'utf8'
 function game(course = "pool", retainedDecals = false) {
   let now = 0;
   const post = [], texts = [], faces = [], sounds = [], decalsDrawn = [];
-  const surface={clears:0,stamps:0,draws:0};
+  const surface={clears:0,stamps:0,draws:0},wheelAudio=[];
   const pads = [0, 1].map(() => ({ connected: true, down: [], leftX: 0, leftY: 0 }));
   const context = vm.createContext({
     __oskiewarFreeskateMap: course,
@@ -21,6 +21,7 @@ function game(course = "pool", retainedDecals = false) {
     comicWrite: (...args) => texts.push(args),
     systemWrite: (...args) => texts.push(args),
     drum: (...args) => sounds.push(args),
+    skateAudio: (...args) => wheelAudio.push(args),
     themeAssetReady: asset => asset === 5,
     themeQuad: (...args) => { decalsDrawn.push(args); return true; },
     ...(retainedDecals?{meshUpload:()=>0,meshDraw:()=>0,
@@ -38,7 +39,8 @@ function game(course = "pool", retainedDecals = false) {
     addDecal,decals,rasterDecalPatches,terrainFloorAt,drawDecals,
     surfaceState:()=>({native:poolDecalsNative,count:poolDecalCount}),
     poolMesh:()=>captureQuadMesh(drawPoolGeometry),
-    pool,poolDistance,poolSlopeAt,monowheelFrame,runnerWorldGeometry,updateCameraDoll,
+    pool,parkPools,parkHills,parkRamps,parkDeckY,poolFloorAt,updateSkateAudio,buildPoolWalkGeometry,poolDistance,poolSlopeAt,monowheelFrame,runnerWorldGeometry,updateCameraDoll,
+    drawSkateboard,skateFrame,spunSkateFrame,
     debug:()=>debugHitboxes=true,
     bounds:()=>({near:worldNear+60,far:worldFar-60}),
     classic:()=>globalThis.__oskiewarDepthControls=false,
@@ -55,7 +57,7 @@ function game(course = "pool", retainedDecals = false) {
   api.boot();
   api.begin();
   assert.equal(api.error(), '');
-  return { api, context, post, texts, faces, sounds, pads, decalsDrawn, surface,
+  return { api, context, post, texts, faces, sounds, pads, decalsDrawn, surface, wheelAudio,
     tick: () => { now += 16667; api.sim(); assert.equal(api.error(), ''); } };
 }
 
@@ -63,8 +65,8 @@ test('pool keeps one rider, one monowheel and one skateboard through joins and r
   const g = game(), a = g.api;
   const check = () => {
     assert.equal(a.map().course, 'pool');
-    assert.equal(a.map().cols, 24);
-    assert.equal(a.map().width, 2160);
+    assert.equal(a.map().cols, 96);
+    assert.equal(a.map().width, 8640);
     assert.equal(a.map().features.length, 5);
     assert.equal(a.activePlayers().length, 1);
     assert.equal(a.players[1].alive, false);
@@ -303,7 +305,8 @@ test('retained pool marks stamp once and keep constant draw work after ten thous
 
 test('the bowl uses one solid material and the grounded camera follows lower', () => {
   const g=game(),a=g.api;
-  const mesh=a.poolMesh();assert.equal(new Set(mesh.faces.map(f=>f.color.join(','))).size,1);
+  const mesh=a.poolMesh(),bowlFaces=mesh.faces.filter(f=>f.ids.some(i=>mesh.vertices[i].y>a.parkDeckY+.1));
+  assert.ok(bowlFaces.length>3000);assert.deepEqual([...new Set(bowlFaces.map(f=>f.color.join(',')))],['172,212,211']);
   for(let i=0;i<120;i++)g.tick();
   assert.ok(a.cameraDoll.position.y>1100,'lens is lower than the old overhead view');
   assert.ok(a.cameraDoll.position.y<a.players[0].y-200,'still clears the rider and ground');
@@ -321,6 +324,31 @@ test('the pool rider has depth across the shoulders and leans into a carve', () 
   for(const foot of straight.segments.filter(b=>/shin$/.test(b.role))){
     const after=banked.segments.find(b=>b.role===foot.role);
     assert.ok(Math.abs(after.z2-foot.z2)<.1,'feet stay planted while the torso banks');
+  }
+});
+
+test('the skateboard deck occludes its trucks from every heading', () => {
+  const g=game(),a=g.api;
+  const board={x:1080,y:1750,z:0,poolYaw:0,skatePitch:0,boardObject:{condition:{health:100,cracks:[]}}};
+  a.cameraDoll.snap({target:{x:1080,y:1750,z:0},position:{x:900,y:1100,z:-500},
+    width:400,perspective:1,fov:35,roll:0});
+  for(let step=0;step<8;step++){
+    board.poolYaw=step*Math.PI/4;g.faces.length=0;a.drawSkateboard(board);
+    const at=a.spunSkateFrame(a.skateFrame(board),board);
+    for(const truck of [-32,32]){
+      const q=at(truck,-4,0),p=a.projectPoint(q.x,q.y,q.z);let nearest=null,depth=Infinity;
+      for(const t of g.faces){
+        const den=(t[4]-t[7])*(t[0]-t[6])+(t[6]-t[3])*(t[1]-t[7]);
+        if(Math.abs(den)<1e-8)continue;
+        const u=((t[4]-t[7])*(p.x-t[6])+(t[6]-t[3])*(p.y-t[7]))/den;
+        const v=((t[7]-t[1])*(p.x-t[6])+(t[0]-t[6])*(p.y-t[7]))/den,w=1-u-v;
+        if(Math.min(u,v,w)<-1e-6)continue;
+        const z=u*t[2]+v*t[5]+w*t[8];if(z<depth){depth=z;nearest=t;}
+      }
+      assert.ok(nearest,`visible deck at heading ${step}`);
+      assert.ok(nearest[9]<=30&&nearest[9]===nearest[10]&&nearest[11]>nearest[9],
+        `grip covers truck ${truck} at heading ${step}, got ${nearest.slice(9)}`);
+    }
   }
 });
 
@@ -374,7 +402,7 @@ test('pool movement stays on the surface in all four directions and corners', ()
       g.tick();
       assert.ok([p.x,p.y,p.z,p.vx,p.vy,p.vz].every(Number.isFinite));
       assert.ok(p.y<=g.api.terrainFloorAt(p.x,p.z)+.01,'never enters solid pool');
-      assert.ok(g.api.poolDistance(p.x,p.z).d<=556,'contained by pool deck');
+      assert.ok(p.x>=25&&p.x<=8615&&Math.abs(p.z)<=2975,'contained by the expanded park');
     }
   }
 });
@@ -535,5 +563,66 @@ test('camera swings into a vert return, dips toward the landing, and clears the 
       }
     }
     assert.ok(turned,`camera faces return direction ${heading}`);assert.ok(dipped,'camera dips');assert.ok(maxYawStep<.1,`camera snap ${maxYawStep}`);
+  }
+});
+
+
+test('spatial gait plants alternating feet and swings the opposite arm at every heading',()=>{
+  const g=game(),a=g.api,p=a.players[0];
+  Object.assign(p,{x:1080,y:1800,z:0,skateboard:false,onewheel:false,grounded:true,poolLean:0,breathPhase:0});
+  for(const heading of [0,Math.PI/2,Math.PI,-Math.PI/2])for(const phase of [.1,.35,.6,.85]){
+    Object.assign(p,{vx:600*Math.cos(heading),vz:600*Math.sin(heading),poolYaw:heading,poolStridePhase:phase});
+    const pose=a.runnerWorldGeometry(p,0),shins=pose.segments.filter(b=>b.role.endsWith('shin'));
+    assert.ok(shins.some(b=>Math.abs(b.y2-1795)<.01),'one foot stays planted');
+    assert.ok(shins.some(b=>b.y2<1790),'the recovering foot clears the ground');
+    for(const name of ['left','right']){
+      const foot=shins.find(b=>b.part===name+'-leg'),hand=pose.segments.find(b=>b.role===name+'-forearm');
+      const forward=b=>(b.x2-p.x)*Math.cos(heading)+(b.z2-p.z)*Math.sin(heading);
+      assert.ok(forward(foot)*forward(hand)<=0,'arm counters its leg');
+    }
+    assert.ok(pose.segments.every(b=>[b.x1,b.y1,b.z1,b.x2,b.y2,b.z2].every(Number.isFinite)));
+  }
+  Object.assign(p,{vx:0,vz:0,poolYaw:0});
+  const idle=a.runnerWorldGeometry(p,0);
+  assert.ok(idle.segments.filter(b=>b.role.endsWith('shin')).every(b=>Math.abs(b.y2-1795)<.01),'both feet settle at rest');
+});
+
+test('skateboard rumble responds to contact and speed without sounding for the monowheel',()=>{
+  const g=game(),a=g.api,p=a.players[0];for(const b of a.balls)b.active=false;
+  Object.assign(p,{skateboard:true,onewheel:false,grounded:true,vx:500,vy:0,vz:0});
+  for(let i=0;i<30;i++)a.updateSkateAudio(1/60);
+  const slow=g.wheelAudio.at(-1);p.vx=2500;
+  for(let i=0;i<30;i++)a.updateSkateAudio(1/60);
+  const fast=g.wheelAudio.at(-1);assert.ok(fast[0]>slow[0]&&fast[1]>slow[1]);
+  p.grounded=false;for(let i=0;i<15;i++)a.updateSkateAudio(1/60);
+  assert.equal(g.wheelAudio.at(-1)[1],0,'airborne wheels are silent');
+  p.grounded=true;p.onewheel=true;for(let i=0;i<10;i++)a.updateSkateAudio(1/60);
+  assert.equal(g.wheelAudio.at(-1)[1],0,'motor remains a separate sound');
+});
+
+test('expanded park has three solid pools, hills and rideable flat-topped trapezoids',()=>{
+  const a=game().api;
+  assert.equal(a.parkPools.length,3);assert.equal(a.parkHills.length,3);assert.equal(a.parkRamps.length,3);
+  for(const b of a.parkPools){assert.equal(a.poolFloorAt(b.x,b.z),a.parkDeckY+b.radius);assert.equal(a.poolFloorAt(b.x+b.halfX+b.radius,b.z),a.parkDeckY);}
+  for(const h of a.parkHills){assert.equal(a.poolFloorAt(h.x,h.z),a.parkDeckY-h.height);assert.equal(a.poolFloorAt(h.x+h.rx,h.z),a.parkDeckY);}
+  for(const r of a.parkRamps){
+    for(const dx of [-r.tx,0,r.tx])assert.equal(a.poolFloorAt(r.x+dx,r.z),a.parkDeckY-r.height);
+    assert.equal(a.poolFloorAt(r.x+r.hx,r.z),a.parkDeckY);
+    assert.ok(a.poolSlopeAt(r.x+(r.tx+r.hx)/2,r.z).x>0);
+  }
+  const mesh=a.poolMesh();
+  for(const p of mesh.vertices)assert.ok(Math.abs(p.y-a.poolFloorAt(p.x,p.z))<.05,`mesh collision mismatch at ${p.x},${p.z}`);
+});
+
+test('both vehicles can ride out through every pool bank and travel across the park',()=>{
+  for(const one of [true,false])for(let index=0;index<3;index++){
+    const g=game(),a=g.api,p=a.players[0],b=a.parkPools[index];
+    Object.assign(p,{x:b.x,z:b.z,y:a.poolFloorAt(b.x,b.z),vx:0,vz:-2400,vy:0,poolYaw:-Math.PI/2,skateboard:true,onewheel:one,grounded:true});
+    a.monowheel.active=false;g.pads[0].down=['ArrowUp'];let outside=false;
+    for(let i=0;i<180;i++){
+      g.tick();assert.ok(p.y<=a.poolFloorAt(p.x,p.z)+.01,'vehicle stays above the surface');
+      if(p.z<b.z-b.halfZ-b.radius-180){outside=true;break;}
+    }
+    assert.ok(outside,`pool ${index} has a usable exit bank`);assert.ok(p.skateboard,'rider stays mounted');
   }
 });

@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 180;
+const buildVersion = 181;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -414,7 +414,7 @@ function configureWorldMap(name, course = skateCourse) {
   const previousMap = skateparkMap + "/" + skateCourse;
   skateparkMap = name === "skatepark";
   skateCourse = course === "pool" ? "pool" : course === "halfpipe" ? "halfpipe" : course === "indoor" ? "indoor" : "park";
-  roomDepth = poolOnly() ? 1640 : 900;
+  roomDepth = poolOnly() ? 6000 : 900;
   worldNear = -roomDepth / 2; worldFar = roomDepth / 2;
   // The marks on the ground belong to the ground: kept through resets,
   // cleared only when the map itself changes.
@@ -429,7 +429,7 @@ function configureWorldMap(name, course = skateCourse) {
   skateBoosts.length = 0;
   if (skateparkMap && !indoor && !halfpipeOnly()) { skateLoops.push(...parkLoops); skateBoosts.push(...parkBoosts); }
   if(indoor)skateLoops.push({x:tileCenterX(44),radius:260});
-  gridCols = !skateparkMap ? 40 : halfpipeOnly() ? 24 : indoor ? indoorCols : 320;
+  gridCols = !skateparkMap ? 40 : poolOnly() ? 96 : halfpipeOnly() ? 24 : indoor ? indoorCols : 320;
   gridWidth = gridCols * tileSize;
   if (gridField.length !== gridCols * gridRows) gridField = new Float32Array(gridCols * gridRows);
   worldRight = gridLeft + gridWidth + wallThickness;
@@ -1578,24 +1578,58 @@ function terrainSeed(value) {
   }
   return (hash >>> 0) / 4294967296 * Math.PI * 2;
 }
-// Rounded rectangular skate pool. Physics, mesh and decals share this surface.
-const pool = { halfX: 480, halfZ: 240, radius: 480, deck: 100 };
-function poolDistance(x, z) {
-  const dx = x - (gridLeft + gridWidth / 2);
-  const a = Math.max(0, Math.abs(dx) - pool.halfX);
-  const b = Math.max(0, Math.abs(z) - pool.halfZ);
-  const d = Math.hypot(a, b);
-  return { d, nx: d ? Math.sign(dx) * a / d : 0, nz: d ? Math.sign(z) * b / d : 0 };
+// Every feature uses the same surface for wheels, feet, camera and decals.
+const pool = { x:1080,z:0,halfX:480,halfZ:240,radius:480,deck:100 };
+const parkPools=[pool,
+  {x:4700,z:-1500,halfX:520,halfZ:240,radius:520,deck:120},
+  {x:6900,z:1600,halfX:360,halfZ:180,radius:420,deck:120}];
+const parkHills=[
+  {x:3000,z:1800,rx:750,rz:800,height:320},
+  {x:7200,z:-1600,rx:1000,rz:800,height:420},
+  {x:1000,z:2000,rx:750,rz:700,height:220}];
+const parkRamps=[
+  {x:2800,z:-1450,hx:500,hz:380,tx:220,tz:130,height:230},
+  {x:4700,z:700,hx:650,hz:400,tx:270,tz:180,height:300},
+  {x:7250,z:0,hx:800,hz:440,tx:400,tz:200,height:340}];
+const parkDeckY=floorY-480;
+function bowlDistance(x,z,bowl){
+  const dx=x-bowl.x,dz=z-bowl.z,a=Math.max(0,Math.abs(dx)-bowl.halfX),b=Math.max(0,Math.abs(dz)-bowl.halfZ),d=Math.hypot(a,b);
+  return {d,nx:d?Math.sign(dx)*a/d:0,nz:d?Math.sign(dz)*b/d:0,bowl};
 }
-function poolFloorAt(x, z = 0) {
-  const d = Math.min(pool.radius, poolDistance(x, z).d);
-  return floorY - pool.radius + Math.sqrt(Math.max(0, pool.radius ** 2 - d ** 2));
+function poolDistance(x,z){
+  let best=null;
+  for(const bowl of parkPools){const edge=bowlDistance(x,z,bowl);if(!best||edge.d-bowl.radius<best.d-best.bowl.radius)best=edge;}
+  return best;
 }
-function poolSlopeAt(x, z) {
-  const { d, nx, nz } = poolDistance(x, z);
-  if (d >= pool.radius) return { x: 0, z: 0 };
-  const slope = -d / Math.sqrt(Math.max(36, pool.radius ** 2 - d ** 2));
-  return { x: slope * nx, z: slope * nz };
+function bowlHeight(x,z,bowl){
+  const d=Math.min(bowl.radius,bowlDistance(x,z,bowl).d),t=d/bowl.radius;
+  const curved=parkDeckY+Math.sqrt(Math.max(0,bowl.radius*bowl.radius-d*d));
+  // A bank on the north wall opens each pool into the rest of the park.
+  const lane=z<bowl.z-bowl.halfZ?clamp((200-Math.abs(x-bowl.x))/80,0,1):0;
+  return lerp(curved,parkDeckY+bowl.radius*(1-t*t),lane);
+}
+function parkGroundAt(x,z){
+  let height=0;
+  for(const h of parkHills){const r=(x-h.x)**2/h.rx**2+(z-h.z)**2/h.rz**2;if(r<1)height=Math.max(height,h.height*(1-r)**2);}
+  for(const r of parkRamps){const t=Math.min(1,(r.hx-Math.abs(x-r.x))/(r.hx-r.tx),(r.hz-Math.abs(z-r.z))/(r.hz-r.tz));height=Math.max(height,r.height*Math.max(0,t));}
+  return parkDeckY-height;
+}
+function poolFloorAt(x,z=0){
+  const edge=poolDistance(x,z);
+  return edge.d<edge.bowl.radius?bowlHeight(x,z,edge.bowl):parkGroundAt(x,z);
+}
+function poolSlopeAt(x,z){
+  const {d,nx,nz,bowl}=poolDistance(x,z);
+  if(d<bowl.radius&&!(z<bowl.z-bowl.halfZ&&Math.abs(x-bowl.x)<200)){
+    const slope=-d/Math.sqrt(Math.max(36,bowl.radius*bowl.radius-d*d));
+    return {x:slope*nx,z:slope*nz};
+  }
+  const e=.5;
+  return {x:(poolFloorAt(x+e,z)-poolFloorAt(x-e,z))/(2*e),z:(poolFloorAt(x,z+e)-poolFloorAt(x,z-e))/(2*e)};
+}
+function boundParkBody(p){
+  const x=clamp(p.x,gridLeft+25,gridLeft+gridWidth-25),z=clamp(p.z||0,worldNear+25,worldFar-25);
+  if(x!==p.x)p.vx=0;if(z!==p.z)p.vz=0;p.x=x;p.z=z;
 }
 function terrainFloorAt(x, z = 0) {
   if (poolOnly()) return poolFloorAt(x, z);
@@ -6653,6 +6687,7 @@ function returnToTitle(now, reason = "back") {
   if(!poolOnly())decals.length=0;
   roofShards.length=0;
   for(const p of players){resetSkate(p);p.underPipe=false;p.axeHeld=false;p.axeHitAt={};p.resultReaction='';}
+  if(typeof skateAudio==='function')skateAudio(0,0);
   if(motorRunning && typeof oscillatorStop==='function')oscillatorStop();motorRunning=false;
   finishReplay();
   if (survivalActive()) beginSurvival(now);
@@ -9431,8 +9466,10 @@ let poolCameraYaw = 0, poolCameraDip = 0, poolCameraReturnYaw = null;
 function clearPoolCamera(position, subject) {
   // A lens outside the lip cannot see feet on its nearly vertical inner wall.
   // Shorten the boom into the bowl before adjusting its height.
-  const edge=poolDistance(position.x,position.z),limit=pool.radius-20;
-  if(edge.d>limit)position={...position,x:position.x-edge.nx*(edge.d-limit),z:position.z-edge.nz*(edge.d-limit)};
+  const subjectEdge=poolDistance(subject.x,subject.z),bowl=subjectEdge.bowl;
+  const edge=bowlDistance(position.x,position.z,bowl),limit=bowl.radius-20;
+  const contain=clamp((bowl.radius+150-subjectEdge.d)/150,0,1);
+  if(contain&&edge.d>limit)position={...position,x:position.x-edge.nx*(edge.d-limit)*contain,z:position.z-edge.nz*(edge.d-limit)*contain};
   let y=position.y;
   for(let i=1;i<20;i++){
     const t=i/20,x=lerp(position.x,subject.x,t),z=lerp(position.z,subject.z,t);
@@ -9453,7 +9490,7 @@ function updateCameraDoll(dt, now) {
       const amount=clamp((progress-.08)/.6,0,1),ease=amount*amount*(3-2*amount);
       goal=vert.heading+Math.atan2(Math.sin(inward-vert.heading),Math.cos(inward-vert.heading))*ease;
     }else{
-      if(!p.grounded&&p.vy>0&&wall.d>pool.radius*.6)
+      if(!p.grounded&&p.vy>0&&wall.d>wall.bowl.radius*.6&&wall.d<wall.bowl.radius)
         poolCameraReturnYaw=Math.atan2(-wall.nz,-wall.nx);
       if(poolCameraReturnYaw!==null){
         goal=speed>180?Math.atan2(p.vz,p.vx):poolCameraReturnYaw;
@@ -12178,6 +12215,7 @@ function updatePoolPlayer(p, pad, dt, now) {
   const axis=value=>Math.abs(value)>.18?Math.sign(value)*(Math.abs(value)-.18)/.82:0;
   const turn=Number(held.includes('ArrowRight'))-Number(held.includes('ArrowLeft')) || axis(pad.leftX||0);
   const throttle=Number(held.includes('ArrowUp'))-Number(held.includes('ArrowDown')) || axis(pad.leftY||0);
+  const wasGrounded=p.grounded;
   const oldHeading=p.poolYaw||0;
   const speedBefore=Math.hypot(p.vx,p.vz||0);
   const turnRate=p.onewheel?lerp(2.8,1.9,clamp(speedBefore/3000,0,1)):3.2;
@@ -12244,12 +12282,16 @@ function updatePoolPlayer(p, pad, dt, now) {
         continue;
       }
       slope=poolSlopeAt(p.x,p.z);
+      const nextVy=slope.x*p.vx+slope.z*p.vz;
+      if(p.skateboard&&speed>650&&previousVy < -100&&nextVy-previousVy>1800*step*1.5+3){
+        p.grounded=false;p.y=Math.min(nextFloor,previousY+previousVy*step);p.vy=previousVy+1800*step;continue;
+      }
       const bent=Math.hypot(p.vx,slope.x*p.vx+slope.z*p.vz,p.vz);
       if(bent>0){p.vx*=speed/bent;p.vz*=speed/bent;}
       p.vy=slope.x*p.vx+slope.z*p.vz;
       p.y=poolFloorAt(p.x,p.z);
       const lip=poolDistance(p.x,p.z);
-      if(lip.d>=pool.radius-5&&lip.d<pool.radius&&p.vy < -180){
+      if(lip.d>=lip.bowl.radius-5&&lip.d<lip.bowl.radius&&Math.hypot(slope.x,slope.z)>4&&p.vy < -180){
         p.grounded=false;p.skateAirAt=now;
         // Keep the halfpipe's vert: rise above the coping, then land on the
         // same curve so the fall becomes rolling speed back into the bowl.
@@ -12274,18 +12316,22 @@ function updatePoolPlayer(p, pad, dt, now) {
         p.grounded=true;p.poolVert=null;p.landPoseUntil=now+110000;
       }
     }
-    const edge=poolDistance(p.x,p.z),limit=pool.radius+pool.deck-25;
-    if(edge.d>limit){
-      p.x-=edge.nx*(edge.d-limit);p.z-=edge.nz*(edge.d-limit);
-      const outward=p.vx*edge.nx+p.vz*edge.nz;
-      if(outward>0){p.vx-=outward*edge.nx;p.vz-=outward*edge.nz;}
-    }
+    boundParkBody(p);
+  }
+  if(p.skateboard&&!p.onewheel&&p.grounded&&!wasGrounded){
+    playDrum('clap',clamp((p.landingSpeed||0)/2400,.25,.8),panPlayer(p));
+    emitSignal('skate-land',p.pad,p.landingSpeed||0,0);
   }
   const horizontal=Math.hypot(p.vx,p.vz||0);
+  if(p.grounded&&!p.skateboard){
+    const forward=p.vx*driveX+(p.vz||0)*driveZ;
+    p.poolStridePhase=(p.poolStridePhase||0)+forward*dt/240;
+  }
   const slope=poolSlopeAt(p.x,p.z||0),heading=p.poolYaw||0;
   const pitch=p.grounded?Math.atan(slope.x*Math.cos(heading)+slope.z*Math.sin(heading)):0;
   p.skatePitch+=(pitch-(p.skatePitch||0))*(1-Math.exp(-dt*16));
   p.skateVx=p.skateboard?Math.hypot(p.vx,p.vy,p.vz||0):0;
+  if(p.skateboard&&p.grounded)p.skateSpin=(p.skateSpin||0)+(p.vx*driveX+(p.vz||0)*driveZ)*dt/skateWheelRadius;
   p.stance=p.attackKind?'ATTACK':!p.grounded?'JUMP':p.ducking?'CROUCH':horizontal>40?'WALK':'NEUTRAL';
   p.walkSince=horizontal>40?(p.walkSince||now):0;
   p.hit=Math.max(0,(p.hit||0)-dt*2);p.previous=held.slice();
@@ -13929,6 +13975,7 @@ function gameSim() {
   }
   // The freeskate pause menu holds the world still while it is open.
   if (freeskateMenu) {
+    if(typeof skateAudio==='function')skateAudio(0,0);skateAudioLevel=0;
     updateFreeskateMenu(now);
     return;
   }
@@ -14159,6 +14206,7 @@ function gameSim() {
     updateWheelTurbo(dt,now);
     if (halfpipeOnly()) for(const p of activePlayers())trackMonowheelSurface(p);
     updateMotorAudio(dt);
+    updateSkateAudio(dt);
     updateSeatHeartbeat(dt,now);
     updateWaterSplashes(dt);
     updatePowerups(now);
@@ -14966,7 +15014,7 @@ function runnerWorldGeometry(player, t) {
   }
   if(poolOnly()&&!isHeadOnly(player)){
     const z=player.z||0,bank=player.poolLean||0;
-    if(!player.skateboard){
+    if(!player.skateboard&&!pose.spatial){
       for(const bone of pose.segments){
         const side=bone.part?.startsWith('left-')?-1:bone.part?.startsWith('right-')?1:0;
         const width=bone.part?.includes('arm')?22:13;
@@ -15015,14 +15063,15 @@ function updateRig(player, pad, dt) {
     lastGrounded: player.grounded };
   const board = player.skateboard;
   const strength = board ? 1 : .35;
-  const accel = clamp((player.vx - rig.lastVx) / dt, -9000, 9000);
-  rig.lastVx = player.vx;
+  const along=poolOnly()?player.vx*Math.cos(player.poolYaw||0)+(player.vz||0)*Math.sin(player.poolYaw||0):player.vx;
+  const accel = clamp((along - rig.lastVx) / dt, -9000, 9000);
+  rig.lastVx = along;
   // Inertia: the body wants to stay where it was, so it leans against the
   // board's acceleration. Units are the neck's sideways travel.
   // On the board the stick is a weight shift too: the body leans the way
   // it is held, and the deck tilts under it (see `updateBoardTilt`).
   const held = pad?.down || [];
-  const stick = board ? (held.includes("ArrowRight") ? 1 : held.includes("ArrowLeft") ? -1 : 0) : 0;
+  const stick = board && !poolOnly() ? (held.includes("ArrowRight") ? 1 : held.includes("ArrowLeft") ? -1 : 0) : 0;
   springStep(rig, "lean", clamp(-accel * .012 + stick * 26, -46, 46) * strength, 70, 5.5, dt);
   const pumping = board && (pad?.down || []).includes(depthControls()?"X":"ArrowDown");
   if (player.grounded && !rig.lastGrounded) {
@@ -15169,8 +15218,54 @@ function hangGeometry(player) {
   return { head, segments };
 }
 
+// A spatial gait: feet travel backward through stance, lift on recovery,
+// and arms counter the legs. The distance phase works at every heading.
+function buildPoolWalkGeometry(p) {
+  const phase=p.poolStridePhase||0,speed=clamp(Math.hypot(p.vx,p.vz||0)/700,0,1);
+  const moving=clamp(Math.hypot(p.vx,p.vz||0)/200,0,1),crouch=clamp(p.crouchBlend||0,0,1);
+  const grounded=p.grounded,air=grounded?0:1,cy=Math.cos(p.poolYaw||0),sy=Math.sin(p.poolYaw||0);
+  const bob=grounded?Math.cos(phase*Math.PI*4)*3*speed:0;
+  const hipHeight=86-11*speed-30*crouch+bob;
+  const lean=(p.rig?.lean||0)*.18+(p.inputZ||0)*speed*9+crouch*13;
+  const point=(x,y,z)=>({x:p.x+x,y:p.y+y,z:(p.z||0)+z});
+  const hip=point(-crouch*9,-hipHeight,0),shoulder=point(lean,-hipHeight-52+12*crouch,0);
+  const head=point(lean+2,-hipHeight-80+12*crouch,0),segments=[];head.radius=22;
+  const bone=(a,b,role,part,width=10)=>{if(hasPart(p,part))segments.push({x1:a.x,y1:a.y,z1:a.z,x2:b.x,y2:b.y,z2:b.z,width,role,part});};
+  // Solve a knee/elbow in 3D in the plane containing the forward axis.
+  const joint=(a,b,length,bend=1)=>{
+    const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z,d=Math.hypot(dx,dy,dz)||1;
+    const nx=dx/d,ny=dy/d,nz=dz/d,px=1-nx*nx,py=-nx*ny,pz=-nx*nz,pl=Math.hypot(px,py,pz)||1;
+    const h=Math.sqrt(Math.max(0,length*length-d*d/4))*bend;
+    return {x:(a.x+b.x)/2+px/pl*h,y:(a.y+b.y)/2+py/pl*h,z:(a.z+b.z)/2+pz/pl*h};
+  };
+  bone(point(head.x-p.x,head.y-p.y+17,0),shoulder,'neck','torso');
+  bone(shoulder,hip,'torso','torso');
+  const twist=Math.sin(phase*Math.PI*2)*moving*4;
+  const shoulders=[point(lean-twist,shoulder.y-p.y,-23),point(lean+twist,shoulder.y-p.y,23)];
+  bone(shoulders[0],shoulders[1],'shoulders','torso');
+  for(const [index,name] of ['left','right'].entries()){
+    const side=index?1:-1,u=((phase+index*.5)%1+1)%1,stance=u<.55;
+    const recovery=clamp((u-.55)/.45,0,1);
+    const footX=(stance?66-u/.55*132:-66*Math.cos(recovery*Math.PI))*moving*(1-crouch*.55);
+    const lift=grounded?(stance?0:Math.sin(recovery*Math.PI)*(20+16*speed)*moving):24+index*8;
+    const localX=grounded?footX:18-index*32,localZ=side*14;
+    const surface=grounded?clamp(poolFloorAt(p.x+localX*cy-localZ*sy,(p.z||0)+localX*sy+localZ*cy)-p.y,-36,36):0;
+    const foot=point(localX,surface-5-lift,localZ),pelvis={...hip,z:hip.z+side*12};
+    const knee=joint(pelvis,foot,48);
+    bone(pelvis,knee,name+'-thigh',name+'-leg',11);bone(knee,foot,name+'-shin',name+'-leg',10);
+    const upper=shoulders[index],swing=-footX*.52;
+    const hand=point(lean+swing+air*20,shoulder.y-p.y+61-10*speed-15*air,side*(26+air*12));
+    const elbow=joint(upper,hand,33,-1);
+    bone(upper,elbow,name+'-upper-arm',name+'-arm');bone(elbow,hand,name+'-forearm',name+'-arm');
+  }
+  return {head,segments,spatial:true};
+}
+
 function buildRunnerWorldGeometry(player, t, at = null) {
   if (player.spiderDummy) return spiderDummyWorldGeometry(player, t);
+  if(poolOnly()&&freeskateActive()&&!player.skateboard&&!player.attackKind&&!player.dummy&&
+      !isHeadOnly(player)&&!isSwimmer(player)&&hasPart(player,'left-leg')&&hasPart(player,'right-leg'))
+    return buildPoolWalkGeometry(player);
   if (player.skateStall && player.skateboard && !isHeadOnly(player)) return hangGeometry(player);
   // Rendering consumes the same fixed 60 Hz phase clock as simulation. The
   // display can remain uncapped without inventing in-between combat poses.
@@ -18988,37 +19083,60 @@ function terrainSurfaceShades(color) {
 }
 let poolSurfaceMesh=null;
 function drawPoolGeometry() {
-  const center=gridLeft+gridWidth/2,segments=12,ink=[172,212,211];
-  const ring=(radius,y)=>{
-    const points=[];
-    for(let corner=0;corner<4;corner++)for(let i=0;i<=segments;i++){
-      const a=(corner+i/segments)*Math.PI/2;
-      const sx=corner===0||corner===3?1:-1,sz=corner<2?1:-1;
-      points.push({x:center+sx*pool.halfX+Math.cos(a)*radius,y,z:sz*pool.halfZ+Math.sin(a)*radius});
-    }
-    return points;
+  const ink=[172,212,211],ground=[190,201,196],rampInk=[199,185,171];
+  const holes=parkPools.map(b=>({x:b.x,z:b.z,hx:b.halfX+b.radius+b.deck,hz:b.halfZ+b.radius+b.deck})).concat(parkRamps);
+  // Include hole edges in the flat mesh so no triangle bridges a bowl.
+  const cuts=(low,high,axis,half)=>{
+    const values=[low,high];for(let n=low+160;n<high;n+=160)values.push(n);
+    for(const hole of holes)values.push(hole[axis]-hole[half],hole[axis]+hole[half]);
+    return [...new Set(values.filter(n=>n>=low&&n<=high))].sort((a,b)=>a-b);
   };
-  // Large bottom tiles keep the floor legible while the walls turn in both axes.
-  for(let x=-pool.halfX;x<pool.halfX;x+=120)for(let z=-pool.halfZ;z<pool.halfZ;z+=120)
-    worldQuad({x:center+x,y:floorY,z},{x:center+x+120,y:floorY,z},
-      {x:center+x+120,y:floorY,z:z+120},{x:center+x,y:floorY,z:z+120},
-      ink);
-  let previous=ring(0,floorY);
-  const bands=20;
-  for(let band=1;band<=bands+3;band++){
-    const t=Math.min(bands,band)/bands*Math.PI/2;
-    const r=band<=bands?pool.radius*Math.sin(t):pool.radius+(band-bands)*pool.deck/3;
-    const y=floorY-pool.radius*(1-Math.cos(t))-(band>bands?3:0);
-    const current=ring(r,y);
-    for(let i=0;i<current.length;i++){
-      const j=(i+1)%current.length;
-      worldQuad(current[i],current[j],previous[j],previous[i],ink);
-    }
-    previous=current;
+  const xs=cuts(gridLeft,gridLeft+gridWidth,'x','hx'),zs=cuts(worldNear,worldFar,'z','hz');
+  const groundPoint=(x,z)=>({x,y:parkGroundAt(x,z),z});
+  for(let i=1;i<xs.length;i++)for(let j=1;j<zs.length;j++){
+    const x=(xs[i-1]+xs[i])/2,z=(zs[j-1]+zs[j])/2;
+    if(holes.some(h=>Math.abs(x-h.x)<h.hx&&Math.abs(z-h.z)<h.hz))continue;
+    worldQuad(groundPoint(xs[i-1],zs[j-1]),groundPoint(xs[i],zs[j-1]),groundPoint(xs[i],zs[j]),groundPoint(xs[i-1],zs[j]),ground);
   }
-  for(let i=0;i<previous.length;i++){
-    const j=(i+1)%previous.length,a=previous[i],b=previous[j];
-    worldQuad(a,b,{...b,y:b.y+110},{...a,y:a.y+110},ink);
+  for(const bowl of parkPools){
+    const ring=radius=>{
+      const raw=[];
+      for(let corner=0;corner<4;corner++)for(let i=0;i<=12;i++){
+        const a=(corner+i/12)*Math.PI/2,sx=corner===0||corner===3?1:-1,sz=corner<2?1:-1;
+        raw.push({x:bowl.x+sx*bowl.halfX+Math.cos(a)*radius,z:bowl.z+sz*bowl.halfZ+Math.sin(a)*radius});
+      }
+      const result=[];
+      for(let i=0;i<raw.length;i++){
+        const a=raw[i],b=raw[(i+1)%raw.length];
+        // Straight sides have a fixed subdivision at every ring.
+        const steps=(i+1)%13===0?Math.ceil((i%26===12?bowl.halfX:bowl.halfZ)*2/80):1;
+        for(let n=0;n<steps;n++){const x=lerp(a.x,b.x,n/steps),z=lerp(a.z,b.z,n/steps);result.push({x,y:bowlHeight(x,z,bowl),z});}
+      }
+      return result;
+    };
+    worldQuad({x:bowl.x-bowl.halfX,y:parkDeckY+bowl.radius,z:bowl.z-bowl.halfZ},
+      {x:bowl.x+bowl.halfX,y:parkDeckY+bowl.radius,z:bowl.z-bowl.halfZ},
+      {x:bowl.x+bowl.halfX,y:parkDeckY+bowl.radius,z:bowl.z+bowl.halfZ},
+      {x:bowl.x-bowl.halfX,y:parkDeckY+bowl.radius,z:bowl.z+bowl.halfZ},ink);
+    let previous=ring(0);
+    for(let band=1;band<=20;band++){
+      const current=ring(bowl.radius*Math.sin(band/20*Math.PI/2));
+      for(let i=0;i<current.length;i++){const j=(i+1)%current.length;worldQuad(current[i],current[j],previous[j],previous[i],ink);}
+      previous=current;
+    }
+    const hx=bowl.halfX+bowl.radius+bowl.deck,hz=bowl.halfZ+bowl.radius+bowl.deck;
+    const outer=previous.map(p=>{const dx=p.x-bowl.x,dz=p.z-bowl.z,k=Math.min(hx/Math.abs(dx||.0001),hz/Math.abs(dz||.0001));return {x:bowl.x+dx*k,y:parkDeckY,z:bowl.z+dz*k};});
+    for(let i=0;i<outer.length;i++){
+      const j=(i+1)%outer.length,a=outer[i],b=outer[j];worldQuad(a,b,previous[j],previous[i],ink);
+      const aX=Math.abs(Math.abs(a.x-bowl.x)-hx)<.001,bX=Math.abs(Math.abs(b.x-bowl.x)-hx)<.001;
+      if(aX!==bX){const corner={x:aX?a.x:b.x,y:parkDeckY,z:aX?b.z:a.z};worldQuad(a,corner,b,b,ink);}
+    }
+  }
+  for(const r of parkRamps){
+    const corners=(hx,hz,y)=>[[-hx,-hz],[hx,-hz],[hx,hz],[-hx,hz]].map(([x,z])=>({x:r.x+x,y,z:r.z+z}));
+    const base=corners(r.hx,r.hz,parkDeckY),top=corners(r.tx,r.tz,parkDeckY-r.height);
+    worldQuad(...top,rampInk);
+    for(let i=0;i<4;i++){const j=(i+1)%4;worldQuad(base[i],base[j],top[j],top[i],rampInk);}
   }
 }
 let pipeSurfaceMesh=null,pipeSurfaceKey='';
@@ -19551,62 +19669,88 @@ function projectedBallRadius(ball) {
 // a dark underside, the aluminium body, a bright top edge — so it reads as a
 // solid casting. The deck end rides the suspension (`skateFrame` sinks it),
 // the axle end stays with the wheels, so the bushings visibly squash.
-function drawTruck(at, along, scale) {
-  const inward = along > 0 ? -1 : 1;
-  const capsule = (a, b, width, color) => {
-    const p = at(...a), q = at(...b);
-    worldCapsule(p.x, p.y, p.z, q.x, q.y, q.z, Math.max(.4, width * scale), color);
-  };
-  const steel = [104, 108, 120], body = [182, 188, 200], shine = [236, 240, 248],
-    shadow = [112, 118, 132], bushing = [236, 128, 46];
-  if(scale<.65){
-    capsule([along-8,1,0],[along+8,1,0],3,steel);
-    capsule([along,1,0],[along,skateAxleDrop,0],6,body);
-    capsule([along,skateAxleDrop,-16],[along,skateAxleDrop,16],3,steel);return;
+// Solid local-space cylinders carry real per-vertex depth. Screen capsules
+// and discs assigned the whole truck/wheel one biased depth, making hardware
+// show through the deck whenever the camera turned above the board.
+function boardCylinder(at,a,b,radius,color,sides=8){
+  const d=b.map((v,i)=>v-a[i]),length=Math.hypot(...d)||1,n=d.map(v=>v/length);
+  const u=Math.abs(n[2])<.9?[n[1],-n[0],0]:[-n[2],0,n[0]];
+  const ul=Math.hypot(...u)||1;for(let i=0;i<3;i++)u[i]/=ul;
+  const v=[n[1]*u[2]-n[2]*u[1],n[2]*u[0]-n[0]*u[2],n[0]*u[1]-n[1]*u[0]];
+  const ring=(p,t)=>at(...p.map((value,i)=>value+radius*(u[i]*Math.cos(t)+v[i]*Math.sin(t))));
+  const ca=at(...a),cb=at(...b);
+  let p=ring(a,0),q=ring(b,0);
+  for(let i=1;i<=sides;i++){
+    const angle=i*Math.PI*2/sides,r=ring(a,angle),t=ring(b,angle);
+    worldQuad(p,q,t,r,color);worldTriangle(ca,r,p,color);worldTriangle(cb,q,t,color);
+    p=r;q=t;
   }
-  // Baseplate under the deck (this end sinks with the deck).
-  capsule([along - 8, .6, 0], [along + 8, .6, 0], 3, steel);
-  // Kingpin with its bushings, squashed between plate and hanger.
-  capsule([along + inward * 3, 1, 0], [along + inward * 3.5, skateAxleDrop - 4, 0], 2, steel);
-  capsule([along + inward * 3, 1.4, -3], [along + inward * 3, 1.4, 3], 4.5, bushing);
-  // The hanger: pivot to axle, shaded underside / body / top edge.
-  capsule([along + inward * 5, 2, 0], [along, skateAxleDrop, 0], 7.5, shadow);
-  capsule([along + inward * 5, 1.6, 0], [along, skateAxleDrop - .6, 0], 5.5, body);
-  capsule([along + inward * 5.4, 1.2, 0], [along - inward * .6, skateAxleDrop - 2.4, 0], 1.6, shine);
-  // Across, between the wheels: the hanger's arms and the axle ends.
-  capsule([along, skateAxleDrop - .5, -11], [along, skateAxleDrop - .5, 11], 5.5, body);
-  capsule([along, skateAxleDrop - 2.6, -11], [along, skateAxleDrop - 2.6, 11], 1.4, shine);
-  capsule([along, skateAxleDrop, -16], [along, skateAxleDrop, 16], 2, steel);
+}
+function drawTruck(at,along){
+  const inward=along>0?-1:1,steel=[104,108,120],body=[182,188,200],bushing=[236,128,46];
+  const rod=(a,b,width,color)=>boardCylinder(at,a,b,width/2,color,6);
+  // A short solid plate below the deck, then the kingpin and cast hanger.
+  rod([along-8,1.2,0],[along+8,1.2,0],2,steel);
+  rod([along+inward*3,2,0],[along+inward*4,8,0],2,steel);
+  rod([along+inward*3,2.5,0],[along+inward*3,5,0],6,bushing);
+  rod([along+inward*5,4,0],[along,8,0],5,body);
+  rod([along,8.8,-11],[along,8.8,11],4,body);
+  rod([along,skateAxleDrop,-17],[along,skateAxleDrop,17],2,steel);
+}
+function drawBoardRunningGearGeometry(player,at,nearSide,urethane,marks=true){
+  for(const along of [-skateTruck,skateTruck])drawTruck(at,along);
+  const spin=player.skateSpin||0,rubber=mixColor(urethane,[90,36,10],.45);
+  for(const along of [-skateTruck,skateTruck])for(const side of [-1,1]){
+    const z=side*15;
+    boardCylinder(at,[along,skateAxleDrop,z-3],[along,skateAxleDrop,z+3],skateWheelRadius,rubber,12);
+    // The two wheel faces and bearings live on the axle's physical planes.
+    for(const cap of [-1,1]){
+      const faceZ=z+cap*3.03,center=at(along,skateAxleDrop,faceZ);
+      const point=(angle,r)=>at(along+Math.cos(angle)*r,skateAxleDrop+Math.sin(angle)*r,faceZ);
+      for(let i=0;i<12;i++){
+        const a=spin+i*Math.PI/6,b=a+Math.PI/6;
+        worldTriangle(center,point(a,skateWheelRadius*.86),point(b,skateWheelRadius*.86),urethane);
+        const bearingZ=faceZ+cap*.03;
+        worldTriangle(at(along,skateAxleDrop,bearingZ),
+          at(along+Math.cos(a)*2.6,skateAxleDrop+Math.sin(a)*2.6,bearingZ),
+          at(along+Math.cos(b)*2.6,skateAxleDrop+Math.sin(b)*2.6,bearingZ),[206,210,220]);
+      }
+      if(marks)worldTriangle(point(spin,3.6),point(spin,6.5),point(spin+.45,6.5),mixColor(urethane,[255,255,255],.35));
+    }
+  }
 }
 
-function drawBoardRunningGear(player, at, nearSide, urethane) {
-  const scale = cameraScale();
-  for (const along of [-skateTruck, skateTruck]) drawTruck(at, along, scale);
-  const spin = player.skateSpin || 0;
-  const wheel = (along, side) => {
-    const center = at(along, skateAxleDrop, side * 15);
-    const point = projectPoint(center.x, center.y, center.z);
-    if (![point.x, point.y].every(Number.isFinite)) return;
-    const radius = Math.max(1.5, skateWheelRadius * scale);
-    const shade = side === nearSide ? 0 : .35;
-    const previous = triangleDepth;
-    // The near wheels sit in front of the trucks, the far ones behind them.
-    triangleDepth = point.z + (side === nearSide ? -.006 : .006);
-    filledDisc(point.x, point.y, radius, mixColor(mixColor(urethane, [90, 36, 10], .45), [0, 0, 0], shade));
-    filledDisc(point.x, point.y, radius * .86, mixColor(urethane, [0, 0, 0], shade));
-    filledDisc(point.x, point.y, radius * .42, [44, 42, 46]);
-    filledDisc(point.x, point.y, radius * .3, mixColor([206, 210, 220], [0, 0, 0], shade));
-    const mark = (turn, inner, outer, color) => screenTriangle(
-      point.x + Math.cos(spin + turn) * radius * inner, point.y + Math.sin(spin + turn) * radius * inner,
-      point.x + Math.cos(spin + turn) * radius * outer, point.y + Math.sin(spin + turn) * radius * outer,
-      point.x + Math.cos(spin + turn + .45) * radius * outer, point.y + Math.sin(spin + turn + .45) * radius * outer,
-      ...color);
-    mark(0, .45, .82, mixColor(urethane, [255, 255, 255], .35));
-    mark(Math.PI, .45, .82, mixColor(urethane, [80, 30, 8], .3));
-    triangleDepth = previous;
-  };
-  for (const along of [-skateTruck, skateTruck]) wheel(along, -nearSide);
-  for (const along of [-skateTruck, skateTruck]) wheel(along, nearSide);
+const skateGearMeshes=new Map(),skateGearCamera=new Float32Array(27);
+function drawBoardRunningGear(player,at,nearSide,urethane){
+  if(nativeRetainedMeshes){
+    const key=urethane.join(',');let mesh=skateGearMeshes.get(key);
+    if(!mesh){
+      const original=worldTriangle;
+      worldTriangle=(a,b,c,color)=>worldQuad(a,b,c,c,color);
+      try{mesh=captureQuadMesh(()=>drawBoardRunningGearGeometry({},(x,y,z)=>({x,y,z}),nearSide,urethane,false));}
+      finally{worldTriangle=original;}
+      skateGearMeshes.set(key,mesh);
+    }
+    const handle=meshHandle(mesh);
+    if(handle>=0){
+      const pivot=at(0,2,0),axes=[at(1,2,0),at(0,3,0),at(0,2,1)].map(p=>[p.x-pivot.x,p.y-pivot.y,p.z-pivot.z]);
+      const origin=[pivot.x-2*axes[1][0],pivot.y-2*axes[1][1],pivot.z-2*axes[1][2]],camera=mainNativeCamera(),local=skateGearCamera;
+      local.set(camera);const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+      const position=[camera[0]-origin[0],camera[1]-origin[1],camera[2]-origin[2]];
+      for(let j=0;j<3;j++){
+        local[j]=dot(position,axes[j]);
+        for(const start of [3,6,9,24])local[start+j]=dot([camera[start],camera[start+1],camera[start+2]],axes[j]);
+      }
+      nativeMeshDraw(handle,local,0);
+      const spin=player.skateSpin||0;
+      for(const along of [-skateTruck,skateTruck])for(const side of [-1,1])for(const cap of [-1,1]){
+        const z=side*15+cap*3.08,point=(a,r)=>at(along+Math.cos(a)*r,skateAxleDrop+Math.sin(a)*r,z);
+        worldTriangle(point(spin,3.6),point(spin,6.5),point(spin+.45,6.5),mixColor(urethane,[255,255,255],.35));
+      }
+      return;
+    }
+  }
+  drawBoardRunningGearGeometry(player,at,nearSide,urethane);
 }
 
 function drawSkateboard(player) {
@@ -21790,6 +21934,7 @@ function paint() {
 }
 function act() {}
 function leave() {
+  if(typeof skateAudio==='function')skateAudio(0,0);
   if(motorRunning && typeof oscillatorStop==='function')oscillatorStop();
   try {
     roundViewerStop?.();
@@ -21813,8 +21958,7 @@ function updatePoolLooseVehicle(v,dt,now,board){
   }
   const oldY=v.y;
   v.x+=v.vx*step;v.z=(v.z||0)+(v.vz||0)*step;
-  const edge=poolDistance(v.x,v.z),limit=pool.radius+pool.deck-25;
-  if(edge.d>limit){v.x-=edge.nx*(edge.d-limit);v.z-=edge.nz*(edge.d-limit);v.vx=v.vz=0;}
+  boundParkBody(v);
   const nextFloor=poolFloorAt(v.x,v.z)-offset;
   v.vy+=1800*step;v.y+=v.vy*step;
   if(v.y>=nextFloor||(supported&&nextFloor-oldY<12)){v.y=nextFloor;v.vy=0;}
@@ -22026,6 +22170,19 @@ function spawnWaterSplash(p,y){
 function updateWaterSplashes(dt){for(let i=waterSplashes.length-1;i>=0;i--){const p=waterSplashes[i];p.life-=dt;if(p.life<=0){waterSplashes.splice(i,1);continue;}p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=850*dt;}}
 function drawWaterSplashes(){drawTurboParticles();for(const p of waterSplashes){const a=projectPoint(p.x,p.y,p.z);const old=triangleDepth;triangleDepth=a.z;filledDisc(a.x,a.y,Math.max(1,4*cameraScale()*p.life/.7),[187,236,252]);triangleDepth=old;}}
 
+let skateAudioLevel=0;
+function updateSkateAudio(dt){
+  let speed=0;
+  for(const p of activePlayers())if(p.alive&&p.skateboard&&!p.onewheel&&p.grounded)
+    speed=Math.max(speed,Math.hypot(p.vx,p.vy,p.vz||0));
+  const rider=activePlayers()[0];
+  for(const b of balls)if(b.active&&b.type==='skateboard'&&Math.abs(b.y+18-terrainFloorAt(b.x,b.z||0))<5)
+    speed=Math.max(speed,Math.hypot(b.vx,b.vz||0)*clamp(1-Math.hypot(b.x-rider.x,(b.z||0)-(rider.z||0))/1800,0,1));
+  const amount=clamp(speed/3200,0,1),target=speed>30?.025+Math.sqrt(amount)*.28:0;
+  skateAudioLevel+=(target-skateAudioLevel)*(1-Math.exp(-dt*(target?12:45)));
+  if(skateAudioLevel<.0005)skateAudioLevel=0;
+  if(!netSilent&&typeof skateAudio==='function')skateAudio(amount,skateAudioLevel);
+}
 let motorFrequency=220,motorRunning=false;
 function updateMotorAudio(dt){
  if(typeof oscillator!=='function')return;
