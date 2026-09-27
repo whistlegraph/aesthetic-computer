@@ -80,6 +80,7 @@ ln -sfn "$PREFIX/bin/aesel" "$BIN/aesel"
 ln -sfn "$PREFIX/bin/a" "$BIN/a"
 ln -sfn "$PREFIX/bin/aes" "$BIN/aes"
 ln -sfn "$PREFIX/bin/easel" "$BIN/ac"
+ln -sfn "$PREFIX/bin/aes" "$BIN/aes"
 
 VERSION=$(node -p "require('$PREFIX/package.json').version" 2>/dev/null || echo "?")
 say "  installed Aesel $VERSION to $PREFIX"

@@ -69,6 +69,16 @@ ifeq ($(HAVE_RAYLIB),1)
   LDFLAGS += $(RAYLIB_LIBS)
 endif
 
+# Optional offscreen triangles; software fallback stays available.
+ifeq ($(shell pkg-config --exists egl glesv2 2>/dev/null && echo 1),1)
+  CFLAGS += -DHAVE_SCREEN_GPU $(shell pkg-config --cflags egl glesv2)
+  LDFLAGS += $(shell pkg-config --libs egl glesv2)
+endif
+ifeq ($(shell pkg-config --exists freetype2 2>/dev/null && echo 1),1)
+  CFLAGS += -DHAVE_COMIC_FONT $(shell pkg-config --cflags freetype2)
+  LDFLAGS += $(shell pkg-config --libs freetype2)
+endif
+
 # SDL3 GPU-accelerated display: always compiled, loaded via dlopen at runtime.
 # Binary runs without SDL3 libs and falls back to DRM/fbdev.
 # No compile-time or link-time SDL dependency.
@@ -243,3 +253,6 @@ clean:
 test: $(TARGET)
 	@echo "Running hello.mjs test piece..."
 	$(TARGET) test-pieces/hello.mjs
+
+# Header-only optional renderers are part of the binding translation unit.
+$(BUILDDIR)/js-bindings.o: $(SRCDIR)/screen-triangle.h $(SRCDIR)/screen-gpu.h $(SRCDIR)/comic-font.h

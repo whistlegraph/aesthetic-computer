@@ -10,6 +10,7 @@ import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { compilePublishedKidLisp } from "./kidlisp-native.mjs";
+import { freshLiveReady } from "./live-reload.mjs";
 
 const defaultEnv = resolve(homedir(),
   "aesthetic-computer/aesthetic-computer-vault/xbox/device-portal.env");
@@ -46,7 +47,8 @@ const auth = `${username}:${password}`;
 const autoAuth = `auto-${username}:${password}`;
 
 function curl(args, { json = false, input } = {}) {
-  const result = spawnSync("curl", ["-k", "-sS", ...args], {
+  const result = spawnSync("curl", ["-k", "-sS", "--fail", "--connect-timeout", "5",
+    "--max-time", "30", ...args], {
     encoding: "utf8", maxBuffer: 16 * 1024 * 1024,
     ...(input === undefined ? {} : { input }),
   });
@@ -154,6 +156,7 @@ function publish(sourcePath) {
   curl(["-u", autoAuth, "-X", "POST", "-F",
     `file=@${absolute};filename=live-piece.js`, appFileUrl(item)]);
   console.log(JSON.stringify({ published: absolute, package: item.PackageFullName }));
+  return { bytes: Buffer.byteLength(source, "utf8") };
 }
 
 function publishSource(source, label) {
@@ -165,6 +168,7 @@ function publishSource(source, label) {
     "file=@-;filename=live-piece.js;type=application/javascript", appFileUrl(item)], { input: source });
   console.log(JSON.stringify({ published: label, bytes: Buffer.byteLength(source, "utf8"),
     package: item.PackageFullName }));
+  return { bytes: Buffer.byteLength(source, "utf8") };
 }
 
 function publishShader(sourcePath, reset = false) {
@@ -213,6 +217,27 @@ function logs(tail = "80") {
   const content = curl(["-u", autoAuth, "-H", "Range: bytes=-1048576",
     appFileUrl(installed(), "ac-native-bios.log")]);
   console.log(content.trimEnd().split(/\r?\n/).slice(-count).join("\n"));
+}
+
+async function hotDeploy(sourcePath) {
+  const item = installed();
+  const readLog = () => curl(["-u", autoAuth, "-H", "Range: bytes=-1048576",
+    appFileUrl(item, "ac-native-bios.log")]);
+  const before = readLog();
+  const published = publish(sourcePath);
+  for (let attempt = 0; attempt < 20; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const current = readLog();
+    const ready = freshLiveReady(before, current, published?.bytes);
+    if (ready) {
+      console.log(`live reload verified: generation ${ready.generation}, bytes ${ready.bytes}; no Xbox restart needed`);
+      return;
+    }
+    const rejection = current.split(/\r?\n/).filter((line) =>
+      line.includes("AC_NATIVE_LIVE_REJECT") && !before.includes(line)).at(-1);
+    if (rejection) throw new Error(`Live update rejected; previous version retained. ${rejection}`);
+  }
+  throw new Error("Upload finished, but live reload was not confirmed. Quit and reopen oskiewar on the Xbox, then check its version; no console reboot is needed.");
 }
 
 function frameDump(outputPath = "") {
@@ -356,8 +381,9 @@ async function main() {
   else if (command === "screenshot") screenshot(argument);
   else if (command === "video") video(argument, rest[0]);
   else if (command === "deploy") { publish(argument); launch(); logs("20"); }
+  else if (command === "hot-deploy") await hotDeploy(argument);
   else if (command === "deploy-kidlisp") await deployKidLisp(argument);
-  else throw new Error("commands: status | install <msix> [deps...] | prune | launch | publish <piece.js> | shader <effect.hlsl> | shader-reset | logs [lines] | frames [output.json] | screenshot [output.png] | video [seconds] [output.mp4] | deploy <piece.js> | deploy-kidlisp <$code>");
+  else throw new Error("commands: status | install <msix> [deps...] | prune | launch | publish <piece.js> | shader <effect.hlsl> | shader-reset | logs [lines] | frames [output.json] | screenshot [output.png] | video [seconds] [output.mp4] | deploy <piece.js> | hot-deploy <piece.js> | deploy-kidlisp <$code>");
 }
 
 try { await main(); } catch (error) { console.error(error.message); process.exit(1); }

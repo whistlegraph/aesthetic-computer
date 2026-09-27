@@ -87,7 +87,9 @@ struct ClaudeSession {
     var hostApp: String = ""
     var hostPid: Int = 0
     var hostWindowID: Int = 0
-    var isDesktopEasel: Bool { agentType == "easel" && hostApp == "computer.aesthetic.easel" }
+    var isDesktopEasel: Bool {
+        agentType == "easel" && ["computer.aesthetic.easel", "computer.aesthetic.aesel.native"].contains(hostApp)
+    }
     var overlayBindingKey: String { isDesktopEasel ? "easel-" + sessionId : (tty as NSString).lastPathComponent }
 
     /// Easel owns its UI while using Codex app-server as its current
@@ -169,6 +171,7 @@ struct ClaudeSession {
 
 enum ClaudeSessionReader {
     static func active() -> [ClaudeSession] {
+        NativeAeselSession.refresh()
         let fm = FileManager.default
         let activeDir = Paths.activePromptsDir
         let awaitingDir = Paths.awaitingPromptsDir

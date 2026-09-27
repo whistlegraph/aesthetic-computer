@@ -948,29 +948,31 @@ void drm_secondary_present_mirror(ACSecondaryDisplay *s, ACFramebuffer *screen) 
     if (!s || !s->active || !screen || screen->width < 1 || screen->height < 1) return;
 
     int sw = screen->width, sh = screen->height;
+    // Fit the whole image to the sink, preserving aspect to the nearest
+    // output pixel. Fractional nearest-neighbor scaling fills a 1080p TV
+    // from a 683x384 screen instead of leaving a 1366x768 island in it.
+    int dst_w=s->width;
+    int dst_h=(int)(((int64_t)dst_w*sh+sw-1)/sw);
+    if(dst_h>s->height) {
+        dst_h=s->height;
+        dst_w=(int)(((int64_t)dst_h*sw+sh-1)/sh);
+    }
     if (sw != s->mirror_w || sh != s->mirror_h) {
-        int sx = s->width / sw, sy = s->height / sh;
-        int scale = sx < sy ? sx : sy;
-        if (scale < 1) scale = 1; // screen larger than the sink: clip, don't shrink
-        s->mirror_scale = scale;
-        s->mirror_x = (s->width  - sw * scale) / 2; if (s->mirror_x < 0) s->mirror_x = 0;
-        s->mirror_y = (s->height - sh * scale) / 2; if (s->mirror_y < 0) s->mirror_y = 0;
+        s->mirror_x = (s->width-dst_w)/2;
+        s->mirror_y = (s->height-dst_h)/2;
         s->mirror_w = sw; s->mirror_h = sh;
         // Letterbox bars change with the source size — reblack both buffers.
         for (int b = 0; b < 2; b++)
             if (s->bufs[b].map && s->bufs[b].map != MAP_FAILED)
                 memset(s->bufs[b].map, 0, s->bufs[b].size);
-        ac_log("[drm-secondary] mirror %dx%d x%d at %d,%d on %dx%d\n",
-               sw, sh, scale, s->mirror_x, s->mirror_y, s->width, s->height);
+        ac_log("[drm-secondary] mirror %dx%d -> %dx%d at %d,%d on %dx%d (nearest)\n",
+               sw, sh, dst_w, dst_h, s->mirror_x, s->mirror_y, s->width, s->height);
     }
 
     int back = 1 - s->buf_front;
     int stride = (int)(s->bufs[back].pitch / sizeof(uint32_t));
-    int dst_w = sw * s->mirror_scale, dst_h = sh * s->mirror_scale;
-    if (dst_w > s->width  - s->mirror_x) dst_w = s->width  - s->mirror_x;
-    if (dst_h > s->height - s->mirror_y) dst_h = s->height - s->mirror_y;
     uint32_t *dst = s->bufs[back].map + (size_t)s->mirror_y * stride + s->mirror_x;
-    fb_copy_scaled(screen, dst, dst_w, dst_h, stride, s->mirror_scale);
+    fb_copy_resized(screen, dst, dst_w, dst_h, stride);
 
     // Plain vblank-synced flip, no event: the primary's drm_flip waits on
     // this same fd for *its* flip event, so the secondary must not emit

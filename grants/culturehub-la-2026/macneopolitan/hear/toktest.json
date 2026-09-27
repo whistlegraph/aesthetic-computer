@@ -1,0 +1,170 @@
+{
+  "tag": "toktest",
+  "at": "2026-09-23T18:21:11.119Z",
+  "model": "ggml-small.en.bin",
+  "flags": {
+    "tag": "toktest",
+    "keep": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/9d4f9efe-53b9-4c09-9eda-1262c18a7422/scratchpad/toktest",
+    "no-spoken": "1"
+  },
+  "scores": [
+    {
+      "score": "tok-test.mbscore",
+      "bpm": 70,
+      "voices": [
+        {
+          "member": "neo",
+          "voice": "Noelle (Enhanced)",
+          "lines": [
+            {
+              "line": 1,
+              "role": "hum",
+              "text": "ah ah",
+              "lyrics": "ah ah",
+              "notes": "62:4,60:4",
+              "duration": 6.854240362811791,
+              "peak": 0.800000011920929,
+              "spanOffset": 0,
+              "notesUsed": 2,
+              "noteCount": 2,
+              "renderMs": 7352,
+              "heard": null,
+              "wer": null,
+              "errors": 0,
+              "words": 0,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/9d4f9efe-53b9-4c09-9eda-1262c18a7422/scratchpad/toktest/tok-test/neo/line-01.wav",
+              "spokenWav": null
+            },
+            {
+              "line": 2,
+              "role": "hum",
+              "text": "ee ee",
+              "lyrics": "ee ee",
+              "notes": "r:8,59:4,57:4",
+              "duration": 7.7142403628117915,
+              "peak": 0.800000011920929,
+              "spanOffset": 6,
+              "notesUsed": 2,
+              "noteCount": 2,
+              "renderMs": 3149,
+              "heard": null,
+              "wer": null,
+              "errors": 0,
+              "words": 0,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/9d4f9efe-53b9-4c09-9eda-1262c18a7422/scratchpad/toktest/tok-test/neo/line-02.wav",
+              "spokenWav": null
+            }
+          ]
+        },
+        {
+          "member": "blueberry",
+          "voice": "Tom (Enhanced)",
+          "lines": [
+            {
+              "line": 1,
+              "role": "hum",
+              "text": "mm mm",
+              "lyrics": "mm mm",
+              "notes": "50:4,45:4",
+              "duration": 6.854240362811791,
+              "peak": 0.800000011920929,
+              "spanOffset": 0,
+              "notesUsed": 2,
+              "noteCount": 2,
+              "renderMs": 5000,
+              "heard": null,
+              "wer": null,
+              "errors": 0,
+              "words": 0,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/9d4f9efe-53b9-4c09-9eda-1262c18a7422/scratchpad/toktest/tok-test/blueberry/line-01.wav",
+              "spokenWav": null
+            },
+            {
+              "line": 2,
+              "role": "hum",
+              "text": "ooh ooh",
+              "lyrics": "ooh ooh",
+              "notes": "r:8,48:4,50:4",
+              "duration": 7.7142403628117915,
+              "peak": 0.800000011920929,
+              "spanOffset": 6,
+              "notesUsed": 2,
+              "noteCount": 2,
+              "renderMs": 2083,
+              "heard": null,
+              "wer": null,
+              "errors": 0,
+              "words": 0,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/9d4f9efe-53b9-4c09-9eda-1262c18a7422/scratchpad/toktest/tok-test/blueberry/line-02.wav",
+              "spokenWav": null
+            }
+          ]
+        },
+        {
+          "member": "frisbee",
+          "voice": "Zoe (Premium)",
+          "lines": [
+            {
+              "line": 1,
+              "role": "hum",
+              "text": "ee ee",
+              "lyrics": "ee ee",
+              "notes": "57:4,55:4",
+              "duration": 6.854240362811791,
+              "peak": 0.800000011920929,
+              "spanOffset": 0,
+              "notesUsed": 2,
+              "noteCount": 2,
+              "renderMs": 6498,
+              "heard": null,
+              "wer": null,
+              "errors": 0,
+              "words": 0,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/9d4f9efe-53b9-4c09-9eda-1262c18a7422/scratchpad/toktest/tok-test/frisbee/line-01.wav",
+              "spokenWav": null
+            },
+            {
+              "line": 2,
+              "role": "hum",
+              "text": "ah ah",
+              "lyrics": "ah ah",
+              "notes": "r:8,58:4,57:4",
+              "duration": 7.7142403628117915,
+              "peak": 0.800000011920929,
+              "spanOffset": 6,
+              "notesUsed": 2,
+              "noteCount": 2,
+              "renderMs": 2673,
+              "heard": null,
+              "wer": null,
+              "errors": 0,
+              "words": 0,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/9d4f9efe-53b9-4c09-9eda-1262c18a7422/scratchpad/toktest/tok-test/frisbee/line-02.wav",
+              "spokenWav": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "total": {
+    "errors": 0,
+    "words": 0,
+    "wer": 0,
+    "spokenErrors": 0,
+    "spokenWords": 0,
+    "spokenWer": 0
+  }
+}

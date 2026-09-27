@@ -1,0 +1,41 @@
+{
+  "build": "1.0.464",
+  "job": "49922a1fhdrfjfi2",
+  "status": "success",
+  "commit": "a981eb2186206d6b38d801a41cea453b3e8315fb",
+  "packageVersion": "1.0.0.46",
+  "package": "/tmp/oskiewar-native46-package/NativeBios_1.0.0.46_x64.msix",
+  "sha256": "b7bd5c3f909c0c5dec05b111cc184cf870eabb87914b4ab8532196cf3a7f362d",
+  "assets": [
+    {
+      "asset": 0,
+      "bytes": 2359296,
+      "sha256": "56d9a4beffcb17a630769db9c68c6b9b877fd3ac37279a349907fabb6d4f90ce"
+    },
+    {
+      "asset": 1,
+      "bytes": 2097152,
+      "sha256": "d1dc6e39e7ec45f3af47c40e0aff0a6cc2d29d2860b8f01b4f9a51893e2098ed"
+    },
+    {
+      "asset": 2,
+      "bytes": 2097152,
+      "sha256": "cb6af5f631a173a91b34782addffd87d267ebba14cb7b5d9ad6b9a7df158b292"
+    },
+    {
+      "asset": 3,
+      "bytes": 4194304,
+      "sha256": "8892d9d15ddf8ef0c5b401f0361f9cd853b020b192db9bc5cbef96f12fb8ae22"
+    },
+    {
+      "asset": 4,
+      "bytes": 2359296,
+      "sha256": "ff0334805d9c7c5821d2548314a443e49e29e3627d37229ccf1f0c4f877699b5"
+    }
+  ],
+  "retainedRgbaBytes": 13107200,
+  "portableNativeTests": "passed",
+  "quickJsSkyBounds": "passed",
+  "deviceInstalled": false,
+  "native60FpsVerified": false
+}

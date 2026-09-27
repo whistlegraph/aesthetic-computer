@@ -811,7 +811,10 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
         const nets = wifi.networks || [];
         const matches = nets
           .filter(n => n.ssid && knownSSIDs.has(n.ssid))
-          .sort((a, b) => b.signal - a.signal);
+          .sort((a, b) => {
+            const priority = ssid => Number(knownCreds.find(c => c.ssid === ssid)?.priority) || 0;
+            return priority(b.ssid) - priority(a.ssid) || b.signal - a.signal;
+          });
         if (matches.length > 0) {
           const best = matches[0];
           const cred = knownCreds.find(c => c.ssid === best.ssid);

@@ -3847,73 +3847,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 PromptSigilOverlayController.shared.terminalsDidRetile()
             }
             guard let pass, pass.nTerm > 0 else { return }
-            // A confirmed population change is the normalization boundary.
-            // Always include every Terminal window: a just-launched prox may
-            // have inherited Terminal's large default even when the grid's
-            // computed font size is identical to the previous pass. Avoiding
-            // previous-pass ID bookkeeping also closes the superseded-layout
-            // race where a stale pass could make a new ID look already handled.
-            let fontTargetIDs = Set(pass.terminalPlacements.map(\.id))
-            guard !fontTargetIDs.isEmpty || !pass.misfitTerminalIDs.isEmpty else { return }
-            // Geometry is already done — the grid snapped above. Terminal
-            // text size catches up asynchronously, and only when needed:
-            // the profile-font write + Default-Font-Size menu dance is the
-            // slow, focus-stealing part of the old tiler.
-            // Apply the grid font to every window. An explicit tile also clears
-            // Terminal's invisible per-window Cmd +/- override via View ▸
-            // Default Font Size.
-            var lines: [String] = []
-            if !fontTargetIDs.isEmpty {
-                lines.append("tell application \"Terminal\"")
-                lines.append("  set _slabIds to id of (every window whose miniaturized is false)")
-                for id in fontTargetIDs.sorted() {
-                    lines.append("  try")
-                    lines.append("    set font size of current settings of (first window whose id is \(id)) to \(pass.fontSize)")
-                    lines.append("  end try")
-                }
-                lines.append("end tell")
-            }
-            if resetZoom {
-                lines.append(contentsOf: [
-                    "tell application \"Terminal\" to activate",
-                    "repeat with _wid in _slabIds",
-                    "  try",
-                    "    tell application \"Terminal\" to set index of (first window whose id is (contents of _wid)) to 1",
-                    "    delay 0.04",
-                    "    tell application \"System Events\" to tell process \"Terminal\" to click menu item \"Default Font Size\" of menu 1 of menu bar item \"View\" of menu bar 1",
-                    "  end try",
-                    "end repeat",
-                ])
-            }
-            // AX gives the wall its immediate snap, but Terminal quantizes AX
-            // size writes to its current character-cell grid. Its own bounds
-            // command can express the exact pixel cell. Finish all windows
-            // after a font change, or only measured outliers otherwise, in
-            // this same single AppleScript process (no extra enumeration).
-            let exactPlacements = !fontTargetIDs.isEmpty
-                ? pass.terminalPlacements.filter { fontTargetIDs.contains($0.id) }
-                : pass.terminalPlacements.filter { pass.misfitTerminalIDs.contains($0.id) }
-            lines.append("tell application \"Terminal\"")
-            for placement in exactPlacements {
-                let b = placement.bounds
-                lines.append("  try")
-                lines.append("    set bounds of (first window whose id is \(placement.id)) to {\(b.left), \(b.top), \(b.right), \(b.bottom)}")
-                lines.append("  end try")
-            }
-            // Font/profile reflow can arrive shortly after the initiating
-            // command. Reassert exact native bounds twice without another
-            // process spawn or Accessibility population read.
-            for delay in [0.06, 0.16] {
-                lines.append("  delay \(delay)")
-                for placement in exactPlacements {
-                    let b = placement.bounds
-                    lines.append("  try")
-                    lines.append("    set bounds of (first window whose id is \(placement.id)) to {\(b.left), \(b.top), \(b.right), \(b.bottom)}")
-                    lines.append("  end try")
-                }
-            }
-            lines.append("end tell")
-            let script = lines.joined(separator: "\n")
+            // Keep the font/reset/settle work bound to this validated census.
+            // Terminal's global AppleScript window list includes closed shells.
+            let script = TerminalTileScript.make(
+                placements: pass.terminalPlacements.map {
+                    TerminalTileScript.Placement(id: $0.id, bounds: $0.bounds)
+                }, fontSize: pass.fontSize, resetZoom: resetZoom)
             self.tileFontQueue.async { [weak self] in
                 guard let self, self.tileGenerationIsCurrent(generation) else { return }
                 _ = ShellRunner.run("/usr/bin/osascript", args: ["-e", script])
@@ -4230,15 +4169,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// The pre-AX tiler, kept verbatim as the no-Accessibility fallback:
-    /// three osascript spawns (two count probes + one bounds script).
+    /// AppleScript fallback when Accessibility is unavailable. Terminal ids
+    /// are captured once, excluding closed/tabless windows, then revalidated.
     private func tileNowLegacy(resetZoom: Bool, geom: ScreenGeom, textSize: TextSize) {
         DispatchQueue.global(qos: .userInitiated).async {
             // Size the grid to everything on screen across both apps. The
             // `is running` guard never launches a quit Terminal.app, so a
             // non-running Terminal contributes zero cells.
             let nIterm = Self.windowCount(app: "iTerm2")
-            let nTerm = Self.windowCount(app: "Terminal")
+            let terminalIDs = ShellRunner.run("/usr/bin/osascript",
+                args: ["-e", TerminalTileScript.liveWindowIDs], timeout: 5).output
+                .split(separator: ",").compactMap {
+                    UInt32($0.trimmingCharacters(in: .whitespacesAndNewlines))
+                }
+            let nTerm = terminalIDs.count
             let n = nIterm + nTerm
             guard n > 0 else { return }
             guard let layout = Self.computeTileLayout(count: n, geom: geom, size: textSize) else { return }
@@ -4265,48 +4209,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 lines.append("end tell")
             }
             if nTerm > 0 {
-                // Terminal.app auto-fit, three ordered passes in ONE osascript
-                // so the sequence is deterministic. Windows are addressed by
-                // id (captured up front) because pass 2 reorders the list.
-                //  1. set each window's profile font to the grid-derived size
-                //  2. View ▸ Default Font Size on each window (System Events) —
-                //     the ONLY reliable way to make a LIVE window adopt a new
-                //     font. A per-window zoom (View ▸ Bigger/Smaller) silently
-                //     overrides the profile font and is invisible to
-                //     AppleScript, so pass 1 alone is a no-op on already-open
-                //     windows (see slab-terminal-font-zoom). Skipped when
-                //     resetZoom is false (frequent auto-retile path).
-                //  3. re-pin pixel bounds LAST so the reflow can't fight the
-                //     cell geometry.
-                // Minimized windows are excluded (matches windowCount): they
-                // neither consume a cell nor get moved.
-                lines.append("tell application \"Terminal\"")
-                lines.append("    set _slabIds to id of (every window whose miniaturized is false)")
-                lines.append("    repeat with _wid in _slabIds")
-                lines.append("      try")
-                lines.append("        set font size of current settings of (first window whose id is (contents of _wid)) to \(layout.fontSize)")
-                lines.append("      end try")
-                lines.append("    end repeat")
-                lines.append("end tell")
-                if resetZoom {
-                    lines.append("tell application \"Terminal\" to activate")
-                    lines.append("repeat with _wid in _slabIds")
-                    lines.append("  try")
-                    lines.append("    tell application \"Terminal\" to set index of (first window whose id is (contents of _wid)) to 1")
-                    lines.append("    delay 0.25")
-                    lines.append("    tell application \"System Events\" to tell process \"Terminal\" to click menu item \"Default Font Size\" of menu 1 of menu bar item \"View\" of menu bar 1")
-                    lines.append("    delay 0.1")
-                    lines.append("  end try")
-                    lines.append("end repeat")
+                let placements = terminalIDs.enumerated().map { j, id in
+                    TerminalTileScript.Placement(id: id,
+                        bounds: layout.cellAt(index: nIterm + j).bounds)
                 }
-                lines.append("tell application \"Terminal\"")
-                for j in 0..<nTerm {
-                    let cell = layout.cellAt(index: nIterm + j)
-                    lines.append("    try")
-                    lines.append("      set bounds of (first window whose id is (item \(j + 1) of _slabIds)) to {\(cell.bounds.left), \(cell.bounds.top), \(cell.bounds.right), \(cell.bounds.bottom)}")
-                    lines.append("    end try")
-                }
-                lines.append("end tell")
+                lines.append(TerminalTileScript.make(placements: placements,
+                    fontSize: layout.fontSize, resetZoom: resetZoom))
             }
             guard !lines.isEmpty else { return }
             let script = lines.joined(separator: "\n")

@@ -15,10 +15,11 @@ const source = await readFile(new URL("../oskiewar.js", import.meta.url), "utf8"
 // A seat: the piece loaded headless, with a clock the test owns, a pad the
 // test presses, and every host hook counted rather than performed.
 function createSeat({ viewport = { width: 1920, height: 1080 },
-  roundBridge = null, netSend = null, knockoutFrame = null } = {}) {
+  roundBridge = null, netSend = null, knockoutFrame = null, renderAlpha = 0 } = {}) {
   let now = 5000000;
   const pad = { connected: true, down: [], leftX: 0, leftY: 0 };
-  const counts = { drums: 0, signals: 0, telemetry: [], analytics: 0, published: 0 };
+  const counts = { drums: 0, signals: 0, telemetry: [], analytics: 0, published: 0,
+    publishedRooms: [] };
   // Every demo this seat filed, in the order it filed them.
   const replays = [];
   const noOp = () => {};
@@ -43,7 +44,15 @@ function createSeat({ viewport = { width: 1920, height: 1080 },
          }
        };
      }
-     return { configureWorldMap, skateRopes, boot, sim, paint, saberPickups, players, workshopCommand,
+     return { fixtureRound: (index, head = false) => {
+         netRoundMapIndex=index; resetRound(runtime().monotonicUs, false, true);
+         if(head) for(const p of players) {
+           p.removedParts=['left-arm','right-arm','left-leg','right-leg','torso'];
+           p.headRoll=0; p.headRollRate=0;
+         }
+       }, fixtureCamera: () => ({y:cameraCenterY,width:cameraDoll.width,
+         target:{...cameraDoll.target},position:{...cameraDoll.position},error:clientError}),
+       configureWorldMap, skateRopes, boot, sim, paint, saberPickups, players, workshopCommand,
        workshopFrame: () => spectatorState(runtime().monotonicUs),
        workshopView: (frame) => applyRoundViewerState(frame, runtime().monotonicUs), netHashTextAt: (f) => netHashTexts.get(f), netHashFrames: () => [...netHashTexts.keys()],
        fixtureKnockouts: () => fixtureKnockouts.slice(),
@@ -77,20 +86,21 @@ function createSeat({ viewport = { width: 1920, height: 1080 },
        fighters: () => players.map((player) => ({ name: player.name,
          x: player.x, y: player.y, alive: player.alive, score: player.score,
          roundWins: player.roundWins, remote: player.remote })),
-       roundState: () => ({ roundResult, roundElapsedUs, matchOver,
+       roundState: () => ({ roundResult, roundElapsedUs, matchOver, map:currentMapName,
          shellMode, gameplayStarted, fightOpponent, gameMode }),
        startVersus: () => startVersusFight(runtime().monotonicUs, true),
        clock: () => runtime().monotonicUs };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000),
-      simCount: Math.floor(now / 16667), paintCount: 0, renderAlpha: 0 }),
+      simCount: Math.floor(now / 16667), paintCount: 0, renderAlpha }),
     (index = 0) => index === 0 ? { ...pad, down: pad.down.slice() }
       : { connected: false, down: [], leftX: 0, leftY: 0 },
     () => ({ platform: "web", inputFamily: "keyboard" }),
     (event, detail) => counts.telemetry.push([event, detail]),
     () => { counts.signals++; },
     (payload) => { replays.push(payload); return Promise.resolve(true); },
-    () => { counts.published++; }, () => { counts.analytics++; },
+    (room) => { counts.published++; counts.publishedRooms.push(room); },
+    () => { counts.analytics++; },
     () => { counts.drums++; }, noOp, noOp, noOp, noOp, undefined, undefined,
     noOp, noOp, () => viewport, knockoutFrame,
   );
@@ -135,7 +145,8 @@ function createWire(a, b, { delay = 3, loss = 0, jitter = 0, seed = 7 } = {}) {
     sent[from]++;
     if (loss && random() < loss) { dropped[from]++; return true; }
     const extra = jitter ? Math.floor(random() * (jitter + 1)) : 0;
-    queues[from].push({ at: tick + delay + extra, packet: structuredClone(packet) });
+    queues[from].push({ at: tick + (Array.isArray(delay) ? delay[from] : delay) + extra,
+      packet: structuredClone(packet) });
     return true;
   };
   const seats = [a, b];
@@ -331,6 +342,44 @@ test("a seat that stops hearing the rival waits instead of guessing forever", ()
   assert.ok(later.frame >= frozen, "the host never rewinds its own frame count");
 });
 
+test("equal clocks keep 60 Hz simulation across a seven-frame one-way wire", () => {
+  const host = createSeat(), guest = createSeat();
+  const wire = createWire(host, guest, { delay: 7 });
+  beginPair(host, guest, wire);
+  for (let frame = 0; frame < 660; frame++) { wire.step(); host.tick(); guest.tick(); }
+  for (const seat of [host, guest]) {
+    const state = seat.fight.netplayState();
+    assert.ok(state.frame >= 650, 'WAN transit must not look like a fast local clock');
+    assert.equal(state.stats.desyncs, 0);
+    assert.ok(state.stats.stalls < 8, 'equal peers do not both lose one tick in four');
+  }
+});
+
+test("lead exchange still bounds a genuinely faster peer over a delayed wire", () => {
+  const host = createSeat(), guest = createSeat();
+  const wire = createWire(host, guest, { delay: 5, jitter: 2 });
+  beginPair(host, guest, wire);
+  for (let frame = 0; frame < 660; frame++) {
+    wire.step(); host.tick(); if (frame % 5 !== 0) guest.tick();
+  }
+  const a = host.fight.netplayState(), b = guest.fight.netplayState();
+  assert.ok(a.stats.stalls + a.stats.waits > 30, 'faster peer gives back time');
+  assert.ok(Math.abs(a.frame - b.frame) <= 10, 'simulation clocks remain bounded');
+  assert.equal(a.stats.desyncs + b.stats.desyncs, 0);
+});
+
+test("unequal one-way delays do not continuously throttle equal clocks", () => {
+  const host = createSeat(), guest = createSeat();
+  const wire = createWire(host, guest, { delay: [2, 7] });
+  beginPair(host, guest, wire);
+  for (let frame = 0; frame < 660; frame++) { wire.step(); host.tick(); guest.tick(); }
+  for (const seat of [host, guest]) {
+    const state = seat.fight.netplayState();
+    assert.ok(state.frame >= 640, 'both seats maintain nearly 60 Hz despite asymmetric transit');
+    assert.equal(state.stats.desyncs, 0);
+  }
+});
+
 // A desync used to be counted and lived with: two machines no longer playing
 // the same fight went on playing their different ones, and the two people
 // found out when one died on a screen where they had not been hit. The repair
@@ -400,6 +449,8 @@ test("rounds roll over inside the fight and both seats agree on the score", () =
     assert.ok(seat.fight.fixtureKnockouts().includes(500), "the scheduled KO occurred");
   assert.ok(equalize(host, guest, wire));
   assert.equal(host.fight.netplayHash(), guest.fight.netplayHash());
+  assert.notEqual(host.fight.roundState().map, "HALFPIPE");
+  assert.equal(host.fight.roundState().map, guest.fight.roundState().map);
   const hostState = host.fight.netplayState();
   assert.equal(hostState.stats.desyncs, 0);
   assert.equal(guest.fight.netplayState().stats.desyncs, 0);
@@ -674,7 +725,7 @@ test("a recorded rollback round holds the fight that really happened", () => {
   const record = host.fight.replayState();
   assert.ok(record, "the host is recording");
   assert.equal(guest.fight.replayState(), null, "and the challenger is not");
-  assert.equal(record.timed, false, "a versus round is not on a clock");
+  assert.equal(record.timed, true, "the replay preserves the versus round deadline");
 
   // A demo is read strictly forward — `advanceResimCommands` walks the stream
   // with a cursor that only moves on — so the stream has to be in time order.
@@ -723,12 +774,16 @@ test("a recorded rollback round holds the fight that really happened", () => {
 // two halves cannot drift apart the way the checkpoint row and its contract
 // did for seventeen days.
 test("a versus round is filed, and the store accepts what was written", () => {
-  const host = createSeat();
-  const guest = createSeat();
+  const host = createSeat({knockoutFrame:500});
+  const guest = createSeat({knockoutFrame:500});
   host.fight.setVersusRoom("regga890");
   guest.fight.setVersusRoom("regga890");
   const wire = createWire(host, guest, { delay: 3, jitter: 2, loss: .05, seed: 11 });
+  const hostAnalytics = host.counts.analytics, guestAnalytics = guest.counts.analytics;
   beginPair(host, guest, wire);
+  assert.equal(host.counts.analytics - hostAnalytics, 1, "one host-authored match event");
+  assert.equal(guest.counts.analytics - guestAnalytics, 0, "the guest does not duplicate the match event");
+  host.counts.publishedRooms.length = guest.counts.publishedRooms.length = 0;
   // Long enough for a knockout, the result card, and the next round's bell.
   run(host, guest, wire, 2400, { settle: 60 });
 
@@ -736,13 +791,17 @@ test("a versus round is filed, and the store accepts what was written", () => {
   assert.ok(filed.length > 0, "the host filed at least one round");
   assert.equal(guest.saved().length, 0,
     "and the challenger filed none — two authors would race for one id");
+  assert.ok(host.counts.publishedRooms.length > 0, "the host publishes the live fight");
+  assert.deepEqual([...new Set(host.counts.publishedRooms)], ["ow-regga890"],
+    "timed rounds keep publishing the stable versus room instead of opening a second round room");
+  assert.equal(guest.counts.publishedRooms.length, 0, "the challenger never claims a publisher socket");
 
   for (const demo of filed) {
     assert.equal(validateDemo(demo), null,
       `the store accepts ${demo.roundId}: ${validateDemo(demo)}`);
     assert.equal(demo.roomId, "ow-regga890", "stamped with the room it was played in");
     assert.equal(demo.roomName, "regga890");
-    assert.equal(demo.timed, false, "a versus round runs on no clock");
+    assert.equal(demo.timed, true, "a saved versus round keeps its time limit");
     assert.ok(demo.commands.length > 0, "and it carries the fight's inputs");
   }
 
@@ -844,6 +903,24 @@ test("a sword survives a rollback the same way on both seats", () => {
 });
 
 
+test('head-only bounce controls survive delayed input and unequal paint cadence', () => {
+  const host=createSeat({renderAlpha:.4}), guest=createSeat({renderAlpha:1});
+  const wire=createWire(host,guest,{delay:7,jitter:3,seed:31});
+  beginPair(host,guest,wire);
+  for(const seat of [host,guest]) {
+    seat.fight.players[1].removedParts=['left-arm','right-arm','left-leg','right-leg','torso'];
+  }
+  for(let frame=0;frame<1200;frame++) {
+    assert.ok(host.fight.netplayState() && guest.fight.netplayState(),`desync at ${frame}`);
+    const f=guest.fight.netplayState().frame;
+    guest.press(f%180<90?'ArrowLeft':'ArrowRight', f%24<12?'ArrowUp':'ArrowDown');
+    host.tick();guest.tick();wire.step();
+    host.fight.paint();if(frame%2===0)guest.fight.paint();
+  }
+  assert.equal(host.fight.netplayState().stats.desyncs,0);
+  assert.equal(guest.fight.netplayState().stats.desyncs,0);
+});
+
 test('a coach map edit moves both network seats to the host stream', async () => {
   const { validateMap } = await import('../oskiewar-map.mjs');
   const host = createSeat(), guest = createSeat();
@@ -905,4 +982,119 @@ test("networked skatepark ropes converge after delayed grab, climb and swing inp
   assert.equal(host.fight.players[0].ropeIndex, 0);
   assert.equal(host.fight.players[1].ropeIndex, 1);
   assert.deepEqual(host.fight.skateRopes, guest.fight.skateRopes);
+});
+
+
+test('a fresh network deal clears head pumping inherited from local play', () => {
+  const host = createSeat(), guest = createSeat();
+  Object.assign(host.fight.players[1], {headBounceCharge: .8,
+    headPumpDirection: -1, headPumpAt: 4700000});
+  const wire = createWire(host, guest, {delay: 7});
+  beginPair(host, guest, wire);
+  for (const field of ['headBounceCharge', 'headPumpDirection', 'headPumpAt'])
+    assert.equal(host.fight.players[1][field], 0, field);
+  assert.equal(host.fight.netplayHash(), guest.fight.netplayHash());
+});
+
+
+test('network frame zero never inherits a locally held Menu button', () => {
+  const host=createSeat(),guest=createSeat();
+  host.press('Menu');host.tick();guest.press('ArrowLeft');guest.tick();
+  const wire=createWire(host,guest);beginPair(host,guest,wire);
+  assert.equal(host.fight.netplayHash(),guest.fight.netplayHash());
+  assert.deepEqual(host.fight.players.map(p=>p.previous),[[],[]]);
+});
+
+for (const [index, name] of [[7,"SLOW MOTION"],[8,"AIR DROP"],[9,"UNARMED"]]) {
+  test(`${name} remains synchronized through 25 seconds of delayed inputs and unequal paints`, () => {
+    const host=createSeat(), guest=createSeat();
+    const wire=createWire(host,guest,{delay:4,jitter:3,loss:.015,seed:190+index});
+    beginPair(host,guest,wire);
+    host.fight.fixtureRound(index,index===8);
+    guest.fight.fixtureRound(index,index===8);
+    for(let frame=0;frame<1560;frame++) {
+      for(const [seat,client] of [host,guest].entries()) {
+        const beat=client.fight.netplayState().frame % 150;
+        client.press(beat<65 ? (seat ? "ArrowRight":"ArrowLeft")
+          : beat<130 ? (seat ? "ArrowLeft":"ArrowRight") : "ArrowUp");
+        client.tick();
+      }
+      wire.step();
+      if(frame%3===0)host.fight.paint();
+      if(frame%7===0)guest.fight.paint();
+      for(const client of [host,guest]) {
+        assert.ok(client.fight.netplayState(), `still connected at frame ${frame}`);
+        assert.equal(client.fight.netplayState().stats.desyncs,0);
+      }
+    }
+    host.press();guest.press();
+    for(let i=0;i<40;i++){host.tick();guest.tick();wire.step();}
+    assert.ok(equalize(host,guest,wire));
+    assert.equal(host.fight.netplayHash(),guest.fight.netplayHash());
+    for(const client of [host,guest]) {
+      assert.equal(client.fight.roundState().map,name);
+      assert.ok(client.fight.netplayState().stats.rollbacks>0);
+      client.fight.paint();
+      const camera=client.fight.fixtureCamera();
+      assert.equal(camera.error,"");
+      assert.ok([camera.y,camera.width,...Object.values(camera.target),
+        ...Object.values(camera.position)].every(Number.isFinite));
+      if(index===8) {
+        assert.ok(client.fight.fighters().every(p=>p.alive&&p.y>12000));
+        assert.ok(camera.y>10000,"camera follows the late falling heads");
+      }
+    }
+  });
+}
+
+test("both LAN seats reach the ninety-second TIME deadline together and reset the next round clock", () => {
+  const host = createSeat(), guest = createSeat();
+  const wire = createWire(host, guest, { delay: 4, jitter: 3, loss: .01, seed: 174 });
+  beginPair(host, guest, wire);
+  const deadlineUs = 90000000, tickUs = 16667;
+  const observations = [host, guest].map(() => ({ before: null, ended: null, reset: null }));
+  for (let tick = 0; tick < 6400 && observations.some((one) => !one.reset); tick++) {
+    for (const [index, seat] of [host, guest].entries()) {
+      const observation = observations[index];
+      const net = seat.fight.netplayState();
+      assert.ok(net, `seat ${index} stays connected at tick ${tick}`);
+      // A few harmless jumps exercise late-input rollback without ending the
+      // round through combat. Near the deadline both pads remain neutral.
+      seat.press(...(net.frame < 1800 && net.frame % 240 < 8 ? ["ArrowUp"] : []));
+      const before = seat.fight.roundState();
+      seat.tick();
+      const after = seat.fight.roundState();
+      assert.equal(seat.fight.netplayState().stats.desyncs, 0);
+      if (!observation.ended && !after.roundResult) {
+        assert.ok(after.roundElapsedUs < deadlineUs, "a live round never runs past its deadline");
+        observation.before = after.roundElapsedUs;
+      } else if (!observation.ended && after.roundResult) {
+        const snapshot = seat.fight.netplaySnapshot();
+        assert.ok(before.roundElapsedUs < deadlineUs);
+        assert.ok(observation.before >= deadlineUs - tickUs, "still playing on the last tick before 90 seconds");
+        assert.ok(after.roundElapsedUs >= deadlineUs && after.roundElapsedUs < deadlineUs + tickUs);
+        assert.equal(snapshot.scalars.roundCause, "TIME");
+        assert.ok(seat.fight.fighters().every((fighter) => fighter.alive), "timeout, not an accidental knockout");
+        observation.ended = { frame: seat.fight.netplayState().frame,
+          elapsed: after.roundElapsedUs, cause: snapshot.scalars.roundCause,
+          result: after.roundResult, hash: seat.fight.netplayHash() };
+      } else if (observation.ended && !after.roundResult && !observation.reset) {
+        assert.equal(after.roundElapsedUs, 0, "the next round gets a fresh countdown");
+        assert.notEqual(after.map, before.map, "the new map marks a real round transition");
+        observation.reset = { frame: seat.fight.netplayState().frame, map: after.map,
+          hash: seat.fight.netplayHash() };
+      }
+    }
+    wire.step();
+    if (tick % 19 === 0) host.fight.paint();
+    if (tick % 31 === 0) guest.fight.paint();
+  }
+  for (const observation of observations) {
+    assert.ok(observation.ended, "the round ended at 90 seconds");
+    assert.ok(observation.reset, "the next round started after the result replay");
+  }
+  assert.deepEqual(observations[0].ended, observations[1].ended,
+    "both simulations end on the same tick, cause, result and state hash");
+  assert.deepEqual(observations[0].reset, observations[1].reset,
+    "round rotation and clock reset happen without drift");
 });

@@ -570,6 +570,7 @@ write_device_config() {  # $1=dest  $2=udp(1=include udpMidiBroadcast)
         if (udp === "1") cfg.udpMidiBroadcast = true;
         try {
             const c = (JSON.parse(fs.readFileSync(insc, "utf8")).usbConfig) || {};
+            if (c.token) cfg.token = c.token;
             if (c.city) cfg.city = c.city;
             if (Array.isArray(c.colors) && c.colors.length) cfg.colors = c.colors;
             if (c.mood) cfg.mood = c.mood;
@@ -581,7 +582,7 @@ write_device_config() {  # $1=dest  $2=udp(1=include udpMidiBroadcast)
     ' "$1" "${USER_HANDLE}" "${BOOT_PIECE}" "${USER_SUB}" "${USER_EMAIL}" "$2" "${INSCRIPTION_FILE}"
 }
 write_device_config "${M1}/config.json" 1
-log "  config.json: $(cat "${M1}/config.json")"
+log "  config.json: @${USER_HANDLE}, boot piece ${BOOT_PIECE}"
 
 # Build merged wifi_creds.json (presets + preserved + optional override)
 # once, reuse for both partitions.

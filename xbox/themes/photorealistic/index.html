@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Oskiewar — miniature theme prototype</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#06080d;color:#eee;font:16px system-ui;min-height:100vh;display:grid;align-content:center}
+canvas{width:100%;max-height:calc(100vh - 64px);object-fit:contain;display:block}
+nav{padding:12px 24px;display:flex;gap:20px;align-items:center;flex-wrap:wrap}label{display:flex;gap:8px;align-items:center}
+select,button{font:inherit;background:#222b38;color:#fff;border:1px solid #647083;border-radius:5px;padding:5px 10px}output{margin-left:auto;font-variant-numeric:tabular-nums;color:#aeb7c7}
+</style>
+<canvas width="1280" height="720" aria-label="Animated material and character rig preview. Purple AC on the left; green Xbox on the right."></canvas>
+<nav><span>Theme prototype</span><label>Theme <select><option value="photorealistic">Miniature night</option><option value="flat">Flat</option></select></label><button id="motion">Pause</button><output>Loading assets…</output></nav>
+<script type="module" src="./preview.mjs"></script></html>

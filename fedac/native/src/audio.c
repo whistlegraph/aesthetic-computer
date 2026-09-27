@@ -2808,8 +2808,20 @@ ACAudio *audio_init(void) {
     int err = -1;
     int card_idx = 0;
 
-    // AC_AUDIO_DEVICE override — try the env var device before the hardcoded list.
+    // The environment wins; a device selection saved on the boot USB also
+    // applies to every piece (including the prompt) on the next engine start.
     const char *env_dev = getenv("AC_AUDIO_DEVICE");
+    char saved_device[128] = {0};
+    if (!env_dev || !env_dev[0]) {
+        FILE *selection = fopen("/mnt/audio-device", "r");
+        if (selection) {
+            if (fgets(saved_device, sizeof(saved_device), selection)) {
+                saved_device[strcspn(saved_device, "\r\n")] = 0;
+                if (saved_device[0]) env_dev = saved_device;
+            }
+            fclose(selection);
+        }
+    }
     if (env_dev && env_dev[0]) {
         err = snd_pcm_open(&pcm, env_dev, SND_PCM_STREAM_PLAYBACK, 0);
         if (err >= 0) {
@@ -3424,7 +3436,7 @@ ACAudio *audio_init(void) {
     // HDMI audio disabled — opening HDMI PCM streams on the same HDA controller
     // can exhaust controller streams and cause EIO on capture.
     audio->hdmi_pcm = NULL;
-    fprintf(stderr, "[audio] HDMI audio: disabled\n");
+    fprintf(stderr, "[audio] Secondary HDMI audio clone: disabled (primary=%s)\n", audio->audio_device);
 
     // Start audio thread
     audio->running = 1;

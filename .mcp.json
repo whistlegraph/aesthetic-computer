@@ -91,6 +91,10 @@
         "slab/bin/aesel-mcp.mjs"
       ]
     },
+    "oskiewar-stage": {
+      "type": "http",
+      "url": "http://127.0.0.1:7792/mcp"
+    },
     "venue": {
       "command": "node",
       "args": [

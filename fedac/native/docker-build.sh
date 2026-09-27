@@ -279,6 +279,7 @@ cp "$BUILD/ac-native" "$IROOT/ac-native"
 cp "$NATIVE/pieces/prompt.mjs" "$IROOT/piece.mjs"
 mkdir -p "$IROOT/pieces"
 cp "$NATIVE/pieces/"*.mjs "$IROOT/pieces/" 2>/dev/null || true
+bash "$NATIVE/scripts/bundle-oskiewar.sh" "$IROOT"
 log "  Pieces: $(ls "$IROOT/pieces/" | wc -l)"
 
 # ── 2d2: Piano sample bank ──

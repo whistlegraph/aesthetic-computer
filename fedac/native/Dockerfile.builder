@@ -18,7 +18,7 @@ RUN dnf install -y --setopt=install_weak_deps=False \
     openssh-clients ripgrep \
     bash \
     ca-certificates \
-    alsa-lib-devel libdrm-devel flite-devel SDL3-devel raylib-devel \
+    alsa-lib-devel libdrm-devel flite-devel SDL3-devel raylib-devel freetype-devel \
     ffmpeg-free-devel \
     wpa_supplicant dhcp-client iw \
     iwlwifi-mvm-firmware wireless-regdb \

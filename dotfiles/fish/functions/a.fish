@@ -1,3 +1,3 @@
-function a --wraps=ac --description 'Shorthand for aesel pro (Easel as a general harness in this directory)'
-    ac pro $argv
+function a --wraps=aes --description 'Shorthand for aes (Aesel in this terminal)'
+    aes $argv
 end

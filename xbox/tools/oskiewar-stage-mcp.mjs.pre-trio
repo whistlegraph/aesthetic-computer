@@ -1,0 +1,134 @@
+#!/usr/bin/env node
+// Local concert display control. Reads existing music state; never cues audio.
+import {readFile, writeFile, mkdir, readdir} from 'node:fs/promises';
+import {homedir} from 'node:os';
+import {join, dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {spawn, execFile} from 'node:child_process';
+import {createInterface} from 'node:readline';
+import {serveHttp, serveStdio, httpPort} from '../../toolchain/mcp/http-front.mjs';
+import {menuBandCue,currentMenuBand,spatialPerformance,selectNativeStatus,lyricPlan} from './oskiewar-performance.mjs';
+import {promisify} from 'node:util';
+const execFileAsync=promisify(execFile);
+const here=dirname(fileURLToPath(import.meta.url));
+const configPath=process.env.OSKIEWAR_STAGE_CONFIG || join(homedir(),'.ac-os/oskiewar-stage.json');
+const config=JSON.parse(await readFile(configPath,'utf8'));
+const ac=new URL(config.ac).origin;
+let curtainStyle=config.curtainStyle || 'auto';
+let curtain=config.curtain===true, mode=config.mode || 'auto', cue=null, score=null, scoreAt=0;
+const nativeClocks=[], scores=new Map(), lyricPlans=new Map();
+let lyricRefreshAt=0;
+async function findLyricPlan(hash) {
+  if(lyricPlans.has(hash))return lyricPlans.get(hash);
+  if(Date.now()-lyricRefreshAt<5000)return null;
+  lyricRefreshAt=Date.now();
+  const folder=config.lyricDirectory || join(homedir(),'.ac-os/oskiewar-lyrics');
+  const files=await readdir(folder).catch(()=>[]);
+  const local=await Promise.allSettled(files.filter(f=>f.endsWith('.json')).map(f=>readFile(join(folder,f),'utf8')));
+  for(const r of local)if(r.status==='fulfilled')try{const p=JSON.parse(r.value);lyricPlans.set(p.arrangementHash,lyricPlan(p));}catch{}
+  if(!lyricPlans.has(hash)) {
+    const remote=await Promise.allSettled((config.lyricSources || []).map(s=>execFileAsync('ssh',['-o','BatchMode=yes','-o','ConnectTimeout=2',s.host,"/bin/cat '"+s.path.replaceAll("'","'\\''")+"'"],{timeout:3000,maxBuffer:1024*1024})));
+    for(const r of remote)if(r.status==='fulfilled')try{const p=JSON.parse(r.value.stdout);if(/^[a-f0-9]{64}$/.test(p.arrangementHash)){lyricPlans.set(p.arrangementHash,lyricPlan(p));await mkdir(folder,{recursive:true});await writeFile(join(folder,p.arrangementHash+'.json'),JSON.stringify(p));}}catch{}
+  }
+  return lyricPlans.get(hash);
+}
+let lastError='', lastSent=null, sequence=0, updating=false;
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function json(url,options={}) {
+  const r=await fetch(url,{...options,signal:AbortSignal.timeout(1500)});
+  if(!r.ok)throw Error('HTTP '+r.status+' from '+new URL(url).pathname);
+  return r.json();
+}
+async function readMusic() {
+  const sung=currentMenuBand(cue);
+  // Femrag visual follower: stale/idle feeds yield to the existing music source.
+  if(config.femrag)try {
+    const r=await fetch(config.femrag,{signal:AbortSignal.timeout(300)});
+    const p=r.ok?await r.json():null;
+    if(p?.playing && (p.dance==='femrag-round-v1' || p.visual==='notepat-score-v1') && Number.isFinite(p.elapsed))return p;
+  }catch{}
+
+  // A full trio receiver takes precedence when it is playing. Cached status
+  // files must advance before they can claim ownership of the live display.
+  const results=await Promise.allSettled([
+    json(config.spatial+'/pieces/trio-fleet-status.json'),
+    json(config.spatial+'/pieces/spatial-rehearsal-status.json'),
+  ]);
+  const status=selectNativeStatus(results.map(r=>r.status==='fulfilled'?r.value:null),nativeClocks);
+  if(status) {
+    if(config.sub && Date.now()-scoreAt>5000) {
+      scoreAt=Date.now();
+      try {score=await json(config.sub+'/api/score');
+        if(score?.hash){scores.set(score.hash,score);if(scores.size>8)scores.delete(scores.keys().next().value);}
+      }catch{}
+    }
+    const performance=spatialPerformance(status,status.arrangementHash ? scores.get(status.arrangementHash) : score,
+      status.schema==='trio-native-status-v1' ? await findLyricPlan(status.arrangementHash) : null);
+    return performance?.playing && performance.lyrics?.length ? performance : sung || performance;
+  }
+  return sung;
+}
+async function send(performance) {
+  const id=Date.now().toString(36)+'-'+(++sequence);
+  const value={id,curtain,performance:{...(performance || {title:'Waiting for the next composition',
+    source:'CultureHub',elapsed:0,duration:0,playing:false,notes:[]}),
+    curtainStyle,active:mode==='performance' || (mode==='auto' && Boolean(performance?.playing || performance?.phase==='countdown'))}};
+  const r=await fetch(ac+'/pieces/oskiewar-control.json',{method:'PUT',body:JSON.stringify(value),signal:AbortSignal.timeout(1500)});
+  if(!r.ok)throw Error('AC control HTTP '+r.status);
+  lastSent=value; lastError=''; return value;
+}
+async function update() {
+  if(updating)return;
+  updating=true;
+  try {await send(await readMusic());}catch(e){lastError=e.message;}
+  finally {updating=false;}
+}
+const observer=spawn(config.observer || join(homedir(),'.local/bin/oskiewar-music-observer'),[],{stdio:['ignore','pipe','pipe']});
+createInterface({input:observer.stdout}).on('line',line=>{
+  try {const event=JSON.parse(line);cue=menuBandCue(event);void update();}catch{}
+});
+observer.on('error',e=>{lastError='Menu Band observer: '+e.message;});
+const timer=setInterval(update,500);void update();
+const tools=[
+  {name:'oskiewar_curtain',description:'Curtain all Oskiewars: immediately darken Xbox and AC OS, silence game sounds and pause the paired match. down:false raises the curtain and resumes. Acknowledges both displays.',inputSchema:{type:'object',properties:{down:{type:'boolean',default:true},style:{type:'string',enum:['auto','directions','singalong'],description:'auto/singalong show timed Trio lyrics when available; directions always shows arrows.'}}}},
+  {name:'oskiewar_display',description:'Choose the primary display on Xbox and AC OS: performance shows the composition, progress and ambient heads; game shows Oskiewar; auto follows music only while it plays.',inputSchema:{type:'object',properties:{mode:{type:'string',enum:['performance','game','auto']}},required:['mode']}},
+  {name:'oskiewar_performance_status',description:'Read the composition feed, display mode, curtain and device acknowledgment without changing playback.',inputSchema:{type:'object',properties:{}}},
+];
+async function status(){let devices;try{devices=await json(ac+'/pieces/oskiewar-stage-status.json');}catch(e){devices={error:e.message};}return {mode,curtain,curtainStyle,performance:lastSent?.performance,lastError,devices};}
+async function call(name,args={}) {
+  if(name==='oskiewar_performance_status')return status();
+  if(name==='oskiewar_curtain'){curtain=args.down!==false;if(['auto','directions','singalong'].includes(args.style))curtainStyle=args.style;}
+  else if(name==='oskiewar_display' && ['performance','game','auto'].includes(args.mode))mode=args.mode;
+  else throw Error('Unknown command or mode');
+  await writeFile(configPath,JSON.stringify({...config,curtain,curtainStyle,mode},null,2)+'\n');
+  // Serialize mutations with the periodic writer, then stop it until this
+  // command is acknowledged so a newer progress packet cannot hide its id.
+  while(updating)await sleep(20);
+  updating=true;
+  try {
+    const sent=await send(lastSent?.performance);
+    const end=Date.now()+3500;
+    while(Date.now()<end){
+      const s=await status();
+      if(s.devices?.id===sent.id && s.devices?.peerAck===sent.id)return {...s,acknowledged:['ac','xbox']};
+      await sleep(100);
+    }
+    return {...await status(),acknowledged:[],error:'Timed out waiting for both displays; inspect device status'};
+  } finally {updating=false;}
+}
+async function handleMessage({id,method,params}) {
+  if(id===undefined)return null;
+  try {
+    let result;
+    if(method==='initialize')result={protocolVersion:'2024-11-05',capabilities:{tools:{}},serverInfo:{name:'oskiewar-stage',version:'1.0'}};
+    else if(method==='tools/list')result={tools};
+    else if(method==='tools/call'){const value=await call(params.name,params.arguments);result={content:[{type:'text',text:JSON.stringify(value)}],...(value.error?{isError:true}:{})};}
+    else if(method==='ping')result={};
+    else throw Error('Unknown method');
+    return {jsonrpc:'2.0',id,result};
+  }catch(e){return {jsonrpc:'2.0',id,result:{isError:true,content:[{type:'text',text:e.message}]}};}
+}
+for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>{clearInterval(timer);observer.kill();process.exit(0);});
+const port=httpPort(process.argv,7792);
+if(port)serveHttp({handleMessage,port,banner:'Oskiewar performance display'});
+else serveStdio({handleMessage,banner:'Oskiewar performance display'});

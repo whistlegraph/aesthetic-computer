@@ -10,6 +10,7 @@ extern void ac_log(const char *fmt, ...);
 #include <errno.h>
 #include <netdb.h>
 #include <sys/socket.h>
+#include <netinet/tcp.h>
 #include <sys/select.h>
 #include <arpa/inet.h>
 #include <stdint.h>
@@ -68,7 +69,7 @@ static void thread_close_ssl(ACWs *ws) {
 }
 
 // Returns 0 on success, -1 on failure.
-static int thread_connect(ACWs *ws, const char *host, const char *path) {
+static int thread_connect(ACWs *ws, const char *host, const char *path, int port, int tls) {
     thread_close_ssl(ws);
     ws->frame_len = 0;
 
@@ -82,14 +83,18 @@ static int thread_connect(ACWs *ws, const char *host, const char *path) {
     struct addrinfo hints = {0}, *res = NULL;
     hints.ai_family   = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
-    if (getaddrinfo(host, "443", &hints, &res) != 0 || !res) {
+    char service[8];
+    snprintf(service, sizeof(service), "%d", port);
+    if (getaddrinfo(host, service, &hints, &res) != 0 || !res) {
         ac_log("[ws] DNS failed for %s", host);
         goto fail;
     }
 
     // TCP connect (with 8s timeout via non-blocking + select)
-    ws->fd = socket(AF_INET, SOCK_STREAM, 0);
+    ws->fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
     if (ws->fd < 0) { freeaddrinfo(res); goto fail; }
+    int nodelay=1;
+    setsockopt(ws->fd,IPPROTO_TCP,TCP_NODELAY,&nodelay,sizeof(nodelay));
     fcntl(ws->fd, F_SETFL, O_NONBLOCK);
     connect(ws->fd, res->ai_addr, res->ai_addrlen);
     freeaddrinfo(res);
@@ -103,13 +108,19 @@ static int thread_connect(ACWs *ws, const char *host, const char *path) {
     }
     fcntl(ws->fd, F_SETFL, 0);  // restore blocking for TLS
 
-    // TLS
+    struct timeval handshake_timeout = {8, 0};
+    setsockopt(ws->fd, SOL_SOCKET, SO_RCVTIMEO, &handshake_timeout, sizeof(handshake_timeout));
+    setsockopt(ws->fd, SOL_SOCKET, SO_SNDTIMEO, &handshake_timeout, sizeof(handshake_timeout));
+
+    // TLS is optional only for an explicit ws:// connection.
+    SSL *ssl = NULL;
+    if (tls) {
     SSL_CTX *ctx = SSL_CTX_new(TLS_client_method());
     if (!ctx) goto fail;
     SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
     ws->ssl_ctx = ctx;
 
-    SSL *ssl = SSL_new(ctx);
+    ssl = SSL_new(ctx);
     SSL_set_fd(ssl, ws->fd);
     SSL_set_tlsext_host_name(ssl, host);
     ws->ssl = ssl;
@@ -117,6 +128,8 @@ static int thread_connect(ACWs *ws, const char *host, const char *path) {
     if (SSL_connect(ssl) != 1) {
         ac_log("[ws] TLS handshake failed for %s", host);
         goto fail;
+    }
+
     }
 
     // WebSocket HTTP upgrade
@@ -127,18 +140,25 @@ static int thread_connect(ACWs *ws, const char *host, const char *path) {
 
     char req[512];
     int rlen = snprintf(req, sizeof(req),
-        "GET %s HTTP/1.1\r\nHost: %s\r\nUpgrade: websocket\r\n"
+        "GET %s HTTP/1.1\r\nHost: %s:%d\r\nUpgrade: websocket\r\n"
         "Connection: Upgrade\r\nSec-WebSocket-Key: %s\r\n"
         "Sec-WebSocket-Version: 13\r\n\r\n",
-        path, host, key_b64);
-    SSL_write(ssl, req, rlen);
+        path, host, port, key_b64);
+    if (rlen < 0 || rlen >= (int)sizeof(req)) goto fail;
+    int request_sent = 0;
+    while (request_sent < rlen) {
+        int n = ssl ? SSL_write(ssl, req + request_sent, rlen - request_sent)
+                    : (int)send(ws->fd, req + request_sent, rlen - request_sent, MSG_NOSIGNAL);
+        if (n <= 0) goto fail;
+        request_sent += n;
+    }
 
     // Read until "\r\n\r\n"
     char resp[1024] = {0};
     int rpos = 0;
     while (rpos < (int)sizeof(resp) - 1) {
         char c;
-        if (SSL_read(ssl, &c, 1) <= 0) break;
+        if ((ssl ? SSL_read(ssl, &c, 1) : (int)recv(ws->fd, &c, 1, 0)) <= 0) break;
         resp[rpos++] = c;
         if (rpos >= 4 && memcmp(resp + rpos - 4, "\r\n\r\n", 4) == 0) break;
     }
@@ -147,17 +167,17 @@ static int thread_connect(ACWs *ws, const char *host, const char *path) {
         goto fail;
     }
 
-    // Keep socket blocking but set a 50ms receive timeout so the background
-    // thread doesn't block forever — switching to O_NONBLOCK after TLS 1.3
-    // handshake confuses OpenSSL's internal state machine (SSL_ERROR_SSL).
-    struct timeval so_tv = {0, 50000};
+    // select() below waits for readiness before reads. Bound a partial TLS
+    // record to 5ms too, so incoming traffic cannot hold outgoing inputs 50ms.
+    // Keep blocking TLS: changing its mode after TLS1.3 has caused SSL errors.
+    struct timeval so_tv = {0, 5000};
     setsockopt(ws->fd, SOL_SOCKET, SO_RCVTIMEO, &so_tv, sizeof(so_tv));
 
     pthread_mutex_lock(&ws->mu);
     ws->connected = 1;
     ws->connecting = 0;
     pthread_mutex_unlock(&ws->mu);
-    ac_log("[ws] Connected to wss://%s%s", host, path);
+    ac_log("[ws] Connected to %s://%s:%d%s", tls ? "wss" : "ws", host, port, path);
     return 0;
 
 fail:
@@ -169,40 +189,57 @@ fail:
     return -1;
 }
 
-// Send a masked text frame (called from background thread only)
+// One masked TLS record per frame. Splitting header/payload into separate
+// writes invites TCP delayed-ACK latency on small game input packets.
+static void thread_send_frame(ACWs *ws, int opcode, const unsigned char *text, size_t plen) {
+    SSL *ssl=(SSL *)ws->ssl;
+    if ((!ssl && ws->fd < 0) || plen>16383) return;
+    unsigned char frame[16392], mask[4];
+    if (RAND_bytes(mask,4)!=1) return;
+    int hlen=0;frame[hlen++]=0x80|opcode;
+    if(plen<126) frame[hlen++]=0x80|(uint8_t)plen;
+    else {frame[hlen++]=0x80|126;frame[hlen++]=(plen>>8)&255;frame[hlen++]=plen&255;}
+    memcpy(frame+hlen,mask,4);hlen+=4;
+    for(size_t i=0;i<plen;i++) frame[hlen+i]=text[i]^mask[i&3];
+    int total=hlen+(int)plen, sent=0;
+    while(sent<total) {
+        int n=ssl ? SSL_write(ssl,frame+sent,total-sent)
+                  : (int)send(ws->fd,frame+sent,total-sent,MSG_NOSIGNAL);
+        if(n<=0) break;
+        sent+=n;
+    }
+}
 static void thread_send(ACWs *ws, const char *text) {
-    SSL *ssl = (SSL *)ws->ssl;
-    if (!ssl) return;
-    size_t plen = strlen(text);
-    unsigned char mask[4]; RAND_bytes(mask, 4);
-    unsigned char hdr[10]; int hlen = 0;
-    hdr[hlen++] = 0x81;
-    if (plen < 126)       { hdr[hlen++] = 0x80 | (uint8_t)plen; }
-    else                  { hdr[hlen++] = 0x80 | 126;
-                            hdr[hlen++] = (plen>>8)&0xff;
-                            hdr[hlen++] = plen&0xff; }
-    memcpy(hdr+hlen, mask, 4); hlen += 4;
-    unsigned char *masked = malloc(plen);
-    if (!masked) return;
-    for (size_t i = 0; i < plen; i++) masked[i] = (uint8_t)text[i] ^ mask[i&3];
-    SSL_write(ssl, hdr, hlen);
-    SSL_write(ssl, masked, (int)plen);
-    free(masked);
+    thread_send_frame(ws,1,(const unsigned char *)text,strlen(text));
 }
 
 // Recv one iteration — reads available bytes, decodes frames into ws->messages
 static void thread_recv(ACWs *ws) {
     SSL *ssl = (SSL *)ws->ssl;
-    if (!ssl) return;
+    if (!ssl && ws->fd < 0) return;
+    // A short readiness wait leaves the single outgoing slot drainable even
+    // when the peer is quiet. OpenSSL may already hold decrypted data.
+    if (!ssl || SSL_pending(ssl) == 0) {
+        fd_set rfds; FD_ZERO(&rfds); FD_SET(ws->fd, &rfds);
+        struct timeval ready_timeout = {0, 2000};
+        if (select(ws->fd + 1, &rfds, NULL, NULL, &ready_timeout) <= 0) return;
+    }
 
     // Read whatever is available; on fatal error fall through to parse buffered data
     int ssl_fatal = 0;
     while (ws->frame_len < (int)sizeof(ws->frame_buf) - 1) {
-        int n = SSL_read(ssl, ws->frame_buf + ws->frame_len,
-                         (int)sizeof(ws->frame_buf) - 1 - ws->frame_len);
-        if (n > 0) { ws->frame_len += n; }
+        int capacity = (int)sizeof(ws->frame_buf) - 1 - ws->frame_len;
+        int n = ssl ? SSL_read(ssl, ws->frame_buf + ws->frame_len, capacity)
+                    : (int)recv(ws->fd, ws->frame_buf + ws->frame_len, capacity, 0);
+        if (n > 0) {
+            ws->frame_len += n;
+            // Deliver now. Waiting for a quiet socket starves a continuous
+            // 60 Hz input stream and also prevents our send queue draining.
+            break;
+        }
         else {
-            int e = SSL_get_error(ssl, n);
+            int e = ssl ? SSL_get_error(ssl, n) : SSL_ERROR_SYSCALL;
+            if (!ssl && n == 0) { ssl_fatal = 1; break; }
             if (e == SSL_ERROR_WANT_READ || e == SSL_ERROR_WANT_WRITE) break;
             // SO_RCVTIMEO timeout: EAGAIN/EWOULDBLOCK via SSL_ERROR_SYSCALL — not fatal
             if (e == SSL_ERROR_SYSCALL && (errno == EAGAIN || errno == EWOULDBLOCK || errno == 0)) break;
@@ -224,6 +261,7 @@ static void thread_recv(ACWs *ws) {
         if (plen == 126) { if (avail<4) break; plen=((uint64_t)buf[2]<<8)|buf[3]; hlen=4; }
         else if (plen == 127) { if (avail<10) break; plen=0; for(int i=0;i<8;i++) plen=(plen<<8)|buf[2+i]; hlen=10; }
         if (has_mask) hlen += 4;
+        if (plen > sizeof(ws->frame_buf) - (size_t)hlen) { ssl_fatal=1; break; }
         int total = hlen + (int)plen;
         if (avail < total) {
             // Frame not fully buffered yet — or frame_buf too small
@@ -240,7 +278,7 @@ static void thread_recv(ACWs *ws) {
 
         if ((op == 0x1 || op == 0x0) && fin) {
             int copy = (int)plen < WS_MAX_MSG_LEN-1 ? (int)plen : WS_MAX_MSG_LEN-1;
-            ac_log("[ws] frame op=%d plen=%d first64=%.64s", op, (int)plen, (char*)payload);
+            // No per-packet payload logging on the realtime path.
             pthread_mutex_lock(&ws->mu);
             int slot = ws->msg_count % WS_MAX_MESSAGES;
             memcpy(ws->messages[slot], payload, copy);
@@ -249,8 +287,8 @@ static void thread_recv(ACWs *ws) {
             pthread_mutex_unlock(&ws->mu);
         } else if (op == 0x9) {
             // Ping → pong
-            unsigned char pong[2] = {0x8a, 0x00};
-            SSL_write(ssl, pong, 2);
+            // Client control frames must be masked and echo the ping payload.
+            if (plen <= 125) thread_send_frame(ws, 0xa, payload, (size_t)plen);
         } else if (op == 0x8) {
             ac_log("[ws] server close");
             thread_close_ssl(ws);
@@ -285,14 +323,16 @@ static void *ws_thread(void *arg) {
         pthread_mutex_lock(&ws->mu);
         int do_connect = ws->pending_connect;
         char host[256], path[256];
+        int port = 443, tls = 1;
         if (do_connect) {
             strncpy(host, ws->pending_host, 255); host[255]=0;
             strncpy(path, ws->pending_path, 255); path[255]=0;
+            port = ws->pending_port; tls = ws->pending_tls;
             ws->pending_connect = 0;
         }
         pthread_mutex_unlock(&ws->mu);
 
-        if (do_connect) thread_connect(ws, host, path);
+        if (do_connect) thread_connect(ws, host, path, port, tls);
 
         // Check for pending send
         pthread_mutex_lock(&ws->mu);
@@ -309,7 +349,7 @@ static void *ws_thread(void *arg) {
         if (is_connected) thread_recv(ws);
 
         // When not connected, sleep 16ms to avoid spinning.
-        // When connected, thread_recv() blocks up to 50ms in SSL_read (SO_RCVTIMEO).
+        // When connected, readiness waits at most 2ms (partial TLS reads 5ms).
         if (!is_connected) {
             struct timespec ts = {0, 16000000};
             nanosleep(&ts, NULL);
@@ -343,20 +383,33 @@ void ws_destroy(ACWs *ws) {
 
 void ws_connect(ACWs *ws, const char *url) {
     if (!ws) return;
-    const char *host_start = url;
-    if (strncmp(url, "wss://", 6) == 0) host_start = url + 6;
-    else if (strncmp(url, "ws://", 5) == 0) host_start = url + 5;
-
+    if (!url) return;
+    int tls;
+    const char *host_start;
+    if (strncmp(url, "wss://", 6) == 0) { host_start = url + 6; tls = 1; }
+    else if (strncmp(url, "ws://", 5) == 0) { host_start = url + 5; tls = 0; }
+    else return;
     char host[256] = {0};
     const char *slash = strchr(host_start, '/');
     const char *path = slash ? slash : "/";
-    int hlen = slash ? (int)(slash - host_start) : (int)strlen(host_start);
-    if (hlen >= 255) hlen = 255;
+    size_t hlen = slash ? (size_t)(slash - host_start) : strlen(host_start);
+    if (!hlen || hlen >= sizeof(host) || strlen(path) >= 256) return;
     memcpy(host, host_start, hlen);
+    int port = tls ? 443 : 80;
+    char *colon = strchr(host, ':');
+    if (colon) {
+        char *end;
+        long parsed = strtol(colon + 1, &end, 10);
+        if (!colon[1] || *end || parsed < 1 || parsed > 65535) return;
+        port = (int)parsed;
+        *colon = 0;
+    }
+    if (!host[0] || strchr(host, '@') || strchr(host, '?') || strchr(host, '#')) return;
 
     pthread_mutex_lock(&ws->mu);
     strncpy(ws->pending_host, host, 255);
     strncpy(ws->pending_path, path, 255);
+    ws->pending_port = port; ws->pending_tls = tls;
     ws->pending_connect = 1;
     ws->connected = 0;
     ws->error = 0;

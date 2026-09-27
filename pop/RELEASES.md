@@ -7,6 +7,29 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 
 ---
 
+## eight gigabytes — RENDER (first cut 2026-09-26; @jeffrey ear-check next)
+
+- **Lane:** `pop/eightgigabytes/` · the pop cut of the MacNeoPolitan Trio's
+  *IV. The Ballad of neo* (`grants/culturehub-la-2026/macneopolitan/members/neo/ballad.md`)
+  · 1:37 · F minor · 100 BPM · 39 bars, no intro, opens on the refrain; verses V (two lines)
+  and XI + refrain ×3 (form per @jeffrey 2026-09-26, cut down by ear through the day).
+  Harmonies are counter-lines (frisbee enters on the stressed word, blueberry in contrary
+  motion). The score mp4 (light theme) carries the three laptops with the trio's own
+  singing faces (`bin/faces.sh`, Menu Band's SingerFaceView offline), member-colored laptops and
+  per-member word captions. Last line for the cut: *this is the one thing that I know*.
+  All three band voices sing themselves through Menu Band's offline singer
+  (`singrender`): neo/Noelle lead, blueberry/Allison low part + *in June another one
+  came, blue*, frisbee/Junior middle part, echoes, + *a third one comes tomorrow, blush*.
+  Bed synthesized in node: clock tick, kick, trackpad tap, sub, sine pad, FM menu-bar
+  piano, whistle (GM-78 family voice) doubling the hook and answering the verses.
+- **Master:** `out/eightgigabytes.{wav,mp3,mp4}` · −13.4 LUFS · LRA 4.3 · −1.0 dBTP; `out/eightgigabytes-chorus.*` = the opening refrain alone, `-front.*` = through the second refrain.
+  Pitch: neo 230/232 notes within 50 c (mean 9 c), blueberry 87/87, frisbee 78/83.
+  Whisper small.en 12 % mean WER on the lead (digits and *the system* → *this*).
+- **Artist:** Aesthetic Dot Computer (intended) · title `eight gigabytes` lowercase.
+- **Next:** @jeffrey hears it → tune by ear · cover (no wordmark) · DistroKid packet.
+
+---
+
 ## climbalift — WIP (v15, 2026-09-25)
 
 - **Lane:** `pop/notespatial/` · the Climb and the Lift cut out of *Note(s)pat(ial)

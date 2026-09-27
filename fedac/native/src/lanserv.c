@@ -128,7 +128,7 @@ static void lan_trigger_jump(const char *piece) {
 // ── HTTP ───────────────────────────────────────────────────────────────
 
 static int http_listen(int *port_out) {
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    int fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
     if (fd < 0) return -1;
     int one = 1;
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
@@ -354,7 +354,7 @@ static void http_handle(int fd) {
 // for `ping host.local` and printer-style discovery in Bonjour browsers.
 
 static int mdns_open(void) {
-    int fd = socket(AF_INET, SOCK_DGRAM, 0);
+    int fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
     if (fd < 0) return -1;
     int one = 1;
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
@@ -705,7 +705,7 @@ static void *lanserv_thread(void *arg) {
             continue;
         }
         if (http_fd >= 0 && FD_ISSET(http_fd, &rd)) {
-            int cfd = accept(http_fd, NULL, NULL);
+            int cfd = accept4(http_fd, NULL, NULL, SOCK_CLOEXEC);
             if (cfd >= 0) {
                 http_handle(cfd);
                 close(cfd);

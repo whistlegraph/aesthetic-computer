@@ -67,6 +67,18 @@ app is the only desktop runtime. Existing Electron data is retained separately
 and is not automatically imported. Mac sessions live in the app's Application Support directory;
 iPhone sessions retain their existing Documents location. Tokens use Keychain.
 
+## Release: app and terminal together
+
+`./release-mac.sh` builds the Developer ID DMG: `AeselMac` unsandboxed
+(`MacDirect.entitlements`), the Easel TUI in `Contents/Resources/easel`, and
+Node from nodejs.org (checksum-verified) in `Contents/Helpers`. On launch the
+app links `~/.local/bin/aesel` (opens the app) and `aes` (the TUI), leaving any
+existing checkout link alone, and installs the Claude/Codex host once per
+version. App and TUI share `easel/package.json`'s version; the build number is
+the commit count. `./release-mac.sh publish` uploads to
+`releases.aesthetic.computer/aesel/mac/` and packs the matching TUI tarball.
+The App Store build stays sandboxed (`Mac.entitlements`) and carries neither.
+
 To build both targets without installing, run `./bundle-session.sh` and
 `xcodegen generate`, then build schemes `AeselMac` (macOS) and `Aesel`
 (`generic/platform=iOS`, with signing disabled for a compile check).

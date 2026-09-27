@@ -16,6 +16,8 @@ typedef struct {
     // pending connect request (written by main, read by thread)
     char  pending_host[256];
     char  pending_path[256];
+    int   pending_port;
+    int   pending_tls;
     int   pending_connect;   // 1 = thread should connect
 
     // connection state (written by thread, read by main)

@@ -1,0 +1,26 @@
+[
+  {
+    "createdAt" : "2026-08-08T08:04:36Z",
+    "durationSeconds" : 101.80256509780884,
+    "file" : "\/Users\/jas\/aesthetic-computer\/.worktrees\/wattajetta-stone-club\/pop\/wattajetta\/voice-takes\/dubs\/2026-08-08T08-04-36Z.caf",
+    "id" : "2026-08-08T08-04-36Z",
+    "inputChannel" : 1,
+    "inputDevice" : "Scarlett Solo USB",
+    "notes" : "primary full-pass; timing reference; preserve raw",
+    "role" : "primary lead",
+    "section" : "full pass",
+    "track" : "\/Users\/jas\/aesthetic-computer\/.worktrees\/wattajetta-stone-club\/pop\/wattajetta\/out\/wattajetta-stone-club-distrokid-master.wav"
+  },
+  {
+    "createdAt" : "2026-08-08T08:08:27Z",
+    "durationSeconds" : 126.99657595157623,
+    "file" : "\/Users\/jas\/aesthetic-computer\/.worktrees\/wattajetta-stone-club\/pop\/wattajetta\/voice-takes\/dubs\/2026-08-08T08-08-27Z.caf",
+    "id" : "2026-08-08T08-08-27Z",
+    "inputChannel" : 1,
+    "inputDevice" : "Scarlett Solo USB",
+    "notes" : "alternate full-pass; double and pitched-support source; preserve raw",
+    "role" : "alternate double",
+    "section" : "full pass",
+    "track" : "\/Users\/jas\/aesthetic-computer\/.worktrees\/wattajetta-stone-club\/pop\/wattajetta\/out\/wattajetta-stone-club-distrokid-master.wav"
+  }
+]
