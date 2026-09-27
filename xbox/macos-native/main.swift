@@ -242,6 +242,14 @@ private final class NativeAudio {
     private var cursor = 0
     private let sampleRate = 48_000.0
     private var noiseState: UInt64 = 0x6f736b6965776172
+    // The motor drone: one continuous voice the game steers every sim tick
+    // (oscillator(frequency, gain)) and lets go of (oscillatorStop). Pitch and
+    // gain ease toward their targets inside the render block, so a stop or a
+    // gear change never clicks. The Xbox host has had this since the
+    // onewheel; without it the Mac rode the monowheel in silence.
+    private var oscillatorNode: AVAudioSourceNode?
+    private var oscillatorTargetHz = 220.0, oscillatorTargetGain = 0.0
+    private var oscillatorHz = 220.0, oscillatorGain = 0.0, oscillatorPhase = 0.0
 
     init() {
         guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate,
@@ -252,9 +260,37 @@ private final class NativeAudio {
             engine.connect(player, to: engine.mainMixerNode, format: format)
             players.append(player)
         }
+        let oscillator = AVAudioSourceNode { [unowned self] _, _, frameCount, audioBufferList -> OSStatus in
+            let buffers = UnsafeMutableAudioBufferListPointer(audioBufferList)
+            let step = 1.0 / self.sampleRate
+            for frame in 0..<Int(frameCount) {
+                self.oscillatorHz += (self.oscillatorTargetHz - self.oscillatorHz) * 0.0008
+                self.oscillatorGain += (self.oscillatorTargetGain - self.oscillatorGain) * 0.0015
+                self.oscillatorPhase += self.oscillatorHz * step
+                if self.oscillatorPhase >= 1 { self.oscillatorPhase -= 1 }
+                let angle = self.oscillatorPhase * 2 * Double.pi
+                // A sine with a quieter octave gives the wheel a little grit.
+                let sample = Float((sin(angle) + 0.35 * sin(angle * 2)) * self.oscillatorGain)
+                for buffer in buffers {
+                    buffer.mData?.assumingMemoryBound(to: Float.self)[frame] = sample
+                }
+            }
+            return noErr
+        }
+        engine.attach(oscillator)
+        engine.connect(oscillator, to: engine.mainMixerNode, format: format)
+        oscillatorNode = oscillator
         engine.mainMixerNode.outputVolume = 0.72
         try? engine.start()
     }
+
+    func oscillator(_ frequency: Double, gain: Double) {
+        guard frequency.isFinite, gain.isFinite else { return }
+        oscillatorTargetHz = min(max(frequency, 20), 8_000)
+        oscillatorTargetGain = min(max(gain, 0), 0.5)
+    }
+
+    func oscillatorStop() { oscillatorTargetGain = 0 }
 
     func drum(_ name: String, velocity: Double, pan: Double) {
         let duration: Double
@@ -903,6 +939,12 @@ private final class NativeGameHost {
         let synth: @convention(block) (Double, Double) -> Void = { [weak self] frequency, duration in
             self?.audio.synth(frequency, duration: duration)
         }
+        let oscillator: @convention(block) (Double, Double) -> Void = { [weak self] frequency, gain in
+            self?.audio.oscillator(frequency, gain: gain)
+        }
+        let oscillatorStop: @convention(block) () -> Void = { [weak self] in
+            self?.audio.oscillatorStop()
+        }
         let gameSignal: @convention(block) (String, Int32, Double, Double) -> Void =
             { [weak self] event, player, value, value2 in
                 self?.osc.send(event: event, player: player, value: Float(value), value2: Float(value2))
@@ -966,6 +1008,8 @@ private final class NativeGameHost {
         javascript.setObject(telemetry, forKeyedSubscript: "telemetry" as NSString)
         javascript.setObject(drum, forKeyedSubscript: "drum" as NSString)
         javascript.setObject(synth, forKeyedSubscript: "synth" as NSString)
+        javascript.setObject(oscillator, forKeyedSubscript: "oscillator" as NSString)
+        javascript.setObject(oscillatorStop, forKeyedSubscript: "oscillatorStop" as NSString)
         javascript.setObject(gameSignal, forKeyedSubscript: "gameSignal" as NSString)
         javascript.setObject(saveReplay, forKeyedSubscript: "saveReplay" as NSString)
         javascript.setObject(publishLive, forKeyedSubscript: "publishLive" as NSString)
