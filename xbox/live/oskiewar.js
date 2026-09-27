@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 179;
+const buildVersion = 180;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -20649,11 +20649,10 @@ function drawHudStatusTray(clock, ink, unixMs) {
   triangleDepth=hudPreviousDepth;
   const tray = hudStatusTray(clock);
   const statusCell = statusCellSize();
-  // Debug is global state, so its large indicator owns bottom-center rather than
-  // masquerading as another peripheral in the clock-side status tray.
+  // Pool diagnostics stay at the top, clear of the bottom-center meter.
   if (debugHitboxes) {
     const safe = hudSafeRect();
-    const top = safe.bottom - statusCell;
+    const top = poolOnly()?safe.top:safe.bottom-statusCell;
     drawDebugBug(viewCenterX(), top + statusCell / 2 + 2,
       statusCell / 26);
     // The session's name rides beside the bug: it is what a telemetry agent
