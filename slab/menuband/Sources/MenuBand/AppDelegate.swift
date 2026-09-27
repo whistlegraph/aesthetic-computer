@@ -676,6 +676,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// so we can detect the all-notes-released edge and trigger
     /// both the bend rubber-band and the cursor pop.
     private var pitchBendCursorPushed = false
+    /// Whether the chart cursor is actually on AppKit's NSCursor stack.
+    /// Separate from `pitchBendCursorPushed`, which KeyMap sets without
+    /// pushing anything: every push must be popped exactly once, or the
+    /// chart stays stuck as the real pointer (drawn in whatever theme was
+    /// live when it was pushed) beside the overlay's own chart.
+    private var pitchBendChartCursorStacked = false
     /// Mirrors `CGAssociateMouseAndMouseCursorPosition(0)` state.
     /// Avoids spurious calls on every onLitChanged tick — only
     /// flips on the keyboard-held edges.
@@ -5973,6 +5979,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         trackpadPerformanceSessionActive = false
         pitchBendModeLatched = false
         pitchBendCursorPushed = false
+        popPitchBendChartCursor()
         menuBand.setTrackpadPerformanceActive(false)
         stopTrackpadPercussionLocalClickShield()
         showSystemCursorIfNeeded()
@@ -6072,7 +6079,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         trackpadPerformanceSessionActive = persistent
         if !pitchBendCursorPushed {
             #if !MAC_APP_STORE
-            PitchBendCursor.neutral.push()
+            pushPitchBendChartCursor()
             hideSystemCursorIfNeeded()
             #endif
             pitchBendCursorPushed = true
@@ -6601,7 +6608,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // to flicker against. NSCursor.push of the neutral
             // cursor is kept as a fallback for any in-app surface
             // that does its own NSCursor stack manipulation.
-            PitchBendCursor.neutral.push()
+            pushPitchBendChartCursor()
             pitchBendCursorPushed = true
             hideSystemCursorIfNeeded()
         }
@@ -6655,6 +6662,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         timer.tolerance = 1.0 / 120.0
         RunLoop.main.add(timer, forMode: .common)
         pitchBendCursorPinTimer = timer
+    }
+
+    private func pushPitchBendChartCursor() {
+        guard !pitchBendChartCursorStacked else { return }
+        PitchBendCursor.neutral.push()
+        pitchBendChartCursorStacked = true
+    }
+
+    private func popPitchBendChartCursor() {
+        guard pitchBendChartCursorStacked else { return }
+        NSCursor.pop()
+        pitchBendChartCursorStacked = false
     }
 
     private func stopPitchBendCursorPin() {
@@ -7408,14 +7427,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Mode was latched but cursor not currently locked — still
             // make sure the fx and their visible puck settle back.
             pitchBendCursorPushed = false
+            popPitchBendChartCursor()
             startFxRelease()
             return
         }
         stopPitchBendCursorPin()
-        if pitchBendCursorPushed {
-            NSCursor.pop()
-            pitchBendCursorPushed = false
-        }
+        pitchBendCursorPushed = false
+        popPitchBendChartCursor()
         // Restore the real cursor immediately, but leave the chart visible
         // for the brief settle so the puck and audio return together.
         showSystemCursorIfNeeded()

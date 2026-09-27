@@ -721,7 +721,10 @@ enum PitchBendCursor {
     /// Centered, no-bend, no-echo cursor — used as the push baseline
     /// fallback for in-app cursorUpdate handlers (the actual
     /// visual live one is the floating overlay window).
-    static let neutral: NSCursor = cursor(forBend: 0, echo: 0)
+    /// Built per use, not cached: a `static let` froze the chart in the
+    /// appearance that was live at first use, so a dark chart outlived a
+    /// switch to light mode.
+    static var neutral: NSCursor { cursor(forBend: 0, echo: 0) }
 
     /// Hot-spot at the chart's center so the overlay window anchors
     /// the chart directly over the user's frozen cursor position.
