@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 183;
+const buildVersion = 184;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -140,9 +140,8 @@ const soloRoom = () => lobbyActive() || freeskateActive();
 // What changed besides the number: the plaster shell is gone. There is no
 // back wall, no ceiling slab and no side wall, because the map is outside
 // now — stars behind, a planet below the deck, and a hull you stand on
-// rather than a room you are sealed into. Gravity is station gravity, a
-// little over half a G (`spaceGravityScale`), so a jump hangs and the
-// floating decks overhead are reachable on legs alone. Simulation stays
+// rather than a room you are sealed into. Firmer station gravity keeps jumps
+// brisk while the decks remain reachable on legs alone. Simulation stays
 // continuous — nothing about motion quantizes — but the STRUCTURE is
 // addressable: spawns, pickups, decks and lanes are authored in tile
 // coordinates, the lattice draws as a faint nav hologram, and `gridField`
@@ -1728,7 +1727,7 @@ const platforms = Array.from({ length: survivalLevelCount }, (_, index) => {
 // and the fighter who takes the top deck has taken the one place both mid
 // decks feed into.
 //
-// The rows are chosen against one number: 586, the apex station gravity buys
+// The rows fit beneath the 403-unit apex the firmer station gravity buys
 // a held jump. Every step between ADJACENT decks is under it — floor to a low
 // deck is 270, low to mid is 360, mid to top is 270 — and every step that
 // skips a tier is over it. Floor to a mid deck is 630, and that 630 is the
@@ -1743,7 +1742,7 @@ const platforms = Array.from({ length: survivalLevelCount }, (_, index) => {
 // bots stand under and stare at; a deck you reach by going somewhere first is
 // a route; and a deck you can reach from anywhere is not a deck, it is a step.
 // Decks over the park, not instead of it. The rows are still priced against
-// the 586-unit apex — the flat reaches row 3, row 3 reaches row 7, and the
+// the 403-unit apex — the flat reaches row 3, row 3 reaches row 7, and the
 // floor does NOT reach row 7 at 630 — so the climb keeps its route. What
 // changed is that the park is now the interesting way to travel and the decks
 // are the high ground above it. The bridge over the halfpipe is reachable
@@ -1988,22 +1987,15 @@ const skateKick = 400;
 const skateTop = 4200;
 // A lone head's stick push; past it, only slopes carry it faster.
 const headRollPush = 1300;
-// Vertical feel. The apex is the design constant — how high a fighter can
-// reach never changed — so every impulse here is paired with a gravity that
-// spends less time getting there. Rise is lighter than fall so the arc reads
-// as intent going up and commitment coming down.
+// Vertical feel. Rise is lighter than fall for a decisive landing. Mode
+// gravity below sets the height and airtime against each map’s deck spacing.
 const riseGravityFull = 4800;
 const fallGravityFull = 7200;
-// Station gravity. The space map spins up a little over half a G, and that
-// one number is what makes the floating decks a place you can go: at full
-// weight a jump tops out at 322 units — three and a half tiles — and the
-// lowest deck sits three tiles up with nothing above it worth reaching. At
-// .55 the apex is 586, so the deck stack overhead is climbable on legs, a
-// knocked fighter sails instead of dropping, and the hover board's airtime
-// becomes the traversal it is for. The climb keeps full weight: survival's
-// thirty-two rungs are spaced against the 322 apex, and floating that run
-// would let a runner skip rungs the ladder exists to make them earn.
-const spaceGravityScale = .55;
+// Fights use firmer gravity for a shorter, lower jump (403-unit apex).
+// That still clears the largest adjacent deck rise of 360 units. Freeskate
+// pairs this with a reduced launch to keep its useful height with less hang.
+// Survival retains the full-weight arc its rungs were built around.
+const spaceGravityScale = .8;
 const gravityScale = () => survivalActive() ? 1 : spaceGravityScale;
 const riseGravity = () => riseGravityFull * gravityScale();
 const fallGravity = () => fallGravityFull * gravityScale();
@@ -12630,7 +12622,7 @@ function updatePlayer(player, pad, dt, now) {
       if (!alternating && input.vertical > 0 && player.grounded) {
         // Up hops a head at once. It used to only charge the pump bounce,
         // so a lone head needed a second press before it left the floor.
-        player.vy = -jumpVelocity * .8 * (freeskateActive() ? .75 : 1);
+        player.vy = -jumpVelocity * .8 * (freeskateActive() ? .9 : 1);
         player.grounded = false;
         player.stance = "HOP";
         playDrum("block", .5, panPlayer(player));
@@ -12917,11 +12909,10 @@ function updatePlayer(player, pad, dt, now) {
     player.jumpLaunchAt = 0;
     player.jumpPoseUntil = now +
       (player.crouchJump ? crouchJumpPoseUs : jumpPoseUs);
-    // Freeskate keeps the park's light gravity for the pipe and the loops,
-    // but a jump at that weight floated six hundred units up; launching at
-    // three quarters brings it back to the station's classic apex.
+    // Freeskate keeps its roughly 320-unit jump height while firmer
+    // gravity brings the rider back down sooner.
     const jumpScale = (player.skateboard ? 1.12
-      : pogo ? .88 : legCount === 1 ? .78 : 1) * (freeskateActive() ? .75 : 1);
+      : pogo ? .88 : legCount === 1 ? .78 : 1) * (freeskateActive() ? .9 : 1);
     player.vy = Math.min(player.vy,
       -(player.crouchJump ? crouchJumpVelocity : jumpVelocity) * jumpScale);
     player.jumpHeld = true;

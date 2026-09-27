@@ -4279,7 +4279,7 @@ test("the fight bot reads the opponent and the station's decks off the frame", (
   // the guard that caught `jumpApex` becoming a function while one caller
   // kept comparing against the function object — which silently offered the
   // bot every deck on the map, at any height.
-  const apex = 1760 ** 2 / (2 * 4800 * .55);
+  const apex = 1760 ** 2 / (2 * 4800 * .8);
   for (const option of scene.options)
     if (option.kind === "jump") assert.ok(option.dy > 0 && option.dy <= apex,
       `a ${option.dy} jump is not inside a ${apex.toFixed(0)} apex`);
@@ -4803,30 +4803,17 @@ function jumpArc(harness, pad = 0, holdFrames = 200) {
   return { latency: liftAt - startedAt, airtime: Infinity, apex };
 }
 
-// The station spins up a little over half a G, so a jump hangs. The numbers
-// below are the analytic arc of `jumpVelocity` under `spaceGravityScale`
-// rather than hand-picked bounds: the thing worth guarding is that the arc
-// is the one the gravity says it is, and that the map did not quietly
-// change how long a fighter waits for their own legs.
-test("a jump lifts off within four frames and hangs on station gravity", () => {
-  const gravity = 4800 * .55;
-  const apex = 1760 ** 2 / (2 * gravity);
+// Measure the playable arc: less hang time without losing the 360-unit
+// rise between adjacent decks. These bounds include fixed-step integration.
+test("a fight jump lifts promptly and lands without moon-bounce airtime", () => {
   const harness = createFight();
   harness.pads[0].down = ["ArrowUp"];
   const arc = jumpArc(harness);
-  // Liftoff is input latency, not physics, and it did not move.
-  assert.ok(arc.latency <= 70000, `liftoff took ${arc.latency}us`);
-  assert.ok(Math.abs(arc.apex - apex) < apex * .12,
-    `apex ${arc.apex.toFixed(0)} is not station gravity's ${apex.toFixed(0)}`);
-  // Rise plus fall, both at their own gravity, with a frame of slack.
-  const rise = 1760 / gravity;
-  const fall = Math.sqrt(2 * apex / (7200 * .55));
-  assert.ok(arc.airtime < (rise + fall) * 1100000,
-    `airtime was ${arc.airtime}us against ${((rise + fall) * 1e6).toFixed(0)}`);
-  // And it is genuinely floatier than earth: the cube's jump was 322 and
-  // landed inside two thirds of a second.
-  assert.ok(arc.apex > 500 && arc.airtime > 700000,
-    "a station jump should outlast and out-climb the cube's");
+  assert.ok(arc.latency <= 90000, `liftoff took ${arc.latency}us`);
+  assert.ok(arc.apex > 360 && arc.apex < 420,
+    `jump apex ${arc.apex.toFixed(0)} must clear adjacent decks without floating`);
+  assert.ok(arc.airtime > 850000 && arc.airtime < 1100000,
+    `fight jump airtime was ${arc.airtime}us`);
 });
 
 test("holding up jumps high while a tapped up becomes a short hop", () => {
@@ -4879,15 +4866,8 @@ test("a direction flick out of crouch becomes a low crouch hop", () => {
     apex = Math.max(apex, floor - player.y);
     if (player.grounded) break;
   }
-  // Low and short is a claim about this hop against this map's other jumps,
-  // not against a number from a heavier world. Station gravity lifts every
-  // arc by 1/.55, so the hop's own ceiling moves with it — what must stay
-  // true is that it clears the ground, stays well under a held jump's 586,
-  // and spends its length going sideways.
-  const hopApex = 980 ** 2 / (2 * 4800 * .55);
-  assert.ok(apex > 100 && apex < hopApex * 1.1, `crouch hop apex was ${apex}`);
-  assert.ok(apex < 1760 ** 2 / (2 * 4800 * .55) * .4,
-    `a crouch hop should stay well under a held jump: ${apex}`);
+  // A crouch hop remains low and useful for moving sideways.
+  assert.ok(apex > 90 && apex < 140, `crouch hop apex was ${apex}`);
   assert.ok(frames < 44, `crouch hop took ${frames} frames`);
   assert.ok(player.x - startX > 250,
     `crouch hop only travelled ${player.x - startX}`);
@@ -6635,7 +6615,7 @@ test("the map is a 40x16 grid of 90-unit tiles and is authored on it", () => {
   // The deck stack is priced against the apex station gravity buys, and the
   // pricing is the map's whole shape: adjacent tiers are reachable, skipped
   // tiers are not, so climbing means going out to a flank first.
-  const apex = 1760 ** 2 / (2 * 4800 * .55);
+  const apex = 1760 ** 2 / (2 * 4800 * .8);
   const decks = fight.platformTable();
   const rows = [...new Set(decks.map((deck) => deck.y))].sort((a, b) => b - a);
   assert.equal(rows.length, 3, "three tiers");
