@@ -29,6 +29,18 @@ cover (`assets/the-daily-cover*.png`) so the appliance needs no xelatex; the
 commit log is read from `FETCH_HEAD` after a best-effort fetch. `--stage`
 publishes private for review; `--dry` writes the script only.
 
+**The daily token (bin/daily-token.mjs).** With `DAILY_MINT=1` the episode is
+also minted as a hic et nunc OBJKT signed by aesthetic.tez: `claude -p` picks
+one of @jeffrey's most-played KidLisp pieces ($roz $ceo $4bb $r2f $air $inz),
+a palette and a word from the episode; the remix is stored as a new $code, the
+oven grabs it as a 512² GIF, Pinata pins it with TZIP-21 metadata (the script
+as description, links to the episode and the live $code), `mint_OBJKT` mints
+`DAILY_EDITIONS` (10) and an objkt ask lists them at `DAILY_PRICE_XTZ` (3).
+Stages resume from `out/daily/<slug>.token.json`; it refuses to sign with any
+key but aesthetic.tez or below 0.15 XTZ (each day burns ~0.06). Needs
+`AESTHETIC_KEY` + `PINATA_JWT` in the appliance env and `npm ci --prefix
+tezos` for Taquito. `--dry` renders without pinning or minting.
+
 ## The shape of an episode
 
 ```
