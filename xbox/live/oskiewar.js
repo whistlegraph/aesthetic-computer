@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 176;
+const buildVersion = 177;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -868,7 +868,11 @@ function rasterDecalPatches(decal) {
     // would float over the curve or cut into it at its edges.
     return {x,y:terrainFloorAt(x,z)-.9,z};
   };
-  const patches = [], across = arc ? 8 : 4, deep = arc || skid ? 1 : 2;
+  const patches = [];
+  // Flat stamps need one quad; retain subdivisions around the curved walls.
+  const corners = [at(0,0),at(1,0),at(1,1),at(0,1)];
+  const flat = !arc && corners.every(p=>Math.abs(p.y-corners[0].y)<.001);
+  const across = flat ? 1 : arc ? 8 : 4, deep = flat || arc || skid ? 1 : 2;
   for (let i=0;i<across;i++) for(let j=0;j<deep;j++) {
     const u=i/across,v=j/deep,du=1/across,dv=1/deep;
     patches.push({uv:[(cell%2)*128+u*128,Math.floor(cell/2)*128+v*128,du*128,dv*128],
@@ -882,6 +886,8 @@ function drawRasterDecal(decal) {
     const p = patch.points.map(point=>projectPoint(point.x,point.y,point.z));
     if (p.some(point=>point.behind || ![point.x,point.y,point.z].every(Number.isFinite) ||
       Math.abs(point.x)>30000 || Math.abs(point.y)>30000)) continue;
+    if (p.every(point=>point.x<stageLeft) || p.every(point=>point.x>stageRight) ||
+      p.every(point=>point.y<0) || p.every(point=>point.y>viewHeight)) continue;
     themeQuad(5,...patch.uv,...p.flatMap(point=>[point.x,point.y,point.z-.002]),false);
   }
 }
@@ -892,14 +898,17 @@ function drawDecals(surface) {
   const lod = sceneLod();
   const previous = triangleDepth;
   const raster = typeof themeQuad === "function" && hostThemeAssetReady && hostThemeAssetReady(5);
+  const persistent = poolOnly();
   let drawn = 0;
-  for (let index = decals.length - 1; index >= 0 && drawn < 45; index--) {
+  for (let index = decals.length - 1; index >= 0 && (persistent || drawn < 45); index--) {
     const decal = decals[index];
-    if (Math.abs(decal.x - cameraCenter) > reach) continue;
-    if (lod > 1 && decal.size < 5 && decal.kind !== "skid") continue;
+    // The pool camera can turn through 360 degrees, so horizontal distance
+    // from its target is not a visibility test. Cull projected patches instead.
+    if (!persistent && Math.abs(decal.x - cameraCenter) > reach) continue;
+    if (!persistent && lod > 1 && decal.size < 5 && decal.kind !== "skid") continue;
     drawn++;
     if (raster) { drawRasterDecal(decal); continue; }
-    const age = (now - decal.at) / 1e6;
+    const age = persistent ? 0 : (now - decal.at) / 1e6;
     decal.shape ||= decalShape(decal);
     if (decal.kind === "arc") {
       const color = mixColor(surface, [34, 30, 30], .85 * Math.max(.65, decal.strength) * clamp(1 - age / 180, .7, 1));
@@ -3097,7 +3106,9 @@ function addDecal(decal) {
     }
   }
   decals.push(decal);
-  if (decals.length > decalCap) decals.splice(0, decals.length - decalCap);
+  // Pool marks belong to the surface for the entire run; new marks never
+  // evict old ones. Other maps retain their existing combat budget.
+  if (!poolOnly() && decals.length > decalCap) decals.splice(0, decals.length - decalCap);
   return decal;
 }
 // A mark's outline, fixed when it lands: corners as (along, across) on the
@@ -3262,7 +3273,7 @@ function seedHalfpipeScuffs() {
     addDecal({kind:"scuff",x,z,size,angle,stretch:1.7,strength:.5});
 }
 function trackMonowheelSurface(player) {
-  if (!player.onewheel || !player.grounded) { player.wheelMarkAt=null; return; }
+  if (!player.skateboard || !player.grounded) { player.wheelMarkAt=null; return; }
   const at={x:player.x,z:player.z||0},previous=player.wheelMarkAt;
   if (!previous) { player.wheelMarkAt=at; return; }
   const distance=Math.hypot(at.x-previous.x,at.z-previous.z);
@@ -6189,6 +6200,11 @@ function boardForRider(player, loose = false) {
   return nearest;
 }
 function ensureFreeskateBoards() {
+  if(poolOnly()){
+    const board=balls.find(item=>item.type==='skateboard');
+    if(board){board.seat=0;board.condition={health:100,cracks:[],brokenAt:0};placeFreeskateBoard(players[0],board);}
+    return;
+  }
   if (halfpipeOnly()) return;
   if (balls.filter(item=>item.type === "skateboard").length < 2)
     balls.push({...skateBoardKind, x:0,y:floorY,z:0,vx:0,vy:0,rotation:0,
@@ -6202,19 +6218,19 @@ function ensureFreeskateBoards() {
   }
 }
 function placeFreeskateBoard(rider = players[0], chosen = null) {
-  if (!indoorSkate()) return;
+  if (!indoorSkate()&&!poolOnly()) return;
   const board = chosen || balls.find(item=>item.type === "skateboard" && (item.seat||0) === rider.pad);
   if (!rider || !board || rider.skateboard || board.condition?.brokenAt) return;
   board.active = true;
   board.heldBy = -1;
   board.releasedBy = -1;
-  board.x = rider.x + (rider.facing || 1) * 170;
+  board.x = rider.x + (poolOnly()?-170:(rider.facing || 1)*170);
   board.y = terrainFloorAt(board.x) - 18;
   board.z = rider.z || 0;
   board.vx = board.vy = 0;
   board.rotation = 0;
   board.flipSpin = 0;
-  board.spatialSpin=false;board.yaw=board.yawRate=board.vz=0;
+  board.spatialSpin=false;board.poolYaw=0;board.yaw=board.yawRate=board.vz=0;
   board.safeUntil = 0;
 }
 
@@ -6304,7 +6320,7 @@ function beginFreeskate(now) {
     placeFreeskateBoard();
   }
   ensureFreeskateBoards();
-  if(poolOnly()){rider.poolYaw=0;poolCameraYaw=0;}
+  if(poolOnly()){rider.poolYaw=0;poolCameraYaw=0;poolCameraDip=0;poolCameraReturnYaw=null;}
   resetMonowheel();
   resetParkSupply(now);
   resetParkKids();
@@ -6613,7 +6629,8 @@ function returnToTitle(now, reason = "back") {
   parkKids.length=0;
   resetRoofPanes();resetParkSupply(now);resetMonowheel();
   waterSplashes.length=0;bubbleNotes.length=0;bottomGlass.fill(false);
-  decals.length=0;roofShards.length=0;
+  if(!poolOnly())decals.length=0;
+  roofShards.length=0;
   for(const p of players){resetSkate(p);p.underPipe=false;p.axeHeld=false;p.axeHitAt={};p.resultReaction='';}
   if(motorRunning && typeof oscillatorStop==='function')oscillatorStop();motorRunning=false;
   finishReplay();
@@ -9122,9 +9139,10 @@ function resetRound(now, resetMatch = false, keepMap = false) {
     if (halfpipeOnly()) {
       resetSkate(players[0]);
       players[0].wheelMarkAt = null;
-      if(poolOnly()){players[0].poolYaw=0;poolCameraYaw=0;}
+      if(poolOnly()){players[0].poolYaw=0;poolCameraYaw=0;poolCameraDip=0;poolCameraReturnYaw=null;}
       seedHalfpipeScuffs();
       for (const item of balls) item.active = false;
+      if(poolOnly())ensureFreeskateBoards();
       resetMonowheel();
       resetParkSupply(now);
       resetParkKids();
@@ -9387,21 +9405,64 @@ function deathOrbitShot(target, width, progress) {
     perspective: .65, fov: 55, roll: Math.sin(phase) * .035 };
 }
 
-let poolCameraYaw = 0;
+let poolCameraYaw = 0, poolCameraDip = 0, poolCameraReturnYaw = null;
+// Keep the line from the lens to the rider above the coping and curved walls.
+function clearPoolCamera(position, subject) {
+  // A lens outside the lip cannot see feet on its nearly vertical inner wall.
+  // Shorten the boom into the bowl before adjusting its height.
+  const edge=poolDistance(position.x,position.z),limit=pool.radius-20;
+  if(edge.d>limit)position={...position,x:position.x-edge.nx*(edge.d-limit),z:position.z-edge.nz*(edge.d-limit)};
+  let y=position.y;
+  for(let i=1;i<20;i++){
+    const t=i/20,x=lerp(position.x,subject.x,t),z=lerp(position.z,subject.z,t);
+    const surface=poolFloorAt(x,z);
+    y=Math.min(y,(surface-subject.y*t)/(1-t)-65);
+  }
+  return {...position,y};
+}
 function updateCameraDoll(dt, now) {
   if (poolOnly() && freeskateActive()) {
-    const p = players[0], heading = p.poolYaw || 0;
-    poolCameraYaw += Math.atan2(Math.sin(heading-poolCameraYaw), Math.cos(heading-poolCameraYaw)) *
-      (1-Math.exp(-dt*6));
-    const angle = poolCameraYaw + .14 + playerCameraYaw;
-    const zoom = playerCameraZoom, distance = 1350 * zoom;
-    const target = { x:p.x+clamp(p.vx*.1,-160,160), y:p.y-85,
-      z:(p.z||0)+clamp((p.vz||0)*.1,-160,160) };
-    const position = { x:target.x-Math.cos(angle)*distance,
-      y:Math.min(target.y-880*zoom-playerCameraPitch*600, floorY-pool.radius-300),
-      z:target.z-Math.sin(angle)*distance };
-    cameraCenter=target.x; cameraCenterY=target.y; cameraWidth=1650*zoom;
-    cameraDoll.track({target,position,width:cameraWidth,perspective:1,fov:58,roll:0},dt,8);
+    const p=players[0],heading=p.poolYaw||0,speed=Math.hypot(p.vx,p.vz||0);
+    const wall=poolDistance(p.x,p.z||0),vert=p.poolVert;
+    let goal=heading;
+    if(vert){
+      const inward=Math.atan2(-vert.nz,-vert.nx);
+      poolCameraReturnYaw=inward;
+      const progress=clamp((vert.speed+p.vy)/(2*vert.speed),0,1);
+      const amount=clamp((progress-.08)/.6,0,1),ease=amount*amount*(3-2*amount);
+      goal=vert.heading+Math.atan2(Math.sin(inward-vert.heading),Math.cos(inward-vert.heading))*ease;
+    }else{
+      if(!p.grounded&&p.vy>0&&wall.d>pool.radius*.6)
+        poolCameraReturnYaw=Math.atan2(-wall.nz,-wall.nx);
+      if(poolCameraReturnYaw!==null){
+        goal=speed>180?Math.atan2(p.vz,p.vx):poolCameraReturnYaw;
+        if(p.grounded&&speed>180&&Math.cos(goal-heading)>.7)poolCameraReturnYaw=null;
+      }
+    }
+    // Explicit steering takes the camera back; an unsteered vert returns itself.
+    if(Math.abs(p.inputX||0)>.18){goal=heading;poolCameraReturnYaw=null;}
+    const yawError=Math.atan2(Math.sin(goal-poolCameraYaw),Math.cos(goal-poolCameraYaw));
+    poolCameraYaw+=clamp(yawError*(1-Math.exp(-dt*5)),-dt*2.8,dt*2.8);
+    const descent=clamp((p.vy+(vert?250:0))/1000,0,1);
+    poolCameraDip+=(descent-poolCameraDip)*(1-Math.exp(-dt*4.5));
+    const zoom=playerCameraZoom,angle=poolCameraYaw+.14*(1-poolCameraDip)+playerCameraYaw;
+    const airHeight=Math.max(0,poolFloorAt(p.x,p.z||0)-p.y);
+    const distance=(1350+Math.min(850,airHeight*.35)-poolCameraDip*120)*zoom;
+    const look=140+Math.min(180,speed*.07)+(poolCameraReturnYaw!==null?lerp(140,420,clamp(airHeight/600,0,1)):0);
+    const lookX=p.x+Math.cos(goal)*look,lookZ=(p.z||0)+Math.sin(goal)*look;
+    const groundFocus=Math.max(poolCameraDip*.28,clamp(airHeight/650,0,1)*.32);
+    const target={x:lerp(p.x,lookX,.15+poolCameraDip*.4),
+      y:lerp(p.y-85+clamp(p.vy*.1,-160,220),poolFloorAt(lookX,lookZ)-40,groundFocus),
+      z:lerp(p.z||0,lookZ,.15+poolCameraDip*.4)};
+    const subject={x:p.x,y:p.y-2,z:p.z||0};
+    const position=clearPoolCamera({x:target.x-Math.cos(angle)*distance,
+      y:Math.min(p.y-85-(880+poolCameraDip*260+Math.min(500,airHeight*.2))*zoom-playerCameraPitch*600,
+        floorY-pool.radius-300),z:target.z-Math.sin(angle)*distance},subject);
+    cameraCenter=target.x;cameraCenterY=target.y;cameraWidth=1650*zoom;
+    cameraDoll.track({target,position,width:cameraWidth,perspective:1,fov:58+poolCameraDip*5,roll:0},dt,8);
+    // Also protect the eased path while orbiting around a corner of the pool.
+    Object.assign(cameraDoll.position,clearPoolCamera(cameraDoll.position,subject));
+    cameraDoll.dirty=true;
     return;
   }
   if(freeskateActive() && parkSupply.ko){
@@ -10924,6 +10985,10 @@ function updateBoomerboard(dt, now) {
 }
 
 function updateBall(ball, dt, now) {
+  if(poolOnly()&&freeskateActive()&&ball.type==='skateboard'){
+    if(ball.active)updatePoolLooseVehicle(ball,dt,now,true);
+    return;
+  }
   // A popped ball is gone, not retired — a crater should cost the round its
   // ball for a moment, not for good. It re-inflates over the middle once its
   // serve time comes round.
@@ -12092,7 +12157,6 @@ function updatePoolPlayer(p, pad, dt, now) {
   const axis=value=>Math.abs(value)>.18?Math.sign(value)*(Math.abs(value)-.18)/.82:0;
   const turn=Number(held.includes('ArrowRight'))-Number(held.includes('ArrowLeft')) || axis(pad.leftX||0);
   const throttle=Number(held.includes('ArrowUp'))-Number(held.includes('ArrowDown')) || axis(pad.leftY||0);
-  const forward=Math.max(0,throttle),brake=Math.max(0,-throttle);
   const oldHeading=p.poolYaw||0;
   const speedBefore=Math.hypot(p.vx,p.vz||0);
   const turnRate=p.onewheel?lerp(2.8,1.9,clamp(speedBefore/3000,0,1)):3.2;
@@ -12114,8 +12178,16 @@ function updatePoolPlayer(p, pad, dt, now) {
   p.blocking=blocking; p.shieldCrouched=p.ducking;
   if(now>=p.attackUntil)p.attackKind='';
   if(!blocking){if(pressed('B'))startMelee(p,'PUNCH',now);if(pressed('Y'))startMelee(p,'KICK',now);}
-  if(pressed('A')&&p.grounded){
-    p.vy=Math.min(0,p.vy)-jumpVelocity; p.grounded=false;
+  const mounted=p.skateboard;
+  const dash=pressed('LeftShoulder')&&now>=(p.poolDashReadyAt||0);
+  if(dash){
+    if(mounted)dismountSkateboard(p,now);
+    p.poolVert=null;p.poolDashReadyAt=now+450000;p.dashUntil=now+180000;
+    p.vx=driveX*2200;p.vz=driveZ*2200;p.vy=Math.min(p.vy,-420);p.grounded=false;
+    p.lastButton='DASH';p.lastButtonAt=now;emitSignal('dash',p.pad,1,0);
+  }else if(pressed('A')&&(p.grounded||mounted)){
+    if(mounted)dismountSkateboard(p,now);
+    p.poolVert=null;p.vy=Math.min(0,p.vy)-jumpVelocity; p.grounded=false;
     p.jumpPoseUntil=now+240000; p.jumpLaunchAt=0; p.jumpHeld=true;
     emitSignal('jump',p.pad,0,0);
   }
@@ -12127,14 +12199,27 @@ function updatePoolPlayer(p, pad, dt, now) {
       const grade=slope.x*driveX+slope.z*driveZ, tangent=Math.hypot(1,grade);
       let rolling=(p.vx*driveX+(p.vz||0)*driveZ)*tangent;
       rolling+=1800*grade/tangent*step;
-      const top=p.onewheel?(p.wheelTurbo?4800:3100):walkSpeed*(p.ducking?.38:1);
-      if(forward)rolling+=clamp((top*forward-rolling)*(p.onewheel?3:12),0,p.onewheel?4200:9000)*step;
-      rolling*=Math.exp(-step*(p.onewheel?.16:forward?1:14));
-      // Back spends speed and holds still. It never applies reverse thrust.
-      if(brake)rolling=Math.sign(rolling)*Math.max(0,Math.abs(rolling)-brake*(p.onewheel?5600:4800)*step);
+      const top=p.onewheel?(p.wheelTurbo?4800:3100):p.skateboard?2700:walkSpeed*(p.ducking?.38:1);
+      if(throttle){
+        const target=top*throttle,carving=Math.sign(target)!==Math.sign(rolling);
+        if(carving||Math.abs(rolling)<Math.abs(target))
+          rolling+=clamp((target-rolling)*(p.skateboard?3:12),-5600,p.skateboard?4200:9000)*step;
+      }
+      // Crouching pumps the curved surface, just as it does in the halfpipe.
+      if(p.skateboard&&p.ducking&&Math.abs(grade)>.18)
+        rolling+=Math.sign(rolling)*Math.min(1,Math.abs(grade))*skatePumpAcceleration*step;
+      rolling*=Math.exp(-step*(p.skateboard?(p.ducking?.04:.16):throttle?1:14));
+      rolling=clamp(rolling,-6000,6000);
       p.vx=driveX*rolling/tangent;p.vz=driveZ*rolling/tangent;
       const speed=Math.abs(rolling);
+      const previousY=p.y,previousVy=grade*rolling/tangent;
       p.x+=p.vx*step;p.z=(p.z||0)+p.vz*step;
+      const nextFloor=poolFloorAt(p.x,p.z);
+      // Rolling over the rim leaves the deck. Do not teleport down the wall.
+      if(nextFloor-previousY>Math.max(12,speed*step*1.5)){
+        p.grounded=false;p.y=previousY+previousVy*step;p.vy=previousVy;
+        continue;
+      }
       slope=poolSlopeAt(p.x,p.z);
       const bent=Math.hypot(p.vx,slope.x*p.vx+slope.z*p.vz,p.vz);
       if(bent>0){p.vx*=speed/bent;p.vz*=speed/bent;}
@@ -12143,20 +12228,27 @@ function updatePoolPlayer(p, pad, dt, now) {
       const lip=poolDistance(p.x,p.z);
       if(lip.d>=pool.radius-5&&lip.d<pool.radius&&p.vy < -180){
         p.grounded=false;p.skateAirAt=now;
-        // A vert air returns into the bowl instead of crossing an invisible fence.
-        p.vx=-lip.nx*100;p.vz=-lip.nz*100;
+        // Keep the halfpipe's vert: rise above the coping, then land on the
+        // same curve so the fall becomes rolling speed back into the bowl.
+        p.poolVert={x:p.x,z:p.z,nx:lip.nx,nz:lip.nz,speed:-p.vy,heading:p.poolYaw};
+        p.vx=p.vz=0;
         emitSignal('skate-air',p.pad,Math.round(-p.vy),0);
       }
     }else{
-      p.vx+=driveX*forward*300*step;p.vz=(p.vz||0)+driveZ*forward*300*step;
-      p.vy+=1800*step;p.x+=p.vx*step;p.z=(p.z||0)+p.vz*step;p.y+=p.vy*step;
+      if(p.poolVert){
+        p.x=p.poolVert.x;p.z=p.poolVert.z;p.vx=p.vz=0;
+      }else{
+        p.vx+=driveX*throttle*300*step;p.vz=(p.vz||0)+driveZ*throttle*300*step;
+        p.x+=p.vx*step;p.z=(p.z||0)+p.vz*step;
+      }
+      p.vy+=1800*step;p.y+=p.vy*step;
       const floor=poolFloorAt(p.x,p.z);
       if(p.y>=floor){
         slope=poolSlopeAt(p.x,p.z);
         const inward=(p.vy-slope.x*p.vx-slope.z*p.vz)/(1+slope.x*slope.x+slope.z*slope.z);
         if(inward>0){p.vx+=slope.x*inward;p.vz+=slope.z*inward;}
         p.landingSpeed=p.vy;p.y=floor;p.vy=slope.x*p.vx+slope.z*p.vz;
-        p.grounded=true;p.landPoseUntil=now+110000;
+        p.grounded=true;p.poolVert=null;p.landPoseUntil=now+110000;
       }
     }
     const edge=poolDistance(p.x,p.z),limit=pool.radius+pool.deck-25;
@@ -12170,7 +12262,7 @@ function updatePoolPlayer(p, pad, dt, now) {
   const slope=poolSlopeAt(p.x,p.z||0),heading=p.poolYaw||0;
   const pitch=p.grounded?Math.atan(slope.x*Math.cos(heading)+slope.z*Math.sin(heading)):0;
   p.skatePitch+=(pitch-(p.skatePitch||0))*(1-Math.exp(-dt*16));
-  p.skateVx=p.onewheel?Math.hypot(p.vx,p.vy,p.vz||0):0;
+  p.skateVx=p.skateboard?Math.hypot(p.vx,p.vy,p.vz||0):0;
   p.stance=p.attackKind?'ATTACK':!p.grounded?'JUMP':p.ducking?'CROUCH':horizontal>40?'WALK':'NEUTRAL';
   p.walkSince=horizontal>40?(p.walkSince||now):0;
   p.hit=Math.max(0,(p.hit||0)-dt*2);p.previous=held.slice();
@@ -14036,7 +14128,7 @@ function gameSim() {
     resolvePlayerStanding(now);
     resolvePlayerPushboxes();
     if (!depthControls()) for(const p of activePlayers()){p.z=0;p.strafe=null;}
-    for(const b of balls)if(!b.spatialSpin)b.z=0;
+    if(!poolOnly())for(const b of balls)if(!b.spatialSpin)b.z=0;
     wrapFreeskate();
     updateMonowheel(dt, now);
     updateParkSupply(dt, now);
@@ -16210,8 +16302,9 @@ function skateFrame(player) {
   }; };
 }
 function spunSkateFrame(frame, player) {
-  if (!player.spin) return frame;
-  const c = Math.cos(player.spin.angle), s = Math.sin(player.spin.angle);
+  const angle=(player.spin?.angle||0)+(poolOnly()&&!player.onewheel?(player.poolYaw||0):0);
+  if (!angle) return frame;
+  const c = Math.cos(angle), s = Math.sin(angle);
   return (along, height = 0, across = 0) => {
     const point = frame(along, height, across);
     const dx = point.x - player.x, dz = point.z - player.z;
@@ -16220,7 +16313,7 @@ function spunSkateFrame(frame, player) {
 }
 
 function resetSkate(player) {
-  player.wheelTurbo=false;player.wheelChargeAt=0;
+  player.wheelTurbo=false;player.wheelChargeAt=0;player.poolVert=null;
   if (player.onewheel) {
     Object.assign(monowheel,{active:true,x:player.x-(player.facing||1)*75,y:player.y,z:player.z||0,
       vx:player.vx*.3,vy:0,safeUntil:runtime().monotonicUs+500000});
@@ -16250,6 +16343,16 @@ function releaseSpinningBoard(p,now){
 }
 function dismountSkateboard(target, now) {
   if (!target.skateboard) return false;
+  if(poolOnly()){
+    const one=target.onewheel,vehicle=one?monowheel:boardForRider(target),yaw=target.poolYaw||0;
+    if(vehicle)Object.assign(vehicle,{active:true,heldBy:-1,releasedBy:target.pad,releasedAt:now,
+      x:target.x-Math.cos(yaw)*52,y:target.y-(one?0:skateAxleDrop+skateWheelRadius),
+      z:(target.z||0)-Math.sin(yaw)*52,vx:target.vx*.6,vy:Math.min(0,target.vy*.4),vz:(target.vz||0)*.6,
+      poolYaw:yaw,rotation:target.skatePitch||0,spatialSpin:false,safeUntil:now+700000,safePlayers:1<<target.pad});
+    target.onewheel=false;resetSkate(target);
+    emitSignal('skate-dismount',target.pad,one?2:1,0);
+    return true;
+  }
   if (target.onewheel) { resetSkate(target); return true; }
   const board = boardForRider(target);
   resetSkate(target);
@@ -19541,7 +19644,7 @@ function drawBall(ball) {
   };
   if (skateboard) {
     drawSkateboard({ x: ball.x, y: ball.y + skateAxleDrop + skateWheelRadius,
-      z: ball.z, spin:ball.spatialSpin?{angle:ball.yaw}:null, skatePitch: ball.rotation, skateSpin: ball.skateSpin || 0, boardObject: ball });
+      z: ball.z, poolYaw:ball.poolYaw||0, spin:ball.spatialSpin?{angle:ball.yaw}:null, skatePitch: ball.rotation, skateSpin: ball.skateSpin || 0, boardObject: ball });
     return;
   }
   if (beach) {
@@ -21659,11 +21762,41 @@ function leave() {
 }
 
 // Seat park vehicles and timed supply delivery, reset together after a KO.
+function updatePoolLooseVehicle(v,dt,now,board){
+ const offset=board?skateAxleDrop+skateWheelRadius:0,steps=Math.max(1,Math.ceil(dt*120)),step=dt/steps;
+ for(let n=0;n<steps;n++){
+  const floor=poolFloorAt(v.x,v.z||0)-offset,slope=poolSlopeAt(v.x,v.z||0);
+  const supported=v.y>=floor-2&&v.vy>=-1;
+  if(supported){
+   const den=1+slope.x*slope.x+slope.z*slope.z;
+   v.vx+=1800*slope.x/den*step;v.vz=(v.vz||0)+1800*slope.z/den*step;
+   v.vx*=Math.exp(-step*1.8);v.vz*=Math.exp(-step*1.8);
+  }
+  const oldY=v.y;
+  v.x+=v.vx*step;v.z=(v.z||0)+(v.vz||0)*step;
+  const edge=poolDistance(v.x,v.z),limit=pool.radius+pool.deck-25;
+  if(edge.d>limit){v.x-=edge.nx*(edge.d-limit);v.z-=edge.nz*(edge.d-limit);v.vx=v.vz=0;}
+  const nextFloor=poolFloorAt(v.x,v.z)-offset;
+  v.vy+=1800*step;v.y+=v.vy*step;
+  if(v.y>=nextFloor||(supported&&nextFloor-oldY<12)){v.y=nextFloor;v.vy=0;}
+ }
+ const slope=poolSlopeAt(v.x,v.z||0),yaw=v.poolYaw||0;
+ v.rotation=Math.atan(slope.x*Math.cos(yaw)+slope.z*Math.sin(yaw));v.skatePitch=v.rotation;
+ for(const p of activePlayers())if(p.alive&&!p.dummy&&!p.skateboard&&p.grounded&&!isHeadOnly(p)&&
+   now>=(v.safeUntil||0)&&Math.hypot(p.x-v.x,(p.z||0)-(v.z||0))<48&&Math.abs(p.y-v.y-offset)<42){
+  resetSkate(p);p.skateboard=true;p.onewheel=!board;
+  if(board)p.skateBoardId=balls.indexOf(v);
+  if(Math.hypot(v.vx,v.vz||0)>Math.hypot(p.vx,p.vz||0)){p.vx=v.vx;p.vz=v.vz||0;}
+  p.skateVx=Math.hypot(p.vx,p.vz||0);p.y=v.y+offset;p.skatePitch=v.rotation;
+  v.active=false;p.lastButton=board?'SKATEBOARD':'MONOWHEEL';p.lastButtonAt=now;
+  emitSignal('skate-mount',p.pad,board?1:2,0);break;
+ }
+}
 const monowheel={active:false,x:0,y:0,z:0,vx:0,vy:0,safeUntil:0};
 const parkSupply={nextAt:0,drone:null,drop:null,ko:null};
 function resetMonowheel(){
  const x=halfpipeOnly()?clamp(players[0].x+170,gridLeft+60,gridLeft+gridWidth-60):tileCenterX(37);
- Object.assign(monowheel,{active:true,x,y:terrainFloorAt(x),z:0,vx:0,vy:0,safeUntil:0});
+ Object.assign(monowheel,{active:true,x,y:terrainFloorAt(x),z:0,vx:0,vy:0,vz:0,poolYaw:0,skatePitch:0,safeUntil:0});
 }
 function monowheelFrame(p, local=false){
  const pitch=p.skatePitch||0,c=Math.cos(pitch),s=Math.sin(pitch);
@@ -21678,6 +21811,7 @@ function riderContact(p,y){
 }
 function updateMonowheel(dt,now){
  if(!freeskateActive()||!monowheel.active)return;
+ if(poolOnly()){updatePoolLooseVehicle(monowheel,dt,now,false);return;}
  const m=monowheel,oldY=m.y;
  m.vy+=1800*dt;m.x=clamp(m.x+m.vx*dt,worldLeft+60,worldRight-60);m.y+=m.vy*dt;m.vx*=Math.exp(-2*dt);
  const ledge=ledgeCrossed(m.x,oldY-1,m.y,0,0,m.z);

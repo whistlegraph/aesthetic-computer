@@ -52,7 +52,7 @@ function game(course = "pool") {
     tick: () => { now += 16667; api.sim(); assert.equal(api.error(), ''); } };
 }
 
-test('default course stays one rider and one monowheel through ticks, joins and resets', () => {
+test('pool keeps one rider, one monowheel and one skateboard through joins and resets', () => {
   const g = game(), a = g.api;
   const check = () => {
     assert.equal(a.map().course, 'pool');
@@ -63,7 +63,8 @@ test('default course stays one rider and one monowheel through ticks, joins and 
     assert.equal(a.players[1].alive, false);
     for (const objects of [a.parkKids,a.roofPanes,a.skateLoops,a.skateBoosts,a.skateRopes])
       assert.equal(objects.length, 0);
-    assert.ok(a.balls.every(b => !b.active), 'no skateboards or balls');
+    assert.ok(a.balls.filter(b=>b.type!=='skateboard').every(b=>!b.active),'no loose balls');
+    assert.equal(a.balls.filter(b=>b.type==='skateboard'&&b.active).length+Number(a.players[0].skateboard&&!a.players[0].onewheel),1);
     assert.ok(a.gunPickups.every(p => !p.active));
     assert.equal(a.axePickup.active, false);
     assert.equal(Number(a.monowheel.active) + Number(!!a.players[0].onewheel), 1);
@@ -236,6 +237,34 @@ test('raster stamps conform to the curved halfpipe and depth-test as transparent
   }
 });
 
+test('pool marks remain visible beyond both old limits, after time and revisiting the surface', () => {
+  const g=game(),a=g.api;
+  a.decals.length=0;
+  for(let row=0;row<12;row++)for(let col=0;col<20;col++)
+    a.addDecal({kind:'skid',x:780+col*30,x2:800+col*30,z:-165+row*30,size:4,strength:.6});
+  const oldest=a.decals[0];
+  assert.equal(a.decals.length,240,'new marks never evict older ones');
+  const aim=x=>{
+    vm.runInContext(`cameraCenter=${x};cameraWidth=2400`,g.context);
+    a.cameraDoll.snap({target:{x,y:1800,z:0},position:{x,y:500,z:-2200},
+      width:2400,perspective:0,fov:55,roll:0});
+    g.decalsDrawn.length=0;
+    a.drawDecals([180,140,100]);
+  };
+  aim(1080);
+  assert.equal(g.decalsDrawn.length,240,'all visible marks draw, including the oldest');
+  const initial=JSON.stringify(g.decalsDrawn);
+  for(const mark of a.decals)mark.at-=3600e6;
+  aim(50000);
+  assert.equal(g.decalsDrawn.length,0,'off-screen marks do not submit texture quads');
+  aim(1080);
+  assert.equal(JSON.stringify(g.decalsDrawn),initial,'old marks return unchanged after an hour');
+  a.reset();
+  assert.ok(a.decals.includes(oldest),'restarting the rider preserves the surface');
+  a.configureWorldMap('skatepark','indoor');
+  assert.equal(a.decals.length,0,'changing the actual map starts a new surface');
+});
+
 test('a glass roof break is one composite cue and still works on the full hall', () => {
   const {api:a,sounds} = game();
   a.configureWorldMap('skatepark','indoor'); a.resetRoofPanes();
@@ -296,8 +325,8 @@ test('pool camera follows depth and height with perspective', () => {
   Object.assign(p,{x:1400,y:1100,z:420,vx:0,vz:0,poolYaw:Math.PI/2});
   for(let i=0;i<180;i++)a.updateCameraDoll(1/60,1000000+i*16667);
   assert.ok(Math.abs(a.cameraDoll.target.x-p.x)<1);
-  assert.ok(Math.abs(a.cameraDoll.target.z-p.z)<1);
-  assert.ok(Math.abs(a.cameraDoll.target.y-(p.y-85))<1);
+  assert.ok(a.cameraDoll.target.z>p.z&&a.cameraDoll.target.z<p.z+80,'looks ahead of rider');
+  assert.ok(a.cameraDoll.target.y>p.y-85&&a.cameraDoll.target.y<p.y+180,'frames ground beneath airborne rider');
   assert.ok(a.cameraDoll.perspective>.999);
   assert.ok(a.cameraDoll.position.z<p.z-700,'camera trails depth heading');
 });
@@ -330,7 +359,7 @@ test('pool monowheel rides into vert air and returns without passing through the
 });
 
 
-test('forward pushes in the facing direction, and back brakes without reversing', () => {
+test('forward pushes in the facing direction, and down brakes through zero into reverse', () => {
   for(const riding of [false,true])for(const heading of [0,Math.PI/2,Math.PI,-Math.PI/2]){
     const g=game(),p=g.api.players[0],x=1080,z=0;
     Object.assign(p,{x,z,y:1800,onewheel:riding,skateboard:riding,poolYaw:heading,vx:0,vz:0});
@@ -341,14 +370,12 @@ test('forward pushes in the facing direction, and back brakes without reversing'
     assert.ok(forward>20);assert.ok(Math.abs(sideways)<.001);
     const peak=Math.hypot(p.vx,p.vz);
     g.pads[0].down=['ArrowDown'];
-    for(let i=0;i<30;i++){
-      g.tick();
-      assert.ok(p.vx*Math.cos(heading)+p.vz*Math.sin(heading)>=-.001,'back never reverses');
-    }
-    assert.ok(peak>100);assert.ok(Math.hypot(p.vx,p.vz)<.001,'back stops');
-    const stopped={x:p.x,z:p.z};
-    for(let i=0;i<30;i++)g.tick();
-    assert.ok(Math.hypot(p.x-stopped.x,p.z-stopped.z)<.001,'holding back stays stopped');
+    g.tick();
+    assert.ok(p.vx*Math.cos(heading)+p.vz*Math.sin(heading)<peak,'down initially slows forward motion');
+    for(let i=0;i<25;i++)g.tick();
+    assert.ok(peak>100);
+    assert.ok(p.vx*Math.cos(heading)+p.vz*Math.sin(heading)<-100,'holding down drives backward');
+    assert.ok(Math.abs(p.poolYaw-heading)<.001,'reverse preserves rider heading');
   }
 });
 
@@ -359,4 +386,95 @@ test('monowheel coasts and carves while the stick turns without forward held', (
   for(let i=0;i<12;i++)g.tick();
   assert.ok(p.x>1080&&p.z<0);assert.ok(p.poolYaw<-.2);
   assert.ok(Math.hypot(p.vx,p.vz)>1200,'turning preserves rolling momentum');
+});
+
+
+test('A and LB exit either vehicle, preserve it, and allow mounting again', () => {
+  for(const one of [true,false])for(const button of ['A','LeftShoulder']){
+    const g=game(),p=g.api.players[0],board=g.api.balls.find(b=>b.type==='skateboard');
+    const vehicle=one?g.api.monowheel:board;
+    Object.assign(p,{x:vehicle.x,y:vehicle.y+(one?0:18),z:vehicle.z,grounded:true});
+    for(let i=0;i<3;i++)g.tick();
+    assert.equal(p.skateboard,true);assert.equal(p.onewheel,one);
+    g.pads[0].down=[button];g.tick();
+    assert.equal(p.skateboard,false);assert.equal(p.onewheel,false);
+    assert.equal(vehicle.active,true);assert.ok(!p.grounded&&p.vy<0);
+    if(button==='LeftShoulder')assert.ok(Math.hypot(p.vx,p.vz)>1900);
+    g.pads[0].down=[];
+    for(let i=0;i<8;i++)g.tick();
+    assert.equal(p.skateboard,false,'no immediate remount');
+    for(let i=0;i<120;i++)g.tick();
+    Object.assign(p,{x:vehicle.x,y:vehicle.y+(one?0:18),z:vehicle.z,vx:0,vy:0,vz:0,grounded:true});
+    for(let i=0;i<3;i++)g.tick();
+    assert.equal(p.skateboard,true);assert.equal(p.onewheel,one);
+    assert.equal(vehicle.active,false);
+  }
+});
+
+test('a vert air stays over the curve while forward is held and rolls back down on release', () => {
+  for(const heading of [0,Math.PI/2,Math.PI/4]){
+    const g=game(),p=g.api.players[0];
+    Object.assign(p,{onewheel:true,skateboard:true,poolYaw:heading});g.api.monowheel.active=false;
+    g.pads[0].down=['ArrowUp'];
+    let anchor=null,landed=false,speed=0,returned=false;
+    for(let i=0;i<650;i++){
+      g.tick();
+      if(p.poolVert){
+        anchor ||= {x:p.x,z:p.z};
+        assert.ok(Math.hypot(p.x-anchor.x,p.z-anchor.z)<.001,'no throttle drift onto deck');
+        if(p.vy>0)g.pads[0].down=[];
+      }else if(anchor&&p.grounded){
+        landed=true;speed=Math.max(speed,p.skateVx);
+        if(g.api.poolDistance(p.x,p.z).d<25){returned=true;break;}
+      }
+    }
+    assert.ok(anchor&&landed&&returned,'air reconnects to the curved wall and reaches the flat');
+    assert.ok(speed>900,'landing carries the fall into rolling speed');
+  }
+});
+
+test('rolling off the coping falls into the pool without a downward teleport', () => {
+  const g=game(),p=g.api.players[0];
+  Object.assign(p,{x:2044,z:0,y:1320,poolYaw:Math.PI,vx:-700,vz:0,vy:0,onewheel:true,skateboard:true,grounded:true});
+  g.api.monowheel.active=false;
+  let falling=false,landed=false,maxStep=0;
+  for(let i=0;i<160;i++){
+    const y=p.y;g.tick();maxStep=Math.max(maxStep,Math.abs(p.y-y));
+    if(!p.grounded)falling=true;else if(falling)landed=true;
+    assert.ok(p.y<=g.api.terrainFloorAt(p.x,p.z)+.01);
+  }
+  assert.ok(falling&&landed);assert.ok(maxStep<45,`drop moved ${maxStep} units in one tick`);
+});
+
+
+test('camera swings into a vert return, dips toward the landing, and clears the coping', () => {
+  for(const heading of [0,Math.PI/2,Math.PI/4]){
+    const g=game(),a=g.api,p=a.players[0];
+    Object.assign(p,{onewheel:true,skateboard:true,poolYaw:heading});a.monowheel.active=false;
+    for(let i=0;i<120;i++)g.tick();
+    a.cameraDoll.prepare();const initialPitch=a.cameraDoll.view.forward.y;
+    let turned=false,dipped=false,previousYaw=null,maxYawStep=0;
+    g.pads[0].down=['ArrowUp'];
+    for(let i=0;i<350;i++){
+      g.tick();a.cameraDoll.prepare();const c=a.cameraDoll,v=c.view.forward;
+      const yaw=Math.atan2(v.z,v.x);
+      if(previousYaw!==null)maxYawStep=Math.max(maxYawStep,Math.abs(Math.atan2(Math.sin(yaw-previousYaw),Math.cos(yaw-previousYaw))));
+      previousYaw=yaw;
+      if(p.poolVert&&p.vy>0){
+        g.pads[0].down=[];
+        const dot=(-p.poolVert.nx*v.x-p.poolVert.nz*v.z)/Math.hypot(v.x,v.z);
+        turned ||= dot>.7;dipped ||= v.y>initialPitch+.04;
+      }
+      for(const y of [p.y,p.y-190]){
+        const point=a.projectPoint(p.x,y,p.z);
+        assert.ok(!point.behind&&point.x>20&&point.x<1900&&point.y>20&&point.y<980,`rider frame heading=${heading} tick=${i} x=${point.x} y=${point.y}`);
+      }
+      for(let j=1;j<20;j++){
+        const t=j/20,x=c.position.x+(p.x-c.position.x)*t,z=c.position.z+(p.z-c.position.z)*t;
+        const y=c.position.y+(p.y-2-c.position.y)*t;
+        assert.ok(y<a.terrainFloorAt(x,z),'camera sightline clears the pool');
+      }
+    }
+    assert.ok(turned,`camera faces return direction ${heading}`);assert.ok(dipped,'camera dips');assert.ok(maxYawStep<.1,`camera snap ${maxYawStep}`);
+  }
 });
