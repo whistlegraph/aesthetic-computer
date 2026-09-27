@@ -171,20 +171,20 @@ function pinata(database) {
 // drop the account's messages and handle (session-server/chat-manager.mjs).
 async function eraseFromChat(sub) {
   const { got } = await import("got");
-  const servers = dev
-    ? ["https://localhost:8083/log", "https://localhost:8085/log"]
-    : ["https://chat-system.aesthetic.computer/log", "https://chat-clock.aesthetic.computer/log"];
+  // One session server hosts every chat; the instance header picks the room.
+  const url = dev ? "https://localhost:8889/chat/log" : "https://session-server.aesthetic.computer/chat/log";
+  const rooms = ["chat-system.aesthetic.computer", "chat-clock.aesthetic.computer"];
   let all = true;
-  for (const url of servers) {
+  for (const room of rooms) {
     try {
       await got.post(url, {
         json: { action: "account:erase", users: [sub], from: "account-deletion", when: new Date() },
-        headers: { Authorization: `Bearer ${process.env.LOGGER_KEY}` },
+        headers: { Authorization: `Bearer ${process.env.LOGGER_KEY}`, "x-chat-instance": room },
         https: { rejectUnauthorized: !dev },
         timeout: { request: 10000 },
       });
     } catch (error) {
-      shell.log(`🪦 Chat erase failed at ${url}: ${error.message}`);
+      shell.log(`🪦 Chat erase failed for ${room}: ${error.message}`);
       all = false;
     }
   }
