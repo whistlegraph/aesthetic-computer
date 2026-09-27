@@ -465,6 +465,80 @@
       globalThis.__oskiewarVoice?.unlock().catch(() => {});
     }
 
+    // The two tone hosts the console and the Mac always had and the web did
+    // not, so every playSine and the monowheel's motor were dropped here.
+    // Both wait for the gesture that unlocks the context: a tone asked for
+    // before it is simply not played, the way a drum before unlock falls to
+    // the inline kit, and the motor picks up on its next steer.
+    const audioReady = () => audioContext && audioContext.state === "running";
+    // synth(frequency, duration): one sine with a squared decay, the Mac's
+    // shape, peaking well under the drums so a laugh ladder sits behind
+    // the hat that rides with it.
+    function synth(frequency, duration = .12) {
+      if (!audioReady() || !Number.isFinite(frequency) || !Number.isFinite(duration)) return;
+      const ac = audioContext;
+      const now = ac.currentTime;
+      const length = Math.max(.02, Math.min(4, duration));
+      const oscillator = ac.createOscillator();
+      const envelope = ac.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.value = Math.max(20, Math.min(8000, frequency));
+      const curve = new Float32Array(24);
+      for (let i = 0; i < curve.length; i++) {
+        const t = i / (curve.length - 1);
+        curve[i] = .26 * (1 - t) * (1 - t);
+      }
+      envelope.gain.setValueCurveAtTime(curve, now, length);
+      oscillator.connect(envelope).connect(ac.destination);
+      oscillator.start(now);
+      oscillator.stop(now + length + .01);
+    }
+    // oscillator(frequency, gain) / oscillatorStop(): the motor drone, one
+    // continuous voice the game steers every sim tick. A sine with a
+    // quieter octave for grit, as on the Mac; pitch and gain ease toward
+    // their targets so a stop or a gear change never clicks. Clamped to
+    // 20–8000 Hz and a gain of .5 like the other hosts.
+    let motor = null;
+    function motorVoice() {
+      if (motor) return motor;
+      if (!audioReady()) return null;
+      const ac = audioContext;
+      const gain = ac.createGain();
+      gain.gain.value = 0;
+      const fundamental = ac.createOscillator();
+      fundamental.type = "sine";
+      const octave = ac.createOscillator();
+      octave.type = "sine";
+      const octaveGain = ac.createGain();
+      octaveGain.gain.value = .35;
+      fundamental.connect(gain);
+      octave.connect(octaveGain).connect(gain);
+      gain.connect(ac.destination);
+      fundamental.start();
+      octave.start();
+      motor = { gain, fundamental, octave, hz: 220, level: 0 };
+      globalThis.__oskiewarMotor = motor;
+      return motor;
+    }
+    function oscillator(frequency, gain) {
+      if (!Number.isFinite(frequency) || !Number.isFinite(gain)) return;
+      const voice = motorVoice();
+      if (!voice) return;
+      const hz = Math.max(20, Math.min(8000, frequency));
+      const level = Math.max(0, Math.min(.5, gain));
+      const now = audioContext.currentTime;
+      voice.fundamental.frequency.setTargetAtTime(hz, now, .08);
+      voice.octave.frequency.setTargetAtTime(hz * 2, now, .08);
+      voice.gain.gain.setTargetAtTime(level, now, .05);
+      voice.hz = hz;
+      voice.level = level;
+    }
+    function oscillatorStop() {
+      if (!motor) return;
+      motor.gain.gain.setTargetAtTime(0, audioContext.currentTime, .05);
+      motor.level = 0;
+    }
+
     // Cached ElevenLabs female:3 rendition of "Oskie War". Separate media
     // elements create a compact feedback echo without requiring cross-origin
     // Web Audio access to the public AC audio CDN.
@@ -1546,7 +1620,8 @@
     globalThis.__fightHost = {
       runtime, gamepad, controllers, capabilities, telemetry, gameSignal,
       sampleInput: sampleGamepads,
-      saveReplay, publishLive, ac, drum, wipe, box, line, triangle,
+      saveReplay, publishLive, ac, drum, synth, oscillator, oscillatorStop,
+      wipe, box, line, triangle,
       write, systemWrite, comicWrite, gameView, flushFaces, canvasContext: context,
       attachScene, beginPaint, presentScene, triangle3d: undefined,
       // The frame program: the module script installs the interpreter here
@@ -1800,11 +1875,11 @@
       performance.mark("oskiewar:source");
       const piece = new Function(
         "runtime", "gamepad", "controllers", "capabilities", "telemetry",
-        "gameSignal", "saveReplay", "publishLive", "analytics", "ac", "drum", "wipe", "box",
+        "gameSignal", "saveReplay", "publishLive", "analytics", "ac", "drum", "synth", "oscillator", "oscillatorStop", "wipe", "box",
         "line", "triangle", "triangle3d", "frame", "write", "systemWrite", "comicWrite", "gameView", "themeReady", "themeAssetReady", "themeSprite", "themeQuad", "themeLighting",
         `${source}\nreturn { boot, sim, paint };`
       )(...["runtime", "gamepad", "controllers", "capabilities", "telemetry",
-        "gameSignal", "saveReplay", "publishLive", "analytics", "ac", "drum", "wipe", "box",
+        "gameSignal", "saveReplay", "publishLive", "analytics", "ac", "drum", "synth", "oscillator", "oscillatorStop", "wipe", "box",
         "line", "triangle", "triangle3d", "frame", "write", "systemWrite", "comicWrite", "gameView", "themeReady", "themeAssetReady", "themeSprite", "themeQuad", "themeLighting"]
         .map((name) => globalThis.__fightHost[name]));
       piece.boot();

@@ -78,7 +78,9 @@ const ROUTES = Object.freeze({
   ko: "ko",
   killcam: "killcam",
   laugh: "atonal-laugh",
-  "victory-laugh": "victory-laugh",
+  // "victory-laugh" is unrouted since the shell gained synth(): the piece
+  // plays its five sine steps and hats on every host now, and the bank's
+  // bubble laugh below is kept only for a host that asks for it by name.
 });
 
 const DRUM_ROUTES = Object.freeze({
@@ -382,11 +384,9 @@ export function createOskiewarSfx(options = {}) {
         hat(cue, .18, .11);
         break;
       case "victory-laugh":
-        // The round-card gloat. On console the piece plays five staccato
-        // sine steps itself; the web host has no synth() at all, so this
-        // bank IS the laugh here — five syllables on the native sequence's
-        // own cadence, in the chuckle's detuned bubble language rather than
-        // its tonal ladder.
+        // The round-card gloat, in the chuckle's detuned bubble language.
+        // Unrouted by default now that the shell has synth() and the piece
+        // plays its own five sine steps here as on every other host.
         bubble(cue, .66, 0, 262, 1.31);
         bubble(cue, .72, .112, 221, .74);
         bubble(cue, .64, .248, 243, 1.62);
