@@ -3,6 +3,7 @@
 // Designed for blueberry, where the Xbox vault credentials already live.
 
 import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync,
   writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
@@ -166,6 +167,36 @@ function publishSource(source, label) {
     package: item.PackageFullName }));
 }
 
+function publishShader(sourcePath, reset = false) {
+  if (!reset && !sourcePath) throw new Error("usage: xbox-live shader <effect.hlsl>");
+  const source = reset ? "// AC_RESET_POST_SHADER\n" : readFileSync(resolve(sourcePath), "utf8");
+  if (!Buffer.byteLength(source) || Buffer.byteLength(source) > 64 * 1024)
+    throw new Error("HLSL must contain 1..65536 bytes");
+  const item = installed();
+  if (item.Version.Revision < 52)
+    throw new Error("live HLSL compilation needs Native BIOS 52 or newer");
+  const id = randomUUID();
+  curl(["--fail", "--max-time", "15", "-u", autoAuth, "-X", "POST", "-F",
+    "file=@-;filename=live-post.hlsl;type=text/plain", appFileUrl(item)],
+    { input: `// AC_LIVE_SHADER ${id}\n${source}` });
+  // Acknowledge this exact edit, not an older successful compilation.
+  const deadline = Date.now() + 30000;
+  while (Date.now() < deadline) {
+    sleep(250);
+    let result;
+    try {
+      result = curl(["--fail", "--max-time", "3", "-u", auth,
+        appFileUrl(item, "live-post-status.json")], { json: true });
+    } catch { continue; }
+    if (result?.id !== id || result.status === "compiling") continue;
+    if (result.status === "rejected") throw new Error(result.error || "shader rejected");
+    if (!["applied", "reset"].includes(result.status)) continue;
+    console.log(JSON.stringify({ ...result, package: item.PackageFullName }));
+    return;
+  }
+  throw new Error("shader acknowledgement timed out; ensure Native BIOS is running and inspect logs");
+}
+
 async function deployKidLisp(code) {
   if (!code) throw new Error("usage: xbox-live deploy-kidlisp <$code>");
   const compiled = await compilePublishedKidLisp(code);
@@ -318,13 +349,15 @@ async function main() {
   else if (command === "prune") prune();
   else if (command === "launch") launch();
   else if (command === "publish") publish(argument);
+  else if (command === "shader") publishShader(argument);
+  else if (command === "shader-reset") publishShader(null, true);
   else if (command === "logs") logs(argument);
   else if (command === "frames") frameDump(argument);
   else if (command === "screenshot") screenshot(argument);
   else if (command === "video") video(argument, rest[0]);
   else if (command === "deploy") { publish(argument); launch(); logs("20"); }
   else if (command === "deploy-kidlisp") await deployKidLisp(argument);
-  else throw new Error("commands: status | install <msix> [deps...] | prune | launch | publish <piece.js> | logs [lines] | frames [output.json] | screenshot [output.png] | video [seconds] [output.mp4] | deploy <piece.js> | deploy-kidlisp <$code>");
+  else throw new Error("commands: status | install <msix> [deps...] | prune | launch | publish <piece.js> | shader <effect.hlsl> | shader-reset | logs [lines] | frames [output.json] | screenshot [output.png] | video [seconds] [output.mp4] | deploy <piece.js> | deploy-kidlisp <$code>");
 }
 
 try { await main(); } catch (error) { console.error(error.message); process.exit(1); }

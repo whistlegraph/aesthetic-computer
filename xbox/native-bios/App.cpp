@@ -6,8 +6,13 @@
 #include "OskiewarAccountService.hpp"
 #include "../runtime/include/ac/image_effects.hpp"
 #include "../runtime/include/ac/glass_sound.hpp"
+#include "../runtime/include/ac/decal_atlas.hpp"
 #include "../runtime/include/ac/theme_assets.hpp"
 #include "render/ac_surface.hpp"
+#if AC_DEV_LIVE_PIECE
+#include "LivePostShader.hpp"
+#include <future>
+#endif
 
 using Microsoft::WRL::ComPtr;
 using namespace Platform;
@@ -389,7 +394,8 @@ public:
     };
     m_graphics->is_theme_asset_ready = [this](int asset) {
       return asset >= 0 && asset < static_cast<int>(theme_assets.size()) &&
-        m_themeViews[asset] && m_graphics->theme_ready() &&
+        m_themeViews[asset] && m_spriteVertexShader && m_spritePixelShader &&
+        m_spriteVertexBuffer && m_linearSampler && m_triangleDepthView &&
         (asset < 2 || asset == 4 || (m_themePixelShader && m_themeBlendState && m_themeSoftDepthState));
     };
     m_graphics->on_theme_quad = [this](const ac::xbox::ThemeQuad& quad) {
@@ -558,6 +564,7 @@ public:
       PollMidi();
 #if AC_DEV_LIVE_PIECE
       PollLivePiece();
+      PollLiveShader();
 #endif
       FlushGameSignals();
       FlushReplayUploads();
@@ -968,7 +975,7 @@ private:
         std::to_string(m_jeffreyTextureSize) + " filter=linear" : "missing"));
     const wchar_t* themePaths[] = {L"Assets\\ThemeUnderpass.rgba", L"Assets\\ThemeProps.rgba",
       L"Assets\\ThemeExplosions.rgba", L"Assets\\ThemeWeapons.rgba", L"Assets\\ThemeSkyClouds.rgba"};
-    for (int asset = 0; asset < static_cast<int>(theme_assets.size()); ++asset) {
+    for (int asset = 0; asset < static_cast<int>(std::size(themePaths)); ++asset) {
       const auto rgba = ReadPackageBytes(themePaths[asset]);
       texture.Width = theme_assets[asset].width; texture.Height = theme_assets[asset].height;
       if (rgba.size() != static_cast<std::size_t>(texture.Width) * texture.Height * 4) continue;
@@ -977,6 +984,13 @@ private:
       if (SUCCEEDED(m_device->CreateTexture2D(&texture, &pixels, &retained)))
         m_device->CreateShaderResourceView(retained.Get(), nullptr, &m_themeViews[asset]);
     }
+    const auto decalPixels = make_decal_atlas();
+    texture.Width = theme_assets[5].width; texture.Height = theme_assets[5].height;
+    pixels.pSysMem = decalPixels.data(); pixels.SysMemPitch = texture.Width * 4;
+    ComPtr<ID3D11Texture2D> decalTexture;
+    Check(m_device->CreateTexture2D(&texture, &pixels, &decalTexture));
+    Check(m_device->CreateShaderResourceView(decalTexture.Get(), nullptr, &m_themeViews[5]));
+    LogTelemetry("AC_NATIVE_DECALS ready=1 atlas=256x256 stamps=4 alpha=1");
     m_frameThemeQuads.reserve(kMaxThemeQuads);
     LogTelemetry(std::string("AC_NATIVE_THEME ready=") +
       (m_themeViews[0] && m_themeViews[1] ? "1" : "0") +
@@ -986,14 +1000,14 @@ private:
 
   bool DrawGpuThemeQuads() {
     if (m_frameThemeQuads.empty()) return true;
-    if (!m_themeViews[0] || !m_themeViews[1] || !m_spriteVertexBuffer || !m_triangleDepthView)
+    if (!m_spriteVertexBuffer || !m_triangleDepthView)
       return false;
     // Solid props precede soft effects, which depth-test without punching
     // holes in subsequent translucent draws. Base atlases keep their cutout path.
-    const int assets[] = {4, 0, 1, 3, 3, 2};
-    for (int pass = 0; pass < 6; ++pass) {
+    const int assets[] = {4, 0, 1, 3, 3, 2, 5};
+    for (int pass = 0; pass < static_cast<int>(std::size(assets)); ++pass) {
       const int asset = assets[pass];
-      if (!m_themeViews[asset] || ((asset == 2 || asset == 3) && !m_themePixelShader)) continue;
+      if (!m_themeViews[asset] || ((asset == 2 || asset == 3 || asset == 5) && !m_themePixelShader)) continue;
       const bool depthWrite = pass < 4;
       D3D11_MAPPED_SUBRESOURCE mapped{};
       if (FAILED(m_context->Map(m_spriteVertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped)))
@@ -1008,7 +1022,7 @@ private:
       const float sourceHeight = static_cast<float>(theme_assets[asset].master_height);
       for (const auto& q : m_frameThemeQuads) {
         if (q.asset != asset) continue;
-        if (asset == 3 && q.depth_write != depthWrite) continue;
+        if ((asset == 3 || asset == 5) && q.depth_write != depthWrite) continue;
         float u0=q.sx/sourceWidth, u1=(q.sx+q.sw)/sourceWidth;
         if (q.flip) std::swap(u0,u1);
         const float v0=q.sy/sourceHeight,v1=(q.sy+q.sh)/sourceHeight;
@@ -1027,7 +1041,7 @@ private:
       m_context->PSSetSamplers(0,1,m_linearSampler.GetAddressOf());
       m_context->RSSetState(m_triangleRasterState.Get());
       m_context->OMSetDepthStencilState(depthWrite ? m_triangleDepthState.Get() : m_themeSoftDepthState.Get(),1);
-      m_context->OMSetBlendState((asset == 2 || asset == 3) ? m_themeBlendState.Get() : nullptr,nullptr,0xffffffff);
+      m_context->OMSetBlendState((asset == 2 || asset == 3 || asset == 5) ? m_themeBlendState.Get() : nullptr,nullptr,0xffffffff);
       m_context->OMSetRenderTargets(1,m_sceneTarget.GetAddressOf(),m_triangleDepthView.Get());
       m_context->Draw(static_cast<UINT>(count),0);
       ID3D11ShaderResourceView* nullView=nullptr;m_context->PSSetShaderResources(0,1,&nullView);
@@ -2398,6 +2412,79 @@ private:
   }
 
 #if AC_DEV_LIVE_PIECE
+  void ShaderStatus(const std::string& id, const char* status,
+      const std::string& error = "", double milliseconds = 0) {
+    auto record = ref new JsonObject();
+    record->Insert("id", JsonValue::CreateStringValue(ref new String(Wide(id).c_str())));
+    record->Insert("status", JsonValue::CreateStringValue(ref new String(Wide(status).c_str())));
+    record->Insert("error", JsonValue::CreateStringValue(ref new String(Wide(error).c_str())));
+    record->Insert("compileMs", JsonValue::CreateNumberValue(milliseconds));
+    const auto json = Utf8(record->Stringify());
+    const auto path = std::wstring(ApplicationData::Current->LocalFolder->Path->Data()) +
+      L"\\live-post-status.json";
+    FILE* file = nullptr;
+    if (_wfopen_s(&file, path.c_str(), L"wb") == 0 && file) {
+      std::fwrite(json.data(), 1, json.size(), file);
+      std::fclose(file);
+    }
+    LogTelemetry("AC_NATIVE_SHADER " + json);
+  }
+
+  void PollLiveShader() {
+    const auto now = GetTickCount64();
+    if (now >= m_nextShaderPollMs) {
+      m_nextShaderPollMs = now + 500;
+      const auto path = std::wstring(ApplicationData::Current->LocalFolder->Path->Data()) +
+        L"\\live-post.hlsl";
+      FILE* file = nullptr;
+      if (_wfopen_s(&file, path.c_str(), L"rb") == 0 && file) {
+        // Content comparison catches same-size edits within one second.
+        std::string text(kLiveShaderLimit + 128, '\0');
+        const auto count = std::fread(text.data(), 1, text.size(), file);
+        std::fclose(file);
+        text.resize(count);
+        if (!text.empty()) m_liveShaderSource = std::move(text);
+      }
+    }
+    if (m_shaderCompile.valid()) {
+      if (m_shaderCompile.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready)
+        return;
+      LiveShaderResult result;
+      try { result = m_shaderCompile.get(); }
+      catch (const std::exception& error) { result.error = error.what(); }
+      // New uploads supersede an in-flight compile, including reset.
+      if (m_shaderAttempt == m_liveShaderSource) {
+        const auto request = parse_live_shader(m_shaderAttempt);
+        ComPtr<ID3D11PixelShader> shader;
+        if (result.error.empty()) {
+          const auto hr = m_device->CreatePixelShader(result.bytes.data(),
+            result.bytes.size(), nullptr, &shader);
+          if (FAILED(hr)) result.error = "CreatePixelShader failed: " + std::to_string(hr);
+        }
+        if (result.error.empty()) {
+          m_postPixelShader = shader;
+          ShaderStatus(request.id, "applied", "", result.milliseconds);
+        } else ShaderStatus(request.id, "rejected", result.error, result.milliseconds);
+      }
+    }
+    if (m_liveShaderSource.empty() || m_liveShaderSource == m_shaderAttempt) return;
+    m_shaderAttempt = m_liveShaderSource;
+    const auto request = parse_live_shader(m_shaderAttempt);
+    if (request.reset) {
+      const auto bytes = ReadPackageBytes(L"PostPixelShader.cso");
+      ComPtr<ID3D11PixelShader> shader;
+      const auto hr = bytes.empty() ? E_FAIL : m_device->CreatePixelShader(
+        bytes.data(), bytes.size(), nullptr, &shader);
+      if (FAILED(hr)) ShaderStatus(request.id, "rejected", "packaged shader unavailable");
+      else { m_postPixelShader = shader; ShaderStatus(request.id, "reset"); }
+      return;
+    }
+    ShaderStatus(request.id, "compiling");
+    m_shaderCompile = std::async(std::launch::async, [source = request.source]() {
+      return compile_live_post_shader(source);
+    });
+  }
+
   // Dev only. Store Policy 10.2.5 requires console products to be "installed
   // and updated only through the Microsoft Store", and XR-009 restates it as
   // "installed, serviced, and updated only through the Store". A retail build
@@ -2789,6 +2876,9 @@ private:
 #if AC_DEV_LIVE_PIECE
   unsigned long long m_livePieceSignature = 0;
   unsigned long long m_nextLivePollMs = 0;
+  unsigned long long m_nextShaderPollMs = 0;
+  std::string m_liveShaderSource, m_shaderAttempt;
+  std::future<LiveShaderResult> m_shaderCompile;
 #endif
   unsigned long long m_nextCapabilityPollMs = 0;
   unsigned long long m_nextAcPollMs = 0;
@@ -2867,7 +2957,7 @@ private:
   ComPtr<ID3D11Buffer> m_spriteVertexBuffer;
   ComPtr<ID3D11ShaderResourceView> m_spriteAtlasView;
   ComPtr<ID3D11ShaderResourceView> m_jeffreyTextureView;
-  ComPtr<ID3D11ShaderResourceView> m_themeViews[5];
+  ComPtr<ID3D11ShaderResourceView> m_themeViews[6];
   ComPtr<ID3D11PixelShader> m_themePixelShader;
   ComPtr<ID3D11BlendState> m_themeBlendState;
   ComPtr<ID3D11DepthStencilState> m_themeSoftDepthState;

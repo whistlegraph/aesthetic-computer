@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 173;
+const buildVersion = 174;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -315,6 +315,8 @@ const indoorFeatures = [
 const indoorCeilingY = floorY - 1400;
 const indoorSkate = () => skateparkMap && skateCourse === "indoor";
 const halfpipeOnly = () => skateparkMap && skateCourse === "halfpipe";
+const depthControls = () => halfpipeOnly() && freeskateActive() &&
+  globalThis.__oskiewarDepthControls !== false;
 // The roof is glass: eight panes in a frame. A slow knock bonks you back
 // down; an air that meets a pane at speed (or a body coming down onto one)
 // shatters it — the pane is gone, its shards fall into the hall, and the
@@ -839,18 +841,61 @@ function drawIndoorHallGeometry(ground) {
   drawRoofShards(glass);
 }
 
+function rasterDecalPatches(decal) {
+  const skid = decal.kind === "skid", arc = decal.kind === "arc";
+  const cell = skid || arc || decal.kind === "wheelmark" ? 0
+    : decal.kind === "chip" || decal.kind === "ding" ? 2 : decal.kind === "blood" ? 3 : 1;
+  const angle = decal.angle || 0, c = Math.cos(angle), s = Math.sin(angle);
+  const dx = (decal.x2 ?? decal.x) - decal.x, dz = (decal.z2 ?? decal.z) - decal.z;
+  const length = Math.hypot(dx, dz) || 1;
+  const at = (u,v) => {
+    let x, z;
+    if (skid) {
+      x = decal.x + dx*u - dz/length*(v-.5)*decal.size*2;
+      z = decal.z + dz*u + dx/length*(v-.5)*decal.size*2;
+    } else if (arc) {
+      const a = angle + u*decal.sweep, r = decal.size + (v-.5)*8;
+      x = decal.x + Math.cos(a)*r; z = decal.z + Math.sin(a)*r;
+    } else {
+      const a = (u-.5)*decal.size*2*(decal.stretch||1), b = (v-.5)*decal.size*2;
+      x = decal.x + (a*c-b*s)*decal.tx; z = decal.z + a*s+b*c;
+    }
+    z = clamp(z, worldNear+1, worldFar-1);
+    // Sample every corner against the curved ramp; a tangent-plane sticker
+    // would float over the curve or cut into it at its edges.
+    return {x,y:terrainFloorAt(x)-.9,z};
+  };
+  const patches = [], across = arc ? 8 : 4, deep = arc || skid ? 1 : 2;
+  for (let i=0;i<across;i++) for(let j=0;j<deep;j++) {
+    const u=i/across,v=j/deep,du=1/across,dv=1/deep;
+    patches.push({uv:[(cell%2)*128+u*128,Math.floor(cell/2)*128+v*128,du*128,dv*128],
+      points:[at(u,v),at(u+du,v),at(u+du,v+dv),at(u,v+dv)]});
+  }
+  return patches;
+}
+function drawRasterDecal(decal) {
+  decal.rasterPatches ||= rasterDecalPatches(decal);
+  for (const patch of decal.rasterPatches) {
+    const p = patch.points.map(point=>projectPoint(point.x,point.y,point.z));
+    if (p.some(point=>point.behind || ![point.x,point.y,point.z].every(Number.isFinite) ||
+      Math.abs(point.x)>30000 || Math.abs(point.y)>30000)) continue;
+    themeQuad(5,...patch.uv,...p.flatMap(point=>[point.x,point.y,point.z-.002]),false);
+  }
+}
 function drawDecals(surface) {
   if (!decals.length && !bloodDrops.length) return;
   const now = runtime().monotonicUs;
   const reach = cameraWidth * .8 + 300;
   const lod = sceneLod();
   const previous = triangleDepth;
+  const raster = typeof themeQuad === "function" && hostThemeAssetReady && hostThemeAssetReady(5);
   let drawn = 0;
   for (let index = decals.length - 1; index >= 0 && drawn < 45; index--) {
     const decal = decals[index];
     if (Math.abs(decal.x - cameraCenter) > reach) continue;
     if (lod > 1 && decal.size < 5 && decal.kind !== "skid") continue;
     drawn++;
+    if (raster) { drawRasterDecal(decal); continue; }
     const age = (now - decal.at) / 1e6;
     decal.shape ||= decalShape(decal);
     if (decal.kind === "arc") {
@@ -3021,7 +3066,8 @@ function addDecal(decal) {
       const pool = decals[index];
       if (pool.kind !== "blood") continue;
       if (Math.hypot(pool.x - decal.x, pool.z - decal.z) < pool.size * 1.25 + 6) {
-        pool.size = Math.min(34, Math.hypot(pool.size, decal.size * .55));
+      pool.size = Math.min(34, Math.hypot(pool.size, decal.size * .55));
+      pool.rasterPatches = null;
         pool.at = Math.max(pool.at, decal.at - 8e6);
         return pool;
       }
@@ -3185,6 +3231,22 @@ function addDing(x, z, size) {
 function addSkid(x1, x2, z, strength = 1) {
   if (Math.abs(x2 - x1) < 2) return;
   addDecal({ kind: "skid", x: x1, x2, z, size: 3.2, strength });
+}
+function seedHalfpipeScuffs() {
+  if (!halfpipeOnly() || decals.length) return;
+  for (const [x,z,size,angle] of [[380,-140,65,.2],[510,160,48,-.3],
+      [820,200,45,.1],[1160,-80,38,.5],[1500,-170,65,-.2],[1730,90,55,.4]])
+    addDecal({kind:"scuff",x,z,size,angle,stretch:1.7,strength:.5});
+}
+function trackMonowheelSurface(player) {
+  if (!player.onewheel || !player.grounded) { player.wheelMarkAt=null; return; }
+  const at={x:player.x,z:player.z||0},previous=player.wheelMarkAt;
+  if (!previous) { player.wheelMarkAt=at; return; }
+  const distance=Math.hypot(at.x-previous.x,at.z-previous.z);
+  if(distance<18)return;
+  if(distance<140)addDecal({kind:"skid",x:previous.x,x2:at.x,z:previous.z,z2:at.z,
+    size:7,strength:.6});
+  player.wheelMarkAt=at;
 }
 function trackSkid(player, skidding, strength = 1) {
   if (!skidding) { player.skidFrom = null; return; }
@@ -6032,7 +6094,7 @@ function updateSkateTricks(player, input, now) {
       Math.abs(player.skatePitch) > .6) {
     windows.push({ name: "hold: hold back at the lip", x: player.x - 60, y: player.y - 190, w: 120, h: 200 });
   }
-  if (player.skateboard && !player.grounded) {
+  if (player.skateboard && !player.grounded && !depthControls()) {
     windows.push({ name: player.skateGrab ? "grabbing" : "grab: hold A", x: player.x - 60,
       y: player.y - 40, w: 120, h: 60 });
     windows.push({ name: "release: 2x down", x: player.x - 60, y: player.y + 20, w: 120, h: 40 });
@@ -9035,6 +9097,8 @@ function resetRound(now, resetMatch = false, keepMap = false) {
     }
     if (halfpipeOnly()) {
       resetSkate(players[0]);
+      players[0].wheelMarkAt = null;
+      seedHalfpipeScuffs();
       for (const item of balls) item.active = false;
       resetMonowheel();
       resetParkSupply(now);
@@ -11878,6 +11942,7 @@ function strafePathClear(player, to) {
     Math.min(from,to) < cube.size/2+18 && Math.max(from,to) > -cube.size/2-18);
 }
 function updateStrafe(player, pad, now) {
+  if (depthControls()) { player.strafe = null; return; }
   player.z=0;player.strafe=null;player.strafeHeld=false;player.strafeLast=null;return;
   const held = pad?.down || [];
   // Either bumper steps a lane back (away from the lens); either trigger
@@ -12113,13 +12178,29 @@ function updatePlayer(player, pad, dt, now) {
   const armCount = ["left-arm", "right-arm"]
     .filter((part) => hasPart(player, part)).length;
   const rawInput = quantizedInput(pad, player.suppressedDirections);
+  const spatialControls = depthControls();
+  if (spatialControls) {
+    const held = pad.down;
+    const digital = Number(held.includes("ArrowUp")) - Number(held.includes("ArrowDown"));
+    const analog = clamp(Number(pad.leftY) || 0, -1, 1);
+    const axis = digital || (Math.abs(analog) > .18 ? Math.sign(analog) * (Math.abs(analog) - .18) / .82 : 0);
+    player.inputZ = axis;
+    const crouching = held.includes("X");
+    const speed = (player.onewheel ? 1200 : walkSpeed) * (crouching ? .38 : 1);
+    player.vz = now < player.hitStunUntil || player.grabbedBy >= 0 ? 0 : axis * speed;
+    const nextZ = clamp((player.z || 0) + player.vz * dt, worldNear + 60, worldFar - 60);
+    if (nextZ === player.z) player.vz = 0;
+    player.z = nextZ;
+    // The stick owns the floor plane. Buttons own jump and crouch.
+    rawInput.vertical = held.includes("A") ? 1 : crouching ? -1 : 0;
+  }
   player.wallInputX = rawInput.horizontal;
   player.wallPress = null;
   const hitStunned = now < player.hitStunUntil;
   const wasBlocking = player.blocking;
   const carrying = player.heldBall >= 0 || player.heldPart >= 0 ||
     player.heldPlayer >= 0 || Boolean(heldItem(player));
-  const aimLocked = carrying && pad.down.includes("X");
+  const aimLocked = !spatialControls && carrying && pad.down.includes("X");
   player.itemAimLocked = aimLocked;
   if (aimLocked && (rawInput.horizontal || rawInput.vertical)) {
     player.gunAimX = rawInput.horizontal;
@@ -12140,20 +12221,15 @@ function updatePlayer(player, pad, dt, now) {
   }
   // A broken shield stays down until X is let go, so the opening it bought is
   // spent on attacking rather than on re-guarding by reflex.
-  if (player.shieldLocked && !pad.down.includes("X")) player.shieldLocked = false;
-  player.blocking = !carrying && !headOnly && pad.down.includes("X") &&
+  const bubbleButton = spatialControls ? "RightShoulder" : "X";
+  if (player.shieldLocked && !pad.down.includes(bubbleButton)) player.shieldLocked = false;
+  player.blocking = !carrying && !headOnly && pad.down.includes(bubbleButton) &&
     !player.shieldLocked;
   if (player.blocking && !wasBlocking) {
     player.attackKind = "";
     player.attackUntil = 0;
     player.shieldCrouched = rawInput.vertical < 0 || player.ducking ||
       player.crouchBlend >= .35;
-    player.shieldVx = 0;
-    player.vx = player.windVx + player.knockVx;
-    player.dashUntil = 0;
-    player.dashVx = 0;
-    player.lastTap = {};
-    player.lastRelease = {};
     shieldBash(player, now);
   }
   if (player.blocking && rawInput.vertical < 0) player.shieldCrouched = true;
@@ -12166,12 +12242,9 @@ function updatePlayer(player, pad, dt, now) {
     player.shieldAimX = 0;
     player.shieldAimY = 0;
   }
-  // Guard plants the fighter immediately, but DOWN remains meaningful: a
-  // standing guard can settle into a crouching guard. Once crouched, the pose
-  // latches until the shield itself drops even if DOWN is released first.
-  const input = player.blocking
-    ? { horizontal: 0, vertical: player.shieldCrouched ? -1 : 0 } : rawInput;
-  const grabHeld = armCount > 0 && !pogo && !hitStunned && !player.blocking &&
+  // Bubbling preserves steering and momentum, including riding the wheel.
+  const input = rawInput;
+  const grabHeld = !spatialControls && armCount > 0 && !pogo && !hitStunned && !player.blocking &&
     pad.down.includes("A") && pad.down.includes("B");
   if (skateparkMap && !survivalActive()) {
     const ropeHeld = skateRopeInput(player, input, grabHeld, dt, grabHeld && !player.grabHeld);
@@ -12212,7 +12285,9 @@ function updatePlayer(player, pad, dt, now) {
   // the vertical one doing the same. It matters more in a tower, where the
   // crow's nest is the one rung an ultra jump is the only way onto.
   let verticalTapSpent = false;
-  const upPressed = input.vertical > 0 && !player.previous.includes("MOVE_UP");
+  const upPressed = spatialControls
+    ? pad.down.includes("A") && !player.previous.includes("A")
+    : input.vertical > 0 && !player.previous.includes("MOVE_UP");
   const downPressed = input.vertical < 0 && player.inputY >= 0;
   const wasCrouched = player.ducking || player.crouchBlend >= .35;
   const crouchTarget = input.vertical < 0 ||
@@ -12244,7 +12319,7 @@ function updatePlayer(player, pad, dt, now) {
   if (input.vertical && input.vertical !== player.inputY) {
     const direction = input.vertical > 0 ? "UP" : "DOWN";
     recordCommand(player, direction, now);
-    verticalTapSpent = directionTap(player, direction, now);
+    verticalTapSpent = spatialControls ? false : directionTap(player, direction, now);
     if (headOnly) {
       const alternating = player.headPumpDirection &&
         player.headPumpDirection !== input.vertical &&
@@ -12313,12 +12388,12 @@ function updatePlayer(player, pad, dt, now) {
     if (!player.runReleasedAt) player.runReleasedAt = now;
   } else player.runReleasedAt = 0;
   const letGo = player.runReleasedAt && now - player.runReleasedAt > 180000;
-  if (letGo || turned || player.blocking ||
+  if (letGo || turned ||
       player.ducking || (player.grounded && hitStunned)) {
     player.runSince = 0;
     player.runSpeed = 0;
   }
-  const walkingCleanly = player.grounded && input.horizontal && !player.blocking &&
+  const walkingCleanly = player.grounded && input.horizontal &&
     !player.ducking && !hitStunned && now >= player.dashUntil;
   if (!walkingCleanly) player.walkSince = 0;
   else if (!player.walkSince) player.walkSince = now;
@@ -12345,7 +12420,6 @@ function updatePlayer(player, pad, dt, now) {
     : pogo ? .68 : legCount === 1 ? .72 : 1;
   const runSpeed = player.runSpeed || 0;
   let controlledVx = aimLocked ? 0
-    : player.blocking ? player.shieldVx || 0
     : now < player.dashUntil && Math.abs(player.dashVx) > 0
     ? player.dashVx
     // Crouched on the ground, a direction is a crawl: slow, still crouched.
@@ -12363,7 +12437,7 @@ function updatePlayer(player, pad, dt, now) {
       player.skateVx = -side * Math.max(720, Math.abs(player.skateVx) * .42);
       controlledVx = player.skateVx;
     } else controlledVx = 0;
-  } else if ((player.skateboard || surfer) && player.grounded && !player.blocking) {
+  } else if ((player.skateboard || surfer) && player.grounded) {
     // Steering, and ONLY while steering. This used to run every frame against
     // a target of `input.horizontal * 2700`, which on an idle stick is zero —
     // so a coasting skater was being dragged to a standstill at 3.2 a second
@@ -12521,7 +12595,7 @@ function updatePlayer(player, pad, dt, now) {
     " x=" + Math.round(player.x));
 
   // Checked before liftoff so the launch frame itself can never be cut.
-  if (player.jumpHeld && player.vy < 0 && !player.blocking &&
+  if (player.jumpHeld && player.vy < 0 &&
       input.vertical <= 0) {
     player.vy *= jumpCutScale;
     player.jumpHeld = false;
@@ -12582,12 +12656,21 @@ function updatePlayer(player, pad, dt, now) {
   // longer empty a magazine. A loaded hand still colors the punch — into a
   // swing, never a shot.
   const acting = !headOnly && !pogo && !hitStunned && !player.blocking;
-  if (acting && player.gunMode === "RUBBER SMG" && player.gunAmmo > 0 &&
+  if (!spatialControls && acting && player.gunMode === "RUBBER SMG" && player.gunAmmo > 0 &&
       pad.down.includes("Y") && player.previous.includes("Y") &&
       now >= player.nextGunShotAt)
     fireGun(player, input);
   for (const button of pad.down) {
     if (!player.previous.includes(button)) {
+      if (spatialControls && ["A", "X", "Y", "RightShoulder"].includes(button)) {
+        if (button === "Y" && acting) startMelee(player, "KICK", now);
+        else if (button === "RightShoulder" && player.blocking) {
+          player.pendingMoveLabel = "BUBBLE";
+          playBubbleSound(player, false);
+          emitSignal("shield", player.pad, 1, 0);
+        }
+        continue;
+      }
       // A bumper or trigger is a strafe, named as one — not "LB" or "RT".
       if (["LeftShoulder", "RightShoulder", "LeftTrigger", "RightTrigger"].includes(button)) {
         if (player.strafe && player.strafe.at === now)
@@ -13822,13 +13905,14 @@ function gameSim() {
     updateHeavyWheelHits(now);
     resolvePlayerStanding(now);
     resolvePlayerPushboxes();
-    for(const p of activePlayers()){p.z=0;p.strafe=null;}
+    if (!depthControls()) for(const p of activePlayers()){p.z=0;p.strafe=null;}
     for(const b of balls)if(!b.spatialSpin)b.z=0;
     wrapFreeskate();
     updateMonowheel(dt, now);
     updateParkSupply(dt, now);
     updateBubbleAudio(now);
     updateWheelTurbo(dt,now);
+    if (halfpipeOnly()) for(const p of activePlayers())trackMonowheelSurface(p);
     updateMotorAudio(dt);
     updateSeatHeartbeat(dt,now);
     updateWaterSplashes(dt);
@@ -14436,7 +14520,7 @@ function fighterAnimationPhase(player, now = null) {
   } else if (player.runSince) {
     state = "RUN";
     stateStartedAt = player.runSince;
-  } else if (Math.abs(player.vx) > 40) {
+  } else if (Math.hypot(player.vx,player.vz||0) > 40) {
     state = "WALK";
   }
   const [authoredSteps, authoredTicksPerStep, basePhase, loop] =
@@ -16270,6 +16354,14 @@ function controlLocale() {
 // so the legend can show a key rather than spell one.
 function combatKeys() {
   const caps = typeof capabilities === "function" ? capabilities() : {};
+  if (depthControls()) return caps.inputFamily === "keyboard" ? [
+    [["W", "A", "S", "D"], "MOVE 3D", "ArrowUp"],
+    ["SPACE", "JUMP", "A"], ["SHIFT", "CROUCH", "X"],
+    ["ENTER", "PUNCH", "B"], ["ALT", "KICK", "Y"]] : [
+    [["LEFT", "RIGHT"], "MOVE", "ArrowLeft"],
+    [["UP", "DOWN"], "DEPTH", "ArrowUp"],
+    ["A", "JUMP", "A"], ["X", "CROUCH", "X"],
+    ["B", "PUNCH", "B"], ["Y", "KICK", "Y"], ["RB", "BUBBLE", "RightShoulder"]];
   if (caps.inputFamily === "keyboard") return [
     [["A", "D"], "MOVE", "ArrowLeft"], [["D", "D"], ">> DASH", "ArrowRight"],
     ["SPACE", "KICK", "A"], ["ENTER", "PUNCH", "B"],
@@ -18007,7 +18099,7 @@ function drawPlayerStats(player, side, t) {
   const x = side === 0 ? safe.left : safe.right - width;
   const y = handle.y - debugReadoutHeight() - height - 12;
   const previousDepth = triangleDepth;
-  triangleDepth = -1.445;
+  triangleDepth = hudDepth;
   for (let row = 0; row < lines.length; row++) {
     const rowY = y + padding + row * lineHeight;
     writeHudLine(lines[row], x + padding, rowY, size);
@@ -20536,7 +20628,7 @@ function drawNetHealth(ink) {
   const lit = netHealthPalette[Math.max(0, health.bars - 1)];
   const dim = mixColor([58, 64, 78], [196, 201, 212], visualTheme.light);
   const previousDepth = triangleDepth;
-  triangleDepth = -1.43;
+  triangleDepth = hudDepth;
   for (let index = 0; index < count; index++) {
     const height = Math.round(tall * (index + 1) / count);
     const x = right - width + index * (bar + gap);
@@ -20568,7 +20660,7 @@ function drawSpectatorQr(ink, placement = null) {
       Math.round(hudTypeSize * 2.1), Math.round(hudTypeSize * 1.2), ink);
   const shadow = [24, 26, 34];
   const previousDepth = triangleDepth;
-  triangleDepth = -1.43;
+  triangleDepth = hudDepth;
   screenRect(left + 3, top + 3, size, size, shadow);
   screenRect(left, top, size, size, [250, 250, 247]);
   // Dark modules coalesce into horizontal runs so a full code stays a few
@@ -21100,19 +21192,14 @@ function gamePaint() {
       drawRunner(renderable.item, t, showRunnerLabels);
     }
   }
-  // Debug geometry sits above the world but below the -1.42 screen-UI lane.
-  // It must remain visible through fighter bodies without cutting across the
-  // title, controls, command notation, names, clock, or other HUD furniture.
-  triangleDepth = -1.4;
+  // Debug geometry shares the unfiltered overlay pass, behind screen UI.
+  triangleDepth = -1.465;
   for(const p of activePlayers()){drawDebugHitboxes(p,t);if(debugHitboxes)drawAxeHitbox(p,t);}
   for (const player of players) drawBotScene(player);
   drawBallHitboxes();
   drawSafeZones();
-  triangleDepth = -1.42;
-  // On the SCREEN UI layer, not the debug-geometry one above it. The meter is
-  // an instrument being read rather than scenery in the room, and the layering
-  // test is what caught it sitting at the debug depth where a tall enough
-  // piece of world could have drawn straight through it.
+  triangleDepth = -1.475;
+  // Meters and screen UI sit in front of the debug geometry.
   drawFrameMeter();
   drawImpacts();
   drawTitleHeadDoor(t, titleInk, reelMinimal);
@@ -21678,7 +21765,7 @@ const seatHudReadouts=new WeakMap();
 function seatHudReadout(p,now){
  const held=seatHudReadouts.get(p),age=held?now-held.at:Infinity;
  if(age>=0 && age<100000)return held;
- const speed=Math.hypot(p.vx,p.vy)*gameSpeed;
+ const speed=Math.hypot(p.vx,p.vy,p.vz||0)*gameSpeed;
  const idle=speed<30 && p.grounded && !p.spin;
  const readout={at:now,idle,
   measure:idle?Math.round(p.heartRate||68)+' bpm':p.spin?Math.round(spinRpm(p))+' rpm':Math.round(mph(speed))+' mph',
@@ -21923,9 +22010,9 @@ function updateWheelTurbo(dt,now){
  for(const p of activePlayers()){
   if(!p.onewheel || !p.alive){p.wheelTurbo=false;p.wheelChargeAt=0;continue;}
   const speed=Math.abs(p.skateVx||0);
-  if(speed<2200){p.wheelTurbo=false;p.wheelChargeAt=0;}
+  if(p.grounded&&speed<2200){p.wheelTurbo=false;p.wheelChargeAt=0;}
   if(!p.wheelTurbo){
-    if(speed>=2940){
+    if(speed>=2940 || (!p.grounded && p.wheelChargeAt)){
       p.wheelChargeAt ||= now;
       if(now-p.wheelChargeAt>=1000000*gameSpeed){p.wheelTurbo=true;p.lastButton='SUPER TURBO';p.lastButtonAt=now;playDrum('whoosh',.6,panPlayer(p));}
     }else p.wheelChargeAt=0;

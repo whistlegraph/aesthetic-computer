@@ -407,7 +407,8 @@ JSValue ThemeQuadDraw(JSContext* context, JSValueConst, int argc, JSValueConst* 
     return JS_ThrowRangeError(context, "invalid theme quad depth");
   if (!scope->api->graphics.theme_asset_ready(asset)) return JS_FALSE;
   scope->api->graphics.theme_quad({asset, v[0],v[1],v[2],v[3],
-    v[4],v[5],v[6], v[7],v[8],v[9], v[10],v[11],v[12],v[13],v[14],v[15]});
+    v[4],v[5],v[6], v[7],v[8],v[9], v[10],v[11],v[12],v[13],v[14],v[15],
+    false, argc < 18 || JS_ToBool(context, argv[17]) != 0});
   return JS_TRUE;
 }
 
