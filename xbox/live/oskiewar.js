@@ -16958,6 +16958,103 @@ function drawDeathFlash() {
   triangleDepth = previousDepth;
 }
 
+// A figure is drawn at the detail its size on screen can show. Full detail is
+// ~90 native calls and ~2 ms of console JS per figure whatever its size, so a
+// crowd or a wide shot multiplied that; small figures now drop the outfit,
+// face and hair work first, then the outline pass, then all but a head and a
+// torso. Held items, the shield and the hit flash survive every tier above the
+// dot, because they are play. figureLodScale is the governor's: it lifts every
+// threshold together while frames run long and eases back once there is room.
+const figureLodFull = 120, figureLodSimple = 44, figureLodDot = 14;
+let figureLodScale = 1, figureFrameMs = 16.7, figureFrameAt = 0;
+function governFigureLod(now) {
+  const elapsed = (now - figureFrameAt) / 1000;
+  figureFrameAt = now;
+  if (!(elapsed > 0 && elapsed < 50)) return;
+  figureFrameMs += (elapsed - figureFrameMs) * .1;
+  if (figureFrameMs > 17.5) figureLodScale = Math.min(1.5, figureLodScale * 1.02);
+  else if (figureFrameMs < 15.8) figureLodScale = Math.max(1, figureLodScale / 1.01);
+}
+function figureLod(player, geometry) {
+  const head = geometry.head;
+  let top = head.y - head.radius, bottom = head.y + head.radius;
+  for (const s of geometry.segments) {
+    if (s.hitboxOnly) continue;
+    if (s.y1 > bottom) bottom = s.y1;
+    if (s.y2 > bottom) bottom = s.y2;
+    if (s.y1 < top) top = s.y1;
+    if (s.y2 < top) top = s.y2;
+  }
+  const height = bottom - top, k = figureLodScale, previous = player.lodTier || 0;
+  const tierAt = (h) => h >= figureLodFull * k ? 0 : h >= figureLodSimple * k ? 1
+    : h >= figureLodDot * k ? 2 : 3;
+  const forced = globalThis.__oskiewarFigureLod;
+  if (forced >= 0 && forced <= 3) return player.lodTier = forced;
+  let tier = tierAt(height);
+  // Twelve percent of hysteresis, so a figure on a boundary does not flicker.
+  if (tier !== previous && tierAt(height * (tier > previous ? 1.12 : .88)) === previous)
+    tier = previous;
+  player.lodTier = tier;
+  return tier;
+}
+function figurePartColor(player, segment) {
+  if (player.dummy) return [192, 188, 179];
+  if (segment.role === "torso") return player.shirtColor || player.color;
+  if (/thigh|shin/.test(segment.role || "")) return player.pantsColor || player.color;
+  return player.color;
+}
+function drawFigureLod(player, geometry, tier, t) {
+  const head = geometry.head, skin = player.dummy ? [192, 188, 179] : player.color;
+  if (tier === 3) {
+    const torso = geometry.segments.find((s) => s.role === "torso");
+    if (torso) filledCapsule(torso.x1, torso.y1, torso.x2, torso.y2,
+      Math.max(2, torso.width), figurePartColor(player, torso));
+    filledDisc(head.x, head.y, Math.max(1.5, head.radius), skin);
+    return;
+  }
+  if (player.skateboard) drawSkateboard(player);
+  const outline = player.hit > 0 ? [255, 232, 92] : [8, 12, 24];
+  const edge = tier === 1 ? Math.max(1.25, Math.min(3, cameraScale() * 1.8)) : 0;
+  if (edge) {
+    for (const s of geometry.segments) if (!s.hitboxOnly)
+      filledCapsule(s.x1, s.y1, s.x2, s.y2, s.width + edge * 2, outline);
+    filledDisc(head.x, head.y, head.radius + edge, outline);
+  }
+  // The shirt reads as a shirt, not as a bone: the torso wears head width.
+  const shirt = (s) => s.role === "torso" && !player.dummy ? Math.max(s.width, head.radius * 1.1) : s.width;
+  if (edge) {
+    const torso = geometry.segments.find((s) => s.role === "torso" && !s.hitboxOnly);
+    if (torso) filledCapsule(torso.x1, torso.y1, torso.x2, torso.y2, shirt(torso) + edge * 2, outline);
+  }
+  for (const s of geometry.segments) if (!s.hitboxOnly)
+    filledCapsule(s.x1, s.y1, s.x2, s.y2, shirt(s), figurePartColor(player, s));
+  filledDisc(head.x, head.y, head.radius, skin);
+  const r = head.radius;
+  if (!player.dummy) filledCapsule(head.x - r * .6, head.y - r * .56, head.x + r * .6,
+    head.y - r * .56, r * .8, player.hairColor || [40, 30, 35]);
+  if (tier === 1 && !player.dummy) {
+    for (const side of [-1, 1])
+      filledDisc(head.x + side * r * .32 + (player.facing || 1) * r * .12, head.y + r * .1,
+        Math.max(1, r * .12), [23, 19, 29]);
+  }
+  const hitNow = runtime().monotonicUs;
+  if (player.hitSegment >= 0 && hitNow < player.hitSegmentUntil &&
+      Math.floor(hitNow / 45000) % 2 === 0) {
+    const segment = geometry.segments[player.hitSegment];
+    if (segment) filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
+      segment.width + Math.max(3, 5 * cameraScale()), [255, 238, 102]);
+  }
+  const displayNow = player.frozenAt || hitNow;
+  drawInventory(player, displayNow, geometry);
+  drawHeldAxe(player, t);
+  if (player.blocking) {
+    const worldShield = shieldGeometry(player);
+    const shield = projectPoint(worldShield.x, worldShield.y, worldShield.z);
+    drawBubble(player, shield.x, shield.y,
+      Math.max(18, worldShield.radius * cameraScale()), hitNow / 1e6);
+  }
+}
+
 function drawRunner(player, t, showLabel = true) {
   if(player.civilian && player.headless){drawCivilianDebris(player);return;}
   if(player.dummy)player={...player,alive:true,emo:false,color:[192,188,179],handleColors:null,hairColor:[192,188,179]};
@@ -17011,6 +17108,8 @@ function drawRunner(player, t, showLabel = true) {
       segment.y1 += dy; segment.y2 += dy;
     }
   }
+  const lod = figureLod(player, geometry);
+  if (lod > 0) { drawFigureLod(player, geometry, lod, t); return; }
   // Preserve the fighter's identity color during hit flash. A pure white body
   // disappeared against the daylight arena, so impact now changes only its rim.
   const color = player.color;
@@ -20125,6 +20224,7 @@ function drawTitleHeadDoor(t, ink, suppressed) {
 }
 
 function gamePaint() {
+  governFigureLod(runtime().monotonicUs);
   syncGameView();
   globalThis.__oskiewarLocalVersus = localVersusActive();
   const run = runtime();
@@ -21282,17 +21382,19 @@ function drawSeatFirstPerson(){
  const rect={x:viewWidth()-w-30,y:30,w,h},now=runtime().monotonicUs;
  triangleDepth=-1.482;screenRect(rect.x-4,rect.y-4,w+8,h+8,[31,24,41]);
  screenRect(rect.x,rect.y,w,h,[151,182,206]);
- if(!seatInsetBuffer || now>=seatInsetAt || seatInsetRect?.x!==rect.x){
-  seatInsetAt=now;seatInsetRect=rect;
-  rebuildSeatInset(rect);
- }
+ // On the console the park meshes go straight to sceneMesh every frame; the
+ // kids' fans are rebuilt at 30 Hz and replayed from the buffer in between.
+ const nativeMeshes=typeof sceneMesh==='function' && typeof triangles3d==='function';
+ const kidsDue=!nativeMeshes || !seatInsetBuffer || now>=seatInsetAt || seatInsetRect?.x!==rect.x;
+ if(kidsDue){seatInsetAt=now+30000;seatInsetRect=rect;}
+ rebuildSeatInset(rect,kidsDue);
  if(typeof triangles3d==='function' && seatInsetCount)triangles3d(seatInsetBuffer,seatInsetCount);
  else if(seatInsetBuffer)for(let i=0;i<seatInsetCount*12;i+=12){const a=seatInsetBuffer;emitTriangle(a[i],a[i+1],a[i+2],a[i+3],a[i+4],a[i+5],a[i+6],a[i+7],a[i+8],a[i+9],a[i+10],a[i+11]);}
  triangleDepth=-1.499;screenRect(rect.x,rect.y+h-3,w,3,[255,145,194]);
  typeWrite('P1 VIEW',rect.x+9,rect.y+7,16,250,239,249);
  triangleDepth=old;
 }
-function rebuildSeatInset(rect){
+function rebuildSeatInset(rect,kids=true){
  const player=players[0],yaw=player.spin?.angle||0,fx=Math.cos(yaw)*(player.facing||1),fz=Math.sin(yaw)*(player.facing||1);
  const eye={x:player.x,y:player.y-(isHeadOnly(player)?35:player.ducking?90:160),z:player.z||0};
  const values=[],focal=rect.w*.68;
@@ -21347,6 +21449,7 @@ function rebuildSeatInset(rect){
    face(pts,color);
   }
  }
+ if(!kids)return;
  const disc=(center,radius,color)=>{
   for(let i=0;i<10;i++){const a=i*Math.PI/5,b=(i+1)*Math.PI/5;face([center,{x:center.x+Math.cos(a)*radius,y:center.y+Math.sin(a)*radius,z:center.z},{x:center.x+Math.cos(b)*radius,y:center.y+Math.sin(b)*radius,z:center.z}],color);}
  };
