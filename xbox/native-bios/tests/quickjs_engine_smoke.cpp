@@ -2,10 +2,16 @@
 #include "ac/relay_endpoint.hpp"
 #include "ac/glass_sound.hpp"
 #include "ac/decal_atlas.hpp"
+#include "ac/decal_surface.hpp"
 #include <cassert>
 using namespace ac::xbox;
 namespace {
-class GraphicsProbe final : public Graphics { public: bool themeAvailable = true; int themeSprites = 0, themeQuads = 0; ThemeSprite lastTheme{}; ThemeQuad lastQuad{}; bool theme_ready() const override { return themeAvailable; } bool theme_asset_ready(int asset) const override { return themeAvailable && asset >= 0 && asset < 6; } void theme_sprite(const ThemeSprite& value) override { ++themeSprites; lastTheme = value; } void theme_quad(const ThemeQuad& value) override { ++themeQuads; lastQuad=value; } Color color{}; int boxes = 0; int lines = 0; int triangles = 0; int textured = 0; int sprites = 0; int writes = 0; int systemWrites = 0; int glyphs = 0; int images = 0; int blurs = 0; ImageDraw lastImage{}; void wipe(Color value) override { color = value; } void box(const Rect&) override { ++boxes; } void line(const Line&) override { ++lines; } void triangle(const Triangle&) override { ++triangles; } void textured_triangle(const TexturedTriangle&) override { ++textured; } void sprite(const Sprite&) override { ++sprites; } void write(const Text&) override { ++writes; } void system_write(const SystemText&) override { ++systemWrites; } void system_glyph(const SystemGlyph&) override { ++glyphs; } void image(const ImageDraw& draw) override { ++images; lastImage = draw; } void blur(unsigned) override { ++blurs; } };
+class GraphicsProbe final : public Graphics { public:
+  DecalSurface surface; int decalTriangles=0; TexturedTriangle lastDecal{};
+  bool decal_clear() override { surface.clear();return true; }
+  bool decal_stamp(const std::array<float,12>& q) override { return surface.stamp(q); }
+  void decal_triangle(const TexturedTriangle& t) override { ++decalTriangles;lastDecal=t; }
+ bool themeAvailable = true; int themeSprites = 0, themeQuads = 0; ThemeSprite lastTheme{}; ThemeQuad lastQuad{}; bool theme_ready() const override { return themeAvailable; } bool theme_asset_ready(int asset) const override { return themeAvailable && asset >= 0 && asset < 6; } void theme_sprite(const ThemeSprite& value) override { ++themeSprites; lastTheme = value; } void theme_quad(const ThemeQuad& value) override { ++themeQuads; lastQuad=value; } Color color{}; int boxes = 0; int lines = 0; int triangles = 0; int textured = 0; int sprites = 0; int writes = 0; int systemWrites = 0; int glyphs = 0; int images = 0; int blurs = 0; ImageDraw lastImage{}; void wipe(Color value) override { color = value; } void box(const Rect&) override { ++boxes; } void line(const Line&) override { ++lines; } void triangle(const Triangle&) override { ++triangles; } void textured_triangle(const TexturedTriangle&) override { ++textured; } void sprite(const Sprite&) override { ++sprites; } void write(const Text&) override { ++writes; } void system_write(const SystemText&) override { ++systemWrites; } void system_glyph(const SystemGlyph&) override { ++glyphs; } void image(const ImageDraw& draw) override { ++images; lastImage = draw; } void blur(unsigned) override { ++blurs; } };
 class SoundProbe final : public Sound { public: int calls = 0; int oscillators = 0; int stops = 0; int drums = 0; void synth(const SynthVoice&) override { ++calls; } void stop_all() override {} int sample_rate() const override { return 48000; } void oscillator(float, float) override { ++oscillators; } void oscillator_stop() override { ++stops; } void drum(std::string_view, float, float) override { ++drums; } };
 }
 int main() {
@@ -20,6 +26,21 @@ int main() {
       else if (alpha < 255) ++translucent;
     }
     assert(transparent > 100 && translucent > 100);
+  }
+  {
+    DecalSurface surface;surface.clean();
+    const auto* allocation=surface.pixels.data();
+    assert(surface.stamp({0,0,128,128,20,20,44,20,44,44,20,44}));
+    assert(surface.dirty && surface.left==20 && surface.right==44);
+    unsigned alpha=0;for(unsigned y=20;y<44;y++)for(unsigned x=20;x<44;x++)alpha+=surface.pixels[(y*2048+x)*4+3];
+    assert(alpha>0);
+    const auto before=surface.pixels;
+    for(int i=0;i<10000;i++)assert(surface.stamp({0,0,128,128,100,100,108,100,108,108,100,108}));
+    assert(surface.pixels.data()==allocation && surface.pixels.size()==2048u*2048u*4u);
+    for(unsigned y=20;y<44;y++)for(unsigned x=20;x<44;x++)for(int k=0;k<4;k++)
+      assert(surface.pixels[(y*2048+x)*4+k]==before[(y*2048+x)*4+k]);
+    assert(!surface.stamp({250,0,128,128,0,0,10,0,10,10,0,10}));
+    surface.clear();for(auto value:surface.pixels)assert(value==0);
   }
   for (const uint32_t rate : {44100u, 48000u}) {
     const auto glass = synthesize_glass(rate);
@@ -156,6 +177,25 @@ int main() {
   )JS", "test"}, {}, error);
   assert(decals && error.empty()); decals->paint(api);
   assert(graphics.lastQuad.asset == 5 && !graphics.lastQuad.depth_write);
+  auto retainedDecals=engine.compile({"retained-decals","test",R"JS(
+    function paint(){
+      if(!decalClear()||!decalStamp(0,0,128,128,20,20,44,20,44,44,20,44))throw Error('retained stamp');
+      let rejected=false;try{decalStamp(250,0,128,128,0,0,1,0,1,1,0,1);}catch(_){rejected=true;}
+      if(!rejected)throw Error('invalid atlas accepted');
+      const vertices=new Float32Array([-10,0,20,10,0,20,10,0,40,-10,0,40]);
+      const faces=new Float32Array([0,1,2,3,255,255,255,0,-1,0]);
+      const handle=meshUpload(vertices,faces);
+      const camera=new Float32Array([0,-10,0, 1,0,0, 0,-1,0, 0,0,1, 100,100,1,100,1,1,0,0,200,200,0,.001,0,-1,0]);
+      const first=decalMesh(handle,camera,-10,20,20,20);
+      if(first!==2)throw Error('expected one surface quad');
+      for(let i=0;i<1000;i++)decalStamp(0,0,128,128,100,100,108,100,108,108,100,108);
+      if(decalMesh(handle,camera,-10,20,20,20)!==first)throw Error('draw cost grew');
+      meshFree(handle);
+    }
+  )JS","test"},{},error);
+  assert(retainedDecals && error.empty());retainedDecals->paint(api);
+  assert(graphics.decalTriangles==4);
+  assert(graphics.lastDecal.u1==0 && graphics.lastDecal.v1==0);
   graphics.themeAvailable = false;
   auto unavailable = engine.compile({"missing-theme", "test", R"JS(
     function paint() { if (themeReady() || themeAssetReady(2) || themeSprite(0,0,0,1,1,0,0,1,1,0,false,0)) throw Error('missing theme must fall back'); }

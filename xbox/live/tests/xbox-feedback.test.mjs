@@ -4,9 +4,10 @@ import vm from 'node:vm';
 import test from 'node:test';
 
 const source = await readFile(new URL('../oskiewar.js', import.meta.url), 'utf8');
-function game(course = "pool") {
+function game(course = "pool", retainedDecals = false) {
   let now = 0;
   const post = [], texts = [], faces = [], sounds = [], decalsDrawn = [];
+  const surface={clears:0,stamps:0,draws:0};
   const pads = [0, 1].map(() => ({ connected: true, down: [], leftX: 0, leftY: 0 }));
   const context = vm.createContext({
     __oskiewarFreeskateMap: course,
@@ -22,6 +23,10 @@ function game(course = "pool") {
     drum: (...args) => sounds.push(args),
     themeAssetReady: asset => asset === 5,
     themeQuad: (...args) => { decalsDrawn.push(args); return true; },
+    ...(retainedDecals?{meshUpload:()=>0,meshDraw:()=>0,
+      decalClear:()=>{surface.clears++;return true;},
+      decalStamp:()=>{surface.stamps++;return true;},
+      decalMesh:()=>{surface.draws++;return 2000;}}:{}),
     ...Object.fromEntries(['telemetry', 'gameSignal', 'saveReplay', 'publishLive',
       'analytics', 'wipe', 'box', 'line', 'triangle', 'write'].map(key => [key, () => {}])),
   });
@@ -31,6 +36,8 @@ function game(course = "pool") {
     cameraDoll,steerPostEffects,projectPoint,drawSeatPlayerHud,handleWidth,
     breakRoofPane,configureWorldMap,resetRoofPanes,updatePlayer,updateWheelTurbo,
     addDecal,decals,rasterDecalPatches,terrainFloorAt,drawDecals,
+    surfaceState:()=>({native:poolDecalsNative,count:poolDecalCount}),
+    poolMesh:()=>captureQuadMesh(drawPoolGeometry),
     pool,poolDistance,poolSlopeAt,monowheelFrame,runnerWorldGeometry,updateCameraDoll,
     debug:()=>debugHitboxes=true,
     bounds:()=>({near:worldNear+60,far:worldFar-60}),
@@ -48,7 +55,7 @@ function game(course = "pool") {
   api.boot();
   api.begin();
   assert.equal(api.error(), '');
-  return { api, context, post, texts, faces, sounds, pads, decalsDrawn,
+  return { api, context, post, texts, faces, sounds, pads, decalsDrawn, surface,
     tick: () => { now += 16667; api.sim(); assert.equal(api.error(), ''); } };
 }
 
@@ -263,6 +270,48 @@ test('pool marks remain visible beyond both old limits, after time and revisitin
   assert.ok(a.decals.includes(oldest),'restarting the rider preserves the surface');
   a.configureWorldMap('skatepark','indoor');
   assert.equal(a.decals.length,0,'changing the actual map starts a new surface');
+});
+
+test('retained pool marks stamp once and keep constant draw work after ten thousand marks', () => {
+  const g=game('pool',true),a=g.api,clears=g.surface.clears;
+  assert.equal(a.surfaceState().native,true);
+  a.drawDecals([172,212,211]);const oneFrame=g.surface.draws;
+  const old=a.surfaceState().count;
+  for(let i=0;i<10000;i++)a.addDecal({kind:'skid',x:700+i%400,x2:720+i%400,z:0,size:7});
+  assert.equal(a.surfaceState().count,old+10000);
+  assert.equal(a.decals.length,0,'no growing JS decal history or patch cache');
+  assert.equal(g.surface.clears,clears,'new marks never clear the texture');
+  const stamps=g.surface.stamps;
+  a.drawDecals([172,212,211]);
+  assert.equal(g.surface.draws,oneFrame+1,'one retained mesh submission per frame');
+  assert.equal(g.surface.stamps,stamps,'painting never replays old stamps');
+  assert.equal(g.decalsDrawn.length,0,'does not consume the 1024 theme-quad budget');
+  a.reset();assert.equal(g.surface.clears,clears);
+  assert.equal(a.surfaceState().count,old+10000,'reset does not reseed or erase');
+  a.configureWorldMap('skatepark','indoor');assert.equal(g.surface.clears,clears+1);
+});
+
+test('the bowl uses one solid material and the grounded camera follows lower', () => {
+  const g=game(),a=g.api;
+  const mesh=a.poolMesh();assert.equal(new Set(mesh.faces.map(f=>f.color.join(','))).size,1);
+  for(let i=0;i<120;i++)g.tick();
+  assert.ok(a.cameraDoll.position.y>1100,'lens is lower than the old overhead view');
+  assert.ok(a.cameraDoll.position.y<a.players[0].y-200,'still clears the rider and ground');
+});
+
+test('the pool rider has depth across the shoulders and leans into a carve', () => {
+  const g=game(),a=g.api,p=a.players[0];
+  Object.assign(p,{skateboard:true,onewheel:true,vx:1800,poolYaw:0,poolLean:0});
+  const straight=a.runnerWorldGeometry(p,0);
+  const shoulders=straight.segments.find(b=>b.role==='shoulders');
+  assert.ok(Math.abs(shoulders.z2-shoulders.z1)>=50,'shoulders span real depth');
+  p.poolLean=.3;
+  const banked=a.runnerWorldGeometry(p,0);
+  assert.ok(banked.head.z<straight.head.z-20,'upper body leans toward the turn');
+  for(const foot of straight.segments.filter(b=>/shin$/.test(b.role))){
+    const after=banked.segments.find(b=>b.role===foot.role);
+    assert.ok(Math.abs(after.z2-foot.z2)<.1,'feet stay planted while the torso banks');
+  }
 });
 
 test('a glass roof break is one composite cue and still works on the full hall', () => {

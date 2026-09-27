@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 177;
+const buildVersion = 178;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -420,6 +420,7 @@ function configureWorldMap(name, course = skateCourse) {
   // cleared only when the map itself changes.
   if (previousMap !== skateparkMap + "/" + skateCourse) {
     decals.length = 0;
+    clearPoolDecals();
     bloodDrops.length = 0;
   }
   const indoor = skateparkMap && skateCourse === "indoor";
@@ -892,6 +893,10 @@ function drawRasterDecal(decal) {
   }
 }
 function drawDecals(surface) {
+  if(poolOnly()&&poolDecalsNative&&poolDecalCount){
+    poolSurfaceMesh ||= captureQuadMesh(drawPoolGeometry);
+    decalMesh(meshHandle(poolSurfaceMesh),mainNativeCamera(),gridLeft,worldNear,gridWidth,roomDepth);
+  }
   if (!decals.length && !bloodDrops.length) return;
   const now = runtime().monotonicUs;
   const reach = cameraWidth * .8 + 300;
@@ -3076,6 +3081,12 @@ let impactSequence = 0;
 const decals = [];
 const bloodDrops = [];
 const decalCap = 160;
+let poolDecalsNative=null,poolDecalCount=0;
+function clearPoolDecals(){
+  poolDecalCount=0;
+  poolDecalsNative=typeof decalClear==='function'&&typeof decalStamp==='function'&&
+    typeof decalMesh==='function'&&nativeRetainedMeshes?decalClear():false;
+}
 let decalSeed = 7;
 function decalRandom() {
   decalSeed = (Math.imul(decalSeed, 1103515245) + 12345) >>> 0;
@@ -3090,6 +3101,16 @@ function addDecal(decal) {
   const slope = terrainTangentAt(decal.x, 8), norm = Math.hypot(1, slope);
   decal.tx = 1 / norm; decal.ty = slope / norm;
   decal.shape = decalShape(decal);
+  if(poolOnly()){
+    if(poolDecalsNative===null)clearPoolDecals();
+    if(poolDecalsNative){
+      for(const patch of rasterDecalPatches(decal))
+        decalStamp(...patch.uv,...patch.points.flatMap(p=>[
+          (p.x-gridLeft)/gridWidth*2048,(p.z-worldNear)/roomDepth*2048]));
+      poolDecalCount++;
+      return decal;
+    }
+  }
   // Blood landing in blood makes a pool rather than another mark: the
   // splat it lands in grows (and freshens), so the count stays flat however
   // much is spilled.
@@ -3267,7 +3288,7 @@ function addSkid(x1, x2, z, strength = 1) {
   addDecal({ kind: "skid", x: x1, x2, z, size: 3.2, strength });
 }
 function seedHalfpipeScuffs() {
-  if (!halfpipeOnly() || decals.length) return;
+  if (!halfpipeOnly() || decals.length || poolDecalCount) return;
   for (const [x,z,size,angle] of [[380,-140,65,.2],[510,160,48,-.3],
       [820,200,45,.1],[1160,-80,38,.5],[1500,-170,65,-.2],[1730,90,55,.4]])
     addDecal({kind:"scuff",x,z,size,angle,stretch:1.7,strength:.5});
@@ -9456,8 +9477,8 @@ function updateCameraDoll(dt, now) {
       z:lerp(p.z||0,lookZ,.15+poolCameraDip*.4)};
     const subject={x:p.x,y:p.y-2,z:p.z||0};
     const position=clearPoolCamera({x:target.x-Math.cos(angle)*distance,
-      y:Math.min(p.y-85-(880+poolCameraDip*260+Math.min(500,airHeight*.2))*zoom-playerCameraPitch*600,
-        floorY-pool.radius-300),z:target.z-Math.sin(angle)*distance},subject);
+      y:p.y-85-(lerp(390,880,clamp(airHeight/500,0,1))+poolCameraDip*230+Math.min(500,airHeight*.2))*zoom-playerCameraPitch*600,
+      z:target.z-Math.sin(angle)*distance},subject);
     cameraCenter=target.x;cameraCenterY=target.y;cameraWidth=1650*zoom;
     cameraDoll.track({target,position,width:cameraWidth,perspective:1,fov:58+poolCameraDip*5,roll:0},dt,8);
     // Also protect the eased path while orbiting around a corner of the pool.
@@ -12162,6 +12183,8 @@ function updatePoolPlayer(p, pad, dt, now) {
   const turnRate=p.onewheel?lerp(2.8,1.9,clamp(speedBefore/3000,0,1)):3.2;
   // Steering changes the rider's heading. Forward always pushes along that heading.
   p.poolYaw=oldHeading-turn*turnRate*dt;
+  const bank=turn*(p.skateboard?.34:.18)*clamp(speedBefore/1400,0,1);
+  p.poolLean=((p.poolLean||0)+(bank-(p.poolLean||0))*(1-Math.exp(-dt*8)));
   const headingDelta=p.poolYaw-oldHeading;
   if(p.grounded&&headingDelta){
     const vx=p.vx,vz=p.vz||0,c=Math.cos(headingDelta),sn=Math.sin(headingDelta);
@@ -14941,6 +14964,25 @@ function runnerWorldGeometry(player, t) {
     segment.x1 = a.x; segment.y1 = a.y; segment.x2 = b.x; segment.y2 = b.y;
   }
   }
+  if(poolOnly()&&!isHeadOnly(player)){
+    const z=player.z||0,bank=player.poolLean||0;
+    if(!player.skateboard){
+      for(const bone of pose.segments){
+        const side=bone.part?.startsWith('left-')?-1:bone.part?.startsWith('right-')?1:0;
+        const width=bone.part?.includes('arm')?22:13;
+        bone.z1=z+side*width;bone.z2=z+side*width;
+        if(bone.role==='shoulders'){bone.z1=z-22;bone.z2=z+22;}
+      }
+    }
+    // Bank the torso into a carve while the feet remain planted on the deck.
+    const lean=(point,yKey,zKey)=>{
+      const height=Math.max(0,player.y-point[yKey]-28),weight=clamp(height/60,0,1);
+      point[zKey]=(point[zKey]??z)-height*Math.sin(bank)*weight;
+      point[yKey]+=height*(1-Math.cos(bank))*weight;
+    };
+    lean(pose.head,'y','z');
+    for(const bone of pose.segments){lean(bone,'y1','z1');lean(bone,'y2','z2');}
+  }
   if (poolOnly() && player.poolYaw) {
     const c=Math.cos(player.poolYaw),s=Math.sin(player.poolYaw),z=player.z||0;
     const rotate=(point,xKey,zKey)=>{const dx=point[xKey]-player.x,dz=(point[zKey]??z)-z;
@@ -14994,7 +15036,7 @@ function updateRig(player, pad, dt) {
     if (rig.drip > .7) { rig.drip = 0; spawnBlood(player.x, player.y - 60, player.z || 0, 0, 1, .2); }
   }
   rig.lastGrounded = player.grounded;
-  const crouchTarget = (pumping ? .55 : 0) + (!player.grounded && board ? .3 : 0);
+  const crouchTarget = (pumping ? .55 : poolOnly()&&board?.28:0) + (!player.grounded && board ? .3 : 0);
   springStep(rig, "crouch", crouchTarget, 90, 9, dt);
   rig.crouch = clamp(rig.crouch, 0, .95);
   springStep(rig, "arms", clamp((rig.leanV || 0) * .02, -1.4, 1.4) * strength, 55, 4, dt);
@@ -15487,12 +15529,12 @@ function buildRunnerWorldGeometry(player, t, at = null) {
     Object.assign(head, transform(head.x, head.y, 0));
     for (const bone of segments) {
       const side = bone.part.startsWith("left-") ? -1 : bone.part.startsWith("right-") ? 1 : 0;
-      const depth = side * (bone.part.includes("arm") ? 15 : 9);
+      const depth = side * (bone.part.includes("arm") ? (poolOnly()?27:15) : (poolOnly()?14:9));
       const a = transform(bone.x1, bone.y1, depth);
       const b = transform(bone.x2, bone.y2, depth);
       if (bone.role === "shoulders") {
-        a.z = z - 15;
-        b.z = z + 15;
+        a.z = z - (poolOnly()?27:15);
+        b.z = z + (poolOnly()?27:15);
       }
       Object.assign(bone, { x1: a.x, y1: a.y, z1: a.z, x2: b.x, y2: b.y, z2: b.z });
     }
@@ -15501,8 +15543,8 @@ function buildRunnerWorldGeometry(player, t, at = null) {
           ["rear", -player.facing, rearLeg]]) {
         if (!hasPart(player, part)) continue;
         const side = part === "left-leg" ? -1 : 1;
-        const hip = transform(x, hipY, side * 7);
-        const foot = deck(direction * skateTruck, -4, side * 9);
+        const hip = transform(x, hipY, side * (poolOnly()?12:7));
+        const foot = deck(direction * skateTruck, -4, side * (poolOnly()?14:9));
         const dx = foot.x - hip.x, dy = foot.y - hip.y, dz = foot.z - hip.z;
         const distance = Math.hypot(dx, dy, dz) || 1;
         const length = Math.max(48, distance / 1.98);
@@ -18945,7 +18987,7 @@ function terrainSurfaceShades(color) {
 }
 let poolSurfaceMesh=null;
 function drawPoolGeometry() {
-  const center=gridLeft+gridWidth/2,segments=12;
+  const center=gridLeft+gridWidth/2,segments=12,ink=[172,212,211];
   const ring=(radius,y)=>{
     const points=[];
     for(let corner=0;corner<4;corner++)for(let i=0;i<=segments;i++){
@@ -18959,7 +19001,7 @@ function drawPoolGeometry() {
   for(let x=-pool.halfX;x<pool.halfX;x+=120)for(let z=-pool.halfZ;z<pool.halfZ;z+=120)
     worldQuad({x:center+x,y:floorY,z},{x:center+x+120,y:floorY,z},
       {x:center+x+120,y:floorY,z:z+120},{x:center+x,y:floorY,z:z+120},
-      ((x+pool.halfX+z+pool.halfZ)/120)%2?[172,212,211]:[178,219,218]);
+      ink);
   let previous=ring(0,floorY);
   const bands=20;
   for(let band=1;band<=bands+3;band++){
@@ -18969,16 +19011,13 @@ function drawPoolGeometry() {
     const current=ring(r,y);
     for(let i=0;i<current.length;i++){
       const j=(i+1)%current.length;
-      const tile=band>=bands-2&&band<=bands;
-      const shade=band>bands?[216,221,211]:tile?(i%2?[37,117,151]:[49,139,167]):
-        (i+band)%2?[153,197,199]:[167,210,211];
-      worldQuad(previous[i],previous[j],current[j],current[i],shade);
+      worldQuad(current[i],current[j],previous[j],previous[i],ink);
     }
     previous=current;
   }
   for(let i=0;i<previous.length;i++){
     const j=(i+1)%previous.length,a=previous[i],b=previous[j];
-    worldQuad(a,b,{...b,y:b.y+110},{...a,y:a.y+110},[114,142,144]);
+    worldQuad(a,b,{...b,y:b.y+110},{...a,y:a.y+110},ink);
   }
 }
 let pipeSurfaceMesh=null,pipeSurfaceKey='';

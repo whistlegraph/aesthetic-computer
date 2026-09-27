@@ -346,6 +346,19 @@ JSValue ThemeReady(JSContext* context, JSValueConst, int, JSValueConst*) {
   return JS_NewBool(context, scope && scope->api && scope->api->graphics.theme_ready());
 }
 
+JSValue DecalClear(JSContext* context, JSValueConst, int, JSValueConst*) {
+  auto* scope=static_cast<CallScope*>(JS_GetContextOpaque(context));
+  return JS_NewBool(context,scope&&scope->api&&scope->api->graphics.decal_clear());
+}
+JSValue DecalStamp(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope=static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if(!scope||!scope->api||argc<12)return JS_ThrowTypeError(context,"decalStamp requires 12 coordinates");
+  std::array<float,12> q{};
+  for(int i=0;i<12;i++){double n=0;if(JS_ToFloat64(context,&n,argv[i])||!std::isfinite(n)||std::abs(n)>32768)return JS_ThrowRangeError(context,"invalid decal stamp");q[i]=float(n);}
+  if(q[0]<0||q[1]<0||q[2]<=0||q[3]<=0||q[0]+q[2]>256||q[1]+q[3]>256)return JS_ThrowRangeError(context,"decal stamp outside atlas");
+  return JS_NewBool(context,scope->api->graphics.decal_stamp(q));
+}
+
 JSValue ThemeAssetReady(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
   int32_t asset = -1;
@@ -993,6 +1006,9 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "themeAssetReady", JS_NewCFunction(context_, ThemeAssetReady, "themeAssetReady", 1));
     JS_SetPropertyStr(context_, global, "themeSprite", JS_NewCFunction(context_, ThemeSpriteDraw, "themeSprite", 12));
     JS_SetPropertyStr(context_, global, "themeQuad", JS_NewCFunction(context_, ThemeQuadDraw, "themeQuad", 17));
+    JS_SetPropertyStr(context_, global, "decalClear", JS_NewCFunction(context_, DecalClear, "decalClear", 0));
+    JS_SetPropertyStr(context_, global, "decalStamp", JS_NewCFunction(context_, DecalStamp, "decalStamp", 12));
+    JS_SetPropertyStr(context_, global, "decalMesh", JS_NewCFunction(context_, DecalMesh, "decalMesh", 6));
     JS_SetPropertyStr(context_, global, "systemWrite", JS_NewCFunction(context_, SystemWrite, "systemWrite", 7));
     JS_SetPropertyStr(context_, global, "ywftWrite", JS_NewCFunction(context_, YwftWrite, "ywftWrite", 7));
     JS_SetPropertyStr(context_, global, "comicWrite", JS_NewCFunction(context_, ComicWrite, "comicWrite", 7));

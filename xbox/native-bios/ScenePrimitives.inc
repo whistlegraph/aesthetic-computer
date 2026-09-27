@@ -14,8 +14,8 @@ struct SceneFloats {
     data=reinterpret_cast<const float*>(bytes+off);count=len/4;return true;
   }
 };
-struct ScenePoint{double x,y,z;};
-static ScenePoint SceneMix(ScenePoint a,ScenePoint b,double t){return {a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t,a.z+(b.z-a.z)*t};}
+struct ScenePoint{double x,y,z,u=0,v=0;};
+static ScenePoint SceneMix(ScenePoint a,ScenePoint b,double t){return {a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t,a.z+(b.z-a.z)*t,a.u+(b.u-a.u)*t,a.v+(b.v-a.v)*t};}
 template<class Distance> static std::vector<ScenePoint> SceneClip(const std::vector<ScenePoint>& in,Distance dist){
   std::vector<ScenePoint> out;out.reserve(in.size()+2);
   for(size_t i=0;i<in.size();i++){auto a=in[i],b=in[(i+1)%in.size()];double da=dist(a),db=dist(b);if(da>=0)out.push_back(a);if((da>=0)!=(db>=0))out.push_back(SceneMix(a,b,da/(da-db)));}
@@ -97,7 +97,7 @@ static ScenePoint SceneToView(const float* m,const ScenePoint& p){
 }
 static ScenePoint SceneProject(const float* m,const ScenePoint& p){
  const double k=m[14]+(m[15]/p.z-m[14])*m[16];
- return {m[12]+p.x*k,m[13]-p.y*k,std::clamp(double(m[22])+p.z*m[23],-1.499,1.4)};
+ return {m[12]+p.x*k,m[13]-p.y*k,std::clamp(double(m[22])+p.z*m[23],-1.499,1.4),p.u,p.v};
 }
 template<class Distance> static int SceneClipFixed(const ScenePoint* in,int n,ScenePoint* out,Distance dist){
  int count=0;
@@ -135,6 +135,40 @@ JSValue MeshFree(JSContext* ctx,JSValueConst,int argc,JSValueConst* args){
  auto& store=scope->scene.meshes;
  if(handle<0||size_t(handle)>=store.size()||!store[handle])return JS_FALSE;
  store[handle].reset();return JS_TRUE;
+}
+// The retained surface is mapped onto the exact pool mesh, including its
+// curved facets. Projection and clipping stay native and independent of age.
+JSValue DecalMesh(JSContext* ctx,JSValueConst,int argc,JSValueConst* args){
+ auto* scope=static_cast<CallScope*>(JS_GetContextOpaque(ctx));int32_t handle=-1;SceneFloats camera(ctx);
+ if(!scope||!scope->api||argc<6||JS_ToInt32(ctx,&handle,args[0]))return JS_ThrowTypeError(ctx,"decalMesh requires mesh, camera and surface bounds");
+ auto& store=scope->scene.meshes;
+ if(handle<0||size_t(handle)>=store.size()||!store[handle])return JS_NewInt32(ctx,0);
+ if(!camera.read(args[1])||camera.count!=27||!SceneCameraValid(camera.data))return JS_ThrowRangeError(ctx,"invalid decal camera");
+ double bounds[4];for(int i=0;i<4;i++)if(JS_ToFloat64(ctx,&bounds[i],args[i+2])||!std::isfinite(bounds[i])||std::abs(bounds[i])>32768)return JS_ThrowRangeError(ctx,"invalid decal bounds");
+ if(bounds[2]<=0||bounds[3]<=0)return JS_ThrowRangeError(ctx,"empty decal surface");
+ auto& mesh=*store[handle];const auto* m=camera.data;auto& g=scope->api->graphics;
+ mesh.view.resize(mesh.verts.size());
+ for(size_t i=0;i<mesh.verts.size();i++){
+  const auto& p=mesh.verts[i];auto q=SceneToView(m,p);
+  q.u=(p.x-bounds[0])/bounds[2];q.v=(p.z-bounds[1])/bounds[3];mesh.view[i]=q;
+ }
+ int emitted=0;ScenePoint a[12],b[12];
+ for(size_t i=0;i<mesh.faces.size();i+=10){
+  const auto* f=mesh.faces.data()+i;if(std::abs(f[8])<1e-8)continue;
+  int n=4;for(int j=0;j<4;j++)a[j]=mesh.view[size_t(f[j])];
+  n=SceneClipFixed(a,n,b,[&](const ScenePoint& p){return p.z-m[17];});if(n<3)continue;
+  for(int j=0;j<n;j++){a[j]=SceneProject(m,b[j]);a[j].z=(std::max)(-1.499,a[j].z-.0005);}
+  n=SceneClipFixed(a,n,b,[&](const ScenePoint& p){return p.x-m[18];});if(n<3)continue;
+  n=SceneClipFixed(b,n,a,[&](const ScenePoint& p){return m[20]-p.x;});if(n<3)continue;
+  n=SceneClipFixed(a,n,b,[&](const ScenePoint& p){return p.y-m[19];});if(n<3)continue;
+  n=SceneClipFixed(b,n,a,[&](const ScenePoint& p){return m[21]-p.y;});if(n<3)continue;
+  for(int j=1;j+1<n;j++){
+   const auto& p=a[0];const auto& q=a[j];const auto& r=a[j+1];
+   g.decal_triangle({float(p.x),float(p.y),float(p.z),float(p.u),float(p.v),
+    float(q.x),float(q.y),float(q.z),float(q.u),float(q.v),
+    float(r.x),float(r.y),float(r.z),float(r.u),float(r.v),{255,255,255,255}});emitted++;
+  }
+ }return JS_NewInt32(ctx,emitted);
 }
 // meshDraw(handle, camera, capsuleScale = 1, tintR = 1, tintG = 1, tintB = 1) → triangles emitted.
 // capsuleScale is the game's cameraScale(): edge capsules store a world width

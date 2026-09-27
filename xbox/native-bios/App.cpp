@@ -7,6 +7,7 @@
 #include "../runtime/include/ac/image_effects.hpp"
 #include "../runtime/include/ac/glass_sound.hpp"
 #include "../runtime/include/ac/decal_atlas.hpp"
+#include "../runtime/include/ac/decal_surface.hpp"
 #include "../runtime/include/ac/theme_assets.hpp"
 #include "render/ac_surface.hpp"
 #if AC_DEV_LIVE_PIECE
@@ -251,6 +252,9 @@ class HostGraphics final : public Graphics {
   std::function<bool()> is_theme_ready;
   std::function<bool(int)> is_theme_asset_ready;
   std::function<void(const ac::xbox::ThemeQuad&)> on_theme_quad;
+  std::function<bool()> on_decal_clear;
+  std::function<bool(const std::array<float,12>&)> on_decal_stamp;
+  std::function<void(const ac::xbox::TexturedTriangle&)> on_decal_triangle;
   std::function<void(const ac::xbox::Text&)> on_write;
   std::function<void(const ac::xbox::SystemText&)> on_system_write;
   std::function<void(const ac::xbox::SystemGlyph&)> on_system_glyph;
@@ -273,6 +277,9 @@ class HostGraphics final : public Graphics {
   void theme_quad(const ac::xbox::ThemeQuad& quad) override {
     if (on_theme_quad) on_theme_quad(quad);
   }
+  bool decal_clear() override { return on_decal_clear && on_decal_clear(); }
+  bool decal_stamp(const std::array<float,12>& stamp) override { return on_decal_stamp && on_decal_stamp(stamp); }
+  void decal_triangle(const ac::xbox::TexturedTriangle& triangle) override { if(on_decal_triangle)on_decal_triangle(triangle); }
   void theme_sprite(const ac::xbox::ThemeSprite& sprite) override {
     const float c = std::cos(sprite.angle), s = std::sin(sprite.angle);
     const float hx = sprite.width * .5f, hy = sprite.height * .5f;
@@ -400,6 +407,16 @@ public:
     };
     m_graphics->on_theme_quad = [this](const ac::xbox::ThemeQuad& quad) {
       if (m_frameThemeQuads.size() < kMaxThemeQuads) m_frameThemeQuads.push_back(quad);
+    };
+    m_graphics->on_decal_clear = [this]() {
+      if(!m_decalView || !m_themePixelShader)return false;
+      m_decalSurface.clear();return true;
+    };
+    m_graphics->on_decal_stamp = [this](const std::array<float,12>& stamp) {
+      return m_decalView && m_decalSurface.stamp(stamp);
+    };
+    m_graphics->on_decal_triangle = [this](const ac::xbox::TexturedTriangle& triangle) {
+      if(m_frameDecalTriangles.size()<kMaxDecalTriangles)m_frameDecalTriangles.push_back(triangle);
     };
     m_graphics->on_write = [this](const ac::xbox::Text& text) { m_frameTexts.push_back(text); };
     m_graphics->on_system_write = [this](const ac::xbox::SystemText& text) {
@@ -575,6 +592,7 @@ public:
       m_frameLines.clear();
       m_frameTriangles.clear();
       m_frameTexturedTriangles.clear();
+      m_frameDecalTriangles.clear();
       m_frameSprites.clear();
       m_frameThemeQuads.clear();
       m_frameTexts.clear();
@@ -923,7 +941,7 @@ private:
       vertexBytes.size(), &m_spriteInputLayout));
     D3D11_BUFFER_DESC buffer{};
     buffer.ByteWidth = static_cast<UINT>((std::max)(kMaxSprites * 6,
-      kMaxTexturedTriangles * 3) * sizeof(GpuSpriteVertex));
+      kMaxDecalTriangles * 3) * sizeof(GpuSpriteVertex));
     buffer.Usage = D3D11_USAGE_DYNAMIC;
     buffer.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     buffer.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
@@ -990,7 +1008,13 @@ private:
     ComPtr<ID3D11Texture2D> decalTexture;
     Check(m_device->CreateTexture2D(&texture, &pixels, &decalTexture));
     Check(m_device->CreateShaderResourceView(decalTexture.Get(), nullptr, &m_themeViews[5]));
-    LogTelemetry("AC_NATIVE_DECALS ready=1 atlas=256x256 stamps=4 alpha=1");
+    texture.Width=texture.Height=DecalSurface::side;
+    texture.Usage=D3D11_USAGE_DEFAULT;
+    pixels.pSysMem=m_decalSurface.pixels.data();pixels.SysMemPitch=DecalSurface::side*4;
+    Check(m_device->CreateTexture2D(&texture,&pixels,&m_decalTexture));
+    Check(m_device->CreateShaderResourceView(m_decalTexture.Get(),nullptr,&m_decalView));
+    m_decalSurface.clean();
+    LogTelemetry("AC_NATIVE_DECALS ready=1 atlas=256x256 surface=2048x2048 retained=1 alpha=1");
     m_frameThemeQuads.reserve(kMaxThemeQuads);
     LogTelemetry(std::string("AC_NATIVE_THEME ready=") +
       (m_themeViews[0] && m_themeViews[1] ? "1" : "0") +
@@ -1051,10 +1075,19 @@ private:
     return true;
   }
 
-  bool DrawGpuTexturedTriangles() {
-    if (m_frameTexturedTriangles.empty()) return true;
+  bool DrawGpuTexturedTriangles(bool decals=false) {
+    const auto& triangles=decals?m_frameDecalTriangles:m_frameTexturedTriangles;
+    auto* view=decals?m_decalView.Get():m_jeffreyTextureView.Get();
+    if (triangles.empty()) return true;
+    if(decals && m_decalSurface.dirty && m_decalTexture){
+      const auto& surface=m_decalSurface;
+      const D3D11_BOX box{surface.left,surface.top,0,surface.right,surface.bottom,1};
+      m_context->UpdateSubresource(m_decalTexture.Get(),0,&box,
+        surface.pixels.data()+(surface.top*DecalSurface::side+surface.left)*4,DecalSurface::side*4,0);
+      m_decalSurface.clean();
+    }
     if (!m_spriteVertexBuffer || !m_spriteVertexShader || !m_spritePixelShader ||
-        !m_jeffreyTextureView || !m_linearSampler || !m_triangleDepthView) return false;
+        !view || !m_linearSampler || !m_triangleDepthView) return false;
     D3D11_MAPPED_SUBRESOURCE mapped{};
     if (FAILED(m_context->Map(m_spriteVertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD,
         0, &mapped))) return false;
@@ -1066,7 +1099,7 @@ private:
         (std::max)(0.f, (std::min)(1.f, (z + 1.5f) / 3.f)), u, v,
         color.r / 255.f, color.g / 255.f, color.b / 255.f, color.a / 255.f};
     };
-    for (const auto& triangle : m_frameTexturedTriangles) {
+    for (const auto& triangle : triangles) {
       append(triangle.x1, triangle.y1, triangle.z1, triangle.u1, triangle.v1,
         triangle.color);
       append(triangle.x2, triangle.y2, triangle.z2, triangle.u2, triangle.v2,
@@ -1080,15 +1113,17 @@ private:
     m_context->IASetVertexBuffers(0, 1, m_spriteVertexBuffer.GetAddressOf(), &stride, &offset);
     m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     m_context->VSSetShader(m_spriteVertexShader.Get(), nullptr, 0);
-    m_context->PSSetShader(m_spritePixelShader.Get(), nullptr, 0);
-    m_context->PSSetShaderResources(0, 1, m_jeffreyTextureView.GetAddressOf());
+    m_context->PSSetShader(decals?m_themePixelShader.Get():m_spritePixelShader.Get(), nullptr, 0);
+    m_context->PSSetShaderResources(0, 1, &view);
     m_context->PSSetSamplers(0, 1, m_linearSampler.GetAddressOf());
     m_context->RSSetState(m_triangleRasterState.Get());
-    m_context->OMSetDepthStencilState(m_triangleDepthState.Get(), 1);
+    m_context->OMSetDepthStencilState(decals?m_themeSoftDepthState.Get():m_triangleDepthState.Get(), 1);
+    m_context->OMSetBlendState(decals?m_themeBlendState.Get():nullptr,nullptr,0xffffffff);
     m_context->OMSetRenderTargets(1, m_sceneTarget.GetAddressOf(), m_triangleDepthView.Get());
     m_context->Draw(static_cast<UINT>(count), 0);
     ID3D11ShaderResourceView* nullView = nullptr;
     m_context->PSSetShaderResources(0, 1, &nullView);
+    m_context->OMSetBlendState(nullptr,nullptr,0xffffffff);
     return true;
   }
 
@@ -2724,6 +2759,7 @@ private:
       DrawGpuTexturedTriangles();
       DrawGpuSprites();
       DrawGpuThemeQuads();
+      DrawGpuTexturedTriangles(true);
       // Blur the world before adding any HUD pixels. Text is Direct2D and
       // never writes depth, so a depth mask cannot protect it in the post pass.
       DrawPostProcess();
@@ -2830,6 +2866,7 @@ private:
           " trianglesDropped=" + std::to_string(m_frameTrianglesDropped) +
           " texturedTriangles=" + std::to_string(m_frameTexturedTriangles.size()) +
           " texturedDropped=" + std::to_string(m_frameTexturedTrianglesDropped) +
+          " decalTriangles=" + std::to_string(m_frameDecalTriangles.size()) +
           " sprites=" + std::to_string(m_frameSprites.size()) +
           " spritesDropped=" + std::to_string(m_frameSpritesDropped) +
           " lines=" + std::to_string(m_frameLines.size()) + " surface=" +
@@ -2896,6 +2933,7 @@ private:
   static constexpr std::size_t kMaxSystemDraws = 128;
   static constexpr std::size_t kMaxTriangles = 8192;
   static constexpr std::size_t kMaxTexturedTriangles = 2048;
+  static constexpr std::size_t kMaxDecalTriangles = 8192;
   static constexpr std::size_t kMaxSprites = 512;
   static constexpr std::size_t kMaxThemeQuads = 1024;
   std::size_t m_frameSystemDrawsDropped = 0;
@@ -2909,6 +2947,10 @@ private:
   std::vector<ac::xbox::Line> m_frameLines;
   std::vector<ac::xbox::Triangle> m_frameTriangles;
   std::vector<ac::xbox::TexturedTriangle> m_frameTexturedTriangles;
+  std::vector<ac::xbox::TexturedTriangle> m_frameDecalTriangles;
+  DecalSurface m_decalSurface;
+  ComPtr<ID3D11Texture2D> m_decalTexture;
+  ComPtr<ID3D11ShaderResourceView> m_decalView;
   std::vector<ac::xbox::Sprite> m_frameSprites;
   std::vector<ac::xbox::ThemeQuad> m_frameThemeQuads;
   std::vector<ac::xbox::Text> m_frameTexts;

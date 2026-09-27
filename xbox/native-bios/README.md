@@ -28,6 +28,16 @@ pieces never receive a general socket. Revision 25 adds the host-mediated `disc`
 clock-chat, and painting endpoints; sandboxed pieces do not receive a general
 HTTP primitive. Runtime failures roll back to the last known good piece.
 
+Revision 53 adds a persistent 2048×2048 RGBA decal surface. `decalClear()`
+starts a new surface and reports availability; `decalStamp(sx, sy, sw, sh,
+x1, y1, x2, y2, x3, y3, x4, y4)` composites one atlas stamp into texture pixels.
+`decalMesh(handle, camera, left, near, width, depth)` projects that texture onto
+an existing retained mesh using world X/Z coordinates. Stamps are composited
+once, dirty pixels upload only when changed, and frame cost depends on the
+fixed mesh rather than elapsed riding time. The CPU canvas and GPU texture
+each use 16 MiB. Marks survive rider resets; changing maps or reloading the
+piece starts a new surface.
+
 The photo-disc service recursively searches mounted removable volumes for
 `.jpg`, `.jpeg`, `.jpe`, `.png`, `.tif`, `.tiff`, and `.pcd`. It keeps WinRT
 `StorageFile` objects and paths inside the native host, bounds discovery to

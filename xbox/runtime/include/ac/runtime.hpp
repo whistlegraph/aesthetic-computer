@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -103,6 +104,9 @@ class Graphics {
   virtual bool theme_asset_ready(int asset) const { return asset >= 0 && asset < 2 && theme_ready(); }
   virtual void theme_sprite(const ThemeSprite&) {}
   virtual void theme_quad(const ThemeQuad&) {}
+  virtual bool decal_clear() { return false; }
+  virtual bool decal_stamp(const std::array<float,12>&) { return false; }
+  virtual void decal_triangle(const TexturedTriangle&) {}
   virtual void write(const Text&) = 0;
   virtual void system_write(const SystemText&) {}
   virtual void system_glyph(const SystemGlyph&) {}
