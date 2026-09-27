@@ -17,7 +17,8 @@ const __dirname = path.dirname(__filename);
 const CONFIG = {
   mainnet: {
     name: 'Mainnet',
-    rpc: 'https://mainnet.api.tez.ie',
+    // tez.ie and ecadinfra are dead; tzbeta hangs up on Taquito (Sept 2026).
+    rpc: process.env.TEZOS_RPC || 'https://rpc.tzkt.io/mainnet',
     explorer: 'https://tzkt.io'
   },
   ghostnet: {
@@ -29,17 +30,18 @@ const CONFIG = {
 
 function loadCredentials(wallet) {
   const walletPaths = {
-    kidlisp: { path: 'kidlisp/.env', addressKey: 'KIDLISP_ADDRESS', secretKey: 'KIDLISP_KEY' },
-    aesthetic: { path: 'kidlisp/.env', addressKey: 'AESTHETIC_ADDRESS', secretKey: 'AESTHETIC_KEY' },
-    staging: { path: 'staging/.env', addressKey: 'STAGING_ADDRESS', secretKey: 'STAGING_KEY' }
+    keeps: { path: 'tezos/kidlisp/.env', addressKey: 'KEEPS_ADDRESS', secretKey: 'KEEPS_KEY' },
+    kidlisp: { path: 'tezos/kidlisp/.env', addressKey: 'KIDLISP_ADDRESS', secretKey: 'KIDLISP_KEY' },
+    aesthetic: { path: 'tezos/kidlisp/.env', addressKey: 'AESTHETIC_ADDRESS', secretKey: 'AESTHETIC_KEY' },
+    staging: { path: 'tezos/staging/.env', addressKey: 'STAGING_ADDRESS', secretKey: 'STAGING_KEY' }
   };
 
   const walletConfig = walletPaths[wallet];
   if (!walletConfig) {
-    throw new Error(`Unknown wallet: ${wallet}. Use: kidlisp, aesthetic, or staging`);
+    throw new Error(`Unknown wallet: ${wallet}. Use: keeps, kidlisp, aesthetic, or staging`);
   }
 
-  const envPath = path.join(__dirname, walletConfig.path);
+  const envPath = path.join(__dirname, '..', 'aesthetic-computer-vault', walletConfig.path);
   if (!fs.existsSync(envPath)) {
     throw new Error(`Wallet credentials not found: ${envPath}`);
   }

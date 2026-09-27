@@ -113,6 +113,13 @@
       "args": [
         "toolchain/mcp/analytics-mcp.mjs"
       ]
+    },
+    "crypto": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "toolchain/mcp/crypto-mcp.mjs"
+      ]
     }
   }
 }
