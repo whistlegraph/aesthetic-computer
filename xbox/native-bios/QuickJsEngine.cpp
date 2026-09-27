@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include "QuickJsEngine.hpp"
+#include "../runtime/include/ac/theme_assets.hpp"
 extern "C" {
 #include "third_party/quickjs-ng/quickjs.h"
 }
@@ -15,6 +16,7 @@ extern "C" {
 namespace ac::xbox {
 namespace {
 struct CallScope { Api* api; };
+#include "ScenePrimitives.inc"
 
 bool ValidOskiewarMatchId(std::string_view value) {
   if (value.substr(0, 3) != "ow-") return false;
@@ -46,6 +48,36 @@ JSValue Wipe(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   scope->api->graphics.wipe({static_cast<uint8_t>(r), static_cast<uint8_t>(g),
                              static_cast<uint8_t>(b), 255});
   return JS_UNDEFINED;
+}
+
+JSValue AccountState(JSContext* context, JSValueConst, int, JSValueConst*) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  const auto json = scope && scope->api && scope->api->account_state
+    ? scope->api->account_state() : std::string("{\"status\":\"unavailable\"}");
+  return JS_ParseJSON(context, json.data(), json.size(), "account-state");
+}
+JSValue AccountAction(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || !scope->api->account_action || argc < 1) return JS_FALSE;
+  const char* raw = JS_ToCString(context, argv[0]);
+  if (!raw) return JS_EXCEPTION;
+  const std::string action(raw); JS_FreeCString(context, raw);
+  if (action != "login" && action != "logout" && action != "cancel" && action != "leaderboard")
+    return JS_ThrowRangeError(context, "unknown account action");
+  std::string payload;
+  if(argc>1) {const char* rawPayload=JS_ToCString(context,argv[1]);
+    if(!rawPayload)return JS_EXCEPTION;payload=rawPayload;JS_FreeCString(context,rawPayload);}
+  if(payload.size()>256)return JS_ThrowRangeError(context,"account payload too large");
+  scope->api->account_action(action,payload); return JS_TRUE;
+}
+
+JSValue AccountReport(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope=static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if(!scope||!scope->api||!scope->api->account_report||argc<1)return JS_FALSE;
+  const char* raw=JS_ToCString(context,argv[0]);if(!raw)return JS_EXCEPTION;
+  const std::string payload(raw);JS_FreeCString(context,raw);
+  if(payload.size()>4096)return JS_ThrowRangeError(context,"account report too large");
+  return JS_NewBool(context,scope->api->account_report(payload));
 }
 
 JSValue Synth(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
@@ -304,6 +336,76 @@ JSValue Sprites3d(JSContext* context, JSValueConst, int argc, JSValueConst* argv
   return JS_NewInt32(context, static_cast<int32_t>(requestedCount));
 }
 
+JSValue ThemeReady(JSContext* context, JSValueConst, int, JSValueConst*) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  return JS_NewBool(context, scope && scope->api && scope->api->graphics.theme_ready());
+}
+
+JSValue ThemeAssetReady(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  int32_t asset = -1;
+  if (argc < 1 || JS_ToInt32(context, &asset, argv[0])) return JS_FALSE;
+  return JS_NewBool(context, scope && scope->api && asset >= 0 &&
+    asset < static_cast<int>(theme_assets.size()) && scope->api->graphics.theme_asset_ready(asset));
+}
+
+JSValue ThemeSpriteDraw(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || argc < 12)
+    return JS_ThrowTypeError(context, "themeSprite requires 12 arguments");
+  int32_t asset = 0;
+  if (JS_ToInt32(context, &asset, argv[0])) return JS_EXCEPTION;
+  if (asset < 0 || asset >= static_cast<int>(theme_assets.size())) return JS_ThrowRangeError(context, "invalid theme asset");
+  double v[10]{};
+  for (int i = 0; i < 9; ++i) {
+    if (JS_ToFloat64(context, &v[i], argv[i + 1])) return JS_EXCEPTION;
+  }
+  if (JS_ToFloat64(context, &v[9], argv[11])) return JS_EXCEPTION;
+  for (double value : v) if (!std::isfinite(value) || std::abs(value) > 32768)
+    return JS_ThrowRangeError(context, "invalid theme coordinates");
+  const double sourceWidth = theme_assets[asset].master_width;
+  const double sourceHeight = theme_assets[asset].master_height;
+  if (v[0] < 0 || v[1] < 0 || v[2] <= 0 || v[3] <= 0 ||
+      v[0] + v[2] > sourceWidth || v[1] + v[3] > sourceHeight ||
+      v[6] <= 0 || v[7] <= 0 || v[9] < -1.5 || v[9] > 1.5)
+    return JS_ThrowRangeError(context, "theme rectangle outside bounds");
+  if (!scope->api->graphics.theme_asset_ready(asset)) return JS_FALSE;
+  scope->api->graphics.theme_sprite({asset,
+    static_cast<float>(v[0]), static_cast<float>(v[1]), static_cast<float>(v[2]),
+    static_cast<float>(v[3]), static_cast<float>(v[4]), static_cast<float>(v[5]),
+    static_cast<float>(v[6]), static_cast<float>(v[7]), static_cast<float>(v[8]),
+    static_cast<float>(v[9]), JS_ToBool(context, argv[10]) > 0,
+    argc < 13 || JS_ToBool(context, argv[12]) > 0});
+  return JS_TRUE;
+}
+
+JSValue ThemeQuadDraw(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || argc < 17)
+    return JS_ThrowTypeError(context, "themeQuad requires 17 arguments");
+  int32_t asset = 0;
+  if (JS_ToInt32(context, &asset, argv[0])) return JS_EXCEPTION;
+  if (asset < 0 || asset >= static_cast<int>(theme_assets.size())) return JS_ThrowRangeError(context, "invalid theme asset");
+  float v[16]{};
+  for (int i = 0; i < 16; ++i) {
+    double number = 0;
+    if (JS_ToFloat64(context, &number, argv[i + 1])) return JS_EXCEPTION;
+    if (!std::isfinite(number) || std::abs(number) > 32768)
+      return JS_ThrowRangeError(context, "invalid theme quad coordinates");
+    v[i] = static_cast<float>(number);
+  }
+  if (v[0] < 0 || v[1] < 0 || v[2] <= 0 || v[3] <= 0 ||
+      v[0] + v[2] > theme_assets[asset].master_width ||
+      v[1] + v[3] > theme_assets[asset].master_height)
+    return JS_ThrowRangeError(context, "theme rectangle outside bounds");
+  for (int i = 6; i < 16; i += 3) if (v[i] < -1.5 || v[i] > 1.5)
+    return JS_ThrowRangeError(context, "invalid theme quad depth");
+  if (!scope->api->graphics.theme_asset_ready(asset)) return JS_FALSE;
+  scope->api->graphics.theme_quad({asset, v[0],v[1],v[2],v[3],
+    v[4],v[5],v[6], v[7],v[8],v[9], v[10],v[11],v[12],v[13],v[14],v[15]});
+  return JS_TRUE;
+}
+
 // UV-mapped triangle stream. Layout repeats three x,y,z,u,v vertices followed
 // by an RGB light tint: 18 floats per triangle.
 JSValue TexturedTriangles3d(JSContext* context, JSValueConst, int argc,
@@ -541,6 +643,38 @@ JSValue PublishLive(JSContext* context, JSValueConst, int argc, JSValueConst* ar
   JS_FreeCString(context, rawState);
   JS_FreeCString(context, rawMatch);
   return JS_UNDEFINED;
+}
+
+JSValue OskiewarNetSend(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || !scope->api->net_send || argc < 2)
+    return JS_NewBool(context, false);
+  size_t ml = 0, pl = 0;
+  const char* match = JS_ToCStringLen(context, &ml, argv[0]);
+  if (!match) return JS_EXCEPTION;
+  const char* packet = JS_ToCStringLen(context, &pl, argv[1]);
+  if (!packet) { JS_FreeCString(context, match); return JS_EXCEPTION; }
+  const bool valid = ValidOskiewarMatchId(std::string_view(match, ml)) &&
+    pl >= 2 && pl <= 7168 && packet[0] == '{';
+  const bool sent = valid && scope->api->net_send(
+    std::string_view(match, ml), std::string_view(packet, pl));
+  JS_FreeCString(context, match); JS_FreeCString(context, packet);
+  return JS_NewBool(context, sent);
+}
+
+JSValue OskiewarNetPoll(JSContext* context, JSValueConst, int, JSValueConst*) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  JSValue result = JS_NewArray(context);
+  if (!scope || !scope->api || !scope->api->net_poll) return result;
+  uint32_t index = 0;
+  for (const auto& packet : scope->api->net_poll()) {
+    if (index >= 64) break;
+    if (packet.size() > 7168) continue;
+    JSValue value = JS_ParseJSON(context, packet.data(), packet.size(), "oskiewar-net");
+    if (JS_IsException(value)) { JS_FreeValue(context, JS_GetException(context)); continue; }
+    JS_SetPropertyUint32(context, result, index++, value);
+  }
+  return result;
 }
 
 JSValue RuntimeInfo(JSContext* context, JSValueConst, int, JSValueConst*) {
@@ -813,10 +947,20 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "box", JS_NewCFunction(context_, Box, "box", 7));
     JS_SetPropertyStr(context_, global, "line", JS_NewCFunction(context_, Line, "line", 8));
     JS_SetPropertyStr(context_, global, "triangle", JS_NewCFunction(context_, TriangleFill, "triangle", 9));
+    JS_SetPropertyStr(context_, global, "disc3d", JS_NewCFunction(context_, SceneDisc, "disc3d", 7));
+    JS_SetPropertyStr(context_, global, "capsule3d", JS_NewCFunction(context_, SceneCapsule, "capsule3d", 9));
+    JS_SetPropertyStr(context_, global, "sceneMesh", JS_NewCFunction(context_, SceneMesh, "sceneMesh", 3));
     JS_SetPropertyStr(context_, global, "triangle3d", JS_NewCFunction(context_, Triangle3d, "triangle3d", 12));
     JS_SetPropertyStr(context_, global, "triangles3d", JS_NewCFunction(context_, Triangles3d, "triangles3d", 2));
     JS_SetPropertyStr(context_, global, "sprites3d", JS_NewCFunction(context_, Sprites3d, "sprites3d", 2));
     JS_SetPropertyStr(context_, global, "texturedTriangles3d", JS_NewCFunction(context_, TexturedTriangles3d, "texturedTriangles3d", 2));
+    JS_SetPropertyStr(context_, global, "accountState", JS_NewCFunction(context_, AccountState, "accountState", 0));
+    JS_SetPropertyStr(context_, global, "accountAction", JS_NewCFunction(context_, AccountAction, "accountAction", 2));
+    JS_SetPropertyStr(context_, global, "accountReport", JS_NewCFunction(context_, AccountReport, "accountReport", 1));
+    JS_SetPropertyStr(context_, global, "themeReady", JS_NewCFunction(context_, ThemeReady, "themeReady", 0));
+    JS_SetPropertyStr(context_, global, "themeAssetReady", JS_NewCFunction(context_, ThemeAssetReady, "themeAssetReady", 1));
+    JS_SetPropertyStr(context_, global, "themeSprite", JS_NewCFunction(context_, ThemeSpriteDraw, "themeSprite", 12));
+    JS_SetPropertyStr(context_, global, "themeQuad", JS_NewCFunction(context_, ThemeQuadDraw, "themeQuad", 17));
     JS_SetPropertyStr(context_, global, "systemWrite", JS_NewCFunction(context_, SystemWrite, "systemWrite", 7));
     JS_SetPropertyStr(context_, global, "ywftWrite", JS_NewCFunction(context_, YwftWrite, "ywftWrite", 7));
     JS_SetPropertyStr(context_, global, "comicWrite", JS_NewCFunction(context_, ComicWrite, "comicWrite", 7));
@@ -828,6 +972,8 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "gameSignal", JS_NewCFunction(context_, GameSignal, "gameSignal", 4));
     JS_SetPropertyStr(context_, global, "saveReplay", JS_NewCFunction(context_, SaveReplay, "saveReplay", 1));
     JS_SetPropertyStr(context_, global, "publishLive", JS_NewCFunction(context_, PublishLive, "publishLive", 2));
+    JS_SetPropertyStr(context_, global, "oskiewarNetSend", JS_NewCFunction(context_, OskiewarNetSend, "oskiewarNetSend", 2));
+    JS_SetPropertyStr(context_, global, "oskiewarNetPoll", JS_NewCFunction(context_, OskiewarNetPoll, "oskiewarNetPoll", 0));
     JS_SetPropertyStr(context_, global, "runtime", JS_NewCFunction(context_, RuntimeInfo, "runtime", 0));
     JS_SetPropertyStr(context_, global, "gamepad", JS_NewCFunction(context_, GamepadState, "gamepad", 1));
     JS_SetPropertyStr(context_, global, "controllers", JS_NewCFunction(context_, Controllers, "controllers", 0));
