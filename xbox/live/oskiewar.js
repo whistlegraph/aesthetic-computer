@@ -15814,9 +15814,21 @@ function comicGlyphAdvance(character, size) {
   return size * (comicAdvanceEm[String(character).toLowerCase()] ?? .58);
 }
 
+// Widths are asked per label per frame, and the labels are few: each
+// (size, text) pair is summed once. The sum is the same left-to-right walk
+// the reduce made, so the numbers match to the bit. Bounded — a readout that
+// changes every frame would otherwise grow the map for the whole visit.
+const handleWidths = new Map();
 function handleWidth(handle, size) {
-  return [...handle].reduce((width, character) =>
-    width + comicGlyphAdvance(character, size), 0);
+  const key = size + "\u0000" + handle;
+  let width = handleWidths.get(key);
+  if (width === undefined) {
+    if (handleWidths.size >= 512) handleWidths.clear();
+    width = 0;
+    for (const character of handle) width += comicGlyphAdvance(character, size);
+    handleWidths.set(key, width);
+  }
+  return width;
 }
 
 function typeWrite(text, x, y, size, ...color) {
@@ -21204,18 +21216,33 @@ function drawEmoFringe(p,h){
 function seatHudText(text,x,y,size,color){
  typeWrite(text,x+2,y+3,size,9,12,24);typeWrite(text,x,y,size,...color);
 }
+// The seat readouts — a number, a verb and an item per fighter — were new
+// strings every frame, and the console lays out every new string (see the
+// note in drawFreeskateSpeed: seven milliseconds). Ten refreshes a second
+// is the readout's own rate. The idle verdict is held with the text so a
+// heart never sits beside a speed. Keyed off the fighter, not on it: paint
+// writes nothing on a sim object.
+const seatHudReadouts=new WeakMap();
+function seatHudReadout(p,now){
+ const held=seatHudReadouts.get(p),age=held?now-held.at:Infinity;
+ if(age>=0 && age<100000)return held;
+ const speed=Math.hypot(p.vx,p.vy)*gameSpeed;
+ const idle=speed<30 && p.grounded && !p.spin;
+ const readout={at:now,idle,
+  measure:idle?Math.round(p.heartRate||68)+' bpm':p.spin?Math.round(spinRpm(p))+' rpm':Math.round(mph(speed))+' mph',
+  verb:idle?(p.heartDanger>.25?'on edge':'resting'):p.wheelTurbo?'super turbo':statusVerb(p,speed)[0],
+  item:p.gunAmmo?'SMG '+p.gunAmmo:p.axeHeld?'AXE':p.onewheel?'MONOWHEEL':p.skateboard?'SKATEBOARD':''};
+ seatHudReadouts.set(p,readout);
+ return readout;
+}
 function drawSeatPlayerHud(ink){
  drawSeatFirstPerson();
- const safe=hudSafeRect(),old=triangleDepth;triangleDepth=hudDepth;
+ const safe=hudSafeRect(),old=triangleDepth,now=runtime().monotonicUs;triangleDepth=hudDepth;
  for(const p of activePlayers()){
   if(p.dummy)continue;
-  const i=p.pad,speed=Math.hypot(p.vx,p.vy)*gameSpeed;
-  const idle=speed<30 && p.grounded && !p.spin;
-  const measure=idle?Math.round(p.heartRate||68)+' bpm':p.spin?Math.round(spinRpm(p))+' rpm':Math.round(mph(speed))+' mph';
+  const i=p.pad,{idle,measure,verb,item}=seatHudReadout(p,now);
   const accent=p.wheelTurbo?[209,129,255]:i?[174,161,255]:[255,144,188];
   const x=i?safe.right-360:safe.left+12,y=safe.bottom-112;
-  const verb=idle?(p.heartDanger>.25?'on edge':'resting'):p.wheelTurbo?'super turbo':statusVerb(p,speed)[0];
-  const item=p.gunAmmo?'SMG '+p.gunAmmo:p.axeHeld?'AXE':p.onewheel?'MONOWHEEL':p.skateboard?'SKATEBOARD':'';
   seatHudText(measure,x,y,54,accent);
   if(idle)drawSeatHeart(x+handleWidth(measure,54)+28,y+29,p,accent);
   seatHudText(verb,x,y+58,30,[249,242,248]);
