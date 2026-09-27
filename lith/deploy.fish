@@ -222,15 +222,12 @@ sh xbox/tools/precompress-live.sh"
     exit 1
 end
 
+# Advisory, not a gate: oskiewar ships on its own clock (npm run
+# oskiewar:deploy reburns the preview before it deploys), so unreleased
+# oskiewar commits on main must not hold every other lith change hostage.
 echo -e "$GREEN-> Verifying oskiewar social preview freshness...$NC"
 if not ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && node xbox/live/render-social-preview.mjs --check"
-    echo -e "$RED x oskiewar social preview is stale; restoring $PREVIOUS_HEAD.$NC"
-    ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
-cd $REMOTE_DIR && \
-git reset --hard $PREVIOUS_HEAD --quiet && \
-git rev-parse HEAD > system/public/.commit-ref && \
-sh xbox/tools/precompress-live.sh"
-    exit 1
+    echo -e "$RED ! oskiewar social preview is stale; deploying anyway. Run npm run oskiewar:deploy to release oskiewar.$NC"
 end
 
 echo -e "$GREEN-> Verifying disk worker bundle freshness...$NC"
