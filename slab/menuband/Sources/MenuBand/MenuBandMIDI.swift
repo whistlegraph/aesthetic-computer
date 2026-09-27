@@ -532,16 +532,16 @@ final class MenuBandMIDI {
         }
         enabled = true
         debugLog("midi.start: enabled")
-        // Announce a 12-semitone pitch-bend range on every melodic
-        // channel via RPN 0 (Pitch Bend Sensitivity). The trackpad
-        // accumulator scales ±1 = ±12 semitones; without this the
+        // Announce the wheel's pitch-bend range on every melodic channel
+        // via RPN 0 (Pitch Bend Sensitivity), so full scale means
+        // ±bendRangeSemitones exactly as it does inside; without this the
         // receiver (Ableton et al.) interprets our full-scale 14-bit
         // bend as ±2 semitones, so dragging across an octave on the
         // trackpad sounded like a quarter-tone wobble in Live.
         for ch: UInt8 in 0..<16 {
             send([0xB0 | ch, 101, 0])    // RPN MSB = 0
             send([0xB0 | ch, 100, 0])    // RPN LSB = 0  (Pitch Bend Sensitivity)
-            send([0xB0 | ch, 6, 12])     // Data Entry MSB = 12 semitones
+            send([0xB0 | ch, 6, MenuBandController.bendRangeSemitones])
             send([0xB0 | ch, 38, 0])     // Data Entry LSB = 0 cents
             send([0xB0 | ch, 101, 127])  // RPN Null (MSB)
             send([0xB0 | ch, 100, 127])  // RPN Null (LSB)

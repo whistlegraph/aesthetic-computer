@@ -1101,6 +1101,7 @@ final class MenuBandSynth {
         // channel 9) without an extra audible swap.
         selectMelodicProgram(au, program: currentMelodicProgram)
         selectDrumKit(au)
+        announceBendRange(au)
 
         midiSynth = avUnit
         midiSynthReady = true
@@ -1643,6 +1644,22 @@ final class MenuBandSynth {
         )
         if status != noErr {
             NSLog("MenuBand: MIDISynth EnablePreload(\(enable)) status=\(status)")
+        }
+    }
+
+    /// RPN 0 on every melodic channel: the same bend span MenuBandMIDI
+    /// announces to external receivers. Without it the AU keeps the GM
+    /// default of ±2 semitones, and the whole wheel is a small wobble.
+    private func announceBendRange(_ au: AudioUnit) {
+        for ch: UInt8 in 0..<16 where ch != 9 {
+            let cc: UInt8 = 0xB0 | ch
+            sendMIDIEvent(au, status: cc, data1: 101, data2: 0)
+            sendMIDIEvent(au, status: cc, data1: 100, data2: 0)
+            sendMIDIEvent(au, status: cc, data1: 6,
+                          data2: MenuBandController.bendRangeSemitones)
+            sendMIDIEvent(au, status: cc, data1: 38, data2: 0)
+            sendMIDIEvent(au, status: cc, data1: 101, data2: 127)
+            sendMIDIEvent(au, status: cc, data1: 100, data2: 127)
         }
     }
 
@@ -2580,6 +2597,7 @@ final class MenuBandSynth {
         pluginConnected = true
         pluginUnit = avUnit
         usingPluginInstrument = true
+        announceBendRange(avUnit.audioUnit)
         // Drop the sampler off the bus while the plugin is the melodic
         // voice — drums (ch 9) still need their sampler/MIDISynth path.
         disconnectMelodicSamplerIfNeeded()

@@ -816,7 +816,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// the grid edge IS the cap. ±2 = two octaves down / up — which is also
     /// AVAudioUnitTimePitch's hard limit (±2400 cents) for the radio voice,
     /// so the radio reaches its true floor/ceiling at the grid edges.
-    private static let bendRange: Float = 2.0
+    private static let bendRange = MenuBandController.bendRangeOctaves
     /// Time constant for both axes of the FX surface. A single exponential
     /// response keeps diagonals round and attached to the finger without
     /// overshoot or frame-rate-dependent elasticity.
