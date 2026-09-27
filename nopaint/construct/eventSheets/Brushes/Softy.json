@@ -1,0 +1,1997 @@
+{
+	"name": "Softy",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Softy",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "x",
+					"type": "number",
+					"initialValue": "128",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 863638176907920
+				},
+				{
+					"eventType": "variable",
+					"name": "y",
+					"type": "number",
+					"initialValue": "128",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 629720725840372
+				},
+				{
+					"eventType": "variable",
+					"name": "c",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 848982778223095
+				},
+				{
+					"eventType": "variable",
+					"name": "h",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 985037332889554
+				},
+				{
+					"eventType": "variable",
+					"name": "s",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 187893730994521
+				},
+				{
+					"eventType": "variable",
+					"name": "l",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 463468996652404
+				},
+				{
+					"eventType": "variable",
+					"name": "startAngle",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 589357877267368
+				},
+				{
+					"eventType": "variable",
+					"name": "brushRadius",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 177364892877442
+				},
+				{
+					"eventType": "variable",
+					"name": "sizeTier",
+					"type": "string",
+					"initialValue": "",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 643151871863621
+				},
+				{
+					"eventType": "variable",
+					"name": "step",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 902952145281953
+				},
+				{
+					"eventType": "variable",
+					"name": "hardness",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 710231841634992
+				},
+				{
+					"eventType": "variable",
+					"name": "speed",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 493844924329816
+				},
+				{
+					"eventType": "variable",
+					"name": "turnSpeed",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 310230721114183
+				},
+				{
+					"eventType": "variable",
+					"name": "turnLevel",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 670416523764082
+				},
+				{
+					"eventType": "variable",
+					"name": "hueDirection",
+					"type": "number",
+					"initialValue": "1",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 909049745853923
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 544950642642383
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "👋 Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 284150585897587,
+							"parameters": [
+								"4"
+							]
+						},
+						{
+							"type": "comment",
+							"text": "[b]1st Parameter[/b] X"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 972455704496178,
+							"parameters": {
+								"variable": "x",
+								"value": "Functions.ProcessNumericParameter(1, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "[b]2nd Parameter[/b] Y"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 246187110031903,
+							"parameters": {
+								"variable": "y",
+								"value": "Functions.ProcessNumericParameter(2, 0, 255)"
+							}
+						}
+					],
+					"sid": 267508869007606,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 964619745186297,
+									"parameters": {
+										"first-value": "Functions.CheckParameter(3)",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 389013423621723,
+									"parameters": {
+										"first-value": "uppercase(Functions.GetParameter(3)) = \"S\" | uppercase(Functions.GetParameter(3)) = \"M\" | uppercase(Functions.GetParameter(3)) = \"L\"",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								}
+							],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "[b]3rd Parameter[/b] Size"
+								},
+								{
+									"id": "set-at-x",
+									"objectClass": "ParamsArray",
+									"sid": 663099995261249,
+									"parameters": {
+										"x": "2",
+										"value": "uppercase(Functions.GetParameter(3))"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 733852298816712,
+									"parameters": {
+										"variable": "sizeTier",
+										"value": "Functions.GetParameter(3)"
+									}
+								},
+								{
+									"callFunction": "SpecifiedParameter",
+									"sid": 442229404107960,
+									"parameters": [
+										"3"
+									]
+								}
+							],
+							"sid": 477057444807199
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 799094452965002
+								}
+							],
+							"actions": [
+								{
+									"id": "createProbabilityTable",
+									"objectClass": "AdvancedRandom",
+									"sid": 951948907303302,
+									"parameters": {
+										"name": "\"SoftyRadius\""
+									}
+								},
+								{
+									"id": "addProbabilityEntry",
+									"objectClass": "AdvancedRandom",
+									"sid": 105167524880542,
+									"parameters": {
+										"value": "\"S\"",
+										"weight": "5"
+									}
+								},
+								{
+									"id": "addProbabilityEntry",
+									"objectClass": "AdvancedRandom",
+									"sid": 204605922502229,
+									"parameters": {
+										"value": "\"L\"",
+										"weight": "2"
+									}
+								},
+								{
+									"id": "addProbabilityEntry",
+									"objectClass": "AdvancedRandom",
+									"sid": 871795741000973,
+									"parameters": {
+										"value": "\"M\"",
+										"weight": "1"
+									}
+								},
+								{
+									"id": "setProbabilityTable",
+									"objectClass": "AdvancedRandom",
+									"sid": 203730122855875,
+									"parameters": {
+										"name": "\"SoftyRadius\""
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 274763311412114,
+									"parameters": {
+										"variable": "sizeTier",
+										"value": "AdvancedRandom.Weighted"
+									}
+								},
+								{
+									"callFunction": "GeneratedParameter",
+									"sid": 910863695926874,
+									"parameters": [
+										"3",
+										"str(sizeTier)",
+										"\"\""
+									]
+								}
+							],
+							"sid": 733781519642205
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "[b]4th Parameter[/b] C"
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 364461637128672,
+									"parameters": {
+										"variable": "c",
+										"value": "Functions.ProcessColorParameter(4)"
+									}
+								}
+							],
+							"sid": 836952902897318
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "🛑 Print Parameters",
+									"background-color": [
+										0.9294117647058824,
+										0.7764705882352941,
+										0.984313725490196,
+										1
+									]
+								},
+								{
+									"callFunction": "PrintParameterHint",
+									"sid": 417781158310423
+								}
+							],
+							"sid": 389682082159172
+						},
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-visible",
+									"objectClass": "Leader",
+									"sid": 204668003568802,
+									"parameters": {
+										"visibility": "invisible"
+									}
+								},
+								{
+									"id": "set-visible",
+									"objectClass": "SoftCircleBuffer",
+									"sid": 174406068020948,
+									"parameters": {
+										"visibility": "invisible"
+									}
+								}
+							],
+							"sid": 279961048531331
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 420086116516450,
+									"parameters": {
+										"first-value": "SizeTier",
+										"comparison": 0,
+										"second-value": "\"S\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 763407718223011,
+									"parameters": {
+										"variable": "brushRadius",
+										"value": "int(random(6, 16))"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 260487856034663,
+									"parameters": {
+										"variable": "speed",
+										"value": "choose(1, 2)"
+									}
+								},
+								{
+									"id": "set-opacity",
+									"objectClass": "SoftCircleBuffer",
+									"sid": 449594646389730,
+									"parameters": {
+										"opacity": "random(10, 40)"
+									}
+								}
+							],
+							"sid": 517655335075430
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 184589167232715,
+									"parameters": {
+										"first-value": "SizeTier",
+										"comparison": 0,
+										"second-value": "\"M\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 157302697697740,
+									"parameters": {
+										"variable": "brushRadius",
+										"value": "int(random(16, 48))"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 756781160565403,
+									"parameters": {
+										"variable": "speed",
+										"value": "choose(2, 3)"
+									}
+								},
+								{
+									"id": "set-opacity",
+									"objectClass": "SoftCircleBuffer",
+									"sid": 143536963141064,
+									"parameters": {
+										"opacity": "random(10, 40)"
+									}
+								}
+							],
+							"sid": 882076145761560
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 572006032514648,
+									"parameters": {
+										"first-value": "SizeTier",
+										"comparison": 0,
+										"second-value": "\"L\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 250706982278467,
+									"parameters": {
+										"variable": "brushRadius",
+										"value": "int(random(48, 64))"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 116356315101193,
+									"parameters": {
+										"variable": "speed",
+										"value": "choose(4, 5, 6)"
+									}
+								},
+								{
+									"id": "set-opacity",
+									"objectClass": "SoftCircleBuffer",
+									"sid": 382266365026138,
+									"parameters": {
+										"opacity": "random(10, 40)"
+									}
+								}
+							],
+							"sid": 613071304336498
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 852360637810915,
+									"parameters": {
+										"variable": "startAngle",
+										"value": "floor(random(0, 360))"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 498129711058812,
+									"parameters": {
+										"variable": "hardness",
+										"value": "int(random(0, brushRadius - 6))"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 790687767877582,
+									"parameters": {
+										"variable": "step",
+										"value": "max(1, (brushRadius - hardness) / 4)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 885725753599656,
+									"parameters": {
+										"variable": "turnSpeed",
+										"value": "choose(0.5, 1, 1.5)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 251534342045858,
+									"parameters": {
+										"variable": "turnLevel",
+										"value": "choose(16, 30, 45)"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "Set the direction for the hue shift."
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 434209221993246,
+									"parameters": {
+										"variable": "hueDirection",
+										"value": "choose(-1, 1)"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "Generate a brush."
+								},
+								{
+									"id": "set-size",
+									"objectClass": "SoftCircleBuffer",
+									"sid": 181700770298062,
+									"parameters": {
+										"width": "brushRadius * 2",
+										"height": "brushRadius * 2"
+									}
+								},
+								{
+									"id": "save-snapshot",
+									"objectClass": "SoftCircleBuffer",
+									"sid": 624163565781394
+								},
+								{
+									"id": "wait-for-previous-actions",
+									"objectClass": "System",
+									"sid": 813428804550428
+								}
+							],
+							"sid": 531473302984001,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "for",
+											"objectClass": "System",
+											"sid": 370133047419277,
+											"parameters": {
+												"name": "\"W\"",
+												"start-index": "0",
+												"end-index": "SoftCircleBuffer.SnapshotWidth"
+											}
+										},
+										{
+											"id": "for",
+											"objectClass": "System",
+											"sid": 898041220440968,
+											"parameters": {
+												"name": "\"H\"",
+												"start-index": "0",
+												"end-index": "SoftCircleBuffer.SnapshotHeight"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "snapshot-set-pixel",
+											"objectClass": "SoftCircleBuffer",
+											"sid": 614705325249419,
+											"parameters": {
+												"x": "loopindex(\"W\")",
+												"y": "loopindex(\"H\")",
+												"color": "rgba255(255, 255, 255, 255 - (distance(brushRadius, brushRadius, loopindex(\"W\"), loopindex(\"H\")) - hardness) / (brushRadius - hardness) * 255)"
+											}
+										}
+									],
+									"sid": 925529242754676
+								},
+								{
+									"eventType": "block",
+									"conditions": [],
+									"actions": [
+										{
+											"id": "load-snapshot",
+											"objectClass": "SoftCircleBuffer",
+											"sid": 620425594137382
+										},
+										{
+											"type": "comment",
+											"text": "Set the original leader position."
+										},
+										{
+											"id": "set-position",
+											"objectClass": "Leader",
+											"sid": 564399934607611,
+											"parameters": {
+												"x": "x",
+												"y": "y"
+											}
+										},
+										{
+											"id": "set-angle",
+											"objectClass": "Leader",
+											"sid": 207170434089806,
+											"parameters": {
+												"angle": "startAngle - 90"
+											}
+										},
+										{
+											"type": "comment",
+											"text": "Get the [b]color[/b] underneath X and Y & then invert it, convert it to HSL and vary the result."
+										},
+										{
+											"id": "set-default-color",
+											"objectClass": "SoftCircleBuffer",
+											"sid": 341578362721102,
+											"disabled": true,
+											"parameters": {
+												"color": "rgbEx(100 - Painting.SnapshotRedAt(Leader.X, Leader.Y), 100 - Painting.SnapshotGreenAt(Leader.X, Leader.Y), 100 - Painting.SnapshotBlueAt(Leader.X, Leader.Y))"
+											}
+										},
+										{
+											"type": "script",
+											"language": "javascript",
+											"script": [
+												"// Vary the calculated HSL by ~0.2",
+												"const hsl = main.rgbToHsl(...runtime.objects.SoftCircleBuffer.getFirstInstance().colorRgb).map((v) => Math.min(Math.max(0, v + (-0.1 + runtime.random() * 0.2)), 1))",
+												"localVars.h = hsl[0]",
+												"localVars.s = hsl[1]",
+												"localVars.l = hsl[2]",
+												"",
+												"// 30% of the time, randomize the hue.",
+												"if (runtime.random() > 0.7) {",
+												"\tlocalVars.h = runtime.random()",
+												"}",
+												"",
+												"// 4/10 times, make the saturation very high or low.",
+												"if (runtime.random() > 0.6) {",
+												"\tif (runtime.random() > 0.5) {",
+												"\t\tlocalVars.s = 1.0",
+												"\t} else {",
+												"\t\tlocalVars.s = 0.1",
+												"\t}",
+												"}",
+												"",
+												"// 3/10 times, make the brightness 0.5.",
+												"if (runtime.random() > 0.7) {",
+												"\tlocalVars.l = 0.5",
+												"}"
+											],
+											"disabled": true
+										},
+										{
+											"id": "set-default-color",
+											"objectClass": "SoftCircleBuffer",
+											"sid": 396682264048984,
+											"disabled": true,
+											"parameters": {
+												"color": "Functions.hslaToRgba(h, s, l, 1)"
+											}
+										},
+										{
+											"type": "comment",
+											"text": "Set the [b]color[/b] from the parameter."
+										},
+										{
+											"id": "set-default-color",
+											"objectClass": "SoftCircleBuffer",
+											"sid": 633637378634541,
+											"parameters": {
+												"color": "c"
+											}
+										},
+										{
+											"type": "script",
+											"language": "javascript",
+											"script": [
+												"const hsl = main.rgbToHsl(...runtime.objects.SoftCircleBuffer.getFirstInstance().colorRgb)",
+												"localVars.h = hsl[0]",
+												"localVars.s = hsl[1]",
+												"localVars.l = hsl[2]"
+											]
+										},
+										{
+											"type": "comment",
+											"text": "Start the clocks."
+										},
+										{
+											"id": "start-timer",
+											"objectClass": "Clock",
+											"sid": 444009930039373,
+											"behaviorType": "Timer",
+											"parameters": {
+												"duration": "0.1",
+												"type": "regular",
+												"tag": "\"Color\""
+											}
+										},
+										{
+											"id": "start-timer",
+											"objectClass": "Clock",
+											"sid": 673649841707079,
+											"behaviorType": "Timer",
+											"parameters": {
+												"duration": "0.2 * turnSpeed",
+												"type": "regular",
+												"tag": "\"Turn\""
+											}
+										},
+										{
+											"id": "start-timer",
+											"objectClass": "Clock",
+											"sid": 182168493184995,
+											"behaviorType": "Timer",
+											"parameters": {
+												"duration": "0.1 * speed",
+												"type": "regular",
+												"tag": "\"Move\""
+											}
+										},
+										{
+											"id": "start-timer",
+											"objectClass": "Clock",
+											"sid": 732664191757347,
+											"behaviorType": "Timer",
+											"parameters": {
+												"duration": "0.1 * speed",
+												"type": "regular",
+												"tag": "\"Sound\""
+											}
+										},
+										{
+											"type": "comment",
+											"text": "Paint once."
+										},
+										{
+											"id": "set-position",
+											"objectClass": "SoftCircleBuffer",
+											"sid": 692638674803162,
+											"parameters": {
+												"x": "Leader.X - brushRadius",
+												"y": "Leader.Y - brushRadius"
+											}
+										},
+										{
+											"id": "wait",
+											"objectClass": "System",
+											"sid": 942576748856189,
+											"parameters": {
+												"seconds": "0",
+												"use-timescale": true
+											}
+										},
+										{
+											"id": "paste-object",
+											"objectClass": "SoftyBuffer",
+											"sid": 332372576447788,
+											"parameters": {
+												"object": "SoftCircleBuffer",
+												"effects": "without-effects"
+											}
+										},
+										{
+											"id": "signal",
+											"objectClass": "System",
+											"sid": 348799108623809,
+											"parameters": {
+												"tag": "\"Brush Started\""
+											}
+										}
+									],
+									"sid": 103444732762045
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 371089337929299
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 483738680482415,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 544354525988083
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 511376586084767,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Color\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 969534767554558,
+							"parameters": {
+								"variable": "h",
+								"value": "h + (0.001 * hueDirection) % 1"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 340225100754304,
+							"parameters": {
+								"variable": "s",
+								"value": "s + choose(-0.002, 0.002) % 1"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 262072698865602,
+							"parameters": {
+								"variable": "l",
+								"value": "l + choose(-0.002, 0.002) % 1"
+							}
+						},
+						{
+							"id": "set-default-color",
+							"objectClass": "SoftCircleBuffer",
+							"sid": 984639409707620,
+							"parameters": {
+								"color": "Functions.hslaToRgba(h, s, l, 1)"
+							}
+						}
+					],
+					"sid": 625277079537735
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 360332168470039,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Sound\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 383334302070424,
+							"parameters": {
+								"tag": "\"Blurp\""
+							}
+						},
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 639357063924510,
+							"parameters": {
+								"audio-file": {
+									"path": "Brushes/Softy/Softy - Landed"
+								},
+								"loop": "not-looping",
+								"volume": "0",
+								"stereo-pan": "0",
+								"tag-optional": "\"Blurp\""
+							}
+						},
+						{
+							"id": "set-playback-rate",
+							"objectClass": "Audio",
+							"sid": 906834420792713,
+							"parameters": {
+								"tag": "\"Blurp\"",
+								"playback-rate": "(1.8 - (brushRadius / 64)) + random(-0.1, 0.1)"
+							}
+						},
+						{
+							"id": "set-volume",
+							"objectClass": "Audio",
+							"sid": 746245004708407,
+							"parameters": {
+								"tag": "\"Blurp\"",
+								"db": "((-20 + (SoftCircleBuffer.opacity / 100) * 20) + random(-3, 3)) - 3"
+							}
+						}
+					],
+					"sid": 128856372789694
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 595856384023429,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Turn\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 154816183129515,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "is-outside-layout",
+									"objectClass": "Leader",
+									"sid": 596123991138934,
+									"isInverted": true
+								}
+							],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "Set a random angle every 1 in 5 times, otherwise turn left or right up to 30 degrees."
+								}
+							],
+							"sid": 383457955952154,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 242997037840309,
+											"parameters": {
+												"first-value": "choose(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)",
+												"comparison": 0,
+												"second-value": "1"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-angle",
+											"objectClass": "Leader",
+											"sid": 698614756582669,
+											"parameters": {
+												"angle": "random(0, 360)"
+											}
+										}
+									],
+									"sid": 601540602717549
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 303879401739827
+										}
+									],
+									"actions": [
+										{
+											"id": "rotate-clockwise",
+											"objectClass": "Leader",
+											"sid": 801384184111824,
+											"parameters": {
+												"degrees": "random(-turnLevel, turnLevel)"
+											}
+										}
+									],
+									"sid": 133160898788663
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 677869832914466,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Move\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 229174668085403,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "is-outside-layout",
+									"objectClass": "Leader",
+									"sid": 477658527998127
+								}
+							],
+							"actions": [
+								{
+									"id": "set-angle-toward-position",
+									"objectClass": "Leader",
+									"sid": 663311226451977,
+									"parameters": {
+										"x": "PaintingSnapshotCrop.X + PaintingResolution / 2",
+										"y": "PaintingSnapshotCrop.Y + PaintingResolution / 2"
+									}
+								}
+							],
+							"sid": 943390655226394
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "Move the leader up."
+								},
+								{
+									"id": "move-forward",
+									"objectClass": "Leader",
+									"sid": 570551978181616,
+									"parameters": {
+										"distance": "step"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "Paint again."
+								},
+								{
+									"id": "set-position",
+									"objectClass": "SoftCircleBuffer",
+									"sid": 428956152831182,
+									"parameters": {
+										"x": "Leader.X - brushRadius",
+										"y": "Leader.Y - brushRadius"
+									}
+								},
+								{
+									"id": "wait",
+									"objectClass": "System",
+									"sid": 516243685368974,
+									"parameters": {
+										"seconds": "0",
+										"use-timescale": true
+									}
+								},
+								{
+									"id": "paste-object",
+									"objectClass": "SoftyBuffer",
+									"sid": 381017214141122,
+									"parameters": {
+										"object": "SoftCircleBuffer",
+										"effects": "without-effects"
+									}
+								}
+							],
+							"sid": 393296854943336
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "variable",
+					"name": "LastStampX",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 603574560089343
+				},
+				{
+					"eventType": "variable",
+					"name": "LastStampY",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 993783090667279
+				},
+				{
+					"eventType": "variable",
+					"name": "NewStampX",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 740195718716922
+				},
+				{
+					"eventType": "variable",
+					"name": "NewStampY",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 605017887194083
+				},
+				{
+					"eventType": "variable",
+					"name": "NudgeDist",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 100009780888210
+				},
+				{
+					"eventType": "variable",
+					"name": "NudgeStrokeTravel",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 747948262660390
+				},
+				{
+					"eventType": "variable",
+					"name": "NudgeStrokeSize",
+					"type": "number",
+					"initialValue": "24",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 461788187504137
+				},
+				{
+					"eventType": "variable",
+					"name": "NudgeStrokeGap",
+					"type": "number",
+					"initialValue": "2",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 485612876037130
+				},
+				{
+					"eventType": "variable",
+					"name": "NudgeLineDist",
+					"type": "number",
+					"initialValue": "2",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 159308779776057
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 477719939462737,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 553795959431427
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 747195765225055,
+							"parameters": {
+								"object": "NudgeDot",
+								"time-scale": "1.0"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 751338011301864,
+							"disabled": true,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 454676231440563,
+							"parameters": {
+								"x": "NudgePointerX",
+								"y": "NudgePointerY"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "Leader",
+							"sid": 578205874486514,
+							"parameters": {
+								"x": "NudgeDot.X",
+								"y": "NudgeDot.Y"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 871437679469382,
+							"parameters": {
+								"variable": "LastStampX",
+								"value": "Leader.X"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 848106751184656,
+							"parameters": {
+								"variable": "LastStampY",
+								"value": "Leader.Y"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 556369334116836,
+							"parameters": {
+								"variable": "NudgeStrokeSize",
+								"value": "brushRadius"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 102074849562212,
+							"parameters": {
+								"variable": "NudgeStrokeGap",
+								"value": "floor(max(1, brushRadius / 3))"
+							}
+						},
+						{
+							"id": "clear-canvas",
+							"objectClass": "SoftyBuffer",
+							"sid": 734821342532065,
+							"parameters": {
+								"color": "rgba(0, 0, 0, 0)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 127769315672900,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 396312282098135,
+							"parameters": [
+								false
+							]
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 898128131645896,
+							"parameters": {
+								"variable": "NudgeStrokeTravel",
+								"value": "0"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 959218830282349,
+							"parameters": {
+								"variable": "NudgeDist",
+								"value": "0"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "Leader",
+							"sid": 144004620689051,
+							"parameters": {
+								"x": "NudgeDot.X",
+								"y": "NudgeDot.Y"
+							}
+						}
+					],
+					"sid": 779997036811167
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 940646888425222,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "Leader",
+							"sid": 552149690255967,
+							"parameters": {
+								"x": "Self.X + NudgedX",
+								"y": "Self.Y + NudgedY"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 969461441824645,
+							"parameters": {
+								"x": "min(max(0, Leader.X), 255)",
+								"y": "min(max(0, Leader.Y), 255)"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 950967600167245,
+							"parameters": {
+								"variable": "NudgeDist",
+								"value": "distance(Leader.X, Leader.Y, LastStampX, LastStampY)"
+							}
+						}
+					],
+					"sid": 143738814981047,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 949883349677218,
+									"parameters": {
+										"variable": "NudgeDist",
+										"comparison": 5,
+										"value": "NudgeLineDist"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 137762890312724,
+									"parameters": {
+										"variable": "NewStampX",
+										"value": "Leader.X"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 890041868333180,
+									"parameters": {
+										"variable": "NewStampY",
+										"value": "Leader.Y"
+									}
+								}
+							],
+							"sid": 121912955227716,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "repeat",
+											"objectClass": "System",
+											"sid": 660681413224930,
+											"parameters": {
+												"count": "NudgeDist"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "add-to-eventvar",
+											"objectClass": "System",
+											"sid": 504063514066382,
+											"parameters": {
+												"variable": "NudgeStrokeTravel",
+												"value": "distance(LastStampX, LastStampY, NewStampX, NewStampY) / NudgeDist"
+											}
+										}
+									],
+									"sid": 918562248568287,
+									"children": [
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "compare-eventvar",
+													"objectClass": "System",
+													"sid": 206130800558116,
+													"parameters": {
+														"variable": "NudgeStrokeTravel",
+														"comparison": 5,
+														"value": "NudgeStrokeGap"
+													}
+												}
+											],
+											"actions": [
+												{
+													"id": "set-position",
+													"objectClass": "SoftCircleBuffer",
+													"sid": 240791880393248,
+													"parameters": {
+														"x": "(lerp(LastStampX, NewStampX, loopindex / NudgeDist)) - brushRadius",
+														"y": "(lerp(LastStampY, NewStampY, loopindex / NudgeDist)) - brushRadius"
+													}
+												},
+												{
+													"id": "paste-object",
+													"objectClass": "SoftyBuffer",
+													"sid": 422422050551356,
+													"parameters": {
+														"object": "SoftCircleBuffer",
+														"effects": "without-effects"
+													}
+												},
+												{
+													"id": "subtract-from-eventvar",
+													"objectClass": "System",
+													"sid": 953520415121871,
+													"parameters": {
+														"variable": "NudgeStrokeTravel",
+														"value": "NudgeStrokeGap"
+													}
+												}
+											],
+											"sid": 124089836276763
+										}
+									]
+								},
+								{
+									"eventType": "block",
+									"conditions": [],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 668757591936212,
+											"parameters": {
+												"variable": "LastStampX",
+												"value": "NewStampX"
+											}
+										},
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 102428964465611,
+											"parameters": {
+												"variable": "LastStampY",
+												"value": "NewStampY"
+											}
+										}
+									],
+									"sid": 660965691665182
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "Old"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 259428929984944,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 171670059543955
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 967084805599110,
+							"parameters": {
+								"object": "NudgeDot",
+								"time-scale": "1.0"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 958538572546282,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 485620928582686,
+							"parameters": {
+								"x": "Leader.X",
+								"y": "Leader.Y"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 909533402446158,
+							"parameters": {
+								"variable": "LastStampX",
+								"value": "Leader.X"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 732482133314763,
+							"parameters": {
+								"variable": "LastStampY",
+								"value": "Leader.Y"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 909688931391866,
+							"parameters": {
+								"variable": "NudgeStrokeSize",
+								"value": "brushRadius"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 163630718176660,
+							"parameters": {
+								"variable": "NudgeStrokeGap",
+								"value": "floor(max(1, brushRadius / 3))"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 574206224041673,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 640815186706514,
+							"parameters": [
+								false
+							]
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 545807300877444,
+							"parameters": {
+								"variable": "NudgeStrokeTravel",
+								"value": "0"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 941118482309480,
+							"parameters": {
+								"variable": "NudgeDist",
+								"value": "0"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "Leader",
+							"sid": 251361452485797,
+							"parameters": {
+								"x": "NudgeDot.X",
+								"y": "NudgeDot.Y"
+							}
+						}
+					],
+					"sid": 813168249232362,
+					"disabled": true
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 701347985321810,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "Leader",
+							"sid": 392764114549994,
+							"parameters": {
+								"x": "Self.X + NudgedX",
+								"y": "Self.Y + NudgedY"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 867092917200634,
+							"parameters": {
+								"x": "min(max(0, Leader.X), 255)",
+								"y": "min(max(0, Leader.Y), 255)"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 194087925889825,
+							"parameters": {
+								"variable": "NudgeDist",
+								"value": "distance(Leader.X, Leader.Y, LastStampX, LastStampY)"
+							}
+						}
+					],
+					"sid": 761617439404036,
+					"disabled": true,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 594051292031445,
+									"parameters": {
+										"variable": "NudgeDist",
+										"comparison": 5,
+										"value": "NudgeLineDist"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 796706205932453,
+									"parameters": {
+										"variable": "NewStampX",
+										"value": "Leader.X"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 396230352972163,
+									"parameters": {
+										"variable": "NewStampY",
+										"value": "Leader.Y"
+									}
+								}
+							],
+							"sid": 104614524365964,
+							"disabled": true,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "repeat",
+											"objectClass": "System",
+											"sid": 856207350496619,
+											"parameters": {
+												"count": "NudgeDist"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "add-to-eventvar",
+											"objectClass": "System",
+											"sid": 510268746789707,
+											"parameters": {
+												"variable": "NudgeStrokeTravel",
+												"value": "distance(LastStampX, LastStampY, NewStampX, NewStampY) / NudgeDist"
+											}
+										}
+									],
+									"sid": 615800880504744,
+									"disabled": true,
+									"children": [
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "compare-eventvar",
+													"objectClass": "System",
+													"sid": 401404290060797,
+													"parameters": {
+														"variable": "NudgeStrokeTravel",
+														"comparison": 5,
+														"value": "NudgeStrokeGap"
+													}
+												}
+											],
+											"actions": [
+												{
+													"id": "set-position",
+													"objectClass": "SoftCircleBuffer",
+													"sid": 621056054584343,
+													"parameters": {
+														"x": "(lerp(LastStampX, NewStampX, loopindex / NudgeDist)) - brushRadius",
+														"y": "(lerp(LastStampY, NewStampY, loopindex / NudgeDist)) - brushRadius"
+													}
+												},
+												{
+													"id": "paste-object",
+													"objectClass": "SoftyBuffer",
+													"sid": 363869195316467,
+													"parameters": {
+														"object": "SoftCircleBuffer",
+														"effects": "without-effects"
+													}
+												},
+												{
+													"id": "subtract-from-eventvar",
+													"objectClass": "System",
+													"sid": 419426385895926,
+													"parameters": {
+														"variable": "NudgeStrokeTravel",
+														"value": "NudgeStrokeGap"
+													}
+												}
+											],
+											"sid": 256427240590287,
+											"disabled": true
+										}
+									]
+								},
+								{
+									"eventType": "block",
+									"conditions": [],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 418918869262612,
+											"parameters": {
+												"variable": "LastStampX",
+												"value": "NewStampX"
+											}
+										},
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 662025866599223,
+											"parameters": {
+												"variable": "LastStampY",
+												"value": "NewStampY"
+											}
+										}
+									],
+									"sid": 147738618306913,
+									"disabled": true
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 191566530038232,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 193548152648456,
+							"parameters": {
+								"object": "SoftyBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 758554572137834,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 784772677305858
+				}
+			],
+			"sid": 686240330622626
+		}
+	],
+	"sid": 344498206209244
+}

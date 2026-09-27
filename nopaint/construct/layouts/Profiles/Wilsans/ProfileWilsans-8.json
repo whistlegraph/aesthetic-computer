@@ -1,0 +1,433 @@
+{
+	"name": "ProfileWilsans-8",
+	"layers": [
+		{
+			"name": "Background",
+			"overriden": 0,
+			"subLayers": [],
+			"instances": [
+				{
+					"type": "PainterStoriesBackgrounds",
+					"properties": {
+						"initially-visible": true,
+						"initial-animation": "Animation 1",
+						"initial-frame": 2,
+						"enable-collisions": true,
+						"live-preview": false
+					},
+					"uid": 574,
+					"sid": 488457174648609,
+					"tags": "",
+					"instanceVariables": {},
+					"behaviors": {},
+					"showing": true,
+					"locked": false,
+					"world": {
+						"x": 0,
+						"y": 0,
+						"width": 256,
+						"height": 336,
+						"originX": 0,
+						"originY": 0,
+						"color": [
+							1,
+							1,
+							1,
+							1
+						],
+						"z": 0,
+						"angle": 0
+					}
+				}
+			],
+			"sid": 231461063599179,
+			"effectTypes": [],
+			"isInitiallyVisible": true,
+			"isInitiallyInteractive": true,
+			"isHTMLElementsLayer": false,
+			"color": [
+				1,
+				1,
+				1,
+				1
+			],
+			"backgroundColor": [
+				1,
+				1,
+				1,
+				1
+			],
+			"isTransparent": true,
+			"sampling": "auto",
+			"parallaxX": 1,
+			"parallaxY": 1,
+			"scaleRate": 1,
+			"forceOwnTexture": false,
+			"renderingMode": "3d",
+			"drawOrder": "z-order",
+			"useRenderCells": false,
+			"blendMode": "normal",
+			"zElevation": 0,
+			"global": false
+		},
+		{
+			"name": "Foreground",
+			"overriden": 0,
+			"subLayers": [],
+			"instances": [
+				{
+					"type": "MainSpriteFont",
+					"properties": {
+						"text": "[color=663E54]continued:[/color]\n\n[color=b7abbf]then I posted one [color=9482a0]Spin[/color] piece with a lot of [color=9482a0]Contrast[/color] and people loved it. So I kept going, incorporating the bright colors in most of my pictures in No Paint since.[/color]\n \n[color=005D36]Alex:[/color]\n\n[color=b7abbf]How important is sharing your work with others, and how does that further influence your process?[/color]\n\n[color=663E54]Wilsans:[/color]\n\n[color=b7abbf]It doesn't really influence anything. I don't make these pictures to show them to others, even though it is super sick to post them and have people tell me how cool they are. I do it all for me. It's a nice side hobby, cause there's so much you can do with such little control. [/color]",
+						"enable-bbcode": true,
+						"character-width": 8,
+						"character-height": 8,
+						"character-set": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_/.,:@#$%^*()|'?!&-`~",
+						"spacing-data": "",
+						"scale": 1,
+						"character-spacing": 0,
+						"line-height": 2,
+						"horizontal-alignment": "left",
+						"vertical-alignment": "top",
+						"wrapping": "word",
+						"initially-visible": true,
+						"origin": "top-left",
+						"read-aloud": false
+					},
+					"uid": 575,
+					"sid": 389835212173072,
+					"tags": "",
+					"instanceVariables": {
+						"For": ""
+					},
+					"behaviors": {},
+					"showing": true,
+					"locked": false,
+					"world": {
+						"x": 8,
+						"y": 66,
+						"width": 240,
+						"height": 249,
+						"originX": 0,
+						"originY": 0,
+						"color": [
+							0.7686274509803922,
+							0.7686274509803922,
+							1,
+							1
+						],
+						"z": 0,
+						"angle": 0
+					}
+				},
+				{
+					"type": "MainSpriteFont",
+					"properties": {
+						"text": "8/10",
+						"enable-bbcode": true,
+						"character-width": 8,
+						"character-height": 8,
+						"character-set": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_/.,:@#$%^*()|'?!&-`~",
+						"spacing-data": "",
+						"scale": 1,
+						"character-spacing": 0,
+						"line-height": 4,
+						"horizontal-alignment": "center",
+						"vertical-alignment": "center",
+						"wrapping": "word",
+						"initially-visible": true,
+						"origin": "top-left",
+						"read-aloud": false
+					},
+					"uid": 576,
+					"sid": 686497471144238,
+					"tags": "",
+					"instanceVariables": {
+						"For": ""
+					},
+					"behaviors": {},
+					"showing": true,
+					"locked": false,
+					"world": {
+						"x": 223,
+						"y": 324,
+						"width": 32,
+						"height": 8,
+						"originX": 0,
+						"originY": 0,
+						"color": [
+							0.7333333333333333,
+							0.5843137254901961,
+							0.8352941176470589,
+							1
+						],
+						"z": 0,
+						"angle": 0
+					}
+				},
+				{
+					"type": "PainterStoriesTitleBackdrop",
+					"properties": {
+						"initially-visible": true,
+						"initial-animation": "Animation 1",
+						"initial-frame": 0,
+						"enable-collisions": true,
+						"live-preview": false
+					},
+					"uid": 577,
+					"sid": 504549810624247,
+					"tags": "",
+					"instanceVariables": {},
+					"behaviors": {},
+					"showing": true,
+					"locked": false,
+					"world": {
+						"x": 0,
+						"y": 16,
+						"width": 256,
+						"height": 41,
+						"originX": 0,
+						"originY": 0,
+						"color": [
+							1,
+							1,
+							1,
+							1
+						],
+						"z": 0,
+						"angle": 0
+					}
+				},
+				{
+					"type": "MainSpriteFont",
+					"properties": {
+						"text": "[color=DDDDDD]Painter Story[/color]\n[scale=2]Wilsans[/scale]",
+						"enable-bbcode": true,
+						"character-width": 8,
+						"character-height": 8,
+						"character-set": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_/.,:@#$%^*()|'?!&-`~",
+						"spacing-data": "",
+						"scale": 1,
+						"character-spacing": 0,
+						"line-height": 5,
+						"horizontal-alignment": "center",
+						"vertical-alignment": "center",
+						"wrapping": "word",
+						"initially-visible": true,
+						"origin": "top-left",
+						"read-aloud": false
+					},
+					"uid": 578,
+					"sid": 319671235727643,
+					"tags": "",
+					"instanceVariables": {
+						"For": ""
+					},
+					"behaviors": {},
+					"showing": true,
+					"locked": false,
+					"world": {
+						"x": 0,
+						"y": 16,
+						"width": 256,
+						"height": 41,
+						"originX": 0,
+						"originY": 0,
+						"color": [
+							0.7333333333333333,
+							0.5843137254901961,
+							0.8352941176470589,
+							1
+						],
+						"z": 0,
+						"angle": 0
+					}
+				},
+				{
+					"type": "PainterStoriesArrows",
+					"properties": {
+						"initially-visible": true,
+						"initial-animation": "Animation 1",
+						"initial-frame": 1,
+						"enable-collisions": true,
+						"live-preview": false
+					},
+					"uid": 634,
+					"sid": 950481373168166,
+					"tags": "",
+					"instanceVariables": {},
+					"behaviors": {},
+					"showing": true,
+					"locked": false,
+					"world": {
+						"x": 0,
+						"y": 16,
+						"width": 256,
+						"height": 41,
+						"originX": 0,
+						"originY": 0,
+						"color": [
+							1,
+							1,
+							1,
+							1
+						],
+						"z": 0,
+						"angle": 0
+					}
+				},
+				{
+					"type": "Button",
+					"properties": {
+						"initially-visible": false,
+						"initial-animation": "Animation 1",
+						"initial-frame": 0,
+						"enable-collisions": false,
+						"live-preview": false
+					},
+					"uid": 579,
+					"sid": 596747677101487,
+					"tags": "",
+					"instanceVariables": {
+						"Disabled": false,
+						"Pressed": false,
+						"For": "Next",
+						"Hovered": false
+					},
+					"behaviors": {},
+					"showing": true,
+					"locked": false,
+					"world": {
+						"x": 128,
+						"y": 0,
+						"width": 128,
+						"height": 336,
+						"originX": 0,
+						"originY": 0,
+						"color": [
+							1,
+							1,
+							1,
+							0
+						],
+						"z": 0,
+						"angle": 0
+					}
+				},
+				{
+					"type": "Button",
+					"properties": {
+						"initially-visible": false,
+						"initial-animation": "Animation 1",
+						"initial-frame": 0,
+						"enable-collisions": false,
+						"live-preview": false
+					},
+					"uid": 580,
+					"sid": 174315451407626,
+					"tags": "",
+					"instanceVariables": {
+						"Disabled": false,
+						"Pressed": false,
+						"For": "Back",
+						"Hovered": false
+					},
+					"behaviors": {},
+					"showing": true,
+					"locked": false,
+					"world": {
+						"x": 0,
+						"y": 0,
+						"width": 128,
+						"height": 336,
+						"originX": 0,
+						"originY": 0,
+						"color": [
+							1,
+							1,
+							1,
+							0
+						],
+						"z": 0,
+						"angle": 0
+					}
+				}
+			],
+			"sid": 775437926862071,
+			"effectTypes": [],
+			"isInitiallyVisible": true,
+			"isInitiallyInteractive": true,
+			"isHTMLElementsLayer": false,
+			"color": [
+				1,
+				1,
+				1,
+				1
+			],
+			"backgroundColor": [
+				1,
+				1,
+				1,
+				1
+			],
+			"isTransparent": true,
+			"sampling": "auto",
+			"parallaxX": 1,
+			"parallaxY": 1,
+			"scaleRate": 1,
+			"forceOwnTexture": false,
+			"renderingMode": "3d",
+			"drawOrder": "z-order",
+			"useRenderCells": false,
+			"blendMode": "normal",
+			"zElevation": 0,
+			"global": false
+		},
+		{
+			"name": "Cursor",
+			"overriden": 0,
+			"subLayers": [],
+			"instances": [],
+			"sid": 900421608929904,
+			"effectTypes": [],
+			"isInitiallyVisible": true,
+			"isInitiallyInteractive": true,
+			"isHTMLElementsLayer": false,
+			"color": [
+				1,
+				1,
+				1,
+				1
+			],
+			"backgroundColor": [
+				1,
+				1,
+				1,
+				1
+			],
+			"isTransparent": true,
+			"sampling": "auto",
+			"parallaxX": 1,
+			"parallaxY": 1,
+			"scaleRate": 1,
+			"forceOwnTexture": false,
+			"renderingMode": "3d",
+			"drawOrder": "z-order",
+			"useRenderCells": false,
+			"blendMode": "normal",
+			"zElevation": 0,
+			"global": false
+		}
+	],
+	"sid": 129293227096346,
+	"nonworld-instances": [],
+	"effectTypes": [],
+	"width": 256,
+	"height": 336,
+	"unboundedScrolling": false,
+	"sampling": "auto",
+	"vpX": 0.5,
+	"vpY": 0.5,
+	"projection": "perspective",
+	"eventSheet": "PainterStories"
+}

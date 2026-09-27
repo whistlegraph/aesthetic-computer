@@ -1,0 +1,1618 @@
+{
+	"name": "Dark Window",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Dark Window",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "comment",
+					"text": "Constants"
+				},
+				{
+					"eventType": "variable",
+					"name": "growthMax",
+					"type": "number",
+					"initialValue": "64",
+					"comment": "",
+					"isStatic": false,
+					"isConstant": true,
+					"sid": 400057158292514
+				},
+				{
+					"eventType": "variable",
+					"name": "Border",
+					"type": "number",
+					"initialValue": "4",
+					"comment": "",
+					"isStatic": false,
+					"isConstant": true,
+					"sid": 281000594905329
+				},
+				{
+					"eventType": "comment",
+					"text": "Variables"
+				},
+				{
+					"eventType": "variable",
+					"name": "x",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 291152624687995
+				},
+				{
+					"eventType": "variable",
+					"name": "y",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 475759196711422
+				},
+				{
+					"eventType": "variable",
+					"name": "rectLeft",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 253466405205911
+				},
+				{
+					"eventType": "variable",
+					"name": "rectRight",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 782237386588588
+				},
+				{
+					"eventType": "variable",
+					"name": "rectTop",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 195999485620068
+				},
+				{
+					"eventType": "variable",
+					"name": "rectBottom",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 740311959782093
+				},
+				{
+					"eventType": "variable",
+					"name": "leftSpeed",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 556630211181303
+				},
+				{
+					"eventType": "variable",
+					"name": "rightSpeed",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 313246046571372
+				},
+				{
+					"eventType": "variable",
+					"name": "topSpeed",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 421370648417020
+				},
+				{
+					"eventType": "variable",
+					"name": "bottomSpeed",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 980943260151224
+				},
+				{
+					"eventType": "variable",
+					"name": "noteCount",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 268806603751348
+				},
+				{
+					"eventType": "variable",
+					"name": "clockwiseColors",
+					"type": "boolean",
+					"initialValue": "false",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 362648346764420
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 533164685296952
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "👋 Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 289638237652824,
+							"parameters": [
+								"2"
+							]
+						},
+						{
+							"type": "comment",
+							"text": "[b]1st Parameter[/b] X"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 615268202985176,
+							"parameters": {
+								"variable": "x",
+								"value": "Functions.ProcessNumericParameter(1, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "[b]2nd Parameter[/b] Y"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 564431183195587,
+							"parameters": {
+								"variable": "y",
+								"value": "Functions.ProcessNumericParameter(2, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "🛑 Print Parameters",
+							"background-color": [
+								0.9294117647058824,
+								0.7764705882352941,
+								0.984313725490196,
+								1
+							]
+						},
+						{
+							"callFunction": "PrintParameterHint",
+							"sid": 510334171013555
+						}
+					],
+					"sid": 217741772197559,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[/h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "Populate the DarkWindowColors Array."
+								},
+								{
+									"type": "comment",
+									"text": "Top Left"
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "DarkWindowColors",
+									"sid": 766537230977319,
+									"parameters": {
+										"x": "0",
+										"y": "0",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "DarkWindowColors",
+									"sid": 412647967297597,
+									"parameters": {
+										"x": "0",
+										"y": "1",
+										"value": "16"
+									}
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "DarkWindowColors",
+									"sid": 898228017945558,
+									"parameters": {
+										"x": "0",
+										"y": "2",
+										"value": "16"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "Top Right"
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "DarkWindowColors",
+									"sid": 182521413658819,
+									"parameters": {
+										"x": "1",
+										"y": "0",
+										"value": "16"
+									}
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "DarkWindowColors",
+									"sid": 201892612272597,
+									"parameters": {
+										"x": "1",
+										"y": "1",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "DarkWindowColors",
+									"sid": 622827740421337,
+									"parameters": {
+										"x": "1",
+										"y": "2",
+										"value": "16"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "Bottom Right"
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "DarkWindowColors",
+									"sid": 927222895780310,
+									"parameters": {
+										"x": "2",
+										"y": "0",
+										"value": "16"
+									}
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "DarkWindowColors",
+									"sid": 643634295581751,
+									"parameters": {
+										"x": "2",
+										"y": "1",
+										"value": "16"
+									}
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "DarkWindowColors",
+									"sid": 242525278942632,
+									"parameters": {
+										"x": "2",
+										"y": "2",
+										"value": "0"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "Bottom Left"
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "DarkWindowColors",
+									"sid": 523015925258286,
+									"parameters": {
+										"x": "3",
+										"y": "0",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "DarkWindowColors",
+									"sid": 852772354831298,
+									"parameters": {
+										"x": "3",
+										"y": "1",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "DarkWindowColors",
+									"sid": 847025730728902,
+									"parameters": {
+										"x": "3",
+										"y": "2",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 722114272457720,
+									"parameters": {
+										"variable": "rectLeft",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 772357890688773,
+									"parameters": {
+										"variable": "rectRight",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 817262669642470,
+									"parameters": {
+										"variable": "rectTop",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 545724337319441,
+									"parameters": {
+										"variable": "rectBottom",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 844900714165935,
+									"parameters": {
+										"variable": "leftSpeed",
+										"value": "floor(random(1, 4))"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 869545502914210,
+									"parameters": {
+										"variable": "rightSpeed",
+										"value": "floor(random(1, 4))"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 696441126350353,
+									"parameters": {
+										"variable": "topSpeed",
+										"value": "floor(random(1, 4))"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 629118276275318,
+									"parameters": {
+										"variable": "bottomSpeed",
+										"value": "floor(random(1, 4))"
+									}
+								},
+								{
+									"id": "toggle-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 920534864165507,
+									"parameters": {
+										"variable": "clockwiseColors"
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 121297595680878,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "1.0",
+										"type": "regular",
+										"tag": "\"Rotate\""
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 680386083666210,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "8.0",
+										"type": "regular",
+										"tag": "\"Drift\""
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 416679609959846,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.1",
+										"type": "regular",
+										"tag": "\"Draw\""
+									}
+								}
+							],
+							"sid": 505625709198837
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 458339424526144,
+									"parameters": {
+										"variable": "clockwiseColors"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 528396800212652,
+									"parameters": {
+										"variable": "noteCount",
+										"value": "0"
+									}
+								},
+								{
+									"id": "play-by-name",
+									"objectClass": "Audio",
+									"sid": 361423924350792,
+									"parameters": {
+										"folder": "sounds",
+										"audio-file-name": "\"Dark Window - Note \" & noteCount + 1",
+										"loop": "not-looping",
+										"volume": "-5",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "add-to-eventvar",
+									"objectClass": "System",
+									"sid": 284185608915648,
+									"parameters": {
+										"variable": "noteCount",
+										"value": "1"
+									}
+								}
+							],
+							"sid": 101407058726216
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 454515989969993
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 928258456740216,
+									"parameters": {
+										"variable": "noteCount",
+										"value": "3"
+									}
+								},
+								{
+									"id": "play-by-name",
+									"objectClass": "Audio",
+									"sid": 408829202339086,
+									"parameters": {
+										"folder": "sounds",
+										"audio-file-name": "\"Dark Window - Note \" & noteCount + 1",
+										"loop": "not-looping",
+										"volume": "-5",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "subtract-from-eventvar",
+									"objectClass": "System",
+									"sid": 122503436308299,
+									"parameters": {
+										"variable": "noteCount",
+										"value": "1"
+									}
+								}
+							],
+							"sid": 890336470653006
+						},
+						{
+							"eventType": "comment",
+							"text": "Add 0-32 to the original colors RGB values."
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "for-each-element",
+									"objectClass": "DarkWindowColors",
+									"sid": 853858679641307,
+									"parameters": {
+										"axes": "xy"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-at-xy",
+									"objectClass": "DarkWindowColors",
+									"sid": 434556276370318,
+									"parameters": {
+										"x": "DarkWindowColors.CurX",
+										"y": "DarkWindowColors.CurY",
+										"value": "DarkWindowColors.CurValue + floor(random(0, 64))"
+									}
+								}
+							],
+							"sid": 743105673481968
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "signal",
+									"objectClass": "System",
+									"sid": 945663315160534,
+									"parameters": {
+										"tag": "\"Brush Started\""
+									}
+								}
+							],
+							"sid": 433496690104743
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 860150023395514
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 118888558959016,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 849143104878912
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "Rotate colors."
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 460682650048521,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Rotate\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 322744657105017,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 678148009728967,
+									"parameters": {
+										"variable": "clockwiseColors"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "push",
+									"objectClass": "DarkWindowColors",
+									"sid": 162855240750843,
+									"parameters": {
+										"where": "front",
+										"value": "DarkWindowColors.At(0, DarkWindowColors.Height - 1) ",
+										"axis": "y"
+									}
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "DarkWindowColors",
+									"sid": 428688986884505,
+									"parameters": {
+										"x": "1",
+										"y": "0",
+										"value": "DarkWindowColors.At(1, DarkWindowColors.Height - 1)"
+									}
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "DarkWindowColors",
+									"sid": 203900898831618,
+									"parameters": {
+										"x": "2",
+										"y": "0",
+										"value": "DarkWindowColors.At(2, DarkWindowColors.Height - 1)"
+									}
+								},
+								{
+									"id": "pop",
+									"objectClass": "DarkWindowColors",
+									"sid": 207336902160446,
+									"parameters": {
+										"where": "back",
+										"axis": "y"
+									}
+								},
+								{
+									"id": "play-by-name",
+									"objectClass": "Audio",
+									"sid": 643433200048406,
+									"parameters": {
+										"folder": "sounds",
+										"audio-file-name": "\"Dark Window - Note \" & noteCount + 1",
+										"loop": "not-looping",
+										"volume": "-5",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "add-to-eventvar",
+									"objectClass": "System",
+									"sid": 234859251263817,
+									"parameters": {
+										"variable": "noteCount",
+										"value": "1"
+									}
+								}
+							],
+							"sid": 973242286305176,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 432049818787225,
+											"parameters": {
+												"first-value": "noteCount",
+												"comparison": 4,
+												"second-value": "3"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 354305549675382,
+											"parameters": {
+												"variable": "noteCount",
+												"value": "0"
+											}
+										}
+									],
+									"sid": 994411273601268
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 309451009912489
+								}
+							],
+							"actions": [
+								{
+									"id": "push",
+									"objectClass": "DarkWindowColors",
+									"sid": 374438319316714,
+									"parameters": {
+										"where": "back",
+										"value": "DarkWindowColors.At(0, 0) ",
+										"axis": "y"
+									}
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "DarkWindowColors",
+									"sid": 285461607201056,
+									"parameters": {
+										"x": "1",
+										"y": "DarkWindowColors.Height - 1",
+										"value": "DarkWindowColors.At(1, 0)"
+									}
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "DarkWindowColors",
+									"sid": 838109127070139,
+									"parameters": {
+										"x": "2",
+										"y": "DarkWindowColors.Height - 1",
+										"value": "DarkWindowColors.At(2, 0)"
+									}
+								},
+								{
+									"id": "pop",
+									"objectClass": "DarkWindowColors",
+									"sid": 524569998267511,
+									"parameters": {
+										"where": "front",
+										"axis": "y"
+									}
+								},
+								{
+									"id": "play-by-name",
+									"objectClass": "Audio",
+									"sid": 266775298398527,
+									"parameters": {
+										"folder": "sounds",
+										"audio-file-name": "\"Dark Window - Note \" & noteCount + 1",
+										"loop": "not-looping",
+										"volume": "-5",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "subtract-from-eventvar",
+									"objectClass": "System",
+									"sid": 870699876068827,
+									"parameters": {
+										"variable": "noteCount",
+										"value": "1"
+									}
+								}
+							],
+							"sid": 436576713585491,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 263041884571519,
+											"parameters": {
+												"first-value": "noteCount",
+												"comparison": 2,
+												"second-value": "0"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 808904177041509,
+											"parameters": {
+												"variable": "noteCount",
+												"value": "3"
+											}
+										}
+									],
+									"sid": 905513545305956
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 645879177426518,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Drift\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 701984241020313,
+							"parameters": {
+								"variable": "x",
+								"value": "min(max(0, x + floor(random(-1, 2))), PaintingBuffer.Width + 1)"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 341132698043786,
+							"parameters": {
+								"variable": "y",
+								"value": "min(max(0, y + floor(random(-1, 2))), PaintingBuffer.Height + 1)"
+							}
+						}
+					],
+					"sid": 445234582812358
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 241974448378516,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Draw\""
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 643959121797039,
+							"parameters": {
+								"variable": "Painting"
+							},
+							"isInverted": true
+						}
+					],
+					"actions": [],
+					"sid": 811256149961867,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 173116301432084,
+									"parameters": {
+										"first-value": "choose(0, 1, 2)",
+										"comparison": 0,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "add-to-eventvar",
+									"objectClass": "System",
+									"sid": 625182931877842,
+									"parameters": {
+										"variable": "rectLeft",
+										"value": "leftSpeed"
+									}
+								}
+							],
+							"sid": 916466561620534
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 924655410004211,
+									"parameters": {
+										"first-value": "choose(0, 1, 2)",
+										"comparison": 0,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "add-to-eventvar",
+									"objectClass": "System",
+									"sid": 298332811614335,
+									"parameters": {
+										"variable": "rectRight",
+										"value": "rightSpeed"
+									}
+								}
+							],
+							"sid": 896627355904800
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 439638233148186,
+									"parameters": {
+										"first-value": "choose(0, 1, 2)",
+										"comparison": 0,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "add-to-eventvar",
+									"objectClass": "System",
+									"sid": 304031194143394,
+									"parameters": {
+										"variable": "rectTop",
+										"value": "topSpeed"
+									}
+								}
+							],
+							"sid": 576154862628922
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 646033969595135,
+									"parameters": {
+										"first-value": "choose(0, 1, 2)",
+										"comparison": 0,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "add-to-eventvar",
+									"objectClass": "System",
+									"sid": 555472406995267,
+									"parameters": {
+										"variable": "rectBottom",
+										"value": "bottomSpeed"
+									}
+								}
+							],
+							"sid": 507192346417705
+						},
+						{
+							"eventType": "comment",
+							"text": "Calculation"
+						},
+						{
+							"eventType": "comment",
+							"text": "Left"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 652455188209272,
+									"parameters": {
+										"first-value": "rectLeft",
+										"comparison": 5,
+										"second-value": "growthMax"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 779000270528229,
+									"parameters": {
+										"variable": "rectLeft",
+										"value": "-growthMax"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 633004447408100,
+									"parameters": {
+										"variable": "leftSpeed",
+										"value": "floor(random(1, 4))"
+									}
+								}
+							],
+							"sid": 619628632186788
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 412346485924043,
+									"parameters": {
+										"first-value": "rectLeft",
+										"comparison": 3,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 774111665230707,
+									"parameters": {
+										"variable": "leftSpeed",
+										"value": "floor(random(1, 4))"
+									}
+								}
+							],
+							"sid": 110757569329144
+						},
+						{
+							"eventType": "comment",
+							"text": "Right"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 117502682494817,
+									"parameters": {
+										"first-value": "rectRight",
+										"comparison": 5,
+										"second-value": "growthMax"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 817124773219297,
+									"parameters": {
+										"variable": "rectRight",
+										"value": "-growthMax"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 467491314723181,
+									"parameters": {
+										"variable": "rightSpeed",
+										"value": "floor(random(1, 4))"
+									}
+								}
+							],
+							"sid": 635372973212550
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 732581751153814,
+									"parameters": {
+										"first-value": "rectRight",
+										"comparison": 3,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 453184115242634,
+									"parameters": {
+										"variable": "rightSpeed",
+										"value": "floor(random(1, 4))"
+									}
+								}
+							],
+							"sid": 713146782805202
+						},
+						{
+							"eventType": "comment",
+							"text": "Top"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 409583398992551,
+									"parameters": {
+										"first-value": "rectTop",
+										"comparison": 5,
+										"second-value": "growthMax"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 771277875906988,
+									"parameters": {
+										"variable": "rectTop",
+										"value": "-growthMax"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 576688923489402,
+									"parameters": {
+										"variable": "topSpeed",
+										"value": "floor(random(1, 4))"
+									}
+								}
+							],
+							"sid": 381851008413339
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 634771650828109,
+									"parameters": {
+										"first-value": "rectTop",
+										"comparison": 3,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 418447759469532,
+									"parameters": {
+										"variable": "topSpeed",
+										"value": "floor(random(1, 4))"
+									}
+								}
+							],
+							"sid": 441463987440775
+						},
+						{
+							"eventType": "comment",
+							"text": "Bottom"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 231326895772451,
+									"parameters": {
+										"first-value": "rectBottom",
+										"comparison": 5,
+										"second-value": "growthMax"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 449565412489860,
+									"parameters": {
+										"variable": "rectBottom",
+										"value": "-growthMax"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 678972818721640,
+									"parameters": {
+										"variable": "bottomSpeed",
+										"value": "floor(random(1, 4))"
+									}
+								}
+							],
+							"sid": 873922598820380
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 208463781068693,
+									"parameters": {
+										"first-value": "rectBottom",
+										"comparison": 3,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 735305332788900,
+									"parameters": {
+										"variable": "bottomSpeed",
+										"value": "floor(random(1, 4))"
+									}
+								}
+							],
+							"sid": 617190899036218
+						},
+						{
+							"eventType": "comment",
+							"text": "Drawing"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"callFunction": "DarkWindowRender",
+									"sid": 751518733668915
+								}
+							],
+							"sid": 242053473573643
+						}
+					]
+				},
+				{
+					"functionName": "DarkWindowRender",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "clear-canvas",
+							"objectClass": "PaintingBuffer",
+							"sid": 602071156169483,
+							"parameters": {
+								"color": "rgba255(0, 0, 0, 0)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Top Left"
+						},
+						{
+							"id": "fill-rect",
+							"objectClass": "PaintingBuffer",
+							"sid": 810751092073245,
+							"parameters": {
+								"left": "x - abs(rectLeft) - 1",
+								"top": "y - abs(rectTop) - 1",
+								"right": "x",
+								"bottom": "y",
+								"color": "rgba255(DarkWindowColors.At(0, 0), DarkWindowColors.At(1, 0), DarkWindowColors.At(2, 0), 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Top Right"
+						},
+						{
+							"id": "fill-rect",
+							"objectClass": "PaintingBuffer",
+							"sid": 626171545838332,
+							"parameters": {
+								"left": "x",
+								"top": "y - abs(rectTop) - 1",
+								"right": "x + abs(rectRight) + 1",
+								"bottom": "y",
+								"color": "rgba255(DarkWindowColors.At(0, 1), DarkWindowColors.At(1, 1), DarkWindowColors.At(2, 1), 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Bottom Right"
+						},
+						{
+							"id": "fill-rect",
+							"objectClass": "PaintingBuffer",
+							"sid": 649106107358271,
+							"parameters": {
+								"left": "x",
+								"top": "y",
+								"right": "x + abs(rectRight) + 1",
+								"bottom": "y + abs(rectBottom) + 1",
+								"color": "rgba255(DarkWindowColors.At(0, 2), DarkWindowColors.At(1, 2), DarkWindowColors.At(2, 2), 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Bottom Left"
+						},
+						{
+							"id": "fill-rect",
+							"objectClass": "PaintingBuffer",
+							"sid": 796374604347624,
+							"parameters": {
+								"left": "x - abs(rectLeft) - 1",
+								"top": "y",
+								"right": "x",
+								"bottom": "y + abs(rectBottom) + 1",
+								"color": "rgba255(DarkWindowColors.At(0, 3), DarkWindowColors.At(1, 3), DarkWindowColors.At(2, 3), 255)"
+							}
+						}
+					],
+					"sid": 442543096973798
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 904823773042192,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 616346309237939
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 291610172013967,
+							"parameters": {
+								"object": "NudgeDot",
+								"time-scale": "1.0"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 882503116197534,
+							"parameters": {
+								"x": "x",
+								"y": "y"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 206259093574552,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 570668408969202,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 156030108071296,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 449888979170986
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 161699610284497,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 135195221896986,
+							"parameters": {
+								"x": "min(max(0, Self.X + NudgedX), 255)",
+								"y": "min(max(0, Self.Y + NudgedY), 255)"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 397961681051181,
+							"parameters": {
+								"variable": "x",
+								"value": "NudgeDot.X"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 189425358643001,
+							"parameters": {
+								"variable": "y",
+								"value": "NudgeDot.Y"
+							}
+						},
+						{
+							"callFunction": "DarkWindowRender",
+							"sid": 192075381334290
+						}
+					],
+					"sid": 900109053709947
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 508293800766115,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 860119860285578,
+							"parameters": {
+								"object": "PaintingBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 843529426288028,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 269708044822058
+				}
+			],
+			"sid": 162980932760900
+		}
+	],
+	"sid": 749921053808443
+}

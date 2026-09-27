@@ -1,0 +1,1346 @@
+{
+	"name": "Caterpillar",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Caterpillar",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "comment",
+					"text": "Variables"
+				},
+				{
+					"eventType": "variable",
+					"name": "x",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 853126326430983
+				},
+				{
+					"eventType": "variable",
+					"name": "y",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 266171050294083
+				},
+				{
+					"eventType": "variable",
+					"name": "StartMargin",
+					"type": "number",
+					"initialValue": "9",
+					"comment": "",
+					"isStatic": false,
+					"isConstant": true,
+					"sid": 655046400903216
+				},
+				{
+					"eventType": "variable",
+					"name": "startingSide",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 843758825126091
+				},
+				{
+					"eventType": "variable",
+					"name": "hue",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 176661748335627
+				},
+				{
+					"eventType": "variable",
+					"name": "saturation",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 913765432697072
+				},
+				{
+					"eventType": "variable",
+					"name": "xOffset",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 711441213580591
+				},
+				{
+					"eventType": "variable",
+					"name": "yOffset",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 621932365223266
+				},
+				{
+					"eventType": "variable",
+					"name": "length",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 664402580106794
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]Set and validate or default on input parameters.[/h4]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 294445880627083
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "👋 Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 695897409790196,
+							"parameters": [
+								"1"
+							]
+						},
+						{
+							"type": "comment",
+							"text": "[b]1st Parameter[/b] Length"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 442468367845293,
+							"parameters": {
+								"variable": "length",
+								"value": "Functions.ProcessNumericParameter(1, 3, 32) - 1"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "🛑 Print Parameters",
+							"background-color": [
+								0.9294117647058824,
+								0.7764705882352941,
+								0.984313725490196,
+								1
+							]
+						},
+						{
+							"callFunction": "PrintParameterHint",
+							"sid": 272063714325909
+						}
+					],
+					"sid": 395284859183270,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 690164233814981,
+									"parameters": {
+										"variable": "xOffset",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 175329831744883,
+									"parameters": {
+										"variable": "yOffset",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 552090662908769,
+									"parameters": {
+										"variable": "saturation",
+										"value": "random(0.2, 0.7)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 858324022202692,
+									"parameters": {
+										"variable": "hue",
+										"value": "random(0, 1)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 647566751788126,
+									"parameters": {
+										"variable": "startingSide",
+										"value": "choose(0, 1, 2, 3)"
+									}
+								}
+							],
+							"sid": 162819467096871,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 463352199923334,
+											"parameters": {
+												"first-value": "length",
+												"comparison": 0,
+												"second-value": "6"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 864895990883076,
+											"parameters": {
+												"audio-file": {
+													"path": "Brushes/Caterpillar/Caterpillar - Rain Bow Road"
+												},
+												"loop": "looping",
+												"volume": "-10",
+												"stereo-pan": "0",
+												"tag-optional": "\"Caterpillar\""
+											}
+										},
+										{
+											"id": "set-default-color",
+											"objectClass": "head",
+											"sid": 842843904461280,
+											"parameters": {
+												"color": "Functions.hslaToRgba(hue, 1, 0.5, 1.0)"
+											}
+										},
+										{
+											"id": "pin-to-object-properties",
+											"objectClass": "RainbowCaterpillarParticles",
+											"sid": 331157338325047,
+											"behaviorType": "Pin",
+											"parameters": {
+												"pin-to": "head",
+												"x": true,
+												"y": true,
+												"angle": false,
+												"width-type": "no",
+												"height-type": "no",
+												"z": false
+											}
+										},
+										{
+											"id": "set-opacity",
+											"objectClass": "RainbowCaterpillarParticles",
+											"sid": 456681477477998,
+											"parameters": {
+												"opacity": "100"
+											}
+										}
+									],
+									"sid": 771333714124695
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 113588227200596
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 890000450444966,
+											"parameters": {
+												"audio-file": {
+													"path": "Brushes/Caterpillar/Caterpillar - Trotting Along"
+												},
+												"loop": "looping",
+												"volume": "-10",
+												"stereo-pan": "0",
+												"tag-optional": "\"Caterpillar\""
+											}
+										},
+										{
+											"id": "set-default-color",
+											"objectClass": "head",
+											"sid": 605956702398189,
+											"parameters": {
+												"color": "Functions.hslaToRgba(hue, saturation + 0.2, 0.5, 1.0)"
+											}
+										}
+									],
+									"sid": 834560789811819
+								},
+								{
+									"eventType": "comment",
+									"text": "Top"
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 754540604140295,
+											"parameters": {
+												"first-value": "startingSide",
+												"comparison": 0,
+												"second-value": "0"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-position",
+											"objectClass": "head",
+											"sid": 297815952283841,
+											"parameters": {
+												"x": "random(0, PaintingResolution)",
+												"y": "-StartMargin"
+											}
+										},
+										{
+											"id": "set-angle",
+											"objectClass": "head",
+											"sid": 476984340234072,
+											"parameters": {
+												"angle": "0"
+											}
+										},
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 849104326420557,
+											"parameters": {
+												"variable": "yOffset",
+												"value": "12"
+											}
+										}
+									],
+									"sid": 497037092744428
+								},
+								{
+									"eventType": "comment",
+									"text": "Bottom"
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 470497959252391,
+											"parameters": {
+												"first-value": "startingSide",
+												"comparison": 0,
+												"second-value": "1"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-position",
+											"objectClass": "head",
+											"sid": 230950013145872,
+											"parameters": {
+												"x": "random(0, PaintingResolution)",
+												"y": "PaintingResolution + StartMargin"
+											}
+										},
+										{
+											"id": "set-angle",
+											"objectClass": "head",
+											"sid": 498002387829491,
+											"parameters": {
+												"angle": "0"
+											}
+										},
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 496061837846002,
+											"parameters": {
+												"variable": "yOffset",
+												"value": "-12"
+											}
+										}
+									],
+									"sid": 262468603345659
+								},
+								{
+									"eventType": "comment",
+									"text": "Left"
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 287769253522906,
+											"parameters": {
+												"first-value": "startingSide",
+												"comparison": 0,
+												"second-value": "2"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-position",
+											"objectClass": "head",
+											"sid": 339866423825387,
+											"parameters": {
+												"x": "-StartMargin",
+												"y": "random(0, PaintingResolution)"
+											}
+										},
+										{
+											"id": "set-angle",
+											"objectClass": "head",
+											"sid": 213194059057658,
+											"parameters": {
+												"angle": "0"
+											}
+										},
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 828223189047851,
+											"parameters": {
+												"variable": "xOffset",
+												"value": "12"
+											}
+										}
+									],
+									"sid": 315656128234300
+								},
+								{
+									"eventType": "comment",
+									"text": "Right"
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 786297863903399,
+											"parameters": {
+												"first-value": "startingSide",
+												"comparison": 0,
+												"second-value": "3"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-position",
+											"objectClass": "head",
+											"sid": 514852798131073,
+											"parameters": {
+												"x": "PaintingResolution + StartMargin",
+												"y": "random(0, PaintingResolution)"
+											}
+										},
+										{
+											"id": "set-angle",
+											"objectClass": "head",
+											"sid": 647751355972142,
+											"parameters": {
+												"angle": "180"
+											}
+										},
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 744443978641298,
+											"parameters": {
+												"variable": "xOffset",
+												"value": "-12"
+											}
+										}
+									],
+									"sid": 167521711879446
+								},
+								{
+									"eventType": "comment",
+									"text": "Create caterpillar tailpieces."
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "repeat",
+											"objectClass": "System",
+											"sid": 440162437861078,
+											"parameters": {
+												"count": "length"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "create-object",
+											"objectClass": "System",
+											"sid": 530000637288985,
+											"parameters": {
+												"object-to-create": "CaterpillarTailpiece",
+												"layer": "\"Layer 0\"",
+												"x": "head.X - (xOffset * (loopindex + 1))",
+												"y": "head.Y - (yOffset * (loopindex + 1))",
+												"create-hierarchy": false,
+												"template-name": "\"\""
+											}
+										},
+										{
+											"id": "move-to-bottom",
+											"objectClass": "CaterpillarTailpiece",
+											"sid": 999197452861232
+										}
+									],
+									"sid": 922600274649265,
+									"children": [
+										{
+											"eventType": "comment",
+											"text": "Rainbow"
+										},
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "compare-two-values",
+													"objectClass": "System",
+													"sid": 286719102223175,
+													"parameters": {
+														"first-value": "length",
+														"comparison": 0,
+														"second-value": "6"
+													}
+												}
+											],
+											"actions": [
+												{
+													"id": "set-eventvar-value",
+													"objectClass": "System",
+													"sid": 419085752602710,
+													"parameters": {
+														"variable": "hue",
+														"value": "(hue + (1.0 / (length + 1))) % 1.0"
+													}
+												},
+												{
+													"id": "set-default-color",
+													"objectClass": "CaterpillarTailpiece",
+													"sid": 905625865624718,
+													"parameters": {
+														"color": "Functions.hslaToRgba(hue, 1.0, 0.5, 1.0)"
+													}
+												}
+											],
+											"sid": 660342588007036
+										},
+										{
+											"eventType": "comment",
+											"text": "Normal"
+										},
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "else",
+													"objectClass": "System",
+													"sid": 336383097647351
+												}
+											],
+											"actions": [
+												{
+													"id": "set-default-color",
+													"objectClass": "CaterpillarTailpiece",
+													"sid": 492376229646309,
+													"parameters": {
+														"color": "Functions.hslaToRgba(hue, saturation, 0.5 - ((loopindex / length) / 2) * 0.5, 1.0)"
+													}
+												}
+											],
+											"sid": 549413995794271
+										}
+									]
+								},
+								{
+									"eventType": "block",
+									"conditions": [],
+									"actions": [
+										{
+											"type": "comment",
+											"text": "Wait one tick for the objects to appear."
+										},
+										{
+											"id": "wait",
+											"objectClass": "System",
+											"sid": 104892101598406,
+											"parameters": {
+												"seconds": "0",
+												"use-timescale": true
+											}
+										}
+									],
+									"sid": 396839297900293,
+									"children": [
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "for-each-ordered",
+													"objectClass": "System",
+													"sid": 293788786264934,
+													"parameters": {
+														"object": "CaterpillarTailpiece",
+														"expression": "0",
+														"order": "ascending"
+													}
+												}
+											],
+											"actions": [],
+											"sid": 402538321398487,
+											"children": [
+												{
+													"eventType": "block",
+													"conditions": [
+														{
+															"id": "compare-two-values",
+															"objectClass": "System",
+															"sid": 150666132113987,
+															"parameters": {
+																"first-value": "loopindex",
+																"comparison": 0,
+																"second-value": "0"
+															}
+														}
+													],
+													"actions": [
+														{
+															"id": "pin-to-object-distance",
+															"objectClass": "CaterpillarTailpiece",
+															"sid": 620783721852149,
+															"behaviorType": "Pin",
+															"parameters": {
+																"pin-to": "head",
+																"mode": "rope-style"
+															}
+														}
+													],
+													"sid": 294977623738682
+												},
+												{
+													"eventType": "block",
+													"conditions": [
+														{
+															"id": "else",
+															"objectClass": "System",
+															"sid": 105176412417142
+														},
+														{
+															"id": "pick-nth-instance",
+															"objectClass": "System",
+															"sid": 346169809585458,
+															"parameters": {
+																"object": "CaterpillarTailpieces",
+																"instance": "loopindex - 1"
+															}
+														}
+													],
+													"actions": [
+														{
+															"id": "pin-to-object-distance",
+															"objectClass": "CaterpillarTailpiece",
+															"sid": 934581514849428,
+															"behaviorType": "Pin",
+															"parameters": {
+																"pin-to": "CaterpillarTailpieces",
+																"mode": "rope-style"
+															}
+														}
+													],
+													"sid": 796807024099689
+												}
+											]
+										},
+										{
+											"eventType": "block",
+											"conditions": [],
+											"actions": [
+												{
+													"id": "set-position",
+													"objectClass": "CaterpillarLead",
+													"sid": 740872651076975,
+													"parameters": {
+														"x": "random(0, PaintingResolution)",
+														"y": "random(0, PaintingResolution)"
+													}
+												},
+												{
+													"id": "start-timer",
+													"objectClass": "Clock",
+													"sid": 595002025672784,
+													"behaviorType": "Timer",
+													"parameters": {
+														"duration": "1 / 35",
+														"type": "regular",
+														"tag": "\"Squirm\""
+													}
+												},
+												{
+													"id": "start-timer",
+													"objectClass": "Clock",
+													"sid": 240534441284558,
+													"behaviorType": "Timer",
+													"parameters": {
+														"duration": "1 / 15",
+														"type": "regular",
+														"tag": "\"Turn\""
+													}
+												},
+												{
+													"id": "signal",
+													"objectClass": "System",
+													"sid": 462145216878488,
+													"parameters": {
+														"tag": "\"Brush Started\""
+													}
+												}
+											],
+											"sid": 485751758866177
+										}
+									]
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]No Theme[/h4]",
+					"background-color": [
+						0.7215686274509804,
+						0.9058823529411765,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 189244369605189
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 843385645956968,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 330419759840106
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 211065204865688,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 700428159505824
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 479867565117957,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 723301660129030
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]No Audio on Pause[/h4]",
+					"background-color": [
+						0.8392156862745098,
+						0.9450980392156862,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 437966776835196
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 258368113584750,
+							"parameters": [
+								"\"Caterpillar\""
+							]
+						}
+					],
+					"sid": 966117555504922,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 802076217020882,
+									"parameters": {
+										"first-value": "timescale",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								},
+								{
+									"id": "is-tag-playing",
+									"objectClass": "Audio",
+									"sid": 319317015470619,
+									"parameters": {
+										"tag": "\"Caterpillar\""
+									}
+								},
+								{
+									"id": "trigger-once-while-true",
+									"objectClass": "System",
+									"sid": 861311693651459
+								}
+							],
+							"actions": [
+								{
+									"id": "fade-volume",
+									"objectClass": "Audio",
+									"sid": 711091246671686,
+									"parameters": {
+										"tag": "\"Caterpillar\"",
+										"db": "0",
+										"duration": "2",
+										"ending": "keep-playing"
+									}
+								}
+							],
+							"sid": 326066720055665
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 815784528726926,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Turn\""
+							}
+						},
+						{
+							"id": "is-outside-layout",
+							"objectClass": "head",
+							"sid": 196088181391581,
+							"isInverted": true
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 672112260344554,
+							"parameters": {
+								"variable": "Painting"
+							},
+							"isInverted": true
+						}
+					],
+					"actions": [
+						{
+							"id": "rotate-toward-position",
+							"objectClass": "head",
+							"sid": 293272547697940,
+							"parameters": {
+								"degrees": "random(0, 10)",
+								"x": "CaterpillarLead.X",
+								"y": "CaterpillarLead.Y"
+							}
+						},
+						{
+							"id": "rotate-clockwise",
+							"objectClass": "head",
+							"sid": 416568158310365,
+							"parameters": {
+								"degrees": "random(-10, 10)"
+							}
+						}
+					],
+					"sid": 520002098200294
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Turn and move head.[/b]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 486329914283636,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Squirm\""
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 746984864253678,
+							"parameters": {
+								"variable": "Painting"
+							},
+							"isInverted": true
+						}
+					],
+					"actions": [],
+					"sid": 136088373924307,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 693184569497680,
+									"parameters": {
+										"first-value": "distance(CaterpillarLead.X, CaterpillarLead.Y, head.X, head.Y)",
+										"comparison": 3,
+										"second-value": "16"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-position",
+									"objectClass": "CaterpillarLead",
+									"sid": 320790961474771,
+									"parameters": {
+										"x": "random(0, PaintingResolution)",
+										"y": "random(0, PaintingResolution)"
+									}
+								}
+							],
+							"sid": 803789464100518
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "is-outside-layout",
+									"objectClass": "head",
+									"sid": 431119231046066
+								}
+							],
+							"actions": [
+								{
+									"id": "rotate-toward-position",
+									"objectClass": "head",
+									"sid": 562707412630212,
+									"parameters": {
+										"degrees": "random(0, 10)",
+										"x": "CaterpillarLead.X",
+										"y": "CaterpillarLead.Y"
+									}
+								}
+							],
+							"sid": 261266862923592
+						},
+						{
+							"eventType": "comment",
+							"text": "Move head, and re-align tailpieces."
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "move-forward",
+									"objectClass": "head",
+									"sid": 648228398667115,
+									"parameters": {
+										"distance": "1"
+									}
+								}
+							],
+							"sid": 607635265949135,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "for-each-ordered",
+											"objectClass": "System",
+											"sid": 957127889038209,
+											"parameters": {
+												"object": "CaterpillarTailpiece",
+												"expression": "0",
+												"order": "ascending"
+											}
+										}
+									],
+									"actions": [],
+									"sid": 270305236443761,
+									"children": [
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "compare-two-values",
+													"objectClass": "System",
+													"sid": 468432567559027,
+													"parameters": {
+														"first-value": "loopindex",
+														"comparison": 0,
+														"second-value": "0"
+													}
+												}
+											],
+											"actions": [
+												{
+													"id": "set-angle-toward-position",
+													"objectClass": "CaterpillarTailpiece",
+													"sid": 478699046270832,
+													"parameters": {
+														"x": "head.X",
+														"y": "head.Y"
+													}
+												}
+											],
+											"sid": 707534560396939
+										},
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "else",
+													"objectClass": "System",
+													"sid": 624736069270565
+												},
+												{
+													"id": "pick-nth-instance",
+													"objectClass": "System",
+													"sid": 237364740409864,
+													"parameters": {
+														"object": "CaterpillarTailpieces",
+														"instance": "loopindex - 1"
+													}
+												}
+											],
+											"actions": [
+												{
+													"id": "set-angle-toward-position",
+													"objectClass": "CaterpillarTailpiece",
+													"sid": 606803787568201,
+													"parameters": {
+														"x": "CaterpillarTailpieces.X",
+														"y": "CaterpillarTailpieces.Y"
+													}
+												}
+											],
+											"sid": 265496926675938
+										}
+									]
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 336376400674649,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 479497174287464
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "fade-volume",
+							"objectClass": "Audio",
+							"sid": 898857494937450,
+							"disabled": true,
+							"parameters": {
+								"tag": "\"Caterpillar\"",
+								"db": "0",
+								"duration": "2",
+								"ending": "keep-playing"
+							}
+						},
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 485046432139693,
+							"parameters": {
+								"object": "NudgeDot",
+								"time-scale": "1.0"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 287955657860537,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "CaterpillarLead",
+							"sid": 327452100055547,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 195238756094794,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						}
+					],
+					"sid": 725447744676931
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 312587935688562,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "CaterpillarLead",
+							"sid": 552893704066410,
+							"parameters": {
+								"x": "floor(Self.X + NudgedX)",
+								"y": "floor(Self.Y + NudgedY)"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 349020185529254,
+							"parameters": {
+								"x": "CaterpillarLead.X",
+								"y": "CaterpillarLead.Y"
+							}
+						}
+					],
+					"sid": 523817527798674
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 489744094155058,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 464363248651273,
+							"parameters": {
+								"object": "CaterpillarTailpiece",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 557684774127849,
+							"parameters": {
+								"object": "head",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 337348860423173,
+							"parameters": {
+								"object": "CaterpillarParticle",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 172913783975321,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 601014367779948
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 770395300879342
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 854842860614363,
+							"parameters": {
+								"tag": "\"Caterpillar\""
+							}
+						}
+					],
+					"sid": 543207114166839
+				}
+			],
+			"sid": 771883123648073
+		}
+	],
+	"sid": 519169144762366
+}

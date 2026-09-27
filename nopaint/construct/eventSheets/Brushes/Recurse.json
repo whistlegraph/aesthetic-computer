@@ -1,0 +1,703 @@
+{
+	"name": "Recurse",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Recurse",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "zoomLevel",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 430768442572797
+				},
+				{
+					"eventType": "variable",
+					"name": "zoomDivision",
+					"type": "number",
+					"initialValue": "10",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 857128759393653
+				},
+				{
+					"eventType": "variable",
+					"name": "zoomOut",
+					"type": "boolean",
+					"initialValue": "true",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 907913984786286
+				},
+				{
+					"eventType": "variable",
+					"name": "x",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 270115253519066
+				},
+				{
+					"eventType": "variable",
+					"name": "y",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 652873102618422
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 363362148003416
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "👋 Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 957715711771897,
+							"parameters": [
+								"2"
+							]
+						},
+						{
+							"type": "comment",
+							"text": "[b]1st Parameter[/b] X"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 722852768419762,
+							"parameters": {
+								"variable": "x",
+								"value": "Functions.ProcessNumericParameter(1, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "[b]2nd Parameter[/b] Y"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 539079508464841,
+							"parameters": {
+								"variable": "y",
+								"value": "Functions.ProcessNumericParameter(2, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "🛑 Print Parameters",
+							"background-color": [
+								0.9294117647058824,
+								0.7764705882352941,
+								0.984313725490196,
+								1
+							]
+						},
+						{
+							"callFunction": "PrintParameterHint",
+							"sid": 468908282186587
+						}
+					],
+					"sid": 954295270652363,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "paste-object",
+									"objectClass": "PaintingBuffer",
+									"sid": 624639626520610,
+									"parameters": {
+										"object": "Painting",
+										"effects": "with-effects"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 447517501655132,
+									"parameters": {
+										"variable": "zoomLevel",
+										"value": "1"
+									}
+								},
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 903282872681874,
+									"parameters": {
+										"variable": "zoomOut",
+										"value": "true"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "Debug view."
+								},
+								{
+									"id": "set-position",
+									"objectClass": "ZoomAnchor",
+									"sid": 312399524308467,
+									"disabled": true,
+									"parameters": {
+										"x": "x",
+										"y": "y"
+									}
+								},
+								{
+									"id": "set-visible",
+									"objectClass": "ZoomAnchor",
+									"sid": 265050607631360,
+									"disabled": true,
+									"parameters": {
+										"visibility": "visible"
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 347587042896497,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Recurse/Recurse - Thup Cosm"
+										},
+										"loop": "not-looping",
+										"volume": "-2.5",
+										"stereo-pan": "0",
+										"tag-optional": "\"Recurse\""
+									}
+								},
+								{
+									"id": "set-playback-rate",
+									"objectClass": "Audio",
+									"sid": 924560087496634,
+									"parameters": {
+										"tag": "\"Recurse\"",
+										"playback-rate": "0.75"
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 941046505313974,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.1",
+										"type": "regular",
+										"tag": "\"Recurse\""
+									}
+								},
+								{
+									"id": "signal",
+									"objectClass": "System",
+									"sid": 337277250636879,
+									"parameters": {
+										"tag": "\"Brush Started\""
+									}
+								}
+							],
+							"sid": 527775538765677
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 497865157709148
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 229578966439221,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 959068474196030
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 831758521508464,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Recurse\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 559560349123530,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 689416326720343,
+									"parameters": {
+										"variable": "zoomOut"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "add-to-eventvar",
+									"objectClass": "System",
+									"sid": 406610379311552,
+									"parameters": {
+										"variable": "zoomLevel",
+										"value": "1 * (1 - zoomLevel / zoomDivision)"
+									}
+								}
+							],
+							"sid": 219603928096482
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 641759893143534
+								}
+							],
+							"actions": [
+								{
+									"id": "subtract-from-eventvar",
+									"objectClass": "System",
+									"sid": 924304278654572,
+									"parameters": {
+										"variable": "zoomLevel",
+										"value": "1 * (1 - zoomLevel / zoomDivision)"
+									}
+								}
+							],
+							"sid": 779134166468666
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 878781768986930,
+									"parameters": {
+										"first-value": "zoomLevel",
+										"comparison": 3,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 272226481285987,
+									"parameters": {
+										"variable": "zoomLevel",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 529456828910102,
+									"parameters": {
+										"variable": "zoomOut",
+										"value": "true"
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 807937443049808,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Recurse/Recurse - Thup Cosm"
+										},
+										"loop": "not-looping",
+										"volume": "-2.5",
+										"stereo-pan": "0",
+										"tag-optional": "\"Recurse\""
+									}
+								},
+								{
+									"id": "set-playback-rate",
+									"objectClass": "Audio",
+									"sid": 322882654790052,
+									"parameters": {
+										"tag": "\"Recurse\"",
+										"playback-rate": "0.75"
+									}
+								}
+							],
+							"sid": 714386227971067
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 175477470611043,
+									"parameters": {
+										"first-value": "zoomLevel",
+										"comparison": 5,
+										"second-value": "zoomDivision - 1"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 791441396582371,
+									"parameters": {
+										"variable": "zoomLevel",
+										"value": "zoomDivision - 1"
+									}
+								},
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 278636198116235,
+									"parameters": {
+										"variable": "zoomOut",
+										"value": "false"
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 575989038188452,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Recurse/Recurse - You're Released"
+										},
+										"loop": "not-looping",
+										"volume": "0",
+										"stereo-pan": "0",
+										"tag-optional": "\"Recurse\""
+									}
+								},
+								{
+									"id": "set-playback-rate",
+									"objectClass": "Audio",
+									"sid": 150513863828705,
+									"parameters": {
+										"tag": "\"Recurse\"",
+										"playback-rate": "0.75"
+									}
+								}
+							],
+							"sid": 829987063729036
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-size",
+									"objectClass": "PaintingBuffer",
+									"sid": 837802427800121,
+									"parameters": {
+										"width": "256 * (1 - (zoomLevel / zoomDivision))",
+										"height": "256 * (1 - (zoomLevel / zoomDivision))"
+									}
+								},
+								{
+									"id": "set-position",
+									"objectClass": "PaintingBuffer",
+									"sid": 200007778388961,
+									"parameters": {
+										"x": "floor((-x * (1 - (zoomLevel / zoomDivision))) + x)",
+										"y": "floor((-y * (1 - (zoomLevel / zoomDivision))) + y)"
+									}
+								},
+								{
+									"id": "log",
+									"objectClass": "Browser",
+									"sid": 258796383548754,
+									"disabled": true,
+									"parameters": {
+										"type": "log",
+										"message": "zoomLevel"
+									}
+								}
+							],
+							"sid": 314079440201066
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 639933140561616,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 746769645934176
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 375866197596942,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 207850231313094,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 644059620000756,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 971485106804525
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 580263021449507,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 433813019292184,
+							"parameters": {
+								"variable": "x",
+								"value": "min(max(0, x + NudgedX), 255)"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 672339147459751,
+							"parameters": {
+								"variable": "y",
+								"value": "min(max(0, y + NudgedY), 255)"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 506130136492300,
+							"parameters": {
+								"x": "x",
+								"y": "y"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "PaintingBuffer",
+							"sid": 746597866982539,
+							"parameters": {
+								"x": "floor((-x * (1 - (zoomLevel / zoomDivision))) + x)",
+								"y": "floor((-y * (1 - (zoomLevel / zoomDivision))) + y)"
+							}
+						}
+					],
+					"sid": 359447435894247
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 482440980926154,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 982565262135620,
+							"parameters": {
+								"object": "PaintingBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 135007734572204,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 990727524276515
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 754051445196328
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 539864906757519,
+							"parameters": [
+								"\"Recurse\""
+							]
+						}
+					],
+					"sid": 802044572852407
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 866505794760367
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 537244282603071,
+							"parameters": {
+								"tag": "\"Recurse\""
+							}
+						}
+					],
+					"sid": 700534657029242
+				}
+			],
+			"sid": 713032120231674
+		}
+	],
+	"sid": 554687798512669
+}

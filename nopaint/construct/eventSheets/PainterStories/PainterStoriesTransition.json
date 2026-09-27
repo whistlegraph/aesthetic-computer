@@ -1,0 +1,144 @@
+{
+	"name": "PainterStoriesTransition",
+	"events": [
+		{
+			"eventType": "variable",
+			"name": "ProfileTransitionIn",
+			"type": "boolean",
+			"initialValue": "false",
+			"comment": "",
+			"isStatic": false,
+			"isConstant": false,
+			"sid": 869836518728364
+		},
+		{
+			"eventType": "block",
+			"conditions": [
+				{
+					"id": "on-start-of-layout",
+					"objectClass": "System",
+					"sid": 712582308938748
+				}
+			],
+			"actions": [
+				{
+					"id": "set-visible",
+					"objectClass": "Cursor",
+					"sid": 626681895146002,
+					"parameters": {
+						"visibility": "invisible"
+					}
+				}
+			],
+			"sid": 533919867692854,
+			"children": [
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 587388054186565,
+							"parameters": {
+								"variable": "DesktopMode"
+							},
+							"isInverted": true
+						}
+					],
+					"actions": [
+						{
+							"id": "set-layer-background-color",
+							"objectClass": "System",
+							"sid": 808315517745664,
+							"parameters": {
+								"layer": "1",
+								"color": "rgbEx255(230, 230, 230)"
+							}
+						}
+					],
+					"sid": 773119740824473
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 536248519497761,
+							"parameters": {
+								"variable": "ProfileTransitionIn"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "wait",
+							"objectClass": "System",
+							"sid": 295040731866518,
+							"parameters": {
+								"seconds": "0.1",
+								"use-timescale": true
+							}
+						},
+						{
+							"id": "set-canvas-size",
+							"objectClass": "System",
+							"sid": 547254691706378,
+							"parameters": {
+								"width": "256",
+								"height": "336"
+							}
+						},
+						{
+							"id": "go-to-layout",
+							"objectClass": "System",
+							"sid": 781105932158153,
+							"parameters": {
+								"layout": "PainterStoriesIndex"
+							}
+						}
+					],
+					"sid": 332684497610067
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "else",
+							"objectClass": "System",
+							"sid": 271261070270704
+						}
+					],
+					"actions": [
+						{
+							"id": "wait",
+							"objectClass": "System",
+							"sid": 922448763325343,
+							"parameters": {
+								"seconds": "0.1",
+								"use-timescale": true
+							}
+						},
+						{
+							"callFunction": "ToggleDesktopMode",
+							"sid": 406917731395965,
+							"parameters": [
+								false
+							]
+						},
+						{
+							"id": "go-to-layout",
+							"objectClass": "System",
+							"sid": 531563941335797,
+							"parameters": {
+								"layout": "Splash"
+							}
+						}
+					],
+					"sid": 585530539796802
+				}
+			]
+		}
+	],
+	"sid": 330552624399820
+}

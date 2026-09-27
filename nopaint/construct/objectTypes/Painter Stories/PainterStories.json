@@ -1,0 +1,52 @@
+{
+	"name": "PainterStories",
+	"plugin-id": "Sprite",
+	"sid": 303705099734956,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [],
+	"animations": {
+		"items": [
+			{
+				"frames": [
+					{
+						"width": 104,
+						"height": 62,
+						"originX": 0,
+						"originY": 0,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 5838883,
+						"collisionPoly": {
+							"points": [
+								0.020710059171597635,
+								0,
+								0.9082840236686391,
+								0,
+								0.9082840236686391,
+								0.5084611316763618,
+								0.020710059171597635,
+								0.5084611316763618
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					}
+				],
+				"sid": 950682840665084,
+				"name": "Animation 1",
+				"isLooping": false,
+				"isPingPong": false,
+				"repeatCount": 1,
+				"repeatTo": 0,
+				"speed": 0
+			}
+		],
+		"subfolders": []
+	}
+}

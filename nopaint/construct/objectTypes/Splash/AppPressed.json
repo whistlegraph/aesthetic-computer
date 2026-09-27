@@ -1,0 +1,78 @@
+{
+	"name": "AppPressed",
+	"plugin-id": "Sprite",
+	"sid": 852368088154977,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [],
+	"animations": {
+		"items": [
+			{
+				"frames": [
+					{
+						"width": 1,
+						"height": 1,
+						"originX": 0,
+						"originY": 0,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 9968863,
+						"collisionPoly": {
+							"points": [
+								0.3333333333333333,
+								0.3333333333333333,
+								0.6666666666666666,
+								0.3333333333333333,
+								0.6666666666666666,
+								0.6666666666666666,
+								0.3333333333333333,
+								0.6666666666666666
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					},
+					{
+						"width": 1,
+						"height": 1,
+						"originX": 0,
+						"originY": 0,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 3786887,
+						"collisionPoly": {
+							"points": [
+								0.3333333333333333,
+								0.3333333333333333,
+								0.6666666666666666,
+								0.3333333333333333,
+								0.6666666666666666,
+								0.6666666666666666,
+								0.3333333333333333,
+								0.6666666666666666
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					}
+				],
+				"sid": 473744229718432,
+				"name": "Animation 1",
+				"isLooping": false,
+				"isPingPong": false,
+				"repeatCount": 1,
+				"repeatTo": 0,
+				"speed": 0
+			}
+		],
+		"subfolders": []
+	}
+}

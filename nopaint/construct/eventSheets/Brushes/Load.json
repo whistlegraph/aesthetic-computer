@@ -1,0 +1,867 @@
+{
+	"name": "Load",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Load",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "Loaded",
+					"type": "boolean",
+					"initialValue": "false",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 876202222823719
+				},
+				{
+					"eventType": "variable",
+					"name": "Initialized",
+					"type": "boolean",
+					"initialValue": "false",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 535280906084575
+				},
+				{
+					"eventType": "variable",
+					"name": "visible",
+					"type": "boolean",
+					"initialValue": "true",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 741538905977926
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 883167409633519
+						}
+					],
+					"actions": [
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 538563104555363,
+							"parameters": {
+								"variable": "Loaded",
+								"value": "false"
+							}
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 619254325671763,
+							"parameters": {
+								"variable": "Initialized",
+								"value": "false"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "👋 Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 489079473909066,
+							"parameters": [
+								"1"
+							]
+						}
+					],
+					"sid": 688133908767763,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 562423420908442,
+									"parameters": {
+										"first-value": "Functions.CheckParameter(1)",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								}
+							],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "[b]1st Parameter[/b] Code"
+								},
+								{
+									"callFunction": "SpecifiedParameter",
+									"sid": 412977714438824,
+									"parameters": [
+										"1"
+									]
+								},
+								{
+									"callFunction": "StartSpinner",
+									"sid": 142012069639449
+								},
+								{
+									"id": "set-visible",
+									"objectClass": "WiFi",
+									"sid": 728811519425736,
+									"parameters": {
+										"visibility": "visible"
+									}
+								},
+								{
+									"id": "start-animation",
+									"objectClass": "WiFi",
+									"sid": 941126452946853,
+									"parameters": {
+										"from": "beginning"
+									}
+								},
+								{
+									"id": "load-image-from-url",
+									"objectClass": "LoadSprite",
+									"sid": 987190512269628,
+									"parameters": {
+										"uri": "\"https://server.nopaint.art/painting/\" & Functions.GetParameter(1) & \".png\"",
+										"size": "resize-to-image-size",
+										"cross-origin": "none"
+									}
+								}
+							],
+							"sid": 775369566692027
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 240632733797562
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "LoadInitialize",
+									"sid": 728056887324972
+								}
+							],
+							"sid": 391524529635538
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "🛑 Print Parameters",
+									"background-color": [
+										0.9294117647058824,
+										0.7764705882352941,
+										0.984313725490196,
+										1
+									]
+								},
+								{
+									"callFunction": "PrintParameterHint",
+									"sid": 421299895042979
+								}
+							],
+							"sid": 247081858551445
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-ended",
+							"objectClass": "Audio",
+							"sid": 779322137379775,
+							"parameters": {
+								"tag": "\"SpinnerLoop\""
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 454294198825842,
+							"parameters": {
+								"variable": "Loaded"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 247694566324773,
+							"disabled": true,
+							"parameters": {
+								"type": "log",
+								"message": "\"Load success!\""
+							}
+						},
+						{
+							"callFunction": "EndSpinner",
+							"sid": 491492293900810
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "WiFi",
+							"sid": 736961539153559,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						},
+						{
+							"callFunction": "LoadInitialize",
+							"sid": 620951091573272
+						}
+					],
+					"sid": 268678176538060
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 991098244203225
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 880704908361446,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 981063327835899
+				},
+				{
+					"eventType": "block",
+					"conditions": [],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 630199123688919,
+							"disabled": true,
+							"parameters": [
+								"\"Contrast\""
+							]
+						}
+					],
+					"sid": 380243743784753
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 780096537527889,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Flicker\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "toggle-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 124899209113090,
+							"parameters": {
+								"variable": "visible"
+							}
+						}
+					],
+					"sid": 538232420736740,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 241890143637818,
+									"parameters": {
+										"variable": "visible"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-opacity",
+									"objectClass": "LoadBuffer",
+									"sid": 775239693119383,
+									"parameters": {
+										"opacity": "100"
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 562577668265035,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Invert/Invert - On"
+										},
+										"loop": "not-looping",
+										"volume": "-5",
+										"stereo-pan": "0",
+										"tag-optional": "\"Contrast\""
+									}
+								}
+							],
+							"sid": 973673156166192
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 566508453457587
+								}
+							],
+							"actions": [
+								{
+									"id": "set-opacity",
+									"objectClass": "LoadBuffer",
+									"sid": 205668413617385,
+									"parameters": {
+										"opacity": "50"
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 869560771678387,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Invert/Invert - Off"
+										},
+										"loop": "not-looping",
+										"volume": "-5",
+										"stereo-pan": "0",
+										"tag-optional": "\"Contrast\""
+									}
+								}
+							],
+							"sid": 506759459396177
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Pause[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 333125932126980,
+							"parameters": {
+								"variable": "Paused"
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 448142362139948,
+							"parameters": {
+								"variable": "Initialized"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 429450406161667
+						}
+					],
+					"actions": [
+						{
+							"id": "stop-timer",
+							"objectClass": "Clock",
+							"sid": 979018459353765,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Flicker\""
+							}
+						}
+					],
+					"sid": 405099858010678
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 909277199181232,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 834155559058384,
+							"parameters": {
+								"variable": "Initialized"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 136696639608771
+						}
+					],
+					"actions": [
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 783958742726787,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "0.5",
+								"type": "regular",
+								"tag": "\"Flicker\""
+							}
+						}
+					],
+					"sid": 300901370053368
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 596603861275740,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 574152693311306
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "stop-timer",
+							"objectClass": "Clock",
+							"sid": 197006102796269,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Flicker\""
+							}
+						},
+						{
+							"id": "set-opacity",
+							"objectClass": "LoadBuffer",
+							"sid": 884676687303632,
+							"parameters": {
+								"opacity": "100"
+							}
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 272513951757009,
+							"parameters": {
+								"variable": "visible",
+								"value": "true"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 697540908870173,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 992090043662775,
+							"parameters": {
+								"x": "LoadBuffer.X",
+								"y": "LoadBuffer.Y"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 195587819790921,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 787792041650248,
+							"parameters": [
+								false
+							]
+						},
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 474426505352319,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "0.5",
+								"type": "regular",
+								"tag": "\"Flicker\""
+							}
+						}
+					],
+					"sid": 317380159854047
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 602105878258013,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 295327649984565,
+							"parameters": {
+								"x": "min(max(0, Self.X + NudgedX), 255)",
+								"y": "min(max(0, Self.Y + NudgedY), 255)"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "LoadBuffer",
+							"sid": 988438765824758,
+							"parameters": {
+								"x": "NudgeDot.X",
+								"y": "NudgeDot.Y"
+							}
+						}
+					],
+					"sid": 630943122989565
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 249106728698455,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "There is a bug where the filter moves forward a tick while painting."
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 331382735565576,
+							"parameters": {
+								"object": "LoadBuffer",
+								"effects": "without-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 451299765837648,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 883139021743298
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 932543931442032
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 513738982985283,
+							"disabled": true,
+							"parameters": {
+								"tag": "\"Contrast\""
+							}
+						}
+					],
+					"sid": 157318655377097
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Load a Code[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-image-url-loaded",
+							"objectClass": "LoadSprite",
+							"sid": 338106265100986
+						}
+					],
+					"actions": [
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 464973692496639,
+							"parameters": {
+								"type": "log",
+								"message": "\"🔐 Load Success.\""
+							}
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 657138961731493,
+							"parameters": {
+								"variable": "Loaded",
+								"value": "true"
+							}
+						},
+						{
+							"id": "set-looping",
+							"objectClass": "Audio",
+							"sid": 346284872899148,
+							"parameters": {
+								"tag": "\"SpinnerLoop\"",
+								"state": "not-looping"
+							}
+						}
+					],
+					"sid": 871856685391204
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-image-url-failed",
+							"objectClass": "LoadSprite",
+							"sid": 608659373471266
+						}
+					],
+					"actions": [
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 138728831301839,
+							"parameters": {
+								"type": "error",
+								"message": "\"🔐 Load Failure!\""
+							}
+						},
+						{
+							"callFunction": "EndSpinner",
+							"sid": 637036830010853
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "WiFi",
+							"sid": 533432329364985,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 820911502599547,
+							"parameters": {
+								"variable": "CurrentError",
+								"value": "\"Load Failed\""
+							}
+						},
+						{
+							"id": "go-to-layout",
+							"objectClass": "System",
+							"sid": 448580345250088,
+							"parameters": {
+								"layout": "Index"
+							}
+						}
+					],
+					"sid": 986143602655365
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Finish Initialization[/h3]"
+				},
+				{
+					"functionName": "LoadInitialize",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 157624614462526,
+							"parameters": {
+								"variable": "visible",
+								"value": "true"
+							}
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "LoadBuffer",
+							"sid": 442607453502391,
+							"parameters": {
+								"object": "LoadSprite",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 882530972469556,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "0.5",
+								"type": "regular",
+								"tag": "\"Flicker\""
+							}
+						},
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 671111594821629,
+							"parameters": {
+								"audio-file": {
+									"path": "Brushes/Invert/Invert - On"
+								},
+								"loop": "not-looping",
+								"volume": "-5",
+								"stereo-pan": "0",
+								"tag-optional": "\"Contrast\""
+							}
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 512030743276707,
+							"parameters": {
+								"variable": "Initialized",
+								"value": "true"
+							}
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 170640338354081,
+							"parameters": {
+								"tag": "\"Brush Started\""
+							}
+						}
+					],
+					"sid": 742589205859411
+				}
+			],
+			"sid": 702143524999170
+		}
+	],
+	"sid": 686956987734550
+}

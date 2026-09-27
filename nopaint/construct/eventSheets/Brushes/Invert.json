@@ -1,0 +1,506 @@
+{
+	"name": "Invert",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Invert",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "inverted",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 654774956997494
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 568816913592487
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "InitParameters",
+							"sid": 681918057956724,
+							"parameters": [
+								"0"
+							]
+						}
+					],
+					"sid": 515823204390650,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "paste-object",
+									"objectClass": "InvertBuffer",
+									"sid": 630529121810327,
+									"parameters": {
+										"object": "Painting",
+										"effects": "with-effects"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 137607452754296,
+									"parameters": {
+										"variable": "inverted",
+										"value": "1"
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 469746592937906,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.5",
+										"type": "regular",
+										"tag": "\"ShiftValue\""
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 325213439480549,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Invert/Invert - On"
+										},
+										"loop": "not-looping",
+										"volume": "-5",
+										"stereo-pan": "0",
+										"tag-optional": "\"Invert On\""
+									}
+								},
+								{
+									"id": "set-playback-rate",
+									"objectClass": "Audio",
+									"sid": 356892243916544,
+									"parameters": {
+										"tag": "\"Invert On\"",
+										"playback-rate": "random(0.5, 1.5)"
+									}
+								},
+								{
+									"id": "signal",
+									"objectClass": "System",
+									"sid": 520673961856710,
+									"parameters": {
+										"tag": "\"Brush Started\""
+									}
+								}
+							],
+							"sid": 690818990210014
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 219024907987953
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 454566910200805,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 940893401187983
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 503853719496878,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"ShiftValue\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-playback-rate",
+							"objectClass": "Audio",
+							"sid": 802830053307272,
+							"parameters": {
+								"tag": "\"Invert\"",
+								"playback-rate": "random(0.5, 1.5)"
+							}
+						}
+					],
+					"sid": 839886705480137,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 553776694606714,
+									"parameters": {
+										"variable": "inverted",
+										"comparison": 0,
+										"value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 267684953757440,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Invert/Invert - On"
+										},
+										"loop": "not-looping",
+										"volume": "-5",
+										"stereo-pan": "0",
+										"tag-optional": "\"Invert On\""
+									}
+								},
+								{
+									"id": "set-playback-rate",
+									"objectClass": "Audio",
+									"sid": 887108401557840,
+									"parameters": {
+										"tag": "\"Invert On\"",
+										"playback-rate": "random(0.5, 1.5)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 655089588492148,
+									"parameters": {
+										"variable": "inverted",
+										"value": "1"
+									}
+								}
+							],
+							"sid": 141336450937724
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 615323762489096
+								}
+							],
+							"actions": [
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 217721695358425,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Invert/Invert - Off"
+										},
+										"loop": "not-looping",
+										"volume": "-5",
+										"stereo-pan": "0",
+										"tag-optional": "\"Invert Off\""
+									}
+								},
+								{
+									"id": "set-playback-rate",
+									"objectClass": "Audio",
+									"sid": 402087172652666,
+									"parameters": {
+										"tag": "\"Invert Off\"",
+										"playback-rate": "random(0.5, 1.5)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 660714514887010,
+									"parameters": {
+										"variable": "inverted",
+										"value": "0"
+									}
+								}
+							],
+							"sid": 355507328140631
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "InvertBuffer",
+									"sid": 471258901450142,
+									"parameters": {
+										"effect": "\"Inverse\"",
+										"parameter-index": "0",
+										"value": "inverted * 100"
+									}
+								}
+							],
+							"sid": 188547907377316
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Pause[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 544614988611300,
+							"parameters": {
+								"variable": "Paused"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 175851387428587
+						}
+					],
+					"actions": [
+						{
+							"id": "stop-timer",
+							"objectClass": "Clock",
+							"sid": 399600906210903,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"ShiftValue\""
+							}
+						}
+					],
+					"sid": 421848427784641
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 384860032115462,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 980864469613560
+						}
+					],
+					"actions": [
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 471963495315769,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "0.5",
+								"type": "regular",
+								"tag": "\"ShiftValue\""
+							}
+						}
+					],
+					"sid": 840816616391763
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 551491742401332,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 423146992013866
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 116776292407377,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 869575343431042,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 515409355735835
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 541330095049924,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 156016419573442
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "NoNudge",
+							"sid": 790692324078568
+						}
+					],
+					"sid": 602001753683907
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 975838702242130,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "There is a bug where the filter moves forward a tick while painting."
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 531924640696957,
+							"parameters": {
+								"object": "InvertBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 155813228423470,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 649880025445056
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 621737644374168
+						}
+					],
+					"actions": [],
+					"sid": 758332119229009
+				}
+			],
+			"sid": 281815820224780
+		}
+	],
+	"sid": 230765660533411
+}

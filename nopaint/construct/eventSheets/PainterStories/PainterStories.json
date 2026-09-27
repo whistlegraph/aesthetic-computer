@@ -1,0 +1,894 @@
+{
+	"name": "PainterStories",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Buttons"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Profile",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "TotalPages",
+					"type": "number",
+					"initialValue": "10",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": true,
+					"sid": 259217647825119
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 984394579387685
+						}
+					],
+					"actions": [
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 100348852899970,
+							"parameters": {
+								"object": "GlobalClock",
+								"time-scale": "1.0"
+							}
+						},
+						{
+							"id": "map-function",
+							"objectClass": "Functions",
+							"sid": 139113438883833,
+							"parameters": {
+								"name": "\"Buttons\"",
+								"string": "\"Next\"",
+								"function": "ProfileNext"
+							}
+						},
+						{
+							"id": "map-function",
+							"objectClass": "Functions",
+							"sid": 575734247878296,
+							"parameters": {
+								"name": "\"Buttons\"",
+								"string": "\"Back\"",
+								"function": "ProfileBack"
+							}
+						},
+						{
+							"id": "map-function",
+							"objectClass": "Functions",
+							"sid": 460444302483446,
+							"parameters": {
+								"name": "\"Buttons\"",
+								"string": "\"CheckButtons\"",
+								"function": "CheckButtonsProfile"
+							}
+						}
+					],
+					"sid": 750874288921318,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 972240436611550,
+									"parameters": {
+										"variable": "DesktopMode"
+									}
+								},
+								{
+									"id": "evaluate-expression",
+									"objectClass": "System",
+									"sid": 915938915288294,
+									"parameters": {
+										"value": "PainterStoriesBackgrounds.Count = 0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "Change Colors of Background in Pro Mode"
+								},
+								{
+									"id": "set-layer-background-color",
+									"objectClass": "System",
+									"sid": 753206647939752,
+									"parameters": {
+										"layer": "\"Foreground\"",
+										"color": "rgbEx(0, 0, 0)"
+									}
+								},
+								{
+									"id": "set-default-color",
+									"objectClass": "MainSpriteFont",
+									"sid": 240950641356623,
+									"parameters": {
+										"color": "rgbEx(25, 25, 25)"
+									}
+								}
+							],
+							"sid": 150796977786642
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "TODO: Check if the next layout exists using layout name / exists checking, then advance if it does."
+				},
+				{
+					"functionName": "ProfileNext",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [],
+					"sid": 881095633657166,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 762244639130687,
+									"parameters": {
+										"first-value": "int(tokenat(LayoutName, 1, \"-\"))",
+										"comparison": 2,
+										"second-value": "TotalPages"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "go-to-layout-by-name",
+									"objectClass": "System",
+									"sid": 350943713099363,
+									"parameters": {
+										"layout": "tokenat(LayoutName, 0, \"-\") & \"-\" & (int(tokenat(LayoutName, 1, \"-\")) + 1)"
+									}
+								}
+							],
+							"sid": 808249235487071
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 993972645322366
+								}
+							],
+							"actions": [
+								{
+									"id": "go-to-layout",
+									"objectClass": "System",
+									"sid": 103687902853447,
+									"parameters": {
+										"layout": "PainterStoriesIndex"
+									}
+								}
+							],
+							"sid": 382964367329230
+						}
+					]
+				},
+				{
+					"functionName": "ProfileBack",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 969006125940853,
+							"disabled": true,
+							"parameters": {
+								"type": "log",
+								"message": "tokenat(LayoutName, 0, \"-\") & \"-\" & int(tokenat(LayoutName, 1, \"-\")) - 1"
+							}
+						}
+					],
+					"sid": 781838181078366,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 683023377499185,
+									"parameters": {
+										"first-value": "int(tokenat(LayoutName, 1, \"-\")) - 1",
+										"comparison": 4,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "go-to-layout-by-name",
+									"objectClass": "System",
+									"sid": 430353902989179,
+									"parameters": {
+										"layout": "tokenat(LayoutName, 0, \"-\") & \"-\" & int(tokenat(LayoutName, 1, \"-\")) - 1"
+									}
+								}
+							],
+							"sid": 314830013141570
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 276094509008187
+								}
+							],
+							"actions": [
+								{
+									"id": "go-to-layout",
+									"objectClass": "System",
+									"sid": 823422240364934,
+									"parameters": {
+										"layout": "PainterStoriesIndex"
+									}
+								}
+							],
+							"sid": 916165536569962
+						}
+					]
+				},
+				{
+					"functionName": "CheckButtonsProfile",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [
+						{
+							"name": "For",
+							"type": "string",
+							"initialValue": "",
+							"comment": "",
+							"sid": 900199420598525
+						},
+						{
+							"name": "Event",
+							"type": "string",
+							"initialValue": "",
+							"comment": "",
+							"sid": 511493209162528
+						}
+					],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [],
+					"sid": 542733659911216,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 999472358245749,
+									"parameters": {
+										"first-value": "For",
+										"comparison": 0,
+										"second-value": "\"Next\""
+									}
+								},
+								{
+									"id": "compare-instance-variable",
+									"objectClass": "Button",
+									"sid": 183918377179331,
+									"parameters": {
+										"instance-variable": "For",
+										"comparison": 0,
+										"value": "\"Next\""
+									}
+								}
+							],
+							"actions": [],
+							"sid": 725261089006205,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 117668725592124,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Pressed\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 804282160166102
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 246319113289883,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Page Turn Pressed 1"
+												},
+												"loop": "not-looping",
+												"volume": "-10",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-default-color",
+											"objectClass": "Button",
+											"sid": 407435976061764,
+											"parameters": {
+												"color": "rgbEx(0, 90, 0)"
+											}
+										},
+										{
+											"id": "set-opacity",
+											"objectClass": "Button",
+											"sid": 931116050799727,
+											"parameters": {
+												"opacity": "25"
+											}
+										},
+										{
+											"id": "set-visible",
+											"objectClass": "Button",
+											"sid": 500758620309227,
+											"parameters": {
+												"visibility": "visible"
+											}
+										}
+									],
+									"sid": 416877185433973
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 614391462125449,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Depressed\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 523572141736876
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 105983702475208,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Page Turn Released 1"
+												},
+												"loop": "not-looping",
+												"volume": "-10",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-visible",
+											"objectClass": "Button",
+											"sid": 415967988595298,
+											"parameters": {
+												"visibility": "invisible"
+											}
+										},
+										{
+											"id": "set-opacity",
+											"objectClass": "Button",
+											"sid": 194066577993501,
+											"parameters": {
+												"opacity": "0"
+											}
+										}
+									],
+									"sid": 563674674927496
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 473964089540995,
+									"parameters": {
+										"first-value": "For",
+										"comparison": 0,
+										"second-value": "\"Back\""
+									}
+								},
+								{
+									"id": "compare-instance-variable",
+									"objectClass": "Button",
+									"sid": 736367210019302,
+									"parameters": {
+										"instance-variable": "For",
+										"comparison": 0,
+										"value": "\"Back\""
+									}
+								}
+							],
+							"actions": [],
+							"sid": 949863665507338,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 791437742942917,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Pressed\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 317293213059300
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 892858496003257,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Page Turn Pressed 1"
+												},
+												"loop": "not-looping",
+												"volume": "-10",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-default-color",
+											"objectClass": "Button",
+											"sid": 766807946829797,
+											"parameters": {
+												"color": "rgbEx(90, 0, 0)"
+											}
+										},
+										{
+											"id": "set-opacity",
+											"objectClass": "Button",
+											"sid": 182615906544740,
+											"parameters": {
+												"opacity": "25"
+											}
+										},
+										{
+											"id": "set-visible",
+											"objectClass": "Button",
+											"sid": 330279187645394,
+											"parameters": {
+												"visibility": "visible"
+											}
+										}
+									],
+									"sid": 498397635114970
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 288679434065594,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Depressed\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 363815971002187
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 698820310696710,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Page Turn Released 1"
+												},
+												"loop": "not-looping",
+												"volume": "-10",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-opacity",
+											"objectClass": "Button",
+											"sid": 409222021175098,
+											"parameters": {
+												"opacity": "0"
+											}
+										},
+										{
+											"id": "set-visible",
+											"objectClass": "Button",
+											"sid": 282551481843523,
+											"parameters": {
+												"visibility": "invisible"
+											}
+										}
+									],
+									"sid": 681603534003538
+								}
+							]
+						}
+					]
+				}
+			],
+			"sid": 750564031034669
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Keyboard Controls PainterStories",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "KeyPressed",
+					"type": "number",
+					"initialValue": "-1",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 159700300981350
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 650893415348106
+						}
+					],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 961487906189260,
+							"parameters": {
+								"variable": "KeyPressed",
+								"value": "-1"
+							}
+						},
+						{
+							"id": "stop-timer",
+							"objectClass": "GlobalClock",
+							"sid": 319560938845258,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"KeyUp\""
+							}
+						}
+					],
+					"sid": 912500290585388
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Key Pressed[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-any-key-pressed",
+							"objectClass": "Keyboard",
+							"sid": 382585068264283
+						},
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 856503762788471,
+							"parameters": {
+								"first-value": "KeyPressed",
+								"comparison": 0,
+								"second-value": "-1"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 855118676372178,
+							"parameters": {
+								"variable": "KeyPressed",
+								"value": "Keyboard.LastKeyCode"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Deactivate the Buttons event sheet."
+						},
+						{
+							"id": "set-group-active",
+							"objectClass": "System",
+							"sid": 633986982514085,
+							"parameters": {
+								"group-name": "\"Buttons\"",
+								"state": "deactivated"
+							}
+						},
+						{
+							"id": "set-cursor-style",
+							"objectClass": "Mouse",
+							"sid": 317558682815682,
+							"parameters": {
+								"cursor-style": "normal"
+							}
+						},
+						{
+							"id": "set-time-scale",
+							"objectClass": "System",
+							"sid": 761082796416727,
+							"parameters": {
+								"time-scale": "0"
+							}
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 787517820130792,
+							"parameters": {
+								"tag": "\"KeyUp\""
+							}
+						},
+						{
+							"id": "start-timer",
+							"objectClass": "GlobalClock",
+							"sid": 698497544899394,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "0.05",
+								"type": "once",
+								"tag": "\"KeyUp\""
+							}
+						},
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 644645563794589,
+							"disabled": true,
+							"parameters": {
+								"type": "log",
+								"message": "\"KeyPressed\""
+							}
+						}
+					],
+					"sid": 941277651684862,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[b]Back[/b] Left Arrow Key"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 439894711668538,
+									"parameters": {
+										"first-value": "KeyPressed",
+										"comparison": 0,
+										"second-value": "37"
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "CheckButtonsProfile",
+									"sid": 761603607635222,
+									"parameters": [
+										"\"Back\"",
+										"\"Pressed\""
+									]
+								},
+								{
+									"id": "wait-for-signal",
+									"objectClass": "System",
+									"sid": 797265867803633,
+									"parameters": {
+										"tag": "\"KeyUp\""
+									}
+								},
+								{
+									"callFunction": "CheckButtonsProfile",
+									"sid": 709528434005190,
+									"parameters": [
+										"\"Back\"",
+										"\"Depressed\""
+									]
+								},
+								{
+									"id": "call-mapped-function",
+									"objectClass": "Functions",
+									"sid": 700072180529233,
+									"parameters": {
+										"name": "\"Buttons\"",
+										"string": "\"Back\"",
+										"forward-params": "0"
+									}
+								}
+							],
+							"sid": 443672892975181
+						},
+						{
+							"eventType": "comment",
+							"text": "[b]Next[/b] Right Arrow Key"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 159933881755394,
+									"parameters": {
+										"first-value": "KeyPressed",
+										"comparison": 0,
+										"second-value": "39"
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "CheckButtonsProfile",
+									"sid": 339551862027565,
+									"parameters": [
+										"\"Next\"",
+										"\"Pressed\""
+									]
+								},
+								{
+									"id": "wait-for-signal",
+									"objectClass": "System",
+									"sid": 862388004832577,
+									"parameters": {
+										"tag": "\"KeyUp\""
+									}
+								},
+								{
+									"callFunction": "CheckButtonsProfile",
+									"sid": 736984785699340,
+									"parameters": [
+										"\"Next\"",
+										"\"Depressed\""
+									]
+								},
+								{
+									"id": "call-mapped-function",
+									"objectClass": "Functions",
+									"sid": 682099805547425,
+									"parameters": {
+										"name": "\"Buttons\"",
+										"string": "\"Next\"",
+										"forward-params": "0"
+									}
+								}
+							],
+							"sid": 478251677833430
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "GlobalClock",
+							"sid": 867337016622406,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"KeyUp\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-time-scale",
+							"objectClass": "System",
+							"sid": 291100755707222,
+							"parameters": {
+								"time-scale": "1"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 189788647653065,
+							"parameters": {
+								"variable": "KeyPressed",
+								"value": "-1"
+							}
+						},
+						{
+							"id": "set-group-active",
+							"objectClass": "System",
+							"sid": 667768314199566,
+							"parameters": {
+								"group-name": "\"Buttons\"",
+								"state": "activated"
+							}
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 138594466969466,
+							"parameters": {
+								"tag": "\"KeyUp\""
+							}
+						}
+					],
+					"sid": 198069533137521
+				}
+			],
+			"sid": 908304854584410
+		}
+	],
+	"sid": 394307623132622
+}

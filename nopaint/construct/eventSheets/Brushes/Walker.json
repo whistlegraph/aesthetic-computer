@@ -1,0 +1,870 @@
+{
+	"name": "Walker",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Walker",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "animation",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 328749604204351
+				},
+				{
+					"eventType": "variable",
+					"name": "fromTop",
+					"type": "boolean",
+					"initialValue": "false",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 366754291567967
+				},
+				{
+					"eventType": "variable",
+					"name": "fromRight",
+					"type": "boolean",
+					"initialValue": "true",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 576117323462644
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 312595217399856
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "InitParameters",
+							"sid": 659371333163561,
+							"parameters": [
+								"0"
+							]
+						},
+						{
+							"callFunction": "WalkerSetup",
+							"sid": 163337825361923
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 127008602159729,
+							"parameters": {
+								"tag": "\"Brush Started\""
+							}
+						}
+					],
+					"sid": 823148420925093
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 174219124850248
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 961068625998595,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 101747517461925
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "variable",
+					"name": "step",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": false,
+					"isConstant": false,
+					"sid": 948450200694401
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-animation-frame-changed",
+							"objectClass": "WalkerElla",
+							"sid": 331819143119361
+						}
+					],
+					"actions": [],
+					"sid": 301813753691848,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "is-tag-playing",
+									"objectClass": "Audio",
+									"sid": 445044193577071,
+									"parameters": {
+										"tag": "\"Walker Blip\""
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [
+								{
+									"id": "remove-all-effects",
+									"objectClass": "Audio",
+									"sid": 595697222804717,
+									"parameters": {
+										"tag": "\"Walker Blip\""
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 985137006865826,
+									"parameters": {
+										"audio-file": {
+											"path": "Emoji/Emoji Set 1 - Flower"
+										},
+										"loop": "not-looping",
+										"volume": "random(-1, -6)",
+										"stereo-pan": "0",
+										"tag-optional": "\"Walker Blip\""
+									}
+								},
+								{
+									"id": "set-playback-rate",
+									"objectClass": "Audio",
+									"sid": 695207561242806,
+									"parameters": {
+										"tag": "\"Walker Blip\"",
+										"playback-rate": "choose(random(0.4, 1.6), random(1.8, 1.9), random(1.8, 1.9))"
+									}
+								},
+								{
+									"id": "add-ring-mod-effect",
+									"objectClass": "Audio",
+									"sid": 649589442858581,
+									"parameters": {
+										"tag": "\"Walker Blip\"",
+										"frequency": "400 + random(200)",
+										"mix": "random(0, 100)"
+									}
+								}
+							],
+							"sid": 875264654124509
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 268020451459153,
+									"parameters": {
+										"variable": "fromTop"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 121592596320773,
+									"parameters": {
+										"variable": "step",
+										"value": "max(3, max(2, WalkerElla.Height / 8) - 2)"
+									}
+								},
+								{
+									"id": "set-position",
+									"objectClass": "WalkerElla",
+									"sid": 304405506512507,
+									"parameters": {
+										"x": "floor(Self.X + choose(-step / 4, 0, 0, 0, step / 4))",
+										"y": "floor(Self.Y + step)"
+									}
+								}
+							],
+							"sid": 322651915502767
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 342493533025592
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 365829189935038,
+									"parameters": {
+										"variable": "step",
+										"value": "max(3, max(2, abs(WalkerElla.Width) / 8) - 2)"
+									}
+								}
+							],
+							"sid": 884592615825158,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-boolean-eventvar",
+											"objectClass": "System",
+											"sid": 664293003445444,
+											"parameters": {
+												"variable": "fromRight"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-position",
+											"objectClass": "WalkerElla",
+											"sid": 566488002374431,
+											"parameters": {
+												"x": "floor(Self.X - step)",
+												"y": "Self.Y + choose(-step / 4, 0, 0, 0, step / 4)"
+											}
+										}
+									],
+									"sid": 474741880380447
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 831685310670333
+										}
+									],
+									"actions": [
+										{
+											"id": "set-position",
+											"objectClass": "WalkerElla",
+											"sid": 338991770098823,
+											"parameters": {
+												"x": "floor(Self.X + step)",
+												"y": "Self.Y + choose(-step / 4, 0, 0, 0, step / 4)"
+											}
+										}
+									],
+									"sid": 157101518263423
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 724006726879416,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"CheckWalkerBounds\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 527282678778117,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "is-outside-layout",
+									"objectClass": "WalkerElla",
+									"sid": 208173659257690
+								}
+							],
+							"actions": [
+								{
+									"id": "stop-timer",
+									"objectClass": "Clock",
+									"sid": 934463746990636,
+									"behaviorType": "Timer",
+									"parameters": {
+										"tag": "\"CheckWalkerBounds\""
+									}
+								},
+								{
+									"callFunction": "WalkerSetup",
+									"sid": 306050703359506
+								}
+							],
+							"sid": 113844358164390
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 889590984953137,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 377138962555826
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 376471333959074,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 609013496568255,
+							"parameters": {
+								"x": "WalkerElla.X",
+								"y": "WalkerElla.Y"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 638868716871679,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 263349270684570,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 979221845607939
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 325557425636583,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ticked[/b]"
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 153311811668102,
+							"parameters": {
+								"x": "Self.X + NudgedX",
+								"y": "Self.Y + NudgedY"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "WalkerElla",
+							"sid": 758428892885237,
+							"parameters": {
+								"x": "NudgeDot.X",
+								"y": "NudgeDot.Y"
+							}
+						}
+					],
+					"sid": 490640169086722
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 251401838594019,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 501702233277609,
+							"parameters": {
+								"object": "WalkerElla",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 320378235755154,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 791834481088003
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 112490710731819
+						}
+					],
+					"actions": [],
+					"sid": 794205669610297
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Functions[/h3]"
+				},
+				{
+					"functionName": "WalkerSetup",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "stop-animation",
+							"objectClass": "WalkerElla",
+							"sid": 934387482648923
+						},
+						{
+							"id": "set-mirrored",
+							"objectClass": "WalkerElla",
+							"sid": 995833004026530,
+							"parameters": {
+								"state": "not-mirrored"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "WalkerElla",
+							"sid": 361339091336215,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 241167322953620,
+							"parameters": {
+								"variable": "animation",
+								"value": "choose(1, 2, 3, 4, 5, 6, 7, 8, 9)"
+							}
+						},
+						{
+							"id": "set-animation",
+							"objectClass": "WalkerElla",
+							"sid": 167563479573874,
+							"parameters": {
+								"animation": "str(animation)",
+								"from": "beginning"
+							}
+						},
+						{
+							"id": "set-effect-parameter",
+							"objectClass": "WalkerElla",
+							"sid": 223705795788959,
+							"parameters": {
+								"effect": "\"Water\"",
+								"parameter-index": "3",
+								"value": "random(0.15, 0.9)"
+							}
+						},
+						{
+							"id": "set-effect-parameter",
+							"objectClass": "WalkerElla",
+							"sid": 128153267087848,
+							"parameters": {
+								"effect": "\"AdjustHSL\"",
+								"parameter-index": "0",
+								"value": "choose(0, 0, 0, random(-100, 100))"
+							}
+						},
+						{
+							"id": "set-scale",
+							"objectClass": "WalkerElla",
+							"sid": 605467401243706,
+							"parameters": {
+								"scale": "choose(0.5, 0.75, 1, 1, 1, 1, 1.25)"
+							}
+						},
+						{
+							"id": "set-animation-speed",
+							"objectClass": "WalkerElla",
+							"sid": 560396506098896,
+							"parameters": {
+								"speed": "choose(4, 5)"
+							}
+						},
+						{
+							"id": "start-animation",
+							"objectClass": "WalkerElla",
+							"sid": 749098472853233,
+							"parameters": {
+								"from": "beginning"
+							}
+						},
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 720554635552828,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "1",
+								"type": "regular",
+								"tag": "\"CheckWalkerBounds\""
+							}
+						}
+					],
+					"sid": 528949098281223,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 340264046143251,
+									"parameters": {
+										"first-value": "min(WalkerElla.Width, WalkerElla.Height)",
+										"comparison": 0,
+										"second-value": "32"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "WalkerElla",
+									"sid": 335800670441771,
+									"parameters": {
+										"effect": "\"Pixellate\"",
+										"parameter-index": "0",
+										"value": "choose(1, 1, 1, 1, 1, 2, 4, 6)"
+									}
+								}
+							],
+							"sid": 895346403078187
+						},
+						{
+							"eventType": "comment",
+							"text": "Hair Flip (Start from top)"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 919313629421926,
+									"parameters": {
+										"variable": "animation",
+										"comparison": 0,
+										"value": "3"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 635671521757991,
+									"parameters": {
+										"variable": "fromTop",
+										"value": "true"
+									}
+								},
+								{
+									"id": "set-position",
+									"objectClass": "WalkerElla",
+									"sid": 405771642517776,
+									"parameters": {
+										"x": "floor(random(Self.Width, 255 - Self.Width))",
+										"y": "floor(-Self.Height / 3)"
+									}
+								}
+							],
+							"sid": 413306819461627
+						},
+						{
+							"eventType": "comment",
+							"text": "Twirling (Start from top)"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 426634033547156
+								},
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 915045122766207,
+									"parameters": {
+										"variable": "animation",
+										"comparison": 0,
+										"value": "7"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 851773875187769,
+									"parameters": {
+										"variable": "fromTop",
+										"value": "true"
+									}
+								},
+								{
+									"id": "set-position",
+									"objectClass": "WalkerElla",
+									"sid": 287623690191587,
+									"parameters": {
+										"x": "floor(random(Self.Width, 255 - Self.Width))",
+										"y": "floor(-Self.Height / 1.5)"
+									}
+								}
+							],
+							"sid": 191181449385605
+						},
+						{
+							"eventType": "comment",
+							"text": "Everything else (Pick a side)"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 863023143399867
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 339364945616089,
+									"parameters": {
+										"variable": "fromTop",
+										"value": "false"
+									}
+								},
+								{
+									"id": "log",
+									"objectClass": "Browser",
+									"sid": 180232551900343,
+									"disabled": true,
+									"parameters": {
+										"type": "log",
+										"message": "WalkerElla.Width"
+									}
+								}
+							],
+							"sid": 803367715620896,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 579339771656900,
+											"parameters": {
+												"first-value": "choose(0, 1)",
+												"comparison": 0,
+												"second-value": "0"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-boolean-eventvar",
+											"objectClass": "System",
+											"sid": 822412065190084,
+											"parameters": {
+												"variable": "fromRight",
+												"value": "true"
+											}
+										},
+										{
+											"id": "set-position",
+											"objectClass": "WalkerElla",
+											"sid": 564252009688369,
+											"parameters": {
+												"x": "floor(255 + (Self.Width / 3))",
+												"y": "floor(random(Self.Height, 255 - Self.Height))"
+											}
+										}
+									],
+									"sid": 262943623234807
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 230728450697700
+										}
+									],
+									"actions": [
+										{
+											"id": "set-boolean-eventvar",
+											"objectClass": "System",
+											"sid": 520302348074243,
+											"parameters": {
+												"variable": "fromRight",
+												"value": "false"
+											}
+										},
+										{
+											"id": "set-position",
+											"objectClass": "WalkerElla",
+											"sid": 729163909747625,
+											"parameters": {
+												"x": "floor(-Self.Width / 3)",
+												"y": "floor(random(Self.Height, 255 - Self.Height))"
+											}
+										},
+										{
+											"id": "set-mirrored",
+											"objectClass": "WalkerElla",
+											"sid": 442276553125367,
+											"parameters": {
+												"state": "mirrored"
+											}
+										}
+									],
+									"sid": 928569516890845
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-visible",
+									"objectClass": "WalkerElla",
+									"sid": 285677330348823,
+									"parameters": {
+										"visibility": "visible"
+									}
+								}
+							],
+							"sid": 969793887536046
+						}
+					]
+				}
+			],
+			"sid": 199614843136123
+		}
+	],
+	"sid": 997388028243632
+}

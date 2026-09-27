@@ -1,0 +1,52 @@
+{
+	"name": "NudgeParticle",
+	"plugin-id": "Sprite",
+	"sid": 899139456240458,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [],
+	"animations": {
+		"items": [
+			{
+				"frames": [
+					{
+						"width": 2,
+						"height": 2,
+						"originX": 0.5,
+						"originY": 0.5,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 989881,
+						"collisionPoly": {
+							"points": [
+								0.2,
+								0.2,
+								0.8,
+								0.2,
+								0.8,
+								0.8,
+								0.2,
+								0.8
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					}
+				],
+				"sid": 531757048191714,
+				"name": "Animation 1",
+				"isLooping": true,
+				"isPingPong": true,
+				"repeatCount": 1,
+				"repeatTo": 0,
+				"speed": 4
+			}
+		],
+		"subfolders": []
+	}
+}

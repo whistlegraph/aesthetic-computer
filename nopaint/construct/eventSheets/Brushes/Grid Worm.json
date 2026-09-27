@@ -1,0 +1,958 @@
+{
+	"name": "Grid Worm",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Grid Worm",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "division",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 178006859677999
+				},
+				{
+					"eventType": "variable",
+					"name": "width",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 699842101125504
+				},
+				{
+					"eventType": "variable",
+					"name": "height",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 250040489833625
+				},
+				{
+					"eventType": "variable",
+					"name": "wormLength",
+					"type": "number",
+					"initialValue": "8",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 666109767351352
+				},
+				{
+					"eventType": "variable",
+					"name": "y",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 529080563046995
+				},
+				{
+					"eventType": "variable",
+					"name": "x",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 185497594494911
+				},
+				{
+					"eventType": "variable",
+					"name": "color",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 733356288953057
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 486337625383718
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "👋 Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 189897386532677,
+							"parameters": [
+								"2"
+							]
+						},
+						{
+							"type": "comment",
+							"text": "[b]1st Parameter[/b] X"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 182702470700891,
+							"parameters": {
+								"variable": "x",
+								"value": "Functions.ProcessNumericParameter(1, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "[b]2nd Parameter[/b] Y"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 517208406896805,
+							"parameters": {
+								"variable": "y",
+								"value": "Functions.ProcessNumericParameter(2, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "🛑 Print Parameters",
+							"background-color": [
+								0.9294117647058824,
+								0.7764705882352941,
+								0.984313725490196,
+								1
+							]
+						},
+						{
+							"callFunction": "PrintParameterHint",
+							"sid": 751355944725022
+						}
+					],
+					"sid": 820327886555278,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[/h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 603792581447851,
+									"parameters": {
+										"variable": "division",
+										"value": "choose(32, 64, 128, 256)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 627750522879572,
+									"parameters": {
+										"variable": "wormLength",
+										"value": "division"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 229454251455647,
+									"parameters": {
+										"variable": "width",
+										"value": "GridWormBuffer.Width / division"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 528511121151719,
+									"parameters": {
+										"variable": "height",
+										"value": "GridWormBuffer.Height / division"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 426714375998486,
+									"parameters": {
+										"variable": "color",
+										"value": "choose(Functions.hslaToRgba(random(1), random(0.8, 1), random(0.35, 0.7), random(0.5, 0.75)), Functions.hslaToRgba(random(1), random(0.8, 0.9), random(0.2, 0.4), random(0.5, 0.75)),Functions.hslaToRgba(random(1), random(0.8, 1), random(0.75, 1), random(0.5, 0.75)))"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "[b]TODO:[/b] Map divisions to specific speeds."
+								},
+								{
+									"id": "set-size",
+									"objectClass": "GridWormSegments",
+									"sid": 584773615588648,
+									"parameters": {
+										"width": "1",
+										"height": "3",
+										"depth": "1"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "Add a point (x, y, color) to the front of the worm."
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "GridWormSegments",
+									"sid": 516702910107228,
+									"parameters": {
+										"x": "0",
+										"y": "0",
+										"value": "floor((x / PaintingResolution) * division)"
+									}
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "GridWormSegments",
+									"sid": 978911937414448,
+									"parameters": {
+										"x": "0",
+										"y": "1",
+										"value": "floor((y / PaintingResolution) * division)"
+									}
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "GridWormSegments",
+									"sid": 461981305511361,
+									"parameters": {
+										"x": "0",
+										"y": "2",
+										"value": "color"
+									}
+								},
+								{
+									"callFunction": "DrawGridWorm",
+									"sid": 335472012767348
+								},
+								{
+									"type": "comment",
+									"text": "Sound"
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 963225952978589,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Grid Worm/Grid Worm - Theme"
+										},
+										"loop": "looping",
+										"volume": "-7.5 - ((division / 256) * 10)",
+										"stereo-pan": "0",
+										"tag-optional": "\"GridWormLoop\""
+									}
+								}
+							],
+							"sid": 230359274146192,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 995757419417467,
+											"parameters": {
+												"first-value": "choose(0, 1, 2)",
+												"comparison": 4,
+												"second-value": "0"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-effect-enabled",
+											"objectClass": "GridWormBuffer",
+											"sid": 820113392377658,
+											"parameters": {
+												"mode": "disable",
+												"effect": "\"Exclusion\""
+											}
+										}
+									],
+									"sid": 148023518025873
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 575851910441573,
+											"parameters": {
+												"first-value": "division",
+												"comparison": 0,
+												"second-value": "8"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "start-timer",
+											"objectClass": "Clock",
+											"sid": 273255092295519,
+											"behaviorType": "Timer",
+											"parameters": {
+												"duration": "choose(0.1, 0.09)",
+												"type": "regular",
+												"tag": "\"Draw\""
+											}
+										},
+										{
+											"id": "set-playback-rate",
+											"objectClass": "Audio",
+											"sid": 318983487871431,
+											"parameters": {
+												"tag": "\"GridWormLoop\"",
+												"playback-rate": "0.6"
+											}
+										}
+									],
+									"sid": 648758257212105
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 441349602212787
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 689638572230675,
+											"parameters": {
+												"first-value": "division",
+												"comparison": 0,
+												"second-value": "16"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "start-timer",
+											"objectClass": "Clock",
+											"sid": 214608588207769,
+											"behaviorType": "Timer",
+											"parameters": {
+												"duration": "choose(0.05, 0.1)",
+												"type": "regular",
+												"tag": "\"Draw\""
+											}
+										},
+										{
+											"id": "set-playback-rate",
+											"objectClass": "Audio",
+											"sid": 247155997446442,
+											"parameters": {
+												"tag": "\"GridWormLoop\"",
+												"playback-rate": "0.8"
+											}
+										}
+									],
+									"sid": 768661298233966
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 255246949100734
+										}
+									],
+									"actions": [
+										{
+											"id": "start-timer",
+											"objectClass": "Clock",
+											"sid": 786427279849048,
+											"behaviorType": "Timer",
+											"parameters": {
+												"duration": "choose(0.1, 0.05, 0.02)",
+												"type": "regular",
+												"tag": "\"Draw\""
+											}
+										}
+									],
+									"sid": 999814027707904
+								},
+								{
+									"eventType": "block",
+									"conditions": [],
+									"actions": [
+										{
+											"id": "signal",
+											"objectClass": "System",
+											"sid": 611771488501934,
+											"parameters": {
+												"tag": "\"Brush Started\""
+											}
+										}
+									],
+									"sid": 225507039800274
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]No Theme[/h4]",
+					"background-color": [
+						0.7215686274509804,
+						0.9058823529411765,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 630100060989947
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 727216203401877,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 235933789302882
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 528170055320545,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 490433518386525
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 780221932714468,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 641336721477845
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]No Audio on Pause[/h4]",
+					"background-color": [
+						0.8392156862745098,
+						0.9450980392156862,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 590320359745660
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 626814565469226,
+							"parameters": [
+								"\"GridWormLoop\""
+							]
+						}
+					],
+					"sid": 881326020520844
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "Grow the worm by one segment, move it and redraw it."
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 377937870633749,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Draw\""
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 739975846625267,
+							"parameters": {
+								"variable": "Painting"
+							},
+							"isInverted": true
+						}
+					],
+					"actions": [
+						{
+							"id": "push",
+							"objectClass": "GridWormSegments",
+							"sid": 707297075503597,
+							"parameters": {
+								"where": "front",
+								"value": "0",
+								"axis": "x"
+							}
+						}
+					],
+					"sid": 600094409832449,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-size",
+									"objectClass": "GridWormSegments",
+									"sid": 848679777325321,
+									"parameters": {
+										"axis": "x",
+										"comparison": 4,
+										"value": "wormLength"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-size",
+									"objectClass": "GridWormSegments",
+									"sid": 533465728472357,
+									"parameters": {
+										"width": "wormLength",
+										"height": "3",
+										"depth": "1"
+									}
+								}
+							],
+							"sid": 150313821663082
+						},
+						{
+							"eventType": "comment",
+							"text": "Move Left or Right"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 903803099580371,
+									"parameters": {
+										"first-value": "choose(0, 1)",
+										"comparison": 0,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-at-xy",
+									"objectClass": "GridWormSegments",
+									"sid": 411107952379648,
+									"parameters": {
+										"x": "0",
+										"y": "0",
+										"value": "abs((GridWormSegments.At(1, 0) + choose(1, -1)) % division)"
+									}
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "GridWormSegments",
+									"sid": 114767507379820,
+									"parameters": {
+										"x": "0",
+										"y": "1",
+										"value": "GridWormSegments.At(1, 1)"
+									}
+								}
+							],
+							"sid": 132374645165824
+						},
+						{
+							"eventType": "comment",
+							"text": "[b]Or[/b] Move Up or Down"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 459216679610087
+								}
+							],
+							"actions": [
+								{
+									"id": "set-at-xy",
+									"objectClass": "GridWormSegments",
+									"sid": 464456069465017,
+									"parameters": {
+										"x": "0",
+										"y": "0",
+										"value": "GridWormSegments.At(1, 0)"
+									}
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "GridWormSegments",
+									"sid": 574201824844431,
+									"parameters": {
+										"x": "0",
+										"y": "1",
+										"value": "abs((GridWormSegments.At(1, 1) + choose(1, -1)) % division)"
+									}
+								}
+							],
+							"sid": 762451901322333
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-at-xy",
+									"objectClass": "GridWormSegments",
+									"sid": 290897478206514,
+									"parameters": {
+										"x": "0",
+										"y": "2",
+										"value": "color"
+									}
+								},
+								{
+									"id": "clear-canvas",
+									"objectClass": "GridWormBuffer",
+									"sid": 794498341270242,
+									"parameters": {
+										"color": "rgba(0, 0, 0, 0)"
+									}
+								},
+								{
+									"callFunction": "DrawGridWorm",
+									"sid": 786166359795727
+								}
+							],
+							"sid": 150207804440164
+						}
+					]
+				},
+				{
+					"functionName": "DrawGridWorm",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 743071105419598,
+							"parameters": {
+								"x": "GridWormSegments.At(0, 0) * width + width / 2",
+								"y": "GridWormSegments.At(0, 1) * height + height / 2"
+							}
+						}
+					],
+					"sid": 571221568447924,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "for-each-element",
+									"objectClass": "GridWormSegments",
+									"sid": 285861798643355,
+									"parameters": {
+										"axes": "x"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "fill-rect",
+									"objectClass": "GridWormBuffer",
+									"sid": 867198651899167,
+									"parameters": {
+										"left": "GridWormSegments.At(GridWormSegments.CurX, 0) * width",
+										"top": "GridWormSegments.At(GridWormSegments.CurX, 1) * height",
+										"right": "GridWormSegments.At(GridWormSegments.CurX, 0) * width + width",
+										"bottom": "GridWormSegments.At(GridWormSegments.CurX, 1) * height + height",
+										"color": "GridWormSegments.At(GridWormSegments.CurX, 2)"
+									}
+								}
+							],
+							"sid": 800420595883743
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 276367404272949,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 186253197475888
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 365568664321057,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 738133090153013,
+							"parameters": {
+								"x": "x",
+								"y": "y"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 778610171591115,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						}
+					],
+					"sid": 398280524605736
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 974842904892875,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [],
+					"sid": 212759301639497,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "for-each-element",
+									"objectClass": "GridWormSegments",
+									"sid": 524482859932960,
+									"parameters": {
+										"axes": "x"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-at-xy",
+									"objectClass": "GridWormSegments",
+									"sid": 742117797836016,
+									"parameters": {
+										"x": "GridWormSegments.CurX",
+										"y": "0",
+										"value": "GridWormSegments.At(GridWormSegments.CurX, 0) + NudgedX / (256 / division)"
+									}
+								},
+								{
+									"id": "set-at-xy",
+									"objectClass": "GridWormSegments",
+									"sid": 596157811746287,
+									"parameters": {
+										"x": "GridWormSegments.CurX",
+										"y": "1",
+										"value": "GridWormSegments.At(GridWormSegments.CurX, 1) + NudgedY / (256 / division)"
+									}
+								},
+								{
+									"id": "clear-canvas",
+									"objectClass": "GridWormBuffer",
+									"sid": 540006094939130,
+									"parameters": {
+										"color": "rgba(0, 0, 0, 0)"
+									}
+								},
+								{
+									"callFunction": "DrawGridWorm",
+									"sid": 578358139818304
+								}
+							],
+							"sid": 979166071548999
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 272983349733178,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 479319006011780,
+							"parameters": {
+								"object": "GridWormBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 179957281588349,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 400267352841462
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 194069831806785
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 410581824080647,
+							"parameters": {
+								"tag": "\"GridWormLoop\""
+							}
+						}
+					],
+					"sid": 312952104253574
+				}
+			],
+			"sid": 117586839502313
+		}
+	],
+	"sid": 206301066910512
+}

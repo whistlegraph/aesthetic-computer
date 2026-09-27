@@ -1,0 +1,50 @@
+{
+	"name": "EmojiBackdrop",
+	"plugin-id": "NinePatch",
+	"sid": 154298430638904,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [
+		{
+			"name": "For",
+			"type": "string",
+			"desc": "",
+			"show": true,
+			"sid": 418145020850603
+		},
+		{
+			"name": "Pressed",
+			"type": "boolean",
+			"desc": "",
+			"show": true,
+			"sid": 595885312692018
+		}
+	],
+	"behaviorTypes": [],
+	"effectTypes": [],
+	"image": {
+		"width": 8,
+		"height": 9,
+		"originX": 0.5,
+		"originY": 0.4444444444444444,
+		"originalSource": "",
+		"exportFormat": "lossless",
+		"exportQuality": 0.8,
+		"fileType": "image/png",
+		"imageSpriteId": 7052510,
+		"collisionPoly": {
+			"points": [
+				0,
+				0,
+				1,
+				0,
+				1,
+				0.8888888888888888,
+				0,
+				0.8888888888888888
+			]
+		},
+		"useCollisionPoly": true,
+		"tag": ""
+	}
+}

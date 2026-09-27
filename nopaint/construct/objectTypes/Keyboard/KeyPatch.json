@@ -1,0 +1,50 @@
+{
+	"name": "KeyPatch",
+	"plugin-id": "NinePatch",
+	"sid": 683586758544699,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [
+		{
+			"name": "For",
+			"type": "string",
+			"desc": "",
+			"show": true,
+			"sid": 601542009436372
+		},
+		{
+			"name": "Pressed",
+			"type": "boolean",
+			"desc": "",
+			"show": true,
+			"sid": 556556189257442
+		}
+	],
+	"behaviorTypes": [],
+	"effectTypes": [],
+	"image": {
+		"width": 8,
+		"height": 9,
+		"originX": 0.5,
+		"originY": 0.4444444444444444,
+		"originalSource": "",
+		"exportFormat": "lossless",
+		"exportQuality": 0.8,
+		"fileType": "image/png",
+		"imageSpriteId": 6450983,
+		"collisionPoly": {
+			"points": [
+				0,
+				0,
+				1,
+				0,
+				1,
+				0.8888888888888888,
+				0,
+				0.8888888888888888
+			]
+		},
+		"useCollisionPoly": true,
+		"tag": ""
+	}
+}

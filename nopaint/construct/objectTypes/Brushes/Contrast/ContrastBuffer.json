@@ -1,0 +1,15 @@
+{
+	"name": "ContrastBuffer",
+	"plugin-id": "DrawingCanvas",
+	"sid": 540634062381274,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [
+		{
+			"effectId": "contrast",
+			"name": "Contrast"
+		}
+	]
+}

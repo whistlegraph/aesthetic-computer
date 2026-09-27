@@ -1,0 +1,60 @@
+{
+	"name": "WhistlegraphButterfly",
+	"plugin-id": "Sprite",
+	"sid": 147417903202110,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [],
+	"animations": {
+		"items": [
+			{
+				"frames": [
+					{
+						"width": 49,
+						"height": 68,
+						"originX": 0,
+						"originY": 0,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 9082995,
+						"collisionPoly": {
+							"points": [
+								0.32653061224489793,
+								0.23529411764705882,
+								0.5,
+								0.029411764705882353,
+								0.7551020408163265,
+								0.16176470588235295,
+								0.8163265306122449,
+								0.5,
+								0.7959183673469388,
+								0.8529411764705882,
+								0.5,
+								0.9705882352941176,
+								0.1836734693877551,
+								0.8529411764705882,
+								0.1836734693877551,
+								0.5
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					}
+				],
+				"sid": 150328533675597,
+				"name": "Animation 1",
+				"isLooping": false,
+				"isPingPong": false,
+				"repeatCount": 1,
+				"repeatTo": 0,
+				"speed": 5
+			}
+		],
+		"subfolders": []
+	}
+}

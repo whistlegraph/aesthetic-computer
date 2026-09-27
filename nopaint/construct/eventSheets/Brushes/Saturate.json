@@ -1,0 +1,736 @@
+{
+	"name": "Saturate",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Saturate",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "saturateShift",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 460588780824638
+				},
+				{
+					"eventType": "variable",
+					"name": "direction",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 768953700306269
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 220178057368507
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "👋 Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 951894172519663,
+							"parameters": [
+								"1"
+							]
+						}
+					],
+					"sid": 765221504246200,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 300351375569175,
+									"parameters": {
+										"first-value": "Functions.CheckParameter(1)",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 812506165312432,
+									"parameters": {
+										"first-value": "lowercase(Functions.GetParameter(1)) = \"more\" | lowercase(Functions.GetParameter(1)) = \"less\"",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								}
+							],
+							"actions": [],
+							"sid": 812585289617881,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 252839867201565,
+											"parameters": {
+												"first-value": "lowercase(Functions.GetParameter(1))",
+												"comparison": 0,
+												"second-value": "\"more\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 203041040871734,
+											"parameters": {
+												"variable": "direction",
+												"value": "1"
+											}
+										},
+										{
+											"id": "set-at-x",
+											"objectClass": "ParamsArray",
+											"sid": 610536877457961,
+											"parameters": {
+												"x": "0",
+												"value": "\"More\""
+											}
+										},
+										{
+											"callFunction": "SpecifiedParameter",
+											"sid": 386607372250724,
+											"parameters": [
+												"1"
+											]
+										}
+									],
+									"sid": 323858323817805
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 197575438518184,
+											"parameters": {
+												"first-value": "lowercase(Functions.GetParameter(1))",
+												"comparison": 0,
+												"second-value": "\"less\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 793726618944629,
+											"parameters": {
+												"variable": "direction",
+												"value": "-1"
+											}
+										},
+										{
+											"id": "set-at-x",
+											"objectClass": "ParamsArray",
+											"sid": 412357766087490,
+											"parameters": {
+												"x": "0",
+												"value": "\"Less\""
+											}
+										},
+										{
+											"callFunction": "SpecifiedParameter",
+											"sid": 386607372250724,
+											"parameters": [
+												"1"
+											]
+										}
+									],
+									"sid": 453402384369097
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 198944144844723
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 352852504234234,
+									"parameters": {
+										"variable": "direction",
+										"value": "choose(-1, 1)"
+									}
+								}
+							],
+							"sid": 438521825728970,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 675882917787360,
+											"parameters": {
+												"first-value": "direction",
+												"comparison": 0,
+												"second-value": "1"
+											}
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "GeneratedParameter",
+											"sid": 786287752432586,
+											"parameters": [
+												"1",
+												"\"More\"",
+												"\"\""
+											]
+										}
+									],
+									"sid": 634922008863522
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 456677612940395
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 802499345645611,
+											"parameters": {
+												"first-value": "direction",
+												"comparison": 0,
+												"second-value": "-1"
+											}
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "GeneratedParameter",
+											"sid": 582653588684990,
+											"parameters": [
+												"1",
+												"\"Less\"",
+												"\"\""
+											]
+										}
+									],
+									"sid": 145910973967610
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "🛑 Print Parameters",
+									"background-color": [
+										0.9294117647058824,
+										0.7764705882352941,
+										0.984313725490196,
+										1
+									]
+								},
+								{
+									"callFunction": "PrintParameterHint",
+									"sid": 154207254410185
+								}
+							],
+							"sid": 234882965459025
+						},
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "paste-object",
+									"objectClass": "SaturateBuffer",
+									"sid": 889764295217839,
+									"parameters": {
+										"object": "Painting",
+										"effects": "with-effects"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 307765484166768,
+									"parameters": {
+										"variable": "saturateShift",
+										"value": "100"
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 846880462041958,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Saturate/Saturate - Theme"
+										},
+										"loop": "looping",
+										"volume": "-5",
+										"stereo-pan": "0",
+										"tag-optional": "\"Saturate\""
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 184800068481006,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.025",
+										"type": "regular",
+										"tag": "\"ShiftValue\""
+									}
+								},
+								{
+									"id": "signal",
+									"objectClass": "System",
+									"sid": 111886107320091,
+									"parameters": {
+										"tag": "\"Brush Started\""
+									}
+								}
+							],
+							"sid": 209556606789020
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]No Theme[/h4]",
+					"background-color": [
+						0.7215686274509804,
+						0.9058823529411765,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 814918205129446
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 485914672091964,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 404164755505847
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 398032842320850,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 774725391563182
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 890671705197553,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 206648324019035
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]No Audio on Pause[/h4]",
+					"background-color": [
+						0.8392156862745098,
+						0.9450980392156862,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 440649276989918
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 272877503928944,
+							"parameters": [
+								"\"Saturate\""
+							]
+						}
+					],
+					"sid": 344132646368946
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 837377936787409,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"ShiftValue\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 871426743581570,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 333287498192769,
+									"parameters": {
+										"first-value": "direction",
+										"comparison": 4,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 996436081476568,
+									"parameters": {
+										"variable": "saturateShift",
+										"value": "saturateShift + (direction * 2)"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "SaturateBuffer",
+									"sid": 650686896113892,
+									"parameters": {
+										"effect": "\"AdjustHSL\"",
+										"parameter-index": "1",
+										"value": "saturateShift"
+									}
+								}
+							],
+							"sid": 917385444008455,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 889389904040630,
+											"parameters": {
+												"first-value": "saturateShift",
+												"comparison": 5,
+												"second-value": "190"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 797461568052858,
+											"parameters": {
+												"variable": "direction",
+												"value": "direction * -1"
+											}
+										}
+									],
+									"sid": 210388746170983
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 168739704642418
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 291810667356338,
+									"parameters": {
+										"variable": "saturateShift",
+										"value": "saturateShift + (direction * 2)"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "SaturateBuffer",
+									"sid": 233209303311674,
+									"parameters": {
+										"effect": "\"AdjustHSL\"",
+										"parameter-index": "1",
+										"value": "saturateShift"
+									}
+								}
+							],
+							"sid": 429306334343031,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 826221232282726,
+											"parameters": {
+												"first-value": "saturateShift",
+												"comparison": 3,
+												"second-value": "0"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 744073300006691,
+											"parameters": {
+												"variable": "direction",
+												"value": "direction * -1"
+											}
+										}
+									],
+									"sid": 151783669016047
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 986940090851752,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 447329000657565
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 782631104130403,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						}
+					],
+					"sid": 370278601129866,
+					"disabled": true
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 530115463701851,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 590310997017879
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "NoNudge",
+							"sid": 560985723753566
+						}
+					],
+					"sid": 680271750539496
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 180819434694119,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "There is a bug where the filter moves forward a tick while painting."
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 314152460096779,
+							"parameters": {
+								"object": "SaturateBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 134896887286914,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 296340141022648
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 352507246550333
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 392716302901874,
+							"parameters": {
+								"tag": "\"Saturate\""
+							}
+						}
+					],
+					"sid": 297250967836938
+				}
+			],
+			"sid": 947662290139334
+		}
+	],
+	"sid": 536759442251573
+}

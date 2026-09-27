@@ -1,0 +1,21 @@
+{
+	"name": "Painting",
+	"plugin-id": "DrawingCanvas",
+	"sid": 853010152845463,
+	"isGlobal": true,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [
+		{
+			"behaviorId": "Timer",
+			"name": "Timer",
+			"sid": 729355423536704
+		},
+		{
+			"behaviorId": "Persist",
+			"name": "Persist",
+			"sid": 873035165147349
+		}
+	],
+	"effectTypes": []
+}

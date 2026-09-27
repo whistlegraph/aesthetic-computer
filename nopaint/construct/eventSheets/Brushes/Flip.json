@@ -1,0 +1,758 @@
+{
+	"name": "Flip",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Flip",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "vertically",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 420621863966512
+				},
+				{
+					"eventType": "variable",
+					"name": "sound",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 390094748557242
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 437872409735281
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "👋 Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 370710574573160,
+							"parameters": [
+								"1"
+							]
+						}
+					],
+					"sid": 765251081688481,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[b]1st Parameter[/b] Axis"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 139717897246027,
+									"parameters": {
+										"first-value": "Functions.CheckParameter(1)",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 543429136980096,
+									"parameters": {
+										"first-value": "lowercase(Functions.GetParameter(1)) = \"v\" | lowercase(Functions.GetParameter(1)) = \"h\"",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								}
+							],
+							"actions": [],
+							"sid": 558449466312442,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 541506485541819,
+											"parameters": {
+												"first-value": "lowercase(Functions.GetParameter(1))",
+												"comparison": 0,
+												"second-value": "\"v\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 262183622964513,
+											"parameters": {
+												"variable": "vertically",
+												"value": "1"
+											}
+										},
+										{
+											"id": "set-at-x",
+											"objectClass": "ParamsArray",
+											"sid": 815835243631424,
+											"parameters": {
+												"x": "0",
+												"value": "\"V\""
+											}
+										},
+										{
+											"callFunction": "SpecifiedParameter",
+											"sid": 703975712870102,
+											"parameters": [
+												"1"
+											]
+										}
+									],
+									"sid": 536326371927042
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 207451471646094,
+											"parameters": {
+												"first-value": "lowercase(Functions.GetParameter(1))",
+												"comparison": 0,
+												"second-value": "\"h\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 211590828075001,
+											"parameters": {
+												"variable": "vertically",
+												"value": "0"
+											}
+										},
+										{
+											"id": "set-at-x",
+											"objectClass": "ParamsArray",
+											"sid": 225169820053145,
+											"parameters": {
+												"x": "0",
+												"value": "\"H\""
+											}
+										},
+										{
+											"callFunction": "SpecifiedParameter",
+											"sid": 703975712870102,
+											"parameters": [
+												"1"
+											]
+										}
+									],
+									"sid": 507023905383443
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 993000797511619
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 808669789167709,
+									"parameters": {
+										"variable": "vertically",
+										"value": "choose(0, 1)"
+									}
+								}
+							],
+							"sid": 926013833351229,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-eventvar",
+											"objectClass": "System",
+											"sid": 713844643012306,
+											"parameters": {
+												"variable": "vertically",
+												"comparison": 0,
+												"value": "1"
+											}
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "GeneratedParameter",
+											"sid": 819393324779501,
+											"parameters": [
+												"1",
+												"\"V\"",
+												"\"\""
+											]
+										}
+									],
+									"sid": 960182085589604
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 419594844895350
+										},
+										{
+											"id": "compare-eventvar",
+											"objectClass": "System",
+											"sid": 241295776401462,
+											"parameters": {
+												"variable": "vertically",
+												"comparison": 0,
+												"value": "0"
+											}
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "GeneratedParameter",
+											"sid": 886792602924130,
+											"parameters": [
+												"1",
+												"\"H\"",
+												"\"\""
+											]
+										}
+									],
+									"sid": 221821831449074
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "🛑 Print Parameters",
+									"background-color": [
+										0.9294117647058824,
+										0.7764705882352941,
+										0.984313725490196,
+										1
+									]
+								},
+								{
+									"callFunction": "PrintParameterHint",
+									"sid": 792163494523333
+								}
+							],
+							"sid": 282046679677463
+						},
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "Save the Painting"
+								},
+								{
+									"id": "paste-object",
+									"objectClass": "PaintingBuffer",
+									"sid": 928313041601384,
+									"parameters": {
+										"object": "Painting",
+										"effects": "with-effects"
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 825829289596204,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0",
+										"type": "once",
+										"tag": "\"Flip\""
+									}
+								},
+								{
+									"id": "signal",
+									"objectClass": "System",
+									"sid": 436633349770749,
+									"parameters": {
+										"tag": "\"Brush Started\""
+									}
+								}
+							],
+							"sid": 241736193085829
+						}
+					],
+					"isOrBlock": true
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 200195036800515
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 121264440545948,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 523204758639742
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 260762556871801,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Flip\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "script",
+							"language": "javascript",
+							"script": [
+								"const imageData = await runtime.objects.PaintingBuffer.getFirstInstance().getImagePixelData()",
+								"const data = imageData.data",
+								"",
+								"const imageDataCopy = new ImageData(new Uint8ClampedArray(data), imageData.width, imageData.height)",
+								"const dataCopy = imageDataCopy.data",
+								"",
+								"const vertically = localVars.vertically",
+								"",
+								"if (vertically) {",
+								"",
+								"\tfor (let x = 0; x < imageData.width; x += 1) {",
+								"\t\tfor (let y = 0; y < imageData.height; y += 1) {",
+								"\t",
+								"\t\t\t\t// To",
+								"\t\t\t\tconst a = main.getColorIndicesForCoord(x, y, imageData.width)",
+								"",
+								"\t\t\t\t// From",
+								"\t\t\t\tconst b = main.getColorIndicesForCoord(x, imageData.height - 1 - y, imageData.width)",
+								"",
+								"\t\t\t\t// Set a to b",
+								"\t\t\t\tdata[a[0]] = dataCopy[b[0]]",
+								"\t\t\t\tdata[a[1]] = dataCopy[b[1]]",
+								"\t\t\t\tdata[a[2]] = dataCopy[b[2]]",
+								"\t\t\t\tdata[a[3]] = dataCopy[b[3]]",
+								"\t\t}",
+								"\t}",
+								"",
+								"\t",
+								"} else { // horizontally",
+								"\t",
+								"\tfor (let x = 0; x < imageData.width; x += 1) {",
+								"\t\tfor (let y = 0; y < imageData.height; y += 1) {",
+								"\t",
+								"\t\t\t\t// To",
+								"\t\t\t\tconst a = main.getColorIndicesForCoord(x, y, imageData.width)",
+								"",
+								"\t\t\t\t// From",
+								"\t\t\t\tconst b = main.getColorIndicesForCoord(imageData.width - 1 - x, y, imageData.width)",
+								"",
+								"\t\t\t\t// Set a to b",
+								"\t\t\t\tdata[a[0]] = dataCopy[b[0]]",
+								"\t\t\t\tdata[a[1]] = dataCopy[b[1]]",
+								"\t\t\t\tdata[a[2]] = dataCopy[b[2]]",
+								"\t\t\t\tdata[a[3]] = dataCopy[b[3]]",
+								"\t\t}",
+								"\t}",
+								"",
+								"}",
+								"",
+								"runtime.objects.PaintingBuffer.getFirstInstance().loadImagePixelData(imageData)"
+							]
+						},
+						{
+							"callFunction": "WorkAroundPixelAccessFlip",
+							"sid": 212653748797157
+						},
+						{
+							"id": "wait-for-previous-actions",
+							"objectClass": "System",
+							"sid": 381010606071217
+						},
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 430261807119804,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "1.0",
+								"type": "once",
+								"tag": "\"Flip\""
+							}
+						}
+					],
+					"sid": 577642170578660,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[h3]Audio[/h3]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 314150526936254,
+									"parameters": {
+										"first-value": "sound",
+										"comparison": 0,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 682961205047052,
+									"parameters": {
+										"variable": "sound",
+										"value": "1"
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 535075806794729,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Flip/Flip - First Flipping"
+										},
+										"loop": "not-looping",
+										"volume": "0",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								}
+							],
+							"sid": 915321329146322
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 288224434056997
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 504006264933720,
+									"parameters": {
+										"variable": "sound",
+										"value": "0"
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 736952253003555,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Flip/Flip - Flipping Again"
+										},
+										"loop": "not-looping",
+										"volume": "0",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								}
+							],
+							"sid": 741097731516548
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Pause[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 723392591150516,
+							"parameters": {
+								"variable": "Paused"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 176423544230680
+						}
+					],
+					"actions": [
+						{
+							"id": "stop-timer",
+							"objectClass": "Clock",
+							"sid": 153217066362984,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Flip\""
+							}
+						}
+					],
+					"sid": 531012894663152
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 629337425313435,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 897174589929460
+						}
+					],
+					"actions": [
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 820672275785984,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "0.5",
+								"type": "once",
+								"tag": "\"Flip\""
+							}
+						}
+					],
+					"sid": 750372217413364
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 572179499197413,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 980135853424439
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 958982199753589,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 378904260038523,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 638888514235440
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 641062507907013,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 866780371350026
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "NoNudge",
+							"sid": 742913054173683
+						}
+					],
+					"sid": 140332330561754
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 829412223272402,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "There is a bug where the filter moves forward a tick while painting."
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 332282570544714,
+							"parameters": {
+								"object": "PaintingBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 722024074134930,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 874708691798491
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 329707065629131
+						}
+					],
+					"actions": [],
+					"sid": 557344303143803
+				}
+			],
+			"sid": 179824832760035
+		}
+	],
+	"sid": 777453414102926
+}

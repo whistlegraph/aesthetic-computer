@@ -1,0 +1,920 @@
+{
+	"name": "Ellipse",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Line2",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "x",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 795228296187894
+				},
+				{
+					"eventType": "variable",
+					"name": "y",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 252817837253183
+				},
+				{
+					"eventType": "variable",
+					"name": "w",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 910082172851535
+				},
+				{
+					"eventType": "variable",
+					"name": "h",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 682256574652819
+				},
+				{
+					"eventType": "variable",
+					"name": "c",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 146978923061562
+				},
+				{
+					"eventType": "variable",
+					"name": "shadowColor",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 526521098639636
+				},
+				{
+					"eventType": "variable",
+					"name": "nudgePos",
+					"type": "boolean",
+					"initialValue": "true",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 805270178782472
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 227884018158802
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "👋 Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 737320228206970,
+							"parameters": [
+								"5"
+							]
+						},
+						{
+							"type": "comment",
+							"text": "[b]1st Parameter[/b] X"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 347635226755345,
+							"parameters": {
+								"variable": "x",
+								"value": "Functions.ProcessNumericParameter(1, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "[b]2nd Parameter[/b] Y"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 306673443711855,
+							"parameters": {
+								"variable": "y",
+								"value": "Functions.ProcessNumericParameter(2, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "[b]3rd Parameter[/b] W"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 813914781320748,
+							"parameters": {
+								"variable": "w",
+								"value": "Functions.ProcessNumericParameter(3, 3, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "[b]4th Parameter[/b] H"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 981900533688548,
+							"parameters": {
+								"variable": "h",
+								"value": "Functions.ProcessNumericParameter(4, 3, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "[b]5th Parameter[/b] C"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 689114300055450,
+							"parameters": {
+								"variable": "c",
+								"value": "Functions.ProcessColorParameter(5)"
+							}
+						}
+					],
+					"sid": 860159262117246,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "🛑 Print Parameters",
+									"background-color": [
+										0.9294117647058824,
+										0.7764705882352941,
+										0.984313725490196,
+										1
+									]
+								},
+								{
+									"callFunction": "PrintParameterHint",
+									"sid": 688269223459557
+								}
+							],
+							"sid": 100705167671508
+						},
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"callFunction": "PaintingMusicMute",
+									"sid": 533412104419736,
+									"parameters": [
+										false
+									]
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 401315898153044,
+									"parameters": {
+										"variable": "shadowColor",
+										"value": "rgba(random(0, 45), random(0, 45), random(0, 45), random(10, 60))"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 868501026171579,
+									"parameters": {
+										"variable": "x",
+										"value": "x + choose(-1, 0, 1)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 332153676520951,
+									"parameters": {
+										"variable": "y",
+										"value": "y + choose(-1, 0, 1)"
+									}
+								},
+								{
+									"callFunction": "EllipseRender",
+									"sid": 538998893838259
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 226781585942474,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Ellipse/Elipse - Start"
+										},
+										"loop": "not-looping",
+										"volume": "0",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 311314472270974,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "1.0",
+										"type": "regular",
+										"tag": "\"Shake\""
+									}
+								},
+								{
+									"id": "signal",
+									"objectClass": "System",
+									"sid": 573965403461757,
+									"parameters": {
+										"tag": "\"Brush Started\""
+									}
+								}
+							],
+							"sid": 546920870679813
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 296799748917267
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 175178417181155,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 886474307551388
+				},
+				{
+					"eventType": "block",
+					"conditions": [],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 206549908662411,
+							"disabled": true,
+							"parameters": [
+								"\"Contrast\""
+							]
+						}
+					],
+					"sid": 707389898832436
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 751403318920126,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Shake\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 886069266910310,
+							"parameters": {
+								"variable": "x",
+								"value": "x + choose(-1, 0, 1)"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 857473113106186,
+							"parameters": {
+								"variable": "y",
+								"value": "y + choose(-1, 0, 1)"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 849040075413575,
+							"parameters": {
+								"variable": "w",
+								"value": "w + choose(-1, 0, 1)"
+							}
+						},
+						{
+							"callFunction": "EllipseRender",
+							"sid": 681543484951107
+						},
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 688939676343534,
+							"parameters": {
+								"audio-file": {
+									"path": "Brushes/Common/Common - Jitter"
+								},
+								"loop": "not-looping",
+								"volume": "random(-10) + 10",
+								"stereo-pan": "0",
+								"tag-optional": "\"\""
+							}
+						}
+					],
+					"sid": 703066562790116
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "variable",
+					"name": "firstNudgeX",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 587812010043910
+				},
+				{
+					"eventType": "variable",
+					"name": "firstNudgeY",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 167815926446479
+				},
+				{
+					"eventType": "variable",
+					"name": "lastNudgeXDist",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 577743623374171
+				},
+				{
+					"eventType": "variable",
+					"name": "lastNudgeYDist",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 265502266534587
+				},
+				{
+					"eventType": "variable",
+					"name": "xDir",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 658355623362453
+				},
+				{
+					"eventType": "variable",
+					"name": "yDir",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 813919689750483
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 268161874745665,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 197044446452603
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 291617454312892,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 395065173736942,
+							"parameters": {
+								"x": "x",
+								"y": "y"
+							}
+						}
+					],
+					"sid": 927348811004184,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 168404872796509,
+									"parameters": {
+										"variable": "nudgePos"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 634894030781852,
+									"parameters": {
+										"variable": "firstNudgeX",
+										"value": "NudgePointerX"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 906623611321963,
+									"parameters": {
+										"variable": "firstNudgeY",
+										"value": "NudgePointerY"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 266870407884058,
+									"parameters": {
+										"variable": "lastNudgeXDist",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 668921278195642,
+									"parameters": {
+										"variable": "lastNudgeYDist",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 244883402601169,
+									"parameters": {
+										"variable": "xDir",
+										"value": "NudgePointerX <= x ? -1 : 1"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 846143039740313,
+									"parameters": {
+										"variable": "yDir",
+										"value": "NudgePointerY <= y ? -1 : 1"
+									}
+								},
+								{
+									"id": "set-animation",
+									"objectClass": "NudgeDot",
+									"sid": 782532467681625,
+									"parameters": {
+										"animation": "\"Alt\"",
+										"from": "beginning"
+									}
+								},
+								{
+									"id": "set-visible",
+									"objectClass": "NudgeBorder",
+									"sid": 203504238119564,
+									"disabled": true,
+									"parameters": {
+										"visibility": "invisible"
+									}
+								}
+							],
+							"sid": 412499339577521
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 833055560353482
+								}
+							],
+							"actions": [
+								{
+									"id": "set-animation",
+									"objectClass": "NudgeDot",
+									"sid": 219730636527316,
+									"parameters": {
+										"animation": "\"Position\"",
+										"from": "beginning"
+									}
+								}
+							],
+							"sid": 967465966412124
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "Nudge [b]Ended[/b]"
+								},
+								{
+									"id": "wait-for-signal",
+									"objectClass": "System",
+									"sid": 183366878777127,
+									"parameters": {
+										"tag": "\"Nudge Ended\""
+									}
+								},
+								{
+									"id": "toggle-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 233991846103176,
+									"parameters": {
+										"variable": "nudgePos"
+									}
+								},
+								{
+									"callFunction": "PaintingMusicMute",
+									"sid": 460279801040218,
+									"parameters": [
+										false
+									]
+								}
+							],
+							"sid": 791485128747268
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 697027960956022,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [],
+					"sid": 885593326968921,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 498862194317809,
+									"parameters": {
+										"variable": "nudgePos"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-position",
+									"objectClass": "NudgeDot",
+									"sid": 569056889177055,
+									"parameters": {
+										"x": "min(max(0, Self.X + NudgedX), 255)",
+										"y": "min(max(0, Self.Y + NudgedY), 255)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 751147171941284,
+									"parameters": {
+										"variable": "x",
+										"value": "NudgeDot.X"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 722451784608401,
+									"parameters": {
+										"variable": "y",
+										"value": "NudgeDot.Y"
+									}
+								}
+							],
+							"sid": 459779187857586
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 955611920997900
+								}
+							],
+							"actions": [
+								{
+									"id": "set-position",
+									"objectClass": "NudgeDot",
+									"sid": 651624559674743,
+									"parameters": {
+										"x": "x",
+										"y": "y"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 773948806754932,
+									"parameters": {
+										"variable": "w",
+										"value": "clamp(w + (((NudgePointerX - firstNudgeX) - lastNudgeXDist) * xDir), 3, 255)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 863245003624412,
+									"parameters": {
+										"variable": "h",
+										"value": "clamp(h + (((NudgePointerY - firstNudgeY) - lastNudgeYDist) * yDir), 3, 255)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 659594654772639,
+									"parameters": {
+										"variable": "lastNudgeXDist",
+										"value": "NudgePointerX - firstNudgeX"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 202431092740670,
+									"parameters": {
+										"variable": "lastNudgeYDist",
+										"value": "NudgePointerY - firstNudgeY"
+									}
+								}
+							],
+							"sid": 463893193295093
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"callFunction": "EllipseRender",
+									"sid": 916556917281718
+								}
+							],
+							"sid": 625673113642055
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 315211700694667,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 896617300690895,
+							"parameters": {
+								"object": "EllipseBuffer",
+								"effects": "without-effects"
+							}
+						},
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 683754907686035,
+							"parameters": {
+								"audio-file": {
+									"path": "Brushes/Primitives/Primitive - Released"
+								},
+								"loop": "not-looping",
+								"volume": "0",
+								"stereo-pan": "0",
+								"tag-optional": "\"\""
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 866449657711141,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 605553616033976
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 637844188870184
+						}
+					],
+					"actions": [
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 312993849411204,
+							"parameters": {
+								"variable": "nudgePos",
+								"value": "true"
+							}
+						}
+					],
+					"sid": 628372823548617
+				},
+				{
+					"functionName": "EllipseRender",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "clear-canvas",
+							"objectClass": "EllipseBuffer",
+							"sid": 308477468613223,
+							"parameters": {
+								"color": "rgba(0, 0, 0, 0)"
+							}
+						},
+						{
+							"id": "fill-ellipse",
+							"objectClass": "EllipseBuffer",
+							"sid": 764376254069330,
+							"parameters": {
+								"x": "x + 1",
+								"y": "y + 1",
+								"radius-x": "floor(w / 2)",
+								"radius-y": "floor(h / 2)",
+								"color": "shadowColor",
+								"edge": "hard"
+							}
+						},
+						{
+							"id": "fill-ellipse",
+							"objectClass": "EllipseBuffer",
+							"sid": 383754424904285,
+							"parameters": {
+								"x": "x",
+								"y": "y",
+								"radius-x": "floor(w / 2)",
+								"radius-y": "floor(h / 2)",
+								"color": "c",
+								"edge": "hard"
+							}
+						}
+					],
+					"sid": 543126895612202
+				}
+			],
+			"sid": 134708985095498
+		}
+	],
+	"sid": 429463109820385
+}

@@ -1,0 +1,15 @@
+{
+	"name": "NoiseBuffer",
+	"plugin-id": "DrawingCanvas",
+	"sid": 974826686112460,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [
+		{
+			"effectId": "noise",
+			"name": "Noise"
+		}
+	]
+}

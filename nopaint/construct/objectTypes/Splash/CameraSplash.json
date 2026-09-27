@@ -1,0 +1,94 @@
+{
+	"name": "CameraSplash",
+	"plugin-id": "Sprite",
+	"sid": 235205664670997,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [],
+	"animations": {
+		"items": [
+			{
+				"frames": [
+					{
+						"width": 33,
+						"height": 29,
+						"originX": 0,
+						"originY": 0,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 1665700,
+						"collisionPoly": {
+							"points": [
+								0.06060606060606061,
+								0.06896551724137931,
+								0.35710041592394526,
+								0.06896551724137931,
+								0.9393939393939394,
+								0.06896551724137931,
+								0.9393939393939394,
+								0.2413793103448276,
+								0.9393939393939394,
+								0.7931034482758621,
+								0.35710041592394526,
+								0.9310344827586207,
+								0.06060606060606061,
+								0.9310344827586207,
+								0.06060606060606061,
+								0.2413793103448276
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					},
+					{
+						"width": 33,
+						"height": 29,
+						"originX": 0,
+						"originY": 0,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 6848113,
+						"collisionPoly": {
+							"points": [
+								0.06060606060606061,
+								0.06896551724137931,
+								0.35710041592394526,
+								0.06896551724137931,
+								0.9393939393939394,
+								0.06896551724137931,
+								0.9393939393939394,
+								0.2413793103448276,
+								0.9393939393939394,
+								0.7931034482758621,
+								0.35710041592394526,
+								0.9310344827586207,
+								0.06060606060606061,
+								0.9310344827586207,
+								0.06060606060606061,
+								0.2413793103448276
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					}
+				],
+				"sid": 815518750290498,
+				"name": "Animation 1",
+				"isLooping": true,
+				"isPingPong": false,
+				"repeatCount": 1,
+				"repeatTo": 0,
+				"speed": 5
+			}
+		],
+		"subfolders": []
+	}
+}

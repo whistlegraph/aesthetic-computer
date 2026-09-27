@@ -1,0 +1,694 @@
+{
+	"name": "Playlist",
+	"events": [
+		{
+			"eventType": "variable",
+			"name": "PlaylistSequence",
+			"type": "string",
+			"initialValue": "",
+			"comment": "",
+			"isStatic": false,
+			"isConstant": false,
+			"sid": 759599867776837
+		},
+		{
+			"eventType": "variable",
+			"name": "PlaylistLoadedSequence",
+			"type": "string",
+			"initialValue": "",
+			"comment": "",
+			"isStatic": false,
+			"isConstant": false,
+			"sid": 467099727707110
+		},
+		{
+			"eventType": "variable",
+			"name": "LastPlaylist",
+			"type": "string",
+			"initialValue": "",
+			"comment": "",
+			"isStatic": false,
+			"isConstant": false,
+			"sid": 363919436995528
+		},
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Playlist",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "title",
+					"type": "string",
+					"initialValue": "",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 903171393612688
+				},
+				{
+					"eventType": "variable",
+					"name": "loaded",
+					"type": "boolean",
+					"initialValue": "false",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 892407628766887
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]TODO: Add Prompt error if a network load fails.[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 197078608703079
+						}
+					],
+					"actions": [
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 652661746233395,
+							"parameters": {
+								"variable": "Playlist",
+								"value": "true"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 791919920010048,
+							"parameters": {
+								"variable": "PlaylistCurrentLine",
+								"value": "0"
+							}
+						}
+					],
+					"sid": 815108943816344,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 985109024769312,
+									"parameters": {
+										"variable": "PlaylistLoadedSequence",
+										"comparison": 0,
+										"value": "\"\""
+									},
+									"isInverted": true
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 695514976305176,
+									"parameters": {
+										"first-value": "Functions.CheckParameter(1)",
+										"comparison": 0,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 104004006808504,
+									"parameters": {
+										"variable": "PlaylistSequence",
+										"value": "trim(RegexReplace(PlaylistLoadedSequence, \"^\\s*\\n\", \"gm\", \"\"))"
+									}
+								}
+							],
+							"sid": 669102726161852
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 938716786195301
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 579149123750396,
+									"parameters": {
+										"variable": "PlaylistSequence",
+										"value": "\"\""
+									}
+								}
+							],
+							"sid": 541610169231359
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"callFunction": "PlaylistPromptEnable",
+									"sid": 809408425309680
+								},
+								{
+									"id": "set-animation-frame",
+									"objectClass": "PlayModeIcon",
+									"sid": 852087675008227,
+									"parameters": {
+										"frame-number": "2"
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 675600353539948,
+									"parameters": {
+										"audio-file": {
+											"path": "Playlist/Playlist - Tuning Skip"
+										},
+										"loop": "not-looping",
+										"volume": "-5",
+										"stereo-pan": "0",
+										"tag-optional": "\"Playlist Sound\""
+									}
+								},
+								{
+									"id": "set-playback-rate",
+									"objectClass": "Audio",
+									"sid": 328424327722900,
+									"parameters": {
+										"tag": "\"Playlist Sound\"",
+										"playback-rate": "0.4"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "👋 Interpret Parameters",
+									"background-color": [
+										0.6196078431372549,
+										0.9568627450980393,
+										1,
+										1
+									]
+								},
+								{
+									"callFunction": "InitParameters",
+									"sid": 847338382863076,
+									"parameters": [
+										"1"
+									]
+								}
+							],
+							"sid": 383525876342133
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 692860583923649,
+									"parameters": {
+										"first-value": "Functions.CheckParameter(1)",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								}
+							],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "[b]1st Parameter[/b] Title"
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 329000142984187,
+									"parameters": {
+										"variable": "title",
+										"value": "Params"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 546393782680030,
+									"parameters": {
+										"variable": "LastPlaylist",
+										"value": "title"
+									}
+								},
+								{
+									"id": "request-url",
+									"objectClass": "AJAX",
+									"sid": 543265615724263,
+									"parameters": {
+										"tag": "\"Playlist\"",
+										"url": "\"Playlists/\" & title & \".txt\""
+									}
+								},
+								{
+									"id": "wait-for-previous-actions",
+									"objectClass": "System",
+									"sid": 735261602904027
+								}
+							],
+							"sid": 868179676104304,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-boolean-eventvar",
+											"objectClass": "System",
+											"sid": 304225083951348,
+											"parameters": {
+												"variable": "loaded"
+											}
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "SpecifiedParameter",
+											"sid": 152676013938946,
+											"disabled": true,
+											"parameters": [
+												"1"
+											]
+										},
+										{
+											"type": "comment",
+											"text": "🛑 Print Parameters",
+											"background-color": [
+												0.9294117647058824,
+												0.7764705882352941,
+												0.984313725490196,
+												1
+											]
+										},
+										{
+											"callFunction": "PrintParameterHint",
+											"sid": 348122075023213
+										},
+										{
+											"callFunction": "PlaylistStart",
+											"sid": 503869328424881
+										}
+									],
+									"sid": 702529598850060
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 819842024530185
+										}
+									],
+									"actions": [
+										{
+											"id": "log",
+											"objectClass": "Browser",
+											"sid": 713215802598696,
+											"parameters": {
+												"type": "log",
+												"message": "\"📃 Loading random playlist...\""
+											}
+										},
+										{
+											"callFunction": "PlaylistLoadWild",
+											"sid": 673698403297825
+										}
+									],
+									"sid": 412877937541748
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 501162046543439
+								}
+							],
+							"actions": [],
+							"sid": 414669115293083,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-eventvar",
+											"objectClass": "System",
+											"sid": 740977799739649,
+											"parameters": {
+												"variable": "PlaylistSequence",
+												"comparison": 0,
+												"value": "\"\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "log",
+											"objectClass": "Browser",
+											"sid": 481010587958335,
+											"parameters": {
+												"type": "log",
+												"message": "\"📃 Loading random playlist...\""
+											}
+										},
+										{
+											"callFunction": "PlaylistLoadWild",
+											"sid": 811356114177763
+										}
+									],
+									"sid": 755949689823985
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 717717385615264
+										}
+									],
+									"actions": [
+										{
+											"id": "log",
+											"objectClass": "Browser",
+											"sid": 743290516836571,
+											"parameters": {
+												"type": "log",
+												"message": "\"📃 Loading specified playlist...\""
+											}
+										},
+										{
+											"callFunction": "PlaylistStart",
+											"sid": 277135022217532
+										}
+									],
+									"sid": 149967791785451
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]Finish Initialization[h4]"
+				},
+				{
+					"functionName": "PlaylistStart",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 788325480187666,
+							"parameters": {
+								"type": "log",
+								"message": "\"📃 Full Playlist:\\r\" & PlaylistSequence"
+							}
+						},
+						{
+							"id": "wait",
+							"objectClass": "System",
+							"sid": 919192066530673,
+							"parameters": {
+								"seconds": "0.5",
+								"use-timescale": true
+							}
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 263571358530816,
+							"disabled": true,
+							"parameters": {
+								"tag": "\"Brush Started\""
+							}
+						},
+						{
+							"id": "go-to-layout",
+							"objectClass": "System",
+							"sid": 898014362494628,
+							"parameters": {
+								"layout": "Index"
+							}
+						}
+					],
+					"sid": 140502323210875
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]Loading Playlists[h4]"
+				},
+				{
+					"functionName": "PlaylistLoadWild",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 263856190870800,
+							"parameters": {
+								"variable": "title",
+								"value": "choose(\"Abstract\", \"Portrait\", \"Smiley\")"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 538451672489521,
+							"parameters": {
+								"variable": "LastPlaylist",
+								"value": "\"\""
+							}
+						},
+						{
+							"id": "request-url",
+							"objectClass": "AJAX",
+							"sid": 556696228206288,
+							"parameters": {
+								"tag": "\"Playlist\"",
+								"url": "\"Playlists/\" & title & \".txt\""
+							}
+						},
+						{
+							"id": "wait-for-previous-actions",
+							"objectClass": "System",
+							"sid": 635288479576224
+						}
+					],
+					"sid": 481728783354117,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 620924388976060,
+									"parameters": {
+										"variable": "loaded"
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "GeneratedParameter",
+									"sid": 254615219417702,
+									"parameters": [
+										"1",
+										"title",
+										"\"\""
+									]
+								},
+								{
+									"type": "comment",
+									"text": "🛑 Print Parameters",
+									"background-color": [
+										0.9294117647058824,
+										0.7764705882352941,
+										0.984313725490196,
+										1
+									]
+								},
+								{
+									"callFunction": "PrintParameterHint",
+									"sid": 323650998589516
+								},
+								{
+									"callFunction": "PlaylistStart",
+									"sid": 650598000553271
+								}
+							],
+							"sid": 772846763815574
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-completed",
+							"objectClass": "AJAX",
+							"sid": 133822043743658,
+							"parameters": {
+								"tag": "\"Playlist\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 412249393808081,
+							"parameters": {
+								"variable": "loaded",
+								"value": "true"
+							}
+						},
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 885089885754052,
+							"parameters": {
+								"type": "log",
+								"message": "\"📃 Loaded playlist: \" & title"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 357491307162552,
+							"disabled": true,
+							"parameters": {
+								"variable": "PlaylistSequence",
+								"value": "trim(AJAX.LastData)"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 410777446049215,
+							"parameters": {
+								"variable": "PlaylistSequence",
+								"value": "trim(RegexReplace(AJAX.LastData, \"^\\s*\\n\", \"gm\", \"\"))"
+							}
+						}
+					],
+					"sid": 341212039186523
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-error",
+							"objectClass": "AJAX",
+							"sid": 730350719432176,
+							"parameters": {
+								"tag": "\"Playlist\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 713764128080747,
+							"parameters": {
+								"type": "log",
+								"message": "\"📃 Could not load playlist: \" & title"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 610667469022737,
+							"parameters": {
+								"variable": "CurrentError",
+								"value": "\"Couldn't Load: \" & title"
+							}
+						},
+						{
+							"id": "go-to-layout",
+							"objectClass": "System",
+							"sid": 102406692497548,
+							"parameters": {
+								"layout": "Index"
+							}
+						}
+					],
+					"sid": 935424519842253
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 238511024049016
+						}
+					],
+					"actions": [
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 215921160949523,
+							"parameters": {
+								"variable": "loaded",
+								"value": "false"
+							}
+						}
+					],
+					"sid": 143308681861300
+				}
+			],
+			"sid": 413036849140287
+		}
+	],
+	"sid": 452920155651956
+}

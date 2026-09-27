@@ -1,0 +1,779 @@
+{
+	"name": "Sharpen",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Sharpen",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "shift",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 347030669502686
+				},
+				{
+					"eventType": "variable",
+					"name": "direction",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 570409479799463
+				},
+				{
+					"eventType": "variable",
+					"name": "nudgedOnce",
+					"type": "boolean",
+					"initialValue": "false",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 548593248736463
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 867838889321292
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "InitParameters",
+							"sid": 703365838994385,
+							"parameters": [
+								"0"
+							]
+						},
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 884854134117718,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "0.072",
+								"type": "regular",
+								"tag": "\"ShiftValue\""
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 292757977125753,
+							"parameters": {
+								"variable": "shift",
+								"value": "0"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 755182020980150,
+							"parameters": {
+								"variable": "direction",
+								"value": "5"
+							}
+						},
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 980558309902583,
+							"parameters": {
+								"audio-file": {
+									"path": "Brushes/Sharpen/Sharpen - Theme"
+								},
+								"loop": "not-looping",
+								"volume": "-2.5",
+								"stereo-pan": "0",
+								"tag-optional": "\"Sharpen\""
+							}
+						},
+						{
+							"id": "set-height",
+							"objectClass": "SharpenBuffer",
+							"sid": 181721364234854,
+							"parameters": {
+								"height": "ViewportHeight(0)"
+							}
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "SharpenBuffer",
+							"sid": 557197352852737,
+							"parameters": {
+								"object": "Painting",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"id": "set-height",
+							"objectClass": "NudgeMaskBuffer",
+							"sid": 293158492669069,
+							"parameters": {
+								"height": "ViewportHeight(0)"
+							}
+						},
+						{
+							"id": "set-height",
+							"objectClass": "NudgePaintBuffer",
+							"sid": 779347538630118,
+							"parameters": {
+								"height": "ViewportHeight(0)"
+							}
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 661398447702613,
+							"parameters": {
+								"tag": "\"Brush Started\""
+							}
+						}
+					],
+					"sid": 521472079533994
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 375516905570110
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 429256932157787,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 559204485045759
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 598978787080373
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 634929113541800,
+							"parameters": [
+								"\"Sharpen\""
+							]
+						}
+					],
+					"sid": 448818203454138
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 587767195989111,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"ShiftValue\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 118861571029094,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 254360992211580,
+									"parameters": {
+										"first-value": "direction",
+										"comparison": 4,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 473845686839634,
+									"parameters": {
+										"variable": "shift",
+										"value": "shift + direction"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "SharpenBuffer",
+									"sid": 410735662126535,
+									"parameters": {
+										"effect": "\"Sharpen\"",
+										"parameter-index": "0",
+										"value": "shift"
+									}
+								}
+							],
+							"sid": 424370633038941,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 853822717814220,
+											"parameters": {
+												"first-value": "shift",
+												"comparison": 5,
+												"second-value": "150"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 235629985318918,
+											"parameters": {
+												"variable": "direction",
+												"value": "direction * -1"
+											}
+										},
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 199386869318907,
+											"parameters": {
+												"audio-file": {
+													"path": "Brushes/Sharpen/Sharpen - Theme"
+												},
+												"loop": "not-looping",
+												"volume": "-2.5",
+												"stereo-pan": "0",
+												"tag-optional": "\"Sharpen\""
+											}
+										}
+									],
+									"sid": 460481553602489
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 967462593059004
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 760119324513959,
+									"parameters": {
+										"variable": "shift",
+										"value": "shift + direction"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "SharpenBuffer",
+									"sid": 967179557775165,
+									"parameters": {
+										"effect": "\"Sharpen\"",
+										"parameter-index": "0",
+										"value": "shift"
+									}
+								}
+							],
+							"sid": 956603366811788,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 370104601906564,
+											"parameters": {
+												"first-value": "shift",
+												"comparison": 0,
+												"second-value": "0"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 316212789148150,
+											"parameters": {
+												"variable": "direction",
+												"value": "direction * -1"
+											}
+										},
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 754425789987505,
+											"parameters": {
+												"audio-file": {
+													"path": "Brushes/Sharpen/Sharpen - Theme"
+												},
+												"loop": "not-looping",
+												"volume": "-2.5",
+												"stereo-pan": "0",
+												"tag-optional": "\"Sharpen\""
+											}
+										}
+									],
+									"sid": 624662581883025
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 173765113781873,
+									"parameters": {
+										"variable": "nudgedOnce"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "clear-canvas",
+									"objectClass": "NudgePaintBuffer",
+									"sid": 530235767867814,
+									"parameters": {
+										"color": "rgba(100, 0, 0, 0)"
+									}
+								},
+								{
+									"id": "paste-object",
+									"objectClass": "NudgePaintBuffer",
+									"sid": 390145318522655,
+									"parameters": {
+										"object": "SharpenBuffer",
+										"effects": "with-effects"
+									}
+								},
+								{
+									"id": "paste-object",
+									"objectClass": "NudgePaintBuffer",
+									"sid": 300667519499888,
+									"parameters": {
+										"object": "NudgeMaskBuffer",
+										"effects": "with-effects"
+									}
+								}
+							],
+							"sid": 517871961300687
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 118138574971871,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 847686230116205
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 641522415750990,
+							"parameters": {
+								"variable": "nudgedOnce",
+								"value": "true"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 336624384988215,
+							"disabled": true,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 240199525414469,
+							"parameters": {
+								"x": "NudgePointerX",
+								"y": "NudgePointerY"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgePaintBuffer",
+							"sid": 335355315573323,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "SharpenBuffer",
+							"sid": 643007508734113,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						},
+						{
+							"id": "clear-canvas",
+							"objectClass": "NudgeMaskBuffer",
+							"sid": 414072560843796,
+							"parameters": {
+								"color": "rgba(0, 0, 0, 0)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 272273795472083,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 306892178395872,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 333778205965882
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 426771695742083,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "evaluate-expression",
+							"objectClass": "System",
+							"sid": 101392082935609,
+							"parameters": {
+								"value": "NudgedX <> 0 | NudgedY <> 0"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 669286380035369,
+							"parameters": {
+								"x": "NudgePointerX",
+								"y": "NudgePointerY"
+							}
+						}
+					],
+					"sid": 325574144544485,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "clear-canvas",
+									"objectClass": "NudgeMaskBuffer",
+									"sid": 942585665142254,
+									"parameters": {
+										"color": "rgba(0, 0, 0, 0)"
+									}
+								},
+								{
+									"id": "fill-ellipse",
+									"objectClass": "NudgeMaskBuffer",
+									"sid": 774771452655505,
+									"parameters": {
+										"x": "NudgePointerX",
+										"y": "NudgePointerY",
+										"radius-x": "48",
+										"radius-y": "48",
+										"color": "rgba(0, 0, 0, 20)",
+										"edge": "smooth"
+									}
+								},
+								{
+									"id": "fill-ellipse",
+									"objectClass": "NudgeMaskBuffer",
+									"sid": 428258724131139,
+									"parameters": {
+										"x": "NudgePointerX",
+										"y": "NudgePointerY",
+										"radius-x": "32",
+										"radius-y": "32",
+										"color": "rgba(0, 0, 0, 40)",
+										"edge": "smooth"
+									}
+								},
+								{
+									"id": "fill-ellipse",
+									"objectClass": "NudgeMaskBuffer",
+									"sid": 826988673953754,
+									"parameters": {
+										"x": "NudgePointerX",
+										"y": "NudgePointerY",
+										"radius-x": "16",
+										"radius-y": "16",
+										"color": "rgba(0, 0, 0, 60)",
+										"edge": "smooth"
+									}
+								},
+								{
+									"id": "fill-ellipse",
+									"objectClass": "NudgeMaskBuffer",
+									"sid": 969322403053807,
+									"parameters": {
+										"x": "NudgePointerX",
+										"y": "NudgePointerY",
+										"radius-x": "8",
+										"radius-y": "8",
+										"color": "rgba(0, 0, 0, 80)",
+										"edge": "smooth"
+									}
+								},
+								{
+									"id": "clear-canvas",
+									"objectClass": "NudgePaintBuffer",
+									"sid": 686192672579456,
+									"parameters": {
+										"color": "rgba(100, 0, 0, 0)"
+									}
+								},
+								{
+									"id": "paste-object",
+									"objectClass": "NudgePaintBuffer",
+									"sid": 944358118350748,
+									"parameters": {
+										"object": "SharpenBuffer",
+										"effects": "with-effects"
+									}
+								},
+								{
+									"id": "paste-object",
+									"objectClass": "NudgePaintBuffer",
+									"sid": 393907140406249,
+									"parameters": {
+										"object": "NudgeMaskBuffer",
+										"effects": "with-effects"
+									}
+								}
+							],
+							"sid": 655857050760865
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 655766677075215,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [],
+					"sid": 449290713271064,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 753274097304110,
+									"parameters": {
+										"variable": "nudgedOnce"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "paste-object",
+									"objectClass": "Painting",
+									"sid": 171586624181480,
+									"parameters": {
+										"object": "NudgePaintBuffer",
+										"effects": "with-effects"
+									}
+								}
+							],
+							"sid": 885502649652120
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 370580685029798
+								}
+							],
+							"actions": [
+								{
+									"id": "paste-object",
+									"objectClass": "Painting",
+									"sid": 123537027000638,
+									"parameters": {
+										"object": "SharpenBuffer",
+										"effects": "with-effects"
+									}
+								}
+							],
+							"sid": 277192974897221
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "Signify to [b]Core[/b] that the canvas has been painted."
+								},
+								{
+									"id": "signal",
+									"objectClass": "System",
+									"sid": 775134600629316,
+									"parameters": {
+										"tag": "\"painted\""
+									}
+								}
+							],
+							"sid": 292683761269453
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 779287912989708
+						}
+					],
+					"actions": [
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 205154779662416,
+							"parameters": {
+								"variable": "nudgedOnce",
+								"value": "false"
+							}
+						},
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 707303450081597,
+							"parameters": {
+								"tag": "\"Sharpen\""
+							}
+						}
+					],
+					"sid": 158340879858753
+				}
+			],
+			"sid": 937153242083738
+		}
+	],
+	"sid": 116911364760023
+}

@@ -1,0 +1,666 @@
+{
+	"name": "Zoom",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Zoom",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "zoomMax",
+					"type": "number",
+					"initialValue": "4",
+					"comment": "",
+					"isStatic": false,
+					"isConstant": true,
+					"sid": 526858268774665
+				},
+				{
+					"eventType": "variable",
+					"name": "zoomLevel",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 330532713864543
+				},
+				{
+					"eventType": "variable",
+					"name": "zoomIn",
+					"type": "boolean",
+					"initialValue": "true",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 864961388905306
+				},
+				{
+					"eventType": "variable",
+					"name": "x",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 480323425158390
+				},
+				{
+					"eventType": "variable",
+					"name": "y",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 448955141901988
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 462579310758840
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "👋 Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 797707233050315,
+							"parameters": [
+								"2"
+							]
+						},
+						{
+							"type": "comment",
+							"text": "[b]1st Parameter[/b] X"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 130332419733468,
+							"parameters": {
+								"variable": "x",
+								"value": "Functions.ProcessNumericParameter(1, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "[b]2nd Parameter[/b] Y"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 102598357232818,
+							"parameters": {
+								"variable": "y",
+								"value": "Functions.ProcessNumericParameter(2, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "🛑 Print Parameters",
+							"background-color": [
+								0.9294117647058824,
+								0.7764705882352941,
+								0.984313725490196,
+								1
+							]
+						},
+						{
+							"callFunction": "PrintParameterHint",
+							"sid": 805271887479202
+						}
+					],
+					"sid": 138157997322078,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "paste-object",
+									"objectClass": "PaintingBuffer",
+									"sid": 880223068772325,
+									"parameters": {
+										"object": "Painting",
+										"effects": "with-effects"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 773480548915451,
+									"parameters": {
+										"variable": "zoomLevel",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 371742808416708,
+									"parameters": {
+										"variable": "zoomIn",
+										"value": "true"
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 208528525912968,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Zoom/Zoom - In"
+										},
+										"loop": "not-looping",
+										"volume": "-5",
+										"stereo-pan": "0",
+										"tag-optional": "\"Zoom\""
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 399847504530633,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.095",
+										"type": "regular",
+										"tag": "\"Zoom\""
+									}
+								},
+								{
+									"id": "signal",
+									"objectClass": "System",
+									"sid": 239091482595535,
+									"parameters": {
+										"tag": "\"Brush Started\""
+									}
+								},
+								{
+									"type": "comment",
+									"text": "Debug view."
+								},
+								{
+									"id": "set-position",
+									"objectClass": "ZoomAnchor",
+									"sid": 563940408028324,
+									"disabled": true,
+									"parameters": {
+										"x": "x",
+										"y": "y"
+									}
+								},
+								{
+									"id": "set-visible",
+									"objectClass": "ZoomAnchor",
+									"sid": 960507207701863,
+									"disabled": true,
+									"parameters": {
+										"visibility": "visible"
+									}
+								}
+							],
+							"sid": 659656618135097
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 674117716841623,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Zoom\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 465069602804219,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 369864200827560,
+									"parameters": {
+										"variable": "zoomIn"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "add-to-eventvar",
+									"objectClass": "System",
+									"sid": 266834551325627,
+									"parameters": {
+										"variable": "zoomLevel",
+										"value": "0.1 * (1 + zoomLevel)"
+									}
+								}
+							],
+							"sid": 498167679022265
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 684968643279348
+								}
+							],
+							"actions": [
+								{
+									"id": "subtract-from-eventvar",
+									"objectClass": "System",
+									"sid": 277760984728659,
+									"parameters": {
+										"variable": "zoomLevel",
+										"value": "0.1 * (1 + zoomLevel)"
+									}
+								}
+							],
+							"sid": 612045721676081
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 539204967647759,
+									"parameters": {
+										"first-value": "zoomLevel",
+										"comparison": 4,
+										"second-value": "zoomMax"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 598006283638184,
+									"parameters": {
+										"variable": "zoomLevel",
+										"value": "zoomMax"
+									}
+								},
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 101429922184414,
+									"parameters": {
+										"variable": "zoomIn",
+										"value": "false"
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 254602020371944,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Zoom/Zoom - Out"
+										},
+										"loop": "not-looping",
+										"volume": "-5",
+										"stereo-pan": "0",
+										"tag-optional": "\"Zoom\""
+									}
+								}
+							],
+							"sid": 828664385469444
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 840756844272040,
+									"parameters": {
+										"first-value": "zoomLevel",
+										"comparison": 2,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 165537287271443,
+									"parameters": {
+										"variable": "zoomLevel",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 503147859490267,
+									"parameters": {
+										"variable": "zoomIn",
+										"value": "true"
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 364746078579130,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Zoom/Zoom - In"
+										},
+										"loop": "not-looping",
+										"volume": "0",
+										"stereo-pan": "0",
+										"tag-optional": "\"Zoom\""
+									}
+								}
+							],
+							"sid": 310302396953759
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-size",
+									"objectClass": "PaintingBuffer",
+									"sid": 217082856438064,
+									"parameters": {
+										"width": "256 * (1 + zoomLevel)",
+										"height": "256 * (1 + zoomLevel)"
+									}
+								},
+								{
+									"id": "set-position",
+									"objectClass": "PaintingBuffer",
+									"sid": 473858194145256,
+									"parameters": {
+										"x": "floor(-x * zoomLevel)",
+										"y": "floor(-y * zoomLevel)"
+									}
+								}
+							],
+							"sid": 129153767044426
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 103852721129408
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 463445121388525,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 824308350006646
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 705611599068829,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 956896841395467
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 312744238064064,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 738715345098399,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 840043846297730,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 370344183536489
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 658543904915135,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 607540233037799,
+							"parameters": {
+								"variable": "x",
+								"value": "min(max(0, x + NudgedX), 255)"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 295668322803910,
+							"parameters": {
+								"variable": "y",
+								"value": "min(max(0, y + NudgedY), 255)"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "PaintingBuffer",
+							"sid": 608003269308720,
+							"parameters": {
+								"x": "floor(-x * zoomLevel)",
+								"y": "floor(-y * zoomLevel)"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 829540026092135,
+							"parameters": {
+								"x": "x",
+								"y": "y"
+							}
+						}
+					],
+					"sid": 394749914974734
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 923846091572604,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 357876268407924,
+							"parameters": {
+								"object": "PaintingBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 689384974347959,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 428950975666903
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 858865393427534
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 286350033150727,
+							"parameters": [
+								"\"Zoom\""
+							]
+						}
+					],
+					"sid": 778449561925534
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 408016104362933
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 926719734492742,
+							"parameters": {
+								"tag": "\"Zoom\""
+							}
+						}
+					],
+					"sid": 800816234743623
+				}
+			],
+			"sid": 319622390746249
+		}
+	],
+	"sid": 803226461971001
+}

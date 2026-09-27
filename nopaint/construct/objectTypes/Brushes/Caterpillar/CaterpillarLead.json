@@ -1,0 +1,89 @@
+{
+	"name": "CaterpillarLead",
+	"plugin-id": "Sprite",
+	"sid": 781130999245598,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [
+		{
+			"behaviorId": "Tween",
+			"name": "Tween",
+			"sid": 176936709137807
+		},
+		{
+			"behaviorId": "bound",
+			"name": "BoundToLayout",
+			"sid": 759923461372331
+		}
+	],
+	"effectTypes": [],
+	"animations": {
+		"items": [
+			{
+				"frames": [
+					{
+						"width": 3,
+						"height": 3,
+						"originX": 0.3333333333333333,
+						"originY": 0.3333333333333333,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 7369749,
+						"collisionPoly": {
+							"points": [
+								0.3333333333333333,
+								0.3333333333333333,
+								0.6666666666666666,
+								0.3333333333333333,
+								0.6666666666666666,
+								0.6666666666666666,
+								0.3333333333333333,
+								0.6666666666666666
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					},
+					{
+						"width": 5,
+						"height": 5,
+						"originX": 0.4,
+						"originY": 0.4,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 6838228,
+						"collisionPoly": {
+							"points": [
+								0.4,
+								0.4,
+								0.6,
+								0.4,
+								0.6,
+								0.6,
+								0.4,
+								0.6
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					}
+				],
+				"sid": 434305576754865,
+				"name": "Animation 1",
+				"isLooping": true,
+				"isPingPong": false,
+				"repeatCount": 1,
+				"repeatTo": 0,
+				"speed": 15
+			}
+		],
+		"subfolders": []
+	}
+}

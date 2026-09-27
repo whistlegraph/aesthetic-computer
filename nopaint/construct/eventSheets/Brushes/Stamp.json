@@ -1,0 +1,2551 @@
+{
+	"name": "Stamp",
+	"events": [
+		{
+			"eventType": "comment",
+			"text": "[b]1.[/b] A sorted list of all users with stamps. [b](After adding a new user, be sure to add a \"0\" for their animations!)[/b]",
+			"background-color": [
+				0.984313725490196,
+				1,
+				0,
+				1
+			]
+		},
+		{
+			"eventType": "variable",
+			"name": "users",
+			"type": "string",
+			"initialValue": "jeffrey|ella|alex|artur|julia|adelaide|Ivokyuftaf6666|wilson|bn|niki|usuuunaa|aaron|deojavani|jesserobertsullivan|camille|chance|sean",
+			"comment": "",
+			"isStatic": true,
+			"isConstant": true,
+			"sid": 511535333668327
+		},
+		{
+			"eventType": "comment",
+			"text": "[b]2.[/b] This matches the list above and must be manually updated if animated stamps are added for any user.",
+			"background-color": [
+				0.4,
+				1,
+				0.611764705882353,
+				1
+			]
+		},
+		{
+			"eventType": "variable",
+			"name": "usersAnimationCount",
+			"type": "string",
+			"initialValue": "3|0|3|0|0|3|6|0|0|0|0|0|0|0|1|0|0",
+			"comment": "",
+			"isStatic": true,
+			"isConstant": true,
+			"sid": 895465369973780
+		},
+		{
+			"eventType": "variable",
+			"name": "StampLastChosenUserNumber",
+			"type": "number",
+			"initialValue": "-1",
+			"comment": "",
+			"isStatic": true,
+			"isConstant": false,
+			"sid": 968220509258514
+		},
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Stamp",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "comment",
+					"text": "Variables"
+				},
+				{
+					"eventType": "variable",
+					"name": "size",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 991430104839382
+				},
+				{
+					"eventType": "variable",
+					"name": "stampAngle",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 105971490815270
+				},
+				{
+					"eventType": "variable",
+					"name": "originalStampAngle",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 698420011570000
+				},
+				{
+					"eventType": "variable",
+					"name": "x",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 829912260986266
+				},
+				{
+					"eventType": "variable",
+					"name": "mirrored",
+					"type": "boolean",
+					"initialValue": "false",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 916953979711144
+				},
+				{
+					"eventType": "variable",
+					"name": "y",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 810798629180035
+				},
+				{
+					"eventType": "variable",
+					"name": "userNumber",
+					"type": "number",
+					"initialValue": "-1",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 311891704165159
+				},
+				{
+					"eventType": "variable",
+					"name": "stampUser",
+					"type": "string",
+					"initialValue": "",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 598943940581332
+				},
+				{
+					"eventType": "variable",
+					"name": "stampIndex",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 101532354131980
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]Set and validate or default on input parameters.[/h4]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 827847508862114
+						}
+					],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 438158272282725,
+							"parameters": {
+								"variable": "userNumber",
+								"value": "-1"
+							}
+						},
+						{
+							"id": "createProbabilityTable",
+							"objectClass": "AdvancedRandom",
+							"sid": 864872563765714,
+							"parameters": {
+								"name": "\"UserStamps\""
+							}
+						}
+					],
+					"sid": 622777594441405,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "repeat",
+									"objectClass": "System",
+									"sid": 305768968701453,
+									"parameters": {
+										"count": "tokencount(users, \"|\")"
+									}
+								}
+							],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "Weigh the probabilities for choosing users based on their stampCount.",
+									"background-color": [
+										0.8588235294117647,
+										0.8588235294117647,
+										0.8588235294117647,
+										1
+									]
+								},
+								{
+									"id": "addProbabilityEntry",
+									"objectClass": "AdvancedRandom",
+									"sid": 159071885404199,
+									"parameters": {
+										"value": "loopindex + 1",
+										"weight": "min(max(int(Functions.StampCount(\"@\" & tokenat(users, loopindex, \"|\"))) / totalStampCount, 0.005), 0.16)"
+									}
+								},
+								{
+									"id": "log",
+									"objectClass": "Browser",
+									"sid": 937972248247598,
+									"disabled": true,
+									"parameters": {
+										"type": "log",
+										"message": "\"@\" & tokenat(users, loopindex, \"|\") & \": \" & min(max(int(Functions.StampCount(\"@\" & tokenat(users, loopindex, \"|\"))) / totalStampCount, 0.025), 0.18)"
+									}
+								}
+							],
+							"sid": 237186363438186
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "👋 Interpret Parameters",
+									"background-color": [
+										0.6196078431372549,
+										0.9568627450980393,
+										1,
+										1
+									]
+								},
+								{
+									"callFunction": "InitParameters",
+									"sid": 856029019650132,
+									"parameters": [
+										"7"
+									]
+								}
+							],
+							"sid": 114024435585527
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 741603834537257,
+									"parameters": {
+										"first-value": "Functions.CheckParameter(1)",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 648146162375329,
+									"parameters": {
+										"first-value": "left(Functions.GetParameter(1), 1)",
+										"comparison": 0,
+										"second-value": "\"@\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "[b]1st Parameter[/b] [i]@artist[/i] translated to [b]userNumber[/b]"
+								},
+								{
+									"type": "comment",
+									"text": "Perform a match, then set [b]userNumber[/b].",
+									"background-color": [
+										0.7803921568627451,
+										0.7803921568627451,
+										0.7803921568627451,
+										1
+									]
+								}
+							],
+							"sid": 204778953358041,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "repeat",
+											"objectClass": "System",
+											"sid": 346675059125825,
+											"parameters": {
+												"count": "tokencount(users, \"|\")"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "log",
+											"objectClass": "Browser",
+											"sid": 317313774709684,
+											"disabled": true,
+											"parameters": {
+												"type": "log",
+												"message": "loopindex & \" - \" & tokenat(users, loopindex, \"|\") & \" : \" & (tokenat(users, loopindex, \"|\") = mid(Functions.GetParameter(1), 1, -1))"
+											}
+										}
+									],
+									"sid": 883111848425662,
+									"children": [
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "compare-two-values",
+													"objectClass": "System",
+													"sid": 313413486920191,
+													"parameters": {
+														"first-value": "tokenat(users, loopindex, \"|\")",
+														"comparison": 0,
+														"second-value": "mid(Functions.GetParameter(1), 1, -1)"
+													}
+												}
+											],
+											"actions": [
+												{
+													"id": "set-eventvar-value",
+													"objectClass": "System",
+													"sid": 694532388414139,
+													"parameters": {
+														"variable": "userNumber",
+														"value": "loopindex + 1"
+													}
+												},
+												{
+													"id": "set-eventvar-value",
+													"objectClass": "System",
+													"sid": 140152492302212,
+													"parameters": {
+														"variable": "StampLastChosenUserNumber",
+														"value": "-1"
+													}
+												},
+												{
+													"callFunction": "SpecifiedParameter",
+													"sid": 564487140608229,
+													"parameters": [
+														"1"
+													]
+												},
+												{
+													"id": "stop-loop",
+													"objectClass": "System",
+													"sid": 552044881736977
+												}
+											],
+											"sid": 114328316501672
+										}
+									]
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-eventvar",
+											"objectClass": "System",
+											"sid": 752736562647331,
+											"parameters": {
+												"variable": "userNumber",
+												"comparison": 0,
+												"value": "-1"
+											}
+										}
+									],
+									"actions": [],
+									"sid": 617655291502080,
+									"children": [
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "compare-eventvar",
+													"objectClass": "System",
+													"sid": 855394204645811,
+													"parameters": {
+														"variable": "StampLastChosenUserNumber",
+														"comparison": 1,
+														"value": "-1"
+													}
+												}
+											],
+											"actions": [
+												{
+													"id": "removeProbabilityEntry",
+													"objectClass": "AdvancedRandom",
+													"sid": 277294002368348,
+													"parameters": {
+														"value": "StampLastChosenUserNumber",
+														"weight": "0"
+													}
+												}
+											],
+											"sid": 910929614867499
+										},
+										{
+											"eventType": "block",
+											"conditions": [],
+											"actions": [
+												{
+													"type": "comment",
+													"text": "[b]This line below randomly picks a user to randomly pick a stamp from.[/b]",
+													"background-color": [
+														0.7019607843137254,
+														1,
+														0.9137254901960784,
+														1
+													]
+												},
+												{
+													"id": "set-eventvar-value",
+													"objectClass": "System",
+													"sid": 874169750293332,
+													"parameters": {
+														"variable": "userNumber",
+														"value": "int(AdvancedRandom.Weighted)"
+													}
+												},
+												{
+													"id": "set-eventvar-value",
+													"objectClass": "System",
+													"sid": 595284748263784,
+													"parameters": {
+														"variable": "StampLastChosenUserNumber",
+														"value": "userNumber"
+													}
+												},
+												{
+													"callFunction": "GeneratedParameter",
+													"sid": 451267793810337,
+													"parameters": [
+														"1",
+														"\"@\" & tokenat(users, userNumber - 1, \"|\")",
+														"Functions.GetParameter(1)"
+													]
+												},
+												{
+													"id": "log",
+													"objectClass": "Browser",
+													"sid": 567358104451489,
+													"disabled": true,
+													"parameters": {
+														"type": "log",
+														"message": "\"UserNumber:\" & userNumber"
+													}
+												}
+											],
+											"sid": 659885939822920
+										}
+									]
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 245110224323591
+								}
+							],
+							"actions": [],
+							"sid": 695982749943417,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-eventvar",
+											"objectClass": "System",
+											"sid": 378545708871776,
+											"parameters": {
+												"variable": "StampLastChosenUserNumber",
+												"comparison": 1,
+												"value": "-1"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "removeProbabilityEntry",
+											"objectClass": "AdvancedRandom",
+											"sid": 758982278398948,
+											"parameters": {
+												"value": "StampLastChosenUserNumber",
+												"weight": "0"
+											}
+										}
+									],
+									"sid": 879959164070830
+								},
+								{
+									"eventType": "block",
+									"conditions": [],
+									"actions": [
+										{
+											"type": "comment",
+											"text": "[b]This line below randomly picks a user to randomly pick a stamp from.[/b]",
+											"background-color": [
+												0.7019607843137254,
+												1,
+												0.9137254901960784,
+												1
+											]
+										},
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 123128782005787,
+											"parameters": {
+												"variable": "userNumber",
+												"value": "int(AdvancedRandom.Weighted)"
+											}
+										},
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 714873253852869,
+											"parameters": {
+												"variable": "StampLastChosenUserNumber",
+												"value": "userNumber"
+											}
+										},
+										{
+											"callFunction": "GeneratedParameter",
+											"sid": 746914930264183,
+											"parameters": [
+												"1",
+												"\"@\" & tokenat(users, userNumber - 1, \"|\")",
+												"\"\""
+											]
+										}
+									],
+									"sid": 583256138901274
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "[b]Generate animation name to pick from the [i]Stamp[/i] Object[/b]",
+									"background-color": [
+										0.7019607843137254,
+										1,
+										0.9137254901960784,
+										1
+									]
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 645502644684915,
+									"parameters": {
+										"variable": "stampUser",
+										"value": "\"@\" & tokenat(users, userNumber - 1, \"|\")"
+									}
+								},
+								{
+									"id": "set-animation",
+									"objectClass": "Stamp",
+									"sid": 250384706654090,
+									"parameters": {
+										"animation": "stampUser",
+										"from": "beginning"
+									}
+								}
+							],
+							"sid": 687188967604137
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "[b]2nd Parameter[/b] Stamp Number"
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 323392442365315,
+									"parameters": {
+										"variable": "stampIndex",
+										"value": "Functions.ProcessNumericParameter(2, 1, Stamp.AnimationFrameCount + int(tokenat(usersAnimationCount, userNumber - 1, \"|\"))) - 1"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "[b]3rd Parameter[/b] X"
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 121493015901382,
+									"parameters": {
+										"variable": "x",
+										"value": "Functions.ProcessNumericParameter(3, 0, 255)"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "[b]4th Parameter[/b] Y"
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 449469565497760,
+									"parameters": {
+										"variable": "y",
+										"value": "Functions.ProcessNumericParameter(4, 0, 255)"
+									}
+								}
+							],
+							"sid": 995825780168787
+						},
+						{
+							"eventType": "variable",
+							"name": "directionParam",
+							"type": "string",
+							"initialValue": "",
+							"comment": "",
+							"isStatic": false,
+							"isConstant": false,
+							"sid": 260191532544383
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 254677189782850,
+									"parameters": {
+										"first-value": "Functions.CheckParameter(5)",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 680183604138669,
+									"parameters": {
+										"first-value": "uppercase(Functions.GetParameter(5)) = \"U\" | uppercase(Functions.GetParameter(5)) = \"D\" | uppercase(Functions.GetParameter(5)) = \"L\" | \nuppercase(Functions.GetParameter(5)) = \"R\"\n",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								}
+							],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "[b]5th Parameter[/b] Direction"
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 887916140776577,
+									"parameters": {
+										"variable": "directionParam",
+										"value": "uppercase(Functions.GetParameter(5))"
+									}
+								},
+								{
+									"id": "set-at-x",
+									"objectClass": "ParamsArray",
+									"sid": 368717286575863,
+									"parameters": {
+										"x": "4",
+										"value": "directionParam"
+									}
+								}
+							],
+							"sid": 770375166703993,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 721368520643062,
+											"parameters": {
+												"first-value": "directionParam",
+												"comparison": 0,
+												"second-value": "\"U\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 483792521380225,
+											"parameters": {
+												"variable": "originalStampAngle",
+												"value": "0"
+											}
+										}
+									],
+									"sid": 292561523016742
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 866445699852064
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 796416490519145,
+											"parameters": {
+												"first-value": "directionParam",
+												"comparison": 0,
+												"second-value": "\"D\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 167275710852006,
+											"parameters": {
+												"variable": "originalStampAngle",
+												"value": "180"
+											}
+										}
+									],
+									"sid": 366301070685145
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 659214020882493
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 495227712556594,
+											"parameters": {
+												"first-value": "directionParam",
+												"comparison": 0,
+												"second-value": "\"L\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 760017199209922,
+											"parameters": {
+												"variable": "originalStampAngle",
+												"value": "270"
+											}
+										}
+									],
+									"sid": 158391755248546
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 336255533694404
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 365727181318779,
+											"parameters": {
+												"first-value": "directionParam",
+												"comparison": 0,
+												"second-value": "\"R\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 872215990589099,
+											"parameters": {
+												"variable": "originalStampAngle",
+												"value": "90"
+											}
+										}
+									],
+									"sid": 418531259959496
+								},
+								{
+									"eventType": "block",
+									"conditions": [],
+									"actions": [
+										{
+											"callFunction": "SpecifiedParameter",
+											"sid": 399475472188712,
+											"parameters": [
+												"5"
+											]
+										}
+									],
+									"sid": 992576741194310
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 935246871734686
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 224426954686633,
+									"parameters": {
+										"variable": "directionParam",
+										"value": "choose(\"U\", \"D\", \"L\", \"R\")"
+									}
+								}
+							],
+							"sid": 665562234713826,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 403843886726769,
+											"parameters": {
+												"first-value": "directionParam",
+												"comparison": 0,
+												"second-value": "\"U\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 913645727180587,
+											"parameters": {
+												"variable": "originalStampAngle",
+												"value": "0"
+											}
+										}
+									],
+									"sid": 724521224662229
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 348805699905195
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 261745027362407,
+											"parameters": {
+												"first-value": "directionParam",
+												"comparison": 0,
+												"second-value": "\"D\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 387704482165942,
+											"parameters": {
+												"variable": "originalStampAngle",
+												"value": "180"
+											}
+										}
+									],
+									"sid": 195163179572319
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 681833565219657
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 939981074495890,
+											"parameters": {
+												"first-value": "directionParam",
+												"comparison": 0,
+												"second-value": "\"L\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 666678555471178,
+											"parameters": {
+												"variable": "originalStampAngle",
+												"value": "270"
+											}
+										}
+									],
+									"sid": 730737203915020
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 597251587028129
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 538740770599023,
+											"parameters": {
+												"first-value": "directionParam",
+												"comparison": 0,
+												"second-value": "\"R\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 381599395887584,
+											"parameters": {
+												"variable": "originalStampAngle",
+												"value": "90"
+											}
+										}
+									],
+									"sid": 701665176713720
+								},
+								{
+									"eventType": "block",
+									"conditions": [],
+									"actions": [
+										{
+											"callFunction": "GeneratedParameter",
+											"sid": 849456450861211,
+											"parameters": [
+												"5",
+												"directionParam",
+												"\"\""
+											]
+										}
+									],
+									"sid": 907222326186631
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "[b]6th Parameter[/b] Size"
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 337852392158952,
+									"parameters": {
+										"variable": "size",
+										"value": "Functions.ProcessNumericParameter(6, 1, 2)"
+									}
+								}
+							],
+							"sid": 265613486203719
+						},
+						{
+							"eventType": "variable",
+							"name": "mirrorParam",
+							"type": "string",
+							"initialValue": "",
+							"comment": "",
+							"isStatic": false,
+							"isConstant": false,
+							"sid": 333339770474810
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 670436550089802,
+									"parameters": {
+										"first-value": "Functions.CheckParameter(7)",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 173428911182099,
+									"parameters": {
+										"first-value": "uppercase(Functions.GetParameter(7)) = \"Y\" | uppercase(Functions.GetParameter(7)) = \"N\"\n",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								}
+							],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "[b]7th Parameter[/b] Mirror"
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 878552535475527,
+									"parameters": {
+										"variable": "mirrorParam",
+										"value": "uppercase(Functions.GetParameter(7))"
+									}
+								},
+								{
+									"id": "set-at-x",
+									"objectClass": "ParamsArray",
+									"sid": 870997482568402,
+									"parameters": {
+										"x": "6",
+										"value": "mirrorParam"
+									}
+								}
+							],
+							"sid": 919231178586104,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 114627143257923,
+											"parameters": {
+												"first-value": "mirrorParam",
+												"comparison": 0,
+												"second-value": "\"Y\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-boolean-eventvar",
+											"objectClass": "System",
+											"sid": 269035184524682,
+											"parameters": {
+												"variable": "mirrored",
+												"value": "true"
+											}
+										}
+									],
+									"sid": 979486868331822
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 319350659710972
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 207110811899978,
+											"parameters": {
+												"first-value": "mirrorParam",
+												"comparison": 0,
+												"second-value": "\"N\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-boolean-eventvar",
+											"objectClass": "System",
+											"sid": 236705492449251,
+											"parameters": {
+												"variable": "mirrored",
+												"value": "false"
+											}
+										}
+									],
+									"sid": 972812524035192
+								},
+								{
+									"eventType": "block",
+									"conditions": [],
+									"actions": [
+										{
+											"callFunction": "SpecifiedParameter",
+											"sid": 963227710586073,
+											"parameters": [
+												"7"
+											]
+										}
+									],
+									"sid": 290582549356291
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 582674879801389
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 263790067679692,
+									"parameters": {
+										"variable": "mirrorParam",
+										"value": "choose(\"Y\", \"N\")"
+									}
+								}
+							],
+							"sid": 171875591100632,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 731228361859352,
+											"parameters": {
+												"first-value": "mirrorParam",
+												"comparison": 0,
+												"second-value": "\"Y\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-boolean-eventvar",
+											"objectClass": "System",
+											"sid": 709339830597870,
+											"parameters": {
+												"variable": "mirrored",
+												"value": "true"
+											}
+										}
+									],
+									"sid": 318670621170831
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 135274598766637
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 972853629868364,
+											"parameters": {
+												"first-value": "mirrorParam",
+												"comparison": 0,
+												"second-value": "\"N\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-boolean-eventvar",
+											"objectClass": "System",
+											"sid": 884757898690417,
+											"parameters": {
+												"variable": "mirrored",
+												"value": "false"
+											}
+										}
+									],
+									"sid": 494794141087454
+								},
+								{
+									"eventType": "block",
+									"conditions": [],
+									"actions": [
+										{
+											"callFunction": "GeneratedParameter",
+											"sid": 303667153025933,
+											"parameters": [
+												"7",
+												"mirrorParam",
+												"\"\""
+											]
+										}
+									],
+									"sid": 466478146821715
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "🛑 Print Parameters",
+									"background-color": [
+										0.9294117647058824,
+										0.7764705882352941,
+										0.984313725490196,
+										1
+									]
+								},
+								{
+									"callFunction": "PrintParameterHint",
+									"sid": 343930875715046
+								}
+							],
+							"sid": 382269353325011
+						},
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 264297897978710,
+									"parameters": {
+										"first-value": "stampIndex",
+										"comparison": 2,
+										"second-value": "Stamp.AnimationFrameCount"
+									}
+								}
+							],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "[b]Choose a stamp animation frame based on [i]stampIndex[/i].[/b]",
+									"background-color": [
+										0.7019607843137254,
+										1,
+										0.9137254901960784,
+										1
+									]
+								},
+								{
+									"id": "set-animation-frame",
+									"objectClass": "Stamp",
+									"sid": 347018398052494,
+									"parameters": {
+										"frame-number": "stampIndex"
+									}
+								},
+								{
+									"id": "log",
+									"objectClass": "Browser",
+									"sid": 668263424963325,
+									"disabled": true,
+									"parameters": {
+										"type": "log",
+										"message": "\"Using still stamp from index: \" & stampIndex"
+									}
+								}
+							],
+							"sid": 350820797125151
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 161134386937878
+								}
+							],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "[b]If we go over the AnimationFrame count for our chosen animation, then look for an animated stamp with a number.[/b]",
+									"background-color": [
+										0.7019607843137254,
+										1,
+										0.9137254901960784,
+										1
+									]
+								},
+								{
+									"id": "log",
+									"objectClass": "Browser",
+									"sid": 224917071945796,
+									"disabled": true,
+									"parameters": {
+										"type": "log",
+										"message": "\"Using animated stamp from index: \" & stampIndex"
+									}
+								},
+								{
+									"id": "set-animation",
+									"objectClass": "Stamp",
+									"sid": 203132385368431,
+									"parameters": {
+										"animation": "\"@\" & tokenat(users, userNumber - 1, \"|\") & \"-a-\" & (stampIndex + 1 - Stamp.AnimationFrameCount)",
+										"from": "beginning"
+									}
+								}
+							],
+							"sid": 409835054902328
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-size",
+									"objectClass": "Stamp",
+									"sid": 909686031872810,
+									"parameters": {
+										"width": "Stamp.ImageWidth * size",
+										"height": "Stamp.ImageHeight * size"
+									}
+								},
+								{
+									"id": "set-position",
+									"objectClass": "Stamp",
+									"sid": 190974404299635,
+									"parameters": {
+										"x": "floor(x)",
+										"y": "floor(y)"
+									}
+								},
+								{
+									"id": "set-angle",
+									"objectClass": "Stamp",
+									"sid": 806593386099062,
+									"parameters": {
+										"angle": "originalStampAngle"
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 977627855061458,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Stamp/Stamp - Stick"
+										},
+										"loop": "not-looping",
+										"volume": "-2.5",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								}
+							],
+							"sid": 626400079466537
+						},
+						{
+							"eventType": "comment",
+							"text": "Randomly rotate the stamp."
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 970790618635579,
+									"parameters": {
+										"first-value": "choose(0, 1, 2)",
+										"comparison": 0,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [],
+							"sid": 181199399354910
+						},
+						{
+							"eventType": "comment",
+							"text": "Horizontally flips."
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 719118974908390,
+									"parameters": {
+										"variable": "mirrored"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-mirrored",
+									"objectClass": "Stamp",
+									"sid": 221765739923260,
+									"parameters": {
+										"state": "mirrored"
+									}
+								}
+							],
+							"sid": 248467365879064
+						},
+						{
+							"eventType": "comment",
+							"text": "Set to half transparent 1/5 times."
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 121361212361485,
+									"parameters": {
+										"first-value": "choose(0, 1, 2, 3, 4, 5)",
+										"comparison": 0,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-opacity",
+									"objectClass": "Stamp",
+									"sid": 478033300840854,
+									"parameters": {
+										"opacity": "50"
+									}
+								}
+							],
+							"sid": 846495610706519
+						},
+						{
+							"eventType": "comment",
+							"text": "Randomize color"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 448394661499789,
+									"parameters": {
+										"first-value": "choose(0, 1, 2, 3, 4, 5, 6)",
+										"comparison": 0,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-default-color",
+									"objectClass": "Stamp",
+									"sid": 718646381047422,
+									"parameters": {
+										"color": "Functions.hslaToRgba(random(0, 1), random(0.2, 1), random(0.4, 0.6), 1)"
+									}
+								}
+							],
+							"sid": 899548545754491
+						},
+						{
+							"eventType": "comment",
+							"text": "[b]Exception for User @bn[/b] (Copy and paste the block below and change the username.)",
+							"background-color": [
+								1,
+								0.6392156862745098,
+								0.6392156862745098,
+								1
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 678773189102517,
+									"parameters": {
+										"first-value": "Stamp.AnimationName",
+										"comparison": 0,
+										"second-value": "\"@bn\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-default-color",
+									"objectClass": "Stamp",
+									"sid": 418540150357474,
+									"parameters": {
+										"color": "Functions.hslaToRgba(random(1), random(1), random(0.1, 0.9), 1)"
+									}
+								}
+							],
+							"sid": 839063018914350
+						},
+						{
+							"eventType": "comment",
+							"text": "[b]Exceptions for User @alex[/b]",
+							"background-color": [
+								1,
+								0.6392156862745098,
+								0.6392156862745098,
+								1
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 826515658273684,
+									"parameters": {
+										"first-value": "Stamp.AnimationName",
+										"comparison": 0,
+										"second-value": "\"@alex\""
+									}
+								}
+							],
+							"actions": [],
+							"sid": 336970950280917,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 153484330380572,
+											"parameters": {
+												"first-value": "Stamp.AnimationFrame",
+												"comparison": 5,
+												"second-value": "60"
+											}
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 161422990456701,
+											"parameters": {
+												"first-value": "Stamp.AnimationFrame",
+												"comparison": 3,
+												"second-value": "66"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-default-color",
+											"objectClass": "Stamp",
+											"sid": 710551251010279,
+											"parameters": {
+												"color": "Functions.hslaToRgba(random(1), random(1), random(0.1, 0.9), 1)"
+											}
+										},
+										{
+											"id": "set-flipped",
+											"objectClass": "Stamp",
+											"sid": 626076251076839,
+											"disabled": true,
+											"parameters": {
+												"state": "not-flipped"
+											}
+										}
+									],
+									"sid": 771802989965574
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 172584232190142,
+											"parameters": {
+												"first-value": "Stamp.AnimationFrame",
+												"comparison": 0,
+												"second-value": "16"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-mirrored",
+											"objectClass": "Stamp",
+											"sid": 673575777963683,
+											"parameters": {
+												"state": "not-mirrored"
+											}
+										},
+										{
+											"id": "set-flipped",
+											"objectClass": "Stamp",
+											"sid": 596119806843733,
+											"parameters": {
+												"state": "not-flipped"
+											}
+										}
+									],
+									"sid": 331129782345033,
+									"disabled": true
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 724030049875153,
+											"parameters": {
+												"first-value": "Stamp.AnimationFrame",
+												"comparison": 0,
+												"second-value": "20"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-mirrored",
+											"objectClass": "Stamp",
+											"sid": 152805258436887,
+											"parameters": {
+												"state": "not-mirrored"
+											}
+										},
+										{
+											"id": "set-flipped",
+											"objectClass": "Stamp",
+											"sid": 308600421292097,
+											"parameters": {
+												"state": "not-flipped"
+											}
+										}
+									],
+									"sid": 184019716586766,
+									"disabled": true
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 674369841562626,
+											"parameters": {
+												"first-value": "Stamp.AnimationFrame",
+												"comparison": 0,
+												"second-value": "22"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-mirrored",
+											"objectClass": "Stamp",
+											"sid": 680015320772508,
+											"parameters": {
+												"state": "not-mirrored"
+											}
+										},
+										{
+											"id": "set-flipped",
+											"objectClass": "Stamp",
+											"sid": 789963856896601,
+											"parameters": {
+												"state": "not-flipped"
+											}
+										}
+									],
+									"sid": 927711776107265,
+									"disabled": true
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 555949389549019,
+											"parameters": {
+												"first-value": "Stamp.AnimationFrame",
+												"comparison": 0,
+												"second-value": "23"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-mirrored",
+											"objectClass": "Stamp",
+											"sid": 774415237386461,
+											"parameters": {
+												"state": "not-mirrored"
+											}
+										},
+										{
+											"id": "set-flipped",
+											"objectClass": "Stamp",
+											"sid": 624971562851441,
+											"parameters": {
+												"state": "not-flipped"
+											}
+										}
+									],
+									"sid": 713440721446084,
+									"disabled": true
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 675124341532951,
+											"parameters": {
+												"first-value": "Stamp.AnimationFrame",
+												"comparison": 5,
+												"second-value": "28"
+											}
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 223779424480006,
+											"parameters": {
+												"first-value": "Stamp.AnimationFrame",
+												"comparison": 3,
+												"second-value": "31"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-mirrored",
+											"objectClass": "Stamp",
+											"sid": 748589055024463,
+											"parameters": {
+												"state": "not-mirrored"
+											}
+										},
+										{
+											"id": "set-flipped",
+											"objectClass": "Stamp",
+											"sid": 379275830207287,
+											"parameters": {
+												"state": "not-flipped"
+											}
+										}
+									],
+									"sid": 472793741017209,
+									"disabled": true
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 848896318660122,
+											"parameters": {
+												"first-value": "Stamp.AnimationFrame",
+												"comparison": 0,
+												"second-value": "33"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-flipped",
+											"objectClass": "Stamp",
+											"sid": 116109959686078,
+											"parameters": {
+												"state": "not-flipped"
+											}
+										},
+										{
+											"id": "set-mirrored",
+											"objectClass": "Stamp",
+											"sid": 268514129650071,
+											"parameters": {
+												"state": "not-mirrored"
+											}
+										}
+									],
+									"sid": 640355056515955,
+									"disabled": true
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 249422387732236,
+											"parameters": {
+												"first-value": "Stamp.AnimationFrame",
+												"comparison": 0,
+												"second-value": "38"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-flipped",
+											"objectClass": "Stamp",
+											"sid": 324066311102380,
+											"parameters": {
+												"state": "not-flipped"
+											}
+										}
+									],
+									"sid": 747873587176473,
+									"disabled": true
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 451676865030696,
+											"parameters": {
+												"first-value": "Stamp.AnimationFrame",
+												"comparison": 0,
+												"second-value": "69"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-mirrored",
+											"objectClass": "Stamp",
+											"sid": 658287601386898,
+											"parameters": {
+												"state": "not-mirrored"
+											}
+										},
+										{
+											"id": "set-flipped",
+											"objectClass": "Stamp",
+											"sid": 835516515323682,
+											"parameters": {
+												"state": "not-flipped"
+											}
+										}
+									],
+									"sid": 874940105806503,
+									"disabled": true
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 594417145803716,
+											"parameters": {
+												"first-value": "Stamp.AnimationFrame",
+												"comparison": 0,
+												"second-value": "74"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-mirrored",
+											"objectClass": "Stamp",
+											"sid": 443436517366169,
+											"parameters": {
+												"state": "not-mirrored"
+											}
+										},
+										{
+											"id": "set-flipped",
+											"objectClass": "Stamp",
+											"sid": 930351827036127,
+											"parameters": {
+												"state": "not-flipped"
+											}
+										}
+									],
+									"sid": 380396736958736,
+									"disabled": true
+								}
+							]
+						},
+						{
+							"eventType": "comment",
+							"text": "[b]Exceptions for User @ella[/b]",
+							"background-color": [
+								1,
+								0.6392156862745098,
+								0.6392156862745098,
+								1
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 251271574479612,
+									"parameters": {
+										"first-value": "Stamp.AnimationName",
+										"comparison": 0,
+										"second-value": "\"@ella\""
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 669375320735760,
+									"parameters": {
+										"first-value": "Stamp.AnimationFrame",
+										"comparison": 5,
+										"second-value": "26"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-mirrored",
+									"objectClass": "Stamp",
+									"sid": 549945250458563,
+									"parameters": {
+										"state": "not-mirrored"
+									}
+								},
+								{
+									"id": "set-flipped",
+									"objectClass": "Stamp",
+									"sid": 486828808954292,
+									"parameters": {
+										"state": "not-flipped"
+									}
+								}
+							],
+							"sid": 119651894272409,
+							"disabled": true
+						},
+						{
+							"eventType": "comment",
+							"text": "[b]Exceptions for User @adelaide[/b]",
+							"background-color": [
+								1,
+								0.6392156862745098,
+								0.6392156862745098,
+								1
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 550775241680299,
+									"parameters": {
+										"first-value": "Stamp.AnimationName",
+										"comparison": 0,
+										"second-value": "\"@adelaide\""
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 736293053583986,
+									"parameters": {
+										"first-value": "Stamp.AnimationFrame",
+										"comparison": 0,
+										"second-value": "9"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-mirrored",
+									"objectClass": "Stamp",
+									"sid": 440107760924946,
+									"parameters": {
+										"state": "not-mirrored"
+									}
+								},
+								{
+									"id": "set-flipped",
+									"objectClass": "Stamp",
+									"sid": 956403584835821,
+									"parameters": {
+										"state": "not-flipped"
+									}
+								}
+							],
+							"sid": 562837859060515,
+							"disabled": true
+						},
+						{
+							"eventType": "comment",
+							"text": "[b]Exceptions for User @Ivokyuftaf6666[/b]",
+							"background-color": [
+								1,
+								0.6392156862745098,
+								0.6392156862745098,
+								1
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 174470479700137,
+									"parameters": {
+										"first-value": "Stamp.AnimationName",
+										"comparison": 0,
+										"second-value": "\"@Ivokyuftaf6666\""
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 768940193959629,
+									"parameters": {
+										"first-value": "Stamp.AnimationFrame",
+										"comparison": 5,
+										"second-value": "111"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-mirrored",
+									"objectClass": "Stamp",
+									"sid": 716776788705995,
+									"parameters": {
+										"state": "not-mirrored"
+									}
+								},
+								{
+									"id": "set-flipped",
+									"objectClass": "Stamp",
+									"sid": 733031047592198,
+									"parameters": {
+										"state": "not-flipped"
+									}
+								}
+							],
+							"sid": 937032581625148,
+							"disabled": true
+						},
+						{
+							"eventType": "comment",
+							"text": "[b]Exceptions for User @jesse[/b]",
+							"background-color": [
+								1,
+								0.6392156862745098,
+								0.6392156862745098,
+								1
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 229014205809153,
+									"parameters": {
+										"first-value": "Stamp.AnimationName",
+										"comparison": 0,
+										"second-value": "\"@jesse\""
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 981715920457539,
+									"parameters": {
+										"first-value": "Stamp.AnimationFrame",
+										"comparison": 0,
+										"second-value": "3"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-mirrored",
+									"objectClass": "Stamp",
+									"sid": 782921984172161,
+									"parameters": {
+										"state": "not-mirrored"
+									}
+								},
+								{
+									"id": "set-flipped",
+									"objectClass": "Stamp",
+									"sid": 101197484634548,
+									"parameters": {
+										"state": "not-flipped"
+									}
+								}
+							],
+							"sid": 446181365620666,
+							"disabled": true
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-visible",
+									"objectClass": "Stamp",
+									"sid": 329062831920624,
+									"parameters": {
+										"visibility": "visible"
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 821473022378953,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.25",
+										"type": "regular",
+										"tag": "\"Draw\""
+									}
+								},
+								{
+									"id": "signal",
+									"objectClass": "System",
+									"sid": 541856012507297,
+									"parameters": {
+										"tag": "\"Brush Started\""
+									}
+								}
+							],
+							"sid": 913063996142042
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 530810273689334,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Draw\""
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 457965889936276,
+							"parameters": {
+								"variable": "Painting"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 669182630937518,
+							"parameters": {
+								"first-value": "choose(0, 1)",
+								"comparison": 0,
+								"second-value": "0"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "move-at-angle",
+							"objectClass": "Stamp",
+							"sid": 644284705156449,
+							"parameters": {
+								"angle": "stampAngle",
+								"distance": "1"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "Stamp",
+							"sid": 300410918120799,
+							"parameters": {
+								"x": "floor(Self.X)",
+								"y": "floor(Self.Y)"
+							}
+						},
+						{
+							"id": "set-angle",
+							"objectClass": "Stamp",
+							"sid": 872695250374736,
+							"parameters": {
+								"angle": "originalStampAngle"
+							}
+						},
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 288260135094136,
+							"parameters": {
+								"audio-file": {
+									"path": "Brushes/Common/Common - Jitter"
+								},
+								"loop": "not-looping",
+								"volume": "-10 + random(0, 10)",
+								"stereo-pan": "0",
+								"tag-optional": "\"\""
+							}
+						}
+					],
+					"sid": 131224125985439,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "is-outside-layout",
+									"objectClass": "Stamp",
+									"sid": 177451101795740
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 901054115305533,
+									"parameters": {
+										"variable": "stampAngle",
+										"value": "angle(Stamp.X, Stamp.Y, PaintingSnapshotCrop.X + PaintingResolution / 2, PaintingSnapshotCrop.Y + PaintingResolution / 2)"
+									}
+								}
+							],
+							"sid": 597620314601942
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 803108444881526
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 136077824649442,
+									"parameters": {
+										"variable": "stampAngle",
+										"value": "random(0, 360)"
+									}
+								}
+							],
+							"sid": 176687406379964
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 733717922056428
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 133612790985339,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 916009611663992
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 762352651465472,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 300608418920753
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 221448404868999,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 726128934152714,
+							"parameters": {
+								"x": "Stamp.X",
+								"y": "Stamp.Y"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 634283273639901,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 307120526543129,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 695705928528395
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 843841303725939,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "Stamp",
+							"sid": 426293381280363,
+							"parameters": {
+								"x": "floor(Self.X + NudgedX)",
+								"y": "floor(Self.Y + NudgedY)"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 357672716837366,
+							"parameters": {
+								"x": "Stamp.X",
+								"y": "Stamp.Y"
+							}
+						},
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 759556636519726,
+							"disabled": true,
+							"parameters": {
+								"type": "log",
+								"message": "Stamp.X & \":\" & Stamp.Y"
+							}
+						}
+					],
+					"sid": 417433215232316
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 758631549861756,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 483258513086863,
+							"parameters": {
+								"object": "Stamp",
+								"effects": "without-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 276987339474435,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 627717042701825
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 317989440659440
+						}
+					],
+					"actions": [],
+					"sid": 664638980024561
+				}
+			],
+			"sid": 919621673234475
+		}
+	],
+	"sid": 277484560321539
+}

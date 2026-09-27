@@ -1,0 +1,745 @@
+{
+	"name": "Breathe",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Breathe",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "size",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 442836457885403
+				},
+				{
+					"eventType": "variable",
+					"name": "radius",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 382899164600320
+				},
+				{
+					"eventType": "variable",
+					"name": "x",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 734155703290974
+				},
+				{
+					"eventType": "variable",
+					"name": "y",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 361896431738692
+				},
+				{
+					"eventType": "variable",
+					"name": "bulgeScale",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 146497224713979
+				},
+				{
+					"eventType": "variable",
+					"name": "reverse",
+					"type": "number",
+					"initialValue": "1",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 572820970992061
+				},
+				{
+					"eventType": "variable",
+					"name": "sizes",
+					"type": "string",
+					"initialValue": "64|96|128|196|256",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": true,
+					"sid": 788756979444700
+				},
+				{
+					"eventType": "variable",
+					"name": "audioTrigger",
+					"type": "boolean",
+					"initialValue": "false",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 742308933902275
+				},
+				{
+					"eventType": "variable",
+					"name": "rendering",
+					"type": "boolean",
+					"initialValue": "false",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 543754188798961
+				},
+				{
+					"eventType": "comment",
+					"text": "Constants"
+				},
+				{
+					"eventType": "comment",
+					"text": "Variables"
+				},
+				{
+					"eventType": "comment",
+					"text": "[h2]👋 Interpret Parameters[/h2]",
+					"background-color": [
+						0.6666666666666666,
+						0.984313725490196,
+						0.9921568627450981,
+						1
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 656861773359469
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "👋 Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 293591526239987,
+							"parameters": [
+								"3"
+							]
+						},
+						{
+							"type": "comment",
+							"text": "[b]1st Parameter[/b] X"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 573418065744124,
+							"parameters": {
+								"variable": "x",
+								"value": "Functions.ProcessNumericParameter(1, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "[b]2nd Parameter[/b] Y"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 757994708980511,
+							"parameters": {
+								"variable": "y",
+								"value": "Functions.ProcessNumericParameter(2, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "[b]3rd Parameter[/b] Scale"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 731972799516380,
+							"parameters": {
+								"variable": "size",
+								"value": "tokenat(sizes, Functions.ProcessNumericParameter(3, 1, tokencount(sizes, \"|\")) - 1, \"|\")"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "🛑 Print Parameters",
+							"background-color": [
+								0.9294117647058824,
+								0.7764705882352941,
+								0.984313725490196,
+								1
+							]
+						},
+						{
+							"callFunction": "PrintParameterHint",
+							"sid": 153749798104968
+						}
+					],
+					"sid": 190537648304684,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 355975813859954,
+									"parameters": {
+										"variable": "bulgeScale",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 124432606669610,
+									"parameters": {
+										"variable": "radius",
+										"value": "size / 2"
+									}
+								},
+								{
+									"callFunction": "BreatheRender",
+									"sid": 625767041798636
+								},
+								{
+									"id": "wait-for-previous-actions",
+									"objectClass": "System",
+									"sid": 102833723359437
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 517334586072197,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Breathe/Breathe - Theme"
+										},
+										"loop": "not-looping",
+										"volume": "-5 - (5 - ((size / 256) * 5))",
+										"stereo-pan": "0",
+										"tag-optional": "\"Breathe\""
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 356524939069541,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.04",
+										"type": "regular",
+										"tag": "\"BulgeExpand\""
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 418423482351387,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "6",
+										"type": "regular",
+										"tag": "\"BulgeCycle\""
+									}
+								},
+								{
+									"id": "signal",
+									"objectClass": "System",
+									"sid": 968571358397520,
+									"parameters": {
+										"tag": "\"Brush Started\""
+									}
+								}
+							],
+							"sid": 661286420927985
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 569796747303132
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 922516125750647,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 386898525618564
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 665436514359143
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 798437689989656,
+							"parameters": [
+								"\"Breathe\""
+							]
+						}
+					],
+					"sid": 589895164225865
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 904231276111059,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"BulgeExpand\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-effect-parameter",
+							"objectClass": "BreatheSprite",
+							"sid": 315528930810400,
+							"parameters": {
+								"effect": "\"Bulge\"",
+								"parameter-index": "1",
+								"value": "abs(bulgeScale)"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 608818834510221,
+							"parameters": {
+								"variable": "bulgeScale",
+								"value": "BreatheBuffer.Sine.Value"
+							}
+						},
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 178623800923415,
+							"disabled": true,
+							"parameters": {
+								"type": "log",
+								"message": "BreatheBuffer.Sine.CyclePosition"
+							}
+						}
+					],
+					"sid": 128569427465628
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 753377371565628,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"BulgeCycle\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-cycle-position",
+							"objectClass": "BreatheBuffer",
+							"sid": 721447112476618,
+							"behaviorType": "Sine",
+							"parameters": {
+								"cycle-position": "0"
+							}
+						},
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 579159646253456,
+							"parameters": {
+								"audio-file": {
+									"path": "Brushes/Breathe/Breathe - Theme"
+								},
+								"loop": "not-looping",
+								"volume": "-5 - (5 - ((size / 256) * 5))",
+								"stereo-pan": "0",
+								"tag-optional": "\"Breathe\""
+							}
+						}
+					],
+					"sid": 462880969919090
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 832976631738865,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 794954258405131
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 778009168290633,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 999881968275375,
+							"parameters": {
+								"x": "x",
+								"y": "y"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 455730707967902,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 864770507464482,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 384663355578629
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 862336824209075,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 907645352990075,
+							"parameters": {
+								"x": "min(max(0, Self.X + NudgedX), 255)",
+								"y": "min(max(0, Self.Y + NudgedY), 255)"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 368091839123092,
+							"parameters": {
+								"variable": "x",
+								"value": "NudgeDot.X"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 120009800461622,
+							"parameters": {
+								"variable": "y",
+								"value": "NudgeDot.Y"
+							}
+						}
+					],
+					"sid": 734806227421234,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 295390974160676,
+									"parameters": {
+										"variable": "rendering"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "BreatheRender",
+									"sid": 821014019338090
+								}
+							],
+							"sid": 860860113862366
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 287303316540632,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "There is a bug where any filter that is animated, moves forward a tick while painting."
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 860427964775132,
+							"parameters": {
+								"object": "BreatheSprite",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 749246634083835,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 993691532431877
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 627677778850949
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 396662948152632,
+							"parameters": {
+								"tag": "\"Breathe\""
+							}
+						}
+					],
+					"sid": 539724685825207
+				},
+				{
+					"functionName": "BreatheRender",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": true,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 445541677856749,
+							"parameters": {
+								"variable": "rendering",
+								"value": "true"
+							}
+						},
+						{
+							"id": "set-size",
+							"objectClass": "BreatheBuffer",
+							"sid": 361311808547672,
+							"parameters": {
+								"width": "size",
+								"height": "size"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "BreatheBuffer",
+							"sid": 773155080550953,
+							"parameters": {
+								"x": "x",
+								"y": "y"
+							}
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "BreatheBuffer",
+							"sid": 829739673055495,
+							"parameters": {
+								"object": "Painting",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"id": "save-image",
+							"objectClass": "BreatheBuffer",
+							"sid": 995754152961949,
+							"parameters": {
+								"format": "png",
+								"jpeg-quality": "100",
+								"x": "0",
+								"y": "0",
+								"width": "0",
+								"height": "0"
+							}
+						},
+						{
+							"id": "wait-for-previous-actions",
+							"objectClass": "System",
+							"sid": 328885512748138
+						},
+						{
+							"id": "load-image-from-url",
+							"objectClass": "BreatheSprite",
+							"sid": 471402733486494,
+							"parameters": {
+								"uri": "BreatheBuffer.SavedImageURL",
+								"size": "resize-to-image-size",
+								"cross-origin": "anonymous"
+							}
+						},
+						{
+							"id": "wait-for-previous-actions",
+							"objectClass": "System",
+							"sid": 891706342761393
+						},
+						{
+							"id": "set-position-to-another-object",
+							"objectClass": "BreatheSprite",
+							"sid": 168300530773238,
+							"parameters": {
+								"object": "BreatheBuffer",
+								"image-point-optional": "0"
+							}
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 366292145218774,
+							"parameters": {
+								"variable": "rendering",
+								"value": "false"
+							}
+						}
+					],
+					"sid": 191176451261535
+				}
+			],
+			"sid": 182424926780216
+		}
+	],
+	"sid": 275158728986838
+}

@@ -1,0 +1,695 @@
+{
+	"name": "Turn",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Turn",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "rotation",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 322547916592412
+				},
+				{
+					"eventType": "variable",
+					"name": "direction",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 460815894141643
+				},
+				{
+					"eventType": "variable",
+					"name": "noteCount",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 805911960087895
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 467901424408137
+						}
+					],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 963195103434473,
+							"parameters": {
+								"variable": "rotation",
+								"value": "0"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 735911299151034,
+							"parameters": {
+								"variable": "direction",
+								"value": "choose(-1, 1)"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "Rotate90Buffer",
+							"sid": 884760448960128,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Crop the [b]Painting[/b] to a [b]PaintingBuffer[/b], then load it into the [b]Rotate90Buffer[/b] Sprite."
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "PaintingBuffer",
+							"sid": 208097523198905,
+							"parameters": {
+								"object": "Painting",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"id": "save-image",
+							"objectClass": "PaintingBuffer",
+							"sid": 381217538528289,
+							"parameters": {
+								"format": "png",
+								"jpeg-quality": "100",
+								"x": "0",
+								"y": "0",
+								"width": "0",
+								"height": "0"
+							}
+						},
+						{
+							"id": "wait-for-previous-actions",
+							"objectClass": "System",
+							"sid": 104317777861218
+						},
+						{
+							"id": "load-image-from-url",
+							"objectClass": "Rotate90Buffer",
+							"sid": 291205461861602,
+							"parameters": {
+								"uri": "PaintingBuffer.SavedImageURL",
+								"size": "resize-to-image-size",
+								"cross-origin": "anonymous"
+							}
+						},
+						{
+							"id": "wait-for-previous-actions",
+							"objectClass": "System",
+							"sid": 818877009015303
+						},
+						{
+							"id": "add-to-eventvar",
+							"objectClass": "System",
+							"sid": 638130898509546,
+							"parameters": {
+								"variable": "rotation",
+								"value": "90 * direction"
+							}
+						},
+						{
+							"id": "set-angle",
+							"objectClass": "Rotate90Buffer",
+							"sid": 719294927549516,
+							"parameters": {
+								"angle": "rotation"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "Rotate90Buffer",
+							"sid": 244755883573894,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 366865733535353,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "1.25",
+								"type": "regular",
+								"tag": "\"Rotate\""
+							}
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 925094387189691,
+							"parameters": {
+								"tag": "\"Brush Started\""
+							}
+						}
+					],
+					"sid": 547786326127920,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 697244330399940,
+									"parameters": {
+										"first-value": "direction",
+										"comparison": 4,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 657289561209557,
+									"parameters": {
+										"variable": "noteCount",
+										"value": "0"
+									}
+								},
+								{
+									"id": "play-by-name",
+									"objectClass": "Audio",
+									"sid": 665472012023693,
+									"parameters": {
+										"folder": "sounds",
+										"audio-file-name": "\"Turn - Note \" & noteCount + 1",
+										"loop": "not-looping",
+										"volume": "0",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "add-to-eventvar",
+									"objectClass": "System",
+									"sid": 781657682611412,
+									"parameters": {
+										"variable": "noteCount",
+										"value": "1"
+									}
+								}
+							],
+							"sid": 737285791034467
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 169708154570901
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 820556961177765,
+									"parameters": {
+										"variable": "noteCount",
+										"value": "3"
+									}
+								},
+								{
+									"id": "play-by-name",
+									"objectClass": "Audio",
+									"sid": 575468871691792,
+									"parameters": {
+										"folder": "sounds",
+										"audio-file-name": "\"Turn - Note \" & noteCount + 1",
+										"loop": "not-looping",
+										"volume": "0",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "subtract-from-eventvar",
+									"objectClass": "System",
+									"sid": 793488564123809,
+									"parameters": {
+										"variable": "noteCount",
+										"value": "1"
+									}
+								}
+							],
+							"sid": 723798661552002
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 997844711650841,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Rotate\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 472776969145747,
+							"parameters": {
+								"variable": "rotation",
+								"value": "(rotation + (90 * direction)) % 360"
+							}
+						},
+						{
+							"id": "set-angle",
+							"objectClass": "Rotate90Buffer",
+							"sid": 536479966528217,
+							"parameters": {
+								"angle": "rotation"
+							}
+						}
+					],
+					"sid": 486101664044909,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 399843038984751,
+									"parameters": {
+										"first-value": "direction",
+										"comparison": 4,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "play-by-name",
+									"objectClass": "Audio",
+									"sid": 361633038199908,
+									"parameters": {
+										"folder": "sounds",
+										"audio-file-name": "\"Turn - Note \" & noteCount + 1",
+										"loop": "not-looping",
+										"volume": "0",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "add-to-eventvar",
+									"objectClass": "System",
+									"sid": 366191529366876,
+									"parameters": {
+										"variable": "noteCount",
+										"value": "1"
+									}
+								}
+							],
+							"sid": 517916938179387,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 453556041483582,
+											"parameters": {
+												"first-value": "noteCount",
+												"comparison": 4,
+												"second-value": "3"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 427047306301596,
+											"parameters": {
+												"variable": "noteCount",
+												"value": "0"
+											}
+										}
+									],
+									"sid": 839816704670694
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 602773677691137
+								}
+							],
+							"actions": [
+								{
+									"id": "play-by-name",
+									"objectClass": "Audio",
+									"sid": 873896850578995,
+									"parameters": {
+										"folder": "sounds",
+										"audio-file-name": "\"Turn - Note \" & noteCount + 1",
+										"loop": "not-looping",
+										"volume": "0",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "subtract-from-eventvar",
+									"objectClass": "System",
+									"sid": 151478398256226,
+									"parameters": {
+										"variable": "noteCount",
+										"value": "1"
+									}
+								}
+							],
+							"sid": 121428685789565,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 923639112447236,
+											"parameters": {
+												"first-value": "noteCount",
+												"comparison": 2,
+												"second-value": "0"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 309934446085225,
+											"parameters": {
+												"variable": "noteCount",
+												"value": "3"
+											}
+										}
+									],
+									"sid": 562531736547393
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 251951544961520
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 859117072839561,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 495852559579517
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Pause[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 111521975348476,
+							"parameters": {
+								"variable": "Paused"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 249941255326929
+						}
+					],
+					"actions": [
+						{
+							"id": "stop-timer",
+							"objectClass": "Clock",
+							"sid": 755599938800093,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Rotate\""
+							}
+						}
+					],
+					"sid": 546186357774334
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 490645623468231,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 126638082567959
+						}
+					],
+					"actions": [
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 482006916077170,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "1.25",
+								"type": "regular",
+								"tag": "\"Rotate\""
+							}
+						}
+					],
+					"sid": 720948237101917
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 707395748972585,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 987091284905011
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 374965226598766,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 430990841903049,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 981712576998120
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 576069093132685,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 731272022004054
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "NoNudge",
+							"sid": 150298601587857
+						}
+					],
+					"sid": 657855305373739
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 996815760506643,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "There is a bug where the filter moves forward a tick while painting."
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 506610707576943,
+							"parameters": {
+								"object": "Rotate90Buffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 565957116532621,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 282166080128847
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 337714367709378
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 178504562945817,
+							"parameters": {
+								"tag": "\"HueShift\""
+							}
+						}
+					],
+					"sid": 190054045478439
+				}
+			],
+			"sid": 378508775320597
+		}
+	],
+	"sid": 799217416921842
+}

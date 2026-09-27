@@ -1,0 +1,56 @@
+{
+	"name": "NO_Splash",
+	"plugin-id": "Sprite",
+	"sid": 703267609218315,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [],
+	"animations": {
+		"items": [
+			{
+				"frames": [
+					{
+						"width": 75,
+						"height": 41,
+						"originX": 0,
+						"originY": 0,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 5863224,
+						"collisionPoly": {
+							"points": [
+								0.04,
+								0.07317073170731707,
+								0.88,
+								0.1951219512195122,
+								0.9733333333333334,
+								0.5,
+								0.9066666666666666,
+								0.8292682926829268,
+								0.02666666666666667,
+								0.926829268292683,
+								0.02666666666666667,
+								0.5
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					}
+				],
+				"sid": 169758002697824,
+				"name": "Animation 1",
+				"isLooping": false,
+				"isPingPong": false,
+				"repeatCount": 1,
+				"repeatTo": 0,
+				"speed": 5
+			}
+		],
+		"subfolders": []
+	}
+}

@@ -1,0 +1,52 @@
+{
+	"name": "CapSymToggle",
+	"plugin-id": "Sprite",
+	"sid": 766248003262738,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [],
+	"animations": {
+		"items": [
+			{
+				"frames": [
+					{
+						"width": 27,
+						"height": 26,
+						"originX": 0,
+						"originY": 0,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 6117170,
+						"collisionPoly": {
+							"points": [
+								0,
+								0,
+								0.037037037037037035,
+								0,
+								0.037037037037037035,
+								0.038461538461538464,
+								0,
+								0.038461538461538464
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					}
+				],
+				"sid": 716730207913481,
+				"name": "Animation 1",
+				"isLooping": false,
+				"isPingPong": false,
+				"repeatCount": 1,
+				"repeatTo": 0,
+				"speed": 0
+			}
+		],
+		"subfolders": []
+	}
+}

@@ -1,0 +1,15 @@
+{
+	"name": "ColorSurferBuffer",
+	"plugin-id": "DrawingCanvas",
+	"sid": 870646502458320,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [
+		{
+			"effectId": "hsladjust",
+			"name": "AdjustHSL"
+		}
+	]
+}

@@ -1,0 +1,733 @@
+{
+	"name": "Light Bump",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Light Bump",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "brightnessShift",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 720839655932229
+				},
+				{
+					"eventType": "variable",
+					"name": "direction",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 845704630643036
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 775443488736235
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "👋 Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 363970219743720,
+							"parameters": [
+								"1"
+							]
+						}
+					],
+					"sid": 492317171076059,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[b]1st Parameter[/b] Amount"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 131778711356930,
+									"parameters": {
+										"first-value": "Functions.CheckParameter(1)",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 416166683066343,
+									"parameters": {
+										"first-value": "lowercase(Functions.GetParameter(1)) = \"more\" | lowercase(Functions.GetParameter(1)) = \"less\"",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								}
+							],
+							"actions": [],
+							"sid": 737551703810067,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 918543961139936,
+											"parameters": {
+												"first-value": "lowercase(Functions.GetParameter(1))",
+												"comparison": 0,
+												"second-value": "\"more\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 209240824916674,
+											"parameters": {
+												"variable": "direction",
+												"value": "1"
+											}
+										},
+										{
+											"callFunction": "SpecifiedParameter",
+											"sid": 431880808504898,
+											"parameters": [
+												"1"
+											]
+										}
+									],
+									"sid": 831107504392070
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 482901262554156,
+											"parameters": {
+												"first-value": "lowercase(Functions.GetParameter(1))",
+												"comparison": 0,
+												"second-value": "\"less\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 753383710781921,
+											"parameters": {
+												"variable": "direction",
+												"value": "-1"
+											}
+										},
+										{
+											"callFunction": "SpecifiedParameter",
+											"sid": 618582189417689,
+											"parameters": [
+												"1"
+											]
+										}
+									],
+									"sid": 312088587666009
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 960867309862266
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 754176564119752,
+									"parameters": {
+										"variable": "direction",
+										"value": "choose(-1, 1)"
+									}
+								}
+							],
+							"sid": 293300135974075,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 634743834298486,
+											"parameters": {
+												"first-value": "direction",
+												"comparison": 0,
+												"second-value": "1"
+											}
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "GeneratedParameter",
+											"sid": 958667157506782,
+											"parameters": [
+												"1",
+												"\"More\"",
+												"\"\""
+											]
+										}
+									],
+									"sid": 357341536487547
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 145388432288150
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 758838084664609,
+											"parameters": {
+												"first-value": "direction",
+												"comparison": 0,
+												"second-value": "-1"
+											}
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "GeneratedParameter",
+											"sid": 819838876437682,
+											"parameters": [
+												"1",
+												"\"Less\"",
+												"\"\""
+											]
+										}
+									],
+									"sid": 816234893012930
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "🛑 Print Parameters",
+									"background-color": [
+										0.9294117647058824,
+										0.7764705882352941,
+										0.984313725490196,
+										1
+									]
+								},
+								{
+									"callFunction": "PrintParameterHint",
+									"sid": 174187103474068
+								}
+							],
+							"sid": 537199024084229
+						},
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[/h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "paste-object",
+									"objectClass": "LightBumpBuffer",
+									"sid": 885188948820235,
+									"parameters": {
+										"object": "Painting",
+										"effects": "with-effects"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 361460376242399,
+									"parameters": {
+										"variable": "brightnessShift",
+										"value": "100"
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 318126265332893,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Light Bump/Light Bump - Theme"
+										},
+										"loop": "looping",
+										"volume": "-4",
+										"stereo-pan": "0",
+										"tag-optional": "\"LightenDarken\""
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 814661469232840,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.1",
+										"type": "regular",
+										"tag": "\"ShiftBrightness\""
+									}
+								},
+								{
+									"id": "signal",
+									"objectClass": "System",
+									"sid": 360981384628535,
+									"parameters": {
+										"tag": "\"Brush Started\""
+									}
+								}
+							],
+							"sid": 335860495799105
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]No Theme[/h4]",
+					"background-color": [
+						0.7215686274509804,
+						0.9058823529411765,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 600655271915815
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 453399258836445,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 729164628510934
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 458000126481263,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 361274477418349
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 451676498643882,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 951020069574683
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]No Audio on Pause[/h4]",
+					"background-color": [
+						0.8392156862745098,
+						0.9450980392156862,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 451410111501078
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 323220197107992,
+							"parameters": [
+								"\"LightenDarken\""
+							]
+						}
+					],
+					"sid": 935544829163947
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 411141171972224,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"ShiftBrightness\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 511950074073823,
+							"disabled": true,
+							"parameters": {
+								"type": "log",
+								"message": "\"Light and Dark:\" & brightnessShift"
+							}
+						}
+					],
+					"sid": 677889099732694,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 721783226714540,
+									"parameters": {
+										"first-value": "direction",
+										"comparison": 4,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 462841006569031,
+									"parameters": {
+										"variable": "brightnessShift",
+										"value": "brightnessShift + direction"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "LightBumpBuffer",
+									"sid": 958153783972566,
+									"parameters": {
+										"effect": "\"Brightness\"",
+										"parameter-index": "0",
+										"value": "brightnessShift"
+									}
+								}
+							],
+							"sid": 844964177813441,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 551921902097108,
+											"parameters": {
+												"first-value": "brightnessShift",
+												"comparison": 0,
+												"second-value": "130"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 250062279788460,
+											"parameters": {
+												"variable": "direction",
+												"value": "direction * -1"
+											}
+										}
+									],
+									"sid": 515394149746669
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 182538954822986
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 615914679149445,
+									"parameters": {
+										"variable": "brightnessShift",
+										"value": "brightnessShift + direction"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "LightBumpBuffer",
+									"sid": 901875295279872,
+									"parameters": {
+										"effect": "\"Brightness\"",
+										"parameter-index": "0",
+										"value": "brightnessShift"
+									}
+								}
+							],
+							"sid": 821995262068882,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 332291862239610,
+											"parameters": {
+												"first-value": "brightnessShift",
+												"comparison": 0,
+												"second-value": "70"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 509009479324457,
+											"parameters": {
+												"variable": "direction",
+												"value": "direction * -1"
+											}
+										}
+									],
+									"sid": 861023792743874
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 293456883347550,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 889696604386283
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 997930293862266,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						}
+					],
+					"sid": 642537921590806,
+					"disabled": true
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 411524876366336,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 913001741159899
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "NoNudge",
+							"sid": 592086079189856
+						}
+					],
+					"sid": 120910690283389
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 856728519150011,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "There is a bug where the filter moves forward a tick while painting."
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 522122688364240,
+							"parameters": {
+								"object": "LightBumpBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 195892523540615,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 606308492326949
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 469611108735217
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 489067526091892,
+							"parameters": {
+								"tag": "\"LightenDarken\""
+							}
+						}
+					],
+					"sid": 549740907916587
+				}
+			],
+			"sid": 119015899330846
+		}
+	],
+	"sid": 447499842093357
+}

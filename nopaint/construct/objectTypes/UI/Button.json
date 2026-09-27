@@ -1,0 +1,69 @@
+{
+	"name": "Button",
+	"plugin-id": "Sprite",
+	"sid": 816216679333562,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [
+		{
+			"name": "Disabled",
+			"type": "boolean",
+			"desc": "",
+			"show": true,
+			"sid": 650007124949498
+		},
+		{
+			"name": "Pressed",
+			"type": "boolean",
+			"desc": "",
+			"show": true,
+			"sid": 263674625714299
+		},
+		{
+			"name": "For",
+			"type": "string",
+			"desc": "",
+			"show": true,
+			"sid": 727623811277647
+		},
+		{
+			"name": "Hovered",
+			"type": "boolean",
+			"desc": "",
+			"show": true,
+			"sid": 710932577136774
+		}
+	],
+	"behaviorTypes": [],
+	"effectTypes": [],
+	"animations": {
+		"items": [
+			{
+				"frames": [
+					{
+						"width": 1,
+						"height": 1,
+						"originX": 0,
+						"originY": 0,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 6236703,
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					}
+				],
+				"sid": 692747963941508,
+				"name": "Animation 1",
+				"isLooping": false,
+				"isPingPong": false,
+				"repeatCount": 1,
+				"repeatTo": 0,
+				"speed": 5
+			}
+		],
+		"subfolders": []
+	}
+}

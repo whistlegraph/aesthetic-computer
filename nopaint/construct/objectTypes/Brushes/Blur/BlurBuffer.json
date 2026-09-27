@@ -1,0 +1,19 @@
+{
+	"name": "BlurBuffer",
+	"plugin-id": "DrawingCanvas",
+	"sid": 147638203105647,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [
+		{
+			"effectId": "blurhorizontal",
+			"name": "BlurHorizontal"
+		},
+		{
+			"effectId": "blurvertical",
+			"name": "BlurVertical"
+		}
+	]
+}

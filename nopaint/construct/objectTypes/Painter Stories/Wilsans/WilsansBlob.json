@@ -1,0 +1,74 @@
+{
+	"name": "WilsansBlob",
+	"plugin-id": "Sprite",
+	"sid": 568287885671523,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [
+		{
+			"name": "startX",
+			"type": "number",
+			"desc": "",
+			"show": true,
+			"sid": 562025793447448
+		},
+		{
+			"name": "startY",
+			"type": "number",
+			"desc": "",
+			"show": true,
+			"sid": 909564596277449
+		}
+	],
+	"behaviorTypes": [],
+	"effectTypes": [
+		{
+			"effectId": "blacknwhite",
+			"name": "BlackWhite"
+		}
+	],
+	"animations": {
+		"items": [
+			{
+				"frames": [
+					{
+						"width": 32,
+						"height": 29,
+						"originX": 0.5,
+						"originY": 0.6206896551724138,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 5455476,
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					},
+					{
+						"width": 32,
+						"height": 29,
+						"originX": 0.5,
+						"originY": 0.6206896551724138,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 1812802,
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					}
+				],
+				"sid": 590034379336240,
+				"name": "Animation 1",
+				"isLooping": true,
+				"isPingPong": false,
+				"repeatCount": 1,
+				"repeatTo": 0,
+				"speed": 2
+			}
+		],
+		"subfolders": []
+	}
+}

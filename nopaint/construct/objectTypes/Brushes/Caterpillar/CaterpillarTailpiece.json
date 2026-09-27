@@ -1,0 +1,92 @@
+{
+	"name": "CaterpillarTailpiece",
+	"plugin-id": "Sprite",
+	"sid": 973146376913835,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [
+		{
+			"name": "index",
+			"type": "number",
+			"desc": "",
+			"show": true,
+			"sid": 886291495560003
+		}
+	],
+	"behaviorTypes": [
+		{
+			"behaviorId": "Pin",
+			"name": "Pin",
+			"sid": 413149042546444
+		}
+	],
+	"effectTypes": [],
+	"animations": {
+		"items": [
+			{
+				"frames": [
+					{
+						"width": 16,
+						"height": 20,
+						"originX": 0.53125,
+						"originY": 0.525,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 824184,
+						"collisionPoly": {
+							"points": [
+								1,
+								0.9,
+								0,
+								0.9,
+								0,
+								0.09999999999999998,
+								1,
+								0.09999999999999998
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					},
+					{
+						"width": 16,
+						"height": 20,
+						"originX": 0.53125,
+						"originY": 0.525,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 4166531,
+						"collisionPoly": {
+							"points": [
+								1,
+								0.9,
+								0,
+								0.9,
+								0,
+								0.09999999999999998,
+								1,
+								0.09999999999999998
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					}
+				],
+				"sid": 496813444598774,
+				"name": "Animation 1",
+				"isLooping": true,
+				"isPingPong": false,
+				"repeatCount": 1,
+				"repeatTo": 0,
+				"speed": 10
+			}
+		],
+		"subfolders": []
+	}
+}

@@ -1,0 +1,16 @@
+{
+	"name": "BreatheBuffer",
+	"plugin-id": "DrawingCanvas",
+	"sid": 845238927674554,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [
+		{
+			"behaviorId": "Sin",
+			"name": "Sine",
+			"sid": 350433090767725
+		}
+	],
+	"effectTypes": []
+}

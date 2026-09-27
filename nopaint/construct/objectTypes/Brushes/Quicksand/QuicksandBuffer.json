@@ -1,0 +1,15 @@
+{
+	"name": "QuicksandBuffer",
+	"plugin-id": "DrawingCanvas",
+	"sid": 171199511648070,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [
+		{
+			"effectId": "swirl",
+			"name": "Swirl"
+		}
+	]
+}

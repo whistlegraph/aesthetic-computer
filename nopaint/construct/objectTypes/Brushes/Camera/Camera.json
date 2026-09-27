@@ -1,0 +1,15 @@
+{
+	"name": "Camera",
+	"plugin-id": "UserMedia",
+	"sid": 941181352244219,
+	"isGlobal": true,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [
+		{
+			"effectId": "Mikal_MirrorY",
+			"name": "MirrorY"
+		}
+	]
+}

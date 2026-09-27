@@ -1,0 +1,596 @@
+{
+	"name": "Aura",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Aura",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "x",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 861072493529495
+				},
+				{
+					"eventType": "variable",
+					"name": "y",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 486245887306279
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 590882241962880
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "👋 Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 507511397327528,
+							"parameters": [
+								"2"
+							]
+						},
+						{
+							"type": "comment",
+							"text": "[b]1st Parameter[/b] X"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 626631493011882,
+							"parameters": {
+								"variable": "x",
+								"value": "Functions.ProcessNumericParameter(1, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "[b]2nd Parameter[/b] Y"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 235732480741333,
+							"parameters": {
+								"variable": "y",
+								"value": "Functions.ProcessNumericParameter(2, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "🛑 Print Parameters",
+							"background-color": [
+								0.9294117647058824,
+								0.7764705882352941,
+								0.984313725490196,
+								1
+							]
+						},
+						{
+							"callFunction": "PrintParameterHint",
+							"sid": 663064661799694
+						}
+					],
+					"sid": 206332763724189,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-visible",
+									"objectClass": "AuraParticles",
+									"sid": 357236135522589,
+									"parameters": {
+										"visibility": "invisible"
+									}
+								},
+								{
+									"id": "set-position",
+									"objectClass": "AuraParticles",
+									"sid": 839646992870231,
+									"parameters": {
+										"x": "x",
+										"y": "y"
+									}
+								},
+								{
+									"id": "set-init-opacity",
+									"objectClass": "AuraParticles",
+									"sid": 890099804715046,
+									"parameters": {
+										"opacity": "1"
+									}
+								},
+								{
+									"id": "set-speed",
+									"objectClass": "AuraParticles",
+									"sid": 159909059476302,
+									"parameters": {
+										"speed": "random(90, 110)"
+									}
+								},
+								{
+									"id": "set-size",
+									"objectClass": "AuraParticles",
+									"sid": 287406132646750,
+									"parameters": {
+										"size": "random(2, 4)"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "AuraParticles",
+									"sid": 683997207980115,
+									"parameters": {
+										"effect": "\"AdjustHSL\"",
+										"parameter-index": "0",
+										"value": "random(0, 100)"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "AuraParticles",
+									"sid": 403926587168429,
+									"parameters": {
+										"effect": "\"AdjustHSL\"",
+										"parameter-index": "1",
+										"value": "random(25, 120)"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "AuraParticles",
+									"sid": 284353897526070,
+									"parameters": {
+										"effect": "\"AdjustHSL\"",
+										"parameter-index": "2",
+										"value": "random(60, 180)"
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 214318913472337,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Aura/Aura - Theme"
+										},
+										"loop": "looping",
+										"volume": "-100",
+										"stereo-pan": "0",
+										"tag-optional": "\"Aura\""
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 752516069462066,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "1",
+										"type": "regular",
+										"tag": "\"Change\""
+									}
+								},
+								{
+									"id": "signal",
+									"objectClass": "System",
+									"sid": 762454959158094,
+									"parameters": {
+										"tag": "\"Brush Started\""
+									}
+								}
+							],
+							"sid": 257344210743242
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 758157823527481
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 688481469537124,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 530032700479637
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 271104590828639
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 145528062716560,
+							"parameters": [
+								"\"Aura\""
+							]
+						}
+					],
+					"sid": 852044049943118,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "is-tag-playing",
+									"objectClass": "Audio",
+									"sid": 406490087479230,
+									"parameters": {
+										"tag": "\"Aura\""
+									}
+								},
+								{
+									"id": "trigger-once-while-true",
+									"objectClass": "System",
+									"sid": 132818519288526
+								}
+							],
+							"actions": [
+								{
+									"id": "fade-volume",
+									"objectClass": "Audio",
+									"sid": 408277935933062,
+									"parameters": {
+										"tag": "\"Aura\"",
+										"db": "-7.5",
+										"duration": "3",
+										"ending": "keep-playing"
+									}
+								}
+							],
+							"sid": 750643579801047
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 136261865273043
+						},
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 715751503393713,
+							"parameters": {
+								"first-value": "timescale",
+								"comparison": 1,
+								"second-value": "0"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "paste-object",
+							"objectClass": "PaintingBuffer",
+							"sid": 830971033217279,
+							"parameters": {
+								"object": "AuraParticles",
+								"effects": "with-effects"
+							}
+						}
+					],
+					"sid": 512156010074651
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 991660205842805,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Change\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-effect-parameter",
+							"objectClass": "AuraParticles",
+							"sid": 370814027802129,
+							"parameters": {
+								"effect": "\"AdjustHSL\"",
+								"parameter-index": "0",
+								"value": "random(-100, 100)"
+							}
+						},
+						{
+							"id": "set-effect-parameter",
+							"objectClass": "AuraParticles",
+							"sid": 189542016950251,
+							"parameters": {
+								"effect": "\"AdjustHSL\"",
+								"parameter-index": "2",
+								"value": "random(60, 180)"
+							}
+						},
+						{
+							"id": "move-at-angle",
+							"objectClass": "AuraParticles",
+							"sid": 288464819764744,
+							"parameters": {
+								"angle": "random(0, 360)",
+								"distance": "2"
+							}
+						}
+					],
+					"sid": 227316273871438
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 960225334055394,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 283151051140669
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 830320961999935,
+							"parameters": {
+								"object": "AuraParticles",
+								"time-scale": "1.0"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 446760524833773,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 941868657697904,
+							"parameters": {
+								"x": "AuraParticles.X",
+								"y": "AuraParticles.Y"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 191062885359697,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 281776086572810,
+							"parameters": [
+								false
+							]
+						},
+						{
+							"id": "restore-object-time-scale",
+							"objectClass": "System",
+							"sid": 189031341668426,
+							"parameters": {
+								"object": "AuraParticles"
+							}
+						}
+					],
+					"sid": 751074132561793
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 367376270667635,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ticked[/b]"
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 440364780091091,
+							"parameters": {
+								"x": "Self.X + NudgedX",
+								"y": "Self.Y + NudgedY"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "AuraParticles",
+							"sid": 931941464108220,
+							"parameters": {
+								"x": "NudgeDot.X",
+								"y": "NudgeDot.Y"
+							}
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "PaintingBuffer",
+							"sid": 780366912420584,
+							"parameters": {
+								"object": "AuraParticles",
+								"effects": "with-effects"
+							}
+						}
+					],
+					"sid": 853000603883644
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 852626493185764,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 362457981106401,
+							"parameters": {
+								"object": "PaintingBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 737848011137553,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 396308125070186
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 215981591311281
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 468644255003557,
+							"parameters": {
+								"tag": "\"Aura\""
+							}
+						}
+					],
+					"sid": 728205802724389
+				}
+			],
+			"sid": 343782575082750
+		}
+	],
+	"sid": 635050523540532
+}

@@ -1,0 +1,73 @@
+{
+	"name": "CameraFilterBuffer",
+	"plugin-id": "DrawingCanvas",
+	"sid": 933297337950259,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [
+		{
+			"behaviorId": "Tween",
+			"name": "Tween",
+			"sid": 292476703739327
+		}
+	],
+	"effectTypes": [
+		{
+			"effectId": "sharpen",
+			"name": "Sharpen"
+		},
+		{
+			"effectId": "contrast",
+			"name": "Contrast"
+		},
+		{
+			"effectId": "vibrance",
+			"name": "Vibrance"
+		},
+		{
+			"effectId": "hsladjust",
+			"name": "AdjustHSL"
+		},
+		{
+			"effectId": "glowhorizontal",
+			"name": "GlowHorizontal"
+		},
+		{
+			"effectId": "glowvertical",
+			"name": "GlowVertical"
+		},
+		{
+			"effectId": "water",
+			"name": "Water"
+		},
+		{
+			"effectId": "sepia",
+			"name": "Sepia"
+		},
+		{
+			"effectId": "noise",
+			"name": "Noise"
+		},
+		{
+			"effectId": "grayscale",
+			"name": "Grayscale"
+		},
+		{
+			"effectId": "posterize",
+			"name": "Posterize"
+		},
+		{
+			"effectId": "scanlines",
+			"name": "ScanLines"
+		},
+		{
+			"effectId": "oilpainting",
+			"name": "OilPainting"
+		},
+		{
+			"effectId": "skymen_RGBSplit",
+			"name": "RGBSplit"
+		}
+	]
+}

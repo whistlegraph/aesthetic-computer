@@ -1,0 +1,29 @@
+{
+	"name": "RainbowCaterpillarParticles",
+	"plugin-id": "Particles",
+	"sid": 634115999424417,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [
+		{
+			"behaviorId": "Pin",
+			"name": "Pin",
+			"sid": 835289385900454
+		}
+	],
+	"effectTypes": [],
+	"image": {
+		"width": 2,
+		"height": 2,
+		"originX": 0.5,
+		"originY": 0.5,
+		"originalSource": "",
+		"exportFormat": "lossless",
+		"exportQuality": 0.8,
+		"fileType": "image/png",
+		"imageSpriteId": 6080049,
+		"useCollisionPoly": true,
+		"tag": ""
+	}
+}

@@ -1,0 +1,78 @@
+{
+	"name": "BannerContainer",
+	"plugin-id": "Sprite",
+	"sid": 436031279938746,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [
+		{
+			"behaviorId": "Rotate",
+			"name": "Rotate",
+			"sid": 665363588095192
+		}
+	],
+	"effectTypes": [],
+	"animations": {
+		"items": [
+			{
+				"frames": [
+					{
+						"width": 1,
+						"height": 1,
+						"originX": 0.5,
+						"originY": 0.5,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 497648,
+						"useCollisionPoly": true,
+						"imagePoints": [
+							{
+								"name": "TopLeft",
+								"x": 0,
+								"y": 0
+							},
+							{
+								"name": "BottomLeft",
+								"x": 0,
+								"y": 1
+							},
+							{
+								"name": "TopRight",
+								"x": 1,
+								"y": 0
+							},
+							{
+								"name": "BottomRight",
+								"x": 1,
+								"y": 1
+							},
+							{
+								"name": "BaseLeft",
+								"x": 0.25,
+								"y": 0.5
+							},
+							{
+								"name": "BaseRight",
+								"x": 0.75,
+								"y": 0.5
+							}
+						],
+						"duration": 1,
+						"tag": ""
+					}
+				],
+				"sid": 845322390362460,
+				"name": "Animation 1",
+				"isLooping": false,
+				"isPingPong": false,
+				"repeatCount": 1,
+				"repeatTo": 0,
+				"speed": 5
+			}
+		],
+		"subfolders": []
+	}
+}

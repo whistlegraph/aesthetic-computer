@@ -1,0 +1,15 @@
+{
+	"name": "InvertBuffer",
+	"plugin-id": "DrawingCanvas",
+	"sid": 601047249238216,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [
+		{
+			"effectId": "inverse",
+			"name": "Inverse"
+		}
+	]
+}

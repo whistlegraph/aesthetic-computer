@@ -1,0 +1,761 @@
+{
+	"name": "Wipe",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Wipe",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "x",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 351392688756964
+				},
+				{
+					"eventType": "variable",
+					"name": "y",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 621448158069175
+				},
+				{
+					"eventType": "variable",
+					"name": "wiperName",
+					"type": "string",
+					"initialValue": "",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 433774558800614
+				},
+				{
+					"eventType": "variable",
+					"name": "diagonal",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 790553961216441
+				},
+				{
+					"eventType": "variable",
+					"name": "extension",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 268729788399200
+				},
+				{
+					"eventType": "variable",
+					"name": "direction",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 868879087601537
+				},
+				{
+					"eventType": "variable",
+					"name": "division",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 742384162295299
+				},
+				{
+					"eventType": "variable",
+					"name": "playbackRate",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 141223086206831
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 880467145737124
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "👋 Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 758410343684473,
+							"parameters": [
+								"1"
+							]
+						}
+					],
+					"sid": 289639357932054,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[b]1st Parameter[/b] From"
+						},
+						{
+							"eventType": "variable",
+							"name": "param",
+							"type": "string",
+							"initialValue": "",
+							"comment": "",
+							"isStatic": false,
+							"isConstant": false,
+							"sid": 515508988363241
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 426176009693517,
+									"parameters": {
+										"first-value": "Functions.CheckParameter(1)",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 368109770800954,
+									"parameters": {
+										"variable": "wiperName",
+										"value": "uppercase(Functions.GetParameter(1))"
+									}
+								}
+							],
+							"sid": 930850969471053
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 431093989580763,
+									"parameters": {
+										"first-value": "Functions.CheckParameter(1)",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 948449509642134,
+									"parameters": {
+										"first-value": "wiperName = \"N\" | wiperName = \"S\" | wiperName  = \"E\" | wiperName  = \"W\" | wiperName  = \"NW\" | wiperName  = \"NE\" | wiperName  = \"SW\" | wiperName = \"SE\"",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-at-x",
+									"objectClass": "ParamsArray",
+									"sid": 801607269637260,
+									"parameters": {
+										"x": "0",
+										"value": "wiperName"
+									}
+								},
+								{
+									"callFunction": "SpecifiedParameter",
+									"sid": 250048971027628,
+									"parameters": [
+										"1"
+									]
+								}
+							],
+							"sid": 224487174917601
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 240720010929880
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 818506930688916,
+									"parameters": {
+										"variable": "wiperName",
+										"value": "choose(\"N\", \"S\", \"E\", \"W\", \"NW\", \"NE\", \"SW\", \"SE\")"
+									}
+								},
+								{
+									"callFunction": "GeneratedParameter",
+									"sid": 854331687363112,
+									"parameters": [
+										"1",
+										"str(wiperName)",
+										"\"\""
+									]
+								}
+							],
+							"sid": 980242657418134
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "🛑 Print Parameters",
+									"background-color": [
+										0.9294117647058824,
+										0.7764705882352941,
+										0.984313725490196,
+										1
+									]
+								},
+								{
+									"callFunction": "PrintParameterHint",
+									"sid": 920536295897826
+								}
+							],
+							"sid": 977856952760726
+						},
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 514339475408078,
+									"parameters": {
+										"variable": "extension",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 755320091021035,
+									"parameters": {
+										"variable": "direction",
+										"value": "1"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 877426265672359,
+									"parameters": {
+										"variable": "division",
+										"value": "choose(15, 30, 60)"
+									}
+								}
+							],
+							"sid": 759139023479067
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-instance-variable",
+									"objectClass": "Wiper",
+									"sid": 238548725387696,
+									"parameters": {
+										"instance-variable": "For",
+										"comparison": 0,
+										"value": "wiperName"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-animation-frame",
+									"objectClass": "Wiper",
+									"sid": 741562058395772,
+									"parameters": {
+										"frame-number": "floor(random(0, Wiper.AnimationFrameCount))"
+									}
+								},
+								{
+									"id": "set-opacity",
+									"objectClass": "Wiper",
+									"sid": 603710889590891,
+									"parameters": {
+										"opacity": "choose(25, 50, 75, 100, 100)"
+									}
+								}
+							],
+							"sid": 596869943751082
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 113933519553253,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.1",
+										"type": "regular",
+										"tag": "\"Draw\""
+									}
+								},
+								{
+									"id": "signal",
+									"objectClass": "System",
+									"sid": 327522906423494,
+									"parameters": {
+										"tag": "\"Brush Started\""
+									}
+								}
+							],
+							"sid": 184426360629105
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 630742240689708
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 958423821779259,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 531099200259360
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 695488664230632
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 385061594444456,
+							"parameters": [
+								"\"Wipe\""
+							]
+						}
+					],
+					"sid": 829946269801795
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 342907296032080,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Draw\""
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 250409631870071,
+							"parameters": {
+								"variable": "Painting"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "compare-instance-variable",
+							"objectClass": "Wiper",
+							"sid": 904786231066541,
+							"parameters": {
+								"instance-variable": "For",
+								"comparison": 0,
+								"value": "wiperName"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 685993438418507,
+							"parameters": {
+								"audio-file": {
+									"path": "Brushes/Wipe/Wipe - Individual Wipe"
+								},
+								"loop": "not-looping",
+								"volume": "-7.5",
+								"stereo-pan": "0",
+								"tag-optional": "\"Wipe\""
+							}
+						},
+						{
+							"id": "set-playback-rate",
+							"objectClass": "Audio",
+							"sid": 758678517498488,
+							"parameters": {
+								"tag": "\"Wipe\"",
+								"playback-rate": "0.9 + random(0.1, 0.2)"
+							}
+						},
+						{
+							"id": "set-volume",
+							"objectClass": "Audio",
+							"sid": 535824781877525,
+							"parameters": {
+								"tag": "\"Wipe\"",
+								"db": "-10 * random(1.0)"
+							}
+						}
+					],
+					"sid": 706538707395682,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 152711879551470,
+									"parameters": {
+										"first-value": "direction",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "add-to-eventvar",
+									"objectClass": "System",
+									"sid": 506614507216209,
+									"parameters": {
+										"variable": "extension",
+										"value": "(Wiper.Width / division)"
+									}
+								},
+								{
+									"id": "set-height",
+									"objectClass": "Wiper",
+									"sid": 568907351670194,
+									"parameters": {
+										"height": "extension"
+									}
+								}
+							],
+							"sid": 528073203114011,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 188041821933973,
+											"parameters": {
+												"first-value": "extension",
+												"comparison": 5,
+												"second-value": "Wiper.Width"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 437544163552311,
+											"parameters": {
+												"variable": "direction",
+												"value": "direction * -1"
+											}
+										}
+									],
+									"sid": 511036631219706
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 454018921320030
+								}
+							],
+							"actions": [
+								{
+									"id": "subtract-from-eventvar",
+									"objectClass": "System",
+									"sid": 279228499548680,
+									"parameters": {
+										"variable": "extension",
+										"value": "(Wiper.Width / division)"
+									}
+								},
+								{
+									"id": "set-height",
+									"objectClass": "Wiper",
+									"sid": 587137711880430,
+									"parameters": {
+										"height": "extension"
+									}
+								}
+							],
+							"sid": 206836838114811,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 365196095601430,
+											"parameters": {
+												"first-value": "extension",
+												"comparison": 3,
+												"second-value": "0"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 269153100217436,
+											"parameters": {
+												"variable": "direction",
+												"value": "direction * -1"
+											}
+										}
+									],
+									"sid": 602411913245676
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 268694679512081,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 773891163760918
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 567241823871483,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 546615706213607,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 395688771920268
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 155585731607847,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 656159156928549
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "NoNudge",
+							"sid": 802654808612331
+						}
+					],
+					"sid": 972853032615761
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 737956991697826,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 333734465590375,
+							"parameters": {
+								"object": "Wiper",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 441875005981047,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 378906444940066
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 307909215885554
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 524422607738444,
+							"parameters": {
+								"tag": "\"Wipe\""
+							}
+						}
+					],
+					"sid": 750290152130322
+				}
+			],
+			"sid": 384792646682056
+		}
+	],
+	"sid": 891306629574571
+}

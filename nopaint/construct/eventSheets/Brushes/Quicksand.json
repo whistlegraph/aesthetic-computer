@@ -1,0 +1,790 @@
+{
+	"name": "Quicksand",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Quicksand",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "swirlAmount",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 682715381069571
+				},
+				{
+					"eventType": "variable",
+					"name": "swirlDirection",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 530086306770227
+				},
+				{
+					"eventType": "variable",
+					"name": "size",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 997981732820954
+				},
+				{
+					"eventType": "variable",
+					"name": "radius",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 616707778625844
+				},
+				{
+					"eventType": "variable",
+					"name": "x",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 556205187420277
+				},
+				{
+					"eventType": "variable",
+					"name": "sizes",
+					"type": "string",
+					"initialValue": "64|96|128|196",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": true,
+					"sid": 802112304689845
+				},
+				{
+					"eventType": "variable",
+					"name": "y",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 329835188517907
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 187257363628377
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "👋 Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 202038099333082,
+							"parameters": [
+								"3"
+							]
+						},
+						{
+							"type": "comment",
+							"text": "[b]1st Parameter[/b] X"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 121330961816140,
+							"parameters": {
+								"variable": "x",
+								"value": "Functions.ProcessNumericParameter(1, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "[b]2nd Parameter[/b] Y"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 277167459824865,
+							"parameters": {
+								"variable": "y",
+								"value": "Functions.ProcessNumericParameter(2, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "[b]3rd Parameter[/b] Scale"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 971358030564955,
+							"parameters": {
+								"variable": "size",
+								"value": "tokenat(sizes, Functions.ProcessNumericParameter(3, 1, tokencount(sizes, \"|\")) - 1, \"|\")"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "🛑 Print Parameters",
+							"background-color": [
+								0.9294117647058824,
+								0.7764705882352941,
+								0.984313725490196,
+								1
+							]
+						},
+						{
+							"callFunction": "PrintParameterHint",
+							"sid": 431301489680301
+						}
+					],
+					"sid": 483790508500423,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 894865706366094,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Quicksand/Quicksand - Theme"
+										},
+										"loop": "not-looping",
+										"volume": "-7.5",
+										"stereo-pan": "0",
+										"tag-optional": "\"Quicksand\""
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 737372814944124,
+									"parameters": {
+										"variable": "radius",
+										"value": "size / 2"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 602816745620728,
+									"parameters": {
+										"variable": "swirlAmount",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "QuicksandSprite",
+									"sid": 554544158568592,
+									"parameters": {
+										"effect": "\"Swirl\"",
+										"parameter-index": "1",
+										"value": "swirlAmount"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 454977638195212,
+									"parameters": {
+										"variable": "swirlDirection",
+										"value": "choose(-1, 1)"
+									}
+								},
+								{
+									"id": "set-size",
+									"objectClass": "QuicksandBuffer",
+									"sid": 752612723031870,
+									"parameters": {
+										"width": "size",
+										"height": "size"
+									}
+								},
+								{
+									"id": "set-position",
+									"objectClass": "QuicksandBuffer",
+									"sid": 464543764419659,
+									"parameters": {
+										"x": "x",
+										"y": "y"
+									}
+								},
+								{
+									"id": "paste-object",
+									"objectClass": "QuicksandBuffer",
+									"sid": 263515027482775,
+									"parameters": {
+										"object": "Painting",
+										"effects": "with-effects"
+									}
+								},
+								{
+									"type": "script",
+									"language": "javascript",
+									"script": [
+										"const imageData = await runtime.objects.QuicksandBuffer.getFirstInstance().getImagePixelData()",
+										"",
+										"const data = imageData.data",
+										"for (let i = 0, len = data.length; i < len; i += 4)",
+										"{",
+										"\tconst x = (i / 4) % imageData.width",
+										"\tconst y = Math.floor((i / 4) / imageData.height)",
+										"\tconst distance = Math.hypot(x - localVars.radius, y - localVars.radius)",
+										"\tconst cutoff1 = localVars.radius * 0.6",
+										"\tconst cutoff2 = localVars.radius * 0.9",
+										"\t",
+										"\tif (distance > cutoff1 && distance < cutoff2 && runtime.random() < (distance - cutoff1) / cutoff1) {",
+										"\t  data[i] = 0",
+										"\t  data [i + 1] = 0",
+										"\t  data[i + 2] = 0",
+										"\t  data[i + 3] = 0",
+										"\t} else if (distance > cutoff2) {",
+										"\t  data[i] = 0",
+										"\t  data [i + 1] = 0",
+										"\t  data[ i + 2] = 0",
+										"\t  data[i + 3] = 0",
+										"\t}",
+										"}",
+										"",
+										"runtime.objects.QuicksandBuffer.getFirstInstance().loadImagePixelData(imageData)"
+									]
+								},
+								{
+									"callFunction": "WorkAroundPixelAccessFlip",
+									"sid": 849685674519619
+								},
+								{
+									"id": "wait-for-previous-actions",
+									"objectClass": "System",
+									"sid": 385421923864629
+								},
+								{
+									"id": "save-image",
+									"objectClass": "QuicksandBuffer",
+									"sid": 825362143237109,
+									"parameters": {
+										"format": "png",
+										"jpeg-quality": "100",
+										"x": "0",
+										"y": "0",
+										"width": "0",
+										"height": "0"
+									}
+								},
+								{
+									"id": "wait-for-previous-actions",
+									"objectClass": "System",
+									"sid": 318676008351358
+								},
+								{
+									"id": "load-image-from-url",
+									"objectClass": "QuicksandSprite",
+									"sid": 319526224758777,
+									"parameters": {
+										"uri": "QuicksandBuffer.SavedImageURL",
+										"size": "resize-to-image-size",
+										"cross-origin": "anonymous"
+									}
+								},
+								{
+									"id": "wait-for-previous-actions",
+									"objectClass": "System",
+									"sid": 758216285085644
+								},
+								{
+									"id": "set-position-to-another-object",
+									"objectClass": "QuicksandSprite",
+									"sid": 673694803804537,
+									"parameters": {
+										"object": "QuicksandBuffer",
+										"image-point-optional": "0"
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 651705753992228,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.04",
+										"type": "regular",
+										"tag": "\"ShiftWarp\""
+									}
+								},
+								{
+									"id": "signal",
+									"objectClass": "System",
+									"sid": 100279637639486,
+									"parameters": {
+										"tag": "\"Brush Started\""
+									}
+								}
+							],
+							"sid": 566831806466239
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 578695168323957
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 692410527305145,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 797007857945026
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-ended",
+							"objectClass": "Audio",
+							"sid": 118752011397339,
+							"parameters": {
+								"tag": "\"Quicksand\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 149651984979090,
+							"parameters": {
+								"audio-file": {
+									"path": "Brushes/Quicksand/Quicksand - Brief Theme"
+								},
+								"loop": "looping",
+								"volume": "-7.5",
+								"stereo-pan": "0",
+								"tag-optional": "\"QuicksandLoop\""
+							}
+						}
+					],
+					"sid": 933453769002779
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 166325519740890
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 933479591000597,
+							"parameters": [
+								"\"QuicksandLoop\""
+							]
+						},
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 535444324184059,
+							"parameters": [
+								"\"Quicksand\""
+							]
+						}
+					],
+					"sid": 420316984392404
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 352391915525965,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 953997679690273,
+							"parameters": {
+								"first-value": "timescale",
+								"comparison": 0,
+								"second-value": "0"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 348373953523167
+						}
+					],
+					"actions": [
+						{
+							"id": "stop-timer",
+							"objectClass": "Clock",
+							"sid": 878648112880345,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"ShiftWarp\""
+							}
+						}
+					],
+					"sid": 834448100598905
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 440820447215573,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 123845087078535,
+							"parameters": {
+								"first-value": "timescale",
+								"comparison": 0,
+								"second-value": "1"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 857362439339929
+						}
+					],
+					"actions": [
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 675210239106467,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "0.04",
+								"type": "regular",
+								"tag": "\"ShiftWarp\""
+							}
+						}
+					],
+					"sid": 747536413077767
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 938454529231060,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"ShiftWarp\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-effect-parameter",
+							"objectClass": "QuicksandSprite",
+							"sid": 526473248753231,
+							"parameters": {
+								"effect": "\"Swirl\"",
+								"parameter-index": "1",
+								"value": "swirlAmount"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 316692485354082,
+							"parameters": {
+								"variable": "swirlAmount",
+								"value": "swirlAmount + (0.2 * swirlDirection)"
+							}
+						}
+					],
+					"sid": 679872548984045,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 773483553379583,
+									"parameters": {
+										"first-value": "abs(swirlAmount)",
+										"comparison": 5,
+										"second-value": "360"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 811150277372128,
+									"parameters": {
+										"variable": "swirlDirection",
+										"value": "swirlDirection * -1"
+									}
+								}
+							],
+							"sid": 446283163676435
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 422254463867724,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 578764288558880
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 200014824135064,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 395727640653019,
+							"parameters": {
+								"x": "QuicksandSprite.X",
+								"y": "QuicksandSprite.Y"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 196398038432707,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 388708460603569,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 412467975069125
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 430150689576319,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "QuicksandSprite",
+							"sid": 897264253629026,
+							"parameters": {
+								"x": "min(max(0, Self.X + NudgedX), 255)",
+								"y": "min(max(0, Self.Y + NudgedY), 255)"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 769732406006149,
+							"parameters": {
+								"x": "QuicksandSprite.X",
+								"y": "QuicksandSprite.Y"
+							}
+						}
+					],
+					"sid": 652918244689833
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 727463184951351,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "There is a bug where any filter that is animated, moves forward a tick while painting."
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 423867687932607,
+							"parameters": {
+								"object": "QuicksandSprite",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 169559991177216,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 901556553251044
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 953964965287111
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 217614716764606,
+							"parameters": {
+								"tag": "\"QuicksandLoop\""
+							}
+						},
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 292306813366647,
+							"parameters": {
+								"tag": "\"Quicksand\""
+							}
+						}
+					],
+					"sid": 387265523060943
+				}
+			],
+			"sid": 423824227092258
+		}
+	],
+	"sid": 909112384167600
+}

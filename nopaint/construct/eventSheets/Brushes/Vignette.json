@@ -1,0 +1,835 @@
+{
+	"name": "Vignette",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Vignette",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "hardness",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 562065633271238
+				},
+				{
+					"eventType": "variable",
+					"name": "radius",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 667272255455011
+				},
+				{
+					"eventType": "variable",
+					"name": "x",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 848279303223178
+				},
+				{
+					"eventType": "variable",
+					"name": "y",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 119563109547819
+				},
+				{
+					"eventType": "variable",
+					"name": "moving",
+					"type": "boolean",
+					"initialValue": "false",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 422803843011793
+				},
+				{
+					"eventType": "variable",
+					"name": "dark",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 259863653673609
+				},
+				{
+					"eventType": "variable",
+					"name": "sizes",
+					"type": "string",
+					"initialValue": "16|32|64|96|128",
+					"comment": "",
+					"isStatic": false,
+					"isConstant": false,
+					"sid": 312767083913059
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 423723918513526
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "👋 Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 439732269611042,
+							"parameters": [
+								"3"
+							]
+						},
+						{
+							"type": "comment",
+							"text": "[b]1st Parameter[/b] X"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 528968741369058,
+							"parameters": {
+								"variable": "x",
+								"value": "Functions.ProcessNumericParameter(1, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "[b]2nd Parameter[/b] Y"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 967371896709416,
+							"parameters": {
+								"variable": "y",
+								"value": "Functions.ProcessNumericParameter(2, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "[b]3rd Parameter[/b] Scale"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 366504441828869,
+							"parameters": {
+								"variable": "radius",
+								"value": "tokenat(sizes, Functions.ProcessNumericParameter(3, 1, tokencount(sizes, \"|\")) - 1, \"|\")"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "🛑 Print Parameters",
+							"background-color": [
+								0.9294117647058824,
+								0.7764705882352941,
+								0.984313725490196,
+								1
+							]
+						},
+						{
+							"callFunction": "PrintParameterHint",
+							"sid": 900252329690813
+						}
+					],
+					"sid": 642377816367750,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 906546328503423,
+									"parameters": {
+										"variable": "hardness",
+										"value": "int(random(radius / 2, radius - 2))"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 130802375543758,
+									"parameters": {
+										"variable": "dark",
+										"value": "choose(0, 1)"
+									}
+								},
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 375631139423881,
+									"parameters": {
+										"variable": "moving",
+										"value": "false"
+									}
+								},
+								{
+									"id": "set-position",
+									"objectClass": "VignetteVehicle",
+									"sid": 619533845015584,
+									"parameters": {
+										"x": "x",
+										"y": "y"
+									}
+								},
+								{
+									"id": "set-angle",
+									"objectClass": "VignetteVehicle",
+									"sid": 848386230934624,
+									"parameters": {
+										"angle": "random(0, 360)"
+									}
+								},
+								{
+									"id": "tween-one-property",
+									"objectClass": "VignetteBuffer",
+									"sid": 552963019532489,
+									"behaviorType": "Tween",
+									"parameters": {
+										"tags": "\"\"",
+										"property": "offsetOpacity",
+										"end-value": "100",
+										"time": "0.5",
+										"ease": "easeinsine",
+										"destroy-on-complete": "no",
+										"loop": "no",
+										"ping-pong": "no",
+										"repeat-count": "1"
+									}
+								},
+								{
+									"id": "tween-value",
+									"objectClass": "VignetteBuffer",
+									"sid": 659418541004658,
+									"behaviorType": "Tween",
+									"parameters": {
+										"tags": "\"Radius\"",
+										"start-value": "radius",
+										"end-value": "radius * 2",
+										"time": "2",
+										"ease": "easeinoutsine",
+										"destroy-on-complete": "no",
+										"loop": "yes",
+										"ping-pong": "yes",
+										"repeat-count": "1"
+									}
+								},
+								{
+									"id": "tween-value",
+									"objectClass": "VignetteBuffer",
+									"sid": 998821077428141,
+									"behaviorType": "Tween",
+									"parameters": {
+										"tags": "\"Hardness\"",
+										"start-value": "hardness",
+										"end-value": "hardness * 2",
+										"time": "2",
+										"ease": "easeinoutsine",
+										"destroy-on-complete": "no",
+										"loop": "yes",
+										"ping-pong": "yes",
+										"repeat-count": "1"
+									}
+								}
+							],
+							"sid": 379042096269289,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-eventvar",
+											"objectClass": "System",
+											"sid": 546943961340871,
+											"parameters": {
+												"variable": "dark",
+												"comparison": 0,
+												"value": "0"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-default-color",
+											"objectClass": "VignetteBuffer",
+											"sid": 241783795946868,
+											"parameters": {
+												"color": "Functions.hslaToRgba(random(0, 1), random(0, 1), random(0.05, 0.2), 1.0)"
+											}
+										}
+									],
+									"sid": 256195494019172
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 160655561037881
+										}
+									],
+									"actions": [
+										{
+											"id": "set-default-color",
+											"objectClass": "VignetteBuffer",
+											"sid": 554267486507382,
+											"parameters": {
+												"color": "Functions.hslaToRgba(random(0, 1), random(0, 1), random(0.7, 0.9), 1.0)"
+											}
+										}
+									],
+									"sid": 264051155103342
+								},
+								{
+									"eventType": "block",
+									"conditions": [],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 874141494479393,
+											"parameters": {
+												"audio-file": {
+													"path": "Brushes/Vignette/Vignette - Theme"
+												},
+												"loop": "looping",
+												"volume": "-5",
+												"stereo-pan": "0",
+												"tag-optional": "\"Vignette\""
+											}
+										},
+										{
+											"id": "start-timer",
+											"objectClass": "Clock",
+											"sid": 528640945939123,
+											"behaviorType": "Timer",
+											"parameters": {
+												"duration": "0.08",
+												"type": "once",
+												"tag": "\"Vignette\""
+											}
+										}
+									],
+									"sid": 965451671850142
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]No Theme[/h4]",
+					"background-color": [
+						0.7215686274509804,
+						0.9058823529411765,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 957112984470366
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 382149417604006,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 416505936831492
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 889123151516489,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 389362266099856
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 578289303389708,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 432890528032290
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]No Audio on Pause[/h4]",
+					"background-color": [
+						0.8392156862745098,
+						0.9450980392156862,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 566594726352036
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 305330904845252,
+							"parameters": [
+								"\"Vignette\""
+							]
+						}
+					],
+					"sid": 942829657756870
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 209219998379107,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Vignette\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 600201602178938,
+							"parameters": {
+								"variable": "x",
+								"value": "VignetteVehicle.X"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 868102582445450,
+							"parameters": {
+								"variable": "y",
+								"value": "VignetteVehicle.Y"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 356341089009794,
+							"parameters": {
+								"variable": "radius",
+								"value": "VignetteBuffer.Tween.Value(\"Radius\")"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 788289071299308,
+							"parameters": {
+								"variable": "hardness",
+								"value": "VignetteBuffer.Tween.Value(\"Hardness\")"
+							}
+						},
+						{
+							"callFunction": "VignetteRender",
+							"sid": 567811054602251
+						},
+						{
+							"callFunction": "WorkAroundPixelAccessFlip",
+							"sid": 907162249491043
+						},
+						{
+							"id": "wait-for-previous-actions",
+							"objectClass": "System",
+							"sid": 665082678939010,
+							"disabled": true
+						},
+						{
+							"id": "move-forward",
+							"objectClass": "VignetteVehicle",
+							"sid": 213522790142355,
+							"parameters": {
+								"distance": "1"
+							}
+						},
+						{
+							"id": "rotate-clockwise",
+							"objectClass": "VignetteVehicle",
+							"sid": 689432344474691,
+							"parameters": {
+								"degrees": "choose(-3, 3)"
+							}
+						},
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 568421191089386,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "0.08",
+								"type": "once",
+								"tag": "\"Vignette\""
+							}
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 347481080211609,
+							"parameters": {
+								"tag": "\"Brush Started\""
+							}
+						}
+					],
+					"sid": 231058739950690,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "is-outside-layout",
+									"objectClass": "VignetteVehicle",
+									"sid": 242470902725582
+								}
+							],
+							"actions": [
+								{
+									"id": "set-angle-toward-position",
+									"objectClass": "VignetteVehicle",
+									"sid": 152627779645598,
+									"parameters": {
+										"x": "PaintingResolution / 2",
+										"y": "PaintingResolution / 2"
+									}
+								}
+							],
+							"sid": 123818700969105
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 557603864427636,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 599755120892601
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 256481196441295,
+							"parameters": {
+								"object": "NudgeDot",
+								"time-scale": "1.0"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 898941078335743,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "stop-timer",
+							"objectClass": "Clock",
+							"sid": 505311293042925,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Vignette\""
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 273455763170248,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 184651501840745,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "0.08",
+								"type": "once",
+								"tag": "\"Vignette\""
+							}
+						}
+					],
+					"sid": 545668589529039
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 435873822760940,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "VignetteVehicle",
+							"sid": 456420719656568,
+							"parameters": {
+								"x": "min(max(0, Self.X + NudgedX), 255)",
+								"y": "min(max(0, Self.Y + NudgedY), 255)"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 534765781607668,
+							"parameters": {
+								"x": "VignetteVehicle.X",
+								"y": "VignetteVehicle.Y"
+							}
+						},
+						{
+							"callFunction": "VignetteRender",
+							"sid": 653633506362676
+						}
+					],
+					"sid": 997070579769267
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 627383702766999,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 204893787923692,
+							"parameters": {
+								"object": "VignetteBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 837816530083175,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 177511490793885
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 246767289349335
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 482593460287723,
+							"parameters": {
+								"tag": "\"Vignette\""
+							}
+						}
+					],
+					"sid": 813491376894252
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Utilities[/h3]"
+				},
+				{
+					"functionName": "VignetteRender",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 894946810386145,
+							"parameters": {
+								"variable": "x",
+								"value": "VignetteVehicle.X"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 377107314549564,
+							"parameters": {
+								"variable": "y",
+								"value": "VignetteVehicle.Y"
+							}
+						},
+						{
+							"type": "script",
+							"language": "javascript",
+							"script": [
+								"const data = main.globalImageData.data",
+								"let x, y, dist, pma",
+								"const radMinHard = localVars.radius - localVars.hardness",
+								"",
+								"for (let i = 0, len = data.length; i < len; i += 4)",
+								"{",
+								"\tx = (i / 4) % main.globalImageData.width",
+								"\ty = Math.floor((i / 4) / main.globalImageData.height)",
+								"\tdist = main.distance(x, y, localVars.x, localVars.y) ",
+								"\t",
+								"\tdata[i + 3] = Math.min(200, Math.floor((dist - localVars.hardness) / (radMinHard) * 255))",
+								"\tpma = 255 * (data[i + 3] / 255)",
+								"\tdata[i] = pma",
+								"\tdata[i + 1] = pma",
+								"\tdata[i + 2] = pma",
+								"}",
+								"",
+								"runtime.objects.VignetteBuffer.getFirstInstance().loadImagePixelData(main.globalImageData)"
+							]
+						},
+						{
+							"callFunction": "WorkAroundPixelAccessFlip",
+							"sid": 665378271457118
+						}
+					],
+					"sid": 693410266903862
+				}
+			],
+			"sid": 245037748528846
+		}
+	],
+	"sid": 702622682208528
+}

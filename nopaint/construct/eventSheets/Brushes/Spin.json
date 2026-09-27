@@ -1,0 +1,602 @@
+{
+	"name": "Spin",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Spin",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "direction",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 619893505070958
+				},
+				{
+					"eventType": "variable",
+					"name": "spinAngle",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 700364939720234
+				},
+				{
+					"eventType": "variable",
+					"name": "clearColor",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 479849255684325
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 493600113404444
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Save the Painting and load it into the SpinBuffer"
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "PaintingBuffer",
+							"sid": 707452215143004,
+							"parameters": {
+								"object": "Painting",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"id": "save-image",
+							"objectClass": "PaintingBuffer",
+							"sid": 703814978455679,
+							"parameters": {
+								"format": "png",
+								"jpeg-quality": "100",
+								"x": "0",
+								"y": "0",
+								"width": "0",
+								"height": "0"
+							}
+						},
+						{
+							"id": "wait-for-previous-actions",
+							"objectClass": "System",
+							"sid": 885479817396731
+						},
+						{
+							"id": "load-image-from-url",
+							"objectClass": "SpinBuffer",
+							"sid": 313190328691803,
+							"parameters": {
+								"uri": "PaintingBuffer.SavedImageURL",
+								"size": "resize-to-image-size",
+								"cross-origin": "anonymous"
+							}
+						},
+						{
+							"id": "wait-for-previous-actions",
+							"objectClass": "System",
+							"sid": 782964625095360
+						},
+						{
+							"type": "comment",
+							"text": "Setup"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 665410482170434,
+							"parameters": {
+								"variable": "direction",
+								"value": "choose(-1, 1, -2, 2, -3, 3)"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 870407393184638,
+							"parameters": {
+								"variable": "spinAngle",
+								"value": "0"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 252947728912583,
+							"parameters": {
+								"variable": "clearColor",
+								"value": "Functions.hslaToRgba(random(0, 1), random(0, 1), random(0, 0.8), 1)"
+							}
+						},
+						{
+							"id": "set-opacity",
+							"objectClass": "SpinBuffer",
+							"sid": 258366584613071,
+							"parameters": {
+								"opacity": "choose(4, 4, 10, 25, 100, 100, 100, 100)"
+							}
+						},
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 238768903322200,
+							"parameters": {
+								"audio-file": {
+									"path": "Brushes/Spin/Spin - Theme"
+								},
+								"loop": "looping",
+								"volume": "-2.5",
+								"stereo-pan": "0",
+								"tag-optional": "\"Spin\""
+							}
+						},
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 395149349840865,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "0.1",
+								"type": "regular",
+								"tag": "\"Spin\""
+							}
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 410793770543910,
+							"parameters": {
+								"tag": "\"Brush Started\""
+							}
+						}
+					],
+					"sid": 925633577500312
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]No Theme[/h4]",
+					"background-color": [
+						0.7215686274509804,
+						0.9058823529411765,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 493487536487387
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 895207132092947,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 242316952358612
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 503234773936581,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 448116153780252
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 247134781243432,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 149098507709848
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]No Audio on Pause[/h4]",
+					"background-color": [
+						0.8392156862745098,
+						0.9450980392156862,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 928163413365105
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 464554454278889,
+							"parameters": [
+								"\"Spin\""
+							]
+						}
+					],
+					"sid": 346038412782062
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 466714485862237,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Spin\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 819762471775964,
+							"parameters": {
+								"variable": "spinAngle",
+								"value": "(spinAngle + direction) % 360"
+							}
+						},
+						{
+							"id": "set-angle",
+							"objectClass": "SpinBuffer",
+							"sid": 663862184507002,
+							"parameters": {
+								"angle": "spinAngle"
+							}
+						}
+					],
+					"sid": 274364565255132,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 524969870600860,
+									"parameters": {
+										"first-value": "SpinBuffer.Opacity",
+										"comparison": 0,
+										"second-value": "100"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "clear-canvas",
+									"objectClass": "PaintingBuffer",
+									"sid": 490020701682897,
+									"parameters": {
+										"color": "clearColor"
+									}
+								}
+							],
+							"sid": 208460673902831
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "paste-object",
+									"objectClass": "PaintingBuffer",
+									"sid": 883756536332446,
+									"parameters": {
+										"object": "SpinBuffer",
+										"effects": "with-effects"
+									}
+								}
+							],
+							"sid": 950220531090639
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "variable",
+					"name": "nudgeLastAngle",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 296802874551648
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 753411693815839,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 606475153522654
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 131379508808704,
+							"parameters": {
+								"variable": "nudgeLastAngle",
+								"value": "angle(128, 128, NudgePointerX, NudgePointerY)"
+							}
+						},
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 617930628365589,
+							"parameters": {
+								"object": "NudgeDot",
+								"time-scale": "1.0"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 913403047338952,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 724057793482959,
+							"parameters": {
+								"x": "128",
+								"y": "128"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 336746147500467,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						}
+					],
+					"sid": 436168308806455
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 477521373544977,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "add-to-eventvar",
+							"objectClass": "System",
+							"sid": 942647379414675,
+							"parameters": {
+								"variable": "spinAngle",
+								"value": "angle(128, 128, NudgePointerX, NudgePointerY) - nudgeLastAngle"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 852098277570410,
+							"parameters": {
+								"variable": "nudgeLastAngle",
+								"value": "angle(128, 128, NudgePointerX, NudgePointerY)"
+							}
+						},
+						{
+							"id": "set-angle",
+							"objectClass": "SpinBuffer",
+							"sid": 856332085450463,
+							"parameters": {
+								"angle": "spinAngle"
+							}
+						}
+					],
+					"sid": 515912986956266,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 281973833641318,
+									"parameters": {
+										"first-value": "SpinBuffer.Opacity",
+										"comparison": 0,
+										"second-value": "100"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "clear-canvas",
+									"objectClass": "PaintingBuffer",
+									"sid": 742151040810923,
+									"parameters": {
+										"color": "clearColor"
+									}
+								}
+							],
+							"sid": 941217256978237
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "paste-object",
+									"objectClass": "PaintingBuffer",
+									"sid": 528609285784415,
+									"parameters": {
+										"object": "SpinBuffer",
+										"effects": "with-effects"
+									}
+								}
+							],
+							"sid": 159347509472807
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 291800734689053,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "There is a bug where the filter moves forward a tick while painting."
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 942593756645618,
+							"parameters": {
+								"object": "PaintingBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 863767734566609,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 691256896149235
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 896060709395266
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 646117855223065,
+							"parameters": {
+								"tag": "\"Spin\""
+							}
+						}
+					],
+					"sid": 490213489809311
+				}
+			],
+			"sid": 512669683685788
+		}
+	],
+	"sid": 632713102127706
+}

@@ -1,0 +1,31 @@
+{
+	"name": "MainSpriteFontEmoji1",
+	"plugin-id": "Spritefont2",
+	"sid": 992558223981803,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [
+		{
+			"name": "For",
+			"type": "string",
+			"desc": "",
+			"show": true,
+			"sid": 344230076656576
+		}
+	],
+	"behaviorTypes": [],
+	"effectTypes": [],
+	"image": {
+		"width": 208,
+		"height": 32,
+		"originX": 0.5,
+		"originY": 0.5,
+		"originalSource": "",
+		"exportFormat": "lossless",
+		"exportQuality": 1,
+		"fileType": "image/png",
+		"imageSpriteId": 1673645,
+		"useCollisionPoly": true,
+		"tag": ""
+	}
+}

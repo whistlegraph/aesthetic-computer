@@ -1,0 +1,15 @@
+{
+	"name": "AdvancedRandom",
+	"plugin-id": "AdvancedRandom",
+	"sid": 190426651108884,
+	"singleglobal-inst": {
+		"type": "AdvancedRandom",
+		"properties": {
+			"seed": "",
+			"seeded-random": true
+		},
+		"uid": 21,
+		"sid": 717239049257304,
+		"tags": ""
+	}
+}

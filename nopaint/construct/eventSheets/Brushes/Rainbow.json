@@ -1,0 +1,368 @@
+{
+	"name": "Rainbow",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Rainbow",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "hueShift",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 562835947147937
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 423849083922489
+						}
+					],
+					"actions": [
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 593548796474524,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "0.1",
+								"type": "regular",
+								"tag": "\"ShiftHue\""
+							}
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "ColorSurferBuffer",
+							"sid": 763905098896004,
+							"parameters": {
+								"object": "Painting",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 519703178958411,
+							"parameters": {
+								"variable": "hueShift",
+								"value": "0"
+							}
+						},
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 998518412087643,
+							"parameters": {
+								"audio-file": {
+									"path": "Brushes/Rainbow/Rainbow - Theme"
+								},
+								"loop": "looping",
+								"volume": "-5",
+								"stereo-pan": "0",
+								"tag-optional": "\"HueShift\""
+							}
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 415463975262242,
+							"parameters": {
+								"tag": "\"Brush Started\""
+							}
+						}
+					],
+					"sid": 581223832280461
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 814285868054245
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 895554067809419,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 383631928040201
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 951489023723718
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 575036316976896,
+							"parameters": [
+								"\"HueShift\""
+							]
+						}
+					],
+					"sid": 308927741750540
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 796972423599521,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"ShiftHue\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "add-to-eventvar",
+							"objectClass": "System",
+							"sid": 270289010509084,
+							"parameters": {
+								"variable": "hueShift",
+								"value": "1"
+							}
+						},
+						{
+							"id": "set-effect-parameter",
+							"objectClass": "ColorSurferBuffer",
+							"sid": 367590284966447,
+							"parameters": {
+								"effect": "\"AdjustHSL\"",
+								"parameter-index": "0",
+								"value": "abs(hueShift)"
+							}
+						}
+					],
+					"sid": 714214991237477,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 954349728066284,
+									"parameters": {
+										"first-value": "hueShift",
+										"comparison": 0,
+										"second-value": "100"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 922183373866536,
+									"parameters": {
+										"variable": "hueShift",
+										"value": "-100"
+									}
+								}
+							],
+							"sid": 207926442883434
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 836400115819561,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 780676275209458
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 593829343710505,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 362126823150028,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 828113915286637
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 554078362586012,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 961517345030800
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "NoNudge",
+							"sid": 538103645955383
+						}
+					],
+					"sid": 391357786694072
+				},
+				{
+					"eventType": "comment",
+					"text": "Make a snapshot as soon as timescale is set to 0, so the filter doesn't step ahead by 1 tick."
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 143028177096989,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "There is a bug where the filter moves forward a tick while painting."
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 319850935663241,
+							"parameters": {
+								"object": "ColorSurferBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 902136477989860,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 623241504126266
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 176742940458631
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 970212328932238,
+							"parameters": {
+								"tag": "\"HueShift\""
+							}
+						}
+					],
+					"sid": 452514105879497
+				}
+			],
+			"sid": 825842565717629
+		}
+	],
+	"sid": 127837500188678
+}

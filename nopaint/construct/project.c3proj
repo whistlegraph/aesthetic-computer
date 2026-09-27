@@ -1,0 +1,2657 @@
+{
+	"projectFormatVersion": 1,
+	"savedWithRelease": 49502,
+	"name": "No Paint",
+	"runtime": "c3",
+	"useWorker": "worker",
+	"bundleAddons": true,
+	"usedAddons": [
+		{
+			"type": "plugin",
+			"id": "AJAX",
+			"name": "AJAX",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "AdvancedRandom",
+			"name": "Advanced Random",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "Arr",
+			"name": "Array",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "Audio",
+			"name": "Audio",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "BinaryData",
+			"name": "Binary Data",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "Browser",
+			"name": "Browser",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "Date",
+			"name": "Date",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "DrawingCanvas",
+			"name": "Drawing canvas",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "Json",
+			"name": "JSON",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "Keyboard",
+			"name": "Keyboard",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "LocalStorage",
+			"name": "Local storage",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "Mouse",
+			"name": "Mouse",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "NinePatch",
+			"name": "9-patch",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "Particles",
+			"name": "Particles",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "PlatformInfo",
+			"name": "Platform info",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "Share",
+			"name": "Share",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "Sprite",
+			"name": "Sprite",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "Spritefont2",
+			"name": "Sprite font",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "TiledBg",
+			"name": "Tiled Background",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "Touch",
+			"name": "Touch",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "UserMedia",
+			"name": "User Media",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "filechooser",
+			"name": "File chooser",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "plugin",
+			"id": "iframe",
+			"name": "iframe",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "behavior",
+			"id": "Persist",
+			"name": "Persist",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "behavior",
+			"id": "Physics",
+			"name": "Physics",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "behavior",
+			"id": "Pin",
+			"name": "Pin",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "behavior",
+			"id": "Rotate",
+			"name": "Rotate",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "behavior",
+			"id": "Sin",
+			"name": "Sine",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "behavior",
+			"id": "Timer",
+			"name": "Timer",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "behavior",
+			"id": "Tween",
+			"name": "Tween",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "behavior",
+			"id": "bound",
+			"name": "Bound to",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "Mikal_MirrorY",
+			"name": "MirrorY",
+			"author": "Mikal",
+			"bundled": true,
+			"version": "1.0.0.0"
+		},
+		{
+			"type": "effect",
+			"id": "blacknwhite",
+			"name": "Black & white",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "blurhorizontal",
+			"name": "Blur horizontal",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "blurvertical",
+			"name": "Blur vertical",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "brightness",
+			"name": "Brightness",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "bulge",
+			"name": "Bulge",
+			"author": "Brad Larson",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "colorblend",
+			"name": "Color",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "contrast",
+			"name": "Contrast",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "exclusion",
+			"name": "Exclusion",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "glowhorizontal",
+			"name": "Glow horizontal",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "glowvertical",
+			"name": "Glow vertical",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "grayscale",
+			"name": "Grayscale",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "grayscalemask",
+			"name": "Grayscale mask",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "hsladjust",
+			"name": "Adjust HSL",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "inverse",
+			"name": "Inverse",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "noise",
+			"name": "Noise",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "oilpainting",
+			"name": "Oil painting",
+			"author": "Brad Larson",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "pixellate",
+			"name": "Pixellate",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "posterize",
+			"name": "Posterize",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "scanlines",
+			"name": "Scan lines",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "sepia",
+			"name": "Sepia",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "sharpen",
+			"name": "Sharpen",
+			"author": "Brad Larson",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "skymen_RGBSplit",
+			"name": "RGB Split",
+			"author": "skymen",
+			"bundled": true,
+			"version": "1.0.0.1"
+		},
+		{
+			"type": "effect",
+			"id": "swirl",
+			"name": "Swirl",
+			"author": "Brad Larson",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "vibrance",
+			"name": "Vibrance",
+			"author": "Evan Wallace",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "warpripple",
+			"name": "Warp ripple",
+			"author": "Scirra",
+			"bundled": false
+		},
+		{
+			"type": "effect",
+			"id": "water",
+			"name": "Water",
+			"author": "Viktor Korsun",
+			"bundled": false
+		}
+	],
+	"uniqueId": "pup199e911q",
+	"objectTypes": {
+		"items": [
+			"Painting",
+			"Keyboard",
+			"Browser",
+			"Mouse",
+			"Touch",
+			"Audio",
+			"AdvancedRandom",
+			"AJAX",
+			"PlatformInfo",
+			"GlobalClock",
+			"MainSpriteFont",
+			"Date",
+			"Share",
+			"WorkAroundCanvas",
+			"ParamsArray",
+			"MackenzieIsALiar",
+			"MainSpriteFontEmoji1",
+			"JSON",
+			"NudgeMaskBuffer",
+			"NudgePaintBuffer"
+		],
+		"subfolders": [
+			{
+				"items": [],
+				"subfolders": [
+					{
+						"items": [
+							"PaintingBuffer",
+							"Clock",
+							"FilterBaker"
+						],
+						"subfolders": [],
+						"name": "Common"
+					},
+					{
+						"items": [
+							"Leader",
+							"SoftyBuffer",
+							"SoftCircleBuffer"
+						],
+						"subfolders": [],
+						"name": "Softy"
+					},
+					{
+						"items": [
+							"DarkWindowColors"
+						],
+						"subfolders": [],
+						"name": "Dark Window"
+					},
+					{
+						"items": [
+							"ColorSurferBuffer"
+						],
+						"subfolders": [],
+						"name": "Rainbow"
+					},
+					{
+						"items": [
+							"ZoomAnchor"
+						],
+						"subfolders": [],
+						"name": "Zoom"
+					},
+					{
+						"items": [
+							"BannerContainer"
+						],
+						"subfolders": [],
+						"name": "Banner"
+					},
+					{
+						"items": [
+							"QuicksandBuffer",
+							"QuicksandSprite"
+						],
+						"subfolders": [],
+						"name": "Quicksand"
+					},
+					{
+						"items": [
+							"LightBumpBuffer"
+						],
+						"subfolders": [],
+						"name": "Light Bump"
+					},
+					{
+						"items": [
+							"GridWormSegments",
+							"GridWormBuffer"
+						],
+						"subfolders": [],
+						"name": "Grid Worm"
+					},
+					{
+						"items": [
+							"Rotate90Buffer"
+						],
+						"subfolders": [],
+						"name": "Turn"
+					},
+					{
+						"items": [
+							"Stamp"
+						],
+						"subfolders": [],
+						"name": "Stamp"
+					},
+					{
+						"items": [
+							"ContrastBuffer"
+						],
+						"subfolders": [],
+						"name": "Contrast"
+					},
+					{
+						"items": [
+							"BlurBuffer"
+						],
+						"subfolders": [],
+						"name": "Blur"
+					},
+					{
+						"items": [
+							"Wiper"
+						],
+						"subfolders": [],
+						"name": "Wipe"
+					},
+					{
+						"items": [
+							"NibbleBiscuit",
+							"NibbleParticles",
+							"NibbleBiscuitDouble",
+							"NibblePaletteSource",
+							"NibblePalette",
+							"NibblePatternBackdrop",
+							"NibbleBuffer",
+							"NibblePattern",
+							"NibblePatternSource"
+						],
+						"subfolders": [],
+						"name": "Wafer"
+					},
+					{
+						"items": [
+							"SpinBuffer"
+						],
+						"subfolders": [],
+						"name": "Spin"
+					},
+					{
+						"items": [
+							"MirrorBuffer"
+						],
+						"subfolders": [],
+						"name": "Mirror"
+					},
+					{
+						"items": [
+							"AuraParticles"
+						],
+						"subfolders": [],
+						"name": "Aura"
+					},
+					{
+						"items": [
+							"BreatheBuffer",
+							"BreatheSprite"
+						],
+						"subfolders": [],
+						"name": "Breathe"
+					},
+					{
+						"items": [
+							"VignetteBuffer",
+							"VignetteVehicle"
+						],
+						"subfolders": [],
+						"name": "Vignette"
+					},
+					{
+						"items": [
+							"head",
+							"CaterpillarTailpiece",
+							"CaterpillarLead",
+							"CaterpillarParticle",
+							"RainbowCaterpillarParticles"
+						],
+						"subfolders": [],
+						"name": "Caterpillar"
+					},
+					{
+						"items": [
+							"SaturateBuffer"
+						],
+						"subfolders": [],
+						"name": "Saturate"
+					},
+					{
+						"items": [
+							"InvertBuffer"
+						],
+						"subfolders": [],
+						"name": "Invert"
+					},
+					{
+						"items": [
+							"Camera",
+							"CameraFilterBuffer",
+							"CameraNudgeBuffer",
+							"FlipCamera",
+							"CameraFlipOverlay",
+							"CameraNudgeNibMask",
+							"CameraFX"
+						],
+						"subfolders": [],
+						"name": "Camera"
+					},
+					{
+						"items": [
+							"LoadFileChooser",
+							"LoadSprite",
+							"LoadBuffer"
+						],
+						"subfolders": [],
+						"name": "Load"
+					},
+					{
+						"items": [
+							"Frames"
+						],
+						"subfolders": [],
+						"name": "Frame"
+					},
+					{
+						"items": [
+							"BoxBuffer"
+						],
+						"subfolders": [],
+						"name": "Box"
+					},
+					{
+						"items": [
+							"PlaylistFlash"
+						],
+						"subfolders": [],
+						"name": "Playlist"
+					},
+					{
+						"items": [
+							"LineBuffer"
+						],
+						"subfolders": [],
+						"name": "Line"
+					},
+					{
+						"items": [
+							"TriangleBuffer"
+						],
+						"subfolders": [],
+						"name": "Triangle"
+					},
+					{
+						"items": [
+							"EllipseBuffer"
+						],
+						"subfolders": [],
+						"name": "Ellipse"
+					},
+					{
+						"items": [
+							"NoiseBuffer",
+							"NoisePaintBuffer"
+						],
+						"subfolders": [],
+						"name": "Noise"
+					},
+					{
+						"items": [
+							"WalkerElla"
+						],
+						"subfolders": [],
+						"name": "Walker"
+					},
+					{
+						"items": [
+							"Bubbles",
+							"BubblesBuffer"
+						],
+						"subfolders": [],
+						"name": "Bubbles"
+					},
+					{
+						"items": [
+							"SharpenBuffer"
+						],
+						"subfolders": [],
+						"name": "Sharpen"
+					}
+				],
+				"name": "Brushes"
+			},
+			{
+				"items": [
+					"PaintingOverlay",
+					"SaveOverlay",
+					"NoPressed",
+					"PaintPressed",
+					"SavePressed",
+					"BackPressed",
+					"TapAndHoldBackground",
+					"Spinner",
+					"PromptBackground",
+					"NamePressed",
+					"TapAndHold",
+					"No",
+					"Paint",
+					"Save",
+					"Back",
+					"iframe",
+					"NameBlink",
+					"PlayModeIcon",
+					"PlayModePressed",
+					"DesktopNoPaintBackdrop",
+					"DesktopNoPaintZipper",
+					"NudgeBorder",
+					"NudgeCover",
+					"PlayPauseIcon",
+					"Button",
+					"Cursor",
+					"NudgeDot",
+					"AMPM",
+					"NudgeParticles",
+					"NudgeParticle",
+					"WiFi",
+					"PromptBrushProgress",
+					"PromptTotalProgress",
+					"NudgePoints"
+				],
+				"subfolders": [],
+				"name": "UI"
+			},
+			{
+				"items": [
+					"SavedPainting",
+					"PaintingSnapshotCrop",
+					"ScaledPainting",
+					"StoredPaintingLoader",
+					"LocalStorage",
+					"PaintingStorage",
+					"WatermarkBackground",
+					"PaintingShare"
+				],
+				"subfolders": [],
+				"name": "Saving & Loading"
+			},
+			{
+				"items": [
+					"InstructionsPressed",
+					"ChatPressed",
+					"SplashParticles",
+					"NO_Splash",
+					"PAINT_Splash",
+					"Instructions",
+					"Chat",
+					"AboutPressed",
+					"AboutBackdrop",
+					"AppPressed",
+					"EarlyAccessBackground",
+					"WhistlegraphButterfly",
+					"CameraSplashLabel",
+					"CameraSplash",
+					"LightSwitch",
+					"LightSwitchDecolor",
+					"WhistlegraphPressed"
+				],
+				"subfolders": [],
+				"name": "Splash"
+			},
+			{
+				"items": [
+					"KeyPressed",
+					"KeyboardBackdrop",
+					"KeyboardPromptBackground",
+					"CapSymToggle",
+					"KeyboardKeyBackdrop",
+					"TouchPreviewBackground",
+					"KeyboardMenuBackdrop",
+					"ClearPressed",
+					"LinkPressed",
+					"ProfilePics",
+					"KeyPatch",
+					"DeleteIcon",
+					"PeekPressed",
+					"GoIcon",
+					"GoBackPressed",
+					"PeekBuffer",
+					"PeekBufferBackground",
+					"LoadPressed",
+					"GoPressed",
+					"Clear",
+					"Load",
+					"PeekLine",
+					"PeekShadow",
+					"HelpEdge",
+					"EmojiPressed",
+					"EmojiBackdrop",
+					"MoreLess",
+					"StampPreviewBackdrop",
+					"StampPreviewOverlay",
+					"TitleEdge",
+					"HomeIcon",
+					"TextCursor",
+					"VolumeIcon",
+					"ManualIcon",
+					"FocusPressed",
+					"CameraPressed",
+					"PeekCrosshair",
+					"MusicIcon",
+					"FillPressed"
+				],
+				"subfolders": [],
+				"name": "Keyboard"
+			},
+			{
+				"items": [
+					"PainterStoriesTitleBackdrop",
+					"PainterStories",
+					"PainterStoriesHomePressed",
+					"PainterStoriesBackdrop",
+					"PainterStoriesPortraits",
+					"PainterStoriesBackgrounds",
+					"PainterStoriesGrid",
+					"PainterStoriesFooter",
+					"PainterStoriesArrows"
+				],
+				"subfolders": [
+					{
+						"items": [
+							"IvoBubble",
+							"IvoPaintings",
+							"IvoStar"
+						],
+						"subfolders": [],
+						"name": "Ivo"
+					},
+					{
+						"items": [
+							"WilsansBubble",
+							"WilsansBlob",
+							"WilsansPaintings"
+						],
+						"subfolders": [],
+						"name": "Wilsans"
+					},
+					{
+						"items": [
+							"AdelaideBubble",
+							"AdelaideKiwi",
+							"AdelaidePaintings"
+						],
+						"subfolders": [],
+						"name": "Adelaide"
+					},
+					{
+						"items": [
+							"SeanBubble",
+							"SeanBoy",
+							"SeanPaintings"
+						],
+						"subfolders": [],
+						"name": "Sean"
+					}
+				],
+				"name": "Painter Stories"
+			}
+		]
+	},
+	"functionsName": "Functions",
+	"autosaveData": null,
+	"containers": [],
+	"families": {
+		"items": [
+			"CaterpillarTailpieces"
+		],
+		"subfolders": []
+	},
+	"layouts": {
+		"items": [
+			"Index"
+		],
+		"subfolders": [
+			{
+				"items": [
+					"Aura",
+					"Banner",
+					"Blur",
+					"Breathe",
+					"Bubbles",
+					"Build",
+					"Box",
+					"Camera",
+					"Caterpillar",
+					"Contrast",
+					"Dark Window",
+					"Flip",
+					"Grid Worm",
+					"Invert",
+					"Light Bump",
+					"Load",
+					"Mirror",
+					"Quicksand",
+					"Rainbow",
+					"Recurse",
+					"Saturate",
+					"Scroll",
+					"Sharpen",
+					"Softy",
+					"Spin",
+					"Stamp",
+					"Turn",
+					"Vignette",
+					"Wafer",
+					"Wipe",
+					"Zoom",
+					"Frame",
+					"Playlist",
+					"Line",
+					"Triangle",
+					"Ellipse",
+					"Noise",
+					"Walker"
+				],
+				"subfolders": [],
+				"name": "Brushes"
+			},
+			{
+				"items": [
+					"Splash"
+				],
+				"subfolders": [],
+				"name": "Splash"
+			},
+			{
+				"items": [
+					"PainterStoriesIndex",
+					"PainterStoriesTransition"
+				],
+				"subfolders": [
+					{
+						"items": [
+							"ProfileIvo-1",
+							"ProfileIvo-2",
+							"ProfileIvo-3",
+							"ProfileIvo-4",
+							"ProfileIvo-5",
+							"ProfileIvo-6",
+							"ProfileIvo-7",
+							"ProfileIvo-8",
+							"ProfileIvo-9",
+							"ProfileIvo-10"
+						],
+						"subfolders": [],
+						"name": "Ivo"
+					},
+					{
+						"items": [
+							"ProfileAdelaide-1",
+							"ProfileAdelaide-2",
+							"ProfileAdelaide-3",
+							"ProfileAdelaide-4",
+							"ProfileAdelaide-5",
+							"ProfileAdelaide-6",
+							"ProfileAdelaide-7",
+							"ProfileAdelaide-8",
+							"ProfileAdelaide-9",
+							"ProfileAdelaide-10"
+						],
+						"subfolders": [],
+						"name": "Adelaide"
+					},
+					{
+						"items": [
+							"ProfileWilsans-1",
+							"ProfileWilsans-2",
+							"ProfileWilsans-3",
+							"ProfileWilsans-4",
+							"ProfileWilsans-5",
+							"ProfileWilsans-6",
+							"ProfileWilsans-7",
+							"ProfileWilsans-8",
+							"ProfileWilsans-10",
+							"ProfileWilsans-9"
+						],
+						"subfolders": [],
+						"name": "Wilsans"
+					},
+					{
+						"items": [
+							"ProfileSean-1",
+							"ProfileSean-2",
+							"ProfileSean-3",
+							"ProfileSean-4",
+							"ProfileSean-5",
+							"ProfileSean-6",
+							"ProfileSean-7",
+							"ProfileSean-8",
+							"ProfileSean-9",
+							"ProfileSean-10"
+						],
+						"subfolders": [],
+						"name": "Sean"
+					}
+				],
+				"name": "Profiles"
+			}
+		]
+	},
+	"eventSheets": {
+		"items": [
+			"Index",
+			"Splash"
+		],
+		"subfolders": [
+			{
+				"items": [
+					"Dark Window",
+					"Softy",
+					"Rainbow",
+					"Zoom",
+					"Grid Worm",
+					"Banner",
+					"Quicksand",
+					"Light Bump",
+					"Turn",
+					"Stamp",
+					"Contrast",
+					"Blur",
+					"Recurse",
+					"Wipe",
+					"Wafer",
+					"Spin",
+					"Scroll",
+					"Mirror",
+					"Aura",
+					"Flip",
+					"Build",
+					"Breathe",
+					"Vignette",
+					"Caterpillar",
+					"Saturate",
+					"Invert",
+					"Camera",
+					"Load",
+					"Box",
+					"Frame",
+					"Playlist",
+					"Line",
+					"Triangle",
+					"Ellipse",
+					"Noise",
+					"Walker",
+					"Sharpen",
+					"Bubbles"
+				],
+				"subfolders": [],
+				"name": "Brushes"
+			},
+			{
+				"items": [
+					"Buttons",
+					"Core"
+				],
+				"subfolders": [],
+				"name": "Common"
+			},
+			{
+				"items": [
+					"PainterStories",
+					"PainterStoriesIndex",
+					"PainterStoriesTransition"
+				],
+				"subfolders": [],
+				"name": "PainterStories"
+			}
+		]
+	},
+	"rootFileFolders": {
+		"script": {
+			"items": [
+				{
+					"name": "main.js",
+					"type": "application/javascript",
+					"sid": 788485443919045,
+					"script-info": {
+						"purpose": "main"
+					}
+				},
+				{
+					"name": "events.js",
+					"type": "application/javascript",
+					"sid": 512236006525613,
+					"script-info": {
+						"purpose": "imports-for-events"
+					}
+				}
+			],
+			"subfolders": []
+		},
+		"sound": {
+			"items": [],
+			"subfolders": [
+				{
+					"items": [],
+					"subfolders": [
+						{
+							"items": [
+								{
+									"name": "Build - Builder's Beat.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 106989249891231,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Build - Blow Down.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 730513136575311,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Build - Brick Clop.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 843132277790893,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Build - Brick Click.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 148009803182193,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Build - Brick Scrape.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 862903488392270,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Build"
+						},
+						{
+							"items": [
+								{
+									"name": "Caterpillar - Rain Bow Road.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 966541594727356,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Caterpillar - Trotting Along.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 960978396102587,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Caterpillar"
+						},
+						{
+							"items": [
+								{
+									"name": "Aura - Theme.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 202765571348088,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Aura"
+						},
+						{
+							"items": [
+								{
+									"name": "Blur - Theme.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 983657563187610,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Blur"
+						},
+						{
+							"items": [
+								{
+									"name": "Breathe - Theme.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 353505771702795,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Breathe"
+						},
+						{
+							"items": [
+								{
+									"name": "Contrast - Theme.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 691259686803501,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Contrast"
+						},
+						{
+							"items": [
+								{
+									"name": "Dark Window - Note 1.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 113236350440575,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Dark Window - Note 2.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 712542618078052,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Dark Window - Note 3.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 314958375401524,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Dark Window - Note 4.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 220301443028885,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Dark Window"
+						},
+						{
+							"items": [
+								{
+									"name": "Flip - First Flipping.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 460489749719370,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Flip - Flipping Again.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 659101628037833,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Flip"
+						},
+						{
+							"items": [
+								{
+									"name": "Rainbow - Theme.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 570001805525567,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Rainbow"
+						},
+						{
+							"items": [
+								{
+									"name": "Invert - Off.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 826677292677502,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Invert - On.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 382942572256570,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Invert"
+						},
+						{
+							"items": [
+								{
+									"name": "Light Bump - Theme.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 397055470037602,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Light Bump"
+						},
+						{
+							"items": [
+								{
+									"name": "Wafer - Nibble Appear.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 785164931104339,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Wafer - Nibble Bite 1.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 337691440387053,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Wafer - Nibble Bite 2.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 688094747486454,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Wafer - Nibble Bite 3.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 131695089780965,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Wafer - Enlarge.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 544042191287501,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Wafer"
+						},
+						{
+							"items": [
+								{
+									"name": "Recurse - You're Released.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 101814692147702,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Recurse - Thup Cosm.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 513981168341356,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Recurse"
+						},
+						{
+							"items": [
+								{
+									"name": "Mirror - Theme.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 368235487674373,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Mirror"
+						},
+						{
+							"items": [
+								{
+									"name": "Grid Worm - Theme.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 642700390538505,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Grid Worm"
+						},
+						{
+							"items": [
+								{
+									"name": "Stamp - Stick.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 111583697773958,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Stamp"
+						},
+						{
+							"items": [
+								{
+									"name": "Quicksand - Brief Theme.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 588614046923128,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Quicksand - Theme.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 915278379350957,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Quicksand"
+						},
+						{
+							"items": [
+								{
+									"name": "Turn - Note 1.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 332441180741854,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Turn - Note 2.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 984760220754107,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Turn - Note 3.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 329290765188239,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Turn - Note 4.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 298527702626299,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Turn"
+						},
+						{
+							"items": [
+								{
+									"name": "Banner - Theme.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 908304292268639,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Banner"
+						},
+						{
+							"items": [
+								{
+									"name": "Zoom - In.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 226825079876209,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Zoom - Out.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 445247694757503,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Zoom"
+						},
+						{
+							"items": [
+								{
+									"name": "Saturate - Theme.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 270323648071680,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Saturate"
+						},
+						{
+							"items": [
+								{
+									"name": "Scroll - Theme 2021.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 434795088413083,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Scroll"
+						},
+						{
+							"items": [
+								{
+									"name": "Common - Jitter.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 178313734274587,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Common"
+						},
+						{
+							"items": [
+								{
+									"name": "Softy - Landed.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 903395706833931,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Softy"
+						},
+						{
+							"items": [
+								{
+									"name": "Spin - Theme.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 468823920508029,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Spin"
+						},
+						{
+							"items": [
+								{
+									"name": "Vignette - Theme.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 562914375431259,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Vignette"
+						},
+						{
+							"items": [
+								{
+									"name": "Wipe - Individual Wipe.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 195692898710720,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Wipe"
+						},
+						{
+							"items": [
+								{
+									"name": "Camera - Shutter.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 512461435630156,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Camera - Flip.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 202151835326378,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Camera - Reverb Shutter.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 822968004119595,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Camera - FX.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 614180348008701,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Camera - Nudge Note 1.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 336199597653006,
+									"file-info": {
+										"purpose": "none"
+									}
+								},
+								{
+									"name": "Camera - Nudge Note 2.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 985519765527048,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Camera"
+						},
+						{
+							"items": [
+								{
+									"name": "Frame - Knock.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 531974779279448,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Frame"
+						},
+						{
+							"items": [
+								{
+									"name": "Primitive - Released.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 148511890603149,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Primitives"
+						},
+						{
+							"items": [
+								{
+									"name": "Line - Start.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 513126808102100,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Line"
+						},
+						{
+							"items": [
+								{
+									"name": "Triangle - Start.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 253434290443658,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Triangle"
+						},
+						{
+							"items": [
+								{
+									"name": "Elipse - Start.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 834512287506090,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Ellipse"
+						},
+						{
+							"items": [
+								{
+									"name": "Box - Start.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 653204842537598,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Box"
+						},
+						{
+							"items": [
+								{
+									"name": "Noise - White Noise.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 957190570242865,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Noise"
+						},
+						{
+							"items": [
+								{
+									"name": "Bubbles - Theme.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 782926041163001,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Bubbles"
+						},
+						{
+							"items": [
+								{
+									"name": "Sharpen - Theme.webm",
+									"type": "audio/webm; codecs=opus",
+									"sid": 146701190541866,
+									"file-info": {
+										"purpose": "none"
+									}
+								}
+							],
+							"subfolders": [],
+							"name": "Sharpen"
+						}
+					],
+					"name": "Brushes"
+				},
+				{
+					"items": [
+						{
+							"name": "Unused - Emoji - Snowflake.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 855698126017686,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Unused - Building Oooos' Loop.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 455216785273400,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Unused - Generic - No Button Press (Beep).webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 251565889717058,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Unused - Generic - No Button Release (Ew Buzz).webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 807817908929989,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Unused - Generic - Paint Button Press (Moan).webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 745725994602963,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Unused - Too High No Released.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 471952816313808,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Unused - Glottal No Fcked.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 949959580006075,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Unused - Blase Emo.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 192878474443485,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Unused - Chop.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 758427417802482,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Unused - No Released (too low).webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 256579414253996,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Unused - Long Kiss Shutter.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 129128539910176,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Unused - Page Turn Released cheew.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 767119227882433,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Unused - Camera - v3.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 338035953590304,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Unused - Scary Jingle .webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 971060405153618,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Unused - Alarm.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 398368373327690,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Unused - Released.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 622532382215965,
+							"file-info": {
+								"purpose": "none"
+							}
+						}
+					],
+					"subfolders": [],
+					"name": "Unused Sounds"
+				},
+				{
+					"items": [
+						{
+							"name": "Generic - Command Error.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 625180874218359,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Generic - Cancel.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 622967398124483,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Generic - Button Press.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 250164138243950,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Generic - Button Release.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 617054572807159,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Generic - Entering Pause.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 185913804567052,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Generic - Saved.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 569978282626921,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Generic - Processing Save.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 116601023686366,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Generic - Chime.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 670078139322315,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Generic - Save Button Pressed.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 375618360707825,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Generic - Save Button Released.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 183993794622582,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Generic - Pause Release.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 252219776303533,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Generic - Pressing Pause.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 344559724767076,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Generic - No Button Pressed (Metal Brush).webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 666986317278613,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Generic - Paint Button Pressed (Psst).webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 301962322164182,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Generic - Paint Button Released (Cha).webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 203610275441615,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Generic - Page Turn Released 1.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 639899018797217,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Generic - No Button Released (middle).webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 275418551248578,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Generic - Page Turn Pressed 1.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 512751801683225,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Generic - Noise Crunch.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 874271990465985,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Generic - Button Rollover.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 618552559816078,
+							"file-info": {
+								"purpose": "none"
+							}
+						}
+					],
+					"subfolders": [],
+					"name": "Generic"
+				},
+				{
+					"items": [
+						{
+							"name": "Keyboard - Auto Delete.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 883384145839718,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Keyboard - Click.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 711384083041124,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Keyboard - Close.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 459346364502012,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Keyboard - Open.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 787770841724955,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Keyboard - Beep Press.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 273786977624395,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Keyboard - Tooth Flick.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 168754356460948,
+							"file-info": {
+								"purpose": "none"
+							}
+						}
+					],
+					"subfolders": [],
+					"name": "Keyboard"
+				},
+				{
+					"items": [
+						{
+							"name": "Emoji Set 1 - Bee.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 207087001980682,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Emoji Set 1 - Flower.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 100465018925250,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Emoji Set 1 - Grass.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 288318528391909,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Emoji Set 1 - Heart.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 120529349268021,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Emoji Set 1 - Music Note.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 925384384190580,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Emoji Set 1 - Tongue Smiley.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 668927003540457,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Emoji Set 1 - Twinkle.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 567727923583839,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Emoji Set 2 - Dog.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 460693730964149,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Emoji Set 2 - Balloon.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 865425272161393,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Emoji Set 2 - Ribbon.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 678484411524526,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Emoji Set 2 - Carrot.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 988246123252924,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Emoji Set 2 - DNA.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 933489551128632,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Emoji Set 2 - Planet.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 597067516223666,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Emoji Set 2 - Emo (Angrier).webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 778706729439957,
+							"file-info": {
+								"purpose": "none"
+							}
+						}
+					],
+					"subfolders": [],
+					"name": "Emoji"
+				},
+				{
+					"items": [
+						{
+							"name": "Nudge - Confirmation.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 814530460699250,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Nudge - Loop.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 606828947450675,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Nudge - X Buzz.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 247003798701312,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Nudge - Y Buzz.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 459875089304572,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Nudge - Percussionless Melodic Loop.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 382599561584672,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Nudge - Flick.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 567623954420689,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Nudge - Pop.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 202147160010831,
+							"file-info": {
+								"purpose": "none"
+							}
+						}
+					],
+					"subfolders": [],
+					"name": "Nudge"
+				},
+				{
+					"items": [
+						{
+							"name": "Light Switch - Released.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 477050050532553,
+							"file-info": {
+								"purpose": "none"
+							}
+						}
+					],
+					"subfolders": [],
+					"name": "Light Switch"
+				},
+				{
+					"items": [
+						{
+							"name": "Playlist - Tuning Skip.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 210839387482951,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Playlist - Gruff Spitting Out.webm",
+							"type": "audio/webm; codecs=opus",
+							"sid": 612752475977057,
+							"file-info": {
+								"purpose": "none"
+							}
+						}
+					],
+					"subfolders": [],
+					"name": "Playlist"
+				}
+			]
+		},
+		"music": {
+			"items": [
+				{
+					"name": "No Paint - Theme.webm",
+					"type": "audio/webm; codecs=opus",
+					"sid": 372160777686093,
+					"file-info": {
+						"purpose": "none"
+					}
+				},
+				{
+					"name": "No Paint - Painting Music.webm",
+					"type": "audio/webm; codecs=opus",
+					"sid": 845171893630625,
+					"file-info": {
+						"purpose": "none"
+					}
+				}
+			],
+			"subfolders": []
+		},
+		"video": {
+			"items": [],
+			"subfolders": []
+		},
+		"font": {
+			"items": [
+				{
+					"name": "roboto-v20-latin-regular.woff2",
+					"type": "font/woff2",
+					"sid": 644923159145033,
+					"file-info": {
+						"purpose": "none"
+					}
+				},
+				{
+					"name": "roboto-mono-v7-latin-regular.woff2",
+					"type": "font/woff2",
+					"sid": 952891733223272,
+					"file-info": {
+						"purpose": "none"
+					}
+				},
+				{
+					"name": "pixelar-regular-w01.woff2",
+					"type": "font/woff2",
+					"sid": 910483428603329,
+					"file-info": {
+						"purpose": "none"
+					}
+				}
+			],
+			"subfolders": []
+		},
+		"icon": {
+			"items": [
+				{
+					"name": "icon-1024.png",
+					"type": "image/png",
+					"sid": 900177574108296,
+					"icon-info": {
+						"purpose": "app-icon"
+					}
+				},
+				{
+					"name": "loading-logo.png",
+					"type": "image/png",
+					"sid": 784656787694658,
+					"icon-info": {
+						"purpose": "loading-logo"
+					}
+				},
+				{
+					"name": "storyboard-splash.png",
+					"type": "image/png",
+					"sid": 770535581859925,
+					"icon-info": {
+						"purpose": "storyboard-splash"
+					}
+				}
+			],
+			"subfolders": []
+		},
+		"general": {
+			"items": [
+				{
+					"name": "privacy-policy.html",
+					"type": "text/html",
+					"sid": 209732415614400,
+					"file-info": {
+						"purpose": "none"
+					}
+				}
+			],
+			"subfolders": [
+				{
+					"items": [
+						{
+							"name": "Smiley.txt",
+							"type": "text/plain",
+							"sid": 818477531288522,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Well.txt",
+							"type": "text/plain",
+							"sid": 184415488294281,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Frog Dies.txt",
+							"type": "text/plain",
+							"sid": 170057402403806,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Gift.txt",
+							"type": "text/plain",
+							"sid": 662085757221683,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Landscape.txt",
+							"type": "text/plain",
+							"sid": 333146355414826,
+							"file-info": {
+								"purpose": "none"
+							}
+						},
+						{
+							"name": "Polka Dots.txt",
+							"type": "text/plain",
+							"sid": 204700223047632,
+							"file-info": {
+								"purpose": "none"
+							}
+						}
+					],
+					"subfolders": [],
+					"name": "Playlists"
+				}
+			]
+		}
+	},
+	"timelines": {
+		"items": [],
+		"subfolders": [
+			{
+				"items": [],
+				"subfolders": []
+			}
+		]
+	},
+	"flowcharts": {
+		"items": [],
+		"subfolders": []
+	},
+	"models3d": {
+		"items": [],
+		"subfolders": []
+	},
+	"properties": {
+		"description": "Press \"Paint\" if you like what you see, or \"No\" if you don't.",
+		"version": "1.0.0",
+		"autoIncrementVersion": false,
+		"author": "Jeffrey Alan Scudder w/ Alex Freundlich, Ella Fleck, Camille Klein & Friends",
+		"authorEmail": "me@jas.life",
+		"authorWebsite": "https://nopaint.art",
+		"appId": "art.nopaint",
+		"pixelRounding": true,
+		"zAxisScale": "regular",
+		"fov": 0.7853981633974483,
+		"useLoaderLayout": false,
+		"fullscreenMode": "letterbox-scale",
+		"fullscreenQuality": "low",
+		"viewportFit": "auto",
+		"backgroundColor": [
+			0,
+			0,
+			0,
+			0
+		],
+		"splashColor": [
+			0.9058823529411765,
+			0.9098039215686274,
+			0.9137254901960784,
+			0
+		],
+		"useThemeColor": false,
+		"themeColor": [
+			1,
+			1,
+			1,
+			0
+		],
+		"orientations": "portrait",
+		"webgpu": "auto",
+		"multitexturing": "auto",
+		"gpuPreference": "default",
+		"framerateMode": "vsync",
+		"fixedFramerate": 30,
+		"sampling": "nearest",
+		"downscaling": "low",
+		"renderingMode": "2d",
+		"anisotropicFiltering": "auto",
+		"zNear": 10,
+		"zFar": 100000,
+		"maxSpriteSheetSize": 2048,
+		"loaderStyle": "none",
+		"preloadSounds": true,
+		"uidAllocationMode": "increment",
+		"cordovaiOSScheme": "app",
+		"cordovaAndroidScheme": "https",
+		"exportFileStructure": "folders",
+		"scriptsType": "module"
+	},
+	"viewportWidth": 256,
+	"viewportHeight": 352,
+	"firstLayout": "Splash"
+}

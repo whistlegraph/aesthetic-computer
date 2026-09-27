@@ -1,0 +1,5107 @@
+{
+	"name": "Camera",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Camera",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "Loaded",
+					"type": "boolean",
+					"initialValue": "false",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 276106036426698
+				},
+				{
+					"eventType": "variable",
+					"name": "nudgedOnce",
+					"type": "boolean",
+					"initialValue": "false",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 346938708251086
+				},
+				{
+					"eventType": "variable",
+					"name": "Flipping",
+					"type": "boolean",
+					"initialValue": "false",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 685849150532573
+				},
+				{
+					"eventType": "variable",
+					"name": "fullyStarted",
+					"type": "boolean",
+					"initialValue": "false",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 823031604232636
+				},
+				{
+					"eventType": "variable",
+					"name": "fx",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 948528241926092
+				},
+				{
+					"eventType": "variable",
+					"name": "fxCount",
+					"type": "number",
+					"initialValue": "11",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": true,
+					"sid": 572603787467174
+				},
+				{
+					"eventType": "variable",
+					"name": "cameraIndexRequest",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 172737816269161
+				},
+				{
+					"eventType": "variable",
+					"name": "cameraIndex",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 403446497339774
+				},
+				{
+					"eventType": "variable",
+					"name": "CameraFacing",
+					"type": "string",
+					"initialValue": "",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 720706583118342
+				},
+				{
+					"eventType": "variable",
+					"name": "CameraFacingRequest",
+					"type": "string",
+					"initialValue": "",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 749298645901679
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 327817931136831
+						}
+					],
+					"actions": [
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 318804145523117,
+							"disabled": true,
+							"parameters": {
+								"type": "log",
+								"message": "\"promptText Start: \" & promptText"
+							}
+						}
+					],
+					"sid": 686906974275720,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"callFunction": "CameraShowButtonsOnRepeat",
+									"sid": 270459257285072
+								}
+							],
+							"sid": 115911136655694
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "Print previous parameter hint to prevent a little flicker."
+								},
+								{
+									"callFunction": "PrintParameterHint",
+									"sid": 348969001869746
+								},
+								{
+									"type": "comment",
+									"text": ""
+								},
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 887482280977331,
+									"parameters": {
+										"variable": "fullyStarted",
+										"value": "false"
+									}
+								},
+								{
+									"id": "get-media-sources",
+									"objectClass": "Camera",
+									"sid": 473478495162855
+								},
+								{
+									"id": "wait-for-previous-actions",
+									"objectClass": "System",
+									"sid": 756835270051284
+								}
+							],
+							"sid": 283252117906437
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-retrieved-media-sources",
+							"objectClass": "Camera",
+							"sid": 389811604562929
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "👋  Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 127917311123951,
+							"parameters": [
+								"2"
+							]
+						}
+					],
+					"sid": 523834476266727,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[b]Mobile[/b] Camera Picking (Front / Back)"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 437903761284587,
+									"parameters": {
+										"variable": "DesktopMode"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [],
+							"sid": 987144200094168,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 150475893468395,
+											"parameters": {
+												"first-value": "Functions.CheckParameter(1)",
+												"comparison": 0,
+												"second-value": "1"
+											}
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 932779581200150,
+											"parameters": {
+												"first-value": "lowercase(Functions.GetParameter(1)) = \"front\" | lowercase(Functions.GetParameter(1)) = \"back\"",
+												"comparison": 0,
+												"second-value": "1"
+											}
+										}
+									],
+									"actions": [
+										{
+											"type": "comment",
+											"text": "[b]1st Parameter[/b] Facing"
+										}
+									],
+									"sid": 124782399367942,
+									"children": [
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "compare-two-values",
+													"objectClass": "System",
+													"sid": 431002133570695,
+													"parameters": {
+														"first-value": "lowercase(Functions.GetParameter(1))",
+														"comparison": 0,
+														"second-value": "\"front\""
+													}
+												}
+											],
+											"actions": [
+												{
+													"id": "set-eventvar-value",
+													"objectClass": "System",
+													"sid": 129460836302772,
+													"parameters": {
+														"variable": "CameraFacingRequest",
+														"value": "\"Front\""
+													}
+												},
+												{
+													"id": "set-at-x",
+													"objectClass": "ParamsArray",
+													"sid": 718370257873424,
+													"parameters": {
+														"x": "0",
+														"value": "\"Front\""
+													}
+												},
+												{
+													"callFunction": "SpecifiedParameter",
+													"sid": 437114485942417,
+													"parameters": [
+														"1"
+													]
+												}
+											],
+											"sid": 951132171819209
+										},
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "compare-two-values",
+													"objectClass": "System",
+													"sid": 548733807375562,
+													"parameters": {
+														"first-value": "lowercase(Functions.GetParameter(1))",
+														"comparison": 0,
+														"second-value": "\"back\""
+													}
+												}
+											],
+											"actions": [
+												{
+													"id": "set-eventvar-value",
+													"objectClass": "System",
+													"sid": 545569080411684,
+													"parameters": {
+														"variable": "CameraFacingRequest",
+														"value": "\"Back\""
+													}
+												},
+												{
+													"id": "set-at-x",
+													"objectClass": "ParamsArray",
+													"sid": 577576650996455,
+													"parameters": {
+														"x": "0",
+														"value": "\"Back\""
+													}
+												},
+												{
+													"callFunction": "SpecifiedParameter",
+													"sid": 429431208211054,
+													"parameters": [
+														"1"
+													]
+												}
+											],
+											"sid": 421637309100462
+										}
+									]
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 164805968657633
+										}
+									],
+									"actions": [],
+									"sid": 519964256247019,
+									"children": [
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "compare-eventvar",
+													"objectClass": "System",
+													"sid": 361191729170779,
+													"parameters": {
+														"variable": "CameraFacing",
+														"comparison": 0,
+														"value": "\"\""
+													}
+												}
+											],
+											"actions": [
+												{
+													"id": "set-eventvar-value",
+													"objectClass": "System",
+													"sid": 781147991417697,
+													"parameters": {
+														"variable": "CameraFacingRequest",
+														"value": "\"Front\""
+													}
+												}
+											],
+											"sid": 512037082916402
+										},
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "else",
+													"objectClass": "System",
+													"sid": 704313595255943
+												}
+											],
+											"actions": [
+												{
+													"id": "set-eventvar-value",
+													"objectClass": "System",
+													"sid": 149642408885080,
+													"parameters": {
+														"variable": "CameraFacingRequest",
+														"value": "CameraFacing"
+													}
+												}
+											],
+											"sid": 539754750968976
+										},
+										{
+											"eventType": "block",
+											"conditions": [],
+											"actions": [
+												{
+													"callFunction": "GeneratedParameter",
+													"sid": 107831698031494,
+													"parameters": [
+														"1",
+														"str(CameraFacingRequest)",
+														"\"\""
+													]
+												}
+											],
+											"sid": 336380082810349
+										}
+									]
+								}
+							]
+						},
+						{
+							"eventType": "comment",
+							"text": "[b]Desktop[/b] Camera Picking (1-N)"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 973419215242289
+								}
+							],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "[b]1st Parameter[/b] Camera"
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 623231371570167,
+									"parameters": {
+										"variable": "cameraIndexRequest",
+										"value": "Functions.ProcessNumericParameter(1, 1, Camera.CameraSourceCount) - 1"
+									}
+								}
+							],
+							"sid": 490174495270076
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "[b]2nd Parameter[/b] FX"
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 419455004785173,
+									"parameters": {
+										"variable": "fx",
+										"value": "Functions.ProcessNumericParameter(2, 1, fxCount)"
+									}
+								}
+							],
+							"sid": 257609282271257
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "🛑  Print Parameters",
+									"background-color": [
+										0.9294117647058824,
+										0.7764705882352941,
+										0.984313725490196,
+										1
+									]
+								},
+								{
+									"callFunction": "PrintParameterHint",
+									"sid": 420274060676584
+								}
+							],
+							"sid": 969678492122639
+						},
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-object-time-scale",
+									"objectClass": "System",
+									"sid": 773250155663563,
+									"parameters": {
+										"object": "GlobalClock",
+										"time-scale": "1.0"
+									}
+								},
+								{
+									"id": "set-visible",
+									"objectClass": "Camera",
+									"sid": 821995846843124,
+									"parameters": {
+										"visibility": "invisible"
+									}
+								},
+								{
+									"id": "set-height",
+									"objectClass": "CameraNudgeBuffer",
+									"sid": 286265032294655,
+									"parameters": {
+										"height": "ViewportBottom(0)"
+									}
+								},
+								{
+									"id": "set-height",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 148506972453637,
+									"parameters": {
+										"height": "ViewportBottom(0)"
+									}
+								},
+								{
+									"id": "set-height",
+									"objectClass": "CameraNudgeNibMask",
+									"sid": 287285010708485,
+									"parameters": {
+										"height": "ViewportBottom(0)"
+									}
+								},
+								{
+									"id": "set-object-time-scale",
+									"objectClass": "System",
+									"sid": 676776887949660,
+									"parameters": {
+										"object": "CameraFilterBuffer",
+										"time-scale": "1.0"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "[b]Filter Picking[/b]"
+								},
+								{
+									"callFunction": "CameraFX",
+									"sid": 683292404259004
+								}
+							],
+							"sid": 541752252175898
+						},
+						{
+							"eventType": "comment",
+							"text": "[b]Mobile[/b] Camera Request"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 450818281750567,
+									"parameters": {
+										"variable": "DesktopMode"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [],
+							"sid": 208170379762636,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 716812706604562,
+											"parameters": {
+												"first-value": "Camera.VideoWidth",
+												"comparison": 3,
+												"second-value": "0"
+											}
+										},
+										{
+											"id": "compare-eventvar",
+											"objectClass": "System",
+											"sid": 209327952091113,
+											"parameters": {
+												"variable": "CameraFacing",
+												"comparison": 1,
+												"value": "CameraFacingRequest"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 159698440779434,
+											"parameters": {
+												"variable": "CameraFacing",
+												"value": "CameraFacingRequest"
+											}
+										},
+										{
+											"callFunction": "CameraStartSpinner",
+											"sid": 264742050806986
+										},
+										{
+											"callFunction": "RequestCameraMobile",
+											"sid": 700359414257548,
+											"parameters": [
+												"CameraFacing"
+											]
+										}
+									],
+									"sid": 608711860761075,
+									"isOrBlock": true
+								},
+								{
+									"eventType": "comment",
+									"text": "Use the existing Camera object if we are looping on this brush."
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 446166183319822
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "ReshowCamera",
+											"sid": 783241161242201
+										}
+									],
+									"sid": 154492403916654
+								}
+							]
+						},
+						{
+							"eventType": "comment",
+							"text": "[b]Desktop[/b] Camera Request"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 435497888118974
+								}
+							],
+							"actions": [],
+							"sid": 456112656323327,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 810646870171053,
+											"parameters": {
+												"first-value": "Camera.VideoWidth",
+												"comparison": 3,
+												"second-value": "0"
+											}
+										},
+										{
+											"id": "compare-eventvar",
+											"objectClass": "System",
+											"sid": 480440628415900,
+											"parameters": {
+												"variable": "cameraIndex",
+												"comparison": 1,
+												"value": "cameraIndexRequest"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 413441626033886,
+											"parameters": {
+												"variable": "cameraIndex",
+												"value": "cameraIndexRequest"
+											}
+										},
+										{
+											"callFunction": "CameraStartSpinner",
+											"sid": 196482546905878
+										},
+										{
+											"callFunction": "RequestCameraDesktop",
+											"sid": 251769381910694
+										}
+									],
+									"sid": 987480122100151,
+									"isOrBlock": true
+								},
+								{
+									"eventType": "comment",
+									"text": "Use the existing Camera object if we are looping on this brush."
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 310068882817689
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "ReshowCamera",
+											"sid": 865524944314118
+										}
+									],
+									"sid": 631059450149788
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "End a Camera [b]Flip[/b]."
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-media-request-approved",
+							"objectClass": "Camera",
+							"sid": 495691996399578
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 644870752776774,
+							"parameters": {
+								"variable": "Flipping"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 445950415350065,
+							"disabled": true,
+							"parameters": {
+								"type": "log",
+								"message": "\"Camera Request Approved for: \" & CameraFacing"
+							}
+						},
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 990445321113637,
+							"disabled": true,
+							"parameters": {
+								"type": "log",
+								"message": "\"Loaded: \" & Loaded"
+							}
+						},
+						{
+							"callFunction": "CameraEndFlip",
+							"sid": 852267105051019
+						},
+						{
+							"callFunction": "CameraParameterHint",
+							"sid": 480714363573890
+						}
+					],
+					"sid": 810121849979542
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-media-request-declined",
+							"objectClass": "Camera",
+							"sid": 817199765718586
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "TODO: Flash an [b]Error[/b] message saying camera not found, before returning to the index."
+						},
+						{
+							"callFunction": "CameraEndSpinner",
+							"sid": 812466303373848
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 155319858336265,
+							"parameters": {
+								"variable": "Repeat",
+								"value": "false"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 914504771617511,
+							"parameters": {
+								"variable": "FirstBrush",
+								"value": "\"\""
+							}
+						},
+						{
+							"callFunction": "CheckPlayMode",
+							"sid": 275999337516044
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 189277116317867,
+							"parameters": {
+								"variable": "CurrentError",
+								"value": "\"Access Error\""
+							}
+						},
+						{
+							"id": "go-to-layout",
+							"objectClass": "System",
+							"sid": 996081560887592,
+							"parameters": {
+								"layout": "Index"
+							}
+						}
+					],
+					"sid": 141555212468778
+				},
+				{
+					"eventType": "comment",
+					"text": "End the first time Camera loads after any other brush runs."
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-ended",
+							"objectClass": "Audio",
+							"sid": 842329635745833,
+							"parameters": {
+								"tag": "\"SpinnerLoop\""
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 601242336506960,
+							"parameters": {
+								"variable": "Loaded"
+							}
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "CameraEndSpinner",
+							"sid": 726802132873520
+						},
+						{
+							"type": "comment",
+							"text": "[h3]Show the [i]Camera[/i][/h3] (The first time)",
+							"background-color": [
+								0.7215686274509804,
+								1,
+								0.8196078431372549,
+								1
+							]
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 726189918622905,
+							"parameters": {
+								"variable": "nudgedOnce",
+								"value": "false"
+							}
+						},
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 196086614250116,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "0.02",
+								"type": "once",
+								"tag": "\"Render\""
+							}
+						},
+						{
+							"id": "tween-value",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 100409023828008,
+							"behaviorType": "Tween",
+							"parameters": {
+								"tags": "\"CameraOpacity\"",
+								"start-value": "100",
+								"end-value": "20",
+								"time": "3",
+								"ease": "easeinoutsine",
+								"destroy-on-complete": "no",
+								"loop": "yes",
+								"ping-pong": "yes",
+								"repeat-count": "1"
+							}
+						},
+						{
+							"callFunction": "CameraButtonsEnable",
+							"sid": 240687116241363,
+							"disabled": true
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 453312875034677,
+							"parameters": {
+								"variable": "fullyStarted",
+								"value": "true"
+							}
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 305842841987759,
+							"parameters": {
+								"tag": "\"Brush Started\""
+							}
+						}
+					],
+					"sid": 229997423921156
+				},
+				{
+					"eventType": "comment",
+					"text": "Start another tween if the Camera was opened in [b]Repeat[/b] mode."
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-tweens-finished",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 603185183444582,
+							"behaviorType": "Tween",
+							"parameters": {
+								"tags": "\"CameraOpacity\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "tween-value",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 516660017205977,
+							"behaviorType": "Tween",
+							"parameters": {
+								"tags": "\"CameraOpacity\"",
+								"start-value": "100",
+								"end-value": "20",
+								"time": "3",
+								"ease": "easeinoutsine",
+								"destroy-on-complete": "no",
+								"loop": "yes",
+								"ping-pong": "yes",
+								"repeat-count": "1"
+							}
+						}
+					],
+					"sid": 898491472386110
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 123765691836873
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 145371685678235,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 174608574176905
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 790351214538490
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 254029947239575,
+							"disabled": true,
+							"parameters": [
+								"\"Contrast\""
+							]
+						}
+					],
+					"sid": 373685261307645
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "Only make the [b]Camera[/b] visible once the video is running. [i]This prevents a black screen from showing up.[/i]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 671817596337096
+						},
+						{
+							"id": "is-visible",
+							"objectClass": "Camera",
+							"sid": 320624469633456,
+							"isInverted": true
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 138379701267037,
+							"parameters": {
+								"variable": "Loaded"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 749521080444111,
+							"parameters": {
+								"first-value": "Camera.VideoWidth",
+								"comparison": 4,
+								"second-value": "0"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 639520868435185
+						}
+					],
+					"actions": [
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 867588720956350,
+							"parameters": {
+								"variable": "Loaded",
+								"value": "true"
+							}
+						},
+						{
+							"id": "set-looping",
+							"objectClass": "Audio",
+							"sid": 791360725736353,
+							"parameters": {
+								"tag": "\"SpinnerLoop\"",
+								"state": "not-looping"
+							}
+						}
+					],
+					"sid": 548056024176974
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 510977760063837,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Render\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 270990361353168,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 199697423165816,
+									"parameters": {
+										"variable": "nudgedOnce"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [
+								{
+									"id": "paste-object",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 760254936838950,
+									"parameters": {
+										"object": "Camera",
+										"effects": "with-effects"
+									}
+								},
+								{
+									"id": "set-opacity",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 933590992901538,
+									"parameters": {
+										"opacity": "CameraFilterBuffer.Tween.Value(\"CameraOpacity\")"
+									}
+								}
+							],
+							"sid": 969417263501805,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "is-playing",
+											"objectClass": "CameraFilterBuffer",
+											"sid": 380534276775982,
+											"behaviorType": "Tween",
+											"parameters": {
+												"tags": "\"CameraHSLShift\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-effect-parameter",
+											"objectClass": "CameraFilterBuffer",
+											"sid": 541398412455565,
+											"parameters": {
+												"effect": "\"AdjustHSL\"",
+												"parameter-index": "0",
+												"value": "CameraFilterBuffer.Tween.Value(\"CameraHSLShift\")"
+											}
+										}
+									],
+									"sid": 169577074518642
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 680155598181292,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.02",
+										"type": "once",
+										"tag": "\"Render\""
+									}
+								}
+							],
+							"sid": 677195079527115
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Pause / Freeze[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 577879256963393,
+							"parameters": {
+								"variable": "Paused"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 434694474087441
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "CameraButtonsDisable",
+							"sid": 118849809794266
+						}
+					],
+					"sid": 312236280612834
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 900370233384408,
+							"parameters": {
+								"variable": "fullyStarted"
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 778412615909381,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 218473223834753
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "CameraButtonsEnable",
+							"sid": 591758829221798
+						}
+					],
+					"sid": 700552299336792
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "variable",
+					"name": "LastStampX",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 798490883894385
+				},
+				{
+					"eventType": "variable",
+					"name": "LastStampY",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 996991033434943
+				},
+				{
+					"eventType": "variable",
+					"name": "NewStampX",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 356460233659998
+				},
+				{
+					"eventType": "variable",
+					"name": "NewStampY",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 586852507583550
+				},
+				{
+					"eventType": "variable",
+					"name": "NudgeDist",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 208379542904106
+				},
+				{
+					"eventType": "variable",
+					"name": "NudgeRub",
+					"type": "boolean",
+					"initialValue": "true",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 166363732452134
+				},
+				{
+					"eventType": "variable",
+					"name": "NudgeStrokeTravel",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 610228928928598
+				},
+				{
+					"eventType": "variable",
+					"name": "NudgeStrokeSize",
+					"type": "number",
+					"initialValue": "24",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": true,
+					"sid": 417609826267066
+				},
+				{
+					"eventType": "variable",
+					"name": "NudgeStrokeGap",
+					"type": "number",
+					"initialValue": "2",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": true,
+					"sid": 771386404301143
+				},
+				{
+					"eventType": "variable",
+					"name": "NudgeLineDist",
+					"type": "number",
+					"initialValue": "4",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": true,
+					"sid": 843282220694313
+				},
+				{
+					"eventType": "variable",
+					"name": "NudgeStampAlpha",
+					"type": "number",
+					"initialValue": "8",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": true,
+					"sid": 161720937408021
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 213616777364956,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 783095822791061
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 769653215432271,
+							"parameters": {
+								"variable": "NudgeRub",
+								"value": "false"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "CameraNudgeBuffer",
+							"sid": 241333082808967,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						},
+						{
+							"id": "stop-tweens",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 351630714863624,
+							"behaviorType": "Tween",
+							"parameters": {
+								"tags": "\"CameraOpacity\""
+							}
+						},
+						{
+							"id": "stop-tweens",
+							"objectClass": "CameraNudgeBuffer",
+							"sid": 286739795323831,
+							"behaviorType": "Tween",
+							"parameters": {
+								"tags": "\"CameraNudgeOpacity\""
+							}
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 414708828737978,
+							"parameters": {
+								"variable": "nudgedOnce",
+								"value": "true"
+							}
+						},
+						{
+							"callFunction": "CameraButtonsDisable",
+							"sid": 607637366198626
+						},
+						{
+							"id": "clear-canvas",
+							"objectClass": "CameraNudgeNibMask",
+							"sid": 948688046290121,
+							"parameters": {
+								"color": "rgba(0, 0, 0, 0)"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "CameraNudgeNibMask",
+							"sid": 414492914293823,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 693668560705860,
+							"parameters": {
+								"object": "CameraFilterBuffer",
+								"time-scale": "1"
+							}
+						},
+						{
+							"id": "set-time-scale",
+							"objectClass": "System",
+							"sid": 735892959180012,
+							"parameters": {
+								"time-scale": "1.0"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 595661836405290,
+							"parameters": {
+								"variable": "LastStampX",
+								"value": "NudgePointerX"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 349435441334617,
+							"parameters": {
+								"variable": "LastStampY",
+								"value": "NudgePointerY"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 288398098839058,
+							"parameters": {
+								"x": "NudgePointerX",
+								"y": "NudgePointerY"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 272878039448997,
+							"disabled": true,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "fill-ellipse",
+							"objectClass": "CameraNudgeNibMask",
+							"sid": 673138379787407,
+							"parameters": {
+								"x": "LastStampX",
+								"y": "LastStampY",
+								"radius-x": "NudgeStrokeSize",
+								"radius-y": "NudgeStrokeSize",
+								"color": "rgba(0, 0, 0, NudgeStampAlpha)",
+								"edge": "smooth"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 247113647005418,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 820508796252747,
+							"parameters": [
+								false
+							]
+						},
+						{
+							"id": "tween-value",
+							"objectClass": "CameraNudgeBuffer",
+							"sid": 768774716200627,
+							"behaviorType": "Tween",
+							"parameters": {
+								"tags": "\"CameraNudgeOpacity\"",
+								"start-value": "100",
+								"end-value": "20",
+								"time": "3",
+								"ease": "easeinoutsine",
+								"destroy-on-complete": "no",
+								"loop": "yes",
+								"ping-pong": "yes",
+								"repeat-count": "1"
+							}
+						},
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 542402165791382,
+							"parameters": {
+								"object": "CameraFilterBuffer",
+								"time-scale": "0"
+							}
+						},
+						{
+							"id": "set-opacity",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 391266199691387,
+							"parameters": {
+								"opacity": "0"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "CameraNudgeBuffer",
+							"sid": 239847246005835,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"callFunction": "CameraButtonsEnable",
+							"sid": 247151251607508
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 125240391883596,
+							"parameters": {
+								"variable": "NudgeStrokeTravel",
+								"value": "0"
+							}
+						}
+					],
+					"sid": 282273614430575
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 977806166370662,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [],
+					"sid": 822074307057075,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[h3]Drawing Brush Strokes[/h3]",
+							"background-color": [
+								0.984313725490196,
+								1,
+								0.12156862745098039,
+								1
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "evaluate-expression",
+									"objectClass": "System",
+									"sid": 463300197116555,
+									"parameters": {
+										"value": "NudgedX <> 0 | NudgedY <> 0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 161767111747662,
+									"parameters": {
+										"variable": "NudgeDist",
+										"value": "distance(NudgePointerX, NudgePointerY, LastStampX, LastStampY)"
+									}
+								},
+								{
+									"id": "log",
+									"objectClass": "Browser",
+									"sid": 851078285314326,
+									"disabled": true,
+									"parameters": {
+										"type": "log",
+										"message": "NudgeDist"
+									}
+								}
+							],
+							"sid": 809008313271347,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "is-tag-playing",
+											"objectClass": "Audio",
+											"sid": 490174604513714,
+											"parameters": {
+												"tag": "\"Camera Nudge\""
+											},
+											"isInverted": true
+										}
+									],
+									"actions": [],
+									"sid": 702027618219498,
+									"children": [
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "evaluate-expression",
+													"objectClass": "System",
+													"sid": 986384382338040,
+													"parameters": {
+														"value": "abs(NudgedX) > 3 | abs(NudgedY) > 3"
+													}
+												}
+											],
+											"actions": [
+												{
+													"id": "toggle-boolean-eventvar",
+													"objectClass": "System",
+													"sid": 252298724422193,
+													"parameters": {
+														"variable": "NudgeRub"
+													}
+												}
+											],
+											"sid": 427617570810715,
+											"children": [
+												{
+													"eventType": "block",
+													"conditions": [
+														{
+															"id": "compare-boolean-eventvar",
+															"objectClass": "System",
+															"sid": 113086277370532,
+															"parameters": {
+																"variable": "NudgeRub"
+															}
+														}
+													],
+													"actions": [
+														{
+															"id": "play",
+															"objectClass": "Audio",
+															"sid": 726232449125464,
+															"parameters": {
+																"audio-file": {
+																	"path": "Brushes/Camera/Camera - Nudge Note 1"
+																},
+																"loop": "not-looping",
+																"volume": "random(-6, -5) + (((abs(NudgedX) + abs(NudgedY)) / 6) * 2)",
+																"stereo-pan": "0",
+																"tag-optional": "\"Camera Nudge\""
+															}
+														}
+													],
+													"sid": 365137265755657
+												},
+												{
+													"eventType": "block",
+													"conditions": [
+														{
+															"id": "else",
+															"objectClass": "System",
+															"sid": 761746525454691
+														}
+													],
+													"actions": [
+														{
+															"id": "play",
+															"objectClass": "Audio",
+															"sid": 136044255431893,
+															"parameters": {
+																"audio-file": {
+																	"path": "Brushes/Camera/Camera - Nudge Note 2"
+																},
+																"loop": "not-looping",
+																"volume": "random(-6, -5) + (((abs(NudgedX) + abs(NudgedY)) / 6) * 2)",
+																"stereo-pan": "0",
+																"tag-optional": "\"Camera Nudge\""
+															}
+														}
+													],
+													"sid": 461203740887042
+												},
+												{
+													"eventType": "block",
+													"conditions": [],
+													"actions": [
+														{
+															"id": "set-playback-rate",
+															"objectClass": "Audio",
+															"sid": 429209813584516,
+															"parameters": {
+																"tag": "\"Camera Nudge\"",
+																"playback-rate": "random(0.9, 1.1)"
+															}
+														}
+													],
+													"sid": 974875489397029
+												}
+											]
+										},
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "else",
+													"objectClass": "System",
+													"sid": 987001713544187
+												}
+											],
+											"actions": [
+												{
+													"id": "set-boolean-eventvar",
+													"objectClass": "System",
+													"sid": 937943482529203,
+													"parameters": {
+														"variable": "NudgeRub",
+														"value": "true"
+													}
+												}
+											],
+											"sid": 915280592131039
+										}
+									]
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-eventvar",
+											"objectClass": "System",
+											"sid": 407745465096185,
+											"parameters": {
+												"variable": "NudgeDist",
+												"comparison": 5,
+												"value": "NudgeLineDist"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 625080560795277,
+											"parameters": {
+												"variable": "NewStampX",
+												"value": "NudgePointerX"
+											}
+										},
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 298184050678929,
+											"parameters": {
+												"variable": "NewStampY",
+												"value": "NudgePointerY"
+											}
+										}
+									],
+									"sid": 194328440559116,
+									"children": [
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "repeat",
+													"objectClass": "System",
+													"sid": 661445195414683,
+													"parameters": {
+														"count": "NudgeDist"
+													}
+												}
+											],
+											"actions": [
+												{
+													"id": "add-to-eventvar",
+													"objectClass": "System",
+													"sid": 557849069760032,
+													"parameters": {
+														"variable": "NudgeStrokeTravel",
+														"value": "distance(LastStampX, LastStampY, NewStampX, NewStampY) / NudgeDist"
+													}
+												}
+											],
+											"sid": 194308534282277,
+											"children": [
+												{
+													"eventType": "block",
+													"conditions": [
+														{
+															"id": "compare-eventvar",
+															"objectClass": "System",
+															"sid": 767825006622446,
+															"parameters": {
+																"variable": "NudgeStrokeTravel",
+																"comparison": 5,
+																"value": "NudgeStrokeGap"
+															}
+														}
+													],
+													"actions": [
+														{
+															"id": "fill-ellipse",
+															"objectClass": "CameraNudgeNibMask",
+															"sid": 623451109747822,
+															"parameters": {
+																"x": "floor(lerp(LastStampX, NewStampX, loopindex / NudgeDist))",
+																"y": "floor(lerp(LastStampY, NewStampY, loopindex / NudgeDist))",
+																"radius-x": "NudgeStrokeSize",
+																"radius-y": "NudgeStrokeSize",
+																"color": "rgba(0, 0, 0, NudgeStampAlpha)",
+																"edge": "smooth"
+															}
+														},
+														{
+															"id": "subtract-from-eventvar",
+															"objectClass": "System",
+															"sid": 469030905641378,
+															"parameters": {
+																"variable": "NudgeStrokeTravel",
+																"value": "NudgeStrokeGap"
+															}
+														}
+													],
+													"sid": 553436496309295
+												}
+											]
+										},
+										{
+											"eventType": "block",
+											"conditions": [],
+											"actions": [
+												{
+													"id": "set-eventvar-value",
+													"objectClass": "System",
+													"sid": 249175804201426,
+													"parameters": {
+														"variable": "LastStampX",
+														"value": "NewStampX"
+													}
+												},
+												{
+													"id": "set-eventvar-value",
+													"objectClass": "System",
+													"sid": 300173129978152,
+													"parameters": {
+														"variable": "LastStampY",
+														"value": "NewStampY"
+													}
+												}
+											],
+											"sid": 657426204293651
+										}
+									]
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "paste-object",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 823837786439023,
+									"parameters": {
+										"object": "Camera",
+										"effects": "with-effects"
+									}
+								},
+								{
+									"id": "set-opacity",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 709863242668933,
+									"parameters": {
+										"opacity": "100"
+									}
+								},
+								{
+									"callFunction": "CameraRenderNudge",
+									"sid": 659272952193594
+								},
+								{
+									"id": "set-position",
+									"objectClass": "NudgeDot",
+									"sid": 547581696820172,
+									"parameters": {
+										"x": "NudgePointerX",
+										"y": "NudgePointerY"
+									}
+								}
+							],
+							"sid": 629222266191566
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 225846991752398,
+							"parameters": {
+								"variable": "Painting"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 113687687919838
+						}
+					],
+					"actions": [],
+					"sid": 391902182295785,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 678411673238506,
+									"parameters": {
+										"variable": "nudgedOnce"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "paste-object",
+									"objectClass": "Painting",
+									"sid": 491446695142060,
+									"parameters": {
+										"object": "CameraNudgeBuffer",
+										"effects": "with-effects"
+									}
+								}
+							],
+							"sid": 753269032855675
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 100486082267196
+								}
+							],
+							"actions": [
+								{
+									"id": "paste-object",
+									"objectClass": "Painting",
+									"sid": 598455531832745,
+									"parameters": {
+										"object": "CameraFilterBuffer",
+										"effects": "with-effects"
+									}
+								}
+							],
+							"sid": 720210348217906
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "Signify to [b]Core[/b] that the canvas has been painted."
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "GlobalClock",
+									"sid": 612317613976107,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.3",
+										"type": "once",
+										"tag": "\"CameraPaintDelay\""
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 983350255060948,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Camera/Camera - Shutter"
+										},
+										"loop": "not-looping",
+										"volume": "0",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								}
+							],
+							"sid": 485430617378074
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "GlobalClock",
+							"sid": 495877563204289,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"CameraPaintDelay\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 132321119418661,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 594291536291193
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 391454641832863
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 261874452164642,
+							"disabled": true,
+							"parameters": {
+								"tag": "\"Contrast\""
+							}
+						}
+					],
+					"sid": 357179959025612
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Start & Stop Loading Spinner[/h3]"
+				},
+				{
+					"functionName": "CameraStartSpinner",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"callFunction": "StartSpinner",
+							"sid": 870494492081260
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 719207166595092,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "FlipCamera",
+							"sid": 424874917640175,
+							"disabled": true,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "CameraFX",
+							"sid": 143688812786119,
+							"disabled": true,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						}
+					],
+					"sid": 626126229455686
+				},
+				{
+					"functionName": "CameraEndSpinner",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"callFunction": "EndSpinner",
+							"sid": 278421108141610
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 737722624807143,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "FlipCamera",
+							"sid": 640155777725712,
+							"disabled": true,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "CameraFX",
+							"sid": 235862816028896,
+							"disabled": true,
+							"parameters": {
+								"visibility": "visible"
+							}
+						}
+					],
+					"sid": 571941935631873
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Requesting & Flipping Camera[/h3]"
+				},
+				{
+					"functionName": "RequestCameraMobile",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [
+						{
+							"name": "Facing",
+							"type": "string",
+							"initialValue": "",
+							"comment": "",
+							"sid": 873896322717610
+						}
+					],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 169993152369729,
+							"parameters": {
+								"variable": "Loaded",
+								"value": "false"
+							}
+						}
+					],
+					"sid": 686778859569543,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 512067612023193,
+									"parameters": {
+										"variable": "Facing",
+										"comparison": 0,
+										"value": "\"Front\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "request-camera",
+									"objectClass": "Camera",
+									"sid": 517795297842891,
+									"parameters": {
+										"source": "0",
+										"preferred-direction": "user",
+										"preferred-width": "256",
+										"preferred-height": "256",
+										"include-mic": false,
+										"mic-source": "0"
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "Camera",
+									"sid": 809328133294104,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"MirrorY\""
+									}
+								}
+							],
+							"sid": 335682571627925
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 294545905865893
+								}
+							],
+							"actions": [
+								{
+									"id": "request-camera",
+									"objectClass": "Camera",
+									"sid": 593523814325608,
+									"parameters": {
+										"source": "1",
+										"preferred-direction": "environment",
+										"preferred-width": "256",
+										"preferred-height": "256",
+										"include-mic": false,
+										"mic-source": "0"
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "Camera",
+									"sid": 108043623505089,
+									"parameters": {
+										"mode": "disable",
+										"effect": "\"MirrorY\""
+									}
+								}
+							],
+							"sid": 197287818731995
+						}
+					]
+				},
+				{
+					"functionName": "RequestCameraDesktop",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 949257106153631,
+							"parameters": {
+								"variable": "Loaded",
+								"value": "false"
+							}
+						},
+						{
+							"id": "request-camera",
+							"objectClass": "Camera",
+							"sid": 120262533041281,
+							"parameters": {
+								"source": "cameraIndex",
+								"preferred-direction": "user",
+								"preferred-width": "256",
+								"preferred-height": "256",
+								"include-mic": false,
+								"mic-source": "0"
+							}
+						}
+					],
+					"sid": 966837897369030
+				},
+				{
+					"functionName": "CycleCamera",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"callFunction": "CameraStartFlip",
+							"sid": 966178907539729
+						}
+					],
+					"sid": 647156429678204,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 973141189881298,
+									"parameters": {
+										"variable": "DesktopMode"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [],
+							"sid": 248156469890415,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-eventvar",
+											"objectClass": "System",
+											"sid": 546675079710306,
+											"parameters": {
+												"variable": "CameraFacing",
+												"comparison": 0,
+												"value": "\"Front\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 724720584318035,
+											"parameters": {
+												"variable": "CameraFacing",
+												"value": "\"Back\""
+											}
+										}
+									],
+									"sid": 919222695765632
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 461550638490970
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 623817240915507,
+											"parameters": {
+												"variable": "CameraFacing",
+												"value": "\"Front\""
+											}
+										}
+									],
+									"sid": 409999209334354
+								},
+								{
+									"eventType": "block",
+									"conditions": [],
+									"actions": [
+										{
+											"type": "comment",
+											"text": "Update Parameters Array"
+										},
+										{
+											"id": "set-size",
+											"objectClass": "ParamsArray",
+											"sid": 434901625948503,
+											"parameters": {
+												"width": "2",
+												"height": "1",
+												"depth": "1"
+											}
+										},
+										{
+											"id": "set-at-x",
+											"objectClass": "ParamsArray",
+											"sid": 580248431026042,
+											"parameters": {
+												"x": "0",
+												"value": "CameraFacing"
+											}
+										},
+										{
+											"callFunction": "CameraParameterHint",
+											"sid": 421857630755254
+										},
+										{
+											"type": "comment",
+											"text": ""
+										},
+										{
+											"callFunction": "RequestCameraMobile",
+											"sid": 706137205144066,
+											"parameters": [
+												"CameraFacing"
+											]
+										}
+									],
+									"sid": 757475584532304
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 934201156974680
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 786667545736119,
+									"parameters": {
+										"variable": "cameraIndex",
+										"value": "(cameraIndex + 1) % Camera.CameraSourceCount"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "Clear any existing nudge mask."
+								},
+								{
+									"id": "clear-canvas",
+									"objectClass": "CameraNudgeNibMask",
+									"sid": 442177364851879,
+									"parameters": {
+										"color": "rgba(0, 0, 0, 0)"
+									}
+								},
+								{
+									"id": "set-visible",
+									"objectClass": "CameraNudgeNibMask",
+									"sid": 622250376569909,
+									"parameters": {
+										"visibility": "invisible"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "Update Parameters Array"
+								},
+								{
+									"id": "set-size",
+									"objectClass": "ParamsArray",
+									"sid": 988881761626500,
+									"parameters": {
+										"width": "2",
+										"height": "1",
+										"depth": "1"
+									}
+								},
+								{
+									"id": "set-at-x",
+									"objectClass": "ParamsArray",
+									"sid": 956873837835240,
+									"parameters": {
+										"x": "0",
+										"value": "cameraIndex + 1"
+									}
+								},
+								{
+									"callFunction": "CameraParameterHint",
+									"sid": 846150203327254
+								},
+								{
+									"type": "comment",
+									"text": ""
+								},
+								{
+									"callFunction": "RequestCameraDesktop",
+									"sid": 775239583132845
+								}
+							],
+							"sid": 753827175953096
+						}
+					]
+				},
+				{
+					"functionName": "CameraStartFlip",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 888207555602494,
+							"parameters": {
+								"audio-file": {
+									"path": "Brushes/Camera/Camera - Flip"
+								},
+								"loop": "not-looping",
+								"volume": "0",
+								"stereo-pan": "0",
+								"tag-optional": "\"\""
+							}
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 292128338448387,
+							"parameters": {
+								"variable": "Flipping",
+								"value": "true"
+							}
+						},
+						{
+							"id": "set-group-active",
+							"objectClass": "System",
+							"sid": 553691017742416,
+							"parameters": {
+								"group-name": "\"Keyboard Controls\"",
+								"state": "deactivated"
+							}
+						},
+						{
+							"id": "set-group-active",
+							"objectClass": "System",
+							"sid": 740320909692450,
+							"parameters": {
+								"group-name": "\"Pause\"",
+								"state": "deactivated"
+							}
+						},
+						{
+							"id": "set-group-active",
+							"objectClass": "System",
+							"sid": 215686026898463,
+							"parameters": {
+								"group-name": "\"Buttons\"",
+								"state": "deactivated"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "CameraFlipOverlay",
+							"sid": 356684831693303,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-animation-frame",
+							"objectClass": "FlipCamera",
+							"sid": 833543223880683,
+							"parameters": {
+								"frame-number": "1"
+							}
+						}
+					],
+					"sid": 778648877864465,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 938350328916264,
+									"parameters": {
+										"variable": "nudgedOnce"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "stop-tweens",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 223051324578439,
+									"behaviorType": "Tween",
+									"parameters": {
+										"tags": "\"CameraOpacity\""
+									}
+								},
+								{
+									"id": "set-object-time-scale",
+									"objectClass": "System",
+									"sid": 614294987953171,
+									"parameters": {
+										"object": "CameraFilterBuffer",
+										"time-scale": "1"
+									}
+								},
+								{
+									"id": "tween-value",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 854404462592363,
+									"behaviorType": "Tween",
+									"parameters": {
+										"tags": "\"CameraOpacity\"",
+										"start-value": "100",
+										"end-value": "20",
+										"time": "3",
+										"ease": "easeinoutsine",
+										"destroy-on-complete": "no",
+										"loop": "yes",
+										"ping-pong": "yes",
+										"repeat-count": "1"
+									}
+								},
+								{
+									"id": "set-visible",
+									"objectClass": "CameraNudgeBuffer",
+									"sid": 563256075115557,
+									"parameters": {
+										"visibility": "invisible"
+									}
+								},
+								{
+									"id": "set-visible",
+									"objectClass": "CameraNudgeNibMask",
+									"sid": 402231906922653,
+									"parameters": {
+										"visibility": "invisible"
+									}
+								},
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 712228003251042,
+									"parameters": {
+										"variable": "nudgedOnce",
+										"value": "false"
+									}
+								}
+							],
+							"sid": 562818419912922
+						}
+					]
+				},
+				{
+					"functionName": "CameraEndFlip",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Disable the [b]Spinner[/b]."
+						},
+						{
+							"id": "wait",
+							"objectClass": "System",
+							"sid": 459749812237183,
+							"parameters": {
+								"seconds": "0.2",
+								"use-timescale": true
+							}
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 669263012351813,
+							"parameters": {
+								"variable": "Flipping",
+								"value": "false"
+							}
+						},
+						{
+							"id": "set-group-active",
+							"objectClass": "System",
+							"sid": 635539396130117,
+							"parameters": {
+								"group-name": "\"Keyboard Controls\"",
+								"state": "activated"
+							}
+						},
+						{
+							"id": "set-group-active",
+							"objectClass": "System",
+							"sid": 926717609902571,
+							"parameters": {
+								"group-name": "\"Pause\"",
+								"state": "activated"
+							}
+						},
+						{
+							"id": "set-group-active",
+							"objectClass": "System",
+							"sid": 408330559372770,
+							"parameters": {
+								"group-name": "\"Buttons\"",
+								"state": "activated"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "CameraFlipOverlay",
+							"sid": 358754007455231,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						},
+						{
+							"id": "set-animation-frame",
+							"objectClass": "FlipCamera",
+							"sid": 824799700957534,
+							"parameters": {
+								"frame-number": "0"
+							}
+						}
+					],
+					"sid": 996287044752460,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 312689474361895,
+									"disabled": true,
+									"parameters": {
+										"variable": "nudgedOnce"
+									}
+								}
+							],
+							"actions": [],
+							"sid": 609695534290442
+						}
+					]
+				},
+				{
+					"functionName": "CameraButtonsEnable",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Enable [b]Camera UI[/b]"
+						},
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 604034006919284,
+							"disabled": true,
+							"parameters": {
+								"type": "log",
+								"message": "\"Camera Buttons Enable:\" & Camera.CameraSourceCount"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "FlipCamera",
+							"sid": 339562190328923,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "CameraFX",
+							"sid": 804923325528784,
+							"parameters": {
+								"visibility": "visible"
+							}
+						}
+					],
+					"sid": 609867084404433,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 787077811667250,
+									"parameters": {
+										"variable": "DesktopMode"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-animation",
+									"objectClass": "FlipCamera",
+									"sid": 426774172963174,
+									"parameters": {
+										"animation": "\"Desktop\"",
+										"from": "beginning"
+									}
+								},
+								{
+									"id": "set-animation",
+									"objectClass": "CameraFX",
+									"sid": 198193553415216,
+									"parameters": {
+										"animation": "\"Desktop\"",
+										"from": "beginning"
+									}
+								},
+								{
+									"id": "set-y",
+									"objectClass": "FlipCamera",
+									"sid": 287694405405141,
+									"parameters": {
+										"y": "PromptBackground.Y + 1"
+									}
+								},
+								{
+									"id": "set-y",
+									"objectClass": "CameraFX",
+									"sid": 722608113382888,
+									"parameters": {
+										"y": "PromptBackground.Y + 1"
+									}
+								}
+							],
+							"sid": 269428639055462
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 923111915002024
+								}
+							],
+							"actions": [
+								{
+									"id": "set-animation",
+									"objectClass": "FlipCamera",
+									"sid": 293575836093156,
+									"parameters": {
+										"animation": "\"Mobile\"",
+										"from": "beginning"
+									}
+								},
+								{
+									"id": "set-animation",
+									"objectClass": "CameraFX",
+									"sid": 323704668582033,
+									"parameters": {
+										"animation": "\"Mobile\"",
+										"from": "beginning"
+									}
+								}
+							],
+							"sid": 290279223640890
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "pick-by-evaluate",
+									"objectClass": "System",
+									"sid": 118529614695515,
+									"parameters": {
+										"object": "Button",
+										"expression": "Button.For = \"FlipCamera\" | Button.For = \"CameraFX\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-instvar",
+									"objectClass": "Button",
+									"sid": 560556857448142,
+									"parameters": {
+										"instance-variable": "Disabled",
+										"value": "false"
+									}
+								},
+								{
+									"id": "set-y",
+									"objectClass": "Button",
+									"sid": 797054446405666,
+									"parameters": {
+										"y": "PromptBackground.Y"
+									}
+								}
+							],
+							"sid": 973594146818549
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "pick-by-comparison",
+									"objectClass": "System",
+									"sid": 389703982755361,
+									"parameters": {
+										"object": "Button",
+										"expression": "Button.For",
+										"comparison": 0,
+										"value": "\"Prompt\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-width",
+									"objectClass": "Button",
+									"sid": 928327916216122,
+									"parameters": {
+										"width": "174"
+									}
+								},
+								{
+									"id": "set-x",
+									"objectClass": "PlayModeIcon",
+									"sid": 672582592328909,
+									"parameters": {
+										"x": "174 - Self.Width - 3"
+									}
+								}
+							],
+							"sid": 508933399817162
+						},
+						{
+							"eventType": "comment",
+							"text": "Disable the \"Next Camera\" button if there are no other cameras attached."
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 189041951526730,
+									"parameters": {
+										"variable": "DesktopMode"
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 634868304815787,
+									"parameters": {
+										"first-value": "Camera.CameraSourceCount",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-opacity",
+									"objectClass": "FlipCamera",
+									"sid": 131470065235673,
+									"disabled": true,
+									"parameters": {
+										"opacity": "50"
+									}
+								},
+								{
+									"id": "set-visible",
+									"objectClass": "FlipCamera",
+									"sid": 185342396034847,
+									"parameters": {
+										"visibility": "invisible"
+									}
+								}
+							],
+							"sid": 918964369174161,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "pick-by-evaluate",
+											"objectClass": "System",
+											"sid": 537098792607713,
+											"parameters": {
+												"object": "Button",
+												"expression": "Button.For = \"FlipCamera\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-boolean-instvar",
+											"objectClass": "Button",
+											"sid": 994985360307062,
+											"parameters": {
+												"instance-variable": "Disabled",
+												"value": "true"
+											}
+										}
+									],
+									"sid": 794234377363623
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "pick-by-comparison",
+											"objectClass": "System",
+											"sid": 591463585115315,
+											"parameters": {
+												"object": "Button",
+												"expression": "Button.For",
+												"comparison": 0,
+												"value": "\"Prompt\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-width",
+											"objectClass": "Button",
+											"sid": 741826238616950,
+											"parameters": {
+												"width": "214"
+											}
+										},
+										{
+											"id": "set-x",
+											"objectClass": "PlayModeIcon",
+											"sid": 544460253267915,
+											"parameters": {
+												"x": "214 - Self.Width - 3"
+											}
+										}
+									],
+									"sid": 897790806099741
+								}
+							]
+						}
+					]
+				},
+				{
+					"functionName": "CameraButtonsDisable",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Disable [b]Camera UI[/b]"
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "FlipCamera",
+							"sid": 590681958296407,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "CameraFX",
+							"sid": 377093061447735,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						}
+					],
+					"sid": 454730356170534,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "pick-by-evaluate",
+									"objectClass": "System",
+									"sid": 969107337582671,
+									"parameters": {
+										"object": "Button",
+										"expression": "Button.For = \"FlipCamera\" | Button.For = \"CameraFX\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-instvar",
+									"objectClass": "Button",
+									"sid": 888803831876601,
+									"parameters": {
+										"instance-variable": "Disabled",
+										"value": "true"
+									}
+								}
+							],
+							"sid": 218334953119263
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "pick-by-comparison",
+									"objectClass": "System",
+									"sid": 579336176051304,
+									"parameters": {
+										"object": "Button",
+										"expression": "Button.For",
+										"comparison": 0,
+										"value": "\"Prompt\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-width",
+									"objectClass": "Button",
+									"sid": 594010830992577,
+									"parameters": {
+										"width": "256"
+									}
+								}
+							],
+							"sid": 174652738696873
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Other Functions[/h3]"
+				},
+				{
+					"functionName": "ReshowCamera",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "[h3]Show the [i]Camera[/i][/h3] (If it's already been loaded)",
+							"background-color": [
+								0.7058823529411765,
+								0.996078431372549,
+								0.7529411764705882,
+								1
+							]
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 965799816953082,
+							"parameters": {
+								"variable": "nudgedOnce",
+								"value": "false"
+							}
+						},
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 278882385009162,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "0.01",
+								"type": "regular",
+								"tag": "\"Render\""
+							}
+						}
+					],
+					"sid": 766735898251951,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 386437256567428,
+									"parameters": {
+										"variable": "Repeat"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [
+								{
+									"id": "tween-value",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 350885724878378,
+									"behaviorType": "Tween",
+									"parameters": {
+										"tags": "\"CameraOpacity\"",
+										"start-value": "100",
+										"end-value": "20",
+										"time": "3",
+										"ease": "easeinoutsine",
+										"destroy-on-complete": "no",
+										"loop": "yes",
+										"ping-pong": "yes",
+										"repeat-count": "1"
+									}
+								}
+							],
+							"sid": 269377731083164
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 854222527351928
+								}
+							],
+							"actions": [
+								{
+									"id": "tween-value",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 950893368189742,
+									"behaviorType": "Tween",
+									"parameters": {
+										"tags": "\"CameraOpacity\"",
+										"start-value": "0",
+										"end-value": "100",
+										"time": "1",
+										"ease": "easeinoutsine",
+										"destroy-on-complete": "no",
+										"loop": "no",
+										"ping-pong": "no",
+										"repeat-count": "1"
+									}
+								}
+							],
+							"sid": 802551116039043
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"callFunction": "CameraButtonsEnable",
+									"sid": 226079828959431,
+									"disabled": true
+								},
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 117207478660691,
+									"parameters": {
+										"variable": "fullyStarted",
+										"value": "true"
+									}
+								},
+								{
+									"id": "signal",
+									"objectClass": "System",
+									"sid": 210058568759655,
+									"parameters": {
+										"tag": "\"Brush Started\""
+									}
+								}
+							],
+							"sid": 269271526587999
+						}
+					]
+				},
+				{
+					"functionName": "CameraRenderNudge",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "clear-canvas",
+							"objectClass": "CameraNudgeBuffer",
+							"sid": 225062934737514,
+							"parameters": {
+								"color": "rgba(100, 0, 0, 0)"
+							}
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "CameraNudgeBuffer",
+							"sid": 728809478818931,
+							"parameters": {
+								"object": "CameraFilterBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "CameraNudgeBuffer",
+							"sid": 954199430330109,
+							"parameters": {
+								"object": "CameraNudgeNibMask",
+								"effects": "with-effects"
+							}
+						}
+					],
+					"sid": 985082815876782
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "is-playing",
+							"objectClass": "CameraNudgeBuffer",
+							"sid": 343306422375508,
+							"behaviorType": "Tween",
+							"parameters": {
+								"tags": "\"CameraNudgeOpacity\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-opacity",
+							"objectClass": "CameraNudgeBuffer",
+							"sid": 577613037916329,
+							"parameters": {
+								"opacity": "CameraNudgeBuffer.Tween.Value(\"CameraNudgeOpacity\")"
+							}
+						},
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 411503980893577,
+							"disabled": true,
+							"parameters": {
+								"type": "log",
+								"message": "CameraNudgeBuffer.Opacity"
+							}
+						}
+					],
+					"sid": 488379734545936
+				},
+				{
+					"functionName": "CameraFX",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "[b]Disable All Camera FX[/b]"
+						},
+						{
+							"id": "set-effect-enabled",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 451844692390019,
+							"parameters": {
+								"mode": "disable",
+								"effect": "\"RGBSplit\""
+							}
+						},
+						{
+							"id": "set-effect-enabled",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 495893757007477,
+							"parameters": {
+								"mode": "disable",
+								"effect": "\"GlowHorizontal\""
+							}
+						},
+						{
+							"id": "set-effect-enabled",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 362163667276374,
+							"parameters": {
+								"mode": "disable",
+								"effect": "\"GlowVertical\""
+							}
+						},
+						{
+							"id": "set-effect-enabled",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 171141930436985,
+							"parameters": {
+								"mode": "disable",
+								"effect": "\"ScanLines\""
+							}
+						},
+						{
+							"id": "set-effect-enabled",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 116329501870387,
+							"parameters": {
+								"mode": "disable",
+								"effect": "\"Sepia\""
+							}
+						},
+						{
+							"id": "set-effect-enabled",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 311113004125698,
+							"parameters": {
+								"mode": "disable",
+								"effect": "\"Grayscale\""
+							}
+						},
+						{
+							"id": "set-effect-enabled",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 635465877814189,
+							"parameters": {
+								"mode": "disable",
+								"effect": "\"Noise\""
+							}
+						},
+						{
+							"id": "set-effect-enabled",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 937980982484682,
+							"parameters": {
+								"mode": "disable",
+								"effect": "\"Posterize\""
+							}
+						},
+						{
+							"id": "set-effect-enabled",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 501265138860331,
+							"parameters": {
+								"mode": "disable",
+								"effect": "\"AdjustHSL\""
+							}
+						},
+						{
+							"id": "set-effect-parameter",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 182880971520097,
+							"parameters": {
+								"effect": "\"AdjustHSL\"",
+								"parameter-index": "1",
+								"value": "110"
+							}
+						},
+						{
+							"id": "set-effect-enabled",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 384018797328044,
+							"parameters": {
+								"mode": "disable",
+								"effect": "\"Water\""
+							}
+						},
+						{
+							"id": "set-effect-enabled",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 197652530332291,
+							"parameters": {
+								"mode": "disable",
+								"effect": "\"OilPainting\""
+							}
+						},
+						{
+							"callFunction": "CameraFXDefaults",
+							"sid": 862217369446055,
+							"parameters": [
+								true
+							]
+						},
+						{
+							"id": "stop-tweens",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 687919783170605,
+							"behaviorType": "Tween",
+							"parameters": {
+								"tags": "\"CameraHSLShift\""
+							}
+						}
+					],
+					"sid": 232996529926127,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "Basic (None)"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 185078532935576,
+									"parameters": {
+										"variable": "fx",
+										"comparison": 0,
+										"value": "1"
+									}
+								}
+							],
+							"actions": [],
+							"sid": 825984423487394
+						},
+						{
+							"eventType": "comment",
+							"text": "RGBSplit"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 552775471794944
+								},
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 842536387008597,
+									"parameters": {
+										"variable": "fx",
+										"comparison": 0,
+										"value": "2"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 812882031852020,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"RGBSplit\""
+									}
+								}
+							],
+							"sid": 129535050447364
+						},
+						{
+							"eventType": "comment",
+							"text": "AdjustHSL"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 655877130054319
+								},
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 492081262654816,
+									"parameters": {
+										"variable": "fx",
+										"comparison": 0,
+										"value": "3"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 576936964829807,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"AdjustHSL\""
+									}
+								},
+								{
+									"id": "tween-value",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 399617572831792,
+									"behaviorType": "Tween",
+									"parameters": {
+										"tags": "\"CameraHSLShift\"",
+										"start-value": "-100",
+										"end-value": "100",
+										"time": "5",
+										"ease": "default",
+										"destroy-on-complete": "no",
+										"loop": "yes",
+										"ping-pong": "yes",
+										"repeat-count": "1"
+									}
+								}
+							],
+							"sid": 697675934701123
+						},
+						{
+							"eventType": "comment",
+							"text": "Glow"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 882367865137173
+								},
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 614785444614219,
+									"parameters": {
+										"variable": "fx",
+										"comparison": 0,
+										"value": "4"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 408338252648692,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"GlowHorizontal\""
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 615253466519293,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"GlowVertical\""
+									}
+								}
+							],
+							"sid": 609803858804051
+						},
+						{
+							"eventType": "comment",
+							"text": "Noise"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 567694096129023
+								},
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 263671332229168,
+									"parameters": {
+										"variable": "fx",
+										"comparison": 0,
+										"value": "5"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 949998536694324,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"Noise\""
+									}
+								}
+							],
+							"sid": 112113942792100
+						},
+						{
+							"eventType": "comment",
+							"text": "ScanLines"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 883876556978405
+								},
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 153863194983378,
+									"parameters": {
+										"variable": "fx",
+										"comparison": 0,
+										"value": "6"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 265542395489320,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"ScanLines\""
+									}
+								}
+							],
+							"sid": 439167103177052
+						},
+						{
+							"eventType": "comment",
+							"text": "Sepia"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 167224447842424
+								},
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 904438722442379,
+									"parameters": {
+										"variable": "fx",
+										"comparison": 0,
+										"value": "7"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 563215860089931,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"Sepia\""
+									}
+								}
+							],
+							"sid": 590690553565855
+						},
+						{
+							"eventType": "comment",
+							"text": "Grayscale"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 829191545107924
+								},
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 120013605272127,
+									"parameters": {
+										"variable": "fx",
+										"comparison": 0,
+										"value": "8"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 764088081453789,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"Grayscale\""
+									}
+								}
+							],
+							"sid": 777906705480238
+						},
+						{
+							"eventType": "comment",
+							"text": "Black&White"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 641456125266791
+								},
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 265899608097245,
+									"parameters": {
+										"variable": "fx",
+										"comparison": 0,
+										"value": "9"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 216590895635226,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"Posterize\""
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 139065016183274,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"Grayscale\""
+									}
+								},
+								{
+									"callFunction": "CameraFXDefaults",
+									"sid": 293626671796389,
+									"disabled": true,
+									"parameters": [
+										false
+									]
+								}
+							],
+							"sid": 677043726790870
+						},
+						{
+							"eventType": "comment",
+							"text": "Water"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 709668512706397
+								},
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 671299392857543,
+									"parameters": {
+										"variable": "fx",
+										"comparison": 0,
+										"value": "10"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 268041358011995,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"Water\""
+									}
+								}
+							],
+							"sid": 988240472930648
+						},
+						{
+							"eventType": "comment",
+							"text": "OilPainting"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 421163085862097
+								},
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 370237839156695,
+									"parameters": {
+										"variable": "fx",
+										"comparison": 0,
+										"value": "11"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 525835403191852,
+									"parameters": {
+										"effect": "\"AdjustHSL\"",
+										"parameter-index": "1",
+										"value": "160"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 833396824392394,
+									"parameters": {
+										"effect": "\"AdjustHSL\"",
+										"parameter-index": "0",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 667729270539421,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"AdjustHSL\""
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 504830330752905,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"OilPainting\""
+									}
+								}
+							],
+							"sid": 618243040993456
+						}
+					]
+				},
+				{
+					"functionName": "CameraFXDefaults",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [
+						{
+							"name": "enable",
+							"type": "boolean",
+							"initialValue": "false",
+							"comment": "",
+							"sid": 839999754835794
+						}
+					],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [],
+					"sid": 850740610625044,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 624073178232779,
+									"parameters": {
+										"variable": "enable"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 141782945955334,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"Sharpen\""
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 192615630206037,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"Contrast\""
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 297095847235569,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"Vibrance\"\n"
+									}
+								}
+							],
+							"sid": 541848688994858
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 622900855692474
+								}
+							],
+							"actions": [
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 680866862303513,
+									"parameters": {
+										"mode": "disable",
+										"effect": "\"Sharpen\""
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 321728459183039,
+									"parameters": {
+										"mode": "disable",
+										"effect": "\"Contrast\""
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 471098121001920,
+									"parameters": {
+										"mode": "disable",
+										"effect": "\"Vibrance\"\n"
+									}
+								}
+							],
+							"sid": 113321474762021
+						}
+					]
+				},
+				{
+					"functionName": "CameraFXCycle",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 151998973731035,
+							"parameters": {
+								"audio-file": {
+									"path": "Brushes/Camera/Camera - FX"
+								},
+								"loop": "not-looping",
+								"volume": "0",
+								"stereo-pan": "0",
+								"tag-optional": "\"\""
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 614622175351717,
+							"parameters": {
+								"variable": "fx",
+								"value": "min(max((fx + 1) % (fxCount + 1), 1), fxCount)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Update Parameters Array"
+						},
+						{
+							"id": "set-size",
+							"objectClass": "ParamsArray",
+							"sid": 193116558758813,
+							"parameters": {
+								"width": "2",
+								"height": "1",
+								"depth": "1"
+							}
+						},
+						{
+							"id": "set-at-x",
+							"objectClass": "ParamsArray",
+							"sid": 166163641208334,
+							"parameters": {
+								"x": "1",
+								"value": "fx"
+							}
+						},
+						{
+							"callFunction": "CameraParameterHint",
+							"sid": 220295346156332
+						},
+						{
+							"type": "comment",
+							"text": ""
+						},
+						{
+							"callFunction": "CameraFX",
+							"sid": 400654273334893
+						},
+						{
+							"id": "stop-tweens",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 567884774112243,
+							"behaviorType": "Tween",
+							"parameters": {
+								"tags": "\"CameraOpacity\""
+							}
+						},
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 655941113911465,
+							"parameters": {
+								"object": "CameraFilterBuffer",
+								"time-scale": "1"
+							}
+						},
+						{
+							"id": "tween-value",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 887828037810696,
+							"behaviorType": "Tween",
+							"parameters": {
+								"tags": "\"CameraOpacity\"",
+								"start-value": "100",
+								"end-value": "20",
+								"time": "3",
+								"ease": "easeinoutsine",
+								"destroy-on-complete": "no",
+								"loop": "yes",
+								"ping-pong": "yes",
+								"repeat-count": "1"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "CameraNudgeBuffer",
+							"sid": 121490213927675,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "CameraNudgeNibMask",
+							"sid": 192591354588560,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 186217589411922,
+							"parameters": {
+								"variable": "nudgedOnce",
+								"value": "false"
+							}
+						}
+					],
+					"sid": 923347694457177
+				},
+				{
+					"functionName": "CameraParameterHint",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 419616660246700,
+							"disabled": true,
+							"parameters": {
+								"type": "log",
+								"message": "ParamsArray.AsJSON"
+							}
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 778822027757352,
+							"parameters": [
+								"2"
+							]
+						}
+					],
+					"sid": 135062137835585,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 265089947362782,
+									"parameters": {
+										"variable": "DesktopMode"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [],
+							"sid": 452301351750782,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-at-x",
+											"objectClass": "ParamsArray",
+											"sid": 464694706432811,
+											"parameters": {
+												"x": "0",
+												"comparison": 0,
+												"value": "0"
+											}
+										},
+										{
+											"id": "compare-at-x",
+											"objectClass": "ParamsArray",
+											"sid": 802972000218926,
+											"parameters": {
+												"x": "0",
+												"comparison": 0,
+												"value": "\"?\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "GeneratedParameter",
+											"sid": 174762138278802,
+											"parameters": [
+												"1",
+												"CameraFacing",
+												"\"\""
+											]
+										}
+									],
+									"sid": 152687923211587,
+									"isOrBlock": true
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 363157538695914
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "SpecifiedParameter",
+											"sid": 538848562598348,
+											"parameters": [
+												"1"
+											]
+										}
+									],
+									"sid": 672277026917956
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 659044662419275
+								}
+							],
+							"actions": [],
+							"sid": 984850365247670,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-at-x",
+											"objectClass": "ParamsArray",
+											"sid": 830146744415363,
+											"parameters": {
+												"x": "0",
+												"comparison": 0,
+												"value": "0"
+											}
+										},
+										{
+											"id": "compare-at-x",
+											"objectClass": "ParamsArray",
+											"sid": 875782863732209,
+											"parameters": {
+												"x": "0",
+												"comparison": 0,
+												"value": "\"?\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "GeneratedParameter",
+											"sid": 484852222949774,
+											"parameters": [
+												"1",
+												"str(cameraIndex + 1)",
+												"\"\""
+											]
+										}
+									],
+									"sid": 861862343876042,
+									"isOrBlock": true
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 301443028149407
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "SpecifiedParameter",
+											"sid": 708725274510052,
+											"parameters": [
+												"1"
+											]
+										}
+									],
+									"sid": 410275505976556
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-at-x",
+									"objectClass": "ParamsArray",
+									"sid": 431375408557350,
+									"parameters": {
+										"x": "1",
+										"comparison": 0,
+										"value": "0"
+									}
+								},
+								{
+									"id": "compare-at-x",
+									"objectClass": "ParamsArray",
+									"sid": 588706520559699,
+									"parameters": {
+										"x": "1",
+										"comparison": 0,
+										"value": "\"?\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "GeneratedParameter",
+									"sid": 527798277670672,
+									"parameters": [
+										"2",
+										"str(fx)",
+										"\"\""
+									]
+								}
+							],
+							"sid": 212579121044000,
+							"isOrBlock": true
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 261579318725374
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "SpecifiedParameter",
+									"sid": 106594957715216,
+									"parameters": [
+										"2"
+									]
+								}
+							],
+							"sid": 228175157502176
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"callFunction": "PrintParameterHint",
+									"sid": 891855793620114
+								},
+								{
+									"id": "log",
+									"objectClass": "Browser",
+									"sid": 713881557985957,
+									"disabled": true,
+									"parameters": {
+										"type": "log",
+										"message": "\"promptText: \" & promptText"
+									}
+								}
+							],
+							"sid": 862776719279687
+						}
+					]
+				},
+				{
+					"functionName": "CameraShowButtonsOnRepeat",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 440220904424772,
+							"parameters": {
+								"first-value": "Camera.VideoWidth",
+								"comparison": 4,
+								"second-value": "0"
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 725322055393661,
+							"disabled": true,
+							"parameters": {
+								"variable": "Repeat"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-visible",
+							"objectClass": "CameraFX",
+							"sid": 559118920673340,
+							"parameters": {
+								"visibility": "visible"
+							}
+						}
+					],
+					"sid": 626591812564358,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 372812182899159,
+									"parameters": {
+										"first-value": "Camera.CameraSourceCount",
+										"comparison": 4,
+										"second-value": "1"
+									}
+								},
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 539441595804422,
+									"parameters": {
+										"variable": "DesktopMode"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [
+								{
+									"id": "set-visible",
+									"objectClass": "FlipCamera",
+									"sid": 178579540461133,
+									"parameters": {
+										"visibility": "visible"
+									}
+								}
+							],
+							"sid": 851505719562129,
+							"isOrBlock": true
+						},
+						{
+							"eventType": "comment",
+							"text": "Adjust Camera buttons for Desktop"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 390659083810309,
+									"parameters": {
+										"variable": "DesktopMode"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-animation",
+									"objectClass": "FlipCamera",
+									"sid": 584828518682869,
+									"parameters": {
+										"animation": "\"Desktop\"",
+										"from": "beginning"
+									}
+								},
+								{
+									"id": "set-animation",
+									"objectClass": "CameraFX",
+									"sid": 941494167056255,
+									"parameters": {
+										"animation": "\"Desktop\"",
+										"from": "beginning"
+									}
+								}
+							],
+							"sid": 483863527213122
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 832678125170902
+								}
+							],
+							"actions": [
+								{
+									"id": "set-animation",
+									"objectClass": "FlipCamera",
+									"sid": 127228474588224,
+									"parameters": {
+										"animation": "\"Mobile\"",
+										"from": "beginning"
+									}
+								},
+								{
+									"id": "set-animation",
+									"objectClass": "CameraFX",
+									"sid": 354970876725620,
+									"parameters": {
+										"animation": "\"Mobile\"",
+										"from": "beginning"
+									}
+								}
+							],
+							"sid": 908938620777531
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 288036825199475,
+									"parameters": {
+										"variable": "DesktopMode"
+									}
+								},
+								{
+									"id": "pick-by-evaluate",
+									"objectClass": "System",
+									"sid": 735123026051956,
+									"parameters": {
+										"object": "Button",
+										"expression": "Button.For = \"FlipCamera\" | Button.For = \"CameraFX\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-y",
+									"objectClass": "FlipCamera",
+									"sid": 213777036942922,
+									"parameters": {
+										"y": "PromptBackground.Y + 1"
+									}
+								},
+								{
+									"id": "set-y",
+									"objectClass": "CameraFX",
+									"sid": 853650932897397,
+									"parameters": {
+										"y": "PromptBackground.Y + 1"
+									}
+								},
+								{
+									"id": "set-y",
+									"objectClass": "Button",
+									"sid": 916882091538288,
+									"parameters": {
+										"y": "PromptBackground.Y"
+									}
+								}
+							],
+							"sid": 242956237955773
+						},
+						{
+							"eventType": "comment",
+							"text": "[h4]Move the PlayModeIcon accordingly.[/h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "pick-by-comparison",
+									"objectClass": "System",
+									"sid": 268209160805628,
+									"parameters": {
+										"object": "Button",
+										"expression": "Button.For",
+										"comparison": 0,
+										"value": "\"Prompt\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-width",
+									"objectClass": "Button",
+									"sid": 939234200976570,
+									"parameters": {
+										"width": "174"
+									}
+								},
+								{
+									"id": "set-x",
+									"objectClass": "PlayModeIcon",
+									"sid": 116023752741212,
+									"parameters": {
+										"x": "174 - Self.Width - 3"
+									}
+								}
+							],
+							"sid": 163958256029469
+						},
+						{
+							"eventType": "comment",
+							"text": "Disable the \"Next Camera\" button if there are no other cameras attached."
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 451422871212577,
+									"parameters": {
+										"variable": "DesktopMode"
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 427873556407429,
+									"parameters": {
+										"first-value": "Camera.CameraSourceCount",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-opacity",
+									"objectClass": "FlipCamera",
+									"sid": 236338267739673,
+									"disabled": true,
+									"parameters": {
+										"opacity": "50"
+									}
+								},
+								{
+									"id": "set-visible",
+									"objectClass": "FlipCamera",
+									"sid": 486880502153156,
+									"parameters": {
+										"visibility": "invisible"
+									}
+								}
+							],
+							"sid": 871902357902839,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "pick-by-evaluate",
+											"objectClass": "System",
+											"sid": 894989267302839,
+											"parameters": {
+												"object": "Button",
+												"expression": "Button.For = \"FlipCamera\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-boolean-instvar",
+											"objectClass": "Button",
+											"sid": 927408458785053,
+											"parameters": {
+												"instance-variable": "Disabled",
+												"value": "true"
+											}
+										}
+									],
+									"sid": 132187030933264
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "pick-by-comparison",
+											"objectClass": "System",
+											"sid": 664902736954738,
+											"parameters": {
+												"object": "Button",
+												"expression": "Button.For",
+												"comparison": 0,
+												"value": "\"Prompt\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-width",
+											"objectClass": "Button",
+											"sid": 616252023913830,
+											"parameters": {
+												"width": "214"
+											}
+										},
+										{
+											"id": "set-x",
+											"objectClass": "PlayModeIcon",
+											"sid": 109336463222600,
+											"parameters": {
+												"x": "214 - Self.Width - 3"
+											}
+										}
+									],
+									"sid": 628712829088120
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Camera FX[/b]: Tweens and Changes"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "is-playing",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 641468698319029,
+							"behaviorType": "Tween",
+							"parameters": {
+								"tags": "\"CameraHSLShift\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-effect-parameter",
+							"objectClass": "CameraFilterBuffer",
+							"sid": 383902483783861,
+							"parameters": {
+								"effect": "\"AdjustHSL\"",
+								"parameter-index": "0",
+								"value": "CameraFilterBuffer.Tween.Value(\"CameraHSLShift\")"
+							}
+						}
+					],
+					"sid": 664864865804509,
+					"disabled": true
+				},
+				{
+					"eventType": "comment",
+					"text": "Shake RGBSplit"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-eventvar",
+							"objectClass": "System",
+							"sid": 514657211323058,
+							"parameters": {
+								"variable": "fx",
+								"comparison": 0,
+								"value": "2"
+							}
+						},
+						{
+							"id": "every-x-seconds",
+							"objectClass": "System",
+							"sid": 681941913212574,
+							"parameters": {
+								"interval-seconds": "0.05"
+							}
+						}
+					],
+					"actions": [],
+					"sid": 580951882151544,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 217830646150440,
+									"parameters": {
+										"first-value": "choose(0, 0, 1)",
+										"comparison": 0,
+										"second-value": "0"
+									}
+								},
+								{
+									"id": "repeat",
+									"objectClass": "System",
+									"sid": 217515605824026,
+									"parameters": {
+										"count": "5"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 369447483353926,
+									"parameters": {
+										"effect": "\"RGBSplit\"",
+										"parameter-index": "loopindex",
+										"value": "choose(-3, -2, -1, 0, 1, 2, 3)"
+									}
+								}
+							],
+							"sid": 518671826997223
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "Shake Glow"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-eventvar",
+							"objectClass": "System",
+							"sid": 717007061114854,
+							"parameters": {
+								"variable": "fx",
+								"comparison": 0,
+								"value": "3"
+							}
+						},
+						{
+							"id": "every-x-seconds",
+							"objectClass": "System",
+							"sid": 302446576427460,
+							"parameters": {
+								"interval-seconds": "0.19"
+							}
+						}
+					],
+					"actions": [],
+					"sid": 210267925786228,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 449876867396115,
+									"parameters": {
+										"first-value": "choose(0, 0, 1)",
+										"comparison": 0,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 594621154710460,
+									"parameters": {
+										"effect": "\"GlowHorizontal\"",
+										"parameter-index": "0",
+										"value": "choose(70, 75, 80, 85, 90, 95, 100)"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "CameraFilterBuffer",
+									"sid": 280259410542209,
+									"parameters": {
+										"effect": "\"GlowVertical\"",
+										"parameter-index": "0",
+										"value": "choose(70, 75, 80, 85, 90, 95, 100)"
+									}
+								}
+							],
+							"sid": 368947252159337
+						}
+					]
+				}
+			],
+			"sid": 995201864297353
+		}
+	],
+	"sid": 267309862564278
+}

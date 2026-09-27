@@ -1,0 +1,2262 @@
+{
+	"name": "Build",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Build",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "x",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": false,
+					"isConstant": false,
+					"sid": 294108737113914
+				},
+				{
+					"eventType": "variable",
+					"name": "noTheme",
+					"type": "boolean",
+					"initialValue": "false",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 228600028233476
+				},
+				{
+					"eventType": "variable",
+					"name": "y",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": false,
+					"isConstant": false,
+					"sid": 222131613086189
+				},
+				{
+					"eventType": "variable",
+					"name": "addedNudgeX",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 370238860320673
+				},
+				{
+					"eventType": "variable",
+					"name": "addedNudgeY",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 201707129917405
+				},
+				{
+					"eventType": "variable",
+					"name": "nudgeDist",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 742525704715520
+				},
+				{
+					"eventType": "variable",
+					"name": "BuilderX",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 996865974032458
+				},
+				{
+					"eventType": "variable",
+					"name": "BuilderY",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 164100440144792
+				},
+				{
+					"eventType": "variable",
+					"name": "direction",
+					"type": "string",
+					"initialValue": "",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 910137067527030
+				},
+				{
+					"eventType": "variable",
+					"name": "currentAlpha",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 302599514181961
+				},
+				{
+					"eventType": "variable",
+					"name": "paintColor",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 352640352065977
+				},
+				{
+					"eventType": "variable",
+					"name": "tileToCheck",
+					"type": "number",
+					"initialValue": "-1",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 969345806436287
+				},
+				{
+					"eventType": "variable",
+					"name": "blockSize",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 112839991339350
+				},
+				{
+					"eventType": "variable",
+					"name": "blockIndexMax",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 936795120930925
+				},
+				{
+					"eventType": "variable",
+					"name": "opacity",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 458138140282890
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]Set and validate or default on input parameters.[/h4]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 992699428432980
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "👋 Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 390941376178954,
+							"parameters": [
+								"2"
+							]
+						},
+						{
+							"type": "comment",
+							"text": "[b]1st Parameter[/b] X"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 270801936296024,
+							"parameters": {
+								"variable": "x",
+								"value": "Functions.ProcessNumericParameter(1, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "[b]2nd Parameter[/b] Y"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 665110532436897,
+							"parameters": {
+								"variable": "y",
+								"value": "Functions.ProcessNumericParameter(2, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "🛑 Print Parameters",
+							"background-color": [
+								0.9294117647058824,
+								0.7764705882352941,
+								0.984313725490196,
+								1
+							]
+						},
+						{
+							"callFunction": "PrintParameterHint",
+							"sid": 636718426702381
+						}
+					],
+					"sid": 358743186572961,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 768323349415292,
+									"parameters": {
+										"variable": "tileToCheck",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 713419336185025,
+									"parameters": {
+										"variable": "currentAlpha",
+										"value": "100"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 393905289513861,
+									"parameters": {
+										"variable": "paintColor",
+										"value": "Functions.hslaToRgba(random(1), random(1), random(1), 1)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 359801793134960,
+									"parameters": {
+										"variable": "blockSize",
+										"value": "choose(4, 8, 16, 32, 64, 128)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 918973655625515,
+									"parameters": {
+										"variable": "blockIndexMax",
+										"value": "(PaintingResolution / blockSize) - 1"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 166715337377184,
+									"parameters": {
+										"variable": "opacity",
+										"value": "choose(50, 100)"
+									}
+								},
+								{
+									"id": "set-opacity",
+									"objectClass": "PaintingBuffer",
+									"sid": 286563581200701,
+									"parameters": {
+										"opacity": "opacity"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 756804236069312,
+									"parameters": {
+										"variable": "BuilderX",
+										"value": "floor(x / blockSize)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 684414848947424,
+									"parameters": {
+										"variable": "BuilderY",
+										"value": "floor(y / blockSize)"
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 754604774400467,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0",
+										"type": "once",
+										"tag": "\"Draw\""
+									}
+								},
+								{
+									"id": "signal",
+									"objectClass": "System",
+									"sid": 779845869247054,
+									"parameters": {
+										"tag": "\"Brush Started\""
+									}
+								}
+							],
+							"sid": 351377738797932,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 912557670857598,
+											"parameters": {
+												"first-value": "blockSize",
+												"comparison": 3,
+												"second-value": "16"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 632495105418913,
+											"parameters": {
+												"audio-file": {
+													"path": "Brushes/Build/Build - Builder's Beat"
+												},
+												"loop": "looping",
+												"volume": "0",
+												"stereo-pan": "0",
+												"tag-optional": "\"Build Loop\""
+											}
+										},
+										{
+											"id": "set-playback-rate",
+											"objectClass": "Audio",
+											"sid": 123941104387391,
+											"parameters": {
+												"tag": "\"\"",
+												"playback-rate": "1.0 + random(-0.1, 0.1)"
+											}
+										},
+										{
+											"callFunction": "PaintingMusicMute",
+											"sid": 424712992931868,
+											"parameters": [
+												true
+											]
+										},
+										{
+											"id": "set-boolean-eventvar",
+											"objectClass": "System",
+											"sid": 705362216433765,
+											"parameters": {
+												"variable": "noTheme",
+												"value": "true"
+											}
+										}
+									],
+									"sid": 248867038599702
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 807276737338280
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "PaintingMusicMute",
+											"sid": 742953790573607,
+											"parameters": [
+												false
+											]
+										},
+										{
+											"id": "set-boolean-eventvar",
+											"objectClass": "System",
+											"sid": 699180425210431,
+											"parameters": {
+												"variable": "noTheme",
+												"value": "false"
+											}
+										}
+									],
+									"sid": 824778676006322
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]No Theme[/h4]",
+					"background-color": [
+						0.7215686274509804,
+						0.9058823529411765,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 638502063836385,
+							"parameters": {
+								"variable": "noTheme"
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 746784473832613,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 870517742554248
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 157214191180404,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 367765739539975
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 742726636453740
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 358871830656355,
+							"parameters": [
+								"\"Build Loop\""
+							]
+						}
+					],
+					"sid": 766316650088231
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 129127763197572,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Draw\""
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 236894684067565,
+							"parameters": {
+								"variable": "Painting"
+							},
+							"isInverted": true
+						}
+					],
+					"actions": [],
+					"sid": 466027830869585,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 917216746096822,
+									"parameters": {
+										"first-value": "blockSize",
+										"comparison": 0,
+										"second-value": "4"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 820811423325210,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.1",
+										"type": "once",
+										"tag": "\"Draw\""
+									}
+								}
+							],
+							"sid": 161639861676686
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 796628773195538
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 107606822189278,
+									"parameters": {
+										"first-value": "blockSize",
+										"comparison": 0,
+										"second-value": "8"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 280441471851783,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.2",
+										"type": "once",
+										"tag": "\"Draw\""
+									}
+								}
+							],
+							"sid": 819996848932895
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 696199772146754
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 649719855867612,
+									"parameters": {
+										"first-value": "blockSize",
+										"comparison": 0,
+										"second-value": "16"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 144972105080841,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.3",
+										"type": "once",
+										"tag": "\"Draw\""
+									}
+								}
+							],
+							"sid": 362657877216539
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 669981175238297
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 711172453611806,
+									"parameters": {
+										"first-value": "blockSize",
+										"comparison": 0,
+										"second-value": "32"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 875719818507930,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.4",
+										"type": "once",
+										"tag": "\"Draw\""
+									}
+								}
+							],
+							"sid": 972393873309890
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 975708374441469
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 552868530955958,
+									"parameters": {
+										"first-value": "blockSize",
+										"comparison": 0,
+										"second-value": "64"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 747761475716650,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.5",
+										"type": "once",
+										"tag": "\"Draw\""
+									}
+								}
+							],
+							"sid": 344394880248334
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 982178235877365
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 484481621579174,
+									"parameters": {
+										"first-value": "blockSize",
+										"comparison": 0,
+										"second-value": "128"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 511756377996263,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.7",
+										"type": "once",
+										"tag": "\"Draw\""
+									}
+								}
+							],
+							"sid": 903796485394650
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"callFunction": "BuildStep",
+									"sid": 322571032656955,
+									"parameters": [
+										"\"\""
+									]
+								}
+							],
+							"sid": 131060525457207
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 922972459660057,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 897244722373214
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "stop-timer",
+							"objectClass": "Clock",
+							"sid": 435595105749260,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Draw\""
+							}
+						},
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 951197223329066,
+							"parameters": {
+								"object": "NudgeDot",
+								"time-scale": "1.0"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 390295096134653,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 164786646404311,
+							"parameters": {
+								"variable": "addedNudgeX",
+								"value": "0"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 378260243710099,
+							"parameters": {
+								"variable": "addedNudgeY",
+								"value": "0"
+							}
+						}
+					],
+					"sid": 141883920153780,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 536680522327618,
+									"parameters": {
+										"first-value": "blockSize",
+										"comparison": 0,
+										"second-value": "4"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 227003456504923,
+									"parameters": {
+										"variable": "nudgeDist",
+										"value": "4"
+									}
+								}
+							],
+							"sid": 441960715987180
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 465130802247344
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 737127900143950,
+									"parameters": {
+										"first-value": "blockSize",
+										"comparison": 0,
+										"second-value": "8"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 902519401624771,
+									"parameters": {
+										"variable": "nudgeDist",
+										"value": "6"
+									}
+								}
+							],
+							"sid": 713518469564269
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 702807249669503
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 497600823618708,
+									"parameters": {
+										"first-value": "blockSize",
+										"comparison": 0,
+										"second-value": "16"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 816525352321458,
+									"parameters": {
+										"variable": "nudgeDist",
+										"value": "12"
+									}
+								}
+							],
+							"sid": 446638699779069
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 678647908502417
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 424757896321785,
+									"parameters": {
+										"first-value": "blockSize",
+										"comparison": 0,
+										"second-value": "32"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 330547565388299,
+									"parameters": {
+										"variable": "nudgeDist",
+										"value": "24"
+									}
+								}
+							],
+							"sid": 790024711988964
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 555759553746682
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 980088114349183,
+									"parameters": {
+										"first-value": "blockSize",
+										"comparison": 0,
+										"second-value": "64"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 763887254259844,
+									"parameters": {
+										"variable": "nudgeDist",
+										"value": "32"
+									}
+								}
+							],
+							"sid": 164014959095583
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 456437192755651
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 803663482035786,
+									"parameters": {
+										"first-value": "blockSize",
+										"comparison": 0,
+										"second-value": "128"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 919126811556338,
+									"parameters": {
+										"variable": "nudgeDist",
+										"value": "32"
+									}
+								}
+							],
+							"sid": 476599712230618
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "Nudge [b]Ended[/b]"
+								},
+								{
+									"id": "wait-for-signal",
+									"objectClass": "System",
+									"sid": 558934856570576,
+									"parameters": {
+										"tag": "\"Nudge Ended\""
+									}
+								},
+								{
+									"id": "set-visible",
+									"objectClass": "NudgeDot",
+									"sid": 272966639347541,
+									"parameters": {
+										"visibility": "invisible"
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 695874961245752,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.25",
+										"type": "once",
+										"tag": "\"Draw\""
+									}
+								}
+							],
+							"sid": 110547909044194,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 402881081410408,
+											"parameters": {
+												"first-value": "blockSize",
+												"comparison": 3,
+												"second-value": "16"
+											},
+											"isInverted": true
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "PaintingMusicMute",
+											"sid": 689721431217568,
+											"parameters": [
+												false
+											]
+										}
+									],
+									"sid": 835592887744130
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 814631170839215,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ticked[/b]"
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 998491071490679,
+							"parameters": {
+								"x": "(BuilderX * blockSize) + (blockSize / 2)",
+								"y": "(BuilderY * blockSize ) + (blockSize / 2)"
+							}
+						},
+						{
+							"id": "add-to-eventvar",
+							"objectClass": "System",
+							"sid": 220213149091984,
+							"parameters": {
+								"variable": "addedNudgeX",
+								"value": "NudgedX"
+							}
+						},
+						{
+							"id": "add-to-eventvar",
+							"objectClass": "System",
+							"sid": 236856268737259,
+							"parameters": {
+								"variable": "addedNudgeY",
+								"value": "NudgedY"
+							}
+						}
+					],
+					"sid": 809802109618470,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 930818345126079,
+									"parameters": {
+										"variable": "addedNudgeX",
+										"comparison": 4,
+										"value": "nudgeDist"
+									}
+								},
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 336913692138136,
+									"parameters": {
+										"variable": "BuilderX",
+										"comparison": 2,
+										"value": "blockIndexMax"
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "BuildStep",
+									"sid": 365891974540623,
+									"parameters": [
+										"\"Right\""
+									]
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 948156020488962,
+									"parameters": {
+										"variable": "addedNudgeX",
+										"value": "0"
+									}
+								}
+							],
+							"sid": 723110927122841
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 326596107298539
+								},
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 101254489055359,
+									"parameters": {
+										"variable": "addedNudgeX",
+										"comparison": 2,
+										"value": "-nudgeDist"
+									}
+								},
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 553350870096087,
+									"parameters": {
+										"variable": "BuilderX",
+										"comparison": 4,
+										"value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "BuildStep",
+									"sid": 951707098229351,
+									"parameters": [
+										"\"Left\""
+									]
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 855239153658522,
+									"parameters": {
+										"variable": "addedNudgeX",
+										"value": "0"
+									}
+								}
+							],
+							"sid": 175597863468997
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 760709740371260
+								},
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 954295519296929,
+									"parameters": {
+										"variable": "addedNudgeY",
+										"comparison": 4,
+										"value": "nudgeDist"
+									}
+								},
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 195004560596838,
+									"parameters": {
+										"variable": "BuilderY",
+										"comparison": 2,
+										"value": "blockIndexMax"
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "BuildStep",
+									"sid": 592161785044953,
+									"parameters": [
+										"\"Down\""
+									]
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 621770039742045,
+									"parameters": {
+										"variable": "addedNudgeY",
+										"value": "0"
+									}
+								}
+							],
+							"sid": 503416132244557
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 788629094665401
+								},
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 599792216840510,
+									"parameters": {
+										"variable": "addedNudgeY",
+										"comparison": 2,
+										"value": "-nudgeDist"
+									}
+								},
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 939238644874827,
+									"parameters": {
+										"variable": "BuilderY",
+										"comparison": 4,
+										"value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "BuildStep",
+									"sid": 913114550000152,
+									"parameters": [
+										"\"Up\""
+									]
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 606151639661947,
+									"parameters": {
+										"variable": "addedNudgeY",
+										"value": "0"
+									}
+								}
+							],
+							"sid": 792238106173877
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 917062545786658,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 881446743602854,
+							"parameters": {
+								"object": "PaintingBuffer",
+								"effects": "without-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 686357857987471,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 117866200439513
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 179142567646558
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 786567653707357,
+							"parameters": [
+								false
+							]
+						},
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 596715512129180,
+							"parameters": {
+								"tag": "\"Build Loop\""
+							}
+						}
+					],
+					"sid": 308488232749452
+				},
+				{
+					"functionName": "BuildStep",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [
+						{
+							"name": "directionToBuild",
+							"type": "string",
+							"initialValue": "",
+							"comment": "",
+							"sid": 255017656072172
+						}
+					],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [],
+					"sid": 513212578997185,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[b]After painting is saved.[/b]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "createProbabilityTable",
+									"objectClass": "AdvancedRandom",
+									"sid": 187384429546501,
+									"parameters": {
+										"name": "\"Build\""
+									}
+								},
+								{
+									"id": "setProbabilityTable",
+									"objectClass": "AdvancedRandom",
+									"sid": 510540619069903,
+									"parameters": {
+										"name": "\"Build\""
+									}
+								}
+							],
+							"sid": 484949673240607,
+							"children": [
+								{
+									"eventType": "comment",
+									"text": "Can go [b]Right[/b]"
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 401385463699331,
+											"parameters": {
+												"first-value": "BuilderX",
+												"comparison": 2,
+												"second-value": "blockIndexMax"
+											}
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 301940953384379,
+											"parameters": {
+												"first-value": "PaintingBuffer.SnapshotAlphaAt(clamp(BuilderX + 1, 0, blockIndexMax) * blockSize, BuilderY * blockSize)",
+												"comparison": 0,
+												"second-value": "tileToCheck"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "addProbabilityEntry",
+											"objectClass": "AdvancedRandom",
+											"sid": 874964253259581,
+											"parameters": {
+												"value": "\"Right\"",
+												"weight": "1"
+											}
+										}
+									],
+									"sid": 408546831354493
+								},
+								{
+									"eventType": "comment",
+									"text": "Can go [b]Left[/b]"
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 772928854579615,
+											"parameters": {
+												"first-value": "BuilderX",
+												"comparison": 4,
+												"second-value": "0"
+											}
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 136419915862301,
+											"parameters": {
+												"first-value": "PaintingBuffer.SnapshotAlphaAt(clamp(BuilderX - 1, 0, blockIndexMax) * blockSize, BuilderY * blockSize)",
+												"comparison": 0,
+												"second-value": "tileToCheck"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "addProbabilityEntry",
+											"objectClass": "AdvancedRandom",
+											"sid": 696796715336652,
+											"parameters": {
+												"value": "\"Left\"",
+												"weight": "1"
+											}
+										}
+									],
+									"sid": 592797488685031
+								},
+								{
+									"eventType": "comment",
+									"text": "Can go [b]Up[/b]"
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 300837249633490,
+											"parameters": {
+												"first-value": "BuilderY",
+												"comparison": 4,
+												"second-value": "0"
+											}
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 283112169814572,
+											"parameters": {
+												"first-value": "PaintingBuffer.SnapshotAlphaAt(BuilderX * blockSize, clamp(BuilderY - 1, 0, blockIndexMax) * blockSize)",
+												"comparison": 0,
+												"second-value": "tileToCheck"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "addProbabilityEntry",
+											"objectClass": "AdvancedRandom",
+											"sid": 226572814955054,
+											"parameters": {
+												"value": "\"Up\"",
+												"weight": "1"
+											}
+										}
+									],
+									"sid": 532480553894617
+								},
+								{
+									"eventType": "comment",
+									"text": "Can go [b]Down[/b]"
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 589017228121496,
+											"parameters": {
+												"first-value": "BuilderY",
+												"comparison": 2,
+												"second-value": "blockIndexMax"
+											}
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 862044284574827,
+											"parameters": {
+												"first-value": "PaintingBuffer.SnapshotAlphaAt(BuilderX * blockSize, clamp(BuilderY + 1, 0, blockIndexMax) * blockSize)",
+												"comparison": 0,
+												"second-value": "tileToCheck"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "addProbabilityEntry",
+											"objectClass": "AdvancedRandom",
+											"sid": 478041732206546,
+											"parameters": {
+												"value": "\"Down\"",
+												"weight": "1"
+											}
+										}
+									],
+									"sid": 555834141675531
+								},
+								{
+									"eventType": "comment",
+									"text": "[h3]Move Left, Right, Up or Down[/h3]"
+								},
+								{
+									"eventType": "comment",
+									"text": "[b]Choose a random direction[/b]"
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-eventvar",
+											"objectClass": "System",
+											"sid": 324755095714359,
+											"parameters": {
+												"variable": "directionToBuild",
+												"comparison": 0,
+												"value": "\"\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 141084605199692,
+											"parameters": {
+												"variable": "direction",
+												"value": "AdvancedRandom.Weighted"
+											}
+										}
+									],
+									"sid": 954400024625847
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 361574008503244
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 919131031913459,
+											"parameters": {
+												"variable": "direction",
+												"value": "directionToBuild"
+											}
+										},
+										{
+											"id": "log",
+											"objectClass": "Browser",
+											"sid": 606747674084396,
+											"disabled": true,
+											"parameters": {
+												"type": "log",
+												"message": "\"Direction: \" & direction & \" Options: \" & AdvancedRandom.ProbabilityTableAsJSON"
+											}
+										}
+									],
+									"sid": 624106949783118
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 978777760227501,
+											"parameters": {
+												"first-value": "direction",
+												"comparison": 0,
+												"second-value": "\"Right\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 591143729227383,
+											"parameters": {
+												"variable": "BuilderX",
+												"value": "clamp(BuilderX + 1, 0, blockIndexMax)"
+											}
+										}
+									],
+									"sid": 335484078744370
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 480075276174695
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 302727943373170,
+											"parameters": {
+												"first-value": "direction",
+												"comparison": 0,
+												"second-value": "\"Left\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 562737596774396,
+											"parameters": {
+												"variable": "BuilderX",
+												"value": "clamp(BuilderX - 1, 0, blockIndexMax)"
+											}
+										}
+									],
+									"sid": 352081742358606
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 766536993760478
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 122550702572833,
+											"parameters": {
+												"first-value": "direction",
+												"comparison": 0,
+												"second-value": "\"Up\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 629167745605963,
+											"parameters": {
+												"variable": "BuilderY",
+												"value": "clamp(BuilderY - 1, 0, blockIndexMax)"
+											}
+										}
+									],
+									"sid": 939185155708120
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 268644757473751
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 474888527837695,
+											"parameters": {
+												"first-value": "direction",
+												"comparison": 0,
+												"second-value": "\"Down\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 766857883398220,
+											"parameters": {
+												"variable": "BuilderY",
+												"value": "clamp(BuilderY + 1, 0, blockIndexMax)"
+											}
+										}
+									],
+									"sid": 509001629627783
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-eventvar",
+											"objectClass": "System",
+											"sid": 848471440198526,
+											"parameters": {
+												"variable": "directionToBuild",
+												"comparison": 1,
+												"value": "\"\""
+											}
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 654505586904745,
+											"parameters": {
+												"first-value": "findCase(AdvancedRandom.ProbabilityTableAsJSON, directionToBuild)",
+												"comparison": 0,
+												"second-value": "-1"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 747926111876457,
+											"parameters": {
+												"variable": "direction",
+												"value": "\"0\""
+											}
+										}
+									],
+									"sid": 440945216344486
+								},
+								{
+									"eventType": "comment",
+									"text": "No direction was possible, so invert the tile."
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 929183228692354,
+											"parameters": {
+												"first-value": "direction",
+												"comparison": 0,
+												"second-value": "\"0\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "log",
+											"objectClass": "Browser",
+											"sid": 450797364156889,
+											"disabled": true,
+											"parameters": {
+												"type": "log",
+												"message": "\"Direction:\" & direction"
+											}
+										}
+									],
+									"sid": 960260904478152,
+									"children": [
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "compare-two-values",
+													"objectClass": "System",
+													"sid": 559343360063916,
+													"parameters": {
+														"first-value": "tileToCheck",
+														"comparison": 0,
+														"second-value": "0"
+													}
+												}
+											],
+											"actions": [
+												{
+													"id": "set-eventvar-value",
+													"objectClass": "System",
+													"sid": 862601488232239,
+													"parameters": {
+														"variable": "tileToCheck",
+														"value": "100"
+													}
+												},
+												{
+													"id": "set-eventvar-value",
+													"objectClass": "System",
+													"sid": 760944322415586,
+													"parameters": {
+														"variable": "currentAlpha",
+														"value": "0"
+													}
+												}
+											],
+											"sid": 933954308721687
+										},
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "else",
+													"objectClass": "System",
+													"sid": 261382586773622
+												}
+											],
+											"actions": [
+												{
+													"id": "set-eventvar-value",
+													"objectClass": "System",
+													"sid": 841863230081229,
+													"parameters": {
+														"variable": "currentAlpha",
+														"value": "100"
+													}
+												},
+												{
+													"id": "set-eventvar-value",
+													"objectClass": "System",
+													"sid": 641802069352216,
+													"parameters": {
+														"variable": "tileToCheck",
+														"value": "0"
+													}
+												}
+											],
+											"sid": 974117247170871
+										}
+									]
+								}
+							]
+						},
+						{
+							"eventType": "comment",
+							"text": "If [b]Tile[/b] is empty."
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 361831794345451,
+									"parameters": {
+										"first-value": "currentAlpha",
+										"comparison": 0,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "clear-rect",
+									"objectClass": "PaintingBuffer",
+									"sid": 264791398216568,
+									"parameters": {
+										"left": "BuilderX * blockSize",
+										"top": "BuilderY * blockSize",
+										"right": "(BuilderX * blockSize) + blockSize",
+										"bottom": "(BuilderY * blockSize) + blockSize",
+										"color": "rgba(0, 0, 0, 0)"
+									}
+								}
+							],
+							"sid": 495877505246592,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 880658475538223,
+											"parameters": {
+												"first-value": "choose(0, 1)",
+												"comparison": 0,
+												"second-value": "0"
+											}
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 932884038479067,
+											"parameters": {
+												"first-value": "blockSize",
+												"comparison": 5,
+												"second-value": "32"
+											}
+										},
+										{
+											"id": "compare-boolean-eventvar",
+											"objectClass": "System",
+											"sid": 455687050559906,
+											"parameters": {
+												"variable": "Nudging"
+											},
+											"isInverted": true
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 119403510209306,
+											"parameters": {
+												"audio-file": {
+													"path": "Brushes/Build/Build - Brick Scrape"
+												},
+												"loop": "not-looping",
+												"volume": "-10 + random(0, 10)",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-playback-rate",
+											"objectClass": "Audio",
+											"sid": 264083952874013,
+											"parameters": {
+												"tag": "\"\"",
+												"playback-rate": "1.0 + random(-0.1, 0.1)"
+											}
+										}
+									],
+									"sid": 238871813922082
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 734805809538805
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 662370086387246,
+											"parameters": {
+												"first-value": "blockSize",
+												"comparison": 5,
+												"second-value": "32"
+											}
+										},
+										{
+											"id": "compare-boolean-eventvar",
+											"objectClass": "System",
+											"sid": 382765866200113,
+											"parameters": {
+												"variable": "Nudging"
+											},
+											"isInverted": true
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 942105876064499,
+											"parameters": {
+												"audio-file": {
+													"path": "Brushes/Build/Build - Blow Down"
+												},
+												"loop": "not-looping",
+												"volume": "-20 + random(0, 10)",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-playback-rate",
+											"objectClass": "Audio",
+											"sid": 872021646718401,
+											"parameters": {
+												"tag": "\"\"",
+												"playback-rate": "1.0 + random(-0.1, 0.1)"
+											}
+										}
+									],
+									"sid": 895113463172712
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 460133732037907
+								}
+							],
+							"actions": [
+								{
+									"id": "fill-rect",
+									"objectClass": "PaintingBuffer",
+									"sid": 667642444992098,
+									"parameters": {
+										"left": "BuilderX * blockSize",
+										"top": "BuilderY * blockSize",
+										"right": "(BuilderX * blockSize) + blockSize",
+										"bottom": "(BuilderY * blockSize) + blockSize",
+										"color": "paintColor"
+									}
+								}
+							],
+							"sid": 228953839398499,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 335701491511668,
+											"parameters": {
+												"first-value": "choose(0, 1)",
+												"comparison": 0,
+												"second-value": "0"
+											}
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 691095700316690,
+											"parameters": {
+												"first-value": "blockSize",
+												"comparison": 5,
+												"second-value": "32"
+											}
+										},
+										{
+											"id": "compare-boolean-eventvar",
+											"objectClass": "System",
+											"sid": 797872096408261,
+											"parameters": {
+												"variable": "Nudging"
+											},
+											"isInverted": true
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 132841558470123,
+											"parameters": {
+												"audio-file": {
+													"path": "Brushes/Build/Build - Brick Click"
+												},
+												"loop": "not-looping",
+												"volume": "-10 + random(0, 10)",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-playback-rate",
+											"objectClass": "Audio",
+											"sid": 821450668370090,
+											"parameters": {
+												"tag": "\"\"",
+												"playback-rate": "1.0 + random(-0.1, 0.1)"
+											}
+										}
+									],
+									"sid": 821176983258509
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 757459457950142
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 154542383456468,
+											"parameters": {
+												"first-value": "blockSize",
+												"comparison": 5,
+												"second-value": "32"
+											}
+										},
+										{
+											"id": "compare-boolean-eventvar",
+											"objectClass": "System",
+											"sid": 333191237169091,
+											"parameters": {
+												"variable": "Nudging"
+											},
+											"isInverted": true
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 658019982469758,
+											"parameters": {
+												"audio-file": {
+													"path": "Brushes/Build/Build - Brick Clop"
+												},
+												"loop": "not-looping",
+												"volume": "-10 + random(0, 10)",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-playback-rate",
+											"objectClass": "Audio",
+											"sid": 346651858620165,
+											"parameters": {
+												"tag": "\"\"",
+												"playback-rate": "1.0 + random(-0.1, 0.1)"
+											}
+										}
+									],
+									"sid": 537640024027944
+								}
+							]
+						},
+						{
+							"eventType": "comment",
+							"text": "Save painting and read."
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "save-snapshot",
+									"objectClass": "PaintingBuffer",
+									"sid": 442974276334261
+								},
+								{
+									"id": "wait-for-previous-actions",
+									"objectClass": "System",
+									"sid": 672502159294898
+								}
+							],
+							"sid": 120686111747697
+						}
+					]
+				}
+			],
+			"sid": 804252645717761
+		}
+	],
+	"sid": 295871872249382
+}

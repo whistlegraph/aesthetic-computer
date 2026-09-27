@@ -1,0 +1,12 @@
+{
+	"name": "Share",
+	"plugin-id": "Share",
+	"sid": 781936008214222,
+	"singleglobal-inst": {
+		"type": "Share",
+		"properties": {},
+		"uid": 112,
+		"sid": 576304158900678,
+		"tags": ""
+	}
+}

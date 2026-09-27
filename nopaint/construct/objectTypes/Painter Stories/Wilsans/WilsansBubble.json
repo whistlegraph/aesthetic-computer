@@ -1,0 +1,98 @@
+{
+	"name": "WilsansBubble",
+	"plugin-id": "Sprite",
+	"sid": 573775626081918,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [
+		{
+			"name": "startX",
+			"type": "number",
+			"desc": "",
+			"show": true,
+			"sid": 170495881823771
+		},
+		{
+			"name": "startY",
+			"type": "number",
+			"desc": "",
+			"show": true,
+			"sid": 440689575892471
+		}
+	],
+	"behaviorTypes": [],
+	"effectTypes": [
+		{
+			"effectId": "blacknwhite",
+			"name": "BlackWhite"
+		}
+	],
+	"animations": {
+		"items": [
+			{
+				"frames": [
+					{
+						"width": 60,
+						"height": 25,
+						"originX": 0,
+						"originY": 0,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 4705136,
+						"collisionPoly": {
+							"points": [
+								0,
+								0,
+								0.6166666666666667,
+								0,
+								0.6166666666666667,
+								1,
+								0,
+								1
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					},
+					{
+						"width": 60,
+						"height": 25,
+						"originX": 0,
+						"originY": 0,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 9187685,
+						"collisionPoly": {
+							"points": [
+								0,
+								0,
+								0.6166666666666667,
+								0,
+								0.6166666666666667,
+								1,
+								0,
+								1
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					}
+				],
+				"sid": 223358090497714,
+				"name": "Animation 1",
+				"isLooping": true,
+				"isPingPong": false,
+				"repeatCount": 1,
+				"repeatTo": 0,
+				"speed": 2
+			}
+		],
+		"subfolders": []
+	}
+}

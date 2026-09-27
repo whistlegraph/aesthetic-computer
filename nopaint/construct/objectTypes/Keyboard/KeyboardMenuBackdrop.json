@@ -1,0 +1,52 @@
+{
+	"name": "KeyboardMenuBackdrop",
+	"plugin-id": "Sprite",
+	"sid": 989614488384067,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [],
+	"animations": {
+		"items": [
+			{
+				"frames": [
+					{
+						"width": 256,
+						"height": 16,
+						"originX": 0,
+						"originY": 0,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 3340178,
+						"collisionPoly": {
+							"points": [
+								0.498046875,
+								0.46875,
+								0.501953125,
+								0.46875,
+								0.501953125,
+								0.53125,
+								0.498046875,
+								0.53125
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					}
+				],
+				"sid": 102164206061217,
+				"name": "Animation 1",
+				"isLooping": false,
+				"isPingPong": false,
+				"repeatCount": 1,
+				"repeatTo": 0,
+				"speed": 5
+			}
+		],
+		"subfolders": []
+	}
+}

@@ -1,0 +1,3834 @@
+{
+	"name": "Splash",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Buttons"
+		},
+		{
+			"eventType": "variable",
+			"name": "ForceMobile",
+			"type": "boolean",
+			"initialValue": "false",
+			"comment": "",
+			"isStatic": true,
+			"isConstant": true,
+			"sid": 556418426776269
+		},
+		{
+			"eventType": "variable",
+			"name": "ForceMute",
+			"type": "boolean",
+			"initialValue": "false",
+			"comment": "",
+			"isStatic": true,
+			"isConstant": true,
+			"sid": 275583833228149
+		},
+		{
+			"eventType": "variable",
+			"name": "SkipSplash",
+			"type": "boolean",
+			"initialValue": "false",
+			"comment": "",
+			"isStatic": true,
+			"isConstant": true,
+			"sid": 410844976361006
+		},
+		{
+			"eventType": "variable",
+			"name": "totalStampCount",
+			"type": "number",
+			"initialValue": "0",
+			"comment": "",
+			"isStatic": true,
+			"isConstant": false,
+			"sid": 285690050795553
+		},
+		{
+			"eventType": "variable",
+			"name": "FirstSplash",
+			"type": "boolean",
+			"initialValue": "true",
+			"comment": "",
+			"isStatic": false,
+			"isConstant": false,
+			"sid": 393527334510189
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Splash",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "desktopMargin",
+					"type": "number",
+					"initialValue": "48",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": true,
+					"sid": 200903669417699
+				},
+				{
+					"eventType": "comment",
+					"text": "Are we using the App or Website?"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 268969012218002
+						},
+						{
+							"id": "is-web-export",
+							"objectClass": "PlatformInfo",
+							"sid": 141231181247908
+						},
+						{
+							"id": "compare-instance-variable",
+							"objectClass": "MainSpriteFont",
+							"sid": 718321129367256,
+							"parameters": {
+								"instance-variable": "For",
+								"comparison": 0,
+								"value": "\"AppButton\""
+							}
+						},
+						{
+							"id": "compare-instance-variable",
+							"objectClass": "Button",
+							"sid": 206315135427953,
+							"parameters": {
+								"instance-variable": "For",
+								"comparison": 0,
+								"value": "\"App\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-visible",
+							"objectClass": "MainSpriteFont",
+							"sid": 842051995394643,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "AppPressed",
+							"sid": 589626581290179,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-boolean-instvar",
+							"objectClass": "Button",
+							"sid": 563780321953409,
+							"parameters": {
+								"instance-variable": "Disabled",
+								"value": "false"
+							}
+						}
+					],
+					"sid": 811796084103516,
+					"disabled": true
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 479495667600071
+						},
+						{
+							"id": "pick-by-comparison",
+							"objectClass": "System",
+							"sid": 712184945117830,
+							"parameters": {
+								"object": "Stamp",
+								"expression": "Stamp.LayerName",
+								"comparison": 0,
+								"value": "\"Layer 0\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Count all stamps in the [b]Stamp[/b] object."
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 390405854910722,
+							"parameters": {
+								"variable": "totalStampCount",
+								"value": "0"
+							}
+						}
+					],
+					"sid": 317995520582988,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "repeat",
+									"objectClass": "System",
+									"sid": 949677932548468,
+									"parameters": {
+										"count": "tokencount(users, \"|\")"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-animation",
+									"objectClass": "Stamp",
+									"sid": 319090673283685,
+									"parameters": {
+										"animation": "\"@\" & tokenat(users, loopindex, \"|\")",
+										"from": "beginning"
+									}
+								},
+								{
+									"id": "add-to-eventvar",
+									"objectClass": "System",
+									"sid": 339223207545625,
+									"parameters": {
+										"variable": "totalStampCount",
+										"value": "Stamp.AnimationFrameCount"
+									}
+								},
+								{
+									"id": "add-to-eventvar",
+									"objectClass": "System",
+									"sid": 622669956236537,
+									"parameters": {
+										"variable": "totalStampCount",
+										"value": "int(tokenat(usersAnimationCount, loopindex, \"|\"))"
+									}
+								},
+								{
+									"id": "log",
+									"objectClass": "Browser",
+									"sid": 445816443869855,
+									"disabled": true,
+									"parameters": {
+										"type": "log",
+										"message": "loopindex & \" : \" & totalStampCount & \" : \" & Stamp.AnimationFrameCount"
+									}
+								}
+							],
+							"sid": 294925558872370
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "pick-by-comparison",
+									"objectClass": "System",
+									"sid": 112758565224690,
+									"parameters": {
+										"object": "MainSpriteFont",
+										"expression": "MainSpriteFont.For",
+										"comparison": 0,
+										"value": "\"Features\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-text",
+									"objectClass": "MainSpriteFont",
+									"sid": 800201931200206,
+									"parameters": {
+										"text": "RegexReplace(MainSpriteFont.Text, \"(\\?)\", \"\", str(totalStampCount))"
+									}
+								}
+							],
+							"sid": 504745142460701
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 996069407221610
+						},
+						{
+							"id": "pick-by-comparison",
+							"objectClass": "System",
+							"sid": 228682398699747,
+							"parameters": {
+								"object": "Stamp",
+								"expression": "Stamp.LayerName",
+								"comparison": 0,
+								"value": "\"Emoji Sprinkles\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Pre-fill stamp instance variables for their shaking."
+						},
+						{
+							"id": "set-instvar-value",
+							"objectClass": "Stamp",
+							"sid": 427702279346601,
+							"parameters": {
+								"instance-variable": "startX",
+								"value": "Stamp.X"
+							}
+						},
+						{
+							"id": "set-instvar-value",
+							"objectClass": "Stamp",
+							"sid": 423915848896372,
+							"parameters": {
+								"instance-variable": "startY",
+								"value": "Stamp.Y"
+							}
+						},
+						{
+							"id": "wait-for-previous-actions",
+							"objectClass": "System",
+							"sid": 155451231209899
+						}
+					],
+					"sid": 647175402213919,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 421534925426478,
+									"parameters": {
+										"variable": "DesktopMode"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-cursor-style",
+									"objectClass": "Mouse",
+									"sid": 538230997097627,
+									"parameters": {
+										"cursor-style": "none"
+									}
+								}
+							],
+							"sid": 521641208296881
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 324890581008077,
+									"parameters": {
+										"variable": "DesktopMode"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [],
+							"sid": 734287909321843
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 585365581615330
+								}
+							],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "Resize painting to be the size of desktop mode."
+								},
+								{
+									"id": "set-size",
+									"objectClass": "Painting",
+									"sid": 965066756747767,
+									"parameters": {
+										"width": "256",
+										"height": "256 + (16 * 3)"
+									}
+								}
+							],
+							"sid": 878460155655659
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 706236786356843,
+									"parameters": {
+										"variable": "ForceMute"
+									}
+								}
+							],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "Mute"
+								},
+								{
+									"id": "set-silent",
+									"objectClass": "Audio",
+									"sid": 370014443516177,
+									"disabled": true,
+									"parameters": {
+										"mode": "silent"
+									}
+								},
+								{
+									"id": "set-master-volume",
+									"objectClass": "Audio",
+									"sid": 401457584080055,
+									"parameters": {
+										"db": "-100"
+									}
+								}
+							],
+							"sid": 617895090200269
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Adjust the layout to fit [b]DesktopMode[/b][/h3]",
+					"background-color": [
+						0.5803921568627451,
+						0.9921568627450981,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 983689483485674
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 355032453633640,
+							"parameters": {
+								"variable": "DesktopMode"
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Move \"No\" and \"Paint\""
+						},
+						{
+							"id": "set-position",
+							"objectClass": "PAINT_Splash",
+							"sid": 647928916014452,
+							"parameters": {
+								"x": "16",
+								"y": "227"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NO_Splash",
+							"sid": 312139913824080,
+							"parameters": {
+								"x": "18",
+								"y": "30"
+							}
+						},
+						{
+							"id": "set-scale",
+							"objectClass": "PAINT_Splash",
+							"sid": 624232766324700,
+							"parameters": {
+								"scale": "1"
+							}
+						},
+						{
+							"id": "set-scale",
+							"objectClass": "NO_Splash",
+							"sid": 327193922659858,
+							"parameters": {
+								"scale": "1"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "WhistlegraphButterfly",
+							"sid": 132738917942264,
+							"parameters": {
+								"x": "192 - 8",
+								"y": "216"
+							}
+						},
+						{
+							"id": "request-fullscreen",
+							"objectClass": "Browser",
+							"sid": 684458628956493,
+							"disabled": true,
+							"parameters": {
+								"mode": "stretch-integer-letterbox-scale",
+								"navigation-ui": "hide"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Move \"Camera\""
+						},
+						{
+							"id": "set-position",
+							"objectClass": "CameraSplash",
+							"sid": 808009057100285,
+							"parameters": {
+								"x": "200 + 14",
+								"y": "235"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "CameraSplashLabel",
+							"sid": 919437050690643,
+							"parameters": {
+								"x": "CameraSplash.X",
+								"y": "CameraSplash.Y + CameraSplash.ImageHeight"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Switch LightSwitchCover"
+						},
+						{
+							"id": "set-animation-frame",
+							"objectClass": "LightSwitch",
+							"sid": 256073643703406,
+							"parameters": {
+								"frame-number": "0"
+							}
+						},
+						{
+							"id": "set-animation-frame",
+							"objectClass": "LightSwitchDecolor",
+							"sid": 707777215963071,
+							"parameters": {
+								"frame-number": "0"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Enable Focus Mode by default if the game starts in Desktop."
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 383207645318316,
+							"disabled": true,
+							"parameters": {
+								"variable": "Focused",
+								"value": "true"
+							}
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 434025864297782,
+							"disabled": true,
+							"parameters": {
+								"variable": "OpenWithEmptyPrompt",
+								"value": "true"
+							}
+						}
+					],
+					"sid": 738180057423400,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "pick-by-comparison",
+									"objectClass": "System",
+									"sid": 707426312976030,
+									"parameters": {
+										"object": "Button",
+										"expression": "Button.For",
+										"comparison": 0,
+										"value": "\"Camera\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "Move \"Painter Stories\" & Legacy Emoji"
+								},
+								{
+									"id": "set-position",
+									"objectClass": "Button",
+									"sid": 261291491918892,
+									"parameters": {
+										"x": "CameraSplash.X - 1",
+										"y": "CameraSplash.Y - 1"
+									}
+								}
+							],
+							"sid": 607943637108700
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "pick-by-comparison",
+									"objectClass": "System",
+									"sid": 453499625028536,
+									"parameters": {
+										"object": "Button",
+										"expression": "Button.For",
+										"comparison": 0,
+										"value": "\"PainterStories\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "Move \"Painter Stories\" & Legacy Emoji"
+								},
+								{
+									"id": "set-y",
+									"objectClass": "Button",
+									"sid": 665747707271762,
+									"parameters": {
+										"y": "Self.Y - desktopMargin/2"
+									}
+								},
+								{
+									"id": "set-y",
+									"objectClass": "PainterStories",
+									"sid": 760249033650792,
+									"parameters": {
+										"y": "Self.Y - desktopMargin/2"
+									}
+								},
+								{
+									"id": "set-y",
+									"objectClass": "Stamp",
+									"sid": 814707476591052,
+									"parameters": {
+										"y": "Self.Y - desktopMargin/2"
+									}
+								},
+								{
+									"id": "set-instvar-value",
+									"objectClass": "Stamp",
+									"sid": 747967178724366,
+									"parameters": {
+										"instance-variable": "startY",
+										"value": "Stamp.Y"
+									}
+								}
+							],
+							"sid": 568280483011604
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "pick-by-comparison",
+									"objectClass": "System",
+									"sid": 141690310547465,
+									"parameters": {
+										"object": "Button",
+										"expression": "Button.For",
+										"comparison": 0,
+										"value": "\"Enter\""
+									}
+								},
+								{
+									"id": "pick-by-comparison",
+									"objectClass": "System",
+									"sid": 372098448809574,
+									"parameters": {
+										"object": "MainSpriteFont",
+										"expression": "MainSpriteFont.For",
+										"comparison": 0,
+										"value": "\"Features\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "Move Game Portal"
+								},
+								{
+									"id": "set-y",
+									"objectClass": "Button",
+									"sid": 266460799951840,
+									"parameters": {
+										"y": "Self.Y - desktopMargin/2"
+									}
+								},
+								{
+									"id": "set-y",
+									"objectClass": "Instructions",
+									"sid": 333003763464841,
+									"parameters": {
+										"y": "Self.Y - desktopMargin/2"
+									}
+								},
+								{
+									"id": "set-y",
+									"objectClass": "InstructionsPressed",
+									"sid": 354681129561918,
+									"parameters": {
+										"y": "Self.Y - desktopMargin/2"
+									}
+								},
+								{
+									"id": "set-y",
+									"objectClass": "MainSpriteFont",
+									"sid": 937311769715287,
+									"parameters": {
+										"y": "Self.Y - desktopMargin/2"
+									}
+								}
+							],
+							"sid": 686435020395475
+						},
+						{
+							"eventType": "comment",
+							"text": "Move [i]Version[/i] Up"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "pick-by-comparison",
+									"objectClass": "System",
+									"sid": 541716961884286,
+									"parameters": {
+										"object": "MainSpriteFont",
+										"expression": "MainSpriteFont.For",
+										"comparison": 0,
+										"value": "\"Version\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-y",
+									"objectClass": "MainSpriteFont",
+									"sid": 432455665148646,
+									"parameters": {
+										"y": "Self.Y - desktopMargin"
+									}
+								}
+							],
+							"sid": 341030782593133
+						},
+						{
+							"eventType": "comment",
+							"text": "Move [i]About[/i] Button Up"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-y",
+									"objectClass": "AboutPressed",
+									"sid": 603284292161247,
+									"parameters": {
+										"y": "Self.Y - desktopMargin"
+									}
+								},
+								{
+									"id": "set-y",
+									"objectClass": "AboutBackdrop",
+									"sid": 840584197141519,
+									"parameters": {
+										"y": "Self.Y - desktopMargin"
+									}
+								}
+							],
+							"sid": 815950512788651
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "pick-by-evaluate",
+									"objectClass": "System",
+									"sid": 677829348238362,
+									"parameters": {
+										"object": "MainSpriteFont",
+										"expression": "MainSpriteFont.For = \"AboutButton\" | MainSpriteFont.For = \"AboutText\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-y",
+									"objectClass": "MainSpriteFont",
+									"sid": 314114420962034,
+									"parameters": {
+										"y": "Self.Y - desktopMargin"
+									}
+								}
+							],
+							"sid": 362094452553098
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "pick-by-comparison",
+									"objectClass": "System",
+									"sid": 980251232425535,
+									"parameters": {
+										"object": "Button",
+										"expression": "Button.For",
+										"comparison": 0,
+										"value": "\"About\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-y",
+									"objectClass": "Button",
+									"sid": 155667275941191,
+									"parameters": {
+										"y": "Self.Y - desktopMargin"
+									}
+								}
+							],
+							"sid": 840899196145732
+						},
+						{
+							"eventType": "comment",
+							"text": "Move [i]Community[/i] Button Up"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-y",
+									"objectClass": "ChatPressed",
+									"sid": 288429875479260,
+									"parameters": {
+										"y": "Self.Y - desktopMargin"
+									}
+								}
+							],
+							"sid": 563095010441972
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "pick-by-comparison",
+									"objectClass": "System",
+									"sid": 512143248078410,
+									"parameters": {
+										"object": "MainSpriteFont",
+										"expression": "MainSpriteFont.For",
+										"comparison": 0,
+										"value": "\"ChatButton\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-y",
+									"objectClass": "MainSpriteFont",
+									"sid": 635881132236144,
+									"parameters": {
+										"y": "Self.Y - desktopMargin"
+									}
+								}
+							],
+							"sid": 987732638245151
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "pick-by-comparison",
+									"objectClass": "System",
+									"sid": 251655060190047,
+									"parameters": {
+										"object": "Button",
+										"expression": "Button.For",
+										"comparison": 0,
+										"value": "\"Community\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-y",
+									"objectClass": "Button",
+									"sid": 843380523848971,
+									"parameters": {
+										"y": "Self.Y - desktopMargin"
+									}
+								}
+							],
+							"sid": 916164582230554
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "Do we need to switch to [b]DesktopMode[/b] and restart the layout?"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 890615289081166
+						},
+						{
+							"id": "is-on-mobile",
+							"objectClass": "PlatformInfo",
+							"sid": 284958836828513,
+							"isInverted": true
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 777178290561833,
+							"parameters": {
+								"variable": "DesktopMode"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 140055346769926,
+							"parameters": {
+								"variable": "ForceMobile"
+							},
+							"isInverted": true
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "ToggleDesktopMode",
+							"sid": 740259066994620,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 808468036551691
+				},
+				{
+					"eventType": "comment",
+					"text": "Maybe add our own Ad"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 393649410588636
+						},
+						{
+							"id": "is-cordova-export",
+							"objectClass": "PlatformInfo",
+							"sid": 796833707582610,
+							"isInverted": true
+						},
+						{
+							"id": "compare-instance-variable",
+							"objectClass": "MainSpriteFont",
+							"sid": 839024482771865,
+							"parameters": {
+								"instance-variable": "For",
+								"comparison": 0,
+								"value": "\"AppButton\""
+							}
+						},
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 181686961842521,
+							"parameters": {
+								"first-value": "choose(0, 1)",
+								"comparison": 0,
+								"second-value": "0"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-text",
+							"objectClass": "MainSpriteFont",
+							"sid": 724687654426538,
+							"parameters": {
+								"text": "\"Download App\""
+							}
+						}
+					],
+					"sid": 589426234603272
+				},
+				{
+					"eventType": "comment",
+					"text": "Initialize Layout Elements & Interactivity"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 468147168058545
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Enable the GlobalClock that runs even if the timescale is 0"
+						},
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 580861593870227,
+							"parameters": {
+								"object": "GlobalClock",
+								"time-scale": "1.0"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Set Background Color"
+						},
+						{
+							"id": "set-layer-background-color",
+							"objectClass": "System",
+							"sid": 626186743056838,
+							"disabled": true,
+							"parameters": {
+								"layer": "\"Butterfly\"",
+								"color": "Functions.hslaToRgba(random(0, 1), 0.25, 0.835, 1.0)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": ""
+						},
+						{
+							"id": "set-group-active",
+							"objectClass": "System",
+							"sid": 594899704929649,
+							"parameters": {
+								"group-name": "\"Buttons\"",
+								"state": "deactivated"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Retrieve the painting."
+						},
+						{
+							"callFunction": "RetrievePainting",
+							"sid": 790831603244509
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 365033203290332,
+							"parameters": {
+								"tag": "\"paintingRetrievalComplete\""
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Map buttons."
+						},
+						{
+							"id": "map-function",
+							"objectClass": "Functions",
+							"sid": 327603648349956,
+							"parameters": {
+								"name": "\"Buttons\"",
+								"string": "\"Enter\"",
+								"function": "Enter"
+							}
+						},
+						{
+							"id": "map-function",
+							"objectClass": "Functions",
+							"sid": 896004108612902,
+							"parameters": {
+								"name": "\"Buttons\"",
+								"string": "\"Community\"",
+								"function": "Chat"
+							}
+						},
+						{
+							"id": "map-function",
+							"objectClass": "Functions",
+							"sid": 127678787157677,
+							"parameters": {
+								"name": "\"Buttons\"",
+								"string": "\"App\"",
+								"function": "App"
+							}
+						},
+						{
+							"id": "map-function",
+							"objectClass": "Functions",
+							"sid": 384365268269294,
+							"parameters": {
+								"name": "\"Buttons\"",
+								"string": "\"Whistlegraph\"",
+								"function": "Whistlegraph"
+							}
+						},
+						{
+							"id": "map-function",
+							"objectClass": "Functions",
+							"sid": 256091273433740,
+							"parameters": {
+								"name": "\"Buttons\"",
+								"string": "\"Camera\"",
+								"function": "Camera"
+							}
+						},
+						{
+							"id": "map-function",
+							"objectClass": "Functions",
+							"sid": 682959701915509,
+							"parameters": {
+								"name": "\"Buttons\"",
+								"string": "\"PainterStories\"",
+								"function": "ProfileIndex"
+							}
+						},
+						{
+							"id": "map-function",
+							"objectClass": "Functions",
+							"sid": 507586639318101,
+							"parameters": {
+								"name": "\"Buttons\"",
+								"string": "\"LightSwitch\"",
+								"function": "LightSwitch"
+							}
+						},
+						{
+							"id": "map-function",
+							"objectClass": "Functions",
+							"sid": 749089482024991,
+							"parameters": {
+								"name": "\"Buttons\"",
+								"string": "\"CheckButtons\"",
+								"function": "CheckButtonsSplash"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Mute"
+						},
+						{
+							"id": "set-silent",
+							"objectClass": "Audio",
+							"sid": 488831008013899,
+							"disabled": true,
+							"parameters": {
+								"mode": "silent"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Set volume to a quarter as loud as normal."
+						},
+						{
+							"id": "set-master-volume",
+							"objectClass": "Audio",
+							"sid": 982548301059024,
+							"parameters": {
+								"db": "-15"
+							}
+						},
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 795318938338001,
+							"parameters": {
+								"type": "log",
+								"message": "\"👋 Welcome to No Paint\""
+							}
+						},
+						{
+							"id": "set-group-active",
+							"objectClass": "System",
+							"sid": 280838934082564,
+							"parameters": {
+								"group-name": "\"Buttons\"",
+								"state": "activated"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Show cursor and update it's position."
+						},
+						{
+							"id": "move-to-layer",
+							"objectClass": "Cursor",
+							"sid": 509276004462971,
+							"parameters": {
+								"layer": "\"Cursor\""
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "Cursor",
+							"sid": 671081448722669,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "Cursor",
+							"sid": 397855218228324,
+							"disabled": true,
+							"parameters": {
+								"x": "Mouse.X",
+								"y": "Mouse.Y"
+							}
+						},
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 374385476664461,
+							"disabled": true,
+							"parameters": {
+								"type": "log",
+								"message": "Mouse.X &\" \"& Mouse.Y"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 781297095762420,
+							"parameters": {
+								"variable": "MouseLastX",
+								"value": "Mouse.X"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 404613939660990,
+							"parameters": {
+								"variable": "MouseLastY",
+								"value": "Mouse.Y"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Try and set the volume from a saved value."
+						},
+						{
+							"id": "check-item-exists",
+							"objectClass": "LocalStorage",
+							"sid": 811466320313709,
+							"parameters": {
+								"key": "\"VolumeSetting\""
+							}
+						},
+						{
+							"id": "check-item-exists",
+							"objectClass": "LocalStorage",
+							"sid": 945566181285084,
+							"parameters": {
+								"key": "\"MusicSetting\""
+							}
+						}
+					],
+					"sid": 978533952786173,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 404880594801658,
+									"parameters": {
+										"variable": "SkipSplash"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "go-to-layout",
+									"objectClass": "System",
+									"sid": 773852961263685,
+									"parameters": {
+										"layout": "Index"
+									}
+								}
+							],
+							"sid": 819017157241963
+						},
+						{
+							"eventType": "comment",
+							"text": "Only on the first run of Splash."
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 893907758647450,
+									"parameters": {
+										"variable": "FirstSplash"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 532691087548629,
+									"parameters": {
+										"variable": "Paused",
+										"value": "true"
+									}
+								},
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 625984944801556,
+									"parameters": {
+										"variable": "FirstSplash",
+										"value": "false"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "Stop everything and enable LightSwitch."
+								},
+								{
+									"id": "set-time-scale",
+									"objectClass": "System",
+									"sid": 630633193302962,
+									"parameters": {
+										"time-scale": "0.25"
+									}
+								},
+								{
+									"id": "set-layer-visible",
+									"objectClass": "System",
+									"sid": 199367474143961,
+									"parameters": {
+										"layer": "\"Light Switch\"",
+										"visibility": "visible"
+									}
+								},
+								{
+									"id": "set-object-time-scale",
+									"objectClass": "System",
+									"sid": 788491359199932,
+									"parameters": {
+										"object": "LightSwitch",
+										"time-scale": "1.0"
+									}
+								},
+								{
+									"id": "set-object-time-scale",
+									"objectClass": "System",
+									"sid": 449410393895874,
+									"parameters": {
+										"object": "EarlyAccessBackground",
+										"time-scale": "1.0"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "Disable all buttons."
+								},
+								{
+									"id": "set-boolean-instvar",
+									"objectClass": "Button",
+									"sid": 970193628239378,
+									"parameters": {
+										"instance-variable": "Disabled",
+										"value": "true"
+									}
+								}
+							],
+							"sid": 129085306044867,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-instance-variable",
+											"objectClass": "Button",
+											"sid": 807406167380681,
+											"parameters": {
+												"instance-variable": "For",
+												"comparison": 0,
+												"value": "\"LightSwitch\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"type": "comment",
+											"text": "Re-enable LightSwitch button."
+										},
+										{
+											"id": "set-boolean-instvar",
+											"objectClass": "Button",
+											"sid": 806921754245287,
+											"parameters": {
+												"instance-variable": "Disabled",
+												"value": "false"
+											}
+										}
+									],
+									"sid": 475001957590923
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-boolean-eventvar",
+											"objectClass": "System",
+											"sid": 421957364039044,
+											"parameters": {
+												"variable": "DesktopMode"
+											}
+										},
+										{
+											"id": "compare-instance-variable",
+											"objectClass": "MainSpriteFont",
+											"sid": 825685796011460,
+											"parameters": {
+												"instance-variable": "For",
+												"comparison": 0,
+												"value": "\"EarlyAccess\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-y",
+											"objectClass": "EarlyAccessBackground",
+											"sid": 556896220927928,
+											"parameters": {
+												"y": "Self.Y - 48"
+											}
+										},
+										{
+											"id": "set-y",
+											"objectClass": "MainSpriteFont",
+											"sid": 153016712149561,
+											"parameters": {
+												"y": "Self.Y - 48"
+											}
+										}
+									],
+									"sid": 636972045632925
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 437074023774152
+								}
+							],
+							"actions": [
+								{
+									"id": "set-layer-visible",
+									"objectClass": "System",
+									"sid": 293995052109960,
+									"parameters": {
+										"layer": "\"Light Switch\"",
+										"visibility": "invisible"
+									}
+								}
+							],
+							"sid": 279202136397136
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "Check to load any saved volume setting."
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-item-exists",
+							"objectClass": "LocalStorage",
+							"sid": 107810425312919,
+							"parameters": {
+								"key": "\"VolumeSetting\""
+							}
+						},
+						{
+							"id": "is-number-nan",
+							"objectClass": "System",
+							"sid": 123623698497684,
+							"parameters": {
+								"number": "LocalStorage.ItemValue"
+							},
+							"isInverted": true
+						}
+					],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 734027003536984,
+							"parameters": {
+								"variable": "VolumeSetting",
+								"value": "LocalStorage.ItemValue"
+							}
+						},
+						{
+							"callFunction": "SetVolume",
+							"sid": 549476809832720
+						}
+					],
+					"sid": 578214497500260
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-item-exists",
+							"objectClass": "LocalStorage",
+							"sid": 354049381827912,
+							"parameters": {
+								"key": "\"MusicSetting\""
+							}
+						},
+						{
+							"id": "is-number-nan",
+							"objectClass": "System",
+							"sid": 627104531978894,
+							"parameters": {
+								"number": "LocalStorage.ItemValue"
+							},
+							"isInverted": true
+						}
+					],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 173783015553088,
+							"parameters": {
+								"variable": "MusicSetting",
+								"value": "LocalStorage.ItemValue"
+							}
+						}
+					],
+					"sid": 576079052656614
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]👻 Legacy Stamp Ghosts [/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-x-seconds",
+							"objectClass": "System",
+							"sid": 741200131418108,
+							"parameters": {
+								"interval-seconds": "0.5"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "move-at-angle",
+							"objectClass": "Stamp",
+							"sid": 277018619545397,
+							"parameters": {
+								"angle": "random(360)",
+								"distance": "choose(-1, 0, 1)"
+							}
+						}
+					],
+					"sid": 293240578335011,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "for-each",
+									"objectClass": "System",
+									"sid": 200354908722618,
+									"parameters": {
+										"object": "Stamp"
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 410515944078667,
+									"parameters": {
+										"first-value": "distance(Stamp.X, Stamp.Y, Stamp.startX, Stamp.startY)",
+										"comparison": 4,
+										"second-value": "2"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-position",
+									"objectClass": "Stamp",
+									"sid": 391954554052157,
+									"parameters": {
+										"x": "Stamp.startX",
+										"y": "Stamp.startY"
+									}
+								}
+							],
+							"sid": 341646316304271
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Color Changing[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-x-seconds",
+							"objectClass": "System",
+							"sid": 429609120633136,
+							"parameters": {
+								"interval-seconds": "1"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-default-color",
+							"objectClass": "WhistlegraphButterfly",
+							"sid": 989294171291806,
+							"parameters": {
+								"color": "Functions.hslaToRgba(random(0, 1), 0.35, 0.435, 1.0)"
+							}
+						}
+					],
+					"sid": 730823121333139
+				},
+				{
+					"eventType": "variable",
+					"name": "LightSwitchDecolorGlow",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": false,
+					"isConstant": false,
+					"sid": 669620699184652
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-x-seconds",
+							"objectClass": "System",
+							"sid": 401235571126567,
+							"parameters": {
+								"interval-seconds": "0.05"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 740699465450894,
+							"parameters": {
+								"variable": "LightSwitchDecolorGlow",
+								"value": "choose(20, 25, 30)"
+							}
+						},
+						{
+							"id": "set-effect-parameter",
+							"objectClass": "LightSwitchDecolor",
+							"sid": 853250205518644,
+							"parameters": {
+								"effect": "\"GlowHorizontal\"",
+								"parameter-index": "0",
+								"value": "LightSwitchDecolorGlow"
+							}
+						},
+						{
+							"id": "set-effect-parameter",
+							"objectClass": "LightSwitchDecolor",
+							"sid": 970324608548228,
+							"parameters": {
+								"effect": "\"GlowVertical\"",
+								"parameter-index": "0",
+								"value": "LightSwitchDecolorGlow"
+							}
+						}
+					],
+					"sid": 509774546186551
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Flip the Switch[/h3]"
+				},
+				{
+					"functionName": "LightSwitch",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "set-layer-visible",
+							"objectClass": "System",
+							"sid": 961543173048639,
+							"parameters": {
+								"layer": "\"Light Switch\"",
+								"visibility": "invisible"
+							}
+						},
+						{
+							"id": "set-time-scale",
+							"objectClass": "System",
+							"sid": 631035850951227,
+							"parameters": {
+								"time-scale": "1"
+							}
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 819853099818741,
+							"parameters": {
+								"variable": "Paused",
+								"value": "false"
+							}
+						},
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 276251553621973,
+							"parameters": {
+								"audio-file": {
+									"path": "Light Switch/Light Switch - Released"
+								},
+								"loop": "not-looping",
+								"volume": "-15",
+								"stereo-pan": "0",
+								"tag-optional": "\"LightSwitchReleased\""
+							}
+						}
+					],
+					"sid": 637887469891057,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 804196269491412,
+									"parameters": {
+										"variable": "MusicSetting",
+										"comparison": 0,
+										"value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 459197851013968,
+									"parameters": {
+										"audio-file": {
+											"path": "No Paint - Theme"
+										},
+										"loop": "looping",
+										"volume": "-0.5",
+										"stereo-pan": "0",
+										"tag-optional": "\"Theme\""
+									}
+								}
+							],
+							"sid": 578423772576092
+						},
+						{
+							"eventType": "variable",
+							"name": "EffectedLayers",
+							"type": "string",
+							"initialValue": "Profile|Emoji Sprinkles|Layer 0|Particles|Butterfly",
+							"comment": "",
+							"isStatic": false,
+							"isConstant": false,
+							"sid": 592190171531549
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "repeat",
+									"objectClass": "System",
+									"sid": 181126368063559,
+									"parameters": {
+										"count": "tokencount(EffectedLayers, \"|\")"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-layer-effect-enabled",
+									"objectClass": "System",
+									"sid": 141598763301764,
+									"parameters": {
+										"layer": "tokenat(EffectedLayers, loopindex, \"|\")",
+										"mode": "disable",
+										"effect": "\"BlurHorizontal\""
+									}
+								},
+								{
+									"id": "set-layer-effect-enabled",
+									"objectClass": "System",
+									"sid": 514665429629461,
+									"parameters": {
+										"layer": "tokenat(EffectedLayers, loopindex, \"|\")",
+										"mode": "disable",
+										"effect": "\"BlurVertical\""
+									}
+								},
+								{
+									"id": "set-layer-effect-enabled",
+									"objectClass": "System",
+									"sid": 411702827876685,
+									"parameters": {
+										"layer": "tokenat(EffectedLayers, loopindex, \"|\")",
+										"mode": "disable",
+										"effect": "\"Water\""
+									}
+								}
+							],
+							"sid": 110682209575571
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "Re-enable all buttons."
+								},
+								{
+									"id": "set-boolean-instvar",
+									"objectClass": "Button",
+									"sid": 460062554509225,
+									"parameters": {
+										"instance-variable": "Disabled",
+										"value": "false"
+									}
+								}
+							],
+							"sid": 799109000123164
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-instance-variable",
+									"objectClass": "Button",
+									"sid": 678952080928003,
+									"parameters": {
+										"instance-variable": "For",
+										"comparison": 0,
+										"value": "\"LightSwitch\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "Disable LightSwitch button."
+								},
+								{
+									"id": "set-boolean-instvar",
+									"objectClass": "Button",
+									"sid": 808742260231262,
+									"parameters": {
+										"instance-variable": "Disabled",
+										"value": "true"
+									}
+								}
+							],
+							"sid": 395145098331156
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Start Painting[/h3]"
+				},
+				{
+					"functionName": "Enter",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "go-to-layout",
+							"objectClass": "System",
+							"sid": 305241844591063,
+							"parameters": {
+								"layout": "Index"
+							}
+						},
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 406267512897919,
+							"parameters": {
+								"tag": "\"LightSwitchReleased\""
+							}
+						}
+					],
+					"sid": 158052912988671
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Go to Discord[/h3]"
+				},
+				{
+					"functionName": "Chat",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "open-url-in-new-window",
+							"objectClass": "Browser",
+							"sid": 825124143239383,
+							"parameters": {
+								"url": "\"https://discord.gg/4BdxKC5gd9\"",
+								"tag": "\"NewWindow\""
+							}
+						}
+					],
+					"sid": 794147383810134
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Go to Whistlegraph's Home[/h3]"
+				},
+				{
+					"functionName": "Whistlegraph",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "open-url-in-new-window",
+							"objectClass": "Browser",
+							"sid": 686023268944144,
+							"parameters": {
+								"url": "\"https://whistlegraph.com\"",
+								"tag": "\"NewWindow\""
+							}
+						}
+					],
+					"sid": 237900443544177
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Make a Portrait[/h3]"
+				},
+				{
+					"functionName": "Camera",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 144439422422625,
+							"parameters": {
+								"variable": "FirstBrush",
+								"value": "\"Camera\""
+							}
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 145618540967234,
+							"parameters": {
+								"variable": "Repeat",
+								"value": "true"
+							}
+						},
+						{
+							"id": "go-to-layout",
+							"objectClass": "System",
+							"sid": 133887411244353,
+							"parameters": {
+								"layout": "Index"
+							}
+						}
+					],
+					"sid": 458505581027287,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 967132369441486,
+									"parameters": {
+										"variable": "DesktopMode"
+									},
+									"isInverted": true
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 438808322867715,
+									"parameters": {
+										"first-value": "choose(0, 1)",
+										"comparison": 0,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 329879231591762,
+									"parameters": {
+										"variable": "FirstParams",
+										"value": "\"Front\""
+									}
+								}
+							],
+							"sid": 344197544737471
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Go to App[/h3]"
+				},
+				{
+					"functionName": "App",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [],
+					"sid": 113215975777879,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-instance-variable",
+									"objectClass": "MainSpriteFont",
+									"sid": 666873650170386,
+									"parameters": {
+										"instance-variable": "For",
+										"comparison": 0,
+										"value": "\"AppButton\""
+									}
+								},
+								{
+									"id": "compare-text",
+									"objectClass": "MainSpriteFont",
+									"sid": 234747215777904,
+									"parameters": {
+										"text-to-compare": "\"Your Ad Here\"",
+										"case-sensitivity": "ignore-case"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "go-to-url",
+									"objectClass": "Browser",
+									"sid": 763343453606888,
+									"parameters": {
+										"url": "\"https://tally.so/r/3EQbo3\"",
+										"target": "self"
+									}
+								}
+							],
+							"sid": 438669289909868
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 196351362683319
+								}
+							],
+							"actions": [
+								{
+									"id": "go-to-url",
+									"objectClass": "Browser",
+									"sid": 943721778358272,
+									"parameters": {
+										"url": "\"https://apps.apple.com/us/app/no-paint/id1107427275\"",
+										"target": "self"
+									}
+								}
+							],
+							"sid": 984230401235321
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Buttons[/h3]"
+				},
+				{
+					"functionName": "CheckButtonsSplash",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [
+						{
+							"name": "For",
+							"type": "string",
+							"initialValue": "",
+							"comment": "",
+							"sid": 382538023913126
+						},
+						{
+							"name": "Event",
+							"type": "string",
+							"initialValue": "",
+							"comment": "",
+							"sid": 589197049838907
+						}
+					],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [],
+					"sid": 743364471822249,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 747289427626326,
+									"parameters": {
+										"first-value": "For",
+										"comparison": 0,
+										"second-value": "\"Enter\""
+									}
+								}
+							],
+							"actions": [],
+							"sid": 465355185876789,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 451745865352330,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Pressed\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 776374374819725
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 269382723009591,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Button Press"
+												},
+												"loop": "not-looping",
+												"volume": "GenericButtonPressedDecibels",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-animation-frame",
+											"objectClass": "InstructionsPressed",
+											"sid": 954998105750341,
+											"parameters": {
+												"frame-number": "1"
+											}
+										},
+										{
+											"id": "set-default-color",
+											"objectClass": "Instructions",
+											"sid": 591661335319533,
+											"parameters": {
+												"color": "rgbEx255(128, 128, 0)"
+											}
+										}
+									],
+									"sid": 301758757260178
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 218245838028939,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Depressed\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 393491420987974
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 645629631031344,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Button Release"
+												},
+												"loop": "not-looping",
+												"volume": "0",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-animation-frame",
+											"objectClass": "InstructionsPressed",
+											"sid": 633838037484924,
+											"parameters": {
+												"frame-number": "0"
+											}
+										},
+										{
+											"id": "set-default-color",
+											"objectClass": "Instructions",
+											"sid": 788741318813626,
+											"parameters": {
+												"color": "rgbEx255(145, 145, 145)"
+											}
+										}
+									],
+									"sid": 109763163241730
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 352763956461096,
+									"parameters": {
+										"first-value": "For",
+										"comparison": 0,
+										"second-value": "\"Community\""
+									}
+								},
+								{
+									"id": "compare-instance-variable",
+									"objectClass": "MainSpriteFont",
+									"sid": 255868717015614,
+									"parameters": {
+										"instance-variable": "For",
+										"comparison": 0,
+										"value": "\"ChatButton\""
+									}
+								}
+							],
+							"actions": [],
+							"sid": 389177154957255,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 242982106811361,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Pressed\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 625206601692798
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 708750894537153,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Button Press"
+												},
+												"loop": "not-looping",
+												"volume": "GenericButtonPressedDecibels",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-animation-frame",
+											"objectClass": "ChatPressed",
+											"sid": 424187326752536,
+											"parameters": {
+												"frame-number": "1"
+											}
+										},
+										{
+											"id": "set-default-color",
+											"objectClass": "MainSpriteFont",
+											"sid": 534672707737000,
+											"parameters": {
+												"color": "rgbEx255(100, 0, 100)"
+											}
+										}
+									],
+									"sid": 986816953960837
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 887370269221318,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Depressed\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 666403694177719
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 201641598669636,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Button Release"
+												},
+												"loop": "not-looping",
+												"volume": "0",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-animation-frame",
+											"objectClass": "ChatPressed",
+											"sid": 295331290290497,
+											"parameters": {
+												"frame-number": "0"
+											}
+										},
+										{
+											"id": "set-default-color",
+											"objectClass": "MainSpriteFont",
+											"sid": 184848784518970,
+											"parameters": {
+												"color": "rgbEx255(145, 145, 200)"
+											}
+										}
+									],
+									"sid": 586924899654449
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 497126463294981,
+									"parameters": {
+										"first-value": "For",
+										"comparison": 0,
+										"second-value": "\"Whistlegraph\""
+									}
+								}
+							],
+							"actions": [],
+							"sid": 268670808929957,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 170456630994964,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Pressed\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 209425444788210
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 542706933577037,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Button Press"
+												},
+												"loop": "not-looping",
+												"volume": "GenericButtonPressedDecibels",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-animation-frame",
+											"objectClass": "WhistlegraphPressed",
+											"sid": 140392648385107,
+											"parameters": {
+												"frame-number": "1"
+											}
+										}
+									],
+									"sid": 113109923120861
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 857546441117692,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Depressed\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 842142673840038
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 248434722396953,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Button Release"
+												},
+												"loop": "not-looping",
+												"volume": "0",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-animation-frame",
+											"objectClass": "WhistlegraphPressed",
+											"sid": 112803736661934,
+											"parameters": {
+												"frame-number": "0"
+											}
+										}
+									],
+									"sid": 852923354758527
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 893384720537738,
+									"parameters": {
+										"first-value": "For",
+										"comparison": 0,
+										"second-value": "\"App\""
+									}
+								},
+								{
+									"id": "compare-instance-variable",
+									"objectClass": "MainSpriteFont",
+									"sid": 160521830818662,
+									"parameters": {
+										"instance-variable": "For",
+										"comparison": 0,
+										"value": "\"AppButton\""
+									}
+								}
+							],
+							"actions": [],
+							"sid": 871165579553115,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 692130952602189,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Pressed\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 847432250847416
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 973949388784618,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Button Press"
+												},
+												"loop": "not-looping",
+												"volume": "GenericButtonPressedDecibels",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-animation-frame",
+											"objectClass": "AppPressed",
+											"sid": 979449429014176,
+											"parameters": {
+												"frame-number": "1"
+											}
+										},
+										{
+											"id": "set-default-color",
+											"objectClass": "MainSpriteFont",
+											"sid": 808302620239421,
+											"parameters": {
+												"color": "rgbEx255(0, 100, 0)"
+											}
+										}
+									],
+									"sid": 534461644260276
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 586542219879782,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Depressed\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 467967614075273
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 308647128384951,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Button Release"
+												},
+												"loop": "not-looping",
+												"volume": "0",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-animation-frame",
+											"objectClass": "AppPressed",
+											"sid": 294531653185308,
+											"parameters": {
+												"frame-number": "0"
+											}
+										},
+										{
+											"id": "set-default-color",
+											"objectClass": "MainSpriteFont",
+											"sid": 298669385543652,
+											"parameters": {
+												"color": "rgbEx255(125, 175, 125)"
+											}
+										}
+									],
+									"sid": 225881056876173
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 245263020542405,
+									"parameters": {
+										"first-value": "For",
+										"comparison": 0,
+										"second-value": "\"About\""
+									}
+								},
+								{
+									"id": "compare-instance-variable",
+									"objectClass": "MainSpriteFont",
+									"sid": 799368316643093,
+									"parameters": {
+										"instance-variable": "For",
+										"comparison": 0,
+										"value": "\"AboutButton\""
+									}
+								}
+							],
+							"actions": [],
+							"sid": 106196757279710,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 577621555656165,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Pressed\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 197181917081230
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 337667874941508,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Button Press"
+												},
+												"loop": "not-looping",
+												"volume": "GenericButtonPressedDecibels",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-animation-frame",
+											"objectClass": "AboutPressed",
+											"sid": 786202526136895,
+											"parameters": {
+												"frame-number": "1"
+											}
+										},
+										{
+											"id": "set-default-color",
+											"objectClass": "MainSpriteFont",
+											"sid": 728959622013209,
+											"parameters": {
+												"color": "rgbEx255(0, 100, 100)"
+											}
+										},
+										{
+											"callFunction": "ToggleAboutScreen",
+											"sid": 364023117423506,
+											"parameters": [
+												true
+											]
+										}
+									],
+									"sid": 311982807011233
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 757886884521743,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Depressed\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 296953926248282
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 951851690976383,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Button Release"
+												},
+												"loop": "not-looping",
+												"volume": "0",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-animation-frame",
+											"objectClass": "AboutPressed",
+											"sid": 831593814097790,
+											"parameters": {
+												"frame-number": "0"
+											}
+										},
+										{
+											"id": "set-default-color",
+											"objectClass": "MainSpriteFont",
+											"sid": 305340699051488,
+											"parameters": {
+												"color": "rgbEx255(145, 145, 145)"
+											}
+										},
+										{
+											"callFunction": "ToggleAboutScreen",
+											"sid": 260368093072126,
+											"parameters": [
+												false
+											]
+										}
+									],
+									"sid": 633882801334026
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 363988150898924,
+									"parameters": {
+										"first-value": "For",
+										"comparison": 0,
+										"second-value": "\"PainterStories\""
+									}
+								}
+							],
+							"actions": [],
+							"sid": 280405292313129,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 452674029534913,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Pressed\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 167893716127432
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 178638350201949,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Button Press"
+												},
+												"loop": "not-looping",
+												"volume": "GenericButtonPressedDecibels",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-default-color",
+											"objectClass": "PainterStories",
+											"sid": 362052351470053,
+											"parameters": {
+												"color": "rgbEx255(255, 200, 0)"
+											}
+										}
+									],
+									"sid": 858856647011234
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 381738976507565,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Depressed\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 895420627536961
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 505536845742345,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Button Release"
+												},
+												"loop": "not-looping",
+												"volume": "0",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-default-color",
+											"objectClass": "PainterStories",
+											"sid": 234051552769415,
+											"parameters": {
+												"color": "rgbEx255(255, 90, 90)"
+											}
+										}
+									],
+									"sid": 706821798947794
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 537818599728348,
+									"parameters": {
+										"first-value": "For",
+										"comparison": 0,
+										"second-value": "\"Camera\""
+									}
+								}
+							],
+							"actions": [],
+							"sid": 719183296073242,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 944913932178196,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Pressed\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 450740728884312
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 751517174626364,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Button Press"
+												},
+												"loop": "not-looping",
+												"volume": "GenericButtonPressedDecibels",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-default-color",
+											"objectClass": "CameraSplash",
+											"sid": 596976453192874,
+											"parameters": {
+												"color": "rgbEx255(100, 100, 100)"
+											}
+										}
+									],
+									"sid": 880394165834226
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 278371345032833,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Depressed\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 820442626313372
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 535669922821374,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Button Release"
+												},
+												"loop": "not-looping",
+												"volume": "0",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-default-color",
+											"objectClass": "CameraSplash",
+											"sid": 455791098515980,
+											"parameters": {
+												"color": "rgbEx255(255, 255, 255)"
+											}
+										}
+									],
+									"sid": 845727381130826
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 602983120068608,
+									"parameters": {
+										"first-value": "For",
+										"comparison": 0,
+										"second-value": "\"LightSwitch\""
+									}
+								}
+							],
+							"actions": [],
+							"sid": 835850127997816,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 590877887911373,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Pressed\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 523479477182553
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 486226971049547,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Button Press"
+												},
+												"loop": "not-looping",
+												"volume": "GenericButtonPressedDecibels",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-opacity",
+											"objectClass": "LightSwitch",
+											"sid": 126284891192019,
+											"parameters": {
+												"opacity": "70"
+											}
+										}
+									],
+									"sid": 160966623006970
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 807461680545220,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Depressed\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 283046521315071
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 514861330999764,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Button Release"
+												},
+												"loop": "not-looping",
+												"volume": "0",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-opacity",
+											"objectClass": "LightSwitch",
+											"sid": 186699106690140,
+											"parameters": {
+												"opacity": "100"
+											}
+										}
+									],
+									"sid": 285167298959299
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 471398319491627,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Hover\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 577149054651164
+										}
+									],
+									"actions": [
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 257042405612092,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Button Rollover"
+												},
+												"loop": "not-looping",
+												"volume": "ButtonRolloverDecibels",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-playback-rate",
+											"objectClass": "Audio",
+											"sid": 640288689803400,
+											"parameters": {
+												"tag": "\"\"",
+												"playback-rate": "0.75"
+											}
+										},
+										{
+											"id": "set-opacity",
+											"objectClass": "LightSwitch",
+											"sid": 261098206462581,
+											"parameters": {
+												"opacity": "85"
+											}
+										}
+									],
+									"sid": 740405060073678
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 778974241866162,
+											"parameters": {
+												"first-value": "Event",
+												"comparison": 0,
+												"second-value": "\"Unhover\""
+											}
+										},
+										{
+											"id": "trigger-once-while-true",
+											"objectClass": "System",
+											"sid": 126495801608014
+										}
+									],
+									"actions": [
+										{
+											"id": "set-opacity",
+											"objectClass": "LightSwitch",
+											"sid": 364154481222183,
+											"parameters": {
+												"opacity": "100"
+											}
+										},
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 747025978272224,
+											"parameters": {
+												"audio-file": {
+													"path": "Generic/Generic - Button Rollover"
+												},
+												"loop": "not-looping",
+												"volume": "ButtonRolloverDecibels",
+												"stereo-pan": "0",
+												"tag-optional": "\"\""
+											}
+										},
+										{
+											"id": "set-playback-rate",
+											"objectClass": "Audio",
+											"sid": 546231919023899,
+											"parameters": {
+												"tag": "\"\"",
+												"playback-rate": "0.9"
+											}
+										}
+									],
+									"sid": 998544888303664
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Functions[/h3]"
+				},
+				{
+					"functionName": "ProfileIndex",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 565131241376519,
+							"parameters": {
+								"variable": "ProfileTransitionIn",
+								"value": "true"
+							}
+						},
+						{
+							"id": "go-to-layout",
+							"objectClass": "System",
+							"sid": 297445801248770,
+							"parameters": {
+								"layout": "PainterStoriesTransition"
+							}
+						}
+					],
+					"sid": 758553446557937
+				},
+				{
+					"functionName": "ToggleAboutScreen",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [
+						{
+							"name": "On",
+							"type": "boolean",
+							"initialValue": "false",
+							"comment": "",
+							"sid": 284336985666815
+						}
+					],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [],
+					"sid": 322892680958669,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 710385695203124,
+									"parameters": {
+										"variable": "On"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-visible",
+									"objectClass": "AboutBackdrop",
+									"sid": 869909726693936,
+									"parameters": {
+										"visibility": "visible"
+									}
+								}
+							],
+							"sid": 836077984115828,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-instance-variable",
+											"objectClass": "MainSpriteFont",
+											"sid": 595910180025877,
+											"parameters": {
+												"instance-variable": "For",
+												"comparison": 0,
+												"value": "\"AboutText\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-visible",
+											"objectClass": "MainSpriteFont",
+											"sid": 972603662702757,
+											"parameters": {
+												"visibility": "visible"
+											}
+										}
+									],
+									"sid": 566798085798184
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-instance-variable",
+											"objectClass": "MainSpriteFont",
+											"sid": 595467789697563,
+											"parameters": {
+												"instance-variable": "For",
+												"comparison": 0,
+												"value": "\"Features\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-visible",
+											"objectClass": "MainSpriteFont",
+											"sid": 663701576027114,
+											"disabled": true,
+											"parameters": {
+												"visibility": "invisible"
+											}
+										}
+									],
+									"sid": 760255201350652
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 921333557338757
+								}
+							],
+							"actions": [
+								{
+									"id": "set-visible",
+									"objectClass": "AboutBackdrop",
+									"sid": 200738091521182,
+									"parameters": {
+										"visibility": "invisible"
+									}
+								}
+							],
+							"sid": 451951195524284,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-instance-variable",
+											"objectClass": "MainSpriteFont",
+											"sid": 989231848510319,
+											"parameters": {
+												"instance-variable": "For",
+												"comparison": 0,
+												"value": "\"AboutText\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-visible",
+											"objectClass": "MainSpriteFont",
+											"sid": 811510720366810,
+											"parameters": {
+												"visibility": "invisible"
+											}
+										}
+									],
+									"sid": 262397214768101
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-instance-variable",
+											"objectClass": "MainSpriteFont",
+											"sid": 216319893880027,
+											"parameters": {
+												"instance-variable": "For",
+												"comparison": 0,
+												"value": "\"Features\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-visible",
+											"objectClass": "MainSpriteFont",
+											"sid": 711482145970508,
+											"disabled": true,
+											"parameters": {
+												"visibility": "visible"
+											}
+										}
+									],
+									"sid": 955749843276839
+								}
+							]
+						}
+					]
+				},
+				{
+					"functionName": "RetrievePainting",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 786513742294611,
+							"parameters": {
+								"type": "log",
+								"message": "\"👀 Looking for a previously stored painting.\""
+							}
+						},
+						{
+							"id": "check-item-exists",
+							"objectClass": "LocalStorage",
+							"sid": 237795767789471,
+							"parameters": {
+								"key": "\"StoredPainting\""
+							}
+						}
+					],
+					"sid": 393087418968836
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-item-exists",
+							"objectClass": "LocalStorage",
+							"sid": 797992143064355,
+							"parameters": {
+								"key": "\"StoredPainting\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 774139685472241,
+							"parameters": {
+								"type": "log",
+								"message": "\"👍 Painting found!\""
+							}
+						},
+						{
+							"id": "get-binary-item",
+							"objectClass": "LocalStorage",
+							"sid": 695928211312746,
+							"parameters": {
+								"key": "\"StoredPainting\"",
+								"destination": "PaintingStorage"
+							}
+						}
+					],
+					"sid": 946985359304606
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-item-missing",
+							"objectClass": "LocalStorage",
+							"sid": 226321652780579,
+							"parameters": {
+								"key": "\"StoredPainting\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 510421997680790,
+							"parameters": {
+								"type": "log",
+								"message": "\"👎 Painting not found!\""
+							}
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 193915610927721,
+							"parameters": {
+								"tag": "\"paintingRetrievalComplete\""
+							}
+						}
+					],
+					"sid": 326756549244402
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-item-get",
+							"objectClass": "LocalStorage",
+							"sid": 894123588974995,
+							"parameters": {
+								"key": "\"StoredPainting\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "load-image-from-url",
+							"objectClass": "StoredPaintingLoader",
+							"sid": 809369046048017,
+							"parameters": {
+								"uri": "PaintingStorage.GetURL",
+								"size": "resize-to-image-size",
+								"cross-origin": "anonymous"
+							}
+						},
+						{
+							"id": "wait-for-previous-actions",
+							"objectClass": "System",
+							"sid": 747796461638943
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 944828892487808,
+							"parameters": {
+								"object": "StoredPaintingLoader",
+								"effects": "without-effects"
+							}
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 484171146282046,
+							"parameters": {
+								"variable": "NewPainting",
+								"value": "false"
+							}
+						},
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 761314391693299,
+							"parameters": {
+								"type": "log",
+								"message": "\"✅ Loaded the stored painting.\""
+							}
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 988236739296052,
+							"parameters": {
+								"tag": "\"paintingRetrievalComplete\""
+							}
+						}
+					],
+					"sid": 535596189536697
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DesktopMode Toggle[/h3]"
+				},
+				{
+					"functionName": "ToggleDesktopMode",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [
+						{
+							"name": "mode",
+							"type": "boolean",
+							"initialValue": "false",
+							"comment": "",
+							"sid": 324415439179314
+						}
+					],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 985076683803123,
+							"disabled": true,
+							"parameters": {
+								"type": "log",
+								"message": "\"Toggle Desktop\""
+							}
+						}
+					],
+					"sid": 844565361598937,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 589695696340745,
+									"parameters": {
+										"variable": "mode"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 506698063368494,
+									"parameters": {
+										"variable": "DesktopMode",
+										"value": "true"
+									}
+								},
+								{
+									"id": "set-canvas-size",
+									"objectClass": "System",
+									"sid": 958932448426429,
+									"parameters": {
+										"width": "256",
+										"height": "256 + (16 * 3)"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "304"
+								},
+								{
+									"id": "restart-layout",
+									"objectClass": "System",
+									"sid": 448108922286277
+								}
+							],
+							"sid": 800592826513367
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 450624076357291
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 745575545541234,
+									"parameters": {
+										"variable": "DesktopMode",
+										"value": "false"
+									}
+								},
+								{
+									"id": "set-canvas-size",
+									"objectClass": "System",
+									"sid": 718920823796375,
+									"parameters": {
+										"width": "OriginalViewportWidth",
+										"height": "352"
+									}
+								}
+							],
+							"sid": 620757718164354
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 150252396056528
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 488922964252344,
+							"disabled": true,
+							"parameters": {
+								"tag": "\"Theme\""
+							}
+						}
+					],
+					"sid": 306182445450525
+				}
+			],
+			"sid": 292972561831992
+		},
+		{
+			"eventType": "block",
+			"conditions": [
+				{
+					"id": "compare-boolean-eventvar",
+					"objectClass": "System",
+					"sid": 409859014513148,
+					"parameters": {
+						"variable": "SkipSplash"
+					}
+				}
+			],
+			"actions": [
+				{
+					"id": "go-to-layout",
+					"objectClass": "System",
+					"sid": 529200356155050,
+					"parameters": {
+						"layout": "Index"
+					}
+				}
+			],
+			"sid": 478555438635167
+		}
+	],
+	"sid": 663919581635965
+}

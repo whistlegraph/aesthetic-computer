@@ -1,0 +1,15 @@
+{
+	"name": "LightBumpBuffer",
+	"plugin-id": "DrawingCanvas",
+	"sid": 625971385690799,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [
+		{
+			"effectId": "brightness",
+			"name": "Brightness"
+		}
+	]
+}

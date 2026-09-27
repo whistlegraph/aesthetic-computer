@@ -1,0 +1,86 @@
+{
+	"name": "SeanBubble",
+	"plugin-id": "Sprite",
+	"sid": 217717032825229,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [
+		{
+			"name": "startX",
+			"type": "number",
+			"desc": "",
+			"show": true,
+			"sid": 587589623947376
+		},
+		{
+			"name": "startY",
+			"type": "number",
+			"desc": "",
+			"show": true,
+			"sid": 512516867869845
+		}
+	],
+	"behaviorTypes": [],
+	"effectTypes": [
+		{
+			"effectId": "blacknwhite",
+			"name": "BlackWhite"
+		}
+	],
+	"animations": {
+		"items": [
+			{
+				"frames": [
+					{
+						"width": 44,
+						"height": 25,
+						"originX": 0,
+						"originY": 0,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 2508266,
+						"collisionPoly": {
+							"points": [
+								0.022727272727272728,
+								0,
+								0.9431818181818182,
+								0,
+								0.9431818181818182,
+								1,
+								0.022727272727272728,
+								1
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					},
+					{
+						"width": 44,
+						"height": 25,
+						"originX": 0,
+						"originY": 0,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 2416648,
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					}
+				],
+				"sid": 488638380956770,
+				"name": "Animation 1",
+				"isLooping": true,
+				"isPingPong": false,
+				"repeatCount": 1,
+				"repeatTo": 0,
+				"speed": 2
+			}
+		],
+		"subfolders": []
+	}
+}

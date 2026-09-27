@@ -321,3 +321,31 @@ stored. Green-light: exhibit/gallery/book/award/prints of the aggregate
 as *your* art. Get IP counsel before dataset-licensing / AI-training
 deals or claiming per-painting ownership. Going forward: when restoring
 save, add a consent/license at save time so future paintings are clean.
+
+## 2026-09-27 — the Construct source is live again (r495.2)
+
+The editable project now lives at `nopaint/construct/` (unpacked `.c3p`,
+resaved by Construct r495.2, which also writes its own `llm-context.md`).
+The Dropbox original stays untouched. So "Why current Construct will not
+open it" above is resolved, differently than planned: instead of pinning
+r449, the legacy InjectCSS addon was removed (it only greyed the mobile
+letterbox), and the project runs on the latest release.
+
+- **Edit loop:** change JSON in `nopaint/construct/` → run
+  `nopaint/tools/construct-serve.py` and `curl 127.0.0.1:8747/x -o "No Paint
+  (work).c3p"` → drop that file on editor.construct.net (signed in as
+  whistlegraph; the license is live) → Export › Web. The editor cannot load
+  from localhost itself; drag-and-drop is the way in.
+- **Every export must go through `nopaint/tools/construct-patch-export.py`.**
+  r495.2 has a runtime bug: pasting an effect-carrying Drawing Canvas into
+  another (Noise, Sharpen) calls `setFromQuad3d` on a Quad3D, throws, and
+  jams the target canvas black. The script swaps it for `copy` and refuses
+  to run if Construct changes that code.
+- **Folders export:** playlist files now ship under `Playlists/`; the AJAX
+  URL was updated to match.
+- **Off-screen canvases draw nothing in r495.** Wafer's palette and pattern
+  helpers were moved on-screen (hidden). Still to verify in a build:
+  Wafer, Breathe and Quicksand (buffers start at −32,−32), and the
+  1024×1152 `SavedPainting` save canvas.
+- Construct zips use Windows `\` separators; unpack by replacing them
+  (`construct-patch-export.py` does this).

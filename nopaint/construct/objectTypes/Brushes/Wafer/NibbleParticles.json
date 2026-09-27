@@ -1,0 +1,23 @@
+{
+	"name": "NibbleParticles",
+	"plugin-id": "Particles",
+	"sid": 719536366147810,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [],
+	"image": {
+		"width": 1,
+		"height": 1,
+		"originX": 0.5,
+		"originY": 0.5,
+		"originalSource": "",
+		"exportFormat": "lossless",
+		"exportQuality": 0.8,
+		"fileType": "image/png",
+		"imageSpriteId": 1665932,
+		"useCollisionPoly": true,
+		"tag": ""
+	}
+}

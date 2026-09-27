@@ -1,0 +1,1373 @@
+{
+	"name": "Wafer",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Wafer",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "colourIndex",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": false,
+					"isConstant": false,
+					"sid": 210845125007194
+				},
+				{
+					"eventType": "variable",
+					"name": "cx",
+					"type": "number",
+					"initialValue": "128",
+					"comment": "Centre of canvas.",
+					"isStatic": false,
+					"isConstant": true,
+					"sid": 999591256928494
+				},
+				{
+					"eventType": "variable",
+					"name": "cy",
+					"type": "number",
+					"initialValue": "128",
+					"comment": "Centre of canvas. ",
+					"isStatic": false,
+					"isConstant": true,
+					"sid": 385547698813402
+				},
+				{
+					"eventType": "variable",
+					"name": "x",
+					"type": "number",
+					"initialValue": "128",
+					"comment": "Biscuit position.",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 830848716718278
+				},
+				{
+					"eventType": "variable",
+					"name": "y",
+					"type": "number",
+					"initialValue": "128",
+					"comment": "Biscuit position. ",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 147716529255139
+				},
+				{
+					"eventType": "variable",
+					"name": "range",
+					"type": "number",
+					"initialValue": "40",
+					"comment": "",
+					"isStatic": false,
+					"isConstant": true,
+					"sid": 738516534091366
+				},
+				{
+					"eventType": "variable",
+					"name": "radius",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 678455718208852
+				},
+				{
+					"eventType": "variable",
+					"name": "biteAngle",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 102233399670605
+				},
+				{
+					"eventType": "variable",
+					"name": "biteAngleAdjusted",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": false,
+					"isConstant": false,
+					"sid": 603674312109649
+				},
+				{
+					"eventType": "variable",
+					"name": "biteRadius",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": false,
+					"isConstant": false,
+					"sid": 490025602953949
+				},
+				{
+					"eventType": "variable",
+					"name": "biscuitLocationIndex",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 965208867378783
+				},
+				{
+					"eventType": "variable",
+					"name": "arc",
+					"type": "number",
+					"initialValue": "30",
+					"comment": "Must divide into 360 evenly.",
+					"isStatic": false,
+					"isConstant": true,
+					"sid": 526822010251990
+				},
+				{
+					"eventType": "variable",
+					"name": "color",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 341722716246744
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 181708239330572
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "👋 Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 511513828493638,
+							"parameters": [
+								"2"
+							]
+						},
+						{
+							"type": "comment",
+							"text": "[b]1st Parameter[/b] X"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 704581912526535,
+							"parameters": {
+								"variable": "x",
+								"value": "Functions.ProcessNumericParameter(1, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "[b]2nd Parameter[/b] Y"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 749254667587539,
+							"parameters": {
+								"variable": "y",
+								"value": "Functions.ProcessNumericParameter(2, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "🛑 Print Parameters",
+							"background-color": [
+								0.9294117647058824,
+								0.7764705882352941,
+								0.984313725490196,
+								1
+							]
+						},
+						{
+							"callFunction": "PrintParameterHint",
+							"sid": 777374188572757
+						}
+					],
+					"sid": 397493202428808,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "pick-by-evaluate",
+									"objectClass": "System",
+									"sid": 802006990059254,
+									"parameters": {
+										"object": "Button",
+										"expression": "Button.For = \"Paint\" | Button.For = \"No\" "
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-instvar",
+									"objectClass": "Button",
+									"sid": 996583554033623,
+									"parameters": {
+										"instance-variable": "Disabled",
+										"value": "true"
+									}
+								},
+								{
+									"id": "set-group-active",
+									"objectClass": "System",
+									"sid": 832388643264177,
+									"parameters": {
+										"group-name": "\"Keyboard Controls\"",
+										"state": "deactivated"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 259486741858476,
+									"parameters": {
+										"variable": "radius",
+										"value": "choose(16, 16, 32, 32, 32, 32, 48, 48, 48, 64, 64, 96)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 381767499270158,
+									"parameters": {
+										"variable": "biscuitLocationIndex",
+										"value": "0"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "Create a permutation table that contains all increments of [b]arc[/b] / 360."
+								},
+								{
+									"id": "createPermutationTable",
+									"objectClass": "AdvancedRandom",
+									"sid": 866667818156551,
+									"parameters": {
+										"length": "360 / arc",
+										"offset": "0"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "Set colour based on NibblePaletteSource"
+								},
+								{
+									"id": "paste-object",
+									"objectClass": "NibblePalette",
+									"sid": 117760204872183,
+									"parameters": {
+										"object": "NibblePaletteSource",
+										"effects": "with-effects"
+									}
+								},
+								{
+									"id": "save-snapshot",
+									"objectClass": "NibblePalette",
+									"sid": 618270097796798
+								},
+								{
+									"id": "wait-for-previous-actions",
+									"objectClass": "System",
+									"sid": 706009291318773
+								},
+								{
+									"type": "comment",
+									"text": "Set Nibble Pattern"
+								},
+								{
+									"id": "set-animation-frame",
+									"objectClass": "NibblePatternSource",
+									"sid": 817770894193142,
+									"parameters": {
+										"frame-number": "floor(random(0, NibblePatternSource.AnimationFrameCount))"
+									}
+								},
+								{
+									"id": "paste-object",
+									"objectClass": "NibblePattern",
+									"sid": 480935705061276,
+									"parameters": {
+										"object": "NibblePatternSource",
+										"effects": "with-effects"
+									}
+								},
+								{
+									"id": "wait-for-previous-actions",
+									"objectClass": "System",
+									"sid": 942820465347782
+								},
+								{
+									"id": "save-image",
+									"objectClass": "NibblePattern",
+									"sid": 322671109753265,
+									"parameters": {
+										"format": "png",
+										"jpeg-quality": "100",
+										"x": "0",
+										"y": "0",
+										"width": "0",
+										"height": "0"
+									}
+								},
+								{
+									"id": "wait-for-previous-actions",
+									"objectClass": "System",
+									"sid": 280697344465390
+								},
+								{
+									"id": "load-image-from-url",
+									"objectClass": "NibblePatternBackdrop",
+									"sid": 490356366621246,
+									"parameters": {
+										"uri": "NibblePattern.SavedImageURL",
+										"cross-origin": "anonymous"
+									}
+								},
+								{
+									"id": "wait-for-previous-actions",
+									"objectClass": "System",
+									"sid": 657013815159767
+								},
+								{
+									"type": "comment",
+									"text": ""
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 696342889620972,
+									"parameters": {
+										"variable": "colourIndex",
+										"value": "floor(random(0, NibblePaletteSource.Width))"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 446804072206254,
+									"parameters": {
+										"variable": "color",
+										"value": "rgbEx(NibblePalette.SnapshotRedAt(colourIndex, 0) + choose(-5, 0, 5), NibblePalette.SnapshotGreenAt(colourIndex, 0) + choose(-5, 0, 5), NibblePalette.SnapshotBlueAt(colourIndex, 0) + choose(-5, 0, 5))"
+									}
+								},
+								{
+									"id": "fill-ellipse",
+									"objectClass": "NibbleBiscuit",
+									"sid": 223320777877695,
+									"parameters": {
+										"x": "cx",
+										"y": "cy",
+										"radius-x": "radius",
+										"radius-y": "radius",
+										"color": "color",
+										"edge": "hard"
+									}
+								},
+								{
+									"id": "set-position",
+									"objectClass": "NibbleBiscuit",
+									"sid": 364074650675578,
+									"parameters": {
+										"x": "x",
+										"y": "y"
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 920020520426759,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Wafer/Wafer - Nibble Appear"
+										},
+										"loop": "not-looping",
+										"volume": "0",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "set-group-active",
+									"objectClass": "System",
+									"sid": 213137811494165,
+									"parameters": {
+										"group-name": "\"Keyboard Controls\"",
+										"state": "activated"
+									}
+								},
+								{
+									"type": "comment",
+									"text": ""
+								},
+								{
+									"callFunction": "CircularBite",
+									"sid": 145252856355117
+								},
+								{
+									"callFunction": "BiscuitEnlarge",
+									"sid": 365989760984443
+								},
+								{
+									"id": "wait-for-previous-actions",
+									"objectClass": "System",
+									"sid": 202142204986123
+								},
+								{
+									"callFunction": "BiscuitRender",
+									"sid": 983766571121036
+								},
+								{
+									"id": "set-boolean-instvar",
+									"objectClass": "Button",
+									"sid": 314425019223609,
+									"parameters": {
+										"instance-variable": "Disabled",
+										"value": "false"
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 243655331665069,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.5",
+										"type": "regular",
+										"tag": "\"Draw\""
+									}
+								},
+								{
+									"id": "signal",
+									"objectClass": "System",
+									"sid": 776210185198994,
+									"parameters": {
+										"tag": "\"Brush Started\""
+									}
+								}
+							],
+							"sid": 556143795627631
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 803566930830488,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Draw\""
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 256319295558710,
+							"parameters": {
+								"variable": "Painting"
+							},
+							"isInverted": true
+						}
+					],
+					"actions": [],
+					"sid": 146497965360776,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 730889060143276,
+									"parameters": {
+										"first-value": "biscuitLocationIndex",
+										"comparison": 2,
+										"second-value": "360 / arc + 1"
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "Bite",
+									"sid": 774468752408450
+								},
+								{
+									"id": "create-object",
+									"objectClass": "System",
+									"sid": 934180274857453,
+									"parameters": {
+										"object-to-create": "NibbleParticles",
+										"layer": "\"Layer 0\"",
+										"x": "x + cos(biteAngle) * (radius * 0.65)",
+										"y": "y + sin(biteAngle) * (radius * 0.65)",
+										"create-hierarchy": false,
+										"template-name": "\"\""
+									}
+								},
+								{
+									"id": "set-rate",
+									"objectClass": "NibbleParticles",
+									"sid": 349874754579136,
+									"parameters": {
+										"rate": "choose(radius, radius/2, radius/4)"
+									}
+								},
+								{
+									"id": "set-angle",
+									"objectClass": "NibbleParticles",
+									"sid": 684707313617067,
+									"parameters": {
+										"angle": "biteAngle"
+									}
+								},
+								{
+									"id": "set-default-color",
+									"objectClass": "NibbleParticles",
+									"sid": 800909566152181,
+									"parameters": {
+										"color": "color"
+									}
+								},
+								{
+									"id": "play-by-name",
+									"objectClass": "Audio",
+									"sid": 975211769815673,
+									"parameters": {
+										"folder": "sounds",
+										"audio-file-name": "\"Wafer - Nibble Bite \"&choose(1, 2, 3)",
+										"loop": "not-looping",
+										"volume": "0",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "set-volume",
+									"objectClass": "Audio",
+									"sid": 960503528566670,
+									"parameters": {
+										"tag": "\"\"",
+										"db": "random(0, -10)"
+									}
+								},
+								{
+									"callFunction": "BiscuitRender",
+									"sid": 723555379832405
+								}
+							],
+							"sid": 670119076238891
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 309351238845479
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "BiscuitEnlarge",
+									"sid": 360965416029613
+								},
+								{
+									"id": "wait-for-previous-actions",
+									"objectClass": "System",
+									"sid": 694323768263753
+								},
+								{
+									"callFunction": "BiscuitRender",
+									"sid": 948578441954242
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 174675395806572,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Wafer/Wafer - Enlarge"
+										},
+										"loop": "not-looping",
+										"volume": "0",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								}
+							],
+							"sid": 154761612465736
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [],
+							"sid": 809619351087393
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 169274943060604
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 656645525150335,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 821725565589149
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Pre-paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 989129263783307,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 707105511381175,
+							"parameters": {
+								"first-value": "timescale",
+								"comparison": 0,
+								"second-value": "0"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 137413700293564
+						}
+					],
+					"actions": [
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 314256720588638,
+							"parameters": {
+								"object": "NibbleParticles",
+								"time-scale": "0"
+							}
+						}
+					],
+					"sid": 626597383655849
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 786017123157373,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 204864553281574,
+							"parameters": {
+								"first-value": "timescale",
+								"comparison": 0,
+								"second-value": "1"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 559123590065139
+						}
+					],
+					"actions": [
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 474806038155070,
+							"parameters": {
+								"object": "NibbleParticles",
+								"time-scale": "1.0"
+							}
+						}
+					],
+					"sid": 607126720088121
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Pause[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 817518233399550,
+							"parameters": {
+								"variable": "Paused"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 601668231517308
+						}
+					],
+					"actions": [
+						{
+							"id": "stop-timer",
+							"objectClass": "Clock",
+							"sid": 127897815751458,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Draw\""
+							}
+						}
+					],
+					"sid": 634144820136589
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 707798810304031,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 833179767869498
+						}
+					],
+					"actions": [
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 641102313496045,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "0.5",
+								"type": "regular",
+								"tag": "\"Draw\""
+							}
+						}
+					],
+					"sid": 478771363985078
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 605524588018247,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 108129487405465
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "destroy",
+							"objectClass": "NibbleParticles",
+							"sid": 968133342064070
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 249916248487530,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 364249018430466,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 122083209337651,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 306756325910961
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 895966423177548,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "NibbleBiscuit",
+							"sid": 347442351804121,
+							"parameters": {
+								"x": "min(max(0, Self.X + NudgedX), 255)",
+								"y": "min(max(0, Self.Y + NudgedY), 255)"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 257895615142354,
+							"parameters": {
+								"x": "x",
+								"y": "y"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 844116001057125,
+							"parameters": {
+								"variable": "x",
+								"value": "NibbleBiscuit.X"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 874449129717981,
+							"parameters": {
+								"variable": "y",
+								"value": "NibbleBiscuit.Y"
+							}
+						},
+						{
+							"callFunction": "BiscuitRender",
+							"sid": 405186703966285
+						}
+					],
+					"sid": 381221003018926
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 349131877761411,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 128178424535834,
+							"parameters": {
+								"object": "NibbleParticles",
+								"time-scale": "0"
+							}
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 728301521636351,
+							"parameters": {
+								"object": "NibbleBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 993719926779494,
+							"parameters": {
+								"object": "NibbleParticles",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 485014699183748,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 891975788362517
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 691696722811641
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 798749062982408,
+							"disabled": true,
+							"parameters": {
+								"tag": "\"Zipper\""
+							}
+						}
+					],
+					"sid": 887784757975455
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Functions[/h3]"
+				},
+				{
+					"functionName": "Bite",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Move x, y at radius distance by biteAngle and draw the ellipse there."
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 401778828598733,
+							"parameters": {
+								"variable": "biteAngle",
+								"value": "AdvancedRandom.Permutation(biscuitLocationIndex) * arc"
+							}
+						},
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 217004822732078,
+							"disabled": true,
+							"parameters": {
+								"type": "log",
+								"message": "biteAngle"
+							}
+						}
+					],
+					"sid": 456099638560929,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "repeat",
+									"objectClass": "System",
+									"sid": 472010519919629,
+									"parameters": {
+										"count": "3"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 543734218991502,
+									"parameters": {
+										"variable": "biteRadius",
+										"value": "random(radius*0.2, radius*0.5)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 428310572416499,
+									"parameters": {
+										"variable": "biteAngleAdjusted",
+										"value": "biteAngle + random(-5, 5)"
+									}
+								},
+								{
+									"id": "set-drawing-blend",
+									"objectClass": "NibbleBiscuit",
+									"sid": 963727058615756,
+									"parameters": {
+										"blend-mode": "destination-out"
+									}
+								},
+								{
+									"id": "fill-ellipse",
+									"objectClass": "NibbleBiscuit",
+									"sid": 352032926976985,
+									"parameters": {
+										"x": "cx+cos(biteAngleAdjusted)*(radius+random(-4, 4))",
+										"y": "cy+sin(biteAngleAdjusted)*(radius+random(-4, 4))",
+										"radius-x": "biteRadius",
+										"radius-y": "biteRadius",
+										"color": "rgba(0, 100, 0, 100)",
+										"edge": "hard"
+									}
+								},
+								{
+									"id": "set-drawing-blend",
+									"objectClass": "NibbleBiscuit",
+									"sid": 400858789882451,
+									"parameters": {
+										"blend-mode": "normal"
+									}
+								}
+							],
+							"sid": 352562157836457
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "add-to-eventvar",
+									"objectClass": "System",
+									"sid": 683069099597934,
+									"parameters": {
+										"variable": "biscuitLocationIndex",
+										"value": "1"
+									}
+								}
+							],
+							"sid": 471131467644532
+						}
+					]
+				},
+				{
+					"functionName": "CircularBite",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [],
+					"sid": 250280008921836,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "repeat",
+									"objectClass": "System",
+									"sid": 440513783896202,
+									"parameters": {
+										"count": "360 / arc"
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "Bite",
+									"sid": 879620842756123
+								}
+							],
+							"sid": 947428334696105
+						}
+					]
+				},
+				{
+					"functionName": "BiscuitEnlarge",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": true,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "shufflePermutationTable",
+							"objectClass": "AdvancedRandom",
+							"sid": 445167423789192
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 720229100534291,
+							"parameters": {
+								"variable": "biscuitLocationIndex",
+								"value": "0"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Save the left-over biscuit to BiscuitDouble, then scale it by 2 & redraw it back."
+						},
+						{
+							"id": "save-image",
+							"objectClass": "NibbleBiscuit",
+							"sid": 789869341033285,
+							"parameters": {
+								"format": "png",
+								"jpeg-quality": "100",
+								"x": "0",
+								"y": "0",
+								"width": "0",
+								"height": "0"
+							}
+						},
+						{
+							"id": "wait-for-previous-actions",
+							"objectClass": "System",
+							"sid": 433110837388088
+						},
+						{
+							"id": "load-image-from-url",
+							"objectClass": "NibbleBiscuitDouble",
+							"sid": 919809783452071,
+							"parameters": {
+								"uri": "NibbleBiscuit.SavedImageURL",
+								"size": "resize-to-image-size",
+								"cross-origin": "anonymous"
+							}
+						},
+						{
+							"id": "wait-for-previous-actions",
+							"objectClass": "System",
+							"sid": 559521120964620
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NibbleBiscuitDouble",
+							"sid": 315039673138821,
+							"parameters": {
+								"x": "x",
+								"y": "y"
+							}
+						},
+						{
+							"id": "set-size",
+							"objectClass": "NibbleBiscuitDouble",
+							"sid": 215624724368975,
+							"parameters": {
+								"width": "NibbleBiscuit.Width * 1.3",
+								"height": "NibbleBiscuit.Height * 1.3"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NibbleBiscuitDouble",
+							"sid": 904718257922834,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "clear-canvas",
+							"objectClass": "NibbleBiscuit",
+							"sid": 426136611231641,
+							"parameters": {
+								"color": "rgba(0, 0, 0, 0)"
+							}
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "NibbleBiscuit",
+							"sid": 818054619692159,
+							"parameters": {
+								"object": "NibbleBiscuitDouble",
+								"effects": "without-effects"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NibbleBiscuitDouble",
+							"sid": 217594803067432,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						}
+					],
+					"sid": 691329672256100
+				},
+				{
+					"functionName": "BiscuitRender",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "clear-canvas",
+							"objectClass": "NibbleBuffer",
+							"sid": 566032540843315,
+							"parameters": {
+								"color": "rgba(0, 0, 0, 0)"
+							}
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "NibbleBuffer",
+							"sid": 657127477576179,
+							"parameters": {
+								"object": "NibbleBiscuit",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"id": "set-blend-mode",
+							"objectClass": "NibbleBuffer",
+							"sid": 426008031067401,
+							"parameters": {
+								"blend-mode": "destination-in"
+							}
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "NibbleBuffer",
+							"sid": 135533946438791,
+							"parameters": {
+								"object": "NibblePatternBackdrop",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"id": "set-blend-mode",
+							"objectClass": "NibbleBuffer",
+							"sid": 874230622694852,
+							"parameters": {
+								"blend-mode": "normal"
+							}
+						}
+					],
+					"sid": 856867236630165
+				}
+			],
+			"sid": 683045979197339
+		}
+	],
+	"sid": 543708914741288
+}

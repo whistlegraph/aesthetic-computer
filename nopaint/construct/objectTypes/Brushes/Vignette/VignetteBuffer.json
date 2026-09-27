@@ -1,0 +1,16 @@
+{
+	"name": "VignetteBuffer",
+	"plugin-id": "DrawingCanvas",
+	"sid": 890443580318009,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [
+		{
+			"behaviorId": "Tween",
+			"name": "Tween",
+			"sid": 691499026696575
+		}
+	],
+	"effectTypes": []
+}

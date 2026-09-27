@@ -1,0 +1,149 @@
+{
+	"name": "GoIcon",
+	"plugin-id": "Sprite",
+	"sid": 580331710323045,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [],
+	"animations": {
+		"items": [
+			{
+				"frames": [
+					{
+						"width": 19,
+						"height": 16,
+						"originX": 0,
+						"originY": 0,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 512588,
+						"collisionPoly": {
+							"points": [
+								0.02631578947368421,
+								0.0625,
+								0.9736842105263158,
+								0.0625,
+								0.9736842105263158,
+								0.9375,
+								0.02631578947368421,
+								0.9375
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					},
+					{
+						"width": 19,
+						"height": 16,
+						"originX": 0,
+						"originY": 0,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 5954810,
+						"collisionPoly": {
+							"points": [
+								0,
+								0.0625,
+								1,
+								0.0625,
+								1,
+								0.9375,
+								0,
+								0.9375
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					}
+				],
+				"sid": 821799749335390,
+				"name": "Animation 1",
+				"isLooping": false,
+				"isPingPong": false,
+				"repeatCount": 1,
+				"repeatTo": 0,
+				"speed": 0
+			},
+			{
+				"frames": [
+					{
+						"width": 64,
+						"height": 16,
+						"originX": 0,
+						"originY": 0,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 8297288,
+						"collisionPoly": {
+							"points": [
+								0.109375,
+								0.4375,
+								0.890625,
+								0.375,
+								0.875,
+								0.5,
+								0.875,
+								0.5,
+								0.078125,
+								0.625,
+								0.09375,
+								0.5
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					},
+					{
+						"width": 64,
+						"height": 16,
+						"originX": 0,
+						"originY": 0,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 8942098,
+						"collisionPoly": {
+							"points": [
+								0.109375,
+								0.4375,
+								0.90625,
+								0.3125,
+								0.875,
+								0.5,
+								0.875,
+								0.5,
+								0.078125,
+								0.625,
+								0.09375,
+								0.5
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					}
+				],
+				"sid": 911980964017709,
+				"name": "GoBird",
+				"isLooping": false,
+				"isPingPong": false,
+				"repeatCount": 1,
+				"repeatTo": 0,
+				"speed": 0
+			}
+		],
+		"subfolders": []
+	}
+}

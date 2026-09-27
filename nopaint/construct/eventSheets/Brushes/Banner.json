@@ -1,0 +1,820 @@
+{
+	"name": "Banner",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Banner",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "comment",
+					"text": "Variables"
+				},
+				{
+					"eventType": "variable",
+					"name": "x",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 631655135128533
+				},
+				{
+					"eventType": "variable",
+					"name": "y",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 938479966061668
+				},
+				{
+					"eventType": "variable",
+					"name": "size",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 230092120565041
+				},
+				{
+					"eventType": "variable",
+					"name": "startAngle",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 251555644066241
+				},
+				{
+					"eventType": "variable",
+					"name": "turnAngle",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 983482288263386
+				},
+				{
+					"eventType": "variable",
+					"name": "speed",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 596832040111749
+				},
+				{
+					"eventType": "variable",
+					"name": "color1",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 917845970684663
+				},
+				{
+					"eventType": "variable",
+					"name": "color2",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 426526556569225
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 858917751395024
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "👋 Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 384207364924820,
+							"parameters": [
+								"3"
+							]
+						},
+						{
+							"type": "comment",
+							"text": "[b]1st Parameter[/b] X"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 880446085353432,
+							"parameters": {
+								"variable": "x",
+								"value": "Functions.ProcessNumericParameter(1, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "[b]2nd Parameter[/b] Y"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 697352310078787,
+							"parameters": {
+								"variable": "y",
+								"value": "Functions.ProcessNumericParameter(2, 0, 255)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "[b]3rd Parameter[/b] Angle"
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 397818621674066,
+							"parameters": {
+								"variable": "startAngle",
+								"value": "Functions.ProcessNumericParameter(3, 0, 360)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "🛑 Print Parameters",
+							"background-color": [
+								0.9294117647058824,
+								0.7764705882352941,
+								0.984313725490196,
+								1
+							]
+						},
+						{
+							"callFunction": "PrintParameterHint",
+							"sid": 894473584503105
+						}
+					],
+					"sid": 336172446308824,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 398453487515502,
+									"parameters": {
+										"variable": "color1",
+										"value": "Functions.hslaToRgba(random(1), random(0.2, 0.6), random(0.1, 0.5), 1)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 319456605710748,
+									"parameters": {
+										"variable": "color2",
+										"value": "Functions.hslaToRgba(random(1), random(0.7, 1), random(0.5, 0.95), 1)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 548850017720331,
+									"parameters": {
+										"variable": "size",
+										"value": "choose(4, 8, 16)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 739316418536547,
+									"parameters": {
+										"variable": "speed",
+										"value": "choose(1, 2, 3, 4)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 922103395442102,
+									"parameters": {
+										"variable": "turnAngle",
+										"value": "choose(1, 2, 5)"
+									}
+								},
+								{
+									"id": "set-size",
+									"objectClass": "BannerContainer",
+									"sid": 886609186281951,
+									"parameters": {
+										"width": "size * 2",
+										"height": "size * 2"
+									}
+								},
+								{
+									"id": "set-position",
+									"objectClass": "BannerContainer",
+									"sid": 141198394398082,
+									"parameters": {
+										"x": "x",
+										"y": "y"
+									}
+								},
+								{
+									"id": "set-opacity",
+									"objectClass": "BannerContainer",
+									"sid": 696165318607817,
+									"parameters": {
+										"opacity": "0"
+									}
+								},
+								{
+									"id": "set-angle",
+									"objectClass": "BannerContainer",
+									"sid": 956372735480118,
+									"parameters": {
+										"angle": "startAngle - 90"
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 227326841925283,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Banner/Banner - Theme"
+										},
+										"loop": "looping",
+										"volume": "-5 - (10 - ((size / 16) * 10))",
+										"stereo-pan": "0",
+										"tag-optional": "\"Zipper\""
+									}
+								},
+								{
+									"id": "set-playback-rate",
+									"objectClass": "Audio",
+									"sid": 624105591598565,
+									"parameters": {
+										"tag": "\"Zipper\"",
+										"playback-rate": "0.9 + ((speed / 4) * 0.2)"
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 414126106544711,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.1",
+										"type": "regular",
+										"tag": "\"Draw\""
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 648866382050247,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.1",
+										"type": "regular",
+										"tag": "\"Turn\""
+									}
+								},
+								{
+									"id": "signal",
+									"objectClass": "System",
+									"sid": 360618322783526,
+									"parameters": {
+										"tag": "\"Brush Started\""
+									}
+								}
+							],
+							"sid": 282577087818306
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]No Theme[/h4]",
+					"background-color": [
+						0.7215686274509804,
+						0.9058823529411765,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 791098866049360
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 199434866267096,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 725025890519566
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 734719921203495,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 482159830698702
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 276283705415303,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 785080578445537
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]No Audio on Pause[/h4]",
+					"background-color": [
+						0.8392156862745098,
+						0.9450980392156862,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 675705646778883
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 402636470574587,
+							"parameters": [
+								"\"Zipper\""
+							]
+						}
+					],
+					"sid": 337181080533332
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 680343787318615,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Turn\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 457462986071859,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "is-outside-layout",
+									"objectClass": "BannerContainer",
+									"sid": 543813873905062
+								},
+								{
+									"id": "trigger-once-while-true",
+									"objectClass": "System",
+									"sid": 965905896169745
+								}
+							],
+							"actions": [
+								{
+									"id": "set-angle-toward-position",
+									"objectClass": "BannerContainer",
+									"sid": 319796598590148,
+									"parameters": {
+										"x": "LayoutWidth / 2",
+										"y": "LayoutHeight / 2"
+									}
+								},
+								{
+									"id": "set-angle",
+									"objectClass": "BannerContainer",
+									"sid": 661767106181281,
+									"parameters": {
+										"angle": "BannerContainer.Angle + choose(-45, 45, -15, 15)"
+									}
+								}
+							],
+							"sid": 416132221911531
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 698279301656033
+								}
+							],
+							"actions": [
+								{
+									"id": "rotate-counter-clockwise",
+									"objectClass": "BannerContainer",
+									"sid": 683774538827651,
+									"parameters": {
+										"degrees": "choose(-turnAngle, turnAngle)"
+									}
+								}
+							],
+							"sid": 417590387017453
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 972526596518176,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"Draw\""
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 230875272364237,
+							"parameters": {
+								"variable": "Painting"
+							},
+							"isInverted": true
+						}
+					],
+					"actions": [
+						{
+							"id": "move-forward",
+							"objectClass": "BannerContainer",
+							"sid": 530122651286093,
+							"parameters": {
+								"distance": "speed"
+							}
+						},
+						{
+							"id": "reset-poly",
+							"objectClass": "PaintingBuffer",
+							"sid": 777127528404161
+						},
+						{
+							"id": "add-poly-point",
+							"objectClass": "PaintingBuffer",
+							"sid": 374763059802488,
+							"parameters": {
+								"x": "BannerContainer.ImagePointX(\"BaseLeft\")",
+								"y": "BannerContainer.ImagePointY(\"BaseLeft\")"
+							}
+						},
+						{
+							"id": "add-poly-point",
+							"objectClass": "PaintingBuffer",
+							"sid": 964742762412076,
+							"parameters": {
+								"x": "BannerContainer.ImagePointX(\"TopLeft\")",
+								"y": "BannerContainer.ImagePointY(\"TopLeft\")"
+							}
+						},
+						{
+							"id": "add-poly-point",
+							"objectClass": "PaintingBuffer",
+							"sid": 933400559619410,
+							"parameters": {
+								"x": "BannerContainer.ImagePointX(\"TopRight\")",
+								"y": "BannerContainer.ImagePointY(\"TopRight\")"
+							}
+						},
+						{
+							"id": "add-poly-point",
+							"objectClass": "PaintingBuffer",
+							"sid": 478920836565289,
+							"parameters": {
+								"x": "BannerContainer.ImagePointX(\"BaseRight\")",
+								"y": "BannerContainer.ImagePointY(\"BaseRight\")"
+							}
+						},
+						{
+							"id": "fill-poly",
+							"objectClass": "PaintingBuffer",
+							"sid": 435269239787733,
+							"parameters": {
+								"color": "color1",
+								"convex": false
+							}
+						},
+						{
+							"id": "reset-poly",
+							"objectClass": "PaintingBuffer",
+							"sid": 925774532558090
+						},
+						{
+							"id": "add-poly-point",
+							"objectClass": "PaintingBuffer",
+							"sid": 616329101441409,
+							"parameters": {
+								"x": "BannerContainer.ImagePointX(\"BaseLeft\")",
+								"y": "BannerContainer.ImagePointY(\"BaseLeft\")"
+							}
+						},
+						{
+							"id": "add-poly-point",
+							"objectClass": "PaintingBuffer",
+							"sid": 973580158062803,
+							"parameters": {
+								"x": "BannerContainer.ImagePointX(\"BottomLeft\")",
+								"y": "BannerContainer.ImagePointY(\"BottomLeft\")"
+							}
+						},
+						{
+							"id": "add-poly-point",
+							"objectClass": "PaintingBuffer",
+							"sid": 278384383308730,
+							"parameters": {
+								"x": "BannerContainer.ImagePointX(\"BottomRight\")",
+								"y": "BannerContainer.ImagePointY(\"BottomRight\")"
+							}
+						},
+						{
+							"id": "add-poly-point",
+							"objectClass": "PaintingBuffer",
+							"sid": 283361869280070,
+							"parameters": {
+								"x": "BannerContainer.ImagePointX(\"BaseRight\")",
+								"y": "BannerContainer.ImagePointY(\"BaseRight\")"
+							}
+						},
+						{
+							"id": "fill-poly",
+							"objectClass": "PaintingBuffer",
+							"sid": 500526721337488,
+							"parameters": {
+								"color": "color2",
+								"convex": false
+							}
+						}
+					],
+					"sid": 892063727932622
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 309015990008328,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 745448772581117
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 291029179768087,
+							"parameters": {
+								"object": "NudgeDot",
+								"time-scale": "1.0"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 949481914978759,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 889523666462852,
+							"parameters": {
+								"x": "BannerContainer.X",
+								"y": "BannerContainer.Y"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 534142913572440,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 722340799159404,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						}
+					],
+					"sid": 514668200701061
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 825532558214000,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ticked[/b]"
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 177113833547443,
+							"parameters": {
+								"x": "Self.X + NudgedX",
+								"y": "Self.Y + NudgedY"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "BannerContainer",
+							"sid": 361615685611122,
+							"parameters": {
+								"x": "NudgeDot.X",
+								"y": "NudgeDot.Y"
+							}
+						}
+					],
+					"sid": 222318939578687
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 330729465173869,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 340412219626671,
+							"parameters": {
+								"object": "PaintingBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 952848615815809,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 282127812366813
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 941378687812156
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 642790147546947,
+							"parameters": {
+								"tag": "\"Zipper\""
+							}
+						}
+					],
+					"sid": 525874130052657
+				}
+			],
+			"sid": 174764718274198
+		}
+	],
+	"sid": 955946602306800
+}

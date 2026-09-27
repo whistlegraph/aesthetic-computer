@@ -1,0 +1,15 @@
+{
+	"name": "SaturateBuffer",
+	"plugin-id": "DrawingCanvas",
+	"sid": 632066148883749,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [
+		{
+			"effectId": "hsladjust",
+			"name": "AdjustHSL"
+		}
+	]
+}

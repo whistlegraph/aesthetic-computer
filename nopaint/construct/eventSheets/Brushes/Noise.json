@@ -1,0 +1,569 @@
+{
+	"name": "Noise",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Noise",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "intensityShift",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 363979895288937
+				},
+				{
+					"eventType": "variable",
+					"name": "direction",
+					"type": "number",
+					"initialValue": "1",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 926631718821186
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 873734970894042
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "InitParameters",
+							"sid": 791397103388526,
+							"parameters": [
+								"0"
+							]
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "NoiseBuffer",
+							"sid": 721096141181143,
+							"parameters": {
+								"object": "Painting",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"id": "set-size",
+							"objectClass": "NoiseBuffer",
+							"sid": 405422798480366,
+							"parameters": {
+								"width": "ViewportWidth(0)",
+								"height": "ViewportHeight(0)"
+							}
+						},
+						{
+							"id": "set-size",
+							"objectClass": "NoisePaintBuffer",
+							"sid": 525539661572902,
+							"parameters": {
+								"width": "ViewportWidth(0)",
+								"height": "ViewportHeight(0)"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 976676533704538,
+							"parameters": {
+								"variable": "intensityShift",
+								"value": "10"
+							}
+						},
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 169561020496199,
+							"parameters": {
+								"audio-file": {
+									"path": "Brushes/Noise/Noise - White Noise"
+								},
+								"loop": "looping",
+								"volume": "-10",
+								"stereo-pan": "0",
+								"tag-optional": "\"Noise\""
+							}
+						},
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 203056374332663,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "1 / 30",
+								"type": "regular",
+								"tag": "\"ShiftNoise\""
+							}
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 745675817372342,
+							"parameters": {
+								"tag": "\"Brush Started\""
+							}
+						}
+					],
+					"sid": 174449513481496
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]No Theme[/h4]",
+					"background-color": [
+						0.7215686274509804,
+						0.9058823529411765,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 287808672635306
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 912274678128220,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 480840554596095
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 339325544236995,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 554758477746052
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 743284809083347,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 932598531171155
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]No Audio on Pause[/h4]",
+					"background-color": [
+						0.8392156862745098,
+						0.9450980392156862,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 324148016369833
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 739104389303415,
+							"parameters": [
+								"\"Noise\""
+							]
+						}
+					],
+					"sid": 969586940228427
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 488814841082601,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"ShiftNoise\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 979439576376356,
+							"disabled": true,
+							"parameters": {
+								"type": "log",
+								"message": "\"Noise:\" & intensityShift"
+							}
+						},
+						{
+							"id": "set-volume",
+							"objectClass": "Audio",
+							"sid": 416500683603585,
+							"parameters": {
+								"tag": "\"Noise\"",
+								"db": "-(100 - intensityShift) / 10"
+							}
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "NoisePaintBuffer",
+							"sid": 652301333624602,
+							"parameters": {
+								"object": "NoiseBuffer",
+								"effects": "with-effects"
+							}
+						}
+					],
+					"sid": 229174685960228,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 169564148064738,
+									"parameters": {
+										"first-value": "random(0, 100)",
+										"comparison": 2,
+										"second-value": "30"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "NoiseBuffer",
+									"sid": 378628818116230,
+									"parameters": {
+										"effect": "\"Noise\"",
+										"parameter-index": "1",
+										"value": "random(0, 100)"
+									}
+								}
+							],
+							"sid": 647442908956873
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 555022126176428,
+									"parameters": {
+										"first-value": "direction",
+										"comparison": 4,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 861202150383610,
+									"parameters": {
+										"variable": "intensityShift",
+										"value": "intensityShift + direction"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "NoiseBuffer",
+									"sid": 887190471090234,
+									"parameters": {
+										"effect": "\"Noise\"",
+										"parameter-index": "0",
+										"value": "intensityShift"
+									}
+								}
+							],
+							"sid": 971208967284662,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 258784664202707,
+											"parameters": {
+												"first-value": "intensityShift",
+												"comparison": 5,
+												"second-value": "100"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 607975083301465,
+											"parameters": {
+												"variable": "direction",
+												"value": "direction * -1"
+											}
+										}
+									],
+									"sid": 786817991237938
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 345263406385583
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 152300485740431,
+									"parameters": {
+										"variable": "intensityShift",
+										"value": "intensityShift + direction"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "NoiseBuffer",
+									"sid": 279589454362659,
+									"parameters": {
+										"effect": "\"Noise\"",
+										"parameter-index": "0",
+										"value": "intensityShift"
+									}
+								}
+							],
+							"sid": 815321405329372,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 211855482963187,
+											"parameters": {
+												"first-value": "intensityShift",
+												"comparison": 3,
+												"second-value": "10"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 257417300297894,
+											"parameters": {
+												"variable": "direction",
+												"value": "direction * -1"
+											}
+										}
+									],
+									"sid": 328172626175111
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 683126516972585,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 880061454273141
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 424915213659291,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						}
+					],
+					"sid": 851087381463141,
+					"disabled": true
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 690970525003651,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 480090517590471
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "NoNudge",
+							"sid": 500144989686166
+						}
+					],
+					"sid": 621611034765040
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 446254481706571,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "There is a bug where the filter moves forward a tick while painting."
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 196545637301821,
+							"parameters": {
+								"object": "NoisePaintBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 216448087948317,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 966715041478595
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 866108172692377
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 496256314828087,
+							"parameters": {
+								"tag": "\"Noise\""
+							}
+						}
+					],
+					"sid": 543138398886642
+				}
+			],
+			"sid": 895304276910621
+		}
+	],
+	"sid": 801528514998606
+}

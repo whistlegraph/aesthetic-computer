@@ -1,0 +1,716 @@
+{
+	"name": "Contrast",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Contrast",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "contrastShift",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 409488508157213
+				},
+				{
+					"eventType": "variable",
+					"name": "direction",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 134413480259923
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 744195448070482
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "👋 Interpret Parameters",
+							"background-color": [
+								0.6196078431372549,
+								0.9568627450980393,
+								1,
+								1
+							]
+						},
+						{
+							"callFunction": "InitParameters",
+							"sid": 123120647462009,
+							"parameters": [
+								"1"
+							]
+						}
+					],
+					"sid": 434224672404661,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[b]1st Parameter[/b] Amount"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 328876262024119,
+									"parameters": {
+										"first-value": "Functions.CheckParameter(1)",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 582229366012959,
+									"parameters": {
+										"first-value": "lowercase(Functions.GetParameter(1)) = \"more\" | lowercase(Functions.GetParameter(1)) = \"less\"",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								}
+							],
+							"actions": [],
+							"sid": 749941563380341,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 172158788257605,
+											"parameters": {
+												"first-value": "lowercase(Functions.GetParameter(1))",
+												"comparison": 0,
+												"second-value": "\"more\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 359239162936793,
+											"parameters": {
+												"variable": "direction",
+												"value": "1"
+											}
+										},
+										{
+											"id": "set-at-x",
+											"objectClass": "ParamsArray",
+											"sid": 552030475985011,
+											"parameters": {
+												"x": "0",
+												"value": "\"More\""
+											}
+										},
+										{
+											"callFunction": "SpecifiedParameter",
+											"sid": 737846909294744,
+											"parameters": [
+												"1"
+											]
+										}
+									],
+									"sid": 742948604445374
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 479047688601935,
+											"parameters": {
+												"first-value": "lowercase(Functions.GetParameter(1))",
+												"comparison": 0,
+												"second-value": "\"less\""
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 213774169195985,
+											"parameters": {
+												"variable": "direction",
+												"value": "-1"
+											}
+										},
+										{
+											"id": "set-at-x",
+											"objectClass": "ParamsArray",
+											"sid": 607945566883903,
+											"parameters": {
+												"x": "0",
+												"value": "\"Less\""
+											}
+										},
+										{
+											"callFunction": "SpecifiedParameter",
+											"sid": 329971308457375,
+											"parameters": [
+												"1"
+											]
+										}
+									],
+									"sid": 708624700495960
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 587730017596644
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 466307605071460,
+									"parameters": {
+										"variable": "direction",
+										"value": "choose(-1, 1)"
+									}
+								}
+							],
+							"sid": 791122491797656
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 548299610066741,
+									"parameters": {
+										"first-value": "direction",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "GeneratedParameter",
+									"sid": 896259826710163,
+									"parameters": [
+										"1",
+										"\"More\"",
+										"\"\""
+									]
+								}
+							],
+							"sid": 927440585708399
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 256609637109252
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 680661798730470,
+									"parameters": {
+										"first-value": "direction",
+										"comparison": 0,
+										"second-value": "-1"
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "GeneratedParameter",
+									"sid": 102792996973019,
+									"parameters": [
+										"1",
+										"\"Less\"",
+										"\"\""
+									]
+								}
+							],
+							"sid": 357725319549942
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "🛑 Print Parameters",
+									"background-color": [
+										0.9294117647058824,
+										0.7764705882352941,
+										0.984313725490196,
+										1
+									]
+								},
+								{
+									"callFunction": "PrintParameterHint",
+									"sid": 148785482306523
+								}
+							],
+							"sid": 113690124963353
+						},
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "paste-object",
+									"objectClass": "ContrastBuffer",
+									"sid": 859440016301513,
+									"parameters": {
+										"object": "Painting",
+										"effects": "with-effects"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 829343859458958,
+									"parameters": {
+										"variable": "contrastShift",
+										"value": "100"
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 356027053912147,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Contrast/Contrast - Theme"
+										},
+										"loop": "looping",
+										"volume": "-5",
+										"stereo-pan": "0",
+										"tag-optional": "\"Contrast\""
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 482027960486725,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "0.05",
+										"type": "regular",
+										"tag": "\"ShiftValue\""
+									}
+								},
+								{
+									"id": "signal",
+									"objectClass": "System",
+									"sid": 534359397170783,
+									"parameters": {
+										"tag": "\"Brush Started\""
+									}
+								}
+							],
+							"sid": 664891730316455
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 414768378915811
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 696820279656146,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 461690679971177
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 212535119713580
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 465015852966945,
+							"parameters": [
+								"\"Contrast\""
+							]
+						}
+					],
+					"sid": 387274546864144
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 856577099292486,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"ShiftValue\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 749394786301379,
+							"disabled": true,
+							"parameters": {
+								"type": "log",
+								"message": "\"Contrast:\" & contrastShift"
+							}
+						}
+					],
+					"sid": 384629196509558,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 817009343883907,
+									"parameters": {
+										"first-value": "direction",
+										"comparison": 4,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 425577480027338,
+									"parameters": {
+										"variable": "contrastShift",
+										"value": "contrastShift + direction"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "ContrastBuffer",
+									"sid": 395846623770789,
+									"parameters": {
+										"effect": "\"Contrast\"",
+										"parameter-index": "0",
+										"value": "contrastShift"
+									}
+								}
+							],
+							"sid": 788612921730728,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 895506850146148,
+											"parameters": {
+												"first-value": "contrastShift",
+												"comparison": 0,
+												"second-value": "150"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 398060225794380,
+											"parameters": {
+												"variable": "direction",
+												"value": "direction * -1"
+											}
+										}
+									],
+									"sid": 645354955332202
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 461664969642577
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 383667992433131,
+									"parameters": {
+										"variable": "contrastShift",
+										"value": "contrastShift + direction"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "ContrastBuffer",
+									"sid": 155234817634414,
+									"parameters": {
+										"effect": "\"Contrast\"",
+										"parameter-index": "0",
+										"value": "contrastShift"
+									}
+								}
+							],
+							"sid": 119996236057898,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 750785954274377,
+											"parameters": {
+												"first-value": "contrastShift",
+												"comparison": 0,
+												"second-value": "50"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 152974887043462,
+											"parameters": {
+												"variable": "direction",
+												"value": "direction * -1"
+											}
+										}
+									],
+									"sid": 676509988549136
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 247704198644605,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 976026482943900
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 643209940506837,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 718329827675329,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 839041621503002
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 777461833537952,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 812156265509716
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "NoNudge",
+							"sid": 197482321959492
+						}
+					],
+					"sid": 815688025552374
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 511627708873163,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "There is a bug where the filter moves forward a tick while painting."
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 979395144323611,
+							"parameters": {
+								"object": "ContrastBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 270830600828809,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 813637834964150
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 884307477102124
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 840616158933486,
+							"parameters": {
+								"tag": "\"Contrast\""
+							}
+						}
+					],
+					"sid": 192090170850527
+				}
+			],
+			"sid": 861268402791704
+		}
+	],
+	"sid": 412851974537222
+}

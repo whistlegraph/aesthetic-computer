@@ -1,0 +1,46 @@
+{
+	"name": "AuraParticles",
+	"plugin-id": "Particles",
+	"sid": 794512037210693,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [
+		{
+			"behaviorId": "bound",
+			"name": "BoundToLayout",
+			"sid": 785216468771407
+		}
+	],
+	"effectTypes": [
+		{
+			"effectId": "hsladjust",
+			"name": "AdjustHSL"
+		}
+	],
+	"image": {
+		"width": 33,
+		"height": 33,
+		"originX": 1.0303030303030303,
+		"originY": 0.696969696969697,
+		"originalSource": "",
+		"exportFormat": "lossless",
+		"exportQuality": 0.8,
+		"fileType": "image/png",
+		"imageSpriteId": 9919345,
+		"collisionPoly": {
+			"points": [
+				0.030303030303030304,
+				0.030303030303030304,
+				1,
+				0.030303030303030304,
+				1,
+				1,
+				0.030303030303030304,
+				1
+			]
+		},
+		"useCollisionPoly": true,
+		"tag": ""
+	}
+}

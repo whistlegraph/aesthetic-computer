@@ -1,0 +1,78 @@
+{
+	"name": "head",
+	"plugin-id": "Sprite",
+	"sid": 846277641810722,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [],
+	"animations": {
+		"items": [
+			{
+				"frames": [
+					{
+						"width": 19,
+						"height": 16,
+						"originX": 0.43243243243243246,
+						"originY": 0.5,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 4584072,
+						"collisionPoly": {
+							"points": [
+								0.864864864864865,
+								1,
+								0,
+								1,
+								0,
+								0,
+								0.864864864864865,
+								0
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					},
+					{
+						"width": 19,
+						"height": 16,
+						"originX": 0.43243243243243246,
+						"originY": 0.5,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 6829839,
+						"collisionPoly": {
+							"points": [
+								0.864864864864865,
+								1,
+								0,
+								1,
+								0,
+								0,
+								0.864864864864865,
+								0
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					}
+				],
+				"sid": 316263876042746,
+				"name": "Animation 1",
+				"isLooping": true,
+				"isPingPong": false,
+				"repeatCount": 1,
+				"repeatTo": 0,
+				"speed": 2
+			}
+		],
+		"subfolders": []
+	}
+}

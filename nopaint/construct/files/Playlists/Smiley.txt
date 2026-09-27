@@ -1,0 +1,13 @@
+# 'Smiley' by Alex and Camille
+P0 Box: 128 128 220 220 666666
+P0 Ellipse: 128 128 180 200 FFFF00
+Stamp: @niki 1 99 113 D 1 Y
+P30 Softy: 128 130 S
+Banner: 135 180 290
+# press Paint when you see the face
+Mirror: Right
+# drag these around for hair or eyebrows!
+Line: ? ? ? ? 3 000000
+Line: ? ? ? ? 3 000000
+Frame
+# nice to meet you :D

@@ -1,0 +1,16 @@
+{
+	"name": "BoxBuffer",
+	"plugin-id": "DrawingCanvas",
+	"sid": 346232769116771,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [
+		{
+			"behaviorId": "bound",
+			"name": "BoundToLayout",
+			"sid": 609084641901227
+		}
+	],
+	"effectTypes": []
+}

@@ -1,0 +1,60 @@
+{
+	"name": "HelpEdge",
+	"plugin-id": "Sprite",
+	"sid": 161366248163042,
+	"isGlobal": false,
+	"editorNewInstanceIsReplica": true,
+	"instanceVariables": [],
+	"behaviorTypes": [],
+	"effectTypes": [],
+	"animations": {
+		"items": [
+			{
+				"frames": [
+					{
+						"width": 256,
+						"height": 112,
+						"originX": 0,
+						"originY": 0,
+						"originalSource": "",
+						"exportFormat": "lossless",
+						"exportQuality": 0.8,
+						"fileType": "image/png",
+						"imageSpriteId": 9413121,
+						"collisionPoly": {
+							"points": [
+								0.02734375,
+								0.0625,
+								0.50390625,
+								0.008928571428571428,
+								0.9765625,
+								0.0625,
+								0.984375,
+								0.08035714285714286,
+								1,
+								0.14285714285714285,
+								0.50390625,
+								0.008928571428571428,
+								0.00390625,
+								0.14285714285714285,
+								0.0234375,
+								0.08035714285714286
+							]
+						},
+						"useCollisionPoly": true,
+						"duration": 1,
+						"tag": ""
+					}
+				],
+				"sid": 806912780410168,
+				"name": "Animation 1",
+				"isLooping": false,
+				"isPingPong": false,
+				"repeatCount": 1,
+				"repeatTo": 0,
+				"speed": 5
+			}
+		],
+		"subfolders": []
+	}
+}

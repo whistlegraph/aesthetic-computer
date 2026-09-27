@@ -1,0 +1,422 @@
+{
+	"name": "Frame",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Frame",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "frameIndex",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 239901756226651
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 923808631964228
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "InitParameters",
+							"sid": 783402611754672,
+							"parameters": [
+								"0"
+							]
+						}
+					],
+					"sid": 169881868934928,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[h4]Finish Initialization[h4]"
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 213054898862018,
+									"parameters": {
+										"variable": "frameIndex",
+										"value": "1"
+									}
+								},
+								{
+									"id": "set-animation-frame",
+									"objectClass": "Frames",
+									"sid": 928701184291799,
+									"parameters": {
+										"frame-number": "frameIndex"
+									}
+								},
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 156905971857719,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "1",
+										"type": "regular",
+										"tag": "\"CycleFrame\""
+									}
+								},
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 180722146405100,
+									"parameters": {
+										"audio-file": {
+											"path": "Brushes/Frame/Frame - Knock"
+										},
+										"loop": "not-looping",
+										"volume": "0",
+										"stereo-pan": "0",
+										"tag-optional": "\"Frame Sound\""
+									}
+								},
+								{
+									"id": "set-playback-rate",
+									"objectClass": "Audio",
+									"sid": 484598803336840,
+									"parameters": {
+										"tag": "\"Frame Sound\"",
+										"playback-rate": "random(0.25, 2)"
+									}
+								},
+								{
+									"id": "signal",
+									"objectClass": "System",
+									"sid": 615621417917925,
+									"parameters": {
+										"tag": "\"Brush Started\""
+									}
+								}
+							],
+							"sid": 211052888037303
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 502127429516280
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 310175343242197,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 239764025033396
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 960149702236649,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"CycleFrame\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-playback-rate",
+							"objectClass": "Audio",
+							"sid": 144665538833134,
+							"parameters": {
+								"tag": "\"Frame Sound\"",
+								"playback-rate": "random(0.25, 2)"
+							}
+						},
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 558122894007055,
+							"parameters": {
+								"audio-file": {
+									"path": "Brushes/Frame/Frame - Knock"
+								},
+								"loop": "not-looping",
+								"volume": "0",
+								"stereo-pan": "0",
+								"tag-optional": "\"Frame Sound\""
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 569417391762276,
+							"parameters": {
+								"variable": "frameIndex",
+								"value": "(frameIndex + 1) % Frames.AnimationFrameCount"
+							}
+						},
+						{
+							"id": "set-animation-frame",
+							"objectClass": "Frames",
+							"sid": 120429140242641,
+							"parameters": {
+								"frame-number": "frameIndex"
+							}
+						}
+					],
+					"sid": 229433644769018
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Pause[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 122726723650018,
+							"parameters": {
+								"variable": "Paused"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 676944249368996
+						}
+					],
+					"actions": [
+						{
+							"id": "stop-timer",
+							"objectClass": "Clock",
+							"sid": 585382454978689,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"CycleFrame\""
+							}
+						}
+					],
+					"sid": 861232607538206
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 456490616443278,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 154334096449527
+						}
+					],
+					"actions": [
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 715517669270577,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "1",
+								"type": "regular",
+								"tag": "\"CycleFrame\""
+							}
+						}
+					],
+					"sid": 969727353832624
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 587190251068638,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 722812535621100
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 986580862775869,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 839379869716873,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 624086213198656
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 387790460970110,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 450472116553438
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "NoNudge",
+							"sid": 468054041646707
+						}
+					],
+					"sid": 893663857815594
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 323709679425933,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "There is a bug where the filter moves forward a tick while painting."
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 179198179455682,
+							"parameters": {
+								"object": "Frames",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 457659649618398,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 770497528367877
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 420924023340157
+						}
+					],
+					"actions": [],
+					"sid": 689772130477158
+				}
+			],
+			"sid": 139013992844187
+		}
+	],
+	"sid": 351912342246756
+}

@@ -1,0 +1,1614 @@
+{
+	"name": "PainterStoriesIndex",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Buttons"
+		},
+		{
+			"eventType": "block",
+			"conditions": [
+				{
+					"id": "on-start-of-layout",
+					"objectClass": "System",
+					"sid": 206384050930185
+				}
+			],
+			"actions": [
+				{
+					"type": "comment",
+					"text": "Dampen Theme Music"
+				},
+				{
+					"id": "add-filter-effect",
+					"objectClass": "Audio",
+					"sid": 517163794297490,
+					"parameters": {
+						"tag": "\"Theme\"",
+						"type": "low-pass",
+						"frequency": "350",
+						"detune": "0",
+						"q": "1",
+						"gain": "0",
+						"mix": "100"
+					}
+				},
+				{
+					"type": "comment",
+					"text": "Disable Ivo FX & Set Positions"
+				},
+				{
+					"id": "set-effect-enabled",
+					"objectClass": "IvoBubble",
+					"sid": 925550843939587,
+					"parameters": {
+						"mode": "disable",
+						"effect": "\"BlackWhite\""
+					}
+				},
+				{
+					"id": "set-instvar-value",
+					"objectClass": "IvoBubble",
+					"sid": 924895317798571,
+					"parameters": {
+						"instance-variable": "startX",
+						"value": "IvoBubble.X"
+					}
+				},
+				{
+					"id": "set-instvar-value",
+					"objectClass": "IvoBubble",
+					"sid": 866721493189138,
+					"parameters": {
+						"instance-variable": "startY",
+						"value": "IvoBubble.Y"
+					}
+				},
+				{
+					"id": "set-effect-enabled",
+					"objectClass": "IvoStar",
+					"sid": 559431634846564,
+					"parameters": {
+						"mode": "disable",
+						"effect": "\"BlackWhite\""
+					}
+				},
+				{
+					"id": "set-instvar-value",
+					"objectClass": "IvoStar",
+					"sid": 291619145813137,
+					"parameters": {
+						"instance-variable": "startX",
+						"value": "IvoStar.X"
+					}
+				},
+				{
+					"id": "set-instvar-value",
+					"objectClass": "IvoStar",
+					"sid": 988505872611071,
+					"parameters": {
+						"instance-variable": "startY",
+						"value": "IvoStar.Y"
+					}
+				},
+				{
+					"type": "comment",
+					"text": "Disable Wilsans FX & Set Positions"
+				},
+				{
+					"id": "set-effect-enabled",
+					"objectClass": "WilsansBubble",
+					"sid": 672706470333237,
+					"parameters": {
+						"mode": "disable",
+						"effect": "\"BlackWhite\""
+					}
+				},
+				{
+					"id": "set-instvar-value",
+					"objectClass": "WilsansBubble",
+					"sid": 248132481970139,
+					"parameters": {
+						"instance-variable": "startX",
+						"value": "WilsansBubble.X"
+					}
+				},
+				{
+					"id": "set-instvar-value",
+					"objectClass": "WilsansBubble",
+					"sid": 235048680615607,
+					"parameters": {
+						"instance-variable": "startY",
+						"value": "WilsansBubble.Y"
+					}
+				},
+				{
+					"id": "set-effect-enabled",
+					"objectClass": "WilsansBlob",
+					"sid": 626345300417137,
+					"parameters": {
+						"mode": "disable",
+						"effect": "\"BlackWhite\""
+					}
+				},
+				{
+					"id": "set-instvar-value",
+					"objectClass": "WilsansBlob",
+					"sid": 694395750942482,
+					"parameters": {
+						"instance-variable": "startX",
+						"value": "WilsansBlob.X"
+					}
+				},
+				{
+					"id": "set-instvar-value",
+					"objectClass": "WilsansBlob",
+					"sid": 412022843499672,
+					"parameters": {
+						"instance-variable": "startY",
+						"value": "WilsansBlob.Y"
+					}
+				},
+				{
+					"type": "comment",
+					"text": "Disable Sean FX & Set Positions"
+				},
+				{
+					"id": "set-effect-enabled",
+					"objectClass": "SeanBubble",
+					"sid": 300189950865023,
+					"parameters": {
+						"mode": "disable",
+						"effect": "\"BlackWhite\""
+					}
+				},
+				{
+					"id": "set-instvar-value",
+					"objectClass": "SeanBubble",
+					"sid": 700579304057581,
+					"parameters": {
+						"instance-variable": "startX",
+						"value": "SeanBubble.X"
+					}
+				},
+				{
+					"id": "set-instvar-value",
+					"objectClass": "SeanBubble",
+					"sid": 751155418950726,
+					"parameters": {
+						"instance-variable": "startY",
+						"value": "SeanBubble.Y"
+					}
+				},
+				{
+					"id": "set-effect-enabled",
+					"objectClass": "SeanBoy",
+					"sid": 506006335281265,
+					"parameters": {
+						"mode": "disable",
+						"effect": "\"BlackWhite\""
+					}
+				},
+				{
+					"id": "set-instvar-value",
+					"objectClass": "SeanBoy",
+					"sid": 296882398273081,
+					"parameters": {
+						"instance-variable": "startX",
+						"value": "SeanBoy.X"
+					}
+				},
+				{
+					"id": "set-instvar-value",
+					"objectClass": "SeanBoy",
+					"sid": 685321389745633,
+					"parameters": {
+						"instance-variable": "startY",
+						"value": "SeanBoy.Y"
+					}
+				},
+				{
+					"type": "comment",
+					"text": "Disable Adelaide FX & Set Positions"
+				},
+				{
+					"id": "set-effect-enabled",
+					"objectClass": "AdelaideBubble",
+					"sid": 338288225817454,
+					"parameters": {
+						"mode": "disable",
+						"effect": "\"BlackWhite\""
+					}
+				},
+				{
+					"id": "set-instvar-value",
+					"objectClass": "AdelaideBubble",
+					"sid": 908381728141731,
+					"parameters": {
+						"instance-variable": "startX",
+						"value": "AdelaideBubble.X"
+					}
+				},
+				{
+					"id": "set-instvar-value",
+					"objectClass": "AdelaideBubble",
+					"sid": 924920642394101,
+					"parameters": {
+						"instance-variable": "startY",
+						"value": "AdelaideBubble.Y"
+					}
+				},
+				{
+					"id": "set-effect-enabled",
+					"objectClass": "AdelaideKiwi",
+					"sid": 677775571101806,
+					"parameters": {
+						"mode": "disable",
+						"effect": "\"BlackWhite\""
+					}
+				},
+				{
+					"id": "set-instvar-value",
+					"objectClass": "AdelaideKiwi",
+					"sid": 433033524523594,
+					"parameters": {
+						"instance-variable": "startX",
+						"value": "AdelaideKiwi.X"
+					}
+				},
+				{
+					"id": "set-instvar-value",
+					"objectClass": "AdelaideKiwi",
+					"sid": 542941142177018,
+					"parameters": {
+						"instance-variable": "startY",
+						"value": "AdelaideKiwi.Y"
+					}
+				},
+				{
+					"type": "comment",
+					"text": "Map buttons."
+				},
+				{
+					"id": "map-function",
+					"objectClass": "Functions",
+					"sid": 522644132143699,
+					"parameters": {
+						"name": "\"Buttons\"",
+						"string": "\"IvoProfile\"",
+						"function": "IvoProfile"
+					}
+				},
+				{
+					"id": "map-function",
+					"objectClass": "Functions",
+					"sid": 962230150695465,
+					"parameters": {
+						"name": "\"Buttons\"",
+						"string": "\"WilsansProfile\"",
+						"function": "WilsansProfile"
+					}
+				},
+				{
+					"id": "map-function",
+					"objectClass": "Functions",
+					"sid": 404627073834392,
+					"parameters": {
+						"name": "\"Buttons\"",
+						"string": "\"SeanProfile\"",
+						"function": "SeanProfile"
+					}
+				},
+				{
+					"id": "map-function",
+					"objectClass": "Functions",
+					"sid": 775405401548056,
+					"parameters": {
+						"name": "\"Buttons\"",
+						"string": "\"AdelaideProfile\"",
+						"function": "AdelaideProfile"
+					}
+				},
+				{
+					"id": "map-function",
+					"objectClass": "Functions",
+					"sid": 488107440930211,
+					"parameters": {
+						"name": "\"Buttons\"",
+						"string": "\"PainterStories\"",
+						"function": "ProfileHome"
+					}
+				},
+				{
+					"id": "map-function",
+					"objectClass": "Functions",
+					"sid": 504687005291846,
+					"parameters": {
+						"name": "\"Buttons\"",
+						"string": "\"CheckButtons\"",
+						"function": "CheckButtonsProfileIndex"
+					}
+				},
+				{
+					"id": "set-group-active",
+					"objectClass": "System",
+					"sid": 758257725987332,
+					"parameters": {
+						"group-name": "\"Buttons\"",
+						"state": "activated"
+					}
+				},
+				{
+					"type": "comment",
+					"text": "Show cursor."
+				},
+				{
+					"id": "set-visible",
+					"objectClass": "Cursor",
+					"sid": 181874835037467,
+					"parameters": {
+						"visibility": "invisible"
+					}
+				},
+				{
+					"id": "set-eventvar-value",
+					"objectClass": "System",
+					"sid": 788430596855072,
+					"parameters": {
+						"variable": "MouseLastX",
+						"value": "Mouse.X"
+					}
+				},
+				{
+					"id": "set-eventvar-value",
+					"objectClass": "System",
+					"sid": 362327909935101,
+					"parameters": {
+						"variable": "MouseLastY",
+						"value": "Mouse.Y"
+					}
+				}
+			],
+			"sid": 226517490863029
+		},
+		{
+			"eventType": "comment",
+			"text": "[h3]Ivo Shake[/h3]"
+		},
+		{
+			"eventType": "block",
+			"conditions": [
+				{
+					"id": "every-x-seconds",
+					"objectClass": "System",
+					"sid": 248573380011342,
+					"parameters": {
+						"interval-seconds": "0.2"
+					}
+				}
+			],
+			"actions": [
+				{
+					"id": "move-at-angle",
+					"objectClass": "IvoBubble",
+					"sid": 514822182861159,
+					"parameters": {
+						"angle": "random(0, 360)",
+						"distance": "1"
+					}
+				},
+				{
+					"id": "move-at-angle",
+					"objectClass": "IvoStar",
+					"sid": 509229730566320,
+					"parameters": {
+						"angle": "random(0, 360)",
+						"distance": "1"
+					}
+				}
+			],
+			"sid": 789323990064341,
+			"children": [
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 188782488270128,
+							"parameters": {
+								"first-value": "distance(IvoBubble.X, IvoBubble.Y, IvoBubble.startX, IvoBubble.startY)",
+								"comparison": 4,
+								"second-value": "2"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "IvoBubble",
+							"sid": 669862308801092,
+							"parameters": {
+								"x": "IvoBubble.startX",
+								"y": "IvoBubble.startY"
+							}
+						}
+					],
+					"sid": 877553383426174
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 152771271605348,
+							"parameters": {
+								"first-value": "distance(IvoStar.X, IvoStar.Y, IvoStar.startX, IvoStar.startY)",
+								"comparison": 4,
+								"second-value": "2"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "IvoStar",
+							"sid": 941988003843765,
+							"parameters": {
+								"x": "IvoStar.startX",
+								"y": "IvoStar.startY"
+							}
+						}
+					],
+					"sid": 511813663489664
+				}
+			]
+		},
+		{
+			"eventType": "comment",
+			"text": "[h3]Wilsans Shake[/h3]"
+		},
+		{
+			"eventType": "block",
+			"conditions": [
+				{
+					"id": "every-x-seconds",
+					"objectClass": "System",
+					"sid": 385833726042820,
+					"parameters": {
+						"interval-seconds": "0.2"
+					}
+				}
+			],
+			"actions": [
+				{
+					"id": "move-at-angle",
+					"objectClass": "WilsansBubble",
+					"sid": 768439515374453,
+					"parameters": {
+						"angle": "random(0, 360)",
+						"distance": "1"
+					}
+				},
+				{
+					"id": "move-at-angle",
+					"objectClass": "WilsansBlob",
+					"sid": 937870986991608,
+					"parameters": {
+						"angle": "random(0, 360)",
+						"distance": "1"
+					}
+				}
+			],
+			"sid": 480678505233851,
+			"children": [
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 874504019304965,
+							"parameters": {
+								"first-value": "distance(WilsansBubble.X, WilsansBubble.Y, WilsansBubble.startX, WilsansBubble.startY)",
+								"comparison": 4,
+								"second-value": "2"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "WilsansBubble",
+							"sid": 814793559481213,
+							"parameters": {
+								"x": "WilsansBubble.startX",
+								"y": "WilsansBubble.startY"
+							}
+						}
+					],
+					"sid": 623218682916739
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 448190438319194,
+							"parameters": {
+								"first-value": "distance(WilsansBlob.X, WilsansBlob.Y, WilsansBlob.startX, WilsansBlob.startY)",
+								"comparison": 4,
+								"second-value": "2"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "WilsansBlob",
+							"sid": 245727523890846,
+							"parameters": {
+								"x": "WilsansBlob.startX",
+								"y": "WilsansBlob.startY"
+							}
+						}
+					],
+					"sid": 491627104471247
+				}
+			]
+		},
+		{
+			"eventType": "comment",
+			"text": "[h3]SeanShake[/h3]"
+		},
+		{
+			"eventType": "block",
+			"conditions": [
+				{
+					"id": "every-x-seconds",
+					"objectClass": "System",
+					"sid": 973556142259356,
+					"parameters": {
+						"interval-seconds": "0.2"
+					}
+				}
+			],
+			"actions": [
+				{
+					"id": "move-at-angle",
+					"objectClass": "SeanBubble",
+					"sid": 278967876100868,
+					"parameters": {
+						"angle": "random(0, 360)",
+						"distance": "1"
+					}
+				},
+				{
+					"id": "move-at-angle",
+					"objectClass": "SeanBoy",
+					"sid": 417507426692510,
+					"parameters": {
+						"angle": "random(0, 360)",
+						"distance": "1"
+					}
+				}
+			],
+			"sid": 370305184105910,
+			"children": [
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 945276644231196,
+							"parameters": {
+								"first-value": "distance(SeanBubble.X, SeanBubble.Y, SeanBubble.startX, SeanBubble.startY)",
+								"comparison": 4,
+								"second-value": "2"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "SeanBubble",
+							"sid": 561351531410005,
+							"parameters": {
+								"x": "SeanBubble.startX",
+								"y": "SeanBubble.startY"
+							}
+						}
+					],
+					"sid": 572090430367403
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 858030256632125,
+							"parameters": {
+								"first-value": "distance(SeanBoy.X, SeanBoy.Y, SeanBoy.startX, SeanBoy.startY)",
+								"comparison": 4,
+								"second-value": "2"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "SeanBoy",
+							"sid": 187535526675714,
+							"parameters": {
+								"x": "SeanBoy.startX",
+								"y": "SeanBoy.startY"
+							}
+						}
+					],
+					"sid": 723204444519573
+				}
+			]
+		},
+		{
+			"eventType": "comment",
+			"text": "[h3]Adelaide Shake[/h3]"
+		},
+		{
+			"eventType": "block",
+			"conditions": [
+				{
+					"id": "every-x-seconds",
+					"objectClass": "System",
+					"sid": 629715297860452,
+					"parameters": {
+						"interval-seconds": "0.2"
+					}
+				}
+			],
+			"actions": [
+				{
+					"id": "move-at-angle",
+					"objectClass": "AdelaideBubble",
+					"sid": 660682413623925,
+					"parameters": {
+						"angle": "random(0, 360)",
+						"distance": "1"
+					}
+				},
+				{
+					"id": "move-at-angle",
+					"objectClass": "AdelaideKiwi",
+					"sid": 318625416558772,
+					"parameters": {
+						"angle": "random(0, 360)",
+						"distance": "1"
+					}
+				}
+			],
+			"sid": 634065363246233,
+			"children": [
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 938904965368343,
+							"parameters": {
+								"first-value": "distance(AdelaideBubble.X, AdelaideBubble.Y, AdelaideBubble.startX, AdelaideBubble.startY)",
+								"comparison": 4,
+								"second-value": "2"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "AdelaideBubble",
+							"sid": 792092536829142,
+							"parameters": {
+								"x": "AdelaideBubble.startX",
+								"y": "AdelaideBubble.startY"
+							}
+						}
+					],
+					"sid": 408870943613620
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 636698280778249,
+							"parameters": {
+								"first-value": "distance(AdelaideKiwi.X, AdelaideKiwi.Y, AdelaideKiwi.startX, AdelaideKiwi.startY)",
+								"comparison": 4,
+								"second-value": "2"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "AdelaideKiwi",
+							"sid": 675789038343166,
+							"parameters": {
+								"x": "AdelaideKiwi.startX",
+								"y": "AdelaideKiwi.startY"
+							}
+						}
+					],
+					"sid": 812629809002293
+				}
+			]
+		},
+		{
+			"eventType": "comment",
+			"text": "[h3]Go to Profile[/h3]"
+		},
+		{
+			"functionName": "IvoProfile",
+			"functionDescription": "",
+			"functionCategory": "",
+			"functionReturnType": "none",
+			"functionCopyPicked": false,
+			"functionIsAsync": false,
+			"functionParameters": [],
+			"eventType": "function-block",
+			"conditions": [],
+			"actions": [
+				{
+					"id": "go-to-layout",
+					"objectClass": "System",
+					"sid": 538787041974073,
+					"parameters": {
+						"layout": "ProfileIvo-1"
+					}
+				}
+			],
+			"sid": 781409716514188
+		},
+		{
+			"functionName": "WilsansProfile",
+			"functionDescription": "",
+			"functionCategory": "",
+			"functionReturnType": "none",
+			"functionCopyPicked": false,
+			"functionIsAsync": false,
+			"functionParameters": [],
+			"eventType": "function-block",
+			"conditions": [],
+			"actions": [
+				{
+					"id": "go-to-layout",
+					"objectClass": "System",
+					"sid": 764262218566398,
+					"parameters": {
+						"layout": "ProfileWilsans-1"
+					}
+				}
+			],
+			"sid": 192657555375083
+		},
+		{
+			"functionName": "SeanProfile",
+			"functionDescription": "",
+			"functionCategory": "",
+			"functionReturnType": "none",
+			"functionCopyPicked": false,
+			"functionIsAsync": false,
+			"functionParameters": [],
+			"eventType": "function-block",
+			"conditions": [],
+			"actions": [
+				{
+					"id": "go-to-layout",
+					"objectClass": "System",
+					"sid": 773634981859345,
+					"parameters": {
+						"layout": "ProfileSean-1"
+					}
+				}
+			],
+			"sid": 326904725387853
+		},
+		{
+			"functionName": "AdelaideProfile",
+			"functionDescription": "",
+			"functionCategory": "",
+			"functionReturnType": "none",
+			"functionCopyPicked": false,
+			"functionIsAsync": false,
+			"functionParameters": [],
+			"eventType": "function-block",
+			"conditions": [],
+			"actions": [
+				{
+					"id": "go-to-layout",
+					"objectClass": "System",
+					"sid": 390334111806846,
+					"parameters": {
+						"layout": "ProfileAdelaide-1"
+					}
+				}
+			],
+			"sid": 906770007847018
+		},
+		{
+			"eventType": "comment",
+			"text": "[h3]Return to the Splash[/h3]"
+		},
+		{
+			"functionName": "ProfileHome",
+			"functionDescription": "",
+			"functionCategory": "",
+			"functionReturnType": "none",
+			"functionCopyPicked": false,
+			"functionIsAsync": false,
+			"functionParameters": [],
+			"eventType": "function-block",
+			"conditions": [],
+			"actions": [
+				{
+					"id": "set-boolean-eventvar",
+					"objectClass": "System",
+					"sid": 266302621643906,
+					"parameters": {
+						"variable": "ProfileTransitionIn",
+						"value": "false"
+					}
+				},
+				{
+					"id": "go-to-layout",
+					"objectClass": "System",
+					"sid": 763356947211327,
+					"parameters": {
+						"layout": "PainterStoriesTransition"
+					}
+				},
+				{
+					"type": "comment",
+					"text": "UnDampen Theme Music"
+				},
+				{
+					"id": "remove-all-effects",
+					"objectClass": "Audio",
+					"sid": 329305552089376,
+					"parameters": {
+						"tag": "\"Theme\""
+					}
+				}
+			],
+			"sid": 516530353711361
+		},
+		{
+			"eventType": "comment",
+			"text": "[h3]Buttons[/h3]"
+		},
+		{
+			"functionName": "CheckButtonsProfileIndex",
+			"functionDescription": "",
+			"functionCategory": "",
+			"functionReturnType": "none",
+			"functionCopyPicked": false,
+			"functionIsAsync": false,
+			"functionParameters": [
+				{
+					"name": "For",
+					"type": "string",
+					"initialValue": "",
+					"comment": "",
+					"sid": 405819610891493
+				},
+				{
+					"name": "Event",
+					"type": "string",
+					"initialValue": "",
+					"comment": "",
+					"sid": 689382557422466
+				}
+			],
+			"eventType": "function-block",
+			"conditions": [],
+			"actions": [],
+			"sid": 361871472943335,
+			"children": [
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 755537462452157,
+							"parameters": {
+								"first-value": "For",
+								"comparison": 0,
+								"second-value": "\"PainterStories\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 384755745043218,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 664343445647560,
+									"parameters": {
+										"first-value": "Event",
+										"comparison": 0,
+										"second-value": "\"Pressed\""
+									}
+								},
+								{
+									"id": "trigger-once-while-true",
+									"objectClass": "System",
+									"sid": 105420977916267
+								}
+							],
+							"actions": [
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 399220054297575,
+									"parameters": {
+										"audio-file": {
+											"path": "Generic/Generic - Button Press"
+										},
+										"loop": "not-looping",
+										"volume": "GenericButtonPressedDecibels",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "set-default-color",
+									"objectClass": "PainterStories",
+									"sid": 535327964627678,
+									"parameters": {
+										"color": "rgbEx255(255, 230, 150)"
+									}
+								}
+							],
+							"sid": 212843204122694
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 875986985563628,
+									"parameters": {
+										"first-value": "Event",
+										"comparison": 0,
+										"second-value": "\"Depressed\""
+									}
+								},
+								{
+									"id": "trigger-once-while-true",
+									"objectClass": "System",
+									"sid": 225764351368925
+								}
+							],
+							"actions": [
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 548071624012017,
+									"parameters": {
+										"audio-file": {
+											"path": "Generic/Generic - Button Release"
+										},
+										"loop": "not-looping",
+										"volume": "0",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "set-default-color",
+									"objectClass": "PainterStories",
+									"sid": 891871739896117,
+									"parameters": {
+										"color": "rgbEx255(255, 200, 0)"
+									}
+								}
+							],
+							"sid": 645057331213345
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 558878554527637,
+							"parameters": {
+								"first-value": "For",
+								"comparison": 0,
+								"second-value": "\"IvoProfile\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 132289098651518,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 446299390623722,
+									"parameters": {
+										"first-value": "Event",
+										"comparison": 0,
+										"second-value": "\"Pressed\""
+									}
+								},
+								{
+									"id": "trigger-once-while-true",
+									"objectClass": "System",
+									"sid": 591141423000539
+								}
+							],
+							"actions": [
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 495638379948377,
+									"parameters": {
+										"audio-file": {
+											"path": "Generic/Generic - Button Press"
+										},
+										"loop": "not-looping",
+										"volume": "GenericButtonPressedDecibels",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "set-animation-frame",
+									"objectClass": "IvoBubble",
+									"sid": 888314782217851,
+									"parameters": {
+										"frame-number": "0"
+									}
+								},
+								{
+									"id": "set-animation-frame",
+									"objectClass": "IvoStar",
+									"sid": 900511940776369,
+									"parameters": {
+										"frame-number": "0"
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "IvoBubble",
+									"sid": 763194751367295,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"BlackWhite\""
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "IvoStar",
+									"sid": 323641126206916,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"BlackWhite\""
+									}
+								}
+							],
+							"sid": 177416260690727
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 151266423918860,
+									"parameters": {
+										"first-value": "Event",
+										"comparison": 0,
+										"second-value": "\"Depressed\""
+									}
+								},
+								{
+									"id": "trigger-once-while-true",
+									"objectClass": "System",
+									"sid": 571413185351088
+								}
+							],
+							"actions": [
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 185910738062061,
+									"parameters": {
+										"audio-file": {
+											"path": "Generic/Generic - Button Release"
+										},
+										"loop": "not-looping",
+										"volume": "0",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "IvoBubble",
+									"sid": 487676286066193,
+									"parameters": {
+										"mode": "disable",
+										"effect": "\"BlackWhite\""
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "IvoStar",
+									"sid": 538136961353634,
+									"parameters": {
+										"mode": "disable",
+										"effect": "\"BlackWhite\""
+									}
+								}
+							],
+							"sid": 932270202341921
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 588016082318061,
+							"parameters": {
+								"first-value": "For",
+								"comparison": 0,
+								"second-value": "\"WilsansProfile\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 678419478994005,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 742966452582050,
+									"parameters": {
+										"first-value": "Event",
+										"comparison": 0,
+										"second-value": "\"Pressed\""
+									}
+								},
+								{
+									"id": "trigger-once-while-true",
+									"objectClass": "System",
+									"sid": 533678801189057
+								}
+							],
+							"actions": [
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 881462191575540,
+									"parameters": {
+										"audio-file": {
+											"path": "Generic/Generic - Button Press"
+										},
+										"loop": "not-looping",
+										"volume": "GenericButtonPressedDecibels",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "set-animation-frame",
+									"objectClass": "WilsansBubble",
+									"sid": 766796686481275,
+									"parameters": {
+										"frame-number": "0"
+									}
+								},
+								{
+									"id": "set-animation-frame",
+									"objectClass": "WilsansBlob",
+									"sid": 442290528536744,
+									"parameters": {
+										"frame-number": "0"
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "WilsansBubble",
+									"sid": 505067795930365,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"BlackWhite\""
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "WilsansBlob",
+									"sid": 727519191410617,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"BlackWhite\""
+									}
+								}
+							],
+							"sid": 755985914782031
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 907346073514598,
+									"parameters": {
+										"first-value": "Event",
+										"comparison": 0,
+										"second-value": "\"Depressed\""
+									}
+								},
+								{
+									"id": "trigger-once-while-true",
+									"objectClass": "System",
+									"sid": 972613168441943
+								}
+							],
+							"actions": [
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 842738376362474,
+									"parameters": {
+										"audio-file": {
+											"path": "Generic/Generic - Button Release"
+										},
+										"loop": "not-looping",
+										"volume": "0",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "WilsansBubble",
+									"sid": 749766336572242,
+									"parameters": {
+										"mode": "disable",
+										"effect": "\"BlackWhite\""
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "WilsansBlob",
+									"sid": 987652487421425,
+									"parameters": {
+										"mode": "disable",
+										"effect": "\"BlackWhite\""
+									}
+								}
+							],
+							"sid": 966965788724909
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 426341255867127,
+							"parameters": {
+								"first-value": "For",
+								"comparison": 0,
+								"second-value": "\"SeanProfile\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 766371878432743,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 374745573620397,
+									"parameters": {
+										"first-value": "Event",
+										"comparison": 0,
+										"second-value": "\"Pressed\""
+									}
+								},
+								{
+									"id": "trigger-once-while-true",
+									"objectClass": "System",
+									"sid": 118293725023493
+								}
+							],
+							"actions": [
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 567466371177964,
+									"parameters": {
+										"audio-file": {
+											"path": "Generic/Generic - Button Press"
+										},
+										"loop": "not-looping",
+										"volume": "GenericButtonPressedDecibels",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "set-animation-frame",
+									"objectClass": "SeanBubble",
+									"sid": 803813553320143,
+									"parameters": {
+										"frame-number": "0"
+									}
+								},
+								{
+									"id": "set-animation-frame",
+									"objectClass": "SeanBoy",
+									"sid": 393617069684965,
+									"parameters": {
+										"frame-number": "0"
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "SeanBubble",
+									"sid": 582727085528772,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"BlackWhite\""
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "SeanBoy",
+									"sid": 737211620085196,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"BlackWhite\""
+									}
+								}
+							],
+							"sid": 246090241983915
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 300712481717041,
+									"parameters": {
+										"first-value": "Event",
+										"comparison": 0,
+										"second-value": "\"Depressed\""
+									}
+								},
+								{
+									"id": "trigger-once-while-true",
+									"objectClass": "System",
+									"sid": 945687272192114
+								}
+							],
+							"actions": [
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 855030713428074,
+									"parameters": {
+										"audio-file": {
+											"path": "Generic/Generic - Button Release"
+										},
+										"loop": "not-looping",
+										"volume": "0",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "SeanBubble",
+									"sid": 166457304441453,
+									"parameters": {
+										"mode": "disable",
+										"effect": "\"BlackWhite\""
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "SeanBoy",
+									"sid": 604156188426815,
+									"parameters": {
+										"mode": "disable",
+										"effect": "\"BlackWhite\""
+									}
+								}
+							],
+							"sid": 544444586321634
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 547994104617822,
+							"parameters": {
+								"first-value": "For",
+								"comparison": 0,
+								"second-value": "\"AdelaideProfile\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 177772432014748,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 911583812973565,
+									"parameters": {
+										"first-value": "Event",
+										"comparison": 0,
+										"second-value": "\"Pressed\""
+									}
+								},
+								{
+									"id": "trigger-once-while-true",
+									"objectClass": "System",
+									"sid": 317832998789903
+								}
+							],
+							"actions": [
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 852800147115623,
+									"parameters": {
+										"audio-file": {
+											"path": "Generic/Generic - Button Press"
+										},
+										"loop": "not-looping",
+										"volume": "GenericButtonPressedDecibels",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "set-animation-frame",
+									"objectClass": "AdelaideBubble",
+									"sid": 751326192328573,
+									"parameters": {
+										"frame-number": "0"
+									}
+								},
+								{
+									"id": "set-animation-frame",
+									"objectClass": "AdelaideKiwi",
+									"sid": 800116003632620,
+									"parameters": {
+										"frame-number": "0"
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "AdelaideBubble",
+									"sid": 208117851494367,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"BlackWhite\""
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "AdelaideKiwi",
+									"sid": 541955228142706,
+									"parameters": {
+										"mode": "enable",
+										"effect": "\"BlackWhite\""
+									}
+								}
+							],
+							"sid": 450379908483944
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 668425198643069,
+									"parameters": {
+										"first-value": "Event",
+										"comparison": 0,
+										"second-value": "\"Depressed\""
+									}
+								},
+								{
+									"id": "trigger-once-while-true",
+									"objectClass": "System",
+									"sid": 737971258279924
+								}
+							],
+							"actions": [
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 479088609193588,
+									"parameters": {
+										"audio-file": {
+											"path": "Generic/Generic - Button Release"
+										},
+										"loop": "not-looping",
+										"volume": "0",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "AdelaideBubble",
+									"sid": 171998663835783,
+									"parameters": {
+										"mode": "disable",
+										"effect": "\"BlackWhite\""
+									}
+								},
+								{
+									"id": "set-effect-enabled",
+									"objectClass": "AdelaideKiwi",
+									"sid": 958761873221205,
+									"parameters": {
+										"mode": "disable",
+										"effect": "\"BlackWhite\""
+									}
+								}
+							],
+							"sid": 627747646676077
+						}
+					]
+				}
+			]
+		}
+	],
+	"sid": 479911982205671
+}

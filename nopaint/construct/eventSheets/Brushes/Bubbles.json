@@ -1,0 +1,1090 @@
+{
+	"name": "Bubbles",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Bubbles",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 553549832544914
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "InitParameters",
+							"sid": 580053910121609,
+							"parameters": [
+								"0"
+							]
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 403870913828344,
+							"parameters": {
+								"tag": "\"Brush Started\""
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "Bubbles",
+							"sid": 357903366094680,
+							"disabled": true,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 833054496557072,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "choose(0.025, 0.05, 0.1)",
+								"type": "once",
+								"tag": "\"MakeBubble\""
+							}
+						},
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 493797854926870,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "1 / 60",
+								"type": "regular",
+								"tag": "\"RenderBubbles\""
+							}
+						},
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 787280238787724,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "0.1",
+								"type": "regular",
+								"tag": "\"ForceBubble\""
+							}
+						},
+						{
+							"id": "set-x",
+							"objectClass": "Bubbles",
+							"sid": 849077932218221,
+							"parameters": {
+								"x": "floor(random(0, 256))"
+							}
+						},
+						{
+							"id": "set-world-gravity",
+							"objectClass": "Bubbles",
+							"sid": 294604899269307,
+							"behaviorType": "Physics",
+							"parameters": {
+								"gravity": "choose(-4, -5, -3)"
+							}
+						},
+						{
+							"id": "set-stepping-mode",
+							"objectClass": "Bubbles",
+							"sid": 294432394684908,
+							"disabled": true,
+							"behaviorType": "Physics",
+							"parameters": {
+								"mode": "framerate-independent"
+							}
+						},
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 919687839207610,
+							"parameters": {
+								"audio-file": {
+									"path": "Brushes/Bubbles/Bubbles - Theme"
+								},
+								"loop": "looping",
+								"volume": "-2.5",
+								"stereo-pan": "0",
+								"tag-optional": "\"Bubbles\""
+							}
+						},
+						{
+							"id": "set-playback-rate",
+							"objectClass": "Audio",
+							"sid": 592502349398974,
+							"parameters": {
+								"tag": "\"Bubbles\"",
+								"playback-rate": "random(0.8, 1.2)"
+							}
+						}
+					],
+					"sid": 729197857451899
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 560523132382163
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 130037350677291,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 598361526580926
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]No Theme[/h4]",
+					"background-color": [
+						0.7215686274509804,
+						0.9058823529411765,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 297869767916770
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 230531587834895,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 293950426159125,
+					"disabled": true
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 312128076190273,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 395189144890220
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 661408095034055,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 327058427142313,
+					"disabled": true
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 916452105144844
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 152258804536749,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 466212619718585,
+					"disabled": true
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 767597810522759
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 641893125156366,
+							"parameters": [
+								"\"Bubbles\""
+							]
+						}
+					],
+					"sid": 844106041562748
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 138202471353765,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"MakeBubble\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 919818079987560,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "repeat",
+									"objectClass": "System",
+									"sid": 121924300365620,
+									"parameters": {
+										"count": "choose(1, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 5, 6, 12, 48)"
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "MakeBubble",
+									"sid": 140060864145410
+								}
+							],
+							"sid": 554407402947148
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "for-each",
+									"objectClass": "System",
+									"sid": 600066653829262,
+									"parameters": {
+										"object": "Bubbles"
+									}
+								}
+							],
+							"actions": [],
+							"sid": 543427497525689,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 134135284615257,
+											"parameters": {
+												"first-value": "Bubbles.Y",
+												"comparison": 2,
+												"second-value": "-Bubbles.Height"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "destroy",
+											"objectClass": "Bubbles",
+											"sid": 739089718232581
+										}
+									],
+									"sid": 810110034190264
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 741150122459714,
+											"parameters": {
+												"first-value": "choose(0, 1)",
+												"comparison": 0,
+												"second-value": "0"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-angle",
+											"objectClass": "Bubbles",
+											"sid": 200781831276432,
+											"parameters": {
+												"angle": "choose(0, 90, 180, 270)"
+											}
+										},
+										{
+											"id": "set-default-color",
+											"objectClass": "Bubbles",
+											"sid": 337540545331311,
+											"parameters": {
+												"color": "Functions.hslaToRgba(random(0, 1), 1.0, 1.0, 1.0)"
+											}
+										}
+									],
+									"sid": 766306356743566
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "start-timer",
+									"objectClass": "Clock",
+									"sid": 944414227132311,
+									"behaviorType": "Timer",
+									"parameters": {
+										"duration": "choose(0.05, 0.1, 0.2)",
+										"type": "once",
+										"tag": "\"MakeBubble\""
+									}
+								}
+							],
+							"sid": 706760749669028
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 437601574010098,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"RenderBubbles\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "clear-canvas",
+							"objectClass": "BubblesBuffer",
+							"sid": 554918336836497,
+							"parameters": {
+								"color": "rgba(0, 0, 0, 0)"
+							}
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "BubblesBuffer",
+							"sid": 748354781560425,
+							"parameters": {
+								"object": "Bubbles",
+								"effects": "with-effects"
+							}
+						}
+					],
+					"sid": 609817673203358
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 311070615022030,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 653988194864943,
+							"parameters": {
+								"first-value": "timescale",
+								"comparison": 0,
+								"second-value": "0"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 994773954359339
+						}
+					],
+					"actions": [
+						{
+							"id": "stop-timer",
+							"objectClass": "Clock",
+							"sid": 665495549898239,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"RenderBubbles\""
+							}
+						}
+					],
+					"sid": 432966889512154
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 993959851610587,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 829029346619798,
+							"parameters": {
+								"first-value": "timescale",
+								"comparison": 0,
+								"second-value": "1"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 628839093483263
+						}
+					],
+					"actions": [
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 591323729012859,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "1 / 60",
+								"type": "regular",
+								"tag": "\"RenderBubbles\""
+							}
+						}
+					],
+					"sid": 878364984052086
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 520983283459891,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 549596184886978
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 859159215857312,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 568199507927228,
+							"parameters": {
+								"x": "NudgePointerX",
+								"y": "NudgePointerY"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 623251068292775,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 721270585403470,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 490457363005884,
+					"disabled": true
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 645226332449495,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 202579667344704
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ticked[/b]"
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 388660403683954,
+							"disabled": true,
+							"parameters": {
+								"x": "Self.X + NudgedX",
+								"y": "Self.Y + NudgedY"
+							}
+						},
+						{
+							"callFunction": "NoNudge",
+							"sid": 448724558418108
+						}
+					],
+					"sid": 436765841567324
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 277444059653927,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-visible",
+							"objectClass": "Bubbles",
+							"sid": 141676610108750,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 439886701701026,
+							"parameters": {
+								"object": "BubblesBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 458302593609067,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 342041155837393
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 270455077253901
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 227480373220506,
+							"parameters": {
+								"tag": "\"Bubbles\""
+							}
+						}
+					],
+					"sid": 683407505507425
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Functions[/h3]"
+				},
+				{
+					"eventType": "variable",
+					"name": "size",
+					"type": "string",
+					"initialValue": "",
+					"comment": "",
+					"isStatic": false,
+					"isConstant": false,
+					"sid": 948680199079396
+				},
+				{
+					"eventType": "variable",
+					"name": "sizeNum",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": false,
+					"isConstant": false,
+					"sid": 356059672515307
+				},
+				{
+					"functionName": "MakeBubble",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 719337285686829,
+							"parameters": {
+								"variable": "size",
+								"value": "choose(\"XS\", \"XS\", \"XS\", \"S\", \"S\", \"S\", \"S\", \"S\", \"S\", \"M\", \"M\", \"M\", \"M\", \"L\", \"XL\")"
+							}
+						}
+					],
+					"sid": 987821991455338,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 913372366051004,
+									"parameters": {
+										"variable": "size",
+										"comparison": 0,
+										"value": "\"XS\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 442752047270733,
+									"parameters": {
+										"variable": "sizeNum",
+										"value": "8"
+									}
+								}
+							],
+							"sid": 445123777866515
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 931988980515959,
+									"parameters": {
+										"variable": "size",
+										"comparison": 0,
+										"value": "\"S\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 605742337255169,
+									"parameters": {
+										"variable": "sizeNum",
+										"value": "16"
+									}
+								}
+							],
+							"sid": 220273253802967
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 284161805812204,
+									"parameters": {
+										"variable": "size",
+										"comparison": 0,
+										"value": "\"M\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 399837374629667,
+									"parameters": {
+										"variable": "sizeNum",
+										"value": "32"
+									}
+								}
+							],
+							"sid": 250121730568678
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 190312694047778,
+									"parameters": {
+										"variable": "size",
+										"comparison": 0,
+										"value": "\"L\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 655175240059217,
+									"parameters": {
+										"variable": "sizeNum",
+										"value": "48"
+									}
+								}
+							],
+							"sid": 787239511599095
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 581809003541641,
+									"parameters": {
+										"variable": "size",
+										"comparison": 0,
+										"value": "\"XL\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 958465347413923,
+									"parameters": {
+										"variable": "sizeNum",
+										"value": "64"
+									}
+								}
+							],
+							"sid": 137077004839313
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "create-object",
+									"objectClass": "System",
+									"sid": 461557198210114,
+									"parameters": {
+										"object-to-create": "Bubbles",
+										"layer": "\"Layer 0\"",
+										"x": "floor(random(0, 256))",
+										"y": "256 + sizeNum",
+										"create-hierarchy": false,
+										"template-name": "\"\""
+									}
+								}
+							],
+							"sid": 228318067406038
+						},
+						{
+							"eventType": "variable",
+							"name": "glow",
+							"type": "number",
+							"initialValue": "0",
+							"comment": "",
+							"isStatic": false,
+							"isConstant": false,
+							"sid": 949556744738508
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "pick-last-created",
+									"objectClass": "System",
+									"sid": 314019104293470,
+									"parameters": {
+										"object": "Bubbles"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "Bubbles",
+									"sid": 903711923832260,
+									"parameters": {
+										"effect": "\"AdjustHSL\"",
+										"parameter-index": "0",
+										"value": "random(-100, 100)"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "Bubbles",
+									"sid": 166944915527627,
+									"parameters": {
+										"effect": "\"Sharpen\"",
+										"parameter-index": "0",
+										"value": "choose(0, 0, 0, random(0, 100))"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 143724202843701,
+									"parameters": {
+										"variable": "glow",
+										"value": "choose(0, 0, 0, random(0, 80))"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "Bubbles",
+									"sid": 139127439352867,
+									"parameters": {
+										"effect": "\"GlowHorizontal\"",
+										"parameter-index": "0",
+										"value": "glow"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "Bubbles",
+									"sid": 129847200007469,
+									"parameters": {
+										"effect": "\"GlowVertical\"",
+										"parameter-index": "0",
+										"value": "glow"
+									}
+								},
+								{
+									"id": "set-animation",
+									"objectClass": "Bubbles",
+									"sid": 438238954509543,
+									"parameters": {
+										"animation": "Size",
+										"from": "beginning"
+									}
+								},
+								{
+									"id": "set-animation-speed",
+									"objectClass": "Bubbles",
+									"sid": 900634437057570,
+									"parameters": {
+										"speed": "choose(4, 5, 6, 7, 8)"
+									}
+								},
+								{
+									"id": "set-default-color",
+									"objectClass": "Bubbles",
+									"sid": 730096848078741,
+									"parameters": {
+										"color": "Functions.hslaToRgba(random(0, 1), 1.0, 1.0, 1.0)"
+									}
+								},
+								{
+									"id": "set-opacity",
+									"objectClass": "Bubbles",
+									"sid": 952999187132010,
+									"parameters": {
+										"opacity": "choose(100, random(25, 100))"
+									}
+								}
+							],
+							"sid": 642886546596276,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 378132458437003,
+											"parameters": {
+												"first-value": "choose(0, 1)",
+												"comparison": 0,
+												"second-value": "0"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "enabledisable-collisions",
+											"objectClass": "Bubbles",
+											"sid": 318896523998822,
+											"behaviorType": "Physics",
+											"parameters": {
+												"object": "Bubbles",
+												"state": "disable"
+											}
+										}
+									],
+									"sid": 484915444525742
+								},
+								{
+									"eventType": "block",
+									"conditions": [],
+									"actions": [
+										{
+											"id": "apply-force",
+											"objectClass": "Bubbles",
+											"sid": 620919032600948,
+											"behaviorType": "Physics",
+											"parameters": {
+												"force-x": "random( -sizeNum / 8, sizeNum / 8)",
+												"force-y": "random(10, -10)",
+												"image-point": "0"
+											}
+										},
+										{
+											"id": "set-visible",
+											"objectClass": "Bubbles",
+											"sid": 844443255019644,
+											"disabled": true,
+											"parameters": {
+												"visibility": "visible"
+											}
+										}
+									],
+									"sid": 218356254712860
+								}
+							]
+						}
+					]
+				}
+			],
+			"sid": 625186576740365
+		}
+	],
+	"sid": 122404991322896
+}

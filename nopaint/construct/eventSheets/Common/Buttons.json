@@ -1,0 +1,5209 @@
+{
+	"name": "Buttons",
+	"events": [
+		{
+			"eventType": "variable",
+			"name": "MouseLastX",
+			"type": "number",
+			"initialValue": "0",
+			"comment": "",
+			"isStatic": true,
+			"isConstant": false,
+			"sid": 255923680355159
+		},
+		{
+			"eventType": "variable",
+			"name": "MouseLastY",
+			"type": "number",
+			"initialValue": "0",
+			"comment": "",
+			"isStatic": true,
+			"isConstant": false,
+			"sid": 642894687295090
+		},
+		{
+			"eventType": "variable",
+			"name": "Nudging",
+			"type": "boolean",
+			"initialValue": "false",
+			"comment": "",
+			"isStatic": true,
+			"isConstant": false,
+			"sid": 934401173788920
+		},
+		{
+			"eventType": "variable",
+			"name": "NudgedX",
+			"type": "number",
+			"initialValue": "0",
+			"comment": "",
+			"isStatic": true,
+			"isConstant": false,
+			"sid": 355685772030597
+		},
+		{
+			"eventType": "variable",
+			"name": "NudgedY",
+			"type": "number",
+			"initialValue": "0",
+			"comment": "",
+			"isStatic": true,
+			"isConstant": false,
+			"sid": 457499176351563
+		},
+		{
+			"eventType": "variable",
+			"name": "CarriedHover",
+			"type": "boolean",
+			"initialValue": "false",
+			"comment": "",
+			"isStatic": false,
+			"isConstant": false,
+			"sid": 101309194620456
+		},
+		{
+			"eventType": "variable",
+			"name": "NudgePointerX",
+			"type": "number",
+			"initialValue": "0",
+			"comment": "",
+			"isStatic": true,
+			"isConstant": false,
+			"sid": 342329987571600
+		},
+		{
+			"eventType": "variable",
+			"name": "NudgePointerY",
+			"type": "number",
+			"initialValue": "0",
+			"comment": "",
+			"isStatic": true,
+			"isConstant": false,
+			"sid": 320391973454813
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Buttons",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "comment",
+					"text": "Buttons in No Paint use a scheme in which only one button (must be visible) can ever be pressed at a time, with full button roll-over. Some exceptions are made for draggable pads and other elements."
+				},
+				{
+					"eventType": "variable",
+					"name": "NudgePossible",
+					"type": "boolean",
+					"initialValue": "false",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 879806284057911
+				},
+				{
+					"eventType": "variable",
+					"name": "AnyButtonPressed",
+					"type": "boolean",
+					"initialValue": "false",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 461288702102449
+				},
+				{
+					"eventType": "variable",
+					"name": "textCursorDragging",
+					"type": "boolean",
+					"initialValue": "false",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 332607780163731
+				},
+				{
+					"eventType": "variable",
+					"name": "textCursorDragThreshold",
+					"type": "number",
+					"initialValue": "16",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 827270988769517
+				},
+				{
+					"eventType": "variable",
+					"name": "textCursorDragX",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 803967248894366
+				},
+				{
+					"eventType": "variable",
+					"name": "textCursorDragY",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 657345519045596
+				},
+				{
+					"eventType": "variable",
+					"name": "TouchLastX",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 152402937797931
+				},
+				{
+					"eventType": "variable",
+					"name": "TouchLastY",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 784892365366531
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 150376460107728
+						}
+					],
+					"actions": [
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 974555302880441,
+							"parameters": {
+								"variable": "AnyButtonPressed",
+								"value": "false"
+							}
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 315581154160026,
+							"parameters": {
+								"variable": "textCursorDragging",
+								"value": "false"
+							}
+						}
+					],
+					"sid": 905252098655404
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Specific Functions[/h3]",
+					"background-color": [
+						0.7450980392156863,
+						0.9137254901960784,
+						0.996078431372549,
+						1
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]Initiate Nudge Mode[/h4]",
+					"background-color": [
+						0.615686274509804,
+						0.8431372549019608,
+						0.984313725490196,
+						1
+					]
+				},
+				{
+					"functionName": "NudgeStart",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 118452579937309,
+							"disabled": true,
+							"parameters": {
+								"type": "log",
+								"message": "\"Nudging Started\""
+							}
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 320719628335722,
+							"parameters": {
+								"variable": "Nudging",
+								"value": "true"
+							}
+						},
+						{
+							"callFunction": "KillPlaylistTimers",
+							"sid": 100998087258495,
+							"disabled": true,
+							"parameters": [
+								false
+							]
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "PromptTotalProgress",
+							"sid": 255353820126502,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						},
+						{
+							"type": "comment",
+							"text": ""
+						},
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 650084459341924,
+							"parameters": {
+								"audio-file": {
+									"path": "Nudge/Nudge - Confirmation"
+								},
+								"loop": "not-looping",
+								"volume": "-6",
+								"stereo-pan": "0",
+								"tag-optional": "\"\""
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Show [b]Nudging[/b] Interface"
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 372326041114119,
+							"parameters": {
+								"variable": "AnyButtonPressed",
+								"value": "false"
+							}
+						},
+						{
+							"id": "set-boolean-instvar",
+							"objectClass": "Button",
+							"sid": 291939219610512,
+							"parameters": {
+								"instance-variable": "Pressed",
+								"value": "false"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeCover",
+							"sid": 591130099355016,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeBorder",
+							"sid": 500280619638361,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 938507566227420,
+							"parameters": {
+								"object": "NudgeCover",
+								"time-scale": "1.0"
+							}
+						},
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 555631076004224,
+							"parameters": {
+								"object": "NudgeBorder",
+								"time-scale": "1.0"
+							}
+						},
+						{
+							"callFunction": "CheckButtonsCore",
+							"sid": 257162069000180,
+							"parameters": [
+								"\"Pause\"",
+								"\"Depressed\"",
+								false
+							]
+						},
+						{
+							"id": "set-animation",
+							"objectClass": "NudgeBorder",
+							"sid": 385417095042325,
+							"parameters": {
+								"animation": "\"Animation 1\"",
+								"from": "beginning"
+							}
+						},
+						{
+							"id": "start-animation",
+							"objectClass": "NudgeBorder",
+							"sid": 897161123766767,
+							"parameters": {
+								"from": "beginning"
+							}
+						},
+						{
+							"id": "start-animation",
+							"objectClass": "NudgeCover",
+							"sid": 843356099566745,
+							"parameters": {
+								"from": "beginning"
+							}
+						},
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 617137360549260,
+							"parameters": {
+								"object": "NudgeDot",
+								"time-scale": "1.0"
+							}
+						},
+						{
+							"id": "set-spraying",
+							"objectClass": "NudgeParticles",
+							"sid": 282276745680412,
+							"parameters": {
+								"state": "spraying"
+							}
+						},
+						{
+							"id": "set-opacity",
+							"objectClass": "NudgeParticles",
+							"sid": 131316740349035,
+							"parameters": {
+								"opacity": "100"
+							}
+						},
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 825876763742271,
+							"parameters": {
+								"object": "NudgeParticles",
+								"time-scale": "1.0"
+							}
+						},
+						{
+							"type": "comment",
+							"text": ""
+						},
+						{
+							"callFunction": "PaintingMusicDampen",
+							"sid": 148815394549877,
+							"disabled": true,
+							"parameters": [
+								true
+							]
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 293213168243022,
+							"parameters": [
+								true
+							]
+						}
+					],
+					"sid": 792176391398202,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-eventvar",
+									"objectClass": "System",
+									"sid": 584137288564063,
+									"parameters": {
+										"variable": "MusicSetting",
+										"comparison": 0,
+										"value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 378250384910552,
+									"parameters": {
+										"audio-file": {
+											"path": "Nudge/Nudge - Percussionless Melodic Loop"
+										},
+										"loop": "looping",
+										"volume": "-100",
+										"stereo-pan": "0",
+										"tag-optional": "\"NudgeLoop\""
+									}
+								},
+								{
+									"id": "fade-volume",
+									"objectClass": "Audio",
+									"sid": 258817770076556,
+									"parameters": {
+										"tag": "\"NudgeLoop\"",
+										"db": "4",
+										"duration": "0.1",
+										"ending": "keep-playing"
+									}
+								}
+							],
+							"sid": 251737699611997
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 730959407120806,
+									"parameters": {
+										"variable": "DesktopMode"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "start-animation",
+									"objectClass": "Cursor",
+									"sid": 285687433238230,
+									"parameters": {
+										"from": "beginning"
+									}
+								},
+								{
+									"id": "set-animation",
+									"objectClass": "NudgeCover",
+									"sid": 639790821496449,
+									"parameters": {
+										"animation": "\"Desktop\"",
+										"from": "beginning"
+									}
+								},
+								{
+									"id": "set-position",
+									"objectClass": "NudgeParticles",
+									"sid": 286201063989529,
+									"parameters": {
+										"x": "NudgeCover.X + NudgeCover.Width / 2",
+										"y": "NudgeCover.Y + NudgeCover.Height - 10"
+									}
+								}
+							],
+							"sid": 527202580497977
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 498799357492481
+								}
+							],
+							"actions": [
+								{
+									"id": "set-animation",
+									"objectClass": "NudgeCover",
+									"sid": 240082725201093,
+									"parameters": {
+										"animation": "\"Mobile\"",
+										"from": "beginning"
+									}
+								},
+								{
+									"id": "set-y",
+									"objectClass": "PromptBrushProgress",
+									"sid": 566672409085965,
+									"parameters": {
+										"y": "NudgeCover.Y"
+									}
+								},
+								{
+									"id": "set-y",
+									"objectClass": "PromptBackground",
+									"sid": 173521327268149,
+									"parameters": {
+										"y": "NudgeCover.Y"
+									}
+								}
+							],
+							"sid": 928300899816361
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]End Nudge Mode[/h4]",
+					"background-color": [
+						0.615686274509804,
+						0.8431372549019608,
+						0.984313725490196,
+						1
+					]
+				},
+				{
+					"functionName": "NudgeStop",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 131212259872581,
+							"parameters": {
+								"tag": "\"NudgeLoop\""
+							}
+						},
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 859527238751651,
+							"parameters": {
+								"audio-file": {
+									"path": "Nudge/Nudge - Pop"
+								},
+								"loop": "not-looping",
+								"volume": "-2",
+								"stereo-pan": "0",
+								"tag-optional": "\"\""
+							}
+						},
+						{
+							"id": "set-playback-rate",
+							"objectClass": "Audio",
+							"sid": 535021964697721,
+							"parameters": {
+								"tag": "\"\"",
+								"playback-rate": "0.75"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Hide [b]Nudging[/b] Interface"
+						},
+						{
+							"id": "stop-timer",
+							"objectClass": "GlobalClock",
+							"sid": 732905767451406,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"NoNudge\""
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeCover",
+							"sid": 431719725606321,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeBorder",
+							"sid": 987672641354955,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 343833593590577,
+							"parameters": {
+								"visibility": "invisible"
+							}
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 803856278078852,
+							"parameters": {
+								"variable": "Nudging",
+								"value": "false"
+							}
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 644335262203940,
+							"parameters": {
+								"variable": "NudgePossible",
+								"value": "false"
+							}
+						},
+						{
+							"id": "set-time-scale",
+							"objectClass": "System",
+							"sid": 594200198545731,
+							"parameters": {
+								"time-scale": "1.0"
+							}
+						},
+						{
+							"id": "set-spraying",
+							"objectClass": "NudgeParticles",
+							"sid": 376217176260103,
+							"parameters": {
+								"state": "not-spraying"
+							}
+						},
+						{
+							"id": "restore-object-time-scale",
+							"objectClass": "System",
+							"sid": 478504319216496,
+							"parameters": {
+								"object": "NudgeParticles"
+							}
+						},
+						{
+							"id": "set-opacity",
+							"objectClass": "NudgeParticles",
+							"sid": 358010826667640,
+							"parameters": {
+								"opacity": "0"
+							}
+						},
+						{
+							"callFunction": "PaintingMusicDampen",
+							"sid": 470400160463619,
+							"disabled": true,
+							"parameters": [
+								false
+							]
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 233418471197297,
+							"disabled": true,
+							"parameters": [
+								false
+							]
+						},
+						{
+							"callFunction": "PlaylistTimersResume",
+							"sid": 629830182896385,
+							"disabled": true
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 142765791595364,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						}
+					],
+					"sid": 544636988875064,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 289306253732137,
+									"parameters": {
+										"variable": "Playlist"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-visible",
+									"objectClass": "PromptTotalProgress",
+									"sid": 928973294239947,
+									"parameters": {
+										"visibility": "visible"
+									}
+								}
+							],
+							"sid": 546449150400906
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 457512569274722,
+									"parameters": {
+										"variable": "DesktopMode"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [
+								{
+									"id": "set-y",
+									"objectClass": "PromptBackground",
+									"sid": 509308439260523,
+									"parameters": {
+										"y": "ViewportHeight(0) - PromptBackground.Height"
+									}
+								},
+								{
+									"id": "set-y",
+									"objectClass": "PromptBrushProgress",
+									"sid": 757182905407181,
+									"parameters": {
+										"y": "PromptBackground.Y"
+									}
+								}
+							],
+							"sid": 981446295859328
+						}
+					]
+				},
+				{
+					"functionName": "NoNudge",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "set-opacity",
+							"objectClass": "NudgeParticles",
+							"sid": 899965626045434,
+							"parameters": {
+								"opacity": "0"
+							}
+						},
+						{
+							"id": "start-timer",
+							"objectClass": "GlobalClock",
+							"sid": 888822970161853,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "0.15",
+								"type": "once",
+								"tag": "\"NoNudge\""
+							}
+						},
+						{
+							"id": "set-animation",
+							"objectClass": "NudgeBorder",
+							"sid": 966945791319750,
+							"parameters": {
+								"animation": "\"No Nudge\"",
+								"from": "beginning"
+							}
+						},
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 707738101840257,
+							"parameters": {
+								"audio-file": {
+									"path": "Generic/Generic - Noise Crunch"
+								},
+								"loop": "not-looping",
+								"volume": "-5",
+								"stereo-pan": "0",
+								"tag-optional": "\"Crunch\""
+							}
+						}
+					],
+					"sid": 697951606581691,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 416357057329819,
+									"parameters": {
+										"variable": "DesktopMode"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-animation",
+									"objectClass": "Cursor",
+									"sid": 622627061200008,
+									"parameters": {
+										"animation": "\"No Nudge\"",
+										"from": "beginning"
+									}
+								},
+								{
+									"id": "set-animation",
+									"objectClass": "NudgeCover",
+									"sid": 115089340029965,
+									"parameters": {
+										"animation": "\"NoNudge-Desktop\"",
+										"from": "beginning"
+									}
+								}
+							],
+							"sid": 123638895280489
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 271522610213029
+								}
+							],
+							"actions": [
+								{
+									"id": "set-animation",
+									"objectClass": "NudgeCover",
+									"sid": 804580115669345,
+									"parameters": {
+										"animation": "\"NoNudge-Mobile\"",
+										"from": "beginning"
+									}
+								},
+								{
+									"id": "set-y",
+									"objectClass": "PromptBackground",
+									"sid": 582985728954698,
+									"parameters": {
+										"y": "ViewportHeight(0) - PromptBackground.Height"
+									}
+								},
+								{
+									"id": "set-y",
+									"objectClass": "PromptBrushProgress",
+									"sid": 273770339507248,
+									"parameters": {
+										"y": "PromptBackground.Y"
+									}
+								}
+							],
+							"sid": 249098616906450
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "GlobalClock",
+							"sid": 593681893891769,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"NoNudge\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "NudgeStop",
+							"sid": 687202854060057
+						}
+					],
+					"sid": 616087974143436
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]Nudge Moved & Paused[/h4]",
+					"background-color": [
+						0.615686274509804,
+						0.8431372549019608,
+						0.984313725490196,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 763756773349592,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 318146871543354
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 763625911576931,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						}
+					],
+					"sid": 549886274454755
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 234204711713666,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [],
+					"sid": 123647945729284,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "Halt"
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "evaluate-expression",
+									"objectClass": "System",
+									"sid": 265853786110810,
+									"parameters": {
+										"value": "NudgedX = 0 & NudgedY = 0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "stop",
+									"objectClass": "Audio",
+									"sid": 221948789988163,
+									"disabled": true,
+									"parameters": {
+										"tag": "\"NudgeLoop\""
+									}
+								},
+								{
+									"id": "fade-volume",
+									"objectClass": "Audio",
+									"sid": 685617196662912,
+									"disabled": true,
+									"parameters": {
+										"tag": "\"NudgeLoop\"",
+										"db": "-40",
+										"duration": "0.05",
+										"ending": "stop"
+									}
+								}
+							],
+							"sid": 689739786878732
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 930233677602441
+								},
+								{
+									"id": "is-tag-playing",
+									"objectClass": "Audio",
+									"sid": 330725726235549,
+									"parameters": {
+										"tag": "\"Flick\""
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 882884508025322,
+									"parameters": {
+										"audio-file": {
+											"path": "Nudge/Nudge - Flick"
+										},
+										"loop": "not-looping",
+										"volume": "random(-8, -6)",
+										"stereo-pan": "0",
+										"tag-optional": "\"Flick\""
+									}
+								},
+								{
+									"id": "set-playback-rate",
+									"objectClass": "Audio",
+									"sid": 746150254252934,
+									"parameters": {
+										"tag": "\"Flick\"",
+										"playback-rate": "random(2.5, 2.7)"
+									}
+								}
+							],
+							"sid": 721647425873270
+						}
+					]
+				},
+				{
+					"eventType": "variable",
+					"name": "nudgeStartX",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 230825826387263
+				},
+				{
+					"eventType": "variable",
+					"name": "nudgeStartY",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 345933924524519
+				},
+				{
+					"eventType": "variable",
+					"name": "nudgeDist",
+					"type": "number",
+					"initialValue": "1",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": true,
+					"sid": 774786029717825
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]Mouse Nudging[/h4]",
+					"background-color": [
+						0.8627450980392157,
+						1,
+						0.47843137254901963,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "mouse-button-is-down",
+							"objectClass": "Mouse",
+							"sid": 612115739448792,
+							"parameters": {
+								"mouse-button": "left"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 828172114829440
+						}
+					],
+					"actions": [],
+					"sid": 676726074443231,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "pick-by-comparison",
+									"objectClass": "System",
+									"sid": 191497034983906,
+									"parameters": {
+										"object": "Button",
+										"expression": "Button.For",
+										"comparison": 0,
+										"value": "\"Pause\""
+									}
+								},
+								{
+									"id": "cursor-is-over-object",
+									"objectClass": "Mouse",
+									"sid": 468582094685511,
+									"parameters": {
+										"object": "Button"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 974805873290118,
+									"parameters": {
+										"variable": "NudgePossible",
+										"value": "true"
+									}
+								}
+							],
+							"sid": 214712585078319
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 225045836289778
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 573954194303785,
+									"parameters": {
+										"variable": "NudgePossible",
+										"value": "false"
+									}
+								}
+							],
+							"sid": 356307351548451
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "mouse-button-is-down",
+							"objectClass": "Mouse",
+							"sid": 194229068790179,
+							"parameters": {
+								"mouse-button": "left"
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 894657381955371,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 630706852247026,
+							"disabled": true,
+							"parameters": {
+								"variable": "DesktopMode"
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 803530296737422,
+							"parameters": {
+								"variable": "NudgePossible"
+							}
+						},
+						{
+							"id": "pick-by-comparison",
+							"objectClass": "System",
+							"sid": 619776151657386,
+							"parameters": {
+								"object": "Button",
+								"expression": "Button.For",
+								"comparison": 0,
+								"value": "\"Pause\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 741006310129243,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "is-boolean-instance-variable-set",
+									"objectClass": "Button",
+									"sid": 626554727042241,
+									"parameters": {
+										"instance-variable": "Pressed"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 240288976228931,
+									"parameters": {
+										"variable": "nudgeStartX",
+										"value": "floor(Mouse.X)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 740606270569265,
+									"parameters": {
+										"variable": "nudgeStartY",
+										"value": "floor(Mouse.Y)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 859912814183977,
+									"parameters": {
+										"variable": "NudgePointerX",
+										"value": "floor(Mouse.X)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 498455555754859,
+									"parameters": {
+										"variable": "NudgePointerY",
+										"value": "floor(Mouse.Y)"
+									}
+								}
+							],
+							"sid": 674275269353201
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "cursor-is-over-object",
+									"objectClass": "Mouse",
+									"sid": 662787118264890,
+									"parameters": {
+										"object": "Button"
+									}
+								},
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 842604603681604,
+									"parameters": {
+										"variable": "Nudging"
+									},
+									"isInverted": true
+								},
+								{
+									"id": "evaluate-expression",
+									"objectClass": "System",
+									"sid": 728304264603712,
+									"parameters": {
+										"value": "floor(Mouse.X) <> nudgeStartX | floor(Mouse.Y) <> nudgeStartY"
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "NudgeStart",
+									"sid": 375866143072144
+								}
+							],
+							"sid": 792643622557312
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 506702712481982
+								},
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 847649629797196,
+									"parameters": {
+										"variable": "Nudging"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 402018661092069,
+									"parameters": {
+										"variable": "NudgedX",
+										"value": "floor(Mouse.X) - floor(MouseLastX)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 488036830210519,
+									"parameters": {
+										"variable": "NudgedY",
+										"value": "floor(Mouse.Y) - floor(MouseLastY)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 497615071200312,
+									"parameters": {
+										"variable": "NudgePointerX",
+										"value": "floor(Mouse.X)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 669472840400166,
+									"parameters": {
+										"variable": "NudgePointerY",
+										"value": "floor(Mouse.Y)"
+									}
+								}
+							],
+							"sid": 807822158655141
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-button-released",
+							"objectClass": "Mouse",
+							"sid": 158886613424270,
+							"parameters": {
+								"mouse-button": "left"
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 945857832786430,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "NudgeStop",
+							"sid": 286909594220880
+						}
+					],
+					"sid": 357791466511253
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]Touch Nudging[/h4]",
+					"background-color": [
+						0.8627450980392157,
+						1,
+						0.47843137254901963,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 826165365953884,
+							"parameters": {
+								"first-value": "Touch.TouchCount",
+								"comparison": 0,
+								"second-value": "1"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 771053615595026
+						}
+					],
+					"actions": [],
+					"sid": 105365133703101,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "pick-by-comparison",
+									"objectClass": "System",
+									"sid": 700567234386965,
+									"parameters": {
+										"object": "Button",
+										"expression": "Button.For",
+										"comparison": 0,
+										"value": "\"Pause\""
+									}
+								},
+								{
+									"id": "is-touching-object",
+									"objectClass": "Touch",
+									"sid": 908334378855494,
+									"parameters": {
+										"object": "Button"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 271109350070319,
+									"parameters": {
+										"variable": "NudgePossible",
+										"value": "true"
+									}
+								}
+							],
+							"sid": 302220337617848
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 324605365811977
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 777013162550332,
+									"parameters": {
+										"variable": "NudgePossible",
+										"value": "false"
+									}
+								}
+							],
+							"sid": 475786639478698
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 283733712129780,
+							"parameters": {
+								"first-value": "Touch.TouchCount",
+								"comparison": 0,
+								"second-value": "1"
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 343208915012586,
+							"parameters": {
+								"variable": "Paused"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 860937191079135,
+							"parameters": {
+								"variable": "NudgePossible"
+							}
+						},
+						{
+							"id": "pick-by-comparison",
+							"objectClass": "System",
+							"sid": 101970807580462,
+							"parameters": {
+								"object": "Button",
+								"expression": "Button.For",
+								"comparison": 0,
+								"value": "\"Pause\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 905233025733206,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "is-boolean-instance-variable-set",
+									"objectClass": "Button",
+									"sid": 538056875783098,
+									"parameters": {
+										"instance-variable": "Pressed"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 556149029717311,
+									"parameters": {
+										"variable": "nudgeStartX",
+										"value": "floor(Touch.X)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 778606447910685,
+									"parameters": {
+										"variable": "nudgeStartY",
+										"value": "floor(Touch.Y)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 318315993004249,
+									"parameters": {
+										"variable": "NudgePointerX",
+										"value": "floor(Touch.X)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 494464857716486,
+									"parameters": {
+										"variable": "NudgePointerY",
+										"value": "floor(Touch.Y)"
+									}
+								}
+							],
+							"sid": 189055363598247
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "is-touching-object",
+									"objectClass": "Touch",
+									"sid": 566524918748461,
+									"parameters": {
+										"object": "Button"
+									}
+								},
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 730542852188787,
+									"parameters": {
+										"variable": "Nudging"
+									},
+									"isInverted": true
+								},
+								{
+									"id": "evaluate-expression",
+									"objectClass": "System",
+									"sid": 579584569666779,
+									"parameters": {
+										"value": "floor(Touch.X) <> nudgeStartX | floor(Touch.Y) <> nudgeStartY"
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "NudgeStart",
+									"sid": 491712236296233
+								}
+							],
+							"sid": 441328499744499
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 716279082364917
+								},
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 617875680314095,
+									"parameters": {
+										"variable": "Nudging"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 974139083439454,
+									"parameters": {
+										"variable": "NudgedX",
+										"value": "floor(Touch.X) - floor(TouchLastX)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 653084106440720,
+									"parameters": {
+										"variable": "NudgedY",
+										"value": "floor(Touch.Y) - floor(TouchLastY)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 886306517085391,
+									"parameters": {
+										"variable": "NudgePointerX",
+										"value": "floor(Touch.X)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 842154161949143,
+									"parameters": {
+										"variable": "NudgePointerY",
+										"value": "floor(Touch.Y)"
+									}
+								}
+							],
+							"sid": 707523728636578
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-nth-touch-end",
+							"objectClass": "Touch",
+							"sid": 183293015585842,
+							"parameters": {
+								"touch-number": "0"
+							}
+						},
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 976906872926001,
+							"parameters": {
+								"first-value": "Touch.TouchCount",
+								"comparison": 0,
+								"second-value": "1"
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 635022389525053,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "NudgeStop",
+							"sid": 213653879073445
+						}
+					],
+					"sid": 629629158570054
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]Mouse Dragging on Text Cursor[/h4]",
+					"background-color": [
+						0.8823529411764706,
+						1,
+						0.8196078431372549,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "mouse-button-is-down",
+							"objectClass": "Mouse",
+							"sid": 534774178980420,
+							"parameters": {
+								"mouse-button": "left"
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 285136263504532,
+							"parameters": {
+								"variable": "DesktopMode"
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 818485747712697,
+							"parameters": {
+								"variable": "KeyboardEnabled"
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 734063107572631,
+							"parameters": {
+								"variable": "Peeking"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "pick-by-comparison",
+							"objectClass": "System",
+							"sid": 275062651238176,
+							"parameters": {
+								"object": "MainSpriteFont",
+								"expression": "MainSpriteFont.For",
+								"comparison": 0,
+								"value": "\"KeyboardPrompt\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 760941556848856,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "cursor-is-over-object",
+									"objectClass": "Mouse",
+									"sid": 821858244112228,
+									"parameters": {
+										"object": "MainSpriteFont"
+									}
+								},
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 649155674286925,
+									"parameters": {
+										"variable": "textCursorDragging"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 685245022742733,
+									"parameters": {
+										"variable": "textCursorDragging",
+										"value": "true"
+									}
+								},
+								{
+									"callFunction": "MoveBlinkingTextCursor",
+									"sid": 750068225899085,
+									"parameters": [
+										"\"to-pointer\"",
+										"Mouse.X",
+										"Mouse.Y"
+									]
+								}
+							],
+							"sid": 971317180115396
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 933805160900936
+								},
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 546632299465351,
+									"parameters": {
+										"variable": "textCursorDragging"
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "MoveBlinkingTextCursor",
+									"sid": 323448058017404,
+									"parameters": [
+										"\"to-pointer\"",
+										"Mouse.X",
+										"Mouse.Y"
+									]
+								}
+							],
+							"sid": 913822550921458
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-button-released",
+							"objectClass": "Mouse",
+							"sid": 479101125691105,
+							"parameters": {
+								"mouse-button": "left"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 451186794638590,
+							"parameters": {
+								"variable": "textCursorDragging",
+								"value": "false"
+							}
+						}
+					],
+					"sid": 283028761923330
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]Touch Dragging on Text Cursor[/h4]",
+					"background-color": [
+						0.8823529411764706,
+						1,
+						0.8196078431372549,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "pick-by-comparison",
+							"objectClass": "System",
+							"sid": 796491242974234,
+							"parameters": {
+								"object": "MainSpriteFont",
+								"expression": "MainSpriteFont.For",
+								"comparison": 0,
+								"value": "\"KeyboardPrompt\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 252078774692391,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "on-touched-object",
+									"objectClass": "Touch",
+									"sid": 403949962029909,
+									"parameters": {
+										"object": "MainSpriteFont",
+										"type": "start"
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 401356411622556,
+									"parameters": {
+										"first-value": "Touch.TouchCount",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								},
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 287959228681131,
+									"parameters": {
+										"variable": "KeyboardEnabled"
+									}
+								},
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 511156331280862,
+									"parameters": {
+										"variable": "Peeking"
+									},
+									"isInverted": true
+								},
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 894954189858491,
+									"parameters": {
+										"variable": "textCursorDragging"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [
+								{
+									"type": "comment",
+									"text": "Jump TextCursor to proper point."
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 108309240300801,
+									"parameters": {
+										"variable": "textCursorDragX",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 603520078602322,
+									"parameters": {
+										"variable": "textCursorDragY",
+										"value": "0"
+									}
+								},
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 782094398894311,
+									"parameters": {
+										"variable": "textCursorDragging",
+										"value": "true"
+									}
+								}
+							],
+							"sid": 915889304652468
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 881356668168707,
+									"parameters": {
+										"variable": "textCursorDragging"
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 674013390284718,
+									"parameters": {
+										"first-value": "Touch.TouchCount",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								},
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 570009243062099,
+									"parameters": {
+										"variable": "KeyboardEnabled"
+									}
+								},
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 719101865506140,
+									"parameters": {
+										"variable": "Peeking"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 782445123245497,
+									"parameters": {
+										"variable": "textCursorDragX",
+										"value": "textCursorDragX + (Touch.X - TouchLastX)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 792549720964059,
+									"parameters": {
+										"variable": "textCursorDragY",
+										"value": "textCursorDragY +  (Touch.Y - TouchLastY)"
+									}
+								}
+							],
+							"sid": 776849987619590,
+							"children": [
+								{
+									"eventType": "comment",
+									"text": "Right"
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 227099359876263,
+											"parameters": {
+												"first-value": "textCursorDragX",
+												"comparison": 4,
+												"second-value": "textCursorDragThreshold"
+											}
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "MoveBlinkingTextCursor",
+											"sid": 305791291340361,
+											"parameters": [
+												"\"right\"",
+												"0",
+												"0"
+											]
+										},
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 926138524228691,
+											"parameters": {
+												"variable": "textCursorDragX",
+												"value": "0"
+											}
+										}
+									],
+									"sid": 333382177182999
+								},
+								{
+									"eventType": "comment",
+									"text": "Left"
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 641029919864978
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 894734126723364,
+											"parameters": {
+												"first-value": "textCursorDragX",
+												"comparison": 2,
+												"second-value": "-textCursorDragThreshold"
+											}
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "MoveBlinkingTextCursor",
+											"sid": 351702967175685,
+											"parameters": [
+												"\"left\"",
+												"0",
+												"0"
+											]
+										},
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 548778030442445,
+											"parameters": {
+												"variable": "textCursorDragX",
+												"value": "0"
+											}
+										}
+									],
+									"sid": 778143219844085
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-nth-touch-end",
+							"objectClass": "Touch",
+							"sid": 887514722270905,
+							"parameters": {
+								"touch-number": "0"
+							}
+						},
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 459765904336967,
+							"parameters": {
+								"first-value": "Touch.TouchCount",
+								"comparison": 0,
+								"second-value": "1"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 894425792402017,
+							"parameters": {
+								"variable": "textCursorDragging",
+								"value": "false"
+							}
+						}
+					],
+					"sid": 108281195387894
+				},
+				{
+					"eventType": "variable",
+					"name": "PeekDragging",
+					"type": "boolean",
+					"initialValue": "false",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 228408830092962
+				},
+				{
+					"eventType": "variable",
+					"name": "PeekDragLastX",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 698729215933283
+				},
+				{
+					"eventType": "variable",
+					"name": "PeekDragLastY",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 274096056074941
+				},
+				{
+					"eventType": "variable",
+					"name": "PeekX",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": false,
+					"isConstant": false,
+					"sid": 763030150542497
+				},
+				{
+					"eventType": "variable",
+					"name": "PeekY",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": false,
+					"isConstant": false,
+					"sid": 903243490680089
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 263503227184410,
+							"parameters": {
+								"variable": "Peeking"
+							}
+						}
+					],
+					"actions": [],
+					"sid": 415598107562236,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "[h4]Mouse Peek XY[/h4]",
+							"background-color": [
+								0.8627450980392157,
+								1,
+								0.47843137254901963,
+								1
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 815602832614322,
+									"parameters": {
+										"variable": "PeekDragging"
+									},
+									"isInverted": true
+								},
+								{
+									"id": "mouse-button-is-down",
+									"objectClass": "Mouse",
+									"sid": 791215938052065,
+									"parameters": {
+										"mouse-button": "left"
+									}
+								},
+								{
+									"id": "cursor-is-over-object",
+									"objectClass": "Mouse",
+									"sid": 788098401180220,
+									"parameters": {
+										"object": "PeekBuffer"
+									}
+								},
+								{
+									"id": "trigger-once-while-true",
+									"objectClass": "System",
+									"sid": 545400022658066
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 157924358520514,
+									"parameters": {
+										"variable": "PeekDragging",
+										"value": "true"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 746425488838407,
+									"parameters": {
+										"variable": "PeekDragLastX",
+										"value": "floor(Mouse.X)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 904388305000262,
+									"parameters": {
+										"variable": "PeekDragLastY",
+										"value": "floor(Mouse.Y)"
+									}
+								}
+							],
+							"sid": 201193979750302
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 142808363787785,
+									"parameters": {
+										"variable": "PeekDragging"
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 990022936460571,
+									"parameters": {
+										"first-value": "Touch.TouchCount",
+										"comparison": 0,
+										"second-value": "0"
+									}
+								},
+								{
+									"id": "evaluate-expression",
+									"objectClass": "System",
+									"sid": 722691096143225,
+									"parameters": {
+										"value": "floor(Mouse.X) <> PeekDragLastX | floor(Mouse.Y) <> PeekDragLastY"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-x",
+									"objectClass": "PeekCrosshair",
+									"sid": 105364980125550,
+									"parameters": {
+										"x": "clamp(Self.X + floor(Mouse.X - PeekDragLastX), 0, 255)"
+									}
+								},
+								{
+									"id": "set-y",
+									"objectClass": "PeekCrosshair",
+									"sid": 638332780251178,
+									"parameters": {
+										"y": "clamp(Self.Y + floor(Mouse.Y - PeekDragLastY), 0 + PeekBuffer.Y, 255 + PeekBuffer.Y)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 471986137835935,
+									"parameters": {
+										"variable": "PeekDragLastX",
+										"value": "floor(Mouse.X)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 777181114658951,
+									"parameters": {
+										"variable": "PeekDragLastY",
+										"value": "floor(Mouse.Y)"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "Render Peek"
+								},
+								{
+									"callFunction": "PeekXYRender",
+									"sid": 274309088737845,
+									"parameters": [
+										true
+									]
+								}
+							],
+							"sid": 256406196612780
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "on-button-released",
+									"objectClass": "Mouse",
+									"sid": 344024188219754,
+									"parameters": {
+										"mouse-button": "left"
+									}
+								},
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 347707645635994,
+									"parameters": {
+										"variable": "PeekDragging"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 389554044019641,
+									"parameters": {
+										"variable": "PeekDragging",
+										"value": "false"
+									}
+								}
+							],
+							"sid": 824633504910170
+						},
+						{
+							"eventType": "comment",
+							"text": "[h4]Touch Peek XY[/h4]",
+							"background-color": [
+								0.8627450980392157,
+								1,
+								0.47843137254901963,
+								1
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 670007388172370,
+									"parameters": {
+										"variable": "PeekDragging"
+									},
+									"isInverted": true
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 813265635844363,
+									"parameters": {
+										"first-value": "Touch.TouchCount",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								},
+								{
+									"id": "is-touching-object",
+									"objectClass": "Touch",
+									"sid": 949645606448880,
+									"parameters": {
+										"object": "PeekBuffer"
+									}
+								},
+								{
+									"id": "trigger-once-while-true",
+									"objectClass": "System",
+									"sid": 880996957215495
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 413709849244952,
+									"parameters": {
+										"variable": "PeekDragging",
+										"value": "true"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 123489936568294,
+									"parameters": {
+										"variable": "PeekDragLastX",
+										"value": "floor(Touch.X)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 131510228875835,
+									"parameters": {
+										"variable": "PeekDragLastY",
+										"value": "floor(Touch.Y)"
+									}
+								}
+							],
+							"sid": 818778707937136
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 864235861880746,
+									"parameters": {
+										"variable": "PeekDragging"
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 305745003956719,
+									"parameters": {
+										"first-value": "Touch.TouchCount",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								},
+								{
+									"id": "evaluate-expression",
+									"objectClass": "System",
+									"sid": 188980393753904,
+									"parameters": {
+										"value": "floor(Touch.X) <> PeekDragLastX | floor(Touch.Y) <> PeekDragLastY"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-x",
+									"objectClass": "PeekCrosshair",
+									"sid": 552577907052747,
+									"parameters": {
+										"x": "clamp(Self.X + floor(Touch.X - PeekDragLastX), 0, 255)"
+									}
+								},
+								{
+									"id": "set-y",
+									"objectClass": "PeekCrosshair",
+									"sid": 492027062443907,
+									"parameters": {
+										"y": "clamp(Self.Y + floor(Touch.Y - PeekDragLastY), 0 + PeekBuffer.Y, 255 + PeekBuffer.Y)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 243893005934757,
+									"parameters": {
+										"variable": "PeekDragLastX",
+										"value": "floor(Touch.X)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 426747283514011,
+									"parameters": {
+										"variable": "PeekDragLastY",
+										"value": "floor(Touch.Y)"
+									}
+								},
+								{
+									"type": "comment",
+									"text": "Render Peek"
+								},
+								{
+									"callFunction": "PeekXYRender",
+									"sid": 312167068939040,
+									"parameters": [
+										true
+									]
+								}
+							],
+							"sid": 385535346636433
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "on-nth-touch-end",
+									"objectClass": "Touch",
+									"sid": 346988907923425,
+									"parameters": {
+										"touch-number": "0"
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 452986382821325,
+									"parameters": {
+										"first-value": "Touch.TouchCount",
+										"comparison": 0,
+										"second-value": "1"
+									}
+								},
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 462554958174097,
+									"parameters": {
+										"variable": "PeekDragging"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 942144284810545,
+									"parameters": {
+										"variable": "PeekDragging",
+										"value": "false"
+									}
+								}
+							],
+							"sid": 183298994791475
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]General Mouse Controls[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "Pressed"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-object-clicked",
+							"objectClass": "Mouse",
+							"sid": 189700862747229,
+							"parameters": {
+								"mouse-button": "left",
+								"click-type": "clicked",
+								"object-clicked": "Button"
+							}
+						},
+						{
+							"id": "is-boolean-instance-variable-set",
+							"objectClass": "Button",
+							"sid": 968745456978273,
+							"parameters": {
+								"instance-variable": "Disabled"
+							},
+							"isInverted": true
+						}
+					],
+					"actions": [
+						{
+							"id": "log",
+							"objectClass": "Browser",
+							"sid": 899472111007967,
+							"disabled": true,
+							"parameters": {
+								"type": "log",
+								"message": "\"🐭 Down\""
+							}
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 477142634131815,
+							"parameters": {
+								"variable": "AnyButtonPressed",
+								"value": "true"
+							}
+						},
+						{
+							"id": "set-time-scale",
+							"objectClass": "System",
+							"sid": 342297294319482,
+							"disabled": true,
+							"parameters": {
+								"time-scale": "0"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Make mouse cursor visible when a button is pressed."
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "Cursor",
+							"sid": 570338758342686,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-opacity",
+							"objectClass": "Cursor",
+							"sid": 950469694373941,
+							"parameters": {
+								"opacity": "100"
+							}
+						},
+						{
+							"id": "set-default-color",
+							"objectClass": "Cursor",
+							"sid": 497775129005622,
+							"parameters": {
+								"color": "rgbEx(100, 100, 100)"
+							}
+						}
+					],
+					"sid": 385376267006137
+				},
+				{
+					"eventType": "comment",
+					"text": "Dragging (Over Button)"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "mouse-button-is-down",
+							"objectClass": "Mouse",
+							"sid": 325061713337150,
+							"parameters": {
+								"mouse-button": "left"
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 901119437369071,
+							"parameters": {
+								"variable": "AnyButtonPressed"
+							}
+						},
+						{
+							"id": "is-boolean-instance-variable-set",
+							"objectClass": "Button",
+							"sid": 117338697002580,
+							"parameters": {
+								"instance-variable": "Disabled"
+							},
+							"isInverted": true
+						}
+					],
+					"actions": [],
+					"sid": 123392296898884,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "is-boolean-instance-variable-set",
+									"objectClass": "Button",
+									"sid": 981618008667360,
+									"parameters": {
+										"instance-variable": "Pressed"
+									}
+								},
+								{
+									"id": "cursor-is-over-object",
+									"objectClass": "Mouse",
+									"sid": 205807294443868,
+									"parameters": {
+										"object": "Button"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-instvar",
+									"objectClass": "Button",
+									"sid": 293981096290837,
+									"parameters": {
+										"instance-variable": "Pressed",
+										"value": "false"
+									}
+								},
+								{
+									"callFunction": "CheckButtons",
+									"sid": 553290422764446,
+									"parameters": [
+										"Button.For",
+										"\"Depressed\""
+									]
+								}
+							],
+							"sid": 398136429356238
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "cursor-is-over-object",
+									"objectClass": "Mouse",
+									"sid": 284194088783411,
+									"parameters": {
+										"object": "Button"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-instvar",
+									"objectClass": "Button",
+									"sid": 206228602091796,
+									"parameters": {
+										"instance-variable": "Pressed",
+										"value": "true"
+									}
+								},
+								{
+									"callFunction": "CheckButtons",
+									"sid": 434271160251882,
+									"parameters": [
+										"Button.For",
+										"\"Pressed\""
+									]
+								}
+							],
+							"sid": 586376690397140
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 653454423432735
+								},
+								{
+									"id": "trigger-once-while-true",
+									"objectClass": "System",
+									"sid": 409183390284058
+								}
+							],
+							"actions": [
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 662509670664447,
+									"parameters": {
+										"audio-file": {
+											"path": "Generic/Generic - Cancel"
+										},
+										"loop": "not-looping",
+										"volume": "GenericCancelDecibels",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								}
+							],
+							"sid": 398058341334902
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "Released"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-button-released",
+							"objectClass": "Mouse",
+							"sid": 579468032441097,
+							"parameters": {
+								"mouse-button": "left"
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 304434459750270,
+							"parameters": {
+								"variable": "AnyButtonPressed"
+							}
+						},
+						{
+							"id": "is-boolean-instance-variable-set",
+							"objectClass": "Button",
+							"sid": 540705942368812,
+							"parameters": {
+								"instance-variable": "Disabled"
+							},
+							"isInverted": true
+						}
+					],
+					"actions": [
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 551656807025608,
+							"parameters": {
+								"variable": "AnyButtonPressed",
+								"value": "false"
+							}
+						},
+						{
+							"id": "set-boolean-instvar",
+							"objectClass": "Button",
+							"sid": 942046593981068,
+							"parameters": {
+								"instance-variable": "Pressed",
+								"value": "false"
+							}
+						},
+						{
+							"id": "set-animation",
+							"objectClass": "Cursor",
+							"sid": 807627544856293,
+							"parameters": {
+								"animation": "\"Normal\"",
+								"from": "beginning"
+							}
+						}
+					],
+					"sid": 647835676347118,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "Only resume if the system is not officially \"Paused\"."
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 299957155679337,
+									"parameters": {
+										"variable": "Paused"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [
+								{
+									"id": "set-time-scale",
+									"objectClass": "System",
+									"sid": 151347335719526,
+									"parameters": {
+										"time-scale": "1"
+									}
+								}
+							],
+							"sid": 572588273112503
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "cursor-is-over-object",
+									"objectClass": "Mouse",
+									"sid": 644472997298108,
+									"parameters": {
+										"object": "Button"
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "PointerLiftedOverButton",
+									"sid": 231564735199504,
+									"parameters": [
+										false,
+										"Button.For"
+									]
+								}
+							],
+							"sid": 829528174960060
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "Hovering"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 165057399981827
+						}
+					],
+					"actions": [
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 913990165395431,
+							"parameters": {
+								"variable": "CarriedHover",
+								"value": "true"
+							}
+						}
+					],
+					"sid": 232893218824610
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "evaluate-expression",
+							"objectClass": "System",
+							"sid": 564497088754040,
+							"parameters": {
+								"value": "Mouse.X <> MouseLastX | Mouse.Y <> MouseLastY"
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 227099898205606,
+							"parameters": {
+								"variable": "CarriedHover"
+							}
+						}
+					],
+					"actions": [],
+					"sid": 672961203032845,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 971056326285779,
+									"parameters": {
+										"variable": "DesktopMode"
+									}
+								},
+								{
+									"id": "is-boolean-instance-variable-set",
+									"objectClass": "Button",
+									"sid": 143063539696416,
+									"parameters": {
+										"instance-variable": "Disabled"
+									},
+									"isInverted": true
+								},
+								{
+									"id": "is-boolean-instance-variable-set",
+									"objectClass": "Button",
+									"sid": 318680939909875,
+									"parameters": {
+										"instance-variable": "Pressed"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [],
+							"sid": 216365149626313,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "is-boolean-instance-variable-set",
+											"objectClass": "Button",
+											"sid": 497642020672759,
+											"parameters": {
+												"instance-variable": "Hovered"
+											}
+										},
+										{
+											"id": "cursor-is-over-object",
+											"objectClass": "Mouse",
+											"sid": 198345251816909,
+											"parameters": {
+												"object": "Button"
+											},
+											"isInverted": true
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "CheckButtons",
+											"sid": 929041360669191,
+											"parameters": [
+												"Button.For",
+												"\"Unhover\""
+											]
+										},
+										{
+											"id": "log",
+											"objectClass": "Browser",
+											"sid": 359482575161236,
+											"disabled": true,
+											"parameters": {
+												"type": "log",
+												"message": "\"Unhover: \" & Button.For"
+											}
+										},
+										{
+											"id": "set-boolean-instvar",
+											"objectClass": "Button",
+											"sid": 481688698081077,
+											"parameters": {
+												"instance-variable": "Hovered",
+												"value": "false"
+											}
+										},
+										{
+											"id": "set-boolean-eventvar",
+											"objectClass": "System",
+											"sid": 712558216800029,
+											"parameters": {
+												"variable": "CarriedHover",
+												"value": "false"
+											}
+										}
+									],
+									"sid": 776208021887141
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 226296171517832
+										},
+										{
+											"id": "is-boolean-instance-variable-set",
+											"objectClass": "Button",
+											"sid": 947308134143428,
+											"parameters": {
+												"instance-variable": "Hovered"
+											},
+											"isInverted": true
+										},
+										{
+											"id": "cursor-is-over-object",
+											"objectClass": "Mouse",
+											"sid": 952524945504959,
+											"parameters": {
+												"object": "Button"
+											}
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "CheckButtons",
+											"sid": 561763097685766,
+											"parameters": [
+												"Button.For",
+												"\"Hover\""
+											]
+										},
+										{
+											"id": "log",
+											"objectClass": "Browser",
+											"sid": 414978951002049,
+											"disabled": true,
+											"parameters": {
+												"type": "log",
+												"message": "\"Over: \" & Button.For"
+											}
+										},
+										{
+											"id": "set-boolean-instvar",
+											"objectClass": "Button",
+											"sid": 228754280228309,
+											"parameters": {
+												"instance-variable": "Hovered",
+												"value": "true"
+											}
+										},
+										{
+											"id": "set-boolean-eventvar",
+											"objectClass": "System",
+											"sid": 921414351655900,
+											"parameters": {
+												"variable": "CarriedHover",
+												"value": "false"
+											}
+										}
+									],
+									"sid": 303721193599367
+								}
+							]
+						}
+					],
+					"isOrBlock": true
+				},
+				{
+					"eventType": "comment",
+					"text": "[h4]Mouse Cursor[/h4]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "cursor-is-over-object",
+							"objectClass": "Mouse",
+							"sid": 169059409853844,
+							"parameters": {
+								"object": "Button"
+							}
+						},
+						{
+							"id": "is-boolean-instance-variable-set",
+							"objectClass": "Button",
+							"sid": 400903277034163,
+							"parameters": {
+								"instance-variable": "Disabled"
+							},
+							"isInverted": true
+						}
+					],
+					"actions": [],
+					"sid": 560614293103018,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 926582269817241,
+									"parameters": {
+										"variable": "DesktopMode"
+									}
+								}
+							],
+							"actions": [],
+							"sid": 411904382399519,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-boolean-eventvar",
+											"objectClass": "System",
+											"sid": 728535384047851,
+											"parameters": {
+												"variable": "Nudging"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "stop-timer",
+											"objectClass": "GlobalClock",
+											"sid": 786738526608378,
+											"behaviorType": "Timer",
+											"parameters": {
+												"tag": "\"CursorNormalTimer\""
+											}
+										}
+									],
+									"sid": 107457343253500,
+									"children": [
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "compare-two-values",
+													"objectClass": "System",
+													"sid": 564471688931028,
+													"parameters": {
+														"first-value": "Cursor.AnimationName",
+														"comparison": 1,
+														"second-value": "\"No Nudge\""
+													}
+												}
+											],
+											"actions": [
+												{
+													"id": "set-animation",
+													"objectClass": "Cursor",
+													"sid": 193717322584251,
+													"parameters": {
+														"animation": "\"Nudging\"",
+														"from": "beginning"
+													}
+												}
+											],
+											"sid": 188059730086354
+										}
+									]
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 936955928890442
+										}
+									],
+									"actions": [
+										{
+											"id": "set-animation",
+											"objectClass": "Cursor",
+											"sid": 849314775220450,
+											"parameters": {
+												"animation": "\"Over Button\"",
+												"from": "beginning"
+											}
+										}
+									],
+									"sid": 598436393332529
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 579388604179233
+								}
+							],
+							"actions": [
+								{
+									"id": "set-cursor-style",
+									"objectClass": "Mouse",
+									"sid": 157024828698348,
+									"parameters": {
+										"cursor-style": "hand"
+									}
+								}
+							],
+							"sid": 380935705593309
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "else",
+							"objectClass": "System",
+							"sid": 312742696772468
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 834028625108989,
+							"parameters": {
+								"variable": "Nudging"
+							},
+							"isInverted": true
+						}
+					],
+					"actions": [
+						{
+							"id": "set-animation",
+							"objectClass": "Cursor",
+							"sid": 956696408170563,
+							"parameters": {
+								"animation": "\"Normal\"",
+								"from": "beginning"
+							}
+						}
+					],
+					"sid": 512985673943759,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 899118158703502,
+									"parameters": {
+										"variable": "DesktopMode"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [
+								{
+									"id": "set-cursor-style",
+									"objectClass": "Mouse",
+									"sid": 796727284094052,
+									"parameters": {
+										"cursor-style": "normal"
+									}
+								}
+							],
+							"sid": 946978413345605
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Exception[/b]: Don't flicker the cursor for the No, Paint, and PlayMode buttons."
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "cursor-is-over-object",
+							"objectClass": "Mouse",
+							"sid": 732192012654979,
+							"parameters": {
+								"object": "Button"
+							}
+						},
+						{
+							"id": "is-boolean-instance-variable-set",
+							"objectClass": "Button",
+							"sid": 453109958680624,
+							"parameters": {
+								"instance-variable": "Disabled"
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 100103449996295,
+							"parameters": {
+								"variable": "DesktopMode"
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 332605314541718,
+							"parameters": {
+								"variable": "Peeking"
+							},
+							"isInverted": true
+						},
+						{
+							"id": "pick-by-evaluate",
+							"objectClass": "System",
+							"sid": 226318062499004,
+							"parameters": {
+								"object": "Button",
+								"expression": "Button.For = \"No\" | Button.For = \"Paint\" | Button.For = \"PlayMode\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-animation",
+							"objectClass": "Cursor",
+							"sid": 624496468166374,
+							"parameters": {
+								"animation": "\"Over Button\"",
+								"from": "beginning"
+							}
+						}
+					],
+					"sid": 988394676838679
+				},
+				{
+					"eventType": "comment",
+					"text": "Wavy Mouse Finger"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 645245829627558
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 889882529573807,
+							"parameters": {
+								"variable": "DesktopMode"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-object-time-scale",
+							"objectClass": "System",
+							"sid": 307307631774279,
+							"parameters": {
+								"object": "Cursor",
+								"time-scale": "1"
+							}
+						},
+						{
+							"id": "start-timer",
+							"objectClass": "GlobalClock",
+							"sid": 624042002002699,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "0.2",
+								"type": "once",
+								"tag": "\"WagCursorTimer\""
+							}
+						}
+					],
+					"sid": 684551070630562
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "GlobalClock",
+							"sid": 256453401020439,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"WagCursorTimer\""
+							}
+						},
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 788419932963716,
+							"parameters": {
+								"first-value": "Cursor.AnimationName",
+								"comparison": 0,
+								"second-value": "\"Over Button\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-animation-frame",
+							"objectClass": "Cursor",
+							"sid": 229399110342934,
+							"parameters": {
+								"frame-number": "0"
+							}
+						}
+					],
+					"sid": 719460311220919
+				},
+				{
+					"eventType": "comment",
+					"text": "Continuous Checks"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 715479541619262
+						}
+					],
+					"actions": [],
+					"sid": 598656795111633,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 886862552540691,
+									"parameters": {
+										"variable": "DesktopMode"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-position",
+									"objectClass": "Cursor",
+									"sid": 923023947679574,
+									"parameters": {
+										"x": "floor(Mouse.X)",
+										"y": "floor(Mouse.Y)"
+									}
+								}
+							],
+							"sid": 474029597858636,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 736499115995936,
+											"parameters": {
+												"first-value": "Cursor.AnimationName",
+												"comparison": 0,
+												"second-value": "\"Over Button\""
+											}
+										},
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 384217566381202,
+											"parameters": {
+												"first-value": "Cursor.AnimationFrame",
+												"comparison": 0,
+												"second-value": "0"
+											}
+										}
+									],
+									"actions": [],
+									"sid": 197507617028367,
+									"children": [
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "compare-two-values",
+													"objectClass": "System",
+													"sid": 984347483171553,
+													"parameters": {
+														"first-value": "Mouse.X - MouseLastX",
+														"comparison": 4,
+														"second-value": "1"
+													}
+												}
+											],
+											"actions": [
+												{
+													"id": "set-animation-frame",
+													"objectClass": "Cursor",
+													"sid": 522097087168369,
+													"parameters": {
+														"frame-number": "2"
+													}
+												}
+											],
+											"sid": 748194552947468
+										},
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "else",
+													"objectClass": "System",
+													"sid": 501332427768402
+												},
+												{
+													"id": "compare-two-values",
+													"objectClass": "System",
+													"sid": 197950114585265,
+													"parameters": {
+														"first-value": "Mouse.X - MouseLastX",
+														"comparison": 2,
+														"second-value": "-1"
+													}
+												}
+											],
+											"actions": [
+												{
+													"id": "set-animation-frame",
+													"objectClass": "Cursor",
+													"sid": 156933209504157,
+													"parameters": {
+														"frame-number": "1"
+													}
+												}
+											],
+											"sid": 331053697356959
+										},
+										{
+											"eventType": "block",
+											"conditions": [],
+											"actions": [
+												{
+													"id": "stop-timer",
+													"objectClass": "GlobalClock",
+													"sid": 723177481065786,
+													"behaviorType": "Timer",
+													"parameters": {
+														"tag": "\"WagCursorTimer\""
+													}
+												},
+												{
+													"id": "start-timer",
+													"objectClass": "GlobalClock",
+													"sid": 612418103175686,
+													"behaviorType": "Timer",
+													"parameters": {
+														"duration": "0.2",
+														"type": "once",
+														"tag": "\"WagCursorTimer\""
+													}
+												}
+											],
+											"sid": 637175002384574
+										}
+									]
+								},
+								{
+									"eventType": "comment",
+									"text": "Cursor Visibility"
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "evaluate-expression",
+											"objectClass": "System",
+											"sid": 210037152202863,
+											"parameters": {
+												"value": "Cursor.X <= 0 | Cursor.X > ViewportWidth(0) | Cursor.Y <= 0 | Cursor.Y > ViewportHeight(0)"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-cursor-style",
+											"objectClass": "Mouse",
+											"sid": 798372386350716,
+											"parameters": {
+												"cursor-style": "normal"
+											}
+										},
+										{
+											"id": "set-visible",
+											"objectClass": "Cursor",
+											"sid": 548075852045482,
+											"parameters": {
+												"visibility": "invisible"
+											}
+										}
+									],
+									"sid": 761560265639951
+								},
+								{
+									"eventType": "comment",
+									"text": "Autohide"
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "else",
+											"objectClass": "System",
+											"sid": 423110634282193
+										}
+									],
+									"actions": [
+										{
+											"id": "set-cursor-style",
+											"objectClass": "Mouse",
+											"sid": 865738258474729,
+											"parameters": {
+												"cursor-style": "none"
+											}
+										}
+									],
+									"sid": 930402083310219,
+									"children": [
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "evaluate-expression",
+													"objectClass": "System",
+													"sid": 284407288692898,
+													"parameters": {
+														"value": "Mouse.X <> MouseLastX | Mouse.Y <> MouseLastY"
+													}
+												}
+											],
+											"actions": [
+												{
+													"id": "set-visible",
+													"objectClass": "Cursor",
+													"sid": 440107527614890,
+													"parameters": {
+														"visibility": "visible"
+													}
+												},
+												{
+													"id": "set-opacity",
+													"objectClass": "Cursor",
+													"sid": 825691781249211,
+													"parameters": {
+														"opacity": "100"
+													}
+												},
+												{
+													"id": "set-default-color",
+													"objectClass": "Cursor",
+													"sid": 299795816075798,
+													"parameters": {
+														"color": "rgbEx(100, 100, 100)"
+													}
+												},
+												{
+													"id": "stop-timer",
+													"objectClass": "GlobalClock",
+													"sid": 432484436772855,
+													"behaviorType": "Timer",
+													"parameters": {
+														"tag": "\"HideCursorTimer\""
+													}
+												}
+											],
+											"sid": 926133948566741
+										},
+										{
+											"eventType": "block",
+											"conditions": [
+												{
+													"id": "else",
+													"objectClass": "System",
+													"sid": 555479995543248
+												},
+												{
+													"id": "compare-boolean-eventvar",
+													"objectClass": "System",
+													"sid": 335871543476711,
+													"parameters": {
+														"variable": "AnyButtonPressed"
+													},
+													"isInverted": true
+												},
+												{
+													"id": "compare-boolean-eventvar",
+													"objectClass": "System",
+													"sid": 176131612648912,
+													"parameters": {
+														"variable": "Nudging"
+													},
+													"isInverted": true
+												},
+												{
+													"id": "trigger-once-while-true",
+													"objectClass": "System",
+													"sid": 439192555264711
+												}
+											],
+											"actions": [
+												{
+													"id": "start-timer",
+													"objectClass": "GlobalClock",
+													"sid": 663298432322397,
+													"behaviorType": "Timer",
+													"parameters": {
+														"duration": "1.0",
+														"type": "once",
+														"tag": "\"HideCursorTimer\""
+													}
+												}
+											],
+											"sid": 310487245417375
+										}
+									]
+								}
+							]
+						},
+						{
+							"eventType": "comment",
+							"text": "Keep track of last mouse position."
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 322019092368940,
+									"parameters": {
+										"variable": "MouseLastX",
+										"value": "Mouse.X"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 864239417259697,
+									"parameters": {
+										"variable": "MouseLastY",
+										"value": "Mouse.Y"
+									}
+								}
+							],
+							"sid": 616687980529723
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "GlobalClock",
+							"sid": 450902763092495,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"HideCursorTimer\""
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 411242489906144,
+							"parameters": {
+								"variable": "AnyButtonPressed"
+							},
+							"isInverted": true
+						}
+					],
+					"actions": [
+						{
+							"id": "set-default-color",
+							"objectClass": "Cursor",
+							"sid": 866115012854066,
+							"parameters": {
+								"color": "rgbEx(50, 50, 50)"
+							}
+						},
+						{
+							"id": "set-opacity",
+							"objectClass": "Cursor",
+							"sid": 661612625625546,
+							"parameters": {
+								"opacity": "25"
+							}
+						}
+					],
+					"sid": 845101683699657
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]General Touch Controls[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 637220286750117,
+							"parameters": {
+								"first-value": "Touch.TouchCount",
+								"comparison": 4,
+								"second-value": "1"
+							}
+						},
+						{
+							"id": "is-boolean-instance-variable-set",
+							"objectClass": "Button",
+							"sid": 528798398002175,
+							"parameters": {
+								"instance-variable": "Pressed"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-boolean-instvar",
+							"objectClass": "Button",
+							"sid": 692895693790687,
+							"parameters": {
+								"instance-variable": "Pressed",
+								"value": "false"
+							}
+						},
+						{
+							"callFunction": "CheckButtons",
+							"sid": 451781415463749,
+							"parameters": [
+								"Button.For",
+								"\"Depressed\""
+							]
+						},
+						{
+							"callFunction": "GraphicKeyboardTouchPreview",
+							"sid": 503116538446584,
+							"parameters": [
+								"Button.For",
+								"\"Depressed\""
+							]
+						},
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 339905488492607,
+							"parameters": {
+								"variable": "AnyButtonPressed",
+								"value": "false"
+							}
+						},
+						{
+							"id": "set-time-scale",
+							"objectClass": "System",
+							"sid": 699244081362359,
+							"disabled": true,
+							"parameters": {
+								"time-scale": "1"
+							}
+						}
+					],
+					"sid": 341408960971435
+				},
+				{
+					"eventType": "comment",
+					"text": "Touched"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-touched-object",
+							"objectClass": "Touch",
+							"sid": 904150763378755,
+							"parameters": {
+								"object": "Button",
+								"type": "start"
+							}
+						},
+						{
+							"id": "has-nth-touch",
+							"objectClass": "Touch",
+							"sid": 368526528891496,
+							"disabled": true,
+							"parameters": {
+								"touch-number": "0"
+							}
+						},
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 826912656920749,
+							"parameters": {
+								"first-value": "Touch.TouchCount",
+								"comparison": 0,
+								"second-value": "1"
+							}
+						},
+						{
+							"id": "is-boolean-instance-variable-set",
+							"objectClass": "Button",
+							"sid": 556412993151060,
+							"parameters": {
+								"instance-variable": "Disabled"
+							},
+							"isInverted": true
+						}
+					],
+					"actions": [
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 359078604261941,
+							"parameters": {
+								"variable": "AnyButtonPressed",
+								"value": "true"
+							}
+						},
+						{
+							"id": "set-time-scale",
+							"objectClass": "System",
+							"sid": 350536469614588,
+							"disabled": true,
+							"parameters": {
+								"time-scale": "0"
+							}
+						}
+					],
+					"sid": 982312201626529
+				},
+				{
+					"eventType": "comment",
+					"text": "Moved"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 651307360962491,
+							"parameters": {
+								"first-value": "Touch.TouchCount",
+								"comparison": 0,
+								"second-value": "1"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 659492045347194,
+							"parameters": {
+								"variable": "TouchLastX",
+								"value": "Touch.X"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 548080050079963,
+							"parameters": {
+								"variable": "TouchLastY",
+								"value": "Touch.Y"
+							}
+						}
+					],
+					"sid": 903073508215848
+				},
+				{
+					"eventType": "comment",
+					"text": "Moved (while button is pressed)"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "has-nth-touch",
+							"objectClass": "Touch",
+							"sid": 200676759776108,
+							"disabled": true,
+							"parameters": {
+								"touch-number": "0"
+							}
+						},
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 761512646881287,
+							"parameters": {
+								"first-value": "Touch.TouchCount",
+								"comparison": 0,
+								"second-value": "1"
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 851560060803064,
+							"parameters": {
+								"variable": "AnyButtonPressed"
+							}
+						},
+						{
+							"id": "is-boolean-instance-variable-set",
+							"objectClass": "Button",
+							"sid": 377326560212413,
+							"parameters": {
+								"instance-variable": "Disabled"
+							},
+							"isInverted": true
+						}
+					],
+					"actions": [],
+					"sid": 258304513272103,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "is-boolean-instance-variable-set",
+									"objectClass": "Button",
+									"sid": 199946060276609,
+									"parameters": {
+										"instance-variable": "Pressed"
+									}
+								},
+								{
+									"id": "is-touching-object",
+									"objectClass": "Touch",
+									"sid": 544197375245572,
+									"parameters": {
+										"object": "Button"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-instvar",
+									"objectClass": "Button",
+									"sid": 326069598252698,
+									"parameters": {
+										"instance-variable": "Pressed",
+										"value": "false"
+									}
+								},
+								{
+									"callFunction": "CheckButtons",
+									"sid": 565318626954212,
+									"parameters": [
+										"Button.For",
+										"\"Depressed\""
+									]
+								}
+							],
+							"sid": 468605851305938,
+							"children": [
+								{
+									"eventType": "comment",
+									"text": "If touched off of a [i]GraphicKeyboard[/i] button."
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 159041898177587,
+											"parameters": {
+												"first-value": "findCase(Button.For, \"K\")",
+												"comparison": 4,
+												"second-value": "-1"
+											}
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "GraphicKeyboardTouchPreview",
+											"sid": 430997985028530,
+											"parameters": [
+												"Button.For",
+												"\"Depressed\""
+											]
+										}
+									],
+									"sid": 631132552332548
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "is-touching-object",
+									"objectClass": "Touch",
+									"sid": 712310227182788,
+									"parameters": {
+										"object": "Button"
+									}
+								},
+								{
+									"id": "is-boolean-instance-variable-set",
+									"objectClass": "Button",
+									"sid": 332179342033916,
+									"parameters": {
+										"instance-variable": "Pressed"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [
+								{
+									"id": "set-boolean-instvar",
+									"objectClass": "Button",
+									"sid": 420871198451562,
+									"parameters": {
+										"instance-variable": "Pressed",
+										"value": "true"
+									}
+								},
+								{
+									"callFunction": "CheckButtons",
+									"sid": 956772623474021,
+									"parameters": [
+										"Button.For",
+										"\"Pressed\""
+									]
+								}
+							],
+							"sid": 647302159793980,
+							"children": [
+								{
+									"eventType": "comment",
+									"text": "If touched over a [i]GraphicKeyboard[/i] button."
+								},
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 507198691765031,
+											"parameters": {
+												"first-value": "findCase(Button.For, \"K\")",
+												"comparison": 4,
+												"second-value": "-1"
+											}
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "GraphicKeyboardTouchPreview",
+											"sid": 722721538527914,
+											"parameters": [
+												"Button.For",
+												"\"Pressed\""
+											]
+										},
+										{
+											"id": "log",
+											"objectClass": "Browser",
+											"sid": 848416055397895,
+											"disabled": true,
+											"parameters": {
+												"type": "log",
+												"message": "\"Presssed\""
+											}
+										}
+									],
+									"sid": 224759701276956
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 494277429204661
+								},
+								{
+									"id": "is-touching-object",
+									"objectClass": "Touch",
+									"sid": 188509857533222,
+									"parameters": {
+										"object": "Button"
+									},
+									"isInverted": true
+								},
+								{
+									"id": "is-boolean-instance-variable-set",
+									"objectClass": "Button",
+									"sid": 643464035931131,
+									"parameters": {
+										"instance-variable": "Pressed"
+									},
+									"isInverted": true
+								},
+								{
+									"id": "trigger-once-while-true",
+									"objectClass": "System",
+									"sid": 295286584078189
+								}
+							],
+							"actions": [
+								{
+									"id": "play",
+									"objectClass": "Audio",
+									"sid": 878950717476128,
+									"parameters": {
+										"audio-file": {
+											"path": "Generic/Generic - Cancel"
+										},
+										"loop": "not-looping",
+										"volume": "GenericCancelDecibels",
+										"stereo-pan": "0",
+										"tag-optional": "\"\""
+									}
+								}
+							],
+							"sid": 934722338601287
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "Lifted"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-nth-touch-end",
+							"objectClass": "Touch",
+							"sid": 432689851182294,
+							"parameters": {
+								"touch-number": "0"
+							}
+						},
+						{
+							"id": "compare-two-values",
+							"objectClass": "System",
+							"sid": 773452142094542,
+							"parameters": {
+								"first-value": "Touch.TouchCount",
+								"comparison": 0,
+								"second-value": "1"
+							}
+						},
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 324965891749514,
+							"parameters": {
+								"variable": "AnyButtonPressed"
+							}
+						},
+						{
+							"id": "is-boolean-instance-variable-set",
+							"objectClass": "Button",
+							"sid": 473021566559097,
+							"parameters": {
+								"instance-variable": "Disabled"
+							},
+							"isInverted": true
+						}
+					],
+					"actions": [
+						{
+							"id": "set-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 456368490683054,
+							"parameters": {
+								"variable": "AnyButtonPressed",
+								"value": "false"
+							}
+						},
+						{
+							"id": "set-boolean-instvar",
+							"objectClass": "Button",
+							"sid": 848073591414344,
+							"parameters": {
+								"instance-variable": "Pressed",
+								"value": "false"
+							}
+						}
+					],
+					"sid": 703345640093314,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "Only resume if the system is not officially \"Paused\"."
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 872705149207351,
+									"parameters": {
+										"variable": "Paused"
+									},
+									"isInverted": true
+								}
+							],
+							"actions": [
+								{
+									"id": "set-time-scale",
+									"objectClass": "System",
+									"sid": 579155030772683,
+									"parameters": {
+										"time-scale": "1"
+									}
+								}
+							],
+							"sid": 827121694226097
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "is-touching-object",
+									"objectClass": "Touch",
+									"sid": 409531643488615,
+									"parameters": {
+										"object": "Button"
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "PointerLiftedOverButton",
+									"sid": 297384701608460,
+									"parameters": [
+										true,
+										"Button.For"
+									]
+								}
+							],
+							"sid": 416947200887062
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Utilities[/h3]"
+				},
+				{
+					"functionName": "PointerLiftedOverButton",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [
+						{
+							"name": "IsTouch",
+							"type": "boolean",
+							"initialValue": "false",
+							"comment": "",
+							"sid": 358497365883066
+						},
+						{
+							"name": "For",
+							"type": "string",
+							"initialValue": "",
+							"comment": "",
+							"sid": 112603219859384
+						}
+					],
+					"eventType": "function-block",
+					"conditions": [
+						{
+							"id": "pick-by-comparison",
+							"objectClass": "System",
+							"sid": 172736428119080,
+							"parameters": {
+								"object": "Button",
+								"expression": "Button.For",
+								"comparison": 0,
+								"value": "For"
+							}
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "CheckButtons",
+							"sid": 957621962877651,
+							"parameters": [
+								"Button.For",
+								"\"Depressed\""
+							]
+						}
+					],
+					"sid": 661095026988632,
+					"children": [
+						{
+							"eventType": "comment",
+							"text": "If released on a normal (unique) button."
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 333138003953590,
+									"parameters": {
+										"first-value": "left(Button.For, 1)",
+										"comparison": 1,
+										"second-value": "\"K\""
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 943890647911926,
+									"parameters": {
+										"first-value": "left(Button.For, 1)",
+										"comparison": 1,
+										"second-value": "\"@\""
+									}
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 403900459619713,
+									"parameters": {
+										"first-value": "findCase( Button.For, \"EmojiButton\")",
+										"comparison": 1,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "log",
+									"objectClass": "Browser",
+									"sid": 439296621344659,
+									"disabled": true,
+									"parameters": {
+										"type": "log",
+										"message": "\"🐭 Up\""
+									}
+								},
+								{
+									"id": "call-mapped-function",
+									"objectClass": "Functions",
+									"sid": 471858960650256,
+									"parameters": {
+										"name": "\"Buttons\"",
+										"string": "Button.For",
+										"forward-params": "0"
+									}
+								}
+							],
+							"sid": 985905699099682
+						},
+						{
+							"eventType": "comment",
+							"text": "If released on a [b]Graphic Keyboard[/b] button."
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 276067446595646
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 438849952257772,
+									"parameters": {
+										"first-value": "left(Button.For, 1)",
+										"comparison": 0,
+										"second-value": "\"K\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "KeyboardButton",
+									"sid": 997808713267204,
+									"parameters": [
+										"Button.For"
+									]
+								}
+							],
+							"sid": 743411664190093,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-boolean-eventvar",
+											"objectClass": "System",
+											"sid": 863302640394903,
+											"parameters": {
+												"variable": "IsTouch"
+											}
+										}
+									],
+									"actions": [
+										{
+											"callFunction": "GraphicKeyboardTouchPreview",
+											"sid": 715176234944020,
+											"parameters": [
+												"Button.For",
+												"\"Depressed\""
+											]
+										}
+									],
+									"sid": 905515177566968
+								}
+							]
+						},
+						{
+							"eventType": "comment",
+							"text": "If released on a [b]Link[/b] button."
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 626091592045019
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 659340182848603,
+									"parameters": {
+										"first-value": "left(Button.For, 1)",
+										"comparison": 0,
+										"second-value": "\"@\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "LinkButton",
+									"sid": 108079162007130,
+									"parameters": [
+										"Button.For"
+									]
+								}
+							],
+							"sid": 543482419348085
+						},
+						{
+							"eventType": "comment",
+							"text": "If released on an [b]Emoji[/b] button."
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 645114974175622
+								},
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 846056354313837,
+									"parameters": {
+										"first-value": "findCase( Button.For, \"EmojiButton\")",
+										"comparison": 0,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"callFunction": "EmojiButton",
+									"sid": 523925773210850,
+									"parameters": [
+										"Button.For"
+									]
+								}
+							],
+							"sid": 249639406641897
+						}
+					]
+				},
+				{
+					"functionName": "CheckButtons",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [
+						{
+							"name": "For",
+							"type": "string",
+							"initialValue": "",
+							"comment": "",
+							"sid": 252280329813879
+						},
+						{
+							"name": "Event",
+							"type": "string",
+							"initialValue": "",
+							"comment": "",
+							"sid": 674700488245490
+						}
+					],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "call-mapped-function",
+							"objectClass": "Functions",
+							"sid": 235746014016357,
+							"parameters": {
+								"name": "\"Buttons\"",
+								"string": "\"CheckButtons\"",
+								"forward-params": "0"
+							}
+						}
+					],
+					"sid": 792203805522202
+				},
+				{
+					"functionName": "KeyboardButton",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [
+						{
+							"name": "For",
+							"type": "string",
+							"initialValue": "",
+							"comment": "",
+							"sid": 530068560694337
+						}
+					],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "call-mapped-function",
+							"objectClass": "Functions",
+							"sid": 869871277520327,
+							"parameters": {
+								"name": "\"Buttons\"",
+								"string": "\"Keyboard\"",
+								"forward-params": "0"
+							}
+						}
+					],
+					"sid": 318893587584422
+				},
+				{
+					"functionName": "LinkButton",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [
+						{
+							"name": "For",
+							"type": "string",
+							"initialValue": "",
+							"comment": "",
+							"sid": 229384022806609
+						}
+					],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "call-mapped-function",
+							"objectClass": "Functions",
+							"sid": 893723388406665,
+							"parameters": {
+								"name": "\"Buttons\"",
+								"string": "\"Link\"",
+								"forward-params": "0"
+							}
+						}
+					],
+					"sid": 729494600464431
+				},
+				{
+					"functionName": "EmojiButton",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [
+						{
+							"name": "For",
+							"type": "string",
+							"initialValue": "",
+							"comment": "",
+							"sid": 367413822638151
+						}
+					],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "call-mapped-function",
+							"objectClass": "Functions",
+							"sid": 307098485547172,
+							"parameters": {
+								"name": "\"Buttons\"",
+								"string": "\"Emoji\"",
+								"forward-params": "0"
+							}
+						}
+					],
+					"sid": 600562029098523
+				},
+				{
+					"functionName": "PeekXYRender",
+					"functionDescription": "",
+					"functionCategory": "",
+					"functionReturnType": "none",
+					"functionCopyPicked": false,
+					"functionIsAsync": false,
+					"functionParameters": [
+						{
+							"name": "Sound",
+							"type": "boolean",
+							"initialValue": "false",
+							"comment": "",
+							"sid": 682275775431548
+						}
+					],
+					"eventType": "function-block",
+					"conditions": [],
+					"actions": [
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 628977441204243,
+							"parameters": {
+								"variable": "PeekX",
+								"value": "PeekCrosshair.X"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 614515597293946,
+							"parameters": {
+								"variable": "PeekY",
+								"value": "PeekCrosshair.Y - PeekBuffer.Y"
+							}
+						}
+					],
+					"sid": 677036329015656,
+					"children": [
+						{
+							"eventType": "variable",
+							"name": "r",
+							"type": "number",
+							"initialValue": "0",
+							"comment": "",
+							"isStatic": false,
+							"isConstant": false,
+							"sid": 973870026099956
+						},
+						{
+							"eventType": "variable",
+							"name": "g",
+							"type": "number",
+							"initialValue": "0",
+							"comment": "",
+							"isStatic": false,
+							"isConstant": false,
+							"sid": 223889842859349
+						},
+						{
+							"eventType": "variable",
+							"name": "b",
+							"type": "number",
+							"initialValue": "0",
+							"comment": "",
+							"isStatic": false,
+							"isConstant": false,
+							"sid": 659916372766339
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "pick-by-evaluate",
+									"objectClass": "System",
+									"sid": 857957901031116,
+									"parameters": {
+										"object": "MainSpriteFont",
+										"expression": "MainSpriteFont.For = \"Coordinates\""
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 614235008076231,
+									"parameters": {
+										"variable": "r",
+										"value": "PeekBuffer.SnapshotRedAt(PeekX, PeekY) * 2.55"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 651394031815199,
+									"parameters": {
+										"variable": "g",
+										"value": "PeekBuffer.SnapshotGreenAt(PeekX, PeekY) * 2.55"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 982751959111314,
+									"parameters": {
+										"variable": "b",
+										"value": "PeekBuffer.SnapshotBlueAt(PeekX, PeekY) * 2.55"
+									}
+								},
+								{
+									"id": "set-text",
+									"objectClass": "MainSpriteFont",
+									"sid": 115624990060563,
+									"parameters": {
+										"text": "\"X:[background=#fff][color=#555]\" & zeropad(PeekX, 3) & \"[/color][/background] Y:[background=#fff][color=#555]\" & zeropad(PeekY, 3) & \"[/color][/background]\" & \" C:[background=#fff][color=#\" & Functions.ByteToHex(r) & \"0000]\" & Functions.ByteToHex(r) & \"[/color][/background][background=#fff][color=#00\" & Functions.ByteToHex(g) & \"00]\" & Functions.ByteToHex(g) & \"[/color][/background][background=#fff][color=#0000\" & Functions.ByteToHex(b) & \"]\" & Functions.ByteToHex(b) & \"[/color][/background][background=#ccc][color=#\" & (Functions.ByteToHex(r) & Functions.ByteToHex(g) & Functions.ByteToHex(b)) & \"]`[/color][/background]\""
+									}
+								}
+							],
+							"sid": 821136161292711
+						},
+						{
+							"eventType": "variable",
+							"name": "h",
+							"type": "number",
+							"initialValue": "0",
+							"comment": "",
+							"isStatic": false,
+							"isConstant": false,
+							"sid": 909300078927071
+						},
+						{
+							"eventType": "variable",
+							"name": "s",
+							"type": "number",
+							"initialValue": "0",
+							"comment": "",
+							"isStatic": false,
+							"isConstant": false,
+							"sid": 719056906158985
+						},
+						{
+							"eventType": "variable",
+							"name": "l",
+							"type": "number",
+							"initialValue": "0",
+							"comment": "",
+							"isStatic": false,
+							"isConstant": false,
+							"sid": 549324075125511
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-boolean-eventvar",
+									"objectClass": "System",
+									"sid": 636652115357199,
+									"parameters": {
+										"variable": "Sound"
+									}
+								}
+							],
+							"actions": [
+								{
+									"type": "script",
+									"language": "javascript",
+									"script": [
+										"const hsl = main.rgbToHsl(localVars.r / 255, localVars.g / 255, localVars.b / 255)",
+										"",
+										"localVars.h = hsl[0]",
+										"localVars.s = hsl[1]",
+										"localVars.l = hsl[2]"
+									]
+								}
+							],
+							"sid": 198330996311724,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "is-tag-playing",
+											"objectClass": "Audio",
+											"sid": 165009977815059,
+											"parameters": {
+												"tag": "\"PeekXY\""
+											},
+											"isInverted": true
+										}
+									],
+									"actions": [
+										{
+											"id": "remove-all-effects",
+											"objectClass": "Audio",
+											"sid": 935291001074922,
+											"parameters": {
+												"tag": "\"PeekXY\""
+											}
+										},
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 568041409169672,
+											"parameters": {
+												"audio-file": {
+													"path": "Keyboard/Keyboard - Beep Press"
+												},
+												"loop": "not-looping",
+												"volume": "-4",
+												"stereo-pan": "0",
+												"tag-optional": "\"PeekXY\""
+											}
+										},
+										{
+											"id": "log",
+											"objectClass": "Browser",
+											"sid": 990380669737514,
+											"disabled": true,
+											"parameters": {
+												"type": "log",
+												"message": "\"H: \" & h & \"S: \" & s & \"L: \" & l"
+											}
+										},
+										{
+											"id": "set-playback-rate",
+											"objectClass": "Audio",
+											"sid": 470109577759688,
+											"parameters": {
+												"tag": "\"PeekXY\"",
+												"playback-rate": "1.2 + (l / 2)"
+											}
+										},
+										{
+											"id": "add-ring-mod-effect",
+											"objectClass": "Audio",
+											"sid": 930524363159628,
+											"parameters": {
+												"tag": "\"PeekXY\"",
+												"frequency": "600 + ((1 - h) * 500)",
+												"mix": "100"
+											}
+										},
+										{
+											"id": "add-filter-effect",
+											"objectClass": "Audio",
+											"sid": 477999112160591,
+											"parameters": {
+												"tag": "\"PeekXY\"",
+												"type": "low-pass",
+												"frequency": "350 + ((1 - h) * 200)",
+												"detune": "0",
+												"q": "1",
+												"gain": "0",
+												"mix": "1 + (floor(s * 99))"
+											}
+										}
+									],
+									"sid": 478725898138944
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-ended",
+							"objectClass": "Audio",
+							"sid": 316129372969915,
+							"parameters": {
+								"tag": "\"PeekXY\""
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "remove-all-effects",
+							"objectClass": "Audio",
+							"sid": 170387644738065,
+							"parameters": {
+								"tag": "\"PeekXY\""
+							}
+						}
+					],
+					"sid": 146180191006268
+				}
+			],
+			"sid": 647930308600441
+		}
+	],
+	"sid": 940180268073666
+}

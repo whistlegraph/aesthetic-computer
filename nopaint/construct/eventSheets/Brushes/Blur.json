@@ -1,0 +1,733 @@
+{
+	"name": "Blur",
+	"events": [
+		{
+			"eventType": "include",
+			"includeSheet": "Core"
+		},
+		{
+			"eventType": "group",
+			"disabled": false,
+			"title": "Blur",
+			"description": "",
+			"isActiveOnStart": true,
+			"children": [
+				{
+					"eventType": "variable",
+					"name": "blurShift",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 817001978039332
+				},
+				{
+					"eventType": "variable",
+					"name": "direction",
+					"type": "number",
+					"initialValue": "0",
+					"comment": "",
+					"isStatic": true,
+					"isConstant": false,
+					"sid": 297099974785120
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Initialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 639956384197180
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "InitParameters",
+							"sid": 278471591308023,
+							"parameters": [
+								"0"
+							]
+						},
+						{
+							"id": "start-timer",
+							"objectClass": "Clock",
+							"sid": 687996432361545,
+							"behaviorType": "Timer",
+							"parameters": {
+								"duration": "0.075",
+								"type": "regular",
+								"tag": "\"ShiftValue\""
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 436625719123627,
+							"parameters": {
+								"variable": "blurShift",
+								"value": "0"
+							}
+						},
+						{
+							"id": "set-eventvar-value",
+							"objectClass": "System",
+							"sid": 721217293371598,
+							"parameters": {
+								"variable": "direction",
+								"value": "5"
+							}
+						},
+						{
+							"id": "play",
+							"objectClass": "Audio",
+							"sid": 915686230652013,
+							"parameters": {
+								"audio-file": {
+									"path": "Brushes/Blur/Blur - Theme"
+								},
+								"loop": "not-looping",
+								"volume": "-2.5",
+								"stereo-pan": "0",
+								"tag-optional": "\"Blur\""
+							}
+						},
+						{
+							"id": "set-height",
+							"objectClass": "BlurBuffer",
+							"sid": 584769879786871,
+							"parameters": {
+								"height": "ViewportHeight(0)"
+							}
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "BlurBuffer",
+							"sid": 980960545963085,
+							"parameters": {
+								"object": "Painting",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"id": "set-height",
+							"objectClass": "NudgeMaskBuffer",
+							"sid": 819026861426310,
+							"parameters": {
+								"height": "ViewportHeight(0)"
+							}
+						},
+						{
+							"id": "set-height",
+							"objectClass": "NudgePaintBuffer",
+							"sid": 805264095730293,
+							"parameters": {
+								"height": "ViewportHeight(0)"
+							}
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 786334821889182,
+							"parameters": {
+								"tag": "\"Brush Started\""
+							}
+						}
+					],
+					"sid": 659677512864562
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Audio[/h3]"
+				},
+				{
+					"eventType": "comment",
+					"text": "[b]Play Theme Music[/b]",
+					"background-color": [
+						0.8196078431372549,
+						0.9725490196078431,
+						1,
+						1
+					]
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-start-of-layout",
+							"objectClass": "System",
+							"sid": 192260865800426
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 480646345666117,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 377765565927809
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "every-tick",
+							"objectClass": "System",
+							"sid": 356912666818009
+						}
+					],
+					"actions": [
+						{
+							"callFunction": "SilentOnPause",
+							"sid": 119486993072260,
+							"parameters": [
+								"\"Blur\""
+							]
+						}
+					],
+					"sid": 614777468348139
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Present[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-timer",
+							"objectClass": "Clock",
+							"sid": 318313354284393,
+							"behaviorType": "Timer",
+							"parameters": {
+								"tag": "\"ShiftValue\""
+							}
+						}
+					],
+					"actions": [],
+					"sid": 357729085617455,
+					"children": [
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "compare-two-values",
+									"objectClass": "System",
+									"sid": 660308170785671,
+									"parameters": {
+										"first-value": "direction",
+										"comparison": 4,
+										"second-value": "0"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 542408775931149,
+									"parameters": {
+										"variable": "blurShift",
+										"value": "blurShift + direction"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "BlurBuffer",
+									"sid": 388371797222903,
+									"parameters": {
+										"effect": "\"BlurHorizontal\"",
+										"parameter-index": "0",
+										"value": "blurShift"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "BlurBuffer",
+									"sid": 112162283361725,
+									"parameters": {
+										"effect": "\"BlurVertical\"",
+										"parameter-index": "0",
+										"value": "blurShift"
+									}
+								}
+							],
+							"sid": 845501166945841,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 328726521097379,
+											"parameters": {
+												"first-value": "blurShift",
+												"comparison": 0,
+												"second-value": "100"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 910706785600170,
+											"parameters": {
+												"variable": "direction",
+												"value": "direction * -1"
+											}
+										},
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 114669820212562,
+											"parameters": {
+												"audio-file": {
+													"path": "Brushes/Blur/Blur - Theme"
+												},
+												"loop": "not-looping",
+												"volume": "-2.5",
+												"stereo-pan": "0",
+												"tag-optional": "\"Blur\""
+											}
+										}
+									],
+									"sid": 350264092349618
+								}
+							]
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "else",
+									"objectClass": "System",
+									"sid": 330224997257553
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 461908481414965,
+									"parameters": {
+										"variable": "blurShift",
+										"value": "blurShift + direction"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "BlurBuffer",
+									"sid": 127181978455726,
+									"parameters": {
+										"effect": "\"BlurHorizontal\"",
+										"parameter-index": "0",
+										"value": "blurShift"
+									}
+								},
+								{
+									"id": "set-effect-parameter",
+									"objectClass": "BlurBuffer",
+									"sid": 626740014358348,
+									"parameters": {
+										"effect": "\"BlurVertical\"",
+										"parameter-index": "0",
+										"value": "blurShift"
+									}
+								}
+							],
+							"sid": 702561267651951,
+							"children": [
+								{
+									"eventType": "block",
+									"conditions": [
+										{
+											"id": "compare-two-values",
+											"objectClass": "System",
+											"sid": 719889987668849,
+											"parameters": {
+												"first-value": "blurShift",
+												"comparison": 0,
+												"second-value": "0"
+											}
+										}
+									],
+									"actions": [
+										{
+											"id": "set-eventvar-value",
+											"objectClass": "System",
+											"sid": 616931496885576,
+											"parameters": {
+												"variable": "direction",
+												"value": "direction * -1"
+											}
+										},
+										{
+											"id": "play",
+											"objectClass": "Audio",
+											"sid": 600666533102253,
+											"parameters": {
+												"audio-file": {
+													"path": "Brushes/Blur/Blur - Theme"
+												},
+												"loop": "not-looping",
+												"volume": "-2.5",
+												"stereo-pan": "0",
+												"tag-optional": "\"Blur\""
+											}
+										}
+									],
+									"sid": 303108718573612
+								}
+							]
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Nudge[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 353573729651199,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "trigger-once-while-true",
+							"objectClass": "System",
+							"sid": 670733541206800
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "Nudge [b]Started[/b]"
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgeDot",
+							"sid": 474059862751471,
+							"disabled": true,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 335451213355116,
+							"parameters": {
+								"x": "NudgePointerX",
+								"y": "NudgePointerY"
+							}
+						},
+						{
+							"id": "set-visible",
+							"objectClass": "NudgePaintBuffer",
+							"sid": 110395441570443,
+							"parameters": {
+								"visibility": "visible"
+							}
+						},
+						{
+							"id": "clear-canvas",
+							"objectClass": "NudgeMaskBuffer",
+							"sid": 810839063493774,
+							"parameters": {
+								"color": "rgba(0, 0, 0, 0)"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Nudge [b]Ended[/b]"
+						},
+						{
+							"id": "wait-for-signal",
+							"objectClass": "System",
+							"sid": 441009254309608,
+							"parameters": {
+								"tag": "\"Nudge Ended\""
+							}
+						},
+						{
+							"callFunction": "PaintingMusicMute",
+							"sid": 474293615658560,
+							"parameters": [
+								false
+							]
+						}
+					],
+					"sid": 264078393638092
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 108399705009797,
+							"parameters": {
+								"variable": "Nudging"
+							}
+						},
+						{
+							"id": "evaluate-expression",
+							"objectClass": "System",
+							"sid": 974012992014801,
+							"parameters": {
+								"value": "NudgedX <> 0 | NudgedY <> 0"
+							}
+						}
+					],
+					"actions": [
+						{
+							"id": "set-position",
+							"objectClass": "NudgeDot",
+							"sid": 816817324454277,
+							"parameters": {
+								"x": "NudgePointerX",
+								"y": "NudgePointerY"
+							}
+						}
+					],
+					"sid": 525961145636044,
+					"children": [
+						{
+							"eventType": "variable",
+							"name": "x",
+							"type": "number",
+							"initialValue": "0",
+							"comment": "",
+							"isStatic": false,
+							"isConstant": false,
+							"sid": 800829169121615
+						},
+						{
+							"eventType": "variable",
+							"name": "y",
+							"type": "number",
+							"initialValue": "0",
+							"comment": "",
+							"isStatic": false,
+							"isConstant": false,
+							"sid": 331110607903425
+						},
+						{
+							"eventType": "variable",
+							"name": "rotation",
+							"type": "number",
+							"initialValue": "0",
+							"comment": "",
+							"isStatic": false,
+							"isConstant": false,
+							"sid": 633619144935728
+						},
+						{
+							"eventType": "variable",
+							"name": "dist",
+							"type": "number",
+							"initialValue": "0",
+							"comment": "",
+							"isStatic": false,
+							"isConstant": false,
+							"sid": 605433447495061
+						},
+						{
+							"eventType": "block",
+							"conditions": [
+								{
+									"id": "repeat",
+									"objectClass": "System",
+									"sid": 542715037626077,
+									"parameters": {
+										"count": "28"
+									}
+								}
+							],
+							"actions": [
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 693326161991286,
+									"parameters": {
+										"variable": "rotation",
+										"value": "random(0, 360)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 501141112319767,
+									"parameters": {
+										"variable": "dist",
+										"value": "random(1, 20)"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 459754357617167,
+									"parameters": {
+										"variable": "x",
+										"value": "NudgePointerX + (dist * cos(rotation))"
+									}
+								},
+								{
+									"id": "set-eventvar-value",
+									"objectClass": "System",
+									"sid": 881045957309435,
+									"parameters": {
+										"variable": "y",
+										"value": "NudgePointerY + (dist * sin(rotation))"
+									}
+								},
+								{
+									"id": "fill-ellipse",
+									"objectClass": "NudgeMaskBuffer",
+									"sid": 711608245116137,
+									"parameters": {
+										"x": "x",
+										"y": "y",
+										"radius-x": "random(2, 5)",
+										"radius-y": "random(2, 5)",
+										"color": "rgba(0, 0, 0, random(25, 30))",
+										"edge": "smooth"
+									}
+								}
+							],
+							"sid": 795437327866736
+						},
+						{
+							"eventType": "block",
+							"conditions": [],
+							"actions": [
+								{
+									"id": "clear-canvas",
+									"objectClass": "NudgePaintBuffer",
+									"sid": 303113199427302,
+									"parameters": {
+										"color": "rgba(100, 0, 0, 0)"
+									}
+								},
+								{
+									"id": "paste-object",
+									"objectClass": "NudgePaintBuffer",
+									"sid": 263992683614111,
+									"parameters": {
+										"object": "Painting",
+										"effects": "with-effects"
+									}
+								},
+								{
+									"id": "paste-object",
+									"objectClass": "NudgePaintBuffer",
+									"sid": 360240264635137,
+									"parameters": {
+										"object": "NudgeMaskBuffer",
+										"effects": "with-effects"
+									}
+								}
+							],
+							"sid": 232553640439983
+						}
+					]
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]Paint[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "compare-boolean-eventvar",
+							"objectClass": "System",
+							"sid": 585008755020098,
+							"parameters": {
+								"variable": "Painting"
+							}
+						}
+					],
+					"actions": [
+						{
+							"type": "comment",
+							"text": "There is a bug where the filter moves forward a tick while painting."
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 510313101506156,
+							"parameters": {
+								"object": "BlurBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"id": "paste-object",
+							"objectClass": "Painting",
+							"sid": 992195751598879,
+							"parameters": {
+								"object": "NudgePaintBuffer",
+								"effects": "with-effects"
+							}
+						},
+						{
+							"type": "comment",
+							"text": "Signify to [b]Core[/b] that the canvas has been painted."
+						},
+						{
+							"id": "signal",
+							"objectClass": "System",
+							"sid": 367912906731791,
+							"parameters": {
+								"tag": "\"painted\""
+							}
+						}
+					],
+					"sid": 343287074405699
+				},
+				{
+					"eventType": "comment",
+					"text": "[h3]DeInitialize[/h3]"
+				},
+				{
+					"eventType": "block",
+					"conditions": [
+						{
+							"id": "on-end-of-layout",
+							"objectClass": "System",
+							"sid": 231197071016376
+						}
+					],
+					"actions": [
+						{
+							"id": "stop",
+							"objectClass": "Audio",
+							"sid": 413749498751756,
+							"parameters": {
+								"tag": "\"Blur\""
+							}
+						}
+					],
+					"sid": 720232186695920
+				}
+			],
+			"sid": 921242084828944
+		}
+	],
+	"sid": 549663282334311
+}
