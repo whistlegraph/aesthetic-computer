@@ -39,7 +39,7 @@ function game(course = "pool", retainedDecals = false) {
     addDecal,decals,rasterDecalPatches,terrainFloorAt,drawDecals,
     surfaceState:()=>({native:poolDecalsNative,count:poolDecalCount}),
     poolMesh:()=>captureQuadMesh(drawPoolGeometry),
-    pool,parkPools,parkHills,parkRamps,parkDeckY,poolFloorAt,updateSkateAudio,buildPoolWalkGeometry,poolDistance,poolSlopeAt,monowheelFrame,runnerWorldGeometry,updateCameraDoll,
+    pool,parkPools,parkHills,parkRamps,parkDeckY,parkBuildingHeight,boundParkBody,poolFloorAt,updateSkateAudio,buildPoolWalkGeometry,poolDistance,poolSlopeAt,monowheelFrame,runnerWorldGeometry,updateCameraDoll,
     drawSkateboard,skateFrame,spunSkateFrame,
     debug:()=>debugHitboxes=true,
     bounds:()=>({near:worldNear+60,far:worldFar-60}),
@@ -370,8 +370,8 @@ test('pool floor rises on every side and through rounded corners', () => {
     assert.ok(a.terrainFloorAt(x,z)<1770);
   const corner=a.terrainFloorAt(cx+720,480);
   assert.ok(corner<a.terrainFloorAt(cx+720,0));
-  assert.equal(a.terrainFloorAt(cx+960,0),1320);
-  assert.equal(a.terrainFloorAt(cx,720),1320);
+  assert.equal(a.terrainFloorAt(cx+960,0),a.parkDeckY);
+  assert.equal(a.terrainFloorAt(cx,720),a.parkDeckY);
 });
 
 test('left and right steer the rider, wheel and chase camera without strafing', () => {
@@ -429,7 +429,7 @@ test('raster decals follow pool depth curvature', () => {
   assert.ok(heights.size>5);
 });
 
-test('pool monowheel rides into vert air and returns without passing through the bowl', () => {
+test('pool monowheel keeps turbo across banks and landings without entering the ground', () => {
   for(const heading of [0,Math.PI/2]){
     const g=game(),p=g.api.players[0];
     Object.assign(p,{onewheel:true,skateboard:true,vx:0,vz:0,skateVx:0});
@@ -441,7 +441,7 @@ test('pool monowheel rides into vert air and returns without passing through the
       assert.ok(p.y<=g.api.terrainFloorAt(p.x,p.z)+.01);
     }
     assert.ok(turbo,'compact pool reaches turbo, including charging through airtime');
-    assert.ok(air,'wheel launches off the coping');assert.ok(landed,'rider returns to surface');
+    assert.ok(air,'wheel can air off the banks');assert.ok(landed,'rider returns to surface');
   }
 });
 
@@ -498,31 +498,23 @@ test('A and LB exit either vehicle, preserve it, and allow mounting again', () =
   }
 });
 
-test('a vert air stays over the curve while forward is held and rolls back down on release', () => {
-  for(const heading of [0,Math.PI/2,Math.PI/4]){
-    const g=game(),p=g.api.players[0];
-    Object.assign(p,{onewheel:true,skateboard:true,poolYaw:heading});g.api.monowheel.active=false;
-    g.pads[0].down=['ArrowUp'];
-    let anchor=null,landed=false,speed=0,returned=false;
-    for(let i=0;i<650;i++){
-      g.tick();
-      if(p.poolVert){
-        anchor ||= {x:p.x,z:p.z};
-        assert.ok(Math.hypot(p.x-anchor.x,p.z-anchor.z)<.001,'no throttle drift onto deck');
-        if(p.vy>0)g.pads[0].down=[];
-      }else if(anchor&&p.grounded){
-        landed=true;speed=Math.max(speed,p.skateVx);
-        if(g.api.poolDistance(p.x,p.z).d<25){returned=true;break;}
-      }
+test('both vehicles cross every shallow dip rim without locking into a vert return',()=>{
+  for(const one of [false,true])for(const index of [0,1,2])for(const heading of [0,Math.PI/2,Math.PI,-Math.PI/2,Math.PI/4]){
+    const g=game(),a=g.api,p=a.players[0],b=a.parkPools[index];
+    Object.assign(p,{x:b.x,z:b.z,y:a.poolFloorAt(b.x,b.z),vx:0,vz:0,vy:0,poolYaw:heading,skateboard:true,onewheel:one,grounded:true});
+    a.monowheel.active=false;g.pads[0].down=['ArrowUp'];let exited=false;
+    for(let i=0;i<200;i++){
+      g.tick();assert.ok(!p.poolVert,'gentle banks preserve forward travel');
+      assert.ok(p.y<=a.poolFloorAt(p.x,p.z)+.01,'stays above collision surface');
+      if(a.poolDistance(p.x,p.z).d>b.radius+10){exited=true;break;}
     }
-    assert.ok(anchor&&landed&&returned,'air reconnects to the curved wall and reaches the flat');
-    assert.ok(speed>900,'landing carries the fall into rolling speed');
+    assert.ok(exited,`vehicle ${one} exits dip ${index} heading ${heading}`);
   }
 });
 
-test('rolling off the coping falls into the pool without a downward teleport', () => {
+test('dropping onto a shallow pool edge settles without a downward teleport', () => {
   const g=game(),p=g.api.players[0];
-  Object.assign(p,{x:2044,z:0,y:1320,poolYaw:Math.PI,vx:-700,vz:0,vy:0,onewheel:true,skateboard:true,grounded:true});
+  Object.assign(p,{x:2044,z:0,y:g.api.parkDeckY-250,poolYaw:Math.PI,vx:-700,vz:0,vy:0,onewheel:true,skateboard:true,grounded:true});
   g.api.monowheel.active=false;
   let falling=false,landed=false,maxStep=0;
   for(let i=0;i<160;i++){
@@ -534,24 +526,19 @@ test('rolling off the coping falls into the pool without a downward teleport', (
 });
 
 
-test('camera swings into a vert return, dips toward the landing, and clears the coping', () => {
+test('camera follows bank airs and clears the floor and building', () => {
   for(const heading of [0,Math.PI/2,Math.PI/4]){
     const g=game(),a=g.api,p=a.players[0];
     Object.assign(p,{onewheel:true,skateboard:true,poolYaw:heading});a.monowheel.active=false;
     for(let i=0;i<120;i++)g.tick();
-    a.cameraDoll.prepare();const initialPitch=a.cameraDoll.view.forward.y;
-    let turned=false,dipped=false,previousYaw=null,maxYawStep=0;
+    a.cameraDoll.prepare();
+    let previousYaw=null,maxYawStep=0;
     g.pads[0].down=['ArrowUp'];
     for(let i=0;i<350;i++){
       g.tick();a.cameraDoll.prepare();const c=a.cameraDoll,v=c.view.forward;
       const yaw=Math.atan2(v.z,v.x);
       if(previousYaw!==null)maxYawStep=Math.max(maxYawStep,Math.abs(Math.atan2(Math.sin(yaw-previousYaw),Math.cos(yaw-previousYaw))));
       previousYaw=yaw;
-      if(p.poolVert&&p.vy>0){
-        g.pads[0].down=[];
-        const dot=(-p.poolVert.nx*v.x-p.poolVert.nz*v.z)/Math.hypot(v.x,v.z);
-        turned ||= dot>.7;dipped ||= v.y>initialPitch+.04;
-      }
       for(const y of [p.y,p.y-190]){
         const point=a.projectPoint(p.x,y,p.z);
         assert.ok(!point.behind&&point.x>20&&point.x<1900&&point.y>20&&point.y<980,`rider frame heading=${heading} tick=${i} x=${point.x} y=${point.y}`);
@@ -562,7 +549,7 @@ test('camera swings into a vert return, dips toward the landing, and clears the 
         assert.ok(y<a.terrainFloorAt(x,z),'camera sightline clears the pool');
       }
     }
-    assert.ok(turned,`camera faces return direction ${heading}`);assert.ok(dipped,'camera dips');assert.ok(maxYawStep<.1,`camera snap ${maxYawStep}`);
+    assert.ok(maxYawStep<.1,`camera snap ${maxYawStep}`);
   }
 });
 
@@ -603,7 +590,7 @@ test('skateboard rumble responds to contact and speed without sounding for the m
 test('expanded park has three solid pools, hills and rideable flat-topped trapezoids',()=>{
   const a=game().api;
   assert.equal(a.parkPools.length,3);assert.equal(a.parkHills.length,3);assert.equal(a.parkRamps.length,3);
-  for(const b of a.parkPools){assert.equal(a.poolFloorAt(b.x,b.z),a.parkDeckY+b.radius);assert.equal(a.poolFloorAt(b.x+b.halfX+b.radius,b.z),a.parkDeckY);}
+  for(const b of a.parkPools){assert.equal(a.poolFloorAt(b.x,b.z),a.parkDeckY+b.depth);assert.equal(a.poolFloorAt(b.x+b.halfX+b.radius,b.z),a.parkDeckY);}
   for(const h of a.parkHills){assert.equal(a.poolFloorAt(h.x,h.z),a.parkDeckY-h.height);assert.equal(a.poolFloorAt(h.x+h.rx,h.z),a.parkDeckY);}
   for(const r of a.parkRamps){
     for(const dx of [-r.tx,0,r.tx])assert.equal(a.poolFloorAt(r.x+dx,r.z),a.parkDeckY-r.height);
@@ -624,5 +611,22 @@ test('both vehicles can ride out through every pool bank and travel across the p
       if(p.z<b.z-b.halfZ-b.radius-180){outside=true;break;}
     }
     assert.ok(outside,`pool ${index} has a usable exit bank`);assert.ok(p.skateboard,'rider stays mounted');
+  }
+});
+
+test('shallow dips meet the deck smoothly and building collisions contain bodies',()=>{
+  const {api:a}=game();
+  for(const b of a.parkPools){
+    assert.ok(b.depth<=b.radius*.5,'dip depth is less than half its transition width');
+    for(const t of [0,.001,.25,.5,.75,.999,1]){
+      const x=b.x+b.halfX+b.radius*t,s=a.poolSlopeAt(x,b.z);
+      assert.ok(Math.hypot(s.x,s.z)<.8,'no near-vertical bank');
+      if(t===0||t===1)assert.ok(Math.hypot(s.x,s.z)<.001,'flat contact at floor and rim');
+    }
+  }
+  for(const [x,z] of [[-100,0],[8800,0],[4000,-3200],[4000,3200]]){
+    const p={x,z,y:-4000,vx:100,vy:-1000,vz:100,pad:0};a.boundParkBody(p);
+    assert.ok(p.x>=25&&p.x<=8615&&p.z>=-2975&&p.z<=2975);
+    assert.ok(p.y>=a.parkDeckY-a.parkBuildingHeight+230&&p.vy>=0,'head clears the ceiling');
   }
 });

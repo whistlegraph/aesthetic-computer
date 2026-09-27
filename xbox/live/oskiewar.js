@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 182;
+const buildVersion = 183;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -1579,10 +1579,10 @@ function terrainSeed(value) {
   return (hash >>> 0) / 4294967296 * Math.PI * 2;
 }
 // Every feature uses the same surface for wheels, feet, camera and decals.
-const pool = { x:1080,z:0,halfX:480,halfZ:240,radius:480,deck:100 };
+const pool = { x:1080,z:0,halfX:480,halfZ:240,radius:480,depth:220,deck:100 };
 const parkPools=[pool,
-  {x:4700,z:-1500,halfX:520,halfZ:240,radius:520,deck:120},
-  {x:6900,z:1600,halfX:360,halfZ:180,radius:420,deck:120}];
+  {x:4700,z:-1500,halfX:520,halfZ:240,radius:520,depth:240,deck:120},
+  {x:6900,z:1600,halfX:360,halfZ:180,radius:420,depth:190,deck:120}];
 const parkHills=[
   {x:3000,z:1800,rx:750,rz:800,height:320},
   {x:7200,z:-1600,rx:1000,rz:800,height:420},
@@ -1591,7 +1591,13 @@ const parkRamps=[
   {x:2800,z:-1450,hx:500,hz:380,tx:220,tz:130,height:230},
   {x:4700,z:700,hx:650,hz:400,tx:270,tz:180,height:300},
   {x:7250,z:0,hx:800,hz:440,tx:400,tz:200,height:340}];
-const parkDeckY=floorY-480;
+const parkDeckY=floorY-pool.depth;
+const parkPalette={pool:[172,212,211],ground:[220,185,151],
+  hills:[[167,188,207],[185,172,209],[171,200,170]],ramp:[218,155,138],
+  wall:[210,202,190],base:[143,165,167],frame:[68,91,106],ceiling:[188,191,187],
+  glass:[174,218,233],light:[255,244,196]};
+const parkBuildingHeight=1900;
+const parkLights=[1200,3300,5400,7500].flatMap(x=>[-1650,1650].map(z=>({x,z,y:parkDeckY-1300})));
 function bowlDistance(x,z,bowl){
   const dx=x-bowl.x,dz=z-bowl.z,a=Math.max(0,Math.abs(dx)-bowl.halfX),b=Math.max(0,Math.abs(dz)-bowl.halfZ),d=Math.hypot(a,b);
   return {d,nx:d?Math.sign(dx)*a/d:0,nz:d?Math.sign(dz)*b/d:0,bowl};
@@ -1603,10 +1609,8 @@ function poolDistance(x,z){
 }
 function bowlHeight(x,z,bowl){
   const d=Math.min(bowl.radius,bowlDistance(x,z,bowl).d),t=d/bowl.radius;
-  const curved=parkDeckY+Math.sqrt(Math.max(0,bowl.radius*bowl.radius-d*d));
-  // A bank on the north wall opens each pool into the rest of the park.
-  const lane=z<bowl.z-bowl.halfZ?clamp((200-Math.abs(x-bowl.x))/80,0,1):0;
-  return lerp(curved,parkDeckY+bowl.radius*(1-t*t),lane);
+  // A shallow depression, horizontal at both ends, with no vertical coping.
+  return parkDeckY+bowl.depth*(1+Math.cos(t*Math.PI))/2;
 }
 function parkGroundAt(x,z){
   let height=0;
@@ -1620,8 +1624,8 @@ function poolFloorAt(x,z=0){
 }
 function poolSlopeAt(x,z){
   const {d,nx,nz,bowl}=poolDistance(x,z);
-  if(d<bowl.radius&&!(z<bowl.z-bowl.halfZ&&Math.abs(x-bowl.x)<200)){
-    const slope=-d/Math.sqrt(Math.max(36,bowl.radius*bowl.radius-d*d));
+  if(d<bowl.radius){
+    const slope=-bowl.depth*Math.PI/(2*bowl.radius)*Math.sin(d/bowl.radius*Math.PI);
     return {x:slope*nx,z:slope*nz};
   }
   const e=.5;
@@ -1630,6 +1634,8 @@ function poolSlopeAt(x,z){
 function boundParkBody(p){
   const x=clamp(p.x,gridLeft+25,gridLeft+gridWidth-25),z=clamp(p.z||0,worldNear+25,worldFar-25);
   if(x!==p.x)p.vx=0;if(z!==p.z)p.vz=0;p.x=x;p.z=z;
+  const ceiling=parkDeckY-parkBuildingHeight+(p.pad===undefined?70:230);
+  if(p.y<ceiling){p.y=ceiling;p.vy=Math.max(0,p.vy);p.poolVert=null;}
 }
 function terrainFloorAt(x, z = 0) {
   if (poolOnly()) return poolFloorAt(x, z);
@@ -9464,19 +9470,17 @@ function deathOrbitShot(target, width, progress) {
 let poolCameraYaw = 0, poolCameraDip = 0, poolCameraReturnYaw = null;
 // Keep the line from the lens to the rider above the coping and curved walls.
 function clearPoolCamera(position, subject) {
-  // A lens outside the lip cannot see feet on its nearly vertical inner wall.
-  // Shorten the boom into the bowl before adjusting its height.
-  const subjectEdge=poolDistance(subject.x,subject.z),bowl=subjectEdge.bowl;
-  const edge=bowlDistance(position.x,position.z,bowl),limit=bowl.radius-20;
-  const contain=clamp((bowl.radius+150-subjectEdge.d)/150,0,1);
-  if(contain&&edge.d>limit)position={...position,x:position.x-edge.nx*(edge.d-limit)*contain,z:position.z-edge.nz*(edge.d-limit)*contain};
+  // Keep the camera inside the building; shallow dips no longer need to
+  // pull the boom into each bowl. Terrain still clears the entire sightline.
+  position={...position,x:clamp(position.x,gridLeft+80,gridLeft+gridWidth-80),
+    z:clamp(position.z,worldNear+80,worldFar-80)};
   let y=position.y;
   for(let i=1;i<20;i++){
     const t=i/20,x=lerp(position.x,subject.x,t),z=lerp(position.z,subject.z,t);
     const surface=poolFloorAt(x,z);
     y=Math.min(y,(surface-subject.y*t)/(1-t)-65);
   }
-  return {...position,y};
+  return {...position,y:Math.max(parkDeckY-parkBuildingHeight+80,y)};
 }
 function updateCameraDoll(dt, now) {
   if (poolOnly() && freeskateActive()) {
@@ -9512,9 +9516,13 @@ function updateCameraDoll(dt, now) {
     const target={x:lerp(p.x,lookX,.15+poolCameraDip*.4),
       y:lerp(p.y-85+clamp(p.vy*.1,-160,220),poolFloorAt(lookX,lookZ)-40,groundFocus),
       z:lerp(p.z||0,lookZ,.15+poolCameraDip*.4)};
+    // Lead the tracking spring during fast bank airs so it does not leave
+    // the rider above the frame while still looking at the takeoff point.
+    target.x+=p.vx*.1;target.z+=(p.vz||0)*.1;target.y+=clamp(p.vy*.1,-220,220);
+    target.y=clamp(target.y,p.y-240,p.y+50);
     const subject={x:p.x,y:p.y-2,z:p.z||0};
     const position=clearPoolCamera({x:target.x-Math.cos(angle)*distance,
-      y:p.y-85-(lerp(390,880,clamp(airHeight/500,0,1))+poolCameraDip*230+Math.min(500,airHeight*.2))*zoom-playerCameraPitch*600,
+      y:p.y-85-(lerp(260,880,clamp(airHeight/500,0,1))+poolCameraDip*230+Math.min(500,airHeight*.2))*zoom-playerCameraPitch*600,
       z:target.z-Math.sin(angle)*distance},subject);
     cameraCenter=target.x;cameraCenterY=target.y;cameraWidth=1650*zoom;
     cameraDoll.track({target,position,width:cameraWidth,perspective:1,fov:58+poolCameraDip*5,roll:0},dt,8);
@@ -19082,8 +19090,13 @@ function terrainSurfaceShades(color) {
   return terrainShades;
 }
 let poolSurfaceMesh=null;
+function parkSurfaceColor(base,x,z){
+  let light=0;
+  for(const lamp of parkLights)light=Math.max(light,Math.max(0,1-Math.hypot(x-lamp.x,z-lamp.z)/1450));
+  return mixColor(base,[255,236,197],light*light*.18);
+}
 function drawPoolGeometry() {
-  const ink=[172,212,211],ground=[190,201,196],rampInk=[199,185,171];
+  const ink=parkPalette.pool,ground=parkPalette.ground,rampInk=parkPalette.ramp;
   const holes=parkPools.map(b=>({x:b.x,z:b.z,hx:b.halfX+b.radius+b.deck,hz:b.halfZ+b.radius+b.deck})).concat(parkRamps);
   // Include hole edges in the flat mesh so no triangle bridges a bowl.
   const cuts=(low,high,axis,half)=>{
@@ -19095,13 +19108,14 @@ function drawPoolGeometry() {
   const groundPoint=(x,z)=>({x,y:parkGroundAt(x,z),z});
   for(let j=1;j<zs.length;j++){
     let flatFrom=null;
-    const flush=right=>{if(flatFrom===null)return;worldQuad(groundPoint(flatFrom,zs[j-1]),groundPoint(right,zs[j-1]),groundPoint(right,zs[j]),groundPoint(flatFrom,zs[j]),ground);flatFrom=null;};
+    const flush=right=>{if(flatFrom===null)return;worldQuad(groundPoint(flatFrom,zs[j-1]),groundPoint(right,zs[j-1]),groundPoint(right,zs[j]),groundPoint(flatFrom,zs[j]),parkSurfaceColor(ground,(flatFrom+right)/2,(zs[j-1]+zs[j])/2));flatFrom=null;};
     for(let i=1;i<xs.length;i++){
       const x=(xs[i-1]+xs[i])/2,z=(zs[j-1]+zs[j])/2;
       if(holes.some(h=>Math.abs(x-h.x)<h.hx&&Math.abs(z-h.z)<h.hz)){flush(xs[i-1]);continue;}
       const points=[groundPoint(xs[i-1],zs[j-1]),groundPoint(xs[i],zs[j-1]),groundPoint(xs[i],zs[j]),groundPoint(xs[i-1],zs[j])];
-      if(points.every(p=>p.y===parkDeckY)){flatFrom??=xs[i-1];continue;}
-      flush(xs[i-1]);worldQuad(...points,ground);
+      if(points.every(p=>p.y===parkDeckY)){flatFrom??=xs[i-1];if(xs[i]-flatFrom>=960)flush(xs[i]);continue;}
+      const hill=parkHills.findIndex(h=>(x-h.x)**2/h.rx**2+(z-h.z)**2/h.rz**2<1);
+      flush(xs[i-1]);worldQuad(...points,parkSurfaceColor(hill<0?ground:parkPalette.hills[hill],x,z));
     }
     flush(xs.at(-1));
   }
@@ -19121,13 +19135,13 @@ function drawPoolGeometry() {
       }
       return result;
     };
-    worldQuad({x:bowl.x-bowl.halfX,y:parkDeckY+bowl.radius,z:bowl.z-bowl.halfZ},
-      {x:bowl.x+bowl.halfX,y:parkDeckY+bowl.radius,z:bowl.z-bowl.halfZ},
-      {x:bowl.x+bowl.halfX,y:parkDeckY+bowl.radius,z:bowl.z+bowl.halfZ},
-      {x:bowl.x-bowl.halfX,y:parkDeckY+bowl.radius,z:bowl.z+bowl.halfZ},ink);
+    worldQuad({x:bowl.x-bowl.halfX,y:parkDeckY+bowl.depth,z:bowl.z-bowl.halfZ},
+      {x:bowl.x+bowl.halfX,y:parkDeckY+bowl.depth,z:bowl.z-bowl.halfZ},
+      {x:bowl.x+bowl.halfX,y:parkDeckY+bowl.depth,z:bowl.z+bowl.halfZ},
+      {x:bowl.x-bowl.halfX,y:parkDeckY+bowl.depth,z:bowl.z+bowl.halfZ},ink);
     let previous=ring(0);
-    for(let band=1;band<=12;band++){
-      const current=ring(bowl.radius*Math.sin(band/12*Math.PI/2));
+    for(let band=1;band<=10;band++){
+      const current=ring(bowl.radius*band/10);
       for(let i=0;i<current.length;i++){const j=(i+1)%current.length;worldQuad(current[i],current[j],previous[j],previous[i],ink);}
       previous=current;
     }
@@ -19236,7 +19250,66 @@ function drawTerrainBackWall(left, right, far, color) {
   terrainPass(left, right, wallZ, wallZ, wallBottom, () => wall);
 }
 
+let parkBuildingMesh=null;
+function drawParkBuildingGeometry(){
+  const p=parkPalette,top=parkDeckY-parkBuildingHeight;
+  const left=gridLeft,right=gridLeft+gridWidth,near=worldNear,far=worldFar;
+  // Wall panels, frame strips and daylight panes meet at their edges.
+  // Overlaid trim would fight the wall's depth at shallow viewing angles.
+  const wall=(ax,az,bx,bz)=>{
+    const length=Math.hypot(bx-ax,bz-az),ux=(bx-ax)/length,uz=(bz-az)/length;
+    const nx=-uz,nz=ux,bays=Math.ceil(length/1100),width=length/bays;
+    const quad=(l,t,r,b,color,depth=0)=>{
+      const at=(u,y)=>({x:ax+ux*u+nx*depth,y,z:az+uz*u+nz*depth});
+      worldQuad(at(l,t),at(r,t),at(r,b),at(l,b),color);
+    };
+    for(let i=0;i<bays;i++){
+      const a=i*width,b=a+width,l=a+100,r=b-100,wt=top+260,wb=parkDeckY-470;
+      quad(a+24,top,b,wt-9,p.wall);quad(a+24,wb+9,b,parkDeckY-150,p.wall);
+      quad(a+24,wt-9,l-9,wb+9,p.wall);quad(r+9,wt-9,b,wb+9,p.wall);
+      quad(a+24,parkDeckY-150,b,parkDeckY,p.base);
+      // Each pane meets its frame without overlapping a second glass face.
+      const midX=(l+r)/2,midY=(wt+wb)/2;
+      for(const [x1,x2] of [[l+9,midX-9],[midX+9,r-9]]){
+        quad(x1,wt+9,x2,midY-9,p.glass);
+        quad(x1,midY+9,x2,wb-9,[196,228,231]);
+      }
+      for(const x of [l,midX,r])quad(x-9,wt-9,x+9,wb+9,p.frame);
+      for(const y of [wt,midY,wb])quad(l+9,y-9,r-9,y+9,p.frame);
+      quad(a,top,a+24,parkDeckY,p.frame);
+    }
+  };
+  // Traverse counter-clockwise so depth offsets face into the room.
+  wall(left,near,right,near);wall(right,near,right,far);
+  wall(right,far,left,far);wall(left,far,left,near);
+  worldQuad({x:left,y:top,z:near},{x:right,y:top,z:near},
+    {x:right,y:top,z:far},{x:left,y:top,z:far},p.ceiling);
+  const box3=(x1,y1,z1,x2,y2,z2,color,openBottom=false)=>{
+    const a={x:x1,y:y1,z:z1},b={x:x2,y:y1,z:z1},c={x:x2,y:y1,z:z2},d={x:x1,y:y1,z:z2};
+    const e={x:x1,y:y2,z:z1},f={x:x2,y:y2,z:z1},g={x:x2,y:y2,z:z2},h={x:x1,y:y2,z:z2};
+    worldQuad(a,b,c,d,color);if(!openBottom)worldQuad(e,h,g,f,color);worldQuad(a,e,f,b,color);
+    worldQuad(b,f,g,c,color);worldQuad(c,g,h,d,color);worldQuad(d,h,e,a,color);
+  };
+  for(const x of [1200,3300,5400,7500])box3(x-20,top,near,x+20,top+65,far,p.frame);
+  for(const lamp of parkLights){
+    for(const dx of [-135,135])box3(lamp.x+dx-3,top+65,lamp.z-3,lamp.x+dx+3,lamp.y,lamp.z+3,p.frame);
+    box3(lamp.x-200,lamp.y,lamp.z-55,lamp.x+200,lamp.y+28,lamp.z+55,p.frame,true);
+    const y=lamp.y+28;
+    worldQuad({x:lamp.x-200,y,z:lamp.z-55},{x:lamp.x+200,y,z:lamp.z-55},
+      {x:lamp.x+200,y,z:lamp.z+55},{x:lamp.x-200,y,z:lamp.z+55},p.light);
+  }
+}
+function drawParkBuilding(){
+  if(!parkBuildingMesh){
+    parkBuildingMesh=captureQuadMesh(drawParkBuildingGeometry);
+    // Light diffusers and daylight glass stay luminous as the view turns.
+    for(const face of parkBuildingMesh.faces)if(face.color[0]===255||face.color.join(',')===parkPalette.glass.join(',')||face.color.join(',')==='196,228,231')
+      face.normal=[-globalLight.x,-globalLight.y,-globalLight.z];
+  }
+  drawQuadMesh(parkBuildingMesh);
+}
 function drawRoomSurfaces(left, right, top, bottom, color) {
+  if(poolOnly()){drawParkBuilding();return;}
   if (halfpipeOnly()) return;
   // The station has no room to surface. Every plane this function used to
   // raise — the plaster sheet behind the fighters, the segmented left wall,
