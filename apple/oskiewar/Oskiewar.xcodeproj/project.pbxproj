@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		1B43BAF5E41E93E3D9208197 /* product-analytics.mjs in Resources */ = {isa = PBXBuildFile; fileRef = A5CDAFE515D4323680797051 /* product-analytics.mjs */; };
+		1BB115B2B2EC50D3FFBD88D4 /* scene3d-webgl.mjs in Resources */ = {isa = PBXBuildFile; fileRef = BF7515E8A95A1944C5424BD3 /* scene3d-webgl.mjs */; };
 		21F3367D32F88CB3B2A52859 /* oskiewar-sfx.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 2E725A92F239CBD5114A9A1E /* oskiewar-sfx.mjs */; };
 		359F92BBF72AEE001B8BFD71 /* oskiewar-analytics.mjs in Resources */ = {isa = PBXBuildFile; fileRef = A0AEFE9FB2DD8B296D83443D /* oskiewar-analytics.mjs */; };
 		399B26763D555AAAF98440DF /* oskiewar-voice.mjs in Resources */ = {isa = PBXBuildFile; fileRef = CEF913B052D36BC3CE48BB1B /* oskiewar-voice.mjs */; };
@@ -21,6 +22,7 @@
 		B93964796DBF64A171DD9439 /* GlyphAtlas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59BD48D8076F347B7FF9A774 /* GlyphAtlas.swift */; };
 		C0C46FBB6805F1A1E055FED7 /* OskiewarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43902C050551AD2D6DA0EF9 /* OskiewarApp.swift */; };
 		DE990881EAE44FB2BE4592FF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FCECE2875B24DB7356CB0FDC /* Assets.xcassets */; };
+		E6E3C4089B219BD45E7FEEAC /* scene3d.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 9A29BD224EA84CBE2FBDBA8D /* scene3d.mjs */; };
 		F10250364FF369A809057B31 /* frame-driver.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 4C7C4D62E6C706C3AB30BB3B /* frame-driver.mjs */; };
 		FE65C7B80AB35953E40AA8A7 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 474C7E2A33BAAEDAEED939DF /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
@@ -34,10 +36,12 @@
 		59BD48D8076F347B7FF9A774 /* GlyphAtlas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphAtlas.swift; sourceTree = "<group>"; };
 		812FA65365747604E58B98E7 /* MetalSceneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalSceneView.swift; sourceTree = "<group>"; };
 		8265144AA3E23B010A51E65A /* mac-test.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "mac-test.html"; sourceTree = "<group>"; };
+		9A29BD224EA84CBE2FBDBA8D /* scene3d.mjs */ = {isa = PBXFileReference; path = scene3d.mjs; sourceTree = "<group>"; };
 		A0AEFE9FB2DD8B296D83443D /* oskiewar-analytics.mjs */ = {isa = PBXFileReference; path = "oskiewar-analytics.mjs"; sourceTree = "<group>"; };
 		A50E50A82D3F715FB8B31490 /* qr.mjs */ = {isa = PBXFileReference; path = qr.mjs; sourceTree = "<group>"; };
 		A5CDAFE515D4323680797051 /* product-analytics.mjs */ = {isa = PBXFileReference; path = "product-analytics.mjs"; sourceTree = "<group>"; };
 		AB2FCD0A93F17F907A54302C /* oskiewar.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = oskiewar.js; sourceTree = "<group>"; };
+		BF7515E8A95A1944C5424BD3 /* scene3d-webgl.mjs */ = {isa = PBXFileReference; path = "scene3d-webgl.mjs"; sourceTree = "<group>"; };
 		C43902C050551AD2D6DA0EF9 /* OskiewarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OskiewarApp.swift; sourceTree = "<group>"; };
 		CEF913B052D36BC3CE48BB1B /* oskiewar-voice.mjs */ = {isa = PBXFileReference; path = "oskiewar-voice.mjs"; sourceTree = "<group>"; };
 		D5D135855C9371BD15F15377 /* round-room.mjs */ = {isa = PBXFileReference; path = "round-room.mjs"; sourceTree = "<group>"; };
@@ -108,6 +112,8 @@
 				CEF913B052D36BC3CE48BB1B /* oskiewar-voice.mjs */,
 				AB2FCD0A93F17F907A54302C /* oskiewar.js */,
 				D5D135855C9371BD15F15377 /* round-room.mjs */,
+				BF7515E8A95A1944C5424BD3 /* scene3d-webgl.mjs */,
+				9A29BD224EA84CBE2FBDBA8D /* scene3d.mjs */,
 			);
 			name = live;
 			path = ../../xbox/live;
@@ -194,6 +200,8 @@
 				1B43BAF5E41E93E3D9208197 /* product-analytics.mjs in Resources */,
 				98991A7AC85B7CAE426E8D15 /* qr.mjs in Resources */,
 				5893AAD738853ADCCD1C6259 /* round-room.mjs in Resources */,
+				1BB115B2B2EC50D3FFBD88D4 /* scene3d-webgl.mjs in Resources */,
+				E6E3C4089B219BD45E7FEEAC /* scene3d.mjs in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

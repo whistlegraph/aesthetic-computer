@@ -25,6 +25,10 @@ targets:
         buildPhase: resources
       - path: ../../xbox/live/frame-driver.mjs
         buildPhase: resources
+      - path: ../../xbox/live/scene3d-webgl.mjs
+        buildPhase: resources
+      - path: ../../xbox/live/scene3d.mjs
+        buildPhase: resources
       - path: ../../xbox/live/round-room.mjs
         buildPhase: resources
       - path: ../../system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs

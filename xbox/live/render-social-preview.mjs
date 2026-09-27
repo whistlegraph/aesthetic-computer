@@ -43,7 +43,8 @@ function fileFor(pathname) {
   // Every module the shell imports has to be listed, or the page dies on a 404
   // and the capture comes out empty rather than loudly wrong.
   if (["/oskiewar.js", "/oskiewar-sfx.mjs", "/oskiewar-voice.mjs",
-      "/oskiewar-midi.mjs", "/frame-driver.mjs", "/render-quality.mjs", "/photo-theme.mjs", "/account.mjs",
+      "/oskiewar-midi.mjs", "/frame-driver.mjs", "/scene3d-webgl.mjs", "/scene3d.mjs",
+      "/render-quality.mjs", "/photo-theme.mjs", "/account.mjs",
       "/oskiewar-wizard.mjs", "/oskiewar-fighter.mjs", "/oskiewar-workshop.mjs", "/oskiewar-map.mjs",
       "/round-room.mjs"].includes(pathname)) return join(live, pathname.slice(1));
   if (["underpass.png", "props.png", "explosions-v1.png", "weapons-v2.png"]

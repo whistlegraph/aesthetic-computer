@@ -134,6 +134,8 @@ final class BundleSchemeHandler: NSObject, WKURLSchemeHandler {
         "/oskiewar-voice.mjs": ("oskiewar-voice", "mjs"),
         "/oskiewar-midi.mjs": ("oskiewar-midi", "mjs"),
         "/frame-driver.mjs": ("frame-driver", "mjs"),
+        "/scene3d-webgl.mjs": ("scene3d-webgl", "mjs"),
+        "/scene3d.mjs": ("scene3d", "mjs"),
         "/round-room.mjs": ("round-room", "mjs"),
         "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs": ("qr", "mjs"),
         "/aesthetic.computer/lib/product-analytics.mjs": ("product-analytics", "mjs"),

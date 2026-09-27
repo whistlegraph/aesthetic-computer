@@ -1,5 +1,12 @@
 import { OskiewarScene3D } from "./scene3d.mjs";
 
+// clipDepth without the finite check: a NaN here comes from geometry the game
+// already culls, and a compare on the hot path is all the guard it needs.
+const depthOf = (z) => {
+  const d = (z + 1.5) / 3;
+  return d < 0 ? 0 : d > 1 ? 1 : d;
+};
+
 const vertexSource = `#version 300 es
 precision highp float;
 layout(location = 0) in vec3 position;
@@ -72,6 +79,54 @@ export class WebGLOskiewarScene3D {
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.disable(gl.CULL_FACE);
+    // The shell's logical stage (1080 tall, width by aspect). The fast path
+    // below maps logical coordinates to clip space with these, so the game
+    // hands over the same numbers it hands every other host.
+    this.logicalWidth = 1920;
+    this.logicalHeight = 1080;
+    this.halfWidth = 960;
+    this.halfHeight = 540;
+  }
+
+  setLogicalSize(width, height) {
+    this.logicalWidth = width;
+    this.logicalHeight = height;
+    this.halfWidth = width / 2;
+    this.halfHeight = height / 2;
+  }
+
+  // The host face sink: twelve positional numbers, no allocation, the same
+  // signature as the console's `triangle3d`. Depth uses the shared
+  // (z + 1.5) / 3 mapping so the depth test agrees with D3D and Metal. A
+  // frame that outgrows the buffer doubles it (and the GPU buffer with it)
+  // rather than dropping faces; the park draws its meshes as JS faces here.
+  triangle3d(x1, y1, z1, x2, y2, z2, x3, y3, z3, r = 255, g = 255, b = 255) {
+    const scene = this.scene;
+    if (scene.triangleCount >= scene.maxTriangles) this.grow();
+    const v = scene.vertices;
+    let at = scene.triangleCount * 18;
+    const hw = this.halfWidth, hh = this.halfHeight;
+    const cr = (r < 0 ? 0 : r > 255 ? 255 : r) / 255;
+    const cg = (g < 0 ? 0 : g > 255 ? 255 : g) / 255;
+    const cb = (b < 0 ? 0 : b > 255 ? 255 : b) / 255;
+    v[at++] = x1 / hw - 1; v[at++] = 1 - y1 / hh; v[at++] = depthOf(z1);
+    v[at++] = cr; v[at++] = cg; v[at++] = cb;
+    v[at++] = x2 / hw - 1; v[at++] = 1 - y2 / hh; v[at++] = depthOf(z2);
+    v[at++] = cr; v[at++] = cg; v[at++] = cb;
+    v[at++] = x3 / hw - 1; v[at++] = 1 - y3 / hh; v[at++] = depthOf(z3);
+    v[at++] = cr; v[at++] = cg; v[at++] = cb;
+    scene.triangleCount++;
+  }
+
+  grow() {
+    const scene = this.scene;
+    const next = new Float32Array(scene.vertices.length * 2);
+    next.set(scene.vertices);
+    scene.vertices = next;
+    scene.maxTriangles *= 2;
+    const gl = this.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, next.byteLength, gl.DYNAMIC_DRAW);
   }
 
   resize(pixelWidth, pixelHeight) {
