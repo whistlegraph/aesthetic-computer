@@ -681,7 +681,7 @@ const loopSegments = 64;
 function drawLoopTrack(loop, ground) {
   {
     const key=ground.join(',')+':'+loop.radius+':'+sceneLod();
-    if(loop.meshKey!==key){loop.meshKey=key;loop.mesh=captureQuadMesh(()=>drawLoopTrackGeometry(loop,ground));}
+    if(loop.meshKey!==key){loop.meshKey=key;releaseQuadMesh(loop.mesh);loop.mesh=captureQuadMesh(()=>drawLoopTrackGeometry(loop,ground));}
     drawQuadMesh(loop.mesh);return;
   }
   drawLoopTrackGeometry(loop,ground);
@@ -756,11 +756,27 @@ function drawDust(hall) {
 let hallMesh=null,hallMeshKey='';
 function drawIndoorHall(ground){
  drawCityStreet();
- if(roofShards.length){drawIndoorHallGeometry(ground);return;}
  const key=ground.join(',')+roofPanes.map(p=>p.broken?1:0).join('')+hallCubes.map(c=>c.broken?1:0).join('')+gridCols;
- if(key!==hallMeshKey){hallMeshKey=key;const originalDust=drawDust;drawDust=()=>{};try{hallMesh=captureQuadMesh(()=>drawIndoorHallGeometry(ground));}finally{drawDust=originalDust;}}
+ if(key!==hallMeshKey){hallMeshKey=key;const originalDust=drawDust;drawDust=()=>{};try{releaseQuadMesh(hallMesh);hallMesh=captureQuadMesh(()=>drawIndoorHallGeometry(ground));}finally{drawDust=originalDust;}}
  drawQuadMesh(hallMesh);drawDust(hallPalette());
+ // A breaking pane used to send the whole hall back through the per-frame JS
+ // path for as long as its shards flew; the shards are their own loop.
+ if(roofShards.length)drawRoofShards(hallPalette().glass);
 }
+function drawRoofShards(glass){
+  for (const shard of roofShards) {
+    const point = projectPoint(shard.x, shard.y, shard.z);
+    if (![point.x, point.y].every(Number.isFinite)) continue;
+    const size = shard.size * cameraScale();
+    const corner = (turn) => [point.x + Math.cos(shard.rotation + turn) * size,
+      point.y + Math.sin(shard.rotation + turn) * size * .6];
+    const previous = triangleDepth;
+    triangleDepth = point.z;
+    screenTriangle(...corner(0), ...corner(2.3), ...corner(4.1), ...glass);
+    triangleDepth = previous;
+  }
+}
+
 function drawIndoorHallGeometry(ground) {
   const left = worldLeft, right = gridLeft + hallCols*tileSize;
   const top = indoorCeilingY, bottom = floorY + 2000;
@@ -819,17 +835,7 @@ function drawIndoorHallGeometry(ground) {
   const midZ = (worldNear + backZ) / 2;
   worldQuad({ x: left, y: top + 2, z: midZ - 8 }, { x: right, y: top + 2, z: midZ - 8 },
     { x: right, y: top + 2, z: midZ + 8 }, { x: left, y: top + 2, z: midZ + 8 }, frame);
-  for (const shard of roofShards) {
-    const point = projectPoint(shard.x, shard.y, shard.z);
-    if (![point.x, point.y].every(Number.isFinite)) continue;
-    const size = shard.size * cameraScale();
-    const corner = (turn) => [point.x + Math.cos(shard.rotation + turn) * size,
-      point.y + Math.sin(shard.rotation + turn) * size * .6];
-    const previous = triangleDepth;
-    triangleDepth = point.z;
-    screenTriangle(...corner(0), ...corner(2.3), ...corner(4.1), ...glass);
-    triangleDepth = previous;
-  }
+  drawRoofShards(glass);
 }
 
 function drawDecals(surface) {
@@ -2191,6 +2197,12 @@ const nativeTrianglePass = typeof triangle3d === "function";
 const nativeDisc = typeof disc3d === "function" ? disc3d : null;
 const nativeCapsule = typeof capsule3d === "function" ? capsule3d : null;
 const nativeSceneMesh = typeof sceneMesh === "function" ? sceneMesh : null;
+// sceneApi 2: a park mesh is validated, bounded and lit once natively and
+// drawn by handle; sceneMesh (sceneApi 1) stays the path on older consoles.
+const nativeMeshUpload = typeof meshUpload === "function" ? meshUpload : null;
+const nativeMeshDraw = typeof meshDraw === "function" ? meshDraw : null;
+const nativeMeshFree = typeof meshFree === "function" ? meshFree : null;
+const nativeRetainedMeshes = nativeMeshUpload !== null && nativeMeshDraw !== null;
 const nativeTriangles3d = typeof triangles3d === "function" ? triangles3d : null;
 const nativePostEffects = typeof postEffects === "function" ? postEffects : null;
 const hostComicWrite = typeof comicWrite === "function" ? comicWrite : null;
@@ -17018,15 +17030,21 @@ function drawDeathFlash() {
 // torso. Held items, the shield and the hit flash survive every tier above the
 // dot, because they are play. figureLodScale is the governor's: it lifts every
 // threshold together while frames run long and eases back once there is room.
-const figureLodFull = 120, figureLodSimple = 44, figureLodDot = 14;
+// @jeffrey, 2026-09-26: "i dont like when we lose visuals like the character
+// outfit". Full detail holds down to a figure two thirds the size of a
+// fighter at rest; the simpler tiers are for a far crowd and a wide zoom-out,
+// where the outfit was sub-pixel anyway. Frame time is won in the renderer,
+// not by undressing the cast.
+const figureLodFull = 64, figureLodSimple = 34, figureLodDot = 12;
 let figureLodScale = 1, figureFrameMs = 16.7, figureFrameAt = 0;
 function governFigureLod(now) {
   const elapsed = (now - figureFrameAt) / 1000;
   figureFrameAt = now;
   if (!(elapsed > 0 && elapsed < 50)) return;
   figureFrameMs += (elapsed - figureFrameMs) * .1;
-  if (figureFrameMs > 17.5) figureLodScale = Math.min(1.5, figureLodScale * 1.02);
-  else if (figureFrameMs < 15.8) figureLodScale = Math.max(1, figureLodScale / 1.01);
+  // The governor once lifted every threshold while frames ran long; that
+  // stripped outfits at normal zoom, so it now only keeps the measurement.
+  figureLodScale = 1;
 }
 // Each figure's last tier, for the hysteresis. Off the fighter: `paint`
 // never writes a sim object — players ride structuredClone into rollback
@@ -18210,7 +18228,7 @@ let pipeSurfaceMesh=null,pipeSurfaceKey='';
 function drawTerrainSurface(left,right,near,far,color){
  if(!indoorSkate()){drawTerrainSurfaceGeometry(left,right,near,far,color);return;}
  const key=gridCols+':'+near+':'+far+':'+color.join(',');
- if(key!==pipeSurfaceKey){pipeSurfaceKey=key;pipeSurfaceMesh=captureQuadMesh(()=>drawTerrainSurfaceGeometry(worldLeft,worldRight,near,far,color));}
+ if(key!==pipeSurfaceKey){pipeSurfaceKey=key;releaseQuadMesh(pipeSurfaceMesh);pipeSurfaceMesh=captureQuadMesh(()=>drawTerrainSurfaceGeometry(worldLeft,worldRight,near,far,color));}
  drawQuadMesh(pipeSurfaceMesh);
 }
 function drawTerrainSurfaceGeometry(left, right, near, far, color) {
@@ -18234,7 +18252,7 @@ let pipeWallMesh=null,pipeWallKey='';
 function drawTerrainFrontWall(left,right,near,color){
  if(!indoorSkate()){drawTerrainFrontWallGeometry(left,right,near,color);return;}
  const key=gridCols+':'+near+':'+color.join(',');
- if(key!==pipeWallKey){pipeWallKey=key;pipeWallMesh=captureQuadMesh(()=>drawTerrainFrontWallGeometry(worldLeft,worldRight,near,color));}
+ if(key!==pipeWallKey){pipeWallKey=key;releaseQuadMesh(pipeWallMesh);pipeWallMesh=captureQuadMesh(()=>drawTerrainFrontWallGeometry(worldLeft,worldRight,near,color));}
  drawQuadMesh(pipeWallMesh);
 }
 function drawTerrainFrontWallGeometry(left, right, near, color) {
@@ -19858,7 +19876,7 @@ function drawHudStatusTray(clock, ink, unixMs) {
   if(freeskateActive()){
     const safe=hudSafeRect(),run=runtime(),fps=run.frameMs?Math.round(1000/run.frameMs):Math.round(displayFps||0);
     const old=triangleDepth;triangleDepth=hudDepth;
-    seatHudText(fps+' FPS',safe.left+12,safe.top+12,28,[245,240,247]);
+    if(debugHitboxes)seatHudText(fps+' FPS',safe.left+12,safe.top+12,28,[245,240,247]);
     if(freeskateSecond && !players[1].dummy)seatHudText('P1 '+players[0].score+'  :  '+players[1].score+' P2',safe.left+12,safe.top+50,25,[238,229,247]);
     triangleDepth=old;
   }
@@ -19915,7 +19933,10 @@ function spectatorQrBox() {
 
 // Where the bare frame rate shows with the overlay off: the console, in a
 // fight. The debug read-out itself never asks which screen it is on.
-const bareFrameRateShown = () => nativeTrianglePass && shellMode === "GAME";
+// @jeffrey, 2026-09-26: "fps shouldn't appear unless we are in debug view" —
+// the bare console read-out from 2026-09-20 is retired; the number lives
+// behind the debug toggle everywhere.
+const bareFrameRateShown = () => false;
 function drawDebugPerformance(ink) {
   // The wordmark screen used to hide this row, but the title is a running
   // fight with a frame budget of its own — debug mode reads the machine, not
@@ -21070,7 +21091,7 @@ let waterMesh=null,waterMeshKey='';
 function drawUnderPipe(){
  if(!indoorSkate())return;
  const key=bottomGlass.join('')+gridCols;
- if(key!==waterMeshKey){waterMeshKey=key;waterMesh=captureQuadMesh(drawUnderPipeGeometry);}
+ if(key!==waterMeshKey){waterMeshKey=key;releaseQuadMesh(waterMesh);waterMesh=captureQuadMesh(drawUnderPipeGeometry);}
  drawQuadMesh(waterMesh);
 }
 function drawUnderPipeGeometry(){
@@ -21283,10 +21304,37 @@ function captureQuadMesh(draw){
   const nx=aby*acz-abz*acy,ny=abz*acx-abx*acz,nz=abx*acy-aby*acx,n=Math.hypot(nx,ny,nz)||1;
   mesh.faces.push({ids:[vertex(a),vertex(b),vertex(c),vertex(d)],color:color.slice(),normal:[nx/n,ny/n,nz/n],lit:[]});
  };
- try{draw();}finally{worldQuad=original;worldCapsule=originalCapsule;}return mesh;
+ try{draw();}finally{worldQuad=original;worldCapsule=originalCapsule;}
+ quadMeshBounds(mesh);return mesh;
+}
+// Bounds at capture, over vertices and capsule ends alike, so every view can
+// reject a mesh before projecting it — the inset used to read a field only
+// the web fallback ever filled.
+function quadMeshBounds(mesh){
+ const b={minX:Infinity,maxX:-Infinity,minY:Infinity,maxY:-Infinity,minZ:Infinity,maxZ:-Infinity};
+ const grow=(x,y,z)=>{if(x<b.minX)b.minX=x;if(x>b.maxX)b.maxX=x;if(y<b.minY)b.minY=y;if(y>b.maxY)b.maxY=y;if(z<b.minZ)b.minZ=z;if(z>b.maxZ)b.maxZ=z;};
+ for(const p of mesh.vertices)grow(p.x,p.y,p.z);
+ for(const a of mesh.capsules||[]){grow(a[0],a[1],a[2]);grow(a[3],a[4],a[5]);}
+ mesh.bounds=b.minX===Infinity?null:b;
+}
+// The native handle for a captured mesh: uploaded on first use, freed when the
+// mesh is recaptured. −1 means the shell has no retained meshes (or refused
+// the upload) and the caller takes the sceneMesh or JS path.
+function meshHandle(mesh){
+ if(!nativeRetainedMeshes)return -1;
+ if(mesh.nativeHandle===undefined){const b=nativeMeshBuffers(mesh);mesh.nativeHandle=nativeMeshUpload(b.vertices,b.faces,b.capsules);}
+ return mesh.nativeHandle;
+}
+function releaseQuadMesh(mesh){
+ if(mesh&&mesh.nativeHandle>=0&&nativeMeshFree)nativeMeshFree(mesh.nativeHandle);
+ if(mesh)mesh.nativeHandle=-1;
 }
 function drawQuadMesh(mesh){
  if(!mesh)return;
+ if(nativeRetainedMeshes){
+  const handle=meshHandle(mesh);
+  if(handle>=0){nativeMeshDraw(handle,mainNativeCamera(),cameraScale());return;}
+ }
  if(nativeSceneMesh){
   const scale=cameraScale();for(const a of mesh.capsules||[])worldCapsule(a[0],a[1],a[2],a[3],a[4],a[5],a[6]*scale,a[7],a[8]);
   const buffers=nativeMeshBuffers(mesh);nativeSceneMesh(buffers.vertices,buffers.faces,mainNativeCamera());return;
@@ -21613,7 +21661,9 @@ function rebuildSeatInset(rect,kids=true){
 
 let mainNativeCameraAt=-1,mainNativeCameraBuffer=null;
 function nativeMeshBuffers(mesh){
- if(!mesh.nativeBuffers)mesh.nativeBuffers={vertices:new Float32Array(mesh.vertices.flatMap(p=>[p.x,p.y,p.z])),faces:new Float32Array(mesh.faces.flatMap(f=>[...f.ids,...f.color,...f.normal]))};
+ if(!mesh.nativeBuffers)mesh.nativeBuffers={vertices:new Float32Array(mesh.vertices.flatMap(p=>[p.x,p.y,p.z])),faces:new Float32Array(mesh.faces.flatMap(f=>[...f.ids,...f.color,...f.normal])),
+  // Edge capsules as the shell reads them: endpoints, world width, colour, depth bias.
+  capsules:new Float32Array((mesh.capsules||[]).flatMap(a=>[a[0],a[1],a[2],a[3],a[4],a[5],a[6],a[7][0],a[7][1],a[7][2],a[8]??-.004]))};
  return mesh.nativeBuffers;
 }
 function mainNativeCamera(){
