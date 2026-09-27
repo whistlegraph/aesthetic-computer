@@ -33,7 +33,7 @@ function game(course = "pool", retainedDecals = false) {
   vm.runInContext(source, context);
   const api = vm.runInContext(`({boot,sim,paint,players,activePlayers,monowheel,balls,
     parkKids,roofPanes,skateLoops,skateBoosts,skateRopes,axePickup,gunPickups,
-    cameraDoll,steerPostEffects,projectPoint,drawSeatPlayerHud,handleWidth,
+    cameraDoll,steerPostEffects,projectPoint,drawSeatPlayerHud,handleWidth,drawFrameMeter,
     breakRoofPane,configureWorldMap,resetRoofPanes,updatePlayer,updateWheelTurbo,
     addDecal,decals,rasterDecalPatches,terrainFloorAt,drawDecals,
     surfaceState:()=>({native:poolDecalsNative,count:poolDecalCount}),
@@ -125,6 +125,7 @@ test('BPM is large, centered with its heart, and shadowed on the HUD depth', () 
   a.drawSeatPlayerHud([255,255,255]);
   const labels = texts.filter(row=>row[0]==='72 bpm');
   assert.equal(labels.length,2,'shadow and foreground');
+  assert.equal(texts.length,2,'the meter has no extra status or item labels');
   const [shadow,front] = labels;
   assert.equal(front[3],84);
   assert.ok(shadow[1]>front[1] && shadow[2]>front[2]);
@@ -154,6 +155,15 @@ test('halfpipe uses continuous depth movement, bounded at both ramp edges', () =
   for (let i = 0; i < 4; i++) g.tick();
   assert.equal(p.z, z);
   assert.equal(p.vz, 0);
+});
+
+test('one-player debug draws one frame meter above the BPM area', () => {
+  const g=game(),a=g.api;
+  a.debug();for(let i=0;i<4;i++)g.tick();
+  a.drawFrameMeter();
+  assert.equal(g.texts.filter(t=>t[0]==='P1').length,1);
+  assert.equal(g.texts.filter(t=>t[0]==='P2').length,0);
+  assert.ok(g.texts.every(t=>t[2]<300),'frame rows and legend stay in the upper debug area');
 });
 
 test('A jumps, X crouches, B punches, Y kicks without former button actions', () => {

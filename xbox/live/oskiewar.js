@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 178;
+const buildVersion = 179;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -3977,7 +3977,7 @@ function frameMeterState(player, now) {
 }
 function recordFrameMeter(now) {
   if (!debugHitboxes) return;
-  for (const player of players) {
+  for (const player of activePlayers()) {
     const meter = frameMeters[player.pad];
     meter.push(frameMeterState(player, now));
     if (meter.length > frameMeterLength) meter.shift();
@@ -18156,17 +18156,18 @@ function drawDebugHitboxes(player, t) {
 // right the way it happened, and the thing you just did is under your eye
 // rather than across the screen.
 //
-// Two rows, one per fighter, stacked so the frames line up vertically: that
+// One row per active fighter, stacked so the frames line up vertically: that
 // column alignment IS the instrument. Reading "my recovery sits under their
 // active" off two rows is the whole reason a frame meter exists, and it is
 // why this is a stacked pair rather than one row per player somewhere
 // convenient.
 function drawFrameMeter() {
   if (!debugHitboxes || renderFlags.hud === false) return;
-  if (!frameMeters.some((meter) => meter.length)) return;
+  const shown=activePlayers();
+  if (!shown.some(player=>frameMeters[player.pad].length)) return;
   const safe = hudSafeRect();
   const pip = Math.max(2, Math.min(7, Math.floor(
-    (safe.right - safe.left) * .55 / frameMeterLength) - 1));
+    (safe.right - safe.left) * (poolOnly()?.4:.55) / frameMeterLength) - 1));
   const gap = pip > 3 ? 1 : 0;
   // Tall enough to read a color at a glance. The pips are the resolution;
   // the row height is only whether you can see them, and a meter you have to
@@ -18176,11 +18177,11 @@ function drawFrameMeter() {
   // Centred, and lifted clear of the bottom furniture -- the session name,
   // the bug and the opponent label all live along that edge, and the first
   // placement laid the meter straight across them.
-  const left = Math.round((safe.left + safe.right - width) / 2);
-  const top = safe.bottom - rowHeight * 2 - 58;
-  for (const player of players) {
+  const left = poolOnly()?safe.left+36:Math.round((safe.left + safe.right - width) / 2);
+  const top = poolOnly()?safe.top+124:safe.bottom-rowHeight*shown.length-58;
+  for (const [row,player] of shown.entries()) {
     const meter = frameMeters[player.pad];
-    const y = top + player.pad * (rowHeight + 3);
+    const y = top + row * (rowHeight + 3);
     // The empty track, so a meter that has not filled yet reads as a meter
     // rather than as nothing having happened.
     hudBox(left, y, width, rowHeight, 16, 19, 30);
@@ -18201,7 +18202,7 @@ function drawFrameMeter() {
   // seconds actually contained, because a legend listing colors that are not
   // on screen is a thing to decode rather than a thing to read.
   const seen = new Set();
-  for (const meter of frameMeters) for (const state of meter)
+  for (const player of shown) for (const state of frameMeters[player.pad])
     if (frameMeterStates[state]?.label) seen.add(state);
   let x = left;
   for (const state of seen) {
@@ -20676,7 +20677,7 @@ function drawHudStatusTray(clock, ink, unixMs) {
   if(freeskateActive()){
     const safe=hudSafeRect(),run=runtime(),fps=run.frameMs?Math.round(1000/run.frameMs):Math.round(displayFps||0);
     const old=triangleDepth;triangleDepth=hudDepth;
-    if(debugHitboxes)seatHudText(fps+' FPS',safe.left+12,safe.top+12,28,[245,240,247]);
+    if(debugHitboxes&&!poolOnly())seatHudText(fps+' FPS',safe.left+12,safe.top+12,28,[245,240,247]);
     if(freeskateSecond && !players[1].dummy)seatHudText('P1 '+players[0].score+'  :  '+players[1].score+' P2',safe.left+12,safe.top+50,25,[238,229,247]);
     triangleDepth=old;
   }
@@ -22109,7 +22110,7 @@ function seatHudText(text,x,y,size,color){
  const shadow=Math.max(3,Math.round(size*.065));
  typeWrite(text,x+shadow,y+shadow,size,9,12,24);typeWrite(text,x,y,size,...color);
 }
-// The seat readouts — a number, a verb and an item per fighter — were new
+// The seat meters were new
 // strings every frame, and the console lays out every new string (see the
 // note in drawFreeskateSpeed: seven milliseconds). Ten refreshes a second
 // is the readout's own rate. The idle verdict is held with the text so a
@@ -22122,9 +22123,7 @@ function seatHudReadout(p,now){
  const speed=Math.hypot(p.vx,p.vy,p.vz||0)*gameSpeed;
  const idle=speed<30 && p.grounded && !p.spin;
  const readout={at:now,idle,
-  measure:idle?Math.round(p.heartRate||68)+' bpm':p.spin?Math.round(spinRpm(p))+' rpm':Math.round(mph(speed))+' mph',
-  verb:idle?(p.heartDanger>.25?'on edge':'resting'):p.wheelTurbo?'super turbo':statusVerb(p,speed)[0],
-  item:p.gunAmmo?'SMG '+p.gunAmmo:p.axeHeld?'AXE':p.onewheel?'MONOWHEEL':p.skateboard?'SKATEBOARD':''};
+  measure:idle?Math.round(p.heartRate||68)+' bpm':p.spin?Math.round(spinRpm(p))+' rpm':Math.round(mph(speed))+' mph'};
  seatHudReadouts.set(p,readout);
  return readout;
 }
@@ -22133,7 +22132,7 @@ function drawSeatPlayerHud(ink){
  const safe=hudSafeRect(),old=triangleDepth,now=runtime().monotonicUs;triangleDepth=hudDepth;
  for(const p of activePlayers()){
   if(p.dummy)continue;
-  const i=p.pad,{idle,measure,verb,item}=seatHudReadout(p,now);
+  const i=p.pad,{idle,measure}=seatHudReadout(p,now);
   const accent=p.wheelTurbo?[209,129,255]:i?[174,161,255]:[255,144,188];
   const size=idle?(compactLayout()?64:84):54;
   const heartRadius=idle?size*.23:0,heartSpace=idle?heartRadius*3+18:0;
@@ -22147,12 +22146,11 @@ function drawSeatPlayerHud(ink){
    drawSeatHeart(hx+5,hy+5,p,[9,12,24],heartRadius);
    drawSeatHeart(hx,hy,p,accent,heartRadius);
   }
-  seatHudText(verb,center-handleWidth(verb,30)/2,y+size+6,30,[249,242,248]);
-  if(item)seatHudText(item,center-handleWidth(item,25)/2,y-36,25,accent);
  }
  triangleDepth=old;
 }
 function drawSeatAction(p){
+ if(poolOnly())return;
  if(parkSupply.ko || !p.alive)return;
  const now=runtime().monotonicUs;
  const text=p.wheelTurbo?'SUPER TURBO':p.spin?'SPIN':now-(p.lastButtonAt||0)<850000?p.lastButton:'';
