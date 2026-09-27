@@ -6,7 +6,7 @@
 //             and a word; the result is stored as a new $code on AC
 //   render  — the oven grabs the $code as an animated GIF (+ a PNG thumb);
 //             a blank or failed grab gets a second pick, then a date-seeded one
-//   pin     — GIF, thumb and TZIP-21 metadata to IPFS via Pinata
+//   pin     — GIF, thumb and TZIP-21 metadata to AC's IPFS node (/api/ipfs-add)
 //   mint    — mint_OBJKT on the hic et nunc minter, signed by aesthetic.tez
 //   list    — an objkt ask for the whole edition
 //
@@ -20,7 +20,7 @@
 //
 // Secrets come from the environment or --env <file> (repeatable):
 //   AESTHETIC_KEY, AESTHETIC_ADDRESS   the signer (must be aesthetic.tez)
-//   PINATA_JWT                         IPFS pinning
+//   AC_TOKEN or ~/.ac-token            an @jeffrey AC session, for /api/ipfs-add
 // Tuning: DAILY_EDITIONS (10), DAILY_PRICE_XTZ (3), DAILY_ROYALTIES_PERMILLE (150).
 
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from "node:fs";
@@ -70,6 +70,33 @@ const PRICE_XTZ = Number(process.env.DAILY_PRICE_XTZ || 3);
 const ROYALTIES = Number(process.env.DAILY_ROYALTIES_PERMILLE || 150); // HEN is per-mille
 const MIN_BALANCE_XTZ = 0.15; // a mint + a listing burn ~0.06
 
+// The AC session: AC_TOKEN if given, else ~/.ac-token (written once by
+// tezos/ac-login.mjs and copied over), refreshed through its refresh token a
+// minute early — the same grant easel uses — so the nightly run never lapses.
+const AUTH0 = "hi.aesthetic.computer";
+const AUTH0_CLIENT_ID = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
+async function acToken() {
+  if (process.env.AC_TOKEN) return process.env.AC_TOKEN;
+  const file = resolve(process.env.HOME, ".ac-token");
+  if (!existsSync(file)) return null;
+  const record = JSON.parse(readFileSync(file, "utf8"));
+  if (!record.expires_at || Date.now() < record.expires_at - 60_000) return record.access_token;
+  if (!record.refresh_token) return null;
+  const r = await fetch(`https://${AUTH0}/oauth/token`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ grant_type: "refresh_token", client_id: AUTH0_CLIENT_ID, refresh_token: record.refresh_token }),
+  });
+  if (!r.ok) throw new Error(`AC session refresh failed (${r.status}); rerun tezos/ac-login.mjs and copy ~/.ac-token over`);
+  const next = await r.json();
+  record.access_token = next.access_token;
+  if (next.refresh_token) record.refresh_token = next.refresh_token;
+  record.expires_at = Date.now() + (next.expires_in || 3600) * 1000;
+  writeFileSync(file, JSON.stringify(record, null, 2), { mode: 0o600 });
+  return record.access_token;
+}
+const AC_TOKEN = await acToken();
+
 const dailyDir = resolve(ROOT, "out", "daily");
 mkdirSync(dailyDir, { recursive: true });
 const receiptPath = resolve(dailyDir, `${slug}.token.json`);
@@ -102,8 +129,6 @@ console.log(`▸ ${slug}: "${title}"`);
 const REMIXES = {
   roz: ({ a, b, c }) => `fade:${a}-${b}-black-${b}-${a} ink (? ${c} white 0) (1s... 24 64) line w/2 0 w/2 h (spin (2s... -1.125 1.125)) (zoom 1.1) (0.5s (contrast 1.05)) (scroll (? -0.1 0 0.1) (? -0.1 0 0.1)) ink (? ${a} ${b} ${c}) 8 circle w/2 h/2 (? 2 4 8)`,
   ceo: ({ a, b }) => `(1s (coat fade:black-${a}-${b}-${a}-black:frame 64)) (0.3s (zoom 0.5)) (scroll 1)`,
-  "4bb": ({ a, b, c }) => `black, ink (? ${a} black) 48, line, scroll 1 bake, ink (? ${b} erase) 64, line, scroll -1 bake, ink (? ${c} erase) 16, line, scroll 0 1 bake, ink (? ${a} erase) 48, line, scroll 0 -1 burn, blur 8, contrast 1.25`,
-  r2f: ({ a, b, c }) => `${a} ink fade:${b}-${c} (? 20 48) box ? ? (? 2 4 32 64) ink (? ${b} ${c} rainbow) (? 32 64 96) (repeat 2 (flood ? ?)) contrast (? 1.05 0.97 1) scroll 0.1 (0.1s (zoom (? 1.89 1 1.1 1.2))) spin (? -0.1 0 0 0 0.1) scroll 0 (? 1 -1) blur 0.05`,
   air: ({ a, b, c }) => `fade:${a}-${b}-${a} ink (? ${c} ${b}) 32 line (0.15s (zoom 0.2)) scroll 1 0.25 (0.1s (contrast 1.01)) (0.5s (ink rainbow 96) (repeat 10 point))`,
   inz: ({ a, word }) => `(${a}) (ink (0.25s... 127 0 rainbow)) (write "${word}" 3 3) (scroll 18 3) (blur 0.1) (1.25s (zoom (? 0.25 1.5)))`,
 };
@@ -124,8 +149,7 @@ fits the episode's mood, three colors from the list, and one short word
 (max 12 letters, lowercase) from the episode.
 
 Pieces: roz (spinning radial lines, circles), ceo (slow scrolling color
-bands), 4bb (baked scan lines, glitchy), r2f (boxes flooding and zooming),
-air (drifting lines, sparkles), inz (a written word smeared into rainbow)
+bands), air (drifting lines, sparkles), inz (a written word smeared into rainbow)
 
 Colors: ${COLORS.join(" ")}
 ${feedback ? `\nThe previous pick failed to render (${feedback}); pick a different piece.\n` : ""}
@@ -148,16 +172,18 @@ const remix = ({ piece, colors: [a, b, c], word }) => REMIXES[piece]({ a, b, c, 
 
 async function store(source) {
   const headers = { "content-type": "application/json" };
-  if (process.env.AC_TOKEN) headers.authorization = `Bearer ${process.env.AC_TOKEN}`;
+  if (AC_TOKEN) headers.authorization = `Bearer ${AC_TOKEN}`;
   const r = await fetch(`${AC}/api/store-kidlisp`, { method: "POST", headers, body: JSON.stringify({ source }) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok || !j.code) throw new Error(`store-kidlisp ${r.status}: ${JSON.stringify(j).slice(0, 200)}`);
   return j.code;
 }
 
-// A real 512² animated grab of a moving sketch runs to hundreds of KB; the
-// transparent-checkerboard failure mode and still frames come in far smaller.
-const MIN_GIF_BYTES = 40_000;
+// A real 512² animated grab of a moving sketch runs to hundreds of KB or
+// more; flat renders (a transparent checkerboard, a still wash with a box —
+// why $r2f and $4bb, which need longer than a grab to develop, are out of
+// the pool) come in under ~150 KB.
+const MIN_GIF_BYTES = 300_000;
 async function grab(code, format, size, query) {
   const url = `${OVEN}/grab/${format}/${size}/${size}/$${code}?${new URLSearchParams({ skipCache: "true", ...query })}`;
   const r = await fetch(url, { signal: AbortSignal.timeout(300000) });
@@ -194,18 +220,22 @@ if (!receipt.code) {
 if (flags.dry) { console.log(`✓ dry run: $${receipt.code} rendered; nothing pinned or minted.`); process.exit(0); }
 
 // ── 2. pin ───────────────────────────────────────────────────────────────
-const jwt = process.env.PINATA_JWT;
-if (!jwt) { console.error("✗ PINATA_JWT not set"); process.exit(1); }
+// Through AC's own IPFS node (/api/ipfs-add, admin-only) — the Kubo node Keeps
+// pins to — so the daily doesn't ride on a third-party pinning plan.
+if (!AC_TOKEN) { console.error("✗ no AC session: sign in with node tezos/ac-login.mjs as @jeffrey and copy ~/.ac-token here"); process.exit(1); }
 
-async function pinFile(path, name, type) {
-  const fd = new FormData();
-  fd.append("file", new Blob([readFileSync(path)], { type }), name);
-  fd.append("pinataMetadata", JSON.stringify({ name }));
-  const r = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", { method: "POST", headers: { authorization: `Bearer ${jwt}` }, body: fd });
-  const j = await r.json();
-  if (!r.ok || !j.IpfsHash) throw new Error(`pinata ${r.status}: ${JSON.stringify(j).slice(0, 200)}`);
-  return `ipfs://${j.IpfsHash}`;
+async function pin(payload) {
+  const r = await fetch(`${AC}/api/ipfs-add`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${AC_TOKEN}`, "content-type": "application/json" },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(180000),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.uri) throw new Error(`ipfs-add ${r.status}: ${JSON.stringify(j).slice(0, 200)}`);
+  return j.uri;
 }
+const pinFile = (path, name, mimeType) => pin({ name, mimeType, base64: readFileSync(path).toString("base64") });
 
 if (!receipt.metadataUri) {
   const artifactUri = await pinFile(resolve(dailyDir, `${slug}.gif`), `${slug}.gif`, "image/gif");
@@ -225,20 +255,14 @@ if (!receipt.metadataUri) {
     shouldPreferSymbol: false,
     date: new Date(`${date}T20:30:00-04:00`).toISOString(),
   };
-  const r = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
-    method: "POST",
-    headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
-    body: JSON.stringify({ pinataContent: metadata, pinataMetadata: { name: `${slug}.json` } }),
-  });
-  const j = await r.json();
-  if (!r.ok || !j.IpfsHash) { console.error(`✗ pinata metadata ${r.status}`); process.exit(1); }
-  Object.assign(receipt, { artifactUri, thumbnailUri, metadataUri: `ipfs://${j.IpfsHash}` });
+  const metadataUri = await pin({ name: `${slug}.json`, json: metadata });
+  Object.assign(receipt, { artifactUri, thumbnailUri, metadataUri });
   save();
   console.log(`  ✓ pinned ${receipt.metadataUri}`);
 }
 
 // ── 3. mint ──────────────────────────────────────────────────────────────
-// Taquito lives in tezos/'s node_modules (npm ci --prefix tezos).
+// Taquito lives in tezos/'s node_modules (npm install --prefix tezos).
 const requireTezos = createRequire(resolve(REPO, "tezos", "package.json"));
 const { TezosToolkit } = requireTezos("@taquito/taquito");
 const { InMemorySigner } = requireTezos("@taquito/signer");
