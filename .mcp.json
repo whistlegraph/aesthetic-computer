@@ -102,6 +102,13 @@
       "args": [
         "toolchain/mcp/oskiewar-mcp.mjs"
       ]
+    },
+    "analytics": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "toolchain/mcp/analytics-mcp.mjs"
+      ]
     }
   }
 }
