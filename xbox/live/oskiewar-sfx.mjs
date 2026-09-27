@@ -34,7 +34,7 @@ export const OSKIEWAR_SIGNAL_EVENTS = Object.freeze([
 ]);
 
 export const OSKIEWAR_DRUM_NAMES = Object.freeze([
-  "kick", "snare", "clap", "hat", "bell", "block", "whoosh",
+  "kick", "snare", "clap", "hat", "bell", "block", "whoosh", "glass", "glass-shard",
 ]);
 
 const ROUTES = Object.freeze({
@@ -91,6 +91,8 @@ const DRUM_ROUTES = Object.freeze({
   bell: "drum-bell",
   block: "drum-block",
   whoosh: "drum-whoosh",
+  glass: "glass-break",
+  "glass-shard": "glass-shard",
 });
 
 function hashText(text) {
@@ -327,6 +329,26 @@ export function createOskiewarSfx(options = {}) {
       frequency: down ? 4400 : 480, endFrequency: down ? 420 : 5200,
       q: 0.65, gain: 0.45 * gain, attack: 0.035, delay });
 
+  const glass = (cue, shard = false) => {
+    noise(cue, { filter: "highpass", frequency: 1800,
+      duration: shard ? .012 : .055, gain: shard ? .18 : .55, attack: .0004 });
+    const strike = (delay, root, duration, gain) => {
+      for (const [ratio, level] of [[1, 1], [1.467, .55], [2.545, .32], [3.504, .18]]) {
+        if (root * ratio > context.sampleRate * .44) continue;
+        tone(cue, { frequency: root * ratio, duration: duration / Math.sqrt(ratio),
+          gain: gain * level, delay, attack: .0007 });
+      }
+    };
+    strike(0, shard ? 3100 : 1380, shard ? .14 : .28, shard ? .16 : .14);
+    if (!shard) for (let i = 0; i < 14; i++) {
+      const delay = .018 + i * i * .0028 + cue.random() * .012;
+      const gain = .095 * (1 - i / 18);
+      noise(cue, { filter: "highpass", frequency: 1800, delay,
+        duration: .009 + cue.random() * .017, gain: gain * 2, attack: .0004 });
+      strike(delay, 1600 + cue.random() * 3600, .07 + cue.random() * .17, gain);
+    }
+  };
+
   // AC bubble-inspired chirp: a small sine body whose frequency rises as its
   // amplitude decays. Layered radii become a playful, liquid UI vocabulary.
   const bubble = (cue, gain = 1, delay = 0, root = 310, rise = 2.6) => {
@@ -438,6 +460,8 @@ export function createOskiewarSfx(options = {}) {
       case "drum-bell": bell(cue); break;
       case "drum-block": block(cue); break;
       case "drum-whoosh": whoosh(cue); break;
+      case "glass-break": glass(cue); break;
+      case "glass-shard": glass(cue, true); break;
       default: return false;
     }
     return true;

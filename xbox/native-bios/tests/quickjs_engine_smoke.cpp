@@ -1,5 +1,6 @@
 #include "QuickJsEngine.hpp"
 #include "ac/relay_endpoint.hpp"
+#include "ac/glass_sound.hpp"
 #include <cassert>
 using namespace ac::xbox;
 namespace {
@@ -7,6 +8,25 @@ class GraphicsProbe final : public Graphics { public: bool themeAvailable = true
 class SoundProbe final : public Sound { public: int calls = 0; int oscillators = 0; int stops = 0; int drums = 0; void synth(const SynthVoice&) override { ++calls; } void stop_all() override {} int sample_rate() const override { return 48000; } void oscillator(float, float) override { ++oscillators; } void oscillator_stop() override { ++stops; } void drum(std::string_view, float, float) override { ++drums; } };
 }
 int main() {
+  for (const uint32_t rate : {44100u, 48000u}) {
+    const auto glass = synthesize_glass(rate);
+    const auto shard = synthesize_glass(rate, true);
+    assert(glass.size() == static_cast<std::size_t>(rate * .78));
+    assert(shard.size() == static_cast<std::size_t>(rate * .16));
+    assert(glass.front() == 0 && glass.back() == 0);
+    assert(shard.front() == 0 && shard.back() == 0);
+    double initial = 0, scatter = 0, end = 0;
+    for (std::size_t i = 0; i < glass.size(); ++i) {
+      assert(std::abs(static_cast<int>(glass[i])) < 25000);
+      const double energy = static_cast<double>(glass[i]) * glass[i];
+      if (i < rate * .05) initial += energy;
+      if (i > rate * .3 && i < rate * .6) scatter += energy;
+      if (i > rate * .72) end += energy;
+    }
+    assert(initial > 1e6 && scatter > 1e6 && end < scatter * .01);
+    assert(glass == synthesize_glass(rate));
+  }
+  assert(synthesize_glass(0).empty());
   assert(valid_lan_relay("ws://192.168.1.235:7793/oskiewar-live"));
   assert(valid_lan_relay("ws://10.0.0.2:80/oskiewar-live"));
   assert(valid_lan_relay("ws://172.16.0.2:65535/oskiewar-live"));
@@ -57,6 +77,12 @@ int main() {
   api.audio.output_latency_ms = 11.5; api.audio.midi_status = "no-input";
   api.audio.midi_gate = true; api.audio.midi_pitch_bend = 9000;
   auto piece = engine.compile({"smoke", "test", "function boot(){telemetry('BOOT','OK');gameSignal('bullet',1,.5,.25);saveReplay('{\"format\":\"ac.oskiedemo\"}');publishLive('ow-bafegu-dorimi-kunapo','{\"seq\":1}');publishLive('ow-sokku135','{\"seq\":1}');ac();if(!discScan())throw Error('disc scan')} function sim(){if(!gamepad().connected||!gamepad(0).connected||!gamepad(1).connected||gamepad(2).connected||gamepad(1).leftX!==-1)throw Error('indexed gamepads');drum('kick',1,0);const r=runtime();if(!r.clockSynced||r.clockOffsetMs!==3||r.audioLatencyMs!==11.5||r.midiStatus!=='no-input'||!r.midiGate||r.midiPitchBend!==9000||r.clientErrorReportStatus!=='posted to server smoke')throw Error('runtime telemetry');const d=disc();if(d.status!=='ready'||d.volume!=='D:'||d.name!=='PHOTO.JPG'||d.count!==3||d.index!==1||d.width!==1600||d.height!==1200||!d.currentReady)throw Error('disc state');if(!discShow(-1))throw Error('disc show');capabilities();controllers();oscillator(220,.1)} function paint(){wipe(1,2,3);box(1,2,3,4,5,6,7);line(1,2,3,4,2,5,6,7);triangle(1,2,3,4,5,6,7,8,9);const batch=new Float32Array([1,2,.1,3,4,.1,5,6,.1,7,8,9,10,20,.2,30,40,.2,50,60,.2,70,80,90]);if(triangles3d(batch)!==2)throw Error('triangle batch');const textured=new Float32Array([1,2,.1,0,0,3,4,.1,1,0,5,6,.1,0,1,255,255,255]);if(texturedTriangles3d(textured,1)!==1)throw Error('texture batch');const sprites=new Float32Array([100,200,.3,16,255,80,90,1]);if(sprites3d(sprites,1)!==1)throw Error('sprite batch');write('OK',8,9,10,11,12,13);systemWrite('HI',20,30,40);ywftWrite('YWFT',20,70,40);comicWrite('COMIC',20,110,40);systemGlyph('ButtonA',50,60,70);painting(80,90,100,110);stampPainting('#j8t',200,300,1);discPhoto(0,0,1920,1080);blur(4);if(!postEffects(.4,.2,.1,99,-60,3))throw Error('post effects');const mh=meshUpload(new Float32Array([0,0,0,100,0,0,100,100,0,0,100,0]),new Float32Array([0,1,2,3,200,100,50,0,0,-1]),new Float32Array([0,0,0,100,0,0,4,255,0,0,-.004]));if(mh!==0)throw Error('mesh upload');const cam=new Float32Array([0,0,-500,1,0,0,0,1,0,0,0,1,960,540,1,1,0,8,0,0,1920,1080,-1.4,.000175,0,0,-1]);if(meshDraw(mh,cam,1)!==10)throw Error('mesh draw '+meshDraw(mh,cam,1));if(meshDraw(mh,cam,0)!==2)throw Error('mesh draw without capsules');cam[2]=500;if(meshDraw(mh,cam,1)!==0)throw Error('mesh behind lens');cam[2]=-500;if(meshUpload(new Float32Array([0,0,0]),new Float32Array([0,0,0,9,1,1,1,0,0,1]))!==-1)throw Error('mesh index validation');if(!meshFree(mh)||meshDraw(mh,cam,1)!==0||meshFree(mh))throw Error('mesh free');if(capabilities().sceneApi!==2)throw Error('sceneApi')} function act(b){if(b==='A')synth(440,.01);if(b==='B'){oscillatorStop();if(!discCopy())throw Error('disc copy')}}", "test"}, {}, error);
+  auto glass = engine.compile({"glass", "test", R"JS(
+    function boot() { drum('glass', .8, -.5); drum('glass-shard', .3, .5); }
+  )JS", "test"}, {}, error);
+  assert(glass);
+  { GraphicsProbe gg; SoundProbe gs; Api ga{{},{},{},{},gg,gs,{}};
+    glass->boot(ga); assert(gs.drums == 2); }
   auto scene = engine.compile({"scene", "test", R"JS(
     function boot(){
       disc3d(20,20,0,10,255,0,0);capsule3d(10,10,40,40,0,10,0,255,0);

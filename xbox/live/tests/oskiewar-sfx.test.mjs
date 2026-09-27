@@ -158,3 +158,18 @@ test("event listener bridge forwards signal details and detaches", async () => {
   detach();
   assert.equal(listeners.has("oskiewar:signal"), false);
 });
+
+test('glass layers a fracture and overlapping shard rings through a falling tail', async () => {
+  const context = new FakeAudioContext();
+  context.sampleRate = 48000;
+  const bank = createOskiewarSfx({ context, maxVoices: 128 });
+  await bank.unlock();
+  assert.equal(bank.drum('glass', 1, -.4), true);
+  assert.ok(context.bufferSources.length >= 10, 'fracture and scattered impacts');
+  assert.ok(context.oscillators.length >= 20, 'simultaneous inharmonic modes');
+  const starts = context.oscillators.map(n => n.started[0][0]);
+  assert.ok(Math.max(...starts) - Math.min(...starts) > .4, 'shards keep landing');
+  assert.ok(starts.filter(at => at === starts[0]).length >= 3, 'initial modes overlap');
+  assert.ok(context.oscillators.every(n => n.frequency.value < context.sampleRate / 2));
+  assert.ok(context.panners.every(n => n.pan.value === -.4));
+});

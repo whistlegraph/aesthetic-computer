@@ -5,6 +5,7 @@
 #include "OskiewarLivePublisher.hpp"
 #include "OskiewarAccountService.hpp"
 #include "../runtime/include/ac/image_effects.hpp"
+#include "../runtime/include/ac/glass_sound.hpp"
 #include "../runtime/include/ac/theme_assets.hpp"
 #include "render/ac_surface.hpp"
 
@@ -413,7 +414,12 @@ public:
       m_frameBlurRadius = (std::max)(m_frameBlurRadius, (std::min)(16u, radius));
     };
     m_sound->on_synth = [this](const SynthVoice& voice) { PlaySynth(voice); };
-    m_sound->on_stop = [this]() { if (m_voice) { m_voice->Stop(0); m_voice->FlushSourceBuffers(); } };
+    m_sound->on_stop = [this]() {
+      if (m_voice) { m_voice->Stop(0); m_voice->FlushSourceBuffers(); }
+      for (auto* voice : m_glassVoices) if (voice) {
+        voice->Stop(0); voice->FlushSourceBuffers();
+      }
+    };
     m_sound->on_oscillator = [this](float frequency, float volume) {
       SetOscillator(frequency, volume);
     };
@@ -708,6 +714,10 @@ private:
       D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE));
     Check(m_d2dContext->CreateBitmapFromDxgiSurface(surface.Get(), &bitmapProperties,
       &m_d2dTarget));
+    ComPtr<IDXGISurface> overlaySurface;
+    Check(m_backBuffer.As(&overlaySurface));
+    Check(m_d2dContext->CreateBitmapFromDxgiSurface(overlaySurface.Get(), &bitmapProperties,
+      &m_d2dOverlayTarget));
     m_d2dContext->SetTarget(m_d2dTarget.Get());
     Check(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
       reinterpret_cast<IUnknown**>(m_dwriteFactory.GetAddressOf())));
@@ -825,7 +835,7 @@ private:
       std::to_string(kMaxTriangles) + " depth=d24s8 stencil=write");
   }
 
-  bool DrawGpuTriangles() {
+  bool DrawGpuTriangles(bool hud = false) {
     if (m_frameTriangles.empty()) return true;
     if (!m_triangleVertexBuffer || !m_triangleVertexShader || !m_trianglePixelShader ||
         !m_triangleDepthView) return false;
@@ -843,11 +853,14 @@ private:
       };
     };
     for (const auto& triangle : m_frameTriangles) {
+      const bool overlay = triangle.z1 <= -1.46f && triangle.z2 <= -1.46f && triangle.z3 <= -1.46f;
+      if (overlay != hud) continue;
       append(triangle.x1, triangle.y1, triangle.z1, triangle.color);
       append(triangle.x2, triangle.y2, triangle.z2, triangle.color);
       append(triangle.x3, triangle.y3, triangle.z3, triangle.color);
     }
     m_context->Unmap(m_triangleVertexBuffer.Get(), 0);
+    if (!count) return true;
 
     const UINT stride = sizeof(GpuTriangleVertex), offset = 0;
     m_context->IASetInputLayout(m_triangleInputLayout.Get());
@@ -860,7 +873,8 @@ private:
       static_cast<float>(m_frameHeight), 0, 1};
     m_context->RSSetViewports(1, &viewport);
     m_context->OMSetDepthStencilState(m_triangleDepthState.Get(), 1);
-    m_context->OMSetRenderTargets(1, m_sceneTarget.GetAddressOf(), m_triangleDepthView.Get());
+    auto* target = hud ? m_target.Get() : m_sceneTarget.Get();
+    m_context->OMSetRenderTargets(1, &target, m_triangleDepthView.Get());
     m_context->Draw(static_cast<UINT>(count), 0);
     return true;
   }
@@ -1211,6 +1225,10 @@ private:
     format.nAvgBytesPerSec = format.nSamplesPerSec * format.nBlockAlign;
     Check(m_audio->CreateSourceVoice(&m_voice, &format, 0, XAUDIO2_DEFAULT_FREQ_RATIO));
     Check(m_audio->CreateSourceVoice(&m_oscVoice, &format, 0, 64.0f));
+    for (auto& voice : m_glassVoices)
+      Check(m_audio->CreateSourceVoice(&voice, &format, 0, XAUDIO2_DEFAULT_FREQ_RATIO));
+    m_glassSamples = synthesize_glass(sampleRate);
+    m_glassShardSamples = synthesize_glass(sampleRate, true);
 
     const uint32_t frames = sampleRate / 20; // 50 ms; data is allocated once per rate.
     m_samples.resize(frames);
@@ -1244,6 +1262,10 @@ private:
   }
 
   void DestroyAudio() {
+    for (auto& voice : m_glassVoices) {
+      if (voice) { voice->DestroyVoice(); voice = nullptr; }
+    }
+    m_nextGlassVoice = 0;
     if (m_oscVoice) { m_oscVoice->DestroyVoice(); m_oscVoice = nullptr; }
     if (m_voice) { m_voice->DestroyVoice(); m_voice = nullptr; }
     if (m_master) { m_master->DestroyVoice(); m_master = nullptr; }
@@ -1274,7 +1296,25 @@ private:
     TriggerAudio(0);
   }
 
+  void PlayGlass(bool shard, float velocity) {
+    auto* voice = m_glassVoices[m_nextGlassVoice++ % m_glassVoices.size()];
+    const auto& samples = shard ? m_glassShardSamples : m_glassSamples;
+    if (!voice || samples.empty()) return;
+    voice->Stop(0);
+    voice->FlushSourceBuffers();
+    XAUDIO2_BUFFER buffer{};
+    buffer.AudioBytes = static_cast<UINT32>(samples.size() * sizeof(int16_t));
+    buffer.pAudioData = reinterpret_cast<const BYTE*>(samples.data());
+    buffer.Flags = XAUDIO2_END_OF_STREAM;
+    Check(voice->SetVolume((std::max)(0.f, (std::min)(1.f, velocity))));
+    Check(voice->SubmitSourceBuffer(&buffer));
+    Check(voice->Start(0));
+  }
+
   void PlayDrum(std::string_view name, float velocity, float pan) {
+    if (name == "glass" || name == "glass-shard") {
+      PlayGlass(name == "glass-shard", velocity); return;
+    }
     if (!m_voice || m_sampleRate == 0) return;
     (void)pan; // The current game-effects voice is mono; preserve the API for a stereo pool.
     enum class Wave { Sine, Triangle, Square, Noise };
@@ -2447,6 +2487,7 @@ private:
       const float scaleY = m_frameHeight / 1080.0f;
       const bool vectorFastPath = m_frameImages.empty() && m_frameTexts.empty() &&
         m_frameBlurRadius == 0 && m_d2dContext.Get() && m_d2dTarget.Get();
+      m_d2dContext->SetTarget(m_d2dTarget.Get());
       if (vectorFastPath) DrawVectorBackground(color, scaleX, scaleY);
       else {
       const auto byte = [](float value) {
@@ -2589,14 +2630,19 @@ private:
       m_context->UpdateSubresource(m_sceneTexture.Get(), 0, nullptr, m_cpuFrame.data(),
         m_frameWidth * sizeof(uint32_t), 0);
       }
-      if ((!m_frameTriangles.empty() || !m_frameTexturedTriangles.empty() ||
-          !m_frameSprites.empty() || !m_frameThemeQuads.empty()) && m_triangleDepthView)
+      if (m_triangleDepthView)
         m_context->ClearDepthStencilView(m_triangleDepthView.Get(),
           D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
       DrawGpuTriangles();
       DrawGpuTexturedTriangles();
       DrawGpuSprites();
       DrawGpuThemeQuads();
+      // Blur the world before adding any HUD pixels. Text is Direct2D and
+      // never writes depth, so a depth mask cannot protect it in the post pass.
+      DrawPostProcess();
+      DrawGpuTriangles(true);
+      m_context->OMSetRenderTargets(0, nullptr, nullptr);
+      m_d2dContext->SetTarget(m_d2dOverlayTarget.Get());
       if (!m_frameSystemTexts.empty() || !m_frameSystemGlyphs.empty()) {
         m_d2dContext->BeginDraw();
         m_d2dContext->SetTransform(D2D1::Matrix3x2F::Identity());
@@ -2682,7 +2728,6 @@ private:
         const auto hr = m_d2dContext->EndDraw();
         if (FAILED(hr) && hr != D2DERR_RECREATE_TARGET) Check(hr);
       }
-      DrawPostProcess();
       if (!m_loggedTextFrame) {
         LogTelemetry("AC_NATIVE_FRAME trianglePath=" +
           std::string(m_triangleVertexBuffer ? "gpu" : "cpu") +
@@ -2799,6 +2844,7 @@ private:
   ComPtr<ID2D1Device> m_d2dDevice;
   ComPtr<ID2D1DeviceContext> m_d2dContext;
   ComPtr<ID2D1Bitmap1> m_d2dTarget;
+  ComPtr<ID2D1Bitmap1> m_d2dOverlayTarget;
   ComPtr<ID2D1SolidColorBrush> m_textBrush;
   ComPtr<IDWriteFactory> m_dwriteFactory;
   ComPtr<IDWriteFontFile> m_ywftFontFile;
@@ -2875,6 +2921,9 @@ private:
   std::string m_clientErrorStatus;
   std::atomic_bool m_clientErrorWriteInFlight{false};
   std::atomic_uint64_t m_clientErrorSequence{0};
+  std::array<IXAudio2SourceVoice*, 4> m_glassVoices{};
+  std::size_t m_nextGlassVoice = 0;
+  std::vector<int16_t> m_glassSamples, m_glassShardSamples;
   std::vector<int16_t> m_samples;
   std::vector<int16_t> m_oscSamples;
   std::vector<uint32_t> m_cpuFrame;

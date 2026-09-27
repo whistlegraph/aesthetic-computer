@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 172;
+const buildVersion = 173;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -269,8 +269,8 @@ let terrainPhase = 0;
 let skateparkMap = globalThis.__oskiewarMap === "skatepark";
 // Which skate course the long-park machinery is running: "park" is the long
 // outdoor course (half-pipe, pond, blocks, loops, chains, boost pads);
-// "indoor" is one big half-pipe in a hall. Freeskate starts indoors; a host
-// can ask for the park with `__oskiewarFreeskateMap = "skatepark"`.
+// "indoor" is the full hall. Freeskate defaults to a compact bare halfpipe;
+// hosts can opt into "indoor" or "skatepark" with __oskiewarFreeskateMap.
 let skateCourse = "park";
 const parkLoops = [
   { x: 6300, radius: 320 }, { x: 15300, radius: 420 },
@@ -314,6 +314,7 @@ const indoorFeatures = [
 // enough that the room reads as a room. A head that reaches it bonks.
 const indoorCeilingY = floorY - 1400;
 const indoorSkate = () => skateparkMap && skateCourse === "indoor";
+const halfpipeOnly = () => skateparkMap && skateCourse === "halfpipe";
 // The roof is glass: eight panes in a frame. A slow knock bonks you back
 // down; an air that meets a pane at speed (or a body coming down onto one)
 // shatters it — the pane is gone, its shards fall into the hall, and the
@@ -409,7 +410,7 @@ function configureWorldMap(name, course = skateCourse) {
   if (name !== "skatepark" && !skateparkMap) return;
   const previousMap = skateparkMap + "/" + skateCourse;
   skateparkMap = name === "skatepark";
-  skateCourse = course === "indoor" ? "indoor" : "park";
+  skateCourse = course === "halfpipe" ? "halfpipe" : course === "indoor" ? "indoor" : "park";
   // The marks on the ground belong to the ground: kept through resets,
   // cleared only when the map itself changes.
   if (previousMap !== skateparkMap + "/" + skateCourse) {
@@ -420,13 +421,13 @@ function configureWorldMap(name, course = skateCourse) {
   Object.assign(halfpipe, indoor ? indoorHalfpipe : parkHalfpipe);
   skateLoops.length = 0;
   skateBoosts.length = 0;
-  if (skateparkMap && !indoor) { skateLoops.push(...parkLoops); skateBoosts.push(...parkBoosts); }
+  if (skateparkMap && !indoor && !halfpipeOnly()) { skateLoops.push(...parkLoops); skateBoosts.push(...parkBoosts); }
   if(indoor)skateLoops.push({x:tileCenterX(44),radius:260});
-  gridCols = !skateparkMap ? 40 : indoor ? indoorCols : 320;
+  gridCols = !skateparkMap ? 40 : halfpipeOnly() ? 24 : indoor ? indoorCols : 320;
   gridWidth = gridCols * tileSize;
   if (gridField.length !== gridCols * gridRows) gridField = new Float32Array(gridCols * gridRows);
   worldRight = gridLeft + gridWidth + wallThickness;
-  const features = indoor ? indoorFeatures : skateparkMap ? [
+  const features = halfpipeOnly() ? halfpipeFeatures.slice(0, 5) : indoor ? indoorFeatures : skateparkMap ? [
     ...halfpipeFeatures,
     ...[40, 140, 240].flatMap((from) => [
       // The first block's flat starts where the pond ends.
@@ -4787,20 +4788,19 @@ function emitSignal(event, player = -1, value = 0, value2 = 0) {
   if (typeof gameSignal === "function") gameSignal(event, player, value, value2);
 }
 
-// Revision 37 exposes native bell/woosh voices in the mixer but its QuickJS
-// allowlist predates those names. Fall back without stopping the match; newer
-// hosts and the browser still receive the authored voice unchanged.
+// Older native hosts may not recognize the newer sound names. Keep their
+// fallback bounded until the native package catches up with the live piece.
 function playDrum(name, velocity = 1, pan = 0) {
   if (netSilent || typeof drum !== "function") return;
   try {
     drum(name, velocity, pan);
   } catch (error) {
-    if (name !== "bell" && name !== "whoosh") throw error;
+    if (!["bell", "whoosh", "glass", "glass-shard"].includes(name)) throw error;
     if (name === "bell" && typeof synth === "function") {
       try { synth(880, .12); } catch (_) {}
     }
     try {
-      drum(name === "bell" ? "hat" : "block", velocity * .65, pan);
+      drum(name === "bell" || name.startsWith("glass") ? "hat" : "block", velocity * .65, pan);
     } catch (_) {}
   }
 }
@@ -5751,31 +5751,6 @@ function parkFreeskateChair() {
   chair.name = "";
 }
 
-// Glass, voiced from the FEM glass bell (pop/bell, material "glass": the
-// shell eigensolve's modes with strong strike participation, as ratios to the
-// strike mode, and their relative ring times). Each strike is a few of those
-// modes at once on a sine voice; a shattering pane is a spray of strikes at
-// scattered pitches over a quarter second, and a shard landing is one tiny
-// strike pitched by its size. Queued so the spray unrolls in time.
-const glassModes = [[1, 1], [2.545, .39], [3.504, .29], [5.099, .2], [5.594, .18], [7.05, .14]];
-const glassVoices = [];
-function glassStrike(at, fundamental, length, modes = 3) {
-  for (let index = 0; index < modes; index++) {
-    const [ratio, ring] = glassModes[index];
-    const frequency = fundamental * ratio;
-    if (frequency > 9500) break;
-    glassVoices.push({ at: at + index * 4000, frequency, duration: Math.max(.03, length * ring) });
-  }
-}
-function playGlassVoices(now) {
-  for (let index = glassVoices.length - 1; index >= 0; index--) {
-    if (glassVoices[index].at > now) continue;
-    const voice = glassVoices[index];
-    glassVoices.splice(index, 1);
-    playSine(voice.frequency, voice.duration);
-  }
-}
-
 function breakRoofPane(pane, x, rider) {
   pane.broken = true;
   rebuildRoofLedges();
@@ -5794,20 +5769,11 @@ function breakRoofPane(pane, x, rider) {
       size: 10 + random(7) * 22, rest: 0 });
   }
   emitSignal("glass-break", rider.pad, index, Math.round(Math.abs(rider.vy)));
-  playDrum("whoosh", 1, panPlayer(rider));
-  playDrum("block", .9, panPlayer(rider));
-  const now = runtime().monotonicUs;
-  for (let strike = 0; strike < 8; strike++) {
-    const seed = Math.sin((index + 3) * 91.7 + strike * 17.3) * 43758.5453;
-    const random = seed - Math.floor(seed);
-    glassStrike(now + strike * strike * 4200, 900 + random * 1500, .55 - strike * .04,
-      strike < 3 ? 3 : 2);
-  }
+  playDrum("glass", 1, panPlayer(rider));
 }
 
 function updateRoof(rider) {
   const dt = 1 / 60;
-  playGlassVoices(runtime().monotonicUs);
   // A broken pane regrows once the rider has been clear of it for a couple
   // of seconds, so every trip up through the roof breaks fresh glass.
   const paneWidth = tileSize * roofPaneTiles;
@@ -5857,9 +5823,9 @@ function updateRoof(rider) {
       shard.y = ground;
       shard.vx = shard.vy = shard.spin = 0;
       shard.rest = 4;
-      // Small shards ring high and short, big ones lower.
+      // Landing shards use a short glass voice, quieter for small pieces.
       if (index % 3 === 0)
-        glassStrike(runtime().monotonicUs, 5200 - shard.size * 90, .09, 2);
+        playDrum("glass-shard", .22 + shard.size / 100, panPlayer(rider));
     }
   }
 }
@@ -5875,6 +5841,7 @@ function wrapFreeskate() {
     }
     return;
   }
+  if (halfpipeOnly()) return;
   const rider = players[0];
   if (rider.x < freeskateLap.from || rider.vx <= 0 ||
       rider.ropeIndex >= 0 || rider.skateLoop >= 0) return;
@@ -6118,7 +6085,8 @@ function dressFreeskater(rider, advance = false) {
 
 function freeskateCourse() {
   const requested = String(globalThis.__oskiewarFreeskateMap || "").trim().toLowerCase();
-  return requested === "skatepark" || requested === "park" ? "park" : "indoor";
+  return requested === "skatepark" || requested === "park" ? "park"
+    : requested === "indoor" ? "indoor" : "halfpipe";
 }
 
 // Indoors you start on foot beside your one board; the long park still
@@ -6136,6 +6104,7 @@ function boardForRider(player, loose = false) {
   return nearest;
 }
 function ensureFreeskateBoards() {
+  if (halfpipeOnly()) return;
   if (balls.filter(item=>item.type === "skateboard").length < 2)
     balls.push({...skateBoardKind, x:0,y:floorY,z:0,vx:0,vy:0,rotation:0,
       active:true,heldBy:-1,lastHitBy:-1,safeUntil:0,safePlayers:0,serveAt:0});
@@ -6165,6 +6134,7 @@ function placeFreeskateBoard(rider = players[0], chosen = null) {
 }
 
 function updateFreeskatePlayers(paired, now) {
+  if (halfpipeOnly()) { freeskateSecond = false; parkFreeskateChair(); return; }
   const player=players[1];
   if(freeskateSecond){setSeatDummy(player,!paired,now);return;}
   // A disconnected second controller becomes the same opponent under AI.
@@ -6197,9 +6167,8 @@ function freeskateRequested() {
   return String(globalThis.__oskiewarOpponent || "").trim().toLowerCase() === "freeskate";
 }
 
-// Freeskate boots straight onto the long park: the local rider on a board,
-// the second chair parked past the wall like the lobby's, and every weapon
-// pickup cleared so nothing on the course is a fight.
+// Freeskate starts with one rider beside a monowheel in the compact halfpipe.
+// The existing hall and long park remain explicit host options.
 function beginFreeskate(now) {
   freeskateSecond = false;
   gameMode = "fight";
@@ -6242,10 +6211,9 @@ function beginFreeskate(now) {
   parkFreeskateChair();
   for (const pickup of [...gunPickups, ...saberPickups, ...grenadePickups])
     pickup.active = false;
-  // The rider starts on the board, so the loose board that dismounting
-  // throws stays put away until they come off it; no other ball rolls here.
+  // Clear loose vehicles before placing the course's board or monowheel.
   for (const item of balls) item.active = false;
-  if (indoorSkate()) {
+  if (indoorSkate() || halfpipeOnly()) {
     resetSkate(rider);
     rider.facing = 1;
     placeFreeskateBoard();
@@ -9065,7 +9033,13 @@ function resetRound(now, resetMatch = false, keepMap = false) {
       player.grenadeAmmo = 0;
       player.swordHeld = false;
     }
-    if (indoorSkate()) {
+    if (halfpipeOnly()) {
+      resetSkate(players[0]);
+      for (const item of balls) item.active = false;
+      resetMonowheel();
+      resetParkSupply(now);
+      resetParkKids();
+    } else if (indoorSkate()) {
       resetSkate(players[0]);
       for (const item of balls) if (item.type !== "skateboard") item.active = false;
       placeFreeskateBoard();
@@ -18725,6 +18699,7 @@ function drawTerrainBackWall(left, right, far, color) {
 }
 
 function drawRoomSurfaces(left, right, top, bottom, color) {
+  if (halfpipeOnly()) return;
   // The station has no room to surface. Every plane this function used to
   // raise — the plaster sheet behind the fighters, the segmented left wall,
   // the ceiling cap — existed because the map was an interior, and the space
@@ -20747,23 +20722,46 @@ let postCameraX = null, postCameraY = null;
 function steerPostEffects() {
   if (!nativePostEffects) return;
   const on = globalThis.__oskiewarPost !== false && shellMode === "GAME" && !selecting;
-  if (!on) { postCameraX = null; nativePostEffects(.5, 1, .2, 0, 0, 0); return; }
+  if (!on) { postCameraX = postCameraY = null; nativePostEffects(.5, 1, .2, 0, 0, 0); return; }
   const scale = cameraScale();
   const moveX = postCameraX === null ? 0 : (cameraCenter - postCameraX) * scale * .6;
   const moveY = postCameraY === null ? 0 : (cameraCenterY - postCameraY) * scale * .6;
   postCameraX = cameraCenter; postCameraY = cameraCenterY;
-  let focus = 0, count = 0;
-  for (const p of activePlayers()) if (p.alive) {
-    focus += projectPoint(p.x, p.y - 80, p.z || 0).y; count++;
+  let top = Infinity, bottom = -Infinity;
+  const include = (x, y, z, radius = 0) => {
+    // All three axes matter when the camera is rolled or looking down.
+    for (const [dx, dy, dz] of [[-radius,0,0],[radius,0,0],
+      [0,-radius,0],[0,radius,0],[0,0,-radius],[0,0,radius]]) {
+      const point = projectPoint(x + dx, y + dy, z + dz);
+      if (point.behind || !Number.isFinite(point.y)) continue;
+      top = Math.min(top, point.y); bottom = Math.max(bottom, point.y);
+    }
+  };
+  const t = (runtime().monotonicUs - startedAt) / 1000000;
+  for (const p of activePlayers()) if (p.alive && !p.dummy) {
+    const pose = p.replayGeometry || p.frozenGeometry || runnerWorldGeometry(p, t);
+    const h = pose.head;
+    include(h.x, h.y, h.z ?? p.z ?? 0, h.radius);
+    for (const limb of pose.segments) {
+      if (limb.hitboxOnly) continue;
+      include(limb.x1, limb.y1, limb.z1 ?? p.z ?? 0, limb.width / 2);
+      include(limb.x2, limb.y2, limb.z2 ?? p.z ?? 0, limb.width / 2);
+    }
+    if (p.onewheel || p.skateboard) include(p.x, p.y - 24, p.z || 0, 40);
   }
-  const focusY = count ? clamp(focus / count / viewHeight, .15, .85) : .55;
-  nativePostEffects(focusY, .16, .24, 4, clamp(moveX, -24, 24), clamp(moveY, -24, 24));
+  const visible = top !== Infinity && bottom >= 0 && top <= viewHeight;
+  top = clamp(top - 24, 0, viewHeight);
+  bottom = clamp(bottom + 24, 0, viewHeight);
+  const focusY = visible ? (top + bottom) / (2 * viewHeight) : .5;
+  const band = visible ? Math.max(.06, (bottom - top) / (2 * viewHeight)) : 1;
+  nativePostEffects(focusY, band, .2, visible ? 4 : 0,
+    clamp(moveX, -24, 24), clamp(moveY, -24, 24));
 }
 
 function gamePaint() {
   governFigureLod(runtime().monotonicUs);
-  steerPostEffects();
   syncGameView();
+  if (shellMode !== "GAME" || selecting) steerPostEffects();
   globalThis.__oskiewarLocalVersus = localVersusActive();
   const run = runtime();
   if (globalThis.__oskiewarTouch) {
@@ -20886,6 +20884,7 @@ function gamePaint() {
   if (!parkSupply.ko && !inRoundIntro && (cinematicAge < 0 || cinematicAge >= 1.45))
     containFighters(t);
   cameraDoll.prepare();
+  steerPostEffects();
   const { left: spanLeft, right: spanRight,
     top: spanTop, bottom: spanBottom } = terrainSpan();
   drawRoomSurfaces(spanLeft, spanRight, spanTop, spanBottom, arena);
@@ -20903,7 +20902,7 @@ function gamePaint() {
   // Indoors each layer wears its own colour: the ramps' tan skin, their
   // plywood structure in the foreground, and the hall behind (see
   // `hallPalette`), so the playable surface is the thing that reads.
-  const hall = indoorSkate() ? hallPalette() : null;
+  const hall = indoorSkate() || halfpipeOnly() ? hallPalette() : null;
   drawTerrainBackWall(spanLeft, spanRight, worldFar, hall ? hall.structure : ground);
   drawTerrainSurface(spanLeft, spanRight, groundNear, worldFar, hall ? hall.ramp : ground);
   drawTerrainFrontWall(spanLeft, spanRight, groundNear, hall ? hall.structure : ground);
@@ -20913,7 +20912,7 @@ function gamePaint() {
   // them out of habit; on a hull they read as moss on a spaceship.
   if (renderFlags.grass !== false && !space)
     drawTerrainGrass(spanLeft, spanRight, ground);
-  drawBoosterPad(t);
+  if (!halfpipeOnly()) drawBoosterPad(t);
   const platformNear = -520;
   const platformFar = 520;
   // A rung wants to be a slab, but the stage paints in order with no depth
@@ -21396,7 +21395,10 @@ function leave() {
 // Seat park vehicles and timed supply delivery, reset together after a KO.
 const monowheel={active:false,x:0,y:0,z:0,vx:0,vy:0,safeUntil:0};
 const parkSupply={nextAt:0,drone:null,drop:null,ko:null};
-function resetMonowheel(){Object.assign(monowheel,{active:true,x:tileCenterX(37),y:floorY,z:0,vx:0,vy:0,safeUntil:0});}
+function resetMonowheel(){
+ const x=halfpipeOnly()?clamp(players[0].x+170,gridLeft+60,gridLeft+gridWidth-60):tileCenterX(37);
+ Object.assign(monowheel,{active:true,x,y:terrainFloorAt(x),z:0,vx:0,vy:0,safeUntil:0});
+}
 function monowheelFrame(p){
  const pitch=p.skatePitch||0,c=Math.cos(pitch),s=Math.sin(pitch);
  return (x,y=0,z=0)=>({x:p.x+c*x-s*y,y:p.y-24+s*x+c*y,z:(p.z||0)+z});
@@ -21433,6 +21435,13 @@ function drawMonowheel(p){
  }
 }
 function resetParkSupply(now){
+ if(halfpipeOnly()){
+  for(const p of [...gunPickups,...saberPickups,...grenadePickups])p.active=false;
+  axePickup.active=false;for(const p of players){p.axeHeld=false;p.underPipe=false;}
+  bottomGlass.fill(false);turboParticles.length=0;
+  Object.assign(parkSupply,{nextAt:Infinity,drone:null,drop:null,ko:null});
+  return;
+ }
  let smg=gunPickups.find(p=>p.seatSmg);if(!smg){smg={seatSmg:true,startsActive:false,cycle:false};gunPickups.push(smg);}
  Object.assign(smg,{kind:'RUBBER SMG',amount:30,x:tileCenterX(hallCols-2),y:floorY-halfpipeRadius-70,z:0,active:true});
  axePickup.active=true;axePickup.x=tileCenterX(3);axePickup.y=floorY-halfpipeRadius-65;for(const p of players)p.axeHeld=false;
@@ -21441,7 +21450,7 @@ function resetParkSupply(now){
  for(const cube of hallCubes){cube.health=3;cube.broken=false;cube.hitAt=0;}
 }
 function updateParkSupply(dt,now){
- if(!freeskateActive())return;
+ if(!freeskateActive() || halfpipeOnly())return;
  if(parkSupply.ko){
   if(!parkSupply.ko.settled){
     const alive=activePlayers().filter(p=>p.alive),winner=alive.length===1?alive[0]:null;
@@ -21465,7 +21474,7 @@ function updateParkSupply(dt,now){
  }
 }
 function drawParkSupply(){
- if(!freeskateActive())return;
+ if(!freeskateActive() || halfpipeOnly())return;
  if(axePickup.active){const p=projectPoint(axePickup.x,axePickup.y,0),t=projectPoint(axePickup.x+30,axePickup.y-130,0);const old=triangleDepth;triangleDepth=p.z;drawBigAxe(p.x,p.y,t.x,t.y,cameraScale());triangleDepth=old;}
  const d=parkSupply.drone;
  if(d){
@@ -21502,7 +21511,7 @@ function collideBottomGlass(p,previousY,now){
  const head= isHeadOnly(p)?45:170;
  if(!pondAt(p.x) && p.y-head<ceiling){
   if(inside && (bottomGlass[i] || p.vy < -180)){
-   if(!bottomGlass[i]){bottomGlass[i]=true;spawnImpact({x:p.x,y:floorY,z:0,life:.5,duration:.5,explosion:true,death:false});playDrum('block',.8,0);emitSignal('glass-break',p.pad,i,1);}
+   if(!bottomGlass[i]){bottomGlass[i]=true;spawnImpact({x:p.x,y:floorY,z:0,life:.5,duration:.5,explosion:true,death:false});playDrum('glass',.8,panPlayer(p));emitSignal('glass-break',p.pad,i,1);}
    // Clear the lip so gravity cannot immediately catch the swimmer underneath.
    p.y=floorY-4;p.vy=Math.min(p.vy,-650);p.underPipe=false;p.swimming=false;
   }else{p.y=ceiling+head;p.vy=Math.max(0,p.vy);}
@@ -21656,7 +21665,8 @@ function drawEmoFringe(p,h){
  filledCapsule(...at(.28,-.82),...at(.58,.1),Math.max(1,r*.09),[112,43,137]);
 }
 function seatHudText(text,x,y,size,color){
- typeWrite(text,x+2,y+3,size,9,12,24);typeWrite(text,x,y,size,...color);
+ const shadow=Math.max(3,Math.round(size*.065));
+ typeWrite(text,x+shadow,y+shadow,size,9,12,24);typeWrite(text,x,y,size,...color);
 }
 // The seat readouts — a number, a verb and an item per fighter — were new
 // strings every frame, and the console lays out every new string (see the
@@ -21684,11 +21694,20 @@ function drawSeatPlayerHud(ink){
   if(p.dummy)continue;
   const i=p.pad,{idle,measure,verb,item}=seatHudReadout(p,now);
   const accent=p.wheelTurbo?[209,129,255]:i?[174,161,255]:[255,144,188];
-  const x=i?safe.right-360:safe.left+12,y=safe.bottom-112;
-  seatHudText(measure,x,y,54,accent);
-  if(idle)drawSeatHeart(x+handleWidth(measure,54)+28,y+29,p,accent);
-  seatHudText(verb,x,y+58,30,[249,242,248]);
-  if(item)seatHudText(item,x,y-36,25,accent);
+  const size=idle?(compactLayout()?64:84):54;
+  const heartRadius=idle?size*.23:0,heartSpace=idle?heartRadius*3+18:0;
+  const width=handleWidth(measure,size)+heartSpace;
+  const solo=activePlayers().filter(p=>!p.dummy).length===1;
+  const center=solo?viewCenterX():lerp(safe.left,safe.right,i?.72:.28);
+  const x=clamp(center-width/2,safe.left,safe.right-width),y=safe.bottom-size-70;
+  seatHudText(measure,x,y,size,accent);
+  if(idle){
+   const hx=x+handleWidth(measure,size)+heartSpace/2,hy=y+size*.55;
+   drawSeatHeart(hx+5,hy+5,p,[9,12,24],heartRadius);
+   drawSeatHeart(hx,hy,p,accent,heartRadius);
+  }
+  seatHudText(verb,center-handleWidth(verb,30)/2,y+size+6,30,[249,242,248]);
+  if(item)seatHudText(item,center-handleWidth(item,25)/2,y-36,25,accent);
  }
  triangleDepth=old;
 }
@@ -22006,7 +22025,7 @@ function aimSeatInsetDoll(rect) {
   seatInsetDoll.dirty = true;
 }
 function drawSeatFirstPerson(){
- if(!freeskateActive() || shellMode!=='GAME')return;
+ if(halfpipeOnly() || !freeskateActive() || shellMode!=='GAME')return;
  const old=triangleDepth,w=Math.min(320,viewWidth()*.23),h=w*.5625;
  const rect={x:viewWidth()-w-30,y:30,w,h};
  triangleDepth=-1.44;screenRect(rect.x-4,rect.y-4,w+8,h+8,[31,24,41]);
@@ -22082,8 +22101,8 @@ function updateSeatHeartbeat(dt,now){
   p.motionClock=(p.motionClock ?? now/1e6+p.pad*1.7)+realDt*(.8+p.heartRate/300);
  }
 }
-function drawSeatHeart(x,y,p,color){
- const phase=p.heartPhase||0,pulse=Math.max(0,1-phase/.15)+.6*Math.max(0,1-Math.abs(phase-.23)/.1),r=10+pulse*3;
+function drawSeatHeart(x,y,p,color,radius=10){
+ const phase=p.heartPhase||0,pulse=Math.max(0,1-phase/.15)+.6*Math.max(0,1-Math.abs(phase-.23)/.1),r=radius*(1+pulse*.3);
  filledDisc(x-r*.48,y-r*.32,r*.65,color);filledDisc(x+r*.48,y-r*.32,r*.65,color);
  screenTriangle(x-r*1.1,y-r*.08,x+r*1.1,y-r*.08,x,y+r*1.25,...color);
 }
