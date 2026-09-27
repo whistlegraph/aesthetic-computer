@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 174;
+const buildVersion = 175;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -168,9 +168,9 @@ const ceilingY = floorY - gridHeight - wallThickness;
 // also push the far plane twice as far out, because every camera stand-off,
 // every killcam orbit and the whole ±30000 native coordinate budget were
 // tuned against this depth and not against the floor's span.
-const roomDepth = 900;
-const worldNear = -roomDepth / 2;
-const worldFar = roomDepth / 2;
+let roomDepth = 900;
+let worldNear = -roomDepth / 2;
+let worldFar = roomDepth / 2;
 // Address helpers: world position to tile and back. Rows count UP from the
 // floor, because in a fight the floor is where everything starts. All three
 // clamp, so a body pressed into a wall still names a real tile.
@@ -314,7 +314,8 @@ const indoorFeatures = [
 // enough that the room reads as a room. A head that reaches it bonks.
 const indoorCeilingY = floorY - 1400;
 const indoorSkate = () => skateparkMap && skateCourse === "indoor";
-const halfpipeOnly = () => skateparkMap && skateCourse === "halfpipe";
+const poolOnly = () => skateparkMap && skateCourse === "pool";
+const halfpipeOnly = () => skateparkMap && (skateCourse === "halfpipe" || poolOnly());
 const depthControls = () => halfpipeOnly() && freeskateActive() &&
   globalThis.__oskiewarDepthControls !== false;
 // The roof is glass: eight panes in a frame. A slow knock bonks you back
@@ -412,7 +413,9 @@ function configureWorldMap(name, course = skateCourse) {
   if (name !== "skatepark" && !skateparkMap) return;
   const previousMap = skateparkMap + "/" + skateCourse;
   skateparkMap = name === "skatepark";
-  skateCourse = course === "halfpipe" ? "halfpipe" : course === "indoor" ? "indoor" : "park";
+  skateCourse = course === "pool" ? "pool" : course === "halfpipe" ? "halfpipe" : course === "indoor" ? "indoor" : "park";
+  roomDepth = poolOnly() ? 1640 : 900;
+  worldNear = -roomDepth / 2; worldFar = roomDepth / 2;
   // The marks on the ground belong to the ground: kept through resets,
   // cleared only when the map itself changes.
   if (previousMap !== skateparkMap + "/" + skateCourse) {
@@ -863,7 +866,7 @@ function rasterDecalPatches(decal) {
     z = clamp(z, worldNear+1, worldFar-1);
     // Sample every corner against the curved ramp; a tangent-plane sticker
     // would float over the curve or cut into it at its edges.
-    return {x,y:terrainFloorAt(x)-.9,z};
+    return {x,y:terrainFloorAt(x,z)-.9,z};
   };
   const patches = [], across = arc ? 8 : 4, deep = arc || skid ? 1 : 2;
   for (let i=0;i<across;i++) for(let j=0;j<deep;j++) {
@@ -1561,7 +1564,27 @@ function terrainSeed(value) {
   }
   return (hash >>> 0) / 4294967296 * Math.PI * 2;
 }
-function terrainFloorAt(x) {
+// Rounded rectangular skate pool. Physics, mesh and decals share this surface.
+const pool = { halfX: 480, halfZ: 240, radius: 480, deck: 100 };
+function poolDistance(x, z) {
+  const dx = x - (gridLeft + gridWidth / 2);
+  const a = Math.max(0, Math.abs(dx) - pool.halfX);
+  const b = Math.max(0, Math.abs(z) - pool.halfZ);
+  const d = Math.hypot(a, b);
+  return { d, nx: d ? Math.sign(dx) * a / d : 0, nz: d ? Math.sign(z) * b / d : 0 };
+}
+function poolFloorAt(x, z = 0) {
+  const d = Math.min(pool.radius, poolDistance(x, z).d);
+  return floorY - pool.radius + Math.sqrt(Math.max(0, pool.radius ** 2 - d ** 2));
+}
+function poolSlopeAt(x, z) {
+  const { d, nx, nz } = poolDistance(x, z);
+  if (d >= pool.radius) return { x: 0, z: 0 };
+  const slope = -d / Math.sqrt(Math.max(36, pool.radius ** 2 - d ** 2));
+  return { x: slope * nx, z: slope * nz };
+}
+function terrainFloorAt(x, z = 0) {
+  if (poolOnly()) return poolFloorAt(x, z);
   // Outside the park the ground is flat, so the walls have something square
   // to stand out of and a body pushed past the lip still has a floor.
   if (x <= parkLeft) return floorY - parkSegments[0].lift - (parkSegments[0].rise || 0);
@@ -1733,7 +1756,7 @@ const platformY = floorY;
 // it, and the floor when there is no rung. Shadows, pickups and the bot all
 // ask this, so a rung that moves takes its furniture with it.
 function surfaceYAt(x, y, z = 0) {
-  let surface = terrainFloorAt(x);
+  let surface = terrainFloorAt(x, z);
   if (platformsEnabled()) for (const ledge of activeLedges(z))
     if (ledge.y < surface && ledge.y >= y - 1 &&
       x >= ledge.left && x <= ledge.right) surface = ledge.y;
@@ -6148,7 +6171,7 @@ function dressFreeskater(rider, advance = false) {
 function freeskateCourse() {
   const requested = String(globalThis.__oskiewarFreeskateMap || "").trim().toLowerCase();
   return requested === "skatepark" || requested === "park" ? "park"
-    : requested === "indoor" ? "indoor" : "halfpipe";
+    : requested === "indoor" ? "indoor" : requested === "halfpipe" ? "halfpipe" : "pool";
 }
 
 // Indoors you start on foot beside your one board; the long park still
@@ -6229,7 +6252,7 @@ function freeskateRequested() {
   return String(globalThis.__oskiewarOpponent || "").trim().toLowerCase() === "freeskate";
 }
 
-// Freeskate starts with one rider beside a monowheel in the compact halfpipe.
+// Freeskate starts with one rider beside a monowheel in the empty swimming pool.
 // The existing hall and long park remain explicit host options.
 function beginFreeskate(now) {
   freeskateSecond = false;
@@ -6281,6 +6304,7 @@ function beginFreeskate(now) {
     placeFreeskateBoard();
   }
   ensureFreeskateBoards();
+  if(poolOnly()){rider.poolYaw=0;poolCameraYaw=0;}
   resetMonowheel();
   resetParkSupply(now);
   resetParkKids();
@@ -9098,6 +9122,7 @@ function resetRound(now, resetMatch = false, keepMap = false) {
     if (halfpipeOnly()) {
       resetSkate(players[0]);
       players[0].wheelMarkAt = null;
+      if(poolOnly()){players[0].poolYaw=0;poolCameraYaw=0;}
       seedHalfpipeScuffs();
       for (const item of balls) item.active = false;
       resetMonowheel();
@@ -9362,7 +9387,23 @@ function deathOrbitShot(target, width, progress) {
     perspective: .65, fov: 55, roll: Math.sin(phase) * .035 };
 }
 
+let poolCameraYaw = 0;
 function updateCameraDoll(dt, now) {
+  if (poolOnly() && freeskateActive()) {
+    const p = players[0], heading = p.poolYaw || 0;
+    poolCameraYaw += Math.atan2(Math.sin(heading-poolCameraYaw), Math.cos(heading-poolCameraYaw)) *
+      (1-Math.exp(-dt*1.8));
+    const angle = poolCameraYaw + .65 + playerCameraYaw;
+    const zoom = playerCameraZoom, distance = 1350 * zoom;
+    const target = { x:p.x+clamp(p.vx*.1,-160,160), y:p.y-85,
+      z:(p.z||0)+clamp((p.vz||0)*.1,-160,160) };
+    const position = { x:target.x-Math.cos(angle)*distance,
+      y:Math.min(target.y-1050*zoom-playerCameraPitch*600, floorY-pool.radius-300),
+      z:target.z-Math.sin(angle)*distance };
+    cameraCenter=target.x; cameraCenterY=target.y; cameraWidth=1650*zoom;
+    cameraDoll.track({target,position,width:cameraWidth,perspective:1,fov:58,roll:0},dt,8);
+    return;
+  }
   if(freeskateActive() && parkSupply.ko){
     const result=parkSupply.ko,subject=players[(now-result.at)<1000000?result.loser:(result.winner<0?0:result.winner)];
     const age=(now-result.at)/1e6,center={x:subject.x,y:subject.y-100,z:subject.z||0};
@@ -12046,7 +12087,92 @@ function updateTurn(player, now) {
   }
 }
 
+function updatePoolPlayer(p, pad, dt, now) {
+  const held=pad.down, pressed=key=>held.includes(key)&&!p.previous.includes(key);
+  const axis=value=>Math.abs(value)>.18?Math.sign(value)*(Math.abs(value)-.18)/.82:0;
+  let ix=Number(held.includes('ArrowRight'))-Number(held.includes('ArrowLeft')) || axis(pad.leftX||0);
+  let iz=Number(held.includes('ArrowUp'))-Number(held.includes('ArrowDown')) || axis(pad.leftY||0);
+  const inputLength=Math.hypot(ix,iz); if(inputLength>1){ix/=inputLength;iz/=inputLength;}
+  p.previousY=p.y; p.inputX=ix; p.inputZ=iz; p.inputY=held.includes('X')?-1:held.includes('A')?1:0;
+  p.ducking=held.includes('X'); p.crouchBlend+=(Number(p.ducking)-(p.crouchBlend||0))*(1-Math.exp(-dt*14));
+  p.facing=1; p.turnAt=-1e12; p.footSurf=false; p.strafe=null; p.grabHeld=false;
+  if(!held.includes('RightShoulder'))p.shieldLocked=false;
+  const blocking=held.includes('RightShoulder')&&!p.shieldLocked;
+  if(blocking&&!p.blocking)playBubbleSound(p,false);
+  if(!blocking&&p.blocking)playBubbleSound(p,true);
+  p.blocking=blocking; p.shieldCrouched=p.ducking;
+  if(now>=p.attackUntil)p.attackKind='';
+  if(!blocking){if(pressed('B'))startMelee(p,'PUNCH',now);if(pressed('Y'))startMelee(p,'KICK',now);}
+  if(pressed('A')&&p.grounded){
+    p.vy=Math.min(0,p.vy)-jumpVelocity; p.grounded=false;
+    p.jumpPoseUntil=now+240000; p.jumpLaunchAt=0; p.jumpHeld=true;
+    emitSignal('jump',p.pad,0,0);
+  }
+  // Substep contacts in both horizontal axes, keeping speed tangent to the bowl.
+  const steps=Math.max(1,Math.ceil(dt*120)), step=dt/steps;
+  for(let n=0;n<steps;n++){
+    let slope=poolSlopeAt(p.x,p.z||0);
+    if(p.grounded){
+      let vy=slope.x*p.vx+slope.z*(p.vz||0);
+      const den=1+slope.x*slope.x+slope.z*slope.z;
+      p.vx+=1800*slope.x/den*step; p.vz=(p.vz||0)+1800*slope.z/den*step;
+      const top=p.onewheel?(p.wheelTurbo?4800:3100):walkSpeed*(p.ducking?.38:1);
+      const ty=slope.x*ix+slope.z*iz, len=Math.hypot(ix,ty,iz)||1;
+      const ux=ix/len,uy=ty/len,uz=iz/len;
+      const along=p.vx*ux+vy*uy+p.vz*uz;
+      const push=clamp((top*Math.min(1,inputLength)-along)*(p.onewheel?3:12),-5000,p.onewheel?4200:9000);
+      if(inputLength){p.vx+=ux*push*step;p.vz+=uz*push*step;}
+      const drag=Math.exp(-step*(p.onewheel?.16:inputLength?1:14));
+      p.vx*=drag;p.vz*=drag;
+      vy=slope.x*p.vx+slope.z*p.vz;
+      const speed=Math.hypot(p.vx,vy,p.vz);
+      p.x+=p.vx*step;p.z=(p.z||0)+p.vz*step;
+      slope=poolSlopeAt(p.x,p.z);
+      const bent=Math.hypot(p.vx,slope.x*p.vx+slope.z*p.vz,p.vz);
+      if(bent>0){p.vx*=speed/bent;p.vz*=speed/bent;}
+      p.vy=slope.x*p.vx+slope.z*p.vz;
+      p.y=poolFloorAt(p.x,p.z);
+      const lip=poolDistance(p.x,p.z);
+      if(lip.d>=pool.radius-5&&lip.d<pool.radius&&p.vy < -180){
+        p.grounded=false;p.skateAirAt=now;
+        // A vert air returns into the bowl instead of crossing an invisible fence.
+        p.vx=-lip.nx*100;p.vz=-lip.nz*100;
+        emitSignal('skate-air',p.pad,Math.round(-p.vy),0);
+      }
+    }else{
+      p.vx+=ix*300*step;p.vz=(p.vz||0)+iz*300*step;
+      p.vy+=1800*step;p.x+=p.vx*step;p.z=(p.z||0)+p.vz*step;p.y+=p.vy*step;
+      const floor=poolFloorAt(p.x,p.z);
+      if(p.y>=floor){
+        slope=poolSlopeAt(p.x,p.z);
+        const inward=(p.vy-slope.x*p.vx-slope.z*p.vz)/(1+slope.x*slope.x+slope.z*slope.z);
+        if(inward>0){p.vx+=slope.x*inward;p.vz+=slope.z*inward;}
+        p.landingSpeed=p.vy;p.y=floor;p.vy=slope.x*p.vx+slope.z*p.vz;
+        p.grounded=true;p.landPoseUntil=now+110000;
+      }
+    }
+    const edge=poolDistance(p.x,p.z),limit=pool.radius+pool.deck-25;
+    if(edge.d>limit){
+      p.x-=edge.nx*(edge.d-limit);p.z-=edge.nz*(edge.d-limit);
+      const outward=p.vx*edge.nx+p.vz*edge.nz;
+      if(outward>0){p.vx-=outward*edge.nx;p.vz-=outward*edge.nz;}
+    }
+  }
+  const horizontal=Math.hypot(p.vx,p.vz||0);
+  if(horizontal>30){
+    const desired=Math.atan2(p.vz,p.vx),heading=p.poolYaw||0;
+    p.poolYaw=heading+Math.atan2(Math.sin(desired-heading),Math.cos(desired-heading))*(1-Math.exp(-dt*12));
+  }
+  const slope=poolSlopeAt(p.x,p.z||0),heading=p.poolYaw||0;
+  const pitch=p.grounded?Math.atan(slope.x*Math.cos(heading)+slope.z*Math.sin(heading)):0;
+  p.skatePitch+=(pitch-(p.skatePitch||0))*(1-Math.exp(-dt*16));
+  p.skateVx=p.onewheel?Math.hypot(p.vx,p.vy,p.vz||0):0;
+  p.stance=p.attackKind?'ATTACK':!p.grounded?'JUMP':p.ducking?'CROUCH':horizontal>40?'WALK':'NEUTRAL';
+  p.walkSince=horizontal>40?(p.walkSince||now):0;
+  p.hit=Math.max(0,(p.hit||0)-dt*2);p.previous=held.slice();
+}
 function updatePlayer(player, pad, dt, now) {
+  if(poolOnly()&&freeskateActive()&&player.alive&&!player.dummy){updatePoolPlayer(player,pad,dt,now);return;}
   if(player.dummy){
     const previous=player.x;
     player.vx=player.knockVx||0;player.knockVx*=Math.exp(-dt*4);
@@ -14719,6 +14845,13 @@ function runnerWorldGeometry(player, t) {
     segment.x1 = a.x; segment.y1 = a.y; segment.x2 = b.x; segment.y2 = b.y;
   }
   }
+  if (poolOnly() && player.poolYaw) {
+    const c=Math.cos(player.poolYaw),s=Math.sin(player.poolYaw),z=player.z||0;
+    const rotate=(point,xKey,zKey)=>{const dx=point[xKey]-player.x,dz=(point[zKey]??z)-z;
+      point[xKey]=player.x+dx*c-dz*s;point[zKey]=z+dx*s+dz*c;};
+    rotate(pose.head,'x','z');
+    for(const bone of pose.segments){rotate(bone,'x1','z1');rotate(bone,'x2','z2');}
+  }
   if (sharingRenderPoses) renderPoses.set(player, { t, pose });
   return pose;
 }
@@ -14753,7 +14886,7 @@ function updateRig(player, pad, dt) {
   const held = pad?.down || [];
   const stick = board ? (held.includes("ArrowRight") ? 1 : held.includes("ArrowLeft") ? -1 : 0) : 0;
   springStep(rig, "lean", clamp(-accel * .012 + stick * 26, -46, 46) * strength, 70, 5.5, dt);
-  const pumping = board && (pad?.down || []).includes("ArrowDown");
+  const pumping = board && (pad?.down || []).includes(depthControls()?"X":"ArrowDown");
   if (player.grounded && !rig.lastGrounded) {
     rig.crouchV = (rig.crouchV || 0) + clamp((player.landingSpeed || 900) / 1200, .4, 2.4) * 3;
     if (!board && (player.landingSpeed || 0) > 2400) addDing(player.x, player.z || 0, 4 + player.landingSpeed / 900);
@@ -14906,7 +15039,7 @@ function buildRunnerWorldGeometry(player, t, at = null) {
   const animation = fighterAnimationPhase(player, at);
   const poseNow = animation.frameNow;
   const poseCycle = animation.progress * Math.PI * 2;
-  const speed = Math.min(1, Math.abs(player.vx) / 1500);
+  const speed = Math.min(1, (poolOnly()?Math.hypot(player.vx,player.vz||0):Math.abs(player.vx)) / 1500);
   const meditating = shellMode === "MENU" && titleTransitionAt === null &&
     titleAttractMode === "still";
   const idle = player.grounded && !player.ducking && speed < .03;
@@ -16034,7 +16167,7 @@ function skateContact(x, y, z = 0) {
 }
 
 function skateFrame(player) {
-  if (player.onewheel) return monowheelFrame(player);
+  if (player.onewheel) return monowheelFrame(player, true);
   // In a spin the board turns on the spot with the rider.
   const yaw = player.spin ? player.spin.angle : 0;
   const yawCos = Math.cos(yaw), yawSin = Math.sin(yaw);
@@ -18703,8 +18836,47 @@ function terrainSurfaceShades(color) {
   }
   return terrainShades;
 }
+let poolSurfaceMesh=null;
+function drawPoolGeometry() {
+  const center=gridLeft+gridWidth/2,segments=12;
+  const ring=(radius,y)=>{
+    const points=[];
+    for(let corner=0;corner<4;corner++)for(let i=0;i<=segments;i++){
+      const a=(corner+i/segments)*Math.PI/2;
+      const sx=corner===0||corner===3?1:-1,sz=corner<2?1:-1;
+      points.push({x:center+sx*pool.halfX+Math.cos(a)*radius,y,z:sz*pool.halfZ+Math.sin(a)*radius});
+    }
+    return points;
+  };
+  // Large bottom tiles keep the floor legible while the walls turn in both axes.
+  for(let x=-pool.halfX;x<pool.halfX;x+=120)for(let z=-pool.halfZ;z<pool.halfZ;z+=120)
+    worldQuad({x:center+x,y:floorY,z},{x:center+x+120,y:floorY,z},
+      {x:center+x+120,y:floorY,z:z+120},{x:center+x,y:floorY,z:z+120},
+      ((x+pool.halfX+z+pool.halfZ)/120)%2?[172,212,211]:[178,219,218]);
+  let previous=ring(0,floorY);
+  const bands=20;
+  for(let band=1;band<=bands+3;band++){
+    const t=Math.min(bands,band)/bands*Math.PI/2;
+    const r=band<=bands?pool.radius*Math.sin(t):pool.radius+(band-bands)*pool.deck/3;
+    const y=floorY-pool.radius*(1-Math.cos(t))-(band>bands?3:0);
+    const current=ring(r,y);
+    for(let i=0;i<current.length;i++){
+      const j=(i+1)%current.length;
+      const tile=band>=bands-2&&band<=bands;
+      const shade=band>bands?[216,221,211]:tile?(i%2?[37,117,151]:[49,139,167]):
+        (i+band)%2?[153,197,199]:[167,210,211];
+      worldQuad(previous[i],previous[j],current[j],current[i],shade);
+    }
+    previous=current;
+  }
+  for(let i=0;i<previous.length;i++){
+    const j=(i+1)%previous.length,a=previous[i],b=previous[j];
+    worldQuad(a,b,{...b,y:b.y+110},{...a,y:a.y+110},[114,142,144]);
+  }
+}
 let pipeSurfaceMesh=null,pipeSurfaceKey='';
 function drawTerrainSurface(left,right,near,far,color){
+ if(poolOnly()){poolSurfaceMesh ||= captureQuadMesh(drawPoolGeometry);drawQuadMesh(poolSurfaceMesh);return;}
  if(!indoorSkate()){drawTerrainSurfaceGeometry(left,right,near,far,color);return;}
  const key=gridCols+':'+near+':'+far+':'+color.join(',');
  if(key!==pipeSurfaceKey){pipeSurfaceKey=key;releaseQuadMesh(pipeSurfaceMesh);pipeSurfaceMesh=captureQuadMesh(()=>drawTerrainSurfaceGeometry(worldLeft,worldRight,near,far,color));}
@@ -18729,6 +18901,7 @@ function drawTerrainSurfaceGeometry(left, right, near, far, color) {
 
 let pipeWallMesh=null,pipeWallKey='';
 function drawTerrainFrontWall(left,right,near,color){
+ if(poolOnly())return;
  if(!indoorSkate()){drawTerrainFrontWallGeometry(left,right,near,color);return;}
  const key=gridCols+':'+near+':'+color.join(',');
  if(key!==pipeWallKey){pipeWallKey=key;releaseQuadMesh(pipeWallMesh);pipeWallMesh=captureQuadMesh(()=>drawTerrainFrontWallGeometry(worldLeft,worldRight,near,color));}
@@ -18772,6 +18945,7 @@ function drawTerrainFrontWallGeometry(left, right, near, color) {
 }
 
 function drawTerrainBackWall(left, right, far, color) {
+  if(poolOnly())return;
   if(indoorSkate())return;
   // The far edge was simply open. Yaw clamps at +/-.62rad, which is more than
   // enough to swing the diorama around and look straight through the back of
@@ -19031,8 +19205,8 @@ function drawSkyAtmosphere(sky, arena) {
   }
 }
 
-function shadowSurfaceY(x, y) {
-  return surfaceYAt(x, y);
+function shadowSurfaceY(x, y, z = 0) {
+  return surfaceYAt(x, y, z);
 }
 
 // Project the existing pose onto the receiving surface: no shadow map,
@@ -19050,7 +19224,7 @@ function shadowSurfaceY(x, y) {
 // onto a curved floor point by point cost the Xbox three milliseconds a
 // frame; the web and Mac hosts keep the pose-shaped shadow.
 function drawBlobShadow(player, color) {
-  const floor = shadowSurfaceY(player.x, player.y);
+  const floor = shadowSurfaceY(player.x, player.y, player.z||0);
   const height = Math.max(0, floor - player.y);
   const fade = clamp(1 - height / 900, .15, 1);
   const radiusX = 62 * (.55 + .45 * fade), radiusZ = radiusX * .42;
@@ -19059,9 +19233,9 @@ function drawBlobShadow(player, color) {
   for (let side = 0; side < 10; side++) {
     const a = side / 10 * Math.PI * 2, b = (side + 1) / 10 * Math.PI * 2;
     worldTriangle(center,
-      { x: player.x + Math.cos(a) * radiusX, y: shadowSurfaceY(player.x + Math.cos(a) * radiusX, floor) - 2,
+      { x: player.x + Math.cos(a) * radiusX, y: shadowSurfaceY(player.x + Math.cos(a) * radiusX, floor, player.z + Math.sin(a) * radiusZ) - 2,
         z: player.z + Math.sin(a) * radiusZ },
-      { x: player.x + Math.cos(b) * radiusX, y: shadowSurfaceY(player.x + Math.cos(b) * radiusX, floor) - 2,
+      { x: player.x + Math.cos(b) * radiusX, y: shadowSurfaceY(player.x + Math.cos(b) * radiusX, floor, player.z + Math.sin(b) * radiusZ) - 2,
         z: player.z + Math.sin(b) * radiusZ }, ink);
   }
 }
@@ -19073,10 +19247,11 @@ function drawPoseShadow(player, t, color) {
   // cost it three milliseconds, not the shape.
   const lite = consoleHost();
   const world = player.replayGeometry || player.frozenGeometry || runnerWorldGeometry(player, t);
-  const surface = shadowSurfaceY(player.x, player.y);
+  const surface = shadowSurfaceY(player.x, player.y, player.z||0);
   const behindFighter = projectPoint(player.x, player.y, player.z).z + .004;
   const floorCache = new Map();
-  const floorAt = (x) => {
+  const floorAt = (x, z) => {
+    if (poolOnly()) return poolFloorAt(x,z);
     if (!lite) return shadowSurfaceY(x, surface - 5);
     const key = Math.round(x / 10);
     let y = floorCache.get(key);
@@ -19087,7 +19262,7 @@ function drawPoseShadow(player, t, color) {
     const height = Math.max(0, surface - y);
     const sx = clamp(x + globalLight.x / globalLight.y * height, worldLeft, worldRight);
     const sz = clamp(z + globalLight.z / globalLight.y * height, worldNear + 4, worldFar - 4);
-    const point = projectPoint(sx, floorAt(sx) - 2, sz);
+    const point = projectPoint(sx, floorAt(sx,sz) - 2, sz);
     // On the floor's own surface, just above it. Fighters now stand at the
     // floor's near edge, so a shadow there is still behind them — and it is
     // no longer buried under the near half of the floor.
@@ -19177,7 +19352,7 @@ function updateSceneLighting(now) {
 }
 
 function drawSpotShadow(x, y, z, radius, color) {
-  const surfaceY = shadowSurfaceY(x, y);
+  const surfaceY = shadowSurfaceY(x, y, z);
   const height = Math.max(0, surfaceY - y);
   const reach = Math.min(520, height * .22);
   const focus = clamp(1 - height / 5200, .42, 1);
@@ -21486,9 +21661,11 @@ function resetMonowheel(){
  const x=halfpipeOnly()?clamp(players[0].x+170,gridLeft+60,gridLeft+gridWidth-60):tileCenterX(37);
  Object.assign(monowheel,{active:true,x,y:terrainFloorAt(x),z:0,vx:0,vy:0,safeUntil:0});
 }
-function monowheelFrame(p){
+function monowheelFrame(p, local=false){
  const pitch=p.skatePitch||0,c=Math.cos(pitch),s=Math.sin(pitch);
- return (x,y=0,z=0)=>({x:p.x+c*x-s*y,y:p.y-24+s*x+c*y,z:(p.z||0)+z});
+ const yaw=!local&&poolOnly()?(p.poolYaw||0):0,cy=Math.cos(yaw),sy=Math.sin(yaw);
+ return (x,y=0,z=0)=>{const along=c*x-s*y;return {
+  x:p.x+along*cy-z*sy,y:p.y-24+s*x+c*y,z:(p.z||0)+along*sy+z*cy};};
 }
 function riderContact(p,y){
  if(!p.onewheel)return skateContact(p.x,y,p.z);
@@ -21586,7 +21763,7 @@ function playerFloor(p,x){
  if(p.underPipe)return tunnelBottom();
  const i=bottomPaneAt(x);
  if(indoorSkate() && i>=0 && i<bottomGlass.length && bottomGlass[i])return tunnelBottom();
- return terrainFloorAt(x);
+ return terrainFloorAt(x,p.z||0);
 }
 function collideBottomGlass(p,previousY,now){
  if(!indoorSkate())return;
@@ -22010,9 +22187,9 @@ function updateWheelTurbo(dt,now){
  for(const p of activePlayers()){
   if(!p.onewheel || !p.alive){p.wheelTurbo=false;p.wheelChargeAt=0;continue;}
   const speed=Math.abs(p.skateVx||0);
-  if(p.grounded&&speed<2200){p.wheelTurbo=false;p.wheelChargeAt=0;}
+  if(p.grounded&&speed<(poolOnly()?1400:2200)){p.wheelTurbo=false;p.wheelChargeAt=0;}
   if(!p.wheelTurbo){
-    if(speed>=2940 || (!p.grounded && p.wheelChargeAt)){
+    if(speed>=(poolOnly()?1900:2940) || (!p.grounded && p.wheelChargeAt)){
       p.wheelChargeAt ||= now;
       if(now-p.wheelChargeAt>=1000000*gameSpeed){p.wheelTurbo=true;p.lastButton='SUPER TURBO';p.lastButtonAt=now;playDrum('whoosh',.6,panPlayer(p));}
     }else p.wheelChargeAt=0;

@@ -4,11 +4,12 @@ import vm from 'node:vm';
 import test from 'node:test';
 
 const source = await readFile(new URL('../oskiewar.js', import.meta.url), 'utf8');
-function game() {
+function game(course = "pool") {
   let now = 0;
   const post = [], texts = [], faces = [], sounds = [], decalsDrawn = [];
   const pads = [0, 1].map(() => ({ connected: true, down: [], leftX: 0, leftY: 0 }));
   const context = vm.createContext({
+    __oskiewarFreeskateMap: course,
     runtime: () => ({ monotonicUs: now, unixMs: 1785870000000 + now / 1000,
       simCount: Math.floor(now / 16667), paintCount: 0, renderAlpha: 1 }),
     gamepad: (i = 0) => pads[i],
@@ -30,6 +31,7 @@ function game() {
     cameraDoll,steerPostEffects,projectPoint,drawSeatPlayerHud,handleWidth,
     breakRoofPane,configureWorldMap,resetRoofPanes,updatePlayer,updateWheelTurbo,
     addDecal,decals,rasterDecalPatches,terrainFloorAt,drawDecals,
+    pool,poolDistance,poolSlopeAt,monowheelFrame,runnerWorldGeometry,updateCameraDoll,
     debug:()=>debugHitboxes=true,
     bounds:()=>({near:worldNear+60,far:worldFar-60}),
     classic:()=>globalThis.__oskiewarDepthControls=false,
@@ -53,7 +55,7 @@ function game() {
 test('default course stays one rider and one monowheel through ticks, joins and resets', () => {
   const g = game(), a = g.api;
   const check = () => {
-    assert.equal(a.map().course, 'halfpipe');
+    assert.equal(a.map().course, 'pool');
     assert.equal(a.map().cols, 24);
     assert.equal(a.map().width, 2160);
     assert.equal(a.map().features.length, 5);
@@ -125,7 +127,7 @@ test('BPM is large, centered with its heart, and shadowed on the HUD depth', () 
 });
 
 test('halfpipe uses continuous depth movement, bounded at both ramp edges', () => {
-  const g = game(), p = g.api.players[0], pad = g.pads[0];
+  const g = game("halfpipe"), p = g.api.players[0], pad = g.pads[0];
   const y = p.y;
   pad.leftY = .7;
   for (let i = 0; i < 10; i++) g.tick();
@@ -167,7 +169,7 @@ test('A jumps, X crouches, B punches, Y kicks without former button actions', ()
 
 test('bubble keeps ground steering and wheel momentum in both control layouts', () => {
   for (const classic of [false,true]) for (const riding of [false,true]) {
-    const g = game(), p = g.api.players[0];
+    const g = game(classic ? "halfpipe" : "pool"), p = g.api.players[0];
     if (classic) g.api.classic();
     Object.assign(p, {x:950,y:1800,vx:riding?1700:880,grounded:true,
       skateboard:riding,onewheel:riding,skateVx:riding?1700:0});
@@ -210,7 +212,7 @@ test('monowheel turbo charges, persists through airtime, then drops on a slow la
 });
 
 test('raster stamps conform to the curved halfpipe and depth-test as transparent world quads', () => {
-  const g=game(),a=g.api;
+  const g=game("halfpipe"),a=g.api;
   vm.runInContext('cameraCenter=380;cameraWidth=1650',g.context);
   a.cameraDoll.snap({target:{x:380,y:1550,z:0},position:{x:380,y:800,z:-2200},
     width:1650,perspective:0,fov:55,roll:0});
@@ -242,4 +244,79 @@ test('a glass roof break is one composite cue and still works on the full hall',
   assert.equal(a.roofPanes[2].broken,true);
   assert.equal(sounds.length,1);
   assert.equal(sounds[0][0],'glass');
+});
+
+
+test('pool floor rises on every side and through rounded corners', () => {
+  const {api:a}=game(),cx=1080;
+  assert.equal(a.terrainFloorAt(cx,0),1800);
+  for(const [x,z] of [[cx+720,0],[cx-720,0],[cx,480],[cx,-480]])
+    assert.ok(a.terrainFloorAt(x,z)<1770);
+  const corner=a.terrainFloorAt(cx+720,480);
+  assert.ok(corner<a.terrainFloorAt(cx+720,0));
+  assert.equal(a.terrainFloorAt(cx+960,0),1320);
+  assert.equal(a.terrainFloorAt(cx,720),1320);
+});
+
+test('depth steering turns the monowheel and rider together', () => {
+  const g=game(),p=g.api.players[0];
+  Object.assign(p,{onewheel:true,skateboard:true,vx:0,vz:0,skateVx:0});
+  g.api.monowheel.active=false;g.pads[0].down=['ArrowUp'];
+  for(let i=0;i<30;i++)g.tick();
+  assert.ok(p.z>20);assert.ok(p.poolYaw>1.3);
+  const frame=g.api.monowheelFrame(p),front=frame(50),rear=frame(-50);
+  assert.ok(front.z-rear.z>80,'wheel points through depth');
+  const pose=g.api.runnerWorldGeometry(p,1);
+  assert.ok(Number.isFinite(pose.head.z));
+  assert.ok(Math.abs(pose.head.z-p.z)>3,'body turns into movement');
+});
+
+test('pool movement stays on the surface in all four directions and corners', () => {
+  for(const down of [['ArrowRight'],['ArrowLeft'],['ArrowUp'],['ArrowDown'],['ArrowUp','ArrowRight']]){
+    const g=game(),p=g.api.players[0];g.pads[0].down=down;
+    for(let i=0;i<450;i++){
+      g.tick();
+      assert.ok([p.x,p.y,p.z,p.vx,p.vy,p.vz].every(Number.isFinite));
+      assert.ok(p.y<=g.api.terrainFloorAt(p.x,p.z)+.01,'never enters solid pool');
+      assert.ok(g.api.poolDistance(p.x,p.z).d<=556,'contained by pool deck');
+    }
+  }
+});
+
+test('pool camera follows depth and height with perspective', () => {
+  const {api:a}=game(),p=a.players[0];
+  Object.assign(p,{x:1400,y:1100,z:420,vx:0,vz:0,poolYaw:Math.PI/2});
+  for(let i=0;i<180;i++)a.updateCameraDoll(1/60,1000000+i*16667);
+  assert.ok(Math.abs(a.cameraDoll.target.x-p.x)<1);
+  assert.ok(Math.abs(a.cameraDoll.target.z-p.z)<1);
+  assert.ok(Math.abs(a.cameraDoll.target.y-(p.y-85))<1);
+  assert.ok(a.cameraDoll.perspective>.999);
+  assert.ok(a.cameraDoll.position.z<p.z-700,'camera trails depth heading');
+});
+
+test('raster decals follow pool depth curvature', () => {
+  const {api:a}=game();
+  const mark=a.addDecal({kind:'scuff',x:1080,z:540,size:80,angle:.3});
+  const patches=a.rasterDecalPatches(mark),heights=new Set();
+  for(const patch of patches)for(const p of patch.points){
+    assert.ok(Math.abs(p.y-a.terrainFloorAt(p.x,p.z)+.9)<.001);
+    heights.add(Math.round(p.y));
+  }
+  assert.ok(heights.size>5);
+});
+
+test('pool monowheel rides into vert air and returns without passing through the bowl', () => {
+  for(const direction of ['ArrowRight','ArrowUp']){
+    const g=game(),p=g.api.players[0];
+    Object.assign(p,{onewheel:true,skateboard:true,vx:0,vz:0,skateVx:0});
+    g.api.monowheel.active=false;g.pads[0].down=[direction];
+    let air=false,landed=false,maxSpeed=0,turbo=false;
+    for(let i=0;i<900;i++){
+      g.tick();maxSpeed=Math.max(maxSpeed,p.skateVx);turbo ||= p.wheelTurbo;
+      if(!p.grounded)air=true;else if(air)landed=true;
+      assert.ok(p.y<=g.api.terrainFloorAt(p.x,p.z)+.01);
+    }
+    assert.ok(turbo,'compact pool reaches turbo, including charging through airtime');
+    assert.ok(air,'wheel launches off the coping');assert.ok(landed,'rider returns to surface');
+  }
 });
