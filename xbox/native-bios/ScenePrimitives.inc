@@ -138,7 +138,8 @@ JSValue MeshFree(JSContext* ctx,JSValueConst,int argc,JSValueConst* args){
 }
 // meshDraw(handle, camera, capsuleScale = 1, tintR = 1, tintG = 1, tintB = 1) → triangles emitted.
 // capsuleScale is the game's cameraScale(): edge capsules store a world width
-// and take their pixel width from it, as drawQuadMesh did in JS.
+// and take their pixel width from it, as drawQuadMesh did in JS. Zero or less
+// skips the capsules — the P1 inset never drew them, and keeps not drawing them.
 JSValue MeshDraw(JSContext* ctx,JSValueConst,int argc,JSValueConst* args){
  auto* scope=static_cast<CallScope*>(JS_GetContextOpaque(ctx));int32_t handle=-1;SceneFloats camera(ctx);
  if(!scope||!scope->api||argc<2||JS_ToInt32(ctx,&handle,args[0]))return JS_NewInt32(ctx,0);
@@ -193,7 +194,7 @@ JSValue MeshDraw(JSContext* ctx,JSValueConst,int argc,JSValueConst* args){
  }
  // Edge capsules: worldSegment's near clip, then the fan at min depth + bias.
  const double guard=m[20]-m[18];
- for(size_t i=0;i<mesh.capsules.size();i+=11){const float* c=mesh.capsules.data()+i;
+ for(size_t i=0;capsuleScale>0&&i<mesh.capsules.size();i+=11){const float* c=mesh.capsules.data()+i;
   ScenePoint p=SceneToView(m,{c[0],c[1],c[2]}),q=SceneToView(m,{c[3],c[4],c[5]});
   if(p.z<near&&q.z<near)continue;
   if(p.z<near)p=SceneMix(p,q,(near-p.z)/(q.z-p.z));else if(q.z<near)q=SceneMix(q,p,(near-q.z)/(p.z-q.z));
