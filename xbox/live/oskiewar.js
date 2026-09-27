@@ -17014,6 +17014,10 @@ function governFigureLod(now) {
   if (figureFrameMs > 17.5) figureLodScale = Math.min(1.5, figureLodScale * 1.02);
   else if (figureFrameMs < 15.8) figureLodScale = Math.max(1, figureLodScale / 1.01);
 }
+// Each figure's last tier, for the hysteresis. Off the fighter: `paint`
+// never writes a sim object — players ride structuredClone into rollback
+// snapshots, and a render field there is a field the fight does not own.
+const figureLodTiers = new WeakMap();
 function figureLod(player, geometry) {
   const head = geometry.head;
   let top = head.y - head.radius, bottom = head.y + head.radius;
@@ -17024,16 +17028,16 @@ function figureLod(player, geometry) {
     if (s.y1 < top) top = s.y1;
     if (s.y2 < top) top = s.y2;
   }
-  const height = bottom - top, k = figureLodScale, previous = player.lodTier || 0;
+  const height = bottom - top, k = figureLodScale, previous = figureLodTiers.get(player) || 0;
   const tierAt = (h) => h >= figureLodFull * k ? 0 : h >= figureLodSimple * k ? 1
     : h >= figureLodDot * k ? 2 : 3;
   const forced = globalThis.__oskiewarFigureLod;
-  if (forced >= 0 && forced <= 3) return player.lodTier = forced;
+  if (forced >= 0 && forced <= 3) { figureLodTiers.set(player, forced); return forced; }
   let tier = tierAt(height);
   // Twelve percent of hysteresis, so a figure on a boundary does not flicker.
   if (tier !== previous && tierAt(height * (tier > previous ? 1.12 : .88)) === previous)
     tier = previous;
-  player.lodTier = tier;
+  figureLodTiers.set(player, tier);
   return tier;
 }
 function figurePartColor(player, segment) {
