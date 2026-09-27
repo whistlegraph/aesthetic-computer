@@ -306,7 +306,7 @@ test('retained pool marks stamp once and keep constant draw work after ten thous
 test('the bowl uses one solid material and the grounded camera follows lower', () => {
   const g=game(),a=g.api;
   const mesh=a.poolMesh(),bowlFaces=mesh.faces.filter(f=>f.ids.some(i=>mesh.vertices[i].y>a.parkDeckY+.1));
-  assert.ok(bowlFaces.length>3000);assert.deepEqual([...new Set(bowlFaces.map(f=>f.color.join(',')))],['172,212,211']);
+  assert.ok(bowlFaces.length>1500);assert.deepEqual([...new Set(bowlFaces.map(f=>f.color.join(',')))],['172,212,211']);
   for(let i=0;i<120;i++)g.tick();
   assert.ok(a.cameraDoll.position.y>1100,'lens is lower than the old overhead view');
   assert.ok(a.cameraDoll.position.y<a.players[0].y-200,'still clears the rider and ground');

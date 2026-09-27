@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 181;
+const buildVersion = 182;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -19093,23 +19093,30 @@ function drawPoolGeometry() {
   };
   const xs=cuts(gridLeft,gridLeft+gridWidth,'x','hx'),zs=cuts(worldNear,worldFar,'z','hz');
   const groundPoint=(x,z)=>({x,y:parkGroundAt(x,z),z});
-  for(let i=1;i<xs.length;i++)for(let j=1;j<zs.length;j++){
-    const x=(xs[i-1]+xs[i])/2,z=(zs[j-1]+zs[j])/2;
-    if(holes.some(h=>Math.abs(x-h.x)<h.hx&&Math.abs(z-h.z)<h.hz))continue;
-    worldQuad(groundPoint(xs[i-1],zs[j-1]),groundPoint(xs[i],zs[j-1]),groundPoint(xs[i],zs[j]),groundPoint(xs[i-1],zs[j]),ground);
+  for(let j=1;j<zs.length;j++){
+    let flatFrom=null;
+    const flush=right=>{if(flatFrom===null)return;worldQuad(groundPoint(flatFrom,zs[j-1]),groundPoint(right,zs[j-1]),groundPoint(right,zs[j]),groundPoint(flatFrom,zs[j]),ground);flatFrom=null;};
+    for(let i=1;i<xs.length;i++){
+      const x=(xs[i-1]+xs[i])/2,z=(zs[j-1]+zs[j])/2;
+      if(holes.some(h=>Math.abs(x-h.x)<h.hx&&Math.abs(z-h.z)<h.hz)){flush(xs[i-1]);continue;}
+      const points=[groundPoint(xs[i-1],zs[j-1]),groundPoint(xs[i],zs[j-1]),groundPoint(xs[i],zs[j]),groundPoint(xs[i-1],zs[j])];
+      if(points.every(p=>p.y===parkDeckY)){flatFrom??=xs[i-1];continue;}
+      flush(xs[i-1]);worldQuad(...points,ground);
+    }
+    flush(xs.at(-1));
   }
   for(const bowl of parkPools){
     const ring=radius=>{
       const raw=[];
-      for(let corner=0;corner<4;corner++)for(let i=0;i<=12;i++){
-        const a=(corner+i/12)*Math.PI/2,sx=corner===0||corner===3?1:-1,sz=corner<2?1:-1;
+      for(let corner=0;corner<4;corner++)for(let i=0;i<=8;i++){
+        const a=(corner+i/8)*Math.PI/2,sx=corner===0||corner===3?1:-1,sz=corner<2?1:-1;
         raw.push({x:bowl.x+sx*bowl.halfX+Math.cos(a)*radius,z:bowl.z+sz*bowl.halfZ+Math.sin(a)*radius});
       }
       const result=[];
       for(let i=0;i<raw.length;i++){
         const a=raw[i],b=raw[(i+1)%raw.length];
         // Straight sides have a fixed subdivision at every ring.
-        const steps=(i+1)%13===0?Math.ceil((i%26===12?bowl.halfX:bowl.halfZ)*2/80):1;
+        const steps=(i+1)%9===0?Math.ceil((i%18===8?bowl.halfX:bowl.halfZ)*2/80):1;
         for(let n=0;n<steps;n++){const x=lerp(a.x,b.x,n/steps),z=lerp(a.z,b.z,n/steps);result.push({x,y:bowlHeight(x,z,bowl),z});}
       }
       return result;
@@ -19119,8 +19126,8 @@ function drawPoolGeometry() {
       {x:bowl.x+bowl.halfX,y:parkDeckY+bowl.radius,z:bowl.z+bowl.halfZ},
       {x:bowl.x-bowl.halfX,y:parkDeckY+bowl.radius,z:bowl.z+bowl.halfZ},ink);
     let previous=ring(0);
-    for(let band=1;band<=20;band++){
-      const current=ring(bowl.radius*Math.sin(band/20*Math.PI/2));
+    for(let band=1;band<=12;band++){
+      const current=ring(bowl.radius*Math.sin(band/12*Math.PI/2));
       for(let i=0;i<current.length;i++){const j=(i+1)%current.length;worldQuad(current[i],current[j],previous[j],previous[i],ink);}
       previous=current;
     }
