@@ -52,9 +52,12 @@ export async function handler(event) {
     const userDoc = await database.db.collection("@users").findOne({ _id: sub });
     const creds = await getDeviceCreds(database.db, sub);
 
-    // Generate a device auth token
+    // Generate a device auth token. The chat servers verify it with the
+    // same secret (session-server/chat-manager.mjs), so there is no public
+    // fallback key.
+    const hmacKey = process.env.JWT_SECRET || process.env.AC_DEVICE_SECRET;
+    if (!hmacKey) return respond(503, { message: "Device tokens are not configured." });
     const ts = Date.now().toString(36);
-    const hmacKey = process.env.JWT_SECRET || "ac-device";
     const token = crypto
       .createHmac("sha256", hmacKey)
       .update(`${sub}:${ts}`)

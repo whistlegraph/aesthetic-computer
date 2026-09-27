@@ -109,6 +109,9 @@ final class Session {
     var providers: [ProviderChoice] = []
     var accountDeletionBusy = false
     var accountDeleted = false
+    var accountDeletionDate: Date?
+    var accountDeletionMailed = false
+    var accountDeletionSummary = ""
     var accountNotice = ""
     var mcpAutoAllow = true
     var supportsApprovalPolicy = false

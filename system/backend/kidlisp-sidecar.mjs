@@ -141,6 +141,19 @@ export const sidecar = {
     if (!r.ok) throw new Error(`sidecar piecesUsingOp failed: ${r.status}`);
     return r.body;
   },
+
+  // Account deletion (backend/account-deletion.mjs): deletes and excises
+  // the listed pieces, strips the author from the rest, and excises the
+  // user entity so its history is gone too.
+  async eraseUser({ sub, deleteCodes = [], anonymizeCodes = [] }) {
+    const r = await req("POST", "/kidlisp/user/erase", {
+      sub,
+      delete_codes: deleteCodes,
+      anonymize_codes: anonymizeCodes,
+    });
+    if (!r.ok) throw new Error(`sidecar eraseUser failed: ${r.status}`);
+    return r.body;
+  },
 };
 
 // Feature flag helper — read once per request since Netlify functions

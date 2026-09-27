@@ -263,14 +263,18 @@ struct ContentView: View {
 
     var body: some View {
         managedSheet
-        .alert("Account deleted", isPresented: Binding(get: { session.accountDeleted }, set: { session.accountDeleted = $0 })) {
+        .alert("Account locked", isPresented: Binding(get: { session.accountDeleted }, set: { session.accountDeleted = $0 })) {
             Button("Done") { session.accountDeleted = false }
-        } message: { Text("Your Aesthetic Computer account was deleted. Your local notebooks remain on this device.") }
-        .alert("Permanently delete \(deletionAccount)?", isPresented: $showAccountDeletion) {
+        } message: {
+            Text("Your Aesthetic Computer account is locked and will be deleted\(session.accountDeletionDate.map { " on " + $0.formatted(date: .long, time: .omitted) } ?? " in 14 days").\(session.accountDeletionMailed ? " We emailed you a link to keep it." : "") Your local notebooks remain on this device.")
+        }
+        .alert("Delete \(deletionAccount)?", isPresented: $showAccountDeletion) {
             Button("Cancel", role: .cancel) { host.cancelAccountDeletion() }
             Button("Delete Account", role: .destructive) { host.deleteAccount() }
         } message: {
-            Text("This deletes your Aesthetic Computer account and its published work across all AC apps. This cannot be undone. Your local notebooks stay on this device.")
+            Text((session.accountDeletionSummary.isEmpty
+                  ? "Your account locks now and is deleted after 14 days: your handle, pieces, paintings, moods, tapes, chat messages and uploads. KidLisp that is minted or used in other people's pieces stays, without your name. Unused braincells are lost. We email you a link to keep the account until then."
+                  : session.accountDeletionSummary) + " Your local notebooks stay on this device.")
         }
         .sheet(item: Binding(get: { session.approval }, set: { value in
             if value == nil, let pending = session.approval { host.respondToApproval(id: pending.id, decision: "decline") }

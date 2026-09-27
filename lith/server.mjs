@@ -1445,6 +1445,34 @@ if (DEV && HAS_SSL) {
   });
 }
 
+// --- Account deletions ---
+// Purges accounts whose grace period has ended (system/backend/
+// account-deletion.mjs). A failed step backs off and resumes on a later run.
+// Set ACCOUNT_DELETION_RUNNER=off to pause purges without losing requests.
+if (!DEV && process.env.ACCOUNT_DELETION_RUNNER !== "off") {
+  let purging = false;
+  const runAccountDeletions = async () => {
+    if (purging) return;
+    purging = true;
+    let database;
+    try {
+      const { connect } = await import(pathToFileURL(join(SYSTEM, "backend", "database.mjs")).href);
+      const { runDueDeletions } = await import(pathToFileURL(join(SYSTEM, "backend", "account-deletion.mjs")).href);
+      const { productionDeps } = await import(pathToFileURL(join(SYSTEM, "backend", "account-deletion-deps.mjs")).href);
+      database = await connect();
+      const results = await runDueDeletions(await productionDeps(database));
+      if (results.length) console.log("[lith] account deletions:", JSON.stringify(results));
+    } catch (error) {
+      console.error("[lith] account deletion run failed:", error?.message || error);
+    } finally {
+      await database?.disconnect?.();
+      purging = false;
+    }
+  };
+  setTimeout(runAccountDeletions, 60_000).unref();
+  setInterval(runAccountDeletions, 15 * 60_000).unref();
+}
+
 // --- Graceful shutdown ---
 // On SIGTERM (sent by systemctl restart), stop accepting new connections
 // and wait for in-flight requests to finish before exiting.

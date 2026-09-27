@@ -1,224 +1,109 @@
-// delete-erase-and-forget-me, 23.12.15.13.44
+// delete-erase-and-forget-me, 23.12.15.13.44 (rebuilt 26.09.26)
 
-// 1. POST `api/delete-erase-and-forget-me`
-// Allow a logged in user to delete their account
-// permanently.
+// GET  ?preview (signed in) → what deletion would remove and keep.
+// GET  ?export  (signed in) → a JSON copy of what the account made.
+// POST (signed in)          → lock the account and schedule its deletion.
+// GET  ?restore=TOKEN       → a page with one button that keeps the account.
+// POST restore=TOKEN        → keep the account (the emailed link's button).
+//
+// The purge itself runs later, from lith's timer, through
+// backend/account-deletion.mjs. A GET never changes anything, because mail
+// scanners open links.
 
-/* #region 🏁 TODO 
-#endregion */
-
-import {
-  authorize,
-  getHandleOrEmail,
-  userIDFromEmail,
-  deleteUser,
-} from "../../backend/authorization.mjs";
+import { authorize } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import {
-  S3Client,
-  DeleteObjectsCommand,
-  ListObjectsV2Command,
-} from "@aws-sdk/client-s3";
-import * as KeyValue from "../../backend/kv.mjs";
-import { shell } from "../../backend/shell.mjs";
-import { deleteAtprotoAccount } from "../../backend/at.mjs";
+  exportAccount,
+  previewDeletion,
+  requestDeletion,
+  restoreDeletion,
+} from "../../backend/account-deletion.mjs";
+import { productionDeps } from "../../backend/account-deletion-deps.mjs";
 
-const s3User = new S3Client({
-  endpoint: "https://" + process.env.USER_ENDPOINT,
-  region: "us-east-1",
-  credentials: {
-    accessKeyId: process.env.ART_KEY,
-    secretAccessKey: process.env.ART_SECRET,
-  },
-});
+const page = (title, body) =>
+  respond(
+    200,
+    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
+      `<title>${title}</title><body style="font:18px/1.5 monospace;max-width:32em;margin:12vh auto;padding:0 16px;background:#fff;color:#000">` +
+      `${body}</body>`,
+    { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+  );
 
-// const dev = process.env.CONTEXT === "dev";
+const attribute = (text) => String(text).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-export async function handler(event, context) {
-  if (event.httpMethod !== "POST") {
-    return respond(405, { message: "Method Not Allowed" });
+function restoreToken(event) {
+  const raw = event.body || "";
+  try {
+    return JSON.parse(raw)?.restore;
+  } catch {
+    return new URLSearchParams(raw).get("restore");
   }
+}
 
-  // 1. POST: Delete the user's account.
+export async function handler(event) {
+  const query = event.queryStringParameters || {};
+  if (event.httpMethod === "GET" && (query.preview !== undefined || query.export !== undefined)) {
+    const user = await authorize(event.headers);
+    if (!user) return respond(401, { message: "Authorization failure..." });
+    let database;
+    try {
+      database = await connect();
+      const deps = await productionDeps(database);
+      if (query.export !== undefined) {
+        return respond(200, await exportAccount(deps, { user }), {
+          "Cache-Control": "no-store",
+          "Content-Disposition": 'attachment; filename="aesthetic-computer-export.json"',
+        });
+      }
+      return respond(200, await previewDeletion(deps, { user }), {
+        "Cache-Control": "no-store",
+      });
+    } catch (error) {
+      console.error("🪦 Account deletion preview failed:", error);
+      return respond(500, { message: "Could not read the account. Please retry." });
+    } finally {
+      if (database) await database.disconnect();
+    }
+  }
+  if (event.httpMethod === "GET") {
+    const token = event.queryStringParameters?.restore;
+    if (!token) return respond(405, { message: "Method Not Allowed" });
+    return page(
+      "Keep your account",
+      `<p>Keep your Aesthetic Computer account?</p>` +
+        `<form method="post" action="/api/delete-erase-and-forget-me">` +
+        `<input type="hidden" name="restore" value="${attribute(token)}">` +
+        `<button style="font:inherit;padding:10px 16px">Keep my account</button></form>`,
+    );
+  }
+  if (event.httpMethod !== "POST") return respond(405, { message: "Method Not Allowed" });
+
   let database;
   try {
-    const user = await authorize(event.headers);
-
-    if (user) {
-      console.log("⚠️  Deleting user:", user.sub);
-      // 1. Delete the entire user directory located at the s3User endpoint
-      const userDirectory = user.sub + "/"; // Assuming the directory name is the `user.sub`
-      const bucketName = process.env.USER_SPACE_NAME; // Replace with your bucket name
-      let continuationToken = null;
-
-      do {
-        const listParams = {
-          Bucket: bucketName,
-          Prefix: userDirectory,
-          ...(continuationToken && { ContinuationToken: continuationToken }),
-        };
-
-        let listedObjects;
-        try {
-          listedObjects = await s3User.send(
-            new ListObjectsV2Command(listParams),
-          );
-        } catch (err) {
-          console.error("List error:", err);
-          throw new Error("Could not delete account storage. Please retry.");
-        }
-
-        if (
-          !listedObjects ||
-          !listedObjects.Contents ||
-          listedObjects.Contents.length === 0
-        )
-          break;
-
-        console.log(
-          "🚫 Deleting from bucket storage:",
-          listedObjects.Contents.length,
-        );
-
-        const deleteParams = {
-          Bucket: bucketName,
-          Delete: {
-            Objects: listedObjects.Contents.map(({ Key }) => ({ Key })),
-          },
-        };
-
-        const deletedObjects = await s3User.send(new DeleteObjectsCommand(deleteParams));
-        if (deletedObjects.Errors?.length) {
-          throw new Error("Could not delete all account storage. Please retry.");
-        }
-        continuationToken = listedObjects.NextContinuationToken;
-      } while (continuationToken);
-
+    const token = restoreToken(event);
+    if (token) {
       database = await connect();
-      const sub = user.sub;
-
-      // Delete `paintings` and `moods` associated with the user's sub.
-      await database.db.collection("paintings").deleteMany({ user: sub });
-      console.log("️🎨 Deleted paintings.");
-
-      // Delete `paintings` and `moods` associated with the user's sub.
-      await database.db.collection("pieces").deleteMany({ user: sub });
-      console.log("🧩️ Deleted pieces.");
-
-      await database.db.collection("moods").deleteMany({ user: sub });
-      console.log("🧠 Deleted moods.");
-
-      await database.db.collection("push-tokens").deleteMany({ user: sub });
-      console.log("🔔 Deleted push tokens.");
-
-      await database.db.collection("easel-transcripts-private").deleteMany({ owner: sub });
-      console.log("📓 Deleted Aesel transcripts.");
-
-      await database.db
-        .collection("tells")
-        .deleteMany({ $or: [{ to: sub }, { from: sub }] });
-      console.log("📣 Deleted tells (sent + received).");
-
-      await database.db.collection("verifications").deleteOne({ _id: sub });
-      console.log("🧏 Deleted verification count.");
-
-      // Rewrite the "text" field to be null / empty and rewrite the user field to be empty
-      // rather than simply deleting the records associated with the user sub.
-      await database.db
-        .collection("chat-system")
-        .updateMany({ user: sub }, { $set: { text: "", user: "" } });
-      console.log("🧠 Erased chats.");
-
-      // ⚠️ Don't erase any logs for now, in case of partially deleted accounts
-      // etc, it may be the last place where the sub / handle connection
-      // is stored to benefit the user.
-
-      // Go through the "logs" collection and replace any matches in the "users"
-      // array with an empty string.
-      // await database.db.collection("logs").updateMany(
-      //   { users: { $elemMatch: { $eq: sub } } },
-      //   { $set: { "users.$": "" } }
-      // );
-      // console.log("📜 Removed log references.");
-
-      // Remove the user's handle cache from redis.
-      const handle = await getHandleOrEmail(sub);
-      if (handle?.startsWith("@")) {
-        await KeyValue.connect();
-        await KeyValue.del("@handles", handle);
-        await KeyValue.del("userIDs", sub);
-        await KeyValue.disconnect();
-      }
-
-      console.log("❌ Deleted network cache.");
-
-      // If the user has a sotce-net account then don't delete
-      // here, but change the primary key of the handle instead.
-      if (handle) {
-        shell.log(
-          "📚 Checking for any `sotce` user with the same email and handle:",
-          handle,
-        );
-        const bareHandle = handle.slice(1); // Remove the "@" from the handle.
-        const idRes = await userIDFromEmail(user.email, "sotce");
-
-        // console.log("Sotce user:", idRes);
-
-        if (idRes?.userID && idRes?.email_verified) {
-          const handles = database.db.collection("@handles");
-
-          const sotceSub = "sotce-" + idRes.userID;
-          // Check if an entry with the same _id already exists
-          const existingHandle = await handles.findOne({ _id: sotceSub });
-
-          if (!existingHandle) {
-            // If no existing entry, proceed with deletion and insertion
-            await handles.deleteOne({ _id: sub });
-            await handles.insertOne({ _id: sotceSub, handle: bareHandle });
-            shell.log(
-              "🧔 Changed primary handle key of 'aesthetic' user:",
-              sub,
-              "to 'sotce' user:",
-              sotceSub,
-            );
-          } else {
-            // If an entry already exists, skip deletion and insertion
-            shell.log(
-              "🩹 Handle already native to `sotce`, skipping reassignment.",
-            );
-          }
-        } else {
-          await database.db.collection("@handles").deleteOne({ _id: sub });
-          shell.log("🧔 Deleted user handle for:", sub);
-        }
-      }
-
-      const atprotoResult = await deleteAtprotoAccount(database, sub);
-
-      if (atprotoResult.deleted) {
-        console.log("🪦 Deleted PDS account.");
-      } else if (atprotoResult.reason !== "missing-did") {
-        throw new Error("Could not delete the linked account. Please retry.");
-      }
-
-      await database.db.collection("users").deleteOne({ _id: sub });
-
-      console.log("❌ Deleted database data.");
-
-      // 3. Delete the user's auth0 account.
-      const deleted = await deleteUser(sub);
-      if (!deleted?.success) {
-        throw new Error("Could not delete the account registration. Please retry.");
-      }
-      console.log("❌ Deleted user registration:", deleted);
-
-      return respond(200, { result: "Deleted!" }); // Successful account deletion.
-    } else {
-      return respond(401, { message: "Authorization failure..." });
+      const result = await restoreDeletion(await productionDeps(database), { token });
+      return result.restored
+        ? page("Account kept", `<p>Your account is kept. You can sign in again.</p>`)
+        : page(
+            "Link expired",
+            `<p>This link has expired or was already used. If your account was not deleted yet, sign in to check.</p>`,
+          );
     }
+
+    const user = await authorize(event.headers);
+    if (!user) return respond(401, { message: "Authorization failure..." });
+
+    database = await connect();
+    const schedule = await requestDeletion(await productionDeps(database), { user });
+    // `result` stays "Deleted!" for clients released before the grace
+    // period; to them the account is gone, and for them it is locked.
+    return respond(200, { result: "Deleted!", ...schedule });
   } catch (error) {
-    return respond(500, { message: error.message || "Account deletion failed. Please retry." });
+    console.error("🪦 Account deletion request failed:", error);
+    return respond(500, { message: "Account deletion failed. Please retry." });
   } finally {
     if (database) await database.disconnect();
   }

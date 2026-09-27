@@ -107,6 +107,31 @@ async function get(collection, key) {
   return await client.HGET(collection, key);
 }
 
+// Every field of a hash matching a glob, via HSCAN (never a blocking HKEYS).
+async function scan(collection, match) {
+  const fields = [];
+  let cursor = "0";
+  do {
+    const reply = await client.hScan(collection, cursor, { MATCH: match, COUNT: 500 });
+    cursor = String(reply.cursor);
+    for (const entry of reply.entries || []) fields.push(entry.field);
+  } while (cursor !== "0");
+  return fields;
+}
+
+// Plain keys that expire on their own (hashes cannot expire per field).
+async function setExpiring(key, value, seconds) {
+  await client.set(key, value, { EX: Math.max(1, Math.round(seconds)) });
+}
+
+async function getKey(key) {
+  return await client.get(key);
+}
+
+async function delKey(key) {
+  await client.del(key);
+}
+
 // Publish via redis.
 async function pub(channel, message) {
   try {
@@ -118,4 +143,4 @@ async function pub(channel, message) {
   return true;
 }
 
-export { connect, get, set, del, pub, disconnect, closeConnection };
+export { connect, get, set, del, scan, setExpiring, getKey, delKey, pub, disconnect, closeConnection };

@@ -499,3 +499,70 @@
                :ancestors   ancestors
                :descendants (mapv (fn [[c s]] {:code c :author s}) descendants)}))
         (not-found)))))
+
+;; ─────────────────── account deletion ───────────────────
+
+(def ^:private piece-components
+  "Component children of a piece; excision does not cascade to them."
+  [:kidlisp/ipfs-media :kidlisp/keeps :kidlisp/tezos-state
+   :kidlisp/pending-rebake :kidlisp/ast-nodes])
+
+(def ^:private personal-attrs
+  "Attributes on a kept piece's children that name its author."
+  [:keep/kept-by :ipfs/author-handle])
+
+(defn- eids-by-code
+  "Pieces for these codes, resolved against history so a retry after a
+   partial erase still finds them."
+  [hist codes]
+  (set (for [code codes
+             :when (string? code)
+             [p] (d/q '[:find ?p :in $ ?c :where [?p :kidlisp/code ?c]] hist code)]
+         p)))
+
+(defn- children [hist p]
+  (distinct (for [attr piece-components
+                  datom (d/datoms hist :eavt p attr)]
+              (:v datom))))
+
+(defn erase-user
+  "POST /kidlisp/user/erase — called by system/backend/account-deletion.mjs.
+   body: {sub, delete_codes, anonymize_codes}
+
+   Excises the pieces in delete_codes with their component children, strips
+   the author (current value and history) from every other piece that
+   points at the user, excises the personal attributes of those pieces'
+   children, and excises the user entity. Excision removes history, which
+   is the point; it is also idempotent, so a retry is safe."
+  [conn]
+  (fn [req]
+    (let [{:keys [sub delete_codes anonymize_codes]} (:body-params req)]
+      (if (or (not (string? sub)) (empty? sub))
+        (bad "sub is required")
+        (let [db       (d/db conn)
+              hist     (d/history db)
+              user-eid (d/entid db [:user/sub sub])
+              doomed   (eids-by-code hist delete_codes)
+              authored (when user-eid
+                         (map first (d/q '[:find ?p :in $ ?u :where [?p :kidlisp/author ?u]]
+                                         hist user-eid)))
+              kept     (->> (concat (eids-by-code hist anonymize_codes) authored)
+                            (remove doomed)
+                            distinct
+                            vec)
+              current  (when user-eid
+                         (filterv #(= user-eid (:db/id (:kidlisp/author (d/entity db %)))) kept))]
+          (when (seq current)
+            (db/transact conn (mapv (fn [p] [:db/retract p :kidlisp/author user-eid]) current)))
+          (let [excise (concat
+                        (for [p doomed, c (children hist p)] {:db/excise c})
+                        (for [p doomed] {:db/excise p})
+                        (for [p kept] {:db/excise p :db.excise/attrs [:kidlisp/author]})
+                        (for [p kept, c (children hist p)]
+                          {:db/excise c :db.excise/attrs personal-attrs})
+                        (when user-eid [{:db/excise user-eid}]))]
+            (when (seq excise)
+              (db/transact conn (vec excise))))
+          (ok {:deleted    (count doomed)
+               :anonymized (count kept)
+               :user       (boolean user-eid)}))))))

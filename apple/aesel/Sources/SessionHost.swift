@@ -145,6 +145,11 @@ final class SessionHost: NSObject {
         guard session.signedIn, !session.busy, !Self.deletingAccount, let token = store.token() else { return nil }
         deletionToken = token
         session.accountNotice = ""
+        session.accountDeletionSummary = ""
+        Task {
+            let summary = await AccountDeletion.preview(token: token)
+            if deletionToken == token { session.accountDeletionSummary = summary ?? "" }
+        }
         return session.handle.isEmpty ? "your Aesthetic Computer account" : "@\(session.handle)"
     }
 
@@ -162,13 +167,15 @@ final class SessionHost: NSObject {
         Task {
             defer { Self.deletingAccount = false; session.accountDeletionBusy = false }
             do {
-                try await AccountDeletion.delete(token: token)
+                let schedule = try await AccountDeletion.delete(token: token)
                 // Collect before clearing the shared Keychain. A different
                 // account signed in during the request must remain signed in.
                 let affected = Self.instances.allObjects.filter { $0.store.token() == token }
                 for host in affected {
                     host.signOut()
-                    host.session.accountNotice = "Your Aesthetic Computer account was deleted. Local notebooks remain on this Mac."
+                    host.session.accountNotice = "Your Aesthetic Computer account is locked and will be deleted. Local notebooks remain on this device."
+                    host.session.accountDeletionDate = schedule.date
+                    host.session.accountDeletionMailed = schedule.mailed
                     host.session.accountDeleted = true
                 }
             } catch { session.accountNotice = error.localizedDescription }

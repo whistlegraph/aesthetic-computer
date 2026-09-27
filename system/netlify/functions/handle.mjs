@@ -23,6 +23,7 @@ import { respond } from "../../backend/http.mjs";
 import * as logger from "../../backend/logger.mjs";
 import { shell } from "../../backend/shell.mjs";
 import { updateAtprotoHandle } from "../../backend/at.mjs";
+import { handleQuarantined } from "../../backend/account-deletion.mjs";
 
 const dev = process.env.CONTEXT === "dev";
 
@@ -368,6 +369,10 @@ export async function handler(event, context) {
           ) {
             throw new Error("taken");
           }
+          // Recently deleted accounts' handles are held (account-deletion.mjs).
+          if (!existingHandle && (await handleQuarantined(database.db, handle))) {
+            throw new Error("taken");
+          }
 
           if (existingHandle && existingHandle.handle.toLowerCase() === handle.toLowerCase()) {
             return respond(400, { message: "same" });
@@ -388,6 +393,8 @@ export async function handler(event, context) {
             handle: { $regex: new RegExp(`^${handle}$`, 'i') }
           });
           if (existingHandle) throw new Error("taken");
+          // Recently deleted accounts' handles are held (account-deletion.mjs).
+          if (await handleQuarantined(database.db, handle)) throw new Error("taken");
 
           // Add a new `@handles` document for this user.
           await handles.insertOne({ _id: primarySub, handle });

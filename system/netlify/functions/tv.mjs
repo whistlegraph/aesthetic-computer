@@ -95,7 +95,6 @@ async function fetchPaintings(db, { limit }) {
       code: record.code,
       owner: {
         handle,
-        userId: record.user,
       },
       when: record.when,
       media: {
@@ -214,7 +213,6 @@ async function fetchKidlisp(db, { limit, sort, boost }) {
         source: record.source, // Include source for tooltip previews
         owner: {
           handle,
-          userId: record.user,
         },
         when: record.when,
         hits: record.hits || 0,
@@ -336,7 +334,6 @@ async function fetchTapes(db, { limit }) {
       slug: record.slug,
       owner: {
         handle,
-        userId: record.user ?? null,
       },
       when: record.when,
       acUrl: `https://aesthetic.computer/!${record.code}`,
@@ -398,7 +395,6 @@ async function fetchClocks(db, { limit }) {
       source: record.source,
       owner: {
         handle,
-        userId: record.user,
       },
       when: record.when,
       hits: record.hits || 0,
