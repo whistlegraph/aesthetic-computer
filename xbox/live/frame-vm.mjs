@@ -18,6 +18,12 @@
 //              orthoScale focal perspective depthSlope depthBase near
 //              bandMinX bandMaxX bandMinY bandMaxY
 //  10 WORLD    x1 y1 z1 x2 y2 z2 x3 y3 z3 r g b   a world-space face
+//  11 DEPTH    mode value   WORLD depth from here on: 0 projected, 1 flat at
+//              value, 2 projected plus value
+//  12 ASSET    handle vertexCount faceCount, vertices (x y z), faces (four
+//              ids, r g b, normal x y z)   a retained mesh, kept by handle
+//  13 MESH     handle lightX lightY lightZ   draw a retained mesh, each quad
+//              lit .72 + .28 * max(0, -normal·light), as two WORLD faces
 //
 // A WORLD face is taken to the current CAMERA here: to camera space, cut at
 // the near plane (Sutherland-Hodgman, before the divide), projected with the
@@ -30,8 +36,12 @@
 
 export const FRAME_VIEW = 1, FRAME_FACE = 2, FRAME_DISC = 3, FRAME_CAPSULE = 4,
   FRAME_TEXT = 5, FRAME_BOX = 6, FRAME_LINE = 7, FRAME_WIPE = 8,
-  FRAME_CAMERA = 9, FRAME_WORLD = 10;
-const opSize = [0, 5, 13, 8, 10, 9, 9, 9, 4, 25, 13];
+  FRAME_CAMERA = 9, FRAME_WORLD = 10, FRAME_DEPTH = 11, FRAME_ASSET = 12,
+  FRAME_MESH = 13;
+// Fixed sizes; ASSET is variable and measured from its own header.
+const opSize = [0, 5, 13, 8, 10, 9, 9, 9, 4, 25, 13, 3, 0, 5];
+const sizeAt = (p, at) => p[at] === FRAME_ASSET
+  ? 4 + p[at + 2] * 3 + p[at + 3] * 10 : opSize[p[at]] || 0;
 
 // Ring tables by radius bucket, as the game fans them: a small disc is a
 // hexagon, a large one thirty-two sides.
@@ -191,17 +201,21 @@ export function createFrameVm(host) {
     (v) => v.y - cam[22], (v) => cam[23] - v.y,
   ];
   const inBand = (v) => v.x >= cam[20] && v.x <= cam[21] && v.y >= cam[22] && v.y <= cam[23];
+  let depthMode = 0, depthValue = 0;
   function emitProjected(a, b, c, r, g, bl) {
     if (!(safe(a.x) && safe(a.y) && safe(a.z) && safe(b.x) && safe(b.y) && safe(b.z) &&
         safe(c.x) && safe(c.y) && safe(c.z))) return;
-    face(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, r, g, bl);
+    if (depthMode === 0) { face(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, r, g, bl); return; }
+    const flat = depthMode === 1;
+    face(a.x, a.y, flat ? depthValue : a.z + depthValue,
+      b.x, b.y, flat ? depthValue : b.z + depthValue,
+      c.x, c.y, flat ? depthValue : c.z + depthValue, r, g, bl);
   }
-  function worldFace(p, at) {
+  function worldFace(ax, ay, az, bx, by, bz, cx, cy, cz, r, g, b) {
     if (!hasCamera) return;
-    const r = p[at + 10], g = p[at + 11], b = p[at + 12];
-    const va = toView(p[at + 1], p[at + 2], p[at + 3]);
-    const vb = toView(p[at + 4], p[at + 5], p[at + 6]);
-    const vc = toView(p[at + 7], p[at + 8], p[at + 9]);
+    const va = toView(ax, ay, az);
+    const vb = toView(bx, by, bz);
+    const vc = toView(cx, cy, cz);
     const near = cam[19];
     let polygon;
     if (va.z >= near && vb.z >= near && vc.z >= near) {
@@ -222,10 +236,35 @@ export function createFrameVm(host) {
       emitProjected(polygon[0], polygon[corner - 1], polygon[corner], r, g, b);
   }
 
+  // Retained meshes, by the handle the game gave them. They live as long as
+  // this interpreter does; a page has one.
+  const meshes = new Map();
+  function storeMesh(p, at) {
+    const handle = p[at + 1], vc = p[at + 2], fc = p[at + 3];
+    const vertices = Float64Array.from(p.subarray(at + 4, at + 4 + vc * 3));
+    const faces = Float64Array.from(p.subarray(at + 4 + vc * 3, at + 4 + vc * 3 + fc * 10));
+    meshes.set(handle, { vertices, faces, count: fc });
+  }
+  function drawMesh(handle, lx, ly, lz) {
+    const mesh = meshes.get(handle);
+    if (!mesh) return;
+    const v = mesh.vertices, f = mesh.faces;
+    for (let i = 0; i < mesh.count; i++) {
+      const o = i * 10;
+      const a = f[o] * 3, b = f[o + 1] * 3, c = f[o + 2] * 3, d = f[o + 3] * 3;
+      const k = .72 + Math.max(0, -f[o + 7] * lx - f[o + 8] * ly - f[o + 9] * lz) * .28;
+      const r = Math.round(f[o + 4] * k), g = Math.round(f[o + 5] * k), bl = Math.round(f[o + 6] * k);
+      worldFace(v[a], v[a + 1], v[a + 2], v[b], v[b + 1], v[b + 2], v[c], v[c + 1], v[c + 2], r, g, bl);
+      worldFace(v[a], v[a + 1], v[a + 2], v[c], v[c + 1], v[c + 2], v[d], v[d + 1], v[d + 2], r, g, bl);
+    }
+  }
+
   const clipRect = { x: 0, y: 0, w: 0, h: 0 };
   function run(p, length, strings) {
     clip = null;
     hasCamera = false;
+    depthMode = 0;
+    depthValue = 0;
     let at = 0;
     while (at < length) {
       const op = p[at];
@@ -268,8 +307,19 @@ export function createFrameVm(host) {
           hasCamera = true;
           at += 25; break;
         case FRAME_WORLD:
-          worldFace(p, at);
+          worldFace(p[at + 1], p[at + 2], p[at + 3], p[at + 4], p[at + 5], p[at + 6],
+            p[at + 7], p[at + 8], p[at + 9], p[at + 10], p[at + 11], p[at + 12]);
           at += 13; break;
+        case FRAME_DEPTH:
+          depthMode = p[at + 1];
+          depthValue = p[at + 2];
+          at += 3; break;
+        case FRAME_ASSET:
+          storeMesh(p, at);
+          at += sizeAt(p, at); break;
+        case FRAME_MESH:
+          drawMesh(p[at + 1], p[at + 2], p[at + 3], p[at + 4]);
+          at += 5; break;
         default:
           // An op this interpreter does not know ends the program rather than
           // walking into its arguments as if they were ops.
@@ -284,7 +334,7 @@ export function createFrameVm(host) {
     let at = 0;
     while (at < length) {
       const op = p[at];
-      const size = opSize[op] || 0;
+      const size = sizeAt(p, at);
       if (!size) throw new Error(`frame program: unknown op ${op} at ${at}`);
       const args = Array.from(p.subarray(at + 1, at + size));
       if (op === FRAME_TEXT) args[7] = strings[args[7]];

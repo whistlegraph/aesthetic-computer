@@ -25,6 +25,7 @@ function createGame({ buffered, onProgram = null }) {
     "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line",
     "triangle", "triangle3d", "triangles3d", "frame", "write", "systemWrite", "gameView",
     `${source}\nreturn { boot, cameraDoll, worldQuad, worldTriangle,
+       drawSpotShadow, captureQuadMesh, drawQuadMesh,
        stage: () => ({ floorY, worldNear, worldFar }),
        begin: beginFrameProgram, end: endFrameProgram,
        insetView: (rect, draw) => withRenderView(cameraDoll, rect, draw) };`
@@ -190,5 +191,70 @@ test("a host with only a flat triangle still takes a buffered program", () => {
       { x: 6200, y: stage.floorY, z: 100 }, { x: 5800, y: stage.floorY, z: 100 }, [9, 9, 9]);
   } finally { api.end(); }
   assert.ok(flat.length >= 4, `screen rect and world quad reached the flat host (${flat.length})`);
+});
+
+const onScreen = (face) => {
+  for (let v = 0; v < 9; v += 3)
+    if (face[v] >= 0 && face[v] <= 1920 && face[v + 1] >= 0 && face[v + 1] <= 1080) return true;
+  return false;
+};
+
+test("a shadow lies flat behind its caster on both paths", () => {
+  const immediate = createGame({ buffered: false });
+  const program = createGame({ buffered: true });
+  const stage = immediate.stage();
+  const camera = { position: { x: 6000, y: stage.floorY - 300, z: -900 },
+    target: { x: 6000, y: stage.floorY - 300, z: 0 }, perspective: .82, width: 900 };
+  const scene = (game) => game.drawSpotShadow(6000, stage.floorY - 40, 0, 60, [20, 20, 30]);
+  place(immediate, camera);
+  place(program, camera);
+  const a = immediate.draw(scene), b = program.draw(scene);
+  assert.ok(a.length > 0, "the shadow draws");
+  sameFaces(a, b, "shadow");
+  const depth = a[0][2];
+  assert.ok(a.every((face) => face[2] === depth && face[5] === depth && face[8] === depth),
+    "one flat depth across the whole ellipse");
+});
+
+test("a retained mesh drawn by handle matches the game's own mesh path", () => {
+  const immediate = createGame({ buffered: false });
+  const program = createGame({ buffered: true });
+  const stage = immediate.stage();
+  const build = (game) => game.captureQuadMesh(() => {
+    for (let i = 0; i < 6; i++)
+      game.worldQuad({ x: 5400 + i * 200, y: stage.floorY - 300, z: -120 },
+        { x: 5560 + i * 200, y: stage.floorY - 300, z: -120 },
+        { x: 5560 + i * 200, y: stage.floorY, z: -120 },
+        { x: 5400 + i * 200, y: stage.floorY, z: -120 }, [90 + i * 20, 120, 160]);
+  });
+  const meshA = build(immediate), meshB = build(program);
+  for (const { perspective, dolly, eye } of cameras.filter((_, i) => i % 3 === 0)) {
+    const camera = { position: { x: 6000, y: stage.floorY - eye, z: dolly },
+      target: { x: 6000, y: stage.floorY - eye, z: 0 }, perspective, width: 900 };
+    place(immediate, camera);
+    place(program, camera);
+    // Twice: the first program carries the ASSET, the second only the handle.
+    for (const pass of [1, 2]) {
+      const a = immediate.draw((g) => g.drawQuadMesh(meshA)).filter(onScreen);
+      const b = program.draw((g) => g.drawQuadMesh(meshB)).filter(onScreen);
+      sameFaces(a, b, `mesh pass ${pass} perspective ${perspective} dolly ${dolly} eye ${eye}`);
+    }
+  }
+});
+
+test("a mesh crosses the boundary once, then by handle", () => {
+  const programs = [];
+  const game = createGame({ buffered: true, onProgram: (ops) => programs.push(ops) });
+  const stage = game.stage();
+  place(game, { position: { x: 6000, y: stage.floorY - 300, z: -900 },
+    target: { x: 6000, y: stage.floorY - 300, z: 0 }, perspective: .5, width: 900 });
+  const mesh = game.captureQuadMesh(() => game.worldQuad(
+    { x: 5900, y: stage.floorY - 200, z: 0 }, { x: 6100, y: stage.floorY - 200, z: 0 },
+    { x: 6100, y: stage.floorY, z: 0 }, { x: 5900, y: stage.floorY, z: 0 }, [200, 100, 50]));
+  game.draw((g) => g.drawQuadMesh(mesh));
+  game.draw((g) => g.drawQuadMesh(mesh));
+  const kinds = programs.map((ops) => ops.map((o) => o.op));
+  assert.ok(kinds[0].includes(12) && kinds[0].includes(13), "first frame: ASSET and MESH");
+  assert.ok(!kinds[1].includes(12) && kinds[1].includes(13), "second frame: MESH only");
 });
 

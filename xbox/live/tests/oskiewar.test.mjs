@@ -5685,8 +5685,10 @@ test("fighters and balls share one projected global-light shadow system", () => 
   assert.match(source, /const globalLight = normalize3/);
   assert.match(source, /drawSpotShadow\(player\.x, player\.y, player\.z/);
   assert.match(source, /drawSpotShadow\(item\.x, item\.y, item\.z/);
-  assert.match(source, /const radiusY = Math\.max\(2, radiusX/);
-  assert.match(source, /projectPoint\(x, y, z\)\.z \+ \.018/);
+  // A world ellipse on the ground now, foreshortened by the lens rather
+  // than squashed in screen space, still flat just behind its caster.
+  assert.match(source, /const radiusZ = radiusX \*/);
+  assert.match(source, /setWorldDepth\(1, caster\.z \+ \.018\)/);
 });
 
 test("ball visuals and debug hitboxes share one projected circular radius", () => {

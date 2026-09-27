@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 171;
+const buildVersion = 172;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -878,28 +878,26 @@ function drawDecals(surface) {
       }
       continue;
     }
-    // Three projections place the whole mark: its centre and one unit along
-    // and across the surface. The ground is flat across a mark, so every
-    // corner is an affine step from the centre in screen space.
-    const center = projectPoint(decal.x, decal.ground, decal.z);
-    if (![center.x, center.y].every(Number.isFinite)) continue;
-    const alongPoint = projectPoint(decal.x + decal.tx, decal.ground + decal.ty, decal.z);
-    const acrossPoint = projectPoint(decal.x, decal.ground, decal.z + 1);
-    const ax = alongPoint.x - center.x, ay = alongPoint.y - center.y;
-    const bx = acrossPoint.x - center.x, by = acrossPoint.y - center.y;
-    triangleDepth = center.z - .002;
+    // The mark lies on the ground: its corners are steps along the surface
+    // (tx, ty) and across it (z) from its centre, in world space, and it is
+    // cut and projected like any other world face, a hair in front of the
+    // ground it sits on.
+    const center = { x: decal.x, y: decal.ground, z: decal.z };
     const fan = (scale, color) => {
       const shape = decal.shape, size = decal.size * scale;
-      let lastX = center.x + (shape[0] * ax + shape[1] * bx) * size;
-      let lastY = center.y + (shape[0] * ay + shape[1] * by) * size;
-      const firstX = lastX, firstY = lastY;
-      for (let corner = 2; corner <= shape.length; corner += 2) {
-        const u = shape[corner % shape.length], v = shape[(corner + 1) % shape.length];
-        const x = corner === shape.length ? firstX : center.x + (u * ax + v * bx) * size;
-        const y = corner === shape.length ? firstY : center.y + (u * ay + v * by) * size;
-        screenTriangle(center.x, center.y, lastX, lastY, x, y, color[0], color[1], color[2]);
-        lastX = x; lastY = y;
-      }
+      const at = (u, v) => ({ x: decal.x + u * decal.tx * size,
+        y: decal.ground + u * decal.ty * size, z: decal.z + v * size });
+      let last = at(shape[0], shape[1]);
+      const first = last;
+      setWorldDepth(2, -.002);
+      try {
+        for (let corner = 2; corner <= shape.length; corner += 2) {
+          const next = corner === shape.length ? first
+            : at(shape[corner % shape.length], shape[(corner + 1) % shape.length]);
+          worldTriangle(center, last, next, color);
+          last = next;
+        }
+      } finally { setWorldDepth(0); }
     };
     if (decal.kind === "blood") {
       const wet = clamp(1 - age / 30, 0, 1);
@@ -918,6 +916,7 @@ function drawDecals(surface) {
   for (const drop of bloodDrops) {
     const point = projectPoint(drop.x, drop.y, drop.z);
     const tail = projectPoint(drop.x - drop.vx * .018, drop.y - drop.vy * .018, drop.z - drop.vz * .018);
+    if (point.behind || tail.behind) continue;
     if (![point.x, point.y, tail.x, tail.y].every(Number.isFinite)) continue;
     triangleDepth = point.z;
     const width = Math.max(1.2, drop.size * cameraScale());
@@ -2209,12 +2208,22 @@ let triangleDepth = -1.4;
 //  10 WORLD    x1 y1 z1 x2 y2 z2 x3 y3 z3 r g b   a world-space face: the
 //              interpreter takes it to the camera, cuts it at the near
 //              plane, projects it and cuts it to the band
+//  11 DEPTH    mode value   how WORLD faces take their depth from here on:
+//              0 their own projection, 1 flat at `value`, 2 their own
+//              projection plus `value` (shadows sit flat behind their
+//              caster; ground marks sit a hair in front of the ground)
+//  12 ASSET    handle vertexCount faceCount, vertices (x y z each), faces
+//              (four vertex ids, r g b, normal x y z each)   a retained mesh,
+//              sent once; the interpreter keeps it by handle
+//  13 MESH     handle lightX lightY lightZ   draw a retained mesh: each quad
+//              lit by the light, as two WORLD faces
 // Scene-level on purpose: a disc is seven numbers here and a fan of faces in
 // the interpreter, because on the console every typed-array element written
 // from JS costs about as much as a quarter of a host call.
 const FRAME_VIEW = 1, FRAME_FACE = 2, FRAME_DISC = 3, FRAME_CAPSULE = 4,
   FRAME_TEXT = 5, FRAME_BOX = 6, FRAME_LINE = 7, FRAME_WIPE = 8,
-  FRAME_CAMERA = 9, FRAME_WORLD = 10;
+  FRAME_CAMERA = 9, FRAME_WORLD = 10, FRAME_DEPTH = 11, FRAME_ASSET = 12,
+  FRAME_MESH = 13;
 const hostFrame = typeof frame === "function" ? frame : null;
 let program = new Float32Array(hostFrame ? 1 << 16 : 0);
 let programLength = 0;
@@ -2376,6 +2385,8 @@ function beginFrameProgram() {
   programLength = 0;
   programStrings.length = 0;
   programCameraDoll = null;
+  worldDepthMode = 0;
+  worldDepthValue = 0;
 }
 function endFrameProgram() {
   try { flushFrameProgram(); } finally { programBuffered = false; }
@@ -2418,6 +2429,47 @@ function emitWorldFace(ax, ay, az, bx, by, bz, cx, cy, cz, r, g, b) {
   program[at + 7] = cx; program[at + 8] = cy; program[at + 9] = cz;
   program[at + 10] = r; program[at + 11] = g; program[at + 12] = b;
   programLength = at + 13;
+}
+// How world faces take their depth: see DEPTH above. Both paths honour it —
+// projectedTriangle here, the interpreter there — and every caller restores
+// mode 0 when it is done.
+let worldDepthMode = 0, worldDepthValue = 0;
+function setWorldDepth(mode, value = 0) {
+  worldDepthMode = mode;
+  worldDepthValue = value;
+  if (!programBuffered) return;
+  programRoom(3);
+  const at = programLength;
+  program[at] = FRAME_DEPTH; program[at + 1] = mode; program[at + 2] = value;
+  programLength = at + 3;
+}
+// A retained mesh: uploaded into the program the first time this host's
+// interpreter sees it, drawn by handle after that. Handles are per page.
+let nextMeshHandle = 1;
+function emitMesh(mesh) {
+  emitFrameCamera();
+  if (!mesh.frameHandle) {
+    mesh.frameHandle = nextMeshHandle++;
+    const vc = mesh.vertices.length, fc = mesh.faces.length;
+    programRoom(4 + vc * 3 + fc * 10);
+    let at = programLength;
+    program[at++] = FRAME_ASSET; program[at++] = mesh.frameHandle;
+    program[at++] = vc; program[at++] = fc;
+    for (const v of mesh.vertices) { program[at++] = v.x; program[at++] = v.y; program[at++] = v.z; }
+    for (const f of mesh.faces) {
+      program[at++] = f.ids[0]; program[at++] = f.ids[1];
+      program[at++] = f.ids[2]; program[at++] = f.ids[3];
+      program[at++] = f.color[0]; program[at++] = f.color[1]; program[at++] = f.color[2];
+      program[at++] = f.normal[0]; program[at++] = f.normal[1]; program[at++] = f.normal[2];
+    }
+    programLength = at;
+  }
+  programRoom(5);
+  const at = programLength;
+  program[at] = FRAME_MESH; program[at + 1] = mesh.frameHandle;
+  program[at + 2] = globalLight.x; program[at + 3] = globalLight.y;
+  program[at + 4] = globalLight.z;
+  programLength = at + 5;
 }
 // ---------------------------------------------------------------------------
 // A match frame submits ~2100 faces. Buffering them into a Float32Array first
@@ -2566,7 +2618,16 @@ function projectedTriangle(a, b, c, color) {
   // Positional, not spread: see the note on emitTriangle above. Every face a
   // frame submits comes through here, and `...color` built one throwaway
   // iterator apiece for ~2100 of them.
-  emitTriangle(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z,
+  if (worldDepthMode === 0) {
+    emitTriangle(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z,
+      color[0], color[1], color[2]);
+    return;
+  }
+  const flat = worldDepthMode === 1;
+  const za = flat ? worldDepthValue : a.z + worldDepthValue;
+  const zb = flat ? worldDepthValue : b.z + worldDepthValue;
+  const zc = flat ? worldDepthValue : c.z + worldDepthValue;
+  emitTriangle(a.x, a.y, za, b.x, b.y, zb, c.x, c.y, zc,
     color[0], color[1], color[2]);
 }
 // Sutherland-Hodgman, one plane at a time. Both clips below are the same walk:
@@ -18464,6 +18525,9 @@ function terrainVertex(slot, index, x, y, z) {
   vertex.x = x; vertex.y = y; vertex.z = z;
   const view = cameraDoll.toView(vertex, vertex.view);
   vertex.front = view.z >= cameraNear;
+  // Buffered on the flat look, the interpreter projects the face; only the
+  // camera-space depth is needed here, for the hall's air.
+  if (programBuffered && !photoThemeActive) { vertex.inBand = false; return vertex; }
   vertex.inBand = vertex.front &&
     bandContains(cameraDoll.projectView(view, vertex.screen));
   return vertex;
@@ -18514,6 +18578,13 @@ function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf, tileRows = 1)
         !(point.x < left || terrainProfile[previous].x > right)) {
       const a1 = top[previous], b1 = bottom[previous];
       const shade = shadeOf(previous);
+      if (programBuffered && !photoThemeActive) {
+        const lit = hallAir(litQuadColor(a1, a, b, shade), a1, a);
+        emitWorldFace(a1.x, a1.y, a1.z, a.x, a.y, a.z, b.x, b.y, b.z, lit[0], lit[1], lit[2]);
+        emitWorldFace(a1.x, a1.y, a1.z, b.x, b.y, b.z, b1.x, b1.y, b1.z, lit[0], lit[1], lit[2]);
+        previous = index;
+        continue;
+      }
       if (a1.front && a.front && b.front && b1.front) {
         if (wall && tileRows > 1 && photoThemeActive &&
             terrainSkirtTiles(a1, a, b, b1, tileRows)) {
@@ -19045,33 +19116,31 @@ function drawSpotShadow(x, y, z, radius, color) {
   const focus = clamp(1 - height / 5200, .42, 1);
   const shadowX = x + globalLight.x * reach;
   const shadowZ = z + globalLight.z * reach;
-  const center = projectPoint(shadowX, surfaceY - 2, shadowZ);
-  const edge = projectPoint(shadowX + radius, surfaceY - 2, shadowZ);
-  if (center.behind || edge.behind) return;
-  if (![center.x, center.y, edge.x, edge.y].every(Number.isFinite) ||
-      [center.x, center.y, edge.x, edge.y].some((value) => Math.abs(value) > 30000))
-    return;
-  const radiusX = Math.max(4, Math.abs(edge.x - center.x) *
-    (.5 + .18 * focus));
-  const radiusY = Math.max(2, radiusX * (.2 + .08 * focus));
+  // A world ellipse lying on the ground under the caster, cut and projected
+  // like any other world face, so it foreshortens with the lens and is
+  // clipped at the near plane instead of being a screen-space oval.
+  const caster = projectPoint(x, y, z);
+  if (caster.behind) return;
+  const radiusX = radius * (.5 + .18 * focus);
+  const radiusZ = radiusX * (.55 + .2 * focus);
   // Bind the shadow to the owning object's depth, then bias it away from the
   // camera. It remains above the terrain pass but can never win against the
   // object that casts it. Restore the depth after — this used to leak, and
   // everything drawn until the next assignment inherited the last shadow
   // caster's depth: nondeterministic layering, frame to frame, on console.
-  const previousDepth = triangleDepth;
-  triangleDepth = projectPoint(x, y, z).z + .018;
-  const sides = 14;
-  for (let side = 0; side < sides; side++) {
-    const a = side * Math.PI * 2 / sides;
-    const b = (side + 1) * Math.PI * 2 / sides;
-    screenTriangle(center.x, center.y,
-      center.x + Math.cos(a) * radiusX,
-      center.y + Math.sin(a) * radiusY,
-      center.x + Math.cos(b) * radiusX,
-      center.y + Math.sin(b) * radiusY, ...color);
-  }
-  triangleDepth = previousDepth;
+  setWorldDepth(1, caster.z + .018);
+  const sides = 14, groundY = surfaceY - 2;
+  const middle = { x: shadowX, y: groundY, z: shadowZ };
+  try {
+    for (let side = 0; side < sides; side++) {
+      const a = side * Math.PI * 2 / sides;
+      const b = (side + 1) * Math.PI * 2 / sides;
+      worldTriangle(middle,
+        { x: shadowX + Math.cos(a) * radiusX, y: groundY, z: shadowZ + Math.sin(a) * radiusZ },
+        { x: shadowX + Math.cos(b) * radiusX, y: groundY, z: shadowZ + Math.sin(b) * radiusZ },
+        color);
+    }
+  } finally { setWorldDepth(0); }
 }
 
 function projectedBallRadius(ball) {
@@ -21705,15 +21774,10 @@ function drawQuadMesh(mesh){
  const meshScale=cameraScale();
  if(!clipView)for(const args of mesh.capsules||[])worldCapsule(args[0],args[1],args[2],args[3],args[4],args[5],args[6]*meshScale,args[7],args[8]);
  if(programBuffered){
-  // The interpreter takes each face to the camera and clips it; the bounds
-  // cull above already dropped a mesh that is wholly off screen.
-  for(const f of mesh.faces){
-   const [ia,ib,ic,id]=f.ids,a=mesh.vertices[ia],b=mesh.vertices[ib],c=mesh.vertices[ic],d=mesh.vertices[id];
-   const n=f.normal,k=.72+Math.max(0,-n[0]*globalLight.x-n[1]*globalLight.y-n[2]*globalLight.z)*.28;
-   const r=Math.round(f.color[0]*k),g=Math.round(f.color[1]*k),bl=Math.round(f.color[2]*k);
-   emitWorldFace(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z,r,g,bl);
-   emitWorldFace(a.x,a.y,a.z,c.x,c.y,c.z,d.x,d.y,d.z,r,g,bl);
-  }
+  // Sent once, drawn by handle: the interpreter keeps the mesh, lights each
+  // quad and takes it to the camera. The bounds cull above already dropped
+  // a mesh that is wholly off screen.
+  emitMesh(mesh);
   return;
  }
  if(cameraDoll.dirty)cameraDoll.prepare();
