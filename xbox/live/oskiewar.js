@@ -1284,16 +1284,18 @@ function drawOutfit(player, geometry) {
   }
   filledDisc(daisy.x, daisy.y, petal * 1.1 + edge * .6, [200, 150, 40]);
   filledDisc(daisy.x, daisy.y, petal * 1.1, [252, 206, 72]);
-  if(!player.pantsColor)drawSkirt(player, skirt, outline, edge, scale);
+  if(!player.pantsColor)drawSkirt(player, skirt, outline, edge, scale, geometry);
 }
 
 // Each pleat has several movable points so contact can bend the fabric
 // between the waistband and hem. This is visual cloth, independent of play.
 const skirtPleats = 5;
 const skirtRows = 3;
-function drawSkirt(player, skirt, outline, edge, scale) {
+function drawSkirt(player, skirt, outline, edge, scale, geometry) {
   if(player.civilian){
-    const g=runnerGeometry(player,runtime().monotonicUs/1e6),torso=g.segments.find(s=>s.role==='torso');
+    // The projected pose the outfit was handed — the same one this used to
+    // constrain and project again, per kid, per frame.
+    const torso=geometry.segments.find(s=>s.role==='torso');
     if(!torso)return;
     const x=torso.x2,y=torso.y2,w=18*scale,h=32*scale;
     screenTriangle(x-w*.5,y,x+w*.5,y,x+w,y+h,...skirt);
@@ -13883,7 +13885,7 @@ function drawCurvedLimbs(segments, color, outline, edge, player) {
     filledDisc(points[0].x, points[0].y, width / 2, ink);
     filledDisc(points.at(-1).x, points.at(-1).y, width / 2, ink);
   };
-  const shaded = (segment) => damagedPartColor(player.pantsColor && /thigh|shin/.test(segment.role||"") ? player.pantsColor : color, player, segment.part);
+  const shaded = (segment) => damagedPartColor(player.pantsColor && isLegRole(segment.role) ? player.pantsColor : color, player, segment.part);
   const curves = chains.map((chain) => ({ chain, points: curve(chain) }));
   // Outlines, then fills — straight bones first so limbs sit over the torso.
   for (const segment of segments)
@@ -17040,10 +17042,20 @@ function figureLod(player, geometry) {
   figureLodTiers.set(player, tier);
   return tier;
 }
+// Which roles wear the trousers. The roles are a fixed vocabulary of a dozen
+// strings, so the regex runs once per distinct role for the life of the
+// piece instead of once per segment per frame — in QuickJS a regex literal
+// is a fresh object every time the expression is reached.
+const legRoles = new Map();
+function isLegRole(role) {
+  let leg = legRoles.get(role);
+  if (leg === undefined) legRoles.set(role, leg = /thigh|shin/.test(role || ""));
+  return leg;
+}
 function figurePartColor(player, segment) {
   if (player.dummy) return [192, 188, 179];
   if (segment.role === "torso") return player.shirtColor || player.color;
-  if (/thigh|shin/.test(segment.role || "")) return player.pantsColor || player.color;
+  if (isLegRole(segment.role)) return player.pantsColor || player.color;
   return player.color;
 }
 function drawFigureLod(player, geometry, tier, t) {
@@ -17098,9 +17110,23 @@ function drawFigureLod(player, geometry, tier, t) {
   }
 }
 
+// A dummy is drawn as a live, plain figure: the renderer reads a snapshot of
+// the fighter with those few fields overlaid. The snapshot object is kept per
+// dummy and refilled each frame (Object.assign onto a shape that already has
+// every key is a run of plain writes) rather than spread into a new
+// ~150-field object with fresh colour arrays every frame. Same fields, same
+// values, same lifetime for anything written on it; only the allocation went.
+const dummyViews = new WeakMap();
+const dummyInk = [192, 188, 179];
+const dummyOverlay = { alive: true, emo: false, color: dummyInk, handleColors: null, hairColor: dummyInk };
+function dummyView(player) {
+  let view = dummyViews.get(player);
+  if (!view) dummyViews.set(player, view = {});
+  return Object.assign(view, player, dummyOverlay);
+}
 function drawRunner(player, t, showLabel = true) {
   if(player.civilian && player.headless){drawCivilianDebris(player);return;}
-  if(player.dummy)player={...player,alive:true,emo:false,color:[192,188,179],handleColors:null,hairColor:[192,188,179]};
+  if(player.dummy)player=dummyView(player);
   // A fighter who is down is still on the stage: they read as the broken body
   // rather than as nothing. There is no state in which a fighter is skipped.
   const headBurstAge = player.headBustedAt
@@ -21412,7 +21438,7 @@ function drawCivilianDebris(kid){
   const a=projectPoint(kid.x+(kid.y-b.y1)*.75,y+(b.x1-kid.x)*.15,kid.z);
   const c=projectPoint(kid.x+(kid.y-b.y2)*.75,y+(b.x2-kid.x)*.15,kid.z);
   triangleDepth=Math.min(a.z,c.z)-.005;
-  filledCapsule(a.x,a.y,c.x,c.y,Math.max(2,b.width*cameraScale()),b.role==='torso'?kid.shirtColor:/thigh|shin/.test(b.role||'')?kid.pantsColor||kid.color:kid.color);
+  filledCapsule(a.x,a.y,c.x,c.y,Math.max(2,b.width*cameraScale()),b.role==='torso'?kid.shirtColor:isLegRole(b.role)?kid.pantsColor||kid.color:kid.color);
  }
  const h=kid.looseHead,p=projectPoint(h.x,h.y,h.z),r=h.radius*cameraScale();triangleDepth=p.z-.006;
  filledDisc(p.x,p.y,r+1,[24,20,30]);filledDisc(p.x,p.y,r,kid.color);
@@ -21543,7 +21569,7 @@ function rebuildSeatInset(rect,kids=true){
    const a=local({x:b.x1,y:b.y1,z:b.z1}),c=local({x:b.x2,y:b.y2,z:b.z2});
    const dx=c.x-a.x,dy=c.y-a.y,len=Math.hypot(dx,dy)||1;
    const w=(b.role==='torso'&&!kid.dummy?24:b.width*.5),nx=-dy/len*w,ny=dx/len*w;
-   const color=kid.dummy?[192,188,179]:b.role==='torso'?kid.shirtColor||[252,252,250]:/thigh|shin/.test(b.role||'')?kid.pantsColor||kid.color:kid.color;
+   const color=kid.dummy?[192,188,179]:b.role==='torso'?kid.shirtColor||[252,252,250]:isLegRole(b.role)?kid.pantsColor||kid.color:kid.color;
    face([{x:a.x+nx,y:a.y+ny,z:a.z},{x:c.x+nx,y:c.y+ny,z:c.z},{x:c.x-nx,y:c.y-ny,z:c.z},{x:a.x-nx,y:a.y-ny,z:a.z}],color);
   }
   const h=local(g.head),r=g.head.radius,skin=kid.dummy?[192,188,179]:kid.color;
