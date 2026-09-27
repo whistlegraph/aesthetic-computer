@@ -161,8 +161,8 @@ test('one-player debug draws one frame meter above the BPM area', () => {
   const g=game(),a=g.api;
   a.debug();for(let i=0;i<4;i++)g.tick();
   a.drawFrameMeter();
-  assert.equal(g.texts.filter(t=>t[0]==='P1').length,1);
-  assert.equal(g.texts.filter(t=>t[0]==='P2').length,0);
+  assert.equal(g.texts.filter(t=>t[0]==='p1').length,1);
+  assert.equal(g.texts.filter(t=>t[0]==='p2').length,0);
   assert.ok(g.texts.every(t=>t[2]<300),'frame rows and legend stay in the upper debug area');
 });
 
