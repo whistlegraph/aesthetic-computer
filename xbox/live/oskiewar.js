@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 168;
+const buildVersion = 169;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -2141,8 +2141,16 @@ class FightCamDoll {
   // here with vertices that are already in front of it.
   project(point) {
     const view = this.toView(point);
+    // The one clip rule for a lone point: it cannot be cut, so it is pinned,
+    // and it says so. A caller that draws a fan or a capsule from a pinned
+    // point draws it wrong (raked across the frame, or filling it), so the
+    // callers that can skip an object skip it here, and the figure path
+    // trims its own segments at the plane before it ever asks.
+    const behind = view.z < cameraNear;
     view.z = Math.max(cameraPin, view.z);
-    return this.projectView(view);
+    const out = this.projectView(view);
+    out.behind = behind;
+    return out;
   }
 }
 
@@ -15022,16 +15030,33 @@ function constrainLimbs(world) {
   return { ...world, segments };
 }
 
+// A figure is a flat drawing at one depth, so it is only drawable when its
+// head is honestly in front of the pin; nearer than that the perspective
+// scale the inset hands it would fill the view with one head, and behind the
+// lens there is nothing to draw. `behind` says so and drawRunner stops.
+// Its bones are cut at the real near plane like every other world segment
+// (worldSegment), never pinned: a bone that crossed the plane used to keep
+// its sideways offset at the pin's depth and rake across the frame. A bone
+// wholly behind the plane collapses onto the head, zero wide, so the draw
+// functions that look bones up by role still find every one of them.
 function projectRunnerWorldGeometry(world) {
-  const headPoint = projectPoint(world.head.x, world.head.y, world.head.z);
+  const headView = cameraDoll.toView(world.head);
+  const headPoint = cameraDoll.project(world.head);
+  const scale = cameraScale();
+  const behind = headView.z < cameraPin;
   return {
+    behind,
     head: { x: headPoint.x, y: headPoint.y, depth:headPoint.z,
-      radius: Math.max(1.5, world.head.radius * cameraScale()) },
+      radius: Math.max(1.5, world.head.radius * scale) },
     segments: world.segments.map((segment) => {
-      const a = projectPoint(segment.x1, segment.y1, segment.z1);
-      const b = projectPoint(segment.x2, segment.y2, segment.z2);
+      const cut = behind ? null : worldSegment(segment.x1, segment.y1, segment.z1,
+        segment.x2, segment.y2, segment.z2);
+      if (!cut) return { x1: headPoint.x, y1: headPoint.y, x2: headPoint.x,
+        y2: headPoint.y, depth: headPoint.z, width: 0, hidden: true,
+        role: segment.role, part: segment.part, hitboxOnly: segment.hitboxOnly };
+      const { from: a, to: b } = cut;
       return { x1: a.x, y1: a.y, x2: b.x, y2: b.y, depth: (a.z + b.z) / 2,
-        width: Math.max(1.5, segment.width * cameraScale()),
+        width: Math.max(1.5, segment.width * scale),
         role: segment.role, part: segment.part,
         hitboxOnly: segment.hitboxOnly };
     }),
@@ -17243,13 +17268,15 @@ function drawRunner(player, t, showLabel = true) {
   }
   if (player.fallenBodyGeometry) {
     const fallen = projectRunnerWorldGeometry(player.fallenBodyGeometry);
-    drawSkeletonSegments(fallen.segments, player.color, [8, 12, 24], photoThemeActive ? player : null);
+    if (!fallen.behind)
+      drawSkeletonSegments(fallen.segments, player.color, [8, 12, 24], photoThemeActive ? player : null);
   }
   const geometry = player.replayGeometry
     ? projectRunnerWorldGeometry(player.replayGeometry)
     : player.frozenGeometry
       ? projectRunnerWorldGeometry(player.frozenGeometry)
     : runnerGeometry(player, t);
+  if (geometry.behind) return;
   if ((roundResult || parkSupply.ko?.settled) && player.resultReaction) {
     const age = (runtime().monotonicUs - player.resultReactionAt) / 1000000;
     const amount = player.resultReaction === "POSE" ||
@@ -18765,6 +18792,7 @@ function drawSpotShadow(x, y, z, radius, color) {
   const shadowZ = z + globalLight.z * reach;
   const center = projectPoint(shadowX, surfaceY - 2, shadowZ);
   const edge = projectPoint(shadowX + radius, surfaceY - 2, shadowZ);
+  if (center.behind || edge.behind) return;
   if (![center.x, center.y, edge.x, edge.y].every(Number.isFinite) ||
       [center.x, center.y, edge.x, edge.y].some((value) => Math.abs(value) > 30000))
     return;
@@ -20302,8 +20330,10 @@ function drawImpacts() {
 }
 
 function drawDetachedPart(fragment) {
-  const first = projectPoint(fragment.x1, fragment.y1, fragment.z1);
-  const second = projectPoint(fragment.x2, fragment.y2, fragment.z2);
+  const cut = worldSegment(fragment.x1, fragment.y1, fragment.z1,
+    fragment.x2, fragment.y2, fragment.z2);
+  if (!cut) return;
+  const { from: first, to: second } = cut;
   const width = Math.max(2, fragment.width * cameraScale());
   const values = [first.x, first.y, second.x, second.y, width];
   if (!values.every(Number.isFinite) || width > 2000) return;
@@ -20724,6 +20754,7 @@ function gamePaint() {
   renderables.sort((a, b) => depth(b) - depth(a));
   for (const renderable of renderables) {
     const center=projectPoint(renderable.x,renderable.y-80,renderable.z),margin=Math.max(90,260*cameraScale());
+    if(center.behind)continue;
     if(center.x < -margin || center.x>viewWidth()+margin || center.y < -margin || center.y>viewHeight+margin)continue;
     triangleDepth = projectPoint(renderable.x, renderable.y, renderable.z).z;
     // A fighter is drawn flat at one depth. Taken at their feet — the middle
@@ -21651,7 +21682,7 @@ function drawSeatFirstPerson(){
   for(const kid of [...activePlayers(),...parkKids]){
    if(kid===rider || kid.headless)continue;
    const seen=seatInsetDoll.toView({x:kid.x,y:kid.y-85,z:kid.z||0});
-   if(seen.z<20||seen.z>2200||Math.abs(seen.x)>seen.z)continue;
+   if(seen.z<cameraPin||seen.z>2200||Math.abs(seen.x)>seen.z)continue;
    // cameraScale() is pixels per world unit; through this lens that is the
    // focal length over the figure's own distance.
    seatInsetDoll.width=(stageRight-stageLeft)*seen.z/seatInsetDoll.view.focal;seatInsetDoll.dirty=true;
