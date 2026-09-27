@@ -10460,6 +10460,15 @@ function updateBall(ball, dt, now) {
     emitSignal("ballserve", -1, 0, 0);
   }
   if (!ball.active || now < ball.serveAt) return;
+  // A board lying at a fighter's feet asked for that fighter's combat boxes up
+  // to three times a tick, each one a full pose build; one per instant does.
+  const boxCache = new Map();
+  const boxesAt = (player, at) => {
+    const key = player.pad + ":" + at;
+    let boxes = boxCache.get(key);
+    if (!boxes) boxCache.set(key, boxes = sampleCombatBoxes(player, at));
+    return boxes;
+  };
   if (ball.heldBy >= 0) {
     const carrier = players[ball.heldBy];
     if (!carrier?.alive || carrier.heldBall !== balls.indexOf(ball)) {
@@ -10556,7 +10565,7 @@ function updateBall(ball, dt, now) {
     // A board its rider has just let go of passes through them for a moment
     // instead of being booted, bounced or caught against their own feet.
     if (ball.releasedBy === player.pad && now - (ball.releasedAt || 0) < 200000) continue;
-    const boxes = sampleCombatBoxes(player, now);
+    const boxes = boxesAt(player, now);
     for (const strike of boxes.hit) {
       const distance = pointBoxDistance(strike, ball.x, ball.y, ball.z);
       if (distance <= ball.radius) {
@@ -10582,7 +10591,7 @@ function updateBall(ball, dt, now) {
     // instead of being booted, bounced or caught against their own feet.
     if (ball.releasedBy === player.pad && now - (ball.releasedAt || 0) < 200000) continue;
     if (player.blocking) {
-      const guard = sampleCombatBoxes(player, now).guard[0];
+      const guard = boxesAt(player, now).guard[0];
       const distance = guard ? pointBoxDistance(guard, ball.x, ball.y, ball.z) : Infinity;
       if (distance <= ball.radius) {
         const shield = shieldGeometry(player);
@@ -10600,14 +10609,14 @@ function updateBall(ball, dt, now) {
     const reach = boardBall ? deckReach : ball.radius;
     const touchX = boardBall
       ? clamp(player.x, ball.x - deckHalf, ball.x + deckHalf) : ball.x;
-    const headBox = sampleCombatBoxes(player,now).hurt.find(b=>b.part==='head');
+    const headBox = boxesAt(player,now).hurt.find(b=>b.part==='head');
     const currentHeadDistance = pointBoxDistance(headBox,touchX,ball.y,ball.z);
     const sweptHeadDistance = boardBall ? Infinity : segmentBoxEntry(
       { x1: previous.x, y1: previous.y, z1: previous.z,
         x2: ball.x, y2: ball.y, z2: ball.z },headBox,ball.radius)!==null ? 0 : Infinity;
     const headDistance = Math.min(currentHeadDistance, sweptHeadDistance);
     const bodyContact = runnerContactToPoint(player, poseTime,
-      touchX, ball.y, ball.z);
+      touchX, ball.y, ball.z, boxesAt);
     const bodyDistance = bodyContact.bodyDistance;
     if (Math.min(headDistance, bodyDistance) > reach) continue;
     // Its own rider can catch a released board at any speed — but not in the
@@ -15387,9 +15396,9 @@ function runnerDistanceToPoint(player, t, px, py, pz = 0) {
   return Math.min(contact.headDistance, contact.bodyDistance);
 }
 
-function runnerContactToPoint(player, t, px, py, pz = 0) {
+function runnerContactToPoint(player, t, px, py, pz = 0, boxesAt = sampleCombatBoxes) {
   const now = runtime().simMonotonicUs || runtime().monotonicUs;
-  const boxes = sampleCombatBoxes(player, now);
+  const boxes = boxesAt(player, now);
   let headDistance = Infinity, bodyDistance = Infinity, segmentIndex = -1;
   for (const hurt of boxes.hurt) {
     const distance = pointBoxDistance(hurt, px, py, pz);
@@ -21266,6 +21275,7 @@ function buildCityBlock(i,span){
 }
 
 let seatInsetAt=0,seatInsetBuffer=null,seatInsetCount=0,seatInsetRect=null;
+const seatFaceX=new Float64Array(8),seatFaceY=new Float64Array(8),seatFaceZ=new Float64Array(8);
 function drawSeatFirstPerson(){
  if(!freeskateActive() || shellMode!=='GAME')return;
  const old=triangleDepth,w=Math.min(320,viewWidth()*.23),h=w*.5625;
@@ -21289,8 +21299,22 @@ function rebuildSeatInset(rect){
  const local=p=>{const x=p.x-eye.x,y=p.y-eye.y,z=p.z-eye.z,forward=x*fx+z*fz;return {x:-x*fz+z*fx,y:y-forward*.12,z:forward+y*.12};};
  const mix=(a,b,t)=>({x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t),z:lerp(a.z,b.z,t)});
  const edges=[p=>p.x-rect.x,p=>rect.x+rect.w-p.x,p=>p.y-rect.y,p=>rect.y+rect.h-p.y];
+ const right=rect.x+rect.w,bottom=rect.y+rect.h,cx=rect.x+rect.w*.5,cy=rect.y+rect.h*.5;
  const face=(points,color)=>{
   if(values.length>=12*6000)return;
+  // Most inset faces lie wholly inside or wholly off one edge; only the ones
+  // straddling the near plane or a border pay for clipPolygon's five passes.
+  let front=true;for(const p of points)if(p.z<12){front=false;break;}
+  if(front){
+   const n=points.length,px=seatFaceX,py=seatFaceY,pz=seatFaceZ;let left=0,rightOut=0,top=0,below=0;
+   for(let i=0;i<n;i++){const p=points[i],k=focal/p.z,x=cx+p.x*k,y=cy+p.y*k;px[i]=x;py[i]=y;pz[i]=-1.497+Math.min(p.z,6000)/6000*.012;
+    if(x<rect.x)left++;else if(x>right)rightOut++;if(y<rect.y)top++;else if(y>bottom)below++;}
+   if(left===n||rightOut===n||top===n||below===n)return;
+   if(!left&&!rightOut&&!top&&!below){
+    for(let i=1;i+1<n;i++)values.push(px[0],py[0],pz[0],px[i],py[i],pz[i],px[i+1],py[i+1],pz[i+1],color[0],color[1],color[2]);
+    return;
+   }
+  }
   let poly=clipPolygon(points,p=>p.z-12,mix);if(poly.length<3)return;
   poly=poly.map(p=>({x:rect.x+rect.w*.5+p.x*focal/p.z,y:rect.y+rect.h*.5+p.y*focal/p.z,z:-1.497+Math.min(p.z,6000)/6000*.012}));
   for(const edge of edges){poly=clipPolygon(poly,edge,mix);if(poly.length<3)return;}
