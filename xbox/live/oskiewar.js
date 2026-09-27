@@ -13420,6 +13420,7 @@ function gameSim() {
     updateBubbleAudio(now);
     updateWheelTurbo(dt,now);
     updateMotorAudio(dt);
+    updateSeatHeartbeat(dt,now);
     updateWaterSplashes(dt);
     updatePowerups(now);
     updateBodyTrees(dt, now);
@@ -14123,7 +14124,13 @@ function runnerWorldGeometry(player, t) {
   if (wallPressActive(player)) return wallPressGeometry(player);
   const cached = sharingRenderPoses && renderPoses.get(player);
   if (cached && (!player.spiderDummy || cached.t === t)) return cached.pose;
-  const pose = buildRunnerWorldGeometry(player, t);
+  const pose = buildRunnerWorldGeometry(player, player.motionClock ?? t);
+  if(player.breathPhase!==undefined && !player.dummy && player.alive){
+    const lift=Math.sin(player.breathPhase*Math.PI*2)*(1.2+(player.heartDanger||0)*1.8);
+    const breathe=y=>y-lift*clamp((player.y-y)/170,0,1);
+    pose.head.y=breathe(pose.head.y);
+    for(const b of pose.segments){b.y1=breathe(b.y1);b.y2=breathe(b.y2);}
+  }
   // Mid-strafe the feet do the travelling: the leading foot lifts, steps into
   // the new lane and plants there while the body moves across; then the
   // trailing foot lifts and follows it. Planted feet stay where they were
@@ -20995,12 +21002,14 @@ function drawSeatPlayerHud(ink){
  for(const p of activePlayers()){
   if(p.dummy)continue;
   const i=p.pad,speed=Math.hypot(p.vx,p.vy)*gameSpeed;
-  const measure=p.spin?Math.round(spinRpm(p))+' rpm':Math.round(mph(speed))+' mph';
+  const idle=speed<30 && p.grounded && !p.spin;
+  const measure=idle?Math.round(p.heartRate||68)+' bpm':p.spin?Math.round(spinRpm(p))+' rpm':Math.round(mph(speed))+' mph';
   const accent=p.wheelTurbo?[209,129,255]:i?[174,161,255]:[255,144,188];
   const x=i?safe.right-360:safe.left+12,y=safe.bottom-112;
-  const verb=p.wheelTurbo?'super turbo':statusVerb(p,speed)[0];
+  const verb=idle?(p.heartDanger>.25?'on edge':'resting'):p.wheelTurbo?'super turbo':statusVerb(p,speed)[0];
   const item=p.gunAmmo?'SMG '+p.gunAmmo:p.axeHeld?'AXE':p.onewheel?'MONOWHEEL':p.skateboard?'SKATEBOARD':'';
   seatHudText(measure,x,y,54,accent);
+  if(idle)drawSeatHeart(x+handleWidth(measure,54)+28,y+29,p,accent);
   seatHudText(verb,x,y+58,30,[249,242,248]);
   if(item)seatHudText(item,x,y-36,25,accent);
  }
@@ -21015,11 +21024,9 @@ function drawSeatAction(p){
  at.y+=28;
  const old=triangleDepth;triangleDepth=hudDepth;
  const width=handleWidth(text,size),x=clamp(at.x-width/2,14,viewWidth()-width-14),y=clamp(at.y,14,viewHeight-size-30);
- const ink=p.wheelTurbo?[210,130,255]:p.pad===0?[255,145,194]:[181,163,255];
- screenRect(x-10+4,y-7+5,width+20,size+18,[3,5,12]);
- screenRect(x-10,y-7,width+20,size+18,[20,22,37]);
- screenRect(x-10,y-7,4,size+18,ink);
- typeWrite(text,x+2,y+2,size,3,5,12);
+ // CSS palette: violet, gold, springgreen, deepskyblue, hotpink, lightskyblue.
+ const ink=p.wheelTurbo?[238,130,238]:p.spin?[255,215,0]:/DASH/.test(text)?[0,255,127]:/JUMP/.test(text)?[0,191,255]:p.pad===0?[255,105,180]:[135,206,250];
+ typeWrite(text,x+3,y+3,size,9,12,24);
  typeWrite(text,x,y,size,...ink);triangleDepth=old;
 }
 
@@ -21135,6 +21142,7 @@ function resetParkKids(){
    x,y:terrainFloorAt(x),z:(i%3-1)*125,vx:0,vy:0,vz:0,spawnX:x,grounded:true,
    color:skin[i],shirtColor:inks[i],skirtColor:inks[(i+3)%8],accent:inks[(i+5)%8],
    hairColor:[[33,26,29],[94,54,35],[184,133,71],[47,35,63]][i%4],shoeColor:inks[(i+2)%8],
+   heartRate:62+(i*7%19),heartPhase:(i*.173)%1,breathPhase:(i*.317)%1,motionClock:i*1.7,
    hair:null,skirtCloth:null,rig:null,trucks:null,spin:null,skateboard:false,onewheel:false,
    axeHeld:false,swordHeld:false,gunAmmo:0,grenadeAmmo:0,heldBall:-1,heldPlayer:-1,grabbedBy:-1,
    removedParts:[],partDamage:{},previous:[],lastTap:{},lastRelease:{},directionChanges:[],
@@ -21162,7 +21170,7 @@ function updateParkKids(dt,now){
     if(now>=crowdVoiceAt){crowdVoiceAt=now+350000;for(let i=0;i<5;i++)crowdNotes.push({at:now+i*35000,hz:680+kid.pad*35+Math.sin(i*.8)*330});}
   }
   kid.ducking=now<(kid.startledUntil||0);kid.crouchBlend+=(Number(kid.ducking)-(kid.crouchBlend||0))*Math.min(1,dt*14);
-  kid.facing=kid.patrolDirection;kid.vx=kid.ducking?0:kid.patrolDirection*95;
+  kid.facing=kid.patrolDirection;kid.vx=kid.ducking?0:kid.patrolDirection*95*(.92+(kid.pad%5)*.045)*(1+Math.sin((kid.breathPhase||0)*Math.PI*2)*.06);
   const previous=kid.x;kid.x+=kid.vx*dt;kid.y=terrainFloorAt(kid.x);
   resolveCubeSides(kid,previous);
   if(kid.wallPress)kid.patrolDirection*=-1;
@@ -21355,4 +21363,35 @@ function mainNativeCamera(){
   mainNativeCameraBuffer=new Float32Array([p.x,p.y,p.z,v.right.x,v.right.y,v.right.z,v.up.x,v.up.y,v.up.z,v.forward.x,v.forward.y,v.forward.z,v.centerX,v.centerY,v.orthoScale,v.focal,cameraDoll.perspective,cameraNear,0,0,viewWidth(),viewHeight,-1.4,.000175,globalLight.x,globalLight.y,globalLight.z]);mainNativeCameraAt=now;
  }
  return mainNativeCameraBuffer;
+}
+
+function updateSeatHeartbeat(dt,now){
+ const realDt=dt/Math.max(.1,gameSpeed);
+ for(const p of [...activePlayers(),...parkKids]){
+  if(p.dummy || !p.alive){p.heartRate=0;p.breathPhase=0;continue;}
+  let danger=0;
+  for(const other of activePlayers()){
+   if(other===p || !other.alive || other.dummy)continue;
+   const distance=Math.hypot(other.x-p.x,other.y-p.y,(other.z||0)-(p.z||0));
+   const armed=other.axeHeld||other.gunAmmo||other.swordHeld||other.attackKind;
+   if(p.civilian && !armed && Math.abs(other.vx)<250 && !other.spin)continue;
+   danger=Math.max(danger,clamp(1-distance/1200,0,1)*(armed?1:.45));
+  }
+  for(const b of balls)if(b.active && Math.hypot(b.vx,b.vy)>800){
+   const distance=Math.hypot(b.x-p.x,b.y-(p.y-70),(b.z||0)-(p.z||0));danger=Math.max(danger,clamp(1-distance/700,0,1));
+  }
+  for(const b of bullets)if(b.owner!==p.pad){const distance=Math.hypot(b.x-p.x,b.y-(p.y-90));danger=Math.max(danger,clamp(1-distance/950,0,1));}
+  danger=Math.max(danger,Math.min(1,(p.hit||0)*2));
+  const rest=62+(p.pad*7%19),effort=Math.min(1,Math.hypot(p.vx,p.vy)/1800),target=rest+danger*85+effort*25;
+  p.heartRate=(p.heartRate||rest)+(target-(p.heartRate||rest))*(1-Math.exp(-realDt*(target>(p.heartRate||rest)?1.8+(p.pad%3)*.2:.23+(p.pad%4)*.04)));
+  p.heartDanger=danger;p.heartPhase=((p.heartPhase ?? (p.pad*.173)%1)+realDt*p.heartRate/60)%1;
+  p.breathRate=11+(p.pad%5)+danger*13+effort*12;
+  p.breathPhase=((p.breathPhase ?? (p.pad*.317)%1)+realDt*p.breathRate/60)%1;
+  p.motionClock=(p.motionClock ?? now/1e6+p.pad*1.7)+realDt*(.8+p.heartRate/300);
+ }
+}
+function drawSeatHeart(x,y,p,color){
+ const phase=p.heartPhase||0,pulse=Math.max(0,1-phase/.15)+.6*Math.max(0,1-Math.abs(phase-.23)/.1),r=10+pulse*3;
+ filledDisc(x-r*.48,y-r*.32,r*.65,color);filledDisc(x+r*.48,y-r*.32,r*.65,color);
+ screenTriangle(x-r*1.1,y-r*.08,x+r*1.1,y-r*.08,x,y+r*1.25,...color);
 }
