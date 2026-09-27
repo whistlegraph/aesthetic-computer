@@ -2036,6 +2036,11 @@ class FightCamDoll {
     this.target = { x: cameraCenter, y: cameraCenterY, z: 0 };
     this.width = cameraWidth;
     this.perspective = 0;
+    // A second view (the P1 inset) sets these: where on the screen it draws,
+    // its lens, and the depth window it paints into. null means the stage.
+    this.viewport = null;
+    this.depthBase = -1.4;
+    this.depthSlope = 2.8 / 16000;
     this.fov = 55;
     this.roll = 0;
     this.dirty = true;
@@ -2090,12 +2095,13 @@ class FightCamDoll {
     const up = { x: baseUp.x * rollCos - baseRight.x * rollSin,
       y: baseUp.y * rollCos - baseRight.y * rollSin,
       z: baseUp.z * rollCos - baseRight.z * rollSin };
+    const port = this.viewport;
     this.view = { forward, right, up,
-      centerX: (stageLeft + stageRight) / 2,
-      centerY: (stageTop + stageBottom) / 2 +
+      centerX: port ? port.centerX : (stageLeft + stageRight) / 2,
+      centerY: port ? port.centerY : (stageTop + stageBottom) / 2 +
         (stageBottom - stageTop) * consoleFrameDrop(),
       orthoScale: (stageRight - stageLeft) / this.width,
-      focal: (stageRight - stageLeft) /
+      focal: port ? port.focal : (stageRight - stageLeft) /
         (2 * Math.tan(this.fov * Math.PI / 360)) };
     this.dirty = false;
   }
@@ -2125,7 +2131,7 @@ class FightCamDoll {
     const perspectiveY = centerY - view.y * focal / depth;
     out.x = lerp(orthoX, perspectiveX, this.perspective);
     out.y = lerp(orthoY, perspectiveY, this.perspective);
-    out.z = clamp(depth / 16000 * 2.8 - 1.4, -1.4, 1.4);
+    out.z = clamp(depth * this.depthSlope + this.depthBase, -1.499, 1.4);
     return out;
   }
 
@@ -2140,7 +2146,17 @@ class FightCamDoll {
   }
 }
 
-const cameraDoll = new FightCamDoll();
+let cameraDoll = new FightCamDoll();
+// The view being drawn: null is the stage. A second view swaps its own doll
+// in and names the rectangle it owns; projection, band clipping, LOD and the
+// figure code all read the doll and the rectangle, so a second camera is the
+// same renderer run again, not a second renderer.
+let clipView = null;
+function withRenderView(doll, rect, draw) {
+  const stageDoll = cameraDoll, previousClip = clipView;
+  cameraDoll = doll; clipView = rect;
+  try { draw(); } finally { cameraDoll = stageDoll; clipView = previousClip; }
+}
 const cameraScale = () => (stageRight - stageLeft) / cameraDoll.width;
 let playerCameraYaw = 0;
 let skateIsoSide = 1;
@@ -2173,8 +2189,46 @@ const triangleSafe = (value) => value > -32200 && value < 32200;
 function screenTriangle(x1, y1, x2, y2, x3, y3, r = 255, g = 255, b = 255) {
   if (!(triangleSafe(x1) && triangleSafe(y1) && triangleSafe(x2) &&
       triangleSafe(y2) && triangleSafe(x3) && triangleSafe(y3))) return;
+  if (clipView) { scissorTriangle(x1, y1, x2, y2, x3, y3, r, g, b); return; }
   emitTriangle(x1, y1, triangleDepth, x2, y2, triangleDepth,
     x3, y3, triangleDepth, r, g, b);
+}
+// The stage's edge is the GPU viewport; a second view's edge is a rectangle
+// inside it, so its triangles are cut here. Whole-inside and whole-outside
+// are answered by compares; only a triangle on the border walks the edges.
+const scissorPoly = new Float64Array(28), scissorNext = new Float64Array(28);
+function scissorTriangle(x1, y1, x2, y2, x3, y3, r, g, b) {
+  const left = clipView.x, right = clipView.x + clipView.w;
+  const top = clipView.y, bottom = clipView.y + clipView.h;
+  const inside = (x, y) => x >= left && x <= right && y >= top && y <= bottom;
+  if (inside(x1, y1) && inside(x2, y2) && inside(x3, y3)) {
+    emitTriangle(x1, y1, triangleDepth, x2, y2, triangleDepth, x3, y3, triangleDepth, r, g, b);
+    return;
+  }
+  if ((x1 < left && x2 < left && x3 < left) || (x1 > right && x2 > right && x3 > right) ||
+      (y1 < top && y2 < top && y3 < top) || (y1 > bottom && y2 > bottom && y3 > bottom)) return;
+  let poly = scissorPoly, next = scissorNext, n = 3;
+  poly[0] = x1; poly[1] = y1; poly[2] = x2; poly[3] = y2; poly[4] = x3; poly[5] = y3;
+  for (let edge = 0; edge < 4; edge++) {
+    const axis = edge < 2 ? 0 : 1, bound = edge === 0 ? left : edge === 1 ? right : edge === 2 ? top : bottom;
+    const sign = edge === 0 || edge === 2 ? 1 : -1;
+    let m = 0;
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      const ax = poly[i * 2], ay = poly[i * 2 + 1], bx = poly[j * 2], by = poly[j * 2 + 1];
+      const da = ((axis ? ay : ax) - bound) * sign, db = ((axis ? by : bx) - bound) * sign;
+      if (da >= 0) { next[m * 2] = ax; next[m * 2 + 1] = ay; m++; }
+      if ((da >= 0) !== (db >= 0)) {
+        const t = da / (da - db);
+        next[m * 2] = ax + (bx - ax) * t; next[m * 2 + 1] = ay + (by - ay) * t; m++;
+      }
+    }
+    const swap = poly; poly = next; next = swap; n = m;
+    if (n < 3) return;
+  }
+  for (let i = 1; i + 1 < n; i++)
+    emitTriangle(poly[0], poly[1], triangleDepth, poly[i * 2], poly[i * 2 + 1], triangleDepth,
+      poly[i * 2 + 2], poly[i * 2 + 3], triangleDepth, r, g, b);
 }
 function screenRect(x, y, width, height, color) {
   const [r, g, b] = color;
@@ -2307,10 +2361,10 @@ const bandEdges = [
 ];
 function clipScreenBand(polygon) {
   const width = viewWidth();
-  bandMinX = -width * guardBand;
-  bandMaxX = width * (1 + guardBand);
-  bandMinY = -viewHeight * guardBand;
-  bandMaxY = viewHeight * (1 + guardBand);
+  bandMinX = clipView ? clipView.x : -width * guardBand;
+  bandMaxX = clipView ? clipView.x + clipView.w : width * (1 + guardBand);
+  bandMinY = clipView ? clipView.y : -viewHeight * guardBand;
+  bandMaxY = clipView ? clipView.y + clipView.h : viewHeight * (1 + guardBand);
   let clipped = polygon;
   for (const distance of bandEdges) {
     if (clipped.length < 3) return [];
@@ -2325,6 +2379,8 @@ function clipScreenBand(polygon) {
 // Whether a projected vertex already sits inside the guard band. A NaN fails
 // every compare, so a broken projection falls through to the clipper.
 function bandContains(vertex) {
+  if (clipView) return vertex.x >= clipView.x && vertex.x <= clipView.x + clipView.w &&
+    vertex.y >= clipView.y && vertex.y <= clipView.y + clipView.h;
   const width = viewWidth();
   return vertex.x >= -width * guardBand && vertex.x <= width * (1 + guardBand) &&
     vertex.y >= -viewHeight * guardBand &&
@@ -13642,7 +13698,8 @@ const discRingFor = (radius) => discRings[
     : radius < 52 ? 3 : radius < 110 ? 4 : 5];
 
 function filledDisc(x, y, radius, color) {
-  if(nativeDisc){nativeDisc(x,y,triangleDepth,radius,color[0],color[1],color[2]);return;}
+  // A native fan cannot be scissored, so a second view fans in JS.
+  if(nativeDisc && !clipView){nativeDisc(x,y,triangleDepth,radius,color[0],color[1],color[2]);return;}
   const [r, g, b] = color;
   const ring = discRingFor(radius);
   const originX = x + ring[0] * radius, originY = y + ring[1] * radius;
@@ -13692,7 +13749,7 @@ function stroke(x1, y1, x2, y2, width, color) {
 
 const capsuleArcs=Object.fromEntries([3,4,6,8,12].map(n=>[n,Array.from({length:n+1},(_,i)=>[Math.cos(i*Math.PI/n),Math.sin(i*Math.PI/n)]).flat()]));
 function filledCapsule(x1, y1, x2, y2, width, color) {
-  if(nativeCapsule){nativeCapsule(x1,y1,x2,y2,triangleDepth,width,color[0],color[1],color[2]);return;}
+  if(nativeCapsule && !clipView){nativeCapsule(x1,y1,x2,y2,triangleDepth,width,color[0],color[1],color[2]);return;}
   if (consoleHost() && width <= 3 && Math.abs(x2-x1)+Math.abs(y2-y1) > 1) {
     stroke(x1,y1,x2,y2,width,color); return;
   }
@@ -17066,6 +17123,7 @@ function figureLod(player, geometry) {
   const forced = globalThis.__oskiewarFigureLod;
   if (forced >= 0 && forced <= 3) { figureLodTiers.set(player, forced); return forced; }
   let tier = tierAt(height);
+  if (clipView) return tier;  // a second view judges size afresh; the stage keeps the memory
   // Twelve percent of hysteresis, so a figure on a boundary does not flicker.
   if (tier !== previous && tierAt(height * (tier > previous ? 1.12 : .88)) === previous)
     tier = previous;
@@ -17921,8 +17979,10 @@ function recordFightHit(sourcePad, decisive) {
 // still knows how far away its ends are.
 function clipSegmentBand(from, to) {
   const width = viewWidth();
-  const minX = -width * guardBand, maxX = width * (1 + guardBand);
-  const minY = -viewHeight * guardBand, maxY = viewHeight * (1 + guardBand);
+  const minX = clipView ? clipView.x : -width * guardBand;
+  const maxX = clipView ? clipView.x + clipView.w : width * (1 + guardBand);
+  const minY = clipView ? clipView.y : -viewHeight * guardBand;
+  const maxY = clipView ? clipView.y + clipView.h : viewHeight * (1 + guardBand);
   // Most segments sit whole inside the band — every grass blade, most limbs.
   // Plain compares answer those; only a segment that actually crosses an
   // edge pays for the parametric walk and its rebuilt endpoints.
@@ -21333,10 +21393,10 @@ function drawQuadMesh(mesh){
  if(!mesh)return;
  if(nativeRetainedMeshes){
   const handle=meshHandle(mesh);
-  if(handle>=0){nativeMeshDraw(handle,mainNativeCamera(),cameraScale());return;}
+  if(handle>=0){nativeMeshDraw(handle,mainNativeCamera(),clipView?0:cameraScale());return;}
  }
  if(nativeSceneMesh){
-  const scale=cameraScale();for(const a of mesh.capsules||[])worldCapsule(a[0],a[1],a[2],a[3],a[4],a[5],a[6]*scale,a[7],a[8]);
+  if(!clipView){const scale=cameraScale();for(const a of mesh.capsules||[])worldCapsule(a[0],a[1],a[2],a[3],a[4],a[5],a[6]*scale,a[7],a[8]);}
   const buffers=nativeMeshBuffers(mesh);nativeSceneMesh(buffers.vertices,buffers.faces,mainNativeCamera());return;
  }
  if(!mesh.bounds && mesh.vertices.length){
@@ -21351,14 +21411,14 @@ function drawQuadMesh(mesh){
   }
  }
  const meshScale=cameraScale();
- for(const args of mesh.capsules||[])worldCapsule(args[0],args[1],args[2],args[3],args[4],args[5],args[6]*meshScale,args[7],args[8]);
+ if(!clipView)for(const args of mesh.capsules||[])worldCapsule(args[0],args[1],args[2],args[3],args[4],args[5],args[6]*meshScale,args[7],args[8]);
  if(cameraDoll.dirty)cameraDoll.prepare();
  const v=cameraDoll.view,cam=cameraDoll.position,scale=v.orthoScale,perspective=cameraDoll.perspective;
  for(let i=0;i<mesh.vertices.length;i++){
   const p=mesh.vertices[i],o=mesh.projected[i],x=p.x-cam.x,y=p.y-cam.y,z=p.z-cam.z;
   const vx=x*v.right.x+y*v.right.y+z*v.right.z,vy=x*v.up.x+y*v.up.y+z*v.up.z,vz=x*v.forward.x+y*v.forward.y+z*v.forward.z;
   const k=perspective?scale+(v.focal/Math.max(cameraNear,vz)-scale)*perspective:scale;
-  o.x=v.centerX+vx*k;o.y=v.centerY-vy*k;o.z=clamp(vz*.000175-1.4,-1.4,1.4);o.near=vz>=cameraNear;
+  o.x=v.centerX+vx*k;o.y=v.centerY-vy*k;o.z=clamp(vz*cameraDoll.depthSlope+cameraDoll.depthBase,-1.499,1.4);o.near=vz>=cameraNear;
  }
  for(const f of mesh.faces){
   const [ia,ib,ic,id]=f.ids,a=mesh.projected[ia],b=mesh.projected[ib],c=mesh.projected[ic],d=mesh.projected[id];
@@ -21555,108 +21615,53 @@ function buildCityBlock(i,span){
  plane(l+20,rr-20,front-80,front,y-160,[[153,76,81],[71,122,116],[180,136,74]][i%3]);
 }
 
-let seatInsetAt=0,seatInsetBuffer=null,seatInsetCount=0,seatInsetRect=null;
-const seatFaceX=new Float64Array(8),seatFaceY=new Float64Array(8),seatFaceZ=new Float64Array(8);
+// The P1 view is the renderer run a second time: a doll at the rider's eye
+// looking the way they face, a viewport that is the inset's rectangle, a
+// depth window in front of the stage and behind the HUD. The park meshes are
+// the same handles drawn with this camera; the riders and the crowd are the
+// same drawRunner at the size this lens gives them. @jeffrey, 2026-09-26:
+// "make sure the secondary camera uses the real renderer".
+const seatInsetDoll = new FightCamDoll();
+seatInsetDoll.perspective = 1;
+seatInsetDoll.depthBase = -1.46;
+seatInsetDoll.depthSlope = .000002;
+function aimSeatInsetDoll(rect) {
+  const rider = players[0], yaw = rider.spin?.angle || 0, facing = rider.facing || 1;
+  const fx = Math.cos(yaw) * facing, fz = Math.sin(yaw) * facing;
+  const eyeY = rider.y - (isHeadOnly(rider) ? 35 : rider.ducking ? 90 : 160);
+  seatInsetDoll.position = { x: rider.x, y: eyeY, z: rider.z || 0 };
+  // A little downward tilt, the same lean the first cut of this view had.
+  seatInsetDoll.target = { x: rider.x + fx * 100, y: eyeY + 12, z: (rider.z || 0) + fz * 100 };
+  seatInsetDoll.roll = 0;
+  seatInsetDoll.viewport = { centerX: rect.x + rect.w * .5, centerY: rect.y + rect.h * .5, focal: rect.w * .68 };
+  seatInsetDoll.width = stageRight - stageLeft;
+  seatInsetDoll.dirty = true;
+}
 function drawSeatFirstPerson(){
  if(!freeskateActive() || shellMode!=='GAME')return;
  const old=triangleDepth,w=Math.min(320,viewWidth()*.23),h=w*.5625;
- const rect={x:viewWidth()-w-30,y:30,w,h},now=runtime().monotonicUs;
- triangleDepth=-1.482;screenRect(rect.x-4,rect.y-4,w+8,h+8,[31,24,41]);
+ const rect={x:viewWidth()-w-30,y:30,w,h};
+ triangleDepth=-1.44;screenRect(rect.x-4,rect.y-4,w+8,h+8,[31,24,41]);
  screenRect(rect.x,rect.y,w,h,[151,182,206]);
- // On the console the park meshes go straight to sceneMesh every frame; the
- // kids' fans are rebuilt at 30 Hz and replayed from the buffer in between.
- const nativeMeshes=nativeSceneMesh!==null && nativeTriangles3d!==null;
- const kidsDue=!nativeMeshes || !seatInsetBuffer || now>=seatInsetAt || seatInsetRect?.x!==rect.x;
- if(kidsDue){seatInsetAt=now+30000;seatInsetRect=rect;}
- rebuildSeatInset(rect,kidsDue);
- if(nativeTriangles3d && seatInsetCount)nativeTriangles3d(seatInsetBuffer,seatInsetCount);
- else if(seatInsetBuffer)for(let i=0;i<seatInsetCount*12;i+=12){const a=seatInsetBuffer;emitTriangle(a[i],a[i+1],a[i+2],a[i+3],a[i+4],a[i+5],a[i+6],a[i+7],a[i+8],a[i+9],a[i+10],a[i+11]);}
- triangleDepth=-1.499;screenRect(rect.x,rect.y+h-3,w,3,[255,145,194]);
+ aimSeatInsetDoll(rect);
+ withRenderView(seatInsetDoll, rect, () => {
+  const rider=players[0],t=(runtime().monotonicUs-startedAt)/1e6;
+  for(const mesh of [pipeSurfaceMesh,pipeWallMesh,hallMesh,...(rider.underPipe?[waterMesh]:[]),...cityBlocks.values()])
+   drawQuadMesh(mesh);
+  for(const kid of [...activePlayers(),...parkKids]){
+   if(kid===rider || kid.headless)continue;
+   const seen=seatInsetDoll.toView({x:kid.x,y:kid.y-85,z:kid.z||0});
+   if(seen.z<20||seen.z>2200||Math.abs(seen.x)>seen.z)continue;
+   // cameraScale() is pixels per world unit; through this lens that is the
+   // focal length over the figure's own distance.
+   seatInsetDoll.width=(stageRight-stageLeft)*seen.z/seatInsetDoll.view.focal;seatInsetDoll.dirty=true;
+   triangleDepth=projectPoint(kid.x,kid.y,kid.z||0).z;
+   drawRunner(kid,t,false);
+  }
+ });
+ triangleDepth=-1.472;screenRect(rect.x,rect.y+h-3,w,3,[255,145,194]);
  typeWrite('P1 VIEW',rect.x+9,rect.y+7,16,250,239,249);
  triangleDepth=old;
-}
-function rebuildSeatInset(rect,kids=true){
- const player=players[0],yaw=player.spin?.angle||0,fx=Math.cos(yaw)*(player.facing||1),fz=Math.sin(yaw)*(player.facing||1);
- const eye={x:player.x,y:player.y-(isHeadOnly(player)?35:player.ducking?90:160),z:player.z||0};
- const values=[],focal=rect.w*.68;
- const local=p=>{const x=p.x-eye.x,y=p.y-eye.y,z=p.z-eye.z,forward=x*fx+z*fz;return {x:-x*fz+z*fx,y:y-forward*.12,z:forward+y*.12};};
- const mix=(a,b,t)=>({x:lerp(a.x,b.x,t),y:lerp(a.y,b.y,t),z:lerp(a.z,b.z,t)});
- const edges=[p=>p.x-rect.x,p=>rect.x+rect.w-p.x,p=>p.y-rect.y,p=>rect.y+rect.h-p.y];
- const right=rect.x+rect.w,bottom=rect.y+rect.h,cx=rect.x+rect.w*.5,cy=rect.y+rect.h*.5;
- const face=(points,color)=>{
-  if(values.length>=12*6000)return;
-  // Most inset faces lie wholly inside or wholly off one edge; only the ones
-  // straddling the near plane or a border pay for clipPolygon's five passes.
-  let front=true;for(const p of points)if(p.z<12){front=false;break;}
-  if(front){
-   const n=points.length,px=seatFaceX,py=seatFaceY,pz=seatFaceZ;let left=0,rightOut=0,top=0,below=0;
-   for(let i=0;i<n;i++){const p=points[i],k=focal/p.z,x=cx+p.x*k,y=cy+p.y*k;px[i]=x;py[i]=y;pz[i]=-1.497+Math.min(p.z,6000)/6000*.012;
-    if(x<rect.x)left++;else if(x>right)rightOut++;if(y<rect.y)top++;else if(y>bottom)below++;}
-   if(left===n||rightOut===n||top===n||below===n)return;
-   if(!left&&!rightOut&&!top&&!below){
-    for(let i=1;i+1<n;i++)values.push(px[0],py[0],pz[0],px[i],py[i],pz[i],px[i+1],py[i+1],pz[i+1],color[0],color[1],color[2]);
-    return;
-   }
-  }
-  let poly=clipPolygon(points,p=>p.z-12,mix);if(poly.length<3)return;
-  poly=poly.map(p=>({x:rect.x+rect.w*.5+p.x*focal/p.z,y:rect.y+rect.h*.5+p.y*focal/p.z,z:-1.497+Math.min(p.z,6000)/6000*.012}));
-  for(const edge of edges){poly=clipPolygon(poly,edge,mix);if(poly.length<3)return;}
-  for(let i=1;i+1<poly.length;i++){const a=poly[0],b=poly[i],c=poly[i+1];values.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z,color[0],color[1],color[2]);}
- };
- const emitProjected=(poly,color)=>{
-  for(let i=1;i+1<poly.length;i++){const a=poly[0],b=poly[i],c=poly[i+1];values.push(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z,color[0],color[1],color[2]);}
- };
- for(const mesh of [pipeSurfaceMesh,pipeWallMesh,hallMesh,...(player.underPipe?[waterMesh]:[]),...cityBlocks.values()]){
-  if(!mesh)continue;
-  if(mesh.bounds){
-   const b=mesh.bounds,corners=[];
-   for(const x of [b.minX,b.maxX])for(const y of [b.minY,b.maxY])for(const z of [b.minZ,b.maxZ])corners.push(local({x,y,z}));
-   if(corners.every(p=>p.z<12)||corners.every(p=>p.z>3500))continue;
-   if(corners.every(p=>p.z>=12) && (corners.every(p=>p.x*focal/p.z < -rect.w*.5)||corners.every(p=>p.x*focal/p.z > rect.w*.5)||corners.every(p=>p.y*focal/p.z < -rect.h*.5)||corners.every(p=>p.y*focal/p.z > rect.h*.5)))continue;
-  }
-  if(nativeSceneMesh){
-   const buffers=nativeMeshBuffers(mesh),camera=new Float32Array([eye.x,eye.y,eye.z,-fz,0,fx,fx*.12,-1,fz*.12,fx,.12,fz,rect.x+rect.w*.5,rect.y+rect.h*.5,0,focal,1,12,rect.x,rect.y,rect.x+rect.w,rect.y+rect.h,-1.497,.000002,globalLight.x,globalLight.y,globalLight.z]);
-   nativeSceneMesh(buffers.vertices,buffers.faces,camera);continue;
-  }
-  const vertices=mesh.vertices.map(local);
-  const projected=vertices.map(p=>({x:rect.x+rect.w*.5+p.x*focal/Math.max(12,p.z),y:rect.y+rect.h*.5+p.y*focal/Math.max(12,p.z),z:-1.497+Math.min(p.z,6000)/6000*.012}));
-  for(const f of mesh.faces){
-   const pts=f.ids.map(i=>vertices[i]);if(pts.every(p=>p.z>3500)||pts.every(p=>p.z<12))continue;
-   const pp=f.ids.map(i=>projected[i]),color=f.lit.length?f.lit:f.color;
-   if(pts.every(p=>p.z>=12)){
-    if(pp.every(p=>p.x<rect.x)||pp.every(p=>p.x>rect.x+rect.w)||pp.every(p=>p.y<rect.y)||pp.every(p=>p.y>rect.y+rect.h))continue;
-    if(pp.every(p=>p.x>=rect.x && p.x<=rect.x+rect.w && p.y>=rect.y && p.y<=rect.y+rect.h)){emitProjected(pp,color);continue;}
-   }
-   face(pts,color);
-  }
- }
- if(!kids)return;
- const disc=(center,radius,color)=>{
-  for(let i=0;i<10;i++){const a=i*Math.PI/5,b=(i+1)*Math.PI/5;face([center,{x:center.x+Math.cos(a)*radius,y:center.y+Math.sin(a)*radius,z:center.z},{x:center.x+Math.cos(b)*radius,y:center.y+Math.sin(b)*radius,z:center.z}],color);}
- };
- for(const kid of [...activePlayers(),...parkKids]){
-  if(kid===player || kid.headless)continue;
-  const center=local({x:kid.x,y:kid.y-85,z:kid.z});
-  if(center.z<20||center.z>2200||Math.abs(center.x)>center.z)continue;
-  const g=runnerWorldGeometry(kid,(runtime().monotonicUs-startedAt)/1e6);
-  for(const b of g.segments){
-   if(b.hitboxOnly)continue;
-   const a=local({x:b.x1,y:b.y1,z:b.z1}),c=local({x:b.x2,y:b.y2,z:b.z2});
-   const dx=c.x-a.x,dy=c.y-a.y,len=Math.hypot(dx,dy)||1;
-   const w=(b.role==='torso'&&!kid.dummy?24:b.width*.5),nx=-dy/len*w,ny=dx/len*w;
-   const color=kid.dummy?[192,188,179]:b.role==='torso'?kid.shirtColor||[252,252,250]:isLegRole(b.role)?kid.pantsColor||kid.color:kid.color;
-   face([{x:a.x+nx,y:a.y+ny,z:a.z},{x:c.x+nx,y:c.y+ny,z:c.z},{x:c.x-nx,y:c.y-ny,z:c.z},{x:a.x-nx,y:a.y-ny,z:a.z}],color);
-  }
-  const h=local(g.head),r=g.head.radius,skin=kid.dummy?[192,188,179]:kid.color;
-  disc(h,r,skin);
-  if(!kid.dummy){
-   disc({x:h.x,y:h.y-r*.52,z:h.z-.4},r*.69,kid.hairColor||[40,30,35]);
-   for(const side of [-1,1]){disc({x:h.x+side*r*.3,y:h.y+r*.15,z:h.z-.6},r*.19,[252,250,245]);disc({x:h.x+side*r*.3,y:h.y+r*.15,z:h.z-.8},r*.085,[23,19,29]);}
-   const bow={x:h.x+r*.8,y:h.y-r*.65,z:h.z-1};
-   face([{x:bow.x-r*.4,y:bow.y-r*.3,z:bow.z},bow,{x:bow.x+r*.4,y:bow.y-r*.3,z:bow.z}],kid.accent||[255,145,194]);
-  }
- }
- seatInsetBuffer=new Float32Array(values);seatInsetCount=values.length/12;
 }
 
 let mainNativeCameraAt=-1,mainNativeCameraBuffer=null;
@@ -21666,11 +21671,20 @@ function nativeMeshBuffers(mesh){
   capsules:new Float32Array((mesh.capsules||[]).flatMap(a=>[a[0],a[1],a[2],a[3],a[4],a[5],a[6],a[7][0],a[7][1],a[7][2],a[8]??-.004]))};
  return mesh.nativeBuffers;
 }
+const viewNativeCameraBuffer=new Float32Array(27);
+function nativeCameraFor(doll,buffer,minX,minY,maxX,maxY){
+ if(doll.dirty||!doll.view)doll.prepare();const v=doll.view,p=doll.position,m=buffer;
+ m[0]=p.x;m[1]=p.y;m[2]=p.z;m[3]=v.right.x;m[4]=v.right.y;m[5]=v.right.z;m[6]=v.up.x;m[7]=v.up.y;m[8]=v.up.z;m[9]=v.forward.x;m[10]=v.forward.y;m[11]=v.forward.z;
+ m[12]=v.centerX;m[13]=v.centerY;m[14]=v.orthoScale;m[15]=v.focal;m[16]=doll.perspective;m[17]=cameraNear;
+ m[18]=minX;m[19]=minY;m[20]=maxX;m[21]=maxY;m[22]=doll.depthBase;m[23]=doll.depthSlope;m[24]=globalLight.x;m[25]=globalLight.y;m[26]=globalLight.z;
+ return m;
+}
 function mainNativeCamera(){
+ if(clipView)return nativeCameraFor(cameraDoll,viewNativeCameraBuffer,clipView.x,clipView.y,clipView.x+clipView.w,clipView.y+clipView.h);
  const now=runtime().monotonicUs;
  if(now!==mainNativeCameraAt || cameraDoll.dirty){
-  cameraDoll.prepare();const v=cameraDoll.view,p=cameraDoll.position;
-  mainNativeCameraBuffer=new Float32Array([p.x,p.y,p.z,v.right.x,v.right.y,v.right.z,v.up.x,v.up.y,v.up.z,v.forward.x,v.forward.y,v.forward.z,v.centerX,v.centerY,v.orthoScale,v.focal,cameraDoll.perspective,cameraNear,0,0,viewWidth(),viewHeight,-1.4,.000175,globalLight.x,globalLight.y,globalLight.z]);mainNativeCameraAt=now;
+  if(!mainNativeCameraBuffer)mainNativeCameraBuffer=new Float32Array(27);
+  nativeCameraFor(cameraDoll,mainNativeCameraBuffer,0,0,viewWidth(),viewHeight);mainNativeCameraAt=now;
  }
  return mainNativeCameraBuffer;
 }
