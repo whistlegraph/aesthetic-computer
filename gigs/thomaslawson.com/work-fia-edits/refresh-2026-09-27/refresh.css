@@ -596,6 +596,64 @@ body.tl-refresh:not(#tl).page-id-1898 .elementor-top-section:not(.elementor-elem
 }
 
 /* ------------------------------------------------------------------ *
+ * 13. Less air at the top of every page (2026-09-27).
+ * ------------------------------------------------------------------ */
+/* Header: the logo sat under 15 + 30 + 15px of stacked Astra margins. */
+body.tl-refresh:not(#tl) #masthead .ast-primary-header-bar { margin-top: 0 !important; }
+body.tl-refresh:not(#tl) #masthead .site-primary-header-wrap { min-height: 0 !important; padding-bottom: 0 !important; }
+body.tl-refresh:not(#tl) #masthead .site-branding {
+    margin-top: 0 !important;
+    padding-top: clamp(1rem, 2vw, 1.4rem) !important;
+    padding-bottom: clamp(1rem, 2vw, 1.4rem) !important;
+}
+/* Bookshelf sections: title block had 120px above and 150px below. */
+body.tl-refresh:not(#tl).tl-bookshelf-detail [data-elementor-type="wp-page"] > .elementor-top-section:first-child {
+    margin-top: clamp(1rem, 3vw, 2rem) !important;
+    margin-bottom: 0 !important;
+}
+body.tl-refresh:not(#tl).tl-bookshelf-detail [data-elementor-type="wp-page"] > .elementor-top-section:first-child .elementor-widget {
+    margin-bottom: 0 !important;
+}
+body.tl-refresh:not(#tl) .tl-shelf-list { margin-top: clamp(1rem, 2vw, 1.5rem) !important; }
+/* Studio periods + exhibitions + projects: first thing close under the header. */
+body.tl-refresh:not(#tl).tl-studio-detail [data-elementor-type="wp-page"] > .elementor-top-section:first-child > .elementor-container {
+    margin-top: clamp(0.75rem, 2vw, 1.5rem) !important;
+}
+body.tl-refresh:not(#tl):is(.tl-exhibition-detail, .tl-project-detail) [data-elementor-type="wp-page"] > .elementor-top-section:first-child {
+    margin-top: clamp(0.5rem, 1.5vw, 1rem) !important;
+}
+/* Doorways: band directly under the header. */
+body.tl-refresh:not(#tl) .tl-archive-doorway,
+body.tl-refresh:not(#tl).page-id-140 .elementor-element-71fa6aa,
+body.tl-refresh:not(#tl).page-id-1898 .elementor-element-1553c2e {
+    margin-top: 0 !important;
+}
+/* Contact: the address sat 330px down, alone. */
+body.tl-refresh:not(#tl).page-id-1527 #primary,
+body.tl-refresh:not(#tl).page-id-1527 .ast-container .entry-content,
+body.tl-refresh:not(#tl).page-id-1527 [data-elementor-type="wp-page"],
+body.tl-refresh:not(#tl).page-id-1527 [data-elementor-type="wp-page"] > * {
+    min-height: 0 !important;
+    justify-content: flex-start !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+body.tl-refresh:not(#tl).page-id-1527 [data-elementor-type="wp-page"] {
+    padding: clamp(2.5rem, 7vw, 5rem) 0 clamp(2rem, 5vw, 4rem) !important;
+}
+
+/* Exhibition pages: the index card's venue line under the title. */
+body.tl-refresh:not(#tl) .tl-context-line {
+    flex: 0 0 100% !important;
+    width: 100% !important;
+    margin: 0.2rem 0 0.9rem !important;
+    font-family: var(--tl-sans) !important;
+    font-size: var(--tl-fs-label) !important;
+    line-height: 1.4 !important;
+    color: var(--tl-muted) !important;
+}
+
+/* ------------------------------------------------------------------ *
  * 9. Mobile.
  * ------------------------------------------------------------------ */
 @media (max-width: 767px) {

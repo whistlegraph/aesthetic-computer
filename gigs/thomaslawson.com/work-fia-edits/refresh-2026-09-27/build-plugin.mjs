@@ -54,7 +54,37 @@ ${css}
     <?php
 }
 
+/* Studio periods: Tom's Valise vault as [title, year, medium, dimensions],
+   so captions can carry materials. Server-side via the TL Valise plugin's
+   stored key (never sent to the browser); cached 12h. */
+function tl_refresh_valise_works() {
+    if (!function_exists('tl_valise_api_key') || !tl_valise_api_key()) { return array(); }
+    $cached = get_transient('tl_refresh_valise_v1');
+    if ($cached !== false && !(current_user_can('manage_options') && isset($_GET['valise_refresh']))) { return $cached; }
+    $out = array(); $url = TL_VALISE_API_BASE . '/artworks?limit=100'; $guard = 0;
+    while ($url && $guard < 40) {
+        $resp = wp_remote_get($url, array('headers' => array('Authorization' => 'Bearer ' . tl_valise_api_key(), 'Accept' => 'application/json'), 'timeout' => 20));
+        if (is_wp_error($resp) || wp_remote_retrieve_response_code($resp) !== 200) { break; }
+        $body = json_decode(wp_remote_retrieve_body($resp), true);
+        if (empty($body['data']) || !is_array($body['data'])) { break; }
+        foreach ($body['data'] as $w) {
+            $t = isset($w['title']) ? trim((string) $w['title']) : '';
+            if ($t === '') { continue; }
+            $out[] = array($t, isset($w['year']) ? (string) $w['year'] : '', isset($w['medium']) ? trim((string) $w['medium']) : '', isset($w['dimensions']) ? trim((string) $w['dimensions']) : '');
+        }
+        $url = isset($body['page']['next']) ? $body['page']['next'] : null;
+        $guard++;
+    }
+    set_transient('tl_refresh_valise_v1', $out, $out ? 12 * HOUR_IN_SECONDS : 10 * MINUTE_IN_SECONDS);
+    return $out;
+}
+
 function tl_refresh_js() {
+    if (in_array('tl-studio-detail', get_body_class(), true)) {
+        $works = tl_refresh_valise_works();
+        echo '<script id="tl-refresh-valise">window.TL_VALISE = ' . wp_json_encode($works) . ";</script>\n";
+        echo '<!-- tl-refresh-valise: ' . count($works) . " works -->\n";
+    }
     ?>
 <script id="tl-refresh-js">
 ${js}

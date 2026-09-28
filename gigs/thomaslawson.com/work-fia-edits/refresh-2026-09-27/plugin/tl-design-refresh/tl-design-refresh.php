@@ -2,7 +2,7 @@
 /**
  * Plugin Name: TL — Design refresh
  * Description: One design language over thomaslawson.com — two loaded typefaces (Inter + Newsreader), a five-step type scale, one section-header grammar, flat artwork presentation. Layers on top of the TL Fía polish mu-plugin; deactivate to return to it exactly.
- * Version: 1.3.1
+ * Version: 1.4.0
  * Author: Aesthetic Computer
  *
  * Source: gigs/thomaslawson.com/work-fia-edits/refresh-2026-09-27/ (refresh.css, refresh.js, build-plugin.mjs).
@@ -635,6 +635,64 @@ body.tl-refresh:not(#tl).page-id-1898 .elementor-top-section:not(.elementor-elem
 }
 
 /* ------------------------------------------------------------------ *
+ * 13. Less air at the top of every page (2026-09-27).
+ * ------------------------------------------------------------------ */
+/* Header: the logo sat under 15 + 30 + 15px of stacked Astra margins. */
+body.tl-refresh:not(#tl) #masthead .ast-primary-header-bar { margin-top: 0 !important; }
+body.tl-refresh:not(#tl) #masthead .site-primary-header-wrap { min-height: 0 !important; padding-bottom: 0 !important; }
+body.tl-refresh:not(#tl) #masthead .site-branding {
+    margin-top: 0 !important;
+    padding-top: clamp(1rem, 2vw, 1.4rem) !important;
+    padding-bottom: clamp(1rem, 2vw, 1.4rem) !important;
+}
+/* Bookshelf sections: title block had 120px above and 150px below. */
+body.tl-refresh:not(#tl).tl-bookshelf-detail [data-elementor-type="wp-page"] > .elementor-top-section:first-child {
+    margin-top: clamp(1rem, 3vw, 2rem) !important;
+    margin-bottom: 0 !important;
+}
+body.tl-refresh:not(#tl).tl-bookshelf-detail [data-elementor-type="wp-page"] > .elementor-top-section:first-child .elementor-widget {
+    margin-bottom: 0 !important;
+}
+body.tl-refresh:not(#tl) .tl-shelf-list { margin-top: clamp(1rem, 2vw, 1.5rem) !important; }
+/* Studio periods + exhibitions + projects: first thing close under the header. */
+body.tl-refresh:not(#tl).tl-studio-detail [data-elementor-type="wp-page"] > .elementor-top-section:first-child > .elementor-container {
+    margin-top: clamp(0.75rem, 2vw, 1.5rem) !important;
+}
+body.tl-refresh:not(#tl):is(.tl-exhibition-detail, .tl-project-detail) [data-elementor-type="wp-page"] > .elementor-top-section:first-child {
+    margin-top: clamp(0.5rem, 1.5vw, 1rem) !important;
+}
+/* Doorways: band directly under the header. */
+body.tl-refresh:not(#tl) .tl-archive-doorway,
+body.tl-refresh:not(#tl).page-id-140 .elementor-element-71fa6aa,
+body.tl-refresh:not(#tl).page-id-1898 .elementor-element-1553c2e {
+    margin-top: 0 !important;
+}
+/* Contact: the address sat 330px down, alone. */
+body.tl-refresh:not(#tl).page-id-1527 #primary,
+body.tl-refresh:not(#tl).page-id-1527 .ast-container .entry-content,
+body.tl-refresh:not(#tl).page-id-1527 [data-elementor-type="wp-page"],
+body.tl-refresh:not(#tl).page-id-1527 [data-elementor-type="wp-page"] > * {
+    min-height: 0 !important;
+    justify-content: flex-start !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+body.tl-refresh:not(#tl).page-id-1527 [data-elementor-type="wp-page"] {
+    padding: clamp(2.5rem, 7vw, 5rem) 0 clamp(2rem, 5vw, 4rem) !important;
+}
+
+/* Exhibition pages: the index card's venue line under the title. */
+body.tl-refresh:not(#tl) .tl-context-line {
+    flex: 0 0 100% !important;
+    width: 100% !important;
+    margin: 0.2rem 0 0.9rem !important;
+    font-family: var(--tl-sans) !important;
+    font-size: var(--tl-fs-label) !important;
+    line-height: 1.4 !important;
+    color: var(--tl-muted) !important;
+}
+
+/* ------------------------------------------------------------------ *
  * 9. Mobile.
  * ------------------------------------------------------------------ */
 @media (max-width: 767px) {
@@ -651,7 +709,39 @@ body.tl-refresh:not(#tl).page-id-1898 .elementor-top-section:not(.elementor-elem
     <?php
 }
 
+/* Studio periods: Tom's Valise vault as [title, year, medium, dimensions],
+   so captions can carry materials. Server-side via the TL Valise plugin's
+   stored key (never sent to the browser); cached 12h. */
+function tl_refresh_valise_works() {
+    if (!function_exists('tl_valise_api_key') || !tl_valise_api_key()) { return array(); }
+    $cached = get_transient('tl_refresh_valise_v1');
+    if ($cached !== false && !(current_user_can('manage_options') && isset($_GET['valise_refresh']))) { return $cached; }
+    $out = array(); $url = TL_VALISE_API_BASE . '/artworks?limit=100'; $guard = 0;
+    while ($url && $guard < 40) {
+        $resp = wp_remote_get($url, array('headers' => array('Authorization' => 'Bearer ' . tl_valise_api_key(), 'Accept' => 'application/json'), 'timeout' => 20));
+        if (is_wp_error($resp) || wp_remote_retrieve_response_code($resp) !== 200) { break; }
+        $body = json_decode(wp_remote_retrieve_body($resp), true);
+        if (empty($body['data']) || !is_array($body['data'])) { break; }
+        foreach ($body['data'] as $w) {
+            $t = isset($w['title']) ? trim((string) $w['title']) : '';
+            if ($t === '') { continue; }
+            $out[] = array($t, isset($w['year']) ? (string) $w['year'] : '', isset($w['medium']) ? trim((string) $w['medium']) : '', isset($w['dimensions']) ? trim((string) $w['dimensions']) : '');
+        }
+        $url = isset($body['page']['next']) ? $body['page']['next'] : null;
+        $guard++;
+    }
+    set_transient('tl_refresh_valise_v1', $out, $out ? 12 * HOUR_IN_SECONDS : 10 * MINUTE_IN_SECONDS);
+    return $out;
+}
+
 function tl_refresh_js() {
+    if (in_array('tl-studio-detail', get_body_class(), true)) {
+        $works = tl_refresh_valise_works();
+        echo '<script id="tl-refresh-valise">window.TL_VALISE = ' . wp_json_encode($works) . ";</script>
+";
+        echo '<!-- tl-refresh-valise: ' . count($works) . " works -->
+";
+    }
     ?>
 <script id="tl-refresh-js">
 /* Bookshelf captions from Tom's CV — generated by fia-2026-09-27/build-shelf-data.py */
@@ -933,13 +1023,82 @@ window.TL_SHELVES = {"afterall6-cover.jpg":{"s":"bookshelf_afterall","t":"Lookin
         }
         all.forEach(function (w) {
             if (w.closest('.elementor-top-section') === wp.querySelector(':scope > .elementor-top-section')) return;
-            if (w.classList.contains('elementor-widget-image')) { flush(); group = { heads: [], image: w }; }
+            if (w.classList.contains('elementor-widget-image')) { flush(); group = w.querySelector('.tl-cap') ? null : { heads: [], image: w }; }
             else if (group) {
                 var h = w.querySelector('.elementor-heading-title');
                 if (h && clean(h.textContent)) group.heads.push(h);
             }
         });
         flush();
+    }
+
+    /* ---- 7. Studio materials from Valise (Fía, 2026-09-27). ----
+       The plugin prints Tom's Valise vault server-side as window.TL_VALISE
+       ([title, year, medium, dimensions]); any caption the page left bare
+       gets its materials and size, matched by title (+ year when known). */
+    var VALISE = window.TL_VALISE || [];
+    if (VALISE.length && body.classList.contains('tl-studio-detail')) {
+        var key = function (t) {
+            return clean(t).toLowerCase().replace(/[‘’']/g, '').replace(/&/g, 'and')
+                .replace(/\(.*?\)/g, '').replace(/[^a-z0-9]+/g, ' ').replace(/^(the|a|an) /, '').trim();
+        };
+        var byTitle = {};
+        VALISE.forEach(function (w) { (byTitle[key(w[0])] = byTitle[key(w[0])] || []).push(w); });
+        var matched = 0;
+        document.querySelectorAll('.tl-cap').forEach(function (cap) {
+            if (cap.querySelector('.tl-cap-detail')) return;
+            var t = cap.querySelector('.tl-cap-title i');
+            if (!t) return;
+            var year = (cap.querySelector('.tl-cap-title').textContent.match(/(\d{4})\s*$/) || [])[1];
+            var hits = byTitle[key(t.textContent)] || [];
+            var w = hits.filter(function (h) { return !year || String(h[1]).indexOf(year) === 0; })[0] || (hits.length === 1 && !year ? hits[0] : null);
+            if (!w) return;
+            [w[2], w[3]].forEach(function (v) {
+                if (!v) return;
+                var sp = document.createElement('span');
+                sp.className = 'tl-cap-detail';
+                sp.textContent = clean(v).replace(/\s+[xX]\s+/g, ' × ');
+                cap.appendChild(sp);
+            });
+            matched++;
+        });
+        body.setAttribute('data-tl-valise', matched + '/' + document.querySelectorAll('.tl-cap').length);
+    }
+
+    /* ---- 8. Exhibition pages carry the index card's venue (Fía, 2026-09-27). ----
+       "Venue · date" under the title, keeping the page's own (more exact) date. */
+    var CONTEXT = {
+        '/elementor-1878': ['CalArts, Valencia, California', ''],
+        '/art-in-context-dissent': ['LACE, Los Angeles', ''],
+        '/art-in-context-hot-coffee': ['REDCAT, Los Angeles', ''],
+        '/art-in-context-hot-coffee-2': ['Artists Space, New York', '1997'],   /* page said 1973 — the Douthwaite year */
+        '/art-in-context-shimmer': ['Municipal Art Gallery at Barnsdall Park, Los Angeles', ''],
+        '/art-in-context-the-british-art-show': ['Manchester · Edinburgh · Cardiff', ''],
+        '/art-in-context-nostalgia-as-reference': ['P.S.1 and The Clocktower, New York', ''],
+        '/art-in-context-livin-in-the-usa': ['Damon Brandt Gallery, New York', ''],
+        '/critical-perspectives-art-in-context': ['P.S.1, New York', ''],
+        '/reallife-magazine-presents-whitecolumns-art-in-context': ['White Columns, New York', ''],
+        '/art-in-context-reallife-presents': ['Nigel Greenwood Gallery, London', ''],
+        '/pat-douthewaite-art-in-context': ['St Andrews Festival, St Andrews', '']
+    };
+    var ctx = CONTEXT[path];
+    if (ctx && firstTitle && !document.querySelector('.tl-context-line')) {
+        if (path === '/pat-douthewaite-art-in-context') {
+            document.querySelectorAll('.elementor-heading-title').forEach(function (h) {
+                h.innerHTML = h.innerHTML.replace(/Douthewaite/g, 'Douthwaite');
+            });
+            document.title = document.title.replace(/Douthewaite/g, 'Douthwaite');
+        }
+        var tw = firstTitle.closest('.elementor-widget');
+        var next = tw && tw.nextElementSibling;
+        var dateNode = next && next.classList.contains('elementor-widget-heading') ? next.querySelector('.elementor-heading-title') : null;
+        var date = ctx[1] || (dateNode ? clean(dateNode.textContent) : '');
+        date = date.replace(/\s*[-–]\s*/g, '–');
+        var line = document.createElement('p');
+        line.className = 'tl-context-line';
+        line.textContent = [ctx[0], date].filter(Boolean).join(' · ');
+        if (dateNode) next.style.display = 'none';
+        tw.parentNode.insertBefore(line, tw.nextSibling);
     }
 })();
 
