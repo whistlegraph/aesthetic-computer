@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 196;
+const buildVersion = 197;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -12525,11 +12525,13 @@ function updateSpin(player, dt) {
   if (!spin) return;
   const before = spin.angle;
   spin.angle += spin.rate * dt * spin.direction;
-  // A whir each quarter turn, rising with the rpm; the board's wheels click.
-  const quarter = (angle) => Math.floor(angle / (Math.PI / 2));
-  if (quarter(before) !== quarter(spin.angle)) {
-    playSine(150 + spinRpm(player) * 1.6, .045);
-    if (player.skateboard) playDrum("hat", .25 + Math.min(.4, spin.rate / 60), panPlayer(player));
+  // Air swishes follow rotation; a short refractory time bounds polyphony.
+  spin.swishWait=Math.max(0,(spin.swishWait||0)-dt);
+  const quarter=angle=>Math.floor(angle/(Math.PI/2));
+  if(quarter(before)!==quarter(spin.angle)&&spin.swishWait===0){
+    const effort=clamp(spin.rate/spinTop,0,1);
+    playDrum('whoosh',.08+effort*.4,clamp(panPlayer(player)+Math.sin(spin.angle)*.3,-1,1));
+    spin.swishWait=.14;
   }
   // It marks the ground each half turn: rubber arcs where the wheels orbit,
   // or a scuffed ring under the pivot foot.

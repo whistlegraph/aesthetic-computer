@@ -7,7 +7,7 @@ function playground(legacyAudio=false){
  let now=1e6;const noop=()=>{},audio=[],drums=[];
  const api=new Function('runtime','capabilities','telemetry','gameSignal','drum','wipe','box','line','triangle','write','systemWrite','oscillator','oscillatorStop',`${source}
  configureWorldMap('skatepark','pool');fightOpponent='freeskate';gameMode='fight';
- return {bloodDrops,popCivilianHead,updateFootprints,playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
+ return {updateSpin,bloodDrops,popCivilianHead,updateFootprints,playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
  parkHalfPipe3D,parkHalfPipeHeight,parkDeckY,poolFloorAt,poolSlopeAt,gunPickups,axePickup,
  resetParkSupply,updateParkSupply,updateGunPickups,resetParkKids,updateParkKids,parkKids,
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
@@ -567,4 +567,10 @@ test('severed civilian head produces blood spray, ground stain and connected fal
  const a=playground();a.resetParkKids();const kid=a.parkKids[0],g=a.runnerWorldGeometry(kid,0);
  a.popCivilianHead(kid,a.players[0],g,a.now());assert.ok(kid.headless&&kid.looseHead&&!kid.alive);
  assert.ok(a.bloodDrops.length>=20);assert.ok(a.decals.some(d=>d.kind==='blood'));assert.ok(a.ragdollBodies.has(kid));
+});
+
+test('spinning swishes are stronger at high RPM, bounded and stop with the spin',()=>{
+ const measure=rate=>{const a=playground(),p=a.players[0];p.grounded=false;p.spin={angle:0,rate,direction:1};for(let i=0;i<60;i++)a.updateSpin(p,1/60);return {a,p,hits:a.drums.filter(d=>d.name==='whoosh')};};
+ const slow=measure(4),fast=measure(34);assert.ok(fast.hits.length>slow.hits.length);assert.ok(fast.hits.length<=8);assert.ok(fast.hits[0].gain>slow.hits[0].gain);
+ fast.p.spin=null;const count=fast.a.drums.length;fast.a.updateSpin(fast.p,1);assert.equal(fast.a.drums.length,count);
 });
