@@ -55,10 +55,29 @@ and wait. Deleting a reel is outward-facing and cannot be undone. A prior
 Never delete anything that is not in the trim output. If a reel looks bad but
 the policy did not propose it, say so and leave it.
 
-## 4. Delete each one in Chrome
+## 4. Delete them headless with `delete.mjs`
+
+```sh
+node xbox/live/marketing/delete.mjs <mediaId> …             # dry run: every ⋯ menu offers Delete?
+node xbox/live/marketing/delete.mjs <mediaId> … --confirm --record
+```
+
+It drives Instagram's web page in Lightpanda (falling back to headless
+Chrome), from a profile of its own at `~/.local/share/oskiewar-ig-browser`, so
+the everyday Chrome is never switched to another account. It stops on the
+first menu that offers Report instead of Delete, and records only what the
+official media listing no longer has. Pass `--reason` for anything that is not
+a policy trim. Lightpanda's binary comes from `npm i @lightpanda/browser`
+(into `~/.cache/lightpanda-node/`); without it the script uses Chrome.
+
+If it says `not logged in — run --login`, the session has expired. Logging in
+is @jeffrey's: `node xbox/live/marketing/delete.mjs --login` opens the one
+visible window, and they type the password. Never type it for them.
+
+The manual road below is the fallback when the script cannot get through.
 
 Invoke the `claude-in-chrome` skill, then `tabs_context_mcp` first. If the
-extension is not connected, stop and say so — there is no fallback.
+extension is not connected, stop and say so.
 
 For each candidate, open its `permalink`, then: the `⋯` menu on the post →
 **Delete** → confirm in the dialog.
