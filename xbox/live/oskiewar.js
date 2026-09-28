@@ -2222,8 +2222,10 @@ const commandStreamTypeSize = (handleSize) => Math.max(18,
   Math.round(handleSize * (compactLayout() ? .8 : .88)));
 const commandHoldUs = 1100000;
 const commandFadeUs = 1900000;
+// PunchL rides last: it marks a punch thrown with the left hand (X, or Q),
+// so the striking arm — which is also the hitbox — is part of the input.
 const replayButtons = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
-  "A", "B", "X", "Y"];
+  "A", "B", "X", "Y", "PunchL"];
 let cameraCenter = (worldLeft + worldRight) / 2;
 let cameraWidth = worldRight - worldLeft;
 let cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
@@ -5832,30 +5834,38 @@ function samplePad(index) {
     pad.down = translateButtons(index, pad.down);
   return pad;
 }
-// Per-pad chord state. A and X wait two samples for each other so a bubble
-// never starts with a stray kick or punch; a tap shorter than the wait still
-// arrives, as a four-sample press.
+// Per-pad chord state. A, X and Y wait two samples for a partner — A+X is
+// the bubble, X+Y the grab — so a chord never starts with a stray kick or
+// punch; a tap shorter than the wait still arrives, as a four-sample press.
 const buttonChords = [];
-function translateButtons(index, down) {
-  const s = buttonChords[index] ||= { a: 0, x: 0, holdA: 0, holdX: 0, latched: false };
-  const A = down.includes("A"), X = down.includes("X");
-  if (!A && s.a > 0 && s.a < 3 && !s.latched) s.holdA = 4;
-  if (!X && s.x > 0 && s.x < 3 && !s.latched) s.holdX = 4;
-  s.a = A ? s.a + 1 : 0; s.x = X ? s.x + 1 : 0;
-  if (A && X) s.latched = true;
-  else if (!A && !X) s.latched = false;
-  const p = players[index] || players[0], park = poolOnly() || depthControls();
+function translateButtons(index, down, seat = index) {
+  const s = buttonChords[index] ||= { a: 0, x: 0, y: 0, holdA: 0, holdX: 0, holdY: 0, latch: "" };
+  const A = down.includes("A"), X = down.includes("X"), Y = down.includes("Y");
+  if (!s.latch) {
+    if (!A && s.a > 0 && s.a < 3) s.holdA = 4;
+    if (!X && s.x > 0 && s.x < 3) s.holdX = 4;
+    if (!Y && s.y > 0 && s.y < 3) s.holdY = 4;
+  }
+  s.a = A ? s.a + 1 : 0; s.x = X ? s.x + 1 : 0; s.y = Y ? s.y + 1 : 0;
+  if (!s.latch) s.latch = A && X ? "bubble" : X && Y ? "grab" : "";
+  else if (!A && !X && !Y) s.latch = "";
+  const p = players[seat] || players[0], park = poolOnly() || depthControls();
   const vehicle = p.skateboard || p.goKart || p.onewheel, gun = p.gunAmmo > 0;
   const out = down.filter((b) => b !== "A" && b !== "B" && b !== "X" && b !== "Y");
   const add = (b) => { if (!out.includes(b)) out.push(b); };
-  const kickHeld = !s.latched && (A && s.a >= 3 || s.holdA > 0);
-  const punchHeld = !s.latched && (X && s.x >= 3 || s.holdX > 0);
+  const held = (on, age, hold) => !s.latch && (on && age >= 3 || hold > 0);
+  const kick = held(A, s.a, s.holdA), left = held(X, s.x, s.holdX), right = held(Y, s.y, s.holdY);
   if (s.holdA > 0) s.holdA--;
   if (s.holdX > 0) s.holdX--;
-  if (s.latched && A && X) add(park ? "RightShoulder" : "X");
-  if (kickHeld) add(park ? (vehicle ? "ArrowUp" : "Y") : "A");
-  if (punchHeld) add(park && gun ? "Y" : "B");
-  if (down.includes("Y")) add(gun || (!park && heldItem(p)) ? "Y" : "B");
+  if (s.holdY > 0) s.holdY--;
+  if (s.latch === "bubble" && A && X) add(park ? "RightShoulder" : "X");
+  // The 2D fight's grab is its internal A+B; the park has no hold yet.
+  if (s.latch === "grab" && X && Y && !park) { add("A"); add("B"); }
+  if (kick) add(park ? (vehicle ? "ArrowUp" : "Y") : "A");
+  if (left || right) {
+    add(gun || (right && !park && heldItem(p)) ? "Y" : "B");
+    if (left && !right) add("PunchL");
+  }
   if (down.includes("B")) add(park ? "A" : "ArrowUp");
   return out;
 }
@@ -8267,7 +8277,7 @@ function blendRoundViewerStates(from, to, t, seconds) {
 // vocabulary, no system keys. View and Menu stay local: a rival must never
 // toggle the host's debug overlay or send their game back to the title.
 const versusInputButtons = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
-  "A", "B", "X", "Y", "LeftShoulder", "RightShoulder"];
+  "A", "B", "X", "Y", "LeftShoulder", "RightShoulder", "PunchL"];
 // The buttons of the last frame the wire actually took, held apart from the
 // whole frame so a press can be told from a stick twitch.
 let versusInputLastDown = "[]";
@@ -8286,8 +8296,13 @@ function sendChallengerInput(now) {
   if (!versusAllowed()) return;
   const pad = typeof gamepad === "function" ? gamepad(0) : null;
   if (!pad) return;
-  const down = (pad.down || [])
-    .filter((button) => versusInputButtons.includes(button)).slice(0, 10);
+  // The host reads internal buttons, so the challenger's pad is translated
+  // here too (its own chord slot, seated as player two).
+  const raw = Array.isArray(pad.down) && shellMode === "GAME" &&
+    globalThis.__oskiewarLegacyButtons !== true
+    ? translateButtons(2, pad.down, 1) : pad.down || [];
+  const down = raw
+    .filter((button) => versusInputButtons.includes(button)).slice(0, 11);
   const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
   const frame = { down, leftX: round2(pad.leftX), leftY: round2(pad.leftY) };
   const worn = JSON.stringify(frame);
@@ -11274,10 +11289,15 @@ function startMelee(player, kind, now) {
   // updatePlayer detects the edge; holding a button does not auto-repeat.
   const spec = meleeSpecs[kind];
   if (!spec) return;
+  // A bare-handed punch strikes with the hand the input named (PunchL is the
+  // left); an item keeps its own hand.
+  const bare = kind === "PUNCH" && !player.itemArm && player.punchArm &&
+    hasPart(player, player.punchArm);
   const attackingPart = kind === "KICK"
     ? player.facing > 0 ? "right-leg" : "left-leg"
-    : itemHand(player);
+    : bare ? player.punchArm : itemHand(player);
   if (!hasPart(player, attackingPart)) return;
+  player.strikeArm = kind === "KICK" ? "" : attackingPart;
   player.attackKind = kind;
   player.lowKick = kind === "KICK" &&
     (player.ducking || (player.crouchBlend || 0) > .35);
@@ -12973,7 +12993,7 @@ function updatePoolPlayer(p, pad, dt, now) {
   if(now>=p.attackUntil)p.attackKind='';
   if(p.itemAction&&now>=p.itemActionUntil)p.itemAction='';
   if(!blocking){
-    if(pressed('B')&&(!p.chalkColor||combatMode))startMelee(p,'PUNCH',now);
+    if(pressed('B')&&(!p.chalkColor||combatMode)){p.punchArm=pad.down.includes('PunchL')?'left-arm':'right-arm';startMelee(p,'PUNCH',now);}
     if(pressed('Y')||(held.includes('Y')&&p.gunMode==='RUBBER SMG')){
       if(p.gunAmmo>0&&now>=(p.nextGunShotAt||0)&&availableArm(p))fireGun(p,{horizontal:1,vertical:0});
       else if(!p.gunAmmo)startMelee(p,'KICK',now);
@@ -13746,8 +13766,10 @@ function updatePlayer(player, pad, dt, now) {
       }
       else if (acting && !grabHeld && button === "A")
         startMelee(player, "KICK", now);
-      else if (acting && !grabHeld && button === "B")
+      else if (acting && !grabHeld && button === "B") {
+        player.punchArm = pad.down.includes("PunchL") ? "left-arm" : "right-arm";
         startMelee(player, itemMelee[heldItem(player)] || "PUNCH", now);
+      }
       else if (headOnly && !hitStunned && button === "A")
         spit(player, false);
       else if (headOnly && !hitStunned && button === "B")
@@ -16213,7 +16235,7 @@ function buildRunnerWorldGeometry(player, t, at = null) {
   // arm has to name that same part. Naming it by facing alone tagged the
   // reaching capsules with the opposite arm the moment a fighter turned around
   // while armed — shooting off one arm then erased the other one's limb.
-  const actionArm = itemHand(player) ||
+  const actionArm = (player.attackKind && player.strikeArm) || itemHand(player) ||
     (player.facing > 0 ? "right-arm" : "left-arm");
   const rearArm = actionArm === "right-arm" ? "left-arm" : "right-arm";
   const actionLeg = player.facing > 0 ? "right-leg" : "left-leg";

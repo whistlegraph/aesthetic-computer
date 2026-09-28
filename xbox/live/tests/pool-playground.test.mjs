@@ -791,12 +791,33 @@ test('one pad layout: A kick or gas, X punch, Y other hand, B jump, A+X bubble',
  // A tap shorter than the wait still lands, held long enough to read.
  out=run([['X'],[],[],[],[],[]]);
  assert.ok(out.slice(1,5).every(f=>f.includes('B')),'short X tap becomes a held punch');
- // B jumps, Y is the other hand's punch.
+ // B jumps.
  assert.ok(a.translateButtons(0,['B']).includes('A'));
- assert.ok(a.translateButtons(0,['Y']).includes('B'));
+ run([[],[],[],[],[]]);
+ // X punches with the left hand (PunchL rides the input), Y with the right.
+ out=run([['X'],['X'],['X']]);
+ assert.ok(out[2].includes('B')&&out[2].includes('PunchL'));
+ run([[],[],[],[],[]]);
+ out=run([['Y'],['Y'],['Y']]);
+ assert.ok(out[2].includes('B')&&!out[2].includes('PunchL'));
+ run([[],[],[],[],[]]);
+ // X and Y together are the grab: no punch from either hand.
+ out=run([['X','Y'],['X','Y'],['X','Y'],['X','Y']]);
+ for(const f of out)assert.ok(!f.includes('B'));
  run([[],[],[],[],[]]);
  // On a board, A is the gas.
  p.skateboard=true;
  out=run([['A'],['A'],['A']]);
  assert.ok(out[2].includes('ArrowUp'));
+});
+test('a punch strikes with the hand the input names',()=>{
+ for(const [down,arm] of [[['B','PunchL'],'left-arm'],[['B'],'right-arm']]){
+  const a=playground(),p=a.players[0];
+  a.step([]);a.step(down);
+  assert.equal(p.attackKind,'PUNCH');
+  let striking=[];
+  for(let f=0;f<8&&!striking.length;f++){a.step(down);striking=a.runnerWorldGeometry(p,0).segments.filter(s=>/^attack-/.test(s.role||''));}
+  assert.ok(striking.length,'the punch poses an attacking limb');
+  for(const s of striking)assert.equal(s.part,arm,`${down} punches with ${arm}`);
+ }
 });
