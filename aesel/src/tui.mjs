@@ -1144,6 +1144,22 @@ end repeat`;
   spawn("/bin/sh", ["-c", `sleep 0.7; /usr/bin/osascript -e '${script.replace(/'/g, "'\\''")}'`], { detached: true, stdio: "ignore" }).unref();
 }
 
+// A pro session makes pieces and publishes them with `ac publish`, which
+// prints the piece's address. Seeing one tells Slab there is a piece now —
+// its name and version on the strip, its live preview in the corner — the
+// same fields a piece session reports from its own publishing.
+const pieceVersions = new Map();
+function notePublished(output) {
+  const match = /https:\/\/aesthetic\.computer\/@([\w.-]+)\/([\w.-]+)/.exec(output);
+  if (!match) return;
+  const [, handle, slug] = match;
+  const version = (pieceVersions.get(slug) || 0) + 1;
+  pieceVersions.set(slug, version);
+  slabSession.live(`${slug}.mjs`, `prompt.ac/@${handle}/${slug}`, `${handle}/${slug}`);
+  slabSession.published();
+  slabSession.revision({ version, revision: "", updatedAt: new Date().toISOString() });
+}
+
 // Read the account's braincells: what is left of today's free allowance plus
 // what was bought. Quietly keeps the last number when the site can't be reached.
 let braincellsAt = 0;
@@ -1535,6 +1551,7 @@ function handleNotification({ method, params = {} }) {
       break;
     }
     case "item/commandExecution/outputDelta": {
+      if (pro && params.delta) notePublished(String(params.delta));
       const entry = state.entries.find((candidate) => candidate.id === params.itemId);
       if (entry && params.delta) {
         const lastLine = cleanText(params.delta).trim().split("\n").at(-1);
