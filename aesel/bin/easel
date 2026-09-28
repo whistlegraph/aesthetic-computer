@@ -39,6 +39,7 @@ Usage: ac [directory] [--runtime mjs|lisp|processing]
        aesthetic doctor
        aesthetic login | logout | whoami
        aesthetic publish <file> [slug]
+       aesthetic colors <colour…>
 
 Open the aesel terminal interface in a workspace, or manage the
 shared Aesthetic Computer sign-in (~/.ac-token) and publish a piece under
@@ -136,7 +137,7 @@ case "${1:-}" in
         shift
         exec node "$PROJECT_DIR/src/history-cli.mjs" "$@"
         ;;
-    login|logout|whoami|publish)
+    login|logout|whoami|publish|colors)
         has_command node || fail "Node.js is required"
         exec node "$PROJECT_DIR/src/cli.mjs" "$@"
         ;;

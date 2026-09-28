@@ -1,9 +1,11 @@
 #!/usr/bin/env node
-// cli.mjs — account and publish subcommands behind `aesthetic`.
+// cli.mjs — account, publish and handle-colour subcommands behind `aesthetic`.
 import "./env.mjs";
 import process from "node:process";
 import { ACSession } from "./ac-session.mjs";
 import { planPublish, publishPiece } from "./publish.mjs";
+import { handleColorPlan } from "./handle-colors.mjs";
+import { SITE } from "./ac-session.mjs";
 
 const [command = "", ...rest] = process.argv.slice(2);
 const session = new ACSession();
@@ -36,6 +38,26 @@ try {
       const result = await publishPiece({ file, slug, session, onStep: (step) => note(`${step}…`) });
       out(result.route);
       if (!result.verified) note("published, but the live file did not read back yet");
+    }
+  } else if (command === "colors") {
+    // Your @handle's letters, painted: one colour repeats, several cycle.
+    // Names (orange, teal, …) or hex. The site keeps them; everything that
+    // draws your handle — the prompt, Aesel, Slab's rocks — reads them back.
+    const handle = session.handle;
+    if (!handle) fail("sign in first: ac login");
+    if (!rest.length) fail("usage: ac colors <colour…>   e.g. ac colors orange teal");
+    const colors = handleColorPlan(`@${handle}`, rest);
+    if (process.env.AESEL_DRY_RUN === "1") out(JSON.stringify(colors));
+    else {
+      const token = await session.token();
+      const response = await fetch(`${SITE}/api/handle-colors`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ handle, colors }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) fail(body.message || `the site answered ${response.status}`);
+      out(`@${handle} · ${rest.join(" ")}`);
     }
   } else {
     fail(`unknown command: ${command || "(none)"}`);

@@ -93,7 +93,11 @@ const TOOLBOX = [
   ["puppet", "act on a Mac or browser: click, type, keys (`puppet --help`)"],
   ["slab-ledger", "the fleet's live sessions"],
   ["ac-os", "AC Native OS builds"],
-  ["gh", "GitHub"],
+  ["ac", "the person's AC account: `ac whoami`, `ac publish <file> [slug]`, `ac colors orange teal` (their @handle's letter colours, names or hex, cycling)"],
+  ["rg", "ripgrep, for searching code — never grep -r"],
+  ["fd", "find files by name, fast"],
+  ["jq", "JSON"],
+    ["gh", "GitHub"],
 ];
 
 export function toolboxInstructions(env = process.env) {
