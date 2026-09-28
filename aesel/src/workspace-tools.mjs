@@ -112,23 +112,30 @@ function clip(text) {
   return `${text.slice(0, MAX_OUTPUT)}\n… cut at ${MAX_OUTPUT} of ${text.length} characters`;
 }
 
+// Each command runs in its own process group, and a timeout or an interrupt
+// kills the whole group. Killing only the shell left its children (a grep -r
+// over a whole repo) holding the output pipe open, so the call never ended.
 function run(command, args, { cwd, signal, timeout = COMMAND_TIMEOUT }) {
   return new Promise((done) => {
-    const child = spawn(command, args, { cwd, signal, env: process.env });
+    const child = spawn(command, args, { cwd, env: process.env, detached: true });
+    const killGroup = () => { try { process.kill(-child.pid, "SIGKILL"); } catch {} };
+    signal?.addEventListener("abort", killGroup, { once: true });
     let output = "";
     const collect = (chunk) => {
       if (output.length < MAX_OUTPUT * 2) output += chunk;
     };
     child.stdout.on("data", collect);
     child.stderr.on("data", collect);
-    const timer = setTimeout(() => child.kill("SIGKILL"), timeout);
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; killGroup(); }, timeout);
     child.on("error", (error) => {
       clearTimeout(timer);
       done({ code: -1, output: output + error.message });
     });
-    child.on("close", (code, killed) => {
+    child.on("close", (code) => {
       clearTimeout(timer);
-      done({ code: killed === "SIGKILL" ? "timeout" : code, output });
+      signal?.removeEventListener("abort", killGroup);
+      done({ code: timedOut ? "timeout" : code, output });
     });
   });
 }

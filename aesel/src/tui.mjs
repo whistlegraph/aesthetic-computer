@@ -53,7 +53,7 @@ import { LivePiece } from "./live.mjs";
 import { exampleConfig, resolveProfile } from "./profile.mjs";
 import { BOTTOM_ROWS, Layout, STATUS_FACTS } from "./layout.mjs";
 import { DraftBroadcast } from "./draft-broadcast.mjs";
-import { applyUpdate, checkForUpdate, currentVersion, installed } from "./updates.mjs";
+import { applyUpdate, checkForUpdate, currentVersion, installed, isNewer } from "./updates.mjs";
 import { publishPiece } from "./publish.mjs";
 import { syncPictureWip, pictureWipAddress } from "./picture-wip.mjs";
 import { publishPicture, publishedPicture } from "./publish-picture.mjs";
@@ -308,6 +308,8 @@ const state = {
   spend: { thread: "", tokens: 0, usd: 0, billed: false },
   // The account's braincells (free today + bought), shared by every session.
   braincells: null,
+  // A newer Aesel ready to run: { version, kind: "checkout" | "release", dismissed }.
+  update: null,
   qr: null,
   // The prompt rock in the menu bar draws this session's code at real pixel
   // resolution, so the transcript does not spend seventeen rows on a worse
@@ -1149,6 +1151,16 @@ async function refreshBraincells() {
   } catch {}
 }
 
+// Become the new code without closing the window: shut down as a quit would,
+// then replace this process with a fresh one on the same thread.
+let restartArgs = null;
+async function restartInPlace() {
+  const args = arguments_.filter((a, i, all) => a !== "--resume" && all[i - 1] !== "--resume");
+  if (engine.threadId) args.push("--resume", engine.threadId);
+  restartArgs = args;
+  return finish(0);
+}
+
 async function finish(code = 0) {
   if (closing || finishing) return;
   finishing = true;
@@ -1217,6 +1229,9 @@ startNativeGamepad();
   // Keep the saved thread’s piece, including an untouched blank, resumable.
   // All durable saves/uploads above have settled; sockets must not delay desktop exit.
   if(desktopSessionPath) process.exit(code);
+  if (restartArgs && typeof process.execve === "function") {
+    process.execve(process.execPath, [process.execPath, fileURLToPath(import.meta.url), ...restartArgs], process.env);
+  }
 }
 
 function errorText(error) {
@@ -2242,26 +2257,27 @@ async function submitInput(submittedText, submittedMessages = null) {
     if (command === "/restart") return requestDesktop("restart");
     if (command === "/update" && desktopSessionPath) return requestDesktop("update");
     if (command === "/update") {
-      if (!installed()) {
-        addEntry("notice", `aesel ${currentVersion()} — running from a checkout, so there is nothing to update. Use git.`);
+      if (rest.trim() === "later") {
+        if (state.update) state.update.dismissed = true;
         return redraw();
       }
-      addEntry("notice", "Checking for a newer aesel…");
-      redraw();
+      if (state.busy) { flash("wait for this turn to finish, then /update"); return redraw(); }
       try {
-        const update = await checkForUpdate({ force: true });
-        if (!update) {
-          addEntry("notice", `aesel ${currentVersion()} is the latest.`);
+        if (installed()) {
+          const update = await checkForUpdate({ force: true });
+          if (!update) { flash(`aesel ${currentVersion()} is the latest`); return redraw(); }
+          flash(`installing aesel ${update.version}…`);
+          redraw();
+          await applyUpdate({ manifest: update });
+        } else if (!(state.update || isNewer(currentVersion(), startedVersion))) {
+          flash(`aesel ${currentVersion()} · a checkout: git pull, then /update`);
           return redraw();
         }
-        addEntry("notice", `Installing aesel ${update.version}…`);
-        redraw();
-        const version = await applyUpdate({ manifest: update });
-        addEntry("notice", `aesel ${version} installed. Restart to run it.`);
+        return restartInPlace();
       } catch (error) {
         addEntry("error", `Update failed: ${errorText(error)}`);
+        return redraw();
       }
-      return redraw();
     }
     if (command === "/versions") {
       if(state.medium!=='piece'){addEntry('notice',(await artifacts.versions()).map(v=>`v${v.version} · ${v.summary}`).join('\n'));return redraw();}
@@ -2900,19 +2916,29 @@ if (state.medium === "piece" && networked) live.watch(liveError);
 if (networked) publishBlankOnce();
 refreshAccount();
 
-// 🆕 Ask once a day, in the background, and say nothing unless there is news.
-// Deliberately not automatic: replacing the tool someone is mid-sentence with
-// is the wrong kind of surprise, and a line they can ignore costs nothing.
-checkForUpdate()
-  .then((update) => {
-    if (!update) return;
-    addEntry(
-      "notice",
-      `aesel ${update.version} is out — you have ${update.current}. Run /update to install it.`,
-    );
-    redraw();
-  })
-  .catch(() => {});
+// 🆕 A newer Aesel, announced in the window that is already open. A release
+// install asks the feed every half hour; a checkout notices its own
+// package.json moving past the version this window started on (a git pull).
+// Nothing installs itself: the banner says so, and /update does it.
+const startedVersion = currentVersion();
+function announceUpdate(version, kind) {
+  if (!version || (state.update && !isNewer(version, state.update.version))) return;
+  state.update = { version, kind, dismissed: false };
+  redraw();
+}
+async function lookForUpdate(force = false) {
+  if (installed()) {
+    const update = await checkForUpdate({ force }).catch(() => null);
+    if (update) announceUpdate(update.version, "release");
+  } else {
+    const onDisk = currentVersion();
+    if (onDisk && startedVersion && isNewer(onDisk, startedVersion)) announceUpdate(onDisk, "checkout");
+  }
+}
+void lookForUpdate();
+setInterval(() => void lookForUpdate(installed()), installed() ? 30 * 60 * 1000 : 60 * 1000).unref();
+// The banner flashes on a slow beat; the beat only runs while it shows.
+setInterval(() => { if (state.update && !state.update.dismissed) { state.nowMs = Date.now(); redraw(); } }, 650).unref();
 // Every save that reaches the phone is a candidate for the public URL too, and
 // so is the blank. That reverses an earlier rule — an untouched session used to
 // leave nothing behind, out there or in the workspace — because the address on

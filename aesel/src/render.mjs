@@ -860,7 +860,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     const trayMuted = useColor ? fg(light ? [110, 110, 110] : [150, 150, 150]) : "";
     const onTray = (row) => (useColor ? `${trayGround}${String(row).replace(/\x1b\[0m/g, `\x1b[0m${trayGround}`).replace(new RegExp(color.ground.replace(/[[\]\\]/g, "\\$&"), "g"), trayGround).replace(new RegExp(color.muted.replace(/[[\]\\]/g, "\\$&"), "g"), trayMuted)}${trayGround}` : row);
     const trayRows = shape.bottom.map((name) => onTray(name === "bar" ? bar : name === "gap" ? fit("", width) : rows[name]?.() ?? ""));
-    return paintDropdown([...shown, ...trayRows].slice(0, height), state, width, height, useColor, shape)
+    return paintUpdate(paintDropdown([...shown, ...trayRows].slice(0, height), state, width, height, useColor, shape), state, width, height - shape.bottom.length, useColor)
       .map((line) => `${ground}${fit(line, width)}${reset}`)
       .join("\n");
   }
@@ -955,6 +955,31 @@ export function dropdownGeometry(state, width, height, shape = state.layout || {
   // Row 0 is the title; rows 1..count are the choices; all sit above the anchor.
   const top = anchor - count - 1;
   return { x, top, count, start, index, items, labelWidth, detailWidth, boxWidth, title: drop.title || "provider · model" };
+}
+
+// A newer Aesel is ready: a banner in the middle of the conversation, flashing
+// red and yellow on a slow beat so a window left open for a week still says so.
+// It holds until /update restarts into the new code or /update later hides it.
+function paintUpdate(rows, state, width, area, useColor) {
+  const update = state.update;
+  if (!update || update.dismissed) return rows;
+  const lines = [
+    `✦ Aesel ${update.version} is ready ✦`,
+    update.kind === "checkout" ? "/update restarts into it · this thread comes with you" : "/update installs it and restarts · this thread comes with you",
+    "/update later hides this",
+  ];
+  const inner = Math.min(width - 4, Math.max(...lines.map((line) => textWidth(line))) + 4);
+  if (inner < 20 || area < lines.length + 2) return rows;
+  const x = Math.max(0, Math.floor((width - inner) / 2));
+  const top = Math.max(0, Math.floor((area - lines.length - 2) / 2));
+  const red = Math.floor((state.nowMs ?? Date.now()) / 650) % 2 === 0;
+  const paintRow = (text) => useColor
+    ? `${bg(red ? [215, 40, 50] : [250, 205, 40])}${fg(red ? [255, 250, 235] : [40, 20, 10])}\x1b[1m${fit(` ${text}`, inner)}\x1b[22m${color.reset}${color.ground}`
+    : fit(` ${text}`, inner);
+  const box = ["", ...lines.map((line) => " ".repeat(Math.max(0, Math.floor((inner - 2 - textWidth(line)) / 2))) + line), ""];
+  const out = [...rows];
+  box.forEach((text, i) => { const y = top + i; if (y < out.length) out[y] = `${fit(out[y], x)}${paintRow(text)}`; });
+  return out;
 }
 
 function paintDropdown(rows, state, width, height, useColor, shape) {
