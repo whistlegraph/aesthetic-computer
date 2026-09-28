@@ -131,6 +131,13 @@ export function contextMap(contextDir) {
   ].join("\n");
 }
 
+// Commands see Aesel's own bin folder first, then ~/.local/bin. macOS ships an
+// unrelated /usr/sbin/ac (login accounting), and a login shell's path_helper
+// put it ahead of Aesel's, so `ac publish` ran the wrong program. The shell is
+// not a login shell for the same reason: it would reorder PATH again.
+const AESEL_BIN = resolve(new URL("..", import.meta.url).pathname, "bin");
+const TOOL_ENV = { ...process.env, PATH: [AESEL_BIN, resolve(process.env.HOME || "", ".local/bin"), process.env.PATH || "/usr/bin:/bin"].join(":") };
+
 function clip(text) {
   if (text.length <= MAX_OUTPUT) return text;
   return `${text.slice(0, MAX_OUTPUT)}\n… cut at ${MAX_OUTPUT} of ${text.length} characters`;
@@ -141,7 +148,7 @@ function clip(text) {
 // over a whole repo) holding the output pipe open, so the call never ended.
 function run(command, args, { cwd, signal, timeout = COMMAND_TIMEOUT }) {
   return new Promise((done) => {
-    const child = spawn(command, args, { cwd, env: process.env, detached: true });
+    const child = spawn(command, args, { cwd, env: TOOL_ENV, detached: true });
     const killGroup = () => { try { process.kill(-child.pid, "SIGKILL"); } catch {} };
     signal?.addEventListener("abort", killGroup, { once: true });
     let output = "";
@@ -221,7 +228,7 @@ export async function runWorkspaceTool(name, input = {}, { cwd, signal, approve 
   if (name === "bash") {
     const command = String(input.command || "");
     if (!(await approve("command", command))) throw new Error("The person declined this command.");
-    const { code, output } = await run("bash", ["-lc", command], { cwd, signal });
+    const { code, output } = await run("bash", ["-c", command], { cwd, signal });
     return clip(`${output}${output.endsWith("\n") || !output ? "" : "\n"}[exit ${code}]`);
   }
 
