@@ -335,3 +335,16 @@ test('native polling delivers star edits once and drains the queue',()=>{
   a.netDrainHostInbox();assert.equal(polls,2);assert.equal(globalThis.__oskiewarNetInbox.length,0);
  }finally{delete globalThis.oskiewarNetPoll;delete globalThis.__oskiewarNetInbox;delete globalThis.__oskiewarRenderFlags;}
 });
+
+test('live star edits render their fairy captions without stopping the frame',()=>{
+ const a=playground(),p=a.players[0];p.skin='pastel';
+ a.cameraDoll.snap({position:{x:p.x+300,y:p.y-130,z:40},target:{x:p.x,y:p.y-130,z:0},width:1650,perspective:1});
+ try{
+  for(const intent of [2,1,0]){
+   globalThis.__oskiewarNetInbox=[{kind:'render-flags',flags:{shirtSymbol:2,aeselPulse:intent+1,aeselIntent:intent}}];
+   a.netDrainHostInbox();
+   assert.doesNotThrow(()=>a.drawRunner(p,0));
+   assert.doesNotThrow(()=>a.drawAeselFairy(0),`intent ${intent} renders`);
+  }
+ }finally{delete globalThis.__oskiewarNetInbox;delete globalThis.__oskiewarRenderFlags;}
+});

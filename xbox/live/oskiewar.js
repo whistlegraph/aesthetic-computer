@@ -4059,7 +4059,7 @@ function drawAeselFairy(t){
   if(label){
     const p=cameraDoll.project(c),saved=triangleDepth,size=18,w=handleWidth(label,size);
     if(Number.isFinite(p.x)&&Number.isFinite(p.y)){
-      const x=Math.max(24,Math.min(viewWidth()-w-24,p.x-w/2)),y=Math.max(32,Math.min(viewHeight()-48,p.y-42));
+      const x=Math.max(24,Math.min(viewWidth()-w-24,p.x-w/2)),y=Math.max(32,Math.min(viewHeight-48,p.y-42));
       triangleDepth=-1.49;screenRect(x-8,y-5,w+16,30,[31,24,41]);typeWrite(label,x,y,size,255,231,180);triangleDepth=saved;
     }
   }

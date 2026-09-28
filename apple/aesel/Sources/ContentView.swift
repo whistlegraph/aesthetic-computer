@@ -1010,18 +1010,23 @@ private struct CurtainAccountButtonStyle: ButtonStyle {
 private final class OskiewarAttachment: ObservableObject {
     @Published var status = ""
     @Published var editStatus = ""
+    private var intent = 0
+    private var starRequested = false
     func setIntent(_ value: Int) {
+        intent = value
         guard let socket else { return }
         Task { try? await socket.send(.string("{\"type\":\"oskiewar:flags\",\"content\":{\"aeselIntent\":\(value)}}")) }
     }
     func applyStar() {
         guard let socket, status.hasPrefix("Connected") else { editStatus = "Connect to a game first"; return }
+        starRequested = true; intent = 2
         Task {
             do {
-                try await socket.send(.string("{\"type\":\"oskiewar:flags\",\"content\":{\"aeselIntent\":2}}"))
-                try await socket.send(.string("{\"type\":\"oskiewar:flags\",\"content\":{\"shirtSymbol\":2}}"))
+                try await socket.send(.string("{\"type\":\"oskiewar:flags\",\"content\":{\"aeselIntent\":2,\"shirtSymbol\":2}}"))
                 editStatus = "Star sent to game"
                 try await Task.sleep(nanoseconds: 3_000_000_000)
+                guard self.socket === socket else { return }
+                intent = 0
                 try await socket.send(.string("{\"type\":\"oskiewar:flags\",\"content\":{\"aeselIntent\":0}}"))
             } catch { editStatus = "Could not send star" }
         }
@@ -1033,6 +1038,7 @@ private final class OskiewarAttachment: ObservableObject {
 
     func disconnect() {
         receiver?.cancel(); heartbeat?.cancel()
+        intent = 0; starRequested = false
         socket?.cancel(with: .goingAway, reason: nil)
         socket = nil; receiver = nil; heartbeat = nil; room = ""; status = "Oskiewar disconnected"
     }
@@ -1065,7 +1071,11 @@ private final class OskiewarAttachment: ObservableObject {
                             do {
                                 while !Task.isCancelled {
                                     pulse = (pulse + 1) % 64
-                                    try await task.send(.string("{\"type\":\"oskiewar:flags\",\"content\":{\"aeselPulse\":\(pulse)}}"))
+                                    guard let self, self.socket === task else { return }
+                                    var flags: [String: Int] = ["aeselPulse": pulse, "aeselIntent": self.intent]
+                                    if self.starRequested { flags["shirtSymbol"] = 2 }
+                                    let data = try JSONSerialization.data(withJSONObject: ["type": "oskiewar:flags", "content": flags])
+                                    try await task.send(.string(String(decoding: data, as: UTF8.self)))
                                     try await Task.sleep(nanoseconds: 1_000_000_000)
                                 }
                             } catch { if !Task.isCancelled { self?.status = "Oskiewar connection lost" } }
