@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0DAD924019F446F88876E94A /* InkOutlines.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EE2644F54ED6192F647BA1B /* InkOutlines.swift */; };
 		1B43BAF5E41E93E3D9208197 /* product-analytics.mjs in Resources */ = {isa = PBXBuildFile; fileRef = A5CDAFE515D4323680797051 /* product-analytics.mjs */; };
 		1BB115B2B2EC50D3FFBD88D4 /* scene3d-webgl.mjs in Resources */ = {isa = PBXBuildFile; fileRef = BF7515E8A95A1944C5424BD3 /* scene3d-webgl.mjs */; };
 		21F3367D32F88CB3B2A52859 /* oskiewar-sfx.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 2E725A92F239CBD5114A9A1E /* oskiewar-sfx.mjs */; };
@@ -34,6 +35,7 @@
 		179EE75D06881E64B8C2C164 /* ComicRelief-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ComicRelief-Regular.ttf"; sourceTree = "<group>"; };
 		26C7F4ADC37CB30558AAE696 /* oskiewar-midi.mjs */ = {isa = PBXFileReference; path = "oskiewar-midi.mjs"; sourceTree = "<group>"; };
 		2E725A92F239CBD5114A9A1E /* oskiewar-sfx.mjs */ = {isa = PBXFileReference; path = "oskiewar-sfx.mjs"; sourceTree = "<group>"; };
+		3EE2644F54ED6192F647BA1B /* InkOutlines.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkOutlines.swift; sourceTree = "<group>"; };
 		474C7E2A33BAAEDAEED939DF /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		4C7C4D62E6C706C3AB30BB3B /* frame-driver.mjs */ = {isa = PBXFileReference; path = "frame-driver.mjs"; sourceTree = "<group>"; };
 		4E537A6D78CBFE2DD45EEA57 /* SdfFigures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SdfFigures.swift; sourceTree = "<group>"; };
@@ -58,6 +60,7 @@
 			isa = PBXGroup;
 			children = (
 				59BD48D8076F347B7FF9A774 /* GlyphAtlas.swift */,
+				3EE2644F54ED6192F647BA1B /* InkOutlines.swift */,
 				812FA65365747604E58B98E7 /* MetalSceneView.swift */,
 				C43902C050551AD2D6DA0EF9 /* OskiewarApp.swift */,
 				4E537A6D78CBFE2DD45EEA57 /* SdfFigures.swift */,
@@ -220,6 +223,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B93964796DBF64A171DD9439 /* GlyphAtlas.swift in Sources */,
+				0DAD924019F446F88876E94A /* InkOutlines.swift in Sources */,
 				7D438ADCB6BECAD5D0E6C8F7 /* MetalSceneView.swift in Sources */,
 				C0C46FBB6805F1A1E055FED7 /* OskiewarApp.swift in Sources */,
 				B2694D04A86822B4F7712ABD /* SdfFigures.swift in Sources */,

@@ -13,7 +13,7 @@ function playground(legacyAudio=false){
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
  boundParkBody,parkWindowWalls,brokenParkWindows,parkWindowShards,resetParkWindows,
  breakParkWindow,updateParkWindowShards,insidePark,parkLotMargin,updateCameraDoll,clearPoolCamera,updateMotorAudio,updateSkateAudio,balls,
- updateSeatHeartbeat,updatePonytail,ponytailAnchor,ponytailStates,drawSpatialRunner,sampleCombatBoxes,sweptProjectileContact,damageParkCivilian,drawAeselFairy,sceneBoundsVisible,buildParkScene,parkActorVisible,figureLod,spectatorQrBox,returnToTitle,beginFreeskate,translateButtons,sessionName:()=>sessionName,
+ updateSeatHeartbeat,updatePonytail,ponytailAnchor,ponytailStates,drawSpatialRunner,sampleCombatBoxes,sweptProjectileContact,damageParkCivilian,drawAeselFairy,sceneBoundsVisible,buildParkScene,parkActorVisible,figureLod,spectatorQrBox,returnToTitle,beginFreeskate,translateButtons,parkHold,throwEmptyGuns,fireGun,sessionName:()=>sessionName,
  state:()=>({halfpipe:parkHalfPipe3D})};`)(()=>({monotonicUs:now}),()=>({platform:'web'}),noop,(event,seat,value,value2)=>{assert.ok(seat>=-1&&seat<=3);assert.ok(Number.isFinite(value)&&Number.isFinite(value2));},(name,gain,pan)=>{if(legacyAudio&&!['kick','snare','hat','block'].includes(name))throw new RangeError('unknown drum');drums.push({name,gain,pan});},noop,noop,noop,noop,noop,noop,(hz,gain)=>audio.push({hz,gain}),()=>audio.push({stop:true}));
  const p=api.players[0];Object.assign(p,{x:1080,z:0,y:api.poolFloorAt(1080,0),grounded:true,alive:true,dummy:false,skateboard:false,poolYaw:0,previous:[],spin:null,directionChanges:[],poolLastSteer:0});
  api.step=(down=[],dt=1/60)=>{now+=dt*1e6;api.updatePlayer(p,{down,leftX:0,leftY:0},dt,api.clock());};
@@ -820,4 +820,28 @@ test('a punch strikes with the hand the input names',()=>{
   assert.ok(striking.length,'the punch poses an attacking limb');
   for(const s of striking)assert.equal(s.part,arm,`${down} punches with ${arm}`);
  }
+});
+test('X+Y lifts the nearest body in front of you and letting go throws it',()=>{
+ const a=playground(),p=a.players[0];
+ a.resetParkKids?.();
+ const kid=a.parkKids.find(k=>k.alive);
+ assert.ok(kid,'the park has kids');
+ Object.assign(kid,{x:p.x+80,z:p.z||0,y:p.y,sparringPartner:undefined});
+ p.poolYaw=0;
+ a.parkHold(p,true,a.now());
+ assert.equal(kid.heldBy,p.pad);
+ a.parkHold(p,true,a.now());
+ assert.ok(Math.abs(kid.x-(p.x+72))<1,'held in front');
+ a.parkHold(p,false,a.now());
+ assert.equal(kid.heldBy,undefined);
+ assert.ok(kid.vx>500&&kid.vy<0,'thrown forward and up');
+});
+test('an emptied gun leaves the hand as a thrown projectile',()=>{
+ const a=playground(),p=a.players[0];
+ Object.assign(p,{gunAmmo:1,gunMode:'PISTOL',poolYaw:0});
+ a.fireGun(p,{down:[],leftX:0,leftY:0});
+ assert.equal(p.gunAmmo,0);assert.ok(p.gunThrowAt>0);
+ a.step();for(let i=0;i<20;i++)a.step();
+ a.throwEmptyGuns(a.now());
+ assert.ok(a.bullets.some(b=>b.thrownGun),'the empty gun is in the air');
 });

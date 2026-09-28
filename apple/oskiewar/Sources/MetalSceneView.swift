@@ -57,6 +57,9 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
     /// Raymarched figures; nil when the device refused the pipeline, and the
     /// piece then draws triangles (sdfFigure returns false).
     private let sdf: SdfFigures?
+    /// The shared ink line; nil falls back to drawing straight to the screen.
+    private let ink: InkOutlines?
+    var inkOutlines = true
     private let uploads = (0..<3).map { _ in Uploads() }
     private let inFlight = DispatchSemaphore(value: 3)
     private var uploadIndex = 0
@@ -143,6 +146,7 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
             fatalError("Metal scene pipeline failed: \(error)")
         }
         sdf = try? SdfFigures(device: device)
+        ink = try? InkOutlines(device: device)
         glyphAtlas = GlyphAtlas(device: device)
         do {
             glyphPipeline = try GlyphAtlas.pipeline(device: device)
@@ -346,7 +350,22 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
         pass.colorAttachments[0].loadAction = .clear
         pass.depthAttachment.clearDepth = 1
         pass.depthAttachment.loadAction = .clear
-        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return }
+        // With ink outlines the world renders offscreen first; the drawable
+        // then receives it through the outline pass, and text goes on last.
+        let offscreen = inkOutlines ? ink?.targets(device: device!, size: drawableSize) : nil
+        var scenePass = pass
+        if let (color, depth) = offscreen {
+            scenePass = MTLRenderPassDescriptor()
+            scenePass.colorAttachments[0].texture = color
+            scenePass.colorAttachments[0].loadAction = .clear
+            scenePass.colorAttachments[0].storeAction = .store
+            scenePass.colorAttachments[0].clearColor = clear
+            scenePass.depthAttachment.texture = depth
+            scenePass.depthAttachment.loadAction = .clear
+            scenePass.depthAttachment.storeAction = .store
+            scenePass.depthAttachment.clearDepth = 1
+        }
+        guard var encoder = command.makeRenderCommandEncoder(descriptor: scenePass) else { return }
         if !vertices.isEmpty {
             _ = vertices.withUnsafeBytes { bytes in
                 memcpy(vertexBuffer.contents(), bytes.baseAddress!, bytes.count)
@@ -399,6 +418,18 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
                 encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6,
                                        instanceCount: run.count)
             }
+        }
+        if let ink, let (color, depth) = offscreen {
+            encoder.endEncoding()
+            guard let screen = command.makeRenderCommandEncoder(descriptor: pass) else { return }
+            encoder = screen
+            var scale = Float(drawableSize.width / max(1, stage.width))
+            encoder.setRenderPipelineState(ink.pipeline)
+            encoder.setDepthStencilState(nil)
+            encoder.setFragmentTexture(color, index: 0)
+            encoder.setFragmentTexture(depth, index: 1)
+            encoder.setFragmentBytes(&scale, length: MemoryLayout<Float>.stride, index: 0)
+            encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
         }
         // Text last and depth-free: the HUD is not in the world, it is over it.
         if !glyphs.isEmpty {

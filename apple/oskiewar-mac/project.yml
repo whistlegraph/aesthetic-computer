@@ -61,6 +61,7 @@ targets:
       # come along and collide with main.swift.
       - path: ../oskiewar/Sources/MetalSceneView.swift
       - path: ../oskiewar/Sources/SdfFigures.swift
+      - path: ../oskiewar/Sources/InkOutlines.swift
       - path: ../oskiewar/Sources/GlyphAtlas.swift
 
       # NativeGameHost.start() reads these back as "live/oskiewar.js" and

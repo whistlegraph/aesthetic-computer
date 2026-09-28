@@ -248,6 +248,9 @@ private final class NativeInput {
 private final class NativeAudio {
     private let engine = AVAudioEngine()
     private var players: [AVAudioPlayerNode] = []
+    /// When each voice's scheduled audio runs out. A new sound takes a voice
+    /// that has gone quiet; queueing behind a 2.2 s chord pad made hits late.
+    private var busyUntil: [Double] = []
     private var chordSamples: [[Double]] = []
     private var cursor = 0
     private let sampleRate = 48_000.0
@@ -269,6 +272,7 @@ private final class NativeAudio {
             engine.attach(player)
             engine.connect(player, to: engine.mainMixerNode, format: format)
             players.append(player)
+            busyUntil.append(0)
         }
         let voicings = [[45,60,64,67,71],[41,60,64,69,72],[48,59,62,64,67],[43,59,62,64,69]]
         chordSamples = voicings.map { notes in
@@ -301,6 +305,16 @@ private final class NativeAudio {
         engine.connect(oscillator, to: engine.mainMixerNode, format: format)
         oscillatorNode = oscillator
         engine.mainMixerNode.outputVolume = 0.72
+        // A peak limiter after the mix: chord pads, drums and the motor drone
+        // overlapping used to sum past full scale and clip, which popped.
+        let limiter = AVAudioUnitEffect(audioComponentDescription: AudioComponentDescription(
+            componentType: kAudioUnitType_Effect, componentSubType: kAudioUnitSubType_PeakLimiter,
+            componentManufacturer: kAudioUnitManufacturer_Apple, componentFlags: 0, componentFlagsMask: 0))
+        engine.attach(limiter)
+        engine.disconnectNodeOutput(engine.mainMixerNode)
+        let output = engine.outputNode.inputFormat(forBus: 0)
+        engine.connect(engine.mainMixerNode, to: limiter, format: output)
+        engine.connect(limiter, to: engine.outputNode, format: output)
         try? engine.start()
     }
 
@@ -367,15 +381,28 @@ private final class NativeAudio {
         buffer.frameLength = buffer.frameCapacity
         let leftGain = sqrt((1 - max(-1, min(1, pan))) * 0.5) * gain
         let rightGain = sqrt((1 + max(-1, min(1, pan))) * 0.5) * gain
-        for frame in 0..<Int(buffer.frameLength) {
+        let count = Int(buffer.frameLength)
+        // 5 ms in and out: a sound that starts or stops on a non-zero sample
+        // is a click, whatever its envelope meant to do.
+        let ramp = max(1, min(count / 2, Int(sampleRate * 0.005)))
+        for frame in 0..<count {
             let time = Double(frame) / sampleRate
-            let progress = Double(frame) / Double(max(1, Int(buffer.frameLength) - 1))
-            let value = Float(max(-1, min(1, sample(time, progress))))
+            let progress = Double(frame) / Double(max(1, count - 1))
+            let edge = Float(min(1, Double(min(frame, count - 1 - frame)) / Double(ramp)))
+            let value = Float(max(-1, min(1, sample(time, progress)))) * edge
             channels[0][frame] = value * Float(leftGain)
             channels[1][frame] = value * Float(rightGain)
         }
-        let player = players[cursor % players.count]
+        let now = CACurrentMediaTime()
+        var voice = players.indices.first { busyUntil[$0] <= now }
+        if voice == nil {
+            voice = players.indices.min { busyUntil[$0] < busyUntil[$1] }
+            players[voice!].stop()
+        }
+        let index = voice ?? cursor % players.count
         cursor += 1
+        busyUntil[index] = now + duration
+        let player = players[index]
         player.scheduleBuffer(buffer)
         if !player.isPlaying { player.play() }
     }

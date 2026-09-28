@@ -2225,7 +2225,7 @@ const commandFadeUs = 1900000;
 // PunchL rides last: it marks a punch thrown with the left hand (X, or Q),
 // so the striking arm — which is also the hitbox — is part of the input.
 const replayButtons = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
-  "A", "B", "X", "Y", "PunchL"];
+  "A", "B", "X", "Y", "PunchL", "Grab"];
 let cameraCenter = (worldLeft + worldRight) / 2;
 let cameraWidth = worldRight - worldLeft;
 let cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
@@ -5859,8 +5859,8 @@ function translateButtons(index, down, seat = index) {
   if (s.holdX > 0) s.holdX--;
   if (s.holdY > 0) s.holdY--;
   if (s.latch === "bubble" && A && X) add(park ? "RightShoulder" : "X");
-  // The 2D fight's grab is its internal A+B; the park has no hold yet.
-  if (s.latch === "grab" && X && Y && !park) { add("A"); add("B"); }
+  // The 2D fight's grab is its internal A+B; the park reads Grab (parkHold).
+  if (s.latch === "grab" && X && Y) { if (park) add("Grab"); else { add("A"); add("B"); } }
   if (kick) add(park ? (vehicle ? "ArrowUp" : "Y") : "A");
   if (left || right) {
     add(gun || (right && !park && heldItem(p)) ? "Y" : "B");
@@ -8277,7 +8277,7 @@ function blendRoundViewerStates(from, to, t, seconds) {
 // vocabulary, no system keys. View and Menu stay local: a rival must never
 // toggle the host's debug overlay or send their game back to the title.
 const versusInputButtons = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
-  "A", "B", "X", "Y", "LeftShoulder", "RightShoulder", "PunchL"];
+  "A", "B", "X", "Y", "LeftShoulder", "RightShoulder", "PunchL", "Grab"];
 // The buttons of the last frame the wire actually took, held apart from the
 // whole frame so a press can be told from a stick twitch.
 let versusInputLastDown = "[]";
@@ -9947,6 +9947,50 @@ function parkFightAxis(p, rival) {
   }
   return p.poolFightAxis;
 }
+// Grab and hold (X+Y, Q+E): in the air on a board it grabs the deck; near
+// someone it lifts them in front of you, where they cannot act, and letting
+// go throws them. Held bodies are addressed by kind and pad, never by
+// reference, so rollback snapshots stay plain data.
+function parkHeldBody(p){
+ if(p.holdPad===undefined)return null;
+ const body=p.holdKid?parkKids.find(k=>k.pad===p.holdPad):players[p.holdPad];
+ return body?.alive&&body.heldBy===p.pad?body:null;
+}
+function parkHold(p,grab,now){
+ const held=parkHeldBody(p);
+ if(p.holdPad!==undefined&&!held){p.holdPad=undefined;p.holdKid=false;}
+ const yaw=p.poolYaw||0,fx=Math.cos(yaw),fz=Math.sin(yaw);
+ if(grab){
+  if(p.skateboard&&!p.grounded){p.skateGrab=true;return;}
+  if(held){
+   held.x=p.x+fx*72;held.z=(p.z||0)+fz*72;held.y=p.y-18;
+   held.vx=held.vz=held.vy=0;held.grounded=true;held.attackKind='';
+   held.hitStunUntil=Math.max(held.hitStunUntil||0,now+120000);held.poolYaw=yaw+Math.PI;
+   return;
+  }
+  if(p.holdTried)return;
+  p.holdTried=true;
+  let best=null,bestD=150;
+  for(const o of [...parkKids,...players]){
+   if(o===p||!o.alive||o.headless||o.dummy||o.heldBy!==undefined)continue;
+   const d=Math.hypot(o.x-p.x,(o.z||0)-(p.z||0));
+   if(d<bestD&&Math.abs(o.y-p.y)<120){best=o;bestD=d;}
+  }
+  if(best){
+   p.holdPad=best.pad;p.holdKid=parkKids.includes(best);best.heldBy=p.pad;
+   if(best.sparringPartner!==undefined)endParkSparring(best);
+   p.pendingMoveLabel='GRAB';playDrum('block',.7,panPlayer(p));emitSignal('grab',p.pad,1,0);
+  }
+  return;
+ }
+ p.holdTried=false;
+ if(held){
+  held.heldBy=undefined;p.holdPad=undefined;p.holdKid=false;
+  held.vx=fx*950+(p.vx||0);held.vz=fz*950+(p.vz||0);held.vy=-520;held.grounded=false;
+  held.thrownUntil=now+900000;held.hitStunUntil=now+700000;
+  p.pendingMoveLabel='THROW';playDrum('kick',.8,panPlayer(p));emitSignal('throw',p.pad,1,0);
+ }
+}
 function endParkSparring(p){
  const rival=p.civilian?players[p.sparringPartner]:parkKids.find(k=>k.pad===p.sparringPartner);
  if(rival?.sparringPartner===p.pad){rival.sparringPartner=undefined;rival.poolFightAxis=null;rival.attackKind='';}
@@ -10581,6 +10625,7 @@ function fireGun(player, input) {
       hitPlayers: 0, rocket: true });
     while (grenades.length > 12) grenades.shift();
     player.gunAmmo -= 1;
+    if (player.gunAmmo <= 0) player.gunThrowAt = now + 250000;
     player.nextGunShotAt = now + 650000;
     player.itemAction = "FIRE";
     player.itemActionStartedAt = now;
@@ -10606,6 +10651,7 @@ function fireGun(player, input) {
   }
   while (bullets.length > 24) bullets.shift();
   player.gunAmmo -= shots;
+  if (player.gunAmmo <= 0) player.gunThrowAt = now + 250000;
   player.nextGunShotAt = now + (laser ? 340000 : smg ? 85000 : 220000);
   player.itemAction = "FIRE";
   player.itemActionStartedAt = now;
@@ -10971,7 +11017,12 @@ function updatePoolBullets(dt,now,combat){
         const hit=sweptProjectileContact([{x1:from.x,y1:from.y,z1:from.z,x2:b.x,y2:b.y,z2:b.z,width:8,role:'bullet',part:'bullet'}],target,t);
         if(!hit||hit.separation>3)continue;
         b.life=0;
-        if(target.blocking)breakShield(target,now);
+        if(b.thrownGun){
+          target.hitStunUntil=now+600000;target.attackKind='';
+          target.vx=(target.vx||0)+b.vx*.25;target.vz=(target.vz||0)+(b.vz||0)*.25;
+          spawnImpact({x:b.x,y:b.y,z:b.z,life:.2,duration:.2,death:false,explosion:false});
+          playDrum('snare',1,panAt(b.x,b.z));
+        }else if(target.blocking)breakShield(target,now);
         else {
           const owner=players[b.owner]||players[0],pose=runnerWorldGeometry(target,t),segment=pose.segments[hit.segmentIndex];
           spawnBlood(b.x,b.y,b.z,Math.sign(b.vx),14,1);addDecal({kind:'blood',x:b.x,z:b.z,size:12,stretch:1.4,angle:Math.atan2(b.vz,b.vx)});
@@ -10990,7 +11041,23 @@ function updatePoolBullets(dt,now,combat){
   }
   for(let i=bullets.length-1;i>=0;i--)if(bullets[i].life<=0)bullets.splice(i,1);
 }
+// An emptied gun leaves the hand a beat after its last round: a tumbling,
+// arcing throw that stuns what it hits. It rides the bullet list, so netplay
+// and ricochets treat it like any other projectile.
+function throwEmptyGuns(now){
+ for(const p of [...activePlayers(),...parkKids]){
+  if(!p.gunThrowAt||now<p.gunThrowAt)continue;
+  p.gunThrowAt=0;if(!p.alive||p.gunAmmo>0)continue;
+  const yaw=poolOnly()?(p.poolYaw||0):p.facing>0?0:Math.PI,fx=Math.cos(yaw),fz=poolOnly()?Math.sin(yaw):0;
+  bullets.push({x:p.x+fx*40,y:p.y-110,z:(p.z||0)+fz*40,vx:fx*1500+(p.vx||0)*.5,vy:-420,vz:fz*1500,
+   owner:p.pad,life:1,thrownGun:true,spin:0,safeUntil:now+200000,spit:!poolOnly()});
+  while(bullets.length>24)bullets.shift();
+  p.pendingMoveLabel='TOSS';playDrum('block',.8,panPlayer(p));
+ }
+}
 function updateBullets(dt, now, combat = true) {
+  throwEmptyGuns(now);
+  for(const b of bullets)if(b.thrownGun&&b.life>0){b.spin=(b.spin||0)+dt*14;if(poolOnly()){b.vy+=1500*dt;b.life-=dt*.35;}}
   if(poolOnly()){updatePoolBullets(dt,now,combat);return;}
   for (const bullet of bullets) {
     if (bullet.life <= 0) continue;
@@ -12898,6 +12965,12 @@ function updateTurn(player, now) {
 
 function updatePoolPlayer(p, pad, dt, now) {
   if(updateParkEntrance(p,pad,dt,now))return;
+  if(p.heldBy!==undefined){
+    const holder=players[p.heldBy];
+    if(holder?.alive&&holder.holdPad===p.pad&&!holder.holdKid)return;
+    p.heldBy=undefined;
+  }
+  parkHold(p,pad.down.includes('Grab'),now);
   if(p.sparringPartner!==undefined&&!parkFightRival(p))endParkSparring(p);
   const racePreviousX=p.x;
   const combatTarget=parkFightRival(p);
@@ -15729,7 +15802,7 @@ class OskiewarRagdoll {
   distance(a,b){return Math.hypot(this.p[a*3]-this.p[b*3],this.p[a*3+1]-this.p[b*3+1],this.p[a*3+2]-this.p[b*3+2]);}
   link(a,b,min=this.distance(a,b),max=min){if(a===b)return;for(let j=0;j<this.links;j++)if((this.a[j]===a&&this.b[j]===b)||(this.a[j]===b&&this.b[j]===a))return;if(this.links===192)throw Error('constraint budget');const j=this.links++;this.a[j]=a;this.b[j]=b;this.min[j]=min;this.max[j]=max;this.enabled[j]=1;}
   wake(){this.sleeping=false;this.quiet=0;}
-  impulse(point, impulse){this.wake();let bone=this.bones[0],best=Infinity,tBest=0;
+  impulse(point, impulse){if(!this.bones.length)return;this.wake();let bone=this.bones[0],best=Infinity,tBest=0;
     for(const s of this.bones){const a=s.a*3,b=s.b*3,dx=this.p[b]-this.p[a],dy=this.p[b+1]-this.p[a+1],dz=this.p[b+2]-this.p[a+2],l=dx*dx+dy*dy+dz*dz;
       const t=Math.max(0,Math.min(1,((point[0]-this.p[a])*dx+(point[1]-this.p[a+1])*dy+(point[2]-this.p[a+2])*dz)/(l||1)));
       const d=(point[0]-this.p[a]-dx*t)**2+(point[1]-this.p[a+1]-dy*t)**2+(point[2]-this.p[a+2]-dz*t)**2;
@@ -16235,7 +16308,8 @@ function buildRunnerWorldGeometry(player, t, at = null) {
   // arm has to name that same part. Naming it by facing alone tagged the
   // reaching capsules with the opposite arm the moment a fighter turned around
   // while armed — shooting off one arm then erased the other one's limb.
-  const actionArm = (player.attackKind && player.strikeArm) || itemHand(player) ||
+  const actionArm = (player.attackKind && player.strikeArm && hasPart(player, player.strikeArm)
+    ? player.strikeArm : "") || itemHand(player) ||
     (player.facing > 0 ? "right-arm" : "left-arm");
   const rearArm = actionArm === "right-arm" ? "left-arm" : "right-arm";
   const actionLeg = player.facing > 0 ? "right-leg" : "left-leg";
@@ -18107,8 +18181,11 @@ function drawKeycapRun(entries, x, y, size, held, ink, revealAction = null) {
         : drawPadButton(label, cursor, y, size, held.includes(button));
     }
     cursor += 8;
-    if (!revealAction || revealAction([cap, action, button]))
+    if (!revealAction || revealAction([cap, action, button])) {
+      // A soft shadow keeps the verb legible over a bright floor or sky.
+      typeWrite(action, cursor + 2, y + Math.round(size * .25) + 2, size, 12, 14, 26);
       typeWrite(action, cursor, y + Math.round(size * .25), size, ...ink);
+    }
     cursor += handleWidth(action, size) + 26;
   }
   return cursor;
@@ -19279,14 +19356,15 @@ function drawLooseRunner(player,world,t,lod){
       drawRunnerSymbol(player,c,(center,f,u,r)=>point(center,f+48,u,r),scale,disc);
     }
   }
-  const pony=ponytailStates.get(player);
+  const pony=!sdfBody&&ponytailStates.get(player);
   if(pony)for(let i=1;i<pony.points.length;i++){
     const width=(8-i)*scale;stroke3(pony.points[i-1],pony.points[i],width,ink,1.5);stroke3(pony.points[i-1],pony.points[i],width,hair);
   }
   if(!player.headless&&!geometry.head.behind){
     const h=geometry.head;
-    triangleDepth=h.depth-world.head.radius*cameraDoll.depthSlope*.5;
-    filledDisc(h.x,h.y,h.radius+(lod?1.2:2.2),ink);filledDisc(h.x,h.y,h.radius,front<-.2?hair:skin);
+    // Over an SDF head the face sits just in front of the sphere's surface.
+    triangleDepth=h.depth-world.head.radius*cameraDoll.depthSlope*(sdfBody?1.08:.5);
+    if(!sdfBody){filledDisc(h.x,h.y,h.radius+(lod?1.2:2.2),ink);filledDisc(h.x,h.y,h.radius,front<-.2?hair:skin);}
     if(front>=-.2){
       drawHairline(player,h);
       const faceYaw=Math.atan2(forward.x*view.right.x+forward.z*view.right.z,front);
@@ -19342,8 +19420,10 @@ function drawSdfRunner(player,world,t,loose=false){
     }
   }
   if(loose){
-    const pony=ponytailStates.get(player),hair=player.hairColor||[35,27,34],r=world.head.radius;
+    const pony=ponytailStates.get(player),hair=player.hairColor||[35,27,34],h=world.head,r=h.radius;
     if(pony)for(let i=1;i<pony.points.length;i++)put(pony.points[i-1],pony.points[i],r*(.205-.03*(i-1)),r*(.205-.03*i),hair);
+    // The head is shaded like the body; the drawn face and hairline go on top.
+    if(!player.headless){put(h,h,r*.97,r*.97,skin);const cap=point(h,-r*.3,r*.2,0);put(cap,cap,r*.82,r*.82,hair,1);}
   }else if(!player.headless){
     const h=world.head,r=h.radius,hair=player.hairColor||[35,27,34];
     put(h,h,r*.97,r*.97,skin);
@@ -21849,6 +21929,14 @@ function drawSaberPickup(pickup, t) {
 }
 
 function drawBullet(bullet) {
+  if (bullet.thrownGun) {
+    const a = bullet.spin || 0, c = Math.cos(a) * 16, s = Math.sin(a) * 16;
+    worldCapsule(bullet.x - c, bullet.y - s, bullet.z, bullet.x + c, bullet.y + s, bullet.z,
+      Math.max(2, 8 * projectionScaleAt(bullet)), [45, 48, 55]);
+    worldCapsule(bullet.x, bullet.y, bullet.z, bullet.x - s * .6, bullet.y + c * .6, bullet.z,
+      Math.max(2, 7 * projectionScaleAt(bullet)), [30, 29, 34]);
+    return;
+  }
   const previous = projectPoint(bullet.previousX ?? bullet.x,
     bullet.previousY ?? bullet.y, bullet.previousZ ?? bullet.z);
   const point = projectPoint(bullet.x, bullet.y, bullet.z);
@@ -22599,7 +22687,9 @@ function drawStatusPiano(x, y, lit) {
 
 function drawHudStatusTray(clock, ink, unixMs) {
   const hudPreviousDepth=triangleDepth;
-  drawParkSupply();
+  // The park's supplies are world objects and draw with the world (see the
+  // renderable pass); only the half-pipe course still draws them here.
+  if(!poolOnly())drawParkSupply();
   drawUnderPipe();
   drawWaterSplashes();
   triangleDepth=hudPreviousDepth;
@@ -23513,7 +23603,7 @@ function gamePaint() {
       drawRunner(renderable.item, t, showRunnerLabels);
     }
   }
-  if(poolOnly()){for(const peer of parkPeers.values()){interpolateParkPeer(peer,Date.now());if(Date.now()-peer.receivedAt<3000&&parkActorVisible(peer))drawRunner(peer,t,true);}drawCerealMilk(t);drawParkStereo();drawAeselFairy(t);}
+  if(poolOnly()){for(const peer of parkPeers.values()){interpolateParkPeer(peer,Date.now());if(Date.now()-peer.receivedAt<3000&&parkActorVisible(peer))drawRunner(peer,t,true);}drawCerealMilk(t);drawParkStereo();drawAeselFairy(t);{const saved=triangleDepth;drawParkSupply();triangleDepth=saved;}}
   if(poolOnly())drawLensBlood();
   // Debug geometry shares the unfiltered overlay pass, behind screen UI.
   triangleDepth = -1.465;
@@ -24631,6 +24721,12 @@ function updateParkKids(dt,now){
  for(let i=crowdNotes.length-1;i>=0;i--)if(now>=crowdNotes[i].at){playSine(crowdNotes[i].hz,.045);crowdNotes.splice(i,1);}
  for(const kid of parkKids){
   if(ragdollBodies.has(kid)&&!kid.alive&&!kid.headless)continue;
+  if(kid.heldBy!==undefined){const holder=players[kid.heldBy];if(!holder?.alive||holder.holdPad!==kid.pad)kid.heldBy=undefined;else continue;}
+  if(kid.thrownUntil>now&&!kid.grounded){
+   const previous={x:kid.x,z:kid.z};kid.vy+=1600*dt;kid.x+=kid.vx*dt;kid.y+=kid.vy*dt;kid.z+=kid.vz*dt;boundParkBody(kid,previous);
+   const floor=poolFloorAt(kid.x,kid.z);if(kid.y>=floor){kid.y=floor;kid.grounded=true;kid.vx*=.3;kid.vz*=.3;kid.vy=0;playDrum('snare',.5,panAt(kid.x,kid.z));}
+   continue;
+  }
   if(kid.alive&&kid.sparringPartner!==undefined){
     const rival=players[kid.sparringPartner],distance=rival?Math.hypot(rival.x-kid.x,(rival.z||0)-(kid.z||0)):Infinity;
     if(!rival?.alive||rival.sparringPartner!==kid.pad||rival.poolPipeEscapeUntil>now){endParkSparring(kid);}
