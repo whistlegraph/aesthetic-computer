@@ -857,9 +857,8 @@ final class PromptSigilOverlay {
         return true
     }
 
-    /// The status dot's diameter, and the room it and its gap take.
-    private static let pieceStripDot: CGFloat = 8
-    private static let pieceStripDotRoom: CGFloat = 14
+    /// No status dot: the title stands alone at the left edge.
+    private static let pieceStripDotRoom: CGFloat = 0
     private var pieceStripStatus = NSColor.systemGray
     private var pieceStripWorking = false
 
@@ -1321,9 +1320,8 @@ final class PromptSigilOverlay {
         }
     }
 
-    /// A piece strip on one line, flush left: the status dot, the title, then
-    /// the version after a small gap, each word with its own beat. The dot
-    /// breathes while the session works, and holds still otherwise.
+    /// A piece strip on one line, flush left: the title, then the version after
+    /// a small gap, each word with its own beat.
     private func rebuildPieceStrip(_ route: String) {
         let scale = NSScreen.main?.backingScaleFactor ?? 2
         let start = CACurrentMediaTime()
@@ -1344,23 +1342,8 @@ final class PromptSigilOverlay {
                 x += glyph.advance.width
             }
         }
-        let dot = CALayer()
-        dot.bounds = CGRect(x: 0, y: 0, width: Self.pieceStripDot, height: Self.pieceStripDot)
-        dot.position = CGPoint(x: Self.pieceStripDot / 2, y: y)
-        dot.cornerRadius = Self.pieceStripDot / 2
-        dot.backgroundColor = pieceStripStatus.cgColor
-        dot.borderColor = NSColor(white: 0.08, alpha: 1).cgColor
-        dot.borderWidth = 1.25
-        nameLayer.addSublayer(dot)
-        if pieceStripWorking && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-            let breathe = CABasicAnimation(keyPath: "opacity")
-            breathe.fromValue = 1; breathe.toValue = 0.35
-            breathe.duration = 0.6; breathe.autoreverses = true; breathe.repeatCount = .infinity
-            breathe.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            dot.add(breathe, forKey: "working")
-        }
         let size = desktopTitleFontSize
-        let left = Self.pieceStripDotRoom
+        let left: CGFloat = 0
         row(route, size: size, faces: desktopTitleColors, from: left)
         if !pieceStripVersion.isEmpty {
             row(pieceStripVersion, size: size, faces: [],
@@ -2561,7 +2544,7 @@ final class PromptSigilOverlayController {
         next.version = s.artifactPreview?.version ?? s.pieceVersion
         // An Aesel pane's name and version are already in its title strip,
         // so its card, parked under them top-trailing, speaks only its state.
-        pv.trailing = s.usesAeselStrip
+        pv.trailing = false
         if s.usesAeselStrip { next.piece = ""; next.version = 0 }
         next.paused = !pv.isOnScreen
         pv.setState(next)
@@ -3052,7 +3035,9 @@ final class PromptSigilOverlayController {
     private func scanCode(for s: ClaudeSession) -> CGImage? {
         // A routed piece is titled in its strip the way the desktop titles it,
         // and the desktop shows no code; its card is the way in.
-        guard s.agentType == "easel", !s.isDesktopEasel, !s.usesAeselStrip else { return nil }
+        // Aesel windows wear an ordinary rock, with no code on it: the preview
+        // card top-left is the way to the piece.
+        guard s.agentType == "easel", !s.isDesktopEasel, !s.usesAeselStrip, false else { return nil }
         let url = s.scanURL
         guard !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               !unscannableURLs.contains(url) else { return nil }

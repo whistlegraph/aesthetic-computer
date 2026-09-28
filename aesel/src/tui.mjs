@@ -1155,6 +1155,8 @@ function notePublished(output) {
   const [, handle, slug] = match;
   const version = (pieceVersions.get(slug) || 0) + 1;
   pieceVersions.set(slug, version);
+  state.pieceSlug = slug;
+  redraw();
   slabSession.live(`${slug}.mjs`, `prompt.ac/@${handle}/${slug}`, `${handle}/${slug}`);
   slabSession.published();
   slabSession.revision({ version, revision: "", updatedAt: new Date().toISOString() });

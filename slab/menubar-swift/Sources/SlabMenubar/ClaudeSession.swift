@@ -152,7 +152,9 @@ struct ClaudeSession {
     /// Every Aesel terminal session: Slab lays its pane out the way the Aesel
     /// desktop lays out its window — a title strip instead of a rock (see
     /// `PromptSigilOverlay.setPieceStrip`). The desktop app draws its own.
-    var usesAeselStrip: Bool { agentType == "easel" && !isDesktopEasel }
+    // Off: Aesel terminal windows wear an ordinary rock again, their piece
+    // named on the TUI's own status line and previewed in the card top-left.
+    var usesAeselStrip: Bool { false }
 
     /// What that strip is titled, from the marker alone (a pro session gains
     /// piece fields when it publishes, like any other): the piece's route

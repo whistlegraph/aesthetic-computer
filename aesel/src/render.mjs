@@ -1149,8 +1149,11 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
   const model = state.modelLabel || state.model || state.providerSettings?.model || "";
   const engine = state.providerSettings?.backend || "";
   const queuedInbox = (state.queued || []).filter((line) => line?.inbox).length;
+  // The handle becomes the piece's route once there is one: @jeffrey/jumpo.
+  const slug = state.pieceSlug || (state.profile?.name !== "pro" && state.medium === "piece" && state.piece ? String(state.piece).replace(/\.[a-z]+$/, "") : "");
+  const route = account.startsWith("@") && slug ? `/${slug}` : "";
   const plain = {
-    handle: account,
+    handle: account + route,
     workspace: clipText(fishPath(state.workspace || ""), Math.max(8, Math.floor(width / 3))),
     model,
     engine: providerLabel(engine),
@@ -1191,7 +1194,7 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
     const hovered = (name === "model" && state.hover === "model") || (name === "engine" && state.hover === "provider");
     // While the machine works the handle breathes: bright, then muted, on the
     // dance clock — a pulse you can see from across the room.
-    line += name === "handle" && text.startsWith("@") ? coloredHandle(text, breathingHandle(text, state), useColor) : hovered && useColor ? paint(useColor, "muted", `\x1b[4m${text}\x1b[24m`) : muted(text);
+    line += name === "handle" && text.startsWith("@") ? coloredHandle(account, breathingHandle(account, state), useColor) + (route ? paint(useColor, "highlight", route) : "") : hovered && useColor ? paint(useColor, "muted", `\x1b[4m${text}\x1b[24m`) : muted(text);
     x += textWidth(text);
   }
   // What this thread has cost, flush right: tokens always, dollars when the
