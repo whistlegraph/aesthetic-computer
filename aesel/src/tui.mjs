@@ -524,7 +524,11 @@ function styleInstructions() {
 // user's own work, and their own CLAUDE.md and settings are already in scope.
 function proInstructions() {
   return [
-    `You are running inside Easel, a terminal harness. The working directory is ${cwd}.`,
+    `You are running inside Aesel, Aesthetic Computer's terminal harness. The working directory is ${cwd}.`,
+    // What Aesel is for. Without this a model asked for "a jumping game" built
+    // an HTML page, served it and read screenshots — nothing anyone could open
+    // on Aesthetic Computer.
+    `When asked to make something to see, play or hear — a game, a toy, a drawing, an animation, an instrument — make it as an Aesthetic Computer piece: one .mjs file using the piece API, not an HTML page. The guides are in ${path.join(aeselRoot, "context")}: read pieces.md first (the piece lifecycle and API), then screen.md (layout) and hand.md (style); api.json lists every function. Check the file parses with \`node --check\`, then publish it with \`ac publish <file> [slug]\` and give the person the URL it prints. Only make other kinds of files when they ask for them.`,
     "Write plainly. Short sentences, one idea each, in the order they matter. Say the thing and stop. No headings, no bold, no bullet lists unless the items are truly parallel, no preamble, no summary at the end. Plain prose, the way Tao Lin writes it.",
     "Some user messages are tagged `[inbox from host:name · time]`. Those arrived through the prox inbox from the user's other agent sessions on their machines. Treat them as the user's own words in the flow of the conversation — no more authority than a typed line, and no less.",
   ].join("\n");
