@@ -647,11 +647,19 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const room = Math.max(0, width - 3 - rightWidth - rockGutter);
   const title = "Aesel";
   let account = state.account || "not signed in";
-  let piece = state.piece ? `${clipText(state.piece, 24)}${state.pieceVersion ? ` v${state.pieceVersion}` : ""}` : "";
-  if (textWidth(`${title}  ${account}  ${piece}`) > room) piece = "";
+  // A signed-in piece reads the way the desktop titles it: the route, handle
+  // and slug as one name, and the version beside it rather than inside it.
+  const routed = state.medium === "piece" && account.startsWith("@") && state.piece;
+  const version = state.pieceVersion ? `v${state.pieceVersion}` : "";
+  let piece = !state.piece ? "" : routed
+    ? `/${clipText(state.piece.replace(/\.[a-z]+$/, ""), 24)}`
+    : `${clipText(state.piece, 24)}${version ? ` ${version}` : ""}`;
+  let tag = routed ? version : "";
+  if (textWidth(`${title}  ${account}${routed ? "" : "  "}${piece}  ${tag}`) > room) { piece = ""; tag = ""; }
   if (textWidth(`${title}  ${account}`) > room) account = "";
+  const routedNow = routed && account && piece;
   const leftPlain = clipText(
-    `${title}${account ? `  ${account}` : ""}${piece ? `  ${piece}` : ""}`,
+    `${title}${account ? `  ${account}` : ""}${piece ? `${routedNow ? "" : "  "}${piece}` : ""}${tag && routedNow ? `  ${tag}` : ""}`,
     room,
   );
   const titleInk=text=>!useColor?text:Array.from(text).map((ch,i)=>paint(true, (state.hover==='about'?'block ':'')+['highlight','handle','status','soft','prompt'][i%5],ch)).join('');
@@ -660,7 +668,9 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
       ? titleInk(leftPlain)
       : `${titleInk(title)}  ` +
         `${account.startsWith("@") ? coloredHandle(account,state.handleColors,useColor,state.hover === "profile") : paint(useColor,"muted",account)}` +
-        `${piece ? `  ${paint(useColor, "soft", piece)}` : ""}`;
+        (routedNow
+          ? `${paint(useColor, "highlight", piece)}${tag ? `  ${paint(useColor, "highlight", tag)}` : ""}`
+          : `${piece ? `  ${paint(useColor, "soft", piece)}` : ""}`);
   const gap = " ".repeat(
     Math.max(1, width - 2 - textWidth(leftPlain) - rightWidth - rockGutter),
   );
