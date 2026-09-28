@@ -339,11 +339,17 @@ async function loadFunction(file, bust = false) {
         });
         req.query = event.queryStringParameters;
         const resp = await v2fn(req, context);
-        // V2 returns a Web Response object
-        const body = await resp.text();
+        // V2 returns a Web Response object. Binary bodies (og-image's
+        // proxied thumbnails) go through as base64: text() would swap every
+        // invalid UTF-8 byte for U+FFFD and ship a broken image.
         const headers = {};
         resp.headers.forEach((v, k) => { headers[k] = v; });
-        return { statusCode: resp.status, headers, body };
+        const type = headers["content-type"] || "";
+        if (resp.body && !/^text\/|json|javascript|xml|svg|x-www-form-urlencoded/i.test(type) && type) {
+          const bytes = Buffer.from(await resp.arrayBuffer());
+          return { statusCode: resp.status, headers, body: bytes.toString("base64"), isBase64Encoded: true };
+        }
+        return { statusCode: resp.status, headers, body: await resp.text() };
       };
       registered = true;
     }
@@ -1471,6 +1477,29 @@ if (!DEV && process.env.ACCOUNT_DELETION_RUNNER !== "off") {
   };
   setTimeout(runAccountDeletions, 60_000).unref();
   setInterval(runAccountDeletions, 15 * 60_000).unref();
+}
+
+// --- Daily metrics ---
+// Folds each finished day of visits, downloads and app opens into
+// `metrics-daily` (system/backend/metrics-daily.mjs). Idempotent, so an
+// hourly check is enough to catch the day turning over.
+if (!DEV) {
+  const rollupMetrics = async () => {
+    let database;
+    try {
+      const { connect } = await import(pathToFileURL(join(SYSTEM, "backend", "database.mjs")).href);
+      const { rollupMissingDays } = await import(pathToFileURL(join(SYSTEM, "backend", "metrics-daily.mjs")).href);
+      database = await connect();
+      const written = await rollupMissingDays(database.db);
+      if (written.length) console.log("[lith] metrics-daily:", written.join(", "));
+    } catch (error) {
+      console.error("[lith] metrics-daily failed:", error?.message || error);
+    } finally {
+      await database?.disconnect?.();
+    }
+  };
+  setTimeout(rollupMetrics, 90_000).unref();
+  setInterval(rollupMetrics, 60 * 60_000).unref();
 }
 
 // --- Graceful shutdown ---

@@ -151,6 +151,17 @@ export default async function handler(req) {
     });
   }
 
+  // Sites that turn scrapers away (or say more through an API) get asked
+  // their own way first; anything that falls through gets the HTML fetch.
+  const provided = await providerPreview(parsedUrl).catch((err) => {
+    console.warn(`[og-preview] provider failed for ${targetUrl}:`, err.message);
+    return null;
+  });
+  if (provided) {
+    setCache(targetUrl, provided);
+    return previewResponse(provided, CACHE_TTL);
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -209,6 +220,95 @@ export default async function handler(req) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+// 🎛️ Providers
+// Each returns the same shape as parseMetaTags (plus an optional `player`),
+// or null to fall through. siteName carries the byline ("Discogs · Artist ·
+// 1986") so every client that draws site + title shows it without changes.
+
+const PROVIDER_UA = "AestheticComputer/1.0 +https://aesthetic.computer";
+
+async function getJson(url) {
+  const response = await fetch(url, {
+    headers: { "User-Agent": PROVIDER_UA, Accept: "application/json" },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => {});
+    return null;
+  }
+  return response.json();
+}
+
+const byline = (...parts) => parts.filter(Boolean).join(" · ");
+const hostIs = (url, ...hosts) =>
+  hosts.some((host) => url.hostname === host || url.hostname.endsWith("." + host));
+
+async function providerPreview(url) {
+  if (hostIs(url, "youtube.com", "youtu.be")) {
+    const data = await getJson(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(url.href)}`);
+    if (!data?.title) return null;
+    return { url: url.href, title: data.title, image: data.thumbnail_url || null,
+      description: null, siteName: byline("YouTube", data.author_name),
+      favicon: "https://www.youtube.com/favicon.ico" };
+  }
+
+  if (hostIs(url, "soundcloud.com") && url.hostname !== "api.soundcloud.com") {
+    const data = await getJson(`https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(url.href)}`);
+    if (!data?.title) return null;
+    // oEmbed titles read "Track by Artist"; the artist moves to the byline.
+    const by = data.author_name && data.title.endsWith(` by ${data.author_name}`);
+    return { url: url.href, title: by ? data.title.slice(0, -(data.author_name.length + 4)) : data.title,
+      image: data.thumbnail_url || null, description: data.description || null,
+      siteName: byline("SoundCloud", data.author_name), favicon: null,
+      player: { kind: "soundcloud",
+        src: `https://w.soundcloud.com/player/?url=${encodeURIComponent(url.href)}&auto_play=true&visual=false&show_comments=false&show_user=true&show_reposts=false` } };
+  }
+
+  if (hostIs(url, "discogs.com")) {
+    const match = url.pathname.match(/\/(release|master|artist|label)\/(\d+)/);
+    if (!match) return null;
+    const [, kind, id] = match;
+    const data = await getJson(`https://api.discogs.com/${kind}s/${id}`);
+    if (!data) return null;
+    const artists = (data.artists || []).map((a) => a.name.replace(/ \(\d+\)$/, "")).join(", ");
+    return { url: url.href, title: data.title || data.name || null,
+      image: data.thumb || data.images?.[0]?.uri150 || null,
+      description: data.profile?.slice(0, 200) || null,
+      siteName: byline("Discogs", artists, data.year || null), favicon: null };
+  }
+
+  if (hostIs(url, "reddit.com", "redd.it")) {
+    // Share links (/r/x/s/abc) are redirects; the post URL is in Location.
+    let post = url.href;
+    if (/\/s\/[\w-]+/.test(url.pathname) || url.hostname === "redd.it") {
+      const hop = await fetch(url.href, { method: "HEAD", redirect: "manual",
+        headers: { "User-Agent": PROVIDER_UA }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+      const location = hop.headers.get("location");
+      if (location) post = new URL(location, url).href.split("?")[0];
+    }
+    const data = await getJson(`https://www.reddit.com/oembed?url=${encodeURIComponent(post)}`);
+    const title = data?.html?.match(/<a href="[^"]*\/comments\/[^"]*">([^<]+)<\/a>/)?.[1];
+    if (!title) return null;
+    const sub = post.match(/\/r\/([\w]+)/)?.[1];
+    return { url: url.href, title: decodeHtmlEntities(title), image: null, description: null,
+      siteName: byline("Reddit", sub && `r/${sub}`, data.author_name && `u/${data.author_name}`),
+      favicon: "https://www.redditstatic.com/shreddit/assets/favicon/192x192.png" };
+  }
+
+  if (hostIs(url, "archive.org")) {
+    const id = url.pathname.match(/^\/details\/([^/]+)/)?.[1];
+    if (!id) return null;
+    const data = (await getJson(`https://archive.org/metadata/${id}`))?.metadata;
+    if (!data?.title) return null;
+    const creator = [].concat(data.creator || [])[0];
+    return { url: url.href, title: [].concat(data.title)[0], description: null,
+      image: `https://archive.org/services/img/${id}`,
+      siteName: byline("Internet Archive", creator, data.date?.slice(0, 4)), favicon: null };
+  }
+
+  return null;
 }
 
 // Parse meta tags from HTML to extract OG data

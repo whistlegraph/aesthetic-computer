@@ -305,6 +305,14 @@
   .embed.og .t { font-size: 12px; line-height: 1.3; overflow: hidden; }
   .embed.og .t .site { color: var(--time); font-size: 10px; display: block; }
   .embed.og:hover { border-color: var(--hover); }
+  /* SoundCloud cards carry a ▶ that swaps the card for the widget in place. */
+  .embed.og .listen {
+    flex: 0 0 auto; align-self: center; margin-left: auto; padding: 2px 8px;
+    border: 1px solid var(--time); border-radius: 3px; color: inherit;
+    background: none; font: inherit; font-size: 12px; cursor: pointer;
+  }
+  .embed.og .listen:hover { border-color: var(--hover); }
+  .embed.player { width: 300px; max-width: 100%; height: 166px; border: 0; border-radius: 4px; }
 
   /* 🔍 Lightbox — the vector's take on chat.mjs's fullscreen painting modal. */
   #lightbox {
@@ -659,6 +667,18 @@ function ogEmbed(url) {
     let host = url; try { host = new URL(url).hostname; } catch {}
     t.append(span("site", meta.siteName || host), document.createTextNode(meta.title || url));
     a.append(t);
+    if (meta.player?.kind === "soundcloud" && /^https:\/\/w\.soundcloud\.com\/player\//.test(meta.player.src)) {
+      const listen = document.createElement("button");
+      listen.className = "listen"; listen.textContent = "▶"; listen.title = "lyt her";
+      listen.onclick = (e) => {
+        e.preventDefault(); e.stopPropagation(); // play in place, don't open the link
+        const frame = document.createElement("iframe");
+        frame.className = "embed player"; frame.allow = "autoplay";
+        frame.src = meta.player.src; frame.title = meta.title || "SoundCloud";
+        a.replaceWith(frame);
+      };
+      a.append(listen);
+    }
     a.classList.add("ready");
   };
   return a;

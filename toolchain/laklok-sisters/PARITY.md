@@ -39,7 +39,8 @@ same change — an unmirrored constant is future drift.
 | Inline `\color\` codes | chat.mjs `isChatColorCode` | `splitChatColors` | keywords checked |
 | #painting embeds (64px, modal) | chat.mjs painting previews + Ken Burns | `.embed.painting` + lightbox | endpoints checked; Ken Burns is a raster-only flourish |
 | YouTube embeds (thumb → jump out) | chat.mjs youtube previews | `.embed.yt` | thumb source checked |
-| OG link cards | chat.mjs og previews | `.embed.og` (lazy, IntersectionObserver) | endpoints checked |
+| OG link cards | chat.mjs og previews | `.embed.og` (lazy, IntersectionObserver) | endpoints checked; og-preview's providers (YouTube, SoundCloud, Discogs, Reddit, archive.org) put the byline in `siteName`, so both sides get it without code |
+| SoundCloud play-in-place | — (card opens the link) | `.embed.og .listen` → `.embed.player` iframe | vector is richer here by medium, like file embeds |
 | Direct file embeds (img/vid/aud) | via OG/preview path | native `<img>/<video>/<audio>` | vector is richer here by medium |
 | Post / edit (`chat:edit`) / delete (`chat:delete`) | chat.mjs (+ copy modal delete) | composer + ✎ ret / ✕ slet | same payloads |
 | Hearts display | chat.mjs | `.heart` | neither side *sends* `chat:heart` yet |
