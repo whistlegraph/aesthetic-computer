@@ -180,12 +180,10 @@ export function renderCrawlGif(g, outPath, { seconds = 30, fps = 12 } = {}) {
   })();
 }
 
-// The same crawl as a live KidLisp piece, moving with (clock). KidLisp can't
-// yet carry , ; " ( ) inside a string, so those are dropped from the piece
-// (the GIF keeps them). Line backgrounds are black: there's no bare write
-// with a size.
+// The same crawl as a live KidLisp piece, moving with (clock). Strings keep
+// their punctuation; only \ and " need escaping.
 export function crawlPiece(g, { periodMs = 30000 } = {}) {
-  const kl = (s) => s.replace(/[,;"\\()]/g, "");
+  const kl = (s) => s.replace(/\\/g, "").replace(/"/g, '\\"');
   const zNow = `(* (/ (mod (clock) ${periodMs}) ${periodMs}) ${g.TRAVEL.toFixed(1)})`;
   const src = ["(wipe black)"];
   for (const { x, y, c } of g.stars) src.push(`(ink ${c.join(" ")})(plot ${x} ${y})`);
@@ -197,7 +195,7 @@ export function crawlPiece(g, { periodMs = 30000 } = {}) {
     const y = `(- (- ${g.H} (* ${g.A.toFixed(2)} (- 1 ${k}))) (* (max (- ${z} ${g.GONE.toFixed(1)}) 0) 100))`;
     const s = `(* ${g.S0} (* ${k} ${k}))`;
     const x = `(- ${g.W / 2} (* ${text.length * GW / 2} ${s}))`;
-    src.push(`(ink ${l.color.join(" ")})`, `(write "${text}" ${x} ${y} black ${s})`);
+    src.push(`(ink ${l.color.join(" ")})`, `(write "${text}" ${x} ${y} nil ${s})`);
   });
   return src.join("\n");
 }
