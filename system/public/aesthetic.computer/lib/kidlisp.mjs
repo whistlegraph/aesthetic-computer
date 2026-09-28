@@ -848,6 +848,59 @@ function perfEnd(label) {
 const identifierRegex = /[$a-zA-Z_]\w*/g;
 const validIdentifierRegex = /^[$a-zA-Z_]\w*$/;
 
+// Mask string literals and comments with "_" (same length, delimiting quotes
+// and the ";" kept) so line-level passes can find separators, comments, and
+// parens without cutting through text like "hi, there; (ok)".
+function maskStringsAndComments(text) {
+  let out = "";
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === ";") {
+      const newline = text.indexOf("\n", i);
+      const stop = newline === -1 ? text.length : newline;
+      out += ";" + "_".repeat(stop - i - 1);
+      i = stop;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      let j = i + 1;
+      while (j < text.length && text[j] !== ch && text[j] !== "\n") {
+        j += text[j] === "\\" ? 2 : 1;
+      }
+      if (j < text.length && text[j] === ch) {
+        out += ch + "_".repeat(j - i - 1) + ch;
+        i = j + 1;
+        continue;
+      }
+    }
+    out += ch;
+    i++;
+  }
+  return out;
+}
+
+// Split on a separator character, ignoring any inside strings or comments.
+function splitOutsideStrings(text, separator) {
+  const masked = maskStringsAndComments(text);
+  const parts = [];
+  let start = 0;
+  for (let i = 0; i < masked.length; i++) {
+    if (masked[i] === separator) {
+      parts.push(text.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(text.slice(start));
+  return parts;
+}
+
+// Drop a trailing ";" comment, leaving semicolons inside strings alone.
+function stripLineComment(line) {
+  const commentIndex = maskStringsAndComments(line).indexOf(";");
+  return commentIndex === -1 ? line : line.substring(0, commentIndex);
+}
+
 function tokenize(input) {
   if (VERBOSE) console.log("🪙 Tokenizing:", input);
 
@@ -992,7 +1045,11 @@ function atom(token) {
   // Check for both double quotes and single quotes
   if ((token[0] === '"' && token[token.length - 1] === '"') ||
       (token[0] === "'" && token[token.length - 1] === "'")) {
-    return token; // Return string with quotes intact for later processing
+    // Keep the delimiting quotes for later processing, but resolve escaped
+    // quotes inside so \"yes\" prints as "yes".
+    const quote = token[0];
+    const body = token.slice(1, -1).replaceAll("\\" + quote, quote);
+    return quote + body + quote;
   } else if (/^\d*\.?\d+[s]\.\.\.?$/.test(token)) {
     // Preserve tokens like "1s...", "2s...", "1.5s..." as strings for timed iteration
     return token;
@@ -4921,9 +4978,9 @@ class KidLisp {
     const parseStart = this.startTiming('parse');
     // 🏃‍♂️ Handle comma-separated expressions for compact one-liners
     // Transform "blue, ink rainbow, repeat 100 line" into "(blue) (ink rainbow) (repeat 100 line)"
-    if (input.includes(",") && !input.includes("\n")) {
+    if (maskStringsAndComments(input).includes(",") && !input.includes("\n")) {
       // Only process comma syntax for single-line input to avoid conflicts with multi-line
-      const expressions = input.split(",").map(expr => expr.trim()).filter(expr => expr.length > 0);
+      const expressions = splitOutsideStrings(input, ",").map(expr => expr.trim()).filter(expr => expr.length > 0);
 
       // Auto-wrap each comma-separated expression in parentheses if needed
       const wrappedExpressions = expressions.map(expr => {
@@ -4948,19 +5005,15 @@ class KidLisp {
       const lines = input
         .split("\n")
         .map((line) => {
-          // Strip inline comments (everything after semicolon)
-          const commentIndex = line.indexOf(";");
-          if (commentIndex !== -1) {
-            line = line.substring(0, commentIndex);
-          }
-          return line.trim();
+          // Strip inline comments (everything after a semicolon outside strings)
+          return stripLineComment(line).trim();
         })
         .filter((line) => line.length > 0);
 
       const wrappedLines = lines.map((line, index) => {
         // Handle comma-separated expressions within a single line
-        if (line.includes(",")) {
-          const expressions = line.split(",").map(expr => expr.trim()).filter(expr => expr.length > 0);
+        if (maskStringsAndComments(line).includes(",")) {
+          const expressions = splitOutsideStrings(line, ",").map(expr => expr.trim()).filter(expr => expr.length > 0);
           const wrappedExpressions = expressions.map(expr => {
             if (expr.startsWith("(") && expr.endsWith(")")) {
               return expr;
@@ -4980,9 +5033,9 @@ class KidLisp {
           /^[a-zA-Z_]\w*/.test(line) &&
           !line.startsWith("(") &&
           // Previous line ends with an incomplete expression (has opening paren or is incomplete)
-          lines[index - 1].includes("(") &&
-          lines[index - 1].split("(").length >
-          lines[index - 1].split(")").length;
+          maskStringsAndComments(lines[index - 1]).includes("(") &&
+          maskStringsAndComments(lines[index - 1]).split("(").length >
+          maskStringsAndComments(lines[index - 1]).split(")").length;
 
         // Check if line starts with a timing expression like "1.5s" or "2s..."
         const timingMatch = line.match(/^(\d*\.?\d+[s]\.\.\.?)\s+(.+)$/);
@@ -5013,11 +5066,13 @@ class KidLisp {
     const validationErrors = [];
     const errorPositions = new Set(); // Track character positions with errors
     
+    // Parens and quotes inside strings or comments don't count toward balance.
+    const masked = maskStringsAndComments(input);
     // Check parenthesis balance
     let parenBalance = 0;
     let lastOpenParen = -1;
-    for (let i = 0; i < input.length; i++) {
-      const char = input[i];
+    for (let i = 0; i < masked.length; i++) {
+      const char = masked[i];
       if (char === '(') {
         parenBalance++;
         lastOpenParen = i;
@@ -5041,14 +5096,14 @@ class KidLisp {
       }
       // Also mark positions of all unclosed opening parens
       let tempBalance = 0;
-      for (let i = 0; i < input.length; i++) {
-        if (input[i] === '(') {
+      for (let i = 0; i < masked.length; i++) {
+        if (masked[i] === '(') {
           tempBalance++;
           if (tempBalance > (parenBalance === 0 ? -1 : 0)) {
             errorPositions.add(i);
           }
         }
-        if (input[i] === ')') tempBalance--;
+        if (masked[i] === ')') tempBalance--;
       }
     }
     
@@ -5058,12 +5113,12 @@ class KidLisp {
     let doubleQuoteCount = 0;
     let singleQuoteCount = 0;
     
-    for (let i = 0; i < input.length; i++) {
-      if (input[i] === '"') {
+    for (let i = 0; i < masked.length; i++) {
+      if (masked[i] === '"') {
         doubleQuoteCount++;
         lastDoubleQuote = i;
       }
-      if (input[i] === "'") {
+      if (masked[i] === "'") {
         singleQuoteCount++;
         lastSingleQuote = i;
       }
