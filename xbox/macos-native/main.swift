@@ -114,9 +114,13 @@ private final class NativeRenderer {
 
 private final class NativeInput {
     private var keyboard = [Set<String>(), Set<String>()]
+    /// Whichever device was touched last names the control scheme the hints
+    /// draw (keycaps or pad buttons), not whether a controller is plugged in.
+    private(set) var lastFamily: String?
 
     func setKey(_ event: NSEvent, down: Bool) {
         guard let mapping = keyMapping(event.keyCode) else { return }
+        if down { lastFamily = "keyboard" }
         if down { keyboard[mapping.0].insert(mapping.1) }
         else { keyboard[mapping.0].remove(mapping.1) }
     }
@@ -184,6 +188,11 @@ private final class NativeInput {
             if gamepad.buttonOptions?.isPressed == true { down.insert("View") }
             if gamepad.leftThumbstickButton?.isPressed == true { down.insert("LeftStick") }
             if gamepad.rightThumbstickButton?.isPressed == true { down.insert("RightStick") }
+            let moved = abs(leftX) > 0.35 || abs(leftY) > 0.35 || abs(rightX) > 0.35 ||
+                abs(rightY) > 0.35 || leftTrigger > 0.5 || rightTrigger > 0.5
+            if moved || down.subtracting(index < keyboard.count ? keyboard[index] : []).count > 0 {
+                lastFamily = "xbox"
+            }
         }
         return [
             "index": index,
@@ -1009,7 +1018,8 @@ private final class NativeGameHost {
             let hasController = !GCController.controllers().isEmpty
             let light = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua
             return [
-                "platform": "macos-native", "inputFamily": hasController ? "xbox" : "keyboard",
+                "platform": "macos-native",
+                "inputFamily": self?.input.lastFamily ?? (hasController ? "xbox" : "keyboard"),
                 "colorScheme": light ? "light" : "dark", "productName": "MACOS",
                 "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0",
                 "graphics": "METAL NATIVE", "audio": "AVFOUNDATION",

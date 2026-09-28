@@ -849,3 +849,13 @@ test('an emptied gun leaves the hand as a thrown projectile',()=>{
  a.throwEmptyGuns(a.now());
  assert.ok(a.bullets.some(b=>b.thrownGun),'the empty gun is in the air');
 });
+test('a punch held past a quarter second becomes a hold',()=>{
+ const a=playground();
+ const out=[];for(let i=0;i<20;i++)out.push(a.translateButtons(0,['X']));
+ assert.ok(out[2].includes('B')&&!out[2].includes('Grab'),'the jab lands first');
+ assert.ok(out[16].includes('Grab'),'then the hand grips');
+ for(let i=0;i<6;i++)a.translateButtons(0,[]);
+ const p=a.players[0];Object.assign(p,{gunAmmo:5});
+ const armed=[];for(let i=0;i<20;i++)armed.push(a.translateButtons(0,['Y']));
+ assert.ok(!armed[16].includes('Grab'),'a held trigger keeps firing');
+});

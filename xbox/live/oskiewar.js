@@ -5868,6 +5868,11 @@ function translateButtons(index, down, seat = index) {
   if (s.latch === "bubble" && A && X) add(park ? "RightShoulder" : "X");
   // The 2D fight's grab is its internal A+B; the park reads Grab (parkHold).
   if (s.latch === "grab" && X && Y) { if (park) add("Grab"); else { add("A"); add("B"); } }
+  // A punch held past a quarter second becomes a hold: the jab lands first,
+  // then the hand keeps its grip. Chalk and guns keep their own held meaning.
+  const heldPunch = !s.latch && !gun && !p.chalkColor &&
+    (X && s.x >= 15 || Y && s.y >= 15);
+  if (heldPunch) { if (park) add("Grab"); else { add("A"); add("B"); } }
   if (kick) add(park ? (vehicle ? "ArrowUp" : "Y") : "A");
   if (left || right) {
     add(gun || (right && !park && heldItem(p)) ? "Y" : "B");
@@ -24444,7 +24449,7 @@ function drawParkControls(p,safe){
  if(drop)drawKeycapRun([[c.drop,'drop '+drop,'KeyQ']],safe.left,safe.bottom-size*1.6,size,held,[255,186,126]);
  const vehicle=p.skateboard||p.goKart||p.onewheel,gun=p.gunAmmo>0;
  const rows=[
-  [[c.punch,p.chalkColor&&!fighting?'draw':p.axeHeld?'swing':gun?'shoot':'punch',gun?'Y':'B'],
+  [[c.punch,p.chalkColor&&!fighting?'draw':p.axeHeld?'swing':gun?'shoot':'punch/hold',gun?'Y':'B'],
    [c.kick,vehicle?'gas':'kick',vehicle?'ArrowUp':'Y']],
   [[c.jump,p.skateboard&&!fighting?'off':'jump','A'],[c.bubble,'bubble','RightShoulder']]];
  for(const [row,entries] of rows.entries()){

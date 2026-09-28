@@ -1026,9 +1026,18 @@
       };
     }
 
+    // The device touched last: "keyboard", "xbox", or "" before either.
+    let lastInputFamily = "";
     function sampleGamepads() {
       const live = scanPads();
       sampledPads = [readBrowserPad(0, live), readBrowserPad(1, live)];
+      // A pressed button or a pushed stick makes the pad the scheme the hints
+      // draw; a key press (keydown) hands it back to the keyboard.
+      for (const index of [0, 1]) {
+        const pad = seatedPad(index, live);
+        if (pad && (pad.buttons.some(padDown) ||
+            pad.axes.some((axis) => Math.abs(axis) > .35))) lastInputFamily = "xbox";
+      }
     }
 
     function browserPad(index) {
@@ -1087,7 +1096,8 @@
       const hasGamepad = padSeats.some((padIndex) => padIndex !== null);
       return { platform: mac ? "macos" : "web",
         showControlLegend: false,
-        inputFamily: touchEnabled ? "touch" : hasGamepad ? "xbox" : "keyboard",
+        // The last device touched names the scheme, not what is plugged in.
+        inputFamily: touchEnabled ? "touch" : lastInputFamily || (hasGamepad ? "xbox" : "keyboard"),
         colorScheme: socialPreview ? "light" : browserTheme || "sun",
         socialPreview: new URLSearchParams(location.search).has("social-preview"),
         // Offline replay burns ask the game for world pixels only. This is a
@@ -1470,6 +1480,7 @@
         if (tapTitle()) event.preventDefault();
         return;
       }
+      lastInputFamily = "keyboard";
       event.preventDefault();
       dismissTitle();
       keys[mapped[0]].add(mapped[1]);
