@@ -11,8 +11,8 @@ function playground(){
  resetParkSupply,updateParkSupply,updateGunPickups,resetParkKids,updateParkKids,parkKids,
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
  boundParkBody,parkWindowWalls,brokenParkWindows,parkWindowShards,resetParkWindows,
- breakParkWindow,updateParkWindowShards,insidePark,parkLotMargin,updateCameraDoll,clearPoolCamera,updateMotorAudio,
- sceneBoundsVisible,buildParkScene,parkActorVisible,figureLod,
+ breakParkWindow,updateParkWindowShards,insidePark,parkLotMargin,updateCameraDoll,clearPoolCamera,updateMotorAudio,updateSkateAudio,balls,
+ updateSeatHeartbeat,sceneBoundsVisible,buildParkScene,parkActorVisible,figureLod,
  state:()=>({halfpipe:parkHalfPipe3D})};`)(()=>({monotonicUs:now}),()=>({platform:'web'}),noop,noop,(name,gain,pan)=>drums.push({name,gain,pan}),noop,noop,noop,noop,noop,noop,(hz,gain)=>audio.push({hz,gain}),()=>audio.push({stop:true}));
  const p=api.players[0];Object.assign(p,{x:1080,z:0,y:api.poolFloorAt(1080,0),grounded:true,alive:true,dummy:false,skateboard:false,poolYaw:0,previous:[],spin:null,directionChanges:[],poolLastSteer:0});
  api.step=(down=[],dt=1/60)=>{now+=dt*1e6;api.updatePlayer(p,{down,leftX:0,leftY:0},dt,now);};
@@ -115,7 +115,7 @@ test('shots break window glass and continue into the lot',()=>{
  a.updateBullets(1/60,a.now(),false);assert.equal(a.brokenParkWindows.size,1);assert.ok(a.bullets[0].z<w.az);
 });
 test('camera rides lower, looks ahead, and follows a rider outside',()=>{
- const a=playground(),p=a.players[0];Object.assign(p,{x:2300,z:1700,y:a.poolFloorAt(2300,1700),vx:0,vz:0,vy:0,poolYaw:0});
+ const a=playground(),p=a.players[0];Object.assign(p,{x:2300,z:1700,y:a.poolFloorAt(2300,1700),vx:400,vz:0,vy:0,poolYaw:0});
  for(let i=0;i<180;i++)a.updateCameraDoll(1/60,a.now());
  assert.ok(a.cameraDoll.target.x-p.x>200,'frame leads the rider');
  assert.ok(p.y-a.cameraDoll.position.y<300,'lower than the old 345-unit boom');
@@ -190,4 +190,37 @@ test('3D laser rounds are absorbed by solid walls',()=>{
 test('3D pistol layers a crack and low report onto its shot',()=>{
  const a=playground(),p=a.players[0];p.gunAmmo=3;p.gunMode='HANDGUN';a.step(['Y']);
  assert.ok(a.drums.some(d=>d.name==='snare'));assert.ok(a.drums.some(d=>d.name==='kick'));
+});
+
+test('skateboard rumble stays low, follows horizontal movement, and fades at rest',()=>{
+ const a=playground(),p=a.players[0],calls=[];
+ globalThis.skateAudio=(...args)=>calls.push(args);
+ try{
+  for(const b of a.balls)b.active=false;
+  Object.assign(p,{skateboard:true,onewheel:false,grounded:true,vx:3200,vy:0,vz:0});
+  for(let i=0;i<120;i++)a.updateSkateAudio(1/60);
+  assert.ok(calls.at(-1)[0]<=.201,'native playback stays in its low register');
+  assert.ok(calls.at(-1)[1]<.062,'rolling sound stays below the old .3 gain');
+  p.vx=0;p.vy=1800;
+  for(let i=0;i<30;i++)a.updateSkateAudio(1/60);
+  assert.equal(calls.at(-1)[1],0,'vertical velocity does not sustain wheel sound');
+  p.vx=1400;p.grounded=false;
+  a.updateSkateAudio(1/60);assert.equal(calls.at(-1)[1],0,'airborne wheels are silent');
+ }finally{delete globalThis.skateAudio;}
+});
+
+test('idle camera eases close then opens back up when movement resumes',()=>{
+ const a=playground(),p=a.players[0];Object.assign(p,{x:2300,z:1700,y:a.poolFloorAt(2300,1700),vx:0,vy:0,vz:0,grounded:true});
+ for(let i=0;i<600;i++)a.updateCameraDoll(1/60,a.now());
+ const gap=()=>Math.hypot(a.cameraDoll.position.x-p.x,a.cameraDoll.position.z-p.z);
+ assert.ok(gap()<300);assert.ok(Math.abs(a.cameraDoll.target.x-p.x)<5);
+ p.vx=400;for(let i=0;i<120;i++)a.updateCameraDoll(1/60,a.now());
+ assert.ok(gap()>900);assert.ok(a.cameraDoll.target.x-p.x>200);
+});
+test('BPM emits one quiet beat when the local heart phase wraps',()=>{
+ const a=playground(),p=a.players[0];p.heartPhase=.999;p.heartRate=68;
+ a.updateSeatHeartbeat(1/60,a.now());
+ assert.equal(a.drums.filter(d=>d.name==='kick'&&d.gain===.075).length,1);
+ a.updateSeatHeartbeat(1/60,a.now());
+ assert.equal(a.drums.filter(d=>d.name==='kick'&&d.gain===.075).length,1);
 });

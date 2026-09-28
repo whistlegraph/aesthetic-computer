@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 186;
+const buildVersion = 187;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -9539,6 +9539,7 @@ function deathOrbitShot(target, width, progress) {
 }
 
 let poolCameraYaw = 0, poolCameraDip = 0, poolCameraReturnYaw = null;
+let poolIdleSeconds=0,poolIdleClose=0;
 // Keep the line from the lens to the rider above the coping and curved walls.
 function clearPoolCamera(position, subject) {
   // Follow the rider into the lot without putting a solid wall between
@@ -9565,6 +9566,10 @@ function clearPoolCamera(position, subject) {
 function updateCameraDoll(dt, now) {
   if (poolOnly() && freeskateActive()) {
     const p=players[0],heading=p.poolYaw||0,speed=Math.hypot(p.vx,p.vz||0);
+    const idle=p.alive&&p.grounded&&speed<35&&Math.abs(p.vy||0)<40&&
+      !p.spin&&!p.attackKind&&Math.abs(p.inputX||0)<.1&&Math.abs(p.inputY||0)<.1;
+    poolIdleSeconds=idle?poolIdleSeconds+dt:0;
+    poolIdleClose+=((poolIdleSeconds>2?1:0)-poolIdleClose)*(1-Math.exp(-dt*(idle?1.2:7)));
     const wall=poolDistance(p.x,p.z||0),vert=p.poolVert;
     let goal=heading;
     if(vert){
@@ -9589,8 +9594,8 @@ function updateCameraDoll(dt, now) {
     poolCameraDip+=(descent-poolCameraDip)*(1-Math.exp(-dt*4.5));
     const zoom=playerCameraZoom,angle=poolCameraYaw+.14*(1-poolCameraDip)+playerCameraYaw;
     const airHeight=Math.max(0,poolFloorAt(p.x,p.z||0)-p.y);
-    const distance=(1350+Math.min(850,airHeight*.35)-poolCameraDip*120)*zoom;
-    const look=340+Math.min(450,speed*.16)+(poolCameraReturnYaw!==null?lerp(140,420,clamp(airHeight/600,0,1)):0);
+    const distance=lerp(1350+Math.min(850,airHeight*.35)-poolCameraDip*120,270,poolIdleClose)*zoom;
+    const look=(340+Math.min(450,speed*.16)+(poolCameraReturnYaw!==null?lerp(140,420,clamp(airHeight/600,0,1)):0))*(1-poolIdleClose);
     const lookX=p.x+Math.cos(goal)*look,lookZ=(p.z||0)+Math.sin(goal)*look;
     const groundFocus=Math.max(poolCameraDip*.28,clamp(airHeight/650,0,1)*.32);
     const target={x:lerp(p.x,lookX,.65+poolCameraDip*.2),
@@ -9602,7 +9607,7 @@ function updateCameraDoll(dt, now) {
     target.y=clamp(target.y,p.y-240,p.y+50);
     const subject={x:p.x,y:p.y-2,z:p.z||0};
     const position=clearPoolCamera({x:target.x-Math.cos(angle)*distance,
-      y:p.y-85-(lerp(145,480,clamp(airHeight/500,0,1))+poolCameraDip*110+Math.min(240,airHeight*.12))*zoom-playerCameraPitch*600,
+      y:p.y-85-lerp(lerp(145,480,clamp(airHeight/500,0,1))+poolCameraDip*110+Math.min(240,airHeight*.12),60,poolIdleClose)*zoom-playerCameraPitch*600,
       z:target.z-Math.sin(angle)*distance},subject);
     cameraCenter=target.x;cameraCenterY=target.y;cameraWidth=1650*zoom;
     cameraDoll.track({target,position,width:cameraWidth,perspective:1,fov:58+poolCameraDip*5,roll:0},dt,8);
@@ -22539,14 +22544,17 @@ let skateAudioLevel=0;
 function updateSkateAudio(dt){
   let speed=0;
   for(const p of activePlayers())if(p.alive&&p.skateboard&&!p.onewheel&&p.grounded)
-    speed=Math.max(speed,Math.hypot(p.vx,p.vy,p.vz||0));
+    speed=Math.max(speed,Math.hypot(p.vx,p.vz||0));
   const rider=activePlayers()[0];
   for(const b of balls)if(b.active&&b.type==='skateboard'&&Math.abs(b.y+18-terrainFloorAt(b.x,b.z||0))<5)
     speed=Math.max(speed,Math.hypot(b.vx,b.vz||0)*clamp(1-Math.hypot(b.x-rider.x,(b.z||0)-(rider.z||0))/1800,0,1));
-  const amount=clamp(speed/3200,0,1),target=speed>30?.025+Math.sqrt(amount)*.28:0;
+  // Keep the native loop below its buzzing high-speed register. Ground speed
+  // controls a quiet rumble, with no fixed-volume step when wheels start moving.
+  const amount=clamp(speed/3200,0,1);
+  const target=speed>30?(.006+Math.sqrt(amount)*.055)*clamp((speed-30)/150,0,1):0;
   skateAudioLevel+=(target-skateAudioLevel)*(1-Math.exp(-dt*(target?12:45)));
   if(skateAudioLevel<.0005)skateAudioLevel=0;
-  if(!netSilent&&typeof skateAudio==='function')skateAudio(amount,skateAudioLevel);
+  if(!netSilent&&typeof skateAudio==='function')skateAudio(.03+amount*.17,skateAudioLevel);
 }
 let motorFrequency=75,motorRunning=false,motorSpeed=0;
 function updateMotorAudio(dt){
@@ -23132,7 +23140,10 @@ function updateSeatHeartbeat(dt,now){
   danger=Math.max(danger,Math.min(1,(p.hit||0)*2));
   const rest=62+(p.pad*7%19),effort=Math.min(1,Math.hypot(p.vx,p.vy)/1800),target=rest+danger*85+effort*25;
   p.heartRate=(p.heartRate||rest)+(target-(p.heartRate||rest))*(1-Math.exp(-realDt*(target>(p.heartRate||rest)?1.8+(p.pad%3)*.2:.23+(p.pad%4)*.04)));
+  const previousHeartPhase=p.heartPhase;
   p.heartDanger=danger;p.heartPhase=((p.heartPhase ?? (p.pad*.173)%1)+realDt*p.heartRate/60)%1;
+  if(p===players[0]&&previousHeartPhase!==undefined&&p.heartPhase<previousHeartPhase)
+    playDrum('kick',.075,0);
   p.breathRate=11+(p.pad%5)+danger*13+effort*12;
   p.breathPhase=((p.breathPhase ?? (p.pad*.317)%1)+realDt*p.breathRate/60)%1;
   p.motionClock=(p.motionClock ?? now/1e6+p.pad*1.7)+realDt*(.8+p.heartRate/300);

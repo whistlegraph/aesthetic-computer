@@ -45,12 +45,11 @@ float4 main(PixelInput input) : SV_TARGET {
   const float3 center = sceneTexture.Sample(sceneSampler, input.uv).rgb;
   float3 color = center;
 
-  // Stable one-pixel dither and a very light scan modulation keep the output
-  // alive without hiding pixel art or softening nearest-neighbour sprites.
-  const float dither = frac(sin(dot(floor(input.position.xy),
-    float2(12.9898, 78.233))) * 43758.5453) - 0.5;
-  const float scan = 0.975 + 0.025 * sin(input.position.y * 3.14159265);
-  const float vignette = saturate(1.08 - radial * 0.18);
+  // Fine changing grain and gentle lens falloff, without raster scanlines.
+  const float grainFrame = floor(timeSeconds * 24.0);
+  const float grain = frac(sin(dot(floor(input.position.xy),
+    float2(12.9898, 78.233)) + grainFrame * 17.17) * 43758.5453) - 0.5;
+  const float vignette = 1.0 - smoothstep(0.25, 2.0, radial) * 0.13;
   if (stencilPass > 0.5) {
     // Compact FXAA runs only where triangle geometry wrote stencil.
     const float3 nw = sceneTexture.Sample(sceneSampler,
@@ -89,6 +88,12 @@ float4 main(PixelInput input) : SV_TARGET {
     const float tilt = tiltPx * smoothstep(0.0, feather, away);
     if (tilt > 0.35) color = lerp(color, discBlur(input.uv, tilt), saturate(tilt / 2.0));
   }
-  color = saturate(color * scan * vignette + dither / 255.0);
+  if (!hud) {
+    // A mild shoulder compresses bright paint without crushing dark detail.
+    color = color * (1.12 / (1.0 + color * 0.16));
+    const float luminance = dot(color, float3(0.299, 0.587, 0.114));
+    color = lerp(luminance.xxx, color, 0.96);
+    color = saturate(color * vignette + grain * (1.0 - luminance * 0.5) / 180.0);
+  }
   return float4(color, 1.0);
 }
