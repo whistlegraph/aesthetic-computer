@@ -980,7 +980,7 @@ function redraw() {
     if(historyKey!==desktopHistoryKey){desktopHistoryKey=historyKey;try{desktopHistory=live.history.list().map(({version,updatedAt,restoredFrom,summary})=>({version,updatedAt,restoredFrom,summary}));}catch{desktopHistory=[];}}
     const bindingKey=state.medium==='piece'?`${live.file}:${live.revision?.revision||''}`:'';
     if(bindingKey!==bindingSnapshotKey){bindingSnapshotKey=bindingKey;bindingSnapshot=state.medium==='piece'&&live.revision?.source?notebookBindings(live.revision.source,live.file):{revision:'',bindings:[]};}
-    const provider = JSON.stringify({status:state.status,mode:state.mode,activity:publicActivity(state),notice:state.entries.findLast(e=>e.kind==='notice')?.text||'',feedPending:!!state.feedPending,notebookBindings:bindingSnapshot,backend:backend.id,model:state.model||model,effort,busy:state.busy,selectedModel:model,models:pickerModels({backend:backend.id,model,catalog:modelCatalog||[]}),versions:desktopHistory});
+    const provider = JSON.stringify({status:state.status,mode:state.mode,activity:publicActivity(state),notice:state.entries.findLast(e=>e.kind==='notice')?.text||'',feedPending:!!state.feedPending,notebookBindings:bindingSnapshot,backend:backend.id,model:state.model||model,effort,busy:state.busy,selectedModel:model,models:pickerModels({backend:backend.id,model,catalog:catalogFor(backend.id)||[]}),versions:desktopHistory});
     if (provider !== lastProvider) { lastProvider = provider; process.stdout.write(`\x1b]777;easel-provider:${provider}\x07`); }
   }
   if (closing || drawing || splashing) return;
@@ -2233,6 +2233,7 @@ async function submitInput(submittedText, submittedMessages = null) {
       // the way this one was left.
       if (pro) { try { shape.set("mouse", mouseEnabled ? "on" : "off"); } catch {} }
       state.hover = "";
+      slabSession.pointer("arrow");
       addEntry("notice", `Mouse ${mouseEnabled ? "on · clicks reach the bottom line · ⌥-drag or shift-drag selects text" : "off · drag selects text · /provider and /model open the lists"}`);
       return redraw();
     }
@@ -2887,6 +2888,9 @@ function handleKeys(buffer) {
           // ignores it, which costs nothing.
           if (!process.env.AESEL_DESKTOP) process.stdout.write(`\x1b]22;${action ? "pointer" : "default"}\x07`);
           if (desktopSessionPath) process.stdout.write(`\x1b]777;easel-pointer:${action}\x07`);
+          // ...so the menubar sets the hand for it. "dismiss" is a click
+          // anywhere outside an open list: not a thing to point at.
+          else slabSession.pointer(action && action !== "dismiss" ? "hand" : "arrow");
           redraw();
         }
         if (mouse.click && action === "about") { if (desktopSessionPath) void requestDesktop("home"); else { state.about = !state.about; state.aboutScroll = 0; redraw(); } }

@@ -2224,6 +2224,7 @@ final class PromptSigilOverlayController {
     /// Current live prox windows, shared with focus navigation/highlighting so
     /// those features inherit the controller's tty-accurate Terminal binding.
     var promptWindowIDs: Set<Int> { Set(binding.values) }
+    func terminalWindowID(tty: String) -> Int? { binding[(tty as NSString).lastPathComponent] }
     var promptParticleTargets: [PromptParticleTarget] {
         particleColors.compactMap { tty, color in
             guard let id = binding[tty], let b = lastBoundsByNum[id] else { return nil }

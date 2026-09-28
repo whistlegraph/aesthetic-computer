@@ -435,6 +435,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // requested, so no Screen Recording prompt at launch (lazy grant).
         FrameCapture.shared.start()
 
+        // Aesel TUIs in Terminal ask for the pointing hand over what they can
+        // click; Terminal.app won't draw it from an escape, so we do.
+        TerminalCursor.shared.start()
+
         // Game Mode watches for GeForce NOW launching/quitting. Opt-in: with
         // "Auto" off this observes and does nothing, so the wiring is the
         // same either way and costs a couple of workspace notifications.

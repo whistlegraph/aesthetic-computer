@@ -86,3 +86,44 @@ test("a private marker never carries the prompt, and pro and the inbox socket ar
 
   session.close();
 });
+
+test("tells the menubar when the pointer should be a hand", async (context) => {
+  const { createServer } = await import("node:net");
+  const { mkdir } = await import("node:fs/promises");
+  const root = await mkdtemp(join(tmpdir(), "aesel-cursor-"));
+  context.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, "state"), { recursive: true });
+  const lines = [];
+  let closed;
+  const hung = new Promise((resolve) => { closed = resolve; });
+  const server = createServer((client) => {
+    let buffer = "";
+    client.on("data", (chunk) => {
+      buffer += chunk;
+      for (let i; (i = buffer.indexOf("\n")) >= 0; buffer = buffer.slice(i + 1)) lines.push(JSON.parse(buffer.slice(0, i)));
+    });
+    client.on("close", closed);
+  });
+  await new Promise((resolve) => server.listen(join(root, "state", "cursor.sock"), resolve));
+  context.after(() => server.close());
+  const session = new SlabSession({ cwd: "/project", tty: "ttys099", sessionId: "ac-session", slabHome: root });
+  session.start();
+  session.pointer("hand");
+  session.pointer("hand"); // unchanged: not sent again
+  session.close();
+  await hung;
+  assert.deepEqual(lines, [
+    { cursor: "hand", session: "ac-session", tty: "ttys099" },
+    { cursor: "arrow", session: "ac-session", tty: "ttys099" },
+  ]);
+});
+
+test("a pointer with nobody listening stays quiet", async (context) => {
+  const root = await mkdtemp(join(tmpdir(), "aesel-no-slab-"));
+  context.after(() => rm(root, { recursive: true, force: true }));
+  const session = new SlabSession({ cwd: "/project", tty: "ttys099", sessionId: "nobody", slabHome: root });
+  session.start();
+  session.pointer("hand");
+  session.pointer("arrow");
+  session.close();
+});

@@ -7,6 +7,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { createConnection } from "node:net";
 import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -57,6 +58,11 @@ export class SlabSession {
     this.running = join(this.stateDir, "running-tools", sessionId);
     this.enabled = false;
     this.heartbeat = null;
+    this.cursorSocket = join(this.stateDir, "cursor.sock");
+    this.shape = "arrow";
+    this.cursor = null;
+    this.cursorBeat = null;
+    this.cursorQuietUntil = 0;
     this.record = {
       session_id: sessionId,
       cwd,
@@ -205,7 +211,40 @@ export class SlabSession {
     this.#update({ state: "interrupted" });
   }
 
+  // Terminal.app ignores OSC 22, so the menubar sets the pointing hand on our
+  // behalf: one line down cursor.sock each time the shape under the mouse
+  // changes, and a beat every two seconds while it is a hand so a menubar that
+  // stops hearing from us lets go. Nobody listening costs one failed connect.
+  pointer(shape = "arrow") {
+    const clean = shape === "hand" ? "hand" : "arrow";
+    if (this.shape === clean) return;
+    this.shape = clean;
+    clearInterval(this.cursorBeat);
+    this.cursorBeat = null;
+    this.#sendPointer();
+    if (clean === "hand") {
+      this.cursorBeat = setInterval(() => this.#sendPointer(), 2_000);
+      this.cursorBeat.unref();
+    }
+  }
+
+  #sendPointer() {
+    if (!this.enabled) return;
+    if (!this.cursor) {
+      if (Date.now() < this.cursorQuietUntil) return;
+      const socket = createConnection(this.cursorSocket);
+      socket.unref();
+      socket.on("error", () => { this.cursorQuietUntil = Date.now() + 10_000; });
+      socket.on("close", () => { if (this.cursor === socket) this.cursor = null; });
+      this.cursor = socket;
+    }
+    this.cursor.write(`${JSON.stringify({ cursor: this.shape, session: this.sessionId, tty: this.tty })}\n`);
+  }
+
   close() {
+    this.pointer("arrow");
+    this.cursor?.end();
+    this.cursor = null;
     this.#stopHeartbeat();
     this.#remove(this.active);
     if(this.fleetActive)this.#remove(this.fleetActive);
