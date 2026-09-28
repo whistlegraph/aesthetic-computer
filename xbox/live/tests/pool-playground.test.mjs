@@ -7,14 +7,14 @@ function playground(legacyAudio=false){
  let now=1e6;const noop=()=>{},audio=[],drums=[];
  const api=new Function('runtime','capabilities','telemetry','gameSignal','drum','wipe','box','line','triangle','write','systemWrite','oscillator','oscillatorStop',`${source}
  configureWorldMap('skatepark','pool');fightOpponent='freeskate';gameMode='fight';
- return {outdoorCircuit,drawOutdoorCircuit,outdoorChunks,rasterDecalPatches,updateBoomerboard,inputPads,updateGarments,garmentStates,parkSpeakerLocations,parkKarts,dropParkItem,parkDropName,brokenParkRoof,parkRoofKey,parkBuildingHeight,generateParkProfile,drawParkStereoGeometry,updateSpin,bloodDrops,popCivilianHead,updateFootprints,playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
+ return {freeItemArm,assignedItemArm,heldHandItems,emitSignal,outdoorCircuit,drawOutdoorCircuit,outdoorChunks,rasterDecalPatches,updateBoomerboard,inputPads,updateGarments,garmentStates,parkSpeakerLocations,parkKarts,dropParkItem,parkDropName,brokenParkRoof,parkRoofKey,parkBuildingHeight,generateParkProfile,drawParkStereoGeometry,updateSpin,bloodDrops,popCivilianHead,updateFootprints,playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
  parkHalfPipe3D,parkHalfPipeHeight,parkDeckY,poolFloorAt,poolSlopeAt,gunPickups,axePickup,
  resetParkSupply,updateParkSupply,updateGunPickups,resetParkKids,updateParkKids,parkKids,
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
  boundParkBody,parkWindowWalls,brokenParkWindows,parkWindowShards,resetParkWindows,
  breakParkWindow,updateParkWindowShards,insidePark,parkLotMargin,updateCameraDoll,clearPoolCamera,updateMotorAudio,updateSkateAudio,balls,
  updateSeatHeartbeat,updatePonytail,ponytailAnchor,ponytailStates,drawSpatialRunner,sampleCombatBoxes,sweptProjectileContact,damageParkCivilian,drawAeselFairy,sceneBoundsVisible,buildParkScene,parkActorVisible,figureLod,
- state:()=>({halfpipe:parkHalfPipe3D})};`)(()=>({monotonicUs:now}),()=>({platform:'web'}),noop,noop,(name,gain,pan)=>{if(legacyAudio&&!['kick','snare','hat','block'].includes(name))throw new RangeError('unknown drum');drums.push({name,gain,pan});},noop,noop,noop,noop,noop,noop,(hz,gain)=>audio.push({hz,gain}),()=>audio.push({stop:true}));
+ state:()=>({halfpipe:parkHalfPipe3D})};`)(()=>({monotonicUs:now}),()=>({platform:'web'}),noop,(event,seat,value,value2)=>{assert.ok(seat>=-1&&seat<=3);assert.ok(Number.isFinite(value)&&Number.isFinite(value2));},(name,gain,pan)=>{if(legacyAudio&&!['kick','snare','hat','block'].includes(name))throw new RangeError('unknown drum');drums.push({name,gain,pan});},noop,noop,noop,noop,noop,noop,(hz,gain)=>audio.push({hz,gain}),()=>audio.push({stop:true}));
  const p=api.players[0];Object.assign(p,{x:1080,z:0,y:api.poolFloorAt(1080,0),grounded:true,alive:true,dummy:false,skateboard:false,poolYaw:0,previous:[],spin:null,directionChanges:[],poolLastSteer:0});
  api.step=(down=[],dt=1/60)=>{now+=dt*1e6;api.updatePlayer(p,{down,leftX:0,leftY:0},dt,api.clock());};
  api.now=api.clock;api.audio=audio;api.drums=drums;return api;
@@ -619,4 +619,31 @@ test('chalk uses an opaque texel, lifts the camera, and punch does not recall th
  a.step(['B']);assert.ok(p.chalkDrawing);a.updateCameraDoll(1,a.now());assert.ok(a.cameraDoll.position.y<p.y-700);
  a.inputPads[p.pad]={down:['B']};a.updateBoomerboard(1,a.now()+1000000);assert.ok(!p.boomerSince);assert.ok(!p.skateboard);
  p.x+=10;a.updateChalk(p,['B'],a.now()+1000000);const mark=a.decals.find(d=>d.kind==='chalk');assert.ok(mark);assert.deepEqual(a.rasterDecalPatches(mark)[0].uv,[0,0,1,1]);
+});
+
+test('NPC removal signals stay inside the native controller-seat contract',()=>{
+ const a=playground();for(let id=2;id<10;id++)a.emitSignal('partremoved',id,0,1);
+});
+test('half-pipe turnaround keeps a gradual camera sweep without a half orbit',()=>{
+ const a=playground(),p=a.players[0],pipe=a.parkHalfPipe3D;
+ Object.assign(p,{x:pipe.x,z:pipe.z,y:a.parkDeckY,skateboard:true,poolPipeLocked:true,poolYaw:0});
+ for(let i=0;i<300;i++)a.updateCameraDoll(1/60,a.now());
+ const start={...a.cameraDoll.position};p.poolYaw=Math.PI;
+ for(let i=0;i<120;i++)a.updateCameraDoll(1/60,a.now());
+ assert.ok(Math.hypot(a.cameraDoll.position.x-start.x,a.cameraDoll.position.z-start.z)<50);
+});
+test('loose civilian heads persist, bounce and respond to foot contact',()=>{
+ const a=playground(),p=a.players[0];a.resetParkKids();const kid=a.parkKids[0];
+ const g=a.runnerWorldGeometry(kid,0);a.popCivilianHead(kid,p,g,a.now());
+ const h=kid.looseHead;Object.assign(h,{x:p.x+20,z:p.z,y:p.y-h.radius,vx:0,vy:0,vz:0});
+ a.updateParkKids(1/60,a.now());assert.ok(h.vx>100);
+ for(let i=0;i<600;i++)a.updateParkKids(1/60,a.now()+i*16667);
+ assert.equal(kid.looseHead,h);assert.ok([h.x,h.y,h.z,h.vx,h.vy,h.vz].every(Number.isFinite));
+});
+
+test('two held items occupy different arms and block another pickup until dropped',()=>{
+ const a=playground(),p=a.players[0];Object.assign(p,{gunAmmo:5,axeHeld:true,chalkColor:null,swordHeld:false,grenadeAmmo:0,heldBall:-1});
+ assert.notEqual(a.assignedItemArm(p,'gun'),a.assignedItemArm(p,'axe'));
+ assert.equal(a.freeItemArm(p,'chalk'),'');assert.equal(a.freeItemArm(p,'gun'),'');
+ a.dropParkItem(p,a.now());assert.ok(a.freeItemArm(p,'chalk'));assert.equal(p.gunAmmo,5);
 });

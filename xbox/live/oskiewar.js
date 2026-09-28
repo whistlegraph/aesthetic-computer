@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 201;
+const buildVersion = 202;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -1695,7 +1695,7 @@ const parkRoofCell=600;
 function parkRoofKey(x,z){return Math.floor((x-gridLeft)/parkRoofCell)+':'+Math.floor((z-worldNear)/parkRoofCell);}
 function breakParkRoof(p){
  const key=parkRoofKey(p.x,p.z||0);if(brokenParkRoof.has(key))return false;
- brokenParkRoof.add(key);releaseQuadMesh(parkBuildingMesh);parkBuildingMesh=null;
+ brokenParkRoof.add(key);releaseQuadMesh(parkBuildingMesh);parkBuildingMesh=null;releaseQuadMesh(parkRoofMesh);parkRoofMesh=null;
  for(let i=0;i<16;i++){const a=i*2.39996;parkWindowShards.push({x:p.x+Math.cos(a)*100,y:parkDeckY-parkBuildingHeight,z:(p.z||0)+Math.sin(a)*100,vx:Math.cos(a)*160,vy:-180-i*10,vz:Math.sin(a)*160,life:2.4,size:10+i%4*5,rotation:a});}
  if(parkWindowShards.length>216)parkWindowShards.splice(0,parkWindowShards.length-216);
  playDrum('glass',.35,panPlayer(p));p.lastButton='ROOF BREAK';p.lastButtonAt=runtime().monotonicUs;return true;
@@ -1724,7 +1724,7 @@ function breakParkWindow(wall,bay,at,velocity={}){
 function resetParkWindows(){
   brokenParkWindows.clear();brokenParkRoof.clear();parkWindowShards.length=0;
   for(const mesh of parkWindowMeshes.values())releaseQuadMesh(mesh);parkWindowMeshes.clear();
-  releaseQuadMesh(parkBuildingMesh);parkBuildingMesh=null;
+  releaseQuadMesh(parkBuildingMesh);parkBuildingMesh=null;releaseQuadMesh(parkRoofMesh);parkRoofMesh=null;
 }
 function parkWallContact(from,to,radius=25){
   const contacts=[];
@@ -3311,7 +3311,21 @@ function decalShape(decal) {
   return corners;
 }
 
+const lensBlood=[];
+function drawLensBlood(){
+ const now=runtime().monotonicUs,old=triangleDepth;triangleDepth=-1.46;
+ for(let i=lensBlood.length-1;i>=0;i--){const d=lensBlood[i],age=(now-d.at)/1e6;
+  if(age>=3){lensBlood.splice(i,1);continue;}
+  filledDisc(d.x*viewWidth(),(d.y+age*.012)*viewHeight,d.r*clamp((3-age)/.8,0,1),[116,12,31]);
+ }
+ triangleDepth=old;
+}
 function spawnBlood(x, y, z, direction, amount, spread = 1) {
+ if(poolOnly()&&amount>=8&&Math.hypot(x-cameraDoll.position.x,y-cameraDoll.position.y,z-cameraDoll.position.z)<750){
+  const point=projectPoint(x,y,z);
+  if(!point.behind)for(let i=0;i<5&&lensBlood.length<20;i++)lensBlood.push({x:clamp(point.x/viewWidth()+(decalRandom()-.5)*.35,.06,.94),y:clamp(point.y/viewHeight+(decalRandom()-.5)*.35,.1,.9),r:4+decalRandom()*12,at:runtime().monotonicUs});
+ }
+
   for (let drop = 0; drop < amount && bloodDrops.length < 90; drop++) {
     const push = direction ? direction * (180 + decalRandom() * 720) : (decalRandom() - .5) * 900;
     bloodDrops.push({ x, y, z,
@@ -5150,7 +5164,7 @@ function emitSignal(event, player = -1, value = 0, value2 = 0) {
   if (replay) replay.events.push([demoTick(runtime().monotonicUs), event,
     player, Math.round(value * 1000) / 1000, Math.round(value2 * 1000) / 1000]);
   if (netSilent) return;
-  if (typeof gameSignal === "function") gameSignal(event, player, value, value2);
+  if (typeof gameSignal === "function") gameSignal(event, Number.isInteger(player) && player >= 0 && player <= 3 ? player : -1, value, value2);
 }
 
 // Older native hosts may not recognize the newer sound names. Keep their
@@ -9735,14 +9749,15 @@ function updateCameraDoll(dt, now) {
     }
     if(p.poolPipeLocked){
       const pipe=parkHalfPipe3D,air=Math.max(0,parkDeckY-pipe.radius-p.y);
-      let yaw=heading;
-      if(p.poolVert?.pipe){const progress=clamp((p.poolVert.speed+p.vy)/(2*p.poolVert.speed),0,1);yaw=p.poolVert.heading+Math.PI*(progress*progress*(3-2*progress));}
-      const error=Math.atan2(Math.sin(yaw-poolCameraYaw),Math.cos(yaw-poolCameraYaw));poolCameraYaw+=error*(1-Math.exp(-dt*2));
+      // A small sweep follows travel without orbiting on every turnaround.
+      const yaw=Math.sin(heading)*.22;
+      const error=Math.atan2(Math.sin(yaw-poolCameraYaw),Math.cos(yaw-poolCameraYaw));
+      poolCameraYaw+=clamp(error*(1-Math.exp(-dt*.8)),-dt*.3,dt*.3);
       const angle=poolCameraYaw+Math.PI*.6,radius=3100+air*.85;
       const target={x:pipe.x,y:parkDeckY-pipe.radius*.5-air*.2,z:pipe.z};
       const position={x:pipe.x-Math.cos(angle)*radius,y:parkDeckY-2100-air*.85,z:pipe.z-Math.sin(angle)*radius};
       cameraCenter=target.x;cameraCenterY=target.y;cameraWidth=3200;
-      cameraDoll.track({target,position,width:3200,perspective:1,fov:65,roll:0},dt,5);
+      cameraDoll.track({target,position,width:3200,perspective:1,fov:65,roll:0},dt,1.8);
       cameraDoll.position.y=Math.min(cameraDoll.position.y,parkDeckY-700);
       cameraDoll.dirty=true;poolIdleSeconds=poolIdleClose=0;return;
     }
@@ -10428,10 +10443,11 @@ function updateGunPickups(now) {
     if (!pickup.active) continue;
     for (const player of players) {
       if (now<(pickup.safeUntil||0) || !player.alive || player.dummy || !nearRunner(player, pickup.x, pickup.y, pickup.z, 90) ||
-          runnerDistanceToPoint(player, poseTime, pickup.x, pickup.y, pickup.z) > 90 || !availableArm(player)) continue;
+          runnerDistanceToPoint(player, poseTime, pickup.x, pickup.y, pickup.z) > 90 || !(poolOnly()?freeItemArm(player,"gun"):availableArm(player))) continue;
+      const arm=poolOnly()?freeItemArm(player,"gun"):availableArm(player);
       player.gunAmmo = Math.min(30, player.gunAmmo + pickup.amount);
       player.gunMode = pickup.kind || "HANDGUN";
-      player.itemArm = availableArm(player);
+      player.itemArm = arm;if(poolOnly()){player.handItems ||= {};player.handItems.gun=arm;}
       pickup.active = false;
       remember(player, player.gunMode + " +" + pickup.amount);
       playDrum("clap", 1.1, panPlayer(player));
@@ -11027,6 +11043,19 @@ const availableArm = (player) => {
   const other = lead === "right-arm" ? "left-arm" : "right-arm";
   return hasPart(player, other) ? other : "";
 };
+function heldHandItems(p){return [p.gunAmmo>0?'gun':null,p.axeHeld?'axe':null,p.chalkColor?'chalk':null,p.swordHeld?'sword':null,p.grenadeAmmo>0?'grenade':null,p.heldBall>=0?'ball':null].filter(Boolean);}
+function assignedItemArm(p,kind){
+ const items=heldHandItems(p);p.handItems ||= {};
+ for(const key of Object.keys(p.handItems))if(!items.includes(key)||!hasPart(p,p.handItems[key]))delete p.handItems[key];
+ const used=new Set();
+ for(const item of items){let arm=p.handItems[item];if(!arm||used.has(arm))arm=['right-arm','left-arm'].find(a=>hasPart(p,a)&&!used.has(a));if(arm){p.handItems[item]=arm;used.add(arm);}}
+ return p.handItems[kind]||'';
+}
+function freeItemArm(p,kind){
+ const items=heldHandItems(p);if(items.includes(kind)||items.length>=2)return '';
+ for(const item of items)assignedItemArm(p,item);
+ return ['right-arm','left-arm'].find(a=>hasPart(p,a)&&!items.some(i=>p.handItems[i]===a))||'';
+}
 // Ownership stays attached to the arm that picked the object up; turning or
 // boarding cannot teleport a gun between hands.
 const itemHand = (player) => player.itemArm || availableArm(player);
@@ -18165,7 +18194,7 @@ function drawHandgun(hand, toward, facing, scale) {
 }
 
 function itemForearm(player, geometry) {
-  const arm = itemHand(player);
+  const arm = poolOnly()&&player.gunAmmo>0?assignedItemArm(player,"gun"):itemHand(player);
   return geometry.segments.find(segment => segment.part === arm &&
     (segment.role === "item-forearm" || segment.role === "attack-forearm")) ||
     geometry.segments.find(segment => segment.part === arm &&
@@ -20447,7 +20476,7 @@ function drawParkWindows(){
     drawQuadMesh(mesh);
   }
 }
-let parkBuildingMesh=null;
+let parkBuildingMesh=null,parkRoofMesh=null;
 function drawParkBuildingGeometry(){
   const p=parkPalette,top=parkDeckY-parkBuildingHeight;
   const left=gridLeft,right=gridLeft+gridWidth,near=worldNear,far=worldFar;
@@ -20474,6 +20503,10 @@ function drawParkBuildingGeometry(){
   // Traverse counter-clockwise so depth offsets face into the room.
   wall(left,near,right,near,0);wall(right,near,right,far,1);
   wall(right,far,left,far,2);wall(left,far,left,near,3);
+ }
+function drawParkRoofGeometry(){
+  const p=parkPalette,top=parkDeckY-parkBuildingHeight;
+  const left=gridLeft,right=gridLeft+gridWidth,near=worldNear,far=worldFar;
   for(let x=left;x<right;x+=parkRoofCell)for(let z=near;z<far;z+=parkRoofCell){
     if(brokenParkRoof.has(parkRoofKey(x+1,z+1)))continue;
     const r=Math.min(right,x+parkRoofCell),f=Math.min(far,z+parkRoofCell);
@@ -20502,7 +20535,14 @@ function drawParkBuilding(){
     for(const face of parkBuildingMesh.faces)if(face.color[0]===255||face.color.join(',')===parkPalette.glass.join(',')||face.color.join(',')==='196,228,231')
       face.normal=[-globalLight.x,-globalLight.y,-globalLight.z];
   }
-  drawParkScene(parkBuildingMesh);drawParkWindows();drawParkWindowShards();
+  drawParkScene(parkBuildingMesh);
+  // The overhead view cuts away roof, beams and hanging lights, while their
+  // physical breakable surface remains in the simulation.
+  if(cameraDoll.position.y>parkDeckY-parkBuildingHeight+100){
+    if(!parkRoofMesh)parkRoofMesh=captureQuadMesh(drawParkRoofGeometry);
+    drawParkScene(parkRoofMesh);
+  }
+  drawParkWindows();drawParkWindowShards();
 }
 function drawRoomSurfaces(left, right, top, bottom, color) {
   if(poolOnly()){drawParkBuilding();return;}
@@ -22538,6 +22578,7 @@ function drawTitleHeadDoor(t, ink, suppressed) {
 // fighters sharp and softens the street above and the water below. The HUD
 // stays sharp in the shader. __oskiewarPost = false turns both off.
 let postCameraX = null, postCameraY = null;
+function parkSpeedEffect(p){return clamp((mph(Math.hypot(p?.vx||0,p?.vy||0,p?.vz||0)*gameSpeed)-8)/100,0,1);}
 function steerPostEffects() {
   if (!nativePostEffects) return;
   const on = globalThis.__oskiewarPost !== false && shellMode === "GAME" && !selecting;
@@ -22573,7 +22614,7 @@ function steerPostEffects() {
   bottom = clamp(bottom + 24, 0, viewHeight);
   const focusY = visible ? (top + bottom) / (2 * viewHeight) : .5;
   const band = visible ? Math.max(.06, (bottom - top) / (2 * viewHeight)) : 1;
-  nativePostEffects(focusY, band, .2+(poolOnly()?parkMusicPulse()*.015:0), visible ? 4 : 0,
+  nativePostEffects(focusY, band, .2+(poolOnly()?parkMusicPulse()*.015:0), poolOnly()?parkSpeedEffect(players[0])*4:0,
     clamp(moveX, -24, 24), clamp(moveY, -24, 24));
 }
 
@@ -22921,6 +22962,7 @@ function gamePaint() {
     }
   }
   if(poolOnly()){drawCerealMilk(t);drawParkStereo();drawAeselFairy(t);}
+  if(poolOnly())drawLensBlood();
   // Debug geometry shares the unfiltered overlay pass, behind screen UI.
   triangleDepth = -1.465;
   for(const p of activePlayers()){drawDebugHitboxes(p,t);if(debugHitboxes)drawAxeHitbox(p,t);}
@@ -23310,7 +23352,7 @@ function updateFootprints(p,now){
 }
 function drawHeldChalk(p,t){
  if(!p.chalkColor||!p.alive)return;
- const world=runnerWorldGeometry(p,t),arm=world.segments.find(s=>s.part===itemHand(p)&&/forearm$/.test(s.role));if(!arm)return;
+ const world=runnerWorldGeometry(p,t),arm=world.segments.find(s=>s.part===assignedItemArm(p,'chalk')&&/forearm$/.test(s.role));if(!arm)return;
  const hand={x:arm.x2,y:arm.y2,z:arm.z2},tip=p.chalkDrawing?chalkTip(p):{x:hand.x+8,y:hand.y+16,z:hand.z};
  worldCapsule(hand.x,hand.y,hand.z,tip.x,tip.y,tip.z,6*projectionScaleAt(tip),p.chalkColor.rgb);
 }
@@ -23358,11 +23400,11 @@ function updateParkSupply(dt,now){
  if(!freeskateActive())return;
  if(poolOnly()){
   for(const kart of parkKarts)if(kart.active&&now>=kart.safeUntil)for(const p of activePlayers())if(p.alive&&!p.skateboard&&Math.hypot(p.x-kart.x,(p.z||0)-kart.z)<75&&Math.abs(p.y-kart.y)<100){p.goKart=kart;p.skateboard=true;p.onewheel=false;p.poolYaw=kart.poolYaw; kart.active=false;break;}
-  for(const chalk of chalkPickups)if(chalk.active&&now>=(chalk.safeUntil||0))for(const p of activePlayers())if(p.alive&&availableArm(p)&&Math.hypot(p.x-chalk.x,(p.z||0)-chalk.z)<35&&Math.abs(p.y-chalk.y)<70){p.chalkColor=chalk.color;p.itemArm=availableArm(p);chalk.active=false;playDrum('hat',.25,panPlayer(p));break;}
-  for(const axe of parkAxes)if(axe.active&&now>=(axe.safeUntil||0))for(const p of activePlayers())if(p.alive&&availableArm(p)&&Math.hypot(p.x-axe.x,(p.z||0)-axe.z)<55&&Math.abs(p.y-axe.y-65)<100){p.axeHeld=true;p.itemArm=availableArm(p);axe.active=false;break;}
-  if(axePickup.active)for(const p of activePlayers())if(p.alive&&availableArm(p)&&
+  for(const chalk of chalkPickups)if(chalk.active&&now>=(chalk.safeUntil||0))for(const p of activePlayers())if(p.alive&&freeItemArm(p,'chalk')&&Math.hypot(p.x-chalk.x,(p.z||0)-chalk.z)<35&&Math.abs(p.y-chalk.y)<70){p.handItems ||= {};p.handItems.chalk=freeItemArm(p,'chalk');p.chalkColor=chalk.color;chalk.active=false;playDrum('hat',.25,panPlayer(p));break;}
+  for(const axe of parkAxes)if(axe.active&&now>=(axe.safeUntil||0))for(const p of activePlayers())if(p.alive&&freeItemArm(p,'axe')&&Math.hypot(p.x-axe.x,(p.z||0)-axe.z)<55&&Math.abs(p.y-axe.y-65)<100){p.handItems ||= {};p.handItems.axe=freeItemArm(p,'axe')||availableArm(p);p.axeHeld=true;axe.active=false;break;}
+  if(axePickup.active)for(const p of activePlayers())if(p.alive&&freeItemArm(p,'axe')&&
     Math.hypot(p.x-axePickup.x,(p.z||0)-(axePickup.z||0))<65&&Math.abs(p.y-axePickup.y-65)<100){
-      p.axeHeld=true;p.itemArm=availableArm(p);axePickup.active=false;break;
+      p.handItems ||= {};p.handItems.axe=freeItemArm(p,'axe')||availableArm(p);p.axeHeld=true;axePickup.active=false;break;
     }
   return;
  }
@@ -23377,7 +23419,7 @@ function updateParkSupply(dt,now){
   if(now>=parkSupply.ko.until){const paired=freeskateSecond && !players[1].dummy,scores=players.map(p=>p.score);beginFreeskate(now);updateFreeskatePlayers(paired,now);players.forEach((p,i)=>p.score=scores[i]);}
   return;
  }
- if(axePickup.active)for(const p of activePlayers())if(p.alive&&availableArm(p)&&Math.abs(p.x-axePickup.x)<65&&Math.abs(p.y-(axePickup.y+65))<150){p.axeHeld=true;p.itemArm=availableArm(p);axePickup.active=false;break;}
+ if(axePickup.active)for(const p of activePlayers())if(p.alive&&availableArm(p)&&Math.abs(p.x-axePickup.x)<65&&Math.abs(p.y-(axePickup.y+65))<150){p.handItems ||= {};p.handItems.axe=freeItemArm(p,'axe')||availableArm(p);p.axeHeld=true;axePickup.active=false;break;}
  // Drone arrives before the scheduled drop; its package is a heal, not a weapon.
  parkSupply.drone=null;parkSupply.drop=null;
  for(const c of hallCubes){
@@ -23564,14 +23606,15 @@ function updateMotorAudio(dt){
  const amount=clamp(speed/3200,0,1),load=clamp(Math.abs(speed-motorSpeed)/Math.max(dt,.001)/5000,0,1);
  motorSpeed=speed;
  // Low electric hum with a soft acceleration whine; no standing idle tone.
- const target=65+Math.pow(amount,.72)*280+load*28;
+ const note=[33,29,36,31][Math.floor(parkStereo.beat/8)%4]+(p.wheelTurbo?12:0);
+ const target=440*Math.pow(2,(note-69)/12);
  motorFrequency+=(target-motorFrequency)*(1-Math.exp(-Math.max(0,dt)*8));
- const gain=(.003+Math.sqrt(amount)*.011+load*.003)*clamp((speed-12)/90,0,1);
+ const gain=(.002+Math.sqrt(amount)*.005)*clamp((speed-12)/90,0,1);
  oscillator(motorFrequency,gain);motorRunning=true;
 }
 function axeFrame(p,t){
  if(!p.axeHeld || !p.alive || isHeadOnly(p) || !availableArm(p))return null;
- const g=runnerWorldGeometry(p,t),arm=g.segments.find(b=>b.part===itemHand(p)&&b.role?.endsWith('forearm'))||g.segments.find(b=>b.role?.endsWith('forearm'));
+ const g=runnerWorldGeometry(p,t),arm=g.segments.find(b=>b.part===(poolOnly()?assignedItemArm(p,'axe'):itemHand(p))&&b.role?.endsWith('forearm'))||g.segments.find(b=>b.role?.endsWith('forearm'));
  if(!arm)return null;
  const hand={x:arm.x2,y:arm.y2,z:arm.z2??p.z??0};
  let dx=arm.x2-arm.x1,dy=-Math.abs(arm.y2-arm.y1),dz=(arm.z2||0)-(arm.z1||0);
@@ -23984,9 +24027,25 @@ function updateParkKids(dt,now){
     }
   }
   if(kid.headless){
-   const h=kid.looseHead;h.vy+=1100*dt;h.x+=h.vx*dt;h.y+=h.vy*dt;h.z=clamp(h.z+h.vz*dt,worldNear+30,worldFar-30);
-   const floor=terrainFloorAt(h.x,h.z)-h.radius;
-   if(h.y>floor){h.y=floor;h.vy=-Math.abs(h.vy)*.35;h.vx*=Math.exp(-dt*3);h.vz*=Math.exp(-dt*3);}
+   const h=kid.looseHead,previous={x:h.x,z:h.z};
+   h.vy+=1100*dt;h.x+=h.vx*dt;h.y+=h.vy*dt;h.z+=h.vz*dt;
+   if(poolOnly())for(const {w,old} of parkWallContact(previous,h,h.radius)){
+     const dot=h.vx*w.nx+h.vz*w.nz;
+     if(dot*(old>=0?1:-1)<0){h.vx-=1.6*dot*w.nx;h.vz-=1.6*dot*w.nz;h.x=previous.x;h.z=previous.z;}
+   }
+   const floor=(poolOnly()?poolFloorAt(h.x,h.z):terrainFloorAt(h.x,h.z))-h.radius;
+   if(h.y>floor){h.y=floor;h.vy=Math.abs(h.vy)>65?-Math.abs(h.vy)*.55:0;h.vx*=Math.exp(-dt*.8);h.vz*=Math.exp(-dt*.8);}
+   for(const p of activePlayers()){
+     if(!p.alive||!nearRunner(p,h.x,h.y,h.z,h.radius+40)||now<(h.hitAfter||0))continue;
+     const dx=h.x-p.x,dz=h.z-(p.z||0),distance=Math.hypot(dx,dz);
+     const attack=p.attackKind&&now<p.attackUntil;
+     const contact=attack&&sampleCombatBoxes(p,now).hit.some(box=>pointBoxDistance(box,h.x,h.y,h.z)<h.radius+8);
+     const bump=distance<h.radius+30&&Math.abs(h.y-(p.y-h.radius))<h.radius*2;
+     if(!contact&&!bump)continue;
+     const yaw=p.poolYaw||0,nx=distance>1?dx/distance:Math.cos(yaw),nz=distance>1?dz/distance:Math.sin(yaw);
+     const force=contact?(/KICK/.test(p.attackKind)?1250:850):Math.max(140,Math.hypot(p.vx,p.vz||0)*.85);
+     h.vx=nx*force;h.vz=nz*force;h.vy=contact?-360:-80;h.hitAfter=now+180000;
+   }
    continue;
   }
   kid.z=(kid.patrolZ||0)+Math.sin(now/3500000+kid.pad*1.2)*(poolOnly()?35:140);
@@ -24024,7 +24083,7 @@ function updateWheelTurbo(dt,now){
     }else p.wheelChargeAt=0;
   }
   if(p.wheelTurbo){
-    if(now>=(p.nextTurboTone||0)){playSine(motorFrequency*2,.11);p.nextTurboTone=now+90000;}
+    // The quiet, chord-tuned motor voice carries turbo too.
     if(now>=(p.nextTurboParticle||0)){
       p.nextTurboParticle=now+30000;
       turboParticles.push({x:p.x,y:p.y-20,z:p.z||0,vx:-Math.sign(p.skateVx)*180,vy:-60-(now%130),life:.45});

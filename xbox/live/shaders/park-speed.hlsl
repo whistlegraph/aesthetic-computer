@@ -1,0 +1,120 @@
+Texture2D sceneTexture : register(t0);
+Texture2D<float> depthTexture : register(t1);
+SamplerState sceneSampler : register(s0);
+
+cbuffer PostConstants : register(b0) {
+  float2 texel;
+  float timeSeconds;
+  float stencilPass;
+  float focusY;   // centre of the sharp band, 0 top .. 1 bottom
+  float band;     // half-height of the sharp band
+  float feather;  // distance over which blur ramps to full
+  float tiltPx;   // full tilt-shift radius in pixels
+  float2 motion;  // camera travel this frame, pixels
+  float hudDepth; // depth at or in front of which pixels are HUD and stay sharp
+  float pad;
+};
+
+// Never pull a HUD pixel into a neighbouring scene pixel's blur.
+float3 sceneTap(float2 uv, float2 origin) {
+  int2 pixel = int2(clamp(uv, texel * 0.5, 1.0 - texel * 0.5) / texel);
+  if (depthTexture.Load(int3(pixel, 0)) <= hudDepth)
+    return sceneTexture.Sample(sceneSampler, origin).rgb;
+  return sceneTexture.Sample(sceneSampler, uv).rgb;
+}
+
+// Twelve taps on a golden-angle spiral: a soft disc without a second pass.
+float3 discBlur(float2 uv, float radiusPx) {
+  float3 sum = 0;
+  [unroll] for (int i = 0; i < 12; ++i) {
+    const float r = sqrt((i + 0.5) / 12.0) * radiusPx;
+    const float a = i * 2.39996323;
+    sum += sceneTap(uv + float2(cos(a), sin(a)) * r * texel, uv);
+  }
+  return sum / 12.0;
+}
+
+// Camera motion blur: eight taps across the frame's travel, centred.
+float3 motionBlur(float2 uv) {
+  float3 sum = 0;
+  [unroll] for (int i = 0; i < 8; ++i)
+    sum += sceneTap(uv + motion * texel * ((i + 0.5) / 8.0 - 0.5), uv);
+  return sum / 8.0;
+}
+
+struct PixelInput {
+  float4 position : SV_POSITION;
+  float2 uv : TEXCOORD0;
+};
+
+float4 main(PixelInput input) : SV_TARGET {
+  const float2 centered = input.uv * 2.0 - 1.0;
+  const float radial = dot(centered, centered);
+  const float3 center = sceneTexture.Sample(sceneSampler, input.uv).rgb;
+  const bool hud = depthTexture.Load(int3(input.position.xy, 0)) <= hudDepth;
+  if (hud) return float4(center, 1.0);
+  float3 color = center;
+
+  // Fine changing grain and gentle lens falloff, without raster scanlines.
+  const float grainFrame = floor(timeSeconds * 24.0);
+  const float grain = frac(sin(dot(floor(input.position.xy),
+    float2(12.9898, 78.233)) + grainFrame * 17.17) * 43758.5453) - 0.5;
+  const float vignette = 1.0 - smoothstep(0.25, 2.0, radial) * 0.13;
+  if (stencilPass > 0.5) {
+    // Compact FXAA runs only where triangle geometry wrote stencil.
+    const float3 nw = sceneTexture.Sample(sceneSampler,
+      input.uv + float2(-texel.x, -texel.y)).rgb;
+    const float3 ne = sceneTexture.Sample(sceneSampler,
+      input.uv + float2(texel.x, -texel.y)).rgb;
+    const float3 sw = sceneTexture.Sample(sceneSampler,
+      input.uv + float2(-texel.x, texel.y)).rgb;
+    const float3 se = sceneTexture.Sample(sceneSampler,
+      input.uv + float2(texel.x, texel.y)).rgb;
+    const float3 weights = float3(0.299, 0.587, 0.114);
+    const float lc = dot(center, weights), lnw = dot(nw, weights);
+    const float lne = dot(ne, weights), lsw = dot(sw, weights);
+    const float lse = dot(se, weights);
+    float2 direction = float2(-((lnw + lne) - (lsw + lse)),
+      (lnw + lsw) - (lne + lse));
+    const float reduce = max((lnw + lne + lsw + lse) / 32.0, 1.0 / 128.0);
+    direction = clamp(direction /
+      (min(abs(direction.x), abs(direction.y)) + reduce), -8.0, 8.0) * texel;
+    const float3 sampleA = 0.5 * (
+      sceneTexture.Sample(sceneSampler, input.uv + direction * (-1.0 / 6.0)).rgb +
+      sceneTexture.Sample(sceneSampler, input.uv + direction * (1.0 / 6.0)).rgb);
+    const float3 sampleB = sampleA * 0.5 + 0.25 * (
+      sceneTexture.Sample(sceneSampler, input.uv + direction * -0.5).rgb +
+      sceneTexture.Sample(sceneSampler, input.uv + direction * 0.5).rgb);
+    const float lmin = min(lc, min(min(lnw, lne), min(lsw, lse)));
+    const float lmax = max(lc, max(max(lnw, lne), max(lsw, lse)));
+    const float lb = dot(sampleB, weights);
+    color = lb < lmin || lb > lmax ? sampleA : sampleB;
+  }
+  // tiltPx carries normalized MPH (0..4); feather carries heartbeat pulse.
+  const float speed = saturate(tiltPx / 4.0);
+  const float pulse = saturate((feather - 0.2) / 0.015);
+  const float edge = smoothstep(0.12, 1.5, radial);
+  const float shake = speed * 0.65 + pulse * 0.15;
+  const float2 jitter = float2(sin(timeSeconds*37.0),sin(timeSeconds*43.0))*texel*shake;
+  if (speed > 0.01) {
+    float3 trails = color;
+    [unroll] for(int i=1;i<=3;i++)
+      trails += sceneTap(input.uv-centered*(i*0.0018*speed*edge)+jitter,input.uv);
+    color=lerp(color,trails*0.25,edge*speed*0.55);
+  }
+  color *= 1.0 + pulse*0.012;
+  if (!hud) {
+    const float2 bleed = float2((0.6+speed*1.1) * texel.x, 0.0);
+    const float3 left = sceneTap(input.uv - bleed, input.uv);
+    const float3 right = sceneTap(input.uv + bleed, input.uv);
+    color = lerp(color, float3(right.r, color.g, left.b), 0.16);
+    const float tapeBand = sin(input.uv.y * 22.0 - timeSeconds * 0.65);
+    color *= 1.0 - 0.008 * pow(max(0.0, tapeBand), 8.0);
+    // A mild shoulder compresses bright paint without crushing dark detail.
+    color = color * (1.12 / (1.0 + color * 0.16));
+    const float luminance = dot(color, float3(0.299, 0.587, 0.114));
+    color = lerp(luminance.xxx, color, 0.96);
+    color = saturate(color * vignette + grain * (1.0 - luminance * 0.5) * (1.0+speed) / 200.0);
+  }
+  return float4(color, 1.0);
+}
