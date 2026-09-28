@@ -3,18 +3,18 @@ import assert from 'node:assert/strict';
 import {validateOskiewarLiveState} from '../../../session-server/oskiewar-live-manager.mjs';
 import { readFile } from 'node:fs/promises';
 const source=await readFile(new URL('../oskiewar.js',import.meta.url),'utf8');
-function playground(){
+function playground(legacyAudio=false){
  let now=1e6;const noop=()=>{},audio=[],drums=[];
  const api=new Function('runtime','capabilities','telemetry','gameSignal','drum','wipe','box','line','triangle','write','systemWrite','oscillator','oscillatorStop',`${source}
  configureWorldMap('skatepark','pool');fightOpponent='freeskate';gameMode='fight';
- return {updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
+ return {playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
  parkHalfPipe3D,parkHalfPipeHeight,parkDeckY,poolFloorAt,poolSlopeAt,gunPickups,axePickup,
  resetParkSupply,updateParkSupply,updateGunPickups,resetParkKids,updateParkKids,parkKids,
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
  boundParkBody,parkWindowWalls,brokenParkWindows,parkWindowShards,resetParkWindows,
  breakParkWindow,updateParkWindowShards,insidePark,parkLotMargin,updateCameraDoll,clearPoolCamera,updateMotorAudio,updateSkateAudio,balls,
  updateSeatHeartbeat,updatePonytail,ponytailAnchor,ponytailStates,drawSpatialRunner,sampleCombatBoxes,sweptProjectileContact,damageParkCivilian,drawAeselFairy,sceneBoundsVisible,buildParkScene,parkActorVisible,figureLod,
- state:()=>({halfpipe:parkHalfPipe3D})};`)(()=>({monotonicUs:now}),()=>({platform:'web'}),noop,noop,(name,gain,pan)=>drums.push({name,gain,pan}),noop,noop,noop,noop,noop,noop,(hz,gain)=>audio.push({hz,gain}),()=>audio.push({stop:true}));
+ state:()=>({halfpipe:parkHalfPipe3D})};`)(()=>({monotonicUs:now}),()=>({platform:'web'}),noop,noop,(name,gain,pan)=>{if(legacyAudio&&!['kick','snare','hat','block'].includes(name))throw new RangeError('unknown drum');drums.push({name,gain,pan});},noop,noop,noop,noop,noop,noop,(hz,gain)=>audio.push({hz,gain}),()=>audio.push({stop:true}));
  const p=api.players[0];Object.assign(p,{x:1080,z:0,y:api.poolFloorAt(1080,0),grounded:true,alive:true,dummy:false,skateboard:false,poolYaw:0,previous:[],spin:null,directionChanges:[],poolLastSteer:0});
  api.step=(down=[],dt=1/60)=>{now+=dt*1e6;api.updatePlayer(p,{down,leftX:0,leftY:0},dt,api.clock());};
  api.now=api.clock;api.audio=audio;api.drums=drums;return api;
@@ -547,4 +547,10 @@ test('stereo plays the four sine chords on heartbeat beats and stays silent out 
  assert.equal(pads.length,16);assert.deepEqual([...new Set(pads.map(d=>d.name))],['pad-0','pad-1','pad-2','pad-3']);
  assert.ok(pads.every(d=>d.gain>0&&d.gain<=.28));
  p.x+=5000;const count=a.drums.length;for(let i=0;i<32;i++)a.updateParkMusic(p,.9);assert.equal(a.drums.length,count);
+});
+
+test('new audio names cannot crash older native hosts during a rolling update',()=>{
+ const a=playground(true);for(const name of ['pad-0','pad-1','pad-2','pad-3','bass','gunshot','smg-shot'])assert.doesNotThrow(()=>a.playDrum(name));
+ assert.equal(a.drums.filter(d=>d.name==='snare').length,2);
+ assert.throws(()=>a.playDrum('misspelled-sound'),/unknown drum/);
 });

@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 194;
+const buildVersion = 195;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -5148,6 +5148,8 @@ function playDrum(name, velocity = 1, pan = 0) {
   try {
     drum(name, velocity, pan);
   } catch (error) {
+    if(name.startsWith('pad-')||name==='bass')return;
+    if(name==='gunshot'||name==='smg-shot'){try{drum('snare',velocity,pan);}catch(_){}return;}
     if (!["bell", "whoosh", "glass", "glass-shard"].includes(name)) throw error;
     if (name === "bell" && typeof synth === "function") {
       try { synth(880, .12); } catch (_) {}

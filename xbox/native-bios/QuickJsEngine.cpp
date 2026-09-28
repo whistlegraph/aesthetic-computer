@@ -111,7 +111,7 @@ JSValue Drum(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   }
   const std::string drum(name);
   JS_FreeCString(context, name);
-  static constexpr std::string_view allowed[] = {"kick", "snare", "clap", "hat", "block", "bell", "whoosh", "glass", "glass-shard"};
+  static constexpr std::string_view allowed[] = {"kick", "snare", "clap", "hat", "block", "bell", "whoosh", "glass", "glass-shard", "gunshot", "smg-shot", "bass", "pad-0", "pad-1", "pad-2", "pad-3"};
   if (std::find(std::begin(allowed), std::end(allowed), drum) == std::end(allowed))
     return JS_ThrowRangeError(context, "unknown drum");
   scope->api->sound.drum(drum, static_cast<float>(velocity), static_cast<float>(pan));
