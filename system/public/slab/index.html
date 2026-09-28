@@ -32,6 +32,7 @@
 :root{color-scheme:light;--ink:#393047;--soft:#65546e;--purple:#79568b;--line:#ddcedc;--mono:"Berkeley Mono Variable",monospace}
 *{box-sizing:border-box}body{margin:0;color:var(--ink);background:radial-gradient(ellipse 650px 520px at 95% 0%,#e4d4f780,transparent),radial-gradient(ellipse 600px 600px at 0% 8%,#d4eedb80,transparent),radial-gradient(circle,#ae8cb32b 1px,transparent 1px) 0 0/24px 24px,#faf3e8;font:16px/1.6 -apple-system,BlinkMacSystemFont,sans-serif}a{color:inherit;text-underline-offset:4px}a:hover{color:var(--purple)}a:focus-visible,summary:focus-visible{outline:3px solid var(--purple);outline-offset:5px}.masthead,main,footer{max-width:1008px;margin:auto;padding-left:24px;padding-right:24px}.masthead{padding-top:24px;display:flex;justify-content:space-between;font-size:14px}.masthead a{text-decoration:none}.hero{text-align:center;padding:64px 0 42px}.icon{display:block;width:144px;height:144px;border-radius:32px;margin:0 auto 20px;transform:rotate(-6deg);filter:drop-shadow(0 8px 0 #d9c6de)}h1{font:normal 96px/1 Pixel,monospace;color:var(--purple);text-shadow:3px 4px #e2cdea;margin:0 0 26px}.download{display:inline-flex;align-items:center;gap:20px;padding:13px 24px;background:var(--purple);color:white;border:2px solid #684478;border-radius:999px;box-shadow:0 5px #d2b6df;text-decoration:none;font-weight:600;transition:transform 120ms ease}.download:hover{color:white;transform:translateY(-2px)}.requirements{font-size:13px;color:var(--soft);margin:18px 0 0}.shot{margin:0}.shot img{display:block;width:100%;height:auto;border-radius:18px;border:1px solid var(--line);box-shadow:0 6px #ddcfdf}.setup{max-width:680px;margin:42px auto 0}details{border-top:1px solid var(--line);padding:16px 0}summary{cursor:pointer;font-weight:600}details p{color:var(--soft);margin:14px 0}code{font-family:var(--mono);font-size:.88em}.hash{overflow-wrap:anywhere;font-size:11px}footer{display:flex;flex-wrap:wrap;gap:20px;font-size:13px;color:var(--soft);padding-top:32px;padding-bottom:36px}footer a:first-child{margin-right:auto}@media(max-width:600px){.hero{padding:48px 0 32px}.icon{width:112px;height:112px;border-radius:26px}h1{font-size:80px}.masthead,main,footer{padding-left:20px;padding-right:20px}.requirements{font-size:12px}.setup{margin-top:30px}.shot img{border-radius:10px}}@media(prefers-reduced-motion:reduce){.download{transition:none}}
 </style>
+<script type="module" src="/aesthetic.computer/lib/visit-tracker.mjs"></script>
 </head>
 <body>
 <header class="masthead"><a href="https://aesthetic.computer">Aesthetic Computer</a><a href="https://aesel.app">Aesel ↗</a></header>
@@ -39,7 +40,7 @@
   <header class="hero">
     <img class="icon" src="/slab/icon.png" alt="" width="144" height="144">
     <h1>slab</h1>
-    <a class="download" id="dl" href="https://assets.aesthetic.computer/slab/Slab-1.1.dmg" download>Download for Mac <span aria-hidden="true">↓</span></a>
+    <a class="download" id="dl" href="/api/download?app=slab&amp;file=Slab-1.1.dmg" download>Download for Mac <span aria-hidden="true">↓</span></a>
     <p class="requirements"><span id="dl-meta">1.1 · 7.0 MB</span> · macOS 12+ · Intel &amp; Apple silicon</p>
   </header>
   <figure class="shot"><img src="/slab/hero.jpg" alt="Slab tiling four agent terminals and an Aesel notebook, with pastel session colors and named prompt rocks." width="2048" height="1281"></figure>
@@ -95,7 +96,9 @@
       .then((data) => {
         const latest = (data.versions || []).find((v) => v.version === data.latest);
         if (!latest || !latest.dmg) return;
-        button.href = latest.dmg;
+        // Through lith's counter, which redirects on to the CDN.
+        const file = latest.dmg.split('/').pop();
+        button.href = `/api/download?app=slab&file=${encodeURIComponent(file)}`;
         const mb = (latest.size / (1024 * 1024)).toFixed(1);
         if (meta) meta.textContent = `${latest.version} · ${mb} MB`;
         if (hash && latest.sha256) hash.textContent = `sha256 ${latest.sha256}`;

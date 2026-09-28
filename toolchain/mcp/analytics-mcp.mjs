@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// analytics-mcp.mjs — network visits and App Store downloads as tools.
+// analytics-mcp.mjs — network visits, direct DMG downloads and App Store downloads as tools.
 //
 // visits_report runs toolchain/analytics/visits-report.mjs on lith over ssh
 // (see toolchain/analytics/VISITS.md for what a "visit" can and cannot mean)
@@ -33,6 +33,7 @@ const APPS = {
   fingerquilt: "1153451161",
   softwallpaper: "1390237091",
   aestheticcomputer: "6450940883",
+  aesel: "6812823093",
 };
 const ACTIONS = ["download_clicked", "media_started", "link_followed", "canvas_interacted",
   "round_started", "round_completed", "match_completed", "mime_interact", "mime_scroll_feed", "mime_original_open"];
@@ -78,6 +79,36 @@ async function visitsReport({ hours = 48, scope = "all", end } = {}) {
     automatedBySite: automated,
     perDay: days,
   };
+}
+
+// ⬇️ Direct downloads
+
+// The Slab and Aesel DMGs go through lith's /api/download counter. Rows keep
+// only a keyed hash of the address, so leaving the fleet out means asking
+// lith for this machine's own hash and passing it (and any others) along.
+async function directDownloads({ days = 30, exclude = [], excludeSelf = true } = {}) {
+  days = Number(days);
+  if (!Number.isFinite(days) || days <= 0 || days > 3650) throw new Error("days must be 1..3650");
+  const hashes = [...exclude];
+  if (excludeSelf) hashes.push((await (await fetch("https://aesthetic.computer/api/download?whoami=1")).json()).hash);
+  if (hashes.some((h) => !/^[a-f0-9]{16}$/.test(h))) throw new Error("exclude takes 16-hex hashes from /api/download?whoami=1");
+  const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/downloads-report.mjs --days ${days}${hashes.length ? ` --exclude ${hashes.join(",")}` : ""}`;
+  const { stdout } = await pexec("ssh", ["-i", SSH_KEY, "-o", "ConnectTimeout=10", LITH, remote],
+    { timeout: 90_000, maxBuffer: 32 * 1024 * 1024 });
+  const report = JSON.parse(stdout.slice(stdout.indexOf("{")));
+  const apps = {};
+  for (const row of report.rows) {
+    const app = apps[row._id.app] ??= { downloads: 0, places: 0, self: 0, automated: 0, byVersion: {}, countries: {}, platforms: {} };
+    if (row._id.automated) { app.automated += row.downloads; continue; }
+    if (row._id.self) { app.self += row.downloads; continue; }
+    app.downloads += row.downloads;
+    app.places += row.places;
+    app.byVersion[row._id.version] = (app.byVersion[row._id.version] || 0) + row.downloads;
+    for (const [k, v] of Object.entries(row.countries)) app.countries[k] = (app.countries[k] || 0) + v;
+    for (const [k, v] of Object.entries(row.platforms)) app.platforms[k] = (app.platforms[k] || 0) + v;
+  }
+  return { window: { start: report.start, end: report.end, earliestDownload: report.earliestDownload },
+    note: "downloads/places leave out automated and excluded (self) traffic; places = distinct address hashes per version, summed", apps };
 }
 
 // 📱 App Store
@@ -164,6 +195,18 @@ const TOOLS = [
     },
   },
   {
+    name: "direct_downloads",
+    description: "Direct DMG downloads of Slab and Aesel counted by lith's /api/download redirect (counting began 2026-09-28): per app downloads, distinct places, versions, countries, platforms. Leaves out bots and, by default, this machine's own network.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        days: { type: "number", description: "How many days back (default 30)" },
+        exclude: { type: "array", items: { type: "string" }, description: "More address hashes to leave out (from /api/download?whoami=1 on other fleet machines)" },
+        excludeSelf: { type: "boolean", description: "Leave out this machine's own network (default true)" },
+      },
+    },
+  },
+  {
     name: "app_downloads",
     description: "App Store downloads per app from Apple's App Downloads Standard analytics report: first-time downloads plus a daily breakdown by download type and device.",
     inputSchema: {
@@ -178,6 +221,7 @@ const TOOLS = [
 
 async function callTool(name, args = {}) {
   const result = name === "visits_report" ? await visitsReport(args)
+    : name === "direct_downloads" ? await directDownloads(args)
     : name === "app_downloads" ? await appDownloads(args)
     : (() => { throw new Error(`unknown tool ${name}`); })();
   return [{ type: "text", text: JSON.stringify(result, null, 2) }];
@@ -215,4 +259,4 @@ async function handleMessage(message) {
 
 const port = httpPort(process.argv, 0);
 if (port) serveHttp({ handleMessage, port, banner: "📈 analytics-mcp shared daemon" });
-else serveStdio({ handleMessage, banner: "📈 analytics-mcp started (visits_report, app_downloads)" });
+else serveStdio({ handleMessage, banner: "📈 analytics-mcp started (visits_report, direct_downloads, app_downloads)" });
