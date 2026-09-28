@@ -42,13 +42,13 @@ int main() {
     const auto* allocation=surface.pixels.data();
     assert(surface.stamp({0,0,128,128,20,20,44,20,44,44,20,44}));
     assert(surface.dirty && surface.left==20 && surface.right==44);
-    unsigned alpha=0;for(unsigned y=20;y<44;y++)for(unsigned x=20;x<44;x++)alpha+=surface.pixels[(y*2048+x)*4+3];
+    unsigned alpha=0;for(unsigned y=20;y<44;y++)for(unsigned x=20;x<44;x++)alpha+=surface.pixels[(y*DecalSurface::side+x)*4+3];
     assert(alpha>0);
     const auto before=surface.pixels;
     for(int i=0;i<10000;i++)assert(surface.stamp({0,0,128,128,100,100,108,100,108,108,100,108}));
-    assert(surface.pixels.data()==allocation && surface.pixels.size()==2048u*2048u*4u);
+    assert(surface.pixels.data()==allocation && surface.pixels.size()==DecalSurface::side*DecalSurface::side*4u);
     for(unsigned y=20;y<44;y++)for(unsigned x=20;x<44;x++)for(int k=0;k<4;k++)
-      assert(surface.pixels[(y*2048+x)*4+k]==before[(y*2048+x)*4+k]);
+      assert(surface.pixels[(y*DecalSurface::side+x)*4+k]==before[(y*DecalSurface::side+x)*4+k]);
     assert(!surface.stamp({250,0,128,128,0,0,10,0,10,10,0,10}));
     surface.clear();for(auto value:surface.pixels)assert(value==0);
   }

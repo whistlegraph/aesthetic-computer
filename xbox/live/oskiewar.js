@@ -102,7 +102,8 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 203;
+const buildVersion = 204;
+const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -1637,6 +1638,7 @@ function parkGroundAt(x,z){
   return parkDeckY-Math.max(height,parkHalfPipeHeight(x,z));
 }
 function poolFloorAt(x,z=0){
+  if(z<worldNear-parkLotMargin)return outdoorGroundAt(x,z);
   const edge=poolDistance(x,z);
   return edge.d<edge.bowl.radius?bowlHeight(x,z,edge.bowl):parkGroundAt(x,z);
 }
@@ -1741,6 +1743,7 @@ function parkWallContact(from,to,radius=25){
   return contacts;
 }
 function boundParkBody(p,previous={x:p.x,z:p.z||0}){
+  boundKartTrack(p,previous);
   const radius=p.pad===undefined?18:25,height=p.pad===undefined?40:180;
   for(const {w,bay,u,old,dist} of parkWallContact(previous,{x:p.x,z:p.z||0},radius)){
     const horizontal=u>bay*w.width+109+radius&&u<(bay+1)*w.width-109-radius;
@@ -3269,7 +3272,7 @@ function addDecal(decal) {
     if(poolDecalsNative===null)clearPoolDecals();
     if(poolDecalsNative){
       for(const patch of rasterDecalPatches(decal)){
-        const args=[...patch.uv,...patch.points.flatMap(p=>[(p.x-gridLeft+parkLotMargin)/(gridWidth+parkLotMargin*2)*2048,(p.z-worldNear+parkLotMargin)/(roomDepth+parkLotMargin*2)*2048])];
+        const args=[...patch.uv,...patch.points.flatMap(p=>[(p.x-gridLeft+parkLotMargin)/(gridWidth+parkLotMargin*2)*parkDecalResolution,(p.z-worldNear+parkLotMargin)/(roomDepth+parkLotMargin*2)*parkDecalResolution])];
         if(decal.color&&typeof decalTint==='function')decalTint(...args,...decal.color);else decalStamp(...args);
       }
       poolDecalCount++;
@@ -6524,9 +6527,10 @@ function placeFreeskateBoard(rider = players[0], chosen = null) {
   board.active = true;
   board.heldBy = -1;
   board.releasedBy = -1;
-  board.x = rider.x + (poolOnly()?-170:(rider.facing || 1)*170);
+  board.x = poolOnly()?1800:rider.x+(rider.facing || 1)*170;
   board.y = terrainFloorAt(board.x) - 18;
-  board.z = rider.z || 0;
+  board.z = poolOnly()?1800:rider.z || 0;
+  if(poolOnly())board.y=poolFloorAt(board.x,board.z)-18;
   board.vx = board.vy = 0;
   board.rotation = 0;
   board.flipSpin = 0;
@@ -6612,6 +6616,7 @@ function beginFreeskate(now) {
   parkFreeskateChair();
   for (const pickup of [...gunPickups, ...saberPickups, ...grenadePickups])
     pickup.active = false;
+  if(poolOnly()){rider.spawnX=rider.x=parkHalfPipe3D.x;rider.z=parkHalfPipe3D.z;rider.y=poolFloorAt(rider.x,rider.z);}
   // Clear loose vehicles before placing the course's board or monowheel.
   for (const item of balls) item.active = false;
   if (indoorSkate() || halfpipeOnly()) {
@@ -9738,6 +9743,16 @@ function updateCameraDoll(dt, now) {
     if(p.chalkDrawing){
       const tip=chalkTip(p),target={x:(p.x+tip.x)*.5,y:poolFloorAt(p.x,p.z||0),z:((p.z||0)+tip.z)*.5};
       cameraDoll.track({target,position:{x:target.x,y:target.y-1150,z:target.z-180},width:1400,perspective:.65,fov:62,roll:0},dt,4);poolIdleSeconds=poolIdleClose=0;return;
+    }
+    if(p.goKart){
+      const look=450+Math.min(750,speed*.13),distance=1000+Math.min(550,speed*.09);
+      const target={x:p.x+Math.cos(heading)*look,y:p.y-90,z:(p.z||0)+Math.sin(heading)*look};
+      let position={x:p.x-Math.cos(heading)*distance,y:p.y-500,z:(p.z||0)-Math.sin(heading)*distance};
+      if(insidePark(p.x,p.z||0))position=clearPoolCamera(position,{x:p.x,y:p.y-50,z:p.z||0});
+      for(let i=0;i<16;i++){const t=i/16,x=lerp(position.x,target.x,t),z=lerp(position.z,target.z,t);position.y=Math.min(position.y,(poolFloorAt(x,z)-120-target.y*t)/(1-t));}
+      cameraDoll.track({target,position,width:2200,perspective:1,fov:68,roll:0},dt,3);
+      cameraDoll.position.y=Math.min(cameraDoll.position.y,poolFloorAt(cameraDoll.position.x,cameraDoll.position.z)-140);
+      cameraDoll.dirty=true;poolIdleSeconds=poolIdleClose=0;return;
     }
     if(p.raceLoop){
       const loop=p.raceLoop,target={x:loop.x,y:parkDeckY-loop.radius,z:loop.z},position={x:loop.x-900,y:parkDeckY-1500,z:loop.z-2400};
@@ -20392,6 +20407,22 @@ function drawTerrainBackWall(left, right, far, color) {
 }
 
 function outdoorCircuit(){const radius=80467.2/(Math.PI*2);return {x:gridLeft+gridWidth*.52,z:worldNear-1500-radius,radius};}
+function outdoorGroundAt(x,z){
+ const t=outdoorCircuit(),a=Math.atan2(x-t.x,z-t.z),distance=Math.hypot(x-t.x,z-t.z);
+ const ridge=clamp(1-Math.max(0,Math.abs(distance-t.radius)-400)/2200,0,1);
+ return parkDeckY-(1-Math.cos(a))*260*(1+.35*Math.sin(a*3))*ridge;
+}
+function boundKartTrack(p,previous){
+ if(!p.goKart)return;
+ const t=outdoorCircuit(),dx=p.x-t.x,dz=(p.z||0)-t.z,r=Math.hypot(dx,dz),a=Math.atan2(dx,dz);
+ if(Math.abs(a)<.055)return; // entrance from the parking lot
+ const old=Math.hypot(previous.x-t.x,previous.z-t.z)-t.radius,offset=r-t.radius;
+ if(Math.abs(old)<=280&&Math.abs(offset)>280&&p.y>outdoorGroundAt(p.x,p.z)-100){
+  const target=t.radius+Math.sign(offset)*280,nx=dx/r,nz=dz/r;
+  p.x=t.x+nx*target;p.z=t.z+nz*target;
+  const normal=p.vx*nx+(p.vz||0)*nz;p.vx-=normal*nx*1.2;p.vz-=normal*nz*1.2;
+ }
+}
 const outdoorChunks=new Map();
 function drawOutdoorCircuit(){
  const rider=players[0],track=outdoorCircuit(),keep=new Set(),chunkSize=3000;
@@ -20401,18 +20432,26 @@ function drawOutdoorCircuit(){
  for(let ix=gx-2;ix<=gx+2;ix++)for(let iz=gz-2;iz<=gz+2;iz++){
   const x=ix*chunkSize,z=iz*chunkSize,end=Math.min(z+chunkSize,worldNear-parkLotMargin);
   if(end<=z)continue;
-  draw('ground:'+ix+':'+iz,()=>worldQuad({x,y:parkDeckY+2,z},{x:x+chunkSize,y:parkDeckY+2,z},{x:x+chunkSize,y:parkDeckY+2,z:end},{x,y:parkDeckY+2,z:end},[97,111,92]));
+  draw('ground:'+ix+':'+iz,()=>{
+   const at=(x,z)=>({x,z,y:outdoorGroundAt(x,z)+8});
+   for(let xx=x;xx<x+chunkSize;xx+=500)for(let zz=z;zz<end;zz+=500){const far=Math.min(end,zz+500);worldQuad(at(xx,zz),at(xx+500,zz),at(xx+500,far),at(xx,far),[97,111,92]);}
+  });
  }
  const segments=256,chunkSegments=8;
  for(let chunk=0;chunk<segments/chunkSegments;chunk++){
   const angle=(chunk+.5)*chunkSegments/segments*Math.PI*2,cx=track.x+Math.sin(angle)*track.radius,cz=track.z+Math.cos(angle)*track.radius;
   if(Math.hypot(cx-rider.x,cz-(rider.z||0))>7500)continue;
   draw('road:'+chunk,()=>{
-   const at=(a,r,y=parkDeckY-1)=>({x:track.x+Math.sin(a)*r,y,z:track.z+Math.cos(a)*r});
+   const at=(a,r,y=parkDeckY-1)=>{const x=track.x+Math.sin(a)*r,z=track.z+Math.cos(a)*r;return {x,z,y:outdoorGroundAt(x,z)+y-parkDeckY};};
    for(let i=chunk*chunkSegments;i<(chunk+1)*chunkSegments;i++){
     const a=i/segments*Math.PI*2,b=(i+1)/segments*Math.PI*2,r=track.radius;
     worldQuad(at(a,r-350),at(b,r-350),at(b,r+350),at(a,r+350),[49,53,60]);
     for(const side of [-1,1])worldQuad(at(a,r+side*325,parkDeckY-2),at(b,r+side*325,parkDeckY-2),at(b,r+side*350,parkDeckY-2),at(a,r+side*350,parkDeckY-2),i%2?[236,230,207]:[180,64,75]);
+    if(i>2&&i<segments-3)for(const side of [-1,1]){
+      const edge=r+side*345,outer=r+side*375,color=i%2?[229,219,199]:[177,59,75];
+      worldQuad(at(a,edge,parkDeckY-90),at(b,edge,parkDeckY-90),at(b,edge),at(a,edge),color);
+      worldQuad(at(a,edge,parkDeckY-90),at(b,edge,parkDeckY-90),at(b,outer,parkDeckY-90),at(a,outer,parkDeckY-90),color);
+    }
     if(i%2===0)worldQuad(at(a,r-4,parkDeckY-2),at(b,r-4,parkDeckY-2),at(b,r+4,parkDeckY-2),at(a,r+4,parkDeckY-2),[235,220,137]);
    }
   });
@@ -23307,7 +23346,7 @@ function updatePoolLooseVehicle(v,dt,now,board){
 const monowheel={active:false,x:0,y:0,z:0,vx:0,vy:0,safeUntil:0};
 const parkSupply={nextAt:0,drone:null,drop:null,ko:null};
 function resetMonowheel(){
- const x=halfpipeOnly()?clamp(players[0].x+170,gridLeft+60,gridLeft+gridWidth-60):tileCenterX(37);
+ const x=poolOnly()?7600:halfpipeOnly()?clamp(players[0].x+170,gridLeft+60,gridLeft+gridWidth-60):tileCenterX(37);
  Object.assign(monowheel,{active:true,x,y:terrainFloorAt(x),z:0,vx:0,vy:0,vz:0,poolYaw:0,skatePitch:0,safeUntil:0});
 }
 function monowheelFrame(p, local=false){
@@ -23379,7 +23418,7 @@ function drawHeldChalk(p,t){
 function seedStreetTexture(){
  if(typeof decalTint!=='function'||!poolDecalsNative)return;
  const bounds={x:gridLeft-parkLotMargin,z:worldNear-parkLotMargin,w:gridWidth+parkLotMargin*2,h:roomDepth+parkLotMargin*2};
- const pix=(x,z)=>[(x-bounds.x)/bounds.w*2048,(z-bounds.z)/bounds.h*2048];
+ const pix=(x,z)=>[(x-bounds.x)/bounds.w*parkDecalResolution,(z-bounds.z)/bounds.h*parkDecalResolution];
  for(let x=gridLeft-parkLotMargin;x<gridLeft+gridWidth+parkLotMargin;x+=180)for(let z=worldNear-parkLotMargin;z<worldFar+parkLotMargin;z+=180){
   const edge=poolDistance(x+90,z+90);if(edge.d<edge.bowl.radius+70||parkHalfPipeHeight(x+90,z+90)>0)continue;
   const n=Math.abs(Math.sin(x*.173+z*.617)),gray=45+Math.round(n*33);
@@ -23391,19 +23430,17 @@ function resetParkSupply(now){
  chalkPickups.length=0;parkAxes.length=0;for(const p of players){p.chalkColor=null;p.chalkPrevious=null;p.chalkDrawing=false;}
  if(poolOnly()){
   chalkColors.forEach((color,i)=>{const [x,z]=[[900,900],[2300,-1700],[4300,2300],[6000,-2100],[7900,900],[3300,worldNear-900]][i];chalkPickups.push({x,z,y:poolFloorAt(x,z)-12,color,active:true});});
-  for(const [x,z,color] of [[5000,2200,[234,105,116]],[3500,worldNear-900,[108,190,235]]])parkKarts.push({x,z,y:poolFloorAt(x,z),poolYaw:0,color,active:true,safeUntil:0});
+  for(const [x,z,color] of [[5000,worldNear-1200,[108,190,235]]])parkKarts.push({x,z,y:poolFloorAt(x,z),poolYaw:0,color,active:true,safeUntil:0});
   for(let i=gunPickups.length-1;i>=0;i--)if(gunPickups[i].parkScatter)gunPickups.splice(i,1);
-  for(const [x,z,kind] of [[2400,-1100,'RUBBER SMG'],[4500,1300,'HANDGUN'],[7100,-800,'RUBBER SMG']])gunPickups.push({parkScatter:true,kind,x,z,y:poolFloorAt(x,z)-65,amount:kind==='RUBBER SMG'?90:24,active:true,startsActive:false,respawnAt:Infinity});
-  for(const [x,z] of [[3900,-200],[6500,700]])parkAxes.push({x,z,y:poolFloorAt(x,z)-65,active:true});
+  for(const [x,z,kind] of [[7100,-1800,'RUBBER SMG'],[4800,1600,'HANDGUN']])gunPickups.push({parkScatter:true,kind,x,z,y:poolFloorAt(x,z)-65,amount:kind==='RUBBER SMG'?90:24,active:true,startsActive:false,respawnAt:Infinity});
+  for(const [x,z] of [[6500,700]])parkAxes.push({x,z,y:poolFloorAt(x,z)-65,active:true});
  }
  if(halfpipeOnly()){
   for(const p of [...gunPickups,...saberPickups,...grenadePickups])p.active=false;
   axePickup.active=false;for(const p of players){p.axeHeld=false;p.underPipe=false;}
   if(poolOnly()){
     for(const pickup of gunPickups)if(pickup.parkScatter)pickup.active=true;
-    const pistol=gunPickups.find(p=>p.kind==='HANDGUN');
-    Object.assign(pistol,{active:true,amount:12,x:pool.x+160,z:100,y:poolFloorAt(pool.x+160,100)-65});
-    Object.assign(axePickup,{active:true,x:pool.x-170,z:-100,y:poolFloorAt(pool.x-170,-100)-65});
+
   }
   bottomGlass.fill(false);turboParticles.length=0;
   Object.assign(parkSupply,{nextAt:Infinity,drone:null,drop:null,ko:null});

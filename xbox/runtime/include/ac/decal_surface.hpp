@@ -6,7 +6,7 @@ namespace ac::xbox {
 // A fixed raster canvas. Stamps are blended once; no stamp history is retained.
 class DecalSurface {
  public:
-  static constexpr unsigned side = 2048;
+  static constexpr unsigned side = 4096;
   std::vector<uint8_t> pixels = std::vector<uint8_t>(side * side * 4);
   unsigned left=0, top=0, right=side, bottom=side;
   bool dirty=true;

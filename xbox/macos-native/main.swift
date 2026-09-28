@@ -996,6 +996,7 @@ private final class NativeGameHost {
         javascript.setObject(box, forKeyedSubscript: "box" as NSString)
         javascript.setObject(line, forKeyedSubscript: "line" as NSString)
         javascript.setObject(triangle, forKeyedSubscript: "triangle" as NSString)
+        javascript.setObject(4096, forKeyedSubscript: "decalSurfaceSize" as NSString)
         javascript.setObject(triangleAlpha, forKeyedSubscript: "triangleAlpha" as NSString)
         javascript.setObject(triangle3d, forKeyedSubscript: "triangle3d" as NSString)
         javascript.setObject(text("Comic Relief"), forKeyedSubscript: "comicWrite" as NSString)

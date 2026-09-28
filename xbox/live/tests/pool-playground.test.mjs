@@ -7,7 +7,7 @@ function playground(legacyAudio=false){
  let now=1e6;const noop=()=>{},audio=[],drums=[];
  const api=new Function('runtime','capabilities','telemetry','gameSignal','drum','wipe','box','line','triangle','write','systemWrite','oscillator','oscillatorStop',`${source}
  configureWorldMap('skatepark','pool');fightOpponent='freeskate';gameMode='fight';
- return {freeItemArm,assignedItemArm,heldHandItems,emitSignal,outdoorCircuit,drawOutdoorCircuit,outdoorChunks,rasterDecalPatches,updateBoomerboard,inputPads,updateGarments,garmentStates,parkSpeakerLocations,parkKarts,dropParkItem,parkDropName,brokenParkRoof,parkRoofKey,parkBuildingHeight,generateParkProfile,drawParkStereoGeometry,updateSpin,bloodDrops,popCivilianHead,updateFootprints,playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
+ return {beginFreeskate,monowheel,parkAxes,freeItemArm,assignedItemArm,heldHandItems,emitSignal,outdoorCircuit,drawOutdoorCircuit,outdoorChunks,rasterDecalPatches,updateBoomerboard,inputPads,updateGarments,garmentStates,parkSpeakerLocations,parkKarts,dropParkItem,parkDropName,brokenParkRoof,parkRoofKey,parkBuildingHeight,generateParkProfile,drawParkStereoGeometry,updateSpin,bloodDrops,popCivilianHead,updateFootprints,playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
  parkHalfPipe3D,parkHalfPipeHeight,parkDeckY,poolFloorAt,poolSlopeAt,gunPickups,axePickup,
  resetParkSupply,updateParkSupply,updateGunPickups,resetParkKids,updateParkKids,parkKids,
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
@@ -67,10 +67,10 @@ test('half-pipe has a flat, circular transitions, decks, and open roll-ins match
 });
 test('pistol and axe are collectible in 3D, and pistol shoots along the rider heading',()=>{
  const a=playground(),p=a.players[0];a.resetParkSupply(a.now());
- const gun=a.gunPickups.find(g=>g.kind==='HANDGUN');assert.ok(gun.active&&a.axePickup.active);
+ const gun=a.gunPickups.find(g=>g.active&&g.kind==='HANDGUN'),axe=a.parkAxes[0];assert.ok(gun.active&&axe.active);
  Object.assign(p,{x:gun.x,z:gun.z+500,y:gun.y+65});a.updateGunPickups(a.now());assert.ok(gun.active,'no pickup across depth');
  p.z=gun.z;a.updateGunPickups(a.now());assert.ok(p.gunAmmo>0);assert.equal(gun.active,false);
- Object.assign(p,{x:a.axePickup.x,z:a.axePickup.z,y:a.axePickup.y+65});a.updateParkSupply(1/60,a.now());assert.ok(p.axeHeld);
+ Object.assign(p,{x:axe.x,z:axe.z,y:axe.y+65});a.updateParkSupply(1/60,a.now());assert.ok(p.axeHeld);
  p.poolYaw=Math.PI/2;const ammo=p.gunAmmo;a.step(['Y']);assert.equal(p.gunAmmo,ammo-1);assert.equal(a.bullets.length,1);
  const shot=a.bullets[0],z=shot.z;assert.ok(Math.abs(shot.vx)<1e-6&&shot.vz>0);
  a.updateBullets(1/60,a.now(),false);assert.ok(shot.z>z);assert.equal(shot.previousZ,z);
@@ -138,7 +138,7 @@ test('normal jump and forward input can leave the building and land in the lot',
  Object.assign(p,{x:w.width*.5,z:w.az+300,y:a.parkDeckY,poolYaw:-Math.PI/2,vx:0,vz:-1400,vy:0,grounded:true});
  a.step(['A','ArrowUp']);for(let i=0;i<180;i++)a.step(['ArrowUp']);
  assert.ok(a.brokenParkWindows.size>0,'jump impact breaks a window');
- assert.ok(p.z<w.az-100,'rider reaches outside ground');assert.ok(p.grounded);assert.equal(p.y,a.parkDeckY);
+ assert.ok(p.z<w.az-100,'rider reaches outside ground');assert.ok(p.grounded);assert.equal(p.y,a.poolFloorAt(p.x,p.z));
 });
 test('scene hierarchy retains every face once in bounded leaves',()=>{
  const a=playground(),mesh=a.captureQuadMesh(a.drawPoolGeometry),root=a.buildParkScene(mesh);
@@ -499,7 +499,7 @@ test('held punch draws neon chalk through movement and spins, without an attack'
  assert.equal(p.attackKind,'');a.updateChalk(p,[],a.now());assert.equal(p.chalkDrawing,false);assert.equal(p.chalkPrevious,null);
 });
 test('park scatters SMGs and held fire shoots repeated individual rounds',()=>{
- const a=playground(),p=a.players[0];a.resetParkSupply(a.now());assert.ok(a.gunPickups.filter(g=>g.active&&g.kind==='RUBBER SMG').length>=2);
+ const a=playground(),p=a.players[0];a.resetParkSupply(a.now());assert.equal(a.gunPickups.filter(g=>g.active&&g.kind==='RUBBER SMG').length,1);
  p.gunMode='RUBBER SMG';p.gunAmmo=30;for(let i=0;i<60;i++)a.step(['Y']);
  assert.ok(p.gunAmmo<22);assert.ok(p.gunAmmo>15,`ammo=${p.gunAmmo}, shots=${a.drums.filter(d=>d.name==='smg-shot').length}`);assert.ok(a.drums.some(d=>d.name==='smg-shot'));
 });
@@ -597,8 +597,8 @@ test('weapons drop with their ammo and cannot be instantly collected again',()=>
  assert.equal(a.parkDropName(p),'pistol');assert.ok(a.dropParkItem(p,a.now()));assert.equal(p.gunAmmo,0);
  const gun=a.gunPickups.at(-1);assert.equal(gun.amount,17);assert.ok(gun.safeUntil>a.now());a.updateGunPickups(a.now());assert.equal(p.gunAmmo,0);
 });
-test('go-karts are spread across gym and lot, mount nearby and dismount with jump',()=>{
- const a=playground(),p=a.players[0];a.resetParkSupply(a.now());assert.equal(a.parkKarts.length,2);const kart=a.parkKarts[0];
+test('single outdoor go-kart mounts nearby and dismounts with jump',()=>{
+ const a=playground(),p=a.players[0];a.resetParkSupply(a.now());assert.equal(a.parkKarts.length,1);const kart=a.parkKarts[0];
  Object.assign(p,{x:kart.x,y:kart.y,z:kart.z});a.updateParkSupply(1/60,a.now());assert.equal(p.goKart,kart);assert.equal(kart.active,false);
  a.step(['A']);assert.equal(p.goKart,null);assert.equal(kart.active,true);assert.ok(kart.safeUntil>a.now());
 });
@@ -655,4 +655,22 @@ test('drawing directions translate directly regardless of facing and never doubl
  a.step(['B']);a.step(['B','ArrowRight']);assert.equal(p.dashUntil,0);assert.equal(p.grounded,true);
  assert.equal(p.spin,null);assert.ok(p.chalkDrawing);
  a.step([]);assert.equal(p.chalkDrawing,false);
+});
+
+test('park supply has one weapon of each kind, one kart and a clear half-pipe spawn',()=>{
+ const a=playground();a.resetParkSupply(a.now());
+ const guns=a.gunPickups.filter(p=>p.active);
+ assert.equal(guns.filter(p=>p.kind==='HANDGUN').length,1);
+ assert.equal(guns.filter(p=>p.kind==='RUBBER SMG').length,1);
+ assert.equal(a.parkAxes.filter(p=>p.active).length,1);assert.equal(a.axePickup.active,false);
+ assert.equal(a.parkKarts.length,1);assert.equal(new Set(a.chalkPickups.map(p=>p.color.name)).size,a.chalkPickups.length);
+ for(const p of [...guns,...a.parkAxes,...a.parkKarts,...a.chalkPickups])assert.ok(Math.hypot(p.x-a.parkHalfPipe3D.x,p.z-a.parkHalfPipe3D.z)>650);
+});
+
+test('outdoor circuit has real elevation and kart barriers preserve tangential travel',()=>{
+ const a=playground(),t=a.outdoorCircuit(),p=a.players[0];
+ assert.ok(Math.abs(a.poolFloorAt(t.x,t.z-t.radius)-a.poolFloorAt(t.x,t.z+t.radius))>400);
+ const previous={x:t.x+t.radius+270,z:t.z};Object.assign(p,{goKart:{},x:t.x+t.radius+340,z:t.z,y:a.poolFloorAt(t.x+t.radius,t.z),vx:1500,vz:600});
+ a.boundParkBody(p,previous);assert.ok(p.x<=t.x+t.radius+280.001);assert.ok(p.vx<0);assert.equal(p.vz,600);
+ a.updateCameraDoll(1,a.now());assert.ok(a.cameraDoll.position.y<a.poolFloorAt(a.cameraDoll.position.x,a.cameraDoll.position.z));
 });

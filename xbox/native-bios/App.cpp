@@ -1032,7 +1032,7 @@ private:
     Check(m_device->CreateTexture2D(&texture,&pixels,&m_decalTexture));
     Check(m_device->CreateShaderResourceView(m_decalTexture.Get(),nullptr,&m_decalView));
     m_decalSurface.clean();
-    LogTelemetry("AC_NATIVE_DECALS ready=1 atlas=256x256 surface=2048x2048 retained=1 alpha=1");
+    LogTelemetry("AC_NATIVE_DECALS ready=1 atlas=256x256 surface=4096x4096 retained=1 alpha=1");
     m_frameThemeQuads.reserve(kMaxThemeQuads);
     LogTelemetry(std::string("AC_NATIVE_THEME ready=") +
       (m_themeViews[0] && m_themeViews[1] ? "1" : "0") +

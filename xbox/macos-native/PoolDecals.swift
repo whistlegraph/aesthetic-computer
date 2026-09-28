@@ -1,7 +1,7 @@
 import JavaScriptCore
 import MetalKit
 
-/// One logical 2048² pool texture. Three GPU snapshots follow the renderer's
+/// One logical 4096² pool texture. Three GPU snapshots follow the renderer's
 /// in-flight slots; each receives only the dirty bounds accumulated since use.
 final class PoolDecals {
     private let surface = ac_pool_create()!
@@ -12,7 +12,7 @@ final class PoolDecals {
     init(scene: MetalSceneView) {
         self.scene = scene
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
-            width: 2048, height: 2048, mipmapped: false)
+            width: 4096, height: 4096, mipmapped: false)
         descriptor.storageMode = scene.device?.hasUnifiedMemory == false ? .managed : .shared
         descriptor.usage = .shaderRead
         if let device = scene.device {
@@ -58,7 +58,7 @@ final class PoolDecals {
         if let dirty = pending[slot], !dirty.isEmpty, let pixels = ac_pool_all_pixels(surface) {
             let x = Int(dirty.minX), y = Int(dirty.minY)
             textures[slot].replace(region: MTLRegionMake2D(x, y, Int(dirty.width), Int(dirty.height)),
-                mipmapLevel: 0, withBytes: pixels + (y * 2048 + x) * 4, bytesPerRow: 2048 * 4)
+                mipmapLevel: 0, withBytes: pixels + (y * 4096 + x) * 4, bytesPerRow: 4096 * 4)
             pending[slot] = nil
         }
         return textures[slot]
