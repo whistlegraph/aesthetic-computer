@@ -672,6 +672,6 @@ test('Aesel captions and artifact descriptors have bounded dedicated string fiel
  const content={aeselPulse:2,aeselCaption:'Aesel: Made a rainbow.',aeselArtifact:JSON.stringify({version:1,kind:'shirt-symbol',shape:'rainbow',color:'#ffaa33'})};
  send(content);assert.deepEqual(host.sent.at(-1),{type:'oskiewar:flags',content});
  const count=host.sent.length;
- for(const invalid of [{aeselCaption:'a'.repeat(121)},{aeselCaption:'line\nbreak'},{aeselArtifact:'a'.repeat(193)},{sky:'text'}])send(invalid);
+ for(const invalid of [{aeselCaption:'a'.repeat(121)},{aeselCaption:'line\nbreak'},{aeselArtifact:'a'.repeat(321)},{sky:'text'}])send(invalid);
  assert.equal(host.sent.length,count);
 });

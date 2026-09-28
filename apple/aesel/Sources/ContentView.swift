@@ -1033,7 +1033,10 @@ private final class OskiewarAttachment: ObservableObject {
         Current artifact: \(artifact.wire)
         Use the existing source-edit tool to write valid piece JavaScript with exactly one descriptor comment:
         /* ac-artifact {"version":1,"kind":"shirt-symbol","shape":"star","color":"#fac83c"} */
-        Supported shapes: star, heart, flower, rainbow. Color is a six-digit hex; rainbow uses six fixed rainbow bands.
+        Supported shapes: drawing (freely composed circles, strokes and triangles), custom (outline), star, heart, flower, rainbow. Color is a six-digit hex; rainbow uses six fixed rainbow bands.
+        For any new outline use shape "custom" plus "points":[[x,y],...] with 3 to 10 vertices, integer coordinates from -9 to 9, y up. Order them around a simple, non-self-intersecting polygon. The compact descriptor must fit 320 ASCII bytes. Example: {"version":1,"kind":"shirt-symbol","shape":"custom","color":"#ff6699","points":[[0,8],[7,-6],[-7,-6]]}.
+        For custom drawings use shape "drawing" and "draw": an array of up to 12 commands. Circle [0,x,y,r,c]; round stroke [1,x1,y1,x2,y2,width,c]; filled triangle [2,x1,y1,x2,y2,x3,y3,c]. All values integers, positions -16 to 16, circle radius 1 to 9, stroke width 1 to 6. Color index c is 0=artifact color, 1=dark ink, 2=white. Later commands draw on top. Example smiley: {"version":1,"kind":"shirt-symbol","shape":"drawing","color":"#ffcc44","draw":[[0,0,0,8,0],[0,-3,2,1,1],[0,3,2,1,1],[1,-4,-2,0,-4,1,1],[1,0,-4,4,-2,1,1]]}.
+        You CAN custom draw and make smileys using these primitives. Do not say custom shapes are unavailable.
         Keep a minimal paint export for valid piece syntax. The native TV renders the descriptor alone, without a shirt or scene.
         On completion this descriptor is automatically sent to the game. Only the game's acknowledgment confirms application.
         Briefly describe your actual edit in ordinary text; the butterfly mirrors an excerpt of that response.
@@ -1065,17 +1068,30 @@ private final class OskiewarAttachment: ObservableObject {
         mirror("Changing the shirt symbol to a star.")
     }
     private var socket: URLSessionWebSocketTask?
+    private var retry: Task<Void, Never>?
     private var receiver: Task<Void, Never>?
     private var heartbeat: Task<Void, Never>?
     private(set) var room = ""
 
     func disconnect() {
-        receiver?.cancel(); heartbeat?.cancel()
+        receiver?.cancel(); heartbeat?.cancel(); retry?.cancel()
         caption = ""; pendingArtifact = ""; sourceAtStart = nil
         socket?.cancel(with: .goingAway, reason: nil)
-        socket = nil; receiver = nil; heartbeat = nil; room = ""; status = "Oskiewar disconnected"
+        socket = nil; receiver = nil; heartbeat = nil; retry = nil; room = ""; status = "Oskiewar disconnected"
     }
 
+    private func lost(_ task: URLSessionWebSocketTask) {
+        guard socket === task, retry == nil else { return }
+        status = "Reconnecting to Oskiewar…"
+        retry = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard !Task.isCancelled, let self, self.socket === task else { return }
+            let wire = self.pendingArtifact, source = self.sourceAtStart, caption = self.caption, until = self.captionUntil
+            self.retry = nil
+            self.connect("oskiewar://" + self.room)
+            self.pendingArtifact = wire; self.sourceAtStart = source; self.caption = caption; self.captionUntil = until
+        }
+    }
     func connect(_ text: String) {
         let name = String(text.dropFirst("oskiewar://".count)).lowercased()
         guard name.range(of: "^[a-z0-9-]{5,24}$", options: .regularExpression) != nil else {
@@ -1115,18 +1131,19 @@ private final class OskiewarAttachment: ObservableObject {
                                 while !Task.isCancelled {
                                     pulse = (pulse + 1) % 64
                                     guard let self, self.socket === task else { return }
-                                    var flags: [String: Any] = ["aeselPulse": pulse,
-                                        "aeselCaption": Date() < self.captionUntil ? self.caption : ""]
-                                    if !self.pendingArtifact.isEmpty { flags["aeselArtifact"] = self.pendingArtifact }
+                                    var flags: [String: Any] = ["aeselPulse": pulse]
+                                    if pulse % 2 == 0 && !self.pendingArtifact.isEmpty { flags["aeselArtifact"] = self.pendingArtifact }
+                                    else { flags["aeselCaption"] = Date() < self.captionUntil ? self.caption : "" }
                                     let data = try JSONSerialization.data(withJSONObject: ["type": "oskiewar:flags", "content": flags])
-                                    try await task.send(.string(String(decoding: data, as: UTF8.self)))
+                                    if data.count <= 512 { try await task.send(.string(String(decoding: data, as: UTF8.self))) }
+                                    else { self.editStatus = "Drawing is too large to send" }
                                     try await Task.sleep(nanoseconds: 1_000_000_000)
                                 }
-                            } catch { if !Task.isCancelled { self?.status = "Oskiewar connection lost" } }
+                            } catch { if !Task.isCancelled { self?.lost(task) } }
                         }
                     }
                 }
-            } catch { if !Task.isCancelled { self?.status = "Oskiewar connection lost" } }
+            } catch { if !Task.isCancelled { self?.lost(task) } }
         }
     }
 }
@@ -1156,9 +1173,19 @@ private struct OskiewarArtifact: Codable, Equatable {
     var kind = "shirt-symbol"
     var shape: String
     var color: String
+    var points: [[Int]]? = nil
+    var draw: [[Int]]? = nil
     var valid: Bool {
-        version == 1 && kind == "shirt-symbol" && ["star", "heart", "flower", "rainbow"].contains(shape)
+        version == 1 && kind == "shirt-symbol" && ["star", "heart", "flower", "rainbow", "custom", "drawing"].contains(shape)
             && color.range(of: "^#[0-9a-fA-F]{6}$", options: .regularExpression) != nil
+            && (shape != "custom" || (points.map { (3...10).contains($0.count) && $0.allSatisfy { $0.count == 2 && $0.allSatisfy { (-9...9).contains($0) } } } ?? false))
+            && (shape != "drawing" || (draw.map { commands in
+                (1...12).contains(commands.count) && commands.allSatisfy { c in
+                    guard let op = c.first, (0...2).contains(op), c.count == [5,7,8][op],
+                          c.allSatisfy({ (-16...16).contains($0) }), let ink = c.last, (0...2).contains(ink) else { return false }
+                    return (op != 0 || (1...9).contains(c[3])) && (op != 1 || (1...6).contains(c[5]))
+                }
+            } ?? false))
     }
     var wire: String {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
@@ -1170,7 +1197,7 @@ private struct OskiewarArtifact: Codable, Equatable {
               let end = source.range(of: "*/", range: start.upperBound..<source.endIndex),
               source.range(of: marker, range: end.upperBound..<source.endIndex) == nil else { return nil }
         let json = String(source[start.upperBound..<end.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
-        guard json.utf8.count <= 192, let data = json.data(using: .utf8),
+        guard json.utf8.count <= 320, let data = json.data(using: .utf8),
               let value = try? JSONDecoder().decode(Self.self, from: data), value.valid else { return nil }
         return value
     }
@@ -1187,7 +1214,28 @@ private struct OskiewarArtifactPreview: View {
                 let rgb = Int(hex.dropFirst(), radix: 16) ?? 0xfac83c
                 return Color(red: Double((rgb >> 16) & 255)/255, green: Double((rgb >> 8) & 255)/255, blue: Double(rgb & 255)/255)
             }
-            if artifact.shape == "rainbow" {
+            if artifact.shape == "drawing", let commands = artifact.draw {
+                let colors = [ink(artifact.color), Color(red: 24/255, green: 18/255, blue: 26/255), Color.white]
+                for c in commands {
+                    let color = colors[c.last!]
+                    if c[0] == 0 {
+                        let p = point(Double(c[1]), Double(c[2])), r = Double(c[3]) * scale
+                        context.fill(Path(ellipseIn: CGRect(x: p.x-r, y: p.y-r, width: r*2, height: r*2)), with: .color(color))
+                    } else {
+                        var path = Path(); path.move(to: point(Double(c[1]), Double(c[2])))
+                        path.addLine(to: point(Double(c[3]), Double(c[4])))
+                        if c[0] == 1 { context.stroke(path, with: .color(color), style: StrokeStyle(lineWidth: Double(c[5])*scale, lineCap: .round)) }
+                        else { path.addLine(to: point(Double(c[5]), Double(c[6]))); path.closeSubpath(); context.fill(path, with: .color(color)) }
+                    }
+                }
+            } else if artifact.shape == "custom", let points = artifact.points {
+                var path = Path()
+                for (i, p) in points.enumerated() {
+                    let position = point(Double(p[0]), Double(p[1]))
+                    if i == 0 { path.move(to: position) } else { path.addLine(to: position) }
+                }
+                path.closeSubpath(); context.fill(path, with: .color(ink(artifact.color)))
+            } else if artifact.shape == "rainbow" {
                 let colors = ["#f4535b", "#f99b41", "#fad34c", "#58bf79", "#5199eb", "#a66ddb"]
                 for band in 0..<6 {
                     let outer = 8 - Double(band) * 0.85, inner = outer - 0.85

@@ -367,3 +367,19 @@ test('artifact updates acknowledge applied content and chime only once per chang
   }
  }finally{delete globalThis.__oskiewarNetInbox;delete globalThis.__oskiewarRenderFlags;}
 });
+
+test('custom drawings and concave outlines are data, applied once without evaluating code',()=>{
+ const a=playground();const send=value=>{const wire=JSON.stringify(value);globalThis.__oskiewarNetInbox=[{kind:'render-flags',flags:{aeselArtifact:wire}}];a.netDrainHostInbox();return wire;};
+ const base={version:1,kind:'shirt-symbol',shape:'drawing',color:'#ffcc44'};
+ try{
+  const smiley={...base,draw:[[0,0,0,8,0],[0,-3,2,1,1],[0,3,2,1,1],[1,-4,-2,0,-4,1,1],[1,0,-4,4,-2,1,1]]};
+  const wire=send(smiley);assert.equal(a.spectatorState(a.now()).aesel.artifact,wire);
+  a.players[0].skin='pastel';assert.doesNotThrow(()=>a.drawRunner(a.players[0],0));
+  for(const draw of [[[99,0]],[[0,0,0,0,0]],[[1,0,0,2,2,20,0]],[[0,0,0,8,8]]])send({...base,draw});
+  assert.equal(a.spectatorState(a.now()).aesel.artifact,wire);
+  const concave={...base,shape:'custom',points:[[-8,-6],[8,-6],[8,6],[0,1],[-8,6]]};
+  const outline=send(concave);assert.equal(a.spectatorState(a.now()).aesel.artifact,outline);
+  send({...concave,points:[[-8,-6],[8,6],[8,-6],[-8,6]]});
+  assert.equal(a.spectatorState(a.now()).aesel.artifact,outline,'crossed outline is rejected');
+ }finally{delete globalThis.__oskiewarNetInbox;delete globalThis.__oskiewarRenderFlags;}
+});

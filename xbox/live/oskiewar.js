@@ -47,7 +47,7 @@ let netFrameInputs = null;
 // +/- on a keyboard, in quarter steps between a quarter and double speed;
 // the offline reel harness drives simMonotonicUs itself and never touches
 // this, so recordings always run at one.
-let gameSpeed = .8;
+let gameSpeed = 1;
 let gameSpeedChangedAt = 0;
 let scaledClockUs = 0;
 let lastRawClockUs = null;
@@ -4041,13 +4041,42 @@ let navigationPrevious = [[], []];
 let renderFlags = {};
 let aeselPulseSeen=null,aeselSeenAt=-Infinity;
 let aeselArtifact=null,aeselArtifactWire="";
+function triangulateAeselOutline(points){
+  if(!Array.isArray(points)||points.length<3||points.length>10||points.some(p=>!Array.isArray(p)||p.length!==2||p.some(v=>!Number.isInteger(v)||Math.abs(v)>9)))return null;
+  const cross=(a,b,c)=>(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
+  const n=points.length;
+  for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
+    if(j===i+1||i===0&&j===n-1)continue;
+    const a=points[i],b=points[(i+1)%n],c=points[j],d=points[(j+1)%n];
+    if(cross(a,b,c)*cross(a,b,d)<=0&&cross(c,d,a)*cross(c,d,b)<=0)return null;
+  }
+  const area=points.reduce((sum,p,i)=>{const q=points[(i+1)%n];return sum+p[0]*q[1]-q[0]*p[1];},0);
+  if(!area)return null;
+  const sign=Math.sign(area),indices=points.map((_,i)=>i),faces=[];
+  while(indices.length>3){
+    let clipped=false;
+    for(let j=0;j<indices.length;j++){
+      const a=indices[(j+indices.length-1)%indices.length],b=indices[j],c=indices[(j+1)%indices.length];
+      if(cross(points[a],points[b],points[c])*sign<=0)continue;
+      if(indices.some(k=>k!==a&&k!==b&&k!==c&&cross(points[a],points[b],points[k])*sign>=0&&cross(points[b],points[c],points[k])*sign>=0&&cross(points[c],points[a],points[k])*sign>=0))continue;
+      faces.push([a,b,c]);indices.splice(j,1);clipped=true;break;
+    }
+    if(!clipped)return null;
+  }
+  faces.push(indices);return faces;
+}
 function acceptAeselArtifact(wire){
-  if(typeof wire!=='string'||wire.length>192)return false;
+  if(typeof wire!=='string'||wire.length>320)return false;
   let value;try{value=JSON.parse(wire);}catch{return false;}
   if(!value||value.version!==1||value.kind!=='shirt-symbol'||
-    !['star','heart','flower','rainbow'].includes(value.shape)||!/^#[0-9a-fA-F]{6}$/.test(value.color))return false;
+    !['star','heart','flower','rainbow','custom','drawing'].includes(value.shape)||!/^#[0-9a-fA-F]{6}$/.test(value.color))return false;
+  if(value.shape==='drawing'&&(!Array.isArray(value.draw)||value.draw.length<1||value.draw.length>12||value.draw.some(c=>
+    !Array.isArray(c)||![0,1,2].includes(c[0])||c.length!==[5,7,8][c[0]]||c.some(v=>!Number.isInteger(v)||Math.abs(v)>16)||
+    c.at(-1)<0||c.at(-1)>2||c[0]===0&&(c[3]<1||c[3]>9)||c[0]===1&&(c[5]<1||c[5]>6))))return false;
+  const faces=value.shape==='custom'?triangulateAeselOutline(value.points):null;
+  if(value.shape==='custom'&&!faces)return false;
   if(wire===aeselArtifactWire)return true;
-  aeselArtifact={...value,rgb:[1,3,5].map(i=>parseInt(value.color.slice(i,i+2),16))};
+  aeselArtifact={...value,faces,rgb:[1,3,5].map(i=>parseInt(value.color.slice(i,i+2),16))};
   aeselArtifactWire=wire;
   playDrum('bell',.45,0);
   return true;
@@ -4081,7 +4110,8 @@ function drawAeselConnect(){
   if(!poolOnly()||!sessionName)return;
   const label=sessionName,size=32,safe=hudSafeRect();
   const saved=triangleDepth;triangleDepth=-1.49;
-  const x=safe.right-handleWidth(label,size),y=safe.top+72;
+  const qr=shellMode==='MENU'?spectatorQrBox():null;
+  const x=safe.right-handleWidth(label,size),y=qr?qr.top+qr.size+20:safe.top+72;
   const lit=runtime().monotonicUs-aeselSeenAt<3500000,ink=lit?[163,244,211]:[194,196,220];
   filledDisc(x-25,y+7,4,ink);
   filledCapsule(x-25,y+14,x-25,y+28,4,ink);
@@ -7131,20 +7161,7 @@ function enterGame(now) {
 const paceLocked = () => netSession !== null || versusActive() ||
   roundViewer !== null;
 function updateMatchPace(now) {
-  const rawDown = padSnapshots[0]?.down || [];
-  const tap = (button) => rawDown.includes(button) &&
-    !shellRawPrevious.includes(button);
-  const faster = tap("SpeedUp");
-  const slower = tap("SpeedDown");
-  shellRawPrevious = rawDown.slice();
-  if (!faster && !slower) return;
-  const next = paceLocked() ? gameSpeed
-    : clamp(gameSpeed + (faster ? .25 : -.25), .25, 1);
-  if (next === gameSpeed) { playDrum("block", .3, 0); return; }
-  gameSpeed = next;
-  gameSpeedChangedAt = now;
-  playDrum("hat", .55, faster ? .35 : -.35);
-  emitSignal("game-speed", -1, gameSpeed, 0);
+  shellRawPrevious = (padSnapshots[0]?.down || []).slice();
 }
 
 function updateShell(now, tapped = false) {
@@ -7157,16 +7174,6 @@ function updateShell(now, tapped = false) {
   const rawDown = pad.down || [];
   const speedTap = (button) => rawDown.includes(button) &&
     !shellRawPrevious.includes(button);
-  if (speedTap("SpeedUp") || speedTap("SpeedDown")) {
-    const stepped = gameSpeed + (speedTap("SpeedUp") ? .25 : -.25);
-    const next = clamp(stepped, .25, 2);
-    if (next !== gameSpeed) {
-      gameSpeed = next;
-      gameSpeedChangedAt = now;
-      playDrum("hat", .55, speedTap("SpeedUp") ? .35 : -.35);
-      emitSignal("game-speed", -1, gameSpeed, 0);
-    } else playDrum("block", .3, 0);
-  }
   shellRawPrevious = rawDown.slice();
   // View and Menu are the system's buttons — View toggles the debug HUD and
   // must not double as "start the game". Everything else, and a real lean on
@@ -8934,7 +8941,7 @@ function netDrainHostInbox() {
         const entries=Object.entries(flags);
         if(entries.length<=8 && entries.every(([key,value])=>/^[a-z][a-zA-Z0-9]{0,23}$/.test(key) &&
           ((key==='aeselCaption'||key==='aeselArtifact')
-            ? typeof value==='string' && value.length<=(key==='aeselCaption'?120:192) && !/[^\x20-\x7e]/.test(value)
+            ? typeof value==='string' && value.length<=(key==='aeselCaption'?120:320) && !/[^\x20-\x7e]/.test(value)
             : typeof value==='boolean'||Number.isFinite(value)&&Math.abs(value)<=64))){
           const target=globalThis.__oskiewarRenderFlags ||= Object.create(null);
           for(const [key,value] of entries)if(!['__proto__','constructor','prototype'].includes(key)){
@@ -18519,7 +18526,21 @@ function drawSpatialRunner(player,world,t,lod=0){
       const artifact=player===players[0]?aeselArtifact:null;
       const shape=artifact?.shape||(player===players[0]&&globalThis.__oskiewarRenderFlags?.shirtSymbol===2?'star':'flower');
       const symbolColor=artifact?.rgb||[250,200,60];
-      if(shape==='star'||shape==='heart'){
+      if(shape==='drawing'){
+        const colors=[symbolColor,[24,18,26],[255,255,250]];
+        const vertex=(x,y,layer)=>point(c,(12+layer*.06)*scale,y*scale,x*scale);
+        const disc=(x,y,r,ink,layer)=>{for(let i=0;i<16;i++){const a=i*Math.PI/8,b=(i+1)*Math.PI/8;worldTriangle(vertex(x,y,layer),vertex(x+Math.cos(a)*r,y+Math.sin(a)*r,layer),vertex(x+Math.cos(b)*r,y+Math.sin(b)*r,layer),ink);}};
+        artifact.draw.forEach((cmd,layer)=>{
+          const ink=colors[cmd.at(-1)];
+          if(cmd[0]===0)disc(cmd[1],cmd[2],cmd[3],ink,layer);
+          else if(cmd[0]===2)worldTriangle(vertex(cmd[1],cmd[2],layer),vertex(cmd[3],cmd[4],layer),vertex(cmd[5],cmd[6],layer),ink);
+          else{const [,x,y,xx,yy,w]=cmd,len=Math.hypot(xx-x,yy-y)||1,nx=-(yy-y)/len*w/2,ny=(xx-x)/len*w/2;
+            worldQuad(vertex(x+nx,y+ny,layer),vertex(xx+nx,yy+ny,layer),vertex(xx-nx,yy-ny,layer),vertex(x-nx,y-ny,layer),ink);
+            disc(x,y,w/2,ink,layer);disc(xx,yy,w/2,ink,layer);}
+        });
+      }else if(shape==='custom'){
+        for(const face of artifact.faces){const v=face.map(i=>point(c,12*scale,artifact.points[i][1]*scale,artifact.points[i][0]*scale));worldTriangle(v[0],v[1],v[2],symbolColor);}
+      }else if(shape==='star'||shape==='heart'){
         const center=point(c,12*scale,0,0),count=shape==='star'?10:32;
         const vertex=i=>{const a=i*Math.PI*2/count;
           if(shape==='heart')return point(c,12*scale,(13*Math.cos(a)-5*Math.cos(2*a)-2*Math.cos(3*a)-Math.cos(4*a))*.38*scale,16*Math.pow(Math.sin(a),3)*.38*scale);
@@ -21339,21 +21360,7 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
     typeWrite(prompt, startX + 3, startY + 4, button.textSize,
       ...contrastShadow(startInk));
     typeWrite(prompt, startX, startY, button.textSize, ...startInk);
-    // The pace dial. Quiet unless the clock is off its default — or was just
-    // touched, so stepping back to one still answers the keypress — and it
-    // lives large in the bottom-right corner, a dashboard readout rather
-    // than a footnote under the start word.
-    const paceNow = runtime().monotonicUs;
-    if (gameSpeed !== 1 || (gameSpeedChangedAt &&
-        paceNow - gameSpeedChangedAt < 2400000)) {
-      const pace = "×" + gameSpeed;
-      const paceSize = Math.max(30, Math.round(button.textSize * .8));
-      const hud = hudSafeRect();
-      const paceX = hud.right - handleWidth(pace, paceSize);
-      const paceY = hud.bottom - paceSize;
-      typeWrite(pace, paceX + 3, paceY + 4, paceSize, ...shadowInk);
-      typeWrite(pace, paceX, paceY, paceSize, ...promptInk);
-    }
+
   }
   // Touch play keeps its thumbs in the bottom corners, and the fight is live
   // under this screen now, so the stamp yields the pad rather than sit on it.
@@ -22390,6 +22397,7 @@ function gamePaint() {
   // Meters and screen UI sit in front of the debug geometry.
   drawFrameMeter();
   drawAeselConnect();
+  if(poolOnly()&&shellMode==="GAME")for(const player of activePlayers())drawSeatAction(player);
   drawImpacts();
   drawTitleHeadDoor(t, titleInk, reelMinimal);
   const counting = !roundResult && introAge < roundIntroDurationUs();
@@ -23055,7 +23063,7 @@ function drawSeatPlayerHud(ink){
  triangleDepth=old;
 }
 function drawSeatAction(p){
- if(poolOnly())return;
+ if(shellMode!=="GAME")return;
  if(parkSupply.ko || !p.alive)return;
  const now=runtime().monotonicUs;
  const text=p.wheelTurbo?'SUPER TURBO':p.spin?'SPIN':now-(p.lastButtonAt||0)<850000?p.lastButton:'';
