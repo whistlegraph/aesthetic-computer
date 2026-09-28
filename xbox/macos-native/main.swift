@@ -269,8 +269,8 @@ private final class NativeAudio {
                 self.oscillatorPhase += self.oscillatorHz * step
                 if self.oscillatorPhase >= 1 { self.oscillatorPhase -= 1 }
                 let angle = self.oscillatorPhase * 2 * Double.pi
-                // A sine with a quieter octave gives the wheel a little grit.
-                let sample = Float((sin(angle) + 0.35 * sin(angle * 2)) * self.oscillatorGain)
+                // A low fundamental with restrained motor harmonics.
+                let sample = Float((sin(angle) + 0.18 * sin(angle * 2) + 0.06 * sin(angle * 3)) * self.oscillatorGain)
                 for buffer in buffers {
                     buffer.mData?.assumingMemoryBound(to: Float.self)[frame] = sample
                 }
@@ -617,6 +617,7 @@ private final class NativeGameHost {
     private var paintCount = 0
     private var runtimeSeconds = CACurrentMediaTime()
     private var javascriptError = ""
+    private let telemetryQueue = DispatchQueue(label: "computer.aesthetic.oskiewar.telemetry", qos: .utility)
     // Opt-in frame accounting. The number that matters for a tvOS port is what
     // `sim` costs without a JIT, since third-party apps get JavaScriptCore in
     // interpreter mode on tvOS. Run with OSKIEWAR_PERF=1 and again under
@@ -625,6 +626,7 @@ private final class NativeGameHost {
     private var perfSimSeconds = 0.0
     private var perfPaintSeconds = 0.0
     private var perfFrames = 0
+    private var perfFrameDeltas: [Double] = []
 
     init(view: GameView) {
         self.view = view
@@ -776,6 +778,7 @@ private final class NativeGameHost {
         let delta = min(0.1, max(0, now - lastFrame))
         lastFrame = now
         accumulator += delta
+        if perf { perfFrameDeltas.append(delta) }
         let fixed = 1.0 / 60.0
         var steps = 0
         while accumulator >= fixed && steps < 6 {
@@ -815,14 +818,18 @@ private final class NativeGameHost {
         guard perfFrames >= 60 else { return }
         let sim = perfSimSeconds / Double(perfFrames) * 1000
         let paint = perfPaintSeconds / Double(perfFrames) * 1000
+        let intervals = perfFrameDeltas.sorted()
+        let fps = Double(perfFrames) / max(0.001, perfFrameDeltas.reduce(0, +))
+        let p95 = intervals[min(intervals.count - 1, Int(Double(intervals.count) * 0.95))] * 1000
         let jit = ProcessInfo.processInfo.environment["JSC_useJIT"] ?? "(default)"
         print(String(format:
-            "oskiewar perf · sim %.2f ms · paint %.2f ms · js %.2f ms of 16.67 · JSC_useJIT=%@",
-            sim, paint, sim + paint, jit))
+            "oskiewar perf · %.1f fps · frame p95 %.2f ms · sim %.2f ms · paint %.2f ms · js %.2f ms of 16.67 · JSC_useJIT=%@",
+            fps, p95, sim, paint, sim + paint, jit))
         fflush(stdout)
         perfSimSeconds = 0
         perfPaintSeconds = 0
         perfFrames = 0
+        perfFrameDeltas.removeAll(keepingCapacity: true)
     }
 
     private func updateLogicalSize() {
@@ -930,8 +937,9 @@ private final class NativeGameHost {
                 "height": Int(self?.renderer.logicalSize.height ?? 1080),
             ] as NSDictionary
         }
-        let telemetry: @convention(block) (String, String) -> Void = { kind, detail in
-            NSLog("oskiewar %@ %@", kind, detail)
+        let telemetry: @convention(block) (String, String) -> Void = { [weak self] kind, detail in
+            // Trace batches can be large; console I/O must not hold the frame.
+            self?.telemetryQueue.async { NSLog("oskiewar %@ %@", kind, detail) }
         }
         let drum: @convention(block) (String, Double, Double) -> Void = { [weak self] name, velocity, pan in
             self?.audio.drum(name, velocity: velocity, pan: pan)
@@ -972,6 +980,23 @@ private final class NativeGameHost {
         javascript.setObject(gamepad, forKeyedSubscript: "gamepad" as NSString)
         javascript.setObject(controllers, forKeyedSubscript: "controllers" as NSString)
         javascript.setObject(capabilities, forKeyedSubscript: "capabilities" as NSString)
+        let poolDecals = PoolDecals(scene: view.scene)
+        let clearDecals: @convention(block) () -> Bool = { poolDecals.clear() }
+        let stampDecal: @convention(block) () -> Bool = {
+            let values = (JSContext.currentArguments() as? [JSValue] ?? []).map { Float($0.toDouble()) }
+            return poolDecals.stamp(values)
+        }
+        let uploadDecalMesh: @convention(block) (JSValue, JSValue) -> Int = { vertices, faces in
+            poolDecals.upload(PoolDecals.floats(vertices, limit: 300000), PoolDecals.floats(faces, limit: 100000))
+        }
+        let drawDecalMesh: @convention(block) (Int, JSValue, Double, Double, Double, Double) -> Int = { handle, camera, x, z, width, depth in
+            poolDecals.draw(handle: handle, camera: PoolDecals.floats(camera, limit: 27),
+                bounds: [Float(x), Float(z), Float(width), Float(depth)])
+        }
+        javascript.setObject(clearDecals, forKeyedSubscript: "decalClear" as NSString)
+        javascript.setObject(stampDecal, forKeyedSubscript: "decalStamp" as NSString)
+        javascript.setObject(uploadDecalMesh, forKeyedSubscript: "decalMeshUpload" as NSString)
+        javascript.setObject(drawDecalMesh, forKeyedSubscript: "decalMesh" as NSString)
         // The retained-texture contract. Arguments arrive loose (the sprite's
         // depthWrite is optional), so these read the call's own argument list.
         let numbers: () -> [Double] = {

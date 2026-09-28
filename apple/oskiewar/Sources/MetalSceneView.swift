@@ -5,6 +5,11 @@ struct SceneVertex {
     var color: SIMD4<Float>
 }
 
+struct PoolDecalVertex {
+    var position: SIMD4<Float>
+    var uvq: SIMD4<Float>
+}
+
 struct ThemeVertex {
     var position: SIMD4<Float>
     var uv: SIMD2<Float>
@@ -21,7 +26,6 @@ struct ThemeVertex {
 /// only where their frameworks genuinely differ, and that difference is fenced
 /// to the few lines below rather than paid for with a second renderer.
 final class MetalSceneView: MTKView, MTKViewDelegate {
-    static let maxTriangles = 8_192
     /// The HUD writes nameplates, a clock, and a command stream — hundreds of
     /// glyphs, not thousands. Six vertices each.
     static let maxGlyphs = 4_096
@@ -34,10 +38,31 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
     private let commandQueue: MTLCommandQueue
     private let pipeline: MTLRenderPipelineState
     private let depthState: MTLDepthStencilState
-    private let vertexBuffer: MTLBuffer
+    private let poolDecalPipeline: MTLRenderPipelineState
+    private let poolDecalDepth: MTLDepthStencilState
+    private var poolDecalVertices: [PoolDecalVertex] = []
+    var poolDecalTexture: ((Int) -> MTLTexture?)?
+    // Each slot stays owned by its command buffer until the GPU completes it.
+    // Pool marks can outgrow the initial allocation; never truncate a scene
+    // before its later-submitted fighters have reached the GPU.
+    private final class Uploads {
+        var scene: MTLBuffer?
+        var glyphs: MTLBuffer?
+        var theme: MTLBuffer?
+        var decals: MTLBuffer?
+    }
+    private let uploads = (0..<3).map { _ in Uploads() }
+    private let inFlight = DispatchSemaphore(value: 3)
+    private var uploadIndex = 0
+
+    private func reserve(_ buffer: inout MTLBuffer?, bytes: Int) -> Bool {
+        if let buffer, buffer.length >= bytes { return true }
+        buffer = device?.makeBuffer(length: max(bytes, max(256, (buffer?.length ?? 0) * 2)),
+                                    options: .storageModeShared)
+        return buffer != nil
+    }
     private let glyphAtlas: GlyphAtlas
     private let glyphPipeline: MTLRenderPipelineState
-    private let glyphBuffer: MTLBuffer
     private var glyphVertices: [GlyphVertex] = []
     private let sceneLock = NSLock()
     // The photographic theme: the same retained-atlas contract the Xbox and
@@ -49,7 +74,6 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
     private var themeSolidPipeline: MTLRenderPipelineState?
     private var themeSoftPipeline: MTLRenderPipelineState?
     private var themeSoftDepth: MTLDepthStencilState?
-    private var themeBuffer: MTLBuffer?
     static let maxThemeQuads = 1_024
     private var background = MTLClearColor(red: 7 / 255, green: 8 / 255,
                                             blue: 28 / 255, alpha: 1)
@@ -60,12 +84,6 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
             fatalError("Metal is unavailable")
         }
         commandQueue = queue
-        guard let buffer = device.makeBuffer(length: Self.maxTriangles * 3 *
-            MemoryLayout<SceneVertex>.stride, options: .storageModeShared) else {
-            fatalError("Metal scene buffer allocation failed")
-        }
-        vertexBuffer = buffer
-
         let source = """
         #include <metal_stdlib>
         using namespace metal;
@@ -81,6 +99,17 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
         fragment float4 scene_fragment(Raster in [[stage_in]]) {
           return float4(in.color, 1.0);
         }
+        struct DecalVertex { float4 position; float4 uvq; };
+        struct DecalRaster { float4 position [[position]]; float3 uvq; };
+        vertex DecalRaster decal_vertex(const device DecalVertex *v [[buffer(0)]], uint id [[vertex_id]]) {
+          DecalRaster out; out.position = v[id].position; out.uvq = v[id].uvq.xyz; return out;
+        }
+        fragment float4 decal_fragment(DecalRaster in [[stage_in]], texture2d<float> atlas [[texture(0)]]) {
+          constexpr sampler linear(filter::linear, address::clamp_to_edge);
+          float4 color = atlas.sample(linear, in.uvq.xy / in.uvq.z);
+          if (color.a < 0.02) discard_fragment();
+          return color;
+        }
         """
         do {
             let library = try device.makeLibrary(source: source, options: nil)
@@ -90,6 +119,15 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
             descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
             descriptor.depthAttachmentPixelFormat = .depth32Float
             pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
+            descriptor.vertexFunction = library.makeFunction(name: "decal_vertex")
+            descriptor.fragmentFunction = library.makeFunction(name: "decal_fragment")
+            let blend = descriptor.colorAttachments[0]!
+            blend.isBlendingEnabled = true
+            blend.sourceRGBBlendFactor = .sourceAlpha
+            blend.destinationRGBBlendFactor = .oneMinusSourceAlpha
+            blend.sourceAlphaBlendFactor = .one
+            blend.destinationAlphaBlendFactor = .oneMinusSourceAlpha
+            poolDecalPipeline = try device.makeRenderPipelineState(descriptor: descriptor)
         } catch {
             fatalError("Metal scene pipeline failed: \(error)")
         }
@@ -99,13 +137,6 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
         } catch {
             fatalError("Metal glyph pipeline failed: \(error)")
         }
-        guard let glyphs = device.makeBuffer(
-            length: Self.maxGlyphs * 6 * MemoryLayout<GlyphVertex>.stride,
-            options: .storageModeShared) else {
-            fatalError("Metal glyph buffer allocation failed")
-        }
-        glyphBuffer = glyphs
-
         let depth = MTLDepthStencilDescriptor()
         depth.isDepthWriteEnabled = true
         depth.depthCompareFunction = .lessEqual
@@ -113,6 +144,11 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
             fatalError("Metal depth state failed")
         }
         depthState = state
+        depth.isDepthWriteEnabled = false
+        guard let decalState = device.makeDepthStencilState(descriptor: depth) else {
+            fatalError("Metal decal depth state failed")
+        }
+        poolDecalDepth = decalState
         super.init(frame: frame, device: device)
         colorPixelFormat = .bgra8Unorm
         depthStencilPixelFormat = .depth32Float
@@ -132,6 +168,7 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
     func beginFrame(red: Double, green: Double, blue: Double) {
         sceneLock.lock()
         sceneVertices.removeAll(keepingCapacity: true)
+        poolDecalVertices.removeAll(keepingCapacity: true)
         glyphVertices.removeAll(keepingCapacity: true)
         for key in themeSolid.keys { themeSolid[key]?.removeAll(keepingCapacity: true) }
         for key in themeSoft.keys { themeSoft[key]?.removeAll(keepingCapacity: true) }
@@ -161,7 +198,6 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
               values.prefix(12).allSatisfy(\.isFinite) else { return false }
         sceneLock.lock()
         defer { sceneLock.unlock() }
-        guard sceneVertices.count < Self.maxTriangles * 3 else { return false }
         let ink = SIMD4<Float>(Float(clamped255(values[9])),
                                Float(clamped255(values[10])),
                                Float(clamped255(values[11])), 1)
@@ -179,10 +215,8 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
     /// hand a whole frame over as one Float32Array — twelve floats per
     /// triangle, nine of position and three of ink, the same dozen the
     /// per-triangle call takes — so the crossing from JavaScript into Swift
-    /// happens once instead of eight thousand times. Everything above the
-    /// buffer's capacity is dropped rather than wrapped: a truncated frame is a
-    /// missing shadow, where a wrapped one is a triangle drawn across the face
-    /// of the fighter it belonged behind.
+    /// happens once instead of eight thousand times. The upload buffer grows
+    /// to fit a complete frame; later-submitted fighters are never truncated.
     @discardableResult
     func triangleBatch(_ values: UnsafePointer<Float>, count: Int) -> Int {
         let halfWidth = Float(logicalSize.width / 2)
@@ -190,9 +224,7 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
         guard count > 0, halfWidth > 0, halfHeight > 0 else { return 0 }
         sceneLock.lock()
         defer { sceneLock.unlock() }
-        let room = (Self.maxTriangles * 3 - sceneVertices.count) / 3
-        let drawn = min(count, max(0, room))
-        guard drawn > 0 else { return 0 }
+        let drawn = count
         sceneVertices.reserveCapacity(sceneVertices.count + drawn * 3)
         var appended = 0
         for triangle in 0..<drawn {
@@ -222,6 +254,22 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
         return appended
     }
 
+    func setPoolDecals(_ values: UnsafePointer<Float>, vertexCount: Int) {
+        sceneLock.lock()
+        defer { sceneLock.unlock() }
+        let hw = Float(logicalSize.width / 2), hh = Float(logicalSize.height / 2)
+        guard hw > 0, hh > 0, vertexCount > 0, vertexCount % 3 == 0 else { return }
+        poolDecalVertices.removeAll(keepingCapacity: true)
+        poolDecalVertices.reserveCapacity(vertexCount)
+        for i in 0..<vertexCount {
+            let at = i * 6
+            poolDecalVertices.append(PoolDecalVertex(
+                position: SIMD4(values[at] / hw - 1, 1 - values[at + 1] / hh,
+                    max(0, min(1, (values[at + 2] + 1.5) / 3)), 1),
+                uvq: SIMD4(values[at + 3], values[at + 4], values[at + 5], 0)))
+        }
+    }
+
     /// Hand the assembled frame to the display. The two frameworks spell this
     /// differently — AppKit's `setNeedsDisplay` wants a rectangle and offers a
     /// whole-view flag instead — and this is the entire difference.
@@ -237,6 +285,7 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
         sceneLock.lock()
         let vertices = sceneVertices
         let glyphs = glyphVertices
+        let poolDecals = poolDecalVertices
         let themeSolidSnapshot = themeSolid
         let themeSoftSnapshot = themeSoft
         let clear = background
@@ -245,6 +294,19 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
         guard let pass = currentRenderPassDescriptor,
               let drawable = currentDrawable,
               let command = commandQueue.makeCommandBuffer() else { return }
+        guard inFlight.wait(timeout: .now()) == .success else { return }
+        var submitted = false
+        defer { if !submitted { inFlight.signal() } }
+        let slot = uploads[uploadIndex]
+        let themeCount = themeSolidSnapshot.values.reduce(0) { $0 + $1.count } +
+            themeSoftSnapshot.values.reduce(0) { $0 + $1.count }
+        guard reserve(&slot.scene, bytes: vertices.count * MemoryLayout<SceneVertex>.stride),
+              reserve(&slot.glyphs, bytes: glyphs.count * MemoryLayout<GlyphVertex>.stride),
+              reserve(&slot.theme, bytes: themeCount * MemoryLayout<ThemeVertex>.stride),
+              reserve(&slot.decals, bytes: poolDecals.count * MemoryLayout<PoolDecalVertex>.stride),
+              let vertexBuffer = slot.scene, let glyphBuffer = slot.glyphs,
+              let themeBuffer = slot.theme, let decalBuffer = slot.decals else { return }
+        let decalTexture = poolDecals.isEmpty ? nil : poolDecalTexture?(uploadIndex)
         pass.colorAttachments[0].clearColor = clear
         pass.colorAttachments[0].loadAction = .clear
         pass.depthAttachment.clearDepth = 1
@@ -260,7 +322,15 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
             encoder.drawPrimitives(type: .triangle, vertexStart: 0,
                                    vertexCount: vertices.count)
         }
-        drawTheme(encoder, solid: themeSolidSnapshot, soft: themeSoftSnapshot)
+        if let decalTexture, !poolDecals.isEmpty {
+            _ = poolDecals.withUnsafeBytes { memcpy(decalBuffer.contents(), $0.baseAddress!, $0.count) }
+            encoder.setRenderPipelineState(poolDecalPipeline)
+            encoder.setDepthStencilState(poolDecalDepth)
+            encoder.setVertexBuffer(decalBuffer, offset: 0, index: 0)
+            encoder.setFragmentTexture(decalTexture, index: 0)
+            encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: poolDecals.count)
+        }
+        drawTheme(encoder, buffer: themeBuffer, solid: themeSolidSnapshot, soft: themeSoftSnapshot)
         // Text last and depth-free: the HUD is not in the world, it is over it.
         if !glyphs.isEmpty {
             let capacity = glyphBuffer.length / MemoryLayout<GlyphVertex>.stride
@@ -275,6 +345,7 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
             }
             var frame = SIMD2<Float>(Float(stage.width), Float(stage.height))
             encoder.setRenderPipelineState(glyphPipeline)
+            encoder.setDepthStencilState(nil)
             encoder.setVertexBuffer(glyphBuffer, offset: 0, index: 0)
             encoder.setVertexBytes(&frame, length: MemoryLayout<SIMD2<Float>>.stride,
                                    index: 1)
@@ -284,6 +355,10 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
         }
         encoder.endEncoding()
         command.present(drawable)
+        let available = inFlight
+        command.addCompletedHandler { _ in available.signal() }
+        uploadIndex = (uploadIndex + 1) % uploads.count
+        submitted = true
         command.commit()
     }
 
@@ -358,14 +433,11 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
             noWrite.depthCompareFunction = .lessEqual
             let solidState = try device.makeRenderPipelineState(descriptor: solid)
             let softState = try device.makeRenderPipelineState(descriptor: soft)
-            guard let buffer = device.makeBuffer(length: Self.maxThemeQuads * 6 *
-                MemoryLayout<ThemeVertex>.stride, options: .storageModeShared),
-                let depth = device.makeDepthStencilState(descriptor: noWrite) else { return }
+            guard let depth = device.makeDepthStencilState(descriptor: noWrite) else { return }
             sceneLock.lock()
             themeSolidPipeline = solidState
             themeSoftPipeline = softState
             themeSoftDepth = depth
-            themeBuffer = buffer
             themeTextures = loaded
             sceneLock.unlock()
         } catch {
@@ -437,9 +509,9 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
 
     /// Solid cut-outs first so they take part in depth like any face, then
     /// the soft flashes and explosions over them without writing depth.
-    private func drawTheme(_ encoder: MTLRenderCommandEncoder,
+    private func drawTheme(_ encoder: MTLRenderCommandEncoder, buffer: MTLBuffer,
                            solid: [Int: [ThemeVertex]], soft: [Int: [ThemeVertex]]) {
-        guard let buffer = themeBuffer, let solidPipeline = themeSolidPipeline,
+        guard let solidPipeline = themeSolidPipeline,
               let softPipeline = themeSoftPipeline, let softDepth = themeSoftDepth else { return }
         var offset = 0
         let stride = MemoryLayout<ThemeVertex>.stride

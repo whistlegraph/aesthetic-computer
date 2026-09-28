@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 184;
+const buildVersion = 185;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -863,7 +863,7 @@ function rasterDecalPatches(decal) {
       const a = (u-.5)*decal.size*2*(decal.stretch||1), b = (v-.5)*decal.size*2;
       x = decal.x + (a*c-b*s)*decal.tx; z = decal.z + a*s+b*c;
     }
-    z = clamp(z, worldNear+1, worldFar-1);
+    z = clamp(z, worldNear-(poolOnly()?parkLotMargin:0)+1, worldFar+(poolOnly()?parkLotMargin:0)-1);
     // Sample every corner against the curved ramp; a tangent-plane sticker
     // would float over the curve or cut into it at its edges.
     return {x,y:terrainFloorAt(x,z)-.9,z};
@@ -894,7 +894,16 @@ function drawRasterDecal(decal) {
 function drawDecals(surface) {
   if(poolOnly()&&poolDecalsNative&&poolDecalCount){
     poolSurfaceMesh ||= captureQuadMesh(drawPoolGeometry);
-    decalMesh(meshHandle(poolSurfaceMesh),mainNativeCamera(),gridLeft,worldNear,gridWidth,roomDepth);
+    let handle;
+    if(nativeRetainedMeshes)handle=meshHandle(poolSurfaceMesh);
+    else {
+      if(poolSurfaceMesh.decalHandle===undefined){
+        const buffers=nativeMeshBuffers(poolSurfaceMesh);
+        poolSurfaceMesh.decalHandle=decalMeshUpload(buffers.vertices,buffers.faces);
+      }
+      handle=poolSurfaceMesh.decalHandle;
+    }
+    if(handle>=0)decalMesh(handle,mainNativeCamera(),gridLeft-parkLotMargin,worldNear-parkLotMargin,gridWidth+parkLotMargin*2,roomDepth+parkLotMargin*2);
   }
   if (!decals.length && !bloodDrops.length) return;
   const now = runtime().monotonicUs;
@@ -1590,6 +1599,16 @@ const parkRamps=[
   {x:2800,z:-1450,hx:500,hz:380,tx:220,tz:130,height:230},
   {x:4700,z:700,hx:650,hz:400,tx:270,tz:180,height:300},
   {x:7250,z:0,hx:800,hz:440,tx:400,tz:200,height:340}];
+const parkHalfPipe3D={x:2840,z:0,flat:160,radius:280,deck:70,bank:150,hx:660,hz:750,run:550};
+function parkHalfPipeHeight(x,z){
+  const p=parkHalfPipe3D,d=Math.abs(x-p.x),end=Math.abs(z-p.z);
+  if(d>=p.hx||end>=p.hz)return 0;
+  const curve=clamp(d-p.flat,0,p.radius);
+  let height=p.radius-Math.sqrt(Math.max(0,p.radius*p.radius-curve*curve));
+  if(d>p.flat+p.radius+p.deck)height=p.radius*(p.hx-d)/p.bank;
+  const taper=clamp((p.hz-end)/(p.hz-p.run),0,1);
+  return height*taper*taper*(3-2*taper);
+}
 const parkDeckY=floorY-pool.depth;
 const parkPalette={pool:[172,212,211],ground:[220,185,151],
   hills:[[167,188,207],[185,172,209],[171,200,170]],ramp:[218,155,138],
@@ -1615,7 +1634,7 @@ function parkGroundAt(x,z){
   let height=0;
   for(const h of parkHills){const r=(x-h.x)**2/h.rx**2+(z-h.z)**2/h.rz**2;if(r<1)height=Math.max(height,h.height*(1-r)**2);}
   for(const r of parkRamps){const t=Math.min(1,(r.hx-Math.abs(x-r.x))/(r.hx-r.tx),(r.hz-Math.abs(z-r.z))/(r.hz-r.tz));height=Math.max(height,r.height*Math.max(0,t));}
-  return parkDeckY-height;
+  return parkDeckY-Math.max(height,parkHalfPipeHeight(x,z));
 }
 function poolFloorAt(x,z=0){
   const edge=poolDistance(x,z);
@@ -1630,11 +1649,67 @@ function poolSlopeAt(x,z){
   const e=.5;
   return {x:(poolFloorAt(x+e,z)-poolFloorAt(x-e,z))/(2*e),z:(poolFloorAt(x,z+e)-poolFloorAt(x,z-e))/(2*e)};
 }
-function boundParkBody(p){
-  const x=clamp(p.x,gridLeft+25,gridLeft+gridWidth-25),z=clamp(p.z||0,worldNear+25,worldFar-25);
+const parkLotMargin=1800;
+const brokenParkWindows=new Set(),parkWindowShards=[];
+function insidePark(x,z){return x>=gridLeft&&x<=gridLeft+gridWidth&&z>=worldNear&&z<=worldFar;}
+function parkWindowWalls(){
+  const l=gridLeft,r=gridLeft+gridWidth,n=worldNear,f=worldFar;
+  return [[l,n,r,n],[r,n,r,f],[r,f,l,f],[l,f,l,n]].map(([ax,az,bx,bz],id)=>{
+    const length=Math.hypot(bx-ax,bz-az),ux=(bx-ax)/length,uz=(bz-az)/length;
+    return {id,ax,az,bx,bz,length,ux,uz,nx:-uz,nz:ux,width:length/Math.ceil(length/1100)};
+  });
+}
+function breakParkWindow(wall,bay,at,velocity={}){
+  const key=wall.id+':'+bay;if(brokenParkWindows.has(key))return false;
+  brokenParkWindows.add(key);
+  releaseQuadMesh(parkWindowMeshes.get(key));parkWindowMeshes.delete(key);
+  for(let i=0;i<18;i++){
+    const phase=i*2.39996,u=(bay+.5)*wall.width+Math.sin(phase)*wall.width*.3;
+    parkWindowShards.push({x:wall.ax+wall.ux*u,y:at.y-80+Math.cos(phase)*100,z:wall.az+wall.uz*u,
+      vx:(velocity.vx||0)*.25+Math.sin(phase)*180,vy:-100-Math.abs(Math.cos(phase))*240,
+      vz:(velocity.vz||0)*.25+Math.cos(phase)*180,life:2.4,size:8+i%4*4,rotation:phase});
+  }
+  if(parkWindowShards.length>216)parkWindowShards.splice(0,parkWindowShards.length-216);
+  playDrum('glass',.8,panAt(at.x,at.z));emitSignal('park-window-break',-1,wall.id,bay);return true;
+}
+function resetParkWindows(){
+  brokenParkWindows.clear();parkWindowShards.length=0;
+  for(const mesh of parkWindowMeshes.values())releaseQuadMesh(mesh);parkWindowMeshes.clear();
+  releaseQuadMesh(parkBuildingMesh);parkBuildingMesh=null;
+}
+function parkWallContact(from,to,radius=25){
+  const contacts=[];
+  for(const w of parkWindowWalls()){
+    const old=(from.x-w.ax)*w.nx+(from.z-w.az)*w.nz,dist=(to.x-w.ax)*w.nx+(to.z-w.az)*w.nz;
+    if(old>=0?dist>=radius:dist<=-radius)continue;
+    const fraction=clamp(old/(old-dist||1),0,1);
+    const x=lerp(from.x,to.x,fraction),z=lerp(from.z,to.z,fraction);
+    const u=(x-w.ax)*w.ux+(z-w.az)*w.uz;
+    if(u<0||u>w.length)continue;
+    const bay=Math.min(Math.ceil(w.length/1100)-1,Math.floor(u/w.width));
+    contacts.push({w,bay,u,old,dist,fraction});
+  }
+  return contacts;
+}
+function boundParkBody(p,previous={x:p.x,z:p.z||0}){
+  const radius=p.pad===undefined?18:25,height=p.pad===undefined?40:180;
+  for(const {w,bay,u,old,dist} of parkWallContact(previous,{x:p.x,z:p.z||0},radius)){
+    const horizontal=u>bay*w.width+109+radius&&u<(bay+1)*w.width-109-radius;
+    const wt=parkDeckY-parkBuildingHeight+269,wb=parkDeckY-479;
+    const impactY=p.y-height*.5,impact=horizontal&&impactY>wt&&impactY<wb;
+    const speed=Math.hypot((p.vx||0)*w.nx+(p.vz||0)*w.nz,(p.vy||0)*.7);
+    if(impact&&(speed>450||p.attackKind||p.spin?.rate>5))breakParkWindow(w,bay,{x:p.x,y:impactY,z:p.z},p);
+    if(horizontal&&brokenParkWindows.has(w.id+':'+bay)&&p.y<=wb&&p.y-height>=wt)continue;
+    const correction=(old>=0?radius:-radius)-dist;
+    p.x+=w.nx*correction;p.z=(p.z||0)+w.nz*correction;
+    const normal=(p.vx||0)*w.nx+(p.vz||0)*w.nz;
+    p.vx=(p.vx||0)-w.nx*normal;p.vz=(p.vz||0)-w.nz*normal;
+  }
+  const x=clamp(p.x,gridLeft-parkLotMargin+25,gridLeft+gridWidth+parkLotMargin-25),
+    z=clamp(p.z||0,worldNear-parkLotMargin+25,worldFar+parkLotMargin-25);
   if(x!==p.x)p.vx=0;if(z!==p.z)p.vz=0;p.x=x;p.z=z;
   const ceiling=parkDeckY-parkBuildingHeight+(p.pad===undefined?70:230);
-  if(p.y<ceiling){p.y=ceiling;p.vy=Math.max(0,p.vy);p.poolVert=null;}
+  if(insidePark(p.x,p.z)&&p.y<ceiling){p.y=ceiling;p.vy=Math.max(0,p.vy);p.poolVert=null;}
 }
 function terrainFloorAt(x, z = 0) {
   if (poolOnly()) return poolFloorAt(x, z);
@@ -2287,7 +2362,8 @@ function withRenderView(doll, rect, draw) {
     emitFrameView(previousClip);
   }
 }
-const cameraScale = () => (stageRight - stageLeft) / cameraDoll.width;
+let figureDrawScale=null;
+const cameraScale = () => figureDrawScale ?? (stageRight - stageLeft) / cameraDoll.width;
 let playerCameraYaw = 0;
 let skateIsoSide = 1;
 let skateIsoYaw = .3;
@@ -3117,7 +3193,7 @@ let poolDecalsNative=null,poolDecalCount=0;
 function clearPoolDecals(){
   poolDecalCount=0;
   poolDecalsNative=typeof decalClear==='function'&&typeof decalStamp==='function'&&
-    typeof decalMesh==='function'&&nativeRetainedMeshes?decalClear():false;
+    typeof decalMesh==='function'&&(nativeRetainedMeshes||typeof decalMeshUpload==='function')?decalClear():false;
 }
 let decalSeed = 7;
 function decalRandom() {
@@ -3138,7 +3214,7 @@ function addDecal(decal) {
     if(poolDecalsNative){
       for(const patch of rasterDecalPatches(decal))
         decalStamp(...patch.uv,...patch.points.flatMap(p=>[
-          (p.x-gridLeft)/gridWidth*2048,(p.z-worldNear)/roomDepth*2048]));
+          (p.x-gridLeft+parkLotMargin)/(gridWidth+parkLotMargin*2)*2048,(p.z-worldNear+parkLotMargin)/(roomDepth+parkLotMargin*2)*2048]));
       poolDecalCount++;
       return decal;
     }
@@ -6377,6 +6453,7 @@ function beginFreeskate(now) {
   resetMonowheel();
   resetParkSupply(now);
   resetParkKids();
+  resetParkWindows();
   roundStartedAt = now - roundIntroDurationUs();
   emitSignal("freeskate", 0, 1, 0);
 }
@@ -6934,6 +7011,7 @@ function consumeSystemButtons(now) {
   // In freeskate Start opens the pause menu (speed, resume, title).
   if (freeskateActive()) {
     freeskateMenu = freeskateMenu ? null : { row: 0, previous: padSnapshots[0]?.down?.slice() || [] };
+    if(freeskateMenu&&motorRunning){if(typeof oscillatorStop==='function')oscillatorStop();else if(typeof oscillator==='function')oscillator(motorFrequency,0);motorRunning=false;}
     playDrum("hat", .5, 0);
     emitSignal("freeskate-menu", -1, freeskateMenu ? 1 : 0, 0);
     return false;
@@ -9033,6 +9111,7 @@ function resetRound(now, resetMatch = false, keepMap = false) {
     player.skidFrom = null;
     player.spin = null;
     player.directionChanges = [];
+    player.poolLastSteer = 0;
     player.lastHorizontal = 0;
     player.ropeIndex = -1;
     player.ropeGrabLocked = false;
@@ -9462,17 +9541,26 @@ function deathOrbitShot(target, width, progress) {
 let poolCameraYaw = 0, poolCameraDip = 0, poolCameraReturnYaw = null;
 // Keep the line from the lens to the rider above the coping and curved walls.
 function clearPoolCamera(position, subject) {
-  // Keep the camera inside the building; shallow dips no longer need to
-  // pull the boom into each bowl. Terrain still clears the entire sightline.
-  position={...position,x:clamp(position.x,gridLeft+80,gridLeft+gridWidth-80),
-    z:clamp(position.z,worldNear+80,worldFar-80)};
+  // Follow the rider into the lot without putting a solid wall between
+  // the lens and the body. Terrain still clears the entire sightline.
+  const outside=!insidePark(subject.x,subject.z);
+  position={...position,x:clamp(position.x,gridLeft-parkLotMargin+80,gridLeft+gridWidth+parkLotMargin-80),
+    z:clamp(position.z,worldNear-parkLotMargin+80,worldFar+parkLotMargin-80)};
+  if(!outside){position.x=clamp(position.x,gridLeft+80,gridLeft+gridWidth-80);
+    position.z=clamp(position.z,worldNear+80,worldFar-80);}
+  else{
+    if(subject.x<gridLeft)position.x=Math.min(position.x,gridLeft-80);
+    if(subject.x>gridLeft+gridWidth)position.x=Math.max(position.x,gridLeft+gridWidth+80);
+    if(subject.z<worldNear)position.z=Math.min(position.z,worldNear-80);
+    if(subject.z>worldFar)position.z=Math.max(position.z,worldFar+80);
+  }
   let y=position.y;
   for(let i=1;i<20;i++){
     const t=i/20,x=lerp(position.x,subject.x,t),z=lerp(position.z,subject.z,t);
     const surface=poolFloorAt(x,z);
     y=Math.min(y,(surface-subject.y*t)/(1-t)-65);
   }
-  return {...position,y:Math.max(parkDeckY-parkBuildingHeight+80,y)};
+  return {...position,y:outside?y:Math.max(parkDeckY-parkBuildingHeight+80,y)};
 }
 function updateCameraDoll(dt, now) {
   if (poolOnly() && freeskateActive()) {
@@ -9502,19 +9590,19 @@ function updateCameraDoll(dt, now) {
     const zoom=playerCameraZoom,angle=poolCameraYaw+.14*(1-poolCameraDip)+playerCameraYaw;
     const airHeight=Math.max(0,poolFloorAt(p.x,p.z||0)-p.y);
     const distance=(1350+Math.min(850,airHeight*.35)-poolCameraDip*120)*zoom;
-    const look=140+Math.min(180,speed*.07)+(poolCameraReturnYaw!==null?lerp(140,420,clamp(airHeight/600,0,1)):0);
+    const look=340+Math.min(450,speed*.16)+(poolCameraReturnYaw!==null?lerp(140,420,clamp(airHeight/600,0,1)):0);
     const lookX=p.x+Math.cos(goal)*look,lookZ=(p.z||0)+Math.sin(goal)*look;
     const groundFocus=Math.max(poolCameraDip*.28,clamp(airHeight/650,0,1)*.32);
-    const target={x:lerp(p.x,lookX,.15+poolCameraDip*.4),
-      y:lerp(p.y-85+clamp(p.vy*.1,-160,220),poolFloorAt(lookX,lookZ)-40,groundFocus),
-      z:lerp(p.z||0,lookZ,.15+poolCameraDip*.4)};
+    const target={x:lerp(p.x,lookX,.65+poolCameraDip*.2),
+      y:lerp(p.y-130+clamp(p.vy*.1,-160,220),poolFloorAt(lookX,lookZ)-40,groundFocus),
+      z:lerp(p.z||0,lookZ,.65+poolCameraDip*.2)};
     // Lead the tracking spring during fast bank airs so it does not leave
     // the rider above the frame while still looking at the takeoff point.
     target.x+=p.vx*.1;target.z+=(p.vz||0)*.1;target.y+=clamp(p.vy*.1,-220,220);
     target.y=clamp(target.y,p.y-240,p.y+50);
     const subject={x:p.x,y:p.y-2,z:p.z||0};
     const position=clearPoolCamera({x:target.x-Math.cos(angle)*distance,
-      y:p.y-85-(lerp(260,880,clamp(airHeight/500,0,1))+poolCameraDip*230+Math.min(500,airHeight*.2))*zoom-playerCameraPitch*600,
+      y:p.y-85-(lerp(145,480,clamp(airHeight/500,0,1))+poolCameraDip*110+Math.min(240,airHeight*.12))*zoom-playerCameraPitch*600,
       z:target.z-Math.sin(angle)*distance},subject);
     cameraCenter=target.x;cameraCenterY=target.y;cameraWidth=1650*zoom;
     cameraDoll.track({target,position,width:cameraWidth,perspective:1,fov:58+poolCameraDip*5,roll:0},dt,8);
@@ -10029,6 +10117,7 @@ function fireGun(player, input) {
       x: pose.muzzle.x, y: pose.muzzle.y, z: pose.muzzle.z,
       vx: pose.dx * (laser ? 9600 : smg ? 5000 : 4200),
       vy: pose.dy * (laser ? 9600 : smg ? 5000 : 4200),
+      vz:(pose.dz||0)*(laser?9600:smg?5000:4200),
       owner: player.pad, life: 1, rubber: smg, laser,
       safeUntil: now + 100000,
     });
@@ -10350,7 +10439,45 @@ function recordBulletTrail(bullet) {
   bullet.trailCount++;
 }
 
+function updatePoolBullets(dt,now,combat){
+  const t=(now-startedAt)/1e6;
+  for(const b of bullets){
+    if(b.life<=0)continue;
+    b.previousX=b.x;b.previousY=b.y;b.previousZ=b.z;b.life-=dt;
+    const steps=Math.max(1,Math.ceil(Math.hypot(b.vx,b.vy,b.vz||0)*dt/18));
+    for(let step=0;step<steps&&b.life>0;step++){
+      const from={x:b.x,y:b.y,z:b.z};
+      b.x+=b.vx*dt/steps;b.y+=b.vy*dt/steps;b.z+=(b.vz||0)*dt/steps;
+      for(const {w,bay,u} of parkWallContact(from,b,0)){
+        const inGlass=u>bay*w.width+109&&u<(bay+1)*w.width-109&&
+          b.y>parkDeckY-parkBuildingHeight+269&&b.y<parkDeckY-479;
+        if(inGlass)breakParkWindow(w,bay,b,b);else b.life=0;
+      }
+      if(b.life<=0)break;
+      if(b.y>=poolFloorAt(b.x,b.z)-4||(insidePark(b.x,b.z)&&b.y<parkDeckY-parkBuildingHeight)||
+        b.x<gridLeft-parkLotMargin||b.x>gridLeft+gridWidth+parkLotMargin||
+        b.z<worldNear-parkLotMargin||b.z>worldFar+parkLotMargin){b.life=0;break;}
+      if(!combat)continue;
+      for(const target of [...activePlayers(),...parkKids]){
+        if(!target.alive||target.dummy||(target.pad===b.owner&&now<b.safeUntil))continue;
+        if(Math.hypot(target.x-b.x,(target.z||0)-b.z)>260)continue;
+        const hit=sweptProjectileContact([{x1:from.x,y1:from.y,z1:from.z,x2:b.x,y2:b.y,z2:b.z,width:8,role:'bullet',part:'bullet'}],target,t);
+        if(!hit||hit.separation>3)continue;
+        b.life=0;
+        if(target.blocking)breakShield(target,now);
+        else if(target.civilian){
+          if(hit.headshot)popCivilianHead(target,players[b.owner]||players[0],runnerWorldGeometry(target,t),now);
+          else target.startledUntil=now+900000;
+        }else if(hit.headshot)killPlayer(target,b.owner,now,'SHOT');
+        else applyBodyHit(target,hit.segmentIndex,b.x-b.vx,b.owner,now,1180,125);
+        break;
+      }
+    }
+  }
+  for(let i=bullets.length-1;i>=0;i--)if(bullets[i].life<=0)bullets.splice(i,1);
+}
 function updateBullets(dt, now, combat = true) {
+  if(poolOnly()){updatePoolBullets(dt,now,combat);return;}
   for (const bullet of bullets) {
     if (bullet.life <= 0) continue;
     bullet.vx += windAcceleration * .12 * dt;
@@ -10771,6 +10898,12 @@ function itemHandTarget(player, now) {
 }
 
 function gunPose(player, now, input = null) {
+  if(poolOnly()){
+    const pose=runnerWorldGeometry(player,(now-startedAt)/1e6),arm=itemForearm(player,pose);
+    const hand=arm?{x:arm.x2,y:arm.y2,z:arm.z2}:{x:player.x,y:player.y-110,z:player.z||0};
+    const yaw=(player.poolYaw||0)+(player.spin?.angle||0),dx=Math.cos(yaw),dz=Math.sin(yaw);
+    return {hand,dx,dy:0,dz,muzzle:{x:hand.x+dx*54,y:hand.y,z:hand.z+dz*54}};
+  }
   let aimX = input?.horizontal || player.facing;
   let aimY = input ? -input.vertical : 0;
   if (!input && (player.itemAimLocked || player.gunAimLive ||
@@ -12215,6 +12348,12 @@ function updatePoolPlayer(p, pad, dt, now) {
   const axis=value=>Math.abs(value)>.18?Math.sign(value)*(Math.abs(value)-.18)/.82:0;
   const turn=Number(held.includes('ArrowRight'))-Number(held.includes('ArrowLeft')) || axis(pad.leftX||0);
   const throttle=Number(held.includes('ArrowUp'))-Number(held.includes('ArrowDown')) || axis(pad.leftY||0);
+  const steer=Math.sign(turn);
+  if(steer&&steer!==p.poolLastSteer){
+    noteDirectionChange(p,now);
+    p.poolLastSteer=steer;
+  }
+  updateSpin(p,dt);
   const wasGrounded=p.grounded;
   const oldHeading=p.poolYaw||0;
   const speedBefore=Math.hypot(p.vx,p.vz||0);
@@ -12238,7 +12377,14 @@ function updatePoolPlayer(p, pad, dt, now) {
   if(!blocking&&p.blocking)playBubbleSound(p,true);
   p.blocking=blocking; p.shieldCrouched=p.ducking;
   if(now>=p.attackUntil)p.attackKind='';
-  if(!blocking){if(pressed('B'))startMelee(p,'PUNCH',now);if(pressed('Y'))startMelee(p,'KICK',now);}
+  if(p.itemAction&&now>=p.itemActionUntil)p.itemAction='';
+  if(!blocking){
+    if(pressed('B'))startMelee(p,'PUNCH',now);
+    if(pressed('Y')){
+      if(p.gunAmmo>0&&now>=(p.nextGunShotAt||0)&&availableArm(p))fireGun(p,{horizontal:1,vertical:0});
+      else if(!p.gunAmmo)startMelee(p,'KICK',now);
+    }
+  }
   const mounted=p.skateboard;
   const dash=pressed('LeftShoulder')&&now>=(p.poolDashReadyAt||0);
   if(dash){
@@ -12255,6 +12401,7 @@ function updatePoolPlayer(p, pad, dt, now) {
   // Substep contacts in both horizontal axes, keeping speed tangent to the bowl.
   const steps=Math.max(1,Math.ceil(dt*120)), step=dt/steps;
   for(let n=0;n<steps;n++){
+    const before={x:p.x,z:p.z||0};
     let slope=poolSlopeAt(p.x,p.z||0);
     if(p.grounded){
       const grade=slope.x*driveX+slope.z*driveZ, tangent=Math.hypot(1,grade);
@@ -12316,7 +12463,7 @@ function updatePoolPlayer(p, pad, dt, now) {
         p.grounded=true;p.poolVert=null;p.landPoseUntil=now+110000;
       }
     }
-    boundParkBody(p);
+    boundParkBody(p,before);
   }
   if(p.skateboard&&!p.onewheel&&p.grounded&&!wasGrounded){
     playDrum('clap',clamp((p.landingSpeed||0)/2400,.25,.8),panPlayer(p));
@@ -14187,6 +14334,7 @@ function gameSim() {
     captureFrameTelemetry(now);
   } else {
     updateWind(dt, now);
+    if(poolOnly())updateParkWindowShards(dt);
     if(freeskateActive() && !parkSupply.ko)updateParkKids(dt,now);
     updatePlayer(players[0], inputPads[0], dt, now);
     updatePlayer(players[1], inputPads[1], dt, now);
@@ -14960,27 +15108,15 @@ function runnerWorldGeometry(player, t) {
       const lower=pose.segments.find(s=>s.part===part && /forearm$/.test(s.role||''));
       if(!upper || !lower)continue;
       Object.assign(upper,{x1:torso.x1+side*12,y1:torso.y1+8,z1:(player.z||0)+side*14,
-        x2:torso.x1+side*54,y2:torso.y1+16,z2:(player.z||0)+side*24});
+        x2:torso.x1+side*36,y2:torso.y1+16,z2:(player.z||0)+side*24});
       Object.assign(lower,{x1:upper.x2,y1:upper.y2,z1:upper.z2,
-        x2:torso.x1+side*92,y2:torso.y1+8,z2:(player.z||0)+side*36});
+        x2:torso.x1+side*66,y2:torso.y1+8,z2:(player.z||0)+side*30});
     }
   }
   if(player.civilian && player.bodyScale){
     const k=player.bodyScale;
-    pose.head.x=player.x+(pose.head.x-player.x)*k;pose.head.y=player.y+(pose.head.y-player.y)*k;pose.head.radius*=k;
-    for(const b of pose.segments){b.x1=player.x+(b.x1-player.x)*k;b.x2=player.x+(b.x2-player.x)*k;b.y1=player.y+(b.y1-player.y)*k;b.y2=player.y+(b.y2-player.y)*k;b.width*=k;}
-  }
-  // A spin: the whole body turns round the vertical axis by the spin's angle.
-  if (player.spin) {
-    const angle = player.spin.angle;
-    const c = Math.cos(angle), s = Math.sin(angle);
-    const spin = (point, xKey, zKey) => {
-      const dx = point[xKey] - player.x, dz = (point[zKey] ?? player.z) - player.z;
-      point[xKey] = player.x + dx * c - dz * s;
-      point[zKey] = player.z + dx * s + dz * c;
-    };
-    spin(pose.head, "x", "z");
-    for (const segment of pose.segments) { spin(segment, "x1", "z1"); spin(segment, "x2", "z2"); }
+    pose.head.x=player.x+(pose.head.x-player.x)*k;pose.head.y=player.y+(pose.head.y-player.y)*k;pose.head.radius*=k;pose.head.z=(player.z||0)+(pose.head.z-(player.z||0))*k;
+    for(const b of pose.segments){b.x1=player.x+(b.x1-player.x)*k;b.x2=player.x+(b.x2-player.x)*k;b.y1=player.y+(b.y1-player.y)*k;b.y2=player.y+(b.y2-player.y)*k;b.z1=(player.z||0)+(b.z1-(player.z||0))*k;b.z2=(player.z||0)+(b.z2-(player.z||0))*k;b.width*=k;}
   }
   // Mid-turn the body swings round its vertical axis: the old facing's side
   // rotates away into depth and the new one comes round.
@@ -15013,7 +15149,7 @@ function runnerWorldGeometry(player, t) {
   }
   if(poolOnly()&&!isHeadOnly(player)){
     const z=player.z||0,bank=player.poolLean||0;
-    if(!player.skateboard&&!pose.spatial){
+    if(!player.skateboard&&!pose.spatial&&!player.spin){
       for(const bone of pose.segments){
         const side=bone.part?.startsWith('left-')?-1:bone.part?.startsWith('right-')?1:0;
         const width=bone.part?.includes('arm')?22:13;
@@ -15029,6 +15165,19 @@ function runnerWorldGeometry(player, t) {
     };
     lean(pose.head,'y','z');
     for(const bone of pose.segments){lean(bone,'y1','z1');lean(bone,'y2','z2');}
+  }
+  if(poolOnly()&&!player.spiderDummy)constrainSpatialLimbs(pose,player.civilian?(player.bodyScale||1):1);
+  // A spin: the whole body turns round the vertical axis by the spin's angle.
+  if (player.spin) {
+    const angle = player.spin.angle;
+    const c = Math.cos(angle), s = Math.sin(angle);
+    const spin = (point, xKey, zKey) => {
+      const dx = point[xKey] - player.x, dz = (point[zKey] ?? player.z) - player.z;
+      point[xKey] = player.x + dx * c - dz * s;
+      point[zKey] = player.z + dx * s + dz * c;
+    };
+    spin(pose.head, "x", "z");
+    for (const segment of pose.segments) { spin(segment, "x1", "z1"); spin(segment, "x2", "z2"); }
   }
   if (poolOnly() && player.poolYaw) {
     const c=Math.cos(player.poolYaw),s=Math.sin(player.poolYaw),z=player.z||0;
@@ -15219,6 +15368,33 @@ function hangGeometry(player) {
 
 // A spatial gait: feet travel backward through stance, lift on recovery,
 // and arms counter the legs. The distance phase works at every heading.
+function constrainSpatialLimbs(pose,scale=1){
+  for(const upper of pose.segments){
+    const leg=/thigh$/.test(upper.role||''),arm=/upper-arm$/.test(upper.role||'');
+    if(!leg&&!arm)continue;
+    const lower=pose.segments.find(b=>b.part===upper.part&&(leg?/shin$/:/forearm$/).test(b.role||''));
+    if(!lower)continue;
+    const root={x:upper.x1,y:upper.y1,z:upper.z1},end={x:lower.x2,y:lower.y2,z:lower.z2};
+    const l1=(leg?48:33)*scale,l2=(leg?47:32)*scale;
+    let axis={x:end.x-root.x,y:end.y-root.y,z:end.z-root.z};
+    const distance=Math.hypot(axis.x,axis.y,axis.z);
+    if(distance<1e-6)axis={x:0,y:1,z:0};else for(const k of ['x','y','z'])axis[k]/=distance;
+    const reach=clamp(distance,Math.abs(l1-l2)+.01,l1+l2-.01);
+    let pole={x:upper.x2-root.x,y:upper.y2-root.y,z:upper.z2-root.z};
+    const dot=pole.x*axis.x+pole.y*axis.y+pole.z*axis.z;
+    for(const k of ['x','y','z'])pole[k]-=dot*axis[k];
+    let norm=Math.hypot(pole.x,pole.y,pole.z);
+    if(norm<1e-6){const basis=Math.abs(axis.x)<.9?{x:1,y:0,z:0}:{x:0,y:0,z:1};
+      const d=basis.x*axis.x+basis.z*axis.z;
+      for(const k of ['x','y','z'])pole[k]=basis[k]-axis[k]*d;
+      norm=Math.hypot(pole.x,pole.y,pole.z);}
+    const along=(l1*l1-l2*l2+reach*reach)/(2*reach),bend=Math.sqrt(Math.max(0,l1*l1-along*along));
+    for(const k of ['x','y','z']){
+      upper[k+'2']=lower[k+'1']=root[k]+axis[k]*along+pole[k]/norm*bend;
+      lower[k+'2']=root[k]+axis[k]*reach;
+    }
+  }
+}
 function buildPoolWalkGeometry(p) {
   const phase=p.poolStridePhase||0,speed=clamp(Math.hypot(p.vx,p.vz||0)/700,0,1);
   const moving=clamp(Math.hypot(p.vx,p.vz||0)/200,0,1),crouch=clamp(p.crouchBlend||0,0,1);
@@ -15254,6 +15430,9 @@ function buildPoolWalkGeometry(p) {
     bone(pelvis,knee,name+'-thigh',name+'-leg',11);bone(knee,foot,name+'-shin',name+'-leg',10);
     const upper=shoulders[index],swing=-footX*.52;
     const hand=point(lean+swing+air*20,shoulder.y-p.y+61-10*speed-15*air,side*(26+air*12));
+    if(p.gunAmmo>0&&name+'-arm'===itemHand(p)){
+      hand.x=upper.x+54;hand.y=upper.y+16;hand.z=upper.z;
+    }
     const elbow=joint(upper,hand,33,-1);
     bone(upper,elbow,name+'-upper-arm',name+'-arm');bone(elbow,hand,name+'-forearm',name+'-arm');
   }
@@ -15720,7 +15899,8 @@ function spiderDummyWorldGeometry(player, t) {
 }
 
 function runnerGeometry(player, t) {
-  return projectRunnerWorldGeometry(constrainLimbs(runnerWorldGeometry(player, t)));
+  const world=runnerWorldGeometry(player,t);
+  return projectRunnerWorldGeometry(poolOnly()?world:constrainLimbs(world));
 }
 
 // Real bones, for drawing: every leg and arm is re-solved with fixed-length
@@ -15773,6 +15953,10 @@ function constrainLimbs(world) {
 // its sideways offset at the pin's depth and rake across the frame. A bone
 // wholly behind the plane collapses onto the head, zero wide, so the draw
 // functions that look bones up by role still find every one of them.
+function projectionScaleAt(point){
+  const depth=cameraDoll.toView(point).z;
+  return lerp(cameraDoll.view.orthoScale,cameraDoll.view.focal/Math.max(cameraNear,depth),cameraDoll.perspective);
+}
 function projectRunnerWorldGeometry(world) {
   const headView = cameraDoll.toView(world.head);
   const headPoint = cameraDoll.project(world.head);
@@ -15781,7 +15965,7 @@ function projectRunnerWorldGeometry(world) {
   return {
     behind,
     head: { x: headPoint.x, y: headPoint.y, depth:headPoint.z,
-      radius: Math.max(1.5, world.head.radius * scale) },
+      radius: world.head.radius * projectionScaleAt(world.head) },
     segments: world.segments.map((segment) => {
       const cut = behind ? null : worldSegment(segment.x1, segment.y1, segment.z1,
         segment.x2, segment.y2, segment.z2);
@@ -15790,7 +15974,8 @@ function projectRunnerWorldGeometry(world) {
         role: segment.role, part: segment.part, hitboxOnly: segment.hitboxOnly };
       const { from: a, to: b } = cut;
       return { x1: a.x, y1: a.y, x2: b.x, y2: b.y, depth: (a.z + b.z) / 2,
-        width: Math.max(1.5, segment.width * scale),
+        width: segment.width * projectionScaleAt({x:(segment.x1+segment.x2)/2,
+          y:(segment.y1+segment.y2)/2,z:(segment.z1+segment.z2)/2}),
         role: segment.role, part: segment.part,
         hitboxOnly: segment.hitboxOnly };
     }),
@@ -17990,7 +18175,13 @@ function dummyView(player) {
   if (!view) dummyViews.set(player, view = {});
   return Object.assign(view, player, dummyOverlay);
 }
-function drawRunner(player, t, showLabel = true) {
+function drawRunner(player,t,showLabel=true){
+  const previous=figureDrawScale;
+  const world=player.replayGeometry||player.frozenGeometry||runnerWorldGeometry(player,t);
+  figureDrawScale=projectionScaleAt(world.head);
+  try{return drawRunnerAtScale(player,t,showLabel);}finally{figureDrawScale=previous;}
+}
+function drawRunnerAtScale(player, t, showLabel = true) {
   if(player.civilian && player.headless){drawCivilianDebris(player);return;}
   if(player.dummy)player=dummyView(player);
   // A fighter who is down is still on the stage: they read as the broken body
@@ -19087,8 +19278,9 @@ function parkSurfaceColor(base,x,z){
   return mixColor(base,[255,236,197],light*light*.18);
 }
 function drawPoolGeometry() {
+  drawParkParkingLot();
   const ink=parkPalette.pool,ground=parkPalette.ground,rampInk=parkPalette.ramp;
-  const holes=parkPools.map(b=>({x:b.x,z:b.z,hx:b.halfX+b.radius+b.deck,hz:b.halfZ+b.radius+b.deck})).concat(parkRamps);
+  const holes=parkPools.map(b=>({x:b.x,z:b.z,hx:b.halfX+b.radius+b.deck,hz:b.halfZ+b.radius+b.deck})).concat(parkRamps,parkHalfPipe3D);
   // Include hole edges in the flat mesh so no triangle bridges a bowl.
   const cuts=(low,high,axis,half)=>{
     const values=[low,high];for(let n=low+160;n<high;n+=160)values.push(n);
@@ -19144,6 +19336,18 @@ function drawPoolGeometry() {
       if(aX!==bX){const corner={x:aX?a.x:b.x,y:parkDeckY,z:aX?b.z:a.z};worldQuad(a,corner,b,b,ink);}
     }
   }
+  // The pipe and its open-end roll-ins use exactly the collision profile.
+  const pipe=parkHalfPipe3D,profile=[0,pipe.flat,pipe.flat+pipe.radius+pipe.deck,pipe.hx];
+  for(let i=1;i<=16;i++)profile.push(pipe.flat+pipe.radius*Math.sin(i*Math.PI/32));
+  const px=[...new Set(profile.flatMap(x=>[-x,x]))].sort((a,b)=>a-b);
+  const pz=[-pipe.hz,-700,-650,-600,-pipe.run,0,pipe.run,600,650,700,pipe.hz];
+  const at=(x,z)=>({x:pipe.x+x,y:parkDeckY-parkHalfPipeHeight(pipe.x+x,pipe.z+z),z:pipe.z+z});
+  for(let j=1;j<pz.length;j++)for(let i=1;i<px.length;i++)
+    worldQuad(at(px[i-1],pz[j-1]),at(px[i],pz[j-1]),at(px[i],pz[j]),at(px[i-1],pz[j]),[207,163,114]);
+  for(const side of [-1,1]){
+    const x=pipe.x+side*(pipe.flat+pipe.radius),y=parkDeckY-pipe.radius-2;
+    worldCapsule(x,y,pipe.z-pipe.run,x,y,pipe.z+pipe.run,6*cameraScale(),[92,108,119]);
+  }
   for(const r of parkRamps){
     const corners=(hx,hz,y)=>[[-hx,-hz],[hx,-hz],[hx,hz],[-hx,hz]].map(([x,z])=>({x:r.x+x,y,z:r.z+z}));
     const base=corners(r.hx,r.hz,parkDeckY),top=corners(r.tx,r.tz,parkDeckY-r.height);
@@ -19153,7 +19357,7 @@ function drawPoolGeometry() {
 }
 let pipeSurfaceMesh=null,pipeSurfaceKey='';
 function drawTerrainSurface(left,right,near,far,color){
- if(poolOnly()){poolSurfaceMesh ||= captureQuadMesh(drawPoolGeometry);drawQuadMesh(poolSurfaceMesh);return;}
+ if(poolOnly()){poolSurfaceMesh ||= captureQuadMesh(drawPoolGeometry);drawParkScene(poolSurfaceMesh);return;}
  if(!indoorSkate()){drawTerrainSurfaceGeometry(left,right,near,far,color);return;}
  const key=gridCols+':'+near+':'+far+':'+color.join(',');
  if(key!==pipeSurfaceKey){pipeSurfaceKey=key;releaseQuadMesh(pipeSurfaceMesh);pipeSurfaceMesh=captureQuadMesh(()=>drawTerrainSurfaceGeometry(worldLeft,worldRight,near,far,color));}
@@ -19241,13 +19445,62 @@ function drawTerrainBackWall(left, right, far, color) {
   terrainPass(left, right, wallZ, wallZ, wallBottom, () => wall);
 }
 
+function drawParkParkingLot(){
+  const l=gridLeft,r=gridLeft+gridWidth,n=worldNear,f=worldFar,m=parkLotMargin,y=parkDeckY;
+  const quad=(x1,z1,x2,z2,color,depth=0)=>worldQuad({x:x1,y:y-depth,z:z1},{x:x2,y:y-depth,z:z1},
+    {x:x2,y:y-depth,z:z2},{x:x1,y:y-depth,z:z2},color);
+  for(const rect of [[l-m,n-m,r+m,n],[l-m,f,r+m,f+m],[l-m,n,l,f],[r,n,r+m,f]])quad(...rect,[76,83,94]);
+  for(const z of [n-800,f+220]){
+    for(let x=l-1200;x<r+1200;x+=260)quad(x,z,x+7,z+560,[232,225,195],.8);
+    quad(l-1200,z,r+1200,z+7,[232,225,195],.8);
+  }
+  // Concrete curb around the outer edge; collisions share its inside bounds.
+  for(const rect of [[l-m,n-m,r+m,n-m+25],[l-m,f+m-25,r+m,f+m],
+    [l-m,n-m,l-m+25,f+m],[r+m-25,n-m,r+m,f+m]])quad(...rect,[178,182,180],12);
+}
+function updateParkWindowShards(dt){
+  for(let i=parkWindowShards.length-1;i>=0;i--){const s=parkWindowShards[i];s.life-=dt;
+    if(s.life<=0){parkWindowShards.splice(i,1);continue;}
+    s.vy+=1200*dt;s.x+=s.vx*dt;s.y+=s.vy*dt;s.z+=s.vz*dt;s.rotation+=dt*4;
+    const floor=poolFloorAt(s.x,s.z)-1;if(s.y>floor){s.y=floor;s.vy=0;s.vx*=Math.exp(-dt*8);s.vz*=Math.exp(-dt*8);}
+  }
+}
+function drawParkWindowShards(){
+  const saved=triangleDepth;
+  for(const s of parkWindowShards){const p=projectPoint(s.x,s.y,s.z);if(p.behind)continue;
+    const size=s.size*projectionScaleAt(s);triangleDepth=p.z;
+    screenTriangle(p.x-size,p.y,p.x+size,p.y-size*.3,p.x+Math.sin(s.rotation)*size,p.y-size,190,231,239);
+  }triangleDepth=saved;
+}
+const parkWindowMeshes=new Map();
+function drawParkWindows(){
+  const top=parkDeckY-parkBuildingHeight,wt=top+260,wb=parkDeckY-470,midY=(wt+wb)/2;
+  for(const w of parkWindowWalls())for(let i=0;i<Math.ceil(w.length/1100);i++){
+    const key=w.id+':'+i;if(brokenParkWindows.has(key))continue;
+    let mesh=parkWindowMeshes.get(key);
+    if(!mesh){mesh=captureQuadMesh(()=>{
+      const l=i*w.width+100,r=(i+1)*w.width-100,mid=(l+r)/2;
+      const at=(u,y)=>({x:w.ax+w.ux*u,y,z:w.az+w.uz*u});
+      const quad=(a,t,b,d,ink)=>worldQuad(at(a,t),at(b,t),at(b,d),at(a,d),ink);
+      for(const [a,b] of [[l+9,mid-9],[mid+9,r-9]]){
+        quad(a,wt+9,b,midY-9,parkPalette.glass);quad(a,midY+9,b,wb-9,[196,228,231]);}
+      quad(mid-9,wt+9,mid+9,wb-9,parkPalette.frame);
+      quad(l+9,midY-9,r-9,midY+9,parkPalette.frame);
+    });
+      for(const f of mesh.faces)if(f.color!==parkPalette.frame&&f.color.join(',')!==parkPalette.frame.join(','))
+        f.normal=[-globalLight.x,-globalLight.y,-globalLight.z];
+      parkWindowMeshes.set(key,mesh);
+    }
+    drawQuadMesh(mesh);
+  }
+}
 let parkBuildingMesh=null;
 function drawParkBuildingGeometry(){
   const p=parkPalette,top=parkDeckY-parkBuildingHeight;
   const left=gridLeft,right=gridLeft+gridWidth,near=worldNear,far=worldFar;
   // Wall panels, frame strips and daylight panes meet at their edges.
   // Overlaid trim would fight the wall's depth at shallow viewing angles.
-  const wall=(ax,az,bx,bz)=>{
+  const wall=(ax,az,bx,bz,id)=>{
     const length=Math.hypot(bx-ax,bz-az),ux=(bx-ax)/length,uz=(bz-az)/length;
     const nx=-uz,nz=ux,bays=Math.ceil(length/1100),width=length/bays;
     const quad=(l,t,r,b,color,depth=0)=>{
@@ -19259,20 +19512,15 @@ function drawParkBuildingGeometry(){
       quad(a+24,top,b,wt-9,p.wall);quad(a+24,wb+9,b,parkDeckY-150,p.wall);
       quad(a+24,wt-9,l-9,wb+9,p.wall);quad(r+9,wt-9,b,wb+9,p.wall);
       quad(a+24,parkDeckY-150,b,parkDeckY,p.base);
-      // Each pane meets its frame without overlapping a second glass face.
-      const midX=(l+r)/2,midY=(wt+wb)/2;
-      for(const [x1,x2] of [[l+9,midX-9],[midX+9,r-9]]){
-        quad(x1,wt+9,x2,midY-9,p.glass);
-        quad(x1,midY+9,x2,wb-9,[196,228,231]);
-      }
-      for(const x of [l,midX,r])quad(x-9,wt-9,x+9,wb+9,p.frame);
-      for(const y of [wt,midY,wb])quad(l+9,y-9,r-9,y+9,p.frame);
+      // Solid borders stay cached when the window's separate node breaks.
+      for(const x of [l,r])quad(x-9,wt-9,x+9,wb+9,p.frame);
+      for(const y of [wt,wb])quad(l+9,y-9,r-9,y+9,p.frame);
       quad(a,top,a+24,parkDeckY,p.frame);
     }
   };
   // Traverse counter-clockwise so depth offsets face into the room.
-  wall(left,near,right,near);wall(right,near,right,far);
-  wall(right,far,left,far);wall(left,far,left,near);
+  wall(left,near,right,near,0);wall(right,near,right,far,1);
+  wall(right,far,left,far,2);wall(left,far,left,near,3);
   worldQuad({x:left,y:top,z:near},{x:right,y:top,z:near},
     {x:right,y:top,z:far},{x:left,y:top,z:far},p.ceiling);
   const box3=(x1,y1,z1,x2,y2,z2,color,openBottom=false)=>{
@@ -19297,7 +19545,7 @@ function drawParkBuilding(){
     for(const face of parkBuildingMesh.faces)if(face.color[0]===255||face.color.join(',')===parkPalette.glass.join(',')||face.color.join(',')==='196,228,231')
       face.normal=[-globalLight.x,-globalLight.y,-globalLight.z];
   }
-  drawQuadMesh(parkBuildingMesh);
+  drawParkScene(parkBuildingMesh);drawParkWindows();drawParkWindowShards();
 }
 function drawRoomSurfaces(left, right, top, bottom, color) {
   if(poolOnly()){drawParkBuilding();return;}
@@ -20095,7 +20343,7 @@ function drawSaberPickup(pickup, t) {
 
 function drawBullet(bullet) {
   const previous = projectPoint(bullet.previousX ?? bullet.x,
-    bullet.previousY ?? bullet.y, bullet.z);
+    bullet.previousY ?? bullet.y, bullet.previousZ ?? bullet.z);
   const point = projectPoint(bullet.x, bullet.y, bullet.z);
   const blink = Math.floor(runtime().monotonicUs / 65000 + bullet.owner) % 2;
   // A bolt does not blink. The pistol round's alternating white is what makes
@@ -21693,6 +21941,7 @@ function gamePaint() {
       kind: "player", item, x: item.x, y: item.y, z: item.z })),
   ];
   if(freeskateActive())for(const item of parkKids){
+    if(poolOnly()&&!parkActorVisible(item))continue;
     const p=projectPoint(item.x,item.y-90,item.z);
     if(p.x>-150 && p.x<viewWidth()+150 && p.y>-200 && p.y<viewHeight+200)renderables.push({kind:"player",item,x:item.x,y:item.y,z:item.z});
   }
@@ -22020,6 +22269,7 @@ function leave() {
 function updatePoolLooseVehicle(v,dt,now,board){
  const offset=board?skateAxleDrop+skateWheelRadius:0,steps=Math.max(1,Math.ceil(dt*120)),step=dt/steps;
  for(let n=0;n<steps;n++){
+  const before={x:v.x,z:v.z||0};
   const floor=poolFloorAt(v.x,v.z||0)-offset,slope=poolSlopeAt(v.x,v.z||0);
   const supported=v.y>=floor-2&&v.vy>=-1;
   if(supported){
@@ -22029,7 +22279,7 @@ function updatePoolLooseVehicle(v,dt,now,board){
   }
   const oldY=v.y;
   v.x+=v.vx*step;v.z=(v.z||0)+(v.vz||0)*step;
-  boundParkBody(v);
+  boundParkBody(v,before);
   const nextFloor=poolFloorAt(v.x,v.z)-offset;
   v.vy+=1800*step;v.y+=v.vy*step;
   if(v.y>=nextFloor||(supported&&nextFloor-oldY<12)){v.y=nextFloor;v.vy=0;}
@@ -22094,6 +22344,11 @@ function resetParkSupply(now){
  if(halfpipeOnly()){
   for(const p of [...gunPickups,...saberPickups,...grenadePickups])p.active=false;
   axePickup.active=false;for(const p of players){p.axeHeld=false;p.underPipe=false;}
+  if(poolOnly()){
+    const pistol=gunPickups.find(p=>p.kind==='HANDGUN');
+    Object.assign(pistol,{active:true,amount:12,x:pool.x+160,z:100,y:poolFloorAt(pool.x+160,100)-65});
+    Object.assign(axePickup,{active:true,x:pool.x-170,z:-100,y:poolFloorAt(pool.x-170,-100)-65});
+  }
   bottomGlass.fill(false);turboParticles.length=0;
   Object.assign(parkSupply,{nextAt:Infinity,drone:null,drop:null,ko:null});
   return;
@@ -22106,7 +22361,15 @@ function resetParkSupply(now){
  for(const cube of hallCubes){cube.health=3;cube.broken=false;cube.hitAt=0;}
 }
 function updateParkSupply(dt,now){
- if(!freeskateActive() || halfpipeOnly())return;
+ if(!freeskateActive())return;
+ if(poolOnly()){
+  if(axePickup.active)for(const p of activePlayers())if(p.alive&&availableArm(p)&&
+    Math.hypot(p.x-axePickup.x,(p.z||0)-(axePickup.z||0))<65&&Math.abs(p.y-axePickup.y-65)<100){
+      p.axeHeld=true;p.itemArm=availableArm(p);axePickup.active=false;break;
+    }
+  return;
+ }
+ if(halfpipeOnly())return;
  if(parkSupply.ko){
   if(!parkSupply.ko.settled){
     const alive=activePlayers().filter(p=>p.alive),winner=alive.length===1?alive[0]:null;
@@ -22130,8 +22393,8 @@ function updateParkSupply(dt,now){
  }
 }
 function drawParkSupply(){
- if(!freeskateActive() || halfpipeOnly())return;
- if(axePickup.active){const p=projectPoint(axePickup.x,axePickup.y,0),t=projectPoint(axePickup.x+30,axePickup.y-130,0);const old=triangleDepth;triangleDepth=p.z;drawBigAxe(p.x,p.y,t.x,t.y,cameraScale());triangleDepth=old;}
+ if(!freeskateActive() || (halfpipeOnly()&&!poolOnly()))return;
+ if(axePickup.active){const p=projectPoint(axePickup.x,axePickup.y,axePickup.z||0),t=projectPoint(axePickup.x+30,axePickup.y-130,axePickup.z||0);const old=triangleDepth;triangleDepth=p.z;drawBigAxe(p.x,p.y,t.x,t.y,cameraScale());triangleDepth=old;}
  const d=parkSupply.drone;
  if(d){
   worldCapsule(d.x-65,d.y,0,d.x+65,d.y,0,Math.max(2,12*cameraScale()),[63,70,87]);
@@ -22254,14 +22517,22 @@ function updateSkateAudio(dt){
   if(skateAudioLevel<.0005)skateAudioLevel=0;
   if(!netSilent&&typeof skateAudio==='function')skateAudio(amount,skateAudioLevel);
 }
-let motorFrequency=220,motorRunning=false;
+let motorFrequency=75,motorRunning=false,motorSpeed=0;
 function updateMotorAudio(dt){
  if(typeof oscillator!=='function')return;
- const p=activePlayers().find(p=>p.alive&&p.onewheel);
- if(!p){if(motorRunning&&typeof oscillatorStop==='function')oscillatorStop();motorRunning=false;return;}
- const speed=clamp(Math.abs(p.skateVx||0)/3000,0,1);
- motorFrequency+=(220+speed*900-motorFrequency)*(1-Math.exp(-dt*6));
- oscillator(motorFrequency,.018+speed*.055);motorRunning=true;
+ const p=activePlayers().find(p=>p.alive&&p.onewheel&&p.skateboard);
+ const speed=p?Math.hypot(p.vx,p.vz||0):0;
+ if(!p||!p.grounded||speed<(motorRunning?12:28)||netSilent){
+  if(motorRunning){if(typeof oscillatorStop==='function')oscillatorStop();else oscillator(motorFrequency,0);}
+  motorRunning=false;motorSpeed=speed;return;
+ }
+ const amount=clamp(speed/3200,0,1),load=clamp(Math.abs(speed-motorSpeed)/Math.max(dt,.001)/5000,0,1);
+ motorSpeed=speed;
+ // Low electric hum with a soft acceleration whine; no standing idle tone.
+ const target=65+Math.pow(amount,.72)*280+load*28;
+ motorFrequency+=(target-motorFrequency)*(1-Math.exp(-Math.max(0,dt)*8));
+ const gain=(.008+Math.sqrt(amount)*.042+load*.01)*clamp((speed-12)/90,0,1);
+ oscillator(motorFrequency,gain);motorRunning=true;
 }
 function axeFrame(p,t){
  if(!p.axeHeld || !p.alive || isHeadOnly(p) || !availableArm(p))return null;
@@ -22270,7 +22541,7 @@ function axeFrame(p,t){
  const hand={x:arm.x2,y:arm.y2,z:arm.z2??p.z??0};
  let dx=arm.x2-arm.x1,dy=-Math.abs(arm.y2-arm.y1),dz=(arm.z2||0)-(arm.z1||0);
  const length=Math.hypot(dx,dy,dz)||1;const up={x:dx/length,y:dy/length,z:dz/length};
- const yaw=p.spin?.angle||0,side={x:Math.cos(yaw),y:0,z:Math.sin(yaw)};
+ const yaw=(p.spin?.angle||0)+(poolOnly()?p.poolYaw||0:0),side={x:Math.cos(yaw),y:0,z:Math.sin(yaw)};
  const dot=up.x*side.x+up.z*side.z;
  side.x-=up.x*dot;side.y-=up.y*dot;side.z-=up.z*dot;
  const norm=Math.hypot(side.x,side.y,side.z)||1;side.x/=norm;side.y/=norm;side.z/=norm;
@@ -22431,12 +22702,82 @@ function meshHandle(mesh){
  if(mesh.nativeHandle===undefined){const b=nativeMeshBuffers(mesh);mesh.nativeHandle=nativeMeshUpload(b.vertices,b.faces,b.capsules);}
  return mesh.nativeHandle;
 }
+// Static park geometry is partitioned once. Each leaf owns a small retained
+// mesh and is rejected before projection or a native bridge call.
+function sceneBoundsVisible(bounds){
+  if(!bounds)return true;
+  const corners=[];
+  for(const x of [bounds.minX,bounds.maxX])for(const y of [bounds.minY,bounds.maxY])
+    for(const z of [bounds.minZ,bounds.maxZ])corners.push(cameraDoll.toView({x,y,z}));
+  if(corners.every(p=>p.z<cameraNear))return false;
+  // Bounds crossing the near plane stay; clipping handles their visible part.
+  if(corners.some(p=>p.z<cameraNear))return true;
+  const points=corners.map(p=>cameraDoll.projectView(p));
+  const left=clipView?.x??0,right=clipView?clipView.x+clipView.w:viewWidth();
+  const top=clipView?.y??0,bottom=clipView?clipView.y+clipView.h:viewHeight;
+  return !(points.every(p=>p.x<left-24)||points.every(p=>p.x>right+24)||
+    points.every(p=>p.y<top-24)||points.every(p=>p.y>bottom+24));
+}
+function buildParkScene(mesh){
+  const entries=mesh.faces.map(face=>{
+    const points=face.ids.map(i=>mesh.vertices[i]);
+    return {face,center:{x:points.reduce((s,p)=>s+p.x,0)/4,y:points.reduce((s,p)=>s+p.y,0)/4,z:points.reduce((s,p)=>s+p.z,0)/4}};
+  });
+  const build=items=>{
+    const bounds={minX:Infinity,minY:Infinity,minZ:Infinity,maxX:-Infinity,maxY:-Infinity,maxZ:-Infinity};
+    for(const {face} of items)for(const i of face.ids){const p=mesh.vertices[i];
+      for(const [k,lo,hi] of [['x','minX','maxX'],['y','minY','maxY'],['z','minZ','maxZ']]){
+        bounds[lo]=Math.min(bounds[lo],p[k]);bounds[hi]=Math.max(bounds[hi],p[k]);}}
+    if(items.length>64){
+      const span=k=>Math.max(...items.map(e=>e.center[k]))-Math.min(...items.map(e=>e.center[k]));
+      const axis=['x','y','z'].sort((a,b)=>span(b)-span(a))[0];
+      items.sort((a,b)=>a.center[axis]-b.center[axis]);const half=Math.ceil(items.length/2);
+      return {bounds,children:[build(items.slice(0,half)),build(items.slice(half))]};
+    }
+    const leaf={vertices:[],faces:[],projected:[],capsules:[],bounds},indices=new Map();
+    for(const {face} of items)leaf.faces.push({...face,lit:[],ids:face.ids.map(i=>{
+      if(!indices.has(i)){indices.set(i,leaf.vertices.length);leaf.vertices.push(mesh.vertices[i]);leaf.projected.push({});}
+      return indices.get(i);
+    })});
+    return {bounds,mesh:leaf};
+  };
+  return build(entries);
+}
+function drawParkScene(mesh){
+  if(!mesh)return;
+  mesh.sceneRoot ||= buildParkScene(mesh);
+  const visit=node=>{if(!sceneBoundsVisible(node.bounds))return;
+    if(node.children)for(const child of node.children)visit(child);else drawQuadMesh(node.mesh);};
+  visit(mesh.sceneRoot);
+  // Coping rails are few and clip independently; their widths remain physical.
+  for(const a of mesh.capsules||[])worldCapsule(a[0],a[1],a[2],a[3],a[4],a[5],a[6]*cameraScale(),a[7],a[8]);
+}
+function parkSightlineClear(from,to){
+  for(const {w,bay,u,fraction} of parkWallContact(from,to,0)){
+    const y=lerp(from.y,to.y,fraction);
+    if(!brokenParkWindows.has(w.id+':'+bay)||u<=bay*w.width+109||u>=(bay+1)*w.width-109||
+      y<=parkDeckY-parkBuildingHeight+269||y>=parkDeckY-479)return false;
+  }
+  for(let i=1;i<12;i++){
+    const t=i/12,x=lerp(from.x,to.x,t),z=lerp(from.z,to.z,t);
+    if(lerp(from.y,to.y,t)>poolFloorAt(x,z)+8)return false;
+  }
+  return true;
+}
+function parkActorVisible(p){
+  const size=p.civilian?(p.bodyScale||1):1;
+  if(!sceneBoundsVisible({minX:p.x-150*size,maxX:p.x+150*size,minY:p.y-240*size,maxY:p.y+30,
+    minZ:(p.z||0)-150*size,maxZ:(p.z||0)+150*size}))return false;
+  return [165,85,10].some(height=>parkSightlineClear(cameraDoll.position,{x:p.x,y:p.y-height*size,z:p.z||0}));
+}
 function releaseQuadMesh(mesh){
+ if(mesh?.sceneRoot){const release=node=>{if(node.children)node.children.forEach(release);else releaseQuadMesh(node.mesh);};
+   release(mesh.sceneRoot);mesh.sceneRoot=null;}
  if(mesh&&mesh.nativeHandle>=0&&nativeMeshFree)nativeMeshFree(mesh.nativeHandle);
  if(mesh)mesh.nativeHandle=-1;
 }
 function drawQuadMesh(mesh){
- if(!mesh)return;
+ if(!mesh||!sceneBoundsVisible(mesh.bounds))return;
  if(nativeRetainedMeshes){
   const handle=meshHandle(mesh);
   if(handle>=0){nativeMeshDraw(handle,mainNativeCamera(),clipView?0:cameraScale());return;}
@@ -22447,14 +22788,6 @@ function drawQuadMesh(mesh){
  }
  if(!mesh.bounds && mesh.vertices.length){
   const v=mesh.vertices;mesh.bounds={minX:Math.min(...v.map(p=>p.x)),maxX:Math.max(...v.map(p=>p.x)),minY:Math.min(...v.map(p=>p.y)),maxY:Math.max(...v.map(p=>p.y)),minZ:Math.min(...v.map(p=>p.z)),maxZ:Math.max(...v.map(p=>p.z))};
- }
- if(mesh.bounds){
-  const b=mesh.bounds,corners=[];
-  for(const x of [b.minX,b.maxX])for(const y of [b.minY,b.maxY])for(const z of [b.minZ,b.maxZ])corners.push(cameraDoll.toView({x,y,z}));
-  if(corners.every(p=>p.z>=cameraNear)){
-   const projected=corners.map(p=>cameraDoll.projectView(p));
-   if(projected.every(p=>p.x<0)||projected.every(p=>p.x>viewWidth())||projected.every(p=>p.y<0)||projected.every(p=>p.y>viewHeight))return;
-  }
  }
  const meshScale=cameraScale();
  if(!clipView)for(const args of mesh.capsules||[])worldCapsule(args[0],args[1],args[2],args[3],args[4],args[5],args[6]*meshScale,args[7],args[8]);
@@ -22533,7 +22866,7 @@ function drawSpinArms(player,t,geometry,front,color,outline){
 const parkKids=[];
 function resetParkKids(){
  parkKids.length=0;
- if(!indoorSkate())return;
+ if(!indoorSkate()&&!poolOnly())return;
  const skin=[[255,214,194],[198,139,104],[118,78,61],[239,185,142],[160,111,90],[255,222,199],[213,160,122],[144,96,76]];
  const inks=[[237,105,119],[84,183,172],[244,179,67],[129,139,222],[180,105,183],[92,159,208],[216,134,81],[149,184,95]];
  for(let i=0;i<8;i++){
@@ -22552,6 +22885,11 @@ function resetParkKids(){
    headBustedAt:0,frozenGeometry:null,replayGeometry:null,fallenBodyGeometry:null,
    attackKind:'',attackUntil:0,resultReaction:null,underPipe:false,swimming:false,
    patrolDirection:i%2?1:-1,patrolMin:tileCenterX(11+i*7),patrolMax:tileCenterX(16+i*7)});
+  if(poolOnly()){
+    const x=850+i*850,z=i%2?-850:1000;
+    Object.assign(kid,{x,z,y:poolFloorAt(x,z),spawnX:x,patrolMin:x-180,patrolMax:x+180,
+      patrolZ:z,poolYaw:kid.patrolDirection>0?0:Math.PI,poolStridePhase:i*.13});
+  }
   parkKids.push(kid);
  }
 }
@@ -22560,21 +22898,23 @@ function updateParkKids(dt,now){
  for(const kid of parkKids){
   if(kid.headless){
    const h=kid.looseHead;h.vy+=1100*dt;h.x+=h.vx*dt;h.y+=h.vy*dt;h.z=clamp(h.z+h.vz*dt,worldNear+30,worldFar-30);
-   const floor=terrainFloorAt(h.x)-h.radius;
+   const floor=terrainFloorAt(h.x,h.z)-h.radius;
    if(h.y>floor){h.y=floor;h.vy=-Math.abs(h.vy)*.35;h.vx*=Math.exp(-dt*3);h.vz*=Math.exp(-dt*3);}
    continue;
   }
-  kid.z=Math.sin(now/3500000+kid.pad*1.2)*140;
+  kid.z=(kid.patrolZ||0)+Math.sin(now/3500000+kid.pad*1.2)*(poolOnly()?35:140);
   if(kid.x>=kid.patrolMax)kid.patrolDirection=-1;
   if(kid.x<=kid.patrolMin)kid.patrolDirection=1;
-  const danger=activePlayers().some(p=>!p.dummy && p.alive && Math.abs(p.x-kid.x)<230 && Math.abs(p.y-kid.y)<240 && (Math.abs(p.vx)>250 || p.spin));
+  const danger=activePlayers().some(p=>!p.dummy && p.alive && Math.hypot(p.x-kid.x,(p.z||0)-kid.z)<230 && Math.abs(p.y-kid.y)<240 && (Math.abs(p.vx)>250 || p.spin));
   if(danger && now>=(kid.nextStartleAt||0)){
     kid.startledUntil=now+900000;kid.nextStartleAt=now+3000000;
     if(now>=crowdVoiceAt){crowdVoiceAt=now+350000;for(let i=0;i<5;i++)crowdNotes.push({at:now+i*35000,hz:680+kid.pad*35+Math.sin(i*.8)*330});}
   }
   kid.ducking=now<(kid.startledUntil||0);kid.crouchBlend+=(Number(kid.ducking)-(kid.crouchBlend||0))*Math.min(1,dt*14);
   kid.facing=kid.patrolDirection;kid.vx=kid.ducking?0:kid.patrolDirection*95*(.92+(kid.pad%5)*.045)*(1+Math.sin((kid.breathPhase||0)*Math.PI*2)*.06);
-  const previous=kid.x;kid.x+=kid.vx*dt;kid.y=terrainFloorAt(kid.x);
+  const previous=kid.x;kid.x+=kid.vx*dt;kid.y=terrainFloorAt(kid.x,kid.z);
+  if(poolOnly()){kid.poolYaw=kid.patrolDirection>0?0:Math.PI;kid.facing=1;
+    kid.poolStridePhase=(kid.poolStridePhase||0)+Math.abs(kid.vx)*dt/240;}
   resolveCubeSides(kid,previous);
   if(kid.wallPress)kid.patrolDirection*=-1;
   kid.grounded=true;kid.inputX=kid.patrolDirection;

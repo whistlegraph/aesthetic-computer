@@ -37,6 +37,8 @@ settings:
     DEVELOPMENT_TEAM: FB5948YR3S
     CODE_SIGN_STYLE: Automatic
     SWIFT_VERSION: "5.0"
+    CLANG_CXX_LANGUAGE_STANDARD: "c++17"
+    SWIFT_OBJC_BRIDGING_HEADER: "$(SRCROOT)/../../xbox/macos-native/PoolDecals.h"
 
 targets:
   OskiewarMac:
@@ -49,6 +51,9 @@ targets:
       # main.swift because it IS top-level code, which Swift only allows in a
       # file with that name.
       - path: ../../xbox/macos-native/main.swift
+      - path: ../../xbox/macos-native/PoolDecals.swift
+      - path: ../../xbox/macos-native/PoolDecals.cpp
+      - path: ../../xbox/macos-native/PoolDecals.h
 
       # The Metal scene and its glyph atlas are shared verbatim with the iOS
       # app — one renderer compiled into both. Listed file by file rather than

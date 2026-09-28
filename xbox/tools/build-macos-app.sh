@@ -14,7 +14,11 @@ mkdir -p "$contents/MacOS" "$contents/Resources/live"
 # apple/oskiewar — one renderer, compiled into both. main.swift keeps its
 # top-level code as the entry point, which stays legal as long as it is the
 # file literally named main.swift.
-swiftc -swift-version 5 -O "$repo_root/xbox/macos-native/main.swift" \
+object_dir=$(mktemp -d)
+trap 'rm -rf "$object_dir"' EXIT
+clang++ -std=c++17 -O2 -c "$repo_root/xbox/macos-native/PoolDecals.cpp" -o "$object_dir/PoolDecals.o"
+swiftc -swift-version 5 -O -import-objc-header "$repo_root/xbox/macos-native/PoolDecals.h" \
+  "$repo_root/xbox/macos-native/PoolDecals.swift" "$object_dir/PoolDecals.o" -lc++ "$repo_root/xbox/macos-native/main.swift" \
   "$repo_root/apple/oskiewar/Sources/MetalSceneView.swift" \
   "$repo_root/apple/oskiewar/Sources/GlyphAtlas.swift" \
   -framework AppKit -framework AVFoundation -framework CoreVideo \
