@@ -1,4 +1,6 @@
 // @bundle-qr
+globalThis.__oskiewarOpponent = "freeskate";
+// @bundle-qr
 // The console's monotonic clock can hand back a negative number: App.cpp
 // converts QPC ticks with `counter * 1000000`, which overflows int64 past
 // about ten days of uptime. Every deadline in this piece starts at 0 and is
@@ -96,9 +98,12 @@ if (hostAnalytics)
     if (netSilent) return;
     return hostAnalytics(...args);
   };
+// The account feed (fighters, moods, who is signed in), read by gamePaint.
+const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 163;
+const buildVersion = 212;
+const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -118,6 +123,7 @@ const versusActive = () => gameMode === "fight" && fightOpponent === "versus";
 const versusLane = () => lobbyActive() || versusActive();
 // Freeskate: one rider alone on the long park, no guns, no clock, no rounds —
 // a room for working on the skating itself. `?opponent=freeskate`.
+let freeskateSecond = false;
 const freeskateActive = () => gameMode === "fight" && fightOpponent === "freeskate";
 // Rooms with one body in them: the versus lobby and freeskate park the
 // second chair off the map, respawn instead of ending a round, and hand the
@@ -135,9 +141,8 @@ const soloRoom = () => lobbyActive() || freeskateActive();
 // What changed besides the number: the plaster shell is gone. There is no
 // back wall, no ceiling slab and no side wall, because the map is outside
 // now — stars behind, a planet below the deck, and a hull you stand on
-// rather than a room you are sealed into. Gravity is station gravity, a
-// little over half a G (`spaceGravityScale`), so a jump hangs and the
-// floating decks overhead are reachable on legs alone. Simulation stays
+// rather than a room you are sealed into. Firmer station gravity keeps jumps
+// brisk while the decks remain reachable on legs alone. Simulation stays
 // continuous — nothing about motion quantizes — but the STRUCTURE is
 // addressable: spawns, pickups, decks and lanes are authored in tile
 // coordinates, the lattice draws as a faint nav hologram, and `gridField`
@@ -163,9 +168,9 @@ const ceilingY = floorY - gridHeight - wallThickness;
 // also push the far plane twice as far out, because every camera stand-off,
 // every killcam orbit and the whole ±30000 native coordinate budget were
 // tuned against this depth and not against the floor's span.
-const roomDepth = 900;
-const worldNear = -roomDepth / 2;
-const worldFar = roomDepth / 2;
+let roomDepth = 900;
+let worldNear = -roomDepth / 2;
+let worldFar = roomDepth / 2;
 // Address helpers: world position to tile and back. Rows count UP from the
 // floor, because in a fight the floor is where everything starts. All three
 // clamp, so a body pressed into a wall still names a real tile.
@@ -262,12 +267,21 @@ let terrainSamples = gridCols * 6;
 let terrainPhase = 0;
 // The long park is selected by ?map=skatepark; the host's deal owns the map.
 let skateparkMap = globalThis.__oskiewarMap === "skatepark";
-const skateLoops = [
+// Which skate course the long-park machinery is running: "park" is the long
+// outdoor course (half-pipe, pond, blocks, loops, chains, boost pads);
+// "indoor" is the full hall. Freeskate defaults to a compact bare halfpipe;
+// hosts can opt into "indoor" or "skatepark" with __oskiewarFreeskateMap.
+let skateCourse = "park";
+const parkLoops = [
   { x: 6300, radius: 320 }, { x: 15300, radius: 420 },
   { x: 24300, radius: 500 },
 ];
-const skateBoosts = [2400, 5400, 10800, 14400, 19800, 23400, 27000]
+const parkBoosts = [2400, 5400, 10800, 14400, 19800, 23400, 27000]
   .map((x) => ({ left: x, right: x + 240, speed: 3900 }));
+// Filled per course by `configureWorldMap`; kept as the same arrays so every
+// reference to them stays live.
+const skateLoops = parkLoops.slice();
+const skateBoosts = parkBoosts.slice();
 const skateRopes = [];
 const chainLinks = 16;
 const chainLength = 44;
@@ -279,6 +293,102 @@ const chainLength = 44;
 // air straight up out of it and land back in (see `skateVert`).
 const halfpipeRadius = 540;
 const halfpipe = { leftCoping: 2, rightCoping: 22, floorFrom: 8, floorTo: 16 };
+const parkHalfpipe = { ...halfpipe };
+// The indoor course: one big half-pipe wall to wall — a four-tile deck, a
+// 540 quarter, a twelve-tile flat (half as wide again as the park's), the
+// other quarter and deck. Thirty-two tiles in all, under a roof.
+const indoorHalfpipe = { leftCoping:4,rightCoping:76,floorFrom:10,floorTo:70 };
+const hallCols = 80;
+const indoorCols = 96;
+const indoorFeatures = [
+  {from:0,to:3,kind:"pond",depth:2600,lift:halfpipeRadius},
+  {from:3,to:4,kind:"flat",lift:halfpipeRadius},
+  {from:4,to:10,kind:"transition",rise:halfpipeRadius,dir:-1},
+  {from:10,to:70,kind:"flat"},
+  {from:70,to:76,kind:"transition",rise:halfpipeRadius,dir:1},
+  {from:76,to:80,kind:"flat",lift:halfpipeRadius},
+  {from:80,to:95,kind:"pond",depth:2600,lift:halfpipeRadius},
+  {from:95,to:96,kind:"flat",lift:halfpipeRadius},
+];
+// The hall's roof, 24 m over the flat: high enough for a big vert air, low
+// enough that the room reads as a room. A head that reaches it bonks.
+const indoorCeilingY = floorY - 1400;
+const indoorSkate = () => skateparkMap && skateCourse === "indoor";
+const poolOnly = () => skateparkMap && skateCourse === "pool";
+const halfpipeOnly = () => skateparkMap && (skateCourse === "halfpipe" || poolOnly());
+const depthControls = () => halfpipeOnly() && freeskateActive() &&
+  globalThis.__oskiewarDepthControls !== false;
+// The roof is glass: eight panes in a frame. A slow knock bonks you back
+// down; an air that meets a pane at speed (or a body coming down onto one)
+// shatters it — the pane is gone, its shards fall into the hall, and the
+// hole is open until the round resets.
+const roofPaneTiles = 4;
+const roofBreakSpeed = 1300;
+const roofPanes = [];
+const roofShards = [];
+// From above the glass is a floor: every intact pane is a ledge to walk on.
+// The two end panes are open skylights over the decks, so a rider on the
+// roof drops back in from either side (and an air can leave through them).
+const roofLedges = [];
+function rebuildRoofLedges() {
+  roofLedges.length = 0;
+  const width = tileSize * roofPaneTiles;
+  roofPanes.forEach((pane, index) => {
+    if (pane.broken || pane.open) return;
+    roofLedges.push({ level: 100 + index, glass: true, y: indoorCeilingY,
+      left: gridLeft + index * width, right: gridLeft + (index + 1) * width });
+  });
+}
+// Funboxes on the pipe's floor: two plywood cubes in the middle lane. In
+// that lane their tops are ledges to land on and ride across and their sides
+// are walls; strafe into another lane and they pass beside you.
+const hallCubes = [];
+for(let row=0;row<3;row++)for(let col=0;col<3-row;col++)
+ hallCubes.push({x:tileCenterX(20)+(col-(2-row)/2)*120,size:120,baseY:indoorCeilingY-row*120});
+const cubeLedges = [];
+function cubeTop(cube) { return (cube.baseY??floorY) - cube.size; }
+function inCubeLane(z) { return Math.abs(z || 0) < 90; }
+function activeCubeLedges(z = 0) {
+  cubeLedges.length = 0;
+  if (!indoorSkate() || !inCubeLane(z)) return cubeLedges;
+  for (const cube of hallCubes) if (!cube.broken && Math.abs(z || 0) <= cube.size / 2 + 8)
+    cubeLedges.push({ level: 200 + hallCubes.indexOf(cube), cube: true, y: cubeTop(cube),
+      left: cube.x - cube.size / 2, right: cube.x + cube.size / 2 });
+  return cubeLedges;
+}
+// A cube's sides are walls in its lane: a body inside one below its top is
+// put back out of the side it came in by, and its sideways speed spent.
+function resolveCubeSides(player, previousX) {
+  if (!indoorSkate() || player.underPipe || !inCubeLane(player.z)) return;
+  for (const cube of hallCubes) {
+    if(cube.broken || player.y-200 > (cube.baseY??floorY))continue;
+    const left = cube.x - cube.size / 2, right = cube.x + cube.size / 2;
+    const inset = isHeadOnly(player) ? 24 : player.skateboard ? 28 : 36;
+    if (Math.abs(player.z || 0) >= cube.size / 2 + 18 || player.y <= cubeTop(cube) + 6) continue;
+    const overlapping = player.x + inset > left && player.x - inset < right;
+    const swept = previousX + inset <= left && player.x + inset > left ||
+      previousX - inset >= right && player.x - inset < right;
+    if (!overlapping && !swept) continue;
+    const side = previousX <= cube.x ? 1 : -1;
+    player.x = side > 0 ? left - inset : right + inset;
+    pressWall(player, side, side > 0 ? left : right);
+    player.vx = player.knockVx = player.dashVx = 0;
+    if (player.skateboard) player.skateVx = 0;
+    player.runSpeed = 0;
+  }
+}
+
+function resetRoofPanes() {
+  roofPanes.length = 0;
+  roofShards.length = 0;
+  if (indoorSkate()) {
+    const count = Math.ceil(hallCols / roofPaneTiles);
+    for (let index = 0; index < count; index++)
+      roofPanes.push({ broken: false, open: index === 0 || index === count - 1 });
+  }
+  rebuildRoofLedges();
+}
+const roofPaneAt = (x) => roofPanes[Math.floor((x - gridLeft) / (tileSize * roofPaneTiles))] || null;
 const halfpipeFeatures = [
   { from: 0, to: 2, kind: "flat", lift: halfpipeRadius },
   { from: 2, to: 8, kind: "transition", rise: halfpipeRadius, dir: -1 },
@@ -286,22 +396,54 @@ const halfpipeFeatures = [
   { from: 16, to: 22, kind: "transition", rise: halfpipeRadius, dir: 1 },
   { from: 22, to: 24, kind: "flat", lift: halfpipeRadius },
   { from: 24, to: 32, kind: "bank", rise: halfpipeRadius, dir: -1 },
-  { from: 32, to: 40, kind: "flat" },
+  { from: 32, to: 34, kind: "flat" },
+  // The pond: a basin 4 m deep and fourteen tiles wide, its water standing at sea level (the
+  // course floor), for swimming. See `pondAt` and the water step.
+  { from: 34, to: 48, kind: "pond", depth: 400 },
 ];
 
-function configureWorldMap(name) {
+// Water stands at sea level — the course floor — over any pond basin.
+const seaLevelY = floorY;
+const pondAt = (x) => parkSegments.find((segment) => segment.kind === "pond" &&
+  x > segment.left && x < segment.right) || null;
+
+function configureWorldMap(name, course = skateCourse) {
   // A normal round keeps its current workshop/local variant. Only entering
   // or leaving the long course needs to replace the world dimensions.
   if (name !== "skatepark" && !skateparkMap) return;
+  const previousMap = skateparkMap + "/" + skateCourse;
   skateparkMap = name === "skatepark";
-  gridCols = skateparkMap ? 320 : 40;
+  skateCourse = course === "pool" ? "pool" : course === "halfpipe" ? "halfpipe" : course === "indoor" ? "indoor" : "park";
+  roomDepth = poolOnly() ? 6000 : 900;
+  worldNear = -roomDepth / 2; worldFar = roomDepth / 2;
+  // The seeded park layout and the doorway walk-in belong to the park; the
+  // 2D maps share those feature objects, so leaving puts them back.
+  if (!poolOnly()) {
+    restoreParkLayout();
+    for (const p of players) p.parkEntrance = null;
+  }
+  // The marks on the ground belong to the ground: kept through resets,
+  // cleared only when the map itself changes.
+  if (previousMap !== skateparkMap + "/" + skateCourse) {
+    decals.length = 0;
+    clearPoolDecals();
+    bloodDrops.length = 0;
+  }
+  const indoor = skateparkMap && skateCourse === "indoor";
+  Object.assign(halfpipe, indoor ? indoorHalfpipe : parkHalfpipe);
+  skateLoops.length = 0;
+  skateBoosts.length = 0;
+  if (skateparkMap && !indoor && !halfpipeOnly()) { skateLoops.push(...parkLoops); skateBoosts.push(...parkBoosts); }
+  if(indoor)skateLoops.push({x:tileCenterX(44),radius:260});
+  gridCols = !skateparkMap ? 40 : poolOnly() ? 96 : halfpipeOnly() ? 24 : indoor ? indoorCols : 320;
   gridWidth = gridCols * tileSize;
   if (gridField.length !== gridCols * gridRows) gridField = new Float32Array(gridCols * gridRows);
   worldRight = gridLeft + gridWidth + wallThickness;
-  const features = skateparkMap ? [
+  const features = halfpipeOnly() ? halfpipeFeatures.slice(0, 5) : indoor ? indoorFeatures : skateparkMap ? [
     ...halfpipeFeatures,
     ...[40, 140, 240].flatMap((from) => [
-      { from, to: from + 40, kind: "flat" },
+      // The first block's flat starts where the pond ends.
+      { from: from === 40 ? 48 : from, to: from + 40, kind: "flat" },
       { from: from + 40, to: from + 46, kind: "bank", rise: 270, dir: 1 },
       { from: from + 46, to: from + 50, kind: "flat", lift: 270 },
       { from: from + 50, to: from + 56, kind: "bank", rise: 270, dir: -1 },
@@ -321,7 +463,7 @@ function configureWorldMap(name) {
 
 function resetSkateRopes() {
   skateRopes.length = 0;
-  if (!skateparkMap) return;
+  if (!skateparkMap || skateCourse !== "park") return;
   for (const x of [3600, 9900, 18900]) {
     const anchorY = floorY - 850;
     skateRopes.push({ x, y: anchorY, z: 0,
@@ -409,7 +551,19 @@ function skateRopeInput(player, input, grabHeld, dt, grabPressed = grabHeld) {
 // simulation tick. Nodes, previous positions and attachments all roll back.
 function updateSkateRopes(dt) {
   if (!skateparkMap || survivalActive()) return;
+  // Chains were the long park's biggest cost on the console: three of them,
+  // thirty-two relaxation passes, every tick, kilometres from anyone. A chain
+  // nobody is near sleeps (it is hanging at rest by then), and one nobody
+  // holds settles in eight passes. Both depend only on simulated positions,
+  // so rollback peers agree on which chains ran.
   for (const rope of skateRopes) {
+    const riders = players.filter((player) => player.alive &&
+      skateRopes[player.ropeIndex] === rope);
+    if (!riders.length && !players.some((player) =>
+        Math.abs(player.x - rope.x) < 2600)) {
+      rope.dt = dt;
+      continue;
+    }
     const timeScale = dt / (rope.dt || dt);
     rope.dt = dt;
     for (let i = 1; i < rope.nodes.length; i++) {
@@ -419,18 +573,17 @@ function updateSkateRopes(dt) {
       node.px = node.x; node.py = node.y;
       node.x += vx; node.y += vy + fallGravity() * dt * dt;
     }
-    const riders = players.filter((player) => player.alive &&
-      skateRopes[player.ropeIndex] === rope);
-    const inverseMass = (index) => index === 0 ? 0 :
-      riders.some((rider) => Math.abs(rider.ropeLink - index) < 1) ? .125 : 1;
-    for (let pass = 0; pass < 32; pass++) {
+    const weight = rope.nodes.map((_, index) => index === 0 ? 0 :
+      riders.some((rider) => Math.abs(rider.ropeLink - index) < 1) ? .125 : 1);
+    const passes = riders.length ? 32 : 8;
+    for (let pass = 0; pass < passes; pass++) {
       rope.nodes[0].x = rope.x; rope.nodes[0].y = rope.y;
       for (let i = 1; i < rope.nodes.length; i++) {
         const a = rope.nodes[i - 1], b = rope.nodes[i];
         const dx = b.x - a.x, dy = b.y - a.y;
         const length = Math.hypot(dx, dy) || 1;
         const error = (length - chainLength) / length;
-        const wa = inverseMass(i - 1), wb = inverseMass(i);
+        const wa = weight[i - 1], wb = weight[i];
         const sum = wa + wb;
         b.x -= dx * error * wb / sum; b.y -= dy * error * wb / sum;
         a.x += dx * error * wa / sum; a.y += dy * error * wa / sum;
@@ -539,6 +692,14 @@ function skateBoostStep(player, previousX, now) {
 const loopShell = 60;
 const loopSegments = 64;
 function drawLoopTrack(loop, ground) {
+  {
+    const key=ground.join(',')+':'+loop.radius+':'+sceneLod();
+    if(loop.meshKey!==key){loop.meshKey=key;releaseQuadMesh(loop.mesh);loop.mesh=captureQuadMesh(()=>drawLoopTrackGeometry(loop,ground));}
+    drawQuadMesh(loop.mesh);return;
+  }
+  drawLoopTrackGeometry(loop,ground);
+}
+function drawLoopTrackGeometry(loop, ground) {
   const face = mixColor(ground, [255, 255, 255], .1);
   const side = mixColor(ground, [0, 0, 0], .22);
   const shell = mixColor(ground, [0, 0, 0], .12);
@@ -546,26 +707,861 @@ function drawLoopTrack(loop, ground) {
     x: loop.x + Math.sin(angle) * radius,
     y: floorY - loop.radius + Math.cos(angle) * radius, z });
   const inner = loop.radius, outer = loop.radius + loopShell;
-  for (let i = 0; i < loopSegments; i++) {
-    const a = i / loopSegments * Math.PI * 2, b = (i + 1) / loopSegments * Math.PI * 2;
+  const lod = sceneLod();
+  const segments = lod >= 3 ? 16 : lod >= 2 ? 32 : loopSegments;
+  for (let i = 0; i < segments; i++) {
+    const a = i / segments * Math.PI * 2, b = (i + 1) / segments * Math.PI * 2;
     const ia = ring(a, inner, -90), ib = ring(b, inner, -90);
     const ib2 = ring(b, inner, 90), ia2 = ring(a, inner, 90);
-    const projected = [ia, ib, ib2, ia2].map((p) => projectPoint(p.x, p.y, p.z));
-    if (!photoSurface("concrete", ...projected)) worldQuad(ia, ib, ib2, ia2, face);
+    worldQuad(ia, ib, ib2, ia2, face);
     worldQuad(ring(a, outer, -90), ring(b, outer, -90), ring(b, outer, 90),
       ring(a, outer, 90), shell);
-    for (const z of [-90, 90])
+    // Far out, one side face reads as the band's thickness; both is detail.
+    for (const z of lod >= 2 ? [-90] : [-90, 90])
       worldQuad(ring(a, inner, z), ring(b, inner, z), ring(b, outer, z),
         ring(a, outer, z), side);
   }
 }
 
+// The indoor course is a hall: one plain back wall (no columns or bands —
+// a grid behind the rider read as clutter) under a glass roof, all in the flat theme's greys so the pipe and
+// the rider stay the brightest things in the room.
+function hallPalette() { return hallColors; }
+const hallColors = (() => {
+  return {
+    ramp: [250, 196, 170],        // peach skin: the surface you ride
+    structure: [196, 170, 238],   // lilac sides and underside
+    wall: [150, 196, 250],        // sky back wall
+    trim: [72, 88, 116],          // columns, dado, the roof's frame
+    glass: [192, 228, 242],       // roof panes
+    glint: [248, 252, 255],
+    coping: [204, 210, 222],      // the steel pipe along each lip
+    section: [96, 110, 134],      // the building's walls and roof, cut away
+  };
+})();
+
+// Dust in the hall's air: fine specks drifting slowly under the roof,
+// catching the light. Cosmetic, on the paint clock.
+const dust = [];
+function drawDust(hall) {
+  const now = runtime().monotonicUs / 1e6;
+  if (!dust.length) for (let index = 0; index < 28; index++)
+    dust.push({ x: (index * 173.3) % 1, y: (index * 97.1) % 1, z: (index * 61.7) % 1, phase: index * 1.9 });
+  const left = cameraCenter - cameraWidth * .7, width = cameraWidth * 1.4;
+  const scale = cameraScale();
+  const previous = triangleDepth;
+  for (const speck of dust) {
+    const x = left + ((speck.x + now * .006 + Math.sin(now * .2 + speck.phase) * .01) % 1 + 1) % 1 * width;
+    const y = floorY - 60 - speck.y * 1500 + Math.sin(now * .35 + speck.phase) * 20;
+    const z = worldNear + 40 + speck.z * (roomDepth - 80);
+    const point = projectPoint(x, y, z);
+    if (![point.x, point.y].every(Number.isFinite)) continue;
+    const glint = .5 + .5 * Math.sin(now * 1.3 + speck.phase * 2);
+    const size = Math.max(.8, (1.2 + glint * 1.2) * scale);
+    triangleDepth = point.z;
+    const ink = mixColor(hall.wall, [255, 250, 232], .5 + glint * .5);
+    screenTriangle(point.x - size, point.y, point.x + size, point.y, point.x, point.y - size * 1.6, ink[0], ink[1], ink[2]);
+    screenTriangle(point.x - size, point.y, point.x + size, point.y, point.x, point.y + size * 1.6, ink[0], ink[1], ink[2]);
+  }
+  triangleDepth = previous;
+}
+
+let hallMesh=null,hallMeshKey='';
+function drawIndoorHall(ground){
+ drawCityStreet();
+ const key=ground.join(',')+roofPanes.map(p=>p.broken?1:0).join('')+hallCubes.map(c=>c.broken?1:0).join('')+gridCols;
+ if(key!==hallMeshKey){hallMeshKey=key;const originalDust=drawDust;drawDust=()=>{};try{releaseQuadMesh(hallMesh);hallMesh=captureQuadMesh(()=>drawIndoorHallGeometry(ground));}finally{drawDust=originalDust;}}
+ drawQuadMesh(hallMesh);drawDust(hallPalette());
+ // A breaking pane used to send the whole hall back through the per-frame JS
+ // path for as long as its shards flew; the shards are their own loop.
+ if(roofShards.length)drawRoofShards(hallPalette().glass);
+}
+function drawRoofShards(glass){
+  for (const shard of roofShards) {
+    const point = projectPoint(shard.x, shard.y, shard.z);
+    if (![point.x, point.y].every(Number.isFinite)) continue;
+    const size = shard.size * cameraScale();
+    const corner = (turn) => [point.x + Math.cos(shard.rotation + turn) * size,
+      point.y + Math.sin(shard.rotation + turn) * size * .6];
+    const previous = triangleDepth;
+    triangleDepth = point.z;
+    screenTriangle(...corner(0), ...corner(2.3), ...corner(4.1), ...glass);
+    triangleDepth = previous;
+  }
+}
+
+function drawIndoorHallGeometry(ground) {
+  const left = worldLeft, right = gridLeft + hallCols*tileSize;
+  const top = indoorCeilingY, bottom = floorY + 2000;
+  const backZ = worldFar - 4;
+  const hall = hallPalette();
+  const wall = hall.wall;
+  const trim = hall.trim;
+  const quad = (a, b, c, d, color) => worldQuad(a, b, c, d, color);
+  // The park opens onto a sidewalk and city street behind it.
+  // The funboxes: plywood cubes with a masonite top and steel on the top
+  // edges.
+  for (const cube of hallCubes) {
+    if(cube.broken)continue;
+    const l = cube.x - cube.size / 2, r = cube.x + cube.size / 2;
+    const top = cubeTop(cube), bottom = (cube.baseY??floorY) + 1, n = -cube.size / 2, f = cube.size / 2;
+    // Every face its own colour: a pale top, terracotta front, blue-grey
+    // sides and a lilac back.
+    const faces = { top:[207,166,112],front:[168,116,65],back:[139,94,51],left:[186,135,78],right:[145,98,54] };
+    worldQuad({ x: l, y: top, z: n }, { x: r, y: top, z: n }, { x: r, y: top, z: f }, { x: l, y: top, z: f }, faces.top);
+    worldQuad({ x: l, y: top, z: n }, { x: r, y: top, z: n }, { x: r, y: bottom, z: n }, { x: l, y: bottom, z: n }, faces.front);
+    worldQuad({ x: l, y: top, z: f }, { x: r, y: top, z: f }, { x: r, y: bottom, z: f }, { x: l, y: bottom, z: f }, faces.back);
+    for (const x of [l, r])
+      worldQuad({ x, y: top, z: n }, { x, y: top, z: f }, { x, y: bottom, z: f }, { x, y: bottom, z: n },
+        x === l ? faces.left : faces.right);
+    for(let row=1;row<4;row++)worldCapsule(l,top+cube.size*row/4,n-1,r,top+cube.size*row/4,n-1,Math.max(1,2*cameraScale()),[89,57,32]);
+    worldCapsule(l+10,top+10,n-2,r-10,bottom-10,n-2,Math.max(2,9*cameraScale()),[217,170,109]);
+    worldCapsule(r-10,top+10,n-3,l+10,bottom-10,n-3,Math.max(2,9*cameraScale()),[217,170,109]);
+    const edge = Math.max(1, 7 * cameraScale());
+    for (const [a, b] of [[[l, n], [r, n]], [[l, f], [r, f]], [[l, n], [l, f]], [[r, n], [r, f]]])
+      worldCapsule(a[0], top - 2, a[1], b[0], top - 2, b[1], edge, hall.coping);
+  }
+  drawDust(hall);
+  // The glass roof: each intact pane a pale sheet, the frame between them
+  // and down the middle; a broken pane is an open hole in the frame.
+  const glass = hall.glass;
+  const frame = trim;
+  // Steel coping along both lips of the pipe.
+  for (const tile of [halfpipe.leftCoping, halfpipe.rightCoping]) {
+    const x = gridLeft + tile * tileSize, y = floorY - halfpipeRadius - 7;
+    worldCapsule(x, y, worldNear, x, y, worldFar, Math.max(1, 14 * cameraScale()), hall.coping);
+  }
+  const paneWidth = tileSize * roofPaneTiles;
+  roofPanes.forEach((pane, index) => {
+    const x1 = gridLeft + index * paneWidth, x2 = x1 + paneWidth;
+    if (!pane.broken && !pane.open) {
+      worldQuad({ x: x1, y: top, z: worldNear }, { x: x2, y: top, z: worldNear },
+        { x: x2, y: top, z: backZ }, { x: x1, y: top, z: backZ }, glass);
+      // A glint across the pane.
+      worldQuad({ x: x1 + paneWidth * .15, y: top + 1, z: worldNear }, { x: x1 + paneWidth * .22, y: top + 1, z: worldNear },
+        { x: x1 + paneWidth * .5, y: top + 1, z: backZ }, { x: x1 + paneWidth * .43, y: top + 1, z: backZ },
+        hall.glint);
+    }
+    worldQuad({ x: x1 - 10, y: top + 2, z: worldNear }, { x: x1 + 10, y: top + 2, z: worldNear },
+      { x: x1 + 10, y: top + 2, z: backZ }, { x: x1 - 10, y: top + 2, z: backZ }, frame);
+  });
+  const midZ = (worldNear + backZ) / 2;
+  worldQuad({ x: left, y: top + 2, z: midZ - 8 }, { x: right, y: top + 2, z: midZ - 8 },
+    { x: right, y: top + 2, z: midZ + 8 }, { x: left, y: top + 2, z: midZ + 8 }, frame);
+  drawRoofShards(glass);
+}
+
+function rasterDecalPatches(decal) {
+  const skid = decal.kind === "skid" || decal.kind === "chalk", arc = decal.kind === "arc";
+  const cell = skid || arc || decal.kind === "wheelmark" ? 0
+    : decal.kind === "chip" || decal.kind === "ding" ? 2 : decal.kind === "blood" ? 3 : 1;
+  const angle = decal.angle || 0, c = Math.cos(angle), s = Math.sin(angle);
+  const dx = (decal.x2 ?? decal.x) - decal.x, dz = (decal.z2 ?? decal.z) - decal.z;
+  const length = Math.hypot(dx, dz) || 1;
+  const at = (u,v) => {
+    let x, z;
+    if (skid) {
+      x = decal.x + dx*u - dz/length*(v-.5)*decal.size*2;
+      z = decal.z + dz*u + dx/length*(v-.5)*decal.size*2;
+    } else if (arc) {
+      const a = angle + u*decal.sweep, r = decal.size + (v-.5)*8;
+      x = decal.x + Math.cos(a)*r; z = decal.z + Math.sin(a)*r;
+    } else {
+      const a = (u-.5)*decal.size*2*(decal.stretch||1), b = (v-.5)*decal.size*2;
+      x = decal.x + (a*c-b*s)*decal.tx; z = decal.z + a*s+b*c;
+    }
+    z = clamp(z, worldNear-(poolOnly()?parkLotMargin:0)+1, worldFar+(poolOnly()?parkLotMargin:0)-1);
+    // Sample every corner against the curved ramp; a tangent-plane sticker
+    // would float over the curve or cut into it at its edges.
+    return {x,y:terrainFloorAt(x,z)-.9,z};
+  };
+  const patches = [];
+  // Flat stamps need one quad; retain subdivisions around the curved walls.
+  const corners = [at(0,0),at(1,0),at(1,1),at(0,1)];
+  const flat = !arc && corners.every(p=>Math.abs(p.y-corners[0].y)<.001);
+  const across = flat ? 1 : arc ? 8 : 4, deep = flat || arc || skid ? 1 : 2;
+  for (let i=0;i<across;i++) for(let j=0;j<deep;j++) {
+    const u=i/across,v=j/deep,du=1/across,dv=1/deep;
+    patches.push({uv:decal.kind==='chalk'?[0,0,1,1]:[(cell%2)*128+u*128,Math.floor(cell/2)*128+v*128,du*128,dv*128],
+      points:[at(u,v),at(u+du,v),at(u+du,v+dv),at(u,v+dv)]});
+  }
+  return patches;
+}
+function drawRasterDecal(decal) {
+  decal.rasterPatches ||= rasterDecalPatches(decal);
+  for (const patch of decal.rasterPatches) {
+    const p = patch.points.map(point=>projectPoint(point.x,point.y,point.z));
+    if (p.some(point=>point.behind || ![point.x,point.y,point.z].every(Number.isFinite) ||
+      Math.abs(point.x)>30000 || Math.abs(point.y)>30000)) continue;
+    if (p.every(point=>point.x<stageLeft) || p.every(point=>point.x>stageRight) ||
+      p.every(point=>point.y<0) || p.every(point=>point.y>viewHeight)) continue;
+    themeQuad(5,...patch.uv,...p.flatMap(point=>[point.x,point.y,point.z-.002]),false);
+  }
+}
+function drawDecals(surface) {
+  if(poolOnly()&&poolDecalsNative&&poolDecalCount){
+    poolSurfaceMesh ||= captureQuadMesh(drawPoolGeometry);
+    let handle;
+    if(nativeRetainedMeshes)handle=meshHandle(poolSurfaceMesh);
+    else {
+      if(poolSurfaceMesh.decalHandle===undefined){
+        const buffers=nativeMeshBuffers(poolSurfaceMesh);
+        poolSurfaceMesh.decalHandle=decalMeshUpload(buffers.vertices,buffers.faces);
+      }
+      handle=poolSurfaceMesh.decalHandle;
+    }
+    if(handle>=0)decalMesh(handle,mainNativeCamera(),gridLeft-parkLotMargin,worldNear-parkLotMargin,gridWidth+parkLotMargin*2,roomDepth+parkLotMargin*2);
+  }
+  if (!decals.length && !bloodDrops.length) return;
+  const now = runtime().monotonicUs;
+  const reach = cameraWidth * .8 + 300;
+  const lod = sceneLod();
+  const previous = triangleDepth;
+  const raster = typeof themeQuad === "function" && hostThemeAssetReady && hostThemeAssetReady(5);
+  const persistent = poolOnly();
+  let drawn = 0;
+  for (let index = decals.length - 1; index >= 0 && (persistent || drawn < 45); index--) {
+    const decal = decals[index];
+    // The pool camera can turn through 360 degrees, so horizontal distance
+    // from its target is not a visibility test. Cull projected patches instead.
+    if (!persistent && Math.abs(decal.x - cameraCenter) > reach) continue;
+    if (!persistent && lod > 1 && decal.size < 5 && decal.kind !== "skid") continue;
+    drawn++;
+    if (raster) { drawRasterDecal(decal); continue; }
+    const age = persistent ? 0 : (now - decal.at) / 1e6;
+    decal.shape ||= decalShape(decal);
+    if (decal.kind === "arc") {
+      const color = mixColor(surface, [34, 30, 30], .85 * Math.max(.65, decal.strength) * clamp(1 - age / 180, .7, 1));
+      const steps = 4, width = decal.strength > .8 ? 5 : 7;
+      for (let step = 0; step < steps; step++) {
+        const a1 = decal.angle + decal.sweep * step / steps, a2 = decal.angle + decal.sweep * (step + 1) / steps;
+        for (const r of decal.strength > .8 ? [decal.size - 2, decal.size + 2] : [decal.size]) {
+          const p1 = { x: decal.x + Math.cos(a1) * r, y: decal.ground, z: decal.z + Math.sin(a1) * r };
+          const p2 = { x: decal.x + Math.cos(a2) * r, y: decal.ground, z: decal.z + Math.sin(a2) * r };
+          worldQuad({ ...p1, x: p1.x - width / 2 }, { ...p2, x: p2.x - width / 2 },
+            { ...p2, x: p2.x + width / 2 }, { ...p1, x: p1.x + width / 2 }, color);
+        }
+      }
+      continue;
+    }
+    if (decal.kind === "skid") {
+      const fade = clamp(1 - age / 180, .7, 1) * Math.max(.65, decal.strength);
+      const color = mixColor(surface, [24, 20, 28], .9 * fade);
+      decal.ground2 ??= terrainFloorAt(decal.x2) - .9;
+      for (const side of [-15, 15]) {
+        const a = { x: decal.x, y: decal.ground, z: decal.z + side },
+          b = { x: decal.x2, y: decal.ground2, z: decal.z + side };
+        const w = Math.max(3, decal.size * .7);
+        worldQuad({ ...a, z: a.z - w }, { ...b, z: b.z - w }, { ...b, z: b.z + w }, { ...a, z: a.z + w }, color);
+      }
+      continue;
+    }
+    // The mark lies on the ground: its corners are steps along the surface
+    // (tx, ty) and across it (z) from its centre, in world space, and it is
+    // cut and projected like any other world face, a hair in front of the
+    // ground it sits on.
+    const center = { x: decal.x, y: decal.ground, z: decal.z };
+    const fan = (scale, color) => {
+      const shape = decal.shape, size = decal.size * scale;
+      const at = (u, v) => ({ x: decal.x + u * decal.tx * size,
+        y: decal.ground + u * decal.ty * size, z: decal.z + v * size });
+      let last = at(shape[0], shape[1]);
+      const first = last;
+      setWorldDepth(2, -.002);
+      try {
+        for (let corner = 2; corner <= shape.length; corner += 2) {
+          const next = corner === shape.length ? first
+            : at(shape[corner % shape.length], shape[(corner + 1) % shape.length]);
+          worldTriangle(center, last, next, color);
+          last = next;
+        }
+      } finally { setWorldDepth(0); }
+    };
+    if (decal.kind === "blood") {
+      const wet = clamp(1 - age / 30, 0, 1);
+      fan(1, mixColor([70, 14, 18], [146, 8, 20], wet));
+      if (decal.size > 14) fan(.55, mixColor([54, 10, 14], [112, 4, 14], wet));
+    } else if (decal.kind === "ding") {
+      fan(1.6, mixColor(surface, [48, 30, 24], .8));
+      fan(.8, mixColor(surface, [252, 238, 212], .75));
+    } else if (decal.kind === "wheelmark") {
+      fan(1.4, mixColor(surface, [24, 20, 28], .9));
+    } else if (decal.kind === "chip") {
+      fan(1.25, [120, 84, 52]);
+      fan(.9, [232, 196, 146]);
+    }
+  }
+  for (const drop of bloodDrops) {
+    const point = projectPoint(drop.x, drop.y, drop.z);
+    const tail = projectPoint(drop.x - drop.vx * .018, drop.y - drop.vy * .018, drop.z - drop.vz * .018);
+    if (point.behind || tail.behind) continue;
+    if (![point.x, point.y, tail.x, tail.y].every(Number.isFinite)) continue;
+    triangleDepth = point.z;
+    const width = Math.max(1.2, drop.size * cameraScale());
+    const inkDrop = drop.kind === "wood" ? [226, 188, 136] : [150, 10, 22];
+    screenTriangle(point.x - width, point.y, point.x + width, point.y, tail.x, tail.y, inkDrop[0], inkDrop[1], inkDrop[2]);
+  }
+  triangleDepth = previous;
+}
+
+// The skater's braid: a Verlet chain pinned to the back of the head, drawn
+// as a three-strand plait. Each link carries its own momentum, falls under
+// gravity and is dragged by the air it moves through (so at speed it streams
+// out behind); links hold their length, a second constraint across every
+// pair of links gives it a braid's stiffness so it bends in a curve instead
+// of folding, and it may not pass into the head or down through the torso —
+// it lies on the back when still. The plait is laid along a smoothed curve
+// through the links: alternating lobes left and right, each shaded with an
+// edge and a sheen, tapering to a tie and a loose tuft. Hair, not game
+// state: it steps on the paint clock and never touches the simulation.
+const braidLinks = 7;
+const braidLink = 11;
+function drawPonytail(player, world) {
+  if(player.civilian){
+    if(player.hairVariant===0)return;
+    const h=world.head,k=cameraScale(),side=player.facing||1;
+    const a=projectPoint(h.x-side*h.radius*.65,h.y-h.radius*.25,h.z);
+    const b=projectPoint(h.x-side*35,h.y+30,h.z),c=projectPoint(h.x-side*45,h.y+(player.hairVariant===1?65:100),h.z);
+    stroke(a.x,a.y,b.x,b.y,10*k,[24,20,30]);stroke(b.x,b.y,c.x,c.y,8*k,[24,20,30]);
+    stroke(a.x,a.y,b.x,b.y,7*k,player.hairColor);stroke(b.x,b.y,c.x,c.y,5*k,player.hairColor);return;
+  }
+  const head = world?.head;
+  if (!head || !player.alive) return;
+  const now = runtime().monotonicUs;
+  const hair = player.hair ||= { nodes: [], at: now };
+  const dt = clamp((now - hair.at) / 1e6, 0, .05);
+  hair.at = now;
+  const facing = player.facing || 1;
+  // Gathered high at the back of the head.
+  const spinLook = player.spin ? Math.cos(player.spin.angle) : 1;
+  const spinSide = player.spin ? Math.sin(player.spin.angle) : 0;
+  const anchor = { x: head.x - facing * head.radius * .72 * spinLook, y: head.y - head.radius * .55,
+    z: (head.z || 0) - facing * head.radius * .72 * spinSide };
+  // A lone rolling head carries the braid's gather round with it.
+  if (isHeadOnly(player) && !player.skateboard && player.headRoll) {
+    const roll = player.headRoll, dx = anchor.x - head.x, dy = anchor.y - head.y;
+    anchor.x = head.x + dx * Math.cos(roll) - dy * Math.sin(roll);
+    anchor.y = head.y + dx * Math.sin(roll) + dy * Math.cos(roll);
+  }
+  const groundTail = isHeadOnly(player) && !player.skateboard;
+  const nodes = hair.nodes;
+  if (nodes.length !== braidLinks ||
+      Math.hypot(nodes[0].x - anchor.x, nodes[0].y - anchor.y) > 200) {
+    nodes.length = 0;
+    for (let index = 0; index < braidLinks; index++) {
+      const x = anchor.x - facing * index * 2, y = anchor.y + index * braidLink;
+      nodes.push({ x, y, px: x, py: y });
+    }
+  }
+  nodes[0].x = nodes[0].px = anchor.x;
+  nodes[0].y = nodes[0].py = anchor.y;
+  // At rest it flows out from the gather and down behind the back in an
+  // arc, so a soft pull toward that shape keeps it hair, not a hanging pole.
+  for (let index = 1; index < nodes.length; index++) {
+    const fall = index / nodes.length;
+    const restX = anchor.x - facing * braidLink * (1.1 * index - 1.1 * index * fall * .6);
+    const restY = anchor.y + braidLink * index * (.35 + fall * .75);
+    const pull = groundTail ? 0 : .05 * (1 - fall * .6);
+    nodes[index].x += (restX - nodes[index].x) * pull;
+    nodes[index].y += (restY - nodes[index].y) * pull;
+  }
+  const gravity = 2200 * dt * dt;
+  const drag = Math.exp(-dt * (groundTail ? 9 : 2.4));
+  for (let index = 1; index < nodes.length; index++) {
+    const node = nodes[index];
+    const vx = (node.x - node.px) * drag, vy = (node.y - node.py) * drag;
+    node.px = node.x; node.py = node.y;
+    node.x += vx; node.y += vy + gravity;
+  }
+  const torso = world.segments?.find((segment) => segment.role === "torso");
+  const keepOut = (node) => {
+    const hx = node.x - head.x, hy = node.y - head.y;
+    const reach = Math.hypot(hx, hy) || .001;
+    if (reach < head.radius + 3) {
+      node.x = head.x + hx / reach * (head.radius + 3);
+      node.y = head.y + hy / reach * (head.radius + 3);
+    }
+    if (torso) {
+      // Nearest point on the torso's line; stay a body's half-width off it.
+      const tx = torso.x2 - torso.x1, ty = torso.y2 - torso.y1;
+      const length = tx * tx + ty * ty || 1;
+      const along = clamp(((node.x - torso.x1) * tx + (node.y - torso.y1) * ty) / length, 0, 1);
+      const cx = torso.x1 + tx * along, cy = torso.y1 + ty * along;
+      const ox = node.x - cx, oy = node.y - cy;
+      const off = Math.hypot(ox, oy) || .001;
+      const room = (torso.width || 10) / 2 + 4;
+      if (off < room) {
+        const side = ox === 0 ? -facing : Math.sign(ox);
+        node.x = cx + (off > .01 ? ox / off : side) * room;
+        node.y = cy + (off > .01 ? oy / off : 0) * room;
+      }
+    }
+  };
+  for (let pass = 0; pass < 5; pass++) {
+    for (let index = 1; index < nodes.length; index++) {
+      const a = nodes[index - 1], b = nodes[index];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const distance = Math.hypot(dx, dy) || .001;
+      const pull = (distance - braidLink) / distance;
+      if (index === 1) { b.x -= dx * pull; b.y -= dy * pull; }
+      else { a.x += dx * pull * .5; a.y += dy * pull * .5; b.x -= dx * pull * .5; b.y -= dy * pull * .5; }
+    }
+    // Bending stiffness: every other node is held most of the way to a
+    // straight span, softly, so the braid curves rather than kinks.
+    for (let index = 2; index < nodes.length; index++) {
+      const a = nodes[index - 2], b = nodes[index];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const distance = Math.hypot(dx, dy) || .001;
+      const want = braidLink * 1.82;
+      if (distance < want) {
+        const push = (distance - want) / distance * .18;
+        if (index - 2 > 0) { a.x += dx * push * .5; a.y += dy * push * .5; }
+        b.x -= dx * push * (index - 2 > 0 ? .5 : 1); b.y -= dy * push * (index - 2 > 0 ? .5 : 1);
+      }
+    }
+    for (let index = 1; index < nodes.length; index++) {
+      const node = nodes[index];
+      keepOut(node);
+      if (groundTail) {
+        const floor = terrainFloorAt(node.x) - 4;
+        if (node.y >= floor) {
+          node.y = floor;
+          node.py = floor;
+          // Ground friction spends sideways velocity without pulling the
+          // tail ahead of the rolling head or adding a bounce.
+          node.px += (node.x - node.px) * .35;
+        }
+      }
+    }
+    nodes[0].x = anchor.x; nodes[0].y = anchor.y;
+  }
+  // A smoothed curve through the links (Catmull-Rom, two steps a link).
+  const curve = [];
+  for (let index = 0; index < nodes.length - 1; index++) {
+    const p0 = nodes[Math.max(0, index - 1)], p1 = nodes[index], p2 = nodes[index + 1],
+      p3 = nodes[Math.min(nodes.length - 1, index + 2)];
+    for (let step = 0; step < 2; step++) {
+      const u = step / 2, u2 = u * u, u3 = u2 * u;
+      curve.push({
+        x: .5 * (2 * p1.x + (-p0.x + p2.x) * u + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * u2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * u3),
+        y: .5 * (2 * p1.y + (-p0.y + p2.y) * u + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * u2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * u3) });
+    }
+  }
+  curve.push({ x: nodes.at(-1).x, y: nodes.at(-1).y });
+  if (groundTail) for (const point of curve)
+    point.y = Math.min(point.y, terrainFloorAt(point.x) - 4);
+  const points = curve.map((point) => projectPoint(point.x, point.y, anchor.z + 2));
+  if (!points.every((point) => Number.isFinite(point.x) && Number.isFinite(point.y))) return;
+  // Drawn the way the figure is drawn: one flat colour inside the same dark
+  // outline the limbs wear, full at the gather and tapering to a round tip.
+  const scale = cameraScale();
+  const edge = Math.max(1.25, Math.min(3, scale * 1.8));
+  const outline = [8, 12, 24], hairInk = player.hairColor || [104, 68, 46];
+  const widthAt = (index) => Math.max(2, (13 - index * 9 / points.length) * scale);
+  for (let index = 1; index < points.length; index++)
+    filledCapsule(points[index - 1].x, points[index - 1].y, points[index].x, points[index].y,
+      widthAt(index) + edge * 2, outline);
+  for (let index = 1; index < points.length; index++)
+    filledCapsule(points[index - 1].x, points[index - 1].y, points[index].x, points[index].y,
+      widthAt(index), hairInk);
+  // Strand ends: the tip frays into a few loose strands.
+  const tipPoint = points.at(-1), beforeTip = points.at(-2);
+  const tx = tipPoint.x - beforeTip.x, ty = tipPoint.y - beforeTip.y, tl = Math.hypot(tx, ty) || 1;
+  for (const spread of [-.5, -.18, .16, .46]) {
+    const c = Math.cos(spread), s = Math.sin(spread);
+    const ex = tipPoint.x + (tx * c - ty * s) / tl * 9 * scale, ey = tipPoint.y + (tx * s + ty * c) / tl * 9 * scale;
+    const sx = tipPoint.x - tx / tl * 2 * scale, sy = tipPoint.y - ty / tl * 2 * scale;
+    stroke(sx, sy, ex, ey, Math.max(1, 2.2 * scale) + edge * 1.2, outline);
+    stroke(sx, sy, ex, ey, Math.max(1, 2.2 * scale), hairInk);
+  }
+  // The bow is drawn later, over the head and the hair (`drawBow`).
+  hair.bow = { points, nodes, anchor, now, dt, scale, edge };
+}
+
+// The hair on the head the braid comes from: a cap over the crown and back
+// of the skull, and a fringe that falls over the forehead — a few locks,
+// swaying a little with the braid — drawn before the face so the eyes stay
+// on top. Screen space, from the projected head.
+function drawHairline(player, head) {
+  if (!head || !player.alive) return;
+  // A lone rolling head carries its hair round with it.
+  const roll = isHeadOnly(player) && !player.skateboard ? player.headRoll || 0 : 0;
+  // One filled shape over the crown, in the figure's style: it follows the
+  // head's own outline from behind the ear, over the top, down to a soft
+  // hairline curving above the eyes — then short fringe locks that stop at
+  // the brows. Filled as a fan, so there are no seams between strokes.
+  const r = head.radius, facing = player.facing || 1;
+  const edge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
+  const outline = [8, 12, 24], hairInk = player.hairColor || [104, 68, 46];
+  const turn = (x, y) => roll ? {
+    x: head.x + (x - head.x) * Math.cos(roll) - (y - head.y) * Math.sin(roll),
+    y: head.y + (x - head.x) * Math.sin(roll) + (y - head.y) * Math.cos(roll) } : { x, y };
+  const at = (angle, reach) => turn(head.x + Math.cos(angle) * r * reach * facing,
+    head.y + Math.sin(angle) * r * reach);
+  const outer = [];
+  for (let step = 0; step <= 9; step++) outer.push(at(Math.PI * (.9 + step / 9 * .98), 1.03));
+  // The hairline: a straight fringe across the forehead, down to just above
+  // the brows with a few scallops along its cut edge, then back behind the
+  // ear. Head-relative (x forward, y down, in radii), mirrored with facing.
+  const local = (x, y) => turn(head.x + x * r * facing, head.y + y * r);
+  const front = outer.at(-1), back = outer[0];
+  const hairline = [
+    local(.86, -.3), local(.66, -.36), local(.52, -.3), local(.36, -.37),
+    local(.2, -.31), local(.04, -.38), local(-.14, -.34), local(-.38, -.3), local(-.62, -.12),
+  ];
+  const shape = [...outer, ...hairline];
+  const cx = shape.reduce((sum, point) => sum + point.x, 0) / shape.length;
+  const cy = shape.reduce((sum, point) => sum + point.y, 0) / shape.length;
+  for (let index = 0; index < shape.length; index++) {
+    const a = shape[index], b = shape[(index + 1) % shape.length];
+    screenTriangle(cx, cy, a.x, a.y, b.x, b.y, hairInk[0], hairInk[1], hairInk[2]);
+  }
+  // Its edges: along the head's rim, and the hairline itself.
+  for (let index = 1; index < outer.length; index++)
+    filledCapsule(outer[index - 1].x, outer[index - 1].y, outer[index].x, outer[index].y, edge * 1.6, outline);
+  const line = [front, ...hairline, back];
+  for (let index = 1; index < line.length; index++)
+    stroke(line[index - 1].x, line[index - 1].y, line[index].x, line[index].y, edge, outline);
+
+}
+
+// The bow on the braid's gather, drawn after the head and the hair cap so it
+// sits on top of them.
+function drawBow(player, layer = "all") {
+  const hair = player.hair, frame = hair?.bow;
+  if (!frame || !player.alive) return;
+  // The tails hang behind the head; the loops and knot sit on top of it.
+  const tails = layer !== "loops", loops = layer !== "tails";
+  const { points, nodes, anchor, now, dt, scale, edge } = frame;
+  const outline = [8, 12, 24];
+  // The bow at the gather: two ribbon tails hanging from the knot — each its
+  // own little chain, falling, trailing and fluttering like the hair — then
+  // two loops either side of the knot on top of them.
+  const ribbon = player.accent || [255, 110, 160];
+  const knot = points[1];
+  const along = { x: points[2].x - points[0].x, y: points[2].y - points[0].y };
+  const alongLength = Math.hypot(along.x, along.y) || 1;
+  const ax = along.x / alongLength, ay = along.y / alongLength;
+  const bx = -ay, by = ax;
+  const loop = Math.max(4, 12 * scale);
+  // The tails live in world units beside the braid's nodes.
+  const root = nodes[1];
+  hair.ribbons ||= [[], []];
+  if (tails) for (const [which, ribbonTail] of hair.ribbons.entries()) {
+    const offset = (which ? 1 : -1) * 3;
+    const count = 7, link = 6;
+    if (ribbonTail.length !== count || Math.hypot(ribbonTail[0].x - root.x, ribbonTail[0].y - root.y) > 120) {
+      ribbonTail.length = 0;
+      for (let index = 0; index < count; index++)
+        ribbonTail.push({ x: root.x + offset, y: root.y + index * link, px: root.x + offset, py: root.y + index * link });
+    }
+    ribbonTail[0].x = ribbonTail[0].px = root.x + offset;
+    ribbonTail[0].y = ribbonTail[0].py = root.y;
+    if (dt > 0) {
+      const drag = Math.exp(-dt * 12);
+      for (let index = 1; index < count; index++) {
+        const node = ribbonTail[index];
+        const vx = (node.x - node.px) * drag, vy = (node.y - node.py) * drag;
+        node.px = node.x; node.py = node.y;
+        node.x += vx; node.y += vy + 1600 * dt * dt;
+      }
+    }
+    // A ribbon bends but does not stretch like a spring. Each point trails
+    // the attachment's actual movement; there is no clock-driven flutter.
+    for (let index = 1; index < count; index++) {
+      const a = ribbonTail[index - 1], b = ribbonTail[index];
+      const dx = b.x - a.x, dy = b.y - a.y, distance = Math.hypot(dx, dy) || 1;
+      b.x = a.x + dx / distance * link;
+      b.y = a.y + dy / distance * link;
+    }
+    const drawn = ribbonTail.map((node) => projectPoint(node.x, node.y, anchor.z + 3));
+    if (!drawn.every((point) => Number.isFinite(point.x) && Number.isFinite(point.y))) continue;
+    const width = Math.max(2, 3.6 * scale);
+    for (const [ink, extra] of [[outline, edge * 2], [ribbon, 0]])
+      for (let index = 1; index < drawn.length; index++)
+        stroke(drawn[index - 1].x, drawn[index - 1].y, drawn[index].x, drawn[index].y, width + extra, ink);
+    // A V-notch cut into the end.
+    const end = drawn.at(-1), before = drawn.at(-2);
+    const dx = end.x - before.x, dy = end.y - before.y, length = Math.hypot(dx, dy) || 1;
+    screenTriangle(end.x - dy / length * width * .55, end.y + dx / length * width * .55,
+      end.x + dy / length * width * .55, end.y - dx / length * width * .55,
+      end.x - dx / length * width * .9, end.y - dy / length * width * .9, outline[0], outline[1], outline[2]);
+  }
+  if (loops) for (const side of [-1, 1]) {
+    const tip = { x: knot.x + bx * side * loop * 1.4 - ax * loop * .3, y: knot.y + by * side * loop * 1.4 - ay * loop * .3 };
+    const upper = { x: tip.x - ax * loop * .75, y: tip.y - ay * loop * .75 };
+    const lower = { x: tip.x + ax * loop * .75, y: tip.y + ay * loop * .75 };
+    for (const [ink, grow] of [[outline, edge * 1.4], [ribbon, 0]]) {
+      screenTriangle(knot.x, knot.y, upper.x - ax * grow, upper.y - ay * grow,
+        tip.x + bx * side * grow, tip.y + by * side * grow, ink[0], ink[1], ink[2]);
+      screenTriangle(knot.x, knot.y, tip.x + bx * side * grow, tip.y + by * side * grow,
+        lower.x + ax * grow, lower.y + ay * grow, ink[0], ink[1], ink[2]);
+    }
+    stroke(knot.x, knot.y, tip.x - bx * side * loop * .25, tip.y - by * side * loop * .25,
+      Math.max(1, edge * .7), mixColor(ribbon, [0, 0, 0], .35));
+  }
+  if (loops) {
+    filledDisc(knot.x, knot.y, Math.max(2.5, 5.5 * scale) + edge, outline);
+    filledDisc(knot.x, knot.y, Math.max(2, 5.5 * scale), ribbon);
+  }
+}
+
+// The skater's clothes, drawn over the figure in its own style (flat colour,
+// the dark outline): a white T-shirt with short sleeves and a daisy on the
+// chest, and a pleated skirt — alternating panels flaring to the hem — that
+// swings with the rider's movement.
+function drawOutfit(player, geometry) {
+  const torso = geometry.segments.find((segment) => segment.role === "torso");
+  if (!torso || !hasPart(player, "torso")) return;
+  const scale = cameraScale();
+  const edge = Math.max(1.25, Math.min(3, scale * 1.8));
+  const outline = [8, 12, 24];
+  const shirt = player.shirtColor || [252, 252, 250];
+  const skirt = player.skirtColor || [188, 164, 226];
+  const neck = { x: torso.x1, y: torso.y1 }, hip = { x: torso.x2, y: torso.y2 };
+  const ux = neck.x - hip.x, uy = neck.y - hip.y, length = Math.hypot(ux, uy) || 1;
+  const up = { x: ux / length, y: uy / length }, across = { x: -up.y, y: up.x };
+  const at = (along, side) => ({ x: hip.x + ux * along + across.x * side, y: hip.y + uy * along + across.y * side });
+  const quad = (a, b, c, d, ink) => {
+    screenTriangle(a.x, a.y, b.x, b.y, c.x, c.y, ink[0], ink[1], ink[2]);
+    screenTriangle(a.x, a.y, c.x, c.y, d.x, d.y, ink[0], ink[1], ink[2]);
+  };
+  // Skate shoes: chunky, a white sole under a coloured upper, laces on top,
+  // pointing the way the foot does.
+  for (const shin of geometry.segments) {
+    if (!/shin$/.test(shin.role || "") || !hasPart(player, shin.part)) continue;
+    const foot = { x: shin.x2, y: shin.y2 };
+    const toe = (player.facing || 1);
+    const heel = { x: foot.x - toe * 6 * scale, y: foot.y }, tip = { x: foot.x + toe * 15 * scale, y: foot.y };
+    const shoe = player.shoeColor || [70, 70, 96];
+    filledCapsule(heel.x, heel.y - 3 * scale, tip.x, tip.y - 3 * scale, 11 * scale + edge * 2, outline);
+    filledCapsule(heel.x, heel.y - 1 * scale, tip.x, tip.y - 1 * scale, 7 * scale, [250, 250, 250]);
+    filledCapsule(heel.x, heel.y - 5 * scale, tip.x - toe * 2 * scale, tip.y - 5 * scale, 8 * scale, shoe);
+    for (const lace of [.25, .5])
+      stroke(heel.x + (tip.x - heel.x) * lace, heel.y - 9 * scale, heel.x + (tip.x - heel.x) * (lace + .12), heel.y - 6 * scale,
+        Math.max(.8, edge * .6), [250, 250, 250]);
+  }
+  // Sleeves: thin, hugging the upper arm.
+  for (const bone of geometry.segments) {
+    if (!/upper-arm$/.test(bone.role || "") || !hasPart(player, bone.part)) continue;
+    const ex = bone.x1 + (bone.x2 - bone.x1) * .42, ey = bone.y1 + (bone.y2 - bone.y1) * .42;
+    filledCapsule(bone.x1, bone.y1, ex, ey, bone.width + 2.5 * scale + edge * 2, outline);
+    filledCapsule(bone.x1, bone.y1, ex, ey, bone.width + 2.5 * scale, shirt);
+  }
+  // The shirt: close to the body — a slender band down the torso line,
+  // a touch wider at the chest.
+  const chest = 7.5 * scale, waist = 6 * scale;
+  quad(at(-.06, -waist - edge), at(-.06, waist + edge), at(.97, chest + edge), at(.97, -chest - edge), outline);
+  quad(at(-.04, -waist), at(-.04, waist), at(.95, chest), at(.95, -chest), shirt);
+  const collar = at(.95, 0);
+  filledDisc(collar.x, collar.y, 3.5 * scale, player.color);
+  // A daisy on the chest.
+  const daisy = at(.62, 0), petal = 2.1 * scale;
+  for (let index = 0; index < 7; index++) {
+    const angle = index / 7 * Math.PI * 2;
+    filledDisc(daisy.x + Math.cos(angle) * petal * 1.35, daisy.y + Math.sin(angle) * petal * 1.35, petal + edge * .6, [150, 150, 170]);
+  }
+  for (let index = 0; index < 7; index++) {
+    const angle = index / 7 * Math.PI * 2;
+    filledDisc(daisy.x + Math.cos(angle) * petal * 1.35, daisy.y + Math.sin(angle) * petal * 1.35, petal, [255, 255, 255]);
+  }
+  filledDisc(daisy.x, daisy.y, petal * 1.1 + edge * .6, [200, 150, 40]);
+  filledDisc(daisy.x, daisy.y, petal * 1.1, [252, 206, 72]);
+  if(!player.pantsColor)drawSkirt(player, skirt, outline, edge, scale, geometry);
+}
+
+// Each pleat has several movable points so contact can bend the fabric
+// between the waistband and hem. This is visual cloth, independent of play.
+const skirtPleats = 5;
+const skirtRows = 3;
+function drawSkirt(player, skirt, outline, edge, scale, geometry) {
+  if(player.civilian){
+    // The projected pose the outfit was handed — the same one this used to
+    // constrain and project again, per kid, per frame.
+    const torso=geometry.segments.find(s=>s.role==='torso');
+    if(!torso)return;
+    const x=torso.x2,y=torso.y2,w=18*scale,h=32*scale;
+    screenTriangle(x-w*.5,y,x+w*.5,y,x+w,y+h,...skirt);
+    screenTriangle(x-w*.5,y,x+w,y+h,x-w,y+h,...skirt);
+    for(let i=-1;i<=1;i++)stroke(x+i*w*.25,y,x+i*w*.5,y+h,1.2,outline);
+    return;
+  }
+  const world = player.replayGeometry || player.frozenGeometry || runnerWorldGeometry(player, 0);
+  const torso = world.segments.find((segment) => segment.role === "torso");
+  if (!torso) return;
+  const now = runtime().monotonicUs;
+  const hip = { x: torso.x2, y: torso.y2, z: torso.z2 ?? player.z ?? 0 };
+  const waistHalf = 9, drop = 38, flare = 22;
+  const thighs = world.segments.filter((bone) => /thigh$/.test(bone.role || "") && hasPart(player, bone.part));
+  const anchors = Array.from({ length: skirtPleats + 1 }, (_, index) => {
+    const side = index / skirtPleats * 2 - 1;
+    return { x: hip.x + side * waistHalf, y: hip.y - 3, z: hip.z - 5 };
+  });
+  let cloth = player.skirtCloth;
+  if (!cloth?.nodes || Math.hypot(hip.x - cloth.hip.x, hip.y - cloth.hip.y) > 150) {
+    cloth = player.skirtCloth = { at: now, hip, nodes: anchors.map((anchor, index) =>
+      Array.from({ length: skirtRows + 1 }, (_, row) => {
+        const t = row / skirtRows, side = index / skirtPleats * 2 - 1;
+        const x = anchor.x + side * flare * t, y = anchor.y + drop * t;
+        const z = anchor.z - Math.sin(index / skirtPleats * Math.PI) * 3;
+        return { x, y, z, px: x, py: y, pz: z };
+      })) };
+  }
+  const dt = clamp((now - cloth.at) / 1e6, 0, .05);
+  cloth.at = now;
+  cloth.hip = hip;
+  const nodes = cloth.nodes;
+  for (let col = 0; col <= skirtPleats; col++) {
+    Object.assign(nodes[col][0], anchors[col]);
+    for (let row = 1; row <= skirtRows; row++) {
+      const point = nodes[col][row];
+      if (dt > 0) {
+        const drag = Math.exp(-dt * 5);
+        const vx = (point.x - point.px) * drag, vy = (point.y - point.py) * drag;
+        const vz = (point.z - point.pz) * drag;
+        point.px = point.x; point.py = point.y; point.pz = point.z;
+        point.z += vz;
+        point.x += vx; point.y += vy + 1800 * dt * dt;
+      }
+    }
+  }
+  const separate = (point, bone) => {
+    const dx = bone.x2 - bone.x1, dy = bone.y2 - bone.y1;
+    const z1 = bone.z1 ?? hip.z, dz = (bone.z2 ?? hip.z) - z1;
+    const t = clamp(((point.x - bone.x1) * dx + (point.y - bone.y1) * dy +
+      (point.z - z1) * dz) / (dx * dx + dy * dy + dz * dz || 1), 0, 1);
+    const x = bone.x1 + dx * t, y = bone.y1 + dy * t, z = z1 + dz * t;
+    const ox = point.x - x, oy = point.y - y;
+    // This is the front of the skirt. Give an initially embedded point the
+    // front-facing normal, so it drapes over a thigh instead of parting into
+    // two strips or flipping through to the back of the leg.
+    const oz = Math.min(-.5, point.z - z);
+    const distance = Math.hypot(ox, oy, oz), radius = (bone.width || 10) / 2 + 3;
+    if (distance >= radius) return;
+    point.x = x + ox / distance * radius;
+    point.y = y + oy / distance * radius;
+    point.z = z + oz / distance * radius;
+  };
+  const link = (a, b, limit, pinned = false, taut = false) => {
+    const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
+    const length = Math.hypot(dx, dy, dz);
+    if (length < .00001 || (!taut && length <= limit)) return;
+    const pull = (length - limit) / length;
+    const share = pinned ? 1 : .5;
+    b.x -= dx * pull * share; b.y -= dy * pull * share; b.z -= dz * pull * share;
+    if (!pinned) { a.x += dx * pull * .5; a.y += dy * pull * .5; a.z += dz * pull * .5; }
+  };
+  // Alternate stretch and capsule contact. Contact is last, so a neighbour
+  // cannot pull a fold back inside the leg after the collision pass.
+  for (let pass = 0; pass < 3; pass++) {
+    for (let col = 0; col <= skirtPleats; col++) {
+      const side = col / skirtPleats * 2 - 1;
+      const length = Math.hypot(drop, side * flare) / skirtRows;
+      for (let row = 1; row <= skirtRows; row++) {
+        link(nodes[col][row - 1], nodes[col][row], length, row === 1);
+        if (col > 0) link(nodes[col - 1][row], nodes[col][row],
+          (waistHalf * 2 + flare * 2 * row / skirtRows) / skirtPleats, false, true);
+      }
+    }
+    for (let col = 0; col <= skirtPleats; col++)
+      for (let row = 1; row <= skirtRows; row++)
+        for (const bone of thighs) separate(nodes[col][row], bone, col < skirtPleats / 2 ? -1 : 1);
+  }
+  const points = nodes.map((column, col) => column.map((p, row) =>
+    projectPoint(p.x, p.y, p.z - (col % 2) * 1.5 * row / skirtRows)));
+  if (!points.flat().every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))) return;
+  for (let col = 0; col < skirtPleats; col++) {
+    for (let row = 0; row < skirtRows; row++) {
+      const a = points[col][row], b = points[col + 1][row];
+      const c = points[col + 1][row + 1], d = points[col][row + 1];
+      const fold = nodes[col + 1][row].z - nodes[col][row].z;
+      const shade = clamp(.07 + Math.abs(fold) / 35, .07, .3);
+      const ink = mixColor(skirt, col % 2 ? [25, 20, 40] : [255, 255, 255], shade);
+      screenTriangle(a.x, a.y, b.x, b.y, c.x, c.y, ...ink);
+      screenTriangle(a.x, a.y, c.x, c.y, d.x, d.y, ...ink);
+    }
+  }
+  for (let col = 0; col <= skirtPleats; col++)
+    for (let row = 0; row < skirtRows; row++) {
+      const a = points[col][row], b = points[col][row + 1];
+      stroke(a.x, a.y, b.x, b.y, col === 0 || col === skirtPleats ? edge : Math.max(.8, edge * .45),
+        col === 0 || col === skirtPleats ? outline : mixColor(skirt, [0, 0, 0], .3));
+    }
+  for (let col = 0; col < skirtPleats; col++) {
+    const a = points[col][skirtRows], b = points[col + 1][skirtRows];
+    stroke(a.x, a.y, b.x, b.y, edge, outline);
+  }
+}
+
+// A fighter's scars: a raised pink line across the limb where each hit
+// landed, darker down its middle, kept for the rest of the visit.
+function drawScars(player, geometry) {
+  // An injured limb shows its injuries: a scar per point of damage, even for
+  // damage that arrived without a recorded hit (a watcher's copy, a replay).
+  for (const [part, damage] of Object.entries(player.partDamage || {})) {
+    const have = (player.scars || []).filter((scar) => scar.part === part).length;
+    for (let extra = have; extra < Math.min(4, damage); extra++) {
+      const segment = geometry.segments.find((bone) => bone.part === part && !bone.hitboxOnly);
+      if (!segment) break;
+      (player.scars ||= []).push({ part, role: segment.role,
+        t: .25 + ((extra * .37 + part.length * .13) % .5), angle: ((extra * 1.3 + part.length) % 1.1) - .55 });
+    }
+  }
+  if (!player.scars?.length) return;
+  for (const scar of player.scars) {
+    if (!hasPart(player, scar.part)) continue;
+    const bone = geometry.segments.find((segment) => segment.role === scar.role) ||
+      geometry.segments.find((segment) => segment.part === scar.part);
+    if (!bone) continue;
+    const x = bone.x1 + (bone.x2 - bone.x1) * scar.t, y = bone.y1 + (bone.y2 - bone.y1) * scar.t;
+    const length = Math.hypot(bone.x2 - bone.x1, bone.y2 - bone.y1) || 1;
+    const across = { x: -(bone.y2 - bone.y1) / length, y: (bone.x2 - bone.x1) / length };
+    const c = Math.cos(scar.angle), s = Math.sin(scar.angle);
+    const dx = across.x * c - across.y * s, dy = across.x * s + across.y * c;
+    const reach = (bone.width || 10) * .62;
+    // Fresh, it is an open cut — dark red with a bright wet middle; over
+    // twenty seconds it closes to a pale pink scar.
+    const heal = scar.at ? clamp((runtime().monotonicUs - scar.at) / 20e6, 0, 1) : 1;
+    filledCapsule(x - dx * reach, y - dy * reach, x + dx * reach, y + dy * reach,
+      Math.max(1.5, (bone.width || 10) * (.26 - heal * .06)), mixColor([96, 8, 18], [222, 132, 142], heal));
+    filledCapsule(x - dx * reach * .8, y - dy * reach * .8, x + dx * reach * .8, y + dy * reach * .8,
+      Math.max(.8, (bone.width || 10) * .09), mixColor([214, 24, 40], [132, 40, 54], heal));
+  }
+}
+
 function drawSkateParkFeatures(ground = [110, 116, 128]) {
   if (!skateparkMap || survivalActive()) return;
+  if (indoorSkate()) {drawIndoorHall(ground);for(const loop of skateLoops)drawLoopTrack(loop,ground);return;}
   const visible = (x, radius = 0) => Math.abs(x - cameraCenter) < cameraWidth + radius;
   for (const loop of skateLoops) {
     if (!visible(loop.x, loop.radius + loopShell)) continue;
     drawLoopTrack(loop, ground);
+  }
+  // Water over each pond: a surface sheet at sea level across the park's
+  // depth, and a front face down to the basin, a hair nearer than the
+  // ground's own front wall so the two never fight.
+  const waterTop = mixColor([46, 110, 170], [120, 186, 236], visualTheme.light);
+  const waterFront = mixColor([30, 80, 140], [80, 150, 214], visualTheme.light);
+  for (const segment of parkSegments) {
+    if (segment.kind !== "pond" || !visible((segment.left + segment.right) / 2,
+      segment.right - segment.left)) continue;
+    const l = segment.left, r = segment.right, waterY=seaLevelY-(segment.lift||0);
+    // The body of water stands just behind the fighters' plane, so a swimmer
+    // is seen in it rather than hidden behind it; a thin waterline runs
+    // across the front so it still reads as water.
+    const backZ = 40;
+    worldQuad({ x: l, y: waterY, z: backZ }, { x: r, y: waterY, z: backZ },
+      { x: r, y: waterY, z: worldFar }, { x: l, y: waterY, z: worldFar }, waterTop);
+    const steps = 16;
+    for (let i = 0; i < steps; i++) {
+      const x1 = lerp(l, r, i / steps), x2 = lerp(l, r, (i + 1) / steps);
+      worldQuad({ x: x1, y: waterY, z: backZ }, { x: x2, y: waterY, z: backZ },
+        { x: x2, y: terrainFloorAt(x2), z: backZ }, { x: x1, y: terrainFloorAt(x1), z: backZ },
+        waterFront);
+      worldQuad({ x: x1, y: waterY - 2, z: worldNear - 2 }, { x: x2, y: waterY - 2, z: worldNear - 2 },
+        { x: x2, y: waterY + 8, z: worldNear - 2 }, { x: x1, y: waterY + 8, z: worldNear - 2 },
+        waterTop);
+    }
   }
   for (const pad of skateBoosts) {
     if (!visible(pad.left, 240)) continue;
@@ -579,10 +1575,12 @@ function drawSkateParkFeatures(ground = [110, 116, 128]) {
     if (!visible(rope.x, chainLinks * chainLength)) continue;
     worldCapsule(rope.x - 70, rope.y, rope.z, rope.x + 70, rope.y, rope.z,
       18, [108, 130, 150]);
-    for (let i = 1; i < rope.nodes.length; i++) {
-      const a = rope.nodes[i - 1], b = rope.nodes[i];
+    // Far out a chain is drawn a few links at a time.
+    const linkStep = Math.min(4, sceneLod());
+    for (let i = linkStep; i < rope.nodes.length; i += linkStep) {
+      const a = rope.nodes[i - linkStep], b = rope.nodes[i];
       worldCapsule(a.x, a.y, rope.z, b.x, b.y, rope.z, 8,
-        i % 2 ? [220, 225, 236] : [120, 150, 178]);
+        (i / linkStep) % 2 ? [220, 225, 236] : [120, 150, 178]);
     }
   }
 }
@@ -595,7 +1593,251 @@ function terrainSeed(value) {
   }
   return (hash >>> 0) / 4294967296 * Math.PI * 2;
 }
-function terrainFloorAt(x) {
+// Every feature uses the same surface for wheels, feet, camera and decals.
+const pool = { x:1080,z:0,halfX:480,halfZ:240,radius:480,depth:220,deck:100 };
+const parkPools=[pool,
+  {x:4700,z:-1500,halfX:520,halfZ:240,radius:520,depth:240,deck:120},
+  {x:6900,z:1600,halfX:360,halfZ:180,radius:420,depth:190,deck:120}];
+const parkHills=[
+  {x:3000,z:2300,rx:750,rz:800,height:320},
+  {x:7200,z:-1600,rx:1000,rz:800,height:420},
+  {x:1000,z:2000,rx:750,rz:700,height:220}];
+const parkRamps=[
+  {x:2800,z:-2050,hx:500,hz:380,tx:220,tz:130,height:230},
+  {x:4700,z:700,hx:650,hz:400,tx:270,tz:180,height:300},
+  {x:7250,z:0,hx:800,hz:440,tx:400,tz:200,height:340}];
+const parkHalfPipe3D={x:2840,z:0,flat:160,radius:280,deck:70,bank:150,hx:660,hz:1250,run:1050};
+const parkLayoutFeatures=[...parkPools,...parkHills,...parkRamps,parkHalfPipe3D];
+const parkLayoutBase=parkLayoutFeatures.map(p=>({x:p.x,z:p.z}));
+let parkLayoutSeed=null;
+function applyParkLayout(seed){
+ seed=seed>>>0;if(seed===parkLayoutSeed)return false;parkLayoutSeed=seed;
+ let state=seed||1;const random=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
+ parkLayoutFeatures.forEach((p,i)=>{const base=parkLayoutBase[i];p.x=base.x+(random()-.5)*180;p.z=base.z+(random()-.5)*150;});
+ releaseQuadMesh(poolSurfaceMesh);poolSurfaceMesh=null;decals.length=0;clearPoolDecals();
+ for(const p of [...players,...parkKids])if(p.grounded)p.y=poolFloorAt(p.x,p.z||0);
+ return true;
+}
+function restoreParkLayout(){
+ if(parkLayoutSeed===null)return false;
+ parkLayoutFeatures.forEach((p,i)=>{p.x=parkLayoutBase[i].x;p.z=parkLayoutBase[i].z;});
+ parkLayoutSeed=null;releaseQuadMesh(poolSurfaceMesh);poolSurfaceMesh=null;
+ if(poolOnly())for(const p of [...players,...parkKids])if(p.grounded)p.y=poolFloorAt(p.x,p.z||0);
+ return true;
+}
+function parkEntranceDoor(){
+ const bays=Math.ceil(gridWidth/1100),width=gridWidth/bays;
+ return {x:gridLeft+(Math.floor(bays*.52)+.5)*width,z:worldNear,half:190,height:350};
+}
+function startParkEntrance(p,now){
+ // The walk-in is a welcome for a person holding a pad; bots start playing.
+ if(selfPlay||p.bot||p.npc||globalThis.__oskiewarParkIntro===false)return;
+ const door=parkEntranceDoor();p.x=p.spawnX=door.x;p.z=door.z-1100;p.y=poolFloorAt(p.x,p.z);
+ p.vx=p.vy=p.vz=0;p.grounded=true;p.poolYaw=poolCameraYaw=Math.PI/2;
+ p.skateboard=p.onewheel=false;p.parkEntrance={at:now,progress:0};
+ const target={x:p.x,y:p.y-145,z:p.z+250};
+ cameraDoll.snap({target,position:{x:p.x,y:p.y-145,z:p.z},width:700,perspective:1,fov:65,roll:0});
+}
+// The player walks in themselves (@jeffrey: "the player should have to
+// enter the door"). The run starts outside, first person and facing the
+// doors; progress is how far along the carpet they are, which drives the
+// camera from first into third person, and crossing the doorway ends it.
+// Wandering off, or dawdling past half a minute, hands back the normal camera.
+function updateParkEntrance(p,pad,dt,now){
+ const entry=p.parkEntrance;if(!entry)return false;
+ const door=parkEntranceDoor(),start=door.z-1100;
+ entry.progress=clamp(((p.z||0)-start)/(door.z+60-start),0,1);
+ if((p.z||0)>door.z+60||Math.hypot(p.x-door.x,(p.z||0)-start)>1600||now-entry.at>30e6)p.parkEntrance=null;
+ return false;
+}
+function parkHalfPipeHeight(x,z){
+  const p=parkHalfPipe3D,d=Math.abs(x-p.x),end=Math.abs(z-p.z);
+  if(d>=p.hx||end>=p.hz)return 0;
+  const curve=clamp(d-p.flat,0,p.radius);
+  let height=p.radius-Math.sqrt(Math.max(0,p.radius*p.radius-curve*curve));
+  if(d>p.flat+p.radius+p.deck)height=p.radius*(p.hx-d)/p.bank;
+  const taper=clamp((p.hz-end)/(p.hz-p.run),0,1);
+  return height*taper*taper*(3-2*taper);
+}
+const parkDeckY=floorY-pool.depth;
+const parkPalette={pool:[172,212,211],ground:[99,104,113],
+  hills:[[167,188,207],[185,172,209],[171,200,170]],ramp:[218,155,138],
+  wall:[210,202,190],base:[143,165,167],frame:[68,91,106],ceiling:[188,191,187],
+  glass:[174,218,233],light:[255,244,196]};
+const parkBuildingHeight=1900;
+const parkLights=[1200,3300,5400,7500].flatMap(x=>[-1650,1650].map(z=>({x,z,y:parkDeckY-1300})));
+function bowlDistance(x,z,bowl){
+  const dx=x-bowl.x,dz=z-bowl.z,a=Math.max(0,Math.abs(dx)-bowl.halfX),b=Math.max(0,Math.abs(dz)-bowl.halfZ),d=Math.hypot(a,b);
+  return {d,nx:d?Math.sign(dx)*a/d:0,nz:d?Math.sign(dz)*b/d:0,bowl};
+}
+function poolDistance(x,z){
+  let best=null;
+  for(const bowl of parkPools){const edge=bowlDistance(x,z,bowl);if(!best||edge.d-bowl.radius<best.d-best.bowl.radius)best=edge;}
+  return best;
+}
+function bowlHeight(x,z,bowl){
+  const d=Math.min(bowl.radius,bowlDistance(x,z,bowl).d),t=d/bowl.radius;
+  // A shallow depression, horizontal at both ends, with no vertical coping.
+  return parkDeckY+bowl.depth*(1+Math.cos(t*Math.PI))/2;
+}
+function parkGroundAt(x,z){
+  let height=0;
+  for(const h of parkHills){const r=(x-h.x)**2/h.rx**2+(z-h.z)**2/h.rz**2;if(r<1)height=Math.max(height,h.height*(1-r)**2);}
+  for(const r of parkRamps){const t=Math.min(1,(r.hx-Math.abs(x-r.x))/(r.hx-r.tx),(r.hz-Math.abs(z-r.z))/(r.hz-r.tz));height=Math.max(height,r.height*Math.max(0,t));}
+  return parkDeckY-Math.max(height,parkHalfPipeHeight(x,z));
+}
+function poolFloorAt(x,z=0){
+  const door=parkEntranceDoor();
+  if(Math.abs(x-door.x)<140&&z>door.z-1400&&z<door.z+650)return parkDeckY-20;
+  if(Math.hypot(x-5200,z+260)<360)return parkDeckY-18;
+  if(z<worldNear-parkLotMargin)return outdoorGroundAt(x,z);
+  const edge=poolDistance(x,z);
+  return edge.d<edge.bowl.radius?bowlHeight(x,z,edge.bowl):parkGroundAt(x,z);
+}
+// The far-right bowl is milk; its rim and floor still use the park's collision surface.
+function milkAt(x,z){
+ const bowl=parkPools[2],y=parkDeckY+32;
+ return bowlDistance(x,z,bowl).d<bowl.radius&&bowlHeight(x,z,bowl)>y?{y,bowl}:null;
+}
+function swimMilk(p,dt,throttle,driveX,driveZ,held,now){
+ const milk=milkAt(p.x,p.z||0);
+ if(!milk||p.y<=milk.y+4){p.swimming=false;return false;}
+ if(!p.swimming){spawnWaterSplash(p,milk.y);playDrum('whoosh',.35,panPlayer(p));emitSignal('splash',p.pad,0,0);}
+ p.swimming=true;p.grounded=false;p.poolVert=null;
+ const depth=p.y-milk.y;
+ p.vy+=(1800-3240*Math.min(1,depth/90))*dt;
+ if(held.includes('A'))p.vy-=1700*dt;
+ if(held.includes('X'))p.vy+=2200*dt;
+ p.vy*=Math.exp(-dt*2.8);
+ p.vx=(p.vx+driveX*throttle*1100*dt)*Math.exp(-dt*1.6);
+ p.vz=((p.vz||0)+driveZ*throttle*1100*dt)*Math.exp(-dt*1.6);
+ const before={x:p.x,y:p.y,z:p.z};p.x+=p.vx*dt;p.z+=p.vz*dt;p.y+=p.vy*dt;
+ const floor=poolFloorAt(p.x,p.z);if(p.y>floor){p.y=floor;p.vy=Math.min(0,p.vy);}
+ boundParkBody(p,before);
+ p.swimVx=Math.hypot(p.vx,p.vz);p.swimPhase=(p.swimPhase||0)+dt*(2.2+p.swimVx/200);
+ return true;
+}
+function drawCerealMilk(t){
+ const bowl=parkPools[2],y=parkDeckY+32;
+ if(!sceneBoundsVisible({minX:bowl.x-bowl.halfX-bowl.radius,maxX:bowl.x+bowl.halfX+bowl.radius,minY:y-10,maxY:y+10,minZ:bowl.z-bowl.halfZ-bowl.radius,maxZ:bowl.z+bowl.halfZ+bowl.radius}))return;
+ const radius=bowl.radius*Math.acos(2*32/bowl.depth-1)/Math.PI,ring=[];
+ for(let corner=0;corner<4;corner++)for(let i=0;i<=8;i++){
+  const a=(corner+i/8)*Math.PI/2,sx=corner===0||corner===3?1:-1,sz=corner<2?1:-1;
+  ring.push({x:bowl.x+sx*bowl.halfX+Math.cos(a)*radius,y,z:bowl.z+sz*bowl.halfZ+Math.sin(a)*radius});
+ }
+ // The milk and its cereal are still, so they are captured once as a
+ // retained mesh (one native draw) and rebuilt only when the layout moves
+ // the bowl. Re-clipping ~290 faces in QuickJS every frame cost 3–4 ms.
+ const key=bowl.x+':'+bowl.z;
+ if(cerealMilkMesh?.key!==key){
+  releaseQuadMesh(cerealMilkMesh);
+  cerealMilkMesh=captureQuadMesh(()=>{
+   const center={x:bowl.x,y,z:bowl.z};
+   for(let i=0;i<ring.length;i++){const a=ring[i],b=ring[(i+1)%ring.length];worldQuad(center,a,b,b,[250,246,224]);}
+   for(let i=0;i<32;i++){
+    const x=bowl.x+Math.sin(i*12.9898)*620,z=bowl.z+Math.sin(i*7.233+.8)*420;
+    if(!milkAt(x,z))continue;
+    const h=y-4-Math.sin(i)*2,outer=17+(i%4)*3,inner=outer*.46;
+    const point=(j,r)=>({x:x+Math.cos(j*Math.PI/4)*r,y:h,z:z+Math.sin(j*Math.PI/4)*r});
+    for(let j=0;j<8;j++)worldQuad(point(j,outer),point(j+1,outer),point(j+1,inner),point(j,inner),i%3?[219,159,68]:[183,113,47]);
+   }
+  });
+  cerealMilkMesh.key=key;
+ }
+ drawQuadMesh(cerealMilkMesh);
+}
+let cerealMilkMesh=null;
+function poolSlopeAt(x,z){
+  const {d,nx,nz,bowl}=poolDistance(x,z);
+  if(d<bowl.radius){
+    const slope=-bowl.depth*Math.PI/(2*bowl.radius)*Math.sin(d/bowl.radius*Math.PI);
+    return {x:slope*nx,z:slope*nz};
+  }
+  const e=.5;
+  return {x:(poolFloorAt(x+e,z)-poolFloorAt(x-e,z))/(2*e),z:(poolFloorAt(x,z+e)-poolFloorAt(x,z-e))/(2*e)};
+}
+const parkLotMargin=1800;
+const brokenParkWindows=new Set(),parkWindowShards=[],brokenParkRoof=new Set();
+const parkRoofCell=600;
+function parkRoofKey(x,z){return Math.floor((x-gridLeft)/parkRoofCell)+':'+Math.floor((z-worldNear)/parkRoofCell);}
+function breakParkRoof(p){
+ const key=parkRoofKey(p.x,p.z||0);if(brokenParkRoof.has(key))return false;
+ brokenParkRoof.add(key);releaseQuadMesh(parkBuildingMesh);parkBuildingMesh=null;releaseQuadMesh(parkRoofMesh);parkRoofMesh=null;
+ for(let i=0;i<16;i++){const a=i*2.39996;parkWindowShards.push({x:p.x+Math.cos(a)*100,y:parkDeckY-parkBuildingHeight,z:(p.z||0)+Math.sin(a)*100,vx:Math.cos(a)*160,vy:-180-i*10,vz:Math.sin(a)*160,life:2.4,size:10+i%4*5,rotation:a});}
+ if(parkWindowShards.length>216)parkWindowShards.splice(0,parkWindowShards.length-216);
+ playDrum('glass',.35,panPlayer(p));p.lastButton='ROOF BREAK';p.lastButtonAt=runtime().monotonicUs;return true;
+}
+function insidePark(x,z){return x>=gridLeft&&x<=gridLeft+gridWidth&&z>=worldNear&&z<=worldFar;}
+function parkWindowWalls(){
+  const l=gridLeft,r=gridLeft+gridWidth,n=worldNear,f=worldFar;
+  return [[l,n,r,n],[r,n,r,f],[r,f,l,f],[l,f,l,n]].map(([ax,az,bx,bz],id)=>{
+    const length=Math.hypot(bx-ax,bz-az),ux=(bx-ax)/length,uz=(bz-az)/length;
+    return {id,ax,az,bx,bz,length,ux,uz,nx:-uz,nz:ux,width:length/Math.ceil(length/1100)};
+  });
+}
+function breakParkWindow(wall,bay,at,velocity={}){
+  const key=wall.id+':'+bay;if(brokenParkWindows.has(key))return false;
+  brokenParkWindows.add(key);
+  releaseQuadMesh(parkWindowMeshes.get(key));parkWindowMeshes.delete(key);
+  for(let i=0;i<18;i++){
+    const phase=i*2.39996,u=(bay+.5)*wall.width+Math.sin(phase)*wall.width*.3;
+    parkWindowShards.push({x:wall.ax+wall.ux*u,y:at.y-80+Math.cos(phase)*100,z:wall.az+wall.uz*u,
+      vx:(velocity.vx||0)*.25+Math.sin(phase)*180,vy:-100-Math.abs(Math.cos(phase))*240,
+      vz:(velocity.vz||0)*.25+Math.cos(phase)*180,life:2.4,size:8+i%4*4,rotation:phase});
+  }
+  if(parkWindowShards.length>216)parkWindowShards.splice(0,parkWindowShards.length-216);
+  playDrum('glass',.8,panAt(at.x,at.z));emitSignal('park-window-break',-1,wall.id,bay);return true;
+}
+function resetParkWindows(){
+  brokenParkWindows.clear();brokenParkRoof.clear();parkWindowShards.length=0;
+  for(const mesh of parkWindowMeshes.values())releaseQuadMesh(mesh);parkWindowMeshes.clear();
+  releaseQuadMesh(parkBuildingMesh);parkBuildingMesh=null;releaseQuadMesh(parkRoofMesh);parkRoofMesh=null;
+}
+function parkWallContact(from,to,radius=25){
+  const contacts=[];
+  for(const w of parkWindowWalls()){
+    const old=(from.x-w.ax)*w.nx+(from.z-w.az)*w.nz,dist=(to.x-w.ax)*w.nx+(to.z-w.az)*w.nz;
+    if(old>=0?dist>=radius:dist<=-radius)continue;
+    const fraction=clamp(old/(old-dist||1),0,1);
+    const x=lerp(from.x,to.x,fraction),z=lerp(from.z,to.z,fraction);
+    const u=(x-w.ax)*w.ux+(z-w.az)*w.uz;
+    if(u<0||u>w.length)continue;
+    const door=parkEntranceDoor();
+    const contactY=Number.isFinite(to.y)?to.y:parkDeckY-90;
+    if(w.id===0&&Math.abs(x-door.x)<door.half-radius&&contactY>=parkDeckY-door.height+radius&&contactY<=parkDeckY+radius)continue;
+    const bay=Math.min(Math.ceil(w.length/1100)-1,Math.floor(u/w.width));
+    contacts.push({w,bay,u,old,dist,fraction});
+  }
+  return contacts;
+}
+function boundParkBody(p,previous={x:p.x,z:p.z||0}){
+  boundKartTrack(p,previous);
+  const tunnel=outdoorTunnelAt(p.x,p.z||0);
+  if(tunnel!==null&&p.y<tunnel+180&&(p.previousY??p.y)>=tunnel+180){p.y=tunnel+180;p.vy=Math.max(0,p.vy);}
+  const radius=p.pad===undefined?18:25,height=p.pad===undefined?40:180;
+  for(const {w,bay,u,old,dist} of parkWallContact(previous,{x:p.x,y:p.y-height/2,z:p.z||0},radius)){
+    const horizontal=u>bay*w.width+109+radius&&u<(bay+1)*w.width-109-radius;
+    const wt=parkDeckY-parkBuildingHeight+269,wb=parkDeckY-99;
+    const impactY=p.y-height*.5,impact=horizontal&&impactY>wt&&impactY<wb;
+    const speed=Math.hypot((p.vx||0)*w.nx+(p.vz||0)*w.nz,(p.vy||0)*.7);
+    if(impact&&(speed>450||p.attackKind||p.spin?.rate>5))breakParkWindow(w,bay,{x:p.x,y:impactY,z:p.z},p);
+    if(horizontal&&brokenParkWindows.has(w.id+':'+bay)&&p.y<=wb&&p.y-height>=wt)continue;
+    const correction=(old>=0?radius:-radius)-dist;
+    p.x+=w.nx*correction;p.z=(p.z||0)+w.nz*correction;
+    const normal=(p.vx||0)*w.nx+(p.vz||0)*w.nz;
+    p.vx=(p.vx||0)-w.nx*normal;p.vz=(p.vz||0)-w.nz*normal;
+  }
+  const race=outdoorCircuit(),x=clamp(p.x,Math.min(gridLeft-parkLotMargin,race.x-race.radius-1200)+25,Math.max(gridLeft+gridWidth+parkLotMargin,race.x+race.radius+1200)-25),
+    z=clamp(p.z||0,race.z-race.radius-1200+25,worldFar+parkLotMargin-25);
+  if(x!==p.x)p.vx=0;if(z!==p.z)p.vz=0;p.x=x;p.z=z;
+  const ceiling=parkDeckY-parkBuildingHeight+(p.pad===undefined?70:230);
+  if(insidePark(p.x,p.z)&&p.y<ceiling&&!brokenParkRoof.has(parkRoofKey(p.x,p.z||0))){
+    if(p.vy<-350&&(p.poolPipeLocked||p.skateboard||p.spin?.rate>5))breakParkRoof(p);
+    else {p.y=ceiling;p.vy=Math.max(0,p.vy);if(!p.poolVert?.pipe)p.poolVert=null;}
+  }
+}
+function terrainFloorAt(x, z = 0) {
+  if (poolOnly()) return poolFloorAt(x, z);
   // Outside the park the ground is flat, so the walls have something square
   // to stand out of and a body pushed past the lip still has a floor.
   if (x <= parkLeft) return floorY - parkSegments[0].lift - (parkSegments[0].rise || 0);
@@ -605,6 +1847,8 @@ function terrainFloorAt(x) {
   for (const segment of parkSegments) {
     if (x < segment.left || x > segment.right) continue;
     if (segment.kind === "flat") return floorY - segment.lift;
+    if (segment.kind === "pond") return floorY - segment.lift + segment.depth *
+      (indoorSkate()?1:Math.sin(Math.PI * (x - segment.left) / (segment.right - segment.left)));
     const run = segment.right - segment.left;
     // How far up the feature we are, measured from ITS bottom: `dir` says
     // which end that is. A transition rising to the right has its flat end on
@@ -683,7 +1927,7 @@ const platforms = Array.from({ length: survivalLevelCount }, (_, index) => {
 // and the fighter who takes the top deck has taken the one place both mid
 // decks feed into.
 //
-// The rows are chosen against one number: 586, the apex station gravity buys
+// The rows fit beneath the 403-unit apex the firmer station gravity buys
 // a held jump. Every step between ADJACENT decks is under it — floor to a low
 // deck is 270, low to mid is 360, mid to top is 270 — and every step that
 // skips a tier is over it. Floor to a mid deck is 630, and that 630 is the
@@ -698,7 +1942,7 @@ const platforms = Array.from({ length: survivalLevelCount }, (_, index) => {
 // bots stand under and stare at; a deck you reach by going somewhere first is
 // a route; and a deck you can reach from anywhere is not a deck, it is a step.
 // Decks over the park, not instead of it. The rows are still priced against
-// the 586-unit apex — the flat reaches row 3, row 3 reaches row 7, and the
+// the 403-unit apex — the flat reaches row 3, row 3 reaches row 7, and the
 // floor does NOT reach row 7 at 630 — so the climb keeps its route. What
 // changed is that the park is now the interesting way to travel and the decks
 // are the high ground above it. The bridge over the halfpipe is reachable
@@ -729,8 +1973,8 @@ const parkDecks = parkDeckPlan.map((deck, index) => ({
 // been entered at least once.
 const noLedges = [];
 let freeskateEntered = false;
-const activeLedges = () => survivalActive() ? platforms
-  : freeskateEntered && freeskateActive() ? noLedges : parkDecks;
+const activeLedges = (z = 0) => survivalActive() ? platforms
+  : freeskateEntered && freeskateActive() ? (indoorSkate() ? [...roofLedges, ...activeCubeLedges(z)] : noLedges) : parkDecks;
 // The station's landmarks, by column. On a ten-wide cube a bare `3` was
 // readable as "left of centre"; on twenty it is just a digit, and there were
 // a dozen of them scattered through spawn, pickup and re-serve code all
@@ -764,9 +2008,9 @@ const platformY = floorY;
 // The surface a thing at (x, y) is standing over: the nearest rung at or below
 // it, and the floor when there is no rung. Shadows, pickups and the bot all
 // ask this, so a rung that moves takes its furniture with it.
-function surfaceYAt(x, y) {
-  let surface = terrainFloorAt(x);
-  if (platformsEnabled()) for (const ledge of activeLedges())
+function surfaceYAt(x, y, z = 0) {
+  let surface = terrainFloorAt(x, z);
+  if (platformsEnabled()) for (const ledge of activeLedges(z))
     if (ledge.y < surface && ledge.y >= y - 1 &&
       x >= ledge.left && x <= ledge.right) surface = ledge.y;
   return surface;
@@ -776,10 +2020,10 @@ function surfaceYAt(x, y) {
 // span, so one answer serves fighters, grenades and the ball alike — and a
 // lattice change lands in all three at once. The highest crossed rung wins,
 // because that is the one a fall meets first.
-function ledgeCrossed(x, previousY, y, rise = 0, inset = 0) {
+function ledgeCrossed(x, previousY, y, rise = 0, inset = 0, z = 0) {
   if (!platformsEnabled()) return null;
   let hit = null;
-  for (const ledge of activeLedges()) {
+  for (const ledge of activeLedges(z)) {
     const top = ledge.y - rise;
     if (previousY > top || y < top) continue;
     if (x < ledge.left + inset || x > ledge.right - inset) continue;
@@ -880,7 +2124,8 @@ const fighterAnimationSpecs = {
 // A blade in the item hand stretches every hand strike. Kicks are legs.
 const meleeSpecFor = (player, kind) => {
   const spec = meleeSpecs[kind] || meleeSpecs.PUNCH;
-  if (!player?.swordHeld || kind === "KICK") return spec;
+  if ((!player?.swordHeld && !player?.axeHeld) || kind === "KICK") return spec;
+  if(player.axeHeld)return {...spec,reach:spec.reach*1.7,span:spec.span*1.7,swell:spec.swell*1.4,force:spec.force*1.6};
   return { ...spec, reach: spec.reach * 1.5, span: spec.span * 1.45,
     swell: spec.swell * 1.3, force: spec.force * 1.15 };
 };
@@ -942,22 +2187,15 @@ const skateKick = 400;
 const skateTop = 4200;
 // A lone head's stick push; past it, only slopes carry it faster.
 const headRollPush = 1300;
-// Vertical feel. The apex is the design constant — how high a fighter can
-// reach never changed — so every impulse here is paired with a gravity that
-// spends less time getting there. Rise is lighter than fall so the arc reads
-// as intent going up and commitment coming down.
+// Vertical feel. Rise is lighter than fall for a decisive landing. Mode
+// gravity below sets the height and airtime against each map’s deck spacing.
 const riseGravityFull = 4800;
 const fallGravityFull = 7200;
-// Station gravity. The space map spins up a little over half a G, and that
-// one number is what makes the floating decks a place you can go: at full
-// weight a jump tops out at 322 units — three and a half tiles — and the
-// lowest deck sits three tiles up with nothing above it worth reaching. At
-// .55 the apex is 586, so the deck stack overhead is climbable on legs, a
-// knocked fighter sails instead of dropping, and the hover board's airtime
-// becomes the traversal it is for. The climb keeps full weight: survival's
-// thirty-two rungs are spaced against the 322 apex, and floating that run
-// would let a runner skip rungs the ladder exists to make them earn.
-const spaceGravityScale = .55;
+// Fights use firmer gravity for a shorter, lower jump (403-unit apex).
+// That still clears the largest adjacent deck rise of 360 units. Freeskate
+// pairs this with a reduced launch to keep its useful height with less hang.
+// Survival retains the full-weight arc its rungs were built around.
+const spaceGravityScale = .8;
 const gravityScale = () => survivalActive() ? 1 : spaceGravityScale;
 const riseGravity = () => riseGravityFull * gravityScale();
 const fallGravity = () => fallGravityFull * gravityScale();
@@ -987,8 +2225,10 @@ const commandStreamTypeSize = (handleSize) => Math.max(18,
   Math.round(handleSize * (compactLayout() ? .8 : .88)));
 const commandHoldUs = 1100000;
 const commandFadeUs = 1900000;
+// PunchL rides last: it marks a punch thrown with the left hand (X, or Q),
+// so the striking arm — which is also the hitbox — is part of the input.
 const replayButtons = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
-  "A", "B", "X", "Y"];
+  "A", "B", "X", "Y", "PunchL", "Grab"];
 let cameraCenter = (worldLeft + worldRight) / 2;
 let cameraWidth = worldRight - worldLeft;
 let cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
@@ -1112,10 +2352,18 @@ class FightCamDoll {
     this.target = { x: cameraCenter, y: cameraCenterY, z: 0 };
     this.width = cameraWidth;
     this.perspective = 0;
+    // A second view (the P1 inset) sets these: where on the screen it draws,
+    // its lens, and the depth window it paints into. null means the stage.
+    this.viewport = null;
+    this.depthBase = -1.4;
+    this.depthSlope = 2.8 / 16000;
     this.fov = 55;
     this.roll = 0;
     this.dirty = true;
     this.view = null;
+    // Bumped by every prepare, so a program knows when to carry the camera
+    // again without comparing its fields.
+    this.revision = 0;
   }
 
   track(spec, dt, speed = 5) {
@@ -1166,14 +2414,16 @@ class FightCamDoll {
     const up = { x: baseUp.x * rollCos - baseRight.x * rollSin,
       y: baseUp.y * rollCos - baseRight.y * rollSin,
       z: baseUp.z * rollCos - baseRight.z * rollSin };
+    const port = this.viewport;
     this.view = { forward, right, up,
-      centerX: (stageLeft + stageRight) / 2,
-      centerY: (stageTop + stageBottom) / 2 +
+      centerX: port ? port.centerX : (stageLeft + stageRight) / 2,
+      centerY: port ? port.centerY : (stageTop + stageBottom) / 2 +
         (stageBottom - stageTop) * consoleFrameDrop(),
       orthoScale: (stageRight - stageLeft) / this.width,
-      focal: (stageRight - stageLeft) /
+      focal: port ? port.focal : (stageRight - stageLeft) /
         (2 * Math.tan(this.fov * Math.PI / 360)) };
     this.dirty = false;
+    this.revision++;
   }
 
   // World space to camera space, with the near distance left alone. Anything
@@ -1201,7 +2451,7 @@ class FightCamDoll {
     const perspectiveY = centerY - view.y * focal / depth;
     out.x = lerp(orthoX, perspectiveX, this.perspective);
     out.y = lerp(orthoY, perspectiveY, this.perspective);
-    out.z = clamp(depth / 16000 * 2.8 - 1.4, -1.4, 1.4);
+    out.z = clamp(depth * this.depthSlope + this.depthBase, -1.499, 1.4);
     return out;
   }
 
@@ -1211,14 +2461,39 @@ class FightCamDoll {
   // here with vertices that are already in front of it.
   project(point) {
     const view = this.toView(point);
+    // The one clip rule for a lone point: it cannot be cut, so it is pinned,
+    // and it says so. A caller that draws a fan or a capsule from a pinned
+    // point draws it wrong (raked across the frame, or filling it), so the
+    // callers that can skip an object skip it here, and the figure path
+    // trims its own segments at the plane before it ever asks.
+    const behind = view.z < cameraNear;
     view.z = Math.max(cameraPin, view.z);
-    return this.projectView(view);
+    const out = this.projectView(view);
+    out.behind = behind;
+    return out;
   }
 }
 
-const cameraDoll = new FightCamDoll();
-const cameraScale = () => (stageRight - stageLeft) / cameraDoll.width;
+let cameraDoll = new FightCamDoll();
+// The view being drawn: null is the stage. A second view swaps its own doll
+// in and names the rectangle it owns; projection, band clipping, LOD and the
+// figure code all read the doll and the rectangle, so a second camera is the
+// same renderer run again, not a second renderer.
+let clipView = null;
+function withRenderView(doll, rect, draw) {
+  const stageDoll = cameraDoll, previousClip = clipView;
+  cameraDoll = doll; clipView = rect;
+  emitFrameView(rect);
+  try { draw(); } finally {
+    cameraDoll = stageDoll; clipView = previousClip;
+    emitFrameView(previousClip);
+  }
+}
+let figureDrawScale=null;
+const cameraScale = () => figureDrawScale ?? (stageRight - stageLeft) / cameraDoll.width;
 let playerCameraYaw = 0;
+let skateIsoSide = 1;
+let skateIsoYaw = .3;
 let playerCameraPitch = 0;
 // A multiplier on the framed width, so zoom rides on top of automatic framing
 // rather than fighting it: the camera still guarantees both fighters are in
@@ -1227,6 +2502,294 @@ let playerCameraPitch = 0;
 // budget on a console whose JS never gets a JIT.
 let playerCameraZoom = 1;
 let triangleDepth = -1.4;
+// ---------------------------------------------------------------------------
+// The frame program. A host that offers `frame(buffer, length, strings)` gets
+// the whole paint as one program — a Float32Array of ops — and runs it with
+// its own interpreter (the web's is xbox/live/frame-vm.mjs). A host without
+// it gets the ops executed here, one host call each, exactly as before: the
+// console keeps its per-call bindings until its native interpreter lands,
+// and the test harness keeps counting triangles. Draw code never knows
+// which; it calls the same primitives either way.
+//
+// The op table (xbox/live/frame-vm.mjs is the other reader; keep them equal):
+//   1 VIEW     clipX clipY clipW clipH        NaN clipX = the whole stage
+//   2 FACE     x1 y1 z1 x2 y2 z2 x3 y3 z3 r g b
+//   3 DISC     x y depth radius r g b
+//   4 CAPSULE  x1 y1 x2 y2 depth width r g b
+//   5 TEXT     font x y size r g b string     font 0 comic 1 ywft 2 system 3 block
+//   6 BOX      x y w h r g b a
+//   7 LINE     x1 y1 x2 y2 width r g b
+//   8 WIPE     r g b
+//   9 CAMERA   position(3) right(3) up(3) forward(3) centerX centerY
+//              orthoScale focal perspective depthSlope depthBase near
+//              bandMinX bandMaxX bandMinY bandMaxY
+//  10 WORLD    x1 y1 z1 x2 y2 z2 x3 y3 z3 r g b   a world-space face: the
+//              interpreter takes it to the camera, cuts it at the near
+//              plane, projects it and cuts it to the band
+//  11 DEPTH    mode value   how WORLD faces take their depth from here on:
+//              0 their own projection, 1 flat at `value`, 2 their own
+//              projection plus `value` (shadows sit flat behind their
+//              caster; ground marks sit a hair in front of the ground)
+//  12 ASSET    handle vertexCount faceCount, vertices (x y z each), faces
+//              (four vertex ids, r g b, normal x y z each)   a retained mesh,
+//              sent once; the interpreter keeps it by handle
+//  13 MESH     handle lightX lightY lightZ   draw a retained mesh: each quad
+//              lit by the light, as two WORLD faces
+// Scene-level on purpose: a disc is seven numbers here and a fan of faces in
+// the interpreter, because on the console every typed-array element written
+// from JS costs about as much as a quarter of a host call.
+const FRAME_VIEW = 1, FRAME_FACE = 2, FRAME_DISC = 3, FRAME_CAPSULE = 4,
+  FRAME_TEXT = 5, FRAME_BOX = 6, FRAME_LINE = 7, FRAME_WIPE = 8,
+  FRAME_CAMERA = 9, FRAME_WORLD = 10, FRAME_DEPTH = 11, FRAME_ASSET = 12,
+  FRAME_MESH = 13;
+const hostFrame = typeof frame === "function" ? frame : null;
+let program = new Float32Array(hostFrame ? 1 << 16 : 0);
+let programLength = 0;
+const programStrings = [];
+// True only inside a paint on a host that takes programs. Outside a paint
+// (the harness calling a primitive on its own) every primitive is immediate.
+let programBuffered = false;
+function programRoom(count) {
+  if (programLength + count <= program.length) return;
+  const next = new Float32Array(program.length * 2);
+  next.set(program);
+  program = next;
+}
+function flushFrameProgram() {
+  if (!hostFrame || !programLength) return;
+  hostFrame(program, programLength, programStrings);
+  programLength = 0;
+  programStrings.length = 0;
+}
+// The host's own drawing functions, taken before they are shadowed. The
+// shadows are the emitter: buffered they write an op, immediate they are
+// the old call. Every draw site in the piece keeps calling the old names.
+{
+  const rawTriangle3d = typeof triangle3d === "function" ? triangle3d : null;
+  const rawTriangle = typeof triangle === "function" ? triangle : null;
+  const rawDisc3d = typeof disc3d === "function" ? disc3d : null;
+  const rawCapsule3d = typeof capsule3d === "function" ? capsule3d : null;
+  const rawWipe = wipe, rawBox = box, rawLine = line, rawWrite = write;
+  const rawSystemWrite = systemWrite;
+  const rawComicWrite = typeof comicWrite === "function" ? comicWrite : null;
+  const rawYwftWrite = typeof ywftWrite === "function" ? ywftWrite : null;
+  const text = (font, raw) => function (value, x, y, size, r = 255, g = 255, b = 255) {
+    if (!programBuffered) return raw(value, x, y, size, r, g, b);
+    programRoom(9);
+    const at = programLength;
+    program[at] = FRAME_TEXT; program[at + 1] = font; program[at + 2] = x;
+    program[at + 3] = y; program[at + 4] = size; program[at + 5] = r;
+    program[at + 6] = g; program[at + 7] = b;
+    program[at + 8] = programStrings.push(String(value)) - 1;
+    programLength = at + 9;
+  };
+  if (rawTriangle3d) triangle3d = function (x1, y1, z1, x2, y2, z2, x3, y3, z3, r = 255, g = 255, b = 255) {
+    if (!programBuffered) return rawTriangle3d(x1, y1, z1, x2, y2, z2, x3, y3, z3, r, g, b);
+    programRoom(13);
+    const at = programLength;
+    program[at] = FRAME_FACE;
+    program[at + 1] = x1; program[at + 2] = y1; program[at + 3] = z1;
+    program[at + 4] = x2; program[at + 5] = y2; program[at + 6] = z2;
+    program[at + 7] = x3; program[at + 8] = y3; program[at + 9] = z3;
+    program[at + 10] = r; program[at + 11] = g; program[at + 12] = b;
+    programLength = at + 13;
+  };
+  // A flat face on a host without a depth pass. It writes the FACE op itself:
+  // forwarding to triangle3d, which such a host does not have, crashed the
+  // Canvas2D fallback on its first buffered face.
+  if (rawTriangle) triangle = function (x1, y1, x2, y2, x3, y3, r = 255, g = 255, b = 255) {
+    if (!programBuffered) return rawTriangle(x1, y1, x2, y2, x3, y3, r, g, b);
+    const z = triangleDepth;
+    programRoom(13);
+    const at = programLength;
+    program[at] = FRAME_FACE;
+    program[at + 1] = x1; program[at + 2] = y1; program[at + 3] = z;
+    program[at + 4] = x2; program[at + 5] = y2; program[at + 6] = z;
+    program[at + 7] = x3; program[at + 8] = y3; program[at + 9] = z;
+    program[at + 10] = r; program[at + 11] = g; program[at + 12] = b;
+    programLength = at + 13;
+  };
+  if (rawDisc3d) disc3d = function (x, y, depth, radius, r, g, b) {
+    if (!programBuffered) return rawDisc3d(x, y, depth, radius, r, g, b);
+    programRoom(8);
+    const at = programLength;
+    program[at] = FRAME_DISC; program[at + 1] = x; program[at + 2] = y;
+    program[at + 3] = depth; program[at + 4] = radius; program[at + 5] = r;
+    program[at + 6] = g; program[at + 7] = b;
+    programLength = at + 8;
+  };
+  if (rawCapsule3d) capsule3d = function (x1, y1, x2, y2, depth, width, r, g, b) {
+    if (!programBuffered) return rawCapsule3d(x1, y1, x2, y2, depth, width, r, g, b);
+    programRoom(10);
+    const at = programLength;
+    program[at] = FRAME_CAPSULE; program[at + 1] = x1; program[at + 2] = y1;
+    program[at + 3] = x2; program[at + 4] = y2; program[at + 5] = depth;
+    program[at + 6] = width; program[at + 7] = r; program[at + 8] = g;
+    program[at + 9] = b;
+    programLength = at + 10;
+  };
+  wipe = function (r = 0, g = 0, b = 0) {
+    if (!programBuffered) return rawWipe(r, g, b);
+    programRoom(4);
+    const at = programLength;
+    program[at] = FRAME_WIPE; program[at + 1] = r; program[at + 2] = g;
+    program[at + 3] = b;
+    programLength = at + 4;
+  };
+  box = function (x, y, width, height, r = 255, g = 255, b = 255, a = 255) {
+    if (!programBuffered) return a === 255 ? rawBox(x, y, width, height, r, g, b)
+      : rawBox(x, y, width, height, r, g, b, a);
+    programRoom(9);
+    const at = programLength;
+    program[at] = FRAME_BOX; program[at + 1] = x; program[at + 2] = y;
+    program[at + 3] = width; program[at + 4] = height; program[at + 5] = r;
+    program[at + 6] = g; program[at + 7] = b; program[at + 8] = a;
+    programLength = at + 9;
+  };
+  line = function (x1, y1, x2, y2, width, r = 255, g = 255, b = 255) {
+    if (!programBuffered) return rawLine(x1, y1, x2, y2, width, r, g, b);
+    programRoom(9);
+    const at = programLength;
+    program[at] = FRAME_LINE; program[at + 1] = x1; program[at + 2] = y1;
+    program[at + 3] = x2; program[at + 4] = y2; program[at + 5] = width;
+    program[at + 6] = r; program[at + 7] = g; program[at + 8] = b;
+    programLength = at + 9;
+  };
+  write = text(3, rawWrite);
+  systemWrite = text(2, rawSystemWrite);
+  if (rawComicWrite) comicWrite = text(0, rawComicWrite);
+  if (rawYwftWrite) ywftWrite = text(1, rawYwftWrite);
+}
+// A second view names its rectangle for the interpreter; the stage clears it.
+function emitFrameView(rect) {
+  if (!programBuffered) return;
+  programRoom(5);
+  const at = programLength;
+  program[at] = FRAME_VIEW;
+  program[at + 1] = rect ? rect.x : NaN; program[at + 2] = rect ? rect.y : 0;
+  program[at + 3] = rect ? rect.w : 0; program[at + 4] = rect ? rect.h : 0;
+  programLength = at + 5;
+}
+// Immediate DISC and CAPSULE, for the hosts that run the ops here: the fans
+// filledDisc and filledCapsule always drew, now behind the same op shape the
+// interpreter reads. Buffered, the op crosses whole and the host fans it.
+function emitDisc(x, y, radius, r, g, b) {
+  if (!programBuffered) return false;
+  programRoom(8);
+  const at = programLength;
+  program[at] = FRAME_DISC; program[at + 1] = x; program[at + 2] = y;
+  program[at + 3] = triangleDepth; program[at + 4] = radius; program[at + 5] = r;
+  program[at + 6] = g; program[at + 7] = b;
+  programLength = at + 8;
+  return true;
+}
+function emitCapsule(x1, y1, x2, y2, width, r, g, b) {
+  if (!programBuffered) return false;
+  programRoom(10);
+  const at = programLength;
+  program[at] = FRAME_CAPSULE; program[at + 1] = x1; program[at + 2] = y1;
+  program[at + 3] = x2; program[at + 4] = y2; program[at + 5] = triangleDepth;
+  program[at + 6] = width; program[at + 7] = r; program[at + 8] = g;
+  program[at + 9] = b;
+  programLength = at + 10;
+  return true;
+}
+// The camera a WORLD face is seen through. Written only when the view being
+// drawn changes — a new doll, a re-prepared doll, a different clip rect — so
+// a frame of one camera carries it once and the inset a few times.
+let programCameraDoll = null, programCameraRevision = -1, programCameraClip;
+function beginFrameProgram() {
+  programBuffered = hostFrame !== null;
+  programLength = 0;
+  programStrings.length = 0;
+  programCameraDoll = null;
+  worldDepthMode = 0;
+  worldDepthValue = 0;
+}
+function endFrameProgram() {
+  try { flushFrameProgram(); } finally { programBuffered = false; }
+}
+function emitFrameCamera() {
+  const doll = cameraDoll;
+  if (doll.dirty || !doll.view) doll.prepare();
+  if (doll === programCameraDoll && doll.revision === programCameraRevision &&
+      clipView === programCameraClip) return;
+  programCameraDoll = doll;
+  programCameraRevision = doll.revision;
+  programCameraClip = clipView;
+  const v = doll.view, width = viewWidth();
+  programRoom(25);
+  const at = programLength;
+  program[at] = FRAME_CAMERA;
+  program[at + 1] = doll.position.x; program[at + 2] = doll.position.y;
+  program[at + 3] = doll.position.z;
+  program[at + 4] = v.right.x; program[at + 5] = v.right.y; program[at + 6] = v.right.z;
+  program[at + 7] = v.up.x; program[at + 8] = v.up.y; program[at + 9] = v.up.z;
+  program[at + 10] = v.forward.x; program[at + 11] = v.forward.y;
+  program[at + 12] = v.forward.z;
+  program[at + 13] = v.centerX; program[at + 14] = v.centerY;
+  program[at + 15] = v.orthoScale; program[at + 16] = v.focal;
+  program[at + 17] = doll.perspective; program[at + 18] = doll.depthSlope;
+  program[at + 19] = doll.depthBase; program[at + 20] = cameraNear;
+  program[at + 21] = clipView ? clipView.x : -width * guardBand;
+  program[at + 22] = clipView ? clipView.x + clipView.w : width * (1 + guardBand);
+  program[at + 23] = clipView ? clipView.y : -viewHeight * guardBand;
+  program[at + 24] = clipView ? clipView.y + clipView.h : viewHeight * (1 + guardBand);
+  programLength = at + 25;
+}
+function emitWorldFace(ax, ay, az, bx, by, bz, cx, cy, cz, r, g, b) {
+  emitFrameCamera();
+  programRoom(13);
+  const at = programLength;
+  program[at] = FRAME_WORLD;
+  program[at + 1] = ax; program[at + 2] = ay; program[at + 3] = az;
+  program[at + 4] = bx; program[at + 5] = by; program[at + 6] = bz;
+  program[at + 7] = cx; program[at + 8] = cy; program[at + 9] = cz;
+  program[at + 10] = r; program[at + 11] = g; program[at + 12] = b;
+  programLength = at + 13;
+}
+// How world faces take their depth: see DEPTH above. Both paths honour it —
+// projectedTriangle here, the interpreter there — and every caller restores
+// mode 0 when it is done.
+let worldDepthMode = 0, worldDepthValue = 0;
+function setWorldDepth(mode, value = 0) {
+  worldDepthMode = mode;
+  worldDepthValue = value;
+  if (!programBuffered) return;
+  programRoom(3);
+  const at = programLength;
+  program[at] = FRAME_DEPTH; program[at + 1] = mode; program[at + 2] = value;
+  programLength = at + 3;
+}
+// A retained mesh: uploaded into the program the first time this host's
+// interpreter sees it, drawn by handle after that. Handles are per page.
+let nextMeshHandle = 1;
+function emitMesh(mesh) {
+  emitFrameCamera();
+  if (!mesh.frameHandle) {
+    mesh.frameHandle = nextMeshHandle++;
+    const vc = mesh.vertices.length, fc = mesh.faces.length;
+    programRoom(4 + vc * 3 + fc * 10);
+    let at = programLength;
+    program[at++] = FRAME_ASSET; program[at++] = mesh.frameHandle;
+    program[at++] = vc; program[at++] = fc;
+    for (const v of mesh.vertices) { program[at++] = v.x; program[at++] = v.y; program[at++] = v.z; }
+    for (const f of mesh.faces) {
+      program[at++] = f.ids[0]; program[at++] = f.ids[1];
+      program[at++] = f.ids[2]; program[at++] = f.ids[3];
+      program[at++] = f.color[0]; program[at++] = f.color[1]; program[at++] = f.color[2];
+      program[at++] = f.normal[0]; program[at++] = f.normal[1]; program[at++] = f.normal[2];
+    }
+    programLength = at;
+  }
+  programRoom(5);
+  const at = programLength;
+  program[at] = FRAME_MESH; program[at + 1] = mesh.frameHandle;
+  program[at + 2] = globalLight.x; program[at + 3] = globalLight.y;
+  program[at + 4] = globalLight.z;
+  programLength = at + 5;
+}
+// ---------------------------------------------------------------------------
 // A match frame submits ~2100 faces. Buffering them into a Float32Array first
 // cost 5.7ms a frame where handing each one straight over costs 1.8ms —
 // twelve typed-array element writes in QuickJS are dearer than twelve
@@ -1247,8 +2810,46 @@ const triangleSafe = (value) => value > -32200 && value < 32200;
 function screenTriangle(x1, y1, x2, y2, x3, y3, r = 255, g = 255, b = 255) {
   if (!(triangleSafe(x1) && triangleSafe(y1) && triangleSafe(x2) &&
       triangleSafe(y2) && triangleSafe(x3) && triangleSafe(y3))) return;
+  if (clipView && !programBuffered) { scissorTriangle(x1, y1, x2, y2, x3, y3, r, g, b); return; }
   emitTriangle(x1, y1, triangleDepth, x2, y2, triangleDepth,
     x3, y3, triangleDepth, r, g, b);
+}
+// The stage's edge is the GPU viewport; a second view's edge is a rectangle
+// inside it, so its triangles are cut here. Whole-inside and whole-outside
+// are answered by compares; only a triangle on the border walks the edges.
+const scissorPoly = new Float64Array(28), scissorNext = new Float64Array(28);
+function scissorTriangle(x1, y1, x2, y2, x3, y3, r, g, b) {
+  const left = clipView.x, right = clipView.x + clipView.w;
+  const top = clipView.y, bottom = clipView.y + clipView.h;
+  const inside = (x, y) => x >= left && x <= right && y >= top && y <= bottom;
+  if (inside(x1, y1) && inside(x2, y2) && inside(x3, y3)) {
+    emitTriangle(x1, y1, triangleDepth, x2, y2, triangleDepth, x3, y3, triangleDepth, r, g, b);
+    return;
+  }
+  if ((x1 < left && x2 < left && x3 < left) || (x1 > right && x2 > right && x3 > right) ||
+      (y1 < top && y2 < top && y3 < top) || (y1 > bottom && y2 > bottom && y3 > bottom)) return;
+  let poly = scissorPoly, next = scissorNext, n = 3;
+  poly[0] = x1; poly[1] = y1; poly[2] = x2; poly[3] = y2; poly[4] = x3; poly[5] = y3;
+  for (let edge = 0; edge < 4; edge++) {
+    const axis = edge < 2 ? 0 : 1, bound = edge === 0 ? left : edge === 1 ? right : edge === 2 ? top : bottom;
+    const sign = edge === 0 || edge === 2 ? 1 : -1;
+    let m = 0;
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      const ax = poly[i * 2], ay = poly[i * 2 + 1], bx = poly[j * 2], by = poly[j * 2 + 1];
+      const da = ((axis ? ay : ax) - bound) * sign, db = ((axis ? by : bx) - bound) * sign;
+      if (da >= 0) { next[m * 2] = ax; next[m * 2 + 1] = ay; m++; }
+      if ((da >= 0) !== (db >= 0)) {
+        const t = da / (da - db);
+        next[m * 2] = ax + (bx - ax) * t; next[m * 2 + 1] = ay + (by - ay) * t; m++;
+      }
+    }
+    const swap = poly; poly = next; next = swap; n = m;
+    if (n < 3) return;
+  }
+  for (let i = 1; i + 1 < n; i++)
+    emitTriangle(poly[0], poly[1], triangleDepth, poly[i * 2], poly[i * 2 + 1], triangleDepth,
+      poly[i * 2 + 2], poly[i * 2 + 3], triangleDepth, r, g, b);
 }
 function screenRect(x, y, width, height, color) {
   const [r, g, b] = color;
@@ -1265,6 +2866,35 @@ function screenRect(x, y, width, height, color) {
 // body (bodies bottom out near -1.42; the shell maps (z + 1.5) / 3 into the
 // depth buffer, LESS_EQUAL). The web shell keeps box/line as they were.
 const nativeTrianglePass = typeof triangle3d === "function";
+// The other scene and text bindings, resolved the same way, once: a host
+// either has them at boot or never will, and a `typeof` on a hot path is a
+// global lookup the interpreter repeats for every capsule, disc and label.
+const nativeDisc = typeof disc3d === "function" ? disc3d : null;
+const nativeCapsule = typeof capsule3d === "function" ? capsule3d : null;
+const nativeSceneMesh = typeof sceneMesh === "function" ? sceneMesh : null;
+// sceneApi 2: a park mesh is validated, bounded and lit once natively and
+// drawn by handle; sceneMesh (sceneApi 1) stays the path on older consoles.
+const nativeMeshUpload = typeof meshUpload === "function" ? meshUpload : null;
+const nativeMeshDraw = typeof meshDraw === "function" ? meshDraw : null;
+const nativeMeshFree = typeof meshFree === "function" ? meshFree : null;
+const nativeRetainedMeshes = nativeMeshUpload !== null && nativeMeshDraw !== null;
+// sceneApi 3: a park figure goes over as one list of round cones and the host
+// raymarches it (xbox/native-bios/SdfPixelShader.hlsl). The ablate lane's
+// `sdf` flag turns it off; a host without the pass returns false and the
+// tessellated figure draws instead.
+const nativeSdfFigure = typeof sdfFigure === "function" ? sdfFigure : null;
+const nativeSdfBubble = typeof sdfBubble === "function" ? sdfBubble : null;
+// The host paints the sky behind everything (procedural gradient, sun and
+// cel clouds) from the frame's camera; the piece's own backdrop still draws
+// on hosts without it.
+const nativeSceneCamera = typeof sceneCamera === "function" ? sceneCamera : null;
+const nativeTriangles3d = typeof triangles3d === "function" ? triangles3d : null;
+const nativePostEffects = typeof postEffects === "function" ? postEffects : null;
+const hostComicWrite = typeof comicWrite === "function" ? comicWrite : null;
+const hostYwftWrite = typeof ywftWrite === "function" ? ywftWrite : null;
+const hostThemeReady = typeof themeReady === "function" ? themeReady : null;
+const hostThemeSprite = typeof themeSprite === "function" ? themeSprite : null;
+const hostThemeAssetReady = typeof themeAssetReady === "function" ? themeAssetReady : null;
 const hudDepth = -1.48;
 function hudBox(x, y, width, height, ...color) {
   if (!nativeTrianglePass) { box(x, y, width, height, ...color); return; }
@@ -1316,7 +2946,19 @@ function projectedTriangle(a, b, c, color) {
   // Positional, not spread: see the note on emitTriangle above. Every face a
   // frame submits comes through here, and `...color` built one throwaway
   // iterator apiece for ~2100 of them.
-  emitTriangle(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z,
+  if(color[3]<1&&typeof triangleAlpha==='function'){
+    triangleAlpha(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z,color[0],color[1],color[2],color[3]);return;
+  }
+  if (worldDepthMode === 0) {
+    emitTriangle(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z,
+      color[0], color[1], color[2]);
+    return;
+  }
+  const flat = worldDepthMode === 1;
+  const za = flat ? worldDepthValue : a.z + worldDepthValue;
+  const zb = flat ? worldDepthValue : b.z + worldDepthValue;
+  const zc = flat ? worldDepthValue : c.z + worldDepthValue;
+  emitTriangle(a.x, a.y, za, b.x, b.y, zb, c.x, c.y, zc,
     color[0], color[1], color[2]);
 }
 // Sutherland-Hodgman, one plane at a time. Both clips below are the same walk:
@@ -1362,10 +3004,10 @@ const bandEdges = [
 ];
 function clipScreenBand(polygon) {
   const width = viewWidth();
-  bandMinX = -width * guardBand;
-  bandMaxX = width * (1 + guardBand);
-  bandMinY = -viewHeight * guardBand;
-  bandMaxY = viewHeight * (1 + guardBand);
+  bandMinX = clipView ? clipView.x : -width * guardBand;
+  bandMaxX = clipView ? clipView.x + clipView.w : width * (1 + guardBand);
+  bandMinY = clipView ? clipView.y : -viewHeight * guardBand;
+  bandMaxY = clipView ? clipView.y + clipView.h : viewHeight * (1 + guardBand);
   let clipped = polygon;
   for (const distance of bandEdges) {
     if (clipped.length < 3) return [];
@@ -1380,6 +3022,8 @@ function clipScreenBand(polygon) {
 // Whether a projected vertex already sits inside the guard band. A NaN fails
 // every compare, so a broken projection falls through to the clipper.
 function bandContains(vertex) {
+  if (clipView) return vertex.x >= clipView.x && vertex.x <= clipView.x + clipView.w &&
+    vertex.y >= clipView.y && vertex.y <= clipView.y + clipView.h;
   const width = viewWidth();
   return vertex.x >= -width * guardBand && vertex.x <= width * (1 + guardBand) &&
     vertex.y >= -viewHeight * guardBand &&
@@ -1389,6 +3033,11 @@ function bandContains(vertex) {
 const triangleView = [{}, {}, {}];
 const triangleScreen = [{}, {}, {}];
 function worldTriangle(a, b, c, color) {
+  if (programBuffered) {
+    emitWorldFace(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z,
+      color[0], color[1], color[2]);
+    return;
+  }
   const viewA = cameraDoll.toView(a, triangleView[0]);
   const viewB = cameraDoll.toView(b, triangleView[1]);
   const viewC = cameraDoll.toView(c, triangleView[2]);
@@ -1557,9 +3206,11 @@ function losAngelesSun() {
   return { light: light * light * (3 - 2 * light), sunset };
 }
 
+let cachedConsoleHost;
 function consoleHost() {
+  if(cachedConsoleHost!==undefined)return cachedConsoleHost;
   const caps = typeof capabilities === "function" ? capabilities() : {};
-  return caps.platform === "xbox-uwp" || caps.platform === "xbox";
+  return cachedConsoleHost = caps.platform === "xbox-uwp" || caps.platform === "xbox";
 }
 
 function consoleFrameDrop() {
@@ -1656,7 +3307,8 @@ const players = [
 // Survival and the versus lobby are both one-body rooms — the second chair
 // is parked off the map until somebody takes it.
 const activePlayers = () =>
-  survivalActive() || soloRoom() ? [players[0]] : players;
+  freeskateActive() ? (freeskateSecond ? players : [players[0]])
+    : survivalActive() || lobbyActive() ? [players[0]] : players;
 const impacts = [];
 
 // Every impact gets a number, in order, for the life of the run. A watcher
@@ -1665,6 +3317,264 @@ const impacts = [];
 // seen, and a position is not an identity. The counter is simulation state:
 // a rollback that re-spawns an impact must re-issue the same number.
 let impactSequence = 0;
+
+// ── Marks on the world ──────────────────────────────────────────────────
+// Blood, wheel scars and dings are decals laid on the ground's own surface,
+// following its slope, and they stay: a park keeps the history of what was
+// done in it. Blood is droplets first — thrown from a wound the way the hit
+// went, falling under gravity — and a splat where each lands, stretched by
+// how fast it was going sideways, wet and bright at first and drying darker.
+// Everything here is dealt from one seeded sequence, so a replay marks the
+// floor the same way. A fighter's own marks (scars) live on the fighter.
+const decals = [];
+const bloodDrops = [];
+const decalCap = 160;
+let poolDecalsNative=null,poolDecalCount=0;
+function clearPoolDecals(){
+  poolDecalCount=0;
+  poolDecalsNative=typeof decalClear==='function'&&typeof decalStamp==='function'&&
+    typeof decalMesh==='function'&&(nativeRetainedMeshes||typeof decalMeshUpload==='function')?decalClear():false;
+  if(poolOnly())seedStreetTexture();
+}
+let decalSeed = 7;
+function decalRandom() {
+  decalSeed = (Math.imul(decalSeed, 1103515245) + 12345) >>> 0;
+  return (decalSeed >>> 8) / 16777216;
+}
+function addDecal(decal) {
+  decal.seed = decalRandom() * 1000;
+  decal.at = runtime().monotonicUs;
+  // The ground under a mark never moves: its height and slope are read once
+  // here, not every frame for every corner.
+  decal.ground = terrainFloorAt(decal.x,decal.z) - .9;
+  const slope = terrainTangentAt(decal.x, 8), norm = Math.hypot(1, slope);
+  decal.tx = 1 / norm; decal.ty = slope / norm;
+  decal.shape = decalShape(decal);
+  if(poolOnly()){
+    if(poolDecalsNative===null)clearPoolDecals();
+    if(poolDecalsNative){
+      for(const patch of rasterDecalPatches(decal)){
+        const args=[...patch.uv,...patch.points.flatMap(p=>[(p.x-gridLeft+parkLotMargin)/(gridWidth+parkLotMargin*2)*parkDecalResolution,(p.z-worldNear+parkLotMargin)/(roomDepth+parkLotMargin*2)*parkDecalResolution])];
+        if(decal.color&&typeof decalTint==='function')decalTint(...args,...decal.color);else decalStamp(...args);
+      }
+      poolDecalCount++;
+      return decal;
+    }
+  }
+  // Blood landing in blood makes a pool rather than another mark: the
+  // splat it lands in grows (and freshens), so the count stays flat however
+  // much is spilled.
+  if (decal.kind === "blood") {
+    for (let index = decals.length - 1; index >= Math.max(0, decals.length - 40); index--) {
+      const pool = decals[index];
+      if (pool.kind !== "blood") continue;
+      if (Math.hypot(pool.x - decal.x, pool.z - decal.z) < pool.size * 1.25 + 6) {
+      pool.size = Math.min(34, Math.hypot(pool.size, decal.size * .55));
+      pool.rasterPatches = null;
+        pool.at = Math.max(pool.at, decal.at - 8e6);
+        return pool;
+      }
+    }
+  }
+  decals.push(decal);
+  // Pool marks belong to the surface for the entire run; new marks never
+  // evict old ones. Other maps retain their existing combat budget.
+  if (!poolOnly() && decals.length > decalCap) decals.splice(0, decals.length - decalCap);
+  return decal;
+}
+// A mark's outline, fixed when it lands: corners as (along, across) on the
+// surface, jagged by its seed and stretched along its angle, in units of its
+// size so a growing pool keeps its shape.
+function decalShape(decal) {
+  const sides = decal.kind === "wheelmark" ? 4 : decal.size < 8 ? 5 : 7;
+  const jag = decal.kind === "ding" ? .35 : decal.kind === "wheelmark" ? .1 : .28;
+  const cosA = Math.cos(decal.angle || 0), sinA = Math.sin(decal.angle || 0);
+  const corners = [];
+  for (let corner = 0; corner < sides; corner++) {
+    const theta = corner / sides * Math.PI * 2;
+    const wobble = 1 + jag * Math.sin(decal.seed * 1.7 + corner * 2.39) * Math.cos(decal.seed + corner * 1.13);
+    const u = Math.cos(theta) * wobble * (decal.stretch || 1), v = Math.sin(theta) * wobble;
+    corners.push(u * cosA - v * sinA, u * sinA + v * cosA);
+  }
+  return corners;
+}
+
+const lensBlood=[];
+function drawLensBlood(){
+ const now=runtime().monotonicUs,old=triangleDepth;triangleDepth=-1.46;
+ for(let i=lensBlood.length-1;i>=0;i--){const d=lensBlood[i],age=(now-d.at)/1e6;
+  if(age>=3){lensBlood.splice(i,1);continue;}
+  filledDisc(d.x*viewWidth(),(d.y+age*.012)*viewHeight,d.r*clamp((3-age)/.8,0,1),[116,12,31]);
+ }
+ triangleDepth=old;
+}
+function spawnBlood(x, y, z, direction, amount, spread = 1) {
+ if(poolOnly()&&amount>=8&&Math.hypot(x-cameraDoll.position.x,y-cameraDoll.position.y,z-cameraDoll.position.z)<750){
+  const point=projectPoint(x,y,z);
+  if(!point.behind)for(let i=0;i<5&&lensBlood.length<20;i++)lensBlood.push({x:clamp(point.x/viewWidth()+(decalRandom()-.5)*.35,.06,.94),y:clamp(point.y/viewHeight+(decalRandom()-.5)*.35,.1,.9),r:4+decalRandom()*12,at:runtime().monotonicUs});
+ }
+
+  for (let drop = 0; drop < amount && bloodDrops.length < 90; drop++) {
+    const push = direction ? direction * (180 + decalRandom() * 720) : (decalRandom() - .5) * 900;
+    bloodDrops.push({ x, y, z,
+      vx: push * spread + (decalRandom() - .5) * 240,
+      vy: -(120 + decalRandom() * 560) * spread,
+      vz: (decalRandom() - .5) * 360,
+      size: 1.6 + decalRandom() * 3.6 });
+  }
+}
+// A drop landing: a short low wet splat on dry ground (lower for a bigger
+// drop), a small higher plink when it lands in a pool. Spaced out so a
+// spray patters rather than buzzes.
+let bloodSoundAt = 0;
+function bloodDripSound(drop, intoPool) {
+  const now = runtime().monotonicUs;
+  if (now - bloodSoundAt < 45000) return;
+  bloodSoundAt = now;
+  const variation = decalRandom();
+  if (intoPool) playSine(620 + variation * 420 - drop.size * 30, .035);
+  else playSine(330 - drop.size * 28 + variation * 90, .05);
+  emitSignal("blood-drip", -1, intoPool ? 1 : 0, Math.round(drop.size * 10));
+}
+function updateBlood(dt) {
+  for (let index = bloodDrops.length - 1; index >= 0; index--) {
+    const drop = bloodDrops[index];
+    drop.vy += fallGravity() * dt;
+    drop.x += drop.vx * dt; drop.y += drop.vy * dt; drop.z += drop.vz * dt;
+    drop.z = clamp(drop.z, worldNear + 10, worldFar - 10);
+    const ground = terrainFloorAt(drop.x,drop.z);
+    if (drop.y < ground) continue;
+    const sideways = Math.hypot(drop.vx, drop.vz);
+    if (drop.kind === "wood") {
+      addDecal({ kind: "chip", x: drop.x, z: drop.z, size: drop.size * 2.2, stretch: 2.6,
+        angle: decalRandom() * Math.PI });
+      bloodDrops.splice(index, 1);
+      continue;
+    }
+    const splat = { kind: "blood", x: drop.x, z: drop.z, size: drop.size * (2 + decalRandom() * 1.8),
+      stretch: 1 + Math.min(2.6, sideways / 420), angle: Math.atan2(drop.vz, drop.vx) };
+    const landed = addDecal(splat);
+    bloodDripSound(drop, landed !== splat);
+    // A fast drop throws a couple of satellites on along its line.
+    if (sideways > 500 && drop.size > 3) for (let satellite = 1; satellite <= 2; satellite++)
+      addDecal({ kind: "blood", x: drop.x + drop.vx / sideways * satellite * drop.size * 5,
+        z: drop.z + drop.vz / sideways * satellite * drop.size * 5, size: drop.size * .7,
+        stretch: 1.3, angle: Math.atan2(drop.vz, drop.vx) });
+    bloodDrops.splice(index, 1);
+  }
+}
+// The board has a health of its own. Hard landings, slams into the floor,
+// kicks and bumps chip it: each chip throws wood splinters that land as
+// slivers on the floor and leaves a crack in the grip. At zero it snaps in
+// two — the rider is thrown off, the halves tumble away — and a fresh board
+// is set down beside the rider a couple of seconds later.
+const boardState = { health: 100, cracks: [], brokenAt: 0 };
+function spawnChips(x, y, z, amount, push = 0) {
+  for (let chip = 0; chip < amount && bloodDrops.length < 90; chip++)
+    bloodDrops.push({ kind: "wood", x, y, z,
+      vx: (decalRandom() - .5) * 700 + push, vy: -(200 + decalRandom() * 520),
+      vz: (decalRandom() - .5) * 300, size: 1.4 + decalRandom() * 2.4 });
+}
+function boardAtContact(x, y, z) {
+  let nearest=null, gap=Infinity;
+  for (const board of balls) if (board.type === "skateboard") {
+    const rider=players.find(p=>p.skateboard && !p.onewheel && boardForRider(p)===board);
+    const at=rider || board;
+    const d=Math.hypot(at.x-x,at.y-y,(at.z||0)-(z||0));
+    if(d<gap){gap=d;nearest=board;}
+  }
+  return nearest;
+}
+function boardCondition(board) { return board ? (board.condition ||= {health:100,cracks:[],brokenAt:0}) : boardState; }
+function damageBoard(amount, x, y, z, now = runtime().monotonicUs) {
+  const board = boardAtContact(x,y,z);
+  const state = boardCondition(board);
+  if (!(amount > 0) || state.brokenAt) return;
+  state.health = Math.max(0, state.health - amount);
+  spawnChips(x, y, z, Math.min(10, 2 + Math.round(amount / 4)));
+  state.cracks.push({ along: (decalRandom() - .5) * 90, across: (decalRandom() - .5) * 14,
+    length: 6 + amount * .8, angle: (decalRandom() - .5) * 1.6 });
+  if (state.cracks.length > 10) state.cracks.shift();
+  playDrum("block", .35 + Math.min(.6, amount / 30), panAt(x, z));
+  emitSignal("board-damage", -1, Math.round(state.health), Math.round(amount));
+  if (state.health <= 0) snapBoard(x, y, z, now, board);
+}
+function snapBoard(x, y, z, now, board = boardAtContact(x,y,z)) {
+  const state = boardCondition(board);
+  state.brokenAt = now;
+  const rider = players.find(player=>player.skateboard && !player.onewheel && boardForRider(player)===board);
+  if (rider) resetSkate(rider);
+  if (board) { board.active = false; board.heldBy = -1; }
+  for (const side of [-1, 1])
+    detachedParts.push({ x1: x + side * 6, y1: y - 18, z1: z, x2: x + side * 58, y2: y - 22, z2: z,
+      width: 14, color: [222, 182, 128], colors: [], paletteCoordinate: 0, part: "board-half",
+      vx: side * 380, vy: -620, spin: side * 7, life: 2.6, owner: -1, heldBy: -1, hitAfter: now + 180000 });
+  spawnChips(x, y - 20, z, 16);
+  playDrum("kick", 1.1, panAt(x, z));
+  playDrum("snare", .8, panAt(x, z));
+  emitSignal("board-snap", rider?.pad ?? -1, 1, 0);
+}
+function updateBoardState(now) {
+  for (const board of balls) if (board.type === "skateboard") {
+    const state=boardCondition(board);
+    if (!state.brokenAt || now-state.brokenAt<=2.4e6) continue;
+    state.health=100;state.brokenAt=0;state.cracks.length=0;
+    const rider=players[board.seat||0];
+    const at=rider.skateboard ? {...rider,skateboard:false} : rider;
+    placeFreeskateBoard(at,board);
+  }
+}
+
+// A hit on a body: a spray the way the blow went, a pool starting under it,
+// and a scar where the hit landed.
+function bleed(target, segment, sourceX, strength = 1) {
+  const direction = Math.sign(target.x - sourceX) || target.facing || 1;
+  const x = segment ? (segment.x1 + segment.x2) / 2 : target.x;
+  const y = segment ? (segment.y1 + segment.y2) / 2 : target.y - 100;
+  spawnBlood(x, y, target.z || 0, direction, Math.round(8 * strength));
+  addDecal({ kind: "blood", x: target.x + direction * 20, z: target.z || 0,
+    size: 9 + strength * 7, stretch: 1.2, angle: direction > 0 ? 0 : Math.PI });
+}
+function addScar(target, segment) {
+  if (!segment) return;
+  const scars = target.scars ||= [];
+  scars.push({ part: segment.part, role: segment.role,
+    t: .2 + decalRandom() * .6, angle: (decalRandom() - .5) * 1.1, at: runtime().monotonicUs });
+  if (scars.length > 12) scars.shift();
+}
+// Hard contact with the surface: a ding (a chip out of the ramp's skin).
+function addDing(x, z, size) {
+  addDecal({ kind: "ding", x, z, size, stretch: 1, angle: decalRandom() * Math.PI });
+}
+// Rubber on the ramp: a skid streak between two points under both wheels.
+function addSkid(x1, x2, z, strength = 1) {
+  if (Math.abs(x2 - x1) < 2) return;
+  addDecal({ kind: "skid", x: x1, x2, z, size: 3.2, strength });
+}
+function seedHalfpipeScuffs() {
+  if (!halfpipeOnly() || decals.length || poolDecalCount) return;
+  for (const [x,z,size,angle] of [[380,-140,65,.2],[510,160,48,-.3],
+      [820,200,45,.1],[1160,-80,38,.5],[1500,-170,65,-.2],[1730,90,55,.4]])
+    addDecal({kind:"scuff",x,z,size,angle,stretch:1.7,strength:.5});
+}
+function trackMonowheelSurface(player) {
+  if (!player.skateboard || !player.grounded) { player.wheelMarkAt=null; return; }
+  const at={x:player.x,z:player.z||0},previous=player.wheelMarkAt;
+  if (!previous) { player.wheelMarkAt=at; return; }
+  const distance=Math.hypot(at.x-previous.x,at.z-previous.z);
+  if(distance<18)return;
+  if(distance<140)addDecal({kind:"skid",x:previous.x,x2:at.x,z:previous.z,z2:at.z,
+    size:7,strength:.6});
+  player.wheelMarkAt=at;
+}
+function trackSkid(player, skidding, strength = 1) {
+  if (!skidding) { player.skidFrom = null; return; }
+  if (player.skidFrom === null || player.skidFrom === undefined) { player.skidFrom = player.x; return; }
+  if (Math.abs(player.x - player.skidFrom) > 34) {
+    addSkid(player.skidFrom, player.x, player.z || 0, strength);
+    player.skidFrom = player.x;
+  }
+}
 
 function spawnImpact(impact) {
   impact.id = ++impactSequence;
@@ -2073,6 +3983,9 @@ let impactHitboxesUntil = 0;
 let nextPowerupAtUs = powerupIntervalUs;
 let powerupSequence = 0;
 let acFeed = {};
+// When the feed was last read off the host, on the game clock; null until
+// the first read.
+let acFeedAt = null;
 // Pal select is retired: you are your own handle, so there is nobody to pick,
 // and the dummy is already the default opponent. The whole two-step screen
 // stays behind this one flag rather than being deleted, because the entry UI
@@ -2282,6 +4195,85 @@ let navigationPrevious = [[], []];
 // it. Every flag missing means the full picture; xbox/tools/oskiewar-ablate
 // walks them and reads the price back out of the live fps telemetry.
 let renderFlags = {};
+let aeselPulseSeen=null,aeselSeenAt=-Infinity;
+let aeselArtifact=null,aeselArtifactWire="";
+function triangulateAeselOutline(points){
+  if(!Array.isArray(points)||points.length<3||points.length>10||points.some(p=>!Array.isArray(p)||p.length!==2||p.some(v=>!Number.isInteger(v)||Math.abs(v)>9)))return null;
+  const cross=(a,b,c)=>(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
+  const n=points.length;
+  for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
+    if(j===i+1||i===0&&j===n-1)continue;
+    const a=points[i],b=points[(i+1)%n],c=points[j],d=points[(j+1)%n];
+    if(cross(a,b,c)*cross(a,b,d)<=0&&cross(c,d,a)*cross(c,d,b)<=0)return null;
+  }
+  const area=points.reduce((sum,p,i)=>{const q=points[(i+1)%n];return sum+p[0]*q[1]-q[0]*p[1];},0);
+  if(!area)return null;
+  const sign=Math.sign(area),indices=points.map((_,i)=>i),faces=[];
+  while(indices.length>3){
+    let clipped=false;
+    for(let j=0;j<indices.length;j++){
+      const a=indices[(j+indices.length-1)%indices.length],b=indices[j],c=indices[(j+1)%indices.length];
+      if(cross(points[a],points[b],points[c])*sign<=0)continue;
+      if(indices.some(k=>k!==a&&k!==b&&k!==c&&cross(points[a],points[b],points[k])*sign>=0&&cross(points[b],points[c],points[k])*sign>=0&&cross(points[c],points[a],points[k])*sign>=0))continue;
+      faces.push([a,b,c]);indices.splice(j,1);clipped=true;break;
+    }
+    if(!clipped)return null;
+  }
+  faces.push(indices);return faces;
+}
+function acceptAeselArtifact(wire){
+  if(typeof wire!=='string'||wire.length>320)return false;
+  let value;try{value=JSON.parse(wire);}catch{return false;}
+  if(!value||value.version!==1||value.kind!=='shirt-symbol'||
+    !['star','heart','flower','rainbow','custom','drawing'].includes(value.shape)||!/^#[0-9a-fA-F]{6}$/.test(value.color))return false;
+  if(value.shape==='drawing'&&(!Array.isArray(value.draw)||value.draw.length<1||value.draw.length>12||value.draw.some(c=>
+    !Array.isArray(c)||![0,1,2].includes(c[0])||c.length!==[5,7,8][c[0]]||c.some(v=>!Number.isInteger(v)||Math.abs(v)>16)||
+    c.at(-1)<0||c.at(-1)>2||c[0]===0&&(c[3]<1||c[3]>9)||c[0]===1&&(c[5]<1||c[5]>6))))return false;
+  if(value.animation!==undefined&&!['spin','pulse','float'].includes(value.animation))return false;
+  const faces=value.shape==='custom'?triangulateAeselOutline(value.points):null;
+  if(value.shape==='custom'&&!faces)return false;
+  if(wire===aeselArtifactWire)return true;
+  aeselArtifact={...value,faces,rgb:[1,3,5].map(i=>parseInt(value.color.slice(i,i+2),16))};
+  aeselArtifactWire=wire;
+  playDrum('bell',.45,0);
+  return true;
+}
+function drawAeselFairy(t){
+  const pulse=globalThis.__oskiewarRenderFlags?.aeselPulse,now=runtime().monotonicUs;
+  if(Number.isFinite(pulse)&&pulse!==aeselPulseSeen){aeselPulseSeen=pulse;aeselSeenAt=now;}
+  if(now-aeselSeenAt>3500000||!players[0].alive)return;
+  const head=runnerWorldGeometry(players[0],t).head;
+  const radius=head.radius+18;
+  const c={x:head.x+Math.sin(t*1.8)*radius,y:head.y-head.radius*.6+Math.sin(t*3)*5,z:head.z+Math.cos(t*1.8)*radius};
+  if(cameraDoll.dirty||!cameraDoll.view)cameraDoll.prepare();
+  const {right,up}=cameraDoll.view;
+  const at=(x,y)=>({x:c.x+right.x*x+up.x*y,y:c.y+right.y*x+up.y*y,z:c.z+right.z*x+up.z*y});
+  const wing=9+Math.sin(t*28)*4;
+  worldQuad(at(0,0),at(-wing,8),at(-wing,-5),at(0,-3),[183,243,237]);
+  worldQuad(at(0,-3),at(wing,-5),at(wing,8),at(0,0),[238,185,247]);
+  worldQuad(at(-2,5),at(2,5),at(2,-5),at(-2,-5),[255,231,127]);
+  const intent=globalThis.__oskiewarRenderFlags?.aeselIntent;
+  const caption=globalThis.__oskiewarRenderFlags?.aeselCaption;
+  const label=typeof caption==='string'?caption:intent===2?'PUTTING A STAR ON YOUR SHIRT':intent===1?'WORKING IN AESEL':'';
+  if(label){
+    const p=cameraDoll.project(c),saved=triangleDepth,size=42;
+    const maxChars=Math.max(18,Math.floor((viewWidth()-80)/(size*.54))),shown=label.length>maxChars?label.slice(0,maxChars-1)+"…":label,w=handleWidth(shown,size);
+    if(Number.isFinite(p.x)&&Number.isFinite(p.y)){
+      const x=Math.max(24,Math.min(viewWidth()-w-24,p.x-w/2)),y=Math.max(32,Math.min(viewHeight-48,p.y-42));
+      triangleDepth=-1.49;screenRect(x-8,y-5,w+16,44,[31,24,41]);typeWrite(shown,x,y,size,255,231,180);triangleDepth=saved;
+    }
+  }
+}
+function drawAeselConnect(){
+  if(!poolOnly()||!sessionName)return;
+  const label=sessionName,size=42,safe=hudSafeRect();
+  const saved=triangleDepth;triangleDepth=-1.49;
+  const qr=shellMode==='MENU'?spectatorQrBox():null;
+  const x=safe.right-handleWidth(label,size),y=qr?qr.top+qr.size+20:safe.top+18;
+  typeWrite(label,x+1,y+2,size,12,18,30);typeWrite(label,x,y,size,231,247,241);
+  triangleDepth=saved;
+}
+
 // Temporary live combat inspector. Keep this explicit so the production view
 // can return to a clean presentation without changing combat geometry.
 let debugHitboxes = false;
@@ -2308,7 +4300,7 @@ const frameMeterStates = {
   active:   { ink: [255, 66, 72], label: "ACTIVE" },
   recovery: { ink: [72, 150, 255], label: "RECOVERY" },
   stun:     { ink: [255, 208, 64], label: "STUN" },
-  shield:   { ink: [186, 118, 255], label: "SHIELD" },
+  shield:   { ink: [186, 118, 255], label: "BUBBLE" },
   airborne: { ink: [54, 62, 86], label: "" },
 };
 const frameMeters = [[], []];
@@ -2328,7 +4320,7 @@ function frameMeterState(player, now) {
 }
 function recordFrameMeter(now) {
   if (!debugHitboxes) return;
-  for (const player of players) {
+  for (const player of activePlayers()) {
     const meter = frameMeters[player.pad];
     meter.push(frameMeterState(player, now));
     if (meter.length > frameMeterLength) meter.shift();
@@ -2611,9 +4603,11 @@ function spectatorState(now, nextRoundId = "") {
     map: { id: currentMapId, name: currentMapName, highlights: workshopHighlight,
       ...(workshopMap ? { workshop: workshopMap } : {}) },
     at: run.unixMs || 0, phase,
+    aesel: {artifact:aeselArtifactWire},
+    park:poolOnly()?{enabled:true,sentAt:Date.now(),layoutSeed:parkLayoutSeed}:undefined,
     course: skateparkMap ? "skatepark" : "station",
-    ropes: skateRopes.map((rope) => rope.nodes.map((node) =>
-      [node.x, node.y, node.px, node.py].map((value) => Math.round(value * 100) / 100))),
+    ropes: skateRopes.length ? skateRopes.map((rope) => rope.nodes.map((node) =>
+      [node.x, node.y, node.px, node.py].map((value) => Math.round(value * 100) / 100))) : undefined,
     previousRoundId: previousRoundName ? "ow-" + previousRoundName : "",
     fighters: players.map((player) => ({
       // The title's still variant seats a fighter with no name yet, and the
@@ -2622,7 +4616,7 @@ function spectatorState(now, nextRoundId = "") {
       name: player.name || "NOBODY", nation: player.nation || "", color: player.color,
       x: player.x, y: player.y,
       z: player.z, vx: player.vx, vy: player.vy, vz: player.vz,
-      skateboard: player.skateboard,
+      skateboard: player.skateboard,poolYaw:player.poolYaw||0,
       ropeIndex: player.ropeIndex, ropeLink: player.ropeLink,
       skateRotation: player.skateRotation,
       facing: player.facing, alive: player.alive,
@@ -2739,7 +4733,7 @@ function publishSpectator(now, { target = matchName, nextRoundId = "",
 // which both points any watcher at the fight and retires this room's publisher
 // so the native shell's single socket is free to follow.
 function publishSession(now) {
-  if ((!debugHitboxes && !globalThis.__oskiewarWorkshopEnabled) ||
+  if ((!poolOnly() && !debugHitboxes && !globalThis.__oskiewarWorkshopEnabled) ||
       !sessionName || livePublishFailed ||
       typeof publishLive !== "function") return;
   const liveRound = roundIsTimed() && matchName ? matchName : "";
@@ -2832,10 +4826,29 @@ function recordReplayCheckpoint(now, force = false) {
     }
 }
 
+// A replay frame's copies are plain data — numbers, flags, colour arrays —
+// with no cycles, so they are copied field by field. On the console
+// structuredClone is the QuickJS polyfill, whose seen-map bookkeeping made
+// every capture (chains, shots, sparks, limbs, every other tick) cost the
+// long park a dozen milliseconds a frame.
+function replayCopy(value, depth = 0) {
+  if (value === null || typeof value !== "object" || depth > 8) return value;
+  if (Array.isArray(value)) {
+    const out = new Array(value.length);
+    for (let index = 0; index < value.length; index++)
+      out[index] = replayCopy(value[index], depth + 1);
+    return out;
+  }
+  if (ArrayBuffer.isView(value)) return value.slice();
+  const out = {};
+  for (const key in value) out[key] = replayCopy(value[key], depth + 1);
+  return out;
+}
+
 function makeRoundReplayFrame(now) {
   const poseTime = (now - startedAt) / 1000000;
   return {
-    ropes: structuredClone(skateRopes),
+    ropes: replayCopy(skateRopes),
     players: players.map((player) => ({
       present: !lobbyActive() || player.pad === 0,
       x: player.x, y: player.y, z: player.z,
@@ -2856,10 +4869,69 @@ function makeRoundReplayFrame(now) {
       vx: item.vx, vy: item.vy, active: item.active })),
     // What was in the air: shots, grenades and rockets, so a replay of a
     // kill shows the thing that made it.
-    bullets: structuredClone(bullets),
-    grenades: structuredClone(grenades),
+    bullets: replayCopy(bullets),
+    grenades: replayCopy(grenades),
+    // And what it did: the strike sparks, the death burst, a blast ring and
+    // the limbs that came off. Without them a replay was two bodies moving
+    // through an explosion that never showed.
+    impacts: replayCopy(impacts),
+    detachedParts: replayCopy(detachedParts),
     camera: { center: cameraCenter, centerY: cameraCenterY, width: cameraWidth },
   };
+}
+
+// Reconcile a live collection with a frame's copy without replacing the
+// objects that survive: render interpolation is keyed on object identity, so
+// a mote or a limb that keeps its object keeps its smooth motion between
+// ticks. `key` pairs entries across frames; index order is the fallback.
+function syncReplayCollection(target, source, key) {
+  const wanted = source || [];
+  const kept = [];
+  for (let index = 0; index < wanted.length; index++) {
+    const state = wanted[index];
+    const match = key
+      ? target.find((item) => item[key] === state[key] && !kept.includes(item))
+      : target[index];
+    if (match && !kept.includes(match)) {
+      syncReplayObject(match, state);
+      kept.push(match);
+    } else kept.push(structuredClone(state));
+  }
+  target.splice(0, target.length, ...kept);
+}
+
+function syncReplayObject(target, state) {
+  for (const field of Object.keys(state)) {
+    const value = state[field];
+    if (Array.isArray(value) && Array.isArray(target[field]) &&
+        target[field].length === value.length &&
+        value.every((entry) => entry && typeof entry === "object")) {
+      value.forEach((entry, index) => syncReplayObject(target[field][index], entry));
+    } else target[field] = value && typeof value === "object"
+      ? structuredClone(value) : value;
+  }
+  for (const field of Object.keys(target))
+    if (!(field in state)) delete target[field];
+}
+
+// Frames land every instantReplayStepUs; the sim ticks faster than that and
+// slower still under the action ramp, so a body read straight off the nearer
+// frame steps while its shadow and position glide. Blend the two neighbouring
+// poses by the cursor's fraction instead — every numeric field, head and
+// segment alike, when both frames describe the same body.
+function blendReplayGeometry(from, to, mix) {
+  if (!to || !from || mix <= 0 || !from.segments || !to.segments ||
+      from.segments.length !== to.segments.length) return from;
+  const lerpFields = (a, b) => {
+    const out = { ...a };
+    for (const field of Object.keys(a))
+      if (typeof a[field] === "number" && typeof b?.[field] === "number")
+        out[field] = a[field] + (b[field] - a[field]) * mix;
+    return out;
+  };
+  return { ...from, head: lerpFields(from.head, to.head),
+    segments: from.segments.map((segment, index) =>
+      lerpFields(segment, to.segments[index])) };
 }
 
 function captureRoundReplay(now, force = false) {
@@ -2897,17 +4969,23 @@ function captureFrameTelemetry(now, force = false) {
   frameTelemetryFlushAt = now + 1000000;
 }
 
-function applyRoundReplayFrame(frame, now) {
-  if (frame.ropes) skateRopes.splice(0, skateRopes.length, ...structuredClone(frame.ropes));
+function applyRoundReplayFrame(frame, now, next = null, mix = 0) {
+  if (frame.ropes) skateRopes.splice(0, skateRopes.length, ...replayCopy(frame.ropes));
   for (let index = 0; index < players.length; index++) {
     const player = players[index];
     const state = frame.players[index];
+    const ahead = next?.players[index];
     for (const key of ["x", "y", "z", "vx", "vy", "vz", "facing",
       "grounded", "ducking", "alive", "blocking", "blockFlash", "hit",
       "attackKind", "ropeIndex", "ropeLink", "skateRotation", "skateboard"]) player[key] = state[key];
+    const blend = ahead && mix > 0 && ahead.alive === state.alive;
+    if (blend)
+      for (const key of ["x", "y", "z"])
+        player[key] = state[key] + (ahead[key] - state[key]) * mix;
     player.attackStartedAt = now + state.attackStartedOffset;
     player.attackUntil = now + state.attackUntilOffset;
-    player.replayGeometry = state.geometry;
+    player.replayGeometry = blend
+      ? blendReplayGeometry(state.geometry, ahead.geometry, mix) : state.geometry;
   }
   const frameBalls = frame.balls || [frame.ball];
   for (let index = 0; index < balls.length; index++) {
@@ -2916,8 +4994,11 @@ function applyRoundReplayFrame(frame, now) {
     for (const key of ["x", "y", "z", "vx", "vy", "active"])
       balls[index][key] = state[key];
   }
-  if (frame.bullets) bullets.splice(0, bullets.length, ...structuredClone(frame.bullets));
-  if (frame.grenades) grenades.splice(0, grenades.length, ...structuredClone(frame.grenades));
+  // Frames recorded before a collection rode along leave the live one be.
+  if (frame.bullets) syncReplayCollection(bullets, frame.bullets);
+  if (frame.grenades) syncReplayCollection(grenades, frame.grenades);
+  if (frame.impacts) syncReplayCollection(impacts, frame.impacts, "id");
+  if (frame.detachedParts) syncReplayCollection(detachedParts, frame.detachedParts);
   cameraCenter = frame.camera.center;
   cameraCenterY = frame.camera.centerY;
   cameraWidth = frame.camera.width;
@@ -2966,7 +5047,17 @@ function frameAction(frame) {
 // Look ahead, so the ramp is already down by the time the punch arrives. A
 // slowdown that begins on the frame of impact has missed the impact.
 function replayActionCurve(frames) {
-  const raw = frames.map(frameAction);
+  // Being dead is a state, not an action: only the frame a fighter goes
+  // down counts. Scoring every frame after it held a death replay in
+  // slow motion to its last frame, twice — it read as a loop.
+  const raw = frames.map((frame, index) => {
+    const previous = frames[index - 1];
+    const stillDown = previous && frame.players.every((player, seat) =>
+      player.alive !== false || previous.players?.[seat]?.alive === false);
+    if (!stillDown) return frameAction(frame);
+    return frameAction({ ...frame,
+      players: frame.players.map((player) => ({ ...player, alive: true })) });
+  });
   return raw.map((_, index) => {
     let peak = 0;
     for (let at = index; at < Math.min(raw.length, index + replayActionLead); at++)
@@ -2990,7 +5081,7 @@ function startInstantReplay(now, respawn = null) {
   if (!INSTANT_REPLAY) return false;
   if (roundReplayFrames.length < 2) return false;
   const frames = respawn ? roundReplayFrames.slice(-90) : roundReplayFrames.slice();
-  instantReplay = { frames, cursor: 0, lastAt: now, paused: false,
+  instantReplay = { frames, cursor: 0, lastAt: now, startedAt: now, paused: false,
     respawn,
     previous: padSnapshots[0]?.down?.slice() || [],
     action: replayActionCurve(frames), speed: 1,
@@ -3012,7 +5103,7 @@ function startInstantReplay(now, respawn = null) {
 }
 
 function queueSoloDeathReplay(player, now) {
-  if (player.pad !== 0 || netSession || roundViewer || localVersusActive() ||
+  if ((freeskateActive() && freeskateSecond) || player.pad !== 0 || netSession || roundViewer || localVersusActive() ||
       versusActive() || survivalActive() || soloDeathReplayPending || instantReplay) return;
   soloDeathReplayPending = { at: now + 500000,
     title: shellMode === "MENU", lobby: lobbyActive() };
@@ -3023,18 +5114,9 @@ function queueSoloDeathReplay(player, now) {
 
 function updateInstantReplay(now, dt) {
   if (!instantReplay) return;
+  // A replay is watched, not operated: no pause, no scrub, no skip. It
+  // plays through, winds back to its moment, plays it again and ends.
   const down = padSnapshots[0]?.down || [];
-  const pressed = (button) => down.includes(button) &&
-    !instantReplay.previous.includes(button);
-  if (pressed("B")) {
-    finishInstantReplay(now);
-    return;
-  }
-  if (pressed("A")) instantReplay.paused = !instantReplay.paused;
-  if (pressed("ArrowLeft") || pressed("ArrowRight")) {
-    instantReplay.paused = true;
-    instantReplay.cursor += pressed("ArrowLeft") ? -15 : 15;
-  }
   const elapsed = Math.max(0, now - instantReplay.lastAt) / 1000000;
   instantReplay.speed = replayRampStep(instantReplay.speed,
     instantReplay.action?.[Math.floor(instantReplay.cursor)] || 0, elapsed);
@@ -3045,6 +5127,12 @@ function updateInstantReplay(now, dt) {
       ? -step * 2.5 : step * instantReplay.speed;
   }
   instantReplay.lastAt = now;
+  // Whatever the footage does, a replay ends: a death replay in eight
+  // seconds, a round's in twenty-five.
+  if (now - instantReplay.startedAt > (instantReplay.respawn ? 8e6 : 25e6)) {
+    finishInstantReplay(now);
+    return;
+  }
   if (instantReplay.direction < 0 && instantReplay.cursor <= instantReplay.rewindTo) {
     instantReplay.cursor = instantReplay.rewindTo;
     instantReplay.direction = 1;
@@ -3062,7 +5150,9 @@ function updateInstantReplay(now, dt) {
       return;
     }
   }
-  applyRoundReplayFrame(instantReplay.frames[Math.floor(instantReplay.cursor)], now);
+  const at = Math.floor(instantReplay.cursor);
+  applyRoundReplayFrame(instantReplay.frames[at], now,
+    instantReplay.frames[at + 1] || null, instantReplay.cursor - at);
   instantReplay.previous = down.slice();
   const target = { x: cameraCenter, y: cameraCenterY, z: 0 };
   const visible = activePlayers();
@@ -3157,23 +5247,24 @@ function emitSignal(event, player = -1, value = 0, value2 = 0) {
   if (replay) replay.events.push([demoTick(runtime().monotonicUs), event,
     player, Math.round(value * 1000) / 1000, Math.round(value2 * 1000) / 1000]);
   if (netSilent) return;
-  if (typeof gameSignal === "function") gameSignal(event, player, value, value2);
+  if (typeof gameSignal === "function") gameSignal(event, Number.isInteger(player) && player >= 0 && player <= 3 ? player : -1, value, value2);
 }
 
-// Revision 37 exposes native bell/woosh voices in the mixer but its QuickJS
-// allowlist predates those names. Fall back without stopping the match; newer
-// hosts and the browser still receive the authored voice unchanged.
+// Older native hosts may not recognize the newer sound names. Keep their
+// fallback bounded until the native package catches up with the live piece.
 function playDrum(name, velocity = 1, pan = 0) {
   if (netSilent || typeof drum !== "function") return;
   try {
     drum(name, velocity, pan);
   } catch (error) {
-    if (name !== "bell" && name !== "whoosh") throw error;
+    if(name.startsWith('pad-')||name==='bass')return;
+    if(name==='gunshot'||name==='smg-shot'){try{drum('snare',velocity,pan);}catch(_){}return;}
+    if (!["bell", "whoosh", "glass", "glass-shard"].includes(name)) throw error;
     if (name === "bell" && typeof synth === "function") {
       try { synth(880, .12); } catch (_) {}
     }
     try {
-      drum(name === "bell" ? "hat" : "block", velocity * .65, pan);
+      drum(name === "bell" || name.startsWith("glass") ? "hat" : "block", velocity * .65, pan);
     } catch (_) {}
   }
 }
@@ -3723,6 +5814,16 @@ let nativeControllerCount = 0;
 let nativeControllerPolls = 0;
 function samplePad(index) {
   const pad = gamepad(index);
+  // Analog triggers read as buttons past half pull, so they strafe like the
+  // bumpers and travel over netplay the way every other button does.
+  // The console's native pad reports trigger values without an
+  // `analogTriggers` flag; only a pad that says its triggers are digital
+  // aliases (a small web pad) is left alone.
+  if (pad && pad.analogTriggers !== false && typeof pad.leftTrigger === "number" &&
+      Array.isArray(pad.down)) {
+    if ((Number(pad.leftTrigger) || 0) > .5 && !pad.down.includes("LeftTrigger")) pad.down = [...pad.down, "LeftTrigger"];
+    if ((Number(pad.rightTrigger) || 0) > .5 && !pad.down.includes("RightTrigger")) pad.down = [...pad.down, "RightTrigger"];
+  }
   if (pad && pad.localController === undefined && pad.connected === true &&
       typeof controllers === "function") {
     // Re-enumerate about twice a second; a pad joining mid-title waits at
@@ -3731,7 +5832,61 @@ function samplePad(index) {
       nativeControllerCount = controllers().length;
     if (index < nativeControllerCount) pad.localController = true;
   }
+  // One pad layout everywhere (@jeffrey, 2026-09-27): A kick (the gas on a
+  // board or kart), X punch, Y the other hand, B jump, A+X together the
+  // bubble. Only live play is translated — menus keep A confirm / B back —
+  // and bots and the harness speak the internal names directly.
+  if (pad && Array.isArray(pad.down) && livePlayButtons() &&
+      globalThis.__oskiewarLegacyButtons !== true)
+    pad.down = translateButtons(index, pad.down);
   return pad;
+}
+// Live play reads the one layout; menus read the raw pad (A confirm, B back).
+// The park is live from the title on — you walk in before pressing anything —
+// so its title counts, but never while the pause or select menu is open.
+function livePlayButtons() {
+  if (freeskateMenu || selecting) return false;
+  return shellMode === "GAME" || (poolOnly() && freeskateActive());
+}
+// Per-pad chord state. A, X and Y wait two samples for a partner — A+X is
+// the bubble, X+Y the grab — so a chord never starts with a stray kick or
+// punch; a tap shorter than the wait still arrives, as a four-sample press.
+const buttonChords = [];
+function translateButtons(index, down, seat = index) {
+  const s = buttonChords[index] ||= { a: 0, x: 0, y: 0, holdA: 0, holdX: 0, holdY: 0, latch: "" };
+  const A = down.includes("A"), X = down.includes("X"), Y = down.includes("Y");
+  if (!s.latch) {
+    if (!A && s.a > 0 && s.a < 3) s.holdA = 4;
+    if (!X && s.x > 0 && s.x < 3) s.holdX = 4;
+    if (!Y && s.y > 0 && s.y < 3) s.holdY = 4;
+  }
+  s.a = A ? s.a + 1 : 0; s.x = X ? s.x + 1 : 0; s.y = Y ? s.y + 1 : 0;
+  if (!s.latch) s.latch = A && X ? "bubble" : X && Y ? "grab" : "";
+  else if (!A && !X && !Y) s.latch = "";
+  const p = players[seat] || players[0], park = poolOnly() || depthControls();
+  const vehicle = p.skateboard || p.goKart || p.onewheel, gun = p.gunAmmo > 0;
+  const out = down.filter((b) => b !== "A" && b !== "B" && b !== "X" && b !== "Y");
+  const add = (b) => { if (!out.includes(b)) out.push(b); };
+  const held = (on, age, hold) => !s.latch && (on && age >= 3 || hold > 0);
+  const kick = held(A, s.a, s.holdA), left = held(X, s.x, s.holdX), right = held(Y, s.y, s.holdY);
+  if (s.holdA > 0) s.holdA--;
+  if (s.holdX > 0) s.holdX--;
+  if (s.holdY > 0) s.holdY--;
+  if (s.latch === "bubble" && A && X) add(park ? "RightShoulder" : "X");
+  // The 2D fight's grab is its internal A+B; the park reads Grab (parkHold).
+  if (s.latch === "grab" && X && Y) { if (park) add("Grab"); else { add("A"); add("B"); } }
+  // A punch held past a quarter second becomes a hold: the jab lands first,
+  // then the hand keeps its grip. Chalk and guns keep their own held meaning.
+  const heldPunch = !s.latch && !gun && !p.chalkColor &&
+    (X && s.x >= 15 || Y && s.y >= 15);
+  if (heldPunch) { if (park) add("Grab"); else { add("A"); add("B"); } }
+  if (kick) add(park ? (vehicle ? "ArrowUp" : "Y") : "A");
+  if (left || right) {
+    add(gun || (right && !park && heldItem(p)) ? "Y" : "B");
+    if (left && !right) add("PunchL");
+  }
+  if (down.includes("B")) add(park ? "A" : "ArrowUp");
+  return out;
 }
 const localControllerPair = () =>
   padSnapshots.every((pad) => pad?.localController === true);
@@ -3752,6 +5907,7 @@ function startLocalVersus(now) {
   globalThis.__oskiewarVersusRoom = "";
   gameSpeed = 1;
   startFightAgainst("local", now);
+  if (freeskateRequested() || indoorSkate()) for (const player of players) dressFreeskater(player);
   startInputPending = true;
   navigationPrevious = padSnapshots.map((pad) => pad?.down?.slice() || []);
 }
@@ -3763,6 +5919,11 @@ function updateLocalVersus(now) {
   // A second local pad must never take over a remote fight or a recording.
   if (roundViewer || netSession || selfPlay || resimActive || versusActive())
     return false;
+  if (freeskateActive()) {
+    updateFreeskatePlayers(paired, now);
+    localControllerMissing = -1;
+    return false;
+  }
   if (arrived && !localVersusActive()) startLocalVersus(now);
   if (!localVersusActive()) { localControllerMissing = -1; return false; }
   if (!paired) {
@@ -3936,6 +6097,16 @@ function beginSurvival(now) {
 // floats over it. The intro countdown is spent before the first frame so
 // somebody arriving from a QR code is moving, not watching a number.
 function beginTraining(now) {
+  // A freeskate console's title stands over the hall itself: your rider and
+  // the board, no bot, no dummy, no weapons — and the word under the
+  // wordmark says where START goes.
+  if (freeskateRequested()) {
+    beginFreeskate(now);
+    shellMode = "MENU";
+    gameplayStarted = false;
+    titleAttractMode = "still";
+    return;
+  }
   startFightAgainst(trainingOpponentKind(), now);
   shellMode = "MENU";
   gameplayStarted = false;
@@ -3958,28 +6129,127 @@ function beginTraining(now) {
   }
 }
 
-// Freeskate's instrument: the rider's ground speed, named by tier, bottom
-// left — so the skating can be tuned by eye and by number at once.
+// Freeskate's instruments. The mode is named top centre, and the bottom right
+// reads the rider out: speed in mph (tier-coloured, tier named), what they
+// are travelling as, horizontal and vertical speed, and altitude over the
+// ground beneath them. A fighter stands 180 units, so 100 units is a metre.
+// Speed is measured from where the rider actually went frame to frame, so it
+// is honest on a ramp, round a loop, up a vert wall or swinging on a chain.
 const speedTiers = [
   [runOverdriveTop, "zoom", [255, 92, 188]],
   [runTopSpeed, "sprint", [255, 176, 48]],
   [walkSpeed + 120, "run", [96, 214, 255]],
   [0, "walk", [230, 236, 248]],
 ];
-function drawFreeskateSpeed() {
-  const rider = players[0];
-  const speed = Math.abs(rider.skateboard && rider.grounded ? rider.skateVx : rider.vx);
-  const [, tier, ink] = speedTiers.find(([floor]) => speed >= floor);
+const unitsPerMetre = 100;
+const mph = (unitsPerSecond) => unitsPerSecond / unitsPerMetre * 2.23694;
+// What the character is doing right now, as a verb, with its measurement:
+// mph for moving, rpm for spinning.
+function statusVerb(rider, speed, includeSpin=true) {
+  const mphText = Math.round(mph(speed)) + " mph";
+  if (wallPressActive(rider)) return [rider.ducking ? "crouching against wall" : "pressing into wall", ""];
+  // Actions read before movement: a punch thrown while walking is a punch.
+  if (rider.blocking) return ["blocking", ""];
+  if (rider.parkGrabbing || rider.holdPad !== undefined) return ["holding", ""];
+  if (/punch/.test(rider.attackKind || "")) return ["punching", ""];
+  if (/kick/.test(rider.attackKind || "")) return ["kicking", ""];
+  if (rider.attackKind) return [String(rider.attackKind).replace(/_/g, " ").toLowerCase(), ""];
+  if (includeSpin && rider.spin) return ["spinning", Math.round(spinRpm(rider)) + " rpm"];
+  if (rider.swimming) return ["swimming", mphText];
+  if (rider.skateStall) return ["holding", ""];
+  if (rider.strafe) return ["strafing", ""];
+  if (!rider.grounded) return ["in the air", mphText];
+  if (isHeadOnly(rider)) return [speed < 30 ? "resting" : "rolling", speed < 30 ? "" : mphText];
+  if (rider.onewheel) return [speed < 30 ? "balancing" : "riding electric", speed < 30 ? "" : mphText];
+  if (rider.skateboard) return [speed < 30 ? "standing on the board" : "skating", speed < 30 ? "" : mphText];
+  if (rider.ducking) return [speed > 40 ? "crawling" : "crouching", speed > 40 ? mphText : ""];
+  if (speed < 30) return ["standing", ""];
+  if (speed > walkSpeed + 120) return ["running", mphText];
+  return ["walking", mphText];
+}
+function drawStatusVerb(rider, speed, ink) {
+  const [verb, measure] = statusVerb(rider, speed);
+  // Bottom right, just left of the big speed, at a size you read at a
+  // glance. The measurement is the big number beside it.
+  const text = verb;
   const safe = hudSafeRect();
-  const size = compactLayout() ? 30 : 44;
-  const x = safe.left + 8, y = safe.bottom - size;
-  typeWrite(tier, x + 3, y + 4, size, ...contrastShadow(ink));
-  typeWrite(tier, x, y, size, ...ink);
-  const number = String(Math.round(speed));
-  const small = Math.round(size * .5);
-  const numberX = x + handleWidth(tier, size) + 14;
-  typeWrite(number, numberX + 2, y + size - small + 3, small, ...contrastShadow(ink));
-  typeWrite(number, numberX, y + size - small, small, ...ink);
+  const size = 38;
+  const speedText = measure || "0 mph";
+  const x = Math.round(safe.right - handleWidth(speedText, 46) - 24 - handleWidth(text, size)), y = safe.bottom - 102;
+  typeWrite(text, x + 2, y + 3, size, ...contrastShadow(ink));
+  typeWrite(text, x, y, size, ...ink);
+}
+
+function drawBoardHealth(safe, ink) {
+  const health = boardState.brokenAt ? 0 : boardState.health;
+  const label = boardState.brokenAt ? "board snapped" : "board " + Math.round(health) + "%";
+  const color = health > 60 ? [120, 220, 150] : health > 30 ? [255, 196, 84] : [255, 96, 96];
+  const size = 20;
+  const x = safe.right - handleWidth(label, size), y = safe.bottom - 150;
+  typeWrite(label, x + 2, y + 3, size, ...contrastShadow(color));
+  typeWrite(label, x, y, size, ...color);
+}
+
+function drawFreeskateSpeed(ink = [245, 248, 255]) {
+  drawSeatPlayerHud(ink);return;
+  const rider = players[0];
+  const now = runtime().monotonicUs;
+  const meter = rider.hudMeter ||= { x: rider.x, y: rider.y, at: now, vx: 0, vy: 0 };
+  const elapsed = (now - meter.at) / 1000000;
+  if (elapsed > 0 && elapsed < .5) {
+    const blend = 1 - Math.exp(-elapsed * 10);
+    meter.vx += ((rider.x - meter.x) / elapsed - meter.vx) * blend;
+    meter.vy += ((meter.y - rider.y) / elapsed - meter.vy) * blend;
+  }
+  meter.x = rider.x; meter.y = rider.y; meter.at = now;
+  const speed = Math.hypot(meter.vx, meter.vy);
+  const [, tier, tierInk] = speedTiers.find(([floor]) => speed >= floor);
+  const safe = hudSafeRect();
+  // The console rasterizes every new string, so the numbers refresh ten
+  // times a second rather than every frame, and only the big reading wears
+  // a shadow — together that was seven milliseconds of the frame.
+  const write = (text, rightX, y, size, color, shadow = false) => {
+    const x = rightX - handleWidth(text, size);
+    if (shadow) typeWrite(text, x + 2, y + 3, size, ...contrastShadow(color));
+    typeWrite(text, x, y, size, ...color);
+  };
+  if (!meter.text || now - (meter.textAt || 0) > 100000) {
+    meter.textAt = now;
+    meter.text = {
+      speed: rider.spin ? Math.round(spinRpm(rider)) + " rpm" : Math.round(mph(speed)) + " mph",
+      verb: statusVerb(rider, speed)[0],
+      axes: "h " + Math.round(mph(Math.abs(meter.vx))) + "  v " + Math.round(mph(meter.vy)) + " mph",
+      tier, moving: rider.swimming ? "swim" + (rider.skateboard ? " \u00b7 board" : "")
+        : (isHeadOnly(rider) ? "head" : rider.skateboard ? "skate" : "run") + " \u00b7 " + tier,
+      altitude: (seaLevelY - rider.y) / unitsPerMetre,
+    };
+  }
+  const readout = meter.text;
+  // Top centre: the mode.
+  const titleSize = compactLayout() ? 26 : 34;
+  const title = gameSpeed === 1 ? "freeskate" : "freeskate \u00b7 \u00d7" + gameSpeed;
+  typeWrite(title, viewCenterX() - handleWidth(title, titleSize) / 2 + 2,
+    safe.top + 3, titleSize, ...contrastShadow(ink));
+  typeWrite(title, viewCenterX() - handleWidth(title, titleSize) / 2,
+    safe.top, titleSize, ...ink);
+  // Bottom right, from the bottom up.
+  const big = compactLayout() ? 34 : 48, small = compactLayout() ? 16 : 22;
+  const right = safe.right - 8;
+  let y = safe.bottom - small;
+  // Altitude is a ruler up the right edge, measured from sea level (the
+  // course floor and the pond's surface): a tick each metre, a label every
+  // five, sea level marked, and the rider's own height pointed at.
+  drawAltitudeGauge(readout.altitude, safe, ink, small);
+  drawBoardHealth(safe, ink);
+  write(readout.axes, right, y, small, ink);
+  y -= Math.round(small * 1.45);
+  write(readout.moving, right, y, small, tierInk);
+  y -= big + 6;
+  write(readout.speed, right, y, big, tierInk, true);
+  // What the rider is doing, as a verb, just left of the number that
+  // measures it.
+  const verbSize = Math.round(big * .72);
+  write(readout.verb || "", right - handleWidth(readout.speed, big) - 22, y + big - verbSize, verbSize, ink, true);
 }
 
 // Freeskate never ends to the right. The long park repeats every 9,000
@@ -3989,8 +6259,113 @@ function drawFreeskateSpeed() {
 // circuit is a pad, the middle loop, a chain and a pad, forever. Never
 // mid-trick: a rider on a chain or inside a loop wraps once they are off it.
 const freeskateLap = { from: 20250, span: 9000 };
+// Freeskate has one rider. The second chair waits dead past the end of the
+// world; a round reset (a death replay ends in one) stands it back up as a
+// training dummy in the park — invisible, since freeskate never draws it,
+// but still a body with hitboxes — so it is parked again every tick.
+function parkFreeskateChair() {
+  if (freeskateSecond) return;
+  const chair = players[1];
+  if (!chair) return;
+  chair.alive = false;
+  chair.respawnAt = Infinity;
+  chair.x = worldRight + gridWidth;
+  chair.y = floorY;
+  chair.vx = chair.vy = 0;
+  chair.name = "";
+}
+
+function breakRoofPane(pane, x, rider) {
+  pane.broken = true;
+  rebuildRoofLedges();
+  const index = roofPanes.indexOf(pane);
+  const left = gridLeft + index * tileSize * roofPaneTiles;
+  const width = tileSize * roofPaneTiles;
+  // Shards are dealt from the pane's own number, so every replay of the
+  // same break throws the same glass.
+  for (let shard = 0; shard < 14; shard++) {
+    const seed = Math.sin((index + 1) * 12.9898 + shard * 78.233) * 43758.5453;
+    const random = (offset) => { const value = Math.sin(seed + offset) * 10000; return value - Math.floor(value); };
+    roofShards.push({ x: left + random(1) * width, y: indoorCeilingY, z: lerp(worldNear, worldFar, random(2)),
+      vx: (random(3) - .5) * 500 + (rider.vx || 0) * .2,
+      vy: rider.vy < 0 ? -random(4) * 600 : random(4) * 300,
+      rotation: random(5) * Math.PI * 2, spin: (random(6) - .5) * 14,
+      size: 10 + random(7) * 22, rest: 0 });
+  }
+  emitSignal("glass-break", rider.pad, index, Math.round(Math.abs(rider.vy)));
+  playDrum("glass", 1, panPlayer(rider));
+}
+
+function updateRoof(rider) {
+  const dt = 1 / 60;
+  // A broken pane regrows once the rider has been clear of it for a couple
+  // of seconds, so every trip up through the roof breaks fresh glass.
+  const paneWidth = tileSize * roofPaneTiles;
+  roofPanes.forEach((pane, index) => {
+    if (!pane.broken) return;
+    const left = gridLeft + index * paneWidth;
+    const near = rider.x > left - 120 && rider.x < left + paneWidth + 120 &&
+      Math.abs(rider.y - indoorCeilingY) < 420;
+    pane.clearFor = near ? 0 : (pane.clearFor || 0) + dt;
+    if (pane.clearFor > 2.2) {
+      pane.broken = false;
+      pane.clearFor = 0;
+      rebuildRoofLedges();
+      emitSignal("glass-mend", rider.pad, index, 0);
+    }
+  });
+  const headroom = isHeadOnly(rider) ? 50 : 200;
+  const pane = roofPaneAt(rider.x);
+  const top = rider.y - headroom;
+  // Rising into the glass from below (a rider already up on the roof is
+  // standing on it, not under it).
+  if (rider.vy < 0 && top < indoorCeilingY && top > indoorCeilingY - 120 &&
+      rider.y > indoorCeilingY + 20 && pane && !pane.broken && !pane.open) {
+    if (-rider.vy >= roofBreakSpeed) {
+      breakRoofPane(pane, rider.x, rider);
+      rider.vy *= .8;
+    } else {
+      rider.y = indoorCeilingY + headroom;
+      rider.vy = Math.abs(rider.vy) * .25;
+      emitSignal("bonk", rider.pad, 1, 0);
+      playDrum("block", .5, panPlayer(rider));
+    }
+  }
+  for (let index = roofShards.length - 1; index >= 0; index--) {
+    const shard = roofShards[index];
+    if (shard.rest > 0) {
+      shard.rest -= dt;
+      if (shard.rest <= 0) roofShards.splice(index, 1);
+      continue;
+    }
+    shard.vy += fallGravity() * dt;
+    shard.x += shard.vx * dt;
+    shard.y += shard.vy * dt;
+    shard.rotation += shard.spin * dt;
+    const ground = terrainFloorAt(shard.x);
+    if (shard.y >= ground) {
+      shard.y = ground;
+      shard.vx = shard.vy = shard.spin = 0;
+      shard.rest = 4;
+      // Landing shards use a short glass voice, quieter for small pieces.
+      if (index % 3 === 0)
+        playDrum("glass-shard", .22 + shard.size / 100, panPlayer(rider));
+    }
+  }
+}
+
 function wrapFreeskate() {
   if (!freeskateActive()) return;
+  if (players[1]?.alive || players[1]?.x < worldRight) parkFreeskateChair();
+  if (indoorSkate()) {
+    for (const player of activePlayers()) {
+      updateRoof(player);
+      resolveCubeSides(player, player.cubePreviousX ?? player.x);
+      player.cubePreviousX = player.x;
+    }
+    return;
+  }
+  if (halfpipeOnly()) return;
   const rider = players[0];
   if (rider.x < freeskateLap.from || rider.vx <= 0 ||
       rider.ropeIndex >= 0 || rider.skateLoop >= 0) return;
@@ -4009,23 +6384,351 @@ function wrapFreeskate() {
   emitSignal("freeskate-lap", rider.pad, 1, 0);
 }
 
+function drawAltitudeGauge(altitude, safe, ink, small) {
+  const low = -4;
+  const high = Math.max(10, Math.ceil((altitude + 3) / 5) * 5);
+  const x = safe.right - 6;
+  const top = safe.top + 70, bottom = safe.bottom - 200;
+  const yAt = (metres) => lerp(bottom, top, (metres - low) / (high - low));
+  hudLine(x, top, x, bottom, 2, ...ink);
+  const step = high > 40 ? 5 : 1;
+  for (let metres = Math.ceil(low / step) * step; metres <= high; metres += step) {
+    const major = metres % 5 === 0;
+    const y = yAt(metres);
+    hudLine(x - (major ? 16 : 8), y, x, y, major ? 2 : 1, ...ink);
+    if (major && metres !== 0) {
+      const label = String(metres);
+      typeWrite(label, x - 22 - handleWidth(label, small * .8), y - small * .4,
+        Math.round(small * .8), ...ink);
+    }
+  }
+  const sea = yAt(0), seaInk = [72, 168, 228];
+  hudLine(x - 34, sea, x + 2, sea, 3, ...seaInk);
+  typeWrite("sea", x - 34 - handleWidth("sea", small * .8) - 4, sea - small * .4,
+    Math.round(small * .8), ...seaInk);
+  const markY = yAt(clamp(altitude, low, high));
+  const markInk = altitude < 0 ? seaInk : [255, 176, 48];
+  hudBox(x - 12, markY - 3, 14, 6, ...markInk);
+  const reading = altitude.toFixed(1) + " m";
+  // Near sea level the reading would sit on the "sea" label; lift it clear.
+  const readingY = Math.abs(altitude) < 1.2 ? markY - small * 1.6 : markY - small * .5;
+  typeWrite(reading, x - 22 - handleWidth(reading, small), readingY, small, ...markInk);
+}
+
+// Freeskate's pause menu. Start opens it and the world holds still; up and
+// down pick a row, left and right step the game speed, A chooses. Speed runs
+// full, half and quarter, for working a trick through slowly.
+let freeskateMenu = null;
+const freeskateSpeeds = [1, .5, .25];
+const freeskateMenuRows = ["speed", "resume", "back to title"];
+function updateFreeskateMenu(now) {
+  const down = padSnapshots[0]?.down || [];
+  const pad = padSnapshots[0] || {};
+  const menu = freeskateMenu;
+  const stick = pad.leftY > .5 ? "ArrowUp" : pad.leftY < -.5 ? "ArrowDown"
+    : pad.leftX > .5 ? "ArrowRight" : pad.leftX < -.5 ? "ArrowLeft" : "";
+  const held = stick ? [...down, stick] : down;
+  const pressed = (button) => held.includes(button) && !menu.previous.includes(button);
+  if (pressed("ArrowUp")) menu.row = (menu.row + freeskateMenuRows.length - 1) % freeskateMenuRows.length;
+  if (pressed("ArrowDown")) menu.row = (menu.row + 1) % freeskateMenuRows.length;
+  const step = pressed("ArrowRight") ? 1 : pressed("ArrowLeft") ? -1 : 0;
+  if (step && menu.row === 0) {
+    const index = Math.max(0, freeskateSpeeds.indexOf(gameSpeed));
+    gameSpeed = freeskateSpeeds[clamp(index + step, 0, freeskateSpeeds.length - 1)];
+    gameSpeedChangedAt = now;
+    emitSignal("game-speed", -1, gameSpeed, 0);
+    playDrum("hat", .45, step * .3);
+  }
+  if (pressed("A")) {
+    if (menu.row === 1) freeskateMenu = null;
+    else if (menu.row === 2) { freeskateMenu = null; returnToTitle(now, "menu"); }
+    else {
+      const index = Math.max(0, freeskateSpeeds.indexOf(gameSpeed));
+      gameSpeed = freeskateSpeeds[(index + 1) % freeskateSpeeds.length];
+      gameSpeedChangedAt = now;
+      emitSignal("game-speed", -1, gameSpeed, 0);
+    }
+    playDrum("block", .45, 0);
+  }
+  if (freeskateMenu) freeskateMenu.previous = held.slice();
+}
+
+function drawFreeskateMenu(ink) {
+  if (!freeskateMenu) return;
+  const size = compactLayout() ? 34 : 50;
+  const gap = Math.round(size * 1.35);
+  const speedLabel = (speed) => speed === 1 ? "\u00d71" : speed === .5 ? "\u00d7\u00bd" : "\u00d7\u00bc";
+  const rows = [
+    "speed  " + freeskateSpeeds.map((speed) =>
+      speed === gameSpeed ? "[" + speedLabel(speed) + "]" : speedLabel(speed)).join("  "),
+    "resume", "back to title",
+  ];
+  const heading = "paused";
+  let y = Math.round(viewHeight * .32);
+  typeWrite(heading, viewCenterX() - handleWidth(heading, size * .7) / 2 + 3, y + 4,
+    Math.round(size * .7), ...contrastShadow(ink));
+  typeWrite(heading, viewCenterX() - handleWidth(heading, size * .7) / 2, y,
+    Math.round(size * .7), ...ink);
+  y += gap;
+  for (const [index, row] of rows.entries()) {
+    const chosen = index === freeskateMenu.row;
+    const label = (chosen ? "> " : "  ") + row;
+    const color = chosen ? [255, 176, 48] : ink;
+    const x = viewCenterX() - handleWidth(label, size) / 2;
+    typeWrite(label, x + 3, y + 4, size, ...contrastShadow(color));
+    typeWrite(label, x, y, size, ...color);
+    y += gap;
+  }
+}
+
+// Tricks and their windows. A window is when a move is possible, as a box in
+// the world and a time: debug mode draws each one (green while its time runs,
+// with a bar for what is left) so the moves can be found, timed and gamed.
+//
+//   stall     falling back past a coping out of a vert air, push back toward
+//             the pipe: the rider locks on the lip in a side hang, until they
+//             push toward the deck, press down, or two and a half seconds
+//             pass — then they drop back in.
+//   vert out  any vert air: a double-tap sideways leaves the pipe's plane.
+//   grab      airborne on the board: hold A to grab the deck.
+//   release   airborne on the board: double-down lets the board go.
+const stallHoldUs = 2500000;
+function copingNear(player, side, reach = 120) {
+  return parkSegments.find((segment) => segment.kind === "transition" &&
+    segment.dir === side &&
+    Math.abs((side > 0 ? segment.right : segment.left) - player.x) < reach) || null;
+}
+const holdWindowUs = 220000;
+function updateSkateTricks(player, input, now) {
+  const windows = player.trickWindows ||= [];
+  windows.length = 0;
+  if (player.skateStall) {
+    const stall = player.skateStall;
+    const release = input.horizontal === stall.side || input.vertical < 0 ||
+      now >= stall.until || !player.alive;
+    if (release) {
+      // Drop back in: from just inside the coping, onto the top of the wall.
+      player.x = stall.coping - stall.side * 10;
+      player.y = terrainFloorAt(player.x);
+      player.grounded = true;
+      player.skateVx = -stall.side * 300;
+      player.vx = player.skateVx; player.vy = 0;
+      player.skateStall = null;
+      player.pendingMoveLabel = "DROP IN";
+      emitSignal("skate-dropin", player.pad, stall.side, 0);
+    } else {
+      player.x = stall.x; player.y = stall.y;
+      player.vx = player.vy = player.skateVx = player.knockVx = 0;
+      player.grounded = true; player.skatePitch = 0;
+      windows.push({ name: "stall", x: stall.x - 70, y: stall.y - 200, w: 140, h: 210,
+        left: (stall.until - now) / stallHoldUs });
+    }
+    return;
+  }
+  const riding = player.skateboard || isHeadOnly(player) || player.footSurf;
+  // The hold (a hang on the coping) has exactly one way in: holding the
+  // opposite direction through the moment the rider leaves the lip — rolling
+  // up the transition and into the air. It is judged over the first few
+  // frames of the vert air, so the stick can already be held on the way up.
+  if (player.skateVert && !player.trickVertSide) player.trickVertAt = now;
+  player.trickVertSide = player.skateVert || 0;
+  if (player.skateVert) {
+    const side = player.skateVert;
+    const wall = copingNear(player, side);
+    windows.push({ name: "vert out 2x side", x: player.x - 90, y: player.y - 220, w: 180, h: 240 });
+    const fresh = now - (player.trickVertAt || 0) < holdWindowUs;
+    if (wall && fresh) {
+      const coping = side > 0 ? wall.right : wall.left;
+      windows.push({ name: "hold: hold back off the lip", x: coping - 70, y: player.y - 200, w: 140,
+        h: 220, left: 1 - (now - player.trickVertAt) / holdWindowUs });
+      if (riding && input.horizontal === -side) {
+        const x = coping + side * 22;
+        player.skateStall = { side, coping, x, y: terrainFloorAt(x), until: now + stallHoldUs };
+        player.skateVert = 0;
+        player.trickVertSide = 0;
+        player.skateGrab = false;
+        player.pendingMoveLabel = "HOLD";
+        playDrum("clap", .8, panPlayer(player));
+        emitSignal("skate-stall", player.pad, side, 0);
+      }
+    }
+  } else if (riding && player.grounded && (player.skatePitch || 0) &&
+      Math.abs(player.skatePitch) > .6) {
+    windows.push({ name: "hold: hold back at the lip", x: player.x - 60, y: player.y - 190, w: 120, h: 200 });
+  }
+  if (player.skateboard && !player.grounded && !depthControls()) {
+    windows.push({ name: player.skateGrab ? "grabbing" : "grab: hold A", x: player.x - 60,
+      y: player.y - 40, w: 120, h: 60 });
+    windows.push({ name: "release: 2x down", x: player.x - 60, y: player.y + 20, w: 120, h: 40 });
+  }
+  if (player.skateGrab && (player.grounded || !player.skateboard ||
+      !(inputPads[player.pad]?.down || []).includes("A"))) player.skateGrab = false;
+}
+
+function drawTrickWindows() {
+  if (!debugHitboxes || renderFlags.hud === false) return;
+  for (const player of players) {
+    for (const window of player.trickWindows || []) {
+      const corners = [[window.x, window.y], [window.x + window.w, window.y],
+        [window.x + window.w, window.y + window.h], [window.x, window.y + window.h]]
+        .map(([x, y]) => projectPoint(x, y, player.z || 0));
+      if (!corners.every((point) => Number.isFinite(point.x) && Number.isFinite(point.y))) continue;
+      const ink = window.left !== undefined ? [96, 255, 128] : [255, 214, 84];
+      for (let i = 0; i < 4; i++) {
+        const a = corners[i], b = corners[(i + 1) % 4];
+        hudLine(a.x, a.y, b.x, b.y, 2, ...ink);
+      }
+      typeWrite(window.name, corners[0].x + 4, corners[0].y + 4, 16, ...ink);
+      if (window.left !== undefined) {
+        const width = (corners[1].x - corners[0].x) * clamp(window.left, 0, 1);
+        hudBox(corners[3].x, corners[3].y - 6, Math.max(0, width), 5, ...ink);
+      }
+    }
+  }
+}
+
+// The freeskate skater wears a soft pastel skin, drawn in the clean vector
+// style: the photographed fighters are purple and green wood, and a
+// photograph cannot be re-tinted.
+// A new look every round: skin, hair and ribbon each step through their
+// own list (different lengths, so the combinations keep changing). The
+// first round is peach skin, brown hair and a light blue ribbon.
+const freeskateSkins = [[250, 214, 198], [252, 210, 222], [226, 214, 250], [210, 240, 226], [210, 228, 250], [250, 238, 200]];
+const freeskateHair = [[104, 68, 46], [42, 34, 32], [222, 184, 110], [150, 64, 40], [226, 222, 210], [44, 52, 74], [120, 84, 58]];
+const freeskateRibbons = [[150, 205, 255], [150, 240, 200], [205, 170, 255], [255, 190, 150], [255, 236, 140]];
+let freeskateLook = (Date.now()>>>0)||1;
+function generateParkProfile(seed){
+ let state=(seed>>>0)||1;
+ const random=()=>{state^=state<<13;state^=state>>>17;state^=state<<5;return (state>>>0)/4294967296;};
+ const pick=items=>items[Math.floor(random()*items.length)];
+ const age=18+Math.floor(random()*65),persona=pick(['teacher','artist','mechanic','dancer','librarian','botanist']);
+ const skin=pick([[250,214,198],[222,170,139],[170,116,86],[105,70,53],[242,204,169],[198,147,112]]).slice();
+ const hair=age>=58?pick([[200,198,190],[230,227,217],[134,137,144]]):pick(freeskateHair);
+ const appearance={skin,hair:hair.slice(),shirt:pick([[105,137,123],[189,136,158],[91,125,162],[210,176,111],[136,109,151]]).slice(),
+  pants:pick([[74,70,96],[99,119,116],[129,86,110],[84,104,137]]).slice(),shoes:[44,40,48],
+  hairStyle:pick(['short','long','curly']),sleeves:pick(['short','long']),beard:false,glasses:age>=58||random()<.3};
+ if(persona==='teacher'||persona==='librarian'){appearance.sleeves='long';appearance.glasses=true;}
+ if(persona==='mechanic')appearance.shirt=[86,110,131];
+ return {age,persona,chest:Math.round(random()*12),appearance};
+}
+function dressFreeskater(rider, advance = false) {
+ freeskateLook=(Math.imul(freeskateLook,1664525)+1013904223)>>>0;
+ const profile=generateParkProfile(freeskateLook+rider.pad),a=profile.appearance;
+ rider.parkProfile=profile;rider.skin='pastel';rider.color=a.skin;rider.hairColor=a.hair;
+ rider.shirtColor=a.shirt;rider.skirtColor=a.pants;rider.shoeColor=a.shoes;rider.pantsColor=null;
+ rider.accent=freeskateRibbons[freeskateLook%freeskateRibbons.length];rider.emo=false;
+}
+
+function freeskateCourse() {
+  const requested = String(globalThis.__oskiewarFreeskateMap || "").trim().toLowerCase();
+  return requested === "skatepark" || requested === "park" ? "park"
+    : requested === "indoor" ? "indoor" : requested === "halfpipe" ? "halfpipe" : "pool";
+}
+
+// Indoors you start on foot beside your one board; the long park still
+// drops you in riding.
+function boardForRider(player, loose = false) {
+  if (!loose && player.skateboard && !player.onewheel)
+    return balls[player.skateBoardId ?? 1];
+  let nearest = null, distance = Infinity;
+  for (const board of balls) {
+    if (board.type !== "skateboard" || !board.active || board.heldBy >= 0 ||
+        board.recalling && board.recalledBy !== player.pad) continue;
+    const gap = Math.hypot(board.x-player.x, (board.z||0)-(player.z||0), board.y-player.y);
+    if (gap < distance) { nearest=board; distance=gap; }
+  }
+  return nearest;
+}
+function ensureFreeskateBoards() {
+  if(poolOnly()){
+    const board=balls.find(item=>item.type==='skateboard');
+    if(board){board.seat=0;board.condition={health:100,cracks:[],brokenAt:0};placeFreeskateBoard(players[0],board);}
+    return;
+  }
+  if (halfpipeOnly()) return;
+  if (balls.filter(item=>item.type === "skateboard").length < 2)
+    balls.push({...skateBoardKind, x:0,y:floorY,z:0,vx:0,vy:0,rotation:0,
+      active:true,heldBy:-1,lastHitBy:-1,safeUntil:0,safePlayers:0,serveAt:0});
+  const boards=balls.filter(item=>item.type === "skateboard");
+  for (let seat=0;seat<2;seat++) {
+    const board=boards[seat]; board.seat=seat;
+    board.condition={health:100,cracks:[],brokenAt:0};
+    const rider=seat && !freeskateSecond ? {...players[0],x:players[0].x-340,z:0,skateboard:false} : players[seat];
+    placeFreeskateBoard(rider,board);
+  }
+}
+function placeFreeskateBoard(rider = players[0], chosen = null) {
+  if (!indoorSkate()&&!poolOnly()) return;
+  const board = chosen || balls.find(item=>item.type === "skateboard" && (item.seat||0) === rider.pad);
+  if (!rider || !board || rider.skateboard || board.condition?.brokenAt) return;
+  board.active = true;
+  board.heldBy = -1;
+  board.releasedBy = -1;
+  board.x = poolOnly()?1800:rider.x+(rider.facing || 1)*170;
+  board.y = terrainFloorAt(board.x) - 18;
+  board.z = poolOnly()?1800:rider.z || 0;
+  if(poolOnly())board.y=poolFloorAt(board.x,board.z)-18;
+  board.vx = board.vy = 0;
+  board.rotation = 0;
+  board.flipSpin = 0;
+  board.spatialSpin=false;board.poolYaw=0;board.yaw=board.yawRate=board.vz=0;
+  board.safeUntil = 0;
+}
+
+function updateFreeskatePlayers(paired, now) {
+  if (halfpipeOnly()) { freeskateSecond = false; parkFreeskateChair(); return; }
+  const player=players[1];
+  if(freeskateSecond){setSeatDummy(player,!paired,now);return;}
+  // A disconnected second controller becomes the same opponent under AI.
+  freeskateSecond=true;
+  applyRoster(player, 2);
+  resetSkate(player);
+  Object.assign(player, { alive:true, npc:false, bot:false, remote:false, spiderDummy:false,
+    x:clamp(players[0].x-160,worldLeft+100,worldRight-100), y:players[0].y,
+    z:0, vx:0, vy:0, vz:0, grounded:false, respawnAt:0, gunAmmo:0, grenadeAmmo:0,
+    swordHeld:false, removedParts:[], partDamage:{}, previous:[], lastTap:{}, lastRelease:{},
+    attackKind:'', hitStunUntil:0, facing:1, skin:'pastel' });
+  setSeatDummy(player,!paired,now);
+  player.spawnX = player.x;
+  dressFreeskater(player);
+  emitSignal("freeskate-join",1,1,0);
+}
+
+function setSeatDummy(p, dead, now) {
+ if(p.dummy===dead)return;
+ if(dead){
+  dismountSkateboard(p,now);
+  Object.assign(p,{dummy:true,alive:true,bot:false,npc:true,vx:0,vy:0,vz:0,
+   spin:null,attackKind:'',attackUntil:0,headBustedAt:0,respawnAt:Infinity,
+   frozenGeometry:null,fallenBodyGeometry:null,removedParts:[],partDamage:{},
+   grounded:true,y:terrainFloorAt(p.x),previous:[]});
+ }else Object.assign(p,{dummy:false,alive:true,bot:false,npc:false,respawnAt:0,
+   headBustedAt:0,removedParts:[],partDamage:{},previous:[]});
+}
 function freeskateRequested() {
   return String(globalThis.__oskiewarOpponent || "").trim().toLowerCase() === "freeskate";
 }
 
-// Freeskate boots straight onto the long park: the local rider on a board,
-// the second chair parked past the wall like the lobby's, and every weapon
-// pickup cleared so nothing on the course is a fight.
-function beginFreeskate(now) {
+// Freeskate starts with one rider beside a monowheel in the empty swimming pool.
+// The existing hall and long park remain explicit host options.
+function beginFreeskate(now, seededLayout = false) {
+  freeskateSecond = false;
   gameMode = "fight";
   selfPlay = false;
   fightOpponent = "freeskate";
   freeskateEntered = true;
+  freeskateMenu = null;
   finishReplay();
   seriesName = "";
   matchName = "";
   previousRoundName = "";
-  configureWorldMap("skatepark");
+  configureWorldMap("skatepark", freeskateCourse());
+  // The title and scripted runs stand in the base hall; a person pressing
+  // Start (enterGame) deals this room's layout.
+  if(poolOnly()){if(seededLayout)applyParkLayout(Math.floor(hashUnit(sessionName+' park layout')*4294967296));else restoreParkLayout();}
+  resetSkateRopes();
+  resetRoofPanes();
+  boardState.health = 100; boardState.cracks.length = 0; boardState.brokenAt = 0;
   const rider = players[0];
   // Dropped in the middle of the half-pipe's flat, facing a wall.
   rider.spawnX = tileCenterX(Math.floor((halfpipe.floorFrom + halfpipe.floorTo) / 2));
@@ -4038,6 +6741,7 @@ function beginFreeskate(now) {
   rider.spiderDummy = false;
   rider.remote = false;
   applyRoster(rider, rider.rosterIndex);
+  dressFreeskater(rider);
   const chair = players[1];
   chair.npc = true;
   chair.bot = false;
@@ -4049,16 +6753,25 @@ function beginFreeskate(now) {
   gameplayStarted = true;
   titleTransitionAt = null;
   resetRound(now, true);
-  chair.alive = false;
-  chair.respawnAt = Infinity;
-  chair.x = worldRight + gridWidth;
-  chair.y = floorY;
-  chair.name = "";
+  parkFreeskateChair();
   for (const pickup of [...gunPickups, ...saberPickups, ...grenadePickups])
     pickup.active = false;
-  // The rider starts on the board, so the loose board that dismounting
-  // throws stays put away until they come off it; no other ball rolls here.
+  if(poolOnly()){rider.spawnX=rider.x=parkHalfPipe3D.x;rider.z=parkHalfPipe3D.z;rider.y=poolFloorAt(rider.x,rider.z);}
+  // Clear loose vehicles before placing the course's board or monowheel.
   for (const item of balls) item.active = false;
+  if (indoorSkate() || halfpipeOnly()) {
+    resetSkate(rider);
+    rider.facing = 1;
+    placeFreeskateBoard();
+  }
+  ensureFreeskateBoards();
+  if(poolOnly()){rider.poolYaw=0;poolCameraYaw=0;poolCameraDip=0;poolCameraReturnYaw=null;}
+  resetMonowheel();
+  resetParkSupply(now);
+  resetParkKids();
+  resetParkWindows();
+  if(poolOnly()&&!Number.isFinite(startX))startParkEntrance(rider,now);
+  if(poolOnly()&&typeof qrcode==='function')spectatorQr=spectatorCode("https://oskiewar.com/?park="+sessionName);
   roundStartedAt = now - roundIntroDurationUs();
   emitSignal("freeskate", 0, 1, 0);
 }
@@ -4360,11 +7073,44 @@ function beginSelect(now) {
   }
 }
 
+function resetParkSession(now){
+ for(const p of [...players,...parkKids,...parkPeers.values()]){
+   garmentStates.delete(p);ponytailStates.delete(p);seatHudReadouts.delete(p);
+   Object.assign(p,{sparringPartner:undefined,sparringStartedAt:0,poolFightAxis:null,parkEntrance:null,
+    chalkColor:null,chalkPrevious:null,chalkDrawing:false,kartTrailPrevious:null,handItems:{},
+    poolPipeLocked:false,poolPipeEscapeUntil:0,poolTap:null,poolAnalogTap:null,poolAnalogKey:'',poolRunTime:0,
+    raceLoop:null,raceLoopCooldown:0,heartRate:62+(p.pad*7%19),heartPhase:0,heartDanger:0,
+    breathPhase:0,breathRate:11,health:4,headless:false,looseHead:null});
+ }
+ ragdollBodies.clear();parkPeers.clear();Object.assign(parkConnection,{at:0,ping:null,count:1});
+ for(const list of [decals,bloodDrops,lensBlood,waterSplashes,bubbleNotes,roofShards,crowdNotes,turboParticles,airParticles,impacts,detachedParts,bullets,grenades])list.length=0;
+ resetParkWindows();clearPoolDecals();
+ for(const mesh of outdoorChunks.values())releaseQuadMesh(mesh);outdoorChunks.clear();
+ for(const chunk of kartTrailChunks.values())for(const mesh of chunk.batches)releaseQuadMesh(mesh);kartTrailChunks.clear();
+ Object.assign(parkRecord,{angle:0,rate:1,phase:0,needle:.12,wobble:0,lastStep:-1});parkStereo.beat=0;crowdVoiceAt=0;
+ poolIdleSeconds=poolIdleClose=poolCameraYaw=poolCameraDip=0;poolCameraReturnYaw=null;
+ motorFrequency=75;motorSpeed=motorPhase=0;gameSpeed=1;parkLayoutSeed=null;
+ if(netSession)netLeave('title');netInbox.length=0;netPeerHello=null;
+ globalThis.__oskiewarNetInbox=[];
+ if(poolOnly()){sessionName=pronounceableMatchName();globalThis.__oskiewarSessionName=sessionName;}
+}
 function returnToTitle(now, reason = "back") {
+  // Park state only: the 2D fight keeps its own health scale and net seats.
+  if(poolOnly())resetParkSession(now);
+  parkKids.length=0;
+  resetRoofPanes();resetParkSupply(now);resetMonowheel();
+  waterSplashes.length=0;bubbleNotes.length=0;bottomGlass.fill(false);
+  decals.length=0;
+  roofShards.length=0;
+  for(const p of players){resetSkate(p);p.underPipe=false;p.axeHeld=false;p.axeHitAt={};p.resultReaction='';}
+  if(typeof skateAudio==='function')skateAudio(0,0);
+  if(motorRunning && typeof oscillatorStop==='function')oscillatorStop();motorRunning=false;
   finishReplay();
   if (survivalActive()) beginSurvival(now);
   else if (versusLane()) beginVersusLobby(now, { title: true });
   else beginTraining(now);
+  parkKids.length=0;
+  shellMode="MENU";gameplayStarted=false;titleTransitionAt=null;
   // Menu is a hard navigation boundary: discard the prior fight's zoom and
   // right-stick diorama angle before the very first title frame is painted.
   playerCameraYaw = 0;
@@ -4387,6 +7133,7 @@ function returnToTitle(now, reason = "back") {
     position: { x: cameraCenter, y: cameraCenterY,
       z: -cameraWidth * 1.2 },
     width: cameraWidth, perspective: 0, fov: 55, roll: 0 });
+  if(freeskateRequested()&&poolOnly())startParkEntrance(players[0],now);
   shellPrevious = padSnapshots[0]?.down?.slice() || [];
   selectionPrevious[0] = shellPrevious.slice();
   selectionPrevious[1] = padSnapshots[1]?.down?.slice() || [];
@@ -4403,6 +7150,9 @@ function returnToTitle(now, reason = "back") {
 function startSelfPlay(now) {
   gameMode = "fight";
   selfPlay = true;
+  // Self-play drives reels and mechanical tests: it keeps the base park so a
+  // run is the same run every time; people get the seeded layout.
+  restoreParkLayout();
   // The harness is not the free door. A self-play run armed from a live title
   // inherits whatever training was seated, and leaving that behind would keep
   // the whole mechanical test off the wire — no demo, no rollover.
@@ -4414,6 +7164,7 @@ function startSelfPlay(now) {
   for (const player of activePlayers()) {
     player.npc = true;
     player.bot = true;
+    player.parkEntrance = null;
     player.spiderDummy = false;
     player.remote = false;
     player.rosterIndex = -1;
@@ -4601,6 +7352,16 @@ function consumeSystemButtons(now) {
   // Self-play has no title to return to — a stray Menu press would strand the
   // loop on a screen nobody is there to start.
   if (!pressed || selfPlay || shellMode !== "GAME" || selecting) return false;
+  // In freeskate Start is the clock: full, half, quarter speed and round
+  // again, for working a trick through slowly. There is no round to leave.
+  // In freeskate Start opens the pause menu (speed, resume, title).
+  if (freeskateActive()) {
+    freeskateMenu = freeskateMenu ? null : { row: 0, previous: padSnapshots[0]?.down?.slice() || [] };
+    if(freeskateMenu&&motorRunning){if(typeof oscillatorStop==='function')oscillatorStop();else if(typeof oscillator==='function')oscillator(motorFrequency,0);motorRunning=false;}
+    playDrum("hat", .5, 0);
+    emitSignal("freeskate-menu", -1, freeskateMenu ? 1 : 0, 0);
+    return false;
+  }
   returnToTitle(now, "menu");
   return true;
 }
@@ -4608,6 +7369,14 @@ function consumeSystemButtons(now) {
 // Start lifts the wordmark off a fight that is already running underneath.
 function enterGame(now) {
   startInputPending = true;
+  // A freeskate console goes back to freeskate from its title — one rider,
+  // no dummy, no weapons — not into a sparring round.
+  if (freeskateRequested() && !roundViewer &&
+      !netSession && !versusActive()) {
+    beginFreeskate(now, true);
+    shellPrevious = padSnapshots[0]?.down?.slice() || [];
+    return;
+  }
   if (localControllerPair() && !roundViewer && !netSession && !versusActive()) {
     startLocalVersus(now);
     return;
@@ -4655,20 +7424,7 @@ function enterGame(now) {
 const paceLocked = () => netSession !== null || versusActive() ||
   roundViewer !== null;
 function updateMatchPace(now) {
-  const rawDown = padSnapshots[0]?.down || [];
-  const tap = (button) => rawDown.includes(button) &&
-    !shellRawPrevious.includes(button);
-  const faster = tap("SpeedUp");
-  const slower = tap("SpeedDown");
-  shellRawPrevious = rawDown.slice();
-  if (!faster && !slower) return;
-  const next = paceLocked() ? gameSpeed
-    : clamp(gameSpeed + (faster ? .25 : -.25), .25, 1);
-  if (next === gameSpeed) { playDrum("block", .3, 0); return; }
-  gameSpeed = next;
-  gameSpeedChangedAt = now;
-  playDrum("hat", .55, faster ? .35 : -.35);
-  emitSignal("game-speed", -1, gameSpeed, 0);
+  shellRawPrevious = (padSnapshots[0]?.down || []).slice();
 }
 
 function updateShell(now, tapped = false) {
@@ -4681,16 +7437,6 @@ function updateShell(now, tapped = false) {
   const rawDown = pad.down || [];
   const speedTap = (button) => rawDown.includes(button) &&
     !shellRawPrevious.includes(button);
-  if (speedTap("SpeedUp") || speedTap("SpeedDown")) {
-    const stepped = gameSpeed + (speedTap("SpeedUp") ? .25 : -.25);
-    const next = clamp(stepped, .25, 2);
-    if (next !== gameSpeed) {
-      gameSpeed = next;
-      gameSpeedChangedAt = now;
-      playDrum("hat", .55, speedTap("SpeedUp") ? .35 : -.35);
-      emitSignal("game-speed", -1, gameSpeed, 0);
-    } else playDrum("block", .3, 0);
-  }
   shellRawPrevious = rawDown.slice();
   // View and Menu are the system's buttons — View toggles the debug HUD and
   // must not double as "start the game". Everything else, and a real lean on
@@ -5551,7 +8297,7 @@ function blendRoundViewerStates(from, to, t, seconds) {
 // vocabulary, no system keys. View and Menu stay local: a rival must never
 // toggle the host's debug overlay or send their game back to the title.
 const versusInputButtons = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
-  "A", "B", "X", "Y", "LeftShoulder", "RightShoulder"];
+  "A", "B", "X", "Y", "LeftShoulder", "RightShoulder", "PunchL", "Grab"];
 // The buttons of the last frame the wire actually took, held apart from the
 // whole frame so a press can be told from a stick twitch.
 let versusInputLastDown = "[]";
@@ -5570,8 +8316,13 @@ function sendChallengerInput(now) {
   if (!versusAllowed()) return;
   const pad = typeof gamepad === "function" ? gamepad(0) : null;
   if (!pad) return;
-  const down = (pad.down || [])
-    .filter((button) => versusInputButtons.includes(button)).slice(0, 10);
+  // The host reads internal buttons, so the challenger's pad is translated
+  // here too (its own chord slot, seated as player two).
+  const raw = Array.isArray(pad.down) && livePlayButtons() &&
+    globalThis.__oskiewarLegacyButtons !== true
+    ? translateButtons(2, pad.down, 1) : pad.down || [];
+  const down = raw
+    .filter((button) => versusInputButtons.includes(button)).slice(0, 11);
   const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
   const frame = { down, leftX: round2(pad.leftX), leftY: round2(pad.leftY) };
   const worn = JSON.stringify(frame);
@@ -6444,10 +9195,74 @@ function netHostBegin(now) {
   return true;
 }
 
+const parkPeers=new Map();
+const parkConnection={at:0,ping:null,count:1};
+function receiveParkPeers(packet){
+ if(!poolOnly()||!Array.isArray(packet.peers)||packet.peers.length>16)return;
+ const now=Date.now(),keep=new Set();parkConnection.at=now;parkConnection.count=packet.peers.length;
+ if(Number.isInteger(packet.layoutSeed)&&packet.layoutSeed>=0&&packet.layoutSeed<=4294967295)applyParkLayout(packet.layoutSeed);
+ if(Number.isFinite(packet.echo))parkConnection.ping=clamp(now-packet.echo,0,9999);
+ for(const f of packet.peers){
+  if(f.id===packet.self||![f.x,f.y,f.z,f.yaw].every(Number.isFinite))continue;
+  keep.add(f.id);let peer=parkPeers.get(f.id);
+  if(!peer){peer={...players[0],pad:32+f.id,removedParts:[],partDamage:{},previous:[],spin:null,goKart:null,gunAmmo:0,grenadeAmmo:0,axeHeld:false,chalkColor:null,skateboard:false,dummy:false,npc:true,remote:true,rig:null,hair:null,skirtCloth:null};parkPeers.set(f.id,peer);}
+  peer.samples ||= [];peer.samples.push({at:now,x:f.x,y:f.y,z:f.z,yaw:f.yaw});if(peer.samples.length>5)peer.samples.shift();
+  if(peer.samples.length===1){peer.x=f.x;peer.y=f.y;peer.z=f.z;peer.poolYaw=f.yaw;}
+  Object.assign(peer,{alive:f.alive,grounded:f.grounded,ducking:f.ducking,blocking:f.blocking,skateboard:f.skateboard,name:f.name==='NOBODY'?'GUEST '+f.id:f.name,color:f.color,receivedAt:now});
+ }
+ for(const id of parkPeers.keys())if(!keep.has(id))parkPeers.delete(id);
+}
+function interpolateParkPeer(peer,now){
+ const samples=peer.samples;if(!samples?.length)return;
+ const target=now-120;let a=samples[0],b=a;
+ for(let i=1;i<samples.length;i++){b=samples[i];if(b.at>=target)break;a=b;}
+ const t=b.at>a.at?clamp((target-a.at)/(b.at-a.at),0,1):1;
+ const teleport=Math.hypot(b.x-a.x,b.y-a.y,b.z-a.z)>2000;
+ for(const key of ['x','y','z'])peer[key]=teleport?b[key]:lerp(a[key],b[key],t);
+ peer.poolYaw=a.yaw+Math.atan2(Math.sin(b.yaw-a.yaw),Math.cos(b.yaw-a.yaw))*t;
+ if(b.at>a.at){peer.vx=(b.x-a.x)/(b.at-a.at)*1000;peer.vz=(b.z-a.z)/(b.at-a.at)*1000;}
+}
+function drawParkConnection(){
+ if(!poolOnly()||shellMode!=='GAME')return;
+ const safe=hudSafeRect(),live=parkConnection.at>0&&Date.now()-parkConnection.at<3000;
+ const ping=live&&Number.isFinite(parkConnection.ping)?parkConnection.ping:null;
+ const bars=ping===null?0:ping<100?4:ping<200?2:1;
+ const color=bars===4?[103,231,151]:bars===2?[255,180,77]:[255,100,111];
+ for(let i=0;i<4;i++){
+   const height=7+i*6,x=safe.left+i*11,y=safe.top+28-height;
+   hudBox(x-1,y-1,9,height+2,26,29,37);
+   hudBox(x,y,7,height,...(i<bars?color:[76,80,91]));
+ }
+ const count=live?parkConnection.count:1;
+ seatHudText((ping===null?'—':Math.round(ping))+' ms',safe.left+54,safe.top,28,color);
+ seatHudText(count+' PLAYER'+(count===1?'':'S'),safe.left+230,safe.top,28,[219,225,231]);
+}
 function netDrainHostInbox() {
-  const inbox = globalThis.__oskiewarNetInbox;
+  const inbox = globalThis.__oskiewarNetInbox ||= [];
+  if(typeof globalThis.oskiewarNetPoll === "function"){
+    const packets=globalThis.oskiewarNetPoll();
+    if(Array.isArray(packets))inbox.push(...packets);
+  }
   if (!Array.isArray(inbox) || !inbox.length) return;
   for (const packet of inbox) {
+    if(packet?.t==='park-peers'){receiveParkPeers(packet);continue;}
+    if(packet?.kind==='render-flags'){
+      const flags=packet.flags;
+      if(flags && typeof flags==='object' && !Array.isArray(flags)){
+        const entries=Object.entries(flags);
+        if(entries.length<=8 && entries.every(([key,value])=>/^[a-z][a-zA-Z0-9]{0,23}$/.test(key) &&
+          ((key==='aeselCaption'||key==='aeselArtifact')
+            ? typeof value==='string' && value.length<=(key==='aeselCaption'?120:320) && !/[^\x20-\x7e]/.test(value)
+            : typeof value==='boolean'||Number.isFinite(value)&&Math.abs(value)<=64))){
+          const target=globalThis.__oskiewarRenderFlags ||= Object.create(null);
+          for(const [key,value] of entries)if(!['__proto__','constructor','prototype'].includes(key)){
+            if(key==='aeselArtifact'&&!acceptAeselArtifact(value))continue;
+            target[key]=value;
+          }
+        }
+      }
+      continue;
+    }
     if (netSession) netInbox.push(packet);
     else netHandlePreSession(packet);
   }
@@ -6515,7 +9330,7 @@ function gameBoot() {
   // a crash the restart exists to paper over.
   if (!sessionName) {
     seedNames(Math.floor(Math.random() * 4294967296));
-    sessionName = pronounceableMatchName();
+    sessionName = /^[a-z0-9-]{5,24}$/.test(globalThis.__oskiewarSessionName||'') ? globalThis.__oskiewarSessionName : pronounceableMatchName();
   }
   startedAt = runtime().monotonicUs;
   roundStartedAt = startedAt;
@@ -6675,6 +9490,21 @@ function resetRound(now, resetMatch = false, keepMap = false) {
     player.grabbedBy = -1;
     resetSkate(player);
     player.skateboard = skateparkMap && !survivalActive();
+    player.strafe = null;
+    player.strafeHeld = false;
+    player.strafeLast = null;
+    // Body state that shapes the pose — and so the hitboxes — starts fresh
+    // every round, so two seats that did not share the last fight still
+    // agree about this one.
+    player.rig = undefined;
+    player.trucks = undefined;
+    player.turnFacing = player.facing;
+    player.turnAt = -1e12;
+    player.skidFrom = null;
+    player.spin = null;
+    player.directionChanges = [];
+    player.poolLastSteer = 0;
+    player.lastHorizontal = 0;
     player.ropeIndex = -1;
     player.ropeGrabLocked = false;
     player.ropeLink = chainLinks;
@@ -6706,6 +9536,7 @@ function resetRound(now, resetMatch = false, keepMap = false) {
     player.landPoseUntil = 0;
     player.jumpHeld = false;
     player.airJumpsUsed = 0;
+    player.ultraAirUsed = false;
     player.doubleJumpLinesUntil = 0;
     player.hopUntil = 0;
     player.sinkUntil = 0;
@@ -6817,6 +9648,35 @@ function resetRound(now, resetMatch = false, keepMap = false) {
   // machine ran the reset: applyRoster above dresses seat one from the local
   // account, which on the challenger's screen is the challenger.
   if (netSession) netApplyIdentities(netSession.deal);
+  resetRoofPanes();
+  if (indoorSkate() && localVersusActive()) for (const player of players) dressFreeskater(player);
+  if (freeskateActive()) {
+    dressFreeskater(players[0], true);
+    parkFreeskateChair();
+    // A reset re-deals the map's pickups; freeskate has no weapons.
+    for (const pickup of [...gunPickups, ...saberPickups, ...grenadePickups])
+      pickup.active = false;
+    for (const player of players) {
+      player.gunAmmo = 0;
+      player.grenadeAmmo = 0;
+      player.swordHeld = false;
+    }
+    if (halfpipeOnly()) {
+      resetSkate(players[0]);
+      players[0].wheelMarkAt = null;
+      if(poolOnly()){players[0].poolYaw=0;poolCameraYaw=0;poolCameraDip=0;poolCameraReturnYaw=null;}
+      seedHalfpipeScuffs();
+      for (const item of balls) item.active = false;
+      if(poolOnly())ensureFreeskateBoards();
+      resetMonowheel();
+      resetParkSupply(now);
+      resetParkKids();
+    } else if (indoorSkate()) {
+      resetSkate(players[0]);
+      for (const item of balls) if (item.type !== "skateboard") item.active = false;
+      placeFreeskateBoard();
+    }
+  }
 }
 
 // The box the camera packs. It is a fighting-game pushbox rather than the
@@ -6829,7 +9689,7 @@ function fighterFrameRect() {
   let right = -Infinity;
   let top = Infinity;
   let bottom = -Infinity;
-  for (const player of activePlayers()) {
+  for (const player of cameraPlayers()) {
     // Trimmed 2026-08-09 — @jeffrey wanted the lens closer to the fight.
     // The rect still tracks live position, so jumps and knockbacks widen
     // the frame as they happen; this is standing headroom, not arc room.
@@ -6949,6 +9809,23 @@ function terrainSpan() {
     bottom: Math.min(parkDeepest, cameraCenterY + reach) };
 }
 
+// The long park's features as camera subjects: the half-pipe deck to deck,
+// and each loop with room round it. A rider inside one gets it framed whole.
+function skateSubjects() {
+  const pipeLeft = gridLeft + (halfpipe.leftCoping - 1) * tileSize;
+  const pipeRight = gridLeft + (halfpipe.rightCoping + 1) * tileSize;
+  return [
+    { name: "half-pipe", left: pipeLeft, right: pipeRight,
+      top: floorY - halfpipeRadius - 160, bottom: floorY + 140 },
+    ...parkSegments.filter((segment) => segment.kind === "pond").map((segment) => ({
+      name: "pond", left: segment.left - 300, right: segment.right + 300,
+      top: seaLevelY - segment.lift - 420, bottom: seaLevelY - segment.lift + segment.depth + 120 })),
+    ...skateLoops.map((loop) => ({ name: "loop", left: loop.x - loop.radius - 380,
+      right: loop.x + loop.radius + 380, top: floorY - loop.radius * 2 - 180,
+      bottom: floorY + 140 })),
+  ];
+}
+
 function updateCamera(dt) {
   if (survivalActive() || skateparkMap) return;
   const rect = fighterFrameRect();
@@ -7053,7 +9930,243 @@ function deathOrbitShot(target, width, progress) {
     perspective: .65, fov: 55, roll: Math.sin(phase) * .035 };
 }
 
+let poolCameraYaw = 0, poolCameraDip = 0, poolCameraReturnYaw = null;
+let poolIdleSeconds=0,poolIdleClose=0;
+// Keep the line from the lens to the rider above the coping and curved walls.
+function clearPoolCamera(position, subject) {
+  // Follow the rider into the lot without putting a solid wall between
+  // the lens and the body. Terrain still clears the entire sightline.
+  const outside=!insidePark(subject.x,subject.z);
+  position={...position,x:clamp(position.x,gridLeft-parkLotMargin+80,gridLeft+gridWidth+parkLotMargin-80),
+    z:clamp(position.z,worldNear-parkLotMargin+80,worldFar+parkLotMargin-80)};
+  if(!outside){position.x=clamp(position.x,gridLeft+80,gridLeft+gridWidth-80);
+    position.z=clamp(position.z,worldNear+80,worldFar-80);}
+  else{
+    if(subject.x<gridLeft)position.x=Math.min(position.x,gridLeft-80);
+    if(subject.x>gridLeft+gridWidth)position.x=Math.max(position.x,gridLeft+gridWidth+80);
+    if(subject.z<worldNear)position.z=Math.min(position.z,worldNear-80);
+    if(subject.z>worldFar)position.z=Math.max(position.z,worldFar+80);
+  }
+  let y=position.y;
+  for(let i=1;i<20;i++){
+    const t=i/20,x=lerp(position.x,subject.x,t),z=lerp(position.z,subject.z,t);
+    const surface=poolFloorAt(x,z);
+    y=Math.min(y,(surface-subject.y*t)/(1-t)-65);
+  }
+  return {...position,y:outside?y:Math.max(parkDeckY-parkBuildingHeight+80,y)};
+}
+// Retain one screen-right axis until this sparring encounter ends.
+function parkFightAxis(p, rival) {
+  if (!rival) { p.poolFightAxis=null; return null; }
+  if (p.poolFightAxis?.rivalPad!==rival.pad) {
+    let x=rival.x-p.x,z=(rival.z||0)-(p.z||0),length=Math.hypot(x,z);
+    if(length<1){x=1;z=0;length=1;}
+    const side=(cameraDoll.position.x-cameraDoll.target.x)*z-(cameraDoll.position.z-cameraDoll.target.z)*x;
+    const sign=Math.abs(side)>1?Math.sign(side):x<0||Math.abs(x)<.001&&z<0?-1:1;
+    p.poolFightAxis={rivalPad:rival.pad,x:x/length*sign,z:z/length*sign,originX:p.x,originZ:p.z||0};
+  }
+  return p.poolFightAxis;
+}
+// Grab and hold (X+Y, Q+E): in the air on a board it grabs the deck; near
+// someone it lifts them in front of you, where they cannot act, and letting
+// go throws them. Held bodies are addressed by kind and pad, never by
+// reference, so rollback snapshots stay plain data.
+function parkHeldBody(p){
+ if(p.holdPad===undefined)return null;
+ const body=p.holdKid?parkKids.find(k=>k.pad===p.holdPad):players[p.holdPad];
+ return body?.alive&&body.heldBy===p.pad?body:null;
+}
+function parkHold(p,grab,now){
+ // The hold is an action even with nobody to take: arms out, "holding".
+ p.parkGrabbing=!!grab&&!(p.skateboard&&!p.grounded);
+ const held=parkHeldBody(p);
+ if(p.holdPad!==undefined&&!held){p.holdPad=undefined;p.holdKid=false;}
+ const yaw=p.poolYaw||0,fx=Math.cos(yaw),fz=Math.sin(yaw);
+ if(grab){
+  if(p.skateboard&&!p.grounded){p.skateGrab=true;return;}
+  if(held){
+   held.x=p.x+fx*72;held.z=(p.z||0)+fz*72;held.y=p.y-18;
+   held.vx=held.vz=held.vy=0;held.grounded=true;held.attackKind='';
+   held.hitStunUntil=Math.max(held.hitStunUntil||0,now+120000);held.poolYaw=yaw+Math.PI;
+   return;
+  }
+  if(p.holdTried)return;
+  p.holdTried=true;
+  let best=null,bestD=150;
+  for(const o of [...parkKids,...players]){
+   if(o===p||!o.alive||o.headless||o.dummy||o.heldBy!==undefined)continue;
+   const d=Math.hypot(o.x-p.x,(o.z||0)-(p.z||0));
+   if(d<bestD&&Math.abs(o.y-p.y)<120){best=o;bestD=d;}
+  }
+  if(best){
+   p.holdPad=best.pad;p.holdKid=parkKids.includes(best);best.heldBy=p.pad;
+   if(best.sparringPartner!==undefined)endParkSparring(best);
+   p.pendingMoveLabel='GRAB';playDrum('block',.7,panPlayer(p));emitSignal('grab',p.pad,1,0);
+  }
+  return;
+ }
+ p.holdTried=false;
+ if(held){
+  held.heldBy=undefined;p.holdPad=undefined;p.holdKid=false;
+  held.vx=fx*950+(p.vx||0);held.vz=fz*950+(p.vz||0);held.vy=-520;held.grounded=false;
+  held.thrownUntil=now+900000;held.hitStunUntil=now+700000;
+  p.pendingMoveLabel='THROW';playDrum('kick',.8,panPlayer(p));emitSignal('throw',p.pad,1,0);
+ }
+}
+function endParkSparring(p){
+ const rival=p.civilian?players[p.sparringPartner]:parkKids.find(k=>k.pad===p.sparringPartner);
+ if(rival?.sparringPartner===p.pad){rival.sparringPartner=undefined;rival.poolFightAxis=null;rival.attackKind='';}
+ p.sparringPartner=undefined;p.poolFightAxis=null;p.attackKind='';
+}
+function startParkSparring(p,rival,now){
+ if(p.sparringPartner!==rival.pad){endParkSparring(p);endParkSparring(rival);p.sparringStartedAt=rival.sparringStartedAt=now;}
+ p.sparringPartner=rival.pad;rival.sparringPartner=p.pad;
+ parkFightAxis(p,rival);rival.nextSparAt=Math.min(rival.nextSparAt||now+350000,now+350000);
+ p.poolPipeLocked=false;p.poolVert=null;p.parkEntrance=null;
+ if(p.skateboard)dismountSkateboard(p,now);
+}
+function parkFightRival(p){
+  if(!poolOnly()||!p.alive||p.sparringPartner===undefined)return null;
+  const rival=p.civilian?players[p.sparringPartner]:parkKids.find(k=>k.pad===p.sparringPartner);
+  return rival?.alive?rival:null;
+}
+function parkFightFrame(p,rival,axis,t){
+  const center={x:(p.x+rival.x)/2,z:((p.z||0)+(rival.z||0))/2};
+  const rect={left:Infinity,right:-Infinity,top:Infinity,bottom:-Infinity};
+  const include=(x,y,z,r)=>{const u=(x-center.x)*axis.x+(z-center.z)*axis.z;
+    rect.left=Math.min(rect.left,u-r);rect.right=Math.max(rect.right,u+r);
+    rect.top=Math.min(rect.top,y-r);rect.bottom=Math.max(rect.bottom,y+r);};
+  for(const fighter of [p,rival]){
+    const pose=runnerWorldGeometry(fighter,t);include(pose.head.x,pose.head.y,pose.head.z,pose.head.radius);
+    for(const b of pose.segments){include(b.x1,b.y1,b.z1,b.width/2);include(b.x2,b.y2,b.z2,b.width/2);}
+  }
+  const u=(rect.left+rect.right)/2;
+  // Use the original 2D camera's silhouette packing and action-safe margins.
+  return {target:{x:center.x+axis.x*u,y:(rect.top+rect.bottom)/2,z:center.z+axis.z*u},
+    width:Math.max(frameFloorWidth(),rectPackWidth(rect)*1.12)};
+}
 function updateCameraDoll(dt, now) {
+  if (poolOnly() && freeskateActive()) {
+    const p=players[0],heading=p.poolYaw||0,speed=Math.hypot(p.vx,p.vz||0);
+    if(p.parkEntrance){
+      const u=clamp((p.parkEntrance.progress-.68)/.3,0,1),ease=u*u*(3-2*u);
+      // Eyes follow where the walker faces; the pull-back to third person
+      // happens behind them as they reach the doorway.
+      const fx=Math.cos(p.poolYaw||0),fz=Math.sin(p.poolYaw||0),ahead=lerp(250,100,ease);
+      const target={x:p.x+fx*ahead,y:p.y-lerp(145,105,ease),z:(p.z||0)+fz*ahead};
+      const position={x:p.x-fx*ease*380,y:p.y-lerp(145,245,ease),z:(p.z||0)-fz*ease*380};
+      cameraDoll.track({target,position,width:700,perspective:1,fov:65,roll:0},dt,12);poolIdleSeconds=poolIdleClose=0;return;
+    }
+    if(p.chalkDrawing){
+      const tip=chalkTip(p),target={x:(p.x+tip.x)*.5,y:poolFloorAt(p.x,p.z||0),z:((p.z||0)+tip.z)*.5};
+      cameraDoll.track({target,position:{x:target.x,y:target.y-1150,z:target.z-180},width:1400,perspective:.65,fov:62,roll:0},dt,4);poolIdleSeconds=poolIdleClose=0;return;
+    }
+    if(p.goKart){
+      const look=450+Math.min(750,speed*.13),distance=1000+Math.min(550,speed*.09);
+      const target={x:p.x+Math.cos(heading)*look,y:p.y-90,z:(p.z||0)+Math.sin(heading)*look};
+      let position={x:p.x-Math.cos(heading)*distance,y:p.y-500,z:(p.z||0)-Math.sin(heading)*distance};
+      if(insidePark(p.x,p.z||0))position=clearPoolCamera(position,{x:p.x,y:p.y-50,z:p.z||0});
+      for(let i=0;i<16;i++){const t=i/16,x=lerp(position.x,target.x,t),z=lerp(position.z,target.z,t);position.y=Math.min(position.y,(poolFloorAt(x,z)-120-target.y*t)/(1-t));}
+      const ceiling=outdoorTunnelAt(position.x,position.z);
+      if(ceiling!==null)position.y=Math.max(position.y,ceiling+70);
+      cameraDoll.track({target,position,width:2200,perspective:1,fov:68,roll:0},dt,3);
+      cameraDoll.position.y=Math.min(cameraDoll.position.y,poolFloorAt(cameraDoll.position.x,cameraDoll.position.z)-140);
+      const easedCeiling=outdoorTunnelAt(cameraDoll.position.x,cameraDoll.position.z);
+      if(easedCeiling!==null)cameraDoll.position.y=Math.max(cameraDoll.position.y,easedCeiling+70);
+      cameraDoll.dirty=true;poolIdleSeconds=poolIdleClose=0;return;
+    }
+    if(p.raceLoop){
+      const loop=p.raceLoop,target={x:loop.x,y:parkDeckY-loop.radius,z:loop.z},position={x:loop.x-900,y:parkDeckY-1500,z:loop.z-2400};
+      cameraDoll.track({target,position,width:3400,perspective:1,fov:65,roll:0},dt,6);poolIdleSeconds=poolIdleClose=0;return;
+    }
+    const rival=parkKids.find(k=>k.pad===p.sparringPartner&&k.alive);
+    if(rival&&p.alive&&now>=(p.poolPipeEscapeUntil||0)){
+      const axis=parkFightAxis(p,rival),{target,width}=parkFightFrame(p,rival,axis,(now-startedAt)/1e6);
+      const gap=Math.max(650,width*1.2),position={x:target.x+axis.z*gap,y:target.y,z:target.z-axis.x*gap};
+      const dx=cameraDoll.position.x-cameraDoll.target.x,dz=cameraDoll.position.z-cameraDoll.target.z;
+      const radius=Math.max(1,Math.hypot(dx,dz)),angle=Math.atan2(dz,dx),goal=Math.atan2(-axis.x,axis.z);
+      const amount=1-Math.exp(-Math.max(0,dt)*9),nextAngle=angle+Math.atan2(Math.sin(goal-angle),Math.cos(goal-angle))*amount;
+      cameraDoll.track({target,position,width,perspective:0,fov:55,roll:0},dt,12);
+      // Orbit around the focus: a straight chord can cut through the fighters.
+      const nextRadius=lerp(radius,gap,amount);
+      cameraDoll.position.x=cameraDoll.target.x+Math.cos(nextAngle)*nextRadius;
+      cameraDoll.position.z=cameraDoll.target.z+Math.sin(nextAngle)*nextRadius;
+      poolIdleSeconds=poolIdleClose=0;return;
+    }
+    if(p.poolPipeLocked){
+      const pipe=parkHalfPipe3D,air=Math.max(0,parkDeckY-pipe.radius-p.y);
+      // A small sweep follows travel without orbiting on every turnaround.
+      const yaw=Math.sin(heading)*.22;
+      const error=Math.atan2(Math.sin(yaw-poolCameraYaw),Math.cos(yaw-poolCameraYaw));
+      poolCameraYaw+=clamp(error*(1-Math.exp(-dt*.8)),-dt*.3,dt*.3);
+      const angle=poolCameraYaw+Math.PI*.6,radius=3100+air*.85;
+      const target={x:pipe.x,y:parkDeckY-pipe.radius*.5-air*.2,z:pipe.z};
+      const position={x:pipe.x-Math.cos(angle)*radius,y:parkDeckY-2100-air*.85,z:pipe.z-Math.sin(angle)*radius};
+      cameraCenter=target.x;cameraCenterY=target.y;cameraWidth=3200;
+      cameraDoll.track({target,position,width:3200,perspective:1,fov:65,roll:0},dt,1.8);
+      cameraDoll.position.y=Math.min(cameraDoll.position.y,parkDeckY-700);
+      cameraDoll.dirty=true;poolIdleSeconds=poolIdleClose=0;return;
+    }
+
+    const idle=p.alive&&p.grounded&&speed<35&&Math.abs(p.vy||0)<40;
+    poolIdleSeconds=idle?poolIdleSeconds+dt:0;
+    poolIdleClose+=((poolIdleSeconds>2?1:0)-poolIdleClose)*(1-Math.exp(-dt*(idle?1.2:7)));
+    const wall=poolDistance(p.x,p.z||0),vert=p.poolVert;
+    let goal=heading;
+    if(vert){
+      const inward=Math.atan2(-vert.nz,-vert.nx);
+      poolCameraReturnYaw=inward;
+      const progress=clamp((vert.speed+p.vy)/(2*vert.speed),0,1);
+      const amount=clamp((progress-.08)/.6,0,1),ease=amount*amount*(3-2*amount);
+      goal=vert.heading+Math.atan2(Math.sin(inward-vert.heading),Math.cos(inward-vert.heading))*ease;
+    }else{
+      if(!p.grounded&&p.vy>0&&wall.d>wall.bowl.radius*.6&&wall.d<wall.bowl.radius)
+        poolCameraReturnYaw=Math.atan2(-wall.nz,-wall.nx);
+      if(poolCameraReturnYaw!==null){
+        goal=speed>180?Math.atan2(p.vz,p.vx):poolCameraReturnYaw;
+        if(p.grounded&&speed>180&&Math.cos(goal-heading)>.7)poolCameraReturnYaw=null;
+      }
+    }
+    // Explicit steering takes the camera back; an unsteered vert returns itself.
+    if(Math.abs(p.inputX||0)>.18){goal=heading;poolCameraReturnYaw=null;}
+    const yawError=Math.atan2(Math.sin(goal-poolCameraYaw),Math.cos(goal-poolCameraYaw));
+    poolCameraYaw+=clamp(yawError*(1-Math.exp(-dt*5)),-dt*2.8,dt*2.8);
+    const descent=clamp((p.vy+(vert?250:0))/1000,0,1);
+    poolCameraDip+=(descent-poolCameraDip)*(1-Math.exp(-dt*4.5));
+    const zoom=playerCameraZoom,angle=poolCameraYaw+.14*(1-poolCameraDip)+playerCameraYaw+Math.PI*poolIdleClose;
+    const airHeight=Math.max(0,poolFloorAt(p.x,p.z||0)-p.y);
+    const distance=lerp(1350+Math.min(850,airHeight*.35)-poolCameraDip*120,270,poolIdleClose)*zoom;
+    const look=(340+Math.min(450,speed*.16)+(poolCameraReturnYaw!==null?lerp(140,420,clamp(airHeight/600,0,1)):0))*(1-poolIdleClose);
+    const lookX=p.x+Math.cos(goal)*look,lookZ=(p.z||0)+Math.sin(goal)*look;
+    const groundFocus=Math.max(poolCameraDip*.28,clamp(airHeight/650,0,1)*.32);
+    const target={x:lerp(p.x,lookX,.65+poolCameraDip*.2),
+      y:lerp(p.y-130+clamp(p.vy*.1,-160,220),poolFloorAt(lookX,lookZ)-40,groundFocus),
+      z:lerp(p.z||0,lookZ,.65+poolCameraDip*.2)};
+    // Lead the tracking spring during fast bank airs so it does not leave
+    // the rider above the frame while still looking at the takeoff point.
+    target.x+=p.vx*.1;target.z+=(p.vz||0)*.1;target.y+=clamp(p.vy*.1,-220,220);
+    target.y=clamp(target.y,p.y-240,p.y+50);
+    const subject={x:p.x,y:p.y-2,z:p.z||0};
+    const position=clearPoolCamera({x:target.x-Math.cos(angle)*distance,
+      y:p.y-85-lerp(lerp(145,480,clamp(airHeight/500,0,1))+poolCameraDip*110+Math.min(240,airHeight*.12),60,poolIdleClose)*zoom-playerCameraPitch*600,
+      z:target.z-Math.sin(angle)*distance},subject);
+    cameraCenter=target.x;cameraCenterY=target.y;cameraWidth=1650*zoom;
+    cameraDoll.track({target,position,width:cameraWidth,perspective:1,fov:58+poolCameraDip*5,roll:0},dt,8);
+    // Position interpolation can cut across the subject during a front/back orbit.
+    // Keep the lens outside the body before clearing walls and terrain.
+    const dx=cameraDoll.position.x-p.x,dz=cameraDoll.position.z-(p.z||0),gap=Math.hypot(dx,dz),minGap=200;
+    if(gap<minGap){const nx=gap>.01?dx/gap:-Math.cos(angle),nz=gap>.01?dz/gap:-Math.sin(angle);
+      cameraDoll.position.x=p.x+nx*minGap;cameraDoll.position.z=(p.z||0)+nz*minGap;}
+    // Also protect the eased path while orbiting around a corner of the pool.
+    Object.assign(cameraDoll.position,clearPoolCamera(cameraDoll.position,subject));
+    cameraDoll.dirty=true;
+    return;
+  }
+  if(freeskateActive() && parkSupply.ko){
+    const result=parkSupply.ko,subject=players[(now-result.at)<1000000?result.loser:(result.winner<0?0:result.winner)];
+    const age=(now-result.at)/1e6,center={x:subject.x,y:subject.y-100,z:subject.z||0};
+    cameraDoll.track(deathOrbitShot(center,age<1?600:1000,age/4.8),dt,5);return;
+  }
   if (deathCinematic?.solo && !instantReplay) {
     const player = players[deathCinematic.loserPad];
     const width = 680 * portraitPull();
@@ -7062,32 +10175,68 @@ function updateCameraDoll(dt, now) {
       deathCinematicAge(now) / 1.45), dt, 12);
     return;
   }
-  if (skateparkMap && !survivalActive() && shellMode === "GAME") {
+  if (skateparkMap && !survivalActive() && (shellMode === "GAME" || freeskateActive())) {
     const rider = players[netSession?.seat || 0];
-    // Off the board, the shot keeps the board in it: the frame widens to hold
-    // rider and board together, so a bail never loses the thing to go back to.
-    const board = !rider.skateboard && balls.find((item) =>
-      item.type === "skateboard" && item.active && item.heldBy < 0);
-    const spanX = board ? Math.abs(board.x - rider.x) : 0;
-    const spanY = board ? Math.abs(board.y - rider.y) : 0;
-    const width = Math.max(1100, 900 * cameraAspect, spanX + 700,
-      (spanY + 600) * cameraAspect) * playerCameraZoom;
+    // Under the title the lens holds the whole pipe, centred, still.
+    const titleShot = shellMode !== "GAME";
+    // The shot is a logical frame, grown to hold what matters: the rider,
+    // the ground under them (always — so a big air zooms the lens out rather
+    // than losing the floor), the board if they have come off it, and the
+    // whole of any feature they are in — the half-pipe or a loop — so its
+    // shape stays readable while they ride it.
+    let left=rider.x-300,right=rider.x+300,top=rider.y-320,bottom=rider.y+170;
+    const subject=null;
+    const singleController=players[1].dummy || !freeskateSecond;
+    if(singleController)bottom=Math.max(bottom,terrainFloorAt(rider.x)+180);
+    const framedRiders = (singleController?[rider]:activePlayers()).filter(player => player.alive);
+    for (const other of framedRiders) {
+      left = Math.min(left, other.x - 300);
+      right = Math.max(right, other.x + 300);
+      top = Math.min(top, other.y - 320);
+      bottom = Math.max(bottom, other.y + 150);
+    }
+    const width = Math.max(singleController?1650:1150, right - left, (bottom - top) * cameraAspect) *
+      (framedRiders.length > 1 ? Math.max(1, playerCameraZoom) : playerCameraZoom);
     const half = width / 2;
-    const focusX = board ? (rider.x + board.x) / 2 : rider.x;
-    const focusY = board ? (rider.y + board.y) / 2 : rider.y;
-    const desiredX = clamp(focusX + clamp(rider.vx * .18, -300, 300),
-      worldLeft + half, worldRight - half);
-    const desiredY = focusY - 180;
+    // Centred on what it frames, even at the course's ends: clamping to the
+    // world edge slid a wide shot off the rider — "the camera trends right".
+    const desiredX = titleShot && subject ? (subject.left + subject.right) / 2
+      : (left + right) / 2 + (framedRiders.length > 1 ? 0 : clamp(rider.vx * .12, -240, 240));
+    // The title's words sit over the middle of the frame; lift the lens so
+    // the rider stands below them on the pipe's floor.
+    const desiredY = (top + bottom) / 2 - (titleShot ? (bottom - top) * .16 : 0);
     const blend = 1 - Math.exp(-dt * 9);
     cameraCenter += (desiredX - cameraCenter) * blend;
     cameraCenterY += (desiredY - cameraCenterY) * blend;
     cameraWidth = width;
     // The same orbit the fight camera takes from the right stick, a drag,
     // the wheel or a trackpad: turn round the rider and tilt over them.
-    cameraDoll.track({ target: { x: cameraCenter, y: cameraCenterY, z: 0 },
-      position: { x: cameraCenter + Math.sin(playerCameraYaw) * width * 1.35,
-        y: cameraCenterY - width * playerCameraPitch,
-        z: -Math.cos(playerCameraYaw) * width * 1.35 },
+    // A handheld lens: it drifts slowly round the rider and tilts a touch, so
+    // the park always shows its depth, and shakes a little — more at speed.
+    // All of it off the game clock, so it is smooth and every screen agrees;
+    // the player's own orbit still adds on top.
+    const clock = now / 1000000;
+    const drift = .15 * Math.sin(clock * .21) + .07 * Math.sin(clock * .53 + 1);
+    const tilt = .03 * Math.sin(clock * .17 + 2);
+    const pace = clamp(Math.hypot(rider.vx, rider.vy) / 3000, 0, 1);
+    const shake = width * (.0018 + pace * .0025);
+    const shakeX = (Math.sin(clock * 7.3) + .6 * Math.sin(clock * 11.9 + 1)) * shake;
+    const shakeY = (Math.sin(clock * 8.1 + 2) + .6 * Math.sin(clock * 13.3)) * shake;
+    // Freeskate starts from a three-quarter view — swung round and looking
+    // down — so the whole floor of the pipe reads, not just its profile.
+    // The angle follows the skating: it swings round to look along the way
+    // the rider is travelling, easing over as they reverse, and holds its
+    // side while they slow.
+    const groupVelocity = framedRiders.reduce((sum, player) => sum + player.vx, 0) / Math.max(1, framedRiders.length);
+    if (Math.abs(groupVelocity) > 250) skateIsoSide = -Math.sign(groupVelocity);
+    skateIsoYaw += (skateIsoSide * .3 - skateIsoYaw) * (1 - Math.exp(-dt * 1.4));
+    const iso = freeskateActive() ? { yaw: skateIsoYaw, pitch: .32 } : { yaw: 0, pitch: 0 };
+    const yaw = playerCameraYaw + skateIsoYaw*.6, pitch = .48 + playerCameraPitch;
+    const aimX = cameraCenter, aimY = cameraCenterY;
+    cameraDoll.track({ target: { x: aimX, y: aimY, z: 0 },
+      position: { x: aimX + Math.sin(yaw) * width * 1.35,
+        y: aimY - width * pitch,
+        z: -Math.cos(yaw) * width * 1.35 },
       width, perspective: 0, fov: 55, roll: 0 }, dt, 12);
     return;
   }
@@ -7421,9 +10570,55 @@ function quantizedInput(pad, suppressed = []) {
   return { horizontal, vertical };
 }
 
+// The keys behind a move, in the command stream's own glyphs: a double-tap
+// move names its two taps, anything else names what the hand is holding as
+// the move lands. Directions first, then the face buttons, so "> /" reads as
+// "right then kick" the way the fingers did it.
+const moveKeyGlyphs = { ArrowLeft: "<", ArrowRight: ">", ArrowUp: "^",
+  ArrowDown: "v", A: "/", B: "*", X: ")", Y: "+", LeftShoulder: "+",
+  RightShoulder: "+" };
+const doubleTapKeys = { "DASH LEFT": "< <", "DASH RIGHT": "> >",
+  "ULTRA AIR": "^ ^", "GROUND POUND": "v v", SINK: "v v",
+  "CROUCH HOP": "v v", "VERT OUT": "> >" };
+function moveKeys(label, held = []) {
+  const move = String(label || "").toUpperCase();
+  for (const name of Object.keys(doubleTapKeys))
+    if (move === name || move.startsWith(name + " "))
+      return doubleTapKeys[name].replace(/>/g, move.endsWith("LEFT") ? "<" : ">");
+  const keys = [];
+  for (const button of Object.keys(moveKeyGlyphs))
+    if (held.includes(button) && !keys.includes(moveKeyGlyphs[button]))
+      keys.push(moveKeyGlyphs[button]);
+  return keys.join(" ");
+}
+
+// Every move wears its own color: a hue hashed off the name, spread by the
+// golden angle so neighbours in the table land far apart on the wheel, at a
+// saturation and lightness that stay legible over the arena in both themes.
+function moveColor(label) {
+  let hash = 0;
+  for (const char of String(label || "").toUpperCase())
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  const hue = (hash * 137.508) % 360;
+  return hslColor(hue, .82, .62);
+}
+
+function hslColor(hue, saturation, lightness) {
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+  const wedge = (hue % 360 + 360) % 360 / 60;
+  const second = chroma * (1 - Math.abs(wedge % 2 - 1));
+  const [r, g, b] = wedge < 1 ? [chroma, second, 0] : wedge < 2 ? [second, chroma, 0]
+    : wedge < 3 ? [0, chroma, second] : wedge < 4 ? [0, second, chroma]
+    : wedge < 5 ? [second, 0, chroma] : [chroma, 0, second];
+  const lift = lightness - chroma / 2;
+  return [r, g, b].map((value) => Math.round((value + lift) * 255));
+}
+
 function remember(player, button) {
   player.lastButton = buttonLabel(button);
   player.lastButtonAt = runtime().monotonicUs;
+  player.lastButtonKeys = moveKeys(player.lastButton,
+    inputPads[player.pad]?.down || []);
   const command = { A: "/", B: "*", X: ")", Y: "+",
     LeftShoulder: "+", RightShoulder: "+" }[button] || player.lastButton;
   if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
@@ -7455,6 +10650,7 @@ function fireGun(player, input) {
       hitPlayers: 0, rocket: true });
     while (grenades.length > 12) grenades.shift();
     player.gunAmmo -= 1;
+    if (player.gunAmmo <= 0) player.gunThrowAt = now + 250000;
     player.nextGunShotAt = now + 650000;
     player.itemAction = "FIRE";
     player.itemActionStartedAt = now;
@@ -7473,24 +10669,23 @@ function fireGun(player, input) {
       x: pose.muzzle.x, y: pose.muzzle.y, z: pose.muzzle.z,
       vx: pose.dx * (laser ? 9600 : smg ? 5000 : 4200),
       vy: pose.dy * (laser ? 9600 : smg ? 5000 : 4200),
+      vz:(pose.dz||0)*(laser?9600:smg?5000:4200),
       owner: player.pad, life: 1, rubber: smg, laser,
       safeUntil: now + 100000,
     });
   }
   while (bullets.length > 24) bullets.shift();
   player.gunAmmo -= shots;
+  if (player.gunAmmo <= 0) player.gunThrowAt = now + 250000;
   player.nextGunShotAt = now + (laser ? 340000 : smg ? 85000 : 220000);
   player.itemAction = "FIRE";
   player.itemActionStartedAt = now;
   player.itemActionUntil = now + (laser ? 210000 : 170000);
   player.pendingMoveLabel =
     (laser ? "LASER " : smg ? "RUBBER SMG " : "FIRE ") + player.gunAmmo;
-  for (let shot = 0; shot < shots; shot++) {
-    playDrum(laser ? "whoosh" : smg ? "block" : "hat",
-      laser ? 1.35 : smg ? .62 + shot * .08 : 1.05, panPlayer(player));
-    playSine(laser ? 1180 : (smg ? 310 : 760) + shot * 55,
-      laser ? .13 : smg ? .055 : .08);
-  }
+  if(laser){playDrum('whoosh',1.1,panPlayer(player));playSine(1180,.13);}
+  else playDrum(smg?'smg-shot':'gunshot',smg?.72:1,panPlayer(player));
+  player.lastButton=smg?'FIRING SMG':'FIRING PISTOL';player.lastButtonAt=now;
   emitSignal(laser ? "laser" : "bullet", player.pad, pose.dx, pose.dy);
 }
 
@@ -7595,11 +10790,12 @@ function updateGunPickups(now) {
   for (const pickup of gunPickups) {
     if (!pickup.active) continue;
     for (const player of players) {
-      if (!player.alive || !nearRunner(player, pickup.x, pickup.y, pickup.z, 90) ||
-          runnerDistanceToPoint(player, poseTime, pickup.x, pickup.y, pickup.z) > 90 || !availableArm(player)) continue;
+      if (now<(pickup.safeUntil||0) || !player.alive || player.dummy || !nearRunner(player, pickup.x, pickup.y, pickup.z, 90) ||
+          runnerDistanceToPoint(player, poseTime, pickup.x, pickup.y, pickup.z) > 90 || !(poolOnly()?freeItemArm(player,"gun"):availableArm(player))) continue;
+      const arm=poolOnly()?freeItemArm(player,"gun"):availableArm(player);
       player.gunAmmo = Math.min(30, player.gunAmmo + pickup.amount);
       player.gunMode = pickup.kind || "HANDGUN";
-      player.itemArm = availableArm(player);
+      player.itemArm = arm;if(poolOnly()){player.handItems ||= {};player.handItems.gun=arm;}
       pickup.active = false;
       remember(player, player.gunMode + " +" + pickup.amount);
       playDrum("clap", 1.1, panPlayer(player));
@@ -7639,7 +10835,7 @@ function updateGrenadePickups(now) {
   for (const pickup of grenadePickups) {
     if (!pickup.active) continue;
     for (const player of players) {
-      if (!player.alive || !nearRunner(player, pickup.x, pickup.y, pickup.z, 90) ||
+      if (now<(pickup.safeUntil||0) || !player.alive || player.dummy || !nearRunner(player, pickup.x, pickup.y, pickup.z, 90) ||
           runnerDistanceToPoint(player, poseTime, pickup.x, pickup.y, pickup.z) > 90 || !availableArm(player)) continue;
       player.grenadeAmmo = Math.min(4, player.grenadeAmmo + pickup.amount);
       player.itemArm = availableArm(player);
@@ -7743,7 +10939,7 @@ function drawBodyTree(tree, t) {
 }
 
 function updatePowerups(now) {
-  if (freeskateActive()) return;
+  if (freeskateActive()) {updateGunPickups(now);return;}
   while (roundElapsedUs >= nextPowerupAtUs) {
     // Only the slot marked `cycle` is the rotation's business. Asking whether
     // ANY gun pickup is on the map would let an untouched space laser sitting
@@ -7794,7 +10990,100 @@ function recordBulletTrail(bullet) {
   bullet.trailCount++;
 }
 
+// Reflect the full 3D velocity; keep one brief sound/flash per contact.
+function ricochetPoolBullet(b,nx,ny,nz,now){
+  if(b.laser){b.life=0;return;}
+  const length=Math.hypot(nx,ny,nz)||1;nx/=length;ny/=length;nz/=length;
+  const dot=b.vx*nx+b.vy*ny+(b.vz||0)*nz;
+  b.vx-=2*dot*nx;b.vy-=2*dot*ny;b.vz=(b.vz||0)-2*dot*nz;
+  if(now>=(b.nextRicochetSoundAt||0)){
+    playDrum('hat',.85,panAt(b.x,b.z));
+    playSine(1550+Math.min(900,Math.abs(dot)*.15),.045);
+    spawnImpact({x:b.x,y:b.y,z:b.z,life:.12,duration:.12,death:false,explosion:false});
+    b.nextRicochetSoundAt=now+45000;
+  }
+}
+function updatePoolBullets(dt,now,combat){
+  const t=(now-startedAt)/1e6;
+  for(const b of bullets){
+    if(b.life<=0)continue;
+    b.previousX=b.x;b.previousY=b.y;b.previousZ=b.z;
+    const steps=Math.max(1,Math.ceil(Math.hypot(b.vx,b.vy,b.vz||0)*dt/18));
+    for(let step=0;step<steps&&b.life>0;step++){
+      const from={x:b.x,y:b.y,z:b.z};
+      b.x+=b.vx*dt/steps;b.y+=b.vy*dt/steps;b.z+=(b.vz||0)*dt/steps;
+      for(const {w,bay,u,old,fraction} of parkWallContact(from,b,0)){
+        const hitY=lerp(from.y,b.y,fraction);
+        if(hitY<parkDeckY-parkBuildingHeight||hitY>parkDeckY)continue;
+        const inGlass=u>bay*w.width+109&&u<(bay+1)*w.width-109&&
+          hitY>parkDeckY-parkBuildingHeight+269&&hitY<parkDeckY-99;
+        if(inGlass)breakParkWindow(w,bay,b,b);
+        else {
+          const side=old>=0?1:-1;
+          b.x=w.ax+w.ux*u+w.nx*side*2;b.z=w.az+w.uz*u+w.nz*side*2;b.y=hitY;
+          ricochetPoolBullet(b,w.nx,0,w.nz,now);
+        }
+      }
+      if(b.life<=0)break;
+      const floor=poolFloorAt(b.x,b.z)-4;
+      if(b.y>=floor){
+        const slope=poolSlopeAt(b.x,b.z);b.y=floor-.1;
+        ricochetPoolBullet(b,slope.x,-1,slope.z,now);
+      }else if(insidePark(b.x,b.z)&&b.y<parkDeckY-parkBuildingHeight){
+        b.y=parkDeckY-parkBuildingHeight+2;ricochetPoolBullet(b,0,1,0,now);
+      }
+      // The open parking-lot horizon has no invisible ricochet wall.
+      if(b.x<gridLeft-parkLotMargin||b.x>gridLeft+gridWidth+parkLotMargin||
+        b.z<worldNear-parkLotMargin||b.z>worldFar+parkLotMargin){b.life=0;break;}
+      if(!combat)continue;
+      for(const target of [...activePlayers(),...parkKids]){
+        if(!target.alive||target.dummy||(target.pad===b.owner&&now<b.safeUntil))continue;
+        if(Math.hypot(target.x-b.x,(target.z||0)-b.z)>260)continue;
+        const hit=sweptProjectileContact([{x1:from.x,y1:from.y,z1:from.z,x2:b.x,y2:b.y,z2:b.z,width:8,role:'bullet',part:'bullet'}],target,t);
+        if(!hit||hit.separation>3)continue;
+        b.life=0;
+        if(b.thrownGun){
+          target.hitStunUntil=now+600000;target.attackKind='';
+          target.vx=(target.vx||0)+b.vx*.25;target.vz=(target.vz||0)+(b.vz||0)*.25;
+          spawnImpact({x:b.x,y:b.y,z:b.z,life:.2,duration:.2,death:false,explosion:false});
+          playDrum('snare',1,panAt(b.x,b.z));
+        }else if(target.blocking)breakShield(target,now);
+        else {
+          const owner=players[b.owner]||players[0],pose=runnerWorldGeometry(target,t),segment=pose.segments[hit.segmentIndex];
+          spawnBlood(b.x,b.y,b.z,Math.sign(b.vx),14,1);addDecal({kind:'blood',x:b.x,z:b.z,size:12,stretch:1.4,angle:Math.atan2(b.vz,b.vx)});
+          if(hit.headshot){
+            if(target.civilian)popCivilianHead(target,owner,pose,now);else killPlayer(target,b.owner,now,'SHOT');
+          }else if(segment){
+            bleed(target,segment,b.x-b.vx,2);addScar(target,segment);
+            detachPart(target,segment.part,pose,b.x-b.vx,now);
+            if(target.civilian){startRagdoll(target,b,[b.vx*.1,-150,b.vz*.1]);target.alive=false;target.attackKind='';}
+            else if(segment.part==='torso')killPlayer(target,b.owner,now,'SHOT');
+          }
+        }
+        break;
+      }
+    }
+  }
+  for(let i=bullets.length-1;i>=0;i--)if(bullets[i].life<=0)bullets.splice(i,1);
+}
+// An emptied gun leaves the hand a beat after its last round: a tumbling,
+// arcing throw that stuns what it hits. It rides the bullet list, so netplay
+// and ricochets treat it like any other projectile.
+function throwEmptyGuns(now){
+ for(const p of [...activePlayers(),...parkKids]){
+  if(!p.gunThrowAt||now<p.gunThrowAt)continue;
+  p.gunThrowAt=0;if(!p.alive||p.gunAmmo>0)continue;
+  const yaw=poolOnly()?(p.poolYaw||0):p.facing>0?0:Math.PI,fx=Math.cos(yaw),fz=poolOnly()?Math.sin(yaw):0;
+  bullets.push({x:p.x+fx*40,y:p.y-110,z:(p.z||0)+fz*40,vx:fx*1500+(p.vx||0)*.5,vy:-420,vz:fz*1500,
+   owner:p.pad,life:1,thrownGun:true,spin:0,safeUntil:now+200000,spit:!poolOnly()});
+  while(bullets.length>24)bullets.shift();
+  p.pendingMoveLabel='TOSS';playDrum('block',.8,panPlayer(p));
+ }
+}
 function updateBullets(dt, now, combat = true) {
+  throwEmptyGuns(now);
+  for(const b of bullets)if(b.thrownGun&&b.life>0){b.spin=(b.spin||0)+dt*14;if(poolOnly()){b.vy+=1500*dt;b.life-=dt*.35;}}
+  if(poolOnly()){updatePoolBullets(dt,now,combat);return;}
   for (const bullet of bullets) {
     if (bullet.life <= 0) continue;
     bullet.vx += windAcceleration * .12 * dt;
@@ -8092,10 +11381,15 @@ function startMelee(player, kind, now) {
   // updatePlayer detects the edge; holding a button does not auto-repeat.
   const spec = meleeSpecs[kind];
   if (!spec) return;
+  // A bare-handed punch strikes with the hand the input named (PunchL is the
+  // left); an item keeps its own hand.
+  const bare = kind === "PUNCH" && !player.itemArm && player.punchArm &&
+    hasPart(player, player.punchArm);
   const attackingPart = kind === "KICK"
     ? player.facing > 0 ? "right-leg" : "left-leg"
-    : itemHand(player);
+    : bare ? player.punchArm : itemHand(player);
   if (!hasPart(player, attackingPart)) return;
+  player.strikeArm = kind === "KICK" ? "" : attackingPart;
   player.attackKind = kind;
   player.lowKick = kind === "KICK" &&
     (player.ducking || (player.crouchBlend || 0) > .35);
@@ -8123,6 +11417,19 @@ const availableArm = (player) => {
   const other = lead === "right-arm" ? "left-arm" : "right-arm";
   return hasPart(player, other) ? other : "";
 };
+function heldHandItems(p){return [p.gunAmmo>0?'gun':null,p.axeHeld?'axe':null,p.chalkColor?'chalk':null,p.swordHeld?'sword':null,p.grenadeAmmo>0?'grenade':null,p.heldBall>=0?'ball':null].filter(Boolean);}
+function assignedItemArm(p,kind){
+ const items=heldHandItems(p);p.handItems ||= {};
+ for(const key of Object.keys(p.handItems))if(!items.includes(key)||!hasPart(p,p.handItems[key]))delete p.handItems[key];
+ const used=new Set();
+ for(const item of items){let arm=p.handItems[item];if(!arm||used.has(arm))arm=['right-arm','left-arm'].find(a=>hasPart(p,a)&&!used.has(a));if(arm){p.handItems[item]=arm;used.add(arm);}}
+ return p.handItems[kind]||'';
+}
+function freeItemArm(p,kind){
+ const items=heldHandItems(p);if(items.includes(kind)||items.length>=2)return '';
+ for(const item of items)assignedItemArm(p,item);
+ return ['right-arm','left-arm'].find(a=>hasPart(p,a)&&!items.some(i=>p.handItems[i]===a))||'';
+}
 // Ownership stays attached to the arm that picked the object up; turning or
 // boarding cannot teleport a gun between hands.
 const itemHand = (player) => player.itemArm || availableArm(player);
@@ -8215,6 +11522,12 @@ function itemHandTarget(player, now) {
 }
 
 function gunPose(player, now, input = null) {
+  if(poolOnly()){
+    const pose=runnerWorldGeometry(player,(now-startedAt)/1e6),arm=itemForearm(player,pose);
+    const hand=arm?{x:arm.x2,y:arm.y2,z:arm.z2}:{x:player.x,y:player.y-110,z:player.z||0};
+    const yaw=(player.poolYaw||0)+(player.spin?.angle||0),dx=Math.cos(yaw),dz=Math.sin(yaw);
+    return {hand,dx,dy:0,dz,muzzle:{x:hand.x+dx*54,y:hand.y,z:hand.z+dz*54}};
+  }
   let aimX = input?.horizontal || player.facing;
   let aimY = input ? -input.vertical : 0;
   if (!input && (player.itemAimLocked || player.gunAimLive ||
@@ -8245,10 +11558,10 @@ function shieldGeometry(player) {
   const aimY = player.shieldAimY || 0;
   const length = Math.hypot(aimX, aimY) || 1;
   return {
-    x: player.x + aimX / length * shieldForward,
+    x: player.x + aimX / length * shieldForward * (poolOnly()?Math.cos(player.poolYaw||0):1),
     y: player.y - (player.shieldCrouched ? 58 : 90) -
       aimY / length * shieldForward,
-    z: player.z,
+    z: (player.z||0) + (poolOnly()?aimX / length * shieldForward*Math.sin(player.poolYaw||0):0),
     radius: shieldRadius,
   };
 }
@@ -8264,8 +11577,8 @@ function breakShield(player, now) {
   player.shieldBrokenAt = now;
   player.blockFlash = 1;
   player.stance = "SHIELD BREAK";
-  player.pendingMoveLabel = "SHIELD BREAK";
-  playDrum("bell", 1, panPlayer(player));
+  player.pendingMoveLabel = "BUBBLE POP";
+  playBubbleSound(player, true);
   emitSignal("shieldbreak", player.pad, 1, 0);
 }
 
@@ -8310,7 +11623,7 @@ function returnBall(ball, player, now, shielded, intensity = 1) {
     player.grounded = false;
   }
   spawnImpact({ x: ball.x, y: ball.y, z: ball.z,
-    life: .22, duration: .22, death: false, explosion: false });
+    life: .22, duration: .22, death: false, explosion: false, object: true });
   impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 350000);
   playDrum(shielded ? "block" : "clap", shielded ? 1.1 : 1.25,
     panAt(ball.x, ball.z));
@@ -8348,6 +11661,31 @@ function crossWackBall(ball, hitters, now) {
   emitSignal("crosswack", -1, direction, Math.round(speed));
 }
 
+// The deck as a collider, and what a head does to it: rolled into from the
+// side, a board pops off its tail and flips end over end the way the head
+// was going — harder the faster it was hit — and the head gives up a little
+// of its roll. The spin settles flat when the deck lands.
+const deckHalf = 64;
+const deckReach = 16;
+function flipBoard(ball, player, now) {
+  damageBoard(1.5, ball.x, ball.y, ball.z || 0, now);
+  const direction = Math.sign(player.vx) || Math.sign(ball.x - player.x) ||
+    player.facing || 1;
+  const speed = Math.abs(player.vx);
+  ball.vx = direction * clamp(320 + speed * .8, 320, 2200);
+  ball.vy = -clamp(460 + speed * .35, 460, 1300);
+  ball.flipSpin = direction * clamp(9 + speed / 160, 9, 26);
+  ball.x = player.x + direction * (deckHalf + 34);
+  ball.y = Math.min(ball.y, terrainFloorAt(ball.x) - skateAxleDrop - skateWheelRadius - 4);
+  ball.safeUntil = now + 260000;
+  ball.safePlayers = 1 << player.pad;
+  player.vx *= .7;
+  if (player.skateVx) player.skateVx *= .7;
+  playDrum("block", .7, panPlayer(player));
+  playDrum("clap", .35, panPlayer(player));
+  emitSignal("board-flip", player.pad, direction, Math.round(speed));
+}
+
 function bootBall(ball, player, now) {
   // Walking contact carries the grounded ball in the player's travel
   // direction. A melee strike remains the intentionally stronger launch.
@@ -8367,7 +11705,7 @@ function bootBall(ball, player, now) {
   player.lastButton = dashing ? "DASH BOOT" : "BOOT";
   player.lastButtonAt = now;
   spawnImpact({ x: ball.x, y: ball.y, z: ball.z,
-    life: .16, duration: .16, death: false, explosion: false });
+    life: .16, duration: .16, death: false, explosion: false, object: true });
   impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 300000);
   playDrum("kick", 1.12, panAt(ball.x, ball.z));
   emitSignal("boot", player.pad, direction, Math.round(speed));
@@ -8388,7 +11726,7 @@ function bounceBallOffBody(ball, player, now, segmentIndex = -1) {
   applyBodyHit(player, segmentIndex, ball.x - ball.vx,
     ball.lastHitBy, now, 760, 110, false);
   spawnImpact({ x: ball.x, y: ball.y, z: ball.z,
-    life: .16, duration: .16, death: false, explosion: false });
+    life: .16, duration: .16, death: false, explosion: false, object: true });
   impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 300000);
   playDrum("block", .82, panAt(ball.x, ball.z));
   emitSignal("bodybounce", player.pad, direction, Math.round(speed));
@@ -8402,10 +11740,9 @@ const boomerboardHoldUs = 180000;
 const boomerboardCatch = 70;
 function updateBoomerboard(dt, now) {
   for (const player of activePlayers()) {
-    const board = balls.find((item) => item.type === "skateboard" &&
-      item.active && item.heldBy < 0);
+    const board = boardForRider(player, true);
     // A lone head can call it too, and rides it home.
-    const calling = !player.skateboard && player.alive &&
+    const calling = !poolOnly() && !player.skateboard && player.alive &&
       Boolean(inputPads[player.pad]?.down?.includes("B"));
     if (!calling) {
       player.boomerSince = 0;
@@ -8423,7 +11760,7 @@ function updateBoomerboard(dt, now) {
       // The arc bows out on the side the deck is already drifting toward.
       board.boomerSide = Math.sign(board.vx || 1) * (board.x < player.x ? -1 : 1) || 1;
       emitSignal("boomerboard", player.pad, 1, 0);
-      playDrum("whoosh", .7, panPlayer(player));
+      playDrum("whoosh", .18, panPlayer(player));
     }
     const feetX = player.x, feetY = player.y - skateAxleDrop - skateWheelRadius;
     const dx = feetX - board.x, dy = feetY - board.y;
@@ -8436,8 +11773,9 @@ function updateBoomerboard(dt, now) {
       board.heldBy = -1;
       resetSkate(player);
       player.skateboard = true;
+      player.skateBoardId = balls.indexOf(board);
       player.skateVx = player.vx;
-      player.skatePitch = skateContact(player.x, player.y).pitch;
+      player.skatePitch = riderContact(player, player.y).pitch;
       player.boomerSince = 0;
       player.lastButton = "BOOMERBOARD";
       player.lastButtonAt = now;
@@ -8462,6 +11800,10 @@ function updateBoomerboard(dt, now) {
 }
 
 function updateBall(ball, dt, now) {
+  if(poolOnly()&&freeskateActive()&&ball.type==='skateboard'){
+    if(ball.active)updatePoolLooseVehicle(ball,dt,now,true);
+    return;
+  }
   // A popped ball is gone, not retired — a crater should cost the round its
   // ball for a moment, not for good. It re-inflates over the middle once its
   // serve time comes round.
@@ -8482,6 +11824,15 @@ function updateBall(ball, dt, now) {
     emitSignal("ballserve", -1, 0, 0);
   }
   if (!ball.active || now < ball.serveAt) return;
+  // A board lying at a fighter's feet asked for that fighter's combat boxes up
+  // to three times a tick, each one a full pose build; one per instant does.
+  const boxCache = new Map();
+  const boxesAt = (player, at) => {
+    const key = player.pad + ":" + at;
+    let boxes = boxCache.get(key);
+    if (!boxes) boxCache.set(key, boxes = sampleCombatBoxes(player, at));
+    return boxes;
+  };
   if (ball.heldBy >= 0) {
     const carrier = players[ball.heldBy];
     if (!carrier?.alive || carrier.heldBall !== balls.indexOf(ball)) {
@@ -8496,6 +11847,12 @@ function updateBall(ball, dt, now) {
     }
   }
   const isBoard = ball.type === "skateboard";
+  if(isBoard && ball.spatialSpin){
+    ball.yaw+=(ball.yawRate||0)*dt;
+    ball.z=clamp((ball.z||0)+(ball.vz||0)*dt,-180,180);
+    ball.vz*=Math.exp(-dt*2);
+    ball.yawRate*=Math.exp(-dt*(ball.y>=terrainFloorAt(ball.x)-40?2:.2));
+  }
   const contactRadius = isBoard ? skateAxleDrop + skateWheelRadius : ball.radius;
   const platformSupported = ledgeSupports(ball.x, ball.y, contactRadius);
   const floorSupported = ball.y >= terrainFloorAt(ball.x) - contactRadius - 2;
@@ -8505,9 +11862,24 @@ function updateBall(ball, dt, now) {
   const previous = { x: ball.x, y: ball.y, z: ball.z };
   ball.x += ball.vx * dt;
   ball.y += ball.vy * dt;
+  if (isBoard) {
+    const floor = terrainFloorAt(ball.x) - contactRadius;
+    if (ball.y >= floor && previous.y < floor - 1 && ball.vy > 1100)
+      damageBoard((ball.vy - 1100) / 60, ball.x, floor, ball.z || 0, now);
+  }
   if (Math.abs(ball.vx) > 20) {
     if (isBoard) ball.skateSpin = (ball.skateSpin || 0) + ball.vx * dt / skateWheelRadius;
     else ball.rotation += ball.vx * dt / Math.max(1, contactRadius);
+  }
+  // A flipped deck turns end over end in the air, and lands flat: once it
+  // is down, the turn winds to the nearest whole flip and the spin stops.
+  if (isBoard && ball.flipSpin) {
+    if (!grounded) ball.rotation += ball.flipSpin * dt;
+    else {
+      const flat = Math.round(ball.rotation / (Math.PI * 2)) * Math.PI * 2;
+      ball.rotation = flat;
+      ball.flipSpin = 0;
+    }
   }
   const inset = wallThickness + contactRadius;
   if (ball.x < worldLeft + inset) {
@@ -8557,7 +11929,7 @@ function updateBall(ball, dt, now) {
     // A board its rider has just let go of passes through them for a moment
     // instead of being booted, bounced or caught against their own feet.
     if (ball.releasedBy === player.pad && now - (ball.releasedAt || 0) < 200000) continue;
-    const boxes = sampleCombatBoxes(player, now);
+    const boxes = boxesAt(player, now);
     for (const strike of boxes.hit) {
       const distance = pointBoxDistance(strike, ball.x, ball.y, ball.z);
       if (distance <= ball.radius) {
@@ -8583,7 +11955,7 @@ function updateBall(ball, dt, now) {
     // instead of being booted, bounced or caught against their own feet.
     if (ball.releasedBy === player.pad && now - (ball.releasedAt || 0) < 200000) continue;
     if (player.blocking) {
-      const guard = sampleCombatBoxes(player, now).guard[0];
+      const guard = boxesAt(player, now).guard[0];
       const distance = guard ? pointBoxDistance(guard, ball.x, ball.y, ball.z) : Infinity;
       if (distance <= ball.radius) {
         const shield = shieldGeometry(player);
@@ -8593,22 +11965,34 @@ function updateBall(ball, dt, now) {
         return;
       }
     }
-    const headBox = sampleCombatBoxes(player,now).hurt.find(b=>b.part==='head');
-    const currentHeadDistance = pointBoxDistance(headBox,ball.x,ball.y,ball.z);
-    const sweptHeadDistance = segmentBoxEntry(
+    // A board touches as its deck — a bar 128 long and about 16 thick — not
+    // as the 52-unit sphere its ball record carries, which bumped fighters
+    // from well above a flat board. Distances are taken to the deck point
+    // nearest the fighter.
+    const boardBall = ball.type === "skateboard";
+    const reach = boardBall ? deckReach : ball.radius;
+    const touchX = boardBall
+      ? clamp(player.x, ball.x - deckHalf, ball.x + deckHalf) : ball.x;
+    const headBox = boxesAt(player,now).hurt.find(b=>b.part==='head');
+    const currentHeadDistance = pointBoxDistance(headBox,touchX,ball.y,ball.z);
+    const sweptHeadDistance = boardBall ? Infinity : segmentBoxEntry(
       { x1: previous.x, y1: previous.y, z1: previous.z,
         x2: ball.x, y2: ball.y, z2: ball.z },headBox,ball.radius)!==null ? 0 : Infinity;
     const headDistance = Math.min(currentHeadDistance, sweptHeadDistance);
     const bodyContact = runnerContactToPoint(player, poseTime,
-      ball.x, ball.y, ball.z);
+      touchX, ball.y, ball.z, boxesAt);
     const bodyDistance = bodyContact.bodyDistance;
-    if (Math.min(headDistance, bodyDistance) > ball.radius) continue;
+    if (Math.min(headDistance, bodyDistance) > reach) continue;
     // Its own rider can catch a released board at any speed — but not in the
     // first fifth of a second, while it still lies against their feet.
     const released = ball.releasedBy === player.pad;
     const ownRelease = released && now - (ball.releasedAt || 0) > 200000;
-    if (ball.type === "skateboard" && headDistance > ball.radius &&
-        bodyDistance <= ball.radius && !player.skateboard &&
+    // A lone head is all body, and it climbs aboard by coming down onto the
+    // deck; rolling into the deck from the side flips it instead (below).
+    const boardTouch = isHeadOnly(player)
+      ? player.vy >= 0 && player.y <= ball.y + 12
+      : headDistance > reach && bodyDistance <= reach;
+    if (ball.type === "skateboard" && boardTouch && !player.skateboard && !player.dummy &&
         // A thrown deck is a weapon until it slows down — nobody catches a
         // board shot out of the air with their shins. A board its rider just
         // let go of is the exception: landing back on it is the point.
@@ -8616,8 +12000,9 @@ function updateBall(ball, dt, now) {
       ball.releasedBy = -1;
       resetSkate(player);
       player.skateboard = true;
+      player.skateBoardId = balls.indexOf(ball);
       player.skateVx = player.vx;
-      player.skatePitch = skateContact(player.x, player.y).pitch;
+      player.skatePitch = riderContact(player, player.y).pitch;
       ball.active = false;
       ball.heldBy = -1;
       player.lastButton = "SKATEBOARD";
@@ -8627,12 +12012,22 @@ function updateBall(ball, dt, now) {
       return;
     }
     const runningContact = player.grounded && Math.abs(player.vx) > 40 &&
-      (onSurface || ball.y >= player.y - ball.radius - 55);
+      (onSurface || ball.y >= player.y - reach - 55);
+    if (runningContact && boardBall && isHeadOnly(player)) {
+      flipBoard(ball, player, now);
+      return;
+    }
     if (runningContact) {
       bootBall(ball, player, now);
       return;
     }
-    if (headDistance <= ball.radius) {
+    // A loose board is not a cannonball: bumping your own head into it is
+    // a nudge, never the limb-stripping HEAD HIT a flying ball deals.
+    if (boardBall && Math.hypot(ball.vx, ball.vy) < 900) {
+      flipBoard(ball, player, now);
+      return;
+    }
+    if (headDistance <= reach) {
       const sourcePad = ball.lastHitBy >= 0 && ball.lastHitBy !== player.pad
         ? ball.lastHitBy : player.pad === 0 ? 1 : 0;
       dismountSkateboard(player, now);
@@ -8649,16 +12044,95 @@ function updateBall(ball, dt, now) {
 
 // Returns whether the tap was spent on a double-tap move, so a single tap can
 // still mean something else to the caller.
+const headDashSpeed = 2600;
+const headDashHop = 380;
+
+// Indoor freeskate is about the board, so every double-tap kicks it: riding,
+// the board is kicked out from under you the way you tapped (you land on your
+// feet with your momentum, and catch it or boomerboard it back); on foot with
+// the loose board within reach, the tap kicks it like a ball. Everywhere else
+// the double-taps keep their fighting meanings.
+const boardKickSpeed = 1100;
+const boardKickPop = 1300;
+const boardKickReach = 220;
+const boardKickMode = (player) => freeskateActive() && indoorSkate() && !isHeadOnly(player);
+function kickBoard(player, direction, now) {
+  if (player.onewheel) { resetSkate(player); return true; }
+  const board = boardForRider(player);
+  if (!board) return false;
+  const riding = player.skateboard;
+  if (!riding) {
+    if (!board.active || board.heldBy >= 0) return false;
+    const feetY = player.y - skateAxleDrop - skateWheelRadius;
+    if (Math.hypot(board.x - player.x, board.y - feetY) > boardKickReach) return false;
+  }
+  const carry = riding ? (player.grounded ? player.skateVx || 0 : player.vx) : player.vx * .4;
+  let vx, vy;
+  if (direction === "UP") { vx = carry * .5; vy = -boardKickPop; }
+  else if (direction === "DOWN") {
+    vx = carry * .5;
+    vy = (riding ? player.grounded : Math.abs(board.y - (terrainFloorAt(board.x) - 18)) < 6)
+      ? 0 : 900;
+  } else {
+    const side = direction === "RIGHT" ? 1 : -1;
+    player.facing = side;
+    vx = side * boardKickSpeed + (Math.sign(carry) === side ? carry * .6 : 0);
+    vy = -260;
+  }
+  if (riding) {
+    resetSkate(player);
+    board.x = player.x;
+    board.y = player.y - skateAxleDrop - skateWheelRadius;
+    board.z = player.z;
+    // You come off it still moving: on the ground the roll becomes your run.
+    if (player.grounded) {
+      player.vx = carry;
+      player.runSpeed = Math.min(runOverdriveTop, Math.abs(carry));
+    } else player.knockVx = carry;
+  }
+  board.active = true;
+  board.heldBy = -1;
+  board.spawnOwner = -1;
+  board.lastHitBy = -1;
+  board.recalling = false;
+  board.releasedBy = player.pad;
+  board.releasedAt = now;
+  board.vx = vx;
+  board.vy = vy;
+  // Popped up, it flips; kicked along, it spins a little end over end.
+  board.flipSpin = direction === "UP" ? (player.facing || 1) * 14
+    : direction === "DOWN" ? 0 : (vx > 0 ? 1 : -1) * 6;
+  damageBoard(3, board.x, board.y, board.z || 0, now);
+  player.pendingMoveLabel = "KICK " + direction;
+  player.lastButtonAt = now;
+  playDrum("block", .7, panPlayer(player));
+  emitSignal("board-kick", player.pad, ["UP", "RIGHT", "DOWN", "LEFT"].indexOf(direction),
+    Math.round(Math.hypot(vx, vy)));
+  return true;
+}
+
 function directionTap(player, direction, now) {
+  if(freeskateActive() && player.skateboard && !player.grounded && direction === "DOWN")return false;
   const previousTap = player.lastTap[direction] || -10000000;
   const releasedAt = player.lastRelease[direction] || -10000000;
   player.lastTap[direction] = now;
+  const opposite=direction === "LEFT" ? "RIGHT" : direction === "RIGHT" ? "LEFT" : null;
+  if (opposite && (player.lastTap[opposite] || -10000000)>previousTap)return false;
   if (now - previousTap > doubleTapUs || releasedAt <= previousTap ||
       now - releasedAt < doubleTapReleaseUs) return false;
   player.lastTap[direction] = -10000000;
+  const escapingSpin=!!player.spin && (direction === "LEFT" || direction === "RIGHT");
+  if(escapingSpin){
+    releaseSpinningBoard(player,now);player.spin=null;player.directionChanges=[];
+  }
+  if (!escapingSpin && boardKickMode(player) && kickBoard(player, direction, now)) return true;
   player.pendingMoveLabel = direction === "UP" ? "ULTRA AIR" : "DASH " + direction;
   playDrum("clap", 1.05, panPlayer(player));
   if (direction === "UP") {
+    // One ultra jump per trip through the air: chained double-taps used to
+    // stack launch on launch and carried a runner sixty metres up.
+    if (!player.grounded && player.ultraAirUsed) return true;
+    if (!player.grounded) player.ultraAirUsed = true;
     player.vy = -ultraJumpVelocity * (freeskateActive() ? .6 : 1);
     player.grounded = false;
     player.jumpHeld = false;
@@ -8671,7 +12145,7 @@ function directionTap(player, direction, now) {
       // rider can let go mid-air and land back on it — or, on the ground,
       // step off and leave it rolling. Released, it is nobody's weapon, and
       // its rider can catch it again at any speed (see `releasedBy`).
-      const board = balls.find((item) => item.type === "skateboard");
+      const board = boardForRider(player);
       // Half the roll goes with it: a release is letting go, not a launch.
       const rolling = (player.grounded ? player.skateVx : player.vx) * .5;
       resetSkate(player);
@@ -8729,6 +12203,23 @@ function directionTap(player, direction, now) {
     }
   } else {
     player.facing = direction === "RIGHT" ? 1 : -1;
+    // Every sideways dash streaks: the lines trail the body for a beat.
+    player.dashLinesUntil = now + 260000;
+    player.dashLinesFacing = player.facing;
+    // A head has no legs to dash on; the double-tap boosts the ball instead —
+    // a shove along the floor with a hop and a spin, the way it travels.
+    if (isHeadOnly(player)) {
+      // A head's momentum is its roll (`skateVx`), grounded or airborne, so
+      // the boost goes there rather than into the on-foot dash lane.
+      player.skateVx = player.facing *
+        Math.max(Math.abs(player.skateVx || 0), headDashSpeed);
+      player.vx = player.skateVx;
+      if (player.grounded) player.vy = Math.min(player.vy, -headDashHop);
+      player.grounded = false;
+      player.headRollRate = player.facing * 6;
+      emitSignal("dash", player.pad, player.facing, 1);
+      return true;
+    }
     // Out of a vert air, a dash breaks the lock: the rider leaves the pipe's
     // plane sideways — over the coping onto the deck, or back out across
     // the pipe.
@@ -8793,7 +12284,9 @@ function crouchHop(player, direction, now) {
 }
 
 function killPlayer(target, killerPad, now, cause = "KO") {
+  if(target.dummy){applyBodyHit(target,0,players[killerPad]?.x ?? target.x-1,killerPad,now,1250,360,false);return;}
   if (!target.alive) return;
+  if(freeskateActive() && freeskateSecond && !parkSupply.ko) parkSupply.ko={at:now,until:now+4800000,settled:false,winner:-1,loser:target.pad};
   recordFightHit(killerPad, true);
   releaseCarriedBall(target, now);
   if (!soloRoom()) {
@@ -8802,15 +12295,16 @@ function killPlayer(target, killerPad, now, cause = "KO") {
         winnerPad: killerPad, cause };
     freezeFinalFrame(now, deathCinematic?.winnerPad ?? -1);
   }
+  startRagdoll(target,{x:target.x,y:target.y-100,z:target.z},[Math.sign(target.x-(players[killerPad]?.x??target.x-1))*400,-180,0]);
   target.alive = false;
   target.headBustedAt = now;
-  target.respawnAt = now + 1200000;
+  target.respawnAt = now + (parkSupply.ko ? 6000000 : 1200000);
   target.vx = 0;
   if (!soloRoom()) target.vy = 0;
   target.stance = "HIT";
   target.lastButton = cause;
   target.lastButtonAt = now;
-  if (killerPad !== target.pad) players[killerPad].score += 1;
+  if (killerPad !== target.pad && players[killerPad]) players[killerPad].score += 1;
   emitSignal(cause === "BALLED" ? "balled" : "ko",
     killerPad, target.pad, players[killerPad]?.score || 0);
   roundCause = cause;
@@ -8857,6 +12351,9 @@ function groundPound(player, now) {
   spawnImpact({ x: player.x, y: terrainY, z: player.z,
     life: .58, duration: .58, death: false, explosion: true,
     blastRadius: radius, power });
+  for (let ding = 0; ding < 3 + poundLevel * 2; ding++)
+    addDing(player.x + (decalRandom() - .5) * radius, (player.z || 0) + (decalRandom() - .5) * radius * .6,
+      4 + decalRandom() * 6 * (1 + power));
   impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 350000);
   playDrum("kick", 1.3, panPlayer(player));
   playSine(76 + power * 34 + poundLevel * 18, .32 + poundLevel * .09);
@@ -8900,13 +12397,48 @@ function groundPound(player, now) {
   player.lastButtonAt = now;
 }
 
+// Whether sampleCombatBoxes could give this fighter a hit box this tick. A
+// necessary condition, not the whole one: it repeats the cheap scalar tests
+// of the two `hit.push` sites (the pogo dive and the active melee frame) and
+// leaves the part and pose tests to the sample itself. A fighter it refuses
+// would have sampled to an empty `hit` and been skipped at the same
+// `continue`; a fighter it passes is sampled exactly as before.
+function couldStrike(player, now) {
+  if (!player.alive) return false;
+  if (isPogo(player)) return !player.grounded && !player.pogoHit;
+  return Boolean(player.attackKind) && now < player.attackUntil &&
+    !player.attackHit && !player.blocking && now >= player.hitStunUntil;
+}
+
+function strikeParkWindow(attacker,attacking){
+ if(!poolOnly())return false;
+ for(const hit of attacking.hit){const c=hit.capsule;if(!c)continue;
+  const from={x:c.x1,y:c.y1,z:c.z1},to={x:c.x2,y:c.y2,z:c.z2};
+  for(const {w,bay,u,fraction} of parkWallContact(from,to,(c.width||10)/2+4)){
+    const y=lerp(from.y,to.y,fraction);
+    if(u>bay*w.width+109&&u<(bay+1)*w.width-109&&y>parkDeckY-parkBuildingHeight+269&&y<parkDeckY-99){
+      if(breakParkWindow(w,bay,{...to,y},attacker)){attacker.attackHit=true;return true;}
+    }
+  }
+ }
+ return false;
+}
 function resolveMelee(now) {
   const poseTime = (now - startedAt) / 1000000;
   const contacts = [];
-  const samples = players.map(player => sampleCombatBoxes(player, now));
-  for (const attacker of players) {
-    const attacking = samples[attacker.pad];
-    if (!attacker.alive || !attacking.hit.length) continue;
+  // Boxes are built on demand. Sampling every fighter up front was two pose
+  // builds a tick — in the park, where nobody attacks, and through most of a
+  // fight — to learn there was nothing to test. A target's boxes are read
+  // only against an attacker that has a hit box, and by then that attacker's
+  // turn has touched nothing of the target's, so the late sample is the
+  // sample the eager map would have taken.
+  const samples = [];
+  const sampleOf = (player) =>
+    samples[player.pad] ||= sampleCombatBoxes(player, now);
+  for (const attacker of poolOnly()?[...players,...parkKids.filter(k=>k.sparringPartner!==undefined)]:players) {
+    if (!couldStrike(attacker, now)) continue;
+    const attacking = sampleOf(attacker);
+    if (!attacking.hit.length) continue;
     for (const fragment of detachedParts) {
       const r = fragment.width/2;
       const bounds = combatRect('fragment',Math.min(fragment.x1,fragment.x2)-r,
@@ -8928,14 +12460,18 @@ function resolveMelee(now) {
       break;
     }
     if (attacker.attackHit) continue;
-    const target = players[attacker.pad === 0 ? 1 : 0];
-    if (!target.alive) continue;
-    const contact = combatBoxContact(attacking, samples[target.pad]);
+    if(strikeParkWindow(attacker,attacking))continue;
+    const targets=poolOnly()?[...activePlayers(),...parkKids]:[players[attacker.pad===0?1:0]];
+    for(const target of targets){
+    if (target===attacker||!target.alive||(attacker.civilian&&target.pad!==attacker.sparringPartner)) continue;
+    const contact = combatBoxContact(attacking, sampleOf(target));
     if (contact?.separation <= 3) {
       attacker.attackHit = true;
       contacts.push({ attacker, target,
         strike: { x: contact.x, y: contact.y, z: contact.z },
         headshot: contact.headshot, segmentIndex: contact.segmentIndex });
+      break;
+    }
     }
   }
   for (const { attacker, target, strike, headshot, segmentIndex } of contacts) {
@@ -8943,6 +12479,7 @@ function resolveMelee(now) {
     spawnImpact({ x: strike.x, y: strike.y, z: strike.z,
       life: .2, duration: .2, death: false, explosion: false });
     impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 350000);
+    if(target.civilian){damageParkCivilian(target,attacker,strike,now,1);continue;}
     const away = Math.sign(target.x - attacker.x) || -attacker.facing;
     const backBlocking = target.inputX === away;
     if (target.blocking || backBlocking) {
@@ -9008,8 +12545,8 @@ function resolvePogoAttacks(now) {
   for (const attacker of players) {
     if (!attacker.alive || !isPogo(attacker) || attacker.grounded ||
         attacker.pogoHit) continue;
-    const target = players[attacker.pad === 0 ? 1 : 0];
-    if (!target.alive) continue;
+    const target=players[attacker.pad===0?1:0];
+    if(!target.alive)continue;
     const contact = combatBoxContact(sampleCombatBoxes(attacker,now),sampleCombatBoxes(target,now));
     if (!contact || contact.separation > 3) continue;
     attacker.pogoHit = true;
@@ -9029,6 +12566,7 @@ function resolvePogoAttacks(now) {
 function resolvePlayerPushboxes() {
   if (players.some((p) => p.ropeIndex >= 0 || p.skateLoop >= 0)) return;
   if (!players[0].alive || !players[1].alive) return;
+  if (!laneAligned(players[0], players[1])) return;
   const poseTime = (runtime().monotonicUs - startedAt) / 1000000;
   const firstBounds = combatPushbox(players[0]);
   const secondBounds = combatPushbox(players[1]);
@@ -9324,9 +12862,378 @@ function shieldBash(player, now) {
   emitSignal("shield-bash", player.pad, target.pad, target.shieldLocked ? 1 : 0);
 }
 
+// STRAFE: the shoulders and triggers step a fighter between three lanes of
+// depth — either bumper (LB/RB) one lane back, away from the lens; either
+// trigger (LT/RT) one lane forward —
+// a committed sixteen-frame move. Fighters in different lanes pass each other:
+// strikes and shots only connect across a lane gap of less than a body's
+// depth, the way a sidestep works in Tekken. Everything else — walking,
+// jumping, skating — stays on the 2D axis.
+const strafeLaneGap = 160;
+const strafeFrames = 10;
+const strafeBoostFrames = 11;
+const strafeDoubleTapUs = 300000;
+const laneAligned = (a, b) => Math.abs((a.z || 0) - (b.z || 0)) < 90;
+function strafePathClear(player, to) {
+  if (!indoorSkate()) return true;
+  const from = player.z || 0;
+  return !hallCubes.some(cube => !cube.broken && player.y > cubeTop(cube) + 6 &&
+    Math.abs(player.x-cube.x) < cube.size/2+28 &&
+    Math.min(from,to) < cube.size/2+18 && Math.max(from,to) > -cube.size/2-18);
+}
+function updateStrafe(player, pad, now) {
+  if (depthControls()) { player.strafe = null; return; }
+  player.z=0;player.strafe=null;player.strafeHeld=false;player.strafeLast=null;return;
+  const held = pad?.down || [];
+  // Either bumper steps a lane back (away from the lens); either trigger
+  // steps a lane forward.
+  const back = held.includes("LeftShoulder") || held.includes("RightShoulder");
+  const forward = held.includes("LeftTrigger") || held.includes("RightTrigger");
+  const wanted = back === forward ? 0 : back ? 1 : -1;
+  const pressed = wanted && !player.strafeHeld && player.alive;
+  // Double-tap the same way: a strafe boost, two lanes in one quick move,
+  // from mid-step or just after one.
+  if (pressed && wanted === player.strafeLast?.direction && now - player.strafeLast.at < strafeDoubleTapUs) {
+    const lane = clamp(Math.round((player.strafe?.to ?? player.z ?? 0) / strafeLaneGap) + wanted, -1, 1);
+    const target = clamp(Math.round((player.strafeLast.from ?? 0) / strafeLaneGap) + wanted * 2, -1, 1) * strafeLaneGap;
+    const to = Math.abs(target - (player.z || 0)) > Math.abs(lane * strafeLaneGap - (player.z || 0)) ? target : lane * strafeLaneGap;
+    if (Math.round(to) !== Math.round(player.z || 0) && strafePathClear(player, to)) {
+      player.strafe = { from: player.z || 0, to, at: now, frames: strafeBoostFrames };
+      player.pendingMoveLabel = "STRAFE BOOST";
+      emitSignal("strafe-boost", player.pad, wanted, Math.round(to / strafeLaneGap));
+      playDrum("whoosh", .6, panPlayer(player));
+    }
+    player.strafeLast = null;
+    player.strafeHeld = true;
+    return;
+  }
+  if (player.strafe) {
+    const frames = player.strafe.frames || strafeFrames;
+    const progress = clamp((now - player.strafe.at) / (frames * replayTickUs), 0, 1);
+    const ease = progress * progress * (3 - 2 * progress);
+    player.z = player.strafe.from + (player.strafe.to - player.strafe.from) * ease;
+    if (progress >= 1) player.strafe = null;
+  } else if (pressed) {
+    const lane = clamp(Math.round((player.z || 0) / strafeLaneGap) + wanted, -1, 1);
+    if (lane * strafeLaneGap !== Math.round(player.z || 0) && strafePathClear(player, lane * strafeLaneGap)) {
+      player.strafe = { from: player.z || 0, to: lane * strafeLaneGap, at: now };
+      player.strafeLast = { direction: wanted, at: now, from: player.z || 0 };
+      player.pendingMoveLabel = "STRAFE";
+      emitSignal("strafe", player.pad, wanted, lane);
+      playDrum("hat", .45, panPlayer(player));
+    }
+  }
+  player.strafeHeld = Boolean(wanted);
+}
+// Turning takes frames too: when a fighter changes direction the pose swings
+// round the vertical axis over seven frames rather than flipping in one.
+const turnFrames = 7;
+// Left-right-left fast winds up a spin — a ballet spin on foot, a skate spin
+// on the board — and every further flick while spinning adds to it. It keeps
+// turning on its own and slows under friction (slowly in the air). While it
+// turns the readout says rpm instead of mph.
+const spinWindowUs = 450000;
+const spinKick = 5.5;      // rad/s per flick
+const spinTop = 34;        // rad/s, about 325 rpm
+function noteDirectionChange(player, now) {
+  const changes = player.directionChanges ||= [];
+  changes.push(now);
+  while (changes.length && now - changes[0] > spinWindowUs) changes.shift();
+  if (player.spin) {
+    player.spin.rate = Math.min(spinTop, player.spin.rate + spinKick * .6);
+    return;
+  }
+  if (changes.length >= 3) {
+    changes.length = 0;
+    player.spin = { angle: 0, rate: spinKick * 1.6, direction: player.facing || 1, startedAt:now };
+    player.pendingMoveLabel = player.skateboard ? "SKATE SPIN" : "BALLET SPIN";
+    emitSignal("spin", player.pad, player.spin.direction, 0);
+    playDrum("whoosh", .18, panPlayer(player));
+  }
+}
+function updateSpin(player, dt) {
+  const spin = player.spin;
+  if (!spin) return;
+  const before = spin.angle;
+  spin.angle += spin.rate * dt * spin.direction;
+  // Air swishes follow rotation; a short refractory time bounds polyphony.
+  spin.swishWait=Math.max(0,(spin.swishWait||0)-dt);
+  const quarter=angle=>Math.floor(angle/(Math.PI/2));
+  if(quarter(before)!==quarter(spin.angle)&&spin.swishWait===0){
+    const effort=clamp(spin.rate/spinTop,0,1);
+    playDrum('whoosh',.025+effort*.12,clamp(panPlayer(player)+Math.sin(spin.angle)*.3,-1,1));
+    spin.swishWait=.14;
+  }
+  // It marks the ground each half turn: rubber arcs where the wheels orbit,
+  // or a scuffed ring under the pivot foot.
+  const half = (angle) => Math.floor(angle / Math.PI);
+  if (player.grounded && half(before) !== half(spin.angle)) {
+    const radius = player.skateboard ? skateTruck : 10;
+    addDecal({ kind: "arc", x: player.x, z: player.z || 0, size: radius, angle: before,
+      sweep: spin.angle - before + Math.PI * .9, strength: player.skateboard ? 1 : .6 });
+  }
+  spin.rate *= Math.exp(-dt * (player.grounded ? .7 : .25));
+  if (spin.rate < .9) {
+    // Settle to the nearest whole turn, facing where it started.
+    player.spin = null;
+    emitSignal("spin-end", player.pad, 0, 0);
+  }
+}
+const spinRpm = (player) => player.spin ? player.spin.rate / (Math.PI * 2) * 60 : 0;
+function updateTurn(player, now) {
+  if (player.turnFacing === undefined) player.turnFacing = player.facing;
+  if (player.facing !== player.turnFacing) {
+    player.turnFacing = player.facing;
+    player.turnAt = now;
+  }
+}
+
+function updatePoolPlayer(p, pad, dt, now) {
+  if(updateParkEntrance(p,pad,dt,now))return;
+  if(p.heldBy!==undefined){
+    const holder=players[p.heldBy];
+    if(holder?.alive&&holder.holdPad===p.pad&&!holder.holdKid)return;
+    p.heldBy=undefined;
+  }
+  parkHold(p,pad.down.includes('Grab'),now);
+  if(p.sparringPartner!==undefined&&!parkFightRival(p))endParkSparring(p);
+  const racePreviousX=p.x;
+  const combatTarget=parkFightRival(p);
+  const combatMode=!!combatTarget;
+  const fightAxis=parkFightAxis(p,combatTarget);
+  const held=combatMode?pad.down.filter(k=>k!=='ArrowUp'&&k!=='ArrowDown').concat(pad.down.includes('ArrowUp')?['A']:[],pad.down.includes('ArrowDown')?['X']:[]):pad.down;
+  const pressed=key=>held.includes(key)&&!p.previous.includes(key);
+  if(pressed('LeftStick')||pressed('KeyQ'))dropParkItem(p,now);
+  const axis=value=>Math.abs(value)>.18?Math.sign(value)*(Math.abs(value)-.18)/.82:0;
+  let turn=Number(held.includes('ArrowRight'))-Number(held.includes('ArrowLeft')) || axis(pad.leftX||0);
+  let throttle=Number(held.includes('ArrowUp'))-Number(held.includes('ArrowDown')) || axis(pad.leftY||0);
+  if(combatMode){
+    const input=quantizedInput(pad,p.suppressedDirections||[]);
+    turn=input.horizontal;
+    const dx=combatTarget.x-p.x,dz=(combatTarget.z||0)-(p.z||0);
+    const facing=dx*fightAxis.x+dz*fightAxis.z>=0?1:-1;
+    p.poolYaw=Math.atan2(fightAxis.z*facing,fightAxis.x*facing);
+    throttle=turn*facing;turn=0;
+    if(input.vertical>0&&!held.includes('A'))held.push('A');
+    if(input.vertical<0&&!held.includes('X'))held.push('X');
+  }
+  if(held.includes('X')&&Math.hypot(p.x-parkRecord.x-parkRecord.radius*.85,(p.z||0)-parkRecord.z+parkRecord.radius*.6)<160){
+    parkRecord.needle=clamp(parkRecord.needle+turn*dt*.3,.05,.95);
+    parkRecord.phase=parkRecord.needle*32;parkRecord.wobble=.12;turn=throttle=0;
+  }
+  // Drawing has Cartesian controls, independent of the rider's heading.
+  // B + directions never enters the steering/double-tap dash recognizer.
+  if(!combatMode&&p.chalkColor&&held.includes('B')&&p.grounded&&!p.swimming){
+    if(p.skateboard)dismountSkateboard(p,now);
+    const before={x:p.x,z:p.z||0},length=Math.max(1,Math.hypot(turn,throttle));
+    p.vx=-turn/length*360;p.vz=throttle/length*360;p.vy=0;
+    p.x+=p.vx*dt;p.z=(p.z||0)+p.vz*dt;
+    boundParkBody(p,before);p.y=poolFloorAt(p.x,p.z);
+    p.poolTap=p.poolAnalogTap=null;p.poolAnalogKey='';p.poolLastSteer=0;p.poolRunTime=0;
+    p.poolPipeLocked=false;p.poolVert=null;p.dashUntil=0;p.attackKind='';p.blocking=false;
+    p.inputX=turn;p.inputZ=throttle;p.chalkDrawing=true;
+    if(held.includes('RightShoulder')&&!p.spin)p.spin={angle:0,rate:6,direction:1,startedAt:now};
+    if(held.includes('RightShoulder')&&p.spin)p.spin.rate=6;
+    updateSpin(p,dt);updateChalk(p,held,now);
+    p.poolStridePhase=(p.poolStridePhase||0)+Math.hypot(p.vx,p.vz)*dt/240;
+    p.stance=Math.hypot(p.vx,p.vz)>1?'WALK':'NEUTRAL';p.previous=held.slice();return;
+  }
+  const tapKey=['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].find(pressed);
+  let directionDash=false;
+  if(tapKey){directionDash=p.poolTap?.key===tapKey&&now-p.poolTap.at<280000;p.poolTap=directionDash?null:{key:tapKey,at:now};}
+  const analogKey=Math.abs(turn)>.6?(turn>0?'right':'left'):Math.abs(throttle)>.6?(throttle>0?'forward':'back'):'';
+  if(analogKey&&analogKey!==p.poolAnalogKey){if(p.poolAnalogTap?.key===analogKey&&now-p.poolAnalogTap.at<280000){directionDash=true;p.poolAnalogTap=null;}else p.poolAnalogTap={key:analogKey,at:now};}
+  p.poolAnalogKey=analogKey;
+  if(directionDash){
+    p.raceLoop=null;p.raceLoopCooldown=now+1000000;p.poolPipeLocked=false;p.poolPipeEscapeUntil=now+900000;p.poolVert=null;p.dashUntil=now+180000;p.poolRunTime=1.5;
+    const side=tapKey==='ArrowLeft'||analogKey==='left'?-1:tapKey==='ArrowRight'||analogKey==='right'?1:0;
+    if(side&&!combatMode)p.poolYaw+=(side*Math.PI/2);
+    const sign=combatMode?(Math.sign(throttle)||1):tapKey==='ArrowDown'||analogKey==='back'?-1:1;
+    p.vx=Math.cos(p.poolYaw||0)*2200*sign;p.vz=Math.sin(p.poolYaw||0)*2200*sign;p.vy=Math.min(p.vy,-480);p.grounded=false;
+    p.lastButton='DASH OUT';p.lastButtonAt=now;playDrum('whoosh',.5,panPlayer(p));
+  }
+  if(updateRaceLoop(p,dt,now,throttle)){p.inputX=turn;p.inputZ=throttle;p.previous=held.slice();return;}
+  const steer=Math.sign(turn);
+  if(steer&&steer!==p.poolLastSteer){
+    noteDirectionChange(p,now);
+    p.poolLastSteer=steer;
+  }
+  updateSpin(p,dt);
+  const wasGrounded=p.grounded;
+  const oldHeading=p.poolYaw||0;
+  const speedBefore=Math.hypot(p.vx,p.vz||0);
+  const turnRate=p.goKart?lerp(2.4,1.2,clamp(speedBefore/3400,0,1)):p.onewheel?lerp(2.8,1.9,clamp(speedBefore/3000,0,1)):3.2;
+  // Steering changes the rider's heading. Forward always pushes along that heading.
+  p.poolYaw=oldHeading-turn*turnRate*dt;
+  const bank=turn*(p.skateboard?.34:.18)*clamp(speedBefore/1400,0,1);
+  p.poolLean=((p.poolLean||0)+(bank-(p.poolLean||0))*(1-Math.exp(-dt*8)));
+  const headingDelta=p.poolYaw-oldHeading;
+  if(p.grounded&&headingDelta){
+    const vx=p.vx,vz=p.vz||0,c=Math.cos(headingDelta),sn=Math.sin(headingDelta);
+    p.vx=vx*c-vz*sn;p.vz=vx*sn+vz*c;
+  }
+  const pipe=parkHalfPipe3D,pipeInside=Math.abs(p.x-pipe.x)<pipe.flat+pipe.radius+12&&Math.abs((p.z||0)-pipe.z)<pipe.run-30;
+  if(!p.skateboard||p.goKart||!pipeInside)p.poolPipeLocked=false;
+  if(p.skateboard&&!p.goKart&&pipeInside&&now>=(p.poolPipeEscapeUntil||0)&&(p.poolPipeLocked||p.grounded&&speedBefore>160&&Math.abs(Math.cos(p.poolYaw))>.7)){
+    if(!p.poolPipeLocked)p.poolPipeZ=p.z||0;
+    p.poolPipeLocked=true;p.poolYaw=Math.cos(p.poolYaw)>=0?0:Math.PI;
+    p.vz=0;p.z=p.poolPipeZ;
+  }
+  const driveX=Math.cos(p.poolYaw),driveZ=Math.sin(p.poolYaw);
+  p.previousY=p.y; p.inputX=turn; p.inputZ=throttle; p.inputY=held.includes('X')?-1:held.includes('A')?1:0;
+  p.ducking=held.includes('X')||!!p.goKart; p.crouchBlend+=(Number(p.ducking)-(p.crouchBlend||0))*(1-Math.exp(-dt*14));
+  p.facing=1; p.turnAt=-1e12; p.footSurf=false; p.strafe=null; p.grabHeld=false;
+  if(!held.includes('RightShoulder'))p.shieldLocked=false;
+  const blocking=held.includes('RightShoulder')&&!p.shieldLocked;
+  if(blocking&&!p.blocking)playBubbleSound(p,false);
+  if(!blocking&&p.blocking)playBubbleSound(p,true);
+  p.blocking=blocking; p.shieldCrouched=p.ducking;
+  if(now>=p.attackUntil)p.attackKind='';
+  if(p.itemAction&&now>=p.itemActionUntil)p.itemAction='';
+  if(!blocking){
+    if(pressed('B')&&(!p.chalkColor||combatMode)){p.punchArm=pad.down.includes('PunchL')?'left-arm':'right-arm';startMelee(p,'PUNCH',now);}
+    if(pressed('Y')||(held.includes('Y')&&p.gunMode==='RUBBER SMG')){
+      if(p.gunAmmo>0&&now>=(p.nextGunShotAt||0)&&availableArm(p))fireGun(p,{horizontal:1,vertical:0});
+      else if(!p.gunAmmo)startMelee(p,'KICK',now);
+    }
+  }
+  if(throttle&&!p.ducking)p.poolRunTime=(p.poolRunTime||0)+dt;else p.poolRunTime=0;
+  const mounted=p.skateboard;
+  const dash=pressed('LeftShoulder')&&now>=(p.poolDashReadyAt||0);
+  if(dash){
+    if(mounted)dismountSkateboard(p,now);
+    p.poolVert=null;p.poolPipeLocked=false;p.poolPipeEscapeUntil=now+900000;p.poolRunTime=1.5;p.poolDashReadyAt=now+450000;p.dashUntil=now+180000;
+    p.vx=driveX*2200;p.vz=driveZ*2200;p.vy=Math.min(p.vy,-420);p.grounded=false;
+    p.lastButton='DASH';p.lastButtonAt=now;emitSignal('dash',p.pad,1,0);
+  }else if(pressed('A')&&(p.grounded||mounted)){
+    if(mounted)dismountSkateboard(p,now);
+    p.poolVert=null;p.vy=Math.min(0,p.vy)-jumpVelocity; p.grounded=false;
+    p.jumpPoseUntil=now+240000; p.jumpLaunchAt=0; p.jumpHeld=true;
+    emitSignal('jump',p.pad,0,0);
+  }
+  // Substep contacts in both horizontal axes, keeping speed tangent to the bowl.
+  const steps=Math.max(1,Math.ceil(dt*120)), step=dt/steps;
+  for(let n=0;n<steps;n++){
+    if(swimMilk(p,step,throttle,driveX,driveZ,held,now))continue;
+    const before={x:p.x,z:p.z||0};
+    let slope=poolSlopeAt(p.x,p.z||0);
+    if(p.grounded){
+      const grade=slope.x*driveX+slope.z*driveZ, tangent=Math.hypot(1,grade);
+      let rolling=(p.vx*driveX+(p.vz||0)*driveZ)*tangent;
+      rolling+=1800*grade/tangent*step;
+      const top=p.goKart?6500:p.onewheel?(p.wheelTurbo?4800:3100):p.skateboard?2700:p.ducking?walkSpeed*.38:walkSpeed*lerp(.55,1.65,clamp(((p.poolRunTime||0)-.3)/1.1,0,1));
+      if(throttle){
+        const target=top*throttle,carving=Math.sign(target)!==Math.sign(rolling);
+        if(carving||Math.abs(rolling)<Math.abs(target))
+          rolling+=clamp((target-rolling)*(p.skateboard?3:12),-5600,p.skateboard?4200:9000)*step;
+      }
+      // Crouching pumps the curved surface, just as it does in the halfpipe.
+      if(p.skateboard&&!p.goKart&&p.ducking&&Math.abs(grade)>.18)
+        rolling+=Math.sign(rolling)*Math.min(1,Math.abs(grade))*skatePumpAcceleration*step;
+      rolling*=Math.exp(-step*(p.skateboard?(p.ducking?.04:.16):throttle?1:14));
+      rolling=clamp(rolling,p.goKart?-9000:-6000,p.goKart?9000:6000);
+      p.vx=driveX*rolling/tangent;p.vz=driveZ*rolling/tangent;
+      const speed=Math.abs(rolling);
+      const previousY=p.y,previousVy=grade*rolling/tangent;
+      p.x+=p.vx*step;p.z=(p.z||0)+p.vz*step;
+      const side=Math.sign(p.x-pipe.x),lipX=pipe.x+side*(pipe.flat+pipe.radius-6);
+      if(p.poolPipeLocked&&speed>350&&(before.x-lipX)*side<0&&(p.x-lipX)*side>=0){
+        p.x=lipX;p.z=p.poolPipeZ;p.y=Math.min(previousY,poolFloorAt(p.x,p.z));
+        p.grounded=false;p.vy=-Math.min(speed,skateTop);p.vx=p.vz=0;p.skateAirAt=now;
+        p.poolVert={x:p.x,z:p.z,nx:side,nz:0,speed:-p.vy,heading:p.poolYaw,pipe:true};
+        emitSignal('skate-air',p.pad,Math.round(-p.vy),0);continue;
+      }
+      const nextFloor=poolFloorAt(p.x,p.z);
+      // Rolling over the rim leaves the deck. Do not teleport down the wall.
+      if(nextFloor-previousY>Math.max(12,speed*step*1.5)){
+        p.grounded=false;p.y=previousY+previousVy*step;p.vy=previousVy;
+        continue;
+      }
+      slope=poolSlopeAt(p.x,p.z);
+      const nextVy=slope.x*p.vx+slope.z*p.vz;
+      if(p.skateboard&&speed>650&&previousVy < -100&&nextVy-previousVy>1800*step*1.5+3){
+        p.grounded=false;p.y=Math.min(nextFloor,previousY+previousVy*step);p.vy=previousVy+1800*step;
+        if(p.poolPipeLocked){p.poolVert={x:p.x,z:p.z,nx:Math.sign(p.x-pipe.x),nz:0,speed:-p.vy,heading:p.poolYaw,pipe:true};p.vx=p.vz=0;}
+        continue;
+      }
+      const bent=Math.hypot(p.vx,slope.x*p.vx+slope.z*p.vz,p.vz);
+      if(bent>0){p.vx*=speed/bent;p.vz*=speed/bent;}
+      p.vy=slope.x*p.vx+slope.z*p.vz;
+      p.y=poolFloorAt(p.x,p.z);
+      const lip=poolDistance(p.x,p.z);
+      if(lip.d>=lip.bowl.radius-5&&lip.d<lip.bowl.radius&&Math.hypot(slope.x,slope.z)>4&&p.vy < -180){
+        p.grounded=false;p.skateAirAt=now;
+        // Keep the halfpipe's vert: rise above the coping, then land on the
+        // same curve so the fall becomes rolling speed back into the bowl.
+        p.poolVert={x:p.x,z:p.z,nx:lip.nx,nz:lip.nz,speed:-p.vy,heading:p.poolYaw};
+        p.vx=p.vz=0;
+        emitSignal('skate-air',p.pad,Math.round(-p.vy),0);
+      }
+    }else{
+      if(p.poolVert){
+        p.x=p.poolVert.x;p.z=p.poolVert.z;p.vx=p.vz=0;
+      }else{
+        p.vx+=driveX*throttle*300*step;p.vz=(p.vz||0)+driveZ*throttle*300*step;
+        p.x+=p.vx*step;p.z=(p.z||0)+p.vz*step;
+      }
+      p.vy+=1800*step;p.y+=p.vy*step;
+      const floor=poolFloorAt(p.x,p.z);
+      if(p.y>=floor){
+        slope=poolSlopeAt(p.x,p.z);
+        const inward=(p.vy-slope.x*p.vx-slope.z*p.vz)/(1+slope.x*slope.x+slope.z*slope.z);
+        if(inward>0){p.vx+=slope.x*inward;p.vz+=slope.z*inward;}
+        p.landingSpeed=p.vy;p.y=floor;p.vy=slope.x*p.vx+slope.z*p.vz;
+        if(p.poolVert?.pipe){p.poolYaw=p.poolVert.nx>0?Math.PI:0;p.poolPipeLocked=true;}
+        p.grounded=true;p.poolVert=null;p.landPoseUntil=now+110000;
+      }
+    }
+    boundParkBody(p,before);
+  }
+  if(p.skateboard&&!p.onewheel&&p.grounded&&!wasGrounded){
+    playDrum('clap',clamp((p.landingSpeed||0)/2400,.25,.8),panPlayer(p));
+    emitSignal('skate-land',p.pad,p.landingSpeed||0,0);
+  }
+  enterRaceLoop(p,racePreviousX,now);
+  updateChalk(p,held,now);
+  const horizontal=Math.hypot(p.vx,p.vz||0);
+  if(p.grounded&&!p.skateboard){
+    const forward=p.vx*driveX+(p.vz||0)*driveZ;
+    p.poolStridePhase=(p.poolStridePhase||0)+forward*dt/240;
+  }
+  if(combatMode&&now>=(p.poolPipeEscapeUntil||0)){
+    const along=(p.x-fightAxis.originX)*fightAxis.x+((p.z||0)-fightAxis.originZ)*fightAxis.z;
+    const other=(combatTarget.x-fightAxis.originX)*fightAxis.x+((combatTarget.z||0)-fightAxis.originZ)*fightAxis.z;
+    const locked=clamp(along,other-900,other+900);
+    p.x=fightAxis.originX+locked*fightAxis.x;p.z=fightAxis.originZ+locked*fightAxis.z;
+    if(p.grounded)p.y=poolFloorAt(p.x,p.z);
+  }
+  updateFootprints(p,now);updateKartTireTracks(p);
+  const slope=poolSlopeAt(p.x,p.z||0),heading=p.poolYaw||0;
+  const pitch=p.grounded?Math.atan(slope.x*Math.cos(heading)+slope.z*Math.sin(heading)):0;
+  p.skatePitch+=(pitch-(p.skatePitch||0))*(1-Math.exp(-dt*16));
+  p.skateVx=p.skateboard?Math.hypot(p.vx,p.vy,p.vz||0):0;
+  if(p.skateboard&&p.grounded)p.skateSpin=(p.skateSpin||0)+(p.vx*driveX+(p.vz||0)*driveZ)*dt/skateWheelRadius;
+  p.stance=p.attackKind?'ATTACK':!p.grounded?'JUMP':p.ducking?'CROUCH':horizontal>40?'WALK':'NEUTRAL';
+  p.walkSince=horizontal>40?(p.walkSince||now):0;
+  p.hit=Math.max(0,(p.hit||0)-dt*2);p.previous=held.slice();
+}
 function updatePlayer(player, pad, dt, now) {
+  if(poolOnly()&&freeskateActive()&&player.alive&&!player.dummy){updatePoolPlayer(player,pad,dt,now);return;}
+  if(player.dummy){
+    const previous=player.x;
+    player.vx=player.knockVx||0;player.knockVx*=Math.exp(-dt*4);
+    player.x=clamp(player.x+player.vx*dt,worldLeft+60,worldRight-60);
+    player.vy+=1900*dt;player.y+=player.vy*dt;
+    const floor=terrainFloorAt(player.x);
+    if(player.y>=floor){player.y=floor;player.vy=0;player.grounded=true;}else player.grounded=false;
+    resolveCubeSides(player,previous);player.hit=Math.max(0,(player.hit||0)-dt*2);
+    return;
+  }
   const parkPreviousX = player.x;
   player.previousY = player.y;
+  updateStrafe(player, pad, now);
+  updateTurn(player, now);
+  updateSpin(player, dt);
   if (player.grabbedBy >= 0) {
     const carrier = players[player.grabbedBy];
     if (!carrier?.alive || carrier.heldPlayer !== player.pad) {
@@ -9394,6 +13301,7 @@ function updatePlayer(player, pad, dt, now) {
         player.lastTap = {};
         player.lastRelease = {};
         player.airJumpsUsed = 0;
+        player.ultraAirUsed = false;
         player.doubleJumpLinesUntil = 0;
         deathCinematic = null;
         detachedParts.length = 0;
@@ -9408,17 +13316,63 @@ function updatePlayer(player, pad, dt, now) {
   // A lone head rolls on the board's physics — surface-following, gravity
   // along the curve, pumping, lip launches and vert — with a softer push.
   const rollingHead = headOnly && !player.skateboard;
+  // Running on the long park's slopes rides the board's surface physics too:
+  // up a bank or a half-pipe wall gravity slows the runner, down it speeds
+  // them, the feet follow the curve and the lip throws them into the air.
+  // On the flat their speed goes back to the ordinary run, so running there
+  // is unchanged.
+  // A runner is only on a ramp whose surface is under their feet — not
+  // standing on the glass roof twenty metres above it.
+  const footSlope = !player.skateboard && !headOnly && skateparkMap &&
+    !survivalActive() && player.y > playerFloor(player,player.x) - 400 &&
+    parkSegments.some((segment) =>
+      (segment.kind === "transition" || segment.kind === "bank") &&
+      player.x > segment.left && player.x < segment.right);
+  if (player.footSurf && (player.skateboard || headOnly || !player.alive ||
+      (player.grounded && !footSlope))) {
+    player.footSurf = false;
+    const carried = Math.abs(player.skateVx || 0);
+    if (!player.skateboard && carried > runStartSpeed) {
+      player.runSpeed = Math.min(runOverdriveTop, carried);
+      player.runDir = Math.sign(player.skateVx);
+      player.runSince = player.runSince || now;
+    }
+    if (!player.skateboard) player.skateVx = 0;
+  } else if (footSlope && player.grounded && !player.footSurf && !isPogo(player)) {
+    player.footSurf = true;
+    player.skateVx = player.vx - player.windVx - player.knockVx;
+  }
+  const rollingFoot = Boolean(player.footSurf) && !player.skateboard && !headOnly;
+  const surfer = rollingHead || rollingFoot;
   const pogo = isPogo(player);
   const legCount = ["left-leg", "right-leg"]
     .filter((part) => hasPart(player, part)).length;
   const armCount = ["left-arm", "right-arm"]
     .filter((part) => hasPart(player, part)).length;
   const rawInput = quantizedInput(pad, player.suppressedDirections);
+  const spatialControls = depthControls();
+  if (spatialControls) {
+    const held = pad.down;
+    const digital = Number(held.includes("ArrowUp")) - Number(held.includes("ArrowDown"));
+    const analog = clamp(Number(pad.leftY) || 0, -1, 1);
+    const axis = digital || (Math.abs(analog) > .18 ? Math.sign(analog) * (Math.abs(analog) - .18) / .82 : 0);
+    player.inputZ = axis;
+    const crouching = held.includes("X");
+    const speed = (player.onewheel ? 1200 : walkSpeed) * (crouching ? .38 : 1);
+    player.vz = now < player.hitStunUntil || player.grabbedBy >= 0 ? 0 : axis * speed;
+    const nextZ = clamp((player.z || 0) + player.vz * dt, worldNear + 60, worldFar - 60);
+    if (nextZ === player.z) player.vz = 0;
+    player.z = nextZ;
+    // The stick owns the floor plane. Buttons own jump and crouch.
+    rawInput.vertical = held.includes("A") ? 1 : crouching ? -1 : 0;
+  }
+  player.wallInputX = rawInput.horizontal;
+  player.wallPress = null;
   const hitStunned = now < player.hitStunUntil;
   const wasBlocking = player.blocking;
   const carrying = player.heldBall >= 0 || player.heldPart >= 0 ||
     player.heldPlayer >= 0 || Boolean(heldItem(player));
-  const aimLocked = carrying && pad.down.includes("X");
+  const aimLocked = !spatialControls && carrying && pad.down.includes("X");
   player.itemAimLocked = aimLocked;
   if (aimLocked && (rawInput.horizontal || rawInput.vertical)) {
     player.gunAimX = rawInput.horizontal;
@@ -9439,20 +13393,15 @@ function updatePlayer(player, pad, dt, now) {
   }
   // A broken shield stays down until X is let go, so the opening it bought is
   // spent on attacking rather than on re-guarding by reflex.
-  if (player.shieldLocked && !pad.down.includes("X")) player.shieldLocked = false;
-  player.blocking = !carrying && !headOnly && pad.down.includes("X") &&
+  const bubbleButton = spatialControls ? "RightShoulder" : "X";
+  if (player.shieldLocked && !pad.down.includes(bubbleButton)) player.shieldLocked = false;
+  player.blocking = !carrying && !headOnly && pad.down.includes(bubbleButton) &&
     !player.shieldLocked;
   if (player.blocking && !wasBlocking) {
     player.attackKind = "";
     player.attackUntil = 0;
     player.shieldCrouched = rawInput.vertical < 0 || player.ducking ||
       player.crouchBlend >= .35;
-    player.shieldVx = 0;
-    player.vx = player.windVx + player.knockVx;
-    player.dashUntil = 0;
-    player.dashVx = 0;
-    player.lastTap = {};
-    player.lastRelease = {};
     shieldBash(player, now);
   }
   if (player.blocking && rawInput.vertical < 0) player.shieldCrouched = true;
@@ -9465,12 +13414,9 @@ function updatePlayer(player, pad, dt, now) {
     player.shieldAimX = 0;
     player.shieldAimY = 0;
   }
-  // Guard plants the fighter immediately, but DOWN remains meaningful: a
-  // standing guard can settle into a crouching guard. Once crouched, the pose
-  // latches until the shield itself drops even if DOWN is released first.
-  const input = player.blocking
-    ? { horizontal: 0, vertical: player.shieldCrouched ? -1 : 0 } : rawInput;
-  const grabHeld = armCount > 0 && !pogo && !hitStunned && !player.blocking &&
+  // Bubbling preserves steering and momentum, including riding the wheel.
+  const input = rawInput;
+  const grabHeld = !spatialControls && armCount > 0 && !pogo && !hitStunned && !player.blocking &&
     pad.down.includes("A") && pad.down.includes("B");
   if (skateparkMap && !survivalActive()) {
     const ropeHeld = skateRopeInput(player, input, grabHeld, dt, grabHeld && !player.grabHeld);
@@ -9511,7 +13457,9 @@ function updatePlayer(player, pad, dt, now) {
   // the vertical one doing the same. It matters more in a tower, where the
   // crow's nest is the one rung an ultra jump is the only way onto.
   let verticalTapSpent = false;
-  const upPressed = input.vertical > 0 && !player.previous.includes("MOVE_UP");
+  const upPressed = spatialControls
+    ? pad.down.includes("A") && !player.previous.includes("A")
+    : input.vertical > 0 && !player.previous.includes("MOVE_UP");
   const downPressed = input.vertical < 0 && player.inputY >= 0;
   const wasCrouched = player.ducking || player.crouchBlend >= .35;
   const crouchTarget = input.vertical < 0 ||
@@ -9534,15 +13482,16 @@ function updatePlayer(player, pad, dt, now) {
     player.lastRelease[player.inputY > 0 ? "UP" : "DOWN"] = now;
   if (input.horizontal && input.horizontal !== player.inputX) {
     const direction = input.horizontal > 0 ? "RIGHT" : "LEFT";
+    if (player.lastHorizontal && player.lastHorizontal !== input.horizontal) noteDirectionChange(player, now);
+    player.lastHorizontal = input.horizontal;
     recordCommand(player, direction, now);
-    if (!directionTap(player, direction, now) && player.grounded &&
-        player.ducking && !headOnly && !pogo && !hitStunned)
-      crouchHop(player, input.horizontal, now);
+    // A direction from a crouch is a crawl now, not a hop.
+    directionTap(player, direction, now);
   }
   if (input.vertical && input.vertical !== player.inputY) {
     const direction = input.vertical > 0 ? "UP" : "DOWN";
     recordCommand(player, direction, now);
-    verticalTapSpent = directionTap(player, direction, now);
+    verticalTapSpent = spatialControls ? false : directionTap(player, direction, now);
     if (headOnly) {
       const alternating = player.headPumpDirection &&
         player.headPumpDirection !== input.vertical &&
@@ -9551,7 +13500,15 @@ function updatePlayer(player, pad, dt, now) {
         (alternating ? .2 : .035), 0, 1);
       player.headPumpDirection = input.vertical;
       player.headPumpAt = now;
-      if (alternating && player.grounded) {
+      if (!alternating && input.vertical > 0 && player.grounded) {
+        // Up hops a head at once. It used to only charge the pump bounce,
+        // so a lone head needed a second press before it left the floor.
+        player.vy = -jumpVelocity * .8 * (freeskateActive() ? .9 : 1);
+        player.grounded = false;
+        player.stance = "HOP";
+        playDrum("block", .5, panPlayer(player));
+        emitSignal("jump", player.pad, 1, 0);
+      } else if (alternating && player.grounded) {
         player.vy = -lerp(420, headBounceVelocity * 1.7,
           player.headBounceCharge);
         player.grounded = false;
@@ -9603,12 +13560,12 @@ function updatePlayer(player, pad, dt, now) {
     if (!player.runReleasedAt) player.runReleasedAt = now;
   } else player.runReleasedAt = 0;
   const letGo = player.runReleasedAt && now - player.runReleasedAt > 180000;
-  if (letGo || turned || player.blocking ||
+  if (letGo || turned ||
       player.ducking || (player.grounded && hitStunned)) {
     player.runSince = 0;
     player.runSpeed = 0;
   }
-  const walkingCleanly = player.grounded && input.horizontal && !player.blocking &&
+  const walkingCleanly = player.grounded && input.horizontal &&
     !player.ducking && !hitStunned && now >= player.dashUntil;
   if (!walkingCleanly) player.walkSince = 0;
   else if (!player.walkSince) player.walkSince = now;
@@ -9635,11 +13592,11 @@ function updatePlayer(player, pad, dt, now) {
     : pogo ? .68 : legCount === 1 ? .72 : 1;
   const runSpeed = player.runSpeed || 0;
   let controlledVx = aimLocked ? 0
-    : player.blocking ? player.shieldVx || 0
     : now < player.dashUntil && Math.abs(player.dashVx) > 0
     ? player.dashVx
+    // Crouched on the ground, a direction is a crawl: slow, still crouched.
+    : player.ducking && player.grounded ? input.horizontal * walkSpeed * .38 * mobility
     : runSpeed && input.horizontal ? input.horizontal * runSpeed * mobility
-    : player.ducking && player.grounded ? 0
     : input.horizontal * walkSpeed * mobility;
   if (player.skateboard && player.skateWallSide) {
     // Once the board reaches a coping, horizontal momentum has become upward
@@ -9652,7 +13609,7 @@ function updatePlayer(player, pad, dt, now) {
       player.skateVx = -side * Math.max(720, Math.abs(player.skateVx) * .42);
       controlledVx = player.skateVx;
     } else controlledVx = 0;
-  } else if ((player.skateboard || rollingHead) && player.grounded && !player.blocking) {
+  } else if ((player.skateboard || surfer) && player.grounded) {
     // Steering, and ONLY while steering. This used to run every frame against
     // a target of `input.horizontal * 2700`, which on an idle stick is zero —
     // so a coasting skater was being dragged to a standstill at 3.2 a second
@@ -9661,7 +13618,8 @@ function updatePlayer(player, pad, dt, now) {
     // drop and a 268-unit one, because the servo ate gravity as fast as
     // gravity arrived. Let go of the stick now and you coast, which is what
     // rolling IS.
-    const skateTarget = input.horizontal * (player.skateboard ? skatePushTop : headRollPush);
+    const skateTarget = input.horizontal * (player.onewheel ? (player.wheelTurbo?6000:3000) : player.skateboard ? skatePushTop
+      : rollingFoot ? Math.max(runTopSpeed, player.runSpeed || 0) : headRollPush);
     // Carving is steering against the roll, and it has to stay in scope: the
     // scrape it makes is played further down, and hoisting the steer into a
     // block took both of these with it.
@@ -9670,8 +13628,15 @@ function updatePlayer(player, pad, dt, now) {
     // The stick pushes up to the push top and no further. It used to servo
     // toward 2,700 from either side, so a rider a pad or a drop had carried
     // past it was dragged back down for holding forward.
-    if (input.horizontal) {
-      const turnRate = carving ? 1.8 : 3.2;
+    // Climbing the steep part of a wall, holding back is setting up the hold
+    // at the lip (see `updateSkateTricks`), not a brake: it must not eat the
+    // speed that carries the rider up there.
+    const climbing = Math.abs(player.skatePitch || 0) > .6 && player.skateVx &&
+      terrainFloorAt(player.x + Math.sign(player.skateVx) * 20) < playerFloor(player,player.x);
+    trackSkid(player, player.skateboard && carving && !climbing &&
+      Math.abs(player.skateVx) > 500, clamp(Math.abs(player.skateVx) / 2200, .4, 1));
+    if (input.horizontal && !(carving && climbing)) {
+      const turnRate = player.onewheel ? (carving ? 3 : 2) : carving ? 1.8 : 3.2;
       const pushing = !carving && Math.abs(player.skateVx) < Math.abs(skateTarget);
       if (carving || pushing)
         player.skateVx += (skateTarget - player.skateVx) *
@@ -9684,10 +13649,18 @@ function updatePlayer(player, pad, dt, now) {
     // g·sin·cos, which in terms of tan is g·t/(1+t²): it peaks at 45° exactly
     // as it should, falls off toward vertical exactly as it should, and needs
     // no clamp because it cannot exceed half of g.
-    const contact = skateContact(player.x, player.y);
+    const contact = riderContact(player, player.y);
     const terrainSlope = Math.tan(contact.pitch);
-    player.skateVx += fallGravity() * terrainSlope /
-      (1 + terrainSlope * terrainSlope) * dt;
+    // A tuck — holding DOWN on the board — rides a down ramp harder: gravity
+    // along the slope pulls 35% more while it is speeding the rider up.
+    const tucked = input.vertical < 0;
+    const slopePull = fallGravity() * terrainSlope / (1 + terrainSlope * terrainSlope);
+    const downhill = Math.sign(slopePull) === Math.sign(player.skateVx || slopePull);
+    // Curved transitions belong to the pump (below); the tuck is for banks
+    // and the flat, or holding DOWN through a half-pipe would pay twice.
+    const onTransition = parkSegments.some((segment) => segment.kind === "transition" &&
+      player.x > segment.left && player.x < segment.right);
+    player.skateVx += slopePull * (tucked && downhill && !onTransition ? 1.35 : 1) * dt;
     // Pumping. The one thing a skater does that a rolling object does not:
     // crouch through the bottom of a transition and stand up through the
     // face, and come out with more speed than you went in with. Holding DOWN
@@ -9721,7 +13694,11 @@ function updatePlayer(player, pad, dt, now) {
     // Compare like with like: the look-ahead is clamped, so the slope under
     // the rider is too. Unclamped, a transition steeper than 2.5 read as
     // flattening ahead and threw the rider off halfway up the wall.
-    if (surfaceVy < -skateLaunchFloor &&
+    // Never early on a curved transition: at pump speed the look-ahead lands
+    // past the coping while the rider is still mid-wall, and they were
+    // thrown off it sideways. There the coping crossing (below, after the
+    // move) is the lip, and it always leaves as vert.
+    if (!onTransition && surfaceVy < -skateLaunchFloor &&
         (aheadSlope - clamp(terrainSlope, -2.5, 2.5)) * Math.sign(player.skateVx) > .2) {
       player.vy = surfaceVy;
       player.grounded = false;
@@ -9733,9 +13710,9 @@ function updatePlayer(player, pad, dt, now) {
       // pass, and a pump through the bottom adds to it.
       if (Math.abs(terrainSlope) > 2) {
         player.skateVert = Math.sign(player.skateVx);
-        player.vy = -Math.abs(player.skateVx) * Math.hypot(1, terrainSlope);
+        player.vy = -Math.min(skateTop, Math.abs(player.skateVx) * Math.hypot(1, terrainSlope));
         player.x -= player.skateVert * 6;
-        player.skateVx = 0;
+        player.skateVx = player.knockVx = player.windVx = 0;
       }
       playDrum("whoosh", .5 + Math.min(.45, -surfaceVy / 4000),
         panPlayer(player));
@@ -9744,7 +13721,12 @@ function updatePlayer(player, pad, dt, now) {
     }
     // Rolling resistance. A board on smooth concrete barely slows; the old
     // .65 bled a third of a pump away every second and no pipe could be ridden.
-    if (!input.horizontal) player.skateVx *= Math.exp(-dt * .15);
+    // Tucked, the rider carries their inertia: rolling drag drops to a
+    // quarter, so a crouch holds speed across the flat.
+    // Legs are not wheels: a runner who stops pushing slows quickly.
+    if (!input.horizontal) player.skateVx *= Math.exp(-dt *
+      (player.onewheel ? 1.5 : rollingFoot ? 3 : tucked ? .04 : .15));
+    if (player.onewheel) {const top=player.wheelTurbo?6000:3000;player.skateVx=clamp(player.skateVx,-top,top);}
     controlledVx = player.skateVx;
     const skateSpeed = Math.abs(player.skateVx);
     const carveDir = carving ? Math.sign(skateTarget) : 0;
@@ -9755,11 +13737,11 @@ function updatePlayer(player, pad, dt, now) {
         Math.round(skateSpeed / 42) / 100);
     }
     player.skateCarveDir = carveDir;
-  } else if ((player.skateboard || rollingHead) && !player.grounded) {
+  } else if ((player.skateboard || surfer) && !player.grounded) {
     // Keep the board's launch momentum instead of borrowing walking speed
     // in the air and reviving a different skateVx on landing.
     controlledVx = player.skateVx;
-  } else if (!player.skateboard && !rollingHead) {
+  } else if (!player.skateboard && !surfer) {
     // Stepping off a rolling board lands running at the board's speed.
     if (player.skateVx && player.grounded && input.horizontal &&
         Math.sign(player.skateVx) === input.horizontal) {
@@ -9785,7 +13767,7 @@ function updatePlayer(player, pad, dt, now) {
     " x=" + Math.round(player.x));
 
   // Checked before liftoff so the launch frame itself can never be cut.
-  if (player.jumpHeld && player.vy < 0 && !player.blocking &&
+  if (player.jumpHeld && player.vy < 0 &&
       input.vertical <= 0) {
     player.vy *= jumpCutScale;
     player.jumpHeld = false;
@@ -9802,17 +13784,16 @@ function updatePlayer(player, pad, dt, now) {
     }
     player.pendingMoveLabel = player.skateboard ? "OLLIE"
       : airJump ? "DOUBLE AIR"
-      : wasCrouched ? "CROUCH AIR" : "AIR";
+      : wasCrouched ? "AIR CROUCH" : "AIR";
   }
   if (player.jumpLaunchAt && now >= player.jumpLaunchAt) {
     player.jumpLaunchAt = 0;
     player.jumpPoseUntil = now +
       (player.crouchJump ? crouchJumpPoseUs : jumpPoseUs);
-    // Freeskate keeps the park's light gravity for the pipe and the loops,
-    // but a jump at that weight floated six hundred units up; launching at
-    // three quarters brings it back to the station's classic apex.
+    // Freeskate keeps its roughly 320-unit jump height while firmer
+    // gravity brings the rider back down sooner.
     const jumpScale = (player.skateboard ? 1.12
-      : pogo ? .88 : legCount === 1 ? .78 : 1) * (freeskateActive() ? .75 : 1);
+      : pogo ? .88 : legCount === 1 ? .78 : 1) * (freeskateActive() ? .9 : 1);
     player.vy = Math.min(player.vy,
       -(player.crouchJump ? crouchJumpVelocity : jumpVelocity) * jumpScale);
     player.jumpHeld = true;
@@ -9837,35 +13818,62 @@ function updatePlayer(player, pad, dt, now) {
   }
   if (!player.grounded && !pogo && input.vertical < 0) {
     player.ducking = true;
-    player.pendingMoveLabel ||= "AIR CROUCH";
+    // Holding down in the air is a tuck; an air crouch is jumping out of a
+    // crouch (up and a direction while crouched), named at the jump.
+    if (playerFloor(player,player.x) - player.y > 60) player.pendingMoveLabel ||= "TUCK";
   }
 
   // Y and either shoulder spend an item, so reaching for a kick can no
   // longer empty a magazine. A loaded hand still colors the punch — into a
   // swing, never a shot.
   const acting = !headOnly && !pogo && !hitStunned && !player.blocking;
-  if (acting && player.gunMode === "RUBBER SMG" && player.gunAmmo > 0 &&
+  if (!spatialControls && acting && player.gunMode === "RUBBER SMG" && player.gunAmmo > 0 &&
       pad.down.includes("Y") && player.previous.includes("Y") &&
       now >= player.nextGunShotAt)
     fireGun(player, input);
   for (const button of pad.down) {
     if (!player.previous.includes(button)) {
+      if (spatialControls && ["A", "X", "Y", "RightShoulder"].includes(button)) {
+        if (button === "Y" && acting) startMelee(player, "KICK", now);
+        else if (button === "RightShoulder" && player.blocking) {
+          player.pendingMoveLabel = "BUBBLE";
+          playBubbleSound(player, false);
+          emitSignal("shield", player.pad, 1, 0);
+        }
+        continue;
+      }
+      // A bumper or trigger is a strafe, named as one — not "LB" or "RT".
+      if (["LeftShoulder", "RightShoulder", "LeftTrigger", "RightTrigger"].includes(button)) {
+        if (player.strafe && player.strafe.at === now)
+          remember(player, player.strafe.frames === strafeBoostFrames ? "STRAFE BOOST" : "STRAFE");
+        continue;
+      }
       remember(player, button);
       if (button === "X" && !headOnly) {
-        player.pendingMoveLabel = "SHIELD";
-        playDrum("block", .7, panPlayer(player));
+        player.pendingMoveLabel = "BUBBLE";
+        playBubbleSound(player, false);
         emitSignal("shield", player.pad, 1, 0);
+      }
+      // In the air on the board, A grabs the deck instead of kicking.
+      else if (acting && !grabHeld && button === "A" && player.skateboard &&
+          !player.grounded) {
+        player.skateGrab = true;
+        player.pendingMoveLabel = "GRAB";
+        playDrum("block", .5, panPlayer(player));
+        emitSignal("skate-grab", player.pad, 1, 0);
       }
       else if (acting && !grabHeld && button === "A")
         startMelee(player, "KICK", now);
-      else if (acting && !grabHeld && button === "B")
+      else if (acting && !grabHeld && button === "B") {
+        player.punchArm = pad.down.includes("PunchL") ? "left-arm" : "right-arm";
         startMelee(player, itemMelee[heldItem(player)] || "PUNCH", now);
+      }
       else if (headOnly && !hitStunned && button === "A")
         spit(player, false);
       else if (headOnly && !hitStunned && button === "B")
         spit(player, true);
       else if ((acting || (headOnly && !hitStunned)) &&
-          ["Y", "LeftShoulder", "RightShoulder"].includes(button)) {
+          button === "Y") {
         const item = heldItem(player);
         if (item === "GUN") fireGun(player, input);
         else if (item === "GRENADE") throwGrenade(player, input);
@@ -9892,8 +13900,53 @@ function updatePlayer(player, pad, dt, now) {
     player.vy = Math.min(poundMaxVelocity *
       (1 + .5 * Math.max(0, player.poundLevel - 1)),
       player.vy + poundHoldAcceleration * dt);
+  // Swimming. Below the pond's surface the water holds a body up — buoyancy
+  // beats gravity once it is under — and drags at it; UP strokes upward.
+  // A board being ridden floats along with its rider.
+  updateUnderPipe(player);
+  const pond = player.underPipe ? {lift:halfpipeRadius} : pondAt(player.x);
+  const waterY=seaLevelY-(pond?.lift||0);
+  if (pond && player.y > waterY + 4) {
+    if (!player.swimming) {
+      player.swimming = true;
+      spawnWaterSplash(player, waterY);
+      playDrum("whoosh", clamp(Math.abs(player.vy) / 2000, .3, 1), panPlayer(player));
+      emitSignal("splash", player.pad, Math.round(Math.abs(player.vy)), Math.round(Math.abs(player.vx)));
+    }
+    const depth = player.y - waterY;
+    player.vy -= fallGravity() * 1.8 * Math.min(1, depth / 90) * dt;
+    player.vy *= Math.exp(-dt * 2.8);
+    // Swimming is its own motion, not walking slowed down: holding a
+    // direction strokes, building a swim speed that glides and fades in the
+    // water. UP strokes toward the surface; DOWN dives.
+    if (!Number.isFinite(player.swimVx)) player.swimVx = player.vx * .4;
+    if (input.horizontal) {
+      player.swimVx += input.horizontal * 1100 * dt;
+      player.facing = input.horizontal;
+      if (now >= (player.swimStrokeAt || 0)) {
+        player.swimStrokeAt = now + 420000;
+        emitSignal("swim", player.pad, input.horizontal, 0);
+      }
+    }
+    player.swimVx = clamp(player.swimVx * Math.exp(-dt * 1.1), -650, 650);
+    player.vx = player.swimVx;
+    if (player.skateboard) player.skateVx = player.swimVx;
+    if (input.vertical > 0 && now >= (player.swimStrokeAt || 0)) {
+      player.vy -= 700;
+      player.swimStrokeAt = now + 350000;
+      emitSignal("swim", player.pad, 0, 1);
+    }
+    if (input.vertical < 0) player.vy += fallGravity() * 1.25 * dt;
+    player.swimPhase = (player.swimPhase || 0) + dt *
+      (2.2 + Math.abs(player.swimVx) / 200);
+  } else {
+    if(player.swimming)spawnWaterSplash(player,waterY);
+    player.swimming = false;
+    player.swimVx = NaN;
+  }
   player.x += player.vx * dt;
   player.y += player.vy * dt;
+  collideBottomGlass(player,previousY,now);
   // The ground is a height field, so flying sideways into a steep face used
   // to land the fighter on top of it — up through a half-pipe wall. In the
   // air, stepping into ground well above the feet is a wall: the step is
@@ -9901,14 +13954,19 @@ function updatePlayer(player, pad, dt, now) {
   // On the ground the same holds for legs: a transition steeper than about
   // 55° is a wall to someone on foot — only a board rolls up it — or a
   // runner walked straight up the vertical face of a half-pipe.
-  const stepRise = terrainFloorAt(previousX) - terrainFloorAt(player.x);
-  const footWall = wasGrounded && !player.skateboard && !rollingHead &&
+  const stepRise = playerFloor(player,previousX) - playerFloor(player,player.x);
+  // Only for feet actually on the ground: someone standing on a ledge (the
+  // glass roof) high over a transition is not walking into its face.
+  const footWall = wasGrounded && !player.skateboard && !surfer &&
+    Math.abs(previousY - playerFloor(player,previousX)) < 40 &&
     stepRise > Math.abs(player.x - previousX) * 1.4 + 2;
   const airWall = !wasGrounded && !player.skateVert && !(player.skateLoop >= 0) &&
-      !(player.ropeIndex >= 0) && terrainFloorAt(player.x) < player.y - 40 &&
-      terrainFloorAt(previousX) >= previousY - 40;
+      !(player.ropeIndex >= 0) && playerFloor(player,player.x) < player.y - 40 &&
+      playerFloor(player,previousX) >= previousY - 40;
   if (player.x !== previousX && (footWall || airWall)) {
+    const wallSide = Math.sign(player.x - previousX);
     player.x = previousX;
+    if (footWall) pressWall(player, wallSide, previousX + wallSide * 36, true);
     player.vx = player.knockVx = player.windVx = player.dashVx = 0;
     if (player.skateboard) player.skateVx = 0;
     player.runSpeed = 0;
@@ -9926,16 +13984,28 @@ function updatePlayer(player, pad, dt, now) {
     // not a rolling face but a whirl of spinning lines. A lazy tumble — about
     // a turn per second, capped — keeps the eyes and mouth readable while
     // still saying which way the head is traveling.
-    if (player.grounded) player.headRollRate = clamp(player.vx / 22, -6, 6);
-    player.headRoll = (player.headRoll || 0) + (player.headRollRate || 0) * dt;
+    if (player.skateboard) {
+      // Riding, the head turns with the board — tipped by the slope under
+      // the deck, carried round a loop — rather than tumbling as if it were
+      // rolling on the ground.
+      player.headRollRate = 0;
+      const boardAngle = (player.skatePitch || 0) + (player.skateRotation || 0);
+      const turns = Math.round(((player.headRoll || 0) - boardAngle) / (Math.PI * 2));
+      const target = boardAngle + turns * Math.PI * 2;
+      player.headRoll = lerp(player.headRoll || 0, target, 1 - Math.exp(-dt * 14));
+    } else {
+      if (player.grounded) player.headRollRate = clamp(player.vx / 22, -6, 6);
+      player.headRoll = (player.headRoll || 0) + (player.headRollRate || 0) * dt;
+    }
   }
   // Walking down a slope is not a new landing on every other tick.
-  const nextFloor = terrainFloorAt(player.x);
+  const nextFloor = playerFloor(player,player.x);
   const followingFloor = wasGrounded && player.vy >= 0 &&
-    Math.abs(previousY - terrainFloorAt(previousX)) < 3 &&
+    Math.abs(previousY - playerFloor(player,previousX)) < 3 &&
     nextFloor - previousY <= Math.max(20, Math.abs(player.vx * dt) * 2.5);
   if (followingFloor) player.y = Math.max(player.y, nextFloor);
   const landingSpeed = player.vy;
+  if (!wasGrounded && landingSpeed > 0) player.landingSpeed = landingSpeed;
   player.grounded = false;
   // A sinking fighter is transparent to the rung it left and to nothing else.
   // A window long enough to clear one lip — .25s, 290 units of fall — is
@@ -9943,7 +14013,7 @@ function updatePlayer(player, pad, dt, now) {
   // double-tap that dropped two storeys read as a fall rather than a step
   // down. Remembering where the sink started is what keeps it one storey.
   // The floor is never transparent, which is why it stays in the else.
-  const ledge = player.vy >= 0 && ledgeCrossed(player.x, previousY, player.y);
+  const ledge = player.vy >= 0 && ledgeCrossed(player.x, previousY, player.y, 0, 0, player.z);
   const sinking = now < player.sinkUntil &&
     ledge && ledge.y <= player.sinkFrom + 4;
   if (ledge && !sinking) {
@@ -9958,9 +14028,9 @@ function updatePlayer(player, pad, dt, now) {
       player.vy = 0;
       player.grounded = true;
     }
-  } else if (player.y >= terrainFloorAt(player.x) &&
+  } else if (player.y >= playerFloor(player,player.x) &&
       (!player.skateboard || player.vy >= 0)) {
-    const terrainY = terrainFloorAt(player.x);
+    const terrainY = playerFloor(player,player.x);
     player.y = terrainY;
     if (headOnly) {
       player.vy = 0;
@@ -9976,7 +14046,7 @@ function updatePlayer(player, pad, dt, now) {
   // A fast rider can cross a coping in a single step and never be seen on
   // the lip. Crossing out of a transition over its coping is leaving the lip:
   // back inside it, straight up, with the speed the wall was carrying.
-  if ((player.skateboard || rollingHead) && wasGrounded && !player.skateVert) {
+  if ((player.skateboard || surfer) && wasGrounded && !player.skateVert) {
     const wall = parkSegments.find((segment) => segment.kind === "transition" &&
       previousX > segment.left && previousX < segment.right);
     const coping = wall && (wall.dir > 0 ? wall.right : wall.left);
@@ -9984,21 +14054,27 @@ function updatePlayer(player, pad, dt, now) {
       // Tangent speed from the horizontal share. The wall is near vertical
       // here, so the divisor is small — clamping it at .2 capped the launch
       // at a third of what the wall was carrying.
-      const speed = Math.abs(player.skateVx) / Math.max(.05, Math.cos(player.skatePitch || 0));
+      // Legs off a lip hop, they do not launch: a runner's vert is capped
+      // near a jump's height. A board carries its full speed up.
+      // A board carries its speed up, but no faster than a board can go:
+      // uncapped, pass after pumped pass compounded into hundred-metre airs.
+      const speed = Math.min(rollingFoot ? 1300 : skateTop,
+        Math.abs(player.skateVx) / Math.max(.05, Math.cos(player.skatePitch || 0)));
       player.skateVert = wall.dir;
       player.x = coping - wall.dir * 6;
       // Height stays where the trucks held it; snapping down to the curve
       // under the lip threw away a hundred units of the air.
       player.y = Math.min(previousY, player.y);
       player.vy = -speed;
-      player.vx = player.skateVx = 0;
+      // Straight up means straight up: no knockback or wind carries it over.
+      player.vx = player.skateVx = player.knockVx = player.windVx = 0;
       player.grounded = false;
       player.skateAirAt = now;
       emitSignal("skate-air", player.pad, Math.round(speed), 0);
     }
   }
-  if (player.skateboard || rollingHead) {
-    const contact = skateContact(player.x, previousY);
+  if (player.skateboard || surfer) {
+    const contact = riderContact(player, previousY);
     // Inside a valley — the concave face of a transition, where the ground
     // curves up to meet the board — a rolling board cannot leave the surface:
     // the ground is always on the far side of its path. Only a crest can
@@ -10062,6 +14138,7 @@ function updatePlayer(player, pad, dt, now) {
       player.grounded = false;
       player.jumpHeld = true;
       player.airJumpsUsed = 0;
+      player.ultraAirUsed = false;
       player.lastButton = "BOOST";
       player.lastButtonAt = now;
       playSine(880, .22);
@@ -10073,6 +14150,7 @@ function updatePlayer(player, pad, dt, now) {
   skateBoostStep(player, parkPreviousX, now);
   player.hit = Math.max(0, player.hit - dt * 4);
   player.blockFlash = Math.max(0, player.blockFlash - dt * 6);
+  updateSkateTricks(player, input, now);
   player.previous = pad.down.slice();
   if (input.vertical > 0) player.previous.push("MOVE_UP");
   player.inputX = input.horizontal;
@@ -10308,7 +14386,12 @@ function highestJump(options) {
   return best;
 }
 
-function botPad(player, opponent, now) {
+function botPad(player,opponent,now){
+ if(player.botCachedPad && now<(player.botNextThink||0))return player.botCachedPad;
+ player.botNextThink=now+80000;
+ return player.botCachedPad=botPadThink(player,opponent,now);
+}
+function botPadThink(player, opponent, now) {
   if (selfPlay && typeof globalThis.__oskiewarJevPad === 'function') {
     const scene = botScene(player, opponent, now);
     scene.self.ducking = player.ducking;
@@ -10667,6 +14750,7 @@ function gameSim() {
   const now = runtime().monotonicUs;
   const dt = Math.min(0.04, Math.max(0.001, (now - lastSimAt) / 1000000));
   lastSimAt = now;
+  if(freeskateActive() && parkSupply.ko){updateParkSupply(dt,now);updateCameraDoll(dt,now);return;}
   // Whether a door is in the way is state, not decoration: the same answer
   // gates the fight, the claim and the wire, so it is settled once on the tick
   // rather than re-asked by each of them mid-paint.
@@ -10742,8 +14826,8 @@ function gameSim() {
   // buttons would cost a small pad its item and shield.
   // Either couch seat can steer the shared camera. Digital M30 shoulders
   // remain combat buttons, even beside a controller with analog triggers.
-  const push = clamp(cameraPads.reduce((sum, pad) => sum + (pad?.analogTriggers
-    ? (Number(pad.leftTrigger) || 0) - (Number(pad.rightTrigger) || 0) : 0), 0), -1, 1);
+  // The triggers strafe now (see `updateStrafe`), so they no longer zoom.
+  const push = 0;
   if (Math.abs(push) > .08)
     playerCameraZoom = clamp(playerCameraZoom + push * dt * .9, .55, 1.9);
   // A mouse or a finger on the shell's canvas orbits the same lens the
@@ -10769,6 +14853,12 @@ function gameSim() {
     globalThis.__oskiewarTouch.taps.length = 0;
   if (consumeSystemButtons(now)) {
     if (netSession) netLeave("system-button");
+    return;
+  }
+  // The freeskate pause menu holds the world still while it is open.
+  if (freeskateMenu) {
+    if(typeof skateAudio==='function')skateAudio(0,0);skateAudioLevel=0;
+    updateFreeskateMenu(now);
     return;
   }
   // The wordmark screen is a live training round, so the shell reads start
@@ -10980,17 +15070,35 @@ function gameSim() {
     captureFrameTelemetry(now);
   } else {
     updateWind(dt, now);
+    if(poolOnly())updateParkWindowShards(dt);
+    if(freeskateActive() && !parkSupply.ko)updateParkKids(dt,now);
     updatePlayer(players[0], inputPads[0], dt, now);
     updatePlayer(players[1], inputPads[1], dt, now);
+    updateRig(players[0], inputPads[0], dt);
+    updateRig(players[1], inputPads[1], dt);
     updateSkateRopes(dt);
+    updateHeavyWheelHits(now);
     resolvePlayerStanding(now);
     resolvePlayerPushboxes();
+    if (!depthControls()) for(const p of activePlayers()){p.z=0;p.strafe=null;}
+    if(!poolOnly())for(const b of balls)if(!b.spatialSpin)b.z=0;
     wrapFreeskate();
+    updateMonowheel(dt, now);
+    updateParkSupply(dt, now);
+    updateBubbleAudio(now);
+    updateWheelTurbo(dt,now);
+    if (halfpipeOnly()) for(const p of activePlayers())trackMonowheelSurface(p);
+    updateMotorAudio(dt);
+    updateSkateAudio(dt);
+    updateSeatHeartbeat(dt,now);
+    updateRagdolls(dt);
+    updateWaterSplashes(dt);
     updatePowerups(now);
     updateBodyTrees(dt, now);
     updateBullets(dt, now);
     updateGrenades(dt, now);
     resolveMelee(now);
+    updateAxeHits(now);
     resolvePogoAttacks(now);
     updateLobbyMortality(now);
     // After the exchange resolves, so a frame that landed a hit reads as the
@@ -10999,6 +15107,9 @@ function gameSim() {
     updateBoomerboard(dt, now);
     for (const item of balls) if (!item.recalling) updateBall(item, dt, now);
     updateDetachedParts(dt);
+    updateBlood(dt);
+    updateBoardState(now);
+    updatePonytails(dt,now);
     updateCamera(dt);
     updateCameraDoll(dt, now);
     captureFrameTelemetry(now);
@@ -11018,8 +15129,14 @@ function gameSim() {
         gridField[cell] = Math.min(1, gridField[cell] +
           (impact.explosion ? 1 : impact.death ? .9 : .55));
       }
+      // A hit on a body bleeds instead of throwing bright sparks.
+      if (!impact.explosion && !impact.object && players.some((player) =>
+          Math.abs(player.x - impact.x) < 160 && Math.abs(player.y - 90 - impact.y) < 160)) {
+        spawnBlood(impact.x, impact.y, impact.z || 0, 0, impact.death ? 22 : 7, impact.death ? 1.2 : .8);
+        impact.debris = [];
+      }
       const count = impact.explosion ? 24 : impact.death ? 10 : 6;
-      impact.debris = Array.from({ length: count }, (_, index) => {
+      if (!impact.debris) impact.debris = Array.from({ length: count }, (_, index) => {
         const angle = index / count * Math.PI * 2 +
           Math.sin(impact.x * .013 + impact.y * .007) * .7;
         const force = (impact.explosion
@@ -11066,6 +15183,11 @@ function gameSim() {
 
 function updateResultImpactDebris(dt) {
   for (const impact of impacts) {
+    if (!impact.debris && !impact.explosion && !impact.object && players.some((player) =>
+        Math.abs(player.x - impact.x) < 160 && Math.abs(player.y - 90 - impact.y) < 160)) {
+      spawnBlood(impact.x, impact.y, impact.z || 0, 0, impact.death ? 22 : 7, impact.death ? 1.2 : .8);
+      impact.debris = [];
+    }
     if (!impact.debris) {
       const count = impact.death ? 20 : impact.explosion ? 24 : 6;
       impact.debris = Array.from({ length: count }, (_, index) => {
@@ -11091,6 +15213,7 @@ function updateResultImpactDebris(dt) {
     }
     impact.life -= dt;
   }
+  updateBlood(dt);
   while (impacts.length && impacts[0].life <= 0) impacts.shift();
 }
 
@@ -11128,6 +15251,9 @@ const discRingFor = (radius) => discRings[
     : radius < 52 ? 3 : radius < 110 ? 4 : 5];
 
 function filledDisc(x, y, radius, color) {
+  if (emitDisc(x, y, radius, color[0], color[1], color[2])) return;
+  // A native fan cannot be scissored, so a second view fans in JS.
+  if(nativeDisc && !clipView){nativeDisc(x,y,triangleDepth,radius,color[0],color[1],color[2]);return;}
   const [r, g, b] = color;
   const ring = discRingFor(radius);
   const originX = x + ring[0] * radius, originY = y + ring[1] * radius;
@@ -11163,7 +15289,25 @@ function filledRing(x, y, outerRadius, innerRadius, color) {
   }
 }
 
+// A flat stroke: two triangles, no round caps. Hair, drops and other fine
+// strands chain these so their ends overlap; a capsule's two end discs are
+// twenty-odd triangles each and on a braid of forty lobes that was the frame.
+function stroke(x1, y1, x2, y2, width, color) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const length = Math.hypot(dx, dy);
+  if (length < .001) return;
+  const nx = -dy / length * width / 2, ny = dx / length * width / 2;
+  screenTriangle(x1 + nx, y1 + ny, x1 - nx, y1 - ny, x2 + nx, y2 + ny, color[0], color[1], color[2]);
+  screenTriangle(x1 - nx, y1 - ny, x2 - nx, y2 - ny, x2 + nx, y2 + ny, color[0], color[1], color[2]);
+}
+
+const capsuleArcs=Object.fromEntries([3,4,6,8,12].map(n=>[n,Array.from({length:n+1},(_,i)=>[Math.cos(i*Math.PI/n),Math.sin(i*Math.PI/n)]).flat()]));
 function filledCapsule(x1, y1, x2, y2, width, color) {
+  if (emitCapsule(x1, y1, x2, y2, width, color[0], color[1], color[2])) return;
+  if(nativeCapsule && !clipView){nativeCapsule(x1,y1,x2,y2,triangleDepth,width,color[0],color[1],color[2]);return;}
+  if (consoleHost() && width <= 3 && Math.abs(x2-x1)+Math.abs(y2-y1) > 1) {
+    stroke(x1,y1,x2,y2,width,color); return;
+  }
   const [r, g, b] = color;
   const dx = x2 - x1;
   const dy = y2 - y1;
@@ -11179,8 +15323,19 @@ function filledCapsule(x1, y1, x2, y2, width, color) {
     x2 + nx, y2 + ny, r, g, b);
   screenTriangle(x1 - nx, y1 - ny, x2 - nx, y2 - ny,
     x2 + nx, y2 + ny, r, g, b);
-  filledDisc(x1, y1, radius, color);
-  filledDisc(x2, y2, radius, color);
+  // Only the exposed semicircle at each end is needed; full discs doubled
+  // the covered geometry at every joint, wheel and facial stroke.
+  const steps=radius<6?3:radius<13?4:radius<26?6:radius<52?8:12;
+  const ring=capsuleArcs[steps],ux=dx/length,uy=dy/length;
+  for(const end of [-1,1]){
+    const cx=end<0?x1:x2,cy=end<0?y1:y2;
+    let ax=cx+nx,ay=cy+ny;
+    for(let i=1;i<=steps;i++){
+      const side=ring[i*2],along=ring[i*2+1]*end*radius;
+      const bx=cx+nx*side+ux*along,by=cy+ny*side+uy*along;
+      screenTriangle(cx,cy,ax,ay,bx,by,r,g,b);ax=bx;ay=by;
+    }
+  }
 }
 
 // Xbox batches GPU triangles above its D2D line layer, so every bone and joint
@@ -11215,17 +15370,15 @@ let photoEffectsActive = false, photoWeaponsActive = false;
 function roundGraphicsTheme() {
   const requested = globalThis.__oskiewarGraphicsTheme;
   if (requested === "flat" || requested === "photorealistic") return requested;
-  // The console ships the retained atlases in its package, so it wears the
-  // photographic materials unless a host asks for vectors.
-  const caps = typeof capabilities === "function" ? capabilities() : {};
-  return caps.platform === "xbox-uwp" || caps.platform === "xbox"
-    ? "photorealistic" : "flat";
+  // Photographs wherever the host can draw them (the ground and walls stay
+  // solid colour either way); a host without theme bindings falls to flat.
+  return "photorealistic";
 }
 function refreshPhotoTheme() {
   photoThemeActive = roundGraphicsTheme() === "photorealistic" &&
-    typeof themeReady === "function" && typeof themeSprite === "function" && themeReady();
-  photoEffectsActive = photoThemeActive && typeof themeAssetReady === "function" && themeAssetReady(2);
-  photoWeaponsActive = photoThemeActive && typeof themeAssetReady === "function" && themeAssetReady(3);
+    hostThemeReady !== null && hostThemeSprite !== null && hostThemeReady();
+  photoEffectsActive = photoThemeActive && hostThemeAssetReady !== null && hostThemeAssetReady(2);
+  photoWeaponsActive = photoThemeActive && hostThemeAssetReady !== null && hostThemeAssetReady(3);
 }
 const photoExplosionFrames = [[24,64,400,400],[462,53,400,400],
   [908,34,400,400],[1352,37,400,400],[37,458,400,400],
@@ -11264,8 +15417,14 @@ const photoRegions = {
   acHead: [80, 104, 285, 285], xboxHead: [524, 104, 285, 285],
   acLimb: [1058, 48, 104, 372], xboxLimb: [1503, 48, 104, 372],
   gun: [51, 543, 365, 253], skateboard: [460, 611, 412, 136],
+  // The same photograph cut above the trucks: just the deck, so the trucks
+  // and wheels under it can be their own parts that roll.
+  skateDeck: [460, 611, 412, 62],
   platform: [900, 606, 418, 162], rocket: [1368, 542, 372, 236],
   concrete: [970, 625, 270, 43], wall: [930, 698, 350, 55],
+  // The same material as `wall`, for the near skirt, which is drawn in
+  // bands so the strip repeats instead of stretching into a curtain.
+  skirt: [930, 698, 350, 55],
 };
 function photoSprite(region, x, y, width, height, angle = 0, flip = false,
     depth = triangleDepth) {
@@ -11286,9 +15445,10 @@ function photoLimb(segment, seat) {
     Math.atan2(dy, dx) - Math.PI / 2);
 }
 function photoSurface(region, a, b, c, d) {
-  // Tall structural faces keep their shaded map color. Stretching a thin
-  // texture strip over them made the back of the arena look like a curtain.
-  if (region === "wall") return false;
+  // Ground and structure stay solid colour under every theme: the concrete
+  // strip stretched along the terrain read as smeared noise, worst on the
+  // console. Tall faces never took it (they looked like a curtain).
+  if (region === "wall" || region === "concrete" || region === "skirt") return false;
   if (!photoThemeActive || typeof themeQuad !== "function") return false;
   const points = [a, b, c, d];
   if (points.some(p => ![p.x,p.y,p.z].every(Number.isFinite) ||
@@ -11298,13 +15458,78 @@ function photoSurface(region, a, b, c, d) {
     a.x,a.y,a.z, b.x,b.y,b.z, c.x,c.y,c.z, d.x,d.y,d.z) !== false;
 }
 
+// Limbs as curves: each two-bone limb is one smooth curve through its root,
+// its joint and its end (a quadratic whose control point puts the joint on
+// the curve), drawn as a chain of short strokes with round ends, outline
+// first and colour over it. The torso and neck stay straight.
+function drawCurvedLimbs(segments, color, outline, edge, player) {
+  const used = new Set();
+  const chains = [];
+  for (const upper of segments) {
+    if (upper.hitboxOnly || !/(thigh|upper-arm)$/.test(upper.role || "")) continue;
+    const lower = segments.find((segment) => !used.has(segment) && segment.part === upper.part &&
+      /(shin|forearm)$/.test(segment.role || "") &&
+      Math.hypot(segment.x1 - upper.x2, segment.y1 - upper.y2) < 3);
+    if (!lower) continue;
+    used.add(upper); used.add(lower);
+    chains.push([upper, lower]);
+  }
+  // Loose, not regular: a cubic whose two handles pull past the joint by
+  // different amounts, so the bend overshoots and each limb curves its own
+  // way, and a slow wobble per limb (quicker when moving) keeps them alive.
+  const clock = runtime().monotonicUs / 1e6;
+  const motion = .35 + Math.min(1, Math.abs(player.vx || 0) / 900);
+  const curve = ([upper, lower]) => {
+    const seed = (upper.part || "").length * 1.7 + (upper.role || "").length * .9;
+    const jx = upper.x2, jy = upper.y2;
+    const dx = lower.x2 - upper.x1, dy = lower.y2 - upper.y1, length = Math.hypot(dx, dy) || 1;
+    const nx = -dy / length, ny = dx / length;
+    const wobble = Math.sin(clock * (3.1 + seed % 1.3) + seed) * upper.width * .45 * motion;
+    const pull1 = 1.25 + (seed % .5), pull2 = 1.05 + ((seed * 1.3) % .45);
+    const c1x = upper.x1 + (jx - upper.x1) * pull1 + nx * wobble, c1y = upper.y1 + (jy - upper.y1) * pull1 + ny * wobble;
+    const c2x = lower.x2 + (jx - lower.x2) * pull2 - nx * wobble * .6, c2y = lower.y2 + (jy - lower.y2) * pull2 - ny * wobble * .6;
+    const points = [];
+    const steps=player.civilian?3:Math.max(3,Math.min(7,Math.ceil(length/18)));
+    for (let step = 0; step <= steps; step++) {
+      const s = step / steps, q = 1 - s;
+      points.push({ x: q * q * q * upper.x1 + 3 * q * q * s * c1x + 3 * q * s * s * c2x + s * s * s * lower.x2,
+        y: q * q * q * upper.y1 + 3 * q * q * s * c1y + 3 * q * s * s * c2y + s * s * s * lower.y2 });
+    }
+    return points;
+  };
+  const drawChain = (points, width, ink) => {
+    // Each stroke runs a little past its ends so neighbours overlap at the
+    // bends instead of leaving a notch.
+    for (let index = 1; index < points.length; index++) {
+      const a = points[index - 1], b = points[index];
+      const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy) || 1;
+      const reach = width * .28 / length;
+      stroke(a.x - dx * reach, a.y - dy * reach, b.x + dx * reach, b.y + dy * reach, width, ink);
+    }
+    filledDisc(points[0].x, points[0].y, width / 2, ink);
+    filledDisc(points.at(-1).x, points.at(-1).y, width / 2, ink);
+  };
+  const shaded = (segment) => damagedPartColor(player.pantsColor && isLegRole(segment.role) ? player.pantsColor : color, player, segment.part);
+  const curves = chains.map((chain) => ({ chain, points: curve(chain) }));
+  // Outlines, then fills — straight bones first so limbs sit over the torso.
+  for (const segment of segments)
+    if (!segment.hitboxOnly && !used.has(segment))
+      filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2, segment.width + edge * 2, outline);
+  for (const segment of segments)
+    if (!segment.hitboxOnly && !used.has(segment))
+      filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2, segment.width, shaded(segment));
+  for (const { chain, points } of curves) drawChain(points, chain[0].width + edge * 2, outline);
+  for (const { chain, points } of curves) drawChain(points, chain[0].width, shaded(chain[0]));
+}
+
 function drawSkeletonSegments(segments, color, outline, player = null) {
-  if (photoThemeActive && player) {
+  if (photoThemeActive && player && !player.skin) {
     for (const segment of segments)
       if (!segment.hitboxOnly) photoLimb(segment, player.pad);
     return;
   }
   const edge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
+  if (player?.skin) { drawCurvedLimbs(segments, color, outline, edge, player); return; }
   if (player?.skateboard) segments = segments.slice().sort((a, b) => b.depth - a.depth);
   for (const segment of segments) {
     if (segment.hitboxOnly) continue;
@@ -11314,7 +15539,7 @@ function drawSkeletonSegments(segments, color, outline, player = null) {
   for (const [index, segment] of segments.entries()) {
     if (segment.hitboxOnly) continue;
     const appearance = generatedAppearance(player);
-    drawPaletteCapsule(segment, appearance ? null : player && !player.npc
+    drawPaletteCapsule(segment, appearance || player?.skin ? null : player && !player.npc
       ? player.handleColors : null, index, appearance ? generatedPartColor(appearance, segment) : color, player);
   }
 }
@@ -11369,8 +15594,8 @@ function drawPaletteCapsule(segment, colors, coordinate, fallback, player = null
 }
 
 function drawFighterSilhouette(geometry, color, outline, player = null) {
-  drawSkeletonSegments(geometry.segments, color, outline, player);
-  if (photoThemeActive && player) {
+  drawSkeletonSegments(player?.spin ? geometry.segments.filter(s=> !/arm$/.test(s.role||"")) : geometry.segments, color, outline, player);
+  if (photoThemeActive && player && !player.skin) {
     const head = geometry.head, seat = player.pad === 0 ? 0 : 1;
     const radius = Math.max(2, head.radius);
     photoSprite(seat ? "xboxHead" : "acHead", head.x, head.y,
@@ -11473,7 +15698,7 @@ function fighterAnimationPhase(player, now = null) {
   } else if (player.runSince) {
     state = "RUN";
     stateStartedAt = player.runSince;
-  } else if (Math.abs(player.vx) > 40) {
+  } else if (Math.hypot(player.vx,player.vz||0) > 40) {
     state = "WALK";
   }
   const [authoredSteps, authoredTicksPerStep, basePhase, loop] =
@@ -11518,14 +15743,230 @@ function fighterAnimationPhase(player, now = null) {
 
 // Only share poses during one interpolated paint. Simulation and rollback
 // always rebuild, because a hit may change limbs between queries in one tick.
+function pressWall(player, side, x, terrain = false) {
+  if (!player.alive || !player.grounded || player.skateboard || isHeadOnly(player) ||
+      (player.wallInputX ?? player.inputX) !== side) return;
+  player.wallPress = { side, x, terrain };
+  player.facing = side;
+  player.runSpeed = 0;
+}
+function wallPressActive(player) {
+  return Boolean(player.wallPress && player.grounded && !player.skateboard &&
+    !isHeadOnly(player) && !player.attackKind && !player.blocking &&
+    player.alive && player.inputX === player.wallPress.side);
+}
+function wallPressGeometry(player) {
+  const { side, x: wallX, terrain } = player.wallPress;
+  const crouch = Math.max(player.ducking ? 1 : 0, player.crouchBlend || 0);
+  const feet = player.y, z = player.z || 0;
+  const hip = { x: player.x - side * 6, y: feet - lerp(58, 32, crouch) };
+  const shoulder = { x: player.x + side * 15, y: feet - lerp(120, 66, crouch) };
+  const head = { x: shoulder.x + side * 2, y: shoulder.y - 28, z, radius: 22 };
+  const segments = [];
+  const bone = (a, b, width, role, part) => {
+    if (hasPart(player, part)) segments.push({ x1:a.x, y1:a.y, z1:z,
+      x2:b.x, y2:b.y, z2:z, width, role, part });
+  };
+  bone(shoulder, hip, 10, "torso", "torso");
+  bone({x:head.x,y:head.y+18}, shoulder, 10, "neck", "torso");
+  for (const [name, spread] of [["left", -1], ["right", 1]]) {
+    const handY = shoulder.y + spread * 12;
+    let handX = wallX - side * 5;
+    if (terrain) {
+      let near = player.x, far = player.x + side * 220;
+      for (let step = 0; step < 14; step++) {
+        const mid = (near + far) / 2;
+        if (terrainFloorAt(mid) <= handY) far = mid; else near = mid;
+      }
+      handX = far - side * 5;
+    }
+    const start = { x:shoulder.x, y:shoulder.y + spread * 4 };
+    const hand = { x:handX, y:handY };
+    const elbow = { x:(start.x+hand.x)/2 - side*7, y:(start.y+hand.y)/2 + 14 };
+    bone(start, elbow, 10, name+"-upper-arm", name+"-arm");
+    bone(elbow, hand, 10, name+"-forearm", name+"-arm");
+    const foot = { x:player.x - side*(spread < 0 ? 27 : -5), y:feet-5 };
+    const knee = { x:hip.x + side*lerp(8, 24, crouch), y:(hip.y+foot.y)/2 };
+    bone(hip, knee, 10, name+"-thigh", name+"-leg");
+    bone(knee, foot, 10, name+"-shin", name+"-leg");
+  }
+  return {head,segments};
+}
+
+class OskiewarRagdoll {
+  constructor(geometry, velocity = [0,0,0]) {
+    this.count=0;this.links=0;this.sleeping=false;this.quiet=0;this.steps=0;
+    this.p=new Float64Array(64*3);this.old=new Float64Array(64*3);this.v=new Float64Array(64*3);
+    this.r=new Float64Array(64);this.w=new Float64Array(64);this.contact=new Uint8Array(64);
+    this.a=new Uint8Array(192);this.b=new Uint8Array(192);this.min=new Float64Array(192);this.max=new Float64Array(192);
+    this.enabled=new Uint8Array(192);this.bones=[];
+    const point=(x,y,z,r=5)=>{
+      for(let i=0;i<this.count;i++)if(Math.hypot(this.p[i*3]-x,this.p[i*3+1]-y,this.p[i*3+2]-z)<.02){this.r[i]=Math.max(this.r[i],r);return i;}
+      if(this.count===64)throw Error('joint budget');const i=this.count++;this.p.set([x,y,z],i*3);this.v.set(velocity,i*3);this.r[i]=r;this.w[i]=1;return i;
+    };
+    for(const s of geometry.segments){if(s.hitboxOnly)continue;const a=point(s.x1,s.y1,s.z1||0,s.width/2||5),b=point(s.x2,s.y2,s.z2||0,s.width/2||5);this.link(a,b);this.bones.push({a,b,role:s.role,part:s.part,width:s.width});}
+    // Make attachment topology explicit where the render model leaves small gaps.
+    const segments=this.bones;
+    for(const lower of segments){if(!/(forearm|shin)$/.test(lower.role))continue;const upper=segments.find(s=>s.part===lower.part&&/(upper-arm|thigh)$/.test(s.role));if(!upper)continue;
+      if(upper.b!==lower.a)this.link(upper.b,lower.a);
+      const l1=this.distance(upper.a,upper.b),l2=this.distance(lower.a,lower.b);
+      this.link(upper.a,lower.b,Math.sqrt(l1*l1+l2*l2+2*l1*l2*Math.cos(2.55)),(l1+l2)*.999);
+    }
+    const torso=segments.find(s=>s.role==='torso');
+    if(torso){const roots=[torso.a,torso.b];for(const s of segments)if(/(upper-arm|thigh)$/.test(s.role)&&!roots.includes(s.a))roots.push(s.a);
+      for(let i=0;i<roots.length;i++)for(let j=i+1;j<roots.length;j++)this.link(roots[i],roots[j]);
+    }
+    const h=geometry.head;this.head=point(h.x,h.y,h.z||0,h.radius||15);
+    let nearest=-1,d=Infinity;for(let i=0;i<this.count;i++){if(i===this.head)continue;const q=this.distance(i,this.head);if(q<d){d=q;nearest=i;}}
+    if(nearest>=0)this.link(this.head,nearest);
+    // Join disconnected authored neck/shoulder fragments with nearest attachments.
+    const visited=new Uint8Array(64);visited[this.head]=1;
+    for(let pass=0;pass<this.count;pass++)for(let j=0;j<this.links;j++)if(visited[this.a[j]]||visited[this.b[j]])visited[this.a[j]]=visited[this.b[j]]=1;
+    for(let i=0;i<this.count;i++)if(!visited[i]){let best=-1,dist=Infinity;for(let j=0;j<this.count;j++)if(visited[j]){const d=this.distance(i,j);if(d<dist){best=j;dist=d;}}this.link(i,best);visited[i]=1;}
+  }
+  distance(a,b){return Math.hypot(this.p[a*3]-this.p[b*3],this.p[a*3+1]-this.p[b*3+1],this.p[a*3+2]-this.p[b*3+2]);}
+  link(a,b,min=this.distance(a,b),max=min){if(a===b)return;for(let j=0;j<this.links;j++)if((this.a[j]===a&&this.b[j]===b)||(this.a[j]===b&&this.b[j]===a))return;if(this.links===192)throw Error('constraint budget');const j=this.links++;this.a[j]=a;this.b[j]=b;this.min[j]=min;this.max[j]=max;this.enabled[j]=1;}
+  wake(){this.sleeping=false;this.quiet=0;}
+  impulse(point, impulse){if(!this.bones.length)return;this.wake();let bone=this.bones[0],best=Infinity,tBest=0;
+    for(const s of this.bones){const a=s.a*3,b=s.b*3,dx=this.p[b]-this.p[a],dy=this.p[b+1]-this.p[a+1],dz=this.p[b+2]-this.p[a+2],l=dx*dx+dy*dy+dz*dz;
+      const t=Math.max(0,Math.min(1,((point[0]-this.p[a])*dx+(point[1]-this.p[a+1])*dy+(point[2]-this.p[a+2])*dz)/(l||1)));
+      const d=(point[0]-this.p[a]-dx*t)**2+(point[1]-this.p[a+1]-dy*t)**2+(point[2]-this.p[a+2]-dz*t)**2;
+      if(d<best){best=d;bone=s;tBest=t;}
+    }
+    for(let k=0;k<3;k++){this.v[bone.a*3+k]+=impulse[k]*(1-tBest)*this.w[bone.a];this.v[bone.b*3+k]+=impulse[k]*tBest*this.w[bone.b];}
+  }
+  step(dt,floor,gravity=1900){if(this.sleeping)return;this.steps++;dt=Math.min(dt,1/30);let support=0,maxV=0;
+    for(let sub=0;sub<2;sub++){const h=dt/2;this.old.set(this.p);this.contact.fill(0);
+      for(let i=0;i<this.count;i++){const j=i*3;if(!this.w[i])continue;this.v[j+1]+=gravity*h;for(let k=0;k<3;k++){this.v[j+k]*=.999;this.p[j+k]+=this.v[j+k]*h;}}
+      for(let iteration=0;iteration<4;iteration++){
+        for(let j=0;j<this.links;j++){if(!this.enabled[j])continue;const a=this.a[j],b=this.b[j],ia=a*3,ib=b*3;
+          const dx=this.p[ib]-this.p[ia],dy=this.p[ib+1]-this.p[ia+1],dz=this.p[ib+2]-this.p[ia+2],d=Math.hypot(dx,dy,dz);if(d<1e-8||this.w[a]+this.w[b]===0)continue;
+          const error=d-Math.max(this.min[j],Math.min(this.max[j],d));if(!error)continue;const factor=error/d/(this.w[a]+this.w[b]);
+          this.p[ia]+=dx*factor*this.w[a];this.p[ia+1]+=dy*factor*this.w[a];this.p[ia+2]+=dz*factor*this.w[a];this.p[ib]-=dx*factor*this.w[b];this.p[ib+1]-=dy*factor*this.w[b];this.p[ib+2]-=dz*factor*this.w[b];
+        }
+        for(let i=0;i<this.count;i++){const j=i*3;if(!this.w[i])continue;const x=this.p[j],z=this.p[j+2],fy=floor(x,z),penetration=this.p[j+1]+this.r[i]-fy;if(penetration<=0)continue;
+          const gx=(floor(x+.5,z)-floor(x-.5,z)),gz=(floor(x,z+.5)-floor(x,z-.5)),den=1+gx*gx+gz*gz;
+          this.p[j]+=penetration*gx/den;this.p[j+1]-=penetration/den;this.p[j+2]+=penetration*gz/den;this.contact[i]=1;
+        }
+      }
+      support=0;maxV=0;for(let i=0;i<this.count;i++){const j=i*3;for(let k=0;k<3;k++)this.v[j+k]=(this.p[j+k]-this.old[j+k])/h;
+        if(this.contact[i]){support++;const x=this.p[j],z=this.p[j+2],gx=floor(x+.5,z)-floor(x-.5,z),gz=floor(x,z+.5)-floor(x,z-.5),n=Math.hypot(gx,1,gz),nx=gx/n,ny=-1/n,nz=gz/n,dot=this.v[j]*nx+this.v[j+1]*ny+this.v[j+2]*nz;
+          if(dot<0){this.v[j]-=dot*nx;this.v[j+1]-=dot*ny;this.v[j+2]-=dot*nz;}this.v[j]*=.74;this.v[j+1]*=.74;this.v[j+2]*=.74;
+        }
+        maxV=Math.max(maxV,Math.hypot(this.v[j],this.v[j+1],this.v[j+2]));
+      }
+    }
+    this.quiet=(support>=3&&maxV<12)?this.quiet+dt:0;if(this.quiet>.75){this.sleeping=true;this.v.fill(0);}
+  }
+}
+
+const ragdollBodies=new Map();
+function ragdollGeometry(body){
+ const p=body.p,at=i=>({x:p[i*3],y:p[i*3+1],z:p[i*3+2]});
+ return {head:{...at(body.head),radius:body.r[body.head]},segments:body.bones.map(b=>({role:b.role,part:b.part,width:b.width,x1:p[b.a*3],y1:p[b.a*3+1],z1:p[b.a*3+2],x2:p[b.b*3],y2:p[b.b*3+1],z2:p[b.b*3+2]}))};
+}
+function startRagdoll(player,point,impulse){
+ if(!poolOnly())return;
+ const source=runnerWorldGeometry(player,(runtime().monotonicUs-startedAt)/1e6),pose={...source,segments:source.segments.filter(s=>hasPart(player,s.part))};
+ const body=new OskiewarRagdoll(pose,[player.vx||0,player.vy||0,player.vz||0]);
+ if(point&&impulse)body.impulse([point.x,point.y,point.z||0],impulse);
+ // The park has eight civilians and at most two player bodies: bounded actor ownership.
+ ragdollBodies.set(player,{body,pose});
+ player.frozenGeometry=null;player.replayGeometry=null;
+}
+function updateRagdolls(dt){
+ for(const [player,state] of ragdollBodies){
+  if(player.alive||(!players.includes(player)&&!parkKids.includes(player))){ragdollBodies.delete(player);continue;}
+  if(!state.body.sleeping){state.body.step(dt,poolFloorAt);state.pose=ragdollGeometry(state.body);}
+  const torso=state.pose.segments.find(s=>s.role==='torso');
+  if(torso){player.x=torso.x2;player.y=torso.y2;player.z=torso.z2;}
+ }
+}
 const renderPoses = new Map();
 let sharingRenderPoses = false;
 function runnerWorldGeometry(player, t) {
+  const fallen=ragdollBodies.get(player);if(fallen&&!player.alive)return fallen.pose;
+  if (wallPressActive(player)) return wallPressGeometry(player);
   const cached = sharingRenderPoses && renderPoses.get(player);
   if (cached && (!player.spiderDummy || cached.t === t)) return cached.pose;
-  const pose = buildRunnerWorldGeometry(player, t);
-  if (player.skateRotation) {
-  const c = Math.cos(player.skateRotation), s = Math.sin(player.skateRotation);
+  const pose = buildRunnerWorldGeometry(player, player.motionClock ?? t);
+  if(player.breathPhase!==undefined && !player.dummy && player.alive){
+    const lift=Math.sin(player.breathPhase*Math.PI*2)*(1.2+(player.heartDanger||0)*1.8);
+    const breathe=y=>y-lift*clamp((player.y-y)/170,0,1);
+    pose.head.y=breathe(pose.head.y);
+    for(const b of pose.segments){b.y1=breathe(b.y1);b.y2=breathe(b.y2);}
+  }
+  // Mid-strafe the feet do the travelling: the leading foot lifts, steps into
+  // the new lane and plants there while the body moves across; then the
+  // trailing foot lifts and follows it. Planted feet stay where they were
+  // put, so the step is real footwork, not a slide.
+  if (player.strafe) {
+    const progress = clamp((runtime().monotonicUs - player.strafe.at) / ((player.strafe.frames || strafeFrames) * replayTickUs), 0, 1);
+    const { from, to } = player.strafe;
+    const direction = Math.sign(to - from) || 1;
+    const ease = (u) => { u = clamp(u, 0, 1); return u * u * (3 - 2 * u); };
+    const leadPhase = clamp(progress / .55, 0, 1), trailPhase = clamp((progress - .45) / .55, 0, 1);
+    const feet = {
+      lead: { z: from + (to - from) * ease(leadPhase), lift: Math.sin(leadPhase * Math.PI) * 12 },
+      trail: { z: from + (to - from) * ease(trailPhase), lift: Math.sin(trailPhase * Math.PI) * 12 },
+    };
+    const leadPart = direction * (player.facing || 1) > 0 ? "left-leg" : "right-leg";
+    for (const segment of pose.segments) {
+      if (!/thigh|shin/.test(segment.role || "")) continue;
+      const foot = segment.part === leadPart ? feet.lead : feet.trail;
+      const isShin = /shin/.test(segment.role);
+      // The shin's lower end is the foot; its upper end and the thigh's lower
+      // end are the knee, halfway between hip and foot in depth.
+      const kneeZ = ((player.z || 0) + foot.z) / 2;
+      if (isShin) {
+        segment.z1 = kneeZ; segment.z2 = foot.z;
+        segment.y1 -= foot.lift * .5; segment.y2 -= foot.lift;
+      } else {
+        segment.z1 = player.z || 0; segment.z2 = kneeZ;
+        segment.y2 -= foot.lift * .5;
+      }
+    }
+  }
+  // Open the arms into a balanced 3D pose before turning the whole rig.
+  if(player.spin && !player.attackKind && !isHeadOnly(player)){
+    const torso=pose.segments.find(s=>s.role==='torso');
+    if(torso)for(const side of [-1,1]){
+      const part=side<0?'left-arm':'right-arm';
+      const upper=pose.segments.find(s=>s.part===part && /upper-arm$/.test(s.role||''));
+      const lower=pose.segments.find(s=>s.part===part && /forearm$/.test(s.role||''));
+      if(!upper || !lower)continue;
+      Object.assign(upper,{x1:torso.x1+side*12,y1:torso.y1+8,z1:(player.z||0)+side*14,
+        x2:torso.x1+side*36,y2:torso.y1+16,z2:(player.z||0)+side*24});
+      Object.assign(lower,{x1:upper.x2,y1:upper.y2,z1:upper.z2,
+        x2:torso.x1+side*66,y2:torso.y1+8,z2:(player.z||0)+side*30});
+    }
+  }
+  if(player.civilian && player.bodyScale){
+    const k=player.bodyScale;
+    pose.head.x=player.x+(pose.head.x-player.x)*k;pose.head.y=player.y+(pose.head.y-player.y)*k;pose.head.radius*=k;pose.head.z=(player.z||0)+(pose.head.z-(player.z||0))*k;
+    for(const b of pose.segments){b.x1=player.x+(b.x1-player.x)*k;b.x2=player.x+(b.x2-player.x)*k;b.y1=player.y+(b.y1-player.y)*k;b.y2=player.y+(b.y2-player.y)*k;b.z1=(player.z||0)+(b.z1-(player.z||0))*k;b.z2=(player.z||0)+(b.z2-(player.z||0))*k;b.width*=k;}
+  }
+  // Mid-turn the body swings round its vertical axis: the old facing's side
+  // rotates away into depth and the new one comes round.
+  const turnAge = (runtime().monotonicUs - (player.turnAt || -1e12)) / (turnFrames * replayTickUs);
+  if (turnAge >= 0 && turnAge < 1) {
+    const angle = Math.PI * (1 - turnAge);
+    const c = Math.cos(angle), s = Math.sin(angle) * (player.facing || 1);
+    const yaw = (point, xKey, zKey) => {
+      const dx = point[xKey] - player.x;
+      point[xKey] = player.x + dx * c;
+      point[zKey] = (point[zKey] ?? player.z) + dx * s;
+    };
+    yaw(pose.head, "x", "z");
+    for (const segment of pose.segments) { yaw(segment, "x1", "z1"); yaw(segment, "x2", "z2"); }
+  }
+  // A runner on a wall stands square to it rather than to the sky; a
+  // swimmer lies along the water, head first the way they are going.
+  const turn = (player.skateboard && !isHeadOnly(player) ? 0 : player.skateRotation || 0) +
+    (player.footSurf && player.grounded ? (player.skatePitch || 0) * .85 : 0) +
+    (isSwimmer(player) ? player.facing * 1.25 : 0);
+  if (turn) {
+  const c = Math.cos(turn), s = Math.sin(turn);
   const rotate = (x, y) => ({ x: player.x + (x - player.x) * c - (y - player.y) * s,
     y: player.y + (x - player.x) * s + (y - player.y) * c });
   Object.assign(pose.head, rotate(pose.head.x, pose.head.y));
@@ -11534,18 +15975,315 @@ function runnerWorldGeometry(player, t) {
     segment.x1 = a.x; segment.y1 = a.y; segment.x2 = b.x; segment.y2 = b.y;
   }
   }
+  if(poolOnly()&&!isHeadOnly(player)){
+    const z=player.z||0,bank=player.poolLean||0;
+    if(!player.skateboard&&!pose.spatial&&!player.spin){
+      for(const bone of pose.segments){
+        const side=bone.part?.startsWith('left-')?-1:bone.part?.startsWith('right-')?1:0;
+        const width=bone.part?.includes('arm')?22:13;
+        bone.z1=z+side*width;bone.z2=z+side*width;
+        if(bone.role==='shoulders'){bone.z1=z-22;bone.z2=z+22;}
+      }
+    }
+    // Bank the torso into a carve while the feet remain planted on the deck.
+    const lean=(point,yKey,zKey)=>{
+      const height=Math.max(0,player.y-point[yKey]-28),weight=clamp(height/60,0,1);
+      point[zKey]=(point[zKey]??z)-height*Math.sin(bank)*weight;
+      point[yKey]+=height*(1-Math.cos(bank))*weight;
+    };
+    lean(pose.head,'y','z');
+    for(const bone of pose.segments){lean(bone,'y1','z1');lean(bone,'y2','z2');}
+  }
+  if(poolOnly()&&!player.spiderDummy)constrainSpatialLimbs(pose,player.civilian?(player.bodyScale||1):1);
+  // A spin: the whole body turns round the vertical axis by the spin's angle.
+  if (player.spin) {
+    const angle = player.spin.angle;
+    const c = Math.cos(angle), s = Math.sin(angle);
+    const spin = (point, xKey, zKey) => {
+      const dx = point[xKey] - player.x, dz = (point[zKey] ?? player.z) - player.z;
+      point[xKey] = player.x + dx * c - dz * s;
+      point[zKey] = player.z + dx * s + dz * c;
+    };
+    spin(pose.head, "x", "z");
+    for (const segment of pose.segments) { spin(segment, "x1", "z1"); spin(segment, "x2", "z2"); }
+  }
+  if (poolOnly() && player.poolYaw) {
+    const c=Math.cos(player.poolYaw),s=Math.sin(player.poolYaw),z=player.z||0;
+    const rotate=(point,xKey,zKey)=>{const dx=point[xKey]-player.x,dz=(point[zKey]??z)-z;
+      point[xKey]=player.x+dx*c-dz*s;point[zKey]=z+dx*s+dz*c;};
+    rotate(pose.head,'x','z');
+    for(const bone of pose.segments){rotate(bone,'x1','z1');rotate(bone,'x2','z2');}
+  }
+  if(poolOnly())pose.flow={yaw:(player.poolYaw||0)+(player.spin?.angle||0),phase:player.motionClock??t,swing:player.rig?.arms||0,scale:player.civilian?(player.bodyScale||1):1};
   if (sharingRenderPoses) renderPoses.set(player, { t, pose });
   return pose;
 }
 
+// The rider's body on springs. Three under-damped springs ride along in the
+// simulation — so every screen agrees — and bend the drawn pose:
+//   lean   the upper body lags the board: speeding up throws it back, braking
+//          pitches it forward, and it overshoots and settles (the sway);
+//   crouch pumping sinks the knees, a landing compresses them in proportion
+//          to how hard it came down and springs back, the air tucks them;
+//   arms   a balance swing driven by how fast the lean is changing.
+// Only a rider on a board wears it strongly; on foot it is a light sway.
+function springStep(state, key, target, stiffness, damping, dt) {
+  const velocityKey = key + "V";
+  const velocity = (state[velocityKey] || 0) +
+    ((target - (state[key] || 0)) * stiffness - (state[velocityKey] || 0) * damping) * dt;
+  state[velocityKey] = velocity;
+  state[key] = (state[key] || 0) + velocity * dt;
+}
+function updateRig(player, pad, dt) {
+  if (!player || !player.alive || !(dt > 0)) return;
+  const rig = player.rig ||= { lean: 0, crouch: 0, arms: 0, lastVx: player.vx,
+    lastGrounded: player.grounded };
+  const board = player.skateboard;
+  const strength = board ? 1 : .35;
+  const along=poolOnly()?player.vx*Math.cos(player.poolYaw||0)+(player.vz||0)*Math.sin(player.poolYaw||0):player.vx;
+  const accel = clamp((along - rig.lastVx) / dt, -9000, 9000);
+  rig.lastVx = along;
+  // Inertia: the body wants to stay where it was, so it leans against the
+  // board's acceleration. Units are the neck's sideways travel.
+  // On the board the stick is a weight shift too: the body leans the way
+  // it is held, and the deck tilts under it (see `updateBoardTilt`).
+  const held = pad?.down || [];
+  const stick = board && !poolOnly() ? (held.includes("ArrowRight") ? 1 : held.includes("ArrowLeft") ? -1 : 0) : 0;
+  springStep(rig, "lean", clamp(-accel * .012 + stick * 26, -46, 46) * strength, 70, 5.5, dt);
+  const pumping = board && (pad?.down || []).includes(depthControls()?"X":"ArrowDown");
+  if (player.grounded && !rig.lastGrounded) {
+    rig.crouchV = (rig.crouchV || 0) + clamp((player.landingSpeed || 900) / 1200, .4, 2.4) * 3;
+    if (!board && (player.landingSpeed || 0) > 2400) addDing(player.x, player.z || 0, 4 + player.landingSpeed / 900);
+  }
+  // A wounded fighter drips as they go.
+  const wounds = Object.values(player.partDamage || {}).reduce((sum, value) => sum + value, 0);
+  if (wounds > 0 && !isHeadOnly(player)) {
+    rig.drip = (rig.drip || 0) + dt * Math.min(4, wounds);
+    if (rig.drip > .7) { rig.drip = 0; spawnBlood(player.x, player.y - 60, player.z || 0, 0, 1, .2); }
+  }
+  rig.lastGrounded = player.grounded;
+  const crouchTarget = (pumping ? .55 : poolOnly()&&board?.28:0) + (!player.grounded && board ? .3 : 0);
+  springStep(rig, "crouch", crouchTarget, 90, 9, dt);
+  rig.crouch = clamp(rig.crouch, 0, .95);
+  springStep(rig, "arms", clamp((rig.leanV || 0) * .035 + Math.sin((player.motionClock||0)*2.1)*.18, -1.8, 1.8) * strength, 38, 3.6, dt);
+  updateTruckSprings(player, rig, dt);
+  if (!player.grounded || !player.skateboard) player.skidFrom = null;
+}
+
+// The board's suspension. Each truck is a stiff spring (the bushings) under
+// its end of the deck, measured in units the deck sinks toward that axle:
+// the rider's weight settles it, pumping loads it, a landing slams both and
+// they rebound, a transition's change of pitch loads the leading truck, and
+// the body's lean rocks weight from tail to nose. In the air the trucks hang
+// a little off the deck. `skateFrame` sinks the deck by it, so the feet —
+// and through them the knees — ride the same motion.
+function updateTruckSprings(player, rig, dt) {
+  const springs = player.trucks ||= { front: 0, back: 0, frontV: 0, backV: 0,
+    lastPitch: player.skatePitch || 0 };
+  if (!player.skateboard) {
+    springs.front = springs.back = springs.frontV = springs.backV = 0;
+    springs.tilt = springs.tiltV = 0;
+    springs.lastPitch = 0;
+    return;
+  }
+  const pitch = player.skatePitch || 0;
+  const pitchRate = clamp((pitch - springs.lastPitch) / dt, -12, 12);
+  springs.lastPitch = pitch;
+  if (player.grounded && !springs.wasGrounded) {
+    const landed = player.landingSpeed || 900;
+    if (!freeskateActive() && landed > 1700) damageBoard((landed - 1700) / 55, player.x, player.y - 12, player.z || 0);
+    if (landed > 1300) {
+      const frame = skateFrame(player);
+      for (const along of [-skateTruck, skateTruck]) for (const side of [-15, 15]) {
+        const at = frame(along, skateAxleDrop + skateWheelRadius, side);
+        addDecal({ kind: "wheelmark", x: at.x, z: at.z, size: 3 + landed / 1200, stretch: 1.8, angle: 0 });
+      }
+      if (landed > 2300) addDing(player.x, player.z || 0, 5 + landed / 700);
+    }
+    const slam = clamp((player.landingSpeed || 900) / 1200, .3, 2.6) * 45;
+    springs.frontV += slam;
+    springs.backV += slam;
+  }
+  springs.wasGrounded = player.grounded;
+  const facing = player.facing || 1;
+  const load = player.grounded ? 1.6 + (rig.crouch || 0) * 3.2 : -1.2;
+  const rock = player.grounded
+    ? clamp((rig.lean || 0) * .06 * facing + pitchRate * .35 * Math.sign(player.skateVx || facing), -2.4, 2.4)
+    : 0;
+  // Front is the end the rider faces.
+  springStep(springs, "front", load + rock, 420, 16, dt);
+  springStep(springs, "back", load - rock, 420, 16, dt);
+  springs.front = clamp(springs.front, -2, 6.5);
+  springs.back = clamp(springs.back, -2, 6.5);
+  updateBoardTilt(player, rig, springs, dt);
+}
+
+// Tilt: the deck rocking on one wheel pair — nose up is positive — driven by
+// the rider's body, not the ground. The deck dips under the end the body's
+// weight is over (the lean spring in `updateRig`) and the other end lifts:
+// pushing off leaves the body behind, so the nose comes up; braking or
+// leaning into the stick puts weight on the nose. Reversing snaps the nose
+// up like a kickturn, and coming up fast out of a crouch pops the tail. The
+// board pivots on whichever wheels stay down (`skateFrame`), so a tilted
+// deck lifts its other truck clear.
+const boardTiltMax = .42;
+function updateBoardTilt(player, rig, springs, dt) {
+  const facing = player.facing || 1;
+  if (springs.lastFacing && springs.lastFacing !== facing)
+    springs.tiltV = (springs.tiltV || 0) + 7;
+  springs.lastFacing = facing;
+  const crouchRate = rig.crouchV || 0;
+  if (crouchRate < -3 && player.grounded)
+    springs.tiltV = (springs.tiltV || 0) + clamp(-crouchRate * .25, 0, 3);
+  // Weight over the nose (a lean toward facing) presses it down.
+  const target = -(rig.lean || 0) * facing * (player.grounded ? .0085 : .011);
+  springStep(springs, "tilt", clamp(target, -boardTiltMax, boardTiltMax), 120, 11, dt);
+  springs.tilt = clamp(springs.tilt, -boardTiltMax, boardTiltMax);
+}
+
+// A body in the water without a board swims: it is laid along the surface
+// and strokes, rather than standing in the pond.
+function isSwimmer(player) {
+  return !!player.swimming && !player.skateboard && !isHeadOnly(player);
+}
+
+// Holding on the coping: the rider hangs off the lip into the pipe — both
+// hands on the coping, arms taking the weight, body down the wall face,
+// knees bent and feet pressing the board flat against the transition. The
+// wall under the coping is the pipe's own circle, so the pose follows it.
+function stallBoardPlayer(player) {
+  const stall = player.skateStall;
+  const copingY = terrainFloorAt(stall.coping);
+  const drop = 205;
+  const offset = halfpipeRadius - Math.sqrt(halfpipeRadius ** 2 - drop ** 2);
+  const sway = Math.sin((runtime().monotonicUs || 0) / 180000) * 3;
+  return { x: stall.coping - stall.side * (offset + 12 + sway), y: copingY + drop + 18,
+    z: player.z, facing: -stall.side, skatePitch: -stall.side * (Math.PI / 2 - .36),
+    skateSpin: player.skateSpin || 0, trucks: null };
+}
+function hangGeometry(player) {
+  const stall = player.skateStall, side = stall.side;
+  const copingY = terrainFloorAt(stall.coping);
+  const cx = stall.coping, z = player.z;
+  const breath = Math.sin((runtime().monotonicUs || 0) / 240000) * 3;
+  const segments = [];
+  const segment = (x1, y1, x2, y2, width, role, part) => {
+    if (!hasPart(player, part)) return;
+    segments.push({ x1, y1, z1: z, x2, y2, z2: z, width, role, part });
+  };
+  const inward = -side; // into the pipe
+  const shoulderX = cx + inward * 24, shoulderY = copingY + 44 + breath;
+  const hipX = cx + inward * 30, hipY = copingY + 118 + breath;
+  const head = { x: cx + inward * 44, y: copingY + 22 + breath, z, radius: 22 };
+  segment(head.x - inward * 6, head.y + 17, shoulderX, shoulderY - 6, 10, "neck", "torso");
+  segment(shoulderX, shoulderY - 6, hipX, hipY, 10, "torso", "torso");
+  segment(shoulderX - 10, shoulderY - 6, shoulderX + 10, shoulderY - 6, 10, "shoulders", "torso");
+  // Both hands on the coping, elbows out.
+  for (const [arm, spread] of [["left", -1], ["right", 1]]) {
+    const elbowX = cx + inward * (18 + spread * 4), elbowY = copingY + 14;
+    segment(shoulderX, shoulderY - 6, elbowX, elbowY, 10, arm + "-upper-arm", arm + "-arm");
+    segment(elbowX, elbowY, cx + inward * 2, copingY - 6, 10, arm + "-forearm", arm + "-arm");
+  }
+  // Knees out from the wall, feet on the board against it.
+  const deck = skateFrame(stallBoardPlayer(player));
+  for (const [leg, along] of [["left", -18], ["right", 18]]) {
+    const foot = deck(along, -4);
+    const kneeX = hipX + inward * 34, kneeY = (hipY + foot.y) / 2 - 4 + along * .3;
+    segment(hipX, hipY, kneeX, kneeY, 10, leg + "-thigh", leg + "-leg");
+    segment(kneeX, kneeY, foot.x, foot.y, 10, leg + "-shin", leg + "-leg");
+  }
+  return { head, segments };
+}
+
+// A spatial gait: feet travel backward through stance, lift on recovery,
+// and arms counter the legs. The distance phase works at every heading.
+function constrainSpatialLimbs(pose,scale=1){
+  for(const upper of pose.segments){
+    const leg=/thigh$/.test(upper.role||''),arm=/upper-arm$/.test(upper.role||'');
+    if(!leg&&!arm)continue;
+    const lower=pose.segments.find(b=>b.part===upper.part&&(leg?/shin$/:/forearm$/).test(b.role||''));
+    if(!lower)continue;
+    const root={x:upper.x1,y:upper.y1,z:upper.z1},end={x:lower.x2,y:lower.y2,z:lower.z2};
+    const l1=(leg?48:33)*scale,l2=(leg?47:32)*scale;
+    let axis={x:end.x-root.x,y:end.y-root.y,z:end.z-root.z};
+    const distance=Math.hypot(axis.x,axis.y,axis.z);
+    if(distance<1e-6)axis={x:0,y:1,z:0};else for(const k of ['x','y','z'])axis[k]/=distance;
+    const reach=clamp(distance,Math.abs(l1-l2)+.01,l1+l2-.01);
+    let pole={x:upper.x2-root.x,y:upper.y2-root.y,z:upper.z2-root.z};
+    const dot=pole.x*axis.x+pole.y*axis.y+pole.z*axis.z;
+    for(const k of ['x','y','z'])pole[k]-=dot*axis[k];
+    let norm=Math.hypot(pole.x,pole.y,pole.z);
+    if(norm<1e-6){const basis=Math.abs(axis.x)<.9?{x:1,y:0,z:0}:{x:0,y:0,z:1};
+      const d=basis.x*axis.x+basis.z*axis.z;
+      for(const k of ['x','y','z'])pole[k]=basis[k]-axis[k]*d;
+      norm=Math.hypot(pole.x,pole.y,pole.z);}
+    const along=(l1*l1-l2*l2+reach*reach)/(2*reach),bend=Math.sqrt(Math.max(0,l1*l1-along*along));
+    for(const k of ['x','y','z']){
+      upper[k+'2']=lower[k+'1']=root[k]+axis[k]*along+pole[k]/norm*bend;
+      lower[k+'2']=root[k]+axis[k]*reach;
+    }
+  }
+}
+function buildPoolWalkGeometry(p) {
+  const phase=p.poolStridePhase||0,speed=clamp(Math.hypot(p.vx,p.vz||0)/700,0,1);
+  const moving=clamp(Math.hypot(p.vx,p.vz||0)/200,0,1),crouch=clamp(p.crouchBlend||0,0,1);
+  const grounded=p.grounded,air=grounded?0:1,cy=Math.cos(p.poolYaw||0),sy=Math.sin(p.poolYaw||0);
+  const breath=(p.breathPhase||0)*Math.PI*2;
+  const sway=Math.sin(breath)*2.5*(1-speed)+Math.sin(phase*Math.PI*2)*2*speed;
+  const bob=grounded?Math.cos(phase*Math.PI*4)*3*speed+Math.sin(breath)*1.4*(1-speed):0;
+  const hipHeight=86-11*speed-30*crouch+bob;
+  const lean=(p.rig?.lean||0)*.65+(p.inputZ||0)*speed*9+crouch*13+sway;
+  const point=(x,y,z)=>({x:p.x+x,y:p.y+y,z:(p.z||0)+z});
+  const hip=point(-crouch*9,-hipHeight,0),shoulder=point(lean,-hipHeight-52+12*crouch,0);
+  const head=point(lean+2+sway*.6,-hipHeight-80+12*crouch,Math.sin(breath+.7)*1.4),segments=[];head.radius=22;
+  const bone=(a,b,role,part,width=10)=>{if(hasPart(p,part))segments.push({x1:a.x,y1:a.y,z1:a.z,x2:b.x,y2:b.y,z2:b.z,width,role,part});};
+  // Solve a knee/elbow in 3D in the plane containing the forward axis.
+  const joint=(a,b,length,bend=1)=>{
+    const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z,d=Math.hypot(dx,dy,dz)||1;
+    const nx=dx/d,ny=dy/d,nz=dz/d,px=1-nx*nx,py=-nx*ny,pz=-nx*nz,pl=Math.hypot(px,py,pz)||1;
+    const h=Math.sqrt(Math.max(0,length*length-d*d/4))*bend;
+    return {x:(a.x+b.x)/2+px/pl*h,y:(a.y+b.y)/2+py/pl*h,z:(a.z+b.z)/2+pz/pl*h};
+  };
+  bone(point(head.x-p.x,head.y-p.y+17,0),shoulder,'neck','torso');
+  bone(shoulder,hip,'torso','torso');
+  const twist=Math.sin(phase*Math.PI*2)*moving*4;
+  const shoulders=[point(lean-twist,shoulder.y-p.y,-23),point(lean+twist,shoulder.y-p.y,23)];
+  bone(shoulders[0],shoulders[1],'shoulders','torso');
+  for(const [index,name] of ['left','right'].entries()){
+    const side=index?1:-1,u=((phase+index*.5)%1+1)%1,stance=u<.55;
+    const recovery=clamp((u-.55)/.45,0,1);
+    const footX=(stance?66-u/.55*132:-66*Math.cos(recovery*Math.PI))*moving*(1-crouch*.55);
+    const lift=grounded?(stance?0:Math.sin(recovery*Math.PI)*(20+16*speed)*moving):24+index*8;
+    const localX=grounded?footX:18-index*32,localZ=side*14;
+    const surface=grounded?clamp(poolFloorAt(p.x+localX*cy-localZ*sy,(p.z||0)+localX*sy+localZ*cy)-p.y,-36,36):0;
+    const foot=point(localX,surface-5-lift,localZ),pelvis={...hip,z:hip.z+side*12};
+    const knee=joint(pelvis,foot,48);
+    bone(pelvis,knee,name+'-thigh',name+'-leg',11);bone(knee,foot,name+'-shin',name+'-leg',10);
+    const upper=shoulders[index],swing=-footX*.52+(p.rig?.arms||0)*9+Math.sin(breath+index)*2;
+    // Holding reaches both hands forward at chest height, close together.
+    const hand=p.parkGrabbing?point(lean+50,shoulder.y-p.y+24,side*14)
+      :point(lean+swing+air*20,shoulder.y-p.y+61-10*speed-15*air,side*(26+air*12));
+    if(p.gunAmmo>0&&name+'-arm'===itemHand(p)){
+      hand.x=upper.x+54;hand.y=upper.y+16;hand.z=upper.z;
+    }
+    const elbow=joint(upper,hand,33,-1);
+    bone(upper,elbow,name+'-upper-arm',name+'-arm');bone(elbow,hand,name+'-forearm',name+'-arm');
+  }
+  return {head,segments,spatial:true};
+}
+
 function buildRunnerWorldGeometry(player, t, at = null) {
   if (player.spiderDummy) return spiderDummyWorldGeometry(player, t);
+  if(poolOnly()&&freeskateActive()&&!player.skateboard&&!player.attackKind&&!player.dummy&&
+      !isHeadOnly(player)&&!isSwimmer(player)&&hasPart(player,'left-leg')&&hasPart(player,'right-leg'))
+    return buildPoolWalkGeometry(player);
+  if (player.skateStall && player.skateboard && !isHeadOnly(player)) return hangGeometry(player);
   // Rendering consumes the same fixed 60 Hz phase clock as simulation. The
   // display can remain uncapped without inventing in-between combat poses.
   const animation = fighterAnimationPhase(player, at);
   const poseNow = animation.frameNow;
   const poseCycle = animation.progress * Math.PI * 2;
-  const speed = Math.min(1, Math.abs(player.vx) / 1500);
+  const speed = Math.min(1, (poolOnly()?Math.hypot(player.vx,player.vz||0):Math.abs(player.vx)) / 1500);
   const meditating = shellMode === "MENU" && titleTransitionAt === null &&
     titleAttractMode === "still";
   const idle = player.grounded && !player.ducking && speed < .03;
@@ -11561,14 +16299,19 @@ function buildRunnerWorldGeometry(player, t, at = null) {
     ? clamp(1 - (player.jumpLaunchAt - poseNow) / jumpAnticipationUs, 0, 1) : 0;
   const landingRecovery = player.landPoseUntil > poseNow
     ? clamp((player.landPoseUntil - poseNow) / 110000, 0, 1) : 0;
+  const rig = player.rig || {};
+  // A grab tucks the knees hard; a stall sits a little bent on the lip.
+  const trickCrouch = player.skateGrab ? .78 : player.skateStall ? .35 : 0;
   const crouchPose = clamp(Math.max(player.crouchBlend || 0,
     Math.sin(jumpAnticipation * Math.PI) * .72,
-    landingRecovery * .45, noLegs ? .45 : 0), 0, 1);
+    landingRecovery * .45, noLegs ? .45 : 0, rig.crouch || 0, trickCrouch), 0, 1);
   const height = lerp(180, 108, crouchPose);
   const formDrop = pogo ? 54 : noLegs ? 31 : 0;
   const aimPose = player.itemAimLocked || player.gunAimLive
     ? player.gunAimX || player.facing : 0;
-  const lean = player.facing * (idle ? 5 : 3 + speed * 10) + aimPose * 7;
+  // Stalled on a coping, the body hangs back out over the pipe.
+  const lean = player.facing * (idle ? 5 : 3 + speed * 10) + aimPose * 7 +
+    (rig.lean || 0) + (player.skateStall ? -player.skateStall.side * 22 : 0);
   const x = player.x;
   const feet = player.y;
   const z = player.z;
@@ -11581,8 +16324,10 @@ function buildRunnerWorldGeometry(player, t, at = null) {
     (player.itemAimLocked || player.gunAimLive
       ? (player.gunAimY || 0) * 8 : 0);
   const attackPulse = meleePulse(player, poseNow);
+  // A head riding a board sits on the deck (its top is 22 above the rider's
+  // point), not sunk halfway into it.
   const head = headOnly
-    ? { x, y: feet - 22, z, radius: 22 }
+    ? { x, y: feet - 22 - (player.skateboard ? 22 : 0), z, radius: 22 }
     : { x: neckX + lean * .2,
       y: feet - height + 22 - breath * 1.6 + formDrop, z, radius: 22 };
   const segments = [];
@@ -11590,7 +16335,8 @@ function buildRunnerWorldGeometry(player, t, at = null) {
   // arm has to name that same part. Naming it by facing alone tagged the
   // reaching capsules with the opposite arm the moment a fighter turned around
   // while armed — shooting off one arm then erased the other one's limb.
-  const actionArm = itemHand(player) ||
+  const actionArm = (player.attackKind && player.strikeArm && hasPart(player, player.strikeArm)
+    ? player.strikeArm : "") || itemHand(player) ||
     (player.facing > 0 ? "right-arm" : "left-arm");
   const rearArm = actionArm === "right-arm" ? "left-arm" : "right-arm";
   const actionLeg = player.facing > 0 ? "right-leg" : "left-leg";
@@ -11646,7 +16392,7 @@ function buildRunnerWorldGeometry(player, t, at = null) {
   // called out. The probe now asks for the surface the fighter is actually
   // standing on, and a foot hanging past a rung's lip stops at the leg's own
   // reach — a short dangle — instead of the floor below.
-  const footPlant = (footX) => Math.min(surfaceYAt(footX, feet), feet + 20);
+  const footPlant = (footX) => Math.min(surfaceYAt(footX, feet, player.z), feet + 20);
   segment(head.x, head.y + head.radius * .78, neckX, neckY, 10, "neck");
   segment(neckX, neckY, x, hipY, 10, "torso");
   // An elbow sags downward whichever way the hand actually reaches. Bending
@@ -11680,6 +16426,16 @@ function buildRunnerWorldGeometry(player, t, at = null) {
     segment(x - player.facing * (lowKick ? 46 : 28),
       feet - (lowKick ? 18 : 32), x - player.facing * 8, feet,
       10, "rear-shin");
+  } else if (isSwimmer(player)) {
+    // Flutter kick: straight legs trailing the body, beating in opposition.
+    // (Drawn standing; the whole figure is laid prone afterwards.)
+    const beat = (player.swimPhase || 0) * 2.6;
+    for (const [side, offset] of [["left", 0], ["right", Math.PI]]) {
+      const kick = Math.sin(beat + offset) * 16;
+      const kneeY = (hipY + feet) / 2;
+      segment(x, hipY, x + kick * .45, kneeY, 10, side + "-thigh");
+      segment(x + kick * .45, kneeY, x + kick, feet, 10, side + "-shin");
+    }
   } else if (meditating) {
     segment(x, hipY, x - 48, feet - 12, 11, "left-thigh");
     segment(x - 48, feet - 12, x + 8, feet, 11, "left-shin");
@@ -11702,24 +16458,52 @@ function buildRunnerWorldGeometry(player, t, at = null) {
     segment(pushKnee, deckAt(pushKnee) - 25, pushFootX,
       deckAt(pushFootX), 10, "rear-shin");
   } else if (crouchPose > .08) {
-    segment(x, hipY, x - 36, feet - 22, 10, "left-thigh");
-    segment(x - 36, feet - 22, x - 4, feet, 10, "left-shin");
-    segment(x, hipY, x + 36, feet - 22, 10, "right-thigh");
-    segment(x + 36, feet - 22, x + 58, feet, 10, "right-shin");
+    // Crawling, the crouched feet shuffle: small alternating steps, each
+    // lifting a little as it comes forward.
+    const crawl = player.grounded && Math.abs(player.vx) > 40
+      ? (poseNow / 1e6) * 9 * Math.sign(player.vx) * (player.facing || 1) : null;
+    const shuffle = (offset) => crawl === null ? { dx: 0, lift: 0 }
+      : { dx: Math.sin(crawl + offset) * 16 * (player.facing || 1), lift: Math.max(0, Math.cos(crawl + offset)) * 10 };
+    const l = shuffle(0), r = shuffle(Math.PI);
+    segment(x, hipY, x - 36 + l.dx * .5, feet - 22 - l.lift, 10, "left-thigh");
+    segment(x - 36 + l.dx * .5, feet - 22 - l.lift, x - 4 + l.dx, feet - l.lift, 10, "left-shin");
+    segment(x, hipY, x + 36 + r.dx * .5, feet - 22 - r.lift, 10, "right-thigh");
+    segment(x + 36 + r.dx * .5, feet - 22 - r.lift, x + 58 + r.dx, feet - r.lift, 10, "right-shin");
+  } else if (player.spin && !player.skateboard && player.grounded) {
+    // A ballet spin: up on the standing leg, the other foot drawn to its knee.
+    const knee = (hipY + feet) / 2;
+    segment(x, hipY, x, knee, 10, "lead-thigh");
+    segment(x, knee, x, feet, 10, "lead-shin");
+    segment(x, hipY, x + player.facing * 30, hipY + 24, 10, "rear-thigh");
+    segment(x + player.facing * 30, hipY + 24, x + player.facing * 3, knee, 10, "rear-shin");
   } else if (player.grounded) {
-    // The facing-side foot is visibly planted forward even at rest.
-    const leadKnee = x + player.facing * 18 + stride * .38;
-    const leadFoot = x + player.facing * 42 + stride;
-    const rearKnee = x - player.facing * 16 - stride * .38;
-    const rearFoot = x - player.facing * 28 - stride;
-    // The animation phase still chooses the discrete stride; ground probes
-    // constrain that frame onto the surface underfoot without new sim steps.
-    const leadGround = footPlant(leadFoot);
-    const rearGround = footPlant(rearFoot);
-    segment(x, hipY, leadKnee, leadGround - 30, 10, "lead-thigh");
-    segment(leadKnee, leadGround - 30, leadFoot, leadGround, 10, "lead-shin");
-    segment(x, hipY, rearKnee, rearGround - 30, 10, "rear-thigh");
-    segment(rearKnee, rearGround - 30, rearFoot, rearGround, 10, "rear-shin");
+    // A real gait: the feet cross. Each foot swings forward off the ground
+    // while the other is planted and sweeps back under the hips, so the two
+    // pass each other every half cycle. Running lengthens the stride and
+    // lifts the swing foot higher; standing blends back to the planted stance
+    // with the facing-side foot forward.
+    const facing = player.facing;
+    const moving = clamp(speed * 3, 0, 1);
+    const running = clamp((Math.abs(player.vx) - walkSpeed) / Math.max(1, runTopSpeed - walkSpeed), 0, 1);
+    const reach = lerp(34, 52, running) * moving;
+    const lift = lerp(16, 34, running) * moving;
+    const phase = poseCycle + player.pad * Math.PI;
+    const step = (offset, stanceX) => {
+      const swing = Math.sin(phase + offset);
+      const forward = Math.cos(phase + offset) > 0;
+      const footX = x + facing * (stanceX * (1 - moving) + swing * reach);
+      const ground = footPlant(footX);
+      const footY = ground - (forward ? Math.cos(phase + offset) * lift : 0);
+      // The knee bends forward, more on the swing.
+      const kneeX = (x + footX) / 2 + facing * (8 + (forward ? lift * .5 : 3));
+      const kneeY = (hipY + footY) / 2 - 2;
+      return { footX, footY, kneeX, kneeY };
+    };
+    const lead = step(0, 42), rear = step(Math.PI, -28);
+    segment(x, hipY, lead.kneeX, lead.kneeY, 10, "lead-thigh");
+    segment(lead.kneeX, lead.kneeY, lead.footX, lead.footY, 10, "lead-shin");
+    segment(x, hipY, rear.kneeX, rear.kneeY, 10, "rear-thigh");
+    segment(rear.kneeX, rear.kneeY, rear.footX, rear.footY, 10, "rear-shin");
   } else {
     segment(x, hipY, x - 32, feet - 32, 10, "left-thigh");
     segment(x - 32, feet - 32, x - 7, feet - 11, 10, "left-shin");
@@ -11732,8 +16516,46 @@ function buildRunnerWorldGeometry(player, t, at = null) {
   const actionNow = poseNow;
   const armAttack = attackPulse > 0 && player.attackKind &&
     player.attackKind !== "KICK";
-  if (player.skateboard && player.grounded && !armAttack && !heldItem(player)) {
-    const balance = Math.sin(poseCycle) * 18;
+  if (player.spin && !player.skateboard && !armAttack) {
+    // Arms rounded overhead in a ballet spin.
+    for (const [side, shoulderX] of [["left", leftShoulderX], ["right", rightShoulderX]]) {
+      const out = shoulderX < neckX ? -1 : 1;
+      segment(shoulderX, shoulderY, shoulderX + out * 22, shoulderY - 44, 10, side + "-upper-arm");
+      segment(shoulderX + out * 22, shoulderY - 44, neckX + out * 4, shoulderY - 74, 10, side + "-forearm");
+    }
+  } else if (isSwimmer(player) && !armAttack) {
+    // Front crawl: each hand circles its shoulder, half a turn apart —
+    // reaching overhead (ahead, once laid prone), pulling down through the
+    // water under the body to the hip, and recovering back over the top.
+    const stroke = player.swimPhase || 0;
+    for (const [side, shoulderX, offset] of [["left", leftShoulderX, 0],
+        ["right", rightShoulderX, Math.PI]]) {
+      const angle = stroke + offset;
+      const handX = shoulderX + player.facing * 60 * Math.sin(angle);
+      const handY = shoulderY - 60 * Math.cos(angle);
+      const reach = twoBone(shoulderX, shoulderY, handX, handY, 34,
+        -player.facing);
+      segment(shoulderX, shoulderY, reach.jointX, reach.jointY, 10,
+        side + "-upper-arm");
+      segment(reach.jointX, reach.jointY, reach.targetX, reach.targetY, 10,
+        side + "-forearm");
+    }
+  } else if (player.skateboard && player.skateGrab && !armAttack) {
+    // The grab: the front hand reaches down to the deck by the front foot,
+    // the other arm swings up and back for balance.
+    const reachX = x + player.facing * 22, reachY = feet - 14;
+    const frontShoulderX = player.facing > 0 ? rightShoulderX : leftShoulderX;
+    const backShoulderX = player.facing > 0 ? leftShoulderX : rightShoulderX;
+    const front = player.facing > 0 ? "right" : "left";
+    const back = player.facing > 0 ? "left" : "right";
+    const grabArm = twoBone(frontShoulderX, shoulderY, reachX, reachY, 34, player.facing);
+    segment(frontShoulderX, shoulderY, grabArm.jointX, grabArm.jointY, 10, front + "-upper-arm");
+    segment(grabArm.jointX, grabArm.jointY, grabArm.targetX, grabArm.targetY, 10, front + "-forearm");
+    segment(backShoulderX, shoulderY, x - player.facing * 34, shoulderY - 30, 10, back + "-upper-arm");
+    segment(x - player.facing * 34, shoulderY - 30, x - player.facing * 60, shoulderY - 58,
+      10, back + "-forearm");
+  } else if (player.skateboard && player.grounded && !armAttack && !heldItem(player)) {
+    const balance = Math.sin(poseCycle) * 8 + (rig.arms || 0) * 30;
     segment(leftShoulderX, shoulderY, x - 42, elbowY - 10 - balance,
       10, "left-upper-arm");
     segment(x - 42, elbowY - 10 - balance, x - 66, handY - balance,
@@ -11801,22 +16623,25 @@ function buildRunnerWorldGeometry(player, t, at = null) {
   }
   if (player.skateboard && !headOnly) {
     const deck = skateFrame(player);
-    const pitch = (player.skatePitch || 0) * .35;
+    // The body stands nearly square to the deck — a rider on a transition
+    // leans into it — so the hips stay over the board rather than past it.
+    const pitch = (player.skatePitch || 0) * .8 + (player.skateRotation || 0) -
+      (player.trucks?.tilt || 0) * (player.facing || 1) * .5;
     const c = Math.cos(pitch), sn = Math.sin(pitch);
     const transform = (px, py, depth) => ({
       x: x + (px - x) * c - (py - feet) * sn,
-      y: feet - skateAxleDrop - skateWheelRadius + (px - x) * sn + (py - feet) * c,
+      y: feet - (player.onewheel ? 24 : skateAxleDrop + skateWheelRadius) + (px - x) * sn + (py - feet) * c,
       z: z + depth,
     });
     Object.assign(head, transform(head.x, head.y, 0));
     for (const bone of segments) {
       const side = bone.part.startsWith("left-") ? -1 : bone.part.startsWith("right-") ? 1 : 0;
-      const depth = side * (bone.part.includes("arm") ? 15 : 9);
+      const depth = side * (bone.part.includes("arm") ? (poolOnly()?27:15) : (poolOnly()?14:9));
       const a = transform(bone.x1, bone.y1, depth);
       const b = transform(bone.x2, bone.y2, depth);
       if (bone.role === "shoulders") {
-        a.z = z - 15;
-        b.z = z + 15;
+        a.z = z - (poolOnly()?27:15);
+        b.z = z + (poolOnly()?27:15);
       }
       Object.assign(bone, { x1: a.x, y1: a.y, z1: a.z, x2: b.x, y2: b.y, z2: b.z });
     }
@@ -11825,16 +16650,26 @@ function buildRunnerWorldGeometry(player, t, at = null) {
           ["rear", -player.facing, rearLeg]]) {
         if (!hasPart(player, part)) continue;
         const side = part === "left-leg" ? -1 : 1;
-        const hip = transform(x, hipY, side * 7);
-        const foot = deck(direction * skateTruck, -4, side * 9);
+        const hip = transform(x, hipY, side * (poolOnly()?12:7));
+        const foot = deck(direction * skateTruck, -4, side * (poolOnly()?14:9));
         const dx = foot.x - hip.x, dy = foot.y - hip.y, dz = foot.z - hip.z;
         const distance = Math.hypot(dx, dy, dz) || 1;
         const length = Math.max(48, distance / 1.98);
         const bend = Math.sqrt(Math.max(0, length * length - distance * distance / 4));
         const norm = Math.hypot(dx, dy) || 1;
-        const knee = { x: (hip.x + foot.x) / 2 + dy / norm * bend * player.facing,
-          y: (hip.y + foot.y) / 2 - dx / norm * bend * player.facing,
-          z: (hip.z + foot.z) / 2 };
+        // Of the two ways a knee can fold, take the one away from the deck
+        // (the rear leg's old fold went down through the board), and never
+        // let it sit lower than a hand's width over the grip.
+        const up = { x: deck(0, -1).x - deck(0, 0).x, y: deck(0, -1).y - deck(0, 0).y };
+        const top = deck(0, -4);
+        const lift = (point) => (point.x - top.x) * up.x + (point.y - top.y) * up.y;
+        const fold = (sign) => ({ x: (hip.x + foot.x) / 2 + dy / norm * bend * sign,
+          y: (hip.y + foot.y) / 2 - dx / norm * bend * sign,
+          z: (hip.z + foot.z) / 2 });
+        const forward = fold(player.facing), back = fold(-player.facing);
+        const knee = lift(forward) >= lift(back) - 4 ? forward : back;
+        const clearance = 12 - lift(knee);
+        if (clearance > 0) { knee.x += up.x * clearance; knee.y += up.y * clearance; }
         const thigh = segments.find((bone) => bone.role === role + "-thigh");
         const shin = segments.find((bone) => bone.role === role + "-shin");
         for (const [bone, a, b] of [[thigh, hip, knee], [shin, knee, foot]])
@@ -11898,19 +16733,84 @@ function spiderDummyWorldGeometry(player, t) {
 }
 
 function runnerGeometry(player, t) {
-  return projectRunnerWorldGeometry(runnerWorldGeometry(player, t));
+  const world=runnerWorldGeometry(player,t);
+  return projectRunnerWorldGeometry(poolOnly()?world:constrainLimbs(world));
 }
 
+// Real bones, for drawing: every leg and arm is re-solved with fixed-length
+// bones — thigh and shin, upper arm and forearm — so a pose that asks for a
+// foot or hand out of reach gets it pulled back to where the limb can reach,
+// and the knee or elbow sits where two rigid bones put it (on the side the
+// pose bent it). The simulation's hitboxes are untouched; this is how the
+// body is shown.
+const boneLength = { thigh: 36, shin: 35, "upper-arm": 31, forearm: 31 };
+function constrainLimbs(world) {
+  const segments = world.segments.map((segment) => ({ ...segment }));
+  const kind = (role = "") => role.endsWith("thigh") ? "thigh" : role.endsWith("shin") ? "shin"
+    : role.endsWith("upper-arm") ? "upper-arm" : role.endsWith("forearm") ? "forearm" : "";
+  const free = (role = "") => !/^(attack|item|grab)-/.test(role);
+  for (const upper of segments) {
+    const upperKind = kind(upper.role);
+    if (!(upperKind === "thigh" || upperKind === "upper-arm") || !free(upper.role)) continue;
+    const lowerKind = upperKind === "thigh" ? "shin" : "forearm";
+    const lower = segments.find((segment) => segment.part === upper.part && kind(segment.role) === lowerKind &&
+      free(segment.role) && Math.hypot(segment.x1 - upper.x2, segment.y1 - upper.y2) < 3);
+    if (!lower) continue;
+    const l1 = boneLength[upperKind], l2 = boneLength[lowerKind];
+    const rootX = upper.x1, rootY = upper.y1;
+    let endX = lower.x2, endY = lower.y2;
+    let dx = endX - rootX, dy = endY - rootY, distance = Math.hypot(dx, dy) || .001;
+    const reach = l1 + l2 - .5;
+    if (distance > reach) {
+      endX = rootX + dx / distance * reach; endY = rootY + dy / distance * reach;
+      dx = endX - rootX; dy = endY - rootY; distance = reach;
+    }
+    const along = (l1 * l1 - l2 * l2 + distance * distance) / (2 * distance);
+    const out = Math.sqrt(Math.max(0, l1 * l1 - along * along));
+    const ux = dx / distance, uy = dy / distance;
+    // Bend the way the pose bent it.
+    const side = Math.sign(ux * (upper.y2 - rootY) - uy * (upper.x2 - rootX)) || 1;
+    const jointX = rootX + ux * along - uy * out * side;
+    const jointY = rootY + uy * along + ux * out * side;
+    upper.x2 = lower.x1 = jointX; upper.y2 = lower.y1 = jointY;
+    lower.x2 = endX; lower.y2 = endY;
+  }
+  return { ...world, segments };
+}
+
+// A figure is a flat drawing at one depth, so it is only drawable when its
+// head is honestly in front of the pin; nearer than that the perspective
+// scale the inset hands it would fill the view with one head, and behind the
+// lens there is nothing to draw. `behind` says so and drawRunner stops.
+// Its bones are cut at the real near plane like every other world segment
+// (worldSegment), never pinned: a bone that crossed the plane used to keep
+// its sideways offset at the pin's depth and rake across the frame. A bone
+// wholly behind the plane collapses onto the head, zero wide, so the draw
+// functions that look bones up by role still find every one of them.
+function projectionScaleAt(point){
+  const depth=cameraDoll.toView(point).z;
+  return lerp(cameraDoll.view.orthoScale,cameraDoll.view.focal/Math.max(cameraNear,depth),cameraDoll.perspective);
+}
 function projectRunnerWorldGeometry(world) {
-  const headPoint = projectPoint(world.head.x, world.head.y, world.head.z);
+  const headView = cameraDoll.toView(world.head);
+  const headPoint = cameraDoll.project(world.head);
+  const scale = cameraScale();
+  const headBehind=headView.z+world.head.radius<cameraNear;
+  const behind=headBehind&&world.segments.every(s=>cameraDoll.toView({x:s.x1,y:s.y1,z:s.z1}).z<cameraNear&&cameraDoll.toView({x:s.x2,y:s.y2,z:s.z2}).z<cameraNear);
   return {
-    head: { x: headPoint.x, y: headPoint.y,
-      radius: Math.max(1.5, world.head.radius * cameraScale()) },
+    behind,
+    head: { x: headPoint.x, y: headPoint.y, depth:headPoint.z, behind:headBehind,
+      radius: world.head.radius * projectionScaleAt(world.head) },
     segments: world.segments.map((segment) => {
-      const a = projectPoint(segment.x1, segment.y1, segment.z1);
-      const b = projectPoint(segment.x2, segment.y2, segment.z2);
+      const cut = behind ? null : worldSegment(segment.x1, segment.y1, segment.z1,
+        segment.x2, segment.y2, segment.z2);
+      if (!cut) return { x1: headPoint.x, y1: headPoint.y, x2: headPoint.x,
+        y2: headPoint.y, depth: headPoint.z, width: 0, hidden: true,
+        role: segment.role, part: segment.part, hitboxOnly: segment.hitboxOnly };
+      const { from: a, to: b } = cut;
       return { x1: a.x, y1: a.y, x2: b.x, y2: b.y, depth: (a.z + b.z) / 2,
-        width: Math.max(1.5, segment.width * cameraScale()),
+        width: segment.width * projectionScaleAt({x:(segment.x1+segment.x2)/2,
+          y:(segment.y1+segment.y2)/2,z:(segment.z1+segment.z2)/2}),
         role: segment.role, part: segment.part,
         hitboxOnly: segment.hitboxOnly };
     }),
@@ -11962,7 +16862,7 @@ function fighterContainmentRequiredWidth(t) {
     top = Math.min(top, y - radius);
     bottom = Math.max(bottom, y + radius);
   };
-  for (const player of activePlayers()) {
+  for (const player of cameraPlayers()) {
     const world = player.replayGeometry || player.frozenGeometry ||
       runnerWorldGeometry(player, t);
     include(world.head.x, world.head.y, world.head.radius);
@@ -11989,7 +16889,7 @@ function containFighters(t) {
       fighterContainmentRequiredWidth(t) * 1.11);
     return;
   }
-  const worlds = activePlayers().map((player) => player.replayGeometry ||
+  const worlds = cameraPlayers().map((player) => player.replayGeometry ||
     player.frozenGeometry || runnerWorldGeometry(player, t));
   if (!worlds.length) return;
   const points = [];
@@ -12074,9 +16974,10 @@ function resolveRunnerBounds(player, t) {
   const rightWall = worldRight - wallThickness;
   if (player.x - halfWidth < leftWall) {
     player.x = leftWall + halfWidth;
+    pressWall(player, -1, leftWall);
     if (player.skateboard && player.grounded && player.skateVx < -900) {
       player.skateWallSide = -1;
-      player.vy = -Math.max(820, Math.abs(player.skateVx) * .82);
+      player.vy = -clamp(Math.abs(player.skateVx) * .82, 820, 2400);
       player.grounded = false;
       player.vx = 0;
       playDrum("block", .52, panPlayer(player));
@@ -12089,9 +16990,10 @@ function resolveRunnerBounds(player, t) {
   }
   if (player.x + halfWidth > rightWall) {
     player.x = rightWall - halfWidth;
+    pressWall(player, 1, rightWall);
     if (player.skateboard && player.grounded && player.skateVx > 900) {
       player.skateWallSide = 1;
-      player.vy = -Math.max(820, Math.abs(player.skateVx) * .82);
+      player.vy = -clamp(Math.abs(player.skateVx) * .82, 820, 2400);
       player.grounded = false;
       player.vx = 0;
       playDrum("block", .52, panPlayer(player));
@@ -12245,6 +17147,7 @@ function sweptProjectileContact(segments,target,t) {
     const area=combatRect('sweep',Math.min(s.x1,s.x2)-r,Math.min(s.y1,s.y2)-r,
       Math.max(s.x1,s.x2)+r,Math.max(s.y1,s.y2)+r,(s.z1+s.z2)/2,Math.abs(s.z2-s.z1)/2+r);
     for(const hurt of queryBoxTree(boxes.tree,area)) {
+      if(poolOnly()&&hurt.capsule&&segmentSegmentClosest(s,hurt.capsule).distance>r+hurt.capsule.width/2)continue;
       const amount=segmentBoxEntry(s,hurt,r);
       if(amount===null || (result && amount>=result.amount))continue;
       result={amount,x:s.x1+(s.x2-s.x1)*amount,y:s.y1+(s.y2-s.y1)*amount,
@@ -12262,17 +17165,19 @@ function sampleCombatBoxes(player, now, world = null) {
   world ||= runnerWorldGeometry(player, (now-startedAt)/1e6);
   const hurt = [];
   const head = world.head;
-  hurt.push(combatRect('head', head.x-22, head.y-22, head.x+22, head.y+22, head.z, 22,
-    { part: 'head', segmentIndex: -1 }));
+  const headRadius=poolOnly()?head.radius:22;
+  hurt.push(combatRect('head', head.x-headRadius, head.y-headRadius, head.x+headRadius, head.y+headRadius, head.z, headRadius,
+    { part: 'head', segmentIndex: -1, capsule:{x1:head.x,y1:head.y,z1:head.z,x2:head.x,y2:head.y,z2:head.z,width:headRadius*2} }));
   for (let i=0; i<world.segments.length; i++) {
     const s = world.segments[i];
+    if(!hasPart(player,s.part))continue;
     // Each independently damageable region has its own rectangle, including
     // limbs extended during recovery. Missing limbs never produce hurtboxes.
-    const radius = s.part === 'torso' ? 14 : s.hitboxOnly ? 16 : 10;
+    const radius = poolOnly()?(s.role==='torso'?(looseCartoonEnabled()?15:21)*(player.bodyScale||1):(s.width||10)/2):s.part === 'torso' ? 14 : s.hitboxOnly ? 16 : 10;
     hurt.push(combatRect(s.role+'-'+i, Math.min(s.x1,s.x2)-radius,
       Math.min(s.y1,s.y2)-radius, Math.max(s.x1,s.x2)+radius,
       Math.max(s.y1,s.y2)+radius, (s.z1+s.z2)/2,
-      Math.abs(s.z2-s.z1)/2+radius, { part:s.part, segmentIndex:i }));
+      Math.abs(s.z2-s.z1)/2+radius, { part:s.part, segmentIndex:i, capsule:{...s,width:radius*2} }));
   }
   const frame = meleeFrame(player, now);
   const hit = [];
@@ -12286,6 +17191,13 @@ function sampleCombatBoxes(player, now, world = null) {
     const kick = player.attackKind === 'KICK';
     const part = kick ? player.facing > 0 ? 'right-leg' : 'left-leg' : itemHand(player);
     if (part && hasPart(player, part)) {
+      if(poolOnly()){
+        const limb=world.segments.findLast(s=>s.part===part&&(kick?/shin$/:/forearm$/).test(s.role||''));
+        if(limb){const radius=(limb.width||10)/2+4;
+          hit.push(combatRect('spatial-strike',Math.min(limb.x1,limb.x2)-radius,Math.min(limb.y1,limb.y2)-radius,
+            Math.max(limb.x1,limb.x2)+radius,Math.max(limb.y1,limb.y2)+radius,(limb.z1+limb.z2)/2,
+            Math.abs(limb.z2-limb.z1)/2+radius,{part,capsule:{...limb,width:radius*2}}));}
+      }else{
       const tip = meleeTarget(player, now);
       const halfX = kick ? 26 : 22;
       const halfY = kick && player.lowKick ? 17 : 20;
@@ -12293,6 +17205,7 @@ function sampleCombatBoxes(player, now, world = null) {
       const outer = tip.x+player.facing*halfX;
       hit.push(combatRect(player.attackKind.toLowerCase(), Math.min(inner,outer),
         tip.y-halfY, Math.max(inner,outer), tip.y+halfY, tip.z, 18, { part }));
+      }
     }
   }
   const guard = [];
@@ -12309,7 +17222,8 @@ function combatBoxContact(attacker, target) {
   for (const hit of attacker.hit) {
     const overlaps = queryBoxTree(target.tree, hit).sort((a,b) =>
       (a.part === 'head' ? -1 : b.part === 'head' ? 1 : a.segmentIndex-b.segmentIndex));
-    const hurt = overlaps[0];
+    const hurt = overlaps.find(h=>!poolOnly()||!hit.capsule||!h.capsule||
+      segmentSegmentClosest(hit.capsule,h.capsule).distance<=(hit.capsule.width+h.capsule.width)/2);
     if (!hurt) continue;
     result = { x:(Math.max(hit.left,hurt.left)+Math.min(hit.right,hurt.right))/2,
       y:(Math.max(hit.top,hurt.top)+Math.min(hit.bottom,hurt.bottom))/2,
@@ -12384,9 +17298,9 @@ function runnerDistanceToPoint(player, t, px, py, pz = 0) {
   return Math.min(contact.headDistance, contact.bodyDistance);
 }
 
-function runnerContactToPoint(player, t, px, py, pz = 0) {
+function runnerContactToPoint(player, t, px, py, pz = 0, boxesAt = sampleCombatBoxes) {
   const now = runtime().simMonotonicUs || runtime().monotonicUs;
-  const boxes = sampleCombatBoxes(player, now);
+  const boxes = boxesAt(player, now);
   let headDistance = Infinity, bodyDistance = Infinity, segmentIndex = -1;
   for (const hurt of boxes.hurt) {
     const distance = pointBoxDistance(hurt, px, py, pz);
@@ -12405,8 +17319,8 @@ function spawnDetachedPart(player, part, geometry, sourceX, now) {
   for (const segment of geometry.segments.filter((item) =>
     item.part === part && !item.hitboxOnly)) {
     const paletteCoordinate = geometry.segments.indexOf(segment);
-    detachedParts.push({ ...segment, color: player.color.slice(),
-      colors: player.npc ? [] : player.handleColors?.map((value) => value.slice()) || [],
+    detachedParts.push({ ...segment, skin:player.skin, color: (player.skin && segment.role === "torso" ? player.shirtColor || [252,252,250] : player.color).slice(),
+      colors: player.skin || player.npc ? [] : player.handleColors?.map((value) => value.slice()) || [],
       paletteCoordinate,
       vx: direction * (420 + detachedParts.length % 3 * 90),
       vy: -520 - detachedParts.length % 2 * 120,
@@ -12434,6 +17348,8 @@ function damagePart(target, segmentIndex, sourceX, sourcePad, now) {
     ? part === "torso" ? 5 : 3
     : part === "torso" ? 3 : 2;
   target.partDamage[part] = (target.partDamage[part] || 0) + 1;
+  bleed(target, segment, sourceX, target.partDamage[part] >= durability ? 1.8 : 1);
+  addScar(target, segment);
   emitSignal("partdamage", target.pad,
     [...limbParts, "torso"].indexOf(part), target.partDamage[part] / durability);
   if (target.partDamage[part] < durability) return;
@@ -12461,6 +17377,7 @@ function damagePart(target, segmentIndex, sourceX, sourcePad, now) {
         active: true, startsActive: false, respawnAt: Infinity });
       target.swordHeld = false;
     }
+    if(target.axeHeld){target.axeHeld=false;Object.assign(axePickup,{active:true,x:target.x,y:target.y-65});}
     target.gunAmmo = 0;
     target.grenadeAmmo = 0;
     target.itemArm = "";
@@ -12493,19 +17410,19 @@ const skateTruck = 32;
 const skateWheelRadius = 8;
 const skateAxleDrop = 10;
 
-function skateContact(x, y) {
+function skateContact(x, y, z = 0) {
   // Solve the truck chord against the supporting ledge or heightfield.
   let pitch = 0, left = 0, right = 0;
   for (let i = 0; i < 6; i++) {
     const span = skateTruck * Math.cos(pitch);
-    left = surfaceYAt(x - span, y - 2);
-    right = surfaceYAt(x + span, y - 2);
+    left = surfaceYAt(x - span, y - 2, z);
+    right = surfaceYAt(x + span, y - 2, z);
     pitch = Math.atan2(right - left, span * 2);
   }
   const c = Math.cos(pitch), sn = Math.sin(pitch);
   const wheelX = -sn * skateAxleDrop;
-  left = surfaceYAt(x - skateTruck * c + wheelX, y - 2);
-  right = surfaceYAt(x + skateTruck * c + wheelX, y - 2);
+  left = surfaceYAt(x - skateTruck * c + wheelX, y - 2, z);
+  right = surfaceYAt(x + skateTruck * c + wheelX, y - 2, z);
   const deckY = Math.min(left + skateTruck * sn, right - skateTruck * sn) -
     skateAxleDrop * c - skateWheelRadius;
   return { pitch, y: deckY + skateAxleDrop + skateWheelRadius,
@@ -12514,17 +17431,63 @@ function skateContact(x, y) {
 }
 
 function skateFrame(player) {
-  const pitch = player.skateWallSide ? Math.PI / 2 : player.skatePitch || 0;
+  if (player.onewheel) return monowheelFrame(player, true);
+  // In a spin the board turns on the spot with the rider.
+  const yaw = player.spin ? player.spin.angle : 0;
+  const yawCos = Math.cos(yaw), yawSin = Math.sin(yaw);
+  // Round a loop the deck turns with the rider, so the feet stay on it.
+  const pitch = (player.skateWallSide ? Math.PI / 2 : player.skatePitch || 0) +
+    (player.skateRotation || 0);
   const c = Math.cos(pitch), sn = Math.sin(pitch);
   const down = player.skateWallSide > 0 ? -1 : 1;
-  return (along, height = 0, across = 0) => ({
+  // Deck, grip and anything on it (height at or above the deck's underside)
+  // sink onto the trucks; axles and wheels stay on the ground.
+  const springs = player.trucks;
+  const noseSign = player.facing || 1;
+  const sag = (along) => {
+    if (!springs) return 0;
+    const front = springs.front || 0, back = springs.back || 0;
+    const mix = clamp((along * noseSign / skateTruck + 1) / 2, -.4, 1.4);
+    return back + (front - back) * mix;
+  };
+  // Tilted, the deck rotates about the contact under the wheels that stay
+  // down: the tail's when the nose lifts, the nose's when it dips.
+  const tilt = springs ? springs.tilt || 0 : 0;
+  const tc = Math.cos(-tilt * noseSign), ts = Math.sin(-tilt * noseSign);
+  const pivotAlong = -Math.sign(tilt) * noseSign * skateTruck;
+  const pivotHeight = skateAxleDrop + skateWheelRadius;
+  return (along, height = 0, across = 0) => {
+    if (height <= 1) height += sag(along);
+    if (tilt) {
+      const a = along - pivotAlong, h = height - pivotHeight;
+      along = pivotAlong + a * tc - h * ts;
+      height = pivotHeight + a * ts + h * tc;
+    }
+    return {
     x: player.x + c * along - sn * height * down,
     y: player.y - skateAxleDrop - skateWheelRadius + sn * along + c * height * down,
     z: player.z + across,
-  });
+  }; };
+}
+function spunSkateFrame(frame, player) {
+  const angle=(player.spin?.angle||0)+(poolOnly()&&!player.onewheel?(player.poolYaw||0):0);
+  if (!angle) return frame;
+  const c = Math.cos(angle), s = Math.sin(angle);
+  return (along, height = 0, across = 0) => {
+    const point = frame(along, height, across);
+    const dx = point.x - player.x, dz = point.z - player.z;
+    return { x: player.x + dx * c - dz * s, y: point.y, z: player.z + dx * s + dz * c };
+  };
 }
 
 function resetSkate(player) {
+  if(player.goKart){Object.assign(player.goKart,{active:true,x:player.x+90,y:player.y,z:player.z||0,poolYaw:player.poolYaw||0,safeUntil:runtime().monotonicUs+1000000});player.goKart=null;}
+  player.wheelTurbo=false;player.wheelChargeAt=0;player.poolVert=null;
+  if (player.onewheel) {
+    Object.assign(monowheel,{active:true,x:player.x-(player.facing||1)*75,y:player.y,z:player.z||0,
+      vx:player.vx*.3,vy:0,safeUntil:runtime().monotonicUs+500000});
+    player.onewheel=false;
+  }
   player.skateboard = false;
   player.skateVx = player.skateWallSide = player.skatePitch = 0;
   player.skateVert = 0;
@@ -12535,10 +17498,34 @@ function resetSkate(player) {
   player.runDir = 0;
 }
 
+function releaseSpinningBoard(p,now){
+ if(!p.skateboard)return;
+ const spin=p.spin,board=boardForRider(p),vx=p.vx||p.skateVx||0;
+ if(p.onewheel){resetSkate(p);return;}
+ resetSkate(p);
+ if(!board)return;
+ Object.assign(board,{active:true,heldBy:-1,releasedBy:p.pad,releasedAt:now,
+  x:p.x,y:p.y-skateAxleDrop-skateWheelRadius-20,z:p.z||0,
+  vx:vx*.7,vy:Math.min(p.vy||0,-240),vz:spin.direction*180,
+  spatialSpin:true,yaw:spin.angle,yawRate:spin.rate*spin.direction,
+  flipSpin:spin.direction*4,rotation:0,safeUntil:now+650000,safePlayers:1<<p.pad});
+}
 function dismountSkateboard(target, now) {
   if (!target.skateboard) return false;
+  if(target.goKart){resetSkate(target);return true;}
+  if(poolOnly()){
+    const one=target.onewheel,vehicle=one?monowheel:boardForRider(target),yaw=target.poolYaw||0;
+    if(vehicle)Object.assign(vehicle,{active:true,heldBy:-1,releasedBy:target.pad,releasedAt:now,
+      x:target.x-Math.cos(yaw)*52,y:target.y-(one?0:skateAxleDrop+skateWheelRadius),
+      z:(target.z||0)-Math.sin(yaw)*52,vx:target.vx*.6,vy:Math.min(0,target.vy*.4),vz:(target.vz||0)*.6,
+      poolYaw:yaw,rotation:target.skatePitch||0,spatialSpin:false,safeUntil:now+700000,safePlayers:1<<target.pad});
+    target.onewheel=false;resetSkate(target);
+    emitSignal('skate-dismount',target.pad,one?2:1,0);
+    return true;
+  }
+  if (target.onewheel) { resetSkate(target); return true; }
+  const board = boardForRider(target);
   resetSkate(target);
-  const board = balls.find((item) => item.type === "skateboard");
   if (!board) return true;
   board.active = true;
   board.heldBy = -1;
@@ -12604,6 +17591,15 @@ function updateDetachedParts(dt, combat = true) {
         fragment.vx = fragment.vy = 0;
         fragment.life = Math.max(fragment.life, 1);
         continue;
+      }
+    }
+    // A severed part bleeds as it goes, for a second or so.
+    if ((fragment.bleed ??= 1.3) > 0) {
+      fragment.bleed -= dt;
+      fragment.drip = (fragment.drip || 0) + dt;
+      if (fragment.drip > .05) {
+        fragment.drip = 0;
+        spawnBlood(fragment.x1, fragment.y1, fragment.z1 || 0, 0, 1, .35);
       }
     }
     fragment.vy += 1900 * dt;
@@ -12691,16 +17687,34 @@ function comicGlyphAdvance(character, size) {
   return size * (comicAdvanceEm[String(character).toLowerCase()] ?? .58);
 }
 
+// Widths are asked per label per frame, and the labels are few: each
+// (size, text) pair is summed once. The sum is the same left-to-right walk
+// the reduce made, so the numbers match to the bit. Bounded — a readout that
+// changes every frame would otherwise grow the map for the whole visit.
+const handleWidths = new Map();
 function handleWidth(handle, size) {
-  return [...handle].reduce((width, character) =>
-    width + comicGlyphAdvance(character, size), 0);
+  const key = size + "\u0000" + handle;
+  let width = handleWidths.get(key);
+  if (width === undefined) {
+    if (handleWidths.size >= 512) handleWidths.clear();
+    width = 0;
+    for (const character of handle) width += comicGlyphAdvance(character, size);
+    handleWidths.set(key, width);
+  }
+  return width;
 }
 
+// Comic Relief's measured metrics (ComicRelief-Regular.ttf, 2048 units/em):
+// every host puts the baseline at y + ascent. comicTop returns the y that
+// optically centres a run on cy — capitals by their cap height, lowercase by
+// the x-height band.
+const comicAscentEm = 2160 / 2048, comicCapEm = 1554 / 2048, comicXHeightEm = 1105 / 2048;
+const comicTop = (cy, size, capitals = false) =>
+  cy - size * (comicAscentEm - (capitals ? comicCapEm : comicXHeightEm) / 2);
 function typeWrite(text, x, y, size, ...color) {
   const visibleText = String(text).toLowerCase();
-  if (typeof comicWrite === "function") comicWrite(visibleText, x, y, size, ...color);
-  else if (typeof ywftWrite === "function")
-    ywftWrite(visibleText, x, y, size, ...color);
+  if (hostComicWrite) hostComicWrite(visibleText, x, y, size, ...color);
+  else if (hostYwftWrite) hostYwftWrite(visibleText, x, y, size, ...color);
   else systemWrite(visibleText, x, y, size, ...color);
 }
 
@@ -12734,22 +17748,22 @@ function controlLocale() {
   if (touch) return {
     title: "start", select: "", replayPaused: "paused",
     replayPlaying: "", replay: "",
-    combat: "A KICK   B PUNCH   X SHIELD   Y USE ITEM",
+    combat: "A KICK   B PUNCH   X BUBBLE   Y USE ITEM",
   };
   return keyboard ? {
     title: "start",
-    select: "P1 A/D + SPACE     P2 LEFT/RIGHT + K     H P2/DUMMY/BOT     G BACK",
+    select: "P1 A/D + SPACE     P2 J/L + U     H P2/DUMMY/BOT     G BACK",
     replayPaused: "PAUSED   F PLAY   A D SCRUB   G EXIT",
     replayPlaying: "F PAUSE   A D SCRUB   G EXIT",
     replay: "Q REPLAY",
-    combat: "SPACE KICK   ENTER PUNCH   SHIFT SHIELD   ALT USE ITEM   W AIR",
+    combat: "Q E PUNCH   SHIFT KICK   SPACE JUMP   SHIFT+Q BUBBLE",
   } : {
     title: "start",
     select: "LEFT RIGHT SELECT     A READY     X P2 / DUMMY / BOT     B BACK",
     replayPaused: "PAUSED   A PLAY   LEFT RIGHT SCRUB   B EXIT",
     replayPlaying: "A PAUSE   LEFT RIGHT SCRUB   B EXIT",
     replay: "Y REPLAY",
-    combat: "A KICK   B PUNCH   X SHIELD   Y USE ITEM   UP AIR",
+    combat: "X PUNCH   Y PUNCH   A KICK   B JUMP   A+X BUBBLE",
   };
 }
 
@@ -12757,19 +17771,28 @@ function controlLocale() {
 // so the legend can show a key rather than spell one.
 function combatKeys() {
   const caps = typeof capabilities === "function" ? capabilities() : {};
+  // Caps name the physical key; the last field is the internal button that
+  // lights it once translateButtons has mapped the pad.
+  if (depthControls()) return caps.inputFamily === "keyboard" ? [
+    [["W", "A", "S", "D"], "MOVE 3D", "ArrowUp"],
+    [["Q", "E"], "PUNCH", "B"], ["SHIFT", "KICK", "Y"],
+    ["SPACE", "JUMP", "A"], [["SHIFT", "Q"], "BUBBLE", "RightShoulder"]] : [
+    [["LEFT", "RIGHT"], "MOVE", "ArrowLeft"],
+    [["UP", "DOWN"], "DEPTH", "ArrowUp"],
+    ["X", "PUNCH", "B"], ["Y", "PUNCH", "B"], ["A", "KICK", "Y"],
+    ["B", "JUMP", "A"], [["A", "X"], "BUBBLE", "RightShoulder"]];
   if (caps.inputFamily === "keyboard") return [
     [["A", "D"], "MOVE", "ArrowLeft"], [["D", "D"], ">> DASH", "ArrowRight"],
-    ["SPACE", "KICK", "A"], ["ENTER", "PUNCH", "B"],
-    ["SHIFT", "SHIELD", "X"], ["ALT", "USE ITEM", "Y"],
-    ["W", "AIR", "ArrowUp"]];
+    [["Q", "E"], "PUNCH", "B"], ["SHIFT", "KICK", "A"],
+    ["SPACE", "JUMP", "ArrowUp"], [["SHIFT", "Q"], "BUBBLE", "X"]];
   if (caps.inputFamily === "touch") return [
     ["A", "KICK", "A"], ["B", "PUNCH", "B"],
-    ["X", "SHIELD", "X"], ["Y", "USE ITEM", "Y"]];
+    ["X", "BUBBLE", "X"], ["Y", "USE ITEM", "Y"]];
   return [
     [["LEFT", "RIGHT"], "MOVE", "ArrowLeft"],
     [["RIGHT", "RIGHT"], ">> DASH", "ArrowRight"],
-    ["A", "KICK", "A"], ["B", "PUNCH", "B"], ["X", "SHIELD", "X"],
-    ["Y", "USE ITEM", "Y"], ["STICK_UP", "AIR", "ArrowUp"]];
+    ["X", "PUNCH", "B"], ["Y", "PUNCH", "B"], ["A", "KICK", "A"],
+    ["B", "JUMP", "ArrowUp"], [["A", "X"], "BUBBLE", "X"]];
 }
 
 // What the buttons do, named on the way into a round. B changes meaning with
@@ -12796,17 +17819,6 @@ function selectionControlKeys() {
     ["SHIFT", "OPPONENT", "X"], ["ENTER", "BACK", "B"]];
   return [[["LEFT", "RIGHT"], "SELECT", "ArrowLeft"], ["A", "READY", "A"],
     ["X", "OPPONENT", "X"], ["B", "BACK", "B"]];
-}
-
-function replayControlKeys(paused) {
-  const family = typeof capabilities === "function"
-    ? capabilities().inputFamily : "xbox";
-  if (family === "touch") return [];
-  if (family === "keyboard") return [
-    ["F", paused ? "PLAY" : "PAUSE", "A"],
-    [["A", "D"], "SCRUB", "ArrowLeft"], ["G", "EXIT", "B"]];
-  return [["A", paused ? "PLAY" : "PAUSE", "A"],
-    [["LEFT", "RIGHT"], "SCRUB", "ArrowLeft"], ["B", "EXIT", "B"]];
 }
 
 function replayOfferKeys() {
@@ -12849,8 +17861,15 @@ function drawPadButton(label, x, y, size, pressed, fade = 1, display = null) {
   const face = pressed ? mixColor(ink, [255, 255, 255], .3) : ink;
   const cx = x + radius;
   const cy = y + Math.round(size * .75);
-  filledDisc(cx, cy, radius, veil(face));
-  if (pressed) filledRing(cx, cy, radius, radius - 3, veil([245, 248, 255]));
+  // A real button: a soft drop shadow, an ink border, the coloured face and a
+  // lighter crown; held, it sinks onto its shadow and rims white.
+  const border = Math.max(2, Math.round(radius * .11)), sink = pressed ? 2 : 0;
+  if (!pressed) filledDisc(cx + 1, cy + 3, radius + border, veil([6, 8, 18]));
+  filledDisc(cx, cy + sink, radius + border, veil([14, 16, 28]));
+  filledDisc(cx, cy + sink, radius, veil(face));
+  filledDisc(cx, cy + sink - radius * .28, radius * .62, veil(mixColor(face, [255, 255, 255], .22)));
+  filledDisc(cx, cy + sink + radius * .08, radius * .7, veil(face));
+  if (pressed) filledRing(cx, cy + sink, radius, radius - border, veil([245, 248, 255]));
   const text = display ?? (padGlyph[label] || label).toUpperCase();
   const glyphSize = Math.round(size * .82);
   if (label === "STICK_UP" || label === "DOWN" ||
@@ -12874,15 +17893,18 @@ function drawPadButton(label, x, y, size, pressed, fade = 1, display = null) {
       wingY - perpendicularY, thickness, arrowInk);
     return radius * 2;
   }
-  const glyphX = Math.round(cx - handleWidth(text, glyphSize) / 2);
-  // DirectWrite's cap shapes carry more visual weight below their nominal
-  // midpoint. Lift the Xbox face letters together so A/B/X/Y read centered in
-  // the colored hardware circles rather than sitting on their lower halves.
-  const glyphY = Math.round(cy - glyphSize * (padButtonInk[label] ? .56 : .5));
-  if (padButtonInk[label] || Object.hasOwn(padGlyph, label) ||
-      /^[KPSI<>^v]$/.test(text))
-    systemWrite(text, glyphX, glyphY, glyphSize, ...veil([12, 14, 26]));
-  else typeWrite(text, glyphX, glyphY, glyphSize, ...veil([12, 14, 26]));
+  // Comic Relief capitals, centred by the face's measured cap height.
+  const faceLetters = padButtonInk[label] && hostComicWrite;
+  // Capitals centre on their ink box (measured, in em from the pen), since
+  // the advance table is lowercase and the side bearings are uneven.
+  const inkCentre = { A: .363, B: .339, X: .364, Y: .307 }[text];
+  const glyphX = Math.round(cx - (faceLetters && inkCentre
+    ? inkCentre * glyphSize : handleWidth(text, glyphSize) / 2));
+  const glyphY = Math.round(comicTop(cy + sink, glyphSize, true));
+  if (faceLetters) hostComicWrite(text, glyphX, glyphY, glyphSize, ...veil([12, 14, 26]));
+  else if (Object.hasOwn(padGlyph, label) || /^[KPSI<>^v]$/.test(text))
+    systemWrite(text, glyphX, Math.round(cy + sink - glyphSize * .56), glyphSize, ...veil([12, 14, 26]));
+  else typeWrite(text, glyphX, Math.round(comicTop(cy + sink, glyphSize, false)), glyphSize, ...veil([12, 14, 26]));
   return radius * 2;
 }
 
@@ -12905,7 +17927,7 @@ function drawKeycap(label, x, y, size, pressed, fade = 1) {
       visualTheme.light * .7)));
   hudBox(x, y + drop, width, height, ...face);
   strokeBox(x, y + drop, width, height, 2, edge);
-  typeWrite(label, x + padX, y + drop + Math.round((height - size) / 2), size,
+  typeWrite(label, x + padX, Math.round(comicTop(y + drop + height / 2, size)), size,
     ...veil(pressed ? [12, 14, 26] : [238, 242, 252]));
   return width;
 }
@@ -12930,7 +17952,7 @@ function m30Seated() {
 // read off the live hardware, not the leaflet; flip this table if 8BitDo's
 // firmware ever swaps the pair.
 const m30FaceSends = { C: "RightTrigger", Z: "RightShoulder" };
-const m30SendLabel = { RightTrigger: "SHIELD", RightShoulder: "USE ITEM",
+const m30SendLabel = { RightTrigger: "BUBBLE", RightShoulder: "USE ITEM",
   LeftTrigger: "KICK", LeftShoulder: "USE ITEM" };
 
 // The M30's own manual page, drawn from the device itself: the white
@@ -13023,7 +18045,7 @@ function drawM30Cluster(x, y, size, held, directionActive, ink) {
   let rowY = bodyMidY + lobeR + Math.round(small * 1.2);
   const captions = [
     `A KICK  B PUNCH  C ${m30SendLabel[m30FaceSends.C]}`,
-    `X SHIELD  Y USE ITEM  Z ${m30SendLabel[m30FaceSends.Z]}`,
+    `X BUBBLE  Y USE ITEM  Z ${m30SendLabel[m30FaceSends.Z]}`,
     `L ${m30SendLabel.LeftShoulder}  R ${m30SendLabel.LeftTrigger}`,
     "A+B GRAB  START PAUSE",
   ];
@@ -13038,6 +18060,7 @@ function drawM30Cluster(x, y, size, held, directionActive, ink) {
 // logout button now sit in that corner and the legend used to run straight
 // through them on a narrow view.
 function drawControlLegend(ink) {
+  if(freeskateActive())return;
   const device = typeof capabilities === "function" ? capabilities() : {};
   if (device.showControlLegend === false || device.inputFamily === "touch") return;
   const safe = hudSafeRect();
@@ -13049,7 +18072,6 @@ function drawControlLegend(ink) {
     (button === "ArrowUp" && pad.leftY > .12) ||
     (button === "ArrowDown" && pad.leftY < -.12);
   const size = compactLayout() ? 18 : 24;
-  const x = safe.left + 8;
   const both = held.includes("A") && held.includes("B");
   const legendFighter = players[localSeat()];
   const dash = legendFighter.lastButton === "DASH" &&
@@ -13061,7 +18083,7 @@ function drawControlLegend(ink) {
     ["DOWN", "ArrowDown", "CROUCH"],
     ["A", "A", both ? "GRAB" : "KICK"],
     ["B", "B", both ? "GRAB" : itemMelee[heldItem(legendFighter)] || "PUNCH"],
-    ["X", "X", "SHIELD"],
+    ["X", "X", "BUBBLE"],
     ["Y", "Y", "USE ITEM"],
   ];
   if (survivalActive()) controls.length = 4;
@@ -13077,23 +18099,31 @@ function drawControlLegend(ink) {
   const keyboardCap = { LEFT: "A", RIGHT: "D", STICK_UP: "W", DOWN: "S",
     A: "SPACE", B: "ENTER", X: "SHIFT", Y: "ALT" };
   const step = Math.round(size * 1.82);
-  for (const [row, [cap, button, action]] of controls.entries()) {
-    const y = safe.top + row * step;
-    const width = keyboard
-      ? drawKeycap(keyboardCap[cap] || cap,
-        x, y, size,
-        directionActive(button))
-      : drawPadButton(cap, x, y, size,
-        button.startsWith("Arrow") ? directionActive(button) : held.includes(button));
-    if (action) {
-      // The action wears its button's colour, so a glance matches the word
-      // to the cap: A's green kick, B's red punch, X's blue shield, Y's gold.
-      const actionInk = padButtonInk[cap] || ink;
-      const labelX = x + width + 10, labelY = y + Math.round(size * .25);
-      typeWrite(action, labelX + 2, labelY + 3, size, ...contrastShadow(actionInk));
-      typeWrite(action, labelX, labelY, size, ...actionInk);
-    }
+  // Bottom centre, under the rider: just the move, in its own colour. Moves
+  // and actions are one flat set — LEFT is a move the same way OLLIE, HOLD
+  // or KICK UP is — so there are no button caps or "action" words, only the
+  // name of what you are doing, coloured the way the input history colours
+  // it, held while the input is held and for a beat after.
+  const now = runtime().monotonicUs;
+  const moveAge = now - (legendFighter.lastButtonAt || -1e12);
+  const latest = legendFighter.lastButton && (moveAge < 800000 || held.length) ? legendFighter.lastButton : "";
+  // Down is a crouch — an air crouch if you are off the ground.
+  // Down is a crouch; down with a direction on the ground is a crawl.
+  const nearGround = terrainFloorAt(legendFighter.x) - legendFighter.y < 60;
+  const downHeld = held.includes("ArrowDown");
+  const side = held.includes("ArrowLeft") ? "LEFT" : held.includes("ArrowRight") ? "RIGHT" : "";
+  const move = downHeld && side && nearGround && !legendFighter.skateboard ? "CRAWL " + side
+    : latest === "DOWN" ? (nearGround ? "CROUCH" : "TUCK") : latest;
+  if (move) {
+    const moveSize = Math.round(size * 1.6);
+    const moveInk = moveColor(move);
+    const moveX = Math.round(viewCenterX() - handleWidth(move, moveSize) / 2);
+    const moveY = safe.bottom - moveSize - Math.round(size * .6);
+    typeWrite(move, moveX + 2, moveY + 3, moveSize, ...contrastShadow(moveInk));
+    typeWrite(move, moveX, moveY, moveSize, ...moveInk);
   }
+  controls.length = 0;
+  const x = safe.left + 8;
   let legendBottom = safe.top + controls.length * step;
   if (m30) legendBottom = drawM30Cluster(x, legendBottom, size, held,
     directionActive, ink);
@@ -13195,8 +18225,12 @@ function drawKeycapRun(entries, x, y, size, held, ink, revealAction = null) {
         : drawPadButton(label, cursor, y, size, held.includes(button));
     }
     cursor += 8;
-    if (!revealAction || revealAction([cap, action, button]))
-      typeWrite(action, cursor, y + Math.round(size * .25), size, ...ink);
+    if (!revealAction || revealAction([cap, action, button])) {
+      // A soft shadow keeps the verb legible over a bright floor or sky.
+      const labelY = Math.round(comicTop(y + size * .75, size));
+      typeWrite(action, cursor + 2, labelY + 2, size, 12, 14, 26);
+      typeWrite(action, cursor, labelY, size, ...ink);
+    }
     cursor += handleWidth(action, size) + 26;
   }
   return cursor;
@@ -13218,19 +18252,157 @@ function drawHandle(handle, x, y, size, colors, fallback) {
   }
 }
 
+// The skater's face, drawn from the MacNeoPolitan Trio's (Menu Band's
+// SingerFace, the curious "neo" member): tall oval eyes with a big pupil and
+// a catchlight, set a touch uneven; angular brows at a curious tilt; a small
+// angled nose; a curved smile lifted at one corner; blush on the cheeks. It
+// blinks, and looks the way the skater is going. Laid out in the Trio's
+// face units (0..1, y up) on the head circle, turned toward the facing side.
+function drawTrioFace(player, head, now, cameraYaw = null) {
+ if(player.civilian){
+  const r=head.radius;
+  for(const side of [-1,1]){const x=head.x+side*r*.3,y=head.y+r*.1;filledDisc(x,y,r*.23,[252,250,245]);filledDisc(x+(player.facing||1)*r*.07,y,r*.11,[28,22,34]);}
+  stroke(head.x-r*.18,head.y+r*.47,head.x+r*.17,head.y+r*.5,Math.max(1,r*.07),[66,34,46]);return;
+ }
+  const r = head.radius;
+  // The face lives on the sphere of the head. Every feature has a longitude
+  // and latitude on it; the head is turned partway toward the way the
+  // skater faces (and all the way round in a spin), and each point is
+  // projected from the sphere's surface — so features foreshorten as they
+  // turn, crowd toward the rim and pass out of sight round the back.
+  const facing = player.facing || 1;
+  const yaw = cameraYaw ?? (facing * .42 + (player.spin ? player.spin.angle : 0));
+  // A head rolling on its own turns like a wheel, face and all (a head
+  // riding a board keeps its eyes level).
+  const roll = isHeadOnly(player) && !player.skateboard ? player.headRoll || 0 : 0;
+  const rollCos = Math.cos(roll), rollSin = Math.sin(roll);
+  const sphere = (u, v) => {
+    const lon = yaw + (u - .5) * 2.1 * facing, lat = (v - .66) * 1.75;
+    const dx = r * .97 * Math.sin(lon) * Math.cos(lat), dy = -r * .97 * Math.sin(lat);
+    return { x: head.x + dx * rollCos - dy * rollSin, y: head.y + dx * rollSin + dy * rollCos,
+      facing: Math.cos(lon) * Math.cos(lat) };
+  };
+  const P = (u, v) => sphere(u, v);
+  const shown = (u, v) => sphere(u, v).facing > .08;
+  const ink = [24, 18, 26], line = Math.max(1.2, r * .075);
+  const oval = (c, rx, ry, color, sides = 12) => {
+    for (let side = 0; side < sides; side++) {
+      const a = side / sides * Math.PI * 2, b = (side + 1) / sides * Math.PI * 2;
+      screenTriangle(c.x, c.y, c.x + Math.cos(a) * rx, c.y + Math.sin(a) * ry,
+        c.x + Math.cos(b) * rx, c.y + Math.sin(b) * ry, color[0], color[1], color[2]);
+    }
+  };
+  const visible = (point) => point.facing === undefined || point.facing > .08;
+  const path = (points, width, color = ink) => {
+    for (let index = 1; index < points.length; index++)
+      if (visible(points[index - 1]) && visible(points[index]))
+        filledCapsule(points[index - 1].x, points[index - 1].y, points[index].x, points[index].y, width, color);
+  };
+  const bezier = (a, c1, c2, b, steps = 5) => Array.from({ length: steps + 1 }, (_, index) => {
+    const s = index / steps, q = 1 - s;
+    return { u: q * q * q * a[0] + 3 * q * q * s * c1[0] + 3 * q * s * s * c2[0] + s * s * s * b[0],
+      v: q * q * q * a[1] + 3 * q * q * s * c1[1] + 3 * q * s * s * c2[1] + s * s * s * b[1] };
+  }).map(({ u, v }) => P(u, v));
+  // Blush.
+  for (const side of [-1, 1]) {
+    const cheek = P(.5 + side * .265, .45);
+    if (cheek.facing > .08) oval(cheek, r * .2 * cheek.facing, r * .11, mixColor(player.color, [255, 110, 128], .32), 10);
+  }
+  // Eyes.
+  const blinking = ((now / 1e6 + player.pad * .7) % 3.4) < .12;
+  const ex = .175, ew = .088, eh = .155;
+  for (const side of [-1, 1]) {
+    const u = .5 + side * ex, v = .61 + side * .014;
+    const eye = P(u, v);
+    if (eye.facing <= .08) continue;
+    const rx = ew * r * 1.84 * Math.max(.2, eye.facing), ry = eh * r * 1.75;
+    if (blinking) {
+      path(bezier([u - ew, v], [u - ew * .4, v - eh * .35], [u + ew * .4, v - eh * .35], [u + ew, v]), line);
+    } else {
+      oval(eye, rx + line, ry + line, ink);
+      oval(eye, rx, ry, [248, 248, 250]);
+      const pr = rx * .5;
+      const px = eye.x + facing * rx * .28, py = eye.y + ry * .1;
+      // A coloured iris round the pupil, then the pupil and two catchlights.
+      filledDisc(px, py, pr, player.irisColor || [96, 140, 196]);
+      filledDisc(px, py, pr * .62, [6, 6, 10]);
+      filledDisc(px - facing * pr * .25, py - pr * .42, Math.max(.8, pr * .28), [255, 255, 255]);
+      filledDisc(px + facing * pr * .3, py + pr * .3, Math.max(.6, pr * .12), [255, 255, 255]);
+      // The upper lash line, heavier than the rest of the eye, and three
+      // lashes flicking up off the outer corner.
+      const lid = bezier([u - ew * 1.02, v + eh * .2], [u - ew * .5, v + eh * 1.08], [u + ew * .5, v + eh * 1.08], [u + ew * 1.02, v + eh * .2], 4);
+      path(lid, line * 1.6);
+      const outerSide = side * facing;
+      for (const [k, lean] of [[.0, .9], [.18, .65], [.36, .4]]) {
+        const base = P(u + side * ew * (.95 - k), v + eh * (.35 + k * 1.2));
+        const tip = { x: base.x + outerSide * r * .12 * lean, y: base.y - r * .1 };
+        filledCapsule(base.x, base.y, tip.x, tip.y, Math.max(1, line * .9), ink);
+      }
+    }
+    // The brow: an angled check, one side lifted in curiosity.
+    const by = Math.min(.835, v + eh * 1.39 + side * .018);
+    path([P(u - ew * .95, by - eh * .12), P(u - ew * .12, by + eh * .17), P(u + ew * .95, by - eh * .06)], line * 1.2);
+  }
+  if(player.parkProfile?.appearance.glasses){
+    for(const side of [-1,1]){const eye=P(.5+side*.175,.61);if(eye.facing>.08){const ring=Array.from({length:13},(_,i)=>({x:eye.x+Math.cos(i*Math.PI/6)*r*.23*Math.max(.2,eye.facing),y:eye.y+Math.sin(i*Math.PI/6)*r*.26}));path(ring,line*.8);}}
+    path([P(.46,.61),P(.54,.61)],line*.8);
+  }
+  if((player.parkProfile?.age||0)>=58)for(const side of [-1,1])path([P(.5+side*.29,.46),P(.5+side*.34,.42)],line*.55,mixColor(player.color,ink,.45));
+  // Nose.
+  path([P(.501, .49), P(.486, .46), P(.508, .461)], line * .6);
+  // Lips: a soft pink mouth with a fuller lower lip, the far corner lifted
+  // in a smile, and a fine line where they meet.
+  const mw = player.parkProfile?.persona==='dancer'?.17:player.parkProfile?.persona==='librarian'?.1:.13;
+  const lipInk = mixColor(player.color, [232, 96, 132], .6);
+  const upper = bezier([.5 - mw, .355], [.5 - mw * .4, .38], [.5 + mw * .4, .38], [.5 + mw, .37]);
+  const lower = bezier([.5 - mw, .355], [.5 - mw * .45, .285], [.5 + mw * .45, .285], [.5 + mw, .37]);
+  const lipCenter = P(.5, .335);
+  if (!visible(lipCenter)) return;
+  for (const lip of [upper, lower])
+    for (let index = 1; index < lip.length; index++)
+      screenTriangle(lipCenter.x, lipCenter.y, lip[index - 1].x, lip[index - 1].y, lip[index].x, lip[index].y,
+        lipInk[0], lipInk[1], lipInk[2]);
+  path(bezier([.5 - mw, .355], [.5 - mw * .4, .335], [.5 + mw * .4, .335], [.5 + mw, .37]), line * .9);
+}
+
 function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   if (photoThemeActive) color = [20, 12, 26];
   if (head.radius < 5) return;
   const bodyDepth = triangleDepth;
   triangleDepth = bodyDepth - .012;
+  if(player.dummy){
+    const r=head.radius;
+    for(const side of [-1,1]){
+      const x=head.x+side*r*.34,y=head.y-r*.06,d=r*.16;
+      filledCapsule(x-d,y-d,x+d,y+d,Math.max(2,r*.1),[24,16,32]);
+      filledCapsule(x-d,y+d,x+d,y-d,Math.max(2,r*.1),[24,16,32]);
+    }
+    triangleDepth=bodyDepth;return;
+  }
+  if (player.skin) {
+    drawTrioFace(player, head, now);
+    triangleDepth = bodyDepth;
+    return;
+  }
   const r = head.radius;
   const direction = player.facing || 1;
   // The whole face turns with a rolling head. Every feature below is placed
   // in flat face-space and spun around the head's center on the way to the
   // canvas — eyes, mouth, hair, tears, hearts, all of it — instead of the old
   // look where the head traveled and the face stayed nailed upright.
-  const roll = isHeadOnly(player) ? player.headRoll || 0 : photoThemeActive ? player.skateRotation || 0 : 0;
+  // A head riding a board is the exception: the head turns with the deck,
+  // but the eyes stay level and keep looking where it is going, as if they
+  // saw on their own. A seam on the rim shows the head's own turn.
+  const ridingHead = isHeadOnly(player) && player.skateboard;
+  const roll = ridingHead ? 0
+    : isHeadOnly(player) ? player.headRoll || 0 : photoThemeActive ? player.skateRotation || 0 : 0;
   const cosRoll = Math.cos(roll), sinRoll = Math.sin(roll);
+  if (ridingHead) {
+    const seam = (player.headRoll || 0) - Math.PI / 2;
+    filledCapsule(head.x + Math.cos(seam - .35) * r * .82, head.y + Math.sin(seam - .35) * r * .82,
+      head.x + Math.cos(seam + .35) * r * .82, head.y + Math.sin(seam + .35) * r * .82,
+      Math.max(1.5, r * .12), mixColor(color, [0, 0, 0], .35));
+  }
   const spin = (x, y) => roll === 0 ? { x, y } : {
     x: head.x + (x - head.x) * cosRoll - (y - head.y) * sinRoll,
     y: head.y + (x - head.x) * sinRoll + (y - head.y) * cosRoll };
@@ -13427,8 +18599,53 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   triangleDepth = bodyDepth;
 }
 
+// A Glock-style pistol, drawn flat in screen space: a squared slide over a
+// polymer frame, a trigger guard, and a grip raked back at the Glock's
+// angle. `hand` is the fist, and the fist closes around the middle of the
+// grip; `toward` is any point along the aim. Returns the muzzle.
+function drawHandgun(hand, toward, facing, scale) {
+  let dx = toward.x - hand.x, dy = toward.y - hand.y;
+  const length = Math.hypot(dx, dy);
+  if (length < .001) { dx = facing || 1; dy = 0; } else { dx /= length; dy /= length; }
+  // "Down" for the gun: the side its grip hangs from, whichever way it aims.
+  const side = dx >= 0 ? 1 : -1;
+  const nx = -dy * side, ny = dx * side;
+  const s = Math.max(.35, scale);
+  const at = (along, below) => ({ x: gripTop.x + dx * along * s + nx * below * s,
+    y: gripTop.y + dy * along * s + ny * below * s });
+  // The grip rakes back about 18 degrees from square to the slide.
+  const rake = .32, gx = nx * Math.cos(rake) - dx * Math.sin(rake),
+    gy = ny * Math.cos(rake) - dy * Math.sin(rake);
+  const gripTop = { x: hand.x - gx * 11 * s, y: hand.y - gy * 11 * s };
+  const quad = (a, b, c, d, color) => {
+    screenTriangle(a.x, a.y, b.x, b.y, c.x, c.y, ...color);
+    screenTriangle(a.x, a.y, c.x, c.y, d.x, d.y, ...color);
+  };
+  const slide = [34, 36, 42], frame = [52, 54, 60], edge = [92, 96, 106];
+  // Grip: a slab from under the slide down past the fist.
+  const gripWide = 6.5;
+  const g = (along, down) => ({ x: gripTop.x + dx * along * s + gx * down * s,
+    y: gripTop.y + dy * along * s + gy * down * s });
+  quad(g(-gripWide - 2, 0), g(gripWide, 0), g(gripWide, 27), g(-gripWide, 27), frame);
+  // Frame and dust cover under the slide, then the trigger guard.
+  quad(at(-8, 0), at(30, 0), at(30, 5), at(-6, 5), frame);
+  filledCapsule(at(8, 4).x, at(8, 4).y, at(17, 11).x, at(17, 11).y, Math.max(1.5, 3 * s), frame);
+  filledCapsule(at(17, 11).x, at(17, 11).y, at(20, 5).x, at(20, 5).y, Math.max(1.5, 3 * s), frame);
+  filledCapsule(at(11, 4).x, at(11, 4).y, at(12, 9).x, at(12, 9).y, Math.max(1, 2 * s), edge);
+  // The slide: long, square, the Glock's block over everything.
+  quad(at(-10, -10), at(36, -10), at(36, 0), at(-10, 0), slide);
+  // A top highlight and rear serrations keep it reading as machined steel.
+  filledCapsule(at(-9, -9.5).x, at(-9, -9.5).y, at(35, -9.5).x, at(35, -9.5).y,
+    Math.max(1, 1.4 * s), edge);
+  for (const along of [-7, -4.5, -2]) {
+    const a = at(along, -8), b = at(along, -2);
+    filledCapsule(a.x, a.y, b.x, b.y, Math.max(.8, 1 * s), edge);
+  }
+  return at(36, -5);
+}
+
 function itemForearm(player, geometry) {
-  const arm = itemHand(player);
+  const arm = poolOnly()&&player.gunAmmo>0?assignedItemArm(player,"gun"):itemHand(player);
   return geometry.segments.find(segment => segment.part === arm &&
     (segment.role === "item-forearm" || segment.role === "attack-forearm")) ||
     geometry.segments.find(segment => segment.part === arm &&
@@ -13451,7 +18668,7 @@ function drawInventory(player, now, geometry) {
   // A bash keeps the grenade visible in the fist; itemHandTarget already
   // parks both weapons on the swinging hand.
   const bashing = player.attackKind === "BASH" && itemSwinging(player, now);
-  if (player.swordHeld && player.gunAmmo <= 0 && !throwing &&
+  if (player.swordHeld && !player.axeHeld && player.gunAmmo <= 0 && !throwing &&
       hasPart(player, itemHand(player))) {
     // The hilt pins to the hand the silhouette actually draws — the far end
     // of the item arm's forearm capsule — and the blade lies along that
@@ -13483,6 +18700,8 @@ function drawInventory(player, now, geometry) {
       // is which from across the map, the way the handle colors already do.
       // The hum lives in the halo's width: it breathes on the same clock the
       // pickups bob on, so a held saber is never a still object.
+      if(player.axeHeld)drawBigAxe(hand.x,hand.y,tipX,tipY,scale);
+      else {
       const hum = 1 + .12 * Math.sin(now / 82000);
       const halo = mixColor(player.color, [14, 20, 36], .35);
       filledCapsule(hand.x, hand.y, tipX, tipY,
@@ -13501,10 +18720,15 @@ function drawInventory(player, now, geometry) {
         hand.x - alongX / length * 18 * scale,
         hand.y - alongY / length * 18 * scale,
         Math.max(2, 6 * scale), [34, 30, 40]);
+      }
     }
   }
   if ((player.gunAmmo > 0 || firing) && !throwing) {
-    const forearm = photoThemeActive ? itemForearm(player, geometry) : null;
+    // The gun lives in the fist the silhouette actually draws — the end of
+    // the item forearm — in every theme. The flat theme used to hang it on
+    // the aim solver's wrist, which the drawn arm doesn't reach while
+    // skating, pumping or swaying, so the grip floated beside the hand.
+    const forearm = itemForearm(player, geometry);
     const pose = gunPose(player, now);
     const projectedHand = projectPoint(pose.hand.x, pose.hand.y, pose.hand.z);
     // Render reactions and replay poses may move the drawn skeleton after
@@ -13515,12 +18739,14 @@ function drawInventory(player, now, geometry) {
       const point = projectPoint(x, y, z);
       return {x:point.x + offsetX, y:point.y + offsetY};
     };
-    const barrel = projectWeapon(pose.muzzle.x, pose.muzzle.y, pose.muzzle.z);
+    let barrel = projectWeapon(pose.muzzle.x, pose.muzzle.y, pose.muzzle.z);
     const barrelWidth = Math.max(3, 9 * scale);
     const gripWidth = Math.max(2, 6 * scale);
     // Xbox batches its native line layer underneath GPU fighter triangles.
     // Held items therefore use the same depth-aware capsule path as the hand.
-    if (photoThemeActive) {
+    if (player.gunMode === "HANDGUN") {
+      barrel = drawHandgun(hand, barrel, player.facing, scale);
+    } else if (photoThemeActive) {
       // Place the photograph's grip at the solved wrist. Reflect its local X
       // before rotation so aiming left does not turn the grip upside down.
       const dx = barrel.x - hand.x, dy = barrel.y - hand.y;
@@ -13568,14 +18794,12 @@ function drawInventory(player, now, geometry) {
         barrel.y+Math.sin(flashAngle)*flashSize*.43,
         flashSize,flashSize*.61,flashAngle,false,triangleDepth-.03,false);
       if (!photoFlash) {
-      const normalX = -pose.dy;
-      const normalY = pose.dx;
-      const flashA = projectWeapon(
-        pose.muzzle.x + pose.dx * 28 + normalX * 18,
-        pose.muzzle.y + pose.dy * 28 + normalY * 18, pose.muzzle.z);
-      const flashB = projectWeapon(
-        pose.muzzle.x + pose.dx * 28 - normalX * 18,
-        pose.muzzle.y + pose.dy * 28 - normalY * 18, pose.muzzle.z);
+      // A forked flash off the muzzle as drawn, in screen space, so it
+      // leaves whichever barrel the weapon actually has.
+      const ax = Math.cos(flashAngle), ay = Math.sin(flashAngle);
+      const reach = 28 * scale, spread = 18 * scale;
+      const flashA = { x: barrel.x + ax * reach - ay * spread, y: barrel.y + ay * reach + ax * spread };
+      const flashB = { x: barrel.x + ax * reach + ay * spread, y: barrel.y + ay * reach - ax * spread };
       filledCapsule(barrel.x, barrel.y, flashA.x, flashA.y,
         Math.max(2, 5 * scale), [255, 248, 190]);
       filledCapsule(barrel.x, barrel.y, flashB.x, flashB.y,
@@ -13598,9 +18822,8 @@ function drawDigitalHeadBurst(player, headWorld, age) {
   const origin = projectPoint(headWorld.x, headWorld.y, headWorld.z);
   if (![origin.x, origin.y, origin.z].every(Number.isFinite) ||
       Math.abs(origin.x) > 30000 || Math.abs(origin.y) > 30000) return;
-  const palette = [
-    [255, 48, 96], [176, 18, 54], [255, 92, 126],
-    player.color, [116, 8, 38],
+  const palette = player.skin ? [player.color,player.hairColor||player.color,player.accent||player.color,player.shirtColor||[252,252,250]] : [
+    [255,48,96],[176,18,54],[255,92,126],player.color,[116,8,38]
   ];
   const directions = [-2.92, -2.61, -2.3, -2.01, -1.72, -1.43,
     -1.14, -.83, -.52, -.21, .1, .41, .72, 1.03];
@@ -13672,7 +18895,8 @@ function drawBrokenRunner(player, age) {
     triangleDepth = projectPoint(midX + dx, midY + dy,
       (segment.z1 + segment.z2) / 2 + dz).z;
     const width = Math.max(2, segment.width * cameraScale());
-    if (photoThemeActive) photoLimb({x1:a.x,y1:a.y,x2:b.x,y2:b.y,width}, player.pad);
+    if (player.skin) drawSkeletonSegments([{...segment,x1:a.x,y1:a.y,x2:b.x,y2:b.y,width}],segment.role === "torso" ? player.shirtColor || [252,252,250] : player.color,outline,player);
+    else if (photoThemeActive) photoLimb({x1:a.x,y1:a.y,x2:b.x,y2:b.y,width}, player.pad);
     else {
       filledCapsule(a.x, a.y, b.x, b.y, width + 3, outline);
       filledCapsule(a.x, a.y, b.x, b.y, width, player.color);
@@ -13695,7 +18919,761 @@ function drawDeathFlash() {
   triangleDepth = previousDepth;
 }
 
-function drawRunner(player, t, showLabel = true) {
+// A figure is drawn at the detail its size on screen can show. Full detail is
+// ~90 native calls and ~2 ms of console JS per figure whatever its size, so a
+// crowd or a wide shot multiplied that; small figures now drop the outfit,
+// face and hair work first, then the outline pass, then all but a head and a
+// torso. Held items, the shield and the hit flash survive every tier above the
+// dot, because they are play. figureLodScale is the governor's: it lifts every
+// threshold together while frames run long and eases back once there is room.
+// @jeffrey, 2026-09-26: "i dont like when we lose visuals like the character
+// outfit". Full detail holds down to a figure two thirds the size of a
+// fighter at rest; the simpler tiers are for a far crowd and a wide zoom-out,
+// where the outfit was sub-pixel anyway. Frame time is won in the renderer,
+// not by undressing the cast.
+const figureLodFull = 64, figureLodSimple = 34, figureLodDot = 12;
+let figureLodScale = 1, figureFrameMs = 16.7, figureFrameAt = 0;
+function governFigureLod(now) {
+  const elapsed = (now - figureFrameAt) / 1000;
+  figureFrameAt = now;
+  if (!(elapsed > 0 && elapsed < 50)) return;
+  figureFrameMs += (elapsed - figureFrameMs) * .1;
+  // The governor once lifted every threshold while frames ran long; that
+  // stripped outfits at normal zoom, so it now only keeps the measurement.
+  figureLodScale = 1;
+}
+// Each figure's last tier, for the hysteresis. Off the fighter: `paint`
+// never writes a sim object — players ride structuredClone into rollback
+// snapshots, and a render field there is a field the fight does not own.
+const figureLodTiers = new WeakMap();
+function figureLod(player, geometry) {
+  const head = geometry.head;
+  let top = head.y - head.radius, bottom = head.y + head.radius;
+  for (const s of geometry.segments) {
+    if (s.hitboxOnly) continue;
+    if (s.y1 > bottom) bottom = s.y1;
+    if (s.y2 > bottom) bottom = s.y2;
+    if (s.y1 < top) top = s.y1;
+    if (s.y2 < top) top = s.y2;
+  }
+  const height = bottom - top, k = figureLodScale, previous = figureLodTiers.get(player) || 0;
+  const tierAt = (h) => h >= figureLodFull * k ? 0 : h >= figureLodSimple * k ? 1
+    : h >= figureLodDot * k ? 2 : 3;
+  const forced = globalThis.__oskiewarFigureLod;
+  if (forced >= 0 && forced <= 3) { figureLodTiers.set(player, forced); return forced; }
+  let tier = tierAt(height);
+  if (clipView) return tier;  // a second view judges size afresh; the stage keeps the memory
+  // Twelve percent of hysteresis, so a figure on a boundary does not flicker.
+  if (tier !== previous && tierAt(height * (tier > previous ? 1.12 : .88)) === previous)
+    tier = previous;
+  figureLodTiers.set(player, tier);
+  return tier;
+}
+// Which roles wear the trousers. The roles are a fixed vocabulary of a dozen
+// strings, so the regex runs once per distinct role for the life of the
+// piece instead of once per segment per frame — in QuickJS a regex literal
+// is a fresh object every time the expression is reached.
+const legRoles = new Map();
+function isLegRole(role) {
+  let leg = legRoles.get(role);
+  if (leg === undefined) legRoles.set(role, leg = /thigh|shin/.test(role || ""));
+  return leg;
+}
+function figurePartColor(player, segment) {
+  if (player.dummy) return [192, 188, 179];
+  if (segment.role === "torso") return player.shirtColor || player.color;
+  if (isLegRole(segment.role)) return player.pantsColor || player.color;
+  return player.color;
+}
+function drawFigureLod(player, geometry, tier, t) {
+  const head = geometry.head, skin = player.dummy ? [192, 188, 179] : player.color;
+  if (tier === 3) {
+    const torso = geometry.segments.find((s) => s.role === "torso");
+    if (torso) filledCapsule(torso.x1, torso.y1, torso.x2, torso.y2,
+      Math.max(2, torso.width), figurePartColor(player, torso));
+    filledDisc(head.x, head.y, Math.max(1.5, head.radius), skin);
+    return;
+  }
+  if (player.skateboard) drawSkateboard(player);
+  const outline = player.hit > 0 ? [255, 232, 92] : [8, 12, 24];
+  const edge = tier === 1 ? Math.max(1.25, Math.min(3, cameraScale() * 1.8)) : 0;
+  if (edge) {
+    for (const s of geometry.segments) if (!s.hitboxOnly)
+      filledCapsule(s.x1, s.y1, s.x2, s.y2, s.width + edge * 2, outline);
+    filledDisc(head.x, head.y, head.radius + edge, outline);
+  }
+  // The shirt reads as a shirt, not as a bone: the torso wears head width.
+  const shirt = (s) => s.role === "torso" && !player.dummy ? Math.max(s.width, head.radius * 1.1) : s.width;
+  if (edge) {
+    const torso = geometry.segments.find((s) => s.role === "torso" && !s.hitboxOnly);
+    if (torso) filledCapsule(torso.x1, torso.y1, torso.x2, torso.y2, shirt(torso) + edge * 2, outline);
+  }
+  for (const s of geometry.segments) if (!s.hitboxOnly)
+    filledCapsule(s.x1, s.y1, s.x2, s.y2, shirt(s), figurePartColor(player, s));
+  filledDisc(head.x, head.y, head.radius, skin);
+  const r = head.radius;
+  if (!player.dummy) filledCapsule(head.x - r * .6, head.y - r * .56, head.x + r * .6,
+    head.y - r * .56, r * .8, player.hairColor || [40, 30, 35]);
+  if (tier === 1 && !player.dummy) {
+    for (const side of [-1, 1])
+      filledDisc(head.x + side * r * .32 + (player.facing || 1) * r * .12, head.y + r * .1,
+        Math.max(1, r * .12), [23, 19, 29]);
+  }
+  const hitNow = runtime().monotonicUs;
+  if (player.hitSegment >= 0 && hitNow < player.hitSegmentUntil &&
+      Math.floor(hitNow / 45000) % 2 === 0) {
+    const segment = geometry.segments[player.hitSegment];
+    if (segment) filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
+      segment.width + Math.max(3, 5 * cameraScale()), [255, 238, 102]);
+  }
+  const displayNow = player.frozenAt || hitNow;
+  drawInventory(player, displayNow, geometry);
+  drawHeldAxe(player, t);
+  if (player.blocking && !poolOnly()) {
+    const worldShield = shieldGeometry(player);
+    const shield = projectPoint(worldShield.x, worldShield.y, worldShield.z);
+    drawBubble(player, shield.x, shield.y,
+      Math.max(18, worldShield.radius * cameraScale()), hitNow / 1e6);
+  }
+}
+
+// A dummy is drawn as a live, plain figure: the renderer reads a snapshot of
+// the fighter with those few fields overlaid. The snapshot object is kept per
+// dummy and refilled each frame (Object.assign onto a shape that already has
+// every key is a run of plain writes) rather than spread into a new
+// ~150-field object with fresh colour arrays every frame. Same fields, same
+// values, same lifetime for anything written on it; only the allocation went.
+const dummyViews = new WeakMap();
+const dummyInk = [192, 188, 179];
+const dummyOverlay = { alive: true, emo: false, color: dummyInk, handleColors: null, hairColor: dummyInk };
+function dummyView(player) {
+  let view = dummyViews.get(player);
+  if (!view) dummyViews.set(player, view = {});
+  return Object.assign(view, player, dummyOverlay);
+}
+// A connected surface around the animated rig. All vertices keep their own
+// world depth, so the floor cannot slice a billboard body at its feet.
+const characterMeshes=new Map(),characterCamera=new Float32Array(27);
+function characterLocalCamera(origin,axes,out=characterCamera){
+  const camera=mainNativeCamera();out.set(camera);
+  const a=axes[0],b=axes[1],c=axes[2];
+  const bcx=b.y*c.z-b.z*c.y,bcy=b.z*c.x-b.x*c.z,bcz=b.x*c.y-b.y*c.x;
+  const cax=c.y*a.z-c.z*a.y,cay=c.z*a.x-c.x*a.z,caz=c.x*a.y-c.y*a.x;
+  const abx=a.y*b.z-a.z*b.y,aby=a.z*b.x-a.x*b.z,abz=a.x*b.y-a.y*b.x;
+  const det=a.x*bcx+a.y*bcy+a.z*bcz;
+  if(Math.abs(det)<1e-9)return null;
+  const dx=camera[0]-origin.x,dy=camera[1]-origin.y,dz=camera[2]-origin.z;
+  out[0]=(dx*bcx+dy*bcy+dz*bcz)/det;
+  out[1]=(dx*cax+dy*cay+dz*caz)/det;
+  out[2]=(dx*abx+dy*aby+dz*abz)/det;
+  for(let row=3;row<=9;row+=3){
+    const x=camera[row],y=camera[row+1],z=camera[row+2];
+    out[row]=x*a.x+y*a.y+z*a.z;out[row+1]=x*b.x+y*b.y+z*b.z;out[row+2]=x*c.x+y*c.y+z*c.z;
+  }
+  // Mesh colours already contain the three cel-light bands.
+  out[24]=0;out[25]=0;out[26]=-1;
+  return out;
+}
+function characterMesh(key,build,origin,axes){
+  let mesh=characterMeshes.get(key);
+  if(!mesh){
+    mesh=captureQuadMesh(build);
+    for(const face of mesh.faces){
+      const n=face.normal,light=n[0]*.35-n[1]*.8-n[2]*.45;
+      const faceSurface=key.includes(':head:');
+      const blend=clamp((light+.35)/.85,0,1);
+      const band=faceSurface?.87+.13*blend*blend*(3-2*blend):light>.35?1:light>-.25?.8:.55;
+      face.color=face.color.map(c=>Math.round(c*band));face.normal=[0,0,1];
+    }
+    if(characterMeshes.size>=192){const oldest=characterMeshes.keys().next().value;releaseQuadMesh(characterMeshes.get(oldest));characterMeshes.delete(oldest);}
+    characterMeshes.set(key,mesh);
+  }
+  if(nativeRetainedMeshes){
+    const handle=meshHandle(mesh),camera=characterLocalCamera(origin,axes);
+    if(handle>=0&&camera){nativeMeshDraw(handle,camera,0);return;}
+  }
+  const at=p=>({x:origin.x+axes[0].x*p.x+axes[1].x*p.y+axes[2].x*p.z,
+    y:origin.y+axes[0].y*p.x+axes[1].y*p.y+axes[2].y*p.z,
+    z:origin.z+axes[0].z*p.x+axes[1].z*p.y+axes[2].z*p.z});
+  for(const face of mesh.faces){const p=face.ids.map(i=>at(mesh.vertices[i]));worldQuad(p[0],p[1],p[2],p[3],face.color);}
+}
+// Cosmetic physics stays outside gameplay/replay state. Six particles form a
+// tapered ponytail: pinned root, gravity, drag, length/bend constraints and body
+// contact. Advance on simulation ticks, never as a side effect of drawing.
+// Small Verlet cloth patches: pinned top rings, structural/shear constraints,
+// body contacts, and damped inertia. Cosmetic only; combat keeps its own rig.
+const garmentStates=new WeakMap();
+function garmentTargets(player,world,kind){
+ const torso=world.segments.find(b=>b.role==='torso');if(!torso)return null;
+ const yaw=(player.poolYaw||0)+(player.spin?.angle||0),c=Math.cos(yaw),s=Math.sin(yaw),n=8,rows=3;
+ const hip={x:torso.x2,y:torso.y2,z:torso.z2},neck={x:torso.x1,y:torso.y1,z:torso.z1};
+ const points=[];
+ for(let row=0;row<rows;row++)for(let col=0;col<n;col++){
+  const u=row/(rows-1),a=col/n*Math.PI*2,front=Math.cos(a),side=Math.sin(a);
+  const center=kind==='skirt'?{x:hip.x,y:hip.y-2+u*65,z:hip.z}:{x:lerp(neck.x,hip.x,u),y:lerp(neck.y,hip.y,u)+u*6,z:lerp(neck.z,hip.z,u)};
+  const chest=kind==='shirt'?Math.sin(u*Math.PI)*(player.parkProfile?.chest||0)*Math.max(0,front)*(.45+.55*Math.abs(side)):0;
+  const depth=kind==='skirt'?12+u*15:15+chest,width=kind==='skirt'?16+u*19:20+Math.sin(u*Math.PI)*2;
+  points.push({x:center.x+c*front*depth-s*side*width,y:center.y,z:center.z+s*front*depth+c*side*width});
+ }
+ return {points,n,rows,hip,neck,yaw};
+}
+function updateGarments(player,world,dt){
+ if(!player.alive||player.dummy||!player.skin){garmentStates.delete(player);return;}
+ let state=garmentStates.get(player);if(!state){state={};garmentStates.set(player,state);}
+ for(const kind of ['shirt','skirt']){
+  if(kind==='skirt'&&player.pantsColor)continue;
+  const target=garmentTargets(player,world,kind);if(!target)continue;
+  const {points:rest,n,rows}=target;let cloth=state[kind];
+  if(!cloth||Math.hypot(rest[0].x-cloth.anchor.x,rest[0].y-cloth.anchor.y,rest[0].z-cloth.anchor.z)>250){
+   cloth={points:rest.map(p=>({...p,px:p.x,py:p.y,pz:p.z})),links:[],anchor:{...rest[0]}};
+   const link=(a,b)=>cloth.links.push([a,b,Math.hypot(rest[a].x-rest[b].x,rest[a].y-rest[b].y,rest[a].z-rest[b].z)]);
+   for(let row=0;row<rows;row++)for(let col=0;col<n;col++){const i=row*n+col;link(i,row*n+(col+1)%n);if(row<rows-1){link(i,i+n);link(i,(row+1)*n+(col+1)%n);}}
+   state[kind]=cloth;
+  }
+  const h=Math.min(Math.max(dt,0),1/30);if(!h)continue;
+  const legs=kind==='skirt'?world.segments.filter(b=>/thigh|shin/.test(b.role||'')):[];
+  const floor=poolFloorAt(player.x,player.z||0),slope=poolSlopeAt(player.x,player.z||0);
+  for(let sub=0;sub<1;sub++){
+   const drag=Math.exp(-7*h)*(cloth.h?h/cloth.h:1);cloth.h=h;
+   for(let i=n;i<cloth.points.length;i++){
+    const p=cloth.points[i],x=p.x,y=p.y,z=p.z;
+    p.x+=(p.x-p.px)*drag;p.y+=(p.y-p.py)*drag+420*h*h;p.z+=(p.z-p.pz)*drag;
+    p.px=x;p.py=y;p.pz=z;
+    // Weak bending/restoring force, stronger on a fitted shirt than a hem.
+    const k=kind==='shirt'?.12:.025;p.x+=(rest[i].x-p.x)*k;p.y+=(rest[i].y-p.y)*k;p.z+=(rest[i].z-p.z)*k;
+   }
+   for(let pass=0;pass<2;pass++){
+    for(let i=0;i<n;i++)Object.assign(cloth.points[i],rest[i]);
+    for(const [ai,bi,length] of cloth.links){
+     const a=cloth.points[ai],b=cloth.points[bi],dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z,d=Math.hypot(dx,dy,dz)||1;
+     const wa=ai<n?0:1,wb=bi<n?0:1,k=(d-length)/d/(wa+wb||1);
+     a.x+=dx*k*wa;a.y+=dy*k*wa;a.z+=dz*k*wa;b.x-=dx*k*wb;b.y-=dy*k*wb;b.z-=dz*k*wb;
+    }
+    for(let i=n;i<cloth.points.length;i++){
+     const p=cloth.points[i];
+     // Keep a fitted garment outside the torso silhouette without new hitboxes.
+     const center=kind==='shirt'?{x:lerp(target.neck.x,target.hip.x,Math.floor(i/n)/(rows-1)),z:lerp(target.neck.z,target.hip.z,Math.floor(i/n)/(rows-1))}:target.hip;
+     const dx=p.x-center.x,dz=p.z-center.z,d=Math.hypot(dx,dz)||1,min=kind==='shirt'?15:13;
+     if(d<min){p.x=center.x+dx/d*min;p.z=center.z+dz/d*min;}
+     if(kind==='skirt')for(const b of legs){
+      const x=b.x2-b.x1,y=b.y2-b.y1,z=b.z2-b.z1,t=clamp(((p.x-b.x1)*x+(p.y-b.y1)*y+(p.z-b.z1)*z)/(x*x+y*y+z*z||1),0,1);
+      const cx=b.x1+x*t,cy=b.y1+y*t,cz=b.z1+z*t,dx=p.x-cx,dy=p.y-cy,dz=p.z-cz,d=Math.hypot(dx,dy,dz)||1,r=(b.width||12)*.5+3;
+      if(d<r){p.x=cx+dx/d*r;p.y=cy+dy/d*r;p.z=cz+dz/d*r;}
+     }
+     p.y=Math.min(p.y,floor+slope.x*(p.x-player.x)+slope.z*(p.z-(player.z||0))-2);
+    }
+   }
+  }
+  Object.assign(cloth.anchor,rest[0]);
+ }
+}
+function drawGarment(player,kind){
+ const cloth=garmentStates.get(player)?.[kind];if(!cloth)return false;
+ const color=kind==='skirt'?(player.skirtColor||[140,125,168]):(player.shirtColor||[240,237,229]),n=8,view=cameraDoll.view;
+ const at=i=>{const p=cloth.points[i];return {x:p.x-view.forward.x*38,y:p.y-view.forward.y*38,z:p.z-view.forward.z*38};};
+ for(let row=0;row<2;row++)for(let col=0;col<n;col++){
+  const i=row*n+col,j=row*n+(col+1)%n;
+  worldQuad(at(i),at(j),at(j+n),at(i+n),col%2?mixColor(color,[35,29,43],.08):color);
+ }
+ return true;
+}
+
+const ponytailStates=new WeakMap();
+function ponytailAnchor(player,world){
+  const yaw=(player.poolYaw||0)+(player.spin?.angle||0),h=world.head;
+  return {x:h.x-Math.cos(yaw)*h.radius*1.03,y:h.y-h.radius*.2,
+    z:h.z-Math.sin(yaw)*h.radius*1.03};
+}
+function updatePonytail(player,world,dt){
+  if(!player.alive||player.headless||!player.skin||player.dummy){ponytailStates.delete(player);return;}
+  const anchor=ponytailAnchor(player,world),r=world.head.radius,len=r*(player.parkProfile?.appearance.hairStyle==='short'?.13:player.parkProfile?.appearance.hairStyle==='curly'?.22:.36);
+  let state=ponytailStates.get(player);
+  if(!state||Math.hypot(anchor.x-state.anchor.x,anchor.y-state.anchor.y,anchor.z-state.anchor.z)>r*8||Math.abs(state.length-len)>.01){
+    const yaw=(player.poolYaw||0)+(player.spin?.angle||0);
+    state={anchor:{...anchor},length:len,points:Array.from({length:6},(_,i)=>{
+      const x=anchor.x-Math.cos(yaw)*len*i*.6,y=anchor.y+len*i*.8,z=anchor.z-Math.sin(yaw)*len*i*.6;
+      return {x,y,z,px:x,py:y,pz:z};
+    })};
+    ponytailStates.set(player,state);
+  }
+  if(!(dt>0))return state;
+  const steps=Math.min(8,Math.max(1,Math.ceil(dt*120))),h=Math.min(dt,1/15)/steps;
+  const points=state.points,torso=world.segments.find(b=>b.role==='torso');
+  const collide=(p,cx,cy,cz,radius)=>{
+    let x=p.x-cx,y=p.y-cy,z=p.z-cz,d=Math.hypot(x,y,z);
+    if(d>=radius)return;
+    if(d<1e-7){x=-Math.cos(player.poolYaw||0);y=0;z=-Math.sin(player.poolYaw||0);d=1;}
+    const k=radius/d;p.x=cx+x*k;p.y=cy+y*k;p.z=cz+z*k;
+  };
+  for(let step=1;step<=steps;step++){
+    const root=points[0],u=step/steps;
+    root.x=lerp(state.anchor.x,anchor.x,u);root.y=lerp(state.anchor.y,anchor.y,u);root.z=lerp(state.anchor.z,anchor.z,u);
+    // Exponential drag is independent of the simulation tick frequency.
+    const drag=Math.exp(-3*h)*(state.stepSize?h/state.stepSize:1);
+    state.stepSize=h;
+    for(let i=1;i<points.length;i++){
+      const p=points[i],x=p.x,y=p.y,z=p.z;
+      p.x+=(p.x-p.px)*drag;p.y+=(p.y-p.py)*drag+1150*h*h;p.z+=(p.z-p.pz)*drag;
+      p.px=x;p.py=y;p.pz=z;
+    }
+    for(let pass=0;pass<6;pass++){
+      // Limit folding without pulling the chain toward an animated sine wave.
+      for(let i=2;i<points.length;i++){
+        const a=points[i-2],b=points[i],dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z,d=Math.hypot(dx,dy,dz)||1;
+        if(d<len*1.45){const k=(len*1.45/d-1)*.5;b.x+=dx*k;b.y+=dy*k;b.z+=dz*k;}
+      }
+      for(let i=1;i<points.length;i++){
+        const a=points[i-1],b=points[i],dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z,d=Math.hypot(dx,dy,dz)||1;
+        const k=(d-len)/d,wa=i===1?0:.5,wb=i===1?1:.5;
+        a.x+=dx*k*wa;a.y+=dy*k*wa;a.z+=dz*k*wa;
+        b.x-=dx*k*wb;b.y-=dy*k*wb;b.z-=dz*k*wb;
+      }
+      for(let i=1;i<points.length;i++){
+        const p=points[i],width=r*(.18-.025*i);
+        collide(p,world.head.x,world.head.y,world.head.z,r+width);
+        if(torso){
+          const dx=torso.x2-torso.x1,dy=torso.y2-torso.y1,dz=torso.z2-torso.z1;
+          const v=clamp(((p.x-torso.x1)*dx+(p.y-torso.y1)*dy+(p.z-torso.z1)*dz)/(dx*dx+dy*dy+dz*dz||1),0,1);
+          collide(p,torso.x1+dx*v,torso.y1+dy*v,torso.z1+dz*v,(torso.width||24)*.5+width);
+        }
+      }
+    }
+  }
+  Object.assign(state.anchor,anchor);return state;
+}
+function updatePonytails(dt,now){
+  if(!poolOnly())return;
+  const t=(now-startedAt)/1e6;
+  for(const player of activePlayers()){const pose=runnerWorldGeometry(player,t);updatePonytail(player,pose,dt);updateGarments(player,pose,dt);}
+  for(const kid of parkKids){
+    const scale=kid.bodyScale||1;
+    const radius=projectionScaleAt({x:kid.x,y:kid.y-180*scale,z:kid.z||0})*22*scale;
+    if(radius>=12 && parkActorVisible(kid))updatePonytail(kid,runnerWorldGeometry(kid,t),dt);
+    else ponytailStates.delete(kid);
+  }
+}
+
+function drawRunnerSymbol(player,c,point,scale,ellipsoid){
+      if(player===players[0]&&player.alive&&projectionScaleAt(c)*22*scale>=36){
+        const phase=player.heartPhase||0,pulse=Math.max(0,1-phase/.15)+.6*Math.max(0,1-Math.abs(phase-.23)/.1);
+        const radius=(.23+pulse*.07)*scale,center=point(c,14*scale,7*scale,-9*scale);
+        const vertex=i=>{const a=i*Math.PI/16;return point(center,0,(13*Math.cos(a)-5*Math.cos(2*a)-2*Math.cos(3*a)-Math.cos(4*a))*radius,16*Math.pow(Math.sin(a),3)*radius);};
+        for(let i=0;i<32;i++)worldTriangle(center,vertex(i),vertex(i+1),[255,80,129]);
+      }
+      const artifact=player===players[0]?aeselArtifact:null;
+      if(artifact?.animation){
+        const phase=((runtime().unixMs||runtime().monotonicUs/1000)/1000%2)*Math.PI,basePoint=point;
+        point=(c,f,u,r)=>{
+          if(artifact.animation==='spin'){const co=Math.cos(phase),sn=Math.sin(phase),x=r;r=x*co-u*sn;u=x*sn+u*co;}
+          else if(artifact.animation==='pulse'){const k=.85+Math.sin(phase)*.15;u*=k;r*=k;}
+          else if(artifact.animation==='float')u+=Math.sin(phase)*2*scale;
+          return basePoint(c,f,u,r);
+        };
+      }
+      const shape=artifact?.shape||(player===players[0]&&globalThis.__oskiewarRenderFlags?.shirtSymbol===2?'star':'flower');
+      const symbolColor=artifact?.rgb||[250,200,60];
+      if(shape==='drawing'){
+        const colors=[symbolColor,[24,18,26],[255,255,250]];
+        const vertex=(x,y,layer)=>point(c,(12+layer*.06)*scale,y*scale,x*scale);
+        const disc=(x,y,r,ink,layer)=>{for(let i=0;i<16;i++){const a=i*Math.PI/8,b=(i+1)*Math.PI/8;worldTriangle(vertex(x,y,layer),vertex(x+Math.cos(a)*r,y+Math.sin(a)*r,layer),vertex(x+Math.cos(b)*r,y+Math.sin(b)*r,layer),ink);}};
+        artifact.draw.forEach((cmd,layer)=>{
+          const ink=colors[cmd.at(-1)];
+          if(cmd[0]===0)disc(cmd[1],cmd[2],cmd[3],ink,layer);
+          else if(cmd[0]===2)worldTriangle(vertex(cmd[1],cmd[2],layer),vertex(cmd[3],cmd[4],layer),vertex(cmd[5],cmd[6],layer),ink);
+          else{const [,x,y,xx,yy,w]=cmd,len=Math.hypot(xx-x,yy-y)||1,nx=-(yy-y)/len*w/2,ny=(xx-x)/len*w/2;
+            worldQuad(vertex(x+nx,y+ny,layer),vertex(xx+nx,yy+ny,layer),vertex(xx-nx,yy-ny,layer),vertex(x-nx,y-ny,layer),ink);
+            disc(x,y,w/2,ink,layer);disc(xx,yy,w/2,ink,layer);}
+        });
+      }else if(shape==='custom'){
+        for(const face of artifact.faces){const v=face.map(i=>point(c,12*scale,artifact.points[i][1]*scale,artifact.points[i][0]*scale));worldTriangle(v[0],v[1],v[2],symbolColor);}
+      }else if(shape==='star'||shape==='heart'){
+        const center=point(c,12*scale,0,0),count=shape==='star'?10:32;
+        const vertex=i=>{const a=i*Math.PI*2/count;
+          if(shape==='heart')return point(c,12*scale,(13*Math.cos(a)-5*Math.cos(2*a)-2*Math.cos(3*a)-Math.cos(4*a))*.38*scale,16*Math.pow(Math.sin(a),3)*.38*scale);
+          const r=(i%2?2.6:6)*scale;return point(c,12*scale,Math.cos(a)*r,Math.sin(a)*r);};
+        for(let i=0;i<count;i++)worldTriangle(center,vertex(i),vertex(i+1),symbolColor);
+      }else if(shape==='rainbow'){
+        const colors=[[244,83,91],[249,155,65],[250,211,76],[88,191,121],[81,153,235],[166,109,219]];
+        for(let band=0;band<6;band++)for(let i=0;i<12;i++){
+          const v=(j,r)=>point(c,12*scale,(Math.sin(j*Math.PI/12)*r-3)*scale,Math.cos(j*Math.PI/12)*r*scale);
+          const r=8-band*.85;worldQuad(v(i,r),v(i+1,r),v(i+1,r-.85),v(i,r-.85),colors[band]);
+        }
+      }else{
+      for(let i=0;i<6;i++){const a=i/6*Math.PI*2;ellipsoid(point(c,12*scale,Math.cos(a)*3*scale,Math.sin(a)*3*scale),.8*scale,2*scale,2*scale,[255,255,250],4,2);}
+      ellipsoid(point(c,13*scale,0,0),1*scale,2*scale,2*scale,symbolColor,4,2);
+      }
+}
+
+// One sampled 3D curve supplies both the cartoon strokes and contact capsules.
+const loosePoseCache=new WeakMap();
+function looseRunnerGeometry(world,steps=8){
+  const cached=loosePoseCache.get(world);if(cached&&cached.steps===steps)return cached;
+  const segments=[],used=new Set(),end=(b,n)=>({x:b['x'+n],y:b['y'+n],z:b['z'+n]});
+  for(const upper of world.segments){
+    if(used.has(upper))continue;
+    const lower=/(thigh|upper-arm)$/.test(upper.role||'')?world.segments.find(b=>b.part===upper.part&&/(shin|forearm)$/.test(b.role||'')):null;
+    if(!lower){segments.push({...upper,width:upper.role==='torso'?30*(world.flow?.scale||1):upper.width});continue;}
+    used.add(upper);used.add(lower);
+    const a=end(upper,1),joint=end(upper,2),b=end(lower,2);
+    const control={};for(const k of ['x','y','z'])control[k]=2*joint[k]-(a[k]+b[k])*.5;
+    if(world.flow){
+      const f=world.flow,side=upper.part.startsWith('left')?-1:1,arm=/upper-arm$/.test(upper.role);
+      const bow=(arm?8:3.5)+Math.sin(f.phase*2.1+side*.9)*(arm?4:2.3)+(arm?f.swing*5:0);
+      control.x-=Math.sin(f.yaw)*bow*side*f.scale;control.z+=Math.cos(f.yaw)*bow*side*f.scale;
+    }
+    let previous=a;
+    for(let i=1;i<=steps;i++){
+      const u=i/steps,q=1-u,next={};for(const k of ['x','y','z'])next[k]=q*q*a[k]+2*q*u*control[k]+u*u*b[k];
+      const original=i<=steps/2?upper:lower;
+      segments.push({...original,x1:previous.x,y1:previous.y,z1:previous.z,x2:next.x,y2:next.y,z2:next.z});previous=next;
+    }
+  }
+  const result={...world,segments,steps};loosePoseCache.set(world,result);return result;
+}
+const looseCartoonEnabled=()=>poolOnly()&&globalThis.__oskiewarRenderFlags?.solidCharacter!==true;
+function drawLooseRunner(player,world,t,lod){
+  const radius=world.head.radius*projectionScaleAt(world.head);
+  const pose=looseRunnerGeometry(world,radius<15?3:radius<40?5:8),geometry=projectRunnerWorldGeometry(pose);
+  if(geometry.behind)return;
+  const saved=triangleDepth,ink=[20,17,28],skin=player.color,hair=player.hairColor||[35,27,34];
+  const scale=player.civilian?(player.bodyScale||1):1;
+  const stroke3=(a,b,width,color,edge=0,depth=null)=>{
+    const cut=worldSegment(a.x,a.y,a.z,b.x,b.y,b.z);if(!cut)return;
+    const k=projectionScaleAt({x:(a.x+b.x)*.5,y:(a.y+b.y)*.5,z:(a.z+b.z)*.5});
+    triangleDepth=depth??((cut.from.z+cut.to.z)*.5-.00002);
+    filledCapsule(cut.from.x,cut.from.y,cut.to.x,cut.to.y,width*k+edge,color);
+  };
+  if(player.goKart)drawGoKart({...player.goKart,x:player.x,y:player.y,z:player.z,poolYaw:player.poolYaw,skatePitch:player.skatePitch});else if(player.skateboard)drawSkateboard(player);
+  const end=(b,n)=>({x:b['x'+n],y:b['y'+n],z:b['z'+n]});
+  const groups=new Map();
+  for(const bone of geometry.segments){
+    if(bone.hidden||bone.hitboxOnly||!hasPart(player,bone.part))continue;
+    const key=bone.part||bone.role;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(bone);
+  }
+  const ordered=[...groups.values()].map(bones=>({bones,depth:bones.reduce((sum,b)=>sum+b.depth,0)/bones.length})).sort((a,b)=>b.depth-a.depth);
+  // With a raymarching host the body is one SDF figure and these flat
+  // strokes are skipped; the drawn head, face and cloth still go on top.
+  const sdfBody=nativeSdfFigure&&renderFlags.sdf!==false&&drawSdfRunner(player,world,t,true);
+  if(!sdfBody)for(const {bones,depth} of ordered){
+    const limb=/arm|leg/.test(bones[0].part||'');
+    if(!limb){
+      triangleDepth=depth;
+      for(const b of bones)filledCapsule(b.x1,b.y1,b.x2,b.y2,b.width+3,ink);
+      triangleDepth=depth-.00001;
+      for(const b of bones)filledCapsule(b.x1,b.y1,b.x2,b.y2,b.width,b.role==='torso'?player.shirtColor||[252,252,250]:skin);
+      continue;
+    }
+    const points=[{x:bones[0].x1,y:bones[0].y1,width:bones[0].width}];
+    for(const b of bones)points.push({x:b.x2,y:b.y2,width:b.width});
+    for(let i=0;i<points.length;i++){
+      const a=points[Math.max(0,i-1)],b=points[Math.min(points.length-1,i+1)],d=Math.hypot(b.x-a.x,b.y-a.y)||1;
+      points[i].nx=-(b.y-a.y)/d;points[i].ny=(b.x-a.x)/d;
+    }
+    const color=player.pantsColor&&/leg/.test(bones[0].part)?player.pantsColor:player.parkProfile?.appearance.sleeves==='long'&&/arm/.test(bones[0].part)?player.shirtColor:skin;
+    for(const edge of [true,false]){
+      const c=edge?ink:color,pad=edge?(lod?1:1.75):0;triangleDepth=depth-(edge?0:.00001);
+      for(let i=1;i<points.length;i++){
+        const a=points[i-1],b=points[i],ra=a.width/2+pad,rb=b.width/2+pad;
+        const ax=a.nx*ra,ay=a.ny*ra,bx=b.nx*rb,by=b.ny*rb;
+        screenTriangle(a.x+ax,a.y+ay,a.x-ax,a.y-ay,b.x+bx,b.y+by,...c);
+        screenTriangle(a.x-ax,a.y-ay,b.x-bx,b.y-by,b.x+bx,b.y+by,...c);
+      }
+      for(const p of [points[0],points[points.length-1]])filledDisc(p.x,p.y,p.width/2+pad,c);
+    }
+  }
+  const torso=world.segments.find(b=>b.role==='torso');
+  const yaw=(player.poolYaw||0)+(player.spin?.angle||0),forward={x:Math.cos(yaw),y:0,z:Math.sin(yaw)};
+  const view=cameraDoll.view,front=-(forward.x*view.forward.x+forward.z*view.forward.z);
+  const point=(c,f,u,r)=>({x:c.x-view.forward.x*f+view.right.x*r,y:c.y-u-view.forward.y*f+view.right.y*r,z:c.z-view.forward.z*f+view.right.z*r});
+  if(torso){
+    const hip=end(torso,2),neck=end(torso,1);
+    drawGarment(player,'shirt');
+    if(!player.pantsColor&&!drawGarment(player,'skirt')){
+      const skirt=player.skirtColor||[188,164,226],sway=Math.sin((player.poolStridePhase||0)*Math.PI*2)*3;
+      const a=point(hip,40*scale,1,-14*scale),b=point(hip,40*scale,1,14*scale),c=point(hip,40*scale,-65*scale,34*scale+sway),d=point(hip,40*scale,-65*scale,-34*scale+sway);
+      worldQuad(a,b,c,d,skirt);
+      stroke3(a,d,1,ink);stroke3(d,c,1,ink);stroke3(c,b,1,ink);
+      for(const r of [-.45,0,.45])stroke3(point(hip,40.1*scale,0,r*14*scale),point(hip,40.1*scale,-65*scale,r*34*scale+sway),.6,mixColor(skirt,ink,.25));
+    }
+    if(front>0&&lod===0){
+      const c={x:lerp(hip.x,neck.x,.65),y:lerp(hip.y,neck.y,.65),z:lerp(hip.z,neck.z,.65)};
+      const disc=(center,rx,ry,rz,color)=>{const p=cameraDoll.project(center);triangleDepth=p.z-.00002;filledDisc(p.x,p.y,ry*projectionScaleAt(center),color);};
+      drawRunnerSymbol(player,c,(center,f,u,r)=>point(center,f+48,u,r),scale,disc);
+    }
+  }
+  const pony=!sdfBody&&ponytailStates.get(player);
+  if(pony)for(let i=1;i<pony.points.length;i++){
+    const width=(8-i)*scale;stroke3(pony.points[i-1],pony.points[i],width,ink,1.5);stroke3(pony.points[i-1],pony.points[i],width,hair);
+  }
+  if(!player.headless&&!geometry.head.behind){
+    const h=geometry.head;
+    // Over an SDF head the face sits just in front of the sphere's surface.
+    triangleDepth=h.depth-world.head.radius*cameraDoll.depthSlope*(sdfBody?1.08:.5);
+    if(!sdfBody){filledDisc(h.x,h.y,h.radius+(lod?1.2:2.2),ink);filledDisc(h.x,h.y,h.radius,front<-.2?hair:skin);}
+    if(front>=-.2){
+      // On an SDF head the flat fringe only reads face-on; from the side the
+      // shaded hair cap carries the hair.
+      if(!sdfBody||front>.45)drawHairline(player,h);
+      const faceYaw=Math.atan2(forward.x*view.right.x+forward.z*view.right.z,front);
+      drawTrioFace(player,h,runtime().monotonicUs,faceYaw);
+    }
+  }
+  if(player.gunAmmo>0){const gun=gunPose(player,runtime().monotonicUs);stroke3(gun.hand,gun.muzzle,7,[35,35,43]);}
+  drawHeldAxe(player,t);drawHeldChalk(player,t);triangleDepth=saved;
+}
+
+const sdfPrims=new Float32Array(48*12);
+// The same body drawSpatialRunner tessellates, as round cones: limbs taper,
+// the torso and skirt are cones, the head is a skin sphere with a hair cap
+// set back from the face, and the eyes cut in with a hard union.
+// loose: the body only. The loose cartoon keeps its drawn head, face, hair,
+// skirt and cloth over it, and draws the vehicle and items itself.
+function drawSdfRunner(player,world,t,loose=false){
+  const scale=player.civilian?(player.bodyScale||1):1;
+  const yaw=(player.poolYaw||0)+(player.spin?.angle||0);
+  const forward={x:Math.cos(yaw),y:0,z:Math.sin(yaw)},side={x:-forward.z,y:0,z:forward.x};
+  const point=(c,f,u,r)=>({x:c.x+forward.x*f+side.x*r,y:c.y-u,z:c.z+forward.z*f+side.z*r});
+  const end=(b,n)=>({x:b['x'+n],y:b['y'+n],z:b['z'+n]});
+  const skin=player.color,shirt=player.shirtColor||[252,252,250];
+  const dressed=player.skin&&!player.dummy;
+  let count=0;
+  const put=(a,b,r1,r2,ink,hard=0)=>{
+    if(count>=48)return;const o=count++*12;
+    sdfPrims[o]=a.x;sdfPrims[o+1]=a.y;sdfPrims[o+2]=a.z;sdfPrims[o+3]=r1;
+    sdfPrims[o+4]=b.x;sdfPrims[o+5]=b.y;sdfPrims[o+6]=b.z;sdfPrims[o+7]=r2;
+    sdfPrims[o+8]=ink[0]/255;sdfPrims[o+9]=ink[1]/255;sdfPrims[o+10]=ink[2]/255;sdfPrims[o+11]=hard;
+  };
+  const torso=world.segments.find(b=>b.role==='torso');
+  for(const bone of world.segments){
+    if(bone.role==='torso'||!hasPart(player,bone.part))continue;
+    const a=end(bone,1),b=end(bone,2),r=(bone.width||10)*.5;
+    if(bone.role==='shoulders'){if(hasPart(player,'torso'))put(a,b,r*.9,r*.9,dressed?shirt:skin);continue;}
+    const pants=player.pantsColor&&/thigh|shin/.test(bone.role);
+    put(a,b,r,r*.86,pants?player.pantsColor:skin);
+    if(dressed&&/upper-arm$/.test(bone.role)){
+      const cuff={x:lerp(a.x,b.x,.42),y:lerp(a.y,b.y,.42),z:lerp(a.z,b.z,.42)};
+      put(a,cuff,r+1.5*scale,r+1*scale,shirt,1);
+    }
+    if(/shin$/.test(bone.role))put(point(b,-4*scale,4*scale,0),point(b,13*scale,3*scale,0),6*scale,5.5*scale,player.shoeColor||[70,70,96],1);
+  }
+  if(torso&&hasPart(player,'torso')){
+    const hip=end(torso,2),neck=end(torso,1),ink=dressed?shirt:skin;
+    const mid={x:lerp(hip.x,neck.x,.62),y:lerp(hip.y,neck.y,.62),z:lerp(hip.z,neck.z,.62)};
+    put(hip,mid,14*scale,17*scale,ink);put(mid,neck,17*scale,10*scale,ink);
+    if(dressed&&!player.pantsColor&&!loose){
+      const sway=Math.sin((player.poolStridePhase||0)*Math.PI*2)*3+(player.rig?.lean||0)*.16;
+      const top={...hip,y:hip.y-3*scale};
+      put(top,point(top,sway*scale,-30*scale,0),12*scale,19*scale,player.skirtColor||[188,164,226],1);
+    }
+  }
+  if(loose){
+    const pony=ponytailStates.get(player),hair=player.hairColor||[35,27,34],h=world.head,r=h.radius;
+    if(pony)for(let i=1;i<pony.points.length;i++)put(pony.points[i-1],pony.points[i],r*(.205-.03*(i-1)),r*(.205-.03*i),hair);
+    // The head is shaded like the body; the drawn face and hairline go on top.
+    if(!player.headless){put(h,h,r*.97,r*.97,skin);const cap=point(h,-r*.3,r*.2,0);put(cap,cap,r*.82,r*.82,hair,1);}
+  }else if(!player.headless){
+    const h=world.head,r=h.radius,hair=player.hairColor||[35,27,34];
+    put(h,h,r*.97,r*.97,skin);
+    const cap=point(h,-r*.3,r*.2,0);put(cap,cap,r*.82,r*.82,hair,1);
+    for(const sign of [-1,1])put(point(h,r*.9,r*.02,sign*r*.34),point(h,r*.9,r*.24,sign*r*.34),r*.13,r*.13,[24,18,29],1);
+    const nose=point(h,r*.94,-r*.13,0);put(nose,nose,r*.13,r*.13,skin);
+    const hairState=dressed&&ponytailStates.get(player);
+    if(hairState)for(let i=1;i<hairState.points.length;i++)
+      put(hairState.points[i-1],hairState.points[i],r*(.205-.03*(i-1)),r*(.205-.03*i),hair);
+    if(dressed||player.pad===0){
+      const bow=point(h,r*.48,r*.88,0),ink=player.accent||[147,231,200];
+      for(const sign of [-1,1])put(bow,point(bow,0,0,sign*r*.45),r*.08,r*.2,ink,1);
+    }
+  }
+  if(player.gunAmmo>0&&!loose){
+    const pose=gunPose(player,runtime().monotonicUs);
+    put(pose.hand,pose.muzzle,4*scale,4*scale,[45,48,55],1);
+    put(pose.hand,{...pose.hand,y:pose.hand.y+14*scale},4*scale,3*scale,[30,29,34],1);
+  }
+  // A rejected figure (a non-finite pose, an oversize radius) falls back to
+  // triangles for this frame rather than throwing out of paint.
+  let drawn=false;
+  try{drawn=!!count&&nativeSdfFigure(sdfPrims,count,mainNativeCamera());}catch{drawn=false;}
+  if(!drawn)return false;
+  if(loose)return true;
+  if(player.goKart)drawGoKart({...player.goKart,x:player.x,y:player.y,z:player.z,poolYaw:player.poolYaw,skatePitch:player.skatePitch});else if(player.skateboard)drawSkateboard(player);
+  const saved=triangleDepth;
+  triangleDepth=projectPoint(world.head.x,world.head.y,world.head.z).z-.004;
+  drawHeldAxe(player,t);drawHeldChalk(player,t);triangleDepth=saved;
+  return true;
+}
+function drawSpatialRunner(player,world,t,lod=0){
+  if(nativeSdfFigure&&renderFlags.sdf!==false&&drawSdfRunner(player,world,t))return;
+  const scale=player.civilian?(player.bodyScale||1):1;
+  // The ink silhouette stays smooth even when the shaded volume uses fewer
+  // polygons. It sits behind the volume, at real actor depth, not HUD depth.
+  if(lod<2){
+    const projected=projectRunnerWorldGeometry(world),saved=triangleDepth;
+    const ink=[20,17,28],edge=lod?1.1:2.2;
+    if(!projected.behind){
+      triangleDepth=projected.head.depth+world.head.radius*cameraDoll.depthSlope;
+      filledDisc(projected.head.x,projected.head.y,projected.head.radius+edge,ink);
+      for(const bone of projected.segments){
+        if(bone.hidden||bone.hitboxOnly||['torso','shoulders'].includes(bone.role))continue;
+        triangleDepth=bone.depth+.002;
+        filledCapsule(bone.x1,bone.y1,bone.x2,bone.y2,bone.width+edge*2,ink);
+      }
+    }
+    triangleDepth=saved;
+  }
+  const yaw=(player.poolYaw||0)+(player.spin?.angle||0);
+  const forward={x:Math.cos(yaw),y:0,z:Math.sin(yaw)};
+  const side={x:-forward.z,y:0,z:forward.x};
+  const point=(c,f,u,r)=>({x:c.x+forward.x*f+side.x*r,y:c.y-u,z:c.z+forward.z*f+side.z*r});
+  const end=(b,n)=>({x:b['x'+n],y:b['y'+n],z:b['z'+n]});
+  const skin=player.color,shirt=player.shirtColor||[252,252,250];
+  const dressed=player.skin&&!player.dummy;
+  const tube=(a,b,r1,r2,ink,sides=lod?4:8)=>{
+    const axis=normalize3({x:b.x-a.x,y:b.y-a.y,z:b.z-a.z});
+    const ref=Math.abs(axis.y)<.9?{x:0,y:1,z:0}:{x:1,y:0,z:0};
+    const u=normalize3({x:axis.y*ref.z-axis.z*ref.y,y:axis.z*ref.x-axis.x*ref.z,z:axis.x*ref.y-axis.y*ref.x});
+    const v={x:axis.y*u.z-axis.z*u.y,y:axis.z*u.x-axis.x*u.z,z:axis.x*u.y-axis.y*u.x};
+    const ratio=r2/r1,length=Math.hypot(b.x-a.x,b.y-a.y,b.z-a.z);
+    characterMesh('tube:'+sides+':'+ratio.toFixed(3)+':'+ink.join(','),()=>{
+      const ring=(y,r,i)=>{const angle=i/sides*Math.PI*2;return {x:Math.cos(angle)*r,y,z:Math.sin(angle)*r};};
+      for(let i=0;i<sides;i++){
+        const a0=ring(0,1,i),a1=ring(0,1,i+1),b0=ring(1,ratio,i),b1=ring(1,ratio,i+1);
+        worldQuad(a0,a1,b1,b0,ink);
+        if(i%2===0){
+          worldQuad({x:0,y:0,z:0},ring(0,1,i+2),a1,a0,ink);
+          worldQuad({x:0,y:1,z:0},b0,b1,ring(1,ratio,i+2),ink);
+        }
+      }
+    },a,[{x:u.x*r1,y:u.y*r1,z:u.z*r1},{x:axis.x*length,y:axis.y*length,z:axis.z*length},{x:v.x*r1,y:v.y*r1,z:v.z*r1}]);
+  };
+  const ellipsoid=(c,rx,ry,rz,ink,cols=lod?8:16,rows=lod?4:8,key='')=>{
+    characterMesh('sphere:'+cols+':'+rows+':'+(key||ink.join(',')),()=>{
+      const vertex=(i,j)=>{const lon=i/cols*Math.PI*2,lat=j/rows*Math.PI;
+        return {x:Math.cos(lon)*Math.sin(lat),y:-Math.cos(lat),z:Math.sin(lon)*Math.sin(lat)};};
+      for(let j=0;j<rows;j++)for(let i=0;i<cols;i++)
+        worldQuad(vertex(i,j),vertex(i+1,j),vertex(i+1,j+1),vertex(i,j+1),typeof ink==='function'?ink(i,j,cols,rows):ink);
+    },c,[{x:forward.x*rx,y:0,z:forward.z*rx},{x:0,y:ry,z:0},{x:side.x*rz,y:0,z:side.z*rz}]);
+  };
+  const torso=world.segments.find(b=>b.role==='torso');
+  if(player.goKart)drawGoKart({...player.goKart,x:player.x,y:player.y,z:player.z,poolYaw:player.poolYaw,skatePitch:player.skatePitch});else if(player.skateboard)drawSkateboard(player);
+  for(const bone of world.segments){
+    if(['torso','shoulders'].includes(bone.role)||!hasPart(player,bone.part))continue;
+    const a=end(bone,1),b=end(bone,2),r=(bone.width||10)*.5;
+    const pants=player.pantsColor&&/thigh|shin/.test(bone.role);
+    tube(a,b,r,r*.86,pants?player.pantsColor:skin);
+    if(dressed&&/upper-arm$/.test(bone.role)){
+      const cuff={x:lerp(a.x,b.x,.42),y:lerp(a.y,b.y,.42),z:lerp(a.z,b.z,.42)};
+      tube(a,cuff,r+1.5*scale,r+1*scale,shirt);
+    }
+    if(/shin$/.test(bone.role))ellipsoid(point(b,5*scale,3*scale,0),13*scale,6*scale,7*scale,player.shoeColor||[70,70,96],8,4);
+  }
+  if(torso&&hasPart(player,'torso')){
+    const hip=end(torso,2),neck=end(torso,1),ink=dressed?shirt:skin;
+    const breathing=1+Math.sin((player.breathPhase||0)*Math.PI*2)*.035;
+    const axes=[{x:forward.x*scale*breathing,y:0,z:forward.z*scale*breathing},
+      {x:neck.x-hip.x,y:neck.y-hip.y,z:neck.z-hip.z},{x:side.x*scale,y:0,z:side.z*scale}];
+    characterMesh('torso:'+ink.join(','),()=>{
+      const rings=[];
+      for(let j=0;j<5;j++){
+        const u=j/4,curve=Math.sin(u*Math.PI)*2.5;
+        rings.push(Array.from({length:12},(_,i)=>{const a=i/12*Math.PI*2;
+          return {x:Math.cos(a)*[8,7,10,11,8][j]-curve,y:u,z:Math.sin(a)*[13,11,16,21,17][j]};}));
+      }
+      for(let j=0;j<4;j++)for(let i=0;i<12;i++)worldQuad(rings[j][i],rings[j][(i+1)%12],rings[j+1][(i+1)%12],rings[j+1][i],ink);
+    },hip,axes);
+    if(dressed&&!player.pantsColor){
+      const skirt=player.skirtColor||[188,164,226],count=16,rows=3;
+      const sway=Math.sin((player.poolStridePhase||0)*Math.PI*2)*3+(player.rig?.lean||0)*.16+Math.sin((player.breathPhase||0)*Math.PI*2)*1.2;
+      characterMesh('skirt:'+skirt.join(','),()=>{
+        const ring=(i,j)=>{const u=j/rows,a=i/count*Math.PI*2,fold=(i%2?1:-1)*1.4*u;
+          return {x:Math.cos(a)*(10+u*10+fold),y:u,z:Math.sin(a)*(15+u*12+fold)};};
+        for(let j=0;j<rows;j++)for(let i=0;i<count;i++)worldQuad(ring(i,j),ring(i+1,j),ring(i+1,j+1),ring(i,j+1),mixColor(skirt,[40,30,55],i%2?.13:0));
+      },{...hip,y:hip.y-3*scale},[{x:forward.x*scale,y:0,z:forward.z*scale},{x:forward.x*sway*scale,y:35*scale,z:forward.z*sway*scale},{x:side.x*scale,y:0,z:side.z*scale}]);
+    }
+    if(dressed&&lod===0){
+      const c={x:lerp(hip.x,neck.x,.65),y:lerp(hip.y,neck.y,.65),z:lerp(hip.z,neck.z,.65)};
+      drawRunnerSymbol(player,c,point,scale,ellipsoid);
+    }
+  }
+  if(!player.headless){
+    const h=world.head,r=h.radius;
+    const hair=player.hairColor||[35,27,34];
+    ellipsoid(h,r*.96,r,r*.96,(i,j,cols,rows)=>j<rows*.25||(Math.cos((i+.5)/cols*Math.PI*2)<-.15&&j<rows*.78)?hair:skin,lod?8:16,lod?4:8,'head:'+hair.join(',')+':'+skin.join(','));
+    if(dressed&&lod<2){
+      const hairState=ponytailStates.get(player);
+      if(hairState){
+        for(let i=1;i<hairState.points.length;i++)
+          tube(hairState.points[i-1],hairState.points[i],r*(.205-.03*(i-1)),r*(.205-.03*i),hair,lod?4:6);
+      }
+    }
+    if(lod<2)for(const sign of [-1,1]){
+      ellipsoid(point(h,r*.82,r*.13,sign*r*.35),r*.18,r*.29,r*.21,[24,18,29],8,4);
+      ellipsoid(point(h,r*.87,r*.13,sign*r*.35),r*.16,r*.24,r*.17,[250,250,247],8,4);
+      ellipsoid(point(h,r*.975,r*.13,sign*r*.35),r*.055,r*.12,r*.10,player.irisColor||[70,111,153],6,4);
+    }
+    ellipsoid(point(h,r*.94,-r*.13,0),r*.14,r*.13,r*.12,skin,8,4);
+    tube(point(h,r*.85,-r*.43,-r*.2),point(h,r*.85,-r*.43,r*.2),r*.025,r*.025,[55,25,38],6);
+    if(lod<2&&(dressed||player.pad===0)){
+      const bow=point(h,r*.48,r*.88,0),ink=player.accent||[147,231,200];
+      for(const sign of [-1,1]){
+        const a=point(bow,0,0,sign*r*.06),b=point(bow,0,r*.23,sign*r*.52),c=point(bow,0,-r*.23,sign*r*.52),d=point(bow,-r*.16,0,sign*r*.35);
+        worldQuad(a,b,c,a,ink);worldQuad(a,c,d,a,ink);worldQuad(a,d,b,a,ink);worldQuad(b,d,c,b,ink);
+      }
+      ellipsoid(bow,r*.13,r*.13,r*.13,ink,8,4);
+    }
+  }
+  const saved=triangleDepth;
+  triangleDepth=projectPoint(world.head.x,world.head.y,world.head.z).z-.004;
+  if(player.gunAmmo>0){
+    const pose=gunPose(player,runtime().monotonicUs);
+    tube(pose.hand,pose.muzzle,4*scale,4*scale,[45,48,55],4);
+    tube(pose.hand,{...pose.hand,y:pose.hand.y+14*scale},4*scale,3*scale,[30,29,34],4);
+  }
+  drawHeldAxe(player,t);drawHeldChalk(player,t);triangleDepth=saved;
+}
+
+function drawRunner(player,t,showLabel=true){
+  if(player===players[0]&&player.parkEntrance?.progress<.73)return;
+  const previous=figureDrawScale;
+  const world=player.replayGeometry||player.frozenGeometry||runnerWorldGeometry(player,t);
+  figureDrawScale=projectionScaleAt(world.head);
+  try{
+    drawRunnerAtScale(player,t,showLabel);
+    if(poolOnly()&&player.alive&&player.blocking)drawPlayerBubble(player,t);
+    if(player.civilian&&player.alive&&players[0].sparringPartner===player.pad)drawSparringTarget(player,world,t);
+  }finally{figureDrawScale=previous;}
+}
+function drawSparringTarget(player,world,t){
+ const age=Math.max(0,(runtime().monotonicUs-(player.sparringStartedAt||0))/1e6),pulse=Math.max(0,1-age/.6);
+ const head=projectPoint(world.head.x,world.head.y,world.head.z);if(head.behind)return;
+ const r=world.head.radius*projectionScaleAt(world.head)*(1.4+pulse*.4),old=triangleDepth;triangleDepth=head.z-.002;
+ const ink=[255,187,91],line=Math.max(2,r*.08);
+ for(const side of [-1,1]){
+   filledCapsule(head.x+side*r,head.y-r,head.x+side*r,head.y-r*.5,line,ink);
+   filledCapsule(head.x+side*r,head.y-r,head.x+side*r*.65,head.y-r,line,ink);
+ }
+ const label=player.name||'SPARRING',size=clamp(r*.4,18,32);
+ typeWrite(label,head.x-handleWidth(label,size)/2,head.y-r-size-8,size,...ink);triangleDepth=old;
+}
+function drawPlayerBubble(player,t){
+  const world=shieldGeometry(player);
+  // A raymarching host shades the bubble as a real sphere: fresnel rim,
+  // thin-film colour and a glint, blended over the world.
+  if(nativeSdfBubble&&renderFlags.sdf!==false){
+    const tint=player.accent||[150,220,255];
+    try{if(nativeSdfBubble(world.x,world.y,world.z,world.radius,tint[0],tint[1],tint[2],mainNativeCamera()))return;}catch{}
+  }
+  const point=projectPoint(world.x,world.y,world.z);
+  if(point.behind)return;
+  const old=triangleDepth;
+  triangleDepth=point.z-world.radius*cameraDoll.depthSlope-.0001;
+  drawBubble(player,point.x,point.y,Math.max(3,world.radius*projectionScaleAt(world)),t);
+  triangleDepth=old;
+}
+function drawRunnerAtScale(player, t, showLabel = true) {
+  const fallen=ragdollBodies.get(player);if(fallen&&!player.alive){drawLooseRunner(player,fallen.pose,t,0);if(player.headless&&player.looseHead)drawCivilianLooseHead(player);return;}
+  if(player.civilian && player.headless){drawCivilianDebris(player);return;}
+  if(player.dummy)player=dummyView(player);
   // A fighter who is down is still on the stage: they read as the broken body
   // rather than as nothing. There is no state in which a fighter is skipped.
   const headBurstAge = player.headBustedAt
@@ -13724,14 +19702,16 @@ function drawRunner(player, t, showLabel = true) {
   }
   if (player.fallenBodyGeometry) {
     const fallen = projectRunnerWorldGeometry(player.fallenBodyGeometry);
-    drawSkeletonSegments(fallen.segments, player.color, [8, 12, 24], photoThemeActive ? player : null);
+    if (!fallen.behind)
+      drawSkeletonSegments(fallen.segments, player.color, [8, 12, 24], photoThemeActive ? player : null);
   }
   const geometry = player.replayGeometry
     ? projectRunnerWorldGeometry(player.replayGeometry)
     : player.frozenGeometry
       ? projectRunnerWorldGeometry(player.frozenGeometry)
     : runnerGeometry(player, t);
-  if (roundResult && player.resultReaction) {
+  if (geometry.behind) return;
+  if ((roundResult || parkSupply.ko?.settled) && player.resultReaction) {
     const age = (runtime().monotonicUs - player.resultReactionAt) / 1000000;
     const amount = player.resultReaction === "POSE" ||
       player.resultReaction === "SULK" ? 3 : 8;
@@ -13746,6 +19726,15 @@ function drawRunner(player, t, showLabel = true) {
       segment.y1 += dy; segment.y2 += dy;
     }
   }
+  const flatFight=!!parkFightRival(player);
+  const lod = flatFight?0:poolOnly()&&player.civilian?Math.max(geometry.head.radius<12?2:1,figureLod(player,geometry)):figureLod(player, geometry);
+  if(poolOnly()&&player.alive&&!player.dummy&&!flatFight){
+    const world=player.replayGeometry||player.frozenGeometry||runnerWorldGeometry(player,t);
+    if(looseCartoonEnabled())drawLooseRunner(player,world,t,lod);
+    else drawSpatialRunner(player,world,t,lod);
+    return;
+  }
+  if (lod > 0) { drawFigureLod(player, geometry, lod, t); return; }
   // Preserve the fighter's identity color during hit flash. A pure white body
   // disappeared against the daylight arena, so impact now changes only its rim.
   const color = player.color;
@@ -13754,7 +19743,16 @@ function drawRunner(player, t, showLabel = true) {
     : [8, 12, 24];
   const displayNow = player.frozenAt || runtime().monotonicUs;
   if (player.skateboard) drawSkateboard(player);
+  if (!player.dummy && (player.skin || player.pad === 0)) {
+    drawPonytail(player, player.replayGeometry ||
+      player.frozenGeometry || runnerWorldGeometry(player, t));
+    drawBow(player, "tails");
+  }
+  if(player.spin)drawSpinArms(player,t,geometry,false,color,outline);
   drawFighterSilhouette(geometry, color, outline, player);
+  drawScars(player, geometry);
+  if (player.skin && !player.dummy) drawOutfit(player, geometry);
+  if (!player.dummy && (player.skin || player.pad === 0)) { drawHairline(player, geometry.head); drawBow(player, "loops"); }
   const hitNow = runtime().monotonicUs;
   if (player.hitSegment >= 0 && hitNow < player.hitSegmentUntil &&
       Math.floor(hitNow / 45000) % 2 === 0) {
@@ -13768,18 +19766,55 @@ function drawRunner(player, t, showLabel = true) {
   // still tableau used to sit faceless — a sparring-partner special case
   // grown from the old dummy door — but the wordmark screen is the
   // storefront, and whoever sits under it should look back.
-  drawFace(player, geometry.head, contrastShadow(color), t, displayNow);
+  const facePlayer=flatFight?{...player,facing:Math.sign(Math.cos(player.poolYaw||0)*(players[0].poolFightAxis?.x??1)+Math.sin(player.poolYaw||0)*(players[0].poolFightAxis?.z??0))||1}:player;
+  drawFace(facePlayer, geometry.head, contrastShadow(color), t, displayNow);
+  if(player.emo)drawEmoFringe(player,geometry.head);
+  if(player.dummy)drawFace(player,geometry.head,contrastShadow(color),t,displayNow);
+  if(player.spin)drawSpinArms(player,t,geometry,true,color,outline);
   drawInventory(player, displayNow, geometry);
-  if (player.blocking) {
+  drawHeldAxe(player,t);
+  if (player.blocking && !poolOnly()) {
     const worldShield = shieldGeometry(player);
     const shield = projectPoint(worldShield.x, worldShield.y, worldShield.z);
     const radius = Math.max(18, worldShield.radius * cameraScale());
-    const shieldColor = player.blockFlash > 0 ? [255, 255, 255] : player.color;
-    const outerWidth = Math.max(4, 11 * cameraScale());
-    filledRing(shield.x, shield.y, radius,
-      Math.max(0, radius - outerWidth), shieldColor);
+    drawBubble(player, shield.x, shield.y, radius, runtime().monotonicUs / 1e6);
   }
 
+}
+
+// The shield is a bubble: a thin soap film round the fighter. There is no
+// alpha on the console, so the film is all rim — a band of thin-film colour
+// that drifts round as the bubble turns, wobbling in and out a little, with
+// a bright crescent where the light sits and a glint. A block flashes the
+// whole film white.
+function drawBubble(player, cx, cy, radius, clock) {
+  const flash = player.blockFlash > 0;
+  const width = Math.max(2.5, radius * .07);
+  const count = 28;
+  const film = [[255, 150, 214], [255, 226, 140], [150, 255, 200], [120, 214, 255], [196, 160, 255]];
+  const at = (index) => {
+    const angle = index / count * Math.PI * 2;
+    const wobble = 1 + .035 * Math.sin(angle * 3 + clock * 5.5) + .02 * Math.sin(angle * 5 - clock * 3.1);
+    return { angle, x: cx + Math.cos(angle) * radius * wobble, y: cy + Math.sin(angle) * radius * wobble };
+  };
+  for (let index = 0; index < count; index++) {
+    const a = at(index), b = at(index + 1);
+    const hue = ((index / count + clock * .12) % 1 + 1) % 1 * film.length;
+    const low = Math.floor(hue) % film.length, high = (low + 1) % film.length;
+    const tint = mixColor(film[low], film[high], hue - Math.floor(hue));
+    const color = flash ? [255, 255, 255] : mixColor(tint, player.color, .18);
+    filledCapsule(a.x, a.y, b.x, b.y, width, color);
+  }
+  // The light's crescent, upper left, and a glint beside it.
+  for (let index = 0; index < 5; index++) {
+    const from = Math.PI * 1.08 + index * .09, to = from + .09;
+    const r = radius * .8;
+    filledCapsule(cx + Math.cos(from) * r, cy + Math.sin(from) * r,
+      cx + Math.cos(to) * r, cy + Math.sin(to) * r, Math.max(2, width * (1.2 - Math.abs(index - 2) * .25)),
+      [252, 254, 255]);
+  }
+  filledDisc(cx + Math.cos(Math.PI * 1.62) * radius * .72, cy + Math.sin(Math.PI * 1.62) * radius * .72,
+    Math.max(1.5, width * .9), [255, 255, 255]);
 }
 
 function drawDiveMotion(player, t) {
@@ -13798,6 +19833,26 @@ function drawDiveMotion(player, t) {
     const endY = startY - (95 + index * 17) * speed;
     worldCapsule(x, startY, player.z + 18, x, endY, player.z + 18,
       3 + speed * 3 + level, color, .028);
+  }
+}
+
+// Speed lines trail a sideways dash: horizontal streaks behind the body
+// (or behind the head, when that is all there is), fading over the beat.
+function drawDashMotion(player, t) {
+  const now = runtime().monotonicUs;
+  if (now >= (player.dashLinesUntil || 0)) return;
+  const life = clamp((player.dashLinesUntil - now) / 260000, 0, 1);
+  const facing = player.dashLinesFacing || player.facing || 1;
+  const color = mixColor(player.color, [244, 250, 255], .55);
+  const head = isHeadOnly(player);
+  const count = head ? 4 : 6;
+  for (let index = 0; index < count; index++) {
+    const y = head ? player.y - 8 - index * 9
+      : player.y - 24 - index * 22 + Math.sin(t * 17 + index) * 3;
+    const startX = player.x - facing * (head ? 26 : 34 + index % 2 * 14);
+    const endX = startX - facing * (56 + index * 12) * life;
+    worldCapsule(startX, y, player.z + 16, endX, y, player.z + 16,
+      3 + life * 3, color, .029);
   }
 }
 
@@ -13860,13 +19915,17 @@ function drawDebugHitboxes(player, t) {
   const pushColor = [255, 158, 54];
   const attackColor = [255, 58, 64];
   const guardColor = [186, 118, 255];
+  // Hitcubes: each box is drawn as the cube it is — its near and far faces
+  // and the four edges between them — so which lane a strike reaches shows.
   const draw = (b, color, width = 2) => {
-    const z = (b.near+b.far)/2;
-    const points = [[b.left,b.top],[b.right,b.top],[b.right,b.bottom],[b.left,b.bottom]]
+    const face = (z) => [[b.left,b.top],[b.right,b.top],[b.right,b.bottom],[b.left,b.bottom]]
       .map(([x,y])=>projectPoint(x,y,z));
+    const near = face(b.near), far = face(b.far);
     for (let i=0;i<4;i++) {
-      const a=points[i], next=points[(i+1)%4];
-      debugCapsule(a.x,a.y,next.x,next.y,width,color);
+      const next=(i+1)%4;
+      debugCapsule(near[i].x,near[i].y,near[next].x,near[next].y,width,color);
+      debugCapsule(far[i].x,far[i].y,far[next].x,far[next].y,Math.max(1,width-1),color);
+      debugCapsule(near[i].x,near[i].y,far[i].x,far[i].y,Math.max(1,width-1),color);
     }
   };
   for (const b of boxes.hurt) draw(b,hurtColor);
@@ -13880,17 +19939,18 @@ function drawDebugHitboxes(player, t) {
 // right the way it happened, and the thing you just did is under your eye
 // rather than across the screen.
 //
-// Two rows, one per fighter, stacked so the frames line up vertically: that
+// One row per active fighter, stacked so the frames line up vertically: that
 // column alignment IS the instrument. Reading "my recovery sits under their
 // active" off two rows is the whole reason a frame meter exists, and it is
 // why this is a stacked pair rather than one row per player somewhere
 // convenient.
 function drawFrameMeter() {
   if (!debugHitboxes || renderFlags.hud === false) return;
-  if (!frameMeters.some((meter) => meter.length)) return;
+  const shown=activePlayers();
+  if (!shown.some(player=>frameMeters[player.pad].length)) return;
   const safe = hudSafeRect();
   const pip = Math.max(2, Math.min(7, Math.floor(
-    (safe.right - safe.left) * .55 / frameMeterLength) - 1));
+    (safe.right - safe.left) * (poolOnly()?.4:.55) / frameMeterLength) - 1));
   const gap = pip > 3 ? 1 : 0;
   // Tall enough to read a color at a glance. The pips are the resolution;
   // the row height is only whether you can see them, and a meter you have to
@@ -13900,11 +19960,11 @@ function drawFrameMeter() {
   // Centred, and lifted clear of the bottom furniture -- the session name,
   // the bug and the opponent label all live along that edge, and the first
   // placement laid the meter straight across them.
-  const left = Math.round((safe.left + safe.right - width) / 2);
-  const top = safe.bottom - rowHeight * 2 - 58;
-  for (const player of players) {
+  const left = poolOnly()?safe.left+36:Math.round((safe.left + safe.right - width) / 2);
+  const top = poolOnly()?safe.top+124:safe.bottom-rowHeight*shown.length-58;
+  for (const [row,player] of shown.entries()) {
     const meter = frameMeters[player.pad];
-    const y = top + player.pad * (rowHeight + 3);
+    const y = top + row * (rowHeight + 3);
     // The empty track, so a meter that has not filled yet reads as a meter
     // rather than as nothing having happened.
     hudBox(left, y, width, rowHeight, 16, 19, 30);
@@ -13925,7 +19985,7 @@ function drawFrameMeter() {
   // seconds actually contained, because a legend listing colors that are not
   // on screen is a thing to decode rather than a thing to read.
   const seen = new Set();
-  for (const meter of frameMeters) for (const state of meter)
+  for (const player of shown) for (const state of frameMeters[player.pad])
     if (frameMeterStates[state]?.label) seen.add(state);
   let x = left;
   for (const state of seen) {
@@ -13982,6 +20042,7 @@ function drawFloatingHandle(player, x, y, size) {
 }
 
 function drawPlayerHandle(player, t, side) {
+  if(freeskateActive())return;
   const { x, y, size } = playerHandleLayout(player, side);
   const handle = visibleHandle(player);
   const drawGlyphs = (dx, dy, colors, fallback) => {
@@ -14104,7 +20165,7 @@ function drawPlayerStats(player, side, t) {
   const x = side === 0 ? safe.left : safe.right - width;
   const y = handle.y - debugReadoutHeight() - height - 12;
   const previousDepth = triangleDepth;
-  triangleDepth = -1.445;
+  triangleDepth = hudDepth;
   for (let row = 0; row < lines.length; row++) {
     const rowY = y + padding + row * lineHeight;
     writeHudLine(lines[row], x + padding, rowY, size);
@@ -14113,6 +20174,7 @@ function drawPlayerStats(player, side, t) {
 }
 
 function drawHudInventory(player, side) {
+  if(freeskateActive())return;
   const items = [];
   if (player.gunAmmo > 0) items.push("gun " + player.gunAmmo);
   if (player.grenadeAmmo > 0) items.push("grenade " + player.grenadeAmmo);
@@ -14167,6 +20229,7 @@ function commandStreamStackHeight(player, now = runtime().monotonicUs) {
 }
 
 function drawCommandStream(player, side) {
+  if(freeskateActive()){drawSeatAction(player);return;}
   const glyph = { LEFT: "<", RIGHT: ">", UP: "^", DOWN: "v" };
   const buttonFor = { LEFT: "ArrowLeft", RIGHT: "ArrowRight",
     UP: "ArrowUp", DOWN: "ArrowDown", "/": "A", "*": "B", ")": "X",
@@ -14386,8 +20449,10 @@ function recordFightHit(sourcePad, decisive) {
 // still knows how far away its ends are.
 function clipSegmentBand(from, to) {
   const width = viewWidth();
-  const minX = -width * guardBand, maxX = width * (1 + guardBand);
-  const minY = -viewHeight * guardBand, maxY = viewHeight * (1 + guardBand);
+  const minX = clipView ? clipView.x : -width * guardBand;
+  const maxX = clipView ? clipView.x + clipView.w : width * (1 + guardBand);
+  const minY = clipView ? clipView.y : -viewHeight * guardBand;
+  const maxY = clipView ? clipView.y + clipView.h : viewHeight * (1 + guardBand);
   // Most segments sit whole inside the band — every grass blade, most limbs.
   // Plain compares answer those; only a segment that actually crosses an
   // edge pays for the parametric walk and its rebuilt endpoints.
@@ -14447,6 +20512,25 @@ function worldCapsule(x1, y1, z1, x2, y2, z2, width, color,
   triangleDepth = previousDepth;
 }
 
+// The hall's light and air. Indoors, faces higher up the ramps catch more of
+// the daylight through the glass and the bottom of the pipe sits a little
+// darker; and everything fades toward the colour of the air with distance
+// from the lens, which is what gives the room its depth.
+function hallAir(color, a, b) {
+  if (!indoorSkate()) return color;
+  const height = clamp((floorY - (a.y + b.y) / 2) / halfpipeRadius, 0, 1);
+  const lift = .9 + height * .16;
+  let lit = [Math.min(255, color[0] * lift), Math.min(255, color[1] * lift), Math.min(255, color[2] * lift)];
+  const distance = ((a.view?.z ?? 0) + (b.view?.z ?? 0)) / 2;
+  const start = cameraDoll.width * .9;
+  if (distance > start) {
+    const fog = Math.min(.28, (distance - start) / (cameraDoll.width * 2.8));
+    const air = hallColors.wall;
+    lit[0] += (air[0] - lit[0]) * fog; lit[1] += (air[1] - lit[1]) * fog; lit[2] += (air[2] - lit[2]) * fog;
+  }
+  return lit;
+}
+
 function litQuadColor(a, b, c, color) {
   // Lighting is decided in world space, off the surface the quad names, so it
   // is the same shade however the clipper ends up cutting the face up. The
@@ -14465,8 +20549,19 @@ function litQuadColor(a, b, c, color) {
     Math.round(color[1] * illumination),
     Math.round(color[2] * illumination)];
 }
+const quadView=[{},{},{},{}],quadScreen=[{},{},{},{}];
 function worldQuad(a, b, c, d, color) {
   const lit = litQuadColor(a, b, c, color);
+  if (programBuffered) {
+    emitWorldFace(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, lit[0], lit[1], lit[2]);
+    emitWorldFace(a.x, a.y, a.z, c.x, c.y, c.z, d.x, d.y, d.z, lit[0], lit[1], lit[2]);
+    return;
+  }
+  const va=cameraDoll.toView(a,quadView[0]),vb=cameraDoll.toView(b,quadView[1]),vc=cameraDoll.toView(c,quadView[2]),vd=cameraDoll.toView(d,quadView[3]);
+  if(va.z>=cameraNear && vb.z>=cameraNear && vc.z>=cameraNear && vd.z>=cameraNear){
+    const pa=cameraDoll.projectView(va,quadScreen[0]),pb=cameraDoll.projectView(vb,quadScreen[1]),pc=cameraDoll.projectView(vc,quadScreen[2]),pd=cameraDoll.projectView(vd,quadScreen[3]);
+    if(bandContains(pa)&&bandContains(pb)&&bandContains(pc)&&bandContains(pd)){projectedTriangle(pa,pb,pc,lit);projectedTriangle(pa,pc,pd,lit);return;}
+  }
   worldTriangle(a, b, c, lit);
   worldTriangle(a, c, d, lit);
 }
@@ -14499,7 +20594,23 @@ function rebuildTerrainProfile() {
 // this is for the ramps, where six samples a tile all survived.
 const terrainDrawProfile = [];
 const terrainDrawTolerance = 1;
+// Level of detail keeps the contours true: wide shots draw thinner copies
+// simplified to 3 and 8 world units — about a pixel at those lenses — never
+// a stride that cuts across a curve. Every point of a copy lies on the real
+// outline; only straight-enough runs lose points.
+const terrainDrawProfiles = [terrainDrawProfile, [], []];
+const terrainDrawTolerances = [terrainDrawTolerance, 3, 8];
 function rebuildTerrainDrawProfile() {
+  for (let level = 0; level < terrainDrawProfiles.length; level++) {
+    const kept = simplifyTerrain(terrainDrawTolerances[level]);
+    terrainDrawProfiles[level].splice(0, terrainDrawProfiles[level].length, ...kept);
+  }
+}
+const activeTerrainProfile = () => {
+  const lod = sceneLod();
+  return terrainDrawProfiles[lod >= 4 ? 2 : lod >= 2 ? 1 : 0];
+};
+function simplifyTerrain(tolerance) {
   const kept = [];
   let anchor = 0;
   kept.push(terrainProfile[0]);
@@ -14515,7 +20626,7 @@ function rebuildTerrainDrawProfile() {
       for (let between = anchor + 1; between < index; between++) {
         const point = terrainProfile[between];
         const distance = Math.abs((point.x - a.x) * dy - (point.y - a.y) * dx) / length;
-        if (distance > terrainDrawTolerance) { fits = false; break; }
+        if (distance > tolerance) { fits = false; break; }
       }
     }
     if (!fits) {
@@ -14523,7 +20634,7 @@ function rebuildTerrainDrawProfile() {
       kept.push(terrainProfile[anchor]);
     }
   }
-  terrainDrawProfile.splice(0, terrainDrawProfile.length, ...kept);
+  return kept;
 }
 rebuildTerrainProfile();
 
@@ -14546,6 +20657,9 @@ function terrainVertex(slot, index, x, y, z) {
   vertex.x = x; vertex.y = y; vertex.z = z;
   const view = cameraDoll.toView(vertex, vertex.view);
   vertex.front = view.z >= cameraNear;
+  // Buffered on the flat look, the interpreter projects the face; only the
+  // camera-space depth is needed here, for the hall's air.
+  if (programBuffered && !photoThemeActive) { vertex.inBand = false; return vertex; }
   vertex.inBand = vertex.front &&
     bandContains(cameraDoll.projectView(view, vertex.screen));
   return vertex;
@@ -14553,10 +20667,33 @@ function terrainVertex(slot, index, x, y, z) {
 // `bottomY` null: the bottom vertex shares the profile's y (the surface
 // pass, top at z `zTop`, bottom at z `zBottom`). Otherwise a wall: both
 // vertices at `zTop`, the bottom one dropped to `bottomY`.
-function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf) {
+// The near skirt fills the bottom of the frame at the TV lens, and a flat
+// shade there read as a blank slab under a photographed floor. Split each
+// segment's drop into `rows` bands, each wearing the whole wall strip, so
+// the material repeats down the face at about the strip's own proportion.
+// Falls back to the shaded quad when the theme cannot draw (no atlas, or a
+// corner off the frame), so the wall is never missing.
+function terrainSkirtTiles(topLeft, topRight, bottomRight, bottomLeft, rows) {
+  for (let row = 0; row < rows; row++) {
+    const from = row / rows, to = (row + 1) / rows;
+    const corner = (top, bottom, mix) => projectPoint(top.x,
+      top.y + (bottom.y - top.y) * mix, top.z);
+    if (!photoSurface("skirt", corner(topLeft, bottomLeft, from),
+        corner(topRight, bottomRight, from), corner(topRight, bottomRight, to),
+        corner(topLeft, bottomLeft, to))) return row > 0;
+  }
+  return true;
+}
+
+// One number for how much detail the scene can afford at this lens: 1 up
+// close, rising with the camera's width to 6 for a whole-course shot.
+const sceneLod = () => cameraDoll.width > 2600
+  ? clamp(Math.round(cameraDoll.width / 1800), 1, 6) : 1;
+
+function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf, tileRows = 1) {
   const { top, bottom } = terrainScratch;
   const wall = bottomY !== null;
-  const terrainProfile = terrainDrawProfile;
+  const terrainProfile = activeTerrainProfile();
   const count = terrainProfile.length;
   let previous = -1;
   for (let index = 0; index < count; index++) {
@@ -14573,12 +20710,24 @@ function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf) {
         !(point.x < left || terrainProfile[previous].x > right)) {
       const a1 = top[previous], b1 = bottom[previous];
       const shade = shadeOf(previous);
+      if (programBuffered && !photoThemeActive) {
+        const lit = hallAir(litQuadColor(a1, a, b, shade), a1, a);
+        emitWorldFace(a1.x, a1.y, a1.z, a.x, a.y, a.z, b.x, b.y, b.z, lit[0], lit[1], lit[2]);
+        emitWorldFace(a1.x, a1.y, a1.z, b.x, b.y, b.z, b1.x, b1.y, b1.z, lit[0], lit[1], lit[2]);
+        previous = index;
+        continue;
+      }
       if (a1.front && a.front && b.front && b1.front) {
+        if (wall && tileRows > 1 && photoThemeActive &&
+            terrainSkirtTiles(a1, a, b, b1, tileRows)) {
+          previous = index;
+          continue;
+        }
         if (photoSurface(wall ? "wall" : "concrete", a1.screen, a.screen, b.screen, b1.screen)) {
           previous = index;
           continue;
         }
-        const lit = litQuadColor(a1, a, b, shade);
+        const lit = hallAir(litQuadColor(a1, a, b, shade), a1, a);
         if (a1.inBand && a.inBand && b.inBand && b1.inBand) {
           projectedTriangle(a1.screen, a.screen, b.screen, lit);
           projectedTriangle(a1.screen, b.screen, b1.screen, lit);
@@ -14597,11 +20746,14 @@ function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf) {
 // Per-segment surface shade, cached against the ground color it was mixed
 // from: the slope never changes between rebuilds, and mixing 240 colours a
 // frame was measurable on the console.
+// Pastel tints for the pipe's facets: mint, lilac, sky, butter, pink.
+const facetTints = [[150, 236, 192], [206, 170, 250], [150, 202, 252], [252, 226, 140], [252, 164, 204]];
 let terrainShadeKey = "";
 const terrainShades = [];
 function terrainSurfaceShades(color) {
-  const terrainProfile = terrainDrawProfile;
-  const key = color.join(",") + "/" + terrainProfile.length;
+  const terrainProfile = activeTerrainProfile();
+  const key = color.join(",") + "/" + terrainDrawProfiles.indexOf(terrainProfile) +
+    "/" + terrainProfile.length;
   if (key === terrainShadeKey) return terrainShades;
   terrainShadeKey = key;
   terrainShades.length = 0;
@@ -14609,17 +20761,148 @@ function terrainSurfaceShades(color) {
     const { x: x1, y: y1 } = terrainProfile[index - 1];
     const { x: x2, y: y2 } = terrainProfile[index];
     const slope = Math.abs(y2 - y1) / Math.max(1, x2 - x1);
-    terrainShades[index - 1] =
-      mixColor(color, [110, 120, 90], .16 + Math.min(1, slope) * .22);
+    let shade = mixColor(color, [110, 120, 90], .16 + Math.min(1, slope) * .22);
+    // Indoors each facet of the pipe wears its own tint from a set of warm
+    // tones, so the ramps read as faceted planes rather than one flat colour.
+    if (indoorSkate()) shade = mixColor(shade, facetTints[(index - 1) % facetTints.length], .42);
+    terrainShades[index - 1] = shade;
   }
   return terrainShades;
 }
-function drawTerrainSurface(left, right, near, far, color) {
+let poolSurfaceMesh=null;
+function parkSurfaceColor(base,x,z){
+  let light=0;
+  for(const lamp of parkLights)light=Math.max(light,Math.max(0,1-Math.hypot(x-lamp.x,z-lamp.z)/1450));
+  return mixColor(base,[255,236,197],light*light*.18);
+}
+function drawPoolGeometry() {
+  drawParkParkingLot();
+  const ink=parkPalette.pool,ground=parkPalette.ground,rampInk=parkPalette.ramp;
+  const holes=parkPools.map(b=>({x:b.x,z:b.z,hx:b.halfX+b.radius+b.deck,hz:b.halfZ+b.radius+b.deck})).concat(parkRamps,parkHalfPipe3D);
+  // Include hole edges in the flat mesh so no triangle bridges a bowl.
+  const cuts=(low,high,axis,half)=>{
+    const values=[low,high];for(let n=low+160;n<high;n+=160)values.push(n);
+    for(const hole of holes)values.push(hole[axis]-hole[half],hole[axis]+hole[half]);
+    return [...new Set(values.filter(n=>n>=low&&n<=high))].sort((a,b)=>a-b);
+  };
+  const xs=cuts(gridLeft,gridLeft+gridWidth,'x','hx'),zs=cuts(worldNear,worldFar,'z','hz');
+  const groundPoint=(x,z)=>({x,y:parkGroundAt(x,z),z});
+  for(let j=1;j<zs.length;j++){
+    let flatFrom=null;
+    const flush=right=>{if(flatFrom===null)return;worldQuad(groundPoint(flatFrom,zs[j-1]),groundPoint(right,zs[j-1]),groundPoint(right,zs[j]),groundPoint(flatFrom,zs[j]),parkSurfaceColor(ground,(flatFrom+right)/2,(zs[j-1]+zs[j])/2));flatFrom=null;};
+    for(let i=1;i<xs.length;i++){
+      const x=(xs[i-1]+xs[i])/2,z=(zs[j-1]+zs[j])/2;
+      if(holes.some(h=>Math.abs(x-h.x)<h.hx&&Math.abs(z-h.z)<h.hz)){flush(xs[i-1]);continue;}
+      const points=[groundPoint(xs[i-1],zs[j-1]),groundPoint(xs[i],zs[j-1]),groundPoint(xs[i],zs[j]),groundPoint(xs[i-1],zs[j])];
+      if(points.every(p=>p.y===parkDeckY)){flatFrom??=xs[i-1];if(xs[i]-flatFrom>=960)flush(xs[i]);continue;}
+      const hill=parkHills.findIndex(h=>(x-h.x)**2/h.rx**2+(z-h.z)**2/h.rz**2<1);
+      flush(xs[i-1]);worldQuad(...points,parkSurfaceColor(hill<0?ground:parkPalette.hills[hill],x,z));
+    }
+    flush(xs.at(-1));
+  }
+  for(const bowl of parkPools){
+    const ring=radius=>{
+      const raw=[];
+      for(let corner=0;corner<4;corner++)for(let i=0;i<=8;i++){
+        const a=(corner+i/8)*Math.PI/2,sx=corner===0||corner===3?1:-1,sz=corner<2?1:-1;
+        raw.push({x:bowl.x+sx*bowl.halfX+Math.cos(a)*radius,z:bowl.z+sz*bowl.halfZ+Math.sin(a)*radius});
+      }
+      const result=[];
+      for(let i=0;i<raw.length;i++){
+        const a=raw[i],b=raw[(i+1)%raw.length];
+        // Straight sides have a fixed subdivision at every ring.
+        const steps=(i+1)%9===0?Math.ceil((i%18===8?bowl.halfX:bowl.halfZ)*2/80):1;
+        for(let n=0;n<steps;n++){const x=lerp(a.x,b.x,n/steps),z=lerp(a.z,b.z,n/steps);result.push({x,y:bowlHeight(x,z,bowl),z});}
+      }
+      return result;
+    };
+    worldQuad({x:bowl.x-bowl.halfX,y:parkDeckY+bowl.depth,z:bowl.z-bowl.halfZ},
+      {x:bowl.x+bowl.halfX,y:parkDeckY+bowl.depth,z:bowl.z-bowl.halfZ},
+      {x:bowl.x+bowl.halfX,y:parkDeckY+bowl.depth,z:bowl.z+bowl.halfZ},
+      {x:bowl.x-bowl.halfX,y:parkDeckY+bowl.depth,z:bowl.z+bowl.halfZ},ink);
+    let previous=ring(0);
+    for(let band=1;band<=10;band++){
+      const current=ring(bowl.radius*band/10);
+      for(let i=0;i<current.length;i++){const j=(i+1)%current.length;worldQuad(current[i],current[j],previous[j],previous[i],ink);}
+      previous=current;
+    }
+    const hx=bowl.halfX+bowl.radius+bowl.deck,hz=bowl.halfZ+bowl.radius+bowl.deck;
+    const outer=previous.map(p=>{const dx=p.x-bowl.x,dz=p.z-bowl.z,k=Math.min(hx/Math.abs(dx||.0001),hz/Math.abs(dz||.0001));return {x:bowl.x+dx*k,y:parkDeckY,z:bowl.z+dz*k};});
+    for(let i=0;i<outer.length;i++){
+      const j=(i+1)%outer.length,a=outer[i],b=outer[j];worldQuad(a,b,previous[j],previous[i],ink);
+      const aX=Math.abs(Math.abs(a.x-bowl.x)-hx)<.001,bX=Math.abs(Math.abs(b.x-bowl.x)-hx)<.001;
+      if(aX!==bX){const corner={x:aX?a.x:b.x,y:parkDeckY,z:aX?b.z:a.z};worldQuad(a,corner,b,b,ink);}
+    }
+  }
+  // The pipe and its open-end roll-ins use exactly the collision profile.
+  const pipe=parkHalfPipe3D,profile=[0,pipe.flat,pipe.flat+pipe.radius+pipe.deck,pipe.hx];
+  for(let i=1;i<=16;i++)profile.push(pipe.flat+pipe.radius*Math.sin(i*Math.PI/32));
+  const px=[...new Set(profile.flatMap(x=>[-x,x]))].sort((a,b)=>a-b);
+  const taper=pipe.hz-pipe.run;
+  const pz=[-pipe.hz,-pipe.run-taper*.75,-pipe.run-taper*.5,-pipe.run-taper*.25,-pipe.run,0,pipe.run,pipe.run+taper*.25,pipe.run+taper*.5,pipe.run+taper*.75,pipe.hz];
+  const at=(x,z)=>({x:pipe.x+x,y:parkDeckY-parkHalfPipeHeight(pipe.x+x,pipe.z+z),z:pipe.z+z});
+  for(let j=1;j<pz.length;j++)for(let i=1;i<px.length;i++)
+    worldQuad(at(px[i-1],pz[j-1]),at(px[i],pz[j-1]),at(px[i],pz[j]),at(px[i-1],pz[j]),[207,163,114]);
+  for(const side of [-1,1]){
+    const x=pipe.x+side*(pipe.flat+pipe.radius),y=parkDeckY-pipe.radius-2;
+    worldCapsule(x,y,pipe.z-pipe.run,x,y,pipe.z+pipe.run,6*cameraScale(),[92,108,119]);
+  }
+  for(const r of parkRamps){
+    const corners=(hx,hz,y)=>[[-hx,-hz],[hx,-hz],[hx,hz],[-hx,hz]].map(([x,z])=>({x:r.x+x,y,z:r.z+z}));
+    const base=corners(r.hx,r.hz,parkDeckY),top=corners(r.tx,r.tz,parkDeckY-r.height);
+    worldQuad(...top,rampInk);
+    for(let i=0;i<4;i++){const j=(i+1)%4;worldQuad(base[i],base[j],top[j],top[i],rampInk);}
+  }
+}
+let pipeSurfaceMesh=null,pipeSurfaceKey='';
+function drawTerrainSurface(left,right,near,far,color){
+ if(poolOnly()){poolSurfaceMesh ||= captureQuadMesh(drawPoolGeometry);drawParkScene(poolSurfaceMesh);drawOutdoorCircuit();return;}
+ if(!indoorSkate()){drawTerrainSurfaceGeometry(left,right,near,far,color);return;}
+ const key=gridCols+':'+near+':'+far+':'+color.join(',');
+ if(key!==pipeSurfaceKey){pipeSurfaceKey=key;releaseQuadMesh(pipeSurfaceMesh);pipeSurfaceMesh=captureQuadMesh(()=>drawTerrainSurfaceGeometry(worldLeft,worldRight,near,far,color));}
+ drawQuadMesh(pipeSurfaceMesh);
+}
+function drawTerrainSurfaceGeometry(left, right, near, far, color) {
   const shades = terrainSurfaceShades(color);
+  if(indoorSkate()){
+    for(const seg of parkSegments){
+      if(seg.kind==='pond'||seg.from===10||seg.right<left||seg.left>right)continue;
+      const steps=seg.kind==='transition'?16:1;
+      for(let i=0;i<steps;i++){
+        const x=lerp(seg.left,seg.right,i/steps),r=lerp(seg.left,seg.right,(i+1)/steps);
+        const y=terrainFloorAt(x+.01),ry=terrainFloorAt(r-.01);
+        worldQuad({x,y,z:near},{x:r,y:ry,z:near},{x:r,y:ry,z:far},{x,y,z:far},[188,156,111]);
+      }
+    }
+    return;
+  }
   terrainPass(left, right, near, far, null, (segment) => shades[segment]);
 }
 
-function drawTerrainFrontWall(left, right, near, color) {
+let pipeWallMesh=null,pipeWallKey='';
+function drawTerrainFrontWall(left,right,near,color){
+ if(poolOnly())return;
+ if(!indoorSkate()){drawTerrainFrontWallGeometry(left,right,near,color);return;}
+ const key=gridCols+':'+near+':'+color.join(',');
+ if(key!==pipeWallKey){pipeWallKey=key;releaseQuadMesh(pipeWallMesh);pipeWallMesh=captureQuadMesh(()=>drawTerrainFrontWallGeometry(worldLeft,worldRight,near,color));}
+ drawQuadMesh(pipeWallMesh);
+}
+function drawTerrainFrontWallGeometry(left, right, near, color) {
+  if(indoorSkate()){
+    const z=near-2,bottom=tunnelBottom()+720;
+    const l=Math.max(gridLeft,left),r=Math.min(parkRight,right);
+    worldQuad({x:l,y:tunnelBottom(),z},{x:r,y:tunnelBottom(),z},{x:r,y:bottom,z},{x:l,y:bottom,z},color);
+    for(const segment of parkSegments){
+      if(segment.right<l || segment.left>r || segment.kind==='pond' || segment.from===10)continue;
+      const steps=segment.kind==='transition'?12:1;
+      for(let i=0;i<steps;i++){
+        const x=lerp(segment.left,segment.right,i/steps),rx=lerp(segment.left,segment.right,(i+1)/steps);
+        const a=terrainFloorAt(x+.01),b=terrainFloorAt(rx-.01);
+        worldQuad({x,y:a,z},{x:rx,y:b,z},{x:rx,y:b+40,z},{x,y:a+40,z},color);
+      }
+    }
+    return;
+  }
   // Close the near edge with a terrain-following skirt so camera pitch never
   // exposes what lies beneath the floor.
   //
@@ -14636,10 +20919,14 @@ function drawTerrainFrontWall(left, right, near, color) {
   const wall = mixColor(color, [63, 54, 46], .36);
   const wallZ = reel ? 55 : near - 2;
   const wallBottom = parkDeepest + (reel ? 9000 : 720);
-  terrainPass(left, right, wallZ, wallZ, wallBottom, () => wall);
+  // Four bands down the 720 drop keeps the strip near its own proportion;
+  // the reel's deep skirt stays shaded, its framing is test-enshrined.
+  terrainPass(left, right, wallZ, wallZ, wallBottom, () => wall, reel || consoleHost() ? 1 : 4);
 }
 
 function drawTerrainBackWall(left, right, far, color) {
+  if(poolOnly())return;
+  if(indoorSkate())return;
   // The far edge was simply open. Yaw clamps at +/-.62rad, which is more than
   // enough to swing the diorama around and look straight through the back of
   // the slab into the buried room wall. The near edge has hung a skirt since
@@ -14657,7 +20944,246 @@ function drawTerrainBackWall(left, right, far, color) {
   terrainPass(left, right, wallZ, wallZ, wallBottom, () => wall);
 }
 
+function outdoorCircuit(){const radius=160934.4/(Math.PI*2);return {x:gridLeft+gridWidth*.52,z:worldNear-1500-radius,radius};}
+function outdoorGroundAt(x,z){
+ const t=outdoorCircuit(),a=Math.atan2(x-t.x,z-t.z),distance=Math.hypot(x-t.x,z-t.z);
+ const ridge=clamp(1-Math.max(0,Math.abs(distance-t.radius)-400)/2200,0,1);
+ const hills=(1-Math.cos(a))*650*(1+.4*Math.sin(a*3));
+ // A broad takeoff and landing hump: the sharp crest launches fast karts.
+ const jumpAngle=76/512*Math.PI*2,jumpSpan=4/512*Math.PI*2;
+ const jump=420*Math.max(0,1-Math.abs(a-jumpAngle)/jumpSpan);
+ return parkDeckY-(hills+jump)*ridge;
+}
+function outdoorTunnelAt(x,z){
+ const t=outdoorCircuit(),a=Math.atan2(x-t.x,z-t.z),offset=Math.hypot(x-t.x,z-t.z)-t.radius;
+ if(a<32/512*Math.PI*2||a>48/512*Math.PI*2||Math.abs(offset)>=430)return null;
+ return outdoorGroundAt(x,z)-160-560*Math.sqrt(1-(offset/430)**2);
+}
+function boundKartTrack(p,previous){
+ if(!p.goKart)return;
+ const t=outdoorCircuit(),dx=p.x-t.x,dz=(p.z||0)-t.z,r=Math.hypot(dx,dz),a=Math.atan2(dx,dz);
+ if(Math.abs(a)<3/512*Math.PI*2)return; // entrance from the parking lot
+ const old=Math.hypot(previous.x-t.x,previous.z-t.z)-t.radius,offset=r-t.radius;
+ if(Math.abs(old)<=280&&Math.abs(offset)>280&&p.y>outdoorGroundAt(p.x,p.z)-100){
+  const target=t.radius+Math.sign(offset)*280,nx=dx/r,nz=dz/r;
+  p.x=t.x+nx*target;p.z=t.z+nz*target;
+  const normal=p.vx*nx+(p.vz||0)*nz;p.vx-=normal*nx*1.2;p.vz-=normal*nz*1.2;
+ }
+}
+const outdoorChunks=new Map();
+function drawOutdoorCircuit(){
+ const rider=players[0],track=outdoorCircuit(),keep=new Set(),chunkSize=3000;
+ const draw=(key,build)=>{keep.add(key);let mesh=outdoorChunks.get(key);if(!mesh){mesh=captureQuadMesh(build);outdoorChunks.set(key,mesh);}if(sceneBoundsVisible(mesh.bounds))drawQuadMesh(mesh);};
+ // A bounded moving ground window. Collision remains analytic at any speed.
+ const gx=Math.floor(rider.x/chunkSize),gz=Math.floor((rider.z||0)/chunkSize);
+ for(let ix=gx-2;ix<=gx+2;ix++)for(let iz=gz-2;iz<=gz+2;iz++){
+  const x=ix*chunkSize,z=iz*chunkSize,end=Math.min(z+chunkSize,worldNear-parkLotMargin);
+  if(end<=z)continue;
+  draw('ground:'+ix+':'+iz,()=>{
+   const at=(x,z)=>({x,z,y:outdoorGroundAt(x,z)+8});
+   for(let xx=x;xx<x+chunkSize;xx+=500)for(let zz=z;zz<end;zz+=500){const far=Math.min(end,zz+500);worldQuad(at(xx,zz),at(xx+500,zz),at(xx+500,far),at(xx,far),[97,111,92]);}
+  });
+ }
+ const segments=512,chunkSegments=8;
+ for(let chunk=0;chunk<segments/chunkSegments;chunk++){
+  const angle=(chunk+.5)*chunkSegments/segments*Math.PI*2,cx=track.x+Math.sin(angle)*track.radius,cz=track.z+Math.cos(angle)*track.radius;
+  if(Math.hypot(cx-rider.x,cz-(rider.z||0))>7500)continue;
+  draw('road:'+chunk,()=>{
+   const at=(a,r,y=parkDeckY-1)=>{const x=track.x+Math.sin(a)*r,z=track.z+Math.cos(a)*r;return {x,z,y:outdoorGroundAt(x,z)+y-parkDeckY};};
+   for(let i=chunk*chunkSegments;i<(chunk+1)*chunkSegments;i++){
+    const a=i/segments*Math.PI*2,b=(i+1)/segments*Math.PI*2,r=track.radius;
+    worldQuad(at(a,r-350),at(b,r-350),at(b,r+350),at(a,r+350),[49,53,60]);
+    for(const side of [-1,1])worldQuad(at(a,r+side*325,parkDeckY-2),at(b,r+side*325,parkDeckY-2),at(b,r+side*350,parkDeckY-2),at(a,r+side*350,parkDeckY-2),i%2?[236,230,207]:[180,64,75]);
+    if(i>2&&i<segments-3)for(const side of [-1,1]){
+      const edge=r+side*345,outer=r+side*375,color=i%2?[229,219,199]:[177,59,75];
+      worldQuad(at(a,edge,parkDeckY-90),at(b,edge,parkDeckY-90),at(b,edge),at(a,edge),color);
+      worldQuad(at(a,edge,parkDeckY-90),at(b,edge,parkDeckY-90),at(b,outer,parkDeckY-90),at(a,outer,parkDeckY-90),color);
+    }
+    if(i%2===0)worldQuad(at(a,r-4,parkDeckY-2),at(b,r-4,parkDeckY-2),at(b,r+4,parkDeckY-2),at(a,r+4,parkDeckY-2),[235,220,137]);
+    // A 50 m vaulted tunnel, with an open entrance and exit.
+    if(i>=32&&i<48){
+      const arch=(angle,j)=>{const theta=j/8*Math.PI;return at(angle,r+Math.cos(theta)*430,parkDeckY-160-Math.sin(theta)*560);};
+      for(let j=0;j<8;j++)worldQuad(arch(a,j),arch(b,j),arch(b,j+1),arch(a,j+1),j%2?[77,88,107]:[88,99,117]);
+      for(const side of [-1,1])worldQuad(at(a,r+side*430),at(b,r+side*430),at(b,r+side*430,parkDeckY-160),at(a,r+side*430,parkDeckY-160),[75,84,101]);
+      if(i%4===0)for(const side of [-1,1])worldQuad(at(a,r+side*410,parkDeckY-280),at(b,r+side*410,parkDeckY-280),at(b,r+side*410,parkDeckY-286),at(a,r+side*410,parkDeckY-286),[181,224,238]);
+    }
+    if(i>=72&&i<80)for(const side of [-1,1])worldQuad(at(a,r+side*285,parkDeckY-3),at(b,r+side*285,parkDeckY-3),at(b,r+side*315,parkDeckY-3),at(a,r+side*315,parkDeckY-3),i%2?[250,209,82]:[50,50,57]);
+   }
+  });
+ }
+ for(const [key,mesh] of outdoorChunks)if(!keep.has(key)){releaseQuadMesh(mesh);outdoorChunks.delete(key);}
+ drawKartTireTracks();
+}
+function raceTrack(){return {x:gridLeft+gridWidth*.52,z:worldNear-1500,radius:520};}
+function updateRaceLoop(p,dt,now,throttle){
+ const loop=p.raceLoop;if(!loop)return false;
+ loop.speed=clamp(loop.speed+(-1800*Math.sin(loop.angle)+Math.max(0,throttle)*750)*dt,0,4200);
+ loop.angle+=loop.speed/loop.radius*dt;
+ const a=loop.angle,dir=loop.direction;
+ p.x=loop.x+dir*Math.sin(a)*loop.radius;p.y=parkDeckY-loop.radius+Math.cos(a)*loop.radius;p.z=loop.z;
+ p.vx=dir*Math.cos(a)*loop.speed;p.vy=-Math.sin(a)*loop.speed;p.vz=0;p.skateVx=loop.speed;p.skatePitch=-a;p.grounded=true;
+ if(a>=Math.PI*2){p.raceLoop=null;p.raceLoopCooldown=now+1000000;p.y=parkDeckY;p.vy=0;p.vx=dir*loop.speed;p.skatePitch=0;p.lastButton='LOOP COMPLETE';p.lastButtonAt=now;}
+ else if(loop.speed<1||(Math.cos(a)<0&&loop.speed*loop.speed/loop.radius < -1800*Math.cos(a))){p.raceLoop=null;p.raceLoopCooldown=now+1000000;p.grounded=false;}
+ return true;
+}
+function enterRaceLoop(p,previousX,now){
+ if(!p.onewheel||!p.grounded||p.raceLoop||now<(p.raceLoopCooldown||0))return;
+ const loop=raceTrack(),direction=Math.sign(p.vx)||1;
+ if(Math.abs((p.z||0)-loop.z)>90||Math.abs(p.vx)<1200||(previousX-loop.x)*direction>0||(p.x-loop.x)*direction<0)return;
+ p.raceLoop={...loop,direction,angle:0,speed:Math.hypot(p.vx,p.vz||0)};p.poolYaw=direction>0?0:Math.PI;p.lastButton='LOOP';p.lastButtonAt=now;
+}
+function drawRaceTrack(){
+ const loop=raceTrack();
+ const at=(a,z,r=loop.radius)=>({x:loop.x+Math.sin(a)*r,y:parkDeckY-loop.radius+Math.cos(a)*r,z:loop.z+z});
+ for(let i=0;i<48;i++){
+  const a=i*Math.PI/24,b=(i+1)*Math.PI/24;
+  worldQuad(at(a,-100),at(b,-100),at(b,100),at(a,100),i%2?[72,78,88]:[78,83,92]);
+  for(const side of [-1,1])worldQuad(at(a,side*96,loop.radius-1),at(b,side*96,loop.radius-1),at(b,side*102,loop.radius-1),at(a,side*102,loop.radius-1),[186,244,166]);
+ }
+}
+function drawParkParkingLot(){
+  drawRaceTrack();
+  const l=gridLeft,r=gridLeft+gridWidth,n=worldNear,f=worldFar,m=parkLotMargin,y=parkDeckY;
+  const quad=(x1,z1,x2,z2,color,depth=0)=>worldQuad({x:x1,y:y-depth,z:z1},{x:x2,y:y-depth,z:z1},
+    {x:x2,y:y-depth,z:z2},{x:x1,y:y-depth,z:z2},color);
+  for(const rect of [[l-m,n-m,r+m,n],[l-m,f,r+m,f+m],[l-m,n,l,f],[r,n,r+m,f]])quad(...rect,[76,83,94]);
+  for(const z of [n-800,f+220]){
+    for(let x=l-1200;x<r+1200;x+=260)quad(x,z,x+7,z+560,[232,225,195],.8);
+    quad(l-1200,z,r+1200,z+7,[232,225,195],.8);
+  }
+  // Concrete curb around the outer edge; collisions share its inside bounds.
+  for(const rect of [[l-m,n-m,r+m,n-m+25],[l-m,f+m-25,r+m,f+m],
+    [l-m,n-m,l-m+25,f+m],[r+m-25,n-m,r+m,f+m]])quad(...rect,[178,182,180],12);
+}
+function updateParkWindowShards(dt){
+  for(let i=parkWindowShards.length-1;i>=0;i--){const s=parkWindowShards[i];s.life-=dt;
+    if(s.life<=0){parkWindowShards.splice(i,1);continue;}
+    s.vy+=1200*dt;s.x+=s.vx*dt;s.y+=s.vy*dt;s.z+=s.vz*dt;s.rotation+=dt*4;
+    const floor=poolFloorAt(s.x,s.z)-1;if(s.y>floor){s.y=floor;s.vy=0;s.vx*=Math.exp(-dt*8);s.vz*=Math.exp(-dt*8);}
+  }
+}
+function drawParkWindowShards(){
+  const saved=triangleDepth;
+  for(const s of parkWindowShards){const p=projectPoint(s.x,s.y,s.z);if(p.behind)continue;
+    const size=s.size*projectionScaleAt(s);triangleDepth=p.z;
+    screenTriangle(p.x-size,p.y,p.x+size,p.y-size*.3,p.x+Math.sin(s.rotation)*size,p.y-size,190,231,239);
+  }triangleDepth=saved;
+}
+const parkWindowMeshes=new Map();
+function drawParkWindows(){
+  const top=parkDeckY-parkBuildingHeight,wt=top+260,wb=parkDeckY-470,midY=(wt+wb)/2;
+  for(const w of parkWindowWalls())for(let i=0;i<Math.ceil(w.length/1100);i++){
+    const key=w.id+':'+i;if(brokenParkWindows.has(key))continue;
+    let mesh=parkWindowMeshes.get(key);
+    if(!mesh){mesh=captureQuadMesh(()=>{
+      const l=i*w.width+100,r=(i+1)*w.width-100,mid=(l+r)/2;
+      const at=(u,y)=>({x:w.ax+w.ux*u,y,z:w.az+w.uz*u});
+      const quad=(a,t,b,d,ink)=>worldQuad(at(a,t),at(b,t),at(b,d),at(a,d),ink);
+      for(const [a,b] of [[l+9,mid-9],[mid+9,r-9]]){
+        quad(a,wt+9,b,midY-9,parkPalette.glass);quad(a,midY+9,b,wb-9,[196,228,231]);}
+      quad(mid-9,wt+9,mid+9,wb-9,parkPalette.frame);
+      quad(l+9,midY-9,r-9,midY+9,parkPalette.frame);
+    });
+      for(const f of mesh.faces)if(f.color!==parkPalette.frame&&f.color.join(',')!==parkPalette.frame.join(','))
+        f.normal=[-globalLight.x,-globalLight.y,-globalLight.z];
+      parkWindowMeshes.set(key,mesh);
+    }
+    drawQuadMesh(mesh);
+  }
+}
+let parkBuildingMesh=null,parkRoofMesh=null;
+function drawParkBuildingGeometry(){
+  const p=parkPalette,top=parkDeckY-parkBuildingHeight;
+  const left=gridLeft,right=gridLeft+gridWidth,near=worldNear,far=worldFar;
+  // Wall panels, frame strips and daylight panes meet at their edges.
+  // Overlaid trim would fight the wall's depth at shallow viewing angles.
+  const wall=(ax,az,bx,bz,id)=>{
+    const length=Math.hypot(bx-ax,bz-az),ux=(bx-ax)/length,uz=(bz-az)/length;
+    const nx=-uz,nz=ux,bays=Math.ceil(length/1100),width=length/bays;
+    const quad=(l,t,r,b,color,depth=0)=>{
+      const at=(u,y)=>({x:ax+ux*u+nx*depth,y,z:az+uz*u+nz*depth});
+      const door=parkEntranceDoor(),dl=door.x-gridLeft-door.half,dr=dl+door.half*2,topDoor=parkDeckY-door.height;
+      const face=(a,y,c,d)=>{if(c>a&&d>y)worldQuad(at(a,y),at(c,y),at(c,d),at(a,d),color);};
+      if(id===0&&b>topDoor&&r>dl&&l<dr){
+        face(l,t,r,Math.min(b,topDoor));face(l,Math.max(t,topDoor),Math.min(r,dl),b);face(Math.max(l,dr),Math.max(t,topDoor),r,b);
+      }else face(l,t,r,b);
+    };
+    for(let i=0;i<bays;i++){
+      const a=i*width,b=a+width,l=a+100,r=b-100,wt=top+260,wb=parkDeckY-470;
+      quad(a+24,top,b,wt-9,p.wall);quad(a+24,wb+9,b,parkDeckY-150,p.wall);
+      quad(a+24,wt-9,l-9,wb+9,p.wall);quad(r+9,wt-9,b,wb+9,p.wall);
+      quad(a+24,parkDeckY-150,b,parkDeckY,p.base);
+      // Solid borders stay cached when the window's separate node breaks.
+      for(const x of [l,r])quad(x-9,wt-9,x+9,wb+9,p.frame);
+      for(const y of [wt,wb])quad(l+9,y-9,r-9,y+9,p.frame);
+      quad(a,top,a+24,parkDeckY,p.frame);
+    }
+  };
+  // Traverse counter-clockwise so depth offsets face into the room.
+  wall(left,near,right,near,0);wall(right,near,right,far,1);
+  wall(right,far,left,far,2);wall(left,far,left,near,3);
+  const door=parkEntranceDoor(),at=(x,y,z=0)=>({x:door.x+x,y:parkDeckY+y,z:door.z+z});
+  // Open double doors, brass jambs, and the red carpet across the threshold.
+  for(let z=-1400;z<650;z+=100){const end=Math.min(650,z+100);
+    worldQuad(at(-140,-20,z),at(140,-20,z),at(140,-20,end),at(-140,-20,end),[170,34,57]);
+    for(const side of [-1,1])worldQuad(at(side*130,-21,z),at(side*140,-21,z),at(side*140,-21,end),at(side*130,-21,end),[236,187,94]);
+  }
+  for(const side of [-1,1]){
+    const hinge=side*door.half,tip=side*(door.half-70);
+    worldQuad(at(hinge,-door.height),at(tip,-door.height,-160),at(tip,0,-160),at(hinge,0),[70,97,112]);
+    worldQuad(at(hinge-12,-door.height-14,-3),at(hinge+12,-door.height-14,-3),at(hinge+12,0,-3),at(hinge-12,0,-3),[216,176,100]);
+  }
+  worldQuad(at(-210,-door.height-85,-4),at(210,-door.height-85,-4),at(210,-door.height-14,-4),at(-210,-door.height-14,-4),[36,39,51]);
+ }
+function drawParkRoofGeometry(){
+  const p=parkPalette,top=parkDeckY-parkBuildingHeight;
+  const left=gridLeft,right=gridLeft+gridWidth,near=worldNear,far=worldFar;
+  for(let x=left;x<right;x+=parkRoofCell)for(let z=near;z<far;z+=parkRoofCell){
+    if(brokenParkRoof.has(parkRoofKey(x+1,z+1)))continue;
+    const r=Math.min(right,x+parkRoofCell),f=Math.min(far,z+parkRoofCell);
+    worldQuad({x,y:top,z},{x:r,y:top,z},{x:r,y:top,z:f},{x,y:top,z:f},p.ceiling);
+  }
+  const box3=(x1,y1,z1,x2,y2,z2,color,openBottom=false)=>{
+    const a={x:x1,y:y1,z:z1},b={x:x2,y:y1,z:z1},c={x:x2,y:y1,z:z2},d={x:x1,y:y1,z:z2};
+    const e={x:x1,y:y2,z:z1},f={x:x2,y:y2,z:z1},g={x:x2,y:y2,z:z2},h={x:x1,y:y2,z:z2};
+    worldQuad(a,b,c,d,color);if(!openBottom)worldQuad(e,h,g,f,color);worldQuad(a,e,f,b,color);
+    worldQuad(b,f,g,c,color);worldQuad(c,g,h,d,color);worldQuad(d,h,e,a,color);
+  };
+  for(const x of [1200,3300,5400,7500])for(let z=near;z<far;z+=parkRoofCell)
+    if(!brokenParkRoof.has(parkRoofKey(x,z+1)))box3(x-20,top,z,x+20,top+65,Math.min(far,z+parkRoofCell),p.frame);
+  for(const lamp of parkLights){
+    for(const dx of [-135,135])box3(lamp.x+dx-3,top+65,lamp.z-3,lamp.x+dx+3,lamp.y,lamp.z+3,p.frame);
+    box3(lamp.x-200,lamp.y,lamp.z-55,lamp.x+200,lamp.y+28,lamp.z+55,p.frame,true);
+    const y=lamp.y+28;
+    worldQuad({x:lamp.x-200,y,z:lamp.z-55},{x:lamp.x+200,y,z:lamp.z-55},
+      {x:lamp.x+200,y,z:lamp.z+55},{x:lamp.x-200,y,z:lamp.z+55},p.light);
+  }
+}
+function drawParkBuilding(){
+  if(!parkBuildingMesh){
+    parkBuildingMesh=captureQuadMesh(drawParkBuildingGeometry);
+    // Light diffusers and daylight glass stay luminous as the view turns.
+    for(const face of parkBuildingMesh.faces)if(face.color[0]===255||face.color.join(',')===parkPalette.glass.join(',')||face.color.join(',')==='196,228,231')
+      face.normal=[-globalLight.x,-globalLight.y,-globalLight.z];
+  }
+  drawParkScene(parkBuildingMesh);
+  // The overhead view cuts away roof, beams and hanging lights, while their
+  // physical breakable surface remains in the simulation.
+  if(globalThis.meshTransparency===true||typeof triangleAlpha==='function'||cameraDoll.position.y>parkDeckY-parkBuildingHeight+100){
+    if(!parkRoofMesh)parkRoofMesh=captureQuadMesh(drawParkRoofGeometry);
+    drawParkScene(parkRoofMesh,.18);
+  }
+  drawParkWindows();drawParkWindowShards();
+  const door=parkEntranceDoor();
+  if(cameraDoll.position.z<door.z){
+    const p=projectPoint(door.x,parkDeckY-door.height-74,door.z-6);
+    if(!p.behind){const old=triangleDepth;triangleDepth=p.z-.0001;const size=36*projectionScaleAt({x:door.x,y:parkDeckY-door.height-74,z:door.z});
+      if(size>6&&size<240)typeWrite('oskiewar',p.x-handleWidth('oskiewar',size)/2,p.y,size,255,218,132);triangleDepth=old;}
+  }
+}
 function drawRoomSurfaces(left, right, top, bottom, color) {
+  if(poolOnly()){drawParkBuilding();return;}
+  if (halfpipeOnly()) return;
   // The station has no room to surface. Every plane this function used to
   // raise — the plaster sheet behind the fighters, the segmented left wall,
   // the ceiling cap — existed because the map was an interior, and the space
@@ -14897,8 +21423,8 @@ function drawSkyAtmosphere(sky, arena) {
   }
 }
 
-function shadowSurfaceY(x, y) {
-  return surfaceYAt(x, y);
+function shadowSurfaceY(x, y, z = 0) {
+  return surfaceYAt(x, y, z);
 }
 
 // Project the existing pose onto the receiving surface: no shadow map,
@@ -14911,16 +21437,54 @@ function shadowSurfaceY(x, y) {
 // fighter's depth still bounds it from the front, so the shadow never
 // draws over the feet it is cast from. Limbs end in round caps, the way the
 // bodies do, instead of notching at every joint.
+// The console's shadow is a blob: one soft oval on the floor under the
+// fighter, smaller and fainter the higher they are. Projecting every limb
+// onto a curved floor point by point cost the Xbox three milliseconds a
+// frame; the web and Mac hosts keep the pose-shaped shadow.
+function drawBlobShadow(player, color) {
+  const floor = shadowSurfaceY(player.x, player.y, player.z||0);
+  const height = Math.max(0, floor - player.y);
+  const fade = clamp(1 - height / 900, .15, 1);
+  const radiusX = 62 * (.55 + .45 * fade), radiusZ = radiusX * .42;
+  const ink = mixColor(visualTheme.light > .5 ? [205, 210, 222] : [24, 28, 40], color, fade);
+  const center = { x: player.x, y: floor - 2, z: player.z };
+  for (let side = 0; side < 10; side++) {
+    const a = side / 10 * Math.PI * 2, b = (side + 1) / 10 * Math.PI * 2;
+    worldTriangle(center,
+      { x: player.x + Math.cos(a) * radiusX, y: shadowSurfaceY(player.x + Math.cos(a) * radiusX, floor, player.z + Math.sin(a) * radiusZ) - 2,
+        z: player.z + Math.sin(a) * radiusZ },
+      { x: player.x + Math.cos(b) * radiusX, y: shadowSurfaceY(player.x + Math.cos(b) * radiusX, floor, player.z + Math.sin(b) * radiusZ) - 2,
+        z: player.z + Math.sin(b) * radiusZ }, ink);
+  }
+}
+
 function drawPoseShadow(player, t, color) {
+  // Every limb, the head and the board cast their own shape. On the console
+  // the floor is read once per ten units and cached for the frame, and caps
+  // and the head use fewer sides — the per-vertex floor lookups were what
+  // cost it three milliseconds, not the shape.
+  const lite = consoleHost();
   const world = player.replayGeometry || player.frozenGeometry || runnerWorldGeometry(player, t);
-  const surface = shadowSurfaceY(player.x, player.y);
+  const surface = shadowSurfaceY(player.x, player.y, player.z||0);
   const behindFighter = projectPoint(player.x, player.y, player.z).z + .004;
+  const floorCache = new Map();
+  const floorAt = (x, z) => {
+    if (poolOnly()) return poolFloorAt(x,z);
+    if (!lite) return shadowSurfaceY(x, surface - 5);
+    const key = Math.round(x / 10);
+    let y = floorCache.get(key);
+    if (y === undefined) { y = shadowSurfaceY(key * 10, surface - 5); floorCache.set(key, y); }
+    return y;
+  };
   const project = (x, y, z) => {
     const height = Math.max(0, surface - y);
     const sx = clamp(x + globalLight.x / globalLight.y * height, worldLeft, worldRight);
     const sz = clamp(z + globalLight.z / globalLight.y * height, worldNear + 4, worldFar - 4);
-    const point = projectPoint(sx, shadowSurfaceY(sx, surface - 5) - 2, sz);
-    point.z = Math.max(point.z - .003, behindFighter);
+    const point = projectPoint(sx, floorAt(sx,sz) - 2, sz);
+    // On the floor's own surface, just above it. Fighters now stand at the
+    // floor's near edge, so a shadow there is still behind them — and it is
+    // no longer buried under the near half of the floor.
+    point.z -= .002;
     return point;
   };
   const drawable = (...values) => values.every(value =>
@@ -14937,9 +21501,10 @@ function drawPoseShadow(player, t, color) {
     a = onFloor(a); b = onFloor(b); c = onFloor(c);
     emitTriangle(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, ...color);
   };
+  const capSides = lite ? 4 : 6;
   const cap = (center, radius) => {
-    for (let side = 0; side < 10; side++) {
-      const a = side * Math.PI / 5, b = (side + 1) * Math.PI / 5;
+    for (let side = 0; side < capSides; side++) {
+      const a = side * Math.PI * 2 / capSides, b = (side + 1) * Math.PI * 2 / capSides;
       face(center,
         { x: center.x + Math.cos(a) * radius, y: center.y + Math.sin(a) * radius, z: center.z },
         { x: center.x + Math.cos(b) * radius, y: center.y + Math.sin(b) * radius, z: center.z });
@@ -14960,9 +21525,18 @@ function drawPoseShadow(player, t, color) {
     cap(a, radius);
     cap(b, radius);
   }
+  if (player.skateboard) {
+    // The deck's own shadow: its outline, cast like everything else.
+    const deck = skateFrame(player.skateStall ? stallBoardPlayer(player) : player);
+    const corners = [[-60, -10], [60, -10], [60, 10], [-60, 10]]
+      .map(([along, across]) => { const p = deck(along, -2, across); return project(p.x, p.y, p.z); });
+    face(corners[0], corners[1], corners[2]);
+    face(corners[0], corners[2], corners[3]);
+  }
   const head = project(world.head.x, world.head.y, world.head.z);
-  for (let side = 0; side < 12; side++) {
-    const a = side * Math.PI / 6, b = (side + 1) * Math.PI / 6;
+  const headSides = lite ? 8 : 12;
+  for (let side = 0; side < headSides; side++) {
+    const a = side * Math.PI * 2 / headSides, b = (side + 1) * Math.PI * 2 / headSides;
     face(head,
       project(world.head.x + Math.cos(a)*world.head.radius,
         world.head.y, world.head.z + Math.sin(a)*world.head.radius),
@@ -14973,7 +21547,7 @@ function drawPoseShadow(player, t, color) {
 
 function updateSceneLighting(now) {
   if (typeof themeLighting !== "function") return;
-  if (!photoThemeActive || renderFlags.lighting === false) { themeLighting([]); return; }
+  if (!photoThemeActive || renderFlags.lighting === false) { themeLighting([], visualTheme.light); return; }
   const span = worldRight - worldLeft;
   const lights = [.18,.82].map((part) => {
     const x = worldLeft + span * part;
@@ -14992,42 +21566,41 @@ function updateSceneLighting(now) {
     const point = projectPoint(pose.muzzle.x,pose.muzzle.y,pose.muzzle.z);
     lights.push({x:point.x,y:point.y,radius:Math.max(60,450*cameraScale()),strength:.9});
   }
-  themeLighting(lights);
+  themeLighting(lights, visualTheme.light);
 }
 
 function drawSpotShadow(x, y, z, radius, color) {
-  const surfaceY = shadowSurfaceY(x, y);
+  const surfaceY = shadowSurfaceY(x, y, z);
   const height = Math.max(0, surfaceY - y);
   const reach = Math.min(520, height * .22);
   const focus = clamp(1 - height / 5200, .42, 1);
   const shadowX = x + globalLight.x * reach;
   const shadowZ = z + globalLight.z * reach;
-  const center = projectPoint(shadowX, surfaceY - 2, shadowZ);
-  const edge = projectPoint(shadowX + radius, surfaceY - 2, shadowZ);
-  if (![center.x, center.y, edge.x, edge.y].every(Number.isFinite) ||
-      [center.x, center.y, edge.x, edge.y].some((value) => Math.abs(value) > 30000))
-    return;
-  const radiusX = Math.max(4, Math.abs(edge.x - center.x) *
-    (.5 + .18 * focus));
-  const radiusY = Math.max(2, radiusX * (.2 + .08 * focus));
+  // A world ellipse lying on the ground under the caster, cut and projected
+  // like any other world face, so it foreshortens with the lens and is
+  // clipped at the near plane instead of being a screen-space oval.
+  const caster = projectPoint(x, y, z);
+  if (caster.behind) return;
+  const radiusX = radius * (.5 + .18 * focus);
+  const radiusZ = radiusX * (.55 + .2 * focus);
   // Bind the shadow to the owning object's depth, then bias it away from the
   // camera. It remains above the terrain pass but can never win against the
   // object that casts it. Restore the depth after — this used to leak, and
   // everything drawn until the next assignment inherited the last shadow
   // caster's depth: nondeterministic layering, frame to frame, on console.
-  const previousDepth = triangleDepth;
-  triangleDepth = projectPoint(x, y, z).z + .018;
-  const sides = 14;
-  for (let side = 0; side < sides; side++) {
-    const a = side * Math.PI * 2 / sides;
-    const b = (side + 1) * Math.PI * 2 / sides;
-    screenTriangle(center.x, center.y,
-      center.x + Math.cos(a) * radiusX,
-      center.y + Math.sin(a) * radiusY,
-      center.x + Math.cos(b) * radiusX,
-      center.y + Math.sin(b) * radiusY, ...color);
-  }
-  triangleDepth = previousDepth;
+  setWorldDepth(1, caster.z + .018);
+  const sides = 14, groundY = surfaceY - 2;
+  const middle = { x: shadowX, y: groundY, z: shadowZ };
+  try {
+    for (let side = 0; side < sides; side++) {
+      const a = side * Math.PI * 2 / sides;
+      const b = (side + 1) * Math.PI * 2 / sides;
+      worldTriangle(middle,
+        { x: shadowX + Math.cos(a) * radiusX, y: groundY, z: shadowZ + Math.sin(a) * radiusZ },
+        { x: shadowX + Math.cos(b) * radiusX, y: groundY, z: shadowZ + Math.sin(b) * radiusZ },
+        color);
+    }
+  } finally { setWorldDepth(0); }
 }
 
 function projectedBallRadius(ball) {
@@ -15039,50 +21612,146 @@ function projectedBallRadius(ball) {
   return Math.max(.5, Math.abs(edge.x - center.x));
 }
 
-function drawSkateboard(player) {
-  const at = skateFrame(player);
-  if (photoThemeActive) {
-    const centerWorld = at(0, 5, 0);
-    const center = projectPoint(centerWorld.x, centerWorld.y, centerWorld.z);
-    const left = at(-64, 5, 0), right = at(64, 5, 0);
-    const a = projectPoint(left.x,left.y,left.z), b = projectPoint(right.x,right.y,right.z);
-    const width = Math.hypot(b.x-a.x,b.y-a.y);
-    photoSprite("skateboard", center.x, center.y, width, width * 136 / 412,
-      Math.atan2(b.y-a.y,b.x-a.x), false, center.z - .01);
-    return;
+// Trucks and wheels as parts of their own under a photographed deck: metal
+// hangers down to each axle, and four wheels that roll — urethane in the
+// photograph's colour, a darker lip, a silver bearing, and a spin mark that
+// turns with the distance the board has covered.
+// A skate truck, between its pair of wheels: a baseplate bolted under the
+// deck, the kingpin's two urethane bushings, and a cast hanger from the pivot
+// down to the axle and out across to both wheels. Shaded rather than flat —
+// a dark underside, the aluminium body, a bright top edge — so it reads as a
+// solid casting. The deck end rides the suspension (`skateFrame` sinks it),
+// the axle end stays with the wheels, so the bushings visibly squash.
+// Solid local-space cylinders carry real per-vertex depth. Screen capsules
+// and discs assigned the whole truck/wheel one biased depth, making hardware
+// show through the deck whenever the camera turned above the board.
+function boardCylinder(at,a,b,radius,color,sides=8){
+  const d=b.map((v,i)=>v-a[i]),length=Math.hypot(...d)||1,n=d.map(v=>v/length);
+  const u=Math.abs(n[2])<.9?[n[1],-n[0],0]:[-n[2],0,n[0]];
+  const ul=Math.hypot(...u)||1;for(let i=0;i<3;i++)u[i]/=ul;
+  const v=[n[1]*u[2]-n[2]*u[1],n[2]*u[0]-n[0]*u[2],n[0]*u[1]-n[1]*u[0]];
+  const ring=(p,t)=>at(...p.map((value,i)=>value+radius*(u[i]*Math.cos(t)+v[i]*Math.sin(t))));
+  const ca=at(...a),cb=at(...b);
+  let p=ring(a,0),q=ring(b,0);
+  for(let i=1;i<=sides;i++){
+    const angle=i*Math.PI*2/sides,r=ring(a,angle),t=ring(b,angle);
+    worldQuad(p,q,t,r,color);worldTriangle(ca,r,p,color);worldTriangle(cb,q,t,color);
+    p=r;q=t;
   }
-  const deck = [236, 76, 118], grip = [34, 25, 39], truck = [174, 184, 202];
-  const quad = (a, b, c, d, color) => worldQuad(at(...a), at(...b), at(...c), at(...d), color);
-  const axle = (a, b, width, color) => {
-    const p = at(...a), q = at(...b);
-    worldCapsule(p.x, p.y, p.z, q.x, q.y, q.z, Math.max(.4, width * cameraScale()), color);
-  };
-  // Far wheels, deck, near wheels: preserve occlusion in the Canvas2D host.
-  const wheel = (along, side) => {
-    const spin = player.skateSpin || 0;
-    const center = at(along, skateAxleDrop, side * 15);
-    for (let i = 0; i < 10; i++) {
-      const a = spin + i * Math.PI / 5, b = spin + (i + 1) * Math.PI / 5;
-      worldTriangle(center,
-        at(along + Math.cos(a) * skateWheelRadius,
-          skateAxleDrop + Math.sin(a) * skateWheelRadius, side * 15),
-        at(along + Math.cos(b) * skateWheelRadius,
-          skateAxleDrop + Math.sin(b) * skateWheelRadius, side * 15),
-        i % 5 === 0 ? truck : [243, 210, 103]);
+}
+function drawTruck(at,along){
+  const inward=along>0?-1:1,steel=[104,108,120],body=[182,188,200],bushing=[236,128,46];
+  const rod=(a,b,width,color)=>boardCylinder(at,a,b,width/2,color,6);
+  // A short solid plate below the deck, then the kingpin and cast hanger.
+  rod([along-8,1.2,0],[along+8,1.2,0],2,steel);
+  rod([along+inward*3,2,0],[along+inward*4,8,0],2,steel);
+  rod([along+inward*3,2.5,0],[along+inward*3,5,0],6,bushing);
+  rod([along+inward*5,4,0],[along,8,0],5,body);
+  rod([along,8.8,-11],[along,8.8,11],4,body);
+  rod([along,skateAxleDrop,-17],[along,skateAxleDrop,17],2,steel);
+}
+function drawBoardRunningGearGeometry(player,at,nearSide,urethane,marks=true){
+  for(const along of [-skateTruck,skateTruck])drawTruck(at,along);
+  const spin=player.skateSpin||0,rubber=mixColor(urethane,[90,36,10],.45);
+  for(const along of [-skateTruck,skateTruck])for(const side of [-1,1]){
+    const z=side*15;
+    boardCylinder(at,[along,skateAxleDrop,z-3],[along,skateAxleDrop,z+3],skateWheelRadius,rubber,12);
+    // The two wheel faces and bearings live on the axle's physical planes.
+    for(const cap of [-1,1]){
+      const faceZ=z+cap*3.03,center=at(along,skateAxleDrop,faceZ);
+      const point=(angle,r)=>at(along+Math.cos(angle)*r,skateAxleDrop+Math.sin(angle)*r,faceZ);
+      for(let i=0;i<12;i++){
+        const a=spin+i*Math.PI/6,b=a+Math.PI/6;
+        worldTriangle(center,point(a,skateWheelRadius*.86),point(b,skateWheelRadius*.86),urethane);
+        const bearingZ=faceZ+cap*.03;
+        worldTriangle(at(along,skateAxleDrop,bearingZ),
+          at(along+Math.cos(a)*2.6,skateAxleDrop+Math.sin(a)*2.6,bearingZ),
+          at(along+Math.cos(b)*2.6,skateAxleDrop+Math.sin(b)*2.6,bearingZ),[206,210,220]);
+      }
+      if(marks)worldTriangle(point(spin,3.6),point(spin,6.5),point(spin+.45,6.5),mixColor(urethane,[255,255,255],.35));
     }
-  };
-  const near = cameraDoll.position.z < player.z ? -1 : 1;
-  for (const along of [-skateTruck, skateTruck]) wheel(along, -near);
-  quad([-48, -4, -12], [48, -4, -12], [48, -4, 12], [-48, -4, 12], grip);
-  quad([-48, -4, near * 12], [48, -4, near * 12], [48, 0, near * 12], [-48, 0, near * 12], deck);
-  for (const end of [-1, 1])
-    quad([end * 48, -4, -12], [end * 64, -12, -10],
-      [end * 64, -12, 10], [end * 48, -4, 12], deck);
-  for (const along of [-skateTruck, skateTruck]) {
-    axle([along, 0, 0], [along, skateAxleDrop, 0], 4, truck);
-    axle([along, skateAxleDrop, -15], [along, skateAxleDrop, 15], 3, truck);
-    wheel(along, near);
   }
+}
+
+const skateGearMeshes=new Map(),skateGearCamera=new Float32Array(27);
+function drawBoardRunningGear(player,at,nearSide,urethane){
+  if(nativeRetainedMeshes){
+    const key=urethane.join(',');let mesh=skateGearMeshes.get(key);
+    if(!mesh){
+      const original=worldTriangle;
+      worldTriangle=(a,b,c,color)=>worldQuad(a,b,c,c,color);
+      try{mesh=captureQuadMesh(()=>drawBoardRunningGearGeometry({},(x,y,z)=>({x,y,z}),nearSide,urethane,false));}
+      finally{worldTriangle=original;}
+      skateGearMeshes.set(key,mesh);
+    }
+    const handle=meshHandle(mesh);
+    if(handle>=0){
+      const pivot=at(0,2,0),axes=[at(1,2,0),at(0,3,0),at(0,2,1)].map(p=>[p.x-pivot.x,p.y-pivot.y,p.z-pivot.z]);
+      const origin=[pivot.x-2*axes[1][0],pivot.y-2*axes[1][1],pivot.z-2*axes[1][2]],camera=mainNativeCamera(),local=skateGearCamera;
+      local.set(camera);const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+      const position=[camera[0]-origin[0],camera[1]-origin[1],camera[2]-origin[2]];
+      for(let j=0;j<3;j++){
+        local[j]=dot(position,axes[j]);
+        for(const start of [3,6,9,24])local[start+j]=dot([camera[start],camera[start+1],camera[start+2]],axes[j]);
+      }
+      nativeMeshDraw(handle,local,0);
+      const spin=player.skateSpin||0;
+      for(const along of [-skateTruck,skateTruck])for(const side of [-1,1])for(const cap of [-1,1]){
+        const z=side*15+cap*3.08,point=(a,r)=>at(along+Math.cos(a)*r,skateAxleDrop+Math.sin(a)*r,z);
+        worldTriangle(point(spin,3.6),point(spin,6.5),point(spin+.45,6.5),mixColor(urethane,[255,255,255],.35));
+      }
+      return;
+    }
+  }
+  drawBoardRunningGearGeometry(player,at,nearSide,urethane);
+}
+
+function drawSkateboard(player) {
+  if (player.onewheel) { drawMonowheel(player); return; }
+  // On the coping the board is pressed to the wall under the rider's feet.
+  if (player.skateStall && player.skateboard) player = stallBoardPlayer(player);
+  const at = spunSkateFrame(skateFrame(player), player);
+  // One modelled board in every theme and from every angle — a side-on
+  // photograph read as nothing once the lens looked down on the park. The
+  // deck is cross-sections along its length: full width through the middle,
+  // rounding off at nose and tail, and kicking up past the trucks. Black grip
+  // on top, the maple plies round the edge, the graphic underneath (seen
+  // whenever it flips). Trucks and wheels are their own parts below.
+  const grip = [30, 30, 36], ply = [222, 182, 128], plyDark = [176, 132, 84];
+  const graphic = mixColor(player.color || [236, 76, 118], [236, 76, 118], .35);
+  const stations = [-64, -58, -50, -44, 44, 50, 58, 64];
+  const half = (along) => {
+    const past = Math.max(0, Math.abs(along) - 48) / 16;
+    return 12 * Math.sqrt(Math.max(0, 1 - past * past * .82));
+  };
+  const lift = (along) => {
+    const past = Math.max(0, Math.abs(along) - 42) / 22;
+    return -9 * past ** 1.4;
+  };
+  const thick = 3.2;
+  const top = (along, side) => at(along, -4 + lift(along), side * half(along));
+  const bottom = (along, side) => at(along, -4 + thick + lift(along), side * half(along) * .96);
+  const nearSide = cameraDoll.position.z < player.z ? -1 : 1;
+  for (let index = 0; index + 1 < stations.length; index++) {
+    const a = stations[index], b = stations[index + 1];
+    worldQuad(bottom(a, -1), bottom(b, -1), bottom(b, 1), bottom(a, 1), graphic);
+    worldQuad(top(a, nearSide), top(b, nearSide), bottom(b, nearSide), bottom(a, nearSide),
+      index % 2 ? ply : plyDark);
+    worldQuad(top(a, -nearSide), top(b, -nearSide), bottom(b, -nearSide), bottom(a, -nearSide), plyDark);
+    worldQuad(top(a, -1), top(b, -1), top(b, 1), top(a, 1), grip);
+  }
+  // Nose and tail end caps.
+  for (const end of [stations[0], stations[stations.length - 1]])
+    worldQuad(top(end, -1), top(end, 1), bottom(end, 1), bottom(end, -1), ply);
+  // Cracks and chips in the grip, as the board takes damage.
+  for (const crack of boardCondition(player.boardObject || balls[player.skateBoardId ?? 1]).cracks) {
+    const c = Math.cos(crack.angle), s = Math.sin(crack.angle);
+    const a = at(crack.along - c * crack.length / 2, -4.4 + lift(crack.along), crack.across - s * crack.length / 2);
+    const b = at(crack.along + c * crack.length / 2, -4.4 + lift(crack.along), crack.across + s * crack.length / 2);
+    worldCapsule(a.x, a.y, a.z, b.x, b.y, b.z, Math.max(.6, 1.6 * cameraScale()), [214, 176, 124]);
+  }
+  drawBoardRunningGear(player, at, nearSide,
+    photoThemeActive ? [232, 112, 34] : [30, 32, 40]);
 }
 
 function drawBall(ball) {
@@ -15112,7 +21781,7 @@ function drawBall(ball) {
   };
   if (skateboard) {
     drawSkateboard({ x: ball.x, y: ball.y + skateAxleDrop + skateWheelRadius,
-      z: ball.z, skatePitch: ball.rotation, skateSpin: ball.skateSpin || 0 });
+      z: ball.z, poolYaw:ball.poolYaw||0, spin:ball.spatialSpin?{angle:ball.yaw}:null, skatePitch: ball.rotation, skateSpin: ball.skateSpin || 0, boardObject: ball });
     return;
   }
   if (beach) {
@@ -15307,8 +21976,16 @@ function drawSaberPickup(pickup, t) {
 }
 
 function drawBullet(bullet) {
+  if (bullet.thrownGun) {
+    const a = bullet.spin || 0, c = Math.cos(a) * 16, s = Math.sin(a) * 16;
+    worldCapsule(bullet.x - c, bullet.y - s, bullet.z, bullet.x + c, bullet.y + s, bullet.z,
+      Math.max(2, 8 * projectionScaleAt(bullet)), [45, 48, 55]);
+    worldCapsule(bullet.x, bullet.y, bullet.z, bullet.x - s * .6, bullet.y + c * .6, bullet.z,
+      Math.max(2, 7 * projectionScaleAt(bullet)), [30, 29, 34]);
+    return;
+  }
   const previous = projectPoint(bullet.previousX ?? bullet.x,
-    bullet.previousY ?? bullet.y, bullet.z);
+    bullet.previousY ?? bullet.y, bullet.previousZ ?? bullet.z);
   const point = projectPoint(bullet.x, bullet.y, bullet.z);
   const blink = Math.floor(runtime().monotonicUs / 65000 + bullet.owner) % 2;
   // A bolt does not blink. The pistol round's alternating white is what makes
@@ -15731,10 +22408,11 @@ function drawDummyPopLine(titleY, titleSize, transitionInk) {
   typeWrite(line, x, y, size, ...ink);
 }
 
+const titlePrompt = () => freeskateRequested() ? "freeskate" : "start";
 function titleButtonRect() {
   const compact = compactLayout();
   const textSize = compact ? 64 : 60;
-  const textWidth = handleWidth("start", textSize);
+  const textWidth = handleWidth(titlePrompt(), textSize);
   const width = Math.min(viewWidth() - 48, compact ? 320 : 360);
   const height = 112;
   return { x: viewCenterX() - width / 2,
@@ -15880,7 +22558,7 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
     }
   }
 
-  const prompt = "start";
+  const prompt = titlePrompt();
   const button = titleButtonRect();
   const hovered = Boolean(pointer) && pointInRect(pointer, button);
   if (globalThis.__oskiewarTouch) {
@@ -15901,21 +22579,7 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
     typeWrite(prompt, startX + 3, startY + 4, button.textSize,
       ...contrastShadow(startInk));
     typeWrite(prompt, startX, startY, button.textSize, ...startInk);
-    // The pace dial. Quiet unless the clock is off its default — or was just
-    // touched, so stepping back to one still answers the keypress — and it
-    // lives large in the bottom-right corner, a dashboard readout rather
-    // than a footnote under the start word.
-    const paceNow = runtime().monotonicUs;
-    if (gameSpeed !== 1 || (gameSpeedChangedAt &&
-        paceNow - gameSpeedChangedAt < 2400000)) {
-      const pace = "×" + gameSpeed;
-      const paceSize = Math.max(30, Math.round(button.textSize * .8));
-      const hud = hudSafeRect();
-      const paceX = hud.right - handleWidth(pace, paceSize);
-      const paceY = hud.bottom - paceSize;
-      typeWrite(pace, paceX + 3, paceY + 4, paceSize, ...shadowInk);
-      typeWrite(pace, paceX, paceY, paceSize, ...promptInk);
-    }
+
   }
   // Touch play keeps its thumbs in the bottom corners, and the fight is live
   // under this screen now, so the stamp yields the pad rather than sit on it.
@@ -16069,13 +22733,19 @@ function drawStatusPiano(x, y, lit) {
 }
 
 function drawHudStatusTray(clock, ink, unixMs) {
+  const hudPreviousDepth=triangleDepth;
+  // The park's supplies are world objects and draw with the world (see the
+  // renderable pass); only the half-pipe course still draws them here.
+  if(!poolOnly())drawParkSupply();
+  drawUnderPipe();
+  drawWaterSplashes();
+  triangleDepth=hudPreviousDepth;
   const tray = hudStatusTray(clock);
   const statusCell = statusCellSize();
-  // Debug is global state, so its large indicator owns bottom-center rather than
-  // masquerading as another peripheral in the clock-side status tray.
+  // Pool diagnostics stay at the top, clear of the bottom-center meter.
   if (debugHitboxes) {
     const safe = hudSafeRect();
-    const top = safe.bottom - statusCell;
+    const top = poolOnly()?safe.top:safe.bottom-statusCell;
     drawDebugBug(viewCenterX(), top + statusCell / 2 + 2,
       statusCell / 26);
     // The session's name rides beside the bug: it is what a telemetry agent
@@ -16095,6 +22765,13 @@ function drawHudStatusTray(clock, ink, unixMs) {
       drawAgentLink(viewCenterX() - statusCell * .62 - 14 * scale,
         top + statusCell / 2 + 2, scale, agents);
     }
+  }
+  if(freeskateActive()){
+    const safe=hudSafeRect(),run=runtime(),fps=run.frameMs?Math.round(1000/run.frameMs):Math.round(displayFps||0);
+    const old=triangleDepth;triangleDepth=hudDepth;
+    if(debugHitboxes&&!poolOnly())seatHudText(fps+' FPS',safe.left+12,safe.top+12,28,[245,240,247]);
+    if(freeskateSecond && !players[1].dummy)seatHudText('P1 '+players[0].score+'  :  '+players[1].score+' P2',safe.left+12,safe.top+50,25,[238,229,247]);
+    triangleDepth=old;
   }
   if (!tray) return;
   const lit = typeof capabilities === "function" &&
@@ -16128,9 +22805,14 @@ function drawDebugBug(x, y, scale = 1) {
 
 // The title owns the share code; active maps keep the corner clear.
 function spectatorQrBox() {
-  if (shellMode === "GAME") return null;
+  if (shellMode === "GAME"&&!poolOnly()) return null;
   if (typeof capabilities === "function" && capabilities().socialPreview)
     return null;
+  // In the park the code is always this room's join link. Round resets and
+  // the title used to clear or replace it, and a title reset deals a new
+  // room name, so it is derived here (spectatorCode caches by URL).
+  if (poolOnly() && typeof qrcode === "function")
+    spectatorQr = spectatorCode("https://oskiewar.com/?park=" + sessionName);
   if (!spectatorQr || typeof spectatorQr.getModuleCount !== "function")
     return null;
   const safe = hudSafeRect();
@@ -16143,13 +22825,16 @@ function spectatorQrBox() {
   // debug overlay draws its yellow corner crop. With the bug lit the
   // instrument wins: the code steps below the crop instead of covering it,
   // and every lane that asks this box (the clock included) follows it down.
-  const top = safe.top + (debugHitboxes ? 52 : 0);
-  return { left: safe.right - size, top, size, cell, count, quiet };
+  const top = safe.top + (shellMode==='GAME'?48:debugHitboxes ? 52 : 0);
+  return { left: shellMode==='GAME'?safe.left:safe.right-size, top, size, cell, count, quiet };
 }
 
 // Where the bare frame rate shows with the overlay off: the console, in a
 // fight. The debug read-out itself never asks which screen it is on.
-const bareFrameRateShown = () => nativeTrianglePass && shellMode === "GAME";
+// @jeffrey, 2026-09-26: "fps shouldn't appear unless we are in debug view" —
+// the bare console read-out from 2026-09-20 is retired; the number lives
+// behind the debug toggle everywhere.
+const bareFrameRateShown = () => false;
 function drawDebugPerformance(ink) {
   // The wordmark screen used to hide this row, but the title is a running
   // fight with a frame budget of its own — debug mode reads the machine, not
@@ -16161,7 +22846,7 @@ function drawDebugPerformance(ink) {
   // playing lets still show fps in hud". One short word, so the read-out
   // costs the frame it measures almost nothing.
   const bare = !debugHitboxes;
-  if (bare) return;
+  if (bare && (freeskateActive() || !bareFrameRateShown())) return;
   const metaSize = debugReadoutMetaSize();
   const run = runtime();
   // Every line waits for a real measurement. The read-out used to answer with
@@ -16196,8 +22881,14 @@ function drawDebugPerformance(ink) {
   // The bottom-left corner belongs to a fighter's nameplate, so the read-out
   // stacks upward from just above it instead of printing across a handle. The
   // ammo row keeps its own lane a stat card further up, well clear of this.
-  const lane = playerHandleLayout(players[0], 0);
-  let y = lane.y - metaSize - 6;
+  // Top right, clear of the nameplates and the debug dump that fill the
+  // bottom-left corner — it used to print there, under both. And the rate
+  // is the console's real one: the paint counter said 60 while the host was
+  // measuring 38 Hz on a 26 ms frame.
+  const hostRate = frameMs ? Math.round(1000 / frameMs) + " fps" : rate;
+  const safeTop = hudSafeRect();
+  const lane = { x: 0, y: safeTop.top + metaSize + 40 };
+  let y = lane.y;
   // One line of proof per debug toggle: the console renders this read-out
   // where no devtools can confirm it, so the Device Portal log gets told the
   // row was actually drawn, with what, and where.
@@ -16207,11 +22898,13 @@ function drawDebugPerformance(ink) {
       " | lane=" + Math.round(lane.x) + "," + Math.round(y) +
       " session=" + sessionName);
   }
-  for (const [index, label] of [rate + surface, timing].entries()) {
+  for (const [index, label] of [hostRate + surface, timing].entries()) {
     if (!label) continue;
     const size = index ? debugReadoutTimingSize() : metaSize;
-    typeWrite(label, lane.x, y, size, ...ink);
-    y -= size + 5;
+    const x = safeTop.right - handleWidth(label, size);
+    typeWrite(label, x + 2, y + 3, size, ...contrastShadow(ink));
+    typeWrite(label, x, y, size, ...ink);
+    y += size + 5;
   }
 }
 
@@ -16354,7 +23047,7 @@ function drawNetHealth(ink) {
   const lit = netHealthPalette[Math.max(0, health.bars - 1)];
   const dim = mixColor([58, 64, 78], [196, 201, 212], visualTheme.light);
   const previousDepth = triangleDepth;
-  triangleDepth = -1.43;
+  triangleDepth = hudDepth;
   for (let index = 0; index < count; index++) {
     const height = Math.round(tall * (index + 1) / count);
     const x = right - width + index * (bar + gap);
@@ -16371,6 +23064,25 @@ function drawNetHealth(ink) {
   triangleDepth = previousDepth;
 }
 
+// A code's dark runs (row, column, length) are read once per code: walking
+// every module through isDark each frame cost over a millisecond on console.
+const qrRunCache = new WeakMap(), qrBatchCache = new WeakMap();
+function qrRuns(code) {
+  let runs = qrRunCache.get(code);
+  if (runs) return runs;
+  runs = [];
+  const count = code.getModuleCount();
+  for (let row = 0; row < count; row++) {
+    let run = 0;
+    for (let column = 0; column <= count; column++) {
+      if (column < count && code.isDark(row, column)) { run++; continue; }
+      if (run) runs.push(row, column - run, run);
+      run = 0;
+    }
+  }
+  qrRunCache.set(code, runs);
+  return runs;
+}
 function drawSpectatorQr(ink, placement = null) {
   if (typeof globalThis.__oskiewarJevPad === 'function') return;
   if (typeof capabilities === "function" && capabilities().socialPreview) return;
@@ -16385,21 +23097,39 @@ function drawSpectatorQr(ink, placement = null) {
     drawUsFlag(left - Math.round(hudTypeSize * 2.1) - 12, top + 2,
       Math.round(hudTypeSize * 2.1), Math.round(hudTypeSize * 1.2), ink);
   const shadow = [24, 26, 34];
+  // On the console the whole code is one cached triangle batch: ~200 run
+  // rectangles as separate calls cost over a millisecond a frame.
+  if (nativeTriangles3d && !clipView && !programBuffered) {
+    const key = left + "," + top + "," + cell + "," + size;
+    let batch = qrBatchCache.get(spectatorQr);
+    if (batch?.key !== key) {
+      const runs = qrRuns(spectatorQr), floats = [];
+      const rect = (x, y, w, h, [r, g, b]) => floats.push(
+        x, y, hudDepth, x + w, y, hudDepth, x + w, y + h, hudDepth, r, g, b,
+        x, y, hudDepth, x + w, y + h, hudDepth, x, y + h, hudDepth, r, g, b);
+      rect(left + 3, top + 3, size, size, shadow);
+      rect(left, top, size, size, [250, 250, 247]);
+      for (let i = 0; i < runs.length; i += 3)
+        rect(left + (runs[i + 1] + quiet) * cell, top + (runs[i] + quiet) * cell,
+          runs[i + 2] * cell, cell, [7, 8, 14]);
+      batch = { key, floats: new Float32Array(floats) };
+      qrBatchCache.set(spectatorQr, batch);
+    }
+    nativeTriangles3d(batch.floats);
+    return;
+  }
   const previousDepth = triangleDepth;
-  triangleDepth = -1.43;
+  triangleDepth = hudDepth;
   screenRect(left + 3, top + 3, size, size, shadow);
   screenRect(left, top, size, size, [250, 250, 247]);
   // Dark modules coalesce into horizontal runs so a full code stays a few
   // dozen faces instead of a few hundred — drawErrorQr already draws this way.
   const dark = [7, 8, 14];
-  for (let row = 0; row < count; row++) {
-    let run = 0;
-    for (let column = 0; column <= count; column++) {
-      if (column < count && spectatorQr.isDark(row, column)) { run++; continue; }
-      if (run) screenRect(left + (column - run + quiet) * cell,
-        top + (row + quiet) * cell, run * cell, cell, dark);
-      run = 0;
-    }
+  const runs = qrRuns(spectatorQr);
+  for (let i = 0; i < runs.length; i += 3) {
+    const row = runs[i], column = runs[i + 1], run = runs[i + 2];
+    screenRect(left + (column + quiet) * cell, top + (row + quiet) * cell,
+      run * cell, cell, dark);
   }
   triangleDepth = previousDepth;
 }
@@ -16447,8 +23177,10 @@ function drawImpacts() {
 }
 
 function drawDetachedPart(fragment) {
-  const first = projectPoint(fragment.x1, fragment.y1, fragment.z1);
-  const second = projectPoint(fragment.x2, fragment.y2, fragment.z2);
+  const cut = worldSegment(fragment.x1, fragment.y1, fragment.z1,
+    fragment.x2, fragment.y2, fragment.z2);
+  if (!cut) return;
+  const { from: first, to: second } = cut;
   const width = Math.max(2, fragment.width * cameraScale());
   const values = [first.x, first.y, second.x, second.y, width];
   if (!values.every(Number.isFinite) || width > 2000) return;
@@ -16458,12 +23190,6 @@ function drawDetachedPart(fragment) {
       Math.abs(second.x) + margin > 30000 ||
       Math.abs(second.y) + margin > 30000 ||
       Math.hypot(second.x - first.x, second.y - first.y) > 30000) return;
-  if (photoThemeActive) {
-    // Ownership changes when a limb is hit; its material keeps its source color.
-    const seat = fragment.color[1] > fragment.color[0] ? 1 : 0;
-    photoLimb({x1:first.x,y1:first.y,x2:second.x,y2:second.y,width}, seat);
-    return;
-  }
   filledCapsule(first.x, first.y, second.x, second.y, width + 3, [9, 12, 22]);
   drawPaletteCapsule({ x1: first.x, y1: first.y, x2: second.x, y2: second.y,
     width, part: fragment.part }, fragment.colors,
@@ -16536,8 +23262,55 @@ function drawTitleHeadDoor(t, ink, suppressed) {
   typeWrite(label, left, top, size, ...glow);
 }
 
+// The console's post pass blurs on the GPU, where the frame has room: camera
+// motion blur across this frame's travel, and a tilt-shift band that keeps the
+// fighters sharp and softens the street above and the water below. The HUD
+// stays sharp in the shader. __oskiewarPost = false turns both off.
+let postCameraX = null, postCameraY = null;
+function parkSpeedEffect(p){return clamp((mph(Math.hypot(p?.vx||0,p?.vy||0,p?.vz||0)*gameSpeed)-8)/100,0,1);}
+function steerPostEffects() {
+  if (!nativePostEffects) return;
+  const on = globalThis.__oskiewarPost !== false && shellMode === "GAME" && !selecting;
+  if (!on) { postCameraX = postCameraY = null; nativePostEffects(.5, 1, .2, 0, 0, 0); return; }
+  const scale = cameraScale();
+  const moveX = postCameraX === null ? 0 : (cameraCenter - postCameraX) * scale * .6;
+  const moveY = postCameraY === null ? 0 : (cameraCenterY - postCameraY) * scale * .6;
+  postCameraX = cameraCenter; postCameraY = cameraCenterY;
+  let top = Infinity, bottom = -Infinity;
+  const include = (x, y, z, radius = 0) => {
+    // All three axes matter when the camera is rolled or looking down.
+    for (const [dx, dy, dz] of [[-radius,0,0],[radius,0,0],
+      [0,-radius,0],[0,radius,0],[0,0,-radius],[0,0,radius]]) {
+      const point = projectPoint(x + dx, y + dy, z + dz);
+      if (point.behind || !Number.isFinite(point.y)) continue;
+      top = Math.min(top, point.y); bottom = Math.max(bottom, point.y);
+    }
+  };
+  const t = (runtime().monotonicUs - startedAt) / 1000000;
+  for (const p of activePlayers()) if (p.alive && !p.dummy) {
+    const pose = p.replayGeometry || p.frozenGeometry || runnerWorldGeometry(p, t);
+    const h = pose.head;
+    include(h.x, h.y, h.z ?? p.z ?? 0, h.radius);
+    for (const limb of pose.segments) {
+      if (limb.hitboxOnly) continue;
+      include(limb.x1, limb.y1, limb.z1 ?? p.z ?? 0, limb.width / 2);
+      include(limb.x2, limb.y2, limb.z2 ?? p.z ?? 0, limb.width / 2);
+    }
+    if (p.onewheel || p.skateboard) include(p.x, p.y - 24, p.z || 0, 40);
+  }
+  const visible = top !== Infinity && bottom >= 0 && top <= viewHeight;
+  top = clamp(top - 24, 0, viewHeight);
+  bottom = clamp(bottom + 24, 0, viewHeight);
+  const focusY = visible ? (top + bottom) / (2 * viewHeight) : .5;
+  const band = visible ? Math.max(.06, (bottom - top) / (2 * viewHeight)) : 1;
+  nativePostEffects(focusY, band, .2+(poolOnly()?parkMusicPulse()*.015:0), poolOnly()?parkSpeedEffect(players[0])*4:0,
+    clamp(moveX, -24, 24), clamp(moveY, -24, 24));
+}
+
 function gamePaint() {
+  governFigureLod(runtime().monotonicUs);
   syncGameView();
+  if (shellMode !== "GAME" || selecting) steerPostEffects();
   globalThis.__oskiewarLocalVersus = localVersusActive();
   const run = runtime();
   if (globalThis.__oskiewarTouch) {
@@ -16558,12 +23331,20 @@ function gamePaint() {
   // rate, because the host's profile numbers never made it off the Xbox.
   globalThis.__oskiewarDisplayFps = displayFps;
   if (lastPaintAt > 0 && run.monotonicUs > lastPaintAt) {
-    const sample = clamp(1000000 / (run.monotonicUs - lastPaintAt), 1, 240);
+    const sample = clamp(gameSpeed * 1000000 / (run.monotonicUs - lastPaintAt), 1, 240);
     displayFps = displayFps ? lerp(displayFps, sample, .12) : sample;
   }
   lastPaintAt = run.monotonicUs;
   const t = (run.monotonicUs - startedAt) / 1000000;
-  if (typeof ac === "function") acFeed = ac();
+  // The feed is a native object graph (fighters, moods, the signed-in
+  // player) rebuilt on every call; a sign-in or a mood is news at one hertz.
+  // The age test is written so a null stamp and a clock that stepped back
+  // (a rollback session's origin) both read as "due".
+  const acFeedAge = run.monotonicUs - acFeedAt;
+  if (hostAc && !(acFeedAge >= 0 && acFeedAge < 1000000)) {
+    acFeed = hostAc();
+    acFeedAt = run.monotonicUs;
+  }
   syncSignedInFighter();
   const localNation = typeof capabilities === "function"
     ? String(capabilities().country || "").toUpperCase() : "";
@@ -16636,6 +23417,9 @@ function gamePaint() {
   wipe(...outside);
   // A plain sky behind every theme. The underpass photograph was busy behind
   // the fighters and painted its own floor wherever a course had none.
+  if (nativeSceneCamera) {
+    try { nativeSceneCamera(mainNativeCamera(), runtime().monotonicUs / 1e6); } catch {}
+  }
   if (renderFlags.sky !== false) drawSkyAtmosphere(sky, arena);
   if (PAL_SELECT && selecting) {
     box(0, 0, viewWidth(), viewHeight, ...menuArena);
@@ -16649,9 +23433,10 @@ function gamePaint() {
   // The intro deliberately owns its lens: wide title, two face portraits,
   // then a pullback. Final-frame containment would widen every portrait until
   // both fighters fitted, erasing the zoom story it was meant to protect.
-  if (!inRoundIntro && (cinematicAge < 0 || cinematicAge >= 1.45))
+  if (!parkSupply.ko && !inRoundIntro && (cinematicAge < 0 || cinematicAge >= 1.45))
     containFighters(t);
   cameraDoll.prepare();
+  steerPostEffects();
   const { left: spanLeft, right: spanRight,
     top: spanTop, bottom: spanBottom } = terrainSpan();
   drawRoomSurfaces(spanLeft, spanRight, spanTop, spanBottom, arena);
@@ -16666,15 +23451,20 @@ function gamePaint() {
   // the padded-room look.
   const groundNear = reelGroundCamera()
     ? Math.min(worldNear, cameraDoll.position.z - 400) : worldNear;
-  drawTerrainBackWall(spanLeft, spanRight, worldFar, ground);
-  drawTerrainSurface(spanLeft, spanRight, groundNear, worldFar, ground);
-  drawTerrainFrontWall(spanLeft, spanRight, groundNear, ground);
+  // Indoors each layer wears its own colour: the ramps' tan skin, their
+  // plywood structure in the foreground, and the hall behind (see
+  // `hallPalette`), so the playable surface is the thing that reads.
+  const hall = indoorSkate() || halfpipeOnly() ? hallPalette() : null;
+  drawTerrainBackWall(spanLeft, spanRight, worldFar, hall ? hall.structure : ground);
+  drawTerrainSurface(spanLeft, spanRight, groundNear, worldFar, hall ? hall.ramp : ground);
+  drawTerrainFrontWall(spanLeft, spanRight, groundNear, hall ? hall.structure : ground);
+  drawDecals(hall ? hall.ramp : ground);
   drawSkateParkFeatures(ground);
   // No grass in vacuum. The blades were the tower's lawn and the cube kept
   // them out of habit; on a hull they read as moss on a spaceship.
   if (renderFlags.grass !== false && !space)
     drawTerrainGrass(spanLeft, spanRight, ground);
-  drawBoosterPad(t);
+  if (!halfpipeOnly()) drawBoosterPad(t);
   const platformNear = -520;
   const platformFar = 520;
   // A rung wants to be a slab, but the stage paints in order with no depth
@@ -16690,6 +23480,8 @@ function gamePaint() {
     ? mixColor(platformColor, [196, 224, 255], .62)
     : mixColor(platformColor, [26, 24, 34], .42);
   if (platformsEnabled()) for (const ledge of activeLedges()) {
+    // The glass roof and the funboxes draw themselves (`drawIndoorHall`).
+    if (ledge.glass || ledge.cube) continue;
     if (ledge.right < spanLeft || ledge.left > spanRight) continue;
     if (ledge.y < spanTop || ledge.y > spanBottom) continue;
     const ledgeLeft = Math.max(ledge.left, spanLeft);
@@ -16718,7 +23510,7 @@ function gamePaint() {
   if (renderFlags.shadows !== false) {
     for (const player of activePlayers())
       if (player.alive || roundResult || deathCinematic) {
-        if (renderFlags.poseShadows !== false) drawPoseShadow(player, t, shadowInk);
+        if (renderFlags.poseShadows !== false && !consoleHost()) drawPoseShadow(player, t, shadowInk);
         drawSpotShadow(player.x, player.y, player.z, player.ducking ? 52 : 64,
           shadowInk);
       }
@@ -16824,6 +23616,12 @@ function gamePaint() {
     ...activePlayers().map((item) => ({
       kind: "player", item, x: item.x, y: item.y, z: item.z })),
   ];
+  if(freeskateActive())for(const item of parkKids){
+    if(poolOnly()&&!parkActorVisible(item))continue;
+    const p=projectPoint(item.x,item.y-90,item.z);
+    if(p.x>-150 && p.x<viewWidth()+150 && p.y>-200 && p.y<viewHeight+200)renderables.push({kind:"player",item,x:item.x,y:item.y,z:item.z});
+  }
+  if (freeskateActive() && monowheel.active) renderables.push({kind:"monowheel",item:monowheel,x:monowheel.x,y:monowheel.y,z:monowheel.z});
   const depth = (item) => dot3({
     x: item.x - cameraDoll.position.x,
     y: item.y - cameraDoll.position.y,
@@ -16831,32 +23629,43 @@ function gamePaint() {
   }, viewDirection);
   renderables.sort((a, b) => depth(b) - depth(a));
   for (const renderable of renderables) {
+    const center=projectPoint(renderable.x,renderable.y-80,renderable.z),margin=Math.max(90,260*cameraScale());
+    if(center.behind)continue;
+    if(center.x < -margin || center.x>viewWidth()+margin || center.y < -margin || center.y>viewHeight+margin)continue;
     triangleDepth = projectPoint(renderable.x, renderable.y, renderable.z).z;
+    // A fighter is drawn flat at one depth. Taken at their feet — the middle
+    // of the floor — the near half of the floor was closer than that, and
+    // from a raised lens it cut their legs off at the shins. Standing them at
+    // the floor's near edge keeps the whole body in front of the ground they
+    // are standing on.
+    if (renderable.kind === "player" && !poolOnly())
+      triangleDepth = Math.min(triangleDepth,
+        projectPoint(renderable.x, renderable.y, worldNear + 2).z);
     if (renderable.kind === "bullet") drawBullet(renderable.item);
     else if (renderable.kind === "grenade") drawGrenade(renderable.item);
     else if (renderable.kind === "ball") drawBall(renderable.item);
+    else if (renderable.kind === "monowheel") drawMonowheel(renderable.item);
     else if (renderable.kind === "detached") drawDetachedPart(renderable.item);
     else {
       drawDiveMotion(renderable.item, t);
       drawDoubleJumpMotion(renderable.item, t);
+      drawDashMotion(renderable.item, t);
       drawRunner(renderable.item, t, showRunnerLabels);
     }
   }
-  // Debug geometry sits above the world but below the -1.42 screen-UI lane.
-  // It must remain visible through fighter bodies without cutting across the
-  // title, controls, command notation, names, clock, or other HUD furniture.
-  triangleDepth = -1.4;
-  drawDebugHitboxes(players[0], t);
-  if (!survivalActive()) drawDebugHitboxes(players[1], t);
+  if(poolOnly()){for(const peer of parkPeers.values()){interpolateParkPeer(peer,Date.now());if(Date.now()-peer.receivedAt<3000&&parkActorVisible(peer))drawRunner(peer,t,true);}drawCerealMilk(t);drawParkStereo();drawAeselFairy(t);{const saved=triangleDepth;drawParkSupply();triangleDepth=saved;}}
+  if(poolOnly())drawLensBlood();
+  // Debug geometry shares the unfiltered overlay pass, behind screen UI.
+  triangleDepth = -1.465;
+  for(const p of activePlayers()){drawDebugHitboxes(p,t);if(debugHitboxes)drawAxeHitbox(p,t);}
   for (const player of players) drawBotScene(player);
   drawBallHitboxes();
   drawSafeZones();
-  triangleDepth = -1.42;
-  // On the SCREEN UI layer, not the debug-geometry one above it. The meter is
-  // an instrument being read rather than scenery in the room, and the layering
-  // test is what caught it sitting at the debug depth where a tall enough
-  // piece of world could have drawn straight through it.
+  triangleDepth = -1.475;
+  // Meters and screen UI sit in front of the debug geometry.
   drawFrameMeter();
+  drawAeselConnect();drawParkConnection();
+  if(poolOnly()&&shellMode==="GAME")for(const player of activePlayers())drawSeatAction(player);
   drawImpacts();
   drawTitleHeadDoor(t, titleInk, reelMinimal);
   const counting = !roundResult && introAge < roundIntroDurationUs();
@@ -16874,7 +23683,11 @@ function gamePaint() {
   // self-play and marketing reels have no learner to serve.
   if (!replayOven && !selfPlay && renderFlags.keys !== false)
     drawControlLegend(titleInk);
-  if (freeskateActive()) drawFreeskateSpeed();
+  if (freeskateActive() && shellMode === "GAME") {
+    drawFreeskateSpeed(titleInk);
+    if(!freeskateActive())drawTrickWindows();
+    drawFreeskateMenu(titleInk);
+  }
   const resultUiReady = cinematicAge < 0 || cinematicAge >= 1.1;
   // A reel opens on the matchup. Both names, both palettes, stacked up top
   // where the fighters are not — a stranger scrolling past should know who is
@@ -16920,8 +23733,7 @@ function gamePaint() {
       const replayLabel = "REPLAY  " + frame + "/" + instantReplay.frames.length;
       typeWrite(replayLabel, viewCenterX() - replayLabel.length * 10,
         820, 30, ...titleInk);
-      drawCenteredKeycapRun(replayControlKeys(instantReplay.paused),
-        940, 19, inputPads[0]?.down || [], titleInk);
+      // Watch-only: no control hints under a replay.
     } else {
       const result = resultCardText();
       // The round's outcome, said plainly and large: a small mark up in the
@@ -16956,7 +23768,7 @@ function gamePaint() {
   if (!survivalActive() && matchHud && !reelMinimal && shellMode === "GAME" &&
       ((roundResult && resultUiReady) ||
       (!roundResult && introAge >= roundIntroDurationUs()))) {
-    const hudPlayers = spatialHudPlayers();
+    const hudPlayers = freeskateActive() ? activePlayers() : spatialHudPlayers();
     for (let side = 0; side < hudPlayers.length; side++) {
       const player = hudPlayers[side];
       drawPlayerHandle(player, t, side);
@@ -17059,10 +23871,20 @@ function drawVersusHud(t, ink, run) {
   const moveWidth = handleWidth(player.lastButton, moveSize);
   const moveX = viewCenterX() - moveWidth / 2;
   const moveY = Math.round(viewHeight * .62) - Math.round((1 - fade) * 26);
-  const moveInk = fade > .4 ? ink : mixColor(contrastShadow(ink), ink, fade / .4);
+  // The move's own color, and under it the keys that made it.
+  const tint = moveColor(player.lastButton);
+  const moveInk = fade > .4 ? tint : mixColor(contrastShadow(ink), tint, fade / .4);
   typeWrite(player.lastButton, moveX + 3, moveY + 3, moveSize,
     ...contrastShadow(ink));
   typeWrite(player.lastButton, moveX, moveY, moveSize, ...moveInk);
+  const keys = player.lastButtonKeys;
+  if (!keys) return;
+  const keySize = Math.round(moveSize * .6);
+  const keyWidth = handleWidth(keys, keySize);
+  const keyX = viewCenterX() - keyWidth / 2;
+  const keyY = moveY + moveSize + 6;
+  typeWrite(keys, keyX + 2, keyY + 2, keySize, ...contrastShadow(ink));
+  typeWrite(keys, keyX, keyY, keySize, ...moveInk);
 }
 
 function boot() {
@@ -17085,27 +23907,35 @@ function sim() {
 }
 
 function paint() {
-  if (clientError) {
-    try { drawClientError(); }
-    catch (_) { drawClientErrorFallback(); }
-    return;
-  }
-  const restore = beginRenderInterpolation(runtime().renderAlpha ?? 1);
-  sharingRenderPoses = true;
+  beginFrameProgram();
   try {
-    gamePaint();
-  } catch (error) {
-    captureClientError("paint", error);
-    try { drawClientError(); }
-    catch (_) { drawClientErrorFallback(); }
+    if (clientError) {
+      try { drawClientError(); }
+      catch (_) { drawClientErrorFallback(); }
+      return;
+    }
+    const restore = beginRenderInterpolation(runtime().renderAlpha ?? 1);
+    sharingRenderPoses = true;
+    try {
+      gamePaint();
+    } catch (error) {
+      captureClientError("paint", error);
+      try { drawClientError(); }
+      catch (_) { drawClientErrorFallback(); }
+    } finally {
+      sharingRenderPoses = false;
+      renderPoses.clear();
+      restore();
+    }
   } finally {
-    sharingRenderPoses = false;
-    renderPoses.clear();
-    restore();
+    // One handover per paint: the program the host runs is this paint's.
+    endFrameProgram();
   }
 }
 function act() {}
 function leave() {
+  if(typeof skateAudio==='function')skateAudio(0,0);
+  if(motorRunning && typeof oscillatorStop==='function')oscillatorStop();
   try {
     roundViewerStop?.();
     roundViewerStop = null;
@@ -17113,4 +23943,1205 @@ function leave() {
   } catch (error) {
     captureClientError("leave", error);
   }
+}
+
+// Seat park vehicles and timed supply delivery, reset together after a KO.
+function updatePoolLooseVehicle(v,dt,now,board){
+ const offset=board?skateAxleDrop+skateWheelRadius:0,steps=Math.max(1,Math.ceil(dt*120)),step=dt/steps;
+ for(let n=0;n<steps;n++){
+  const before={x:v.x,z:v.z||0};
+  const floor=poolFloorAt(v.x,v.z||0)-offset,slope=poolSlopeAt(v.x,v.z||0);
+  const supported=v.y>=floor-2&&v.vy>=-1;
+  if(supported){
+   const den=1+slope.x*slope.x+slope.z*slope.z;
+   v.vx+=1800*slope.x/den*step;v.vz=(v.vz||0)+1800*slope.z/den*step;
+   v.vx*=Math.exp(-step*1.8);v.vz*=Math.exp(-step*1.8);
+  }
+  const oldY=v.y;
+  v.x+=v.vx*step;v.z=(v.z||0)+(v.vz||0)*step;
+  boundParkBody(v,before);
+  const nextFloor=poolFloorAt(v.x,v.z)-offset;
+  v.vy+=1800*step;v.y+=v.vy*step;
+  if(v.y>=nextFloor||(supported&&nextFloor-oldY<12)){v.y=nextFloor;v.vy=0;}
+ }
+ const slope=poolSlopeAt(v.x,v.z||0),yaw=v.poolYaw||0;
+ v.rotation=Math.atan(slope.x*Math.cos(yaw)+slope.z*Math.sin(yaw));v.skatePitch=v.rotation;
+ for(const p of activePlayers())if(p.alive&&!p.dummy&&!p.skateboard&&p.grounded&&!isHeadOnly(p)&&
+   now>=(v.safeUntil||0)&&Math.hypot(p.x-v.x,(p.z||0)-(v.z||0))<48&&Math.abs(p.y-v.y-offset)<42){
+  resetSkate(p);p.skateboard=true;p.onewheel=!board;
+  if(board)p.skateBoardId=balls.indexOf(v);
+  if(Math.hypot(v.vx,v.vz||0)>Math.hypot(p.vx,p.vz||0)){p.vx=v.vx;p.vz=v.vz||0;}
+  p.skateVx=Math.hypot(p.vx,p.vz||0);p.y=v.y+offset;p.skatePitch=v.rotation;
+  v.active=false;p.lastButton=board?'SKATEBOARD':'MONOWHEEL';p.lastButtonAt=now;
+  emitSignal('skate-mount',p.pad,board?1:2,0);break;
+ }
+}
+const monowheel={active:false,x:0,y:0,z:0,vx:0,vy:0,safeUntil:0};
+const parkSupply={nextAt:0,drone:null,drop:null,ko:null};
+function resetMonowheel(){
+ const x=poolOnly()?7600:halfpipeOnly()?clamp(players[0].x+170,gridLeft+60,gridLeft+gridWidth-60):tileCenterX(37);
+ Object.assign(monowheel,{active:true,x,y:terrainFloorAt(x),z:0,vx:0,vy:0,vz:0,poolYaw:0,skatePitch:0,safeUntil:0});
+}
+function monowheelFrame(p, local=false){
+ const pitch=p.skatePitch||0,c=Math.cos(pitch),s=Math.sin(pitch);
+ const yaw=!local&&poolOnly()?(p.poolYaw||0):0,cy=Math.cos(yaw),sy=Math.sin(yaw);
+ return (x,y=0,z=0)=>{const along=c*x-s*y;return {
+  x:p.x+along*cy-z*sy,y:p.y-24+s*x+c*y,z:(p.z||0)+along*sy+z*cy};};
+}
+function riderContact(p,y){
+ if(!p.onewheel)return skateContact(p.x,y,p.z);
+ const floor=surfaceYAt(p.x,y-2,p.z);
+ return {y:floor,pitch:Math.atan2(surfaceYAt(p.x+8,y-2,p.z)-surfaceYAt(p.x-8,y-2,p.z),16),left:true,right:true};
+}
+function updateMonowheel(dt,now){
+ if(!freeskateActive()||!monowheel.active)return;
+ if(poolOnly()){updatePoolLooseVehicle(monowheel,dt,now,false);return;}
+ const m=monowheel,oldY=m.y;
+ m.vy+=1800*dt;m.x=clamp(m.x+m.vx*dt,worldLeft+60,worldRight-60);m.y+=m.vy*dt;m.vx*=Math.exp(-2*dt);
+ const ledge=ledgeCrossed(m.x,oldY-1,m.y,0,0,m.z);
+ const floor=ledge?ledge.y:surfaceYAt(m.x,oldY-2,m.z);
+ if(m.y>=floor){m.y=floor;m.vy=0;}
+ for(const p of activePlayers())if(p.alive&&!p.dummy&&!p.skateboard&&!isHeadOnly(p)&&now>=m.safeUntil&&Math.abs(p.x-m.x)<45&&Math.abs(p.y-m.y)<40&&Math.abs((p.z||0)-m.z)<35){
+  resetSkate(p);p.onewheel=true;p.skateboard=true;p.skateVx=m.vx;p.skatePitch=0;p.y=m.y;m.active=false;break;
+ }
+}
+function drawMonowheel(p){
+ const at=spunSkateFrame(monowheelFrame(p),p),rubber=[24,25,30],rim=p.wheelTurbo?[234,171,255]:[184,186,193],rail=p.wheelTurbo?[173,65,255]:[205,65,117];
+ for(let i=0;i<12;i++){
+  const a=i*Math.PI/6,b=(i+1)*Math.PI/6;
+  const v=(t,z,r=24)=>at(Math.cos(t)*r,Math.sin(t)*r,z);
+  worldQuad(v(a,-13),v(b,-13),v(b,13),v(a,13),i%2?rubber:[38,39,45]);
+  for(const z of [-13,13]){const center=at(0,0,z);worldTriangle(center,v(a,z),v(b,z),rubber);worldTriangle(at(0,0,z*1.01),v(a,z*1.01,10),v(b,z*1.01,10),rim);}
+ }
+ for(const side of [-1,1]){
+  const a=side*20,b=side*60;
+  worldQuad(at(a,-4,-19),at(b,-8,-19),at(b,-8,19),at(a,-4,19),p.wheelTurbo?[102,35,163]:[32,34,39]);
+  for(const z of [-19,19])worldQuad(at(a,-4,z),at(b,-8,z),at(b,-2,z),at(a,2,z),rail);
+  worldQuad(at(b,-8,-14),at(b,-8,14),at(b,-4,14),at(b,-4,-14),side>0?[237,247,251]:[249,62,62]);
+ }
+}
+const chalkColors=[{name:'PINK',rgb:[255,55,190]},{name:'CYAN',rgb:[40,244,255]},{name:'LIME',rgb:[145,255,45]},{name:'YELLOW',rgb:[255,242,55]},{name:'ORANGE',rgb:[255,133,35]},{name:'VIOLET',rgb:[192,99,255]}];
+const chalkPickups=[],parkAxes=[],parkKarts=[];
+function chalkTip(p){const a=(p.poolYaw||0)+(p.spin?.angle||0),x=p.x+Math.cos(a)*45-Math.sin(a)*30,z=(p.z||0)+Math.sin(a)*45+Math.cos(a)*30;return {x,z,y:poolFloorAt(x,z)-2};}
+function updateChalk(p,held,now){
+ p.chalkDrawing=!!p.chalkColor&&held.includes('B')&&p.grounded&&!p.swimming;
+ if(!p.chalkDrawing){p.chalkPrevious=null;return;}
+ const tip=chalkTip(p),previous=p.chalkPrevious;
+ if(previous){const distance=Math.hypot(tip.x-previous.x,tip.z-previous.z);
+  // A stroke is at least ~1.6 texels of the pool surface wide, or it breaks
+  // into dots on the coarser console texture.
+  if(distance>=2&&distance<180){addDecal({kind:'chalk',x:previous.x,z:previous.z,x2:tip.x,z2:tip.z,size:Math.max(4,chalkTexel()*.8),color:p.chalkColor.rgb});if(now>=(p.nextChalkSound||0)){playDrum('hat',.025+Math.min(.025,distance/1000),panPlayer(p));p.nextChalkSound=now+90000;}}
+ }
+ // The stroke only advances when it lands. Moving the start point on a
+ // skipped (too short) segment left gaps whenever the chalk moved slowly.
+ if(!previous||Math.hypot(tip.x-previous.x,tip.z-previous.z)>=2)p.chalkPrevious=tip;
+}
+function chalkTexel(){return (gridWidth+parkLotMargin*2)/parkDecalResolution;}
+function updateFootprints(p,now){
+ const step=Math.floor((p.poolStridePhase||0)*2);
+ const previous=p.footprintStep;p.footprintStep=step;
+ if(previous===undefined||step===previous||!p.alive||!p.grounded||p.skateboard||p.onewheel||p.swimming||Math.hypot(p.vx,p.vz||0)<25)return;
+ const part=((step%2+2)%2)?'left-leg':'right-leg';
+ if(!hasPart(p,part))return;
+ const foot=runnerWorldGeometry(p,now/1e6).segments.find(s=>s.part===part&&/shin$/.test(s.role||''));
+ if(!foot)return;
+ addDecal({kind:'footprint',x:foot.x2,z:foot.z2,size:7,stretch:1.8,angle:(p.poolYaw||0)+(p.spin?.angle||0),color:[65,68,74]});
+}
+function drawHeldChalk(p,t){
+ if(!p.chalkColor||!p.alive)return;
+ const world=runnerWorldGeometry(p,t),arm=world.segments.find(s=>s.part===assignedItemArm(p,'chalk')&&/forearm$/.test(s.role));if(!arm)return;
+ const hand={x:arm.x2,y:arm.y2,z:arm.z2},tip=p.chalkDrawing?chalkTip(p):{x:hand.x+8,y:hand.y+16,z:hand.z};
+ worldCapsule(hand.x,hand.y,hand.z,tip.x,tip.y,tip.z,6*projectionScaleAt(tip),p.chalkColor.rgb);
+}
+function seedStreetTexture(){
+ if(typeof decalTint!=='function'||!poolDecalsNative)return;
+ const bounds={x:gridLeft-parkLotMargin,z:worldNear-parkLotMargin,w:gridWidth+parkLotMargin*2,h:roomDepth+parkLotMargin*2};
+ const pix=(x,z)=>[(x-bounds.x)/bounds.w*parkDecalResolution,(z-bounds.z)/bounds.h*parkDecalResolution];
+ for(let x=gridLeft-parkLotMargin;x<gridLeft+gridWidth+parkLotMargin;x+=180)for(let z=worldNear-parkLotMargin;z<worldFar+parkLotMargin;z+=180){
+  const edge=poolDistance(x+90,z+90);if(edge.d<edge.bowl.radius+70||parkHalfPipeHeight(x+90,z+90)>0)continue;
+  const n=Math.abs(Math.sin(x*.173+z*.617)),gray=45+Math.round(n*33);
+  decalTint(0,0,128,128,...pix(x,z),...pix(x+180,z),...pix(x+180,z+180),...pix(x,z+180),gray,gray+2,gray+6);poolDecalCount++;
+ }
+}
+function resetParkSupply(now){
+ for(const chunk of kartTrailChunks.values())for(const mesh of chunk.batches)releaseQuadMesh(mesh);kartTrailChunks.clear();
+ parkKarts.length=0;for(const p of players)p.goKart=null;
+ chalkPickups.length=0;parkAxes.length=0;for(const p of players){p.chalkColor=null;p.chalkPrevious=null;p.chalkDrawing=false;}
+ if(poolOnly()){
+  chalkColors.forEach((color,i)=>{const [x,z]=[[900,900],[2300,-1700],[4300,2300],[6000,-2100],[7900,900],[3300,worldNear-900]][i];chalkPickups.push({x,z,y:poolFloorAt(x,z)-12,color,active:true});});
+  for(const [x,z,color] of [[5000,worldNear-1200,[108,190,235]]])parkKarts.push({x,z,y:poolFloorAt(x,z),poolYaw:0,color,active:true,safeUntil:0});
+  for(let i=gunPickups.length-1;i>=0;i--)if(gunPickups[i].parkScatter)gunPickups.splice(i,1);
+  for(const [x,z,kind] of [[7100,-1800,'RUBBER SMG'],[4800,1600,'HANDGUN']])gunPickups.push({parkScatter:true,kind,x,z,y:poolFloorAt(x,z)-65,amount:kind==='RUBBER SMG'?90:24,active:true,startsActive:false,respawnAt:Infinity});
+  for(const [x,z] of [[6500,700]])parkAxes.push({x,z,y:poolFloorAt(x,z)-65,active:true});
+ }
+ if(halfpipeOnly()){
+  for(const p of [...gunPickups,...saberPickups,...grenadePickups])p.active=false;
+  axePickup.active=false;for(const p of players){p.axeHeld=false;p.underPipe=false;}
+  if(poolOnly()){
+    for(const pickup of gunPickups)if(pickup.parkScatter)pickup.active=true;
+
+  }
+  bottomGlass.fill(false);turboParticles.length=0;
+  Object.assign(parkSupply,{nextAt:Infinity,drone:null,drop:null,ko:null});
+  return;
+ }
+ let smg=gunPickups.find(p=>p.seatSmg);if(!smg){smg={seatSmg:true,startsActive:false,cycle:false};gunPickups.push(smg);}
+ Object.assign(smg,{kind:'RUBBER SMG',amount:30,x:tileCenterX(hallCols-2),y:floorY-halfpipeRadius-70,z:0,active:true});
+ axePickup.active=true;axePickup.x=tileCenterX(3);axePickup.y=floorY-halfpipeRadius-65;for(const p of players)p.axeHeld=false;
+ bottomGlass.fill(false);for(const p of players)p.underPipe=false;
+ parkSupply.nextAt=now+30000000*gameSpeed;parkSupply.drone=null;parkSupply.drop=null;parkSupply.ko=null;turboParticles.length=0;
+ for(const cube of hallCubes){cube.health=3;cube.broken=false;cube.hitAt=0;}
+}
+function updateParkSupply(dt,now){
+ if(!freeskateActive())return;
+ if(poolOnly()){
+  for(const kart of parkKarts)if(kart.active&&now>=kart.safeUntil)for(const p of activePlayers())if(p.alive&&!p.skateboard&&Math.hypot(p.x-kart.x,(p.z||0)-kart.z)<75&&Math.abs(p.y-kart.y)<100){p.goKart=kart;p.skateboard=true;p.onewheel=false;p.poolYaw=kart.poolYaw; kart.active=false;break;}
+  for(const chalk of chalkPickups)if(chalk.active&&now>=(chalk.safeUntil||0))for(const p of activePlayers())if(p.alive&&freeItemArm(p,'chalk')&&Math.hypot(p.x-chalk.x,(p.z||0)-chalk.z)<35&&Math.abs(p.y-chalk.y)<70){p.handItems ||= {};p.handItems.chalk=freeItemArm(p,'chalk');p.chalkColor=chalk.color;chalk.active=false;playDrum('hat',.25,panPlayer(p));break;}
+  for(const axe of parkAxes)if(axe.active&&now>=(axe.safeUntil||0))for(const p of activePlayers())if(p.alive&&freeItemArm(p,'axe')&&Math.hypot(p.x-axe.x,(p.z||0)-axe.z)<55&&Math.abs(p.y-axe.y-65)<100){p.handItems ||= {};p.handItems.axe=freeItemArm(p,'axe')||availableArm(p);p.axeHeld=true;axe.active=false;break;}
+  if(axePickup.active)for(const p of activePlayers())if(p.alive&&freeItemArm(p,'axe')&&
+    Math.hypot(p.x-axePickup.x,(p.z||0)-(axePickup.z||0))<65&&Math.abs(p.y-axePickup.y-65)<100){
+      p.handItems ||= {};p.handItems.axe=freeItemArm(p,'axe')||availableArm(p);p.axeHeld=true;axePickup.active=false;break;
+    }
+  return;
+ }
+ if(halfpipeOnly())return;
+ if(parkSupply.ko){
+  if(!parkSupply.ko.settled){
+    const alive=activePlayers().filter(p=>p.alive),winner=alive.length===1?alive[0]:null;
+    parkSupply.ko.winner=winner?winner.pad:-1;parkSupply.ko.settled=true;
+    for(const p of activePlayers()){p.vx=p.vy=p.skateVx=0;p.resultReaction=p===winner?'DANCE':'WOE';p.resultReactionAt=now;}
+    emitSignal(winner?'roundwin':'tie',winner?winner.pad:-1,0,0);playDrum('clap',1,0);
+  }
+  if(now>=parkSupply.ko.until){const paired=freeskateSecond && !players[1].dummy,scores=players.map(p=>p.score);beginFreeskate(now,parkLayoutSeed!==null);updateFreeskatePlayers(paired,now);players.forEach((p,i)=>p.score=scores[i]);}
+  return;
+ }
+ if(axePickup.active)for(const p of activePlayers())if(p.alive&&availableArm(p)&&Math.abs(p.x-axePickup.x)<65&&Math.abs(p.y-(axePickup.y+65))<150){p.handItems ||= {};p.handItems.axe=freeItemArm(p,'axe')||availableArm(p);p.axeHeld=true;axePickup.active=false;break;}
+ // Drone arrives before the scheduled drop; its package is a heal, not a weapon.
+ parkSupply.drone=null;parkSupply.drop=null;
+ for(const c of hallCubes){
+  if(c.broken||now-(c.hitAt||0)<300000)continue;
+  for(const p of activePlayers())if(p.alive&&Math.abs(p.x-c.x)<c.size/2+100&&Math.abs(p.z||0)<c.size/2+30&&p.y>cubeTop(c)-80&&p.y<(c.baseY??floorY)+30&&(p.attackKind||Math.abs(p.skateVx||0)>650)){
+   c.health=(c.health??3)-1;c.hitAt=now;
+   if(c.health<=0){c.broken=true;spawnImpact({x:c.x,y:cubeTop(c)+40,z:0,life:.5,duration:.5,explosion:true,death:false});}
+   break;
+  }
+ }
+}
+function parkDropName(p){return p.axeHeld?'axe':p.gunAmmo>0?(p.gunMode==='RUBBER SMG'?'smg':'pistol'):p.chalkColor?'chalk':'';}
+function dropParkItem(p,now){
+ const name=parkDropName(p);if(!name)return false;
+ const yaw=p.poolYaw||0,x=p.x+Math.cos(yaw)*65,z=(p.z||0)+Math.sin(yaw)*65,y=poolFloorAt(x,z);
+ if(p.axeHeld){parkAxes.push({x,z,y:y-65,active:true,safeUntil:now+1200000});p.axeHeld=false;}
+ else if(p.gunAmmo>0){gunPickups.push({kind:p.gunMode,amount:p.gunAmmo,x,z,y:y-65,active:true,parkScatter:true,safeUntil:now+1200000});p.gunAmmo=0;}
+ else{chalkPickups.push({x,z,y:y-12,color:p.chalkColor,active:true,safeUntil:now+1200000});p.chalkColor=null;}
+ p.lastButton='DROPPED '+name.toUpperCase();p.lastButtonAt=now;return true;
+}
+const kartTrailChunks=new Map();
+function updateKartTireTracks(p){
+ if(!p.goKart||!p.grounded||Math.hypot(p.vx,p.vz||0)<35){p.kartTrailPrevious=null;return;}
+ const c=Math.cos(p.poolYaw||0),sn=Math.sin(p.poolYaw||0);
+ const wheels=[-1,1].map(side=>({x:p.x-c*65-sn*side*62,z:(p.z||0)-sn*65+c*side*62}));
+ const previous=p.kartTrailPrevious;
+ if(!previous){p.kartTrailPrevious=wheels;return;}
+ const distance=Math.hypot(wheels[0].x-previous[0].x,wheels[0].z-previous[0].z);
+ if(distance<90)return;
+ p.kartTrailPrevious=wheels;if(distance>900)return;
+ for(let i=0;i<2;i++){
+  const from=previous[i],to=wheels[i],length=Math.hypot(to.x-from.x,to.z-from.z)||1;
+  const nx=-(to.z-from.z)/length*8,nz=(to.x-from.x)/length*8;
+  const at=(v,sign)=>{const x=v.x+nx*sign,z=v.z+nz*sign;return {x,z,y:poolFloorAt(x,z)-2};};
+  const mark=[at(from,1),at(to,1),at(to,-1),at(from,-1)];
+  const key=Math.floor(to.x/3000)+':'+Math.floor(to.z/3000);
+  let chunk=kartTrailChunks.get(key);if(!chunk){chunk={x:to.x,z:to.z,pending:[],batches:[]};kartTrailChunks.set(key,chunk);}
+  chunk.pending.push(mark);
+  if(chunk.pending.length>=16){const marks=chunk.pending;chunk.pending=[];chunk.batches.push(captureQuadMesh(()=>{for(const q of marks)worldQuad(...q,[28,30,34]);}));
+   if(chunk.batches.length>16)releaseQuadMesh(chunk.batches.shift());}
+ }
+ while(kartTrailChunks.size>128){const [key,chunk]=kartTrailChunks.entries().next().value;for(const mesh of chunk.batches)releaseQuadMesh(mesh);kartTrailChunks.delete(key);}
+}
+function drawKartTireTracks(){
+ const p=players[0];
+ for(const chunk of kartTrailChunks.values()){
+  if(Math.hypot(chunk.x-p.x,chunk.z-(p.z||0))>6500)continue;
+  for(const mesh of chunk.batches)if(sceneBoundsVisible(mesh.bounds))drawQuadMesh(mesh);
+  for(const q of chunk.pending)worldQuad(...q,[28,30,34]);
+ }
+}
+function drawGoKart(kart){
+ if(!sceneBoundsVisible({minX:kart.x-140,maxX:kart.x+140,minY:kart.y-100,maxY:kart.y+25,minZ:kart.z-140,maxZ:kart.z+140}))return;
+ const c=Math.cos(kart.poolYaw||0),s=Math.sin(kart.poolYaw||0),cp=Math.cos(kart.skatePitch||0),sp=Math.sin(kart.skatePitch||0);
+ const body=kart.color||[234,105,116];
+ // The kart never changes shape, so it is captured once in its own space
+ // and drawn as one retained mesh; only the pose axes change per frame.
+ if(nativeRetainedMeshes){
+  characterMesh('kart:'+body.join(','),()=>drawGoKartBody(p=>p,body),{x:kart.x,y:kart.y,z:kart.z},
+   [{x:c*cp,y:sp,z:s*cp},{x:-c*sp,y:cp,z:-s*sp},{x:-s,y:0,z:c}]);
+  return;
+ }
+ drawGoKartBody((p)=>{const along=p.x*cp-p.y*sp;return {x:kart.x+c*along-s*p.z,y:kart.y+p.x*sp+p.y*cp,z:kart.z+s*along+c*p.z};},body);
+}
+function drawGoKartBody(place,body){
+ const at=(x,y,z)=>place({x,y,z});
+ worldQuad(at(-95,-28,-52),at(100,-28,-52),at(100,-28,52),at(-95,-28,52),body);
+ for(const z of [-52,52])worldQuad(at(-95,-28,z),at(100,-28,z),at(100,-8,z),at(-95,-8,z),mixColor(body,[25,25,35],.25));
+ worldQuad(at(-45,-65,-30),at(-45,-65,30),at(-45,-28,30),at(-45,-28,-30),[34,34,44]);
+ for(const x of [-65,65])for(const z of [-62,62])for(let i=0;i<8;i++){
+  const a=i*Math.PI/4,b=(i+1)*Math.PI/4;
+  worldQuad(at(x+Math.cos(a)*23,-23+Math.sin(a)*23,z-9),at(x+Math.cos(b)*23,-23+Math.sin(b)*23,z-9),at(x+Math.cos(b)*23,-23+Math.sin(b)*23,z+9),at(x+Math.cos(a)*23,-23+Math.sin(a)*23,z+9),[29,29,35]);
+ }
+}
+function drawParkPickupLabels(){
+ if(!poolOnly())return;
+ const rider=players[0],items=[...gunPickups.filter(i=>i.active).map(i=>({...i,label:i.kind==='RUBBER SMG'?'SMG':'pistol',ink:[120,215,255]})),...parkAxes.filter(i=>i.active).map(i=>({...i,label:'axe',ink:[255,168,102]})),...chalkPickups.filter(i=>i.active).map(i=>({...i,label:i.color.name.toLowerCase()+' chalk',ink:i.color.rgb})),...parkKarts.filter(i=>i.active).map(i=>({...i,label:'go-kart',ink:i.color}))];
+ if(axePickup.active)items.push({...axePickup,label:'axe',ink:[255,168,102]});
+ if(monowheel.active)items.push({...monowheel,label:'monowheel',ink:[205,169,255]});
+ for(const b of balls)if(b.active&&b.type==='skateboard'&&b.heldBy<0)items.push({...b,label:'skateboard',ink:[158,225,173]});
+ const candidates=items.map(i=>({...i,d:Math.hypot(i.x-rider.x,(i.z||0)-(rider.z||0))})).filter(i=>i.d<1100).sort((a,b)=>a.d-b.d).slice(0,5);
+ const old=triangleDepth;triangleDepth=hudDepth;
+ for(const i of candidates){const p=projectPoint(i.x,i.y+28,i.z||0);if(p.behind||p.x<60||p.x>viewWidth()-60||p.y<100||p.y>viewHeight-160)continue;seatHudText(i.label,p.x-handleWidth(i.label,42)/2,p.y,42,i.ink);}
+ triangleDepth=old;
+}
+function drawParkSupply(){
+ if(!freeskateActive() || (halfpipeOnly()&&!poolOnly()))return;
+ if(axePickup.active){const p=projectPoint(axePickup.x,axePickup.y,axePickup.z||0),t=projectPoint(axePickup.x+30,axePickup.y-130,axePickup.z||0);const old=triangleDepth;triangleDepth=p.z;drawBigAxe(p.x,p.y,t.x,t.y,cameraScale());triangleDepth=old;}
+ for(const kart of parkKarts)if(kart.active)drawGoKart(kart);
+ for(const chalk of chalkPickups)if(chalk.active)worldCapsule(chalk.x-10,chalk.y,chalk.z,chalk.x+10,chalk.y,chalk.z,8*projectionScaleAt(chalk),chalk.color.rgb);
+ for(const axe of parkAxes)if(axe.active){const p=projectPoint(axe.x,axe.y,axe.z),top=projectPoint(axe.x+30,axe.y-130,axe.z),old=triangleDepth;triangleDepth=p.z;drawBigAxe(p.x,p.y,top.x,top.y,projectionScaleAt(axe));triangleDepth=old;}
+ const d=parkSupply.drone;
+ if(d){
+  worldCapsule(d.x-65,d.y,0,d.x+65,d.y,0,Math.max(2,12*cameraScale()),[63,70,87]);
+  for(const x of [-65,65])worldQuad({x:d.x+x-25,y:d.y-8,z:-23},{x:d.x+x+25,y:d.y-8,z:-23},{x:d.x+x+25,y:d.y-8,z:23},{x:d.x+x-25,y:d.y-8,z:23},[176,190,214]);
+ }
+ const p=parkSupply.drop;
+ if(p){worldQuad({x:p.x-22,y:p.y-22,z:-8},{x:p.x+22,y:p.y-22,z:-8},{x:p.x+22,y:p.y+22,z:-8},{x:p.x-22,y:p.y+22,z:-8},[100,230,164]);
+ worldCapsule(p.x-12,p.y,-9,p.x+12,p.y,-9,Math.max(2,7*cameraScale()),[248,255,250]);worldCapsule(p.x,p.y-12,-9,p.x,p.y+12,-9,Math.max(2,7*cameraScale()),[248,255,250]);}
+ if(parkSupply.ko){const text=!parkSupply.ko.settled?'KO':parkSupply.ko.winner<0?'TIE':'PLAYER '+(parkSupply.ko.winner+1)+' WINS';const old=triangleDepth;triangleDepth=hudDepth;typeWrite(text,viewCenterX()-handleWidth(text,44)/2,95,44,255,225,118);triangleDepth=old;}
+}
+
+const bottomGlass=Array(indoorHalfpipe.floorTo-indoorHalfpipe.floorFrom).fill(false);
+const tunnelBottom=()=>floorY+2060;
+const bottomPaneAt=x=>Math.floor((x-gridLeft)/tileSize)-10;
+function updateUnderPipe(p){
+ if(!indoorSkate())return;
+ if(!p.underPipe && pondAt(p.x) && p.y>floorY+260){p.underPipe=true;resetSkate(p);}
+
+}
+function playerFloor(p,x){
+ if(p.underPipe)return tunnelBottom();
+ const i=bottomPaneAt(x);
+ if(indoorSkate() && i>=0 && i<bottomGlass.length && bottomGlass[i])return tunnelBottom();
+ return terrainFloorAt(x,p.z||0);
+}
+function collideBottomGlass(p,previousY,now){
+ if(!indoorSkate())return;
+ const i=bottomPaneAt(p.x),inside=i>=0&&i<bottomGlass.length;
+ if(!p.underPipe && inside && bottomGlass[i] && p.y>floorY+50){p.underPipe=true;resetSkate(p);}
+ if(!p.underPipe)return;
+ p.x=clamp(p.x,worldLeft+65,gridLeft+(indoorCols-1)*tileSize-30);
+ const ceiling=inside?floorY:terrainFloorAt(p.x)+80;
+ const head= isHeadOnly(p)?45:170;
+ if(!pondAt(p.x) && p.y-head<ceiling){
+  if(inside && (bottomGlass[i] || p.vy < -180)){
+   if(!bottomGlass[i]){bottomGlass[i]=true;spawnImpact({x:p.x,y:floorY,z:0,life:.5,duration:.5,explosion:true,death:false});playDrum('glass',.8,panPlayer(p));emitSignal('glass-break',p.pad,i,1);}
+   // Clear the lip so gravity cannot immediately catch the swimmer underneath.
+   p.y=floorY-4;p.vy=Math.min(p.vy,-650);p.underPipe=false;p.swimming=false;
+  }else{p.y=ceiling+head;p.vy=Math.max(0,p.vy);}
+ }
+}
+let waterMesh=null,waterMeshKey='';
+function drawUnderPipe(){
+ if(!indoorSkate())return;
+ const key=bottomGlass.join('')+gridCols;
+ if(key!==waterMeshKey){waterMeshKey=key;releaseQuadMesh(waterMesh);waterMesh=captureQuadMesh(drawUnderPipeGeometry);}
+ drawQuadMesh(waterMesh);
+}
+function drawUnderPipeGeometry(){
+ if(!indoorSkate())return;
+ const l=gridLeft,r=gridLeft+(indoorCols-1)*tileSize,b=tunnelBottom(),z=35;
+ // Each water column begins below the pipe shell, or at the open waterline.
+ // Shared band heights and colour make every column one continuous volume.
+ const waterTop=floorY-halfpipeRadius;
+ for(const seg of parkSegments){
+   const steps=seg.kind==='transition'?12:1;
+   for(let i=0;i<steps;i++){
+     const x=lerp(seg.left,seg.right,i/steps),rx=lerp(seg.left,seg.right,(i+1)/steps);
+     const topA=seg.kind==='pond'?waterTop:terrainFloorAt(x+.01)+40;
+     const topB=seg.kind==='pond'?waterTop:terrainFloorAt(rx-.01)+40;
+     worldQuad({x,y:topA,z},{x:rx,y:topB,z},{x:rx,y:b,z},{x,y:b,z},[37,113,155]);
+   }
+   if(seg.kind==='pond'){
+     worldQuad({x:seg.left,y:waterTop,z:worldNear},{x:seg.right,y:waterTop,z:worldNear},{x:seg.right,y:waterTop,z:worldFar},{x:seg.left,y:waterTop,z:worldFar},[98,185,217]);
+     worldCapsule(seg.left,waterTop,worldNear,seg.right,waterTop,worldNear,Math.max(1,3*cameraScale()),[186,235,247]);
+   }
+ }
+ worldQuad({x:l,y:b,z:worldNear},{x:r,y:b,z:worldNear},{x:r,y:b,z:worldFar},{x:l,y:b,z:worldFar},[112,140,143]);
+ for(let i=0;i<bottomGlass.length;i++)if(!bottomGlass[i]){
+  const x=gridLeft+(10+i)*tileSize;
+  worldQuad({x,y:floorY,z:worldNear},{x:x+tileSize,y:floorY,z:worldNear},{x:x+tileSize,y:floorY,z:worldFar},{x,y:floorY,z:worldFar},[120,180,204]);
+  worldQuad({x,y:floorY,z:-3},{x:x+tileSize,y:floorY,z:-3},{x:x+tileSize,y:floorY+16,z:-3},{x,y:floorY+16,z:-3},[161,226,244]);
+  worldCapsule(x+10,floorY+3,-4,x+tileSize-12,floorY+11,-4,Math.max(1,2*cameraScale()),[235,254,255]);
+ }
+}
+
+const axePickup={active:false,x:0,y:0};
+function drawBigAxe(x,y,tx,ty,scale){
+ const n=Math.hypot(tx-x,ty-y)||1,ux=(tx-x)/n,uy=(ty-y)/n,px=-uy,py=ux;
+ filledCapsule(x-ux*24*scale,y-uy*24*scale,tx,ty,Math.max(2,9*scale),[122,73,38]);
+ const at=(a,b)=>[tx+ux*a*scale+px*b*scale,ty+uy*a*scale+py*b*scale];
+ for(const side of [-1,1]){const a=at(-25,side*6),b=at(-45,side*52),c=at(22,side*58),d=at(8,side*5);
+ screenTriangle(...a,...b,...c,177,192,207);screenTriangle(...a,...c,...d,208,223,234);
+ filledCapsule(...b,...c,Math.max(1,3*scale),[244,251,255]);}
+}
+
+const bubbleNotes=[];
+function playBubbleSound(p,pop=false){
+ const now=runtime().monotonicUs,base=pop?620:230;
+ for(let i=0;i<4;i++)bubbleNotes.push({at:now+i*18000,hz:base*(pop?Math.pow(.68,i):Math.pow(1.4,i))});
+}
+function updateBubbleAudio(now){
+ for(let i=bubbleNotes.length-1;i>=0;i--)if(now>=bubbleNotes[i].at){playSine(bubbleNotes[i].hz,.035);bubbleNotes.splice(i,1);}
+ for(const p of activePlayers())if(p.swimming && now>=(p.nextBubbleAt||0)){p.nextBubbleAt=now+900000;playBubbleSound(p,false);}
+ if(globalThis.__oskiewarPostFxNative && typeof gameSignal==='function'){
+  const p=activePlayers()[0];gameSignal('post-motion',0,clamp((p?.vx||0)/6000,-1,1),clamp((p?.vy||0)/6000,-1,1));
+  gameSignal('post-water',0,activePlayers().some(p=>p.swimming)?1:0,.56);
+ }
+}
+
+const waterSplashes=[];
+function spawnWaterSplash(p,y){
+ for(let i=0;i<10;i++){const a=(i+.5)/10*Math.PI;waterSplashes.push({x:p.x,y,z:p.z||0,vx:Math.cos(a)*(100+Math.min(400,Math.abs(p.vy)*.15)),vy:-Math.sin(a)*(170+Math.min(450,Math.abs(p.vy)*.18)),life:.7});}
+ if(waterSplashes.length>80)waterSplashes.splice(0,waterSplashes.length-80);
+ playBubbleSound(p,true);
+}
+function updateWaterSplashes(dt){for(let i=waterSplashes.length-1;i>=0;i--){const p=waterSplashes[i];p.life-=dt;if(p.life<=0){waterSplashes.splice(i,1);continue;}p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=850*dt;}}
+function drawWaterSplashes(){drawTurboParticles();for(const p of waterSplashes){const a=projectPoint(p.x,p.y,p.z);const old=triangleDepth;triangleDepth=a.z;filledDisc(a.x,a.y,Math.max(1,4*cameraScale()*p.life/.7),[187,236,252]);triangleDepth=old;}}
+
+let skateAudioLevel=0;
+function updateSkateAudio(dt){
+  let speed=0;
+  for(const p of activePlayers())if(p.alive&&p.skateboard&&!p.onewheel&&p.grounded)
+    speed=Math.max(speed,Math.hypot(p.vx,p.vz||0));
+  const rider=activePlayers()[0];
+  for(const b of balls)if(b.active&&b.type==='skateboard'&&Math.abs(b.y+18-terrainFloorAt(b.x,b.z||0))<5)
+    speed=Math.max(speed,Math.hypot(b.vx,b.vz||0)*clamp(1-Math.hypot(b.x-rider.x,(b.z||0)-(rider.z||0))/1800,0,1));
+  // Keep the native loop below its buzzing high-speed register. Ground speed
+  // controls a quiet rumble, with no fixed-volume step when wheels start moving.
+  const amount=clamp(speed/3200,0,1);
+  const target=speed>30?(.006+Math.sqrt(amount)*.055)*clamp((speed-30)/150,0,1):0;
+  skateAudioLevel+=(target-skateAudioLevel)*(1-Math.exp(-dt*(target?12:45)));
+  if(skateAudioLevel<.0005)skateAudioLevel=0;
+  if(!netSilent&&typeof skateAudio==='function')skateAudio(.03+amount*.17,skateAudioLevel);
+}
+let motorFrequency=75,motorRunning=false,motorSpeed=0,motorPhase=0;
+function updateMotorAudio(dt){
+ if(typeof oscillator!=='function')return;
+ const p=activePlayers().find(p=>p.alive&&(p.goKart||p.onewheel&&p.skateboard));
+ const speed=p?Math.hypot(p.vx,p.vz||0):0;
+ if(!p||!p.goKart&&(!p.grounded||speed<(motorRunning?12:28))||netSilent){
+  if(motorRunning){if(typeof oscillatorStop==='function')oscillatorStop();else oscillator(motorFrequency,0);}
+  motorRunning=false;motorSpeed=speed;return;
+ }
+ const amount=clamp(speed/3200,0,1),load=clamp(Math.abs(speed-motorSpeed)/Math.max(dt,.001)/5000,0,1);
+ motorSpeed=speed;
+ // Low electric hum with a soft acceleration whine; no standing idle tone.
+ const note=[33,29,36,31][Math.floor(parkStereo.beat/8)%4]+(p.wheelTurbo?12:0);
+ const target=p.goKart?55+Math.sqrt(clamp(speed/6500,0,1))*145+Math.abs(p.inputZ||0)*18:440*Math.pow(2,(note-69)/12);
+ motorFrequency+=(target-motorFrequency)*(1-Math.exp(-Math.max(0,dt)*8));
+ motorPhase=(motorPhase+Math.max(0,dt)*(5+amount*9))%1;
+ const gain=p.goKart?(.018+amount*.025+load*.009)*(.85+.15*Math.sin(motorPhase*Math.PI*2)):(.002+Math.sqrt(amount)*.005)*clamp((speed-12)/90,0,1);
+ oscillator(motorFrequency,gain);motorRunning=true;
+}
+function axeFrame(p,t){
+ if(!p.axeHeld || !p.alive || isHeadOnly(p) || !availableArm(p))return null;
+ const g=runnerWorldGeometry(p,t),arm=g.segments.find(b=>b.part===(poolOnly()?assignedItemArm(p,'axe'):itemHand(p))&&b.role?.endsWith('forearm'))||g.segments.find(b=>b.role?.endsWith('forearm'));
+ if(!arm)return null;
+ const hand={x:arm.x2,y:arm.y2,z:arm.z2??p.z??0};
+ let dx=arm.x2-arm.x1,dy=-Math.abs(arm.y2-arm.y1),dz=(arm.z2||0)-(arm.z1||0);
+ const length=Math.hypot(dx,dy,dz)||1;const up={x:dx/length,y:dy/length,z:dz/length};
+ const yaw=(p.spin?.angle||0)+(poolOnly()?p.poolYaw||0:0),side={x:Math.cos(yaw),y:0,z:Math.sin(yaw)};
+ const dot=up.x*side.x+up.z*side.z;
+ side.x-=up.x*dot;side.y-=up.y*dot;side.z-=up.z*dot;
+ const norm=Math.hypot(side.x,side.y,side.z)||1;side.x/=norm;side.y/=norm;side.z/=norm;
+ const depth={x:up.y*side.z-up.z*side.y,y:up.z*side.x-up.x*side.z,z:up.x*side.y-up.y*side.x};
+ const at=(a,b=0,c=0)=>({x:hand.x+up.x*a+side.x*b+depth.x*c,y:hand.y+up.y*a+side.y*b+depth.y*c,z:hand.z+up.z*a+side.z*b+depth.z*c});
+ return {hand,up,side,depth,at,center:at(105),half:[38,58,15]};
+}
+function axeBoxHits(frame,a,b=a,radius=0){
+ let lo=0,hi=1;
+ const axes=[frame.up,frame.side,frame.depth];
+ for(let i=0;i<3;i++){
+  const u=axes[i],c=frame.center;
+  const start=(a.x-c.x)*u.x+(a.y-c.y)*u.y+((a.z||0)-c.z)*u.z;
+  const delta=(b.x-a.x)*u.x+(b.y-a.y)*u.y+((b.z||0)-(a.z||0))*u.z;
+  const size=frame.half[i]+radius;
+  if(Math.abs(delta)<.00001){if(Math.abs(start)>size)return false;continue;}
+  const x=(-size-start)/delta,y=(size-start)/delta;
+  lo=Math.max(lo,Math.min(x,y));hi=Math.min(hi,Math.max(x,y));if(lo>hi)return false;
+ }
+ return true;
+}
+function updateAxeHits(now){
+ const t=(now-startedAt)/1e6;
+ for(const owner of activePlayers()){
+  const frame=axeFrame(owner,t);if(!frame)continue;
+  owner.axeHitAt ||= {};
+  for(const target of [...activePlayers(),...parkKids]){
+   if(target===owner || !target.alive || now<(owner.axeHitAt[target.pad]||0))continue;
+   if(Math.abs(target.x-frame.center.x)>300 || Math.abs(target.y-frame.center.y)>360 || Math.abs((target.z||0)-frame.center.z)>250)continue;
+   const g=runnerWorldGeometry(target,t);
+   if(axeBoxHits(frame,g.head,g.head,g.head.radius)){
+    owner.axeHitAt[target.pad]=now+350000;if(target.civilian)popCivilianHead(target,owner,g,now);else killPlayer(target,owner.pad,now,'AXE KO');continue;
+   }
+   for(let i=0;i<g.segments.length;i++){
+    const b=g.segments[i];
+    if(axeBoxHits(frame,{x:b.x1,y:b.y1,z:b.z1??target.z},{x:b.x2,y:b.y2,z:b.z2??target.z},(b.width||12)/2)){
+     owner.axeHitAt[target.pad]=now+350000;if(target.civilian){target.x+=Math.sign(target.x-owner.x)*35;target.startledUntil=now+900000;}else applyBodyHit(target,i,owner.x,owner.pad,now,1800,260,true);break;
+    }
+   }
+  }
+  for(const c of hallCubes)if(!c.broken && axeBoxHits(frame,{x:c.x,y:(c.baseY??floorY)-c.size/2,z:0},undefined,c.size/2)){c.broken=true;c.health=0;spawnImpact({x:c.x,y:cubeTop(c),z:0,life:.5,duration:.5,explosion:true});}
+ }
+}
+function drawHeldAxe(p,t){
+ const frame=axeFrame(p,t);if(!frame)return;const at=frame.at;
+ const a=at(-22),b=at(140);
+ worldCapsule(a.x,a.y,a.z,b.x,b.y,b.z,Math.max(2,9*cameraScale()),[127,77,41]);
+ for(const side of [-1,1]){
+  const a=at(75,side*7),b=at(67,side*53),c=at(143,side*58),d=at(124,side*6);
+  worldQuad(a,b,c,d,[198,216,231]);
+  worldCapsule(b.x,b.y,b.z,c.x,c.y,c.z,Math.max(1,3*cameraScale()),[248,253,255]);
+ }
+}
+
+function drawEmoFringe(p,h){
+ if(!p.alive)return;
+ const r=h.radius,face=p.facing||1,ink=p.hairColor||[22,17,31];
+ const at=(x,y)=>[h.x+x*r*face,h.y+y*r];
+ const points=[at(-.95,-.5),at(-.65,-1.03),at(.1,-1.16),at(.72,-.85),at(.91,-.36),at(.48,.64),at(.25,.4),at(.1,.1),at(-.45,-.4)];
+ for(let i=1;i<points.length-1;i++)screenTriangle(...points[0],...points[i],...points[i+1],...ink);
+ filledCapsule(...at(.28,-.82),...at(.58,.1),Math.max(1,r*.09),[112,43,137]);
+}
+function seatHudText(text,x,y,size,color){
+ const shadow=Math.max(3,Math.round(size*.065));
+ typeWrite(text,x+shadow,y+shadow,size,9,12,24);typeWrite(text,x,y,size,...color);
+}
+// The seat meters were new
+// strings every frame, and the console lays out every new string (see the
+// note in drawFreeskateSpeed: seven milliseconds). Ten refreshes a second
+// is the readout's own rate. The idle verdict is held with the text so a
+// heart never sits beside a speed. Keyed off the fighter, not on it: paint
+// writes nothing on a sim object.
+const seatHudReadouts=new WeakMap();
+function seatHudReadout(p,now){
+ const held=seatHudReadouts.get(p),age=held?now-held.at:Infinity;
+ if(age>=0 && age<100000)return held;
+ const speed=Math.hypot(p.vx,p.vy,p.vz||0)*gameSpeed;
+ const idle=speed<30 && p.grounded && !p.spin;
+ const metrics=[{text:Math.round(p.heartRate||68)+' bpm',color:[255,144,188]}];
+ const speedValue=Math.round(mph(speed)),rpm=Math.round(p.spin?spinRpm(p):0);
+ if(speedValue)metrics.push({text:speedValue+' mph',color:[110,220,255]});
+ if(rpm)metrics.push({text:rpm+' rpm',color:[255,215,80]});
+ const readout={at:now,idle,metrics,measure:metrics.map(m=>m.text).join('   ')};
+ seatHudReadouts.set(p,readout);
+ return readout;
+}
+// The park hints are keycaps on a keyboard and button discs on a pad (the
+// shared drawKeycapRun), one short verb each. The third field is the internal
+// button translateButtons produces, which lights the cap while held.
+function parkControlCaps(){
+ return keycapFamily()?{punch:['Q','E'],kick:'SHIFT',jump:'SPACE',bubble:['SHIFT','Q'],drop:'R'}
+  :{punch:['X','Y'],kick:'A',jump:'B',bubble:['A','X'],drop:'L3'};
+}
+function drawParkControls(p,safe){
+ const down=inputPads[p.pad]?.down||[],fighting=!!parkFightRival(p),size=28,c=parkControlCaps();
+ const held=[...down];
+ if((inputPads[p.pad]?.leftY||0)>.48)held.push('ArrowUp');
+ const ink=[200,215,232];
+ const drop=parkDropName(p);
+ if(drop)drawKeycapRun([[c.drop,'drop '+drop,'KeyQ']],safe.left,safe.bottom-size*1.6,size,held,[255,186,126]);
+ const vehicle=p.skateboard||p.goKart||p.onewheel,gun=p.gunAmmo>0;
+ const rows=[
+  [[c.punch,p.chalkColor&&!fighting?'draw':p.axeHeld?'swing':gun?'shoot':'punch/hold',gun?'Y':'B'],
+   [c.kick,vehicle?'gas':'kick',vehicle?'ArrowUp':'Y']],
+  [[c.jump,p.skateboard&&!fighting?'off':'jump','A'],[c.bubble,'bubble','RightShoulder']]];
+ for(const [row,entries] of rows.entries()){
+  const y=safe.bottom-size*3.4+row*size*1.8;
+  drawKeycapRun(entries,safe.right-keycapRunWidth(entries,size),y,size,held,ink);
+ }
+}
+function drawSeatPlayerHud(ink){
+ drawSeatFirstPerson();
+ drawParkPickupLabels();
+ const safe=hudSafeRect(),old=triangleDepth,now=runtime().monotonicUs;triangleDepth=hudDepth;
+ for(const p of activePlayers()){
+  if(p.dummy)continue;
+  const i=p.pad,{idle,measure,metrics}=seatHudReadout(p,now);
+  if(poolOnly()&&i===0)drawParkControls(p,safe);
+  const accent=p.wheelTurbo?[209,129,255]:i?[174,161,255]:[255,144,188];
+  const size=42;
+  const heartRadius=size*.23,heartSpace=heartRadius*3+18;
+  const gap=24,width=metrics.reduce((sum,m)=>sum+handleWidth(m.text,size),0)+gap*(metrics.length-1)+heartSpace;
+  const solo=activePlayers().filter(p=>!p.dummy).length===1;
+  const center=solo?viewCenterX():lerp(safe.left,safe.right,i?.72:.28);
+  const x=clamp(center-width/2,safe.left,safe.right-width),y=safe.bottom-size-70;
+  let cursor=x+heartSpace;for(const metric of metrics){seatHudText(metric.text,cursor,y,size,metric.color);cursor+=handleWidth(metric.text,size)+gap;}
+  {
+   const hx=x+heartSpace/2,hy=y+size*.75;
+   drawSeatHeart(hx+5,hy+5,p,[9,12,24],heartRadius);
+   drawSeatHeart(hx,hy,p,[255,144,188],heartRadius);
+  }
+ }
+ triangleDepth=old;
+}
+function seatActionText(p,now){
+ const speed=Math.hypot(p.vx,p.vz||0),states=[p.goKart?'DRIVING GO-KART':p.raceLoop?'LOOPING':p.poolPipeLocked?'HALFPIPING':statusVerb(p,speed,false)[0].toUpperCase()];
+ if(p.poolPipeLocked)states.push('LOCKED IN');
+ if(p.chalkDrawing)states.push('DRAWING');
+ if(p.sparringPartner!==undefined)states.push('SPARRING');
+ if(now<(p.dashUntil||0))states.push(now<(p.poolPipeEscapeUntil||0)&&p.skateboard?'DASHING OUT':'DASHING');
+ if(Math.abs(p.inputX||0)>.18)states.push(p.inputX>0?'TURNING RIGHT':'TURNING LEFT');
+ if(p.spin)states.push('SPINNING');
+ if(p.wheelTurbo)states.push('SUPER TURBO');
+ const recent=now-(p.lastButtonAt||0)<850000?p.lastButton:'';
+ if(recent&&!['NONE','LEFT','RIGHT','UP','DOWN','SPIN','SUPER TURBO','SKATEBOARD','MONOWHEEL','DASH','DASH OUT'].includes(recent)&&!states.includes(recent))states.push(recent);
+ const held=[];
+ if(p.axeHeld)held.push('AXE');if(p.swordHeld)held.push('SWORD');if(p.gunAmmo>0)held.push(p.gunMode==='RUBBER SMG'?'SMG':'PISTOL');
+ if(p.chalkColor)held.push(p.chalkColor.name+' CHALK');
+ if(p.heldBall>=0)held.push('BALL');if(p.heldPlayer>=0)held.push('PARTNER');
+ return states.join(' + ')+(held.length?' W/ '+held.join(' + '):'');
+}
+const actionColors={
+ 'STANDING':[237,202,255],'WALKING':[145,232,179],'RUNNING':[71,236,147],
+ 'CRAWLING':[240,172,98],'CROUCHING':[220,167,255],'SPINNING':[255,215,80],
+ 'IN THE AIR':[110,220,255],'SWIMMING':[130,238,231],'SKATING':[167,197,255],
+ 'BALANCING':[199,167,255],'RIDING ELECTRIC':[203,155,255],'SUPER TURBO':[244,133,245],
+ 'TURNING LEFT':[179,174,255],'TURNING RIGHT':[143,207,255],
+ 'LOOPING':[168,255,123],'LOOP COMPLETE':[255,242,112],
+ 'HALFPIPING':[132,222,255],'LOCKED IN':[164,255,134],'DASH OUT':[255,162,235],'DASHING':[98,255,170],'DASHING OUT':[255,162,235],'DRAWING':[255,161,244],'SPARRING':[255,144,123],'SMG':[143,208,244],
+ 'AXE':[255,160,100],'PISTOL':[115,208,255],'SWORD':[220,230,255],'BALL':[248,227,112],
+ 'PARTNER':[153,230,155],'PUNCH':[255,134,147],'KICK':[247,170,106],'DASH':[98,255,170],
+};
+function seatActionRuns(p,now){
+ return seatActionText(p,now).split(/( \+ | W\/ )/).map(text=>({text,color:chalkColors.find(c=>text===c.name+' CHALK')?.rgb||actionColors[text]||(/^[ +]| W\//.test(text)?[213,207,219]:[255,175,199])}));
+}
+function drawSeatAction(p){
+ if(shellMode!=="GAME"||parkSupply.ko||!p.alive||p.dummy)return;
+ const runs=seatActionRuns(p,runtime().monotonicUs),size=42,safe=hudSafeRect();
+ const old=triangleDepth;triangleDepth=hudDepth;
+ const width=runs.reduce((sum,r)=>sum+handleWidth(r.text,size),0);
+ let x=viewCenterX()-width/2;
+ const seats=activePlayers().filter(p=>!p.dummy),row=Math.max(0,seats.indexOf(p));
+ const y=safe.top+18+row*50;
+ for(const run of runs){seatHudText(run.text,x,y,size,run.color);x+=handleWidth(run.text,size);}
+ triangleDepth=old;
+}
+
+function drawAxeHitbox(p,t){
+ const f=axeFrame(p,t);if(!f)return;
+ const corners=[];for(let a=0;a<2;a++)for(let b=0;b<2;b++)for(let c=0;c<2;c++)corners.push(f.at(105+(a?38:-38),b?58:-58,c?15:-15));
+ for(let i=0;i<8;i++)for(const bit of [1,2,4])if(!(i&bit)){
+  const a=corners[i],b=corners[i|bit];hudWorldLine(a.x,a.y,a.z,b.x,b.y,b.z,3,[255,48,64]);
+ }
+}
+
+function captureQuadMesh(draw){
+ const mesh={vertices:[],faces:[],projected:[],capsules:[]},lookup=new Map(),original=worldQuad,originalCapsule=worldCapsule;
+ const meshScale=cameraScale();
+ worldCapsule=(...args)=>{args[6]/=meshScale;mesh.capsules.push(args);};
+ const vertex=p=>{const key=p.x+','+p.y+','+p.z;let i=lookup.get(key);if(i===undefined){i=mesh.vertices.length;lookup.set(key,i);mesh.vertices.push({...p});mesh.projected.push({});}return i;};
+ worldQuad=(a,b,c,d,color)=>{
+  const abx=b.x-a.x,aby=b.y-a.y,abz=b.z-a.z,acx=c.x-a.x,acy=c.y-a.y,acz=c.z-a.z;
+  const nx=aby*acz-abz*acy,ny=abz*acx-abx*acz,nz=abx*acy-aby*acx,n=Math.hypot(nx,ny,nz)||1;
+  mesh.faces.push({ids:[vertex(a),vertex(b),vertex(c),vertex(d)],color:color.slice(),normal:[nx/n,ny/n,nz/n],lit:[]});
+ };
+ try{draw();}finally{worldQuad=original;worldCapsule=originalCapsule;}
+ quadMeshBounds(mesh);return mesh;
+}
+// Bounds at capture, over vertices and capsule ends alike, so every view can
+// reject a mesh before projecting it — the inset used to read a field only
+// the web fallback ever filled.
+function quadMeshBounds(mesh){
+ const b={minX:Infinity,maxX:-Infinity,minY:Infinity,maxY:-Infinity,minZ:Infinity,maxZ:-Infinity};
+ const grow=(x,y,z)=>{if(x<b.minX)b.minX=x;if(x>b.maxX)b.maxX=x;if(y<b.minY)b.minY=y;if(y>b.maxY)b.maxY=y;if(z<b.minZ)b.minZ=z;if(z>b.maxZ)b.maxZ=z;};
+ for(const p of mesh.vertices)grow(p.x,p.y,p.z);
+ for(const a of mesh.capsules||[]){grow(a[0],a[1],a[2]);grow(a[3],a[4],a[5]);}
+ mesh.bounds=b.minX===Infinity?null:b;
+}
+// The native handle for a captured mesh: uploaded on first use, freed when the
+// mesh is recaptured. −1 means the shell has no retained meshes (or refused
+// the upload) and the caller takes the sceneMesh or JS path.
+function meshHandle(mesh){
+ if(!nativeRetainedMeshes)return -1;
+ if(mesh.nativeHandle===undefined){const b=nativeMeshBuffers(mesh);mesh.nativeHandle=nativeMeshUpload(b.vertices,b.faces,b.capsules);}
+ return mesh.nativeHandle;
+}
+// Static park geometry is partitioned once. Each leaf owns a small retained
+// mesh and is rejected before projection or a native bridge call.
+function sceneBoundsVisible(bounds){
+  if(!bounds)return true;
+  if(cameraDoll.dirty||!cameraDoll.view)cameraDoll.prepare();
+  const v=cameraDoll.view,p=cameraDoll.position;
+  const x=(bounds.minX+bounds.maxX)*.5-p.x,y=(bounds.minY+bounds.maxY)*.5-p.y,z=(bounds.minZ+bounds.maxZ)*.5-p.z;
+  const hx=(bounds.maxX-bounds.minX)*.5,hy=(bounds.maxY-bounds.minY)*.5,hz=(bounds.maxZ-bounds.minZ)*.5;
+  const cx=x*v.right.x+y*v.right.y+z*v.right.z,cy=x*v.up.x+y*v.up.y+z*v.up.z,cz=x*v.forward.x+y*v.forward.y+z*v.forward.z;
+  const ex=hx*Math.abs(v.right.x)+hy*Math.abs(v.right.y)+hz*Math.abs(v.right.z);
+  const ey=hx*Math.abs(v.up.x)+hy*Math.abs(v.up.y)+hz*Math.abs(v.up.z);
+  const ez=hx*Math.abs(v.forward.x)+hy*Math.abs(v.forward.y)+hz*Math.abs(v.forward.z);
+  if(cz+ez<cameraNear)return false;
+  if(cz-ez<cameraNear)return true;
+  const blend=cameraDoll.perspective,base=v.orthoScale*(1-blend);
+  const nearScale=base+v.focal/(cz-ez)*blend,farScale=base+v.focal/(cz+ez)*blend;
+  const minX=cx-ex,maxX=cx+ex,minY=cy-ey,maxY=cy+ey;
+  const left=v.centerX+minX*(minX<0?nearScale:farScale),right=v.centerX+maxX*(maxX>0?nearScale:farScale);
+  const top=v.centerY-maxY*(maxY>0?nearScale:farScale),bottom=v.centerY-minY*(minY<0?nearScale:farScale);
+  return right>=(clipView?.x??0)-24&&left<=(clipView?clipView.x+clipView.w:viewWidth())+24&&
+    bottom>=(clipView?.y??0)-24&&top<=(clipView?clipView.y+clipView.h:viewHeight)+24;
+}
+function buildParkScene(mesh){
+  const entries=mesh.faces.map(face=>{
+    const points=face.ids.map(i=>mesh.vertices[i]);
+    return {face,center:{x:points.reduce((s,p)=>s+p.x,0)/4,y:points.reduce((s,p)=>s+p.y,0)/4,z:points.reduce((s,p)=>s+p.z,0)/4}};
+  });
+  const build=items=>{
+    const bounds={minX:Infinity,minY:Infinity,minZ:Infinity,maxX:-Infinity,maxY:-Infinity,maxZ:-Infinity};
+    for(const {face} of items)for(const i of face.ids){const p=mesh.vertices[i];
+      for(const [k,lo,hi] of [['x','minX','maxX'],['y','minY','maxY'],['z','minZ','maxZ']]){
+        bounds[lo]=Math.min(bounds[lo],p[k]);bounds[hi]=Math.max(bounds[hi],p[k]);}}
+    if(items.length>64){
+      const span=k=>Math.max(...items.map(e=>e.center[k]))-Math.min(...items.map(e=>e.center[k]));
+      const axis=['x','y','z'].sort((a,b)=>span(b)-span(a))[0];
+      items.sort((a,b)=>a.center[axis]-b.center[axis]);const half=Math.ceil(items.length/2);
+      return {bounds,children:[build(items.slice(0,half)),build(items.slice(half))]};
+    }
+    const leaf={vertices:[],faces:[],projected:[],capsules:[],bounds},indices=new Map();
+    for(const {face} of items)leaf.faces.push({...face,lit:[],ids:face.ids.map(i=>{
+      if(!indices.has(i)){indices.set(i,leaf.vertices.length);leaf.vertices.push(mesh.vertices[i]);leaf.projected.push({});}
+      return indices.get(i);
+    })});
+    return {bounds,mesh:leaf};
+  };
+  return build(entries);
+}
+function drawParkScene(mesh,opacity=1){
+  if(!mesh)return;
+  mesh.sceneRoot ||= buildParkScene(mesh);
+  const visit=node=>{if(!sceneBoundsVisible(node.bounds))return;
+    if(node.children)for(const child of node.children)visit(child);else drawQuadMesh(node.mesh,opacity);};
+  visit(mesh.sceneRoot);
+  // Coping rails are few and clip independently; their widths remain physical.
+  for(const a of mesh.capsules||[])worldCapsule(a[0],a[1],a[2],a[3],a[4],a[5],a[6]*cameraScale(),a[7],a[8]);
+}
+function parkSightlineClear(from,to){
+  for(const {w,bay,u,fraction} of parkWallContact(from,to,0)){
+    const y=lerp(from.y,to.y,fraction);
+    if(!brokenParkWindows.has(w.id+':'+bay)||u<=bay*w.width+109||u>=(bay+1)*w.width-109||
+      y<=parkDeckY-parkBuildingHeight+269||y>=parkDeckY-99)return false;
+  }
+  for(let i=1;i<12;i++){
+    const t=i/12,x=lerp(from.x,to.x,t),z=lerp(from.z,to.z,t);
+    if(lerp(from.y,to.y,t)>poolFloorAt(x,z)+8)return false;
+  }
+  return true;
+}
+function parkActorVisible(p){
+  const size=p.civilian?(p.bodyScale||1):1;
+  if(!sceneBoundsVisible({minX:p.x-150*size,maxX:p.x+150*size,minY:p.y-240*size,maxY:p.y+30,
+    minZ:(p.z||0)-150*size,maxZ:(p.z||0)+150*size}))return false;
+  return [165,85,10].some(height=>parkSightlineClear(cameraDoll.position,{x:p.x,y:p.y-height*size,z:p.z||0}));
+}
+function releaseQuadMesh(mesh){
+ if(mesh?.sceneRoot){const release=node=>{if(node.children)node.children.forEach(release);else releaseQuadMesh(node.mesh);};
+   release(mesh.sceneRoot);mesh.sceneRoot=null;}
+ if(mesh&&mesh.nativeHandle>=0&&nativeMeshFree)nativeMeshFree(mesh.nativeHandle);
+ if(mesh)mesh.nativeHandle=-1;
+}
+function drawQuadMesh(mesh,opacity=1){
+ if(!mesh||(!nativeRetainedMeshes&&!sceneBoundsVisible(mesh.bounds)))return;
+ if(nativeRetainedMeshes){
+  const handle=meshHandle(mesh);
+  if(handle>=0){nativeMeshDraw(handle,mainNativeCamera(),clipView?0:cameraScale(),1,1,1,opacity);return;}
+ }
+ if(nativeSceneMesh&&opacity===1){
+  if(!clipView){const scale=cameraScale();for(const a of mesh.capsules||[])worldCapsule(a[0],a[1],a[2],a[3],a[4],a[5],a[6]*scale,a[7],a[8]);}
+  const buffers=nativeMeshBuffers(mesh);nativeSceneMesh(buffers.vertices,buffers.faces,mainNativeCamera());return;
+ }
+ if(!mesh.bounds && mesh.vertices.length){
+  const v=mesh.vertices;mesh.bounds={minX:Math.min(...v.map(p=>p.x)),maxX:Math.max(...v.map(p=>p.x)),minY:Math.min(...v.map(p=>p.y)),maxY:Math.max(...v.map(p=>p.y)),minZ:Math.min(...v.map(p=>p.z)),maxZ:Math.max(...v.map(p=>p.z))};
+ }
+ const meshScale=cameraScale();
+ if(!clipView)for(const args of mesh.capsules||[])worldCapsule(args[0],args[1],args[2],args[3],args[4],args[5],args[6]*meshScale,args[7],args[8]);
+ if(programBuffered&&opacity===1){
+  // Sent once, drawn by handle: the interpreter keeps the mesh, lights each
+  // quad and takes it to the camera. The bounds cull above already dropped
+  // a mesh that is wholly off screen.
+  emitMesh(mesh);
+  return;
+ }
+ if(cameraDoll.dirty)cameraDoll.prepare();
+ const v=cameraDoll.view,cam=cameraDoll.position,scale=v.orthoScale,perspective=cameraDoll.perspective;
+ for(let i=0;i<mesh.vertices.length;i++){
+  const p=mesh.vertices[i],o=mesh.projected[i],x=p.x-cam.x,y=p.y-cam.y,z=p.z-cam.z;
+  const vx=x*v.right.x+y*v.right.y+z*v.right.z,vy=x*v.up.x+y*v.up.y+z*v.up.z,vz=x*v.forward.x+y*v.forward.y+z*v.forward.z;
+  const k=perspective?scale+(v.focal/Math.max(cameraNear,vz)-scale)*perspective:scale;
+  o.x=v.centerX+vx*k;o.y=v.centerY-vy*k;o.z=clamp(vz*cameraDoll.depthSlope+cameraDoll.depthBase,-1.499,1.4);o.near=vz>=cameraNear;
+ }
+ for(const f of mesh.faces){
+  const [ia,ib,ic,id]=f.ids,a=mesh.projected[ia],b=mesh.projected[ib],c=mesh.projected[ic],d=mesh.projected[id];
+  if(a.near&&b.near&&c.near&&d.near&&((a.x<0&&b.x<0&&c.x<0&&d.x<0)||(a.x>stageRight&&b.x>stageRight&&c.x>stageRight&&d.x>stageRight)||(a.y<0&&b.y<0&&c.y<0&&d.y<0)||(a.y>viewHeight&&b.y>viewHeight&&c.y>viewHeight&&d.y>viewHeight)))continue;
+  const n=f.normal,k=.72+Math.max(0,-n[0]*globalLight.x-n[1]*globalLight.y-n[2]*globalLight.z)*.28;
+  const color=f.lit;color[3]=opacity;for(let i=0;i<3;i++)color[i]=Math.round(f.color[i]*k);
+  if(a.near&&b.near&&c.near&&d.near&&bandContains(a)&&bandContains(b)&&bandContains(c)&&bandContains(d)){
+   projectedTriangle(a,b,c,color);projectedTriangle(a,c,d,color);
+  }else{worldTriangle(mesh.vertices[ia],mesh.vertices[ib],mesh.vertices[ic],color);worldTriangle(mesh.vertices[ia],mesh.vertices[ic],mesh.vertices[id],color);}
+ }
+}
+
+function updateHeavyWheelHits(now){
+ for(const p of activePlayers())if(p.alive&&p.onewheel&&Math.abs(p.skateVx)>1500&&now>=(p.wheelHitAt||0)){
+  for(const target of activePlayers())if(target!==p&&target.alive&&Math.abs(p.x-target.x)<85&&Math.abs(p.y-target.y)<150){
+   p.wheelHitAt=now+500000;applyBodyHit(target,0,p.x,p.pad,now,Math.abs(p.skateVx)*1.25,330,true);p.skateVx*=.65;break;
+  }
+ }
+}
+// Host snapshots are immutable within a lifecycle call. Crossing QuickJS's
+// native bridge for every strand, capsule and HUD label needlessly rebuilds
+// the same capability object. Refresh at every sim/paint boundary.
+if(typeof capabilities==='function'){
+ const nativeCapabilities=capabilities;let cached=null;
+ capabilities=()=>cached||(cached=nativeCapabilities());
+ const previousSim=sim,previousPaint=paint;
+ sim=function(){cached=null;try{return previousSim();}finally{cached=null;}};
+ paint=function(){cached=null;try{return previousPaint();}finally{cached=null;}};
+}
+// The clock too: one host read per paint and one per simulated frame. The
+// frame is the unit, not the sim() call — a rollback resimulates several
+// frames inside one sim(), each under its own netClockUs, and each must read
+// its own time. Inside gameSim the snapshot also pins monotonicUs for the
+// whole tick, so a pose, a deadline and a hitbox never disagree by a
+// microsecond's drift between two reads.
+{
+ const liveRuntime=runtime,previousPaint=paint,previousGameSim=gameSim;let snapshot=null;
+ runtime=function(){return snapshot||liveRuntime();};
+ paint=function(){snapshot=liveRuntime();try{return previousPaint();}finally{snapshot=null;}};
+ gameSim=function(){snapshot=liveRuntime();try{return previousGameSim();}finally{snapshot=null;}};
+}
+
+function cameraPlayers(){return freeskateActive() && players[1].dummy?[players[0]]:activePlayers();}
+
+function drawSpinArms(player,t,geometry,front,color,outline){
+ const saved=triangleDepth;
+ const segments=geometry.segments.filter(s=>/arm$/.test(s.role||'') && ((s.depth<geometry.head.depth)===front)).sort((a,b)=>b.depth-a.depth);
+ for(const s of segments){
+  triangleDepth=saved+(front?-.03:.015);
+  const width=s.width,dx=s.x2-s.x1,dy=s.y2-s.y1,length=Math.hypot(dx,dy)||1;
+  const nx=-dy/length,ny=dx/length;
+  filledCapsule(s.x1,s.y1,s.x2,s.y2,width+2,outline);
+  filledCapsule(s.x1,s.y1,s.x2,s.y2,width,mixColor(color,[30,24,42],.22));
+  filledCapsule(s.x1+nx*width*.16,s.y1+ny*width*.16,s.x2+nx*width*.16,s.y2+ny*width*.16,width*.57,color);
+ }
+ triangleDepth=saved;
+}
+
+const parkKids=[];
+function resetParkKids(){
+ parkKids.length=0;
+ if(!indoorSkate()&&!poolOnly())return;
+ const skin=[[255,214,194],[198,139,104],[118,78,61],[239,185,142],[160,111,90],[255,222,199],[213,160,122],[144,96,76]];
+ const inks=[[237,105,119],[84,183,172],[244,179,67],[129,139,222],[180,105,183],[92,159,208],[216,134,81],[149,184,95]];
+ for(let i=0;i<8;i++){
+  const kid=JSON.parse(JSON.stringify(players[0]));
+  const x=tileCenterX(13+i*7);
+  Object.assign(kid,{pad:i+2,name:['MICA','ASH','FERN','KIT','ROBIN','JUNE','SKY','RIO'][i],
+   civilian:true,bodyScale:.83+(i%4)*.07,hairVariant:i%3,pantsColor:i%2?inks[(i+3)%8]:null,
+   alive:true,dummy:false,npc:true,bot:false,remote:false,skin:'pastel',emo:i%3===1,
+   x,y:terrainFloorAt(x),z:(i%3-1)*125,vx:0,vy:0,vz:0,spawnX:x,grounded:true,
+   color:skin[i],shirtColor:inks[i],skirtColor:inks[(i+3)%8],accent:inks[(i+5)%8],
+   hairColor:[[33,26,29],[94,54,35],[184,133,71],[47,35,63]][i%4],shoeColor:inks[(i+2)%8],
+   heartRate:62+(i*7%19),heartPhase:(i*.173)%1,breathPhase:(i*.317)%1,motionClock:i*1.7,
+   hair:null,skirtCloth:null,rig:null,trucks:null,spin:null,skateboard:false,onewheel:false,
+   axeHeld:false,swordHeld:false,gunAmmo:0,grenadeAmmo:0,heldBall:-1,heldPlayer:-1,grabbedBy:-1,
+   removedParts:[],partDamage:{},previous:[],lastTap:{},lastRelease:{},directionChanges:[],
+   headBustedAt:0,frozenGeometry:null,replayGeometry:null,fallenBodyGeometry:null,
+   attackKind:'',attackUntil:0,resultReaction:null,underPipe:false,swimming:false,
+   patrolDirection:i%2?1:-1,patrolMin:tileCenterX(11+i*7),patrolMax:tileCenterX(16+i*7)});
+  if(poolOnly()){
+    const x=850+i*850,z=i%2?-850:1000;
+    Object.assign(kid,{x,z,y:poolFloorAt(x,z),spawnX:x,patrolMin:x-180,patrolMax:x+180,
+      patrolZ:z,poolYaw:kid.patrolDirection>0?0:Math.PI,poolStridePhase:i*.13});
+  }
+  parkKids.push(kid);
+ }
+}
+function updateParkKids(dt,now){
+ for(let i=crowdNotes.length-1;i>=0;i--)if(now>=crowdNotes[i].at){playSine(crowdNotes[i].hz,.045);crowdNotes.splice(i,1);}
+ for(const kid of parkKids){
+  if(ragdollBodies.has(kid)&&!kid.alive&&!kid.headless)continue;
+  if(kid.heldBy!==undefined){const holder=players[kid.heldBy];if(!holder?.alive||holder.holdPad!==kid.pad)kid.heldBy=undefined;else continue;}
+  if(kid.thrownUntil>now&&!kid.grounded){
+   const previous={x:kid.x,z:kid.z};kid.vy+=1600*dt;kid.x+=kid.vx*dt;kid.y+=kid.vy*dt;kid.z+=kid.vz*dt;boundParkBody(kid,previous);
+   const floor=poolFloorAt(kid.x,kid.z);if(kid.y>=floor){kid.y=floor;kid.grounded=true;kid.vx*=.3;kid.vz*=.3;kid.vy=0;playDrum('snare',.5,panAt(kid.x,kid.z));}
+   continue;
+  }
+  if(kid.alive&&kid.sparringPartner!==undefined){
+    const rival=players[kid.sparringPartner],distance=rival?Math.hypot(rival.x-kid.x,(rival.z||0)-(kid.z||0)):Infinity;
+    if(!rival?.alive||rival.sparringPartner!==kid.pad||rival.poolPipeEscapeUntil>now){endParkSparring(kid);}
+    else{
+      if(now>=kid.attackUntil)kid.attackKind='';
+      const dx=rival.x-kid.x,dz=(rival.z||0)-(kid.z||0),yaw=Math.atan2(dz,dx);kid.poolYaw=yaw;kid.facing=1;kid.grounded=true;kid.ducking=false;
+      const speed=distance>95?Math.min(380,(distance-95)*3):0,previous={x:kid.x,z:kid.z};
+      kid.vx=Math.cos(yaw)*speed;kid.vz=Math.sin(yaw)*speed;kid.x+=kid.vx*dt;kid.z+=kid.vz*dt;kid.y=poolFloorAt(kid.x,kid.z);
+      kid.poolStridePhase=(kid.poolStridePhase||0)+speed*dt/240;boundParkBody(kid,previous);
+      if(distance<155&&now>=(kid.nextSparAt||0)&&now>=(kid.hitStunUntil||0)){kid.sparCount=(kid.sparCount||0)+1;startMelee(kid,kid.sparCount%3===0?'KICK':'PUNCH',now);kid.nextSparAt=now+1100000;}
+      continue;
+    }
+  }
+  if(kid.headless){
+   const h=kid.looseHead,previous={x:h.x,z:h.z};
+   h.vy+=1100*dt;h.x+=h.vx*dt;h.y+=h.vy*dt;h.z+=h.vz*dt;
+   if(poolOnly())for(const {w,old} of parkWallContact(previous,h,h.radius)){
+     const dot=h.vx*w.nx+h.vz*w.nz;
+     if(dot*(old>=0?1:-1)<0){h.vx-=1.6*dot*w.nx;h.vz-=1.6*dot*w.nz;h.x=previous.x;h.z=previous.z;}
+   }
+   const floor=(poolOnly()?poolFloorAt(h.x,h.z):terrainFloorAt(h.x,h.z))-h.radius;
+   if(h.y>floor){h.y=floor;h.vy=Math.abs(h.vy)>65?-Math.abs(h.vy)*.55:0;h.vx*=Math.exp(-dt*.8);h.vz*=Math.exp(-dt*.8);}
+   for(const p of activePlayers()){
+     if(!p.alive||!nearRunner(p,h.x,h.y,h.z,h.radius+40)||now<(h.hitAfter||0))continue;
+     const dx=h.x-p.x,dz=h.z-(p.z||0),distance=Math.hypot(dx,dz);
+     const attack=p.attackKind&&now<p.attackUntil;
+     const contact=attack&&sampleCombatBoxes(p,now).hit.some(box=>pointBoxDistance(box,h.x,h.y,h.z)<h.radius+8);
+     const bump=distance<h.radius+30&&Math.abs(h.y-(p.y-h.radius))<h.radius*2;
+     if(!contact&&!bump)continue;
+     const yaw=p.poolYaw||0,nx=distance>1?dx/distance:Math.cos(yaw),nz=distance>1?dz/distance:Math.sin(yaw);
+     const force=contact?(/KICK/.test(p.attackKind)?1250:850):Math.max(140,Math.hypot(p.vx,p.vz||0)*.85);
+     h.vx=nx*force;h.vz=nz*force;h.vy=contact?-360:-80;h.hitAfter=now+180000;
+   }
+   continue;
+  }
+  kid.z=(kid.patrolZ||0)+Math.sin(now/3500000+kid.pad*1.2)*(poolOnly()?35:140);
+  if(kid.x>=kid.patrolMax)kid.patrolDirection=-1;
+  if(kid.x<=kid.patrolMin)kid.patrolDirection=1;
+  const danger=activePlayers().some(p=>!p.dummy && p.alive && Math.hypot(p.x-kid.x,(p.z||0)-kid.z)<230 && Math.abs(p.y-kid.y)<240 && (Math.abs(p.vx)>250 || p.spin));
+  if(danger && now>=(kid.nextStartleAt||0)){
+    kid.startledUntil=now+900000;kid.nextStartleAt=now+3000000;
+    if(now>=crowdVoiceAt){crowdVoiceAt=now+350000;for(let i=0;i<5;i++)crowdNotes.push({at:now+i*35000,hz:680+kid.pad*35+Math.sin(i*.8)*330});}
+  }
+  kid.ducking=now<(kid.startledUntil||0);kid.crouchBlend+=(Number(kid.ducking)-(kid.crouchBlend||0))*Math.min(1,dt*14);
+  kid.facing=kid.patrolDirection;kid.vx=kid.ducking?0:kid.patrolDirection*95*(.92+(kid.pad%5)*.045)*(1+Math.sin((kid.breathPhase||0)*Math.PI*2)*.06);
+  const previous=kid.x;kid.x+=kid.vx*dt;kid.y=terrainFloorAt(kid.x,kid.z);
+  if(poolOnly()){kid.poolYaw=kid.patrolDirection>0?0:Math.PI;kid.facing=1;
+    kid.poolStridePhase=(kid.poolStridePhase||0)+Math.abs(kid.vx)*dt/240;}
+  resolveCubeSides(kid,previous);
+  if(kid.wallPress)kid.patrolDirection*=-1;
+  kid.grounded=true;kid.inputX=kid.patrolDirection;
+  // Idle park visitors do not target or attack the playable seats.
+  kid.walkSince ||= now;kid.stance='WALK';
+ }
+}
+
+const crowdNotes=[];let crowdVoiceAt=0;
+const turboParticles=[];
+function updateWheelTurbo(dt,now){
+ for(const p of activePlayers()){
+  if(!p.onewheel || !p.alive){p.wheelTurbo=false;p.wheelChargeAt=0;continue;}
+  const speed=Math.abs(p.skateVx||0);
+  if(p.grounded&&speed<(poolOnly()?1400:2200)){p.wheelTurbo=false;p.wheelChargeAt=0;}
+  if(!p.wheelTurbo){
+    if(speed>=(poolOnly()?1900:2940) || (!p.grounded && p.wheelChargeAt)){
+      p.wheelChargeAt ||= now;
+      if(now-p.wheelChargeAt>=1000000*gameSpeed){p.wheelTurbo=true;p.lastButton='SUPER TURBO';p.lastButtonAt=now;playDrum('whoosh',.14,panPlayer(p));}
+    }else p.wheelChargeAt=0;
+  }
+  if(p.wheelTurbo){
+    // The quiet, chord-tuned motor voice carries turbo too.
+    if(now>=(p.nextTurboParticle||0)){
+      p.nextTurboParticle=now+30000;
+      turboParticles.push({x:p.x,y:p.y-20,z:p.z||0,vx:-Math.sign(p.skateVx)*180,vy:-60-(now%130),life:.45});
+    }
+  }
+ }
+ for(let i=turboParticles.length-1;i>=0;i--){const p=turboParticles[i];p.life-=dt;if(p.life<=0){turboParticles.splice(i,1);continue;}p.x+=p.vx*dt;p.y+=p.vy*dt;}
+ if(turboParticles.length>48)turboParticles.splice(0,turboParticles.length-48);
+}
+function drawTurboParticles(){
+ const saved=triangleDepth;
+ for(const p of turboParticles){const a=projectPoint(p.x,p.y,p.z);triangleDepth=a.z;const r=Math.max(1,9*cameraScale()*p.life/.45);filledDisc(a.x,a.y,r,[165,67,247]);filledDisc(a.x,a.y,r*.45,[236,196,255]);}
+ triangleDepth=saved;
+}
+
+function damageParkCivilian(kid,owner,at,now,damage){
+ kid.health=(kid.health??4)-damage;kid.hit=1;kid.startledUntil=now+900000;
+ startParkSparring(owner,kid,now);kid.lastHitAt=now;
+ const dx=kid.x-owner.x,dz=(kid.z||0)-(owner.z||0),length=Math.hypot(dx,dz)||1;
+ kid.x+=dx/length*20;kid.z+=dz/length*20;kid.patrolZ=kid.z;
+ spawnImpact({x:at.x,y:at.y,z:at.z,life:.18,duration:.18,death:false,explosion:false});
+ playDrum('snare',.65,panAt(kid.x,kid.z));
+ if(kid.health<=0){
+  startRagdoll(kid,at,[dx/length*500,-180,dz/length*500]);
+  kid.alive=false;kid.attackKind='';kid.vx=kid.vy=kid.vz=0;
+ }
+}
+function popCivilianHead(kid,owner,g,now){
+ const direction=Math.sign(kid.x-owner.x||1);
+ spawnBlood(g.head.x,g.head.y,g.head.z,direction,24,1.8);
+ addDecal({kind:'blood',x:g.head.x,z:g.head.z,size:17,stretch:1.5,angle:Math.atan2((kid.z||0)-(owner.z||0),kid.x-owner.x)});
+ startRagdoll(kid,g.head,[Math.sign(kid.x-owner.x||1)*400,-120,0]);
+ const body=ragdollBodies.get(kid)?.body;
+ if(body){body.w[body.head]=0;for(let j=0;j<body.links;j++)if(body.a[j]===body.head||body.b[j]===body.head)body.enabled[j]=0;}
+ kid.headless=true;kid.alive=false;kid.frozenGeometry=g;kid.vx=0;kid.attackKind='';
+ kid.looseHead={...g.head,vx:Math.sign(kid.x-owner.x||1)*350,vy:-430,vz:(kid.pad%2?1:-1)*100};
+ playDrum('block',.6,panPlayer(owner));
+}
+function drawCivilianDebris(kid){
+ const old=triangleDepth,g=kid.frozenGeometry;
+ for(const b of g.segments){
+  if(b.hitboxOnly)continue;
+  const y=kid.y-10;
+  const a=projectPoint(kid.x+(kid.y-b.y1)*.75,y+(b.x1-kid.x)*.15,kid.z);
+  const c=projectPoint(kid.x+(kid.y-b.y2)*.75,y+(b.x2-kid.x)*.15,kid.z);
+  triangleDepth=Math.min(a.z,c.z)-.005;
+  filledCapsule(a.x,a.y,c.x,c.y,Math.max(2,b.width*cameraScale()),b.role==='torso'?kid.shirtColor:isLegRole(b.role)?kid.pantsColor||kid.color:kid.color);
+ }
+ drawCivilianLooseHead(kid);triangleDepth=old;
+}
+function drawCivilianLooseHead(kid){
+ const old=triangleDepth,h=kid.looseHead,p=projectPoint(h.x,h.y,h.z),r=h.radius*projectionScaleAt(h);triangleDepth=p.z-.00002;
+ filledDisc(p.x,p.y,r+1,[24,20,30]);filledDisc(p.x,p.y,r,kid.color);
+ drawFace({...kid,dummy:true},{x:p.x,y:p.y,radius:r},kid.color,0);
+ triangleDepth=old;
+}
+
+const cityBlocks=new Map();
+function drawCityStreet(){
+ if(!indoorSkate())return;
+ const span=720,first=Math.max(0,Math.floor((cameraCenter-cameraWidth*1.4-gridLeft)/span)),last=Math.min(Math.ceil(hallCols*tileSize/span),Math.ceil((cameraCenter+cameraWidth*1.4-gridLeft)/span));
+ for(let i=first;i<last;i++){
+  if(!cityBlocks.has(i))cityBlocks.set(i,captureQuadMesh(()=>buildCityBlock(i,span)));
+  drawQuadMesh(cityBlocks.get(i));
+ }
+}
+function buildCityBlock(i,span){
+ const x=gridLeft+i*span,r=x+span,z=worldFar+8,y=floorY;
+ const plane=(l,r,near,far,height,color)=>worldQuad({x:l,y:height,z:near},{x:r,y:height,z:near},{x:r,y:height,z:far},{x:l,y:height,z:far},color);
+ plane(x,r,z,z+160,y,[178,175,166]);
+ plane(x,r,z+160,z+680,y+12,[57,61,70]);
+ plane(x,r,z+680,z+820,y,[166,164,159]);
+ worldQuad({x,y,z:z+160},{x:r,y,z:z+160},{x:r,y:y+16,z:z+160},{x,y:y+16,z:z+160},[223,217,199]);
+ for(let k=0;k<4;k++){
+  plane(x+k*180,x+k*180+2,z,z+160,y-1,[124,124,124]);
+  plane(x+k*180+24,x+k*180+118,z+409,z+415,y+11,[244,214,133]);
+ }
+ const height=600+(i%4)*140,front=z+820,back=front+180,l=x+24,rr=r-24;
+ const color=[[144,118,107],[115,136,147],[146,142,127],[112,115,133]][i%4];
+ worldQuad({x:l,y:y-height,z:front},{x:rr,y:y-height,z:front},{x:rr,y,z:front},{x:l,y,z:front},color);
+ worldQuad({x:rr,y:y-height,z:front},{x:rr,y:y-height,z:back},{x:rr,y,z:back},{x:rr,y,z:front},mixColor(color,[20,25,35],.25));
+ plane(l,rr,front,back,y-height,[187,178,165]);
+ for(let row=0;row<3;row++)for(let col=0;col<4;col++){
+  const wx=l+35+col*155,wy=y-220-row*150;
+  worldQuad({x:wx,y:wy-95,z:front-1},{x:wx+90,y:wy-95,z:front-1},{x:wx+90,y:wy,z:front-1},{x:wx,y:wy,z:front-1},(row+col+i)%4?[53,72,88]:[237,210,144]);
+ }
+ // Recessed storefront, door, and a shallow colored awning.
+ worldQuad({x:l+35,y:y-155,z:front-2},{x:rr-35,y:y-155,z:front-2},{x:rr-35,y:y-5,z:front-2},{x:l+35,y:y-5,z:front-2},[46,70,81]);
+ plane(l+20,rr-20,front-80,front,y-160,[[153,76,81],[71,122,116],[180,136,74]][i%3]);
+}
+
+// The P1 view is the renderer run a second time: a doll at the rider's eye
+// looking the way they face, a viewport that is the inset's rectangle, a
+// depth window in front of the stage and behind the HUD. The park meshes are
+// the same handles drawn with this camera; the riders and the crowd are the
+// same drawRunner at the size this lens gives them. @jeffrey, 2026-09-26:
+// "make sure the secondary camera uses the real renderer".
+const seatInsetDoll = new FightCamDoll();
+seatInsetDoll.perspective = 1;
+seatInsetDoll.depthBase = -1.46;
+seatInsetDoll.depthSlope = .000002;
+function aimSeatInsetDoll(rect) {
+  const rider = players[0], yaw = rider.spin?.angle || 0, facing = rider.facing || 1;
+  const fx = Math.cos(yaw) * facing, fz = Math.sin(yaw) * facing;
+  const eyeY = rider.y - (isHeadOnly(rider) ? 35 : rider.ducking ? 90 : 160);
+  seatInsetDoll.position = { x: rider.x, y: eyeY, z: rider.z || 0 };
+  // A little downward tilt, the same lean the first cut of this view had.
+  seatInsetDoll.target = { x: rider.x + fx * 100, y: eyeY + 12, z: (rider.z || 0) + fz * 100 };
+  seatInsetDoll.roll = 0;
+  seatInsetDoll.viewport = { centerX: rect.x + rect.w * .5, centerY: rect.y + rect.h * .5, focal: rect.w * .68 };
+  seatInsetDoll.width = stageRight - stageLeft;
+  seatInsetDoll.dirty = true;
+}
+function drawSeatFirstPerson(){
+ if(halfpipeOnly() || !freeskateActive() || shellMode!=='GAME')return;
+ const old=triangleDepth,w=Math.min(320,viewWidth()*.23),h=w*.5625;
+ const rect={x:viewWidth()-w-30,y:30,w,h};
+ triangleDepth=-1.44;screenRect(rect.x-4,rect.y-4,w+8,h+8,[31,24,41]);
+ screenRect(rect.x,rect.y,w,h,[151,182,206]);
+ aimSeatInsetDoll(rect);
+ withRenderView(seatInsetDoll, rect, () => {
+  const rider=players[0],t=(runtime().monotonicUs-startedAt)/1e6;
+  for(const mesh of [pipeSurfaceMesh,pipeWallMesh,hallMesh,...(rider.underPipe?[waterMesh]:[]),...cityBlocks.values()])
+   drawQuadMesh(mesh);
+  for(const kid of [...activePlayers(),...parkKids]){
+   if(kid===rider || kid.headless)continue;
+   const seen=seatInsetDoll.toView({x:kid.x,y:kid.y-85,z:kid.z||0});
+   if(seen.z<cameraPin||seen.z>2200||Math.abs(seen.x)>seen.z)continue;
+   // cameraScale() is pixels per world unit; through this lens that is the
+   // focal length over the figure's own distance.
+   seatInsetDoll.width=(stageRight-stageLeft)*seen.z/seatInsetDoll.view.focal;seatInsetDoll.dirty=true;
+   triangleDepth=projectPoint(kid.x,kid.y,kid.z||0).z;
+   drawRunner(kid,t,false);
+  }
+ });
+ triangleDepth=-1.472;screenRect(rect.x,rect.y+h-3,w,3,[255,145,194]);
+ typeWrite('P1 VIEW',rect.x+9,rect.y+7,16,250,239,249);
+ triangleDepth=old;
+}
+
+let mainNativeCameraAt=-1,mainNativeCameraBuffer=null;
+function nativeMeshBuffers(mesh){
+ if(!mesh.nativeBuffers)mesh.nativeBuffers={vertices:new Float32Array(mesh.vertices.flatMap(p=>[p.x,p.y,p.z])),faces:new Float32Array(mesh.faces.flatMap(f=>[...f.ids,...f.color,...f.normal])),
+  // Edge capsules as the shell reads them: endpoints, world width, colour, depth bias.
+  capsules:new Float32Array((mesh.capsules||[]).flatMap(a=>[a[0],a[1],a[2],a[3],a[4],a[5],a[6],a[7][0],a[7][1],a[7][2],a[8]??-.004]))};
+ return mesh.nativeBuffers;
+}
+const viewNativeCameraBuffer=new Float32Array(27);
+function nativeCameraFor(doll,buffer,minX,minY,maxX,maxY){
+ if(doll.dirty||!doll.view)doll.prepare();const v=doll.view,p=doll.position,m=buffer;
+ m[0]=p.x;m[1]=p.y;m[2]=p.z;m[3]=v.right.x;m[4]=v.right.y;m[5]=v.right.z;m[6]=v.up.x;m[7]=v.up.y;m[8]=v.up.z;m[9]=v.forward.x;m[10]=v.forward.y;m[11]=v.forward.z;
+ m[12]=v.centerX;m[13]=v.centerY;m[14]=v.orthoScale;m[15]=v.focal;m[16]=doll.perspective;m[17]=cameraNear;
+ m[18]=minX;m[19]=minY;m[20]=maxX;m[21]=maxY;m[22]=doll.depthBase;m[23]=doll.depthSlope;m[24]=globalLight.x;m[25]=globalLight.y;m[26]=globalLight.z;
+ return m;
+}
+function mainNativeCamera(){
+ if(clipView)return nativeCameraFor(cameraDoll,viewNativeCameraBuffer,clipView.x,clipView.y,clipView.x+clipView.w,clipView.y+clipView.h);
+ const now=runtime().monotonicUs;
+ if(now!==mainNativeCameraAt || cameraDoll.dirty){
+  if(!mainNativeCameraBuffer)mainNativeCameraBuffer=new Float32Array(27);
+  nativeCameraFor(cameraDoll,mainNativeCameraBuffer,0,0,viewWidth(),viewHeight);mainNativeCameraAt=now;
+ }
+ return mainNativeCameraBuffer;
+}
+
+const parkStereo={x:parkHalfPipe3D.x,z:-parkHalfPipe3D.run-130,beat:0};
+function stereoGain(p){const near=Math.pow(clamp(1-Math.hypot(p.x-parkStereo.x,(p.z||0)-parkStereo.z)/8000,0,1),2);return insidePark(p.x,p.z||0)?.55+.45*near:near;}
+// MenuBandCDJRadio.swift supplies the signed varispeed gesture curve.
+// Rhythm: papers/rhythm-platter/digest/{02-evenness,04-syncopation,06-complements-canons}.md.
+const parkRecord={x:5200,z:-260,radius:360,angle:0,rate:1,phase:0,needle:.12,wobble:0,lastStep:-1};
+let parkRecordMesh=null;
+function recordScratchRate(velocity){return !Number.isFinite(velocity)||Math.abs(velocity)<=.01?0:Math.sign(velocity)*clamp(Math.abs(velocity)/120,.16,4);}
+function updateParkRecord(p,dt){
+ const r=parkRecord,dx=p.x-r.x,dz=(p.z||0)-r.z,distance=Math.hypot(dx,dz),on=p.grounded&&distance<r.radius&&Math.abs(p.y-(parkDeckY-18))<65;
+ const tangent=distance>10?(-dz*p.vx+dx*(p.vz||0))/distance:0;
+ const wanted=on?recordScratchRate(tangent):1;
+ r.rate+=(wanted-r.rate)*(1-Math.exp(-dt*(on?12:2.5)));
+ r.wobble*=Math.exp(-dt*2);r.angle+=r.rate*dt*Math.PI*2/1.8;
+ const rate=r.rate+Math.sin(r.angle*3)*r.wobble;
+ r.phase+=dt*(p.heartRate||68)/60*rate;
+ if(!Number.isFinite(r.phase))r.phase=0;
+ return rate;
+}
+function parkMusicStep(step,p,gain,pan,rate=1){
+ const beat=Math.floor(step/4),quarter=((step%4)+4)%4,bar=((beat%16)+16)%16;
+ const chord=((Math.floor(beat/8)%4)+4)%4,phrase=((Math.floor(beat/32)%4)+4)%4;
+ parkStereo.beat=((beat%32)+32)%32;
+ if(gain<=.005)return;
+ if(quarter===0){
+  if(beat%2===0)playDrum('pad-'+chord,gain*(phrase===2?.20:.28),pan);
+  if(phrase!==2||bar%4===0)playDrum('kick',gain*.48,pan);
+  if(bar%4===2&&phrase!==0)playDrum('snare',gain*.19,pan);
+ }
+ // A five-onset necklace and a sparse answer in its gaps, rather than
+ // stacking every instrument on each downbeat. Last phrase rotates it.
+ const pulse=((step+(phrase===3?3:0))%16+16)%16,onset=[0,3,6,9,12].includes(pulse);
+ if(onset&&phrase!==2)playDrum('bass',gain*.24,pan);
+ else if(quarter%2&&phrase!==0)playDrum('hat',gain*(pulse===15?.17:.08),pan);
+ if(quarter===2&&bar%4===(phrase===2?0:3)){
+  const notes=[[64,67,71,72],[64,69,72,76],[64,67,71,74],[62,67,69,71]][chord];
+  playSine(440*Math.pow(2,(notes[(Math.floor(beat/4)+phrase)%4]-69)/12)*clamp(Math.abs(rate),.16,2),.07);
+ }
+}
+function updateParkMusic(p,previous,dt){
+ if(previous===undefined||!poolOnly())return;
+ const gain=stereoGain(p),pan=panAt(parkStereo.x,parkStereo.z)*.35;
+ if(dt===undefined){ // Explicit beat stepping used by replay/offline callers.
+  if(p.heartPhase<previous){parkStereo.beat=(parkStereo.beat+1)%32;parkMusicStep(parkStereo.beat*4,p,gain,pan);}
+  return;
+ }
+ const rate=updateParkRecord(p,dt),step=Math.floor(parkRecord.phase*4);
+ if(step!==parkRecord.lastStep){parkRecord.lastStep=step;parkMusicStep(step,p,gain,pan,rate);}
+}
+function drawParkRecord(){
+ const r=parkRecord,y=parkDeckY-19;
+ if(!parkRecordMesh)parkRecordMesh=captureQuadMesh(()=>{
+  const at=(angle,radius,height=y)=>({x:r.x+Math.cos(angle)*radius,y:height,z:r.z+Math.sin(angle)*radius});
+  for(let i=0;i<48;i++){const a=i*Math.PI/24,b=(i+1)*Math.PI/24;
+   worldQuad(at(a,0),at(a,r.radius),at(b,r.radius),at(b,0),[27,28,38]);
+   worldQuad(at(a,r.radius),at(a,r.radius,parkDeckY),at(b,r.radius,parkDeckY),at(b,r.radius),[50,51,62]);
+   for(const radius of [140,190,240,290])worldQuad(at(a,radius,y-1),at(b,radius,y-1),at(b,radius+3,y-1),at(a,radius+3,y-1),[67,64,81]);
+  }
+ });
+ drawQuadMesh(parkRecordMesh);
+ const at=(a,rad,height=y-2)=>({x:r.x+Math.cos(a)*rad,y:height,z:r.z+Math.sin(a)*rad});
+ for(let i=0;i<12;i++){const a=r.angle+i*Math.PI/6,b=a+Math.PI/6;worldQuad(at(a,0),at(a,100),at(b,100),at(b,0),i<6?[243,157,197]:[105,208,208]);}
+ const needle={x:r.x+r.radius*(.35+r.needle*.55),y:y-5,z:r.z-r.radius*.25};
+ worldCapsule(r.x+r.radius*.85,y-55,r.z-r.radius*.6,needle.x,needle.y,needle.z,12*cameraScale(),[190,198,212]);
+}
+function drawParkStereo(){
+ if(!poolOnly())return;
+ drawParkStereoGeometry();drawParkRecord();
+}
+function parkSpeakerLocations(){return [[gridLeft+240,worldNear+240],[gridLeft+gridWidth-240,worldNear+240],[gridLeft+gridWidth-240,worldFar-240],[gridLeft+240,worldFar-240]].map(([x,z])=>({x,z}));}
+function parkMusicPulse(){return Math.max(0,1-(players[0].heartPhase||0)/.2);}
+function drawParkStereoGeometry(){
+ const pulse=parkMusicPulse();
+ for(const speaker of parkSpeakerLocations()){
+  const {x,z}=speaker,y=poolFloorAt(x,z),w=65,h=260;
+  if(!sceneBoundsVisible({minX:x-100,maxX:x+100,minY:y-h,maxY:y,minZ:z-100,maxZ:z+100}))continue;
+  const yaw=Math.atan2(parkHalfPipe3D.z-z,parkHalfPipe3D.x-x),fx=Math.cos(yaw),fz=Math.sin(yaw);
+  const at=(u,v,d)=>({x:x-fz*u+fx*d,y:y-v,z:z+fx*u+fz*d});
+  worldQuad(at(-w,0,45),at(w,0,45),at(w,h,45),at(-w,h,45),[32,34,42]);
+  worldQuad(at(-w,h,45),at(w,h,45),at(w,h,-45),at(-w,h,-45),[52,56,65]);
+  for(const side of [-1,1])worldQuad(at(side*w,0,45),at(side*w,0,-45),at(side*w,h,-45),at(side*w,h,45),[44,46,56]);
+  for(const [height,radius] of [[65,46],[170,36]])for(let i=0;i<8;i++){
+    const p=j=>at(Math.cos(j*Math.PI/4)*radius,height+Math.sin(j*Math.PI/4)*radius,47+pulse*5);
+    worldQuad(at(0,height,52+pulse*8),p(i),p(i+1),p(i+1),i%2?[64,68,78]:[54,58,70]);
+  }
+  worldQuad(at(-45,h-12,47),at(45,h-12,47),at(45,h-18,47),at(-45,h-18,47),mixColor([85,164,117],[180,255,196],pulse));
+ }
+}
+function updateSeatHeartbeat(dt,now){
+ const realDt=dt/Math.max(.1,gameSpeed);
+ for(const p of [...activePlayers(),...parkKids]){
+  if(p.dummy || !p.alive){p.heartRate=0;p.breathPhase=0;continue;}
+  let danger=0;
+  for(const other of activePlayers()){
+   if(other===p || !other.alive || other.dummy)continue;
+   const distance=Math.hypot(other.x-p.x,other.y-p.y,(other.z||0)-(p.z||0));
+   const armed=other.axeHeld||other.gunAmmo||other.swordHeld||other.attackKind;
+   if(p.civilian && !armed && Math.abs(other.vx)<250 && !other.spin)continue;
+   danger=Math.max(danger,clamp(1-distance/1200,0,1)*(armed?1:.45));
+  }
+  for(const b of balls)if(b.active && Math.hypot(b.vx,b.vy)>800){
+   const distance=Math.hypot(b.x-p.x,b.y-(p.y-70),(b.z||0)-(p.z||0));danger=Math.max(danger,clamp(1-distance/700,0,1));
+  }
+  for(const b of bullets)if(b.owner!==p.pad){const distance=Math.hypot(b.x-p.x,b.y-(p.y-90));danger=Math.max(danger,clamp(1-distance/950,0,1));}
+  danger=Math.max(danger,Math.min(1,(p.hit||0)*2));
+  const rest=62+(p.pad*7%19),effort=Math.min(1,Math.hypot(p.vx,p.vy,p.vz||0)/1800);
+  const excitement=Math.max(p.spin?Math.min(1,spinRpm(p)/180):0,p.attackKind?.length?1:0,!p.grounded?.55:0,p.wheelTurbo?1:0,now-(p.lastButtonAt||0)<600000&&/PUNCH|KICK|DASH|JUMP|SHOT|WACK/.test(p.lastButton||'')?.8:0);
+  const fighting=!!parkFightRival(p);
+  if(fighting)danger=Math.max(danger,.8);
+  const target=Math.min(210,Math.max(rest+danger*65+effort*55+excitement*35,fighting?155+effort*25+excitement*30:0));
+  p.heartRate=(p.heartRate||rest)+(target-(p.heartRate||rest))*(1-Math.exp(-realDt*(target>(p.heartRate||rest)?1.8+(p.pad%3)*.2:.23+(p.pad%4)*.04)));
+  const previousHeartPhase=p.heartPhase;
+  p.heartDanger=danger;p.heartPhase=((p.heartPhase ?? (p.pad*.173)%1)+realDt*p.heartRate/60)%1;
+  if(p===players[0]&&previousHeartPhase!==undefined&&p.heartPhase<previousHeartPhase)
+    playDrum('kick',.23,0);
+  if(p===players[0]&&previousHeartPhase!==undefined&&p.heartPhase>=.23&&previousHeartPhase<.23)
+    playDrum('kick',.12,0);
+  if(p===players[0])updateParkMusic(p,previousHeartPhase,realDt);
+  p.breathRate=11+(p.pad%5)+danger*13+effort*12;
+  p.breathPhase=((p.breathPhase ?? (p.pad*.317)%1)+realDt*p.breathRate/60)%1;
+  p.motionClock=(p.motionClock ?? now/1e6+p.pad*1.7)+realDt*(.8+p.heartRate/300);
+ }
+}
+function drawSeatHeart(x,y,p,color,radius=10){
+ const phase=p.heartPhase||0,pulse=Math.max(0,1-phase/.15)+.6*Math.max(0,1-Math.abs(phase-.23)/.1),r=radius*(1+pulse*.3);
+ filledDisc(x-r*.48,y-r*.32,r*.65,color);filledDisc(x+r*.48,y-r*.32,r*.65,color);
+ screenTriangle(x-r*1.1,y-r*.08,x+r*1.1,y-r*.08,x,y+r*1.25,...color);
 }
