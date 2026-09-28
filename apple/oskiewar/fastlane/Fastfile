@@ -94,6 +94,9 @@ end
       deliver(**deliver_defaults(store),
               app_version: VERSION,
               screenshots_path: "./fastlane/screenshots/#{store}",
+              # deliver still scans the metadata folder when skipping it, and
+              # reads the default one's ios/ and osx/ as language names.
+              metadata_path: "./fastlane/metadata/#{store}",
               skip_metadata: true,
               skip_binary_upload: true,
               overwrite_screenshots: true)
