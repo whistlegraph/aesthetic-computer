@@ -11,6 +11,7 @@
 		084DDDE9E374CC8B27DEA518 /* slab-theme.json in Resources */ = {isa = PBXBuildFile; fileRef = AACC6D25723505FB156B46F0 /* slab-theme.json */; };
 		0B56E0A1E07AD7B531824F41 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13B505C3279E0F8DB5292B86 /* Session.swift */; };
 		113D31E951393CC4B352014A /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DD20E2826C7E253AFDDDF7C /* SessionStore.swift */; };
+		11761C5613CB79BA5AD0E801 /* LaunchPing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92968DF5C690392605590A85 /* LaunchPing.swift */; };
 		15625BEE72859E0B3AA9421E /* ComicRelief-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 99FE2FC14157DB3F88708A6B /* ComicRelief-Bold.ttf */; };
 		1A0F35CCE1C51897FB881351 /* PreviewResize.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC974F17F071328B039F80B8 /* PreviewResize.swift */; };
 		1F53641C03321161A7665F3B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 505E152C400C5CE69463B39F /* ContentView.swift */; };
@@ -40,6 +41,7 @@
 		633F0065719420EF155326A0 /* SignInPanelLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = E18D254092D8CB3C00DA9756 /* SignInPanelLayout.swift */; };
 		6C328E19AB09BC33ECF7E26E /* AeselHoverSound.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2BE7BCB5067054611C54637 /* AeselHoverSound.swift */; };
 		6E01FC52B2208E175FFC6985 /* SessionHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71285DFFDAE5A8B3FB1FBD5 /* SessionHost.swift */; };
+		7179F7E1202917D1C1E57EA1 /* LaunchPing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92968DF5C690392605590A85 /* LaunchPing.swift */; };
 		7AE3B1696F71BFDE82E8B72E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 228E709932A29DC953A73B71 /* Assets.xcassets */; };
 		7B612E66F6A4D5A255F683D6 /* AeselVersionList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BD16B382BBDB5D06475826D /* AeselVersionList.swift */; };
 		7D4D4BC2F4E1DE8EABFD4AEF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 196EC264FACF61F5D4F16400 /* PrivacyInfo.xcprivacy */; };
@@ -101,6 +103,7 @@
 		7CB1DC30F6BBB5B2167272D2 /* AeselScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselScene.swift; sourceTree = "<group>"; };
 		7F4BC5239A9B70F128C1DC84 /* ApplePlatform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplePlatform.swift; sourceTree = "<group>"; };
 		90DE4FA98343A247299E9ACA /* NotebookDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookDocument.swift; sourceTree = "<group>"; };
+		92968DF5C690392605590A85 /* LaunchPing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchPing.swift; sourceTree = "<group>"; };
 		9675E31C13077439E6F36AE1 /* NativeHostConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeHostConnection.swift; sourceTree = "<group>"; };
 		99EE09710898E704A2EDB590 /* AeselMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AeselMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		99FE2FC14157DB3F88708A6B /* ComicRelief-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ComicRelief-Bold.ttf"; sourceTree = "<group>"; };
@@ -149,6 +152,7 @@
 				7F4BC5239A9B70F128C1DC84 /* ApplePlatform.swift */,
 				5D9AB5CF1D7C27E6930F81B1 /* Braincells.swift */,
 				505E152C400C5CE69463B39F /* ContentView.swift */,
+				92968DF5C690392605590A85 /* LaunchPing.swift */,
 				9675E31C13077439E6F36AE1 /* NativeHostConnection.swift */,
 				6975BD799206CFA5D9095BDB /* NativeSignIn.swift */,
 				FDD0D3F1FABED1CF8FA86867 /* NativeWebAuthentication.swift */,
@@ -329,6 +333,7 @@
 				9D73D7FD54B29205733E3BC9 /* ApplePlatform.swift in Sources */,
 				C27DB5FE92281B28965A6535 /* Braincells.swift in Sources */,
 				1F53641C03321161A7665F3B /* ContentView.swift in Sources */,
+				7179F7E1202917D1C1E57EA1 /* LaunchPing.swift in Sources */,
 				52D74FA73C3384F2C2FF141B /* NativeHostConnection.swift in Sources */,
 				E86DBFD43D2C7D107F428424 /* NativeSignIn.swift in Sources */,
 				409522297780D3241B3182FF /* NativeWebAuthentication.swift in Sources */,
@@ -366,6 +371,7 @@
 				A766FD4831AD3177B8902DA5 /* ApplePlatform.swift in Sources */,
 				466E32FFFB239E88D25A3C66 /* Braincells.swift in Sources */,
 				975A2C86AF7C7B60369819B6 /* ContentView.swift in Sources */,
+				11761C5613CB79BA5AD0E801 /* LaunchPing.swift in Sources */,
 				B7FDFEA06B2AF78A0D5E0398 /* NativeHostConnection.swift in Sources */,
 				CC92640C1396E0646F1CDD0F /* NativeSignIn.swift in Sources */,
 				A6126E0DBAC8A47345F0079B /* NativeWebAuthentication.swift in Sources */,
@@ -529,12 +535,14 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Mac.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = MacInfo.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MARKETING_VERSION = 0.8.0;
 				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.aesel.native;
 				PRODUCT_NAME = Aesel;
 				SDKROOT = macosx;
@@ -547,12 +555,14 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Mac.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = MacInfo.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MARKETING_VERSION = 0.8.0;
 				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.easel;
 				PRODUCT_NAME = Aesel;
 				SDKROOT = macosx;

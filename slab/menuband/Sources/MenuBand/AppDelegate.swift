@@ -857,6 +857,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             reason: "Menu Band live instrument audio"
         )
         Self.registerBundledFonts()
+        LaunchPing.send()
         #if MAC_APP_STORE
         // Launch-at-login (App Store build only — the DMG build uses a
         // LaunchAgent). Reconcile the OS registration with the user's stored

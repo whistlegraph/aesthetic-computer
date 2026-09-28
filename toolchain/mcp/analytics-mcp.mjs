@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// analytics-mcp.mjs — network visits, direct DMG downloads and App Store downloads as tools.
+// analytics-mcp.mjs — network visits, direct DMG downloads, app opens and App Store downloads as tools.
 //
 // visits_report runs toolchain/analytics/visits-report.mjs on lith over ssh
 // (see toolchain/analytics/VISITS.md for what a "visit" can and cannot mean)
@@ -111,6 +111,53 @@ async function directDownloads({ days = 30, exclude = [], excludeSelf = true } =
     note: "downloads/places leave out automated and excluded (self) traffic; places = distinct address hashes per version, summed", apps };
 }
 
+// 🚀 App opens
+
+// Native apps post a launch to lith's /api/app-open with a random install id
+// that lives only as long as the app is installed. Rows fold per app and day.
+async function appOpens({ days = 7 } = {}) {
+  days = Number(days);
+  if (!Number.isFinite(days) || days <= 0 || days > 35) throw new Error("days must be 1..35");
+  const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/opens-report.mjs --days ${days}`;
+  const { stdout } = await pexec("ssh", ["-i", SSH_KEY, "-o", "ConnectTimeout=10", LITH, remote],
+    { timeout: 90_000, maxBuffer: 32 * 1024 * 1024 });
+  const report = JSON.parse(stdout.slice(stdout.indexOf("{")));
+  const apps = {};
+  for (const row of report.rows) {
+    const app = apps[row._id.app] ??= { opens: 0, fresh: 0, daily: {}, platforms: {}, versions: {} };
+    app.opens += row.opens;
+    app.fresh += row.fresh;
+    app.daily[row._id.day] = { active: row.active, opens: row.opens, fresh: row.fresh };
+    for (const [k, v] of Object.entries(row.platforms)) app.platforms[k] = (app.platforms[k] || 0) + v;
+    for (const [k, v] of Object.entries(row.versions)) app.versions[k] = (app.versions[k] || 0) + v;
+  }
+  return { since: report.start, note: report.unit, apps };
+}
+
+// 📅 Daily
+
+// lith folds each finished day of visits, direct downloads and app opens into
+// `metrics-daily`; Apple's numbers join here, by the same day.
+async function dailyMetrics({ days = 14, appStore = true } = {}) {
+  days = Number(days);
+  if (!Number.isFinite(days) || days <= 0 || days > 3650) throw new Error("days must be 1..3650");
+  const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/daily-report.mjs --days ${days}`;
+  const { stdout } = await pexec("ssh", ["-i", SSH_KEY, "-o", "ConnectTimeout=10", LITH, remote],
+    { timeout: 90_000, maxBuffer: 32 * 1024 * 1024 });
+  const report = JSON.parse(stdout.slice(stdout.indexOf("{")));
+  const out = Object.fromEntries(report.rows.map(({ _id, generatedAt, day, ...row }) => [_id, row]));
+  if (appStore) {
+    const apple = await appDownloads({ days: Math.min(days, 60) });
+    for (const [app, data] of Object.entries(apple.apps)) {
+      for (const [day, kinds] of Object.entries(data.daily || {})) {
+        ((out[day] ??= {}).appStore ??= {})[app] = kinds;
+      }
+    }
+  }
+  return { since: report.start, note: "Days are UTC. visits = non-automated page visits; downloads leave out automated only (fleet self-downloads included); opens.active = installs opened that day; appStore lags ~1 day.",
+    days: Object.fromEntries(Object.entries(out).sort()) };
+}
+
 // 📱 App Store
 
 let ascKey;
@@ -207,6 +254,25 @@ const TOOLS = [
     },
   },
   {
+    name: "daily_metrics",
+    description: "One row per UTC day across everything we measure: web visits per site, direct DMG downloads, native app opens (active installs, opens, fresh installs) from lith's metrics-daily rollup, plus Apple's App Store downloads by type. Kept indefinitely (counts only).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        days: { type: "number", description: "How many days back (default 14)" },
+        appStore: { type: "boolean", description: "Join Apple's App Store numbers (default true)" },
+      },
+    },
+  },
+  {
+    name: "app_opens",
+    description: "Native app launches counted by lith's /api/app-open (counting began 2026-09-28): per app and day, active installs, opens and fresh installs (first launch, which includes reinstalls). Install ids are random and die with the app.",
+    inputSchema: {
+      type: "object",
+      properties: { days: { type: "number", description: "How many days back (default 7, max 35)" } },
+    },
+  },
+  {
     name: "app_downloads",
     description: "App Store downloads per app from Apple's App Downloads Standard analytics report: first-time downloads plus a daily breakdown by download type and device.",
     inputSchema: {
@@ -222,6 +288,8 @@ const TOOLS = [
 async function callTool(name, args = {}) {
   const result = name === "visits_report" ? await visitsReport(args)
     : name === "direct_downloads" ? await directDownloads(args)
+    : name === "daily_metrics" ? await dailyMetrics(args)
+    : name === "app_opens" ? await appOpens(args)
     : name === "app_downloads" ? await appDownloads(args)
     : (() => { throw new Error(`unknown tool ${name}`); })();
   return [{ type: "text", text: JSON.stringify(result, null, 2) }];

@@ -261,6 +261,7 @@ func registerLoginItemOnce() {
     UserDefaults.standard.set(true, forKey: key)
 }
 if config.registersLoginItem { registerLoginItemOnce() }
+LaunchPing.send()
 
 let pal = PalController(config: config)
 pal.plugins = plugins

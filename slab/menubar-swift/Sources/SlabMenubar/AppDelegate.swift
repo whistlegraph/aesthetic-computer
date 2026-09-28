@@ -250,6 +250,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // install once; silent on every machine that already has a repo
         // install or has answered this before.
         FirstRun.offerIfNeeded()
+        LaunchPing.send()
 
         DistributedNotificationCenter.default().addObserver(
             self,

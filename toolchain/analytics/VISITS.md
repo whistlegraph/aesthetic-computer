@@ -171,3 +171,18 @@ checks declared MIME against MP4/WebM signatures. Video playback stops at the
 first presented frame or a 20-second timeout. Source fetch timings for programs
 are not runtime/render-ready timings. Do not compare a prefix download to a
 full archive download or interpret one run as a stable network percentile.
+
+## Native app launches
+
+`POST /api/app-open` (`system/netlify/functions/app-open.mjs`) takes
+`{app, version, platform, install, fresh}` from our native apps on each launch.
+`install` is a random UUID minted on first launch and kept in the app's own
+defaults (not the Keychain), so deleting the app forgets it; `fresh` is true
+on that first launch. A reinstall therefore looks like a new install; the App
+Store report (`app_downloads`) is where redownloads and restores are told apart.
+`app-opens` stores one row per app + install + UTC day with the open count,
+platform, version and `cf-ipcountry`, and expires rows after 35 days.
+Debug builds, dev Electron and `acLaunchPingDisabled` skip the ping.
+
+Readout: `node --env-file=.env ../toolchain/analytics/opens-report.mjs --days 7`
+on lith, or the `app_opens` tool in `toolchain/mcp/analytics-mcp.mjs`.

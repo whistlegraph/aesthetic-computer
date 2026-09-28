@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		41F5CDC72B2931AF00F7FF87 /* aesthetic_computerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41F5CDC62B2931AF00F7FF87 /* aesthetic_computerApp.swift */; };
+		AC1A0C012E9A000000000001 /* LaunchPing.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC1A0C012E9A000000000002 /* LaunchPing.swift */; };
 		41F5CDC92B2931AF00F7FF87 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41F5CDC82B2931AF00F7FF87 /* ContentView.swift */; };
 		41F5CDCB2B2931B000F7FF87 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 41F5CDCA2B2931B000F7FF87 /* Assets.xcassets */; };
 		41F5CDCE2B2931B000F7FF87 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 41F5CDCD2B2931B000F7FF87 /* Preview Assets.xcassets */; };
@@ -46,6 +47,7 @@
 		41CFB5D12B2A5D8D001954C9 /* aesthetic-computer-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "aesthetic-computer-Info.plist"; sourceTree = SOURCE_ROOT; };
 		41F5CDC32B2931AF00F7FF87 /* aesthetic.computer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = aesthetic.computer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		41F5CDC62B2931AF00F7FF87 /* aesthetic_computerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = aesthetic_computerApp.swift; sourceTree = "<group>"; };
+		AC1A0C012E9A000000000002 /* LaunchPing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchPing.swift; sourceTree = "<group>"; };
 		41F5CDC82B2931AF00F7FF87 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		41F5CDCA2B2931B000F7FF87 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		41F5CDCD2B2931B000F7FF87 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -105,6 +107,7 @@
 				41F5CDFC2B2937E300F7FF87 /* aesthetic.computer.entitlements */,
 				41F5CDC62B2931AF00F7FF87 /* aesthetic_computerApp.swift */,
 				41F5CDC82B2931AF00F7FF87 /* ContentView.swift */,
+				AC1A0C012E9A000000000002 /* LaunchPing.swift */,
 				41F5CDCA2B2931B000F7FF87 /* Assets.xcassets */,
 				41F5CDCC2B2931B000F7FF87 /* Preview Content */,
 			);
@@ -246,6 +249,7 @@
 			files = (
 				41F5CDC92B2931AF00F7FF87 /* ContentView.swift in Sources */,
 				41F5CDC72B2931AF00F7FF87 /* aesthetic_computerApp.swift in Sources */,
+				AC1A0C012E9A000000000001 /* LaunchPing.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

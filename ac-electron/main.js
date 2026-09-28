@@ -369,6 +369,34 @@ function savePreferences() {
   }
 }
 
+// Launch ping: one POST per launch of a packaged build, counting opens.
+// Sends {app, version, platform, install, fresh} and nothing else; `install`
+// is a random UUID kept in userData (gone with the app), never tied to a
+// person, account or device. See toolchain/analytics/VISITS.md.
+// Skipped in dev and when AC_NO_LAUNCH_PING is set.
+function pingLaunch() {
+  if (!app.isPackaged || process.env.AC_NO_LAUNCH_PING) return;
+  try {
+    const file = path.join(app.getPath('userData'), 'ac-install.json');
+    let install;
+    try { install = JSON.parse(fs.readFileSync(file, 'utf8')).install; } catch { /* first launch */ }
+    const fresh = !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(install || '');
+    if (fresh) { // write before sending, so a failed write never counts twice
+      install = crypto.randomUUID();
+      fs.writeFileSync(file, JSON.stringify({ install }));
+    }
+    const platform = { darwin: 'mac', win32: 'windows', linux: 'linux' }[process.platform];
+    const version = app.getVersion().split(/[-+]/)[0]; // 0.1.51-beta.2 -> 0.1.51
+    if (!platform) return;
+    fetch('https://aesthetic.computer/api/app-open', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ app: 'desktop', version, platform, install, fresh }),
+      signal: AbortSignal.timeout(10000),
+    }).catch(() => {});
+  } catch { /* a count is never worth a crash */ }
+}
+
 // Auto-updater (only in production builds)
 let autoUpdater;
 let autoUpdaterError = null;
@@ -3309,6 +3337,7 @@ ipcMain.on('open-devtools', (event) => {
 // App lifecycle
 app.whenReady().then(async () => {
   loadPreferences();
+  pingLaunch();
 
   // Always sync the OS login-item setting with our stored preference on boot.
   // This way the preference survives updates / re-signing and is always honored.

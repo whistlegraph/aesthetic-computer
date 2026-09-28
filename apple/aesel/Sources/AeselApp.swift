@@ -4,6 +4,7 @@ import SwiftUI
 struct AeselApp: App {
     init() {
         ApplePlatform.registerFonts()
+        LaunchPing.send("aesel")
         #if os(macOS)
         AeselTerminal.install()
         #endif
