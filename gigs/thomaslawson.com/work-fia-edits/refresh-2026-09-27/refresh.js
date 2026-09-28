@@ -21,7 +21,9 @@
             if (KEEP.test(word.replace(/[.,;:]+$/, ''))) return word;
             var lower = word.toLowerCase();
             if (!first && SMALL.test(lower)) return lower;
-            return lower.replace(/(^|[-'’.])([a-z])/g, function (m, sep, ch) {
+            /* Capitalise after a hyphen or initial's period, never after an
+               apostrophe ("Architect's", not "Architect'S"). */
+            return lower.replace(/(^|[-.])([a-z])/g, function (m, sep, ch) {
                 return sep + ch.toUpperCase();
             });
         });
@@ -303,13 +305,16 @@
             if (!t) return;
             var year = (cap.querySelector('.tl-cap-title').textContent.match(/(\d{4})\s*$/) || [])[1];
             var hits = byTitle[key(t.textContent)] || [];
-            var w = hits.filter(function (h) { return !year || String(h[1]).indexOf(year) === 0; })[0] || (hits.length === 1 && !year ? hits[0] : null);
+            /* One work with this title: take it (Valise often has no year, or a
+               different one). Several: the year has to agree. */
+            var w = hits.length === 1 ? hits[0]
+                : hits.filter(function (h) { return year && String(h[1]).indexOf(year) === 0; })[0] || null;
             if (!w) return;
             [w[2], w[3]].forEach(function (v) {
                 if (!v) return;
                 var sp = document.createElement('span');
                 sp.className = 'tl-cap-detail';
-                sp.textContent = clean(v).replace(/\s+[xX]\s+/g, ' × ');
+                sp.textContent = clean(v).replace(/(\d)\s*[xX×]\s*(?=\d)/g, '$1 × ');
                 cap.appendChild(sp);
             });
             matched++;
