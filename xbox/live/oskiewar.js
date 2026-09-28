@@ -2200,6 +2200,12 @@ const gravityScale = () => survivalActive() ? 1 : spaceGravityScale;
 const riseGravity = () => riseGravityFull * gravityScale();
 const fallGravity = () => fallGravityFull * gravityScale();
 const jumpVelocity = 1760;
+// The park's own air: heavier than it was (a flat 1800 hung a jump ~860
+// units up for two seconds), and heavier still on the way down, so a hop is
+// short and lands with weight. Bowl airs off the coping ride the same curve.
+const parkRiseGravity = 3600;
+const parkFallGravity = 5400;
+const parkGravity = (vy) => vy < 0 ? parkRiseGravity : parkFallGravity;
 const crouchJumpVelocity = 1960;
 const ultraJumpVelocity = 3960;
 const crouchHopVelocity = 980;
@@ -13023,8 +13029,9 @@ function updatePoolPlayer(p, pad, dt, now) {
   }
   // Drawing has Cartesian controls, independent of the rider's heading.
   // B + directions never enters the steering/double-tap dash recognizer.
-  if(!combatMode&&p.chalkColor&&held.includes('B')&&p.grounded&&!p.swimming){
-    if(p.skateboard)dismountSkateboard(p,now);
+  // On a board, B draws without stepping off: the ride carries on below and
+  // updateChalk lays the line wherever the wheels take the tip.
+  if(!combatMode&&p.chalkColor&&held.includes('B')&&p.grounded&&!p.swimming&&!p.skateboard&&!p.onewheel){
     const before={x:p.x,z:p.z||0},length=Math.max(1,Math.hypot(turn,throttle));
     p.vx=-turn/length*360;p.vz=throttle/length*360;p.vy=0;
     p.x+=p.vx*dt;p.z=(p.z||0)+p.vz*dt;
@@ -13047,9 +13054,11 @@ function updatePoolPlayer(p, pad, dt, now) {
   if(directionDash){
     p.raceLoop=null;p.raceLoopCooldown=now+1000000;p.poolPipeLocked=false;p.poolPipeEscapeUntil=now+900000;p.poolVert=null;p.dashUntil=now+180000;p.poolRunTime=1.5;
     const side=tapKey==='ArrowLeft'||analogKey==='left'?-1:tapKey==='ArrowRight'||analogKey==='right'?1:0;
-    if(side&&!combatMode)p.poolYaw+=(side*Math.PI/2);
+    // Steering turns right by lowering poolYaw, so a right dash does too.
+    if(side&&!combatMode)p.poolYaw-=(side*Math.PI/2);
     const sign=combatMode?(Math.sign(throttle)||1):tapKey==='ArrowDown'||analogKey==='back'?-1:1;
     p.vx=Math.cos(p.poolYaw||0)*2200*sign;p.vz=Math.sin(p.poolYaw||0)*2200*sign;p.vy=Math.min(p.vy,-480);p.grounded=false;
+    parkDashLines(p,now);
     p.lastButton='DASH OUT';p.lastButtonAt=now;playDrum('whoosh',.5,panPlayer(p));
   }
   if(updateRaceLoop(p,dt,now,throttle)){p.inputX=turn;p.inputZ=throttle;p.previous=held.slice();return;}
@@ -13104,6 +13113,7 @@ function updatePoolPlayer(p, pad, dt, now) {
     if(mounted)dismountSkateboard(p,now);
     p.poolVert=null;p.poolPipeLocked=false;p.poolPipeEscapeUntil=now+900000;p.poolRunTime=1.5;p.poolDashReadyAt=now+450000;p.dashUntil=now+180000;
     p.vx=driveX*2200;p.vz=driveZ*2200;p.vy=Math.min(p.vy,-420);p.grounded=false;
+    parkDashLines(p,now);
     p.lastButton='DASH';p.lastButtonAt=now;emitSignal('dash',p.pad,1,0);
   }else if(pressed('A')&&(p.grounded||mounted)){
     if(mounted)dismountSkateboard(p,now);
@@ -13151,8 +13161,8 @@ function updatePoolPlayer(p, pad, dt, now) {
       }
       slope=poolSlopeAt(p.x,p.z);
       const nextVy=slope.x*p.vx+slope.z*p.vz;
-      if(p.skateboard&&speed>650&&previousVy < -100&&nextVy-previousVy>1800*step*1.5+3){
-        p.grounded=false;p.y=Math.min(nextFloor,previousY+previousVy*step);p.vy=previousVy+1800*step;
+      if(p.skateboard&&speed>650&&previousVy < -100&&nextVy-previousVy>parkRiseGravity*step*1.5+3){
+        p.grounded=false;p.y=Math.min(nextFloor,previousY+previousVy*step);p.vy=previousVy+parkRiseGravity*step;
         if(p.poolPipeLocked){p.poolVert={x:p.x,z:p.z,nx:Math.sign(p.x-pipe.x),nz:0,speed:-p.vy,heading:p.poolYaw,pipe:true};p.vx=p.vz=0;}
         continue;
       }
@@ -13176,7 +13186,7 @@ function updatePoolPlayer(p, pad, dt, now) {
         p.vx+=driveX*throttle*300*step;p.vz=(p.vz||0)+driveZ*throttle*300*step;
         p.x+=p.vx*step;p.z=(p.z||0)+p.vz*step;
       }
-      p.vy+=1800*step;p.y+=p.vy*step;
+      p.vy+=parkGravity(p.vy)*step;p.y+=p.vy*step;
       const floor=poolFloorAt(p.x,p.z);
       if(p.y>=floor){
         slope=poolSlopeAt(p.x,p.z);
@@ -19838,10 +19848,30 @@ function drawDiveMotion(player, t) {
 
 // Speed lines trail a sideways dash: horizontal streaks behind the body
 // (or behind the head, when that is all there is), fading over the beat.
+// In the park a dash can point anywhere on the floor, so its lines trail
+// along the dash's own heading instead of along x.
+function parkDashLines(player, now) {
+  const speed = Math.hypot(player.vx, player.vz || 0);
+  if (!speed) return;
+  player.dashLinesUntil = now + 260000;
+  player.dashLinesDir = { x: player.vx / speed, z: (player.vz || 0) / speed };
+}
 function drawDashMotion(player, t) {
   const now = runtime().monotonicUs;
   if (now >= (player.dashLinesUntil || 0)) return;
   const life = clamp((player.dashLinesUntil - now) / 260000, 0, 1);
+  if (poolOnly() && player.dashLinesDir) {
+    const { x: dx, z: dz } = player.dashLinesDir, z = player.z || 0;
+    const color = mixColor(player.color, [244, 250, 255], .55);
+    for (let index = 0; index < 6; index++) {
+      const side = (index - 2.5) * 11, y = player.y - 24 - index * 22 + Math.sin(t * 17 + index) * 3;
+      const back = 34 + index % 2 * 14, length = (70 + index * 14) * life;
+      const x1 = player.x - dx * back - dz * side, z1 = z - dz * back + dx * side;
+      worldCapsule(x1, y, z1, x1 - dx * length, y, z1 - dz * length,
+        (3 + life * 3) * projectionScaleAt({ x: x1, y, z: z1 }), color, .029);
+    }
+    return;
+  }
   const facing = player.dashLinesFacing || player.facing || 1;
   const color = mixColor(player.color, [244, 250, 255], .55);
   const head = isHeadOnly(player);
