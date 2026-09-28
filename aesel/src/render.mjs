@@ -901,7 +901,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
 // What the engine is called on the bottom line and in the title: the hosted
 // bridge is Aesthetic Computer's own, so it says so.
 export function providerLabel(engine) {
-  return engine === "ac" ? "aesthetic" : engine || "";
+  return engine === "ac" ? "aesthetic" : engine === "open" ? "openrouter" : engine || "";
 }
 
 // A path the way fish's prompt shows it: every directory on the way is its
@@ -954,15 +954,24 @@ export function dropdownGeometry(state, width, height, shape = state.layout || {
   const x = Math.max(0, Math.min(span ? span.x : 1, width - boxWidth - 1));
   // Row 0 is the title; rows 1..count are the choices; all sit above the anchor.
   const top = anchor - count - 1;
-  return { x, top, count, start, index, items, labelWidth, detailWidth, boxWidth, title: "provider · model" };
+  return { x, top, count, start, index, items, labelWidth, detailWidth, boxWidth, title: drop.title || "provider · model" };
 }
 
 function paintDropdown(rows, state, width, height, useColor, shape) {
   const g = dropdownGeometry(state, width, height, shape);
   if (!g || g.top < 0) return rows;
-  const bar = useColor ? bg(shape.bar || [95, 70, 135]) : "";
+  // The picker hangs off the bar, so it wears the bar's ground: the tray's
+  // light or dark when there is one, the purple otherwise. Its inks are fixed
+  // for that ground rather than taken from the window, whose text colour a
+  // light Slab theme turns dark — dark on the purple was unreadable.
+  const light = state.tray === "light";
+  const ground = light ? [232, 232, 236] : state.tray === "dark" ? [28, 28, 32] : shape.bar || [95, 70, 135];
+  const inks = light
+    ? { text: [30, 28, 36], soft: [96, 90, 110], muted: [120, 114, 132], highlight: [200, 30, 100] }
+    : { text: [242, 238, 250], soft: [196, 184, 220], muted: [160, 150, 180], highlight: [255, 170, 90] };
+  const bar = useColor ? bg(ground) : "";
   const reset = useColor ? color.reset : "";
-  const cell = (text, tone) => `${useColor ? (tone === "block" ? bg(palette.block) + fg(palette.text) : bar + fg(palette[tone] || palette.text)) : ""}${fit(text, g.boxWidth)}${reset}${useColor ? color.ground : ""}`;
+  const cell = (text, tone) => `${useColor ? (tone === "block" ? bg(palette.block) + fg([255, 255, 255]) : bar + fg(inks[tone] || inks.text)) : ""}${fit(text, g.boxWidth)}${reset}${useColor ? color.ground : ""}`;
   const place = (y, painted) => { if (y >= 0 && y < rows.length) rows[y] = `${fit(rows[y], g.x)}${painted}`; };
   place(g.top, cell(` ▾ ${g.title}`, "soft"));
   for (let j = 0; j < g.count; j += 1) {

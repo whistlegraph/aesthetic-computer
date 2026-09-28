@@ -813,37 +813,60 @@ function ensureCatalog(id, { force = false } = {}) {
 // One switcher for both: every provider, and under each what it can run,
 // with the row in use marked. A pick on another provider's model restarts
 // the engine there; a pick under the current one just changes the model.
-const PROVIDERS = ["claude", "codex", "ac"];
+// The picker is two steps: a provider, then that provider's models. The
+// hosted one comes first because it needs nothing but a handle.
+const PROVIDERS = ["ac", "open", "claude", "codex"];
+// Providers whose models are a fixed list rather than a catalog to fetch.
+const fixedModels = (id) => id === "ac" || id === "open";
+const providerNote = (id) => id === "ac" ? "hosted · metered to your @handle" : id === "open" ? "your OpenRouter key" : `your ${id} account`;
 function openDropdown() {
-  state.dropdown = { kind: "model", items: [], index: 0, loading: false };
+  state.dropdown = { kind: "model", level: "provider", provider: backend.id, items: [], index: 0, loading: false };
   fillModelDropdown();
-  for (const id of PROVIDERS) if (id !== "ac" && !catalogs[id]) void ensureCatalog(id);
+  for (const id of PROVIDERS) if (!fixedModels(id) && !catalogs[id]) void ensureCatalog(id);
   redraw();
 }
 function fillModelDropdown() {
   const drop = state.dropdown;
   if (!drop || drop.kind !== "model") return;
   const current = state.model || model;
-  const items = [];
-  for (const id of PROVIDERS) {
-    items.push({ header: true, label: providerLabel(id), detail: id === "ac" ? "hosted · metered to your @handle" : `your ${id} account` });
-    if (id !== "ac" && !catalogs[id]) { items.push({ id: "", label: "loading…", detail: "", provider: id, muted: true }); continue; }
-    for (const choice of pickerModels({ backend: id, model: id === backend.id ? current : backendFor(id).defaultModel, catalog: catalogFor(id) })) {
+  if (drop.level === "provider") {
+    drop.items = PROVIDERS.map((id) => ({ provider: id, label: `${id === backend.id ? "● " : "  "}${providerLabel(id)}`, detail: providerNote(id), next: true }));
+    drop.index = Math.max(0, PROVIDERS.indexOf(drop.provider));
+    drop.title = "provider";
+  } else {
+    const id = drop.provider;
+    const items = [{ back: true, label: "‹ providers", detail: "" }];
+    if (!fixedModels(id) && !catalogs[id]) items.push({ id: "", label: "loading…", detail: "", provider: id, muted: true });
+    else for (const choice of pickerModels({ backend: id, model: id === backend.id ? current : backendFor(id).defaultModel, catalog: catalogFor(id) })) {
       items.push({ id: choice.id, label: choice.label, detail: choice.detail || (choice.id !== choice.label ? choice.id : ""), provider: id });
     }
+    drop.items = items;
+    const mine = items.findIndex((item) => item.provider === backend.id && item.id === current);
+    drop.index = mine >= 0 ? mine : items.findIndex((item) => item.id);
+    if (drop.index < 0) drop.index = 0;
+    drop.title = `${providerLabel(id)} · model`;
   }
-  drop.items = items;
-  const mine = items.findIndex((item) => item.provider === backend.id && item.id === current);
-  drop.index = mine >= 0 ? mine : items.findIndex((item) => !item.header && item.id);
   drop.loading = false;
 }
 function closeDropdown() { state.dropdown = null; redraw(); }
+// Up a level from a provider's models; out of the picker from the providers.
+function backDropdown() {
+  const drop = state.dropdown;
+  if (drop?.level === "model") { drop.level = "provider"; fillModelDropdown(); redraw(); }
+  else closeDropdown();
+}
 async function chooseDropdown(index = state.dropdown?.index) {
   const drop = state.dropdown;
   if (!drop) return;
   const item = drop.items[index];
-  state.dropdown = null;
   if (!item || item.header || item.muted) return redraw();
+  if (item.back) return backDropdown();
+  if (item.next) {
+    // The hosted provider picks its own model: choosing it is choosing it.
+    if (item.provider === "ac") { state.dropdown = null; return item.provider === backend.id ? redraw() : commandBackend("ac"); }
+    drop.level = "model"; drop.provider = item.provider; fillModelDropdown(); return redraw();
+  }
+  state.dropdown = null;
   if (item.provider && item.provider !== backend.id) return commandBackend(`${item.provider} ${item.id}`.trim());
   if (item.id === (state.model || model)) return redraw();
   return commandModel(item.id);
@@ -855,7 +878,8 @@ function dropdownKey(input) {
   const step = (from, by) => { let i = from; for (let n = 0; n < drop.items.length; n += 1) { i = (i + by + drop.items.length) % drop.items.length; if (pickable(i)) return i; } return from; };
   if (input === "\x1b[A") drop.index = step(drop.index, -1);
   else if (input === "\x1b[B") drop.index = step(drop.index, 1);
-  else if (input === "\r" || input === "\n") { void chooseDropdown(); return true; }
+  else if (input === "\r" || input === "\n" || (input === "\x1b[C" && drop.items[drop.index]?.next)) { void chooseDropdown(); return true; }
+  else if (input === "\x1b[D" || input === "\x7f") { backDropdown(); return true; }
   else if (input === "\x1b" || input === "\x03" || input === "\t") { closeDropdown(); return true; }
   else return true;
   redraw();

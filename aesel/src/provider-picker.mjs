@@ -1,3 +1,4 @@
+import { OPEN_MODEL_INFO } from './open-server.mjs';
 import {spawn} from 'node:child_process';
 import {createInterface} from 'node:readline';
 import {BACKENDS} from './backends.mjs';
@@ -32,7 +33,7 @@ function claudeChoices(p) {
 export function pickerModels(p) {
   const backend=BACKENDS[p.backend];
   if(p.backend==='ac')return [{id:backend.defaultModel,label:'Automatic'}];
-  const choices=p.backend==='open'?Object.entries(backend.models).map(([label,id])=>({id,label,detail:id}))
+  const choices=p.backend==='open'?Object.values(OPEN_MODEL_INFO).map(m=>({id:m.id,label:m.label,detail:`${'●'.repeat(m.smart)}${'○'.repeat(5-m.smart)}  ${'$'.repeat(m.cost)}`}))
     // The CLI resolves a family alias to a dated id; a resolved id selects its family row instead of growing a "custom" row.
     // Claude: the catalog the Models API answered with, when one has been
     // fetched (model-catalog.mjs); a family alias the CLI resolves ('opus')
