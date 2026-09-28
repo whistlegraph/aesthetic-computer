@@ -15,8 +15,8 @@ import { dirname, isAbsolute, resolve } from "node:path";
 
 // Cut every tool answer to this. A 9,000-line file read whole is a round that
 // costs more than the rest of the turn; the model is told how to page instead.
-const MAX_OUTPUT = 30000;
-const DEFAULT_LINES = 400;
+const MAX_OUTPUT = 16000;
+const DEFAULT_LINES = 200;
 const COMMAND_TIMEOUT = 120000;
 
 export const WORKSPACE_TOOLS = [
@@ -105,6 +105,30 @@ export function toolboxInstructions(env = process.env) {
   const found = TOOLBOX.filter(([name]) => dirs.some((dir) => existsSync(`${dir}/${name}`)));
   if (!found.length) return "";
   return `Your toolbox (run with bash): ${found.map(([name, what]) => `${name} — ${what}`).join("; ")}. Machines in the fleet: run \`frame --help\` or \`frame list\` rather than guessing names. When asked to do several things (e.g. two machines), do all of them.`;
+}
+
+// The context map: enough of Aesthetic Computer up front that a simple piece
+// needs no reading rounds — the lifecycle, the calls people reach for most with
+// their real signatures (read from the bundled API map, so it cannot drift),
+// and where the full guides are when something needs more.
+const MAP_CALLS = ["wipe", "ink", "box", "circle", "line", "oval", "tri", "poly", "plot", "point", "write", "paste", "screen", "pen", "pens", "synth", "play", "randInt", "randIntRange", "lerp", "clamp", "dist", "map", "Button"];
+export function contextMap(contextDir) {
+  let entries = [];
+  try { entries = JSON.parse(readFileSync(resolve(contextDir, "api.json"), "utf8")).entries || []; } catch {}
+  const byName = new Map(entries.map((entry) => [entry.name, entry]));
+  const calls = MAP_CALLS.map((name) => byName.get(name)).filter(Boolean)
+    .map((entry) => `  ${entry.signature}${entry.doc ? ` — ${entry.doc.split(/(?<=\.)\s/)[0].slice(0, 90)}` : ""}`);
+  return [
+    `Context map. An Aesthetic Computer piece is one .mjs file exporting lifecycle functions; each receives an API object to destructure:`,
+    `  function boot({ screen, params, wipe }) {}   once, at load`,
+    `  function paint({ wipe, ink, box, circle, line, write, screen }) {}   every frame`,
+    `  function act({ event: e, pen }) {}   input: e.is("touch") e.is("lift") e.is("draw") e.is("keyboard:down:space") e.is("keyboard:down:arrowleft")`,
+    `  function sim() {}   logic at a steady rate · leave() cleanup · export { boot, paint, act, sim };`,
+    `State lives in module-level variables. Colour first, then draw: ink("pink").box(x, y, w, h); ink(r, g, b, a).circle(x, y, r). screen.width / screen.height size things.`,
+    `Common calls:`,
+    ...calls,
+    `Full guides in ${contextDir}: pieces.md (lifecycle, sound, events, networking, UI), screen.md (layout), hand.md (style), account.md (the person's account). For any other function, call ac_api.`,
+  ].join("\n");
 }
 
 function clip(text) {

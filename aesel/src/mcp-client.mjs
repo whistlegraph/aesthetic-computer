@@ -173,23 +173,52 @@ export class McpTools {
     return this.ready;
   }
 
+  // Two small tools instead of every server's every schema. Sending all of
+  // them each round cost 10k tokens in a bare folder and 58k inside the repo
+  // (294 tools) before the model had done anything. The model lists what is
+  // there, asks for one tool's schema when it needs it, and calls it.
   async tools() {
     await this.load();
-    return [...this.routes.values()].map((route) => route.definition);
+    if (!this.routes.size) return [];
+    const servers = [...new Set([...this.routes.values()].map((route) => route.server.name))];
+    return [
+      { name: "mcp_tools", description: `List the person's MCP tools (servers: ${servers.join(", ")}). With {server}, only that server's tools; with {tool}, that tool's full input schema. Call before mcp_call when unsure of a tool's arguments.`,
+        input_schema: { type: "object", properties: { server: { type: "string" }, tool: { type: "string" } } } },
+      { name: "mcp_call", description: "Call one of the person's MCP tools by its name from mcp_tools (e.g. frame__frame) with its arguments.",
+        input_schema: { type: "object", properties: { tool: { type: "string" }, arguments: { type: "object" } }, required: ["tool"] } },
+    ];
   }
 
-  has(name) { return this.routes.has(name); }
+  has(name) { return name === "mcp_tools" || name === "mcp_call"; }
 
-  describe(name) {
-    const route = this.routes.get(name);
-    return route ? `${route.server.name} · ${route.tool}` : name;
+  #route(tool) {
+    const key = String(tool || "").replace(/^mcp__/, "");
+    return this.routes.get(`mcp__${key}`) || [...this.routes.values()].find((route) => route.tool === key);
+  }
+
+  describe(name, input = {}) {
+    if (name === "mcp_call") { const route = this.#route(input.tool); return route ? `${route.server.name} · ${route.tool}` : `mcp · ${input.tool || "?"}`; }
+    return `mcp · ${input.tool || input.server || "list"}`;
+  }
+
+  #list({ server, tool } = {}) {
+    if (tool) {
+      const route = this.#route(tool);
+      if (!route) throw new Error(`No MCP tool named ${tool}.`);
+      return JSON.stringify({ tool: route.definition.name.replace(/^mcp__/, ""), description: route.definition.description, input_schema: route.definition.input_schema });
+    }
+    return [...this.routes.values()].filter((route) => !server || route.server.name === server)
+      .map((route) => `${route.definition.name.replace(/^mcp__/, "")} — ${String(route.definition.description).split(/(?<=\.)\s/)[0].slice(0, 120)}`).join("\n") || "No tools.";
   }
 
   // The result as text. Images are named, not sent: the open models this loop
   // runs are mostly text-only, and frame returns OCR beside its pictures.
   async call(name, input = {}, { signal } = {}) {
-    const route = this.routes.get(name);
-    if (!route) throw new Error(`No MCP tool named ${name}.`);
+    await this.load();
+    if (name === "mcp_tools") return this.#list(input);
+    const route = name === "mcp_call" ? this.#route(input.tool) : this.routes.get(name);
+    if (name === "mcp_call") input = input.arguments || {};
+    if (!route) throw new Error(`No MCP tool named ${name}. List them with mcp_tools.`);
     const result = await withTimeout(
       route.server.call("tools/call", { name: route.tool, arguments: input }, { signal }),
       CALL_TIMEOUT, name);

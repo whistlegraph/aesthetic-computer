@@ -39,7 +39,7 @@ import { PREVIEW_TOOL, TOOLS, callTool, loadMap } from "./tools.mjs";
 import { API_WORKFLOW } from "./api-context.mjs";
 import { createHash, randomUUID } from "node:crypto";
 import { configuredJev } from "./jev-advisor.mjs";
-import { WORKSPACE_INSTRUCTIONS, WORKSPACE_TOOLS, WORKSPACE_TOOL_NAMES, runWorkspaceTool, toolboxInstructions } from "./workspace-tools.mjs";
+import { WORKSPACE_INSTRUCTIONS, WORKSPACE_TOOLS, WORKSPACE_TOOL_NAMES, runWorkspaceTool, toolboxInstructions, contextMap } from "./workspace-tools.mjs";
 import { OPEN_MODELS } from "./open-models.mjs";
 
 const SITE = process.env.AESEL_SITE || "https://aesthetic.computer";
@@ -65,6 +65,25 @@ const CLOSE_TOOL = {
   description: "End this Aesel session and close its terminal window. When the person asks you to close out, quit, exit, close the window or says they are done, you must call this tool — saying goodbye alone does not close anything. Never call it on your own initiative. Say a short goodbye in the same reply.",
   input_schema: { type: "object", properties: {} },
 };
+
+// Tool output the model has already acted on is dead weight it pays for again
+// every round. Keep the last few rounds' results whole; cut older ones to their
+// head, with a note that the tool can simply be run again.
+// Only once the history is genuinely large: rewriting earlier messages moves
+// the start of the conversation, and the provider's prompt cache (a fiftieth
+// of the price on DeepSeek) stops matching from there. Measured on a flower
+// turn, eliding early cut tokens by a third and saved almost nothing.
+const KEEP_ROUNDS = 4, KEEP_CHARS = 300, ELIDE_ABOVE = 240_000;
+function elideOldResults(messages) {
+  const size = messages.reduce((n, m) => n + (typeof m.content === "string" ? m.content.length : JSON.stringify(m.content).length), 0);
+  if (size < ELIDE_ABOVE) return [...messages];
+  const resultTurns = messages.map((m, i) => (m.role === "user" && Array.isArray(m.content) && m.content.some((b) => b.type === "tool_result")) ? i : -1).filter((i) => i >= 0);
+  const cutoff = resultTurns.length > KEEP_ROUNDS ? resultTurns[resultTurns.length - KEEP_ROUNDS] : -1;
+  return messages.map((m, i) => i >= cutoff || !resultTurns.includes(i) ? m : { ...m, content: m.content.map((b) => {
+    if (b.type !== "tool_result" || typeof b.content !== "string" || b.content.length <= KEEP_CHARS * 2) return b;
+    return { ...b, content: `${b.content.slice(0, KEEP_CHARS)}\n… ${b.content.length - KEEP_CHARS} more characters elided from history; run the tool again if you need them.` };
+  }) });
+}
 
 const WRITE_PIECE = {
   name: "write_piece",
@@ -196,6 +215,7 @@ export class AcServer extends EventEmitter {
       this.developerInstructions,
       WORKSPACE_INSTRUCTIONS,
       toolboxInstructions(),
+      contextMap(new URL("../context", import.meta.url).pathname),
       `Your interface is Aesel. The configured provider model identifier for this request is ${this.model}. If asked which model you are, report that identifier exactly.`,
     ].filter(Boolean).join("\n\n"),cache_control:{type:"ephemeral"}}];
   }
@@ -335,7 +355,7 @@ export class AcServer extends EventEmitter {
       tools.push({name:api.name,description:api.description,input_schema:api.inputSchema});
     }
     const feedback=previewing?this.runtimeFeedback():null;
-    const messages=[...this.messages];
+    const messages=this.workspace?elideOldResults(this.messages):[...this.messages];
     if (this.pendingTriage) {
       const advice = this.pendingTriage;
       this.pendingTriage = null;
@@ -543,7 +563,7 @@ export class AcServer extends EventEmitter {
     const itemId = `tool-${block.id}`;
     if(this.workspace && WORKSPACE_TOOL_NAMES.has(block.name)) return this.#runWorkspaceTool(block, itemId, signal);
     if(this.workspace && this.extensions?.has(block.name)) {
-      const item = { id: itemId, type: "dynamicToolCall", tool: this.extensions.describe(block.name) };
+      const item = { id: itemId, type: "dynamicToolCall", tool: this.extensions.describe(block.name, block.input || {}) };
       this.emit("notification", { method: "item/started", params: { item } });
       try {
         if (!(await this.#approve("command", item.tool))) throw new Error("The person declined this tool call.");
