@@ -43,7 +43,7 @@
 <main>
   <section>
     <h1>Object Lab</h1>
-    <p class="sub">An oskiewar object is a KidLisp program, compiled once to closures and run every tick. What you see is the game's own frame interpreter drawing its WORLD faces.</p>
+    <p class="sub">An oskiewar object is a KidLisp program. It compiles once: what never moves is baked into meshes at three levels of detail, and each tick sends one MODEL op per mesh plus WORLD faces for what does move. The game's own frame interpreter draws it here.</p>
     <div class="view"><b id="name"></b><canvas id="stage" width="1280" height="720"></canvas></div>
     <p class="status" id="status"></p>
     <h2>source <span class="sub">— edit to recompile</span></h2>
@@ -61,8 +61,8 @@
   </aside>
 </main>
 <script type="module">
-import { compile, objectInputs } from "./object-lisp.mjs";
-import { createFrameVm, FRAME_CAMERA, FRAME_WORLD } from "./frame-vm.mjs";
+import { compile, objectInputs, objectLight } from "./object-lisp.mjs";
+import { createFrameVm, FRAME_CAMERA, FRAME_WORLD, FRAME_ASSET, FRAME_MODEL } from "./frame-vm.mjs";
 import WebGLOskiewarScene3D from "./scene3d-webgl.mjs";
 
 const params = new URLSearchParams(location.search);
@@ -75,7 +75,9 @@ const canvas = document.getElementById("stage");
 let gl = null, flat = null;
 try { gl = new WebGLOskiewarScene3D(canvas); gl.setLogicalSize(W, H); }
 catch { flat = { faces: [], ctx: canvas.getContext("2d") }; }
-const faceSink = gl ? (...f) => gl.triangle3d(...f) : (...f) => flat.faces.push(f);
+let hostTriangles = 0;   // what the object cost the host this frame
+const faceSink = gl ? (...f) => { hostTriangles++; gl.triangle3d(...f); }
+  : (...f) => { hostTriangles++; flat.faces.push(f); };
 const noOp = () => {};
 const vm = createFrameVm({ triangle3d: faceSink, triangle: noOp, box: noOp, line: noOp,
   wipe: noOp, write: noOp, systemWrite: noOp, comicWrite: noOp });
@@ -100,7 +102,7 @@ function slider(parent, key, min, max, step) {
 }
 const shows = [
   slider("inputs", "speed", -800, 800, 1), slider("inputs", "lean", -.7, .7, .01),
-  slider("inputs", "heading", -3.14, 3.14, .01), slider("inputs", "turbo", 0, 1, .01),
+  slider("inputs", "heading", -3.14, 3.14, .01), slider("inputs", "turbo", 0, 1, 1),
   slider("inputs", "time", 0, 30, .01), slider("inputs", "distance", 0, 2000, 1),
   slider("camera", "yaw", -3.14, 3.14, .01), slider("camera", "elev", -.2, 1.4, .01),
   slider("camera", "dist", 90, 700, 1), slider("camera", "perspective", 0, 1, .01),
@@ -112,12 +114,17 @@ document.getElementById("hit").onclick = () => { state.hit = 0; };
 
 // ——— the object: fetched, compiled once, recompiled on edit ———
 const sourceBox = document.getElementById("source"), errorBox = document.getElementById("error");
-let object = null, compileMs = 0;
+// Each compile gets fresh handles, so its meshes go up once, as ASSETs, the
+// way the game would upload them when an object loads.
+let object = null, compileMs = 0, handleBase = 0, uploaded = true;
 function build() {
   try {
     const t = performance.now();
-    object = compile(sourceBox.value, objectName);
+    const next = compile(sourceBox.value, objectName);
     compileMs = performance.now() - t;
+    handleBase += object ? object.meshes.length : 0;
+    object = next;
+    uploaded = false;
     errorBox.textContent = "";
   } catch (error) { errorBox.textContent = error.message; }
 }
@@ -137,6 +144,27 @@ function worldFace(ax, ay, az, bx, by, bz, cx, cy, cz, r, g, b) {
   room(13);
   program.set([FRAME_WORLD, ax, ay, az, bx, by, bz, cx, cy, cz, r, g, b], length);
   length += 13;
+}
+const tick = { faces: 0, models: 0 };
+const out = {
+  face: (...f) => { tick.faces++; worldFace(...f); },
+  model: (radius, h0, h1, h2, m, at) => {
+    tick.models++;
+    room(20);
+    program.set([FRAME_MODEL, radius, handleBase + h0, handleBase + h1, handleBase + h2,
+      ...m.subarray(at, at + 12), ...objectLight], length);
+    length += 20;
+  },
+};
+function upload() {
+  object.meshes.forEach((m, i) => {
+    room(4 + m.vertices.length + m.faces.length);
+    program.set([FRAME_ASSET, handleBase + i, m.vertices.length / 3, m.count], length);
+    program.set(m.vertices, length + 4);
+    program.set(m.faces, length + 4 + m.vertices.length);
+    length += 4 + m.vertices.length + m.faces.length;
+  });
+  uploaded = true;
 }
 const norm = (v) => { const m = Math.hypot(...v) || 1; return v.map((x) => x / m); };
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
@@ -168,7 +196,7 @@ function floor(forward, side) {
   }
 }
 
-let last = performance.now(), faces = 0, tickUs = 0;
+let last = performance.now(), tickUs = 0, numbers = 0, triangles = 0;
 function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now;
   if (playing) {
@@ -178,23 +206,30 @@ function frame(now) {
   for (const show of shows) show();
   const forward = [Math.cos(state.heading), 0, Math.sin(state.heading)];
   const up = [0, -1, 0], right = cross(forward, up);
+  // Two programs: the floor, then the object, so the host's count is the
+  // object's alone.
+  if (gl) gl.beginFrame(); else flat.faces.length = 0;
   length = 0;
   camera();
   floor(forward, right);
+  vm.run(program, length, []);
+  length = 0;
+  if (object && !uploaded) upload();
+  camera();
   const before = length;
+  tick.faces = tick.models = 0;
   if (object) {
     const t = performance.now();
-    object(state, [0, -24, 0, ...forward, ...up, ...right], worldFace);
+    object(state, [0, -24, 0, ...forward, ...up, ...right], out);
     tickUs = (performance.now() - t) * 1000;
   }
-  faces = (length - before) / 13;
+  numbers = length - before;
+  hostTriangles = 0;
+  vm.run(program, length, []);
+  triangles = hostTriangles;
   if (gl) {
-    gl.beginFrame();
-    vm.run(program, length, []);
     gl.present({ clear: [...rgb(color("--panel")).map((v) => v / 255), 1] });
   } else {
-    flat.faces.length = 0;
-    vm.run(program, length, []);
     const { ctx } = flat;
     ctx.fillStyle = color("--panel"); ctx.fillRect(0, 0, W, H);
     // Far first: the depth the game gives a face grows away from the lens.
@@ -205,8 +240,9 @@ function frame(now) {
     }
   }
   document.getElementById("status").textContent =
-    `${gl ? "webgl, depth-tested" : "canvas, depth-sorted"} · ${faces} faces · ${faces * 13} floats · ` +
-    `compile ${compileMs.toFixed(1)} ms · tick ${tickUs.toFixed(0)} µs · inputs: ${objectInputs.join(" ")}`;
+    `${gl ? "webgl, depth-tested" : "canvas, depth-sorted"} · a tick: ${tick.models} MODEL + ` +
+    `${tick.faces} WORLD = ${numbers} numbers, ${tickUs.toFixed(0)} µs · host drew ${triangles} triangles · ` +
+    `${object ? object.meshes.length : 0} baked meshes · compile ${compileMs.toFixed(1)} ms · inputs: ${objectInputs.join(" ")}`;
   document.documentElement.dataset.ready = "1";
   if (!still) requestAnimationFrame(frame);
 }

@@ -104,6 +104,10 @@ handles the game assigns.
 ```
 VIEW     id · camera[27] · rect[4] · near · depthBase · depthSlope · omitFigure
 MESH     handle · model[12]                       retained; interpreter clips + lights
+MODEL    radius · handle×3 · model[12] · light    op 14, in frame-vm.mjs since 2026-09-28: a baked mesh
+                                                  under a placement, at one of three baked levels picked by
+                                                  projected radius (56 / 20 px); normals by cofactor, zero = unlit.
+                                                  Objects (xbox/OBJECT-DIALECT.md) are MODELs plus a few WORLD faces
 FACE     3×(x y z) · rgb · depth                  escape hatch for one-off geometry; interpreters may lower to it
 DISC     x y z · r · rgb           CAPSULE  x1 y1 z1 x2 y2 z2 · w · rgb
 RIBBON   cubic (4 pts) · w · rgb                  limbs, hair, skirt edges
@@ -237,15 +241,23 @@ drawn once and look the same everywhere.
   plates) drawn through `mesh(handle)`; rolls by contact distance like the
   board wheels; contact shadow; rider feet snap to the plates; the motor
   voice from A2 pitched by speed.
-  **Object slice, 2026-09-28:** the monowheel is now a KidLisp object,
-  `xbox/live/objects/monowheel.lisp`, compiled to closures by
-  `xbox/live/object-lisp.mjs`. It has a rim, spokes that roll with distance,
-  tread, lean and a landing squash, and it emits WORLD faces lit by the
-  `worldQuad` rule. Try it in `xbox/live/object-lab.html`. It is not in the
-  game yet. The dialect, the frame-op mapping and the embed plan
-  (`embed-objects.mjs`, the `drawMonowheel` call site) are in
-  `xbox/OBJECT-DIALECT.md`. The retained-mesh route above becomes "bake the
-  input-free part of an object to an ASSET" once MESH carries a model matrix.
+  **Object, 2026-09-28:** the monowheel is now a KidLisp object,
+  `xbox/live/objects/monowheel.lisp`, written with `revolve`, `radial` and
+  `mirror`. It has tire wedges, a rim, spokes that roll with distance, lean
+  and a landing squash. `xbox/live/object-lisp.mjs` compiles it once, baking
+  everything that doesn't move into meshes at three levels of detail. A tick
+  sends 2 MODEL + 4 WORLD = 92 numbers, against 1144 for today's flat wheel,
+  and the host draws 148 / 92 / 80 triangles by level. Try it in
+  `xbox/live/object-lab.html`. It is not in the game yet. The dialect, the
+  budget, MODEL and the embed plan are in `xbox/OBJECT-DIALECT.md`.
+  **The rule: forms compile away; hosts see faces and meshes.** High-level
+  forms (revolve, radial, mirror, later extrude and sweep) and levels of
+  detail are expanded only in `object-lisp.mjs`, when an object loads. No
+  interpreter expands anything. `FrameVm.cpp` (R6) implements WORLD, ASSET
+  and MODEL (transform, light, pick a level) and nothing more, so hosts can't
+  drift. This is also a route for §7 decision 0 option (b): a figure's rigid
+  parts as baked meshes under moving bone frames, one MODEL each, with the
+  same forms compiling away in the same place.
 
 ## 6. Order
 
