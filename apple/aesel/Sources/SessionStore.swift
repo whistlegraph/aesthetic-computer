@@ -6,12 +6,14 @@ final class SessionStore {
     private let url: URL
     private var values: [String: String]
     private let sessionKey: String
+    private let tokenService: String
 
     private let backup: URL
     private var writable = true
     private(set) var issue: String?
 
-    init(directory override: URL? = nil, windowID: String = "main") {
+    init(directory override: URL? = nil, windowID: String = "main", tokenService: String? = nil) {
+        self.tokenService = tokenService ?? Self.keychainService
         sessionKey = windowID == "main" ? "session" : "session.\(windowID)"
         #if os(macOS)
         let standard = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -118,7 +120,7 @@ final class SessionStore {
 
     private var tokenQuery: [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrService as String: Self.keychainService,
+         kSecAttrService as String: tokenService,
          kSecAttrAccount as String: "access-token"]
     }
 

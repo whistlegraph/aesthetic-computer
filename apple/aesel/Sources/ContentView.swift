@@ -244,7 +244,6 @@ struct ContentView: View {
         .onChange(of: session.showSignIn) { if !session.showSignIn { host.cancelSignIn() } }
         .onChange(of: session.signedIn) { if session.signedIn { Task { await braincells.load() } } }
         .task { braincells.start(token: { host.accessToken() }, credited: { host.refreshCredits() }) }
-        .onChange(of: oskiewar.status) { fileNotice = oskiewar.status }
         .onDisappear { host.automation.stop(); oskiewar.disconnect() }
         .onAppear {
             host.automation.inspect = { automationState }
@@ -438,6 +437,17 @@ struct ContentView: View {
 
     private var connectionNotices: some View {
         VStack(alignment: .leading, spacing: 6) {
+            if !oskiewar.room.isEmpty {
+                HStack(spacing: 10) {
+                    Image(systemName: "sparkles").accessibilityHidden(true)
+                    Text(oskiewar.status).font(Paint.font(13))
+                    Button { oskiewar.disconnect() } label: {
+                        Image(systemName: "xmark").frame(width: 24, height: 24)
+                    }.accessibilityLabel("Disconnect Oskiewar")
+                }
+                .padding(10).background(paint.bg, in: RoundedRectangle(cornerRadius: 8))
+                .overlay { RoundedRectangle(cornerRadius: 8).stroke(paint.ink.opacity(0.3), lineWidth: 1) }
+            }
             ForEach(session.notices.keys.sorted(), id: \.self) { scope in
                 if let notice = session.notices[scope] {
                     HStack(spacing: 10) {
@@ -630,10 +640,9 @@ struct ContentView: View {
                             }
                             Rectangle().fill(paint.ink.opacity(0.16)).frame(height: 1)
                             if session.signedIn {
-                                Text(session.handle.isEmpty ? "Aesthetic Computer account" : "@\(session.handle)")
-                                    .font(.custom("ComicRelief-Bold", size: 26))
-                                    .foregroundStyle(paint.ink)
-                                    .shadow(color: paint.accent.opacity(0.55), radius: 0, x: 2, y: 2)
+                                AeselTitle(text: session.handle.isEmpty ? "Aesthetic Computer account" : "@\(session.handle)",
+                                           colors: session.handleColors, size: 26,
+                                           maximumWidth: max(180, min(520, geometry.size.width - 80)), horizontalInset: 4)
                                     .padding(.bottom, 4)
                                 HStack(spacing: 16) {
                                     accountAction("Log out") { closeSettings { host.signOut() } }
