@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 185;
+const buildVersion = 186;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -10133,6 +10133,10 @@ function fireGun(player, input) {
   for (let shot = 0; shot < shots; shot++) {
     playDrum(laser ? "whoosh" : smg ? "block" : "hat",
       laser ? 1.35 : smg ? .62 + shot * .08 : 1.05, panPlayer(player));
+    if (poolOnly() && !laser && !smg) {
+      playDrum("snare", .95, panPlayer(player));
+      playDrum("kick", .65, panPlayer(player));
+    }
     playSine(laser ? 1180 : (smg ? 310 : 760) + shot * 55,
       laser ? .13 : smg ? .055 : .08);
   }
@@ -10439,23 +10443,50 @@ function recordBulletTrail(bullet) {
   bullet.trailCount++;
 }
 
+// Reflect the full 3D velocity; keep one brief sound/flash per contact.
+function ricochetPoolBullet(b,nx,ny,nz,now){
+  if(b.laser){b.life=0;return;}
+  const length=Math.hypot(nx,ny,nz)||1;nx/=length;ny/=length;nz/=length;
+  const dot=b.vx*nx+b.vy*ny+(b.vz||0)*nz;
+  b.vx-=2*dot*nx;b.vy-=2*dot*ny;b.vz=(b.vz||0)-2*dot*nz;
+  if(now>=(b.nextRicochetSoundAt||0)){
+    playDrum('hat',.85,panAt(b.x,b.z));
+    playSine(1550+Math.min(900,Math.abs(dot)*.15),.045);
+    spawnImpact({x:b.x,y:b.y,z:b.z,life:.12,duration:.12,death:false,explosion:false});
+    b.nextRicochetSoundAt=now+45000;
+  }
+}
 function updatePoolBullets(dt,now,combat){
   const t=(now-startedAt)/1e6;
   for(const b of bullets){
     if(b.life<=0)continue;
-    b.previousX=b.x;b.previousY=b.y;b.previousZ=b.z;b.life-=dt;
+    b.previousX=b.x;b.previousY=b.y;b.previousZ=b.z;
     const steps=Math.max(1,Math.ceil(Math.hypot(b.vx,b.vy,b.vz||0)*dt/18));
     for(let step=0;step<steps&&b.life>0;step++){
       const from={x:b.x,y:b.y,z:b.z};
       b.x+=b.vx*dt/steps;b.y+=b.vy*dt/steps;b.z+=(b.vz||0)*dt/steps;
-      for(const {w,bay,u} of parkWallContact(from,b,0)){
+      for(const {w,bay,u,old,fraction} of parkWallContact(from,b,0)){
+        const hitY=lerp(from.y,b.y,fraction);
+        if(hitY<parkDeckY-parkBuildingHeight||hitY>parkDeckY)continue;
         const inGlass=u>bay*w.width+109&&u<(bay+1)*w.width-109&&
-          b.y>parkDeckY-parkBuildingHeight+269&&b.y<parkDeckY-479;
-        if(inGlass)breakParkWindow(w,bay,b,b);else b.life=0;
+          hitY>parkDeckY-parkBuildingHeight+269&&hitY<parkDeckY-479;
+        if(inGlass)breakParkWindow(w,bay,b,b);
+        else {
+          const side=old>=0?1:-1;
+          b.x=w.ax+w.ux*u+w.nx*side*2;b.z=w.az+w.uz*u+w.nz*side*2;b.y=hitY;
+          ricochetPoolBullet(b,w.nx,0,w.nz,now);
+        }
       }
       if(b.life<=0)break;
-      if(b.y>=poolFloorAt(b.x,b.z)-4||(insidePark(b.x,b.z)&&b.y<parkDeckY-parkBuildingHeight)||
-        b.x<gridLeft-parkLotMargin||b.x>gridLeft+gridWidth+parkLotMargin||
+      const floor=poolFloorAt(b.x,b.z)-4;
+      if(b.y>=floor){
+        const slope=poolSlopeAt(b.x,b.z);b.y=floor-.1;
+        ricochetPoolBullet(b,slope.x,-1,slope.z,now);
+      }else if(insidePark(b.x,b.z)&&b.y<parkDeckY-parkBuildingHeight){
+        b.y=parkDeckY-parkBuildingHeight+2;ricochetPoolBullet(b,0,1,0,now);
+      }
+      // The open parking-lot horizon has no invisible ricochet wall.
+      if(b.x<gridLeft-parkLotMargin||b.x>gridLeft+gridWidth+parkLotMargin||
         b.z<worldNear-parkLotMargin||b.z>worldFar+parkLotMargin){b.life=0;break;}
       if(!combat)continue;
       for(const target of [...activePlayers(),...parkKids]){

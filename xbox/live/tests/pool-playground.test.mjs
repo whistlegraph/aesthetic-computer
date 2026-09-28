@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 const source=await readFile(new URL('../oskiewar.js',import.meta.url),'utf8');
 function playground(){
- let now=1e6;const noop=()=>{},audio=[];
+ let now=1e6;const noop=()=>{},audio=[],drums=[];
  const api=new Function('runtime','capabilities','telemetry','gameSignal','drum','wipe','box','line','triangle','write','systemWrite','oscillator','oscillatorStop',`${source}
  configureWorldMap('skatepark','pool');fightOpponent='freeskate';gameMode='fight';
  return {players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
@@ -13,10 +13,10 @@ function playground(){
  boundParkBody,parkWindowWalls,brokenParkWindows,parkWindowShards,resetParkWindows,
  breakParkWindow,updateParkWindowShards,insidePark,parkLotMargin,updateCameraDoll,clearPoolCamera,updateMotorAudio,
  sceneBoundsVisible,buildParkScene,parkActorVisible,figureLod,
- state:()=>({halfpipe:parkHalfPipe3D})};`)(()=>({monotonicUs:now}),()=>({platform:'web'}),noop,noop,noop,noop,noop,noop,noop,noop,noop,(hz,gain)=>audio.push({hz,gain}),()=>audio.push({stop:true}));
+ state:()=>({halfpipe:parkHalfPipe3D})};`)(()=>({monotonicUs:now}),()=>({platform:'web'}),noop,noop,(name,gain,pan)=>drums.push({name,gain,pan}),noop,noop,noop,noop,noop,noop,(hz,gain)=>audio.push({hz,gain}),()=>audio.push({stop:true}));
  const p=api.players[0];Object.assign(p,{x:1080,z:0,y:api.poolFloorAt(1080,0),grounded:true,alive:true,dummy:false,skateboard:false,poolYaw:0,previous:[],spin:null,directionChanges:[],poolLastSteer:0});
  api.step=(down=[],dt=1/60)=>{now+=dt*1e6;api.updatePlayer(p,{down,leftX:0,leftY:0},dt,now);};
- api.now=()=>now;api.audio=audio;return api;
+ api.now=()=>now;api.audio=audio;api.drums=drums;return api;
 }
 test('pool flicks start, sustain and release a spin on foot and on a board',()=>{
  for(const board of [false,true]){
@@ -171,4 +171,23 @@ test('figure LOD follows projected size and holds its tier at a boundary',()=>{
  assert.equal(a.figureLod(p,geometry(40)),1);
  assert.equal(a.figureLod(p,geometry(20)),2);
  assert.equal(a.figureLod(p,geometry(8)),3);
+});
+
+test('3D rounds reflect off solid walls in depth and retain their lifetime',()=>{
+ const a=playground(),w=a.parkWindowWalls()[0];
+ const b={x:w.ax+w.width*.5,y:a.parkDeckY-150,z:w.az+10,vx:300,vy:0,vz:-4200,life:1,owner:0,safeUntil:Infinity};
+ a.bullets.push(b);const speed=Math.hypot(b.vx,b.vy,b.vz);
+ a.updateBullets(1/60,a.now(),false);
+ assert.ok(b.vz>0);assert.equal(b.vx,300);assert.ok(b.z>w.az);
+ assert.equal(b.life,1);assert.ok(Math.abs(Math.hypot(b.vx,b.vy,b.vz)-speed)<1e-8);
+ assert.ok(a.drums.some(d=>d.name==='hat'),'ricochet is audible');
+});
+test('3D laser rounds are absorbed by solid walls',()=>{
+ const a=playground(),w=a.parkWindowWalls()[0];
+ a.bullets.push({x:w.ax+w.width*.5,y:a.parkDeckY-150,z:w.az+10,vx:0,vy:0,vz:-4200,life:1,laser:true});
+ a.updateBullets(1/60,a.now(),false);assert.equal(a.bullets.length,0);
+});
+test('3D pistol layers a crack and low report onto its shot',()=>{
+ const a=playground(),p=a.players[0];p.gunAmmo=3;p.gunMode='HANDGUN';a.step(['Y']);
+ assert.ok(a.drums.some(d=>d.name==='snare'));assert.ok(a.drums.some(d=>d.name==='kick'));
 });
