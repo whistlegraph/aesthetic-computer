@@ -50,7 +50,13 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
         var glyphs: MTLBuffer?
         var theme: MTLBuffer?
         var decals: MTLBuffer?
+        var sdfFigures: MTLBuffer?
+        var sdfPrims: MTLBuffer?
+        var bubbles: MTLBuffer?
     }
+    /// Raymarched figures; nil when the device refused the pipeline, and the
+    /// piece then draws triangles (sdfFigure returns false).
+    private let sdf: SdfFigures?
     private let uploads = (0..<3).map { _ in Uploads() }
     private let inFlight = DispatchSemaphore(value: 3)
     private var uploadIndex = 0
@@ -136,6 +142,7 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
         } catch {
             fatalError("Metal scene pipeline failed: \(error)")
         }
+        sdf = try? SdfFigures(device: device)
         glyphAtlas = GlyphAtlas(device: device)
         do {
             glyphPipeline = try GlyphAtlas.pipeline(device: device)
@@ -175,6 +182,7 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
         sceneVertices.removeAll(keepingCapacity: true)
         poolDecalVertices.removeAll(keepingCapacity: true)
         glyphVertices.removeAll(keepingCapacity: true)
+        sdf?.clear()
         for key in themeSolid.keys { themeSolid[key]?.removeAll(keepingCapacity: true) }
         for key in themeSoft.keys { themeSoft[key]?.removeAll(keepingCapacity: true) }
         glyphAtlas.beginFrame()
@@ -259,6 +267,20 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
         return appended
     }
 
+    /// sceneApi 3: queue one raymarched figure for this frame.
+    func sdfFigure(camera: UnsafePointer<Float>, prims: UnsafePointer<Float>, count: Int) -> Bool {
+        sceneLock.lock()
+        defer { sceneLock.unlock() }
+        return sdf?.queue(camera: camera, values: prims, count: count) ?? false
+    }
+
+    func sdfBubble(camera: UnsafePointer<Float>, x: Float, y: Float, z: Float,
+                   radius: Float, tint: SIMD3<Float>) -> Bool {
+        sceneLock.lock()
+        defer { sceneLock.unlock() }
+        return sdf?.queueBubble(camera: camera, x: x, y: y, z: z, radius: radius, tint: tint) ?? false
+    }
+
     func setPoolDecals(_ values: UnsafePointer<Float>, vertexCount: Int) {
         sceneLock.lock()
         defer { sceneLock.unlock() }
@@ -295,6 +317,11 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
         let themeSoftSnapshot = themeSoft
         let clear = background
         let stage = logicalSize
+        let sdfFigures = sdf?.figures ?? []
+        let sdfPrims = sdf?.prims ?? []
+        let sdfViews = sdf?.views ?? []
+        let bubbles = sdf?.bubbles ?? []
+        let bubbleViews = sdf?.bubbleViews ?? []
         sceneLock.unlock()
         guard let pass = currentRenderPassDescriptor,
               let drawable = currentDrawable,
@@ -309,6 +336,9 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
               reserve(&slot.glyphs, bytes: glyphs.count * MemoryLayout<GlyphVertex>.stride),
               reserve(&slot.theme, bytes: themeCount * MemoryLayout<ThemeVertex>.stride),
               reserve(&slot.decals, bytes: poolDecals.count * MemoryLayout<PoolDecalVertex>.stride),
+              reserve(&slot.sdfFigures, bytes: sdfFigures.count * MemoryLayout<SdfFigureGpu>.stride),
+              reserve(&slot.sdfPrims, bytes: sdfPrims.count * MemoryLayout<Float>.stride),
+              reserve(&slot.bubbles, bytes: bubbles.count * MemoryLayout<SdfFigureGpu>.stride),
               let vertexBuffer = slot.scene, let glyphBuffer = slot.glyphs,
               let themeBuffer = slot.theme, let decalBuffer = slot.decals else { return }
         let decalTexture = poolDecals.isEmpty ? nil : poolDecalTexture?(uploadIndex)
@@ -327,6 +357,24 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
             encoder.drawPrimitives(type: .triangle, vertexStart: 0,
                                    vertexCount: vertices.count)
         }
+        if let sdf, !sdfFigures.isEmpty, let figureBuffer = slot.sdfFigures,
+           let primBuffer = slot.sdfPrims {
+            _ = sdfFigures.withUnsafeBytes { memcpy(figureBuffer.contents(), $0.baseAddress!, $0.count) }
+            _ = sdfPrims.withUnsafeBytes { memcpy(primBuffer.contents(), $0.baseAddress!, $0.count) }
+            encoder.setRenderPipelineState(sdf.pipeline)
+            encoder.setDepthStencilState(depthState)
+            encoder.setVertexBuffer(figureBuffer, offset: 0, index: 0)
+            encoder.setFragmentBuffer(figureBuffer, offset: 0, index: 0)
+            encoder.setFragmentBuffer(primBuffer, offset: 0, index: 1)
+            for run in sdfViews where run.count > 0 {
+                var constants = SdfFigures.constants(camera: run.camera, first: run.first,
+                    drawable: drawableSize, stage: stage)
+                encoder.setVertexBytes(&constants, length: MemoryLayout<SdfViewConstants>.stride, index: 2)
+                encoder.setFragmentBytes(&constants, length: MemoryLayout<SdfViewConstants>.stride, index: 2)
+                encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6,
+                                       instanceCount: run.count)
+            }
+        }
         if let decalTexture, !poolDecals.isEmpty {
             _ = poolDecals.withUnsafeBytes { memcpy(decalBuffer.contents(), $0.baseAddress!, $0.count) }
             encoder.setRenderPipelineState(poolDecalPipeline)
@@ -336,6 +384,22 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
             encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: poolDecals.count)
         }
         drawTheme(encoder, buffer: themeBuffer, solid: themeSolidSnapshot, soft: themeSoftSnapshot)
+        // Bubbles blend over everything solid in the world, before the HUD.
+        if let sdf, !bubbles.isEmpty, let bubbleBuffer = slot.bubbles {
+            _ = bubbles.withUnsafeBytes { memcpy(bubbleBuffer.contents(), $0.baseAddress!, $0.count) }
+            encoder.setRenderPipelineState(sdf.bubblePipeline)
+            encoder.setDepthStencilState(poolDecalDepth)
+            encoder.setVertexBuffer(bubbleBuffer, offset: 0, index: 0)
+            encoder.setFragmentBuffer(bubbleBuffer, offset: 0, index: 0)
+            for run in bubbleViews where run.count > 0 {
+                var constants = SdfFigures.constants(camera: run.camera, first: run.first,
+                    drawable: drawableSize, stage: stage)
+                encoder.setVertexBytes(&constants, length: MemoryLayout<SdfViewConstants>.stride, index: 2)
+                encoder.setFragmentBytes(&constants, length: MemoryLayout<SdfViewConstants>.stride, index: 2)
+                encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6,
+                                       instanceCount: run.count)
+            }
+        }
         // Text last and depth-free: the HUD is not in the world, it is over it.
         if !glyphs.isEmpty {
             let capacity = glyphBuffer.length / MemoryLayout<GlyphVertex>.stride

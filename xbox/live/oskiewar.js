@@ -2878,6 +2878,7 @@ const nativeRetainedMeshes = nativeMeshUpload !== null && nativeMeshDraw !== nul
 // `sdf` flag turns it off; a host without the pass returns false and the
 // tessellated figure draws instead.
 const nativeSdfFigure = typeof sdfFigure === "function" ? sdfFigure : null;
+const nativeSdfBubble = typeof sdfBubble === "function" ? sdfBubble : null;
 const nativeTriangles3d = typeof triangles3d === "function" ? triangles3d : null;
 const nativePostEffects = typeof postEffects === "function" ? postEffects : null;
 const hostComicWrite = typeof comicWrite === "function" ? comicWrite : null;
@@ -4260,12 +4261,6 @@ function drawAeselConnect(){
   const saved=triangleDepth;triangleDepth=-1.49;
   const qr=shellMode==='MENU'?spectatorQrBox():null;
   const x=safe.right-handleWidth(label,size),y=qr?qr.top+qr.size+20:safe.top+18;
-  const lit=runtime().monotonicUs-aeselSeenAt<3500000,ink=lit?[163,244,211]:[194,196,220];
-  const flutter=.35+.65*Math.abs(Math.sin(runtime().monotonicUs/100000)),bob=Math.sin(runtime().monotonicUs/380000)*2;
-  const cx=x-30,cy=y+22+bob,span=8+13*flutter;
-  filledDisc(cx,cy-12,4,ink);filledCapsule(cx,cy-5,cx,cy+10,4,ink);
-  screenTriangle(cx,cy,cx-span,cy-12,cx-span*.8,cy+10,...ink);
-  screenTriangle(cx,cy,cx+span,cy-12,cx+span*.8,cy+10,...ink);
   typeWrite(label,x+1,y+2,size,12,18,30);typeWrite(label,x,y,size,231,247,241);
   triangleDepth=saved;
 }
@@ -5828,7 +5823,41 @@ function samplePad(index) {
       nativeControllerCount = controllers().length;
     if (index < nativeControllerCount) pad.localController = true;
   }
+  // One pad layout everywhere (@jeffrey, 2026-09-27): A kick (the gas on a
+  // board or kart), X punch, Y the other hand, B jump, A+X together the
+  // bubble. Only live play is translated — menus keep A confirm / B back —
+  // and bots and the harness speak the internal names directly.
+  if (pad && Array.isArray(pad.down) && shellMode === "GAME" &&
+      globalThis.__oskiewarLegacyButtons !== true)
+    pad.down = translateButtons(index, pad.down);
   return pad;
+}
+// Per-pad chord state. A and X wait two samples for each other so a bubble
+// never starts with a stray kick or punch; a tap shorter than the wait still
+// arrives, as a four-sample press.
+const buttonChords = [];
+function translateButtons(index, down) {
+  const s = buttonChords[index] ||= { a: 0, x: 0, holdA: 0, holdX: 0, latched: false };
+  const A = down.includes("A"), X = down.includes("X");
+  if (!A && s.a > 0 && s.a < 3 && !s.latched) s.holdA = 4;
+  if (!X && s.x > 0 && s.x < 3 && !s.latched) s.holdX = 4;
+  s.a = A ? s.a + 1 : 0; s.x = X ? s.x + 1 : 0;
+  if (A && X) s.latched = true;
+  else if (!A && !X) s.latched = false;
+  const p = players[index] || players[0], park = poolOnly() || depthControls();
+  const vehicle = p.skateboard || p.goKart || p.onewheel, gun = p.gunAmmo > 0;
+  const out = down.filter((b) => b !== "A" && b !== "B" && b !== "X" && b !== "Y");
+  const add = (b) => { if (!out.includes(b)) out.push(b); };
+  const kickHeld = !s.latched && (A && s.a >= 3 || s.holdA > 0);
+  const punchHeld = !s.latched && (X && s.x >= 3 || s.holdX > 0);
+  if (s.holdA > 0) s.holdA--;
+  if (s.holdX > 0) s.holdX--;
+  if (s.latched && A && X) add(park ? "RightShoulder" : "X");
+  if (kickHeld) add(park ? (vehicle ? "ArrowUp" : "Y") : "A");
+  if (punchHeld) add(park && gun ? "Y" : "B");
+  if (down.includes("Y")) add(gun || (!park && heldItem(p)) ? "Y" : "B");
+  if (down.includes("B")) add(park ? "A" : "ArrowUp");
+  return out;
 }
 const localControllerPair = () =>
   padSnapshots.every((pad) => pad?.localController === true);
@@ -6090,6 +6119,11 @@ const mph = (unitsPerSecond) => unitsPerSecond / unitsPerMetre * 2.23694;
 function statusVerb(rider, speed, includeSpin=true) {
   const mphText = Math.round(mph(speed)) + " mph";
   if (wallPressActive(rider)) return [rider.ducking ? "crouching against wall" : "pressing into wall", ""];
+  // Actions read before movement: a punch thrown while walking is a punch.
+  if (rider.blocking) return ["blocking", ""];
+  if (/punch/.test(rider.attackKind || "")) return ["punching", ""];
+  if (/kick/.test(rider.attackKind || "")) return ["kicking", ""];
+  if (rider.attackKind) return [String(rider.attackKind).replace(/_/g, " ").toLowerCase(), ""];
   if (includeSpin && rider.spin) return ["spinning", Math.round(spinRpm(rider)) + " rpm"];
   if (rider.swimming) return ["swimming", mphText];
   if (rider.skateStall) return ["holding", ""];
@@ -17588,18 +17622,18 @@ function controlLocale() {
   };
   return keyboard ? {
     title: "start",
-    select: "P1 A/D + SPACE     P2 LEFT/RIGHT + K     H P2/DUMMY/BOT     G BACK",
+    select: "P1 A/D + SPACE     P2 J/L + U     H P2/DUMMY/BOT     G BACK",
     replayPaused: "PAUSED   F PLAY   A D SCRUB   G EXIT",
     replayPlaying: "F PAUSE   A D SCRUB   G EXIT",
     replay: "Q REPLAY",
-    combat: "SPACE KICK   ENTER PUNCH   SHIFT BUBBLE   ALT USE ITEM   W AIR",
+    combat: "Q E PUNCH   SHIFT KICK   SPACE JUMP   SHIFT+Q BUBBLE",
   } : {
     title: "start",
     select: "LEFT RIGHT SELECT     A READY     X P2 / DUMMY / BOT     B BACK",
     replayPaused: "PAUSED   A PLAY   LEFT RIGHT SCRUB   B EXIT",
     replayPlaying: "A PAUSE   LEFT RIGHT SCRUB   B EXIT",
     replay: "Y REPLAY",
-    combat: "A KICK   B PUNCH   X BUBBLE   Y USE ITEM   UP AIR",
+    combat: "X PUNCH   Y PUNCH   A KICK   B JUMP   A+X BUBBLE",
   };
 }
 
@@ -17607,27 +17641,28 @@ function controlLocale() {
 // so the legend can show a key rather than spell one.
 function combatKeys() {
   const caps = typeof capabilities === "function" ? capabilities() : {};
+  // Caps name the physical key; the last field is the internal button that
+  // lights it once translateButtons has mapped the pad.
   if (depthControls()) return caps.inputFamily === "keyboard" ? [
     [["W", "A", "S", "D"], "MOVE 3D", "ArrowUp"],
-    ["SPACE", "JUMP", "A"], ["SHIFT", "CROUCH", "X"],
-    ["ENTER", "PUNCH", "B"], ["ALT", "KICK", "Y"]] : [
+    [["Q", "E"], "PUNCH", "B"], ["SHIFT", "KICK", "Y"],
+    ["SPACE", "JUMP", "A"], [["SHIFT", "Q"], "BUBBLE", "RightShoulder"]] : [
     [["LEFT", "RIGHT"], "MOVE", "ArrowLeft"],
     [["UP", "DOWN"], "DEPTH", "ArrowUp"],
-    ["A", "JUMP", "A"], ["X", "CROUCH", "X"],
-    ["B", "PUNCH", "B"], ["Y", "KICK", "Y"], ["RB", "BUBBLE", "RightShoulder"]];
+    ["X", "PUNCH", "B"], ["Y", "PUNCH", "B"], ["A", "KICK", "Y"],
+    ["B", "JUMP", "A"], [["A", "X"], "BUBBLE", "RightShoulder"]];
   if (caps.inputFamily === "keyboard") return [
     [["A", "D"], "MOVE", "ArrowLeft"], [["D", "D"], ">> DASH", "ArrowRight"],
-    ["SPACE", "KICK", "A"], ["ENTER", "PUNCH", "B"],
-    ["SHIFT", "BUBBLE", "X"], ["ALT", "USE ITEM", "Y"],
-    ["W", "AIR", "ArrowUp"]];
+    [["Q", "E"], "PUNCH", "B"], ["SHIFT", "KICK", "A"],
+    ["SPACE", "JUMP", "ArrowUp"], [["SHIFT", "Q"], "BUBBLE", "X"]];
   if (caps.inputFamily === "touch") return [
     ["A", "KICK", "A"], ["B", "PUNCH", "B"],
     ["X", "BUBBLE", "X"], ["Y", "USE ITEM", "Y"]];
   return [
     [["LEFT", "RIGHT"], "MOVE", "ArrowLeft"],
     [["RIGHT", "RIGHT"], ">> DASH", "ArrowRight"],
-    ["A", "KICK", "A"], ["B", "PUNCH", "B"], ["X", "BUBBLE", "X"],
-    ["Y", "USE ITEM", "Y"], ["STICK_UP", "AIR", "ArrowUp"]];
+    ["X", "PUNCH", "B"], ["Y", "PUNCH", "B"], ["A", "KICK", "A"],
+    ["B", "JUMP", "ArrowUp"], [["A", "X"], "BUBBLE", "X"]];
 }
 
 // What the buttons do, named on the way into a round. B changes meaning with
@@ -19172,7 +19207,10 @@ function drawLooseRunner(player,world,t,lod){
     const key=bone.part||bone.role;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(bone);
   }
   const ordered=[...groups.values()].map(bones=>({bones,depth:bones.reduce((sum,b)=>sum+b.depth,0)/bones.length})).sort((a,b)=>b.depth-a.depth);
-  for(const {bones,depth} of ordered){
+  // With a raymarching host the body is one SDF figure and these flat
+  // strokes are skipped; the drawn head, face and cloth still go on top.
+  const sdfBody=nativeSdfFigure&&renderFlags.sdf!==false&&drawSdfRunner(player,world,t,true);
+  if(!sdfBody)for(const {bones,depth} of ordered){
     const limb=/arm|leg/.test(bones[0].part||'');
     if(!limb){
       triangleDepth=depth;
@@ -19241,7 +19279,9 @@ const sdfPrims=new Float32Array(48*12);
 // The same body drawSpatialRunner tessellates, as round cones: limbs taper,
 // the torso and skirt are cones, the head is a skin sphere with a hair cap
 // set back from the face, and the eyes cut in with a hard union.
-function drawSdfRunner(player,world,t){
+// loose: the body only. The loose cartoon keeps its drawn head, face, hair,
+// skirt and cloth over it, and draws the vehicle and items itself.
+function drawSdfRunner(player,world,t,loose=false){
   const scale=player.civilian?(player.bodyScale||1):1;
   const yaw=(player.poolYaw||0)+(player.spin?.angle||0);
   const forward={x:Math.cos(yaw),y:0,z:Math.sin(yaw)},side={x:-forward.z,y:0,z:forward.x};
@@ -19273,13 +19313,16 @@ function drawSdfRunner(player,world,t){
     const hip=end(torso,2),neck=end(torso,1),ink=dressed?shirt:skin;
     const mid={x:lerp(hip.x,neck.x,.62),y:lerp(hip.y,neck.y,.62),z:lerp(hip.z,neck.z,.62)};
     put(hip,mid,14*scale,17*scale,ink);put(mid,neck,17*scale,10*scale,ink);
-    if(dressed&&!player.pantsColor){
+    if(dressed&&!player.pantsColor&&!loose){
       const sway=Math.sin((player.poolStridePhase||0)*Math.PI*2)*3+(player.rig?.lean||0)*.16;
       const top={...hip,y:hip.y-3*scale};
       put(top,point(top,sway*scale,-30*scale,0),12*scale,19*scale,player.skirtColor||[188,164,226],1);
     }
   }
-  if(!player.headless){
+  if(loose){
+    const pony=ponytailStates.get(player),hair=player.hairColor||[35,27,34],r=world.head.radius;
+    if(pony)for(let i=1;i<pony.points.length;i++)put(pony.points[i-1],pony.points[i],r*(.205-.03*(i-1)),r*(.205-.03*i),hair);
+  }else if(!player.headless){
     const h=world.head,r=h.radius,hair=player.hairColor||[35,27,34];
     put(h,h,r*.97,r*.97,skin);
     const cap=point(h,-r*.3,r*.2,0);put(cap,cap,r*.82,r*.82,hair,1);
@@ -19293,7 +19336,7 @@ function drawSdfRunner(player,world,t){
       for(const sign of [-1,1])put(bow,point(bow,0,0,sign*r*.45),r*.08,r*.2,ink,1);
     }
   }
-  if(player.gunAmmo>0){
+  if(player.gunAmmo>0&&!loose){
     const pose=gunPose(player,runtime().monotonicUs);
     put(pose.hand,pose.muzzle,4*scale,4*scale,[45,48,55],1);
     put(pose.hand,{...pose.hand,y:pose.hand.y+14*scale},4*scale,3*scale,[30,29,34],1);
@@ -19303,6 +19346,7 @@ function drawSdfRunner(player,world,t){
   let drawn=false;
   try{drawn=!!count&&nativeSdfFigure(sdfPrims,count,mainNativeCamera());}catch{drawn=false;}
   if(!drawn)return false;
+  if(loose)return true;
   if(player.goKart)drawGoKart({...player.goKart,x:player.x,y:player.y,z:player.z,poolYaw:player.poolYaw,skatePitch:player.skatePitch});else if(player.skateboard)drawSkateboard(player);
   const saved=triangleDepth;
   triangleDepth=projectPoint(world.head.x,world.head.y,world.head.z).z-.004;
@@ -19463,7 +19507,14 @@ function drawSparringTarget(player,world,t){
  typeWrite(label,head.x-handleWidth(label,size)/2,head.y-r-size-8,size,...ink);triangleDepth=old;
 }
 function drawPlayerBubble(player,t){
-  const world=shieldGeometry(player),point=projectPoint(world.x,world.y,world.z);
+  const world=shieldGeometry(player);
+  // A raymarching host shades the bubble as a real sphere: fresnel rim,
+  // thin-film colour and a glint, blended over the world.
+  if(nativeSdfBubble&&renderFlags.sdf!==false){
+    const tint=player.accent||[150,220,255];
+    try{if(nativeSdfBubble(world.x,world.y,world.z,world.radius,tint[0],tint[1],tint[2],mainNativeCamera()))return;}catch{}
+  }
+  const point=projectPoint(world.x,world.y,world.z);
   if(point.behind)return;
   const old=triangleDepth;
   triangleDepth=point.z-world.radius*cameraDoll.depthSlope-.0001;
@@ -24227,27 +24278,28 @@ function seatHudReadout(p,now){
  seatHudReadouts.set(p,readout);
  return readout;
 }
+// The park hints are keycaps on a keyboard and button discs on a pad (the
+// shared drawKeycapRun), one short verb each. The third field is the internal
+// button translateButtons produces, which lights the cap while held.
+function parkControlCaps(){
+ return keycapFamily()?{punch:['Q','E'],kick:'SHIFT',jump:'SPACE',bubble:['SHIFT','Q'],drop:'R'}
+  :{punch:['X','Y'],kick:'A',jump:'B',bubble:['A','X'],drop:'L3'};
+}
 function drawParkControls(p,safe){
- const down=inputPads[p.pad]?.down||[],fighting=!!parkFightRival(p),size=42;
- const active=keys=>keys.some(key=>down.includes(key))||keys.includes('ArrowUp')&&(inputPads[p.pad]?.leftY||0)>.48||keys.includes('ArrowDown')&&(inputPads[p.pad]?.leftY||0)<-.48;
+ const down=inputPads[p.pad]?.down||[],fighting=!!parkFightRival(p),size=28,c=parkControlCaps();
+ const held=[...down];
+ if((inputPads[p.pad]?.leftY||0)>.48)held.push('ArrowUp');
+ const ink=[200,215,232];
  const drop=parkDropName(p);
- if(drop)seatHudText('L3 drop '+drop,safe.left,safe.bottom-size,size,active(['LeftStick','KeyQ'])?[255,245,130]:[255,186,126]);
- const rows=[[
-  {text:p.chalkColor&&!fighting?'B draw':p.axeHeld?'B swing':'B punch',keys:['B']},
-  {text:p.gunAmmo>0?'Y shoot':'Y kick',keys:['Y']}],
-  p.chalkDrawing?[{text:'RB spin',keys:['RightShoulder']}]:[
-   {text:fighting?'↑ jump':p.skateboard?'A dismount':'A jump',keys:fighting?['ArrowUp','A']:['A']},
-   ...(fighting?[{text:'↓ duck',keys:['ArrowDown','X']}]:[]),
-   {text:'RB block',keys:['RightShoulder']}]];
- for(const [row,runs] of rows.entries()){
-  const separator=' / ',gap=handleWidth(separator,size),width=runs.reduce((n,r)=>n+handleWidth(r.text,size),0)+gap*(runs.length-1);
-  let x=safe.right-width;const y=safe.bottom-92+row*50;
-  for(const [index,run] of runs.entries()){
-   const lit=active(run.keys),w=handleWidth(run.text,size);
-   if(lit)hudBox(x-5,y-2,w+10,size+7,43,64,79);
-   seatHudText(run.text,x,y,size,lit?[255,246,139]:[200,215,232]);x+=w;
-   if(index<runs.length-1){seatHudText(separator,x,y,size,[155,170,189]);x+=gap;}
-  }
+ if(drop)drawKeycapRun([[c.drop,'drop '+drop,'KeyQ']],safe.left,safe.bottom-size*1.6,size,held,[255,186,126]);
+ const vehicle=p.skateboard||p.goKart||p.onewheel,gun=p.gunAmmo>0;
+ const rows=[
+  [[c.punch,p.chalkColor&&!fighting?'draw':p.axeHeld?'swing':gun?'shoot':'punch',gun?'Y':'B'],
+   [c.kick,vehicle?'gas':'kick',vehicle?'ArrowUp':'Y']],
+  [[c.jump,p.skateboard&&!fighting?'off':'jump','A'],[c.bubble,'bubble','RightShoulder']]];
+ for(const [row,entries] of rows.entries()){
+  const y=safe.bottom-size*3.4+row*size*1.8;
+  drawKeycapRun(entries,safe.right-keycapRunWidth(entries,size),y,size,held,ink);
  }
 }
 function drawSeatPlayerHud(ink){

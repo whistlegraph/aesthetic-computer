@@ -20,6 +20,7 @@ clang++ -std=c++17 -O2 -c "$repo_root/xbox/macos-native/PoolDecals.cpp" -o "$obj
 swiftc -swift-version 5 -O -import-objc-header "$repo_root/xbox/macos-native/PoolDecals.h" \
   "$repo_root/xbox/macos-native/PoolDecals.swift" "$object_dir/PoolDecals.o" -lc++ "$repo_root/xbox/macos-native/main.swift" \
   "$repo_root/apple/oskiewar/Sources/MetalSceneView.swift" \
+  "$repo_root/apple/oskiewar/Sources/SdfFigures.swift" \
   "$repo_root/apple/oskiewar/Sources/GlyphAtlas.swift" \
   -framework AppKit -framework AVFoundation -framework CoreVideo \
   -framework GameController -framework JavaScriptCore \

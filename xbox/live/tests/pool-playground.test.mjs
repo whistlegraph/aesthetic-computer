@@ -13,7 +13,7 @@ function playground(legacyAudio=false){
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
  boundParkBody,parkWindowWalls,brokenParkWindows,parkWindowShards,resetParkWindows,
  breakParkWindow,updateParkWindowShards,insidePark,parkLotMargin,updateCameraDoll,clearPoolCamera,updateMotorAudio,updateSkateAudio,balls,
- updateSeatHeartbeat,updatePonytail,ponytailAnchor,ponytailStates,drawSpatialRunner,sampleCombatBoxes,sweptProjectileContact,damageParkCivilian,drawAeselFairy,sceneBoundsVisible,buildParkScene,parkActorVisible,figureLod,spectatorQrBox,returnToTitle,beginFreeskate,sessionName:()=>sessionName,
+ updateSeatHeartbeat,updatePonytail,ponytailAnchor,ponytailStates,drawSpatialRunner,sampleCombatBoxes,sweptProjectileContact,damageParkCivilian,drawAeselFairy,sceneBoundsVisible,buildParkScene,parkActorVisible,figureLod,spectatorQrBox,returnToTitle,beginFreeskate,translateButtons,sessionName:()=>sessionName,
  state:()=>({halfpipe:parkHalfPipe3D})};`)(()=>({monotonicUs:now}),()=>({platform:'web'}),noop,(event,seat,value,value2)=>{assert.ok(seat>=-1&&seat<=3);assert.ok(Number.isFinite(value)&&Number.isFinite(value2));},(name,gain,pan)=>{if(legacyAudio&&!['kick','snare','hat','block'].includes(name))throw new RangeError('unknown drum');drums.push({name,gain,pan});},noop,noop,noop,noop,noop,noop,(hz,gain)=>audio.push({hz,gain}),()=>audio.push({stop:true}));
  const p=api.players[0];Object.assign(p,{x:1080,z:0,y:api.poolFloorAt(1080,0),grounded:true,alive:true,dummy:false,skateboard:false,poolYaw:0,previous:[],spin:null,directionChanges:[],poolLastSteer:0});
  api.step=(down=[],dt=1/60)=>{now+=dt*1e6;api.updatePlayer(p,{down,leftX:0,leftY:0},dt,api.clock());};
@@ -774,4 +774,29 @@ test('the park join QR survives round resets and the title, and follows the room
   a.beginFreeskate(a.now());
   assert.ok(a.spectatorQrBox(),'QR shows again on the next run');
  }finally{if(saved===undefined)delete globalThis.qrcode;else globalThis.qrcode=saved;}
+});
+test('one pad layout: A kick or gas, X punch, Y other hand, B jump, A+X bubble',()=>{
+ const a=playground(),p=a.players[0];
+ const run=(frames)=>frames.map(down=>a.translateButtons(0,down));
+ // A alone waits two samples for X, then kicks (the park's internal kick is Y).
+ let out=run([['A'],['A'],['A']]);
+ assert.deepEqual(out[0],[]);assert.deepEqual(out[1],[]);assert.ok(out[2].includes('Y'));
+ run([[]]);
+ // A and X together are the bubble and nothing else.
+ out=run([['A','X'],['A','X'],['A','X'],['A','X']]);
+ for(const f of out){assert.ok(f.includes('RightShoulder'));assert.ok(!f.includes('Y')&&!f.includes('B'));}
+ // Letting go of one does not leak a kick or punch from the other.
+ out=run([['X'],['X'],['X'],[]]);
+ for(const f of out)assert.ok(!f.includes('B'));
+ // A tap shorter than the wait still lands, held long enough to read.
+ out=run([['X'],[],[],[],[],[]]);
+ assert.ok(out.slice(1,5).every(f=>f.includes('B')),'short X tap becomes a held punch');
+ // B jumps, Y is the other hand's punch.
+ assert.ok(a.translateButtons(0,['B']).includes('A'));
+ assert.ok(a.translateButtons(0,['Y']).includes('B'));
+ run([[],[],[],[],[]]);
+ // On a board, A is the gas.
+ p.skateboard=true;
+ out=run([['A'],['A'],['A']]);
+ assert.ok(out[2].includes('ArrowUp'));
 });

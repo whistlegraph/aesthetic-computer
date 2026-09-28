@@ -163,6 +163,8 @@ function createFight(startImmediately = true, enterGame = true,
   // These tests place riders by hand; the doorway walk-in has its own tests
   // in pool-playground.test.mjs.
   globalThis.__oskiewarParkIntro = false;
+  // These tests drive the internal button names; translateButtons has its own.
+  globalThis.__oskiewarLegacyButtons = true;
   const opponentOverride = globalThis.__oskiewarOpponent;
   if (opponentOverride === undefined) globalThis.__oskiewarOpponent = "dummy";
   fight.boot();

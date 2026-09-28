@@ -217,18 +217,27 @@ private final class NativeInput {
         case 1: return (0, "ArrowDown")      // S
         case 0: return (0, "ArrowLeft")      // A
         case 2: return (0, "ArrowRight")     // D
-        case 49, 3: return (0, "A")          // Space / F: kick
-        case 36, 5: return (0, "B")          // Return / G: punch
-        case 56, 60, 11, 4: return (0, "X")  // Shift / B / H: shield
-        case 58, 61: return (0, "Y")         // Option: use item
+        // The pad's layout on keys: Q and E punch (X, Y), Shift kicks (A),
+        // Space jumps (B), Shift+Q is the bubble (A+X); Return confirms (A).
+        case 56, 60, 36: return (0, "A")     // Shift / Return
+        case 49: return (0, "B")             // Space
+        case 12: return (0, "X")             // Q
+        case 14: return (0, "Y")             // E
+        case 15: return (0, "KeyQ")          // R: drop the held item
         case 53, 51: return (0, "Menu")      // Escape / Backspace
-        case 48, 12: return (0, "View")      // Tab / Q: debug
-        case 126: return (1, "ArrowUp")
-        case 125: return (1, "ArrowDown")
-        case 123: return (1, "ArrowLeft")
-        case 124: return (1, "ArrowRight")
-        case 40: return (1, "A")             // K
-        case 37: return (1, "B")             // L
+        case 48: return (0, "View")          // Tab: debug
+        case 33: return (0, "LeftShoulder")  // [
+        case 30: return (0, "RightShoulder") // ]: block
+        case 126: return (0, "ArrowUp")      // arrows are WASD
+        case 125: return (0, "ArrowDown")
+        case 123: return (0, "ArrowLeft")
+        case 124: return (0, "ArrowRight")
+        case 34: return (1, "ArrowUp")       // player two: IJKL move
+        case 40: return (1, "ArrowDown")     // K
+        case 38: return (1, "ArrowLeft")     // J
+        case 37: return (1, "ArrowRight")    // L
+        case 32: return (1, "A")             // U
+        case 31: return (1, "B")             // O
         case 41: return (1, "X")             // ;
         case 39: return (1, "Y")             // '
         default: return nil
@@ -896,6 +905,18 @@ private final class NativeGameHost {
         else { NSCursor.arrow.set() }
     }
 
+    /// A Float32Array's own storage, or nil when the value is anything else or
+    /// shorter than the caller needs.
+    private static func float32(_ value: JSValue, minimum: Int) -> UnsafePointer<Float>? {
+        guard let context = value.context?.jsGlobalContextRef else { return nil }
+        var exception: JSValueRef?
+        guard JSValueGetTypedArrayType(context, value.jsValueRef, &exception) == kJSTypedArrayTypeFloat32Array,
+              let object = JSValueToObject(context, value.jsValueRef, &exception),
+              JSObjectGetTypedArrayLength(context, object, &exception) >= minimum,
+              let bytes = JSObjectGetTypedArrayBytesPtr(context, object, &exception) else { return nil }
+        return UnsafePointer(bytes.assumingMemoryBound(to: Float.self))
+    }
+
     private func installBindings() {
         javascript.exceptionHandler = { [weak self] _, exception in
             self?.javascriptError = exception?.toString() ?? "javascript exception"
@@ -1029,6 +1050,26 @@ private final class NativeGameHost {
             poolDecals.draw(handle: handle, camera: PoolDecals.floats(camera, limit: 27),
                 bounds: [Float(x), Float(z), Float(width), Float(depth)])
         }
+        // sceneApi 3: sdfFigure(prims Float32Array, count, camera Float32Array).
+        // Both arrays are read in place through JavaScriptCore's typed-array
+        // pointer, never element by element.
+        let sdfFigure: @convention(block) (JSValue, Int32, JSValue) -> Bool = { [weak self] prims, count, camera in
+            guard let self, count > 0, count <= 48,
+                  let values = Self.float32(prims, minimum: Int(count) * 12),
+                  let view = Self.float32(camera, minimum: 27) else { return false }
+            return self.view.scene.sdfFigure(camera: view, prims: values, count: Int(count))
+        }
+        javascript.setObject(sdfFigure, forKeyedSubscript: "sdfFigure" as NSString)
+        // sdfBubble(x, y, z, radius, r, g, b, camera): a shaded shield bubble.
+        let sdfBubble: @convention(block) () -> Bool = { [weak self] in
+            let args = JSContext.currentArguments() as? [JSValue] ?? []
+            guard let self, args.count >= 8,
+                  let view = Self.float32(args[7], minimum: 27) else { return false }
+            let v = args.prefix(7).map { Float($0.toDouble()) }
+            return self.view.scene.sdfBubble(camera: view, x: v[0], y: v[1], z: v[2],
+                radius: v[3], tint: SIMD3(v[4], v[5], v[6]))
+        }
+        javascript.setObject(sdfBubble, forKeyedSubscript: "sdfBubble" as NSString)
         javascript.setObject(clearDecals, forKeyedSubscript: "decalClear" as NSString)
         javascript.setObject(stampDecal, forKeyedSubscript: "decalStamp" as NSString)
         javascript.setObject(stampDecal, forKeyedSubscript: "decalTint" as NSString)
