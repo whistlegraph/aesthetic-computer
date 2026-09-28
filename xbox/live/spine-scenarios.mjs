@@ -2,7 +2,7 @@
 // measure about how it answers. The lab plays them live; the tests run them
 // headless; both read the same numbers.
 
-import { createSpine, stepSpine, step, land, impulse, local, linkError } from "./spine.mjs";
+import { createSpine, stepSpine, step, land, impulse, local, linkError, chestIndex } from "./spine.mjs";
 
 export const warmup = 1.5;   // seconds of standing (or moving) before the poke
 export const watch = 2.5;    // seconds measured after it
@@ -39,7 +39,7 @@ export const scenarios = {
   },
   hit: {
     label: "hit", before() {},
-    poke(spine, t) { if (t === 0) impulse(spine, Math.round((spine.n - 1) * .72), 0, 0, 520); },
+    poke(spine, t) { if (t === 0) impulse(spine, chestIndex(spine), 0, 0, 520); },
     signal: (o) => o.right,
   },
   reach: {
@@ -91,7 +91,7 @@ export function measure(name, options = {}) {
 // Walking has no rest to return to; it's measured by its rhythm instead:
 // how far the head sways and bobs, and how much hips and shoulders counter-turn.
 export function measureWalk(options = {}) {
-  const spine = createSpine(options), n = spine.n, chest = Math.round((n - 1) * .72);
+  const spine = createSpine(options), n = spine.n, chest = chestIndex(spine);
   let sway = 0, bobLow = Infinity, bobHigh = -Infinity, counter = 0, worstLink = 0;
   for (let frame = 0; frame * step < warmup + watch; frame++) {
     spine.root.vx = 420; stepSpine(spine);
@@ -110,12 +110,13 @@ export const measureAll = (options) => [...Object.keys(scenarios).map((name) => 
 // ——— Actions: the procedural animator measured, one row per action ———
 
 import { createActor, stepActor, trigger, setMode } from "./actions.mjs";
-import { limbError, limbEnd, chestIndex } from "./spine.mjs";
+import { limbError, limbEnd } from "./spine.mjs";
 
 // Run an actor through `frames`, calling `drive(actor, frame)` first each
 // frame, and hand every frame's body to `read`.
+let bodyOptions = {};
 function play(frames, setup, drive, read) {
-  const actor = createActor();
+  const actor = createActor(bodyOptions);
   setup?.(actor);
   let stretch = 0;
   for (let f = 0; f < frames; f++) {
@@ -127,7 +128,8 @@ function play(frames, setup, drive, read) {
 }
 const speedOf = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) / step;
 
-export function measureActions() {
+export function measureActions(options = {}) {
+  bodyOptions = options;
   const rows = [];
   { // Walking: planted feet shouldn't skate.
     let slide = 0, planted = 0, last = null;

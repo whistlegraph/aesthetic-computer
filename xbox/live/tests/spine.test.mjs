@@ -30,7 +30,7 @@ test("a minute of rough handling never goes NaN, and links barely stretch", () =
     busy(spine, f); stepSpine(spine);
     for (let i = 0; i < spine.n - 1; i++) {
       const d = Math.hypot(spine.x[i + 1] - spine.x[i], spine.y[i + 1] - spine.y[i], spine.z[i + 1] - spine.z[i]);
-      worst = Math.max(worst, Math.abs(d - spine.segment) / spine.segment);
+      worst = Math.max(worst, Math.abs(d - spine.links[i]) / spine.links[i]);
     }
   }
   assert.ok([...spine.x, ...spine.y, ...spine.z].every(Number.isFinite));
@@ -72,6 +72,7 @@ test("walking comes from the spine: hips and shoulders counter-turn, the head sw
 // ——— the procedural animator on top of it ———
 import { measureActions } from "../spine-scenarios.mjs";
 import { createActor, stepActor, trigger, setMode } from "../actions.mjs";
+import { limbEnd } from "../spine.mjs";
 
 const actionRows = Object.fromEntries(measureActions().map((r) => [r.name, r]));
 
@@ -114,4 +115,30 @@ test("the whole demo run is deterministic", () => {
     return [...b.x, ...b.y, ...b.z, ...b.arms.flatMap((l) => [...l.x, ...l.y, ...l.z]), ...b.legs.flatMap((l) => [...l.x, ...l.y, ...l.z])];
   };
   assert.deepEqual(run(), run());
+});
+
+test("either hand reaches the chalk spot on the floor and stays there", () => {
+  for (const side of [1, -1]) {
+    const a = createActor(), goal = { x: 40, y: 2, z: 34 * side };
+    a.target = goal; a.input.reach = true; a.input.hand = side;
+    let worst = 0;
+    for (let f = 0; f < 240; f++) {
+      stepActor(a);
+      const h = limbEnd(a.body.arms[side > 0 ? 1 : 0]), miss = Math.hypot(h.x - goal.x, h.y - goal.y, h.z - goal.z);
+      if (f > 60) worst = Math.max(worst, miss);
+    }
+    assert.ok(worst < 6, `${side > 0 ? "right" : "left"} hand strays ${worst.toFixed(1)} from the chalk`);
+  }
+});
+
+test("random bodies (the ones spawns roll) all hold together through every action", async () => {
+  const { randomBody } = await import("../spine.mjs");
+  for (let seed = 1; seed <= 20; seed++)
+    for (const row of measureActions(randomBody(seed)))
+      assert.ok(row.stretch < .1, `seed ${seed} ${row.name} stretches ${(row.stretch * 100).toFixed(1)}%`);
+});
+
+test("the game carries exactly the lab's spine body (run xbox/tools/embed-spine.mjs after editing)", async () => {
+  const { generate, embedded } = await import("../../tools/embed-spine.mjs");
+  assert.equal(embedded(), generate());
 });

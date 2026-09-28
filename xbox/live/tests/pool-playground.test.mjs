@@ -7,7 +7,7 @@ function playground(legacyAudio=false){
  let now=1e6;const noop=()=>{},audio=[],drums=[];
  const api=new Function('runtime','capabilities','telemetry','gameSignal','drum','wipe','box','line','triangle','write','systemWrite','oscillator','oscillatorStop',`${source}
  configureWorldMap('skatepark','pool');fightOpponent='freeskate';gameMode='fight';
- return {chalkTip,parkEntranceDoor,startParkEntrance,updateParkEntrance,applyParkLayout,shieldGeometry,updateKartTireTracks,kartTrailChunks,outdoorTunnelAt,interpolateParkPeer,parkRecord,recordScratchRate,updateParkRecord,beginFreeskate,monowheel,parkAxes,freeItemArm,assignedItemArm,heldHandItems,emitSignal,outdoorCircuit,drawOutdoorCircuit,outdoorChunks,rasterDecalPatches,updateBoomerboard,inputPads,updateGarments,garmentStates,parkSpeakerLocations,parkKarts,dropParkItem,parkDropName,brokenParkRoof,parkRoofKey,parkBuildingHeight,generateParkProfile,drawParkStereoGeometry,updateSpin,bloodDrops,popCivilianHead,updateFootprints,playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
+ return {updateSpineBodies,chalkTip,parkEntranceDoor,startParkEntrance,updateParkEntrance,applyParkLayout,shieldGeometry,updateKartTireTracks,kartTrailChunks,outdoorTunnelAt,interpolateParkPeer,parkRecord,recordScratchRate,updateParkRecord,beginFreeskate,monowheel,parkAxes,freeItemArm,assignedItemArm,heldHandItems,emitSignal,outdoorCircuit,drawOutdoorCircuit,outdoorChunks,rasterDecalPatches,updateBoomerboard,inputPads,updateGarments,garmentStates,parkSpeakerLocations,parkKarts,dropParkItem,parkDropName,brokenParkRoof,parkRoofKey,parkBuildingHeight,generateParkProfile,drawParkStereoGeometry,updateSpin,bloodDrops,popCivilianHead,updateFootprints,playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
  parkHalfPipe3D,parkHalfPipeHeight,parkDeckY,poolFloorAt,poolSlopeAt,gunPickups,axePickup,
  resetParkSupply,updateParkSupply,updateGunPickups,resetParkKids,updateParkKids,parkKids,
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
@@ -883,4 +883,19 @@ test('drawing chalk ducks the body and lands the chosen hand on the ground, on f
   assert.ok(pose.head.y-stand.head.y>40,ride+' ducks');
   const right=-Math.sin(.7)*(tip.x-p.x)+Math.cos(.7)*(tip.z-p.z)>0;assert.equal(right,arm==='right-arm',ride+' draws on the holding hand\'s side');
  }
+});
+
+test('park players wear spine bodies: the pose is the body, chalk lands under the hand, death rolls a new one',()=>{
+ const a=playground(),p=a.players[0];
+ for(let f=0;f<30;f++){a.step([]);a.updateSpineBodies(a.now());}
+ assert.ok(p.spineActor,'the park gave the player a body');
+ const pose=a.runnerWorldGeometry(p,0);
+ assert.ok(pose.spine&&pose.spine.length>5,'the torso follows the rope');
+ for(const role of ['torso','neck','shoulders','left-upper-arm','right-forearm','left-thigh','right-shin'])assert.ok(pose.segments.some(s=>s.role===role),role);
+ p.chalkColor=a.chalkColors[0];
+ for(let f=0;f<90;f++){a.step(['B']);a.updateSpineBodies(a.now());}
+ const tip=a.chalkTip(p),hand=a.runnerWorldGeometry(p,0).segments.find(s=>s.part===a.assignedItemArm(p,'chalk')&&/forearm$/.test(s.role));
+ assert.ok(Math.hypot(hand.x2-tip.x,hand.y2-tip.y,hand.z2-tip.z)<18,'the chalk hand is down at the line');
+ const seed=p.spineActor.seed;p.alive=false;a.updateSpineBodies(a.now());p.alive=true;a.updateSpineBodies(a.now());
+ assert.notEqual(p.spineActor.seed,seed,'a death rolls a new body');
 });

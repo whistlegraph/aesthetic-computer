@@ -25,7 +25,7 @@ export function createActor(options = {}) {
   return {
     body: createSpine(options), mode: "foot",
     // What the player is holding: forward/turn in -1..1, and held buttons.
-    input: { forward: 0, turn: 0, run: false, crouch: false, reach: false, grab: false },
+    input: { forward: 0, turn: 0, run: false, crouch: false, reach: false, grab: false, hand: 1 },
     action: null,                  // the one-shot playing: { name, t, side }
     target: { x: 70, y: 70, z: 20 },  // what reach and grab go for
     grabbed: false, speed: 0, pushPhase: 0, carve: 0, time: 0,
@@ -75,24 +75,24 @@ export function stepActor(actor) {
       actor.action = null;
     }
   }
-  // Holding reach or grab sends the right hand to the target; a grab that
-  // arrives pins, and then the target drags the body.
+  // Holding reach or grab sends a hand (`input.hand`: 1 right, -1 left) to
+  // the target; a grab that arrives pins, and then the target drags the body.
   if (input.reach || input.grab) {
-    const hand = body.arms[1], end = limbEnd(hand);
+    const which = input.hand < 0 ? "left" : "right", hand = body.arms[input.hand < 0 ? 0 : 1], end = limbEnd(hand);
     const close = Math.hypot(end.x - actor.target.x, end.y - actor.target.y, end.z - actor.target.z) < 9;
     if (input.grab && close) actor.grabbed = true;
-    pose.hands.right = { goal: { ...actor.target }, stiff: .3, pin: input.grab && actor.grabbed, reach: true };
+    pose.hands[which] = { goal: { ...actor.target }, stiff: .3, pin: input.grab && actor.grabbed, reach: true };
   }
   if (!input.grab) actor.grabbed = false;
   body.snap = pose.snap || 1;
   apply(body, pose);
   travel(actor);
   stepSpine(body);
-  // A grip lets go before an arm visibly stretches: past 8% over its length
+  // A grip lets go before an arm visibly stretches: past 6% over its length
   // the hand slips off.
   if (actor.grabbed) {
-    const arm = body.arms[1], reach = Math.hypot(arm.x[2] - arm.x[0], arm.y[2] - arm.y[0], arm.z[2] - arm.z[0]);
-    if (reach > (arm.lengths[0] + arm.lengths[1]) * 1.08) { actor.grabbed = false; actor.slipped = actor.time; }
+    const arm = body.arms[input.hand < 0 ? 0 : 1], reach = Math.hypot(arm.x[2] - arm.x[0], arm.y[2] - arm.y[0], arm.z[2] - arm.z[0]);
+    if (reach > (arm.lengths[0] + arm.lengths[1]) * 1.06) { actor.grabbed = false; actor.slipped = actor.time; }
   }
   if (body.landed && actor.mode !== "kart") actor.landedAt = actor.time;
   actor.time += step;
@@ -112,7 +112,7 @@ function basePose(actor) {
     // half a cycle apart. Half the cycle a foot is planted and sweeps back
     // at exactly the body's speed (so it doesn't skate); the other half it
     // swings forward through the air.
-    const f = Math.max(.3, frequency(body)), stride = Math.min(85, speed / (4 * f)), lift = 18 + 14 * drive;
+    const f = Math.max(.3, frequency(body)), stride = Math.min(95, speed / (4 * f)), lift = 18 + 14 * drive;
     for (const [name, s] of [["left", -1], ["right", 1]]) {
       const phase = body.rhythm.phase + (s > 0 ? Math.PI : 0), { along: sweep, up: rise } = footCycle(phase);
       const along = stride * sweep, up = rise * lift * drive;
@@ -127,15 +127,19 @@ function basePose(actor) {
     // Sideways on the deck, knees soft, arms out along the board for balance.
     // Carving leans the body over its toes or heels — the spine's curl/arch.
     pose.yaw = Math.PI / 2;
-    pose.crouch = 16 + absorb * 26 + (input.crouch ? 26 : 0);
+    // The deck lifts the feet ~13, so the hips stand taller than on the ground.
+    pose.crouch = -8 + absorb * 22 + (input.crouch ? 26 : 0);
     pose.curl = Math.max(0, actor.carve) * .9 + absorb * .3 + (input.crouch ? .4 : 0);
     pose.arch = Math.max(0, -actor.carve) * .7;
     const deck = 10, chest = chestFrame(body);
     const pushing = actor.pushPhase > 0;
     for (const [name, s] of [["left", -1], ["right", 1]]) {
       // Front foot over the front truck; back foot over the back one unless
-      // it's down pushing, when it strokes the ground beside the deck.
-      const front = s > 0;
+      // it's down pushing, when it strokes the ground beside the deck. Turned
+      // sideways, the hip that leads is the one whose side faces the nose —
+      // the left one for a stance turned right — so that foot goes forward
+      // (the other way round crossed the legs).
+      const front = s === (Math.sin(pose.yaw) > 0 ? -1 : 1);
       let goal = travelPoint(body, front ? 20 : -20, 0, deck + 3);
       if (!front && pushing) {
         const u = actor.pushPhase;              // 0..1 through a stroke
@@ -145,7 +149,7 @@ function basePose(actor) {
       // Arms along the board: the leading arm toward the nose.
       pose.hands[name] = { goal: place(chest, 8, -26, s * 46), stiff: .07 };
     }
-    if (pushing) { pose.crouch += 14; pose.curl += .25; }
+    if (pushing) { pose.crouch += 8; pose.curl += .2; }
     if (body.root.air) { pose.crouch = 30; for (const name of ["left", "right"]) pose.feet[name].goal.y += 26; }
   } else if (mode === "kart") {
     // Seated: hips low, feet forward to the pedals, hands on the wheel, the
@@ -242,9 +246,19 @@ function apply(body, pose) {
   }
 }
 
-// How the root travels in each mode.
+// How the root travels in each mode. A driven actor (the game moves it)
+// keeps only the board's bookkeeping — push strokes and carve lean — and
+// leaves the root alone.
 function travel(actor) {
   const { body, input, mode } = actor, root = body.root;
+  if (actor.driven) {
+    if (mode === "board") {
+      if (input.forward > 0 && !root.air && actor.pushPhase === 0) actor.pushPhase = .001;
+      if (actor.pushPhase > 0) { actor.pushPhase += step / .55; if (actor.pushPhase >= 1) actor.pushPhase = 0; }
+      actor.carve = lerp(actor.carve, input.turn * clamp(actor.speed / 500, 0, 1), 1 - Math.exp(-6 * step));
+    }
+    return;
+  }
   if (mode === "foot") {
     root.yaw += input.turn * 2.6 * step;
     let want = input.forward > 0 ? (input.run ? runSpeed : walkSpeed) * input.forward : input.forward * 160;

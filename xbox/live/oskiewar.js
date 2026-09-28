@@ -15090,6 +15090,7 @@ function gameSim() {
     updateHeavyWheelHits(now);
     resolvePlayerStanding(now);
     resolvePlayerPushboxes();
+    updateSpineBodies(now);
     if (!depthControls()) for(const p of activePlayers()){p.z=0;p.strafe=null;}
     if(!poolOnly())for(const b of balls)if(!b.spatialSpin)b.z=0;
     wrapFreeskate();
@@ -15894,12 +15895,1016 @@ function updateRagdolls(dt){
 }
 const renderPoses = new Map();
 let sharingRenderPoses = false;
+// <spine-body>
+// Generated from xbox/live/spine.mjs + actions.mjs by xbox/tools/embed-spine.mjs.
+// Don't edit here: edit those, try them in xbox/live/spine-lab.html, then rerun the tool.
+const spineBody = (() => {
+  const spine = (() => {
+    // spine.mjs — a body whose movement starts in its spine.
+    //
+    // Pelvis to head is one rope of beads. Stiff links keep its length; a bend
+    // spring at every joint holds a resting curve relative to the segment below
+    // it, so a kick anywhere travels along the rope instead of snapping the
+    // whole shape. Muscles don't place beads — they change each joint's resting
+    // curve (curl, arch, side bend, twist), and a rhythm sends those curves up
+    // the chain as a wave: hips one way, shoulders the other, head arriving last.
+    //
+    // Limbs are loose chains hung off the rope's own frames: arms from the chest
+    // bead, legs from the pelvis. Each has a goal for its hand or foot, set every
+    // frame by whoever is animating (actions.mjs). A hand that can't reach its
+    // goal makes the spine bend toward it (the reach reflex); a hand that grabs
+    // pins, and its arm drags the chest.
+    //
+    // Units are the game's (a leg is 95). y is up here; the game is y-down and
+    // converts at the boundary. Fixed 60 Hz steps and plain arithmetic, so the
+    // same inputs give the same body on every screen.
+
+    const step = 1 / 60;
+
+    const defaults = {
+      beads: 9,               // pelvis .. base of the skull
+      length: 84,             // pelvis to the base of the skull
+      skull: 36,              // the rope's last link runs on through the head to its crown
+      stiffNeck: .75,         // neck and skull joints: firm, so the head rides the spine
+      hipHeight: 92,          // pelvis above the floor, standing (legs 48 + 47)
+      stiffLow: .35,          // bend spring at the pelvis end (per substep, 0..1)
+      stiffHigh: .08,         // … and at the head end: the loosest link
+      muscle: 1,              // tone: scales every bend spring
+      reaction: .35,          // share of a bend correction pushed back down the rope
+      twistStiff: .28,        // how hard each bead follows the one below in twist
+      twistRest: .04,         // how hard each bead holds its own resting twist
+      damping: .15,           // velocity lost per frame
+      gravity: 900,           // on the body's own beads (sag, swing)
+      riseGravity: 3600,      // on the whole body in flight, going up …
+      fallGravity: 5400,      // … and coming down: short, heavy jumps
+      hold: .5,               // how hard the pelvis follows the root (the legs)
+      carry: .9,              // a driven root's travel the legs carry the body through
+                              // (the rest is felt as inertia: sway, lag, whip)
+      tempo: 1.7,             // rhythm, cycles per second at full drive
+      lag: .4,                // rhythm phase delay per bead: the whip
+      sway: .025,             // rhythm side bend per joint (radians)
+      wring: .18,             // rhythm twist at the ends (radians)
+      react: 8,               // how fast muscles move toward what's asked (1/s)
+      shoulder: 20,           // half the shoulders
+      hipWidth: 11,           // half the hips
+      arm: [34, 32],          // upper arm, forearm
+      leg: [48, 47],          // thigh, shin
+      limbDamping: .12,
+      reflex: 1,              // how much an out-of-reach hand bends the spine
+      reachHinge: .7,         // most a reach tips the pelvis (radians) …
+      reachCurl: .6,          // … and curls the back on top of that
+      substeps: 4,
+      iterations: 4,
+    };
+
+    // A body of its own: every spawn rolls one from a seed, so the same seed is
+    // always the same body (replays and every screen agree). Ranges keep it a
+    // person — looser or stiffer, longer or shorter, quicker or slower — never
+    // a broken one.
+    function randomBody(seed) {
+      let a = (seed >>> 0) || 1;
+      const random = () => {   // mulberry32
+        a = (a + 0x6D2B79F5) >>> 0;
+        let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+      const pick = (lo, hi) => lo + (hi - lo) * random();
+      // Sized to the game's cast: hips near 86 (legs nearly straight), crown
+      // near 175.
+      const legScale = pick(.93, 1.06), armScale = pick(.92, 1.08);
+      const leg = [Math.round(46 * legScale), Math.round(45 * legScale)];
+      return {
+        length: Math.round(pick(62, 78)), skull: Math.round(pick(30, 36)),
+        stiffLow: pick(.22, .5), stiffHigh: pick(.05, .14), stiffNeck: pick(.6, .8),
+        damping: pick(.09, .22), reaction: pick(.2, .45), twistStiff: pick(.18, .38),
+        tempo: pick(1.45, 2), lag: pick(.28, .52), sway: pick(.012, .035), wring: pick(.12, .26),
+        react: pick(6, 11), shoulder: Math.round(pick(16, 24)), hipWidth: Math.round(pick(9, 13)),
+        // Hips set a touch above the legs' length: the rope's weight sags the
+        // pelvis a few units, and this leaves the standing knees near straight.
+        arm: [Math.round(32 * armScale), Math.round(30 * armScale)], leg, hipHeight: leg[0] + leg[1] + 3,
+      };
+    }
+
+    // What the body is asked to do. Muscles ease toward it; nothing snaps.
+    // yaw turns the whole body off its direction of travel (a skater stands
+    // sideways); crouch lowers the hips.
+    // hinge tips the pelvis forward: bending at the hips, not the back.
+    const neutralIntent = () => ({ curl: 0, arch: 0, side: 0, twist: 0, yaw: 0, crouch: 0, hinge: 0 });
+
+    function makeLimb(kind, side, lengths) {
+      const beads = () => new Float64Array(3);
+      return { kind, side, lengths, x: beads(), y: beads(), z: beads(), px: beads(), py: beads(), pz: beads(),
+        goal: null, stiff: 0, pin: false, reach: false };
+    }
+
+    function createSpine(options = {}) {
+      const o = { ...defaults, ...options };
+      // The rope is the spine's beads plus one more at the crown: the head is
+      // the rope's last link, not something hung on the end of it.
+      const n = Math.max(3, Math.round(o.beads)) + 1, segment = o.length / (n - 2);
+      const links = new Float64Array(n - 1).fill(segment);
+      links[n - 2] = o.skull;
+      const spine = {
+        o, n, segment, links, floor: 0,
+        x: new Float64Array(n), y: new Float64Array(n), z: new Float64Array(n),
+        px: new Float64Array(n), py: new Float64Array(n), pz: new Float64Array(n),
+        twist: new Float64Array(n), previousTwist: new Float64Array(n),
+        // The root is what the legs give the spine: where the hips should be,
+        // how the body is travelling, which way, and whether it's in the air.
+        root: { x: 0, y: o.hipHeight, z: 0, vx: 0, vy: 0, vz: 0, yaw: 0, tilt: .06, air: false },
+        intent: neutralIntent(), shape: neutralIntent(), reflex: { curl: 0, side: 0, twist: 0, crouch: 0, hinge: 0 },
+        rhythm: { phase: 0, drive: 0, pace: 0, gliding: false }, time: 0, landed: 0, strain: 0, pull: { x: 0, y: 0, z: 0 },
+        arms: [makeLimb("arm", -1, o.arm), makeLimb("arm", 1, o.arm)],
+        legs: [makeLimb("leg", -1, o.leg), makeLimb("leg", 1, o.leg)],
+      };
+      settle(spine);
+      return spine;
+    }
+
+    const chestIndex = (spine) => Math.round((spine.n - 2) * .72);
+
+    // Stand the rope on its pelvis along its resting curve, limbs hanging, at rest.
+    function settle(spine) {
+      const { n, links, root } = spine;
+      spine.carried = null;   // a re-stand isn't travel
+      const bends = restBends(spine);
+      let direction = pelvisUp(spine), x = root.x, y = root.y, z = root.z;
+      for (let i = 0; i < n; i++) {
+        spine.x[i] = spine.px[i] = x; spine.y[i] = spine.py[i] = y; spine.z[i] = spine.pz[i] = z;
+        spine.twist[i] = spine.previousTwist[i] = 0;
+        if (i === n - 1) break;
+        direction = bendDirection(direction, frameAt(spine, i), bends.forward[i], bends.side[i]);
+        x += direction.x * links[i]; y += direction.y * links[i]; z += direction.z * links[i];
+      }
+      for (const limb of [...spine.arms, ...spine.legs]) {
+        const anchor = limbAnchor(spine, limb);
+        for (let i = 0; i < 3; i++) {
+          const down = i === 0 ? 0 : i === 1 ? limb.lengths[0] : limb.lengths[0] + limb.lengths[1];
+          limb.x[i] = limb.px[i] = anchor.x; limb.y[i] = limb.py[i] = anchor.y - down; limb.z[i] = limb.pz[i] = anchor.z;
+        }
+      }
+    }
+
+    // ——— Vectors and frames ———
+
+    const cross = (a, b) => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
+    const dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
+    const scale = (a, k) => ({ x: a.x * k, y: a.y * k, z: a.z * k });
+    const add = (a, b) => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z });
+    const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    function normal(a) {
+      const length = Math.hypot(a.x, a.y, a.z) || 1;
+      return { x: a.x / length, y: a.y / length, z: a.z / length };
+    }
+
+    // Forward and right at bead i: travel heading, the body's yaw off it, and
+    // that bead's twist.
+    function frameAt(spine, i) {
+      const a = spine.root.yaw + spine.shape.yaw + spine.twist[i];
+      return { forward: { x: Math.cos(a), y: 0, z: Math.sin(a) }, right: { x: -Math.sin(a), y: 0, z: Math.cos(a) } };
+    }
+
+    // The pelvis points up, tipped forward by its tilt.
+    function pelvisUp(spine) {
+      const { forward } = frameAt(spine, 0), t = spine.root.tilt + spine.shape.hinge + spine.reflex.hinge;
+      return normal(add(scale({ x: 0, y: 1, z: 0 }, Math.cos(t)), scale(forward, Math.sin(t))));
+    }
+
+    // Continue a rope segment from `below`, bent forward then sideways. The
+    // frame is built from `right`, which stays sideways however far the body
+    // folds; built from forward it went degenerate folded over (forward ≈ up)
+    // and the shoulders flipped side to side.
+    function bendDirection(below, frame, forwardBend, sideBend) {
+      const right = normal(add(frame.right, scale(below, -dot(frame.right, below))));
+      const ahead = cross(below, right);
+      const pitched = add(scale(below, Math.cos(forwardBend)), scale(ahead, Math.sin(forwardBend)));
+      return normal(add(scale(pitched, Math.cos(sideBend)), scale(right, Math.sin(sideBend))));
+    }
+
+    // An orthonormal frame read off the rope at bead i: its own up (along the
+    // rope), forward (the bead's facing, squared to that up) and right.
+    function bodyFrame(spine, i) {
+      const up = i === 0 ? pelvisUp(spine)
+        : normal({ x: spine.x[i] - spine.x[i - 1], y: spine.y[i] - spine.y[i - 1], z: spine.z[i] - spine.z[i - 1] });
+      const r = frameAt(spine, i).right;                     // see bendDirection
+      const right = normal(add(r, scale(up, -dot(r, up))));
+      return { origin: { x: spine.x[i], y: spine.y[i], z: spine.z[i] }, forward: cross(up, right), up, right };
+    }
+    // A point in a frame: forward, up, right.
+    const place = (frame, f, u, r) =>
+      add(frame.origin, add(add(scale(frame.forward, f), scale(frame.up, u)), scale(frame.right, r)));
+    const chestFrame = (spine) => bodyFrame(spine, chestIndex(spine));
+    const pelvisFrame = (spine) => bodyFrame(spine, 0);
+    // A point on the ground in the travel frame: along the heading, across it.
+    function travelPoint(spine, along, across, height = 0) {
+      const { root } = spine, c = Math.cos(root.yaw), s = Math.sin(root.yaw);
+      return { x: root.x + c * along - s * across, y: spine.floor + height, z: root.z + s * along + c * across };
+    }
+
+    function limbAnchor(spine, limb) {
+      return limb.kind === "arm"
+        ? place(chestFrame(spine), 0, 4, limb.side * spine.o.shoulder)
+        : place(pelvisFrame(spine), 0, -4, limb.side * spine.o.hipWidth);
+    }
+
+    // ——— The inner force ———
+
+    // Each joint's resting bend. A standing spine has a gentle S (lumbar in,
+    // chest out, neck in); curl, arch and the reach reflex spread along it; the
+    // rhythm adds a travelling side wave.
+    function restBends(spine) {
+      const { n, shape, rhythm, o, reflex } = spine, joints = n - 1;
+      const forward = new Float64Array(joints), side = new Float64Array(joints);
+      const curl = shape.curl + reflex.curl, lean = shape.side + reflex.side;
+      for (let j = 0; j < joints; j++) {
+        const u = j / Math.max(1, joints - 1);                  // 0 lumbar … 1 neck
+        const s = -.05 * Math.cos(u * Math.PI * 2);            // the standing S
+        const arch = Math.sin(u * Math.PI) * .6 + .4;          // arching lives mid-back
+        forward[j] = s + curl / joints - shape.arch * arch / joints;
+        side[j] = lean / joints + o.sway * rhythm.drive * Math.sin(rhythm.phase - j * o.lag);
+      }
+      return { forward, side };
+    }
+
+    // Resting twist per bead: what's asked, plus the rhythm's wring travelling up
+    // the rope. With lag × beads near π the hips and shoulders counter-rotate.
+    function restTwist(spine, i) {
+      const { o, rhythm, shape, n, reflex } = spine;
+      return (shape.twist + reflex.twist) * i / (n - 1) +
+        o.wring * rhythm.drive * Math.sin(rhythm.phase - i * o.lag);
+    }
+
+    // A hand reaching for something out of its arm's range asks the spine for
+    // the rest: curl down to what's low, bend toward what's to the side, turn
+    // toward what's behind. It's the spine doing the reaching.
+    // While the hand is still short, the effort builds (`strain`): the spine
+    // keeps curling and the legs keep bending until the hand gets there.
+    function reachReflex(spine, dt) {
+      let curl = 0, side = 0, twist = 0, crouch = 0, hinge = 0, short = 0;
+      // Measured from where the hips would be standing, facing the body's
+      // heading — not from the pelvis, which this reflex itself moves (measuring
+      // from it made the body bob: crouch, target seems higher, rise, repeat).
+      const { o, root } = spine, armLength = o.arm[0] + o.arm[1], yaw = root.yaw + spine.shape.yaw;
+      const pelvis = { origin: { x: root.x, y: spine.floor + o.hipHeight, z: root.z },
+        forward: { x: Math.cos(yaw), y: 0, z: Math.sin(yaw) }, right: { x: -Math.sin(yaw), y: 0, z: Math.cos(yaw) } };
+      for (const arm of spine.arms) {
+        if (!arm.reach || !arm.goal) continue;
+        const hand = { x: arm.x[2], y: arm.y[2], z: arm.z[2] };
+        short = Math.max(short, Math.hypot(hand.x - arm.goal.x, hand.y - arm.goal.y, hand.z - arm.goal.z));
+        // How far past the arm the goal is, from where this shoulder stands.
+        const shoulder = add(add(pelvis.origin, { x: 0, y: o.length * .72, z: 0 }), scale(pelvis.right, arm.side * o.shoulder));
+        const need = clamp((Math.hypot(...Object.values(sub(arm.goal, shoulder))) - armLength * .85) / 40, 0, 1) * (1 + spine.strain);
+        if (!need) continue;
+        const v = sub(arm.goal, pelvis.origin);
+        const f = dot(v, pelvis.forward), u = dot(v, { x: 0, y: 1, z: 0 }), r = dot(v, pelvis.right);
+        // Low things: the legs take the depth (crouch, below) and the hips hinge
+        // for the distance out — something close by is squatted to with the
+        // back fairly upright, something far is bent over to. A back curled past
+        // ~1.2 rad hooks and lifts the hand.
+        const low = clamp((o.length * .8 - u) / 90, 0, 1), out = clamp((Math.hypot(f, r) - 20) / 60, .3, 1);
+        hinge += 1.15 * low * need * out;
+        curl += clamp((o.length * .8 - u) / 110, -.4, 1) * need * out;
+        side += clamp(r / 90, -.6, .6) * need;
+        twist += clamp(Math.atan2(r, Math.max(1, f)) * .5, -.7, .7) * need;
+        // Something near the floor needs the legs too.
+        crouch += 48 * clamp((75 - (arm.goal.y - spine.floor)) / 70, 0, 1) * need;
+      }
+      // Effort holds once the hand arrives (letting it go is what made the body
+      // rise, fall short and reach again); it only relaxes when nothing is reached for.
+      const reaching = spine.arms.some((arm) => arm.reach && arm.goal);
+      spine.strain = !reaching ? Math.max(0, spine.strain - dt * 2) : clamp(spine.strain + (short > 4 ? dt * 1.2 : 0), 0, 1);
+      // A taller spine or longer arms needs less fold to reach the same spot:
+      // the limits are for the default body and scale with its proportions.
+      const fold = clamp((120 / (o.length + o.skull)) * (66 / armLength), .6, 1.2);
+      return { curl: Math.min(o.reachCurl * fold, curl) * o.reflex, side: side * o.reflex, twist: twist * o.reflex,
+        crouch: Math.min(60, crouch) * o.reflex, hinge: Math.min(o.reachHinge * fold, hinge) * o.reflex };
+    }
+
+    // ——— Stepping ———
+
+    function stepSpine(spine, dt = step) {
+      const { o, n, root, shape, intent, rhythm, reflex } = spine;
+      // Muscles move toward what's asked, never jump there.
+      // A strike fires the muscles faster than posture does (`snap`).
+      const ease = 1 - Math.exp(-o.react * (spine.snap || 1) * dt);
+      for (const key of Object.keys(shape)) shape[key] += (intent[key] - shape[key]) * ease;
+      const want = reachReflex(spine, dt);
+      for (const key of Object.keys(reflex)) reflex[key] += (want[key] - reflex[key]) * ease * .6;
+      // The rhythm's tempo and depth come from how fast the body travels.
+      // Gliding (a board, a kart) travels without stepping: no rhythm.
+      const speed = Math.hypot(root.vx, root.vz);
+      const stepping = rhythm.gliding || root.air ? 0 : Math.min(1, speed / 420);
+      rhythm.drive += (stepping - rhythm.drive) * ease;
+      rhythm.pace = rhythm.gliding || root.air ? 0 : speed / 420;
+      rhythm.phase += Math.PI * 2 * frequency(spine) * dt;
+      // The legs: they hold the hips at standing height less the crouch, or the
+      // body flies until it comes down on them.
+      spine.landed = 0;
+      // However much is asked (a pose's crouch and a reach's together), the hips
+      // stop at a deep squat — or, seated, wherever the seat puts them.
+      const stand = spine.floor + o.hipHeight - Math.min(shape.crouch + reflex.crouch, Math.max(shape.crouch, o.hipHeight * .68));
+      // A driven root belongs to someone else (the game): they say where it is,
+      // how it moves and whether it's flying; the body only stands on it.
+      if (root.driven) {
+        root.y += (stand - root.y) * (1 - Math.exp(-14 * dt));
+        carryAlong(spine);
+      }
+      else if (root.air) {
+        root.vy -= (root.vy > 0 ? o.riseGravity : o.fallGravity) * dt; root.y += root.vy * dt;
+        if (root.y <= stand && root.vy < 0) {
+          spine.landed = -root.vy; root.air = false; root.vy = 0; root.y = stand;
+          land(spine, spine.landed * .6);
+        }
+      } else root.y += (stand - root.y) * (1 - Math.exp(-14 * dt));
+      if (!root.driven) { root.x += root.vx * dt; root.z += root.vz * dt; }
+
+      const h = dt / o.substeps;
+      for (let sub = 0; sub < o.substeps; sub++) {
+        integrate(spine, h);
+        stepTwist(spine);
+        // Bend springs act once per substep, as springs; only the links (which
+        // must never stretch) and the hips are solved to convergence.
+        holdPelvis(spine);
+        bendSprings(spine, restBends(spine));
+        // The floor is part of the solve, not an afterthought: clamped after the
+        // links, a body folded to the ground had its neck pulled out of length.
+        const ground = () => { for (let i = 1; i < n; i++) if (spine.y[i] < spine.floor + 6) spine.y[i] = spine.floor + 6; };
+        for (let k = 0; k < o.iterations; k++) { holdPelvis(spine); ground(); keepLinks(spine); keepLinks(spine); }
+        for (const limb of spine.arms) stepLimb(spine, limb, h);
+        for (const limb of spine.legs) stepLimb(spine, limb, h);
+        takePull(spine);
+        keepLinks(spine);   // the rope takes the pull without giving length
+      }
+      spine.time += dt;
+    }
+
+    // A driven root moves (and turns) however the game says, often faster than
+    // a body could follow. Most of that travel carries every bead with it —
+    // positions and their history alike, so it adds no velocity — leaving
+    // 1 - carry of it to be felt as inertia. Without this, game speeds folded
+    // the rope over backwards.
+    function carryAlong(spine) {
+      const { root, o } = spine, last = spine.carried;
+      spine.carried = { x: root.x, z: root.z, yaw: root.yaw };
+      if (!last) return;
+      const k = o.carry, dx = (root.x - last.x) * k, dz = (root.z - last.z) * k;
+      let turn = root.yaw - last.yaw;
+      turn = Math.atan2(Math.sin(turn), Math.cos(turn)) * k;
+      const c = Math.cos(turn), sn = Math.sin(turn);
+      const move = (xs, zs, i) => {
+        const rx = xs[i] - last.x, rz = zs[i] - last.z;
+        xs[i] = last.x + rx * c - rz * sn + dx; zs[i] = last.z + rx * sn + rz * c + dz;
+      };
+      for (let i = 0; i < spine.n; i++) { move(spine.x, spine.z, i); move(spine.px, spine.pz, i); }
+      for (const limb of [...spine.arms, ...spine.legs]) for (let i = 0; i < 3; i++) { move(limb.x, limb.z, i); move(limb.px, limb.pz, i); }
+    }
+
+    // Cycles per second of the inner rhythm right now.
+    // Stepping cadence rises with speed but never stalls to a crawl; standing
+    // still, the rhythm still turns over but has no depth (drive 0).
+    // Past a run the cadence keeps climbing, so strides can keep pace.
+    const frequency = (spine) => spine.o.tempo * (.6 + .5 * spine.rhythm.drive + .45 * Math.max(0, spine.rhythm.pace - 1));
+
+    // Verlet: each bead keeps the velocity it had, loses a little, and falls.
+    function integrate(spine, h) {
+      const { o, n } = spine, keep = 1 - o.damping / o.substeps, fall = o.gravity * h * h;
+      for (let i = 0; i < n; i++) {
+        const vx = (spine.x[i] - spine.px[i]) * keep, vy = (spine.y[i] - spine.py[i]) * keep,
+          vz = (spine.z[i] - spine.pz[i]) * keep;
+        spine.px[i] = spine.x[i]; spine.py[i] = spine.y[i]; spine.pz[i] = spine.z[i];
+        spine.x[i] += vx; spine.y[i] += vy - (i ? fall : 0); spine.z[i] += vz;
+      }
+    }
+
+    // Twist is its own small rope: the pelvis takes it from the hips, each bead
+    // above follows the one below, late.
+    function stepTwist(spine) {
+      const { o, n, twist, previousTwist } = spine, keep = 1 - o.damping / o.substeps;
+      for (let i = 0; i < n; i++) {
+        const velocity = (twist[i] - previousTwist[i]) * keep;
+        previousTwist[i] = twist[i];
+        twist[i] += velocity;
+        const rest = restTwist(spine, i);
+        if (i === 0) { twist[0] += (rest - twist[0]) * .6; continue; }
+        const follow = twist[i - 1] + rest - restTwist(spine, i - 1);
+        twist[i] += (follow - twist[i]) * o.twistStiff * o.muscle + (rest - twist[i]) * o.twistRest;
+      }
+    }
+
+    function holdPelvis(spine) {
+      const { root, o } = spine;
+      spine.x[0] += (root.x - spine.x[0]) * o.hold;
+      spine.y[0] += (root.y - spine.y[0]) * o.hold;
+      spine.z[0] += (root.z - spine.z[0]) * o.hold;
+    }
+
+    // Each joint pulls the bead above toward its resting curve, relative to the
+    // segment below it — that relativity is what makes it a rope, not a statue.
+    function bendSprings(spine, bends) {
+      const { o, n, links } = spine;
+      let below = pelvisUp(spine);
+      for (let j = 0; j < n - 1; j++) {
+        // Firm at the pelvis, loosest through the upper back, firm again at the
+        // neck and skull so the head stays connected to the spine's line.
+        const u = j / Math.max(1, n - 3), segment = links[j];
+        const k = Math.min(1, (j >= n - 3 ? o.stiffNeck : o.stiffLow + (o.stiffHigh - o.stiffLow) * u) * o.muscle);
+        const want = bendDirection(below, frameAt(spine, j), bends.forward[j], bends.side[j]);
+        const tx = spine.x[j] + want.x * segment, ty = spine.y[j] + want.y * segment,
+          tz = spine.z[j] + want.z * segment;
+        const dx = (tx - spine.x[j + 1]) * k, dy = (ty - spine.y[j + 1]) * k, dz = (tz - spine.z[j + 1]) * k;
+        const push = j ? o.reaction : 0;
+        spine.x[j + 1] += dx * (1 - push); spine.y[j + 1] += dy * (1 - push); spine.z[j + 1] += dz * (1 - push);
+        spine.x[j] -= dx * push; spine.y[j] -= dy * push; spine.z[j] -= dz * push;
+        below = normal({ x: spine.x[j + 1] - spine.x[j], y: spine.y[j + 1] - spine.y[j], z: spine.z[j + 1] - spine.z[j] });
+      }
+    }
+
+    // Links never stretch or shrink. The pelvis is heavy (the legs hold it).
+    function keepLinks(spine) {
+      const { n, links } = spine;
+      for (let i = 0; i < n - 1; i++) {
+        const dx = spine.x[i + 1] - spine.x[i], dy = spine.y[i + 1] - spine.y[i], dz = spine.z[i + 1] - spine.z[i];
+        const d = Math.hypot(dx, dy, dz) || 1, error = (d - links[i]) / d;
+        const low = i ? .5 : .3;   // the pelvis gives a little (all of a landing on one link tore it)
+        spine.x[i] += dx * error * low; spine.y[i] += dy * error * low; spine.z[i] += dz * error * low;
+        spine.x[i + 1] -= dx * error * (1 - low); spine.y[i + 1] -= dy * error * (1 - low); spine.z[i + 1] -= dz * error * (1 - low);
+      }
+    }
+
+    // ——— Limbs ———
+
+    // A limb is three beads: the anchor (shoulder or hip, carried by the rope),
+    // the elbow or knee, and the hand or foot. The end chases its goal by its
+    // stiffness (a pinned end sits on it); the middle bows toward its pole
+    // (elbows back and out, knees forward); links keep both bones' lengths. A
+    // pinned hand whose arm runs out of length drags the chest bead with it.
+    function stepLimb(spine, limb, h) {
+      const { o } = spine, keep = 1 - o.limbDamping / o.substeps, fall = o.gravity * h * h;
+      const anchor = limbAnchor(spine, limb), [l1, l2] = limb.lengths;
+      limb.x[0] = limb.px[0] = anchor.x; limb.y[0] = limb.py[0] = anchor.y; limb.z[0] = limb.pz[0] = anchor.z;
+      for (let i = 1; i < 3; i++) {
+        const vx = (limb.x[i] - limb.px[i]) * keep, vy = (limb.y[i] - limb.py[i]) * keep, vz = (limb.z[i] - limb.pz[i]) * keep;
+        limb.px[i] = limb.x[i]; limb.py[i] = limb.y[i]; limb.pz[i] = limb.z[i];
+        limb.x[i] += vx; limb.y[i] += vy - fall; limb.z[i] += vz;
+      }
+      if (limb.goal) {
+        // A goal past the limb's length is aimed at, not stretched to (a pinned
+        // hand is the exception: its arm pulls the body instead).
+        let goal = limb.goal;
+        const gx = goal.x - anchor.x, gy = goal.y - anchor.y, gz = goal.z - anchor.z, d = Math.hypot(gx, gy, gz), most = (l1 + l2) * .98;
+        if (!limb.pin && d > most) goal = { x: anchor.x + gx * most / d, y: anchor.y + gy * most / d, z: anchor.z + gz * most / d };
+        const k = limb.pin ? 1 : limb.stiff;
+        limb.x[2] += (goal.x - limb.x[2]) * k; limb.y[2] += (goal.y - limb.y[2]) * k; limb.z[2] += (goal.z - limb.z[2]) * k;
+      }
+      // The joint bows toward its pole.
+      const frame = limb.kind === "arm" ? chestFrame(spine) : pelvisFrame(spine);
+      const pole = normal(limb.kind === "arm"
+        ? add(add(scale(frame.forward, -.5), scale(frame.right, limb.side * .5)), scale(frame.up, -.3))
+        : frame.forward);
+      const end = { x: limb.x[2], y: limb.y[2], z: limb.z[2] }, mid = scale(add(anchor, end), .5);
+      const half = Math.hypot(end.x - anchor.x, end.y - anchor.y, end.z - anchor.z) / 2;
+      const bow = Math.sqrt(Math.max(0, ((l1 + l2) / 2) ** 2 - half * half));
+      const knee = add(mid, scale(pole, bow));
+      limb.x[1] += (knee.x - limb.x[1]) * .35; limb.y[1] += (knee.y - limb.y[1]) * .35; limb.z[1] += (knee.z - limb.z[1]) * .35;
+      // Joints hinge one way: an elbow or knee on the wrong side is folded back.
+      // The ground holds the knee and foot up. Both happen before the lengths
+      // are solved, so neither can leave a bone short or long.
+      const a = { x: limb.x[0], y: limb.y[0], z: limb.z[0] }, e = { x: limb.x[2], y: limb.y[2], z: limb.z[2] };
+      const centre = scale(add(a, e), .5), off = dot(sub({ x: limb.x[1], y: limb.y[1], z: limb.z[1] }, centre), pole);
+      if (off < 0) { limb.x[1] -= pole.x * off * 2; limb.y[1] -= pole.y * off * 2; limb.z[1] -= pole.z * off * 2; }
+      const ground = () => { for (let i = 1; i < 3; i++) if (limb.y[i] < spine.floor + (i === 2 ? 3 : 6)) limb.y[i] = spine.floor + (i === 2 ? 3 : 6); };
+      ground();
+      // Bones keep their lengths. The anchor is the body's; a pinned end is
+      // mostly the world's, so the arm's pull is handed to the chest (see pull).
+      for (let k = 0; k < o.iterations * 2; k++) {
+        const pull = linkLimb(limb, 0, 1, l1, limb.pin && limb.kind === "arm" ? .6 : 0, 1);
+        if (pull) { spine.pull.x += pull.x; spine.pull.y += pull.y; spine.pull.z += pull.z; }
+        linkLimb(limb, 1, 2, l2, 1, limb.pin ? .25 : 1);
+      }
+      // A foot held up by the ground keeps its place; the knee re-fits to it.
+      ground();
+      for (let k = 0; k < 2; k++) { linkLimb(limb, 1, 2, l2, 1, 0); linkLimb(limb, 0, 1, l1, 0, 1); }
+    }
+
+    // What a pinned arm asked of the chest this substep, handed over once and
+    // capped, so a hard pull bends the rope instead of tearing its links.
+    function takePull(spine) {
+      const { pull } = spine, d = Math.hypot(pull.x, pull.y, pull.z), cap = 1.2, k = d > cap ? cap / d : 1;
+      const chest = chestIndex(spine);
+      for (const [i, w] of [[chest, 1], [chest - 1, .5]]) {
+        spine.x[i] += pull.x * k * w; spine.y[i] += pull.y * k * w; spine.z[i] += pull.z * k * w;
+      }
+      pull.x = pull.y = pull.z = 0;
+    }
+
+    // Hold two limb beads at `length`, moving each by its weight (0 = fixed).
+    // Returns how far a movable anchor was asked to go, for the body to take.
+    function linkLimb(limb, a, b, length, weightA, weightB) {
+      const dx = limb.x[b] - limb.x[a], dy = limb.y[b] - limb.y[a], dz = limb.z[b] - limb.z[a];
+      const d = Math.hypot(dx, dy, dz) || 1, error = (d - length) / d, total = weightA + weightB;
+      if (!total) return null;
+      const wa = weightA / total, wb = weightB / total;
+      limb.x[b] -= dx * error * wb; limb.y[b] -= dy * error * wb; limb.z[b] -= dz * error * wb;
+      if (!wa) return null;
+      const pull = { x: dx * error * wa, y: dy * error * wa, z: dz * error * wa };
+      limb.x[a] += pull.x; limb.y[a] += pull.y; limb.z[a] += pull.z;
+      return pull;
+    }
+
+    // ——— Pokes from outside ———
+
+    // Verlet keeps velocity as the distance moved in one substep, so a shove is
+    // scaled by the substep, not the frame.
+    function impulse(spine, at, vx, vy, vz, spread = 2) {
+      const h = step / spine.o.substeps;
+      for (let i = 0; i < spine.n; i++) {
+        const w = Math.exp(-((i - at) ** 2) / (2 * spread * spread)) * h;
+        spine.px[i] -= vx * w; spine.py[i] -= vy * w; spine.pz[i] -= vz * w;
+      }
+      for (const arm of spine.arms) for (let i = 1; i < 3; i++) {
+        arm.px[i] -= vx * h * .8; arm.py[i] -= vy * h * .8; arm.pz[i] -= vz * h * .8;
+      }
+    }
+
+    // A landing: everything above the hips arrives still falling while the legs
+    // have already stopped. The rope takes the rest; the arms fall on.
+    function land(spine, speed = 700) {
+      const h = step / spine.o.substeps;
+      for (let i = 1; i < spine.n; i++) spine.py[i] += speed * h;
+      for (const arm of spine.arms) for (let i = 1; i < 3; i++) arm.py[i] += speed * h;
+    }
+
+    // ——— Reading it ———
+
+    // The head sits on the rope's skull link: its frame is that link's, its
+    // centre partway up it from the base of the skull.
+    function frames(spine) {
+      return { pelvis: pelvisFrame(spine), chest: chestFrame(spine), head: headFrame(spine) };
+    }
+    function headFrame(spine) {
+      const frame = bodyFrame(spine, spine.n - 1), base = spine.n - 2, k = .55;
+      frame.origin = { x: spine.x[base] + (spine.x[base + 1] - spine.x[base]) * k,
+        y: spine.y[base] + (spine.y[base + 1] - spine.y[base]) * k, z: spine.z[base] + (spine.z[base + 1] - spine.z[base]) * k };
+      return frame;
+    }
+
+    // A bead in the travel frame (forward, up, right from the root), so
+    // travelling and turning don't read as motion.
+    function local(spine, i) {
+      const { root } = spine, c = Math.cos(root.yaw), s = Math.sin(root.yaw);
+      const dx = spine.x[i] - root.x, dz = spine.z[i] - root.z;
+      return { forward: dx * c + dz * s, up: spine.y[i] - root.y, right: -dx * s + dz * c };
+    }
+
+    function linkError(spine) {
+      let worst = 0;
+      for (let i = 0; i < spine.n - 1; i++) {
+        const d = Math.hypot(spine.x[i + 1] - spine.x[i], spine.y[i + 1] - spine.y[i], spine.z[i + 1] - spine.z[i]);
+        worst = Math.max(worst, Math.abs(d - spine.links[i]) / spine.links[i]);
+      }
+      return worst;
+    }
+
+    // Worst stretch of any limb bone, as a share of its length.
+    function limbError(spine) {
+      let worst = 0;
+      for (const limb of [...spine.arms, ...spine.legs]) for (let i = 0; i < 2; i++) {
+        const d = Math.hypot(limb.x[i + 1] - limb.x[i], limb.y[i + 1] - limb.y[i], limb.z[i + 1] - limb.z[i]);
+        worst = Math.max(worst, Math.abs(d - limb.lengths[i]) / limb.lengths[i]);
+      }
+      return worst;
+    }
+
+    const limbEnd = (limb) => ({ x: limb.x[2], y: limb.y[2], z: limb.z[2] });
+    return { step, defaults, randomBody, createSpine, chestIndex, settle, bodyFrame, place, chestFrame, pelvisFrame, travelPoint, stepSpine, frequency, impulse, land, frames, headFrame, local, linkError, limbError, limbEnd };
+  })();
+  const actions = (() => {
+    const { createSpine, stepSpine, step, chestFrame, pelvisFrame, place, travelPoint, impulse, limbEnd, frequency, chestIndex } = spine;
+    // actions.mjs — procedural animation on the spine body (spine.mjs).
+    //
+    // Nothing here is a keyframe. Each frame the actor turns what it's asked to
+    // do into two things: the spine's resting curves (curl, arch, side, twist,
+    // yaw, crouch — its inner force) and goals for the hands and feet. The rope
+    // and the loose limbs do the rest, late and springy.
+    //
+    // Movement starts in the core: walking feet follow the spine's own rhythm; a
+    // punch is the spine twisting first and the arm carried out after it; a jump
+    // is a crouch the legs spring out of; a grab is a hand that pins and drags.
+    //
+    // Modes: on foot, on a board (sideways stance, pushes, carves, ollies) and
+    // seated in a kart. One-shot actions: punch (left/right), kick, jump or
+    // ollie, hit (taking one). Held: crouch, reach, grab.
+
+
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    const smooth = (u) => { u = clamp(u, 0, 1); return u * u * (3 - 2 * u); };
+    const lerp = (a, b, u) => a + (b - a) * u;
+
+    const walkSpeed = 200, runSpeed = 560, boardTop = 950, kartTop = 900;
+
+    function createActor(options = {}) {
+      return {
+        body: createSpine(options), mode: "foot",
+        // What the player is holding: forward/turn in -1..1, and held buttons.
+        input: { forward: 0, turn: 0, run: false, crouch: false, reach: false, grab: false, hand: 1 },
+        action: null,                  // the one-shot playing: { name, t, side }
+        target: { x: 70, y: 70, z: 20 },  // what reach and grab go for
+        grabbed: false, speed: 0, pushPhase: 0, carve: 0, time: 0,
+      };
+    }
+
+    // One-shots. Each is a duration and a function from (actor, t in seconds)
+    // to the pose it asks for, laid over the mode's base pose.
+    const actions = {
+      punch: { duration: .36 },
+      kick: { duration: .5 },
+      jump: { duration: .18 },       // the crouch before the legs fire
+      hit: { duration: .45 },
+    };
+
+    function trigger(actor, name, side = 1) {
+      const { body } = actor;
+      if (name === "jump") {
+        if (body.root.air || actor.action?.name === "jump") return;
+        if (actor.mode === "kart") return;
+      }
+      if (name === "hit") {
+        // The blow lands on the chest from `side`; the spine takes it first.
+        const chest = chestFrame(body);
+        impulse(body, chestIndex(body), chest.right.x * side * 560, 60, chest.right.z * side * 560);
+      }
+      actor.action = { name, t: 0, side };
+    }
+
+    function setMode(actor, mode) {
+      actor.mode = mode;
+      actor.body.rhythm.gliding = mode !== "foot";
+      actor.speed = Math.hypot(actor.body.root.vx, actor.body.root.vz);
+    }
+
+    // ——— the frame ———
+
+    function stepActor(actor) {
+      const { body, input } = actor, root = body.root;
+      const pose = basePose(actor);
+      if (actor.action) {
+        const a = actor.action, spec = actions[a.name];
+        layer(actor, pose, a);
+        a.t += step;
+        if (a.t >= spec.duration) {
+          if (a.name === "jump") launch(actor);
+          actor.action = null;
+        }
+      }
+      // Holding reach or grab sends a hand (`input.hand`: 1 right, -1 left) to
+      // the target; a grab that arrives pins, and then the target drags the body.
+      if (input.reach || input.grab) {
+        const which = input.hand < 0 ? "left" : "right", hand = body.arms[input.hand < 0 ? 0 : 1], end = limbEnd(hand);
+        const close = Math.hypot(end.x - actor.target.x, end.y - actor.target.y, end.z - actor.target.z) < 9;
+        if (input.grab && close) actor.grabbed = true;
+        pose.hands[which] = { goal: { ...actor.target }, stiff: .3, pin: input.grab && actor.grabbed, reach: true };
+      }
+      if (!input.grab) actor.grabbed = false;
+      body.snap = pose.snap || 1;
+      apply(body, pose);
+      travel(actor);
+      stepSpine(body);
+      // A grip lets go before an arm visibly stretches: past 6% over its length
+      // the hand slips off.
+      if (actor.grabbed) {
+        const arm = body.arms[input.hand < 0 ? 0 : 1], reach = Math.hypot(arm.x[2] - arm.x[0], arm.y[2] - arm.y[0], arm.z[2] - arm.z[0]);
+        if (reach > (arm.lengths[0] + arm.lengths[1]) * 1.06) { actor.grabbed = false; actor.slipped = actor.time; }
+      }
+      if (body.landed && actor.mode !== "kart") actor.landedAt = actor.time;
+      actor.time += step;
+    }
+
+    // The mode's steady pose: what the spine and limbs do with no one-shot.
+    function basePose(actor) {
+      const { body, input, mode } = actor, o = body.o;
+      const pose = { curl: 0, arch: 0, side: 0, twist: 0, yaw: 0, crouch: 0, hands: {}, feet: {} };
+      const since = actor.time - (actor.landedAt ?? -9);
+      const absorb = since < .3 ? Math.sin(since / .3 * Math.PI) : 0;   // knees soak a landing
+      if (mode === "foot") {
+        const speed = Math.hypot(body.root.vx, body.root.vz), drive = body.rhythm.drive;
+        pose.curl = (input.run ? .25 : .08) * drive + (input.crouch ? .45 : 0) + absorb * .35;
+        pose.crouch = (input.crouch ? 34 : 4 * drive) + absorb * 22;
+        // Feet follow the spine's rhythm: each foot's phase is the pelvis's,
+        // half a cycle apart. Half the cycle a foot is planted and sweeps back
+        // at exactly the body's speed (so it doesn't skate); the other half it
+        // swings forward through the air.
+        const f = Math.max(.3, frequency(body)), stride = Math.min(95, speed / (4 * f)), lift = 18 + 14 * drive;
+        for (const [name, s] of [["left", -1], ["right", 1]]) {
+          const phase = body.rhythm.phase + (s > 0 ? Math.PI : 0), { along: sweep, up: rise } = footCycle(phase);
+          const along = stride * sweep, up = rise * lift * drive;
+          // A planted foot is pinned where it stands; a swinging one chases.
+          pose.feet[name] = { goal: travelPoint(body, along, s * (o.hipWidth + (input.crouch ? 10 : 2)), 3 + up), stiff: .55, pin: !body.root.air && up === 0 && drive > .05 };
+          // Arms swing against the legs, loose: a gentle goal, gravity does the rest.
+          const chest = chestFrame(body);
+          pose.hands[name] = { goal: place(chest, -stride * .7 * Math.sin(phase) * drive + 6, -58 + 10 * drive, s * (o.shoulder + 6)), stiff: .05 };
+        }
+        if (body.root.air) airPose(pose, body);
+      } else if (mode === "board") {
+        // Sideways on the deck, knees soft, arms out along the board for balance.
+        // Carving leans the body over its toes or heels — the spine's curl/arch.
+        pose.yaw = Math.PI / 2;
+        // The deck lifts the feet ~13, so the hips stand taller than on the ground.
+        pose.crouch = -8 + absorb * 22 + (input.crouch ? 26 : 0);
+        pose.curl = Math.max(0, actor.carve) * .9 + absorb * .3 + (input.crouch ? .4 : 0);
+        pose.arch = Math.max(0, -actor.carve) * .7;
+        const deck = 10, chest = chestFrame(body);
+        const pushing = actor.pushPhase > 0;
+        for (const [name, s] of [["left", -1], ["right", 1]]) {
+          // Front foot over the front truck; back foot over the back one unless
+          // it's down pushing, when it strokes the ground beside the deck. Turned
+          // sideways, the hip that leads is the one whose side faces the nose —
+          // the left one for a stance turned right — so that foot goes forward
+          // (the other way round crossed the legs).
+          const front = s === (Math.sin(pose.yaw) > 0 ? -1 : 1);
+          let goal = travelPoint(body, front ? 20 : -20, 0, deck + 3);
+          if (!front && pushing) {
+            const u = actor.pushPhase;              // 0..1 through a stroke
+            goal = travelPoint(body, lerp(18, -42, u), -16, u < .8 ? 3 : 3 + (u - .8) * 80);
+          }
+          pose.feet[name] = { goal, stiff: .6 };
+          // Arms along the board: the leading arm toward the nose.
+          pose.hands[name] = { goal: place(chest, 8, -26, s * 46), stiff: .07 };
+        }
+        if (pushing) { pose.crouch += 8; pose.curl += .2; }
+        if (body.root.air) { pose.crouch = 30; for (const name of ["left", "right"]) pose.feet[name].goal.y += 26; }
+      } else if (mode === "kart") {
+        // Seated: hips low, feet forward to the pedals, hands on the wheel, the
+        // body leaning with the turn.
+        pose.crouch = o.hipHeight - 46;
+        pose.curl = .15; pose.side = -input.turn * .35 * clamp(actor.speed / kartTop, 0, 1);
+        const chest = chestFrame(body);
+        for (const [name, s] of [["left", -1], ["right", 1]]) {
+          pose.feet[name] = { goal: travelPoint(body, 52, s * 12, 14), stiff: .5 };
+          pose.hands[name] = { goal: place(chest, 40, -22, s * 12), stiff: .25 };
+        }
+      }
+      return pose;
+    }
+
+    // Where a foot is in its step, from its phase: `along` -1..1 (back..front)
+    // and `up` 0..1. Planted for the half where cos < 0, sweeping front to back
+    // linearly; swinging back to the front for the other half.
+    function footCycle(phase) {
+      const u = ((phase % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+      if (u >= Math.PI / 2 && u < Math.PI * 1.5) return { along: 1 - 2 * (u - Math.PI / 2) / Math.PI, up: 0 };
+      const v = (((u - Math.PI * 1.5) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) / Math.PI;
+      return { along: -1 + 2 * smooth(v), up: Math.sin(v * Math.PI) };
+    }
+
+    // In the air: knees up, arms out and up, the spine curled a little.
+    function airPose(pose, body) {
+      const pelvis = pelvisFrame(body), chest = chestFrame(body), o = body.o;
+      pose.curl += .25;
+      for (const [name, s] of [["left", -1], ["right", 1]]) {
+        pose.feet[name] = { goal: place(pelvis, 22, -62, s * (o.hipWidth + 4)), stiff: .3 };
+        pose.hands[name] = { goal: place(chest, 10, 18, s * (o.shoulder + 30)), stiff: .12 };
+      }
+    }
+
+    // A one-shot laid over the base pose.
+    function layer(actor, pose, a) {
+      const { body } = actor, o = body.o, t = a.t, s = a.side, chest = chestFrame(body);
+      const guard = (hand, side) => ({ goal: place(chest, 26, 8, side * 12), stiff: .2 });
+      if (a.name === "punch") {
+        // Wind: the spine turns the punching shoulder back. Throw: the spine
+        // unwinds past square and the fist rides out on it, a beat behind.
+        // Recover: back to guard.
+        const name = s > 0 ? "right" : "left", other = s > 0 ? "left" : "right";
+        pose.hands[other] = guard(other, -s);
+        pose.snap = 4;
+        if (t < .08) { pose.twist = -s * .4; pose.hands[name] = { goal: place(chest, 10, 2, s * 16), stiff: .25 }; }
+        else if (t < .22) {
+          // The unwind starts at .08; the fist is only thrown at .13, so it is
+          // carried by a spine already turning.
+          pose.twist = s * .6; pose.curl += .15;
+          const u = smooth((t - .13) / .07);
+          pose.hands[name] = t < .13 ? { goal: place(chest, 14, 4, s * 14), stiff: .25 } : { goal: place(chest, lerp(20, 64, u), 10, s * 2), stiff: .7 };
+        } else { pose.twist = s * .6 * (1 - smooth((t - .22) / .14)); pose.hands[name] = guard(name, s); }
+      } else if (a.name === "kick") {
+        // Chamber the knee, snap the foot out, pull back; the spine leans away
+        // from the kick and the arms go wide to balance it.
+        const name = s > 0 ? "right" : "left";
+        const pelvis = pelvisFrame(body);
+        pose.snap = 3;
+        if (t < .12) pose.feet[name] = { goal: place(pelvis, 30, -40, s * o.hipWidth), stiff: .4 };
+        else if (t < .3) { pose.feet[name] = { goal: place(pelvis, 82, -8, s * o.hipWidth), stiff: .8 }; pose.arch = .45; }
+        else pose.feet[name] = { goal: place(pelvis, 26, -50, s * o.hipWidth), stiff: .35 };
+        pose.arch = (pose.arch || 0) + .15; pose.twist = -s * .2;
+        for (const [hand, side] of [["left", -1], ["right", 1]]) pose.hands[hand] = { goal: place(chest, -12, -14, side * 52), stiff: .12 };
+      } else if (a.name === "jump") {
+        // The load: crouch and swing the arms back; the legs fire at the end.
+        const u = smooth(t / actions.jump.duration);
+        pose.crouch += 30 * u; pose.curl += .4 * u;
+        for (const [hand, side] of [["left", -1], ["right", 1]]) pose.hands[hand] = { goal: place(chest, -34, -40, side * 24), stiff: .2 };
+      } else if (a.name === "hit") {
+        // Taking a hit: the spine was shoved in trigger(); here the arms fly up
+        // and out and the legs give a little, then it all comes back.
+        const u = 1 - smooth(t / actions.hit.duration);
+        pose.crouch += 12 * u; pose.side += -s * .5 * u; pose.twist += -s * .3 * u;
+        for (const [hand, side] of [["left", -1], ["right", 1]]) pose.hands[hand] = { goal: place(chest, 4, 16, side * 50), stiff: .1 * u };
+      }
+    }
+
+    // The legs fire: into the air (a jump on foot, an ollie on a board).
+    function launch(actor) {
+      const root = actor.body.root;
+      root.air = true; root.vy = actor.mode === "board" ? 640 : 720;
+    }
+
+    // Send the pose into the body: the spine's intent and each limb's goal.
+    function apply(body, pose) {
+      for (const key of ["curl", "arch", "side", "twist", "yaw", "crouch"]) body.intent[key] = pose[key] || 0;
+      for (const [name, index] of [["left", 0], ["right", 1]]) {
+        for (const [limbs, goals] of [[body.arms, pose.hands], [body.legs, pose.feet]]) {
+          const limb = limbs[index], g = goals[name];
+          limb.goal = g?.goal || null; limb.stiff = g?.stiff || 0; limb.pin = !!g?.pin; limb.reach = !!g?.reach;
+        }
+      }
+    }
+
+    // How the root travels in each mode. A driven actor (the game moves it)
+    // keeps only the board's bookkeeping — push strokes and carve lean — and
+    // leaves the root alone.
+    function travel(actor) {
+      const { body, input, mode } = actor, root = body.root;
+      if (actor.driven) {
+        if (mode === "board") {
+          if (input.forward > 0 && !root.air && actor.pushPhase === 0) actor.pushPhase = .001;
+          if (actor.pushPhase > 0) { actor.pushPhase += step / .55; if (actor.pushPhase >= 1) actor.pushPhase = 0; }
+          actor.carve = lerp(actor.carve, input.turn * clamp(actor.speed / 500, 0, 1), 1 - Math.exp(-6 * step));
+        }
+        return;
+      }
+      if (mode === "foot") {
+        root.yaw += input.turn * 2.6 * step;
+        let want = input.forward > 0 ? (input.run ? runSpeed : walkSpeed) * input.forward : input.forward * 160;
+        if (input.crouch) want *= .4;
+        // A grabbed hand at full stretch walks the body toward what it holds.
+        if (actor.grabbed) {
+          const pelvis = pelvisFrame(body), dx = actor.target.x - pelvis.origin.x, dz = actor.target.z - pelvis.origin.z;
+          const d = Math.hypot(dx, dz);
+          if (d > 50) { root.yaw = Math.atan2(dz, dx); want = Math.min(runSpeed, (d - 50) * 8); }
+        }
+        const speed = actor.speed = lerp(actor.speed, want, 1 - Math.exp(-(body.root.air ? 1 : 8) * step));
+        root.vx = Math.cos(root.yaw) * speed; root.vz = Math.sin(root.yaw) * speed;
+      } else if (mode === "board") {
+        // Momentum: pushing adds speed in strokes, friction bleeds it, turning
+        // carves (sharper when slow) and leans the rider into it.
+        if (input.forward > 0 && !body.root.air && actor.pushPhase === 0 && actor.speed < boardTop) actor.pushPhase = .001;
+        if (actor.pushPhase > 0) {
+          const before = actor.pushPhase;
+          actor.pushPhase += step / .55;
+          if (before < .25 && actor.pushPhase >= .25) actor.speed = Math.min(boardTop, actor.speed + 190);
+          if (actor.pushPhase >= 1) actor.pushPhase = 0;
+        }
+        if (input.forward < 0) actor.speed *= Math.exp(-2.5 * step);
+        actor.speed *= Math.exp(-.12 * step);
+        const grip = clamp(actor.speed / 300, .2, 1);
+        root.yaw += input.turn * 1.9 * step * grip;
+        actor.carve = lerp(actor.carve, input.turn * clamp(actor.speed / 500, 0, 1), 1 - Math.exp(-6 * step));
+        root.vx = Math.cos(root.yaw) * actor.speed; root.vz = Math.sin(root.yaw) * actor.speed;
+      } else if (mode === "kart") {
+        const want = input.forward > 0 ? kartTop * input.forward : input.forward * 300;
+        actor.speed = lerp(actor.speed, want, 1 - Math.exp(-(input.forward ? 1.6 : 1) * step));
+        root.yaw += input.turn * 2.2 * step * clamp(Math.abs(actor.speed) / 250, 0, 1) * Math.sign(actor.speed || 1);
+        root.vx = Math.cos(root.yaw) * actor.speed; root.vz = Math.sin(root.yaw) * actor.speed;
+      }
+    }
+    return { walkSpeed, createActor, actions, trigger, setMode, stepActor };
+  })();
+  return { ...spine, ...actions };
+})();
+// </spine-body>
+
+// ——— Spine bodies in the park ———
+// Each park player wears a body from the Spine Lab: a rope spine that moves
+// itself, with loose limbs hung off it. The game still owns where a player
+// is, how fast they go and when they're in the air; the body is driven from
+// that every tick and animates on top — walking off its spine's rhythm,
+// punches unwinding the spine first, reaches bending it, landings soaking
+// into it. It is also the pose: what you see is what gets hit.
+//
+// Every spawn and every death rolls a new body (length, looseness, rhythm,
+// shoulders, limbs), so the range is something you feel while playing.
+// `__oskiewarBody = "rig"` keeps the old rig.
+// Rollback netplay keeps the old rig for now: a body's springs aren't in the
+// rollback snapshot yet, and bodies are hitboxes, so seats would drift apart.
+const spineBodiesOn = () => poolOnly() && !netSession && globalThis.__oskiewarBody !== "rig";
+// The cast follows the park's own seed (a new layout deals new bodies), so
+// two sims of the same game — and every screen of one — roll the same ones.
+const spineCastSeed = () => (globalThis.__oskiewarBodySeed ?? parkLayoutSeed ?? 0x5eed) >>> 0;
+function rollSpineBody(p) {
+  p.spineBodies = (p.spineBodies || 0) + 1;
+  p.spineActor = null;
+}
+function spineActorFor(p) {
+  if (p.spineActor) return p.spineActor;
+  const seed = (spineCastSeed() ^ Math.imul((p.pad ?? 0) + 1, 2654435761) ^ Math.imul(p.spineBodies || 0, 40503)) >>> 0;
+  const actor = spineBody.createActor(spineBody.randomBody(seed));
+  actor.driven = true; actor.body.root.driven = true; actor.seed = seed;
+  placeSpineRoot(p, actor);
+  spineBody.settle(actor.body);
+  return p.spineActor = actor;
+}
+// The body's frame is the lab's: y up from the player's feet. The game's y
+// runs down, so a body point (x, y, z) is the game point (x, p.y - y, z).
+function placeSpineRoot(p, actor) {
+  const root = actor.body.root;
+  root.x = p.x; root.z = p.z || 0; root.vx = p.vx || 0; root.vz = p.vz || 0;
+  root.yaw = (p.poolYaw || 0) + (p.spin?.angle || 0);
+  root.air = !p.grounded && !p.goKart;
+}
+function updateSpineBodies(now) {
+  if (!spineBodiesOn()) return;
+  for (const p of activePlayers()) {
+    if (!p.alive) { if (p.spineActor) rollSpineBody(p); continue; }
+    const actor = spineActorFor(p), body = actor.body, input = actor.input;
+    // A teleport (a wrap, a respawn point) re-stands the body rather than
+    // whipping it across the park.
+    if (Math.hypot(p.x - body.root.x, (p.z || 0) - body.root.z) > 240) { placeSpineRoot(p, actor); spineBody.settle(body); }
+    const wasAir = body.root.air;
+    placeSpineRoot(p, actor);
+    const mode = p.goKart ? "kart" : p.skateboard || p.onewheel ? "board" : "foot";
+    if (mode !== actor.mode) spineBody.setMode(actor, mode);
+    actor.speed = Math.hypot(p.vx || 0, p.vz || 0);
+    input.forward = p.inputZ || 0; input.turn = -(p.inputX || 0);
+    input.crouch = !!p.ducking || (p.crouchBlend || 0) > .35;
+    // Landing: the rope takes it, the knees soak it.
+    if (wasAir && !body.root.air) { spineBody.land(body, Math.min(900, Math.abs(p.landingSpeed || 0) * .35 + 200)); actor.landedAt = actor.time; }
+    // Strikes start the body's own: the spine winds, then throws.
+    if (p.attackKind && p.attackStartedAt !== actor.lastAttack) {
+      actor.lastAttack = p.attackStartedAt;
+      if (p.attackKind === "KICK") spineBody.trigger(actor, "kick", p.facing < 0 ? -1 : 1);
+      else spineBody.trigger(actor, "punch", p.strikeArm === "left-arm" ? -1 : 1);
+    }
+    if ((p.hitStunUntil || 0) > (actor.stunnedUntil || 0) && p.hitStunUntil > now) {
+      actor.stunnedUntil = p.hitStunUntil;
+      spineBody.trigger(actor, "hit", (actor.hits = (actor.hits || 0) + 1) % 2 ? 1 : -1);
+    }
+    // Chalk: the chalk hand reaches for where the line goes down — the spine
+    // hinges and curls and the legs bend until it touches.
+    input.reach = false; input.grab = false;
+    if (p.chalkDrawing) {
+      const tip = chalkTip(p);
+      input.reach = true; input.hand = assignedItemArm(p, "chalk") === "left-arm" ? -1 : 1;
+      // The body stands on a flat floor at the feet; in a bowl the ground under
+      // the tip can be far above or below that, so the reach is kept to where
+      // a hand could go.
+      actor.target = { x: tip.x, y: clamp(p.y - tip.y + 1, 0, 60), z: tip.z };
+    } else if (p.parkGrabbing) {
+      const yaw = body.root.yaw;
+      input.reach = true; input.hand = 1;
+      actor.target = { x: p.x + Math.cos(yaw) * 55, y: 115, z: (p.z || 0) + Math.sin(yaw) * 55 };
+    }
+    spineBody.stepActor(actor);
+  }
+}
+// The body as the game's pose: the same bones the old rig named (so every
+// renderer, hitbox and item reads it unchanged), plus the rope itself for
+// the torso to follow.
+function spinePose(p) {
+  // Anchored to where the player is now, not where the body was last tick:
+  // a move after paint shows at once, and the body can't drift off them.
+  // Offsets snap to 1/1024 of a unit (invisible) so adding them to the
+  // player's position is exact: moving a player 50 moves every bone 50.
+  const body = p.spineActor.body, floor = p.y, root = body.root, snap = (v) => Math.round(v * 1024) / 1024;
+  const at = (x, y, z) => ({ x: p.x + snap(x - root.x), y: floor - snap(y), z: (p.z || 0) + snap(z - root.z) });
+  const bead = (i) => at(body.x[i], body.y[i], body.z[i]);
+  const segments = [];
+  const bone = (a, b, width, role, part) => { if (hasPart(p, part)) segments.push({ x1: a.x, y1: a.y, z1: a.z, x2: b.x, y2: b.y, z2: b.z, width, role, part }); };
+  const chest = spineBody.chestIndex(body), skull = body.n - 2;
+  bone(bead(skull), bead(chest), 10, "neck", "torso");
+  bone(bead(chest), bead(0), 10, "torso", "torso");
+  const anchor = (limb) => at(limb.x[0], limb.y[0], limb.z[0]);
+  bone(anchor(body.arms[0]), anchor(body.arms[1]), 10, "shoulders", "torso");
+  for (const [limb, name] of [[body.arms[0], "left"], [body.arms[1], "right"], [body.legs[0], "left"], [body.legs[1], "right"]]) {
+    const points = [0, 1, 2].map((i) => at(limb.x[i], limb.y[i], limb.z[i])), arm = limb.kind === "arm";
+    bone(points[0], points[1], arm ? 10 : 11, name + (arm ? "-upper-arm" : "-thigh"), name + (arm ? "-arm" : "-leg"));
+    bone(points[1], points[2], arm ? 10 : 11, name + (arm ? "-forearm" : "-shin"), name + (arm ? "-arm" : "-leg"));
+  }
+  const h = spineBody.headFrame(body).origin, scale = p.civilian ? (p.bodyScale || 1) : 1;
+  const pose = { head: { ...at(h.x, h.y, h.z), radius: 22 * scale }, segments, spatial: true,
+    spine: Array.from({ length: skull + 1 }, (_, i) => bead(i)) };
+  pose.flow = { yaw: (p.poolYaw || 0) + (p.spin?.angle || 0), phase: body.rhythm.phase, swing: 0, scale };
+  return pose;
+}
+
+
 function runnerWorldGeometry(player, t) {
   const fallen=ragdollBodies.get(player);if(fallen&&!player.alive)return fallen.pose;
   if (wallPressActive(player)) return wallPressGeometry(player);
   const cached = sharingRenderPoses && renderPoses.get(player);
   if (cached && (!player.spiderDummy || cached.t === t)) return cached.pose;
   const pose = buildRunnerWorldGeometry(player, player.motionClock ?? t);
+  // A spine body's pose is finished as built: it breathes, turns and spins
+  // in its own simulation, so none of the rig's passes below apply.
+  if (pose.spine) { if (sharingRenderPoses) renderPoses.set(player, { t, pose }); return pose; }
   if(player.breathPhase!==undefined && !player.dummy && player.alive){
     const lift=Math.sin(player.breathPhase*Math.PI*2)*(1.2+(player.heartDanger||0)*1.8);
     const breathe=y=>y-lift*clamp((player.y-y)/170,0,1);
@@ -16285,6 +17290,7 @@ function buildPoolWalkGeometry(p) {
 
 function buildRunnerWorldGeometry(player, t, at = null) {
   if (player.spiderDummy) return spiderDummyWorldGeometry(player, t);
+  if (player.spineActor && player.alive && spineBodiesOn() && !isHeadOnly(player)) return spinePose(player);
   if(poolOnly()&&freeskateActive()&&!player.skateboard&&!player.attackKind&&!player.dummy&&
       !isHeadOnly(player)&&!isSwimmer(player)&&hasPart(player,'left-leg')&&hasPart(player,'right-leg'))
     return buildPoolWalkGeometry(player);
@@ -19439,6 +20445,13 @@ const sdfPrims=new Float32Array(48*12);
 // set back from the face, and the eyes cut in with a hard union.
 // loose: the body only. The loose cartoon keeps its drawn head, face, hair,
 // skirt and cloth over it, and draws the vehicle and items itself.
+// The torso along a spine body's rope: one capsule per link from the
+// pelvis to the base of the skull, full at the hips and chest, narrow at the
+// waist and neck.
+function spineTorso(spine,scale,capsule){
+  const last=spine.length-1,radius=u=>(u<.3?lerp(14,13,u/.3):u<.72?lerp(13,17,(u-.3)/.42):lerp(17,8,(u-.72)/.28))*scale;
+  for(let i=0;i<last;i++)capsule(spine[i],spine[i+1],radius(i/last),radius((i+1)/last));
+}
 function drawSdfRunner(player,world,t,loose=false){
   const scale=player.civilian?(player.bodyScale||1):1;
   const yaw=(player.poolYaw||0)+(player.spin?.angle||0);
@@ -19469,8 +20482,13 @@ function drawSdfRunner(player,world,t,loose=false){
   }
   if(torso&&hasPart(player,'torso')){
     const hip=end(torso,2),neck=end(torso,1),ink=dressed?shirt:skin;
+    // A spine body's torso follows its rope, bead to bead, so the curl,
+    // arch and twist are the shape you see; the old rig's is one straight bone.
+    if(world.spine)spineTorso(world.spine,scale,(a,b,r1,r2)=>put(a,b,r1,r2,ink));
+    else{
     const mid={x:lerp(hip.x,neck.x,.62),y:lerp(hip.y,neck.y,.62),z:lerp(hip.z,neck.z,.62)};
     put(hip,mid,14*scale,17*scale,ink);put(mid,neck,17*scale,10*scale,ink);
+    }
     if(dressed&&!player.pantsColor&&!loose){
       const sway=Math.sin((player.poolStridePhase||0)*Math.PI*2)*3+(player.rig?.lean||0)*.16;
       const top={...hip,y:hip.y-3*scale};
@@ -19578,7 +20596,14 @@ function drawSpatialRunner(player,world,t,lod=0){
     }
     if(/shin$/.test(bone.role))ellipsoid(point(b,5*scale,3*scale,0),13*scale,6*scale,7*scale,player.shoeColor||[70,70,96],8,4);
   }
-  if(torso&&hasPart(player,'torso')){
+  if(torso&&hasPart(player,'torso')&&world.spine){
+    const hip=end(torso,2),neck=end(torso,1),ink=dressed?shirt:skin;
+    spineTorso(world.spine,scale,(a,b,r1,r2)=>tube(a,b,r1,r2,ink));
+    if(dressed&&lod===0){
+      const c={x:lerp(hip.x,neck.x,.65),y:lerp(hip.y,neck.y,.65),z:lerp(hip.z,neck.z,.65)};
+      drawRunnerSymbol(player,c,point,scale,ellipsoid);
+    }
+  }else if(torso&&hasPart(player,'torso')){
     const hip=end(torso,2),neck=end(torso,1),ink=dressed?shirt:skin;
     const breathing=1+Math.sin((player.breathPhase||0)*Math.PI*2)*.035;
     const axes=[{x:forward.x*scale*breathing,y:0,z:forward.z*scale*breathing},
@@ -24060,7 +25085,10 @@ const chalkStick=14;
 function chalkTip(p){
  const a=(p.poolYaw||0)+(p.spin?.angle||0),side=assignedItemArm(p,'chalk')==='left-arm'?-1:1;
  const facing=p.skateboard||p.onewheel||p.goKart?(p.facing||1):1;
- const ahead=facing*(p.goKart?20:40),out=side*(p.goKart?52:34);
+ // A spine body draws closer in: it reaches down with a real bend, where
+ // the old rig just stretched a stick.
+ const spine=spineBodiesOn()&&p.spineActor;
+ const ahead=facing*(p.goKart?20:spine?30:40),out=side*(p.goKart?52:spine?26:34);
  const x=p.x+Math.cos(a)*ahead-Math.sin(a)*out,z=(p.z||0)+Math.sin(a)*ahead+Math.cos(a)*out;
  return {x,z,y:poolFloorAt(x,z)-2};
 }
