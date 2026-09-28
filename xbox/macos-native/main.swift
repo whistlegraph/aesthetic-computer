@@ -1097,6 +1097,11 @@ private final class NativeGameHost {
                 radius: v[3], tint: SIMD3(v[4], v[5], v[6]))
         }
         javascript.setObject(sdfBubble, forKeyedSubscript: "sdfBubble" as NSString)
+        let sceneCamera: @convention(block) (JSValue, Double) -> Void = { [weak self] camera, time in
+            guard let self, let view = Self.float32(camera, minimum: 27) else { return }
+            self.view.scene.sceneCamera(view, time: Float(time))
+        }
+        javascript.setObject(sceneCamera, forKeyedSubscript: "sceneCamera" as NSString)
         javascript.setObject(clearDecals, forKeyedSubscript: "decalClear" as NSString)
         javascript.setObject(stampDecal, forKeyedSubscript: "decalStamp" as NSString)
         javascript.setObject(stampDecal, forKeyedSubscript: "decalTint" as NSString)

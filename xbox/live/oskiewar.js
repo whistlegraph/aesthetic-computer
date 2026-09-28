@@ -2881,6 +2881,10 @@ const nativeRetainedMeshes = nativeMeshUpload !== null && nativeMeshDraw !== nul
 // tessellated figure draws instead.
 const nativeSdfFigure = typeof sdfFigure === "function" ? sdfFigure : null;
 const nativeSdfBubble = typeof sdfBubble === "function" ? sdfBubble : null;
+// The host paints the sky behind everything (procedural gradient, sun and
+// cel clouds) from the frame's camera; the piece's own backdrop still draws
+// on hosts without it.
+const nativeSceneCamera = typeof sceneCamera === "function" ? sceneCamera : null;
 const nativeTriangles3d = typeof triangles3d === "function" ? triangles3d : null;
 const nativePostEffects = typeof postEffects === "function" ? postEffects : null;
 const hostComicWrite = typeof comicWrite === "function" ? comicWrite : null;
@@ -19366,7 +19370,9 @@ function drawLooseRunner(player,world,t,lod){
     triangleDepth=h.depth-world.head.radius*cameraDoll.depthSlope*(sdfBody?1.08:.5);
     if(!sdfBody){filledDisc(h.x,h.y,h.radius+(lod?1.2:2.2),ink);filledDisc(h.x,h.y,h.radius,front<-.2?hair:skin);}
     if(front>=-.2){
-      drawHairline(player,h);
+      // On an SDF head the flat fringe only reads face-on; from the side the
+      // shaded hair cap carries the hair.
+      if(!sdfBody||front>.45)drawHairline(player,h);
       const faceYaw=Math.atan2(forward.x*view.right.x+forward.z*view.right.z,front);
       drawTrioFace(player,h,runtime().monotonicUs,faceYaw);
     }
@@ -23370,6 +23376,9 @@ function gamePaint() {
   wipe(...outside);
   // A plain sky behind every theme. The underpass photograph was busy behind
   // the fighters and painted its own floor wherever a course had none.
+  if (nativeSceneCamera) {
+    try { nativeSceneCamera(mainNativeCamera(), runtime().monotonicUs / 1e6); } catch {}
+  }
   if (renderFlags.sky !== false) drawSkyAtmosphere(sky, arena);
   if (PAL_SELECT && selecting) {
     box(0, 0, viewWidth(), viewHeight, ...menuArena);

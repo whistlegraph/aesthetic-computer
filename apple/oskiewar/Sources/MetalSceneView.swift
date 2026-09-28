@@ -60,6 +60,16 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
     /// The shared ink line; nil falls back to drawing straight to the screen.
     private let ink: InkOutlines?
     var inkOutlines = true
+    private var skyCamera: [Float]?
+    private var skyTime: Float = 0
+    /// The piece's camera for this frame, so the sky turns with the view.
+    func sceneCamera(_ camera: UnsafePointer<Float>, time: Float) {
+        sceneLock.lock()
+        defer { sceneLock.unlock() }
+        for i in 0..<27 where !camera[i].isFinite { return }
+        skyCamera = Array(UnsafeBufferPointer(start: camera, count: 27))
+        skyTime = time
+    }
     private let uploads = (0..<3).map { _ in Uploads() }
     private let inFlight = DispatchSemaphore(value: 3)
     private var uploadIndex = 0
@@ -429,6 +439,15 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
             encoder.setFragmentTexture(color, index: 0)
             encoder.setFragmentTexture(depth, index: 1)
             encoder.setFragmentBytes(&scale, length: MemoryLayout<Float>.stride, index: 0)
+            var sky = SdfViewConstants()
+            if let camera = skyCamera {
+                sky = SdfFigures.constants(camera: camera, first: 0, drawable: drawableSize, stage: stage)
+                sky.stage.z = 1
+            } else {
+                sky.stage = SIMD4(Float(stage.width), Float(stage.height), 0, 0)
+            }
+            sky.target.w = skyTime
+            encoder.setFragmentBytes(&sky, length: MemoryLayout<SdfViewConstants>.stride, index: 1)
             encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
         }
         // Text last and depth-free: the HUD is not in the world, it is over it.
