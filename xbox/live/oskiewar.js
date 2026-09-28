@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 198;
+const buildVersion = 200;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -1690,7 +1690,16 @@ function poolSlopeAt(x,z){
   return {x:(poolFloorAt(x+e,z)-poolFloorAt(x-e,z))/(2*e),z:(poolFloorAt(x,z+e)-poolFloorAt(x,z-e))/(2*e)};
 }
 const parkLotMargin=1800;
-const brokenParkWindows=new Set(),parkWindowShards=[];
+const brokenParkWindows=new Set(),parkWindowShards=[],brokenParkRoof=new Set();
+const parkRoofCell=600;
+function parkRoofKey(x,z){return Math.floor((x-gridLeft)/parkRoofCell)+':'+Math.floor((z-worldNear)/parkRoofCell);}
+function breakParkRoof(p){
+ const key=parkRoofKey(p.x,p.z||0);if(brokenParkRoof.has(key))return false;
+ brokenParkRoof.add(key);releaseQuadMesh(parkBuildingMesh);parkBuildingMesh=null;
+ for(let i=0;i<16;i++){const a=i*2.39996;parkWindowShards.push({x:p.x+Math.cos(a)*100,y:parkDeckY-parkBuildingHeight,z:(p.z||0)+Math.sin(a)*100,vx:Math.cos(a)*160,vy:-180-i*10,vz:Math.sin(a)*160,life:2.4,size:10+i%4*5,rotation:a});}
+ if(parkWindowShards.length>216)parkWindowShards.splice(0,parkWindowShards.length-216);
+ playDrum('glass',.35,panPlayer(p));p.lastButton='ROOF BREAK';p.lastButtonAt=runtime().monotonicUs;return true;
+}
 function insidePark(x,z){return x>=gridLeft&&x<=gridLeft+gridWidth&&z>=worldNear&&z<=worldFar;}
 function parkWindowWalls(){
   const l=gridLeft,r=gridLeft+gridWidth,n=worldNear,f=worldFar;
@@ -1713,7 +1722,7 @@ function breakParkWindow(wall,bay,at,velocity={}){
   playDrum('glass',.8,panAt(at.x,at.z));emitSignal('park-window-break',-1,wall.id,bay);return true;
 }
 function resetParkWindows(){
-  brokenParkWindows.clear();parkWindowShards.length=0;
+  brokenParkWindows.clear();brokenParkRoof.clear();parkWindowShards.length=0;
   for(const mesh of parkWindowMeshes.values())releaseQuadMesh(mesh);parkWindowMeshes.clear();
   releaseQuadMesh(parkBuildingMesh);parkBuildingMesh=null;
 }
@@ -1749,7 +1758,10 @@ function boundParkBody(p,previous={x:p.x,z:p.z||0}){
     z=clamp(p.z||0,worldNear-parkLotMargin+25,worldFar+parkLotMargin-25);
   if(x!==p.x)p.vx=0;if(z!==p.z)p.vz=0;p.x=x;p.z=z;
   const ceiling=parkDeckY-parkBuildingHeight+(p.pad===undefined?70:230);
-  if(insidePark(p.x,p.z)&&p.y<ceiling){p.y=ceiling;p.vy=Math.max(0,p.vy);if(!p.poolVert?.pipe)p.poolVert=null;}
+  if(insidePark(p.x,p.z)&&p.y<ceiling&&!brokenParkRoof.has(parkRoofKey(p.x,p.z||0))){
+    if(p.vy<-350&&(p.poolPipeLocked||p.skateboard||p.spin?.rate>5))breakParkRoof(p);
+    else {p.y=ceiling;p.vy=Math.max(0,p.vy);if(!p.poolVert?.pipe)p.poolVert=null;}
+  }
 }
 function terrainFloorAt(x, z = 0) {
   if (poolOnly()) return poolFloorAt(x, z);
@@ -9722,9 +9734,9 @@ function updateCameraDoll(dt, now) {
       let yaw=heading;
       if(p.poolVert?.pipe){const progress=clamp((p.poolVert.speed+p.vy)/(2*p.poolVert.speed),0,1);yaw=p.poolVert.heading+Math.PI*(progress*progress*(3-2*progress));}
       const error=Math.atan2(Math.sin(yaw-poolCameraYaw),Math.cos(yaw-poolCameraYaw));poolCameraYaw+=error*(1-Math.exp(-dt*2));
-      const angle=poolCameraYaw+Math.PI*.6,radius=2800+air*.4;
+      const angle=poolCameraYaw+Math.PI*.6,radius=3100+air*.85;
       const target={x:pipe.x,y:parkDeckY-pipe.radius*.5-air*.2,z:pipe.z};
-      const position={x:pipe.x-Math.cos(angle)*radius,y:parkDeckY-1800-air*.6,z:pipe.z-Math.sin(angle)*radius};
+      const position={x:pipe.x-Math.cos(angle)*radius,y:parkDeckY-2100-air*.85,z:pipe.z-Math.sin(angle)*radius};
       cameraCenter=target.x;cameraCenterY=target.y;cameraWidth=3200;
       cameraDoll.track({target,position,width:3200,perspective:1,fov:65,roll:0},dt,5);
       cameraDoll.position.y=Math.min(cameraDoll.position.y,parkDeckY-700);
@@ -11341,7 +11353,7 @@ function updateBoomerboard(dt, now) {
       // The arc bows out on the side the deck is already drifting toward.
       board.boomerSide = Math.sign(board.vx || 1) * (board.x < player.x ? -1 : 1) || 1;
       emitSignal("boomerboard", player.pad, 1, 0);
-      playDrum("whoosh", .7, panPlayer(player));
+      playDrum("whoosh", .18, panPlayer(player));
     }
     const feetX = player.x, feetY = player.y - skateAxleDrop - skateWheelRadius;
     const dx = feetX - board.x, dy = feetY - board.y;
@@ -12529,7 +12541,7 @@ function noteDirectionChange(player, now) {
     player.spin = { angle: 0, rate: spinKick * 1.6, direction: player.facing || 1, startedAt:now };
     player.pendingMoveLabel = player.skateboard ? "SKATE SPIN" : "BALLET SPIN";
     emitSignal("spin", player.pad, player.spin.direction, 0);
-    playDrum("whoosh", .7, panPlayer(player));
+    playDrum("whoosh", .18, panPlayer(player));
   }
 }
 function updateSpin(player, dt) {
@@ -12542,7 +12554,7 @@ function updateSpin(player, dt) {
   const quarter=angle=>Math.floor(angle/(Math.PI/2));
   if(quarter(before)!==quarter(spin.angle)&&spin.swishWait===0){
     const effort=clamp(spin.rate/spinTop,0,1);
-    playDrum('whoosh',.08+effort*.4,clamp(panPlayer(player)+Math.sin(spin.angle)*.3,-1,1));
+    playDrum('whoosh',.025+effort*.12,clamp(panPlayer(player)+Math.sin(spin.angle)*.3,-1,1));
     spin.swishWait=.14;
   }
   // It marks the ground each half turn: rubber arcs where the wheels orbit,
@@ -20353,15 +20365,19 @@ function drawParkBuildingGeometry(){
   // Traverse counter-clockwise so depth offsets face into the room.
   wall(left,near,right,near,0);wall(right,near,right,far,1);
   wall(right,far,left,far,2);wall(left,far,left,near,3);
-  worldQuad({x:left,y:top,z:near},{x:right,y:top,z:near},
-    {x:right,y:top,z:far},{x:left,y:top,z:far},p.ceiling);
+  for(let x=left;x<right;x+=parkRoofCell)for(let z=near;z<far;z+=parkRoofCell){
+    if(brokenParkRoof.has(parkRoofKey(x+1,z+1)))continue;
+    const r=Math.min(right,x+parkRoofCell),f=Math.min(far,z+parkRoofCell);
+    worldQuad({x,y:top,z},{x:r,y:top,z},{x:r,y:top,z:f},{x,y:top,z:f},p.ceiling);
+  }
   const box3=(x1,y1,z1,x2,y2,z2,color,openBottom=false)=>{
     const a={x:x1,y:y1,z:z1},b={x:x2,y:y1,z:z1},c={x:x2,y:y1,z:z2},d={x:x1,y:y1,z:z2};
     const e={x:x1,y:y2,z:z1},f={x:x2,y:y2,z:z1},g={x:x2,y:y2,z:z2},h={x:x1,y:y2,z:z2};
     worldQuad(a,b,c,d,color);if(!openBottom)worldQuad(e,h,g,f,color);worldQuad(a,e,f,b,color);
     worldQuad(b,f,g,c,color);worldQuad(c,g,h,d,color);worldQuad(d,h,e,a,color);
   };
-  for(const x of [1200,3300,5400,7500])box3(x-20,top,near,x+20,top+65,far,p.frame);
+  for(const x of [1200,3300,5400,7500])for(let z=near;z<far;z+=parkRoofCell)
+    if(!brokenParkRoof.has(parkRoofKey(x,z+1)))box3(x-20,top,z,x+20,top+65,Math.min(far,z+parkRoofCell),p.frame);
   for(const lamp of parkLights){
     for(const dx of [-135,135])box3(lamp.x+dx-3,top+65,lamp.z-3,lamp.x+dx+3,lamp.y,lamp.z+3,p.frame);
     box3(lamp.x-200,lamp.y,lamp.z-55,lamp.x+200,lamp.y+28,lamp.z+55,p.frame,true);
@@ -23405,7 +23421,7 @@ function updateMotorAudio(dt){
  // Low electric hum with a soft acceleration whine; no standing idle tone.
  const target=65+Math.pow(amount,.72)*280+load*28;
  motorFrequency+=(target-motorFrequency)*(1-Math.exp(-Math.max(0,dt)*8));
- const gain=(.008+Math.sqrt(amount)*.042+load*.01)*clamp((speed-12)/90,0,1);
+ const gain=(.003+Math.sqrt(amount)*.011+load*.003)*clamp((speed-12)/90,0,1);
  oscillator(motorFrequency,gain);motorRunning=true;
 }
 function axeFrame(p,t){
@@ -23857,7 +23873,7 @@ function updateWheelTurbo(dt,now){
   if(!p.wheelTurbo){
     if(speed>=(poolOnly()?1900:2940) || (!p.grounded && p.wheelChargeAt)){
       p.wheelChargeAt ||= now;
-      if(now-p.wheelChargeAt>=1000000*gameSpeed){p.wheelTurbo=true;p.lastButton='SUPER TURBO';p.lastButtonAt=now;playDrum('whoosh',.6,panPlayer(p));}
+      if(now-p.wheelChargeAt>=1000000*gameSpeed){p.wheelTurbo=true;p.lastButton='SUPER TURBO';p.lastButtonAt=now;playDrum('whoosh',.14,panPlayer(p));}
     }else p.wheelChargeAt=0;
   }
   if(p.wheelTurbo){
@@ -24028,7 +24044,7 @@ function mainNativeCamera(){
 }
 
 const parkStereo={x:parkHalfPipe3D.x,z:-parkHalfPipe3D.run-130,beat:0};
-function stereoGain(p){return Math.pow(clamp(1-Math.hypot(p.x-parkStereo.x,(p.z||0)-parkStereo.z)/3600,0,1),2);}
+function stereoGain(p){const near=Math.pow(clamp(1-Math.hypot(p.x-parkStereo.x,(p.z||0)-parkStereo.z)/8000,0,1),2);return insidePark(p.x,p.z||0)?.55+.45*near:near;}
 function updateParkMusic(p,previous){
  if(previous===undefined||!poolOnly())return;
  const gain=stereoGain(p),pan=panAt(parkStereo.x,parkStereo.z);
@@ -24039,11 +24055,9 @@ function updateParkMusic(p,previous){
  }
  if(previous<.5&&p.heartPhase>=.5&&gain>.005)playDrum('hat',gain*.22,pan);
 }
-let parkStereoMesh=null;
 function drawParkStereo(){
  if(!poolOnly())return;
- parkStereoMesh ||= captureQuadMesh(drawParkStereoGeometry);
- drawQuadMesh(parkStereoMesh);
+ drawParkStereoGeometry();
 }
 function drawParkStereoGeometry(){
  const pulse=0;

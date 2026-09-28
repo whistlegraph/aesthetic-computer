@@ -7,7 +7,7 @@ function playground(legacyAudio=false){
  let now=1e6;const noop=()=>{},audio=[],drums=[];
  const api=new Function('runtime','capabilities','telemetry','gameSignal','drum','wipe','box','line','triangle','write','systemWrite','oscillator','oscillatorStop',`${source}
  configureWorldMap('skatepark','pool');fightOpponent='freeskate';gameMode='fight';
- return {generateParkProfile,drawParkStereoGeometry,updateSpin,bloodDrops,popCivilianHead,updateFootprints,playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
+ return {brokenParkRoof,parkRoofKey,parkBuildingHeight,generateParkProfile,drawParkStereoGeometry,updateSpin,bloodDrops,popCivilianHead,updateFootprints,playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
  parkHalfPipe3D,parkHalfPipeHeight,parkDeckY,poolFloorAt,poolSlopeAt,gunPickups,axePickup,
  resetParkSupply,updateParkSupply,updateGunPickups,resetParkKids,updateParkKids,parkKids,
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
@@ -510,7 +510,7 @@ test('an attacked civilian approaches and starts sparring, then disengages after
  p.poolPipeEscapeUntil=a.now()+3000000;a.updateParkKids(1/60,a.now()+1100000);assert.equal(p.sparringPartner,undefined);
 });
 test('stereo fades by distance and strike capsules can break low windows',()=>{
- const a=playground(),p=a.players[0];assert.equal(a.stereoGain({x:a.parkStereo.x,z:a.parkStereo.z}),1);assert.equal(a.stereoGain({x:a.parkStereo.x+4000,z:a.parkStereo.z}),0);
+ const a=playground(),p=a.players[0];assert.equal(a.stereoGain({x:a.parkStereo.x,z:a.parkStereo.z}),1);assert.equal(a.stereoGain({x:a.parkStereo.x+20000,z:a.parkStereo.z}),0);
  const w=a.parkWindowWalls()[0],x=w.ax+w.width*.5,y=a.parkDeckY-130;
  assert.equal(a.strikeParkWindow(p,{hit:[{capsule:{x1:x,y1:y,z1:w.az+40,x2:x,y2:y,z2:w.az-10,width:12}}]}),true);
  assert.equal(a.brokenParkWindows.size,1);
@@ -546,7 +546,7 @@ test('stereo plays the four sine chords on heartbeat beats and stays silent out 
  const pads=a.drums.filter(d=>d.name.startsWith('pad-'));
  assert.equal(pads.length,16);assert.deepEqual([...new Set(pads.map(d=>d.name))],['pad-0','pad-1','pad-2','pad-3']);
  assert.ok(pads.every(d=>d.gain>0&&d.gain<=.28));
- p.x+=5000;const count=a.drums.length;for(let i=0;i<32;i++)a.updateParkMusic(p,.9);assert.equal(a.drums.length,count);
+ p.x+=20000;const count=a.drums.length;for(let i=0;i<32;i++)a.updateParkMusic(p,.9);assert.equal(a.drums.length,count);
 });
 
 test('new audio names cannot crash older native hosts during a rolling update',()=>{
@@ -585,4 +585,11 @@ test('speaker cones face inward toward the half-pipe',()=>{
  const a=playground(),mesh=a.captureQuadMesh(a.drawParkStereoGeometry);
  const cones=mesh.faces.filter(f=>f.color[0]===64||f.color[0]===54);assert.ok(cones.length>10);
  for(const face of cones)assert.ok(face.ids.every(i=>mesh.vertices[i].z>a.parkStereo.z));
+});
+
+test('high half-pipe air breaks a persistent ceiling opening and keeps its vert lock',()=>{
+ const a=playground(),p=a.players[0];Object.assign(p,{x:a.parkHalfPipe3D.x,z:0,y:a.parkDeckY-a.parkBuildingHeight+180,vy:-900,skateboard:true,poolPipeLocked:true,poolVert:{pipe:true}});
+ const y=p.y;a.boundParkBody(p);assert.ok(a.brokenParkRoof.has(a.parkRoofKey(p.x,p.z)));assert.equal(p.y,y);assert.ok(p.poolVert.pipe);
+ p.vy=700;p.y-=100;a.boundParkBody(p);assert.equal(p.vy,700,'descending rider passes through the opening');
+ a.resetParkWindows();assert.equal(a.brokenParkRoof.size,0);
 });
