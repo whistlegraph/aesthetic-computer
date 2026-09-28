@@ -57,7 +57,9 @@ if (receipt.tokenId === undefined) { console.error(`✗ ${slug} was never minted
 const tokenId = String(receipt.tokenId);
 
 const tzkt = async (path) => (await fetch(`${TZKT}${path}`)).json();
-const [asksMap] = await tzkt(`/contracts/${OBJKT_MARKET}/bigmaps?path=asks&select=ptr`);
+// TzKT ignores a path filter here, so pick the asks map out of the list.
+const asksMap = (await tzkt(`/contracts/${OBJKT_MARKET}/bigmaps?select=path,ptr`)).find((m) => m.path === "asks")?.ptr;
+if (asksMap === undefined) { console.error("✗ objkt market has no asks bigmap"); process.exit(1); }
 const asks = (await tzkt(`/bigmaps/${asksMap}/keys?active=true&value.creator=${SIGNER}` +
   `&value.token.address=${HEN_OBJKTS}&value.token.token_id=${tokenId}&select=key,value`)) || [];
 const [held] = await tzkt(`/tokens/balances?account=${SIGNER}&token.contract=${HEN_OBJKTS}&token.tokenId=${tokenId}&select=balance`);
