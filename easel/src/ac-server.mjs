@@ -58,6 +58,14 @@ export const AC_MODELS = {
 };
 
 
+// Asked to close out, the model ends its own session: the interface waits for
+// the goodbye, plays its shutdown and closes the window.
+const CLOSE_TOOL = {
+  name: "close_session",
+  description: "End this Aesel session and close its terminal window. When the person asks you to close out, quit, exit, close the window or says they are done, you must call this tool — saying goodbye alone does not close anything. Never call it on your own initiative. Say a short goodbye in the same reply.",
+  input_schema: { type: "object", properties: {} },
+};
+
 const WRITE_PIECE = {
   name: "write_piece",
   description:
@@ -289,7 +297,7 @@ export class AcServer extends EventEmitter {
     }
 
     this.artifactContext = this.workspace ? '' : await this.artifacts?.context() || '';
-    const tools = this.workspace ? [...WORKSPACE_TOOLS] : [...(this.artifactContext ? await this.artifacts.tools() : [WRITE_PIECE]),
+    const tools = this.workspace ? [...WORKSPACE_TOOLS, CLOSE_TOOL] : [...(this.artifactContext ? await this.artifacts.tools() : [WRITE_PIECE]),
       {name:PREVIEW_TOOL.name,description:PREVIEW_TOOL.description,input_schema:PREVIEW_TOOL.inputSchema}];
     if(this.settings)tools.push({name:SETTINGS_TOOL.name,description:SETTINGS_TOOL.description,input_schema:SETTINGS_TOOL.inputSchema});
     if(this.javascriptPiece && !this.workspace) {
@@ -504,6 +512,10 @@ export class AcServer extends EventEmitter {
     const signal = this.controller?.signal;
     const itemId = `tool-${block.id}`;
     if(this.workspace && WORKSPACE_TOOL_NAMES.has(block.name)) return this.#runWorkspaceTool(block, itemId, signal);
+    if(this.workspace && block.name === CLOSE_TOOL.name) {
+      this.emit("notification", { method: "session/close", params: {} });
+      return { type: "tool_result", tool_use_id: block.id, content: "The session closes when this reply ends. Say a short goodbye and call no more tools." };
+    }
     if(block.name===SETTINGS_TOOL.name) {
       signal?.throwIfAborted();
       this.emit('notification',{method:'item/started',params:{item:{id:itemId,type:'dynamicToolCall',tool:block.name}}});

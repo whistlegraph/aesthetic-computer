@@ -1048,6 +1048,57 @@ startNativeGamepad();
   }
 }
 
+// Closing out: the screen folds away like an old set switching off, the
+// session ends, and the Terminal window it lived in goes with it.
+let closeAfterTurn = false;
+async function closeOut() {
+  if (closing || finishing) return;
+  if (!desktopSessionPath) {
+    await shutdownAnimation();
+    closeWindowAfterExit();
+  }
+  return finish();
+}
+
+async function shutdownAnimation() {
+  const columns = process.stdout.columns || 80, rows = process.stdout.rows || 24;
+  const tick = () => new Promise((resolve) => setTimeout(resolve, 28));
+  const middle = Math.floor(rows / 2);
+  const band = (height, width, color) => {
+    let out = "\x1b[0m\x1b[2J";
+    const top = middle - Math.floor(height / 2), left = Math.floor((columns - width) / 2);
+    for (let y = Math.max(0, top); y < Math.min(rows, top + height); y += 1) {
+      out += `\x1b[${y + 1};${left + 1}H\x1b[48;5;${color}m${" ".repeat(width)}`;
+    }
+    process.stdout.write(out + "\x1b[0m");
+  };
+  // Tall to thin, pink to white: the picture drawing in to one bright line.
+  for (let h = rows; h > 1; h = Math.floor(h * 0.55)) { band(h, columns, h > rows / 3 ? 213 : 225); await tick(); }
+  // The line pulls in to a point.
+  for (let w = columns; w > 2; w = Math.floor(w * 0.6)) { band(1, w, 231); await tick(); }
+  band(1, 2, 231); await tick(); await tick();
+  band(1, 1, 250); await tick(); await tick();
+  process.stdout.write("\x1b[0m\x1b[2J\x1b[H");
+  await new Promise((resolve) => setTimeout(resolve, 120));
+}
+
+// The window outlives the process that asks for it to close, so a detached
+// shell closes it a moment after we have exited. Terminal.app only; elsewhere
+// the session simply ends.
+function closeWindowAfterExit() {
+  const tty = slabSession.tty;
+  if (process.env.TERM_PROGRAM !== "Apple_Terminal" || !tty) return;
+  const dev = `/dev/${tty.replace(/^\/dev\//, "")}`;
+  const script = `tell application "Terminal" to repeat with w in windows
+repeat with t in tabs of w
+try
+if (tty of t) is "${dev}" then close w saving no
+end try
+end repeat
+end repeat`;
+  spawn("/bin/sh", ["-c", `sleep 0.7; /usr/bin/osascript -e '${script.replace(/'/g, "'\\''")}'`], { detached: true, stdio: "ignore" }).unref();
+}
+
 async function finish(code = 0) {
   if (closing || finishing) return;
   finishing = true;
@@ -1336,6 +1387,9 @@ function handleNotification({ method, params = {} }) {
       slabSession.working();
       transcript.event("turn", { status: "started", id: engine.turnId || "" });
       break;
+    case "session/close":
+      closeAfterTurn = true;
+      break;
     case "turn/usage": {
       state.energy.add(params.model || state.model || model, params.usage);
       const thread = engine.threadId || "";
@@ -1413,6 +1467,8 @@ function handleNotification({ method, params = {} }) {
       break;
     }
     case "turn/completed": {
+      // Asked to close out: let the goodbye land, then shut down.
+      if (closeAfterTurn) setTimeout(() => void closeOut(), 900);
       // Codex reports what it spent on the turn that closes rather than in a
       // message of its own, so the meter reads it from here when it is there.
       if (params.turn?.usage) state.energy.add(params.turn.model || state.model || model, params.turn.usage);
@@ -2040,6 +2096,7 @@ async function submitInput(submittedText, submittedMessages = null) {
     const [command, ...restWords] = text.split(/\s+/);
     const rest = restWords.join(" ");
     if (command === "/quit" || command === "/exit") return finish();
+    if (command === "/close") return closeOut();
     if (command === "/about") {
       state.about = !state.about;
       state.aboutScroll = 0;
@@ -2184,7 +2241,7 @@ async function submitInput(submittedText, submittedMessages = null) {
       addEntry(
         "notice",
         pro
-          ? "/ask [on|off] · /provider · /model [name] · /mouse [on|off] · /layout · /inbox · /mode · /backend [id] · /login · /logout · /whoami · /handle [name] · /update · /new · /clear · /quit   ctrl-c interrupts a running turn"
+          ? "/ask [on|off] · /provider · /model [name] · /mouse [on|off] · /layout · /inbox · /mode · /backend [id] · /login · /logout · /whoami · /handle [name] · /update · /new · /clear · /close · /quit   ctrl-c interrupts a running turn"
           : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /mode · /mouse [on|off] · /performance [frames] · /energy · /latest · /login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /update · /open · /qr · /new [thread] · /clear · /quit   ctrl-c interrupts a running turn",
       );
       return redraw();

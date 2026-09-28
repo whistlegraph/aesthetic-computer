@@ -41,9 +41,10 @@ export function openRouterKey({ env = process.env, home = homedir() } = {}) {
 }
 
 export class OpenServer extends AcServer {
-  constructor({ pro = false, apiKey = openRouterKey(), ...options } = {}) {
+  constructor({ pro = false, apiKey = openRouterKey(), model = DEFAULT_OPEN_MODEL, ...options } = {}) {
     super({
       ...options,
+      model: model || DEFAULT_OPEN_MODEL,
       endpoint: OPENROUTER,
       apiKey,
       models: OPEN_MODELS,

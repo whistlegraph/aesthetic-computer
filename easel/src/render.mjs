@@ -1129,7 +1129,10 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
   // the engine, then the place, then the model, then the handle — so what
   // the machine is doing is the last thing to be cut.
   const keep = new Set(status);
-  const measure = () => [...keep].reduce((n, name) => (plain[name] ? n + textWidth(plain[name]) + (n ? textWidth(separator) : 0) : n), 1);
+  // The thread's cost holds its corner; the place and the engine give way first.
+  const spend = spendText(state.spend);
+  const reserve = spend ? textWidth(spend) + 3 : 0;
+  const measure = () => [...keep].reduce((n, name) => (plain[name] ? n + textWidth(plain[name]) + (n ? textWidth(separator) : 0) : n), 1) + reserve;
   for (const name of ["engine", "media", "workspace", "model", "handle", "mode", "inbox"]) {
     if (measure() <= width - 1) break;
     keep.delete(name);
@@ -1155,7 +1158,6 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
   }
   // What this thread has cost, flush right: tokens always, dollars when the
   // provider billed them.
-  const spend = spendText(state.spend);
   if (spend && x + 3 + textWidth(spend) <= width - 1) {
     line += " ".repeat(width - 1 - x - textWidth(spend)) + muted(spend);
     x = width - 1;
