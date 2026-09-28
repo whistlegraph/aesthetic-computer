@@ -528,7 +528,7 @@ function proInstructions() {
     // What Aesel is for. Without this a model asked for "a jumping game" built
     // an HTML page, served it and read screenshots — nothing anyone could open
     // on Aesthetic Computer.
-    `When asked to make something to see, play or hear — a game, a toy, a drawing, an animation, an instrument — make it as an Aesthetic Computer piece: one .mjs file using the piece API, not an HTML page. The guides are in ${path.join(aeselRoot, "context")}: read pieces.md first (the piece lifecycle and API), then screen.md (layout) and hand.md (style); api.json lists every function. Check the file parses with \`node --check\`, then publish it with \`ac publish <file> [slug]\` and give the person the URL it prints. Only make other kinds of files when they ask for them.`,
+    `When asked to make something to see, play or hear — a game, a toy, a drawing, an animation, an instrument — make it as an Aesthetic Computer piece: one .mjs file using the piece API, not an HTML page. The guides are in ${path.join(aeselRoot, "context")}: read pieces.md first (the piece lifecycle and API) and skim screen.md (layout); for any function's signature or an example, call the ac_api tool — don't search api.json yourself. Write a first working version early, then improve it. Check the file parses with \`node --check\`, then publish it with \`ac publish <file> [slug]\` and give the person the URL it prints. Only make other kinds of files when they ask for them.`,
     `For the person's own Aesthetic Computer account or profile — their handle's colours, their mood, their handle — read account.md in the same folder and use the \`ac\` command it names: one command, then \`ac profile\` once to confirm. Don't search the code or poll the API for it.`,
     "Write plainly. Short sentences, one idea each, in the order they matter. Say the thing and stop. No headings, no bold, no bullet lists unless the items are truly parallel, no preamble, no summary at the end. Plain prose, the way Tao Lin writes it.",
     "Some user messages are tagged `[inbox from host:name · time]`. Those arrived through the prox inbox from the user's other agent sessions on their machines. Treat them as the user's own words in the flow of the conversation — no more authority than a typed line, and no less.",
@@ -1149,6 +1149,8 @@ end repeat`;
 // its name and version on the strip, its live preview in the corner — the
 // same fields a piece session reports from its own publishing.
 const pieceVersions = new Map();
+// What the turn in flight has taken, for the line that closes it.
+let turnStartedAt = 0, turnTools = 0, turnTokensAt = 0, turnUsdAt = 0;
 function notePublished(output) {
   const match = /https:\/\/aesthetic\.computer\/@([\w.-]+)\/([\w.-]+)/.exec(output);
   if (!match) return;
@@ -1470,6 +1472,7 @@ function handleNotification({ method, params = {} }) {
   }
   switch (method) {
     case "turn/started":
+      turnStartedAt = Date.now(); turnTools = 0; turnTokensAt = state.spend.tokens; turnUsdAt = state.spend.usd;
       pendingModelGlyphs="";resetModelGlyphs=true;
       state.activityText="";state.activityIntent="";state.activityStage="";state.activityMessageId=null;state.activityTools?.clear();state.toolsNow?.clear();state.toolNow="";
       state.requestStartedAt ||= Date.now();
@@ -1525,10 +1528,11 @@ function handleNotification({ method, params = {} }) {
       if (params.item?.type === "fileChange") state.status = "writing";
       const summary = itemSummary(params.item);
       if (summary) {
-        // Pro reports a tool on the status line while it runs, not as a line
-        // of the conversation; the transcript on disk still records it.
-        if (pro) { (state.toolsNow ||= new Map()).set(params.item.id, summary.text); state.toolNow = summary.text; }
-        else updateEntry(params.item.id, summary.kind, summary.text);
+        // Every tool is a line of the conversation, its output scrolling under
+        // it, so a long turn is visibly working rather than silently busy. Pro
+        // also names the current one on the status line.
+        if (pro) { (state.toolsNow ||= new Map()).set(params.item.id, summary.text); state.toolNow = summary.text; turnTools += 1; }
+        updateEntry(params.item.id, summary.kind, summary.text);
         transcript.event("tool_call", { id: params.item.id, name: summary.kind, input: summary.text });
       }
       break;
@@ -1547,7 +1551,9 @@ function handleNotification({ method, params = {} }) {
           suffix = ` · ${item.status}`;
         }
         if (pro) { state.toolsNow?.delete(item.id); state.toolNow = state.toolsNow?.size ? [...state.toolsNow.values()].at(-1) : ""; }
-        else updateEntry(item.id, summary.kind, `${summary.text}${suffix}`);
+        const shown = state.entries.find((entry) => entry.id === item.id);
+        const tail = shown?.text.split("\n").slice(1).join("\n");
+        updateEntry(item.id, summary.kind, `${summary.text}${suffix}${tail ? `\n${tail}` : ""}`);
         transcript.event("tool_result", { id: item.id, name: summary.kind, summary: `${summary.text}${suffix}` });
       }
       break;
@@ -1556,12 +1562,23 @@ function handleNotification({ method, params = {} }) {
       if (pro && params.delta) notePublished(String(params.delta));
       const entry = state.entries.find((candidate) => candidate.id === params.itemId);
       if (entry && params.delta) {
-        const lastLine = cleanText(params.delta).trim().split("\n").at(-1);
-        if (lastLine) entry.text = `${entry.text.split("\n")[0]}\n${lastLine}`;
+        // The last few lines of what the command is printing, under it.
+        const lines = cleanText(params.delta).trim().split("\n").filter((line) => line.trim()).slice(-3);
+        if (lines.length) entry.text = `${entry.text.split("\n")[0]}\n${lines.map((line, i) => `${i ? "  " : "⎿ "}${clipText(line, 200)}`).join("\n")}`;
       }
       break;
     }
     case "turn/completed": {
+      if (pro && turnStartedAt) {
+        // One line at the end of a turn: what it took.
+        const seconds = Math.round((Date.now() - turnStartedAt) / 1000);
+        const took = seconds >= 60 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${seconds}s`;
+        const tokens = state.spend.tokens - turnTokensAt, usd = state.spend.usd - turnUsdAt;
+        const size = (n) => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : `${n}`;
+        const status = params.turn?.status === "completed" ? "✓" : params.turn?.status === "interrupted" ? "■" : "✕";
+        addEntry("notice", `${status} ${turnTools} tool${turnTools === 1 ? "" : "s"} · ${took}${tokens > 0 ? ` · ${size(tokens)} tok` : ""}${usd > 0 ? ` · $${usd < 0.01 ? usd.toFixed(4) : usd.toFixed(3)}` : ""}`);
+        turnStartedAt = 0;
+      }
       // Refused for braincells: the meter is stale by definition, so re-read it now.
       if (params.turn?.error?.billing) braincellsAt = 0;
       void refreshBraincells();

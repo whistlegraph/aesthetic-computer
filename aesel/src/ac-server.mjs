@@ -326,7 +326,7 @@ export class AcServer extends EventEmitter {
     // The preview tools only when something runs the piece: offered with no
     // preview, they answer "nothing observed" and the model reads that as success.
     const previewing = !this.workspace && this.previewing;
-    const tools = this.workspace ? [...WORKSPACE_TOOLS, CLOSE_TOOL, ...(await this.extensions?.tools().catch(() => []) ?? [])] : [...(this.artifactContext ? await this.artifacts.tools() : [WRITE_PIECE]),
+    const tools = this.workspace ? [...WORKSPACE_TOOLS, CLOSE_TOOL, ...(()=>{const api=TOOLS.find(t=>t.name==='ac_api');return api?[{name:api.name,description:api.description,input_schema:api.inputSchema}]:[];})(), ...(await this.extensions?.tools().catch(() => []) ?? [])] : [...(this.artifactContext ? await this.artifacts.tools() : [WRITE_PIECE]),
       ...(previewing ? [{name:PREVIEW_TOOL.name,description:PREVIEW_TOOL.description,input_schema:PREVIEW_TOOL.inputSchema}] : [])];
     if(this.settings)tools.push({name:SETTINGS_TOOL.name,description:SETTINGS_TOOL.description,input_schema:SETTINGS_TOOL.inputSchema});
     if(this.javascriptPiece && !this.workspace) {
@@ -575,7 +575,7 @@ export class AcServer extends EventEmitter {
     }
     if(block.name==='ac_api') {
       signal?.throwIfAborted();
-      if(!this.javascriptPiece)return {type:'tool_result',tool_use_id:block.id,is_error:true,content:'ac_api is available for JavaScript Pieces.'};
+      if(!this.javascriptPiece && !this.workspace)return {type:'tool_result',tool_use_id:block.id,is_error:true,content:'ac_api is available for JavaScript Pieces.'};
       return {type:'tool_result',tool_use_id:block.id,content:callTool('ac_api',block.input || {},{cwd:this.cwd,map:this.apiMap})};
     }
     if((block.name==='ac_frame'||block.name==='ac_preview')&&!this.previewing)return {type:'tool_result',tool_use_id:block.id,is_error:true,content:'No preview is connected in this session, so there is nothing to observe.'};
