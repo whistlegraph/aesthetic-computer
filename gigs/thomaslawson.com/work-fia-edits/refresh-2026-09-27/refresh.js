@@ -108,4 +108,179 @@
         }
         return true;
     });
+
+    /* ---- 5. Fía, 2026-09-27: Bookshelf sections as one tight list. ----
+       Each cover becomes a row — cover, title (↗ when it opens a text),
+       caption — in page order. Captions come from Tom's CV where a cover's
+       own link matches a CV entry (window.TL_SHELVES, refresh-data.js). */
+    var SHELVES = window.TL_SHELVES || {};
+    function coverKey(src) {
+        return (src || '').split('?')[0].split('/').pop().replace(/-\d+x\d+(?=\.\w+$)/, '').toLowerCase();
+    }
+    function opensText(href) {
+        return /\.pdf$/i.test(href) || (/^https?:/i.test(href) && !/thomaslawson\.com\/(?!wp-content)/i.test(href));
+    }
+    if (body.classList.contains('tl-bookshelf-detail')) {
+        var page = document.querySelector('[data-elementor-type="wp-page"]');
+        var sectionsList = page ? Array.prototype.slice.call(page.querySelectorAll(':scope > .elementor-top-section, :scope > .e-con')) : [];
+        var itemSections = sectionsList.slice(1);
+        var list = document.createElement('div');
+        list.className = 'tl-shelf-list';
+        itemSections.forEach(function (section) {
+            var widgets = Array.prototype.slice.call(section.querySelectorAll('.elementor-widget-image, .elementor-widget-heading'));
+            var current = null;
+            widgets.forEach(function (w) {
+                if (w.classList.contains('elementor-widget-image')) {
+                    var img = w.querySelector('img');
+                    if (!img) return;
+                    current = { img: img, link: w.querySelector('a'), heads: [] };
+                    list.appendChild(buildItem(current));
+                    current.row = list.lastChild;
+                } else if (current) {
+                    var h = w.querySelector('.elementor-heading-title');
+                    if (h && clean(h.textContent).replace(/^[-–—]+$/, '')) current.heads.push(h);
+                    fillCaption(current);
+                }
+            });
+        });
+        if (list.children.length && itemSections.length) {
+            itemSections[0].parentNode.insertBefore(list, itemSections[0]);
+            itemSections.forEach(function (sec) { sec.classList.add('tl-shelf-source'); });
+        }
+        function buildItem(item) {
+            var k = coverKey(item.img.getAttribute('src'));
+            var data = SHELVES[k] || null;
+            item.data = data;
+            var row = document.createElement('article');
+            row.className = 'tl-shelf-item';
+            row.id = 'tl-item-' + k.replace(/\.\w+$/, '').replace(/[^a-z0-9]+/g, '-');
+            var href = (data && data.h) || (item.link && item.link.getAttribute('href')) || '';
+            var cover = document.createElement(href ? 'a' : 'div');
+            cover.className = 'tl-shelf-item-cover';
+            if (href) { cover.href = href; if (opensText(href)) { cover.target = '_blank'; cover.rel = 'noopener'; } cover.setAttribute('aria-hidden', 'true'); cover.tabIndex = -1; }
+            var im = item.img.cloneNode(true);
+            im.removeAttribute('width'); im.removeAttribute('height'); im.setAttribute('sizes', '120px'); // picks the ~260w variant, not the 1 MB 768w PNG
+            im.loading = 'lazy';
+            cover.appendChild(im);
+            var text = document.createElement('div');
+            text.className = 'tl-shelf-item-text';
+            var title = document.createElement('h3');
+            title.className = 'tl-shelf-item-title';
+            var meta = document.createElement('p');
+            meta.className = 'tl-shelf-item-meta';
+            text.appendChild(title); text.appendChild(meta);
+            row.appendChild(cover); row.appendChild(text);
+            item.href = href;
+            return row;
+        }
+        function fillCaption(item) {
+            var data = item.data;
+            var t = (data && data.t) || (item.heads[0] ? clean(item.heads[0].textContent) : '');
+            var m = (data && data.m) || (item.heads[1] ? clean(item.heads[1].textContent) : '');
+            var title = item.row.querySelector('.tl-shelf-item-title');
+            var meta = item.row.querySelector('.tl-shelf-item-meta');
+            title.textContent = '';
+            if (item.href) {
+                var a = document.createElement('a');
+                a.href = item.href;
+                a.textContent = t;
+                if (opensText(item.href)) { a.target = '_blank'; a.rel = 'noopener'; a.className = 'tl-opens'; }
+                title.appendChild(a);
+            } else {
+                title.textContent = t;
+            }
+            meta.textContent = m;
+            meta.hidden = !m;
+        }
+        list.querySelectorAll('.tl-shelf-item').forEach(function (row) {
+            if (!row.querySelector('.tl-shelf-item-title').textContent) {
+                var k = row.id.replace(/^tl-item-/, '');
+                var data = Object.keys(SHELVES).filter(function (x) { return x.replace(/\.\w+$/, '').replace(/[^a-z0-9]+/g, '-') === k; })[0];
+                if (data) fillCaption({ row: row, data: SHELVES[data], heads: [], href: row.querySelector('a') && row.querySelector('a').getAttribute('href') });
+            }
+        });
+        /* Arriving from a Bookshelf cover: bring that item into view. */
+        function reveal() {
+            var target = location.hash && document.getElementById(location.hash.slice(1));
+            if (!target || !target.classList.contains('tl-shelf-item')) return;
+            target.classList.add('is-target');
+            target.scrollIntoView({ block: 'center' });
+        }
+        reveal();
+        window.addEventListener('hashchange', reveal);
+    }
+
+    /* Bookshelf landing: each cover opens its own item, not the whole shelf. */
+    if (body.classList.contains('page-id-808')) {
+        function relink() {
+            document.querySelectorAll('.tl-shelf-cover').forEach(function (a) {
+                var img = a.querySelector('img');
+                var k = img && coverKey(img.getAttribute('src'));
+                var data = k && SHELVES[k];
+                if (!data || a.dataset.tlRelinked) return;
+                a.href = '/' + data.s + '/#tl-item-' + k.replace(/\.\w+$/, '').replace(/[^a-z0-9]+/g, '-');
+                a.dataset.tlRelinked = '1';
+            });
+        }
+        relink();
+        setTimeout(relink, 0);
+        window.addEventListener('load', relink);
+    }
+
+    /* ---- 6. Fía, 2026-09-27: Studio captions as one line —
+       Title (italic), year ⇥ materials ⇥ dimensions. ---- */
+    if (body.classList.contains('tl-studio-detail')) {
+        var wp = document.querySelector('[data-elementor-type="wp-page"]');
+        var all = wp ? Array.prototype.slice.call(wp.querySelectorAll('.elementor-widget-image, .elementor-widget-heading')) : [];
+        var group = null;
+        function flush() {
+            if (!group || !group.heads.length) return;
+            var parts = [];
+            group.heads.forEach(function (h) {
+                h.innerHTML.split(/<br\s*\/?>/i).forEach(function (seg) {
+                    var tmp = document.createElement('span'); tmp.innerHTML = seg;
+                    var plain = clean(tmp.textContent);
+                    if (plain) parts.push({ html: seg.trim(), text: plain, italic: !!tmp.querySelector('i, em') });
+                });
+            });
+            if (!parts.length) return;
+            var title = '', year = '', rest = [];
+            var first = parts[0];
+            var m = first.text.match(/^(.*?),\s*((?:c\.\s*)?\d{4}(?:\s*[-–]\s*\d{2,4})?)\s*$/);
+            if (m) { title = m[1]; year = m[2]; rest = parts.slice(1); }
+            else {
+                title = first.text;
+                var y = parts[1] && parts[1].text.match(/^((?:c\.\s*)?\d{4}(?:\s*[-–]\s*\d{2,4})?)$/);
+                if (y) { year = y[1]; rest = parts.slice(2); } else rest = parts.slice(1);
+            }
+            var cap = document.createElement('p');
+            cap.className = 'tl-cap';
+            var t = document.createElement('span');
+            t.className = 'tl-cap-title';
+            var i = document.createElement('i');
+            i.textContent = title;
+            t.appendChild(i);
+            if (year) t.appendChild(document.createTextNode(', ' + year));
+            cap.appendChild(t);
+            rest.forEach(function (r) {
+                var sp = document.createElement('span');
+                sp.className = 'tl-cap-detail';
+                sp.textContent = r.text.replace(/\s+[xX]\s+/g, ' × ');
+                cap.appendChild(sp);
+            });
+            /* Inside the image widget, so the caption starts at the picture's edge. */
+            var holder = group.image.querySelector('.elementor-widget-container') || group.image;
+            holder.appendChild(cap);
+            group.heads.forEach(function (h) { h.closest('.elementor-widget').classList.add('tl-cap-source'); });
+        }
+        all.forEach(function (w) {
+            if (w.closest('.elementor-top-section') === wp.querySelector(':scope > .elementor-top-section')) return;
+            if (w.classList.contains('elementor-widget-image')) { flush(); group = { heads: [], image: w }; }
+            else if (group) {
+                var h = w.querySelector('.elementor-heading-title');
+                if (h && clean(h.textContent)) group.heads.push(h);
+            }
+        });
+        flush();
+    }
 })();

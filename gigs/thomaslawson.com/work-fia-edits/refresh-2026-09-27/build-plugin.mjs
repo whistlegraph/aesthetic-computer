@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const version = process.argv[2] || "1.0.0";
 const css = await readFile(resolve(here, "refresh.css"), "utf8");
-const js = await readFile(resolve(here, "refresh.js"), "utf8");
+const js = (await readFile(resolve(here, "refresh-data.js"), "utf8")) + (await readFile(resolve(here, "refresh.js"), "utf8"));
 const fonts = "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400..600;1,14..32,400..600&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400..600&display=swap";
 
 const php = `<?php
