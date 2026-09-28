@@ -149,9 +149,25 @@ struct ClaudeSession {
         return handle.isEmpty ? "" : "@\(handle)/\(slug)"
     }
 
-    /// A terminal Aesel session holding a routed piece: Slab lays its pane out
-    /// the way the Aesel desktop lays out its window (see `PromptSigilOverlay`).
-    var holdsRoutedPiece: Bool { !isDesktopEasel && artifactPreview == nil && !pieceRoute.isEmpty }
+    /// Every Aesel terminal session: Slab lays its pane out the way the Aesel
+    /// desktop lays out its window — a title strip instead of a rock (see
+    /// `PromptSigilOverlay.setPieceStrip`). The desktop app draws its own.
+    var usesAeselStrip: Bool { agentType == "easel" && !isDesktopEasel }
+
+    /// What that strip is titled, from the marker alone (a pro session gains
+    /// piece fields when it publishes, like any other): the piece's route
+    /// `@handle/slug` when it has one; the piece's own name when it has no
+    /// handle; the signed-in `@handle` before there is a piece; and only when
+    /// there is neither, the workspace folder (the one holding `.aesel/`).
+    var aeselStripTitle: String {
+        if !pieceRoute.isEmpty { return pieceRoute }
+        let slug = (piece as NSString).deletingPathExtension
+        if !slug.isEmpty { return slug }
+        if !handle.isEmpty { return "@" + handle }
+        var folder = URL(fileURLWithPath: cwd).standardizedFileURL
+        if [".aesel", ".easel"].contains(folder.lastPathComponent) { folder.deleteLastPathComponent() }
+        return folder.lastPathComponent == "/" ? "" : folder.lastPathComponent
+    }
 
     /// How the file on disk stands against what `scanURL` is serving —
     /// `live`, `ahead` (saved, not pushed yet) or `pushing`. The preview
