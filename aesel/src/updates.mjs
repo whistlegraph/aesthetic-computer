@@ -26,7 +26,7 @@
 
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -34,7 +34,7 @@ import { promisify } from "node:util";
 
 const run = promisify(execFile);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const SITE = process.env.EASEL_SITE || "https://aesthetic.computer";
+const SITE = process.env.AESEL_SITE || "https://aesthetic.computer";
 
 // Once a day. The version changes far less often than aesel opens, and a tool
 // that phones home on every launch is a tool that is slow to start on a bad
@@ -89,11 +89,18 @@ function noteCheck(now) {
   } catch {}
 }
 
+// aesel.json first. easel.json is the same manifest under the old name, which
+// every copy up to 0.8.3 polls, so it stays served; asking it second covers a
+// site (AESEL_SITE) that has not published the new name.
 export async function fetchManifest({ fetch = globalThis.fetch, site = SITE } = {}) {
-  const response = await fetch(`${site}/easel.json`, {
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-    headers: { "Cache-Control": "no-cache" },
-  });
+  let response;
+  for (const name of ["aesel.json", "easel.json"]) {
+    response = await fetch(`${site}/${name}`, {
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+      headers: { "Cache-Control": "no-cache" },
+    });
+    if (response.status !== 404) break;
+  }
   if (!response.ok) throw new Error(`manifest HTTP ${response.status}`);
   const manifest = await response.json();
   if (!manifest?.version || !manifest?.sha256) throw new Error("manifest is missing version or sha256");
@@ -130,24 +137,29 @@ export async function checkForUpdate({
 // The swap is a rename of a fully unpacked directory, which is as close to
 // atomic as this gets: at no point is there a half-written aesel at the path a
 // terminal is about to launch.
-export async function applyUpdate({ fetch = globalThis.fetch, site = SITE, manifest } = {}) {
-  if (!installed()) throw new Error("this aesel is a checkout, not an install — use git");
-  const target = manifest || (await fetchManifest({ fetch, site }));
+//
+// Anything in the install folder that the release does not ship is carried
+// into the new one before the old one goes. Installs made by easel.sh live in
+// ~/.local/share/easel, which is also where history and transcripts were kept,
+// and a swap that dropped the whole folder dropped them with it.
+export async function applyUpdate({ fetch = globalThis.fetch, site = SITE, manifest, root = ROOT } = {}) {
+  if (!existsSync(join(root, "install.json"))) throw new Error("this aesel is a checkout, not an install — use git");
+  const release = manifest || (await fetchManifest({ fetch, site }));
 
-  const response = await fetch(`${site}${target.tarball || "/easel.tar.gz"}`, {
+  const response = await fetch(`${site}${release.tarball || "/easel.tar.gz"}`, {
     signal: AbortSignal.timeout(60_000),
   });
   if (!response.ok) throw new Error(`download HTTP ${response.status}`);
   const bytes = Buffer.from(await response.arrayBuffer());
 
   const got = createHash("sha256").update(bytes).digest("hex");
-  if (got !== target.sha256) {
-    throw new Error(`checksum mismatch — refusing to install (expected ${target.sha256.slice(0, 12)}…, got ${got.slice(0, 12)}…)`);
+  if (got !== release.sha256) {
+    throw new Error(`checksum mismatch — refusing to install (expected ${release.sha256.slice(0, 12)}…, got ${got.slice(0, 12)}…)`);
   }
 
-  const work = mkdtempSync(join(tmpdir(), "easel-update-"));
+  const work = mkdtempSync(join(tmpdir(), "aesel-update-"));
   try {
-    const archive = join(work, "easel.tar.gz");
+    const archive = join(work, "aesel.tar.gz");
     writeFileSync(archive, bytes);
     const unpacked = join(work, "unpacked");
     mkdirSync(unpacked);
@@ -157,17 +169,23 @@ export async function applyUpdate({ fetch = globalThis.fetch, site = SITE, manif
     }
 
     // Keep the previous install until the new one is in place, then drop it.
-    const previous = `${ROOT}.previous`;
+    // The real path, so a folder reached through a symlink is swapped rather
+    // than the link.
+    const target = realpathSync(root);
+    const previous = `${target}.previous`;
     rmSync(previous, { recursive: true, force: true });
-    renameSync(ROOT, previous);
+    renameSync(target, previous);
     try {
-      renameSync(unpacked, ROOT);
+      renameSync(unpacked, target);
     } catch (error) {
-      renameSync(previous, ROOT); // put it back rather than leave nothing
+      renameSync(previous, target); // put it back rather than leave nothing
       throw error;
     }
+    for (const name of readdirSync(previous)) {
+      if (!existsSync(join(target, name))) renameSync(join(previous, name), join(target, name));
+    }
     rmSync(previous, { recursive: true, force: true });
-    return target.version;
+    return release.version;
   } finally {
     rmSync(work, { recursive: true, force: true });
   }

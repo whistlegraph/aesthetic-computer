@@ -44,8 +44,8 @@ place at `tui.mjs:55` — `input`, `cursor`, `entries`, `approval`, `piece`,
 model/view seam already exists, and the view side is five hundred lines.
 
 The product ships as an 85 KB tarball behind `curl -fsSL
-https://prompt.ac/easel.sh | sh`, which checks for Node 18 and unpacks to
-`~/.local/share/easel`. `bin/easel` is bash, resolves its own symlink chain, and
+https://prompt.ac/aesel.sh | sh` (or the older easel.sh), which checks for Node and unpacks to
+`~/.local/share/aesel/app`. `bin/easel` is bash, resolves its own symlink chain, and
 refuses to start unless `[[ -t 0 && -t 1 ]]` — an interactive terminal is a hard
 precondition, not a preference.
 
@@ -111,7 +111,7 @@ The assumptions are all in the shell around it:
    `"explorer"`. One of the two is a real bug, and it is three characters.
 4. `updates.mjs:154` — `execFile("tar", ["-xzf", …])`. Windows 10 and later ship
    bsdtar as `tar.exe`, so this probably works. Unverified.
-5. `bin/easel`, `install.sh` and `system/public/easel.sh` are shell scripts, and
+5. `bin/easel`, `install.sh` and `system/public/aesel.sh` (and its twin `easel.sh`) are shell scripts, and
    `install.sh` uses BSD `/usr/bin/sed -i ''`, which is macOS-only even among
    POSIX systems. An app bundle makes these moot for the GUI; they still have no
    Windows story for the `ac` command line.

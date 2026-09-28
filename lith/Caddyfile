@@ -739,16 +739,21 @@
 
     # The installer and its tarball, served as files from both hosts. Must sit
     # above @promptac, which otherwise hands every non-root path to the resolver
-    # and would turn `curl prompt.ac/easel.sh` into a redirect to a piece.
+    # and would turn `curl prompt.ac/aesel.sh` into a redirect to a piece.
+    # The easel.* names are the same files under the name they had first;
+    # installed copies poll easel.json, so both stay served.
     #
     # prompt.ac because it is nine bytes shorter than aesthetic.computer and an
     # install line is read aloud and typed by hand more often than it is copied.
-    @easel_install {
+    @aesel_install {
         host prompt.ac aesthetic.computer
-        path /easel.sh /easel.tar.gz /easel.json
+        path /aesel.sh /aesel.tar.gz /aesel.json /easel.sh /easel.tar.gz /easel.json
     }
-    handle @easel_install {
+    handle @aesel_install {
         root * /opt/ac/system/public
+        header /aesel.sh Content-Type "text/plain; charset=utf-8"
+        header /aesel.tar.gz Content-Type "application/gzip"
+        header /aesel.json Content-Type "application/json"
         header /easel.sh Content-Type "text/plain; charset=utf-8"
         header /easel.tar.gz Content-Type "application/gzip"
         header /easel.json Content-Type "application/json"

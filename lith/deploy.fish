@@ -303,11 +303,11 @@ else if test -f $SPACES_ENV_GPG
     end
 end
 
-# The tarball easel.sh downloads is built from easel/, not committed, so it is
-# packed on the box after the pull. Building it here rather than locally means
+# The tarball aesel.sh (and easel.sh) downloads is built from aesel/, not
+# committed, so it is packed on the box after the pull. Building it here rather than locally means
 # the installer can never point at a version older than the source that shipped
 # with it.
-echo -e "$GREEN-> Packing the Easel installer tarball...$NC"
+echo -e "$GREEN-> Packing the Aesel installer tarball...$NC"
 ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && node aesel/bin/pack.mjs" 2>&1 | tail -2
 
 echo -e "$GREEN-> Refreshing notepat.com.amxd build stream...$NC"

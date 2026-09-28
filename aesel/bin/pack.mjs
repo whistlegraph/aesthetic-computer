@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// pack — build the tarball easel.sh downloads.
+// pack — build the tarball aesel.sh (and easel.sh) downloads.
 //
 // What travels: the source, the bin, the shell integration, the context bundle,
 // the licence, the README, and package.json. What does not: tests, the git
@@ -8,18 +8,23 @@
 // allowed to have, so the list is explicit rather than an exclusion glob that
 // quietly grows.
 //
-//   node easel/bin/pack.mjs    → system/public/easel.tar.gz
+//   node aesel/bin/pack.mjs    → system/public/aesel.tar.gz (+ easel.tar.gz)
+//
+// Every copy up to 0.8.3 polls easel.json and fetches easel.tar.gz, so the
+// release goes out under both names, byte for byte, and bin/easel stays in it:
+// that is the file an older updater checks for before it will install.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, statSync, writeFileSync, rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync, statSync, writeFileSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const aesel = join(HERE, "..");
 const REPO = join(aesel, "..");
-const OUT = join(REPO, "system", "public", "easel.tar.gz");
-const MANIFEST = join(REPO, "system", "public", "easel.json");
+const PUBLIC = join(REPO, "system", "public");
+const OUT = join(PUBLIC, "aesel.tar.gz");
+const NAMES = ["aesel", "easel"];
 // Written into the tarball so an install can tell what it is. Its absence is
 // how a git checkout knows never to overwrite itself with a release.
 const STAMP = join(aesel, "install.json");
@@ -66,12 +71,14 @@ const sha256 = createHash("sha256").update(bytes).digest("hex");
 
 // What a running aesel fetches to decide whether it is behind. Kept to the four
 // facts an updater needs, so it stays cheap enough to poll once a day.
-writeFileSync(
-  MANIFEST,
-  JSON.stringify({ version, sha256, bytes: bytes.length, tarball: "/easel.tar.gz" }, null, 2) + "\n",
-);
+for (const name of NAMES) {
+  if (name !== "aesel") copyFileSync(OUT, join(PUBLIC, `${name}.tar.gz`));
+  writeFileSync(
+    join(PUBLIC, `${name}.json`),
+    JSON.stringify({ version, sha256, bytes: bytes.length, tarball: `/${name}.tar.gz` }, null, 2) + "\n",
+  );
+}
 
-console.log(`easel.tar.gz — v${version}, ${(bytes.length / 1024).toFixed(0)} KB`);
+console.log(`aesel.tar.gz — v${version}, ${(bytes.length / 1024).toFixed(0)} KB`);
 console.log(`  sha256 ${sha256.slice(0, 16)}…`);
-console.log(`  ${OUT}`);
-console.log(`  ${MANIFEST}`);
+for (const name of NAMES) console.log(`  ${join(PUBLIC, name)}.{tar.gz,json}`);

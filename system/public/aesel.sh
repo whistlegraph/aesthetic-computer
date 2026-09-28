@@ -1,14 +1,18 @@
 #!/bin/sh
 # Aesel — the Aesthetic Computer terminal editor.
 #
-#   curl -fsSL https://prompt.ac/easel.sh | sh
+#   curl -fsSL https://prompt.ac/aesel.sh | sh
+#
+# (prompt.ac/easel.sh is this same script under the name it had first; the
+# only difference is that it fetches easel.tar.gz, the same bytes as
+# aesel.tar.gz under the old name.)
 #
 # What this does, in order, so that reading it takes less time than running it:
 #
 #   1. checks for node
 #   2. downloads one tarball from aesthetic.computer and unpacks it to
-#      ~/.local/share/easel
-#   3. links `ac` and `easel` into ~/.local/bin
+#      ~/.local/share/aesel/app
+#   3. links `ac`, `a`, `aes`, `aesel` and `easel` into ~/.local/bin
 #   4. offers to add ~/.local/bin to your PATH, and says how if you decline
 #
 # It writes nothing outside your home folder, asks for no privileges, and runs
@@ -22,9 +26,13 @@
 
 set -eu
 
-SITE="${EASEL_SITE:-https://aesthetic.computer}"
-PREFIX="${EASEL_PREFIX:-$HOME/.local/share/easel}"
-BIN="${EASEL_BIN:-$HOME/.local/bin}"
+# AESEL_* first; EASEL_* is the same setting under the old name.
+SITE="${AESEL_SITE:-${EASEL_SITE:-https://aesthetic.computer}}"
+# Its own folder, not ~/.local/share/aesel itself: that is where history and
+# transcripts live, and an install replaces its folder whole.
+PREFIX="${AESEL_PREFIX:-${EASEL_PREFIX:-$HOME/.local/share/aesel/app}}"
+BIN="${AESEL_BIN:-${EASEL_BIN:-$HOME/.local/bin}}"
+TARBALL=aesel.tar.gz
 # Match the runtime APIs used by the desktop harness, including util.parseEnv.
 MIN_NODE=22
 
@@ -53,28 +61,38 @@ else
   die "Need curl or wget to download Aesel."
 fi
 
-TMP=$(mktemp -d 2>/dev/null || mktemp -d -t easel)
+TMP=$(mktemp -d 2>/dev/null || mktemp -d -t aesel)
 # Leave nothing behind on any exit path, including a failed download.
 trap 'rm -rf "$TMP"' EXIT INT TERM
 
 say "  downloading…"
-fetch "$SITE/easel.tar.gz" "$TMP/easel.tar.gz" \
-  || die "Could not download $SITE/easel.tar.gz"
+fetch "$SITE/$TARBALL" "$TMP/aesel.tar.gz" \
+  || die "Could not download $SITE/$TARBALL"
 
 # --- install ---------------------------------------------------------------
 # Unpack beside the target and swap, so an interrupted install cannot leave a
 # half-written Aesel where a working one used to be.
 mkdir -p "$TMP/unpack"
-tar -xzf "$TMP/easel.tar.gz" -C "$TMP/unpack" || die "Could not unpack the download."
+tar -xzf "$TMP/aesel.tar.gz" -C "$TMP/unpack" || die "Could not unpack the download."
 [ -f "$TMP/unpack/bin/easel" ] || die "That download does not look like Aesel."
 
 mkdir -p "$(dirname "$PREFIX")" "$BIN"
 rm -rf "$PREFIX.old"
 [ -d "$PREFIX" ] && mv "$PREFIX" "$PREFIX.old"
 mv "$TMP/unpack" "$PREFIX"
+# Whatever the old folder held that a release does not ship comes along. An
+# older easel.sh installed into the folder history was kept in, so a plain
+# swap would take someone's history with it.
+if [ -d "$PREFIX.old" ]; then
+  for entry in "$PREFIX.old"/* "$PREFIX.old"/.[!.]*; do
+    [ -e "$entry" ] || [ -L "$entry" ] || continue
+    name=$(basename "$entry")
+    [ -e "$PREFIX/$name" ] || [ -L "$PREFIX/$name" ] || mv "$entry" "$PREFIX/$name"
+  done
+fi
 rm -rf "$PREFIX.old"
 
-chmod +x "$PREFIX/bin/easel" "$PREFIX/bin/aesel" "$PREFIX/bin/easel-desktop" "$PREFIX/bin/a"
+chmod +x "$PREFIX/bin/easel" "$PREFIX/bin/aesel" "$PREFIX/bin/easel-desktop" "$PREFIX/bin/a" "$PREFIX/bin/aes"
 ln -sfn "$PREFIX/bin/easel" "$BIN/easel"
 ln -sfn "$PREFIX/bin/aesel" "$BIN/aesel"
 ln -sfn "$PREFIX/bin/a" "$BIN/a"
