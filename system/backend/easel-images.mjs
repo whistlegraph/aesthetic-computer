@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import { generate as generateProviderImage, FAL_FLARE } from '../../easel/media/picture/illy.mjs';
+import { generate as generateProviderImage, FAL_FLARE } from '../../aesel/media/picture/illy.mjs';
 export const hostedImageModels = Object.freeze({openai: ['gpt-image-2'], fal: [FAL_FLARE]});
 export function imageRequest(input) {
   if (!/^[a-zA-Z0-9_-]{16,80}$/.test(input.jobId || '')) throw new Error('Invalid image job.');

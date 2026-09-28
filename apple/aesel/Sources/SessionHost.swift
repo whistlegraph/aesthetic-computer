@@ -4,8 +4,8 @@ import Security
 
 /// Runs the shared JavaScript session in a WKWebView that is never shown.
 ///
-/// The session is `easel/phone/session.mjs`, which builds `AcServer` out of
-/// `easel/src` unmodified. Hosting it here rather than porting it to Swift is
+/// The session is `aesel/phone/session.mjs`, which builds `AcServer` out of
+/// `aesel/src` unmodified. Hosting it here rather than porting it to Swift is
 /// the point: the agent loop, the twelve-round bound, the tool contract and the
 /// guides stay one implementation shared with the desktop, and SwiftUI draws
 /// the result.

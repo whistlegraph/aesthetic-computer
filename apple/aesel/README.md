@@ -30,8 +30,8 @@ The [integration roadmap](ROADMAP.md) inventories the remaining ports and their
 acceptance gates, including providers, paired hosts, media, files, and releases.
 The native provider dropdown lists Aesthetic.Computer, Claude, and Codex.
 Codex uses the OpenAI knot mark; provider artwork comes from the
-[attributed provider assets](../../easel/shared/assets/provider-marks.txt). Claude and Codex use the optional local helper, installed from the repo
-root with `node easel/native/install.mjs`. Every provider requires a verified Aesthetic Computer login and an @handle.
+[attributed provider assets](../../aesel/shared/assets/provider-marks.txt). Claude and Codex use the optional local helper, installed from the repo
+root with `node aesel/native/install.mjs`. Every provider requires a verified Aesthetic Computer login and an @handle.
 Account setup blocks workspace access until both are present.
 AC's model is Automatic. iPhone pairing to the helper is not implemented.
 
@@ -74,7 +74,7 @@ iPhone sessions retain their existing Documents location. Tokens use Keychain.
 Node from nodejs.org (checksum-verified) in `Contents/Helpers`. On launch the
 app links `~/.local/bin/aesel` (opens the app) and `aes` (the TUI), leaving any
 existing checkout link alone, and installs the Claude/Codex host once per
-version. App and TUI share `easel/package.json`'s version; the build number is
+version. App and TUI share `aesel/package.json`'s version; the build number is
 the commit count. `./release-mac.sh publish` uploads to
 `releases.aesthetic.computer/aesel/mac/` and packs the matching TUI tarball.
 The App Store build stays sandboxed (`Mac.entitlements`) and carries neither.
@@ -109,7 +109,7 @@ hover interactions are not yet available on iPhone.
 ./run.sh device           # USB-connected iPhone
 ```
 
-The script copies `easel/{src,context,phone}` and the shared notebook renderer
+The script copies `aesel/{src,context,phone}` and the shared notebook renderer
 into the app, generates the Xcode
 project and builds with two compiler jobs. It starts no local HTTP server and
 shares no laptop credentials. `./bundle-session.sh` refreshes these resources

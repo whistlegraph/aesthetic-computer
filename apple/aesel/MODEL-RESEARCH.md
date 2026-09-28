@@ -4,7 +4,7 @@ Researched 2026-09-17. User selected Luna as the default and Opus as an explicit
 
 ## Current service and visibility
 
-`easel/src/ac-server.mjs` now exports `DEFAULT_AC_MODEL = "openai/gpt-5.6-luna"`.
+`aesel/src/ac-server.mjs` now exports `DEFAULT_AC_MODEL = "openai/gpt-5.6-luna"`.
 The earlier GLM-4.6 default remains available explicitly. Opus uses
 `anthropic/claude-opus-5`; both new IDs were confirmed in OpenRouter’s live model catalog.
 New phone threads use Luna; existing threads retain their saved model.

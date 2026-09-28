@@ -1,1 +1,1 @@
-export * from "../../easel/src/computer-use-client.mjs";
+export * from "../../aesel/src/computer-use-client.mjs";

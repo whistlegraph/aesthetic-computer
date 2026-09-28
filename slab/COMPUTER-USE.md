@@ -67,7 +67,7 @@ resolve the intended element, wait until usable, act once, and check the outcome
   explicit tool allowlists, bounds requests, and never retries lost actions.
   It is not a general MCP SDK: SSE, OAuth, sessionful servers, and stdio clients
   are outside this helper's scope.
-- `easel/src/computer-use.mjs` adapts that client to a host-selected machine and
+- `aesel/src/computer-use.mjs` adapts that client to a host-selected machine and
   browser target, removing those choices from model-facing schemas and rejecting
   argument attempts to override them. No tools are enabled by default.
 
@@ -173,13 +173,13 @@ const result = await computer.call("puppet_shot", { fresh: true });
 
 The current engine paths differ:
 
-- `easel/src/app-server.mjs` launches Codex app-server. Actual MCP availability
+- `aesel/src/app-server.mjs` launches Codex app-server. Actual MCP availability
   depends on that host's configuration and runtime policies.
-- `easel/src/claude-server.mjs` uses `--strict-mcp-config` and admits Aesel's
+- `aesel/src/claude-server.mjs` uses `--strict-mcp-config` and admits Aesel's
   own `ac` tools. Frame/Puppet are **not inherited** from ordinary Claude config.
   Integrating them needs an explicit host-selected tool configuration; do not
   remove strict mode or silently add them to its preapproved read-only tools.
-- `easel/src/ac-server.mjs` currently offers `write_piece` only. Its model loop
+- `aesel/src/ac-server.mjs` currently offers `write_piece` only. Its model loop
   and hosted endpoint must explicitly support additional tool schemas and image
   results before this adapter is connected to hosted inference.
 - An iPhone's loopback address is the phone, not a fleet Mac. Remote computer use

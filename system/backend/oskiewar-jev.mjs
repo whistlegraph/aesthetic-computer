@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { evaluateChoices } from '../../easel/src/jev-decisions.mjs';
+import { evaluateChoices } from '../../aesel/src/jev-decisions.mjs';
 import { decisionRequest, buttons } from '../../xbox/live/jev-vs-jev/model.mjs';
 
 export const MATCH_MS = 60_000;

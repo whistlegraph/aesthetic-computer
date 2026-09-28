@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { once } from "node:events";
-import { createAeselComputerUse } from "../../easel/src/computer-use.mjs";
+import { createAeselComputerUse } from "../../aesel/src/computer-use.mjs";
 
 for (const name of ["frame", "puppet"]) test(`${name}: stdio and HTTP expose identical guidance, schemas, and errors`, async t => {
   const messages = [

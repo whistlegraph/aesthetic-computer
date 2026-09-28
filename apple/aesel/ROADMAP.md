@@ -63,7 +63,7 @@ flowchart TD
     Session --> Publish[Explicit publication policy and receipts]
 ```
 
-Reuse the adapters in [`easel/src`](../../easel/src/): `ac-server.mjs`,
+Reuse the adapters in [`aesel/src`](../../aesel/src/): `ac-server.mjs`,
 `claude-server.mjs`, `app-server.mjs`, `backends.mjs`, `provider-picker.mjs`,
 and `provider-preferences.mjs`. WebKit cannot replace a subprocess or filesystem
 with a browser shim. A native helper or paired host must provide those services.
@@ -129,7 +129,7 @@ and defined local versus shared sign-out. See [INTEGRATION.md](INTEGRATION.md).
 
 Audit existing transcript-sharing behavior before claiming local-only or private
 use. Desktop has required disclosure/acceptance logic in
-[`required-sharing.mjs`](../../easel/src/required-sharing.mjs); the native flow
+[`required-sharing.mjs`](../../aesel/src/required-sharing.mjs); the native flow
 must either enforce the same account-bound contract or adopt an explicitly
 revised policy. Source publication, transcript sharing, preview runtime requests,
 and inference traffic are separate disclosures. Guest access must not inherit
@@ -193,7 +193,7 @@ composer, or preview controls. Check VoiceOver and reduced motion on-device.
 | Paper | Run a supported TeX toolchain on an available host; show source and PDF. Preserve bibliography, consulted sources, embedded source bundle, and visual QA state. | Build, inspect rendered pages, record QA against that exact PDF hash, export matching sources; a compile alone never marks it ready. |
 | Game Boy | Compile with the existing GBDK toolchain, preview the resulting ROM with the existing emulator, and adapt joypad/gamepad input. | Build and play a real ROM, export exact bytes, show when source is newer than the last successful build. |
 
-Use the contracts in [`easel/media`](../../easel/media/) rather than introducing
+Use the contracts in [`aesel/media`](../../aesel/media/) rather than introducing
 new artifact formats. Optional dependencies must have capability checks and
 useful errors. Keep unsupported lanes unavailable until their outputs are real.
 Sound, Paper, and Game Boy need an explicit publication implementation before

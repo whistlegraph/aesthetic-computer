@@ -5,14 +5,14 @@
 #   ./release-mac.sh            → dist/aesel-<version>-arm64.dmg, notarized + stapled
 #   ./release-mac.sh publish    → upload that DMG, then pack the TUI tarball
 #
-# Version = easel/package.json (the TUI and app share it); build = commit count.
+# Version = aesel/package.json (the TUI and app share it); build = commit count.
 # Notarization reads APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID;
 # publishing reads SPACES_KEY / SPACES_SECRET. Neither is stored here.
 set -euo pipefail
 cd "$(dirname "$0")"
 HERE=$(pwd)
 REPO=$(cd ../.. && pwd)
-VERSION=$(node -p "require('$REPO/easel/package.json').version")
+VERSION=$(node -p "require('$REPO/aesel/package.json').version")
 BUILD=$(git -C "$REPO" rev-list --count HEAD)
 IDENTITY="Developer ID Application: Jeffrey Scudder (FB5948YR3S)"
 NODE_VERSION=${NODE_VERSION:-v24.18.1}
@@ -40,7 +40,7 @@ publish() {
     "${s3[@]}" "$DIST/latest.json" "s3://releases-aesthetic-computer/aesel/mac/latest.json" \
         --content-type application/json --cache-control no-cache
     # The same version for terminal-only installs (easel.sh, Linux).
-    node "$REPO/easel/bin/pack.mjs"
+    node "$REPO/aesel/bin/pack.mjs"
     echo "published https://releases.aesthetic.computer/aesel/mac/$(basename "$DMG")"
 }
 [[ "${1:-}" == publish ]] && { publish; exit 0; }
@@ -77,12 +77,12 @@ ditto "$BUILT" "$APP"
 
 # The terminal half: the TUI's source tree, without install.json, so its
 # self-updater leaves the bundle alone — the app's release updates it.
-EASEL="$APP/Contents/Resources/easel"
-mkdir -p "$EASEL"
+AESEL="$APP/Contents/Resources/aesel"
+mkdir -p "$AESEL"
 for entry in bin src shell context media layouts native shared package.json README.md LICENSE; do
-    [[ -e "$REPO/easel/$entry" ]] && rsync -a --exclude '.update-check.json' "$REPO/easel/$entry" "$EASEL/"
+    [[ -e "$REPO/aesel/$entry" ]] && rsync -a --exclude '.update-check.json' "$REPO/aesel/$entry" "$AESEL/"
 done
-rm -f "$EASEL/install.json"
+rm -f "$AESEL/install.json"
 
 # Node, from nodejs.org, checked against its published SHA-256.
 mkdir -p "$CACHE"
@@ -94,8 +94,8 @@ mkdir -p "$APP/Contents/Helpers"
 tar -xzf "$CACHE/$TARBALL" -C "$APP/Contents/Helpers" --strip-components 2 "node-$NODE_VERSION-darwin-arm64/bin/node"
 
 # Inside out: the TUI's own binaries (frame-ocr), Node, then the app, whose
-# seal now covers Resources/easel.
-find "$EASEL" -type f -perm -u+x -print0 | while IFS= read -r -d '' file; do
+# seal now covers Resources/aesel.
+find "$AESEL" -type f -perm -u+x -print0 | while IFS= read -r -d '' file; do
     if file -b "$file" | grep -q Mach-O; then
         codesign --force --options runtime --timestamp -s "$IDENTITY" "$file"
     fi

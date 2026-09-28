@@ -143,7 +143,7 @@ extension EnvironmentValues {
     }
 }
 
-/// The shared renderer's native Prox lettering (easel/shared/native/credit-label.swift),
+/// The shared renderer's native Prox lettering (aesel/shared/native/credit-label.swift),
 /// drawn with a light face, a dark edge and tight cyan, purple and pink accents.
 /// One cached image per letter lets the notebook
 /// tilt and sway each one on its own.

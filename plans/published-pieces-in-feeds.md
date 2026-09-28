@@ -6,7 +6,7 @@ half of "why don't recent pieces show up on mime".
 
 ## What happens today
 
-`publish` — from Easel (`easel/src/publish.mjs`) or the web prompt
+`publish` — from Easel (`aesel/src/publish.mjs`) or the web prompt
 (`bios.mjs:21213`) — does three things and no more:
 
 1. `GET /presigned-upload-url/<ext>/piece-<slug>.<ext>/user`

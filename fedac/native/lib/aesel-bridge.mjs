@@ -1,6 +1,6 @@
 // aesel-bridge.mjs — the Claude engine bridge, for a piece.
 //
-// This is easel/src/claude-server.mjs with the process taken out. Easel's
+// This is aesel/src/claude-server.mjs with the process taken out. Easel's
 // bridge owns a child process and an event emitter; a native piece has
 // neither. What it has is a raw PTY that hands it whole lines once a frame
 // (system.pty2.lines) and a write() for lines going the other way. So this

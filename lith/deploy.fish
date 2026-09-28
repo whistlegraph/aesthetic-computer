@@ -308,7 +308,7 @@ end
 # the installer can never point at a version older than the source that shipped
 # with it.
 echo -e "$GREEN-> Packing the Easel installer tarball...$NC"
-ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && node easel/bin/pack.mjs" 2>&1 | tail -2
+ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && node aesel/bin/pack.mjs" 2>&1 | tail -2
 
 echo -e "$GREEN-> Refreshing notepat.com.amxd build stream...$NC"
 if test $SPACES_READY = true

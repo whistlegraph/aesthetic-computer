@@ -2,14 +2,14 @@
 import Foundation
 
 /// The direct (Developer ID) build carries the terminal half of Aesel:
-/// `Contents/Resources/easel` plus Node in `Contents/Helpers`. On launch it
+/// `Contents/Resources/aesel` plus Node in `Contents/Helpers`. On launch it
 /// links `aesel` (this app) and `aes` (the TUI) into ~/.local/bin and installs
 /// the Claude/Codex host, once per app version. The sandboxed build has
 /// neither folder and does nothing here.
 enum AeselTerminal {
     static func install() {
         let bundle = Bundle.main.bundleURL
-        let easel = bundle.appendingPathComponent("Contents/Resources/easel")
+        let easel = bundle.appendingPathComponent("Contents/Resources/aesel")
         let node = bundle.appendingPathComponent("Contents/Helpers/node")
         let files = FileManager.default
         guard ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] == nil,
@@ -31,7 +31,9 @@ enum AeselTerminal {
             let path = bin.appendingPathComponent(name).path
             let target = easel.appendingPathComponent("bin/\(name)").path
             if let existing = try? files.destinationOfSymbolicLink(atPath: path) {
-                guard existing != target, existing.contains(".app/Contents/Resources/easel/") else { continue }
+                // An app-bundle link from before the rename (Resources/easel) is ours too.
+                guard existing != target, existing.contains(".app/Contents/Resources/aesel/")
+                        || existing.contains(".app/Contents/Resources/easel/") else { continue }
                 try? files.removeItem(atPath: path)
             } else if files.fileExists(atPath: path) {
                 continue

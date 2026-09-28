@@ -1,7 +1,7 @@
 // Company-private Easel transcripts. Authentication is always server verified;
 // a configured staff subject allowlist is required for raw reads.
 import { createHash } from 'node:crypto';
-import { parseTranscript, serializeTranscript, MAX_BATCH_BYTES } from '../../easel/src/transcript-format.mjs';
+import { parseTranscript, serializeTranscript, MAX_BATCH_BYTES } from '../../aesel/src/transcript-format.mjs';
 const COLLECTION='easel-transcripts-private';
 const DAY=86400000;
 const ID=/^[a-zA-Z0-9_-]{1,80}$/;

@@ -71,7 +71,7 @@ struct SessionSummary: Identifiable {
 }
 
 /// The whole of what SwiftUI observes. It holds no logic about turns, tools or
-/// publishing — those live in `easel/phone/session.mjs`, shared with the
+/// publishing — those live in `aesel/phone/session.mjs`, shared with the
 /// desktop. This is the projection of that session's event stream into
 /// something a view can draw.
 @Observable

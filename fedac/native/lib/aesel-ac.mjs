@@ -1,6 +1,6 @@
 // aesel-ac.mjs — the Aesthetic Computer engine bridge, for a piece.
 //
-// easel/src/ac-server.mjs without Node. The hosted engine needs no vendor
+// aesel/src/ac-server.mjs without Node. The hosted engine needs no vendor
 // binary: the piece POSTs to aesthetic.computer, which buys the inference and
 // meters it against the device's @handle, and the reply is a server-sent-event
 // stream in Anthropic's shape. Nothing runs the agent loop for us, so the loop

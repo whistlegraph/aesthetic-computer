@@ -47,7 +47,7 @@ targets:
         PRODUCT_NAME: Aesel
         INFOPLIST_FILE: MacInfo.plist
         CODE_SIGN_ENTITLEMENTS: Mac.entitlements
-        # release-mac.sh stamps both from easel/package.json and the commit count.
+        # release-mac.sh stamps both from aesel/package.json and the commit count.
         MARKETING_VERSION: "0.8.0"
         CURRENT_PROJECT_VERSION: "1"
         ENABLE_HARDENED_RUNTIME: YES

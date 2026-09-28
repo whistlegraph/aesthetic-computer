@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseEnv } from 'node:util';
-import { evaluateChoices } from '../../easel/src/jev-decisions.mjs';
+import { evaluateChoices } from '../../aesel/src/jev-decisions.mjs';
 
 // Loaded only for an explicit decision request. Never attach credentials to
 // browser state, MCP replies, logs, or the page itself.

@@ -763,7 +763,7 @@ final class PromptPreview {
         }
     }
 
-    // Mirrors easel/src/frame-capture-script.mjs; no request-supplied JavaScript.
+    // Mirrors aesel/src/frame-capture-script.mjs; no request-supplied JavaScript.
     private static let frameCaptureExpression = #"""
 (()=>{
  try {

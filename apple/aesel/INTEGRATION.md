@@ -155,7 +155,7 @@ Saved notebooks survive logout, but remain behind account setup until verified.
 - [Shared Keychain access](https://developer.apple.com/documentation/security/sharing-access-to-keychain-items-among-a-collection-of-apps)
 - Existing AC iOS client: `apple/aesthetic.computer/ContentView.swift`
 - aesel iOS host: `apple/aesel/Sources/SessionHost.swift`
-- Mac sign-in: `easel/src/ac-session.mjs` in `/Users/jas/ac-easel-media`
+- Mac sign-in: `aesel/src/ac-session.mjs` in `/Users/jas/ac-easel-media`
 
 ## Home, identity and model visibility
 
