@@ -312,7 +312,7 @@ test("prox_send drops a line in a local rock's inbox and prox_inbox reads it", a
   const env = { SLAB_HOME: slabHome };
 
   const sent = await callProx(home, "prox_send", { handle: "neo:surizu", text: "look at the diff" }, env);
-  assert.match(sent, /^sent to neo:surizu via file as «neo:prox» \(queue, id [0-9a-f-]{36}\)\.$/);
+  assert.match(sent, /^sent to neo:surizu via file as «neo:prox» \(queue, id [0-9a-f-]{36}\)\.\nreceiver sees: \[inbox from neo:prox · [\d: -]{16}\] │ look at the diff\nnote: surizu is complete; a file drop is read at its next prompt — prox_wake to nudge it\.$/);
   const lines = (await readFile(join(slabHome, "inbox", id, "messages.jsonl"), "utf8")).trim().split("\n");
   assert.equal(lines.length, 1);
   const message = JSON.parse(lines[0]);
@@ -326,7 +326,7 @@ test("prox_send drops a line in a local rock's inbox and prox_inbox reads it", a
   assert.match(tooLong, /exceeds 8000/);
 
   const peeked = await callProx(home, "prox_inbox", { handle: "neo:surizu" }, env);
-  assert.match(peeked, /^1 pending message\(s\) for neo:surizu:\n\[inbox from neo:prox · \d{4}-\d{2}-\d{2} \d{2}:\d{2}\] look at the diff$/);
+  assert.match(peeked, /^1 pending message\(s\) for neo:surizu:\n\[inbox from neo:prox · \d{4}-\d{2}-\d{2} \d{2}:\d{2}\]\n  │ look at the diff$/);
   const own = await callProx(home, "prox_inbox", { consume: true }, { ...env, CLAUDE_SESSION_ID: id });
   assert.match(own, /^1 drained message\(s\) for this session \(eeeeeeee\):/);
   assert.match(await callProx(home, "prox_inbox", { handle: "neo:surizu" }, env), /is empty\.$/);
@@ -380,4 +380,90 @@ test("aesel and easel name the same agent type and namespace", async () => {
   assert.match(await callProx(home,"prox_find",{handle:"aesel:blueberry:bugo"}),/1 match/);
   const listed = await callProx(home,"prox_list",{agent:"aesel",all:true});
   assert.match(listed,/blueberry/); assert.match(listed,/neo/);
+});
+
+test("prox_send signs with the calling session's own host:name", async () => {
+  const home = await mkdtemp(join(tmpdir(), "prox-mcp-test-"));
+  const target = "eeeeeeee-1111-2222-3333-444444444444";
+  const caller = "ffffffff-1111-2222-3333-444444444444";
+  const { slabDir } = await ordinaryRock(home, target);
+  const ledger = join(slabDir, "ledger", "local.json");
+  const local = JSON.parse(await readFile(ledger, "utf8"));
+  local.entries.push({ ...local.entries[0], id: caller, name: "nid", subject: "the sender" });
+  await writeFile(ledger, JSON.stringify(local));
+  const inbox = join(home, ".local", "share", "slab");
+  const env = { SLAB_HOME: inbox };
+
+  // a per-session stdio child inherits the session id from the harness
+  const viaEnv = await callProx(home, "prox_send", { handle: "neo:surizu", text: "hi" }, { ...env, CLAUDE_SESSION_ID: caller });
+  assert.match(viaEnv, /as «neo:nid»/);
+  assert.match(viaEnv, /reply: prox_send handle="neo:nid"/);
+  // an explicit `by` still wins
+  assert.match(await callProx(home, "prox_send", { handle: "neo:surizu", text: "hi", by: "neo:custom" }, { ...env, CLAUDE_SESSION_ID: caller }), /as «neo:custom»/);
+  // an id that is no rock falls back to the anonymous sender
+  assert.match(await callProx(home, "prox_send", { handle: "neo:surizu", text: "hi" }, { ...env, CLAUDE_SESSION_ID: "no-such-rock" }), /as «neo:prox»/);
+});
+
+test("prox_send refuses an ambiguous handle as an error that lists candidates", async () => {
+  const home = await mkdtemp(join(tmpdir(), "prox-mcp-test-"));
+  const { slabDir } = await ordinaryRock(home, "eeeeeeee-1111-2222-3333-444444444444");
+  const ledger = join(slabDir, "ledger", "local.json");
+  const local = JSON.parse(await readFile(ledger, "utf8"));
+  local.entries.push({ ...local.entries[0], id: "ffffffff-1111-2222-3333-444444444444", name: "surizo" });
+  await writeFile(ledger, JSON.stringify(local));
+  const env = { SLAB_HOME: join(home, ".local", "share", "slab") };
+
+  const child = spawn(process.execPath, [prox], { env: { ...process.env, HOME: home, ...env }, stdio: ["pipe", "pipe", "pipe"] });
+  let stdout = "";
+  child.stdout.on("data", (c) => { stdout += c; });
+  child.stdin.end(`${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "prox_send", arguments: { handle: "neo:suriz", text: "hi" } } })}\n`);
+  await once(child, "close");
+  const result = JSON.parse(stdout.trim()).result;
+  assert.equal(result.isError, true);
+  assert.match(result.content[0].text, /ambiguous — nothing sent\. Candidates: neo:surizu \(complete, \d+s\), neo:surizo \(complete, \d+s\)/);
+});
+
+// The shared daemon cannot read the caller's env. Claude Code forwards no
+// header, so the daemon finds the caller by whoever owns the loopback socket.
+async function withDaemon(home, env, run) {
+  const port = 20000 + Math.floor(Math.random() * 20000);
+  const daemon = spawn(process.execPath, [prox, "--http", String(port)], {
+    env: { ...process.env, HOME: home, ...env }, stdio: ["ignore", "ignore", "pipe"],
+  });
+  let banner = "";
+  daemon.stderr.setEncoding("utf8");
+  daemon.stderr.on("data", (c) => { banner += c; });
+  for (let i = 0; i < 100 && !banner.includes("on http://"); i++) await new Promise((r) => setTimeout(r, 50));
+  try {
+    return await run(async (args, headers = {}) => {
+      const res = await fetch(`http://127.0.0.1:${port}`, {
+        method: "POST",
+        headers: { "content-type": "application/json", connection: "close", ...headers },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "prox_send", arguments: args } }),
+      });
+      return (await res.json()).result.content[0].text;
+    });
+  } finally {
+    daemon.kill();
+  }
+}
+
+test("the shared daemon signs a send by forwarded header or by the connection's owning process", async () => {
+  const home = await mkdtemp(join(tmpdir(), "prox-mcp-test-"));
+  const target = "eeeeeeee-1111-2222-3333-444444444444";
+  const other = "ffffffff-1111-2222-3333-444444444444";
+  const { slabDir } = await ordinaryRock(home, target); // marker: claude_pid = this test process
+  const ledger = join(slabDir, "ledger", "local.json");
+  const local = JSON.parse(await readFile(ledger, "utf8"));
+  local.entries.push({ ...local.entries[0], id: other, name: "nid" });
+  await writeFile(ledger, JSON.stringify(local));
+  // the daemon's own env names an unrelated session; it must never be used
+  const env = { SLAB_HOME: join(home, ".local", "share", "slab"), CLAUDE_SESSION_ID: other };
+
+  await withDaemon(home, env, async (send) => {
+    // no header: this process owns the socket and is `surizu`'s marker pid
+    assert.match(await send({ handle: "neo:nid", text: "a" }), /as «neo:surizu»/);
+    // a forwarded header wins over the socket owner
+    assert.match(await send({ handle: "neo:surizu", text: "b" }, { "x-slab-prompt-session-id": other }), /as «neo:nid»/);
+  });
 });

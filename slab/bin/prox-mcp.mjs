@@ -297,19 +297,80 @@ async function toolPoke({ handle, by }) {
 // ── inbox: hand a session words, not keystrokes ─────────────────────────────
 // Same resolution as a poke. A local rock takes the line socket-first then
 // file; a remote one gets it through its owner's /send, which does the same.
-async function toolSend({ handle, text, urgency = "queue", by }) {
-  if (!handle) throw new Error("`handle` is required (a `host:name` or fuzzy name; see prox_find).");
-  const hits = resolve(await allRocks(), handle);
-  if (!hits.length) throw new Error(`no rock resolves «${handle}» to send to.`);
-  if (hits.length > 1) {
-    return [{ type: "text", text: `«${handle}» is ambiguous (${hits.map((r) => `${r.host}:${r.name}`).join(", ")}). Send to a specific host:name.` }];
+// ── who is calling ───────────────────────────────────────────────────────────
+// prox runs as one shared HTTP daemon, so its own process.env says nothing
+// about the caller. In order: the session id a harness forwards as a header;
+// the process env, but only when we are a per-session stdio child; and, for
+// Claude Code (which forwards nothing), the process that owns the caller's
+// end of the loopback socket — its pid, or an ancestor's, is in a session marker.
+const isLoopback = (a) => ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(a);
+
+async function markerPids() {
+  const pids = new Map();
+  for (const dir of MARKER_DIRS) {
+    for (const name of await readdir(dir).catch(() => [])) {
+      const m = await readJson(join(dir, name));
+      const pid = Number(m?.agent_pid || m?.claude_pid || 0);
+      if (pid > 0) pids.set(pid, name);
+    }
   }
+  return pids;
+}
+
+async function sessionByPeerPort(port) {
+  const { stdout } = await pexec("lsof", ["-nP", "-a", `-iTCP:${port}`, "-sTCP:ESTABLISHED", "-Fp"], { timeout: 1500 }).catch(() => ({ stdout: "" }));
+  const owners = stdout.split("\n").filter((l) => l.startsWith("p")).map((l) => Number(l.slice(1))).filter((p) => p > 0 && p !== process.pid);
+  if (!owners.length) return null;
+  const markers = await markerPids();
+  for (const owner of owners) {
+    let pid = owner;
+    for (let hop = 0; hop < 8 && pid > 1; hop++) {
+      if (markers.has(pid)) return markers.get(pid);
+      const { stdout: ppid } = await pexec("ps", ["-o", "ppid=", "-p", String(pid)], { timeout: 1000 }).catch(() => ({ stdout: "" }));
+      pid = Number(ppid.trim()) || 0;
+    }
+  }
+  return null;
+}
+
+async function callerSessionId(context) {
+  const header = context?.headers?.["x-slab-prompt-session-id"];
+  if (typeof header === "string" && header) return header;
+  if (!context) return process.env.AGENT_SESSION_ID || process.env.CLAUDE_SESSION_ID || process.env.SLAB_PROMPT_SESSION_ID || null;
+  if (isLoopback(context.remoteAddress) && context.remotePort) return sessionByPeerPort(context.remotePort);
+  return null;
+}
+
+// The caller's real `host:name`, or null when it can't be told (then the
+// message goes out as `<host>:prox`, exactly as before).
+async function callerHandle(context, rocks) {
+  const id = await callerSessionId(context);
+  const rock = id && rocks.find((r) => r.self && r.id === id);
+  return rock ? `${rock.host}:${rock.name}` : null;
+}
+
+const candidates = (hits) => hits.map((r) => `${r.host}:${r.name} (${r.status}, ${age(r.updated)})`).join(", ");
+
+async function toolSend({ handle, text, urgency = "queue", by }, context) {
+  if (!handle) throw new Error("`handle` is required (a `host:name` or fuzzy name; see prox_find).");
+  const rocks = await allRocks();
+  const hits = resolve(rocks, handle);
+  if (!hits.length) throw new Error(`no rock resolves «${handle}» to send to.`);
+  if (hits.length > 1) throw new Error(`«${handle}» is ambiguous — nothing sent. Candidates: ${candidates(hits)}. Send to a specific host:name.`);
   const r = hits[0];
   const self = (await readJson(LOCAL_FILE))?.host || hostname().split(".")[0];
-  const message = makeMessage({ from: by || `${self}:prox`, to: `${r.host}:${r.name}`, toId: r.id, text, urgency });
+  const from = by || (await callerHandle(context, rocks)) || `${self}:prox`;
+  const message = makeMessage({ from, to: `${r.host}:${r.name}`, toId: r.id, text, urgency });
+  // What the sender learns: where it went, exactly how the receiver will read
+  // it, and — for a file drop to a session that is not mid-turn — when.
+  const receipt = (via, where) => {
+    const idle = via === "file" && r.status !== "working"
+      ? `\nnote: ${r.name} is ${r.status}; a file drop is read at its next prompt — prox_wake to nudge it.` : "";
+    return [{ type: "text", text: `sent to ${r.host}:${r.name} via ${where} as «${message.from}» (${urgency}, id ${message.id}).\nreceiver sees: ${clip(stamp(message), 400)}${idle}` }];
+  };
   if (r.self) {
     const { via } = await deliverLocal(message);
-    return [{ type: "text", text: `sent to ${r.host}:${r.name} via ${via} as «${message.from}» (${urgency}, id ${message.id}).` }];
+    return receipt(via, via);
   }
   if (!r.ip) throw new Error(`no tailnet ip known for ${r.host} — can't reach its inbox.`);
   const body = JSON.stringify(message);
@@ -322,13 +383,13 @@ async function toolSend({ handle, text, urgency = "queue", by }) {
   let result;
   try { result = await res.json(); } catch { throw new Error(`${r.host} returned an invalid /send response (HTTP ${res.status}).`); }
   if (!res.ok || !result.ok) throw new Error(`send to ${r.host}:${r.name} failed: ${result.error || `HTTP ${res.status}`}`);
-  return [{ type: "text", text: `sent to ${r.host}:${r.name} via remote (${result.via || "?"} on ${r.host}) as «${message.from}» (${urgency}, id ${message.id}).` }];
+  return receipt(result.via, `remote (${result.via || "?"} on ${r.host})`);
 }
 
 // Reading is local only — an inbox is private to the machine that owns the
 // session. No handle means "my own", found through the session id the
 // harness exports to its children.
-async function toolInbox({ handle, consume = false } = {}) {
+async function toolInbox({ handle, consume = false } = {}, context) {
   let id;
   let label;
   if (handle) {
@@ -339,8 +400,8 @@ async function toolInbox({ handle, consume = false } = {}) {
     if (!r.self) throw new Error(`${r.host}:${r.name} runs on another machine — its inbox is only readable there.`);
     id = r.id; label = `${r.host}:${r.name}`;
   } else {
-    id = process.env.AGENT_SESSION_ID || process.env.CLAUDE_SESSION_ID || process.env.SLAB_PROMPT_SESSION_ID;
-    if (!id) throw new Error("`handle` is required — this process has no AGENT_SESSION_ID / CLAUDE_SESSION_ID to read its own inbox.");
+    id = await callerSessionId(context);
+    if (!id) throw new Error("`handle` is required — can't tell which session is calling (no forwarded session id, env id, or session owning this connection).");
     label = `this session (${id.slice(0, 8)})`;
   }
   const messages = consume ? await drain(id) : await peek(id);
@@ -735,7 +796,7 @@ const TOOLS = [
         handle: { type: "string", description: "`host:name` or a name that resolves to exactly one rock." },
         text: { type: "string", description: "The message, at most 8000 characters." },
         urgency: { type: "string", enum: ["queue", "urgent"], default: "queue", description: "`queue` waits for the next turn boundary; `urgent` lets a socket-listening harness interrupt its turn." },
-        by: { type: "string", description: "Sender shown to the receiver as host:name. Defaults to <thisHost>:prox." },
+        by: { type: "string", description: "Sender shown to the receiver as host:name. Defaults to the calling session's own host:name (resolved from the connection), else <thisHost>:prox." },
       },
       required: ["handle", "text"],
     },
@@ -841,13 +902,13 @@ const TOOLS = [
   },
 ];
 
-async function callTool(name, args) {
+async function callTool(name, args, context) {
   switch (name) {
     case "prox_list": return toolList(args || {});
     case "prox_find": return toolFind(args || {});
     case "prox_poke": return toolPoke(args || {});
-    case "prox_send": return toolSend(args || {});
-    case "prox_inbox": return toolInbox(args || {});
+    case "prox_send": return toolSend(args || {}, context);
+    case "prox_inbox": return toolInbox(args || {}, context);
     case "prox_wake": return toolWake(args || {});
     case "prox_launch": return toolLaunch(args || {});
     case "prox_job": return toolJob(args || {});
@@ -861,7 +922,7 @@ async function callTool(name, args) {
   }
 }
 
-async function handleMessage(message) {
+async function handleMessage(message, context) {
   const { id, method, params } = message;
   try {
     switch (method) {
@@ -882,7 +943,7 @@ async function handleMessage(message) {
       case "tools/list":
         return { jsonrpc: "2.0", id, result: { tools: TOOLS } };
       case "tools/call": {
-        const content = await callTool(params?.name, params?.arguments);
+        const content = await callTool(params?.name, params?.arguments, context);
         return { jsonrpc: "2.0", id, result: { content } };
       }
       default:

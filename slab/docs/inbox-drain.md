@@ -11,7 +11,8 @@ Output is one block:
 
 ```
 Messages from other sessions (via prox inbox):
-[inbox from neo:sip · 2026-09-23 17:58] look at the diff
+[inbox from neo:sip · 2026-09-23 17:58 · reply: prox_send handle="neo:sip"]
+  │ look at the diff
 ```
 
 ## Claude Code

@@ -42,7 +42,7 @@ export function serveHttp({ handleMessage, port, host = "127.0.0.1", banner }) {
       // daemons cannot identify the calling Codex session from process.env;
       // callers can instead forward narrowly allow-listed environment values
       // as headers via `env_http_headers`.
-      const context = { headers: req.headers, remoteAddress: req.socket.remoteAddress };
+      const context = { headers: req.headers, remoteAddress: req.socket.remoteAddress, remotePort: req.socket.remotePort };
       const response = Array.isArray(message)
         ? (await Promise.all(message.filter(answerable).map((item) => handleMessage(item, context)))).filter(Boolean)
         : answerable(message) ? await handleMessage(message, context) : null;

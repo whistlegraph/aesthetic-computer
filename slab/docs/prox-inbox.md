@@ -79,18 +79,35 @@ it never focuses, pastes, or signals anything.
   files left by a drainer that died are picked up on the next drain.
 - `peek(sessionId)`: read without consuming.
 - `stamp(message, now?)`: what the model sees —
-  `[inbox from neo:sip · 2026-09-23 17:58] look at the diff`. The clock is the
-  receiver's local zone, the moment is `ts` (send time), `now` only fills in
-  for a line without one. An urgent message reads
-  `[inbox from neo:sip · 2026-09-23 17:58 · urgent] stop`.
+  ```
+  [inbox from neo:sip · 2026-09-23 17:58 · reply: prox_send handle="neo:sip"]
+    │ look at the diff
+  ```
+  The clock is the receiver's local zone, the moment is `ts` (send time), `now`
+  only fills in for a line without one. An urgent message adds `· urgent` before
+  the reply hint. The `reply:` hint appears for any real sender and is left off
+  the anonymous `<host>:prox` fallback. Every body line is indented under `│`, so
+  no line of a body can pass for a second `[inbox from …]` header, and the
+  sender label is stripped of newlines, quotes and brackets. `from` is still
+  self-reported — `/send` is unauthenticated.
 
 ## surfaces
 
 - MCP (`slab/bin/prox-mcp.mjs`): `prox_send { handle, text, urgency?, by? }`
-  resolves the handle like `prox_poke` (refuses ambiguity), delivers locally
-  or POSTs `/send`. `prox_inbox { handle?, consume? }` peeks (or drains) a
-  local session's queue; without `handle` it uses the caller's own session
-  from `AGENT_SESSION_ID` / `CLAUDE_SESSION_ID`.
+  resolves the handle like `prox_poke`, delivers locally or POSTs `/send`. An
+  ambiguous handle is an error listing each candidate's status and age — nothing
+  is sent. `from` defaults to the calling session's own `host:name`, else
+  `<host>:prox`; `by` overrides. The result echoes what the receiver will see,
+  and for a file drop to a session that is not mid-turn says it is read at its
+  next prompt (`prox_wake` to nudge). `prox_inbox { handle?, consume? }` peeks
+  (or drains) a local session's queue; without `handle` it uses the caller's own.
+- Who is calling. prox runs as one shared HTTP daemon, so its own env says
+  nothing about a caller. In order: the `x-slab-prompt-session-id` header a
+  harness forwards; the env (`AGENT_SESSION_ID` / `CLAUDE_SESSION_ID` /
+  `SLAB_PROMPT_SESSION_ID`) only for a per-session stdio child; then, for a
+  loopback HTTP caller that forwards nothing (Claude Code), the process owning
+  its end of the socket (`lsof`), matched — itself or an ancestor — against the
+  session markers' `agent_pid`/`claude_pid`. Unknown callers fall back to `<host>:prox`.
 - CLI: `node slab/bin/prox-inbox.mjs deliver <session_id> --from host:name --text "..." [--urgency urgent]`,
   `peek <id> [--stamped]`, `drain <id> [--stamped]`.
 

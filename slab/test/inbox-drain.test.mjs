@@ -88,7 +88,7 @@ test("prompt: pending messages become UserPromptSubmit additionalContext and are
   assert.equal(json.hookSpecificOutput.hookEventName, "UserPromptSubmit");
   const ctx = json.hookSpecificOutput.additionalContext;
   assert.ok(ctx.startsWith("Messages from other sessions (via prox inbox):\n"));
-  assert.match(ctx, /\[inbox from neo:sip · 2026-09-23 17:58\] ship it\n/);
+  assert.match(ctx, /\[inbox from neo:sip · 2026-09-23 17:58 · reply: prox_send handle="neo:sip"\]\n  │ ship it\n/);
   assert.match(ctx, /then nap$/);
   const again = await run(drainPath, home, ["prompt"], payload({}));
   assert.equal(again.stdout, "", "second drain finds nothing");
@@ -110,7 +110,7 @@ test("stop: pending messages block the stop with header + stamped lines", async 
   assert.equal(r.code, 0, r.stderr);
   const json = JSON.parse(r.stdout);
   assert.equal(json.decision, "block");
-  assert.equal(json.reason, "Messages from other sessions (via prox inbox):\n[inbox from neo:sip · 2026-09-23 17:58] look at the diff");
+  assert.equal(json.reason, "Messages from other sessions (via prox inbox):\n[inbox from neo:sip · 2026-09-23 17:58 · reply: prox_send handle=\"neo:sip\"]\n  │ look at the diff");
 });
 
 test("stop: empty inbox is silent, also inside a continuation", async (t) => {
