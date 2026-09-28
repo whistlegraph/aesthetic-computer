@@ -295,6 +295,9 @@ const state = {
   // engine reports can say. `/energy` prints the working; energy.mjs holds the
   // arithmetic and the caveat.
   energy: new Energy(),
+  // Tokens and dollars on this thread. The dollars are what the provider
+  // billed (OpenRouter reports it per response), never an estimate.
+  spend: { thread: "", tokens: 0, usd: 0, billed: false },
   qr: null,
   // The prompt rock in the menu bar draws this session's code at real pixel
   // resolution, so the transcript does not spend seventeen rows on a worse
@@ -1333,9 +1336,15 @@ function handleNotification({ method, params = {} }) {
       slabSession.working();
       transcript.event("turn", { status: "started", id: engine.turnId || "" });
       break;
-    case "turn/usage":
+    case "turn/usage": {
       state.energy.add(params.model || state.model || model, params.usage);
+      const thread = engine.threadId || "";
+      if (state.spend.thread !== thread) state.spend = { thread, tokens: 0, usd: 0, billed: false };
+      const u = params.usage || {};
+      state.spend.tokens += (u.input_tokens || 0) + (u.output_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+      if (typeof u.cost === "number") { state.spend.usd += u.cost; state.spend.billed = true; }
       break;
+    }
     case "turn/progress":
       state.status = params.phase || "working";
       if (["connecting", "waiting", "composing"].includes(state.status)) {

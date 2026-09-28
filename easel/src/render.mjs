@@ -1153,7 +1153,23 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
     line += name === "handle" && text.startsWith("@") ? coloredHandle(text, breathingHandle(text, state), useColor) : hovered && useColor ? paint(useColor, "muted", `\x1b[4m${text}\x1b[24m`) : muted(text);
     x += textWidth(text);
   }
+  // What this thread has cost, flush right: tokens always, dollars when the
+  // provider billed them.
+  const spend = spendText(state.spend);
+  if (spend && x + 3 + textWidth(spend) <= width - 1) {
+    line += " ".repeat(width - 1 - x - textWidth(spend)) + muted(spend);
+    x = width - 1;
+  }
   return { line, spans };
+}
+
+function spendText(spend) {
+  if (!spend?.tokens) return "";
+  const n = spend.tokens;
+  const tokens = n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : `${n}`;
+  if (!spend.billed) return `${tokens} tok`;
+  const usd = spend.usd;
+  return `${tokens} tok · $${usd < 0.01 ? usd.toFixed(4) : usd < 1 ? usd.toFixed(3) : usd.toFixed(2)}`;
 }
 
 export function transcriptLineCount(state, columns = 80, rows = 24, useColor = true) {
