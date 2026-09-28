@@ -7,7 +7,7 @@ function playground(legacyAudio=false){
  let now=1e6;const noop=()=>{},audio=[],drums=[];
  const api=new Function('runtime','capabilities','telemetry','gameSignal','drum','wipe','box','line','triangle','write','systemWrite','oscillator','oscillatorStop',`${source}
  configureWorldMap('skatepark','pool');fightOpponent='freeskate';gameMode='fight';
- return {beginFreeskate,monowheel,parkAxes,freeItemArm,assignedItemArm,heldHandItems,emitSignal,outdoorCircuit,drawOutdoorCircuit,outdoorChunks,rasterDecalPatches,updateBoomerboard,inputPads,updateGarments,garmentStates,parkSpeakerLocations,parkKarts,dropParkItem,parkDropName,brokenParkRoof,parkRoofKey,parkBuildingHeight,generateParkProfile,drawParkStereoGeometry,updateSpin,bloodDrops,popCivilianHead,updateFootprints,playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
+ return {interpolateParkPeer,parkRecord,recordScratchRate,updateParkRecord,beginFreeskate,monowheel,parkAxes,freeItemArm,assignedItemArm,heldHandItems,emitSignal,outdoorCircuit,drawOutdoorCircuit,outdoorChunks,rasterDecalPatches,updateBoomerboard,inputPads,updateGarments,garmentStates,parkSpeakerLocations,parkKarts,dropParkItem,parkDropName,brokenParkRoof,parkRoofKey,parkBuildingHeight,generateParkProfile,drawParkStereoGeometry,updateSpin,bloodDrops,popCivilianHead,updateFootprints,playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
  parkHalfPipe3D,parkHalfPipeHeight,parkDeckY,poolFloorAt,poolSlopeAt,gunPickups,axePickup,
  resetParkSupply,updateParkSupply,updateGunPickups,resetParkKids,updateParkKids,parkKids,
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
@@ -673,4 +673,38 @@ test('outdoor circuit has real elevation and kart barriers preserve tangential t
  const previous={x:t.x+t.radius+270,z:t.z};Object.assign(p,{goKart:{},x:t.x+t.radius+340,z:t.z,y:a.poolFloorAt(t.x+t.radius,t.z),vx:1500,vz:600});
  a.boundParkBody(p,previous);assert.ok(p.x<=t.x+t.radius+280.001);assert.ok(p.vx<0);assert.equal(p.vz,600);
  a.updateCameraDoll(1,a.now());assert.ok(a.cameraDoll.position.y<a.poolFloorAt(a.cameraDoll.position.x,a.cameraDoll.position.z));
+});
+
+test('park peer interpolation smooths position and takes the short yaw arc',()=>{
+ const a=playground(),peer={samples:[{at:1000,x:0,y:0,z:0,yaw:3.1},{at:1100,x:100,y:0,z:0,yaw:-3.1}]};
+ a.interpolateParkPeer(peer,1170);assert.equal(peer.x,50);assert.ok(Math.abs(peer.poolYaw-Math.PI)<.01);
+});
+test('sparring controls use down for duck and up for jump',()=>{
+ const a=playground(),p=a.players[0];a.resetParkKids();p.sparringPartner=a.parkKids[0].pad;
+ a.step(['ArrowDown']);assert.equal(p.ducking,true);a.step([]);a.step(['ArrowUp']);assert.ok(p.vy<0);assert.equal(p.grounded,false);
+});
+test('record follows Menu Band signed-rate curve, slows underfoot, and recovers after stepping off',()=>{
+ const a=playground(),p=a.players[0],r=a.parkRecord;assert.equal(a.recordScratchRate(12),.16);assert.equal(a.recordScratchRate(-480),-4);
+ Object.assign(p,{x:r.x+100,z:r.z,y:a.parkDeckY-18,vx:0,vz:0,grounded:true});
+ for(let i=0;i<120;i++)a.updateParkRecord(p,1/60);assert.ok(Math.abs(r.rate)<.001);
+ p.x+=1000;for(let i=0;i<180;i++)a.updateParkRecord(p,1/60);assert.ok(r.rate>.99);
+});
+test('sparring camera keeps its side when fighters cross and frames vertical separation',()=>{
+ const a=playground(),p=a.players[0];a.resetParkKids();const rival=a.parkKids[0];
+ Object.assign(p,{x:5200,z:0,y:a.parkDeckY,skateboard:false});
+ Object.assign(rival,{x:5500,z:0,y:a.parkDeckY,alive:true});p.sparringPartner=rival.pad;
+ for(let n=0;n<180;n++)a.updateCameraDoll(1/60,a.now());
+ const side=a.cameraDoll.position.z-a.cameraDoll.target.z;assert.ok(side<0);
+ rival.x=4900;rival.y-=600;
+ for(let n=0;n<180;n++)a.updateCameraDoll(1/60,a.now());
+ assert.ok(a.cameraDoll.position.z-a.cameraDoll.target.z<0,'crossing never flips the camera');
+ assert.ok(a.cameraDoll.perspective<.001);assert.ok(a.cameraDoll.width>1700);
+});
+test('sparring left/right follow the same screen axis when the opponent changes sides',()=>{
+ const a=playground(),p=a.players[0];a.resetParkKids();const rival=a.parkKids[0];
+ Object.assign(p,{x:5200,z:0,y:a.parkDeckY,vx:0,vz:0,skateboard:false});
+ Object.assign(rival,{x:5200,z:300,y:a.parkDeckY,alive:true});p.sparringPartner=rival.pad;
+ for(let n=0;n<15;n++)a.step(['ArrowRight']);assert.ok(p.z>10);assert.ok(Math.abs(p.x-5200)<1);
+ rival.z=-300;p.vx=p.vz=0;a.step([]);const before=p.z;
+ for(let n=0;n<15;n++)a.step(['ArrowRight']);assert.ok(p.z>before+10);
 });

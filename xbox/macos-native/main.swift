@@ -716,6 +716,12 @@ private final class NativeGameHost {
         if let start = ProcessInfo.processInfo.environment["OSKIEWAR_START_X"], let x = Double(start) {
             javascript.evaluateScript("globalThis.__oskiewarFreeskateStart = \(x);")
         }
+        if let room = ProcessInfo.processInfo.environment["OSKIEWAR_ROOM"],
+           room.range(of: "^[a-z]{4,7}[0-9]{1,3}$", options: .regularExpression) != nil,
+           let encoded = try? JSONSerialization.data(withJSONObject: [room]),
+           let literal = String(data: encoded, encoding: .utf8) {
+            javascript.evaluateScript("globalThis.__oskiewarSessionName = \(literal)[0];")
+        }
         let opponent = ProcessInfo.processInfo.environment["OSKIEWAR_OPPONENT"] ?? "freeskate"
         if let encoded = try? JSONSerialization.data(withJSONObject: [opponent]),
            let literal = String(data: encoded, encoding: .utf8) {
