@@ -24,6 +24,15 @@
 //              ids, r g b, normal x y z)   a retained mesh, kept by handle
 //  13 MESH     handle lightX lightY lightZ   draw a retained mesh, each quad
 //              lit .72 + .28 * max(0, -normal·light), as two WORLD faces
+//  14 MODEL    radius handle0 handle1 handle2 · origin(3) x(3) y(3) z(3) ·
+//              lightX lightY lightZ   a retained mesh placed by a matrix, at
+//              one of three baked levels: 0 while `radius` projects to 56 px
+//              or more, 1 down to 20 px, 2 below. Vertices go to origin + x·X
+//              + y·Y + z·Z; a normal goes by the cofactor matrix (exact under
+//              any scale or mirror) and lights as MESH does, except a zero
+//              normal, which is unlit. A face whose fourth id repeats its
+//              third is one triangle. Nothing is tessellated here: the levels
+//              are meshes the game baked (xbox/live/object-lisp.mjs).
 //
 // A WORLD face is taken to the current CAMERA here: to camera space, cut at
 // the near plane (Sutherland-Hodgman, before the divide), projected with the
@@ -37,9 +46,9 @@
 export const FRAME_VIEW = 1, FRAME_FACE = 2, FRAME_DISC = 3, FRAME_CAPSULE = 4,
   FRAME_TEXT = 5, FRAME_BOX = 6, FRAME_LINE = 7, FRAME_WIPE = 8,
   FRAME_CAMERA = 9, FRAME_WORLD = 10, FRAME_DEPTH = 11, FRAME_ASSET = 12,
-  FRAME_MESH = 13;
+  FRAME_MESH = 13, FRAME_MODEL = 14;
 // Fixed sizes; ASSET is variable and measured from its own header.
-const opSize = [0, 5, 13, 8, 10, 9, 9, 9, 4, 25, 13, 3, 0, 5];
+const opSize = [0, 5, 13, 8, 10, 9, 9, 9, 4, 25, 13, 3, 0, 5, 20];
 const sizeAt = (p, at) => p[at] === FRAME_ASSET
   ? 4 + p[at + 2] * 3 + p[at + 3] * 10 : opSize[p[at]] || 0;
 
@@ -259,6 +268,55 @@ export function createFrameVm(host) {
     }
   }
 
+  // The level a MODEL draws at, from how big its radius looks here.
+  function levelOf(p, at) {
+    if (!hasCamera) return 0;
+    const v = toView(p[at + 5], p[at + 6], p[at + 7]);
+    if (v.z <= cam[19]) return 0;
+    const px = p[at + 1] * lerp(cam[14], cam[15] / v.z, cam[16]);
+    return px >= 56 ? 0 : px >= 20 ? 1 : 2;
+  }
+  const placed = new Float64Array(12);
+  function drawModel(p, at) {
+    const mesh = meshes.get(p[at + 2 + levelOf(p, at)]);
+    if (!mesh) return;
+    const ox = p[at + 5], oy = p[at + 6], oz = p[at + 7];
+    const xx = p[at + 8], xy = p[at + 9], xz = p[at + 10];
+    const yx = p[at + 11], yy = p[at + 12], yz = p[at + 13];
+    const zx = p[at + 14], zy = p[at + 15], zz = p[at + 16];
+    const lx = p[at + 17], ly = p[at + 18], lz = p[at + 19];
+    // Cofactor columns (Y×Z, Z×X, X×Y) carry normals; a mirror flips them
+    // back out and swaps the winding, as the object's own faces do.
+    const ax = yy * zz - yz * zy, ay = yz * zx - yx * zz, az = yx * zy - yy * zx;
+    const bx = zy * xz - zz * xy, by = zz * xx - zx * xz, bz = zx * xy - zy * xx;
+    const cx = xy * yz - xz * yy, cy = xz * yx - xx * yz, cz = xx * yy - xy * yx;
+    const flip = xx * ax + xy * ay + xz * az < 0 ? -1 : 1;
+    const v = mesh.vertices, f = mesh.faces, w = placed;
+    const put = (o, id) => {
+      const x = v[id * 3], y = v[id * 3 + 1], z = v[id * 3 + 2];
+      w[o] = ox + x * xx + y * yx + z * zx;
+      w[o + 1] = oy + x * xy + y * yy + z * zy;
+      w[o + 2] = oz + x * xz + y * yz + z * zz;
+    };
+    for (let i = 0; i < mesh.count; i++) {
+      const o = i * 10, tri = f[o + 3] === f[o + 2];
+      put(0, f[o]);
+      if (flip < 0) { put(3, f[o + (tri ? 2 : 3)]); put(6, f[o + (tri ? 1 : 2)]); put(9, f[o + 1]); }
+      else { put(3, f[o + 1]); put(6, f[o + 2]); put(9, f[o + 3]); }
+      const nx = f[o + 7], ny = f[o + 8], nz = f[o + 9];
+      let k = 1;
+      if (nx || ny || nz) {
+        const wx = (nx * ax + ny * bx + nz * cx) * flip, wy = (nx * ay + ny * by + nz * cy) * flip;
+        const wz = (nx * az + ny * bz + nz * cz) * flip;
+        const toward = -(wx * lx + wy * ly + wz * lz) / (Math.hypot(wx, wy, wz) || 1);
+        k = .72 + (toward > 0 ? toward : 0) * .28;
+      }
+      const r = Math.round(f[o + 4] * k), g = Math.round(f[o + 5] * k), bl = Math.round(f[o + 6] * k);
+      worldFace(w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7], w[8], r, g, bl);
+      if (!tri) worldFace(w[0], w[1], w[2], w[6], w[7], w[8], w[9], w[10], w[11], r, g, bl);
+    }
+  }
+
   const clipRect = { x: 0, y: 0, w: 0, h: 0 };
   function run(p, length, strings) {
     clip = null;
@@ -320,6 +378,9 @@ export function createFrameVm(host) {
         case FRAME_MESH:
           drawMesh(p[at + 1], p[at + 2], p[at + 3], p[at + 4]);
           at += 5; break;
+        case FRAME_MODEL:
+          drawModel(p, at);
+          at += 20; break;
         default:
           // An op this interpreter does not know ends the program rather than
           // walking into its arguments as if they were ops.

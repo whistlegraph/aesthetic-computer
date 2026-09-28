@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createFrameVm, FRAME_VIEW, FRAME_FACE, FRAME_DISC, FRAME_CAPSULE,
-  FRAME_TEXT, FRAME_BOX, FRAME_LINE, FRAME_WIPE } from "../frame-vm.mjs";
+  FRAME_TEXT, FRAME_BOX, FRAME_LINE, FRAME_WIPE, FRAME_CAMERA, FRAME_ASSET,
+  FRAME_MODEL } from "../frame-vm.mjs";
 
 // A recording host: every call the interpreter makes, by name.
 function host() {
@@ -89,4 +90,32 @@ test("decode gives back what was written, and an unknown op is an error", () => 
   assert.deepEqual(ops, [{ op: FRAME_WIPE, args: [1, 2, 3] },
     { op: FRAME_TEXT, args: [2, 1, 2, 3, 4, 5, 6, "x"] }]);
   assert.throws(() => vm.run(...program([99, 1, 2]), []), /unknown op 99/);
+});
+
+// MODEL: a baked mesh placed by a matrix, at the level its size calls for.
+// A flat camera makes screen x, y the world's, so the numbers read directly.
+test("a MODEL places a mesh, mirrors it face-out, lights by its normal, and picks a level", () => {
+  const camera = [FRAME_CAMERA, 0, 0, -100, 1, 0, 0, 0, -1, 0, 0, 0, 1,
+    0, 0, 1, 1000, 0, 2.8 / 16000, -1.4, 8, -1e4, 1e4, -1e4, 1e4];
+  // Two triangles (the fourth id repeats the third): one lit and facing +z,
+  // one glowing (a zero normal).
+  const mesh = [FRAME_ASSET, 3, 3, 2, 0, 0, 0, 10, 0, 0, 0, 10, 0,
+    0, 1, 2, 2, 200, 100, 50, 0, 0, 1,
+    0, 1, 2, 2, 255, 255, 255, 0, 0, 0];
+  // Mirrored across x and moved to (100, 50). The light shines along +z, so
+  // the mirrored face, still facing +z, is turned away from it: .72.
+  const model = (radius) => [FRAME_MODEL, radius, 1, 2, 3, 100, 50, 0,
+    -1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1];
+  const h = host();
+  createFrameVm(h).run(...program(camera, mesh, model(10)), []);
+  const faces = h.calls.filter((c) => c[0] === "face")
+    .map((c) => [c[1], c[2], c[4], c[5], c[7], c[8], c[10], c[11], c[12]]);
+  assert.deepEqual(faces, [
+    [100, 50, 100, 60, 90, 50, 144, 72, 36],
+    [100, 50, 100, 60, 90, 50, 255, 255, 255]]);
+  // 10 px of radius is the far level, handle 3. At 30 px it is the middle,
+  // handle 2, which this host was never given: nothing is drawn.
+  const middle = host();
+  createFrameVm(middle).run(...program(camera, mesh, model(30)), []);
+  assert.equal(middle.calls.length, 0);
 });
