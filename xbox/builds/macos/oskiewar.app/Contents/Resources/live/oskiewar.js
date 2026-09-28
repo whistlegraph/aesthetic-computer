@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 212;
+const buildVersion = 223;
 const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
@@ -13031,7 +13031,7 @@ function updatePoolPlayer(p, pad, dt, now) {
   // B + directions never enters the steering/double-tap dash recognizer.
   // On a board, B draws without stepping off: the ride carries on below and
   // updateChalk lays the line wherever the wheels take the tip.
-  if(!combatMode&&p.chalkColor&&held.includes('B')&&p.grounded&&!p.swimming&&!p.skateboard&&!p.onewheel){
+  if(!combatMode&&p.chalkColor&&held.includes('B')&&p.grounded&&!p.swimming&&!p.skateboard&&!p.onewheel&&!p.goKart){
     const before={x:p.x,z:p.z||0},length=Math.max(1,Math.hypot(turn,throttle));
     p.vx=-turn/length*360;p.vz=throttle/length*360;p.vy=0;
     p.x+=p.vx*dt;p.z=(p.z||0)+p.vz*dt;
@@ -16025,6 +16025,7 @@ function runnerWorldGeometry(player, t) {
     for(const bone of pose.segments){rotate(bone,'x1','z1');rotate(bone,'x2','z2');}
   }
   if(poolOnly())pose.flow={yaw:(player.poolYaw||0)+(player.spin?.angle||0),phase:player.motionClock??t,swing:player.rig?.arms||0,scale:player.civilian?(player.bodyScale||1):1};
+  if(poolOnly()&&player.chalkDrawing&&player.alive&&!isHeadOnly(player))chalkReach(player,pose);
   if (sharingRenderPoses) renderPoses.set(player, { t, pose });
   return pose;
 }
@@ -24052,7 +24053,70 @@ function drawMonowheel(p){
 }
 const chalkColors=[{name:'PINK',rgb:[255,55,190]},{name:'CYAN',rgb:[40,244,255]},{name:'LIME',rgb:[145,255,45]},{name:'YELLOW',rgb:[255,242,55]},{name:'ORANGE',rgb:[255,133,35]},{name:'VIOLET',rgb:[192,99,255]}];
 const chalkPickups=[],parkAxes=[],parkKarts=[];
-function chalkTip(p){const a=(p.poolYaw||0)+(p.spin?.angle||0),x=p.x+Math.cos(a)*45-Math.sin(a)*30,z=(p.z||0)+Math.sin(a)*45+Math.cos(a)*30;return {x,z,y:poolFloorAt(x,z)-2};}
+// The chalk touches down beside the hand that holds it: ahead of the body on
+// that hand's side (+z is the right arm in the rig), wider out of a go-kart
+// so the reach clears its side. Local x is forward along the rig's facing.
+const chalkStick=14;
+function chalkTip(p){
+ const a=(p.poolYaw||0)+(p.spin?.angle||0),side=assignedItemArm(p,'chalk')==='left-arm'?-1:1;
+ const facing=p.skateboard||p.onewheel||p.goKart?(p.facing||1):1;
+ const ahead=facing*(p.goKart?20:40),out=side*(p.goKart?52:34);
+ const x=p.x+Math.cos(a)*ahead-Math.sin(a)*out,z=(p.z||0)+Math.sin(a)*ahead+Math.cos(a)*out;
+ return {x,z,y:poolFloorAt(x,z)-2};
+}
+// Drawing is done with the body: the rider sinks their hips (unless seated),
+// pitches forward from the hips as far as the reach needs, and the chalk arm
+// lands the stick on the ground at chalkTip. Runs last, in world space, so
+// it is the same on foot, on a board, a onewheel or in a kart.
+function chalkReach(p,pose){
+ const armPart=assignedItemArm(p,'chalk');
+ const upper=pose.segments.find(s=>s.part===armPart&&/upper-arm$/.test(s.role||''));
+ const lower=pose.segments.find(s=>s.part===armPart&&/forearm$/.test(s.role||''));
+ const torso=pose.segments.find(s=>s.role==='torso');
+ if(!upper||!lower||!torso)return;
+ const scale=p.civilian?(p.bodyScale||1):1,l1=33*scale,l2=32*scale,reach=(l1+l2)*.96;
+ const tip=chalkTip(p),hand={x:tip.x,y:tip.y-chalkStick,z:tip.z};
+ const a=(p.poolYaw||0)+(p.spin?.angle||0),facing=p.skateboard||p.onewheel||p.goKart?(p.facing||1):1;
+ const fwd={x:Math.cos(a)*facing,z:Math.sin(a)*facing};
+ const legs=pose.segments.filter(s=>/thigh$|shin$/.test(s.role||''));
+ const moves=(point,xk,yk,zk,fn)=>{const q=fn({x:point[xk],y:point[yk],z:point[zk]??(p.z||0)});point[xk]=q.x;point[yk]=q.y;point[zk]=q.z;};
+ const upperBody=(fn)=>{moves(pose.head,'x','y','z',fn);
+  for(const b of pose.segments){if(legs.includes(b))continue;moves(b,'x1','y1','z1',fn);moves(b,'x2','y2','z2',fn);}};
+ const shoulder=()=>({x:upper.x1,y:upper.y1,z:upper.z1});
+ const far=()=>{const q=shoulder();return Math.hypot(q.x-hand.x,q.y-hand.y,q.z-hand.z);};
+ // Sink: the hips come down (knees re-bend below), never under a low squat.
+ const hip={x:torso.x2,y:torso.y2,z:torso.z2},floor=poolFloorAt(p.x,p.z||0);
+ const drop=p.goKart?0:clamp(Math.min(far()-reach,(floor-hip.y)-40*scale),0,60*scale);
+ if(drop>0){upperBody(q=>({...q,y:q.y+drop}));hip.y+=drop;
+  for(const thigh of legs.filter(b=>/thigh$/.test(b.role))){
+   thigh.y1+=drop;const shin=legs.find(b=>b.part===thigh.part&&/shin$/.test(b.role));if(!shin)continue;
+   const knee=solveLimb({x:thigh.x1,y:thigh.y1,z:thigh.z1},{x:shin.x2,y:shin.y2,z:shin.z2},48*scale,47*scale,{x:fwd.x,y:0,z:fwd.z});
+   thigh.x2=shin.x1=knee.x;thigh.y2=shin.y1=knee.y;thigh.z2=shin.z1=knee.z;}}
+ // Pitch forward from the hips until the hand can reach the ground.
+ for(let pitch=.1;pitch<=1.3&&far()>reach;pitch+=.1){
+  const c=Math.cos(.1),sn=Math.sin(.1);
+  upperBody(q=>{const f=(q.x-hip.x)*fwd.x+(q.z-hip.z)*fwd.z,u=hip.y-q.y;
+   const f2=f*c+u*sn,u2=-f*sn+u*c;return {x:q.x+fwd.x*(f2-f),y:hip.y-u2,z:q.z+fwd.z*(f2-f)};});
+ }
+ // Still short (a seated driver can't sink): lean out over the chalk side.
+ const side=armPart==='left-arm'?-1:1,out={x:-fwd.z*side,y:.4,z:fwd.x*side};
+ for(let tilt=.1;tilt<=1.4&&far()>reach;tilt+=.1){
+  const c=Math.cos(.1),sn=Math.sin(.1);
+  upperBody(q=>{const w=(q.x-hip.x)*out.x+(q.z-hip.z)*out.z,u=hip.y-q.y;
+   const w2=w*c+u*sn,u2=-w*sn+u*c;return {x:q.x+out.x*(w2-w),y:hip.y-u2,z:q.z+out.z*(w2-w)};});
+ }
+ // The chalk arm: elbow bows outward on its own side.
+ const root=shoulder(),elbow=solveLimb(root,hand,l1,l2,out),d=Math.hypot(hand.x-root.x,hand.y-root.y,hand.z-root.z)||1,k=Math.min(1,(l1+l2-.01)/d);
+ upper.x2=lower.x1=elbow.x;upper.y2=lower.y1=elbow.y;upper.z2=lower.z1=elbow.z;
+ lower.x2=root.x+(hand.x-root.x)*k;lower.y2=root.y+(hand.y-root.y)*k;lower.z2=root.z+(hand.z-root.z)*k;
+}
+// Two bones from root toward end, the joint bowed toward `pole`.
+function solveLimb(root,end,l1,l2,pole){
+ let ax=end.x-root.x,ay=end.y-root.y,az=end.z-root.z;const d=Math.hypot(ax,ay,az)||1;ax/=d;ay/=d;az/=d;
+ const r=clamp(d,Math.abs(l1-l2)+.01,l1+l2-.01),along=(l1*l1-l2*l2+r*r)/(2*r),bend=Math.sqrt(Math.max(0,l1*l1-along*along));
+ const dot=pole.x*ax+pole.y*ay+pole.z*az;let px=pole.x-ax*dot,py=pole.y-ay*dot,pz=pole.z-az*dot;const pl=Math.hypot(px,py,pz)||1;
+ return {x:root.x+ax*along+px/pl*bend,y:root.y+ay*along+py/pl*bend,z:root.z+az*along+pz/pl*bend};
+}
 function updateChalk(p,held,now){
  p.chalkDrawing=!!p.chalkColor&&held.includes('B')&&p.grounded&&!p.swimming;
  if(!p.chalkDrawing){p.chalkPrevious=null;return;}
@@ -24080,7 +24144,10 @@ function updateFootprints(p,now){
 function drawHeldChalk(p,t){
  if(!p.chalkColor||!p.alive)return;
  const world=runnerWorldGeometry(p,t),arm=world.segments.find(s=>s.part===assignedItemArm(p,'chalk')&&/forearm$/.test(s.role));if(!arm)return;
- const hand={x:arm.x2,y:arm.y2,z:arm.z2},tip=p.chalkDrawing?chalkTip(p):{x:hand.x+8,y:hand.y+16,z:hand.z};
+ const hand={x:arm.x2,y:arm.y2,z:arm.z2},aim=p.chalkDrawing?chalkTip(p):{x:hand.x+8,y:hand.y+16,z:hand.z};
+ // The stick is a stick: it points where it should but never stretches.
+ const d=Math.hypot(aim.x-hand.x,aim.y-hand.y,aim.z-hand.z)||1,k=chalkStick/d;
+ const tip={x:hand.x+(aim.x-hand.x)*k,y:hand.y+(aim.y-hand.y)*k,z:hand.z+(aim.z-hand.z)*k};
  worldCapsule(hand.x,hand.y,hand.z,tip.x,tip.y,tip.z,6*projectionScaleAt(tip),p.chalkColor.rgb);
 }
 function seedStreetTexture(){

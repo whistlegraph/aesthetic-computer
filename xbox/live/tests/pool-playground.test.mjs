@@ -7,7 +7,7 @@ function playground(legacyAudio=false){
  let now=1e6;const noop=()=>{},audio=[],drums=[];
  const api=new Function('runtime','capabilities','telemetry','gameSignal','drum','wipe','box','line','triangle','write','systemWrite','oscillator','oscillatorStop',`${source}
  configureWorldMap('skatepark','pool');fightOpponent='freeskate';gameMode='fight';
- return {parkEntranceDoor,startParkEntrance,updateParkEntrance,applyParkLayout,shieldGeometry,updateKartTireTracks,kartTrailChunks,outdoorTunnelAt,interpolateParkPeer,parkRecord,recordScratchRate,updateParkRecord,beginFreeskate,monowheel,parkAxes,freeItemArm,assignedItemArm,heldHandItems,emitSignal,outdoorCircuit,drawOutdoorCircuit,outdoorChunks,rasterDecalPatches,updateBoomerboard,inputPads,updateGarments,garmentStates,parkSpeakerLocations,parkKarts,dropParkItem,parkDropName,brokenParkRoof,parkRoofKey,parkBuildingHeight,generateParkProfile,drawParkStereoGeometry,updateSpin,bloodDrops,popCivilianHead,updateFootprints,playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
+ return {chalkTip,parkEntranceDoor,startParkEntrance,updateParkEntrance,applyParkLayout,shieldGeometry,updateKartTireTracks,kartTrailChunks,outdoorTunnelAt,interpolateParkPeer,parkRecord,recordScratchRate,updateParkRecord,beginFreeskate,monowheel,parkAxes,freeItemArm,assignedItemArm,heldHandItems,emitSignal,outdoorCircuit,drawOutdoorCircuit,outdoorChunks,rasterDecalPatches,updateBoomerboard,inputPads,updateGarments,garmentStates,parkSpeakerLocations,parkKarts,dropParkItem,parkDropName,brokenParkRoof,parkRoofKey,parkBuildingHeight,generateParkProfile,drawParkStereoGeometry,updateSpin,bloodDrops,popCivilianHead,updateFootprints,playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
  parkHalfPipe3D,parkHalfPipeHeight,parkDeckY,poolFloorAt,poolSlopeAt,gunPickups,axePickup,
  resetParkSupply,updateParkSupply,updateGunPickups,resetParkKids,updateParkKids,parkKids,
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
@@ -872,4 +872,15 @@ test('Q and E together are the hold: arms out even with nobody in reach',()=>{
  const reach=g=>{const h=hand(g);return (h.x2-p.x)*Math.cos(p.poolYaw||0)+(h.z2-(p.z||0))*Math.sin(p.poolYaw||0);};
  assert.ok(reach(holding)>reach(rest)+20,'the hands reach forward');
  a.parkHold(p,false,a.now());assert.ok(!p.parkGrabbing);
+});
+test('drawing chalk ducks the body and lands the chosen hand on the ground, on foot, board or kart',()=>{
+ const a=playground(),p=a.players[0];
+ for(const ride of ['foot','board','kart'])for(const arm of ['right-arm','left-arm']){
+  Object.assign(p,{skateboard:ride==='board',goKart:ride==='kart'?{}:null,poolYaw:.7,spin:null,chalkColor:a.chalkColors[0],chalkDrawing:false,handItems:{chalk:arm}});
+  const stand=a.runnerWorldGeometry(p,0);p.chalkDrawing=true;const pose=a.runnerWorldGeometry(p,0),tip=a.chalkTip(p);
+  const hand=pose.segments.find(s=>s.part===arm&&/forearm$/.test(s.role));
+  assert.ok(Math.hypot(hand.x2-tip.x,hand.y2-(tip.y-14),hand.z2-tip.z)<4,ride+' '+arm+' hand reaches the chalk point');
+  assert.ok(pose.head.y-stand.head.y>40,ride+' ducks');
+  const right=-Math.sin(.7)*(tip.x-p.x)+Math.cos(.7)*(tip.z-p.z)>0;assert.equal(right,arm==='right-arm',ride+' draws on the holding hand\'s side');
+ }
 });
