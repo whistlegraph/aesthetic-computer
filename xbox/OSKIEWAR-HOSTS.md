@@ -237,6 +237,15 @@ drawn once and look the same everywhere.
   plates) drawn through `mesh(handle)`; rolls by contact distance like the
   board wheels; contact shadow; rider feet snap to the plates; the motor
   voice from A2 pitched by speed.
+  **Object slice, 2026-09-28:** the monowheel is now a KidLisp object,
+  `xbox/live/objects/monowheel.lisp`, compiled to closures by
+  `xbox/live/object-lisp.mjs`. It has a rim, spokes that roll with distance,
+  tread, lean and a landing squash, and it emits WORLD faces lit by the
+  `worldQuad` rule. Try it in `xbox/live/object-lab.html`. It is not in the
+  game yet. The dialect, the frame-op mapping and the embed plan
+  (`embed-objects.mjs`, the `drawMonowheel` call site) are in
+  `xbox/OBJECT-DIALECT.md`. The retained-mesh route above becomes "bake the
+  input-free part of an object to an ASSET" once MESH carries a model matrix.
 
 ## 6. Order
 
