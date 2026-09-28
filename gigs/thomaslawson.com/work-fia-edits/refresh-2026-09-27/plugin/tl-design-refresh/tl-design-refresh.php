@@ -2,7 +2,7 @@
 /**
  * Plugin Name: TL — Design refresh
  * Description: One design language over thomaslawson.com — two loaded typefaces (Inter + Newsreader), a five-step type scale, one section-header grammar, flat artwork presentation. Layers on top of the TL Fía polish mu-plugin; deactivate to return to it exactly.
- * Version: 1.1.0
+ * Version: 1.2.0
  * Author: Aesthetic Computer
  *
  * Source: gigs/thomaslawson.com/work-fia-edits/refresh-2026-09-27/ (refresh.css, refresh.js, build-plugin.mjs).
@@ -451,15 +451,16 @@ body.tl-refresh:not(#tl).tl-studio-detail [data-elementor-type="wp-page"] > .ele
 body.tl-refresh:not(#tl) .tl-eyebrow {
     display: block;
     flex: 0 0 100%;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.6rem;
     font-family: var(--tl-sans);
-    font-size: var(--tl-fs-small);
+    font-size: var(--tl-fs-label);
     font-weight: 500;
-    letter-spacing: 0;
-    color: var(--tl-muted) !important;
+    letter-spacing: -0.005em;
+    color: var(--tl-ink) !important;
+    opacity: 0.72;
     text-decoration: none !important;
 }
-body.tl-refresh:not(#tl) .tl-eyebrow:hover { color: var(--tl-accent) !important; }
+body.tl-refresh:not(#tl) .tl-eyebrow:hover { color: var(--tl-accent) !important; opacity: 1; }
 
 /* ------------------------------------------------------------------ *
  * 7. Home — the menu speaks the same language.
