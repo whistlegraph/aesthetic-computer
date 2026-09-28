@@ -683,6 +683,7 @@ test('park publishers coexist anonymously, echo ping timestamps, and expire disc
  manager.handleConnection(host,{url});publish(host,1);manager.handleConnection(guest,{url});
  assert.equal(guest.closed,null);now+=110;publish(guest,1);publish(host,2);
  const packet=host.sent.findLast(m=>m.type==='oskiewar:net').content;
+ assert.ok(Number.isInteger(packet.layoutSeed));assert.equal(packet.layoutSeed,guest.sent.findLast(m=>m.type==='oskiewar:net').content.layoutSeed);
  assert.equal(packet.peers.length,2);assert.equal(packet.echo,now);assert.notEqual(packet.peers[0].id,packet.peers[1].id);
  guest.close(1000,'bye');now+=110;publish(host,3);
  assert.equal(host.sent.findLast(m=>m.type==='oskiewar:net').content.peers.length,1);

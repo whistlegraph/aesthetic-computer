@@ -110,6 +110,8 @@
     <FxCompile Include="..\PostPixelShader.hlsl"><ShaderType>Pixel</ShaderType></FxCompile>
     <FxCompile Include="..\SpriteVertexShader.hlsl"><ShaderType>Vertex</ShaderType></FxCompile>
     <FxCompile Include="..\SpritePixelShader.hlsl"><ShaderType>Pixel</ShaderType></FxCompile>
+    <FxCompile Include="..\SdfVertexShader.hlsl"><ShaderType>Vertex</ShaderType></FxCompile>
+    <FxCompile Include="..\SdfPixelShader.hlsl"><ShaderType>Pixel</ShaderType></FxCompile>
   </ItemGroup>
 
   <!-- The layout the smoke harness reads back, laid out exactly as the MSIX is:

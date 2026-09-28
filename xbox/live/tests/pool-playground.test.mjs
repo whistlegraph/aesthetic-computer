@@ -7,7 +7,7 @@ function playground(legacyAudio=false){
  let now=1e6;const noop=()=>{},audio=[],drums=[];
  const api=new Function('runtime','capabilities','telemetry','gameSignal','drum','wipe','box','line','triangle','write','systemWrite','oscillator','oscillatorStop',`${source}
  configureWorldMap('skatepark','pool');fightOpponent='freeskate';gameMode='fight';
- return {interpolateParkPeer,parkRecord,recordScratchRate,updateParkRecord,beginFreeskate,monowheel,parkAxes,freeItemArm,assignedItemArm,heldHandItems,emitSignal,outdoorCircuit,drawOutdoorCircuit,outdoorChunks,rasterDecalPatches,updateBoomerboard,inputPads,updateGarments,garmentStates,parkSpeakerLocations,parkKarts,dropParkItem,parkDropName,brokenParkRoof,parkRoofKey,parkBuildingHeight,generateParkProfile,drawParkStereoGeometry,updateSpin,bloodDrops,popCivilianHead,updateFootprints,playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
+ return {parkEntranceDoor,startParkEntrance,updateParkEntrance,applyParkLayout,shieldGeometry,updateKartTireTracks,kartTrailChunks,outdoorTunnelAt,interpolateParkPeer,parkRecord,recordScratchRate,updateParkRecord,beginFreeskate,monowheel,parkAxes,freeItemArm,assignedItemArm,heldHandItems,emitSignal,outdoorCircuit,drawOutdoorCircuit,outdoorChunks,rasterDecalPatches,updateBoomerboard,inputPads,updateGarments,garmentStates,parkSpeakerLocations,parkKarts,dropParkItem,parkDropName,brokenParkRoof,parkRoofKey,parkBuildingHeight,generateParkProfile,drawParkStereoGeometry,updateSpin,bloodDrops,popCivilianHead,updateFootprints,playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
  parkHalfPipe3D,parkHalfPipeHeight,parkDeckY,poolFloorAt,poolSlopeAt,gunPickups,axePickup,
  resetParkSupply,updateParkSupply,updateGunPickups,resetParkKids,updateParkKids,parkKids,
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
@@ -610,8 +610,8 @@ test('shirt and skirt cloth stay finite, attached, and respond to body movement'
  p.alive=false;a.updateGarments(p,a.runnerWorldGeometry(p,2),1/60);assert.equal(a.garmentStates.has(p),false);
 });
 
-test('outdoor circuit is half a mile and fast vehicles can reach its far side',()=>{
- const a=playground(),p=a.players[0],track=a.outdoorCircuit();assert.ok(Math.abs(2*Math.PI*track.radius/100-804.672)<.01);
+test('outdoor circuit is a mile and fast vehicles can reach its far side',()=>{
+ const a=playground(),p=a.players[0],track=a.outdoorCircuit();assert.ok(Math.abs(2*Math.PI*track.radius/100-1609.344)<.01);
  Object.assign(p,{x:track.x,z:track.z-track.radius,y:a.parkDeckY,vx:6500,vz:0});const z=p.z;a.boundParkBody(p);assert.equal(p.z,z);
 });
 test('chalk uses an opaque texel, lifts the camera, and punch does not recall the board',()=>{
@@ -707,4 +707,57 @@ test('sparring left/right follow the same screen axis when the opponent changes 
  for(let n=0;n<15;n++)a.step(['ArrowRight']);assert.ok(p.z>10);assert.ok(Math.abs(p.x-5200)<1);
  rival.z=-300;p.vx=p.vz=0;a.step([]);const before=p.z;
  for(let n=0;n<15;n++)a.step(['ArrowRight']);assert.ok(p.z>before+10);
+});
+test('entering sparring closes onto both full silhouettes without crossing through their focus',()=>{
+ const a=playground(),p=a.players[0];a.resetParkKids();const rival=a.parkKids[0];
+ Object.assign(p,{x:5200,z:0,y:a.parkDeckY,skateboard:false});
+ Object.assign(rival,{x:5300,z:0,y:a.parkDeckY,alive:true});p.sparringPartner=rival.pad;
+ a.cameraDoll.snap({position:{x:5100,y:p.y-130,z:100},target:{x:5200,y:p.y-90,z:0},width:1200,perspective:1});
+ for(let n=0;n<90;n++){
+  a.updateCameraDoll(1/60,a.now());
+  assert.ok(Math.hypot(a.cameraDoll.position.x-a.cameraDoll.target.x,a.cameraDoll.position.z-a.cameraDoll.target.z)>140);
+ }
+ assert.ok(a.cameraDoll.width<650,'close combat fills the old 2D action-safe frame');
+ assert.ok(a.cameraDoll.perspective<.001);
+});
+test('sparring raises heartbeat strongly and disengagement recovers gradually',()=>{
+ const a=playground(),p=a.players[0];a.resetParkKids();const rival=a.parkKids[0];
+ Object.assign(p,{heartRate:68,vx:0,vy:0,vz:0,grounded:true,attackKind:'',sparringPartner:rival.pad});rival.alive=true;
+ for(let i=0;i<120;i++)a.updateSeatHeartbeat(1/60,a.now());
+ assert.ok(p.heartRate>150);const elevated=p.heartRate;
+ p.sparringPartner=undefined;a.updateSeatHeartbeat(1/60,a.now());assert.ok(p.heartRate<elevated&&p.heartRate>145);
+});
+test('kart engine idles, revs with speed and stops on dismount',()=>{
+ const a=playground(),p=a.players[0];p.goKart={};p.vx=p.vz=0;a.updateMotorAudio(.1);const idle=a.audio.at(-1);assert.ok(idle.gain>0);
+ p.vx=6000;for(let i=0;i<60;i++)a.updateMotorAudio(1/60);assert.ok(a.audio.at(-1).hz>idle.hz*1.5);
+ p.goKart=null;p.onewheel=false;a.updateMotorAudio(.1);assert.ok(a.audio.at(-1).stop);
+});
+test('kart jump launches the vehicle and tire marks stop in the air',()=>{
+ const a=playground(),p=a.players[0],t=a.outdoorCircuit(),angle=74/512*Math.PI*2;
+ Object.assign(p,{x:t.x+Math.sin(angle)*t.radius,z:t.z+Math.cos(angle)*t.radius,goKart:{},skateboard:true,poolYaw:-angle,vx:Math.cos(angle)*4000,vz:-Math.sin(angle)*4000});p.y=a.poolFloorAt(p.x,p.z);
+ let launched=false;for(let i=0;i<90;i++){a.step(['ArrowUp']);if(!p.grounded){launched=true;break;}}
+ assert.ok(launched,'crest creates an airborne jump');assert.ok(p.vy<0);
+ const marks=()=>[...a.kartTrailChunks.values()].reduce((n,c)=>n+c.pending.length+c.batches.length*16,0);
+ assert.ok(marks()>0);const before=marks();p.x+=200;a.updateKartTireTracks(p);assert.equal(marks(),before);
+});
+test('tunnel ceiling is local to its road section',()=>{
+ const a=playground(),t=a.outdoorCircuit(),angle=40/512*Math.PI*2,x=t.x+Math.sin(angle)*t.radius,z=t.z+Math.cos(angle)*t.radius;
+ assert.ok(Math.abs(a.outdoorTunnelAt(x,z)-(a.poolFloorAt(x,z)-720))<.01);
+ assert.equal(a.outdoorTunnelAt(t.x,t.z+t.radius),null);
+});
+test('red-carpet entry crosses the doorway and yields to input',()=>{
+ const a=playground(),p=a.players[0],door=a.parkEntranceDoor();a.startParkEntrance(p,a.now());
+ assert.ok(p.z<door.z);const start=a.now();
+ for(let i=1;i<=240;i++)a.updateParkEntrance(p,{down:[],leftX:0,leftY:0},1/60,start+i/60*1e6);
+ assert.ok(p.z>door.z);assert.ok(p.parkEntrance);a.updateParkEntrance(p,{down:['ArrowUp']},1/60,start+4100000);assert.equal(p.parkEntrance,null);
+ const previous={x:door.x,z:door.z-30};Object.assign(p,{x:door.x,z:door.z+30,y:a.parkDeckY,vz:400});a.boundParkBody(p,previous);assert.ok(p.z>door.z);
+});
+test('layout seed is repeatable across clients and changes the park modestly',()=>{
+ const a=playground(),b=playground();a.applyParkLayout(123);b.applyParkLayout(123);
+ assert.deepEqual(a.parkHalfPipe3D,b.parkHalfPipe3D);const x=a.parkHalfPipe3D.x;
+ assert.equal(a.applyParkLayout(123),false);a.applyParkLayout(456);assert.notEqual(a.parkHalfPipe3D.x,x);assert.ok(Math.abs(a.parkHalfPipe3D.x-2840)<=90);
+});
+test('bubble shield follows the 3D facing direction',()=>{
+ const a=playground(),p=a.players[0];p.poolYaw=Math.PI/2;p.facing=1;
+ const shield=a.shieldGeometry(p);assert.ok(Math.abs(shield.x-p.x)<1e-6);assert.ok(shield.z>p.z);
 });

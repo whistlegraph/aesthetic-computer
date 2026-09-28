@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SDF Workbench</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { --ink: #f4efe6; --dim: #9a948a; --panel: rgba(18, 16, 22, .82); }
+  html, body { margin: 0; height: 100%; background: #111; color: var(--ink);
+    font: 12px/1.4 ui-monospace, Menlo, monospace; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; object-fit: contain; background: #000; }
+  #panel { position: fixed; top: 12px; right: 12px; width: 260px; padding: 10px 12px;
+    background: var(--panel); border-radius: 8px; }
+  #panel label { display: grid; grid-template-columns: 90px 1fr 40px; gap: 6px;
+    align-items: center; margin: 4px 0; }
+  #panel output { color: var(--dim); text-align: right; }
+  #stats { white-space: pre; margin-top: 8px; color: var(--dim); }
+  #error { position: fixed; inset: 0; display: none; place-items: center; padding: 16px;
+    text-align: center; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div id="panel">
+  <label>figures <input id="count" type="range" min="1" max="60" value="1"><output></output></label>
+  <label>blend <input id="blend" type="range" min="0" max="40" value="6"><output></output></label>
+  <label>outline px <input id="outline" type="range" min="0" max="4" step=".25" value="1.5"><output></output></label>
+  <label>melt <input id="melt" type="range" min="0" max="12" step=".5" value="0"><output></output></label>
+  <label>resolution <input id="res" type="range" min=".5" max="2" step=".25" value="1"><output></output></label>
+  <label>orbit <input id="orbit" type="checkbox" checked><output></output></label>
+  <div id="stats">starting…</div>
+</div>
+<div id="error"></div>
+<script type="module">
+// SDF figures over a rasterized park, mirroring the planned native split:
+// JS sends one capsule list per frame (O(objects)); the GPU draws the pixels.
+// The WGSL here is the reference for the HLSL port in native-bios.
+const $ = (id) => document.getElementById(id);
+const fail = (message) => { $('error').style.display = 'grid'; $('error').textContent = message; };
+if (!navigator.gpu) throw fail('WebGPU is not available in this browser.');
+const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+if (!adapter) throw fail('No WebGPU adapter.');
+const timing = adapter.features.has('timestamp-query');
+const device = await adapter.requestDevice({ requiredFeatures: timing ? ['timestamp-query'] : [] });
+const canvas = $('view'), context = canvas.getContext('webgpu');
+const format = navigator.gpu.getPreferredCanvasFormat();
+context.configure({ device, format, alphaMode: 'opaque' });
+const data = await (await fetch('park-frame.json')).json();
+
+// ---- Park mesh: quads → flat-shaded triangles (position, normal, colour).
+const parkFloats = [];
+{
+  const v = data.mesh.vertices, at = (i) => [v[i * 3], v[i * 3 + 1], v[i * 3 + 2]];
+  for (const [a, b, c, d, r, g, bl] of data.mesh.faces) {
+    const p = [at(a), at(b), at(c), at(d)];
+    const e1 = p[1].map((x, k) => x - p[0][k]), e2 = p[2].map((x, k) => x - p[0][k]);
+    let n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
+    const len = Math.hypot(...n) || 1; n = n.map((x) => x / len);
+    for (const i of [0, 1, 2, 0, 2, 3]) parkFloats.push(...p[i], ...n, r / 255, g / 255, bl / 255);
+  }
+}
+const parkBuffer = device.createBuffer({ size: parkFloats.length * 4, usage: GPUBufferUsage.VERTEX, mappedAtCreation: true });
+new Float32Array(parkBuffer.getMappedRange()).set(parkFloats); parkBuffer.unmap();
+const parkVertexCount = parkFloats.length / 9;
+
+// ---- Per-frame figure data. Each figure: 12 capsules max (11 bones + head).
+const MAX_FIGURES = 64, CAPS_PER_FIGURE = 48;
+const figureBuffer = device.createBuffer({ size: MAX_FIGURES * 48, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+const capsuleBuffer = device.createBuffer({ size: MAX_FIGURES * CAPS_PER_FIGURE * 48, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+const uniformBuffer = device.createBuffer({ size: 256, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+const palette = [[1, .62, .78], [.55, .82, 1], [1, .86, .45], [.62, 1, .7], [.8, .66, 1]];
+
+const shared = /* wgsl */`
+struct U { viewProj: mat4x4f, invViewProj: mat4x4f, sunViewProj: mat4x4f, cam: vec4f, sun: vec4f, res: vec4f, style: vec4f };
+struct Figure { sphere: vec4f, color: vec4f, range: vec4f };
+struct Capsule { a: vec4f, b: vec4f, c: vec4f };  // a.w r1, b.w r2, c.rgb ink, c.w hard
+@group(0) @binding(0) var<uniform> u: U;
+@group(0) @binding(1) var<storage, read> figures: array<Figure>;
+@group(0) @binding(2) var<storage, read> capsules: array<Capsule>;
+@group(0) @binding(3) var shadowMap: texture_depth_2d;
+@group(0) @binding(4) var shadowSampler: sampler_comparison;
+
+fn sdCapsule(p: vec3f, a: vec3f, b: vec3f, r: f32) -> f32 {
+  let pa = p - a; let ba = b - a;
+  let h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-4), 0.0, 1.0);
+  return length(pa - ba * h) - r;
+}
+// Round cone, as SdfPixelShader.hlsl draws it on the console.
+fn sdRoundCone(p: vec3f, a: vec3f, b: vec3f, r1: f32, r2: f32) -> f32 {
+  let ba = b - a; let l2 = dot(ba, ba);
+  if (l2 < 1e-4) { return length(p - a) - max(r1, r2); }
+  let rr = r1 - r2; let a2 = l2 - rr * rr; let il2 = 1.0 / l2;
+  let pa = p - a; let y = dot(pa, ba); let z = y - l2;
+  let q = pa * l2 - ba * y; let x2 = dot(q, q); let y2 = y * y * l2; let z2 = z * z * l2;
+  let k = sign(rr) * rr * rr * x2;
+  if (sign(z) * a2 * z2 > k) { return sqrt(x2 + z2) * il2 - r2; }
+  if (sign(y) * a2 * y2 < k) { return sqrt(x2 + y2) * il2 - r1; }
+  return (sqrt(x2 * a2 * il2) + y * rr) * il2 - r1;
+}
+fn smin(a: f32, b: f32, k: f32) -> f32 {
+  if (k <= 0.0) { return min(a, b); }
+  let h = max(k - abs(a - b), 0.0) / k;
+  return min(a, b) - h * h * k * 0.25;
+}
+// Distance to one figure; .y carries the index of the nearest prim.
+fn sdFigure(p: vec3f, f: u32) -> vec2f {
+  let first = u32(figures[f].range.x); let count = u32(figures[f].range.y);
+  var d = 1e9; var tint = 0.0; var best = 1e9;
+  for (var i = 0u; i < count; i++) {
+    let c = capsules[first + i];
+    let di = sdRoundCone(p, c.a.xyz, c.b.xyz, c.a.w, c.b.w);
+    if (di < best) { best = di; tint = f32(first + i); }
+    if (c.c.w > 0.5) { d = min(d, di); } else { d = smin(d, di, u.sun.w); }
+  }
+  let melt = u.style.w;
+  if (melt > 0.0) {
+    let t = u.cam.w;
+    d += melt * sin(p.x * .11 + t * 3.0) * sin(p.y * .09 - t * 2.1) * sin(p.z * .13 + t * 1.7);
+  }
+  return vec2f(d, tint);
+}
+fn raySphere(ro: vec3f, rd: vec3f, s: vec4f) -> vec2f {
+  let oc = ro - s.xyz; let b = dot(oc, rd); let c = dot(oc, oc) - s.w * s.w;
+  let h = b * b - c;
+  if (h < 0.0) { return vec2f(-1.0, -1.0); }
+  let q = sqrt(h); return vec2f(-b - q, -b + q);
+}
+// Sun shadow: figures are raymarched into a depth map once per frame, so a
+// shaded pixel pays one filtered lookup however many figures are in view.
+fn figureShadow(p: vec3f, l: vec3f) -> f32 {
+  let c = u.sunViewProj * vec4f(p, 1.0);
+  let uv = vec2f(c.x * 0.5 + 0.5, 0.5 - c.y * 0.5);
+  if (any(uv < vec2f(0.0)) || any(uv > vec2f(1.0))) { return 1.0; }
+  let texel = 1.0 / vec2f(textureDimensions(shadowMap));
+  var lit = 0.0;
+  for (var y = -2; y <= 2; y++) { for (var x = -2; x <= 2; x++) {
+    lit += textureSampleCompareLevel(shadowMap, shadowSampler, uv + vec2f(f32(x), f32(y)) * texel * 1.5, c.z - 0.0015);
+  } }
+  return lit / 25.0;
+}
+// Contact occlusion under each figure: a cheap sphere term.
+fn figureOcclusion(p: vec3f, n: vec3f) -> f32 {
+  var occ = 0.0;
+  let count = u32(u.res.z);
+  for (var f = 0u; f < count; f++) {
+    let s = figures[f].sphere;
+    let v = s.xyz - p; let d = length(v);
+    occ += (s.w * s.w * .35) / (d * d) * max(dot(n, v / d), 0.0);
+  }
+  return clamp(1.0 - occ, 0.3, 1.0);
+}
+fn fogged(c: vec3f, p: vec3f) -> vec3f {
+  let dist = length(p - u.cam.xyz);
+  let sky = vec3f(.72, .80, .92);
+  return mix(c, sky, 1.0 - exp(-dist * .00012));
+}
+`;
+
+const parkModule = device.createShaderModule({ code: shared + /* wgsl */`
+struct V { @builtin(position) pos: vec4f, @location(0) world: vec3f, @location(1) n: vec3f, @location(2) c: vec3f };
+@vertex fn vs(@location(0) p: vec3f, @location(1) n: vec3f, @location(2) c: vec3f) -> V {
+  var o: V; o.pos = u.viewProj * vec4f(p, 1.0); o.world = p; o.n = n; o.c = c; return o;
+}
+@fragment fn fs(i: V) -> @location(0) vec4f {
+  var n = normalize(i.n);
+  if (dot(n, u.cam.xyz - i.world) < 0.0) { n = -n; }
+  let l = normalize(u.sun.xyz);
+  let lit = max(dot(n, l), 0.0) * figureShadow(i.world + n * 2.0, l);
+  let ao = figureOcclusion(i.world, n);
+  let c = i.c * (0.45 * ao + 0.65 * lit);
+  return vec4f(fogged(c, i.world), 1.0);
+}`});
+
+const sdfModule = device.createShaderModule({ code: shared + /* wgsl */`
+// A unit cube scaled to each figure's bounding sphere. Back faces are drawn so
+// the proxy still covers the screen when the camera is inside it.
+const CUBE = array<vec3f, 36>(
+  vec3f(-1,-1,-1),vec3f(1,-1,-1),vec3f(1,1,-1),vec3f(-1,-1,-1),vec3f(1,1,-1),vec3f(-1,1,-1),
+  vec3f(-1,-1,1),vec3f(1,1,1),vec3f(1,-1,1),vec3f(-1,-1,1),vec3f(-1,1,1),vec3f(1,1,1),
+  vec3f(-1,-1,-1),vec3f(-1,1,1),vec3f(-1,-1,1),vec3f(-1,-1,-1),vec3f(-1,1,-1),vec3f(-1,1,1),
+  vec3f(1,-1,-1),vec3f(1,-1,1),vec3f(1,1,1),vec3f(1,-1,-1),vec3f(1,1,1),vec3f(1,1,-1),
+  vec3f(-1,-1,-1),vec3f(1,-1,1),vec3f(1,-1,-1),vec3f(-1,-1,-1),vec3f(-1,-1,1),vec3f(1,-1,1),
+  vec3f(-1,1,-1),vec3f(1,1,-1),vec3f(1,1,1),vec3f(-1,1,-1),vec3f(1,1,1),vec3f(-1,1,1));
+struct P { @builtin(position) pos: vec4f, @location(0) world: vec3f, @location(1) @interpolate(flat) f: u32 };
+fn proxy(v: u32, f: u32, m: mat4x4f) -> P {
+  let s = figures[f].sphere;
+  let w = s.xyz + CUBE[v] * s.w;
+  var o: P; o.pos = m * vec4f(w, 1.0); o.world = w; o.f = f; return o;
+}
+@vertex fn vs(@builtin(vertex_index) v: u32, @builtin(instance_index) f: u32) -> P { return proxy(v, f, u.viewProj); }
+@vertex fn vsSun(@builtin(vertex_index) v: u32, @builtin(instance_index) f: u32) -> P { return proxy(v, f, u.sunViewProj); }
+fn normalAt(p: vec3f, f: u32) -> vec3f {
+  let e = vec2f(1.0, -1.0) * 0.6;
+  return normalize(e.xyy * sdFigure(p + e.xyy, f).x + e.yyx * sdFigure(p + e.yyx, f).x +
+    e.yxy * sdFigure(p + e.yxy, f).x + e.xxx * sdFigure(p + e.xxx, f).x);
+}
+struct Hit { t: f32, ink: bool, tint: f32, found: bool };
+fn march(ro: vec3f, rd: vec3f, f: u32, pixelAngle: f32, outline: f32) -> Hit {
+  var h: Hit; h.found = false;
+  let span = raySphere(ro, rd, figures[f].sphere);
+  if (span.y < 0.0) { return h; }
+  var t = max(span.x, 0.0); var minD = 1e9; var minT = t;
+  for (var i = 0; i < 64 && t < span.y; i++) {
+    let s = sdFigure(ro + rd * t, f);
+    if (s.x < minD) { minD = s.x; minT = t; }
+    if (s.x < 0.05 * max(t * pixelAngle, 0.02)) { h.t = t; h.tint = s.y; h.found = true; return h; }
+    t += s.x;
+  }
+  // A near miss inside the outline width becomes ink: a silhouette line.
+  if (minD < outline * max(minT * pixelAngle, 1e-3)) { h.t = minT; h.ink = true; h.found = true; }
+  return h;
+}
+struct Out { @location(0) color: vec4f, @builtin(frag_depth) depth: f32 };
+@fragment fn fs(i: P) -> Out {
+  let ro = u.cam.xyz; let rd = normalize(i.world - ro);
+  let h = march(ro, rd, i.f, u.style.y, u.style.x);
+  if (!h.found) { discard; }
+  let p = ro + rd * h.t;
+  var color: vec3f;
+  if (h.ink) { color = vec3f(.08, .06, .1); } else {
+    // Same shading as SdfPixelShader.hlsl: the game's three cel bands,
+    // short-range occlusion and a rim, plus this page's sun shadow.
+    let nrm = normalAt(p, i.f);
+    let light = nrm.x * .35 - nrm.y * .8 - nrm.z * .45;
+    var band = select(select(.55, .8, light > -.25), 1.0, light > .35);
+    band *= mix(.8, 1.0, figureShadow(p + nrm * 10.0, normalize(u.sun.xyz)));
+    var ao = 0.0;
+    for (var k = 1; k <= 3; k++) {
+      let hh = f32(k) * 5.0; ao += (hh - sdFigure(p + nrm * hh, i.f).x) / hh;
+    }
+    ao = clamp(1.0 - ao * .18, .6, 1.0);
+    let rim = pow(1.0 - max(dot(nrm, -rd), 0.0), 3.0);
+    let base = capsules[u32(h.tint)].c.rgb;
+    color = base * band * ao + rim * .22;
+  }
+  let clip = u.viewProj * vec4f(p, 1.0);
+  var o: Out; o.color = vec4f(fogged(color, p), 1.0); o.depth = clip.z / clip.w; return o;
+}
+// Sun pass: orthographic rays along the light, depth only.
+@fragment fn fsSun(i: P) -> @builtin(frag_depth) f32 {
+  let rd = -normalize(u.sun.xyz);
+  let ro = i.world - rd * 2.0 * figures[i.f].sphere.w;
+  let h = march(ro, rd, i.f, 0.0, 0.0);
+  if (!h.found || h.ink) { discard; }
+  let c = u.sunViewProj * vec4f(ro + rd * h.t, 1.0);
+  return c.z;
+}`});
+
+const layout = device.createBindGroupLayout({ entries: [
+  { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+  { binding: 1, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } },
+  { binding: 2, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } },
+  { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'depth' } },
+  { binding: 4, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'comparison' } }] });
+// The sun pass cannot sample the map it writes, so it binds a 1×1 stand-in.
+const SHADOW_SIZE = 2048;
+const shadowTexture = device.createTexture({ size: [SHADOW_SIZE, SHADOW_SIZE], format: 'depth32float',
+  usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING });
+const blankShadow = device.createTexture({ size: [1, 1], format: 'depth32float',
+  usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING });
+const shadowSampler = device.createSampler({ compare: 'less-equal', magFilter: 'linear', minFilter: 'linear' });
+const bindGroup = device.createBindGroup({ layout, entries: [
+  { binding: 0, resource: { buffer: uniformBuffer } },
+  { binding: 1, resource: { buffer: figureBuffer } },
+  { binding: 2, resource: { buffer: capsuleBuffer } },
+  { binding: 3, resource: shadowTexture.createView() },
+  { binding: 4, resource: shadowSampler }] });
+const sunBindGroup = device.createBindGroup({ layout, entries: [
+  { binding: 0, resource: { buffer: uniformBuffer } },
+  { binding: 1, resource: { buffer: figureBuffer } },
+  { binding: 2, resource: { buffer: capsuleBuffer } },
+  { binding: 3, resource: blankShadow.createView() },
+  { binding: 4, resource: shadowSampler }] });
+const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [layout] });
+const depthStencil = { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' };
+const parkPipeline = device.createRenderPipeline({ layout: pipelineLayout, depthStencil,
+  vertex: { module: parkModule, entryPoint: 'vs', buffers: [{ arrayStride: 36, attributes: [
+    { shaderLocation: 0, offset: 0, format: 'float32x3' },
+    { shaderLocation: 1, offset: 12, format: 'float32x3' },
+    { shaderLocation: 2, offset: 24, format: 'float32x3' }] }] },
+  fragment: { module: parkModule, entryPoint: 'fs', targets: [{ format }] },
+  primitive: { topology: 'triangle-list' } });
+const sdfPipeline = device.createRenderPipeline({ layout: pipelineLayout, depthStencil,
+  vertex: { module: sdfModule, entryPoint: 'vs' },
+  fragment: { module: sdfModule, entryPoint: 'fs', targets: [{ format }] },
+  primitive: { cullMode: 'front' } });
+const sunPipeline = device.createRenderPipeline({ layout: pipelineLayout,
+  depthStencil: { format: 'depth32float', depthWriteEnabled: true, depthCompare: 'less' },
+  vertex: { module: sdfModule, entryPoint: 'vsSun' },
+  fragment: { module: sdfModule, entryPoint: 'fsSun', targets: [] },
+  primitive: { cullMode: 'front' } });
+
+// ---- GPU timing: one timestamp pair per pass.
+let querySet, resolveBuffer, readBuffer, readPending = false, gpuMs = { park: 0, sdf: 0, sun: 0 };
+if (timing) {
+  querySet = device.createQuerySet({ type: 'timestamp', count: 6 });
+  resolveBuffer = device.createBuffer({ size: 48, usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC });
+  readBuffer = device.createBuffer({ size: 48, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+}
+
+// ---- Matrices (column-major, WebGPU clip depth 0..1). The world is y-down.
+const sub = (a, b) => a.map((x, i) => x - b[i]);
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const norm = (a) => { const l = Math.hypot(...a) || 1; return a.map((x) => x / l); };
+function lookAt(eye, target, up) {
+  const f = norm(sub(target, eye)), s = norm(cross(f, up)), v = cross(s, f);
+  return [s[0], v[0], -f[0], 0, s[1], v[1], -f[1], 0, s[2], v[2], -f[2], 0,
+    -dot(s, eye), -dot(v, eye), dot(f, eye), 1];
+}
+function perspective(fovy, aspect, near, far) {
+  const f = 1 / Math.tan(fovy / 2);
+  return [f / aspect, 0, 0, 0, 0, f, 0, 0, 0, 0, far / (near - far), -1, 0, 0, near * far / (near - far), 0];
+}
+function ortho(size, near, far) {
+  return [2 / size, 0, 0, 0, 0, 2 / size, 0, 0, 0, 0, 1 / (near - far), 0, 0, 0, near / (near - far), 1];
+}
+function multiply(a, b) {
+  const o = new Array(16);
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++)
+    o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3];
+  return o;
+}
+function invert(m) {
+  const inv = new Array(16);
+  inv[0] = m[5]*m[10]*m[15]-m[5]*m[11]*m[14]-m[9]*m[6]*m[15]+m[9]*m[7]*m[14]+m[13]*m[6]*m[11]-m[13]*m[7]*m[10];
+  inv[4] = -m[4]*m[10]*m[15]+m[4]*m[11]*m[14]+m[8]*m[6]*m[15]-m[8]*m[7]*m[14]-m[12]*m[6]*m[11]+m[12]*m[7]*m[10];
+  inv[8] = m[4]*m[9]*m[15]-m[4]*m[11]*m[13]-m[8]*m[5]*m[15]+m[8]*m[7]*m[13]+m[12]*m[5]*m[11]-m[12]*m[7]*m[9];
+  inv[12] = -m[4]*m[9]*m[14]+m[4]*m[10]*m[13]+m[8]*m[5]*m[14]-m[8]*m[6]*m[13]-m[12]*m[5]*m[10]+m[12]*m[6]*m[9];
+  inv[1] = -m[1]*m[10]*m[15]+m[1]*m[11]*m[14]+m[9]*m[2]*m[15]-m[9]*m[3]*m[14]-m[13]*m[2]*m[11]+m[13]*m[3]*m[10];
+  inv[5] = m[0]*m[10]*m[15]-m[0]*m[11]*m[14]-m[8]*m[2]*m[15]+m[8]*m[3]*m[14]+m[12]*m[2]*m[11]-m[12]*m[3]*m[10];
+  inv[9] = -m[0]*m[9]*m[15]+m[0]*m[11]*m[13]+m[8]*m[1]*m[15]-m[8]*m[3]*m[13]-m[12]*m[1]*m[11]+m[12]*m[3]*m[9];
+  inv[13] = m[0]*m[9]*m[14]-m[0]*m[10]*m[13]-m[8]*m[1]*m[14]+m[8]*m[2]*m[13]+m[12]*m[1]*m[10]-m[12]*m[2]*m[9];
+  inv[2] = m[1]*m[6]*m[15]-m[1]*m[7]*m[14]-m[5]*m[2]*m[15]+m[5]*m[3]*m[14]+m[13]*m[2]*m[7]-m[13]*m[3]*m[6];
+  inv[6] = -m[0]*m[6]*m[15]+m[0]*m[7]*m[14]+m[4]*m[2]*m[15]-m[4]*m[3]*m[14]-m[12]*m[2]*m[7]+m[12]*m[3]*m[6];
+  inv[10] = m[0]*m[5]*m[15]-m[0]*m[7]*m[13]-m[4]*m[1]*m[15]+m[4]*m[3]*m[13]+m[12]*m[1]*m[7]-m[12]*m[3]*m[5];
+  inv[14] = -m[0]*m[5]*m[14]+m[0]*m[6]*m[13]+m[4]*m[1]*m[14]-m[4]*m[2]*m[13]-m[12]*m[1]*m[6]+m[12]*m[2]*m[5];
+  inv[3] = -m[1]*m[6]*m[11]+m[1]*m[7]*m[10]+m[5]*m[2]*m[11]-m[5]*m[3]*m[10]-m[9]*m[2]*m[7]+m[9]*m[3]*m[6];
+  inv[7] = m[0]*m[6]*m[11]-m[0]*m[7]*m[10]-m[4]*m[2]*m[11]+m[4]*m[3]*m[10]+m[8]*m[2]*m[7]-m[8]*m[3]*m[6];
+  inv[11] = -m[0]*m[5]*m[11]+m[0]*m[7]*m[9]+m[4]*m[1]*m[11]-m[4]*m[3]*m[9]-m[8]*m[1]*m[7]+m[8]*m[3]*m[5];
+  inv[15] = m[0]*m[5]*m[10]-m[0]*m[6]*m[9]-m[4]*m[1]*m[10]+m[4]*m[2]*m[9]+m[8]*m[1]*m[6]-m[8]*m[2]*m[5];
+  const det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
+  return inv.map((x) => x / det);
+}
+
+// ---- Controls.
+const controls = window.controls = {};
+for (const input of document.querySelectorAll('#panel input')) {
+  const show = () => { controls[input.id] = input.type === 'checkbox' ? input.checked : Number(input.value);
+    input.nextElementSibling.textContent = input.type === 'checkbox' ? '' : input.value; };
+  input.addEventListener('input', show); show();
+}
+let yaw = 0.6, pitch = 0.42, dragging = null;
+canvas.addEventListener('pointerdown', (e) => { dragging = [e.clientX, e.clientY]; });
+addEventListener('pointerup', () => { dragging = null; });
+addEventListener('pointermove', (e) => { if (!dragging) return;
+  yaw += (e.clientX - dragging[0]) * .005; pitch = Math.min(1.4, Math.max(.05, pitch + (e.clientY - dragging[1]) * .005));
+  dragging = [e.clientX, e.clientY]; });
+let distance = 900;
+window.setView = (d, y, p) => { distance = d; yaw = y; pitch = p; };
+canvas.addEventListener('wheel', (e) => { distance = Math.min(9000, Math.max(200, distance * Math.exp(e.deltaY * .001))); e.preventDefault(); }, { passive: false });
+
+// ---- Frame.
+let benchTexture;
+function benchTarget(w, h) {
+  if (!benchTexture || benchTexture.width !== w || benchTexture.height !== h) {
+    benchTexture?.destroy();
+    benchTexture = device.createTexture({ size: [w, h], format, usage: GPUTextureUsage.RENDER_ATTACHMENT });
+  }
+  return benchTexture.createView();
+}
+let depthTexture, frameIndex = 0, last = performance.now(), cpuMs = 0, fps = 0;
+const figureData = new Float32Array(MAX_FIGURES * 12), capsuleData = new Float32Array(MAX_FIGURES * CAPS_PER_FIGURE * 12);
+function writeFigures(time) {
+  const frame = data.frames[Math.floor(time * 60) % data.frames.length];
+  const count = Math.min(controls.count * 5, MAX_FIGURES);
+  let cap = 0;
+  for (let f = 0; f < count; f++) {
+    const pose = frame[f % 5], ring = Math.floor(f / 5);
+    // Copies beyond the five dumped riders spread out across the park.
+    const ox = ring ? ((ring * 7919) % 11) * 520 - 1500 : 0, oz = ring ? ((ring * 104729) % 13) * 520 - 3000 : 0;
+    const first = cap; let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+    const push = (a, b, r1, r2, ink, hard) => {
+      const o = cap++ * 12;
+      capsuleData.set([a[0] + ox, a[1], a[2] + oz, r1, b[0] + ox, b[1], b[2] + oz, r2, ...ink, hard], o);
+      for (const [p, r] of [[a, r1], [b, r2]]) for (let k = 0; k < 3; k++) {
+        const v = p[k] + (k === 0 ? ox : k === 2 ? oz : 0);
+        lo[k] = Math.min(lo[k], v - r); hi[k] = Math.max(hi[k], v + r);
+      }
+    };
+    // The prims drawSdfRunner sends the console; bare bones for older dumps.
+    if (pose.prims) for (let i = 0; i < pose.prims.length; i += 12) {
+      const q = pose.prims.slice(i, i + 12);
+      push(q.slice(0, 3), q.slice(4, 7), q[3], q[7], q.slice(8, 11), q[11]);
+    } else {
+      for (const s of pose.segments) push([s[0], s[1], s[2]], [s[3], s[4], s[5]], s[6], s[6], palette[f % 5], 0);
+      if (pose.head) push(pose.head, pose.head, pose.head[3], pose.head[3], palette[f % 5], 0);
+    }
+    const center = lo.map((x, k) => (x + hi[k]) / 2);
+    const radius = Math.hypot(...hi.map((x, k) => x - center[k])) + controls.blend + 2;
+    figureData.set([...center, radius, ...palette[f % 5], 0, first, cap - first, 0, 0], f * 12);
+  }
+  device.queue.writeBuffer(figureBuffer, 0, figureData, 0, count * 12);
+  device.queue.writeBuffer(capsuleBuffer, 0, capsuleData, 0, cap * 12);
+  return { count, capsules: cap, frame };
+}
+// Benchmark: encode N frames at a fixed camera and time the queue to idle.
+// Timestamp queries on tile-based GPUs are not trustworthy per pass.
+window.bench = async (frames = 60) => {
+  const saved = requestAnimationFrame; let result;
+  await device.queue.onSubmittedWorkDone();
+  const t0 = performance.now();
+  for (let i = 0; i < frames; i++) render(last + 1000 / 60, true);
+  await device.queue.onSubmittedWorkDone();
+  result = (performance.now() - t0) / frames;
+  return { msPerFrame: result, adapter: adapter.info ? `${adapter.info.vendor} ${adapter.info.architecture} ${adapter.info.description}` : '' };
+};
+function render(now, benchmark = false) {
+  const t0 = performance.now();
+  const dt = now - last; last = now; fps = fps * .95 + (1000 / Math.max(dt, 1)) * .05;
+  // Fixed 1080p-relative backing store so numbers compare with the console.
+  const w = Math.round(1920 * controls.res), h = Math.round(1080 * controls.res);
+  if (canvas.width !== w || canvas.height !== h || !depthTexture) {
+    canvas.width = w; canvas.height = h; depthTexture?.destroy();
+    depthTexture = device.createTexture({ size: [w, h], format: 'depth24plus', usage: GPUTextureUsage.RENDER_ATTACHMENT });
+  }
+  const time = now / 1000;
+  if (controls.orbit && !dragging) yaw += dt * .00012;
+  const { count, capsules, frame } = writeFigures(time);
+  const focus = frame[0].head;
+  const target = [focus[0], focus[1] + 40, focus[2]];
+  const eye = [target[0] + Math.cos(yaw) * Math.cos(pitch) * distance, target[1] - Math.sin(pitch) * distance,
+    target[2] + Math.sin(yaw) * Math.cos(pitch) * distance];
+  const fovy = 0.9;
+  const viewProj = multiply(perspective(fovy, w / h, 8, 30000), lookAt(eye, target, [0, -1, 0]));
+  // The shadow map follows the focus; a larger world would cascade this.
+  const sun = norm([.45, -1, .35]);
+  const sunEye = [target[0] + sun[0] * 4000, target[1] + sun[1] * 4000, target[2] + sun[2] * 4000];
+  const sunViewProj = multiply(ortho(3600, 10, 8000), lookAt(sunEye, target, [0, 0, 1]));
+  const uniforms = new Float32Array(64);
+  uniforms.set(viewProj, 0); uniforms.set(invert(viewProj), 16); uniforms.set(sunViewProj, 32);
+  uniforms.set([...eye, time], 48);
+  uniforms.set([...sun, controls.blend], 52);
+  uniforms.set([w, h, count, capsules], 56);
+  uniforms.set([controls.outline, 2 * Math.tan(fovy / 2) / h, 0, controls.melt], 60);
+  device.queue.writeBuffer(uniformBuffer, 0, uniforms);
+
+  const encoder = device.createCommandEncoder();
+  const view = benchmark ? benchTarget(w, h) : context.getCurrentTexture().createView();
+  const stamp = (i) => timing && !benchmark ? { timestampWrites: { querySet, beginningOfPassWriteIndex: i, endOfPassWriteIndex: i + 1 } } : {};
+  const sunPass = encoder.beginRenderPass({ ...stamp(4), colorAttachments: [],
+    depthStencilAttachment: { view: shadowTexture.createView(), depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'store' } });
+  sunPass.setPipeline(sunPipeline); sunPass.setBindGroup(0, sunBindGroup); sunPass.draw(36, count); sunPass.end();
+  const park = encoder.beginRenderPass({ ...stamp(0),
+    colorAttachments: [{ view, clearValue: { r: .72, g: .80, b: .92, a: 1 }, loadOp: 'clear', storeOp: 'store' }],
+    depthStencilAttachment: { view: depthTexture.createView(), depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'store' } });
+  park.setPipeline(parkPipeline); park.setBindGroup(0, bindGroup); park.setVertexBuffer(0, parkBuffer);
+  park.draw(parkVertexCount); park.end();
+  const sdf = encoder.beginRenderPass({ ...stamp(2),
+    colorAttachments: [{ view, loadOp: 'load', storeOp: 'store' }],
+    depthStencilAttachment: { view: depthTexture.createView(), depthLoadOp: 'load', depthStoreOp: 'store' } });
+  sdf.setPipeline(sdfPipeline); sdf.setBindGroup(0, bindGroup); sdf.draw(36, count); sdf.end();
+  if (timing && !readPending && !benchmark) {
+    encoder.resolveQuerySet(querySet, 0, 6, resolveBuffer, 0);
+    encoder.copyBufferToBuffer(resolveBuffer, 0, readBuffer, 0, 48);
+  }
+  device.queue.submit([encoder.finish()]);
+  if (timing && !readPending && !benchmark) {
+    readPending = true;
+    readBuffer.mapAsync(GPUMapMode.READ).then(() => {
+      const q = new BigInt64Array(readBuffer.getMappedRange());
+      const ms = (a, b) => Number(q[b] - q[a]) / 1e6;
+      gpuMs.park = gpuMs.park * .9 + ms(0, 1) * .1; gpuMs.sdf = gpuMs.sdf * .9 + ms(2, 3) * .1; gpuMs.sun = gpuMs.sun * .9 + ms(4, 5) * .1;
+      readBuffer.unmap(); readPending = false;
+    });
+  }
+  cpuMs = cpuMs * .9 + (performance.now() - t0) * .1;
+  if (frameIndex++ % 15 === 0) {
+    $('stats').textContent =
+      `${w}×${h}  ${fps.toFixed(0)} fps\n` +
+      `figures ${count}  capsules ${capsules}\n` +
+      `JS→GPU ${count * 12 + capsules * 12} floats/frame\n` +
+      `park tris ${parkVertexCount / 3}\n` +
+      (timing ? `GPU sun  ${gpuMs.sun.toFixed(2)} ms\nGPU park ${gpuMs.park.toFixed(2)} ms\nGPU sdf  ${gpuMs.sdf.toFixed(2)} ms\n` : 'no timestamp-query\n') +
+      `CPU encode ${cpuMs.toFixed(2)} ms`;
+  }
+  if (!benchmark) requestAnimationFrame(render);
+}
+requestAnimationFrame(render);
+</script>
+</body>
+</html>

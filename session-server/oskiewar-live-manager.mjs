@@ -285,6 +285,7 @@ export class OskiewarLiveManager {
   parkPresence(room,ws,state){
     if(state.park?.enabled!==true)return;
     room.parkPeers ||= new Map();
+    room.parkLayoutSeed ??= Number.isInteger(state.park.layoutSeed)&&state.park.layoutSeed>=0&&state.park.layoutSeed<=4294967295?state.park.layoutSeed:(this.now() ^ Math.floor(Math.random()*4294967296))>>>0;
     const now=this.now();
     for(const [socket,peer] of room.parkPeers)if(socket.readyState!==1||now-peer.at>3000)room.parkPeers.delete(socket);
     let peer=room.parkPeers.get(ws);
@@ -296,7 +297,7 @@ export class OskiewarLiveManager {
     room.updatedAt=now;
     const echo=finite(state.park.sentAt,1e13)?state.park.sentAt:0;
     const peers=[...room.parkPeers.values()].map(p=>({id:p.id,...p.fighter}));
-    send(ws,"oskiewar:net",{t:"park-peers",self:peer.id,echo,peers});
+    send(ws,"oskiewar:net",{t:"park-peers",self:peer.id,echo,peers,layoutSeed:room.parkLayoutSeed});
   }
 
   addPublisher(room, ws, surface) {

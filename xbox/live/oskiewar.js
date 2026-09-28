@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 211;
+const buildVersion = 212;
 const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
@@ -416,6 +416,12 @@ function configureWorldMap(name, course = skateCourse) {
   skateCourse = course === "pool" ? "pool" : course === "halfpipe" ? "halfpipe" : course === "indoor" ? "indoor" : "park";
   roomDepth = poolOnly() ? 6000 : 900;
   worldNear = -roomDepth / 2; worldFar = roomDepth / 2;
+  // The seeded park layout and the doorway walk-in belong to the park; the
+  // 2D maps share those feature objects, so leaving puts them back.
+  if (!poolOnly()) {
+    restoreParkLayout();
+    for (const p of players) p.parkEntrance = null;
+  }
   // The marks on the ground belong to the ground: kept through resets,
   // cleared only when the map itself changes.
   if (previousMap !== skateparkMap + "/" + skateCourse) {
@@ -1601,6 +1607,46 @@ const parkRamps=[
   {x:4700,z:700,hx:650,hz:400,tx:270,tz:180,height:300},
   {x:7250,z:0,hx:800,hz:440,tx:400,tz:200,height:340}];
 const parkHalfPipe3D={x:2840,z:0,flat:160,radius:280,deck:70,bank:150,hx:660,hz:1250,run:1050};
+const parkLayoutFeatures=[...parkPools,...parkHills,...parkRamps,parkHalfPipe3D];
+const parkLayoutBase=parkLayoutFeatures.map(p=>({x:p.x,z:p.z}));
+let parkLayoutSeed=null;
+function applyParkLayout(seed){
+ seed=seed>>>0;if(seed===parkLayoutSeed)return false;parkLayoutSeed=seed;
+ let state=seed||1;const random=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
+ parkLayoutFeatures.forEach((p,i)=>{const base=parkLayoutBase[i];p.x=base.x+(random()-.5)*180;p.z=base.z+(random()-.5)*150;});
+ releaseQuadMesh(poolSurfaceMesh);poolSurfaceMesh=null;decals.length=0;clearPoolDecals();
+ for(const p of [...players,...parkKids])if(p.grounded)p.y=poolFloorAt(p.x,p.z||0);
+ return true;
+}
+function restoreParkLayout(){
+ if(parkLayoutSeed===null)return false;
+ parkLayoutFeatures.forEach((p,i)=>{p.x=parkLayoutBase[i].x;p.z=parkLayoutBase[i].z;});
+ parkLayoutSeed=null;releaseQuadMesh(poolSurfaceMesh);poolSurfaceMesh=null;
+ if(poolOnly())for(const p of [...players,...parkKids])if(p.grounded)p.y=poolFloorAt(p.x,p.z||0);
+ return true;
+}
+function parkEntranceDoor(){
+ const bays=Math.ceil(gridWidth/1100),width=gridWidth/bays;
+ return {x:gridLeft+(Math.floor(bays*.52)+.5)*width,z:worldNear,half:190,height:350};
+}
+function startParkEntrance(p,now){
+ // The walk-in is a welcome for a person holding a pad; bots start playing.
+ if(selfPlay||p.bot||p.npc||globalThis.__oskiewarParkIntro===false)return;
+ const door=parkEntranceDoor();p.x=p.spawnX=door.x;p.z=door.z-1100;p.y=poolFloorAt(p.x,p.z);
+ p.vx=p.vy=p.vz=0;p.grounded=true;p.poolYaw=poolCameraYaw=Math.PI/2;
+ p.skateboard=p.onewheel=false;p.parkEntrance={at:now,progress:0};
+ const target={x:p.x,y:p.y-145,z:p.z+250};
+ cameraDoll.snap({target,position:{x:p.x,y:p.y-145,z:p.z},width:700,perspective:1,fov:65,roll:0});
+}
+function updateParkEntrance(p,pad,dt,now){
+ const entry=p.parkEntrance;if(!entry)return false;
+ const age=(now-entry.at)/1e6;
+ if(age>.8&&(pad.down.length||Math.abs(pad.leftX||0)>.3||Math.abs(pad.leftY||0)>.3)||age>=4.8){p.parkEntrance=null;p.vx=p.vz=0;return false;}
+ const door=parkEntranceDoor(),u=clamp((age-.4)/3.4,0,1),ease=u*u*(3-2*u),oldZ=p.z;
+ entry.progress=clamp(age/4.8,0,1);p.x=door.x;p.z=door.z-1100+ease*1600;p.y=poolFloorAt(p.x,p.z);
+ p.vx=p.vy=0;p.vz=(p.z-oldZ)/Math.max(.001,dt);p.grounded=true;p.poolYaw=Math.PI/2;
+ p.poolStridePhase=(p.poolStridePhase||0)+Math.abs(p.vz)*dt/240;p.stance=Math.abs(p.vz)>5?'WALK':'NEUTRAL';p.previous=pad.down.slice();return true;
+}
 function parkHalfPipeHeight(x,z){
   const p=parkHalfPipe3D,d=Math.abs(x-p.x),end=Math.abs(z-p.z);
   if(d>=p.hx||end>=p.hz)return 0;
@@ -1638,6 +1684,8 @@ function parkGroundAt(x,z){
   return parkDeckY-Math.max(height,parkHalfPipeHeight(x,z));
 }
 function poolFloorAt(x,z=0){
+  const door=parkEntranceDoor();
+  if(Math.abs(x-door.x)<140&&z>door.z-1400&&z<door.z+650)return parkDeckY-20;
   if(Math.hypot(x-5200,z+260)<360)return parkDeckY-18;
   if(z<worldNear-parkLotMargin)return outdoorGroundAt(x,z);
   const edge=poolDistance(x,z);
@@ -1738,6 +1786,9 @@ function parkWallContact(from,to,radius=25){
     const x=lerp(from.x,to.x,fraction),z=lerp(from.z,to.z,fraction);
     const u=(x-w.ax)*w.ux+(z-w.az)*w.uz;
     if(u<0||u>w.length)continue;
+    const door=parkEntranceDoor();
+    const contactY=Number.isFinite(to.y)?to.y:parkDeckY-90;
+    if(w.id===0&&Math.abs(x-door.x)<door.half-radius&&contactY>=parkDeckY-door.height+radius&&contactY<=parkDeckY+radius)continue;
     const bay=Math.min(Math.ceil(w.length/1100)-1,Math.floor(u/w.width));
     contacts.push({w,bay,u,old,dist,fraction});
   }
@@ -1745,8 +1796,10 @@ function parkWallContact(from,to,radius=25){
 }
 function boundParkBody(p,previous={x:p.x,z:p.z||0}){
   boundKartTrack(p,previous);
+  const tunnel=outdoorTunnelAt(p.x,p.z||0);
+  if(tunnel!==null&&p.y<tunnel+180&&(p.previousY??p.y)>=tunnel+180){p.y=tunnel+180;p.vy=Math.max(0,p.vy);}
   const radius=p.pad===undefined?18:25,height=p.pad===undefined?40:180;
-  for(const {w,bay,u,old,dist} of parkWallContact(previous,{x:p.x,z:p.z||0},radius)){
+  for(const {w,bay,u,old,dist} of parkWallContact(previous,{x:p.x,y:p.y-height/2,z:p.z||0},radius)){
     const horizontal=u>bay*w.width+109+radius&&u<(bay+1)*w.width-109-radius;
     const wt=parkDeckY-parkBuildingHeight+269,wb=parkDeckY-99;
     const impactY=p.y-height*.5,impact=horizontal&&impactY>wt&&impactY<wb;
@@ -2807,6 +2860,11 @@ const nativeMeshUpload = typeof meshUpload === "function" ? meshUpload : null;
 const nativeMeshDraw = typeof meshDraw === "function" ? meshDraw : null;
 const nativeMeshFree = typeof meshFree === "function" ? meshFree : null;
 const nativeRetainedMeshes = nativeMeshUpload !== null && nativeMeshDraw !== null;
+// sceneApi 3: a park figure goes over as one list of round cones and the host
+// raymarches it (xbox/native-bios/SdfPixelShader.hlsl). The ablate lane's
+// `sdf` flag turns it off; a host without the pass returns false and the
+// tessellated figure draws instead.
+const nativeSdfFigure = typeof sdfFigure === "function" ? sdfFigure : null;
 const nativeTriangles3d = typeof triangles3d === "function" ? triangles3d : null;
 const nativePostEffects = typeof postEffects === "function" ? postEffects : null;
 const hostComicWrite = typeof comicWrite === "function" ? comicWrite : null;
@@ -4529,7 +4587,7 @@ function spectatorState(now, nextRoundId = "") {
       ...(workshopMap ? { workshop: workshopMap } : {}) },
     at: run.unixMs || 0, phase,
     aesel: {artifact:aeselArtifactWire},
-    park:poolOnly()?{enabled:true,sentAt:Date.now()}:undefined,
+    park:poolOnly()?{enabled:true,sentAt:Date.now(),layoutSeed:parkLayoutSeed}:undefined,
     course: skateparkMap ? "skatepark" : "station",
     ropes: skateRopes.length ? skateRopes.map((rope) => rope.nodes.map((node) =>
       [node.x, node.y, node.px, node.py].map((value) => Math.round(value * 100) / 100))) : undefined,
@@ -6576,7 +6634,7 @@ function freeskateRequested() {
 
 // Freeskate starts with one rider beside a monowheel in the empty swimming pool.
 // The existing hall and long park remain explicit host options.
-function beginFreeskate(now) {
+function beginFreeskate(now, seededLayout = false) {
   freeskateSecond = false;
   gameMode = "fight";
   selfPlay = false;
@@ -6588,6 +6646,9 @@ function beginFreeskate(now) {
   matchName = "";
   previousRoundName = "";
   configureWorldMap("skatepark", freeskateCourse());
+  // The title and scripted runs stand in the base hall; a person pressing
+  // Start (enterGame) deals this room's layout.
+  if(poolOnly()){if(seededLayout)applyParkLayout(Math.floor(hashUnit(sessionName+' park layout')*4294967296));else restoreParkLayout();}
   resetSkateRopes();
   resetRoofPanes();
   boardState.health = 100; boardState.cracks.length = 0; boardState.brokenAt = 0;
@@ -6632,6 +6693,7 @@ function beginFreeskate(now) {
   resetParkSupply(now);
   resetParkKids();
   resetParkWindows();
+  if(poolOnly()&&!Number.isFinite(startX))startParkEntrance(rider,now);
   if(poolOnly()&&typeof qrcode==='function')spectatorQr=spectatorCode("https://oskiewar.com/?park="+sessionName);
   roundStartedAt = now - roundIntroDurationUs();
   emitSignal("freeskate", 0, 1, 0);
@@ -6934,11 +6996,34 @@ function beginSelect(now) {
   }
 }
 
+function resetParkSession(now){
+ for(const p of [...players,...parkKids,...parkPeers.values()]){
+   garmentStates.delete(p);ponytailStates.delete(p);seatHudReadouts.delete(p);
+   Object.assign(p,{sparringPartner:undefined,sparringStartedAt:0,poolFightAxis:null,parkEntrance:null,
+    chalkColor:null,chalkPrevious:null,chalkDrawing:false,kartTrailPrevious:null,handItems:{},
+    poolPipeLocked:false,poolPipeEscapeUntil:0,poolTap:null,poolAnalogTap:null,poolAnalogKey:'',poolRunTime:0,
+    raceLoop:null,raceLoopCooldown:0,heartRate:62+(p.pad*7%19),heartPhase:0,heartDanger:0,
+    breathPhase:0,breathRate:11,health:4,headless:false,looseHead:null});
+ }
+ ragdollBodies.clear();parkPeers.clear();Object.assign(parkConnection,{at:0,ping:null,count:1});
+ for(const list of [decals,bloodDrops,lensBlood,waterSplashes,bubbleNotes,roofShards,crowdNotes,turboParticles,airParticles,impacts,detachedParts,bullets,grenades])list.length=0;
+ resetParkWindows();clearPoolDecals();
+ for(const mesh of outdoorChunks.values())releaseQuadMesh(mesh);outdoorChunks.clear();
+ for(const chunk of kartTrailChunks.values())for(const mesh of chunk.batches)releaseQuadMesh(mesh);kartTrailChunks.clear();
+ Object.assign(parkRecord,{angle:0,rate:1,phase:0,needle:.12,wobble:0,lastStep:-1});parkStereo.beat=0;crowdVoiceAt=0;
+ poolIdleSeconds=poolIdleClose=poolCameraYaw=poolCameraDip=0;poolCameraReturnYaw=null;
+ motorFrequency=75;motorSpeed=motorPhase=0;gameSpeed=1;parkLayoutSeed=null;
+ if(netSession)netLeave('title');netInbox.length=0;netPeerHello=null;
+ globalThis.__oskiewarNetInbox=[];
+ if(poolOnly()){sessionName=pronounceableMatchName();globalThis.__oskiewarSessionName=sessionName;}
+}
 function returnToTitle(now, reason = "back") {
+  // Park state only: the 2D fight keeps its own health scale and net seats.
+  if(poolOnly())resetParkSession(now);
   parkKids.length=0;
   resetRoofPanes();resetParkSupply(now);resetMonowheel();
   waterSplashes.length=0;bubbleNotes.length=0;bottomGlass.fill(false);
-  if(!poolOnly())decals.length=0;
+  decals.length=0;
   roofShards.length=0;
   for(const p of players){resetSkate(p);p.underPipe=false;p.axeHeld=false;p.axeHitAt={};p.resultReaction='';}
   if(typeof skateAudio==='function')skateAudio(0,0);
@@ -6971,6 +7056,7 @@ function returnToTitle(now, reason = "back") {
     position: { x: cameraCenter, y: cameraCenterY,
       z: -cameraWidth * 1.2 },
     width: cameraWidth, perspective: 0, fov: 55, roll: 0 });
+  if(freeskateRequested()&&poolOnly())startParkEntrance(players[0],now);
   shellPrevious = padSnapshots[0]?.down?.slice() || [];
   selectionPrevious[0] = shellPrevious.slice();
   selectionPrevious[1] = padSnapshots[1]?.down?.slice() || [];
@@ -6987,6 +7073,9 @@ function returnToTitle(now, reason = "back") {
 function startSelfPlay(now) {
   gameMode = "fight";
   selfPlay = true;
+  // Self-play drives reels and mechanical tests: it keeps the base park so a
+  // run is the same run every time; people get the seeded layout.
+  restoreParkLayout();
   // The harness is not the free door. A self-play run armed from a live title
   // inherits whatever training was seated, and leaving that behind would keep
   // the whole mechanical test off the wire — no demo, no rollover.
@@ -6998,6 +7087,7 @@ function startSelfPlay(now) {
   for (const player of activePlayers()) {
     player.npc = true;
     player.bot = true;
+    player.parkEntrance = null;
     player.spiderDummy = false;
     player.remote = false;
     player.rosterIndex = -1;
@@ -7206,7 +7296,7 @@ function enterGame(now) {
   // no dummy, no weapons — not into a sparring round.
   if (freeskateRequested() && !roundViewer &&
       !netSession && !versusActive()) {
-    beginFreeskate(now);
+    beginFreeskate(now, true);
     shellPrevious = padSnapshots[0]?.down?.slice() || [];
     return;
   }
@@ -9028,6 +9118,7 @@ const parkConnection={at:0,ping:null,count:1};
 function receiveParkPeers(packet){
  if(!poolOnly()||!Array.isArray(packet.peers)||packet.peers.length>16)return;
  const now=Date.now(),keep=new Set();parkConnection.at=now;parkConnection.count=packet.peers.length;
+ if(Number.isInteger(packet.layoutSeed)&&packet.layoutSeed>=0&&packet.layoutSeed<=4294967295)applyParkLayout(packet.layoutSeed);
  if(Number.isFinite(packet.echo))parkConnection.ping=clamp(now-packet.echo,0,9999);
  for(const f of packet.peers){
   if(f.id===packet.self||![f.x,f.y,f.z,f.yaw].every(Number.isFinite))continue;
@@ -9788,14 +9879,53 @@ function parkFightAxis(p, rival) {
   if (p.poolFightAxis?.rivalPad!==rival.pad) {
     let x=rival.x-p.x,z=(rival.z||0)-(p.z||0),length=Math.hypot(x,z);
     if(length<1){x=1;z=0;length=1;}
-    const sign=x<0||Math.abs(x)<.001&&z<0?-1:1;
-    p.poolFightAxis={rivalPad:rival.pad,x:x/length*sign,z:z/length*sign};
+    const side=(cameraDoll.position.x-cameraDoll.target.x)*z-(cameraDoll.position.z-cameraDoll.target.z)*x;
+    const sign=Math.abs(side)>1?Math.sign(side):x<0||Math.abs(x)<.001&&z<0?-1:1;
+    p.poolFightAxis={rivalPad:rival.pad,x:x/length*sign,z:z/length*sign,originX:p.x,originZ:p.z||0};
   }
   return p.poolFightAxis;
+}
+function endParkSparring(p){
+ const rival=p.civilian?players[p.sparringPartner]:parkKids.find(k=>k.pad===p.sparringPartner);
+ if(rival?.sparringPartner===p.pad){rival.sparringPartner=undefined;rival.poolFightAxis=null;rival.attackKind='';}
+ p.sparringPartner=undefined;p.poolFightAxis=null;p.attackKind='';
+}
+function startParkSparring(p,rival,now){
+ if(p.sparringPartner!==rival.pad){endParkSparring(p);endParkSparring(rival);p.sparringStartedAt=rival.sparringStartedAt=now;}
+ p.sparringPartner=rival.pad;rival.sparringPartner=p.pad;
+ parkFightAxis(p,rival);rival.nextSparAt=Math.min(rival.nextSparAt||now+350000,now+350000);
+ p.poolPipeLocked=false;p.poolVert=null;p.parkEntrance=null;
+ if(p.skateboard)dismountSkateboard(p,now);
+}
+function parkFightRival(p){
+  if(!poolOnly()||!p.alive||p.sparringPartner===undefined)return null;
+  const rival=p.civilian?players[p.sparringPartner]:parkKids.find(k=>k.pad===p.sparringPartner);
+  return rival?.alive?rival:null;
+}
+function parkFightFrame(p,rival,axis,t){
+  const center={x:(p.x+rival.x)/2,z:((p.z||0)+(rival.z||0))/2};
+  const rect={left:Infinity,right:-Infinity,top:Infinity,bottom:-Infinity};
+  const include=(x,y,z,r)=>{const u=(x-center.x)*axis.x+(z-center.z)*axis.z;
+    rect.left=Math.min(rect.left,u-r);rect.right=Math.max(rect.right,u+r);
+    rect.top=Math.min(rect.top,y-r);rect.bottom=Math.max(rect.bottom,y+r);};
+  for(const fighter of [p,rival]){
+    const pose=runnerWorldGeometry(fighter,t);include(pose.head.x,pose.head.y,pose.head.z,pose.head.radius);
+    for(const b of pose.segments){include(b.x1,b.y1,b.z1,b.width/2);include(b.x2,b.y2,b.z2,b.width/2);}
+  }
+  const u=(rect.left+rect.right)/2;
+  // Use the original 2D camera's silhouette packing and action-safe margins.
+  return {target:{x:center.x+axis.x*u,y:(rect.top+rect.bottom)/2,z:center.z+axis.z*u},
+    width:Math.max(frameFloorWidth(),rectPackWidth(rect)*1.12)};
 }
 function updateCameraDoll(dt, now) {
   if (poolOnly() && freeskateActive()) {
     const p=players[0],heading=p.poolYaw||0,speed=Math.hypot(p.vx,p.vz||0);
+    if(p.parkEntrance){
+      const u=clamp((p.parkEntrance.progress-.68)/.3,0,1),ease=u*u*(3-2*u);
+      const target={x:p.x,y:p.y-lerp(145,105,ease),z:(p.z||0)+lerp(250,100,ease)};
+      const position={x:p.x,y:p.y-lerp(145,245,ease),z:(p.z||0)-ease*380};
+      cameraDoll.track({target,position,width:700,perspective:1,fov:65,roll:0},dt,12);poolIdleSeconds=poolIdleClose=0;return;
+    }
     if(p.chalkDrawing){
       const tip=chalkTip(p),target={x:(p.x+tip.x)*.5,y:poolFloorAt(p.x,p.z||0),z:((p.z||0)+tip.z)*.5};
       cameraDoll.track({target,position:{x:target.x,y:target.y-1150,z:target.z-180},width:1400,perspective:.65,fov:62,roll:0},dt,4);poolIdleSeconds=poolIdleClose=0;return;
@@ -9806,8 +9936,12 @@ function updateCameraDoll(dt, now) {
       let position={x:p.x-Math.cos(heading)*distance,y:p.y-500,z:(p.z||0)-Math.sin(heading)*distance};
       if(insidePark(p.x,p.z||0))position=clearPoolCamera(position,{x:p.x,y:p.y-50,z:p.z||0});
       for(let i=0;i<16;i++){const t=i/16,x=lerp(position.x,target.x,t),z=lerp(position.z,target.z,t);position.y=Math.min(position.y,(poolFloorAt(x,z)-120-target.y*t)/(1-t));}
+      const ceiling=outdoorTunnelAt(position.x,position.z);
+      if(ceiling!==null)position.y=Math.max(position.y,ceiling+70);
       cameraDoll.track({target,position,width:2200,perspective:1,fov:68,roll:0},dt,3);
       cameraDoll.position.y=Math.min(cameraDoll.position.y,poolFloorAt(cameraDoll.position.x,cameraDoll.position.z)-140);
+      const easedCeiling=outdoorTunnelAt(cameraDoll.position.x,cameraDoll.position.z);
+      if(easedCeiling!==null)cameraDoll.position.y=Math.max(cameraDoll.position.y,easedCeiling+70);
       cameraDoll.dirty=true;poolIdleSeconds=poolIdleClose=0;return;
     }
     if(p.raceLoop){
@@ -9816,13 +9950,16 @@ function updateCameraDoll(dt, now) {
     }
     const rival=parkKids.find(k=>k.pad===p.sparringPartner&&k.alive);
     if(rival&&p.alive&&now>=(p.poolPipeEscapeUntil||0)){
-      const axis=parkFightAxis(p,rival),distance=Math.hypot(rival.x-p.x,(rival.z||0)-(p.z||0));
-      const target={x:(p.x+rival.x)/2,y:(p.y+rival.y)/2-90,z:((p.z||0)+(rival.z||0))/2};
-      const gap=clamp(750+distance,900,2100);
-      const position={x:target.x+axis.z*gap,y:target.y-100,z:target.z-axis.x*gap};
-      position.y=clearPoolCamera(position,target).y;
-      const width=Math.max(900,distance+500,Math.abs(p.y-rival.y)*1.8+650);
-      cameraDoll.track({target,position,width,perspective:0,fov:55,roll:0},dt,5);
+      const axis=parkFightAxis(p,rival),{target,width}=parkFightFrame(p,rival,axis,(now-startedAt)/1e6);
+      const gap=Math.max(650,width*1.2),position={x:target.x+axis.z*gap,y:target.y,z:target.z-axis.x*gap};
+      const dx=cameraDoll.position.x-cameraDoll.target.x,dz=cameraDoll.position.z-cameraDoll.target.z;
+      const radius=Math.max(1,Math.hypot(dx,dz)),angle=Math.atan2(dz,dx),goal=Math.atan2(-axis.x,axis.z);
+      const amount=1-Math.exp(-Math.max(0,dt)*9),nextAngle=angle+Math.atan2(Math.sin(goal-angle),Math.cos(goal-angle))*amount;
+      cameraDoll.track({target,position,width,perspective:0,fov:55,roll:0},dt,12);
+      // Orbit around the focus: a straight chord can cut through the fighters.
+      const nextRadius=lerp(radius,gap,amount);
+      cameraDoll.position.x=cameraDoll.target.x+Math.cos(nextAngle)*nextRadius;
+      cameraDoll.position.z=cameraDoll.target.z+Math.sin(nextAngle)*nextRadius;
       poolIdleSeconds=poolIdleClose=0;return;
     }
     if(p.poolPipeLocked){
@@ -11262,10 +11399,10 @@ function shieldGeometry(player) {
   const aimY = player.shieldAimY || 0;
   const length = Math.hypot(aimX, aimY) || 1;
   return {
-    x: player.x + aimX / length * shieldForward,
+    x: player.x + aimX / length * shieldForward * (poolOnly()?Math.cos(player.poolYaw||0):1),
     y: player.y - (player.shieldCrouched ? 58 : 90) -
       aimY / length * shieldForward,
-    z: player.z,
+    z: (player.z||0) + (poolOnly()?aimX / length * shieldForward*Math.sin(player.poolYaw||0):0),
     radius: shieldRadius,
   };
 }
@@ -12693,8 +12830,10 @@ function updateTurn(player, now) {
 }
 
 function updatePoolPlayer(p, pad, dt, now) {
+  if(updateParkEntrance(p,pad,dt,now))return;
+  if(p.sparringPartner!==undefined&&!parkFightRival(p))endParkSparring(p);
   const racePreviousX=p.x;
-  const combatTarget=parkKids.find(k=>k.pad===p.sparringPartner&&k.alive);
+  const combatTarget=parkFightRival(p);
   const combatMode=!!combatTarget;
   const fightAxis=parkFightAxis(p,combatTarget);
   const held=combatMode?pad.down.filter(k=>k!=='ArrowUp'&&k!=='ArrowDown').concat(pad.down.includes('ArrowUp')?['A']:[],pad.down.includes('ArrowDown')?['X']:[]):pad.down;
@@ -12704,12 +12843,14 @@ function updatePoolPlayer(p, pad, dt, now) {
   let turn=Number(held.includes('ArrowRight'))-Number(held.includes('ArrowLeft')) || axis(pad.leftX||0);
   let throttle=Number(held.includes('ArrowUp'))-Number(held.includes('ArrowDown')) || axis(pad.leftY||0);
   if(combatMode){
+    const input=quantizedInput(pad,p.suppressedDirections||[]);
+    turn=input.horizontal;
     const dx=combatTarget.x-p.x,dz=(combatTarget.z||0)-(p.z||0);
     const facing=dx*fightAxis.x+dz*fightAxis.z>=0?1:-1;
     p.poolYaw=Math.atan2(fightAxis.z*facing,fightAxis.x*facing);
     throttle=turn*facing;turn=0;
-    if((pad.leftY||0)>.5&&!held.includes('A'))held.push('A');
-    if((pad.leftY||0)<-.5&&!held.includes('X'))held.push('X');
+    if(input.vertical>0&&!held.includes('A'))held.push('A');
+    if(input.vertical<0&&!held.includes('X'))held.push('X');
   }
   if(held.includes('X')&&Math.hypot(p.x-parkRecord.x-parkRecord.radius*.85,(p.z||0)-parkRecord.z+parkRecord.radius*.6)<160){
     parkRecord.needle=clamp(parkRecord.needle+turn*dt*.3,.05,.95);
@@ -12894,7 +13035,14 @@ function updatePoolPlayer(p, pad, dt, now) {
     const forward=p.vx*driveX+(p.vz||0)*driveZ;
     p.poolStridePhase=(p.poolStridePhase||0)+forward*dt/240;
   }
-  updateFootprints(p,now);
+  if(combatMode&&now>=(p.poolPipeEscapeUntil||0)){
+    const along=(p.x-fightAxis.originX)*fightAxis.x+((p.z||0)-fightAxis.originZ)*fightAxis.z;
+    const other=(combatTarget.x-fightAxis.originX)*fightAxis.x+((combatTarget.z||0)-fightAxis.originZ)*fightAxis.z;
+    const locked=clamp(along,other-900,other+900);
+    p.x=fightAxis.originX+locked*fightAxis.x;p.z=fightAxis.originZ+locked*fightAxis.z;
+    if(p.grounded)p.y=poolFloorAt(p.x,p.z);
+  }
+  updateFootprints(p,now);updateKartTireTracks(p);
   const slope=poolSlopeAt(p.x,p.z||0),heading=p.poolYaw||0;
   const pitch=p.grounded?Math.atan(slope.x*Math.cos(heading)+slope.z*Math.sin(heading)):0;
   p.skatePitch+=(pitch-(p.skatePitch||0))*(1-Math.exp(-dt*16));
@@ -18689,7 +18837,7 @@ function drawFigureLod(player, geometry, tier, t) {
   const displayNow = player.frozenAt || hitNow;
   drawInventory(player, displayNow, geometry);
   drawHeldAxe(player, t);
-  if (player.blocking) {
+  if (player.blocking && !poolOnly()) {
     const worldShield = shieldGeometry(player);
     const shield = projectPoint(worldShield.x, worldShield.y, worldShield.z);
     drawBubble(player, shield.x, shield.y,
@@ -19003,7 +19151,7 @@ function drawLooseRunner(player,world,t,lod){
     triangleDepth=depth??((cut.from.z+cut.to.z)*.5-.00002);
     filledCapsule(cut.from.x,cut.from.y,cut.to.x,cut.to.y,width*k+edge,color);
   };
-  if(player.goKart)drawGoKart({...player.goKart,x:player.x,y:player.y,z:player.z,poolYaw:player.poolYaw});else if(player.skateboard)drawSkateboard(player);
+  if(player.goKart)drawGoKart({...player.goKart,x:player.x,y:player.y,z:player.z,poolYaw:player.poolYaw,skatePitch:player.skatePitch});else if(player.skateboard)drawSkateboard(player);
   const end=(b,n)=>({x:b['x'+n],y:b['y'+n],z:b['z'+n]});
   const groups=new Map();
   for(const bone of geometry.segments){
@@ -19076,7 +19224,80 @@ function drawLooseRunner(player,world,t,lod){
   drawHeldAxe(player,t);drawHeldChalk(player,t);triangleDepth=saved;
 }
 
+const sdfPrims=new Float32Array(48*12);
+// The same body drawSpatialRunner tessellates, as round cones: limbs taper,
+// the torso and skirt are cones, the head is a skin sphere with a hair cap
+// set back from the face, and the eyes cut in with a hard union.
+function drawSdfRunner(player,world,t){
+  const scale=player.civilian?(player.bodyScale||1):1;
+  const yaw=(player.poolYaw||0)+(player.spin?.angle||0);
+  const forward={x:Math.cos(yaw),y:0,z:Math.sin(yaw)},side={x:-forward.z,y:0,z:forward.x};
+  const point=(c,f,u,r)=>({x:c.x+forward.x*f+side.x*r,y:c.y-u,z:c.z+forward.z*f+side.z*r});
+  const end=(b,n)=>({x:b['x'+n],y:b['y'+n],z:b['z'+n]});
+  const skin=player.color,shirt=player.shirtColor||[252,252,250];
+  const dressed=player.skin&&!player.dummy;
+  let count=0;
+  const put=(a,b,r1,r2,ink,hard=0)=>{
+    if(count>=48)return;const o=count++*12;
+    sdfPrims[o]=a.x;sdfPrims[o+1]=a.y;sdfPrims[o+2]=a.z;sdfPrims[o+3]=r1;
+    sdfPrims[o+4]=b.x;sdfPrims[o+5]=b.y;sdfPrims[o+6]=b.z;sdfPrims[o+7]=r2;
+    sdfPrims[o+8]=ink[0]/255;sdfPrims[o+9]=ink[1]/255;sdfPrims[o+10]=ink[2]/255;sdfPrims[o+11]=hard;
+  };
+  const torso=world.segments.find(b=>b.role==='torso');
+  for(const bone of world.segments){
+    if(bone.role==='torso'||!hasPart(player,bone.part))continue;
+    const a=end(bone,1),b=end(bone,2),r=(bone.width||10)*.5;
+    if(bone.role==='shoulders'){if(hasPart(player,'torso'))put(a,b,r*.9,r*.9,dressed?shirt:skin);continue;}
+    const pants=player.pantsColor&&/thigh|shin/.test(bone.role);
+    put(a,b,r,r*.86,pants?player.pantsColor:skin);
+    if(dressed&&/upper-arm$/.test(bone.role)){
+      const cuff={x:lerp(a.x,b.x,.42),y:lerp(a.y,b.y,.42),z:lerp(a.z,b.z,.42)};
+      put(a,cuff,r+1.5*scale,r+1*scale,shirt,1);
+    }
+    if(/shin$/.test(bone.role))put(point(b,-4*scale,4*scale,0),point(b,13*scale,3*scale,0),6*scale,5.5*scale,player.shoeColor||[70,70,96],1);
+  }
+  if(torso&&hasPart(player,'torso')){
+    const hip=end(torso,2),neck=end(torso,1),ink=dressed?shirt:skin;
+    const mid={x:lerp(hip.x,neck.x,.62),y:lerp(hip.y,neck.y,.62),z:lerp(hip.z,neck.z,.62)};
+    put(hip,mid,14*scale,17*scale,ink);put(mid,neck,17*scale,10*scale,ink);
+    if(dressed&&!player.pantsColor){
+      const sway=Math.sin((player.poolStridePhase||0)*Math.PI*2)*3+(player.rig?.lean||0)*.16;
+      const top={...hip,y:hip.y-3*scale};
+      put(top,point(top,sway*scale,-30*scale,0),12*scale,19*scale,player.skirtColor||[188,164,226],1);
+    }
+  }
+  if(!player.headless){
+    const h=world.head,r=h.radius,hair=player.hairColor||[35,27,34];
+    put(h,h,r*.97,r*.97,skin);
+    const cap=point(h,-r*.3,r*.2,0);put(cap,cap,r*.82,r*.82,hair,1);
+    for(const sign of [-1,1])put(point(h,r*.9,r*.02,sign*r*.34),point(h,r*.9,r*.24,sign*r*.34),r*.13,r*.13,[24,18,29],1);
+    const nose=point(h,r*.94,-r*.13,0);put(nose,nose,r*.13,r*.13,skin);
+    const hairState=dressed&&ponytailStates.get(player);
+    if(hairState)for(let i=1;i<hairState.points.length;i++)
+      put(hairState.points[i-1],hairState.points[i],r*(.205-.03*(i-1)),r*(.205-.03*i),hair);
+    if(dressed||player.pad===0){
+      const bow=point(h,r*.48,r*.88,0),ink=player.accent||[147,231,200];
+      for(const sign of [-1,1])put(bow,point(bow,0,0,sign*r*.45),r*.08,r*.2,ink,1);
+    }
+  }
+  if(player.gunAmmo>0){
+    const pose=gunPose(player,runtime().monotonicUs);
+    put(pose.hand,pose.muzzle,4*scale,4*scale,[45,48,55],1);
+    put(pose.hand,{...pose.hand,y:pose.hand.y+14*scale},4*scale,3*scale,[30,29,34],1);
+  }
+  // A rejected figure (a non-finite pose, an oversize radius) falls back to
+  // triangles for this frame rather than throwing out of paint.
+  let drawn=false;
+  try{drawn=!!count&&nativeSdfFigure(sdfPrims,count,mainNativeCamera());}catch{drawn=false;}
+  if(!drawn)return false;
+  if(player.goKart)drawGoKart({...player.goKart,x:player.x,y:player.y,z:player.z,poolYaw:player.poolYaw,skatePitch:player.skatePitch});else if(player.skateboard)drawSkateboard(player);
+  const saved=triangleDepth;
+  triangleDepth=projectPoint(world.head.x,world.head.y,world.head.z).z-.004;
+  drawHeldAxe(player,t);drawHeldChalk(player,t);triangleDepth=saved;
+  return true;
+}
 function drawSpatialRunner(player,world,t,lod=0){
+  if(nativeSdfFigure&&renderFlags.sdf!==false&&drawSdfRunner(player,world,t))return;
   const scale=player.civilian?(player.bodyScale||1):1;
   // The ink silhouette stays smooth even when the shaded volume uses fewer
   // polygons. It sits behind the volume, at real actor depth, not HUD depth.
@@ -19128,7 +19349,7 @@ function drawSpatialRunner(player,world,t,lod=0){
     },c,[{x:forward.x*rx,y:0,z:forward.z*rx},{x:0,y:ry,z:0},{x:side.x*rz,y:0,z:side.z*rz}]);
   };
   const torso=world.segments.find(b=>b.role==='torso');
-  if(player.goKart)drawGoKart({...player.goKart,x:player.x,y:player.y,z:player.z,poolYaw:player.poolYaw});else if(player.skateboard)drawSkateboard(player);
+  if(player.goKart)drawGoKart({...player.goKart,x:player.x,y:player.y,z:player.z,poolYaw:player.poolYaw,skatePitch:player.skatePitch});else if(player.skateboard)drawSkateboard(player);
   for(const bone of world.segments){
     if(['torso','shoulders'].includes(bone.role)||!hasPart(player,bone.part))continue;
     const a=end(bone,1),b=end(bone,2),r=(bone.width||10)*.5;
@@ -19206,10 +19427,35 @@ function drawSpatialRunner(player,world,t,lod=0){
 }
 
 function drawRunner(player,t,showLabel=true){
+  if(player===players[0]&&player.parkEntrance?.progress<.73)return;
   const previous=figureDrawScale;
   const world=player.replayGeometry||player.frozenGeometry||runnerWorldGeometry(player,t);
   figureDrawScale=projectionScaleAt(world.head);
-  try{return drawRunnerAtScale(player,t,showLabel);}finally{figureDrawScale=previous;}
+  try{
+    drawRunnerAtScale(player,t,showLabel);
+    if(poolOnly()&&player.alive&&player.blocking)drawPlayerBubble(player,t);
+    if(player.civilian&&player.alive&&players[0].sparringPartner===player.pad)drawSparringTarget(player,world,t);
+  }finally{figureDrawScale=previous;}
+}
+function drawSparringTarget(player,world,t){
+ const age=Math.max(0,(runtime().monotonicUs-(player.sparringStartedAt||0))/1e6),pulse=Math.max(0,1-age/.6);
+ const head=projectPoint(world.head.x,world.head.y,world.head.z);if(head.behind)return;
+ const r=world.head.radius*projectionScaleAt(world.head)*(1.4+pulse*.4),old=triangleDepth;triangleDepth=head.z-.002;
+ const ink=[255,187,91],line=Math.max(2,r*.08);
+ for(const side of [-1,1]){
+   filledCapsule(head.x+side*r,head.y-r,head.x+side*r,head.y-r*.5,line,ink);
+   filledCapsule(head.x+side*r,head.y-r,head.x+side*r*.65,head.y-r,line,ink);
+ }
+ const label=player.name||'SPARRING',size=clamp(r*.4,18,32);
+ typeWrite(label,head.x-handleWidth(label,size)/2,head.y-r-size-8,size,...ink);triangleDepth=old;
+}
+function drawPlayerBubble(player,t){
+  const world=shieldGeometry(player),point=projectPoint(world.x,world.y,world.z);
+  if(point.behind)return;
+  const old=triangleDepth;
+  triangleDepth=point.z-world.radius*cameraDoll.depthSlope-.0001;
+  drawBubble(player,point.x,point.y,Math.max(3,world.radius*projectionScaleAt(world)),t);
+  triangleDepth=old;
 }
 function drawRunnerAtScale(player, t, showLabel = true) {
   const fallen=ragdollBodies.get(player);if(fallen&&!player.alive){drawLooseRunner(player,fallen.pose,t,0);if(player.headless&&player.looseHead)drawCivilianLooseHead(player);return;}
@@ -19267,8 +19513,9 @@ function drawRunnerAtScale(player, t, showLabel = true) {
       segment.y1 += dy; segment.y2 += dy;
     }
   }
-  const lod = poolOnly()&&player.civilian?Math.max(geometry.head.radius<12?2:1,figureLod(player,geometry)):figureLod(player, geometry);
-  if(poolOnly()&&player.alive&&!player.dummy){
+  const flatFight=!!parkFightRival(player);
+  const lod = flatFight?0:poolOnly()&&player.civilian?Math.max(geometry.head.radius<12?2:1,figureLod(player,geometry)):figureLod(player, geometry);
+  if(poolOnly()&&player.alive&&!player.dummy&&!flatFight){
     const world=player.replayGeometry||player.frozenGeometry||runnerWorldGeometry(player,t);
     if(looseCartoonEnabled())drawLooseRunner(player,world,t,lod);
     else drawSpatialRunner(player,world,t,lod);
@@ -19306,13 +19553,14 @@ function drawRunnerAtScale(player, t, showLabel = true) {
   // still tableau used to sit faceless — a sparring-partner special case
   // grown from the old dummy door — but the wordmark screen is the
   // storefront, and whoever sits under it should look back.
-  drawFace(player, geometry.head, contrastShadow(color), t, displayNow);
+  const facePlayer=flatFight?{...player,facing:Math.sign(Math.cos(player.poolYaw||0)*(players[0].poolFightAxis?.x??1)+Math.sin(player.poolYaw||0)*(players[0].poolFightAxis?.z??0))||1}:player;
+  drawFace(facePlayer, geometry.head, contrastShadow(color), t, displayNow);
   if(player.emo)drawEmoFringe(player,geometry.head);
   if(player.dummy)drawFace(player,geometry.head,contrastShadow(color),t,displayNow);
   if(player.spin)drawSpinArms(player,t,geometry,true,color,outline);
   drawInventory(player, displayNow, geometry);
   drawHeldAxe(player,t);
-  if (player.blocking) {
+  if (player.blocking && !poolOnly()) {
     const worldShield = shieldGeometry(player);
     const shield = projectPoint(worldShield.x, worldShield.y, worldShield.z);
     const radius = Math.max(18, worldShield.radius * cameraScale());
@@ -20483,16 +20731,25 @@ function drawTerrainBackWall(left, right, far, color) {
   terrainPass(left, right, wallZ, wallZ, wallBottom, () => wall);
 }
 
-function outdoorCircuit(){const radius=80467.2/(Math.PI*2);return {x:gridLeft+gridWidth*.52,z:worldNear-1500-radius,radius};}
+function outdoorCircuit(){const radius=160934.4/(Math.PI*2);return {x:gridLeft+gridWidth*.52,z:worldNear-1500-radius,radius};}
 function outdoorGroundAt(x,z){
  const t=outdoorCircuit(),a=Math.atan2(x-t.x,z-t.z),distance=Math.hypot(x-t.x,z-t.z);
  const ridge=clamp(1-Math.max(0,Math.abs(distance-t.radius)-400)/2200,0,1);
- return parkDeckY-(1-Math.cos(a))*260*(1+.35*Math.sin(a*3))*ridge;
+ const hills=(1-Math.cos(a))*650*(1+.4*Math.sin(a*3));
+ // A broad takeoff and landing hump: the sharp crest launches fast karts.
+ const jumpAngle=76/512*Math.PI*2,jumpSpan=4/512*Math.PI*2;
+ const jump=420*Math.max(0,1-Math.abs(a-jumpAngle)/jumpSpan);
+ return parkDeckY-(hills+jump)*ridge;
+}
+function outdoorTunnelAt(x,z){
+ const t=outdoorCircuit(),a=Math.atan2(x-t.x,z-t.z),offset=Math.hypot(x-t.x,z-t.z)-t.radius;
+ if(a<32/512*Math.PI*2||a>48/512*Math.PI*2||Math.abs(offset)>=430)return null;
+ return outdoorGroundAt(x,z)-160-560*Math.sqrt(1-(offset/430)**2);
 }
 function boundKartTrack(p,previous){
  if(!p.goKart)return;
  const t=outdoorCircuit(),dx=p.x-t.x,dz=(p.z||0)-t.z,r=Math.hypot(dx,dz),a=Math.atan2(dx,dz);
- if(Math.abs(a)<.055)return; // entrance from the parking lot
+ if(Math.abs(a)<3/512*Math.PI*2)return; // entrance from the parking lot
  const old=Math.hypot(previous.x-t.x,previous.z-t.z)-t.radius,offset=r-t.radius;
  if(Math.abs(old)<=280&&Math.abs(offset)>280&&p.y>outdoorGroundAt(p.x,p.z)-100){
   const target=t.radius+Math.sign(offset)*280,nx=dx/r,nz=dz/r;
@@ -20514,7 +20771,7 @@ function drawOutdoorCircuit(){
    for(let xx=x;xx<x+chunkSize;xx+=500)for(let zz=z;zz<end;zz+=500){const far=Math.min(end,zz+500);worldQuad(at(xx,zz),at(xx+500,zz),at(xx+500,far),at(xx,far),[97,111,92]);}
   });
  }
- const segments=256,chunkSegments=8;
+ const segments=512,chunkSegments=8;
  for(let chunk=0;chunk<segments/chunkSegments;chunk++){
   const angle=(chunk+.5)*chunkSegments/segments*Math.PI*2,cx=track.x+Math.sin(angle)*track.radius,cz=track.z+Math.cos(angle)*track.radius;
   if(Math.hypot(cx-rider.x,cz-(rider.z||0))>7500)continue;
@@ -20530,10 +20787,19 @@ function drawOutdoorCircuit(){
       worldQuad(at(a,edge,parkDeckY-90),at(b,edge,parkDeckY-90),at(b,outer,parkDeckY-90),at(a,outer,parkDeckY-90),color);
     }
     if(i%2===0)worldQuad(at(a,r-4,parkDeckY-2),at(b,r-4,parkDeckY-2),at(b,r+4,parkDeckY-2),at(a,r+4,parkDeckY-2),[235,220,137]);
+    // A 50 m vaulted tunnel, with an open entrance and exit.
+    if(i>=32&&i<48){
+      const arch=(angle,j)=>{const theta=j/8*Math.PI;return at(angle,r+Math.cos(theta)*430,parkDeckY-160-Math.sin(theta)*560);};
+      for(let j=0;j<8;j++)worldQuad(arch(a,j),arch(b,j),arch(b,j+1),arch(a,j+1),j%2?[77,88,107]:[88,99,117]);
+      for(const side of [-1,1])worldQuad(at(a,r+side*430),at(b,r+side*430),at(b,r+side*430,parkDeckY-160),at(a,r+side*430,parkDeckY-160),[75,84,101]);
+      if(i%4===0)for(const side of [-1,1])worldQuad(at(a,r+side*410,parkDeckY-280),at(b,r+side*410,parkDeckY-280),at(b,r+side*410,parkDeckY-286),at(a,r+side*410,parkDeckY-286),[181,224,238]);
+    }
+    if(i>=72&&i<80)for(const side of [-1,1])worldQuad(at(a,r+side*285,parkDeckY-3),at(b,r+side*285,parkDeckY-3),at(b,r+side*315,parkDeckY-3),at(a,r+side*315,parkDeckY-3),i%2?[250,209,82]:[50,50,57]);
    }
   });
  }
  for(const [key,mesh] of outdoorChunks)if(!keep.has(key)){releaseQuadMesh(mesh);outdoorChunks.delete(key);}
+ drawKartTireTracks();
 }
 function raceTrack(){return {x:gridLeft+gridWidth*.52,z:worldNear-1500,radius:520};}
 function updateRaceLoop(p,dt,now,throttle){
@@ -20623,7 +20889,11 @@ function drawParkBuildingGeometry(){
     const nx=-uz,nz=ux,bays=Math.ceil(length/1100),width=length/bays;
     const quad=(l,t,r,b,color,depth=0)=>{
       const at=(u,y)=>({x:ax+ux*u+nx*depth,y,z:az+uz*u+nz*depth});
-      worldQuad(at(l,t),at(r,t),at(r,b),at(l,b),color);
+      const door=parkEntranceDoor(),dl=door.x-gridLeft-door.half,dr=dl+door.half*2,topDoor=parkDeckY-door.height;
+      const face=(a,y,c,d)=>{if(c>a&&d>y)worldQuad(at(a,y),at(c,y),at(c,d),at(a,d),color);};
+      if(id===0&&b>topDoor&&r>dl&&l<dr){
+        face(l,t,r,Math.min(b,topDoor));face(l,Math.max(t,topDoor),Math.min(r,dl),b);face(Math.max(l,dr),Math.max(t,topDoor),r,b);
+      }else face(l,t,r,b);
     };
     for(let i=0;i<bays;i++){
       const a=i*width,b=a+width,l=a+100,r=b-100,wt=top+260,wb=parkDeckY-470;
@@ -20639,6 +20909,18 @@ function drawParkBuildingGeometry(){
   // Traverse counter-clockwise so depth offsets face into the room.
   wall(left,near,right,near,0);wall(right,near,right,far,1);
   wall(right,far,left,far,2);wall(left,far,left,near,3);
+  const door=parkEntranceDoor(),at=(x,y,z=0)=>({x:door.x+x,y:parkDeckY+y,z:door.z+z});
+  // Open double doors, brass jambs, and the red carpet across the threshold.
+  for(let z=-1400;z<650;z+=100){const end=Math.min(650,z+100);
+    worldQuad(at(-140,-20,z),at(140,-20,z),at(140,-20,end),at(-140,-20,end),[170,34,57]);
+    for(const side of [-1,1])worldQuad(at(side*130,-21,z),at(side*140,-21,z),at(side*140,-21,end),at(side*130,-21,end),[236,187,94]);
+  }
+  for(const side of [-1,1]){
+    const hinge=side*door.half,tip=side*(door.half-70);
+    worldQuad(at(hinge,-door.height),at(tip,-door.height,-160),at(tip,0,-160),at(hinge,0),[70,97,112]);
+    worldQuad(at(hinge-12,-door.height-14,-3),at(hinge+12,-door.height-14,-3),at(hinge+12,0,-3),at(hinge-12,0,-3),[216,176,100]);
+  }
+  worldQuad(at(-210,-door.height-85,-4),at(210,-door.height-85,-4),at(210,-door.height-14,-4),at(-210,-door.height-14,-4),[36,39,51]);
  }
 function drawParkRoofGeometry(){
   const p=parkPalette,top=parkDeckY-parkBuildingHeight;
@@ -20679,6 +20961,12 @@ function drawParkBuilding(){
     drawParkScene(parkRoofMesh,.18);
   }
   drawParkWindows();drawParkWindowShards();
+  const door=parkEntranceDoor();
+  if(cameraDoll.position.z<door.z){
+    const p=projectPoint(door.x,parkDeckY-door.height-74,door.z-6);
+    if(!p.behind){const old=triangleDepth;triangleDepth=p.z-.0001;const size=36*projectionScaleAt({x:door.x,y:parkDeckY-door.height-74,z:door.z});
+      if(size>6&&size<240)typeWrite('oskiewar',p.x-handleWidth('oskiewar',size)/2,p.y,size,255,218,132);triangleDepth=old;}
+  }
 }
 function drawRoomSurfaces(left, right, top, bottom, color) {
   if(poolOnly()){drawParkBuilding();return;}
@@ -23503,6 +23791,7 @@ function seedStreetTexture(){
  }
 }
 function resetParkSupply(now){
+ for(const chunk of kartTrailChunks.values())for(const mesh of chunk.batches)releaseQuadMesh(mesh);kartTrailChunks.clear();
  parkKarts.length=0;for(const p of players)p.goKart=null;
  chalkPickups.length=0;parkAxes.length=0;for(const p of players){p.chalkColor=null;p.chalkPrevious=null;p.chalkDrawing=false;}
  if(poolOnly()){
@@ -23550,7 +23839,7 @@ function updateParkSupply(dt,now){
     for(const p of activePlayers()){p.vx=p.vy=p.skateVx=0;p.resultReaction=p===winner?'DANCE':'WOE';p.resultReactionAt=now;}
     emitSignal(winner?'roundwin':'tie',winner?winner.pad:-1,0,0);playDrum('clap',1,0);
   }
-  if(now>=parkSupply.ko.until){const paired=freeskateSecond && !players[1].dummy,scores=players.map(p=>p.score);beginFreeskate(now);updateFreeskatePlayers(paired,now);players.forEach((p,i)=>p.score=scores[i]);}
+  if(now>=parkSupply.ko.until){const paired=freeskateSecond && !players[1].dummy,scores=players.map(p=>p.score);beginFreeskate(now,parkLayoutSeed!==null);updateFreeskatePlayers(paired,now);players.forEach((p,i)=>p.score=scores[i]);}
   return;
  }
  if(axePickup.active)for(const p of activePlayers())if(p.alive&&availableArm(p)&&Math.abs(p.x-axePickup.x)<65&&Math.abs(p.y-(axePickup.y+65))<150){p.handItems ||= {};p.handItems.axe=freeItemArm(p,'axe')||availableArm(p);p.axeHeld=true;axePickup.active=false;break;}
@@ -23574,9 +23863,41 @@ function dropParkItem(p,now){
  else{chalkPickups.push({x,z,y:y-12,color:p.chalkColor,active:true,safeUntil:now+1200000});p.chalkColor=null;}
  p.lastButton='DROPPED '+name.toUpperCase();p.lastButtonAt=now;return true;
 }
+const kartTrailChunks=new Map();
+function updateKartTireTracks(p){
+ if(!p.goKart||!p.grounded||Math.hypot(p.vx,p.vz||0)<35){p.kartTrailPrevious=null;return;}
+ const c=Math.cos(p.poolYaw||0),sn=Math.sin(p.poolYaw||0);
+ const wheels=[-1,1].map(side=>({x:p.x-c*65-sn*side*62,z:(p.z||0)-sn*65+c*side*62}));
+ const previous=p.kartTrailPrevious;
+ if(!previous){p.kartTrailPrevious=wheels;return;}
+ const distance=Math.hypot(wheels[0].x-previous[0].x,wheels[0].z-previous[0].z);
+ if(distance<90)return;
+ p.kartTrailPrevious=wheels;if(distance>900)return;
+ for(let i=0;i<2;i++){
+  const from=previous[i],to=wheels[i],length=Math.hypot(to.x-from.x,to.z-from.z)||1;
+  const nx=-(to.z-from.z)/length*8,nz=(to.x-from.x)/length*8;
+  const at=(v,sign)=>{const x=v.x+nx*sign,z=v.z+nz*sign;return {x,z,y:poolFloorAt(x,z)-2};};
+  const mark=[at(from,1),at(to,1),at(to,-1),at(from,-1)];
+  const key=Math.floor(to.x/3000)+':'+Math.floor(to.z/3000);
+  let chunk=kartTrailChunks.get(key);if(!chunk){chunk={x:to.x,z:to.z,pending:[],batches:[]};kartTrailChunks.set(key,chunk);}
+  chunk.pending.push(mark);
+  if(chunk.pending.length>=16){const marks=chunk.pending;chunk.pending=[];chunk.batches.push(captureQuadMesh(()=>{for(const q of marks)worldQuad(...q,[28,30,34]);}));
+   if(chunk.batches.length>16)releaseQuadMesh(chunk.batches.shift());}
+ }
+ while(kartTrailChunks.size>128){const [key,chunk]=kartTrailChunks.entries().next().value;for(const mesh of chunk.batches)releaseQuadMesh(mesh);kartTrailChunks.delete(key);}
+}
+function drawKartTireTracks(){
+ const p=players[0];
+ for(const chunk of kartTrailChunks.values()){
+  if(Math.hypot(chunk.x-p.x,chunk.z-(p.z||0))>6500)continue;
+  for(const mesh of chunk.batches)if(sceneBoundsVisible(mesh.bounds))drawQuadMesh(mesh);
+  for(const q of chunk.pending)worldQuad(...q,[28,30,34]);
+ }
+}
 function drawGoKart(kart){
  if(!sceneBoundsVisible({minX:kart.x-140,maxX:kart.x+140,minY:kart.y-100,maxY:kart.y+25,minZ:kart.z-140,maxZ:kart.z+140}))return;
- const c=Math.cos(kart.poolYaw||0),s=Math.sin(kart.poolYaw||0),at=(x,y,z)=>({x:kart.x+c*x-s*z,y:kart.y+y,z:kart.z+s*x+c*z});
+ const c=Math.cos(kart.poolYaw||0),s=Math.sin(kart.poolYaw||0),cp=Math.cos(kart.skatePitch||0),sp=Math.sin(kart.skatePitch||0);
+ const at=(x,y,z)=>{const along=x*cp-y*sp;return {x:kart.x+c*along-s*z,y:kart.y+x*sp+y*cp,z:kart.z+s*along+c*z};};
  const body=kart.color||[234,105,116];
  worldQuad(at(-95,-28,-52),at(100,-28,-52),at(100,-28,52),at(-95,-28,52),body);
  for(const z of [-52,52])worldQuad(at(-95,-28,z),at(100,-28,z),at(100,-8,z),at(-95,-8,z),mixColor(body,[25,25,35],.25));
@@ -23728,12 +24049,12 @@ function updateSkateAudio(dt){
   if(skateAudioLevel<.0005)skateAudioLevel=0;
   if(!netSilent&&typeof skateAudio==='function')skateAudio(.03+amount*.17,skateAudioLevel);
 }
-let motorFrequency=75,motorRunning=false,motorSpeed=0;
+let motorFrequency=75,motorRunning=false,motorSpeed=0,motorPhase=0;
 function updateMotorAudio(dt){
  if(typeof oscillator!=='function')return;
- const p=activePlayers().find(p=>p.alive&&p.onewheel&&p.skateboard);
+ const p=activePlayers().find(p=>p.alive&&(p.goKart||p.onewheel&&p.skateboard));
  const speed=p?Math.hypot(p.vx,p.vz||0):0;
- if(!p||!p.grounded||speed<(motorRunning?12:28)||netSilent){
+ if(!p||!p.goKart&&(!p.grounded||speed<(motorRunning?12:28))||netSilent){
   if(motorRunning){if(typeof oscillatorStop==='function')oscillatorStop();else oscillator(motorFrequency,0);}
   motorRunning=false;motorSpeed=speed;return;
  }
@@ -23741,9 +24062,10 @@ function updateMotorAudio(dt){
  motorSpeed=speed;
  // Low electric hum with a soft acceleration whine; no standing idle tone.
  const note=[33,29,36,31][Math.floor(parkStereo.beat/8)%4]+(p.wheelTurbo?12:0);
- const target=440*Math.pow(2,(note-69)/12);
+ const target=p.goKart?55+Math.sqrt(clamp(speed/6500,0,1))*145+Math.abs(p.inputZ||0)*18:440*Math.pow(2,(note-69)/12);
  motorFrequency+=(target-motorFrequency)*(1-Math.exp(-Math.max(0,dt)*8));
- const gain=(.002+Math.sqrt(amount)*.005)*clamp((speed-12)/90,0,1);
+ motorPhase=(motorPhase+Math.max(0,dt)*(5+amount*9))%1;
+ const gain=p.goKart?(.018+amount*.025+load*.009)*(.85+.15*Math.sin(motorPhase*Math.PI*2)):(.002+Math.sqrt(amount)*.005)*clamp((speed-12)/90,0,1);
  oscillator(motorFrequency,gain);motorRunning=true;
 }
 function axeFrame(p,t){
@@ -23840,6 +24162,29 @@ function seatHudReadout(p,now){
  seatHudReadouts.set(p,readout);
  return readout;
 }
+function drawParkControls(p,safe){
+ const down=inputPads[p.pad]?.down||[],fighting=!!parkFightRival(p),size=42;
+ const active=keys=>keys.some(key=>down.includes(key))||keys.includes('ArrowUp')&&(inputPads[p.pad]?.leftY||0)>.48||keys.includes('ArrowDown')&&(inputPads[p.pad]?.leftY||0)<-.48;
+ const drop=parkDropName(p);
+ if(drop)seatHudText('L3 drop '+drop,safe.left,safe.bottom-size,size,active(['LeftStick','KeyQ'])?[255,245,130]:[255,186,126]);
+ const rows=[[
+  {text:p.chalkColor&&!fighting?'B draw':p.axeHeld?'B swing':'B punch',keys:['B']},
+  {text:p.gunAmmo>0?'Y shoot':'Y kick',keys:['Y']}],
+  p.chalkDrawing?[{text:'RB spin',keys:['RightShoulder']}]:[
+   {text:fighting?'↑ jump':p.skateboard?'A dismount':'A jump',keys:fighting?['ArrowUp','A']:['A']},
+   ...(fighting?[{text:'↓ duck',keys:['ArrowDown','X']}]:[]),
+   {text:'RB block',keys:['RightShoulder']}]];
+ for(const [row,runs] of rows.entries()){
+  const separator=' / ',gap=handleWidth(separator,size),width=runs.reduce((n,r)=>n+handleWidth(r.text,size),0)+gap*(runs.length-1);
+  let x=safe.right-width;const y=safe.bottom-92+row*50;
+  for(const [index,run] of runs.entries()){
+   const lit=active(run.keys),w=handleWidth(run.text,size);
+   if(lit)hudBox(x-5,y-2,w+10,size+7,43,64,79);
+   seatHudText(run.text,x,y,size,lit?[255,246,139]:[200,215,232]);x+=w;
+   if(index<runs.length-1){seatHudText(separator,x,y,size,[155,170,189]);x+=gap;}
+  }
+ }
+}
 function drawSeatPlayerHud(ink){
  drawSeatFirstPerson();
  drawParkPickupLabels();
@@ -23847,7 +24192,7 @@ function drawSeatPlayerHud(ink){
  for(const p of activePlayers()){
   if(p.dummy)continue;
   const i=p.pad,{idle,measure,metrics}=seatHudReadout(p,now);
-  if(poolOnly()&&i===0){const drop=parkDropName(p);if(drop)seatHudText('L3 drop '+drop,safe.left,safe.bottom-42,42,[255,186,126]);const action=p.chalkColor?'B draw':p.axeHeld?'B swing':'B punch',fire=p.gunAmmo>0?'Y shoot':'Y kick';for(const [j,text] of [action+' / '+fire,p.chalkDrawing?'RB spin':(p.skateboard?'A dismount':'A jump')+' / RB block'].entries())seatHudText(text,safe.right-handleWidth(text,42),safe.bottom-92+j*50,42,[200,215,232]);}
+  if(poolOnly()&&i===0)drawParkControls(p,safe);
   const accent=p.wheelTurbo?[209,129,255]:i?[174,161,255]:[255,144,188];
   const size=42;
   const heartRadius=size*.23,heartSpace=heartRadius*3+18;
@@ -24149,7 +24494,7 @@ function updateParkKids(dt,now){
   if(ragdollBodies.has(kid)&&!kid.alive&&!kid.headless)continue;
   if(kid.alive&&kid.sparringPartner!==undefined){
     const rival=players[kid.sparringPartner],distance=rival?Math.hypot(rival.x-kid.x,(rival.z||0)-(kid.z||0)):Infinity;
-    if(!rival?.alive||distance>1300||rival.poolPipeEscapeUntil>now){if(rival)rival.sparringPartner=undefined;kid.sparringPartner=undefined;kid.attackKind='';}
+    if(!rival?.alive||rival.sparringPartner!==kid.pad||rival.poolPipeEscapeUntil>now){endParkSparring(kid);}
     else{
       if(now>=kid.attackUntil)kid.attackKind='';
       const dx=rival.x-kid.x,dz=(rival.z||0)-(kid.z||0),yaw=Math.atan2(dz,dx);kid.poolYaw=yaw;kid.facing=1;kid.grounded=true;kid.ducking=false;
@@ -24235,7 +24580,7 @@ function drawTurboParticles(){
 
 function damageParkCivilian(kid,owner,at,now,damage){
  kid.health=(kid.health??4)-damage;kid.hit=1;kid.startledUntil=now+900000;
- kid.sparringPartner=owner.pad;owner.sparringPartner=kid.pad;kid.lastHitAt=now;
+ startParkSparring(owner,kid,now);kid.lastHitAt=now;
  const dx=kid.x-owner.x,dz=(kid.z||0)-(owner.z||0),length=Math.hypot(dx,dz)||1;
  kid.x+=dx/length*20;kid.z+=dz/length*20;kid.patrolZ=kid.z;
  spawnImpact({x:at.x,y:at.y,z:at.z,life:.18,duration:.18,death:false,explosion:false});
@@ -24489,7 +24834,9 @@ function updateSeatHeartbeat(dt,now){
   danger=Math.max(danger,Math.min(1,(p.hit||0)*2));
   const rest=62+(p.pad*7%19),effort=Math.min(1,Math.hypot(p.vx,p.vy,p.vz||0)/1800);
   const excitement=Math.max(p.spin?Math.min(1,spinRpm(p)/180):0,p.attackKind?.length?1:0,!p.grounded?.55:0,p.wheelTurbo?1:0,now-(p.lastButtonAt||0)<600000&&/PUNCH|KICK|DASH|JUMP|SHOT|WACK/.test(p.lastButton||'')?.8:0);
-  const target=Math.min(210,rest+danger*65+effort*55+excitement*35);
+  const fighting=!!parkFightRival(p);
+  if(fighting)danger=Math.max(danger,.8);
+  const target=Math.min(210,Math.max(rest+danger*65+effort*55+excitement*35,fighting?155+effort*25+excitement*30:0));
   p.heartRate=(p.heartRate||rest)+(target-(p.heartRate||rest))*(1-Math.exp(-realDt*(target>(p.heartRate||rest)?1.8+(p.pad%3)*.2:.23+(p.pad%4)*.04)));
   const previousHeartPhase=p.heartPhase;
   p.heartDanger=danger;p.heartPhase=((p.heartPhase ?? (p.pad*.173)%1)+realDt*p.heartRate/60)%1;

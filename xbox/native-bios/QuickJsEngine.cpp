@@ -878,8 +878,8 @@ JSValue Capabilities(JSContext* context, JSValueConst, int, JSValueConst*) {
   JS_SetPropertyStr(context, result, "liveLocalState", JS_NewBool(context, true));
   // The scene API level the piece may assume (xbox/ENGINE.md). Additive only:
   // 1 = triangles3d/disc3d/capsule3d/sceneMesh, 2 = + postEffects and retained
-  // meshes (meshUpload/meshDraw/meshFree).
-  JS_SetPropertyStr(context, result, "sceneApi", JS_NewInt32(context, 2));
+  // meshes (meshUpload/meshDraw/meshFree), 3 = + raymarched sdfFigure.
+  JS_SetPropertyStr(context, result, "sceneApi", JS_NewInt32(context, 3));
   return result;
 }
 
@@ -1016,6 +1016,7 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "meshUpload", JS_NewCFunction(context_, MeshUpload, "meshUpload", 3));
     JS_SetPropertyStr(context_, global, "meshDraw", JS_NewCFunction(context_, MeshDraw, "meshDraw", 7));
     JS_SetPropertyStr(context_, global, "meshFree", JS_NewCFunction(context_, MeshFree, "meshFree", 1));
+    JS_SetPropertyStr(context_, global, "sdfFigure", JS_NewCFunction(context_, SdfFigure, "sdfFigure", 3));
     JS_SetPropertyStr(context_, global, "decalSurfaceSize", JS_NewInt32(context_, 4096));
     JS_SetPropertyStr(context_, global, "meshTransparency", JS_NewBool(context_, true));
     JS_SetPropertyStr(context_, global, "triangle3d", JS_NewCFunction(context_, Triangle3d, "triangle3d", 12));

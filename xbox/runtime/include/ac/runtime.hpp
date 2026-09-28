@@ -109,6 +109,10 @@ class Graphics {
   virtual bool decal_stamp(const std::array<float,12>&) { return false; }
   virtual bool decal_tint(const std::array<float,12>&,const std::array<float,3>&) { return false; }
   virtual void decal_triangle(const TexturedTriangle&) {}
+  // sceneApi 3: one raymarched figure. camera is the 27-float native camera;
+  // prims holds count × 12 floats (a.xyz r1, b.xyz r2, r g b 0–1, hard).
+  // False means the host has no SDF pass and the piece draws triangles.
+  virtual bool sdf_figure(const float* /*camera*/, const float* /*prims*/, std::size_t /*count*/) { return false; }
   virtual void write(const Text&) = 0;
   virtual void system_write(const SystemText&) {}
   virtual void system_glyph(const SystemGlyph&) {}

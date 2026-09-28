@@ -160,6 +160,9 @@ function createFight(startImmediately = true, enterGame = true,
   );
   globalThis.__oskiewarRoundBridge = roundBridge;
   globalThis.__oskiewarAttractVariant = "still";
+  // These tests place riders by hand; the doorway walk-in has its own tests
+  // in pool-playground.test.mjs.
+  globalThis.__oskiewarParkIntro = false;
   const opponentOverride = globalThis.__oskiewarOpponent;
   if (opponentOverride === undefined) globalThis.__oskiewarOpponent = "dummy";
   fight.boot();

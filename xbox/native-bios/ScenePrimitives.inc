@@ -176,6 +176,22 @@ JSValue DecalMesh(JSContext* ctx,JSValueConst,int argc,JSValueConst* args){
   }
  }return JS_NewInt32(ctx,emitted);
 }
+// sdfFigure(prims, count, camera) → true when the host raymarches the figure
+// (sceneApi 3). prims is count × 12 floats: a.xyz, r1, b.xyz, r2, r, g, b
+// (0–1) and hard (1 = plain union, 0 = smooth blend). One call per figure
+// replaces the ~500 triangle calls a tessellated figure costs in QuickJS.
+JSValue SdfFigure(JSContext* ctx,JSValueConst,int argc,JSValueConst* args){
+ auto* scope=static_cast<CallScope*>(JS_GetContextOpaque(ctx));SceneFloats prims(ctx),camera(ctx);int32_t count=0;
+ if(!scope||!scope->api||argc<3||!prims.read(args[0])||JS_ToInt32(ctx,&count,args[1])||!camera.read(args[2]))
+  return JS_ThrowTypeError(ctx,"sdfFigure requires prims, count and camera");
+ if(count<1||count>48||prims.count<size_t(count)*12||camera.count!=27||!SceneCameraValid(camera.data))
+  return JS_ThrowRangeError(ctx,"sdfFigure layout or budget");
+ for(size_t i=0;i<size_t(count)*12;i++){const float v=prims.data[i];
+  if(!std::isfinite(v)||std::abs(v)>1e6f)return JS_ThrowRangeError(ctx,"non-finite sdf prim");}
+ for(int32_t i=0;i<count;i++){const float* p=prims.data+i*12;
+  if(p[3]<0||p[3]>512||p[7]<0||p[7]>512)return JS_ThrowRangeError(ctx,"sdf prim radius");}
+ return JS_NewBool(ctx,scope->api->graphics.sdf_figure(camera.data,prims.data,size_t(count)));
+}
 // meshDraw(handle, camera, capsuleScale = 1, tintR = 1, tintG = 1, tintB = 1) → triangles emitted.
 // capsuleScale is the game's cameraScale(): edge capsules store a world width
 // and take their pixel width from it, as drawQuadMesh did in JS. Zero or less

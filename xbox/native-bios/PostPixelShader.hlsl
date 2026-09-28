@@ -15,13 +15,21 @@ cbuffer PostConstants : register(b0) {
   float pad;
 };
 
+// Never pull a HUD pixel into a neighbouring scene pixel's blur.
+float3 sceneTap(float2 uv, float2 origin) {
+  int2 pixel = int2(clamp(uv, texel * 0.5, 1.0 - texel * 0.5) / texel);
+  if (depthTexture.Load(int3(pixel, 0)) <= hudDepth)
+    return sceneTexture.Sample(sceneSampler, origin).rgb;
+  return sceneTexture.Sample(sceneSampler, uv).rgb;
+}
+
 // Twelve taps on a golden-angle spiral: a soft disc without a second pass.
 float3 discBlur(float2 uv, float radiusPx) {
   float3 sum = 0;
   [unroll] for (int i = 0; i < 12; ++i) {
     const float r = sqrt((i + 0.5) / 12.0) * radiusPx;
     const float a = i * 2.39996323;
-    sum += sceneTexture.Sample(sceneSampler, uv + float2(cos(a), sin(a)) * r * texel).rgb;
+    sum += sceneTap(uv + float2(cos(a), sin(a)) * r * texel, uv);
   }
   return sum / 12.0;
 }
@@ -30,7 +38,7 @@ float3 discBlur(float2 uv, float radiusPx) {
 float3 motionBlur(float2 uv) {
   float3 sum = 0;
   [unroll] for (int i = 0; i < 8; ++i)
-    sum += sceneTexture.Sample(sceneSampler, uv + motion * texel * ((i + 0.5) / 8.0 - 0.5)).rgb;
+    sum += sceneTap(uv + motion * texel * ((i + 0.5) / 8.0 - 0.5), uv);
   return sum / 8.0;
 }
 
@@ -43,6 +51,8 @@ float4 main(PixelInput input) : SV_TARGET {
   const float2 centered = input.uv * 2.0 - 1.0;
   const float radial = dot(centered, centered);
   const float3 center = sceneTexture.Sample(sceneSampler, input.uv).rgb;
+  const bool hud = depthTexture.Load(int3(input.position.xy, 0)) <= hudDepth;
+  if (hud) return float4(center, 1.0);
   float3 color = center;
 
   // Fine changing grain and gentle lens falloff, without raster scanlines.
@@ -80,7 +90,6 @@ float4 main(PixelInput input) : SV_TARGET {
     const float lb = dot(sampleB, weights);
     color = lb < lmin || lb > lmax ? sampleA : sampleB;
   }
-  const bool hud = depthTexture.Load(int3(input.position.xy, 0)) <= hudDepth;
   if (!hud) {
     const float travel = length(motion);
     if (travel > 0.75) color = lerp(color, motionBlur(input.uv), saturate(travel / 6.0));
@@ -89,6 +98,12 @@ float4 main(PixelInput input) : SV_TARGET {
     if (tilt > 0.35) color = lerp(color, discBlur(input.uv, tilt), saturate(tilt / 2.0));
   }
   if (!hud) {
+    const float2 bleed = float2(1.1 * texel.x, 0.0);
+    const float3 left = sceneTap(input.uv - bleed, input.uv);
+    const float3 right = sceneTap(input.uv + bleed, input.uv);
+    color = lerp(color, float3(right.r, color.g, left.b), 0.16);
+    const float tapeBand = sin(input.uv.y * 22.0 - timeSeconds * 0.65);
+    color *= 1.0 - 0.008 * pow(max(0.0, tapeBand), 8.0);
     // A mild shoulder compresses bright paint without crushing dark detail.
     color = color * (1.12 / (1.0 + color * 0.16));
     const float luminance = dot(color, float3(0.299, 0.587, 0.114));

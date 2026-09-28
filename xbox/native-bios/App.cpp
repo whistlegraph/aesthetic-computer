@@ -259,6 +259,7 @@ class HostGraphics final : public Graphics {
   std::function<bool(const std::array<float,12>&)> on_decal_stamp;
   std::function<bool(const std::array<float,12>&,const std::array<float,3>&)> on_decal_tint;
   std::function<void(const ac::xbox::TexturedTriangle&)> on_decal_triangle;
+  std::function<bool(const float*,const float*,std::size_t)> on_sdf_figure;
   std::function<void(const ac::xbox::Text&)> on_write;
   std::function<void(const ac::xbox::SystemText&)> on_system_write;
   std::function<void(const ac::xbox::SystemGlyph&)> on_system_glyph;
@@ -285,6 +286,7 @@ class HostGraphics final : public Graphics {
   bool decal_stamp(const std::array<float,12>& stamp) override { return on_decal_stamp && on_decal_stamp(stamp); }
   bool decal_tint(const std::array<float,12>& stamp,const std::array<float,3>& tint) override { return on_decal_tint && on_decal_tint(stamp,tint); }
   void decal_triangle(const ac::xbox::TexturedTriangle& triangle) override { if(on_decal_triangle)on_decal_triangle(triangle); }
+  bool sdf_figure(const float* camera,const float* prims,std::size_t count) override { return on_sdf_figure && on_sdf_figure(camera,prims,count); }
   void theme_sprite(const ac::xbox::ThemeSprite& sprite) override {
     const float c = std::cos(sprite.angle), s = std::sin(sprite.angle);
     const float hx = sprite.width * .5f, hy = sprite.height * .5f;
@@ -425,6 +427,9 @@ public:
     m_graphics->on_decal_tint = [this](const std::array<float,12>& stamp,const std::array<float,3>& tint) { return m_decalView && m_decalSurface.stamp(stamp,&tint); };
     m_graphics->on_decal_triangle = [this](const ac::xbox::TexturedTriangle& triangle) {
       if(m_frameDecalTriangles.size()<kMaxDecalTriangles)m_frameDecalTriangles.push_back(triangle);
+    };
+    m_graphics->on_sdf_figure = [this](const float* camera,const float* prims,std::size_t count) {
+      return QueueSdfFigure(camera,prims,count);
     };
     m_graphics->on_write = [this](const ac::xbox::Text& text) { m_frameTexts.push_back(text); };
     m_graphics->on_system_write = [this](const ac::xbox::SystemText& text) {
@@ -609,6 +614,9 @@ public:
       m_frameTriangles.clear();
       m_frameTexturedTriangles.clear();
       m_frameDecalTriangles.clear();
+      m_frameSdfFigures.clear();
+      m_frameSdfPrims.clear();
+      m_frameSdfCameras.clear();
       m_frameSprites.clear();
       m_frameThemeQuads.clear();
       m_frameTexts.clear();
@@ -655,7 +663,8 @@ public:
           std::to_string(m_api->screen.width) + "x" +
           std::to_string(m_api->screen.height) + " aa=" +
           std::to_string(m_api->system.antialiasing_samples) + "x mode=" +
-          m_api->system.antialiasing_mode);
+          m_api->system.antialiasing_mode + " sdfFigures=" +
+          std::to_string(m_lastSdfFigureCount));
         profileFrames = 0; profileHostJsMs = 0; profileRenderCpuMs = 0;
         profilePresentMs = 0;
       }
@@ -797,6 +806,7 @@ private:
       &m_textBrush));
     CreateTrianglePipeline();
     CreateSpritePipeline();
+    CreateSdfPipeline();
     CreatePostPipeline();
   }
 
@@ -918,6 +928,163 @@ private:
     m_context->OMSetRenderTargets(1, &target, m_triangleDepthView.Get());
     m_context->Draw(static_cast<UINT>(count), 0);
     return true;
+  }
+
+  // ---- Raymarched figures (sceneApi 3). The piece sends one list of round
+  // cones per figure; each figure draws as one screen rectangle whose pixels
+  // march only that figure, writing true depth beside the triangle world.
+  struct SdfFigureGpu { float sphere[4]; float range[4]; };
+  struct SdfViewConstants {
+    float camPos[4], right[4], up[4], forward[4], proj[4], depthMap[4], viewport[4], target[4];
+  };
+  struct SdfQueued { SdfFigureGpu gpu; std::uint32_t camera; };
+  static constexpr std::size_t kMaxSdfFigures = 256, kMaxSdfPrims = 8192;
+  static constexpr float kSdfOutlinePx = 1.6f, kSdfBlend = 6.0f;
+
+  void CreateSdfPipeline() {
+    const auto vertexBytes = ReadPackageBytes(L"SdfVertexShader.cso");
+    const auto pixelBytes = ReadPackageBytes(L"SdfPixelShader.cso");
+    if (vertexBytes.empty() || pixelBytes.empty()) {
+      LogTelemetry("AC_NATIVE_SDF unavailable=shader-assets");
+      return;
+    }
+    if (FAILED(m_device->CreateVertexShader(vertexBytes.data(), vertexBytes.size(), nullptr,
+        &m_sdfVertexShader)) ||
+        FAILED(m_device->CreatePixelShader(pixelBytes.data(), pixelBytes.size(), nullptr,
+        &m_sdfPixelShader))) {
+      LogTelemetry("AC_NATIVE_SDF unavailable=shader-create");
+      m_sdfVertexShader.Reset(); m_sdfPixelShader.Reset();
+      return;
+    }
+    const auto structured = [this](UINT stride, UINT count, ComPtr<ID3D11Buffer>& buffer,
+        ComPtr<ID3D11ShaderResourceView>& view) {
+      D3D11_BUFFER_DESC desc{};
+      desc.ByteWidth = stride * count;
+      desc.Usage = D3D11_USAGE_DYNAMIC;
+      desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+      desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+      desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+      desc.StructureByteStride = stride;
+      if (FAILED(m_device->CreateBuffer(&desc, nullptr, &buffer))) return false;
+      D3D11_SHADER_RESOURCE_VIEW_DESC srv{};
+      srv.Format = DXGI_FORMAT_UNKNOWN;
+      srv.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+      srv.Buffer.NumElements = count;
+      return SUCCEEDED(m_device->CreateShaderResourceView(buffer.Get(), &srv, &view));
+    };
+    D3D11_BUFFER_DESC constants{};
+    constants.ByteWidth = sizeof(SdfViewConstants);
+    constants.Usage = D3D11_USAGE_DYNAMIC;
+    constants.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    constants.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    if (!structured(sizeof(SdfFigureGpu), kMaxSdfFigures, m_sdfFigureBuffer, m_sdfFigureView) ||
+        !structured(12 * sizeof(float), kMaxSdfPrims, m_sdfPrimBuffer, m_sdfPrimView) ||
+        FAILED(m_device->CreateBuffer(&constants, nullptr, &m_sdfConstants))) {
+      LogTelemetry("AC_NATIVE_SDF unavailable=buffers");
+      m_sdfVertexShader.Reset(); m_sdfPixelShader.Reset();
+      return;
+    }
+    LogTelemetry("AC_NATIVE_SDF ready=1 figures=" + std::to_string(kMaxSdfFigures) +
+      " prims=" + std::to_string(kMaxSdfPrims));
+  }
+
+  bool SdfReady() const {
+    return m_sdfVertexShader && m_sdfPixelShader && m_sdfConstants && m_sdfFigureView &&
+      m_sdfPrimView && m_triangleDepthView && m_triangleVertexBuffer;
+  }
+
+  bool QueueSdfFigure(const float* camera, const float* prims, std::size_t count) {
+    if (!SdfReady() || count == 0 || m_frameSdfFigures.size() >= kMaxSdfFigures ||
+        m_frameSdfPrims.size() / 12 + count > kMaxSdfPrims) return false;
+    std::array<float, 27> view{};
+    std::copy(camera, camera + 27, view.begin());
+    std::uint32_t cameraIndex = 0;
+    if (m_frameSdfCameras.empty() || m_frameSdfCameras.back() != view) {
+      m_frameSdfCameras.push_back(view);
+    }
+    cameraIndex = static_cast<std::uint32_t>(m_frameSdfCameras.size() - 1);
+    float lo[3]{1e30f, 1e30f, 1e30f}, hi[3]{-1e30f, -1e30f, -1e30f};
+    for (std::size_t i = 0; i < count; ++i) {
+      const float* p = prims + i * 12;
+      for (int end = 0; end < 2; ++end) {
+        const float* c = p + end * 4;
+        for (int k = 0; k < 3; ++k) {
+          lo[k] = (std::min)(lo[k], c[k] - c[3]);
+          hi[k] = (std::max)(hi[k], c[k] + c[3]);
+        }
+      }
+    }
+    SdfQueued figure{};
+    for (int k = 0; k < 3; ++k) figure.gpu.sphere[k] = (lo[k] + hi[k]) * .5f;
+    figure.gpu.sphere[3] = .5f * std::sqrt((hi[0] - lo[0]) * (hi[0] - lo[0]) +
+      (hi[1] - lo[1]) * (hi[1] - lo[1]) + (hi[2] - lo[2]) * (hi[2] - lo[2])) + kSdfBlend + 2;
+    figure.gpu.range[1] = static_cast<float>(count);
+    figure.camera = cameraIndex;
+    // range[0] (the first prim) is assigned at upload, after sorting by camera.
+    figure.gpu.range[2] = static_cast<float>(m_frameSdfPrims.size() / 12);
+    m_frameSdfPrims.insert(m_frameSdfPrims.end(), prims, prims + count * 12);
+    m_frameSdfFigures.push_back(figure);
+    return true;
+  }
+
+  void DrawGpuSdfFigures() {
+    m_lastSdfFigureCount = m_frameSdfFigures.size();
+    if (m_frameSdfFigures.empty() || !SdfReady()) return;
+    // A new camera index opens whenever the view changes, so the queue is
+    // already in runs of one camera: one instanced draw per run.
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+    if (FAILED(m_context->Map(m_sdfFigureBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped)))
+      return;
+    auto* figures = static_cast<SdfFigureGpu*>(mapped.pData);
+    for (std::size_t i = 0; i < m_frameSdfFigures.size(); ++i) {
+      figures[i] = m_frameSdfFigures[i].gpu;
+      figures[i].range[0] = figures[i].range[2];
+      figures[i].range[2] = 0;
+    }
+    m_context->Unmap(m_sdfFigureBuffer.Get(), 0);
+    if (FAILED(m_context->Map(m_sdfPrimBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped)))
+      return;
+    std::memcpy(mapped.pData, m_frameSdfPrims.data(), m_frameSdfPrims.size() * sizeof(float));
+    m_context->Unmap(m_sdfPrimBuffer.Get(), 0);
+
+    m_context->IASetInputLayout(nullptr);
+    m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    m_context->VSSetShader(m_sdfVertexShader.Get(), nullptr, 0);
+    m_context->PSSetShader(m_sdfPixelShader.Get(), nullptr, 0);
+    ID3D11ShaderResourceView* views[] = {m_sdfFigureView.Get(), m_sdfPrimView.Get()};
+    m_context->VSSetShaderResources(0, 2, views);
+    m_context->PSSetShaderResources(0, 2, views);
+    m_context->VSSetConstantBuffers(0, 1, m_sdfConstants.GetAddressOf());
+    m_context->PSSetConstantBuffers(0, 1, m_sdfConstants.GetAddressOf());
+    m_context->RSSetState(m_triangleRasterState.Get());
+    const D3D11_VIEWPORT viewport{0, 0, static_cast<float>(m_frameWidth),
+      static_cast<float>(m_frameHeight), 0, 1};
+    m_context->RSSetViewports(1, &viewport);
+    m_context->OMSetDepthStencilState(m_triangleDepthState.Get(), 1);
+    m_context->OMSetRenderTargets(1, m_sceneTarget.GetAddressOf(), m_triangleDepthView.Get());
+    std::size_t first = 0;
+    while (first < m_frameSdfFigures.size()) {
+      const auto cameraIndex = m_frameSdfFigures[first].camera;
+      std::size_t last = first;
+      while (last < m_frameSdfFigures.size() && m_frameSdfFigures[last].camera == cameraIndex) ++last;
+      const auto& m = m_frameSdfCameras[cameraIndex];
+      SdfViewConstants c{
+        {m[0], m[1], m[2], 0}, {m[3], m[4], m[5], m[12]}, {m[6], m[7], m[8], m[13]},
+        {m[9], m[10], m[11], m[17]},
+        {m[14], m[15], m[16], 1920.0f / static_cast<float>(m_frameWidth)},
+        {m[22], m[23], kSdfOutlinePx, kSdfBlend}, {m[18], m[19], m[20], m[21]},
+        {static_cast<float>(m_frameWidth), static_cast<float>(m_frameHeight),
+          static_cast<float>(first), 0}};
+      if (SUCCEEDED(m_context->Map(m_sdfConstants.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) {
+        std::memcpy(mapped.pData, &c, sizeof(c));
+        m_context->Unmap(m_sdfConstants.Get(), 0);
+        m_context->DrawInstanced(6, static_cast<UINT>(last - first), 0, 0);
+      }
+      first = last;
+    }
+    ID3D11ShaderResourceView* none[2]{};
+    m_context->VSSetShaderResources(0, 2, none);
+    m_context->PSSetShaderResources(0, 2, none);
   }
 
   void CreateSpritePipeline() {
@@ -2798,6 +2965,7 @@ private:
         m_context->ClearDepthStencilView(m_triangleDepthView.Get(),
           D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
       DrawGpuTriangles();
+      DrawGpuSdfFigures();
       DrawGpuTexturedTriangles();
       DrawGpuSprites();
       DrawGpuThemeQuads();
@@ -2990,6 +3158,17 @@ private:
   std::vector<ac::xbox::Triangle> m_frameTriangles;
   std::vector<ac::xbox::TexturedTriangle> m_frameTexturedTriangles;
   std::vector<ac::xbox::TexturedTriangle> m_frameDecalTriangles;
+  std::vector<SdfQueued> m_frameSdfFigures;
+  std::vector<float> m_frameSdfPrims;
+  std::vector<std::array<float, 27>> m_frameSdfCameras;
+  std::size_t m_lastSdfFigureCount = 0;
+  ComPtr<ID3D11VertexShader> m_sdfVertexShader;
+  ComPtr<ID3D11PixelShader> m_sdfPixelShader;
+  ComPtr<ID3D11Buffer> m_sdfConstants;
+  ComPtr<ID3D11Buffer> m_sdfFigureBuffer;
+  ComPtr<ID3D11ShaderResourceView> m_sdfFigureView;
+  ComPtr<ID3D11Buffer> m_sdfPrimBuffer;
+  ComPtr<ID3D11ShaderResourceView> m_sdfPrimView;
   DecalSurface m_decalSurface;
   ComPtr<ID3D11Texture2D> m_decalTexture;
   ComPtr<ID3D11ShaderResourceView> m_decalView;
