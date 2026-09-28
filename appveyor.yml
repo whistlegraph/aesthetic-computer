@@ -21,6 +21,7 @@ clone_script:
   - cmd: git remote add origin https://github.com/whistlegraph/aesthetic-computer.git
   - cmd: git config core.sparseCheckout true
   - cmd: echo xbox/assets/>>.git\info\sparse-checkout
+  - cmd: echo apple/oskiewar/Assets.xcassets/AppIcon.appiconset/AppIcon.png>>.git\info\sparse-checkout
   - cmd: echo xbox/live/>>.git\info\sparse-checkout
   - cmd: echo xbox/native-bios/>>.git\info\sparse-checkout
   - cmd: echo xbox/runtime/>>.git\info\sparse-checkout
@@ -49,11 +50,13 @@ cache:
 install:
   - ps: |
       Add-Type -AssemblyName System.Drawing
-      $master = [Drawing.Image]::FromFile((Join-Path $env:APPVEYOR_BUILD_FOLDER 'xbox\assets\pals.png'))
+      # One identity per game: the Xbox tiles wear the same face as the iOS
+      # and Mac apps, on that icon's own blue-grey.
+      $master = [Drawing.Image]::FromFile((Join-Path $env:APPVEYOR_BUILD_FOLDER 'apple\oskiewar\Assets.xcassets\AppIcon.appiconset\AppIcon.png'))
       function Write-Asset($assets, $name, $width, $height) {
         $bitmap = [Drawing.Bitmap]::new($width, $height)
         $graphics = [Drawing.Graphics]::FromImage($bitmap)
-        $graphics.Clear([Drawing.Color]::FromArgb(18, 15, 26))
+        $graphics.Clear([Drawing.Color]::FromArgb(169, 190, 203))
         $graphics.InterpolationMode = [Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
         $scale = [Math]::Min($width / $master.Width, $height / $master.Height)
         $drawWidth = [int]($master.Width * $scale)
