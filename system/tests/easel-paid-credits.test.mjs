@@ -45,7 +45,7 @@ if(process.env.AC_CREDITS_TEST_MONGO==='true'){
    assert.equal(holds.filter(Boolean).length,1);
    const hold=holds.find(Boolean);await Promise.all([settle(hold,100,w),settle(hold,100,w)]);
    assert.equal((await w.findOne({_id:user})).balance,999900);
-   const weighted=await reserve(user,1000,w);await settle({...weighted,rate:25},4,w);
+   const weighted=await reserve(user,1000,w);await settle(weighted,100,w);
    assert.equal((await w.findOne({_id:user})).balance,999800);
    const canceled=await reserve(user,1000,w);await settle(canceled,0,w);assert.equal((await w.findOne({_id:user})).balance,999800);
    await Promise.all([refundCheckout(s,250,w,{live:false}),refundCheckout(s,250,w,{live:false})]);

@@ -1,5 +1,7 @@
 // Relay each provider chunk as soon as the consumer can accept it. Cancellation
 // travels back to fetch instead of leaving a paid generation running unseen.
+// `onUsage(tokens, usage)` fires once: weighted tokens, and the provider's own
+// usage block, whose `cost` (USD) OpenRouter reports in the final message_delta.
 export function relayInference(body, { onUsage = () => {}, abort = () => {} } = {}) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
@@ -10,7 +12,7 @@ export function relayInference(body, { onUsage = () => {}, abort = () => {} } = 
   function finish() {
     if (finished) return;
     finished = true;
-    Promise.resolve().then(() => onUsage(spent)).catch(() => {});
+    Promise.resolve().then(() => onUsage(spent, accumulated)).catch(() => {});
     reader.releaseLock();
   }
   function meter(bytes) {

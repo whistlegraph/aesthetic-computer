@@ -23,7 +23,7 @@ export function createHandler({ authorize, getHandleOrEmail, checkBudget, paidBa
       const valueUSD = cells => Math.round(cells * creditPack.amount / creditPack.credits * 1e6) / 1e8;
       const dollars = { currency: "USD", free: valueUSD(budget.remaining), purchased: valueUSD(purchased),
         total: valueUSD(budget.remaining + purchased) };
-      return reply(200, { dollars, purchased, offer, handle, unit: "weighted_tokens", remaining: budget.remaining,
+      return reply(200, { dollars, purchased, offer, handle, unit: "braincells", remaining: budget.remaining,
         used: budget.used, limit: budget.budget, day: budget.day,
         resetsAt: new Date(Date.parse(budget.day + "T00:00:00Z") + 86400000).toISOString() });
     } catch { return reply(503, { error: "Allowance unavailable" }); }

@@ -23,9 +23,12 @@
 //      so a handle has one allowance across everything AC buys for them rather
 //      than one per endpoint.
 //
-// Provider usage feeds the shared token allowance, with discounts for cached
-// input. This is not a dollar limit or an atomic reservation; premium models
-// cost more per allowance, and concurrent requests can overshoot the balance.
+// Everything is counted in braincells. A request is billed at twice the cost
+// OpenRouter reports for it (easel-paid-credits.mjs), or at the model's fixed
+// rate when no cost comes back. Today's free allowance is drawn first and is
+// not an atomic reservation, so concurrent requests can overshoot it; once it
+// is spent, each request holds its worst case from the wallet and settles the
+// real charge when the stream ends.
 
 import { stream } from "@netlify/functions";
 import { relayInference } from "../../backend/easel-stream.mjs";
@@ -118,10 +121,10 @@ export const handler = stream(async (event) => {
       paidHold=await authorizePaidRequest({user:userSub,model,body,maxTokens});
     } catch(error) { return fail(error.statusCode||503,error.message); }
   }
-  const settlePaid = async spent => {
+  const settlePaid = async braincells => {
     if(!paidHold)return;
     const {withWallets,settle}=await import("../../backend/easel-paid-credits.mjs");
-    await withWallets(w=>settle(paidHold,spent,w));
+    await withWallets(w=>settle(paidHold,braincells,w));
   };
 
   console.log(`🎨 easel @${handle} — ${MODELS[model].label}${budget ? ` · ${budget.remaining} left` : ""}`);
@@ -164,13 +167,13 @@ export const handler = stream(async (event) => {
   // keeps the first token as fast as the provider makes it.
   const passthrough = relayInference(upstream.body, {
     abort: () => controller.abort(),
-    onUsage: async (spent) => {
+    onUsage: async (tokens, usage) => {
       const { recordUsage } = await import("../../backend/ai-budget.mjs");
-      if(paidHold) await settlePaid(spent);
-      else {
-        const {braincellRate,reservationSize}=await import("../../backend/easel-paid-credits.mjs");
-        await recordUsage(handle, Math.ceil(spent*braincellRate(model,reservationSize(body,0,{validateMedia:false}))), { model });
-      }
+      const {usageBraincells,reservationSize}=await import("../../backend/easel-paid-credits.mjs");
+      const braincells=usageBraincells({model,tokens,cost:usage?.cost,
+        inputBound:paidHold?.inputBound??reservationSize(body,0,{validateMedia:false})});
+      if(paidHold) await settlePaid(braincells);
+      else await recordUsage(handle, braincells, { model });
     },
   });
 

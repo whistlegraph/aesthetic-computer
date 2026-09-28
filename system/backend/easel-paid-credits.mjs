@@ -1,7 +1,17 @@
-// Purchased credits are separate from the resetting free allowance.
+// Purchased credits are separate from the resetting free allowance. Both are
+// counted in the same braincell, and a hosted request draws on the free
+// allowance first; only once today's is spent does it reserve from the wallet.
 import { randomUUID } from 'node:crypto';
 import { connect } from './database.mjs';
+import { dayKey } from './ai-budget.mjs';
 export const CREDIT_PACK = Object.freeze({ id:'braincells-1m-v1', amount:500, currency:'usd', credits:1_000_000, unit:'braincells' });
+// What a braincell is worth: the pack's price, so $5 buys 1,000,000.
+export const BRAINCELLS_PER_USD = CREDIT_PACK.credits / (CREDIT_PACK.amount / 100);
+// Hosted inference sells at twice what OpenRouter charges AC for it.
+export const INFERENCE_MARKUP = 2;
+// The most one handle may spend from its wallet in a UTC day ($10 at pack
+// price). A runaway loop stops here rather than draining a balance overnight.
+export const DAILY_PAID_BRAINCELL_CAP = 2_000_000;
 // The same pack sold through Apple in-app purchase; Apple keeps the price.
 export const IAP_PRODUCTS = Object.freeze({ 'computer.aesthetic.easel.braincells.1m': Object.freeze({ credits:1_000_000, unit:'braincells' }) });
 const COLLECTION='ac-credit-wallets';
@@ -53,23 +63,54 @@ export function reservationSize(body,maxTokens,{validateMedia=true}={}) {
   if(validateMedia && /"type"\s*:\s*"(?:image|document|input_audio|video)"/.test(input))throw new Error('Braincells currently support hosted text and code requests.');
   return Math.ceil(Buffer.byteLength(input,'utf8')*1.25)+maxTokens+4096;
 }
-export async function reserve(user,amount,wallets,{id=randomUUID()}={}) {
+// A hold is refused once today's settled spend reaches the cap. What a day has
+// spent lives under `daily.<YYYY-MM-DD>`, one small key per day of use.
+export async function reserve(user,amount,wallets,{id=randomUUID(),now=new Date(),cap=DAILY_PAID_BRAINCELL_CAP}={}) {
   if(!Number.isSafeInteger(amount)||amount<1)throw new Error('Invalid credit reservation');
-  const result=await wallets.updateOne({_id:user,balance:{$gte:amount},[`holds.${id}`]:{$exists:false}},{$inc:{balance:-amount},$set:{[`holds.${id}`]:{amount,at:new Date()}}});
-  return result.modifiedCount===1?{user,id,amount}:null;
+  const result=await wallets.updateOne({_id:user,balance:{$gte:amount},[`daily.${dayKey(now)}`]:{$not:{$gte:cap}},[`holds.${id}`]:{$exists:false}},{$inc:{balance:-amount},$set:{[`holds.${id}`]:{amount,at:now}}});
+  return result.modifiedCount===1?{user,id,amount,day:dayKey(now)}:null;
 }
-export async function settle(hold,spent,wallets) {
-  if(!hold)return;
-  if(!Number.isFinite(spent)||spent<0)throw new Error('Invalid metered usage');
-  const charged=Math.min(hold.amount,Math.ceil(spent*(hold.rate||1)));
-  await wallets.updateOne({_id:hold.user,[`holds.${hold.id}.amount`]:hold.amount},{$inc:{balance:hold.amount-charged,spent:charged},$unset:{[`holds.${hold.id}`]:''},$set:{updatedAt:new Date()}});
+// Charge a finished request `braincells` against its hold and refund the rest.
+// Keyed by the hold's id: the update only matches while that hold exists and it
+// removes the hold, so a retried or duplicated settle changes nothing.
+export async function settle(hold,braincells,wallets,{now=new Date()}={}) {
+  if(!hold)return false;
+  if(!Number.isFinite(braincells)||braincells<0)throw new Error('Invalid metered usage');
+  const charged=Math.min(hold.amount,Math.ceil(braincells));
+  const result=await wallets.updateOne({_id:hold.user,[`holds.${hold.id}.amount`]:hold.amount},{$inc:{balance:hold.amount-charged,spent:charged,[`daily.${hold.day||dayKey(now)}`]:charged},$unset:{[`holds.${hold.id}`]:''},$set:{updatedAt:now}});
+  return result.modifiedCount===1;
 }
-// Fixed braincell tariff, checked against OpenRouter's model catalog 2026-09-17.
-// One balance works across models; these are consumption rates, not separate packs.
+// OpenRouter's reported cost, as braincells: twice the price, at pack value.
+// Rounded to a millionth first so float noise (0.001 × 400,000) cannot tip a
+// whole braincell.
+export function braincellsFromCost(usd) {
+  return Math.ceil(Math.round(usd*INFERENCE_MARKUP*BRAINCELLS_PER_USD*1e6)/1e6);
+}
+// What a finished request costs in braincells. The provider's own cost when it
+// reported one; otherwise the model's fixed rate over the weighted tokens.
+export function usageBraincells({model,tokens=0,cost,inputBound=0}) {
+  if(Number.isFinite(cost)&&cost>=0)return braincellsFromCost(cost);
+  return Math.ceil(tokens*braincellRate(model,inputBound));
+}
+// OpenRouter's prices on 2026-09-28, USD per million tokens as input / output.
+// Only the hold and the no-cost fallback read these; the bill is the cost the
+// provider reports.
+const OPEN_PRICES={
+ 'deepseek/deepseek-v4.1-flash':[0.30,1.20], 'deepseek/deepseek-v4-pro':[0.78,1.57],
+ 'moonshotai/kimi-k3':[3.00,15.0], 'qwen/qwen3.7-plus':[0.32,1.28],
+ 'minimax/minimax-m3':[0.30,1.20], 'z-ai/glm-5.3-flash':[0.15,0.50],
+};
+// Braincells per token, worst case: every token priced as output, marked up,
+// rounded up to a hundredth. Flash comes to 0.48, Kimi K3 to 6.
+const worstRate=([input,output])=>Math.ceil(Math.max(input,output)*INFERENCE_MARKUP*BRAINCELLS_PER_USD/1e4)/100;
+// Fixed braincell tariff. The first seven were checked against OpenRouter's
+// catalog 2026-09-17, relative to Luna; the open models derive from the prices
+// above. One balance works across models; these are consumption rates.
 export const BRAINCELL_RATES=Object.freeze({
  'openai/gpt-5.6-luna':1, 'z-ai/glm-4.6':3, 'qwen/qwen3-coder':2,
  'deepseek/deepseek-chat-v3.1':2, 'anthropic/claude-sonnet-4.6':15,
  'anthropic/claude-opus-5':25, 'openai/gpt-5.4':13,
+ ...Object.fromEntries(Object.entries(OPEN_PRICES).map(([model,price])=>[model,worstRate(price)])),
 });
 export function braincellRate(model,inputBound=0){
  const base=BRAINCELL_RATES[model];if(!base)throw Error('This model has no braincell rate yet');
@@ -77,13 +118,23 @@ export function braincellRate(model,inputBound=0){
  if(inputBound>=272000 && model==='openai/gpt-5.4')return 25;
  return base;
 }
-export async function authorizePaidRequest({user,model,body,maxTokens}) {
+export const OUT_OF_BRAINCELLS='Out of braincells — buy more from the braincell meter in Aesel, or switch provider with /provider. Free braincells reset at midnight UTC.';
+// Hold the worst case this request could cost: its input and its whole output
+// allowance at the model's rate, so a larger max_tokens holds more.
+export async function authorizePaidRequest({user,model,body,maxTokens,now=new Date(),withWallets:using=withWallets}) {
   const inputBound=reservationSize(body,0);
   const rate=braincellRate(model,inputBound);
-  const amount=reservationSize(body,maxTokens)*rate;
-  const hold=await withWallets(wallets=>reserve(user,amount,wallets));
-  if(!hold)throw Object.assign(new Error('Not enough braincells for this request. Open the braincell selector in Aesel to buy more, or start a shorter thread. Free braincells reset at midnight UTC.'),{statusCode:402});
-  return {...hold,rate};
+  const amount=Math.ceil(reservationSize(body,maxTokens)*rate);
+  return using(async wallets=>{
+    const hold=await reserve(user,amount,wallets,{now});
+    if(hold)return {...hold,rate,inputBound};
+    const wallet=await wallets.findOne({_id:user},{projection:{[`daily.${dayKey(now)}`]:1}});
+    if((Number(wallet?.daily?.[dayKey(now)])||0)>=DAILY_PAID_BRAINCELL_CAP){
+      const minutes=Math.ceil((Date.parse(dayKey(now)+'T00:00:00Z')+86400000-now)/60000);
+      throw Object.assign(new Error(`That is today's limit of ${DAILY_PAID_BRAINCELL_CAP.toLocaleString('en-US')} bought braincells. It resets at midnight UTC, in ${Math.floor(minutes/60)}h ${minutes%60}m.`),{statusCode:429});
+    }
+    throw Object.assign(new Error(OUT_OF_BRAINCELLS),{statusCode:402});
+  });
 }
 
 // Cumulative refund amounts make partial refunds and out-of-order redelivery
