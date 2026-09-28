@@ -331,6 +331,16 @@ struct ContentView: View {
     private var sheet: some View {
         VStack(spacing: 0) {
             notebookHeader
+            HStack(spacing: 12) {
+                Button { openSettings() } label: {
+                    Text(session.braincells.map { $0.formatted(.number.precision(.fractionLength(0))) + " braincells" } ?? session.creditsStatus)
+                }
+                Spacer(minLength: 8)
+                Text(session.reportedModel.isEmpty ? (session.provider == "ac" ? "AC · automatic model" : session.model) : session.reportedModel)
+                    .lineLimit(1).truncationMode(.middle)
+            }
+            .font(Paint.font(12)).foregroundStyle(paint.dim)
+            .buttonStyle(AeselButtonStyle()).padding(.horizontal, edgeInset).padding(.vertical, 4)
             GeometryReader { geometry in
                 ScrollViewReader { proxy in
                     ScrollView {
@@ -484,7 +494,7 @@ struct ContentView: View {
                            maximumWidth: max(0, availableWidth - 28), horizontalInset: 0)
             }
             .frame(height: row)
-            .help(oskiewar.status)
+            .help(oskiewar.status + (oskiewar.editStatus.isEmpty ? "" : "\n" + oskiewar.editStatus))
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Oskiewar, " + oskiewar.room + ". " + oskiewar.status)
             .contextMenu { Button("Disconnect Oskiewar") { oskiewar.disconnect() } }
@@ -513,11 +523,6 @@ struct ContentView: View {
                     .frame(width: previewSize.width, height: previewSize.height, alignment: .topTrailing)
                     .clipped()
                     .overlay { AeselPreviewInset() }
-                    .overlay {
-                        if session.busy && !session.streamingCode.isEmpty {
-                            StreamingCodePreview(source: session.streamingCode)
-                        }
-                    }
             }
 
         }
@@ -535,13 +540,9 @@ struct ContentView: View {
     }
 
     private var artifactPreview: some View {
-        VStack(spacing: 4) {
-            OskiewarArtifactPreview(artifact: oskiewar.artifact)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            if !oskiewar.editStatus.isEmpty {
-                Text(oskiewar.editStatus).font(.system(size: 10)).lineLimit(2).minimumScaleFactor(0.7)
-            }
-        }.padding(8).background(Color(red: 0.16, green: 0.13, blue: 0.22)).foregroundStyle(.white)
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { clock in
+            OskiewarArtifactPreview(artifact: oskiewar.artifact, time: clock.date.timeIntervalSince1970)
+        }.padding(8).background(Color(red: 0.16, green: 0.13, blue: 0.22))
     }
 
     private var expandedPiece: some View {
@@ -835,7 +836,7 @@ struct ContentView: View {
                 "overlays": ["settings": session.accountReady && showSettings, "home": session.accountReady && showHome, "help": session.accountReady && showHelp, "signin": session.showSignIn],
                 "piece": ["route": session.route, "version": session.displayedRevision, "currentVersion": session.currentRevision, "readOnly": session.viewingHistory, "sourceBytes": session.displayedSource.utf8.count,
                           "previewURL": session.previewURL?.absoluteString ?? "", "shareURL": session.shareURL?.absoluteString ?? ""],
-                "oskiewar": ["room": oskiewar.room, "status": oskiewar.status],
+                "oskiewar": ["room": oskiewar.room, "status": oskiewar.status, "update": oskiewar.editStatus, "artifact": oskiewar.artifact.wire],
                 "composer": ["characters": draft.count, "placeholder": "", "focused": writing],
                 "title": ["opacity": 1, "linked": oskiewar.room.isEmpty && titleURL != nil, "text": oskiewar.room.isEmpty ? session.route : "Oskiewar · " + oskiewar.room], "footer": "v\(session.displayedRevision)",
                 "session": ["id": session.currentSessionID, "busy": session.busy, "status": session.status, "signedIn": session.signedIn, "accountReady": session.accountReady,
@@ -954,28 +955,6 @@ private struct SignInCarrier: AeselWebViewRepresentable {
     }
 }
 
-/// Incoming source occupies the canvas until a complete piece is saved.
-private struct StreamingCodePreview: View {
-    let source: String
-    @Environment(\.paint) private var paint
-    var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView([.vertical, .horizontal]) {
-                Text(String(source.suffix(4000)))
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(paint.ink)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(8)
-                    .id("code-tail")
-            }
-            .background(paint.bg)
-            .onChange(of: source) { proxy.scrollTo("code-tail", anchor: .bottomLeading) }
-        }
-        .accessibilityLabel("Incoming piece code")
-        .clipped()
-    }
-}
-
 /// Matches prompt.mjs's curtain login palette and square TextButton outline.
 private struct CurtainAccountButtonStyle: ButtonStyle {
     var signUp = false
@@ -1037,6 +1016,7 @@ private final class OskiewarAttachment: ObservableObject {
         For any new outline use shape "custom" plus "points":[[x,y],...] with 3 to 10 vertices, integer coordinates from -9 to 9, y up. Order them around a simple, non-self-intersecting polygon. The compact descriptor must fit 320 ASCII bytes. Example: {"version":1,"kind":"shirt-symbol","shape":"custom","color":"#ff6699","points":[[0,8],[7,-6],[-7,-6]]}.
         For custom drawings use shape "drawing" and "draw": an array of up to 12 commands. Circle [0,x,y,r,c]; round stroke [1,x1,y1,x2,y2,width,c]; filled triangle [2,x1,y1,x2,y2,x3,y3,c]. All values integers, positions -16 to 16, circle radius 1 to 9, stroke width 1 to 6. Color index c is 0=artifact color, 1=dark ink, 2=white. Later commands draw on top. Example smiley: {"version":1,"kind":"shirt-symbol","shape":"drawing","color":"#ffcc44","draw":[[0,0,0,8,0],[0,-3,2,1,1],[0,3,2,1,1],[1,-4,-2,0,-4,1,1],[1,0,-4,4,-2,1,1]]}.
         You CAN custom draw and make smileys using these primitives. Do not say custom shapes are unavailable.
+        Optional "animation":"spin", "pulse", or "float" animates the graphic in both TV and game on a shared two-second loop. Omit animation for a still image.
         Keep a minimal paint export for valid piece syntax. The native TV renders the descriptor alone, without a shirt or scene.
         On completion this descriptor is automatically sent to the game. Only the game's acknowledgment confirms application.
         Briefly describe your actual edit in ordinary text; the butterfly mirrors an excerpt of that response.
@@ -1175,8 +1155,9 @@ private struct OskiewarArtifact: Codable, Equatable {
     var color: String
     var points: [[Int]]? = nil
     var draw: [[Int]]? = nil
+    var animation: String? = nil
     var valid: Bool {
-        version == 1 && kind == "shirt-symbol" && ["star", "heart", "flower", "rainbow", "custom", "drawing"].contains(shape)
+        (animation == nil || ["spin", "pulse", "float"].contains(animation!)) && version == 1 && kind == "shirt-symbol" && ["star", "heart", "flower", "rainbow", "custom", "drawing"].contains(shape)
             && color.range(of: "^#[0-9a-fA-F]{6}$", options: .regularExpression) != nil
             && (shape != "custom" || (points.map { (3...10).contains($0.count) && $0.allSatisfy { $0.count == 2 && $0.allSatisfy { (-9...9).contains($0) } } } ?? false))
             && (shape != "drawing" || (draw.map { commands in
@@ -1205,8 +1186,16 @@ private struct OskiewarArtifact: Codable, Equatable {
 
 private struct OskiewarArtifactPreview: View {
     let artifact: OskiewarArtifact
+    var time: Double = 0
     var body: some View {
-        Canvas { context, size in
+        Canvas { input, size in
+            var context = input
+            let phase = time.truncatingRemainder(dividingBy: 2) * .pi
+            context.translateBy(x: size.width / 2, y: size.height / 2)
+            if artifact.animation == "spin" { context.rotate(by: .radians(-phase)) }
+            if artifact.animation == "pulse" { let k = 0.85 + sin(phase) * 0.15; context.scaleBy(x: k, y: k) }
+            if artifact.animation == "float" { context.translateBy(x: 0, y: -sin(phase) * min(size.width, size.height) / 10) }
+            context.translateBy(x: -size.width / 2, y: -size.height / 2)
             let scale = min(size.width, size.height) / 20
             let center = CGPoint(x: size.width / 2, y: size.height / 2)
             func point(_ x: Double, _ y: Double) -> CGPoint { CGPoint(x: center.x + x * scale, y: center.y - y * scale) }

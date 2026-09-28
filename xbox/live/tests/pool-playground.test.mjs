@@ -7,7 +7,7 @@ function playground(){
  let now=1e6;const noop=()=>{},audio=[],drums=[];
  const api=new Function('runtime','capabilities','telemetry','gameSignal','drum','wipe','box','line','triangle','write','systemWrite','oscillator','oscillatorStop',`${source}
  configureWorldMap('skatepark','pool');fightOpponent='freeskate';gameMode='fight';
- return {mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
+ return {milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
  parkHalfPipe3D,parkHalfPipeHeight,parkDeckY,poolFloorAt,poolSlopeAt,gunPickups,axePickup,
  resetParkSupply,updateParkSupply,updateGunPickups,resetParkKids,updateParkKids,parkKids,
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
@@ -218,12 +218,19 @@ test('idle camera eases close then opens back up when movement resumes',()=>{
  p.vx=400;for(let i=0;i<120;i++)a.updateCameraDoll(1/60,a.now());
  assert.ok(gap()>900);assert.ok(a.cameraDoll.target.x-p.x>200);
 });
-test('BPM emits one quiet beat when the local heart phase wraps',()=>{
- const a=playground(),p=a.players[0];p.heartPhase=.999;p.heartRate=68;
+test('heartbeat stays audible while moving and adds a quieter second thump',()=>{
+ const a=playground(),p=a.players[0];p.heartPhase=.999;p.heartRate=68;p.vx=500;
  a.updateSeatHeartbeat(1/60,a.now());
- assert.equal(a.drums.filter(d=>d.name==='kick'&&d.gain===.075).length,1);
+ assert.equal(a.drums.filter(d=>d.name==='kick'&&d.gain===.23).length,1);
  a.updateSeatHeartbeat(1/60,a.now());
- assert.equal(a.drums.filter(d=>d.name==='kick'&&d.gain===.075).length,1);
+ assert.equal(a.drums.filter(d=>d.name==='kick'&&d.gain===.23).length,1);
+});
+
+test('basic actions remain visible without a fresh button press',()=>{
+ const a=playground(),p=a.players[0];p.lastButton='NONE';p.lastButtonAt=0;
+ assert.equal(a.seatActionText(p,a.now()),'STANDING');
+ p.vx=100;assert.equal(a.seatActionText(p,a.now()),'WALKING');
+ p.grounded=false;assert.equal(a.seatActionText(p,a.now()),'IN THE AIR');
 });
 
 test('spatial character remains volumetric at every LOD and heading',()=>{
@@ -382,4 +389,57 @@ test('custom drawings and concave outlines are data, applied once without evalua
   send({...concave,points:[[-8,-6],[8,6],[8,-6],[-8,6]]});
   assert.equal(a.spectatorState(a.now()).aesel.artifact,outline,'crossed outline is rejected');
  }finally{delete globalThis.__oskiewarNetInbox;delete globalThis.__oskiewarRenderFlags;}
+});
+
+test('lethal civilian hit retains a connected simulated body and finite shared hit geometry',()=>{
+ const a=playground();a.resetParkKids();const kid=a.parkKids[0],p=a.players[0];
+ const before=a.runnerWorldGeometry(kid,0);
+ a.damageParkCivilian(kid,p,before.head,a.now(),10);
+ assert.equal(kid.alive,false);assert.equal(kid.headless,undefined);
+ const body=a.ragdollBodies.get(kid).body;assert.ok(body.bones.length>8);
+ const headY=body.p[body.head*3+1];
+ for(let i=0;i<120;i++)a.updateRagdolls(1/60);
+ assert.notEqual(body.p[body.head*3+1],headY);
+ const pose=a.runnerWorldGeometry(kid,0);
+ for(const bone of pose.segments)for(const key of ['x1','y1','z1','x2','y2','z2'])assert.ok(Number.isFinite(bone[key]));
+ assert.doesNotThrow(()=>a.drawRunner(kid,0));
+ kid.alive=true;a.updateRagdolls(1/60);assert.equal(a.ragdollBodies.has(kid),false);
+});
+test('artifact animation survives acknowledgment and rejects unknown motion',()=>{
+ const a=playground();
+ try {for(const animation of ['spin','pulse','float']){
+  const wire=JSON.stringify({version:1,kind:'shirt-symbol',shape:'heart',color:'#ff4488',animation});
+  globalThis.__oskiewarNetInbox=[{kind:'render-flags',flags:{aeselArtifact:wire}}];a.netDrainHostInbox();
+  assert.equal(a.spectatorState(a.now()).aesel.artifact,wire);
+  assert.doesNotThrow(()=>a.drawRunner(a.players[0],0));
+  globalThis.__oskiewarNetInbox=[{kind:'render-flags',flags:{aeselArtifact:wire.replace(animation,'unknown')}}];a.netDrainHostInbox();
+  assert.equal(a.spectatorState(a.now()).aesel.artifact,wire);
+ }}finally{delete globalThis.__oskiewarNetInbox;delete globalThis.__oskiewarRenderFlags;}
+});
+
+test('only the cereal bowl contains milk and its buoyancy works in 3D',()=>{
+ const a=playground(),p=a.players[0];
+ assert.equal(a.milkAt(a.parkPools[0].x,a.parkPools[0].z),null);
+ assert.equal(a.milkAt(a.parkPools[1].x,a.parkPools[1].z),null);
+ const bowl=a.parkPools[2],milk=a.milkAt(bowl.x,bowl.z);assert.ok(milk);
+ Object.assign(p,{x:bowl.x,z:bowl.z,y:a.poolFloorAt(bowl.x,bowl.z),vx:0,vy:0,vz:0,grounded:true});
+ const bottom=p.y;for(let i=0;i<180;i++)a.step([],1/60);
+ assert.equal(p.swimming,true);assert.ok(p.y<bottom-60);assert.ok(p.y>milk.y);
+ p.x=bowl.x+1500;a.step();assert.equal(p.swimming,false);
+});
+test('visual rope subdivision does not add combat hitboxes',()=>{
+ const a=playground(),p=a.players[0],world=a.runnerWorldGeometry(p,0);
+ assert.ok(a.looseRunnerGeometry(world).segments.length>world.segments.length);
+ assert.equal(a.sampleCombatBoxes(p,a.now()).hurt.length,world.segments.length+1);
+});
+
+test('status line names held items alongside basic movement',()=>{
+ const a=playground(),p=a.players[0];Object.assign(p,{lastButton:'NONE',lastButtonAt:0,axeHeld:true,swordHeld:false,gunAmmo:0,heldBall:-1,heldPlayer:-1});
+ assert.equal(a.seatActionText(p,a.now()),'STANDING W/ AXE');
+ p.vx=100;p.axeHeld=false;p.gunAmmo=5;assert.equal(a.seatActionText(p,a.now()),'WALKING W/ PISTOL');
+});
+test('a head behind the near plane does not hide visible limbs',()=>{
+ const a=playground();a.cameraDoll.snap({position:{x:0,y:0,z:0},target:{x:0,y:0,z:1},width:1800,perspective:1});
+ const g=a.projectRunnerWorldGeometry({head:{x:0,y:0,z:-40,radius:22},segments:[{x1:0,y1:30,z1:-10,x2:0,y2:100,z2:200,width:10}]});
+ assert.equal(g.behind,false);assert.equal(g.head.behind,true);assert.equal(g.segments[0].hidden,undefined);
 });

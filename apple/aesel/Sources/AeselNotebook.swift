@@ -76,7 +76,7 @@ struct AeselNotebook: AeselWebViewRepresentable {
             return [Int((rgb >> 16) & 255), Int((rgb >> 8) & 255), Int(rgb & 255)]
         }
         let payload: [String: Any] = ["entries": entries, "handle": session.handle, "colors": colors, "theme": paint.css,
-                                     "exclusion": exclusion, "busy": session.busy, "activity": session.busy ? session.status : ""]
+                                     "exclusion": exclusion, "busy": session.busy, "streamingCode": String(session.streamingCode.suffix(4000)), "activity": session.busy ? session.status : ""]
         if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
            let json = String(data: data, encoding: .utf8) {
             context.coordinator.payload = json

@@ -465,3 +465,10 @@ test('artifact context reaches the model without replacing the visible user prom
  assert.equal(input,'Edit the isolated shirt-symbol descriptor.\n\nUser request: Make it a rainbow');
  assert.equal(events.findLast(e=>e.type==='you').text,'Make it a rainbow');
 });
+
+test('malformed Fia circle commands are rejected before the model can save success',async()=>{
+ const {validatePieceSource}=await import('../phone/shim/revisions.mjs');
+ const source=draw=>'/* ac-artifact '+JSON.stringify({version:1,kind:'shirt-symbol',shape:'drawing',color:'#fac83c',draw})+' */\nexport function paint() {}';
+ await assert.rejects(validatePieceSource(source([[0,0,9,1,2,1]]),'piece.mjs'),/Circle exactly/);
+ await assert.doesNotReject(validatePieceSource(source([[0,0,9,1,1],[1,-8,-6,-8,6,2,1]]),'piece.mjs'));
+});

@@ -12,6 +12,9 @@ window.updatePhoneNotebook = value => {
   window.setNotebookHandle('', []);
   window.updateConversation({entries:value.entries});
   placeActivity(!!value.busy, value.activity || '');
+  grass.hidden = !value.busy || !value.streamingCode;
+  grassCode.textContent = String(value.streamingCode || '').slice(-4000);
+  grass.scrollTop = grass.scrollHeight;
   alignBaselines();
   reportHeight();
   donkey?.paint();
@@ -21,7 +24,11 @@ window.updatePhoneNotebook = value => {
 const feedback = document.createElement('span'); feedback.id = 'prompt-feedback'; feedback.hidden = true; feedback.setAttribute('role', 'img');
 const caption = document.createElement('span'); caption.id = 'activity-caption'; caption.hidden = true;
 const activity = document.createElement('span'); activity.id = 'notebook-activity'; activity.hidden = true; activity.append(feedback, caption);
+const grass=document.createElement('span'); grass.id='notebook-code-grass'; grass.hidden=true;
+grass.setAttribute('aria-label','Generated source code');
+const grassCode=document.createElement('code');grass.append(grassCode);activity.append(grass);
 document.body.append(activity);
+
 const donkey = window.installNotebookDonkey?.(feedback);
 const exclusion = document.createElement('div');
 exclusion.id = 'notebook-preview-space';
@@ -83,7 +90,8 @@ const reportHeight = () => {
     baseline = marker.getBoundingClientRect().top - content.getBoundingClientRect().top;
     marker.remove();
   }
-  const height = Math.max(24, Math.ceil(baseline / 24) * 24 + 24);
+  const activityBottom=activity.hidden?0:activity.getBoundingClientRect().bottom-content.getBoundingClientRect().top;
+  const height = Math.max(24, Math.ceil(Math.max(baseline,activityBottom) / 24) * 24 + 24);
   if (height === reported) return;
   reported = height;
   window.webkit?.messageHandlers?.notebook?.postMessage({height});

@@ -33,3 +33,7 @@ button:disabled,[aria-disabled=true]{cursor:default}
 
 #notebook-preview-space{float:right;pointer-events:none}
 #notebook-preview-space[hidden]{display:none}
+
+#notebook-code-grass{display:block;max-width:100%;height:72px;overflow:auto;white-space:pre; color:#8ccf79;background:rgba(20,40,20,.12);font:11px/18px Menlo,monospace;mask-image:linear-gradient(transparent,#000 18px);padding:0 8px;}
+#notebook-code-grass[hidden]{display:none}
+#notebook-code-grass code{font:inherit;white-space:pre}

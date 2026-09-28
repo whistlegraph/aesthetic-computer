@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 188;
+const buildVersion = 190;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -1639,6 +1639,46 @@ function parkGroundAt(x,z){
 function poolFloorAt(x,z=0){
   const edge=poolDistance(x,z);
   return edge.d<edge.bowl.radius?bowlHeight(x,z,edge.bowl):parkGroundAt(x,z);
+}
+// The far-right bowl is milk; its rim and floor still use the park's collision surface.
+function milkAt(x,z){
+ const bowl=parkPools[2],y=parkDeckY+32;
+ return bowlDistance(x,z,bowl).d<bowl.radius&&bowlHeight(x,z,bowl)>y?{y,bowl}:null;
+}
+function swimMilk(p,dt,throttle,driveX,driveZ,held,now){
+ const milk=milkAt(p.x,p.z||0);
+ if(!milk||p.y<=milk.y+4){p.swimming=false;return false;}
+ if(!p.swimming){spawnWaterSplash(p,milk.y);playDrum('whoosh',.35,panPlayer(p));emitSignal('splash',p.pad,0,0);}
+ p.swimming=true;p.grounded=false;p.poolVert=null;
+ const depth=p.y-milk.y;
+ p.vy+=(1800-3240*Math.min(1,depth/90))*dt;
+ if(held.includes('A'))p.vy-=1700*dt;
+ if(held.includes('X'))p.vy+=2200*dt;
+ p.vy*=Math.exp(-dt*2.8);
+ p.vx=(p.vx+driveX*throttle*1100*dt)*Math.exp(-dt*1.6);
+ p.vz=((p.vz||0)+driveZ*throttle*1100*dt)*Math.exp(-dt*1.6);
+ const before={x:p.x,y:p.y,z:p.z};p.x+=p.vx*dt;p.z+=p.vz*dt;p.y+=p.vy*dt;
+ const floor=poolFloorAt(p.x,p.z);if(p.y>floor){p.y=floor;p.vy=Math.min(0,p.vy);}
+ boundParkBody(p,before);
+ p.swimVx=Math.hypot(p.vx,p.vz);p.swimPhase=(p.swimPhase||0)+dt*(2.2+p.swimVx/200);
+ return true;
+}
+function drawCerealMilk(t){
+ const bowl=parkPools[2],y=parkDeckY+32;
+ if(!sceneBoundsVisible({minX:bowl.x-bowl.halfX-bowl.radius,maxX:bowl.x+bowl.halfX+bowl.radius,minY:y-10,maxY:y+10,minZ:bowl.z-bowl.halfZ-bowl.radius,maxZ:bowl.z+bowl.halfZ+bowl.radius}))return;
+ const radius=bowl.radius*Math.acos(2*32/bowl.depth-1)/Math.PI,ring=[];
+ for(let corner=0;corner<4;corner++)for(let i=0;i<=8;i++){
+  const a=(corner+i/8)*Math.PI/2,sx=corner===0||corner===3?1:-1,sz=corner<2?1:-1;
+  ring.push({x:bowl.x+sx*bowl.halfX+Math.cos(a)*radius,y,z:bowl.z+sz*bowl.halfZ+Math.sin(a)*radius});
+ }
+ const center={x:bowl.x,y,z:bowl.z};for(let i=0;i<ring.length;i++)worldTriangle(center,ring[i],ring[(i+1)%ring.length],[250,246,224]);
+ for(let i=0;i<32;i++){
+  const x=bowl.x+Math.sin(i*12.9898)*620,z=bowl.z+Math.sin(i*7.233+.8)*420;
+  if(!milkAt(x,z))continue;
+  const h=y-4-Math.sin(t*1.5+i)*2,outer=17+(i%4)*3,inner=outer*.46;
+  const point=(j,r)=>({x:x+Math.cos(j*Math.PI/4)*r,y:h,z:z+Math.sin(j*Math.PI/4)*r});
+  for(let j=0;j<8;j++)worldQuad(point(j,outer),point(j+1,outer),point(j+1,inner),point(j,inner),i%3?[219,159,68]:[183,113,47]);
+ }
 }
 function poolSlopeAt(x,z){
   const {d,nx,nz,bowl}=poolDistance(x,z);
@@ -4073,6 +4113,7 @@ function acceptAeselArtifact(wire){
   if(value.shape==='drawing'&&(!Array.isArray(value.draw)||value.draw.length<1||value.draw.length>12||value.draw.some(c=>
     !Array.isArray(c)||![0,1,2].includes(c[0])||c.length!==[5,7,8][c[0]]||c.some(v=>!Number.isInteger(v)||Math.abs(v)>16)||
     c.at(-1)<0||c.at(-1)>2||c[0]===0&&(c[3]<1||c[3]>9)||c[0]===1&&(c[5]<1||c[5]>6))))return false;
+  if(value.animation!==undefined&&!['spin','pulse','float'].includes(value.animation))return false;
   const faces=value.shape==='custom'?triangulateAeselOutline(value.points):null;
   if(value.shape==='custom'&&!faces)return false;
   if(wire===aeselArtifactWire)return true;
@@ -4099,24 +4140,26 @@ function drawAeselFairy(t){
   const caption=globalThis.__oskiewarRenderFlags?.aeselCaption;
   const label=typeof caption==='string'?caption:intent===2?'PUTTING A STAR ON YOUR SHIRT':intent===1?'WORKING IN AESEL':'';
   if(label){
-    const p=cameraDoll.project(c),saved=triangleDepth,size=18,w=handleWidth(label,size);
+    const p=cameraDoll.project(c),saved=triangleDepth,size=42;
+    const maxChars=Math.max(18,Math.floor((viewWidth()-80)/(size*.54))),shown=label.length>maxChars?label.slice(0,maxChars-1)+"…":label,w=handleWidth(shown,size);
     if(Number.isFinite(p.x)&&Number.isFinite(p.y)){
       const x=Math.max(24,Math.min(viewWidth()-w-24,p.x-w/2)),y=Math.max(32,Math.min(viewHeight-48,p.y-42));
-      triangleDepth=-1.49;screenRect(x-8,y-5,w+16,30,[31,24,41]);typeWrite(label,x,y,size,255,231,180);triangleDepth=saved;
+      triangleDepth=-1.49;screenRect(x-8,y-5,w+16,44,[31,24,41]);typeWrite(shown,x,y,size,255,231,180);triangleDepth=saved;
     }
   }
 }
 function drawAeselConnect(){
   if(!poolOnly()||!sessionName)return;
-  const label=sessionName,size=32,safe=hudSafeRect();
+  const label=sessionName,size=42,safe=hudSafeRect();
   const saved=triangleDepth;triangleDepth=-1.49;
   const qr=shellMode==='MENU'?spectatorQrBox():null;
-  const x=safe.right-handleWidth(label,size),y=qr?qr.top+qr.size+20:safe.top+72;
+  const x=safe.right-handleWidth(label,size),y=qr?qr.top+qr.size+20:safe.top+18;
   const lit=runtime().monotonicUs-aeselSeenAt<3500000,ink=lit?[163,244,211]:[194,196,220];
-  filledDisc(x-25,y+7,4,ink);
-  filledCapsule(x-25,y+14,x-25,y+28,4,ink);
-  screenTriangle(x-25,y+15,x-40,y+7,x-37,y+24,...ink);
-  screenTriangle(x-25,y+15,x-10,y+7,x-13,y+24,...ink);
+  const flutter=.35+.65*Math.abs(Math.sin(runtime().monotonicUs/100000)),bob=Math.sin(runtime().monotonicUs/380000)*2;
+  const cx=x-30,cy=y+22+bob,span=8+13*flutter;
+  filledDisc(cx,cy-12,4,ink);filledCapsule(cx,cy-5,cx,cy+10,4,ink);
+  screenTriangle(cx,cy,cx-span,cy-12,cx-span*.8,cy+10,...ink);
+  screenTriangle(cx,cy,cx+span,cy-12,cx+span*.8,cy+10,...ink);
   typeWrite(label,x+1,y+2,size,12,18,30);typeWrite(label,x,y,size,231,247,241);
   triangleDepth=saved;
 }
@@ -9692,6 +9735,11 @@ function updateCameraDoll(dt, now) {
       z:target.z-Math.sin(angle)*distance},subject);
     cameraCenter=target.x;cameraCenterY=target.y;cameraWidth=1650*zoom;
     cameraDoll.track({target,position,width:cameraWidth,perspective:1,fov:58+poolCameraDip*5,roll:0},dt,8);
+    // Position interpolation can cut across the subject during a front/back orbit.
+    // Keep the lens outside the body before clearing walls and terrain.
+    const dx=cameraDoll.position.x-p.x,dz=cameraDoll.position.z-(p.z||0),gap=Math.hypot(dx,dz),minGap=200;
+    if(gap<minGap){const nx=gap>.01?dx/gap:-Math.cos(angle),nz=gap>.01?dz/gap:-Math.sin(angle);
+      cameraDoll.position.x=p.x+nx*minGap;cameraDoll.position.z=(p.z||0)+nz*minGap;}
     // Also protect the eased path while orbiting around a corner of the pool.
     Object.assign(cameraDoll.position,clearPoolCamera(cameraDoll.position,subject));
     cameraDoll.dirty=true;
@@ -11788,6 +11836,7 @@ function killPlayer(target, killerPad, now, cause = "KO") {
         winnerPad: killerPad, cause };
     freezeFinalFrame(now, deathCinematic?.winnerPad ?? -1);
   }
+  startRagdoll(target,{x:target.x,y:target.y-100,z:target.z},[Math.sign(target.x-(players[killerPad]?.x??target.x-1))*400,-180,0]);
   target.alive = false;
   target.headBustedAt = now;
   target.respawnAt = now + (parkSupply.ko ? 6000000 : 1200000);
@@ -12522,6 +12571,7 @@ function updatePoolPlayer(p, pad, dt, now) {
   // Substep contacts in both horizontal axes, keeping speed tangent to the bowl.
   const steps=Math.max(1,Math.ceil(dt*120)), step=dt/steps;
   for(let n=0;n<steps;n++){
+    if(swimMilk(p,step,throttle,driveX,driveZ,held,now))continue;
     const before={x:p.x,z:p.z||0};
     let slope=poolSlopeAt(p.x,p.z||0);
     if(p.grounded){
@@ -14476,6 +14526,7 @@ function gameSim() {
     updateMotorAudio(dt);
     updateSkateAudio(dt);
     updateSeatHeartbeat(dt,now);
+    updateRagdolls(dt);
     updateWaterSplashes(dt);
     updatePowerups(now);
     updateBodyTrees(dt, now);
@@ -15177,9 +15228,99 @@ function wallPressGeometry(player) {
   return {head,segments};
 }
 
+class OskiewarRagdoll {
+  constructor(geometry, velocity = [0,0,0]) {
+    this.count=0;this.links=0;this.sleeping=false;this.quiet=0;this.steps=0;
+    this.p=new Float64Array(64*3);this.old=new Float64Array(64*3);this.v=new Float64Array(64*3);
+    this.r=new Float64Array(64);this.w=new Float64Array(64);this.contact=new Uint8Array(64);
+    this.a=new Uint8Array(192);this.b=new Uint8Array(192);this.min=new Float64Array(192);this.max=new Float64Array(192);
+    this.enabled=new Uint8Array(192);this.bones=[];
+    const point=(x,y,z,r=5)=>{
+      for(let i=0;i<this.count;i++)if(Math.hypot(this.p[i*3]-x,this.p[i*3+1]-y,this.p[i*3+2]-z)<.02){this.r[i]=Math.max(this.r[i],r);return i;}
+      if(this.count===64)throw Error('joint budget');const i=this.count++;this.p.set([x,y,z],i*3);this.v.set(velocity,i*3);this.r[i]=r;this.w[i]=1;return i;
+    };
+    for(const s of geometry.segments){if(s.hitboxOnly)continue;const a=point(s.x1,s.y1,s.z1||0,s.width/2||5),b=point(s.x2,s.y2,s.z2||0,s.width/2||5);this.link(a,b);this.bones.push({a,b,role:s.role,part:s.part,width:s.width});}
+    // Make attachment topology explicit where the render model leaves small gaps.
+    const segments=this.bones;
+    for(const lower of segments){if(!/(forearm|shin)$/.test(lower.role))continue;const upper=segments.find(s=>s.part===lower.part&&/(upper-arm|thigh)$/.test(s.role));if(!upper)continue;
+      if(upper.b!==lower.a)this.link(upper.b,lower.a);
+      const l1=this.distance(upper.a,upper.b),l2=this.distance(lower.a,lower.b);
+      this.link(upper.a,lower.b,Math.sqrt(l1*l1+l2*l2+2*l1*l2*Math.cos(2.55)),(l1+l2)*.999);
+    }
+    const torso=segments.find(s=>s.role==='torso');
+    if(torso){const roots=[torso.a,torso.b];for(const s of segments)if(/(upper-arm|thigh)$/.test(s.role)&&!roots.includes(s.a))roots.push(s.a);
+      for(let i=0;i<roots.length;i++)for(let j=i+1;j<roots.length;j++)this.link(roots[i],roots[j]);
+    }
+    const h=geometry.head;this.head=point(h.x,h.y,h.z||0,h.radius||15);
+    let nearest=-1,d=Infinity;for(let i=0;i<this.count;i++){if(i===this.head)continue;const q=this.distance(i,this.head);if(q<d){d=q;nearest=i;}}
+    if(nearest>=0)this.link(this.head,nearest);
+    // Join disconnected authored neck/shoulder fragments with nearest attachments.
+    const visited=new Uint8Array(64);visited[this.head]=1;
+    for(let pass=0;pass<this.count;pass++)for(let j=0;j<this.links;j++)if(visited[this.a[j]]||visited[this.b[j]])visited[this.a[j]]=visited[this.b[j]]=1;
+    for(let i=0;i<this.count;i++)if(!visited[i]){let best=-1,dist=Infinity;for(let j=0;j<this.count;j++)if(visited[j]){const d=this.distance(i,j);if(d<dist){best=j;dist=d;}}this.link(i,best);visited[i]=1;}
+  }
+  distance(a,b){return Math.hypot(this.p[a*3]-this.p[b*3],this.p[a*3+1]-this.p[b*3+1],this.p[a*3+2]-this.p[b*3+2]);}
+  link(a,b,min=this.distance(a,b),max=min){if(a===b)return;for(let j=0;j<this.links;j++)if((this.a[j]===a&&this.b[j]===b)||(this.a[j]===b&&this.b[j]===a))return;if(this.links===192)throw Error('constraint budget');const j=this.links++;this.a[j]=a;this.b[j]=b;this.min[j]=min;this.max[j]=max;this.enabled[j]=1;}
+  wake(){this.sleeping=false;this.quiet=0;}
+  impulse(point, impulse){this.wake();let bone=this.bones[0],best=Infinity,tBest=0;
+    for(const s of this.bones){const a=s.a*3,b=s.b*3,dx=this.p[b]-this.p[a],dy=this.p[b+1]-this.p[a+1],dz=this.p[b+2]-this.p[a+2],l=dx*dx+dy*dy+dz*dz;
+      const t=Math.max(0,Math.min(1,((point[0]-this.p[a])*dx+(point[1]-this.p[a+1])*dy+(point[2]-this.p[a+2])*dz)/(l||1)));
+      const d=(point[0]-this.p[a]-dx*t)**2+(point[1]-this.p[a+1]-dy*t)**2+(point[2]-this.p[a+2]-dz*t)**2;
+      if(d<best){best=d;bone=s;tBest=t;}
+    }
+    for(let k=0;k<3;k++){this.v[bone.a*3+k]+=impulse[k]*(1-tBest)*this.w[bone.a];this.v[bone.b*3+k]+=impulse[k]*tBest*this.w[bone.b];}
+  }
+  step(dt,floor,gravity=1900){if(this.sleeping)return;this.steps++;dt=Math.min(dt,1/30);let support=0,maxV=0;
+    for(let sub=0;sub<2;sub++){const h=dt/2;this.old.set(this.p);this.contact.fill(0);
+      for(let i=0;i<this.count;i++){const j=i*3;if(!this.w[i])continue;this.v[j+1]+=gravity*h;for(let k=0;k<3;k++){this.v[j+k]*=.999;this.p[j+k]+=this.v[j+k]*h;}}
+      for(let iteration=0;iteration<4;iteration++){
+        for(let j=0;j<this.links;j++){if(!this.enabled[j])continue;const a=this.a[j],b=this.b[j],ia=a*3,ib=b*3;
+          const dx=this.p[ib]-this.p[ia],dy=this.p[ib+1]-this.p[ia+1],dz=this.p[ib+2]-this.p[ia+2],d=Math.hypot(dx,dy,dz);if(d<1e-8||this.w[a]+this.w[b]===0)continue;
+          const error=d-Math.max(this.min[j],Math.min(this.max[j],d));if(!error)continue;const factor=error/d/(this.w[a]+this.w[b]);
+          this.p[ia]+=dx*factor*this.w[a];this.p[ia+1]+=dy*factor*this.w[a];this.p[ia+2]+=dz*factor*this.w[a];this.p[ib]-=dx*factor*this.w[b];this.p[ib+1]-=dy*factor*this.w[b];this.p[ib+2]-=dz*factor*this.w[b];
+        }
+        for(let i=0;i<this.count;i++){const j=i*3;if(!this.w[i])continue;const x=this.p[j],z=this.p[j+2],fy=floor(x,z),penetration=this.p[j+1]+this.r[i]-fy;if(penetration<=0)continue;
+          const gx=(floor(x+.5,z)-floor(x-.5,z)),gz=(floor(x,z+.5)-floor(x,z-.5)),den=1+gx*gx+gz*gz;
+          this.p[j]+=penetration*gx/den;this.p[j+1]-=penetration/den;this.p[j+2]+=penetration*gz/den;this.contact[i]=1;
+        }
+      }
+      support=0;maxV=0;for(let i=0;i<this.count;i++){const j=i*3;for(let k=0;k<3;k++)this.v[j+k]=(this.p[j+k]-this.old[j+k])/h;
+        if(this.contact[i]){support++;const x=this.p[j],z=this.p[j+2],gx=floor(x+.5,z)-floor(x-.5,z),gz=floor(x,z+.5)-floor(x,z-.5),n=Math.hypot(gx,1,gz),nx=gx/n,ny=-1/n,nz=gz/n,dot=this.v[j]*nx+this.v[j+1]*ny+this.v[j+2]*nz;
+          if(dot<0){this.v[j]-=dot*nx;this.v[j+1]-=dot*ny;this.v[j+2]-=dot*nz;}this.v[j]*=.74;this.v[j+1]*=.74;this.v[j+2]*=.74;
+        }
+        maxV=Math.max(maxV,Math.hypot(this.v[j],this.v[j+1],this.v[j+2]));
+      }
+    }
+    this.quiet=(support>=3&&maxV<12)?this.quiet+dt:0;if(this.quiet>.75){this.sleeping=true;this.v.fill(0);}
+  }
+}
+
+const ragdollBodies=new Map();
+function ragdollGeometry(body){
+ const p=body.p,at=i=>({x:p[i*3],y:p[i*3+1],z:p[i*3+2]});
+ return {head:{...at(body.head),radius:body.r[body.head]},segments:body.bones.map(b=>({role:b.role,part:b.part,width:b.width,x1:p[b.a*3],y1:p[b.a*3+1],z1:p[b.a*3+2],x2:p[b.b*3],y2:p[b.b*3+1],z2:p[b.b*3+2]}))};
+}
+function startRagdoll(player,point,impulse){
+ if(!poolOnly())return;
+ const pose=runnerWorldGeometry(player,(runtime().monotonicUs-startedAt)/1e6);
+ const body=new OskiewarRagdoll(pose,[player.vx||0,player.vy||0,player.vz||0]);
+ if(point&&impulse)body.impulse([point.x,point.y,point.z||0],impulse);
+ // The park has eight civilians and at most two player bodies: bounded actor ownership.
+ ragdollBodies.set(player,{body,pose});
+ player.frozenGeometry=null;player.replayGeometry=null;
+}
+function updateRagdolls(dt){
+ for(const [player,state] of ragdollBodies){
+  if(player.alive||(!players.includes(player)&&!parkKids.includes(player))){ragdollBodies.delete(player);continue;}
+  if(!state.body.sleeping){state.body.step(dt,poolFloorAt);state.pose=ragdollGeometry(state.body);}
+  const torso=state.pose.segments.find(s=>s.role==='torso');
+  if(torso){player.x=torso.x2;player.y=torso.y2;player.z=torso.z2;}
+ }
+}
 const renderPoses = new Map();
 let sharingRenderPoses = false;
 function runnerWorldGeometry(player, t) {
+  const fallen=ragdollBodies.get(player);if(fallen&&!player.alive)return fallen.pose;
   if (wallPressActive(player)) return wallPressGeometry(player);
   const cached = sharingRenderPoses && renderPoses.get(player);
   if (cached && (!player.spiderDummy || cached.t === t)) return cached.pose;
@@ -15308,6 +15449,7 @@ function runnerWorldGeometry(player, t) {
     rotate(pose.head,'x','z');
     for(const bone of pose.segments){rotate(bone,'x1','z1');rotate(bone,'x2','z2');}
   }
+  if(poolOnly())pose.flow={yaw:(player.poolYaw||0)+(player.spin?.angle||0),phase:player.motionClock??t,swing:player.rig?.arms||0,scale:player.civilian?(player.bodyScale||1):1};
   if (sharingRenderPoses) renderPoses.set(player, { t, pose });
   return pose;
 }
@@ -15358,7 +15500,7 @@ function updateRig(player, pad, dt) {
   const crouchTarget = (pumping ? .55 : poolOnly()&&board?.28:0) + (!player.grounded && board ? .3 : 0);
   springStep(rig, "crouch", crouchTarget, 90, 9, dt);
   rig.crouch = clamp(rig.crouch, 0, .95);
-  springStep(rig, "arms", clamp((rig.leanV || 0) * .02, -1.4, 1.4) * strength, 55, 4, dt);
+  springStep(rig, "arms", clamp((rig.leanV || 0) * .035 + Math.sin((player.motionClock||0)*2.1)*.18, -1.8, 1.8) * strength, 38, 3.6, dt);
   updateTruckSprings(player, rig, dt);
   if (!player.grounded || !player.skateboard) player.skidFrom = null;
 }
@@ -16085,10 +16227,11 @@ function projectRunnerWorldGeometry(world) {
   const headView = cameraDoll.toView(world.head);
   const headPoint = cameraDoll.project(world.head);
   const scale = cameraScale();
-  const behind = headView.z < cameraPin;
+  const headBehind=headView.z+world.head.radius<cameraNear;
+  const behind=headBehind&&world.segments.every(s=>cameraDoll.toView({x:s.x1,y:s.y1,z:s.z1}).z<cameraNear&&cameraDoll.toView({x:s.x2,y:s.y2,z:s.z2}).z<cameraNear);
   return {
     behind,
-    head: { x: headPoint.x, y: headPoint.y, depth:headPoint.z,
+    head: { x: headPoint.x, y: headPoint.y, depth:headPoint.z, behind:headBehind,
       radius: world.head.radius * projectionScaleAt(world.head) },
     segments: world.segments.map((segment) => {
       const cut = behind ? null : worldSegment(segment.x1, segment.y1, segment.z1,
@@ -16461,7 +16604,7 @@ function sampleCombatBoxes(player, now, world = null) {
     const s = world.segments[i];
     // Each independently damageable region has its own rectangle, including
     // limbs extended during recovery. Missing limbs never produce hurtboxes.
-    const radius = poolOnly()?(s.role==='torso'?21*(player.bodyScale||1):(s.width||10)/2):s.part === 'torso' ? 14 : s.hitboxOnly ? 16 : 10;
+    const radius = poolOnly()?(s.role==='torso'?(looseCartoonEnabled()?15:21)*(player.bodyScale||1):(s.width||10)/2):s.part === 'torso' ? 14 : s.hitboxOnly ? 16 : 10;
     hurt.push(combatRect(s.role+'-'+i, Math.min(s.x1,s.x2)-radius,
       Math.min(s.y1,s.y2)-radius, Math.max(s.x1,s.x2)+radius,
       Math.max(s.y1,s.y2)+radius, (s.z1+s.z2)/2,
@@ -16480,7 +16623,7 @@ function sampleCombatBoxes(player, now, world = null) {
     const part = kick ? player.facing > 0 ? 'right-leg' : 'left-leg' : itemHand(player);
     if (part && hasPart(player, part)) {
       if(poolOnly()){
-        const limb=world.segments.find(s=>s.part===part&&(kick?/shin$/:/forearm$/).test(s.role||''));
+        const limb=world.segments.findLast(s=>s.part===part&&(kick?/shin$/:/forearm$/).test(s.role||''));
         if(limb){const radius=(limb.width||10)/2+4;
           hit.push(combatRect('spatial-strike',Math.min(limb.x1,limb.x2)-radius,Math.min(limb.y1,limb.y2)-radius,
             Math.max(limb.x1,limb.x2)+radius,Math.max(limb.y1,limb.y2)+radius,(limb.z1+limb.z2)/2,
@@ -17522,7 +17665,7 @@ function drawHandle(handle, x, y, size, colors, fallback) {
 // angled nose; a curved smile lifted at one corner; blush on the cheeks. It
 // blinks, and looks the way the skater is going. Laid out in the Trio's
 // face units (0..1, y up) on the head circle, turned toward the facing side.
-function drawTrioFace(player, head, now) {
+function drawTrioFace(player, head, now, cameraYaw = null) {
  if(player.civilian){
   const r=head.radius;
   for(const side of [-1,1]){const x=head.x+side*r*.3,y=head.y+r*.1;filledDisc(x,y,r*.23,[252,250,245]);filledDisc(x+(player.facing||1)*r*.07,y,r*.11,[28,22,34]);}
@@ -17535,7 +17678,7 @@ function drawTrioFace(player, head, now) {
   // projected from the sphere's surface — so features foreshorten as they
   // turn, crowd toward the rim and pass out of sight round the back.
   const facing = player.facing || 1;
-  const yaw = facing * .42 + (player.spin ? player.spin.angle : 0);
+  const yaw = cameraYaw ?? (facing * .42 + (player.spin ? player.spin.angle : 0));
   // A head rolling on its own turns like a wheel, face and all (a head
   // riding a board keeps its eyes level).
   const roll = isHeadOnly(player) && !player.skateboard ? player.headRoll || 0 : 0;
@@ -18434,6 +18577,168 @@ function updatePonytails(dt,now){
   }
 }
 
+function drawRunnerSymbol(player,c,point,scale,ellipsoid){
+      if(player===players[0]&&player.alive&&projectionScaleAt(c)*22*scale>=36){
+        const phase=player.heartPhase||0,pulse=Math.max(0,1-phase/.15)+.6*Math.max(0,1-Math.abs(phase-.23)/.1);
+        const radius=(.23+pulse*.07)*scale,center=point(c,14*scale,7*scale,-9*scale);
+        const vertex=i=>{const a=i*Math.PI/16;return point(center,0,(13*Math.cos(a)-5*Math.cos(2*a)-2*Math.cos(3*a)-Math.cos(4*a))*radius,16*Math.pow(Math.sin(a),3)*radius);};
+        for(let i=0;i<32;i++)worldTriangle(center,vertex(i),vertex(i+1),[255,80,129]);
+      }
+      const artifact=player===players[0]?aeselArtifact:null;
+      if(artifact?.animation){
+        const phase=((runtime().unixMs||runtime().monotonicUs/1000)/1000%2)*Math.PI,basePoint=point;
+        point=(c,f,u,r)=>{
+          if(artifact.animation==='spin'){const co=Math.cos(phase),sn=Math.sin(phase),x=r;r=x*co-u*sn;u=x*sn+u*co;}
+          else if(artifact.animation==='pulse'){const k=.85+Math.sin(phase)*.15;u*=k;r*=k;}
+          else if(artifact.animation==='float')u+=Math.sin(phase)*2*scale;
+          return basePoint(c,f,u,r);
+        };
+      }
+      const shape=artifact?.shape||(player===players[0]&&globalThis.__oskiewarRenderFlags?.shirtSymbol===2?'star':'flower');
+      const symbolColor=artifact?.rgb||[250,200,60];
+      if(shape==='drawing'){
+        const colors=[symbolColor,[24,18,26],[255,255,250]];
+        const vertex=(x,y,layer)=>point(c,(12+layer*.06)*scale,y*scale,x*scale);
+        const disc=(x,y,r,ink,layer)=>{for(let i=0;i<16;i++){const a=i*Math.PI/8,b=(i+1)*Math.PI/8;worldTriangle(vertex(x,y,layer),vertex(x+Math.cos(a)*r,y+Math.sin(a)*r,layer),vertex(x+Math.cos(b)*r,y+Math.sin(b)*r,layer),ink);}};
+        artifact.draw.forEach((cmd,layer)=>{
+          const ink=colors[cmd.at(-1)];
+          if(cmd[0]===0)disc(cmd[1],cmd[2],cmd[3],ink,layer);
+          else if(cmd[0]===2)worldTriangle(vertex(cmd[1],cmd[2],layer),vertex(cmd[3],cmd[4],layer),vertex(cmd[5],cmd[6],layer),ink);
+          else{const [,x,y,xx,yy,w]=cmd,len=Math.hypot(xx-x,yy-y)||1,nx=-(yy-y)/len*w/2,ny=(xx-x)/len*w/2;
+            worldQuad(vertex(x+nx,y+ny,layer),vertex(xx+nx,yy+ny,layer),vertex(xx-nx,yy-ny,layer),vertex(x-nx,y-ny,layer),ink);
+            disc(x,y,w/2,ink,layer);disc(xx,yy,w/2,ink,layer);}
+        });
+      }else if(shape==='custom'){
+        for(const face of artifact.faces){const v=face.map(i=>point(c,12*scale,artifact.points[i][1]*scale,artifact.points[i][0]*scale));worldTriangle(v[0],v[1],v[2],symbolColor);}
+      }else if(shape==='star'||shape==='heart'){
+        const center=point(c,12*scale,0,0),count=shape==='star'?10:32;
+        const vertex=i=>{const a=i*Math.PI*2/count;
+          if(shape==='heart')return point(c,12*scale,(13*Math.cos(a)-5*Math.cos(2*a)-2*Math.cos(3*a)-Math.cos(4*a))*.38*scale,16*Math.pow(Math.sin(a),3)*.38*scale);
+          const r=(i%2?2.6:6)*scale;return point(c,12*scale,Math.cos(a)*r,Math.sin(a)*r);};
+        for(let i=0;i<count;i++)worldTriangle(center,vertex(i),vertex(i+1),symbolColor);
+      }else if(shape==='rainbow'){
+        const colors=[[244,83,91],[249,155,65],[250,211,76],[88,191,121],[81,153,235],[166,109,219]];
+        for(let band=0;band<6;band++)for(let i=0;i<12;i++){
+          const v=(j,r)=>point(c,12*scale,(Math.sin(j*Math.PI/12)*r-3)*scale,Math.cos(j*Math.PI/12)*r*scale);
+          const r=8-band*.85;worldQuad(v(i,r),v(i+1,r),v(i+1,r-.85),v(i,r-.85),colors[band]);
+        }
+      }else{
+      for(let i=0;i<6;i++){const a=i/6*Math.PI*2;ellipsoid(point(c,12*scale,Math.cos(a)*3*scale,Math.sin(a)*3*scale),.8*scale,2*scale,2*scale,[255,255,250],4,2);}
+      ellipsoid(point(c,13*scale,0,0),1*scale,2*scale,2*scale,symbolColor,4,2);
+      }
+}
+
+// One sampled 3D curve supplies both the cartoon strokes and contact capsules.
+const loosePoseCache=new WeakMap();
+function looseRunnerGeometry(world,steps=8){
+  const cached=loosePoseCache.get(world);if(cached&&cached.steps===steps)return cached;
+  const segments=[],used=new Set(),end=(b,n)=>({x:b['x'+n],y:b['y'+n],z:b['z'+n]});
+  for(const upper of world.segments){
+    if(used.has(upper))continue;
+    const lower=/(thigh|upper-arm)$/.test(upper.role||'')?world.segments.find(b=>b.part===upper.part&&/(shin|forearm)$/.test(b.role||'')):null;
+    if(!lower){segments.push({...upper,width:upper.role==='torso'?30*(world.flow?.scale||1):upper.width});continue;}
+    used.add(upper);used.add(lower);
+    const a=end(upper,1),joint=end(upper,2),b=end(lower,2);
+    const control={};for(const k of ['x','y','z'])control[k]=2*joint[k]-(a[k]+b[k])*.5;
+    if(world.flow){
+      const f=world.flow,side=upper.part.startsWith('left')?-1:1,arm=/upper-arm$/.test(upper.role);
+      const bow=(arm?8:3.5)+Math.sin(f.phase*2.1+side*.9)*(arm?4:2.3)+(arm?f.swing*5:0);
+      control.x-=Math.sin(f.yaw)*bow*side*f.scale;control.z+=Math.cos(f.yaw)*bow*side*f.scale;
+    }
+    let previous=a;
+    for(let i=1;i<=steps;i++){
+      const u=i/steps,q=1-u,next={};for(const k of ['x','y','z'])next[k]=q*q*a[k]+2*q*u*control[k]+u*u*b[k];
+      const original=i<=steps/2?upper:lower;
+      segments.push({...original,x1:previous.x,y1:previous.y,z1:previous.z,x2:next.x,y2:next.y,z2:next.z});previous=next;
+    }
+  }
+  const result={...world,segments,steps};loosePoseCache.set(world,result);return result;
+}
+const looseCartoonEnabled=()=>poolOnly()&&globalThis.__oskiewarRenderFlags?.solidCharacter!==true;
+function drawLooseRunner(player,world,t,lod){
+  const radius=world.head.radius*projectionScaleAt(world.head);
+  const pose=looseRunnerGeometry(world,radius<15?3:radius<40?5:8),geometry=projectRunnerWorldGeometry(pose);
+  if(geometry.behind)return;
+  const saved=triangleDepth,ink=[20,17,28],skin=player.color,hair=player.hairColor||[35,27,34];
+  const scale=player.civilian?(player.bodyScale||1):1;
+  const stroke3=(a,b,width,color,edge=0,depth=null)=>{
+    const cut=worldSegment(a.x,a.y,a.z,b.x,b.y,b.z);if(!cut)return;
+    const k=projectionScaleAt({x:(a.x+b.x)*.5,y:(a.y+b.y)*.5,z:(a.z+b.z)*.5});
+    triangleDepth=depth??((cut.from.z+cut.to.z)*.5-.00002);
+    filledCapsule(cut.from.x,cut.from.y,cut.to.x,cut.to.y,width*k+edge,color);
+  };
+  if(player.skateboard)drawSkateboard(player);
+  const end=(b,n)=>({x:b['x'+n],y:b['y'+n],z:b['z'+n]});
+  const groups=new Map();
+  for(const bone of geometry.segments){
+    if(bone.hidden||bone.hitboxOnly||!hasPart(player,bone.part))continue;
+    const key=bone.part||bone.role;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(bone);
+  }
+  const ordered=[...groups.values()].map(bones=>({bones,depth:bones.reduce((sum,b)=>sum+b.depth,0)/bones.length})).sort((a,b)=>b.depth-a.depth);
+  for(const {bones,depth} of ordered){
+    const limb=/arm|leg/.test(bones[0].part||'');
+    if(!limb){
+      triangleDepth=depth;
+      for(const b of bones)filledCapsule(b.x1,b.y1,b.x2,b.y2,b.width+3,ink);
+      triangleDepth=depth-.00001;
+      for(const b of bones)filledCapsule(b.x1,b.y1,b.x2,b.y2,b.width,b.role==='torso'?player.shirtColor||[252,252,250]:skin);
+      continue;
+    }
+    const points=[{x:bones[0].x1,y:bones[0].y1,width:bones[0].width}];
+    for(const b of bones)points.push({x:b.x2,y:b.y2,width:b.width});
+    for(let i=0;i<points.length;i++){
+      const a=points[Math.max(0,i-1)],b=points[Math.min(points.length-1,i+1)],d=Math.hypot(b.x-a.x,b.y-a.y)||1;
+      points[i].nx=-(b.y-a.y)/d;points[i].ny=(b.x-a.x)/d;
+    }
+    const color=player.pantsColor&&/leg/.test(bones[0].part)?player.pantsColor:skin;
+    for(const edge of [true,false]){
+      const c=edge?ink:color,pad=edge?(lod?1:1.75):0;triangleDepth=depth-(edge?0:.00001);
+      for(let i=1;i<points.length;i++){
+        const a=points[i-1],b=points[i],ra=a.width/2+pad,rb=b.width/2+pad;
+        const ax=a.nx*ra,ay=a.ny*ra,bx=b.nx*rb,by=b.ny*rb;
+        screenTriangle(a.x+ax,a.y+ay,a.x-ax,a.y-ay,b.x+bx,b.y+by,...c);
+        screenTriangle(a.x-ax,a.y-ay,b.x-bx,b.y-by,b.x+bx,b.y+by,...c);
+      }
+      for(const p of [points[0],points[points.length-1]])filledDisc(p.x,p.y,p.width/2+pad,c);
+    }
+  }
+  const torso=world.segments.find(b=>b.role==='torso');
+  const yaw=(player.poolYaw||0)+(player.spin?.angle||0),forward={x:Math.cos(yaw),y:0,z:Math.sin(yaw)};
+  const view=cameraDoll.view,front=-(forward.x*view.forward.x+forward.z*view.forward.z);
+  const point=(c,f,u,r)=>({x:c.x-view.forward.x*f+view.right.x*r,y:c.y-u-view.forward.y*f+view.right.y*r,z:c.z-view.forward.z*f+view.right.z*r});
+  if(torso){
+    const hip=end(torso,2),neck=end(torso,1);
+    if(!player.pantsColor){
+      const skirt=player.skirtColor||[188,164,226],sway=Math.sin((player.poolStridePhase||0)*Math.PI*2)*3;
+      const a=point(hip,1,1,-11*scale),b=point(hip,1,1,11*scale),c=point(hip,1,-34*scale,23*scale+sway),d=point(hip,1,-34*scale,-23*scale+sway);
+      worldQuad(a,b,c,d,skirt);
+      stroke3(a,d,1,ink);stroke3(d,c,1,ink);stroke3(c,b,1,ink);
+      for(const r of [-.45,0,.45])stroke3(point(hip,1.1,0,r*11*scale),point(hip,1.1,-34*scale,r*23*scale+sway),.6,mixColor(skirt,ink,.25));
+    }
+    if(front>0&&lod===0){
+      const c={x:lerp(hip.x,neck.x,.65),y:lerp(hip.y,neck.y,.65),z:lerp(hip.z,neck.z,.65)};
+      const disc=(center,rx,ry,rz,color)=>{const p=cameraDoll.project(center);triangleDepth=p.z-.00002;filledDisc(p.x,p.y,ry*projectionScaleAt(center),color);};
+      drawRunnerSymbol(player,c,point,scale,disc);
+    }
+  }
+  const pony=ponytailStates.get(player);
+  if(pony)for(let i=1;i<pony.points.length;i++){
+    const width=(8-i)*scale;stroke3(pony.points[i-1],pony.points[i],width,ink,1.5);stroke3(pony.points[i-1],pony.points[i],width,hair);
+  }
+  if(!player.headless&&!geometry.head.behind){
+    const h=geometry.head;
+    triangleDepth=h.depth-world.head.radius*cameraDoll.depthSlope*.5;
+    filledDisc(h.x,h.y,h.radius+(lod?1.2:2.2),ink);filledDisc(h.x,h.y,h.radius,front<-.2?hair:skin);
+    if(front>=-.2){
+      drawHairline(player,h);
+      const faceYaw=Math.atan2(forward.x*view.right.x+forward.z*view.right.z,front);
+      drawTrioFace(player,h,runtime().monotonicUs,faceYaw);
+    }
+  }
+  if(player.gunAmmo>0){const gun=gunPose(player,runtime().monotonicUs);stroke3(gun.hand,gun.muzzle,7,[35,35,43]);}
+  drawHeldAxe(player,t);triangleDepth=saved;
+}
+
 function drawSpatialRunner(player,world,t,lod=0){
   const scale=player.civilian?(player.bodyScale||1):1;
   // The ink silhouette stays smooth even when the shaded volume uses fewer
@@ -18523,39 +18828,7 @@ function drawSpatialRunner(player,world,t,lod=0){
     }
     if(dressed&&lod===0){
       const c={x:lerp(hip.x,neck.x,.65),y:lerp(hip.y,neck.y,.65),z:lerp(hip.z,neck.z,.65)};
-      const artifact=player===players[0]?aeselArtifact:null;
-      const shape=artifact?.shape||(player===players[0]&&globalThis.__oskiewarRenderFlags?.shirtSymbol===2?'star':'flower');
-      const symbolColor=artifact?.rgb||[250,200,60];
-      if(shape==='drawing'){
-        const colors=[symbolColor,[24,18,26],[255,255,250]];
-        const vertex=(x,y,layer)=>point(c,(12+layer*.06)*scale,y*scale,x*scale);
-        const disc=(x,y,r,ink,layer)=>{for(let i=0;i<16;i++){const a=i*Math.PI/8,b=(i+1)*Math.PI/8;worldTriangle(vertex(x,y,layer),vertex(x+Math.cos(a)*r,y+Math.sin(a)*r,layer),vertex(x+Math.cos(b)*r,y+Math.sin(b)*r,layer),ink);}};
-        artifact.draw.forEach((cmd,layer)=>{
-          const ink=colors[cmd.at(-1)];
-          if(cmd[0]===0)disc(cmd[1],cmd[2],cmd[3],ink,layer);
-          else if(cmd[0]===2)worldTriangle(vertex(cmd[1],cmd[2],layer),vertex(cmd[3],cmd[4],layer),vertex(cmd[5],cmd[6],layer),ink);
-          else{const [,x,y,xx,yy,w]=cmd,len=Math.hypot(xx-x,yy-y)||1,nx=-(yy-y)/len*w/2,ny=(xx-x)/len*w/2;
-            worldQuad(vertex(x+nx,y+ny,layer),vertex(xx+nx,yy+ny,layer),vertex(xx-nx,yy-ny,layer),vertex(x-nx,y-ny,layer),ink);
-            disc(x,y,w/2,ink,layer);disc(xx,yy,w/2,ink,layer);}
-        });
-      }else if(shape==='custom'){
-        for(const face of artifact.faces){const v=face.map(i=>point(c,12*scale,artifact.points[i][1]*scale,artifact.points[i][0]*scale));worldTriangle(v[0],v[1],v[2],symbolColor);}
-      }else if(shape==='star'||shape==='heart'){
-        const center=point(c,12*scale,0,0),count=shape==='star'?10:32;
-        const vertex=i=>{const a=i*Math.PI*2/count;
-          if(shape==='heart')return point(c,12*scale,(13*Math.cos(a)-5*Math.cos(2*a)-2*Math.cos(3*a)-Math.cos(4*a))*.38*scale,16*Math.pow(Math.sin(a),3)*.38*scale);
-          const r=(i%2?2.6:6)*scale;return point(c,12*scale,Math.cos(a)*r,Math.sin(a)*r);};
-        for(let i=0;i<count;i++)worldTriangle(center,vertex(i),vertex(i+1),symbolColor);
-      }else if(shape==='rainbow'){
-        const colors=[[244,83,91],[249,155,65],[250,211,76],[88,191,121],[81,153,235],[166,109,219]];
-        for(let band=0;band<6;band++)for(let i=0;i<12;i++){
-          const v=(j,r)=>point(c,12*scale,(Math.sin(j*Math.PI/12)*r-3)*scale,Math.cos(j*Math.PI/12)*r*scale);
-          const r=8-band*.85;worldQuad(v(i,r),v(i+1,r),v(i+1,r-.85),v(i,r-.85),colors[band]);
-        }
-      }else{
-      for(let i=0;i<6;i++){const a=i/6*Math.PI*2;ellipsoid(point(c,12*scale,Math.cos(a)*3*scale,Math.sin(a)*3*scale),.8*scale,2*scale,2*scale,[255,255,250],4,2);}
-      ellipsoid(point(c,13*scale,0,0),1*scale,2*scale,2*scale,symbolColor,4,2);
-      }
+      drawRunnerSymbol(player,c,point,scale,ellipsoid);
     }
   }
   if(!player.headless){
@@ -18602,6 +18875,7 @@ function drawRunner(player,t,showLabel=true){
   try{return drawRunnerAtScale(player,t,showLabel);}finally{figureDrawScale=previous;}
 }
 function drawRunnerAtScale(player, t, showLabel = true) {
+  const fallen=ragdollBodies.get(player);if(fallen&&!player.alive){drawLooseRunner(player,fallen.pose,t,0);if(player.headless&&player.looseHead)drawCivilianLooseHead(player);return;}
   if(player.civilian && player.headless){drawCivilianDebris(player);return;}
   if(player.dummy)player=dummyView(player);
   // A fighter who is down is still on the stage: they read as the broken body
@@ -18658,7 +18932,10 @@ function drawRunnerAtScale(player, t, showLabel = true) {
   }
   const lod = poolOnly()&&player.civilian?Math.max(geometry.head.radius<12?2:1,figureLod(player,geometry)):figureLod(player, geometry);
   if(poolOnly()&&player.alive&&!player.dummy){
-    drawSpatialRunner(player,player.replayGeometry||player.frozenGeometry||runnerWorldGeometry(player,t),t,lod);return;
+    const world=player.replayGeometry||player.frozenGeometry||runnerWorldGeometry(player,t);
+    if(looseCartoonEnabled())drawLooseRunner(player,world,t,lod);
+    else drawSpatialRunner(player,world,t,lod);
+    return;
   }
   if (lod > 0) { drawFigureLod(player, geometry, lod, t); return; }
   // Preserve the fighter's identity color during hit flash. A pure white body
@@ -22386,7 +22663,7 @@ function gamePaint() {
       drawRunner(renderable.item, t, showRunnerLabels);
     }
   }
-  if(poolOnly())drawAeselFairy(t);
+  if(poolOnly()){drawCerealMilk(t);drawAeselFairy(t);}
   // Debug geometry shares the unfiltered overlay pass, behind screen UI.
   triangleDepth = -1.465;
   for(const p of activePlayers()){drawDebugHitboxes(p,t);if(debugHitboxes)drawAxeHitbox(p,t);}
@@ -23047,7 +23324,7 @@ function drawSeatPlayerHud(ink){
   if(p.dummy)continue;
   const i=p.pad,{idle,measure}=seatHudReadout(p,now);
   const accent=p.wheelTurbo?[209,129,255]:i?[174,161,255]:[255,144,188];
-  const size=idle?(compactLayout()?64:84):54;
+  const size=42;
   const heartRadius=idle?size*.23:0,heartSpace=idle?heartRadius*3+18:0;
   const width=handleWidth(measure,size)+heartSpace;
   const solo=activePlayers().filter(p=>!p.dummy).length===1;
@@ -23055,24 +23332,28 @@ function drawSeatPlayerHud(ink){
   const x=clamp(center-width/2,safe.left,safe.right-width),y=safe.bottom-size-70;
   seatHudText(measure,x,y,size,accent);
   if(idle){
-   const hx=x+handleWidth(measure,size)+heartSpace/2,hy=y+size*.55;
+   const hx=x+handleWidth(measure,size)+heartSpace/2,hy=y+size*.75;
    drawSeatHeart(hx+5,hy+5,p,[9,12,24],heartRadius);
    drawSeatHeart(hx,hy,p,accent,heartRadius);
   }
  }
  triangleDepth=old;
 }
+function seatActionText(p,now){
+ const recent=now-(p.lastButtonAt||0)<850000?p.lastButton:'';
+ const action=p.wheelTurbo?'SUPER TURBO':p.spin?'SPIN':recent&&!['NONE','LEFT','RIGHT','UP','DOWN'].includes(recent)?recent:statusVerb(p,Math.hypot(p.vx,p.vz||0))[0].toUpperCase();
+ const held=[];
+ if(p.axeHeld)held.push('AXE');if(p.swordHeld)held.push('SWORD');if(p.gunAmmo>0)held.push('PISTOL');
+ if(p.heldBall>=0)held.push('BALL');if(p.heldPlayer>=0)held.push('PARTNER');
+ return action+(held.length?' W/ '+held.join(' + '):'');
+}
 function drawSeatAction(p){
- if(shellMode!=="GAME")return;
- if(parkSupply.ko || !p.alive)return;
- const now=runtime().monotonicUs;
- const text=p.wheelTurbo?'SUPER TURBO':p.spin?'SPIN':now-(p.lastButtonAt||0)<850000?p.lastButton:'';
- if(!text || ['NONE','LEFT','RIGHT','UP','DOWN'].includes(text))return;
- const at=projectPoint(p.x,p.y,p.z||0),size=32;
- at.y+=28;
+ if(shellMode!=="GAME"||parkSupply.ko||!p.alive||p.dummy)return;
+ const text=seatActionText(p,runtime().monotonicUs),size=42,safe=hudSafeRect();
  const old=triangleDepth;triangleDepth=hudDepth;
- const width=handleWidth(text,size),x=clamp(at.x-width/2,14,viewWidth()-width-14),y=clamp(at.y,14,viewHeight-size-30);
- // CSS palette: violet, gold, springgreen, deepskyblue, hotpink, lightskyblue.
+ const width=handleWidth(text,size),x=viewCenterX()-width/2;
+ const seats=activePlayers().filter(p=>!p.dummy),row=Math.max(0,seats.indexOf(p));
+ const y=safe.top+18+row*50;
  const ink=p.wheelTurbo?[238,130,238]:p.spin?[255,215,0]:/DASH/.test(text)?[0,255,127]:/JUMP/.test(text)?[0,191,255]:p.pad===0?[255,105,180]:[135,206,250];
  typeWrite(text,x+3,y+3,size,9,12,24);
  typeWrite(text,x,y,size,...ink);triangleDepth=old;
@@ -23317,6 +23598,7 @@ function resetParkKids(){
 function updateParkKids(dt,now){
  for(let i=crowdNotes.length-1;i>=0;i--)if(now>=crowdNotes[i].at){playSine(crowdNotes[i].hz,.045);crowdNotes.splice(i,1);}
  for(const kid of parkKids){
+  if(ragdollBodies.has(kid)&&!kid.alive&&!kid.headless)continue;
   if(kid.headless){
    const h=kid.looseHead;h.vy+=1100*dt;h.x+=h.vx*dt;h.y+=h.vy*dt;h.z=clamp(h.z+h.vz*dt,worldNear+30,worldFar-30);
    const floor=terrainFloorAt(h.x,h.z)-h.radius;
@@ -23381,9 +23663,15 @@ function damageParkCivilian(kid,owner,at,now,damage){
  kid.x+=dx/length*20;kid.z+=dz/length*20;kid.patrolZ=kid.z;
  spawnImpact({x:at.x,y:at.y,z:at.z,life:.18,duration:.18,death:false,explosion:false});
  playDrum('snare',.65,panAt(kid.x,kid.z));
- if(kid.health<=0)popCivilianHead(kid,owner,runnerWorldGeometry(kid,(now-startedAt)/1e6),now);
+ if(kid.health<=0){
+  startRagdoll(kid,at,[dx/length*500,-180,dz/length*500]);
+  kid.alive=false;kid.attackKind='';kid.vx=kid.vy=kid.vz=0;
+ }
 }
 function popCivilianHead(kid,owner,g,now){
+ startRagdoll(kid,g.head,[Math.sign(kid.x-owner.x||1)*400,-120,0]);
+ const body=ragdollBodies.get(kid)?.body;
+ if(body){body.w[body.head]=0;for(let j=0;j<body.links;j++)if(body.a[j]===body.head||body.b[j]===body.head)body.enabled[j]=0;}
  kid.headless=true;kid.alive=false;kid.frozenGeometry=g;kid.vx=0;kid.attackKind='';
  kid.looseHead={...g.head,vx:Math.sign(kid.x-owner.x||1)*350,vy:-430,vz:(kid.pad%2?1:-1)*100};
  playDrum('block',.6,panPlayer(owner));
@@ -23398,7 +23686,10 @@ function drawCivilianDebris(kid){
   triangleDepth=Math.min(a.z,c.z)-.005;
   filledCapsule(a.x,a.y,c.x,c.y,Math.max(2,b.width*cameraScale()),b.role==='torso'?kid.shirtColor:isLegRole(b.role)?kid.pantsColor||kid.color:kid.color);
  }
- const h=kid.looseHead,p=projectPoint(h.x,h.y,h.z),r=h.radius*cameraScale();triangleDepth=p.z-.006;
+ drawCivilianLooseHead(kid);triangleDepth=old;
+}
+function drawCivilianLooseHead(kid){
+ const old=triangleDepth,h=kid.looseHead,p=projectPoint(h.x,h.y,h.z),r=h.radius*projectionScaleAt(h);triangleDepth=p.z-.00002;
  filledDisc(p.x,p.y,r+1,[24,20,30]);filledDisc(p.x,p.y,r,kid.color);
  drawFace({...kid,dummy:true},{x:p.x,y:p.y,radius:r},kid.color,0);
  triangleDepth=old;
@@ -23534,7 +23825,9 @@ function updateSeatHeartbeat(dt,now){
   const previousHeartPhase=p.heartPhase;
   p.heartDanger=danger;p.heartPhase=((p.heartPhase ?? (p.pad*.173)%1)+realDt*p.heartRate/60)%1;
   if(p===players[0]&&previousHeartPhase!==undefined&&p.heartPhase<previousHeartPhase)
-    playDrum('kick',.075,0);
+    playDrum('kick',.23,0);
+  if(p===players[0]&&previousHeartPhase!==undefined&&p.heartPhase>=.23&&previousHeartPhase<.23)
+    playDrum('kick',.12,0);
   p.breathRate=11+(p.pad%5)+danger*13+effort*12;
   p.breathPhase=((p.breathPhase ?? (p.pad*.317)%1)+realDt*p.breathRate/60)%1;
   p.motionClock=(p.motionClock ?? now/1e6+p.pad*1.7)+realDt*(.8+p.heartRate/300);
