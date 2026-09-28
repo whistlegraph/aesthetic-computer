@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 202;
+const buildVersion = 203;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -2861,6 +2861,9 @@ function projectedTriangle(a, b, c, color) {
   // Positional, not spread: see the note on emitTriangle above. Every face a
   // frame submits comes through here, and `...color` built one throwaway
   // iterator apiece for ~2100 of them.
+  if(color[3]!==undefined&&typeof triangleAlpha==='function'){
+    triangleAlpha(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z,color[0],color[1],color[2],color[3]);return;
+  }
   if (worldDepthMode === 0) {
     emitTriangle(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z,
       color[0], color[1], color[2]);
@@ -12621,6 +12624,23 @@ function updatePoolPlayer(p, pad, dt, now) {
   const axis=value=>Math.abs(value)>.18?Math.sign(value)*(Math.abs(value)-.18)/.82:0;
   const turn=Number(held.includes('ArrowRight'))-Number(held.includes('ArrowLeft')) || axis(pad.leftX||0);
   const throttle=Number(held.includes('ArrowUp'))-Number(held.includes('ArrowDown')) || axis(pad.leftY||0);
+  // Drawing has Cartesian controls, independent of the rider's heading.
+  // B + directions never enters the steering/double-tap dash recognizer.
+  if(p.chalkColor&&held.includes('B')&&p.grounded&&!p.swimming){
+    if(p.skateboard)dismountSkateboard(p,now);
+    const before={x:p.x,z:p.z||0},length=Math.max(1,Math.hypot(turn,throttle));
+    p.vx=-turn/length*360;p.vz=throttle/length*360;p.vy=0;
+    p.x+=p.vx*dt;p.z=(p.z||0)+p.vz*dt;
+    boundParkBody(p,before);p.y=poolFloorAt(p.x,p.z);
+    p.poolTap=p.poolAnalogTap=null;p.poolAnalogKey='';p.poolLastSteer=0;p.poolRunTime=0;
+    p.poolPipeLocked=false;p.poolVert=null;p.dashUntil=0;p.attackKind='';p.blocking=false;
+    p.inputX=turn;p.inputZ=throttle;p.chalkDrawing=true;
+    if(held.includes('RightShoulder')&&!p.spin)p.spin={angle:0,rate:6,direction:1,startedAt:now};
+    if(held.includes('RightShoulder')&&p.spin)p.spin.rate=6;
+    updateSpin(p,dt);updateChalk(p,held,now);
+    p.poolStridePhase=(p.poolStridePhase||0)+Math.hypot(p.vx,p.vz)*dt/240;
+    p.stance=Math.hypot(p.vx,p.vz)>1?'WALK':'NEUTRAL';p.previous=held.slice();return;
+  }
   const tapKey=['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].find(pressed);
   let directionDash=false;
   if(tapKey){directionDash=p.poolTap?.key===tapKey&&now-p.poolTap.at<280000;p.poolTap=directionDash?null:{key:tapKey,at:now};}
@@ -20538,9 +20558,9 @@ function drawParkBuilding(){
   drawParkScene(parkBuildingMesh);
   // The overhead view cuts away roof, beams and hanging lights, while their
   // physical breakable surface remains in the simulation.
-  if(cameraDoll.position.y>parkDeckY-parkBuildingHeight+100){
+  if(globalThis.meshTransparency===true||typeof triangleAlpha==='function'||cameraDoll.position.y>parkDeckY-parkBuildingHeight+100){
     if(!parkRoofMesh)parkRoofMesh=captureQuadMesh(drawParkRoofGeometry);
-    drawParkScene(parkRoofMesh);
+    drawParkScene(parkRoofMesh,.18);
   }
   drawParkWindows();drawParkWindowShards();
 }
@@ -23713,7 +23733,7 @@ function drawSeatPlayerHud(ink){
  for(const p of activePlayers()){
   if(p.dummy)continue;
   const i=p.pad,{idle,measure,metrics}=seatHudReadout(p,now);
-  if(poolOnly()&&i===0){const drop=parkDropName(p);if(drop)seatHudText('L3 drop '+drop,safe.left,safe.bottom-42,42,[255,186,126]);const action=p.chalkColor?'B draw':p.axeHeld?'B swing':'B punch',fire=p.gunAmmo>0?'Y shoot':'Y kick';for(const [j,text] of [action+' / '+fire,(p.skateboard?'A dismount':'A jump')+' / RB block'].entries())seatHudText(text,safe.right-handleWidth(text,42),safe.bottom-92+j*50,42,[200,215,232]);}
+  if(poolOnly()&&i===0){const drop=parkDropName(p);if(drop)seatHudText('L3 drop '+drop,safe.left,safe.bottom-42,42,[255,186,126]);const action=p.chalkColor?'B draw':p.axeHeld?'B swing':'B punch',fire=p.gunAmmo>0?'Y shoot':'Y kick';for(const [j,text] of [action+' / '+fire,p.chalkDrawing?'RB spin':(p.skateboard?'A dismount':'A jump')+' / RB block'].entries())seatHudText(text,safe.right-handleWidth(text,42),safe.bottom-92+j*50,42,[200,215,232]);}
   const accent=p.wheelTurbo?[209,129,255]:i?[174,161,255]:[255,144,188];
   const size=42;
   const heartRadius=size*.23,heartSpace=heartRadius*3+18;
@@ -23859,11 +23879,11 @@ function buildParkScene(mesh){
   };
   return build(entries);
 }
-function drawParkScene(mesh){
+function drawParkScene(mesh,opacity=1){
   if(!mesh)return;
   mesh.sceneRoot ||= buildParkScene(mesh);
   const visit=node=>{if(!sceneBoundsVisible(node.bounds))return;
-    if(node.children)for(const child of node.children)visit(child);else drawQuadMesh(node.mesh);};
+    if(node.children)for(const child of node.children)visit(child);else drawQuadMesh(node.mesh,opacity);};
   visit(mesh.sceneRoot);
   // Coping rails are few and clip independently; their widths remain physical.
   for(const a of mesh.capsules||[])worldCapsule(a[0],a[1],a[2],a[3],a[4],a[5],a[6]*cameraScale(),a[7],a[8]);
@@ -23892,13 +23912,13 @@ function releaseQuadMesh(mesh){
  if(mesh&&mesh.nativeHandle>=0&&nativeMeshFree)nativeMeshFree(mesh.nativeHandle);
  if(mesh)mesh.nativeHandle=-1;
 }
-function drawQuadMesh(mesh){
+function drawQuadMesh(mesh,opacity=1){
  if(!mesh||(!nativeRetainedMeshes&&!sceneBoundsVisible(mesh.bounds)))return;
  if(nativeRetainedMeshes){
   const handle=meshHandle(mesh);
-  if(handle>=0){nativeMeshDraw(handle,mainNativeCamera(),clipView?0:cameraScale());return;}
+  if(handle>=0){nativeMeshDraw(handle,mainNativeCamera(),clipView?0:cameraScale(),1,1,1,opacity);return;}
  }
- if(nativeSceneMesh){
+ if(nativeSceneMesh&&opacity===1){
   if(!clipView){const scale=cameraScale();for(const a of mesh.capsules||[])worldCapsule(a[0],a[1],a[2],a[3],a[4],a[5],a[6]*scale,a[7],a[8]);}
   const buffers=nativeMeshBuffers(mesh);nativeSceneMesh(buffers.vertices,buffers.faces,mainNativeCamera());return;
  }
@@ -23907,7 +23927,7 @@ function drawQuadMesh(mesh){
  }
  const meshScale=cameraScale();
  if(!clipView)for(const args of mesh.capsules||[])worldCapsule(args[0],args[1],args[2],args[3],args[4],args[5],args[6]*meshScale,args[7],args[8]);
- if(programBuffered){
+ if(programBuffered&&opacity===1){
   // Sent once, drawn by handle: the interpreter keeps the mesh, lights each
   // quad and takes it to the camera. The bounds cull above already dropped
   // a mesh that is wholly off screen.
@@ -23926,7 +23946,7 @@ function drawQuadMesh(mesh){
   const [ia,ib,ic,id]=f.ids,a=mesh.projected[ia],b=mesh.projected[ib],c=mesh.projected[ic],d=mesh.projected[id];
   if(a.near&&b.near&&c.near&&d.near&&((a.x<0&&b.x<0&&c.x<0&&d.x<0)||(a.x>stageRight&&b.x>stageRight&&c.x>stageRight&&d.x>stageRight)||(a.y<0&&b.y<0&&c.y<0&&d.y<0)||(a.y>viewHeight&&b.y>viewHeight&&c.y>viewHeight&&d.y>viewHeight)))continue;
   const n=f.normal,k=.72+Math.max(0,-n[0]*globalLight.x-n[1]*globalLight.y-n[2]*globalLight.z)*.28;
-  const color=f.lit;for(let i=0;i<3;i++)color[i]=Math.round(f.color[i]*k);
+  const color=f.lit;color[3]=opacity;for(let i=0;i<3;i++)color[i]=Math.round(f.color[i]*k);
   if(a.near&&b.near&&c.near&&d.near&&bandContains(a)&&bandContains(b)&&bandContains(c)&&bandContains(d)){
    projectedTriangle(a,b,c,color);projectedTriangle(a,c,d,color);
   }else{worldTriangle(mesh.vertices[ia],mesh.vertices[ib],mesh.vertices[ic],color);worldTriangle(mesh.vertices[ia],mesh.vertices[ic],mesh.vertices[id],color);}

@@ -88,16 +88,21 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
         #include <metal_stdlib>
         using namespace metal;
         struct Vertex { float4 position; float4 color; };
-        struct Raster { float4 position [[position]]; float3 color; };
+        struct Raster { float4 position [[position]]; float4 color; };
         vertex Raster scene_vertex(const device Vertex *vertices [[buffer(0)]],
                                    uint id [[vertex_id]]) {
           Raster out;
           out.position = vertices[id].position;
-          out.color = vertices[id].color.rgb;
+          out.color = vertices[id].color;
           return out;
         }
         fragment float4 scene_fragment(Raster in [[stage_in]]) {
-          return float4(in.color, 1.0);
+          if(in.color.a<0.999){
+            uint2 pixel=uint2(in.position.xy)&3;
+            const uint pattern[16]={0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5};
+            if(in.color.a<(pattern[pixel.y*4+pixel.x]+0.5)/16.0)discard_fragment();
+          }
+          return float4(in.color.rgb, 1.0);
         }
         struct DecalVertex { float4 position; float4 uvq; };
         struct DecalRaster { float4 position [[position]]; float3 uvq; };
@@ -200,7 +205,7 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
         defer { sceneLock.unlock() }
         let ink = SIMD4<Float>(Float(clamped255(values[9])),
                                Float(clamped255(values[10])),
-                               Float(clamped255(values[11])), 1)
+                               Float(clamped255(values[11])), values.count>12 ? Float(max(0,min(1,values[12]))) : 1)
         for vertex in 0..<3 {
             let at = vertex * 3
             let x = Float(values[at] / Double(logicalSize.width / 2) - 1)

@@ -186,8 +186,8 @@ JSValue MeshDraw(JSContext* ctx,JSValueConst,int argc,JSValueConst* args){
  auto& store=scope->scene.meshes;
  if(handle<0||size_t(handle)>=store.size()||!store[handle])return JS_NewInt32(ctx,0);
  if(!camera.read(args[1])||camera.count!=27||!SceneCameraValid(camera.data))return JS_ThrowRangeError(ctx,"meshDraw needs a 27-float camera");
- double extra[4]{1,1,1,1};
- for(int i=0;i<4&&argc>2+i;i++){if(JS_ToFloat64(ctx,&extra[i],args[2+i])||!std::isfinite(extra[i]))return JS_ThrowRangeError(ctx,"meshDraw scale/tint");}
+ double extra[5]{1,1,1,1,1};
+ for(int i=0;i<5&&argc>2+i;i++){if(JS_ToFloat64(ctx,&extra[i],args[2+i])||!std::isfinite(extra[i]))return JS_ThrowRangeError(ctx,"meshDraw scale/tint");}
  const double capsuleScale=std::clamp(extra[0],0.0,1024.0);const double tint[3]{std::clamp(extra[1],0.0,4.0),std::clamp(extra[2],0.0,4.0),std::clamp(extra[3],0.0,4.0)};
  const bool tinted=tint[0]!=1||tint[1]!=1||tint[2]!=1;
  RetainedMesh& mesh=*store[handle];const float* m=camera.data;const double near=m[17];
@@ -212,7 +212,8 @@ JSValue MeshDraw(JSContext* ctx,JSValueConst,int argc,JSValueConst* args){
  int emitted=0;ScenePoint a[9],b[9];
  for(size_t i=0;i<faceCount;i++){const float* f=mesh.faces.data()+i*10;
   Color color=mesh.lit[i];
-  if(tinted)color=SceneColor(color.r*tint[0],color.g*tint[1],color.b*tint[2]);
+  color.a=uint8_t(std::clamp(extra[4],0.0,1.0)*255);
+  if(tinted){const auto alpha=color.a;color=SceneColor(color.r*tint[0],color.g*tint[1],color.b*tint[2]);color.a=alpha;}
   int n=4;for(int j=0;j<4;j++)a[j]=mesh.view[size_t(f[j])];
   bool front=true;for(int j=0;j<4;j++)if(a[j].z<near){front=false;break;}
   if(front){
@@ -242,7 +243,7 @@ JSValue MeshDraw(JSContext* ctx,JSValueConst,int argc,JSValueConst* args){
   if(!std::isfinite(from.x)||!std::isfinite(from.y)||!std::isfinite(to.x)||!std::isfinite(to.y))continue;
   if((from.x<m[18]-guard&&to.x<m[18]-guard)||(from.x>m[20]+guard&&to.x>m[20]+guard)||(from.y<m[19]-guard&&to.y<m[19]-guard)||(from.y>m[21]+guard&&to.y>m[21]+guard))continue;
   Color color=SceneColor(c[7],c[8],c[9]);
-  if(tinted)color=SceneColor(color.r*tint[0],color.g*tint[1],color.b*tint[2]);
+  if(tinted){const auto alpha=color.a;color=SceneColor(color.r*tint[0],color.g*tint[1],color.b*tint[2]);color.a=alpha;}
   const double width=std::max(1.0,double(c[6])*capsuleScale),depth=std::clamp(std::min(from.z,to.z)+double(c[10]),-1.499,1.4);
   const double radius=width*.5;const int fan=radius<6?3:radius<13?4:radius<26?6:radius<52?8:12;
   SceneCapsuleFan(g,from.x,from.y,to.x,to.y,depth,width,color);emitted+=2+2*fan;

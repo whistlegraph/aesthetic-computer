@@ -890,7 +890,7 @@ private:
         x / 960.0f - 1.0f,
         1.0f - y / 540.0f,
         (std::max)(0.0f, (std::min)(1.0f, (z + 1.5f) / 3.0f)),
-        color.r / 255.0f, color.g / 255.0f, color.b / 255.0f, 1.0f,
+        color.r / 255.0f, color.g / 255.0f, color.b / 255.0f, color.a / 255.0f,
       };
     };
     for (const auto& triangle : m_frameTriangles) {

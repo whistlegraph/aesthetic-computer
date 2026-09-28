@@ -1014,8 +1014,9 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "capsule3d", JS_NewCFunction(context_, SceneCapsule, "capsule3d", 9));
     JS_SetPropertyStr(context_, global, "sceneMesh", JS_NewCFunction(context_, SceneMesh, "sceneMesh", 3));
     JS_SetPropertyStr(context_, global, "meshUpload", JS_NewCFunction(context_, MeshUpload, "meshUpload", 3));
-    JS_SetPropertyStr(context_, global, "meshDraw", JS_NewCFunction(context_, MeshDraw, "meshDraw", 6));
+    JS_SetPropertyStr(context_, global, "meshDraw", JS_NewCFunction(context_, MeshDraw, "meshDraw", 7));
     JS_SetPropertyStr(context_, global, "meshFree", JS_NewCFunction(context_, MeshFree, "meshFree", 1));
+    JS_SetPropertyStr(context_, global, "meshTransparency", JS_NewBool(context_, true));
     JS_SetPropertyStr(context_, global, "triangle3d", JS_NewCFunction(context_, Triangle3d, "triangle3d", 12));
     JS_SetPropertyStr(context_, global, "triangles3d", JS_NewCFunction(context_, Triangles3d, "triangles3d", 2));
     JS_SetPropertyStr(context_, global, "sprites3d", JS_NewCFunction(context_, Sprites3d, "sprites3d", 2));

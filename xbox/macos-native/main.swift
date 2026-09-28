@@ -913,6 +913,11 @@ private final class NativeGameHost {
             { [weak self] x1, y1, z1, x2, y2, z2, x3, y3, z3, r, g, b in
                 self?.renderer.triangle3d(x1, y1, z1, x2, y2, z2, x3, y3, z3, r, g, b)
             }
+        let triangleAlpha: @convention(block) (Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double) -> Void =
+            { [weak self] a,b,c,d,e,f,g,h,i,r,green,blue,alpha in
+                guard let self = self else { return }
+                _ = self.renderer.scene.triangle([a,b,c,d,e,f,g,h,i,r,green,blue,alpha], logicalSize: CGSize(width: 1920, height: 1080))
+            }
         let text: (String) -> @convention(block) (String, Double, Double, Double, Double, Double, Double) -> Void =
             { family in { [weak self] value, x, y, size, r, g, b in
                 self?.renderer.write(value, family: family, x: x, y: y, size: size, r, g, b)
@@ -991,6 +996,7 @@ private final class NativeGameHost {
         javascript.setObject(box, forKeyedSubscript: "box" as NSString)
         javascript.setObject(line, forKeyedSubscript: "line" as NSString)
         javascript.setObject(triangle, forKeyedSubscript: "triangle" as NSString)
+        javascript.setObject(triangleAlpha, forKeyedSubscript: "triangleAlpha" as NSString)
         javascript.setObject(triangle3d, forKeyedSubscript: "triangle3d" as NSString)
         javascript.setObject(text("Comic Relief"), forKeyedSubscript: "comicWrite" as NSString)
         javascript.setObject(text("Comic Relief"), forKeyedSubscript: "ywftWrite" as NSString)

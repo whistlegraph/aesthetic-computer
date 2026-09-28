@@ -647,3 +647,12 @@ test('two held items occupy different arms and block another pickup until droppe
  assert.equal(a.freeItemArm(p,'chalk'),'');assert.equal(a.freeItemArm(p,'gun'),'');
  a.dropParkItem(p,a.now());assert.ok(a.freeItemArm(p,'chalk'));assert.equal(p.gunAmmo,5);
 });
+
+test('drawing directions translate directly regardless of facing and never double-tap dash',()=>{
+ const a=playground(),p=a.players[0];p.chalkColor=a.chalkColors[0];p.poolYaw=1.7;
+ const x=p.x,z=p.z,yaw=p.poolYaw;
+ a.step(['B','ArrowRight']);assert.ok(p.x<x);assert.equal(p.z,z);assert.equal(p.poolYaw,yaw);
+ a.step(['B']);a.step(['B','ArrowRight']);assert.equal(p.dashUntil,0);assert.equal(p.grounded,true);
+ assert.equal(p.spin,null);assert.ok(p.chalkDrawing);
+ a.step([]);assert.equal(p.chalkDrawing,false);
+});
