@@ -5,6 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <script>
     const jevDemo = new URLSearchParams(location.search).has('jev-vs-jev');
+    // The iOS app (apple/oskiewar) loads `?touch&app=ios`, and there the shell
+    // offers no sign-in and no "add yourself": App Store guideline 5.1.1(v)
+    // wants any app that makes an account to delete one in the app too, and
+    // that path does not exist yet. Sign-in comes back in a later version,
+    // with deletion beside it. Read once, from the address or from this tab's
+    // memory of it, because the room updater rewrites the address and a link
+    // followed inside the web view never carried the query to begin with.
+    const inIOSApp = (() => {
+      let remembered = false;
+      try { remembered = sessionStorage.getItem("oskiewar-app") === "ios"; } catch {}
+      const ios = new URLSearchParams(location.search).get("app") === "ios" || remembered;
+      if (ios) try { sessionStorage.setItem("oskiewar-app", "ios"); } catch {}
+      return ios;
+    })();
     if (jevDemo) {
       globalThis.__oskiewarSelfPlay = true;
       globalThis.__oskiewarJevPad = (seat, scene) => parent.__jevArena?.pad(seat, scene) || [];
@@ -289,6 +303,11 @@
       navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches;
     document.body.classList.toggle("touch-enabled", touchEnabled);
     document.body.classList.add("title-open");
+    // No door in the app build (see `inIOSApp`): the corner button and its
+    // panel leave the document, so nothing can focus, tab to or raise them.
+    if (inIOSApp)
+      for (const furniture of document.querySelectorAll("#account, #account-panel"))
+        furniture.remove();
     document.body.classList.toggle("social-preview",
       new URLSearchParams(location.search).has("social-preview"));
     // Direct native/web route for the large destructible training opponent.
@@ -342,8 +361,11 @@
     // `ready` says the shell has finished asking who is here — success or not.
     // Until then a piece should say nothing about accounts rather than guess
     // that nobody is signed in.
+    // The app build has no one to ask, so it is ready from the start: netplay
+    // waits on `ready` before it deals names, and nobody-signed-in is the
+    // whole answer there.
     globalThis.__oskiewarAccount = {
-      ready: false, signedIn: false, handle: "", colors: [],
+      ready: inIOSApp, signedIn: false, handle: "", colors: [],
       // Replaced by `account.mjs` with the real token accessor. Answering null
       // until then is the honest state: nobody is signed in yet.
       bearer: async () => null,
@@ -1701,7 +1723,9 @@
     globalThis.__oskiewarRenderSurface = renderSurface;
     globalThis.__oskiewarNextResolutionScale = nextResolutionScale;
     globalThis.__oskiewarInsetsChanged();
-    const accountDoor = mountAccount({
+    // The app build mounts neither door (see `inIOSApp`); the game already
+    // plays a shell without them as anonymous.
+    const accountDoor = inIOSApp ? null : mountAccount({
       sfx: (name, amount, pan) => oskiewarSfx.drum(name, amount, pan),
       probe: !socialPreview,
     });
@@ -1710,7 +1734,7 @@
     // social-preview render for the same reason the account probe is: that pass
     // draws a picture of the title and must not grow furniture a viewer of the
     // picture could never press.
-    if (!socialPreview)
+    if (!socialPreview && !inIOSApp)
       globalThis.__oskiewarWizard = mountWizard({
         sfx: (name, amount, pan) => oskiewarSfx.drum(name, amount, pan),
         bearer: () => globalThis.__oskiewarAccount.bearer(),
@@ -1798,7 +1822,7 @@
     globalThis.qrcode = qrcode;
     // Finish a web sign-in before matchmaking or room URL updates can consume
     // its callback URL. Ordinary anonymous visits still boot immediately.
-    if (accountDoor.redirectPending) await accountDoor.ready;
+    if (accountDoor?.redirectPending) await accountDoor.ready;
     const workshopRoute = /^\/workshop\/?$/.test(location.pathname);
     const roundName = roundNameFromPath(location.pathname) || (workshopRoute
       ? roundNameFromPath("/" + (new URLSearchParams(location.search).get("room") || "")) : "");
@@ -1838,8 +1862,10 @@
         return;
       }
       const room = globalThis.__oskiewarVersusRoom;
+      // The shared address stays bare; the app keeps its query, which is how
+      // a reload inside the web view still knows it is the app.
       if (room && !/^\/workshop\/?$/.test(location.pathname) && location.pathname !== "/" + room)
-        history.replaceState(null, "", "/" + room);
+        history.replaceState(null, "", "/" + room + (inIOSApp ? location.search : ""));
     }, 500);
     // A challenger who glances at another tab stops simulating — the frame
     // driver parks with the tab and the engine's own input heartbeat parks

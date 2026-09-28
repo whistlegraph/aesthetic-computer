@@ -604,3 +604,6 @@ slab/menubar-swift/dist/
 *.before-*-20[0-9][0-9]*
 .easel-media/
 .aesel-media/
+
+# App Review contact phone stays out of the public mirror.
+apple/oskiewar/fastlane/metadata/*/review_information/phone_number.txt

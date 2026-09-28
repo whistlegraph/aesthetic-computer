@@ -1,5 +1,48 @@
-{
-  "data_protections": [
-    "DATA_NOT_COLLECTED"
-  ]
-}
+[
+  {
+    "category": "GAMEPLAY_CONTENT",
+    "purposes": [
+      "APP_FUNCTIONALITY"
+    ],
+    "data_protections": [
+      "DATA_NOT_LINKED_TO_YOU"
+    ]
+  },
+  {
+    "category": "COARSE_LOCATION",
+    "purposes": [
+      "APP_FUNCTIONALITY",
+      "ANALYTICS"
+    ],
+    "data_protections": [
+      "DATA_NOT_LINKED_TO_YOU"
+    ]
+  },
+  {
+    "category": "DEVICE_ID",
+    "purposes": [
+      "ANALYTICS"
+    ],
+    "data_protections": [
+      "DATA_NOT_LINKED_TO_YOU"
+    ]
+  },
+  {
+    "category": "PRODUCT_INTERACTION",
+    "purposes": [
+      "ANALYTICS"
+    ],
+    "data_protections": [
+      "DATA_NOT_LINKED_TO_YOU"
+    ]
+  },
+  {
+    "category": "CRASH_DATA",
+    "purposes": [
+      "APP_FUNCTIONALITY"
+    ],
+    "data_protections": [
+      "DATA_NOT_LINKED_TO_YOU"
+    ]
+  }
+]

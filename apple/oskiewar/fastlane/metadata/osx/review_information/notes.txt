@@ -1,0 +1,12 @@
+No account is needed and the Mac app has no sign-in, so no demo login is provided.
+
+How to play: the app opens in a small window on the title screen (Command-F for full screen). Press Return to start, and your fighter walks in through the front doors into the park.
+Keyboard: WASD or the arrow keys move. Q and E punch (hold to grab), Shift kicks, Space jumps, Shift+Q raises the shield bubble, R drops a held item.
+Controller: the left stick moves, X and Y punch, A kicks, B jumps, A+X raises the bubble.
+Walk into a skateboard, kart, chalk or weapon to pick it up.
+
+Multiplayer: every room has an address at oskiewar.com/<room name>, and the room name is shown on screen. Opening that address in a web browser on a second device joins the same room. In a fight, the first visitor takes the second chair and later visitors watch.
+
+How the app is built: a native Metal renderer draws the game, and the game logic runs in JavaScriptCore from a script bundled in the app. There are no ads, no in-app purchases and no third-party analytics SDKs.
+
+Content: stylized stick-figure fighting with cartoon weapons (guns, grenades, axes). Hits leave cartoon blood marks and limbs can detach. There is no text chat.

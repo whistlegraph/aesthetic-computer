@@ -2,23 +2,68 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <!-- The native game keeps no account and carries no analytics SDK: the
-       engine runs in JavaScriptCore against a Metal surface, and the traffic
-       it makes is the match's own (a replay it saves, a round it publishes
-       for spectators) plus LaunchPing — one launch count per open, keyed by a
-       random install id that dies with the app. That count is the one data
-       type below: product interaction, for analytics, not linked to the
-       player and not used to track them.
+  <!-- One manifest for both Apple apps, and it has to cover the larger one.
+       The iOS app is a WKWebView on https://oskiewar.com?app=ios, so what
+       that page does, the app does: public round recordings, PostHog
+       product events, crash reports. With app=ios the page offers no
+       sign-in and no "Add yourself" wall (no in-app account deletion yet,
+       guideline 5.1.1(v)); when they return, their rows return here. The
+       Mac app is narrower (LaunchPing, replays, the live relay), but it
+       ships this same file.
 
-       This file is a promise. If a later build adds sign-in, analytics, or
-       anything that names the player, the declaration below has to grow with
-       it — and so does the nutrition label in App Store Connect. -->
+       Kept in step with apple/oskiewar/fastlane/app_privacy_details.json and
+       https://oskiewar.com/privacy.html. If one moves, all three move.
+
+       Nothing here is tied to an account, and nothing is used for
+       cross-company tracking. -->
   <key>NSPrivacyTracking</key>
   <false/>
   <key>NSPrivacyTrackingDomains</key>
   <array/>
   <key>NSPrivacyCollectedDataTypes</key>
   <array>
+    <!-- Round recordings: public, under the fighter's default name. -->
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeGameplayContent</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypeTracking</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array>
+        <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+      </array>
+    </dict>
+    <!-- Country from the network address: the fighter's flag, stored on
+         replays, and counted with launches. -->
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeCoarseLocation</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypeTracking</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array>
+        <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+        <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+      </array>
+    </dict>
+    <!-- LaunchPing's random install id, and PostHog's anonymous id. -->
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeDeviceID</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypeTracking</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array>
+        <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+      </array>
+    </dict>
+    <!-- Launch counts, visit summaries, allowlisted match events. -->
     <dict>
       <key>NSPrivacyCollectedDataType</key>
       <string>NSPrivacyCollectedDataTypeProductInteraction</string>
@@ -29,6 +74,19 @@
       <key>NSPrivacyCollectedDataTypePurposes</key>
       <array>
         <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+      </array>
+    </dict>
+    <!-- /api/piece-log: the error, its stack, and the request address. -->
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeCrashData</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypeTracking</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array>
+        <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
       </array>
     </dict>
   </array>

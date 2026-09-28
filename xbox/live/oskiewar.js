@@ -4272,10 +4272,10 @@ function drawAeselFairy(t){
 }
 function drawAeselConnect(){
   if(!poolOnly()||!sessionName)return;
-  const label=sessionName,size=42,safe=hudSafeRect();
+  const {safe,room:label,roomX,roomSize:size}=parkTopRail();
   const saved=triangleDepth;triangleDepth=-1.49;
   const qr=shellMode==='MENU'?spectatorQrBox():null;
-  const x=safe.right-handleWidth(label,size),y=qr?qr.top+qr.size+20:safe.top+18;
+  const x=roomX,y=qr?qr.top+qr.size+20:safe.top+18;
   typeWrite(label,x+1,y+2,size,12,18,30);typeWrite(label,x,y,size,231,247,241);
   triangleDepth=saved;
 }
@@ -9228,10 +9228,40 @@ function interpolateParkPeer(peer,now){
  peer.poolYaw=a.yaw+Math.atan2(Math.sin(b.yaw-a.yaw),Math.cos(b.yaw-a.yaw))*t;
  if(b.at>a.at){peer.vx=(b.x-a.x)/(b.at-a.at)*1000;peer.vz=(b.z-a.z)/(b.at-a.at)*1000;}
 }
-function drawParkConnection(){
- if(!poolOnly()||shellMode!=='GAME')return;
+// The hall's top rail, laid out once for everyone who draws on it: signal and
+// head count on the left, the room on the right, each seat's verb between
+// them. These used to sit at fixed offsets tuned for a television, and on a
+// phone held upright the three ran into one another. A verb that cannot share
+// the top line steps down a line of its own, clear of the share code, and one
+// too long for any line shrinks rather than spill.
+function parkTopRail(){
  const safe=hudSafeRect(),live=parkConnection.at>0&&Date.now()-parkConnection.at<3000;
  const ping=live&&Number.isFinite(parkConnection.ping)?parkConnection.ping:null;
+ const count=live?parkConnection.count:1;
+ const pingText=(ping===null?'—':Math.round(ping))+' ms',countText=count+' PLAYER'+(count===1?'':'S');
+ // Sized for a three-digit ping so the count does not twitch as it changes.
+ const countX=safe.left+54+Math.max(handleWidth(pingText,28),handleWidth('999 ms',28))+18;
+ const leftEnd=countX+handleWidth(countText,28)+24;
+ const roomSize=compactLayout()?34:42,room=sessionName||'';
+ const roomX=safe.right-handleWidth(room,roomSize);
+ const qr=spectatorQrBox();
+ const rightEnd=room?roomX-24:safe.right;
+ // Where a verb `width` wide goes for the seat in `row`: the top line if it
+ // fits between the two ends, otherwise the lines beneath.
+ const verb=(width,size,row)=>{
+  if(!row&&rightEnd-leftEnd>=width)
+   return {x:clamp(viewCenterX()-width/2,leftEnd,rightEnd-width),y:safe.top+18,size};
+  const line=row+1,y=safe.top+18+line*50;
+  const left=qr&&y<qr.top+qr.size?qr.left+qr.size+24:safe.left,span=safe.right-left;
+  const fit=Math.min(size,Math.floor(size*span/Math.max(1,width)));
+  const w=width*fit/size;
+  return {x:clamp(viewCenterX()-w/2,left,safe.right-w),y,size:fit};
+ };
+ return {safe,ping,pingText,countText,countX,room,roomX,roomSize,verb};
+}
+function drawParkConnection(){
+ if(!poolOnly()||shellMode!=='GAME')return;
+ const {safe,ping,pingText,countText,countX}=parkTopRail();
  const bars=ping===null?0:ping<100?4:ping<200?2:1;
  const color=bars===4?[103,231,151]:bars===2?[255,180,77]:[255,100,111];
  for(let i=0;i<4;i++){
@@ -9239,9 +9269,8 @@ function drawParkConnection(){
    hudBox(x-1,y-1,9,height+2,26,29,37);
    hudBox(x,y,7,height,...(i<bars?color:[76,80,91]));
  }
- const count=live?parkConnection.count:1;
- seatHudText((ping===null?'—':Math.round(ping))+' ms',safe.left+54,safe.top,28,color);
- seatHudText(count+' PLAYER'+(count===1?'':'S'),safe.left+230,safe.top,28,[219,225,231]);
+ seatHudText(pingText,safe.left+54,safe.top,28,color);
+ seatHudText(countText,countX,safe.top,28,[219,225,231]);
 }
 function netDrainHostInbox() {
   const inbox = globalThis.__oskiewarNetInbox ||= [];
@@ -19185,10 +19214,12 @@ const controlRailWidth = () => compactLayout() ? 138 : 188;
 
 // Touch is part of the game surface, not a DOM overlay. One drawn d-pad and
 // four action discs share the exact centers used by mac-test's canvas hit zones.
+const touchPadShown = () => typeof capabilities === "function" &&
+  capabilities().inputFamily === "touch" && !capabilities().socialPreview;
+// The top of the Y disc, the pad's highest reach (see the arithmetic below).
+const touchPadTop = () => viewHeight - 140 - viewInset.bottom - 64 - 27;
 function drawTouchControls() {
-  if (typeof capabilities !== "function" ||
-      capabilities().inputFamily !== "touch" || capabilities().socialPreview)
-    return;
+  if (!touchPadShown()) return;
   const held = localPad().down || [];
   const spread = 64;
   // The clusters stand clear of the home indicator and any notch ear; the
@@ -25577,7 +25608,11 @@ function parkControlCaps(){
  return keycapFamily()?{punch:['Q','E'],kick:'SHIFT',jump:'SPACE',bubble:['SHIFT','Q'],drop:'R'}
   :{punch:['X','Y'],kick:'A',jump:'B',bubble:['A','X'],drop:'L3'};
 }
+// Not on a touch screen: the drawn pad carries its own glyphs, and a legend
+// naming X, Y, A and B pointed at letters no button there wears — the same
+// call drawControlLegend makes. It also stood exactly where the pad does.
 function drawParkControls(p,safe){
+ if(touchPadShown())return;
  const down=inputPads[p.pad]?.down||[],fighting=!!parkFightRival(p),size=28,c=parkControlCaps();
  const held=[...down];
  if((inputPads[p.pad]?.leftY||0)>.48)held.push('ArrowUp');
@@ -25608,7 +25643,10 @@ function drawSeatPlayerHud(ink){
   const gap=24,width=metrics.reduce((sum,m)=>sum+handleWidth(m.text,size),0)+gap*(metrics.length-1)+heartSpace;
   const solo=activePlayers().filter(p=>!p.dummy).length===1;
   const center=solo?viewCenterX():lerp(safe.left,safe.right,i?.72:.28);
-  const x=clamp(center-width/2,safe.left,safe.right-width),y=safe.bottom-size-70;
+  // Above the touch pad rather than between its clusters, where a narrow
+  // screen put the numbers under the X button.
+  const floor=touchPadShown()?Math.min(safe.bottom-70,touchPadTop()-24):safe.bottom-70;
+  const x=clamp(center-width/2,safe.left,safe.right-width),y=floor-size;
   let cursor=x+heartSpace;for(const metric of metrics){seatHudText(metric.text,cursor,y,size,metric.color);cursor+=handleWidth(metric.text,size)+gap;}
   {
    const hx=x+heartSpace/2,hy=y+size*.75;
@@ -25651,12 +25689,11 @@ function seatActionRuns(p,now){
 }
 function drawSeatAction(p){
  if(shellMode!=="GAME"||parkSupply.ko||!p.alive||p.dummy)return;
- const runs=seatActionRuns(p,runtime().monotonicUs),size=42,safe=hudSafeRect();
+ const runs=seatActionRuns(p,runtime().monotonicUs);
  const old=triangleDepth;triangleDepth=hudDepth;
- const width=runs.reduce((sum,r)=>sum+handleWidth(r.text,size),0);
- let x=viewCenterX()-width/2;
+ const width=runs.reduce((sum,r)=>sum+handleWidth(r.text,42),0);
  const seats=activePlayers().filter(p=>!p.dummy),row=Math.max(0,seats.indexOf(p));
- const y=safe.top+18+row*50;
+ let {x,y,size}=parkTopRail().verb(width,42,row);
  for(const run of runs){seatHudText(run.text,x,y,size,run.color);x+=handleWidth(run.text,size);}
  triangleDepth=old;
 }

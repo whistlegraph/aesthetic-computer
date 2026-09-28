@@ -1,0 +1,17 @@
+oskiewar is a stick-figure fight in a park, and you can bring people into it.
+
+You walk in through the front doors. Inside there's a pool, a gym, ramps, and a long go-kart circuit, plus whatever is lying around: skateboards, a onewheel, karts, chalk, axes, grenades, guns. Pick something up and use it. Punch, kick, throw up a bubble to shield yourself, grab somebody and throw them. Limbs come off.
+
+PLAYING WITH PEOPLE
+Every room has an address. Send it to someone and they open it in a web browser — no install, no account — and walk into the same park, or take the second chair in a fight. Once a fight has two players, anyone else who arrives watches. Both devices run the whole fight and keep agreeing with each other frame by frame, so it stays responsive even when the connection isn't perfect.
+
+CONTROLS
+On iPhone and iPad: a d-pad on the left, four buttons on the right. Drag the screen to look around and pinch to zoom.
+A hardware keyboard or a game controller works too — Q and E punch, Shift kicks, Space jumps; on a controller X and Y punch, A kicks, B jumps.
+
+FREE
+The whole game is free. No ads, no purchases, nothing to unlock. There's no account and nothing to sign in to.
+
+It's the same game on iPhone, iPad and Mac, and one download covers all of them.
+
+oskiewar is made by Aesthetic Computer. It keeps changing — if something looks different next week, that's why.

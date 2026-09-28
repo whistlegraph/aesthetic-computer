@@ -83,6 +83,7 @@ end
       deliver(**deliver_defaults(store),
               app_version: VERSION,
               metadata_path: "./fastlane/metadata/#{store}",
+              app_rating_config_path: "./fastlane/age_rating.json",
               skip_screenshots: true,
               skip_binary_upload: true)
     end

@@ -56,69 +56,135 @@
 <body>
 <main>
   <h1>privacy</h1>
-  <p class="tag">oskiewar · last updated 23 September 2026</p>
+  <p class="tag">oskiewar · last updated 28 September 2026</p>
 
   <p class="lead">
-    oskiewar can be played without signing in. Optional account features,
-    round recordings, and website measurements are described below.
+    You can play oskiewar without an account. Nothing below is sold, and none
+    of it is used for advertising or to follow you around other apps and
+    sites. This page covers the website, the iPhone and iPad app, and the Mac
+    app.
   </p>
 
-  <h2>What leaves your machine</h2>
+  <h2>Which app sends what</h2>
+  <p>
+    The iPhone and iPad app is the website in a window: it loads
+    oskiewar.com, so this page applies to it, except that the app offers no
+    sign-in and no "Add yourself". Those two sections below are about the
+    website only. The Mac app runs the game on its own. It sends the launch
+    count, finished rounds and live rounds. It has no sign-in, no product
+    analytics and no photo upload.
+  </p>
+
+  <h2>Every time the game runs</h2>
   <ul>
     <li>
-      <strong>The game itself.</strong> oskiewar downloads its own current
-      version from oskiewar.com so a fix reaches you without a store update.
-      That is an ordinary web request; it carries no identifier we assign.
+      <strong>A launch count (apps only).</strong> Each time the app opens, it
+      sends the app name, its version, the platform, whether this is the first
+      launch, and a random install ID. The app makes that ID when it first
+      runs and keeps it in its own settings, so deleting the app deletes it.
+      We store it with a country for 35 days to count installs.
     </li>
     <li>
-      <strong>A fight, while it is happening.</strong> When you play someone
-      else, the positions of the two fighters and the state of the round pass
-      through a relay server so the other player — and anyone watching that
-      room's address — sees the match. This is gameplay: coordinates, timers,
-      scores. It is not stored after the round ends.
+      <strong>Visit counts (website and iPhone/iPad).</strong> Rough visible
+      time, which kinds of input were used, and milestones like "round
+      completed". The ID in them lasts one page visit. They are kept 35 days.
+      Do Not Track or Global Privacy Control turns them off. More in the
+      <a href="https://aesthetic.computer/network-privacy.html">measurement details</a>.
     </li>
     <li>
-      <strong>Finished rounds.</strong> A completed round may be kept as a
-      compact recording — the inputs and the resulting motion — so rounds can be
-      replayed and watched later. A recording contains the fight and nothing
-      about the person who played it.
+      <strong>Product analytics (website and iPhone/iPad).</strong> A short
+      list of match events (a round started, a round finished, someone
+      watched), each with a few fixed labels. They go to PostHog, a service we
+      use to count them. No names, handles, scores or screen recordings are
+      sent. PostHog keeps an anonymous ID in the browser storage so repeat
+      visits count once. Do Not Track turns this off.
     </li>
     <li>
-      <strong>Crash reports.</strong> If the game fails, it can send the error
-      and the state it failed in, so the fault can be fixed. No document,
-      keystroke or file of yours is included.
+      <strong>Crash reports.</strong> If the game hits an error, it sends the
+      error message and where in the code it happened. The report is stored
+      with the network address it came from, so we can tell one broken device
+      from many. It carries no account.
+    </li>
+    <li>
+      <strong>The dummy counter.</strong> Popping the training dummy bumps a
+      shared counter. To stop floods, we keep a scrambled form of your network
+      address with each pop for about two days.
+    </li>
+    <li>
+      <strong>Your country.</strong> The game asks our server which country
+      your connection comes from, to put a flag on your fighter.
     </li>
   </ul>
 
-  <h2>Website visits</h2>
+  <h2>Fights and recordings</h2>
+  <ul>
+    <li>
+      <strong>Live rounds.</strong> A round passes through our relay so the
+      other fighter and anyone with the room's address can watch. That traffic
+      includes positions, scores, each fighter's name and flag. The relay
+      keeps the last frame in memory for about ten minutes after everyone
+      leaves. Its server log records the connecting network address and
+      browser type.
+    </li>
+    <li>
+      <strong>Finished rounds are public.</strong> A completed round is saved
+      as a recording: the inputs, the moves, the result, the fighters' names
+      and flags, the screen size it was played at, and when. If you are
+      signed in, your fighter's name is your @handle. Anyone can replay a
+      round from its address, and a handle's past rounds can be listed. We
+      also keep a scrambled form of the uploading network address, which is
+      never shown, to stop spam. Recordings are kept until we remove them.
+    </li>
+  </ul>
+
+  <h2>If you sign in (website)</h2>
   <p>
-    We count page visits, visible-time buckets, interaction types and gameplay
-    milestones using a random ID kept only for the current page visit. No
-    cookies, account identity, raw inputs, full URLs or page content are sent
-    by this visit tracker. Records expire after 35 days. Known automated
-    browsers are reported separately; these counts are not unique people.
-    Do Not Track and Global Privacy Control disable this tracker.
-    See <a href="https://aesthetic.computer/network-privacy.html">network measurement details</a>.
+    Sign-in is optional. You type your email, Auth0 (the account service we
+    use) mails you a code, and you pick an @handle. We keep your account and
+    handle. The handle is public: it shows on your fighter, in live rounds
+    and on recordings. Maps you save in the workshop are kept with your
+    account.
   </p>
 
-  <h2>Other services</h2>
+  <h2>"Add yourself" (website)</h2>
   <p>
-    Optional sign-in uses our account service. Existing product analytics and
-    gameplay recordings are separate from anonymous visit measurements. We
-    do not sell this information to data brokers. Avoid putting personal
-    information in public fighter names or shared rounds.
+    Tapping the fighter's head on the title screen offers to make a fighter
+    from your photo. You have to be signed in, and nothing is taken until
+    you tick what you allow and pick the file. The photo (and a voice clip,
+    if you choose one) is stored by REGARDE, the consent service that holds
+    your grant. The account is identified to it by a code made from your
+    account, not by your email or handle. To make the fighter, a smaller copy
+    of the photo is sent to OpenAI, which describes its look. OpenAI is asked
+    not to keep it. Your fighter stays on your screen for local practice.
+    It is not used in online matches, recordings, marketing or model
+    training. Your material is kept until you press
+    <em>Withdraw my material</em>. That deletes it and blocks any more use.
+  </p>
+
+  <h2>Stored on your device</h2>
+  <p>
+    Your light/dark theme choice. If you sign in, your sign-in session. If
+    analytics are on, PostHog's anonymous ID. The apps also keep the random
+    install ID described above.
   </p>
 
   <h2>Your say</h2>
   <p>
-    For account or round-recording questions, write to
-    <a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a>.
-    Include the public round address if you want a recording removed.
+    To delete your account, a recording, or anything else on this page, write
+    to <a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a>.
+    For a recording, include its round address. Don't put personal
+    information in handles or map names. Other people can see them.
+  </p>
+
+  <h2>Children</h2>
+  <p>
+    oskiewar has no ads and does not ask for age. Sign-in and "Add yourself"
+    are not meant for children under 13.
   </p>
 
   <h2>Changes</h2>
   <p>
-    If what the game sends ever changes, this page changes with it and the date
+    If what the game sends changes, this page changes with it and the date
     above moves. Questions go to the same address.
   </p>
 </main>
