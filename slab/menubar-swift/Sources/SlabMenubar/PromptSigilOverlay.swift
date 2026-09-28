@@ -871,11 +871,15 @@ final class PromptSigilOverlay {
         interactionWindow.setFrame(hitRect, display: false)
     }
 
-    func setName(_ newName: String, dark: Bool) {
-        guard name != newName else { return }
+    func setName(_ newName: String, dark: Bool, colors: [NSColor] = []) {
+        guard name != newName || nameColors != colors else { return }
         name = newName
+        nameColors = colors
         rebuildName()
     }
+
+    /// Letter colours for a leading `@handle` in the name, from the session.
+    private var nameColors: [NSColor] = []
 
     private var labelForeground = NSColor.white
     private var loopboyStyled = false
@@ -1134,6 +1138,9 @@ final class PromptSigilOverlay {
         nameLayer.sublayers?.forEach { $0.removeFromSuperlayer() }
         let name = desktopTitle ?? self.name
         guard !name.isEmpty else { return }
+        // A piece's label — under its code, or standing in for the desktop
+        // window's title — wears the Aesel lettering instead.
+        if isScanSurface || desktopTitle != nil { rebuildAeselName(name); return }
         let font = playfulRockFont(desktopTitle == nil ? 16 : desktopTitleFontSize)
         let versionStart = isScanSurface ? name.range(of: " v[0-9]+$", options: .regularExpression)?.lowerBound : nil
         let sh = NSShadow()
@@ -1204,6 +1211,50 @@ final class PromptSigilOverlay {
             r.duration = 1.8; r.repeatCount = .infinity
             r.beginTime = begin; r.isAdditive = true
             l.add(r, forKey: "wiggleR")
+        }
+    }
+
+    /// The Aesel desktop's title lettering (see AeselRock.swift): the route on
+    /// one line, shrunk to the rock's width the way the desktop fits a title to
+    /// its strip, and the version as its own smaller word beneath it — the
+    /// desktop shows it as a separate title too. Letters of a leading @handle
+    /// take the account palette; the desktop title keeps its own colours.
+    private func rebuildAeselName(_ name: String) {
+        let versionStart = desktopTitle == nil ? name.range(of: " v[0-9]+$", options: .regularExpression) : nil
+        let title = versionStart.map { String(name[..<$0.lowerBound]) } ?? name
+        let version = versionStart.map { String(name[$0.lowerBound...].dropFirst()) } ?? ""
+        let room = nameLayer.bounds.width - 4
+        var size = desktopTitle == nil ? 16 : desktopTitleFontSize
+        if desktopTitle == nil {
+            let natural = AeselRock.width(title, size: size)
+            if natural > room { size = max(8, (size * room / natural).rounded(.down)) }
+        }
+        let faces = desktopTitle == nil
+            ? AeselRock.faces(title, colors: nameColors)
+            : title.indices.enumerated().map { $0.offset < desktopTitleColors.count ? desktopTitleColors[$0.offset] : .white }
+        let scale = NSScreen.main?.backingScaleFactor ?? 2
+        let start = CACurrentMediaTime()
+        func row(_ text: String, size: CGFloat, faces: [NSColor], y: CGFloat) {
+            let advances = text.map { AeselRock.glyph(String($0), size: size).advance.width }
+            var x = (nameLayer.bounds.width - advances.reduce(0, +)) / 2
+            for (i, letter) in text.enumerated() {
+                let glyph = AeselRock.glyph(String(letter), size: size, face: faces[i])
+                let rest = AeselRock.rest(i, of: text)
+                let l = CALayer()
+                l.contentsScale = scale
+                l.contents = glyph.image.layerContents(forContentsScale: scale)
+                l.bounds = CGRect(origin: .zero, size: glyph.image.size)
+                l.position = CGPoint(x: x + glyph.advance.width / 2, y: y)
+                l.transform = CATransform3DRotate(CATransform3DMakeTranslation(0, rest.lift, 0), rest.radians, 0, 0, 1)
+                nameLayer.addSublayer(l)
+                AeselRock.addSway(to: l, index: i, from: start)
+                x += glyph.advance.width
+            }
+        }
+        row(title, size: size, faces: faces, y: nameLayer.bounds.height / 2)
+        if !version.isEmpty {
+            row(version, size: 12, faces: Array(repeating: .white, count: version.count),
+                y: nameLayer.bounds.height / 2 - 15)
         }
     }
 
@@ -2390,7 +2441,9 @@ final class PromptSigilOverlayController {
         var next = PromptPreviewState()
         next.flow = PromptFlow(s.flow)
         next.working = (s.state == .working || s.state == .rendering)
-        next.piece = s.artifactPreview == nil ? s.piece : s.artifactKind.capitalized
+        next.piece = s.artifactPreview != nil ? s.artifactKind.capitalized
+            : (s.pieceRoute.isEmpty ? s.piece : s.pieceRoute)
+        next.handleColors = s.artifactPreview == nil && !s.pieceRoute.isEmpty ? s.handleColors : []
         next.version = s.artifactPreview?.version ?? s.pieceVersion
         next.paused = !pv.isOnScreen
         pv.setState(next)
@@ -3027,9 +3080,13 @@ final class PromptSigilOverlayController {
             // summary and prompt excerpt, deduped (the hook line is usually
             // the prompt's own first words — repeating both said nothing).
             let draftID = URLComponents(string: "https://" + s.scanURL.replacingOccurrences(of: "https://", with: ""))?.queryItems?.first(where: { $0.name == "id" })?.value
-            let scanName = scanSurface && s.artifactKind != "piece" && draftID?.count == 32 ? "#~" + String(draftID!.prefix(12)) : SigilRenderer.name(for: s)
+            // A piece under its code reads the way the Aesel desktop titles
+            // it: the `@handle/slug` route, and the version as its own word.
+            let route = scanSurface ? s.pieceRoute : ""
+            let scanName = scanSurface && s.artifactKind != "piece" && draftID?.count == 32 ? "#~" + String(draftID!.prefix(12)) : (route.isEmpty ? SigilRenderer.name(for: s) : route)
             let scanVersion = s.artifactPreview?.version ?? s.pieceVersion
-            ov.setName(scanSurface && scanVersion > 0 ? "\(scanName) v\(scanVersion)" : scanName, dark: dark)
+            ov.setName(scanSurface && scanVersion > 0 ? "\(scanName) v\(scanVersion)" : scanName, dark: dark,
+                       colors: route.isEmpty ? [] : s.handleColors)
             let title = s.emoji.isEmpty ? ov.name : "\(s.emoji) \(ov.name)"
             ov.tooltipTitle = loopboy ? "↻ Loopboy · \(title)" : title
             // The card says what kind of object this is; a scan rock is not

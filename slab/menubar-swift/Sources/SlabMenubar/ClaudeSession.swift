@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 /// Generic alias — a tracked agent session is no longer Claude-specific
@@ -123,6 +124,25 @@ struct ClaudeSession {
     var pieceVersion: Int = 0
     var pieceChannel: String = ""
     var pieceRevision: String = ""
+    /// The @handle an Easel session acts as, and that handle's letter colours
+    /// (one per character of `@handle`, the '@' included) — the same palette
+    /// the Aesel desktop tints a route's handle with.
+    var handle: String = ""
+    var handleColors: [NSColor] = []
+
+    /// The piece's name the way Aesel titles it: `@handle/slug`, taken from the
+    /// published address when the rock carries one, else composed from the
+    /// signed-in handle. Empty when the session is not signed in or holds no
+    /// piece, and the plain name stands in.
+    var pieceRoute: String {
+        guard agentType == "easel", artifactKind == "piece", !piece.isEmpty else { return "" }
+        let slug = (piece as NSString).deletingPathExtension
+        if let at = scanURL.range(of: "/@") {
+            let path = String(scanURL[scanURL.index(after: at.lowerBound)...])
+            if path.hasSuffix("/" + slug) { return path }
+        }
+        return handle.isEmpty ? "" : "@\(handle)/\(slug)"
+    }
 
     /// How the file on disk stands against what `scanURL` is serving —
     /// `live`, `ahead` (saved, not pushed yet) or `pushing`. The preview
@@ -418,6 +438,11 @@ enum ClaudeSessionReader {
         session.pieceVersion = (obj["piece_version"] as? Int) ?? 0
         session.pieceChannel = (obj["piece_channel"] as? String) ?? ""
         session.pieceRevision = (obj["piece_revision"] as? String) ?? ""
+        session.handle = (obj["handle"] as? String) ?? ""
+        session.handleColors = Array((obj["handle_colors"] as? [[Double]] ?? []).prefix(64)).map { rgb in
+            guard rgb.count == 3, rgb.allSatisfy({ $0.isFinite && $0 >= 0 && $0 <= 255 }) else { return .white }
+            return NSColor(deviceRed: rgb[0] / 255, green: rgb[1] / 255, blue: rgb[2] / 255, alpha: 1)
+        }
         session.flow = (obj["flow"] as? String) ?? "live"
         return session
     }

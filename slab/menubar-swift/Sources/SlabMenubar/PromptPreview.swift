@@ -62,7 +62,10 @@ struct PromptPreviewState: Equatable {
     /// screen are however old the last paint was. Never inferred from a
     /// timer — read from the same window-stack test that hides the rock.
     var paused = false
+    /// The piece's name as Aesel titles it — `@handle/slug` when the session
+    /// has a route — with the account palette for its handle letters.
     var piece: String = ""
+    var handleColors: [NSColor] = []
     var version = 0
     var previewError = false
 
@@ -100,23 +103,22 @@ struct PromptPreviewState: Equatable {
 /// things — ahead, pushing, working, paused — and the piece's name, but only
 /// while the card is grown, where a name is something you asked for rather than
 /// something parked over the art. A piece is free to paint white, so the chip
-/// carries its own dark ground rather than trusting contrast.
+/// carries its own dark ground rather than trusting contrast. The name and the
+/// version are the Aesel desktop's title lettering, two separate words as they
+/// are there; the state stays plain type, because it is a reading, not a name.
 private struct PromptPreviewBadge: View {
     let state: PromptPreviewState
     let expanded: Bool
 
     /// The name earns its place only in the grown card; the state earns its
-    /// place only when there is one. Both absent is the ordinary case, and the
+    /// place only when there is one. All absent is the ordinary case, and the
     /// view draws nothing at all.
-    private var text: String {
-        let name = [expanded ? state.piece : "", state.version > 0 ? "v\(state.version)" : ""]
-            .filter { !$0.isEmpty }.joined(separator: " · ")
-        if state.quiet { return name }
-        return name.isEmpty ? state.label : "\(name) · \(state.label)"
-    }
+    private var name: String { expanded ? state.piece : "" }
+    private var version: String { state.version > 0 ? "v\(state.version)" : "" }
+    private var label: String { state.quiet ? "" : state.label }
 
     var body: some View {
-        if text.isEmpty {
+        if name.isEmpty && version.isEmpty && label.isEmpty {
             EmptyView()
         } else {
             HStack(spacing: 5) {
@@ -125,9 +127,17 @@ private struct PromptPreviewBadge: View {
                         .fill(state.tint)
                         .frame(width: 6, height: 6)
                 }
-                Text(text)
-                    .font(.system(size: 9, weight: .medium, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.92))
+                if !name.isEmpty {
+                    AeselRockTitle(text: name, colors: state.handleColors, size: 11)
+                }
+                if !version.isEmpty {
+                    AeselRockTitle(text: version, size: 11)
+                }
+                if !label.isEmpty {
+                    Text(label)
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.92))
+                }
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
