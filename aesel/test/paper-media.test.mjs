@@ -41,7 +41,7 @@ test("QA cannot mark an unbuilt draft ready", async (t) => {
   await assert.rejects(run({ root, action: "qa", input: { aestheticEye: {}, figureTable: {} } }), /Build the current/);
 });
 test("real PDF builds await QA, reject stale reviews, and invalidate after source edits", async (t) => {
-  if (process.env.EASEL_PAPER_SMOKE !== "1") return t.skip("Set EASEL_PAPER_SMOKE=1 to exercise an installed TeX compiler.");
+  if (process.env.AESEL_PAPER_SMOKE !== "1") return t.skip("Set AESEL_PAPER_SMOKE=1 to exercise an installed TeX compiler.");
   const root = await paper(t);
   await run({ root, action: "write", input: { ...manuscript, sections: [{ title: "Method", text: "Verified citation \\cite{test}." }], bibliography: "@book{test,author={Test Author},title={Test Book},year={2026}}" } });
   const built = await run({ root, action: "build" });

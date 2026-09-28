@@ -1,3 +1,4 @@
+import './env.mjs';
 import { createInterface } from 'node:readline';
 import { Artifacts } from './artifacts.mjs';
 const at=process.argv.indexOf('--cwd');

@@ -4,6 +4,7 @@ import { createInterface } from "node:readline";
 
 import { codexMcpArgs } from "./tools.mjs";
 import { VERSION } from "./version.mjs";
+import { bothNames } from "./env.mjs";
 
 
 export class AppServer extends EventEmitter {
@@ -43,7 +44,7 @@ export class AppServer extends EventEmitter {
         ...process.env,
         ...this.environment,
         aesel: "1",
-        EASEL_VERSION: VERSION,
+        ...bothNames({ AESEL_VERSION: VERSION }),
       },
       stdio: ["pipe", "pipe", "pipe"],
     });

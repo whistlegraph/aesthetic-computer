@@ -2,6 +2,7 @@ import {color,clipText,textWidth} from './render.mjs';
 import {FrameDiff} from './frame-diff.mjs';
 import {readdir} from 'node:fs/promises';
 import {join} from 'node:path';
+import {workspaceDir} from './paths.mjs';
 import {readDesktopSession} from './desktop-session.mjs';
 
 export const NEW_MEDIA=['piece','picture','sound','paper','gameboy'];
@@ -9,8 +10,8 @@ export function needsLaunchChooser(args,tty=true) {
   return tty && !['--continue-session','--resume','--piece','--prompt','--medium'].some(flag=>args.includes(flag));
 }
 export async function savedThreads(cwd,lastSession='') {
-  const paths=[...new Set([lastSession,join(cwd,'.easel','session.json')].filter(Boolean))];
-  try { const dir=join(cwd,'.easel','threads');paths.push(...(await readdir(dir)).filter(n=>n.endsWith('.json')).sort().reverse().slice(0,100).map(n=>join(dir,n))); }catch(error){if(error.code!=='ENOENT')throw error;}
+  const paths=[...new Set([lastSession,join(workspaceDir(cwd),'session.json')].filter(Boolean))];
+  try { const dir=join(workspaceDir(cwd),'threads');paths.push(...(await readdir(dir)).filter(n=>n.endsWith('.json')).sort().reverse().slice(0,100).map(n=>join(dir,n))); }catch(error){if(error.code!=='ENOENT')throw error;}
   const found=[],seen=new Set();
   for(const file of paths) {
     try {const snapshot=await readDesktopSession(file,cwd);if(!snapshot)continue;
@@ -43,11 +44,11 @@ export function renderChooser(state,threads,columns=80,rows=24) {
 }
 export async function chooseLaunch({threads,input=process.stdin,output=process.stdout}) {
   let state={tab:0,index:0},buffer='',escapeTimer;const priorRaw=input.isRaw;
-  const diff=new FrameDiff({clearOnResize:!process.env.EASEL_DESKTOP});
+  const diff=new FrameDiff({clearOnResize:!process.env.AESEL_DESKTOP});
   function draw(){output.write(diff.update(renderChooser(state,threads,output.columns||80,output.rows||24),output.columns||80));}
   input.setRawMode(true);input.resume();output.write('\x1b[?25l');output.on('resize',draw);draw();
   return new Promise(resolve=>{
-    const finish=value=>{clearTimeout(escapeTimer);output.off('resize',draw);input.off('data',onData);input.setRawMode(Boolean(priorRaw));input.pause();if(value || !process.env.EASEL_DESKTOP)output.write('\x1b[2J\x1b[H');resolve(value);};
+    const finish=value=>{clearTimeout(escapeTimer);output.off('resize',draw);input.off('data',onData);input.setRawMode(Boolean(priorRaw));input.pause();if(value || !process.env.AESEL_DESKTOP)output.write('\x1b[2J\x1b[H');resolve(value);};
     function onData(chunk){clearTimeout(escapeTimer);buffer+=chunk.toString();
       while(buffer){let key=buffer[0];if(key==='\x1b'){const sequence=buffer.match(/^\x1b\[[0-?]*[ -/]*[@-~]/);if(!sequence){if(buffer.length>1 && buffer[1]!=='['){buffer=buffer.slice(1);continue;}escapeTimer=setTimeout(()=>{buffer='';},40);return;}key=sequence[0];}buffer=buffer.slice(key.length);
         if(key==='\x03'||key==='\x04')return finish(null);

@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// EASEL_* still means what it meant; see env.mjs.
+import {bothNames} from "./env.mjs";
 import {requireAccountEntry} from "./account-entry.mjs";
 import {PIECE_VISUAL,PIECE_RESPONSIVE,PIECE_CLOCK,PIECE_SOUND,PIECE_REPLY} from './piece-prompt.mjs';
 import {createSettingsController,serveSettings,isHarnessRequest,HARNESS_INSTRUCTIONS,PIECE_INSTRUCTIONS} from './harness-settings.mjs';
@@ -25,6 +27,7 @@ import { requireSharing, DISCLOSURE_VERSION, TRANSCRIPT_DISCLOSURE } from "./req
 import { transcriptMessages } from "./transcript-ui.mjs";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { configDir, journalDir, workspaceDir } from "./paths.mjs";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { StringDecoder } from "node:string_decoder";
@@ -66,10 +69,10 @@ import { archiveThread, replaceWork } from './new-work.mjs';
 import { FrameDiff } from './frame-diff.mjs';
 import { Transcript } from "./transcript.mjs";
 
-const frameDiff = new FrameDiff({clearOnResize:!process.env.EASEL_DESKTOP});
+const frameDiff = new FrameDiff({clearOnResize:!process.env.AESEL_DESKTOP});
 
 // Prevent terminal replies being echoed before asynchronous startup finishes.
-if(process.env.EASEL_DESKTOP && process.stdin.isTTY) process.stdin.setRawMode(true);
+if(process.env.AESEL_DESKTOP && process.stdin.isTTY) process.stdin.setRawMode(true);
 const arguments_ = process.argv.slice(2);
 const option = (name) => {
   const index = arguments_.indexOf(name);
@@ -78,7 +81,7 @@ const option = (name) => {
 const flag = (name) => arguments_.includes(name);
 const cwd = path.resolve(option("--cwd") || process.cwd());
 // How this session behaves, decided once from the flags, the environment and
-// ~/.config/easel/profiles.json — see profile.mjs. `pro` is the harness pointed
+// ~/.config/aesel/profiles.json — see profile.mjs. `pro` is the harness pointed
 // at ordinary work: no piece, nothing published, the engine passed through.
 // `networked` is the piece studio proper: a live channel, an audience, a QR.
 // A private piece session still has its file, but nothing leaves the machine.
@@ -87,7 +90,7 @@ const pro = profile.name === "pro";
 // The terminal always wears pro's clothes: the bar, one status line, and no
 // running commentary about itself. A piece session keeps its piece; it just
 // stops narrating. The desktop app draws its own chrome.
-const quiet = pro || !process.env.EASEL_DESKTOP;
+const quiet = pro || !process.env.AESEL_DESKTOP;
 const networked = !pro && !profile.private;
 
 // The header names the directory in pro, where a piece session names its
@@ -109,11 +112,11 @@ process.once("exit", () => slabSession.close());
 let sharingAcknowledgment;
 // A private session never joins the required transcript sharing — nothing
 // leaves the machine — so it neither asks nor uploads.
-try { sharingAcknowledgment = profile.private ? null : await requireSharing({root:path.join(homedir(),'.config','easel','disclosures'),session}); }
+try { sharingAcknowledgment = profile.private ? null : await requireSharing({root:path.join(configDir(),'disclosures'),session}); }
 catch(error){process.stderr.write(error.message+'\n');process.exit(1);}
 if(!profile.private && !sharingAcknowledgment)process.exit(0);
-const desktopSessionPath = process.env.EASEL_DESKTOP_SESSION || "";
-const localSessionPath = desktopSessionPath || path.join(cwd,".easel","session.json");
+const desktopSessionPath = process.env.AESEL_DESKTOP_SESSION || "";
+const localSessionPath = desktopSessionPath || path.join(workspaceDir(cwd),"session.json");
 let desktopRestored = null;
 let desktopRestoreError = "";
 // Open straight into a piece. Checkpoint restarts still resume their thread.
@@ -210,7 +213,7 @@ if (!genre) process.exit(130);
 let savedProvider=await readProviderPreferences();
 if(!savedProvider) { try { const previous=await readDesktopSession(localSessionPath,cwd);if(previous)savedProvider={backend:previous.backend,model:previous.model,effort:previous.effort||''}; }catch{} }
 const providerChoice=chooseProviderPreferences({restored:desktopRestored, saved:savedProvider,
- explicit:{backend:option('--backend')||process.env.EASEL_BACKEND||undefined,model:option('--model')||undefined,effort:option('--effort')||undefined},fallback:process.env.EASEL_DESKTOP?'ac':DEFAULT_BACKEND});
+ explicit:{backend:option('--backend')||process.env.AESEL_BACKEND||undefined,model:option('--model')||undefined,effort:option('--effort')||undefined},fallback:process.env.AESEL_DESKTOP?'ac':DEFAULT_BACKEND});
 let backend=backendFor(providerChoice.backend);
 let model=backend.id==='ac'?backend.defaultModel:providerChoice.model??backend.defaultModel;
 // Newer is preferred. Unless a model was named on the way in, a pro session on
@@ -221,12 +224,12 @@ if (pro && backend.id === "claude" && !option("--model")) {
   model = providerChoice.model ? preferNewer(providerChoice.model, known) : newestModel(known) || model;
 }
 let effort=providerChoice.effort;
-async function rememberProvider(){if(process.env.EASEL_NO_REMEMBER==='1')return;try{await saveProviderPreferences({backend:backend.id,model,effort});}catch(error){addEntry('error',`Could not remember provider: ${error.message}`);}}
+async function rememberProvider(){if(process.env.AESEL_NO_REMEMBER==='1')return;try{await saveProviderPreferences({backend:backend.id,model,effort});}catch(error){addEntry('error',`Could not remember provider: ${error.message}`);}}
 let handoff = desktopRestored?.handoff || "";
 let archivedConversation = desktopRestored?.archivedConversation || [];
 // Pro leaves the mouse to the terminal, so a drag selects text the way it
 // does in any other window; /mouse on takes it for clicking the bottom line.
-// EASEL_MOUSE=1 or 0 overrides either default.
+// AESEL_MOUSE=1 or 0 overrides either default.
 // The pro frame's shape, read early: the mouse default is part of it.
 const shape = new Layout();
 // Which appearance the Mac is in, for the tray's ground: black in dark mode,
@@ -236,7 +239,7 @@ function appearance() {
   if (process.platform !== "darwin") return "dark";
   try { return /dark/i.test(execFileSync("defaults", ["read", "-g", "AppleInterfaceStyle"], { encoding: "utf8", timeout: 1500, stdio: ["ignore", "pipe", "ignore"] })) ? "dark" : "light"; } catch { return "light"; }
 }
-let mouseEnabled = process.env.EASEL_MOUSE === "0" ? false : process.env.EASEL_MOUSE === "1" ? true : pro ? (shape.spec.mouse ?? true) : (desktopRestored?.options?.mouseEnabled ?? true);
+let mouseEnabled = process.env.AESEL_MOUSE === "0" ? false : process.env.AESEL_MOUSE === "1" ? true : pro ? (shape.spec.mouse ?? true) : (desktopRestored?.options?.mouseEnabled ?? true);
 
 // Every session opens on a new blank piece with a random name. It is a real
 // file in the workspace, and every edit is pushed to whatever scanned the QR.
@@ -351,7 +354,7 @@ const transcriptEnqueued = new Map();
 // local one in transcript.mjs, and nothing is uploaded — so there is nothing
 // to open here and no error to show for not opening it.
 if (!profile.private) try {
-  transcriptJournal = new TranscriptJournal({root:path.join(homedir(),'.local','share','easel','transcripts'),
+  transcriptJournal = new TranscriptJournal({root:journalDir(),
     ...(desktopRestored?.transcriptId ? {id:desktopRestored.transcriptId}:{}),
     metadata:{medium:state.medium},version:currentVersion(),session});
   await transcriptJournal.init();
@@ -401,7 +404,7 @@ async function commandTranscript(rest) {
   try {
     if(rest.startsWith('export ')) {
       const destination=path.resolve(cwd,rest.slice(7).trim());
-      if(!destination.endsWith('.easel'))throw new Error('Use /transcript export FILE.easel.');
+      if(!/\.(easel|aesel)$/.test(destination))throw new Error('Use /transcript export FILE.easel.');
       await transcriptPending;
       const document=await transcriptJournal.export({redact:true});
       await writeExport(destination,document,{flag:'wx',mode:0o600});
@@ -419,11 +422,11 @@ async function commandTranscript(rest) {
 const autopublish = new AutoPublisher({
   // On by default. The scanned address is the published one, so a session
   // that does not publish has nothing to point a camera at; `--no-autopublish`
-  // and `EASEL_AUTOPUBLISH=0` both opt out, and a signed-out session
+  // and `AESEL_AUTOPUBLISH=0` both opt out, and a signed-out session
   // never reaches the attempt.
   enabled: profile.publish && (desktopRestored?.options?.autopublish ?? (
     !flag("--no-autopublish") &&
-    !/^(0|off|false|no)$/i.test(process.env.EASEL_AUTOPUBLISH || ""))),
+    !/^(0|off|false|no)$/i.test(process.env.AESEL_AUTOPUBLISH || ""))),
   publish: (source) => publishPiece({ file: live.file, slug: live.slug, session, cwd, source }),
 });
 
@@ -619,7 +622,7 @@ const draftBroadcast = new DraftBroadcast({cwd,session,onState:result=>{
 let broadcastOwner=session.read()?.user?.sub || "";
 
 live.handle = session.handle || "";
-if (process.env.EASEL_KEEP_PREVIEW === '1' && desktopRestored?.liveTransfer) {
+if (process.env.AESEL_KEEP_PREVIEW === '1' && desktopRestored?.liveTransfer) {
   live.lastSentIdentity = desktopRestored.liveTransfer.sentIdentity;
   autopublish.published = desktopRestored.liveTransfer.published;
   autopublish.publishedAt = desktopRestored.liveTransfer.publishedAt || 0;
@@ -635,7 +638,7 @@ transcript.meta({ cwd, engine: backend.id, model, handle: session.handle || "", 
 // never through the keyboard. The socket is optional: a path too long to bind
 // leaves the file queue, which `drainFile` still reads.
 const inbox = new Inbox({ sessionId: slabSession.sessionId });
-// The pro frame's shape, read from layouts/pro.json under ~/.config/easel's
+// The pro frame's shape, read from layouts/pro.json under ~/.config/aesel's
 // override, and followed while the session runs — see layout.mjs.
 state.layout = shape.spec;
 setCorners(shape.spec.corners);
@@ -693,12 +696,12 @@ function openEngine({ resume = "" } = {}) {
     },
     environment: {
       // The engine is this session's, not a rock of its own: Slab's Claude
-      // hooks see this and leave the marker to Easel.
-      EASEL_SESSION_ID: slabSession.sessionId,
+      // hooks see this and leave the marker to Aesel. Under both spellings,
+      // since hooks that predate the rename look for EASEL_SESSION_ID.
+      ...bothNames({AESEL_SESSION_ID: slabSession.sessionId, AESEL_HARNESS_SOCKET: harnessBridge.socket}),
       SLAB_PROMPT_SESSION_ID: slabSession.sessionId,
       SLAB_TERMINAL_TTY: slabSession.tty,
-      SLAB_AGENT_TYPE: "easel",
-      EASEL_HARNESS_SOCKET: harnessBridge.socket,
+      SLAB_AGENT_TYPE: "easel", // stays "easel" until the writer flips; see slab-session.mjs
     },
   });
   opened.on("notification", (...args) => { if (!closing && opened === engine) handleNotification(...args); });
@@ -751,7 +754,7 @@ const harnessSettings=createSettingsController({
  },
  isBusy:()=>state.busy,
  open:()=>{
-  if(process.env.EASEL_DESKTOP){process.stdout.write('\x1b]777;easel-settings:open\x07');return 'opened';}
+  if(process.env.AESEL_DESKTOP){process.stdout.write('\x1b]777;easel-settings:open\x07');return 'opened';}
   if(state.busy){harnessPanelPending=true;return 'queued';}
   openSettings();return 'opened';
  },
@@ -771,7 +774,7 @@ let drawing = false;
 let redrawTimer = null;
 let lastDrawAt = 0;
 let pendingModelGlyphs = "", resetModelGlyphs = false;
-function queueModelGlyphs(delta) { if (process.env.EASEL_DESKTOP && typeof delta === "string") pendingModelGlyphs = (pendingModelGlyphs + cleanText(delta)).slice(-8192); }
+function queueModelGlyphs(delta) { if (process.env.AESEL_DESKTOP && typeof delta === "string") pendingModelGlyphs = (pendingModelGlyphs + cleanText(delta)).slice(-8192); }
 let desktopHistoryKey = "", desktopHistory = [];
 // One catalog per provider, asked of the provider (model-catalog.mjs) the
 // first time a picker wants it, and kept for the session.
@@ -886,7 +889,7 @@ function dropdownKey(input) {
   return true;
 }
 let lastLayout = "", lastProvider = "", lastConversation = "", lastPrompt = "";
-if (process.env.EASEL_DESKTOP) {
+if (process.env.AESEL_DESKTOP) {
   lastProvider = JSON.stringify({backend:backend.id,model:state.model||model,effort,busy:state.busy});
   process.stdout.write(`\x1b]777;easel-provider:${lastProvider}\x07`);
 }
@@ -951,7 +954,7 @@ let bindingSnapshot={revision:'',bindings:[]},bindingSnapshotKey='';
 let lastTitle = "";
 let cursorShown = false;
 function retitle() {
-  if (process.env.EASEL_DESKTOP || !process.stdout.isTTY) return;
+  if (process.env.AESEL_DESKTOP || !process.stdout.isTTY) return;
   const title = windowTitle(state);
   if (title === lastTitle) return;
   lastTitle = title;
@@ -959,7 +962,7 @@ function retitle() {
 }
 function redraw() {
   // Provider metadata also belongs to the title screen, before its first frame.
-  if (process.env.EASEL_DESKTOP && !closing) {
+  if (process.env.AESEL_DESKTOP && !closing) {
     const historyKey=`${live.file}:${live.revision?.revision||""}`;
     if(historyKey!==desktopHistoryKey){desktopHistoryKey=historyKey;try{desktopHistory=live.history.list().map(({version,updatedAt,restoredFrom,summary})=>({version,updatedAt,restoredFrom,summary}));}catch{desktopHistory=[];}}
     const bindingKey=state.medium==='piece'?`${live.file}:${live.revision?.revision||''}`:'';
@@ -983,28 +986,28 @@ function redraw() {
     state.providerSettings={backend:backend.id,model:state.model||model,effort};
     state.modelLabel = modelLabel(backend.id, state.model || model);
     retitle();
-    if (process.env.EASEL_DESKTOP) {
+    if (process.env.AESEL_DESKTOP) {
       const prompt=JSON.stringify({text:state.input,cursor:state.cursor,status:state.status,activity:publicActivity(state),feedback:state.busy?requestFeedback(state):state.queued.length?'Gathering your messages':'',hidden:!!(state.approval||state.settings||state.about)});
       if(prompt!==lastPrompt){lastPrompt=prompt;process.stdout.write(`\x1b]777;easel-prompt:${prompt}\x07`);}
       if(pendingModelGlyphs || resetModelGlyphs){process.stdout.write(`\x1b]777;easel-output-stream:${JSON.stringify({delta:pendingModelGlyphs,reset:resetModelGlyphs})}\x07`);pendingModelGlyphs="";resetModelGlyphs=false;}
       const conversation=JSON.stringify({hidden:!!(state.settings||state.about),entries:state.entries.filter(e=>notebookConversationEntry(e)&&e.id!=='feed-registration'&&!(e.kind==='error'&&(connectionFailure(e.text)||/^Live push failed: Incomplete or invalid JavaScript/.test(e.text)))&&(e.id!=='autopublish'||e.kind==='error')).map(e=>({id:e.id,kind:e.kind,at:e.at,text:e.kind==='error'?conciseFailure(e.text):e.text}))});
       if(conversation!==lastConversation){lastConversation=conversation;process.stdout.write(`\x1b]777;easel-conversation:${conversation}\x07`);}
     }
-    const view = process.env.EASEL_DESKTOP && !state.settings && !state.about ? {...state,desktop:true,entries:[],desktopProsePrompt:!state.approval} : {...state,desktop:!!process.env.EASEL_DESKTOP};
+    const view = process.env.AESEL_DESKTOP && !state.settings && !state.about ? {...state,desktop:true,entries:[],desktopProsePrompt:!state.approval} : {...state,desktop:!!process.env.AESEL_DESKTOP};
     const frame = renderFrame(view, process.stdout.columns, process.stdout.rows, process.env.NO_COLOR !== "1");
     // The renderer says where the bar's cursor cell is, and what plain words
     // stand on each transcript row, on the copy it was given.
     state.cursorCell = view.cursorCell || null;
     if (view.pageRows) state.pageRows = view.pageRows;
     const output = frameDiff.update(frame, process.stdout.columns);
-    if (process.env.EASEL_DESKTOP) {
+    if (process.env.AESEL_DESKTOP) {
       const layout = JSON.stringify(frameLayout(state, process.stdout.rows));
       if (layout !== lastLayout) { lastLayout = layout; process.stdout.write(`\x1b]777;easel-layout:${layout}\x07`); }
     }
     if (output) process.stdout.write(output);
     // Pro leaves the terminal's own cursor on the bar, blinking as it does
     // everywhere else; every other mode hides it and paints its own.
-    if (state.cursorCell && !process.env.EASEL_DESKTOP) process.stdout.write(`\x1b[${state.cursorCell.row};${state.cursorCell.col}H\x1b[?25h`);
+    if (state.cursorCell && !process.env.AESEL_DESKTOP) process.stdout.write(`\x1b[${state.cursorCell.row};${state.cursorCell.col}H\x1b[?25h`);
     else if (cursorShown) process.stdout.write("\x1b[?25l");
     cursorShown = Boolean(state.cursorCell);
   } finally {
@@ -1029,7 +1032,7 @@ function saveDesktopIdle() {
   desktopSave.catch((error) => { addEntry("error", `Desktop state could not be saved: ${error.message}`); redraw(); });
 }
 async function requestDesktop(action) {
-  if (!desktopSessionPath || !process.env.EASEL_DESKTOP_CONTROL) {
+  if (!desktopSessionPath || !process.env.AESEL_DESKTOP_CONTROL) {
     addEntry("notice", "Desktop restart/update requires the desktop host."); return redraw();
   }
   if (desktopHandoff || closing) return;
@@ -1063,7 +1066,7 @@ async function requestDesktop(action) {
     process.stdin.pause();
     await transcriptPending.catch(() => {});
     await desktopSave.catch(() => {});
-    await writeDesktopControl({ sessionPath: desktopSessionPath, controlPath: process.env.EASEL_DESKTOP_CONTROL, snapshot: captureDesktop(), action });
+    await writeDesktopControl({ sessionPath: desktopSessionPath, controlPath: process.env.AESEL_DESKTOP_CONTROL, snapshot: captureDesktop(), action });
     desktopPending = null;
     await finish(75);
   } catch (error) {
@@ -1339,7 +1342,7 @@ function refreshQr() {
   // here, not out there — the rock is a different surface with its own room,
   // and hiding one is no reason to blank the other.
   slabSession.live(`${live.slug}${live.runtime.extension}`, live.scanUrl, live.channel);
-  if (process.env.EASEL_KEEP_PREVIEW === '1' && desktopRestored?.liveTransfer?.publishedAt && desktopRestored?.live?.file === live.file) slabSession.published();
+  if (process.env.AESEL_KEEP_PREVIEW === '1' && desktopRestored?.liveTransfer?.publishedAt && desktopRestored?.live?.file === live.file) slabSession.published();
   selectRuntimeFeedback();
   // The scanned address and the watched channel are the same name, so whatever
   // moved one moved the other.
@@ -1457,7 +1460,7 @@ function handleNotification({ method, params = {} }) {
     case "item/started": {
       observeToolActivity(state, method, params.item);
       noteMedia(params.item);
-      if (process.env.EASEL_DESKTOP && /(?:^|__)ac_frame(?:$|\s)/.test(String(params.item?.tool || ""))) process.stdout.write('\x1b]777;easel-camera:request\x07');
+      if (process.env.AESEL_DESKTOP && /(?:^|__)ac_frame(?:$|\s)/.test(String(params.item?.tool || ""))) process.stdout.write('\x1b]777;easel-camera:request\x07');
       state.status = "tool";
       if (params.item?.type === "fileChange") state.status = "writing";
       const summary = itemSummary(params.item);
@@ -1593,7 +1596,7 @@ function showPendingApproval() {
 }
 
 function handleRequest(request) {
-  if (process.env.EASEL_APPROVAL_DEBUG === "1" && (request.method === "mcpServer/elicitation/request" || request.method === "item/tool/requestUserInput")) {
+  if (process.env.AESEL_APPROVAL_DEBUG === "1" && (request.method === "mcpServer/elicitation/request" || request.method === "item/tool/requestUserInput")) {
     addEntry("notice", `Approval request shape: ${JSON.stringify(approvalShape(request))}`);
   }
   const approval = approvalFor(request);
@@ -2310,7 +2313,7 @@ async function submitInput(submittedText, submittedMessages = null) {
       addEntry(
         "notice",
         `Profile · ${profile.name} · private ${profile.private ? "on" : "off"} · ${profile.reason}\n` +
-          `Per directory in ~/.config/easel/profiles.json:\n${exampleConfig()}`,
+          `Per directory in ~/.config/aesel/profiles.json:\n${exampleConfig()}`,
       );
       return redraw();
     }
@@ -2519,7 +2522,7 @@ async function startTurn(text, { from = "" } = {}) {
     let pixels={images:[],context:''};
     if(needsCanvas){
       state.activityStage="I'm checking the preview";redraw();
-      if(process.env.EASEL_DESKTOP)process.stdout.write('\x1b]777;easel-camera:request\x07');
+      if(process.env.AESEL_DESKTOP)process.stdout.write('\x1b]777;easel-camera:request\x07');
       pixels=await inputPixels(cwd,{channel:live.channel,revision:createHash('sha256').update(live.source()).digest('hex'),images:backend.id!=='ac'});
       state.activityStage='';redraw();
     }
@@ -2626,17 +2629,17 @@ function handleKey(input) {
     if (input === "\x1b") { state.selection = null; return redraw(); }
     state.selection = null;
   }
-  if(process.env.EASEL_DESKTOP&&/^\x1b\[99;9;[01]~$/.test(input)){hostOffline=input.endsWith('0~');if(hostOffline)lostConnection('internet disconnected');else if(state.connectionNotice){clearTimeout(reconnectTimer);void checkConnection();}return;}
+  if(process.env.AESEL_DESKTOP&&/^\x1b\[99;9;[01]~$/.test(input)){hostOffline=input.endsWith('0~');if(hostOffline)lostConnection('internet disconnected');else if(state.connectionNotice){clearTimeout(reconnectTimer);void checkConnection();}return;}
 
-  const previewVersion=process.env.EASEL_DESKTOP&&/^\x1b\[99;8;(\d{1,8});(\d{1,10})~$/.exec(input);
+  const previewVersion=process.env.AESEL_DESKTOP&&/^\x1b\[99;8;(\d{1,8});(\d{1,10})~$/.exec(input);
   if(previewVersion){
     const request=Number(previewVersion[2]);let result;
     try{if(state.medium!=='piece')throw Error('Version previews are available for code pieces.');const saved=live.history.list().find(v=>v.version===Number(previewVersion[1]));if(!saved)throw Error('Saved version not found.');if(saved.source.length>500000)throw Error('This version is too large to preview.');result={request,version:saved.version,source:saved.source,runtime:live.runtime.id};}
     catch(error){result={request,error:error.message};}
     process.stdout.write('\x1b]777;easel-version-preview:'+JSON.stringify(result).replace(/\x1b/g,'\\u001b').replace(/\x07/g,'\\u0007')+'\x07');return;
   }
-  if(process.env.EASEL_DESKTOP&&input.startsWith('\x1b[99;7;')){const request=bindingRequest(input);if(request)void applyNotebookBinding(request);return;}
-  if(process.env.EASEL_DESKTOP&&input.startsWith('\x1b[99;6;')){
+  if(process.env.AESEL_DESKTOP&&input.startsWith('\x1b[99;7;')){const request=bindingRequest(input);if(request)void applyNotebookBinding(request);return;}
+  if(process.env.AESEL_DESKTOP&&input.startsWith('\x1b[99;6;')){
     const request=conceptRequest(input);
     if(request&&!desktopHandoff&&!finishing){
       if(!pro&&(!transcriptJournal||!transcriptSharing||session.read()?.user?.sub!==sharingAcknowledgment?.owner)){addEntry('error','Sign in before asking about a word.');return redraw();}
@@ -2645,11 +2648,11 @@ function handleKey(input) {
     return;
   }
   if(state.queued.length)lastSubmittedInputAt=Date.now();
-  if(process.env.EASEL_DESKTOP && input==='\x1b[99;5~') {
+  if(process.env.AESEL_DESKTOP && input==='\x1b[99;5~') {
     if(backend.id!=='ac')void ensureCatalog(backend.id);
     return redraw();
   }
-  const desktopModel=process.env.EASEL_DESKTOP && /^\x1b\[99;4;(\d+);(\d+)~$/.exec(input);
+  const desktopModel=process.env.AESEL_DESKTOP && /^\x1b\[99;4;(\d+);(\d+)~$/.exec(input);
   if(desktopModel){
     if(state.busy||backend.id==='ac'||['ac','claude','codex'][Number(desktopModel[1])]!==backend.id)return;
     const choice=pickerModels({backend:backend.id,model,catalog:catalogFor(backend.id)})[Number(desktopModel[2])];
@@ -2657,7 +2660,7 @@ function handleKey(input) {
     return;
   }
 
-  if(process.env.EASEL_DESKTOP && /^\x1b\[99;[0-3]~$/.test(input)) {
+  if(process.env.AESEL_DESKTOP && /^\x1b\[99;[0-3]~$/.test(input)) {
     const choice=Number(input.match(/;([0-3])~/)[1]);
     if(choice===3)return openSettings(1);
     return void commandBackend(['ac','claude','codex'][choice]);
@@ -2791,7 +2794,7 @@ function handleKeys(buffer) {
           state.hover = action;
           // kitty, WezTerm and Ghostty change the pointer on OSC 22; Terminal.app
           // ignores it, which costs nothing.
-          if (!process.env.EASEL_DESKTOP) process.stdout.write(`\x1b]22;${action ? "pointer" : "default"}\x07`);
+          if (!process.env.AESEL_DESKTOP) process.stdout.write(`\x1b]22;${action ? "pointer" : "default"}\x07`);
           if (desktopSessionPath) process.stdout.write(`\x1b]777;easel-pointer:${action}\x07`);
           redraw();
         }
@@ -2857,7 +2860,7 @@ process.stdin.on("data", handleKeys);
 process.stdout.on("resize", () => { if (pro) { state.tray = appearance(); setAppearance(state.tray); } redraw(); });
 process.on("SIGWINCH", () => { frameDiff.reset(); lastLayout = ""; lastProvider = ""; lastConversation = ""; lastPrompt = ""; redraw(); });
 if (desktopSessionPath) process.on("SIGUSR2", () => {
-  readDesktopIntent(process.env.EASEL_DESKTOP_INTENT).then(requestDesktop).catch((error) => { addEntry("error", errorText(error)); redraw(); });
+  readDesktopIntent(process.env.AESEL_DESKTOP_INTENT).then(requestDesktop).catch((error) => { addEntry("error", errorText(error)); redraw(); });
 });
 process.on("SIGTERM", () => finish(143));
 process.on("SIGHUP", () => finish(129));
@@ -2935,9 +2938,9 @@ const transcriptRetryTimer=setInterval(()=>{
 transcriptRetryTimer.unref();
 let previewEventSequence=0;
 const previewFeedbackTimer=setInterval(()=>{
- if(!process.env.EASEL_PREVIEW_EVENTS || state.medium!=='piece')return;
+ if(!process.env.AESEL_PREVIEW_EVENTS || state.medium!=='piece')return;
  try{
-  const events=JSON.parse(readFileSync(process.env.EASEL_PREVIEW_EVENTS,'utf8'));
+  const events=JSON.parse(readFileSync(process.env.AESEL_PREVIEW_EVENTS,'utf8'));
   if(!Array.isArray(events))return;
   for(const event of events){
    if(!Number.isSafeInteger(event.sequence)||event.sequence<=previewEventSequence)continue;
@@ -2966,7 +2969,7 @@ function bootFrame() {
   bootTimer.unref?.();
 }
 function bootDone() {
-  if(process.env.EASEL_DESKTOP) process.stdout.write('\x1b]777;easel-phase:ready\x07');
+  if(process.env.AESEL_DESKTOP) process.stdout.write('\x1b]777;easel-phase:ready\x07');
   frameDiff.reset();
   clearTimeout(bootTimer);
   bootTimer = null;
@@ -2977,7 +2980,7 @@ if (pro) {
   // waits in the queue for it.
   state.status = "connecting";
   redraw();
-} else if (!process.env.EASEL_DESKTOP) bootFrame();
+} else if (!process.env.AESEL_DESKTOP) bootFrame();
 try {
   const connection = await engine.connect();
   bootDone();
@@ -3037,4 +3040,4 @@ try {
 }
 
 // The desktop may now request a checkpoint safely, including after a failed connection.
-if(process.env.EASEL_DESKTOP)process.stdout.write('\x1b]777;easel-agent-ready\x07');
+if(process.env.AESEL_DESKTOP)process.stdout.write('\x1b]777;easel-agent-ready\x07');

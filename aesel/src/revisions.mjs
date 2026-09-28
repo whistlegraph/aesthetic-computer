@@ -3,7 +3,7 @@ import {revisionSummary} from './revision-summary.mjs';
 import { createHash, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { historyDir } from "./paths.mjs";
 import { extname, join, resolve } from "node:path";
 
 const digest = (source) => createHash("sha256").update(source).digest("hex");
@@ -24,7 +24,7 @@ export async function validatePieceSource(source, file) {
 }
 
 export class PieceRevisions {
-  constructor(file, { root = process.env.EASEL_HISTORY_DIR || join(homedir(), ".local", "share", "easel", "history") } = {}) {
+  constructor(file, { root = historyDir() } = {}) {
     this.file = resolve(file);
     this.directory = join(root, digest(this.file));
   }

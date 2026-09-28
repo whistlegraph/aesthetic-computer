@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // cli.mjs — account and publish subcommands behind `aesthetic`.
+import "./env.mjs";
 import process from "node:process";
 import { ACSession } from "./ac-session.mjs";
 import { planPublish, publishPiece } from "./publish.mjs";
@@ -28,7 +29,7 @@ try {
   } else if (command === "publish") {
     const [file, slug = ""] = rest.filter((argument) => !argument.startsWith("--"));
     if (!file) fail("usage: aesthetic publish <file> [slug]");
-    if (process.env.EASEL_DRY_RUN === "1") {
+    if (process.env.AESEL_DRY_RUN === "1") {
       const plan = planPublish({ file, slug, handle: session.handle || "handle" });
       out(`would publish ${plan.path} as ${plan.route}`);
     } else {

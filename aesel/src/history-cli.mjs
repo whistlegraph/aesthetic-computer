@@ -10,6 +10,7 @@
 //   ac history            list, then pick a number
 //   ac history --last     straight into the most recent
 //   ac history 3          straight into the third on the list
+import "./env.mjs";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";

@@ -41,6 +41,7 @@ import { EventEmitter } from "node:events";
 import { createInterface } from "node:readline";
 
 import { VERSION } from "./version.mjs";
+import { bothNames } from "./env.mjs";
 
 
 // What a session opens on. Fable is the model this harness was built for and
@@ -303,7 +304,7 @@ export class ClaudeServer extends EventEmitter {
         ...process.env,
         ...this.environment,
         aesel: "1",
-        EASEL_VERSION: VERSION,
+        ...bothNames({ AESEL_VERSION: VERSION }),
       },
       stdio: ["pipe", "pipe", "pipe"],
     });

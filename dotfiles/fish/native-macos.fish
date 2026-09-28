@@ -22,7 +22,9 @@ source $AC_ROOT/dotfiles/fish/functions/ac-piece-logs.fish
 # The shared devcontainer config still carries a Linux-only reload alias.
 alias reload 'source ~/.config/fish/config.fish'
 # Aesel's shell hooks; the easel/ path is a checkout that hasn't pulled the rename.
-if test -f $AC_ROOT/aesel/shell/easel.fish
+if test -f $AC_ROOT/aesel/shell/aesel.fish
+    source $AC_ROOT/aesel/shell/aesel.fish
+else if test -f $AC_ROOT/aesel/shell/easel.fish
     source $AC_ROOT/aesel/shell/easel.fish
 else if test -f $AC_ROOT/easel/shell/easel.fish
     source $AC_ROOT/easel/shell/easel.fish

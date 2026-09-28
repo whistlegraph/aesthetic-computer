@@ -65,7 +65,7 @@ test("a cwd under a private glob with ~ is private, and pro when listed there to
   assert.equal(resolveProfile({ cwd: join(home, "art"), env }).private, false);
 });
 
-test("--private and EASEL_PRIVATE=1 force privacy anywhere", async (context) => {
+test("--private and AESEL_PRIVATE=1 force privacy anywhere", async (context) => {
   const { home, env } = await fixture(context);
   const flagged = resolveProfile({ cwd: join(home, "art"), flags: { private: true }, env });
   assert.equal(flagged.private, true);
@@ -73,10 +73,10 @@ test("--private and EASEL_PRIVATE=1 force privacy anywhere", async (context) => 
   assert.equal(flagged.publish, false);
   assert.equal(flagged.reason, "private: --private");
 
-  const fromEnv = resolveProfile({ cwd: join(home, "art"), env: { ...env, EASEL_PRIVATE: "1" } });
+  const fromEnv = resolveProfile({ cwd: join(home, "art"), env: { ...env, AESEL_PRIVATE: "1" } });
   assert.equal(fromEnv.private, true);
-  assert.equal(fromEnv.reason, "private: EASEL_PRIVATE=1");
-  assert.equal(resolveProfile({ cwd: join(home, "art"), env: { ...env, EASEL_PRIVATE: "0" } }).private, false);
+  assert.equal(fromEnv.reason, "private: AESEL_PRIVATE=1");
+  assert.equal(resolveProfile({ cwd: join(home, "art"), env: { ...env, AESEL_PRIVATE: "0" } }).private, false);
 });
 
 test("a missing or broken config falls back to defaults without throwing", async (context) => {

@@ -12,6 +12,7 @@ import {
   rm,
 } from "node:fs/promises";
 import { resolve, join, relative, dirname } from "node:path";
+import { mediaName, workspaceName } from "./paths.mjs";
 import { createHash, randomBytes } from "node:crypto";
 import { SITE, USER_AGENT } from "./ac-session.mjs";
 import { decode } from "../media/picture/png.mjs";
@@ -117,7 +118,7 @@ export class DraftBroadcast {
       key = sha(`${owner}\0${kind}\0${artifactId}`);
     if (this.channels.has(key)) return this.channels.get(key);
     const base = await realpath(this.cwd),
-      file = await safe(base, `.easel/broadcasts/${key}.json`);
+      file = await safe(base, `${workspaceName(base)}/broadcasts/${key}.json`);
     let record = null;
     try {
       record = validRecord(
@@ -258,7 +259,7 @@ export class DraftBroadcast {
     const base = await realpath(this.cwd),
       versionRoot = await safe(
         base,
-        `.easel-media/artifacts/${preview.artifactId}/v${preview.version}`,
+        `${mediaName(base)}/artifacts/${preview.artifactId}/v${preview.version}`,
       ),
       file = await safe(
         versionRoot,

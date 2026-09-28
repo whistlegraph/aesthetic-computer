@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { configDir } from './paths.mjs';
 import { parseEnv } from 'node:util';
 import { evaluateChoices } from './jev-decisions.mjs';
 
@@ -15,8 +16,8 @@ const knownTools = new Set(['write_piece', 'ac_api', 'ac_preview', 'ac_frame']);
 
 export function configuredJev({ env = process.env, home = homedir() } = {}) {
   let config = {};
-  try { config = JSON.parse(readFileSync(join(home, '.config/easel/jev.json'), 'utf8')); } catch {}
-  const enabled = env.EASEL_JEV === undefined ? config.enabled === true : env.EASEL_JEV === '1';
+  try { config = JSON.parse(readFileSync(join(configDir({ env, home }), 'jev.json'), 'utf8')); } catch {}
+  const enabled = env.AESEL_JEV === undefined ? config.enabled === true : env.AESEL_JEV === '1';
   if (!enabled) return null;
   let apiKey = env.OPENROUTER_API_KEY;
   if (!apiKey) try {

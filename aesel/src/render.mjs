@@ -16,7 +16,7 @@ import { aboutMap } from "./about.mjs";
 import { formatJoules } from "./energy.mjs";
 
 // The terminal draws pro's layout for every session; the desktop app
-// (EASEL_DESKTOP) draws its own.
+// (AESEL_DESKTOP) draws its own.
 export const proLayout = (state) => state.profile?.name === "pro" || state.quiet === true;
 
 const ESCAPE = /\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))/g;
@@ -113,13 +113,13 @@ const slabState = join(
   process.env.SLAB_HOME || join(homedir(), ".local", "share", "slab"),
   "state",
 );
-const groundMode = (process.env.EASEL_GROUND || "").toLowerCase();
+const groundMode = (process.env.AESEL_GROUND || "").toLowerCase();
 const slabManagesWindow =
   process.env.TERM_PROGRAM === "Apple_Terminal" && existsSync(slabState);
 // In a window Slab dresses, the ink follows Slab's theme slots too, so the
 // words sit in the palette the window was given rather than in 24-bit tones
-// Terminal.app renders pale. EASEL_THEME=own keeps the interface's own ink.
-const followsSlab = process.env.EASEL_THEME === "slab" || (process.env.EASEL_THEME !== "own" && slabManagesWindow);
+// Terminal.app renders pale. AESEL_THEME=own keeps the interface's own ink.
+const followsSlab = process.env.AESEL_THEME === "slab" || (process.env.AESEL_THEME !== "own" && slabManagesWindow);
 export const paintsGround =
   groundMode === "paint" || (groundMode !== "inherit" && !slabManagesWindow);
 
@@ -762,7 +762,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     return band >= 0 ? `${row} ${qr.lines[band]}` : row;
   });
 
-  const controlsWidth = process.env.EASEL_DESKTOP ? Math.max(22,width-10) : width;
+  const controlsWidth = process.env.AESEL_DESKTOP ? Math.max(22,width-10) : width;
   let prompt;
   if (state.approval) {
     // The subject gets whatever the label and the three answers leave, measured
@@ -880,10 +880,10 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     : state.busy
     ? ` ${requestFeedback(state)}`
     : proLayout(state) ? " /help \u00b7 /inbox \u00b7 /mode \u00b7 /ask \u00b7 ctrl-c quit"
-    : process.env.EASEL_DESKTOP ? "" : " /settings \u00b7 /login \u00b7 /publish \u00b7 /open \u00b7 /qr \u00b7 ctrl-c quit";
+    : process.env.AESEL_DESKTOP ? "" : " /settings \u00b7 /login \u00b7 /publish \u00b7 /open \u00b7 /qr \u00b7 ctrl-c quit";
   const footerRoom=width-MASCOT_ROW_WIDTH-3;
   const caption=clipText(helpText,Math.max(1,footerRoom));
-  const help=state.desktopProsePrompt ? "" : ` ${paint(useColor,"muted",caption)}${" ".repeat(Math.max(1,width-textWidth(caption)-MASCOT_ROW_WIDTH-2))}${process.env.EASEL_DESKTOP==='1'?' '.repeat(MASCOT_ROW_WIDTH):guy} `;
+  const help=state.desktopProsePrompt ? "" : ` ${paint(useColor,"muted",caption)}${" ".repeat(Math.max(1,width-textWidth(caption)-MASCOT_ROW_WIDTH-2))}${process.env.AESEL_DESKTOP==='1'?' '.repeat(MASCOT_ROW_WIDTH):guy} `;
   // Bottom-heavy, so the top of the frame is nothing but scrollback. A preview
   // window or a prompt rock landing over these rows covers lines that have
   // already been read, rather than the title, the handle, the piece, the
@@ -894,7 +894,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const lines = [...body, desktop ? "" : rule, desktop ? "" : header, desktop ? "" : controlLine, prompt, desktop ? "" : help];
   return lines
     .slice(0, height)
-    .map((line,index) => {const fitted=fit(line,width);return `${ground}${useColor && !process.env.EASEL_DESKTOP && index>=height-4?woodgrain(fitted,index-(height-4)):fitted}${reset}`;})
+    .map((line,index) => {const fitted=fit(line,width);return `${ground}${useColor && !process.env.AESEL_DESKTOP && index>=height-4?woodgrain(fitted,index-(height-4)):fitted}${reset}`;})
     .join("\n");
 }
 

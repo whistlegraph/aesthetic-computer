@@ -9,7 +9,7 @@
 // back to the cache, then to a short table that is at least never empty.
 import { execFile } from "node:child_process";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { cacheDir } from "./paths.mjs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { codexModels } from "./provider-picker.mjs";
@@ -68,7 +68,7 @@ const LOADERS = {
   codex: async (options) => (await codexModels(options)).map((m) => ({ ...m, id: m.model })),
 };
 
-export function catalogFile(provider, root = join(process.env.XDG_CACHE_HOME || join(homedir(), ".cache"), "easel")) {
+export function catalogFile(provider, root = cacheDir()) {
   return join(root, `models-${provider}.json`);
 }
 

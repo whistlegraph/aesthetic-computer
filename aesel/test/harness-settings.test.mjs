@@ -32,13 +32,13 @@ test('session socket executes the same controls, is private, and disappears on c
  await assert.rejects(callSettings({action:'read'},{socket:''}),/outside a running session/);
 });
 test('Claude and Codex MCP configs explicitly forward only the session control socket',()=>{
- const environment={EASEL_HARNESS_SOCKET:'/tmp/session/settings.sock',PRIVATE_TOKEN:'not-forwarded'};
- const config=mcpConfig('/tmp',environment);assert.equal(config.mcpServers.ac.env.EASEL_HARNESS_SOCKET,environment.EASEL_HARNESS_SOCKET);assert.equal(config.mcpServers.ac.env.PRIVATE_TOKEN,undefined);
- assert(codexMcpArgs('/tmp',environment).some(arg=>arg.includes('env.EASEL_HARNESS_SOCKET=')));
+ const environment={AESEL_HARNESS_SOCKET:'/tmp/session/settings.sock',PRIVATE_TOKEN:'not-forwarded'};
+ const config=mcpConfig('/tmp',environment);assert.equal(config.mcpServers.ac.env.AESEL_HARNESS_SOCKET,environment.AESEL_HARNESS_SOCKET);assert.equal(config.mcpServers.ac.env.PRIVATE_TOKEN,undefined);
+ assert(codexMcpArgs('/tmp',environment).some(arg=>arg.includes('env.AESEL_HARNESS_SOCKET=')));
 });
 test('MCP settings call reaches the live session without editing the workspace',async t=>{
  const f=fixture(),bridge=await serveSettings(args=>f.controller.call(args));t.after(()=>bridge.close());
- const previous=process.env.EASEL_HARNESS_SOCKET;process.env.EASEL_HARNESS_SOCKET=bridge.socket;t.after(()=>{if(previous===undefined)delete process.env.EASEL_HARNESS_SOCKET;else process.env.EASEL_HARNESS_SOCKET=previous;});
+ const previous=process.env.AESEL_HARNESS_SOCKET;process.env.AESEL_HARNESS_SOCKET=bridge.socket;t.after(()=>{if(previous===undefined)delete process.env.AESEL_HARNESS_SOCKET;else process.env.AESEL_HARNESS_SOCKET=previous;});
  const reply=await handle({id:1,method:'tools/call',params:{name:'aesel_settings',arguments:{action:'open'}}},{cwd:'/tmp'});
  assert.equal(JSON.parse(reply.result.content[0].text).status,'opened');assert.equal(f.opened,1);
 });

@@ -11,10 +11,10 @@ async function setup(t, id = 'computer.aesthetic.aesel.native') {
   const bin = join(root, 'bin'), app = join(root, 'Aesel Native.app'), output = join(root, 'argv');
   await mkdir(bin); await mkdir(join(app, 'Contents'), {recursive:true});
   await writeFile(join(app, 'Contents/Info.plist'), `<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>${id}</string></dict></plist>`);
-  await writeFile(join(bin, 'open'), '#!/bin/sh\nprintf "%s\\0" "$@" > "$EASEL_TEST_ARGS"\n');
+  await writeFile(join(bin, 'open'), '#!/bin/sh\nprintf "%s\\0" "$@" > "$AESEL_TEST_ARGS"\n');
   await chmod(join(bin, 'open'), 0o755);
   await symlink(launcher, join(bin, 'aesel'));
-  const env = {...process.env, PATH:bin+':'+process.env.PATH, AESEL_DESKTOP_APP:app, EASEL_TEST_ARGS:output};
+  const env = {...process.env, PATH:bin+':'+process.env.PATH, AESEL_DESKTOP_APP:app, AESEL_TEST_ARGS:output};
   return {app, output, env, run: args => spawnSync(join(bin, 'aesel'), args, {env, encoding:'utf8'})};
 }
 test('installed symlink opens the native bundle without creating a second instance', {skip:process.platform !== 'darwin'}, async t => {

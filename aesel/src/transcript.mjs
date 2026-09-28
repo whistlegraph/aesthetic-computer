@@ -21,7 +21,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { homedir } from "node:os";
+import { transcriptsDir } from "./paths.mjs";
 import { join } from "node:path";
 
 export const SUMMARY_MAX = 500;
@@ -33,7 +33,7 @@ export const KINDS = [
 ];
 
 export const defaultRoot = () =>
-  process.env.AESEL_TRANSCRIPTS || join(homedir(), ".local", "share", "aesel", "transcripts");
+  transcriptsDir();
 
 const now = () => new Date().toISOString();
 

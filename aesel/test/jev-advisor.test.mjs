@@ -21,7 +21,7 @@ test('timeout falls back, interrupt propagates, low confidence does not steer',a
   assert.equal((await uncertain.advise(input)).cue,'');
 });
 test('configuration requires explicit opt-in and a key',()=>{
-  assert.equal(configuredJev({env:{EASEL_JEV:'0',OPENROUTER_API_KEY:'x'},home:'/nonexistent'}),null);
-  assert.equal(configuredJev({env:{EASEL_JEV:'1'},home:'/nonexistent'}),null);
-  assert.ok(configuredJev({env:{EASEL_JEV:'1',OPENROUTER_API_KEY:'x'},home:'/nonexistent'}));
+  assert.equal(configuredJev({env:{AESEL_JEV:'0',OPENROUTER_API_KEY:'x'},home:'/nonexistent'}),null);
+  assert.equal(configuredJev({env:{AESEL_JEV:'1'},home:'/nonexistent'}),null);
+  assert.ok(configuredJev({env:{AESEL_JEV:'1',OPENROUTER_API_KEY:'x'},home:'/nonexistent'}));
 });

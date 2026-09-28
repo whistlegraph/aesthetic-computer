@@ -10,13 +10,14 @@
 // writes no memoir of a client's brief.
 //
 // Both are decided once, at open, from the flags, the environment, and a small
-// config of globs at ~/.config/easel/profiles.json — so a client directory can
+// config of globs at ~/.config/aesel/profiles.json — so a client directory can
 // be private for good rather than remembered per session. The matcher is a
 // few lines on purpose: `~`, `*` and `**` are all a path glob needs here, and a
 // dependency for it would be the only one Easel has.
 import { readFileSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { configDir } from "./paths.mjs";
 
 const EXAMPLE = {
   private: ["~/fuser/**", "~/ac-worktrees/fuser*/**"],
@@ -108,7 +109,7 @@ export function resolveProfile({
   env = process.env,
 } = {}) {
   const home = env.HOME || homedir();
-  const config = readConfig(configPath || join(home, ".config", "easel", "profiles.json"));
+  const config = readConfig(configPath || join(configDir({ home, env }), "profiles.json"));
   const paths = forms(cwd);
   const reasons = [];
 
@@ -128,9 +129,9 @@ export function resolveProfile({
   if (flags.private === true) {
     isPrivate = true;
     reasons.push("private: --private");
-  } else if (env.EASEL_PRIVATE === "1") {
+  } else if (env.AESEL_PRIVATE === "1") {
     isPrivate = true;
-    reasons.push("private: EASEL_PRIVATE=1");
+    reasons.push("private: AESEL_PRIVATE=1");
   } else {
     const hit = firstMatch(paths, config.private, home);
     if (hit) {

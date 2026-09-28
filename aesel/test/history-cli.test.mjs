@@ -23,7 +23,7 @@ test("a resumed session is launched the way the launcher reads: options, then th
   const args = launchArguments(meta);
   assert.deepEqual(args, ["pro", "--backend", "codex", "--resume", "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee", "--model", "gpt-6-astra", root], "the engine it ended on, the directory last");
   // The launcher itself accepts exactly this shape.
-  const dry = execFileSync(EASEL, args, { encoding: "utf8", env: { ...process.env, EASEL_DRY_RUN: "1" } });
+  const dry = execFileSync(EASEL, args, { encoding: "utf8", env: { ...process.env, AESEL_DRY_RUN: "1" } });
   assert.match(dry, /pro=on/);
   assert.match(dry, /backend=codex/);
   assert.match(dry, /resume=yes/);

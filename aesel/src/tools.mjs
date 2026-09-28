@@ -25,6 +25,7 @@
 // one hole `--strict-mcp-config` leaves open on purpose.
 //
 //   node src/tools.mjs --cwd /path/to/workspace
+import { bothNames } from "./env.mjs";
 import { readFileSync, readdirSync, existsSync, statSync, realpathSync } from "node:fs";
 import { dirname, join, resolve, relative, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -408,7 +409,7 @@ export function codexMcpArgs(cwd,environment={}) {
   ]);
 }
 export function mcpConfig(cwd,environment={}) {
-  const env={...(process.versions.electron?{ELECTRON_RUN_AS_NODE:"1"}:{}),...(environment.EASEL_HARNESS_SOCKET?{EASEL_HARNESS_SOCKET:environment.EASEL_HARNESS_SOCKET}:{}),...(environment.AESEL_NATIVE_SESSION?{AESEL_NATIVE_SESSION:environment.AESEL_NATIVE_SESSION}:{})};
+  const env={...(process.versions.electron?{ELECTRON_RUN_AS_NODE:"1"}:{}),...bothNames({AESEL_HARNESS_SOCKET:environment.AESEL_HARNESS_SOCKET}),...(environment.AESEL_NATIVE_SESSION?{AESEL_NATIVE_SESSION:environment.AESEL_NATIVE_SESSION}:{})};
   return {
     mcpServers: {
       'easel-media': {

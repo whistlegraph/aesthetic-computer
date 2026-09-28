@@ -13,7 +13,7 @@ async function fixture(t) {
  const cwd = await mkdtemp(join(tmpdir(),'draft-broadcast-'));
  t.after(()=>rm(cwd,{recursive:true,force:true}));
  async function preview(version, content=`draft ${version}`, mime='text/plain') {
-  const dir=join(cwd,'.easel-media/artifacts',artifactId,`v${version}`); await mkdir(dir,{recursive:true});
+  const dir=join(cwd,'.aesel-media/artifacts',artifactId,`v${version}`); await mkdir(dir,{recursive:true});
   const data=Buffer.from(content), path=join(dir,'draft.txt'); await writeFile(path,data);
   await writeFile(join(dir,'revision.json'),JSON.stringify({version,files:['draft.txt'],hashes:{'draft.txt':digest(data)},preview:{path:'draft.txt',mime}}));
   return {path,mime,version,artifactId};
@@ -32,11 +32,11 @@ async function fixture(t) {
 test('explicit start, minimal payload, private stable record; signed-out reads stay local',async t=>{
  const f=await fixture(t), p=await f.preview(1);
  assert.equal((await f.client.current(identity)).active,false);
- await assert.rejects(readdir(join(f.cwd,'.easel')),/ENOENT/);
+ await assert.rejects(readdir(join(f.cwd,'.aesel')),/ENOENT/);
  const state=await f.client.start(p,identity); assert.equal(state.active,true); assert.equal(state.artifactId,artifactId);
  assert.match(state.route,/\/watch\/\?id=[a-f0-9]{32}$/);
  assert.deepEqual(Object.keys(f.calls[0].body).sort(),['data','id','kind','mime','sequence','status','version']);
- const files=await readdir(join(f.cwd,'.easel/broadcasts')), file=join(f.cwd,'.easel/broadcasts',files[0]);
+ const files=await readdir(join(f.cwd,'.aesel/broadcasts')), file=join(f.cwd,'.aesel/broadcasts',files[0]);
  const record=await readFile(file,'utf8'); assert.equal(record.includes('private-token'),false); assert.equal(record.includes('draft 1'),false); assert.equal((await stat(file)).mode&0o777,0o600);
  const loggedOut=new DraftBroadcast({cwd:f.cwd,session:{read:()=>null},fetch:()=>assert.fail('network')});
  assert.equal((await loggedOut.current(identity)).active,false); loggedOut.close();
@@ -59,7 +59,7 @@ test('restart does not authorize updates; saved ID and sequence revoke and resum
 });
 test('409 advances durable sequence before retry',async t=>{
  const f=await fixture(t),p=await f.preview(1); let first=true;
- f.client.fetch=async(url,opt)=>{ const b=JSON.parse(opt.body); const [name]=await readdir(join(f.cwd,'.easel/broadcasts')); const stored=JSON.parse(await readFile(join(f.cwd,'.easel/broadcasts',name))); assert.equal(stored.sequence,b.sequence); if(first){first=false; return Response.json({sequence:90},{status:409});} return f.fetch(url,opt); };
+ f.client.fetch=async(url,opt)=>{ const b=JSON.parse(opt.body); const [name]=await readdir(join(f.cwd,'.aesel/broadcasts')); const stored=JSON.parse(await readFile(join(f.cwd,'.aesel/broadcasts',name))); assert.equal(stored.sequence,b.sequence); if(first){first=false; return Response.json({sequence:90},{status:409});} return f.fetch(url,opt); };
  const result=await f.client.start(p,identity); assert.equal(result.sequence,91);
 });
 test('hash mismatch, escaping paths, unsupported MIME, source-ahead and oversized files never upload',async t=>{

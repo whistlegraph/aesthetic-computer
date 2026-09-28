@@ -51,7 +51,7 @@ its painting URL or `/qr`. It does not upload recordings, source recipes, prompt
 or layers. Public registration retains the backend's existing painting/profile
 and ATProto behavior. There is no Picture autopublish.
 
-A receipt under `.easel-media/publications/<artifact>/vN.json` records the exact
+A receipt under `.aesel-media/publications/<artifact>/vN.json` records the exact
 accepted output and server result. It stores neither auth tokens nor presigned
 query credentials. A retry resolves a lost upload/registration response before
 proceeding; an unresolved outcome reports that fact rather than creating another

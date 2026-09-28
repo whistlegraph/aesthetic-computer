@@ -1,5 +1,5 @@
 // A classic script, loaded before any module, because `process` is referenced
-// at module scope in `ac-server.mjs` (`process.env.EASEL_SITE`) and an import
+// at module scope in `ac-server.mjs` (`process.env.AESEL_SITE`) and an import
 // map cannot supply a bare global.
 //
 // Deliberately tiny and deliberately not `process`-shaped beyond what is read:

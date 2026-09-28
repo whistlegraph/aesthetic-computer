@@ -91,7 +91,7 @@ through the conversation; new replies follow the bottom only when you are there.
 `/about`, or clicking **AESEL**, opens the feature map. Click **@handle** to open
 your profile in a browser. Header targets highlight on hover in terminals that
 support mouse reporting. `/mouse off` restores terminal selection; `/mouse on`
-enables interaction again. `EASEL_MOUSE=0` disables it at launch.
+enables interaction again. `AESEL_MOUSE=0` disables it at launch.
 
 Wheel and Page Up/Page Down scroll the transcript internally, keeping the input
 and footer fixed. Incoming output preserves your reading position. End with an
@@ -221,7 +221,7 @@ camera at. It coalesces — a publish runs once the saves stop,
 never more than one at a time, and never twice for the same bytes — and it
 flushes the pending save on exit. Off by default, since it writes to a public
 route under your own handle: turn it on per session with the flag or
-`/autopublish`, or for every session with `EASEL_AUTOPUBLISH=1`, which
+`/autopublish`, or for every session with `AESEL_AUTOPUBLISH=1`, which
 `--no-autopublish` overrides. With it on the engine is told the piece is
 already live and told not to ask you to publish.
 
@@ -245,8 +245,8 @@ Three dependency-free modules under `src/` carry the pro (terminal harness)
 mode; the TUI wires them in.
 
 - `profile.mjs` — `resolveProfile({ cwd, flags, configPath, env })` decides
-  `piece` or `pro`, and `private`, from `--pro`/`--private`, `EASEL_PRIVATE=1`
-  and the globs in `~/.config/easel/profiles.json` (`exampleConfig()` prints
+  `piece` or `pro`, and `private`, from `--pro`/`--private`, `AESEL_PRIVATE=1`
+  and the globs in `~/.config/aesel/profiles.json` (`exampleConfig()` prints
   the shape). Pro publishes nothing and passes the engine through; private
   advertises state only, so the Slab marker carries no subject.
 - `inbox.mjs` — `Inbox` listens on `$SLAB_HOME/inbox/<session>/inbox.sock`,
@@ -290,8 +290,15 @@ The product boundary is recorded in
 Each complete piece update gets a local version (`v1`, `v2`, …). `/versions`
 lists snapshots; `/rollback vN` restores one as a new version and sends it through
 the usual live/publish path. Finish or interrupt the current turn and let uploads
-finish first. History persists in `~/.local/share/easel/history/`, keyed by the
+finish first. History persists in `~/.local/share/aesel/history/`, keyed by the
 piece's absolute file path; it is not yet shared between machines or accounts.
+
+Aesel was called Easel. Settings in `~/.config/easel`, history in
+`~/.local/share/easel` and the model cache in `~/.cache/easel` move to the aesel
+names on first run, with a link left at each old path; a workspace's `.easel/`
+and `.easel-media/` stay where they are and keep being used. Every `EASEL_*`
+variable still works as its `AESEL_*` twin. `src/paths.mjs` and `src/env.mjs`
+hold the rules.
 
 The AC backend streams text and completed `write_piece` checkpoints as they
 arrive. It shows connecting, waiting, generating, composing, and writing states;
@@ -309,7 +316,7 @@ skills, hooks and MCP servers (`--setting-sources`, `--strict-mcp-config` and
 the withheld tools are dropped; approvals still come back here, and `/ask` is
 on until you say `/ask off`). `--private` keeps the session's subject out of
 the Slab marker and the transcript index. Both can be set per directory in
-`~/.config/easel/profiles.json` — `/mode` prints the shape and says why the
+`~/.config/aesel/profiles.json` — `/mode` prints the shape and says why the
 current session resolved the way it did.
 
 Every session, pro or not, listens on an inbox: `$SLAB_HOME/inbox/<session>/

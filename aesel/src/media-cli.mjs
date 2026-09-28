@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import './env.mjs';
 import { Artifacts } from './artifacts.mjs';
 const [command, cwd=process.cwd(), argument, raw]=process.argv.slice(2);
 const store=new Artifacts(cwd);

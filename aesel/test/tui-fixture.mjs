@@ -16,7 +16,7 @@ globalThis.fetch = async () => { throw new Error("Network disabled in PTY fixtur
 class FixtureEngine extends EventEmitter {
   constructor(options) { super(); Object.assign(this, options); this.threadId = "fixture"; }
   async connect() {
-    appendFileSync(process.env.EASEL_TEST_LOG, JSON.stringify({ model: this.model, context: this.developerInstructions }) + "\n");
+    appendFileSync(process.env.AESEL_TEST_LOG, JSON.stringify({ model: this.model, context: this.developerInstructions }) + "\n");
     if (this.model === "broken") throw new Error("Fixture switch failed");
     return { model: this.model || "fixture-default" };
   }

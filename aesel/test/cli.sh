@@ -34,15 +34,15 @@ output="$($CLI --version)"
 expected_version="$(node -p "require('$PROJECT_DIR/package.json').version")"
 assert_contains "$output" "aesel $expected_version"
 
-output="$(EASEL_DRY_RUN=1 "$CLI" "$WORK_DIR")"
+output="$(AESEL_DRY_RUN=1 "$CLI" "$WORK_DIR")"
 assert_contains "$output" 'interface=easel'
 assert_contains "$output" "directory=$WORK_DIR"
 
-output="$(EASEL_DRY_RUN=1 "$TEST_BIN/ac" "$WORK_DIR")"
+output="$(AESEL_DRY_RUN=1 "$TEST_BIN/ac" "$WORK_DIR")"
 assert_contains "$output" 'interface=easel'
 assert_contains "$output" "directory=$WORK_DIR"
 
-output="$(EASEL_DRY_RUN=1 "$CLI" --resume 00000000-0000-0000-0000-000000000001 --prompt continue "$WORK_DIR")"
+output="$(AESEL_DRY_RUN=1 "$CLI" --resume 00000000-0000-0000-0000-000000000001 --prompt continue "$WORK_DIR")"
 assert_contains "$output" 'resume=yes'
 assert_contains "$output" 'initial_prompt=yes'
 
@@ -65,26 +65,26 @@ output="$(HOME="$FAKE_HOME" "$CLI" whoami)"
 assert_contains "$output" '@tester'
 
 printf 'export function paint() {}\n' > "$WORK_DIR/smiley.mjs"
-output="$(HOME="$FAKE_HOME" EASEL_DRY_RUN=1 "$CLI" publish "$WORK_DIR/smiley.mjs")"
+output="$(HOME="$FAKE_HOME" AESEL_DRY_RUN=1 "$CLI" publish "$WORK_DIR/smiley.mjs")"
 assert_contains "$output" 'https://aesthetic.computer/@tester/smiley'
 
-if HOME="$FAKE_HOME" EASEL_DRY_RUN=1 "$CLI" publish >/dev/null 2>&1; then
+if HOME="$FAKE_HOME" AESEL_DRY_RUN=1 "$CLI" publish >/dev/null 2>&1; then
     printf 'Expected publish without a file to fail.\n' >&2
     exit 1
 fi
 
-output="$(EASEL_DRY_RUN=1 "$CLI" --runtime lisp "$WORK_DIR")"
+output="$(AESEL_DRY_RUN=1 "$CLI" --runtime lisp "$WORK_DIR")"
 assert_contains "$output" 'runtime=lisp'
 
-output="$(EASEL_DRY_RUN=1 "$CLI" "$WORK_DIR")"
+output="$(AESEL_DRY_RUN=1 "$CLI" "$WORK_DIR")"
 assert_contains "$output" 'runtime=mjs'
 assert_contains "$output" 'genre=choose'
 
-output="$(EASEL_DRY_RUN=1 "$CLI" --genre nopaint "$WORK_DIR")"
+output="$(AESEL_DRY_RUN=1 "$CLI" --genre nopaint "$WORK_DIR")"
 assert_contains "$output" 'genre=nopaint'
 assert_contains "$output" 'runtime=mjs'
 
-if EASEL_DRY_RUN=1 "$CLI" --genre nopaint --runtime lisp "$WORK_DIR" >/dev/null 2>&1; then
+if AESEL_DRY_RUN=1 "$CLI" --genre nopaint --runtime lisp "$WORK_DIR" >/dev/null 2>&1; then
     printf 'Expected a nopaint brush to reject a non-JavaScript runtime.\n' >&2
     exit 1
 fi
@@ -93,48 +93,54 @@ fi
 # by flag or by environment, with the flag able to say no to the environment.
 assert_contains "$output" 'autopublish=off'
 
-output="$(EASEL_DRY_RUN=1 "$CLI" --autopublish "$WORK_DIR")"
+output="$(AESEL_DRY_RUN=1 "$CLI" --autopublish "$WORK_DIR")"
 assert_contains "$output" 'autopublish=on'
 
-output="$(EASEL_DRY_RUN=1 EASEL_AUTOPUBLISH=1 "$CLI" "$WORK_DIR")"
+output="$(AESEL_DRY_RUN=1 AESEL_AUTOPUBLISH=1 "$CLI" "$WORK_DIR")"
 assert_contains "$output" 'autopublish=on'
 
-output="$(EASEL_DRY_RUN=1 EASEL_AUTOPUBLISH=1 "$CLI" --no-autopublish "$WORK_DIR")"
+output="$(AESEL_DRY_RUN=1 AESEL_AUTOPUBLISH=1 "$CLI" --no-autopublish "$WORK_DIR")"
 assert_contains "$output" 'autopublish=off'
 
-output="$(EASEL_DRY_RUN=1 "$CLI" "$WORK_DIR")"
+# The names from before the rename still work, and the new name wins.
+output="$(EASEL_DRY_RUN=1 EASEL_AUTOPUBLISH=1 "$CLI" "$WORK_DIR")"
+assert_contains "$output" 'autopublish=on'
+output="$(AESEL_DRY_RUN=1 AESEL_AUTOPUBLISH=0 EASEL_AUTOPUBLISH=1 "$CLI" "$WORK_DIR")"
+assert_contains "$output" 'autopublish=off'
+
+output="$(AESEL_DRY_RUN=1 "$CLI" "$WORK_DIR")"
 
 # Claude is the default engine bridge, on Fable; Codex stays selectable.
 assert_contains "$output" 'backend=claude'
 assert_contains "$output" 'model=claude-opus-5'
 
-output="$(EASEL_DRY_RUN=1 "$CLI" --backend codex "$WORK_DIR")"
+output="$(AESEL_DRY_RUN=1 "$CLI" --backend codex "$WORK_DIR")"
 assert_contains "$output" 'backend=codex'
 
-output="$(EASEL_DRY_RUN=1 "$CLI" --backend claude --model claude-opus-5 "$WORK_DIR")"
+output="$(AESEL_DRY_RUN=1 "$CLI" --backend claude --model claude-opus-5 "$WORK_DIR")"
 assert_contains "$output" 'model=claude-opus-5'
 
-if EASEL_DRY_RUN=1 "$CLI" --backend gemini "$WORK_DIR" >/dev/null 2>&1; then
+if AESEL_DRY_RUN=1 "$CLI" --backend gemini "$WORK_DIR" >/dev/null 2>&1; then
     printf 'Expected an unknown backend to fail.\n' >&2
     exit 1
 fi
 
 # The terminal is pro unless a piece is asked for; private defaults off.
-output="$(EASEL_DRY_RUN=1 "$CLI" "$WORK_DIR")"
+output="$(AESEL_DRY_RUN=1 "$CLI" "$WORK_DIR")"
 assert_contains "$output" 'pro=on'
 assert_contains "$output" 'private=off'
 
-output="$(EASEL_DRY_RUN=1 "$CLI" piece "$WORK_DIR")"
+output="$(AESEL_DRY_RUN=1 "$CLI" piece "$WORK_DIR")"
 assert_contains "$output" 'pro=off'
 
-output="$(EASEL_DRY_RUN=1 "$CLI" --genre piece "$WORK_DIR")"
+output="$(AESEL_DRY_RUN=1 "$CLI" --genre piece "$WORK_DIR")"
 assert_contains "$output" 'pro=off'
 
-output="$(EASEL_DRY_RUN=1 "$CLI" --pro "$WORK_DIR")"
+output="$(AESEL_DRY_RUN=1 "$CLI" --pro "$WORK_DIR")"
 assert_contains "$output" 'pro=on'
 assert_contains "$output" 'private=off'
 
-output="$(EASEL_DRY_RUN=1 "$CLI" --private --pro "$WORK_DIR")"
+output="$(AESEL_DRY_RUN=1 "$CLI" --private --pro "$WORK_DIR")"
 assert_contains "$output" 'pro=on'
 assert_contains "$output" 'private=on'
 
@@ -147,17 +153,17 @@ assert_contains "$output" 'engine bridge claude:'
 assert_contains "$output" 'engine bridge codex:'
 assert_contains "$output" 'default engine bridge: claude (claude-opus-5)'
 
-if EASEL_DRY_RUN=1 "$CLI" --runtime rust "$WORK_DIR" >/dev/null 2>&1; then
+if AESEL_DRY_RUN=1 "$CLI" --runtime rust "$WORK_DIR" >/dev/null 2>&1; then
     printf 'Expected an unknown runtime to fail.\n' >&2
     exit 1
 fi
 
-if EASEL_DRY_RUN=1 "$CLI" claude >/dev/null 2>&1; then
+if AESEL_DRY_RUN=1 "$CLI" claude >/dev/null 2>&1; then
     printf 'Expected the removed provider shortcut to fail.\n' >&2
     exit 1
 fi
 
-if EASEL_DRY_RUN=1 "$CLI" "$WORK_DIR" extra >/dev/null 2>&1; then
+if AESEL_DRY_RUN=1 "$CLI" "$WORK_DIR" extra >/dev/null 2>&1; then
     printf 'Expected extra launcher arguments to fail.\n' >&2
     exit 1
 fi

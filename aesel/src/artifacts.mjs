@@ -3,6 +3,7 @@ import { EventEmitter } from 'node:events';
 import { randomUUID, createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename, rm, lstat, copyFile, readdir } from 'node:fs/promises';
 import { resolve, join, dirname, relative, isAbsolute } from 'node:path';
+import { mediaDir } from './paths.mjs';
 
 export const MEDIA = ['piece', 'picture', 'sound', 'paper', 'gameboy'];
 const modules = { gameboy: () => import('./media/gameboy.mjs'), picture: () => import('./media/picture.mjs'), sound: () => import('./media/sound.mjs'), paper: () => import('./media/paper.mjs') };
@@ -24,7 +25,7 @@ async function safe(root, name) {
 }
 
 export class Artifacts extends EventEmitter {
-  constructor(cwd) { super(); this.root = join(resolve(cwd), '.easel-media'); this.file = join(this.root, 'project.json'); }
+  constructor(cwd) { super(); this.root = mediaDir(resolve(cwd)); this.file = join(this.root, 'project.json'); }
   async read() {
     try { return JSON.parse(await readFile(await safe(this.root, 'project.json'), 'utf8')); }
     catch (error) { if (error.code === 'ENOENT') return { format: 1, id: null, selected: null, artifacts: [] }; throw error; }

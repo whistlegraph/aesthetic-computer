@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
+import { workspaceDir } from './paths.mjs';
 import { writeDesktopSession } from './desktop-session.mjs';
 
 export async function archiveThread(snapshot) {
-  const file = join(snapshot.cwd, '.easel', 'threads', `${Date.now()}-${randomUUID()}.json`);
+  const file = join(workspaceDir(snapshot.cwd), 'threads', `${Date.now()}-${randomUUID()}.json`);
   await writeDesktopSession(file, snapshot);
   return file;
 }

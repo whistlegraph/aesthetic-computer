@@ -18,7 +18,7 @@ import {
   isAbsolute,
   delimiter,
 } from "node:path";
-import { homedir } from "node:os";
+import { toolchainsDir } from "../paths.mjs";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
@@ -143,10 +143,7 @@ export async function findCompiler(env = process.env) {
     ? [join(env.GBDK_HOME, "bin", "lcc")]
     : [
         repo,
-        join(
-          homedir(),
-          ".local/share/easel/toolchains/gbdk-4.5.0/gbdk/bin/lcc",
-        ),
+        join(toolchainsDir(), "gbdk-4.5.0/gbdk/bin/lcc"),
         ...(env.PATH || "")
           .split(delimiter)
           .filter(Boolean)

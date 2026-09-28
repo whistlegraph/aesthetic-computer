@@ -52,7 +52,7 @@ export class SlabSession {
     this.private = Boolean(isPrivate);
     this.stateDir = join(slabHome, "state");
     this.active = join(this.stateDir, "active-prompts", sessionId);
-    this.fleetActive = process.env.EASEL_DESKTOP === "1" ? join(homedir(), ".local/share/slab/state/active-prompts", sessionId) : null;
+    this.fleetActive = process.env.AESEL_DESKTOP === "1" ? join(homedir(), ".local/share/slab/state/active-prompts", sessionId) : null;
     this.awaiting = join(this.stateDir, "awaiting-prompts", sessionId);
     this.running = join(this.stateDir, "running-tools", sessionId);
     this.enabled = false;
@@ -64,12 +64,16 @@ export class SlabSession {
       summary: this.private ? "private" : "easel",
       tty,
       agent_pid: pid,
+      // TODO(aesel rename): write "aesel" here (and SLAB_AGENT_TYPE in tui.mjs)
+      // only once every fleet menubar and prox-mcp runs a build that accepts
+      // both — `npm run menubar:parity -- audit` shows each machine's build.
+      // An older menubar drops a rock whose agent_type it does not know.
       agent_type: "easel",
-      ...(process.env.EASEL_DESKTOP === '1' ? {
+      ...(process.env.AESEL_DESKTOP === '1' ? {
         host_app:'computer.aesthetic.easel',
-        host_bundle_id:process.env.EASEL_HOST_BUNDLE_ID || 'computer.aesthetic.easel',
-        host_pid:Number(process.env.EASEL_HOST_PID)||process.ppid,
-        host_window_id:Number(process.env.EASEL_HOST_WINDOW_ID)||0,
+        host_bundle_id:process.env.AESEL_HOST_BUNDLE_ID || 'computer.aesthetic.easel',
+        host_pid:Number(process.env.AESEL_HOST_PID)||process.ppid,
+        host_window_id:Number(process.env.AESEL_HOST_WINDOW_ID)||0,
       }:{}),
       pro: Boolean(pro),
       private: this.private,

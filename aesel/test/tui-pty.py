@@ -23,12 +23,12 @@ with tempfile.TemporaryDirectory(prefix="easel-pty-") as temporary:
     fake_bin = folder / "bin"
     fake_bin.mkdir()
     opener = fake_bin / "open"
-    opener.write_text('#!/bin/sh\nprintf "%s" "$1" > "$EASEL_BROWSER_LOG"\n')
+    opener.write_text('#!/bin/sh\nprintf "%s" "$1" > "$AESEL_BROWSER_LOG"\n')
     opener.chmod(0o755)
     env = dict(os.environ, TERM="xterm-256color", NO_COLOR="1",
-               SLAB_HOME=str(folder / "slab"), EASEL_TEST_LOG=str(folder / "engines.jsonl"),
-               EASEL_HISTORY_DIR=str(folder / "history"),
-               EASEL_BROWSER_LOG=str(folder / "browser.txt"), PATH=str(fake_bin) + ":" + os.environ["PATH"])
+               SLAB_HOME=str(folder / "slab"), AESEL_TEST_LOG=str(folder / "engines.jsonl"),
+               AESEL_HISTORY_DIR=str(folder / "history"),
+               AESEL_BROWSER_LOG=str(folder / "browser.txt"), PATH=str(fake_bin) + ":" + os.environ["PATH"])
     child = subprocess.Popen([shutil.which("node"), "--import", str(ROOT / "test/tui-fixture.mjs"),
                               str(ROOT / "src/tui.mjs"), "--cwd", str(folder), "--piece", str(piece), "--backend", "ac", "--no-autopublish"],
                              stdin=slave, stdout=slave, stderr=slave, env=env)

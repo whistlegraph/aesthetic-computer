@@ -36,9 +36,9 @@ source, prompts, raw logs, filenames, handles and revision IDs stay local.
 This integration applies to `--backend ac`; it does not modify the internal
 Claude or Codex CLI loops.
 
-Set `EASEL_JEV=1` and `OPENROUTER_API_KEY`, or save `{"enabled":true}` in
-`~/.config/easel/jev.json` with the key in the private
-`~/.config/aesthetic-computer/jev.env`. `EASEL_JEV=0` overrides the setting.
+Set `AESEL_JEV=1` and `OPENROUTER_API_KEY`, or save `{"enabled":true}` in
+`~/.config/aesel/jev.json` with the key in the private
+`~/.config/aesthetic-computer/jev.env`. `AESEL_JEV=0` overrides the setting.
 The key pays OpenRouter directly; Jev calls do not consume the AC handle's
 hosted allowance. Provider token usage is emitted through the existing usage
 channel. The local Blueberry configuration was enabled during implementation.

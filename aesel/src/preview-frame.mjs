@@ -1,5 +1,6 @@
 import {mkdir,lstat,readFile,writeFile,rename,unlink,readdir} from 'node:fs/promises';
 import {join,dirname} from 'node:path';
+import {workspaceDir} from './paths.mjs';
 import {fileURLToPath} from 'node:url';
 import {randomUUID,createHash} from 'node:crypto';
 import {execFile} from 'node:child_process';
@@ -23,7 +24,7 @@ export function analyzePixels(data,width,height){
 }
 export async function captureFrame(cwd,args={}, {timeout=10000}={}){
  const feedback=readRuntimeFeedback(cwd,args);if(!feedback?.channel||!feedback.revision)throw new Error('No current preview context. Open the piece preview before capturing.');
- const root=join(cwd,'.easel');await privateDir(root);
+ const root=workspaceDir(cwd);await privateDir(root);
  const requests=join(root,'frame-requests'),responses=join(root,'frame-responses'),frames=join(root,'frames');for(const dir of [requests,responses,frames])await privateDir(dir);
  const id=randomUUID(),request=join(requests,id+'.json'),response=join(responses,id+'.json');
  await writeFile(request,JSON.stringify({id,channel:feedback.channel,revision:feedback.revision,createdAt:Date.now()}),{flag:'wx',mode:0o600});

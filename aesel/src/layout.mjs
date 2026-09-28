@@ -3,7 +3,7 @@
 // The frame used to be a function of the code alone: to move the status line
 // under the bar you edited render.mjs, restarted, and looked. Now the shape is
 // data. `layouts/pro.json` in the package is the baked default; a file in
-// ~/.config/easel overrides any of its keys; and the interface watches that
+// ~/.config/aesel overrides any of its keys; and the interface watches that
 // file, so a change saved in an editor is on the screen at the next paint, in
 // the session that is already open. When the shape is right, `/layout bake`
 // writes it back into the package as the new default and commits that one
@@ -19,7 +19,7 @@
 import { EventEmitter } from "node:events";
 import { execFile } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, watchFile, unwatchFile, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { configDir } from "./paths.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -64,7 +64,7 @@ export class Layout extends EventEmitter {
   constructor({
     name = "pro",
     root = PACKAGE_ROOT,
-    file = join(process.env.EASEL_CONFIG_DIR || join(homedir(), ".config", "easel"), "layout.json"),
+    file = join(configDir(), "layout.json"),
     // Polling, not fs.watch: editors save by writing a new file and renaming
     // it over the old one, which fs.watch reports as the file vanishing.
     interval = 500,

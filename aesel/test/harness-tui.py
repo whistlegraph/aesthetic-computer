@@ -5,7 +5,7 @@ ROOT=Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix='aesel-harness-') as tmp:
  root=Path(tmp);piece=root/'piece.mjs';source='export function paint({wipe}) { wipe(0); }\n';piece.write_text(source)
  master,slave=pty.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',28,100,0,0))
- log=root/'events.jsonl';env=dict(os.environ,TERM='xterm-256color',NO_COLOR='1',SLAB_HOME=str(root/'slab'),EASEL_TEST_LOG=str(log),EASEL_HISTORY_DIR=str(root/'history'),EASEL_DESKTOP='1',EASEL_DESKTOP_SESSION=str(root/'session.json'))
+ log=root/'events.jsonl';env=dict(os.environ,TERM='xterm-256color',NO_COLOR='1',SLAB_HOME=str(root/'slab'),AESEL_TEST_LOG=str(log),AESEL_HISTORY_DIR=str(root/'history'),AESEL_DESKTOP='1',AESEL_DESKTOP_SESSION=str(root/'session.json'))
  child=subprocess.Popen([shutil.which('node'),'--import',str(ROOT/'test/harness-tui-fixture.mjs'),str(ROOT/'src/tui.mjs'),'--cwd',tmp,'--piece',str(piece),'--backend','claude','--no-autopublish'],stdin=slave,stdout=slave,stderr=slave,env=env);os.close(slave)
  output=bytearray()
  def wait_for(predicate,timeout=12):

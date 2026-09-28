@@ -14,9 +14,9 @@ test('Tab switches high level options; arrows stay within actual choices',()=>{
 });
 test('thread catalog loads exact private snapshots and skips corrupt or foreign workspaces',async t=>{
  const cwd=await mkdtemp(join(tmpdir(),'easel-choose-'));t.after(()=>rm(cwd,{recursive:true,force:true}));
- const dir=join(cwd,'.easel','threads');await mkdir(dir,{recursive:true});
+ const dir=join(cwd,'.aesel','threads');await mkdir(dir,{recursive:true});
  const snapshot=desktopSnapshot({cwd,backend:'ac',model:'model',live:{file:join(cwd,'saved.mjs'),runtime:'mjs',channel:'channel'},state:{entries:[{id:'u',kind:'user',text:'draw stars'}],input:'draft',cursor:5,history:[],queued:[],medium:'piece'},options:{},engine:{threadId:'exact',messages:[{role:'user',content:'draw stars'}]},handoff:'',archivedConversation:[]});
- const last=join(cwd,'.easel','session.json');await writeDesktopSession(last,snapshot);await writeDesktopSession(join(dir,'duplicate.json'),snapshot);await writeFile(join(dir,'bad.json'),'{');await writeFile(join(dir,'foreign.json'),JSON.stringify({...snapshot,cwd:'/elsewhere'}));
+ const last=join(cwd,'.aesel','session.json');await writeDesktopSession(last,snapshot);await writeDesktopSession(join(dir,'duplicate.json'),snapshot);await writeFile(join(dir,'bad.json'),'{');await writeFile(join(dir,'foreign.json'),JSON.stringify({...snapshot,cwd:'/elsewhere'}));
  const threads=await savedThreads(cwd,last);assert.equal(threads.length,1);assert.deepEqual(threads[0].snapshot,snapshot);assert.match(threads[0].label,/draw stars/);
 });
 

@@ -4,7 +4,7 @@ import {existsSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 export function startNativeGamepad(){
  const binary=fileURLToPath(new URL('../native/gamepad',import.meta.url));
- if(process.platform!=='darwin'||!process.env.EASEL_DESKTOP||!existsSync(binary))return;
+ if(process.platform!=='darwin'||!process.env.AESEL_DESKTOP||!existsSync(binary))return;
  const child=spawn(binary,[],{stdio:['ignore','pipe','ignore']});
  child.on('error',()=>{});
  createInterface({input:child.stdout}).on('line',line=>{

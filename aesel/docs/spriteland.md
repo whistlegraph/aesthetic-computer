@@ -14,7 +14,7 @@ Validation:
 
 - `node --test easel/test/donkey.test.mjs`
 - Run `aesel/test/preview-geometry.electron.cjs` with the desktop Electron binary for window resizing, hover/fullscreen geometry and QR zoom.
-- Run `aesel/test/companion-scene.electron.cjs` with `EASEL_DESKTOP=1 COLORTERM=truecolor` and Electron. It verifies every QR/quiet-zone pixel across all sixteen poses and saves normal/small/tiny full-window screenshots under `/tmp/easel-scene-*.png`.
+- Run `aesel/test/companion-scene.electron.cjs` with `AESEL_DESKTOP=1 COLORTERM=truecolor` and Electron. It verifies every QR/quiet-zone pixel across all sixteen poses and saves normal/small/tiny full-window screenshots under `/tmp/easel-scene-*.png`.
 - On macOS, `swift easel/test/decode-qr.swift EXPECTED_URL /tmp/easel-scene-normal.png /tmp/easel-scene-small.png /tmp/easel-scene-tiny.png` checks actual screenshot decoding with Vision. Set SDKROOT to a supported local SDK if necessary.
 
 The September 15 integration check decoded the same watch URL at 16px, 14px and 12px text sizes. This is software-decoder evidence, not a guarantee for every physical phone camera, screen size or lighting condition.

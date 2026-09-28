@@ -1,7 +1,7 @@
 import {request} from 'node:http';
 import {validateSettingsRequest} from './harness-contract.mjs';
 
-export async function callSettings(args,{socket=process.env.EASEL_HARNESS_SOCKET}={}){
+export async function callSettings(args,{socket=process.env.AESEL_HARNESS_SOCKET}={}){
  validateSettingsRequest(args);
  if(!socket)throw Error('Aesel settings are unavailable outside a running session');
  return new Promise((resolve,reject)=>{

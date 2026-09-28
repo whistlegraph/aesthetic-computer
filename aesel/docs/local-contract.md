@@ -21,7 +21,7 @@ and the session token to `aesthetic.computer` only when the user runs
 `/publish`. The engine bridge never receives the token; publishing is an
 interface action, not an agent tool.
 
-Auto-publish (`--autopublish`, `EASEL_AUTOPUBLISH=1`, `/autopublish`)
+Auto-publish (`--autopublish`, `AESEL_AUTOPUBLISH=1`, `/autopublish`)
 is the one way that becomes repeated rather than per-command: with it on, the
 interface publishes the session's piece a couple of seconds after every save,
 and the last save is flushed on the way out. It is off by default and has to be

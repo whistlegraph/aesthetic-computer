@@ -41,7 +41,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { configuredJev } from "./jev-advisor.mjs";
 import { WORKSPACE_INSTRUCTIONS, WORKSPACE_TOOLS, WORKSPACE_TOOL_NAMES, runWorkspaceTool, toolboxInstructions } from "./workspace-tools.mjs";
 
-const SITE = process.env.EASEL_SITE || "https://aesthetic.computer";
+const SITE = process.env.AESEL_SITE || "https://aesthetic.computer";
 
 export const DEFAULT_AC_MODEL = "openai/gpt-5.6-luna";
 

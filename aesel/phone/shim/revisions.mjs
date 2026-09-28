@@ -25,7 +25,7 @@ export async function validatePieceSource(source, file) {
 }
 
 // The desktop module also exports `PieceRevisions`, a local snapshot store under
-// ~/.local/share/easel/history. The phone keeps its history somewhere else, so
+// ~/.local/share/aesel/history. The phone keeps its history somewhere else, so
 // this is a stub that fails loudly rather than a half-implementation that looks
 // like it is saving and is not.
 export class PieceRevisions {

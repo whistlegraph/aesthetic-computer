@@ -25,7 +25,7 @@ Set `GBDK_HOME` to the extracted `gbdk` directory. An explicitly configured but
 missing toolchain is an error, never silently substituted. Otherwise discovery
 checks the monorepo's `kidlisp-gameboy/gbdk`, Aesel's optional local GBDK 4.5.0
 pack, then PATH. The optional pack location is
-`~/.local/share/easel/toolchains/gbdk-4.5.0/gbdk`.
+`~/.local/share/aesel/toolchains/gbdk-4.5.0/gbdk`.
 
 Builds invoke the same `lcc -o game.gb main.c` workflow as AC, adding only a fixed
 AESEL cartridge title. They run in an isolated temporary artifact directory,

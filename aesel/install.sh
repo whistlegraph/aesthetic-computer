@@ -3,13 +3,21 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BIN_DIR="${EASEL_BIN_DIR:-${HOME}/.local/bin}"
-CONFIG_DIR="${EASEL_CONFIG_DIR:-${HOME}/.config/easel}"
+# AESEL_* first; EASEL_* is the same setting under the old name.
+BIN_DIR="${AESEL_BIN_DIR:-${EASEL_BIN_DIR:-${HOME}/.local/bin}}"
+CONFIG_DIR="${AESEL_CONFIG_DIR:-${EASEL_CONFIG_DIR:-${HOME}/.config/aesel}}"
 FISH_CONFIG="${XDG_CONFIG_HOME:-${HOME}/.config}/fish/config.fish"
 ZSH_PROFILE="${ZDOTDIR:-${HOME}}/.zprofile"
 
+# The same move src/paths.mjs makes: an old ~/.config/easel becomes the new
+# folder, with a link left where it was for any older copy still reading it.
+# Creating an empty ~/.config/aesel first would strand the old settings.
+OLD_CONFIG="${HOME}/.config/easel"
+if [[ "$CONFIG_DIR" == "${HOME}/.config/aesel" && ! -e "$CONFIG_DIR" && -d "$OLD_CONFIG" && ! -L "$OLD_CONFIG" ]]; then
+    mv "$OLD_CONFIG" "$CONFIG_DIR" && ln -s "$CONFIG_DIR" "$OLD_CONFIG"
+fi
 mkdir -p "$BIN_DIR" "$CONFIG_DIR"
-chmod +x "$PROJECT_DIR/bin/"{easel,aesel,easel-desktop,a}
+chmod +x "$PROJECT_DIR/bin/"{easel,aesel,easel-desktop,a,aes}
 ln -sfn "$PROJECT_DIR/bin/easel" "$BIN_DIR/easel"
 ln -sfn "$PROJECT_DIR/bin/aesel" "$BIN_DIR/aesel"
 ln -sfn "$PROJECT_DIR/bin/a" "$BIN_DIR/a"
@@ -33,8 +41,8 @@ fi
 if [[ -f "$FISH_CONFIG" ]] && ! grep -Fq '# easel:start' "$FISH_CONFIG"; then
     {
         printf '\n# easel:start\n'
-        printf 'if test -f %q\n' "$PROJECT_DIR/shell/easel.fish"
-        printf '    source %q\n' "$PROJECT_DIR/shell/easel.fish"
+        printf 'if test -f %q\n' "$PROJECT_DIR/shell/aesel.fish"
+        printf '    source %q\n' "$PROJECT_DIR/shell/aesel.fish"
         printf 'end\n'
         printf '# easel:end\n'
     } >> "$FISH_CONFIG"
