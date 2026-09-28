@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 // daily-token.mjs — each day's podcast update, minted as a hic et nunc 1/1.
 //
-//   page    — the episode's words set in AC's pixel font by a KidLisp piece,
-//             stored as a new $code on AC
-//   render  — the oven grabs the $code as an animated GIF; the thumbnail is
-//             one of its frames
+//   page    — the episode as a Star Wars crawl in AC's pixel font: a GIF drawn
+//             here (lib/crawl.mjs), and the same crawl as a live KidLisp
+//             $code on AC; the thumbnail is one of the GIF's frames
 //   pin     — GIF, thumb and TZIP-21 metadata to AC's IPFS node (/api/ipfs-add)
 //   mint    — mint_OBJKT on the hic et nunc minter, signed by aesthetic.tez
 //   list    — an objkt ask for the whole edition
@@ -122,45 +121,13 @@ const episodeUrl = existsSync(buzz) ? `${SHOW}/${JSON.parse(readFileSync(buzz, "
 console.log(`▸ ${slug}: "${title}"`);
 
 // ── 1. page ──────────────────────────────────────────────────────────────
-// The token's image is the update itself: the episode's words set in AC's
-// pixel font by a KidLisp piece (stored as a real $code), over a slow fade
-// whose colors turn with the date. KidLisp splits on commas even inside a
-// string and treats ; as a comment, so the text is cleaned to what survives.
-const GROUNDS = [
-  ["black", "navy", "yellow"], ["black", "maroon", "orange"], ["black", "teal", "lime"],
-  ["black", "indigo", "pink"], ["black", "olive", "gold"], ["black", "purple", "cyan"],
-  ["navy", "black", "skyblue"],
-];
-const COLS = 82; // characters per line at 512 px in the 6 px pixel font
-
-const clean = (s) => s
-  .replace(/[\u2018\u2019]/g, "'").replace(/[\u2013\u2014]/g, "-")
-  .replace(/[,;"\\()]/g, "").replace(/[^\x20-\x7e]/g, "");
-
-function page() {
-  const lines = [];
-  for (const para of body.split(/\n\s*\n/)) {
-    let line = "";
-    for (const word of clean(para).split(/\s+/).filter(Boolean)) {
-      if (`${line} ${word}`.trim().length > COLS) { lines.push(line.trim()); line = word; }
-      else line += ` ${word}`;
-    }
-    lines.push(line.trim(), "");
-  }
-  while (lines.at(-1) === "") lines.pop();
-  const lineHeight = Math.min(11, Math.floor(470 / (lines.length + 2)));
-  const top = Math.max(6, Math.round((512 - (lines.length + 2) * lineHeight) / 2));
-  let h = 0;
-  for (const ch of date) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  const [a, b, accent] = GROUNDS[h % GROUNDS.length];
-  return [
-    `(wipe fade:${a}-${b}-${a}:frame)`,
-    `(ink ${accent})`,
-    `(write "${clean(title)}" 6 ${top})`,
-    "(ink (2s... white silver white))",
-    ...lines.map((l, i) => (l ? `(write "${l}" 6 ${top + (i + 2) * lineHeight})` : "")).filter(Boolean),
-  ].join("\n");
-}
+// The token's image is the update itself, as a Star Wars crawl in AC's pixel
+// font over a starfield, its colours turning with the date (lib/crawl.mjs).
+// The GIF is drawn here, not on the oven: the oven repaints a page this heavy
+// only every few seconds while it captures. The same crawl, moving with the
+// clock, is stored as a live KidLisp $code and linked from the token.
+const { crawlLayout, crawlPiece, renderCrawlGif } = await import(resolve(ROOT, "lib", "crawl.mjs"));
+const CRAWL_SECONDS = 30, CRAWL_FPS = 10;
 
 async function store(source) {
   const headers = { "content-type": "application/json" };
@@ -171,41 +138,22 @@ async function store(source) {
   return j.code;
 }
 
-// A full page of text over a moving fade grabs to a couple of MB; a render
-// that failed (the transparent checkerboard, a bare wash) comes in far under.
-const MIN_GIF_BYTES = 300_000;
-async function grab(code, format, size, query) {
-  const url = `${OVEN}/grab/${format}/${size}/${size}/$${code}?${new URLSearchParams({ skipCache: "true", ...query })}`;
-  const r = await fetch(url, { signal: AbortSignal.timeout(300000) });
-  if (!r.ok) throw new Error(`oven ${r.status} for $${code}`);
-  if (r.headers.get("x-oven-status") === "baking") throw new Error("oven returned a baking placeholder");
-  return Buffer.from(await r.arrayBuffer());
-}
-
 if (!receipt.code) {
-  const source = page();
+  const layout = crawlLayout({ title, body, date });
+  const source = crawlPiece(layout, { periodMs: CRAWL_SECONDS * 1000 });
+  if (source.length > 50000) { console.error(`✗ the crawl piece is ${source.length} chars (store-kidlisp takes 50000)`); process.exit(1); }
   const code = await store(source);
-  console.log(`  page stored as $${code} — rendering…`);
-  let gif = null;
-  for (let attempt = 1; attempt <= 3 && !gif; attempt++) {
-    try {
-      const bytes = await grab(code, "gif", 512, { duration: "4000", fps: "8" });
-      if (bytes.length >= MIN_GIF_BYTES) gif = bytes;
-      else console.log(`  ✗ attempt ${attempt}: rendered blank (${bytes.length} bytes)`);
-    } catch (e) {
-      console.log(`  ✗ attempt ${attempt}: ${e.message}`);
-    }
-  }
-  if (!gif) { console.error("✗ the page didn't render; refusing to mint"); process.exit(1); }
+  console.log(`  page stored as $${code} — rendering the crawl…`);
   const gifPath = resolve(dailyDir, `${slug}.gif`);
-  writeFileSync(gifPath, gif);
-  // The thumbnail is a frame of the GIF: the oven's PNG grab can land before
-  // a static-ish piece has painted.
-  const t = spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-i", gifPath, "-vf", "select=eq(n\\,12),scale=256:256:flags=area", "-frames:v", "1", resolve(dailyDir, `${slug}-thumb.png`)]);
+  const frames = await renderCrawlGif(layout, gifPath, { seconds: CRAWL_SECONDS, fps: CRAWL_FPS });
+  const gifBytes = readFileSync(gifPath).length;
+  // The loop opens on empty sky while the title rises, so the thumbnail is
+  // taken a third of the way in, with the crawl in full view.
+  const t = spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-i", gifPath, "-vf", `select=eq(n\\,${Math.round(frames / 3)}),scale=256:256:flags=area`, "-frames:v", "1", resolve(dailyDir, `${slug}-thumb.png`)]);
   if (t.status !== 0) { console.error(`✗ thumbnail: ${t.stderr}`); process.exit(1); }
-  Object.assign(receipt, { code, source, gifBytes: gif.length });
+  Object.assign(receipt, { code, source, gifBytes, frames, palette: layout.palette });
   save();
-  console.log(`  ✓ $${code} rendered (${(gif.length / 1024).toFixed(0)} KB) → out/daily/${slug}.gif`);
+  console.log(`  ✓ $${code} · crawl ${frames} frames (${(gifBytes / 1024).toFixed(0)} KB) → out/daily/${slug}.gif`);
 }
 
 if (flags.dry) { console.log(`✓ dry run: $${receipt.code} rendered; nothing pinned or minted.`); process.exit(0); }
