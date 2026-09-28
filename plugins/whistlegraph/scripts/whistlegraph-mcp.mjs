@@ -13,13 +13,12 @@ import { homedir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import * as readline from "node:readline";
+import { freshSession } from "../../../shared/ac-token.mjs";
 
 const execFile = promisify(execFileCallback);
 const SITE_PREFIX = "system/public/whistlegraph.org/";
 const STATE_ROOT = join(homedir(), ".cache", "whistlegraph-desk");
 const TOKEN_FILE = join(homedir(), ".ac-token");
-const AUTH0_DOMAIN = "hi.aesthetic.computer";
-const AUTH0_CLIENT_ID = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
 const API = process.env.WHISTLEGRAPH_API || "https://whistlegraph.org/api/whistlegraph-admin";
 const MAX_FILE_BYTES = 2_000_000;
 const MAX_DIFF_BYTES = 500_000;
@@ -57,28 +56,10 @@ async function loadTokens() {
   } catch {
     throw new Error("Not signed in. Run `ac-login`, then try again.");
   }
-  const stale = tokens.expires_at && Date.now() > tokens.expires_at - 60_000;
-  if (stale) {
+  // Renewed under the lock every ~/.ac-token refresher on this Mac shares.
+  if (tokens.expires_at && Date.now() > tokens.expires_at - 60_000) {
     if (!tokens.refresh_token) throw new Error("Your AC session expired. Run `ac-login` again.");
-    const response = await fetch(`https://${AUTH0_DOMAIN}/oauth/token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "User-Agent": UA },
-      body: JSON.stringify({
-        grant_type: "refresh_token",
-        client_id: AUTH0_CLIENT_ID,
-        refresh_token: tokens.refresh_token,
-      }),
-      signal: AbortSignal.timeout(20_000),
-    });
-    if (!response.ok) throw new Error(`AC token refresh failed (HTTP ${response.status}). Run \`ac-login\`.`);
-    const next = await response.json();
-    tokens = {
-      ...tokens,
-      ...next,
-      refresh_token: next.refresh_token || tokens.refresh_token,
-      expires_at: Date.now() + (next.expires_in || 3600) * 1000,
-    };
-    await writeFile(TOKEN_FILE, `${JSON.stringify(tokens, null, 2)}\n`, { mode: 0o600 });
+    tokens = await freshSession({ file: TOKEN_FILE });
   }
   if (!tokens.access_token) throw new Error("AC session has no access token. Run `ac-login`.");
   return tokens;

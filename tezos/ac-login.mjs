@@ -321,6 +321,13 @@ async function startLocalCallbackServer(state, codeVerifier, codeChallenge, { fo
   });
 }
 
+// `ac-login refresh`: renew without a browser, under the same lock every
+// other ~/.ac-token refresher on this Mac takes (shared/ac-token.mjs).
+async function refresh({ force = false } = {}) {
+  const { freshSession } = await import('../shared/ac-token.mjs');
+  return freshSession({ file: TOKEN_FILE, force });
+}
+
 async function checkAuth() {
   try {
     const tokenData = await fs.readFile(TOKEN_FILE, 'utf8');
@@ -333,7 +340,7 @@ async function checkAuth() {
     console.log('╚══════════════════════════════════════════════════════════════╝\n');
     
     if (expired) {
-      console.log('⚠️  Token expired - run `ac-login` to refresh\n');
+      console.log('⚠️  Token expired - run `ac-login refresh` (or `ac-login`)\n');
     } else {
       console.log('✅ Logged in\n');
     }
@@ -375,6 +382,14 @@ export async function getToken() {
   }
   
   if (command === 'status') { await checkAuth(); return; }
+
+  if (command === 'refresh') {
+    try {
+      const next = await refresh({ force: process.argv.includes('--force') });
+      console.log(`✅ Refreshed ${next.user?.handle ? '@' + next.user.handle : ''} until ${new Date(next.expires_at).toISOString()}`);
+    } catch (e) { console.error(e.message); process.exit(1); }
+    return;
+  }
   
   if (command === 'token') {
     try {
@@ -396,6 +411,8 @@ Usage:
   ac-login          Login (opens browser)
   ac-login fresh    Login with forced account prompt
   ac-login status   Check login status  
+  ac-login refresh  Renew the token from the refresh token (no browser;
+                    skips if it has a minute left, --force to renew anyway)
   ac-login logout   Clear local token + browser Auth0 session
   ac-login logout --local-only  Clear local token only
   ac-login token    Print access token (for scripts)

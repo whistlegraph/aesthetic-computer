@@ -9,7 +9,7 @@ import {verifyAccount, requireHandle} from "./account-access.mjs";
 import { EventEmitter } from "node:events";
 import { createHash, randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, unlinkSync, watch, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, unlinkSync, watch, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
@@ -138,29 +138,58 @@ export class ACSession extends EventEmitter {
   }
 
   // A usable access token, refreshed a minute early through the refresh grant.
+  // Auth0 rotates refresh tokens, so the refresh runs under the
+  // `<file>.lock` directory every ~/.ac-token refresher on this Mac takes
+  // (shared/ac-token.mjs, ac-login, Menu Band's ACSession.swift) and re-reads
+  // the file inside it: if another process renewed it meanwhile, use theirs.
   async token() {
-    const record = this.read();
+    const stale = (record) => record.expires_at && this.now() > record.expires_at - 60_000;
+    let record = this.read();
     if (!record?.access_token) throw new Error("not signed in — run /login");
-    const stale = record.expires_at && this.now() > record.expires_at - 60_000;
-    if (!stale) return record.access_token;
-    if (!record.refresh_token) throw new Error("session expired — run /login");
-    const response = await this.fetch(`https://${this.authDomain}/oauth/token`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        grant_type: "refresh_token",
-        client_id: CLIENT_ID,
-        refresh_token: record.refresh_token,
-      }),
+    if (!stale(record)) return record.access_token;
+    return this.#locked(async () => {
+      record = this.read();
+      if (!record?.access_token) throw new Error("not signed in — run /login");
+      if (!stale(record)) return record.access_token;
+      if (!record.refresh_token) throw new Error("session expired — run /login");
+      const response = await this.fetch(`https://${this.authDomain}/oauth/token`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          grant_type: "refresh_token",
+          client_id: CLIENT_ID,
+          refresh_token: record.refresh_token,
+        }),
+      });
+      if (!response.ok) throw new Error(`session refresh failed (HTTP ${response.status}) — run /login`);
+      const next = await response.json();
+      record.access_token = next.access_token;
+      if (next.refresh_token) record.refresh_token = next.refresh_token;
+      if (next.id_token) record.id_token = next.id_token;
+      record.expires_at = this.now() + (next.expires_in || 3600) * 1000;
+      this.#write(record);
+      return record.access_token;
     });
-    if (!response.ok) throw new Error(`session refresh failed (HTTP ${response.status}) — run /login`);
-    const next = await response.json();
-    record.access_token = next.access_token;
-    if (next.refresh_token) record.refresh_token = next.refresh_token;
-    if (next.id_token) record.id_token = next.id_token;
-    record.expires_at = this.now() + (next.expires_in || 3600) * 1000;
-    this.#write(record);
-    return record.access_token;
+  }
+
+  // mkdir is atomic from Node and Swift alike; a lock older than 30 s
+  // belonged to a process that died.
+  async #locked(work) {
+    const lock = `${this.file}.lock`;
+    const deadline = Date.now() + 20_000;
+    for (;;) {
+      try { mkdirSync(lock); break; }
+      catch (error) {
+        if (error.code !== "EEXIST") throw error;
+        let age = 0;
+        try { age = Date.now() - statSync(lock).mtimeMs; } catch { continue; }
+        if (age > 30_000) { rmSync(lock, { recursive: true, force: true }); continue; }
+        if (Date.now() > deadline) throw new Error("another session refresh is holding ~/.ac-token.lock");
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+    }
+    try { return await work(); }
+    finally { rmSync(lock, { recursive: true, force: true }); }
   }
 
   async requireAccount() {

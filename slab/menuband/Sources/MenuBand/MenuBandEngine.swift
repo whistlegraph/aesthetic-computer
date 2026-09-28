@@ -25,7 +25,7 @@ final class MenuBandEngine {
     private var useA = true                     // which bank currently sounds
 
     private(set) var running = false
-    private var bpm = 110.0
+    private(set) var bpm = 110.0
     private var stepBeats = 0.5                 // arp/drum grid (0.5 = eighths)
     private var chord: [UInt8] = [60, 64, 67]
     private var arp: [Int] = [0, 1, 2, 1]       // chord-tone indices, -1 = rest

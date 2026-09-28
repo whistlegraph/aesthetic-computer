@@ -969,6 +969,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // would briefly reserve room for the deck and then snap back.
         KeyboardIconRenderer.tapeFeatureEnabled = UserDefaults.standard
             .bool(forKey: KeyboardIconRenderer.tapeFeatureDefaultsKey)
+#if !MAC_APP_STORE
+        // Back takes up to the signed-in AC handle; drains anything a
+        // previous run left queued.
+        MenuBandCloud.shared.start()
+#endif
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleTapeFeatureToggled(_:)),
@@ -4285,6 +4290,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         pendingTapeExports[id] = [completion]
+        let program = Int(menuBand.melodicProgram)
+        // A take only has a real tempo when something was keeping time: the
+        // polyrhythm trainer or the conductor engine. Free play sends none
+        // (notes.mid is stamped 120 regardless).
+        let bpm: Double? = polyrhythmTrainer.isActive ? Double(polyrhythmTrainer.bpm)
+            : engine.running ? engine.bpm : nil
         MenuBandTape.exportQueue.async { [self] in
             let started = ProcessInfo.processInfo.systemUptime
             var result: ExportedTape?
@@ -4298,6 +4309,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
 #endif
                 result = ExportedTape(file: file, stems: take.stems, cover: take.cover)
+#if !MAC_APP_STORE
+                // Every take is exported once (the recording→idle pre-warm),
+                // so this is the one place a take enters the cloud queue.
+                MenuBandCloud.shared.enqueue(takeID: id, recordedAt: take.date,
+                    duration: take.duration, program: program, bpm: bpm,
+                    mix: file, stems: take.stems, cover: take.cover)
+#endif
             }
             NSLog("MenuBand: tape export finished in \(ProcessInfo.processInfo.systemUptime - started)s off main")
             let exported = result

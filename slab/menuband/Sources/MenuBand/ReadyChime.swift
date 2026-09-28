@@ -21,15 +21,35 @@ final class ReadyChime {
         catch { NSLog("ReadyChime: engine start failed — \(error)") }
     }
 
+    private struct Bell { let freq: Double; let start: Double; let pan: Double }
+
     /// Ring it: a staggered bell arpeggio spelling a bright D major add-shimmer,
     /// each note a decaying sine + a glassy 2nd partial, panned to fan out.
     func play() {
+        ring([
+            Bell(freq:  587.33, start: 0.00, pan: -0.35),  // D5
+            Bell(freq:  739.99, start: 0.08, pan: -0.10),  // F#5
+            Bell(freq:  880.00, start: 0.16, pan:  0.15),  // A5
+            Bell(freq: 1174.66, start: 0.26, pan:  0.35),  // D6 shimmer
+        ], seconds: 1.4)
+    }
+
+    /// A take reached @handle: two high bells falling a fourth (D6 → A5),
+    /// quieter and shorter than the saved-on-Desktop arpeggio so the two
+    /// never read as the same event.
+    func playBackedUp() {
+        ring([
+            Bell(freq: 1174.66, start: 0.00, pan:  0.25),  // D6
+            Bell(freq:  880.00, start: 0.12, pan: -0.25),  // A5
+        ], seconds: 1.0, gain: 0.2)
+    }
+
+    private func ring(_ bells: [Bell], seconds dur: Double, gain: Double = 0.30) {
         ensureStarted()
         guard started,
               let fmt = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2)
         else { return }
 
-        let dur = 1.4
         let n = Int(sampleRate * dur)
         guard let buf = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: AVAudioFrameCount(n)),
               let left = buf.floatChannelData?[0],
@@ -37,13 +57,6 @@ final class ReadyChime {
         else { return }
         buf.frameLength = AVAudioFrameCount(n)
 
-        struct Bell { let freq: Double; let start: Double; let pan: Double }
-        let bells: [Bell] = [
-            Bell(freq:  587.33, start: 0.00, pan: -0.35),  // D5
-            Bell(freq:  739.99, start: 0.08, pan: -0.10),  // F#5
-            Bell(freq:  880.00, start: 0.16, pan:  0.15),  // A5
-            Bell(freq: 1174.66, start: 0.26, pan:  0.35),  // D6 shimmer
-        ]
         let twoPi = 2.0 * Double.pi
         for i in 0..<n {
             let t = Double(i) / sampleRate
@@ -54,7 +67,7 @@ final class ReadyChime {
                 let env = exp(-dt * 3.0)                       // bell-like decay
                 let s = sin(twoPi * b.freq * dt) * 0.6
                       + sin(twoPi * b.freq * 2 * dt) * 0.16    // glassy overtone
-                let amp = env * 0.30
+                let amp = env * gain
                 l += s * amp * (0.5 - b.pan * 0.5)
                 r += s * amp * (0.5 + b.pan * 0.5)
             }

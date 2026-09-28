@@ -22,12 +22,19 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     static var active: SettingsWindowController?
 
     private var crashViewer: CrashViewerWindowController?
+    #if !MAC_APP_STORE
+    private let cloudToggle = NSButton(checkboxWithTitle: "Back up takes", target: nil, action: nil)
+    private let cloudNote = NSTextField(labelWithString: "")
+    private let cloudSignIn = NSButton(title: "Sign in with ac-login", target: nil, action: nil)
+    private var sessionWatch: UUID?
+    private var cloudObserver: NSObjectProtocol?
+    #endif
     private weak var menuBand: MenuBandController?
 
     init(menuBand: MenuBandController?) {
         self.menuBand = menuBand
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 320, height: 250),
+            contentRect: NSRect(x: 0, y: 0, width: 320, height: 320),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -66,6 +73,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         if SettingsWindowController.active === self { SettingsWindowController.active = nil }
+        #if !MAC_APP_STORE
+        if let sessionWatch { ACSession.shared.stopWatching(sessionWatch) }
+        if let cloudObserver { NotificationCenter.default.removeObserver(cloudObserver) }
+        #endif
     }
 
     // MARK: - Layout
@@ -151,6 +162,28 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         sdSound.state = Shapedown.soundsEnabled ? .on : .off
         sdSound.toolTip = "Bell and click sounds for the Shapedown wall."
         stack.addArrangedSubview(sdSound)
+
+        // Cloud backup of tape takes to the signed-in AC handle (~/.ac-token,
+        // which the sandboxed App Store build can't read).
+        cloudToggle.target = self
+        cloudToggle.action = #selector(toggleCloudBackup(_:))
+        cloudToggle.toolTip = "Upload every take — mix, stems, notes — privately to your Aesthetic Computer account."
+        stack.addArrangedSubview(cloudToggle)
+        cloudNote.font = NSFont.systemFont(ofSize: 11)
+        cloudNote.textColor = .tertiaryLabelColor
+        cloudNote.maximumNumberOfLines = 3
+        cloudNote.lineBreakMode = .byWordWrapping
+        cloudNote.preferredMaxLayoutWidth = 272
+        stack.addArrangedSubview(cloudNote)
+        cloudSignIn.bezelStyle = .rounded
+        cloudSignIn.target = self
+        cloudSignIn.action = #selector(signInToCloud(_:))
+        stack.addArrangedSubview(cloudSignIn)
+        refreshCloud()
+        sessionWatch = ACSession.shared.startWatching { [weak self] in self?.refreshCloud() }
+        cloudObserver = NotificationCenter.default.addObserver(
+            forName: MenuBandCloud.statusChanged, object: nil, queue: .main
+        ) { [weak self] _ in self?.refreshCloud() }
         #endif
 
         // Crashes — conditional. A diagnostics link only earns a row if there
@@ -199,6 +232,39 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     @objc private func toggleShapedownSound(_ sender: NSButton) {
         Shapedown.soundsEnabled = (sender.state == .on)
+    }
+
+    @objc private func toggleCloudBackup(_ sender: NSButton) {
+        MenuBandCloud.isEnabled = (sender.state == .on)
+        refreshCloud()
+    }
+
+    @objc private func signInToCloud(_ sender: Any?) {
+        ACSession.shared.runAcLogin()
+    }
+
+    /// Handle, session state and queue depth. Pending count reads the queue
+    /// folder, so it runs off main.
+    private func refreshCloud() {
+        let session = ACSession.shared
+        let handle = session.displayName
+        let state = session.state
+        cloudToggle.title = handle.map { "Back up takes to \($0)" } ?? "Back up takes to Aesthetic Computer"
+        cloudToggle.state = MenuBandCloud.isEnabled ? .on : .off
+        cloudToggle.isEnabled = state == .signedIn
+        cloudSignIn.isHidden = state == .signedIn
+        cloudSignIn.title = state == .expired ? "Session expired — sign in with ac-login" : "Sign in with ac-login"
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let pending = MenuBandCloud.shared.pendingCount
+            DispatchQueue.main.async {
+                guard let self else { return }
+                var note = state == .signedIn
+                    ? "Private to your account. Browse them at aesthetic.computer/menuband."
+                    : "Sign in to back takes up to your @handle."
+                if pending > 0 { note += " \(pending) waiting to upload." }
+                self.cloudNote.stringValue = note
+            }
+        }
     }
     #endif
 

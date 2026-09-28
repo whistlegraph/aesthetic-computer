@@ -26,6 +26,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
+import { freshSession } from "../../../shared/ac-token.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -68,11 +69,9 @@ const PRICE_XTZ = Number(process.env.DAILY_PRICE_XTZ || 3);
 const ROYALTIES = Number(process.env.DAILY_ROYALTIES_PERMILLE || 150); // HEN is per-mille
 const MIN_BALANCE_XTZ = 0.15; // a mint + a listing burn ~0.06
 
-// The AC session: AC_TOKEN if given, else ~/.ac-token (written once by
-// tezos/ac-login.mjs and copied over), refreshed through its refresh token a
-// minute early — the same grant easel uses — so the nightly run never lapses.
-const AUTH0 = "hi.aesthetic.computer";
-const AUTH0_CLIENT_ID = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
+// The AC session: AC_TOKEN if given, else this machine's own ~/.ac-token
+// (from its own `ac-login`; never a copy from another machine, since Auth0
+// rotates refresh tokens), renewed a minute early under the shared lock.
 async function acToken() {
   if (process.env.AC_TOKEN) return process.env.AC_TOKEN;
   const file = resolve(process.env.HOME, ".ac-token");
@@ -80,18 +79,7 @@ async function acToken() {
   const record = JSON.parse(readFileSync(file, "utf8"));
   if (!record.expires_at || Date.now() < record.expires_at - 60_000) return record.access_token;
   if (!record.refresh_token) return null;
-  const r = await fetch(`https://${AUTH0}/oauth/token`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ grant_type: "refresh_token", client_id: AUTH0_CLIENT_ID, refresh_token: record.refresh_token }),
-  });
-  if (!r.ok) throw new Error(`AC session refresh failed (${r.status}); rerun tezos/ac-login.mjs and copy ~/.ac-token over`);
-  const next = await r.json();
-  record.access_token = next.access_token;
-  if (next.refresh_token) record.refresh_token = next.refresh_token;
-  record.expires_at = Date.now() + (next.expires_in || 3600) * 1000;
-  writeFileSync(file, JSON.stringify(record, null, 2), { mode: 0o600 });
-  return record.access_token;
+  return (await freshSession({ file })).access_token;
 }
 const AC_TOKEN = await acToken();
 
