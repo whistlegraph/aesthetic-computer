@@ -859,3 +859,17 @@ test('a punch held past a quarter second becomes a hold',()=>{
  const armed=[];for(let i=0;i<20;i++)armed.push(a.translateButtons(0,['Y']));
  assert.ok(!armed[16].includes('Grab'),'a held trigger keeps firing');
 });
+test('Q and E together are the hold: arms out even with nobody in reach',()=>{
+ const a=playground(),p=a.players[0];
+ const chord=[];for(let i=0;i<4;i++)chord.push(a.translateButtons(0,['X','Y']));
+ assert.ok(chord.every(f=>f.includes('Grab')&&!f.includes('B')),'the chord is the hold, not two punches');
+ const rest=a.runnerWorldGeometry(p,0);
+ for(const k of a.parkKids)k.x+=5000;
+ a.parkHold(p,true,a.now());
+ assert.ok(p.parkGrabbing);
+ const holding=a.runnerWorldGeometry(p,0);
+ const hand=g=>g.segments.find(s=>s.role==='right-forearm');
+ const reach=g=>{const h=hand(g);return (h.x2-p.x)*Math.cos(p.poolYaw||0)+(h.z2-(p.z||0))*Math.sin(p.poolYaw||0);};
+ assert.ok(reach(holding)>reach(rest)+20,'the hands reach forward');
+ a.parkHold(p,false,a.now());assert.ok(!p.parkGrabbing);
+});

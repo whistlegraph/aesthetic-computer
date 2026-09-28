@@ -5836,10 +5836,17 @@ function samplePad(index) {
   // board or kart), X punch, Y the other hand, B jump, A+X together the
   // bubble. Only live play is translated — menus keep A confirm / B back —
   // and bots and the harness speak the internal names directly.
-  if (pad && Array.isArray(pad.down) && shellMode === "GAME" &&
+  if (pad && Array.isArray(pad.down) && livePlayButtons() &&
       globalThis.__oskiewarLegacyButtons !== true)
     pad.down = translateButtons(index, pad.down);
   return pad;
+}
+// Live play reads the one layout; menus read the raw pad (A confirm, B back).
+// The park is live from the title on — you walk in before pressing anything —
+// so its title counts, but never while the pause or select menu is open.
+function livePlayButtons() {
+  if (freeskateMenu || selecting) return false;
+  return shellMode === "GAME" || (poolOnly() && freeskateActive());
 }
 // Per-pad chord state. A, X and Y wait two samples for a partner — A+X is
 // the bubble, X+Y the grab — so a chord never starts with a stray kick or
@@ -6143,6 +6150,7 @@ function statusVerb(rider, speed, includeSpin=true) {
   if (wallPressActive(rider)) return [rider.ducking ? "crouching against wall" : "pressing into wall", ""];
   // Actions read before movement: a punch thrown while walking is a punch.
   if (rider.blocking) return ["blocking", ""];
+  if (rider.parkGrabbing || rider.holdPad !== undefined) return ["holding", ""];
   if (/punch/.test(rider.attackKind || "")) return ["punching", ""];
   if (/kick/.test(rider.attackKind || "")) return ["kicking", ""];
   if (rider.attackKind) return [String(rider.attackKind).replace(/_/g, " ").toLowerCase(), ""];
@@ -8310,7 +8318,7 @@ function sendChallengerInput(now) {
   if (!pad) return;
   // The host reads internal buttons, so the challenger's pad is translated
   // here too (its own chord slot, seated as player two).
-  const raw = Array.isArray(pad.down) && shellMode === "GAME" &&
+  const raw = Array.isArray(pad.down) && livePlayButtons() &&
     globalThis.__oskiewarLegacyButtons !== true
     ? translateButtons(2, pad.down, 1) : pad.down || [];
   const down = raw
@@ -9969,6 +9977,8 @@ function parkHeldBody(p){
  return body?.alive&&body.heldBy===p.pad?body:null;
 }
 function parkHold(p,grab,now){
+ // The hold is an action even with nobody to take: arms out, "holding".
+ p.parkGrabbing=!!grab&&!(p.skateboard&&!p.grounded);
  const held=parkHeldBody(p);
  if(p.holdPad!==undefined&&!held){p.holdPad=undefined;p.holdKid=false;}
  const yaw=p.poolYaw||0,fx=Math.cos(yaw),fz=Math.sin(yaw);
@@ -16250,7 +16260,9 @@ function buildPoolWalkGeometry(p) {
     const knee=joint(pelvis,foot,48);
     bone(pelvis,knee,name+'-thigh',name+'-leg',11);bone(knee,foot,name+'-shin',name+'-leg',10);
     const upper=shoulders[index],swing=-footX*.52+(p.rig?.arms||0)*9+Math.sin(breath+index)*2;
-    const hand=point(lean+swing+air*20,shoulder.y-p.y+61-10*speed-15*air,side*(26+air*12));
+    // Holding reaches both hands forward at chest height, close together.
+    const hand=p.parkGrabbing?point(lean+50,shoulder.y-p.y+24,side*14)
+      :point(lean+swing+air*20,shoulder.y-p.y+61-10*speed-15*air,side*(26+air*12));
     if(p.gunAmmo>0&&name+'-arm'===itemHand(p)){
       hand.x=upper.x+54;hand.y=upper.y+16;hand.z=upper.z;
     }
