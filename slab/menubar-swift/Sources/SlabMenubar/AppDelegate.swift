@@ -3,6 +3,15 @@ import Carbon.HIToolbox
 import Darwin
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+    /// Processes Terminal ignores when deciding whether to ask before a
+    /// window closes: shells, dev runtimes, and the agent harnesses.
+    static let terminalCleanCommands = "{" + [
+        "screen", "tmux", "less", "more", "view", "mandoc", "tail", "log", "top", "htop",
+        "bash", "zsh", "sh", "fish", "node", "npm", "pnpm", "yarn", "bun", "deno", "turbo",
+        "vite", "tsx", "ts-node", "nodemon", "esbuild", "git", "ssh", "python", "python3", "ruby",
+        "claude", "codex", "codex-slab", "ac", "aesthetic", "a", "aes", "aesel", "easel",
+    ].map { "\"\($0)\"" }.joined(separator: ", ") + "}"
+
     private var tileWindowObserver: TilePopulationObserver?
     private var statusItem: NSStatusItem!
     /// One stable menu instance owned for the app's lifetime. We rebuild its
@@ -3096,8 +3105,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // `clean commands` is Terminal's allowlist of processes ignored when
             // deciding whether to warn on close. Include shells + dev runtimes so
             // Slab can close terminals (dev servers, REPLs) without a popover.
+            // The same list goes on Terminal's default and startup profiles:
+            // a window opened before Slab dresses it (or never dressed) would
+            // otherwise ask before an agent — or Aesel closing itself — can
+            // shut it.
             tm.append("    try")
-            tm.append("      set clean commands of slabSS to {\"screen\", \"tmux\", \"less\", \"more\", \"view\", \"mandoc\", \"tail\", \"log\", \"top\", \"htop\", \"bash\", \"zsh\", \"sh\", \"fish\", \"node\", \"npm\", \"pnpm\", \"yarn\", \"bun\", \"deno\", \"turbo\", \"vite\", \"tsx\", \"ts-node\", \"nodemon\", \"esbuild\", \"git\", \"ssh\", \"python\", \"python3\", \"ruby\", \"claude\", \"codex\", \"codex-slab\", \"ac\", \"aesthetic\"}")
+            tm.append("      set clean commands of slabSS to \(Self.terminalCleanCommands)")
+            tm.append("    end try")
+            tm.append("    try")
+            tm.append("      set clean commands of default settings to \(Self.terminalCleanCommands)")
+            tm.append("      set clean commands of startup settings to \(Self.terminalCleanCommands)")
             tm.append("    end try")
             // A fresh `make new settings set` inherits Terminal's FACTORY
             // title components (working dir + process + size all on), not
@@ -4321,8 +4338,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard var ws = CFPreferencesCopyAppValue("Window Settings" as CFString, domain)
                 as? [String: Any] else { return }
         var dirty = false
-        for (name, value) in ws where name.hasPrefix("Slab") {
+        // Never ask before closing (1; the dialog's order is Always 0, Never 1,
+        // Only-if 2): Slab and the agents close windows on purpose, and a
+        // modal would strand them. Applies to Slab's profiles and to the
+        // default/startup profile a window opens with before Slab dresses it.
+        let defaults = ["Default Window Settings", "Startup Window Settings"].compactMap {
+            CFPreferencesCopyAppValue($0 as CFString, domain) as? String
+        }
+        for (name, value) in ws where name.hasPrefix("Slab") || defaults.contains(name) {
             guard var prof = value as? [String: Any] else { continue }
+            if (prof["warnOnShellCloseAction"] as? Int) != 1 {
+                prof["warnOnShellCloseAction"] = 1
+                dirty = true
+            }
+            guard name.hasPrefix("Slab") else { ws[name] = prof; continue }
             for key in ["ShowRepresentedURLInTitle",
                         "ShowActiveProcessInTitle",
                         "ShowDimensionsInTitle",

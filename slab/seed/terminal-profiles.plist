@@ -90,7 +90,7 @@
 			<key>useOptionAsMetaKey</key>
 			<true/>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-awaiting-dark</key>
 		<dict>
@@ -312,7 +312,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-awaiting-dark-aesthetic</key>
 		<dict>
@@ -879,7 +879,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-awaiting-dark-aesthetic-pulse</key>
 		<dict>
@@ -1446,7 +1446,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-awaiting-dark-codex-msg</key>
 		<dict>
@@ -1887,7 +1887,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-awaiting-dark-pulse</key>
 		<dict>
@@ -1962,7 +1962,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-awaiting-light</key>
 		<dict>
@@ -2183,7 +2183,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-awaiting-light-aesthetic</key>
 		<dict>
@@ -2751,7 +2751,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-awaiting-light-aesthetic-pulse</key>
 		<dict>
@@ -3317,7 +3317,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-awaiting-light-codex-msg</key>
 		<dict>
@@ -3759,7 +3759,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-awaiting-light-pulse</key>
 		<dict>
@@ -3833,7 +3833,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-blank-dark</key>
 		<dict>
@@ -4048,7 +4048,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-blank-dark-aesthetic</key>
 		<dict>
@@ -4607,7 +4607,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-blank-dark-codex</key>
 		<dict>
@@ -4828,7 +4828,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-blank-dark-codex-loopboy</key>
 		<dict>
@@ -5045,7 +5045,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-blank-dark-codex-loopboy-msg</key>
 		<dict>
@@ -5261,7 +5261,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-blank-dark-codex-loopboy-pending-msg</key>
 		<dict>
@@ -5477,7 +5477,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-blank-dark-codex-msg</key>
 		<dict>
@@ -5701,7 +5701,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-blank-dark-msg</key>
 		<dict>
@@ -6138,7 +6138,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-blank-light-aesthetic</key>
 		<dict>
@@ -6698,7 +6698,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-blank-light-codex</key>
 		<dict>
@@ -6921,7 +6921,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-blank-light-codex-loopboy</key>
 		<dict>
@@ -7137,7 +7137,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-blank-light-codex-loopboy-heartbeat</key>
 		<dict>
@@ -7350,7 +7350,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-blank-light-codex-loopboy-heartbeat-msg</key>
 		<dict>
@@ -7778,7 +7778,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-blank-light-codex-loopboy-pending-msg</key>
 		<dict>
@@ -7994,7 +7994,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-blank-light-codex-msg</key>
 		<dict>
@@ -8219,7 +8219,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-blank-light-msg</key>
 		<dict>
@@ -8666,7 +8666,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-dark-aesthetic</key>
 		<dict>
@@ -9233,7 +9233,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-dark-aesthetic-pulse</key>
 		<dict>
@@ -9800,7 +9800,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-dark-codex</key>
 		<dict>
@@ -10022,7 +10022,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-dark-codex-loopboy</key>
 		<dict>
@@ -10239,7 +10239,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-dark-codex-loopboy-heartbeat</key>
 		<dict>
@@ -10452,7 +10452,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-dark-codex-loopboy-heartbeat-msg</key>
 		<dict>
@@ -10667,7 +10667,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-dark-codex-loopboy-msg</key>
 		<dict>
@@ -10883,7 +10883,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-dark-codex-loopboy-pending-heartbeat</key>
 		<dict>
@@ -11096,7 +11096,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-dark-codex-loopboy-pending-heartbeat-msg</key>
 		<dict>
@@ -11311,7 +11311,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-dark-codex-loopboy-pending-msg</key>
 		<dict>
@@ -11527,7 +11527,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-dark-codex-msg</key>
 		<dict>
@@ -11750,7 +11750,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-dark-msg</key>
 		<dict>
@@ -12049,7 +12049,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-light</key>
 		<dict>
@@ -12273,7 +12273,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-light-aesthetic</key>
 		<dict>
@@ -12841,7 +12841,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-light-aesthetic-pulse</key>
 		<dict>
@@ -13407,7 +13407,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-light-codex</key>
 		<dict>
@@ -13631,7 +13631,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-light-codex-loopboy</key>
 		<dict>
@@ -13847,7 +13847,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-light-codex-loopboy-heartbeat</key>
 		<dict>
@@ -14060,7 +14060,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-light-codex-loopboy-heartbeat-msg</key>
 		<dict>
@@ -14488,7 +14488,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-light-codex-loopboy-pending-heartbeat</key>
 		<dict>
@@ -14701,7 +14701,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-light-codex-loopboy-pending-heartbeat-msg</key>
 		<dict>
@@ -14916,7 +14916,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-light-codex-loopboy-pending-msg</key>
 		<dict>
@@ -15132,7 +15132,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-light-codex-msg</key>
 		<dict>
@@ -15357,7 +15357,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-light-msg</key>
 		<dict>
@@ -15581,7 +15581,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-complete-light-pulse</key>
 		<dict>
@@ -15659,7 +15659,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-rendering-dark</key>
 		<dict>
@@ -15866,7 +15866,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-rendering-dark-aesthetic</key>
 		<dict>
@@ -16417,7 +16417,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-rendering-dark-msg</key>
 		<dict>
@@ -16846,7 +16846,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-rendering-light-aesthetic</key>
 		<dict>
@@ -17406,7 +17406,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-rendering-light-msg</key>
 		<dict>
@@ -17623,7 +17623,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-stale-dark-aesthetic</key>
 		<dict>
@@ -18182,7 +18182,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-stale-light-aesthetic</key>
 		<dict>
@@ -18742,7 +18742,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-dark</key>
 		<dict>
@@ -18966,7 +18966,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-dark-aesthetic</key>
 		<dict>
@@ -19533,7 +19533,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-dark-codex</key>
 		<dict>
@@ -19757,7 +19757,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-dark-codex-loopboy</key>
 		<dict>
@@ -19972,7 +19972,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-dark-codex-loopboy-heartbeat</key>
 		<dict>
@@ -20185,7 +20185,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-dark-codex-loopboy-heartbeat-msg</key>
 		<dict>
@@ -20400,7 +20400,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-dark-codex-loopboy-msg</key>
 		<dict>
@@ -20616,7 +20616,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-dark-codex-loopboy-pending-heartbeat</key>
 		<dict>
@@ -20829,7 +20829,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-dark-codex-loopboy-pending-heartbeat-msg</key>
 		<dict>
@@ -21044,7 +21044,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-dark-codex-loopboy-pending-msg</key>
 		<dict>
@@ -21260,7 +21260,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-dark-codex-msg</key>
 		<dict>
@@ -21485,7 +21485,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-dark-msg</key>
 		<dict>
@@ -21709,7 +21709,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-light</key>
 		<dict>
@@ -21933,7 +21933,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-light-aesthetic</key>
 		<dict>
@@ -22501,7 +22501,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-light-codex</key>
 		<dict>
@@ -22726,7 +22726,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-light-codex-loopboy</key>
 		<dict>
@@ -22942,7 +22942,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-light-codex-loopboy-heartbeat</key>
 		<dict>
@@ -23155,7 +23155,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-light-codex-loopboy-heartbeat-msg</key>
 		<dict>
@@ -23585,7 +23585,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-light-codex-loopboy-pending-msg</key>
 		<dict>
@@ -23802,7 +23802,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-light-codex-msg</key>
 		<dict>
@@ -24026,7 +24026,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 		<key>Slab-working-light-msg</key>
 		<dict>
@@ -24250,7 +24250,7 @@
 			<key>type</key>
 			<string>Window Settings</string>
 			<key>warnOnShellCloseAction</key>
-			<integer>2</integer>
+			<integer>1</integer>
 		</dict>
 	</dict>
 </dict>
