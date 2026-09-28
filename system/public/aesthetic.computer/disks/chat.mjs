@@ -2173,7 +2173,21 @@ function paint(
     
     // Only process if visible
     if (previewY + previewTotalHeight < effectiveTopMargin) continue;
-    if (previewY > screen.height - bottomMargin) continue;
+    if (previewY > screen.height - bottomMargin) {
+      // Space for a card is only reserved once it loads, so the newest
+      // message's card starts below the fold; load it anyway, or it never
+      // appears until someone posts after it.
+      for (const url of message.layout.ogUrls) {
+        if (ogPreviewCache.has(url) || ogLoadQueue.has(url)) continue;
+        loadOgPreview(url, netPreload).then((result) => {
+          if (result && (result.imageData || result.faviconData)) {
+            messagesNeedLayout = true;
+            help.repeat();
+          }
+        });
+      }
+      continue;
+    }
     
     let previewX = message.layout.x;
     
@@ -2221,7 +2235,10 @@ function paint(
             if (isFavicon) {
               // Draw a background box for favicon
               ink(40, 40, 50, 200).box(previewX - 2, previewY - 2, previewW + 4, previewH + 4);
-              paste(displayImage, floor(previewX), floor(previewY));
+              // Favicons come in any size (Reddit's is 192px); fit the box.
+              const fit = Math.min(1, previewW / imgWidth, previewH / imgHeight);
+              paste(displayImage, floor(previewX + (previewW - imgWidth * fit) / 2),
+                floor(previewY + (previewH - imgHeight * fit) / 2), fit);
             } else {
               if (!Object.hasOwn(cached, "previewPainting")) {
                 cached.previewPainting = buildScaledPreview(
@@ -5194,7 +5211,10 @@ async function loadOgPreview(url, preload) {
 
     // Route third-party image URLs through our CORS-friendly proxy so
     // toBitmap's canvas read doesn't get tainted by missing CORS headers.
-    const proxied = (u) => `${apiBase}/api/og-image?url=${encodeURIComponent(u)}`;
+    // preload() guesses the type from the URL's last dot, which misses
+    // extensionless images (archive.org, WeTransfer) and .ico favicons, so
+    // name it: the bitmap loader decodes whatever the browser can.
+    const proxied = (u) => ({ path: `${apiBase}/api/og-image?url=${encodeURIComponent(u)}`, extension: "png" });
 
     // If there's an og:image, load it
     let imageData = null;
@@ -5259,7 +5279,7 @@ async function loadOgPreview(url, preload) {
       const apiBase = isLocal ? "https://aesthetic.computer" : "";
       const urlObj = new URL(url);
       const defaultFavicon = `${urlObj.origin}/favicon.ico`;
-      const loaded = await preload(`${apiBase}/api/og-image?url=${encodeURIComponent(defaultFavicon)}`);
+      const loaded = await preload({ path: `${apiBase}/api/og-image?url=${encodeURIComponent(defaultFavicon)}`, extension: "png" });
       faviconData = loaded?.img || loaded;
     } catch (favErr) {
       // No favicon either
