@@ -45,6 +45,7 @@ test('bottom controls and dropdown share click geometry and preserve transcript'
 test('braincell picker cannot expose saved or custom model choices',()=>{
  for(const model of ['opus','anthropic/claude-opus-5','custom']){
   const p={backend:'ac',model,row:1};
-  assert.deepEqual(pickerModels(p),[{id:'openai/gpt-5.6-luna',label:'Automatic'}]);
+  assert.ok(!pickerModels(p).some(x=>x.id===model||x.detail==='custom'));
+  assert.equal(pickerModels(p)[0].label,'Automatic');
  }
 });

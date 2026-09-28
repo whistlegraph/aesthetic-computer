@@ -43,10 +43,11 @@ import { createHash } from "node:crypto";
 import { Diagnostics } from "./diagnostics.mjs";
 import { EASEL_HEIGHT, aeselFrame, aeselNextFrame, aeselWidth } from "./easel.mjs";
 import { Energy, energyReport } from "./energy.mjs";
-import {pickerModels,drawerKey,drawerIndex} from "./provider-picker.mjs";
+import {pickerModels,drawerKey,drawerIndex,normalizeSettings} from "./provider-picker.mjs";
 import { cachedCatalog, loadCatalog, newestModel, preferNewer } from "./model-catalog.mjs";
 import { providerLabel } from "./render.mjs";
-import { backendFor, backendMenu, DEFAULT_BACKEND } from "./backends.mjs";
+import { backendFor, backendMenu, DEFAULT_BACKEND, hostedModel } from "./backends.mjs";
+import { OPEN_MODEL_INFO, openRouterKey } from "./open-server.mjs";
 import { GENRES, genreFor } from "./genres.mjs";
 import { Inbox } from "./inbox.mjs";
 import { LivePiece } from "./live.mjs";
@@ -215,7 +216,7 @@ if(!savedProvider) { try { const previous=await readDesktopSession(localSessionP
 const providerChoice=chooseProviderPreferences({restored:desktopRestored, saved:savedProvider,
  explicit:{backend:option('--backend')||process.env.AESEL_BACKEND||undefined,model:option('--model')||undefined,effort:option('--effort')||undefined},fallback:process.env.AESEL_DESKTOP?'ac':DEFAULT_BACKEND});
 let backend=backendFor(providerChoice.backend);
-let model=backend.id==='ac'?backend.defaultModel:providerChoice.model??backend.defaultModel;
+let model=backend.id==='ac'?hostedModel(providerChoice.model||''):providerChoice.model??backend.defaultModel;
 // Newer is preferred. Unless a model was named on the way in, a pro session on
 // Claude opens on the newest model the provider's cached list knows — and a
 // remembered family moves up to its newest release the day one appears.
@@ -688,6 +689,9 @@ function openEngine({ resume = "" } = {}) {
     // two things a CLI would have found for itself: which file is the piece,
     // and a token to pay for the turn. The other bridges ignore both.
     piece: live,
+    // Something runs the piece only in a networked piece session: pro and
+    // private sessions start no live watcher, so there is no preview to check.
+    preview: () => networked && state.medium === "piece",
     artifacts,
     settings: args => harnessSettings.call(args),
     token: async () => {
@@ -747,11 +751,8 @@ const harnessSettings=createSettingsController({
   supported:['provider','model','effort','autopublish']}),
  normalize:(patch,pending)=>{
   const previous=pending||{provider:backend.id,model,effort,autopublish:autopublish.enabled};
-  const provider=patch.provider||previous.provider,selected=backendFor(provider),changed=provider!==previous.provider;
-  const next={provider,model:patch.model??(changed?selected.defaultModel:previous.model),effort:patch.effort??(changed?'':previous.effort),autopublish:patch.autopublish??previous.autopublish};
-  if(provider==='ac'&&((patch.model!==undefined&&patch.model!==selected.defaultModel)||(patch.effort!==undefined&&patch.effort!=='')))throw Error('AC hosted chooses its model and effort automatically');
-  if(provider==='ac'){next.model=selected.defaultModel;next.effort='';}
-  if(provider==='claude'&&!['','low','medium','high','xhigh','max'].includes(next.effort))throw Error('Unsupported Claude reasoning effort');
+  if(patch.provider)backendFor(patch.provider);
+  const next=normalizeSettings(patch,previous);
   if(patch.autopublish!==undefined&&state.medium!=='piece')throw Error('Auto-publish is a Piece setting');
   if(patch.autopublish===true&&autopublishBlocker())throw Error(autopublishBlocker());
   return next;
@@ -821,11 +822,12 @@ function ensureCatalog(id, { force = false } = {}) {
 // with the row in use marked. A pick on another provider's model restarts
 // the engine there; a pick under the current one just changes the model.
 // The picker is two steps: a provider, then that provider's models. The
-// hosted one comes first because it needs nothing but a handle.
-const PROVIDERS = ["ac", "open", "claude", "codex"];
+// hosted one comes first because it needs nothing but a handle; OpenRouter
+// shows only when there is a key to pay it with.
+const PROVIDERS = ["ac", ...(openRouterKey() ? ["open"] : []), "claude", "codex"];
 // Providers whose models are a fixed list rather than a catalog to fetch.
 const fixedModels = (id) => id === "ac" || id === "open";
-const providerNote = (id) => id === "ac" ? "hosted · metered to your @handle" : id === "open" ? "your OpenRouter key" : `your ${id} account`;
+const providerNote = (id) => id === "ac" ? "hosted · braincells on your @handle" : id === "open" ? "your OpenRouter key" : `your ${id} account`;
 function openDropdown() {
   state.dropdown = { kind: "model", level: "provider", provider: backend.id, items: [], index: 0, loading: false };
   fillModelDropdown();
@@ -835,7 +837,8 @@ function openDropdown() {
 function fillModelDropdown() {
   const drop = state.dropdown;
   if (!drop || drop.kind !== "model") return;
-  const current = state.model || model;
+  // Hosted's Automatic row is the empty model, whatever the relay then ran.
+  const current = backend.id === "ac" ? model : state.model || model;
   if (drop.level === "provider") {
     drop.items = PROVIDERS.map((id) => ({ provider: id, label: `${id === backend.id ? "● " : "  "}${providerLabel(id)}`, detail: providerNote(id), next: true }));
     drop.index = Math.max(0, PROVIDERS.indexOf(drop.provider));
@@ -869,14 +872,15 @@ async function chooseDropdown(index = state.dropdown?.index) {
   if (!item || item.header || item.muted) return redraw();
   if (item.back) return backDropdown();
   if (item.next) {
-    // The hosted provider picks its own model: choosing it is choosing it.
-    if (item.provider === "ac") { state.dropdown = null; return item.provider === backend.id ? redraw() : commandBackend("ac"); }
     drop.level = "model"; drop.provider = item.provider; fillModelDropdown(); return redraw();
   }
   state.dropdown = null;
   if (item.provider && item.provider !== backend.id) return commandBackend(`${item.provider} ${item.id}`.trim());
-  if (item.id === (state.model || model)) return redraw();
-  return commandModel(item.id);
+  if (item.id === (backend.id === "ac" ? model : state.model || model)) return redraw();
+  if (item.id) return commandModel(item.id);
+  // Automatic has no name to type; switch to it directly.
+  if (state.busy) { addEntry("error", "Interrupt the current turn before switching models."); return redraw(); }
+  return restartEngine("Model", backend, "", "");
 }
 function dropdownKey(input) {
   const drop = state.dropdown;
@@ -1534,6 +1538,8 @@ function handleNotification({ method, params = {} }) {
       break;
     }
     case "turn/completed": {
+      // Refused for braincells: the meter is stale by definition, so re-read it now.
+      if (params.turn?.error?.billing) braincellsAt = 0;
       void refreshBraincells();
       // Asked to close out: let the goodbye land, then shut down.
       if (closeAfterTurn) setTimeout(() => void closeOut(), 900);
@@ -1548,7 +1554,9 @@ function handleNotification({ method, params = {} }) {
       if(streamedMessageId)transcriptCompleted.add(streamedMessageId);
       streamedMessageId = null;
       const failure = params.turn?.error;
-      if (failure&&!lostConnection(failure.message||JSON.stringify(failure))) addEntry("error", conciseFailure(failure.message||JSON.stringify(failure)));
+      // A braincell refusal is the relay's own sentence; show it whole.
+      if (failure?.billing) addEntry("error", failure.message);
+      else if (failure&&!lostConnection(failure.message||JSON.stringify(failure))) addEntry("error", conciseFailure(failure.message||JSON.stringify(failure)));
       if (params.turn?.status === "interrupted") slabSession.interrupted();
       else if (params.turn?.status === "failed") slabSession.awaitingInput("easel turn failed");
       else slabSession.complete();
@@ -1858,8 +1866,11 @@ function engineLabel() {
 // Provider thread IDs cannot cross engines; carry recent conversation and
 // keep the old connection available until the replacement connects.
 async function restartEngine(note, nextBackend = backend, nextModel = model, nextEffort = nextBackend === backend ? effort : "", {drain=true}={}) {
-  if(nextBackend.id==='ac')nextModel=nextBackend.defaultModel;
-  if (nextBackend.models && !Object.hasOwn(nextBackend.models, nextModel)
+  if(nextBackend.id==='ac'){
+    if(nextModel&&!hostedModel(nextModel)){addEntry("error",`AC hosted runs ${Object.keys(OPEN_MODEL_INFO).join(", ")}, or Automatic.`);return redraw();}
+    nextModel=hostedModel(nextModel);
+  }
+  if (nextBackend.id !== "ac" && nextBackend.models && !Object.hasOwn(nextBackend.models, nextModel)
       && !Object.values(nextBackend.models).includes(nextModel)) {
     addEntry("error", "Unknown hosted model. Use /model to see available choices.");
     return redraw();
@@ -1939,7 +1950,6 @@ async function commandBackend(rest) {
 
 async function commandModel(rest) {
   if (!rest && pro) return openDropdown();
-  if(backend.id==='ac')return openSettings(0);
   if (!rest) return openSettings(1);
   if (state.busy) {
     addEntry("error", "Interrupt the current turn before switching models.");

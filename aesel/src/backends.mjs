@@ -9,10 +9,10 @@
 // Claude is the default. Codex was the first and still works exactly as it
 // did; the two differ mainly in where the model name comes from, which is why
 // each one carries its own answer for `/model`.
-import { AcServer, AC_MODELS, DEFAULT_AC_MODEL } from "./ac-server.mjs";
+import { AC_MODELS } from "./ac-server.mjs";
 import { AppServer } from "./app-server.mjs";
 import { ClaudeServer, DEFAULT_CLAUDE_MODEL } from "./claude-server.mjs";
-import { DEFAULT_OPEN_MODEL, OPEN_MODELS, OpenServer } from "./open-server.mjs";
+import { DEFAULT_OPEN_MODEL, HostedServer, OPEN_MODELS, OpenServer } from "./open-server.mjs";
 
 export const BACKENDS = {
   claude: {
@@ -27,17 +27,19 @@ export const BACKENDS = {
   },
   // The only bridge that needs nothing installed. It talks to
   // aesthetic.computer, which buys the inference and meters it against the
-  // caller's @handle — so `command` is empty, because there is no binary to
-  // find and a missing one is not why this bridge would fail.
+  // caller's @handle in braincells — so `command` is empty, because there is
+  // no binary to find and a missing one is not why this bridge would fail. It
+  // offers the same open models as `open`.
   ac: {
     id: "ac",
     label: "aesthetic",
     command: "",
-    defaultModel: DEFAULT_AC_MODEL,
+    // Empty is Automatic: whatever the relay runs by default.
+    defaultModel: "",
     modelSource: "aesthetic.computer",
     hosted: true,
     models: AC_MODELS,
-    Engine: AcServer,
+    Engine: HostedServer,
   },
   codex: {
     id: "codex",
@@ -74,6 +76,13 @@ export const BACKEND_ALIASES = {
 };
 
 export const DEFAULT_BACKEND = "claude";
+
+// A model for the hosted provider: one of the open models, by name or id, or
+// "" (Automatic) for anything else — a remembered older model included.
+export function hostedModel(model) {
+  const id = OPEN_MODELS[model] || model;
+  return Object.values(OPEN_MODELS).includes(id) ? id : "";
+}
 
 export function backendIds() {
   return Object.keys(BACKENDS);

@@ -1,7 +1,7 @@
 import { OPEN_MODEL_INFO } from './open-server.mjs';
 import {spawn} from 'node:child_process';
 import {createInterface} from 'node:readline';
-import {BACKENDS} from './backends.mjs';
+import {BACKENDS,hostedModel} from './backends.mjs';
 
 // Read the signed-in CLI's catalog without starting a thread or inference turn.
 export function codexModels({command='codex',args=['app-server','--listen','stdio://'],cwd=process.cwd()}={}) {
@@ -30,10 +30,13 @@ function claudeChoices(p) {
   }
   return rows;
 }
+// The open models, marked for capability (●, out of five) and price ($).
+const openChoices=()=>Object.values(OPEN_MODEL_INFO).map(m=>({id:m.id,label:m.label,detail:`${'●'.repeat(m.smart)}${'○'.repeat(5-m.smart)}  ${'$'.repeat(m.cost)}`}));
 export function pickerModels(p) {
-  const backend=BACKENDS[p.backend];
-  if(p.backend==='ac')return [{id:backend.defaultModel,label:'Automatic'}];
-  const choices=p.backend==='open'?Object.values(OPEN_MODEL_INFO).map(m=>({id:m.id,label:m.label,detail:`${'●'.repeat(m.smart)}${'○'.repeat(5-m.smart)}  ${'$'.repeat(m.cost)}`}))
+  // Hosted offers the same open models, paid in braincells, and Automatic —
+  // the relay's own default. Nothing custom: the relay decides what it runs.
+  if(p.backend==='ac')return [{id:'',label:'Automatic',detail:'aesthetic.computer default'},...openChoices()];
+  const choices=p.backend==='open'?openChoices()
     // The CLI resolves a family alias to a dated id; a resolved id selects its family row instead of growing a "custom" row.
     // Claude: the catalog the Models API answered with, when one has been
     // fetched (model-catalog.mjs); a family alias the CLI resolves ('opus')
@@ -42,6 +45,20 @@ export function pickerModels(p) {
     :[{id:'',label:'CLI default'},...(p.catalog||[]).filter(x=>!x.hidden).map(x=>({id:x.model,label:x.displayName||x.model}))];
   if(!choices.some(x=>x.id===p.model))choices.unshift({id:p.model,label:p.model||'CLI default',detail:p.model?'custom':''});
   return choices;
+}
+// A settings change, checked: the provider, a model it can run, and an effort
+// it accepts. Hosted runs any open model and manages effort itself.
+export function normalizeSettings(patch,previous) {
+  const provider=patch.provider||previous.provider,selected=BACKENDS[provider],changed=provider!==previous.provider;
+  if(!selected)throw Error(`Unknown provider ${provider}`);
+  const next={provider,model:patch.model??(changed?selected.defaultModel:previous.model),effort:patch.effort??(changed?'':previous.effort),autopublish:patch.autopublish??previous.autopublish};
+  if(provider==='ac'){
+    if(patch.effort!==undefined&&patch.effort!=='')throw Error('AC hosted manages effort itself');
+    if(patch.model&&!hostedModel(patch.model))throw Error(`AC hosted runs ${Object.values(OPEN_MODEL_INFO).map(m=>m.label).join(', ')}, or Automatic`);
+    next.model=hostedModel(next.model);next.effort='';
+  }
+  if(provider==='claude'&&!['','low','medium','high','xhigh','max'].includes(next.effort))throw Error('Unsupported Claude reasoning effort');
+  return next;
 }
 export function pickerEfforts(p) {
   if(p.backend==='ac'||p.backend==='open')return [''];
@@ -67,7 +84,7 @@ export function pickerLines(p) {
     `Effort     ${p.backend==='ac'?'provider managed':p.effort||'default'}`,
     'Apply',
   ].map((line,i)=>(p.row===i?'› ':'  ')+line),'',p.loading?'Loading Codex models…':p.error||'↑ ↓ / Tab field · ← → choice · Enter next/apply · Esc cancel',
-  p.backend==='ac'?'Braincell models are managed automatically':'Custom model: /model NAME · Settings apply to the next turn'];
+  p.backend==='ac'?'Open models paid in braincells · Settings apply to the next turn':'Custom model: /model NAME · Settings apply to the next turn'];
 }
 
 export function drawerOptions(p) {

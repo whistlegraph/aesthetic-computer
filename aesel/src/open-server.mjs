@@ -16,22 +16,8 @@ import { McpTools } from "./mcp-client.mjs";
 
 const OPENROUTER = "https://openrouter.ai/api/v1/messages";
 
-// Names a person would type, and what the picker says about each: how capable
-// (out of five) and how dear. The marks come from Aesel's own trials on
-// 2026-09-28 — five coding tasks with hidden tests and a stick-figure piece —
-// not from a leaderboard; prices are OpenRouter's that day, per million tokens
-// as cache-read / input / output. An agent day is mostly cache reads.
-export const OPEN_MODEL_INFO = {
-  flash: { id: "deepseek/deepseek-v4.1-flash", label: "DeepSeek V4.1 Flash", smart: 4, cost: 1 }, // 5/5, best scene · 0.006 / 0.30 / 1.20
-  deepseek: { id: "deepseek/deepseek-v4-pro", label: "DeepSeek V4 Pro", smart: 4, cost: 2 }, // 5/5, plain scene · 0.065 / 0.78 / 1.57
-  kimi: { id: "moonshotai/kimi-k3", label: "Kimi K3", smart: 4, cost: 4 }, // 5/5, good scene · 0.30 / 3.00 / 15.0
-  qwen: { id: "qwen/qwen3.7-plus", label: "Qwen 3.7 Plus", smart: 3, cost: 1 }, // 5/5, scene lost its ground · 0.064 / 0.32 / 1.28
-  minimax: { id: "minimax/minimax-m3", label: "MiniMax M3", smart: 3, cost: 1 }, // 5/5 slowly, scene lost its ground · 0.06 / 0.30 / 1.20
-  glm: { id: "z-ai/glm-5.3-flash", label: "GLM 5.3 Flash", smart: 2, cost: 1 }, // 5/5 slowly, piece drew nothing · 0.03 / 0.15 / 0.50
-};
-export const OPEN_MODELS = Object.fromEntries(Object.entries(OPEN_MODEL_INFO).map(([name, info]) => [name, info.id]));
-
-export const DEFAULT_OPEN_MODEL = OPEN_MODELS.flash;
+import { DEFAULT_OPEN_MODEL, OPEN_MODELS } from "./open-models.mjs";
+export { OPEN_MODEL_INFO, OPEN_MODELS, DEFAULT_OPEN_MODEL } from "./open-models.mjs";
 
 export function openRouterKey({ env = process.env, home = homedir() } = {}) {
   if (env.OPENROUTER_API_KEY) return env.OPENROUTER_API_KEY;
@@ -44,6 +30,19 @@ export function openRouterKey({ env = process.env, home = homedir() } = {}) {
   return "";
 }
 
+// What a pro session (a repository rather than a piece) adds to either loop:
+// the workspace tools, room for a repository task, and the person's MCP
+// servers, as Claude Code would load them here. The tools run on this machine;
+// only the messages go to the model.
+export function proLoop({ pro = false, cwd } = {}) {
+  return {
+    workspace: pro,
+    // A repository task reads, edits and tests; twelve rounds is a piece.
+    rounds: pro ? 80 : 12,
+    extensions: pro && cwd ? new McpTools(cwd) : null,
+  };
+}
+
 export class OpenServer extends AcServer {
   constructor({ pro = false, apiKey = openRouterKey(), model = DEFAULT_OPEN_MODEL, ...options } = {}) {
     super({
@@ -53,13 +52,17 @@ export class OpenServer extends AcServer {
       apiKey,
       models: OPEN_MODELS,
       fallbackModel: DEFAULT_OPEN_MODEL,
-      workspace: pro,
-      // A repository task reads, edits and tests; twelve rounds is a piece.
-      rounds: pro ? 80 : 12,
+      ...proLoop({ pro, cwd: options.cwd }),
       jev: null,
-      // The person's MCP servers, as Claude Code would load them here.
-      extensions: pro && options.cwd ? new McpTools(options.cwd) : null,
     });
     if (!apiKey) throw new Error("No OpenRouter key: set OPENROUTER_API_KEY or put it in ~/.config/aesthetic-computer/openrouter.env");
+  }
+}
+
+// The same loop on aesthetic.computer's relay, paid in braincells: in pro it
+// carries exactly what OpenServer does.
+export class HostedServer extends AcServer {
+  constructor({ pro = false, ...options } = {}) {
+    super({ ...options, ...proLoop({ pro, cwd: options.cwd }) });
   }
 }

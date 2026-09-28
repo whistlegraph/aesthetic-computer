@@ -282,7 +282,7 @@ test("each round reports what it spent, per round rather than per turn", async (
   await engine.startTurn("paint it black");
 
   assert.equal(spent.length, 2, "one report per round");
-  assert.equal(spent[0].model, "z-ai/glm-4.6", "reported under the id that ran, not the alias");
+  assert.equal(spent[0].model, "z-ai/glm-5.3-flash", "reported under the id that ran, not the alias");
   assert.equal(spent[0].usage.output_tokens, 700);
   assert.equal(spent[0].usage.cache_read_input_tokens, 24000, "prompt counts from message_start survive the round");
   assert.equal(spent[1].usage.output_tokens, 40);
