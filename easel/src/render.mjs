@@ -15,6 +15,10 @@ import { handleCharacterColors } from "./handle-colors.mjs";
 import { aboutMap } from "./about.mjs";
 import { formatJoules } from "./energy.mjs";
 
+// The terminal draws pro's layout for every session; the desktop app
+// (EASEL_DESKTOP) draws its own.
+export const proLayout = (state) => state.profile?.name === "pro" || state.quiet === true;
+
 const ESCAPE = /\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))/g;
 const CONTROLS = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g;
 
@@ -695,7 +699,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
 
   // Pro has no header band: four rows at the bottom — air, the bar, air, the
   // status line — and the rest is the conversation.
-  const pro = state.profile?.name === "pro" && !(state.desktop || state.desktopProsePrompt);
+  const pro = proLayout(state) && !(state.desktop || state.desktopProsePrompt);
   // The shape is data — see layout.mjs — so the rows under the transcript are
   // whatever the layout says, in the order it says them.
   const shape = { bottom: ["bar", "gap", "status"], status: ["handle", "workspace", "media", "model", "activity"], bar: [95, 70, 135], prompt: "", separator: " · ", ...(state.layout || {}) };
@@ -875,7 +879,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     : state.hover === "profile" ? " Open profile in browser · click"
     : state.busy
     ? ` ${requestFeedback(state)}`
-    : state.profile?.name === "pro" ? " /help \u00b7 /inbox \u00b7 /mode \u00b7 /ask \u00b7 ctrl-c quit"
+    : proLayout(state) ? " /help \u00b7 /inbox \u00b7 /mode \u00b7 /ask \u00b7 ctrl-c quit"
     : process.env.EASEL_DESKTOP ? "" : " /settings \u00b7 /login \u00b7 /publish \u00b7 /open \u00b7 /qr \u00b7 ctrl-c quit";
   const footerRoom=width-MASCOT_ROW_WIDTH-3;
   const caption=clipText(helpText,Math.max(1,footerRoom));
@@ -1185,7 +1189,7 @@ export function headerAction(state, columns, rows, x, y) {
   if (columns < 32 || rows < 10) return "";
   // Pro draws no header and no model controls. The one thing to click is the
   // model on the status line, which opens the settings drawer.
-  if (state.profile?.name === "pro") {
+  if (proLayout(state)) {
     const shape = { bottom: ["bar", "gap", "status"], ...(state.layout || {}) };
     // An open drop-down owns the mouse: a row of it picks, anywhere else closes.
     const g = dropdownGeometry(state, Math.max(32, columns), Math.max(10, rows), shape);

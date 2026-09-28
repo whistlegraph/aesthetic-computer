@@ -84,6 +84,10 @@ const cwd = path.resolve(option("--cwd") || process.cwd());
 // A private piece session still has its file, but nothing leaves the machine.
 const profile = resolveProfile({ cwd, flags: { pro: flag("--pro"), private: flag("--private") } });
 const pro = profile.name === "pro";
+// The terminal always wears pro's clothes: the bar, one status line, and no
+// running commentary about itself. A piece session keeps its piece; it just
+// stops narrating. The desktop app draws its own chrome.
+const quiet = pro || !process.env.EASEL_DESKTOP;
 const networked = !pro && !profile.private;
 
 // The header names the directory in pro, where a piece session names its
@@ -282,6 +286,7 @@ const state = {
   approval: null,
   account: session.label(),
   profile,
+  quiet,
   piece: pro ? workspaceLabel(cwd) : "",
   // What the bridge said it is running, once it has said so.
   model: "",
@@ -317,7 +322,7 @@ const state = {
   entries: [
     // Pro opens onto nothing but the bar: the mode and the model sit under
     // it, and the agreement was the disclosure.
-    ...(pro ? [] : [{
+    ...(quiet ? [] : [{
       id: "privacy",
       kind: "notice",
       text: "REMOTE INFERENCE · prompt content may leave this machine",
@@ -326,7 +331,7 @@ const state = {
     // opened by default has nothing to explain.
     // Pro says nothing about itself here, private or not; /mode says it when
     // asked, and the status line under the bar carries the rest.
-    ...(profile.private && !pro ? [{ id: "profile", kind: "notice", text: `Profile · ${profile.reason}` }] : []),
+    ...(profile.private && !quiet ? [{ id: "profile", kind: "notice", text: `Profile · ${profile.reason}` }] : []),
   ],
 };
 
@@ -351,7 +356,7 @@ if (!profile.private) try {
     metadata:{medium:state.medium},version:currentVersion(),session});
   await transcriptJournal.init();
   const status=await transcriptJournal.enableSharing({userSub:sharingAcknowledgment.owner,acknowledged:true,disclosureVersion:DISCLOSURE_VERSION});transcriptSharing=status.sharing;
-  if (!pro) state.entries.push({id:'transcript-status',kind:'notice',text:`Transcript: ${status.label} · /sharing`});
+  if (!quiet) state.entries.push({id:'transcript-status',kind:'notice',text:`Transcript: ${status.label} · /sharing`});
 } catch(error) {
   transcriptJournal=null;
   state.entries.push({id:'transcript-error',kind:'error',text:`Local transcript unavailable: ${error.message}`});
@@ -1214,13 +1219,15 @@ function liveError(error) {
 const AUTOPUBLISH_ENTRY = "autopublish";
 
 autopublish.on("start", () => {
-  updateEntry(AUTOPUBLISH_ENTRY, "publish", `Publishing ${live.slug}…`);
+  if (!quiet) updateEntry(AUTOPUBLISH_ENTRY, "publish", `Publishing ${live.slug}…`);
   redraw();
 });
 
 autopublish.on("published", (result) => {
   if(result.verified){slabSession.published();state.connectionNotice='';}
   state.feedPending=!!result.registration?.error;state.entries=state.entries.filter(e=>e.id!=='feed-registration');
+  // The terminal says it once, on the status line, and lets it go.
+  if (quiet) { flash(`published ${result.version ? `v${result.version} ` : ""}· ${String(result.route || "").replace(/^https?:\/\//, "")}`); return redraw(); }
   updateEntry(
     AUTOPUBLISH_ENTRY,
     "publish",
@@ -2957,10 +2964,10 @@ try {
   // in; it is cached on disk, so this is usually at once.
   if (pro && backend.id !== "ac") void ensureCatalog(backend.id);
   await rememberProvider();
-  if (desktopRestored || pro) {
-    // Restoring an existing thread is silent, and so is pro: the status line
-    // under the bar already says the engine is there.
-    if (pro && resumeThreadId) restoreThread(connection.thread);
+  if (desktopRestored || quiet) {
+    // Restoring an existing thread is silent, and so is the terminal: the
+    // status line under the bar already says the engine is there.
+    if (quiet && resumeThreadId) restoreThread(connection.thread);
   } else if (resumeThreadId && !restoreThread(connection.thread)) {
     addEntry("notice", `Resumed thread · ${engineLabel()}`);
   } else {
@@ -2968,11 +2975,11 @@ try {
   }
   transcript.meta({ engine: backend.id, model: state.model, handle: session.handle || "" });
   transcript.event("engine", { status: "started", engine: backend.id, model: state.model, thread: engine.threadId });
-  if (!session.signedIn && !pro) {
+  if (!session.signedIn && !quiet) {
     addEntry("notice", "Not signed in to Aesthetic Computer · /login to publish under your @handle");
   }
-  if (pro) {
-    // Nothing: the directory and the model sit under the bar.
+  if (quiet) {
+    // Nothing: the status line and Slab's strip carry the piece and its route.
   } else if (!networked) {
     addEntry("notice", `${live.slug}${live.runtime.extension} · private · not pushed, not published`);
   } else {
@@ -2981,7 +2988,7 @@ try {
       state.medium === "piece" ? `${live.slug}${live.runtime.extension} · scan the rock, /open in a browser, or /qr for a code · ${live.scanUrl}` : `${state.medium} · ${state.piece} · /open previews · /export FILE saves a copy`,
     );
   }
-  if (autopublish.enabled) {
+  if (autopublish.enabled && !quiet) {
     const blocker = autopublishBlocker();
     addEntry(
       "notice",
