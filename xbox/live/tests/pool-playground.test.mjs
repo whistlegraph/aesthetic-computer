@@ -13,7 +13,7 @@ function playground(legacyAudio=false){
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
  boundParkBody,parkWindowWalls,brokenParkWindows,parkWindowShards,resetParkWindows,
  breakParkWindow,updateParkWindowShards,insidePark,parkLotMargin,updateCameraDoll,clearPoolCamera,updateMotorAudio,updateSkateAudio,balls,
- updateSeatHeartbeat,updatePonytail,ponytailAnchor,ponytailStates,drawSpatialRunner,sampleCombatBoxes,sweptProjectileContact,damageParkCivilian,drawAeselFairy,sceneBoundsVisible,buildParkScene,parkActorVisible,figureLod,
+ updateSeatHeartbeat,updatePonytail,ponytailAnchor,ponytailStates,drawSpatialRunner,sampleCombatBoxes,sweptProjectileContact,damageParkCivilian,drawAeselFairy,sceneBoundsVisible,buildParkScene,parkActorVisible,figureLod,spectatorQrBox,returnToTitle,beginFreeskate,sessionName:()=>sessionName,
  state:()=>({halfpipe:parkHalfPipe3D})};`)(()=>({monotonicUs:now}),()=>({platform:'web'}),noop,(event,seat,value,value2)=>{assert.ok(seat>=-1&&seat<=3);assert.ok(Number.isFinite(value)&&Number.isFinite(value2));},(name,gain,pan)=>{if(legacyAudio&&!['kick','snare','hat','block'].includes(name))throw new RangeError('unknown drum');drums.push({name,gain,pan});},noop,noop,noop,noop,noop,noop,(hz,gain)=>audio.push({hz,gain}),()=>audio.push({stop:true}));
  const p=api.players[0];Object.assign(p,{x:1080,z:0,y:api.poolFloorAt(1080,0),grounded:true,alive:true,dummy:false,skateboard:false,poolYaw:0,previous:[],spin:null,directionChanges:[],poolLastSteer:0});
  api.step=(down=[],dt=1/60)=>{now+=dt*1e6;api.updatePlayer(p,{down,leftX:0,leftY:0},dt,api.clock());};
@@ -760,4 +760,18 @@ test('layout seed is repeatable across clients and changes the park modestly',()
 test('bubble shield follows the 3D facing direction',()=>{
  const a=playground(),p=a.players[0];p.poolYaw=Math.PI/2;p.facing=1;
  const shield=a.shieldGeometry(p);assert.ok(Math.abs(shield.x-p.x)<1e-6);assert.ok(shield.z>p.z);
+});
+test('the park join QR survives round resets and the title, and follows the room name',()=>{
+ const saved=globalThis.qrcode;
+ globalThis.qrcode=(url)=>({url,getModuleCount:()=>21,isDark:()=>false});
+ try{
+  const a=playground();
+  a.beginFreeskate(a.now());
+  const first=a.spectatorQrBox();
+  assert.ok(first,'QR shows in the park');
+  a.returnToTitle(a.now());
+  assert.ok(a.spectatorQrBox(),'QR still shows after returning to the title');
+  a.beginFreeskate(a.now());
+  assert.ok(a.spectatorQrBox(),'QR shows again on the next run');
+ }finally{if(saved===undefined)delete globalThis.qrcode;else globalThis.qrcode=saved;}
 });

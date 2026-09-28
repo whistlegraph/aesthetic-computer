@@ -1722,15 +1722,28 @@ function drawCerealMilk(t){
   const a=(corner+i/8)*Math.PI/2,sx=corner===0||corner===3?1:-1,sz=corner<2?1:-1;
   ring.push({x:bowl.x+sx*bowl.halfX+Math.cos(a)*radius,y,z:bowl.z+sz*bowl.halfZ+Math.sin(a)*radius});
  }
- const center={x:bowl.x,y,z:bowl.z};for(let i=0;i<ring.length;i++)worldTriangle(center,ring[i],ring[(i+1)%ring.length],[250,246,224]);
- for(let i=0;i<32;i++){
-  const x=bowl.x+Math.sin(i*12.9898)*620,z=bowl.z+Math.sin(i*7.233+.8)*420;
-  if(!milkAt(x,z))continue;
-  const h=y-4-Math.sin(t*1.5+i)*2,outer=17+(i%4)*3,inner=outer*.46;
-  const point=(j,r)=>({x:x+Math.cos(j*Math.PI/4)*r,y:h,z:z+Math.sin(j*Math.PI/4)*r});
-  for(let j=0;j<8;j++)worldQuad(point(j,outer),point(j+1,outer),point(j+1,inner),point(j,inner),i%3?[219,159,68]:[183,113,47]);
+ // The milk and its cereal are still, so they are captured once as a
+ // retained mesh (one native draw) and rebuilt only when the layout moves
+ // the bowl. Re-clipping ~290 faces in QuickJS every frame cost 3–4 ms.
+ const key=bowl.x+':'+bowl.z;
+ if(cerealMilkMesh?.key!==key){
+  releaseQuadMesh(cerealMilkMesh);
+  cerealMilkMesh=captureQuadMesh(()=>{
+   const center={x:bowl.x,y,z:bowl.z};
+   for(let i=0;i<ring.length;i++){const a=ring[i],b=ring[(i+1)%ring.length];worldQuad(center,a,b,b,[250,246,224]);}
+   for(let i=0;i<32;i++){
+    const x=bowl.x+Math.sin(i*12.9898)*620,z=bowl.z+Math.sin(i*7.233+.8)*420;
+    if(!milkAt(x,z))continue;
+    const h=y-4-Math.sin(i)*2,outer=17+(i%4)*3,inner=outer*.46;
+    const point=(j,r)=>({x:x+Math.cos(j*Math.PI/4)*r,y:h,z:z+Math.sin(j*Math.PI/4)*r});
+    for(let j=0;j<8;j++)worldQuad(point(j,outer),point(j+1,outer),point(j+1,inner),point(j,inner),i%3?[219,159,68]:[183,113,47]);
+   }
+  });
+  cerealMilkMesh.key=key;
  }
+ drawQuadMesh(cerealMilkMesh);
 }
+let cerealMilkMesh=null;
 function poolSlopeAt(x,z){
   const {d,nx,nz,bowl}=poolDistance(x,z);
   if(d<bowl.radius){
@@ -22585,6 +22598,11 @@ function spectatorQrBox() {
   if (shellMode === "GAME"&&!poolOnly()) return null;
   if (typeof capabilities === "function" && capabilities().socialPreview)
     return null;
+  // In the park the code is always this room's join link. Round resets and
+  // the title used to clear or replace it, and a title reset deals a new
+  // room name, so it is derived here (spectatorCode caches by URL).
+  if (poolOnly() && typeof qrcode === "function")
+    spectatorQr = spectatorCode("https://oskiewar.com/?park=" + sessionName);
   if (!spectatorQr || typeof spectatorQr.getModuleCount !== "function")
     return null;
   const safe = hudSafeRect();
@@ -22836,6 +22854,25 @@ function drawNetHealth(ink) {
   triangleDepth = previousDepth;
 }
 
+// A code's dark runs (row, column, length) are read once per code: walking
+// every module through isDark each frame cost over a millisecond on console.
+const qrRunCache = new WeakMap(), qrBatchCache = new WeakMap();
+function qrRuns(code) {
+  let runs = qrRunCache.get(code);
+  if (runs) return runs;
+  runs = [];
+  const count = code.getModuleCount();
+  for (let row = 0; row < count; row++) {
+    let run = 0;
+    for (let column = 0; column <= count; column++) {
+      if (column < count && code.isDark(row, column)) { run++; continue; }
+      if (run) runs.push(row, column - run, run);
+      run = 0;
+    }
+  }
+  qrRunCache.set(code, runs);
+  return runs;
+}
 function drawSpectatorQr(ink, placement = null) {
   if (typeof globalThis.__oskiewarJevPad === 'function') return;
   if (typeof capabilities === "function" && capabilities().socialPreview) return;
@@ -22850,6 +22887,27 @@ function drawSpectatorQr(ink, placement = null) {
     drawUsFlag(left - Math.round(hudTypeSize * 2.1) - 12, top + 2,
       Math.round(hudTypeSize * 2.1), Math.round(hudTypeSize * 1.2), ink);
   const shadow = [24, 26, 34];
+  // On the console the whole code is one cached triangle batch: ~200 run
+  // rectangles as separate calls cost over a millisecond a frame.
+  if (nativeTriangles3d && !clipView && !programBuffered) {
+    const key = left + "," + top + "," + cell + "," + size;
+    let batch = qrBatchCache.get(spectatorQr);
+    if (batch?.key !== key) {
+      const runs = qrRuns(spectatorQr), floats = [];
+      const rect = (x, y, w, h, [r, g, b]) => floats.push(
+        x, y, hudDepth, x + w, y, hudDepth, x + w, y + h, hudDepth, r, g, b,
+        x, y, hudDepth, x + w, y + h, hudDepth, x, y + h, hudDepth, r, g, b);
+      rect(left + 3, top + 3, size, size, shadow);
+      rect(left, top, size, size, [250, 250, 247]);
+      for (let i = 0; i < runs.length; i += 3)
+        rect(left + (runs[i + 1] + quiet) * cell, top + (runs[i] + quiet) * cell,
+          runs[i + 2] * cell, cell, [7, 8, 14]);
+      batch = { key, floats: new Float32Array(floats) };
+      qrBatchCache.set(spectatorQr, batch);
+    }
+    nativeTriangles3d(batch.floats);
+    return;
+  }
   const previousDepth = triangleDepth;
   triangleDepth = hudDepth;
   screenRect(left + 3, top + 3, size, size, shadow);
@@ -22857,14 +22915,11 @@ function drawSpectatorQr(ink, placement = null) {
   // Dark modules coalesce into horizontal runs so a full code stays a few
   // dozen faces instead of a few hundred — drawErrorQr already draws this way.
   const dark = [7, 8, 14];
-  for (let row = 0; row < count; row++) {
-    let run = 0;
-    for (let column = 0; column <= count; column++) {
-      if (column < count && spectatorQr.isDark(row, column)) { run++; continue; }
-      if (run) screenRect(left + (column - run + quiet) * cell,
-        top + (row + quiet) * cell, run * cell, cell, dark);
-      run = 0;
-    }
+  const runs = qrRuns(spectatorQr);
+  for (let i = 0; i < runs.length; i += 3) {
+    const row = runs[i], column = runs[i + 1], run = runs[i + 2];
+    screenRect(left + (column + quiet) * cell, top + (row + quiet) * cell,
+      run * cell, cell, dark);
   }
   triangleDepth = previousDepth;
 }
@@ -23897,8 +23952,18 @@ function drawKartTireTracks(){
 function drawGoKart(kart){
  if(!sceneBoundsVisible({minX:kart.x-140,maxX:kart.x+140,minY:kart.y-100,maxY:kart.y+25,minZ:kart.z-140,maxZ:kart.z+140}))return;
  const c=Math.cos(kart.poolYaw||0),s=Math.sin(kart.poolYaw||0),cp=Math.cos(kart.skatePitch||0),sp=Math.sin(kart.skatePitch||0);
- const at=(x,y,z)=>{const along=x*cp-y*sp;return {x:kart.x+c*along-s*z,y:kart.y+x*sp+y*cp,z:kart.z+s*along+c*z};};
  const body=kart.color||[234,105,116];
+ // The kart never changes shape, so it is captured once in its own space
+ // and drawn as one retained mesh; only the pose axes change per frame.
+ if(nativeRetainedMeshes){
+  characterMesh('kart:'+body.join(','),()=>drawGoKartBody(p=>p,body),{x:kart.x,y:kart.y,z:kart.z},
+   [{x:c*cp,y:sp,z:s*cp},{x:-c*sp,y:cp,z:-s*sp},{x:-s,y:0,z:c}]);
+  return;
+ }
+ drawGoKartBody((p)=>{const along=p.x*cp-p.y*sp;return {x:kart.x+c*along-s*p.z,y:kart.y+p.x*sp+p.y*cp,z:kart.z+s*along+c*p.z};},body);
+}
+function drawGoKartBody(place,body){
+ const at=(x,y,z)=>place({x,y,z});
  worldQuad(at(-95,-28,-52),at(100,-28,-52),at(100,-28,52),at(-95,-28,52),body);
  for(const z of [-52,52])worldQuad(at(-95,-28,z),at(100,-28,z),at(100,-8,z),at(-95,-8,z),mixColor(body,[25,25,35],.25));
  worldQuad(at(-45,-65,-30),at(-45,-65,30),at(-45,-28,30),at(-45,-28,-30),[34,34,44]);
