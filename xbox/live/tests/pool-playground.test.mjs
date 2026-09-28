@@ -7,7 +7,7 @@ function playground(){
  let now=1e6;const noop=()=>{},audio=[],drums=[];
  const api=new Function('runtime','capabilities','telemetry','gameSignal','drum','wipe','box','line','triangle','write','systemWrite','oscillator','oscillatorStop',`${source}
  configureWorldMap('skatepark','pool');fightOpponent='freeskate';gameMode='fight';
- return {spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
+ return {mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
  parkHalfPipe3D,parkHalfPipeHeight,parkDeckY,poolFloorAt,poolSlopeAt,gunPickups,axePickup,
  resetParkSupply,updateParkSupply,updateGunPickups,resetParkKids,updateParkKids,parkKids,
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
@@ -311,4 +311,27 @@ test('native presence packets update cosmetic flags without entering combat netp
   globalThis.__oskiewarNetInbox=[{kind:'render-flags',flags:{aeselPulse:3}},{kind:'render-flags',flags:{aeselPulse:Infinity}}];
   a.netDrainHostInbox();assert.equal(globalThis.__oskiewarRenderFlags.aeselPulse,3);assert.equal(globalThis.__oskiewarNetInbox.length,0);
  }finally{delete globalThis.__oskiewarNetInbox;delete globalThis.__oskiewarRenderFlags;}
+});
+
+test('cached character cameras preserve view coordinates under nonuniform scale and shear',()=>{
+ const a=playground();a.cameraDoll.snap({position:{x:300,y:-90,z:500},target:{x:20,y:0,z:0},width:1800,perspective:1});
+ const origin={x:12,y:45,z:-20},axes=[{x:2,y:0,z:1},{x:.4,y:3,z:0},{x:-1,y:.2,z:2}];
+ const world=Array.from(a.mainNativeCamera()),local=a.characterLocalCamera(origin,axes);
+ for(const point of [[0,0,0],[1,2,-3],[-5,7,2]]){
+  const p=[origin.x,origin.y,origin.z].map((v,i)=>v+point.reduce((sum,n,j)=>sum+n*axes[j][['x','y','z'][i]],0));
+  for(const row of [3,6,9]){
+   const expected=p.reduce((sum,v,i)=>sum+(v-world[i])*world[row+i],0);
+   const actual=point.reduce((sum,v,i)=>sum+(v-local[i])*local[row+i],0);
+   assert.ok(Math.abs(actual-expected)<.001);
+  }
+ }
+});
+
+test('native polling delivers star edits once and drains the queue',()=>{
+ const a=playground();let polls=0;
+ try{
+  globalThis.oskiewarNetPoll=()=>++polls===1?[{kind:'render-flags',flags:{shirtSymbol:2}}]:[];
+  a.netDrainHostInbox();assert.equal(globalThis.__oskiewarRenderFlags.shirtSymbol,2);
+  a.netDrainHostInbox();assert.equal(polls,2);assert.equal(globalThis.__oskiewarNetInbox.length,0);
+ }finally{delete globalThis.oskiewarNetPoll;delete globalThis.__oskiewarNetInbox;delete globalThis.__oskiewarRenderFlags;}
 });

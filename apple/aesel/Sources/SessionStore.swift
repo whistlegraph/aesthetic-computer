@@ -7,6 +7,10 @@ final class SessionStore {
     private var values: [String: String]
     private let sessionKey: String
     private let tokenService: String
+    // All windows share one credential read. In particular, SwiftUI body
+    // evaluation must not open another Keychain request while one is pending.
+    private enum TokenRead { case pending, loaded(String?) }
+    private static var tokenReads: [String: TokenRead] = [:]
 
     private let backup: URL
     private var writable = true
@@ -124,16 +128,30 @@ final class SessionStore {
          kSecAttrAccount as String: "access-token"]
     }
 
-    func clearToken() { SecItemDelete(tokenQuery as CFDictionary) }
+    func clearToken() {
+        Self.tokenReads[tokenService] = .loaded(nil)
+        SecItemDelete(tokenQuery as CFDictionary)
+    }
 
     /// The signed-in AC access token, for the app's own calls to AC.
     func token() -> String? {
+        if let read = Self.tokenReads[tokenService] {
+            switch read {
+            case .pending: return nil
+            case .loaded(let value): return value
+            }
+        }
+        Self.tokenReads[tokenService] = .pending
         var query = tokenQuery
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var item: CFTypeRef?
         guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
-              let data = item as? Data, let token = String(data: data, encoding: .utf8), !token.isEmpty else { return nil }
+              let data = item as? Data, let token = String(data: data, encoding: .utf8), !token.isEmpty else {
+            Self.tokenReads[tokenService] = .loaded(nil)
+            return nil
+        }
+        Self.tokenReads[tokenService] = .loaded(token)
         return token
     }
 
@@ -151,7 +169,8 @@ final class SessionStore {
             query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
             status = SecItemAdd(query as CFDictionary, nil)
         }
-        if status != errSecSuccess { NSLog("[aesel] Keychain save failed (%d); sign in again after relaunch", status) }
+        if status == errSecSuccess { Self.tokenReads[tokenService] = .loaded(token) }
+        else { NSLog("[aesel] Keychain save failed (%d); sign in again after relaunch", status) }
     }
 
     func seedJSON() -> String? {
@@ -162,13 +181,7 @@ final class SessionStore {
         var record = ((values["session"]?.data(using: .utf8)).flatMap {
             try? JSONSerialization.jsonObject(with: $0) as? [String: Any]
         }) ?? [:]
-        var query = tokenQuery
-        query[kSecReturnData as String] = true
-        var result: CFTypeRef?
-        if SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-           let data = result as? Data, let token = String(data: data, encoding: .utf8) {
-            record["token"] = token
-        }
+        if let token = token() { record["token"] = token }
         if let data = try? JSONSerialization.data(withJSONObject: record),
            let text = String(data: data, encoding: .utf8) { values["session"] = text }
         guard !values.isEmpty,

@@ -4045,11 +4045,24 @@ function drawAeselFairy(t){
   if(Number.isFinite(pulse)&&pulse!==aeselPulseSeen){aeselPulseSeen=pulse;aeselSeenAt=now;}
   if(now-aeselSeenAt>3500000||!players[0].alive)return;
   const head=runnerWorldGeometry(players[0],t).head;
-  const c={x:head.x+Math.sin(t*1.8)*20,y:head.y-70+Math.sin(t*3)*5,z:head.z+Math.cos(t*1.8)*20};
-  const wing=14+Math.sin(t*28)*6;
-  worldQuad({x:c.x,y:c.y-5,z:c.z},{x:c.x-wing,y:c.y-13,z:c.z-5},{x:c.x-wing,y:c.y+7,z:c.z+5},c,[183,243,237]);
-  worldQuad(c,{x:c.x+wing,y:c.y+7,z:c.z+5},{x:c.x+wing,y:c.y-13,z:c.z-5},{x:c.x,y:c.y-5,z:c.z},[238,185,247]);
-  worldQuad({x:c.x-3,y:c.y-8,z:c.z-3},{x:c.x+3,y:c.y-8,z:c.z+3},{x:c.x+2,y:c.y+8,z:c.z+2},{x:c.x-2,y:c.y+8,z:c.z-2},[255,231,127]);
+  const radius=head.radius+18;
+  const c={x:head.x+Math.sin(t*1.8)*radius,y:head.y-head.radius*.6+Math.sin(t*3)*5,z:head.z+Math.cos(t*1.8)*radius};
+  if(cameraDoll.dirty||!cameraDoll.view)cameraDoll.prepare();
+  const {right,up}=cameraDoll.view;
+  const at=(x,y)=>({x:c.x+right.x*x+up.x*y,y:c.y+right.y*x+up.y*y,z:c.z+right.z*x+up.z*y});
+  const wing=9+Math.sin(t*28)*4;
+  worldQuad(at(0,0),at(-wing,8),at(-wing,-5),at(0,-3),[183,243,237]);
+  worldQuad(at(0,-3),at(wing,-5),at(wing,8),at(0,0),[238,185,247]);
+  worldQuad(at(-2,5),at(2,5),at(2,-5),at(-2,-5),[255,231,127]);
+  const intent=globalThis.__oskiewarRenderFlags?.aeselIntent;
+  const label=intent===2?'PUTTING A STAR ON YOUR SHIRT':intent===1?'WORKING IN AESEL':'';
+  if(label){
+    const p=cameraDoll.project(c),saved=triangleDepth,size=18,w=handleWidth(label,size);
+    if(Number.isFinite(p.x)&&Number.isFinite(p.y)){
+      const x=Math.max(24,Math.min(viewWidth()-w-24,p.x-w/2)),y=Math.max(32,Math.min(viewHeight()-48,p.y-42));
+      triangleDepth=-1.49;screenRect(x-8,y-5,w+16,30,[31,24,41]);typeWrite(label,x,y,size,255,231,180);triangleDepth=saved;
+    }
+  }
 }
 function drawAeselConnect(){
   if(!poolOnly()||!sessionName)return;
@@ -8894,7 +8907,11 @@ function netHostBegin(now) {
 }
 
 function netDrainHostInbox() {
-  const inbox = globalThis.__oskiewarNetInbox;
+  const inbox = globalThis.__oskiewarNetInbox ||= [];
+  if(typeof globalThis.oskiewarNetPoll === "function"){
+    const packets=globalThis.oskiewarNetPoll();
+    if(Array.isArray(packets))inbox.push(...packets);
+  }
   if (!Array.isArray(inbox) || !inbox.length) return;
   for (const packet of inbox) {
     if(packet?.kind==='render-flags'){
@@ -18272,14 +18289,20 @@ function dummyView(player) {
 const characterMeshes=new Map(),characterCamera=new Float32Array(27);
 function characterLocalCamera(origin,axes,out=characterCamera){
   const camera=mainNativeCamera();out.set(camera);
-  const [a,b,c]=axes;
-  const cross=(u,v)=>({x:u.y*v.z-u.z*v.y,y:u.z*v.x-u.x*v.z,z:u.x*v.y-u.y*v.x});
-  const dot=(u,v)=>u.x*v.x+u.y*v.y+u.z*v.z;
-  const bc=cross(b,c),ca=cross(c,a),ab=cross(a,b),det=dot(a,bc);
+  const a=axes[0],b=axes[1],c=axes[2];
+  const bcx=b.y*c.z-b.z*c.y,bcy=b.z*c.x-b.x*c.z,bcz=b.x*c.y-b.y*c.x;
+  const cax=c.y*a.z-c.z*a.y,cay=c.z*a.x-c.x*a.z,caz=c.x*a.y-c.y*a.x;
+  const abx=a.y*b.z-a.z*b.y,aby=a.z*b.x-a.x*b.z,abz=a.x*b.y-a.y*b.x;
+  const det=a.x*bcx+a.y*bcy+a.z*bcz;
   if(Math.abs(det)<1e-9)return null;
-  const delta={x:camera[0]-origin.x,y:camera[1]-origin.y,z:camera[2]-origin.z};
-  out[0]=dot(delta,bc)/det;out[1]=dot(delta,ca)/det;out[2]=dot(delta,ab)/det;
-  for(const row of [3,6,9])for(let i=0;i<3;i++)out[row+i]=camera[row]*axes[i].x+camera[row+1]*axes[i].y+camera[row+2]*axes[i].z;
+  const dx=camera[0]-origin.x,dy=camera[1]-origin.y,dz=camera[2]-origin.z;
+  out[0]=(dx*bcx+dy*bcy+dz*bcz)/det;
+  out[1]=(dx*cax+dy*cay+dz*caz)/det;
+  out[2]=(dx*abx+dy*aby+dz*abz)/det;
+  for(let row=3;row<=9;row+=3){
+    const x=camera[row],y=camera[row+1],z=camera[row+2];
+    out[row]=x*a.x+y*a.y+z*a.z;out[row+1]=x*b.x+y*b.y+z*b.z;out[row+2]=x*c.x+y*c.y+z*c.z;
+  }
   // Mesh colours already contain the three cel-light bands.
   out[24]=0;out[25]=0;out[26]=-1;
   return out;
@@ -18474,8 +18497,14 @@ function drawSpatialRunner(player,world,t,lod=0){
     }
     if(dressed&&lod===0){
       const c={x:lerp(hip.x,neck.x,.65),y:lerp(hip.y,neck.y,.65),z:lerp(hip.z,neck.z,.65)};
+      if(player===players[0] && globalThis.__oskiewarRenderFlags?.shirtSymbol===2){
+        const center=point(c,12*scale,0,0);
+        const vertex=i=>{const angle=i*Math.PI/5,r=(i%2?2.6:6)*scale;return point(c,12*scale,Math.cos(angle)*r,Math.sin(angle)*r);};
+        for(let i=0;i<10;i++)worldTriangle(center,vertex(i),vertex(i+1),[250,200,60]);
+      }else{
       for(let i=0;i<6;i++){const a=i/6*Math.PI*2;ellipsoid(point(c,12*scale,Math.cos(a)*3*scale,Math.sin(a)*3*scale),.8*scale,2*scale,2*scale,[255,255,250],4,2);}
       ellipsoid(point(c,13*scale,0,0),1*scale,2*scale,2*scale,[250,200,60],4,2);
+      }
     }
   }
   if(!player.headless){

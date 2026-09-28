@@ -49,7 +49,7 @@ struct ContentView: View {
     @State private var previewBounds = PreviewBounds()
     private var previewSize: CGSize { CGSize(width: previewBounds.width, height: previewBounds.height) }
     private var previewInset: CGFloat { previewBounds.right }
-    private var previewVisible: Bool { session.accountReady && session.previewURL != nil && !previewHidden && sheetSize.width >= 420 && sheetSize.height >= 300 }
+    private var previewVisible: Bool { session.accountReady && (session.previewURL != nil || !oskiewar.room.isEmpty) && !previewHidden && sheetSize.width >= 420 && sheetSize.height >= 300 }
     private var previewBlockHeight: CGFloat { paperTop }
     private var hasNotebook: Bool { session.displayedEntries.contains { $0.kind != .edit } || session.fatal != nil }
     // WebKit reserves a paint row for descenders; the next editor row shares it.
@@ -161,7 +161,7 @@ struct ContentView: View {
         .foregroundStyle(paint.ink)
         .background { AeselCloth().ignoresSafeArea() }
         .background(HostCarrier(host: host).frame(width: 0, height: 0))
-        .aeselWindowTitle(session.route, paper: paint.bg)
+        .aeselWindowTitle(oskiewar.room.isEmpty ? session.route : "Oskiewar · " + oskiewar.room, paper: paint.bg)
         .environment(\.paint, paint)
         .coordinateSpace(name: "aesel-ui")
         .animation(.easeInOut(duration: 0.5), value: paint)
@@ -238,7 +238,7 @@ struct ContentView: View {
         .onChange(of: session.selectedRevision) { writing = false }
         .onChange(of: session.currentSessionID) { previewHidden = false; expandedPreview = false; attended = true }
         .onChange(of: preview.failure) { host.automation.previewFailure = preview.failure }
-        .onChange(of: session.busy) { if session.busy { attended = false } }
+        .onChange(of: session.busy) { if session.busy { attended = false }; oskiewar.setIntent(session.busy ? 1 : 0) }
         .onChange(of: writing) { if writing { attended = true } }
         .onChange(of: draft) { attended = true }
         .onChange(of: session.showSignIn) { if !session.showSignIn { host.cancelSignIn() } }
@@ -437,17 +437,6 @@ struct ContentView: View {
 
     private var connectionNotices: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if !oskiewar.room.isEmpty {
-                HStack(spacing: 10) {
-                    Image(systemName: "sparkles").accessibilityHidden(true)
-                    Text(oskiewar.status).font(Paint.font(13))
-                    Button { oskiewar.disconnect() } label: {
-                        Image(systemName: "xmark").frame(width: 24, height: 24)
-                    }.accessibilityLabel("Disconnect Oskiewar")
-                }
-                .padding(10).background(paint.bg, in: RoundedRectangle(cornerRadius: 8))
-                .overlay { RoundedRectangle(cornerRadius: 8).stroke(paint.ink.opacity(0.3), lineWidth: 1) }
-            }
             ForEach(session.notices.keys.sorted(), id: \.self) { scope in
                 if let notice = session.notices[scope] {
                     HStack(spacing: 10) {
@@ -479,7 +468,19 @@ struct ContentView: View {
     }
 
     @ViewBuilder private func title(availableWidth: CGFloat) -> some View {
-        if !session.route.isEmpty {
+        if !oskiewar.room.isEmpty {
+            HStack(spacing: 6) {
+                OskiewarHeadIcon().frame(width: 22, height: 24)
+                    .opacity(oskiewar.status.hasPrefix("Connected") ? 1 : 0.5)
+                AeselTitle(text: "Oskiewar · " + oskiewar.room, size: compact ? 12 : 16,
+                           maximumWidth: max(0, availableWidth - 28), horizontalInset: 0)
+            }
+            .frame(height: row)
+            .help(oskiewar.status)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Oskiewar, " + oskiewar.room + ". " + oskiewar.status)
+            .contextMenu { Button("Disconnect Oskiewar") { oskiewar.disconnect() } }
+        } else if !session.route.isEmpty {
             Button { if let url = titleURL { openURL(url) } } label: {
                 AeselTitle(text: session.route, colors: session.handleColors, size: compact ? 12 : 16,
                            maximumWidth: availableWidth, horizontalInset: 0,
@@ -495,7 +496,20 @@ struct ContentView: View {
     /// The corner piece keeps the original desktop wood grain and resize edges.
     private func previewBox(container: CGSize) -> some View {
         ZStack(alignment: .topTrailing) {
-            if let url = session.previewURL {
+            if !oskiewar.room.isEmpty {
+                VStack(spacing: 4) {
+                    ZStack {
+                        Image(systemName: "tshirt.fill").resizable().scaledToFit().foregroundStyle(.white)
+                        Image(systemName: "star.fill").resizable().scaledToFit().foregroundStyle(.yellow)
+                            .frame(width: 22, height: 22)
+                    }.frame(maxWidth: .infinity, maxHeight: .infinity).layoutPriority(-1)
+                    Button("Apply star") { oskiewar.applyStar() }.font(.system(size: 12))
+                    Text(oskiewar.editStatus.isEmpty ? "Shirt preview" : oskiewar.editStatus)
+                        .font(.system(size: 9)).lineLimit(1).minimumScaleFactor(0.7)
+                }.padding(8).frame(width: previewSize.width, height: previewSize.height)
+                    .background(Color(red: 0.16, green: 0.13, blue: 0.22))
+                    .foregroundStyle(.white).clipped()
+            } else if let url = session.previewURL {
                 PieceView(url: url, source: session.displayedSource, preview: preview)
                     .frame(width: previewSize.width, height: previewSize.height, alignment: .topTrailing)
                     .clipped()
@@ -744,6 +758,7 @@ struct ContentView: View {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         if text.hasPrefix("oskiewar://") { oskiewar.connect(text); draft = ""; return }
+        if text == "/shirt star", !oskiewar.room.isEmpty { oskiewar.applyStar(); draft = ""; return }
         if text == "/disconnect" { oskiewar.disconnect(); draft = ""; return }
         switch Session.command(for: text) {
         case "new", "home": writing = false; showHome = true
@@ -810,7 +825,7 @@ struct ContentView: View {
                           "previewURL": session.previewURL?.absoluteString ?? "", "shareURL": session.shareURL?.absoluteString ?? ""],
                 "oskiewar": ["room": oskiewar.room, "status": oskiewar.status],
                 "composer": ["characters": draft.count, "placeholder": "", "focused": writing],
-                "title": ["opacity": 1, "linked": titleURL != nil], "footer": "v\(session.displayedRevision)",
+                "title": ["opacity": 1, "linked": oskiewar.room.isEmpty && titleURL != nil, "text": oskiewar.room.isEmpty ? session.route : "Oskiewar · " + oskiewar.room], "footer": "v\(session.displayedRevision)",
                 "session": ["id": session.currentSessionID, "busy": session.busy, "status": session.status, "signedIn": session.signedIn, "accountReady": session.accountReady,
                             "entryCount": session.displayedEntries.count, "totalEntryCount": session.entries.count, "history": session.history.map { ["id": $0.id, "title": $0.title, "route": $0.route] }],
                 "provider": ["selected": session.provider, "ready": session.providerReady,
@@ -994,6 +1009,23 @@ private struct CurtainAccountButtonStyle: ButtonStyle {
 @MainActor
 private final class OskiewarAttachment: ObservableObject {
     @Published var status = ""
+    @Published var editStatus = ""
+    func setIntent(_ value: Int) {
+        guard let socket else { return }
+        Task { try? await socket.send(.string("{\"type\":\"oskiewar:flags\",\"content\":{\"aeselIntent\":\(value)}}")) }
+    }
+    func applyStar() {
+        guard let socket, status.hasPrefix("Connected") else { editStatus = "Connect to a game first"; return }
+        Task {
+            do {
+                try await socket.send(.string("{\"type\":\"oskiewar:flags\",\"content\":{\"aeselIntent\":2}}"))
+                try await socket.send(.string("{\"type\":\"oskiewar:flags\",\"content\":{\"shirtSymbol\":2}}"))
+                editStatus = "Star sent to game"
+                try await Task.sleep(nanoseconds: 3_000_000_000)
+                try await socket.send(.string("{\"type\":\"oskiewar:flags\",\"content\":{\"aeselIntent\":0}}"))
+            } catch { editStatus = "Could not send star" }
+        }
+    }
     private var socket: URLSessionWebSocketTask?
     private var receiver: Task<Void, Never>?
     private var heartbeat: Task<Void, Never>?
@@ -1042,5 +1074,24 @@ private final class OskiewarAttachment: ObservableObject {
                 }
             } catch { if !Task.isCancelled { self?.status = "Oskiewar connection lost" } }
         }
+    }
+}
+
+private struct OskiewarHeadIcon: View {
+    var body: some View {
+        Canvas { context, size in
+            let face = CGRect(x: 1, y: 4, width: size.width - 2, height: size.height - 5)
+            context.fill(Path(ellipseIn: face), with: .color(Color(red: 0.95, green: 0.69, blue: 0.78)))
+            context.stroke(Path(ellipseIn: face), with: .color(Color(red: 0.13, green: 0.09, blue: 0.17)), lineWidth: 1.5)
+            for x in [size.width * 0.33, size.width * 0.67] {
+                context.fill(Path(ellipseIn: CGRect(x: x - 1.5, y: size.height * 0.48, width: 3, height: 4)), with: .color(.black))
+            }
+            var mouth = Path(); mouth.move(to: CGPoint(x: size.width * 0.37, y: size.height * 0.76))
+            mouth.addQuadCurve(to: CGPoint(x: size.width * 0.63, y: size.height * 0.76), control: CGPoint(x: size.width * 0.5, y: size.height * 0.85))
+            context.stroke(mouth, with: .color(.black), lineWidth: 1)
+            var bow = Path(); bow.move(to: CGPoint(x: 5, y: 1)); bow.addLine(to: CGPoint(x: 17, y: 6))
+            bow.addLine(to: CGPoint(x: 17, y: 1)); bow.addLine(to: CGPoint(x: 5, y: 6)); bow.closeSubpath()
+            context.fill(bow, with: .color(Color(red: 0.4, green: 0.85, blue: 0.7)))
+        }.accessibilityHidden(true)
     }
 }
