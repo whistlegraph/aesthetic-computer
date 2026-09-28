@@ -7,7 +7,7 @@ function playground(){
  let now=1e6;const noop=()=>{},audio=[],drums=[];
  const api=new Function('runtime','capabilities','telemetry','gameSignal','drum','wipe','box','line','triangle','write','systemWrite','oscillator','oscillatorStop',`${source}
  configureWorldMap('skatepark','pool');fightOpponent='freeskate';gameMode='fight';
- return {strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
+ return {clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
  parkHalfPipe3D,parkHalfPipeHeight,parkDeckY,poolFloorAt,poolSlopeAt,gunPickups,axePickup,
  resetParkSupply,updateParkSupply,updateGunPickups,resetParkKids,updateParkKids,parkKids,
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
@@ -16,8 +16,8 @@ function playground(){
  updateSeatHeartbeat,updatePonytail,ponytailAnchor,ponytailStates,drawSpatialRunner,sampleCombatBoxes,sweptProjectileContact,damageParkCivilian,drawAeselFairy,sceneBoundsVisible,buildParkScene,parkActorVisible,figureLod,
  state:()=>({halfpipe:parkHalfPipe3D})};`)(()=>({monotonicUs:now}),()=>({platform:'web'}),noop,noop,(name,gain,pan)=>drums.push({name,gain,pan}),noop,noop,noop,noop,noop,noop,(hz,gain)=>audio.push({hz,gain}),()=>audio.push({stop:true}));
  const p=api.players[0];Object.assign(p,{x:1080,z:0,y:api.poolFloorAt(1080,0),grounded:true,alive:true,dummy:false,skateboard:false,poolYaw:0,previous:[],spin:null,directionChanges:[],poolLastSteer:0});
- api.step=(down=[],dt=1/60)=>{now+=dt*1e6;api.updatePlayer(p,{down,leftX:0,leftY:0},dt,now);};
- api.now=()=>now;api.audio=audio;api.drums=drums;return api;
+ api.step=(down=[],dt=1/60)=>{now+=dt*1e6;api.updatePlayer(p,{down,leftX:0,leftY:0},dt,api.clock());};
+ api.now=api.clock;api.audio=audio;api.drums=drums;return api;
 }
 test('pool flicks start, sustain and release a spin on foot and on a board',()=>{
  for(const board of [false,true]){
@@ -501,7 +501,7 @@ test('held punch draws neon chalk through movement and spins, without an attack'
 test('park scatters SMGs and held fire shoots repeated individual rounds',()=>{
  const a=playground(),p=a.players[0];a.resetParkSupply(a.now());assert.ok(a.gunPickups.filter(g=>g.active&&g.kind==='RUBBER SMG').length>=2);
  p.gunMode='RUBBER SMG';p.gunAmmo=30;for(let i=0;i<60;i++)a.step(['Y']);
- assert.ok(p.gunAmmo<22);assert.ok(p.gunAmmo>15);assert.ok(a.drums.some(d=>d.name==='smg-shot'));
+ assert.ok(p.gunAmmo<22);assert.ok(p.gunAmmo>15,`ammo=${p.gunAmmo}, shots=${a.drums.filter(d=>d.name==='smg-shot').length}`);assert.ok(a.drums.some(d=>d.name==='smg-shot'));
 });
 test('an attacked civilian approaches and starts sparring, then disengages after escape',()=>{
  const a=playground(),p=a.players[0];a.resetParkKids();const kid=a.parkKids[0];
@@ -514,4 +514,28 @@ test('stereo fades by distance and strike capsules can break low windows',()=>{
  const w=a.parkWindowWalls()[0],x=w.ax+w.width*.5,y=a.parkDeckY-130;
  assert.equal(a.strikeParkWindow(p,{hit:[{capsule:{x1:x,y1:y,z1:w.az+40,x2:x,y2:y,z2:w.az-10,width:12}}]}),true);
  assert.equal(a.brokenParkWindows.size,1);
+});
+test('monowheel loop completes with speed, drops without grip, and excludes walkers',()=>{
+ for(const speed of [1200,3100]){
+  const a=playground(),p=a.players[0],loop=a.raceTrack();
+  Object.assign(p,{x:loop.x+1,z:loop.z,y:a.parkDeckY,vx:speed,vz:0,onewheel:false,grounded:true});
+  a.enterRaceLoop(p,loop.x-1,a.now());assert.ok(!p.raceLoop);
+  p.onewheel=true;a.enterRaceLoop(p,loop.x-1,a.now());assert.ok(p.raceLoop);
+  for(let i=0;i<900&&p.raceLoop;i++){
+   a.updateRaceLoop(p,1/120,a.now()+i*1e6/120,speed>1200?1:0);
+   assert.ok([p.x,p.y,p.z,p.vx,p.vy].every(Number.isFinite));
+  }
+  assert.ok(!p.raceLoop,'loop resolves');
+  if(speed>1200){assert.equal(p.lastButton,'LOOP COMPLETE');assert.equal(p.y,a.parkDeckY);}
+  else assert.equal(p.grounded,false,'slow rider falls with tangent velocity');
+ }
+});
+test('holding forward repeats half-pipe airs and double direction exits the lane',()=>{
+ const a=playground(),p=a.players[0],pipe=a.parkHalfPipe3D;
+ Object.assign(p,{x:pipe.x,z:0,y:a.poolFloorAt(pipe.x,0),vx:2000,vz:0,vy:0,skateboard:true,poolYaw:0,grounded:true});
+ let lands=0;
+ for(let i=0;i<2400&&lands<3;i++){const air=!!p.poolVert?.pipe;a.step(['ArrowUp']);if(air&&p.grounded)lands++;}
+ assert.equal(lands,3,JSON.stringify({x:p.x,y:p.y,vx:p.vx,vy:p.vy,yaw:p.poolYaw,locked:p.poolPipeLocked,vert:p.poolVert,ground:p.grounded,pipe}));
+ a.step([]);a.step(['ArrowRight']);a.step([]);a.step(['ArrowRight']);
+ assert.equal(p.poolPipeLocked,false);assert.ok(p.poolPipeEscapeUntil>a.now());
 });

@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 192;
+const buildVersion = 193;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -1749,7 +1749,7 @@ function boundParkBody(p,previous={x:p.x,z:p.z||0}){
     z=clamp(p.z||0,worldNear-parkLotMargin+25,worldFar+parkLotMargin-25);
   if(x!==p.x)p.vx=0;if(z!==p.z)p.vz=0;p.x=x;p.z=z;
   const ceiling=parkDeckY-parkBuildingHeight+(p.pad===undefined?70:230);
-  if(insidePark(p.x,p.z)&&p.y<ceiling){p.y=ceiling;p.vy=Math.max(0,p.vy);p.poolVert=null;}
+  if(insidePark(p.x,p.z)&&p.y<ceiling){p.y=ceiling;p.vy=Math.max(0,p.vy);if(!p.poolVert?.pipe)p.poolVert=null;}
 }
 function terrainFloorAt(x, z = 0) {
   if (poolOnly()) return poolFloorAt(x, z);
@@ -9692,6 +9692,10 @@ function clearPoolCamera(position, subject) {
 function updateCameraDoll(dt, now) {
   if (poolOnly() && freeskateActive()) {
     const p=players[0],heading=p.poolYaw||0,speed=Math.hypot(p.vx,p.vz||0);
+    if(p.raceLoop){
+      const loop=p.raceLoop,target={x:loop.x,y:parkDeckY-loop.radius,z:loop.z},position={x:loop.x-900,y:parkDeckY-1500,z:loop.z-2400};
+      cameraDoll.track({target,position,width:3400,perspective:1,fov:65,roll:0},dt,6);poolIdleSeconds=poolIdleClose=0;return;
+    }
     const rival=parkKids.find(k=>k.pad===p.sparringPartner&&k.alive);
     if(rival&&p.alive&&now>=(p.poolPipeEscapeUntil||0)){
       const dx=rival.x-p.x,dz=(rival.z||0)-(p.z||0),distance=Math.hypot(dx,dz)||1;
@@ -12550,6 +12554,7 @@ function updateTurn(player, now) {
 }
 
 function updatePoolPlayer(p, pad, dt, now) {
+  const racePreviousX=p.x;
   const held=pad.down, pressed=key=>held.includes(key)&&!p.previous.includes(key);
   const axis=value=>Math.abs(value)>.18?Math.sign(value)*(Math.abs(value)-.18)/.82:0;
   const turn=Number(held.includes('ArrowRight'))-Number(held.includes('ArrowLeft')) || axis(pad.leftX||0);
@@ -12561,13 +12566,14 @@ function updatePoolPlayer(p, pad, dt, now) {
   if(analogKey&&analogKey!==p.poolAnalogKey){if(p.poolAnalogTap?.key===analogKey&&now-p.poolAnalogTap.at<280000){directionDash=true;p.poolAnalogTap=null;}else p.poolAnalogTap={key:analogKey,at:now};}
   p.poolAnalogKey=analogKey;
   if(directionDash){
-    p.poolPipeLocked=false;p.poolPipeEscapeUntil=now+900000;p.poolVert=null;p.dashUntil=now+180000;p.poolRunTime=1.5;
+    p.raceLoop=null;p.raceLoopCooldown=now+1000000;p.poolPipeLocked=false;p.poolPipeEscapeUntil=now+900000;p.poolVert=null;p.dashUntil=now+180000;p.poolRunTime=1.5;
     const side=tapKey==='ArrowLeft'||analogKey==='left'?-1:tapKey==='ArrowRight'||analogKey==='right'?1:0;
     if(side)p.poolYaw+=(side*Math.PI/2);
     const sign=tapKey==='ArrowDown'||analogKey==='back'?-1:1;
     p.vx=Math.cos(p.poolYaw||0)*2200*sign;p.vz=Math.sin(p.poolYaw||0)*2200*sign;p.vy=Math.min(p.vy,-480);p.grounded=false;
     p.lastButton='DASH OUT';p.lastButtonAt=now;playDrum('whoosh',.5,panPlayer(p));
   }
+  if(updateRaceLoop(p,dt,now,throttle)){p.inputX=turn;p.inputZ=throttle;p.previous=held.slice();return;}
   const steer=Math.sign(turn);
   if(steer&&steer!==p.poolLastSteer){
     noteDirectionChange(p,now);
@@ -12708,6 +12714,7 @@ function updatePoolPlayer(p, pad, dt, now) {
     playDrum('clap',clamp((p.landingSpeed||0)/2400,.25,.8),panPlayer(p));
     emitSignal('skate-land',p.pad,p.landingSpeed||0,0);
   }
+  enterRaceLoop(p,racePreviousX,now);
   updateChalk(p,held,now);
   const horizontal=Math.hypot(p.vx,p.vz||0);
   if(p.grounded&&!p.skateboard){
@@ -20215,7 +20222,39 @@ function drawTerrainBackWall(left, right, far, color) {
   terrainPass(left, right, wallZ, wallZ, wallBottom, () => wall);
 }
 
+function raceTrack(){return {x:gridLeft+gridWidth*.52,z:worldNear-1500,radius:520};}
+function updateRaceLoop(p,dt,now,throttle){
+ const loop=p.raceLoop;if(!loop)return false;
+ loop.speed=clamp(loop.speed+(-1800*Math.sin(loop.angle)+Math.max(0,throttle)*750)*dt,0,4200);
+ loop.angle+=loop.speed/loop.radius*dt;
+ const a=loop.angle,dir=loop.direction;
+ p.x=loop.x+dir*Math.sin(a)*loop.radius;p.y=parkDeckY-loop.radius+Math.cos(a)*loop.radius;p.z=loop.z;
+ p.vx=dir*Math.cos(a)*loop.speed;p.vy=-Math.sin(a)*loop.speed;p.vz=0;p.skateVx=loop.speed;p.skatePitch=-a;p.grounded=true;
+ if(a>=Math.PI*2){p.raceLoop=null;p.raceLoopCooldown=now+1000000;p.y=parkDeckY;p.vy=0;p.vx=dir*loop.speed;p.skatePitch=0;p.lastButton='LOOP COMPLETE';p.lastButtonAt=now;}
+ else if(loop.speed<1||(Math.cos(a)<0&&loop.speed*loop.speed/loop.radius < -1800*Math.cos(a))){p.raceLoop=null;p.raceLoopCooldown=now+1000000;p.grounded=false;}
+ return true;
+}
+function enterRaceLoop(p,previousX,now){
+ if(!p.onewheel||!p.grounded||p.raceLoop||now<(p.raceLoopCooldown||0))return;
+ const loop=raceTrack(),direction=Math.sign(p.vx)||1;
+ if(Math.abs((p.z||0)-loop.z)>90||Math.abs(p.vx)<1200||(previousX-loop.x)*direction>0||(p.x-loop.x)*direction<0)return;
+ p.raceLoop={...loop,direction,angle:0,speed:Math.hypot(p.vx,p.vz||0)};p.poolYaw=direction>0?0:Math.PI;p.lastButton='LOOP';p.lastButtonAt=now;
+}
+function drawRaceTrack(){
+ const loop=raceTrack(),cx=gridLeft+gridWidth/2,cz=worldNear-900,rx=gridWidth*.44,rz=600,point=(a,r)=>({x:cx+Math.cos(a)*(rx+r),y:parkDeckY-1,z:cz+Math.sin(a)*(rz+r)});
+ for(let i=0;i<64;i++){
+  const a=i*Math.PI/32,b=(i+1)*Math.PI/32;worldQuad(point(a,-90),point(b,-90),point(b,90),point(a,90),[54,58,66]);
+  if(i%2===0)worldQuad(point(a,-3),point(b,-3),point(b,3),point(a,3),[238,225,126]);
+ }
+ const at=(a,z,r=loop.radius)=>({x:loop.x+Math.sin(a)*r,y:parkDeckY-loop.radius+Math.cos(a)*r,z:loop.z+z});
+ for(let i=0;i<48;i++){
+  const a=i*Math.PI/24,b=(i+1)*Math.PI/24;
+  worldQuad(at(a,-100),at(b,-100),at(b,100),at(a,100),i%2?[72,78,88]:[78,83,92]);
+  for(const side of [-1,1])worldQuad(at(a,side*96,loop.radius-1),at(b,side*96,loop.radius-1),at(b,side*102,loop.radius-1),at(a,side*102,loop.radius-1),[186,244,166]);
+ }
+}
 function drawParkParkingLot(){
+  drawRaceTrack();
   const l=gridLeft,r=gridLeft+gridWidth,n=worldNear,f=worldFar,m=parkLotMargin,y=parkDeckY;
   const quad=(x1,z1,x2,z2,color,depth=0)=>worldQuad({x:x1,y:y-depth,z:z1},{x:x2,y:y-depth,z:z1},
     {x:x2,y:y-depth,z:z2},{x:x1,y:y-depth,z:z2},color);
@@ -23453,7 +23492,7 @@ function drawSeatPlayerHud(ink){
  triangleDepth=old;
 }
 function seatActionText(p,now){
- const speed=Math.hypot(p.vx,p.vz||0),states=[p.poolPipeLocked?'HALFPIPING':statusVerb(p,speed,false)[0].toUpperCase()];
+ const speed=Math.hypot(p.vx,p.vz||0),states=[p.raceLoop?'LOOPING':p.poolPipeLocked?'HALFPIPING':statusVerb(p,speed,false)[0].toUpperCase()];
  if(p.poolPipeLocked)states.push('LOCKED IN');
  if(p.chalkDrawing)states.push('DRAWING');
  if(p.sparringPartner!==undefined)states.push('SPARRING');
@@ -23475,6 +23514,7 @@ const actionColors={
  'IN THE AIR':[110,220,255],'SWIMMING':[130,238,231],'SKATING':[167,197,255],
  'BALANCING':[199,167,255],'RIDING ELECTRIC':[203,155,255],'SUPER TURBO':[244,133,245],
  'TURNING LEFT':[179,174,255],'TURNING RIGHT':[143,207,255],
+ 'LOOPING':[168,255,123],'LOOP COMPLETE':[255,242,112],
  'HALFPIPING':[132,222,255],'LOCKED IN':[164,255,134],'DASH OUT':[255,162,235],'DASHING':[98,255,170],'DASHING OUT':[255,162,235],'DRAWING':[255,161,244],'SPARRING':[255,144,123],'SMG':[143,208,244],
  'AXE':[255,160,100],'PISTOL':[115,208,255],'SWORD':[220,230,255],'BALL':[248,227,112],
  'PARTNER':[153,230,155],'PUNCH':[255,134,147],'KICK':[247,170,106],'DASH':[98,255,170],
