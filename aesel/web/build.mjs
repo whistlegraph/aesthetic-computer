@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'../..');
 const out=resolve(root,process.argv[2] || 'system/public/aesel/try');
 await mkdir(out,{recursive:true});
-const shims={'node:events':'events','node:fs':'fs','node:path':'path','node:url':'url','node:crypto':'crypto','node:os':'absent','node:http':'absent','node:child_process':'absent','node:readline':'absent'};
+const shims={'node:fs/promises':'absent','node:events':'events','node:fs':'fs','node:path':'path','node:url':'url','node:crypto':'crypto','node:os':'absent','node:http':'absent','node:child_process':'absent','node:readline':'absent'};
 const guides={};
 for(const name of ['pieces.md','screen.md','hand.md','kidlisp.md','api.json']) guides[`/easel/context/${name}`]=await readFile(resolve(root,'aesel/context',name),'utf8');
 const result=await build({
@@ -19,7 +19,8 @@ const result=await build({
       const name=shims[args.path];if(!name) throw new Error(`Unmapped browser dependency: ${args.path}`);
       return {path:resolve(root,`aesel/phone/shim/${name}.mjs`)};
     });
-    b.onResolve({filter:/^\/easel\//},args=>({path:resolve(root,args.path.slice(1))}));
+    // /easel/ is the phone's URL prefix; the tree on disk is aesel/.
+    b.onResolve({filter:/^\/easel\//},args=>({path:resolve(root,'aesel',args.path.slice('/easel/'.length))}));
     b.onResolve({filter:/^\.\/(revisions|preview-frame|jev-advisor)\.mjs$/},args=>({path:resolve(root,'aesel/phone/shim',args.path)}));
   }}],
 });

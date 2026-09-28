@@ -22,3 +22,18 @@ export const networkInterfaces = () => ({});
 export const platform = () => "webview";
 
 export default { spawn, execFile, execFileSync, createServer, homedir, tmpdir, platform };
+
+// Workspace tools and the MCP client (pro sessions only; the phone never runs
+// them) import these at module scope.
+export const readFile = async () => absent("readFile")();
+export const writeFile = async () => absent("writeFile")();
+export const mkdir = async () => absent("mkdir")();
+export const rename = async () => absent("rename")();
+export const rm = async () => absent("rm")();
+export const stat = async () => absent("stat")();
+export const readdir = async () => absent("readdir")();
+export const copyFile = async () => absent("copyFile")();
+export const access = async () => absent("access")();
+export const unlink = async () => absent("unlink")();
+export const open = async () => absent("open")();
+export const appendFile = async () => absent("appendFile")();
