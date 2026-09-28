@@ -1,7 +1,9 @@
 # Aesel
 
 `aesel` opens the native SwiftUI Mac GUI in [`apple/aesel`](../apple/aesel/README.md).
-`a` opens the TUI in pro mode; `ac` and `easel` retain the piece-oriented TUI.
+`a`, `ac` and `easel` open the TUI, which is pro mode: the terminal harness.
+The GUI is the ordinary, piece-first Aesel; both run on the same engine bridges.
+`ac piece` (or `--piece FILE` / `--genre`) still opens the older piece TUI.
 Install these commands with `cd easel && ./install.sh`. Install the native Mac
 beta from https://aesel.app, or build it with Xcode using `apple/aesel/run.sh mac`.
 

@@ -60,7 +60,8 @@ published URL and it has to answer from the first second.
 --no-autopublish or EASEL_AUTOPUBLISH=0 turns it off, and /autopublish
 toggles it mid-session.
 
---pro is the same interface as a general harness: no piece, no QR, nothing
+Pro is the default here (`piece` or --piece/--genre asks for the piece
+interface instead). Pro is the same interface as a general harness: no piece, no QR, nothing
 published, and the engine runs with your own settings, skills and MCP
 servers (approvals still come back here; /ask off runs without asking).
 --private keeps this session's subject out of the Slab marker and the
@@ -155,9 +156,15 @@ pro=""
 private=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        # `aesel pro` and `ac pro` read as words; the flag is the same thing.
+        # The terminal is pro: the GUI is the ordinary, piece-first Aesel,
+        # and this is the harness for people who live in a terminal. `pro`
+        # still reads as a word; `piece` asks for the older piece interface.
         --pro|pro)
             pro="on"
+            shift
+            ;;
+        --piece-mode|piece)
+            pro="off"
             shift
             ;;
         --private)
@@ -270,6 +277,9 @@ if [[ "$selected_backend" != "ac" && "$selected_backend" != "open" ]]; then
     has_command "$selected_backend" ||
         fail "the $selected_backend engine bridge is not installed"
 fi
+
+# Naming a piece or a genre is asking for the piece interface.
+if [[ -z "$pro" && -z "$initial_piece" && -z "$genre" ]]; then pro="on"; fi
 
 if [[ "${EASEL_DRY_RUN:-0}" == "1" ]]; then
     printf 'interface=easel\n'

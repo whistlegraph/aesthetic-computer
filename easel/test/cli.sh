@@ -119,10 +119,16 @@ if EASEL_DRY_RUN=1 "$CLI" --backend gemini "$WORK_DIR" >/dev/null 2>&1; then
     exit 1
 fi
 
-# Pro and private ride through to the interface as flags; both default off.
+# The terminal is pro unless a piece is asked for; private defaults off.
 output="$(EASEL_DRY_RUN=1 "$CLI" "$WORK_DIR")"
-assert_contains "$output" 'pro=off'
+assert_contains "$output" 'pro=on'
 assert_contains "$output" 'private=off'
+
+output="$(EASEL_DRY_RUN=1 "$CLI" piece "$WORK_DIR")"
+assert_contains "$output" 'pro=off'
+
+output="$(EASEL_DRY_RUN=1 "$CLI" --genre piece "$WORK_DIR")"
+assert_contains "$output" 'pro=off'
 
 output="$(EASEL_DRY_RUN=1 "$CLI" --pro "$WORK_DIR")"
 assert_contains "$output" 'pro=on'
