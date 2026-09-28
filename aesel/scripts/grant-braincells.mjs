@@ -32,3 +32,5 @@ const result = await withWallets(async (wallets) => {
   return { granted, balance: await balance(user, wallets) };
 });
 console.log(JSON.stringify({ handle: `@${handle}`, id, credits, granted: result.granted, balance: result.balance }));
+// The database module keeps its pool open; the grant is done, so leave.
+process.exit(0);
