@@ -32,7 +32,7 @@ function claudeChoices(p) {
 export function pickerModels(p) {
   const backend=BACKENDS[p.backend];
   if(p.backend==='ac')return [{id:backend.defaultModel,label:'Automatic'}];
-  const choices=p.backend==='ac'?Object.entries(backend.models).map(([label,id])=>({id,label}))
+  const choices=p.backend==='open'?Object.entries(backend.models).map(([label,id])=>({id,label,detail:id}))
     // The CLI resolves a family alias to a dated id; a resolved id selects its family row instead of growing a "custom" row.
     // Claude: the catalog the Models API answered with, when one has been
     // fetched (model-catalog.mjs); a family alias the CLI resolves ('opus')
@@ -43,7 +43,7 @@ export function pickerModels(p) {
   return choices;
 }
 export function pickerEfforts(p) {
-  if(p.backend==='ac')return [''];
+  if(p.backend==='ac'||p.backend==='open')return [''];
   if(p.backend==='claude')return ['', 'low','medium','high','xhigh','max'];
   const selected=p.catalog?.find(x=>p.model?x.model===p.model:x.isDefault);
   return ['',...(selected?.supportedReasoningEfforts||[]).map(x=>x.reasoningEffort)];
@@ -55,7 +55,7 @@ export function pickerKey(p,key) {
   if(!['\x1b[C','\x1b[D',' '].includes(key)||p.row===3)return p;
   const direction=key==='\x1b[D'?-1:1;
   const cycle=(values,value)=>values[(Math.max(0,values.indexOf(value))+direction+values.length)%values.length];
-  if(p.row===0){const backend=cycle(['ac','claude','codex'],p.backend);return {...p,backend,model:BACKENDS[backend].defaultModel,effort:''};}
+  if(p.row===0){const backend=cycle(['ac','claude','codex','open'],p.backend);return {...p,backend,model:BACKENDS[backend].defaultModel,effort:''};}
   if(p.row===1)return {...p,model:cycle(pickerModels(p).map(x=>x.id),p.model),effort:''};
   return {...p,effort:cycle(pickerEfforts(p),p.effort)};
 }

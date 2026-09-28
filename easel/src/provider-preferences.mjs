@@ -4,7 +4,7 @@ import {homedir} from 'node:os';
 import {randomUUID} from 'node:crypto';
 export const preferencesPath=join(homedir(),'.config','easel','provider.json');
 export function providerPreferences(value){
- if(!value||!['ac','claude','codex'].includes(value.backend))return null;
+ if(!value||!['ac','claude','codex','open'].includes(value.backend))return null;
  if(typeof value.model!=='string'||value.model.length>200||/[\x00-\x1f]/.test(value.model))return null;
  if(!['','none','minimal','low','medium','high','xhigh','max'].includes(value.effort||''))return null;
  return {backend:value.backend,model:value.model,effort:value.effort||''};

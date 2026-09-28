@@ -12,6 +12,7 @@
 import { AcServer, AC_MODELS, DEFAULT_AC_MODEL } from "./ac-server.mjs";
 import { AppServer } from "./app-server.mjs";
 import { ClaudeServer, DEFAULT_CLAUDE_MODEL } from "./claude-server.mjs";
+import { DEFAULT_OPEN_MODEL, OPEN_MODELS, OpenServer } from "./open-server.mjs";
 
 export const BACKENDS = {
   claude: {
@@ -47,6 +48,17 @@ export const BACKENDS = {
     modelSource: "~/.codex/config.toml",
     Engine: AppServer,
   },
+  // Aesel's own loop on an open-weight model through OpenRouter, paid by the
+  // person's own key. Nothing to install, like `ac`, but no handle budget.
+  open: {
+    id: "open",
+    label: "open",
+    command: "",
+    defaultModel: DEFAULT_OPEN_MODEL,
+    modelSource: "OpenRouter",
+    models: OPEN_MODELS,
+    Engine: OpenServer,
+  },
 };
 
 // The names people reach for for the same two bridges.
@@ -58,6 +70,7 @@ export const BACKEND_ALIASES = {
   fable: "claude",
   openai: "codex",
   gpt: "codex",
+  openrouter: "open",
 };
 
 export const DEFAULT_BACKEND = "claude";

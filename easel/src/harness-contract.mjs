@@ -4,7 +4,7 @@ export const SETTINGS_TOOL={
  description:'Read Aesel’s current settings, open its Settings panel, or change provider/model/reasoning effort/auto-publish when the user asks. Use this direct control instead of shell commands or UI automation. Updates during a reply are queued until that reply completes; report queued changes as pending, not already applied. This never edits the artwork.',
  inputSchema:{type:'object',properties:{
   action:{type:'string',enum:['read','open','update']},
-  provider:{type:'string',enum:['ac','claude','codex']},
+  provider:{type:'string',enum:['ac','claude','codex','open']},
   model:{type:'string',maxLength:160},
   effort:{type:'string',enum:['','none','minimal','low','medium','high','xhigh','max','ultra']},
   autopublish:{type:'boolean'},
@@ -19,7 +19,7 @@ export function validateSettingsRequest(value){
  if(Object.keys(value).some(key=>!keys.includes(key))||!['read','open','update'].includes(value.action))throw Error('Unsupported settings action');
  if(value.action!=='update'&&Object.keys(value).length!==1)throw Error('Only update accepts setting values');
  if(value.action==='update'&&Object.keys(value).length===1)throw Error('Choose a setting to update');
- if(value.provider!==undefined&&!['ac','claude','codex'].includes(value.provider))throw Error('Unknown provider');
+ if(value.provider!==undefined&&!['ac','claude','codex','open'].includes(value.provider))throw Error('Unknown provider');
  if(value.model!==undefined&&(typeof value.model!=='string'||value.model.length>160||/[\x00-\x1f\x7f]/.test(value.model)))throw Error('Invalid model');
  if(value.effort!==undefined&&!SETTINGS_TOOL.inputSchema.properties.effort.enum.includes(value.effort))throw Error('Invalid reasoning effort');
  if(value.autopublish!==undefined&&typeof value.autopublish!=='boolean')throw Error('Invalid auto-publish setting');

@@ -31,7 +31,7 @@ usage() {
 Usage: ac [directory] [--runtime mjs|lisp|processing]
                       [--piece FILE] [--resume THREAD_ID]
                       [--genre piece|nopaint]
-                      [--backend claude|codex|ac] [--model NAME]
+                      [--backend claude|codex|ac|open] [--model NAME]
                       [--autopublish | --no-autopublish]
                       [--pro] [--private]
        aesthetic [directory]
@@ -196,8 +196,8 @@ while [[ $# -gt 0 ]]; do
                 # It has to be kept in step by hand, and once was not: `ac` was
                 # added there and not here, which left the one bridge needing no
                 # subscription unreachable from the command line.
-                claude|codex|ac|anthropic|fable|openai|gpt|aesthetic|hosted|free) backend="$2" ;;
-                *) fail "unknown backend: $2 (claude, codex, ac)" ;;
+                claude|codex|ac|open|openrouter|anthropic|fable|openai|gpt|aesthetic|hosted|free) backend="$2" ;;
+                *) fail "unknown backend: $2 (claude, codex, ac, open)" ;;
             esac
             shift 2
             ;;
@@ -259,13 +259,14 @@ case "$selected_backend" in
     anthropic|fable) selected_backend="claude" ;;
     openai|gpt) selected_backend="codex" ;;
     aesthetic|hosted|free) selected_backend="ac" ;;
+    openrouter) selected_backend="open" ;;
 esac
 
 # Only the bridges that drive a vendor CLI have a binary to find. `ac` runs on
 # Aesthetic Computer's own account over HTTP, so there is nothing to install and
 # a missing binary is not how it fails — it fails on a missing @handle, in the
 # interface, where that can be explained.
-if [[ "$selected_backend" != "ac" ]]; then
+if [[ "$selected_backend" != "ac" && "$selected_backend" != "open" ]]; then
     has_command "$selected_backend" ||
         fail "the $selected_backend engine bridge is not installed"
 fi

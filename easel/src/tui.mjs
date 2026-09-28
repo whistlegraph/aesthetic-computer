@@ -660,6 +660,7 @@ let lastRelaunchAt = 0;
 function openEngine({ resume = "" } = {}) {
   const opened = new backend.Engine({
     cwd,
+    pro,
     resumeThreadId: resume,
     model,
     effort,
@@ -727,7 +728,7 @@ let harnessPanelPending=false;
 const harnessSettings=createSettingsController({
  read:()=>({provider:backend.id,model:state.model||model,selectedModel:model,effort,autopublish:autopublish.enabled,
   medium:state.medium,busy:state.busy,account:session.handle?`@${session.handle}`:null,
-  providers:['ac','claude','codex'].map(id=>({id,models:pickerModels({backend:id,model:id===backend.id?model:backendFor(id).defaultModel,catalog:catalogFor(id)})})),
+  providers:['ac','claude','codex','open'].map(id=>({id,models:pickerModels({backend:id,model:id===backend.id?model:backendFor(id).defaultModel,catalog:catalogFor(id)})})),
   supported:['provider','model','effort','autopublish']}),
  normalize:(patch,pending)=>{
   const previous=pending||{provider:backend.id,model,effort,autopublish:autopublish.enabled};

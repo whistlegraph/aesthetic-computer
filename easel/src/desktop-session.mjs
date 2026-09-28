@@ -13,7 +13,7 @@ export function desktopSnapshot({ cwd, backend, model, effort = "", live, state,
     engine: { threadId: engine.threadId || "", ...(backend === "ac" ? { messages: engine.messages || [], turns: engine.turns || 0 } : {}) }, handoff, archivedConversation });
 }
 export function validateDesktopSession(snapshot, cwd) {
-  if (snapshot?.schema !== 1 || snapshot.cwd !== resolve(cwd) || !["ac", "claude", "codex"].includes(snapshot.backend)) throw new Error("Invalid desktop session or workspace mismatch.");
+  if (snapshot?.schema !== 1 || snapshot.cwd !== resolve(cwd) || !["ac", "claude", "codex", "open"].includes(snapshot.backend)) throw new Error("Invalid desktop session or workspace mismatch.");
   if (typeof snapshot.model !== "string" || typeof snapshot.live?.file !== "string" || !["mjs", "lisp", "lua"].includes(snapshot.live.runtime)) throw new Error("Invalid desktop piece or model.");
   if (snapshot.live.genre !== undefined && (!["piece", "nopaint"].includes(snapshot.live.genre) || (snapshot.live.genre === "nopaint" && snapshot.live.runtime !== "mjs"))) throw new Error("Invalid desktop piece genre.");
   if (snapshot.artifactId !== undefined && (!/^[a-f0-9-]{36}$/.test(snapshot.artifactId) || !Number.isSafeInteger(snapshot.artifactVersion) || snapshot.artifactVersion < 1)) throw new Error("Invalid saved artifact reference.");
