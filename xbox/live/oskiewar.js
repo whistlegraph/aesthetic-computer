@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 197;
+const buildVersion = 198;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -1592,14 +1592,14 @@ const parkPools=[pool,
   {x:4700,z:-1500,halfX:520,halfZ:240,radius:520,depth:240,deck:120},
   {x:6900,z:1600,halfX:360,halfZ:180,radius:420,depth:190,deck:120}];
 const parkHills=[
-  {x:3000,z:1800,rx:750,rz:800,height:320},
+  {x:3000,z:2300,rx:750,rz:800,height:320},
   {x:7200,z:-1600,rx:1000,rz:800,height:420},
   {x:1000,z:2000,rx:750,rz:700,height:220}];
 const parkRamps=[
-  {x:2800,z:-1450,hx:500,hz:380,tx:220,tz:130,height:230},
+  {x:2800,z:-2050,hx:500,hz:380,tx:220,tz:130,height:230},
   {x:4700,z:700,hx:650,hz:400,tx:270,tz:180,height:300},
   {x:7250,z:0,hx:800,hz:440,tx:400,tz:200,height:340}];
-const parkHalfPipe3D={x:2840,z:0,flat:160,radius:280,deck:70,bank:150,hx:660,hz:750,run:550};
+const parkHalfPipe3D={x:2840,z:0,flat:160,radius:280,deck:70,bank:150,hx:660,hz:1250,run:1050};
 function parkHalfPipeHeight(x,z){
   const p=parkHalfPipe3D,d=Math.abs(x-p.x),end=Math.abs(z-p.z);
   if(d>=p.hx||end>=p.hz)return 0;
@@ -6427,15 +6427,27 @@ function drawTrickWindows() {
 const freeskateSkins = [[250, 214, 198], [252, 210, 222], [226, 214, 250], [210, 240, 226], [210, 228, 250], [250, 238, 200]];
 const freeskateHair = [[104, 68, 46], [42, 34, 32], [222, 184, 110], [150, 64, 40], [226, 222, 210], [44, 52, 74], [120, 84, 58]];
 const freeskateRibbons = [[150, 205, 255], [150, 240, 200], [205, 170, 255], [255, 190, 150], [255, 236, 140]];
-let freeskateLook = 0;
+let freeskateLook = (Date.now()>>>0)||1;
+function generateParkProfile(seed){
+ let state=(seed>>>0)||1;
+ const random=()=>{state^=state<<13;state^=state>>>17;state^=state<<5;return (state>>>0)/4294967296;};
+ const pick=items=>items[Math.floor(random()*items.length)];
+ const age=18+Math.floor(random()*65),persona=pick(['teacher','artist','mechanic','dancer','librarian','botanist']);
+ const skin=pick([[250,214,198],[222,170,139],[170,116,86],[105,70,53],[242,204,169],[198,147,112]]).slice();
+ const hair=age>=58?pick([[200,198,190],[230,227,217],[134,137,144]]):pick(freeskateHair);
+ const appearance={skin,hair:hair.slice(),shirt:pick([[105,137,123],[189,136,158],[91,125,162],[210,176,111],[136,109,151]]).slice(),
+  pants:pick([[74,70,96],[99,119,116],[129,86,110],[84,104,137]]).slice(),shoes:[44,40,48],
+  hairStyle:pick(['short','long','curly']),sleeves:pick(['short','long']),beard:false,glasses:age>=58||random()<.3};
+ if(persona==='teacher'||persona==='librarian'){appearance.sleeves='long';appearance.glasses=true;}
+ if(persona==='mechanic')appearance.shirt=[86,110,131];
+ return {age,persona,appearance};
+}
 function dressFreeskater(rider, advance = false) {
-  if (advance) freeskateLook++;
-  rider.skin = "pastel";
-  const look = freeskateLook + rider.pad * 2;
-  rider.color = freeskateSkins[look % freeskateSkins.length].slice();
-  rider.hairColor = freeskateHair[look % freeskateHair.length];
-  rider.accent = freeskateRibbons[look % freeskateRibbons.length];
-  rider.emo=rider.pad===1;if(rider.emo){rider.hairColor=[22,17,31];rider.accent=[205,100,218];rider.shirtColor=[39,34,46];rider.skirtColor=[92,48,78];rider.shoeColor=[30,26,38];}
+ freeskateLook=(Math.imul(freeskateLook,1664525)+1013904223)>>>0;
+ const profile=generateParkProfile(freeskateLook+rider.pad),a=profile.appearance;
+ rider.parkProfile=profile;rider.skin='pastel';rider.color=a.skin;rider.hairColor=a.hair;
+ rider.shirtColor=a.shirt;rider.skirtColor=a.pants;rider.shoeColor=a.shoes;rider.pantsColor=null;
+ rider.accent=freeskateRibbons[freeskateLook%freeskateRibbons.length];rider.emo=false;
 }
 
 function freeskateCourse() {
@@ -9710,7 +9722,7 @@ function updateCameraDoll(dt, now) {
       let yaw=heading;
       if(p.poolVert?.pipe){const progress=clamp((p.poolVert.speed+p.vy)/(2*p.poolVert.speed),0,1);yaw=p.poolVert.heading+Math.PI*(progress*progress*(3-2*progress));}
       const error=Math.atan2(Math.sin(yaw-poolCameraYaw),Math.cos(yaw-poolCameraYaw));poolCameraYaw+=error*(1-Math.exp(-dt*2));
-      const angle=poolCameraYaw+Math.PI*.6,radius=2400+air*.4;
+      const angle=poolCameraYaw+Math.PI*.6,radius=2800+air*.4;
       const target={x:pipe.x,y:parkDeckY-pipe.radius*.5-air*.2,z:pipe.z};
       const position={x:pipe.x-Math.cos(angle)*radius,y:parkDeckY-1800-air*.6,z:pipe.z-Math.sin(angle)*radius};
       cameraCenter=target.x;cameraCenterY=target.y;cameraWidth=3200;
@@ -17832,11 +17844,16 @@ function drawTrioFace(player, head, now, cameraYaw = null) {
     const by = Math.min(.835, v + eh * 1.39 + side * .018);
     path([P(u - ew * .95, by - eh * .12), P(u - ew * .12, by + eh * .17), P(u + ew * .95, by - eh * .06)], line * 1.2);
   }
+  if(player.parkProfile?.appearance.glasses){
+    for(const side of [-1,1]){const eye=P(.5+side*.175,.61);if(eye.facing>.08){const ring=Array.from({length:13},(_,i)=>({x:eye.x+Math.cos(i*Math.PI/6)*r*.23*Math.max(.2,eye.facing),y:eye.y+Math.sin(i*Math.PI/6)*r*.26}));path(ring,line*.8);}}
+    path([P(.46,.61),P(.54,.61)],line*.8);
+  }
+  if((player.parkProfile?.age||0)>=58)for(const side of [-1,1])path([P(.5+side*.29,.46),P(.5+side*.34,.42)],line*.55,mixColor(player.color,ink,.45));
   // Nose.
   path([P(.501, .49), P(.486, .46), P(.508, .461)], line * .6);
   // Lips: a soft pink mouth with a fuller lower lip, the far corner lifted
   // in a smile, and a fine line where they meet.
-  const mw = .13;
+  const mw = player.parkProfile?.persona==='dancer'?.17:player.parkProfile?.persona==='librarian'?.1:.13;
   const lipInk = mixColor(player.color, [232, 96, 132], .6);
   const upper = bezier([.5 - mw, .355], [.5 - mw * .4, .38], [.5 + mw * .4, .38], [.5 + mw, .37]);
   const lower = bezier([.5 - mw, .355], [.5 - mw * .45, .285], [.5 + mw * .45, .285], [.5 + mw, .37]);
@@ -18772,7 +18789,7 @@ function drawLooseRunner(player,world,t,lod){
       const a=points[Math.max(0,i-1)],b=points[Math.min(points.length-1,i+1)],d=Math.hypot(b.x-a.x,b.y-a.y)||1;
       points[i].nx=-(b.y-a.y)/d;points[i].ny=(b.x-a.x)/d;
     }
-    const color=player.pantsColor&&/leg/.test(bones[0].part)?player.pantsColor:skin;
+    const color=player.pantsColor&&/leg/.test(bones[0].part)?player.pantsColor:player.parkProfile?.appearance.sleeves==='long'&&/arm/.test(bones[0].part)?player.shirtColor:skin;
     for(const edge of [true,false]){
       const c=edge?ink:color,pad=edge?(lod?1:1.75):0;triangleDepth=depth-(edge?0:.00001);
       for(let i=1;i<points.length;i++){
@@ -18792,10 +18809,10 @@ function drawLooseRunner(player,world,t,lod){
     const hip=end(torso,2),neck=end(torso,1);
     if(!player.pantsColor){
       const skirt=player.skirtColor||[188,164,226],sway=Math.sin((player.poolStridePhase||0)*Math.PI*2)*3;
-      const a=point(hip,1,1,-11*scale),b=point(hip,1,1,11*scale),c=point(hip,1,-34*scale,23*scale+sway),d=point(hip,1,-34*scale,-23*scale+sway);
+      const a=point(hip,40*scale,1,-14*scale),b=point(hip,40*scale,1,14*scale),c=point(hip,40*scale,-65*scale,34*scale+sway),d=point(hip,40*scale,-65*scale,-34*scale+sway);
       worldQuad(a,b,c,d,skirt);
       stroke3(a,d,1,ink);stroke3(d,c,1,ink);stroke3(c,b,1,ink);
-      for(const r of [-.45,0,.45])stroke3(point(hip,1.1,0,r*11*scale),point(hip,1.1,-34*scale,r*23*scale+sway),.6,mixColor(skirt,ink,.25));
+      for(const r of [-.45,0,.45])stroke3(point(hip,40.1*scale,0,r*14*scale),point(hip,40.1*scale,-65*scale,r*34*scale+sway),.6,mixColor(skirt,ink,.25));
     }
     if(front>0&&lod===0){
       const c={x:lerp(hip.x,neck.x,.65),y:lerp(hip.y,neck.y,.65),z:lerp(hip.z,neck.z,.65)};
@@ -18804,7 +18821,7 @@ function drawLooseRunner(player,world,t,lod){
     }
   }
   const pony=ponytailStates.get(player);
-  if(pony)for(let i=1;i<pony.points.length;i++){
+  if(pony&&(!player.parkProfile||player.parkProfile.appearance.hairStyle==='long'))for(let i=1;i<pony.points.length;i++){
     const width=(8-i)*scale;stroke3(pony.points[i-1],pony.points[i],width,ink,1.5);stroke3(pony.points[i-1],pony.points[i],width,hair);
   }
   if(!player.headless&&!geometry.head.behind){
@@ -20122,7 +20139,8 @@ function drawPoolGeometry() {
   const pipe=parkHalfPipe3D,profile=[0,pipe.flat,pipe.flat+pipe.radius+pipe.deck,pipe.hx];
   for(let i=1;i<=16;i++)profile.push(pipe.flat+pipe.radius*Math.sin(i*Math.PI/32));
   const px=[...new Set(profile.flatMap(x=>[-x,x]))].sort((a,b)=>a-b);
-  const pz=[-pipe.hz,-700,-650,-600,-pipe.run,0,pipe.run,600,650,700,pipe.hz];
+  const taper=pipe.hz-pipe.run;
+  const pz=[-pipe.hz,-pipe.run-taper*.75,-pipe.run-taper*.5,-pipe.run-taper*.25,-pipe.run,0,pipe.run,pipe.run+taper*.25,pipe.run+taper*.5,pipe.run+taper*.75,pipe.hz];
   const at=(x,z)=>({x:pipe.x+x,y:parkDeckY-parkHalfPipeHeight(pipe.x+x,pipe.z+z),z:pipe.z+z});
   for(let j=1;j<pz.length;j++)for(let i=1;i<px.length;i++)
     worldQuad(at(px[i-1],pz[j-1]),at(px[i],pz[j-1]),at(px[i],pz[j]),at(px[i-1],pz[j]),[207,163,114]);
@@ -24031,14 +24049,14 @@ function drawParkStereoGeometry(){
  const pulse=0;
  for(const side of [-1,1]){
   const x=parkStereo.x+side*155,z=parkStereo.z,y=poolFloorAt(x,z),w=55,h=220;
-  const a={x:x-w,y,z:z-45},b={x:x+w,y,z:z-45},c={x:x+w,y:y-h,z:z-45},d={x:x-w,y:y-h,z:z-45};
-  worldQuad(a,b,c,d,[32,34,42]);worldQuad(d,c,{...c,z:z+45},{...d,z:z+45},[52,56,65]);
-  for(const xx of [x-w,x+w])worldQuad({x:xx,y,z:z-45},{x:xx,y,z:z+45},{x:xx,y:y-h,z:z+45},{x:xx,y:y-h,z:z-45},[44,46,56]);
+  const a={x:x-w,y,z:z+45},b={x:x+w,y,z:z+45},c={x:x+w,y:y-h,z:z+45},d={x:x-w,y:y-h,z:z+45};
+  worldQuad(a,b,c,d,[32,34,42]);worldQuad(d,c,{...c,z:z-45},{...d,z:z-45},[52,56,65]);
+  for(const xx of [x-w,x+w])worldQuad({x:xx,y,z:z+45},{x:xx,y,z:z-45},{x:xx,y:y-h,z:z-45},{x:xx,y:y-h,z:z+45},[44,46,56]);
   for(const [height,radius] of [[58,39],[150,30]])for(let i=0;i<16;i++){
-    const p=j=>({x:x+Math.cos(j*Math.PI/8)*radius,y:y-height+Math.sin(j*Math.PI/8)*radius,z:z-47-pulse*3});
-    worldQuad({x,y:y-height,z:z-52-pulse*5},p(i),p(i+1),p(i+1),i%2?[64,68,78]:[54,58,70]);
+    const p=j=>({x:x+Math.cos(j*Math.PI/8)*radius,y:y-height+Math.sin(j*Math.PI/8)*radius,z:z+47+pulse*3});
+    worldQuad({x,y:y-height,z:z+52+pulse*5},p(i),p(i+1),p(i+1),i%2?[64,68,78]:[54,58,70]);
   }
-  worldCapsule(x-38,y-h+15,z-47,x+38,y-h+15,z-47,3*projectionScaleAt(d),[140,255,170]);
+  worldCapsule(x-38,y-h+15,z+47,x+38,y-h+15,z+47,3*projectionScaleAt(d),[140,255,170]);
  }
 }
 function updateSeatHeartbeat(dt,now){
