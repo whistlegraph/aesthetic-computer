@@ -18,7 +18,7 @@ Both **double quotes** and **single quotes** work for string literals:
 |----------|-------|-------------|
 | `def` | `(def name value)` | Define variables |
 | `later` | `(later name params body)` | Define functions |
-| `if` | `(if condition then else)` | Conditional execution |
+| `if` | `(if condition body...)` | Run every body form when condition is truthy (no else) |
 | `once` | `(once expr)` | Execute only once per session |
 | `not` | `(not expr)` | Logical negation |
 | `now` | `(now)` | Execute immediately |

@@ -5615,8 +5615,9 @@ class KidLisp {
           console.error("❗ Invalid `if`. Wrong number of arguments.");
           return false;
         }
+        // No `else`: every form after the condition is body.
         const evaled = this.evaluate(args[0], api, env);
-        if (evaled) this.evaluate(args.slice(1), api, env);
+        if (evaled && args.length > 1) this.evaluate(args.slice(1), api, env);
       },
       once: (api, args, env) => {
         if (!args || args.length < 1) {
@@ -5721,8 +5722,11 @@ class KidLisp {
         const left = this.evaluate(args[0], api, env),
           right = this.evaluate(args[1], api, env);
         if (left > right) {
-          // console.log("✅", left, "is > than", right, args.slice(2));
-          return this.evaluate(args.slice(2), api, env);
+          // With a body, run it; bare, answer true. (Evaluating an empty body
+          // draws the no-code checkerboard and returns undefined.)
+          return args.length > 2
+            ? this.evaluate(args.slice(2), api, env)
+            : true;
         } else {
           return false;
         }
@@ -5735,8 +5739,11 @@ class KidLisp {
         const left = this.evaluate(args[0], api, env),
           right = this.evaluate(args[1], api, env);
         if (left < right) {
-          // console.log("✅", left, "is < than", right, args.slice(2));
-          return this.evaluate(args.slice(2), api, env);
+          // With a body, run it; bare, answer true. (Evaluating an empty body
+          // draws the no-code checkerboard and returns undefined.)
+          return args.length > 2
+            ? this.evaluate(args.slice(2), api, env)
+            : true;
         } else {
           return false;
         }

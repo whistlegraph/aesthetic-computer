@@ -55,4 +55,27 @@ describe("🪙 KidLisp daily token", () => {
       ]);
     });
   });
+
+  describe("if", () => {
+    it("runs its body when a comparison is true", () => {
+      const calls = run('(wipe black)(ink yellow)(if (< 1 2) (write "HELLO" 20 60))');
+      expect(writes(calls)).toEqual([["write", "HELLO", { x: 20, y: 60 }]]);
+      // A bare comparison used to evaluate an empty body: checkerboard + falsy.
+      expect(calls.some(([name]) => name === "box")).toBe(false);
+    });
+
+    it("runs every body form, with no else", () => {
+      const calls = run('(if (> 2 1) (write "A" 1 1) (write "B" 2 2))');
+      expect(writes(calls).map(([, text]) => text)).toEqual(["A", "B"]);
+    });
+
+    it("skips its body when false", () => {
+      expect(writes(run('(if (> 1 2) (write "no" 1 1))'))).toEqual([]);
+    });
+
+    it("answers true from bare comparisons", () => {
+      const calls = run("(write (< 1 2) 1 1) (write (> 1 2) 1 1)");
+      expect(writes(calls).map(([, text]) => text)).toEqual(["true", "false"]);
+    });
+  });
 });
