@@ -1,18 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {validateOskiewarLiveState} from '../../../session-server/oskiewar-live-manager.mjs';
 import { readFile } from 'node:fs/promises';
 const source=await readFile(new URL('../oskiewar.js',import.meta.url),'utf8');
 function playground(){
  let now=1e6;const noop=()=>{},audio=[],drums=[];
  const api=new Function('runtime','capabilities','telemetry','gameSignal','drum','wipe','box','line','triangle','write','systemWrite','oscillator','oscillatorStop',`${source}
  configureWorldMap('skatepark','pool');fightOpponent='freeskate';gameMode='fight';
- return {players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
+ return {spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
  parkHalfPipe3D,parkHalfPipeHeight,parkDeckY,poolFloorAt,poolSlopeAt,gunPickups,axePickup,
  resetParkSupply,updateParkSupply,updateGunPickups,resetParkKids,updateParkKids,parkKids,
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
  boundParkBody,parkWindowWalls,brokenParkWindows,parkWindowShards,resetParkWindows,
  breakParkWindow,updateParkWindowShards,insidePark,parkLotMargin,updateCameraDoll,clearPoolCamera,updateMotorAudio,updateSkateAudio,balls,
- updateSeatHeartbeat,sceneBoundsVisible,buildParkScene,parkActorVisible,figureLod,
+ updateSeatHeartbeat,updatePonytail,ponytailAnchor,ponytailStates,drawSpatialRunner,sampleCombatBoxes,sweptProjectileContact,damageParkCivilian,drawAeselFairy,sceneBoundsVisible,buildParkScene,parkActorVisible,figureLod,
  state:()=>({halfpipe:parkHalfPipe3D})};`)(()=>({monotonicUs:now}),()=>({platform:'web'}),noop,noop,(name,gain,pan)=>drums.push({name,gain,pan}),noop,noop,noop,noop,noop,noop,(hz,gain)=>audio.push({hz,gain}),()=>audio.push({stop:true}));
  const p=api.players[0];Object.assign(p,{x:1080,z:0,y:api.poolFloorAt(1080,0),grounded:true,alive:true,dummy:false,skateboard:false,poolYaw:0,previous:[],spin:null,directionChanges:[],poolLastSteer:0});
  api.step=(down=[],dt=1/60)=>{now+=dt*1e6;api.updatePlayer(p,{down,leftX:0,leftY:0},dt,now);};
@@ -223,4 +224,91 @@ test('BPM emits one quiet beat when the local heart phase wraps',()=>{
  assert.equal(a.drums.filter(d=>d.name==='kick'&&d.gain===.075).length,1);
  a.updateSeatHeartbeat(1/60,a.now());
  assert.equal(a.drums.filter(d=>d.name==='kick'&&d.gain===.075).length,1);
+});
+
+test('spatial character remains volumetric at every LOD and heading',()=>{
+ const a=playground(),p=a.players[0];p.skin=true;
+ for(const yaw of [0,Math.PI/2,Math.PI])for(const lod of [0,1,2,3]){
+  p.poolYaw=yaw;const world=a.runnerWorldGeometry(p,0);
+  const mesh=a.captureQuadMesh(()=>a.drawSpatialRunner(p,world,0,lod));
+  assert.ok(mesh.faces.length>150);assert.ok(mesh.faces.length<850);
+  assert.ok(mesh.vertices.every(v=>Number.isFinite(v.x+v.y+v.z)));
+  assert.ok(mesh.bounds.maxX-mesh.bounds.minX>30);
+  assert.ok(mesh.bounds.maxZ-mesh.bounds.minZ>30);
+ }
+});
+test('spatial hurt capsules follow scaled rotated limbs and reject misses in depth',()=>{
+ const a=playground();a.resetParkKids(a.now());const p=a.parkKids[0];p.poolYaw=Math.PI/2;
+ const pose=a.runnerWorldGeometry(p,0),boxes=a.sampleCombatBoxes(p,a.now());
+ assert.equal(boxes.hurt[0].capsule.width,pose.head.radius*2);
+ for(let i=0;i<pose.segments.length;i++)for(const k of ['x1','x2','y1','y2','z1','z2'])assert.equal(boxes.hurt[i+1].capsule[k],pose.segments[i][k]);
+ const h=pose.head,shot={x1:h.x-80,x2:h.x+80,y1:h.y,y2:h.y,z1:h.z,z2:h.z,width:8};
+ assert.ok(a.sweptProjectileContact([shot],p,0)?.headshot);
+ assert.equal(a.sweptProjectileContact([{...shot,z1:h.z+200,z2:h.z+200}],p,0),null);
+});
+test('civilian body hits inflict damage and nominate the attacker as a sparring partner',()=>{
+ const a=playground();a.resetParkKids(a.now());const p=a.parkKids[0],owner=a.players[0];
+ a.damageParkCivilian(p,owner,{x:p.x,y:p.y-90,z:p.z},a.now(),2);
+ assert.equal(p.health,2);assert.equal(p.sparringPartner,owner.pad);assert.ok(p.alive);
+ a.damageParkCivilian(p,owner,{x:p.x,y:p.y-90,z:p.z},a.now(),2);assert.equal(p.alive,false);
+});
+test('Aesel fairy requires a fresh connection heartbeat',()=>{
+ const a=playground();globalThis.__oskiewarRenderFlags={aeselPulse:1};
+ try{
+  assert.ok(a.captureQuadMesh(()=>a.drawAeselFairy(0)).faces.length>0);
+  for(let i=0;i<360;i++)a.step();
+  assert.equal(a.captureQuadMesh(()=>a.drawAeselFairy(4)).faces.length,0);
+  globalThis.__oskiewarRenderFlags.aeselPulse=2;
+  assert.ok(a.captureQuadMesh(()=>a.drawAeselFairy(4)).faces.length>0);
+ }finally{delete globalThis.__oskiewarRenderFlags;}
+});
+
+test('ponytail inertia follows 3D motion, settles, and stays outside body colliders',()=>{
+ const a=playground(),p=a.players[0];p.skin=true;
+ const pose=()=>a.runnerWorldGeometry(p,0);
+ let state;
+ for(let i=0;i<240;i++)state=a.updatePonytail(p,pose(),1/60);
+ const initial={...state.points[5]};
+ p.x+=15;p.z+=12;
+ state=a.updatePonytail(p,pose(),1/60);
+ assert.ok(state.points[5].x-initial.x<14,'tip lags behind acceleration');
+ assert.ok(state.points[5].z-initial.z<11,'inertia also exists in depth');
+ for(let i=0;i<600;i++)state=a.updatePonytail(p,pose(),1/60);
+ const settled={...state.points[5]};
+ for(let i=0;i<60;i++)state=a.updatePonytail(p,pose(),1/60);
+ assert.ok(Math.hypot(state.points[5].x-settled.x,state.points[5].y-settled.y,state.points[5].z-settled.z)<.1,'drag settles the chain');
+ const world=pose(),anchor=a.ponytailAnchor(p,world);
+ assert.deepEqual({x:state.points[0].x,y:state.points[0].y,z:state.points[0].z},anchor);
+ for(let i=1;i<6;i++){
+  const q=state.points[i],prev=state.points[i-1];
+  assert.ok(Math.abs(Math.hypot(q.x-prev.x,q.y-prev.y,q.z-prev.z)-state.length)<.7,'bounded link stretch');
+  assert.ok(Math.hypot(q.x-world.head.x,q.y-world.head.y,q.z-world.head.z)>=world.head.radius,'head contact');
+ }
+ p.x+=10000;state=a.updatePonytail(p,pose(),1/60);
+ assert.ok(Math.abs(state.points[5].x-p.x)<100,'teleport resets instead of stretching across the world');
+ p.headless=true;a.updatePonytail(p,pose(),1/60);assert.equal(a.ponytailStates.has(p),false);
+});
+test('ponytail remains finite through turns, spins and variable frame times',()=>{
+ const a=playground(),p=a.players[0];p.skin=true;
+ for(let i=0;i<500;i++){
+  p.poolYaw=i*.03;p.spin={angle:i*.04};p.x+=Math.sin(i*.08)*2;p.z+=Math.cos(i*.08)*2;
+  const state=a.updatePonytail(p,a.runnerWorldGeometry(p,0),[1/120,1/60,1/30,.2][i%4]);
+  for(const q of state.points)assert.ok([q.x,q.y,q.z].every(Number.isFinite));
+  for(let j=1;j<6;j++){
+   const q=state.points[j],v=state.points[j-1];
+   assert.ok(Math.hypot(q.x-v.x,q.y-v.y,q.z-v.z)<state.length*1.6);
+  }
+ }
+});
+
+test('pool session snapshots satisfy the live relay without nonexistent ropes',()=>{
+ const a=playground();const state=a.spectatorState(a.now());
+ assert.equal(state.ropes,undefined);assert.equal(validateOskiewarLiveState(state),null);
+});
+test('native presence packets update cosmetic flags without entering combat netplay',()=>{
+ const a=playground();
+ try{
+  globalThis.__oskiewarNetInbox=[{kind:'render-flags',flags:{aeselPulse:3}},{kind:'render-flags',flags:{aeselPulse:Infinity}}];
+  a.netDrainHostInbox();assert.equal(globalThis.__oskiewarRenderFlags.aeselPulse,3);assert.equal(globalThis.__oskiewarNetInbox.length,0);
+ }finally{delete globalThis.__oskiewarNetInbox;delete globalThis.__oskiewarRenderFlags;}
 });

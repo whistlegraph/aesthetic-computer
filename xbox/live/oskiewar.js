@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 187;
+const buildVersion = 188;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -4039,6 +4039,32 @@ let navigationPrevious = [[], []];
 // it. Every flag missing means the full picture; xbox/tools/oskiewar-ablate
 // walks them and reads the price back out of the live fps telemetry.
 let renderFlags = {};
+let aeselPulseSeen=null,aeselSeenAt=-Infinity;
+function drawAeselFairy(t){
+  const pulse=globalThis.__oskiewarRenderFlags?.aeselPulse,now=runtime().monotonicUs;
+  if(Number.isFinite(pulse)&&pulse!==aeselPulseSeen){aeselPulseSeen=pulse;aeselSeenAt=now;}
+  if(now-aeselSeenAt>3500000||!players[0].alive)return;
+  const head=runnerWorldGeometry(players[0],t).head;
+  const c={x:head.x+Math.sin(t*1.8)*20,y:head.y-70+Math.sin(t*3)*5,z:head.z+Math.cos(t*1.8)*20};
+  const wing=14+Math.sin(t*28)*6;
+  worldQuad({x:c.x,y:c.y-5,z:c.z},{x:c.x-wing,y:c.y-13,z:c.z-5},{x:c.x-wing,y:c.y+7,z:c.z+5},c,[183,243,237]);
+  worldQuad(c,{x:c.x+wing,y:c.y+7,z:c.z+5},{x:c.x+wing,y:c.y-13,z:c.z-5},{x:c.x,y:c.y-5,z:c.z},[238,185,247]);
+  worldQuad({x:c.x-3,y:c.y-8,z:c.z-3},{x:c.x+3,y:c.y-8,z:c.z+3},{x:c.x+2,y:c.y+8,z:c.z+2},{x:c.x-2,y:c.y+8,z:c.z-2},[255,231,127]);
+}
+function drawAeselConnect(){
+  if(!poolOnly()||!sessionName)return;
+  const label=sessionName,size=32,safe=hudSafeRect();
+  const saved=triangleDepth;triangleDepth=-1.49;
+  const x=safe.right-handleWidth(label,size),y=safe.top+72;
+  const lit=runtime().monotonicUs-aeselSeenAt<3500000,ink=lit?[163,244,211]:[194,196,220];
+  filledDisc(x-25,y+7,4,ink);
+  filledCapsule(x-25,y+14,x-25,y+28,4,ink);
+  screenTriangle(x-25,y+15,x-40,y+7,x-37,y+24,...ink);
+  screenTriangle(x-25,y+15,x-10,y+7,x-13,y+24,...ink);
+  typeWrite(label,x+1,y+2,size,12,18,30);typeWrite(label,x,y,size,231,247,241);
+  triangleDepth=saved;
+}
+
 // Temporary live combat inspector. Keep this explicit so the production view
 // can return to a clean presentation without changing combat geometry.
 let debugHitboxes = false;
@@ -4369,8 +4395,8 @@ function spectatorState(now, nextRoundId = "") {
       ...(workshopMap ? { workshop: workshopMap } : {}) },
     at: run.unixMs || 0, phase,
     course: skateparkMap ? "skatepark" : "station",
-    ropes: skateRopes.map((rope) => rope.nodes.map((node) =>
-      [node.x, node.y, node.px, node.py].map((value) => Math.round(value * 100) / 100))),
+    ropes: skateRopes.length ? skateRopes.map((rope) => rope.nodes.map((node) =>
+      [node.x, node.y, node.px, node.py].map((value) => Math.round(value * 100) / 100))) : undefined,
     previousRoundId: previousRoundName ? "ow-" + previousRoundName : "",
     fighters: players.map((player) => ({
       // The title's still variant seats a fighter with no name yet, and the
@@ -4496,7 +4522,7 @@ function publishSpectator(now, { target = matchName, nextRoundId = "",
 // which both points any watcher at the fight and retires this room's publisher
 // so the native shell's single socket is free to follow.
 function publishSession(now) {
-  if ((!debugHitboxes && !globalThis.__oskiewarWorkshopEnabled) ||
+  if ((!poolOnly() && !debugHitboxes && !globalThis.__oskiewarWorkshopEnabled) ||
       !sessionName || livePublishFailed ||
       typeof publishLive !== "function") return;
   const liveRound = roundIsTimed() && matchName ? matchName : "";
@@ -8871,6 +8897,18 @@ function netDrainHostInbox() {
   const inbox = globalThis.__oskiewarNetInbox;
   if (!Array.isArray(inbox) || !inbox.length) return;
   for (const packet of inbox) {
+    if(packet?.kind==='render-flags'){
+      const flags=packet.flags;
+      if(flags && typeof flags==='object' && !Array.isArray(flags)){
+        const entries=Object.entries(flags);
+        if(entries.length<=8 && entries.every(([key,value])=>/^[a-z][a-zA-Z0-9]{0,23}$/.test(key) &&
+          (typeof value==='boolean'||Number.isFinite(value)&&Math.abs(value)<=64))){
+          const target=globalThis.__oskiewarRenderFlags ||= Object.create(null);
+          for(const [key,value] of entries)if(!['__proto__','constructor','prototype'].includes(key))target[key]=value;
+        }
+      }
+      continue;
+    }
     if (netSession) netInbox.push(packet);
     else netHandlePreSession(packet);
   }
@@ -8938,7 +8976,7 @@ function gameBoot() {
   // a crash the restart exists to paper over.
   if (!sessionName) {
     seedNames(Math.floor(Math.random() * 4294967296));
-    sessionName = pronounceableMatchName();
+    sessionName = /^[a-z0-9-]{5,24}$/.test(globalThis.__oskiewarSessionName||'') ? globalThis.__oskiewarSessionName : pronounceableMatchName();
   }
   startedAt = runtime().monotonicUs;
   roundStartedAt = startedAt;
@@ -9592,7 +9630,7 @@ function updateCameraDoll(dt, now) {
     poolCameraYaw+=clamp(yawError*(1-Math.exp(-dt*5)),-dt*2.8,dt*2.8);
     const descent=clamp((p.vy+(vert?250:0))/1000,0,1);
     poolCameraDip+=(descent-poolCameraDip)*(1-Math.exp(-dt*4.5));
-    const zoom=playerCameraZoom,angle=poolCameraYaw+.14*(1-poolCameraDip)+playerCameraYaw;
+    const zoom=playerCameraZoom,angle=poolCameraYaw+.14*(1-poolCameraDip)+playerCameraYaw+Math.PI*poolIdleClose;
     const airHeight=Math.max(0,poolFloorAt(p.x,p.z||0)-p.y);
     const distance=lerp(1350+Math.min(850,airHeight*.35)-poolCameraDip*120,270,poolIdleClose)*zoom;
     const look=(340+Math.min(450,speed*.16)+(poolCameraReturnYaw!==null?lerp(140,420,clamp(airHeight/600,0,1)):0))*(1-poolIdleClose);
@@ -10503,7 +10541,7 @@ function updatePoolBullets(dt,now,combat){
         if(target.blocking)breakShield(target,now);
         else if(target.civilian){
           if(hit.headshot)popCivilianHead(target,players[b.owner]||players[0],runnerWorldGeometry(target,t),now);
-          else target.startledUntil=now+900000;
+          else damageParkCivilian(target,players[b.owner]||players[0],b,now,2);
         }else if(hit.headshot)killPlayer(target,b.owner,now,'SHOT');
         else applyBodyHit(target,hit.segmentIndex,b.x-b.vx,b.owner,now,1180,125);
         break;
@@ -11858,14 +11896,17 @@ function resolveMelee(now) {
       break;
     }
     if (attacker.attackHit) continue;
-    const target = players[attacker.pad === 0 ? 1 : 0];
-    if (!target.alive) continue;
+    const targets=poolOnly()?[...activePlayers(),...parkKids]:[players[attacker.pad===0?1:0]];
+    for(const target of targets){
+    if (target===attacker||!target.alive) continue;
     const contact = combatBoxContact(attacking, sampleOf(target));
     if (contact?.separation <= 3) {
       attacker.attackHit = true;
       contacts.push({ attacker, target,
         strike: { x: contact.x, y: contact.y, z: contact.z },
         headshot: contact.headshot, segmentIndex: contact.segmentIndex });
+      break;
+    }
     }
   }
   for (const { attacker, target, strike, headshot, segmentIndex } of contacts) {
@@ -11873,6 +11914,7 @@ function resolveMelee(now) {
     spawnImpact({ x: strike.x, y: strike.y, z: strike.z,
       life: .2, duration: .2, death: false, explosion: false });
     impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 350000);
+    if(target.civilian){damageParkCivilian(target,attacker,strike,now,1);continue;}
     const away = Math.sign(target.x - attacker.x) || -attacker.facing;
     const backBlocking = target.inputX === away;
     if (target.blocking || backBlocking) {
@@ -11938,8 +11980,8 @@ function resolvePogoAttacks(now) {
   for (const attacker of players) {
     if (!attacker.alive || !isPogo(attacker) || attacker.grounded ||
         attacker.pogoHit) continue;
-    const target = players[attacker.pad === 0 ? 1 : 0];
-    if (!target.alive) continue;
+    const target=players[attacker.pad===0?1:0];
+    if(!target.alive)continue;
     const contact = combatBoxContact(sampleCombatBoxes(attacker,now),sampleCombatBoxes(target,now));
     if (!contact || contact.separation > 3) continue;
     attacker.pogoHit = true;
@@ -14408,6 +14450,7 @@ function gameSim() {
     updateDetachedParts(dt);
     updateBlood(dt);
     updateBoardState(now);
+    updatePonytails(dt,now);
     updateCamera(dt);
     updateCameraDoll(dt, now);
     captureFrameTelemetry(now);
@@ -15435,12 +15478,14 @@ function buildPoolWalkGeometry(p) {
   const phase=p.poolStridePhase||0,speed=clamp(Math.hypot(p.vx,p.vz||0)/700,0,1);
   const moving=clamp(Math.hypot(p.vx,p.vz||0)/200,0,1),crouch=clamp(p.crouchBlend||0,0,1);
   const grounded=p.grounded,air=grounded?0:1,cy=Math.cos(p.poolYaw||0),sy=Math.sin(p.poolYaw||0);
-  const bob=grounded?Math.cos(phase*Math.PI*4)*3*speed:0;
+  const breath=(p.breathPhase||0)*Math.PI*2;
+  const sway=Math.sin(breath)*2.5*(1-speed)+Math.sin(phase*Math.PI*2)*2*speed;
+  const bob=grounded?Math.cos(phase*Math.PI*4)*3*speed+Math.sin(breath)*1.4*(1-speed):0;
   const hipHeight=86-11*speed-30*crouch+bob;
-  const lean=(p.rig?.lean||0)*.18+(p.inputZ||0)*speed*9+crouch*13;
+  const lean=(p.rig?.lean||0)*.65+(p.inputZ||0)*speed*9+crouch*13+sway;
   const point=(x,y,z)=>({x:p.x+x,y:p.y+y,z:(p.z||0)+z});
   const hip=point(-crouch*9,-hipHeight,0),shoulder=point(lean,-hipHeight-52+12*crouch,0);
-  const head=point(lean+2,-hipHeight-80+12*crouch,0),segments=[];head.radius=22;
+  const head=point(lean+2+sway*.6,-hipHeight-80+12*crouch,Math.sin(breath+.7)*1.4),segments=[];head.radius=22;
   const bone=(a,b,role,part,width=10)=>{if(hasPart(p,part))segments.push({x1:a.x,y1:a.y,z1:a.z,x2:b.x,y2:b.y,z2:b.z,width,role,part});};
   // Solve a knee/elbow in 3D in the plane containing the forward axis.
   const joint=(a,b,length,bend=1)=>{
@@ -15464,7 +15509,7 @@ function buildPoolWalkGeometry(p) {
     const foot=point(localX,surface-5-lift,localZ),pelvis={...hip,z:hip.z+side*12};
     const knee=joint(pelvis,foot,48);
     bone(pelvis,knee,name+'-thigh',name+'-leg',11);bone(knee,foot,name+'-shin',name+'-leg',10);
-    const upper=shoulders[index],swing=-footX*.52;
+    const upper=shoulders[index],swing=-footX*.52+(p.rig?.arms||0)*9+Math.sin(breath+index)*2;
     const hand=point(lean+swing+air*20,shoulder.y-p.y+61-10*speed-15*air,side*(26+air*12));
     if(p.gunAmmo>0&&name+'-arm'===itemHand(p)){
       hand.x=upper.x+54;hand.y=upper.y+16;hand.z=upper.z;
@@ -16348,6 +16393,7 @@ function sweptProjectileContact(segments,target,t) {
     const area=combatRect('sweep',Math.min(s.x1,s.x2)-r,Math.min(s.y1,s.y2)-r,
       Math.max(s.x1,s.x2)+r,Math.max(s.y1,s.y2)+r,(s.z1+s.z2)/2,Math.abs(s.z2-s.z1)/2+r);
     for(const hurt of queryBoxTree(boxes.tree,area)) {
+      if(poolOnly()&&hurt.capsule&&segmentSegmentClosest(s,hurt.capsule).distance>r+hurt.capsule.width/2)continue;
       const amount=segmentBoxEntry(s,hurt,r);
       if(amount===null || (result && amount>=result.amount))continue;
       result={amount,x:s.x1+(s.x2-s.x1)*amount,y:s.y1+(s.y2-s.y1)*amount,
@@ -16365,17 +16411,18 @@ function sampleCombatBoxes(player, now, world = null) {
   world ||= runnerWorldGeometry(player, (now-startedAt)/1e6);
   const hurt = [];
   const head = world.head;
-  hurt.push(combatRect('head', head.x-22, head.y-22, head.x+22, head.y+22, head.z, 22,
-    { part: 'head', segmentIndex: -1 }));
+  const headRadius=poolOnly()?head.radius:22;
+  hurt.push(combatRect('head', head.x-headRadius, head.y-headRadius, head.x+headRadius, head.y+headRadius, head.z, headRadius,
+    { part: 'head', segmentIndex: -1, capsule:{x1:head.x,y1:head.y,z1:head.z,x2:head.x,y2:head.y,z2:head.z,width:headRadius*2} }));
   for (let i=0; i<world.segments.length; i++) {
     const s = world.segments[i];
     // Each independently damageable region has its own rectangle, including
     // limbs extended during recovery. Missing limbs never produce hurtboxes.
-    const radius = s.part === 'torso' ? 14 : s.hitboxOnly ? 16 : 10;
+    const radius = poolOnly()?(s.role==='torso'?21*(player.bodyScale||1):(s.width||10)/2):s.part === 'torso' ? 14 : s.hitboxOnly ? 16 : 10;
     hurt.push(combatRect(s.role+'-'+i, Math.min(s.x1,s.x2)-radius,
       Math.min(s.y1,s.y2)-radius, Math.max(s.x1,s.x2)+radius,
       Math.max(s.y1,s.y2)+radius, (s.z1+s.z2)/2,
-      Math.abs(s.z2-s.z1)/2+radius, { part:s.part, segmentIndex:i }));
+      Math.abs(s.z2-s.z1)/2+radius, { part:s.part, segmentIndex:i, capsule:{...s,width:radius*2} }));
   }
   const frame = meleeFrame(player, now);
   const hit = [];
@@ -16389,6 +16436,13 @@ function sampleCombatBoxes(player, now, world = null) {
     const kick = player.attackKind === 'KICK';
     const part = kick ? player.facing > 0 ? 'right-leg' : 'left-leg' : itemHand(player);
     if (part && hasPart(player, part)) {
+      if(poolOnly()){
+        const limb=world.segments.find(s=>s.part===part&&(kick?/shin$/:/forearm$/).test(s.role||''));
+        if(limb){const radius=(limb.width||10)/2+4;
+          hit.push(combatRect('spatial-strike',Math.min(limb.x1,limb.x2)-radius,Math.min(limb.y1,limb.y2)-radius,
+            Math.max(limb.x1,limb.x2)+radius,Math.max(limb.y1,limb.y2)+radius,(limb.z1+limb.z2)/2,
+            Math.abs(limb.z2-limb.z1)/2+radius,{part,capsule:{...limb,width:radius*2}}));}
+      }else{
       const tip = meleeTarget(player, now);
       const halfX = kick ? 26 : 22;
       const halfY = kick && player.lowKick ? 17 : 20;
@@ -16396,6 +16450,7 @@ function sampleCombatBoxes(player, now, world = null) {
       const outer = tip.x+player.facing*halfX;
       hit.push(combatRect(player.attackKind.toLowerCase(), Math.min(inner,outer),
         tip.y-halfY, Math.max(inner,outer), tip.y+halfY, tip.z, 18, { part }));
+      }
     }
   }
   const guard = [];
@@ -16412,7 +16467,8 @@ function combatBoxContact(attacker, target) {
   for (const hit of attacker.hit) {
     const overlaps = queryBoxTree(target.tree, hit).sort((a,b) =>
       (a.part === 'head' ? -1 : b.part === 'head' ? 1 : a.segmentIndex-b.segmentIndex));
-    const hurt = overlaps[0];
+    const hurt = overlaps.find(h=>!poolOnly()||!hit.capsule||!h.capsule||
+      segmentSegmentClosest(hit.capsule,h.capsule).distance<=(hit.capsule.width+h.capsule.width)/2);
     if (!hurt) continue;
     result = { x:(Math.max(hit.left,hurt.left)+Math.min(hit.right,hurt.right))/2,
       y:(Math.max(hit.top,hurt.top)+Math.min(hit.bottom,hurt.bottom))/2,
@@ -18211,6 +18267,254 @@ function dummyView(player) {
   if (!view) dummyViews.set(player, view = {});
   return Object.assign(view, player, dummyOverlay);
 }
+// A connected surface around the animated rig. All vertices keep their own
+// world depth, so the floor cannot slice a billboard body at its feet.
+const characterMeshes=new Map(),characterCamera=new Float32Array(27);
+function characterLocalCamera(origin,axes,out=characterCamera){
+  const camera=mainNativeCamera();out.set(camera);
+  const [a,b,c]=axes;
+  const cross=(u,v)=>({x:u.y*v.z-u.z*v.y,y:u.z*v.x-u.x*v.z,z:u.x*v.y-u.y*v.x});
+  const dot=(u,v)=>u.x*v.x+u.y*v.y+u.z*v.z;
+  const bc=cross(b,c),ca=cross(c,a),ab=cross(a,b),det=dot(a,bc);
+  if(Math.abs(det)<1e-9)return null;
+  const delta={x:camera[0]-origin.x,y:camera[1]-origin.y,z:camera[2]-origin.z};
+  out[0]=dot(delta,bc)/det;out[1]=dot(delta,ca)/det;out[2]=dot(delta,ab)/det;
+  for(const row of [3,6,9])for(let i=0;i<3;i++)out[row+i]=camera[row]*axes[i].x+camera[row+1]*axes[i].y+camera[row+2]*axes[i].z;
+  // Mesh colours already contain the three cel-light bands.
+  out[24]=0;out[25]=0;out[26]=-1;
+  return out;
+}
+function characterMesh(key,build,origin,axes){
+  let mesh=characterMeshes.get(key);
+  if(!mesh){
+    mesh=captureQuadMesh(build);
+    for(const face of mesh.faces){
+      const n=face.normal,light=n[0]*.35-n[1]*.8-n[2]*.45;
+      const faceSurface=key.includes(':head:');
+      const blend=clamp((light+.35)/.85,0,1);
+      const band=faceSurface?.87+.13*blend*blend*(3-2*blend):light>.35?1:light>-.25?.8:.55;
+      face.color=face.color.map(c=>Math.round(c*band));face.normal=[0,0,1];
+    }
+    if(characterMeshes.size>=192){const oldest=characterMeshes.keys().next().value;releaseQuadMesh(characterMeshes.get(oldest));characterMeshes.delete(oldest);}
+    characterMeshes.set(key,mesh);
+  }
+  if(nativeRetainedMeshes){
+    const handle=meshHandle(mesh),camera=characterLocalCamera(origin,axes);
+    if(handle>=0&&camera){nativeMeshDraw(handle,camera,0);return;}
+  }
+  const at=p=>({x:origin.x+axes[0].x*p.x+axes[1].x*p.y+axes[2].x*p.z,
+    y:origin.y+axes[0].y*p.x+axes[1].y*p.y+axes[2].y*p.z,
+    z:origin.z+axes[0].z*p.x+axes[1].z*p.y+axes[2].z*p.z});
+  for(const face of mesh.faces){const p=face.ids.map(i=>at(mesh.vertices[i]));worldQuad(p[0],p[1],p[2],p[3],face.color);}
+}
+// Cosmetic physics stays outside gameplay/replay state. Six particles form a
+// tapered ponytail: pinned root, gravity, drag, length/bend constraints and body
+// contact. Advance on simulation ticks, never as a side effect of drawing.
+const ponytailStates=new WeakMap();
+function ponytailAnchor(player,world){
+  const yaw=(player.poolYaw||0)+(player.spin?.angle||0),h=world.head;
+  return {x:h.x-Math.cos(yaw)*h.radius*1.03,y:h.y-h.radius*.2,
+    z:h.z-Math.sin(yaw)*h.radius*1.03};
+}
+function updatePonytail(player,world,dt){
+  if(!player.alive||player.headless||!player.skin||player.dummy){ponytailStates.delete(player);return;}
+  const anchor=ponytailAnchor(player,world),r=world.head.radius,len=r*.36;
+  let state=ponytailStates.get(player);
+  if(!state||Math.hypot(anchor.x-state.anchor.x,anchor.y-state.anchor.y,anchor.z-state.anchor.z)>r*8||Math.abs(state.length-len)>.01){
+    const yaw=(player.poolYaw||0)+(player.spin?.angle||0);
+    state={anchor:{...anchor},length:len,points:Array.from({length:6},(_,i)=>{
+      const x=anchor.x-Math.cos(yaw)*len*i*.6,y=anchor.y+len*i*.8,z=anchor.z-Math.sin(yaw)*len*i*.6;
+      return {x,y,z,px:x,py:y,pz:z};
+    })};
+    ponytailStates.set(player,state);
+  }
+  if(!(dt>0))return state;
+  const steps=Math.min(8,Math.max(1,Math.ceil(dt*120))),h=Math.min(dt,1/15)/steps;
+  const points=state.points,torso=world.segments.find(b=>b.role==='torso');
+  const collide=(p,cx,cy,cz,radius)=>{
+    let x=p.x-cx,y=p.y-cy,z=p.z-cz,d=Math.hypot(x,y,z);
+    if(d>=radius)return;
+    if(d<1e-7){x=-Math.cos(player.poolYaw||0);y=0;z=-Math.sin(player.poolYaw||0);d=1;}
+    const k=radius/d;p.x=cx+x*k;p.y=cy+y*k;p.z=cz+z*k;
+  };
+  for(let step=1;step<=steps;step++){
+    const root=points[0],u=step/steps;
+    root.x=lerp(state.anchor.x,anchor.x,u);root.y=lerp(state.anchor.y,anchor.y,u);root.z=lerp(state.anchor.z,anchor.z,u);
+    // Exponential drag is independent of the simulation tick frequency.
+    const drag=Math.exp(-3*h)*(state.stepSize?h/state.stepSize:1);
+    state.stepSize=h;
+    for(let i=1;i<points.length;i++){
+      const p=points[i],x=p.x,y=p.y,z=p.z;
+      p.x+=(p.x-p.px)*drag;p.y+=(p.y-p.py)*drag+1150*h*h;p.z+=(p.z-p.pz)*drag;
+      p.px=x;p.py=y;p.pz=z;
+    }
+    for(let pass=0;pass<6;pass++){
+      // Limit folding without pulling the chain toward an animated sine wave.
+      for(let i=2;i<points.length;i++){
+        const a=points[i-2],b=points[i],dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z,d=Math.hypot(dx,dy,dz)||1;
+        if(d<len*1.45){const k=(len*1.45/d-1)*.5;b.x+=dx*k;b.y+=dy*k;b.z+=dz*k;}
+      }
+      for(let i=1;i<points.length;i++){
+        const a=points[i-1],b=points[i],dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z,d=Math.hypot(dx,dy,dz)||1;
+        const k=(d-len)/d,wa=i===1?0:.5,wb=i===1?1:.5;
+        a.x+=dx*k*wa;a.y+=dy*k*wa;a.z+=dz*k*wa;
+        b.x-=dx*k*wb;b.y-=dy*k*wb;b.z-=dz*k*wb;
+      }
+      for(let i=1;i<points.length;i++){
+        const p=points[i],width=r*(.18-.025*i);
+        collide(p,world.head.x,world.head.y,world.head.z,r+width);
+        if(torso){
+          const dx=torso.x2-torso.x1,dy=torso.y2-torso.y1,dz=torso.z2-torso.z1;
+          const v=clamp(((p.x-torso.x1)*dx+(p.y-torso.y1)*dy+(p.z-torso.z1)*dz)/(dx*dx+dy*dy+dz*dz||1),0,1);
+          collide(p,torso.x1+dx*v,torso.y1+dy*v,torso.z1+dz*v,(torso.width||24)*.5+width);
+        }
+      }
+    }
+  }
+  Object.assign(state.anchor,anchor);return state;
+}
+function updatePonytails(dt,now){
+  if(!poolOnly())return;
+  const t=(now-startedAt)/1e6;
+  for(const player of activePlayers())updatePonytail(player,runnerWorldGeometry(player,t),dt);
+  for(const kid of parkKids){
+    const scale=kid.bodyScale||1;
+    const radius=projectionScaleAt({x:kid.x,y:kid.y-180*scale,z:kid.z||0})*22*scale;
+    if(radius>=12 && parkActorVisible(kid))updatePonytail(kid,runnerWorldGeometry(kid,t),dt);
+    else ponytailStates.delete(kid);
+  }
+}
+
+function drawSpatialRunner(player,world,t,lod=0){
+  const scale=player.civilian?(player.bodyScale||1):1;
+  // The ink silhouette stays smooth even when the shaded volume uses fewer
+  // polygons. It sits behind the volume, at real actor depth, not HUD depth.
+  if(lod<2){
+    const projected=projectRunnerWorldGeometry(world),saved=triangleDepth;
+    const ink=[20,17,28],edge=lod?1.1:2.2;
+    if(!projected.behind){
+      triangleDepth=projected.head.depth+world.head.radius*cameraDoll.depthSlope;
+      filledDisc(projected.head.x,projected.head.y,projected.head.radius+edge,ink);
+      for(const bone of projected.segments){
+        if(bone.hidden||bone.hitboxOnly||['torso','shoulders'].includes(bone.role))continue;
+        triangleDepth=bone.depth+.002;
+        filledCapsule(bone.x1,bone.y1,bone.x2,bone.y2,bone.width+edge*2,ink);
+      }
+    }
+    triangleDepth=saved;
+  }
+  const yaw=(player.poolYaw||0)+(player.spin?.angle||0);
+  const forward={x:Math.cos(yaw),y:0,z:Math.sin(yaw)};
+  const side={x:-forward.z,y:0,z:forward.x};
+  const point=(c,f,u,r)=>({x:c.x+forward.x*f+side.x*r,y:c.y-u,z:c.z+forward.z*f+side.z*r});
+  const end=(b,n)=>({x:b['x'+n],y:b['y'+n],z:b['z'+n]});
+  const skin=player.color,shirt=player.shirtColor||[252,252,250];
+  const dressed=player.skin&&!player.dummy;
+  const tube=(a,b,r1,r2,ink,sides=lod?4:8)=>{
+    const axis=normalize3({x:b.x-a.x,y:b.y-a.y,z:b.z-a.z});
+    const ref=Math.abs(axis.y)<.9?{x:0,y:1,z:0}:{x:1,y:0,z:0};
+    const u=normalize3({x:axis.y*ref.z-axis.z*ref.y,y:axis.z*ref.x-axis.x*ref.z,z:axis.x*ref.y-axis.y*ref.x});
+    const v={x:axis.y*u.z-axis.z*u.y,y:axis.z*u.x-axis.x*u.z,z:axis.x*u.y-axis.y*u.x};
+    const ratio=r2/r1,length=Math.hypot(b.x-a.x,b.y-a.y,b.z-a.z);
+    characterMesh('tube:'+sides+':'+ratio.toFixed(3)+':'+ink.join(','),()=>{
+      const ring=(y,r,i)=>{const angle=i/sides*Math.PI*2;return {x:Math.cos(angle)*r,y,z:Math.sin(angle)*r};};
+      for(let i=0;i<sides;i++){
+        const a0=ring(0,1,i),a1=ring(0,1,i+1),b0=ring(1,ratio,i),b1=ring(1,ratio,i+1);
+        worldQuad(a0,a1,b1,b0,ink);
+        if(i%2===0){
+          worldQuad({x:0,y:0,z:0},ring(0,1,i+2),a1,a0,ink);
+          worldQuad({x:0,y:1,z:0},b0,b1,ring(1,ratio,i+2),ink);
+        }
+      }
+    },a,[{x:u.x*r1,y:u.y*r1,z:u.z*r1},{x:axis.x*length,y:axis.y*length,z:axis.z*length},{x:v.x*r1,y:v.y*r1,z:v.z*r1}]);
+  };
+  const ellipsoid=(c,rx,ry,rz,ink,cols=lod?8:16,rows=lod?4:8,key='')=>{
+    characterMesh('sphere:'+cols+':'+rows+':'+(key||ink.join(',')),()=>{
+      const vertex=(i,j)=>{const lon=i/cols*Math.PI*2,lat=j/rows*Math.PI;
+        return {x:Math.cos(lon)*Math.sin(lat),y:-Math.cos(lat),z:Math.sin(lon)*Math.sin(lat)};};
+      for(let j=0;j<rows;j++)for(let i=0;i<cols;i++)
+        worldQuad(vertex(i,j),vertex(i+1,j),vertex(i+1,j+1),vertex(i,j+1),typeof ink==='function'?ink(i,j,cols,rows):ink);
+    },c,[{x:forward.x*rx,y:0,z:forward.z*rx},{x:0,y:ry,z:0},{x:side.x*rz,y:0,z:side.z*rz}]);
+  };
+  const torso=world.segments.find(b=>b.role==='torso');
+  if(player.skateboard)drawSkateboard(player);
+  for(const bone of world.segments){
+    if(['torso','shoulders'].includes(bone.role)||!hasPart(player,bone.part))continue;
+    const a=end(bone,1),b=end(bone,2),r=(bone.width||10)*.5;
+    const pants=player.pantsColor&&/thigh|shin/.test(bone.role);
+    tube(a,b,r,r*.86,pants?player.pantsColor:skin);
+    if(dressed&&/upper-arm$/.test(bone.role)){
+      const cuff={x:lerp(a.x,b.x,.42),y:lerp(a.y,b.y,.42),z:lerp(a.z,b.z,.42)};
+      tube(a,cuff,r+1.5*scale,r+1*scale,shirt);
+    }
+    if(/shin$/.test(bone.role))ellipsoid(point(b,5*scale,3*scale,0),13*scale,6*scale,7*scale,player.shoeColor||[70,70,96],8,4);
+  }
+  if(torso&&hasPart(player,'torso')){
+    const hip=end(torso,2),neck=end(torso,1),ink=dressed?shirt:skin;
+    const breathing=1+Math.sin((player.breathPhase||0)*Math.PI*2)*.035;
+    const axes=[{x:forward.x*scale*breathing,y:0,z:forward.z*scale*breathing},
+      {x:neck.x-hip.x,y:neck.y-hip.y,z:neck.z-hip.z},{x:side.x*scale,y:0,z:side.z*scale}];
+    characterMesh('torso:'+ink.join(','),()=>{
+      const rings=[];
+      for(let j=0;j<5;j++){
+        const u=j/4,curve=Math.sin(u*Math.PI)*2.5;
+        rings.push(Array.from({length:12},(_,i)=>{const a=i/12*Math.PI*2;
+          return {x:Math.cos(a)*[8,7,10,11,8][j]-curve,y:u,z:Math.sin(a)*[13,11,16,21,17][j]};}));
+      }
+      for(let j=0;j<4;j++)for(let i=0;i<12;i++)worldQuad(rings[j][i],rings[j][(i+1)%12],rings[j+1][(i+1)%12],rings[j+1][i],ink);
+    },hip,axes);
+    if(dressed&&!player.pantsColor){
+      const skirt=player.skirtColor||[188,164,226],count=16,rows=3;
+      const sway=Math.sin((player.poolStridePhase||0)*Math.PI*2)*3+(player.rig?.lean||0)*.16+Math.sin((player.breathPhase||0)*Math.PI*2)*1.2;
+      characterMesh('skirt:'+skirt.join(','),()=>{
+        const ring=(i,j)=>{const u=j/rows,a=i/count*Math.PI*2,fold=(i%2?1:-1)*1.4*u;
+          return {x:Math.cos(a)*(10+u*10+fold),y:u,z:Math.sin(a)*(15+u*12+fold)};};
+        for(let j=0;j<rows;j++)for(let i=0;i<count;i++)worldQuad(ring(i,j),ring(i+1,j),ring(i+1,j+1),ring(i,j+1),mixColor(skirt,[40,30,55],i%2?.13:0));
+      },{...hip,y:hip.y-3*scale},[{x:forward.x*scale,y:0,z:forward.z*scale},{x:forward.x*sway*scale,y:35*scale,z:forward.z*sway*scale},{x:side.x*scale,y:0,z:side.z*scale}]);
+    }
+    if(dressed&&lod===0){
+      const c={x:lerp(hip.x,neck.x,.65),y:lerp(hip.y,neck.y,.65),z:lerp(hip.z,neck.z,.65)};
+      for(let i=0;i<6;i++){const a=i/6*Math.PI*2;ellipsoid(point(c,12*scale,Math.cos(a)*3*scale,Math.sin(a)*3*scale),.8*scale,2*scale,2*scale,[255,255,250],4,2);}
+      ellipsoid(point(c,13*scale,0,0),1*scale,2*scale,2*scale,[250,200,60],4,2);
+    }
+  }
+  if(!player.headless){
+    const h=world.head,r=h.radius;
+    const hair=player.hairColor||[35,27,34];
+    ellipsoid(h,r*.96,r,r*.96,(i,j,cols,rows)=>j<rows*.25||(Math.cos((i+.5)/cols*Math.PI*2)<-.15&&j<rows*.78)?hair:skin,lod?8:16,lod?4:8,'head:'+hair.join(',')+':'+skin.join(','));
+    if(dressed&&lod<2){
+      const hairState=ponytailStates.get(player);
+      if(hairState){
+        for(let i=1;i<hairState.points.length;i++)
+          tube(hairState.points[i-1],hairState.points[i],r*(.205-.03*(i-1)),r*(.205-.03*i),hair,lod?4:6);
+      }
+    }
+    if(lod<2)for(const sign of [-1,1]){
+      ellipsoid(point(h,r*.82,r*.13,sign*r*.35),r*.18,r*.29,r*.21,[24,18,29],8,4);
+      ellipsoid(point(h,r*.87,r*.13,sign*r*.35),r*.16,r*.24,r*.17,[250,250,247],8,4);
+      ellipsoid(point(h,r*.975,r*.13,sign*r*.35),r*.055,r*.12,r*.10,player.irisColor||[70,111,153],6,4);
+    }
+    ellipsoid(point(h,r*.94,-r*.13,0),r*.14,r*.13,r*.12,skin,8,4);
+    tube(point(h,r*.85,-r*.43,-r*.2),point(h,r*.85,-r*.43,r*.2),r*.025,r*.025,[55,25,38],6);
+    if(lod<2&&(dressed||player.pad===0)){
+      const bow=point(h,r*.48,r*.88,0),ink=player.accent||[147,231,200];
+      for(const sign of [-1,1]){
+        const a=point(bow,0,0,sign*r*.06),b=point(bow,0,r*.23,sign*r*.52),c=point(bow,0,-r*.23,sign*r*.52),d=point(bow,-r*.16,0,sign*r*.35);
+        worldQuad(a,b,c,a,ink);worldQuad(a,c,d,a,ink);worldQuad(a,d,b,a,ink);worldQuad(b,d,c,b,ink);
+      }
+      ellipsoid(bow,r*.13,r*.13,r*.13,ink,8,4);
+    }
+  }
+  const saved=triangleDepth;
+  triangleDepth=projectPoint(world.head.x,world.head.y,world.head.z).z-.004;
+  if(player.gunAmmo>0){
+    const pose=gunPose(player,runtime().monotonicUs);
+    tube(pose.hand,pose.muzzle,4*scale,4*scale,[45,48,55],4);
+    tube(pose.hand,{...pose.hand,y:pose.hand.y+14*scale},4*scale,3*scale,[30,29,34],4);
+  }
+  drawHeldAxe(player,t);triangleDepth=saved;
+}
+
 function drawRunner(player,t,showLabel=true){
   const previous=figureDrawScale;
   const world=player.replayGeometry||player.frozenGeometry||runnerWorldGeometry(player,t);
@@ -18272,7 +18576,10 @@ function drawRunnerAtScale(player, t, showLabel = true) {
       segment.y1 += dy; segment.y2 += dy;
     }
   }
-  const lod = figureLod(player, geometry);
+  const lod = poolOnly()&&player.civilian?Math.max(geometry.head.radius<12?2:1,figureLod(player,geometry)):figureLod(player, geometry);
+  if(poolOnly()&&player.alive&&!player.dummy){
+    drawSpatialRunner(player,player.replayGeometry||player.frozenGeometry||runnerWorldGeometry(player,t),t,lod);return;
+  }
   if (lod > 0) { drawFigureLod(player, geometry, lod, t); return; }
   // Preserve the fighter's identity color during hit flash. A pure white body
   // disappeared against the daylight arena, so impact now changes only its rim.
@@ -21998,7 +22305,7 @@ function gamePaint() {
     // from a raised lens it cut their legs off at the shins. Standing them at
     // the floor's near edge keeps the whole body in front of the ground they
     // are standing on.
-    if (renderable.kind === "player")
+    if (renderable.kind === "player" && !poolOnly())
       triangleDepth = Math.min(triangleDepth,
         projectPoint(renderable.x, renderable.y, worldNear + 2).z);
     if (renderable.kind === "bullet") drawBullet(renderable.item);
@@ -22013,6 +22320,7 @@ function gamePaint() {
       drawRunner(renderable.item, t, showRunnerLabels);
     }
   }
+  if(poolOnly())drawAeselFairy(t);
   // Debug geometry shares the unfiltered overlay pass, behind screen UI.
   triangleDepth = -1.465;
   for(const p of activePlayers()){drawDebugHitboxes(p,t);if(debugHitboxes)drawAxeHitbox(p,t);}
@@ -22022,6 +22330,7 @@ function gamePaint() {
   triangleDepth = -1.475;
   // Meters and screen UI sit in front of the debug geometry.
   drawFrameMeter();
+  drawAeselConnect();
   drawImpacts();
   drawTitleHeadDoor(t, titleInk, reelMinimal);
   const counting = !roundResult && introAge < roundIntroDurationUs();
@@ -22745,17 +23054,23 @@ function meshHandle(mesh){
 // mesh and is rejected before projection or a native bridge call.
 function sceneBoundsVisible(bounds){
   if(!bounds)return true;
-  const corners=[];
-  for(const x of [bounds.minX,bounds.maxX])for(const y of [bounds.minY,bounds.maxY])
-    for(const z of [bounds.minZ,bounds.maxZ])corners.push(cameraDoll.toView({x,y,z}));
-  if(corners.every(p=>p.z<cameraNear))return false;
-  // Bounds crossing the near plane stay; clipping handles their visible part.
-  if(corners.some(p=>p.z<cameraNear))return true;
-  const points=corners.map(p=>cameraDoll.projectView(p));
-  const left=clipView?.x??0,right=clipView?clipView.x+clipView.w:viewWidth();
-  const top=clipView?.y??0,bottom=clipView?clipView.y+clipView.h:viewHeight;
-  return !(points.every(p=>p.x<left-24)||points.every(p=>p.x>right+24)||
-    points.every(p=>p.y<top-24)||points.every(p=>p.y>bottom+24));
+  if(cameraDoll.dirty||!cameraDoll.view)cameraDoll.prepare();
+  const v=cameraDoll.view,p=cameraDoll.position;
+  const x=(bounds.minX+bounds.maxX)*.5-p.x,y=(bounds.minY+bounds.maxY)*.5-p.y,z=(bounds.minZ+bounds.maxZ)*.5-p.z;
+  const hx=(bounds.maxX-bounds.minX)*.5,hy=(bounds.maxY-bounds.minY)*.5,hz=(bounds.maxZ-bounds.minZ)*.5;
+  const cx=x*v.right.x+y*v.right.y+z*v.right.z,cy=x*v.up.x+y*v.up.y+z*v.up.z,cz=x*v.forward.x+y*v.forward.y+z*v.forward.z;
+  const ex=hx*Math.abs(v.right.x)+hy*Math.abs(v.right.y)+hz*Math.abs(v.right.z);
+  const ey=hx*Math.abs(v.up.x)+hy*Math.abs(v.up.y)+hz*Math.abs(v.up.z);
+  const ez=hx*Math.abs(v.forward.x)+hy*Math.abs(v.forward.y)+hz*Math.abs(v.forward.z);
+  if(cz+ez<cameraNear)return false;
+  if(cz-ez<cameraNear)return true;
+  const blend=cameraDoll.perspective,base=v.orthoScale*(1-blend);
+  const nearScale=base+v.focal/(cz-ez)*blend,farScale=base+v.focal/(cz+ez)*blend;
+  const minX=cx-ex,maxX=cx+ex,minY=cy-ey,maxY=cy+ey;
+  const left=v.centerX+minX*(minX<0?nearScale:farScale),right=v.centerX+maxX*(maxX>0?nearScale:farScale);
+  const top=v.centerY-maxY*(maxY>0?nearScale:farScale),bottom=v.centerY-minY*(minY<0?nearScale:farScale);
+  return right>=(clipView?.x??0)-24&&left<=(clipView?clipView.x+clipView.w:viewWidth())+24&&
+    bottom>=(clipView?.y??0)-24&&top<=(clipView?clipView.y+clipView.h:viewHeight)+24;
 }
 function buildParkScene(mesh){
   const entries=mesh.faces.map(face=>{
@@ -22816,7 +23131,7 @@ function releaseQuadMesh(mesh){
  if(mesh)mesh.nativeHandle=-1;
 }
 function drawQuadMesh(mesh){
- if(!mesh||!sceneBoundsVisible(mesh.bounds))return;
+ if(!mesh||(!nativeRetainedMeshes&&!sceneBoundsVisible(mesh.bounds)))return;
  if(nativeRetainedMeshes){
   const handle=meshHandle(mesh);
   if(handle>=0){nativeMeshDraw(handle,mainNativeCamera(),clipView?0:cameraScale());return;}
@@ -22992,6 +23307,15 @@ function drawTurboParticles(){
  triangleDepth=saved;
 }
 
+function damageParkCivilian(kid,owner,at,now,damage){
+ kid.health=(kid.health??4)-damage;kid.hit=1;kid.startledUntil=now+900000;
+ kid.sparringPartner=owner.pad;kid.lastHitAt=now;
+ const dx=kid.x-owner.x,dz=(kid.z||0)-(owner.z||0),length=Math.hypot(dx,dz)||1;
+ kid.x+=dx/length*20;kid.z+=dz/length*20;kid.patrolZ=kid.z;
+ spawnImpact({x:at.x,y:at.y,z:at.z,life:.18,duration:.18,death:false,explosion:false});
+ playDrum('snare',.65,panAt(kid.x,kid.z));
+ if(kid.health<=0)popCivilianHead(kid,owner,runnerWorldGeometry(kid,(now-startedAt)/1e6),now);
+}
 function popCivilianHead(kid,owner,g,now){
  kid.headless=true;kid.alive=false;kid.frozenGeometry=g;kid.vx=0;kid.attackKind='';
  kid.looseHead={...g.head,vx:Math.sign(kid.x-owner.x||1)*350,vy:-430,vz:(kid.pad%2?1:-1)*100};

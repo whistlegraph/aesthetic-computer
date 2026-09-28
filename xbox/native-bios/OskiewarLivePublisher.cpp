@@ -157,7 +157,10 @@ void Connect(const std::shared_ptr<OskiewarLivePublisher::State>& state) {
           const auto size = reader->UnconsumedBufferLength;
           if (!size || size > 16384) return;
           auto message = Windows::Data::Json::JsonObject::Parse(reader->ReadString(size));
-          if (message->GetNamedString("type", "") != "oskiewar:net") return;
+          const auto type = message->GetNamedString("type", "");
+          const bool render_flags = type == "oskiewar:flags";
+          if (type != "oskiewar:net" && !render_flags) return;
+          if (render_flags && size > 512) return;
           auto content = message->GetNamedObject("content")->Stringify();
           const int count = WideCharToMultiByte(CP_UTF8, 0, content->Data(),
             content->Length(), nullptr, 0, nullptr, nullptr);
@@ -165,6 +168,7 @@ void Connect(const std::shared_ptr<OskiewarLivePublisher::State>& state) {
           std::string packet(count, '\0');
           WideCharToMultiByte(CP_UTF8, 0, content->Data(), content->Length(),
             packet.data(), count, nullptr, nullptr);
+          if (render_flags) packet = "{\"kind\":\"render-flags\",\"flags\":" + packet + "}";
           const auto state = weak.lock();
           if (!state) return;
           std::lock_guard<std::mutex> lock(state->mutex);

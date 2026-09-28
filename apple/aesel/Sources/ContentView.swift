@@ -22,11 +22,10 @@ struct ContentView: View {
     @State private var fileNotice: String?
     @State private var showSettings = false
     @State private var signInArrived = false
-    @State private var showAccountDeletion = false
-    @State private var deletionAccount = ""
     @State private var showVolume = false
     @State private var braincells = Braincells()
     @StateObject private var preview = PiecePreview()
+    @StateObject private var oskiewar = OskiewarAttachment()
     @State private var expandedPreview = false
     @State private var previewHidden = false
     @State private var notebookHeight: CGFloat = 24
@@ -245,13 +244,18 @@ struct ContentView: View {
         .onChange(of: session.showSignIn) { if !session.showSignIn { host.cancelSignIn() } }
         .onChange(of: session.signedIn) { if session.signedIn { Task { await braincells.load() } } }
         .task { braincells.start(token: { host.accessToken() }, credited: { host.refreshCredits() }) }
-        .onDisappear { host.automation.stop() }
+        .onChange(of: oskiewar.status) { fileNotice = oskiewar.status }
+        .onDisappear { host.automation.stop(); oskiewar.disconnect() }
         .onAppear {
             host.automation.inspect = { automationState }
             host.automation.perform = { action, params in try await automationAction(action, params) }
             host.automation.preview = preview.view
             host.automation.retryPreview = { preview.reload() }
             host.automation.start()
+            if let connection = ProcessInfo.processInfo.environment["AESEL_OSKIEWAR"], connection.hasPrefix("oskiewar://") {
+                draft = connection
+                oskiewar.connect(connection)
+            }
             #if DEBUG
             if ProcessInfo.processInfo.environment["AESEL_NOTEBOOK_PREVIEW"] == "1" {
                 showHome = false
@@ -267,14 +271,6 @@ struct ContentView: View {
             Button("Done") { session.accountDeleted = false }
         } message: {
             Text("Your Aesthetic Computer account is locked and will be deleted\(session.accountDeletionDate.map { " on " + $0.formatted(date: .long, time: .omitted) } ?? " in 14 days").\(session.accountDeletionMailed ? " We emailed you a link to keep it." : "") Your local notebooks remain on this device.")
-        }
-        .alert("Delete \(deletionAccount)?", isPresented: $showAccountDeletion) {
-            Button("Cancel", role: .cancel) { host.cancelAccountDeletion() }
-            Button("Delete Account", role: .destructive) { host.deleteAccount() }
-        } message: {
-            Text((session.accountDeletionSummary.isEmpty
-                  ? "Your account locks now and is deleted after 14 days: your handle, pieces, paintings, moods, tapes, chat messages and uploads. KidLisp that is minted or used in other people's pieces stays, without your name. Unused braincells are lost. We email you a link to keep the account until then."
-                  : session.accountDeletionSummary) + " Your local notebooks stay on this device.")
         }
         .sheet(item: Binding(get: { session.approval }, set: { value in
             if value == nil, let pending = session.approval { host.respondToApproval(id: pending.id, decision: "decline") }
@@ -635,28 +631,24 @@ struct ContentView: View {
                             Rectangle().fill(paint.ink.opacity(0.16)).frame(height: 1)
                             if session.signedIn {
                                 Text(session.handle.isEmpty ? "Aesthetic Computer account" : "@\(session.handle)")
-                                HStack {
-                                    Button { host.signOut() } label: {
-                                        Label("Log out", systemImage: "rectangle.portrait.and.arrow.right")
-                                            .padding(.horizontal, 14).padding(.vertical, 10)
-                                    }.buttonStyle(AeselTintedButtonStyle(tint: Color(rgb: 0x287bdb)))
-                                    Spacer()
-                                    Menu {
-                                    Button(session.accountDeletionBusy ? "Deleting account…" : "Delete account…", role: .destructive) {
-                                        if let label = host.prepareAccountDeletion() {
-                                            deletionAccount = label
-                                            showAccountDeletion = true
-                                        }
-                                    }.disabled(session.busy || session.accountDeletionBusy)
-                                    } label: { Image(systemName: "ellipsis").frame(width: 32, height: 32) }
-                                    .menuStyle(.borderlessButton).fixedSize()
-                                    .accessibilityLabel("Account actions")
+                                    .font(.custom("ComicRelief-Bold", size: 26))
+                                    .foregroundStyle(paint.ink)
+                                    .shadow(color: paint.accent.opacity(0.55), radius: 0, x: 2, y: 2)
+                                    .padding(.bottom, 4)
+                                HStack(spacing: 16) {
+                                    accountAction("Log out") { closeSettings { host.signOut() } }
+                                    Spacer(minLength: 0)
+                                    Button {
+                                        openURL(URL(string: "https://aesthetic.computer/delete-erase-and-forget-me")!)
+                                    } label: {
+                                        Label("Manage account", systemImage: "arrow.up.right")
+                                    }
+                                    .accessibilityHint("Opens account management in your browser")
                                 }
                             } else {
                                 settingsItem("Sign in to Aesthetic Computer") { closeSettings { host.signIn() } }
                             }
                             if !session.accountNotice.isEmpty { Text(session.accountNotice).font(Paint.font(13)) }
-                            Link("Privacy policy", destination: URL(string: "https://aesthetic.computer/privacy-policy.html")!)
                             Rectangle().fill(paint.ink.opacity(0.16)).frame(height: 1)
                             AeselVersionList(session: session, host: host, onSelect: { closeSettings() })
                         }.padding(.horizontal, 20).padding(.bottom, 20)
@@ -742,6 +734,8 @@ struct ContentView: View {
         guard !session.viewingHistory else { return }
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
+        if text.hasPrefix("oskiewar://") { oskiewar.connect(text); draft = ""; return }
+        if text == "/disconnect" { oskiewar.disconnect(); draft = ""; return }
         switch Session.command(for: text) {
         case "new", "home": writing = false; showHome = true
         case "publish": host.publish()
@@ -805,6 +799,7 @@ struct ContentView: View {
                 "overlays": ["settings": session.accountReady && showSettings, "home": session.accountReady && showHome, "help": session.accountReady && showHelp, "signin": session.showSignIn],
                 "piece": ["route": session.route, "version": session.displayedRevision, "currentVersion": session.currentRevision, "readOnly": session.viewingHistory, "sourceBytes": session.displayedSource.utf8.count,
                           "previewURL": session.previewURL?.absoluteString ?? "", "shareURL": session.shareURL?.absoluteString ?? ""],
+                "oskiewar": ["room": oskiewar.room, "status": oskiewar.status],
                 "composer": ["characters": draft.count, "placeholder": "", "focused": writing],
                 "title": ["opacity": 1, "linked": titleURL != nil], "footer": "v\(session.displayedRevision)",
                 "session": ["id": session.currentSessionID, "busy": session.busy, "status": session.status, "signedIn": session.signedIn, "accountReady": session.accountReady,
@@ -982,5 +977,61 @@ private struct CurtainAccountButtonStyle: ButtonStyle {
         Color(red: Double((hex >> 16) & 255) / 255,
               green: Double((hex >> 8) & 255) / 255,
               blue: Double(hex & 255) / 255)
+    }
+}
+
+// A live game attachment, owned by this window. Presence expires in the game
+// if the window closes, the process stops, or the network drops.
+@MainActor
+private final class OskiewarAttachment: ObservableObject {
+    @Published var status = ""
+    private var socket: URLSessionWebSocketTask?
+    private var receiver: Task<Void, Never>?
+    private var heartbeat: Task<Void, Never>?
+    private(set) var room = ""
+
+    func disconnect() {
+        receiver?.cancel(); heartbeat?.cancel()
+        socket?.cancel(with: .goingAway, reason: nil)
+        socket = nil; receiver = nil; heartbeat = nil; room = ""; status = "Oskiewar disconnected"
+    }
+
+    func connect(_ text: String) {
+        let name = String(text.dropFirst("oskiewar://".count)).lowercased()
+        guard name.range(of: "^[a-z0-9-]{5,24}$", options: .regularExpression) != nil else {
+            status = "Invalid Oskiewar connection string"; return
+        }
+        disconnect(); room = name; status = "Connecting to Oskiewar…"
+        var url = URLComponents(string: "wss://session-server.aesthetic.computer/oskiewar-live")!
+        url.queryItems = [URLQueryItem(name: "match", value: "ow-" + name), URLQueryItem(name: "role", value: "agent")]
+        let task = URLSession.shared.webSocketTask(with: url.url!)
+        socket = task; task.resume()
+        receiver = Task { [weak self] in
+            do {
+                while !Task.isCancelled {
+                    let message = try await task.receive()
+                    guard let self, self.socket === task else { return }
+                    guard case .string(let text) = message,
+                          let data = text.data(using: .utf8),
+                          let value = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+                    if value["type"] as? String == "oskiewar:error" {
+                        self.status = "Oskiewar connection rejected"; self.heartbeat?.cancel(); return
+                    }
+                    if value["type"] as? String == "oskiewar:state" && self.heartbeat == nil {
+                        self.status = "Connected · oskiewar://" + name
+                        self.heartbeat = Task { [weak self] in
+                            var pulse = 0
+                            do {
+                                while !Task.isCancelled {
+                                    pulse = (pulse + 1) % 64
+                                    try await task.send(.string("{\"type\":\"oskiewar:flags\",\"content\":{\"aeselPulse\":\(pulse)}}"))
+                                    try await Task.sleep(nanoseconds: 1_000_000_000)
+                                }
+                            } catch { if !Task.isCancelled { self?.status = "Oskiewar connection lost" } }
+                        }
+                    }
+                }
+            } catch { if !Task.isCancelled { self?.status = "Oskiewar connection lost" } }
+        }
     }
 }

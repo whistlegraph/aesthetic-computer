@@ -17,6 +17,11 @@ struct AeselApp: App {
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 840, height: 680)
         .commands { AeselWindowCommands() }
+        Window("About Aesel", id: "about") {
+            AeselAboutView()
+        }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
         #else
         WindowGroup { AeselWorkspace(windowID: "main") }
         #endif
@@ -34,10 +39,26 @@ struct AeselApp: App {
 }
 
 #if os(macOS)
+private struct AeselAboutView: View {
+    var body: some View {
+        VStack(spacing: 18) {
+            AeselDonkey(busy: false, failed: false).accessibilityHidden(true)
+            Text("Aesel").font(.system(size: 36, weight: .medium, design: .serif))
+            Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
+                .font(.system(size: 13, design: .monospaced)).foregroundStyle(.secondary)
+            Link("Privacy Policy", destination: URL(string: "https://aesthetic.computer/privacy-policy.html")!)
+        }
+        .padding(32).frame(width: 320)
+    }
+}
+
 private struct AeselWindowCommands: Commands {
     @Environment(\.openWindow) private var openWindow
     @AppStorage("aesel.uiScale") private var uiScale = 1.0
     var body: some Commands {
+        CommandGroup(replacing: .appInfo) {
+            Button("About Aesel") { openWindow(id: "about") }
+        }
         CommandGroup(replacing: .newItem) {
             Button("New Window") { openWindow(id: "workspace", value: UUID().uuidString) }
                 .keyboardShortcut("n", modifiers: .command)

@@ -136,12 +136,19 @@ final class SessionStore {
     }
 
     private func saveToken(_ token: String) {
-        clearToken()
-        guard !token.isEmpty else { return }
-        var query = tokenQuery
-        query[kSecValueData as String] = Data(token.utf8)
-        query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-        let status = SecItemAdd(query as CFDictionary, nil)
+        guard !token.isEmpty else { clearToken(); return }
+        // Session checkpoints repeat the token. Do not delete/recreate its
+        // Keychain item: that loses the user's saved access permission.
+        guard self.token() != token else { return }
+        let data = Data(token.utf8)
+        var status = SecItemUpdate(tokenQuery as CFDictionary,
+                                   [kSecValueData as String: data] as CFDictionary)
+        if status == errSecItemNotFound {
+            var query = tokenQuery
+            query[kSecValueData as String] = data
+            query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+            status = SecItemAdd(query as CFDictionary, nil)
+        }
         if status != errSecSuccess { NSLog("[aesel] Keychain save failed (%d); sign in again after relaunch", status) }
     }
 
