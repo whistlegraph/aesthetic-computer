@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spine Lab</title>
+<style>
+  :root {
+    --bg: #f3efe7; --panel: #fffdf8; --ink: #24212b; --dim: #7a7484; --line: #ddd5c8;
+    --rope: #c2477a; --rope-dark: #7d2350; --head: #f0c9a8; --hip: #3a6fb0; --chest: #2f9b77;
+    --limb: #b8617f; --limb-far: #d9a3b6; --floor: #cfc6b8; --grid: #e7e0d4; --target: #e0a21b;
+    --board: #6b4a2b; --kart: #d5443c; --good: #2f9b77; --warn: #c07a1c; --bad: #c2413a;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #17151c; --panel: #211e27; --ink: #ece7f2; --dim: #9a93a6; --line: #36313f;
+    --rope: #ff7cb0; --rope-dark: #c2477a; --head: #e2b48f; --hip: #6fa3e8; --chest: #54cfa3;
+    --limb: #e58aac; --limb-far: #8b5a6d; --floor: #3b3544; --grid: #2a2631; --target: #f5c04a;
+    --board: #b58555; --kart: #ff6d64; --good: #54cfa3; --warn: #e8a64a; --bad: #ff6d64;
+  } }
+  :root[data-theme="dark"] {
+    --bg: #17151c; --panel: #211e27; --ink: #ece7f2; --dim: #9a93a6; --line: #36313f;
+    --rope: #ff7cb0; --rope-dark: #c2477a; --head: #e2b48f; --hip: #6fa3e8; --chest: #54cfa3;
+    --limb: #e58aac; --limb-far: #8b5a6d; --floor: #3b3544; --grid: #2a2631; --target: #f5c04a;
+    --board: #b58555; --kart: #ff6d64; --good: #54cfa3; --warn: #e8a64a; --bad: #ff6d64;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.4 ui-monospace, "SF Mono", Menlo, monospace; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 12px; padding: 12px 16px; max-width: 1500px; margin: 0 auto; }
+  @media (max-width: 960px) { main { grid-template-columns: 1fr; } }
+  h1 { font-size: 15px; margin: 0 0 4px; }
+  .sub { color: var(--dim); margin: 0 0 10px; }
+  .stage { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
+  .stage .side { display: grid; grid-template-rows: 1fr 1fr; gap: 8px; }
+  @media (max-width: 600px) { .stage { grid-template-columns: 1fr; } }
+  .view { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; position: relative; }
+  .view canvas { width: 100%; height: 100%; display: block; }
+  .view b { position: absolute; left: 8px; top: 4px; color: var(--dim); font-weight: normal; }
+  .caption { position: absolute; left: 8px; bottom: 6px; right: 8px; color: var(--rope); font-weight: bold; }
+  #three { aspect-ratio: 4 / 3; }
+  .side canvas { aspect-ratio: 4 / 3; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; align-items: center; }
+  .row span { color: var(--dim); min-width: 56px; }
+  button { font: inherit; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; cursor: pointer; }
+  button:hover { border-color: var(--rope); }
+  button.on { background: var(--rope); color: var(--panel); border-color: var(--rope); }
+  kbd { font: inherit; color: var(--dim); }
+  .keys { color: var(--dim); margin: 8px 0 0; }
+  .status { margin: 6px 0 0; }
+  aside { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; align-self: start; }
+  aside h2 { font-size: 13px; margin: 12px 0 6px; }
+  aside h2:first-child { margin-top: 0; }
+  details summary { cursor: pointer; color: var(--dim); }
+  label { display: grid; grid-template-columns: 104px 1fr 46px; gap: 6px; align-items: center; margin: 3px 0; }
+  label span:last-child { text-align: right; color: var(--dim); }
+  input[type=range] { width: 100%; accent-color: var(--rope); }
+  table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+  th, td { text-align: right; padding: 2px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th:first-child, td:first-child { text-align: left; }
+  td.stat { text-align: left; }
+  th { color: var(--dim); font-weight: normal; }
+  .note { color: var(--dim); margin-top: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <h1>Spine Lab</h1>
+    <p class="sub">Procedural animation from a rope spine. Every movement starts in the core; limbs are loose chains that follow it.</p>
+    <div class="stage">
+      <div class="view"><b>¾ — follows the body</b><span class="caption" id="caption"></span><canvas id="three" width="800" height="600"></canvas></div>
+      <div class="side">
+        <div class="view"><b>side</b><canvas id="sideView" width="400" height="300"></canvas></div>
+        <div class="view"><b>front</b><canvas id="frontView" width="400" height="300"></canvas></div>
+      </div>
+    </div>
+    <div class="row" id="modes"><span>mode</span></div>
+    <div class="row" id="moves"><span>action</span></div>
+    <div class="row" id="holds"><span>hold</span></div>
+    <p class="keys"><kbd>W/S</kbd> go/back · <kbd>A/D</kbd> turn · <kbd>shift</kbd> run · <kbd>space</kbd> jump/ollie · <kbd>Q/E</kbd> punch L/R · <kbd>F</kbd> kick · <kbd>C</kbd> crouch · hold <kbd>R</kbd> reach · hold <kbd>G</kbd> grab · <kbd>H</kbd> take a hit · <kbd>1 2 3</kbd> foot/board/kart · arrows + <kbd>U/O</kbd> move the target · <kbd>0</kbd> reset</p>
+    <p class="status" id="status"></p>
+  </section>
+  <aside>
+    <h2>actions, measured</h2>
+    <table id="actionTable"></table>
+    <h2>rope pokes, measured</h2>
+    <table id="pokeTable"></table>
+    <p class="note">peak: how far the head goes · over: swing back past rest · settle: to within 5% · wave: head peaks after the lower back (the whip) · stretch: worst bone or link</p>
+    <h2>rope</h2>
+    <details><summary>tune the spine</summary><div id="sliders"></div><button id="defaults">defaults</button></details>
+  </aside>
+</main>
+<script type="module">
+import { step, defaults, limbEnd, frames, travelPoint } from "./spine.mjs";
+import { createActor, stepActor, trigger, setMode } from "./actions.mjs";
+import { measureAll, measureActions } from "./spine-scenarios.mjs";
+
+const tunables = [
+  ["beads", 4, 16, 1], ["length", 50, 120, 1], ["stiffLow", .02, 1, .01], ["stiffHigh", .01, 1, .01],
+  ["muscle", .2, 2, .05], ["reaction", 0, .8, .01], ["damping", 0, .6, .01], ["twistStiff", .02, 1, .01],
+  ["hold", .05, 1, .01], ["gravity", 0, 2000, 10], ["tempo", .5, 3, .05], ["lag", 0, 1, .01],
+  ["sway", 0, .2, .005], ["wring", 0, .6, .01], ["react", 1, 30, .5], ["reflex", 0, 2, .05], ["limbDamping", 0, .5, .01],
+];
+let options = { ...defaults };
+try { options = { ...options, ...JSON.parse(localStorage.getItem("spine-lab") || "{}") }; } catch {}
+const saveOptions = () => { try { localStorage.setItem("spine-lab", JSON.stringify(options)); } catch {} };
+const color = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+let actor = createActor(options), demoCaption = "";
+const still = new URLSearchParams(location.search).has("still");   // freeze for screenshots
+const keys = new Set(), clicks = { reach: false, grab: false, crouch: false };
+function reset() { const mode = actor.mode; actor = createActor(options); setMode(actor, mode); }
+
+// ——— controls ———
+function buttons(rowId, list) {
+  const row = document.getElementById(rowId);
+  for (const [label, act, isOn] of list) {
+    const b = document.createElement("button");
+    b.textContent = label; b.onclick = () => { act(); refresh(); };
+    b.dataset.on = isOn ? "1" : ""; b._isOn = isOn;
+    row.append(b);
+  }
+}
+buttons("modes", [["on foot", () => setMode(actor, "foot"), () => actor.mode === "foot"],
+  ["board", () => setMode(actor, "board"), () => actor.mode === "board"],
+  ["kart", () => setMode(actor, "kart"), () => actor.mode === "kart"]]);
+buttons("moves", [["punch L", () => trigger(actor, "punch", -1)], ["punch R", () => trigger(actor, "punch", 1)],
+  ["kick", () => trigger(actor, "kick", 1)], ["jump / ollie", () => trigger(actor, "jump")], ["take a hit", () => trigger(actor, "hit", Math.random() < .5 ? -1 : 1)]]);
+buttons("holds", [["crouch", () => (clicks.crouch = !clicks.crouch), () => clicks.crouch],
+  ["reach", () => (clicks.reach = !clicks.reach), () => clicks.reach],
+  ["grab", () => (clicks.grab = !clicks.grab), () => clicks.grab], ["reset", reset],
+  ["▶ demo", () => startDemo(), () => !!demo]]);
+
+// ——— the demo: every action, scripted, in one run ———
+// Each beat: a caption, seconds, and what to hold or fire. `setup` runs once.
+const demoScript = [
+  { say: "standing: the spine breathes on its own", time: 1.2 },
+  { say: "walk — feet ride the spine's rhythm", time: 2.4, hold: { forward: 1 } },
+  { say: "run", time: 2, hold: { forward: 1, run: true } },
+  { say: "turn while running", time: 1.2, hold: { forward: 1, run: true, turn: 1 } },
+  { say: "stop — the spine whips forward and back", time: 1.4 },
+  { say: "crouch", time: 1.2, hold: { crouch: true } },
+  { say: "punch right — spine twists first, fist rides out", time: .7, fire: ["punch", 1] },
+  { say: "punch left", time: .7, fire: ["punch", -1] },
+  { say: "kick", time: .9, fire: ["kick", 1] },
+  { say: "jump", time: 1, fire: ["jump"] },
+  { say: "reach low — the spine curls, the legs bend", time: 2.2, setup: (a) => place(a, 60, 12, 30), hold: { reach: true } },
+  { say: "grab", time: 1.2, setup: (a) => place(a, 45, 115, 18), hold: { grab: true } },
+  { say: "…and drag — the body follows what it holds", time: 2.6, hold: { grab: true }, each: (a) => { a.target.x += Math.cos(a.body.root.yaw) * 2.4; a.target.z += Math.sin(a.body.root.yaw) * 2.4 + .6; } },
+  { say: "take a hit", time: 1.2, fire: ["hit", 1] },
+  { say: "board — sideways stance, push", time: 2.4, setup: (a) => setMode(a, "board"), hold: { forward: 1 } },
+  { say: "carve — lean over the toes", time: 1.8, hold: { turn: 1 } },
+  { say: "carve back — over the heels", time: 1.6, hold: { turn: -1 } },
+  { say: "ollie", time: 1.2, fire: ["jump"] },
+  { say: "kart — seated, hands on the wheel", time: 3, setup: (a) => setMode(a, "kart"), hold: { forward: 1, turn: .6 } },
+  { say: "back on foot", time: 1.5, setup: (a) => setMode(a, "foot") },
+];
+let demo = null;
+function place(a, forward, up, right) {
+  const r = a.body.root, c = Math.cos(r.yaw), s = Math.sin(r.yaw);
+  a.target = { x: r.x + c * forward - s * right, y: up, z: r.z + s * forward + c * right };
+}
+function startDemo() { reset(); setMode(actor, "foot"); demo = { beat: 0, t: 0, started: false }; }
+function demoTick() {
+  if (!demo) return null;
+  const beat = demoScript[demo.beat];
+  if (!demo.started) { demo.started = true; beat.setup?.(actor); if (beat.fire) trigger(actor, ...beat.fire); }
+  beat.each?.(actor);
+  demo.t += step;
+  if (demo.t >= beat.time) { demo.beat++; demo.t = 0; demo.started = false; if (demo.beat >= demoScript.length) { demo = null; refresh(); } }
+  return beat;
+}
+function refresh() { for (const b of document.querySelectorAll("button")) if (b._isOn) b.classList.toggle("on", !!b._isOn()); }
+
+addEventListener("keydown", (event) => {
+  if (event.target.tagName === "INPUT") return;
+  const k = event.key.toLowerCase();
+  if (event.repeat) { keys.add(k); return; }
+  if (k === " ") { event.preventDefault(); trigger(actor, "jump"); }
+  if (k === "q") trigger(actor, "punch", -1);
+  if (k === "e") trigger(actor, "punch", 1);
+  if (k === "f") trigger(actor, "kick", 1);
+  if (k === "h") trigger(actor, "hit", Math.random() < .5 ? -1 : 1);
+  if (k === "1") setMode(actor, "foot");
+  if (k === "2") setMode(actor, "board");
+  if (k === "3") setMode(actor, "kart");
+  if (k === "0") reset();
+  if (k.startsWith("arrow")) event.preventDefault();
+  keys.add(k); refresh();
+});
+addEventListener("keyup", (event) => keys.delete(event.key.toLowerCase()));
+
+// ——— rope sliders ———
+const sliders = document.getElementById("sliders");
+function drawSliders() {
+  sliders.innerHTML = "";
+  for (const [key, min, max, stepSize] of tunables) {
+    const row = document.createElement("label");
+    row.innerHTML = `<span>${key}</span><input type="range" min="${min}" max="${max}" step="${stepSize}" value="${options[key]}"><span>${options[key]}</span>`;
+    const input = row.querySelector("input"), value = row.querySelector("span:last-child");
+    input.addEventListener("input", () => {
+      options[key] = Number(input.value); value.textContent = input.value;
+      if (key === "beads" || key === "length") reset(); else actor.body.o[key] = options[key];
+      saveOptions(); remeasure();
+    });
+    sliders.append(row);
+  }
+}
+document.getElementById("defaults").onclick = () => { options = { ...defaults }; saveOptions(); drawSliders(); reset(); remeasure(); };
+
+// ——— measurements (the same code the tests assert on) ———
+let measureTimer = 0;
+function remeasure() {
+  clearTimeout(measureTimer);
+  measureTimer = setTimeout(() => {
+    const f = (v, d = 1) => v.toFixed(d), tone = (v) => v <= .03 ? "var(--good)" : v >= .08 ? "var(--bad)" : "var(--warn)";
+    document.getElementById("actionTable").innerHTML = "<tr><th></th><th style='text-align:left'>result</th><th>stretch</th></tr>" +
+      measureActions().map((r) => `<tr><td>${r.name}</td><td class="stat">${r.stat}</td><td style="color:${tone(r.stretch)}">${f(r.stretch * 100)}%</td></tr>`).join("");
+    const pokes = measureAll(options);
+    document.getElementById("pokeTable").innerHTML = "<tr><th></th><th>peak</th><th>over</th><th>settle</th><th>wave</th><th>stretch</th></tr>" +
+      pokes.filter((m) => m.name !== "walk").map((m) => `<tr><td>${m.name}</td><td>${f(m.peak)}</td><td>${f(m.overshoot * 100, 0)}%</td><td>${f(m.settle, 2)}s</td><td>${f(m.wave * 1000, 0)}ms</td><td style="color:${tone(m.linkError)}">${f(m.linkError * 100)}%</td></tr>`).join("") +
+      pokes.filter((m) => m.name === "walk").map((m) => `<tr><td>walk</td><td colspan="5">sway ${f(m.sway)} · bob ${f(m.bob)} · hips↔shoulders ${f(m.counterTwist * 57.3, 0)}°</td></tr>`).join("");
+  }, 150);
+}
+
+// ——— the loop: fixed 60 Hz, like the game ———
+let last = performance.now(), carry = 0;
+function frame(now) {
+  carry = Math.min(.25, carry + (now - last) / 1000); last = now;
+  while (carry >= step) { if (!still) tick(); carry -= step; }
+  draw(); requestAnimationFrame(frame);
+}
+function tick() {
+  const input = actor.input, root = actor.body.root, beat = demoTick(), hold = beat?.hold || {};
+  demoCaption = beat?.say || "";
+  input.forward = hold.forward ?? (keys.has("w") ? 1 : keys.has("s") ? -1 : 0);
+  input.turn = hold.turn ?? (keys.has("d") ? 1 : keys.has("a") ? -1 : 0);
+  input.run = hold.run ?? keys.has("shift");
+  input.crouch = hold.crouch ?? (keys.has("c") || clicks.crouch);
+  input.reach = hold.reach ?? (keys.has("r") || clicks.reach);
+  input.grab = hold.grab ?? (keys.has("g") || clicks.grab);
+  // The target moves in the body's travel frame.
+  const c = Math.cos(root.yaw), s = Math.sin(root.yaw), v = 180 * step, t = actor.target;
+  if (keys.has("arrowup")) { t.x += c * v; t.z += s * v; }
+  if (keys.has("arrowdown")) { t.x -= c * v; t.z -= s * v; }
+  if (keys.has("arrowright")) { t.x -= s * v; t.z += c * v; }
+  if (keys.has("arrowleft")) { t.x += s * v; t.z -= c * v; }
+  if (keys.has("u")) t.y += v;
+  if (keys.has("o")) t.y = Math.max(4, t.y - v);
+  stepActor(actor);
+}
+
+// ——— drawing ———
+// A camera: position, yaw and pitch looking at a point, with perspective.
+function camera(canvas, focus, yaw, pitch, distance, zoom) {
+  const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+  return (p) => {
+    const dx = p.x - focus.x, dy = p.y - focus.y, dz = p.z - focus.z;
+    const x = -dx * sy + dz * cy, depth0 = dx * cy + dz * sy;
+    const y = dy * cp + depth0 * sp, depth = -dy * sp + depth0 * cp + distance;
+    const k = zoom * distance / Math.max(40, depth);
+    return { x: canvas.width / 2 + x * k, y: canvas.height * .62 - y * k, k, depth };
+  };
+}
+
+function scene(canvas, project, grid) {
+  const g = canvas.getContext("2d"), w = canvas.width, h = canvas.height, body = actor.body;
+  g.fillStyle = color("--panel"); g.fillRect(0, 0, w, h);
+  // Floor grid around the body so travel reads.
+  if (grid) {
+    g.strokeStyle = color("--grid"); g.lineWidth = 1;
+    const cx = Math.round(body.root.x / 60) * 60, cz = Math.round(body.root.z / 60) * 60;
+    for (let i = -8; i <= 8; i++) {
+      for (const [a, b] of [[{ x: cx + i * 60, y: 0, z: cz - 480 }, { x: cx + i * 60, y: 0, z: cz + 480 }], [{ x: cx - 480, y: 0, z: cz + i * 60 }, { x: cx + 480, y: 0, z: cz + i * 60 }]]) {
+        const p = project(a), q = project(b); g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(q.x, q.y); g.stroke();
+      }
+    }
+  } else {
+    const a = project({ x: body.root.x - 400, y: 0, z: body.root.z }), b = project({ x: body.root.x + 400, y: 0, z: body.root.z });
+    g.strokeStyle = color("--floor"); g.lineWidth = 2; g.beginPath(); g.moveTo(0, a.y); g.lineTo(w, b.y); g.stroke();
+  }
+  const f = frames(body), items = [];
+  // Rideables under the feet.
+  if (actor.mode === "board") {
+    const nose = travelPoint(body, 34, 0, 8), tail = travelPoint(body, -34, 0, 8);
+    if (body.root.air) { nose.y = tail.y = (limbEnd(body.legs[0]).y + limbEnd(body.legs[1]).y) / 2 - 4; }
+    items.push({ depth: project(nose).depth, draw: () => line(g, project(nose), project(tail), 9, "--board") });
+  }
+  if (actor.mode === "kart") {
+    const corners = [[60, -30], [60, 30], [-40, 30], [-40, -30]].map(([a, c]) => project(travelPoint(body, a, c, 22)));
+    items.push({ depth: project(travelPoint(body, 0, 0, 22)).depth + 30, draw: () => { g.fillStyle = color("--kart"); g.globalAlpha = .55; g.beginPath(); corners.forEach((p, i) => i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)); g.closePath(); g.fill(); g.globalAlpha = 1; } });
+    const wheel = project(travelPoint(body, 40, 0, 44 + 22));
+    items.push({ depth: wheel.depth, draw: () => { g.strokeStyle = color("--ink"); g.lineWidth = 3; g.beginPath(); g.arc(wheel.x, wheel.y, 10 * wheel.k, 0, Math.PI * 2); g.stroke(); } });
+  }
+  // The target, and a line when grabbed.
+  const target = project(actor.target);
+  items.push({ depth: target.depth, draw: () => {
+    g.fillStyle = color("--target"); g.beginPath(); g.arc(target.x, target.y, 8 * target.k, 0, Math.PI * 2); g.fill();
+    const floor = project({ ...actor.target, y: 0 }); g.strokeStyle = color("--target"); g.setLineDash([3, 4]); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(target.x, target.y); g.lineTo(floor.x, floor.y); g.stroke(); g.setLineDash([]);
+  } });
+  // Limbs, the rope, the head: sorted far to near.
+  for (const limb of [...body.legs, ...body.arms]) {
+    const pts = [0, 1, 2].map((i) => project({ x: limb.x[i], y: limb.y[i], z: limb.z[i] }));
+    const width = limb.kind === "leg" ? 12 : 9;
+    items.push({ depth: (pts[0].depth + pts[2].depth) / 2, draw: () => {
+      const ink = pts[0].depth > project(f.chest.origin).depth ? "--limb-far" : "--limb";
+      line(g, pts[0], pts[1], width, ink); line(g, pts[1], pts[2], width * .85, ink);
+      dot(g, pts[2], (limb.kind === "leg" ? 6 : 6) * pts[2].k, limb.pin ? "--target" : "--rope-dark");
+    } });
+  }
+  const rope = Array.from({ length: body.n }, (_, i) => project({ x: body.x[i], y: body.y[i], z: body.z[i] }));
+  items.push({ depth: project(f.chest.origin).depth, draw: () => {
+    for (let i = 0; i < body.n - 1; i++) line(g, rope[i], rope[i + 1], 18 - (i / (body.n - 1)) * 9, i % 2 ? "--rope" : "--rope-dark");
+    bar(g, project, f.pelvis.origin, f.pelvis.right, body.o.hipWidth + 3, "--hip");
+    bar(g, project, f.chest.origin, f.chest.right, body.o.shoulder, "--chest");
+  } });
+  const head = f.head, centre = { x: head.origin.x + head.up.x * 16, y: head.origin.y + head.up.y * 16, z: head.origin.z + head.up.z * 16 };
+  const hc = project(centre), nose = project({ x: centre.x + head.forward.x * 17, y: centre.y + head.forward.y * 17, z: centre.z + head.forward.z * 17 });
+  items.push({ depth: hc.depth, draw: () => { dot(g, hc, 17 * hc.k, "--head"); dot(g, nose, 3 * hc.k, "--ink"); } });
+  items.sort((a, b) => b.depth - a.depth).forEach((item) => item.draw());
+}
+function line(g, a, b, width, ink) { g.strokeStyle = color(ink); g.lineCap = "round"; g.lineWidth = width * a.k; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); }
+function dot(g, p, r, ink) { g.fillStyle = color(ink); g.beginPath(); g.arc(p.x, p.y, Math.max(1, r), 0, Math.PI * 2); g.fill(); }
+function bar(g, project, at, right, half, ink) {
+  line(g, project({ x: at.x - right.x * half, y: at.y - right.y * half, z: at.z - right.z * half }),
+    project({ x: at.x + right.x * half, y: at.y + right.y * half, z: at.z + right.z * half }), 6, ink);
+}
+
+function draw() {
+  const body = actor.body, root = body.root, focus = { x: root.x, y: 70, z: root.z };
+  const three = document.getElementById("three"), side = document.getElementById("sideView"), front = document.getElementById("frontView");
+  scene(three, camera(three, focus, root.yaw + .75, .32, 420, 1.35), true);
+  scene(side, camera(side, focus, root.yaw + Math.PI / 2, 0, 2000, .95), false);
+  scene(front, camera(front, focus, root.yaw + Math.PI, 0, 2000, .95), false);
+  const a = actor.action ? `${actor.action.name}${actor.action.side < 0 ? " L" : actor.action.name === "punch" ? " R" : ""}` : "—";
+  document.getElementById("caption").textContent = demoCaption ? "▶ " + demoCaption : "";
+  document.getElementById("status").textContent =
+    `${actor.mode} · speed ${actor.speed.toFixed(0)} · ${root.air ? "in the air" : "grounded"} · action ${a}` +
+    (actor.grabbed ? " · holding the target" : actor.input.grab ? " · reaching to grab" : actor.input.reach ? " · reaching" : "");
+}
+
+drawSliders(); remeasure(); refresh(); requestAnimationFrame(frame);
+if (new URLSearchParams(location.search).has("demo")) startDemo();
+// ?at=<seconds> fast-forwards the demo (for screenshots and checks).
+const at = Number(new URLSearchParams(location.search).get("at"));
+if (at > 0) { startDemo(); for (let t = 0; t < at; t += step) tick(); }
+</script>
+</body>
+</html>
