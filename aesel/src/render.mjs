@@ -1143,7 +1143,7 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
   // the machine is doing is the last thing to be cut.
   const keep = new Set(status);
   // The thread's cost holds its corner; the place and the engine give way first.
-  const spend = spendText(state.spend);
+  const spend = spendText(state.spend, state.braincells);
   const reserve = spend ? textWidth(spend) + 3 : 0;
   const measure = () => [...keep].reduce((n, name) => (plain[name] ? n + textWidth(plain[name]) + (n ? textWidth(separator) : 0) : n), 1) + reserve;
   for (const name of ["engine", "media", "workspace", "model", "handle", "mode", "inbox"]) {
@@ -1178,13 +1178,18 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
   return { line, spans };
 }
 
-function spendText(spend) {
-  if (!spend?.tokens) return "";
-  const n = spend.tokens;
-  const tokens = n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : `${n}`;
-  if (!spend.billed) return `${tokens} tok`;
-  const usd = spend.usd;
-  return `${tokens} tok · $${usd < 0.01 ? usd.toFixed(4) : usd < 1 ? usd.toFixed(3) : usd.toFixed(2)}`;
+const compact = (n) => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : `${n}`;
+// This thread's tokens and, when billed, its dollars; then the account's
+// braincells — free today plus bought — which every session shares, so it
+// is the one number that says where the whole account stands.
+function spendText(spend, braincells) {
+  const parts = [];
+  if (spend?.tokens) {
+    const usd = spend.usd;
+    parts.push(spend.billed ? `${compact(spend.tokens)} tok · $${usd < 0.01 ? usd.toFixed(4) : usd < 1 ? usd.toFixed(3) : usd.toFixed(2)}` : `${compact(spend.tokens)} tok`);
+  }
+  if (Number.isFinite(braincells)) parts.push(`${compact(Math.max(0, Math.round(braincells)))} braincells`);
+  return parts.join(" · ");
 }
 
 export function transcriptLineCount(state, columns = 80, rows = 24, useColor = true) {

@@ -306,6 +306,8 @@ const state = {
   // Tokens and dollars on this thread. The dollars are what the provider
   // billed (OpenRouter reports it per response), never an estimate.
   spend: { thread: "", tokens: 0, usd: 0, billed: false },
+  // The account's braincells (free today + bought), shared by every session.
+  braincells: null,
   qr: null,
   // The prompt rock in the menu bar draws this session's code at real pixel
   // resolution, so the transcript does not spend seventeen rows on a worse
@@ -1131,6 +1133,22 @@ end repeat`;
   spawn("/bin/sh", ["-c", `sleep 0.7; /usr/bin/osascript -e '${script.replace(/'/g, "'\\''")}'`], { detached: true, stdio: "ignore" }).unref();
 }
 
+// Read the account's braincells: what is left of today's free allowance plus
+// what was bought. Quietly keeps the last number when the site can't be reached.
+let braincellsAt = 0;
+async function refreshBraincells() {
+  if (!session.signedIn || Date.now() - braincellsAt < 3000) return;
+  braincellsAt = Date.now();
+  try {
+    const token = await session.token();
+    const response = await fetch(`${SITE}/api/easel-credits`, { headers: { Authorization: `Bearer ${token}`, "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(6000) });
+    if (!response.ok) return;
+    const body = await response.json();
+    const total = (Number(body.remaining) || 0) + (Number(body.purchased) || 0);
+    if (Number.isFinite(total)) { state.braincells = total; redraw(); }
+  } catch {}
+}
+
 async function finish(code = 0) {
   if (closing || finishing) return;
   finishing = true;
@@ -1501,6 +1519,7 @@ function handleNotification({ method, params = {} }) {
       break;
     }
     case "turn/completed": {
+      void refreshBraincells();
       // Asked to close out: let the goodbye land, then shut down.
       if (closeAfterTurn) setTimeout(() => void closeOut(), 900);
       // Codex reports what it spent on the turn that closes rather than in a
@@ -2867,6 +2886,7 @@ process.on("SIGHUP", () => finish(129));
 
 // A sign-in or sign-out anywhere in the AC suite shows up here live.
 session.watch().on("change", () => {
+  braincellsAt = 0; void refreshBraincells();
   if (!session.signedIn || !session.handle) { void finish(); return; }
   refreshAccount(true);
   redraw();
@@ -3030,6 +3050,7 @@ try {
     replaceInput(initialPrompt);
     await submitInput();
   }
+  void refreshBraincells();
   // Inbox lines that arrived before the bridge was up have been waiting.
   drainQueue();
 } catch (error) {
