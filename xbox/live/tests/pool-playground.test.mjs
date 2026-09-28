@@ -745,11 +745,15 @@ test('tunnel ceiling is local to its road section',()=>{
  assert.ok(Math.abs(a.outdoorTunnelAt(x,z)-(a.poolFloorAt(x,z)-720))<.01);
  assert.equal(a.outdoorTunnelAt(t.x,t.z+t.radius),null);
 });
-test('red-carpet entry crosses the doorway and yields to input',()=>{
+test('the player walks in through the door themselves',()=>{
  const a=playground(),p=a.players[0],door=a.parkEntranceDoor();a.startParkEntrance(p,a.now());
- assert.ok(p.z<door.z);const start=a.now();
- for(let i=1;i<=240;i++)a.updateParkEntrance(p,{down:[],leftX:0,leftY:0},1/60,start+i/60*1e6);
- assert.ok(p.z>door.z);assert.ok(p.parkEntrance);a.updateParkEntrance(p,{down:['ArrowUp']},1/60,start+4100000);assert.equal(p.parkEntrance,null);
+ assert.ok(p.z<door.z&&p.parkEntrance);
+ // Standing still leaves them outside: nothing walks them in.
+ for(let i=0;i<120;i++)a.step([]);
+ assert.ok(p.z<door.z-900&&p.parkEntrance,'no autopilot');
+ // Walking forward crosses the doorway and ends the entrance.
+ for(let i=0;i<900&&p.parkEntrance;i++)a.step(['ArrowUp']);
+ assert.ok(p.z>door.z,'walked through');assert.equal(p.parkEntrance,null);
  const previous={x:door.x,z:door.z-30};Object.assign(p,{x:door.x,z:door.z+30,y:a.parkDeckY,vz:400});a.boundParkBody(p,previous);assert.ok(p.z>door.z);
 });
 test('layout seed is repeatable across clients and changes the park modestly',()=>{

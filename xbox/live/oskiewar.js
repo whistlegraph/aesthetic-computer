@@ -1638,14 +1638,17 @@ function startParkEntrance(p,now){
  const target={x:p.x,y:p.y-145,z:p.z+250};
  cameraDoll.snap({target,position:{x:p.x,y:p.y-145,z:p.z},width:700,perspective:1,fov:65,roll:0});
 }
+// The player walks in themselves (@jeffrey: "the player should have to
+// enter the door"). The run starts outside, first person and facing the
+// doors; progress is how far along the carpet they are, which drives the
+// camera from first into third person, and crossing the doorway ends it.
+// Wandering off, or dawdling past half a minute, hands back the normal camera.
 function updateParkEntrance(p,pad,dt,now){
  const entry=p.parkEntrance;if(!entry)return false;
- const age=(now-entry.at)/1e6;
- if(age>.8&&(pad.down.length||Math.abs(pad.leftX||0)>.3||Math.abs(pad.leftY||0)>.3)||age>=4.8){p.parkEntrance=null;p.vx=p.vz=0;return false;}
- const door=parkEntranceDoor(),u=clamp((age-.4)/3.4,0,1),ease=u*u*(3-2*u),oldZ=p.z;
- entry.progress=clamp(age/4.8,0,1);p.x=door.x;p.z=door.z-1100+ease*1600;p.y=poolFloorAt(p.x,p.z);
- p.vx=p.vy=0;p.vz=(p.z-oldZ)/Math.max(.001,dt);p.grounded=true;p.poolYaw=Math.PI/2;
- p.poolStridePhase=(p.poolStridePhase||0)+Math.abs(p.vz)*dt/240;p.stance=Math.abs(p.vz)>5?'WALK':'NEUTRAL';p.previous=pad.down.slice();return true;
+ const door=parkEntranceDoor(),start=door.z-1100;
+ entry.progress=clamp(((p.z||0)-start)/(door.z+60-start),0,1);
+ if((p.z||0)>door.z+60||Math.hypot(p.x-door.x,(p.z||0)-start)>1600||now-entry.at>30e6)p.parkEntrance=null;
+ return false;
 }
 function parkHalfPipeHeight(x,z){
   const p=parkHalfPipe3D,d=Math.abs(x-p.x),end=Math.abs(z-p.z);
@@ -10032,8 +10035,11 @@ function updateCameraDoll(dt, now) {
     const p=players[0],heading=p.poolYaw||0,speed=Math.hypot(p.vx,p.vz||0);
     if(p.parkEntrance){
       const u=clamp((p.parkEntrance.progress-.68)/.3,0,1),ease=u*u*(3-2*u);
-      const target={x:p.x,y:p.y-lerp(145,105,ease),z:(p.z||0)+lerp(250,100,ease)};
-      const position={x:p.x,y:p.y-lerp(145,245,ease),z:(p.z||0)-ease*380};
+      // Eyes follow where the walker faces; the pull-back to third person
+      // happens behind them as they reach the doorway.
+      const fx=Math.cos(p.poolYaw||0),fz=Math.sin(p.poolYaw||0),ahead=lerp(250,100,ease);
+      const target={x:p.x+fx*ahead,y:p.y-lerp(145,105,ease),z:(p.z||0)+fz*ahead};
+      const position={x:p.x-fx*ease*380,y:p.y-lerp(145,245,ease),z:(p.z||0)-fz*ease*380};
       cameraDoll.track({target,position,width:700,perspective:1,fov:65,roll:0},dt,12);poolIdleSeconds=poolIdleClose=0;return;
     }
     if(p.chalkDrawing){
@@ -23987,10 +23993,15 @@ function updateChalk(p,held,now){
  if(!p.chalkDrawing){p.chalkPrevious=null;return;}
  const tip=chalkTip(p),previous=p.chalkPrevious;
  if(previous){const distance=Math.hypot(tip.x-previous.x,tip.z-previous.z);
-  if(distance>=2&&distance<180){addDecal({kind:'chalk',x:previous.x,z:previous.z,x2:tip.x,z2:tip.z,size:4,color:p.chalkColor.rgb});if(now>=(p.nextChalkSound||0)){playDrum('hat',.025+Math.min(.025,distance/1000),panPlayer(p));p.nextChalkSound=now+90000;}}
+  // A stroke is at least ~1.6 texels of the pool surface wide, or it breaks
+  // into dots on the coarser console texture.
+  if(distance>=2&&distance<180){addDecal({kind:'chalk',x:previous.x,z:previous.z,x2:tip.x,z2:tip.z,size:Math.max(4,chalkTexel()*.8),color:p.chalkColor.rgb});if(now>=(p.nextChalkSound||0)){playDrum('hat',.025+Math.min(.025,distance/1000),panPlayer(p));p.nextChalkSound=now+90000;}}
  }
- p.chalkPrevious=tip;
+ // The stroke only advances when it lands. Moving the start point on a
+ // skipped (too short) segment left gaps whenever the chalk moved slowly.
+ if(!previous||Math.hypot(tip.x-previous.x,tip.z-previous.z)>=2)p.chalkPrevious=tip;
 }
+function chalkTexel(){return (gridWidth+parkLotMargin*2)/parkDecalResolution;}
 function updateFootprints(p,now){
  const step=Math.floor((p.poolStridePhase||0)*2);
  const previous=p.footprintStep;p.footprintStep=step;
