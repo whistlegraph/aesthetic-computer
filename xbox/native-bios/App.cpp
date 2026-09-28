@@ -7,6 +7,7 @@
 #include "../runtime/include/ac/image_effects.hpp"
 #include "../runtime/include/ac/glass_sound.hpp"
 #include "../runtime/include/ac/skate_sound.hpp"
+#include "../runtime/include/ac/chord_sound.hpp"
 #include "../runtime/include/ac/decal_atlas.hpp"
 #include "../runtime/include/ac/decal_surface.hpp"
 #include "../runtime/include/ac/theme_assets.hpp"
@@ -447,6 +448,7 @@ public:
     m_sound->on_stop = [this]() {
       if (m_skateVoice) m_skateVoice->SetVolume(0);
       if (m_voice) { m_voice->Stop(0); m_voice->FlushSourceBuffers(); }
+      for(auto* voice:m_chordVoices)if(voice){voice->Stop(0);voice->FlushSourceBuffers();}
       for(auto* voice:m_drumVoices)if(voice){voice->Stop(0);voice->FlushSourceBuffers();}
       for (auto* voice : m_glassVoices) if (voice) {
         voice->Stop(0); voice->FlushSourceBuffers();
@@ -1294,6 +1296,7 @@ private:
       Check(m_audio->CreateSourceVoice(&voice, &format, 0, XAUDIO2_DEFAULT_FREQ_RATIO));
     for(auto& voice:m_drumVoices)Check(m_audio->CreateSourceVoice(&voice,&format,0,XAUDIO2_DEFAULT_FREQ_RATIO));
     Check(m_audio->CreateSourceVoice(&m_skateVoice, &format, 0, 2.0f));
+    for(int i=0;i<4;i++){Check(m_audio->CreateSourceVoice(&m_chordVoices[i],&format,0,XAUDIO2_DEFAULT_FREQ_RATIO));m_chordSamples[i]=ac::synthesize_park_chord(sampleRate,i);}
     m_skateSamples = synthesize_skate_roll(sampleRate);
     XAUDIO2_BUFFER skateBuffer{};
     skateBuffer.AudioBytes = static_cast<UINT32>(m_skateSamples.size() * sizeof(int16_t));
@@ -1343,6 +1346,7 @@ private:
     }
     m_nextGlassVoice = 0;
     for(auto& voice:m_drumVoices)if(voice){voice->DestroyVoice();voice=nullptr;}
+    for(auto& voice:m_chordVoices)if(voice){voice->DestroyVoice();voice=nullptr;}
     if (m_oscVoice) { m_oscVoice->DestroyVoice(); m_oscVoice = nullptr; }
     if (m_voice) { m_voice->DestroyVoice(); m_voice = nullptr; }
     if (m_master) { m_master->DestroyVoice(); m_master = nullptr; }
@@ -1389,6 +1393,16 @@ private:
   }
 
   void PlayDrum(std::string_view name, float velocity, float pan) {
+    if(name.size()==5 && name.substr(0,4)=="pad-" && name[4]>='0' && name[4]<='3') {
+      const int index=name[4]-'0';auto* voice=m_chordVoices[m_nextChordVoice++%4];
+      const auto& samples=m_chordSamples[index];if(!voice||samples.empty())return;
+      voice->Stop(0);voice->FlushSourceBuffers();
+      voice->SetVolume((std::max)(0.f,(std::min)(1.f,velocity)));
+      XAUDIO2_VOICE_DETAILS details{};m_master->GetVoiceDetails(&details);
+      if(details.InputChannels>=2){std::vector<float> matrix(details.InputChannels,0);const float p=(std::max)(-1.f,(std::min)(1.f,pan));matrix[0]=std::sqrt((1-p)*.5f);matrix[1]=std::sqrt((1+p)*.5f);voice->SetOutputMatrix(m_master,1,details.InputChannels,matrix.data());}
+      XAUDIO2_BUFFER buffer{};buffer.AudioBytes=static_cast<UINT32>(samples.size()*sizeof(int16_t));buffer.pAudioData=reinterpret_cast<const BYTE*>(samples.data());buffer.Flags=XAUDIO2_END_OF_STREAM;
+      Check(voice->SubmitSourceBuffer(&buffer));Check(voice->Start(0));return;
+    }
     if (name == "glass" || name == "glass-shard") {
       PlayGlass(name == "glass-shard", velocity); return;
     }
@@ -3082,6 +3096,9 @@ private:
   std::atomic_bool m_clientErrorWriteInFlight{false};
   std::atomic_uint64_t m_clientErrorSequence{0};
   std::array<IXAudio2SourceVoice*, 4> m_glassVoices{};
+  std::array<IXAudio2SourceVoice*,4> m_chordVoices{};
+  std::array<std::vector<int16_t>,4> m_chordSamples;
+  size_t m_nextChordVoice=0;
   std::array<IXAudio2SourceVoice*,12> m_drumVoices{};
   std::array<std::vector<int16_t>,12> m_drumSamples;
   std::size_t m_nextDrumVoice=0;

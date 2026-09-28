@@ -1,3 +1,4 @@
+#include "ac/chord_sound.hpp"
 #include "QuickJsEngine.hpp"
 #include "ac/relay_endpoint.hpp"
 #include "ac/glass_sound.hpp"
@@ -17,6 +18,12 @@ class GraphicsProbe final : public Graphics { public:
 class SoundProbe final : public Sound { public: int calls = 0; int skateCalls = 0; void skate_audio(float speed, float volume) override { assert(speed == .4f && volume == .2f); ++skateCalls; } int oscillators = 0; int stops = 0; int drums = 0; void synth(const SynthVoice&) override { ++calls; } void stop_all() override {} int sample_rate() const override { return 48000; } void oscillator(float, float) override { ++oscillators; } void oscillator_stop() override { ++stops; } void drum(std::string_view, float, float) override { ++drums; } };
 }
 int main() {
+  const auto chord=ac::synthesize_park_chord(48000,0);
+  assert(chord.size()==105600 && chord.front()==0);
+  assert(chord != ac::synthesize_park_chord(48000,1));
+  assert(ac::synthesize_park_chord(48000,4).empty());
+  for(auto sample:chord)assert(sample>-18000 && sample<18000);
+
   const auto atlas = make_decal_atlas();
   assert(atlas.size() == 256u * 256u * 4u);
   assert(atlas == make_decal_atlas());

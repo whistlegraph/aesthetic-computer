@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 193;
+const buildVersion = 194;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -23997,7 +23997,8 @@ function updateParkMusic(p,previous){
  if(previous===undefined||!poolOnly())return;
  const gain=stereoGain(p),pan=panAt(parkStereo.x,parkStereo.z);
  if(p.heartPhase<previous){
-  parkStereo.beat=(parkStereo.beat+1)%16;
+  parkStereo.beat=(parkStereo.beat+1)%32;
+  if(gain>.005&&parkStereo.beat%2===0)playDrum('pad-'+Math.floor(parkStereo.beat/8),gain*.28,pan);
   if(gain>.005){playDrum('kick',gain*.65,pan);if(parkStereo.beat%2===0)playDrum('bass',gain*.45,pan);if(parkStereo.beat%4===2)playDrum('snare',gain*.22,pan);}
  }
  if(previous<.5&&p.heartPhase>=.5&&gain>.005)playDrum('hat',gain*.22,pan);

@@ -7,7 +7,7 @@ function playground(){
  let now=1e6;const noop=()=>{},audio=[],drums=[];
  const api=new Function('runtime','capabilities','telemetry','gameSignal','drum','wipe','box','line','triangle','write','systemWrite','oscillator','oscillatorStop',`${source}
  configureWorldMap('skatepark','pool');fightOpponent='freeskate';gameMode='fight';
- return {clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
+ return {updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
  parkHalfPipe3D,parkHalfPipeHeight,parkDeckY,poolFloorAt,poolSlopeAt,gunPickups,axePickup,
  resetParkSupply,updateParkSupply,updateGunPickups,resetParkKids,updateParkKids,parkKids,
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
@@ -538,4 +538,13 @@ test('holding forward repeats half-pipe airs and double direction exits the lane
  assert.equal(lands,3,JSON.stringify({x:p.x,y:p.y,vx:p.vx,vy:p.vy,yaw:p.poolYaw,locked:p.poolPipeLocked,vert:p.poolVert,ground:p.grounded,pipe}));
  a.step([]);a.step(['ArrowRight']);a.step([]);a.step(['ArrowRight']);
  assert.equal(p.poolPipeLocked,false);assert.ok(p.poolPipeEscapeUntil>a.now());
+});
+
+test('stereo plays the four sine chords on heartbeat beats and stays silent out of range',()=>{
+ const a=playground(),p=a.players[0];Object.assign(p,{x:a.parkStereo.x,z:a.parkStereo.z,heartPhase:0});
+ for(let i=0;i<32;i++)a.updateParkMusic(p,.9);
+ const pads=a.drums.filter(d=>d.name.startsWith('pad-'));
+ assert.equal(pads.length,16);assert.deepEqual([...new Set(pads.map(d=>d.name))],['pad-0','pad-1','pad-2','pad-3']);
+ assert.ok(pads.every(d=>d.gain>0&&d.gain<=.28));
+ p.x+=5000;const count=a.drums.length;for(let i=0;i<32;i++)a.updateParkMusic(p,.9);assert.equal(a.drums.length,count);
 });

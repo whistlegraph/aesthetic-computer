@@ -239,6 +239,7 @@ private final class NativeInput {
 private final class NativeAudio {
     private let engine = AVAudioEngine()
     private var players: [AVAudioPlayerNode] = []
+    private var chordSamples: [[Double]] = []
     private var cursor = 0
     private let sampleRate = 48_000.0
     private var noiseState: UInt64 = 0x6f736b6965776172
@@ -259,6 +260,16 @@ private final class NativeAudio {
             engine.attach(player)
             engine.connect(player, to: engine.mainMixerNode, format: format)
             players.append(player)
+        }
+        let voicings = [[45,60,64,67,71],[41,60,64,69,72],[48,59,62,64,67],[43,59,62,64,69]]
+        chordSamples = voicings.map { notes in
+            let steps = notes.map { 2 * Double.pi * 440 * pow(2, Double($0 - 69) / 12) / sampleRate }
+            return (0..<Int(sampleRate * 2.2)).map { i in
+                let t = Double(i) / sampleRate
+                var value = 0.0
+                for n in 0..<5 { value += sin(steps[n] * Double(i)) * (n == 0 ? 0.8 : 1.0) }
+                return value * 0.11 * min(1, t / 0.16) * min(1, (2.2 - t) / 0.75)
+            }
         }
         let oscillator = AVAudioSourceNode { [unowned self] _, _, frameCount, audioBufferList -> OSStatus in
             let buffers = UnsafeMutableAudioBufferListPointer(audioBufferList)
@@ -293,6 +304,11 @@ private final class NativeAudio {
     func oscillatorStop() { oscillatorTargetGain = 0 }
 
     func drum(_ name: String, velocity: Double, pan: Double) {
+        if name.hasPrefix("pad-"), let index = Int(name.dropFirst(4)), chordSamples.indices.contains(index) {
+            let samples = chordSamples[index], rate = sampleRate
+            play(duration: 2.2, pan: pan, sample: { time, _ in samples[min(samples.count - 1, Int(time * rate))] }, gain: max(0, min(1, velocity)))
+            return
+        }
         let duration: Double
         switch name {
         case "gunshot", "smg-shot": duration = 0.18
