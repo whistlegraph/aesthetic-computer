@@ -1,13 +1,20 @@
-// object-lisp.mjs — oskiewar objects written in KidLisp, compiled to closures.
+// object-lisp.mjs — oskiewar objects written in KidLisp, compiled once.
 //
 // An object (a monowheel, a hat, a weapon) is a small .lisp program that says
-// what the thing looks like this tick, in its own space: x forward, y up, z to
-// the owner's right. `compile` turns it into `run(inputs, place, emit)` once;
-// every tick after that is plain closures, never the tree-walker, because the
-// tree-walker repaints a 61-line program every ~6 s on the oven. `emit` gets
-// world faces with the game's own signature (emitWorldFace / the WORLD op), so
-// an object is just more WORLD faces in the frame program. The dialect is
-// spelled out in xbox/OBJECT-DIALECT.md.
+// what the thing looks like, in its own space: x forward, y up, z to the
+// owner's right. `compile` does all the work when the object loads:
+//
+// - every part that doesn't change tick to tick is run once, at each of three
+//   levels of detail, and baked into meshes (`object.meshes`), for the host to
+//   keep as ASSETs;
+// - what is left is closures, never the tree-walker, because the tree-walker
+//   repaints a 61-line program about every 6 s on the oven.
+//
+// A tick, `object(inputs, place, out)`, then emits one MODEL op per baked part
+// (`out.model`: a mesh by handle under a 12-number placement) and WORLD faces
+// (`out.face`) only for what really moves. The high-level forms (revolve,
+// radial, mirror) compile away here; hosts see faces and meshes and never
+// expand anything. The dialect: xbox/OBJECT-DIALECT.md.
 //
 // No imports and plain top-level exports: xbox/tools/embed-objects.mjs (next
 // pass) seals this file into oskiewar.js the way embed-spine.mjs does, and
@@ -18,6 +25,12 @@
 export const objectInputs = ["time", "distance", "speed", "lean", "heading",
   "pitch", "turbo", "hit", "land"];
 const unset = [0, 0, 0, 0, 0, 0, 0, 1e9, 1e9];
+// Switches are 0 or 1, so a baked part that reads one is baked once per value.
+const switches = new Set(["turbo"]);
+// `detail` is the level a baked part is drawn at: 0 near, 2 far. The host
+// picks it per MODEL op; outside baked parts it reads 0.
+const detailSlot = objectInputs.length;
+export const objectLevels = 3;
 
 // The game's sun (`globalLight` in oskiewar.js) and its flat-shading rule:
 // .72 ambient plus .28 of the face turned toward the light, decided in world
@@ -28,6 +41,7 @@ const sun = (() => {
   return [x / m, y / m, z / m];
 })();
 export const objectLight = sun;
+
 
 // ——— reading: KidLisp's own rules, so Aesel's KidLisp authoring applies ———
 // A bare line that starts with a word is a call (`ring 12` → `(ring 12)`),
@@ -103,6 +117,7 @@ export function read(source) {
   return forms;
 }
 
+
 // ——— compiling ———
 
 const show = (form) => Array.isArray(form) ? `(${form.map(show).join(" ")})` : String(form);
@@ -129,20 +144,32 @@ const inks = { white: [255, 255, 255], black: [0, 0, 0], gray: [128, 128, 128],
   red: [255, 0, 0], pink: [255, 105, 180], cyan: [0, 255, 255], yellow: [255, 255, 0] };
 
 const maxDepth = 16;
+const owner = -1;   // a read of the owner's pose, which moves every tick
+const shapes = { tri: 9, quad: 12, disc: 1, hoop: 2, band: 2, capsule: 7, line: 6 };
+const forms = new Set(["def", "let", "if", "repeat", "ink", "glow", "move", "rotate",
+  "scale", "radial", "mirror", "revolve"]);
+const isStatement = (f) => Array.isArray(f) && (forms.has(f[0]) || f[0] in shapes);
+const union = (...sets) => { const out = new Set(); for (const s of sets) for (const x of s) out.add(x); return out; };
 
 export function compile(source, name = "object") {
-  const forms = typeof source === "string" ? read(source) : source;
+  const program = typeof source === "string" ? read(source) : source;
   const fail = (why, form) => { throw new Error(`${name}: ${why}${form === undefined ? "" : ` in ${show(form)}`}`); };
-  let slots = objectInputs.length;
+  let slots = detailSlot + 1;
+  // Per slot: does it change from tick to tick? Switches and `detail` don't.
+  const moving = objectInputs.map((n) => !switches.has(n));
+  moving[detailSlot] = false;
+  const isSwitch = (slot) => slot >= 0 && slot < objectInputs.length && switches.has(objectInputs[slot]);
+  const ticks = (reads) => { for (const r of reads) if (r === owner || moving[r]) return true; return false; };
+  const parts = [];
 
-  // A scope maps a name to a slot (per tick) or a constant (a `def`).
+  // A scope maps a name to a slot or a constant (a `def`).
   const lookup = (scope, word) => {
     for (let s = scope; s; s = s.up) if (word in s.names) return s.names[word];
     return word in words ? { value: words[word] } : null;
   };
-  const top = { names: Object.fromEntries(objectInputs.map((n, i) => [n, { slot: i }])), up: null };
+  const top = { names: Object.fromEntries([...objectInputs, "detail"].map((n, i) => [n, { slot: i }])), up: null };
 
-  // An expression is a closure (state) => number, or folds to a constant.
+  // An expression folds to a constant, or is a closure with the slots it reads.
   function expr(form, scope) {
     if (typeof form === "number") return { value: form };
     if (typeof form === "string") {
@@ -150,7 +177,7 @@ export function compile(source, name = "object") {
       if (!found) fail(`unknown word \`${form}\``);
       if ("value" in found) return found;
       const i = found.slot;
-      return { run: (s) => s.v[i] };
+      return { run: (s) => s.v[i], reads: new Set([i]) };
     }
     if (!Array.isArray(form) || !form.length) fail("empty expression", form);
     const [head, ...rest] = form;
@@ -158,50 +185,123 @@ export function compile(source, name = "object") {
       // (owner part axis): a point of the owner's pose, handed over in object space.
       const part = rest[0], axis = "xyz".indexOf(rest[1]);
       if (typeof part !== "string" || axis < 0) fail("owner wants a part and x, y or z", form);
-      return { run: (s) => s.owner?.[part]?.[axis] ?? 0 };
+      return { run: (s) => s.owner?.[part]?.[axis] ?? 0, reads: new Set([owner]) };
     }
     const fn = math[head];
     if (!fn) fail(`unknown function \`${head}\``, form);
     const args = rest.map((a) => expr(a, scope));
     if (args.every((a) => "value" in a)) return { value: fn(...args.map((a) => a.value)) };
+    const reads = union(...args.map((a) => a.reads || []));
     const run = args.map((a) => "value" in a ? () => a.value : a.run);
-    if (run.length === 1) { const [a] = run; return { run: (s) => fn(a(s)) }; }
-    if (run.length === 2) { const [a, b] = run; return { run: (s) => fn(a(s), b(s)) }; }
-    if (run.length === 3) { const [a, b, c] = run; return { run: (s) => fn(a(s), b(s), c(s)) }; }
-    return { run: (s) => fn(...run.map((r) => r(s))) };
+    if (run.length === 1) { const [a] = run; return { run: (s) => fn(a(s)), reads }; }
+    if (run.length === 2) { const [a, b] = run; return { run: (s) => fn(a(s), b(s)), reads }; }
+    if (run.length === 3) { const [a, b, c] = run; return { run: (s) => fn(a(s), b(s), c(s)), reads }; }
+    return { run: (s) => fn(...run.map((r) => r(s))), reads };
   }
-  const num = (form, scope) => {
+  // A number as a closure; what it reads is added to `reads`.
+  const num = (form, scope, reads) => {
     const e = expr(form, scope);
-    return "value" in e ? () => e.value : e.run;
+    if ("value" in e) return () => e.value;
+    for (const r of e.reads) reads.add(r);
+    return e.run;
   };
 
-  // A body runs its forms in order; a `let` binds for the forms after it.
-  function body(list, scope, depth) {
+  // Every statement compiles to a node: its closure, the slots it reads from
+  // outside itself, whether it draws, and how it uses the sticky ink (reads
+  // the ink it came in with; sets it 0 never, 1 maybe, 2 always). `ctx`
+  // follows the ink and glow in effect as the compile walks in run order.
+  const inkIn = (nodes) => { for (const n of nodes) { if (n.inkIn) return true; if (n.inkSets === 2) return false; } return false; };
+  function body(list, scope, depth, ctx) {
     const inner = { names: {}, up: scope };
-    const steps = list.map((form) => statement(form, inner, depth)).filter(Boolean);
-    return (s) => { for (let i = 0; i < steps.length; i++) steps[i](s); };
+    const nodes = [], entries = [];
+    for (const form of list) {
+      const entry = { ink: ctx.ink, glow: ctx.glow }, first = parts.length;
+      const node = statement(form, inner, depth, ctx);
+      if (node) { node.parts = [first, parts.length]; nodes.push(node); entries.push(entry); }
+    }
+    const steps = bakeRuns(nodes, entries, depth);
+    const bound = union(...nodes.map((n) => n.binds || []));
+    const reads = union(...nodes.map((n) => n.reads));
+    for (const b of bound) reads.delete(b);
+    return { run: (s) => { for (let i = 0; i < steps.length; i++) steps[i](s); },
+      reads, draws: nodes.some((n) => n.draws), inkIn: inkIn(nodes),
+      inkSets: Math.max(0, ...nodes.map((n) => n.inkSets)) };
+  }
+
+  // Runs of statements that don't move from tick to tick become baked parts.
+  function bakeRuns(nodes, entries, depth) {
+    const steps = [];
+    for (let i = 0; i < nodes.length;) {
+      if (ticks(nodes[i].reads)) { steps.push(nodes[i].run); i++; continue; }
+      let j = i;
+      while (j < nodes.length && !ticks(nodes[j].reads)) j++;
+      const group = nodes.slice(i, j), part = partOf(group, entries[i], depth);
+      if (part) steps.push(part);
+      else for (const n of group) steps.push(n.run);
+      i = j;
+    }
+    return steps;
+  }
+
+  // A part bakes if everything it reads is a switch, `detail`, or bound
+  // inside it, and it knows the ink it starts with.
+  function partOf(group, entry, depth) {
+    if (!group.some((n) => n.draws)) return null;
+    const bound = union(...group.map((n) => n.binds || []));
+    const free = union(...group.map((n) => n.reads));
+    for (const b of bound) free.delete(b);
+    for (const r of free) if (!isSwitch(r) && r !== detailSlot) return null;
+    if (inkIn(group) && !entry.ink) return null;
+    // Parts inside this one are baked into it, never emitted on their own.
+    for (const n of group) for (let i = n.parts[0]; i < n.parts[1]; i++) parts[i].inner = true;
+    const part = { depth, runs: group.map((n) => n.run), lets: group.filter((n) => n.binds).map((n) => n.run),
+      switches: [...free].filter(isSwitch), detail: free.has(detailSlot),
+      ink: entry.ink || [255, 255, 255], glow: entry.glow, variants: null };
+    parts.push(part);
+    const { runs, lets } = part, at = depth * 13;
+    return (s) => {
+      if (!s.model) { for (let k = 0; k < runs.length; k++) runs[k](s); return; }
+      for (let k = 0; k < lets.length; k++) lets[k](s);   // what follows may read them
+      let index = 0;
+      for (let k = 0; k < part.switches.length; k++) if (s.v[part.switches[k]] >= .5) index |= 1 << k;
+      const v = part.variants[index];
+      if (v.levels[0] >= 0) s.model(v.radius, v.levels[0], v.levels[1], v.levels[2], s.m, at);
+      s.r = v.ink[0]; s.g = v.ink[1]; s.b = v.ink[2];
+    };
   }
 
   // A transform pushes a new frame at a depth known here, so nesting is
   // checked once and the tick never counts.
-  function framed(form, scope, depth, set) {
+  function framed(form, scope, depth, ctx, arity, apply) {
     if (depth + 1 >= maxDepth) fail(`nested deeper than ${maxDepth}`, form);
-    const run = body(form.slice(set.arity + 1), scope, depth + 1);
-    const args = form.slice(1, set.arity + 1).map((a) => num(a, scope));
-    const from = depth * 13, to = from + 13;
-    return (s) => {
+    const reads = new Set();
+    const args = form.slice(1, arity + 1).map((a) => num(a, scope, reads));
+    const inside = body(form.slice(arity + 1), scope, depth + 1, ctx);
+    const from = depth * 13, to = from + 13, run = inside.run;
+    return { ...inside, reads: union(reads, inside.reads), run: (s) => {
       const m = s.m;
       for (let i = 0; i < 13; i++) m[to + i] = m[from + i];
-      set.apply(m, to, args, s);
+      apply(m, to, args, s);
       run(s);
-    };
+    } };
   }
+  // An iterator slot: it moves only if the count it walks does.
+  function iterator(scope, word, countReads, rest) {
+    const named = typeof word === "string" && rest > 0 && !lookup(scope, word);
+    if (!named) return -1;
+    const slot = slots++;
+    moving[slot] = ticks(countReads);
+    scope.names[word] = { slot };
+    return slot;
+  }
+  // A body that might run zero times or twice leaves the ink unknown after.
+  const maybe = (ctx, run) => {
+    const inside = run({ ink: ctx.ink, glow: ctx.glow });
+    if (inside.inkSets) ctx.ink = null;
+    return inside;
+  };
 
-  const shapes = { tri: 9, quad: 12, disc: 1, hoop: 2, band: 2, capsule: 7, line: 6 };
-  const statements = new Set(["def", "let", "if", "repeat", "ink", "glow", "move", "rotate", "scale"]);
-  const isStatement = (f) => Array.isArray(f) && (statements.has(f[0]) || f[0] in shapes);
-
-  function statement(form, scope, depth) {
+  function statement(form, scope, depth, ctx) {
     if (!Array.isArray(form)) fail(`\`${show(form)}\` on its own does nothing`);
     const [head, ...rest] = form;
     switch (head) {
@@ -215,90 +315,192 @@ export function compile(source, name = "object") {
         return null;
       }
       case "let": {
-        const run = num(rest[1], scope), slot = slots++;
+        const reads = new Set(), run = num(rest[1], scope, reads), slot = slots++;
+        moving[slot] = ticks(reads);
         scope.names[rest[0]] = { slot };
-        return (s) => { s.v[slot] = run(s); };
+        return { run: (s) => { s.v[slot] = run(s); }, reads, binds: [slot], inkSets: 0 };
       }
       case "if": {
         // No else, as in KidLisp: the body is every form after the test.
-        const test = num(rest[0], scope), run = body(rest.slice(1), scope, depth);
-        return (s) => { if (test(s)) run(s); };
+        const reads = new Set(), test = num(rest[0], scope, reads);
+        const inside = maybe(ctx, (c) => body(rest.slice(1), scope, depth, c)), run = inside.run;
+        return { ...inside, reads: union(reads, inside.reads), inkSets: inside.inkSets ? 1 : 0,
+          run: (s) => { if (test(s)) run(s); } };
       }
       case "repeat": {
-        const times = num(rest[0], scope);
+        const reads = new Set(), times = num(rest[0], scope, reads);
         const inner = { names: {}, up: scope };
-        const named = typeof rest[1] === "string" && rest.length > 2 && !lookup(scope, rest[1]);
-        const slot = named ? slots++ : -1;
-        if (named) inner.names[rest[1]] = { slot };
-        const run = body(rest.slice(named ? 2 : 1), inner, depth);
-        return (s) => {
+        const slot = iterator(inner, rest[1], reads, rest.length - 2);
+        const inside = maybe(ctx, (c) => body(rest.slice(slot >= 0 ? 2 : 1), inner, depth, c)), run = inside.run;
+        const own = union(reads, inside.reads);
+        own.delete(slot);
+        return { ...inside, reads: own, inkSets: inside.inkSets ? 1 : 0, run: (s) => {
           const n = times(s);
           for (let i = 0; i < n; i++) { if (slot >= 0) s.v[slot] = i; run(s); }
-        };
+        } };
       }
       case "ink": {
         if (rest.length === 1 && inks[rest[0]]) {
           const [r, g, b] = inks[rest[0]];
-          return (s) => { s.r = r; s.g = g; s.b = b; };
+          ctx.ink = [r, g, b];
+          return { run: (s) => { s.r = r; s.g = g; s.b = b; }, reads: new Set(), inkSets: 2 };
         }
         if (rest.length !== 3) fail("ink wants a name or r g b", form);
-        const [r, g, b] = rest.map((a) => num(a, scope));
-        return (s) => { s.r = r(s); s.g = g(s); s.b = b(s); };
+        const known = rest.map((a) => expr(a, scope));
+        ctx.ink = known.every((e) => "value" in e) ? known.map((e) => e.value) : null;
+        const reads = new Set(), [r, g, b] = rest.map((a) => num(a, scope, reads));
+        return { run: (s) => { s.r = r(s); s.g = g(s); s.b = b(s); }, reads, inkSets: 2 };
       }
       case "glow": {
         // Unlit inside: lamps, turbo trim, anything that makes its own light.
-        const run = body(rest, scope, depth);
-        return (s) => { const was = s.glow; s.glow = true; run(s); s.glow = was; };
+        const was = ctx.glow;
+        ctx.glow = true;
+        const inside = body(rest, scope, depth, ctx), run = inside.run;
+        ctx.glow = was;
+        return { ...inside, run: (s) => { const before = s.glow; s.glow = true; run(s); s.glow = before; } };
       }
-      case "move": return framed(form, scope, depth, { arity: 3, apply: move });
+      case "move": return framed(form, scope, depth, ctx, 3, move);
       case "rotate": {
         const axis = "xyz".indexOf(rest[0]);
         if (axis < 0) fail("rotate wants x, y or z first", form);
-        return framed(["rotate", ...rest.slice(1)], scope, depth,
-          { arity: 1, apply: (m, at, [a], s) => rotate(m, at, axis, a(s)) });
+        return framed(["rotate", ...rest.slice(1)], scope, depth, ctx, 1,
+          (m, at, [a], s) => rotate(m, at, axis, a(s)));
       }
       case "scale": {
         // One number scales evenly; three scale each axis (a negative one
         // mirrors, and faces keep facing out).
         const three = rest.length >= 3 && !isStatement(rest[1]);
         return framed(three ? form : ["scale", rest[0], rest[0], rest[0], ...rest.slice(1)],
-          scope, depth, { arity: 3, apply: scale });
+          scope, depth, ctx, 3, scale);
+      }
+      case "radial": {
+        // (radial axis n [k] body…): the body n times, turned evenly about the axis.
+        const axis = "xyz".indexOf(rest[0]);
+        if (axis < 0) fail("radial wants x, y or z first", form);
+        if (depth + 1 >= maxDepth) fail(`nested deeper than ${maxDepth}`, form);
+        const reads = new Set(), times = num(rest[1], scope, reads);
+        const inner = { names: {}, up: scope };
+        const slot = iterator(inner, rest[2], reads, rest.length - 3);
+        const inside = maybe(ctx, (c) => body(rest.slice(slot >= 0 ? 3 : 2), inner, depth + 1, c)), run = inside.run;
+        const own = union(reads, inside.reads);
+        own.delete(slot);
+        const from = depth * 13, to = from + 13;
+        return { ...inside, reads: own, inkSets: inside.inkSets ? 1 : 0, run: (s) => {
+          const n = times(s), m = s.m;
+          for (let i = 0; i < n; i++) {
+            for (let k = 0; k < 13; k++) m[to + k] = m[from + k];
+            rotate(m, to, axis, i / n * Math.PI * 2);
+            if (slot >= 0) s.v[slot] = i;
+            run(s);
+          }
+        } };
+      }
+      case "mirror": {
+        // (mirror axis body…): the body, then its reflection across that axis.
+        const axis = "xyz".indexOf(rest[0]);
+        if (axis < 0) fail("mirror wants x, y or z first", form);
+        if (depth + 1 >= maxDepth) fail(`nested deeper than ${maxDepth}`, form);
+        const inside = body(rest.slice(1), scope, depth + 1, ctx), run = inside.run;
+        const from = depth * 13, to = from + 13;
+        return { ...inside, run: (s) => {
+          const m = s.m;
+          for (const side of [1, -1]) {
+            for (let k = 0; k < 13; k++) m[to + k] = m[from + k];
+            if (side < 0) { for (let k = 0; k < 3; k++) m[to + 3 + axis * 3 + k] *= -1; m[to + 12] *= -1; }
+            run(s);
+          }
+        } };
+      }
+      case "revolve": {
+        // (revolve axis [turn] r h r h …): a closed profile turned about the axis.
+        const axis = "xyz".indexOf(rest[0]);
+        if (axis < 0) fail("revolve wants x, y or z first", form);
+        if (rest.length < 7) fail("revolve wants at least three r h points", form);
+        const reads = new Set(), args = rest.slice(1).map((a) => num(a, scope, reads));
+        const values = new Float64Array(args.length);
+        return { reads, draws: true, inkIn: true, inkSets: 0, run: (s) => {
+          for (let i = 0; i < args.length; i++) values[i] = args[i](s);
+          revolve(s, depth * 13, axis, values);
+        } };
       }
     }
     if (head in shapes) {
       const want = shapes[head];
       if (rest.length < want) fail(`${head} wants ${want} numbers`, form);
-      const args = rest.map((a) => num(a, scope));
+      const reads = new Set(), args = rest.map((a) => num(a, scope, reads));
       const values = new Float64Array(args.length);
       const draw = primitives[head];
-      return (s) => {
+      return { reads, draws: true, inkIn: true, inkSets: 0, run: (s) => {
         for (let i = 0; i < args.length; i++) values[i] = args[i](s);
         draw(s, depth * 13, values);
-      };
+      } };
     }
     fail(`unknown form \`${head}\``, form);
   }
 
-  const run = body(forms, top, 0);
+  const run = body(program, top, 0, { ink: [255, 255, 255], glow: false }).run;
   const state = { v: new Float64Array(slots), m: new Float64Array(maxDepth * 13),
-    r: 255, g: 255, b: 255, glow: false, emit: null, owner: null };
+    r: 255, g: 255, b: 255, glow: false, face: null, model: null, owner: null, rec: null };
+
+  // Bake every part: per switch value, per level, run once into a mesh. Twin
+  // meshes (a level that didn't change anything) share one handle.
+  const meshes = [];
+  const store = (mesh) => {
+    const same = meshes.findIndex((o) => o.count === mesh.count &&
+      o.vertices.every((x, i) => x === mesh.vertices[i]) && o.faces.every((x, i) => x === mesh.faces[i]));
+    return same >= 0 ? same : meshes.push(mesh) - 1;
+  };
+  const outer = parts.filter((part) => !part.inner);
+  for (const part of outer) {
+    part.variants = [];
+    for (let index = 0; index < 1 << part.switches.length; index++) {
+      part.switches.forEach((slot, k) => { state.v[slot] = (index >> k) & 1; });
+      const levels = [];
+      let radius = 0, ink = part.ink;
+      for (let level = 0; level < objectLevels; level++) {
+        if (level && !part.detail) { levels.push(levels[0]); continue; }
+        state.v[detailSlot] = level;
+        state.m.set(identity, part.depth * 13);
+        [state.r, state.g, state.b] = part.ink;
+        state.glow = part.glow;
+        state.rec = builder();
+        for (const step of part.runs) step(state);
+        const mesh = state.rec.done();
+        state.rec = null;
+        if (!level) ink = [state.r, state.g, state.b];
+        radius = Math.max(radius, mesh.radius);
+        levels.push(mesh.count ? store(mesh) : -1);
+      }
+      part.variants.push({ levels, radius, ink });
+    }
+  }
+  state.v.fill(0);
+
   // place: origin, then where object x, y and z point, in world space —
-  // twelve numbers, as the game's rig frames already know them.
-  return function object(inputs, place, emit) {
+  // twelve numbers, as the game's rig frames already know them. out: a face
+  // function (everything drawn as WORLD faces, level 0), or { face, model }.
+  function object(inputs, place, out) {
     const v = state.v, m = state.m;
     for (let i = 0; i < objectInputs.length; i++) {
       const x = inputs[objectInputs[i]];
       v[i] = x === undefined ? unset[i] : +x;
     }
+    v[detailSlot] = 0;
     for (let i = 0; i < 12; i++) m[i] = place[i];
     m[12] = handedness(m, 0);
     state.r = state.g = state.b = 255;
     state.glow = false;
-    state.emit = emit;
+    state.face = typeof out === "function" ? out : out.face;
+    state.model = typeof out === "function" ? null : out.model || null;
     state.owner = inputs.owner || null;
     run(state);
-  };
+  }
+  object.meshes = meshes;
+  object.parts = outer.length;
+  return object;
 }
+
+const identity = [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1];
 
 // ——— frames: 13 numbers each, origin · x axis · y axis · z axis · winding ———
 // The winding flag is -1 under a mirror, so a face that faced out still does.
@@ -332,52 +534,96 @@ function rotate(m, at, axis, angle) {
 
 // ——— faces ———
 
-const world = new Float64Array(9);
-// One face in object space: to world, shaded by the game's rule, emitted.
-function face(s, at, ax, ay, az, bx, by, bz, cx, cy, cz, lightFrom) {
-  const m = s.m, w = world;
-  const put = (o, x, y, z) => {
-    for (let k = 0; k < 3; k++) w[o + k] = m[at + k] + x * m[at + 3 + k] + y * m[at + 6 + k] + z * m[at + 9 + k];
+// A baked mesh in the ASSET layout: vertices (x y z), and per face four ids
+// (a triangle repeats its third), the unlit rgb, and a unit normal — zero for
+// a glowing face, which a host draws unlit.
+function builder() {
+  const vertices = [], faces = [], ids = new Map();
+  let radius = 0;
+  const id = (w, o) => {
+    const key = `${w[o]},${w[o + 1]},${w[o + 2]}`;
+    let i = ids.get(key);
+    if (i === undefined) {
+      i = vertices.length / 3;
+      ids.set(key, i);
+      vertices.push(w[o], w[o + 1], w[o + 2]);
+      radius = Math.max(radius, Math.hypot(w[o], w[o + 1], w[o + 2]));
+    }
+    return i;
   };
-  if (m[at + 12] < 0) { put(0, ax, ay, az); put(3, cx, cy, cz); put(6, bx, by, bz); }
-  else { put(0, ax, ay, az); put(3, bx, by, bz); put(6, cx, cy, cz); }
+  return {
+    add(w, n, glow, r, g, b, nx, ny, nz) {
+      const a = id(w, 0), bb = id(w, 3), c = id(w, 6);
+      faces.push(a, bb, c, n === 4 ? id(w, 9) : c, r, g, b, glow ? 0 : nx, glow ? 0 : ny, glow ? 0 : nz);
+    },
+    done: () => ({ vertices: Float64Array.from(vertices), faces: Float64Array.from(faces),
+      count: faces.length / 10, radius }),
+  };
+}
+
+const world = new Float64Array(12);
+function put(m, at, o, x, y, z) {
+  for (let k = 0; k < 3; k++) world[o + k] = m[at + k] + x * m[at + 3 + k] + y * m[at + 6 + k] + z * m[at + 9 + k];
+}
+// A triangle (n 3) or quad (n 4) already in `world`, wound to face out: shaded
+// by the game's rule and emitted, or kept for a bake. No area, nothing drawn.
+function finish(s, n) {
+  const w = world;
+  const ux = w[3] - w[0], uy = w[4] - w[1], uz = w[5] - w[2];
+  const vx = w[6] - w[0], vy = w[7] - w[1], vz = w[8] - w[2];
+  const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+  const length = Math.hypot(nx, ny, nz);
+  if (!length) return;
+  if (s.rec) { s.rec.add(w, n, s.glow, s.r, s.g, s.b, nx / length, ny / length, nz / length); return; }
   let r = s.r, g = s.g, b = s.b;
   if (!s.glow) {
-    const n = lightFrom || w;
-    const ux = n[3] - n[0], uy = n[4] - n[1], uz = n[5] - n[2];
-    const vx = n[6] - n[0], vy = n[7] - n[1], vz = n[8] - n[2];
-    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-    const toward = -(nx * sun[0] + ny * sun[1] + nz * sun[2]) / (Math.hypot(nx, ny, nz) || 1);
+    const toward = -(nx * sun[0] + ny * sun[1] + nz * sun[2]) / length;
     const k = .72 + (toward > 0 ? toward : 0) * .28;
     r = Math.round(r * k); g = Math.round(g * k); b = Math.round(b * k);
   }
-  s.emit(w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7], w[8], r, g, b);
+  s.face(w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7], w[8], r, g, b);
+  if (n === 4) s.face(w[0], w[1], w[2], w[6], w[7], w[8], w[9], w[10], w[11], r, g, b);
 }
-// A quad is two faces lit as one, off its first three corners, as worldQuad does.
-const quadLight = new Float64Array(9);
+function tri(s, at, ax, ay, az, bx, by, bz, cx, cy, cz) {
+  const m = s.m;
+  put(m, at, 0, ax, ay, az);
+  if (m[at + 12] < 0) { put(m, at, 3, cx, cy, cz); put(m, at, 6, bx, by, bz); }
+  else { put(m, at, 3, bx, by, bz); put(m, at, 6, cx, cy, cz); }
+  finish(s, 3);
+}
+// A quad is two faces lit as one, off its first three corners, as worldQuad
+// does. A corner on an axis (a revolve's cap) makes it a triangle.
 function quad(s, at, ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz) {
-  face(s, at, ax, ay, az, bx, by, bz, cx, cy, cz, null);
-  quadLight.set(world);
-  face(s, at, ax, ay, az, cx, cy, cz, dx, dy, dz, quadLight);
+  const same = (x1, y1, z1, x2, y2, z2) => x1 === x2 && y1 === y2 && z1 === z2;
+  if (same(ax, ay, az, bx, by, bz)) return tri(s, at, ax, ay, az, cx, cy, cz, dx, dy, dz);
+  if (same(bx, by, bz, cx, cy, cz) || same(cx, cy, cz, dx, dy, dz)) return tri(s, at, ax, ay, az, bx, by, bz, dx, dy, dz);
+  if (same(dx, dy, dz, ax, ay, az)) return tri(s, at, ax, ay, az, bx, by, bz, cx, cy, cz);
+  const m = s.m;
+  put(m, at, 0, ax, ay, az);
+  if (m[at + 12] < 0) { put(m, at, 3, dx, dy, dz); put(m, at, 6, cx, cy, cz); put(m, at, 9, bx, by, bz); }
+  else { put(m, at, 3, bx, by, bz); put(m, at, 6, cx, cy, cz); put(m, at, 9, dx, dy, dz); }
+  finish(s, 4);
 }
-// Sides asked for (at least `least`), or picked by radius as the game's fans are.
-const sidesFor = (r, v, i, least = 3) => v.length > i ? Math.min(64, Math.max(least, Math.floor(v[i])))
-  : r < 6 ? 6 : r < 13 ? 8 : r < 26 ? 12 : 16;
+// Sides asked for (at least `least`), or picked by radius and level — the
+// only place a level changes a shape.
+const levelShare = [1, .67, .5];
+const sidesFor = (s, r, v, i, least = 3) => v.length > i ? Math.min(64, Math.max(least, Math.floor(v[i])))
+  : Math.max(3, Math.round((r < 6 ? 6 : r < 13 ? 8 : r < 26 ? 12 : 16) * levelShare[s.v[detailSlot]]));
 
 const primitives = {
-  tri: (s, at, v) => face(s, at, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], null),
+  tri: (s, at, v) => tri(s, at, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8]),
   quad: (s, at, v) => quad(s, at, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10], v[11]),
   // (disc r [sides]) — flat, at the origin, facing +z.
   disc: (s, at, v) => {
-    const r = v[0], n = sidesFor(r, v, 1);
+    const r = v[0], n = sidesFor(s, r, v, 1);
     for (let i = 0; i < n; i++) {
       const a = i / n * Math.PI * 2, b = (i + 1) / n * Math.PI * 2;
-      face(s, at, 0, 0, 0, Math.cos(a) * r, Math.sin(a) * r, 0, Math.cos(b) * r, Math.sin(b) * r, 0, null);
+      tri(s, at, 0, 0, 0, Math.cos(a) * r, Math.sin(a) * r, 0, Math.cos(b) * r, Math.sin(b) * r, 0);
     }
   },
   // (hoop inner outer [sides]) — a flat ring facing +z.
   hoop: (s, at, v) => {
-    const r1 = v[0], r2 = v[1], n = sidesFor(r2, v, 2);
+    const r1 = v[0], r2 = v[1], n = sidesFor(s, r2, v, 2);
     for (let i = 0; i < n; i++) {
       const a = i / n * Math.PI * 2, b = (i + 1) / n * Math.PI * 2;
       const ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b);
@@ -387,7 +633,7 @@ const primitives = {
   // (band radius width [sides] [turn]) — a tube's outside around z; `turn`
   // (0–1) draws only that much of it, from +x toward +y.
   band: (s, at, v) => {
-    const r = v[0], h = v[1] / 2, n = sidesFor(r, v, 2, 1), turn = v.length > 3 ? v[3] : 1;
+    const r = v[0], h = v[1] / 2, n = sidesFor(s, r, v, 2, 1), turn = v.length > 3 ? v[3] : 1;
     for (let i = 0; i < n; i++) {
       const a = i / n * Math.PI * 2 * turn, b = (i + 1) / n * Math.PI * 2 * turn;
       const ca = Math.cos(a) * r, sa = Math.sin(a) * r, cb = Math.cos(b) * r, sb = Math.sin(b) * r;
@@ -395,11 +641,41 @@ const primitives = {
     }
   },
   // (capsule x1 y1 z1 x2 y2 z2 width [sides]) — a rod between two points.
-  // Today a prism; a world CAPSULE op would let each host round it itself.
   capsule: (s, at, v) => rod(s, at, v, v[6], v.length > 7 ? v[7] : 6),
   // (line x1 y1 z1 x2 y2 z2 [width]) — a thin three-sided rod.
   line: (s, at, v) => rod(s, at, v, v.length > 6 ? v[6] : 1.5, 3),
 };
+
+// A closed (radius, height) profile turned about an axis. Walked either way:
+// it is turned counter-clockwise (radius right, height up) so faces face out.
+// An odd count leads with `turn`, the share of a full circle to sweep.
+const corner = new Float64Array(12);
+function revolve(s, at, axis, v) {
+  const turn = v.length % 2 ? v[0] : 1, from = v.length % 2, n = (v.length - from) / 2;
+  let area = 0, reach = 0;
+  for (let i = 0; i < n; i++) {
+    const r = v[from + i * 2], h = v[from + i * 2 + 1];
+    const r2 = v[from + ((i + 1) % n) * 2], h2 = v[from + ((i + 1) % n) * 2 + 1];
+    area += r * h2 - r2 * h;
+    reach = Math.max(reach, r);
+  }
+  const sides = Math.max(1, Math.round(sidesFor(s, reach, [], 0) * turn));
+  const u = (axis + 1) % 3, w = (axis + 2) % 3;
+  const point = (o, angle, r, h) => {
+    corner[o + u] = Math.cos(angle) * r; corner[o + w] = Math.sin(angle) * r; corner[o + axis] = h;
+  };
+  for (let e = 0; e < n; e++) {
+    const p = area < 0 ? n - 1 - e : e, q = area < 0 ? (2 * n - 2 - e) % n : (e + 1) % n;
+    const r1 = v[from + p * 2], h1 = v[from + p * 2 + 1], r2 = v[from + q * 2], h2 = v[from + q * 2 + 1];
+    if (!r1 && !r2) continue;
+    for (let i = 0; i < sides; i++) {
+      const a = i / sides * Math.PI * 2 * turn, b = (i + 1) / sides * Math.PI * 2 * turn;
+      point(0, a, r1, h1); point(3, b, r1, h1); point(6, b, r2, h2); point(9, a, r2, h2);
+      const c = corner;
+      quad(s, at, c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10], c[11]);
+    }
+  }
+}
 
 function rod(s, at, v, width, sides) {
   let dx = v[3] - v[0], dy = v[4] - v[1], dz = v[5] - v[2];
