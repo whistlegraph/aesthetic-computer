@@ -105,6 +105,9 @@ export class AcServer extends EventEmitter {
     fallbackModel = DEFAULT_AC_MODEL,
     workspace = false,
     rounds = 12,
+    // More tools from outside (the person's MCP servers): { tools(), has(name),
+    // call(name, input, {signal}), describe(name), close() }.
+    extensions = null,
   } = {}) {
     super();
     this.cwd = cwd;
@@ -112,6 +115,7 @@ export class AcServer extends EventEmitter {
     this.apiKey = apiKey;
     this.workspace = workspace;
     this.rounds = rounds;
+    this.extensions = extensions;
     this.approvals = new Map();
     this.model = (Object.hasOwn(models, model) ? models[model] : model) || fallbackModel;
     this.developerInstructions = developerInstructions;
@@ -239,6 +243,7 @@ export class AcServer extends EventEmitter {
 
   close() {
     for (const id of this.approvals.keys()) this.respond(id, { decision: "cancel" });
+    this.extensions?.close();
     this.controller?.abort();
     this.controller = null;
   }
@@ -297,7 +302,7 @@ export class AcServer extends EventEmitter {
     }
 
     this.artifactContext = this.workspace ? '' : await this.artifacts?.context() || '';
-    const tools = this.workspace ? [...WORKSPACE_TOOLS, CLOSE_TOOL] : [...(this.artifactContext ? await this.artifacts.tools() : [WRITE_PIECE]),
+    const tools = this.workspace ? [...WORKSPACE_TOOLS, CLOSE_TOOL, ...(await this.extensions?.tools().catch(() => []) ?? [])] : [...(this.artifactContext ? await this.artifacts.tools() : [WRITE_PIECE]),
       {name:PREVIEW_TOOL.name,description:PREVIEW_TOOL.description,input_schema:PREVIEW_TOOL.inputSchema}];
     if(this.settings)tools.push({name:SETTINGS_TOOL.name,description:SETTINGS_TOOL.description,input_schema:SETTINGS_TOOL.inputSchema});
     if(this.javascriptPiece && !this.workspace) {
@@ -512,6 +517,20 @@ export class AcServer extends EventEmitter {
     const signal = this.controller?.signal;
     const itemId = `tool-${block.id}`;
     if(this.workspace && WORKSPACE_TOOL_NAMES.has(block.name)) return this.#runWorkspaceTool(block, itemId, signal);
+    if(this.workspace && this.extensions?.has(block.name)) {
+      const item = { id: itemId, type: "dynamicToolCall", tool: this.extensions.describe(block.name) };
+      this.emit("notification", { method: "item/started", params: { item } });
+      try {
+        if (!(await this.#approve("command", item.tool))) throw new Error("The person declined this tool call.");
+        const content = await this.extensions.call(block.name, block.input || {}, { signal });
+        this.emit("notification", { method: "item/completed", params: { item: { ...item, status: "done" } } });
+        return { type: "tool_result", tool_use_id: block.id, content: content.length > 30000 ? `${content.slice(0, 30000)}\n… cut at 30000 characters` : content };
+      } catch (error) {
+        if (error?.name === "AbortError") throw error;
+        this.emit("notification", { method: "item/completed", params: { item: { ...item, status: `failed: ${error.message}` } } });
+        return { type: "tool_result", tool_use_id: block.id, is_error: true, content: error.message };
+      }
+    }
     if(this.workspace && block.name === CLOSE_TOOL.name) {
       this.emit("notification", { method: "session/close", params: {} });
       return { type: "tool_result", tool_use_id: block.id, content: "The session closes when this reply ends. Say a short goodbye and call no more tools." };

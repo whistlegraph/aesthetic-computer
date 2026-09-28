@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { parseEnv } from "node:util";
 
 import { AcServer } from "./ac-server.mjs";
+import { McpTools } from "./mcp-client.mjs";
 
 const OPENROUTER = "https://openrouter.ai/api/v1/messages";
 
@@ -53,6 +54,8 @@ export class OpenServer extends AcServer {
       // A repository task reads, edits and tests; twelve rounds is a piece.
       rounds: pro ? 80 : 12,
       jev: null,
+      // The person's MCP servers, as Claude Code would load them here.
+      extensions: pro && options.cwd ? new McpTools(options.cwd) : null,
     });
     if (!apiKey) throw new Error("No OpenRouter key: set OPENROUTER_API_KEY or put it in ~/.config/aesthetic-computer/openrouter.env");
   }
