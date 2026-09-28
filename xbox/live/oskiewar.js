@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 210;
+const buildVersion = 211;
 const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
@@ -9051,9 +9051,18 @@ function interpolateParkPeer(peer,now){
 }
 function drawParkConnection(){
  if(!poolOnly()||shellMode!=='GAME')return;
- const safe=hudSafeRect(),live=Date.now()-parkConnection.at<3000;
- const label=(live?'ONLINE':'CONNECTING')+' / '+(live?parkConnection.ping+' ms':'—')+' / '+(live?parkConnection.count:1)+' PLAYERS';
- seatHudText(label,safe.left,safe.top,28,live?[139,226,178]:[235,186,116]);
+ const safe=hudSafeRect(),live=parkConnection.at>0&&Date.now()-parkConnection.at<3000;
+ const ping=live&&Number.isFinite(parkConnection.ping)?parkConnection.ping:null;
+ const bars=ping===null?0:ping<100?4:ping<200?2:1;
+ const color=bars===4?[103,231,151]:bars===2?[255,180,77]:[255,100,111];
+ for(let i=0;i<4;i++){
+   const height=7+i*6,x=safe.left+i*11,y=safe.top+28-height;
+   hudBox(x-1,y-1,9,height+2,26,29,37);
+   hudBox(x,y,7,height,...(i<bars?color:[76,80,91]));
+ }
+ const count=live?parkConnection.count:1;
+ seatHudText((ping===null?'—':Math.round(ping))+' ms',safe.left+54,safe.top,28,color);
+ seatHudText(count+' PLAYER'+(count===1?'':'S'),safe.left+230,safe.top,28,[219,225,231]);
 }
 function netDrainHostInbox() {
   const inbox = globalThis.__oskiewarNetInbox ||= [];
