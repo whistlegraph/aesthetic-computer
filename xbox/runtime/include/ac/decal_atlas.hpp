@@ -49,6 +49,8 @@ inline std::vector<uint8_t> make_decal_atlas() {
     pixels[index + 3] = sx < 2 || sy < 2 || sx >= cell - 2 || sy >= cell - 2
       ? 0 : static_cast<uint8_t>(clamp(alpha * border) * 255);
   }
+  // Reserved solid texel for opaque tinted paint / chalk strokes.
+  pixels[0]=pixels[1]=pixels[2]=pixels[3]=255;
   return pixels;
 }
 } // namespace ac::xbox

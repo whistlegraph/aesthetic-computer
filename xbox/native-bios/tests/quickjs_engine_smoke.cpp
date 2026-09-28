@@ -26,6 +26,7 @@ int main() {
 
   const auto atlas = make_decal_atlas();
   assert(atlas.size() == 256u * 256u * 4u);
+  assert(atlas[3]==255);
   assert(atlas == make_decal_atlas());
   for (unsigned cell = 0; cell < 4; ++cell) {
     unsigned transparent = 0, translucent = 0;

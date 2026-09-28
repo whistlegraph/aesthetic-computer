@@ -7,7 +7,7 @@ function playground(legacyAudio=false){
  let now=1e6;const noop=()=>{},audio=[],drums=[];
  const api=new Function('runtime','capabilities','telemetry','gameSignal','drum','wipe','box','line','triangle','write','systemWrite','oscillator','oscillatorStop',`${source}
  configureWorldMap('skatepark','pool');fightOpponent='freeskate';gameMode='fight';
- return {brokenParkRoof,parkRoofKey,parkBuildingHeight,generateParkProfile,drawParkStereoGeometry,updateSpin,bloodDrops,popCivilianHead,updateFootprints,playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
+ return {outdoorCircuit,drawOutdoorCircuit,outdoorChunks,rasterDecalPatches,updateBoomerboard,inputPads,updateGarments,garmentStates,parkSpeakerLocations,parkKarts,dropParkItem,parkDropName,brokenParkRoof,parkRoofKey,parkBuildingHeight,generateParkProfile,drawParkStereoGeometry,updateSpin,bloodDrops,popCivilianHead,updateFootprints,playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
  parkHalfPipe3D,parkHalfPipeHeight,parkDeckY,poolFloorAt,poolSlopeAt,gunPickups,axePickup,
  resetParkSupply,updateParkSupply,updateGunPickups,resetParkKids,updateParkKids,parkKids,
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
@@ -581,15 +581,42 @@ test('random park profiles reuse appearance fields and vary adult age and person
  assert.deepEqual(a.generateParkProfile(456),a.generateParkProfile(456));
  for(const p of profiles){assert.ok(p.age>=18&&p.age<=82);assert.equal(p.appearance.skin.length,3);assert.equal(typeof p.appearance.glasses,'boolean');}
 });
-test('speaker cones face inward toward the half-pipe',()=>{
- const a=playground(),mesh=a.captureQuadMesh(a.drawParkStereoGeometry);
- const cones=mesh.faces.filter(f=>f.color[0]===64||f.color[0]===54);assert.ok(cones.length>10);
- for(const face of cones)assert.ok(face.ids.every(i=>mesh.vertices[i].z>a.parkStereo.z));
+test('four speakers occupy separate gym corners',()=>{
+ const a=playground(),locations=a.parkSpeakerLocations();assert.equal(locations.length,4);assert.equal(new Set(locations.map(p=>p.x)).size,2);assert.equal(new Set(locations.map(p=>p.z)).size,2);
 });
-
 test('high half-pipe air breaks a persistent ceiling opening and keeps its vert lock',()=>{
  const a=playground(),p=a.players[0];Object.assign(p,{x:a.parkHalfPipe3D.x,z:0,y:a.parkDeckY-a.parkBuildingHeight+180,vy:-900,skateboard:true,poolPipeLocked:true,poolVert:{pipe:true}});
  const y=p.y;a.boundParkBody(p);assert.ok(a.brokenParkRoof.has(a.parkRoofKey(p.x,p.z)));assert.equal(p.y,y);assert.ok(p.poolVert.pipe);
  p.vy=700;p.y-=100;a.boundParkBody(p);assert.equal(p.vy,700,'descending rider passes through the opening');
  a.resetParkWindows();assert.equal(a.brokenParkRoof.size,0);
+});
+
+test('weapons drop with their ammo and cannot be instantly collected again',()=>{
+ const a=playground(),p=a.players[0];p.axeHeld=true;p.gunAmmo=17;p.gunMode='HANDGUN';
+ assert.equal(a.parkDropName(p),'axe');assert.ok(a.dropParkItem(p,a.now()));assert.equal(p.axeHeld,false);
+ assert.equal(a.parkDropName(p),'pistol');assert.ok(a.dropParkItem(p,a.now()));assert.equal(p.gunAmmo,0);
+ const gun=a.gunPickups.at(-1);assert.equal(gun.amount,17);assert.ok(gun.safeUntil>a.now());a.updateGunPickups(a.now());assert.equal(p.gunAmmo,0);
+});
+test('go-karts are spread across gym and lot, mount nearby and dismount with jump',()=>{
+ const a=playground(),p=a.players[0];a.resetParkSupply(a.now());assert.equal(a.parkKarts.length,2);const kart=a.parkKarts[0];
+ Object.assign(p,{x:kart.x,y:kart.y,z:kart.z});a.updateParkSupply(1/60,a.now());assert.equal(p.goKart,kart);assert.equal(kart.active,false);
+ a.step(['A']);assert.equal(p.goKart,null);assert.equal(kart.active,true);assert.ok(kart.safeUntil>a.now());
+});
+
+test('shirt and skirt cloth stay finite, attached, and respond to body movement',()=>{
+ const a=playground(),p=a.players[0];p.skin='pastel';p.parkProfile=a.generateParkProfile(987654321);
+ for(let i=0;i<90;i++){p.x+=i<30?3:0;p.poolYaw=i<30?i*.03:.9;a.updateGarments(p,a.runnerWorldGeometry(p,i/60),1/60);}
+ const state=a.garmentStates.get(p);for(const kind of ['shirt','skirt']){const cloth=state[kind];assert.equal(cloth.points.length,24);assert.ok(cloth.links.length<80);for(const node of cloth.points)assert.ok([node.x,node.y,node.z].every(Number.isFinite));assert.ok(Math.hypot(cloth.points[0].x-cloth.anchor.x,cloth.points[0].y-cloth.anchor.y,cloth.points[0].z-cloth.anchor.z)<1e-6);}
+ p.alive=false;a.updateGarments(p,a.runnerWorldGeometry(p,2),1/60);assert.equal(a.garmentStates.has(p),false);
+});
+
+test('outdoor circuit is half a mile and fast vehicles can reach its far side',()=>{
+ const a=playground(),p=a.players[0],track=a.outdoorCircuit();assert.ok(Math.abs(2*Math.PI*track.radius/100-804.672)<.01);
+ Object.assign(p,{x:track.x,z:track.z-track.radius,y:a.parkDeckY,vx:6500,vz:0});const z=p.z;a.boundParkBody(p);assert.equal(p.z,z);
+});
+test('chalk uses an opaque texel, lifts the camera, and punch does not recall the board',()=>{
+ const a=playground(),p=a.players[0];p.chalkColor=a.chalkColors[0];p.vx=120;p.grounded=true;
+ a.step(['B']);assert.ok(p.chalkDrawing);a.updateCameraDoll(1,a.now());assert.ok(a.cameraDoll.position.y<p.y-700);
+ a.inputPads[p.pad]={down:['B']};a.updateBoomerboard(1,a.now()+1000000);assert.ok(!p.boomerSince);assert.ok(!p.skateboard);
+ p.x+=10;a.updateChalk(p,['B'],a.now()+1000000);const mark=a.decals.find(d=>d.kind==='chalk');assert.ok(mark);assert.deepEqual(a.rasterDecalPatches(mark)[0].uv,[0,0,1,1]);
 });

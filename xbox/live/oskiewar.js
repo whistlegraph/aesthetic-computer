@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 200;
+const buildVersion = 201;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -875,7 +875,7 @@ function rasterDecalPatches(decal) {
   const across = flat ? 1 : arc ? 8 : 4, deep = flat || arc || skid ? 1 : 2;
   for (let i=0;i<across;i++) for(let j=0;j<deep;j++) {
     const u=i/across,v=j/deep,du=1/across,dv=1/deep;
-    patches.push({uv:[(cell%2)*128+u*128,Math.floor(cell/2)*128+v*128,du*128,dv*128],
+    patches.push({uv:decal.kind==='chalk'?[0,0,1,1]:[(cell%2)*128+u*128,Math.floor(cell/2)*128+v*128,du*128,dv*128],
       points:[at(u,v),at(u+du,v),at(u+du,v+dv),at(u,v+dv)]});
   }
   return patches;
@@ -1754,8 +1754,8 @@ function boundParkBody(p,previous={x:p.x,z:p.z||0}){
     const normal=(p.vx||0)*w.nx+(p.vz||0)*w.nz;
     p.vx=(p.vx||0)-w.nx*normal;p.vz=(p.vz||0)-w.nz*normal;
   }
-  const x=clamp(p.x,gridLeft-parkLotMargin+25,gridLeft+gridWidth+parkLotMargin-25),
-    z=clamp(p.z||0,worldNear-parkLotMargin+25,worldFar+parkLotMargin-25);
+  const race=outdoorCircuit(),x=clamp(p.x,Math.min(gridLeft-parkLotMargin,race.x-race.radius-1200)+25,Math.max(gridLeft+gridWidth+parkLotMargin,race.x+race.radius+1200)-25),
+    z=clamp(p.z||0,race.z-race.radius-1200+25,worldFar+parkLotMargin-25);
   if(x!==p.x)p.vx=0;if(z!==p.z)p.vz=0;p.x=x;p.z=z;
   const ceiling=parkDeckY-parkBuildingHeight+(p.pad===undefined?70:230);
   if(insidePark(p.x,p.z)&&p.y<ceiling&&!brokenParkRoof.has(parkRoofKey(p.x,p.z||0))){
@@ -6452,7 +6452,7 @@ function generateParkProfile(seed){
   hairStyle:pick(['short','long','curly']),sleeves:pick(['short','long']),beard:false,glasses:age>=58||random()<.3};
  if(persona==='teacher'||persona==='librarian'){appearance.sleeves='long';appearance.glasses=true;}
  if(persona==='mechanic')appearance.shirt=[86,110,131];
- return {age,persona,appearance};
+ return {age,persona,chest:Math.round(random()*12),appearance};
 }
 function dressFreeskater(rider, advance = false) {
  freeskateLook=(Math.imul(freeskateLook,1664525)+1013904223)>>>0;
@@ -9718,6 +9718,10 @@ function clearPoolCamera(position, subject) {
 function updateCameraDoll(dt, now) {
   if (poolOnly() && freeskateActive()) {
     const p=players[0],heading=p.poolYaw||0,speed=Math.hypot(p.vx,p.vz||0);
+    if(p.chalkDrawing){
+      const tip=chalkTip(p),target={x:(p.x+tip.x)*.5,y:poolFloorAt(p.x,p.z||0),z:((p.z||0)+tip.z)*.5};
+      cameraDoll.track({target,position:{x:target.x,y:target.y-1150,z:target.z-180},width:1400,perspective:.65,fov:62,roll:0},dt,4);poolIdleSeconds=poolIdleClose=0;return;
+    }
     if(p.raceLoop){
       const loop=p.raceLoop,target={x:loop.x,y:parkDeckY-loop.radius,z:loop.z},position={x:loop.x-900,y:parkDeckY-1500,z:loop.z-2400};
       cameraDoll.track({target,position,width:3400,perspective:1,fov:65,roll:0},dt,6);poolIdleSeconds=poolIdleClose=0;return;
@@ -10423,7 +10427,7 @@ function updateGunPickups(now) {
   for (const pickup of gunPickups) {
     if (!pickup.active) continue;
     for (const player of players) {
-      if (!player.alive || player.dummy || !nearRunner(player, pickup.x, pickup.y, pickup.z, 90) ||
+      if (now<(pickup.safeUntil||0) || !player.alive || player.dummy || !nearRunner(player, pickup.x, pickup.y, pickup.z, 90) ||
           runnerDistanceToPoint(player, poseTime, pickup.x, pickup.y, pickup.z) > 90 || !availableArm(player)) continue;
       player.gunAmmo = Math.min(30, player.gunAmmo + pickup.amount);
       player.gunMode = pickup.kind || "HANDGUN";
@@ -10467,7 +10471,7 @@ function updateGrenadePickups(now) {
   for (const pickup of grenadePickups) {
     if (!pickup.active) continue;
     for (const player of players) {
-      if (!player.alive || player.dummy || !nearRunner(player, pickup.x, pickup.y, pickup.z, 90) ||
+      if (now<(pickup.safeUntil||0) || !player.alive || player.dummy || !nearRunner(player, pickup.x, pickup.y, pickup.z, 90) ||
           runnerDistanceToPoint(player, poseTime, pickup.x, pickup.y, pickup.z) > 90 || !availableArm(player)) continue;
       player.grenadeAmmo = Math.min(4, player.grenadeAmmo + pickup.amount);
       player.itemArm = availableArm(player);
@@ -11335,7 +11339,7 @@ function updateBoomerboard(dt, now) {
   for (const player of activePlayers()) {
     const board = boardForRider(player, true);
     // A lone head can call it too, and rides it home.
-    const calling = !player.skateboard && player.alive &&
+    const calling = !poolOnly() && !player.skateboard && player.alive &&
       Boolean(inputPads[player.pad]?.down?.includes("B"));
     if (!calling) {
       player.boomerSince = 0;
@@ -12584,6 +12588,7 @@ function updateTurn(player, now) {
 function updatePoolPlayer(p, pad, dt, now) {
   const racePreviousX=p.x;
   const held=pad.down, pressed=key=>held.includes(key)&&!p.previous.includes(key);
+  if(pressed('LeftStick')||pressed('KeyQ'))dropParkItem(p,now);
   const axis=value=>Math.abs(value)>.18?Math.sign(value)*(Math.abs(value)-.18)/.82:0;
   const turn=Number(held.includes('ArrowRight'))-Number(held.includes('ArrowLeft')) || axis(pad.leftX||0);
   const throttle=Number(held.includes('ArrowUp'))-Number(held.includes('ArrowDown')) || axis(pad.leftY||0);
@@ -12611,7 +12616,7 @@ function updatePoolPlayer(p, pad, dt, now) {
   const wasGrounded=p.grounded;
   const oldHeading=p.poolYaw||0;
   const speedBefore=Math.hypot(p.vx,p.vz||0);
-  const turnRate=p.onewheel?lerp(2.8,1.9,clamp(speedBefore/3000,0,1)):3.2;
+  const turnRate=p.goKart?lerp(2.4,1.2,clamp(speedBefore/3400,0,1)):p.onewheel?lerp(2.8,1.9,clamp(speedBefore/3000,0,1)):3.2;
   // Steering changes the rider's heading. Forward always pushes along that heading.
   p.poolYaw=oldHeading-turn*turnRate*dt;
   const bank=turn*(p.skateboard?.34:.18)*clamp(speedBefore/1400,0,1);
@@ -12622,15 +12627,15 @@ function updatePoolPlayer(p, pad, dt, now) {
     p.vx=vx*c-vz*sn;p.vz=vx*sn+vz*c;
   }
   const pipe=parkHalfPipe3D,pipeInside=Math.abs(p.x-pipe.x)<pipe.flat+pipe.radius+12&&Math.abs((p.z||0)-pipe.z)<pipe.run-30;
-  if(!p.skateboard||!pipeInside)p.poolPipeLocked=false;
-  if(p.skateboard&&pipeInside&&now>=(p.poolPipeEscapeUntil||0)&&(p.poolPipeLocked||p.grounded&&speedBefore>160&&Math.abs(Math.cos(p.poolYaw))>.7)){
+  if(!p.skateboard||p.goKart||!pipeInside)p.poolPipeLocked=false;
+  if(p.skateboard&&!p.goKart&&pipeInside&&now>=(p.poolPipeEscapeUntil||0)&&(p.poolPipeLocked||p.grounded&&speedBefore>160&&Math.abs(Math.cos(p.poolYaw))>.7)){
     if(!p.poolPipeLocked)p.poolPipeZ=p.z||0;
     p.poolPipeLocked=true;p.poolYaw=Math.cos(p.poolYaw)>=0?0:Math.PI;
     p.vz=0;p.z=p.poolPipeZ;
   }
   const driveX=Math.cos(p.poolYaw),driveZ=Math.sin(p.poolYaw);
   p.previousY=p.y; p.inputX=turn; p.inputZ=throttle; p.inputY=held.includes('X')?-1:held.includes('A')?1:0;
-  p.ducking=held.includes('X'); p.crouchBlend+=(Number(p.ducking)-(p.crouchBlend||0))*(1-Math.exp(-dt*14));
+  p.ducking=held.includes('X')||!!p.goKart; p.crouchBlend+=(Number(p.ducking)-(p.crouchBlend||0))*(1-Math.exp(-dt*14));
   p.facing=1; p.turnAt=-1e12; p.footSurf=false; p.strafe=null; p.grabHeld=false;
   if(!held.includes('RightShoulder'))p.shieldLocked=false;
   const blocking=held.includes('RightShoulder')&&!p.shieldLocked;
@@ -12670,17 +12675,17 @@ function updatePoolPlayer(p, pad, dt, now) {
       const grade=slope.x*driveX+slope.z*driveZ, tangent=Math.hypot(1,grade);
       let rolling=(p.vx*driveX+(p.vz||0)*driveZ)*tangent;
       rolling+=1800*grade/tangent*step;
-      const top=p.onewheel?(p.wheelTurbo?4800:3100):p.skateboard?2700:p.ducking?walkSpeed*.38:walkSpeed*lerp(.55,1.65,clamp(((p.poolRunTime||0)-.3)/1.1,0,1));
+      const top=p.goKart?6500:p.onewheel?(p.wheelTurbo?4800:3100):p.skateboard?2700:p.ducking?walkSpeed*.38:walkSpeed*lerp(.55,1.65,clamp(((p.poolRunTime||0)-.3)/1.1,0,1));
       if(throttle){
         const target=top*throttle,carving=Math.sign(target)!==Math.sign(rolling);
         if(carving||Math.abs(rolling)<Math.abs(target))
           rolling+=clamp((target-rolling)*(p.skateboard?3:12),-5600,p.skateboard?4200:9000)*step;
       }
       // Crouching pumps the curved surface, just as it does in the halfpipe.
-      if(p.skateboard&&p.ducking&&Math.abs(grade)>.18)
+      if(p.skateboard&&!p.goKart&&p.ducking&&Math.abs(grade)>.18)
         rolling+=Math.sign(rolling)*Math.min(1,Math.abs(grade))*skatePumpAcceleration*step;
       rolling*=Math.exp(-step*(p.skateboard?(p.ducking?.04:.16):throttle?1:14));
-      rolling=clamp(rolling,-6000,6000);
+      rolling=clamp(rolling,p.goKart?-9000:-6000,p.goKart?9000:6000);
       p.vx=driveX*rolling/tangent;p.vz=driveZ*rolling/tangent;
       const speed=Math.abs(rolling);
       const previousY=p.y,previousVy=grade*rolling/tangent;
@@ -17018,6 +17023,7 @@ function spunSkateFrame(frame, player) {
 }
 
 function resetSkate(player) {
+  if(player.goKart){Object.assign(player.goKart,{active:true,x:player.x+90,y:player.y,z:player.z||0,poolYaw:player.poolYaw||0,safeUntil:runtime().monotonicUs+1000000});player.goKart=null;}
   player.wheelTurbo=false;player.wheelChargeAt=0;player.poolVert=null;
   if (player.onewheel) {
     Object.assign(monowheel,{active:true,x:player.x-(player.facing||1)*75,y:player.y,z:player.z||0,
@@ -17048,6 +17054,7 @@ function releaseSpinningBoard(p,now){
 }
 function dismountSkateboard(target, now) {
   if (!target.skateboard) return false;
+  if(target.goKart){resetSkate(target);return true;}
   if(poolOnly()){
     const one=target.onewheel,vehicle=one?monowheel:boardForRider(target),yaw=target.poolYaw||0;
     if(vehicle)Object.assign(vehicle,{active:true,heldBy:-1,releasedBy:target.pad,releasedAt:now,
@@ -18613,6 +18620,83 @@ function characterMesh(key,build,origin,axes){
 // Cosmetic physics stays outside gameplay/replay state. Six particles form a
 // tapered ponytail: pinned root, gravity, drag, length/bend constraints and body
 // contact. Advance on simulation ticks, never as a side effect of drawing.
+// Small Verlet cloth patches: pinned top rings, structural/shear constraints,
+// body contacts, and damped inertia. Cosmetic only; combat keeps its own rig.
+const garmentStates=new WeakMap();
+function garmentTargets(player,world,kind){
+ const torso=world.segments.find(b=>b.role==='torso');if(!torso)return null;
+ const yaw=(player.poolYaw||0)+(player.spin?.angle||0),c=Math.cos(yaw),s=Math.sin(yaw),n=8,rows=3;
+ const hip={x:torso.x2,y:torso.y2,z:torso.z2},neck={x:torso.x1,y:torso.y1,z:torso.z1};
+ const points=[];
+ for(let row=0;row<rows;row++)for(let col=0;col<n;col++){
+  const u=row/(rows-1),a=col/n*Math.PI*2,front=Math.cos(a),side=Math.sin(a);
+  const center=kind==='skirt'?{x:hip.x,y:hip.y-2+u*65,z:hip.z}:{x:lerp(neck.x,hip.x,u),y:lerp(neck.y,hip.y,u)+u*6,z:lerp(neck.z,hip.z,u)};
+  const chest=kind==='shirt'?Math.sin(u*Math.PI)*(player.parkProfile?.chest||0)*Math.max(0,front)*(.45+.55*Math.abs(side)):0;
+  const depth=kind==='skirt'?12+u*15:15+chest,width=kind==='skirt'?16+u*19:20+Math.sin(u*Math.PI)*2;
+  points.push({x:center.x+c*front*depth-s*side*width,y:center.y,z:center.z+s*front*depth+c*side*width});
+ }
+ return {points,n,rows,hip,neck,yaw};
+}
+function updateGarments(player,world,dt){
+ if(!player.alive||player.dummy||!player.skin){garmentStates.delete(player);return;}
+ let state=garmentStates.get(player);if(!state){state={};garmentStates.set(player,state);}
+ for(const kind of ['shirt','skirt']){
+  if(kind==='skirt'&&player.pantsColor)continue;
+  const target=garmentTargets(player,world,kind);if(!target)continue;
+  const {points:rest,n,rows}=target;let cloth=state[kind];
+  if(!cloth||Math.hypot(rest[0].x-cloth.anchor.x,rest[0].y-cloth.anchor.y,rest[0].z-cloth.anchor.z)>250){
+   cloth={points:rest.map(p=>({...p,px:p.x,py:p.y,pz:p.z})),links:[],anchor:{...rest[0]}};
+   const link=(a,b)=>cloth.links.push([a,b,Math.hypot(rest[a].x-rest[b].x,rest[a].y-rest[b].y,rest[a].z-rest[b].z)]);
+   for(let row=0;row<rows;row++)for(let col=0;col<n;col++){const i=row*n+col;link(i,row*n+(col+1)%n);if(row<rows-1){link(i,i+n);link(i,(row+1)*n+(col+1)%n);}}
+   state[kind]=cloth;
+  }
+  const h=Math.min(Math.max(dt,0),1/30)/2;if(!h)continue;
+  for(let sub=0;sub<2;sub++){
+   const drag=Math.exp(-7*h)*(cloth.h?h/cloth.h:1);cloth.h=h;
+   for(let i=n;i<cloth.points.length;i++){
+    const p=cloth.points[i],x=p.x,y=p.y,z=p.z;
+    p.x+=(p.x-p.px)*drag;p.y+=(p.y-p.py)*drag+420*h*h;p.z+=(p.z-p.pz)*drag;
+    p.px=x;p.py=y;p.pz=z;
+    // Weak bending/restoring force, stronger on a fitted shirt than a hem.
+    const k=kind==='shirt'?.12:.025;p.x+=(rest[i].x-p.x)*k;p.y+=(rest[i].y-p.y)*k;p.z+=(rest[i].z-p.z)*k;
+   }
+   for(let pass=0;pass<3;pass++){
+    for(let i=0;i<n;i++)Object.assign(cloth.points[i],rest[i]);
+    for(const [ai,bi,length] of cloth.links){
+     const a=cloth.points[ai],b=cloth.points[bi],dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z,d=Math.hypot(dx,dy,dz)||1;
+     const wa=ai<n?0:1,wb=bi<n?0:1,k=(d-length)/d/(wa+wb||1);
+     a.x+=dx*k*wa;a.y+=dy*k*wa;a.z+=dz*k*wa;b.x-=dx*k*wb;b.y-=dy*k*wb;b.z-=dz*k*wb;
+    }
+    for(let i=n;i<cloth.points.length;i++){
+     const p=cloth.points[i];
+     // Keep a fitted garment outside the torso silhouette without new hitboxes.
+     const center=kind==='shirt'?{x:lerp(target.neck.x,target.hip.x,Math.floor(i/n)/(rows-1)),z:lerp(target.neck.z,target.hip.z,Math.floor(i/n)/(rows-1))}:target.hip;
+     const dx=p.x-center.x,dz=p.z-center.z,d=Math.hypot(dx,dz)||1,min=kind==='shirt'?15:13;
+     if(d<min){p.x=center.x+dx/d*min;p.z=center.z+dz/d*min;}
+     if(kind==='skirt')for(const b of world.segments){
+      if(!/thigh|shin/.test(b.role||''))continue;
+      const x=b.x2-b.x1,y=b.y2-b.y1,z=b.z2-b.z1,t=clamp(((p.x-b.x1)*x+(p.y-b.y1)*y+(p.z-b.z1)*z)/(x*x+y*y+z*z||1),0,1);
+      const cx=b.x1+x*t,cy=b.y1+y*t,cz=b.z1+z*t,dx=p.x-cx,dy=p.y-cy,dz=p.z-cz,d=Math.hypot(dx,dy,dz)||1,r=(b.width||12)*.5+3;
+      if(d<r){p.x=cx+dx/d*r;p.y=cy+dy/d*r;p.z=cz+dz/d*r;}
+     }
+     p.y=Math.min(p.y,poolFloorAt(p.x,p.z)-2);
+    }
+   }
+  }
+  Object.assign(cloth.anchor,rest[0]);
+ }
+}
+function drawGarment(player,kind){
+ const cloth=garmentStates.get(player)?.[kind];if(!cloth)return false;
+ const color=kind==='skirt'?(player.skirtColor||[140,125,168]):(player.shirtColor||[240,237,229]),n=8,view=cameraDoll.view;
+ const at=i=>{const p=cloth.points[i];return {x:p.x-view.forward.x*38,y:p.y-view.forward.y*38,z:p.z-view.forward.z*38};};
+ for(let row=0;row<2;row++)for(let col=0;col<n;col++){
+  const i=row*n+col,j=row*n+(col+1)%n;
+  worldQuad(at(i),at(j),at(j+n),at(i+n),col%2?mixColor(color,[35,29,43],.08):color);
+ }
+ return true;
+}
+
 const ponytailStates=new WeakMap();
 function ponytailAnchor(player,world){
   const yaw=(player.poolYaw||0)+(player.spin?.angle||0),h=world.head;
@@ -18621,7 +18705,7 @@ function ponytailAnchor(player,world){
 }
 function updatePonytail(player,world,dt){
   if(!player.alive||player.headless||!player.skin||player.dummy){ponytailStates.delete(player);return;}
-  const anchor=ponytailAnchor(player,world),r=world.head.radius,len=r*.36;
+  const anchor=ponytailAnchor(player,world),r=world.head.radius,len=r*(player.parkProfile?.appearance.hairStyle==='short'?.13:player.parkProfile?.appearance.hairStyle==='curly'?.22:.36);
   let state=ponytailStates.get(player);
   if(!state||Math.hypot(anchor.x-state.anchor.x,anchor.y-state.anchor.y,anchor.z-state.anchor.z)>r*8||Math.abs(state.length-len)>.01){
     const yaw=(player.poolYaw||0)+(player.spin?.angle||0);
@@ -18679,7 +18763,7 @@ function updatePonytail(player,world,dt){
 function updatePonytails(dt,now){
   if(!poolOnly())return;
   const t=(now-startedAt)/1e6;
-  for(const player of activePlayers())updatePonytail(player,runnerWorldGeometry(player,t),dt);
+  for(const player of activePlayers()){const pose=runnerWorldGeometry(player,t);updatePonytail(player,pose,dt);updateGarments(player,pose,dt);}
   for(const kid of parkKids){
     const scale=kid.bodyScale||1;
     const radius=projectionScaleAt({x:kid.x,y:kid.y-180*scale,z:kid.z||0})*22*scale;
@@ -18778,7 +18862,7 @@ function drawLooseRunner(player,world,t,lod){
     triangleDepth=depth??((cut.from.z+cut.to.z)*.5-.00002);
     filledCapsule(cut.from.x,cut.from.y,cut.to.x,cut.to.y,width*k+edge,color);
   };
-  if(player.skateboard)drawSkateboard(player);
+  if(player.goKart)drawGoKart({...player.goKart,x:player.x,y:player.y,z:player.z,poolYaw:player.poolYaw});else if(player.skateboard)drawSkateboard(player);
   const end=(b,n)=>({x:b['x'+n],y:b['y'+n],z:b['z'+n]});
   const groups=new Map();
   for(const bone of geometry.segments){
@@ -18819,7 +18903,8 @@ function drawLooseRunner(player,world,t,lod){
   const point=(c,f,u,r)=>({x:c.x-view.forward.x*f+view.right.x*r,y:c.y-u-view.forward.y*f+view.right.y*r,z:c.z-view.forward.z*f+view.right.z*r});
   if(torso){
     const hip=end(torso,2),neck=end(torso,1);
-    if(!player.pantsColor){
+    drawGarment(player,'shirt');
+    if(!player.pantsColor&&!drawGarment(player,'skirt')){
       const skirt=player.skirtColor||[188,164,226],sway=Math.sin((player.poolStridePhase||0)*Math.PI*2)*3;
       const a=point(hip,40*scale,1,-14*scale),b=point(hip,40*scale,1,14*scale),c=point(hip,40*scale,-65*scale,34*scale+sway),d=point(hip,40*scale,-65*scale,-34*scale+sway);
       worldQuad(a,b,c,d,skirt);
@@ -18829,11 +18914,11 @@ function drawLooseRunner(player,world,t,lod){
     if(front>0&&lod===0){
       const c={x:lerp(hip.x,neck.x,.65),y:lerp(hip.y,neck.y,.65),z:lerp(hip.z,neck.z,.65)};
       const disc=(center,rx,ry,rz,color)=>{const p=cameraDoll.project(center);triangleDepth=p.z-.00002;filledDisc(p.x,p.y,ry*projectionScaleAt(center),color);};
-      drawRunnerSymbol(player,c,point,scale,disc);
+      drawRunnerSymbol(player,c,(center,f,u,r)=>point(center,f+48,u,r),scale,disc);
     }
   }
   const pony=ponytailStates.get(player);
-  if(pony&&(!player.parkProfile||player.parkProfile.appearance.hairStyle==='long'))for(let i=1;i<pony.points.length;i++){
+  if(pony)for(let i=1;i<pony.points.length;i++){
     const width=(8-i)*scale;stroke3(pony.points[i-1],pony.points[i],width,ink,1.5);stroke3(pony.points[i-1],pony.points[i],width,hair);
   }
   if(!player.headless&&!geometry.head.behind){
@@ -18902,7 +18987,7 @@ function drawSpatialRunner(player,world,t,lod=0){
     },c,[{x:forward.x*rx,y:0,z:forward.z*rx},{x:0,y:ry,z:0},{x:side.x*rz,y:0,z:side.z*rz}]);
   };
   const torso=world.segments.find(b=>b.role==='torso');
-  if(player.skateboard)drawSkateboard(player);
+  if(player.goKart)drawGoKart({...player.goKart,x:player.x,y:player.y,z:player.z,poolYaw:player.poolYaw});else if(player.skateboard)drawSkateboard(player);
   for(const bone of world.segments){
     if(['torso','shoulders'].includes(bone.role)||!hasPart(player,bone.part))continue;
     const a=end(bone,1),b=end(bone,2),r=(bone.width||10)*.5;
@@ -20169,7 +20254,7 @@ function drawPoolGeometry() {
 }
 let pipeSurfaceMesh=null,pipeSurfaceKey='';
 function drawTerrainSurface(left,right,near,far,color){
- if(poolOnly()){poolSurfaceMesh ||= captureQuadMesh(drawPoolGeometry);drawParkScene(poolSurfaceMesh);return;}
+ if(poolOnly()){poolSurfaceMesh ||= captureQuadMesh(drawPoolGeometry);drawParkScene(poolSurfaceMesh);drawOutdoorCircuit();return;}
  if(!indoorSkate()){drawTerrainSurfaceGeometry(left,right,near,far,color);return;}
  const key=gridCols+':'+near+':'+far+':'+color.join(',');
  if(key!==pipeSurfaceKey){pipeSurfaceKey=key;releaseQuadMesh(pipeSurfaceMesh);pipeSurfaceMesh=captureQuadMesh(()=>drawTerrainSurfaceGeometry(worldLeft,worldRight,near,far,color));}
@@ -20257,6 +20342,34 @@ function drawTerrainBackWall(left, right, far, color) {
   terrainPass(left, right, wallZ, wallZ, wallBottom, () => wall);
 }
 
+function outdoorCircuit(){const radius=80467.2/(Math.PI*2);return {x:gridLeft+gridWidth*.52,z:worldNear-1500-radius,radius};}
+const outdoorChunks=new Map();
+function drawOutdoorCircuit(){
+ const rider=players[0],track=outdoorCircuit(),keep=new Set(),chunkSize=3000;
+ const draw=(key,build)=>{keep.add(key);let mesh=outdoorChunks.get(key);if(!mesh){mesh=captureQuadMesh(build);outdoorChunks.set(key,mesh);}if(sceneBoundsVisible(mesh.bounds))drawQuadMesh(mesh);};
+ // A bounded moving ground window. Collision remains analytic at any speed.
+ const gx=Math.floor(rider.x/chunkSize),gz=Math.floor((rider.z||0)/chunkSize);
+ for(let ix=gx-2;ix<=gx+2;ix++)for(let iz=gz-2;iz<=gz+2;iz++){
+  const x=ix*chunkSize,z=iz*chunkSize,end=Math.min(z+chunkSize,worldNear-parkLotMargin);
+  if(end<=z)continue;
+  draw('ground:'+ix+':'+iz,()=>worldQuad({x,y:parkDeckY+2,z},{x:x+chunkSize,y:parkDeckY+2,z},{x:x+chunkSize,y:parkDeckY+2,z:end},{x,y:parkDeckY+2,z:end},[97,111,92]));
+ }
+ const segments=256,chunkSegments=8;
+ for(let chunk=0;chunk<segments/chunkSegments;chunk++){
+  const angle=(chunk+.5)*chunkSegments/segments*Math.PI*2,cx=track.x+Math.sin(angle)*track.radius,cz=track.z+Math.cos(angle)*track.radius;
+  if(Math.hypot(cx-rider.x,cz-(rider.z||0))>7500)continue;
+  draw('road:'+chunk,()=>{
+   const at=(a,r,y=parkDeckY-1)=>({x:track.x+Math.sin(a)*r,y,z:track.z+Math.cos(a)*r});
+   for(let i=chunk*chunkSegments;i<(chunk+1)*chunkSegments;i++){
+    const a=i/segments*Math.PI*2,b=(i+1)/segments*Math.PI*2,r=track.radius;
+    worldQuad(at(a,r-350),at(b,r-350),at(b,r+350),at(a,r+350),[49,53,60]);
+    for(const side of [-1,1])worldQuad(at(a,r+side*325,parkDeckY-2),at(b,r+side*325,parkDeckY-2),at(b,r+side*350,parkDeckY-2),at(a,r+side*350,parkDeckY-2),i%2?[236,230,207]:[180,64,75]);
+    if(i%2===0)worldQuad(at(a,r-4,parkDeckY-2),at(b,r-4,parkDeckY-2),at(b,r+4,parkDeckY-2),at(a,r+4,parkDeckY-2),[235,220,137]);
+   }
+  });
+ }
+ for(const [key,mesh] of outdoorChunks)if(!keep.has(key)){releaseQuadMesh(mesh);outdoorChunks.delete(key);}
+}
 function raceTrack(){return {x:gridLeft+gridWidth*.52,z:worldNear-1500,radius:520};}
 function updateRaceLoop(p,dt,now,throttle){
  const loop=p.raceLoop;if(!loop)return false;
@@ -20276,11 +20389,7 @@ function enterRaceLoop(p,previousX,now){
  p.raceLoop={...loop,direction,angle:0,speed:Math.hypot(p.vx,p.vz||0)};p.poolYaw=direction>0?0:Math.PI;p.lastButton='LOOP';p.lastButtonAt=now;
 }
 function drawRaceTrack(){
- const loop=raceTrack(),cx=gridLeft+gridWidth/2,cz=worldNear-900,rx=gridWidth*.44,rz=600,point=(a,r)=>({x:cx+Math.cos(a)*(rx+r),y:parkDeckY-1,z:cz+Math.sin(a)*(rz+r)});
- for(let i=0;i<64;i++){
-  const a=i*Math.PI/32,b=(i+1)*Math.PI/32;worldQuad(point(a,-90),point(b,-90),point(b,90),point(a,90),[54,58,66]);
-  if(i%2===0)worldQuad(point(a,-3),point(b,-3),point(b,3),point(a,3),[238,225,126]);
- }
+ const loop=raceTrack();
  const at=(a,z,r=loop.radius)=>({x:loop.x+Math.sin(a)*r,y:parkDeckY-loop.radius+Math.cos(a)*r,z:loop.z+z});
  for(let i=0;i<48;i++){
   const a=i*Math.PI/24,b=(i+1)*Math.PI/24;
@@ -22464,7 +22573,7 @@ function steerPostEffects() {
   bottom = clamp(bottom + 24, 0, viewHeight);
   const focusY = visible ? (top + bottom) / (2 * viewHeight) : .5;
   const band = visible ? Math.max(.06, (bottom - top) / (2 * viewHeight)) : 1;
-  nativePostEffects(focusY, band, .2, visible ? 4 : 0,
+  nativePostEffects(focusY, band, .2+(poolOnly()?parkMusicPulse()*.015:0), visible ? 4 : 0,
     clamp(moveX, -24, 24), clamp(moveY, -24, 24));
 }
 
@@ -23178,14 +23287,14 @@ function drawMonowheel(p){
  }
 }
 const chalkColors=[{name:'PINK',rgb:[255,55,190]},{name:'CYAN',rgb:[40,244,255]},{name:'LIME',rgb:[145,255,45]},{name:'YELLOW',rgb:[255,242,55]},{name:'ORANGE',rgb:[255,133,35]},{name:'VIOLET',rgb:[192,99,255]}];
-const chalkPickups=[],parkAxes=[];
+const chalkPickups=[],parkAxes=[],parkKarts=[];
 function chalkTip(p){const a=(p.poolYaw||0)+(p.spin?.angle||0),x=p.x+Math.cos(a)*45-Math.sin(a)*30,z=(p.z||0)+Math.sin(a)*45+Math.cos(a)*30;return {x,z,y:poolFloorAt(x,z)-2};}
 function updateChalk(p,held,now){
  p.chalkDrawing=!!p.chalkColor&&held.includes('B')&&p.grounded&&!p.swimming;
  if(!p.chalkDrawing){p.chalkPrevious=null;return;}
  const tip=chalkTip(p),previous=p.chalkPrevious;
  if(previous){const distance=Math.hypot(tip.x-previous.x,tip.z-previous.z);
-  if(distance>=2&&distance<180)addDecal({kind:'chalk',x:previous.x,z:previous.z,x2:tip.x,z2:tip.z,size:4,color:p.chalkColor.rgb});
+  if(distance>=2&&distance<180){addDecal({kind:'chalk',x:previous.x,z:previous.z,x2:tip.x,z2:tip.z,size:4,color:p.chalkColor.rgb});if(now>=(p.nextChalkSound||0)){playDrum('hat',.025+Math.min(.025,distance/1000),panPlayer(p));p.nextChalkSound=now+90000;}}
  }
  p.chalkPrevious=tip;
 }
@@ -23216,9 +23325,11 @@ function seedStreetTexture(){
  }
 }
 function resetParkSupply(now){
+ parkKarts.length=0;for(const p of players)p.goKart=null;
  chalkPickups.length=0;parkAxes.length=0;for(const p of players){p.chalkColor=null;p.chalkPrevious=null;p.chalkDrawing=false;}
  if(poolOnly()){
-  chalkColors.forEach((color,i)=>{const x=pool.x-240+i*95,z=260;chalkPickups.push({x,z,y:poolFloorAt(x,z)-12,color,active:true});});
+  chalkColors.forEach((color,i)=>{const [x,z]=[[900,900],[2300,-1700],[4300,2300],[6000,-2100],[7900,900],[3300,worldNear-900]][i];chalkPickups.push({x,z,y:poolFloorAt(x,z)-12,color,active:true});});
+  for(const [x,z,color] of [[5000,2200,[234,105,116]],[3500,worldNear-900,[108,190,235]]])parkKarts.push({x,z,y:poolFloorAt(x,z),poolYaw:0,color,active:true,safeUntil:0});
   for(let i=gunPickups.length-1;i>=0;i--)if(gunPickups[i].parkScatter)gunPickups.splice(i,1);
   for(const [x,z,kind] of [[2400,-1100,'RUBBER SMG'],[4500,1300,'HANDGUN'],[7100,-800,'RUBBER SMG']])gunPickups.push({parkScatter:true,kind,x,z,y:poolFloorAt(x,z)-65,amount:kind==='RUBBER SMG'?90:24,active:true,startsActive:false,respawnAt:Infinity});
   for(const [x,z] of [[3900,-200],[6500,700]])parkAxes.push({x,z,y:poolFloorAt(x,z)-65,active:true});
@@ -23246,8 +23357,9 @@ function resetParkSupply(now){
 function updateParkSupply(dt,now){
  if(!freeskateActive())return;
  if(poolOnly()){
-  for(const chalk of chalkPickups)if(chalk.active)for(const p of activePlayers())if(p.alive&&availableArm(p)&&Math.hypot(p.x-chalk.x,(p.z||0)-chalk.z)<35&&Math.abs(p.y-chalk.y)<70){p.chalkColor=chalk.color;p.itemArm=availableArm(p);chalk.active=false;playDrum('hat',.25,panPlayer(p));break;}
-  for(const axe of parkAxes)if(axe.active)for(const p of activePlayers())if(p.alive&&availableArm(p)&&Math.hypot(p.x-axe.x,(p.z||0)-axe.z)<55&&Math.abs(p.y-axe.y-65)<100){p.axeHeld=true;p.itemArm=availableArm(p);axe.active=false;break;}
+  for(const kart of parkKarts)if(kart.active&&now>=kart.safeUntil)for(const p of activePlayers())if(p.alive&&!p.skateboard&&Math.hypot(p.x-kart.x,(p.z||0)-kart.z)<75&&Math.abs(p.y-kart.y)<100){p.goKart=kart;p.skateboard=true;p.onewheel=false;p.poolYaw=kart.poolYaw; kart.active=false;break;}
+  for(const chalk of chalkPickups)if(chalk.active&&now>=(chalk.safeUntil||0))for(const p of activePlayers())if(p.alive&&availableArm(p)&&Math.hypot(p.x-chalk.x,(p.z||0)-chalk.z)<35&&Math.abs(p.y-chalk.y)<70){p.chalkColor=chalk.color;p.itemArm=availableArm(p);chalk.active=false;playDrum('hat',.25,panPlayer(p));break;}
+  for(const axe of parkAxes)if(axe.active&&now>=(axe.safeUntil||0))for(const p of activePlayers())if(p.alive&&availableArm(p)&&Math.hypot(p.x-axe.x,(p.z||0)-axe.z)<55&&Math.abs(p.y-axe.y-65)<100){p.axeHeld=true;p.itemArm=availableArm(p);axe.active=false;break;}
   if(axePickup.active)for(const p of activePlayers())if(p.alive&&availableArm(p)&&
     Math.hypot(p.x-axePickup.x,(p.z||0)-(axePickup.z||0))<65&&Math.abs(p.y-axePickup.y-65)<100){
       p.axeHeld=true;p.itemArm=availableArm(p);axePickup.active=false;break;
@@ -23277,9 +23389,42 @@ function updateParkSupply(dt,now){
   }
  }
 }
+function parkDropName(p){return p.axeHeld?'axe':p.gunAmmo>0?(p.gunMode==='RUBBER SMG'?'smg':'pistol'):p.chalkColor?'chalk':'';}
+function dropParkItem(p,now){
+ const name=parkDropName(p);if(!name)return false;
+ const yaw=p.poolYaw||0,x=p.x+Math.cos(yaw)*65,z=(p.z||0)+Math.sin(yaw)*65,y=poolFloorAt(x,z);
+ if(p.axeHeld){parkAxes.push({x,z,y:y-65,active:true,safeUntil:now+1200000});p.axeHeld=false;}
+ else if(p.gunAmmo>0){gunPickups.push({kind:p.gunMode,amount:p.gunAmmo,x,z,y:y-65,active:true,parkScatter:true,safeUntil:now+1200000});p.gunAmmo=0;}
+ else{chalkPickups.push({x,z,y:y-12,color:p.chalkColor,active:true,safeUntil:now+1200000});p.chalkColor=null;}
+ p.lastButton='DROPPED '+name.toUpperCase();p.lastButtonAt=now;return true;
+}
+function drawGoKart(kart){
+ if(!sceneBoundsVisible({minX:kart.x-140,maxX:kart.x+140,minY:kart.y-100,maxY:kart.y+25,minZ:kart.z-140,maxZ:kart.z+140}))return;
+ const c=Math.cos(kart.poolYaw||0),s=Math.sin(kart.poolYaw||0),at=(x,y,z)=>({x:kart.x+c*x-s*z,y:kart.y+y,z:kart.z+s*x+c*z});
+ const body=kart.color||[234,105,116];
+ worldQuad(at(-95,-28,-52),at(100,-28,-52),at(100,-28,52),at(-95,-28,52),body);
+ for(const z of [-52,52])worldQuad(at(-95,-28,z),at(100,-28,z),at(100,-8,z),at(-95,-8,z),mixColor(body,[25,25,35],.25));
+ worldQuad(at(-45,-65,-30),at(-45,-65,30),at(-45,-28,30),at(-45,-28,-30),[34,34,44]);
+ for(const x of [-65,65])for(const z of [-62,62])for(let i=0;i<8;i++){
+  const a=i*Math.PI/4,b=(i+1)*Math.PI/4;
+  worldQuad(at(x+Math.cos(a)*23,-23+Math.sin(a)*23,z-9),at(x+Math.cos(b)*23,-23+Math.sin(b)*23,z-9),at(x+Math.cos(b)*23,-23+Math.sin(b)*23,z+9),at(x+Math.cos(a)*23,-23+Math.sin(a)*23,z+9),[29,29,35]);
+ }
+}
+function drawParkPickupLabels(){
+ if(!poolOnly())return;
+ const rider=players[0],items=[...gunPickups.filter(i=>i.active).map(i=>({...i,label:i.kind==='RUBBER SMG'?'SMG':'pistol',ink:[120,215,255]})),...parkAxes.filter(i=>i.active).map(i=>({...i,label:'axe',ink:[255,168,102]})),...chalkPickups.filter(i=>i.active).map(i=>({...i,label:i.color.name.toLowerCase()+' chalk',ink:i.color.rgb})),...parkKarts.filter(i=>i.active).map(i=>({...i,label:'go-kart',ink:i.color}))];
+ if(axePickup.active)items.push({...axePickup,label:'axe',ink:[255,168,102]});
+ if(monowheel.active)items.push({...monowheel,label:'monowheel',ink:[205,169,255]});
+ for(const b of balls)if(b.active&&b.type==='skateboard'&&b.heldBy<0)items.push({...b,label:'skateboard',ink:[158,225,173]});
+ const candidates=items.map(i=>({...i,d:Math.hypot(i.x-rider.x,(i.z||0)-(rider.z||0))})).filter(i=>i.d<1100).sort((a,b)=>a.d-b.d).slice(0,5);
+ const old=triangleDepth;triangleDepth=hudDepth;
+ for(const i of candidates){const p=projectPoint(i.x,i.y+28,i.z||0);if(p.behind||p.x<60||p.x>viewWidth()-60||p.y<100||p.y>viewHeight-160)continue;seatHudText(i.label,p.x-handleWidth(i.label,42)/2,p.y,42,i.ink);}
+ triangleDepth=old;
+}
 function drawParkSupply(){
  if(!freeskateActive() || (halfpipeOnly()&&!poolOnly()))return;
  if(axePickup.active){const p=projectPoint(axePickup.x,axePickup.y,axePickup.z||0),t=projectPoint(axePickup.x+30,axePickup.y-130,axePickup.z||0);const old=triangleDepth;triangleDepth=p.z;drawBigAxe(p.x,p.y,t.x,t.y,cameraScale());triangleDepth=old;}
+ for(const kart of parkKarts)if(kart.active)drawGoKart(kart);
  for(const chalk of chalkPickups)if(chalk.active)worldCapsule(chalk.x-10,chalk.y,chalk.z,chalk.x+10,chalk.y,chalk.z,8*projectionScaleAt(chalk),chalk.color.rgb);
  for(const axe of parkAxes)if(axe.active){const p=projectPoint(axe.x,axe.y,axe.z),top=projectPoint(axe.x+30,axe.y-130,axe.z),old=triangleDepth;triangleDepth=p.z;drawBigAxe(p.x,p.y,top.x,top.y,projectionScaleAt(axe));triangleDepth=old;}
  const d=parkSupply.drone;
@@ -23520,10 +23665,12 @@ function seatHudReadout(p,now){
 }
 function drawSeatPlayerHud(ink){
  drawSeatFirstPerson();
+ drawParkPickupLabels();
  const safe=hudSafeRect(),old=triangleDepth,now=runtime().monotonicUs;triangleDepth=hudDepth;
  for(const p of activePlayers()){
   if(p.dummy)continue;
   const i=p.pad,{idle,measure,metrics}=seatHudReadout(p,now);
+  if(poolOnly()&&i===0){const drop=parkDropName(p);if(drop)seatHudText('L3 drop '+drop,safe.left,safe.bottom-42,42,[255,186,126]);const action=p.chalkColor?'B draw':p.axeHeld?'B swing':'B punch',fire=p.gunAmmo>0?'Y shoot':'Y kick';for(const [j,text] of [action+' / '+fire,(p.skateboard?'A dismount':'A jump')+' / RB block'].entries())seatHudText(text,safe.right-handleWidth(text,42),safe.bottom-92+j*50,42,[200,215,232]);}
   const accent=p.wheelTurbo?[209,129,255]:i?[174,161,255]:[255,144,188];
   const size=42;
   const heartRadius=size*.23,heartSpace=heartRadius*3+18;
@@ -23541,7 +23688,7 @@ function drawSeatPlayerHud(ink){
  triangleDepth=old;
 }
 function seatActionText(p,now){
- const speed=Math.hypot(p.vx,p.vz||0),states=[p.raceLoop?'LOOPING':p.poolPipeLocked?'HALFPIPING':statusVerb(p,speed,false)[0].toUpperCase()];
+ const speed=Math.hypot(p.vx,p.vz||0),states=[p.goKart?'DRIVING GO-KART':p.raceLoop?'LOOPING':p.poolPipeLocked?'HALFPIPING':statusVerb(p,speed,false)[0].toUpperCase()];
  if(p.poolPipeLocked)states.push('LOCKED IN');
  if(p.chalkDrawing)states.push('DRAWING');
  if(p.sparringPartner!==undefined)states.push('SPARRING');
@@ -24047,7 +24194,7 @@ const parkStereo={x:parkHalfPipe3D.x,z:-parkHalfPipe3D.run-130,beat:0};
 function stereoGain(p){const near=Math.pow(clamp(1-Math.hypot(p.x-parkStereo.x,(p.z||0)-parkStereo.z)/8000,0,1),2);return insidePark(p.x,p.z||0)?.55+.45*near:near;}
 function updateParkMusic(p,previous){
  if(previous===undefined||!poolOnly())return;
- const gain=stereoGain(p),pan=panAt(parkStereo.x,parkStereo.z);
+ const gain=stereoGain(p),nearest=parkSpeakerLocations().sort((a,b)=>Math.hypot(a.x-p.x,a.z-(p.z||0))-Math.hypot(b.x-p.x,b.z-(p.z||0)))[0],pan=panAt(nearest.x,nearest.z)*.35;
  if(p.heartPhase<previous){
   parkStereo.beat=(parkStereo.beat+1)%32;
   if(gain>.005&&parkStereo.beat%2===0)playDrum('pad-'+Math.floor(parkStereo.beat/8),gain*.28,pan);
@@ -24059,18 +24206,23 @@ function drawParkStereo(){
  if(!poolOnly())return;
  drawParkStereoGeometry();
 }
+function parkSpeakerLocations(){return [[gridLeft+240,worldNear+240],[gridLeft+gridWidth-240,worldNear+240],[gridLeft+gridWidth-240,worldFar-240],[gridLeft+240,worldFar-240]].map(([x,z])=>({x,z}));}
+function parkMusicPulse(){return Math.max(0,1-(players[0].heartPhase||0)/.2);}
 function drawParkStereoGeometry(){
- const pulse=0;
- for(const side of [-1,1]){
-  const x=parkStereo.x+side*155,z=parkStereo.z,y=poolFloorAt(x,z),w=55,h=220;
-  const a={x:x-w,y,z:z+45},b={x:x+w,y,z:z+45},c={x:x+w,y:y-h,z:z+45},d={x:x-w,y:y-h,z:z+45};
-  worldQuad(a,b,c,d,[32,34,42]);worldQuad(d,c,{...c,z:z-45},{...d,z:z-45},[52,56,65]);
-  for(const xx of [x-w,x+w])worldQuad({x:xx,y,z:z+45},{x:xx,y,z:z-45},{x:xx,y:y-h,z:z-45},{x:xx,y:y-h,z:z+45},[44,46,56]);
-  for(const [height,radius] of [[58,39],[150,30]])for(let i=0;i<16;i++){
-    const p=j=>({x:x+Math.cos(j*Math.PI/8)*radius,y:y-height+Math.sin(j*Math.PI/8)*radius,z:z+47+pulse*3});
-    worldQuad({x,y:y-height,z:z+52+pulse*5},p(i),p(i+1),p(i+1),i%2?[64,68,78]:[54,58,70]);
+ const pulse=parkMusicPulse();
+ for(const speaker of parkSpeakerLocations()){
+  const {x,z}=speaker,y=poolFloorAt(x,z),w=65,h=260;
+  if(!sceneBoundsVisible({minX:x-100,maxX:x+100,minY:y-h,maxY:y,minZ:z-100,maxZ:z+100}))continue;
+  const yaw=Math.atan2(parkHalfPipe3D.z-z,parkHalfPipe3D.x-x),fx=Math.cos(yaw),fz=Math.sin(yaw);
+  const at=(u,v,d)=>({x:x-fz*u+fx*d,y:y-v,z:z+fx*u+fz*d});
+  worldQuad(at(-w,0,45),at(w,0,45),at(w,h,45),at(-w,h,45),[32,34,42]);
+  worldQuad(at(-w,h,45),at(w,h,45),at(w,h,-45),at(-w,h,-45),[52,56,65]);
+  for(const side of [-1,1])worldQuad(at(side*w,0,45),at(side*w,0,-45),at(side*w,h,-45),at(side*w,h,45),[44,46,56]);
+  for(const [height,radius] of [[65,46],[170,36]])for(let i=0;i<8;i++){
+    const p=j=>at(Math.cos(j*Math.PI/4)*radius,height+Math.sin(j*Math.PI/4)*radius,47+pulse*5);
+    worldQuad(at(0,height,52+pulse*8),p(i),p(i+1),p(i+1),i%2?[64,68,78]:[54,58,70]);
   }
-  worldCapsule(x-38,y-h+15,z+47,x+38,y-h+15,z+47,3*projectionScaleAt(d),[140,255,170]);
+  worldQuad(at(-45,h-12,47),at(45,h-12,47),at(45,h-18,47),at(-45,h-18,47),mixColor([85,164,117],[180,255,196],pulse));
  }
 }
 function updateSeatHeartbeat(dt,now){
