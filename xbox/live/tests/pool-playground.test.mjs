@@ -348,3 +348,22 @@ test('live star edits render their fairy captions without stopping the frame',()
   }
  }finally{delete globalThis.__oskiewarNetInbox;delete globalThis.__oskiewarRenderFlags;}
 });
+
+test('artifact updates acknowledge applied content and chime only once per change',()=>{
+ const a=playground();
+ const send=artifact=>{globalThis.__oskiewarNetInbox=[{kind:'render-flags',flags:{aeselArtifact:artifact,aeselCaption:'Aesel: Made a rainbow.'}}];a.netDrainHostInbox();};
+ const wire=JSON.stringify({version:1,kind:'shirt-symbol',shape:'rainbow',color:'#ffcc44'});
+ try{
+  send(wire);assert.equal(a.spectatorState(a.now()).aesel.artifact,wire);
+  assert.equal(a.drums.filter(d=>d.name==='bell').length,1);
+  send(wire);assert.equal(a.drums.filter(d=>d.name==='bell').length,1,'heartbeat retry is silent');
+  for(const invalid of ['{}','bad json',wire.replace('rainbow','code'),wire.replace('#ffcc44','red')])send(invalid);
+  assert.equal(a.spectatorState(a.now()).aesel.artifact,wire,'invalid edits preserve current artifact');
+  assert.equal(a.drums.filter(d=>d.name==='bell').length,1);
+  for(const shape of ['star','heart','flower','rainbow']){
+   send(wire.replace('rainbow',shape));a.players[0].skin='pastel';
+   assert.doesNotThrow(()=>a.drawRunner(a.players[0],0));
+   assert.equal(validateOskiewarLiveState(a.spectatorState(a.now())),null);
+  }
+ }finally{delete globalThis.__oskiewarNetInbox;delete globalThis.__oskiewarRenderFlags;}
+});

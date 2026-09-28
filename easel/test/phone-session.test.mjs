@@ -457,3 +457,11 @@ test('a blank opened before account restoration publishes after verification',as
   await session.restore();assert.equal(uploads,1);assert(session.state.published);
  }finally{globalThis.fetch=originalFetch;}
 });
+
+test('artifact context reaches the model without replacing the visible user prompt',async()=>{
+ const events=[];const session=signedInSession({emit:e=>events.push(e)});
+ await session.open();let input='';session.state.server={startTurn:async text=>{input=text;}};
+ await session.ask('Make it a rainbow','Edit the isolated shirt-symbol descriptor.');
+ assert.equal(input,'Edit the isolated shirt-symbol descriptor.\n\nUser request: Make it a rainbow');
+ assert.equal(events.findLast(e=>e.type==='you').text,'Make it a rainbow');
+});

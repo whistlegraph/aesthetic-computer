@@ -529,7 +529,10 @@ export class OskiewarLiveManager {
     if (entries.length < 1 || entries.length > 8) return;
     for (const [key, value] of entries) {
       if (!/^[a-z][a-zA-Z0-9]{0,23}$/.test(key)) return;
-      if (typeof value !== "boolean" &&
+      if (key === "aeselCaption" || key === "aeselArtifact") {
+        const limit = key === "aeselCaption" ? 120 : 192;
+        if (typeof value !== "string" || value.length > limit || /[^\x20-\x7e]/.test(value)) return;
+      } else if (typeof value !== "boolean" &&
           !(Number.isFinite(value) && Math.abs(value) <= 64)) return;
     }
     const now = this.now();

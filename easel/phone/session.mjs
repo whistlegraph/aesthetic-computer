@@ -615,7 +615,7 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
     if (decision === "always") await refreshProviders();
   }
 
-  async function ask(text) {
+  async function ask(text, artifactContext = "") {
     requireCurrentRevision();
     const command = text.trim().match(/^\/model(?:\s+(.+))?$/i);
     if (command) {
@@ -637,7 +637,7 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
       say("notice", {scope:"inference",text:""});
       say("you", {text});
       if (!state.server) state.server = buildServer();
-      await state.server.startTurn(text);
+      await state.server.startTurn(artifactContext ? `${artifactContext}\n\nUser request: ${text}` : text);
     } catch (error) {
       say("bad", {text:error.message});
       say("status", {text:"failed",kind:"failed"});

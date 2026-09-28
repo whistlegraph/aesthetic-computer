@@ -83,7 +83,7 @@
       };
 
       globalThis.aesel = {
-        ask: guard("ask", (text) => session.ask(String(text))),
+        ask: guard("ask", (text, context = "") => session.ask(String(text), String(context).slice(0, 6000))),
         stop: () => session.stop(),
         refreshCredits: () => session.refreshCredits(),
         signOut: () => session.signOut(),

@@ -4040,6 +4040,18 @@ let navigationPrevious = [[], []];
 // walks them and reads the price back out of the live fps telemetry.
 let renderFlags = {};
 let aeselPulseSeen=null,aeselSeenAt=-Infinity;
+let aeselArtifact=null,aeselArtifactWire="";
+function acceptAeselArtifact(wire){
+  if(typeof wire!=='string'||wire.length>192)return false;
+  let value;try{value=JSON.parse(wire);}catch{return false;}
+  if(!value||value.version!==1||value.kind!=='shirt-symbol'||
+    !['star','heart','flower','rainbow'].includes(value.shape)||!/^#[0-9a-fA-F]{6}$/.test(value.color))return false;
+  if(wire===aeselArtifactWire)return true;
+  aeselArtifact={...value,rgb:[1,3,5].map(i=>parseInt(value.color.slice(i,i+2),16))};
+  aeselArtifactWire=wire;
+  playDrum('bell',.45,0);
+  return true;
+}
 function drawAeselFairy(t){
   const pulse=globalThis.__oskiewarRenderFlags?.aeselPulse,now=runtime().monotonicUs;
   if(Number.isFinite(pulse)&&pulse!==aeselPulseSeen){aeselPulseSeen=pulse;aeselSeenAt=now;}
@@ -4055,7 +4067,8 @@ function drawAeselFairy(t){
   worldQuad(at(0,-3),at(wing,-5),at(wing,8),at(0,0),[238,185,247]);
   worldQuad(at(-2,5),at(2,5),at(2,-5),at(-2,-5),[255,231,127]);
   const intent=globalThis.__oskiewarRenderFlags?.aeselIntent;
-  const label=intent===2?'PUTTING A STAR ON YOUR SHIRT':intent===1?'WORKING IN AESEL':'';
+  const caption=globalThis.__oskiewarRenderFlags?.aeselCaption;
+  const label=typeof caption==='string'?caption:intent===2?'PUTTING A STAR ON YOUR SHIRT':intent===1?'WORKING IN AESEL':'';
   if(label){
     const p=cameraDoll.project(c),saved=triangleDepth,size=18,w=handleWidth(label,size);
     if(Number.isFinite(p.x)&&Number.isFinite(p.y)){
@@ -4407,6 +4420,7 @@ function spectatorState(now, nextRoundId = "") {
     map: { id: currentMapId, name: currentMapName, highlights: workshopHighlight,
       ...(workshopMap ? { workshop: workshopMap } : {}) },
     at: run.unixMs || 0, phase,
+    aesel: {artifact:aeselArtifactWire},
     course: skateparkMap ? "skatepark" : "station",
     ropes: skateRopes.length ? skateRopes.map((rope) => rope.nodes.map((node) =>
       [node.x, node.y, node.px, node.py].map((value) => Math.round(value * 100) / 100))) : undefined,
@@ -8919,9 +8933,14 @@ function netDrainHostInbox() {
       if(flags && typeof flags==='object' && !Array.isArray(flags)){
         const entries=Object.entries(flags);
         if(entries.length<=8 && entries.every(([key,value])=>/^[a-z][a-zA-Z0-9]{0,23}$/.test(key) &&
-          (typeof value==='boolean'||Number.isFinite(value)&&Math.abs(value)<=64))){
+          ((key==='aeselCaption'||key==='aeselArtifact')
+            ? typeof value==='string' && value.length<=(key==='aeselCaption'?120:192) && !/[^\x20-\x7e]/.test(value)
+            : typeof value==='boolean'||Number.isFinite(value)&&Math.abs(value)<=64))){
           const target=globalThis.__oskiewarRenderFlags ||= Object.create(null);
-          for(const [key,value] of entries)if(!['__proto__','constructor','prototype'].includes(key))target[key]=value;
+          for(const [key,value] of entries)if(!['__proto__','constructor','prototype'].includes(key)){
+            if(key==='aeselArtifact'&&!acceptAeselArtifact(value))continue;
+            target[key]=value;
+          }
         }
       }
       continue;
@@ -18497,13 +18516,24 @@ function drawSpatialRunner(player,world,t,lod=0){
     }
     if(dressed&&lod===0){
       const c={x:lerp(hip.x,neck.x,.65),y:lerp(hip.y,neck.y,.65),z:lerp(hip.z,neck.z,.65)};
-      if(player===players[0] && globalThis.__oskiewarRenderFlags?.shirtSymbol===2){
-        const center=point(c,12*scale,0,0);
-        const vertex=i=>{const angle=i*Math.PI/5,r=(i%2?2.6:6)*scale;return point(c,12*scale,Math.cos(angle)*r,Math.sin(angle)*r);};
-        for(let i=0;i<10;i++)worldTriangle(center,vertex(i),vertex(i+1),[250,200,60]);
+      const artifact=player===players[0]?aeselArtifact:null;
+      const shape=artifact?.shape||(player===players[0]&&globalThis.__oskiewarRenderFlags?.shirtSymbol===2?'star':'flower');
+      const symbolColor=artifact?.rgb||[250,200,60];
+      if(shape==='star'||shape==='heart'){
+        const center=point(c,12*scale,0,0),count=shape==='star'?10:32;
+        const vertex=i=>{const a=i*Math.PI*2/count;
+          if(shape==='heart')return point(c,12*scale,(13*Math.cos(a)-5*Math.cos(2*a)-2*Math.cos(3*a)-Math.cos(4*a))*.38*scale,16*Math.pow(Math.sin(a),3)*.38*scale);
+          const r=(i%2?2.6:6)*scale;return point(c,12*scale,Math.cos(a)*r,Math.sin(a)*r);};
+        for(let i=0;i<count;i++)worldTriangle(center,vertex(i),vertex(i+1),symbolColor);
+      }else if(shape==='rainbow'){
+        const colors=[[244,83,91],[249,155,65],[250,211,76],[88,191,121],[81,153,235],[166,109,219]];
+        for(let band=0;band<6;band++)for(let i=0;i<12;i++){
+          const v=(j,r)=>point(c,12*scale,(Math.sin(j*Math.PI/12)*r-3)*scale,Math.cos(j*Math.PI/12)*r*scale);
+          const r=8-band*.85;worldQuad(v(i,r),v(i+1,r),v(i+1,r-.85),v(i,r-.85),colors[band]);
+        }
       }else{
       for(let i=0;i<6;i++){const a=i/6*Math.PI*2;ellipsoid(point(c,12*scale,Math.cos(a)*3*scale,Math.sin(a)*3*scale),.8*scale,2*scale,2*scale,[255,255,250],4,2);}
-      ellipsoid(point(c,13*scale,0,0),1*scale,2*scale,2*scale,[250,200,60],4,2);
+      ellipsoid(point(c,13*scale,0,0),1*scale,2*scale,2*scale,symbolColor,4,2);
       }
     }
   }

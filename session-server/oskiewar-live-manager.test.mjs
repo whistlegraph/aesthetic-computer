@@ -662,3 +662,16 @@ test("skatepark live frames bound chain state and attachment indices", () => {
   frame.ropes[0].push([0, 0, 0, 0]);
   assert.equal(validateOskiewarLiveState(frame), "Invalid ropes");
 });
+
+test('Aesel captions and artifact descriptors have bounded dedicated string fields',()=>{
+ let now=100;const manager=new OskiewarLiveManager({now:()=>now});
+ const host=new FakeSocket(),agent=new FakeSocket();const url='/oskiewar-live?match=ow-kikke752';
+ manager.handleConnection(host,{url:url+'&role=publisher&surface=web'});
+ manager.handleConnection(agent,{url:url+'&role=agent'});
+ const send=content=>{now+=1000;agent.emit('message',Buffer.from(JSON.stringify({type:'oskiewar:flags',content})));};
+ const content={aeselPulse:2,aeselCaption:'Aesel: Made a rainbow.',aeselArtifact:JSON.stringify({version:1,kind:'shirt-symbol',shape:'rainbow',color:'#ffaa33'})};
+ send(content);assert.deepEqual(host.sent.at(-1),{type:'oskiewar:flags',content});
+ const count=host.sent.length;
+ for(const invalid of [{aeselCaption:'a'.repeat(121)},{aeselCaption:'line\nbreak'},{aeselArtifact:'a'.repeat(193)},{sky:'text'}])send(invalid);
+ assert.equal(host.sent.length,count);
+});

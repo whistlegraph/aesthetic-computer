@@ -109,7 +109,7 @@ final class SessionHost: NSObject {
     // Every call is `void`-ed. These functions are async, and handing
     // WKWebView a Promise earns "JavaScript execution returned a result of an
     // unsupported type" — a harmless error that reads exactly like a real one.
-    func ask(_ text: String) { call("void aesel.ask(\(quote(text)));") }
+    func ask(_ text: String, context: String = "") { call("void aesel.ask(\(quote(text)), \(quote(context)));") }
     func publish() { call("void aesel.publish();") }
     func exportNotebook() { call("void aesel.exportNotebook();") }
     func importNotebook(_ text: String) { call("void aesel.importNotebook(\(quote(text)));") }

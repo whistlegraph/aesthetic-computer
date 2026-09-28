@@ -238,7 +238,15 @@ struct ContentView: View {
         .onChange(of: session.selectedRevision) { writing = false }
         .onChange(of: session.currentSessionID) { previewHidden = false; expandedPreview = false; attended = true }
         .onChange(of: preview.failure) { host.automation.previewFailure = preview.failure }
-        .onChange(of: session.busy) { if session.busy { attended = false }; oskiewar.setIntent(session.busy ? 1 : 0) }
+        .onChange(of: session.busy) {
+            if session.busy { attended = false }
+            else if !oskiewar.room.isEmpty { oskiewar.finish(source: session.source) }
+        }
+        .onChange(of: session.entries) {
+            if session.busy, let response = session.entries.last(where: { $0.kind == .ac }) {
+                oskiewar.mirror(response.text)
+            }
+        }
         .onChange(of: writing) { if writing { attended = true } }
         .onChange(of: draft) { attended = true }
         .onChange(of: session.showSignIn) { if !session.showSignIn { host.cancelSignIn() } }
@@ -497,18 +505,9 @@ struct ContentView: View {
     private func previewBox(container: CGSize) -> some View {
         ZStack(alignment: .topTrailing) {
             if !oskiewar.room.isEmpty {
-                VStack(spacing: 4) {
-                    ZStack {
-                        Image(systemName: "tshirt.fill").resizable().scaledToFit().foregroundStyle(.white)
-                        Image(systemName: "star.fill").resizable().scaledToFit().foregroundStyle(.yellow)
-                            .frame(width: 22, height: 22)
-                    }.frame(maxWidth: .infinity, maxHeight: .infinity).layoutPriority(-1)
-                    Button("Apply star") { oskiewar.applyStar() }.font(.system(size: 12))
-                    Text(oskiewar.editStatus.isEmpty ? "Shirt preview" : oskiewar.editStatus)
-                        .font(.system(size: 9)).lineLimit(1).minimumScaleFactor(0.7)
-                }.padding(8).frame(width: previewSize.width, height: previewSize.height)
-                    .background(Color(red: 0.16, green: 0.13, blue: 0.22))
-                    .foregroundStyle(.white).clipped()
+                artifactPreview
+                    .frame(width: previewSize.width, height: previewSize.height)
+                    .clipped()
             } else if let url = session.previewURL {
                 PieceView(url: url, source: session.displayedSource, preview: preview)
                     .frame(width: previewSize.width, height: previewSize.height, alignment: .topTrailing)
@@ -535,9 +534,21 @@ struct ContentView: View {
         }
     }
 
+    private var artifactPreview: some View {
+        VStack(spacing: 4) {
+            OskiewarArtifactPreview(artifact: oskiewar.artifact)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if !oskiewar.editStatus.isEmpty {
+                Text(oskiewar.editStatus).font(.system(size: 10)).lineLimit(2).minimumScaleFactor(0.7)
+            }
+        }.padding(8).background(Color(red: 0.16, green: 0.13, blue: 0.22)).foregroundStyle(.white)
+    }
+
     private var expandedPiece: some View {
         ZStack(alignment: .topTrailing) {
-            if let url = session.previewURL {
+            if !oskiewar.room.isEmpty {
+                artifactPreview
+            } else if let url = session.previewURL {
                 PieceView(url: url, source: session.displayedSource, preview: preview)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -773,7 +784,8 @@ struct ContentView: View {
         default:
             if session.provider == "ac" && !session.signedIn { host.signIn(); return }
             guard session.canStartTurn else { openSettings(); return }
-            host.ask(text)
+            if oskiewar.room.isEmpty { host.ask(text) }
+            else { oskiewar.begin(source: session.source); host.ask(text, context: oskiewar.artifactContext) }
         }
         draft = ""
     }
@@ -1010,26 +1022,47 @@ private struct CurtainAccountButtonStyle: ButtonStyle {
 private final class OskiewarAttachment: ObservableObject {
     @Published var status = ""
     @Published var editStatus = ""
-    private var intent = 0
-    private var starRequested = false
-    func setIntent(_ value: Int) {
-        intent = value
-        guard let socket else { return }
-        Task { try? await socket.send(.string("{\"type\":\"oskiewar:flags\",\"content\":{\"aeselIntent\":\(value)}}")) }
+    @Published var artifact = OskiewarArtifact(shape: "star", color: "#fac83c")
+    private var caption = ""
+    private var captionUntil = Date.distantPast
+    private var pendingArtifact = ""
+    private var sourceAtStart: String?
+    var artifactContext: String {
+        """
+        You are editing an isolated Oskiewar shirt-symbol artifact, connected to room \(room).
+        Current artifact: \(artifact.wire)
+        Use the existing source-edit tool to write valid piece JavaScript with exactly one descriptor comment:
+        /* ac-artifact {"version":1,"kind":"shirt-symbol","shape":"star","color":"#fac83c"} */
+        Supported shapes: star, heart, flower, rainbow. Color is a six-digit hex; rainbow uses six fixed rainbow bands.
+        Keep a minimal paint export for valid piece syntax. The native TV renders the descriptor alone, without a shirt or scene.
+        On completion this descriptor is automatically sent to the game. Only the game's acknowledgment confirms application.
+        Briefly describe your actual edit in ordinary text; the butterfly mirrors an excerpt of that response.
+        Do not claim the game applied it. Do not create an unrelated piece, publish it, or add UI. If a request needs another artifact type or geometry, explain that it is not supported yet instead of pretending it changed the game.
+        """
+    }
+    func begin(source: String) {
+        sourceAtStart = source; caption = ""; editStatus = "Editing"
+    }
+    func mirror(_ text: String) {
+        let plain = text.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.joined(separator: " ")
+        let ascii = String(plain.unicodeScalars.filter { $0.value >= 32 && $0.value <= 126 }.map(Character.init))
+        guard !ascii.isEmpty else { return }
+        caption = "Aesel: " + String(ascii.prefix(109)) + (ascii.count > 109 ? "..." : "")
+        captionUntil = Date().addingTimeInterval(10)
+    }
+    func finish(source: String) {
+        guard let previous = sourceAtStart else { return }
+        sourceAtStart = nil
+        guard source != previous else { editStatus = "No artifact change"; return }
+        guard let value = OskiewarArtifact.read(source) else {
+            editStatus = "No supported artifact in this response"; return
+        }
+        artifact = value; pendingArtifact = value.wire; editStatus = "Sending to game"
     }
     func applyStar() {
-        guard let socket, status.hasPrefix("Connected") else { editStatus = "Connect to a game first"; return }
-        starRequested = true; intent = 2
-        Task {
-            do {
-                try await socket.send(.string("{\"type\":\"oskiewar:flags\",\"content\":{\"aeselIntent\":2,\"shirtSymbol\":2}}"))
-                editStatus = "Star sent to game"
-                try await Task.sleep(nanoseconds: 3_000_000_000)
-                guard self.socket === socket else { return }
-                intent = 0
-                try await socket.send(.string("{\"type\":\"oskiewar:flags\",\"content\":{\"aeselIntent\":0}}"))
-            } catch { editStatus = "Could not send star" }
-        }
+        artifact = OskiewarArtifact(shape: "star", color: "#fac83c")
+        pendingArtifact = artifact.wire; editStatus = "Sending to game"
+        mirror("Changing the shirt symbol to a star.")
     }
     private var socket: URLSessionWebSocketTask?
     private var receiver: Task<Void, Never>?
@@ -1038,7 +1071,7 @@ private final class OskiewarAttachment: ObservableObject {
 
     func disconnect() {
         receiver?.cancel(); heartbeat?.cancel()
-        intent = 0; starRequested = false
+        caption = ""; pendingArtifact = ""; sourceAtStart = nil
         socket?.cancel(with: .goingAway, reason: nil)
         socket = nil; receiver = nil; heartbeat = nil; room = ""; status = "Oskiewar disconnected"
     }
@@ -1064,6 +1097,16 @@ private final class OskiewarAttachment: ObservableObject {
                     if value["type"] as? String == "oskiewar:error" {
                         self.status = "Oskiewar connection rejected"; self.heartbeat?.cancel(); return
                     }
+                    if value["type"] as? String == "oskiewar:state",
+                       let state = value["content"] as? [String: Any],
+                       let aesel = state["aesel"] as? [String: Any],
+                       let wire = aesel["artifact"] as? String, !wire.isEmpty {
+                        if wire == self.pendingArtifact { self.editStatus = "Live in game" }
+                        if self.pendingArtifact.isEmpty, let data = wire.data(using: .utf8),
+                           let current = try? JSONDecoder().decode(OskiewarArtifact.self, from: data), current.valid {
+                            self.artifact = current; self.editStatus = "Live in game"
+                        }
+                    }
                     if value["type"] as? String == "oskiewar:state" && self.heartbeat == nil {
                         self.status = "Connected · oskiewar://" + name
                         self.heartbeat = Task { [weak self] in
@@ -1072,8 +1115,9 @@ private final class OskiewarAttachment: ObservableObject {
                                 while !Task.isCancelled {
                                     pulse = (pulse + 1) % 64
                                     guard let self, self.socket === task else { return }
-                                    var flags: [String: Int] = ["aeselPulse": pulse, "aeselIntent": self.intent]
-                                    if self.starRequested { flags["shirtSymbol"] = 2 }
+                                    var flags: [String: Any] = ["aeselPulse": pulse,
+                                        "aeselCaption": Date() < self.captionUntil ? self.caption : ""]
+                                    if !self.pendingArtifact.isEmpty { flags["aeselArtifact"] = self.pendingArtifact }
                                     let data = try JSONSerialization.data(withJSONObject: ["type": "oskiewar:flags", "content": flags])
                                     try await task.send(.string(String(decoding: data, as: UTF8.self)))
                                     try await Task.sleep(nanoseconds: 1_000_000_000)
@@ -1103,5 +1147,72 @@ private struct OskiewarHeadIcon: View {
             bow.addLine(to: CGPoint(x: 17, y: 1)); bow.addLine(to: CGPoint(x: 5, y: 6)); bow.closeSubpath()
             context.fill(bow, with: .color(Color(red: 0.4, green: 0.85, blue: 0.7)))
         }.accessibilityHidden(true)
+    }
+}
+
+
+private struct OskiewarArtifact: Codable, Equatable {
+    var version = 1
+    var kind = "shirt-symbol"
+    var shape: String
+    var color: String
+    var valid: Bool {
+        version == 1 && kind == "shirt-symbol" && ["star", "heart", "flower", "rainbow"].contains(shape)
+            && color.range(of: "^#[0-9a-fA-F]{6}$", options: .regularExpression) != nil
+    }
+    var wire: String {
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        return String(decoding: (try? encoder.encode(self)) ?? Data(), as: UTF8.self)
+    }
+    static func read(_ source: String) -> Self? {
+        let marker = "/* ac-artifact "
+        guard let start = source.range(of: marker),
+              let end = source.range(of: "*/", range: start.upperBound..<source.endIndex),
+              source.range(of: marker, range: end.upperBound..<source.endIndex) == nil else { return nil }
+        let json = String(source[start.upperBound..<end.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard json.utf8.count <= 192, let data = json.data(using: .utf8),
+              let value = try? JSONDecoder().decode(Self.self, from: data), value.valid else { return nil }
+        return value
+    }
+}
+
+private struct OskiewarArtifactPreview: View {
+    let artifact: OskiewarArtifact
+    var body: some View {
+        Canvas { context, size in
+            let scale = min(size.width, size.height) / 20
+            let center = CGPoint(x: size.width / 2, y: size.height / 2)
+            func point(_ x: Double, _ y: Double) -> CGPoint { CGPoint(x: center.x + x * scale, y: center.y - y * scale) }
+            func ink(_ hex: String) -> Color {
+                let rgb = Int(hex.dropFirst(), radix: 16) ?? 0xfac83c
+                return Color(red: Double((rgb >> 16) & 255)/255, green: Double((rgb >> 8) & 255)/255, blue: Double(rgb & 255)/255)
+            }
+            if artifact.shape == "rainbow" {
+                let colors = ["#f4535b", "#f99b41", "#fad34c", "#58bf79", "#5199eb", "#a66ddb"]
+                for band in 0..<6 {
+                    let outer = 8 - Double(band) * 0.85, inner = outer - 0.85
+                    var path = Path()
+                    for i in 0...12 { let a = Double(i) * .pi / 12; let p = point(cos(a)*outer, sin(a)*outer-3); if i == 0 { path.move(to: p) } else { path.addLine(to: p) } }
+                    for i in (0...12).reversed() { let a = Double(i) * .pi / 12; path.addLine(to: point(cos(a)*inner, sin(a)*inner-3)) }
+                    path.closeSubpath(); context.fill(path, with: .color(ink(colors[band])))
+                }
+            } else if artifact.shape == "flower" {
+                for i in 0..<6 {
+                    let a = Double(i) * .pi / 3, p = point(sin(a)*3, cos(a)*3)
+                    context.fill(Path(ellipseIn: CGRect(x: p.x-2*scale, y: p.y-2*scale, width: 4*scale, height: 4*scale)), with: .color(.white))
+                }
+                context.fill(Path(ellipseIn: CGRect(x: center.x-2*scale, y: center.y-2*scale, width: 4*scale, height: 4*scale)), with: .color(ink(artifact.color)))
+            } else {
+                var path = Path(); let count = artifact.shape == "star" ? 10 : 32
+                for i in 0..<count {
+                    let a = Double(i) * .pi * 2 / Double(count)
+                    let r = i % 2 == 0 ? 6.0 : 2.6
+                    let p = artifact.shape == "star" ? point(sin(a)*r, cos(a)*r)
+                        : point(16*pow(sin(a),3)*0.38, (13*cos(a)-5*cos(2*a)-2*cos(3*a)-cos(4*a))*0.38)
+                    if i == 0 { path.move(to: p) } else { path.addLine(to: p) }
+                }
+                path.closeSubpath(); context.fill(path, with: .color(ink(artifact.color)))
+            }
+        }.accessibilityLabel("Isolated " + artifact.shape + " shirt symbol")
     }
 }
