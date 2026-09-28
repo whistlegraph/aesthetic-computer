@@ -1184,7 +1184,12 @@ async function refreshBraincells() {
 // then replace this process with a fresh one on the same thread.
 let restartArgs = null;
 async function restartInPlace() {
-  const args = arguments_.filter((a, i, all) => a !== "--resume" && all[i - 1] !== "--resume");
+  // The window comes back as it is now, not as it was launched: the provider
+  // and model chosen since, and the thread (which belongs to that provider).
+  const replaced = new Set(["--resume", "--backend", "--model"]);
+  const args = arguments_.filter((a, i, all) => !replaced.has(a) && !replaced.has(all[i - 1]));
+  args.push("--backend", backend.id);
+  if (model) args.push("--model", model);
   if (engine.threadId) args.push("--resume", engine.threadId);
   restartArgs = args;
   return finish(0);
