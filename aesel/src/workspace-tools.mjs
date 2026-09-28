@@ -93,7 +93,7 @@ const TOOLBOX = [
   ["puppet", "act on a Mac or browser: click, type, keys (`puppet --help`)"],
   ["slab-ledger", "the fleet's live sessions"],
   ["ac-os", "AC Native OS builds"],
-  ["ac", "the person's AC account: `ac whoami`, `ac publish <file> [slug]`, `ac colors orange teal` (their @handle's letter colours, names or hex, cycling)"],
+  ["ac", "the person's AC account: `ac profile`, `ac colors blue cyan` (handle letter colours), `ac mood \"…\"`, `ac handle <name>`, `ac publish <file> [slug]` — see account.md in Aesel's guides"],
   ["rg", "ripgrep, for searching code — never grep -r"],
   ["fd", "find files by name, fast"],
   ["jq", "JSON"],

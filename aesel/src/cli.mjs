@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// cli.mjs — account, publish and handle-colour subcommands behind `aesthetic`.
+// cli.mjs — account, profile and publish subcommands behind `ac`.
 import "./env.mjs";
 import process from "node:process";
 import { ACSession } from "./ac-session.mjs";
@@ -15,6 +15,19 @@ const fail = (message) => {
   process.stderr.write(`aesthetic: ${message}\n`);
   process.exit(1);
 };
+
+// POST to the site as the signed-in person; the server's own message on failure.
+async function authorizedPost(path, payload) {
+  const token = await session.token();
+  const response = await fetch(`${SITE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) fail(body.message || body.error || `the site answered ${response.status}`);
+  return body;
+}
 
 try {
   if (command === "whoami") {
@@ -38,6 +51,33 @@ try {
       const result = await publishPiece({ file, slug, session, onStep: (step) => note(`${step}…`) });
       out(result.route);
       if (!result.verified) note("published, but the live file did not read back yet");
+    }
+  } else if (command === "profile") {
+    // What your profile shows, read from the same public endpoints the
+    // profile page uses: handle, colours, latest mood, and where it lives.
+    const handle = session.handle;
+    if (!handle) fail("sign in first: ac login");
+    const get = async (path) => { const r = await fetch(`${SITE}${path}`); return r.ok ? r.json() : {}; };
+    const [profile, colors] = await Promise.all([get(`/api/profile/@${handle}`), get(`/api/handle-colors?handle=${encodeURIComponent(handle)}`)]);
+    const hex = (c) => `#${[c.r, c.g, c.b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+    out(`@${handle}`);
+    out(`  page    ${SITE}/@${handle}`);
+    out(`  colors  ${Array.isArray(colors.colors) ? colors.colors.map(hex).join(" ") : "theme default"}`);
+    out(`  mood    ${profile.mood?.mood || profile.mood || "—"}`);
+  } else if (command === "mood") {
+    const text = rest.join(" ").trim();
+    if (!session.handle) fail("sign in first: ac login");
+    if (!text) fail('usage: ac mood "how you feel"');
+    const body = await authorizedPost("/api/mood", { mood: text });
+    out(`@${session.handle} · ${body.mood || text}`);
+  } else if (command === "handle") {
+    const wanted = (rest[0] || "").replace(/^@/, "");
+    if (!session.signedIn) fail("sign in first: ac login");
+    if (!wanted) fail("usage: ac handle <new-handle>");
+    if (process.env.AESEL_DRY_RUN === "1") out(`would change @${session.handle} to @${wanted}`);
+    else {
+      const body = await authorizedPost("/api/handle", { handle: wanted });
+      out(`@${body.handle || wanted}`);
     }
   } else if (command === "colors") {
     // Your @handle's letters, painted: one colour repeats, several cycle.

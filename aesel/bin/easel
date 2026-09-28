@@ -137,7 +137,7 @@ case "${1:-}" in
         shift
         exec node "$PROJECT_DIR/src/history-cli.mjs" "$@"
         ;;
-    login|logout|whoami|publish|colors)
+    login|logout|whoami|publish|colors|profile|mood|handle)
         has_command node || fail "Node.js is required"
         exec node "$PROJECT_DIR/src/cli.mjs" "$@"
         ;;

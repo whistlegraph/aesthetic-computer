@@ -32,6 +32,7 @@ const OUT = join(aesel, "context");
 // rather than about this checkout.
 export const BUNDLE = [
   ["aesel/SCORE.md", "score.md", "the aesel piece workflow"],
+  ["aesel/ACCOUNT.md", "account.md", "the person's AC account from the terminal"],
   ["SCREEN.md", "screen.md", "how a piece draws on the AC canvas"],
   ["HAND.md", "hand.md", "how the code reads"],
   ["system/public/aesthetic.computer/disks/CLAUDE.md", "pieces.md", "the piece authoring guide"],
