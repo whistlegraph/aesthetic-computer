@@ -243,7 +243,9 @@ export async function refreshInsights(token, {
   const ledger = readLedger();
   const refreshed = [];
   for (const post of ledger.posts) {
-    if (post.mode !== "live" || !post.mediaId) continue;
+    // A deleted reel keeps its last figures, but asking Meta about it again only
+    // earns a "does not exist" error on every pass.
+    if (post.mode !== "live" || !post.mediaId || post.deletedAt) continue;
     try {
       post.insights = await pull(post.mediaId, token);
       post.insightsAt = new Date().toISOString();
