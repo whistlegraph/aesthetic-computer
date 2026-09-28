@@ -23,7 +23,7 @@ API_ISSUER = "69a6de78-fa3c-47e3-e053-5b8c7c11a4d1"
 API_KEY_PATH = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_S4TQKG6U99.p8")
 BUNDLE = "computer.aesthetic.oskiewar"
 VERSION = ENV.fetch("OSKIEWAR_VERSION", "1.0.0")
-BUILD_NUMBER = ENV.fetch("OSKIEWAR_BUILD_NUMBER", "9")
+BUILD_NUMBER = ENV.fetch("OSKIEWAR_BUILD_NUMBER", "10")
 TEAM = "FB5948YR3S"
 
 # The macOS game's Xcode project is generated from apple/oskiewar-mac/
