@@ -178,6 +178,20 @@ final class PromptPreview {
     /// the pixels and never smears the text underneath.
     private static let shadowDrop: CGFloat = 3
     private static var dropBelowTitle: CGFloat { titleBar + topPad }
+    /// Height of the title strip Slab draws along the top of a pane whose
+    /// Aesel session holds a routed piece — the desktop's 32-point strip.
+    static let pieceStripHeight: CGFloat = 32
+
+    /// Where the card parks. Ordinarily the pane's top-left, opposite the
+    /// rock. A pane holding a routed Aesel piece is laid out the way the Aesel
+    /// desktop is instead: title strip along the top, and the card in the
+    /// top-trailing corner under it — so it anchors, and opens, from there.
+    var trailing = false {
+        didSet { if trailing != oldValue { paneOrigin = .zero; screenHeightForCG = 0 } }
+    }
+    private var drop: CGFloat {
+        trailing ? Self.titleBar + Self.pieceStripHeight + 4 : Self.dropBelowTitle
+    }
 
     /// A radius this small reads as a cut corner rather than a rounded one,
     /// which is what a screen on a desk looks like.
@@ -595,13 +609,13 @@ final class PromptPreview {
         yieldTo = nil
     }
 
-    /// Park the card in the pane's top-left, under the title bar. `bounds` is
-    /// the terminal window in CG screen space (top-left origin), matching what
-    /// the rock controller already hands its overlays. Called every tick, so a
-    /// pane that has not moved costs nothing here.
+    /// Park the card in the pane's top-left (top-right when `trailing`), under
+    /// the title bar. `bounds` is the terminal window in CG screen space
+    /// (top-left origin), matching what the rock controller already hands its
+    /// overlays. Called every tick, so a pane that has not moved costs nothing.
     func place(bounds b: (CGFloat, CGFloat, CGFloat, CGFloat), screenHeight: CGFloat) {
-        let origin = NSPoint(x: b.0 + Self.leftInset,
-                             y: screenHeight - (b.1 + Self.dropBelowTitle))
+        let origin = NSPoint(x: trailing ? b.0 + b.2 - Self.leftInset : b.0 + Self.leftInset,
+                             y: screenHeight - (b.1 + drop))
         let size = CGSize(width: b.2, height: b.3)
         let screen = NSScreen.screens.first(where: { $0.frame.contains(origin) }) ?? NSScreen.main
         let aspect = screen.map { $0.frame.width / max(1, $0.frame.height) } ?? 1.5
@@ -618,9 +632,9 @@ final class PromptPreview {
     /// The piece renders at the pane's viewport: what the terminal shows, less
     /// the card's own insets. Never smaller than the resting card, so a tiny
     /// pane still gets a whole card rather than a sliver.
-    private static func viewport(in pane: CGSize, aspect: CGFloat) -> CGSize {
+    private static func viewport(in pane: CGSize, aspect: CGFloat, drop: CGFloat) -> CGSize {
         let availableWidth = max(restSize.width, pane.width - leftInset - hoverMargin)
-        let availableHeight = max(restSize.height, pane.height - dropBelowTitle - hoverMargin)
+        let availableHeight = max(restSize.height, pane.height - drop - hoverMargin)
         let width = min(availableWidth, availableHeight * aspect).rounded(.down)
         return CGSize(width: width, height: (width / aspect).rounded(.down))
     }
@@ -629,8 +643,8 @@ final class PromptPreview {
     private func layoutWindow() {
         let size = stageSize
         let aspect = size.width > 0 && size.height > 0 ? size.width / size.height : displayAspect
-        viewport = Self.viewport(in: paneSize, aspect: aspect)
-        let frame = NSRect(x: paneOrigin.x,
+        viewport = Self.viewport(in: paneSize, aspect: aspect, drop: drop)
+        let frame = NSRect(x: trailing ? paneOrigin.x - viewport.width : paneOrigin.x,
                            y: paneOrigin.y - viewport.height - Self.shadowDrop,
                            width: viewport.width + Self.shadowDrop,
                            height: viewport.height + Self.shadowDrop)
@@ -675,12 +689,14 @@ final class PromptPreview {
     private func layoutCard(animated: Bool) {
         guard let content = window.contentView else { return }
         let size = cardSize
-        let rect = NSRect(x: 0, y: content.bounds.height - size.height,
+        // A trailing card keeps its top-right still and opens down and left.
+        let rect = NSRect(x: trailing ? content.bounds.width - Self.shadowDrop - size.width : 0,
+                          y: content.bounds.height - size.height,
                           width: size.width, height: size.height)
         // The card is what everything else means by "the preview" — the pointer
         // test, the ownership test. Both read its final rect, not the frame
         // mid-animation, so a pointer that opened the card is inside it at once.
-        hitRect = NSRect(x: paneOrigin.x, y: paneOrigin.y - size.height,
+        hitRect = NSRect(x: trailing ? paneOrigin.x - size.width : paneOrigin.x, y: paneOrigin.y - size.height,
                          width: size.width, height: size.height)
         cgRect = CGRect(x: hitRect.minX, y: screenHeightForCG - hitRect.maxY,
                         width: hitRect.width, height: hitRect.height)

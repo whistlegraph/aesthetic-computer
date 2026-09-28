@@ -449,6 +449,12 @@ final class PromptSigilOverlay {
     /// geometry — the controller builds a fresh overlay when a session gains
     /// or loses its scan URL.
     let isScanSurface: Bool
+    /// True when this rock belongs to a terminal whose Aesel session holds a
+    /// routed piece. Such a pane is laid out like the Aesel desktop: no code,
+    /// the route along the top-left, the version top-right, and the stone
+    /// shrunk into the strip beside it where the desktop keeps its prox.
+    /// Fixed at construction for the same reason as `isScanSurface`.
+    let isPieceStrip: Bool
     let size: CGFloat
     /// Padding around the rock inside the window so the offset drop shadow has
     /// room and isn't clipped by the window edge.
@@ -516,10 +522,11 @@ final class PromptSigilOverlay {
     /// The address that code encodes, so a click can go where a scan would.
     var scanURL: String = ""
 
-    init(sessionId: String, tty: String, scanSurface: Bool = false) {
+    init(sessionId: String, tty: String, scanSurface: Bool = false, pieceStrip: Bool = false) {
         self.sessionId = sessionId
         self.tty = tty
         self.isScanSurface = scanSurface
+        self.isPieceStrip = pieceStrip
         self.size = scanSurface ? Self.scanSurfaceSize : 56
 
         let box = size + 2 * pad
@@ -814,6 +821,49 @@ final class PromptSigilOverlay {
             guard rgb.count == 3, rgb.allSatisfy({ $0.isFinite && $0 >= 0 && $0 <= 255 }) else { return .white }
             return NSColor(deviceRed: rgb[0] / 255, green: rgb[1] / 255, blue: rgb[2] / 255, alpha: 1)
         }
+        showTitle(title, colors: colors, at: CGRect(x: x, y: y, width: width, height: height),
+                  fontSize: CGFloat(fontSize), bounds: bounds, key: "\(colorValues)")
+    }
+
+    /// Lay out a piece pane's title strip the way the Aesel desktop titles a
+    /// piece (ContentView's `headerControls`): the route at the leading edge
+    /// with its version right after it as a word of its own, the pair fitted
+    /// to the room left of the preview card. The strip is the pane's first 32
+    /// points under the title bar — scrollback, which the Aesel TUI already
+    /// leaves to Slab's overlays. No stone and no code: the card is the way
+    /// in. Returns false when the pane is too narrow to hold the title.
+    func setPieceStrip(route: String, colors: [NSColor], version: Int,
+                       bounds b: (CGFloat, CGFloat, CGFloat, CGFloat)) -> Bool {
+        let titleBar: CGFloat = 30, strip = PromptPreview.pieceStripHeight
+        let inset: CGFloat = 12, gap: CGFloat = 8
+        let versionText = version > 0 ? "v\(version)" : ""
+        let room = b.2 - inset * 2 - PromptPreview.restSize.width - gap
+        guard !route.isEmpty, room >= 48, titleBar + strip <= b.3 else {
+            desktopTitle = nil; desktopTitleBounds = nil
+            nameLayer.isHidden = true; desktopTitleWindow?.orderOut(nil)
+            return false
+        }
+        let natural = AeselRock.width(route, size: 16)
+            + (versionText.isEmpty ? 0 : Self.pieceStripGap + AeselRock.width(versionText, size: 16))
+        let fontSize = natural > room ? max(9, (16 * room / natural).rounded(.down)) : 16
+        pieceStripVersion = versionText
+        showTitle(route, colors: AeselRock.faces(route, colors: colors),
+                  at: CGRect(x: inset, y: titleBar, width: room, height: strip),
+                  fontSize: fontSize, bounds: b, key: "\(colors)|\(versionText)")
+        return true
+    }
+
+    /// The space between a piece strip's route and its version, at 16pt.
+    private static let pieceStripGap: CGFloat = 8
+
+    /// The version a piece strip shows after its route.
+    private var pieceStripVersion = ""
+
+    /// Stand the title panel over `local` (window coordinates, top-left origin)
+    /// and rebuild its lettering when anything it shows has changed.
+    private func showTitle(_ title: String, colors: [NSColor], at local: CGRect, fontSize: CGFloat,
+                           bounds: (CGFloat, CGFloat, CGFloat, CGFloat), key extra: String) {
+        let (x, y, width, height) = (local.minX, local.minY, local.width, local.height)
         let padding: CGFloat = 8
         if desktopTitleWindow == nil {
             let panel = NSWindow(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
@@ -835,8 +885,8 @@ final class PromptSigilOverlay {
         nameLayer.frame = CGRect(x: padding, y: padding, width: width, height: height)
         nameLayer.isHidden = false
         CATransaction.commit()
-        let key = "\(title)|\(width)|\(height)|\(fontSize)|\(colorValues)"
-        desktopTitle = title; desktopTitleFontSize = CGFloat(fontSize); desktopTitleColors = colors
+        let key = "\(title)|\(width)|\(height)|\(fontSize)|\(extra)"
+        desktopTitle = title; desktopTitleFontSize = fontSize; desktopTitleColors = colors
         if key != desktopTitleKey { desktopTitleKey = key; rebuildName() }
     }
 
@@ -1043,7 +1093,9 @@ final class PromptSigilOverlay {
     func setHovered(_ h: Bool) {
         guard hovered != h else { return }
         hovered = h
-        springScale(nameLayer, to: h ? 1.5 : 1.0)
+        // A piece strip is a whole title line, not a caption under the stone;
+        // swelling it from its centre would shove the route off its edge.
+        if !isPieceStrip { springScale(nameLayer, to: h ? 1.5 : 1.0) }
         // Keep the QR and its backing aligned while its label responds.
         guard !isScanSurface else { return }
         springScale(rockLayer, to: h ? 1.12 : 1.0)
@@ -1220,6 +1272,7 @@ final class PromptSigilOverlay {
     /// desktop shows it as a separate title too. Letters of a leading @handle
     /// take the account palette; the desktop title keeps its own colours.
     private func rebuildAeselName(_ name: String) {
+        if isPieceStrip && desktopTitle != nil { rebuildPieceStrip(name); return }
         let versionStart = desktopTitle == nil ? name.range(of: " v[0-9]+$", options: .regularExpression) : nil
         let title = versionStart.map { String(name[..<$0.lowerBound]) } ?? name
         let version = versionStart.map { String(name[$0.lowerBound...].dropFirst()) } ?? ""
@@ -1255,6 +1308,36 @@ final class PromptSigilOverlay {
         if !version.isEmpty {
             row(version, size: 12, faces: Array(repeating: .white, count: version.count),
                 y: nameLayer.bounds.height / 2 - 15)
+        }
+    }
+
+    /// A piece strip's two titles on one line, flush left: the route, then
+    /// the version after a small gap, each its own word with its own beat.
+    private func rebuildPieceStrip(_ route: String) {
+        let scale = NSScreen.main?.backingScaleFactor ?? 2
+        let start = CACurrentMediaTime()
+        let y = nameLayer.bounds.height / 2
+        func row(_ text: String, size: CGFloat, faces: [NSColor], from left: CGFloat) {
+            var x = left
+            for (i, letter) in text.enumerated() {
+                let glyph = AeselRock.glyph(String(letter), size: size, face: i < faces.count ? faces[i] : .white)
+                let rest = AeselRock.rest(i, of: text)
+                let l = CALayer()
+                l.contentsScale = scale
+                l.contents = glyph.image.layerContents(forContentsScale: scale)
+                l.bounds = CGRect(origin: .zero, size: glyph.image.size)
+                l.position = CGPoint(x: x + glyph.advance.width / 2, y: y)
+                l.transform = CATransform3DRotate(CATransform3DMakeTranslation(0, rest.lift, 0), rest.radians, 0, 0, 1)
+                nameLayer.addSublayer(l)
+                AeselRock.addSway(to: l, index: i, from: start)
+                x += glyph.advance.width
+            }
+        }
+        let size = desktopTitleFontSize
+        row(route, size: size, faces: desktopTitleColors, from: 0)
+        if !pieceStripVersion.isEmpty {
+            row(pieceStripVersion, size: size, faces: [],
+                from: AeselRock.width(route, size: size) + Self.pieceStripGap * size / 16)
         }
     }
 
@@ -1631,7 +1714,8 @@ final class PromptSigilOverlay {
                     heartbeat heartbeatVisible: Bool,
                     platformTarget platformTargetVisible: Bool) {
         if rockVisible {
-            if !window.isVisible { window.orderFrontRegardless() }
+            // A piece strip is title only; its stone is never shown.
+            if !isPieceStrip, !window.isVisible { window.orderFrontRegardless() }
             if desktopTitle != nil, desktopTitleWindow?.isVisible != true { desktopTitleWindow?.orderFrontRegardless() }
             if desktopTitle != nil, desktopTitleWindow?.isVisible == true,
                let path = desktopTitleAckPath, let data = desktopTitleAckData,
@@ -1645,7 +1729,7 @@ final class PromptSigilOverlay {
             // all. It is transparent and sits directly over the rock, so
             // showing it costs nothing visually and is what makes the rock
             // clickable in the first place.
-            if !interactionWindow.isVisible { interactionWindow.orderFrontRegardless() }
+            if !isPieceStrip, !interactionWindow.isVisible { interactionWindow.orderFrontRegardless() }
         } else {
             setHovered(false)   // a covered rock stops reacting to the pointer
             desktopTitleWindow?.orderOut(nil)
@@ -2122,6 +2206,9 @@ final class PromptSigilOverlayController {
     /// tty (bare) → CGWindowID of its terminal window.
     private var binding: [String: Int] = [:]
     private var desktopSessions: [String: ClaudeSession] = [:]
+    /// Terminal panes whose Aesel session holds a routed piece, by binding
+    /// key: laid out like the desktop (title strip + top-trailing card).
+    private var pieceStripSessions: [String: ClaudeSession] = [:]
     /// Bare tty → the cursor accent used by under-window focus particles.
     private var particleColors: [String: NSColor] = [:]
     /// Current live prox windows, shared with focus navigation/highlighting so
@@ -2445,6 +2532,10 @@ final class PromptSigilOverlayController {
             : (s.pieceRoute.isEmpty ? s.piece : s.pieceRoute)
         next.handleColors = s.artifactPreview == nil && !s.pieceRoute.isEmpty ? s.handleColors : []
         next.version = s.artifactPreview?.version ?? s.pieceVersion
+        // A routed piece's name and version are already in its title strip,
+        // so its card, parked under them top-trailing, speaks only its state.
+        pv.trailing = s.holdsRoutedPiece
+        if s.holdsRoutedPiece { next.piece = ""; next.version = 0 }
         next.paused = !pv.isOnScreen
         pv.setState(next)
         if s.agentType == "easel", !s.isRemote, s.artifactPreview == nil {
@@ -2932,7 +3023,9 @@ final class PromptSigilOverlayController {
     /// QR, or one that would only fit at a module size no camera can resolve,
     /// comes back nil and the session keeps an ordinary rock.
     private func scanCode(for s: ClaudeSession) -> CGImage? {
-        guard s.agentType == "easel", !s.isDesktopEasel else { return nil }
+        // A routed piece is titled in its strip the way the desktop titles it,
+        // and the desktop shows no code; its card is the way in.
+        guard s.agentType == "easel", !s.isDesktopEasel, !s.holdsRoutedPiece else { return nil }
         let url = s.scanURL
         guard !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               !unscannableURLs.contains(url) else { return nil }
@@ -2956,6 +3049,8 @@ final class PromptSigilOverlayController {
 
         let live = sessions.filter { (!$0.tty.isEmpty || $0.isDesktopEasel) && $0.remoteHost.isEmpty }
         desktopSessions = Dictionary(uniqueKeysWithValues: live.filter(\.isDesktopEasel).map { ($0.overlayBindingKey, $0) })
+        pieceStripSessions = Dictionary(live.filter(\.holdsRoutedPiece).map { ($0.overlayBindingKey, $0) },
+                                        uniquingKeysWith: { first, _ in first })
         let liveIds = Set(live.map { $0.sessionId })
         let loopContacts = LoopboyRoutes.verifiedBySession(live)
         verifiedLoopboyContacts = loopContacts
@@ -3005,12 +3100,12 @@ final class PromptSigilOverlayController {
             defer { if scanSurface { overlays[s.sessionId]?.scanURL = s.scanURL } }
             let ov: PromptSigilOverlay
             if let existing = overlays[s.sessionId], existing.tty == bare,
-               existing.isScanSurface == scanSurface {
+               existing.isScanSurface == scanSurface, existing.isPieceStrip == s.holdsRoutedPiece {
                 ov = existing
             } else {
                 overlays[s.sessionId]?.close()
                 ov = PromptSigilOverlay(sessionId: s.sessionId, tty: bare,
-                                        scanSurface: scanSurface)
+                                        scanSurface: scanSurface, pieceStrip: s.holdsRoutedPiece)
                 ov.onHoverChange = { [weak self] rock, hovering in
                     self?.handleDirectHover(rock, hovering: hovering)
                 }
@@ -3025,7 +3120,7 @@ final class PromptSigilOverlayController {
             // "yes", blank); the prompt makes the rock re-form as the session
             // moves to a new prompt.
             let seed = SigilRenderer.seed(for: s.sessionId + "\u{1}" + s.subject)
-            ov.setNameVisible(!s.isDesktopEasel)
+            ov.setNameVisible(!s.isDesktopEasel && !s.holdsRoutedPiece)
             ov.soundSeed = seed
             ov.setScanCode(scanCode)
             // Re-render the sprite sheet only when the rock or the sun moved.
@@ -3343,12 +3438,18 @@ final class PromptSigilOverlayController {
                 }
                 continue
             }
+            var stripFits = true
             if let desktop = desktopSessions[ov.tty] {
                 guard let geometry = desktopRockGeometry(for: desktop, overlay: ov, bounds: b) else {
                     ov.hide(); dropInteraction(for: ov)
                     continue
                 }
                 ov.setDesktopGeometry(geometry)
+            } else if ov.isPieceStrip, let piece = pieceStripSessions[ov.tty] {
+                // A pane too narrow for the strip loses the strip but keeps
+                // its card.
+                stripFits = ov.setPieceStrip(route: piece.pieceRoute, colors: piece.handleColors,
+                                             version: piece.pieceVersion, bounds: b)
             }
             ov.place(bounds: b, screenHeight: screenH)
             // Recreate a cross-process child relationship: elevated surfaces
@@ -3358,8 +3459,10 @@ final class PromptSigilOverlayController {
             // An open card is the whole pane, rock's corner included. The rock
             // steps aside while the card is up rather than float over the
             // piece it is the code for; it is back the moment the card closes.
-            let rockVisible = ownedBy(num, at: points.rock + ov.desktopTitleVisibilityPoints)
-                && previews[ov.sessionId]?.isExpanded != true
+            // A piece strip sits above the card, not under it, so it stays.
+            let rockVisible = stripFits
+                && ownedBy(num, at: (ov.isPieceStrip ? [] : points.rock) + ov.desktopTitleVisibilityPoints)
+                && (ov.isPieceStrip || previews[ov.sessionId]?.isExpanded != true)
             ov.setVisible(
                 rock: rockVisible,
                 heartbeat: desktopSessions[ov.tty] == nil && ownedBy(num, at: points.heartbeat),

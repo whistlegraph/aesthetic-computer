@@ -144,6 +144,10 @@ struct ClaudeSession {
         return handle.isEmpty ? "" : "@\(handle)/\(slug)"
     }
 
+    /// A terminal Aesel session holding a routed piece: Slab lays its pane out
+    /// the way the Aesel desktop lays out its window (see `PromptSigilOverlay`).
+    var holdsRoutedPiece: Bool { !isDesktopEasel && artifactPreview == nil && !pieceRoute.isEmpty }
+
     /// How the file on disk stands against what `scanURL` is serving —
     /// `live`, `ahead` (saved, not pushed yet) or `pushing`. The preview
     /// parked opposite the rock renders that address, and this is the only
