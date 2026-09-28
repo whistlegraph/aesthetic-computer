@@ -812,11 +812,14 @@
       const target = scene ? textContext : context;
       target.fillStyle = color(ink);
       target.font = `${size}px "Comic Relief", "Comic Sans MS", Arial, sans-serif`;
-      target.textBaseline = "top";
+      // Baseline at y + the face's ascent (2160/2048 em), exactly where the
+      // Mac (CoreText) and Xbox (DirectWrite) hosts put it. "top" put web
+      // text ~0.3 em higher than the console, so layouts drifted by host.
+      target.textBaseline = "alphabetic";
       const lines = String(text).split("\n");
       for (let index = 0; index < lines.length; index++)
         target.fillText(lines[index], Math.round(x * renderScaleX) / renderScaleX,
-          Math.round((y + index * size * 1.15) * renderScaleY) / renderScaleY);
+          Math.round((y + size * 2160 / 2048 + index * size * 1.15) * renderScaleY) / renderScaleY);
     }
 
     let clientErrorReportStatus = "";

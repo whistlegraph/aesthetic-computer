@@ -17687,6 +17687,13 @@ function handleWidth(handle, size) {
   return width;
 }
 
+// Comic Relief's measured metrics (ComicRelief-Regular.ttf, 2048 units/em):
+// every host puts the baseline at y + ascent. comicTop returns the y that
+// optically centres a run on cy — capitals by their cap height, lowercase by
+// the x-height band.
+const comicAscentEm = 2160 / 2048, comicCapEm = 1554 / 2048, comicXHeightEm = 1105 / 2048;
+const comicTop = (cy, size, capitals = false) =>
+  cy - size * (comicAscentEm - (capitals ? comicCapEm : comicXHeightEm) / 2);
 function typeWrite(text, x, y, size, ...color) {
   const visibleText = String(text).toLowerCase();
   if (hostComicWrite) hostComicWrite(visibleText, x, y, size, ...color);
@@ -17837,8 +17844,15 @@ function drawPadButton(label, x, y, size, pressed, fade = 1, display = null) {
   const face = pressed ? mixColor(ink, [255, 255, 255], .3) : ink;
   const cx = x + radius;
   const cy = y + Math.round(size * .75);
-  filledDisc(cx, cy, radius, veil(face));
-  if (pressed) filledRing(cx, cy, radius, radius - 3, veil([245, 248, 255]));
+  // A real button: a soft drop shadow, an ink border, the coloured face and a
+  // lighter crown; held, it sinks onto its shadow and rims white.
+  const border = Math.max(2, Math.round(radius * .11)), sink = pressed ? 2 : 0;
+  if (!pressed) filledDisc(cx + 1, cy + 3, radius + border, veil([6, 8, 18]));
+  filledDisc(cx, cy + sink, radius + border, veil([14, 16, 28]));
+  filledDisc(cx, cy + sink, radius, veil(face));
+  filledDisc(cx, cy + sink - radius * .28, radius * .62, veil(mixColor(face, [255, 255, 255], .22)));
+  filledDisc(cx, cy + sink + radius * .08, radius * .7, veil(face));
+  if (pressed) filledRing(cx, cy + sink, radius, radius - border, veil([245, 248, 255]));
   const text = display ?? (padGlyph[label] || label).toUpperCase();
   const glyphSize = Math.round(size * .82);
   if (label === "STICK_UP" || label === "DOWN" ||
@@ -17862,15 +17876,18 @@ function drawPadButton(label, x, y, size, pressed, fade = 1, display = null) {
       wingY - perpendicularY, thickness, arrowInk);
     return radius * 2;
   }
-  const glyphX = Math.round(cx - handleWidth(text, glyphSize) / 2);
-  // DirectWrite's cap shapes carry more visual weight below their nominal
-  // midpoint. Lift the Xbox face letters together so A/B/X/Y read centered in
-  // the colored hardware circles rather than sitting on their lower halves.
-  const glyphY = Math.round(cy - glyphSize * (padButtonInk[label] ? .56 : .5));
-  if (padButtonInk[label] || Object.hasOwn(padGlyph, label) ||
-      /^[KPSI<>^v]$/.test(text))
-    systemWrite(text, glyphX, glyphY, glyphSize, ...veil([12, 14, 26]));
-  else typeWrite(text, glyphX, glyphY, glyphSize, ...veil([12, 14, 26]));
+  // Comic Relief capitals, centred by the face's measured cap height.
+  const faceLetters = padButtonInk[label] && hostComicWrite;
+  // Capitals centre on their ink box (measured, in em from the pen), since
+  // the advance table is lowercase and the side bearings are uneven.
+  const inkCentre = { A: .363, B: .339, X: .364, Y: .307 }[text];
+  const glyphX = Math.round(cx - (faceLetters && inkCentre
+    ? inkCentre * glyphSize : handleWidth(text, glyphSize) / 2));
+  const glyphY = Math.round(comicTop(cy + sink, glyphSize, true));
+  if (faceLetters) hostComicWrite(text, glyphX, glyphY, glyphSize, ...veil([12, 14, 26]));
+  else if (Object.hasOwn(padGlyph, label) || /^[KPSI<>^v]$/.test(text))
+    systemWrite(text, glyphX, Math.round(cy + sink - glyphSize * .56), glyphSize, ...veil([12, 14, 26]));
+  else typeWrite(text, glyphX, Math.round(comicTop(cy + sink, glyphSize, false)), glyphSize, ...veil([12, 14, 26]));
   return radius * 2;
 }
 
@@ -17893,7 +17910,7 @@ function drawKeycap(label, x, y, size, pressed, fade = 1) {
       visualTheme.light * .7)));
   hudBox(x, y + drop, width, height, ...face);
   strokeBox(x, y + drop, width, height, 2, edge);
-  typeWrite(label, x + padX, y + drop + Math.round((height - size) / 2), size,
+  typeWrite(label, x + padX, Math.round(comicTop(y + drop + height / 2, size)), size,
     ...veil(pressed ? [12, 14, 26] : [238, 242, 252]));
   return width;
 }
@@ -18193,8 +18210,9 @@ function drawKeycapRun(entries, x, y, size, held, ink, revealAction = null) {
     cursor += 8;
     if (!revealAction || revealAction([cap, action, button])) {
       // A soft shadow keeps the verb legible over a bright floor or sky.
-      typeWrite(action, cursor + 2, y + Math.round(size * .25) + 2, size, 12, 14, 26);
-      typeWrite(action, cursor, y + Math.round(size * .25), size, ...ink);
+      const labelY = Math.round(comicTop(y + size * .75, size));
+      typeWrite(action, cursor + 2, labelY + 2, size, 12, 14, 26);
+      typeWrite(action, cursor, labelY, size, ...ink);
     }
     cursor += handleWidth(action, size) + 26;
   }
