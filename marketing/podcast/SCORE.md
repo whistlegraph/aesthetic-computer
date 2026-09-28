@@ -38,7 +38,7 @@ colors turn with the date, grabbed by the oven as a 512² GIF, with a frame as
 the thumbnail. AC's own IPFS node pins it (`/api/ipfs-add`, admin-only, the
 Kubo node Keeps uses) with TZIP-21 metadata (the script as description, links
 to the episode and the live $code), `mint_OBJKT` mints `DAILY_EDITIONS` (1, a
-daily unique) and an objkt ask lists it at `DAILY_PRICE_XTZ` (10). HEN
+daily unique) and an objkt ask lists it at `DAILY_PRICE_XTZ` (3). HEN
 metadata is immutable, so a minted day can't be renamed or re-imaged.
 Stages resume from `out/daily/<slug>.token.json`; it refuses to sign with any
 key but aesthetic.tez or below 0.15 XTZ (each day burns ~0.06). Needs
@@ -46,6 +46,8 @@ key but aesthetic.tez or below 0.15 XTZ (each day burns ~0.06). Needs
 sourced by `podcast-daily`), an @jeffrey `~/.ac-token` (signed in with
 `tezos/ac-login.mjs` on a Mac and copied over; it refreshes itself) and
 `npm install --prefix tezos` for Taquito. `--dry` renders without pinning or minting.
+`bin/daily-reprice.mjs --date <day> --price <xtz>` moves a minted day to a new
+price (retracts the objkt ask, relists what aesthetic.tez still holds).
 
 ## The shape of an episode
 
