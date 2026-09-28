@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 204;
+const buildVersion = 205;
 const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
@@ -18714,8 +18714,10 @@ function updateGarments(player,world,dt){
    for(let row=0;row<rows;row++)for(let col=0;col<n;col++){const i=row*n+col;link(i,row*n+(col+1)%n);if(row<rows-1){link(i,i+n);link(i,(row+1)*n+(col+1)%n);}}
    state[kind]=cloth;
   }
-  const h=Math.min(Math.max(dt,0),1/30)/2;if(!h)continue;
-  for(let sub=0;sub<2;sub++){
+  const h=Math.min(Math.max(dt,0),1/30);if(!h)continue;
+  const legs=kind==='skirt'?world.segments.filter(b=>/thigh|shin/.test(b.role||'')):[];
+  const floor=poolFloorAt(player.x,player.z||0),slope=poolSlopeAt(player.x,player.z||0);
+  for(let sub=0;sub<1;sub++){
    const drag=Math.exp(-7*h)*(cloth.h?h/cloth.h:1);cloth.h=h;
    for(let i=n;i<cloth.points.length;i++){
     const p=cloth.points[i],x=p.x,y=p.y,z=p.z;
@@ -18724,7 +18726,7 @@ function updateGarments(player,world,dt){
     // Weak bending/restoring force, stronger on a fitted shirt than a hem.
     const k=kind==='shirt'?.12:.025;p.x+=(rest[i].x-p.x)*k;p.y+=(rest[i].y-p.y)*k;p.z+=(rest[i].z-p.z)*k;
    }
-   for(let pass=0;pass<3;pass++){
+   for(let pass=0;pass<2;pass++){
     for(let i=0;i<n;i++)Object.assign(cloth.points[i],rest[i]);
     for(const [ai,bi,length] of cloth.links){
      const a=cloth.points[ai],b=cloth.points[bi],dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z,d=Math.hypot(dx,dy,dz)||1;
@@ -18737,13 +18739,12 @@ function updateGarments(player,world,dt){
      const center=kind==='shirt'?{x:lerp(target.neck.x,target.hip.x,Math.floor(i/n)/(rows-1)),z:lerp(target.neck.z,target.hip.z,Math.floor(i/n)/(rows-1))}:target.hip;
      const dx=p.x-center.x,dz=p.z-center.z,d=Math.hypot(dx,dz)||1,min=kind==='shirt'?15:13;
      if(d<min){p.x=center.x+dx/d*min;p.z=center.z+dz/d*min;}
-     if(kind==='skirt')for(const b of world.segments){
-      if(!/thigh|shin/.test(b.role||''))continue;
+     if(kind==='skirt')for(const b of legs){
       const x=b.x2-b.x1,y=b.y2-b.y1,z=b.z2-b.z1,t=clamp(((p.x-b.x1)*x+(p.y-b.y1)*y+(p.z-b.z1)*z)/(x*x+y*y+z*z||1),0,1);
       const cx=b.x1+x*t,cy=b.y1+y*t,cz=b.z1+z*t,dx=p.x-cx,dy=p.y-cy,dz=p.z-cz,d=Math.hypot(dx,dy,dz)||1,r=(b.width||12)*.5+3;
       if(d<r){p.x=cx+dx/d*r;p.y=cy+dy/d*r;p.z=cz+dz/d*r;}
      }
-     p.y=Math.min(p.y,poolFloorAt(p.x,p.z)-2);
+     p.y=Math.min(p.y,floor+slope.x*(p.x-player.x)+slope.z*(p.z-(player.z||0))-2);
     }
    }
   }
