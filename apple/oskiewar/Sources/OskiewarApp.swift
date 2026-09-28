@@ -4,6 +4,8 @@ import WebKit
 
 @main
 struct OskiewarApp: App {
+    init() { LaunchPing.send("oskiewar") }
+
     var body: some Scene {
         WindowGroup { GameControllerSurface().ignoresSafeArea() }
     }

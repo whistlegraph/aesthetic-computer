@@ -1172,6 +1172,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
     private var titleTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        LaunchPing.send("oskiewar")
         registerComicFont()
         if let iconURL = Bundle.main.url(forResource: "Oskiewar", withExtension: "icns"),
            let icon = NSImage(contentsOf: iconURL) { NSApp.applicationIconImage = icon }

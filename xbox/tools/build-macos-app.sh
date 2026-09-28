@@ -14,6 +14,8 @@ mkdir -p "$contents/MacOS" "$contents/Resources/live"
 # apple/oskiewar — one renderer, compiled into both. main.swift keeps its
 # top-level code as the entry point, which stays legal as long as it is the
 # file literally named main.swift.
+# -D DEBUG: this is the desk build, so LaunchPing stays quiet; only the
+# App Store archive (apple/oskiewar-mac) counts opens.
 object_dir=$(mktemp -d)
 trap 'rm -rf "$object_dir"' EXIT
 clang++ -std=c++17 -O2 -c "$repo_root/xbox/macos-native/PoolDecals.cpp" -o "$object_dir/PoolDecals.o"
@@ -23,6 +25,7 @@ swiftc -swift-version 5 -O -import-objc-header "$repo_root/xbox/macos-native/Poo
   "$repo_root/apple/oskiewar/Sources/SdfFigures.swift" \
   "$repo_root/apple/oskiewar/Sources/InkOutlines.swift" \
   "$repo_root/apple/oskiewar/Sources/GlyphAtlas.swift" \
+  "$repo_root/apple/oskiewar/Sources/LaunchPing.swift" -D DEBUG \
   -framework AppKit -framework AVFoundation -framework CoreVideo \
   -framework GameController -framework JavaScriptCore \
   -framework Metal -framework MetalKit -framework CoreText \

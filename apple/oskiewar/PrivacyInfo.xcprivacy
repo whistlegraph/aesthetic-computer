@@ -3,10 +3,12 @@
 <plist version="1.0">
 <dict>
   <!-- The native game keeps no account and carries no analytics SDK: the
-       engine runs in JavaScriptCore against a Metal surface, and the only
-       traffic it makes is the match's own (a replay it saves, a round it
-       publishes for spectators). Nothing here is tied to a person, so nothing
-       is tracked and no data type is collected.
+       engine runs in JavaScriptCore against a Metal surface, and the traffic
+       it makes is the match's own (a replay it saves, a round it publishes
+       for spectators) plus LaunchPing — one launch count per open, keyed by a
+       random install id that dies with the app. That count is the one data
+       type below: product interaction, for analytics, not linked to the
+       player and not used to track them.
 
        This file is a promise. If a later build adds sign-in, analytics, or
        anything that names the player, the declaration below has to grow with
@@ -16,11 +18,33 @@
   <key>NSPrivacyTrackingDomains</key>
   <array/>
   <key>NSPrivacyCollectedDataTypes</key>
-  <array/>
-  <!-- No required-reason API is called: no UserDefaults, no file timestamps,
-       no disk-space or uptime probes anywhere in the Swift host or the shared
-       Metal core. -->
+  <array>
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeProductInteraction</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypeTracking</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array>
+        <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+      </array>
+    </dict>
+  </array>
+  <!-- UserDefaults holds LaunchPing's install id and opt-out, read and
+       written by this app only (CA92.1). Nothing else: no file timestamps,
+       no disk-space or uptime probes. -->
   <key>NSPrivacyAccessedAPITypes</key>
-  <array/>
+  <array>
+    <dict>
+      <key>NSPrivacyAccessedAPIType</key>
+      <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+      <key>NSPrivacyAccessedAPITypeReasons</key>
+      <array>
+        <string>CA92.1</string>
+      </array>
+    </dict>
+  </array>
 </dict>
 </plist>

@@ -63,6 +63,7 @@ targets:
       - path: ../oskiewar/Sources/SdfFigures.swift
       - path: ../oskiewar/Sources/InkOutlines.swift
       - path: ../oskiewar/Sources/GlyphAtlas.swift
+      - path: ../oskiewar/Sources/LaunchPing.swift
 
       # NativeGameHost.start() reads these back as "live/oskiewar.js" and
       # "live/qr.mjs" off Bundle.main.resourceURL, so they need the subfolder
@@ -84,10 +85,10 @@ targets:
       - path: ../../system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf
         buildPhase: resources
 
-      # One privacy manifest for both Apple apps: same engine, same (absent)
-      # collection. If the Swift host ever grows an account or an analytics
-      # call, this file and the App Store Connect nutrition label move
-      # together.
+      # One privacy manifest for both Apple apps: same engine, same
+      # collection (only LaunchPing's unlinked launch count). If the Swift
+      # host ever grows an account or another analytics call, this file and
+      # the App Store Connect nutrition label move together.
       - path: ../oskiewar/PrivacyInfo.xcprivacy
         buildPhase: resources
 
