@@ -22,6 +22,9 @@ function tl_refresh_body_class($classes) {
     if ($post && isset($post->post_name) && strpos($post->post_name, 'beyond-the-studio-') === 0) {
         $classes[] = 'tl-project-detail';
     }
+    if ($post && isset($post->post_name) && $post->post_name === 'elementor-428') {
+        $classes[] = 'tl-studio-detail';
+    }
     return $classes;
 }
 
@@ -502,6 +505,8 @@ function tl_refresh_js() {
     body.classList.add('tl-refresh');
     var path = location.pathname.replace(/\/+$/, '');
     if (/^\/beyond-the-studio-/.test(path)) body.classList.add('tl-project-detail');
+    /* 1983–1987 was built as elementor-428, so the polish slug test missed it. */
+    if (path === '/elementor-428') body.classList.add('tl-studio-detail');
 
     function clean(value) {
         return (value || '').replace(/[​-‍﻿]/g, '').replace(/\s+/g, ' ').trim();

@@ -34,6 +34,9 @@ function tl_refresh_body_class($classes) {
     if ($post && isset($post->post_name) && strpos($post->post_name, 'beyond-the-studio-') === 0) {
         $classes[] = 'tl-project-detail';
     }
+    if ($post && isset($post->post_name) && $post->post_name === 'elementor-428') {
+        $classes[] = 'tl-studio-detail';
+    }
     return $classes;
 }
 
