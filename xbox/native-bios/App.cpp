@@ -1080,7 +1080,7 @@ private:
       m_context->VSSetShader(m_spriteVertexShader.Get(),nullptr,0);
       m_context->PSSetShader(!depthWrite ? m_themePixelShader.Get() : m_spritePixelShader.Get(),nullptr,0);
       m_context->PSSetShaderResources(0,1,m_themeViews[asset].GetAddressOf());
-      m_context->PSSetSamplers(0,1,m_linearSampler.GetAddressOf());
+      m_context->PSSetSamplers(0,1,asset==5?m_pointSampler.GetAddressOf():m_linearSampler.GetAddressOf());
       m_context->RSSetState(m_triangleRasterState.Get());
       m_context->OMSetDepthStencilState(depthWrite ? m_triangleDepthState.Get() : m_themeSoftDepthState.Get(),1);
       m_context->OMSetBlendState((asset == 2 || asset == 3 || asset == 5) ? m_themeBlendState.Get() : nullptr,nullptr,0xffffffff);
@@ -1133,7 +1133,7 @@ private:
     m_context->VSSetShader(m_spriteVertexShader.Get(), nullptr, 0);
     m_context->PSSetShader(decals?m_themePixelShader.Get():m_spritePixelShader.Get(), nullptr, 0);
     m_context->PSSetShaderResources(0, 1, &view);
-    m_context->PSSetSamplers(0, 1, m_linearSampler.GetAddressOf());
+    m_context->PSSetSamplers(0, 1, decals?m_pointSampler.GetAddressOf():m_linearSampler.GetAddressOf());
     m_context->RSSetState(m_triangleRasterState.Get());
     m_context->OMSetDepthStencilState(decals?m_themeSoftDepthState.Get():m_triangleDepthState.Get(), 1);
     m_context->OMSetBlendState(decals?m_themeBlendState.Get():nullptr,nullptr,0xffffffff);

@@ -7,7 +7,7 @@ function playground(legacyAudio=false){
  let now=1e6;const noop=()=>{},audio=[],drums=[];
  const api=new Function('runtime','capabilities','telemetry','gameSignal','drum','wipe','box','line','triangle','write','systemWrite','oscillator','oscillatorStop',`${source}
  configureWorldMap('skatepark','pool');fightOpponent='freeskate';gameMode='fight';
- return {playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
+ return {bloodDrops,popCivilianHead,updateFootprints,playDrum,updateParkMusic,clock:()=>runtime().monotonicUs,raceTrack,enterRaceLoop,updateRaceLoop,strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
  parkHalfPipe3D,parkHalfPipeHeight,parkDeckY,poolFloorAt,poolSlopeAt,gunPickups,axePickup,
  resetParkSupply,updateParkSupply,updateGunPickups,resetParkKids,updateParkKids,parkKids,
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
@@ -553,4 +553,18 @@ test('new audio names cannot crash older native hosts during a rolling update',(
  const a=playground(true);for(const name of ['pad-0','pad-1','pad-2','pad-3','bass','gunshot','smg-shot'])assert.doesNotThrow(()=>a.playDrum(name));
  assert.equal(a.drums.filter(d=>d.name==='snare').length,2);
  assert.throws(()=>a.playDrum('misspelled-sound'),/unknown drum/);
+});
+
+test('grounded alternating steps leave marks but idle, air, and boards do not',()=>{
+ const a=playground(),p=a.players[0];p.vx=200;p.poolStridePhase=0;a.updateFootprints(p,a.now());
+ for(const phase of [.6,1.1]){p.poolStridePhase=phase;a.updateFootprints(p,a.now());}
+ const marks=a.decals.filter(d=>d.kind==='footprint');assert.equal(marks.length,2);assert.notEqual(marks[0].z,marks[1].z);
+ a.updateFootprints(p,a.now());assert.equal(a.decals.length,2);
+ for(const field of ['skateboard','swimming']){p[field]=true;p.poolStridePhase+=.6;a.updateFootprints(p,a.now());p[field]=false;}
+ p.grounded=false;p.poolStridePhase+=.6;a.updateFootprints(p,a.now());assert.equal(a.decals.length,2);
+});
+test('severed civilian head produces blood spray, ground stain and connected fallen body',()=>{
+ const a=playground();a.resetParkKids();const kid=a.parkKids[0],g=a.runnerWorldGeometry(kid,0);
+ a.popCivilianHead(kid,a.players[0],g,a.now());assert.ok(kid.headless&&kid.looseHead&&!kid.alive);
+ assert.ok(a.bloodDrops.length>=20);assert.ok(a.decals.some(d=>d.kind==='blood'));assert.ok(a.ragdollBodies.has(kid));
 });

@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 195;
+const buildVersion = 196;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -12723,6 +12723,7 @@ function updatePoolPlayer(p, pad, dt, now) {
     const forward=p.vx*driveX+(p.vz||0)*driveZ;
     p.poolStridePhase=(p.poolStridePhase||0)+forward*dt/240;
   }
+  updateFootprints(p,now);
   const slope=poolSlopeAt(p.x,p.z||0),heading=p.poolYaw||0;
   const pitch=p.grounded?Math.atan(slope.x*Math.cos(heading)+slope.z*Math.sin(heading)):0;
   p.skatePitch+=(pitch-(p.skatePitch||0))*(1-Math.exp(-dt*16));
@@ -23152,6 +23153,16 @@ function updateChalk(p,held,now){
  }
  p.chalkPrevious=tip;
 }
+function updateFootprints(p,now){
+ const step=Math.floor((p.poolStridePhase||0)*2);
+ const previous=p.footprintStep;p.footprintStep=step;
+ if(previous===undefined||step===previous||!p.alive||!p.grounded||p.skateboard||p.onewheel||p.swimming||Math.hypot(p.vx,p.vz||0)<25)return;
+ const part=((step%2+2)%2)?'left-leg':'right-leg';
+ if(!hasPart(p,part))return;
+ const foot=runnerWorldGeometry(p,now/1e6).segments.find(s=>s.part===part&&/shin$/.test(s.role||''));
+ if(!foot)return;
+ addDecal({kind:'footprint',x:foot.x2,z:foot.z2,size:7,stretch:1.8,angle:(p.poolYaw||0)+(p.spin?.angle||0),color:[65,68,74]});
+}
 function drawHeldChalk(p,t){
  if(!p.chalkColor||!p.alive)return;
  const world=runnerWorldGeometry(p,t),arm=world.segments.find(s=>s.part===itemHand(p)&&/forearm$/.test(s.role));if(!arm)return;
@@ -23859,6 +23870,9 @@ function damageParkCivilian(kid,owner,at,now,damage){
  }
 }
 function popCivilianHead(kid,owner,g,now){
+ const direction=Math.sign(kid.x-owner.x||1);
+ spawnBlood(g.head.x,g.head.y,g.head.z,direction,24,1.8);
+ addDecal({kind:'blood',x:g.head.x,z:g.head.z,size:17,stretch:1.5,angle:Math.atan2((kid.z||0)-(owner.z||0),kid.x-owner.x)});
  startRagdoll(kid,g.head,[Math.sign(kid.x-owner.x||1)*400,-120,0]);
  const body=ragdollBodies.get(kid)?.body;
  if(body){body.w[body.head]=0;for(let j=0;j<body.links;j++)if(body.a[j]===body.head||body.b[j]===body.head)body.enabled[j]=0;}

@@ -105,7 +105,7 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
           DecalRaster out; out.position = v[id].position; out.uvq = v[id].uvq.xyz; return out;
         }
         fragment float4 decal_fragment(DecalRaster in [[stage_in]], texture2d<float> atlas [[texture(0)]]) {
-          constexpr sampler linear(filter::linear, address::clamp_to_edge);
+          constexpr sampler linear(filter::nearest, address::clamp_to_edge);
           float4 color = atlas.sample(linear, in.uvq.xy / in.uvq.z);
           if (color.a < 0.02) discard_fragment();
           return color;
