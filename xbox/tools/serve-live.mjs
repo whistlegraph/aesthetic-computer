@@ -20,6 +20,7 @@ const mime = new Map([
   [".json", "application/json"], [".svg", "image/svg+xml"],
   [".ttf", "font/ttf"], [".otf", "font/otf"],
   [".png", "image/png"], [".jpg", "image/jpeg"], [".mp4", "video/mp4"],
+  [".lisp", "text/plain; charset=utf-8"],   // objects/, read by object-lab.html
 ]);
 
 // The shell reaches outside xbox/live for the QR encoder, analytics, cursors
