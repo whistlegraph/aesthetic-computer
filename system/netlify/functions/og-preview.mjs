@@ -280,20 +280,30 @@ async function providerPreview(url) {
   }
 
   if (hostIs(url, "reddit.com", "redd.it")) {
-    // Share links (/r/x/s/abc) are redirects; the post URL is in Location.
+    // Reddit turns datacenter addresses away, lith's included, so every
+    // step here may fail; the card then falls back to what the URL says.
     let post = url.href;
     if (/\/s\/[\w-]+/.test(url.pathname) || url.hostname === "redd.it") {
       const hop = await fetch(url.href, { method: "HEAD", redirect: "manual",
-        headers: { "User-Agent": PROVIDER_UA }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-      const location = hop.headers.get("location");
+        headers: { "User-Agent": PROVIDER_UA }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) }).catch(() => null);
+      const location = hop?.headers.get("location");
       if (location) post = new URL(location, url).href.split("?")[0];
     }
-    const data = await getJson(`https://www.reddit.com/oembed?url=${encodeURIComponent(post)}`);
+    const sub = post.match(/\/r\/(\w+)/)?.[1];
+    const data = await getJson(`https://www.reddit.com/oembed?url=${encodeURIComponent(post)}`).catch(() => null);
     const title = data?.html?.match(/<a href="[^"]*\/comments\/[^"]*">([^<]+)<\/a>/)?.[1];
-    if (!title) return null;
-    const sub = post.match(/\/r\/([\w]+)/)?.[1];
-    return { url: url.href, title: decodeHtmlEntities(title), image: null, description: null,
-      siteName: byline("Reddit", sub && `r/${sub}`, data.author_name && `u/${data.author_name}`),
+    if (title) {
+      return { url: url.href, title: decodeHtmlEntities(title), image: null, description: null,
+        siteName: byline("Reddit", sub && `r/${sub}`, data.author_name && `u/${data.author_name}`),
+        favicon: "https://www.redditstatic.com/shreddit/assets/favicon/192x192.png" };
+    }
+    if (!sub) return null;
+    // /comments/<id>/<slug> spells the title in lowercase with underscores.
+    const slug = post.match(/\/comments\/\w+\/([^/?#]+)/)?.[1];
+    let fromSlug = null;
+    try { fromSlug = slug && decodeURIComponent(slug).replace(/_/g, " "); } catch {}
+    return { url: url.href, title: fromSlug || `r/${sub}`, image: null, description: null,
+      siteName: byline("Reddit", fromSlug && `r/${sub}`),
       favicon: "https://www.redditstatic.com/shreddit/assets/favicon/192x192.png" };
   }
 
