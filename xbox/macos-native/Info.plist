@@ -15,7 +15,7 @@
        names a single OSKIEWAR_BUILD_NUMBER for `ship`. This has to agree with
        apple/oskiewar/Info.plist or the mac lane asks the store for a build
        that was only ever uploaded from the phone side. Bump both together. -->
-  <key>CFBundleVersion</key><string>7</string>
+  <key>CFBundleVersion</key><string>8</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.games</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>NSHighResolutionCapable</key><true/>
