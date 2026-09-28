@@ -24019,9 +24019,14 @@ function updateParkMusic(p,previous){
  }
  if(previous<.5&&p.heartPhase>=.5&&gain>.005)playDrum('hat',gain*.22,pan);
 }
+let parkStereoMesh=null;
 function drawParkStereo(){
  if(!poolOnly())return;
- const phase=players[0].heartPhase||0,pulse=Math.max(0,1-phase/.17);
+ parkStereoMesh ||= captureQuadMesh(drawParkStereoGeometry);
+ drawQuadMesh(parkStereoMesh);
+}
+function drawParkStereoGeometry(){
+ const pulse=0;
  for(const side of [-1,1]){
   const x=parkStereo.x+side*155,z=parkStereo.z,y=poolFloorAt(x,z),w=55,h=220;
   const a={x:x-w,y,z:z-45},b={x:x+w,y,z:z-45},c={x:x+w,y:y-h,z:z-45},d={x:x-w,y:y-h,z:z-45};
@@ -24029,7 +24034,7 @@ function drawParkStereo(){
   for(const xx of [x-w,x+w])worldQuad({x:xx,y,z:z-45},{x:xx,y,z:z+45},{x:xx,y:y-h,z:z+45},{x:xx,y:y-h,z:z-45},[44,46,56]);
   for(const [height,radius] of [[58,39],[150,30]])for(let i=0;i<16;i++){
     const p=j=>({x:x+Math.cos(j*Math.PI/8)*radius,y:y-height+Math.sin(j*Math.PI/8)*radius,z:z-47-pulse*3});
-    worldTriangle({x,y:y-height,z:z-52-pulse*5},p(i),p(i+1),i%2?[64,68,78]:[54,58,70]);
+    worldQuad({x,y:y-height,z:z-52-pulse*5},p(i),p(i+1),p(i+1),i%2?[64,68,78]:[54,58,70]);
   }
   worldCapsule(x-38,y-h+15,z-47,x+38,y-h+15,z-47,3*projectionScaleAt(d),[140,255,170]);
  }
