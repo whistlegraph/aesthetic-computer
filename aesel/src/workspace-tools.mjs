@@ -132,11 +132,22 @@ function run(command, args, { cwd, signal, timeout = COMMAND_TIMEOUT }) {
       clearTimeout(timer);
       done({ code: -1, output: output + error.message });
     });
-    child.on("close", (code) => {
+    // Done when the shell exits, not when every holder of its output lets go:
+    // a command that starts a server in the background (`… &`) leaves a child
+    // holding the pipe, and waiting for "close" waited forever. The output
+    // gets a moment to drain; the background process keeps running.
+    let finished = false;
+    const finish = (code) => {
+      if (finished) return;
+      finished = true;
       clearTimeout(timer);
       signal?.removeEventListener("abort", killGroup);
+      child.stdout.destroy();
+      child.stderr.destroy();
       done({ code: timedOut ? "timeout" : code, output });
-    });
+    };
+    child.on("exit", (code) => setTimeout(() => finish(code), 150));
+    child.on("close", (code) => finish(code));
   });
 }
 
