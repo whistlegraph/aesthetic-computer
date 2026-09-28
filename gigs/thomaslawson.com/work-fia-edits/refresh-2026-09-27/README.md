@@ -18,14 +18,15 @@ and Felix Titling were named but never loaded as web fonts; titles printed over
 photographs; drop-shadow frames; all-caps captions; em-based Elementor paddings
 that misaligned text from headings.
 
-Live 2026-09-27: plugin v1.0.0 installed + activated via wp-admin; served
+Live 2026-09-27: plugin v1.2.0 (v1.0.0 → v1.1.0 larger px scale → v1.2.0 eyebrow) installed + activated via wp-admin; served
 CSS/JS verified byte-identical to source. Measured over all 49 pages
 (`evidence/before` vs `evidence/after`, live, logged out):
 
 | | before | after |
 |---|---|---|
 | font families | 6 (Poppins, Roboto, Gotham, Adobe Jenson, Georgia, Felix Titling) | 2 (Inter, Newsreader) |
-| desktop type styles | 45 | 26 |
+| desktop type styles | 45 | 24 |
+| visible text under 14px (desktop) | captions ~12px sitewide | none |
 | horizontal overflow | 0 pages | 0 pages |
 
 Side-by-side pairs for every page and both viewports: `evidence/compare/`.
