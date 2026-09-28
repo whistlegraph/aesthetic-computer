@@ -39,7 +39,7 @@ import { PREVIEW_TOOL, TOOLS, callTool, loadMap } from "./tools.mjs";
 import { API_WORKFLOW } from "./api-context.mjs";
 import { createHash, randomUUID } from "node:crypto";
 import { configuredJev } from "./jev-advisor.mjs";
-import { WORKSPACE_INSTRUCTIONS, WORKSPACE_TOOLS, WORKSPACE_TOOL_NAMES, runWorkspaceTool } from "./workspace-tools.mjs";
+import { WORKSPACE_INSTRUCTIONS, WORKSPACE_TOOLS, WORKSPACE_TOOL_NAMES, runWorkspaceTool, toolboxInstructions } from "./workspace-tools.mjs";
 
 const SITE = process.env.EASEL_SITE || "https://aesthetic.computer";
 
@@ -169,6 +169,7 @@ export class AcServer extends EventEmitter {
     return [{type:"text",text:[
       this.developerInstructions,
       WORKSPACE_INSTRUCTIONS,
+      toolboxInstructions(),
       `Your interface is Aesel. The configured provider model identifier for this request is ${this.model}. If asked which model you are, report that identifier exactly.`,
     ].filter(Boolean).join("\n\n"),cache_control:{type:"ephemeral"}}];
   }

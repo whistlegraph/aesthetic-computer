@@ -10,7 +10,7 @@
 // interface's approval drawer (`approve`), which honours the session's
 // auto-allow the same way it does for Claude and Codex.
 import { spawn } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 
 // Cut every tool answer to this. A 9,000-line file read whole is a round that
@@ -83,6 +83,25 @@ export const WORKSPACE_TOOL_NAMES = new Set(WORKSPACE_TOOLS.map((tool) => tool.n
 
 export const WORKSPACE_INSTRUCTIONS =
   "Tools: read_file, search, edit_file, write_file and bash act on the working directory. Look before you change: search or read the code you are about to edit. Make the smallest change that does the job, then run the relevant test or check with bash and report what it actually printed. Do not claim something works without having run it.";
+
+// The person's own command-line tools, named so the model reaches for them
+// instead of searching the disk. A CLI costs nothing until it is run, works on
+// every backend, and is something every model already knows how to drive —
+// which is why the toolbox is commands, not a wall of tool schemas.
+const TOOLBOX = [
+  ["frame", "see any fleet Mac's screen: `frame <machine>` (pixels + OCR + accessibility tree; `frame --help`)"],
+  ["puppet", "act on a Mac or browser: click, type, keys (`puppet --help`)"],
+  ["slab-ledger", "the fleet's live sessions"],
+  ["ac-os", "AC Native OS builds"],
+  ["gh", "GitHub"],
+];
+
+export function toolboxInstructions(env = process.env) {
+  const dirs = String(env.PATH || "").split(":").filter(Boolean);
+  const found = TOOLBOX.filter(([name]) => dirs.some((dir) => existsSync(`${dir}/${name}`)));
+  if (!found.length) return "";
+  return `Your toolbox (run with bash): ${found.map(([name, what]) => `${name} — ${what}`).join("; ")}. Machines in the fleet: run \`frame --help\` or \`frame list\` rather than guessing names. When asked to do several things (e.g. two machines), do all of them.`;
+}
 
 function clip(text) {
   if (text.length <= MAX_OUTPUT) return text;

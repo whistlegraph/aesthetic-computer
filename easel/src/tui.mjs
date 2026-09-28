@@ -307,9 +307,9 @@ const state = {
   // tools withheld, and none of the user's own settings or servers in scope.
   // `/ask on` trades the speed back for the question.
   //
-  // Not in pro. There the engine carries the user's own settings and servers,
-  // so the prompt is the whole boundary again and it starts closed.
-  autoAllow: !pro,
+  // Pro too: it is the harness for someone who already trusts it with their
+  // machine, and a question before every `ls` is friction, not safety there.
+  autoAllow: true,
   tray: pro ? (() => { const mode = appearance(); setAppearance(mode); return mode; })() : "",
   entries: [
     // Pro opens onto nothing but the bar: the mode and the model sit under
@@ -2391,7 +2391,10 @@ function inboxReport() {
 async function startTurn(text, { from = "" } = {}) {
   try { await session.requireAccount(); }
   catch (error) {
-    addEntry("error", error.message + " Reopen a to complete account setup.");
+    const timedOut = error?.name === "TimeoutError" || error?.name === "AbortError" || /timed? ?out|aborted/i.test(error?.message || "");
+    addEntry("error", timedOut
+      ? "Couldn't reach aesthetic.computer to check your account (timed out). Send again to retry."
+      : error.message + " Reopen a to complete account setup.");
     state.queued = [];
     return finish();
   }
