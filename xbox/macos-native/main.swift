@@ -683,6 +683,8 @@ private final class NativeGameHost {
           var message;
           try { message = JSON.parse(raw); } catch (error) { return; }
           var content = message && message.content;
+          if (message.type === "oskiewar:net" && content)
+            (globalThis.__oskiewarNetInbox ||= []).push(content);
           if (message.type === "oskiewar:viewers")
             globalThis.__oskiewarLiveAgents =
               Math.max(0, Number(content && content.agents) || 0);

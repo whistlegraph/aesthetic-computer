@@ -1790,7 +1790,9 @@
         fetch("/oskiewar.js", { cache: "no-cache" });
     // The root opens the title. Only an explicit room link joins a fight;
     // background discovery must not turn a visit or sign-in into a match.
-    const joinName = roundName;
+    const parkName=roundNameFromPath('/'+(new URLSearchParams(location.search).get('park')||''));
+    if(parkName){globalThis.__oskiewarSessionName=parkName;globalThis.__oskiewarOpponent='freeskate';}
+    const joinName = parkName?'':roundName;
     // A visitor arriving through a shared address asks for the second chair
     // — first to open the link fights the host, everybody after watches.
     // Harness lanes stay pure spectators.

@@ -675,3 +675,16 @@ test('Aesel captions and artifact descriptors have bounded dedicated string fiel
  for(const invalid of [{aeselCaption:'a'.repeat(121)},{aeselCaption:'line\nbreak'},{aeselArtifact:'a'.repeat(321)},{sky:'text'}])send(invalid);
  assert.equal(host.sent.length,count);
 });
+
+test('park publishers coexist anonymously, echo ping timestamps, and expire disconnected peers',()=>{
+ let now=10000;const manager=new OskiewarLiveManager({now:()=>now}),host=new FakeSocket(),guest=new FakeSocket();
+ const url='/oskiewar-live?match=kikke752&role=publisher';
+ const publish=(socket,seq)=>socket.emit('message',JSON.stringify({type:'oskiewar:state',content:{...state(seq),park:{enabled:true,sentAt:now}}}));
+ manager.handleConnection(host,{url});publish(host,1);manager.handleConnection(guest,{url});
+ assert.equal(guest.closed,null);now+=110;publish(guest,1);publish(host,2);
+ const packet=host.sent.findLast(m=>m.type==='oskiewar:net').content;
+ assert.equal(packet.peers.length,2);assert.equal(packet.echo,now);assert.notEqual(packet.peers[0].id,packet.peers[1].id);
+ guest.close(1000,'bye');now+=110;publish(host,3);
+ assert.equal(host.sent.findLast(m=>m.type==='oskiewar:net').content.peers.length,1);
+ manager.close?.();
+});

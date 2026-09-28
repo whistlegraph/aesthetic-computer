@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 205;
+const buildVersion = 206;
 const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
@@ -2864,7 +2864,7 @@ function projectedTriangle(a, b, c, color) {
   // Positional, not spread: see the note on emitTriangle above. Every face a
   // frame submits comes through here, and `...color` built one throwaway
   // iterator apiece for ~2100 of them.
-  if(color[3]!==undefined&&typeof triangleAlpha==='function'){
+  if(color[3]<1&&typeof triangleAlpha==='function'){
     triangleAlpha(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z,color[0],color[1],color[2],color[3]);return;
   }
   if (worldDepthMode === 0) {
@@ -4528,6 +4528,7 @@ function spectatorState(now, nextRoundId = "") {
       ...(workshopMap ? { workshop: workshopMap } : {}) },
     at: run.unixMs || 0, phase,
     aesel: {artifact:aeselArtifactWire},
+    park:poolOnly()?{enabled:true,sentAt:Date.now()}:undefined,
     course: skateparkMap ? "skatepark" : "station",
     ropes: skateRopes.length ? skateRopes.map((rope) => rope.nodes.map((node) =>
       [node.x, node.y, node.px, node.py].map((value) => Math.round(value * 100) / 100))) : undefined,
@@ -4539,7 +4540,7 @@ function spectatorState(now, nextRoundId = "") {
       name: player.name || "NOBODY", nation: player.nation || "", color: player.color,
       x: player.x, y: player.y,
       z: player.z, vx: player.vx, vy: player.vy, vz: player.vz,
-      skateboard: player.skateboard,
+      skateboard: player.skateboard,poolYaw:player.poolYaw||0,
       ropeIndex: player.ropeIndex, ropeLink: player.ropeLink,
       skateRotation: player.skateRotation,
       facing: player.facing, alive: player.alive,
@@ -6630,6 +6631,7 @@ function beginFreeskate(now) {
   resetParkSupply(now);
   resetParkKids();
   resetParkWindows();
+  if(poolOnly()&&typeof qrcode==='function')spectatorQr=spectatorCode("https://oskiewar.com/?park="+sessionName);
   roundStartedAt = now - roundIntroDurationUs();
   emitSignal("freeskate", 0, 1, 0);
 }
@@ -9020,6 +9022,26 @@ function netHostBegin(now) {
   return true;
 }
 
+const parkPeers=new Map();
+const parkConnection={at:0,ping:null,count:1};
+function receiveParkPeers(packet){
+ if(!poolOnly()||!Array.isArray(packet.peers)||packet.peers.length>16)return;
+ const now=Date.now(),keep=new Set();parkConnection.at=now;parkConnection.count=packet.peers.length;
+ if(Number.isFinite(packet.echo))parkConnection.ping=clamp(now-packet.echo,0,9999);
+ for(const f of packet.peers){
+  if(f.id===packet.self||![f.x,f.y,f.z,f.yaw].every(Number.isFinite))continue;
+  keep.add(f.id);let peer=parkPeers.get(f.id);
+  if(!peer){peer={...players[0],pad:32+f.id,removedParts:[],partDamage:{},previous:[],spin:null,goKart:null,gunAmmo:0,grenadeAmmo:0,axeHeld:false,chalkColor:null,skateboard:false,dummy:false,npc:true,remote:true,rig:null,hair:null,skirtCloth:null};parkPeers.set(f.id,peer);}
+  Object.assign(peer,{x:f.x,y:f.y,z:f.z,poolYaw:f.yaw,alive:f.alive,grounded:f.grounded,ducking:f.ducking,blocking:f.blocking,skateboard:f.skateboard,name:f.name==='NOBODY'?'GUEST '+f.id:f.name,color:f.color,receivedAt:now});
+ }
+ for(const id of parkPeers.keys())if(!keep.has(id))parkPeers.delete(id);
+}
+function drawParkConnection(){
+ if(!poolOnly()||shellMode!=='GAME')return;
+ const safe=hudSafeRect(),live=Date.now()-parkConnection.at<3000;
+ const label=(live?'ONLINE':'CONNECTING')+' / '+(live?parkConnection.ping+' ms':'—')+' / '+(live?parkConnection.count:1)+' PLAYERS';
+ seatHudText(label,safe.left,safe.top,28,live?[139,226,178]:[235,186,116]);
+}
 function netDrainHostInbox() {
   const inbox = globalThis.__oskiewarNetInbox ||= [];
   if(typeof globalThis.oskiewarNetPoll === "function"){
@@ -9028,6 +9050,7 @@ function netDrainHostInbox() {
   }
   if (!Array.isArray(inbox) || !inbox.length) return;
   for (const packet of inbox) {
+    if(packet?.t==='park-peers'){receiveParkPeers(packet);continue;}
     if(packet?.kind==='render-flags'){
       const flags=packet.flags;
       if(flags && typeof flags==='object' && !Array.isArray(flags)){
@@ -22218,7 +22241,7 @@ function drawDebugBug(x, y, scale = 1) {
 
 // The title owns the share code; active maps keep the corner clear.
 function spectatorQrBox() {
-  if (shellMode === "GAME") return null;
+  if (shellMode === "GAME"&&!poolOnly()) return null;
   if (typeof capabilities === "function" && capabilities().socialPreview)
     return null;
   if (!spectatorQr || typeof spectatorQr.getModuleCount !== "function")
@@ -22233,8 +22256,8 @@ function spectatorQrBox() {
   // debug overlay draws its yellow corner crop. With the bug lit the
   // instrument wins: the code steps below the crop instead of covering it,
   // and every lane that asks this box (the clock included) follows it down.
-  const top = safe.top + (debugHitboxes ? 52 : 0);
-  return { left: safe.right - size, top, size, cell, count, quiet };
+  const top = safe.top + (shellMode==='GAME'?48:debugHitboxes ? 52 : 0);
+  return { left: shellMode==='GAME'?safe.left:safe.right-size, top, size, cell, count, quiet };
 }
 
 // Where the bare frame rate shows with the overlay off: the console, in a
@@ -23021,7 +23044,7 @@ function gamePaint() {
       drawRunner(renderable.item, t, showRunnerLabels);
     }
   }
-  if(poolOnly()){drawCerealMilk(t);drawParkStereo();drawAeselFairy(t);}
+  if(poolOnly()){for(const peer of parkPeers.values())if(Date.now()-peer.receivedAt<3000&&parkActorVisible(peer))drawRunner(peer,t,true);drawCerealMilk(t);drawParkStereo();drawAeselFairy(t);}
   if(poolOnly())drawLensBlood();
   // Debug geometry shares the unfiltered overlay pass, behind screen UI.
   triangleDepth = -1.465;
@@ -23032,7 +23055,7 @@ function gamePaint() {
   triangleDepth = -1.475;
   // Meters and screen UI sit in front of the debug geometry.
   drawFrameMeter();
-  drawAeselConnect();
+  drawAeselConnect();drawParkConnection();
   if(poolOnly()&&shellMode==="GAME")for(const player of activePlayers())drawSeatAction(player);
   drawImpacts();
   drawTitleHeadDoor(t, titleInk, reelMinimal);

@@ -269,7 +269,40 @@ export class OskiewarLiveManager {
     send(room.publisher, "oskiewar:viewers", this.audience(room));
   }
 
+  addParkPeer(room, ws) {
+    room.parkPeers ||= new Map();
+    if(room.parkPeers.size>=16){send(ws,"oskiewar:error",{message:"Park is full"});ws.close?.(4429,"Park full");return;}
+    ws.on("message",data=>{
+      if(Buffer.byteLength(data)>MAX_MESSAGE_BYTES)return;
+      let message;try{message=JSON.parse(data.toString());}catch{return;}
+      if(message.type!=="oskiewar:state"||validateOskiewarLiveState(message.content))return;
+      this.parkPresence(room,ws,message.content);
+    });
+    ws.on("close",()=>{room.parkPeers.delete(ws);});
+    send(ws,"oskiewar:ready",{matchId:room.matchId,maxHz:10});
+  }
+
+  parkPresence(room,ws,state){
+    if(state.park?.enabled!==true)return;
+    room.parkPeers ||= new Map();
+    const now=this.now();
+    for(const [socket,peer] of room.parkPeers)if(socket.readyState!==1||now-peer.at>3000)room.parkPeers.delete(socket);
+    let peer=room.parkPeers.get(ws);
+    if(!peer){if(room.parkPeers.size>=16)return;peer={id:++room.parkNextId|| (room.parkNextId=1),at:0};room.parkPeers.set(ws,peer);}
+    if(now-peer.at<100)return;
+    const f=state.fighters[0];peer.at=now;
+    peer.fighter={name:f.name,color:f.color,x:f.x,y:f.y,z:f.z,alive:f.alive,grounded:f.grounded,ducking:f.ducking,blocking:f.blocking,
+      yaw:finite(f.poolYaw,100000)?f.poolYaw:0,skateboard:!!f.skateboard};
+    room.updatedAt=now;
+    const echo=finite(state.park.sentAt,1e13)?state.park.sentAt:0;
+    const peers=[...room.parkPeers.values()].map(p=>({id:p.id,...p.fighter}));
+    send(ws,"oskiewar:net",{t:"park-peers",self:peer.id,echo,peers});
+  }
+
   addPublisher(room, ws, surface) {
+    if (room.publisher?.readyState === 1 && room.state?.park?.enabled === true) {
+      this.addParkPeer(room, ws);return;
+    }
     if (room.publisher?.readyState === 1) {
       send(ws, "oskiewar:error", { message: "This match already has a publisher" });
       ws.close?.(4409, "Publisher already connected");
@@ -574,6 +607,7 @@ export class OskiewarLiveManager {
     }
     const invalid = validateOskiewarLiveState(state);
     if (invalid) return send(ws, "oskiewar:error", { message: invalid });
+    this.parkPresence(room,ws,state);
     const now = this.now();
     if (room.state && state.seq <= room.state.seq) return;
     room.state = state;
