@@ -960,18 +960,26 @@ export function dropdownGeometry(state, width, height, shape = state.layout || {
 // A newer Aesel is ready: a banner in the middle of the conversation, flashing
 // red and yellow on a slow beat so a window left open for a week still says so.
 // It holds until /update restarts into the new code or /update later hides it.
-function paintUpdate(rows, state, width, area, useColor) {
+function updateBanner(state, width, area) {
   const update = state.update;
-  if (!update || update.dismissed) return rows;
+  if (!update || update.dismissed) return null;
   const lines = [
     `✦ Aesel ${update.version} is ready ✦`,
     update.kind === "checkout" ? "/update restarts into it · this thread comes with you" : "/update installs it and restarts · this thread comes with you",
     "/update later hides this",
   ];
   const inner = Math.min(width - 4, Math.max(...lines.map((line) => textWidth(line))) + 4);
-  if (inner < 20 || area < lines.length + 2) return rows;
+  if (inner < 20 || area < lines.length + 2) return null;
   const x = Math.max(0, Math.floor((width - inner) / 2));
   const top = Math.max(0, Math.floor((area - lines.length - 2) / 2));
+  return { lines, inner, x, top, height: lines.length + 2 };
+}
+
+// The banner is also a button: a click on it is /update.
+function paintUpdate(rows, state, width, area, useColor) {
+  const banner = updateBanner(state, width, area);
+  if (!banner) return rows;
+  const { lines, inner, x, top } = banner;
   const red = Math.floor((state.nowMs ?? Date.now()) / 650) % 2 === 0;
   const paintRow = (text) => useColor
     ? `${bg(red ? [215, 40, 50] : [250, 205, 40])}${fg(red ? [255, 250, 235] : [40, 20, 10])}\x1b[1m${fit(` ${text}`, inner)}\x1b[22m${color.reset}${color.ground}`
@@ -1240,6 +1248,8 @@ export function headerAction(state, columns, rows, x, y) {
       if (row >= 0 && row < g.count && x >= g.x + 1 && x <= g.x + g.boxWidth) return `pick:${g.start + row}`;
       return "dismiss";
     }
+    const banner = updateBanner(state, Math.max(32, columns), Math.max(10, rows) - shape.bottom.length);
+    if (banner && y - 1 >= banner.top && y - 1 < banner.top + banner.height && x - 1 >= banner.x && x - 1 < banner.x + banner.inner) return "update";
     const row = shape.bottom.lastIndexOf("status");
     if (row < 0 || y !== rows - (shape.bottom.length - 1 - row)) return "";
     const hit = proStatus(state, Math.max(32, columns), false, shape).spans.find((span) => (span.name === "model" || span.name === "engine") && x >= span.x + 1 && x <= span.x + span.width);

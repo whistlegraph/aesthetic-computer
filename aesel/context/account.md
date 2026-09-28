@@ -15,6 +15,8 @@ ac colors blue cyan        # the @handle's letter colours: names or hex, cycling
 ac colors "#3b6cf0" teal   #   (orange, teal, pink, gold, purple, … or #rrggbb)
 ac mood "working on a jump game"   # set their mood (shows on their profile)
 ac handle newname          # change their handle — ask first; it changes their URLs
+ac check piece.mjs         # run a piece in a browser; prints every error it throws
+ac check @handle/slug      #   (or a published piece)
 ac publish piece.mjs slug  # publish a piece to aesthetic.computer/@handle/slug
 ```
 

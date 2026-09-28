@@ -75,7 +75,9 @@ export const BACKEND_ALIASES = {
   openrouter: "open",
 };
 
-export const DEFAULT_BACKEND = "claude";
+// A first launch with nothing remembered: the hosted provider, which needs
+// no vendor CLI or subscription — only an @handle.
+export const DEFAULT_BACKEND = "ac";
 
 // A model for the hosted provider: one of the open models, by name or id, or
 // "" (Automatic) for anything else — a remembered older model included.

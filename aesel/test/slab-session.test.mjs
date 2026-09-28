@@ -24,7 +24,7 @@ test("publishes the full Slab prompt lifecycle", async (context) => {
 
   session.start();
   let marker = await readJson(active);
-  assert.equal(marker.agent_type, "easel");
+  assert.equal(marker.agent_type, "aesel");
   assert.equal(marker.state, "blank");
 
   session.connected("00000000-0000-0000-0000-000000000001");

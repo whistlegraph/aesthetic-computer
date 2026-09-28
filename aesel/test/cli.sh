@@ -110,9 +110,9 @@ assert_contains "$output" 'autopublish=off'
 
 output="$(AESEL_DRY_RUN=1 "$CLI" "$WORK_DIR")"
 
-# Claude is the default engine bridge, on Fable; Codex stays selectable.
-assert_contains "$output" 'backend=claude'
-assert_contains "$output" 'model=claude-opus-5'
+# No backend is forced: the interface remembers the last provider, and a
+# first launch starts on the hosted one.
+assert_contains "$output" 'backend=remembered'
 
 output="$(AESEL_DRY_RUN=1 "$CLI" --backend codex "$WORK_DIR")"
 assert_contains "$output" 'backend=codex'
@@ -151,7 +151,7 @@ assert_contains "$output" '--private'
 output="$($CLI doctor)"
 assert_contains "$output" 'engine bridge claude:'
 assert_contains "$output" 'engine bridge codex:'
-assert_contains "$output" 'default engine bridge: claude (claude-opus-5)'
+assert_contains "$output" 'default engine bridge: the one you chose last (first launch: aesthetic)'
 
 if AESEL_DRY_RUN=1 "$CLI" --runtime rust "$WORK_DIR" >/dev/null 2>&1; then
     printf 'Expected an unknown runtime to fail.\n' >&2

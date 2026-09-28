@@ -60,15 +60,14 @@ export class SlabSession {
     this.record = {
       session_id: sessionId,
       cwd,
-      subject: this.private ? "private" : "easel",
-      summary: this.private ? "private" : "easel",
+      subject: this.private ? "private" : "aesel",
+      summary: this.private ? "private" : "aesel",
       tty,
       agent_pid: pid,
-      // TODO(aesel rename): write "aesel" here (and SLAB_AGENT_TYPE in tui.mjs)
-      // only once every fleet menubar and prox-mcp runs a build that accepts
-      // both — `npm run menubar:parity -- audit` shows each machine's build.
-      // An older menubar drops a rock whose agent_type it does not know.
-      agent_type: "easel",
+      // "aesel" since 2026-09-28, once blueberry, neo and frisbee ran menubars
+      // that read both names. A menubar from before then drops the rock:
+      // update it with `npm run menubar:parity -- deploy <host>`.
+      agent_type: "aesel",
       ...(process.env.AESEL_DESKTOP === '1' ? {
         host_app:'computer.aesthetic.easel',
         host_bundle_id:process.env.AESEL_HOST_BUNDLE_ID || 'computer.aesthetic.easel',

@@ -52,6 +52,17 @@ try {
       out(result.route);
       if (!result.verified) note("published, but the live file did not read back yet");
     }
+  } else if (command === "check") {
+    // Run a piece for real (headless Chrome) and print its errors: a local
+    // file before publishing, or a published @handle/slug or URL after.
+    const target = rest[0];
+    if (!target) fail("usage: ac check <piece.mjs | @handle/slug | url>");
+    const { checkPiece } = await import("./check-piece.mjs");
+    const { target: name, problems } = await checkPiece(target);
+    if (!problems.length) { out(`✓ ${name} ran without errors`); process.exit(0); }
+    out(`✕ ${name}: ${problems.length} problem${problems.length === 1 ? "" : "s"}`);
+    for (const p of problems) out(`  ${p}`);
+    process.exit(1);
   } else if (command === "profile") {
     // What your profile shows, read from the same public endpoints the
     // profile page uses: handle, colours, latest mood, and where it lives.

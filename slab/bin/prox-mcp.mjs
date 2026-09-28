@@ -242,10 +242,10 @@ async function toolList({ host, status, kind, agent, all } = {}) {
     host: r.host,
     name: r.name,
     status: r.status,
-    kind: r.agentType && r.agentType !== "claude" ? `${r.kind}·${r.agentType}` : r.kind,
+    kind: r.agentType && r.agentType !== "claude" ? `${r.kind}·${r.agentType === "easel" ? "aesel" : r.agentType}` : r.kind,
     age: age(r.updated),
     subject: clip(r.subject, 64),
-    alias: r.proxName ? `prox:easel:${r.proxName}` : "",
+    alias: r.proxName ? `prox:aesel:${r.proxName}` : "",
   }));
   const notes = [];
   if (hidden) notes.push(`${hidden} finished rock(s) idle >24h hidden — all:true to include`);
@@ -262,7 +262,7 @@ async function toolFind({ handle }) {
   for (const r of hits) {
     L.push(
       `\n${r.host}:${r.name}  ${r.self ? "(this machine)" : ""}`,
-      ...(r.proxName ? [`  address: prox:easel:${r.proxName} (scoped: prox:easel:${r.host}:${r.proxName})`] : []),
+      ...(r.proxName ? [`  address: prox:aesel:${r.proxName} (scoped: prox:aesel:${r.host}:${r.proxName})`] : []),
       `  status:  ${r.status}   kind: ${r.kind}   last active: ${age(r.updated)} ago`,
       `  subject: ${(r.subject || "").replace(/\s+/g, " ")}`,
       `  cwd:     ${r.cwd || "?"}`,
@@ -411,7 +411,7 @@ async function toolInbox({ handle, consume = false } = {}, context) {
 }
 
 async function toolWake({ handle, prompt, by }) {
-  if (!handle) throw new Error("`handle` is required (a host:name or prox:easel:name; see prox_find).");
+  if (!handle) throw new Error("`handle` is required (a host:name or prox:aesel:name; see prox_find).");
   const text = String(prompt || "").trim();
   if (!text) throw new Error("`prompt` is required.");
   if (text.length > 1000) throw new Error("`prompt` exceeds 1000 characters.");
@@ -816,7 +816,7 @@ const TOOLS = [
   {
     name: "prox_wake",
     description:
-      "Wake one live Claude, Codex, or Easel rock with a bounded continuation prompt. Easel routes to its exact native window; terminal agents route to their exact tty. Resolves host:name and prox:easel:name handles and refuses ambiguous matches.",
+      "Wake one live Claude, Codex, or Aesel rock with a bounded continuation prompt. Aesel routes to its exact native window; terminal agents route to their exact tty. Resolves host:name and prox:aesel:name handles and refuses ambiguous matches.",
     inputSchema: {
       type: "object",
       properties: {

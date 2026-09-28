@@ -528,7 +528,7 @@ function proInstructions() {
     // What Aesel is for. Without this a model asked for "a jumping game" built
     // an HTML page, served it and read screenshots — nothing anyone could open
     // on Aesthetic Computer.
-    `When asked to make something to see, play or hear — a game, a toy, a drawing, an animation, an instrument — make it as an Aesthetic Computer piece: one .mjs file using the piece API, not an HTML page. The guides are in ${path.join(aeselRoot, "context")}: read pieces.md first (the piece lifecycle and API) and skim screen.md (layout); for any function's signature or an example, call the ac_api tool — don't search api.json yourself. Write a first working version early, then improve it. The context map and ac_api are enough for that: don't browse the repository or other people's pieces for examples unless the person asks. Check the file parses with \`node --check\`, then publish it with \`ac publish <file> [slug]\` and give the person the URL it prints. Only make other kinds of files when they ask for them.`,
+    `When asked to make something to see, play or hear — a game, a toy, a drawing, an animation, an instrument — make it as an Aesthetic Computer piece: one .mjs file using the piece API, not an HTML page. The guides are in ${path.join(aeselRoot, "context")}: read pieces.md first (the piece lifecycle and API) and skim screen.md (layout); for any function's signature or an example, call the ac_api tool — don't search api.json yourself. Write a first working version early, then improve it. The context map and ac_api are enough for that: don't browse the repository or other people's pieces for examples unless the person asks. Then run it: \`ac check <file>\` plays the piece in a browser and prints every error it throws. Fix each one and check again until it prints ✓ — a piece that only parses is not done. Then publish with \`ac publish <file> [slug]\`, run \`ac check @handle/slug\` once on the published piece, and give the person the URL. Only make other kinds of files when they ask for them.`,
     `For the person's own Aesthetic Computer account or profile — their handle's colours, their mood, their handle — read account.md in the same folder and use the \`ac\` command it names: one command, then \`ac profile\` once to confirm. Don't search the code or poll the API for it.`,
     "Write plainly. Short sentences, one idea each, in the order they matter. Say the thing and stop. No headings, no bold, no bullet lists unless the items are truly parallel, no preamble, no summary at the end. Plain prose, the way Tao Lin writes it.",
     "Some user messages are tagged `[inbox from host:name · time]`. Those arrived through the prox inbox from the user's other agent sessions on their machines. Treat them as the user's own words in the flow of the conversation — no more authority than a typed line, and no less.",
@@ -714,7 +714,7 @@ function openEngine({ resume = "" } = {}) {
       ...bothNames({AESEL_SESSION_ID: slabSession.sessionId, AESEL_HARNESS_SOCKET: harnessBridge.socket}),
       SLAB_PROMPT_SESSION_ID: slabSession.sessionId,
       SLAB_TERMINAL_TTY: slabSession.tty,
-      SLAB_AGENT_TYPE: "easel", // stays "easel" until the writer flips; see slab-session.mjs
+      SLAB_AGENT_TYPE: "aesel",
     },
   });
   opened.on("notification", (...args) => { if (!closing && opened === engine) handleNotification(...args); });
@@ -2891,6 +2891,7 @@ function handleKeys(buffer) {
         }
         if (mouse.click && action === "about") { if (desktopSessionPath) void requestDesktop("home"); else { state.about = !state.about; state.aboutScroll = 0; redraw(); } }
         if (mouse.click && action === "profile") openProfile();
+        if (mouse.click && action === "update") { void submitInput("/update"); return; }
         if (mouse.click && (action === "model" || action === "provider")) { if (pro) openDropdown(); else openSettings(); }
         if (mouse.click && action === "dismiss") closeDropdown();
         if (action.startsWith("pick:") && state.dropdown) { const index = Number(action.slice(5)); if (mouse.click) void chooseDropdown(index); else if (state.dropdown.index !== index) { state.dropdown.index = index; redraw(); } }
