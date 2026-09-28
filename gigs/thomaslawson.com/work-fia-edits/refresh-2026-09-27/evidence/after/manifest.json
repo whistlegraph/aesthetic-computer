@@ -1,0 +1,4317 @@
+{
+ "capturedAt": "2026-09-28T01:15:50.147Z",
+ "injected": false,
+ "pages": [
+  {
+   "slug": "about",
+   "id": 68,
+   "url": "https://www.thomaslawson.com/about/",
+   "viewport": "desktop",
+   "file": "desktop-about.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 12,
+     "sample": "I make art, and think about art, to bett",
+     "tag": "p"
+    },
+    "Newsreader | 17.1px | 600 | normal | none | normal": {
+     "n": 2,
+     "sample": "rom introductory essay,",
+     "tag": "b"
+    },
+    "Newsreader | 17.1px | 600 | italic | none | normal": {
+     "n": 1,
+     "sample": "Mining for Gold; Thomas Lawson, Selected",
+     "tag": "em"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "About",
+     "tag": "h1"
+    },
+    "Inter | 18.75px | 500 | normal | none | -0.1875px": {
+     "n": 6,
+     "sample": "1975 - 1980",
+     "tag": "h1"
+    },
+    "Newsreader | 17.1px | 400 | italic | none | normal": {
+     "n": 3,
+     "sample": "Art in America",
+     "tag": "em"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 20,
+     "sample": "Gold Dog",
+     "tag": "h5"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 12,
+     "sample": "Artwork · 1978",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 5833,
+   "brokenImages": 0
+  },
+  {
+   "slug": "art-in-a-broader-context",
+   "id": 1147,
+   "url": "https://www.thomaslawson.com/art-in-a-broader-context/",
+   "viewport": "desktop",
+   "file": "desktop-art-in-a-broader-context.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thinking about art has taken me in vario",
+     "tag": "p"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Art in a Broader Context",
+     "tag": "h1"
+    },
+    "Inter | 14.25px | 500 | normal | none | -0.057px": {
+     "n": 12,
+     "sample": "Art School",
+     "tag": "h5"
+    },
+    "Inter | 11.7px | 400 | normal | none | normal": {
+     "n": 12,
+     "sample": "CalArts, Valencia, California · 1982-pre",
+     "tag": "span"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 2,
+     "sample": "© 2026 Thomas Lawson.",
+     "tag": "strong"
+    }
+   },
+   "overflowX": false,
+   "height": 3948,
+   "brokenImages": 0
+  },
+  {
+   "slug": "art-in-context-dissent",
+   "id": 1445,
+   "url": "https://www.thomaslawson.com/art-in-context-dissent/",
+   "viewport": "desktop",
+   "file": "desktop-art-in-context-dissent.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | italic | none | normal": {
+     "n": 1,
+     "sample": "Dissent",
+     "tag": "i"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 4,
+     "sample": "installation view, 2016",
+     "tag": "h5"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Dissent - What they fear is the light",
+     "tag": "h2"
+    },
+    "Inter | 14.25px | 500 | normal | none | -0.057px": {
+     "n": 1,
+     "sample": "September 14-November 6, 2016",
+     "tag": "h2"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 3,
+     "sample": "In early 2016, Sarah Russin, the directo",
+     "tag": "p"
+    },
+    "Newsreader | 17.1px | 400 | italic | none | normal": {
+     "n": 2,
+     "sample": "Dissent",
+     "tag": "i"
+    },
+    "Inter | 27.75px | 500 | normal | none | -0.4995px": {
+     "n": 1,
+     "sample": "Press Release",
+     "tag": "h2"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 2654,
+   "brokenImages": 0
+  },
+  {
+   "slug": "art-in-context-hot-coffee",
+   "id": 1343,
+   "url": "https://www.thomaslawson.com/art-in-context-hot-coffee/",
+   "viewport": "desktop",
+   "file": "desktop-art-in-context-hot-coffee.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 4,
+     "sample": "Installation view",
+     "tag": "h5"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "The Experimental Impulse",
+     "tag": "h2"
+    },
+    "Inter | 14.25px | 500 | normal | none | -0.057px": {
+     "n": 1,
+     "sample": "2011",
+     "tag": "h2"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "This project began as a research grant f",
+     "tag": "p"
+    },
+    "Inter | 27.75px | 500 | normal | none | -0.4995px": {
+     "n": 1,
+     "sample": "Essay and Reviews",
+     "tag": "h2"
+    },
+    "Inter | 12.1875px | 500 | italic | none | normal": {
+     "n": 5,
+     "sample": "Artslant",
+     "tag": "i"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 6626,
+   "brokenImages": 0
+  },
+  {
+   "slug": "art-in-context-hot-coffee-2",
+   "id": 1378,
+   "url": "https://www.thomaslawson.com/art-in-context-hot-coffee-2/",
+   "viewport": "desktop",
+   "file": "desktop-art-in-context-hot-coffee-2.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 13,
+     "sample": "Hot Coffee",
+     "tag": "h5"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Hot Coffee",
+     "tag": "h2"
+    },
+    "Inter | 14.25px | 500 | normal | none | -0.057px": {
+     "n": 1,
+     "sample": "1973",
+     "tag": "h2"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Los Angeles had long been known for its ",
+     "tag": "p"
+    },
+    "Inter | 12.1875px | 500 | italic | none | normal": {
+     "n": 3,
+     "sample": "Hot Coffee, Mojave Desert",
+     "tag": "i"
+    },
+    "Inter | 27.75px | 500 | normal | none | -0.4995px": {
+     "n": 1,
+     "sample": "Proposal, checklist, and reviews",
+     "tag": "h2"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 4834,
+   "brokenImages": 0
+  },
+  {
+   "slug": "art-in-context-livin-in-the-usa",
+   "id": 1280,
+   "url": "https://www.thomaslawson.com/art-in-context-livin-in-the-usa/",
+   "viewport": "desktop",
+   "file": "desktop-art-in-context-livin-in-the-usa.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 8,
+     "sample": "Paul Mcmahon",
+     "tag": "h5"
+    },
+    "Inter | 12.1875px | 500 | italic | none | normal": {
+     "n": 3,
+     "sample": "Diving Catch Baseball",
+     "tag": "i"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Livin' in the USA",
+     "tag": "h2"
+    },
+    "Inter | 14.25px | 500 | normal | none | -0.057px": {
+     "n": 1,
+     "sample": "1984",
+     "tag": "h2"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 3,
+     "sample": "This was an intimate show of works on pa",
+     "tag": "p"
+    },
+    "Newsreader | 17.1px | 400 | italic | none | normal": {
+     "n": 1,
+     "sample": "Peabrain",
+     "tag": "em"
+    },
+    "Inter | 27.75px | 500 | normal | none | -0.4995px": {
+     "n": 1,
+     "sample": "Essay",
+     "tag": "h2"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 3495,
+   "brokenImages": 0
+  },
+  {
+   "slug": "art-in-context-nostalgia-as-reference",
+   "id": 1292,
+   "url": "https://www.thomaslawson.com/art-in-context-nostalgia-as-reference/",
+   "viewport": "desktop",
+   "file": "desktop-art-in-context-nostalgia-as-reference.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 23,
+     "sample": "David Robbins",
+     "tag": "h5"
+    },
+    "Inter | 12.1875px | 500 | italic | none | normal": {
+     "n": 10,
+     "sample": "Talent",
+     "tag": "i"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Nostalgia as Resistance",
+     "tag": "h2"
+    },
+    "Inter | 14.25px | 500 | normal | none | -0.057px": {
+     "n": 1,
+     "sample": "1988",
+     "tag": "h2"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 3,
+     "sample": "This exhibition was part of a two-part s",
+     "tag": "p"
+    },
+    "Newsreader | 17.1px | 400 | italic | none | normal": {
+     "n": 1,
+     "sample": "Cascade",
+     "tag": "i"
+    },
+    "Inter | 27.75px | 500 | normal | none | -0.4995px": {
+     "n": 1,
+     "sample": "Essay",
+     "tag": "h2"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 6160,
+   "brokenImages": 0
+  },
+  {
+   "slug": "art-in-context-reallife-presents",
+   "id": 1421,
+   "url": "https://www.thomaslawson.com/art-in-context-reallife-presents/",
+   "viewport": "desktop",
+   "file": "desktop-art-in-context-reallife-presents.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 7,
+     "sample": "Installation view with four paintings by",
+     "tag": "h5"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "REALLIFE Magazine Presents",
+     "tag": "h2"
+    },
+    "Inter | 14.25px | 500 | normal | none | -0.057px": {
+     "n": 1,
+     "sample": "1981",
+     "tag": "h2"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "During the 70s the Nigel Greenwood galle",
+     "tag": "p"
+    },
+    "Inter | 27.75px | 500 | normal | none | -0.4995px": {
+     "n": 1,
+     "sample": "Essay",
+     "tag": "h2"
+    },
+    "Inter | 12.1875px | 500 | italic | none | normal": {
+     "n": 1,
+     "sample": "REALLIFE 7",
+     "tag": "i"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 3091,
+   "brokenImages": 0
+  },
+  {
+   "slug": "art-in-context-shimmer",
+   "id": 1458,
+   "url": "https://www.thomaslawson.com/art-in-context-shimmer/",
+   "viewport": "desktop",
+   "file": "desktop-art-in-context-shimmer.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 8,
+     "sample": "Steven Hull in Shimmer",
+     "tag": "h5"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Shimmer",
+     "tag": "h2"
+    },
+    "Inter | 14.25px | 500 | normal | none | -0.057px": {
+     "n": 1,
+     "sample": "1997",
+     "tag": "h2"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Following the Hot Coffee show I decided ",
+     "tag": "p"
+    },
+    "Inter | 12.1875px | 500 | italic | none | normal": {
+     "n": 4,
+     "sample": "Way the fuck out west",
+     "tag": "i"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 2450,
+   "brokenImages": 0
+  },
+  {
+   "slug": "art-in-context-the-british-art-show",
+   "id": 1312,
+   "url": "https://www.thomaslawson.com/art-in-context-the-british-art-show/",
+   "viewport": "desktop",
+   "file": "desktop-art-in-context-the-british-art-show.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 34,
+     "sample": "Anya Gallaccio",
+     "tag": "h5"
+    },
+    "Inter | 12.1875px | 500 | italic | none | normal": {
+     "n": 14,
+     "sample": "Woman Chocolate & Cardboard",
+     "tag": "i"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "The British Art Show",
+     "tag": "h2"
+    },
+    "Inter | 14.25px | 500 | normal | none | -0.057px": {
+     "n": 1,
+     "sample": "1994 - 1995",
+     "tag": "h2"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "The British Art Show is a peculiarly Bri",
+     "tag": "p"
+    },
+    "Inter | 27.75px | 500 | normal | none | -0.4995px": {
+     "n": 1,
+     "sample": "Essay and Review",
+     "tag": "h2"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 9798,
+   "brokenImages": 0
+  },
+  {
+   "slug": "beyond-the-studio",
+   "id": 1177,
+   "url": "https://www.thomaslawson.com/beyond-the-studio/",
+   "viewport": "desktop",
+   "file": "desktop-beyond-the-studio.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Studio work is by its very nature privat",
+     "tag": "p"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Beyond the Studio",
+     "tag": "h1"
+    },
+    "Inter | 12.825px | 500 | normal | none | -0.057px": {
+     "n": 1,
+     "sample": "Painted Installations",
+     "tag": "span"
+    },
+    "Inter | 14.25px | 500 | normal | none | -0.057px": {
+     "n": 7,
+     "sample": "Early New York",
+     "tag": "h5"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 2,
+     "sample": "© 2026 Thomas Lawson.",
+     "tag": "strong"
+    }
+   },
+   "overflowX": false,
+   "height": 2909,
+   "brokenImages": 0
+  },
+  {
+   "slug": "beyond-the-studio-dark-installations",
+   "id": 1580,
+   "url": "https://www.thomaslawson.com/beyond-the-studio-dark-installations/",
+   "viewport": "desktop",
+   "file": "desktop-beyond-the-studio-dark-installations.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 24,
+     "sample": "For Derry",
+     "tag": "h5"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Dark Installations",
+     "tag": "h2"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 12,
+     "sample": "Between 1989 and 1992 I made a number of",
+     "tag": "p"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 17,
+     "sample": "1989",
+     "tag": "h6"
+    },
+    "Inter | 27.75px | 500 | normal | none | -0.4995px": {
+     "n": 6,
+     "sample": "Forrest of Signs",
+     "tag": "h3"
+    },
+    "Newsreader | 17.1px | 400 | italic | none | normal": {
+     "n": 1,
+     "sample": "Forrest of Signs",
+     "tag": "i"
+    },
+    "Inter | 11.97px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "th",
+     "tag": "sup"
+    }
+   },
+   "overflowX": false,
+   "height": 10603,
+   "brokenImages": 0
+  },
+  {
+   "slug": "beyond-the-studio-early-new-york",
+   "id": 1608,
+   "url": "https://www.thomaslawson.com/beyond-the-studio-early-new-york/",
+   "viewport": "desktop",
+   "file": "desktop-beyond-the-studio-early-new-york.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 13,
+     "sample": "Civic Virtues",
+     "tag": "h5"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Early New York",
+     "tag": "h2"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 4,
+     "sample": "During the latter half of the 80s I adde",
+     "tag": "p"
+    },
+    "Inter | 27.75px | 500 | normal | none | -0.4995px": {
+     "n": 2,
+     "sample": "Civic Virtue/Civil Rights",
+     "tag": "h3"
+    },
+    "Inter | 11.97px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "th",
+     "tag": "sup"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 5851,
+   "brokenImages": 0
+  },
+  {
+   "slug": "beyond-the-studio-glasgow-projects",
+   "id": 1646,
+   "url": "https://www.thomaslawson.com/beyond-the-studio-glasgow-projects/",
+   "viewport": "desktop",
+   "file": "desktop-beyond-the-studio-glasgow-projects.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 10,
+     "sample": "Glasgow Green & Flourishing",
+     "tag": "h5"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Glasgow Projects",
+     "tag": "h2"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 7,
+     "sample": "I left my hometown, Glasgow, in 1969, to",
+     "tag": "p"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 3,
+     "sample": "1990",
+     "tag": "h6"
+    },
+    "Inter | 27.75px | 500 | normal | none | -0.4995px": {
+     "n": 3,
+     "sample": "Third Eye Centre",
+     "tag": "h3"
+    },
+    "Inter | 11.97px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "th",
+     "tag": "sup"
+    }
+   },
+   "overflowX": false,
+   "height": 5285,
+   "brokenImages": 0
+  },
+  {
+   "slug": "beyond-the-studio-los-angeles",
+   "id": 1689,
+   "url": "https://www.thomaslawson.com/beyond-the-studio-los-angeles/",
+   "viewport": "desktop",
+   "file": "desktop-beyond-the-studio-los-angeles.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 19,
+     "sample": "Walking Like an Egyptian",
+     "tag": "h5"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Los Angeles",
+     "tag": "h2"
+    },
+    "Inter | 27.75px | 500 | normal | none | -0.4995px": {
+     "n": 2,
+     "sample": "East Rancho",
+     "tag": "h3"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 6,
+     "sample": "In 2014 the Provost at Calarts, Jeannene",
+     "tag": "p"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 7318,
+   "brokenImages": 0
+  },
+  {
+   "slug": "beyond-the-studio-painted-installations",
+   "id": 1552,
+   "url": "https://www.thomaslawson.com/beyond-the-studio-painted-installations/",
+   "viewport": "desktop",
+   "file": "desktop-beyond-the-studio-painted-installations.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 20,
+     "sample": "Party's Over",
+     "tag": "h5"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 17,
+     "sample": "1986",
+     "tag": "h6"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Painted Installations",
+     "tag": "h2"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 6,
+     "sample": "During the latter half of the 80s I adde",
+     "tag": "p"
+    },
+    "Inter | 27.75px | 500 | normal | none | -0.4995px": {
+     "n": 3,
+     "sample": "Anthony Reynolds",
+     "tag": "h3"
+    },
+    "Inter | 11.97px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "th",
+     "tag": "sup"
+    },
+    "Newsreader | 17.1px | 400 | italic | none | normal": {
+     "n": 1,
+     "sample": "The Party’s Over",
+     "tag": "i"
+    }
+   },
+   "overflowX": false,
+   "height": 7167,
+   "brokenImages": 0
+  },
+  {
+   "slug": "beyond-the-studio-portraits-of-new-york",
+   "id": 1622,
+   "url": "https://www.thomaslawson.com/beyond-the-studio-portraits-of-new-york/",
+   "viewport": "desktop",
+   "file": "desktop-beyond-the-studio-portraits-of-new-york.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 18,
+     "sample": "I-95 Billboard",
+     "tag": "h5"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Temporary Murals",
+     "tag": "h2"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 3,
+     "sample": "I met Russell Rainbolt at some point dur",
+     "tag": "p"
+    },
+    "Inter | 27.75px | 500 | normal | none | -0.4995px": {
+     "n": 2,
+     "sample": "Memory Lingers Here",
+     "tag": "h3"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 8209,
+   "brokenImages": 0
+  },
+  {
+   "slug": "beyond-the-studio-the-scottish-project",
+   "id": 1711,
+   "url": "https://www.thomaslawson.com/beyond-the-studio-the-scottish-project/",
+   "viewport": "desktop",
+   "file": "desktop-beyond-the-studio-the-scottish-project.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 12,
+     "sample": "Reformer Revolutions",
+     "tag": "h5"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 2,
+     "sample": "2001",
+     "tag": "h6"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "The Scottish Project",
+     "tag": "h2"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 18,
+     "sample": "I spent some months in Scotland in 1997,",
+     "tag": "p"
+    },
+    "Inter | 11.97px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "th",
+     "tag": "sup"
+    },
+    "Inter | 27.75px | 500 | normal | none | -0.4995px": {
+     "n": 5,
+     "sample": "Escape Towards Liberty",
+     "tag": "h3"
+    }
+   },
+   "overflowX": false,
+   "height": 7815,
+   "brokenImages": 0
+  },
+  {
+   "slug": "beyond-the-studio-theatre-dance-fashion",
+   "id": 1660,
+   "url": "https://www.thomaslawson.com/beyond-the-studio-theatre-dance-fashion/",
+   "viewport": "desktop",
+   "file": "desktop-beyond-the-studio-theatre-dance-fashion.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 24,
+     "sample": "Deidre Poster​",
+     "tag": "h5"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Theatre, Dance & Fashion",
+     "tag": "h2"
+    },
+    "Inter | 27.75px | 500 | normal | none | -0.4995px": {
+     "n": 3,
+     "sample": "Deidre",
+     "tag": "h3"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 6,
+     "sample": "Working in theater was eye-opening, the ",
+     "tag": "p"
+    },
+    "Newsreader | 17.1px | 400 | italic | none | normal": {
+     "n": 2,
+     "sample": "Deidre",
+     "tag": "i"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 10072,
+   "brokenImages": 0
+  },
+  {
+   "slug": "bookshelf",
+   "id": 808,
+   "url": "https://www.thomaslawson.com/bookshelf/",
+   "viewport": "desktop",
+   "file": "desktop-bookshelf.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "The studio is a filter, a space in which",
+     "tag": "p"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Bookshelf",
+     "tag": "h1"
+    },
+    "Inter | 18.75px | 500 | normal | none | -0.1875px": {
+     "n": 8,
+     "sample": "Artforum",
+     "tag": "a"
+    },
+    "Inter | 12.3px | 500 | normal | none | 0.123px": {
+     "n": 8,
+     "sample": "More →",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 2,
+     "sample": "© 2026 Thomas Lawson.",
+     "tag": "strong"
+    }
+   },
+   "overflowX": false,
+   "height": 4904,
+   "brokenImages": 0
+  },
+  {
+   "slug": "bookshelf_afterall",
+   "id": 873,
+   "url": "https://www.thomaslawson.com/bookshelf_afterall/",
+   "viewport": "desktop",
+   "file": "desktop-bookshelf_afterall.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 10,
+     "sample": "Bookshelf",
+     "tag": "a"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Afterall",
+     "tag": "h1"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 8,
+     "sample": "Afterall 6, 2000",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 4001,
+   "brokenImages": 0
+  },
+  {
+   "slug": "bookshelf_artforum",
+   "id": 898,
+   "url": "https://www.thomaslawson.com/bookshelf_artforum/",
+   "viewport": "desktop",
+   "file": "desktop-bookshelf_artforum.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 35,
+     "sample": "Bookshelf",
+     "tag": "a"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Artforum",
+     "tag": "h1"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 33,
+     "sample": "Artforum, November 1980",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 11659,
+   "brokenImages": 0
+  },
+  {
+   "slug": "bookshelf_eastofborneo",
+   "id": 981,
+   "url": "https://www.thomaslawson.com/bookshelf_eastofborneo/",
+   "viewport": "desktop",
+   "file": "desktop-bookshelf_eastofborneo.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 23,
+     "sample": "Bookshelf",
+     "tag": "a"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "East of Borneo",
+     "tag": "h1"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 21,
+     "sample": "October 10, 2010",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 7576,
+   "brokenImages": 0
+  },
+  {
+   "slug": "bookshelf_writingsabouttl",
+   "id": 1099,
+   "url": "https://www.thomaslawson.com/bookshelf_writingsabouttl/",
+   "viewport": "desktop",
+   "file": "desktop-bookshelf_writingsabouttl.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 21,
+     "sample": "Bookshelf",
+     "tag": "a"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Writings About Thomas Lawson",
+     "tag": "h1"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 5,
+     "sample": "1982",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 6871,
+   "brokenImages": 0
+  },
+  {
+   "slug": "bookshelf-anthologies",
+   "id": 2007,
+   "url": "https://www.thomaslawson.com/bookshelf-anthologies/",
+   "viewport": "desktop",
+   "file": "desktop-bookshelf-anthologies.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 19,
+     "sample": "Bookshelf",
+     "tag": "a"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Anthologies",
+     "tag": "h1"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 17,
+     "sample": "Brian Wallis ed., New Museum of Contempo",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 7352,
+   "brokenImages": 0
+  },
+  {
+   "slug": "bookshelf-reallife",
+   "id": 1819,
+   "url": "https://www.thomaslawson.com/bookshelf-reallife/",
+   "viewport": "desktop",
+   "file": "desktop-bookshelf-reallife.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 27,
+     "sample": "Bookshelf",
+     "tag": "a"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "REALLIFE",
+     "tag": "h1"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 9204,
+   "brokenImages": 0
+  },
+  {
+   "slug": "contact",
+   "id": 1527,
+   "url": "https://www.thomaslawson.com/contact/",
+   "viewport": "desktop",
+   "file": "desktop-contact.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 27.75px | 500 | normal | none | -0.4995px": {
+     "n": 1,
+     "sample": "studio@thomaslawson.com",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 2,
+     "sample": "© 2026 Thomas Lawson.",
+     "tag": "strong"
+    }
+   },
+   "overflowX": false,
+   "height": 1140,
+   "brokenImages": 0
+  },
+  {
+   "slug": "critical-perspectives-art-in-context",
+   "id": 1233,
+   "url": "https://www.thomaslawson.com/critical-perspectives-art-in-context/",
+   "viewport": "desktop",
+   "file": "desktop-critical-perspectives-art-in-context.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 17,
+     "sample": "Jack Goldstein",
+     "tag": "h5"
+    },
+    "Inter | 12.1875px | 500 | italic | none | normal": {
+     "n": 7,
+     "sample": "Untitled",
+     "tag": "i"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Critical Perspectives",
+     "tag": "h2"
+    },
+    "Inter | 14.25px | 500 | normal | none | -0.057px": {
+     "n": 1,
+     "sample": "January 17-March 14, 1982",
+     "tag": "h2"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "It must have been one of the winter show",
+     "tag": "span"
+    },
+    "Inter | 27.75px | 500 | normal | none | -0.4995px": {
+     "n": 1,
+     "sample": "Essay",
+     "tag": "h2"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 4348,
+   "brokenImages": 0
+  },
+  {
+   "slug": "elementor-10",
+   "id": 10,
+   "url": "https://www.thomaslawson.com/",
+   "viewport": "desktop",
+   "file": "desktop-elementor-10.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 25.5px | 500 | normal | none | -0.51px": {
+     "n": 5,
+     "sample": "News",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 2,
+     "sample": "© 2026 Thomas Lawson.",
+     "tag": "strong"
+    }
+   },
+   "overflowX": false,
+   "height": 1110,
+   "brokenImages": 0
+  },
+  {
+   "slug": "elementor-1796",
+   "id": 1796,
+   "url": "https://www.thomaslawson.com/elementor-1796/",
+   "viewport": "desktop",
+   "file": "desktop-elementor-1796.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 9,
+     "sample": "Bookshelf",
+     "tag": "a"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Interviews",
+     "tag": "h1"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 2889,
+   "brokenImages": 0
+  },
+  {
+   "slug": "elementor-1878",
+   "id": 1878,
+   "url": "https://www.thomaslawson.com/elementor-1878/",
+   "viewport": "desktop",
+   "file": "desktop-elementor-1878.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 9,
+     "sample": "Laura Owens and Thomas Lawson",
+     "tag": "h5"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Art School",
+     "tag": "h2"
+    },
+    "Inter | 14.25px | 500 | normal | none | -0.057px": {
+     "n": 1,
+     "sample": "1982-present",
+     "tag": "h2"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 5,
+     "sample": "–",
+     "tag": "span"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 4453,
+   "brokenImages": 0
+  },
+  {
+   "slug": "elementor-395",
+   "id": 395,
+   "url": "https://www.thomaslawson.com/elementor-395/",
+   "viewport": "desktop",
+   "file": "desktop-elementor-395.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 21,
+     "sample": "Bookshelf",
+     "tag": "a"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Considering Other Artists",
+     "tag": "h5"
+    },
+    "Inter | 15.39px | 500 | normal | none | normal": {
+     "n": 1,
+     "sample": "Familie Beck",
+     "tag": "u"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 7560,
+   "brokenImages": 0
+  },
+  {
+   "slug": "elementor-428",
+   "id": 428,
+   "url": "https://www.thomaslawson.com/elementor-428/",
+   "viewport": "desktop",
+   "file": "desktop-elementor-428.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 23,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 2,
+     "sample": "1983",
+     "tag": "h1"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 20,
+     "sample": "1983",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 15224,
+   "brokenImages": 0
+  },
+  {
+   "slug": "in-the-studio",
+   "id": 140,
+   "url": "https://www.thomaslawson.com/in-the-studio/",
+   "viewport": "desktop",
+   "file": "desktop-in-the-studio.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 60px | 500 | normal | none | -2.1px": {
+     "n": 1,
+     "sample": "In the Studio",
+     "tag": "h1"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "The studio is a filter, a space in which",
+     "tag": "p"
+    },
+    "Inter | 15px | 500 | normal | none | normal": {
+     "n": 22,
+     "sample": "1977",
+     "tag": "h1"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 2,
+     "sample": "© 2026 Thomas Lawson.",
+     "tag": "strong"
+    }
+   },
+   "overflowX": false,
+   "height": 5861,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_1977-1979",
+   "id": 347,
+   "url": "https://www.thomaslawson.com/inthestudio_1977-1979/",
+   "viewport": "desktop",
+   "file": "desktop-inthestudio_1977-1979.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 53,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 2,
+     "sample": "1977",
+     "tag": "h1"
+    },
+    "Inter | 12.1875px | 500 | italic | none | normal": {
+     "n": 18,
+     "sample": "Formanesque,",
+     "tag": "i"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 15051,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_1980-1982",
+   "id": 401,
+   "url": "https://www.thomaslawson.com/inthestudio_1980-1982/",
+   "viewport": "desktop",
+   "file": "desktop-inthestudio_1980-1982.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 3,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 2,
+     "sample": "1980",
+     "tag": "h1"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 39,
+     "sample": "Greed",
+     "tag": "h5"
+    }
+   },
+   "overflowX": false,
+   "height": 20187,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_1980-1982-snapshot-2022-10-07",
+   "id": 2076,
+   "url": "https://www.thomaslawson.com/inthestudio_1980-1982-snapshot-2022-10-07/",
+   "viewport": "desktop",
+   "file": "desktop-inthestudio_1980-1982-snapshot-2022-10-07.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 3,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 40px | 600 | normal | none | normal": {
+     "n": 1,
+     "sample": "1980",
+     "tag": "h1"
+    },
+    "Inter | 32px | 600 | normal | none | normal": {
+     "n": 1,
+     "sample": "1982",
+     "tag": "h2"
+    },
+    "Inter | 20px | 600 | italic | none | normal": {
+     "n": 18,
+     "sample": "Greed",
+     "tag": "em"
+    },
+    "Inter | 20px | 600 | normal | none | normal": {
+     "n": 53,
+     "sample": ", 1980",
+     "tag": "h5"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 13733,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_1987-1990",
+   "id": 457,
+   "url": "https://www.thomaslawson.com/inthestudio_1987-1990/",
+   "viewport": "desktop",
+   "file": "desktop-inthestudio_1987-1990.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 17,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 2,
+     "sample": "1987",
+     "tag": "h1"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 3,
+     "sample": "1987",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 16388,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_1991-1993",
+   "id": 476,
+   "url": "https://www.thomaslawson.com/inthestudio_1991-1993/",
+   "viewport": "desktop",
+   "file": "desktop-inthestudio_1991-1993.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 14,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 2,
+     "sample": "1991",
+     "tag": "h1"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 7,
+     "sample": "1991",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 9571,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_1994-1998",
+   "id": 486,
+   "url": "https://www.thomaslawson.com/inthestudio_1994-1998/",
+   "viewport": "desktop",
+   "file": "desktop-inthestudio_1994-1998.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 16,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 2,
+     "sample": "1994",
+     "tag": "h1"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 14,
+     "sample": "1994",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 10356,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_1999-2006",
+   "id": 504,
+   "url": "https://www.thomaslawson.com/inthestudio_1999-2006/",
+   "viewport": "desktop",
+   "file": "desktop-inthestudio_1999-2006.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 20,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 2,
+     "sample": "1999",
+     "tag": "h1"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 18,
+     "sample": "2001",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 12327,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_2006-2010",
+   "id": 524,
+   "url": "https://www.thomaslawson.com/inthestudio_2006-2010/",
+   "viewport": "desktop",
+   "file": "desktop-inthestudio_2006-2010.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 18,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 2,
+     "sample": "2006",
+     "tag": "h1"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 16,
+     "sample": "2007",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 19567,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_2010-2015",
+   "id": 1998,
+   "url": "https://www.thomaslawson.com/inthestudio_2010-2015/",
+   "viewport": "desktop",
+   "file": "desktop-inthestudio_2010-2015.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 16,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 2,
+     "sample": "2010",
+     "tag": "h1"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 14,
+     "sample": "2014",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 13826,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_2015-2016",
+   "id": 544,
+   "url": "https://www.thomaslawson.com/inthestudio_2015-2016/",
+   "viewport": "desktop",
+   "file": "desktop-inthestudio_2015-2016.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 14,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 2,
+     "sample": "2015",
+     "tag": "h1"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 12,
+     "sample": "2015",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 9358,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_2017-2020",
+   "id": 560,
+   "url": "https://www.thomaslawson.com/inthestudio_2017-2020/",
+   "viewport": "desktop",
+   "file": "desktop-inthestudio_2017-2020.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 10,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 2,
+     "sample": "2017",
+     "tag": "h1"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 8,
+     "sample": "2017",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 7707,
+   "brokenImages": 0
+  },
+  {
+   "slug": "notes",
+   "id": 1898,
+   "url": "https://www.thomaslawson.com/notes/",
+   "viewport": "desktop",
+   "file": "desktop-notes.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "This section is a grab bag of new and ol",
+     "tag": "p"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "News",
+     "tag": "h1"
+    },
+    "Inter | 18.75px | 500 | normal | none | -0.1875px": {
+     "n": 4,
+     "sample": "Rabkin Prize",
+     "tag": "h5"
+    },
+    "Inter | 13px | 500 | normal | none | -0.1875px": {
+     "n": 1,
+     "sample": "Thomas Lawson: Attending to the Bats at ",
+     "tag": "span"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 2,
+     "sample": "© 2026 Thomas Lawson.",
+     "tag": "strong"
+    }
+   },
+   "overflowX": false,
+   "height": 5006,
+   "brokenImages": 0
+  },
+  {
+   "slug": "notes-anthology-for-unseen",
+   "id": 1935,
+   "url": "https://www.thomaslawson.com/notes-anthology-for-unseen/",
+   "viewport": "desktop",
+   "file": "desktop-notes-anthology-for-unseen.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 7,
+     "sample": "Anthology for Unseen",
+     "tag": "h5"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 2574,
+   "brokenImages": 0
+  },
+  {
+   "slug": "pat-douthewaite-art-in-context",
+   "id": 1205,
+   "url": "https://www.thomaslawson.com/pat-douthewaite-art-in-context/",
+   "viewport": "desktop",
+   "file": "desktop-pat-douthewaite-art-in-context.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 15,
+     "sample": "Pat Douthewaite",
+     "tag": "h5"
+    },
+    "Inter | 12.1875px | 500 | italic | none | normal": {
+     "n": 3,
+     "sample": "Woman One",
+     "tag": "i"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "Pat Douthewaite",
+     "tag": "h2"
+    },
+    "Inter | 14.25px | 500 | normal | none | -0.057px": {
+     "n": 1,
+     "sample": "1973",
+     "tag": "h2"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "During my final year at the University o",
+     "tag": "p"
+    },
+    "Inter | 27.75px | 500 | normal | none | -0.4995px": {
+     "n": 1,
+     "sample": "Reviews",
+     "tag": "h2"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 6,
+     "sample": "1973",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 4999,
+   "brokenImages": 0
+  },
+  {
+   "slug": "reallife-magazine-presents-whitecolumns-art-in-context",
+   "id": 1252,
+   "url": "https://www.thomaslawson.com/reallife-magazine-presents-whitecolumns-art-in-context/",
+   "viewport": "desktop",
+   "file": "desktop-reallife-magazine-presents-whitecolumns-art-in-context.jpg",
+   "styles": {
+    "Inter | 15px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 15px | 400 | normal | none | -0.075px": {
+     "n": 2,
+     "sample": "About",
+     "tag": "a"
+    },
+    "Inter | 12.1875px | 500 | normal | none | normal": {
+     "n": 15,
+     "sample": "Ken Lum",
+     "tag": "h5"
+    },
+    "Inter | 12.1875px | 500 | italic | none | normal": {
+     "n": 6,
+     "sample": "Sculpture for Living Room",
+     "tag": "i"
+    },
+    "Inter | 43.5px | 500 | normal | none | -1.218px": {
+     "n": 1,
+     "sample": "REALLIFE Magazine Presents Whitecolumns",
+     "tag": "h2"
+    },
+    "Inter | 14.25px | 500 | normal | none | -0.057px": {
+     "n": 1,
+     "sample": "1982",
+     "tag": "h2"
+    },
+    "Newsreader | 17.1px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "One of the original artist-run spaces in",
+     "tag": "p"
+    },
+    "Inter | 12.1875px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 3535,
+   "brokenImages": 0
+  },
+  {
+   "slug": "about",
+   "id": 68,
+   "url": "https://www.thomaslawson.com/about/",
+   "viewport": "mobile",
+   "file": "mobile-about.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 12,
+     "sample": "I make art, and think about art, to bett",
+     "tag": "p"
+    },
+    "Newsreader | 14.5764px | 600 | normal | none | normal": {
+     "n": 2,
+     "sample": "rom introductory essay,",
+     "tag": "b"
+    },
+    "Newsreader | 14.5764px | 600 | italic | none | normal": {
+     "n": 1,
+     "sample": "Mining for Gold; Thomas Lawson, Selected",
+     "tag": "em"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "About",
+     "tag": "h1"
+    },
+    "Inter | 15.048px | 500 | normal | none | -0.15048px": {
+     "n": 6,
+     "sample": "1975 - 1980",
+     "tag": "h1"
+    },
+    "Newsreader | 14.5764px | 400 | italic | none | normal": {
+     "n": 3,
+     "sample": "Art in America",
+     "tag": "em"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 20,
+     "sample": "Gold Dog",
+     "tag": "h5"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 12,
+     "sample": "Artwork · 1978",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 10024,
+   "brokenImages": 0
+  },
+  {
+   "slug": "art-in-a-broader-context",
+   "id": 1147,
+   "url": "https://www.thomaslawson.com/art-in-a-broader-context/",
+   "viewport": "mobile",
+   "file": "mobile-art-in-a-broader-context.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thinking about art has taken me in vario",
+     "tag": "p"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Art in a Broader Context",
+     "tag": "h1"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 14,
+     "sample": "Art School",
+     "tag": "h5"
+    },
+    "Inter | 10.6704px | 400 | normal | none | normal": {
+     "n": 12,
+     "sample": "CalArts, Valencia, California · 1982-pre",
+     "tag": "span"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 5334,
+   "brokenImages": 0
+  },
+  {
+   "slug": "art-in-context-dissent",
+   "id": 1445,
+   "url": "https://www.thomaslawson.com/art-in-context-dissent/",
+   "viewport": "mobile",
+   "file": "mobile-art-in-context-dissent.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | italic | none | normal": {
+     "n": 1,
+     "sample": "Dissent",
+     "tag": "i"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 4,
+     "sample": "installation view, 2016",
+     "tag": "h5"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Dissent - What they fear is the light",
+     "tag": "h2"
+    },
+    "Inter | 12.996px | 500 | normal | none | -0.051984px": {
+     "n": 1,
+     "sample": "September 14-November 6, 2016",
+     "tag": "h2"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 3,
+     "sample": "In early 2016, Sarah Russin, the directo",
+     "tag": "p"
+    },
+    "Newsreader | 14.5764px | 400 | italic | none | normal": {
+     "n": 2,
+     "sample": "Dissent",
+     "tag": "i"
+    },
+    "Inter | 19.836px | 500 | normal | none | -0.357048px": {
+     "n": 1,
+     "sample": "Press Release",
+     "tag": "h2"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 2178,
+   "brokenImages": 0
+  },
+  {
+   "slug": "art-in-context-hot-coffee",
+   "id": 1343,
+   "url": "https://www.thomaslawson.com/art-in-context-hot-coffee/",
+   "viewport": "mobile",
+   "file": "mobile-art-in-context-hot-coffee.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 4,
+     "sample": "Installation view",
+     "tag": "h5"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "The Experimental Impulse",
+     "tag": "h2"
+    },
+    "Inter | 12.996px | 500 | normal | none | -0.051984px": {
+     "n": 1,
+     "sample": "2011",
+     "tag": "h2"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "This project began as a research grant f",
+     "tag": "p"
+    },
+    "Inter | 19.836px | 500 | normal | none | -0.357048px": {
+     "n": 1,
+     "sample": "Essay and Reviews",
+     "tag": "h2"
+    },
+    "Inter | 11.115px | 500 | italic | none | normal": {
+     "n": 5,
+     "sample": "Artslant",
+     "tag": "i"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 6222,
+   "brokenImages": 0
+  },
+  {
+   "slug": "art-in-context-hot-coffee-2",
+   "id": 1378,
+   "url": "https://www.thomaslawson.com/art-in-context-hot-coffee-2/",
+   "viewport": "mobile",
+   "file": "mobile-art-in-context-hot-coffee-2.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 13,
+     "sample": "Hot Coffee",
+     "tag": "h5"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Hot Coffee",
+     "tag": "h2"
+    },
+    "Inter | 12.996px | 500 | normal | none | -0.051984px": {
+     "n": 1,
+     "sample": "1973",
+     "tag": "h2"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Los Angeles had long been known for its ",
+     "tag": "p"
+    },
+    "Inter | 11.115px | 500 | italic | none | normal": {
+     "n": 3,
+     "sample": "Hot Coffee, Mojave Desert",
+     "tag": "i"
+    },
+    "Inter | 19.836px | 500 | normal | none | -0.357048px": {
+     "n": 1,
+     "sample": "Proposal, checklist, and reviews",
+     "tag": "h2"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 4371,
+   "brokenImages": 0
+  },
+  {
+   "slug": "art-in-context-livin-in-the-usa",
+   "id": 1280,
+   "url": "https://www.thomaslawson.com/art-in-context-livin-in-the-usa/",
+   "viewport": "mobile",
+   "file": "mobile-art-in-context-livin-in-the-usa.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 8,
+     "sample": "Paul Mcmahon",
+     "tag": "h5"
+    },
+    "Inter | 11.115px | 500 | italic | none | normal": {
+     "n": 3,
+     "sample": "Diving Catch Baseball",
+     "tag": "i"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Livin' in the USA",
+     "tag": "h2"
+    },
+    "Inter | 12.996px | 500 | normal | none | -0.051984px": {
+     "n": 1,
+     "sample": "1984",
+     "tag": "h2"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 3,
+     "sample": "This was an intimate show of works on pa",
+     "tag": "p"
+    },
+    "Newsreader | 14.5764px | 400 | italic | none | normal": {
+     "n": 1,
+     "sample": "Peabrain",
+     "tag": "em"
+    },
+    "Inter | 19.836px | 500 | normal | none | -0.357048px": {
+     "n": 1,
+     "sample": "Essay",
+     "tag": "h2"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 2488,
+   "brokenImages": 0
+  },
+  {
+   "slug": "art-in-context-nostalgia-as-reference",
+   "id": 1292,
+   "url": "https://www.thomaslawson.com/art-in-context-nostalgia-as-reference/",
+   "viewport": "mobile",
+   "file": "mobile-art-in-context-nostalgia-as-reference.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 23,
+     "sample": "David Robbins",
+     "tag": "h5"
+    },
+    "Inter | 11.115px | 500 | italic | none | normal": {
+     "n": 10,
+     "sample": "Talent",
+     "tag": "i"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Nostalgia as Resistance",
+     "tag": "h2"
+    },
+    "Inter | 12.996px | 500 | normal | none | -0.051984px": {
+     "n": 1,
+     "sample": "1988",
+     "tag": "h2"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 3,
+     "sample": "This exhibition was part of a two-part s",
+     "tag": "p"
+    },
+    "Newsreader | 14.5764px | 400 | italic | none | normal": {
+     "n": 1,
+     "sample": "Cascade",
+     "tag": "i"
+    },
+    "Inter | 19.836px | 500 | normal | none | -0.357048px": {
+     "n": 1,
+     "sample": "Essay",
+     "tag": "h2"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 5472,
+   "brokenImages": 0
+  },
+  {
+   "slug": "art-in-context-reallife-presents",
+   "id": 1421,
+   "url": "https://www.thomaslawson.com/art-in-context-reallife-presents/",
+   "viewport": "mobile",
+   "file": "mobile-art-in-context-reallife-presents.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 7,
+     "sample": "Installation view with four paintings by",
+     "tag": "h5"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "REALLIFE Magazine Presents",
+     "tag": "h2"
+    },
+    "Inter | 12.996px | 500 | normal | none | -0.051984px": {
+     "n": 1,
+     "sample": "1981",
+     "tag": "h2"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "During the 70s the Nigel Greenwood galle",
+     "tag": "p"
+    },
+    "Inter | 19.836px | 500 | normal | none | -0.357048px": {
+     "n": 1,
+     "sample": "Essay",
+     "tag": "h2"
+    },
+    "Inter | 11.115px | 500 | italic | none | normal": {
+     "n": 1,
+     "sample": "REALLIFE 7",
+     "tag": "i"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 2583,
+   "brokenImages": 0
+  },
+  {
+   "slug": "art-in-context-shimmer",
+   "id": 1458,
+   "url": "https://www.thomaslawson.com/art-in-context-shimmer/",
+   "viewport": "mobile",
+   "file": "mobile-art-in-context-shimmer.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 8,
+     "sample": "Steven Hull in Shimmer",
+     "tag": "h5"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Shimmer",
+     "tag": "h2"
+    },
+    "Inter | 12.996px | 500 | normal | none | -0.051984px": {
+     "n": 1,
+     "sample": "1997",
+     "tag": "h2"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Following the Hot Coffee show I decided ",
+     "tag": "p"
+    },
+    "Inter | 11.115px | 500 | italic | none | normal": {
+     "n": 4,
+     "sample": "Way the fuck out west",
+     "tag": "i"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 2489,
+   "brokenImages": 0
+  },
+  {
+   "slug": "art-in-context-the-british-art-show",
+   "id": 1312,
+   "url": "https://www.thomaslawson.com/art-in-context-the-british-art-show/",
+   "viewport": "mobile",
+   "file": "mobile-art-in-context-the-british-art-show.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 34,
+     "sample": "Anya Gallaccio",
+     "tag": "h5"
+    },
+    "Inter | 11.115px | 500 | italic | none | normal": {
+     "n": 14,
+     "sample": "Woman Chocolate & Cardboard",
+     "tag": "i"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "The British Art Show",
+     "tag": "h2"
+    },
+    "Inter | 12.996px | 500 | normal | none | -0.051984px": {
+     "n": 1,
+     "sample": "1994 - 1995",
+     "tag": "h2"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "The British Art Show is a peculiarly Bri",
+     "tag": "p"
+    },
+    "Inter | 19.836px | 500 | normal | none | -0.357048px": {
+     "n": 1,
+     "sample": "Essay and Review",
+     "tag": "h2"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 7746,
+   "brokenImages": 0
+  },
+  {
+   "slug": "beyond-the-studio",
+   "id": 1177,
+   "url": "https://www.thomaslawson.com/beyond-the-studio/",
+   "viewport": "mobile",
+   "file": "mobile-beyond-the-studio.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Studio work is by its very nature privat",
+     "tag": "p"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Beyond the Studio",
+     "tag": "h1"
+    },
+    "Inter | 10.0035px | 500 | normal | none | normal": {
+     "n": 1,
+     "sample": "Painted Installations",
+     "tag": "span"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 9,
+     "sample": "Early New York",
+     "tag": "h5"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 3631,
+   "brokenImages": 0
+  },
+  {
+   "slug": "beyond-the-studio-dark-installations",
+   "id": 1580,
+   "url": "https://www.thomaslawson.com/beyond-the-studio-dark-installations/",
+   "viewport": "mobile",
+   "file": "mobile-beyond-the-studio-dark-installations.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 24,
+     "sample": "For Derry",
+     "tag": "h5"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Dark Installations",
+     "tag": "h2"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 12,
+     "sample": "Between 1989 and 1992 I made a number of",
+     "tag": "p"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 17,
+     "sample": "1989",
+     "tag": "h6"
+    },
+    "Inter | 15.048px | 500 | normal | none | -0.15048px": {
+     "n": 6,
+     "sample": "Forrest of Signs",
+     "tag": "h3"
+    },
+    "Newsreader | 14.5764px | 400 | italic | none | normal": {
+     "n": 1,
+     "sample": "Forrest of Signs",
+     "tag": "i"
+    },
+    "Inter | 10.2035px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "th",
+     "tag": "sup"
+    }
+   },
+   "overflowX": false,
+   "height": 11269,
+   "brokenImages": 0
+  },
+  {
+   "slug": "beyond-the-studio-early-new-york",
+   "id": 1608,
+   "url": "https://www.thomaslawson.com/beyond-the-studio-early-new-york/",
+   "viewport": "mobile",
+   "file": "mobile-beyond-the-studio-early-new-york.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 13,
+     "sample": "Civic Virtues",
+     "tag": "h5"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Early New York",
+     "tag": "h2"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 4,
+     "sample": "During the latter half of the 80s I adde",
+     "tag": "p"
+    },
+    "Inter | 15.048px | 500 | normal | none | -0.15048px": {
+     "n": 2,
+     "sample": "Civic Virtue/Civil Rights",
+     "tag": "h3"
+    },
+    "Inter | 10.2035px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "th",
+     "tag": "sup"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 5371,
+   "brokenImages": 0
+  },
+  {
+   "slug": "beyond-the-studio-glasgow-projects",
+   "id": 1646,
+   "url": "https://www.thomaslawson.com/beyond-the-studio-glasgow-projects/",
+   "viewport": "mobile",
+   "file": "mobile-beyond-the-studio-glasgow-projects.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 10,
+     "sample": "Glasgow Green & Flourishing",
+     "tag": "h5"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Glasgow Projects",
+     "tag": "h2"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 7,
+     "sample": "I left my hometown, Glasgow, in 1969, to",
+     "tag": "p"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 3,
+     "sample": "1990",
+     "tag": "h6"
+    },
+    "Inter | 15.048px | 500 | normal | none | -0.15048px": {
+     "n": 3,
+     "sample": "Third Eye Centre",
+     "tag": "h3"
+    },
+    "Inter | 10.2035px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "th",
+     "tag": "sup"
+    }
+   },
+   "overflowX": false,
+   "height": 4869,
+   "brokenImages": 0
+  },
+  {
+   "slug": "beyond-the-studio-los-angeles",
+   "id": 1689,
+   "url": "https://www.thomaslawson.com/beyond-the-studio-los-angeles/",
+   "viewport": "mobile",
+   "file": "mobile-beyond-the-studio-los-angeles.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 19,
+     "sample": "Walking Like an Egyptian",
+     "tag": "h5"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Los Angeles",
+     "tag": "h2"
+    },
+    "Inter | 15.048px | 500 | normal | none | -0.15048px": {
+     "n": 2,
+     "sample": "East Rancho",
+     "tag": "h3"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 6,
+     "sample": "In 2014 the Provost at Calarts, Jeannene",
+     "tag": "p"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 6760,
+   "brokenImages": 0
+  },
+  {
+   "slug": "beyond-the-studio-painted-installations",
+   "id": 1552,
+   "url": "https://www.thomaslawson.com/beyond-the-studio-painted-installations/",
+   "viewport": "mobile",
+   "file": "mobile-beyond-the-studio-painted-installations.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 20,
+     "sample": "Party's Over",
+     "tag": "h5"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 17,
+     "sample": "1986",
+     "tag": "h6"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Painted Installations",
+     "tag": "h2"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 6,
+     "sample": "During the latter half of the 80s I adde",
+     "tag": "p"
+    },
+    "Inter | 15.048px | 500 | normal | none | -0.15048px": {
+     "n": 3,
+     "sample": "Anthony Reynolds",
+     "tag": "h3"
+    },
+    "Inter | 10.2035px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "th",
+     "tag": "sup"
+    },
+    "Newsreader | 14.5764px | 400 | italic | none | normal": {
+     "n": 1,
+     "sample": "The Party’s Over",
+     "tag": "i"
+    }
+   },
+   "overflowX": false,
+   "height": 8114,
+   "brokenImages": 0
+  },
+  {
+   "slug": "beyond-the-studio-portraits-of-new-york",
+   "id": 1622,
+   "url": "https://www.thomaslawson.com/beyond-the-studio-portraits-of-new-york/",
+   "viewport": "mobile",
+   "file": "mobile-beyond-the-studio-portraits-of-new-york.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 18,
+     "sample": "I-95 Billboard",
+     "tag": "h5"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Temporary Murals",
+     "tag": "h2"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 3,
+     "sample": "I met Russell Rainbolt at some point dur",
+     "tag": "p"
+    },
+    "Inter | 15.048px | 500 | normal | none | -0.15048px": {
+     "n": 2,
+     "sample": "Memory Lingers Here",
+     "tag": "h3"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 7444,
+   "brokenImages": 0
+  },
+  {
+   "slug": "beyond-the-studio-the-scottish-project",
+   "id": 1711,
+   "url": "https://www.thomaslawson.com/beyond-the-studio-the-scottish-project/",
+   "viewport": "mobile",
+   "file": "mobile-beyond-the-studio-the-scottish-project.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 12,
+     "sample": "Reformer Revolutions",
+     "tag": "h5"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 2,
+     "sample": "2001",
+     "tag": "h6"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "The Scottish Project",
+     "tag": "h2"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 18,
+     "sample": "I spent some months in Scotland in 1997,",
+     "tag": "p"
+    },
+    "Inter | 10.2035px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "th",
+     "tag": "sup"
+    },
+    "Inter | 15.048px | 500 | normal | none | -0.15048px": {
+     "n": 5,
+     "sample": "Escape Towards Liberty",
+     "tag": "h3"
+    }
+   },
+   "overflowX": false,
+   "height": 6889,
+   "brokenImages": 0
+  },
+  {
+   "slug": "beyond-the-studio-theatre-dance-fashion",
+   "id": 1660,
+   "url": "https://www.thomaslawson.com/beyond-the-studio-theatre-dance-fashion/",
+   "viewport": "mobile",
+   "file": "mobile-beyond-the-studio-theatre-dance-fashion.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 24,
+     "sample": "Deidre Poster​",
+     "tag": "h5"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Theatre, Dance & Fashion",
+     "tag": "h2"
+    },
+    "Inter | 15.048px | 500 | normal | none | -0.15048px": {
+     "n": 3,
+     "sample": "Deidre",
+     "tag": "h3"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 6,
+     "sample": "Working in theater was eye-opening, the ",
+     "tag": "p"
+    },
+    "Newsreader | 14.5764px | 400 | italic | none | normal": {
+     "n": 2,
+     "sample": "Deidre",
+     "tag": "i"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 9582,
+   "brokenImages": 0
+  },
+  {
+   "slug": "bookshelf",
+   "id": 808,
+   "url": "https://www.thomaslawson.com/bookshelf/",
+   "viewport": "mobile",
+   "file": "mobile-bookshelf.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "The studio is a filter, a space in which",
+     "tag": "p"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Bookshelf",
+     "tag": "h1"
+    },
+    "Inter | 12.996px | 500 | normal | none | -0.051984px": {
+     "n": 8,
+     "sample": "Artforum",
+     "tag": "a"
+    },
+    "Inter | 11.2176px | 500 | normal | none | 0.112176px": {
+     "n": 8,
+     "sample": "More →",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 2,
+     "sample": "© 2026 Thomas Lawson.",
+     "tag": "strong"
+    }
+   },
+   "overflowX": false,
+   "height": 3997,
+   "brokenImages": 0
+  },
+  {
+   "slug": "bookshelf_afterall",
+   "id": 873,
+   "url": "https://www.thomaslawson.com/bookshelf_afterall/",
+   "viewport": "mobile",
+   "file": "mobile-bookshelf_afterall.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 10,
+     "sample": "Bookshelf",
+     "tag": "a"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Afterall",
+     "tag": "h1"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 8,
+     "sample": "Afterall 6, 2000",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 5581,
+   "brokenImages": 0
+  },
+  {
+   "slug": "bookshelf_artforum",
+   "id": 898,
+   "url": "https://www.thomaslawson.com/bookshelf_artforum/",
+   "viewport": "mobile",
+   "file": "mobile-bookshelf_artforum.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 35,
+     "sample": "Bookshelf",
+     "tag": "a"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Artforum",
+     "tag": "h1"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 33,
+     "sample": "Artforum, November 1980",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 18161,
+   "brokenImages": 0
+  },
+  {
+   "slug": "bookshelf_eastofborneo",
+   "id": 981,
+   "url": "https://www.thomaslawson.com/bookshelf_eastofborneo/",
+   "viewport": "mobile",
+   "file": "mobile-bookshelf_eastofborneo.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 23,
+     "sample": "Bookshelf",
+     "tag": "a"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "East of Borneo",
+     "tag": "h1"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 21,
+     "sample": "October 10, 2010",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 10808,
+   "brokenImages": 0
+  },
+  {
+   "slug": "bookshelf_writingsabouttl",
+   "id": 1099,
+   "url": "https://www.thomaslawson.com/bookshelf_writingsabouttl/",
+   "viewport": "mobile",
+   "file": "mobile-bookshelf_writingsabouttl.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 21,
+     "sample": "Bookshelf",
+     "tag": "a"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Writings About Thomas Lawson",
+     "tag": "h1"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 5,
+     "sample": "1982",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 10259,
+   "brokenImages": 0
+  },
+  {
+   "slug": "bookshelf-anthologies",
+   "id": 2007,
+   "url": "https://www.thomaslawson.com/bookshelf-anthologies/",
+   "viewport": "mobile",
+   "file": "mobile-bookshelf-anthologies.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 19,
+     "sample": "Bookshelf",
+     "tag": "a"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Anthologies",
+     "tag": "h1"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 17,
+     "sample": "Brian Wallis ed., New Museum of Contempo",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 10963,
+   "brokenImages": 0
+  },
+  {
+   "slug": "bookshelf-reallife",
+   "id": 1819,
+   "url": "https://www.thomaslawson.com/bookshelf-reallife/",
+   "viewport": "mobile",
+   "file": "mobile-bookshelf-reallife.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 27,
+     "sample": "Bookshelf",
+     "tag": "a"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "REALLIFE",
+     "tag": "h1"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 14451,
+   "brokenImages": 0
+  },
+  {
+   "slug": "contact",
+   "id": 1527,
+   "url": "https://www.thomaslawson.com/contact/",
+   "viewport": "mobile",
+   "file": "mobile-contact.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 19.836px | 500 | normal | none | -0.357048px": {
+     "n": 1,
+     "sample": "studio@thomaslawson.com",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 2,
+     "sample": "© 2026 Thomas Lawson.",
+     "tag": "strong"
+    }
+   },
+   "overflowX": false,
+   "height": 1128,
+   "brokenImages": 0
+  },
+  {
+   "slug": "critical-perspectives-art-in-context",
+   "id": 1233,
+   "url": "https://www.thomaslawson.com/critical-perspectives-art-in-context/",
+   "viewport": "mobile",
+   "file": "mobile-critical-perspectives-art-in-context.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 17,
+     "sample": "Jack Goldstein",
+     "tag": "h5"
+    },
+    "Inter | 11.115px | 500 | italic | none | normal": {
+     "n": 7,
+     "sample": "Untitled",
+     "tag": "i"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Critical Perspectives",
+     "tag": "h2"
+    },
+    "Inter | 12.996px | 500 | normal | none | -0.051984px": {
+     "n": 1,
+     "sample": "January 17-March 14, 1982",
+     "tag": "h2"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "It must have been one of the winter show",
+     "tag": "span"
+    },
+    "Inter | 19.836px | 500 | normal | none | -0.357048px": {
+     "n": 1,
+     "sample": "Essay",
+     "tag": "h2"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 3663,
+   "brokenImages": 0
+  },
+  {
+   "slug": "elementor-10",
+   "id": 10,
+   "url": "https://www.thomaslawson.com/",
+   "viewport": "mobile",
+   "file": "mobile-elementor-10.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 17.784px | 500 | normal | none | -0.35568px": {
+     "n": 5,
+     "sample": "News",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 2,
+     "sample": "© 2026 Thomas Lawson.",
+     "tag": "strong"
+    }
+   },
+   "overflowX": false,
+   "height": 1076,
+   "brokenImages": 0
+  },
+  {
+   "slug": "elementor-1796",
+   "id": 1796,
+   "url": "https://www.thomaslawson.com/elementor-1796/",
+   "viewport": "mobile",
+   "file": "mobile-elementor-1796.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 9,
+     "sample": "Bookshelf",
+     "tag": "a"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Interviews",
+     "tag": "h1"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 4081,
+   "brokenImages": 0
+  },
+  {
+   "slug": "elementor-1878",
+   "id": 1878,
+   "url": "https://www.thomaslawson.com/elementor-1878/",
+   "viewport": "mobile",
+   "file": "mobile-elementor-1878.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 9,
+     "sample": "Laura Owens and Thomas Lawson",
+     "tag": "h5"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Art School",
+     "tag": "h2"
+    },
+    "Inter | 12.996px | 500 | normal | none | -0.051984px": {
+     "n": 1,
+     "sample": "1982-present",
+     "tag": "h2"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 5,
+     "sample": "–",
+     "tag": "span"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 4582,
+   "brokenImages": 0
+  },
+  {
+   "slug": "elementor-395",
+   "id": 395,
+   "url": "https://www.thomaslawson.com/elementor-395/",
+   "viewport": "mobile",
+   "file": "mobile-elementor-395.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 21,
+     "sample": "Bookshelf",
+     "tag": "a"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Considering Other Artists",
+     "tag": "h5"
+    },
+    "Inter | 13.1188px | 500 | normal | none | normal": {
+     "n": 1,
+     "sample": "Familie Beck",
+     "tag": "u"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 10929,
+   "brokenImages": 0
+  },
+  {
+   "slug": "elementor-428",
+   "id": 428,
+   "url": "https://www.thomaslawson.com/elementor-428/",
+   "viewport": "mobile",
+   "file": "mobile-elementor-428.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 23,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 2,
+     "sample": "1983",
+     "tag": "h1"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 20,
+     "sample": "1983",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 7715,
+   "brokenImages": 0
+  },
+  {
+   "slug": "in-the-studio",
+   "id": 140,
+   "url": "https://www.thomaslawson.com/in-the-studio/",
+   "viewport": "mobile",
+   "file": "mobile-in-the-studio.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 30.78px | 500 | normal | none | -1.0773px": {
+     "n": 1,
+     "sample": "In the Studio",
+     "tag": "h1"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "The studio is a filter, a space in which",
+     "tag": "p"
+    },
+    "Inter | 13.68px | 500 | normal | none | normal": {
+     "n": 22,
+     "sample": "1977",
+     "tag": "h1"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 2,
+     "sample": "© 2026 Thomas Lawson.",
+     "tag": "strong"
+    }
+   },
+   "overflowX": false,
+   "height": 5972,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_1977-1979",
+   "id": 347,
+   "url": "https://www.thomaslawson.com/inthestudio_1977-1979/",
+   "viewport": "mobile",
+   "file": "mobile-inthestudio_1977-1979.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 53,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 2,
+     "sample": "1977",
+     "tag": "h1"
+    },
+    "Inter | 11.115px | 500 | italic | none | normal": {
+     "n": 18,
+     "sample": "Formanesque,",
+     "tag": "i"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 7242,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_1980-1982",
+   "id": 401,
+   "url": "https://www.thomaslawson.com/inthestudio_1980-1982/",
+   "viewport": "mobile",
+   "file": "mobile-inthestudio_1980-1982.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 3,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 2,
+     "sample": "1980",
+     "tag": "h1"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 39,
+     "sample": "Greed",
+     "tag": "h5"
+    }
+   },
+   "overflowX": false,
+   "height": 9696,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_1980-1982-snapshot-2022-10-07",
+   "id": 2076,
+   "url": "https://www.thomaslawson.com/inthestudio_1980-1982-snapshot-2022-10-07/",
+   "viewport": "mobile",
+   "file": "mobile-inthestudio_1980-1982-snapshot-2022-10-07.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 3,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 30px | 600 | normal | none | normal": {
+     "n": 1,
+     "sample": "1980",
+     "tag": "h1"
+    },
+    "Inter | 25px | 600 | normal | none | normal": {
+     "n": 1,
+     "sample": "1982",
+     "tag": "h2"
+    },
+    "Inter | 18.24px | 600 | italic | none | normal": {
+     "n": 18,
+     "sample": "Greed",
+     "tag": "em"
+    },
+    "Inter | 18.24px | 600 | normal | none | normal": {
+     "n": 53,
+     "sample": ", 1980",
+     "tag": "h5"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 15312,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_1987-1990",
+   "id": 457,
+   "url": "https://www.thomaslawson.com/inthestudio_1987-1990/",
+   "viewport": "mobile",
+   "file": "mobile-inthestudio_1987-1990.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 17,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 2,
+     "sample": "1987",
+     "tag": "h1"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 3,
+     "sample": "1987",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 7754,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_1991-1993",
+   "id": 476,
+   "url": "https://www.thomaslawson.com/inthestudio_1991-1993/",
+   "viewport": "mobile",
+   "file": "mobile-inthestudio_1991-1993.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 14,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 2,
+     "sample": "1991",
+     "tag": "h1"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 7,
+     "sample": "1991",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 4814,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_1994-1998",
+   "id": 486,
+   "url": "https://www.thomaslawson.com/inthestudio_1994-1998/",
+   "viewport": "mobile",
+   "file": "mobile-inthestudio_1994-1998.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 16,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 2,
+     "sample": "1994",
+     "tag": "h1"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 14,
+     "sample": "1994",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 5299,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_1999-2006",
+   "id": 504,
+   "url": "https://www.thomaslawson.com/inthestudio_1999-2006/",
+   "viewport": "mobile",
+   "file": "mobile-inthestudio_1999-2006.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 20,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 2,
+     "sample": "1999",
+     "tag": "h1"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 18,
+     "sample": "2001",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 6312,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_2006-2010",
+   "id": 524,
+   "url": "https://www.thomaslawson.com/inthestudio_2006-2010/",
+   "viewport": "mobile",
+   "file": "mobile-inthestudio_2006-2010.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 18,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 2,
+     "sample": "2006",
+     "tag": "h1"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 16,
+     "sample": "2007",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 9264,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_2010-2015",
+   "id": 1998,
+   "url": "https://www.thomaslawson.com/inthestudio_2010-2015/",
+   "viewport": "mobile",
+   "file": "mobile-inthestudio_2010-2015.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 16,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 2,
+     "sample": "2010",
+     "tag": "h1"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 14,
+     "sample": "2014",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 6757,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_2015-2016",
+   "id": 544,
+   "url": "https://www.thomaslawson.com/inthestudio_2015-2016/",
+   "viewport": "mobile",
+   "file": "mobile-inthestudio_2015-2016.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 14,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 2,
+     "sample": "2015",
+     "tag": "h1"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 12,
+     "sample": "2015",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 4786,
+   "brokenImages": 0
+  },
+  {
+   "slug": "inthestudio_2017-2020",
+   "id": 560,
+   "url": "https://www.thomaslawson.com/inthestudio_2017-2020/",
+   "viewport": "mobile",
+   "file": "mobile-inthestudio_2017-2020.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 10,
+     "sample": "In the Studio",
+     "tag": "a"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 2,
+     "sample": "2017",
+     "tag": "h1"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 8,
+     "sample": "2017",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 3907,
+   "brokenImages": 0
+  },
+  {
+   "slug": "notes",
+   "id": 1898,
+   "url": "https://www.thomaslawson.com/notes/",
+   "viewport": "mobile",
+   "file": "mobile-notes.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "This section is a grab bag of new and ol",
+     "tag": "p"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "News",
+     "tag": "h1"
+    },
+    "Inter | 12.996px | 500 | normal | none | -0.051984px": {
+     "n": 4,
+     "sample": "Rabkin Prize",
+     "tag": "h5"
+    },
+    "Inter | 13px | 500 | normal | none | -0.051984px": {
+     "n": 1,
+     "sample": "Thomas Lawson: Attending to the Bats at ",
+     "tag": "span"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 2,
+     "sample": "© 2026 Thomas Lawson.",
+     "tag": "strong"
+    }
+   },
+   "overflowX": false,
+   "height": 2993,
+   "brokenImages": 0
+  },
+  {
+   "slug": "notes-anthology-for-unseen",
+   "id": 1935,
+   "url": "https://www.thomaslawson.com/notes-anthology-for-unseen/",
+   "viewport": "mobile",
+   "file": "mobile-notes-anthology-for-unseen.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 7,
+     "sample": "Anthology for Unseen",
+     "tag": "h5"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 2310,
+   "brokenImages": 0
+  },
+  {
+   "slug": "pat-douthewaite-art-in-context",
+   "id": 1205,
+   "url": "https://www.thomaslawson.com/pat-douthewaite-art-in-context/",
+   "viewport": "mobile",
+   "file": "mobile-pat-douthewaite-art-in-context.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 15,
+     "sample": "Pat Douthewaite",
+     "tag": "h5"
+    },
+    "Inter | 11.115px | 500 | italic | none | normal": {
+     "n": 3,
+     "sample": "Woman One",
+     "tag": "i"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "Pat Douthewaite",
+     "tag": "h2"
+    },
+    "Inter | 12.996px | 500 | normal | none | -0.051984px": {
+     "n": 1,
+     "sample": "1973",
+     "tag": "h2"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "During my final year at the University o",
+     "tag": "p"
+    },
+    "Inter | 19.836px | 500 | normal | none | -0.357048px": {
+     "n": 1,
+     "sample": "Reviews",
+     "tag": "h2"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 6,
+     "sample": "1973",
+     "tag": "h6"
+    }
+   },
+   "overflowX": false,
+   "height": 5458,
+   "brokenImages": 0
+  },
+  {
+   "slug": "reallife-magazine-presents-whitecolumns-art-in-context",
+   "id": 1252,
+   "url": "https://www.thomaslawson.com/reallife-magazine-presents-whitecolumns-art-in-context/",
+   "viewport": "mobile",
+   "file": "mobile-reallife-magazine-presents-whitecolumns-art-in-context.jpg",
+   "styles": {
+    "Inter | 13.68px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Skip to content",
+     "tag": "a"
+    },
+    "Inter | 11.115px | 500 | normal | none | normal": {
+     "n": 15,
+     "sample": "Ken Lum",
+     "tag": "h5"
+    },
+    "Inter | 11.115px | 500 | italic | none | normal": {
+     "n": 6,
+     "sample": "Sculpture for Living Room",
+     "tag": "i"
+    },
+    "Inter | 27.36px | 500 | normal | none | -0.76608px": {
+     "n": 1,
+     "sample": "REALLIFE Magazine Presents Whitecolumns",
+     "tag": "h2"
+    },
+    "Inter | 12.996px | 500 | normal | none | -0.051984px": {
+     "n": 1,
+     "sample": "1982",
+     "tag": "h2"
+    },
+    "Newsreader | 14.5764px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "One of the original artist-run spaces in",
+     "tag": "p"
+    },
+    "Inter | 11.115px | 400 | normal | none | normal": {
+     "n": 1,
+     "sample": "Thomas Lawson (born 1951, Glasgow, Scotl",
+     "tag": "span"
+    }
+   },
+   "overflowX": false,
+   "height": 3489,
+   "brokenImages": 0
+  }
+ ]
+}

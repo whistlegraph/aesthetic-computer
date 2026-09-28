@@ -18,5 +18,17 @@ and Felix Titling were named but never loaded as web fonts; titles printed over
 photographs; drop-shadow frames; all-caps captions; em-based Elementor paddings
 that misaligned text from headings.
 
+Live 2026-09-27: plugin v1.0.0 installed + activated via wp-admin; served
+CSS/JS verified byte-identical to source. Measured over all 49 pages
+(`evidence/before` vs `evidence/after`, live, logged out):
+
+| | before | after |
+|---|---|---|
+| font families | 6 (Poppins, Roboto, Gotham, Adobe Jenson, Georgia, Felix Titling) | 2 (Inter, Newsreader) |
+| desktop type styles | 45 | 26 |
+| horizontal overflow | 0 pages | 0 pages |
+
+Side-by-side pairs for every page and both viewports: `evidence/compare/`.
+
 Open for Fía/Tom: News banner is a 225×300 snapshot with baked-in text;
 page title "Pat Douthewaite" → Douthwaite.
