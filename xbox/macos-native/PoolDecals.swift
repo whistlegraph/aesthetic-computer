@@ -28,8 +28,8 @@ final class PoolDecals {
         return true
     }
     func stamp(_ values: [Float]) -> Bool {
-        guard values.count == 12 else { return false }
-        return values.withUnsafeBufferPointer { ac_pool_stamp(surface, $0.baseAddress!) }
+        guard values.count == 12 || values.count == 15 else { return false }
+        return values.withUnsafeBufferPointer { values.count == 15 ? ac_pool_tint(surface, $0.baseAddress!) : ac_pool_stamp(surface, $0.baseAddress!) }
     }
     func upload(_ vertices: [Float], _ faces: [Float]) -> Int {
         guard !vertices.isEmpty, !faces.isEmpty else { return -1 }

@@ -256,6 +256,7 @@ class HostGraphics final : public Graphics {
   std::function<void(const ac::xbox::ThemeQuad&)> on_theme_quad;
   std::function<bool()> on_decal_clear;
   std::function<bool(const std::array<float,12>&)> on_decal_stamp;
+  std::function<bool(const std::array<float,12>&,const std::array<float,3>&)> on_decal_tint;
   std::function<void(const ac::xbox::TexturedTriangle&)> on_decal_triangle;
   std::function<void(const ac::xbox::Text&)> on_write;
   std::function<void(const ac::xbox::SystemText&)> on_system_write;
@@ -281,6 +282,7 @@ class HostGraphics final : public Graphics {
   }
   bool decal_clear() override { return on_decal_clear && on_decal_clear(); }
   bool decal_stamp(const std::array<float,12>& stamp) override { return on_decal_stamp && on_decal_stamp(stamp); }
+  bool decal_tint(const std::array<float,12>& stamp,const std::array<float,3>& tint) override { return on_decal_tint && on_decal_tint(stamp,tint); }
   void decal_triangle(const ac::xbox::TexturedTriangle& triangle) override { if(on_decal_triangle)on_decal_triangle(triangle); }
   void theme_sprite(const ac::xbox::ThemeSprite& sprite) override {
     const float c = std::cos(sprite.angle), s = std::sin(sprite.angle);
@@ -419,6 +421,7 @@ public:
     m_graphics->on_decal_stamp = [this](const std::array<float,12>& stamp) {
       return m_decalView && m_decalSurface.stamp(stamp);
     };
+    m_graphics->on_decal_tint = [this](const std::array<float,12>& stamp,const std::array<float,3>& tint) { return m_decalView && m_decalSurface.stamp(stamp,&tint); };
     m_graphics->on_decal_triangle = [this](const ac::xbox::TexturedTriangle& triangle) {
       if(m_frameDecalTriangles.size()<kMaxDecalTriangles)m_frameDecalTriangles.push_back(triangle);
     };
@@ -444,6 +447,7 @@ public:
     m_sound->on_stop = [this]() {
       if (m_skateVoice) m_skateVoice->SetVolume(0);
       if (m_voice) { m_voice->Stop(0); m_voice->FlushSourceBuffers(); }
+      for(auto* voice:m_drumVoices)if(voice){voice->Stop(0);voice->FlushSourceBuffers();}
       for (auto* voice : m_glassVoices) if (voice) {
         voice->Stop(0); voice->FlushSourceBuffers();
       }
@@ -1288,6 +1292,7 @@ private:
     Check(m_audio->CreateSourceVoice(&m_oscVoice, &format, 0, 64.0f));
     for (auto& voice : m_glassVoices)
       Check(m_audio->CreateSourceVoice(&voice, &format, 0, XAUDIO2_DEFAULT_FREQ_RATIO));
+    for(auto& voice:m_drumVoices)Check(m_audio->CreateSourceVoice(&voice,&format,0,XAUDIO2_DEFAULT_FREQ_RATIO));
     Check(m_audio->CreateSourceVoice(&m_skateVoice, &format, 0, 2.0f));
     m_skateSamples = synthesize_skate_roll(sampleRate);
     XAUDIO2_BUFFER skateBuffer{};
@@ -1337,6 +1342,7 @@ private:
       if (voice) { voice->DestroyVoice(); voice = nullptr; }
     }
     m_nextGlassVoice = 0;
+    for(auto& voice:m_drumVoices)if(voice){voice->DestroyVoice();voice=nullptr;}
     if (m_oscVoice) { m_oscVoice->DestroyVoice(); m_oscVoice = nullptr; }
     if (m_voice) { m_voice->DestroyVoice(); m_voice = nullptr; }
     if (m_master) { m_master->DestroyVoice(); m_master = nullptr; }
@@ -1387,14 +1393,19 @@ private:
       PlayGlass(name == "glass-shard", velocity); return;
     }
     if (!m_voice || m_sampleRate == 0) return;
-    (void)pan; // The current game-effects voice is mono; preserve the API for a stereo pool.
+
     enum class Wave { Sine, Triangle, Square, Noise };
     struct Layer {
       Wave wave;
       double frequency, duration, volume, attack, decay;
     };
     std::vector<Layer> layers;
-    if (name == "kick") {
+    if (name == "gunshot" || name == "smg-shot") {
+      layers = {{Wave::Noise,11000,.006,1.25,.0001,.0059},{Wave::Noise,3800,.075,.9,.0002,.074},{Wave::Noise,900,.18,.46,.001,.179},{Wave::Sine,80,.055,.45,.0003,.054}};
+      if(name=="smg-shot")for(auto& layer:layers)layer.duration*=.7;
+    } else if (name == "bass") {
+      layers = {{Wave::Triangle,55,.18,.6,.003,.17},{Wave::Sine,55,.2,.7,.002,.19}};
+    } else if (name == "kick") {
       layers = {
         {Wave::Noise, 2500, .0025, .50, .0002, .0022},
         {Wave::Sine, 200, .012, 1.10, .0005, .011},
@@ -1447,7 +1458,7 @@ private:
       };
     }
 
-    const double hit = (std::max)(.1, (std::min)(1.5, static_cast<double>(velocity)));
+    const double hit = (std::max)(0.0, (std::min)(1.5, static_cast<double>(velocity)));
     double duration = 0;
     for (const auto& layer : layers) duration = (std::max)(duration, layer.duration);
     const auto frames = static_cast<uint32_t>(m_sampleRate * duration);
@@ -1484,18 +1495,13 @@ private:
       }
     }
 
-    m_voice->Stop(0);
-    m_voice->FlushSourceBuffers();
-    m_samples.resize(frames);
-    for (uint32_t index = 0; index < frames; ++index) {
-      const double sample = (std::max)(-1.0, (std::min)(1.0, mixed[index] * hit * .28));
-      m_samples[index] = static_cast<int16_t>(sample * 32767.0);
-    }
-    m_buffer = {};
-    m_buffer.AudioBytes = static_cast<UINT32>(m_samples.size() * sizeof(int16_t));
-    m_buffer.pAudioData = reinterpret_cast<const BYTE*>(m_samples.data());
-    m_buffer.Flags = XAUDIO2_END_OF_STREAM;
-    TriggerAudio(0);
+    const auto slot=m_nextDrumVoice++%m_drumVoices.size();auto* voice=m_drumVoices[slot];if(!voice)return;
+    voice->Stop(0);voice->FlushSourceBuffers();auto& samples=m_drumSamples[slot];samples.resize(frames);
+    for(uint32_t i=0;i<frames;i++)samples[i]=static_cast<int16_t>((std::max)(-1.0,(std::min)(1.0,mixed[i]*hit*.28))*32767.0);
+    XAUDIO2_VOICE_DETAILS details{};m_master->GetVoiceDetails(&details);
+    if(details.InputChannels>=2){std::vector<float> matrix(details.InputChannels,0);const float p=(std::max)(-1.f,(std::min)(1.f,pan));matrix[0]=std::sqrt((1-p)*.5f);matrix[1]=std::sqrt((1+p)*.5f);voice->SetOutputMatrix(m_master,1,details.InputChannels,matrix.data());}
+    XAUDIO2_BUFFER buffer{};buffer.AudioBytes=static_cast<UINT32>(samples.size()*sizeof(int16_t));buffer.pAudioData=reinterpret_cast<const BYTE*>(samples.data());buffer.Flags=XAUDIO2_END_OF_STREAM;
+    Check(voice->SubmitSourceBuffer(&buffer));Check(voice->Start(0));
   }
 
   void SetOscillator(float frequency, float volume) {
@@ -3076,6 +3082,9 @@ private:
   std::atomic_bool m_clientErrorWriteInFlight{false};
   std::atomic_uint64_t m_clientErrorSequence{0};
   std::array<IXAudio2SourceVoice*, 4> m_glassVoices{};
+  std::array<IXAudio2SourceVoice*,12> m_drumVoices{};
+  std::array<std::vector<int16_t>,12> m_drumSamples;
+  std::size_t m_nextDrumVoice=0;
   std::size_t m_nextGlassVoice = 0;
   std::vector<int16_t> m_glassSamples, m_glassShardSamples;
   IXAudio2SourceVoice* m_skateVoice = nullptr;

@@ -295,6 +295,8 @@ private final class NativeAudio {
     func drum(_ name: String, velocity: Double, pan: Double) {
         let duration: Double
         switch name {
+        case "gunshot", "smg-shot": duration = 0.18
+        case "bass": duration = 0.20
         case "kick": duration = 0.22
         case "clap", "punch", "block": duration = 0.14
         case "whoosh": duration = 0.30
@@ -306,6 +308,9 @@ private final class NativeAudio {
             let envelope = pow(max(0, 1 - progress), name == "bell" ? 1.7 : 3.1)
             let noise = self.noise()
             switch name {
+            case "gunshot", "smg-shot":
+                return (noise * exp(-time * 38) + sin(2 * .pi * 80 * time) * exp(-time * 65) * 0.4) * 0.9
+            case "bass": return sin(2 * .pi * 55 * time) * envelope * 0.65
             case "kick":
                 let frequency = 145 - 104 * progress
                 return sin(2 * .pi * frequency * time) * envelope * 0.86
@@ -995,6 +1000,7 @@ private final class NativeGameHost {
         }
         javascript.setObject(clearDecals, forKeyedSubscript: "decalClear" as NSString)
         javascript.setObject(stampDecal, forKeyedSubscript: "decalStamp" as NSString)
+        javascript.setObject(stampDecal, forKeyedSubscript: "decalTint" as NSString)
         javascript.setObject(uploadDecalMesh, forKeyedSubscript: "decalMeshUpload" as NSString)
         javascript.setObject(drawDecalMesh, forKeyedSubscript: "decalMesh" as NSString)
         // The retained-texture contract. Arguments arrive loose (the sprite's

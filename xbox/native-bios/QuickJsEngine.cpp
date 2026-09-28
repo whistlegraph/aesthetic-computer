@@ -371,6 +371,14 @@ JSValue DecalStamp(JSContext* context, JSValueConst, int argc, JSValueConst* arg
   return JS_NewBool(context,scope->api->graphics.decal_stamp(q));
 }
 
+JSValue DecalTint(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope=static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if(!scope||!scope->api||argc!=15)return JS_ThrowTypeError(context,"decalTint requires 12 coordinates and RGB");
+  std::array<float,12> q{};std::array<float,3> tint{};
+  for(int i=0;i<15;i++){double n=0;if(JS_ToFloat64(context,&n,argv[i])||!std::isfinite(n)||std::abs(n)>32768)return JS_ThrowRangeError(context,"invalid tinted stamp");if(i<12)q[i]=float(n);else {if(n<0||n>255)return JS_ThrowRangeError(context,"invalid tint");tint[i-12]=float(n);}}
+  return JS_NewBool(context,scope->api->graphics.decal_tint(q,tint));
+}
+
 JSValue ThemeAssetReady(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
   int32_t asset = -1;
@@ -1020,6 +1028,7 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "themeSprite", JS_NewCFunction(context_, ThemeSpriteDraw, "themeSprite", 12));
     JS_SetPropertyStr(context_, global, "themeQuad", JS_NewCFunction(context_, ThemeQuadDraw, "themeQuad", 17));
     JS_SetPropertyStr(context_, global, "decalClear", JS_NewCFunction(context_, DecalClear, "decalClear", 0));
+    JS_SetPropertyStr(context_, global, "decalTint", JS_NewCFunction(context_, DecalTint, "decalTint", 15));
     JS_SetPropertyStr(context_, global, "decalStamp", JS_NewCFunction(context_, DecalStamp, "decalStamp", 12));
     JS_SetPropertyStr(context_, global, "decalMesh", JS_NewCFunction(context_, DecalMesh, "decalMesh", 6));
     JS_SetPropertyStr(context_, global, "systemWrite", JS_NewCFunction(context_, SystemWrite, "systemWrite", 7));

@@ -15,6 +15,10 @@ int main() {
   assert(dirty[0]==100&&dirty[1]==100&&dirty[2]==132&&dirty[3]==132);
   unsigned alpha=0;for(int y=100;y<132;y++)for(int x=100;x<132;x++)alpha+=pixels[(y*2048+x)*4+3];
   assert(alpha>0);
+  float neon[]={0,0,128,128,200,200,240,200,240,240,200,240,255,30,180};
+  assert(ac_pool_tint(pool,neon));pixels=ac_pool_pixels(pool,dirty);bool found=false;
+  for(int y=200;y<240;y++)for(int x=200;x<240;x++){const auto* p=pixels+(y*2048+x)*4;if(p[3]){assert(p[0]==255&&p[1]==30&&p[2]==180);found=true;}}
+  assert(found);neon[12]=300;assert(!ac_pool_tint(pool,neon));
   const auto* originalPixels=ac_pool_all_pixels(pool);
   ac_pool_clean(pool);
   stamp[0]=250;assert(!ac_pool_stamp(pool,stamp));assert(!ac_pool_pixels(pool,dirty));stamp[0]=0;

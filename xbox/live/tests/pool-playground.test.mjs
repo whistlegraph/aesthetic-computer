@@ -7,7 +7,7 @@ function playground(){
  let now=1e6;const noop=()=>{},audio=[],drums=[];
  const api=new Function('runtime','capabilities','telemetry','gameSignal','drum','wipe','box','line','triangle','write','systemWrite','oscillator','oscillatorStop',`${source}
  configureWorldMap('skatepark','pool');fightOpponent='freeskate';gameMode='fight';
- return {milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
+ return {strikeParkWindow,updateChalk,chalkTip,chalkColors,chalkPickups,decals,stereoGain,parkStereo,seatActionRuns,seatHudReadout,milkAt,swimMilk,parkPools,drawCerealMilk,ragdollBodies,updateRagdolls,ragdollGeometry,OskiewarRagdoll,seatActionText,looseRunnerGeometry,drawLooseRunner,mainNativeCamera,characterLocalCamera,spectatorState,netDrainHostInbox,players,updatePlayer,runnerWorldGeometry,projectRunnerWorldGeometry,cameraDoll,
  parkHalfPipe3D,parkHalfPipeHeight,parkDeckY,poolFloorAt,poolSlopeAt,gunPickups,axePickup,
  resetParkSupply,updateParkSupply,updateGunPickups,resetParkKids,updateParkKids,parkKids,
  bullets,updateBullets,gunPose,drawPoolGeometry,captureQuadMesh,drawRunner,
@@ -176,7 +176,7 @@ test('figure LOD follows projected size and holds its tier at a boundary',()=>{
 
 test('3D rounds reflect off solid walls in depth and retain their lifetime',()=>{
  const a=playground(),w=a.parkWindowWalls()[0];
- const b={x:w.ax+w.width*.5,y:a.parkDeckY-150,z:w.az+10,vx:300,vy:0,vz:-4200,life:1,owner:0,safeUntil:Infinity};
+ const b={x:w.ax+w.width*.5,y:a.parkDeckY-50,z:w.az+10,vx:300,vy:0,vz:-4200,life:1,owner:0,safeUntil:Infinity};
  a.bullets.push(b);const speed=Math.hypot(b.vx,b.vy,b.vz);
  a.updateBullets(1/60,a.now(),false);
  assert.ok(b.vz>0);assert.equal(b.vx,300);assert.ok(b.z>w.az);
@@ -185,12 +185,12 @@ test('3D rounds reflect off solid walls in depth and retain their lifetime',()=>
 });
 test('3D laser rounds are absorbed by solid walls',()=>{
  const a=playground(),w=a.parkWindowWalls()[0];
- a.bullets.push({x:w.ax+w.width*.5,y:a.parkDeckY-150,z:w.az+10,vx:0,vy:0,vz:-4200,life:1,laser:true});
+ a.bullets.push({x:w.ax+w.width*.5,y:a.parkDeckY-50,z:w.az+10,vx:0,vy:0,vz:-4200,life:1,laser:true});
  a.updateBullets(1/60,a.now(),false);assert.equal(a.bullets.length,0);
 });
 test('3D pistol layers a crack and low report onto its shot',()=>{
  const a=playground(),p=a.players[0];p.gunAmmo=3;p.gunMode='HANDGUN';a.step(['Y']);
- assert.ok(a.drums.some(d=>d.name==='snare'));assert.ok(a.drums.some(d=>d.name==='kick'));
+ assert.ok(a.drums.some(d=>d.name==='gunshot'));assert.equal(a.drums.some(d=>d.name==='hat'),false);
 });
 
 test('skateboard rumble stays low, follows horizontal movement, and fades at rest',()=>{
@@ -442,4 +442,76 @@ test('a head behind the near plane does not hide visible limbs',()=>{
  const a=playground();a.cameraDoll.snap({position:{x:0,y:0,z:0},target:{x:0,y:0,z:1},width:1800,perspective:1});
  const g=a.projectRunnerWorldGeometry({head:{x:0,y:0,z:-40,radius:22},segments:[{x1:0,y1:30,z1:-10,x2:0,y2:100,z2:200,width:10}]});
  assert.equal(g.behind,false);assert.equal(g.head.behind,true);assert.equal(g.segments[0].hidden,undefined);
+});
+
+test('HUD keeps BPM MPH and RPM together and depth travel raises heart rate',()=>{
+ const a=playground(),p=a.players[0];p.heartRate=62;
+ const idle=a.seatHudReadout(p,a.now()).measure;assert.equal(idle,'62 bpm');
+ p.vz=1800;for(let i=0;i<180;i++)a.updateSeatHeartbeat(1/60,a.now());
+ assert.ok(p.heartRate>95,'depth speed is exertion too');
+ const moving=p.heartRate;p.attackKind='PUNCH';for(let i=0;i<180;i++)a.updateSeatHeartbeat(1/60,a.now());
+ assert.ok(p.heartRate>moving+15,'action excitement adds to speed');
+});
+
+test('crawling and spinning remain combined with held equipment',()=>{
+ const a=playground(),p=a.players[0];Object.assign(p,{vx:0,vz:100,ducking:true,spin:{rate:8,angle:0},axeHeld:true,lastButton:'NONE',lastButtonAt:0});
+ assert.equal(a.seatActionText(p,a.now()),'CRAWLING + SPINNING W/ AXE');
+});
+
+test('action and item runs keep distinct colors',()=>{
+ const a=playground(),p=a.players[0];Object.assign(p,{vx:100,ducking:true,spin:{rate:8,angle:0},axeHeld:true,lastButton:'NONE',lastButtonAt:0});
+ const runs=a.seatActionRuns(p,a.now()),color=text=>runs.find(r=>r.text===text).color;
+ assert.notDeepEqual(color('CRAWLING'),color('SPINNING'));assert.notDeepEqual(color('AXE'),color('SPINNING'));
+});
+
+test('half-pipe automatically locks the board plane and returns vert airs into the transition',()=>{
+ const a=playground(),p=a.players[0],pipe=a.parkHalfPipe3D;
+ Object.assign(p,{x:pipe.x,z:80,y:a.poolFloorAt(pipe.x,80),vx:2000,vz:120,vy:0,skateboard:true,onewheel:false,poolYaw:.08,grounded:true});
+ a.step(['ArrowUp']);assert.equal(p.poolPipeLocked,true);const lane=p.z;let airborne=false,returned=false;
+ for(let i=0;i<600;i++){
+  a.step(['ArrowUp']);assert.ok(Math.abs(p.z-lane)<1e-6,'locked lane is stable');
+  if(p.poolVert?.pipe)airborne=true;
+  if(airborne&&p.grounded){returned=true;break;}
+ }
+ assert.ok(airborne,'reaches a locked vert air');assert.ok(returned,'lands back on the pipe');
+ a.step(['LeftShoulder']);assert.equal(p.skateboard,false,'dash releases rider from board');
+});
+
+test('turning combines with movement and equipment',()=>{
+ const a=playground(),p=a.players[0];Object.assign(p,{vx:100,inputX:-1,lastButton:'NONE',lastButtonAt:0,axeHeld:true});
+ assert.equal(a.seatActionText(p,a.now()),'WALKING + TURNING LEFT W/ AXE');
+});
+
+test('walking builds into running and a held-forward dash settles into a run',()=>{
+ const a=playground(),p=a.players[0];p.x=500;p.z=a.parkWindowWalls()[0].az-600;p.y=a.poolFloorAt(p.x,p.z);
+ for(let i=0;i<15;i++)a.step(['ArrowUp']);assert.ok(Math.hypot(p.vx,p.vz)<1000);
+ for(let i=0;i<120;i++)a.step(['ArrowUp']);assert.ok(Math.hypot(p.vx,p.vz)>1000);
+ a.step(['ArrowUp','LeftShoulder']);assert.ok(a.seatActionText(p,a.now()).includes('DASHING'));
+ for(let i=0;i<120;i++)a.step(['ArrowUp']);assert.ok(Math.hypot(p.vx,p.vz)>1000);
+ assert.ok(!a.seatActionText(p,a.now()).includes('DASHING'));
+});
+
+test('held punch draws neon chalk through movement and spins, without an attack',()=>{
+ const a=playground(),p=a.players[0];p.chalkColor=a.chalkColors[0];p.attackKind='';
+ a.updateChalk(p,['B'],a.now());p.x+=20;a.updateChalk(p,['B'],a.now());
+ p.spin={angle:1,rate:8};a.updateChalk(p,['B'],a.now());
+ const marks=a.decals.filter(d=>d.kind==='chalk');assert.ok(marks.length>=2);assert.deepEqual(marks[0].color,[255,55,190]);
+ assert.equal(p.attackKind,'');a.updateChalk(p,[],a.now());assert.equal(p.chalkDrawing,false);assert.equal(p.chalkPrevious,null);
+});
+test('park scatters SMGs and held fire shoots repeated individual rounds',()=>{
+ const a=playground(),p=a.players[0];a.resetParkSupply(a.now());assert.ok(a.gunPickups.filter(g=>g.active&&g.kind==='RUBBER SMG').length>=2);
+ p.gunMode='RUBBER SMG';p.gunAmmo=30;for(let i=0;i<60;i++)a.step(['Y']);
+ assert.ok(p.gunAmmo<22);assert.ok(p.gunAmmo>15);assert.ok(a.drums.some(d=>d.name==='smg-shot'));
+});
+test('an attacked civilian approaches and starts sparring, then disengages after escape',()=>{
+ const a=playground(),p=a.players[0];a.resetParkKids();const kid=a.parkKids[0];
+ Object.assign(p,{x:kid.x-100,z:kid.z,y:kid.y});a.damageParkCivilian(kid,p,{x:kid.x,y:kid.y-100,z:kid.z},a.now(),1);
+ a.updateParkKids(1/60,a.now()+1000000);assert.equal(p.sparringPartner,kid.pad);assert.ok(kid.attackKind);
+ p.poolPipeEscapeUntil=a.now()+3000000;a.updateParkKids(1/60,a.now()+1100000);assert.equal(p.sparringPartner,undefined);
+});
+test('stereo fades by distance and strike capsules can break low windows',()=>{
+ const a=playground(),p=a.players[0];assert.equal(a.stereoGain({x:a.parkStereo.x,z:a.parkStereo.z}),1);assert.equal(a.stereoGain({x:a.parkStereo.x+4000,z:a.parkStereo.z}),0);
+ const w=a.parkWindowWalls()[0],x=w.ax+w.width*.5,y=a.parkDeckY-130;
+ assert.equal(a.strikeParkWindow(p,{hit:[{capsule:{x1:x,y1:y,z1:w.az+40,x2:x,y2:y,z2:w.az-10,width:12}}]}),true);
+ assert.equal(a.brokenParkWindows.size,1);
 });

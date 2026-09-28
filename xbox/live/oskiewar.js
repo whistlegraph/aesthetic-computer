@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 190;
+const buildVersion = 192;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -845,7 +845,7 @@ function drawIndoorHallGeometry(ground) {
 }
 
 function rasterDecalPatches(decal) {
-  const skid = decal.kind === "skid", arc = decal.kind === "arc";
+  const skid = decal.kind === "skid" || decal.kind === "chalk", arc = decal.kind === "arc";
   const cell = skid || arc || decal.kind === "wheelmark" ? 0
     : decal.kind === "chip" || decal.kind === "ding" ? 2 : decal.kind === "blood" ? 3 : 1;
   const angle = decal.angle || 0, c = Math.cos(angle), s = Math.sin(angle);
@@ -1610,7 +1610,7 @@ function parkHalfPipeHeight(x,z){
   return height*taper*taper*(3-2*taper);
 }
 const parkDeckY=floorY-pool.depth;
-const parkPalette={pool:[172,212,211],ground:[220,185,151],
+const parkPalette={pool:[172,212,211],ground:[99,104,113],
   hills:[[167,188,207],[185,172,209],[171,200,170]],ramp:[218,155,138],
   wall:[210,202,190],base:[143,165,167],frame:[68,91,106],ceiling:[188,191,187],
   glass:[174,218,233],light:[255,244,196]};
@@ -1735,7 +1735,7 @@ function boundParkBody(p,previous={x:p.x,z:p.z||0}){
   const radius=p.pad===undefined?18:25,height=p.pad===undefined?40:180;
   for(const {w,bay,u,old,dist} of parkWallContact(previous,{x:p.x,z:p.z||0},radius)){
     const horizontal=u>bay*w.width+109+radius&&u<(bay+1)*w.width-109-radius;
-    const wt=parkDeckY-parkBuildingHeight+269,wb=parkDeckY-479;
+    const wt=parkDeckY-parkBuildingHeight+269,wb=parkDeckY-99;
     const impactY=p.y-height*.5,impact=horizontal&&impactY>wt&&impactY<wb;
     const speed=Math.hypot((p.vx||0)*w.nx+(p.vz||0)*w.nz,(p.vy||0)*.7);
     if(impact&&(speed>450||p.attackKind||p.spin?.rate>5))breakParkWindow(w,bay,{x:p.x,y:impactY,z:p.z},p);
@@ -3234,6 +3234,7 @@ function clearPoolDecals(){
   poolDecalCount=0;
   poolDecalsNative=typeof decalClear==='function'&&typeof decalStamp==='function'&&
     typeof decalMesh==='function'&&(nativeRetainedMeshes||typeof decalMeshUpload==='function')?decalClear():false;
+  if(poolOnly())seedStreetTexture();
 }
 let decalSeed = 7;
 function decalRandom() {
@@ -3245,16 +3246,17 @@ function addDecal(decal) {
   decal.at = runtime().monotonicUs;
   // The ground under a mark never moves: its height and slope are read once
   // here, not every frame for every corner.
-  decal.ground = terrainFloorAt(decal.x) - .9;
+  decal.ground = terrainFloorAt(decal.x,decal.z) - .9;
   const slope = terrainTangentAt(decal.x, 8), norm = Math.hypot(1, slope);
   decal.tx = 1 / norm; decal.ty = slope / norm;
   decal.shape = decalShape(decal);
   if(poolOnly()){
     if(poolDecalsNative===null)clearPoolDecals();
     if(poolDecalsNative){
-      for(const patch of rasterDecalPatches(decal))
-        decalStamp(...patch.uv,...patch.points.flatMap(p=>[
-          (p.x-gridLeft+parkLotMargin)/(gridWidth+parkLotMargin*2)*2048,(p.z-worldNear+parkLotMargin)/(roomDepth+parkLotMargin*2)*2048]));
+      for(const patch of rasterDecalPatches(decal)){
+        const args=[...patch.uv,...patch.points.flatMap(p=>[(p.x-gridLeft+parkLotMargin)/(gridWidth+parkLotMargin*2)*2048,(p.z-worldNear+parkLotMargin)/(roomDepth+parkLotMargin*2)*2048])];
+        if(decal.color&&typeof decalTint==='function')decalTint(...args,...decal.color);else decalStamp(...args);
+      }
       poolDecalCount++;
       return decal;
     }
@@ -3326,7 +3328,7 @@ function updateBlood(dt) {
     drop.vy += fallGravity() * dt;
     drop.x += drop.vx * dt; drop.y += drop.vy * dt; drop.z += drop.vz * dt;
     drop.z = clamp(drop.z, worldNear + 10, worldFar - 10);
-    const ground = terrainFloorAt(drop.x);
+    const ground = terrainFloorAt(drop.x,drop.z);
     if (drop.y < ground) continue;
     const sideways = Math.hypot(drop.vx, drop.vz);
     if (drop.kind === "wood") {
@@ -5978,10 +5980,10 @@ const unitsPerMetre = 100;
 const mph = (unitsPerSecond) => unitsPerSecond / unitsPerMetre * 2.23694;
 // What the character is doing right now, as a verb, with its measurement:
 // mph for moving, rpm for spinning.
-function statusVerb(rider, speed) {
+function statusVerb(rider, speed, includeSpin=true) {
   const mphText = Math.round(mph(speed)) + " mph";
   if (wallPressActive(rider)) return [rider.ducking ? "crouching against wall" : "pressing into wall", ""];
-  if (rider.spin) return ["spinning", Math.round(spinRpm(rider)) + " rpm"];
+  if (includeSpin && rider.spin) return ["spinning", Math.round(spinRpm(rider)) + " rpm"];
   if (rider.swimming) return ["swimming", mphText];
   if (rider.skateStall) return ["holding", ""];
   if (rider.strafe) return ["strafing", ""];
@@ -5989,9 +5991,9 @@ function statusVerb(rider, speed) {
   if (isHeadOnly(rider)) return [speed < 30 ? "resting" : "rolling", speed < 30 ? "" : mphText];
   if (rider.onewheel) return [speed < 30 ? "balancing" : "riding electric", speed < 30 ? "" : mphText];
   if (rider.skateboard) return [speed < 30 ? "standing on the board" : "skating", speed < 30 ? "" : mphText];
-  if (rider.ducking) return [Math.abs(rider.vx) > 40 ? "crawling" : "crouching", Math.abs(rider.vx) > 40 ? mphText : ""];
+  if (rider.ducking) return [speed > 40 ? "crawling" : "crouching", speed > 40 ? mphText : ""];
   if (speed < 30) return ["standing", ""];
-  if (Math.abs(rider.vx) > walkSpeed + 120) return ["running", mphText];
+  if (speed > walkSpeed + 120) return ["running", mphText];
   return ["walking", mphText];
 }
 function drawStatusVerb(rider, speed, ink) {
@@ -9690,8 +9692,28 @@ function clearPoolCamera(position, subject) {
 function updateCameraDoll(dt, now) {
   if (poolOnly() && freeskateActive()) {
     const p=players[0],heading=p.poolYaw||0,speed=Math.hypot(p.vx,p.vz||0);
-    const idle=p.alive&&p.grounded&&speed<35&&Math.abs(p.vy||0)<40&&
-      !p.spin&&!p.attackKind&&Math.abs(p.inputX||0)<.1&&Math.abs(p.inputY||0)<.1;
+    const rival=parkKids.find(k=>k.pad===p.sparringPartner&&k.alive);
+    if(rival&&p.alive&&now>=(p.poolPipeEscapeUntil||0)){
+      const dx=rival.x-p.x,dz=(rival.z||0)-(p.z||0),distance=Math.hypot(dx,dz)||1;
+      const target={x:(p.x+rival.x)/2,y:(p.y+rival.y)/2-90,z:((p.z||0)+(rival.z||0))/2};
+      const gap=clamp(750+distance,900,1700),position=clearPoolCamera({x:target.x-dz/distance*gap,y:target.y-180,z:target.z+dx/distance*gap},target);
+      cameraDoll.track({target,position,width:Math.max(700,distance+450),perspective:.25,fov:55,roll:0},dt,5);return;
+    }
+    if(p.poolPipeLocked){
+      const pipe=parkHalfPipe3D,air=Math.max(0,parkDeckY-pipe.radius-p.y);
+      let yaw=heading;
+      if(p.poolVert?.pipe){const progress=clamp((p.poolVert.speed+p.vy)/(2*p.poolVert.speed),0,1);yaw=p.poolVert.heading+Math.PI*(progress*progress*(3-2*progress));}
+      const error=Math.atan2(Math.sin(yaw-poolCameraYaw),Math.cos(yaw-poolCameraYaw));poolCameraYaw+=error*(1-Math.exp(-dt*2));
+      const angle=poolCameraYaw+Math.PI*.6,radius=2400+air*.4;
+      const target={x:pipe.x,y:parkDeckY-pipe.radius*.5-air*.2,z:pipe.z};
+      const position={x:pipe.x-Math.cos(angle)*radius,y:parkDeckY-1800-air*.6,z:pipe.z-Math.sin(angle)*radius};
+      cameraCenter=target.x;cameraCenterY=target.y;cameraWidth=3200;
+      cameraDoll.track({target,position,width:3200,perspective:1,fov:65,roll:0},dt,5);
+      cameraDoll.position.y=Math.min(cameraDoll.position.y,parkDeckY-700);
+      cameraDoll.dirty=true;poolIdleSeconds=poolIdleClose=0;return;
+    }
+
+    const idle=p.alive&&p.grounded&&speed<35&&Math.abs(p.vy||0)<40;
     poolIdleSeconds=idle?poolIdleSeconds+dt:0;
     poolIdleClose+=((poolIdleSeconds>2?1:0)-poolIdleClose)*(1-Math.exp(-dt*(idle?1.2:7)));
     const wall=poolDistance(p.x,p.z||0),vert=p.poolVert;
@@ -10264,16 +10286,9 @@ function fireGun(player, input) {
   player.itemActionUntil = now + (laser ? 210000 : 170000);
   player.pendingMoveLabel =
     (laser ? "LASER " : smg ? "RUBBER SMG " : "FIRE ") + player.gunAmmo;
-  for (let shot = 0; shot < shots; shot++) {
-    playDrum(laser ? "whoosh" : smg ? "block" : "hat",
-      laser ? 1.35 : smg ? .62 + shot * .08 : 1.05, panPlayer(player));
-    if (poolOnly() && !laser && !smg) {
-      playDrum("snare", .95, panPlayer(player));
-      playDrum("kick", .65, panPlayer(player));
-    }
-    playSine(laser ? 1180 : (smg ? 310 : 760) + shot * 55,
-      laser ? .13 : smg ? .055 : .08);
-  }
+  if(laser){playDrum('whoosh',1.1,panPlayer(player));playSine(1180,.13);}
+  else playDrum(smg?'smg-shot':'gunshot',smg?.72:1,panPlayer(player));
+  player.lastButton=smg?'FIRING SMG':'FIRING PISTOL';player.lastButtonAt=now;
   emitSignal(laser ? "laser" : "bullet", player.pad, pose.dx, pose.dy);
 }
 
@@ -10603,7 +10618,7 @@ function updatePoolBullets(dt,now,combat){
         const hitY=lerp(from.y,b.y,fraction);
         if(hitY<parkDeckY-parkBuildingHeight||hitY>parkDeckY)continue;
         const inGlass=u>bay*w.width+109&&u<(bay+1)*w.width-109&&
-          hitY>parkDeckY-parkBuildingHeight+269&&hitY<parkDeckY-479;
+          hitY>parkDeckY-parkBuildingHeight+269&&hitY<parkDeckY-99;
         if(inGlass)breakParkWindow(w,bay,b,b);
         else {
           const side=old>=0?1:-1;
@@ -10630,11 +10645,18 @@ function updatePoolBullets(dt,now,combat){
         if(!hit||hit.separation>3)continue;
         b.life=0;
         if(target.blocking)breakShield(target,now);
-        else if(target.civilian){
-          if(hit.headshot)popCivilianHead(target,players[b.owner]||players[0],runnerWorldGeometry(target,t),now);
-          else damageParkCivilian(target,players[b.owner]||players[0],b,now,2);
-        }else if(hit.headshot)killPlayer(target,b.owner,now,'SHOT');
-        else applyBodyHit(target,hit.segmentIndex,b.x-b.vx,b.owner,now,1180,125);
+        else {
+          const owner=players[b.owner]||players[0],pose=runnerWorldGeometry(target,t),segment=pose.segments[hit.segmentIndex];
+          spawnBlood(b.x,b.y,b.z,Math.sign(b.vx),14,1);addDecal({kind:'blood',x:b.x,z:b.z,size:12,stretch:1.4,angle:Math.atan2(b.vz,b.vx)});
+          if(hit.headshot){
+            if(target.civilian)popCivilianHead(target,owner,pose,now);else killPlayer(target,b.owner,now,'SHOT');
+          }else if(segment){
+            bleed(target,segment,b.x-b.vx,2);addScar(target,segment);
+            detachPart(target,segment.part,pose,b.x-b.vx,now);
+            if(target.civilian){startRagdoll(target,b,[b.vx*.1,-150,b.vz*.1]);target.alive=false;target.attackKind='';}
+            else if(segment.part==='torso')killPlayer(target,b.owner,now,'SHOT');
+          }
+        }
         break;
       }
     }
@@ -11845,7 +11867,7 @@ function killPlayer(target, killerPad, now, cause = "KO") {
   target.stance = "HIT";
   target.lastButton = cause;
   target.lastButtonAt = now;
-  if (killerPad !== target.pad) players[killerPad].score += 1;
+  if (killerPad !== target.pad && players[killerPad]) players[killerPad].score += 1;
   emitSignal(cause === "BALLED" ? "balled" : "ko",
     killerPad, target.pad, players[killerPad]?.score || 0);
   roundCause = cause;
@@ -11951,6 +11973,19 @@ function couldStrike(player, now) {
     !player.attackHit && !player.blocking && now >= player.hitStunUntil;
 }
 
+function strikeParkWindow(attacker,attacking){
+ if(!poolOnly())return false;
+ for(const hit of attacking.hit){const c=hit.capsule;if(!c)continue;
+  const from={x:c.x1,y:c.y1,z:c.z1},to={x:c.x2,y:c.y2,z:c.z2};
+  for(const {w,bay,u,fraction} of parkWallContact(from,to,(c.width||10)/2+4)){
+    const y=lerp(from.y,to.y,fraction);
+    if(u>bay*w.width+109&&u<(bay+1)*w.width-109&&y>parkDeckY-parkBuildingHeight+269&&y<parkDeckY-99){
+      if(breakParkWindow(w,bay,{...to,y},attacker)){attacker.attackHit=true;return true;}
+    }
+  }
+ }
+ return false;
+}
 function resolveMelee(now) {
   const poseTime = (now - startedAt) / 1000000;
   const contacts = [];
@@ -11963,7 +11998,7 @@ function resolveMelee(now) {
   const samples = [];
   const sampleOf = (player) =>
     samples[player.pad] ||= sampleCombatBoxes(player, now);
-  for (const attacker of players) {
+  for (const attacker of poolOnly()?[...players,...parkKids.filter(k=>k.sparringPartner!==undefined)]:players) {
     if (!couldStrike(attacker, now)) continue;
     const attacking = sampleOf(attacker);
     if (!attacking.hit.length) continue;
@@ -11988,9 +12023,10 @@ function resolveMelee(now) {
       break;
     }
     if (attacker.attackHit) continue;
+    if(strikeParkWindow(attacker,attacking))continue;
     const targets=poolOnly()?[...activePlayers(),...parkKids]:[players[attacker.pad===0?1:0]];
     for(const target of targets){
-    if (target===attacker||!target.alive) continue;
+    if (target===attacker||!target.alive||(attacker.civilian&&target.pad!==attacker.sparringPartner)) continue;
     const contact = combatBoxContact(attacking, sampleOf(target));
     if (contact?.separation <= 3) {
       attacker.attackHit = true;
@@ -12518,6 +12554,20 @@ function updatePoolPlayer(p, pad, dt, now) {
   const axis=value=>Math.abs(value)>.18?Math.sign(value)*(Math.abs(value)-.18)/.82:0;
   const turn=Number(held.includes('ArrowRight'))-Number(held.includes('ArrowLeft')) || axis(pad.leftX||0);
   const throttle=Number(held.includes('ArrowUp'))-Number(held.includes('ArrowDown')) || axis(pad.leftY||0);
+  const tapKey=['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].find(pressed);
+  let directionDash=false;
+  if(tapKey){directionDash=p.poolTap?.key===tapKey&&now-p.poolTap.at<280000;p.poolTap=directionDash?null:{key:tapKey,at:now};}
+  const analogKey=Math.abs(turn)>.6?(turn>0?'right':'left'):Math.abs(throttle)>.6?(throttle>0?'forward':'back'):'';
+  if(analogKey&&analogKey!==p.poolAnalogKey){if(p.poolAnalogTap?.key===analogKey&&now-p.poolAnalogTap.at<280000){directionDash=true;p.poolAnalogTap=null;}else p.poolAnalogTap={key:analogKey,at:now};}
+  p.poolAnalogKey=analogKey;
+  if(directionDash){
+    p.poolPipeLocked=false;p.poolPipeEscapeUntil=now+900000;p.poolVert=null;p.dashUntil=now+180000;p.poolRunTime=1.5;
+    const side=tapKey==='ArrowLeft'||analogKey==='left'?-1:tapKey==='ArrowRight'||analogKey==='right'?1:0;
+    if(side)p.poolYaw+=(side*Math.PI/2);
+    const sign=tapKey==='ArrowDown'||analogKey==='back'?-1:1;
+    p.vx=Math.cos(p.poolYaw||0)*2200*sign;p.vz=Math.sin(p.poolYaw||0)*2200*sign;p.vy=Math.min(p.vy,-480);p.grounded=false;
+    p.lastButton='DASH OUT';p.lastButtonAt=now;playDrum('whoosh',.5,panPlayer(p));
+  }
   const steer=Math.sign(turn);
   if(steer&&steer!==p.poolLastSteer){
     noteDirectionChange(p,now);
@@ -12537,6 +12587,13 @@ function updatePoolPlayer(p, pad, dt, now) {
     const vx=p.vx,vz=p.vz||0,c=Math.cos(headingDelta),sn=Math.sin(headingDelta);
     p.vx=vx*c-vz*sn;p.vz=vx*sn+vz*c;
   }
+  const pipe=parkHalfPipe3D,pipeInside=Math.abs(p.x-pipe.x)<pipe.flat+pipe.radius+12&&Math.abs((p.z||0)-pipe.z)<pipe.run-30;
+  if(!p.skateboard||!pipeInside)p.poolPipeLocked=false;
+  if(p.skateboard&&pipeInside&&now>=(p.poolPipeEscapeUntil||0)&&(p.poolPipeLocked||p.grounded&&speedBefore>160&&Math.abs(Math.cos(p.poolYaw))>.7)){
+    if(!p.poolPipeLocked)p.poolPipeZ=p.z||0;
+    p.poolPipeLocked=true;p.poolYaw=Math.cos(p.poolYaw)>=0?0:Math.PI;
+    p.vz=0;p.z=p.poolPipeZ;
+  }
   const driveX=Math.cos(p.poolYaw),driveZ=Math.sin(p.poolYaw);
   p.previousY=p.y; p.inputX=turn; p.inputZ=throttle; p.inputY=held.includes('X')?-1:held.includes('A')?1:0;
   p.ducking=held.includes('X'); p.crouchBlend+=(Number(p.ducking)-(p.crouchBlend||0))*(1-Math.exp(-dt*14));
@@ -12549,17 +12606,18 @@ function updatePoolPlayer(p, pad, dt, now) {
   if(now>=p.attackUntil)p.attackKind='';
   if(p.itemAction&&now>=p.itemActionUntil)p.itemAction='';
   if(!blocking){
-    if(pressed('B'))startMelee(p,'PUNCH',now);
-    if(pressed('Y')){
+    if(pressed('B')&&!p.chalkColor)startMelee(p,'PUNCH',now);
+    if(pressed('Y')||(held.includes('Y')&&p.gunMode==='RUBBER SMG')){
       if(p.gunAmmo>0&&now>=(p.nextGunShotAt||0)&&availableArm(p))fireGun(p,{horizontal:1,vertical:0});
       else if(!p.gunAmmo)startMelee(p,'KICK',now);
     }
   }
+  if(throttle&&!p.ducking)p.poolRunTime=(p.poolRunTime||0)+dt;else p.poolRunTime=0;
   const mounted=p.skateboard;
   const dash=pressed('LeftShoulder')&&now>=(p.poolDashReadyAt||0);
   if(dash){
     if(mounted)dismountSkateboard(p,now);
-    p.poolVert=null;p.poolDashReadyAt=now+450000;p.dashUntil=now+180000;
+    p.poolVert=null;p.poolPipeLocked=false;p.poolPipeEscapeUntil=now+900000;p.poolRunTime=1.5;p.poolDashReadyAt=now+450000;p.dashUntil=now+180000;
     p.vx=driveX*2200;p.vz=driveZ*2200;p.vy=Math.min(p.vy,-420);p.grounded=false;
     p.lastButton='DASH';p.lastButtonAt=now;emitSignal('dash',p.pad,1,0);
   }else if(pressed('A')&&(p.grounded||mounted)){
@@ -12578,7 +12636,7 @@ function updatePoolPlayer(p, pad, dt, now) {
       const grade=slope.x*driveX+slope.z*driveZ, tangent=Math.hypot(1,grade);
       let rolling=(p.vx*driveX+(p.vz||0)*driveZ)*tangent;
       rolling+=1800*grade/tangent*step;
-      const top=p.onewheel?(p.wheelTurbo?4800:3100):p.skateboard?2700:walkSpeed*(p.ducking?.38:1);
+      const top=p.onewheel?(p.wheelTurbo?4800:3100):p.skateboard?2700:p.ducking?walkSpeed*.38:walkSpeed*lerp(.55,1.65,clamp(((p.poolRunTime||0)-.3)/1.1,0,1));
       if(throttle){
         const target=top*throttle,carving=Math.sign(target)!==Math.sign(rolling);
         if(carving||Math.abs(rolling)<Math.abs(target))
@@ -12593,6 +12651,13 @@ function updatePoolPlayer(p, pad, dt, now) {
       const speed=Math.abs(rolling);
       const previousY=p.y,previousVy=grade*rolling/tangent;
       p.x+=p.vx*step;p.z=(p.z||0)+p.vz*step;
+      const side=Math.sign(p.x-pipe.x),lipX=pipe.x+side*(pipe.flat+pipe.radius-6);
+      if(p.poolPipeLocked&&speed>350&&(before.x-lipX)*side<0&&(p.x-lipX)*side>=0){
+        p.x=lipX;p.z=p.poolPipeZ;p.y=Math.min(previousY,poolFloorAt(p.x,p.z));
+        p.grounded=false;p.vy=-Math.min(speed,skateTop);p.vx=p.vz=0;p.skateAirAt=now;
+        p.poolVert={x:p.x,z:p.z,nx:side,nz:0,speed:-p.vy,heading:p.poolYaw,pipe:true};
+        emitSignal('skate-air',p.pad,Math.round(-p.vy),0);continue;
+      }
       const nextFloor=poolFloorAt(p.x,p.z);
       // Rolling over the rim leaves the deck. Do not teleport down the wall.
       if(nextFloor-previousY>Math.max(12,speed*step*1.5)){
@@ -12602,7 +12667,9 @@ function updatePoolPlayer(p, pad, dt, now) {
       slope=poolSlopeAt(p.x,p.z);
       const nextVy=slope.x*p.vx+slope.z*p.vz;
       if(p.skateboard&&speed>650&&previousVy < -100&&nextVy-previousVy>1800*step*1.5+3){
-        p.grounded=false;p.y=Math.min(nextFloor,previousY+previousVy*step);p.vy=previousVy+1800*step;continue;
+        p.grounded=false;p.y=Math.min(nextFloor,previousY+previousVy*step);p.vy=previousVy+1800*step;
+        if(p.poolPipeLocked){p.poolVert={x:p.x,z:p.z,nx:Math.sign(p.x-pipe.x),nz:0,speed:-p.vy,heading:p.poolYaw,pipe:true};p.vx=p.vz=0;}
+        continue;
       }
       const bent=Math.hypot(p.vx,slope.x*p.vx+slope.z*p.vz,p.vz);
       if(bent>0){p.vx*=speed/bent;p.vz*=speed/bent;}
@@ -12631,6 +12698,7 @@ function updatePoolPlayer(p, pad, dt, now) {
         const inward=(p.vy-slope.x*p.vx-slope.z*p.vz)/(1+slope.x*slope.x+slope.z*slope.z);
         if(inward>0){p.vx+=slope.x*inward;p.vz+=slope.z*inward;}
         p.landingSpeed=p.vy;p.y=floor;p.vy=slope.x*p.vx+slope.z*p.vz;
+        if(p.poolVert?.pipe){p.poolYaw=p.poolVert.nx>0?Math.PI:0;p.poolPipeLocked=true;}
         p.grounded=true;p.poolVert=null;p.landPoseUntil=now+110000;
       }
     }
@@ -12640,6 +12708,7 @@ function updatePoolPlayer(p, pad, dt, now) {
     playDrum('clap',clamp((p.landingSpeed||0)/2400,.25,.8),panPlayer(p));
     emitSignal('skate-land',p.pad,p.landingSpeed||0,0);
   }
+  updateChalk(p,held,now);
   const horizontal=Math.hypot(p.vx,p.vz||0);
   if(p.grounded&&!p.skateboard){
     const forward=p.vx*driveX+(p.vz||0)*driveZ;
@@ -15302,7 +15371,7 @@ function ragdollGeometry(body){
 }
 function startRagdoll(player,point,impulse){
  if(!poolOnly())return;
- const pose=runnerWorldGeometry(player,(runtime().monotonicUs-startedAt)/1e6);
+ const source=runnerWorldGeometry(player,(runtime().monotonicUs-startedAt)/1e6),pose={...source,segments:source.segments.filter(s=>hasPart(player,s.part))};
  const body=new OskiewarRagdoll(pose,[player.vx||0,player.vy||0,player.vz||0]);
  if(point&&impulse)body.impulse([point.x,point.y,point.z||0],impulse);
  // The park has eight civilians and at most two player bodies: bounded actor ownership.
@@ -16602,6 +16671,7 @@ function sampleCombatBoxes(player, now, world = null) {
     { part: 'head', segmentIndex: -1, capsule:{x1:head.x,y1:head.y,z1:head.z,x2:head.x,y2:head.y,z2:head.z,width:headRadius*2} }));
   for (let i=0; i<world.segments.length; i++) {
     const s = world.segments[i];
+    if(!hasPart(player,s.part))continue;
     // Each independently damageable region has its own rectangle, including
     // limbs extended during recovery. Missing limbs never produce hurtboxes.
     const radius = poolOnly()?(s.role==='torso'?(looseCartoonEnabled()?15:21)*(player.bodyScale||1):(s.width||10)/2):s.part === 'torso' ? 14 : s.hitboxOnly ? 16 : 10;
@@ -18736,7 +18806,7 @@ function drawLooseRunner(player,world,t,lod){
     }
   }
   if(player.gunAmmo>0){const gun=gunPose(player,runtime().monotonicUs);stroke3(gun.hand,gun.muzzle,7,[35,35,43]);}
-  drawHeldAxe(player,t);triangleDepth=saved;
+  drawHeldAxe(player,t);drawHeldChalk(player,t);triangleDepth=saved;
 }
 
 function drawSpatialRunner(player,world,t,lod=0){
@@ -18865,7 +18935,7 @@ function drawSpatialRunner(player,world,t,lod=0){
     tube(pose.hand,pose.muzzle,4*scale,4*scale,[45,48,55],4);
     tube(pose.hand,{...pose.hand,y:pose.hand.y+14*scale},4*scale,3*scale,[30,29,34],4);
   }
-  drawHeldAxe(player,t);triangleDepth=saved;
+  drawHeldAxe(player,t);drawHeldChalk(player,t);triangleDepth=saved;
 }
 
 function drawRunner(player,t,showLabel=true){
@@ -22663,7 +22733,7 @@ function gamePaint() {
       drawRunner(renderable.item, t, showRunnerLabels);
     }
   }
-  if(poolOnly()){drawCerealMilk(t);drawAeselFairy(t);}
+  if(poolOnly()){drawCerealMilk(t);drawParkStereo();drawAeselFairy(t);}
   // Debug geometry shares the unfiltered overlay pass, behind screen UI.
   triangleDepth = -1.465;
   for(const p of activePlayers()){drawDebugHitboxes(p,t);if(debugHitboxes)drawAxeHitbox(p,t);}
@@ -23029,11 +23099,47 @@ function drawMonowheel(p){
   worldQuad(at(b,-8,-14),at(b,-8,14),at(b,-4,14),at(b,-4,-14),side>0?[237,247,251]:[249,62,62]);
  }
 }
+const chalkColors=[{name:'PINK',rgb:[255,55,190]},{name:'CYAN',rgb:[40,244,255]},{name:'LIME',rgb:[145,255,45]},{name:'YELLOW',rgb:[255,242,55]},{name:'ORANGE',rgb:[255,133,35]},{name:'VIOLET',rgb:[192,99,255]}];
+const chalkPickups=[],parkAxes=[];
+function chalkTip(p){const a=(p.poolYaw||0)+(p.spin?.angle||0),x=p.x+Math.cos(a)*45-Math.sin(a)*30,z=(p.z||0)+Math.sin(a)*45+Math.cos(a)*30;return {x,z,y:poolFloorAt(x,z)-2};}
+function updateChalk(p,held,now){
+ p.chalkDrawing=!!p.chalkColor&&held.includes('B')&&p.grounded&&!p.swimming;
+ if(!p.chalkDrawing){p.chalkPrevious=null;return;}
+ const tip=chalkTip(p),previous=p.chalkPrevious;
+ if(previous){const distance=Math.hypot(tip.x-previous.x,tip.z-previous.z);
+  if(distance>=2&&distance<180)addDecal({kind:'chalk',x:previous.x,z:previous.z,x2:tip.x,z2:tip.z,size:4,color:p.chalkColor.rgb});
+ }
+ p.chalkPrevious=tip;
+}
+function drawHeldChalk(p,t){
+ if(!p.chalkColor||!p.alive)return;
+ const world=runnerWorldGeometry(p,t),arm=world.segments.find(s=>s.part===itemHand(p)&&/forearm$/.test(s.role));if(!arm)return;
+ const hand={x:arm.x2,y:arm.y2,z:arm.z2},tip=p.chalkDrawing?chalkTip(p):{x:hand.x+8,y:hand.y+16,z:hand.z};
+ worldCapsule(hand.x,hand.y,hand.z,tip.x,tip.y,tip.z,6*projectionScaleAt(tip),p.chalkColor.rgb);
+}
+function seedStreetTexture(){
+ if(typeof decalTint!=='function'||!poolDecalsNative)return;
+ const bounds={x:gridLeft-parkLotMargin,z:worldNear-parkLotMargin,w:gridWidth+parkLotMargin*2,h:roomDepth+parkLotMargin*2};
+ const pix=(x,z)=>[(x-bounds.x)/bounds.w*2048,(z-bounds.z)/bounds.h*2048];
+ for(let x=gridLeft-parkLotMargin;x<gridLeft+gridWidth+parkLotMargin;x+=180)for(let z=worldNear-parkLotMargin;z<worldFar+parkLotMargin;z+=180){
+  const edge=poolDistance(x+90,z+90);if(edge.d<edge.bowl.radius+70||parkHalfPipeHeight(x+90,z+90)>0)continue;
+  const n=Math.abs(Math.sin(x*.173+z*.617)),gray=45+Math.round(n*33);
+  decalTint(0,0,128,128,...pix(x,z),...pix(x+180,z),...pix(x+180,z+180),...pix(x,z+180),gray,gray+2,gray+6);poolDecalCount++;
+ }
+}
 function resetParkSupply(now){
+ chalkPickups.length=0;parkAxes.length=0;for(const p of players){p.chalkColor=null;p.chalkPrevious=null;p.chalkDrawing=false;}
+ if(poolOnly()){
+  chalkColors.forEach((color,i)=>{const x=pool.x-240+i*95,z=260;chalkPickups.push({x,z,y:poolFloorAt(x,z)-12,color,active:true});});
+  for(let i=gunPickups.length-1;i>=0;i--)if(gunPickups[i].parkScatter)gunPickups.splice(i,1);
+  for(const [x,z,kind] of [[2400,-1100,'RUBBER SMG'],[4500,1300,'HANDGUN'],[7100,-800,'RUBBER SMG']])gunPickups.push({parkScatter:true,kind,x,z,y:poolFloorAt(x,z)-65,amount:kind==='RUBBER SMG'?90:24,active:true,startsActive:false,respawnAt:Infinity});
+  for(const [x,z] of [[3900,-200],[6500,700]])parkAxes.push({x,z,y:poolFloorAt(x,z)-65,active:true});
+ }
  if(halfpipeOnly()){
   for(const p of [...gunPickups,...saberPickups,...grenadePickups])p.active=false;
   axePickup.active=false;for(const p of players){p.axeHeld=false;p.underPipe=false;}
   if(poolOnly()){
+    for(const pickup of gunPickups)if(pickup.parkScatter)pickup.active=true;
     const pistol=gunPickups.find(p=>p.kind==='HANDGUN');
     Object.assign(pistol,{active:true,amount:12,x:pool.x+160,z:100,y:poolFloorAt(pool.x+160,100)-65});
     Object.assign(axePickup,{active:true,x:pool.x-170,z:-100,y:poolFloorAt(pool.x-170,-100)-65});
@@ -23052,6 +23158,8 @@ function resetParkSupply(now){
 function updateParkSupply(dt,now){
  if(!freeskateActive())return;
  if(poolOnly()){
+  for(const chalk of chalkPickups)if(chalk.active)for(const p of activePlayers())if(p.alive&&availableArm(p)&&Math.hypot(p.x-chalk.x,(p.z||0)-chalk.z)<35&&Math.abs(p.y-chalk.y)<70){p.chalkColor=chalk.color;p.itemArm=availableArm(p);chalk.active=false;playDrum('hat',.25,panPlayer(p));break;}
+  for(const axe of parkAxes)if(axe.active)for(const p of activePlayers())if(p.alive&&availableArm(p)&&Math.hypot(p.x-axe.x,(p.z||0)-axe.z)<55&&Math.abs(p.y-axe.y-65)<100){p.axeHeld=true;p.itemArm=availableArm(p);axe.active=false;break;}
   if(axePickup.active)for(const p of activePlayers())if(p.alive&&availableArm(p)&&
     Math.hypot(p.x-axePickup.x,(p.z||0)-(axePickup.z||0))<65&&Math.abs(p.y-axePickup.y-65)<100){
       p.axeHeld=true;p.itemArm=availableArm(p);axePickup.active=false;break;
@@ -23084,6 +23192,8 @@ function updateParkSupply(dt,now){
 function drawParkSupply(){
  if(!freeskateActive() || (halfpipeOnly()&&!poolOnly()))return;
  if(axePickup.active){const p=projectPoint(axePickup.x,axePickup.y,axePickup.z||0),t=projectPoint(axePickup.x+30,axePickup.y-130,axePickup.z||0);const old=triangleDepth;triangleDepth=p.z;drawBigAxe(p.x,p.y,t.x,t.y,cameraScale());triangleDepth=old;}
+ for(const chalk of chalkPickups)if(chalk.active)worldCapsule(chalk.x-10,chalk.y,chalk.z,chalk.x+10,chalk.y,chalk.z,8*projectionScaleAt(chalk),chalk.color.rgb);
+ for(const axe of parkAxes)if(axe.active){const p=projectPoint(axe.x,axe.y,axe.z),top=projectPoint(axe.x+30,axe.y-130,axe.z),old=triangleDepth;triangleDepth=p.z;drawBigAxe(p.x,p.y,top.x,top.y,projectionScaleAt(axe));triangleDepth=old;}
  const d=parkSupply.drone;
  if(d){
   worldCapsule(d.x-65,d.y,0,d.x+65,d.y,0,Math.max(2,12*cameraScale()),[63,70,87]);
@@ -23312,8 +23422,11 @@ function seatHudReadout(p,now){
  if(age>=0 && age<100000)return held;
  const speed=Math.hypot(p.vx,p.vy,p.vz||0)*gameSpeed;
  const idle=speed<30 && p.grounded && !p.spin;
- const readout={at:now,idle,
-  measure:idle?Math.round(p.heartRate||68)+' bpm':p.spin?Math.round(spinRpm(p))+' rpm':Math.round(mph(speed))+' mph'};
+ const metrics=[{text:Math.round(p.heartRate||68)+' bpm',color:[255,144,188]}];
+ const speedValue=Math.round(mph(speed)),rpm=Math.round(p.spin?spinRpm(p):0);
+ if(speedValue)metrics.push({text:speedValue+' mph',color:[110,220,255]});
+ if(rpm)metrics.push({text:rpm+' rpm',color:[255,215,80]});
+ const readout={at:now,idle,metrics,measure:metrics.map(m=>m.text).join('   ')};
  seatHudReadouts.set(p,readout);
  return readout;
 }
@@ -23322,41 +23435,63 @@ function drawSeatPlayerHud(ink){
  const safe=hudSafeRect(),old=triangleDepth,now=runtime().monotonicUs;triangleDepth=hudDepth;
  for(const p of activePlayers()){
   if(p.dummy)continue;
-  const i=p.pad,{idle,measure}=seatHudReadout(p,now);
+  const i=p.pad,{idle,measure,metrics}=seatHudReadout(p,now);
   const accent=p.wheelTurbo?[209,129,255]:i?[174,161,255]:[255,144,188];
   const size=42;
-  const heartRadius=idle?size*.23:0,heartSpace=idle?heartRadius*3+18:0;
-  const width=handleWidth(measure,size)+heartSpace;
+  const heartRadius=size*.23,heartSpace=heartRadius*3+18;
+  const gap=24,width=metrics.reduce((sum,m)=>sum+handleWidth(m.text,size),0)+gap*(metrics.length-1)+heartSpace;
   const solo=activePlayers().filter(p=>!p.dummy).length===1;
   const center=solo?viewCenterX():lerp(safe.left,safe.right,i?.72:.28);
   const x=clamp(center-width/2,safe.left,safe.right-width),y=safe.bottom-size-70;
-  seatHudText(measure,x,y,size,accent);
-  if(idle){
-   const hx=x+handleWidth(measure,size)+heartSpace/2,hy=y+size*.75;
+  let cursor=x+heartSpace;for(const metric of metrics){seatHudText(metric.text,cursor,y,size,metric.color);cursor+=handleWidth(metric.text,size)+gap;}
+  {
+   const hx=x+heartSpace/2,hy=y+size*.75;
    drawSeatHeart(hx+5,hy+5,p,[9,12,24],heartRadius);
-   drawSeatHeart(hx,hy,p,accent,heartRadius);
+   drawSeatHeart(hx,hy,p,[255,144,188],heartRadius);
   }
  }
  triangleDepth=old;
 }
 function seatActionText(p,now){
+ const speed=Math.hypot(p.vx,p.vz||0),states=[p.poolPipeLocked?'HALFPIPING':statusVerb(p,speed,false)[0].toUpperCase()];
+ if(p.poolPipeLocked)states.push('LOCKED IN');
+ if(p.chalkDrawing)states.push('DRAWING');
+ if(p.sparringPartner!==undefined)states.push('SPARRING');
+ if(now<(p.dashUntil||0))states.push(now<(p.poolPipeEscapeUntil||0)&&p.skateboard?'DASHING OUT':'DASHING');
+ if(Math.abs(p.inputX||0)>.18)states.push(p.inputX>0?'TURNING RIGHT':'TURNING LEFT');
+ if(p.spin)states.push('SPINNING');
+ if(p.wheelTurbo)states.push('SUPER TURBO');
  const recent=now-(p.lastButtonAt||0)<850000?p.lastButton:'';
- const action=p.wheelTurbo?'SUPER TURBO':p.spin?'SPIN':recent&&!['NONE','LEFT','RIGHT','UP','DOWN'].includes(recent)?recent:statusVerb(p,Math.hypot(p.vx,p.vz||0))[0].toUpperCase();
+ if(recent&&!['NONE','LEFT','RIGHT','UP','DOWN','SPIN','SUPER TURBO','SKATEBOARD','MONOWHEEL','DASH','DASH OUT'].includes(recent)&&!states.includes(recent))states.push(recent);
  const held=[];
- if(p.axeHeld)held.push('AXE');if(p.swordHeld)held.push('SWORD');if(p.gunAmmo>0)held.push('PISTOL');
+ if(p.axeHeld)held.push('AXE');if(p.swordHeld)held.push('SWORD');if(p.gunAmmo>0)held.push(p.gunMode==='RUBBER SMG'?'SMG':'PISTOL');
+ if(p.chalkColor)held.push(p.chalkColor.name+' CHALK');
  if(p.heldBall>=0)held.push('BALL');if(p.heldPlayer>=0)held.push('PARTNER');
- return action+(held.length?' W/ '+held.join(' + '):'');
+ return states.join(' + ')+(held.length?' W/ '+held.join(' + '):'');
+}
+const actionColors={
+ 'STANDING':[237,202,255],'WALKING':[145,232,179],'RUNNING':[71,236,147],
+ 'CRAWLING':[240,172,98],'CROUCHING':[220,167,255],'SPINNING':[255,215,80],
+ 'IN THE AIR':[110,220,255],'SWIMMING':[130,238,231],'SKATING':[167,197,255],
+ 'BALANCING':[199,167,255],'RIDING ELECTRIC':[203,155,255],'SUPER TURBO':[244,133,245],
+ 'TURNING LEFT':[179,174,255],'TURNING RIGHT':[143,207,255],
+ 'HALFPIPING':[132,222,255],'LOCKED IN':[164,255,134],'DASH OUT':[255,162,235],'DASHING':[98,255,170],'DASHING OUT':[255,162,235],'DRAWING':[255,161,244],'SPARRING':[255,144,123],'SMG':[143,208,244],
+ 'AXE':[255,160,100],'PISTOL':[115,208,255],'SWORD':[220,230,255],'BALL':[248,227,112],
+ 'PARTNER':[153,230,155],'PUNCH':[255,134,147],'KICK':[247,170,106],'DASH':[98,255,170],
+};
+function seatActionRuns(p,now){
+ return seatActionText(p,now).split(/( \+ | W\/ )/).map(text=>({text,color:chalkColors.find(c=>text===c.name+' CHALK')?.rgb||actionColors[text]||(/^[ +]| W\//.test(text)?[213,207,219]:[255,175,199])}));
 }
 function drawSeatAction(p){
  if(shellMode!=="GAME"||parkSupply.ko||!p.alive||p.dummy)return;
- const text=seatActionText(p,runtime().monotonicUs),size=42,safe=hudSafeRect();
+ const runs=seatActionRuns(p,runtime().monotonicUs),size=42,safe=hudSafeRect();
  const old=triangleDepth;triangleDepth=hudDepth;
- const width=handleWidth(text,size),x=viewCenterX()-width/2;
+ const width=runs.reduce((sum,r)=>sum+handleWidth(r.text,size),0);
+ let x=viewCenterX()-width/2;
  const seats=activePlayers().filter(p=>!p.dummy),row=Math.max(0,seats.indexOf(p));
  const y=safe.top+18+row*50;
- const ink=p.wheelTurbo?[238,130,238]:p.spin?[255,215,0]:/DASH/.test(text)?[0,255,127]:/JUMP/.test(text)?[0,191,255]:p.pad===0?[255,105,180]:[135,206,250];
- typeWrite(text,x+3,y+3,size,9,12,24);
- typeWrite(text,x,y,size,...ink);triangleDepth=old;
+ for(const run of runs){seatHudText(run.text,x,y,size,run.color);x+=handleWidth(run.text,size);}
+ triangleDepth=old;
 }
 
 function drawAxeHitbox(p,t){
@@ -23458,7 +23593,7 @@ function parkSightlineClear(from,to){
   for(const {w,bay,u,fraction} of parkWallContact(from,to,0)){
     const y=lerp(from.y,to.y,fraction);
     if(!brokenParkWindows.has(w.id+':'+bay)||u<=bay*w.width+109||u>=(bay+1)*w.width-109||
-      y<=parkDeckY-parkBuildingHeight+269||y>=parkDeckY-479)return false;
+      y<=parkDeckY-parkBuildingHeight+269||y>=parkDeckY-99)return false;
   }
   for(let i=1;i<12;i++){
     const t=i/12,x=lerp(from.x,to.x,t),z=lerp(from.z,to.z,t);
@@ -23599,6 +23734,19 @@ function updateParkKids(dt,now){
  for(let i=crowdNotes.length-1;i>=0;i--)if(now>=crowdNotes[i].at){playSine(crowdNotes[i].hz,.045);crowdNotes.splice(i,1);}
  for(const kid of parkKids){
   if(ragdollBodies.has(kid)&&!kid.alive&&!kid.headless)continue;
+  if(kid.alive&&kid.sparringPartner!==undefined){
+    const rival=players[kid.sparringPartner],distance=rival?Math.hypot(rival.x-kid.x,(rival.z||0)-(kid.z||0)):Infinity;
+    if(!rival?.alive||distance>1300||rival.poolPipeEscapeUntil>now){if(rival)rival.sparringPartner=undefined;kid.sparringPartner=undefined;kid.attackKind='';}
+    else{
+      if(now>=kid.attackUntil)kid.attackKind='';
+      const dx=rival.x-kid.x,dz=(rival.z||0)-(kid.z||0),yaw=Math.atan2(dz,dx);kid.poolYaw=yaw;kid.facing=1;kid.grounded=true;kid.ducking=false;
+      const speed=distance>95?Math.min(380,(distance-95)*3):0,previous={x:kid.x,z:kid.z};
+      kid.vx=Math.cos(yaw)*speed;kid.vz=Math.sin(yaw)*speed;kid.x+=kid.vx*dt;kid.z+=kid.vz*dt;kid.y=poolFloorAt(kid.x,kid.z);
+      kid.poolStridePhase=(kid.poolStridePhase||0)+speed*dt/240;boundParkBody(kid,previous);
+      if(distance<155&&now>=(kid.nextSparAt||0)&&now>=(kid.hitStunUntil||0)){kid.sparCount=(kid.sparCount||0)+1;startMelee(kid,kid.sparCount%3===0?'KICK':'PUNCH',now);kid.nextSparAt=now+1100000;}
+      continue;
+    }
+  }
   if(kid.headless){
    const h=kid.looseHead;h.vy+=1100*dt;h.x+=h.vx*dt;h.y+=h.vy*dt;h.z=clamp(h.z+h.vz*dt,worldNear+30,worldFar-30);
    const floor=terrainFloorAt(h.x,h.z)-h.radius;
@@ -23658,7 +23806,7 @@ function drawTurboParticles(){
 
 function damageParkCivilian(kid,owner,at,now,damage){
  kid.health=(kid.health??4)-damage;kid.hit=1;kid.startledUntil=now+900000;
- kid.sparringPartner=owner.pad;kid.lastHitAt=now;
+ kid.sparringPartner=owner.pad;owner.sparringPartner=kid.pad;kid.lastHitAt=now;
  const dx=kid.x-owner.x,dz=(kid.z||0)-(owner.z||0),length=Math.hypot(dx,dz)||1;
  kid.x+=dx/length*20;kid.z+=dz/length*20;kid.patrolZ=kid.z;
  spawnImpact({x:at.x,y:at.y,z:at.z,life:.18,duration:.18,death:false,explosion:false});
@@ -23803,6 +23951,32 @@ function mainNativeCamera(){
  return mainNativeCameraBuffer;
 }
 
+const parkStereo={x:parkHalfPipe3D.x,z:-parkHalfPipe3D.run-130,beat:0};
+function stereoGain(p){return Math.pow(clamp(1-Math.hypot(p.x-parkStereo.x,(p.z||0)-parkStereo.z)/3600,0,1),2);}
+function updateParkMusic(p,previous){
+ if(previous===undefined||!poolOnly())return;
+ const gain=stereoGain(p),pan=panAt(parkStereo.x,parkStereo.z);
+ if(p.heartPhase<previous){
+  parkStereo.beat=(parkStereo.beat+1)%16;
+  if(gain>.005){playDrum('kick',gain*.65,pan);if(parkStereo.beat%2===0)playDrum('bass',gain*.45,pan);if(parkStereo.beat%4===2)playDrum('snare',gain*.22,pan);}
+ }
+ if(previous<.5&&p.heartPhase>=.5&&gain>.005)playDrum('hat',gain*.22,pan);
+}
+function drawParkStereo(){
+ if(!poolOnly())return;
+ const phase=players[0].heartPhase||0,pulse=Math.max(0,1-phase/.17);
+ for(const side of [-1,1]){
+  const x=parkStereo.x+side*155,z=parkStereo.z,y=poolFloorAt(x,z),w=55,h=220;
+  const a={x:x-w,y,z:z-45},b={x:x+w,y,z:z-45},c={x:x+w,y:y-h,z:z-45},d={x:x-w,y:y-h,z:z-45};
+  worldQuad(a,b,c,d,[32,34,42]);worldQuad(d,c,{...c,z:z+45},{...d,z:z+45},[52,56,65]);
+  for(const xx of [x-w,x+w])worldQuad({x:xx,y,z:z-45},{x:xx,y,z:z+45},{x:xx,y:y-h,z:z+45},{x:xx,y:y-h,z:z-45},[44,46,56]);
+  for(const [height,radius] of [[58,39],[150,30]])for(let i=0;i<16;i++){
+    const p=j=>({x:x+Math.cos(j*Math.PI/8)*radius,y:y-height+Math.sin(j*Math.PI/8)*radius,z:z-47-pulse*3});
+    worldTriangle({x,y:y-height,z:z-52-pulse*5},p(i),p(i+1),i%2?[64,68,78]:[54,58,70]);
+  }
+  worldCapsule(x-38,y-h+15,z-47,x+38,y-h+15,z-47,3*projectionScaleAt(d),[140,255,170]);
+ }
+}
 function updateSeatHeartbeat(dt,now){
  const realDt=dt/Math.max(.1,gameSpeed);
  for(const p of [...activePlayers(),...parkKids]){
@@ -23820,7 +23994,9 @@ function updateSeatHeartbeat(dt,now){
   }
   for(const b of bullets)if(b.owner!==p.pad){const distance=Math.hypot(b.x-p.x,b.y-(p.y-90));danger=Math.max(danger,clamp(1-distance/950,0,1));}
   danger=Math.max(danger,Math.min(1,(p.hit||0)*2));
-  const rest=62+(p.pad*7%19),effort=Math.min(1,Math.hypot(p.vx,p.vy)/1800),target=rest+danger*85+effort*25;
+  const rest=62+(p.pad*7%19),effort=Math.min(1,Math.hypot(p.vx,p.vy,p.vz||0)/1800);
+  const excitement=Math.max(p.spin?Math.min(1,spinRpm(p)/180):0,p.attackKind?.length?1:0,!p.grounded?.55:0,p.wheelTurbo?1:0,now-(p.lastButtonAt||0)<600000&&/PUNCH|KICK|DASH|JUMP|SHOT|WACK/.test(p.lastButton||'')?.8:0);
+  const target=Math.min(210,rest+danger*65+effort*55+excitement*35);
   p.heartRate=(p.heartRate||rest)+(target-(p.heartRate||rest))*(1-Math.exp(-realDt*(target>(p.heartRate||rest)?1.8+(p.pad%3)*.2:.23+(p.pad%4)*.04)));
   const previousHeartPhase=p.heartPhase;
   p.heartDanger=danger;p.heartPhase=((p.heartPhase ?? (p.pad*.173)%1)+realDt*p.heartRate/60)%1;
@@ -23828,6 +24004,7 @@ function updateSeatHeartbeat(dt,now){
     playDrum('kick',.23,0);
   if(p===players[0]&&previousHeartPhase!==undefined&&p.heartPhase>=.23&&previousHeartPhase<.23)
     playDrum('kick',.12,0);
+  if(p===players[0])updateParkMusic(p,previousHeartPhase);
   p.breathRate=11+(p.pad%5)+danger*13+effort*12;
   p.breathPhase=((p.breathPhase ?? (p.pad*.317)%1)+realDt*p.breathRate/60)%1;
   p.motionClock=(p.motionClock ?? now/1e6+p.pad*1.7)+realDt*(.8+p.heartRate/300);

@@ -107,6 +107,7 @@ class Graphics {
   virtual void theme_quad(const ThemeQuad&) {}
   virtual bool decal_clear() { return false; }
   virtual bool decal_stamp(const std::array<float,12>&) { return false; }
+  virtual bool decal_tint(const std::array<float,12>&,const std::array<float,3>&) { return false; }
   virtual void decal_triangle(const TexturedTriangle&) {}
   virtual void write(const Text&) = 0;
   virtual void system_write(const SystemText&) {}

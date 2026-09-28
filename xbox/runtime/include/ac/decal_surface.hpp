@@ -16,7 +16,8 @@ class DecalSurface {
   }
   void clean() { dirty=false;left=top=side;right=bottom=0; }
   // Source rectangle in the 256px atlas, then four destination pixel points.
-  bool stamp(const std::array<float,12>& q) {
+  bool stamp(const std::array<float,12>& q, const std::array<float,3>* tint=nullptr) {
+    if(tint)for(float v:*tint)if(!std::isfinite(v)||v<0||v>255)return false;
     for(float v:q)if(!std::isfinite(v)||std::abs(v)>32768)return false;
     if(q[0]<0||q[1]<0||q[2]<=0||q[3]<=0||q[0]+q[2]>256||q[1]+q[3]>256)return false;
     float loX=q[4],hiX=q[4],loY=q[5],hiY=q[5];
@@ -41,7 +42,7 @@ class DecalSurface {
       const auto* src=atlas.data()+(sy*256+sx)*4;auto* dst=pixels.data()+(y*side+x)*4;
       const unsigned a=src[3],old=dst[3],out=a*255+old*(255-a);
       if(!a)continue;
-      for(int k=0;k<3;k++)dst[k]=uint8_t((src[k]*a*255+dst[k]*old*(255-a)+out/2)/out);
+      for(int k=0;k<3;k++)dst[k]=uint8_t(((tint?unsigned((*tint)[k]):src[k])*a*255+dst[k]*old*(255-a)+out/2)/out);
       dst[3]=uint8_t((out+127)/255);
     }
     left=(std::min)(left,unsigned(x0));top=(std::min)(top,unsigned(y0));

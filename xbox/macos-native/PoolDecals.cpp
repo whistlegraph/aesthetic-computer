@@ -32,6 +32,10 @@ bool ac_pool_stamp(void* p,const float* values) {
   std::array<float,12> q;std::copy_n(values,12,q.begin());
   return static_cast<Pool*>(p)->surface.stamp(q);
 }
+bool ac_pool_tint(void* p,const float* values) {
+  std::array<float,12> q;std::copy_n(values,12,q.begin());std::array<float,3> tint;std::copy_n(values+12,3,tint.begin());
+  return static_cast<Pool*>(p)->surface.stamp(q,&tint);
+}
 // Return the dirty rectangle without consuming it; Swift copies it into each
 // frame slot's pending bounds before acknowledging it with ac_pool_clean.
 const uint8_t* ac_pool_pixels(void* p,int* bounds) {

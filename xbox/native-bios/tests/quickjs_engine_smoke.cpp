@@ -11,6 +11,7 @@ class GraphicsProbe final : public Graphics { public:
   DecalSurface surface; int decalTriangles=0; TexturedTriangle lastDecal{};
   bool decal_clear() override { surface.clear();return true; }
   bool decal_stamp(const std::array<float,12>& q) override { return surface.stamp(q); }
+  bool decal_tint(const std::array<float,12>& q,const std::array<float,3>& tint) override { return surface.stamp(q,&tint); }
   void decal_triangle(const TexturedTriangle& t) override { ++decalTriangles;lastDecal=t; }
  bool themeAvailable = true; int themeSprites = 0, themeQuads = 0; ThemeSprite lastTheme{}; ThemeQuad lastQuad{}; bool theme_ready() const override { return themeAvailable; } bool theme_asset_ready(int asset) const override { return themeAvailable && asset >= 0 && asset < 6; } void theme_sprite(const ThemeSprite& value) override { ++themeSprites; lastTheme = value; } void theme_quad(const ThemeQuad& value) override { ++themeQuads; lastQuad=value; } Color color{}; int boxes = 0; int lines = 0; int triangles = 0; int textured = 0; int sprites = 0; int writes = 0; int systemWrites = 0; int glyphs = 0; int images = 0; int blurs = 0; ImageDraw lastImage{}; void wipe(Color value) override { color = value; } void box(const Rect&) override { ++boxes; } void line(const Line&) override { ++lines; } void triangle(const Triangle&) override { ++triangles; } void textured_triangle(const TexturedTriangle&) override { ++textured; } void sprite(const Sprite&) override { ++sprites; } void write(const Text&) override { ++writes; } void system_write(const SystemText&) override { ++systemWrites; } void system_glyph(const SystemGlyph&) override { ++glyphs; } void image(const ImageDraw& draw) override { ++images; lastImage = draw; } void blur(unsigned) override { ++blurs; } };
 class SoundProbe final : public Sound { public: int calls = 0; int skateCalls = 0; void skate_audio(float speed, float volume) override { assert(speed == .4f && volume == .2f); ++skateCalls; } int oscillators = 0; int stops = 0; int drums = 0; void synth(const SynthVoice&) override { ++calls; } void stop_all() override {} int sample_rate() const override { return 48000; } void oscillator(float, float) override { ++oscillators; } void oscillator_stop() override { ++stops; } void drum(std::string_view, float, float) override { ++drums; } };
@@ -187,6 +188,7 @@ int main() {
   auto retainedDecals=engine.compile({"retained-decals","test",R"JS(
     function paint(){
       if(!decalClear()||!decalStamp(0,0,128,128,20,20,44,20,44,44,20,44))throw Error('retained stamp');
+      if(!decalTint(0,0,128,128,50,50,70,50,70,70,50,70,255,30,180))throw Error('tinted stamp');
       let rejected=false;try{decalStamp(250,0,128,128,0,0,1,0,1,1,0,1);}catch(_){rejected=true;}
       if(!rejected)throw Error('invalid atlas accepted');
       const vertices=new Float32Array([-10,0,20,10,0,20,10,0,40,-10,0,40]);
