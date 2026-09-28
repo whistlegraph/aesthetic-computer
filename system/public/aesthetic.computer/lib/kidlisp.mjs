@@ -1082,6 +1082,9 @@ function processArgStringTypes(args) {
   });
 }
 
+// Words that mean "no background" in a `write` bg slot.
+const NO_BACKGROUND_WORDS = new Set(["nil", "false", "transparent", "clear"]);
+
 function unquoteString(str) {
   // Handle both double quotes and single quotes
   if ((str.startsWith('"') && str.endsWith('"')) ||
@@ -7473,9 +7476,16 @@ class KidLisp {
           y = unquoteString(y);
         }
 
-        // Only process background if it's not undefined - no should pass undefined for transparent bg
-        const bg =
-          args[3] !== undefined ? processArgStringTypes(args[3]) : undefined;
+        // Only process background if it's not undefined - no should pass undefined for transparent bg.
+        // nil / false / transparent / clear hold the slot open for a size without painting a box.
+        const bgArg = args[3];
+        const noBackground =
+          bgArg === undefined ||
+          bgArg === null ||
+          bgArg === false ||
+          (typeof bgArg === "string" &&
+            NO_BACKGROUND_WORDS.has(unquoteString(bgArg).toLowerCase()));
+        const bg = noBackground ? undefined : processArgStringTypes(bgArg);
 
         const size = args[4]; // 5th parameter for scale/size
         const bounds = args[5]; // 6th parameter for text bounds/wrapping

@@ -78,4 +78,18 @@ describe("🪙 KidLisp daily token", () => {
       expect(writes(calls).map(([, text]) => text)).toEqual(["true", "false"]);
     });
   });
+
+  describe("write with no background", () => {
+    for (const word of ["nil", "false", "transparent", "clear", '"transparent"']) {
+      it(`treats ${word} as no box while still passing a size`, () => {
+        const [call] = writes(run(`(write "HI" 10 10 ${word} 2)`));
+        expect(call).toEqual(["write", "HI", { x: 10, y: 10, size: 2 }]);
+      });
+    }
+
+    it("still paints a named background", () => {
+      const [call] = writes(run('(write "HI" 10 10 red 2)'));
+      expect(call[3]).toEqual({ bg: [255, 0, 0] });
+    });
+  });
 });
