@@ -7,7 +7,14 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const OUT = resolve(HERE, "../out/composition-beds");
+const argument = (flag) => {
+  const index = process.argv.indexOf(flag);
+  if (index < 0) return undefined;
+  const value = process.argv[index + 1];
+  if (!value || value.startsWith("--")) throw new Error(`${flag} needs a value`);
+  return value;
+};
+const OUT = resolve(argument("--out") || resolve(HERE, "../out/composition-beds"));
 mkdirSync(OUT, { recursive: true });
 
 const SR = 48_000;
@@ -28,7 +35,7 @@ const PATTERNS = {
   beacon: [0, 0, 4, 3, 0, 5, 4, 2, 0, 7, 6, 4, 2, 1, 0, 0],
 };
 const chord = (name, bass, notes) => ({ name, bass, notes });
-const BEDS = [
+const DEFAULT_BEDS = [
   { id: "01", name: "minor doorway", bpm: 92, rhythm: "halves", scale: "harmonicMinor", melody: "arch",
     chords: [chord("Em(add9)", 40, [52,59,64,66,67]), chord("Cmaj7/E", 40, [48,55,59,64]), chord("Am9", 33, [45,48,52,55,59]), chord("B7(b9)", 35, [47,51,54,57,60])] },
   { id: "02", name: "dorian window", bpm: 118, rhythm: "syncopated", scale: "dorian", melody: "answer",
@@ -54,6 +61,29 @@ const BEDS = [
   { id: "12", name: "suspended home", bpm: 98, rhythm: "sparse", scale: "major", melody: "fall",
     chords: [chord("E(sus2 add9)", 40, [52,54,59,66]), chord("G#m7", 44, [56,59,63,66]), chord("Am6", 45, [57,60,64,66]), chord("E5", 40, [52,59,64])] },
 ];
+
+// A take study can supply its own timed notes and harmonies. Keep these in
+// seconds: the recorded rubato must not silently become a quantized pattern.
+const input = argument("--input");
+const BEDS = input ? JSON.parse(readFileSync(resolve(input), "utf8")) : DEFAULT_BEDS;
+if (!Array.isArray(BEDS) || !BEDS.length) throw new Error("expected a nonempty bed array");
+for (const bed of BEDS) {
+  if (!/^[a-zA-Z0-9-]+$/.test(bed.id) || !/^[a-zA-Z0-9 -]+$/.test(bed.name))
+    throw new Error("bed id/name must be a safe filename");
+  if (bed.notes) {
+    if (!(bed.duration > 0 && bed.duration <= 600)) throw new Error("invalid duration");
+    for (const note of bed.notes) {
+      if (![note.start, note.dur, note.midi].every(Number.isFinite) || note.start < 0 ||
+          note.dur <= 0 || note.midi < 0 || note.midi > 127 || note.start + note.dur > bed.duration)
+        throw new Error(`invalid timed note in ${bed.id}`);
+    }
+    for (const harmony of bed.chords) {
+      if (![harmony.at, harmony.duration, harmony.bass, ...harmony.notes].every(Number.isFinite) ||
+          harmony.at < 0 || harmony.duration <= 0 || harmony.at + harmony.duration > bed.duration)
+        throw new Error(`invalid timed harmony in ${bed.id}`);
+    }
+  }
+}
 
 const electAt = process.argv.indexOf("--elect");
 if (electAt >= 0) {
@@ -105,21 +135,29 @@ function tone(mix, at, duration, midi, level, pan, kind) {
   }
 }
 function renderBed(bed) {
-  const beat = 60 / bed.bpm, bar = beat * 4, duration = 8 * bar + 2;
+  const beat = bed.bpm ? 60 / bed.bpm : 0, bar = beat * 4;
+  const duration = bed.notes ? bed.duration : 8 * bar + 2;
   const mix = new Float32Array(Math.ceil(duration * SR) * 2);
   bed.chords.forEach((harmony, index) => {
-    const at = index * 2 * bar, length = 2 * bar - 0.05;
+    const at = harmony.at ?? index * 2 * bar, length = harmony.duration ?? 2 * bar - 0.05;
     tone(mix, at, length, harmony.bass, gain(-20), 0, "bass");
     harmony.notes.forEach((midi, voice) => tone(mix, at + voice * 0.025, length, midi, gain(-28), (voice - 2) * 0.16, "pad"));
   });
-  const events = rhythmEvents(bed.rhythm), degrees = PATTERNS[bed.melody], scale = SCALES[bed.scale];
-  events.forEach(([atBeat, durationBeats], index) => {
-    const phrase = Math.floor(index / degrees.length);
-    const degree = degrees[index % degrees.length] + (phrase % 2 ? 0 : phrase);
-    tone(mix, atBeat * beat, durationBeats * beat, degreeMidi(scale, degree), gain(-11), 0.08 * Math.sin(index), "lead");
-  });
-  for (let b = 0; b < 8; b++) for (const pulse of [0, 2])
-    tone(mix, (b * 4 + pulse) * beat, 0.06, 28, gain(-32), 0, "bass");
+  if (bed.notes) {
+    for (const note of bed.notes) {
+      tone(mix, note.start, note.dur, note.midi,
+        gain(-11) * ((note.velocity ?? 100) / 100), note.pan ?? 0, "lead");
+    }
+  } else {
+    const events = rhythmEvents(bed.rhythm), degrees = PATTERNS[bed.melody], scale = SCALES[bed.scale];
+    events.forEach(([atBeat, durationBeats], index) => {
+      const phrase = Math.floor(index / degrees.length);
+      const degree = degrees[index % degrees.length] + (phrase % 2 ? 0 : phrase);
+      tone(mix, atBeat * beat, durationBeats * beat, degreeMidi(scale, degree), gain(-11), 0.08 * Math.sin(index), "lead");
+    });
+    for (let b = 0; b < 8; b++) for (const pulse of [0, 2])
+      tone(mix, (b * 4 + pulse) * beat, 0.06, 28, gain(-32), 0, "bass");
+  }
   let peak = 0;
   for (const sample of mix) peak = Math.max(peak, Math.abs(sample));
   const trim = peak ? 0.82 / peak : 1;
@@ -137,6 +175,22 @@ function writeWav(path, mix) {
 function encode(mix, target) {
   const wav = `${target}.wav`;
   writeWav(wav, mix);
+  if (input) {
+    // A static gain makes take auditions comparable without changing the
+    // recorded phrasing or adding a mastering/compression treatment.
+    const scan = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-i", wav,
+      "-af", "loudnorm=I=-18:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-"],
+      { encoding: "utf8" });
+    if (scan.status !== 0) throw new Error(`loudness scan failed: ${scan.stderr}`);
+    const match = scan.stderr.match(/\{\s*"input_i"[\s\S]*?\}/);
+    if (!match) throw new Error("missing loudness measurement");
+    const measured = JSON.parse(match[0]);
+    const adjustment = Math.min(-18 - Number(measured.input_i), -1.5 - Number(measured.input_tp));
+    if (!Number.isFinite(adjustment)) throw new Error("non-finite audition loudness");
+    const scale = gain(adjustment);
+    for (let i = 0; i < mix.length; i++) mix[i] *= scale;
+    writeWav(wav, mix);
+  }
   const result = spawnSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", wav,
     "-codec:a", "libmp3lame", "-b:a", "256k", `${target}.mp3`], { stdio: "inherit" });
   unlinkSync(wav);
@@ -152,7 +206,9 @@ const index = [];
 let cursor = 0;
 for (const item of rendered) {
   index.push({ id: item.bed.id, name: item.bed.name, at: +cursor.toFixed(3), bpm: item.bed.bpm,
-    rhythm: item.bed.rhythm, progression: item.bed.chords.map((h) => h.name) });
+    duration: +item.duration.toFixed(3),
+    rhythm: item.bed.rhythm, progression: item.bed.chords.map((h) => h.name),
+    source: item.bed.source, sections: item.bed.sections });
   reel.set(item.mix, Math.floor(cursor * SR) * 2);
   cursor += item.duration + gap;
 }
@@ -162,6 +218,8 @@ writeFileSync(resolve(OUT, "genomes.json"), JSON.stringify(BEDS, null, 2));
 writeFileSync(resolve(OUT, "playlist.m3u"), BEDS.map((bed) => `${bed.id}-${bed.name.replaceAll(" ", "-")}.mp3`).join("\n") + "\n");
 const stamp = (seconds) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
 writeFileSync(resolve(OUT, "README.txt"), index.map((item) =>
-  `${stamp(item.at)}  ${item.id}  ${item.name}  ${item.bpm} BPM · ${item.rhythm}\n      ${item.progression.join(" · ")}`).join("\n") +
-  "\n\nElect with: node pop/bin/render-composition-beds.mjs --elect NN\n");
+  `${stamp(item.at)}  ${item.id}  ${item.name}  ${item.bpm ? `${item.bpm} BPM` : "played timing"} · ${item.rhythm}\n      ${item.progression.join(" · ")}`).join("\n") +
+  "\n\nElect with: node pop/bin/render-composition-beds.mjs" +
+  (input ? ` --input ${JSON.stringify(resolve(input))}` : "") +
+  ` --out ${JSON.stringify(OUT)} --elect NN\n`);
 console.log(`✓ ${BEDS.length} beds + audition reel → ${OUT}`);
