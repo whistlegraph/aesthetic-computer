@@ -45,7 +45,11 @@ const SLAB_HOME = process.env.SLAB_HOME || join(homedir(), ".local", "share", "s
 const MARKER_DIRS = [join(SLAB_HOME, "state", "active-prompts"), join(SLAB_HOME, "state", "awaiting-prompts")];
 
 const shellQuote = (s) => `'${String(s).replaceAll("'", `'"'"'`)}'`;
-const isCodexBacked = (agent) => agent === "codex" || agent === "easel";
+// Aesel was Easel. Either spelling names the same interface, and inside prox it
+// is "easel" until every writer has flipped (see aesel/src/slab-session.mjs):
+// a menubar that predates the rename launches and lists only "easel".
+const canonicalAgent = (agent) => (agent === "aesel" ? "easel" : agent);
+const isCodexBacked = (agent) => agent === "codex" || canonicalAgent(agent) === "easel";
 
 async function findFile(root, suffix) {
   let entries;
@@ -63,7 +67,7 @@ async function findFile(root, suffix) {
 
 async function transcriptFor(rock, marker) {
   if (marker?.transcript_path) return marker.transcript_path;
-  const agent = marker?.agent_type || rock.agentType || "claude";
+  const agent = canonicalAgent(marker?.agent_type || rock.agentType || "claude");
   const providerId = marker?.provider_session_id || marker?.codex_session_id || rock.id;
   if (isCodexBacked(agent)) {
     return findFile(join(homedir(), ".codex", "sessions"), `${providerId}.jsonl`);
@@ -112,7 +116,7 @@ async function allRocks() {
   const rows = [];
   for (const led of await allLedgers()) {
     for (const e of led.entries || []) {
-      rows.push({ ...e, host: e.host || led.host, ip: led.ip, self: led.self });
+      rows.push({ ...e, agentType: canonicalAgent(e.agentType), host: e.host || led.host, ip: led.ip, self: led.self });
     }
   }
   return rows;
@@ -132,7 +136,7 @@ function age(ms) {
 function resolve(rocks, handle) {
   if (!handle) return rocks;
   const h = handle.trim().toLowerCase();
-  if (h.startsWith("prox:easel:") || h.startsWith("easel:")) {
+  if (/^(prox:)?(easel|aesel):/.test(h)) {
     const parts = h.replace(/^prox:/, "").split(":").slice(1);
     if (parts.length < 1 || parts.length > 2 || parts.some(p => !p)) return [];
     const [host, name] = parts.length === 2 ? parts : [null, parts[0]];
@@ -224,7 +228,7 @@ async function toolList({ host, status, kind, agent, all } = {}) {
   if (host) rocks = rocks.filter((r) => r.host.toLowerCase() === host.toLowerCase());
   if (status) rocks = rocks.filter((r) => r.status === status);
   if (kind) rocks = rocks.filter((r) => r.kind === kind);
-  if (agent) rocks = rocks.filter((r) => (r.agentType || "claude").toLowerCase() === agent.toLowerCase());
+  if (agent) rocks = rocks.filter((r) => (r.agentType || "claude").toLowerCase() === canonicalAgent(agent.toLowerCase()));
   let hidden = 0;
   if (!all && !status) {
     const now = Date.now();
@@ -385,7 +389,7 @@ async function toolDump({ handle, destination } = {}) {
   const transcript = await transcriptFor(r, marker);
   if (!transcript) throw new Error(`could not locate the persisted transcript for ${r.host}:${r.name}.`);
 
-  const agent = marker.agent_type || r.agentType || "claude";
+  const agent = canonicalAgent(marker.agent_type || r.agentType || "claude");
   const providerId = marker.provider_session_id || marker.codex_session_id || r.id;
   const base = destination ? String(destination) : join(homedir(), "Desktop");
   const safeName = `${r.host}-${r.name}`.replace(/[^a-zA-Z0-9._-]+/g, "-");
@@ -449,9 +453,9 @@ exec claude --resume ${shellQuote(r.id)}
 async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = "" }) {
   const wanted = String(host || "").trim().toLowerCase().replace(/\.local$/, "");
   if (!wanted) throw new Error("`host` is required (for example, poorslice).");
-  const agentName = String(agent || "").trim().toLowerCase();
+  const agentName = canonicalAgent(String(agent || "").trim().toLowerCase());
   if (!new Set(["claude", "codex", "easel"]).has(agentName)) {
-    throw new Error("`agent` must be `claude`, `codex`, or `easel`.");
+    throw new Error("`agent` must be `claude`, `codex`, or `aesel` (or `easel`).");
   }
   if (String(prompt).length > 4000) throw new Error("`prompt` exceeds 4000 characters.");
   const contactKey = String(loopboyContact || "").trim().toLowerCase();
@@ -691,7 +695,7 @@ const TOOLS = [
         host: { type: "string", description: "Only rocks on this machine (e.g. neo, blueberry, panda)." },
         status: { type: "string", description: "Filter by status: working | awaiting | complete | rendering | blank | interrupted. Disables the stale-rock hiding." },
         kind: { type: "string", description: "Filter by kind: session | agent." },
-        agent: { type: "string", description: "Filter by owning interface: claude | codex | easel." },
+        agent: { type: "string", description: "Filter by owning interface: claude | codex | aesel (easel is the same)." },
         all: { type: "boolean", description: "Include finished rocks idle for more than 24h (hidden by default)." },
       },
     },
@@ -755,7 +759,7 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        handle: { type: "string", description: "A host:name, session id, or prox:easel:name resolving to exactly one rock." },
+        handle: { type: "string", description: "A host:name, session id, or prox:aesel:name (prox:easel:name) resolving to exactly one rock." },
         prompt: { type: "string", description: "Continuation prompt, at most 1000 characters." },
         by: { type: "string", description: "Optional caller label recorded by the target." },
       },
@@ -795,7 +799,7 @@ const TOOLS = [
       type: "object",
       properties: {
         host: { type: "string", description: "Target Slab hostname, for example poorslice." },
-        agent: { type: "string", enum: ["claude", "codex", "easel"], description: "Interface to launch." },
+        agent: { type: "string", enum: ["claude", "codex", "aesel", "easel"], description: "Interface to launch (aesel and easel are the same)." },
         cwd: { type: "string", description: "Optional absolute directory on the target. Defaults to its aesthetic-computer checkout and must stay under its home folder." },
         prompt: { type: "string", description: "Optional initial prompt, at most 4000 characters. Omit to open an idle TUI." },
         by: { type: "string", description: "Optional caller label recorded by the target." },

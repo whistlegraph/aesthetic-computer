@@ -80,7 +80,7 @@ async function aeselSessions() {
   for (const name of names) {
     try {
       const marker = JSON.parse(await readFile(join(MARKERS, name), "utf8"));
-      if (marker.agent_type !== "easel") continue;
+      if (marker.agent_type !== "easel" && marker.agent_type !== "aesel") continue;
       out.push({ ...marker, id: marker.session_id || name });
     } catch { /* a marker mid-write is not an error, it is a retry */ }
   }

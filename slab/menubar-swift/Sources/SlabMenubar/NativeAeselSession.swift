@@ -16,7 +16,8 @@ enum NativeAeselSession {
               let layout = object["layout"] as? [String: Any],
               let id = marker["session_id"] as? String, id.hasPrefix("aesel-native-"),
               UUID(uuidString: String(id.dropFirst("aesel-native-".count))) != nil,
-              marker["agent_type"] as? String == "easel", marker["host_app"] as? String == bundleID,
+              ["easel", "aesel"].contains(marker["agent_type"] as? String ?? ""), // Aesel was Easel
+              marker["host_app"] as? String == bundleID,
               let pid = marker["agent_pid"] as? Int, pid > 0, pid <= Int(Int32.max),
               marker["host_pid"] as? Int == pid, ownsPID(pid),
               let window = marker["host_window_id"] as? Int, window > 0,

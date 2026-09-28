@@ -4,9 +4,10 @@
 # THAT session's polygon edge. SubagentStop removes the session's oldest marker.
 # (Workflow-tool agents don't fire this hook — the menubar counts those live
 # from the workflow transcript dir instead.)
-# A Claude that Easel is driving is that session's engine, not a rock of its
-# own; Easel keeps the marker, so this hook has nothing to say.
-[[ -n "${EASEL_SESSION_ID:-}" ]] && exit 0
+# A Claude that Aesel is driving is that session's engine, not a rock of its
+# own; Aesel keeps the marker, so this hook has nothing to say. (EASEL_ is the
+# name an Aesel from before the rename exports.)
+[[ -n "${AESEL_SESSION_ID:-}${EASEL_SESSION_ID:-}" ]] && exit 0
 set -u
 SLAB_HOME=${SLAB_HOME:-$HOME/.local/share/slab}
 SUBAGENT_DIR="$SLAB_HOME/state/active-subagents"

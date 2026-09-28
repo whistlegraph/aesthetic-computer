@@ -14,7 +14,7 @@ export async function ensureTranscriptIndexes(db) {
   await collection.createIndex({expiresAt:1},{name:'easel_transcript_expiration_marker'});
   await collection.createIndex({owner:1,sessionId:1,'record.seq':1},{name:'easel_transcript_owner_session',unique:true,partialFilterExpression:{'record.seq':{$gt:0}}});
 }
-export function createTranscriptHandler({authorize,connect,staffSubs=()=>process.env.EASEL_TRANSCRIPT_STAFF_SUBS||'',now=()=>new Date()}={}) {
+export function createTranscriptHandler({authorize,connect,staffSubs=()=>process.env.AESEL_TRANSCRIPT_STAFF_SUBS||process.env.EASEL_TRANSCRIPT_STAFF_SUBS||'',now=()=>new Date()}={}) {
   const initialized=new WeakSet();
   return async event=>{
     if(!['POST','GET','DELETE'].includes(event.httpMethod))return reply(405,{error:'POST, GET or DELETE required'});

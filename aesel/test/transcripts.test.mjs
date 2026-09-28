@@ -112,3 +112,11 @@ test('historical and indefinite-retention disclosures round-trip while unknown v
  }
  assert.throws(()=>serializeTranscript({...header,consent:{...header.consent,disclosureVersion:DISCLOSURE_VERSION+1}},[record]),/disclosure/);
 });
+test('both the easel and the aesel names parse; the journal still writes easel',()=>{
+ const renamed={...header,format:'aesthetic.aesel',provenance:{application:'aesel'}};
+ const parsed=parseTranscript(serializeTranscript(renamed,[record]));
+ assert.equal(parsed.header.format,'aesthetic.aesel');assert.equal(parsed.header.provenance.application,'aesel');
+ assert.equal(parseTranscript(serializeTranscript(header,[record])).header.format,'aesthetic.easel');
+ assert.throws(()=>parseTranscript(serializeTranscript({...header,format:'aesthetic.other'},[record])),/format/);
+ assert.throws(()=>serializeTranscript({...header,provenance:{application:'other'}},[record]),/provenance/);
+});

@@ -43,6 +43,14 @@ function resolveFunctionName(fn, rest, functions = {}) {
 
   if (ROUTE_ALIASES[fn]) return ROUTE_ALIASES[fn];
 
+  // Aesel was Easel: /api/aesel-* answers from the easel-* function of the
+  // same name. The easel-* routes stay (installed copies, the App Store build
+  // and Stripe's webhook all call them); a file named aesel-* would win.
+  if (fn?.startsWith("aesel-") && !functions[fn]) {
+    const legacy = `easel-${fn.slice(6)}`;
+    if (functions[legacy]) return legacy;
+  }
+
   if (fn === "news" && normalizedRest) {
     const firstSegment = normalizedRest.split("/")[0];
     return NEWS_API_ROUTES.has(firstSegment) ? "news-api" : "news";

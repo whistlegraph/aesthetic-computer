@@ -798,7 +798,12 @@ final class PromptPreview {
         guard !channel.isEmpty, !revision.isEmpty, cwd.hasPrefix("/"),
               Date().timeIntervalSince(framePollAt) >= 0.25, frameCaptureID == nil else { return }
         framePollAt = Date()
-        let base = URL(fileURLWithPath: cwd).appendingPathComponent(".easel", isDirectory: true)
+        // .aesel, or the .easel a workspace from before the rename keeps
+        // (aesel/src/paths.mjs chooses the same way).
+        let root = URL(fileURLWithPath: cwd)
+        let aesel = root.appendingPathComponent(".aesel", isDirectory: true)
+        let base = FileManager.default.fileExists(atPath: aesel.path)
+            ? aesel : root.appendingPathComponent(".easel", isDirectory: true)
         let requests = base.appendingPathComponent("frame-requests", isDirectory: true)
         let responses = base.appendingPathComponent("frame-responses", isDirectory: true)
         guard Self.frameDirectoryIsSafe(base), Self.frameDirectoryIsSafe(requests),

@@ -46,6 +46,8 @@ final class AeselProx {
         let pid = ProcessInfo.processInfo.processIdentifier
         // A rock follows this live window across thread switches. No prompt,
         // source, transcript, credentials, or provider payload is exported.
+        // agent_type stays "easel" until the fleet's menubars all accept
+        // "aesel" (see aesel/src/slab-session.mjs).
         let id = "aesel-native-" + instance
         let formatter = ISO8601DateFormatter()
         let piece = String(session.route.split(separator: "/").last ?? "")

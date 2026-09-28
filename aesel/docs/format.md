@@ -57,7 +57,7 @@ New clients use consent disclosure version 4. Format readers retain support for 
 ## Company access and retention
 
 The endpoint uses AC's server-verified subject for ownership. It has no public
-read route. GET requires an explicit subject in `EASEL_TRANSCRIPT_STAFF_SUBS`
+read route. GET requires an explicit subject in `AESEL_TRANSCRIPT_STAFF_SUBS` (or the older `EASEL_TRANSCRIPT_STAFF_SUBS`)
 (comma-separated Auth0 subjects); an email, handle, client-supplied owner field,
 or unverified staff claim cannot grant access. Staff reads require a named owner
 and session and return at most 100 records, with an `afterSeq` cursor. DELETE

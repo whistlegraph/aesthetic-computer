@@ -39,6 +39,11 @@ for state in ["blank", "working", "complete", "awaiting", "interrupted"] {
 }
 marker["state"] = "unknown"
 assert(decode() == nil)
+marker["state"] = "working"
+marker["agent_type"] = "aesel"
+assert(decode() != nil)
+marker["agent_type"] = "codex"
+assert(decode() == nil)
 print("Native aesel: identity, status, stale/dead process, geometry and export boundary checks passed")
 SWIFT
 swift "$probeDir/check.swift"

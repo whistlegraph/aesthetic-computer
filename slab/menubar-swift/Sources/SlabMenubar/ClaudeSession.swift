@@ -80,11 +80,16 @@ struct ClaudeSession {
     var remoteHost: String = ""
 
     /// Which interface owns this session — "claude" (default), "codex", or
-    /// "easel".
+    /// "easel" (Aesel; see `canonicalAgent`).
     /// Read from the marker's `agent_type`; drives per-agent labels/tooltips
     /// in the menu. The state/color engine is agent-agnostic, so this is
     /// display-only.
     var agentType: String = "claude"
+
+    /// Aesel was Easel. A writer that has flipped says "aesel"; inside Slab
+    /// the interface stays "easel", so every comparison here holds for both.
+    /// Every marker and ledger read passes through this.
+    static func canonicalAgent(_ type: String) -> String { type == "aesel" ? "easel" : type }
     var hostApp: String = ""
     var hostPid: Int = 0
     var hostWindowID: Int = 0
@@ -386,7 +391,7 @@ enum ClaudeSessionReader {
         // Hook-backed clients still derive most state from the side-channel
         // markers. Easel receives direct app-server lifecycle events
         // and can publish exact idle/interrupted state itself.
-        let agentType = (obj["agent_type"] as? String) ?? "claude"
+        let agentType = ClaudeSession.canonicalAgent((obj["agent_type"] as? String) ?? "claude")
         let parsedState: ClaudeSession.State = {
             switch obj["state"] as? String {
             case "blank": return .blank

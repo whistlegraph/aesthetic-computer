@@ -366,3 +366,18 @@ test("Easel namespace is exact, fleet ambiguity is preserved, and local stays lo
   assert.match(await callProx(home,"prox_find",{handle:"local:two"}),/no rock resolves/);
   assert.match(await callProx(home,"prox_poke",{handle:"prox:easel:bugo"}),/ambiguous/);
 });
+
+test("aesel and easel name the same agent type and namespace", async () => {
+  const home = await mkdtemp(join(tmpdir(), "prox-aesel-test-"));
+  const dir = join(home, ".config", "slab", "ledger");
+  await mkdir(join(dir, "peers"), { recursive: true });
+  const entry = (host, agentType, id) => ({ id, host, name: "old-piece", proxName: "bugo", proxNamespace: agentType, agentType, kind: "session", status: "complete", updated: Date.now() });
+  // One writer that has flipped, one that has not.
+  await writeFile(join(dir, "local.json"), JSON.stringify({host:"blueberry",entries:[entry("blueberry","aesel","one")]}));
+  await writeFile(join(dir, "peers", "neo.json"), JSON.stringify({host:"neo",entries:[entry("neo","easel","two")]}));
+  assert.match(await callProx(home,"prox_find",{handle:"prox:aesel:bugo"}),/2 match/);
+  assert.match(await callProx(home,"prox_find",{handle:"prox:easel:bugo"}),/2 match/);
+  assert.match(await callProx(home,"prox_find",{handle:"aesel:blueberry:bugo"}),/1 match/);
+  const listed = await callProx(home,"prox_list",{agent:"aesel",all:true});
+  assert.match(listed,/blueberry/); assert.match(listed,/neo/);
+});

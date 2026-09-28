@@ -1,5 +1,11 @@
 // Portable shareable .easel JSON Lines; never a provider-session-state dump.
 export const TRANSCRIPT_FORMAT = 'aesthetic.easel';
+// Read under both names, written under the old one. TODO(aesel rename): write
+// 'aesthetic.aesel' / application 'aesel' once lith has served this reader
+// long enough that no deployed server still refuses the new names — i.e. one
+// release after the deploy that ships this line.
+export const TRANSCRIPT_FORMATS = ['aesthetic.easel', 'aesthetic.aesel'];
+export const TRANSCRIPT_APPLICATIONS = ['easel', 'aesel'];
 // The disclosure people agree to before sharing; a record cites the version it
 // was agreed under, and no record may cite one that does not exist yet. This
 // is the one place the number lives — required-sharing.mjs re-exports it.
@@ -20,7 +26,7 @@ function id(value) { if (typeof value !== 'string' || !ID.test(value)) throw new
 function date(value) { if (typeof value !== 'string' || !/^\d{4}-\d\d-\d\dT/.test(value) || !Number.isFinite(Date.parse(value))) throw new Error('Invalid transcript timestamp'); return new Date(value).toISOString(); }
 export function validateHeader(value) {
   object(value,['type','format','version','id','createdAt','metadata','consent','provenance']);
-  if(value.type!=='session'||value.format!==TRANSCRIPT_FORMAT||value.version!==1)throw new Error('Unsupported .easel format');
+  if(value.type!=='session'||!TRANSCRIPT_FORMATS.includes(value.format)||value.version!==1)throw new Error('Unsupported .easel format');
   const metadata=object(value.metadata??{},['medium','projectId','title']);
   if(metadata.medium!==undefined&&!['picture','sound','piece','paper','gameboy'].includes(metadata.medium))throw new Error('Invalid medium');
   if(metadata.projectId!==undefined)id(metadata.projectId);
@@ -29,9 +35,9 @@ export function validateHeader(value) {
   if(!['private','company'].includes(consent.sharing))throw new Error('Invalid sharing setting');
   if(consent.sharing==='company') {id(consent.id);date(consent.acceptedAt);if(!Number.isInteger(consent.disclosureVersion)||consent.disclosureVersion<1||consent.disclosureVersion>DISCLOSURE_VERSION)throw new Error('Consent disclosure required');}
   const provenance=object(value.provenance??{application:'easel'},['application','version']);
-  if(provenance.application!=='easel')throw new Error('Invalid provenance');
+  if(!TRANSCRIPT_APPLICATIONS.includes(provenance.application))throw new Error('Invalid provenance');
   if(provenance.version!==undefined)text(provenance.version,40,'application version');
-  return {type:'session',format:TRANSCRIPT_FORMAT,version:1,id:id(value.id),createdAt:date(value.createdAt),metadata:{...metadata},consent:{...consent},provenance:{...provenance}};
+  return {type:'session',format:value.format,version:1,id:id(value.id),createdAt:date(value.createdAt),metadata:{...metadata},consent:{...consent},provenance:{...provenance}};
 }
 export function validateRecord(value) {
   if(!['message','artifact','event'].includes(value?.type))throw new Error('Invalid transcript record type');

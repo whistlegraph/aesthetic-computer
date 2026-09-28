@@ -163,9 +163,9 @@ final class LedgerStore {
     /// home folder.
     private static func launchPrompt(_ body: [String: Any]) -> [String: Any] {
         let requestedAgent = ((body["agent"] as? String) ?? "").lowercased()
-        let agent = requestedAgent == "aesthetic" ? "easel" : requestedAgent
+        let agent = requestedAgent == "aesthetic" ? "easel" : ClaudeSession.canonicalAgent(requestedAgent)
         guard agent == "claude" || agent == "codex" || agent == "easel" else {
-            return ["ok": false, "error": "agent must be claude, codex, or easel"]
+            return ["ok": false, "error": "agent must be claude, codex, or aesel"]
         }
 
         let prompt = (body["prompt"] as? String) ?? ""
@@ -208,7 +208,11 @@ final class LedgerStore {
         if agent == "codex" {
             binary = "\(Paths.slabBin)/codex-slab"
         } else if agent == "easel" {
-            binary = "\(Paths.home)/.local/bin/easel"
+            // `aes` is the terminal Aesel under its new name (`aesel` itself
+            // opens the native app and takes no flags); installs that predate
+            // it have only `easel`.
+            let aes = "\(Paths.home)/.local/bin/aes"
+            binary = fm.isExecutableFile(atPath: aes) ? aes : "\(Paths.home)/.local/bin/easel"
         } else {
             binary = "\(Paths.home)/.local/bin/claude"
         }
@@ -421,7 +425,7 @@ final class LedgerStore {
             (try? JSONDecoder().decode(Ledger.self,
                 from: Data(contentsOf: URL(fileURLWithPath: Self.peersDir + "/" + file))))?.entries ?? []
         }
-        var used = Set(peers.filter { $0.proxNamespace == "easel" }.compactMap(\.proxName))
+        var used = Set(peers.filter { ClaudeSession.canonicalAgent($0.proxNamespace ?? "") == "easel" }.compactMap(\.proxName))
         let easelIndices = entries.indices.filter { entries[$0].agentType == "easel" }.sorted {
             entries[$0].id < entries[$1].id
         }
@@ -501,7 +505,7 @@ final class LedgerStore {
                 updated: mtime.timeIntervalSince1970 * 1000,
                 started: (obj["started"] as? Double),
                 memoir: (obj["memoir"] as? String),
-                agentType: (obj["agent_type"] as? String),
+                agentType: (obj["agent_type"] as? String).map(ClaudeSession.canonicalAgent),
                 platformTarget: (obj["platform_target"] as? String),
                 loopboyContact: (obj["loopboy_contact"] as? String),
                 scanURL: (obj["scan_url"] as? String)))
