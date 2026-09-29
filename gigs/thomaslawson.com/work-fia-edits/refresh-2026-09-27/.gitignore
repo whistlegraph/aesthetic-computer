@@ -6,3 +6,5 @@ preview-cv.js
 evidence/preview1/
 evidence/preview-full/
 evidence/probe*/
+backups/
+.deploy-tmp/
