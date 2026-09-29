@@ -216,6 +216,7 @@ export async function start(options = {}) {
   let lastFrame = performance.now(), lastGap = 0;
   globalThis.__fiapupFrameMs = () => [...frameTimes].sort((a, b) => a - b)[frameTimes.length >> 1] || 0;
   globalThis.__fiapupFur = () => fur;
+  globalThis.__fiapupFrameTimes = () => [...frameTimes];
   function frame() {
     const frameStart = performance.now();
     const s = textCanvas.width / W;

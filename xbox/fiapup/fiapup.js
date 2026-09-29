@@ -2216,7 +2216,10 @@ function wantedChunks(x, z) {
 // Load what's wanted, drop what isn't. A loaded chunk keeps a handle slot;
 // a chunk that changes lod is rebuilt in its slot and goes up again.
 const CHUNK_HANDLES = 64, chunkHandleBase = 5000;
-function streamChunks(w) {
+// Builds are spread out, nearest first, at most `limit` a call, so crossing
+// into a new row of chunks doesn't cost one long frame; it returns how many
+// are still to build.
+function streamChunks(w, limit = Infinity) {
   const want = wantedChunks(w.pup.x, w.pup.z), loaded = w.chunks;
   let built = 0;
   for (const [key, c] of loaded) {
@@ -2227,8 +2230,10 @@ function streamChunks(w) {
     w.critters = w.critters.filter((k) => k.chunk !== key || k.engaged);
     loaded.delete(key);
   }
-  for (const [key, c] of want) {
-    if (loaded.has(key)) continue;
+  const pcx = w.pup.x / CHUNK - .5, pcz = w.pup.z / CHUNK - .5;
+  const todo = [...want].filter(([key]) => !loaded.has(key))
+    .sort((a, b) => Math.hypot(a[1].cx - pcx, a[1].cz - pcz) - Math.hypot(b[1].cx - pcx, b[1].cz - pcz));
+  for (const [key, c] of todo.slice(0, limit)) {
     const made = chunkRecords(c.cx, c.cz, c.lod);
     const slot = w.freeSlots.pop();
     loaded.set(key, { ...c, ...made, slot });
@@ -2238,7 +2243,7 @@ function streamChunks(w) {
     built++;
   }
   w.chunkBuilds += built;
-  return built;
+  return todo.length - built;
 }
 
 // ——— the mountains: layered flat ridges far off, lighter and bluer with
@@ -3146,7 +3151,10 @@ function moveHand(at) {
 // the pick's reach (under 1 is a hit).
 function reachOf(x, y, wx, wy, wz, r) {
   const at = onScreen(wx, wy, wz);
-  return at ? Math.hypot(x - at.x, y - at.y) / (r * at.k + slop) : Infinity;
+  // A thumb's forgiveness near the camera, less far off, where small things
+  // crowd together and a tap mostly means the ground there.
+  const give = slop * clamp(at ? at.k * 300 / camera[15] : 1, .3, 1);
+  return at ? Math.hypot(x - at.x, y - at.y) / (r * at.k + give) : Infinity;
 }
 function pupReach(x, y) {
   const p = world.pup, rig = pupRig(p), c = Math.cos(p.heading), s = Math.sin(p.heading);
@@ -3568,7 +3576,8 @@ function drawCritters() {
   const c = world.camera;
   for (const k of world.critters) {
     if (dist(k.x, k.z, c.x, c.z) > 800) continue;
-    const gy = groundY(k.x, k.z);
+    const gy = groundY(k.x, k.z), seen = onScreen(k.x, gy + 10, k.z);
+    if (!seen || seen.x < -80 || seen.x > screenW + 80 || seen.y < -80 || seen.y > screenH + 80) continue;
     inputs.time = world.t + k.phase;
     inputs.hit = world.t - (k.hitAt ?? -99);
     inputs.owner = null;
@@ -3802,7 +3811,12 @@ function portraitCamera() {
 // as when paused, still wants the ground).
 function keepChunks() {
   const at = `${Math.floor(world.pup.x / CHUNK)},${Math.floor(world.pup.z / CHUNK)}`;
-  if (at !== world.chunkAt) { world.chunkAt = at; streamChunks(world); }
+  // the first time, everything at once (there's nothing to show yet); then
+  // two chunks a tick until the window is full
+  if (at !== world.chunkAt || world.chunksOwed) {
+    world.chunksOwed = streamChunks(world, world.chunkAt ? 2 : Infinity);
+    world.chunkAt = at;
+  }
 }
 
 function paintFrame() {
@@ -3867,7 +3881,7 @@ const fiapup = {
   // A tap on a named thing, or "play", as if a finger had done it (the lab's buttons).
   stageTap(kind) { if (kind === "play") play(); else tapOn(kind, { x: world.hand.x, z: world.hand.z }); },
   // The valley, for tests: where home is, the ground, the chunks.
-  home: { camp: home, bed, bowl }, groundY, chunkRecords, wantedChunks, nearEdge, streamZ, CHUNK, SEED,
+  home: { camp: home, bed, bowl }, groundY, tapTarget, chunkRecords, wantedChunks, nearEdge, streamZ, CHUNK, SEED,
   pupHandles: () => (handles.get(objects.puppy) || []).filter(Boolean), screenOf: onScreen, ground, pupReach, paint: paintFrame, stats, rig: pupRig, owner: pupOwner, place: pupPlace,
   program: () => program.subarray(0, length), strings: () => strings, states: Object.keys(states),
   resend() { sent = new Set(); vm = null; },
@@ -3895,6 +3909,32 @@ const fiapup = {
     const taps = { go: ["grass", { x: -150, z: 70 }], ballTap: ["ball"], bowl: ["bowl"], bed: ["bed"],
       rope: ["rope"], wiggle: ["pup"] };
     if (taps[name]) { step(); w.touch.mode = true; tapOn(...taps[name]); }
+    // The meadow's moments: a long run up the valley, the pup far out, and
+    // a tap on the nearest of each kind of thing.
+    if (name === "run") { step(); w.touch.mode = true; tapOn("grass", { x: 90, z: -1300 }); }
+    if (name === "far") { Object.assign(p, { x: 1300, z: -1500, heading: -1.2 }); Object.assign(w.hand, { x: 1300, z: -1460 });
+      Object.assign(w.camera, { x: 1300, z: -1480 }); w.touch.mode = true; step(); tapOn("grass", { x: 1180, z: -1750 }); }
+    const nearestOf = (kind) => {
+      let best = null;
+      for (const c of w.chunks.values()) for (const t of c.things)
+        if (t.kind === kind && (!best || dist(p.x, p.z, t.x, t.z) < dist(p.x, p.z, best.x, best.z))) best = t;
+      for (const k of w.critters)
+        if (k.kind === kind && (!best || dist(p.x, p.z, k.x, k.z) < dist(p.x, p.z, best.x, best.z))) best = k;
+      return best;
+    };
+    if (["flower", "tuft", "butterfly", "sheep", "stream"].includes(name)) {
+      step(); w.touch.mode = true;
+      const t = nearestOf(name);
+      if (t) {
+        // start close enough that the moment arrives in a few seconds
+        Object.assign(p, { x: t.x + 70, z: t.z + 60 });
+        Object.assign(w.camera, { x: p.x, z: p.z });
+        step();
+        w.tapRef = name === "stream" ? { x: t.x, z: streamZ(t.x) } : t;
+        tapOn(name, t);
+      }
+    }
+    if (name === "camp") { Object.assign(p, { x: -500, z: -300 }); step(); w.touch.mode = true; tapOn("camp"); }
     if (name === "tug") { w.hand.x = 20; w.hand.z = 60; w.hand.holding = "rope"; w.rope.heldBy = "hand"; p.x = 10; p.z = -20; }
     const script = { down: [] };
     globalThis.__fiapupScript = script;
