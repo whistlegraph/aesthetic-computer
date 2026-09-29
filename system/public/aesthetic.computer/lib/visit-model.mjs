@@ -76,7 +76,7 @@ export function visitSurface(pathname = "/") {
 export function automatedVisit(navigator, search = "", marker = false) {
   const params = new URLSearchParams(search);
   return Boolean(marker || navigator.webdriver ||
-    /bot|crawler|spider|headless|lighthouse|curl|python|wget|monitor/i.test(navigator.userAgent || "") ||
+    /bot|crawler|spider|googleother|webindexer|headless|lighthouse|curl|python|wget|monitor/i.test(navigator.userAgent || "") ||
     ["social-preview", "offline-render", "jev-vs-jev", "ac-automation"].some(key => params.has(key)));
 }
 
