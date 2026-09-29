@@ -2577,7 +2577,7 @@ function leave() {}
 
 // For tests and the web shell: the world, one tick, a staged moment.
 const fiapup = {
-  get world() { return world; }, step, paint: paintFrame, stats, rig: pupRig, owner: pupOwner,
+  get world() { return world; }, step, paint: paintFrame, stats, rig: pupRig, owner: pupOwner, place: pupPlace,
   program: () => program.subarray(0, length), strings: () => strings, states: Object.keys(states),
   resend() { sent = new Set(); vm = null; },
   // Put the yard in a named moment and let it run `seconds`. The shell's
