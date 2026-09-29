@@ -1,11 +1,18 @@
 # fiapup
 
-A cosy puppy simulator. You are a hand over a small backyard, and the pup
-is the star. It is **mostly a mobile game**: touch comes first and the
-finger is the hand. A controller (Xbox or Mac pad) and the keyboard still
-work as the second way in. Written 2026-09-28. It has one pup, one yard and
-nine behaviours. It runs in a browser, as a Mac app and in the iOS
-Simulator, and it hasn't been on the console yet.
+**A tap-and-go puppy game: tap anywhere, and your pup goes there and does
+the thing.**
+
+It is a cosy puppy simulator. You are the finger over a small backyard,
+and the pup is the star.
+- **Tap and go.** Everything is reachable with one finger and taps alone.
+  The pup reacts the instant a finger lands, with ears up and its head
+  turning, before it runs.
+- **Mobile first.** A controller (Xbox or Mac pad) and the keyboard still
+  work as the second way in.
+- **Status.** Written 2026-09-28. It has one pup, one yard and a dozen
+  behaviours. It runs in a browser, as a Mac app and in the iOS Simulator,
+  and it hasn't been on the console yet.
 
 ```
 npm run fiapup:play     # http://127.0.0.1:8124 — touch, mouse, keyboard or a pad
@@ -13,11 +20,39 @@ npm run fiapup:test     # behaviour, gesture, rig and budget tests
 npm run fiapup:shots    # headless screenshots → xbox/fiapup/shots/ (--phone for phone viewports)
 npm run fiapup:mac      # the Mac app (apple/fiapup)
 npm run fiapup:ios      # build, install and launch in an iPhone 17 simulator
+node xbox/fiapup/icon.mjs       # re-render the app icon from the pup
+node xbox/fiapup/fur-shots.mjs  # flat against fur, at phone size
 ```
 
 ## The game
 
-**Touch.** The finger is the hand. There is no glove on screen under
+**Tap and go (the core).** A tap resolves to the nearest thing it could
+mean, in this order: the pup, then a thing in the yard, then the grass.
+Picks are projected and forgiving on phones.
+
+| tap | the pup |
+|---|---|
+| the grass | trots there under a pulsing marker (the tap's ripple), then hops and sits |
+| the ball | runs to it, picks it up, and brings it back toward you: the grass near the bottom of the screen |
+| the bowl | trots over and laps, head down and tongue going |
+| the bed | walks to its bed and naps (Zzz) |
+| the rope | snatches it up, shakes it with a growl, then parades it |
+| a dropped treat | eats it |
+| the pup | a happy wiggle and a hop, with a yip |
+| twice on the grass, or **play** | play bow, then zoomies |
+
+- **Redirecting.** A tap always redirects:
+  - a napping pup stretches first, then goes;
+  - a pup carrying the ball or the rope brings it to the spot you tapped and
+    drops it there;
+  - a tap mid-tug makes it let go.
+- **Stroking wins.** While another finger is stroking the pup, a stray tap
+  elsewhere doesn't pull it away.
+- **The only hint** is "tap anywhere", shown until you've touched the
+  screen three times.
+- **The pad** does the same on A: over the grass, the bowl or the bed.
+
+**Extras (nothing needs them).** The finger is still the hand. There is no glove on screen under
 touch. A tap leaves a ripple on the grass, and a finger resting on the grass
 grows a ring that fills toward a treat. Gestures are read in the game
 (`readTouches` and the functions after it in `fiapup.js`, tested in
@@ -26,9 +61,7 @@ grows a ring that fills toward a treat. Gestures are read in the game
 | gesture | does |
 |---|---|
 | stroke across the pup | petting, for as long as the finger stays over it. A moving stroke counts up to 3× a resting finger toward joy and hearts, with a soft haptic tap every 0.35 s. Keep going (1.8 s) and it rolls over for belly rubs |
-| drag the ball, lift with a flick | throws at the flick's velocity on the lawn (the finger's last 0.1 s, capped at 560 u/s, with lift by speed). A lift under 140 u/s sets it down. The pup fetches it back to where your finger was |
-| tap the grass | calls the pup to *that spot* |
-| double-tap the grass, or the **play** button | play bow, then zoomies |
+| drag the ball (a finger on it becomes a drag once it moves), lift with a flick | throws at the flick's velocity on the lawn (the finger's last 0.1 s, capped at 560 u/s, with lift by speed). A lift under 140 u/s sets it down. The pup fetches it back to where your finger was |
 | hold still on the grass (0.35 s) | a treat appears under the finger, and the pup comes to beg; lift to drop it |
 | drag the rope | the pup takes the far end and pulls against you; lift and it parades the rope. Grab the rope out of its mouth and the tug starts at once |
 
@@ -144,7 +177,100 @@ has `synth`.
 **HUD.** Panels are FACE triangles at the nearest depth, not `box`, because
 the console draws `box` in a CPU layer under the scene.
 
-### Budget (measured by `tests/fiapup.test.mjs`)
+### The app icon
+
+`node xbox/fiapup/icon.mjs` renders the icon with the game itself. The web
+shell's `?portrait` mode draws the pup's face from `puppy-flat.lisp`
+through the same frame interpreter, facing you, head cocked and tongue out,
+on cream, at 1024 in headless Chrome. From that one picture it makes:
+- **iOS:** `apple/fiapup/Assets.xcassets/AppIcon.appiconset/ios-1024.png`,
+  full-bleed.
+- **Mac:** the macOS rounded square (824 on 1024, 185 corner radius, a soft
+  shadow) at 16–512 @1x/@2x.
+
+Both targets set `ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon`. The Mac app
+shows it in Finder's Get Info (`xbox/fiapup/shots/mac-icon-getinfo.png`).
+The Simulator's home screen shows it at `shots/ios/home.jpg`.
+
+## Fur (behind `?fur`; the flat look stays the default)
+
+`fur.mjs` draws the pup's balls and limbs as shell fur in the same WebGL
+context and depth buffer as the flat yard. The yard, props and HUD stay
+flat, and the Xbox keeps the flat renderer.
+
+- **Try it:**
+  - `fur-lab.html` shows the pup close up; stroke it to comb.
+  - `?fur`, `?fur=low` or `?fur=high` on the game.
+  - `-fur 1` as a launch argument in the iOS app; `-stats 1` shows frame
+    time.
+- **Where the shapes come from.** The shell takes the frame program
+  (`frame`). The pup's all-ball-and-limb sketches go to fur, and the rest go
+  through frame-vm as before. Nothing in the game or the objects changed to
+  get fur.
+- **Shells.** One instanced draw of primitive × layer, alpha-tested with no
+  blending.
+  - 16 by default, 8 on `low`, 24 on `high`.
+  - It steps down by itself (16 → 12 → 8) when frames come slower than
+    about 50 fps.
+  - Shell height goes as pow(i/N, 1.3).
+- **Strands.** A uint hash over cells in object-space octahedral coordinates
+  on balls, and around-and-along on limbs. Cells are sized in world units,
+  and strands are clumped.
+- **Shading.** A 3-band toon ramp on half-Lambert, root shade, lighter
+  tips, and a rim sheen.
+- **Ink.** An inverted-hull ink line past the tips, its extrusion notched by
+  the clump noise.
+- **Length.**
+  - None on eyes, nose, paws, tongue and collar.
+  - About 20% of the radius on the ears, and a bushy tail.
+  - 7.5–10% on the body.
+- **Eyes and nose** move out to the head's surface as decals, and hide when
+  turned away.
+- **Combing.** A 256² RGBA8 atlas holds a 16² octahedral tile per
+  primitive, with direction and flatness, keyed stably by sketch and
+  record.
+  - A stroke picks the primitive by ray and splats a Gaussian along the
+    stroke.
+  - It holds for 1.2 s, then springs back (ω 1.4, ζ 0.6) with a little
+    overshoot.
+  - Combed fur lies shorter, leans and catches the light.
+  - The research suggested 0.3 s and τ≈1 s. That vanished before you could
+    see what you'd done, so it is held longer.
+- **Motion.** Running and zoomies raise a ruffle that leans each clump its
+  own way and decays over about 6 s. Each part's tips lag on a damped
+  spring.
+- **Budgets.**
+  - 16 shells × a 512-face sphere × about 24 primitives is about 200k faces
+    a frame.
+  - Textures: 6 × 96 RGBA32F for primitives, and 256² RGBA8 for the comb.
+  - Device pixel ratio capped at 2.
+- **Measured.** None of these is a speed test for a real phone.
+  - **Headless Chrome, 390×844 @2x, SwiftShader:** the shell's JS costs
+    about 0.9 ms a frame with fur against 0.7 flat. GPU time isn't visible
+    there.
+  - **iOS Simulator (iPhone 17, on this Mac's GPU):** 17.0 ms/frame
+    (60 fps) at 16 shells, with JS at 1.0 ms.
+  - **Older iPhones** are unmeasured. The self-lowering shell count and
+    `?fur=low` are the fallbacks.
+- **Pictures.** `shots/fur/flat-vs-fur.png` has flat on the left and fur on
+  the right:
+  - **idle:** the fur pup is soft, with its eyes and nose as decals.
+  - **combed:** after strokes along the back, a lighter swept band lies
+    across the shoulders. It is visible but subtle.
+  - **after zoomies:** lying down, the coat tousled clump by clump.
+  - `shots/fur/ios-fur-*.jpg` are the Simulator.
+- **Not done yet:**
+  - velvety grass, the felt bed, a rubber ball;
+  - the wet channel and shake-off;
+  - the ear-scratch leg kick;
+  - a post pass for interior ink;
+  - MSAA alpha-to-coverage (it's plain alpha test).
+- **Known flaws:**
+  - A limb's end cap pinches its strands to a point, which shows as a small
+    starburst on the rump.
+  - The collar hides inside the fur.
+
+## Budget (measured by `tests/fiapup.test.mjs`)
 
 | | |
 |---|---|
