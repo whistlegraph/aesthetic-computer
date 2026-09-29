@@ -32,6 +32,9 @@ extension MenuBandPercussion {
         var drive: Double = 0
         var delay: Double = 0
         var metalScale: Double = 1
+        /// Band-pass center for a filtered tonal wave (the cowbell's "tonk");
+        /// noise and metal use `freq` as their filter frequency instead.
+        var filterFreq: Double = 0
     }
 
     enum Role { case kick, tom, snare, hat, click }
@@ -56,46 +59,53 @@ extension MenuBandPercussion {
         }
     }
 
-    // MARK: Electro — 909 / 606, concentric rings (continuous morph)
-    // 909 kick chirp (Tune = 30–120 ms), 909 snare tones at 180/330 Hz,
-    // Simmons-style toms with a zap, 606 hat, 808 cowbell.
+    // MARK: Electro — the 808 as electro used it (Planet Rock, Newcleus,
+    // Egyptian Lover, Drexciya). Every zone is chosen to contrast: a sine
+    // sub boom, a slow laser dive, a noise-led snare+clap flam, a tiny
+    // metallic hat, a two-note tonal bell. Numbers follow the 808 circuit
+    // measurements (Werner/Abel/Smith; Baratatronix).
 
     private static let electro = KitSpec(pads: [
-        KitPad(name: "909", role: .kick, layers: [
-            // ~230 → 52 Hz chirp, a hard HP'd noise click, light drive.
-            Layer(wave: .sine, freq: 52, level: 1.0, tau: 0.10, sweep: 180, sweepTau: 0.018, drive: 1.5),
-            Layer(wave: .noise, freq: 3000, level: 0.45, tau: 0.0012, filter: .highpass, q: 0.7),
-            Layer(wave: .square, freq: 1000, level: 0.12, tau: 0.0005),
+        KitPad(name: "KICK", role: .kick, layers: [
+            // Tuned 808 boom: 52 Hz sine, the ~6 ms attack blip up to
+            // ~130 Hz, a long tail, a whisper of HP'd click (−20 dB).
+            Layer(wave: .sine, freq: 52, level: 1.0, tau: 0.22, sweep: 80, sweepTau: 0.007, drive: 1.6),
+            Layer(wave: .noise, freq: 2500, level: 0.10, tau: 0.0015, filter: .highpass, q: 0.7),
         ]),
-        KitPad(name: "SIMMONS", role: .tom, layers: [
-            // Simmons tom: f0 × 2 → f0 over ~200 ms, plus a zap on top and
-            // a 1.5 kHz stick.
-            Layer(wave: .sine, freq: 125, level: 1.0, tau: 0.10, sweep: 125, sweepTau: 0.06),
-            Layer(wave: .triangle, freq: 160, level: 0.25, tau: 0.018, sweep: 2600, sweepTau: 0.012),
-            Layer(wave: .noise, freq: 1500, level: 0.25, tau: 0.003, filter: .bandpass, q: 1.2),
+        KitPad(name: "ZAP", role: .tom, layers: [
+            // Tuned-up 808 tom / Syndrum "pew": a slow dive 880 → 180 Hz,
+            // the tom's dark noise, and a square edge on a doubled sweep.
+            Layer(wave: .sine, freq: 180, level: 1.0, tau: 0.09, sweep: 700, sweepTau: 0.035, drive: 1.3),
+            Layer(wave: .noise, freq: 1200, level: 0.08, tau: 0.06, filter: .lowpass, q: 0.7),
+            Layer(wave: .square, freq: 360, level: 0.125, tau: 0.025, sweep: 1400, sweepTau: 0.035),
         ]),
         KitPad(name: "SNARE", role: .snare, layers: [
-            // 909 snare: 180/330 Hz tones dropping ~15%, noise band 1–8 kHz
-            // longer and brighter than the 808's, and a clap flam on top.
-            Layer(wave: .sine, freq: 180, level: 0.55, tau: 0.03, sweep: 30, sweepTau: 0.015),
-            Layer(wave: .sine, freq: 330, level: 0.30, tau: 0.018, sweep: 50, sweepTau: 0.015),
-            Layer(wave: .noise, freq: 3500, level: 0.85, tau: 0.05, filter: .bandpass, q: 0.35),
-            Layer(wave: .noise, freq: 1200, level: 0.55, tau: 0.003, filter: .bandpass, q: 2.0),
-            Layer(wave: .noise, freq: 1200, level: 0.55, tau: 0.003, filter: .bandpass, q: 2.0, delay: 0.009),
-            Layer(wave: .noise, freq: 1200, level: 0.55, tau: 0.003, filter: .bandpass, q: 2.0, delay: 0.018),
+            // 808 snare (238/476 Hz + HP'd snappy) under the 808 clap: three
+            // 1 kHz bursts 10 ms apart and a fake-reverb tail. A faint HP'd
+            // hiss stands in for DMX/Linn sample grit.
+            Layer(wave: .sine, freq: 238, level: 0.63, tau: 0.045, sweep: 40, sweepTau: 0.004, drive: 2.0),
+            Layer(wave: .sine, freq: 476, level: 0.35, tau: 0.025),
+            Layer(wave: .noise, freq: 1800, level: 0.50, tau: 0.07, filter: .highpass, q: 0.7),
+            Layer(wave: .noise, freq: 1000, level: 1.0, tau: 0.003, attack: 0.0003, filter: .bandpass, q: 1.2),
+            Layer(wave: .noise, freq: 1000, level: 1.0, tau: 0.003, attack: 0.0003, filter: .bandpass, q: 1.2, delay: 0.010),
+            Layer(wave: .noise, freq: 1000, level: 1.0, tau: 0.003, attack: 0.0003, filter: .bandpass, q: 1.2, delay: 0.020),
+            Layer(wave: .noise, freq: 1000, level: 0.56, tau: 0.06, filter: .bandpass, q: 1.0, delay: 0.030),
+            Layer(wave: .noise, freq: 6000, level: 0.063, tau: 0.07, filter: .highpass),
         ]),
-        KitPad(name: "606", role: .hat, layers: [
-            // 606 hat: the metal bank pitched up, high-passed at 8 kHz, tight.
-            Layer(wave: .metal, freq: 8000, level: 1.0, tau: 0.008, filter: .highpass, q: 0.8, metalScale: 1.5),
-            Layer(wave: .noise, freq: 10_000, level: 0.2, tau: 0.005, filter: .highpass),
+        KitPad(name: "HAT", role: .hat, layers: [
+            // 808 closed hat: the six-oscillator bank band-passed at 7.1 kHz
+            // and high-passed at 9 kHz, tiny and bright, no sweep, no drive.
+            Layer(wave: .metal, freq: 7100, level: 1.0, tau: 0.014, filter: .bandpass, q: 1.2),
+            Layer(wave: .metal, freq: 9000, level: 0.63, tau: 0.02, filter: .highpass, q: 0.7),
+            Layer(wave: .noise, freq: 10_000, level: 0.2, tau: 0.008, filter: .highpass),
         ]),
         KitPad(name: "BELL", role: .click, layers: [
-            // 808 cowbell: 540 + 800 Hz squares through a 2.3 kHz band-pass,
-            // a fast 15 ms drop then a longer tail.
-            Layer(wave: .square, freq: 540, level: 0.9, tau: 0.005, filter: .bandpass, q: 1.5),
-            Layer(wave: .square, freq: 800, level: 0.9, tau: 0.005, filter: .bandpass, q: 1.5),
-            Layer(wave: .square, freq: 540, level: 0.35, tau: 0.07, filter: .bandpass, q: 1.5),
-            Layer(wave: .square, freq: 800, level: 0.35, tau: 0.07, filter: .bandpass, q: 1.5),
+            // 808 cowbell: 540 + 800 Hz squares through the 850 Hz, Q≈4
+            // band-pass that makes the "tonk"; a fast drop then a tail.
+            Layer(wave: .square, freq: 540, level: 1.0, tau: 0.006, filter: .bandpass, q: 4, drive: 1.3, filterFreq: 850),
+            Layer(wave: .square, freq: 800, level: 1.0, tau: 0.006, filter: .bandpass, q: 4, drive: 1.3, filterFreq: 850),
+            Layer(wave: .square, freq: 540, level: 0.355, tau: 0.11, filter: .bandpass, q: 4, filterFreq: 850),
+            Layer(wave: .square, freq: 800, level: 0.355, tau: 0.11, filter: .bandpass, q: 4, filterFreq: 850),
         ]),
     ])
 
@@ -119,10 +129,12 @@ extension MenuBandPercussion {
     }
 
     /// Build a pad's voices. `tension` raises tonal pitch (resting fingers
-    /// tighten the head) and `damping` shortens decays.
+    /// tighten the head) and `damping` shortens decays. `accent` (0…1) works
+    /// like the 808's: a harder hit sweeps further and drives harder, not
+    /// just louder. 0.5 is the loudness-matched reference.
     func padVoices(_ pad: KitPad, gain: Double, pan: Double,
                    tension: Double = 1, damping: Double = 1,
-                   jitter: Bool = true) -> [Voice] {
+                   accent: Double = 0.5, jitter: Bool = true) -> [Voice] {
         pad.layers.map { layer in
             let tonal = layer.wave != .noise && layer.wave != .metal
             let tune = tonal ? tension : 1
@@ -133,9 +145,9 @@ extension MenuBandPercussion {
                                   layer.attack, min(0.012, length * 0.2),
                                   pan + (jitter ? rn(-0.02, 0.02) : 0))
             voice.tau = tau
-            voice.sweep = layer.sweep * (tonal ? tension : 1)
+            voice.sweep = layer.sweep * (tonal ? tension : 1) * (0.65 + 0.7 * accent)
             voice.sweepTau = layer.sweepTau
-            voice.drive = layer.drive
+            voice.drive = layer.drive * (0.8 + 0.4 * accent)
             voice.delay = layer.delay
             voice.metalScale = layer.metalScale
             voice.filter = layer.filter
@@ -143,12 +155,11 @@ extension MenuBandPercussion {
             if layer.wave == .noise || layer.wave == .metal {
                 if jitter { voice.freq *= rj(1, 0.04) }
                 setupNoiseFilter(&voice)
-            } else if layer.filter == .bandpass {
-                // Tonal waves take the filter only when asked: the 808 bell's
-                // shared ~2.3 kHz band-pass over its 540/800 Hz squares.
+            } else if layer.filterFreq > 0 {
+                // Tonal waves take the filter only when asked (the bell).
                 voice.filtered = true
                 var shaped = voice
-                shaped.freq = 2_300
+                shaped.freq = layer.filterFreq
                 setupNoiseFilter(&shaped)
                 voice.nb0 = shaped.nb0; voice.nb1 = shaped.nb1; voice.nb2 = shaped.nb2
                 voice.na1 = shaped.na1; voice.na2 = shaped.na2
@@ -167,12 +178,20 @@ extension MenuBandPercussion {
         let pan = stereo(sx, sy, 0.72)
         let tension = 1.0 + min(0.30, Double(anchors.count) * 0.07)
         let damping = 1.0 - min(0.55, Double(anchors.count) * 0.12)
+        // 808-style accent from velocity (100 ≈ the matched reference).
+        let accent = max(0, min(1, (v - 0.5) / 1.0))
         var voices: [Voice] = []
-        let weights = ringWeights(at: strike)
+        // Sharpen the membrane's crossfades: a drum machine's zones should
+        // switch, not smear, so a between-zones hit is mostly one drum.
+        let raw = ringWeights(at: strike).map { pow($0, 3) }
+        let peak = raw.max() ?? 1
+        let total = raw.reduce(0, +)
+        let weights = raw.map { total > 0 ? $0 / total * min(1, peak * 4) : 0 }
         for (index, weight) in weights.enumerated()
         where weight > 0.02 && index < spec.pads.count {
             voices += padVoices(spec.pads[index], gain: gains[index] * v * weight,
-                                pan: pan, tension: tension, damping: damping)
+                                pan: pan, tension: tension, damping: damping,
+                                accent: accent)
         }
         let top = weights.indices.max { weights[$0] < weights[$1] } ?? 0
 

@@ -526,7 +526,6 @@ enum TrackpadDrumSkinPad {
                 zone.lineWidth = width
                 zone.stroke()
             }
-            TrackDrumKitArt.badge(kit.number, in: chart, on: kickColor)
         }
 
         // While the polyrhythm trainer is up, the skin divides into one
@@ -1236,8 +1235,6 @@ final class TracktrampMetalView: MTKView, MTKViewDelegate {
     private var zoneLevels = [Float](repeating: 0, count: 5)
     private var lastZoneUpdate = CACurrentMediaTime()
     private var builtKit = MenuBandPercussion.DrumKit.current
-    private let kitBanner = NSTextField(labelWithString: "")
-    private var bannerHide: DispatchWorkItem?
 
     init() {
         let device = MTLCreateSystemDefaultDevice()
@@ -1258,40 +1255,15 @@ final class TracktrampMetalView: MTKView, MTKViewDelegate {
         queue = device?.makeCommandQueue()
         if let device { buildPipeline(device) }
 
-        kitBanner.alignment = .center
-        kitBanner.font = .systemFont(ofSize: 13, weight: .heavy)
-        kitBanner.textColor = .white
-        kitBanner.wantsLayer = true
-        kitBanner.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.62).cgColor
-        kitBanner.layer?.cornerRadius = 7
-        kitBanner.alphaValue = 0
-        addSubview(kitBanner)
         NotificationCenter.default.addObserver(
             self, selector: #selector(kitDidChange(_:)),
             name: MenuBandPercussion.DrumKit.didChange, object: nil)
     }
 
-    /// New kit: re-bake the artwork and flash "number · NAME" over the pad.
+    /// New kit: re-bake the artwork in its palette.
     @objc private func kitDidChange(_ note: Notification) {
         builtKit = MenuBandPercussion.DrumKit.current
         rebuildTextureIfNeeded(force: true)
-        let kit = builtKit
-        kitBanner.stringValue = "  \(kit.number) · \(kit.label.uppercased())  "
-        kitBanner.sizeToFit()
-        let size = NSSize(width: kitBanner.frame.width, height: 22)
-        kitBanner.frame = NSRect(x: (bounds.width - size.width) / 2,
-                                 y: (bounds.height - size.height) / 2,
-                                 width: size.width, height: size.height)
-        kitBanner.alphaValue = 1
-        bannerHide?.cancel()
-        let hide = DispatchWorkItem { [weak self] in
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.35
-                self?.kitBanner.animator().alphaValue = 0
-            }
-        }
-        bannerHide = hide
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1, execute: hide)
         drewFlatFrame = false
         draw()
     }

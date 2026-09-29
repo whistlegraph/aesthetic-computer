@@ -40,7 +40,7 @@ enum TrackDrumKitArt {
     /// Draw a drum-machine kit's material inside `body` (already clipped by caller).
     static func drawMaterial(_ kit: Kit, in chart: NSRect, body: NSBezierPath,
                              dark: Bool) {
-        guard let spec = MenuBandPercussion.spec(for: kit) else { return }
+        guard MenuBandPercussion.spec(for: kit) != nil else { return }
         let fills = fills(for: kit, dark: dark)
         chassis(for: kit, dark: dark).setFill()
         body.fill()
@@ -69,47 +69,5 @@ enum TrackDrumKitArt {
         lines.lineWidth = 0.6
         lines.stroke()
         NSGraphicsContext.restoreGraphicsState()
-        label(spec.pads[0].name, at: NSPoint(x: chart.midX, y: chart.midY),
-              on: fills[0])
-        badge(kit.number, in: chart, on: chassis(for: kit, dark: dark))
-    }
-
-    private static func isLight(_ color: NSColor) -> Bool {
-        guard let c = color.usingColorSpace(.sRGB) else { return false }
-        return 0.299 * c.redComponent + 0.587 * c.greenComponent
-            + 0.114 * c.blueComponent > 0.6
-    }
-
-    private static func label(_ text: String, at point: NSPoint, on fill: NSColor) {
-        let ink = isLight(fill) ? NSColor.black.withAlphaComponent(0.72)
-                                : NSColor.white.withAlphaComponent(0.88)
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 6, weight: .heavy),
-            .foregroundColor: ink,
-            .kern: 0.15,
-        ]
-        let string = NSAttributedString(string: text, attributes: attributes)
-        let size = string.size()
-        string.draw(at: NSPoint(x: point.x - size.width / 2, y: point.y - size.height / 2))
-    }
-
-    /// Kit number in the top-right corner, inside the rounded rim.
-    static func badge(_ number: Int, in chart: NSRect, on chassis: NSColor) {
-        let diameter: CGFloat = 10
-        let rect = NSRect(x: chart.maxX - diameter - 3.5, y: chart.maxY - diameter - 3.5,
-                          width: diameter, height: diameter)
-        let disc = NSBezierPath(ovalIn: rect)
-        NSColor.white.withAlphaComponent(0.92).setFill()
-        disc.fill()
-        chassis.setStroke()
-        disc.lineWidth = 0.8
-        disc.stroke()
-        let string = NSAttributedString(string: "\(number)", attributes: [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 7, weight: .heavy),
-            .foregroundColor: NSColor.black,
-        ])
-        let size = string.size()
-        string.draw(at: NSPoint(x: rect.midX - size.width / 2,
-                                y: rect.midY - size.height / 2))
     }
 }

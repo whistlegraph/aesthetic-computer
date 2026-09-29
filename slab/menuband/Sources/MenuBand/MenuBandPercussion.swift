@@ -62,9 +62,6 @@ final class MenuBandPercussion {
             }
         }
 
-        /// 1-based, as shown on the pad and in the switch banner.
-        var number: Int { rawValue + 1 }
-
         /// Main-thread mirror of the chosen kit for the pad artwork, plus the
         /// notification the overlay listens to (rebuild texture, flash name).
         static var current: DrumKit = .menuBand
