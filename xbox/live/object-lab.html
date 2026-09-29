@@ -19,23 +19,26 @@
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.4 ui-monospace, "SF Mono", Menlo, monospace; }
-  main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 12px; padding: 12px 16px; max-width: 1500px; margin: 0 auto; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 12px; padding: 12px 16px; max-width: 1800px; margin: 0 auto; }
   @media (max-width: 960px) { main { grid-template-columns: 1fr; } }
   h1 { font-size: 15px; margin: 0 0 4px; }
   h2 { font-size: 13px; margin: 12px 0 6px; }
   .sub { color: var(--dim); margin: 0 0 10px; }
+  .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  @media (max-width: 700px) { .panes { grid-template-columns: 1fr; } }
   .view { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; position: relative; }
   canvas { width: 100%; aspect-ratio: 16 / 9; display: block; }
   .view b { position: absolute; left: 8px; top: 4px; color: var(--dim); font-weight: normal; }
+  .view .status { margin: 0; padding: 4px 8px 6px; border-top: 1px solid var(--line); min-height: 3em; }
   aside { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; align-self: start; }
   label { display: grid; grid-template-columns: 84px 1fr 52px; gap: 6px; align-items: center; margin: 3px 0; }
   label span:last-child { text-align: right; color: var(--dim); }
   input[type=range] { width: 100%; accent-color: var(--accent); }
-  button { font: inherit; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; cursor: pointer; }
+  button, select { font: inherit; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; cursor: pointer; }
   button:hover { border-color: var(--accent); }
   .row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
   textarea { width: 100%; min-height: 360px; font: 12px/1.45 ui-monospace, "SF Mono", Menlo, monospace; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 8px; resize: vertical; tab-size: 2; }
-  .status { color: var(--dim); margin: 6px 0 0; }
+  .status { color: var(--dim); }
   .error { color: var(--bad); white-space: pre-wrap; margin: 6px 0 0; }
 </style>
 </head>
@@ -43,10 +46,13 @@
 <main>
   <section>
     <h1>Object Lab</h1>
-    <p class="sub">An oskiewar object is a KidLisp program. It compiles once: what never moves is baked into meshes at three levels of detail, and each tick sends one MODEL op per mesh plus WORLD faces for what does move. The game's own frame interpreter draws it here.</p>
-    <div class="view"><b id="name"></b><canvas id="stage" width="1280" height="720"></canvas></div>
-    <p class="status" id="status"></p>
-    <h2>source <span class="sub">— edit to recompile</span></h2>
+    <p class="sub">One oskiewar object two ways, through the game's own frame interpreter, driven by the same inputs and camera. Left, lit: what never moves is baked into meshes, sent as MODEL ops. Right, flat: world-anchored 2D shapes with ink outlines, baked as sketches the host projects and fills, sent as SKETCH ops.</p>
+    <div class="panes" id="panes">
+      <div class="view"><b id="litName"></b><canvas id="lit" width="1280" height="720"></canvas><p class="status" id="litStatus"></p></div>
+      <div class="view"><b id="flatName"></b><canvas id="flat" width="1280" height="720"></canvas><p class="status" id="flatStatus"></p></div>
+    </div>
+    <h2>source <select id="which"><option value="lit">lit</option><option value="flat">flat</option></select>
+      <span class="sub">— edit to recompile</span></h2>
     <textarea id="source" spellcheck="false"></textarea>
     <p class="error" id="error"></p>
   </section>
@@ -61,31 +67,59 @@
   </aside>
 </main>
 <script type="module">
-import { compile, objectInputs, objectLight } from "./object-lisp.mjs";
-import { createFrameVm, FRAME_CAMERA, FRAME_WORLD, FRAME_ASSET, FRAME_MODEL } from "./frame-vm.mjs";
+import { compile, objectLight } from "./object-lisp.mjs";
+import { createFrameVm, FRAME_CAMERA, FRAME_WORLD, FRAME_ASSET, FRAME_MODEL, FRAME_DEPTH,
+  FRAME_DISC, FRAME_CAPSULE, FRAME_ELLIPSE, FRAME_PLATE, FRAME_OUTLINE, FRAME_SHAPES,
+  FRAME_SKETCH } from "./frame-vm.mjs";
 import WebGLOskiewarScene3D from "./scene3d-webgl.mjs";
 
 const params = new URLSearchParams(location.search);
 const still = params.has("still");             // freeze for screenshots
 const objectName = params.get("object") || "monowheel";
 const W = 1280, H = 720;
-
-// ——— the host: WebGL with a depth buffer, or a depth-sorted Canvas2D ———
-const canvas = document.getElementById("stage");
-let gl = null, flat = null;
-try { gl = new WebGLOskiewarScene3D(canvas); gl.setLogicalSize(W, H); }
-catch { flat = { faces: [], ctx: canvas.getContext("2d") }; }
-let hostTriangles = 0;   // what the object cost the host this frame
-const faceSink = gl ? (...f) => { hostTriangles++; gl.triangle3d(...f); }
-  : (...f) => { hostTriangles++; flat.faces.push(f); };
-const noOp = () => {};
-const vm = createFrameVm({ triangle3d: faceSink, triangle: noOp, box: noOp, line: noOp,
-  wipe: noOp, write: noOp, systemWrite: noOp, comicWrite: noOp });
 const color = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+const noOp = () => {};
+
+// ——— a pane: a host (WebGL with a depth buffer, or a depth-sorted canvas),
+// its interpreter, its program, and the object it draws ———
+function pane(kind) {
+  const canvas = document.getElementById(kind);
+  const p = { kind, canvas, gl: null, flat: null, program: new Float32Array(1 << 15), length: 0,
+    object: null, source: "", handleBase: 0, sketchBase: 0, uploaded: true, tick: {}, triangles: 0, numbers: 0, us: 0 };
+  try { p.gl = new WebGLOskiewarScene3D(canvas); p.gl.setLogicalSize(W, H); }
+  catch { p.flat = { faces: [], ctx: canvas.getContext("2d") }; }
+  const sink = p.gl ? (...f) => { p.triangles++; p.gl.triangle3d(...f); }
+    : (...f) => { p.triangles++; p.flat.faces.push(f); };
+  p.vm = createFrameVm({ triangle3d: sink, triangle: noOp, box: noOp, line: noOp,
+    wipe: noOp, write: noOp, systemWrite: noOp, comicWrite: noOp });
+  p.push = (...values) => {
+    if (p.length + values.length > p.program.length) {
+      const next = new Float32Array(p.program.length * 2); next.set(p.program); p.program = next;
+    }
+    p.program.set(values, p.length);
+    p.length += values.length;
+  };
+  // Each op the object sends, counted by name.
+  const op = (name, fn) => (...a) => { p.tick[name] = (p.tick[name] || 0) + 1; fn(...a); };
+  p.out = {
+    face: op("WORLD", (...f) => p.push(FRAME_WORLD, ...f)),
+    model: op("MODEL", (radius, h0, h1, h2, m, at) => p.push(FRAME_MODEL, radius,
+      p.handleBase + h0, p.handleBase + h1, p.handleBase + h2, ...m.subarray(at, at + 12), ...objectLight)),
+    sketch: op("SKETCH", (h, m, at) => p.push(FRAME_SKETCH, p.sketchBase + h, ...m.subarray(at, at + 12))),
+    disc: op("DISC", (...a) => p.push(FRAME_DISC, ...a)),
+    capsule: op("CAPSULE", (...a) => p.push(FRAME_CAPSULE, ...a)),
+    ellipse: op("ELLIPSE", (...a) => p.push(FRAME_ELLIPSE, ...a)),
+    plate: op("PLATE", (n, points, depth, r, g, b) => p.push(FRAME_PLATE, n, ...points, depth, r, g, b)),
+    outline: op("OUTLINE", (...a) => p.push(FRAME_OUTLINE, ...a)),
+    view: null,
+  };
+  return p;
+}
+const panes = { lit: pane("lit"), flat: pane("flat") };
 
 // ——— controls ———
-const state = { time: 0, distance: +(params.get("distance") || 0), speed: 240, lean: 0, heading: 0,
+const state = { time: 0, distance: 0, speed: 240, lean: 0, heading: 0,
   pitch: 0, turbo: 0, hit: 1e9, land: 1e9,
   yaw: -.65, elev: .32, dist: 260, perspective: .82 };
 for (const key of Object.keys(state)) if (params.has(key)) state[key] = +params.get(key);
@@ -112,60 +146,40 @@ document.getElementById("play").onclick = (e) => { playing = !playing; e.target.
 document.getElementById("land").onclick = () => { state.land = 0; };
 document.getElementById("hit").onclick = () => { state.hit = 0; };
 
-// ——— the object: fetched, compiled once, recompiled on edit ———
+// ——— the objects: fetched, compiled once, recompiled on edit ———
 const sourceBox = document.getElementById("source"), errorBox = document.getElementById("error");
-// Each compile gets fresh handles, so its meshes go up once, as ASSETs, the
-// way the game would upload them when an object loads.
-let object = null, compileMs = 0, handleBase = 0, uploaded = true;
-function build() {
+const which = document.getElementById("which");
+function build(p) {
   try {
     const t = performance.now();
-    const next = compile(sourceBox.value, objectName);
-    compileMs = performance.now() - t;
-    handleBase += object ? object.meshes.length : 0;
-    object = next;
-    uploaded = false;
+    const next = compile(p.source, `${objectName} (${p.kind})`);
+    p.compileMs = performance.now() - t;
+    // Fresh handles per compile, so its meshes go up once, as ASSETs.
+    p.handleBase += p.object ? p.object.meshes.length : 0;
+    p.sketchBase += p.object ? p.object.sketches.length : 0;
+    p.object = next;
+    p.uploaded = false;
     errorBox.textContent = "";
   } catch (error) { errorBox.textContent = error.message; }
 }
-document.getElementById("name").textContent = `objects/${objectName}.lisp`;
-sourceBox.value = await (await fetch(`objects/${objectName}.lisp`)).text();
-build();
+for (const p of Object.values(panes)) {
+  const file = `objects/${objectName}${p.kind === "flat" ? "-flat" : ""}.lisp`;
+  document.getElementById(`${p.kind}Name`).textContent = file;
+  p.source = await (await fetch(file)).text();
+  build(p);
+}
+const showSource = () => { sourceBox.value = panes[which.value].source; };
+which.onchange = showSource;
+showSource();
 let pending = 0;
-sourceBox.oninput = () => { clearTimeout(pending); pending = setTimeout(build, 150); };
+sourceBox.oninput = () => {
+  const p = panes[which.value];
+  p.source = sourceBox.value;
+  clearTimeout(pending);
+  pending = setTimeout(() => build(p), 150);
+};
 
-// ——— the frame program: CAMERA, a floor, the object's WORLD faces ———
-let program = new Float32Array(1 << 15), length = 0;
-const room = (n) => {
-  if (length + n <= program.length) return;
-  const next = new Float32Array(program.length * 2); next.set(program); program = next;
-};
-function worldFace(ax, ay, az, bx, by, bz, cx, cy, cz, r, g, b) {
-  room(13);
-  program.set([FRAME_WORLD, ax, ay, az, bx, by, bz, cx, cy, cz, r, g, b], length);
-  length += 13;
-}
-const tick = { faces: 0, models: 0 };
-const out = {
-  face: (...f) => { tick.faces++; worldFace(...f); },
-  model: (radius, h0, h1, h2, m, at) => {
-    tick.models++;
-    room(20);
-    program.set([FRAME_MODEL, radius, handleBase + h0, handleBase + h1, handleBase + h2,
-      ...m.subarray(at, at + 12), ...objectLight], length);
-    length += 20;
-  },
-};
-function upload() {
-  object.meshes.forEach((m, i) => {
-    room(4 + m.vertices.length + m.faces.length);
-    program.set([FRAME_ASSET, handleBase + i, m.vertices.length / 3, m.count], length);
-    program.set(m.vertices, length + 4);
-    program.set(m.faces, length + 4 + m.vertices.length);
-    length += 4 + m.vertices.length + m.faces.length;
-  });
-  uploaded = true;
-}
+// ——— the frame program: CAMERA, a floor, the object ———
 const norm = (v) => { const m = Math.hypot(...v) || 1; return v.map((x) => x / m); };
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 // As FightCamDoll.prepare: world y points down, the lens looks at the axle.
@@ -177,26 +191,70 @@ function camera() {
   const forward = norm(target.map((t, i) => t - position[i]));
   const right = norm(cross(forward, [0, -1, 0])), up = norm(cross(right, forward));
   const width = 2 * state.dist * Math.tan(fov / 2);
-  room(25);
-  program.set([FRAME_CAMERA, ...position, ...right, ...up, ...forward, W / 2, H / 2, W / width,
+  return [...position, ...right, ...up, ...forward, W / 2, H / 2, W / width,
     W / (2 * Math.tan(fov / 2)), state.perspective, 2.8 / 16000, -1.4, 8,
-    -W * .5, W * 1.5, -H * .5, H * 1.5], length);
-  length += 25;
+    -W * .5, W * 1.5, -H * .5, H * 1.5];
 }
-// A treadmill floor: the object holds still and the tiles run under it.
-function floor(forward, side) {
+// A treadmill floor, flat at the back of the depth range so whatever stands
+// on it (and its shadow) covers it.
+function floor(p, forward, side) {
   const tile = 40, n = 8, shift = ((state.distance % (tile * 2)) + tile * 2) % (tile * 2);
   const [a, b] = [rgb(color("--line")), rgb(color("--bg"))];
+  p.push(FRAME_DEPTH, 1, 1.35);
   for (let i = -n; i < n; i++) for (let j = -n; j < n; j++) {
     const u0 = i * tile - shift, v0 = j * tile, c = (i + j) & 1 ? a : b;
     const at = (u, v) => [forward[0] * u + side[0] * v, 0, forward[2] * u + side[2] * v];
-    const p = [at(u0, v0), at(u0 + tile, v0), at(u0 + tile, v0 + tile), at(u0, v0 + tile)];
-    worldFace(...p[0], ...p[1], ...p[2], ...c);
-    worldFace(...p[0], ...p[2], ...p[3], ...c);
+    const q = [at(u0, v0), at(u0 + tile, v0), at(u0 + tile, v0 + tile), at(u0, v0 + tile)];
+    p.push(FRAME_WORLD, ...q[0], ...q[1], ...q[2], ...c, FRAME_WORLD, ...q[0], ...q[2], ...q[3], ...c);
   }
+  p.push(FRAME_DEPTH, 0, 0);
 }
 
-let last = performance.now(), tickUs = 0, numbers = 0, triangles = 0;
+let last = performance.now();
+function draw(p, view, forward, up, right) {
+  if (p.gl) p.gl.beginFrame(); else p.flat.faces.length = 0;
+  p.length = 0;
+  p.push(FRAME_CAMERA, ...view);
+  floor(p, forward, right);
+  p.vm.run(p.program, p.length, []);
+  // The object in a program of its own, so the counts are its alone.
+  p.length = 0;
+  if (p.object && !p.uploaded) {
+    p.object.meshes.forEach((m, i) =>
+      p.push(FRAME_ASSET, p.handleBase + i, m.vertices.length / 3, m.count, ...m.vertices, ...m.faces));
+    p.object.sketches.forEach((k, i) =>
+      p.push(FRAME_SHAPES, p.sketchBase + i, k.count, k.records.length, ...k.records));
+    p.uploaded = true;
+  }
+  p.push(FRAME_CAMERA, ...view);
+  const before = p.length;
+  p.tick = {};
+  p.out.view = view;
+  if (p.object) {
+    const t = performance.now();
+    p.object(state, [0, -24, 0, ...forward, ...up, ...right], p.out);
+    p.us = (performance.now() - t) * 1000;
+  }
+  p.numbers = p.length - before;
+  p.triangles = 0;
+  p.vm.run(p.program, p.length, []);
+  if (p.gl) p.gl.present({ clear: [...rgb(color("--panel")).map((v) => v / 255), 1] });
+  else {
+    const { ctx } = p.flat;
+    ctx.fillStyle = color("--panel"); ctx.fillRect(0, 0, W, H);
+    // Far first: the depth the game gives a face grows away from the lens.
+    p.flat.faces.sort((a, b) => (b[2] + b[5] + b[8]) - (a[2] + a[5] + a[8]));
+    for (const f of p.flat.faces) {
+      ctx.fillStyle = `rgb(${f[9]},${f[10]},${f[11]})`;
+      ctx.beginPath(); ctx.moveTo(f[0], f[1]); ctx.lineTo(f[3], f[4]); ctx.lineTo(f[6], f[7]); ctx.fill();
+    }
+  }
+  const ops = Object.entries(p.tick).map(([k, n]) => `${n} ${k}`).join(" + ");
+  document.getElementById(`${p.kind}Status`).textContent =
+    `a tick: ${ops || "nothing"} = ${p.numbers} numbers, ${p.us.toFixed(0)} µs · host drew ${p.triangles} triangles` +
+    (p.object?.meshes.length ? ` · ${p.object.meshes.length} baked meshes` : "") +
+    (p.object?.sketches.length ? ` · ${p.object.sketches.length} baked sketches` : "") + ` · ${p.gl ? "webgl" : "canvas"}`;
+}
 function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now;
   if (playing) {
@@ -205,44 +263,8 @@ function frame(now) {
   }
   for (const show of shows) show();
   const forward = [Math.cos(state.heading), 0, Math.sin(state.heading)];
-  const up = [0, -1, 0], right = cross(forward, up);
-  // Two programs: the floor, then the object, so the host's count is the
-  // object's alone.
-  if (gl) gl.beginFrame(); else flat.faces.length = 0;
-  length = 0;
-  camera();
-  floor(forward, right);
-  vm.run(program, length, []);
-  length = 0;
-  if (object && !uploaded) upload();
-  camera();
-  const before = length;
-  tick.faces = tick.models = 0;
-  if (object) {
-    const t = performance.now();
-    object(state, [0, -24, 0, ...forward, ...up, ...right], out);
-    tickUs = (performance.now() - t) * 1000;
-  }
-  numbers = length - before;
-  hostTriangles = 0;
-  vm.run(program, length, []);
-  triangles = hostTriangles;
-  if (gl) {
-    gl.present({ clear: [...rgb(color("--panel")).map((v) => v / 255), 1] });
-  } else {
-    const { ctx } = flat;
-    ctx.fillStyle = color("--panel"); ctx.fillRect(0, 0, W, H);
-    // Far first: the depth the game gives a face grows away from the lens.
-    flat.faces.sort((p, q) => (q[2] + q[5] + q[8]) - (p[2] + p[5] + p[8]));
-    for (const f of flat.faces) {
-      ctx.fillStyle = `rgb(${f[9]},${f[10]},${f[11]})`;
-      ctx.beginPath(); ctx.moveTo(f[0], f[1]); ctx.lineTo(f[3], f[4]); ctx.lineTo(f[6], f[7]); ctx.fill();
-    }
-  }
-  document.getElementById("status").textContent =
-    `${gl ? "webgl, depth-tested" : "canvas, depth-sorted"} · a tick: ${tick.models} MODEL + ` +
-    `${tick.faces} WORLD = ${numbers} numbers, ${tickUs.toFixed(0)} µs · host drew ${triangles} triangles · ` +
-    `${object ? object.meshes.length : 0} baked meshes · compile ${compileMs.toFixed(1)} ms · inputs: ${objectInputs.join(" ")}`;
+  const up = [0, -1, 0], right = cross(forward, up), view = camera();
+  for (const p of Object.values(panes)) draw(p, view, forward, up, right);
   document.documentElement.dataset.ready = "1";
   if (!still) requestAnimationFrame(frame);
 }

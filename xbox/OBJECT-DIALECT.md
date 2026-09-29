@@ -4,14 +4,19 @@ Props, vehicles, weapons and hats are small KidLisp programs. You write one
 in Aesel (a `.lisp` file, the same KidLisp runtime), try it in the object lab,
 and then seal it into the game. The same compiled object runs on every
 oskiewar host. All it sends is frame ops (`OSKIEWAR-HOSTS.md` §3.0): WORLD
-faces, which every interpreter already reads, and one new op, MODEL.
+faces, which every interpreter already reads, and baked parts by handle —
+lit meshes (MODEL) or, in the flat style @jeffrey chose to try, flat
+sketches (SKETCH).
 
-**Forms compile away; hosts see faces and meshes.** Everything in this
-dialect, from `revolve` to `radial` to `mirror` to level of detail, is
-expanded once, by `object-lisp.mjs`, when the object loads. No interpreter
-ever expands a form. Each host (JS web, C++ Xbox, and whatever comes next)
-implements only WORLD, ASSET and MODEL. That rule keeps `FrameVm.cpp` small
-and keeps the hosts from drifting apart.
+**Forms compile away; hosts see faces, meshes and flat shapes.** Everything
+in this dialect, from `revolve`, `radial`, `mirror`, `toward` and `slab` to
+level of detail, is expanded once, by `object-lisp.mjs`, when the object
+loads. No interpreter ever expands a form. Each host (JS web, C++ Xbox, and
+whatever comes next) implements only WORLD, ASSET/MODEL and SHAPES/SKETCH
+(plus ELLIPSE, PLATE and OUTLINE for flat shapes that move per tick). What a
+host does with them is project, fill, light or ink, and pick sides or a
+level. That rule keeps `FrameVm.cpp` small and keeps the hosts from drifting
+apart.
 
 Written 2026-09-28. Status:
 
@@ -19,8 +24,10 @@ Written 2026-09-28. Status:
 |---|---|---|
 | compiler | `xbox/live/object-lisp.mjs` | done; tests in `xbox/live/tests/object-lisp.test.mjs` |
 | MODEL op | `xbox/live/frame-vm.mjs` (op 14) | done on the web; test in `tests/frame-vm.test.mjs`; the game's op table and `FrameVm.cpp` (R6) still need it |
-| first object | `xbox/live/objects/monowheel.lisp` | done: tire wedges, rim, web, 5 spokes rolling with distance, lean, landing squash, turbo, lamps |
-| lab | `xbox/live/object-lab.html` (`npm run xbox:play`, then `/object-lab.html`) | done; shows each tick's cost |
+| flat ops | `frame-vm.mjs` ops 15–19: ELLIPSE, PLATE, OUTLINE, SHAPES, SKETCH | done on the web; tests in `tests/frame-vm.test.mjs`; the game's op table and `FrameVm.cpp` still need them |
+| first object, lit | `xbox/live/objects/monowheel.lisp` | done: tire wedges, rim, web, 5 spokes rolling with distance, lean, landing squash, turbo, lamps |
+| first object, flat | `xbox/live/objects/monowheel-flat.lisp` | done: inked tire, rim, web, spoke bars that roll, drawn-box deck, lamp dots, ground shadow, lean, landing squash, turbo |
+| lab | `xbox/live/object-lab.html` (`npm run xbox:play`, then `/object-lab.html`) | done: lit left, flat right, one set of sliders; each pane shows its tick's cost |
 | in the game | `xbox/tools/embed-objects.mjs` + `drawMonowheel` | **next pass**, see below |
 
 ## The budget
@@ -28,24 +35,32 @@ Written 2026-09-28. Status:
 This rule holds for every object, and `object-lisp.test.mjs` fails the
 monowheel if it breaks it:
 
-- **A tick sends at most 150 numbers** (MODEL ops + WORLD faces), of which
-  **at most 8 are moving WORLD faces**. Everything else is baked.
-- **The host draws at most 150 / 100 / 80 triangles** at levels 0 / 1 / 2.
-- Baked meshes go up once, as ASSETs, when the object loads.
+- **Flat (the target):** a tick sends **at most 60 numbers**, and at every
+  distance the host draws **fewer triangles than the lit version**.
+- **Lit:** a tick sends at most 150 numbers, of which at most 8 are moving
+  WORLD faces, and the host draws at most 150 / 100 / 80 triangles at
+  levels 0 / 1 / 2.
+- Baked meshes and sketches go up once, as ASSET and SHAPES, when the object
+  loads.
 
-Measured on the monowheel (the old rows come from the game's own frame
-program; µs are Node on a Mac at load average ~400, so compare them only
-with each other):
+Measured on the monowheel. The old row comes from the game's own frame
+program. Distances are the lab camera's (220 is a close-up, and 600 to 1500
+spans gameplay). µs are Node on a Mac at load average ~400, so compare them
+only with each other:
 
-| | a tick sends | host triangles | JS per tick |
+| | a tick sends | host triangles at 220 / 600 / 1500 / 4000 | JS per tick |
 |---|---|---|---|
-| the game's flat monowheel today | 88 WORLD = **1144 numbers** | 88 | — |
+| the game's flat monowheel today | 88 WORLD = **1144 numbers** | 88 at every distance | — |
 | first object slice (all faces) | 260 WORLD = 3380 numbers | 260 | ~150 µs |
-| **now** | 2 MODEL + 4 WORLD = **92 numbers** | **148 / 92 / 80** by level | ~14–38 µs |
+| lit, baked | 2 MODEL + 4 WORLD = **92 numbers** | 148 / 96 / 92 / 80 | ~12–20 µs |
+| flat, projected in JS every tick | ~17 flat ops = 168 numbers | 134 / 85 / 55 / 47 | ~35 µs |
+| **flat, baked** | **3 SKETCH = 42 numbers** | **~125 / 84 / 55 / 33** | **~3–7 µs** |
 
-The 4 WORLD faces are the lamps, whose brightness follows speed. 10 meshes
-are uploaded once: the wheel at 3 levels × 2 turbo values, and the decks at
-2 distinct levels × 2.
+- **Lit:** the 4 WORLD faces are the lamps, whose brightness follows speed.
+  10 meshes are uploaded once: the wheel at 3 levels × 2 turbo values, and
+  the decks at 2 distinct levels × 2.
+- **Flat:** 5 sketches are uploaded once: the shadow, the wheel × 2 turbo,
+  and the deck × 2 turbo.
 
 ## Why the compiler does it all
 
@@ -187,6 +202,55 @@ monowheelObject(inputs, place, { face: emitWorldFace, model: emitModel });
 - **Faces only:** passing a single function instead draws everything as WORLD
   faces at level 0. That is the path the tests use to check the baking.
 
+## The flat style
+
+@jeffrey: "wishes we sort of drew everything in 2d even though the game is in
+3d." The world and gameplay stay 3D. Drawing is world-anchored 2D: an object
+names anchor points in its own space, the host projects them through the
+frame's CAMERA, and it fills flat 2D shapes at the projected size.
+
+- **Style:** each shape is a flat fill with an ink edge and no lighting
+  gradient. Each shape carries one flat depth, so near shapes cover far ones,
+  and objects keep a ground shadow.
+- **Forms:** `(ball x y z r)`, `(limb a b r)` (a stadium), `(ring axis r)`
+  (a circle drawn as its projected ellipse), `(drum axis r width)` (a
+  cylinder), `(stroke w …)`, `(plate …)` and `(slab x1 y1 z1 x2 y2 z2)`.
+- **Scopes:** `(outline w [r g b] …)` gives the shapes inside an ink edge `w`
+  world units wide. `(nudge d …)` pushes shapes `d` world units back to settle
+  ties. `(toward axis …)` shows the side of that axis that faces the camera,
+  which is how a wheel shows the face you can see.
+- **Baking:** a run of flat shapes that reads nothing per tick bakes into a
+  sketch (op 18 SHAPES), exactly as lit faces bake into meshes. Each tick
+  sends one 14-number SKETCH (a handle and the part's placement). The host:
+  - projects each shape's anchors;
+  - skips a one-sided shape turned away from it (that is what `toward` and
+    `slab` bake into);
+  - picks an ellipse's side count from its projected size, keeping chords
+    within 2 px of the curve (4–24 sides);
+  - draws the ink edge first, a hair behind, and leaves it off under half a
+    pixel;
+  - skips anything under a pixel.
+- **Moving shapes:** a flat shape that does read a per-tick input is
+  projected in JS and sent as ELLIPSE / DISC / CAPSULE / PLATE, with OUTLINE
+  sent only when the edge changes.
+- **Drum:** it draws the far end's outer half, the band between the ends'
+  tangent points, and the near end, each at its own depth. The far end's
+  inner half is never drawn, because the band covers it.
+- **Slab:** it bakes as six one-sided faces, so the host draws the three it
+  can see, each inked. It reads as a drawn box.
+
+**What it costs to keep it cheap.** Ink doubles what it outlines, so only
+silhouettes carry it (the tire and the deck). Details sit on fills that
+already contrast. Spokes are flat bars, two triangles each, where a round
+end costs eight. These are authoring rules, not engine limits.
+
+**Depth reads.** In the lab shots, the near cap covers the band and the band
+covers the far cap. The deck sits behind the tire, and the tire pokes through
+it. The front lamp hides behind the deck end at ¾. Seen from the left, the
+wheel shows its other face. The shadow lies under everything. What's lost is
+shading inside a surface: a cylinder reads by its silhouette and ink, not a
+gradient.
+
 ## Figures
 
 §7 decision 0 option (b) re-expresses figures as world-space primitives. The
@@ -199,12 +263,31 @@ need skinning, and that is a separate decision. With this route, FIGURE is not
 needed as an op, and the figure's forms, like the objects', compile away in
 one place.
 
+**Option (c), world-anchored flat shapes,** is the flat style applied to
+figures, and it suits them better than (b):
+- **Parts:** a figure is balls (head, hands, joints) and limbs (stadiums
+  between joints), with a torso as a plate or a drum, all inked.
+- **Bending:** bending parts stop being a problem, because a limb is two
+  anchors and a width, projected every tick.
+- **Cost:** the pose is the per-tick data, about 12 joints. A figure needs no
+  mesh: it is a sketch whose anchors are joint slots rather than fixed
+  points. The host already projects anchors and fills stadiums and discs, so
+  the only addition is a record that takes its anchor from the pose (a
+  joint index) instead of the sketch.
+- **Per-figure numbers:** about 12 joints × 3 plus a style handle, roughly
+  40–50 numbers, against today's ~1700 screen-space ops for all figures.
+- **Face and hair:** flat plates and strokes anchored to the head.
+
 ## Next pass: into the game
 
 Don't touch `oskiewar.js` without running `npm run xbox:burn:oskiewar-social`
 (the manifest is hash-bound). About 41 tests already fail at HEAD, so compare
 against that baseline.
 
+0. **Flat or lit.** If the flat style is chosen, the steps below carry
+   SHAPES/SKETCH (ops 18/19) where they say ASSET/MODEL: `emitSketch(handle,
+   frame, at)`, sketches uploaded once, and an immediate fallback that runs
+   `frame-vm.mjs`'s `drawSketch` rule through `worldTriangle`.
 1. **MODEL in the game's op table.** Add op 14 (20 numbers) to the table at
    the head of the frame-program section. Add an `emitModel(radius, h0, h1,
    h2, frame, at)` that writes it with `globalLight`. For hosts without

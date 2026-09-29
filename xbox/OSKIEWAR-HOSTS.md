@@ -108,6 +108,12 @@ MODEL    radius · handle×3 · model[12] · light    op 14, in frame-vm.mjs sin
                                                   under a placement, at one of three baked levels picked by
                                                   projected radius (56 / 20 px); normals by cofactor, zero = unlit.
                                                   Objects (xbox/OBJECT-DIALECT.md) are MODELs plus a few WORLD faces
+ELLIPSE  x y depth · a(2) b(2) · rgb             op 15: a projected circle, flat, sides by projected size
+PLATE    n · n×(x y) · depth · rgb               op 16: a flat convex polygon
+OUTLINE  width · rgb                             op 17: ink edges on the flat shapes that follow; 0 stops
+SHAPES   handle count length · records           op 18: an object's baked flat shapes (ball, limb, ring, plate, drum)
+SKETCH   handle · model[12]                      op 19: draw kept shapes placed: project anchors, fill flat, ink,
+                                                  skip one-sided shapes turned away. The flat style (2026-09-28)
 FACE     3×(x y z) · rgb · depth                  escape hatch for one-off geometry; interpreters may lower to it
 DISC     x y z · r · rgb           CAPSULE  x1 y1 z1 x2 y2 z2 · w · rgb
 RIBBON   cubic (4 pts) · w · rgb                  limbs, hair, skirt edges
@@ -258,6 +264,16 @@ drawn once and look the same everywhere.
   drift. This is also a route for §7 decision 0 option (b): a figure's rigid
   parts as baked meshes under moving bone frames, one MODEL each, with the
   same forms compiling away in the same place.
+  **Flat, 2026-09-28:** @jeffrey chose to try world-anchored 2D drawing
+  (flat fills, ink edges, flat depth per shape). `objects/monowheel-flat.lisp`
+  is the monowheel that way, side by side with the lit one in the object lab.
+  It bakes to three SKETCH ops, 42 numbers a tick, and the host draws fewer
+  triangles for it than for the lit one at every distance. The same shapes
+  are a third answer to §7 decision 0: **(c) figures as world-anchored flat
+  shapes**, balls and stadiums between projected joints, inked. It avoids
+  (a)'s second painter, and unlike (b) it bends for free, because a limb is
+  two anchors and a width. See `xbox/OBJECT-DIALECT.md` → The flat style,
+  Figures.
 
 ## 6. Order
 
