@@ -1,19 +1,48 @@
 # fiapup
 
-A cosy puppy simulator for the Xbox. You are a hand over a small backyard,
-and the pup is the star. Written 2026-09-28 as a first pass. It has one pup,
-one yard and eight behaviours, and it hasn't been on the console yet.
+A cosy puppy simulator. You are a hand over a small backyard, and the pup
+is the star. It is **mostly a mobile game**: touch comes first and the
+finger is the hand. A controller (Xbox or Mac pad) and the keyboard still
+work as the second way in. Written 2026-09-28. It has one pup, one yard and
+nine behaviours. It runs in a browser, as a Mac app and in the iOS
+Simulator, and it hasn't been on the console yet.
 
 ```
-npm run fiapup:play     # http://127.0.0.1:8124 — keyboard or an Xbox pad
-npm run fiapup:test     # behaviour, rig and budget tests
-npm run fiapup:shots    # headless screenshots → xbox/fiapup/shots/
+npm run fiapup:play     # http://127.0.0.1:8124 — touch, mouse, keyboard or a pad
+npm run fiapup:test     # behaviour, gesture, rig and budget tests
+npm run fiapup:shots    # headless screenshots → xbox/fiapup/shots/ (--phone for phone viewports)
+npm run fiapup:mac      # the Mac app (apple/fiapup)
+npm run fiapup:ios      # build, install and launch in an iPhone 17 simulator
 ```
 
 ## The game
 
-**Controls.** The game is built for the controller first. On the web the
-keys map onto the same pad.
+**Touch.** The finger is the hand. There is no glove on screen under
+touch. A tap leaves a ripple on the grass, and a finger resting on the grass
+grows a ring that fills toward a treat. Gestures are read in the game
+(`readTouches` and the functions after it in `fiapup.js`, tested in
+`tests/touch.test.mjs`) from a `touches()` binding the shells supply.
+
+| gesture | does |
+|---|---|
+| stroke across the pup | petting, for as long as the finger stays over it. A moving stroke counts up to 3× a resting finger toward joy and hearts, with a soft haptic tap every 0.35 s. Keep going (1.8 s) and it rolls over for belly rubs |
+| drag the ball, lift with a flick | throws at the flick's velocity on the lawn (the finger's last 0.1 s, capped at 560 u/s, with lift by speed). A lift under 140 u/s sets it down. The pup fetches it back to where your finger was |
+| tap the grass | calls the pup to *that spot* |
+| double-tap the grass, or the **play** button | play bow, then zoomies |
+| hold still on the grass (0.35 s) | a treat appears under the finger, and the pup comes to beg; lift to drop it |
+| drag the rope | the pup takes the far end and pulls against you; lift and it parades the rope. Grab the rope out of its mouth and the tug starts at once |
+
+- **Picks** project the pup (body, rump and head), the ball and points along
+  the rope to the screen. Each one reaches its projected size plus 44 stage
+  units, roughly a fingertip on a phone. The closest hit wins; the ball wins
+  ties.
+- **Forgiving strokes.** A stroke that starts on the grass beside the pup
+  and runs onto it counts.
+- **Multi-touch.** Each finger is read on its own, so a second finger
+  doesn't end a stroke. Only one finger at a time holds something.
+- **Handing back.** A pad press or a stick hands the game back to the glove.
+
+**Controls (pad and keyboard).** On the web the keys map onto the same pad.
 
 | pad | keys | does |
 |---|---|---|
@@ -75,11 +104,38 @@ has `synth`.
   objects between `// <sealed>` markers, the way `embed-objects.mjs` does
   for oskiewar. `--check` fails on drift, and so does a test.
 - **Web shell.** `xbox/fiapup/index.html` gives the script the console's
-  bindings in a browser. `triangle3d` goes through oskiewar's
-  `scene3d-webgl.mjs` (depth-tested WebGL2); `write` draws on a text canvas;
-  `synth` uses WebAudio; `gamepad` reads the keyboard or the Gamepad API.
-  `?stage=fetch|pet|beg|nap|zoomies|tug[&seconds=n][&pause]` opens on a
-  staged moment.
+  bindings in a browser, plus `touches()` and `haptic()`.
+  - **Drawing:** `triangle3d` goes through oskiewar's `scene3d-webgl.mjs`
+    (depth-tested WebGL2); `write` draws on a text canvas.
+  - **Input and sound:** `synth` uses WebAudio. `gamepad` reads the keyboard
+    or the Gamepad API. Pointer events become `touches()`.
+  - **Phone behaviour:** the page is full-bleed with no scroll, zoom or
+    selection, and audio unlocks on the first touch.
+  - **Staging:** `?stage=fetch|pet|beg|nap|zoomies|tug[&seconds=n][&pause][&touch]`
+    opens on a staged moment.
+- **Screen shape.** The stage is 1080 units tall and as wide as the window's
+  shape (a phone held upright is about 500 wide).
+  - `runtime()` also reports the safe-area insets and `perPoint` (stage
+    units per screen point).
+  - The HUD keeps out of the insets and is scaled so its text never drops
+    below thumb size. On a phone on its side, 1080 units are only about
+    390 points.
+  - Portrait looks down more steeply (0.74 rad against 0.5) and frames by
+    width (focal 1.55 × width), so the pup is big.
+  - The keyboard legend only shows where there's likely a keyboard.
+- **Apps.** `apple/fiapup` is an XcodeGen project with two targets over one
+  bundle and one `fiapup://` scheme handler (`Sources/Shared`).
+  - **Mac:** @jeffrey's AppKit window (`Sources/Mac`).
+  - **iOS:** iPhone and iPad (`Sources/iOS`). It is a full-screen WKWebView
+    with the status bar and home indicator hidden, portrait and both
+    landscapes (plus upside-down on iPad).
+  - **Haptics:** a `haptic` message handler maps the game's soft, light and
+    medium taps to `UIImpactFeedbackGenerator`. On the web it falls back to
+    `navigator.vibrate`, or nothing.
+  - **Signing:** no team or provisioning. It is built for the Simulator
+    with `CODE_SIGNING_ALLOWED=NO`.
+  - **Staging:** launch arguments `-stage -seconds -pause -orientation`
+    open a staged moment. `apple/fiapup/sim-shots.sh` uses them.
 - **Where it lives.** `xbox/fiapup/serve.mjs` serves `xbox/fiapup` plus the
   two scene modules. fiapup does **not** live under `xbox/live`, because
   lith's catch-all serves that whole directory on oskiewar.com, and the next
@@ -199,7 +255,27 @@ node xbox/fiapup/xbox.mjs borrow --yes      # fiapup on the console
 node xbox/fiapup/xbox.mjs restore --yes     # oskiewar back (then npm run oskiewar:reconcile)
 ```
 
-## Screenshots (`xbox/fiapup/shots/`, headless Chrome, SwiftShader WebGL)
+## Screenshots
+
+**iOS Simulator** (`shots/ios/`, iPhone 17, iOS 26.5, half-size JPEGs),
+portrait and landscape for each moment. The glove is hidden and the play
+button sits bottom right, both as intended.
+- **Portrait:** the HUD sits below the Dynamic Island.
+- **Landscape:** the HUD sits beside the island.
+- **pet:** the pup sits large, mid-screen, leaning up, eyes shut, a heart
+  rising.
+- **rollover:** belly up with four paws in the air.
+- **beg:** bolt upright, front paws up.
+- **tug:** facing you, rope in its mouth. The rope runs off toward where
+  the finger was, and with no finger drawn it reads a little oddly.
+- **fetch, zoomies, nap:** the pup is small because it is far away, at the
+  fence or in the bed. The camera doesn't zoom toward it when it's off on
+  its own.
+
+**Phone viewports in headless Chrome** (`shots/phone/`, 390×844 and 844×390
+at 2×): idle, pet, fetch and beg, in the same touch UI.
+
+**Desktop and pad view** (`shots/*.png`, headless Chrome, SwiftShader WebGL):
 
 - **idle.png:** the pup stands mid-lawn, three-quarter view, looking at the
   gloved hand. You can see the bed back left, the bowl back right, the ball
@@ -223,6 +299,21 @@ node xbox/fiapup/xbox.mjs restore --yes     # oskiewar back (then npm run oskiew
   is mostly hidden behind the glove.
 
 ## Open questions for @jeffrey
+
+Touch and mobile:
+
+- **The finger.** With no glove, the rope and a held ball point at nothing.
+  Should a finger resting on the screen show a small paw-print or glove
+  ghost?
+- **A far-away pup.** In portrait it is small when it's at the fence or in
+  its bed. Should the camera lean in toward the pup when you aren't touching
+  anything?
+- **The HUD.** Keep the play button, or trust double-tap alone?
+- **The next step toward TestFlight.** It needs a team, an icon and a launch
+  screen image; the icon could be the pup from `puppy-flat.lisp`. None of
+  that is done.
+
+From the first pass:
 
 1. **A or B?** Is borrowing the oskiewar tile acceptable for a first look,
    or should fiapup wait for its own package?
