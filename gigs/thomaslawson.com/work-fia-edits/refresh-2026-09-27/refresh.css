@@ -654,6 +654,243 @@ body.tl-refresh:not(#tl) .tl-context-line {
 }
 
 /* ------------------------------------------------------------------ *
+ * 14. Section headers: image left, text right (Fía, 2026-09-28).
+ *     After the Burning Torch About pages. refresh.js builds .tl-split
+ *     from each section's authored header (hidden, kept in the DOM); the
+ *     Curatorial Projects + Exhibitions pages print the same markup.
+ *     The image is never cropped on a wide screen: it keeps its own
+ *     proportions (--tl-ar), as wide as half the screen or as tall as
+ *     the viewport allows, whichever comes first.
+ * ------------------------------------------------------------------ */
+/* Doubled class: outranks the per-page section rules above (In the Studio's is display:block). */
+body.tl-refresh:not(#tl) .elementor-element.tl-split-source.tl-split-source { display: none !important; }
+body.tl-refresh:not(#tl) .tl-split {
+    --tl-split-h: min(78vh, 760px);
+    --tl-split-w: min(50vw, calc(var(--tl-split-h) * (var(--tl-ar, 1))));
+    order: -200;
+    display: grid;
+    grid-template-columns: var(--tl-split-w) minmax(0, 1fr);
+    align-items: start;
+    width: 100%;
+    margin: 0 0 clamp(2.75rem, 5vw, 4.5rem);
+    padding: 0;
+    box-sizing: border-box;
+}
+body.tl-refresh:not(#tl) .tl-split-media {
+    position: sticky;
+    top: 0;
+    margin: 0;
+    line-height: 0;
+    align-self: start;
+}
+body.tl-refresh:not(#tl) .tl-split-media img {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    aspect-ratio: var(--tl-ar, 1);
+    object-fit: cover !important;
+    object-position: var(--tl-focus, 50% 50%) !important;
+    margin: 0 !important;
+}
+body.tl-refresh:not(#tl) .tl-split-text {
+    box-sizing: border-box;
+    max-width: calc(34rem + clamp(2rem, 5vw, 5.5rem) + var(--tl-gutter));
+    padding: clamp(1.75rem, 4.5vw, 4rem) var(--tl-gutter) 0 clamp(2rem, 5vw, 5.5rem);
+}
+body.tl-refresh:not(#tl) .tl-split-title {
+    margin: 0 0 clamp(1.1rem, 2vw, 1.6rem) !important;
+    padding: 0 !important;
+    font-family: var(--tl-sans) !important;
+    font-size: var(--tl-fs-display) !important;
+    font-weight: 500 !important;
+    line-height: 1.08 !important;
+    letter-spacing: -0.028em !important;
+    color: var(--tl-ink) !important;
+    text-transform: none !important;
+}
+body.tl-refresh:not(#tl) .tl-split-text .tl-eyebrow { margin-bottom: 0.7rem; }
+body.tl-refresh:not(#tl) .tl-split-text .elementor-widget-text-editor {
+    max-width: 34rem !important;
+    width: 100% !important;
+    margin: 0 !important;
+}
+body.tl-refresh:not(#tl) .tl-split-text .elementor-widget-text-editor + .elementor-widget-text-editor { margin-top: 1.25rem !important; }
+body.tl-refresh:not(#tl) .tl-split-text .elementor-widget-text-editor > .elementor-widget-container {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: none !important;
+}
+body.tl-refresh:not(#tl) .tl-split-text .elementor-widget-text-editor :is(p, span, div, li) {
+    font-size: var(--tl-fs-body) !important;
+    line-height: 1.6 !important;
+    color: var(--tl-ink) !important;
+    text-align: left !important;
+    text-shadow: none !important;
+    background: none !important;
+}
+body.tl-refresh:not(#tl) .tl-split-lede {
+    max-width: 34rem;
+    margin: 0 !important;
+    font-family: var(--tl-sans) !important;
+    font-size: var(--tl-fs-label) !important;
+    line-height: 1.45 !important;
+    color: var(--tl-muted) !important;
+}
+
+/* Beyond the Studio: two doors — Curatorial Projects, Exhibitions. */
+body.tl-refresh:not(#tl) .tl-bts-doors {
+    order: -199;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(1.25rem, 3vw, 2.5rem);
+    width: min(var(--tl-wide), 100vw - 2 * var(--tl-gutter));
+    margin: 0 auto clamp(3rem, 6vw, 5rem);
+    padding-bottom: clamp(2.5rem, 5vw, 4rem);
+    border-bottom: 1px solid var(--tl-rule);
+    box-sizing: border-box;
+}
+body.tl-refresh:not(#tl) .tl-bts-door { display: block; color: var(--tl-ink) !important; }
+body.tl-refresh:not(#tl) .tl-bts-door img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
+    margin: 0 0 0.85rem;
+}
+body.tl-refresh:not(#tl) .tl-bts-door-title {
+    display: block;
+    font-family: var(--tl-sans);
+    font-size: var(--tl-fs-title);
+    font-weight: 500;
+    line-height: 1.18;
+    letter-spacing: -0.018em;
+}
+body.tl-refresh:not(#tl) .tl-bts-door-title::after { content: " \2192"; color: var(--tl-muted); font-weight: 400; }
+body.tl-refresh:not(#tl) .tl-bts-door:hover .tl-bts-door-title { color: var(--tl-accent); }
+body.tl-refresh:not(#tl) .tl-bts-door-meta {
+    display: block;
+    margin-top: 0.3rem;
+    font-family: var(--tl-sans);
+    font-size: var(--tl-fs-small);
+    color: var(--tl-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ *
+ * 15. Curatorial Projects + Exhibitions pages (from Tom's CV sheet).
+ * ------------------------------------------------------------------ */
+body.tl-refresh:not(#tl).tl-cv-page #content > .ast-container,
+body.tl-refresh:not(#tl).tl-cv-page #primary,
+body.tl-refresh:not(#tl).tl-cv-page .tl-cv-article,
+body.tl-refresh:not(#tl).tl-cv-page .entry-content {
+    display: block !important;
+    max-width: none !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    border: 0 !important;
+}
+body.tl-refresh:not(#tl) .tl-cv-body {
+    width: min(var(--tl-wide), 100vw - 2 * var(--tl-gutter));
+    margin: 0 auto clamp(4rem, 8vw, 6.5rem);
+    font-family: var(--tl-sans);
+}
+body.tl-refresh:not(#tl) .tl-cv-body a { color: var(--tl-ink) !important; }
+body.tl-refresh:not(#tl) .tl-cv-body a:hover { color: var(--tl-accent) !important; }
+body.tl-refresh:not(#tl) .tl-cv-body a.tl-opens::after {
+    content: "\2197";
+    display: inline-block;
+    margin-left: 0.3em;
+    font-size: 0.8em;
+    color: var(--tl-muted);
+}
+body.tl-refresh:not(#tl) .tl-cv-year {
+    font-family: var(--tl-sans);
+    font-size: var(--tl-fs-small);
+    font-variant-numeric: tabular-nums;
+    color: var(--tl-muted);
+}
+/* Curatorial: one row per show — picture, year, title, venue. */
+body.tl-refresh:not(#tl) .tl-cv-cards { border-top: 1px solid var(--tl-rule); }
+body.tl-refresh:not(#tl) .tl-cv-card {
+    display: grid;
+    grid-template-columns: clamp(96px, 16vw, 220px) minmax(0, 1fr);
+    column-gap: clamp(1.1rem, 3vw, 2.5rem);
+    align-items: start;
+    padding: clamp(1.1rem, 2.2vw, 1.75rem) 0;
+    border-bottom: 1px solid var(--tl-rule);
+}
+body.tl-refresh:not(#tl) .tl-cv-thumb { display: block; line-height: 0; }
+body.tl-refresh:not(#tl) .tl-cv-thumb img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+}
+body.tl-refresh:not(#tl) .tl-cv-thumb-empty { aspect-ratio: 4 / 3; background: color-mix(in srgb, var(--tl-rule) 45%, transparent); }
+body.tl-refresh:not(#tl) .tl-cv-card-text { max-width: var(--tl-measure); }
+body.tl-refresh:not(#tl) .tl-cv-card .tl-cv-year { margin: 0 0 0.25rem !important; }
+body.tl-refresh:not(#tl) .tl-cv-card .tl-cv-title {
+    margin: 0 0 0.4rem !important;
+    font-family: var(--tl-sans) !important;
+    font-size: var(--tl-fs-subhead) !important;
+    font-weight: 500 !important;
+    line-height: 1.3 !important;
+    letter-spacing: -0.01em !important;
+    color: var(--tl-ink) !important;
+}
+body.tl-refresh:not(#tl) .tl-cv-card .tl-cv-where {
+    margin: 0 !important;
+    font-size: var(--tl-fs-small);
+    line-height: 1.5;
+    color: var(--tl-muted);
+}
+/* Exhibitions: a CV list — year, then title over venue. */
+body.tl-refresh:not(#tl) .tl-cv-jump { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; margin: 0 0 clamp(1.5rem, 3vw, 2.25rem); font-size: var(--tl-fs-label); }
+body.tl-refresh:not(#tl) .tl-cv-jump a { border-bottom: 1px solid var(--tl-rule); }
+body.tl-refresh:not(#tl) .tl-cv-head {
+    margin: clamp(2.5rem, 5vw, 4rem) 0 0.9rem !important;
+    font-family: var(--tl-sans) !important;
+    font-size: var(--tl-fs-title) !important;
+    font-weight: 500 !important;
+    line-height: 1.18 !important;
+    letter-spacing: -0.018em !important;
+    color: var(--tl-ink) !important;
+    scroll-margin-top: 1.5rem;
+}
+body.tl-refresh:not(#tl) .tl-cv-jump + .tl-cv-head { margin-top: 0 !important; }
+body.tl-refresh:not(#tl) .tl-cv-list { list-style: none !important; margin: 0 !important; padding: 0 !important; border-top: 1px solid var(--tl-rule); }
+body.tl-refresh:not(#tl) .tl-cv-row {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1fr);
+    column-gap: clamp(0.75rem, 2vw, 1.5rem);
+    margin: 0 !important;
+    padding: 0.55rem 0;
+}
+body.tl-refresh:not(#tl) .tl-cv-row-year { border-top: 1px solid var(--tl-rule); padding-top: 0.8rem; }
+body.tl-refresh:not(#tl) .tl-cv-list > .tl-cv-row-year:first-child { border-top: 0; }
+body.tl-refresh:not(#tl) .tl-cv-row .tl-cv-year { padding-top: 0.1rem; line-height: 1.45; }
+body.tl-refresh:not(#tl) .tl-cv-entry { display: block; max-width: 44rem; }
+body.tl-refresh:not(#tl) .tl-cv-row .tl-cv-title {
+    display: block;
+    font-size: var(--tl-fs-label);
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--tl-ink);
+}
+body.tl-refresh:not(#tl) .tl-cv-row .tl-cv-where {
+    display: block;
+    font-size: var(--tl-fs-small);
+    line-height: 1.45;
+    color: var(--tl-muted);
+}
+body.tl-refresh:not(#tl) .tl-cv-row .tl-cv-where:only-child { font-size: var(--tl-fs-label); color: var(--tl-ink); }
+body.tl-refresh:not(#tl) .tl-cv-month::before { content: " \00b7 "; }
+
+/* ------------------------------------------------------------------ *
  * 9. Mobile.
  * ------------------------------------------------------------------ */
 @media (max-width: 767px) {
@@ -664,4 +901,11 @@ body.tl-refresh:not(#tl) .tl-context-line {
     body.tl-refresh:not(#tl).page-id-140 .elementor-element-71fa6aa::before {
         height: 56vw !important;
     }
+    /* Split headers stack: picture full width, then the text. */
+    body.tl-refresh:not(#tl) .tl-split { grid-template-columns: minmax(0, 1fr); }
+    body.tl-refresh:not(#tl) .tl-split-media { position: static; }
+    body.tl-refresh:not(#tl) .tl-split-media img { aspect-ratio: var(--tl-ar-m, var(--tl-ar, 1)); }
+    body.tl-refresh:not(#tl) .tl-split-text { max-width: none; padding: 1.5rem var(--tl-gutter) 0; }
+    body.tl-refresh:not(#tl) .tl-bts-doors { grid-template-columns: minmax(0, 1fr); }
+    body.tl-refresh:not(#tl) .tl-cv-row { grid-template-columns: 3.25rem minmax(0, 1fr); }
 }

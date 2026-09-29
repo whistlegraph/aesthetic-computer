@@ -33,3 +33,12 @@ Side-by-side pairs for every page and both viewports: `evidence/compare/`.
 
 Open for Fía/Tom: News banner is a 225×300 snapshot with baked-in text;
 page title "Pat Douthewaite" → Douthwaite.
+
+v1.5.0 (built 2026-09-28, not yet uploaded) — Fía's 2026-09-28 notes:
+section headers become image-left / text-right (after the Burning Torch
+About pages; the picture whole at its own proportions, stacked on phones),
+and Beyond the Studio opens onto two new pages, `/curatorial-projects/`
+and `/exhibitions/`, which the plugin serves from `build-cv.mjs` +
+`fia-2026-09-27/tl-cv.csv` (her CV sheet, re-exported 2026-09-28 and
+identical). A real WP page with either slug wins over the plugin's.
+Preview evidence: `evidence/split-preview/`.
