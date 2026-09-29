@@ -63,7 +63,7 @@ test("a flick throws the ball at the flick's velocity; a gentle lift sets it dow
   const f = fresh();
   const b = f.world.ball, at = f.screenOf(b.x, 5, b.z);
   frame(f, [{ id: 1, x: at.x, y: at.y }]);
-  assert.equal(f.world.hand.holding, "ball");
+  assert.equal(f.world.hand.holding, null, "a finger on the ball is a tap until it moves");
   // Up the screen, fast: into the yard.
   // Where the finger is on the lawn, read against the camera each frame sees.
   const path = [];
@@ -72,7 +72,7 @@ test("a flick throws the ball at the flick's velocity; a gentle lift sets it dow
     frame(f, [{ id: 1, x: at.x, y: at.y - i * 30 }]);
   }
   const before = f.world.ball.heldBy;
-  const from = path[0], to = path[5];
+  const from = path[1], to = path[5];
   frame(f, []);
   assert.equal(before, "hand");
   assert.equal(f.world.ball.thrown, true);
@@ -103,19 +103,42 @@ test("a flick throws the ball at the flick's velocity; a gentle lift sets it dow
   assert.equal(g.world.ball.heldBy, null);
 });
 
-test("a tap on the grass calls the pup to that spot; two taps start play", () => {
+// Tap once on the screen at a world point (or a screen point).
+function tapAt(f, x, y, z) {
+  const at = f.screenOf(x, y, z);
+  frame(f, [{ id: 9, x: at.x, y: at.y }]);
+  frame(f, []);
+  return at;
+}
+
+test("tap the grass: the pup trots to that spot, with a marker, and settles", () => {
   const f = fresh();
-  const spot = f.screenOf(-60, 0, -80);   // clear of the rope and the ball
+  const spot = f.screenOf(-60, 0, -80);   // clear of the rope, the ball, the bed
   frame(f, [{ id: 1, x: spot.x, y: spot.y }]);
   const target = f.ground(spot.x, spot.y);     // the camera the lift is read against
   frame(f, []);
-  assert.equal(f.world.pup.state, "come");
-  assert.ok(Math.hypot(f.world.callSpot.x - target.x, f.world.callSpot.z - target.z) < 1);
+  assert.equal(f.world.pup.state, "go");
+  assert.ok(Math.hypot(f.world.goSpot.x - target.x, f.world.goSpot.z - target.z) < 1);
   assert.ok(Math.hypot(target.x + 60, target.z + 80) < 8, "near where it was aimed");
+  assert.ok(f.world.ripples.length > 0, "a ripple marks it");
   idle(f, 4);
   const p = f.world.pup;
-  assert.ok(Math.hypot(p.x - target.x, p.z - target.z) < 14, `arrived: ${p.x.toFixed(0)},${p.z.toFixed(0)}`);
+  assert.ok(Math.hypot(p.x - target.x, p.z - target.z) < 12, `arrived: ${p.x.toFixed(0)},${p.z.toFixed(0)}`);
+  assert.ok(f.world.log.includes("settle"));
+});
 
+test("the pup turns its head the moment a finger lands", () => {
+  const f = fresh();
+  idle(f, 1);
+  const p = f.world.pup, before = p.pose.yaw;
+  const at = f.screenOf(p.x - 150, 0, p.z + 100);
+  frame(f, [{ id: 1, x: at.x, y: at.y }]);
+  for (let i = 0; i < 5; i++) frame(f, [{ id: 1, x: at.x, y: at.y }]);
+  assert.ok(Math.abs(p.pose.yaw - before) > .1, "head came round within 6 frames");
+  assert.ok(p.pose.perk > .1, "ears up");
+});
+
+test("two taps on the grass start play", () => {
   const g = fresh();
   g.world.pup.energy = .9;
   const s2 = g.screenOf(60, 0, 100);
@@ -123,6 +146,83 @@ test("a tap on the grass calls the pup to that spot; two taps start play", () =>
   idle(g, .1);
   frame(g, [{ id: 2, x: s2.x + 5, y: s2.y }]); frame(g, []);
   assert.equal(g.world.pup.state, "playbow");
+});
+
+test("tap the ball: it fetches it and brings it toward you", () => {
+  const f = fresh();
+  const b = f.world.ball;
+  tapAt(f, b.x, 5, b.z);
+  assert.equal(f.world.pup.state, "fetch");
+  let carried = false;
+  for (let t = 0; t < 8; t += tick) { frame(f); carried ||= b.heldBy === "pup"; }
+  assert.ok(carried, "picked it up");
+  assert.equal(b.heldBy, null, "and set it down");
+  const edge = f.world.camera;
+  assert.ok(b.z > 60, `brought to the near side: z ${b.z.toFixed(0)} (camera at ${edge.z.toFixed(0)})`);
+});
+
+test("tap the bowl: it goes and drinks", () => {
+  const f = fresh();
+  tapAt(f, 230, 5, -150);
+  assert.equal(f.world.pup.state, "drink");
+  let lapped = false;
+  for (let t = 0; t < 6; t += tick) { frame(f); lapped ||= f.world.pup.phase === "lap"; }
+  assert.ok(lapped);
+  assert.ok(Math.hypot(f.world.pup.x - 230, f.world.pup.z + 150) < 40, "at the bowl");
+});
+
+test("tap the bed: it goes to bed and naps", () => {
+  const f = fresh();
+  tapAt(f, -230, 6, -140);
+  assert.equal(f.world.pup.state, "sleepy");
+  for (let t = 0; t < 7; t += tick) frame(f);
+  assert.equal(f.world.pup.state, "nap");
+  assert.ok(Math.hypot(f.world.pup.x + 230, f.world.pup.z + 140) < 20);
+});
+
+test("tap the rope: it snatches it up, shakes it, and parades it", () => {
+  const f = fresh();
+  const r = f.world.rope;
+  tapAt(f, r.x + Math.cos(r.angle) * 15, 3.4, r.z + Math.sin(r.angle) * 15);
+  assert.equal(f.world.pup.state, "shake");
+  let shook = false;
+  for (let t = 0; t < 5; t += tick) { frame(f); shook ||= f.world.pup.phase === "shake" && r.heldBy === "pup"; }
+  assert.ok(shook);
+  assert.ok(f.world.log.includes("parade"));
+});
+
+test("tap the pup: a happy wiggle", () => {
+  const f = fresh();
+  idle(f, .2);
+  const p = f.world.pup;
+  tapAt(f, p.x, 21, p.z);
+  assert.equal(p.state, "wiggle");
+  assert.ok(f.world.heard.length > 0, "a yip");
+  idle(f, 1.2);
+  assert.equal(p.state, "idle");
+});
+
+test("a tap redirects: mid-nap it wakes and comes; mid-fetch it goes where you tap", () => {
+  const f = fresh();
+  f.world.pup.energy = .15;
+  idle(f, 9);
+  assert.equal(f.world.pup.state, "nap");
+  tapAt(f, 0, 0, 60);
+  assert.equal(f.world.pup.state, "stretch");
+  idle(f, 5);
+  const p = f.world.pup;
+  assert.ok(f.world.log.includes("go"));
+  assert.ok(Math.hypot(p.x, p.z - 60) < 14, `came to the tap: ${p.x.toFixed(0)},${p.z.toFixed(0)}`);
+
+  const g = fresh();
+  tapAt(g, g.world.ball.x, 5, g.world.ball.z);
+  for (let t = 0; t < 8 && g.world.ball.heldBy !== "pup"; t += tick) frame(g);
+  assert.equal(g.world.ball.heldBy, "pup");
+  tapAt(g, -150, 0, 40);
+  assert.equal(g.world.pup.state, "go");
+  idle(g, 5);
+  assert.equal(g.world.ball.heldBy, null, "dropped it at the spot");
+  assert.ok(Math.hypot(g.world.ball.x + 150, g.world.ball.z - 40) < 45);
 });
 
 test("holding still on the grass shows a treat; letting go drops it", () => {
@@ -147,8 +247,8 @@ test("dragging the rope starts a tug", () => {
   idle(f, .1);
   const at = f.screenOf(r.x + Math.cos(r.angle) * 15, 3.4, r.z + Math.sin(r.angle) * 15);
   frame(f, [{ id: 1, x: at.x, y: at.y }]);
+  for (let t = 0; t < 3; t += tick) frame(f, [{ id: 1, x: at.x, y: at.y + 20 + t * 20 }]);
   assert.equal(f.world.hand.holding, "rope");
-  for (let t = 0; t < 3; t += tick) frame(f, [{ id: 1, x: at.x, y: at.y + t * 20 }]);
   assert.equal(f.world.pup.state, "tug");
   assert.equal(r.heldBy, "both");
   frame(f, []);

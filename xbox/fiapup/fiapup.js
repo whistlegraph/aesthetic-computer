@@ -2070,7 +2070,7 @@ function freshWorld(seed = 7) {
     input: { down: new Set(), was: new Set(), x: 0, y: 0 },
     sounds: [], heard: [], log: [], hearts: [], buzzes: [],
     touch: { fingers: new Map(), mode: false, petting: false, stroke: 0, lastTap: null, gestures: 0 },
-    ripples: [], callSpot: null,
+    ripples: [], callSpot: null, goSpot: null, bringTo: null,
     camera: { x: 20, z: 10, reach: 300 },
   };
 }
@@ -2149,6 +2149,10 @@ function tickHand(dt) {
       hand.holding = "ball"; ball.heldBy = "hand"; noises.squeak();
     } else if (!hand.holding && !rope.heldBy && dist(hand.x, hand.z, rope.x, rope.z) < reachRope) {
       hand.holding = "rope"; rope.heldBy = "hand";
+    } else if (!hand.holding && dist(hand.x, hand.z, pup.x, pup.z) >= reachPup) {
+      // The pad's tap-and-go: A over the bowl, the bed, or the grass.
+      const near = (x, z, r) => dist(hand.x, hand.z, x, z) < r;
+      tapOn(near(bowl.x, bowl.z, 34) ? "bowl" : near(bed.x, bed.z, 48) ? "bed" : "grass", { x: hand.x, z: hand.z });
     }
   }
   if (pressed("B")) call();
@@ -2211,7 +2215,7 @@ function call(spot = null) {
 
 function play() {
   const pup = world.pup;
-  if (!["idle", "sniff", "come"].includes(pup.state)) return;
+  if (!["idle", "sniff", "come", "go", "settle", "wiggle"].includes(pup.state)) return;
   if (pup.energy > .35) enter("playbow");
   else { noises.yawn(); pup.pose.mouth = 1; }
 }
@@ -2345,13 +2349,15 @@ const states = {
           b.heldBy = "pup"; b.thrown = false; p.carrying = "ball"; p.phase = "return"; noises.squeak(); buzz("medium");
         }
       } else if (p.phase === "return") {
-        if (goTo(h.x, h.z - 4, 170, 32, dt)) { p.phase = "drop"; p.time = 0; }
+        const home = world.bringTo || { x: h.x, z: h.z - 4 };
+        if (goTo(home.x, home.z, 170, world.bringTo ? 6 : 32, dt)) { p.phase = "drop"; p.time = 0; }
       } else {
         stand(dt); turnTo(h.x, h.z, dt);
         if (p.time > .35 && p.carrying === "ball") {
           const m = pupRig(p).mouth;
           Object.assign(b, { heldBy: null, x: m.x, y: Math.max(0, m.y - 5), z: m.z, vx: 0, vy: 0, vz: 0 });
           p.carrying = null; p.joy = Math.min(1, p.joy + .12); p.energy -= .06; noises.yip();
+          world.bringTo = null;
         }
         if (p.time > .9) enter("idle");
       }
@@ -2457,6 +2463,78 @@ const states = {
     },
     pose: (p) => ({ nose: true, chomp: p.phase === "chomp" ? 1 : 0, wag: 1.1 }),
   },
+  // Tap-and-go: tap the grass and it trots there, then settles.
+  go: {
+    tick(dt) {
+      const p = world.pup, spot = world.goSpot;
+      if (!spot) return enter("idle");
+      const next = notice({ treat: 1, ball: 1 });
+      if (next) { world.goSpot = null; return enter(next); }
+      if (goTo(spot.x, spot.z, 150, 6, dt)) {
+        world.goSpot = null;
+        // Carrying something, it brings it to the spot you tapped.
+        if (p.carrying) { dropCarried(); noises.yip(); }
+        enter("settle");
+      }
+    },
+    pose: () => ({ wag: .9, ears: "bounce" }),
+  },
+  settle: {
+    tick(dt) {
+      stand(dt); turnTo(world.hand.x, world.hand.z, dt, 3);
+      if (world.pup.time > 1) enter("idle");
+    },
+    pose: (p) => ({ hop: p.time < .3 ? 1 : 0, sit: p.time > .45 ? 1 : 0, wag: 1.1, look: "hand" }),
+  },
+  // Tap the pup: a happy wiggle and a hop.
+  wiggle: {
+    tick(dt) {
+      const p = world.pup;
+      stand(dt); turnTo(world.hand.x, world.hand.z, dt, 6);
+      if (p.time < dt * 1.5) { noises.yip(); p.joy = Math.min(1, p.joy + .04); }
+      if (p.time > .9) enter("idle");
+    },
+    pose: () => ({ hop: 1, wiggle: 1, wag: 1.5, look: "hand", ears: "perk" }),
+  },
+  // Tap the bowl: it trots over and laps.
+  drink: {
+    tick(dt) {
+      const p = world.pup;
+      const next = notice({ treat: 1 });
+      if (next) return enter(next);
+      if (!p.phase) {
+        if (goTo(bowl.x, bowl.z, 150, 25, dt)) { p.phase = "lap"; p.time = 0; }
+        return;
+      }
+      stand(dt); turnTo(bowl.x, bowl.z, dt, 6);
+      if (Math.floor((p.time - dt) / .28) !== Math.floor(p.time / .28)) sound(520 + world.rng() * 90, .03);
+      p.energy = Math.min(1, p.energy + .05 * dt);
+      if (p.time > 2.6) { p.joy = Math.min(1, p.joy + .08); noises.yip(); enter("settle"); }
+    },
+    pose: (p) => p.phase === "lap" ? { nose: true, lap: 1, wag: .8 } : { wag: .9, ears: "bounce" },
+  },
+  // Tap the rope: it runs to it, snatches it up, shakes it, and parades.
+  shake: {
+    tick(dt) {
+      const p = world.pup, r = world.rope;
+      const next = notice({ treat: 1 });
+      if (next) return enter(next);
+      if (!p.phase) {
+        if (r.heldBy === "pup") { p.phase = "shake"; p.time = 0; return; }
+        if (r.heldBy) return enter("idle");
+        const c = { x: r.x + Math.cos(r.angle) * 15, z: r.z + Math.sin(r.angle) * 15 }, m = pupRig(p).mouth;
+        goTo(c.x, c.z, 160, 0, dt);
+        if (dist(m.x, m.z, c.x, c.z) < 12) {
+          r.heldBy = "pup"; p.carrying = "rope"; p.phase = "shake"; p.time = 0; noises.growl(); buzz("medium");
+        }
+        return;
+      }
+      stand(dt);
+      if (Math.floor((p.time - dt) / .45) !== Math.floor(p.time / .45)) noises.growl();
+      if (p.time > 1.5) enter("parade");
+    },
+    pose: (p) => p.phase === "shake" ? { shake: 1, wag: 1.2, ears: "flap", chin: 1 } : { wag: .9, ears: "bounce" },
+  },
   sleepy: {
     tick(dt) {
       const next = notice({ treat: 1 });
@@ -2472,7 +2550,7 @@ const states = {
       stand(dt);
       p.energy = Math.min(1, p.energy + .07 * dt);
       if (Math.floor((p.time - dt) / 2.6) !== Math.floor(p.time / 2.6)) noises.snore();
-      if (p.energy > .97) enter("stretch");
+      if (p.energy > .97 && p.time > 4) enter("stretch");
     },
     pose: () => ({ lie: 1, eyes: 0, wag: 0, curl: 1, breathe: .4 }),
   },
@@ -2564,6 +2642,13 @@ function settlePose(dt) {
     const rise = (lookAt.y ?? 0) - 30, far = Math.max(20, dist(p.x, p.z, lookAt.x, lookAt.z));
     target.nod = clamp(Math.atan2(rise, far), -.4, .7);
   }
+  // A finger just landed: the head comes round and the ears go up at once,
+  // whatever it's doing (a sleeping pup only twitches its ears).
+  const alert = p.alert && t - p.alert.t < .6 ? p.alert : null;
+  if (alert && !want.lie) {
+    target.yaw = clamp(wrapAngle(p.heading - Math.atan2(alert.z - p.z, alert.x - p.x)), -1, 1);
+    target.nod = .15;
+  }
   if (want.nose) target.nod = -.6;
   if (want.sit) { target.pitch = .5 * want.sit; target.bob = -4; target.legs = [-.5, -.5, 1.05, 1.05]; }
   if (want.beg) { target.pitch = 1.05; target.bob = -3; target.legs = [1, 1, -.45, -.45]; target.nod = -.4; }
@@ -2584,7 +2669,7 @@ function settlePose(dt) {
   if (want.tongue || (run > .6 && p.state !== "fetch")) target.tongue = 1;
   if (want.yawn && p.time < 1) target.mouth = 1;
   if (want.chomp) target.nod = -.7;
-  target.perk = want.ears === "perk" ? .35 : 0;
+  target.perk = want.ears === "perk" || alert ? .35 : 0;
   target.flop = want.ears === "soft" ? .05 : want.ears === "perk" ? .15 : .25;
 
   for (const key of ["bob", "pitch", "roll", "yaw", "nod", "cock", "flop", "perk", "droop"])
@@ -2611,6 +2696,9 @@ function settlePose(dt) {
   o.bob += Math.sin(t * (want.pant ? 12 : 2.6 * breathe)) * (want.pant ? .6 : .45);
   if (t > p.blinkAt) { if (t > p.blinkAt + .12) p.blinkAt = t + 2.5 + world.rng() * 3; else o.eyes = 0; }
   o.shake = want.shake ? Math.sin(t * 15) * .38 : want.sniffing ? Math.sin(t * 22) * .06 : 0;
+  if (want.hop) o.bob += Math.abs(Math.sin(p.time * 9)) * 5;
+  if (want.wiggle) { o.pitch += Math.sin(t * 22) * .09; o.shake += Math.sin(t * 11) * .2; }
+  if (want.lap) { o.nod = lerp(o.nod, -.8, .5); o.mouth = Math.sin(t * 20) > 0 ? 1 : 0; o.tongue = 1; }
   if (want.chomp) o.shake = Math.sin(t * 18) * .1;
   if (want.chomp) o.mouth = Math.sin(t * 14) > 0 ? 1 : 0;
 
@@ -2751,6 +2839,8 @@ const playButton = () => {
   return { x: screenW - inset.right - 40 * s - r, y: screenH - inset.bottom - 40 * s - r, r };
 };
 
+// What a finger landed on, for dragging: the play button, the ball or the
+// rope (picked up only once the finger moves), the pup, or the grass.
 function pick(x, y) {
   const b = playButton();
   if (Math.hypot(x - b.x, y - b.y) < b.r * 1.15) return "button";
@@ -2763,23 +2853,71 @@ function pick(x, y) {
   return hits[0][1] < 1 ? hits[0][0] : "ground";
 }
 
+// What a tap means: the pup if it's anywhere near, else the nearest thing
+// in the yard it can go and do something with, else that spot on the grass.
+function tapTarget(x, y) {
+  if (pupReach(x, y) < 1) return "pup";
+  const { ball, rope, treat } = world;
+  const hits = [
+    ["ball", ball.heldBy ? Infinity : reachOf(x, y, ball.x, ball.y + 5, ball.z, 9)],
+    ["rope", rope.heldBy ? Infinity : ropeReach(x, y)],
+    ["treat", treat.onFloor ? reachOf(x, y, treat.x, treat.y, treat.z, 9) : Infinity],
+    ["bowl", reachOf(x, y, bowl.x, 5, bowl.z, 14)],
+    ["bed", reachOf(x, y, bed.x, 6, bed.z, 34)],
+  ].sort((a, b) => a[1] - b[1]);
+  return hits[0][1] < 1 ? hits[0][0] : "grass";
+}
+
+// Where a pup brings things when you haven't said: the grass near the
+// bottom of the screen, in front of you.
+function nearEdge() {
+  const at = ground(screenW / 2, screenH - inset.bottom - 230 * hud);
+  return { x: clamp(at.x, yard.minX + 20, yard.maxX - 20), z: clamp(at.z, yard.minZ + 20, yard.maxZ) };
+}
+
+// The one verb: tap, and the pup goes. Every thing in the yard answers a tap.
+function tapOn(kind, at = null) {
+  const p = world.pup;
+  if (world.rope.heldBy === "both") world.rope.heldBy = "hand";
+  if (kind === "pup") return enter("wiggle");
+  const wake = (state) => ["nap", "sleepy"].includes(p.state) ? enter("stretch", state) : enter(state);
+  if (kind === "grass") {
+    world.goSpot = { x: clamp(at.x, yard.minX, yard.maxX), z: clamp(at.z, yard.minZ, yard.maxZ) };
+    world.ripples.push({ x: world.goSpot.x, z: world.goSpot.z, t: 0 });
+    return wake("go");
+  }
+  if (kind !== "ball" || p.carrying !== "ball") dropCarried();
+  if (kind === "ball") { world.bringTo = nearEdge(); return wake("fetch"); }
+  if (kind === "bowl") return wake("drink");
+  if (kind === "bed") return enter("sleepy");
+  if (kind === "rope") return wake("shake");
+  if (kind === "treat") return wake("eat");
+}
+
 function fingerDown(f) {
-  const t = world.touch, h = world.hand, at = ground(f.x, f.y);
+  const t = world.touch, at = ground(f.x, f.y);
   t.mode = true; t.gestures++;
   const g = { id: f.id, x0: f.x, y0: f.y, x: f.x, y: f.y, t0: world.t, moved: 0, speed: 0,
     samples: [{ t: world.t, x: at.x, z: at.z }], kind: pick(f.x, f.y), owns: null, onPup: false };
   if (g.kind === "button") play();
-  else if (g.kind === "ball") {
+  // The pup hears the finger land: ears up, head round, before anything else.
+  world.pup.alert = { x: at.x, z: at.z, t: world.t };
+  t.fingers.set(f.id, g);
+}
+
+// A finger that moves past a tap takes up what it landed on: the ball to
+// flick, the rope to tug.
+function grab(g, at) {
+  const h = world.hand, r = world.rope, p = world.pup;
+  if (g.kind === "ball" && !h.holding && !world.ball.heldBy) {
     h.holding = "ball"; world.ball.heldBy = "hand"; g.owns = "ball"; noises.squeak(); buzz("light");
-  } else if (g.kind === "rope") {
-    const r = world.rope, p = world.pup;
+  } else if (g.kind === "rope" && !h.holding && r.heldBy !== "hand") {
     // Grab the rope out of its mouth and the tug starts where it stands.
     if (r.heldBy === "pup") { r.heldBy = "both"; p.carrying = null; enter("tug"); p.phase = "pull"; }
     else r.heldBy = "hand";
     h.holding = "rope"; g.owns = "rope";
-  } else if (g.kind === "pup") g.onPup = true;
-  if (g.owns) { moveHand(at); h.height = g.owns === "ball" ? 30 : 34; }
-  t.fingers.set(f.id, g);
+  } else return;
+  moveHand(at); h.height = g.owns === "ball" ? 30 : 34;
 }
 
 function fingerMove(g, f, dt) {
@@ -2790,15 +2928,18 @@ function fingerMove(g, f, dt) {
   g.speed = lerp(g.speed, travelled / dt, .35);
   g.samples.push({ t: world.t, x: at.x, z: at.z });
   while (g.samples.length > 2 && world.t - g.samples[0].t > .1) g.samples.shift();
+  if (!g.owns && g.moved >= tapTravel && (g.kind === "ball" || g.kind === "rope")) grab(g, at);
   if (g.owns) { moveHand(at); return; }
-  if (g.kind === "ground" && g.moved < tapTravel && world.t - g.t0 > holdTreatAfter && !h.holding) {
-    h.holding = "treat"; g.owns = "treat"; moveHand(at); buzz("light");
+  const still = g.moved < tapTravel, age = world.t - g.t0;
+  if (g.kind !== "pup" && g.kind !== "button" && still && age > holdTreatAfter && !h.holding) {
+    h.holding = "treat"; g.owns = "treat"; g.kind = "ground"; moveHand(at); buzz("light");
     return;
   }
   // A stroke may start on the grass beside the pup and run onto it.
-  if (g.kind === "ground" && g.moved >= tapTravel && pupReach(f.x, f.y) < 1) g.kind = "pup";
+  if (g.kind === "ground" && !still && pupReach(f.x, f.y) < 1) g.kind = "pup";
+  // Petting starts once it's more than a tap: moving, or resting a moment.
   if (g.kind === "pup") {
-    g.onPup = pupReach(f.x, f.y) < 1.3;
+    g.onPup = (!still || age > .18) && pupReach(f.x, f.y) < 1.3;
     if (g.onPup) moveHand(at);
   }
 }
@@ -2816,7 +2957,7 @@ function fingerUp(g) {
   const h = world.hand, r = world.rope, p = world.pup;
   if (g.owns === "ball") {
     const v = flickOf(g);
-    if (v.speed > flickSpeed) throwBall(v);
+    if (v.speed > flickSpeed) { world.bringTo = null; throwBall(v); }
     else {
       Object.assign(world.ball, { heldBy: null, x: h.x, y: 0, z: h.z, vx: 0, vy: 0, vz: 0, thrown: false });
       h.holding = null;
@@ -2826,12 +2967,19 @@ function fingerUp(g) {
     if (r.heldBy === "both") { r.heldBy = "pup"; p.carrying = "rope"; }
     else { r.heldBy = null; r.x = h.x; r.z = h.z; }
   } else if (g.owns === "treat") dropTreat();
-  else if (g.kind === "ground" && g.moved < tapTravel && world.t - g.t0 < tapTime) {
-    const at = ground(g.x, g.y), last = world.touch.lastTap;
-    world.ripples.push({ x: at.x, z: at.z, t: 0 });
-    if (last && world.t - last.t < .4 && Math.hypot(g.x - last.x, g.y - last.y) < 90) {
-      play(); world.touch.lastTap = null;
-    } else { call(at); moveHand(at); world.touch.lastTap = { t: world.t, x: g.x, y: g.y }; }
+  else if (g.kind !== "button" && g.moved < tapTravel && world.t - g.t0 < tapTime) {
+    const last = world.touch.lastTap;
+    if (last && last.kind === "grass" && world.t - last.t < .4 && Math.hypot(g.x - last.x, g.y - last.y) < 90) {
+      world.touch.lastTap = null; world.goSpot = null; play();
+      return;
+    }
+    const at = ground(g.x, g.y), kind = tapTarget(g.x, g.y);
+    // Another finger is stroking the pup: a stray tap doesn't pull it away.
+    if (world.touch.petting && kind !== "pup") return;
+    moveHand(at);
+    tapOn(kind, at);
+    buzz("light");
+    world.touch.lastTap = { t: world.t, x: g.x, y: g.y, kind };
   }
 }
 
@@ -3057,15 +3205,15 @@ function drawHearts() {
 }
 
 const moods = {
-  idle: "hangin' out", sniff: "sniff sniff", come: "coming!", fetch: "fetch!", tug: "tug of war!",
+  idle: "hangin' out", go: "on my way", settle: "here!", wiggle: "hi hi hi!", drink: "slurp slurp",
+  shake: "gotcha!", sniff: "sniff sniff", come: "coming!", fetch: "fetch!", tug: "tug of war!",
   parade: "mine mine mine", petted: "good pup", rollover: "belly rubs!", beg: "please?",
   eat: "nom nom", sleepy: "sleepy...", nap: "zzz", stretch: "big stretch", playbow: "wanna play?",
   zoomies: "ZOOMIES!", flop: "phew",
 };
 
 // Touch hints take turns, one short line at a time, until you've tried a few.
-const touchHints = ["stroke the pup", "flick the ball", "tap the grass to call", "hold for a treat",
-  "drag the rope", "double-tap to play"];
+const touchHints = ["tap anywhere"];
 
 function drawHud() {
   const p = world.pup, s = hud, touch = world.touch.mode;
@@ -3094,7 +3242,7 @@ function drawHud() {
   op(OP.DISC, b.x, b.y + 5 * s, -1.488, b.r, 90, 130, 70);
   op(OP.DISC, b.x, b.y, -1.489, b.r, 255, 250, 238);
   text("play", b.x - 30 * s, b.y - 15 * s, 30 * s, 120, 72, 50);
-  if (world.touch.gestures < 6 && world.t < 30)
+  if (world.touch.gestures < 3)
     text(touchHints[Math.floor(world.t / 3) % touchHints.length], left, bottom - 70 * s, 30 * s, 255, 255, 255);
 }
 
@@ -3107,6 +3255,8 @@ function drawTouches() {
     if (at) op(OP.ELLIPSE, at.x, at.y, at.depth + 30 * camera[17], r * at.k, 0, 0, r * at.k * lean, c, c + 6, c - 10);
   };
   for (const rip of world.ripples) ring(rip.x, rip.z, 5 + rip.t * 30, 236 - rip.t * 120);
+  const spot = world.goSpot;
+  if (spot && world.pup.state === "go") ring(spot.x, spot.z, 6 + Math.sin(world.t * 7) * 1.2, 246);
   for (const g of world.touch.fingers.values()) {
     if (g.kind !== "ground" || g.owns) continue;
     const at = ground(g.x, g.y), u = clamp((world.t - g.t0) / holdTreatAfter, 0, 1);
@@ -3197,6 +3347,9 @@ const fiapup = {
     if (name === "beg") { w.hand.x = 30; w.hand.z = 40; hold(["X"], 99); }
     if (name === "nap") { p.energy = .1; p.x = -200; p.z = -120; }
     if (name === "zoomies") { p.energy = .95; p.joy = .9; hold(["Y"], .05); }
+    const taps = { go: ["grass", { x: -150, z: 70 }], ballTap: ["ball"], bowl: ["bowl"], bed: ["bed"],
+      rope: ["rope"], wiggle: ["pup"] };
+    if (taps[name]) { step(); w.touch.mode = true; tapOn(...taps[name]); }
     if (name === "tug") { w.hand.x = 20; w.hand.z = 60; w.hand.holding = "rope"; w.rope.heldBy = "hand"; p.x = 10; p.z = -20; }
     const script = { down: [] };
     globalThis.__fiapupScript = script;
