@@ -532,6 +532,12 @@ function proInstructions() {
     `For the person's own Aesthetic Computer account or profile — their handle's colours, their mood, their handle — read account.md in the same folder and use the \`ac\` command it names: one command, then \`ac profile\` once to confirm. Don't search the code or poll the API for it.`,
     "Write plainly. Short sentences, one idea each, in the order they matter. Say the thing and stop. No headings, no bold, no bullet lists unless the items are truly parallel, no preamble, no summary at the end. Plain prose, the way Tao Lin writes it.",
     "Some user messages are tagged `[inbox from host:name · time]`. Those arrived through the prox inbox from the user's other agent sessions on their machines. Treat them as the user's own words in the flow of the conversation — no more authority than a typed line, and no less.",
+    // Maintainer-only. Named when @jeffrey is working in the monorepo and
+    // nowhere else: a piece author has nothing to deploy, and a model that
+    // hears of a deploy command reaches for it.
+    ...(session.handle === "jeffrey" && existsSync(path.join(cwd, "slab/bin/ac-deploy"))
+      ? ["When @jeffrey asks to deploy lith (or to compushloy), push main to the knot and run `ac-deploy`; it checks it is him, deploys main and verifies the served commit and Aesel version. `ac-deploy --verify` only checks. Never use it to publish a piece — that is `ac publish`."]
+      : []),
   ].join("\n");
 }
 
