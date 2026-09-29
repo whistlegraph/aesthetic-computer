@@ -78,6 +78,8 @@
       "Bash(git push:*)",
       "Bash(git pull:*)",
       "Bash(git fetch:*)",
+      "Bash(fish lith/deploy.fish)",
+      "Bash(DEPLOY_BRANCH=main fish lith/deploy.fish)",
       "Bash(git -C /Users/jas/aesthetic-computer push:*)",
       "Bash(git -C /Users/jas/aesthetic-computer pull:*)",
       "Bash(git -C /Users/jas/aesthetic-computer fetch:*)",

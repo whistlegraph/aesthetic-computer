@@ -443,7 +443,7 @@ ac-restart            # Restart AC services only
 - `npm run url` — Get local tunnel URL
 
 **Notation:**
-- compushloy — always commit, push, and deploy. Land the changes on the intended deployment branch, deploy from that branch, and verify production serves the pushed revision.
+- compushloy — always commit, push, and deploy. Land the changes on the intended deployment branch, deploy from that branch, and verify production serves the pushed revision. Deploy lith with `ac-deploy` (`slab/bin/ac-deploy`, on PATH): it refuses unless git says you are @jeffrey and can reach the knot, refuses if local `main` is unpushed, always deploys `main`, then checks the served `.commit-ref` and `/aesel.json` against what it shipped; `ac-deploy --verify` only checks. A maintainer command — never an Aesel or piece-publishing step.
 
 ### Piece-Log Debugging (client-side errors)
 

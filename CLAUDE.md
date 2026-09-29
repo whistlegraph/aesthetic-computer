@@ -98,6 +98,12 @@ Local-only commands (rarely needed): `ac-os build` (binary → initramfs → ker
 - **compushloy** - always commit, push, and deploy. Land the changes on the
   intended deployment branch, deploy from that branch, and verify production
   serves the pushed revision — by comparing bytes, not status codes.
+  **Deploy lith with `ac-deploy`** (`slab/bin/ac-deploy`, on PATH): it
+  refuses unless git says you are @jeffrey and can reach the knot, refuses
+  if local `main` is unpushed, always deploys `main`, then checks the served
+  `.commit-ref` and `/aesel.json` against what it shipped.
+  `ac-deploy --verify` does only the check. It is a maintainer command —
+  never an Aesel or piece-publishing step.
   **If the change touches oskiewar, the release is part of the word**, not a
   second errand: run `npm run oskiewar:deploy`. That one command carries the
   lot: it stamps `buildVersion` to match the commit count and reburns the

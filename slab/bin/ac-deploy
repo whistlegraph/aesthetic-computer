@@ -1,0 +1,65 @@
+#!/usr/bin/env node
+// ac-deploy — the one command any harness (Claude, Codex, Aesel) calls to
+// ship lith, and the only thing it needs to know about deploying.
+//
+//   ac-deploy            deploy the knot's main to lith, then prove it
+//   ac-deploy --verify   only prove what production is serving
+//
+// Deploying lith is @jeffrey's alone, so before anything moves this checks
+// that it is him: the git identity must be @jeffrey AND his git credentials
+// must reach the knot (a copied checkout without his key fails the second).
+// Production serves the knot's main and nothing else, so local main must be
+// pushed; deploy.fish is always told DEPLOY_BRANCH=main, which makes this
+// safe from a worktree or a feature branch. Afterwards it compares the bytes
+// production serves against the commit and the Aesel version it shipped.
+import { execFileSync, spawnSync } from "node:child_process";
+import { realpathSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = resolve(dirname(realpathSync(fileURLToPath(import.meta.url))), "../..");
+const SITE = "https://aesthetic.computer";
+const verifyOnly = process.argv.includes("--verify");
+
+const git = (...args) => execFileSync("git", ["-C", ROOT, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+const say = (mark, text) => console.log(`${mark} ${text}`);
+const fail = (text) => { say("✕", text); process.exit(1); };
+
+function whoami() {
+  const name = git("config", "user.name");
+  if (!/@jeffrey\b/.test(name)) fail(`lith deploys are @jeffrey's; git identity here is "${name || "unset"}"`);
+  try { git("ls-remote", "--exit-code", "origin", "main"); }
+  catch { fail("your git credentials can't reach the knot (origin) — deploys need @jeffrey's key"); }
+  say("✓", `${name} · knot reachable`);
+}
+
+async function verify(sha) {
+  const get = async (path) => {
+    const response = await fetch(`${SITE}${path}?t=${Date.now()}`, { headers: { "cache-control": "no-cache" } });
+    if (!response.ok) throw new Error(`${path} answered ${response.status}`);
+    return response.text();
+  };
+  let ok = true;
+  const served = (await get("/.commit-ref")).trim();
+  if (served === sha) say("✓", `serving ${sha.slice(0, 10)}`);
+  else { ok = false; say("✕", `serving ${served.slice(0, 10) || "nothing"}, expected ${sha.slice(0, 10)}`); }
+  const want = JSON.parse(git("show", `${sha}:aesel/package.json`)).version;
+  const have = JSON.parse(await get("/aesel.json")).version;
+  if (have === want) say("✓", `Aesel ${have}`);
+  else { ok = false; say("✕", `Aesel ${have} served, ${want} expected`); }
+  return ok;
+}
+
+whoami();
+git("fetch", "-q", "origin", "main");
+const sha = git("rev-parse", "origin/main");
+
+if (!verifyOnly) {
+  const ahead = git("rev-list", "--count", "origin/main..main");
+  if (ahead !== "0") fail(`local main is ${ahead} commit(s) ahead of the knot — push first; production only serves what the knot has`);
+  say("→", `deploying ${sha.slice(0, 10)} to lith`);
+  const run = spawnSync("fish", ["lith/deploy.fish"], { cwd: ROOT, stdio: "inherit", env: { ...process.env, DEPLOY_BRANCH: "main" } });
+  if (run.status !== 0) fail(`lith/deploy.fish exited ${run.status}`);
+}
+
+process.exit((await verify(sha)) ? 0 : 1);
