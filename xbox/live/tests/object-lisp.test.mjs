@@ -6,7 +6,8 @@ import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 import { compile, read, objectLight } from "../object-lisp.mjs";
-import { createFrameVm, FRAME_CAMERA, FRAME_WORLD, FRAME_ASSET, FRAME_MODEL } from "../frame-vm.mjs";
+import { createFrameVm, FRAME_CAMERA, FRAME_WORLD, FRAME_ASSET, FRAME_MODEL, FRAME_DISC,
+  FRAME_CAPSULE, FRAME_ELLIPSE, FRAME_PLATE, FRAME_OUTLINE, FRAME_SHAPES, FRAME_SKETCH } from "../frame-vm.mjs";
 import { parse } from "../../../system/public/aesthetic.computer/lib/kidlisp.mjs";
 
 const objects = new URL("../objects/", import.meta.url);
@@ -168,18 +169,20 @@ const runProgram = (values) => {
 };
 const asset = (handle, m) => [FRAME_ASSET, handle, m.vertices.length / 3, m.count, ...m.vertices, ...m.faces];
 // One tick of an object into a frame program, as the game would write it —
-// faces only, or baked parts as ASSET once plus MODEL — run by the game's web
-// interpreter. Returns what reached the host and what the tick cost.
+// faces only, or baked parts as ASSET/SHAPES once plus MODEL/SKETCH — run by
+// the game's web interpreter. Returns what reached the host and the cost.
 function draw(object, inputs, { baked = true, eye = away(220) } = {}) {
-  const setup = baked ? object.meshes.flatMap((m, handle) => asset(handle, m)) : [];
+  const setup = baked ? [...object.meshes.flatMap((m, handle) => asset(handle, m)),
+    ...object.sketches.flatMap((k, handle) => [FRAME_SHAPES, handle, k.count, k.records.length, ...k.records])] : [];
   const tick = [];
-  const cost = { faces: 0, models: 0 };
+  const cost = { faces: 0, models: 0, sketches: 0 };
   const face = (...f) => { cost.faces++; tick.push(FRAME_WORLD, ...f); };
   const model = (radius, h0, h1, h2, m, at) => {
     cost.models++;
     tick.push(FRAME_MODEL, radius, h0, h1, h2, ...m.subarray(at, at + 12), ...objectLight);
   };
-  object(inputs, upright, baked ? { face, model } : face);
+  const sketch = (h, m, at) => { cost.sketches++; tick.push(FRAME_SKETCH, h, ...m.subarray(at, at + 12)); };
+  object(inputs, upright, baked ? { face, model, sketch } : face);
   cost.floats = tick.length;
   return { drawn: runProgram([...setup, ...camera(eye), ...tick]), cost };
 }
@@ -281,4 +284,106 @@ test("a tick is closures and two MODEL ops, not a tree walk", (t) => {
   const plain = time((i) => wheel({ distance: i, time: i / 60, speed: 200 }, upright, out.face));
   t.diagnostic(`monowheel: ${baked.toFixed(1)} µs a tick baked, ${plain.toFixed(1)} µs as faces`);
   assert.ok(baked < 5000, `${baked.toFixed(1)} µs a tick`);
+});
+
+// ——— the flat monowheel: world-anchored 2D shapes with ink outlines ———
+
+const flatSource = await readFile(new URL("monowheel-flat.lisp", objects), "utf8");
+const opCodes = { WORLD: FRAME_WORLD, DISC: FRAME_DISC, CAPSULE: FRAME_CAPSULE, ELLIPSE: FRAME_ELLIPSE,
+  PLATE: FRAME_PLATE, OUTLINE: FRAME_OUTLINE };
+// One tick of a flat object as the ops it sends, and as a frame program.
+function flatTick(object, inputs, eye) {
+  const view = camera(eye).slice(1), ops = [];
+  const rec = (op) => (...a) => ops.push({ op, a: op === "PLATE" ? [a[0], ...a[1], ...a.slice(2)] : a });
+  object(inputs, upright, { view, face: rec("WORLD"), disc: rec("DISC"), capsule: rec("CAPSULE"),
+    ellipse: rec("ELLIPSE"), plate: rec("PLATE"), outline: rec("OUTLINE") });
+  ops.program = [FRAME_CAMERA, ...view, ...ops.flatMap((o) => [opCodes[o.op], ...o.a])];
+  ops.numbers = ops.program.length - 25;
+  return ops;
+}
+const side = [0, -24, -220], front = [220, -24, 0];
+const ellipses = (ops) => ops.filter((o) => o.op === "ELLIPSE").map((o) => o.a);
+
+test("the flat monowheel rolls, leans and squashes", () => {
+  const wheel = compile(flatSource, "monowheel-flat");
+  // Through the per-tick path (a host without SKETCH), where the JS projects.
+  // The spokes: the two bars in spoke pink.
+  const spokes = (distance) => flatTick(wheel, { distance }, side)
+    .filter((o) => o.op === "PLATE" && o.a.at(-3) === 232).map((o) => o.a.slice(1, 9));
+  const close = (a, b) => a.every((s, i) => s.every((x, k) => Math.abs(x - b[i][k]) < 1e-6));
+  const r = 24;
+  assert.ok(close(spokes(10), spokes(10 + Math.PI * 2 * r)), "a full lap later the spokes are back");
+  assert.ok(!close(spokes(10), spokes(10 + r * Math.PI / 4)), "an eighth of a turn on, they are not");
+  // The tire, seen from ahead (its two caps' midpoint): leaning right carries
+  // it to the rider's right, which from ahead is the screen's left.
+  const tire = (inputs) => { const [, a, b] = ellipses(flatTick(wheel, inputs, front)); return (a[0] + b[0]) / 2; };
+  assert.ok(tire({ lean: .3 }) < tire({}) - 5, "leans right");
+  assert.ok(tire({ lean: -.3 }) > tire({}) + 5, "leans left");
+  // A landing: side on, the drum's near cap gets wider and shorter.
+  const cap = (inputs) => ellipses(flatTick(wheel, inputs, side))[2];
+  const spans = (e) => [Math.hypot(e[3], e[4]), Math.hypot(e[5], e[6])].sort((a, b) => a - b);
+  const [round, squashed] = [spans(cap({})), spans(cap({ land: 0 }))];
+  assert.ok(squashed[1] > round[1] * 1.05, "wider");
+  assert.ok(squashed[0] < round[0] * .95, "shorter");
+});
+
+test("flat shapes carry their own depth: near covers far, the visible face comes forward", () => {
+  const wheel = compile(flatSource, "monowheel-flat");
+  // Three-quarter views from either side, where the tire shows its band.
+  for (const eye of [[-130, -80, -170], [130, -80, 170]]) {
+    const ops = flatTick(wheel, {}, eye);
+    const [shadow, far, near, rim] = ellipses(ops);
+    const band = ops.filter((o) => o.op === "PLATE")[0].a;
+    const bandDepth = band[1 + band[0] * 2];
+    assert.ok(far[2] > bandDepth && bandDepth > near[2], "far cap, band, near cap");
+    // The rim lies in the near cap's plane, not the far one's.
+    assert.ok(Math.abs(rim[2] - near[2]) < 1e-9 && rim[2] < far[2], "`toward` puts the face on the side the camera sees");
+    assert.ok(shadow[2] > far[2], "the shadow lies behind the wheel");
+  }
+});
+
+// The flat rule (OBJECT-DIALECT.md): a tick sends at most 60 numbers, and at
+// every distance the host draws fewer triangles than for the lit wheel.
+test("the flat monowheel keeps to its budget, under the lit one's", (t) => {
+  const flat = compile(flatSource, "monowheel-flat"), lit = compile(monowheelSource, "monowheel");
+  assert.equal(flat.parts, 3, "shadow, wheel and deck bake; nothing is projected in JS");
+  const near = draw(flat, { speed: 300, distance: 5 });
+  assert.deepEqual([near.cost.sketches, near.cost.faces, near.cost.models], [3, 0, 0]);
+  assert.ok(near.cost.floats <= 60, `${near.cost.floats} numbers`);
+  const rows = [220, 600, 1500, 4000].map((d) => [d, draw(flat, { speed: 300 }, { eye: away(d) }).drawn.length,
+    draw(lit, { speed: 300 }, { eye: away(d) }).drawn.length]);
+  t.diagnostic(`flat tick ${near.cost.floats} numbers; triangles flat/lit by distance: ${rows.map(([d, f, l]) => `${d}: ${f}/${l}`).join(", ")}`);
+  for (const [d, f, l] of rows) assert.ok(f < l, `at ${d}: flat ${f} triangles, lit ${l}`);
+});
+
+// Baked and projected per tick, the flat wheel covers the same screen: the
+// sketch the host draws is the shapes the JS path would have sent.
+test("a baked sketch draws where the per-tick shapes do", () => {
+  const flat = compile(flatSource, "monowheel-flat");
+  const box = (tris) => {
+    const b = [Infinity, Infinity, -Infinity, -Infinity];
+    for (const t of tris) for (let v = 0; v < 9; v += 3) {
+      b[0] = Math.min(b[0], t[v]); b[1] = Math.min(b[1], t[v + 1]); b[2] = Math.max(b[2], t[v]); b[3] = Math.max(b[3], t[v + 1]);
+    }
+    return b;
+  };
+  for (const [inputs, eye] of [[{ distance: 9 }, away(220)], [{ lean: .3, land: .05, turbo: 1 }, [-130, -80, -170]]]) {
+    const baked = box(draw(flat, inputs, { eye }).drawn), perTick = box(runProgram(flatTick(flat, inputs, eye).program));
+    baked.forEach((x, i) => assert.ok(Math.abs(x - perTick[i]) < 4, `edge ${i}: baked ${x} per tick ${perTick[i]}`));
+  }
+});
+
+// Reported, and bounded only loosely, as the lit timing is.
+test("a flat tick is three SKETCH ops, cheaper than the lit tick", (t) => {
+  const flat = compile(flatSource, "monowheel-flat"), lit = compile(monowheelSource, "monowheel");
+  const out = { view: camera(away(260)).slice(1), face() {}, model() {}, sketch() {} };
+  const time = (object) => {
+    const start = performance.now();
+    for (let i = 0; i < 4000; i++) object({ distance: i, time: i / 60, speed: 200 }, upright, out);
+    return (performance.now() - start) / 4000 * 1000;
+  };
+  time(flat); time(lit);
+  const [f, l] = [time(flat), time(lit)];
+  t.diagnostic(`a tick: flat ${f.toFixed(1)} µs, lit ${l.toFixed(1)} µs`);
+  assert.ok(f < 5000);
 });
