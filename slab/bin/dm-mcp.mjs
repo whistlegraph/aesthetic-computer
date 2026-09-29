@@ -16,7 +16,7 @@
 // only, so it travels with the repo and needs no PATH setup. `--http [port]`
 // runs one resident daemon every session shares (toolchain/mcp/http-front.mjs).
 //
-// LOCAL-FIRST. This instance operates on the machine it runs on (neo). neo and
+// LOCAL-FIRST. This instance operates on the machine it runs on. neo and
 // blueberry are linked to the SAME Signal account and the SAME iMessage account,
 // so their message CONTENT mirrors — the reason to have both is availability,
 // not different inboxes. The `machine` arg is accepted and, for signal-cli-
@@ -32,7 +32,7 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, hostname } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
@@ -73,8 +73,11 @@ function sshHost(machine) {
   return machine;
 }
 
-const LOCAL = new Set(["", "local", "neo", "this", undefined, null]);
-const isLocal = (machine) => LOCAL.has(machine);
+// "Local" is whichever machine this instance runs on — matched by hostname, so
+// `machine: neo` runs signal-cli here on neo but routes over ssh from frisbee.
+const HOST = hostname().split(".")[0].toLowerCase();
+const LOCAL = new Set(["", "local", "this", HOST, undefined, null]);
+const isLocal = (machine) => LOCAL.has(typeof machine === "string" ? machine.toLowerCase() : machine);
 
 // Run a signal-cli invocation, locally or over ssh for a remote machine.
 function runSignalCli(args, machine, opts) {
