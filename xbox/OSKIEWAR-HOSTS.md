@@ -274,6 +274,12 @@ drawn once and look the same everywhere.
   (a)'s second painter, and unlike (b) it bends for free, because a limb is
   two anchors and a width. See `xbox/OBJECT-DIALECT.md` → The flat style,
   Figures.
+  **In the game, 2026-09-28:** `drawMonowheel` draws the flat object. It is
+  sealed in by `xbox/tools/embed-objects.mjs` and sent as SHAPES once plus
+  3 SKETCH a tick: 42 numbers where the quad wheel sent 1144. Hosts without
+  `frame` (the console until R6) draw the same shapes immediately. The quad
+  wheel stays behind `globalThis.oskiewarOldMonowheel`. Follow-ups are in
+  `xbox/OBJECT-DIALECT.md` → In the game.
 
 ## 6. Order
 

@@ -28,7 +28,7 @@ Written 2026-09-28. Status:
 | first object, lit | `xbox/live/objects/monowheel.lisp` | done: tire wedges, rim, web, 5 spokes rolling with distance, lean, landing squash, turbo, lamps |
 | first object, flat | `xbox/live/objects/monowheel-flat.lisp` | done: inked tire, rim, web, spoke bars that roll, drawn-box deck, lamp dots, ground shadow, lean, landing squash, turbo |
 | lab | `xbox/live/object-lab.html` (`npm run xbox:play`, then `/object-lab.html`) | done: lit left, flat right, one set of sliders; each pane shows its tick's cost |
-| in the game | `xbox/tools/embed-objects.mjs` + `drawMonowheel` | **next pass**, see below |
+| in the game | `xbox/tools/embed-objects.mjs` + `drawMonowheel` | **done 2026-09-28**: the flat monowheel, 42 numbers a tick (the quad wheel sent 1144); see below |
 
 ## The budget
 
@@ -278,56 +278,62 @@ figures, and it suits them better than (b):
   40–50 numbers, against today's ~1700 screen-space ops for all figures.
 - **Face and hair:** flat plates and strokes anchored to the head.
 
-## Next pass: into the game
+## In the game
 
-Don't touch `oskiewar.js` without running `npm run xbox:burn:oskiewar-social`
-(the manifest is hash-bound). About 41 tests already fail at HEAD, so compare
-against that baseline.
+Since 2026-09-28 the game draws the monowheel as `objects/monowheel-flat.lisp`.
 
-0. **Flat or lit.** If the flat style is chosen, the steps below carry
-   SHAPES/SKETCH (ops 18/19) where they say ASSET/MODEL: `emitSketch(handle,
-   frame, at)`, sketches uploaded once, and an immediate fallback that runs
-   `frame-vm.mjs`'s `drawSketch` rule through `worldTriangle`.
-1. **MODEL in the game's op table.** Add op 14 (20 numbers) to the table at
-   the head of the frame-program section. Add an `emitModel(radius, h0, h1,
-   h2, frame, at)` that writes it with `globalLight`. For hosts without
-   `frame` (console, harness) it draws the mesh immediately, using the same
-   rule as `frame-vm.mjs`'s `drawModel`, through `worldTriangle`.
-2. **`xbox/tools/embed-objects.mjs`**, copied from `embed-spine.mjs`.
-   - It writes a sealed `// <objects>` … `// </objects>` block just before
-     `function drawMonowheel(` (anchor), with `object-lisp.mjs` unexported
-     inside its own scope, plus each `objects/*.lisp` as a string literal.
-   - The block exposes one global, `gameObjects = { monowheel: compile(source,
-     "monowheel"), … }`, compiled (and so baked) once when the script loads.
-   - The game uploads each object's meshes as ASSETs, once per host, as it
-     does park meshes.
-   - `--check` exits 1 on drift, and a test like `spine.test.mjs`'s last one
-     asserts `embedded() === generate()`.
-3. **The call site:** `drawMonowheel(p)` (oskiewar.js ~25064, reached from
-   `drawSkateboard` ~22766 for a rider and from the renderables loop ~24703
-   for the parked wheel). Its body becomes:
-   ```js
-   const at = spunSkateFrame(monowheelFrame(p), p), o = at(0, 0, 0);
-   const f = at(1, 0, 0), d = at(0, 1, 0);          // the rig's local y points down
-   const fx = f.x - o.x, fy = f.y - o.y, fz = f.z - o.z;
-   const ux = o.x - d.x, uy = o.y - d.y, uz = o.z - d.z;
-   // right = forward × up keeps the placement a rotation, never a mirror
-   gameObjects.monowheel({ time: simSeconds, distance: (p.skateSpin || 0) * skateWheelRadius,
-       speed: p.skateVx || p.vx || 0, lean: monowheelLean(p), turbo: p.wheelTurbo ? 1 : 0,
-       hit: sinceHit(p), land: sinceLanding(p) },
-     [o.x, o.y, o.z, fx, fy, fz, ux, uy, uz,
-      fy * uz - fz * uy, fz * ux - fx * uz, fx * uy - fy * ux], objectOut);
-   ```
-   - `objectOut` is `{ face, model }`: `emitWorldFace`/`emitModel` when
-     `programBuffered`, and the immediate equivalents otherwise.
-   - `p.skateSpin` is the odometer the board wheels already roll by (~14122).
-     The parked wheel passes `distance: m.x`.
-   - `simSeconds`, `monowheelLean`, `sinceHit` and `sinceLanding` are
-     illustrative names for render-side reads of state the sim already keeps.
-4. **Gate:**
-   - a `frame-conformance` case: `drawMonowheel` immediate vs program
-   - the renderer suite at baseline
-   - the social preview reburned
-   - a lab screenshot next to an in-game one
-   - `FrameVm.cpp` gains MODEL in R6 before the console draws objects from
-     the program
+- **The embed.** `xbox/tools/embed-objects.mjs` seals the compiler and the
+  objects the game draws (`objects` in the tool names them; today only
+  `monowheel: "monowheel-flat"`) into oskiewar.js, between `// <objects>` and
+  `// </objects>`, just before `drawMonowheel`. It exposes `gameObjects`,
+  whose objects are compiled and baked when the script loads.
+  - `node xbox/tools/embed-objects.mjs` rewrites the block, and `--check`
+    fails on drift.
+  - The last test in `object-lisp.test.mjs` asserts the block equals
+    `generate()`.
+  - Edit an object or the compiler, try it in the lab, rerun the tool.
+- **The ops the game sends:** SHAPES (18) once per baked sketch, then SKETCH
+  (19) per part per tick (`emitSketch`). Nothing else is new in the game's op
+  table; MODEL, ELLIPSE, PLATE and OUTLINE aren't sent.
+- **Hosts without `frame`** (the console before R6, the harness) run the
+  object's per-tick path instead (`immediateObjectOut`). It projects through
+  the camera doll and fills flat triangles through `screenTriangle`: the
+  same shapes, with ink edges, scissored to the inset like everything else.
+  `frame-conformance.test.mjs` holds the two paths to the same screen.
+- **The call site:** `drawMonowheel(p)` draws the object (reached from
+  `drawSkateboard` for a rider and from the renderables loop for the parked
+  wheel), placed on the rig the old wheel used.
+  - The old flat-quad wheel is `drawMonowheelQuads`, behind
+    `globalThis.oskiewarOldMonowheel = true`.
+  - **Inputs:** `distance` is the skate odometer (`skateSpin` ×
+    `skateWheelRadius`, or `x` for the parked wheel); `speed`, `turbo`;
+    `land` from `landPoseUntil` (set 110 ms on landing); `hit` from
+    `wheelHitAt` (set 500 ms when the wheel rams someone); `time` from the
+    runtime clock, for the rattle. `lean` is 0.
+- **The shadow** is baked 103 units back, the depth the game gives its own
+  spot shadows (caster + .018), in about their grey.
+- **The lamps stay static.** Brightening them with speed would make them
+  per-tick shapes (two projected ellipses, 22 numbers, 64 a tick), which is
+  over the 60 budget.
+- **Numbers per tick in the game** (measured by `object-lisp.test.mjs`
+  through the game's own frame program): the quad wheel is 88 WORLD = 1144;
+  the flat object is 3 SKETCH = 42, after three sketches sent once.
+
+### Follow-ups
+
+- **Lean:** the sim has none. A lean from turning (yaw rate × speed in the
+  pool, 0 on flat maps) would feed `lean`.
+- **Facing:** the wheel keeps today's behaviour. Its front is +x whichever
+  way the rider faces, so the white lamp leads only when riding right.
+- **Hit and land:** these come from `wheelHitAt` and `landPoseUntil` only.
+  A hit on the rider (`hitStunUntil` has no start time) isn't wired.
+- **Double shadow:** a mounted rider draws her spot shadow and the wheel
+  draws its own. Either could step aside.
+- **Shadow tint:** it is fixed in the object. The game's `shadowInk` follows
+  the theme; an input could carry it.
+- **Per-tick flat shapes on buffered hosts** go through `screenTriangle`
+  (FACE faces), not ELLIPSE/PLATE ops. The monowheel has none. The first
+  object that does should send the ops instead.
+- **R6:** `FrameVm.cpp` needs SHAPES/SKETCH (projection, flat fills, ink,
+  one-sided cull, side count by size) before the console draws objects
+  from the program. Until then it takes the immediate path.
