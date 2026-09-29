@@ -211,8 +211,7 @@ function stampBuildVersion(current, previous = null) {
     "`buildVersion` is the piece's count of committed revisions to itself and " +
     "the number the title screen shows. Stamped by the release rather than " +
     "by remembering, so the corner of the screen cannot disagree with the " +
-    "code behind it.\n\n" +
-    "Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"]);
+    "code behind it."]);
   run("git", ["push"]);
 
   // Restated against the SAME baseline, so the stamp commit cannot quietly
