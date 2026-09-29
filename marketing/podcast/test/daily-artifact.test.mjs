@@ -3,8 +3,8 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { gunzipSync } from "node:zlib";
-import { artifactMode, tokenMetadata, crawlBundle, CRAWL_STYLE } from "../lib/artifact.mjs";
+import { gunzipSync, gzipSync } from "node:zlib";
+import { artifactMode, tokenMetadata, crawlBundle, checkBundle, CRAWL_STYLE } from "../lib/artifact.mjs";
 import { crawlLayout, crawlPiece } from "../lib/crawl.mjs";
 
 const SIGNER = "tz1gkf8EexComFBJvjtT1zdsisdah791KwBE";
@@ -87,4 +87,17 @@ test("the bundle is one offline, self-extracting PACK-mode page", async () => {
   for (const f of ["boot.mjs", "bios.mjs", "lib/disk.mjs", "lib/kidlisp.mjs", "disks/dly.lisp"]) assert.ok(vfs[f], `VFS has ${f}`);
   assert.ok(Object.keys(vfs).some((f) => f.startsWith("disks/drawings/font_1/")), "font_1 glyphs inlined");
   assert.equal(vfs["disks/dly.lisp"].content, source);
+
+  // The gate daily-token runs before pinning: this bundle passes it...
+  assert.deepEqual(checkBundle(outer, { code: "dly", source }), []);
+  assert.deepEqual(checkBundle(outer, { code: "xyz", source }), ["doesn't start $xyz"]);
+  // ...and one packed from a runtime without the highlighter fixes fails it.
+  const stale = { ...vfs, "lib/kidlisp.mjs": { ...vfs["lib/kidlisp.mjs"], content: vfs["lib/kidlisp.mjs"].content.replace(/tokenScan\(/g, "scan(").replace(/window\.acPACK_MODE\s*&&\s*!window\.acKEEP_LABEL\)\s*return/g, "") } };
+  const staleInner = inner.replace(/window\.VFS = \{.*?\};\n/s, () => `window.VFS = ${JSON.stringify(stale)};\n`);
+  const staleOuter = outer.replace(b64, gzipSync(staleInner).toString("base64"));
+  assert.deepEqual(checkBundle(staleOuter, { code: "dly", source }), [
+    "runtime lacks the linear syntax highlighter",
+    "runtime lacks the hidden pack label not coloured",
+  ]);
+  assert.deepEqual(checkBundle("<html>gif</html>", { code: "dly", source }), ["not a self-extracting gzip pack"]);
 });

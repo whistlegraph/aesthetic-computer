@@ -73,7 +73,7 @@ const PRICE_XTZ = Number(process.env.DAILY_PRICE_XTZ || 3);
 const ROYALTIES = Number(process.env.DAILY_ROYALTIES_PERMILLE || 150); // HEN is per-mille
 const MIN_BALANCE_XTZ = 0.15; // a mint + a listing burn ~0.06
 
-const { artifactMode, crawlBundle, tokenMetadata } = await import(resolve(ROOT, "lib", "artifact.mjs"));
+const { artifactMode, crawlBundle, checkBundle, tokenMetadata } = await import(resolve(ROOT, "lib", "artifact.mjs"));
 let ARTIFACT;
 try { ARTIFACT = artifactMode(); } catch (err) { console.error(`✗ ${err.message}`); process.exit(1); }
 
@@ -154,14 +154,33 @@ if (!receipt.code) {
 
 // ── 1b. bundle ───────────────────────────────────────────────────────────
 // Packed from the source the receipt holds, so it is the stored $code byte
-// for byte; a receipt from a gif-only night gets its bundle on resume.
+// for byte; a receipt from a gif-only night gets its bundle on resume. It is
+// checked before anything is pinned (checkBundle in lib/artifact.mjs): one
+// that fails is rebuilt once from this checkout's runtime, and if it still
+// fails the night refuses to mint HTML rather than mint a broken artifact.
 const htmlPath = resolve(dailyDir, `${slug}.html`);
-if (ARTIFACT === "html" && !existsSync(htmlPath)) {
-  const html = await crawlBundle(receipt.code, receipt.source);
-  writeFileSync(htmlPath, html);
-  receipt.htmlBytes = Buffer.byteLength(html);
-  save();
-  console.log(`  ✓ bundled $${receipt.code} → out/daily/${slug}.html (${(receipt.htmlBytes / 1024).toFixed(0)} KB)`);
+if (ARTIFACT === "html") {
+  const pack = async () => {
+    const html = await crawlBundle(receipt.code, receipt.source);
+    writeFileSync(htmlPath, html);
+    receipt.htmlBytes = Buffer.byteLength(html);
+    save();
+    console.log(`  ✓ bundled $${receipt.code} → out/daily/${slug}.html (${(receipt.htmlBytes / 1024).toFixed(0)} KB)`);
+  };
+  const check = () => checkBundle(readFileSync(htmlPath, "utf8"), { code: receipt.code, source: receipt.source });
+  const fresh = !existsSync(htmlPath);
+  if (fresh) await pack();
+  let problems = check();
+  if (problems.length && !fresh && !receipt.metadataUri) {
+    console.log(`  ! out/daily/${slug}.html fails its check (${problems.join("; ")}); rebuilding`);
+    await pack();
+    problems = check();
+  }
+  if (problems.length) {
+    console.error(`✗ the HTML artifact fails its check; refusing to mint it:\n    - ${problems.join("\n    - ")}\n  set DAILY_ARTIFACT=gif to mint the GIF tonight.`);
+    process.exit(1);
+  }
+  console.log("  ✓ bundle checks out: PACK mode, offline, source intact, runtime current");
 }
 
 const metadataFor = (uris) => tokenMetadata({ title, body, date, episodeUrl, code: receipt.code, creator: SIGNER, artifact: ARTIFACT, uris, ac: AC });

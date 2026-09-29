@@ -8,6 +8,7 @@
 
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { gunzipSync } from "node:zlib";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..", "..");
@@ -33,6 +34,41 @@ export async function crawlBundle(code, source) {
   const { createBundleFromSource } = await import(resolve(REPO, "oven", "bundler.mjs"));
   const { html } = await createBundleFromSource(code, source, { authorHandle: "jeffrey", style: CRAWL_STYLE });
   return html;
+}
+
+// What a bundle must carry before it is pinned. Static, so it runs on
+// jasellite (no Chrome there). The runtime marks name the fixes a long crawl
+// needs: a pack that colours its hidden label, or colours it quadratically,
+// drew once every few seconds in objkt's sandbox (the 09-28 $gne night).
+export const RUNTIME_MARKS = {
+  "linear syntax highlighter": /\btokenScan\(/,
+  "hidden pack label not coloured": /window\.acPACK_MODE\s*&&\s*!window\.acKEEP_LABEL\)\s*return/,
+};
+const REQUIRED_FILES = ["boot.mjs", "bios.mjs", "lib/disk.mjs", "lib/kidlisp.mjs"];
+const EXTERNAL = /\s(src|href)=["']?https?:/i;
+export const MAX_BUNDLE_BYTES = 4 * 1024 * 1024;
+
+export function checkBundle(html, { code, source }) {
+  const problems = [];
+  const fail = (m) => (problems.push(m), problems);
+  if (Buffer.byteLength(html) > MAX_BUNDLE_BYTES) problems.push(`bundle is ${Buffer.byteLength(html)} bytes (> ${MAX_BUNDLE_BYTES})`);
+  if (EXTERNAL.test(html)) problems.push("the shell loads something from the network");
+  const b64 = html.match(/const b64='([A-Za-z0-9+/=]+)'/)?.[1];
+  if (!b64) return fail("not a self-extracting gzip pack");
+  let inner;
+  try { inner = gunzipSync(Buffer.from(b64, "base64")).toString("utf8"); } catch (err) { return fail(`payload won't gunzip: ${err.message}`); }
+  if (!inner.includes("window.acPACK_MODE = true;")) problems.push("not in PACK mode");
+  if (!inner.includes(`window.acSTARTING_PIECE = "$${code}";`)) problems.push(`doesn't start $${code}`);
+  if (!inner.includes(`window.acKIDLISP_SOURCE = ${JSON.stringify(source)};`)) problems.push("source differs from the stored $code");
+  if (!inner.includes(CRAWL_STYLE)) problems.push("missing the letterbox wrapper style");
+  if (EXTERNAL.test(inner)) problems.push("the page loads something from the network");
+  let vfs;
+  try { vfs = JSON.parse(inner.match(/window\.VFS = (\{.*?\});\n/s)[1].replace(/<\\\/script>/g, "</script>")); } catch { return fail("no readable VFS"); }
+  for (const f of REQUIRED_FILES) if (!vfs[f]) problems.push(`VFS lacks ${f}`);
+  if (!Object.keys(vfs).some((f) => f.startsWith("disks/drawings/font_1/"))) problems.push("VFS lacks the font_1 glyphs");
+  const kidlisp = vfs["lib/kidlisp.mjs"]?.content || "";
+  for (const [fix, mark] of Object.entries(RUNTIME_MARKS)) if (!mark.test(kidlisp)) problems.push(`runtime lacks the ${fix}`);
+  return problems;
 }
 
 export function tokenMetadata({ title, body, date, episodeUrl, code, creator, artifact = "html", uris, ac = "https://aesthetic.computer", size = 512 }) {
