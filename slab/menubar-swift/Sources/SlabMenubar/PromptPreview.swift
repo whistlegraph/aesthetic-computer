@@ -41,6 +41,7 @@ import AppKit
 import SwiftUI
 import WebKit
 import PDFKit
+import ACWaveform
 
 /// Where the file on disk stands against what the previewed address is serving.
 /// Mirrors `flow` in easel's `slab-session.mjs`; unknown strings read as `live`
@@ -218,6 +219,14 @@ final class PromptPreview {
     /// clipping frame that opens and closes over it.
     private let card = NSView()
     private let shadow = CALayer()
+    /// The piece's output waveform, scrolling up a thin strip that runs down
+    /// the pane behind the card — the Aesel desktop's, in a click-through
+    /// window of its own so it can outreach the card.
+    private let waveform = ACWaveformView()
+    private let waveformWindow: NSWindow
+    private static let waveformWidth: CGFloat = 16
+    /// The strip's centre, in from the pane's side the card parks on.
+    private static let waveformInset: CGFloat = 80
 
     /// The address currently loaded, so a `sync` that changes nothing does not
     /// restart the piece — a reload is a visible flinch and a lost frame.
@@ -273,6 +282,7 @@ final class PromptPreview {
         config.mediaTypesRequiringUserActionForPlayback = .all
         config.suppressesIncrementalRendering = false
         config.userContentController.add(refreshBridge, name: "previewReady")
+        waveform.attach(to: config.userContentController)
         config.userContentController.addUserScript(WKUserScript(source: """
             window.addEventListener('message', event => {
               if (event.source === window && event.data?.type === 'ready') {
@@ -300,6 +310,15 @@ final class PromptPreview {
         window.ignoresMouseEvents = true
         window.acceptsMouseMovedEvents = true
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+
+        waveformWindow = NSWindow(contentRect: .zero, styleMask: .borderless, backing: .buffered, defer: true)
+        waveformWindow.isOpaque = false
+        waveformWindow.backgroundColor = .clear
+        waveformWindow.hasShadow = false
+        waveformWindow.ignoresMouseEvents = true
+        waveformWindow.level = window.level
+        waveformWindow.collectionBehavior = window.collectionBehavior
+        waveformWindow.contentView = waveform
 
         // The window is the whole viewport plus the room its shadow falls
         // into. Everything outside the card is transparent, so the window's
@@ -371,6 +390,7 @@ final class PromptPreview {
             return
         }
         publicationToken = publication
+        waveform.clear()
         requestedArtifact = nil
         readyArtifact = nil
         webView.dragFile = nil
@@ -625,6 +645,11 @@ final class PromptPreview {
         paneOrigin = origin
         paneSize = size
         screenHeightForCG = screenHeight
+        let side = trailing ? b.0 + b.2 - Self.waveformInset : b.0 + Self.waveformInset
+        let bottom = screenHeight - (b.1 + b.3)
+        waveformWindow.setFrame(NSRect(x: (side - Self.waveformWidth / 2).rounded(), y: bottom,
+                                       width: Self.waveformWidth, height: max(0, origin.y - bottom)),
+                                display: false)
         layoutWindow()
         layoutCard(animated: false)
     }
@@ -755,11 +780,14 @@ final class PromptPreview {
     func setVisible(_ visible: Bool) {
         if visible {
             if !window.isVisible { window.orderFrontRegardless() }
+            if !waveformWindow.isVisible { waveformWindow.order(.below, relativeTo: window.windowNumber) }
         } else if window.isVisible {
             setHovered(false)
             setExpanded(false)
             releaseKeyboard()
             window.orderOut(nil)
+            waveformWindow.orderOut(nil)
+            waveform.clear()
         }
     }
 
@@ -922,6 +950,9 @@ final class PromptPreview {
         refreshBridge.onFinish = nil
         if let artifactDirectory { try? FileManager.default.removeItem(at: artifactDirectory) }
         webView.configuration.userContentController.removeScriptMessageHandler(forName: "previewReady")
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: ACWaveformScript.handlerName)
+        waveform.clear()
+        waveformWindow.orderOut(nil)
         // Point the view at nothing before tearing down: a WKWebView left
         // holding a running page keeps its content process alive past the
         // window that owned it.

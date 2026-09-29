@@ -1,5 +1,6 @@
 import SwiftUI
 import WebKit
+import ACWaveform
 
 /// One runtime retained while moving between the corner and expanded preview.
 @MainActor
@@ -13,6 +14,8 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
     private var source = ""
     private var requestedURL: URL?
     private let messages = PreviewMessages()
+    /// The piece's output waveform; ContentView stands it behind the preview.
+    let waveform = ACWaveformView()
     lazy var view: WKWebView = makeView()
 
     private func makeView() -> WKWebView {
@@ -23,6 +26,7 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
         configuration.userContentController.add(messages, name: "previewBackdrop")
         configuration.userContentController.add(messages, name: "previewAudio")
         configuration.userContentController.add(messages, name: "previewClock")
+        waveform.attach(to: configuration.userContentController)
         #if os(iOS)
         configuration.allowsInlineMediaPlayback = true
         #endif
@@ -125,6 +129,7 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
         self.source = source
         if requestedURL != url {
             failure = nil; clockRate = nil; requestedURL = url
+            waveform.clear()
             view.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData))
         } else { updateSource() }
     }
@@ -161,7 +166,7 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
     func setAudio(_ active: Bool, source: String) {
         if self.source == source { hasAudio = active }
     }
-    func reload() { failure = nil; hasAudio = false; clockRate = nil; view.reload() }
+    func reload() { failure = nil; hasAudio = false; clockRate = nil; waveform.clear(); view.reload() }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { updateSource() }
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         if (error as NSError).code != NSURLErrorCancelled { failure = error.localizedDescription }

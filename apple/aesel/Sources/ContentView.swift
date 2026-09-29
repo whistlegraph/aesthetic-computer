@@ -1,6 +1,7 @@
 import SwiftUI
 import WebKit
 import UniformTypeIdentifiers
+import ACWaveform
 
 struct ContentView: View {
     let session: Session
@@ -373,7 +374,17 @@ struct ContentView: View {
                         }
                     }
                     .overlay(alignment: .topTrailing) {
-                        if previewVisible { previewBox(container: geometry.size) }
+                        if previewVisible {
+                            // Down the sheet at the desktop's 80-point inset,
+                            // passing behind the corner piece.
+                            ACWaveformStrip(preview.waveform, span: ACWaveformHistory.span(bpm: preview.tempo),
+                                            suppressed: preview.volume == 0 || reduceMotion)
+                                .frame(width: 16).frame(maxHeight: .infinity)
+                                .padding(.trailing, 72)
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
+                            previewBox(container: geometry.size)
+                        }
                     }
                     .onGeometryChange(for: CGSize.self) { $0.size } action: { sheetSize = $0 }
                     // Scrolling reflows prose around the fixed preview and changes

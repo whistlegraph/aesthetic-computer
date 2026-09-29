@@ -4,6 +4,10 @@ options:
   deploymentTarget:
     iOS: "17.0"
     macOS: "14.0"
+packages:
+  # The preview's output waveform, shared with the Slab card.
+  ACWaveform:
+    path: ../../slab/packages/ACWaveform
 settings:
   base:
     DEVELOPMENT_TEAM: FB5948YR3S
@@ -13,6 +17,8 @@ targets:
   Aesel:
     type: application
     platform: iOS
+    dependencies:
+      - package: ACWaveform
     sources:
       - Sources
       - path: Resources
@@ -33,6 +39,8 @@ targets:
   AeselMac:
     type: application
     platform: macOS
+    dependencies:
+      - package: ACWaveform
     sources:
       - Sources
       - path: Resources
