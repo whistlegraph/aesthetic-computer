@@ -19526,9 +19526,12 @@ function drawKeycapRun(entries, x, y, size, held, ink, revealAction = null) {
   for (const [cap, action, button] of entries) {
     for (const [index, label] of (Array.isArray(cap) ? cap : [cap]).entries()) {
       if (index) cursor += 5;
+      // Two caps can be two buttons (Q and E each punch): each lights for
+      // its own press, not whenever either is down.
+      const down = held.includes(Array.isArray(button) ? button[index] : button);
       cursor += keyboard
-        ? drawKeycap(label, cursor, y, size, held.includes(button))
-        : drawPadButton(label, cursor, y, size, held.includes(button));
+        ? drawKeycap(label, cursor, y, size, down)
+        : drawPadButton(label, cursor, y, size, down);
     }
     cursor += 8;
     if (!revealAction || revealAction([cap, action, button])) {
@@ -27146,9 +27149,11 @@ function drawParkControls(p,safe){
  if(drop)drawKeycapRun([[c.drop,'drop '+drop,'KeyQ']],safe.left,safe.bottom-size*1.6,size,held,[255,186,126]);
  const vehicle=p.skateboard||p.goKart||p.onewheel,gun=p.gunAmmo>0;
  const rows=[
-  [[c.punch,p.chalkColor&&!fighting?'draw':p.axeHeld?'swing':gun?'shoot':'punch/hold',gun?'Y':'B'],
-   [c.kick,vehicle?'gas':'kick',vehicle?'ArrowUp':'Y']],
-  [[c.jump,p.skateboard&&!fighting?'off':'jump','A'],[c.bubble,'bubble','RightShoulder']]];
+  // The buttons each cap sends: Q/E are X/Y, Shift is A, Space is B, and
+  // the bubble is Shift+Q (A+X) — the same layout the hosts map keys to.
+  [[c.punch,p.chalkColor&&!fighting?'draw':p.axeHeld?'swing':gun?'shoot':'punch/hold',['X','Y']],
+   [c.kick,vehicle?'gas':'kick','A']],
+  [[c.jump,p.skateboard&&!fighting?'off':'jump','B'],[c.bubble,'bubble',['A','X']]]];
  for(const [row,entries] of rows.entries()){
   const y=safe.bottom-size*3.4+row*size*1.8;
   drawKeycapRun(entries,safe.right-keycapRunWidth(entries,size),y,size,held,ink);
