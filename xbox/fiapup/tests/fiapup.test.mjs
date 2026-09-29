@@ -37,7 +37,9 @@ test("the game reaches only for the console's bindings", () => {
   const { game, drawn } = fresh();
   for (let i = 0; i < 600; i++) { game.sim(); game.paint(); }
   assert.ok(drawn.faces > 600 * 300, `drew ${drawn.faces} faces in 600 paints`);
-  assert.ok(drawn.texts.includes("fiapup"));
+  // No title panel any more; the pad hint is the only type on screen.
+  assert.ok(drawn.texts.some((t) => t.startsWith("A pet")), "the pad hint is drawn");
+  assert.ok(!drawn.texts.includes("fiapup"), "no title panel");
 });
 
 test("it boots idle, and settles to sitting while it watches the hand", () => {

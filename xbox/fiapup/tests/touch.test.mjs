@@ -264,13 +264,13 @@ test("a second finger doesn't break a stroke", () => {
   assert.ok(f.world.hand.petting);
 });
 
-test("the play button plays; a pad press takes the game back from touch", () => {
+test("no play button: a double tap plays; a pad press takes the game back from touch", () => {
   const f = fresh();
   f.world.pup.energy = .9;
-  const b = f.playButton();
-  frame(f, [{ id: 1, x: b.x, y: b.y }]); frame(f, []);
+  assert.equal(f.playButton, undefined);
+  assert.equal(f.world.touch.mode, false);
+  f.stageTap("play");
   assert.equal(f.world.pup.state, "playbow");
-  assert.equal(f.world.touch.mode, true);
   frame(f, [], ["ArrowLeft"]);
   assert.equal(f.world.touch.mode, false);
 });

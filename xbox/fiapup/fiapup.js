@@ -2765,7 +2765,7 @@ function pupOwner(p) {
 // ——— touch: the finger is the hand ———
 // The host hands over `touches()`: the fingers down now, each { id, x, y }
 // in the game's screen units. What a finger means is settled by what it
-// lands on (the ball, the rope, the pup, the play button, the grass) and by
+// lands on (the ball, the rope, the pup, the grass) and by
 // how it moves and lifts:
 //
 //   on the pup           stroke it: petting while the finger is over it, and
@@ -2834,16 +2834,9 @@ function ropeReach(x, y) {
     best = Math.min(best, reachOf(x, y, a.x + e[0] * i / 4, a.y + e[1] * i / 4, a.z + e[2] * i / 4, 4));
   return best;
 }
-const playButton = () => {
-  const s = hud, r = 64 * s;
-  return { x: screenW - inset.right - 40 * s - r, y: screenH - inset.bottom - 40 * s - r, r };
-};
-
-// What a finger landed on, for dragging: the play button, the ball or the
-// rope (picked up only once the finger moves), the pup, or the grass.
+// What a finger landed on, for dragging: the ball or the rope (picked up
+// only once the finger moves), the pup, or the grass. Play is a double tap.
 function pick(x, y) {
-  const b = playButton();
-  if (Math.hypot(x - b.x, y - b.y) < b.r * 1.15) return "button";
   const ball = world.ball, h = world.hand;
   const hits = [
     ["ball", ball.heldBy || h.holding ? Infinity : reachOf(x, y, ball.x, ball.y + 5, ball.z, 5) * .8],
@@ -2899,7 +2892,6 @@ function fingerDown(f) {
   t.mode = true; t.gestures++;
   const g = { id: f.id, x0: f.x, y0: f.y, x: f.x, y: f.y, t0: world.t, moved: 0, speed: 0,
     samples: [{ t: world.t, x: at.x, z: at.z }], kind: pick(f.x, f.y), owns: null, onPup: false };
-  if (g.kind === "button") play();
   // The pup hears the finger land: ears up, head round, before anything else.
   world.pup.alert = { x: at.x, z: at.z, t: world.t };
   t.fingers.set(f.id, g);
@@ -2931,7 +2923,7 @@ function fingerMove(g, f, dt) {
   if (!g.owns && g.moved >= tapTravel && (g.kind === "ball" || g.kind === "rope")) grab(g, at);
   if (g.owns) { moveHand(at); return; }
   const still = g.moved < tapTravel, age = world.t - g.t0;
-  if (g.kind !== "pup" && g.kind !== "button" && still && age > holdTreatAfter && !h.holding) {
+  if (g.kind !== "pup" && still && age > holdTreatAfter && !h.holding) {
     h.holding = "treat"; g.owns = "treat"; g.kind = "ground"; moveHand(at); buzz("light");
     return;
   }
@@ -2967,7 +2959,7 @@ function fingerUp(g) {
     if (r.heldBy === "both") { r.heldBy = "pup"; p.carrying = "rope"; }
     else { r.heldBy = null; r.x = h.x; r.z = h.z; }
   } else if (g.owns === "treat") dropTreat();
-  else if (g.kind !== "button" && g.moved < tapTravel && world.t - g.t0 < tapTime) {
+  else if (g.moved < tapTravel && world.t - g.t0 < tapTime) {
     const last = world.touch.lastTap;
     if (last && last.kind === "grass" && world.t - last.t < .4 && Math.hypot(g.x - last.x, g.y - last.y) < 90) {
       world.touch.lastTap = null; world.goSpot = null; play();
@@ -3118,6 +3110,13 @@ function text(s, x, y, size, r, g, b) {
   strings.push(s);
   op(OP.TEXT, 3, x, y, size, r, g, b, strings.length - 1);
 }
+// Words over the yard wear a drop shadow, as oskiewar's do, so they read
+// on grass of any shade without a box behind them.
+function shadowText(s, x, y, size, r, g, b) {
+  const o = Math.max(2, size * .08);
+  text(s, x + o, y + o, size, 24, 40, 28);
+  text(s, x, y, size, r, g, b);
+}
 // A flat screen quad in front of everything (HUD panels): triangles, not
 // `box`, because the console draws boxes under the scene.
 function panel(x, y, w, h, r, g, b, depth = -1.49) {
@@ -3219,33 +3218,18 @@ const touchHints = ["tap anywhere"];
 
 function drawHud() {
   const p = world.pup, s = hud, touch = world.touch.mode;
-  const left = inset.left + 28 * s, top = inset.top + 24 * s;
-  const w = Math.min(400 * s, screenW - left - inset.right - 28 * s);
-  panel(left, top, w, 104 * s, 255, 250, 238);
-  text("fiapup", left + 22 * s, top + 14 * s, 38 * s, 120, 72, 50);
-  text(moods[p.state] || p.state, left + 22 * s, top + 64 * s, 26 * s, 90, 110, 150);
-  // joy and energy, as two little bars
-  const bar = (y, v, r, g, b) => {
-    const x = left + w - 142 * s;
-    panel(x, y, 120 * s, 16 * s, 226, 220, 208, -1.491);
-    panel(x, y, 120 * s * clamp(v, 0, 1), 16 * s, r, g, b, -1.492);
-  };
-  bar(top + 28 * s, p.joy, 240, 90, 120);
-  bar(top + 60 * s, p.energy, 110, 180, 110);
+  // No panel, no meters, no button: the yard is the whole screen, and the
+  // pup's mood shows in the pup. Only a first-play hint, in shadowed type.
+  const left = inset.left + 28 * s;
   const bottom = screenH - inset.bottom;
   if (!touch) {
     const hint = world.hand.holding === "ball" ? "A throw" : world.hand.holding === "rope" ? "A let go"
       : world.hand.holding === "treat" ? "let go of X to drop it" : "A pet / pick up   B call   X treat   Y play";
-    text(hint, left, bottom - 76 * s, 26 * s, 255, 255, 255);
+    shadowText(hint, left, bottom - 76 * s, 26 * s, 255, 255, 255);
     return;
   }
-  // The play button, a thumb's width, bottom right.
-  const b = playButton();
-  op(OP.DISC, b.x, b.y + 5 * s, -1.488, b.r, 90, 130, 70);
-  op(OP.DISC, b.x, b.y, -1.489, b.r, 255, 250, 238);
-  text("play", b.x - 30 * s, b.y - 15 * s, 30 * s, 120, 72, 50);
   if (world.touch.gestures < 3)
-    text(touchHints[Math.floor(world.t / 3) % touchHints.length], left, bottom - 70 * s, 30 * s, 255, 255, 255);
+    shadowText(touchHints[Math.floor(world.t / 3) % touchHints.length], left, bottom - 70 * s, 30 * s, 255, 255, 255);
 }
 
 // Under touch there is no glove: a tap leaves a ripple on the grass, and a
@@ -3362,7 +3346,7 @@ const fiapup = {
   lab(reach = 120) { world.lab = reach; world.camera.reach = reach; Object.assign(world.camera, { x: world.pup.x, z: world.pup.z }); },
   // A tap on a named thing, or "play", as if a finger had done it (the lab's buttons).
   stageTap(kind) { if (kind === "play") play(); else tapOn(kind, { x: world.hand.x, z: world.hand.z }); },
-  pupHandles: () => (handles.get(objects.puppy) || []).filter(Boolean), screenOf: onScreen, ground, pupReach, playButton, paint: paintFrame, stats, rig: pupRig, owner: pupOwner, place: pupPlace,
+  pupHandles: () => (handles.get(objects.puppy) || []).filter(Boolean), screenOf: onScreen, ground, pupReach, paint: paintFrame, stats, rig: pupRig, owner: pupOwner, place: pupPlace,
   program: () => program.subarray(0, length), strings: () => strings, states: Object.keys(states),
   resend() { sent = new Set(); vm = null; },
   // The icon's pose: facing you, head cocked, ears up, tongue out, happy.
