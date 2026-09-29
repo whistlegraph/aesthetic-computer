@@ -4,7 +4,10 @@
 //   page    — the episode as a Star Wars crawl in AC's pixel font: a GIF drawn
 //             here (lib/crawl.mjs), and the same crawl as a live KidLisp
 //             $code on AC; the thumbnail is one of the GIF's frames
-//   pin     — GIF, thumb and TZIP-21 metadata to AC's IPFS node (/api/ipfs-add)
+//   bundle  — the $code packed as a Keep is (oven/bundler.mjs, PACK mode):
+//             one self-extracting HTML that runs offline in objkt's sandbox
+//   pin     — bundle, GIF, thumb and TZIP-21 metadata to AC's IPFS node
+//             (/api/ipfs-add); the bundle is the artifact, the GIF the display
 //   mint    — mint_OBJKT on the hic et nunc minter, signed by aesthetic.tez
 //   list    — an objkt ask for the whole edition
 //
@@ -14,12 +17,13 @@
 // Usage:
 //   node bin/daily-token.mjs                      # today's episode
 //   node bin/daily-token.mjs --date 2026-09-26
-//   node bin/daily-token.mjs --dry                # page + render only; no pin/mint/list
+//   node bin/daily-token.mjs --dry                # page, bundle, metadata; no pin/mint/list
 //
 // Secrets come from the environment or --env <file> (repeatable):
 //   AESTHETIC_KEY, AESTHETIC_ADDRESS   the signer (must be aesthetic.tez)
 //   AC_TOKEN or ~/.ac-token            an @jeffrey AC session, for /api/ipfs-add
-// Tuning: DAILY_EDITIONS (1), DAILY_PRICE_XTZ (3), DAILY_ROYALTIES_PERMILLE (150).
+// Tuning: DAILY_EDITIONS (1), DAILY_PRICE_XTZ (3), DAILY_ROYALTIES_PERMILLE (150),
+//         DAILY_ARTIFACT (html | gif: what the artifactUri is; see lib/artifact.mjs).
 
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -68,6 +72,10 @@ const EDITIONS = Number(process.env.DAILY_EDITIONS || 1);
 const PRICE_XTZ = Number(process.env.DAILY_PRICE_XTZ || 3);
 const ROYALTIES = Number(process.env.DAILY_ROYALTIES_PERMILLE || 150); // HEN is per-mille
 const MIN_BALANCE_XTZ = 0.15; // a mint + a listing burn ~0.06
+
+const { artifactMode, crawlBundle, tokenMetadata } = await import(resolve(ROOT, "lib", "artifact.mjs"));
+let ARTIFACT;
+try { ARTIFACT = artifactMode(); } catch (err) { console.error(`✗ ${err.message}`); process.exit(1); }
 
 // The AC session: AC_TOKEN if given, else this machine's own ~/.ac-token
 // (from its own `ac-login`; never a copy from another machine, since Auth0
@@ -144,7 +152,27 @@ if (!receipt.code) {
   console.log(`  ✓ $${code} · crawl ${frames} frames (${(gifBytes / 1024).toFixed(0)} KB) → out/daily/${slug}.gif`);
 }
 
-if (flags.dry) { console.log(`✓ dry run: $${receipt.code} rendered; nothing pinned or minted.`); process.exit(0); }
+// ── 1b. bundle ───────────────────────────────────────────────────────────
+// Packed from the source the receipt holds, so it is the stored $code byte
+// for byte; a receipt from a gif-only night gets its bundle on resume.
+const htmlPath = resolve(dailyDir, `${slug}.html`);
+if (ARTIFACT === "html" && !existsSync(htmlPath)) {
+  const html = await crawlBundle(receipt.code, receipt.source);
+  writeFileSync(htmlPath, html);
+  receipt.htmlBytes = Buffer.byteLength(html);
+  save();
+  console.log(`  ✓ bundled $${receipt.code} → out/daily/${slug}.html (${(receipt.htmlBytes / 1024).toFixed(0)} KB)`);
+}
+
+const metadataFor = (uris) => tokenMetadata({ title, body, date, episodeUrl, code: receipt.code, creator: SIGNER, artifact: ARTIFACT, uris, ac: AC });
+
+if (flags.dry) {
+  const dry = (f) => `ipfs://<${f}>`;
+  const metadata = metadataFor({ html: dry(`${slug}.html`), gif: dry(`${slug}.gif`), thumb: dry(`${slug}-thumb.png`) });
+  writeFileSync(resolve(dailyDir, `${slug}.metadata.json`), JSON.stringify(metadata, null, 2) + "\n");
+  console.log(`✓ dry run (${ARTIFACT}): $${receipt.code} rendered; metadata → out/daily/${slug}.metadata.json; nothing pinned or minted.`);
+  process.exit(0);
+}
 
 // ── 2. pin ───────────────────────────────────────────────────────────────
 // Through AC's own IPFS node (/api/ipfs-add, admin-only) — the Kubo node Keeps
@@ -165,25 +193,14 @@ async function pin(payload) {
 const pinFile = (path, name, mimeType) => pin({ name, mimeType, base64: readFileSync(path).toString("base64") });
 
 if (!receipt.metadataUri) {
-  const artifactUri = await pinFile(resolve(dailyDir, `${slug}.gif`), `${slug}.gif`, "image/gif");
-  const thumbnailUri = await pinFile(resolve(dailyDir, `${slug}-thumb.png`), `${slug}-thumb.png`, "image/png");
-  const metadata = {
-    name: title,
-    description: `${body}\n\n— Aesthetic Dot Computer, ${date}. Listen: ${episodeUrl}\nThe page as a live KidLisp piece: ${AC}/${receipt.code}`,
-    tags: ["aesthetic.computer", "kidlisp", "podcast", "devlog", "pixelfont"],
-    symbol: "OBJKT",
-    artifactUri,
-    displayUri: artifactUri,
-    thumbnailUri,
-    creators: [SIGNER],
-    formats: [{ uri: artifactUri, mimeType: "image/gif" }],
-    decimals: 0,
-    isBooleanAmount: false,
-    shouldPreferSymbol: false,
-    date: new Date(`${date}T20:30:00-04:00`).toISOString(),
+  const uris = {
+    html: ARTIFACT === "html" ? await pinFile(htmlPath, `${slug}.html`, "text/html") : undefined,
+    gif: await pinFile(resolve(dailyDir, `${slug}.gif`), `${slug}.gif`, "image/gif"),
+    thumb: await pinFile(resolve(dailyDir, `${slug}-thumb.png`), `${slug}-thumb.png`, "image/png"),
   };
+  const metadata = metadataFor(uris);
   const metadataUri = await pin({ name: `${slug}.json`, json: metadata });
-  Object.assign(receipt, { artifactUri, thumbnailUri, metadataUri });
+  Object.assign(receipt, { artifact: ARTIFACT, artifactUri: metadata.artifactUri, displayUri: metadata.displayUri, thumbnailUri: metadata.thumbnailUri, metadataUri });
   save();
   console.log(`  ✓ pinned ${receipt.metadataUri}`);
 }
