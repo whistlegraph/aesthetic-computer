@@ -176,7 +176,7 @@ test("the JS rig puts the head where the lisp draws it", () => {
 // The pup is a figure, not a prop, so it gets more than a prop's 60 numbers:
 // at most 12 SKETCH ops (168 numbers) a tick, in every behaviour. The whole
 // frame program, after the paint that carries a chunk's SHAPES, stays under
-// 1800 numbers — about 30 chunk sketches, the ridges, the pup, the props and
+// 2000 numbers — about 30 chunk sketches, the ridges, the near trees, the pup, the props and
 // the nearby critters — and 14000 host faces, and a tick plus a paint stays
 // well inside a frame.
 const moments = ["idle", "fetch", "pet", "beg", "nap", "zoomies", "tug"];
@@ -207,7 +207,7 @@ test("a frame program stays small, and so does the work", () => {
     for (let i = 0; i < 60; i++) { f.step(); game.paint(); }
     costs.push((performance.now() - t0) / 60);
     const faces = drawn.faces / 60;
-    assert.ok(f.stats.numbers < 1800, `${name}: ${f.stats.numbers} numbers`);
+    assert.ok(f.stats.numbers < 2000, `${name}: ${f.stats.numbers} numbers`);
     assert.ok(faces < 14000, `${name}: ${faces.toFixed(0)} faces`);
   }
   assert.ok(first > f.stats.numbers, "the first paint carries the SHAPES");

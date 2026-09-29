@@ -2132,7 +2132,7 @@ const petals = [[250, 150, 190], [250, 248, 240], [190, 140, 240], [255, 220, 90
 // A chunk's still things, as SHAPES records, and the things a tap can find
 // in it. Same chunk, same lod, same SEED: the same result.
 function chunkRecords(cx, cz, lod) {
-  const out = { list: [], count: 0 }, things = [], critters = [];
+  const out = { list: [], count: 0 }, things = [], critters = [], trees = [];
   const x0 = cx * CHUNK, z0 = cz * CHUNK, rng = seeded(hash3(cx, cz, SEED));
   // ground: tiles shaded by slope toward the sun, drier and paler uphill
   const n = lod ? 2 : 4, step = CHUNK / n;
@@ -2160,12 +2160,15 @@ function chunkRecords(cx, cz, lod) {
   const clear = (x, z, r = 0) => Math.hypot(x - home.x, z - home.z) > 150 + r && Math.abs(z - streamZ(x)) > 30 + r;
   const spot = () => ({ x: x0 + rng() * CHUNK, z: z0 + rng() * CHUNK });
   const north = smooth(200, 1600, -(z0 + CHUNK / 2));
-  const trees = Math.floor(rng() * (1.6 + 2.6 * north) + .35);
-  for (let k = 0; k < trees; k++) {
+  const treeCount = Math.floor(rng() * (1.6 + 2.6 * north) + .35);
+  for (let k = 0; k < treeCount; k++) {
     const p = spot();
     if (!clear(p.x, p.z, 20)) continue;
     const pine = rng() < .35 + .6 * north, s = .85 + rng() * .5;
-    stamp(out, pine ? objects.pine : objects.birch, p.x, groundY(p.x, p.z), p.z, 0, s);
+    // Near chunks keep their trees apart, drawn one by one, so a tree the
+    // camera backs into can step aside; far chunks bake them in.
+    if (lod) stamp(out, pine ? objects.pine : objects.birch, p.x, groundY(p.x, p.z), p.z, 0, s);
+    else trees.push({ pine, x: p.x, y: groundY(p.x, p.z), z: p.z, s });
   }
   const rocks = rng() < .55 ? 1 + Math.floor(rng() * 2) : 0;
   for (let k = 0; k < rocks; k++) {
@@ -2199,7 +2202,7 @@ function chunkRecords(cx, cz, lod) {
     for (let k = 0; k < many; k++)
       critters.push({ kind: "sheep", x: c.x + (rng() - .5) * 60, z: c.z + (rng() - .5) * 60, phase: rng() * 6.3 });
   }
-  return { records: Float64Array.from(out.list), count: out.count, things, critters };
+  return { records: Float64Array.from(out.list), count: out.count, things, critters, trees };
 }
 
 // Which chunks are wanted around a point, and at what lod: a window that
@@ -3391,7 +3394,7 @@ function followCamera(dt) {
   if (world.lab) { tx = p.x; tz = p.z; reach = world.lab; }
   const k = ease(2.5, dt);
   c.x = lerp(c.x, tx, k); c.z = lerp(c.z, tz, k); c.reach = lerp(c.reach, reach, k);
-  c.y = lerp(c.y, groundY(c.x, c.z), ease(2, dt));
+  c.y = lerp(c.y, groundY(c.x, c.z), ease(4, dt));
 }
 
 // How far down the camera looks: shallow enough that the mountains stand
@@ -3405,6 +3408,8 @@ function aimCamera() {
   const s = Math.sin(tilt), co = Math.cos(tilt);
   const m = camera;
   m[0] = c.x; m[1] = (c.y || 0) + 16 + s * c.reach; m[2] = c.z + co * c.reach;
+  // never inside a hill
+  m[1] = Math.max(m[1], groundY(m[0], m[2]) + 30);
   m[3] = 1; m[4] = 0; m[5] = 0;                     // right
   m[6] = 0; m[7] = co; m[8] = -s;                   // up
   m[9] = 0; m[10] = -s; m[11] = -co;                // forward
@@ -3609,7 +3614,7 @@ function emitRecords(handle, rec, place) {
 }
 const placeAt = new Float64Array(12);
 function drawWorld() {
-  const c = world.camera, y = (c.y || 0) - 40;
+  const c = world.camera, y = Math.max(c.y || 0, groundY(c.x, c.z - 1400)) - 40;
   // the far meadow and the sky's haze keep to the camera; each ridge slides
   // by its parallax, wrapping every ridgePeriod so it never ends
   placeAt.set([c.x, y, c.z, 1, 0, 0, 0, 1, 0, 0, 0, 1]);
@@ -3629,6 +3634,15 @@ function drawWorld() {
     emitRecords(chunkHandleBase + chunk.slot, chunk, placeAt);
   }
   objects.camp(inputs, identityAt(home.x, groundY(home.x, home.z), home.z), outs.camp);
+  // the near chunks' trees, one sketch each: not when off screen, and not
+  // when the camera is right on top of one (it would fill the screen)
+  for (const chunk of world.chunks.values()) for (const t of chunk.trees || []) {
+    const at = onScreen(t.x, t.y + 40 * t.s, t.z);
+    if (!at || at.k * 300 / camera[15] > 1.6 || at.x < -200 || at.x > screenW + 200 || at.y > screenH + 400 || at.y < -400) continue;
+    placeAt.set([t.x, t.y, t.z, t.s, 0, 0, 0, t.s, 0, 0, 0, t.s]);
+    const object = t.pine ? objects.pine : objects.birch;
+    object(inputs, placeAt, outs[t.pine ? "pine" : "birch"]);
+  }
 }
 
 // Far from camp, a word at the screen's edge says which way home is.
@@ -3928,13 +3942,14 @@ const fiapup = {
       if (t) {
         // start close enough that the moment arrives in a few seconds
         Object.assign(p, { x: t.x + 70, z: t.z + 60 });
-        Object.assign(w.camera, { x: p.x, z: p.z });
+        Object.assign(w.camera, { x: p.x, z: p.z, y: groundY(p.x, p.z) });
         step();
         w.tapRef = name === "stream" ? { x: t.x, z: streamZ(t.x) } : t;
         tapOn(name, t);
       }
     }
     if (name === "camp") { Object.assign(p, { x: -500, z: -300 }); step(); w.touch.mode = true; tapOn("camp"); }
+    w.camera.y = groundY(w.camera.x, w.camera.z);
     if (name === "tug") { w.hand.x = 20; w.hand.z = 60; w.hand.holding = "rope"; w.rope.heldBy = "hand"; p.x = 10; p.z = -20; }
     const script = { down: [] };
     globalThis.__fiapupScript = script;

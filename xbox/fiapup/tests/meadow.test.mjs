@@ -91,7 +91,7 @@ test("a run across chunk boundaries keeps the budget", () => {
   }
   const sorted = [...costs].sort((a, b) => a - b), median = sorted[sorted.length >> 1], worst = sorted.at(-1);
   assert.ok(crossings >= 6, `${crossings} chunk crossings`);
-  assert.ok(Math.max(...numbers) < 1800, `steady program at most ${Math.max(...numbers)} numbers`);
+  assert.ok(Math.max(...numbers) < 2000, `steady program at most ${Math.max(...numbers)} numbers`);
   assert.ok(Math.max(...faces) < 14000, `at most ${Math.max(...faces)} faces`);
   assert.ok(median < 8, `median tick+paint ${median.toFixed(2)} ms`);
   console.log(`  ${crossings} crossings; tick+paint median ${median.toFixed(2)} ms, worst ${worst.toFixed(2)} ms; ` +

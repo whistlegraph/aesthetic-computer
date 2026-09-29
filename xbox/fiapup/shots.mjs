@@ -23,6 +23,9 @@ const moments = {
   idle: "", fetch: "stage=fetch&seconds=1.05", pet: "stage=pet&seconds=1.1",
   rollover: "stage=pet&seconds=3.2", beg: "stage=beg&seconds=2.6", nap: "stage=nap&seconds=9",
   zoomies: "stage=zoomies&seconds=2.4", tug: "stage=tug&seconds=3.2",
+  run: "stage=run&seconds=2.5", far: "stage=far&seconds=1.2", butterfly: "stage=butterfly&seconds=1.4",
+  splash: "stage=stream&seconds=2.2", flower: "stage=flower&seconds=2", sheep: "stage=sheep&seconds=2.6",
+  grass: "stage=tuft&seconds=2", home: "stage=camp&seconds=3",
 };
 // --phone shoots each moment as a phone shows it (touch UI), upright and on
 // its side, into shots/phone/.
