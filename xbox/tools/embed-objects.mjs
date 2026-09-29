@@ -22,8 +22,9 @@ export const start = "// <objects>";
 export const end = "// </objects>";
 
 // What the game draws, by the name it asks for: the source file each is
-// compiled from. The monowheel is drawn flat (OBJECT-DIALECT.md).
-export const objects = { monowheel: "monowheel-flat" };
+// compiled from. The monowheel is drawn flat, and figures are, behind a flag
+// (OBJECT-DIALECT.md).
+export const objects = { monowheel: "monowheel-flat", figure: "figure-flat" };
 
 // A module's source with its `export` keywords taken off, and the names it
 // exported.
@@ -57,7 +58,7 @@ export function generate() {
     "  };",
     "  const compiled = {};",
     "  for (const name in sources) compiled[name] = objectLisp.compile(sources[name], name);",
-    "  return { ...compiled, light: objectLisp.objectLight };",
+    "  return { ...compiled, light: objectLisp.objectLight, drawFigureShapes: objectLisp.drawFigureShapes };",
     "})();",
     end,
   ].join("\n");

@@ -24,7 +24,7 @@ function createGame({ buffered, onProgram = null }) {
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal",
     "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line",
     "triangle", "triangle3d", "triangles3d", "frame", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, cameraDoll, worldQuad, worldTriangle, drawMonowheel,
+    `${source}\nreturn { boot, cameraDoll, worldQuad, worldTriangle, drawMonowheel, players, drawRunner,
        drawSpotShadow, captureQuadMesh, drawQuadMesh,
        stage: () => ({ floorY, worldNear, worldFar }),
        begin: beginFrameProgram, end: endFrameProgram,
@@ -290,4 +290,80 @@ test("the flat monowheel draws the same whether buffered or immediate", () => {
   assert.equal(ops.filter((op) => op === 19).length, 3, "three SKETCH ops a frame");
   program.draw((g) => g.drawMonowheel(wheel));
   assert.equal(programs[1].filter((o) => o.op === 18).length, 0, "and not again");
+});
+
+// Flat figures (behind globalThis.oskiewarFlatFigures): a fighter is one
+// FIGURE op, and the host draws fewer triangles for it than for the figure
+// the game draws today, at every distance. Immediate, the game draws the same
+// figure itself.
+test("a flat figure is one op, fewer triangles than today's, and draws the same immediate", (t) => {
+  const pose = (game, dist) => {
+    const p = game.players[0];
+    p.parkEntrance = null;
+    place(game, { position: { x: p.x, y: p.y - 120, z: p.z - dist }, target: { x: p.x, y: p.y - 100, z: p.z }, width: 500 });
+    return p;
+  };
+  const rows = [];
+  try {
+    for (const dist of [260, 700, 1500]) {
+      const programs = [];
+      globalThis.oskiewarFlatFigures = false;
+      const today = createGame({ buffered: true, onProgram: (ops) => programs.push(ops) });
+      const was = today.draw((g) => g.drawRunner(pose(g, dist), 1));
+      const sent = programs.at(-1).filter((o) => o.op !== 9).reduce((n, o) => n + 1 + o.args.length, 0);
+      globalThis.oskiewarFlatFigures = true;
+      const flatPrograms = [];
+      const flat = createGame({ buffered: true, onProgram: (ops) => flatPrograms.push(ops) });
+      flat.draw((g) => g.drawRunner(pose(g, dist), 1));
+      const now = flat.draw((g) => g.drawRunner(pose(g, dist), 1));
+      const ops = flatPrograms.at(-1).filter((o) => o.op !== 9);
+      rows.push(`${dist}: ${sent} numbers ${was.length} triangles → ${ops.reduce((n, o) => n + 1 + o.args.length, 0)} numbers ${now.length} triangles`);
+      assert.deepEqual(ops.map((o) => o.op), [20], "one FIGURE a tick after the first");
+      assert.ok(now.length < was.length, `at ${dist}: flat ${now.length}, today ${was.length}`);
+      if (dist === 260) {
+        const immediate = createGame({ buffered: false });
+        const drawn = immediate.draw((g) => g.drawRunner(pose(g, dist), 1));
+        const box = (faces) => faces.reduce((b, f) => [Math.min(b[0], f[0], f[3], f[6]), Math.min(b[1], f[1], f[4], f[7]),
+          Math.max(b[2], f[0], f[3], f[6]), Math.max(b[3], f[1], f[4], f[7])], [Infinity, Infinity, -Infinity, -Infinity]);
+        box(now).forEach((x, i) => assert.ok(Math.abs(x - box(drawn)[i]) < 4, `edge ${i}: buffered ${x}, immediate ${box(drawn)[i]}`));
+      }
+    }
+  } finally { delete globalThis.oskiewarFlatFigures; }
+  t.diagnostic(`a figure, today → flat: ${rows.join("; ")}`);
+});
+
+// The flat figure reads the live pose: the joints it hangs shapes on are the
+// ones the rig draws from, frame by frame, so a strike moves them.
+test("a flat figure's joints follow a strike, not a rest pose", () => {
+  let clock = 1e6;
+  const noOp = () => {};
+  const api = new Function(
+    "runtime", "gamepad", "capabilities", "telemetry", "gameSignal",
+    "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line",
+    "triangle", "triangle3d", "triangles3d", "frame", "write", "systemWrite", "gameView",
+    `${source}\nreturn { boot, players, figureJoints, runnerWorldGeometry, startMelee };`
+  )(
+    () => ({ monotonicUs: clock, unixMs: 1785870000000, simCount: 0, paintCount: 0, clientErrorReportStatus: "" }),
+    () => ({ connected: false, down: [], leftX: 0, leftY: 0 }),
+    () => ({ platform: "web", inputFamily: "keyboard" }),
+    noOp, noOp, () => Promise.resolve(true), noOp, noOp, noOp, noOp, noOp, noOp,
+    noOp, noOp, undefined, undefined, noOp, noOp, () => ({ width: 1920, height: 1080 }));
+  api.boot();
+  const p = api.players[0];
+  const joint = (J, i) => [J[i * 3], J[i * 3 + 1], J[i * 3 + 2]];
+  const at = (t) => api.figureJoints(p, api.runnerWorldGeometry(p, t)).slice();
+  const rest = at(1);
+  for (const [kind, ends, role] of [["KICK", [14, 15], "shin"], ["PUNCH", [8, 9], "forearm"]]) {
+    api.startMelee(p, kind, clock);
+    clock += 90000;
+    const world = api.runnerWorldGeometry(p, 1.09), strike = api.figureJoints(p, world).slice();
+    // The same ends the rig's own segments have.
+    for (const [index, side] of [[ends[0], "left"], [ends[1], "right"]]) {
+      const bone = world.segments.find((s) => s.part === `${side}-${role === "shin" ? "leg" : "arm"}` && s.role.endsWith(role));
+      assert.deepEqual(joint(strike, index), [bone.x2, bone.y2, bone.z2], `${kind}: the flat ${side} joint is the rig's`);
+    }
+    const moved = Math.max(...ends.map((j) => Math.hypot(...joint(strike, j).map((v, k) => v - joint(rest, j)[k]))));
+    assert.ok(moved > 10, `${kind}: a hand or foot moved ${moved.toFixed(1)} from rest`);
+    clock += 1e6;
+  }
 });

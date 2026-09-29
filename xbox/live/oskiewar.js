@@ -2547,13 +2547,17 @@ let triangleDepth = -1.4;
 //              shapes (ball, limb, ring, plate, drum), sent once, kept by handle
 //  19 SKETCH   handle, origin(3) x(3) y(3) z(3)   draw kept shapes placed: the
 //              interpreter projects their anchors and fills them flat, inked
+//  20 FIGURE   sketch look pin, 16 joints (x y z)   a flat figure: kept shapes
+//              hung on the pose's joints (behind a flag while it's tried)
+//  21 LOOK     handle, 10 × (r g b)   a figure's palette, sent once
 // Scene-level on purpose: a disc is seven numbers here and a fan of faces in
 // the interpreter, because on the console every typed-array element written
 // from JS costs about as much as a quarter of a host call.
 const FRAME_VIEW = 1, FRAME_FACE = 2, FRAME_DISC = 3, FRAME_CAPSULE = 4,
   FRAME_TEXT = 5, FRAME_BOX = 6, FRAME_LINE = 7, FRAME_WIPE = 8,
   FRAME_CAMERA = 9, FRAME_WORLD = 10, FRAME_DEPTH = 11, FRAME_ASSET = 12,
-  FRAME_MESH = 13, FRAME_SHAPES = 18, FRAME_SKETCH = 19;
+  FRAME_MESH = 13, FRAME_SHAPES = 18, FRAME_SKETCH = 19, FRAME_FIGURE = 20,
+  FRAME_LOOK = 21;
 const hostFrame = typeof frame === "function" ? frame : null;
 let program = new Float32Array(hostFrame ? 1 << 16 : 0);
 let programLength = 0;
@@ -2827,9 +2831,8 @@ function prepareObjectView() {
   m[23] = clipView ? clipView.y + clipView.h : viewHeight * (1 + guardBand);
   return m;
 }
-function emitSketch(object, index, frame, at) {
-  const sketch = object.sketches[index];
-  emitFrameCamera();
+// A baked sketch's handle, sent up as SHAPES the first time it is used.
+function sketchHandleFor(sketch) {
   let handle = sketchHandles.get(sketch);
   if (!handle) {
     handle = nextSketchHandle++;
@@ -2842,6 +2845,11 @@ function emitSketch(object, index, frame, at) {
     program.set(records, start + 4);
     programLength = start + 4 + records.length;
   }
+  return handle;
+}
+function emitSketch(object, index, frame, at) {
+  emitFrameCamera();
+  const handle = sketchHandleFor(object.sketches[index]);
   programRoom(14);
   const where = programLength;
   program[where] = FRAME_SKETCH; program[where + 1] = handle;
@@ -2929,6 +2937,120 @@ function objectOut(object) {
     bufferedObjectOuts.set(object, out);
   }
   return out;
+}
+// Flat figures (R4 option c; xbox/OBJECT-DIALECT.md → Figures): a fighter
+// as objects/figure-flat.lisp, shapes hung on the pose's joints. Off until
+// @jeffrey has seen it: ?flat-figures in the page's address, or
+// globalThis.oskiewarFlatFigures = true (false wins over the address).
+const flatFiguresFromUrl = typeof globalThis.location?.search === "string" &&
+  /[?&]flat-figures(&|=|$)/.test(globalThis.location.search);
+const flatFiguresOn = () => globalThis.oskiewarFlatFigures === true ||
+  (flatFiguresFromUrl && globalThis.oskiewarFlatFigures !== false);
+// The joints a FIGURE op carries (figureJoints in object-lisp.mjs): read off
+// the pose the rig already built. A joint the body lacks stays NaN.
+const figureJointsNow = new Float64Array(48);
+// By the limb the bone belongs to and what it is, not its full role: a kick
+// renames the legs lead-/rear-thigh and shin, and the side lives in `part`.
+const figureJointEnds = {
+  "left-arm upper-arm": [4, 6], "left-arm forearm": [6, 8], "right-arm upper-arm": [5, 7],
+  "right-arm forearm": [7, 9], "left-leg thigh": [10, 12], "left-leg shin": [12, 14],
+  "right-leg thigh": [11, 13], "right-leg shin": [13, 15],
+};
+const figureBone = /(upper-arm|forearm|thigh|shin)$/;
+function figureJoints(player, world) {
+  const J = figureJointsNow;
+  J.fill(NaN);
+  for (const s of world.segments) {
+    const kind = s.role === "torso" ? null : figureBone.exec(s.role || "");
+    const ends = s.role === "torso" ? [2, 3] : kind && figureJointEnds[`${s.part} ${kind[1]}`];
+    if (!ends) continue;
+    J[ends[0] * 3] = s.x1; J[ends[0] * 3 + 1] = s.y1; J[ends[0] * 3 + 2] = s.z1;
+    J[ends[1] * 3] = s.x2; J[ends[1] * 3 + 1] = s.y2; J[ends[1] * 3 + 2] = s.z2;
+  }
+  const h = world.head;
+  if (h && !player.headless && h.radius > 0) {
+    J[0] = h.x; J[1] = h.y; J[2] = h.z;
+    // Where the head looks. In the pool, the way the skater faces; in an
+    // arena, toward the lens and turned partway to the facing side, as the
+    // trio face turns (.42 rad), so a fighter's face stays readable.
+    const spin = player.spin ? player.spin.angle : 0, facing = player.facing || 1;
+    let lx, lz;
+    if (poolOnly()) {
+      const yaw = (player.poolYaw || 0) + spin;
+      lx = Math.cos(yaw) * facing; lz = Math.sin(yaw) * facing;
+    } else {
+      const c = cameraDoll.position;
+      let tx = c.x - h.x, tz = c.z - h.z;
+      const l = Math.hypot(tx, tz) || 1;
+      tx /= l; tz /= l;
+      const yaw = facing * .42 + spin, co = Math.cos(yaw), si = Math.sin(yaw);
+      lx = tx * co - tz * si; lz = tx * si + tz * co;
+    }
+    // …and lifted to the lens's height, so the face sits on the head the
+    // way the drawn face does rather than sliding to the chin under a high
+    // camera. The heading stays the skater's own.
+    const c = cameraDoll.position, dx = c.x - h.x, dy = c.y - h.y, dz = c.z - h.z;
+    const reach = Math.hypot(dx, dy, dz) || 1, level = Math.hypot(dx, dz) / reach;
+    const fx = lx * level, fy = dy / reach, fz = lz * level;
+    J[3] = h.x + fx * h.radius; J[4] = h.y + fy * h.radius; J[5] = h.z + fz * h.radius;
+  }
+  return J;
+}
+// A player's palette, as the LOOK op carries it: skin hair shirt pants skirt
+// shoe accent iris lip blush. Bare legs under a skirt are skin.
+function figurePaletteOf(player) {
+  const skin = player.color || [242, 204, 169];
+  const colors = [skin, player.hairColor || contrastShadow(skin), player.shirtColor || skin,
+    player.pantsColor || skin, player.skirtColor || [188, 164, 226], player.shoeColor || [40, 36, 48],
+    player.accent || skin, player.irisColor || [96, 140, 196], mixColor(skin, [232, 96, 132], .6),
+    mixColor(skin, [255, 110, 128], .32)];
+  return colors.flat();
+}
+let nextLookHandle = 1;
+const flatLooks = new WeakMap();   // player → the LOOK this page sent for them
+const figureInputs = { blink: 0, hurt: 0, skirt: 0, glasses: 0 };
+const figurePlace = new Float64Array([0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1]);
+let figureVariant = 0;
+const figureVariantOut = { face() {}, sketch: (index) => { figureVariant = index; } };
+// Draws `player` flat; false when this pose has no flat reading (a burst
+// head, debris), and the rig draws as before.
+function drawFlatFigure(player, world, now) {
+  const J = figureJoints(player, world);
+  if (Number.isNaN(J[0]) && Number.isNaN(J[6])) return false;
+  const figure = gameObjects.figure, i = figureInputs;
+  i.blink = ((now / 1e6 + (player.pad || 0) * .7) % 3.4) < .12 ? 1 : 0;
+  i.hurt = !player.alive || player.hit > .6 ? 1 : 0;
+  i.skirt = player.pantsColor ? 0 : 1;
+  i.glasses = player.parkProfile?.appearance?.glasses ? 1 : 0;
+  figure(i, figurePlace, figureVariantOut);
+  const sketch = figure.sketches[figureVariant];
+  const palette = figurePaletteOf(player), key = palette.join();
+  // Arenas stand a fighter at one depth, the floor's near edge (see the
+  // renderables loop); the pool lets each shape find its own.
+  const pin = poolOnly() ? NaN : triangleDepth;
+  if (!programBuffered) {
+    gameObjects.drawFigureShapes(sketch, palette, J, pin, prepareObjectView(), immediateObjectOut);
+    return true;
+  }
+  emitFrameCamera();
+  const handle = sketchHandleFor(sketch);
+  let look = flatLooks.get(player);
+  if (!look || look.key !== key) {
+    look = { key, handle: nextLookHandle++ };
+    flatLooks.set(player, look);
+    programRoom(32);
+    const at = programLength;
+    program[at] = FRAME_LOOK; program[at + 1] = look.handle;
+    for (let k = 0; k < 30; k++) program[at + 2 + k] = palette[k];
+    programLength = at + 32;
+  }
+  programRoom(52);
+  const at = programLength;
+  program[at] = FRAME_FIGURE; program[at + 1] = handle; program[at + 2] = look.handle;
+  program[at + 3] = pin;
+  for (let k = 0; k < 48; k++) program[at + 4 + k] = J[k];
+  programLength = at + 52;
+  return true;
 }
 // ---------------------------------------------------------------------------
 // A match frame submits ~2100 faces. Buffering them into a Float32Array first
@@ -20872,7 +20994,30 @@ function drawPlayerBubble(player,t){
   drawBubble(player,point.x,point.y,Math.max(3,world.radius*projectionScaleAt(world)),t);
   triangleDepth=old;
 }
+// A fighter drawn flat (behind flatFiguresOn), then what the rig draws over
+// any fighter: the board, what's held, the shield. The rig's projected
+// geometry is still what those read. False leaves the fighter to the rig.
+function drawRunnerFlat(player, t) {
+  if (player.civilian && player.headless) return false;
+  const burst = player.headBustedAt ? (runtime().monotonicUs - player.headBustedAt) / 1e6 : -1;
+  if (!player.alive && burst >= .11) return false;
+  if (player.dummy) player = dummyView(player);
+  const world = player.replayGeometry || player.frozenGeometry || runnerWorldGeometry(player, t);
+  const now = player.frozenAt || runtime().monotonicUs;
+  if (!drawFlatFigure(player, world, now)) return false;
+  if (player.skateboard) drawSkateboard(player);
+  const geometry = player.replayGeometry ? projectRunnerWorldGeometry(player.replayGeometry)
+    : player.frozenGeometry ? projectRunnerWorldGeometry(player.frozenGeometry) : runnerGeometry(player, t);
+  if (!geometry.behind) drawInventory(player, now, geometry);
+  drawHeldAxe(player, t);
+  if (player.blocking && !poolOnly()) {
+    const worldShield = shieldGeometry(player), shield = projectPoint(worldShield.x, worldShield.y, worldShield.z);
+    drawBubble(player, shield.x, shield.y, Math.max(18, worldShield.radius * cameraScale()), runtime().monotonicUs / 1e6);
+  }
+  return true;
+}
 function drawRunnerAtScale(player, t, showLabel = true) {
+  if (flatFiguresOn() && drawRunnerFlat(player, t)) return;
   const fallen=ragdollBodies.get(player);if(fallen&&!player.alive){drawLooseRunner(player,fallen.pose,t,0);if(player.headless&&player.looseHead)drawCivilianLooseHead(player);return;}
   if(player.civilian && player.headless){drawCivilianDebris(player);return;}
   if(player.dummy)player=dummyView(player);
@@ -25262,11 +25407,21 @@ const gameObjects = (() => {
 
     // What the game hands an object each tick. Seconds, world units, radians;
     // `hit` and `land` count seconds since the event (large when it never was).
+    // `blink`, `hurt`, `skirt` and `glasses` are a figure's: how its face and
+    // outfit read this tick.
     const objectInputs = ["time", "distance", "speed", "lean", "heading",
-      "pitch", "turbo", "hit", "land"];
-    const unset = [0, 0, 0, 0, 0, 0, 0, 1e9, 1e9];
+      "pitch", "turbo", "hit", "land", "blink", "hurt", "skirt", "glasses"];
+    const unset = [0, 0, 0, 0, 0, 0, 0, 1e9, 1e9, 0, 0, 0, 0];
     // Switches are 0 or 1, so a baked part that reads one is baked once per value.
-    const switches = new Set(["turbo"]);
+    const switches = new Set(["turbo", "blink", "hurt", "skirt", "glasses"]);
+    // A figure's joints, in the order a FIGURE op carries them (frame-vm.mjs, op
+    // 20): the head's centre, a point one head-radius along where it looks, then
+    // the body. Shapes hang on these; the host is handed their positions a tick.
+    const figureJoints = ["head", "look", "neck", "pelvis", "shoulder-l", "shoulder-r",
+      "elbow-l", "elbow-r", "hand-l", "hand-r", "hip-l", "hip-r", "knee-l", "knee-r", "foot-l", "foot-r"];
+    // A figure's colours are slots its LOOK fills per player (op 21), so one
+    // baked sketch dresses everyone: `(ink hair)` is slot 1.
+    const figurePalette = ["skin", "hair", "shirt", "pants", "skirt", "shoe", "accent", "iris", "lip", "blush"];
     // `detail` is the level a baked part is drawn at: 0 near, 2 far. The host
     // picks it per MODEL op; outside baked parts it reads 0.
     const detailSlot = objectInputs.length;
@@ -25380,7 +25535,8 @@ const gameObjects = (() => {
     };
     const words = { pi: Math.PI, tau: Math.PI * 2 };
     // A few names for `ink`; anything else is three numbers.
-    const inks = { white: [255, 255, 255], black: [0, 0, 0], gray: [128, 128, 128],
+    const inks = { ...Object.fromEntries(figurePalette.map((name, slot) => [name, [-1 - slot, 0, 0]])),
+      white: [255, 255, 255], black: [0, 0, 0], gray: [128, 128, 128],
       red: [255, 0, 0], pink: [255, 105, 180], cyan: [0, 255, 255], yellow: [255, 255, 0] };
 
     const maxDepth = 16;
@@ -25389,7 +25545,8 @@ const gameObjects = (() => {
     // Flat shapes: object-space anchors, projected here, drawn as 2D ops.
     const flats = { ball: 4, limb: 7, ring: 2, drum: 3, stroke: 7, plate: 9, slab: 6 };
     const forms = new Set(["def", "let", "if", "repeat", "ink", "glow", "move", "rotate",
-      "scale", "radial", "mirror", "revolve", "outline", "nudge", "toward"]);
+      "scale", "radial", "mirror", "revolve", "outline", "nudge", "toward",
+      "on", "bone", "skin", "surface"]);
     const isStatement = (f) => Array.isArray(f) && (forms.has(f[0]) || f[0] in shapes || f[0] in flats);
     const union = (...sets) => { const out = new Set(); for (const s of sets) for (const x of s) out.add(x); return out; };
 
@@ -25680,6 +25837,52 @@ const gameObjects = (() => {
               s.outline.splice(0, 4, ...was);
             } };
           }
+          case "on": {
+            // (on joint body…): the body's flat shapes hang on a figure joint —
+            // offsets from it, in the head's own frame and head radii for `head`.
+            const joint = figureJoints.indexOf(rest[0]);
+            if (joint < 0) fail(`on wants a joint: ${figureJoints.join(" ")}`, form);
+            if (depth + 1 >= maxDepth) fail(`nested deeper than ${maxDepth}`, form);
+            const inside = body(rest.slice(1), scope, depth + 1, ctx), run = inside.run, to = (depth + 1) * 13;
+            return { ...inside, run: (s) => {
+              if (!s.sketching) return;   // figures bake; there is no per-tick path
+              s.m.set(identity, to);
+              const was = s.joint;
+              s.joint = joint;
+              run(s);
+              s.joint = was;
+            } };
+          }
+          case "bone":
+          case "skin": {
+            // (bone a b radius): a stadium from joint to joint — an arm bends at
+            // the elbow for free. (skin a b c …): a flat polygon through joints;
+            // a corner may be (joint x y z), offset in the body's frame, so a hem
+            // can flare past the knees.
+            const corners = (head === "bone" ? rest.slice(0, 2) : rest).map((c) => Array.isArray(c) ? c : [c, 0, 0, 0]);
+            const joints = corners.map((c) => figureJoints.indexOf(c[0]));
+            if (joints.some((j) => j < 0) || joints.length < 2 || (head === "skin" && joints.length < 3))
+              fail(`${head} wants joints: ${figureJoints.join(" ")}`, form);
+            const reads = new Set(), radius = head === "bone" ? num(rest[2], scope, reads) : null;
+            const offsets = corners.map((c) => c.slice(1, 4).map((v) => num(v ?? 0, scope, reads)));
+            return { reads, draws: true, inkIn: true, inkSets: 0, run: (s) => {
+              if (!s.sketching) return;
+              const at = (k) => [joints[k], ...offsets[k].map((o) => o(s))];
+              if (radius) s.sketching.add(s, FIGURE_SHAPE.limb, ...at(0), ...at(1), radius(s));
+              else s.sketching.add(s, FIGURE_SHAPE.plate, joints.length, ...joints.flatMap((_, k) => at(k)));
+            } };
+          }
+          case "surface": {
+            // (surface body…): shapes on a surface, one-sided along the frame's z
+            // (out of the head, for a face): the host skips them turned away.
+            const inside = body(rest, scope, depth, ctx), run = inside.run, at = depth * 13;
+            return { ...inside, run: (s) => {
+              const was = s.facing;
+              s.facing = axis3(s, at, 2, 1);
+              run(s);
+              s.facing = was;
+            } };
+          }
           case "nudge": {
             // (nudge d body…): the body's flat shapes d world units further back,
             // to settle what covers what where two shapes share a depth.
@@ -25749,7 +25952,7 @@ const gameObjects = (() => {
           const values = new Float64Array(args.length), draw = flatShapes[head], record = recorders[head];
           return { reads, draws: true, inkIn: true, inkSets: 0, run: (s) => {
             for (let i = 0; i < args.length; i++) values[i] = args[i](s);
-            if (s.sketching) record(s, depth * 13, values, axis);
+            if (s.sketching) (s.joint >= 0 ? onJoint[head] || fail(`${head} can't hang on a joint`, form) : record)(s, depth * 13, values, axis);
             else { inkUp(s); draw(s, depth * 13, values, axis); }
           } };
         }
@@ -25772,7 +25975,7 @@ const gameObjects = (() => {
       const run = body(program, top, 0, { ink: [255, 255, 255], glow: false, edge: [0, 24, 20, 30], nudge: 0 }).run;
       const state = { v: new Float64Array(slots), m: new Float64Array(maxDepth * 13),
         r: 255, g: 255, b: 255, glow: false, face: null, model: null, owner: null, rec: null,
-        out: null, view: null, nudge: 0, outline: [0, 24, 20, 30], sketch: null, sketching: null, facing: null,
+        out: null, view: null, nudge: 0, outline: [0, 24, 20, 30], sketch: null, sketching: null, facing: null, joint: -1,
         inked: [0, 0, 0, 0] };
 
       // Bake every part: per switch value, per level, run once into a mesh. Twin
@@ -25807,6 +26010,7 @@ const gameObjects = (() => {
             state.outline.splice(0, 4, ...part.edge);
             state.nudge = part.nudge;
             state.facing = null;
+            state.joint = -1;
             for (const step of part.runs) step(state);
             const mesh = state.rec.done(), sketch = state.sketching.done();
             state.rec = state.sketching = null;
@@ -26068,7 +26272,7 @@ const gameObjects = (() => {
       const V = s.view;
       const dx = world[0] - V[0], dy = world[1] - V[1], dz = world[2] - V[2];
       const vz = dx * V[9] + dy * V[10] + dz * V[11];
-      if (vz < V[19]) return false;
+      if (!(vz >= V[19])) return false;   // behind the lens, or a joint that is not there
       const vx = dx * V[3] + dy * V[4] + dz * V[5], vy = dx * V[6] + dy * V[7] + dz * V[8];
       const k = V[14] + (V[15] / vz - V[14]) * V[16];
       seen[o] = V[12] + vx * k; seen[o + 1] = V[13] - vy * k; seen[o + 2] = vz; seen[o + 3] = k;
@@ -26111,10 +26315,30 @@ const gameObjects = (() => {
       };
     }
     const SHAPE = { ball: 1, limb: 2, ring: 3, plate: 4, drum: 5 };
+    // A figure's shapes: the same, but every anchor names its joint first.
+    const FIGURE_SHAPE = { ball: 11, limb: 12, ring: 13, plate: 14 };
     // A point of the frame, in the part's space (baking) — into world[o…].
     const at3 = (s, at, x, y, z) => { put(s.m, at, 0, x, y, z); return [world[0], world[1], world[2]]; };
     // An axis of the frame times a length: a vector in the part's space.
     const axis3 = (s, at, axis, length) => [0, 1, 2].map((k) => s.m[at + 3 + axis * 3 + k] * length);
+    // On a figure joint, a shape records its anchors as (joint, offset).
+    const onJoint = {
+      ball: (s, at, v) => s.sketching.add(s, FIGURE_SHAPE.ball, s.joint, ...at3(s, at, v[0], v[1], v[2]), v[3] * frameSize(s.m, at)),
+      limb: (s, at, v) => s.sketching.add(s, FIGURE_SHAPE.limb, s.joint, ...at3(s, at, v[0], v[1], v[2]),
+        s.joint, ...at3(s, at, v[3], v[4], v[5]), v[6] * frameSize(s.m, at)),
+      ring: (s, at, v, axis) => s.sketching.add(s, FIGURE_SHAPE.ring, s.joint, ...at3(s, at, 0, 0, 0),
+        ...axis3(s, at, (axis + 1) % 3, v[0]), ...axis3(s, at, (axis + 2) % 3, v[0])),
+      stroke: (s, at, v) => {
+        for (let i = 1; i + 5 < v.length; i += 3)
+          s.sketching.add(s, FIGURE_SHAPE.limb, s.joint, ...at3(s, at, v[i], v[i + 1], v[i + 2]),
+            s.joint, ...at3(s, at, v[i + 3], v[i + 4], v[i + 5]), v[0] / 2 * frameSize(s.m, at));
+      },
+      plate: (s, at, v) => {
+        const n = Math.min(16, Math.floor(v.length / 3)), points = [];
+        for (let i = 0; i < n; i++) points.push(s.joint, ...at3(s, at, v[i * 3], v[i * 3 + 1], v[i * 3 + 2]));
+        s.sketching.add(s, FIGURE_SHAPE.plate, n, ...points);
+      },
+    };
     const recorders = {
       ball: (s, at, v) => s.sketching.add(s, SHAPE.ball, ...at3(s, at, v[0], v[1], v[2]), v[3] * frameSize(s.m, at)),
       limb: (s, at, v) => s.sketching.add(s, SHAPE.limb, ...at3(s, at, v[0], v[1], v[2]), ...at3(s, at, v[3], v[4], v[5]),
@@ -26242,14 +26466,127 @@ const gameObjects = (() => {
       for (const q of p.reverse()) { while (upper.length > 1 && cross(upper.at(-2), upper.at(-1), q) <= 0) upper.pop(); upper.push(q); }
       return lower.slice(0, -1).concat(upper.slice(0, -1));
     }
-    return { objectInputs, objectLevels, objectLight, read, compile };
+
+    // ——— flat figures, drawn here ———
+    // The FIGURE op's work for a host without a frame program (the console
+    // before R6, the harness): the same resolution frame-vm.mjs does — each
+    // anchor a joint plus an offset, in the head's frame and radii on the head —
+    // projected through `view` (the CAMERA op's numbers) and handed to `out` as
+    // ellipse / capsule / plate calls, an ink edge set by `out.outline` before
+    // each. `joints` is 48 numbers, `palette` 30, `pin` as the op's.
+    const figureRecordSize = (R, i) => R[i] >= 11 ? 12 + [5, 9, 10, 1 + 4 * R[i + 12]][R[i] - 11]
+      : 12 + [0, 4, 7, 9, 1 + 3 * R[i + 12], 12][R[i]];
+    function drawFigureShapes(sketch, palette, joints, pin, view, out) {
+      const V = view, J = joints;
+      const project = (x, y, z, o, dst) => {
+        const dx = x - V[0], dy = y - V[1], dz = z - V[2];
+        const vz = dx * V[9] + dy * V[10] + dz * V[11];
+        if (!(vz >= V[19])) return false;
+        const k = V[14] + (V[15] / vz - V[14]) * V[16];
+        dst[o] = V[12] + (dx * V[3] + dy * V[4] + dz * V[5]) * k;
+        dst[o + 1] = V[13] - (dx * V[6] + dy * V[7] + dz * V[8]) * k;
+        dst[o + 2] = vz; dst[o + 3] = k;
+        return true;
+      };
+      const flat = (vz, nudge) => {
+        const z = (vz + nudge) * V[17] + V[18];
+        return z < -1.499 ? -1.499 : z > 1.4 ? 1.4 : z;
+      };
+      let centre = 0;
+      if (pin === pin) {
+        const c = Number.isNaN(J[9]) ? 0 : 3;
+        centre = (J[c * 3] - V[0]) * V[9] + (J[c * 3 + 1] - V[1]) * V[10] + (J[c * 3 + 2] - V[2]) * V[11];
+      }
+      const depthAt = (vz, nudge) => pin === pin ? pin + (flat(vz, nudge) - flat(centre, 0)) * .1 : flat(vz, nudge);
+      // The head's frame: where it looks, right and up square to it.
+      let fx = J[3] - J[0], fy = J[4] - J[1], fz = J[5] - J[2];
+      const r = Math.hypot(fx, fy, fz) || 1;
+      fx /= r; fy /= r; fz /= r;
+      let rx = fz, rz = -fx;
+      const rl = Math.hypot(rx, rz);
+      if (rl < 1e-6) { rx = 1; rz = 0; } else { rx /= rl; rz /= rl; }
+      const H = [rx, 0, rz, -rz * fy, rz * fx - rx * fz, rx * fy, fx, fy, fz, r];
+      // The chest: up the spine, forward as the head faces, flattened square to it.
+      let ux = J[6] - J[9], uy = J[7] - J[10], uz = J[8] - J[11];
+      const ul = Math.hypot(ux, uy, uz) || 1;
+      ux /= ul; uy /= ul; uz /= ul;
+      const along = fx * ux + fy * uy + fz * uz;
+      let cx = fx - ux * along, cy = fy - uy * along, cz = fz - uz * along;
+      const cl = Math.hypot(cx, cy, cz) || 1;
+      cx /= cl; cy /= cl; cz /= cl;
+      // Across from the right hip to the left, whichever way the body faces.
+      let sx = J[30] - J[33], sy = J[31] - J[34], sz = J[32] - J[35];
+      const side = sx * ux + sy * uy + sz * uz;
+      sx -= ux * side; sy -= uy * side; sz -= uz * side;
+      const sl = Math.hypot(sx, sy, sz);
+      if (sl > 1e-6) { sx /= sl; sy /= sl; sz /= sl; }
+      else { sx = cy * uz - cz * uy; sy = cz * ux - cx * uz; sz = cx * uy - cy * ux; }
+      const C = [sx, sy, sz, ux, uy, uz, cx, cy, cz, 1];
+      const frameOf = (j) => j === 0 ? H : j >= 2 ? C : null;
+      const turn = (j, x, y, z) => {
+        const F = frameOf(j);
+        return F ? [x * F[0] + y * F[3] + z * F[6], x * F[1] + y * F[4] + z * F[7], x * F[2] + y * F[5] + z * F[8]] : [x, y, z];
+      };
+      const point = (j, x, y, z) => {
+        const F = frameOf(j), s = F ? F[9] : 1, v = turn(j, x * s, y * s, z * s);
+        return [J[j * 3] + v[0], J[j * 3 + 1] + v[1], J[j * 3 + 2] + v[2]];
+      };
+      const paint = (R, o) => R[o] >= 0 || !palette ? [R[o], R[o + 1], R[o + 2]]
+        : [palette[(-1 - R[o]) * 3], palette[(-1 - R[o]) * 3 + 1], palette[(-1 - R[o]) * 3 + 2]];
+      const P = new Float64Array(16), poly = [];
+      const R = sketch.records;
+      for (let n = 0, i = 0; n < sketch.count; n++, i += figureRecordSize(R, i)) {
+        const kind = R[i];
+        if (kind < 11) continue;
+        const a = i + 12, j0 = kind === 14 ? R[a + 1] : R[a], scale = frameOf(j0)?.[9] ?? 1, nudge = R[i + 5];
+        const first = kind === 14 ? point(R[a + 1], R[a + 2], R[a + 3], R[a + 4]) : point(R[a], R[a + 1], R[a + 2], R[a + 3]);
+        if (R[i + 9] || R[i + 10] || R[i + 11]) {
+          const nrm = turn(j0, R[i + 9], R[i + 10], R[i + 11]);
+          if (nrm[0] * (first[0] - V[0]) + nrm[1] * (first[1] - V[1]) + nrm[2] * (first[2] - V[2]) > 0) continue;
+        }
+        const [cr, cg, cb] = paint(R, i + 6), line = R[i + 1];
+        if (line && project(first[0], first[1], first[2], 12, P) && line * scale * P[15] >= .5) {
+          const [er, eg, eb] = paint(R, i + 2);
+          out.outline(line * scale * P[15], er, eg, eb);
+        } else out.outline(0, 0, 0, 0);
+        if (kind === 11) {
+          if (!project(first[0], first[1], first[2], 0, P)) continue;
+          const rad = R[a + 4] * scale * P[3];
+          out.ellipse(P[0], P[1], depthAt(P[2], nudge), rad, 0, 0, rad, cr, cg, cb);
+        } else if (kind === 12) {
+          const b = point(R[a + 4], R[a + 5], R[a + 6], R[a + 7]);
+          if (!project(first[0], first[1], first[2], 0, P) || !project(b[0], b[1], b[2], 4, P)) continue;
+          out.capsule(P[0], P[1], P[4], P[5], depthAt((P[2] + P[6]) / 2, nudge), R[a + 8] * scale * (P[3] + P[7]), cr, cg, cb);
+        } else if (kind === 13) {
+          const u = turn(j0, R[a + 4] * scale, R[a + 5] * scale, R[a + 6] * scale);
+          const w = turn(j0, R[a + 7] * scale, R[a + 8] * scale, R[a + 9] * scale);
+          if (!project(first[0], first[1], first[2], 0, P) || !project(first[0] + u[0], first[1] + u[1], first[2] + u[2], 4, P) ||
+            !project(first[0] + w[0], first[1] + w[1], first[2] + w[2], 8, P)) continue;
+          out.ellipse(P[0], P[1], depthAt(P[2], nudge), P[4] - P[0], P[5] - P[1], P[8] - P[0], P[9] - P[1], cr, cg, cb);
+        } else {
+          const count = R[a];
+          let vz = 0, seenAll = true;
+          poly.length = 0;
+          for (let k = 0; k < count && seenAll; k++) {
+            const q = point(R[a + 1 + k * 4], R[a + 2 + k * 4], R[a + 3 + k * 4], R[a + 4 + k * 4]);
+            seenAll = project(q[0], q[1], q[2], 0, P);
+            poly.push(P[0], P[1]);
+            vz += P[2];
+          }
+          if (seenAll) out.plate(count, poly, depthAt(vz / count, nudge), cr, cg, cb);
+        }
+      }
+      out.outline(0, 0, 0, 0);
+    }
+    return { objectInputs, figureJoints, figurePalette, objectLevels, objectLight, read, compile, drawFigureShapes };
   })();
   const sources = {
     monowheel: "; monowheel-flat — the freeskate onewheel, drawn flat: world-anchored 2D shapes\n; with ink outlines, no lighting. The same rig as monowheel.lisp: x forward,\n; y up, z to the rider's right, the axle at the origin, a 24 radius tire.\n; Three parts bake — the shadow, the rolling wheel, the leaning deck — so a\n; tick is three SKETCH ops, and the host projects and fills the shapes.\n; Only the silhouettes (tire, deck) carry ink: the details sit on fills that\n; already contrast, and every outline doubles what the host draws.\n\ndef r 24\ndef half 13\ndef ink-edge 1.4\n\n(let roll (/ distance r))\n(let squash (* .14 (max 0 (- 1 (* land 5)))))\n(let rattle (* 2.5 (max 0 (- 1 (* hit 4))) (sin (* time 70))))\n\n; the shadow stays flat on the ground, behind everything: 103 units back is\n; the depth the game gives its own spot shadows (caster + .018), so it sits\n; on the floor the same way theirs do, in about their grey\n(nudge 103\n  (ink 54 58 66)\n  (move 0 (- r) 0 (scale 2.7 1 .8 (ring y 22))))\n\n(move 0 (- r) rattle\n  (rotate x lean\n    (scale (+ 1 squash) (- 1 squash) 1\n      (move 0 r 0\n        ; the wheel rolls as one: the tire (round, so turning it changes\n        ; nothing), then the face you can see — rim, web, spokes, hub\n        (rotate z (- roll)\n          (ink 40 36 48)\n          (outline ink-edge 20 16 28 (drum z r (* half 2)))\n          (toward z\n            (move 0 0 half\n              (ink (mix 214 236 turbo) (mix 216 190 turbo) (mix 226 255 turbo))\n              (ring z 17)\n              (ink 58 52 66)\n              (move 0 0 .2 (ring z 13.5))\n              (ink (mix 232 190 turbo) (mix 72 90 turbo) (mix 130 255 turbo))\n              ; spokes as flat bars: two triangles each where a round end costs eight\n              (plate -13 -1.4 .4  13 -1.4 .4  13 1.4 .4  -13 1.4 .4)\n              (plate -1.4 -13 .4  1.4 -13 .4  1.4 13 .4  -1.4 13 .4)\n              (ink 70 64 80)\n              (ball 0 0 .6 3.5))))\n        ; one deck, fore to aft, the tire poking through it; lamps at the\n        ; ends, white ahead and red behind\n        (nudge 14\n          (ink (mix 44 102 turbo) (mix 42 35 turbo) (mix 54 163 turbo))\n          (outline ink-edge 20 16 28 (slab -60 2 -19 60 8 19)))\n        (ink 240 244 250)\n        (ball 62 5 0 3.2)\n        (ink 240 70 70)\n        (ball -62 5 0 3.2)))))\n",
+    figure: "; figure-flat — an oskiewar fighter drawn flat: shapes hung on the pose's\n; joints, which the game hands over every tick (a FIGURE op), inked on the\n; silhouette. Colours are palette slots a player's LOOK fills, so one baked\n; sketch dresses everyone. Limbs are bones between joints, so an arm bends at\n; the elbow for free. The face is the trio face (drawTrioFace in oskiewar.js):\n; each feature sits on the head's sphere at the same longitude and latitude,\n; in its own tangent frame (x right, y up, z out; head radii), one-sided, so it\n; turns with the head and passes out of sight round the back.\n; Switches: blink, hurt (X eyes), skirt, glasses.\n\ndef edge 1.3\ndef face-edge .075\n\n; the body, back to front as depth sorts it: legs, torso, arms, head\n(outline edge 20 16 28\n  ; legs: thighs unless a skirt hides them; shins show below its hem\n  (ink pants)\n  (if (not skirt)\n    (bone hip-l knee-l 5.6)\n    (bone hip-r knee-r 5.6))\n  (bone knee-l foot-l 5)\n  (bone knee-r foot-r 5)\n  (if skirt\n    ; a skirt: from the hips, flaring to a hem past the knees (x runs to her\n    ; left hip, so +x is out on the left)\n    (ink skirt)\n    (skin (hip-l 4 4 0) (hip-r -4 4 0) (knee-r -20 -16 0) (knee-l 20 -16 0)))\n  (ink shoe)\n  (on foot-l (ball 0 0 0 5.4))\n  (on foot-r (ball 0 0 0 5.4))\n  (ink shirt)\n  (bone neck pelvis 13.5)\n  (bone shoulder-l shoulder-r 7)\n  (bone shoulder-l elbow-l 4.6)\n  (bone shoulder-r elbow-r 4.6)\n  (ink skin)\n  (bone elbow-l hand-l 4)\n  (bone elbow-r hand-r 4)\n  (on hand-l (ball 0 0 0 4.6))\n  (on hand-r (ball 0 0 0 4.6))\n  (bone neck head 4))\n\n; the chest's decals, flat on the shirt's front (the neck joint's frame:\n; x right, y up the spine, z forward): a heart and a daisy\n(on neck\n  (surface\n    (ink 255 70 120)\n    (ball -7.5 -12 14.5 2.6)\n    (ball -3.5 -12 14.5 2.6)\n    (plate -10 -12.8 14.5  -1 -12.8 14.5  -5.5 -18 14.5)\n    (ink 255 255 255)\n    (repeat 5 k\n      (move 5 -19 14.6 (rotate z (* k (/ tau 5)) (ball 2 0 0 1.6))))\n    (ink 250 205 60)\n    (ball 5 -19 14.8 1.3)))\n\n; the head, inked in head radii like everything hung on it\n(on head\n  (outline .06 20 16 28\n    ; hair behind the head, so the face shows in front and a cap round it,\n    ; locks falling past the temples, a knot on top with its tail\n    (ink hair)\n    (ball 0 .12 -.2 1.04)\n    (stroke .34  -.8 .4 -.25  -.86 -.3 -.3)\n    (stroke .34  .8 .4 -.25  .86 -.3 -.3)\n    (ball 0 .95 -.35 .3)\n    (stroke .2  0 1.05 -.4  .08 1.42 -.62)\n    (ink skin)\n    (ball 0 0 0 1)))\n\n(on head\n  ; the fringe, a cap of hair over the brow\n  (ink hair)\n  (surface (rotate x -1.02 (move 0 0 .96 (scale 1 .5 1 (ring z .82)))))\n  ; blush\n  (ink blush)\n  (repeat 2 side\n    (rotate y (* (- (* side 2) 1) .56) (rotate x .37 (move 0 0 .97\n      (surface (scale 1 .55 1 (ring z .2)))))))\n  ; eyes: white with an ink rim, iris, pupil, catchlights; lash line and lashes;\n  ; the brow at a curious tilt. Blinking, a lid; hurt, an X.\n  (repeat 2 side\n    (let s (- (* side 2) 1))\n    (rotate y (* s .3675) (rotate x (- .0875 (* s .0245)) (move 0 0 .97\n      (surface\n        (if (and (not blink) (not hurt))\n          (if glasses\n            ; a round frame: a dark ring, the lens in skin inside it\n            (ink 24 18 26)\n            (move 0 0 -.03 (scale 1 1.12 1 (ring z .3)))\n            (ink skin)\n            (move 0 0 -.02 (scale 1 1.12 1 (ring z .255))))\n          (outline face-edge 24 18 26\n            (ink 248 248 250)\n            (scale 1 1.67 1 (ring z .162)))\n          (ink iris)\n          (move 0 0 .02 (ring z .082))\n          (ink 6 6 10)\n          (move 0 0 .03 (ring z .05))\n          (ink 255 255 255)\n          (move -.02 .035 .04 (ring z .023))\n          (ink 24 18 26)\n          (stroke .12  -.17 .09 .05  -.08 .25 .05  .08 .25 .05  .17 .09 .05)\n          (stroke .07  (* s .15) .2 .05  (* s .27) .33 .05)\n          (stroke .06  (* s .08) .25 .05  (* s .17) .38 .05))\n        (if blink\n          (ink 24 18 26)\n          (stroke .08  -.16 0 .02  -.07 -.06 .02  .07 -.06 .02  .16 0 .02))\n        (if hurt\n          (ink 24 18 26)\n          (stroke .09  -.13 .13 .02  .13 -.13 .02)\n          (stroke .09  -.13 -.13 .02  .13 .13 .02))\n        (ink 24 18 26)\n        (stroke .09  -.15 (+ .37 (* s .02)) .02  -.02 .43 .02  .15 (+ .36 (* s .01)) .02))))))\n  ; glasses' bridge\n  (if glasses\n    (ink 24 18 26)\n    (rotate x .09 (move 0 0 .99 (surface (stroke .05  -.1 0 0  .1 0 0)))))\n  ; nose and mouth: a small check, pink lips with the far corner lifted\n  (ink 24 18 26)\n  (rotate x .33 (move 0 0 .98 (surface (stroke .045  .005 .04 .01  -.025 -.02 .01  .02 -.02 .01))))\n  (rotate x .57 (move 0 0 .95 (surface\n    (ink lip)\n    (scale 1 .38 1 (ring z .24))\n    (ink 24 18 26)\n    (stroke .055  -.24 .01 .02  0 -.02 .02  .24 .05 .02)))))\n",
   };
   const compiled = {};
   for (const name in sources) compiled[name] = objectLisp.compile(sources[name], name);
-  return { ...compiled, light: objectLisp.objectLight };
+  return { ...compiled, light: objectLisp.objectLight, drawFigureShapes: objectLisp.drawFigureShapes };
 })();
 // </objects>
 function drawMonowheel(p){

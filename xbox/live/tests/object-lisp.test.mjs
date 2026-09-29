@@ -5,9 +5,9 @@
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
-import { compile, read, objectLight } from "../object-lisp.mjs";
+import { compile, read, objectLight, drawFigureShapes, figureJoints } from "../object-lisp.mjs";
 import { createFrameVm, FRAME_CAMERA, FRAME_WORLD, FRAME_ASSET, FRAME_MODEL, FRAME_DISC,
-  FRAME_CAPSULE, FRAME_ELLIPSE, FRAME_PLATE, FRAME_OUTLINE, FRAME_SHAPES, FRAME_SKETCH } from "../frame-vm.mjs";
+  FRAME_CAPSULE, FRAME_ELLIPSE, FRAME_PLATE, FRAME_OUTLINE, FRAME_SHAPES, FRAME_SKETCH, FRAME_FIGURE, FRAME_LOOK } from "../frame-vm.mjs";
 import { parse } from "../../../system/public/aesthetic.computer/lib/kidlisp.mjs";
 
 const objects = new URL("../objects/", import.meta.url);
@@ -394,6 +394,83 @@ test("a flat tick is three SKETCH ops, cheaper than the lit tick", (t) => {
   const [f, l] = [time(flat), time(lit)];
   t.diagnostic(`a tick: flat ${f.toFixed(1)} µs, lit ${l.toFixed(1)} µs`);
   assert.ok(f < 5000);
+});
+
+// ——— flat figures: shapes hung on the pose's joints ———
+
+const figureSource = await readFile(new URL("figure-flat.lisp", objects), "utf8");
+// A standing pose as runnerWorldGeometry builds one (y down), facing the lens.
+function standingJoints({ lookAway = false } = {}) {
+  const J = new Float64Array(48);
+  const set = (name, x, y, z) => J.set([x, y, z], figureJoints.indexOf(name) * 3);
+  set("head", 0, -166, 0); set("look", 0, -166, lookAway ? 22 : -22);
+  set("neck", 0, -149, 0); set("pelvis", 0, -86, 0);
+  set("shoulder-l", 23, -138, 0); set("shoulder-r", -23, -138, 0);
+  set("elbow-l", 25, -107, -10); set("elbow-r", -25, -107, -10);
+  set("hand-l", 26, -77, 0); set("hand-r", -26, -77, 0);
+  set("hip-l", 12, -86, 0); set("hip-r", -12, -86, 0);
+  set("knee-l", 13, -45, 25); set("knee-r", -13, -45, 25);
+  set("foot-l", 14, -5, 0); set("foot-r", -14, -5, 0);
+  return J;
+}
+const figurePalette = [242, 204, 169, 120, 60, 40, 80, 120, 180, 60, 50, 90, 188, 164, 226,
+  40, 36, 48, 255, 90, 140, 96, 140, 196, 232, 120, 140, 245, 160, 160];
+const lens = [0, -120, -260];
+// One figure, as the FIGURE op draws it, and as a host without the op draws
+// it from the same records (drawFigureShapes, the game's immediate path).
+function figureBothWays(joints, inputs = {}) {
+  const figure = compile(figureSource, "figure");
+  let variant = 0;
+  figure(inputs, identity, { face() {}, sketch: (index) => { variant = index; } });
+  const sketch = figure.sketches[variant], view = camera(lens).slice(1);
+  const viaOp = runProgram([FRAME_SHAPES, 1, sketch.count, sketch.records.length, ...sketch.records,
+    FRAME_LOOK, 2, ...figurePalette, FRAME_CAMERA, ...view, FRAME_FIGURE, 1, 2, NaN, ...joints]);
+  const ops = [];
+  drawFigureShapes(sketch, figurePalette, joints, NaN, view, {
+    outline: (...a) => ops.push(FRAME_OUTLINE, ...a), ellipse: (...a) => ops.push(FRAME_ELLIPSE, ...a),
+    capsule: (...a) => ops.push(FRAME_CAPSULE, ...a), plate: (n, p, ...a) => ops.push(FRAME_PLATE, n, ...p, ...a) });
+  const viaShapes = runProgram([FRAME_CAMERA, ...view, ...ops]);
+  return { viaOp, viaShapes, sketch };
+}
+const boxOf = (tris) => {
+  const b = [Infinity, Infinity, -Infinity, -Infinity];
+  for (const t of tris) for (let v = 0; v < 9; v += 3) {
+    b[0] = Math.min(b[0], t[v]); b[1] = Math.min(b[1], t[v + 1]); b[2] = Math.max(b[2], t[v]); b[3] = Math.max(b[3], t[v + 1]);
+  }
+  return b;
+};
+
+test("a FIGURE op draws what the figure's shapes are, on both hosts", () => {
+  const { viaOp, viaShapes } = figureBothWays(standingJoints());
+  assert.ok(viaOp.length > 80 && viaShapes.length > 80, `drawn: ${viaOp.length}, ${viaShapes.length}`);
+  // The op fans limbs by the 2 px chord rule, the CAPSULE the shapes send by
+  // the game's own table: the same figure, not the same triangles.
+  const [a, b] = [boxOf(viaOp), boxOf(viaShapes)];
+  a.forEach((x, i) => assert.ok(Math.abs(x - b[i]) < 3, `edge ${i}: op ${x}, shapes ${b[i]}`));
+  const colours = (tris) => new Set(tris.map((t) => t.slice(9).join())).size;
+  assert.equal(colours(viaOp), colours(viaShapes), "the same colours");
+});
+
+test("a figure's face turns with the head and is gone round the back; switches swap it", () => {
+  const colour = (tris, rgb) => tris.filter((t) => t[9] === rgb[0] && t[10] === rgb[1] && t[11] === rgb[2]).length;
+  const white = [248, 248, 250], iris = figurePalette.slice(21, 24);
+  const facing = figureBothWays(standingJoints()).viaOp, away = figureBothWays(standingJoints({ lookAway: true })).viaOp;
+  assert.ok(colour(facing, white) > 0 && colour(facing, iris) > 0, "eyes toward the lens");
+  assert.equal(colour(away, white) + colour(away, iris), 0, "none from behind");
+  assert.equal(colour(figureBothWays(standingJoints(), { blink: 1 }).viaOp, white), 0, "a blink closes them");
+  // A missing joint (a lost arm) is NaN, and what hangs on it isn't drawn.
+  const armless = standingJoints();
+  armless.fill(NaN, figureJoints.indexOf("elbow-l") * 3, figureJoints.indexOf("elbow-l") * 3 + 3);
+  armless.fill(NaN, figureJoints.indexOf("hand-l") * 3, figureJoints.indexOf("hand-l") * 3 + 3);
+  assert.ok(figureBothWays(armless).viaOp.length < facing.length, "less is drawn");
+});
+
+// A figure a tick is one FIGURE: 52 numbers. frame-conformance holds it to
+// fewer host triangles than the figure the game draws today, through the game.
+test("a flat figure is one FIGURE op", (t) => {
+  const { viaOp, sketch } = figureBothWays(standingJoints());
+  t.diagnostic(`flat figure: 52 numbers a tick; ${sketch.count} shapes baked; host drew ${viaOp.length} triangles close up`);
+  assert.ok(viaOp.length < 800);
 });
 
 test("the game carries exactly the lab's compiler and objects (run xbox/tools/embed-objects.mjs after editing)", async () => {

@@ -51,6 +51,21 @@
 //              placement: anchors projected here, filled flat, outlined,
 //              one-sided ones skipped when turned away, ellipse sides picked
 //              by projected size. Nothing else is expanded here.
+//  20 FIGURE   sketch look pin · 16 joints (x y z)   a flat figure: the kept
+//              shapes of `sketch` whose records are figure kinds (11 ball,
+//              12 limb, 13 ring, 14 plate), each anchor a joint and an offset
+//              — in the head's frame and head radii on joint 0 (the frame
+//              from joint 1, where the head looks), in the chest's frame on
+//              the body's joints (2 on: up the spine from joint 3, facing as
+//              the head does, across from the right hip to the left; world
+//              units), in world units on joint 1.
+//              Colours below zero are slots of `look`. The joints are the
+//              pose; nothing about the figure is expanded here. A joint the
+//              body lacks is NaN, and what hangs on it isn't drawn. `pin`,
+//              unless NaN, holds the figure at one depth (as the arenas
+//              stand a fighter at the floor's near edge): each shape keeps a
+//              tenth of its depth from the pelvis, enough to layer the limbs.
+//  21 LOOK     handle · 10 × (r g b)   a figure's palette, kept by handle
 //
 // A WORLD face is taken to the current CAMERA here: to camera space, cut at
 // the near plane (Sutherland-Hodgman, before the divide), projected with the
@@ -65,9 +80,10 @@ export const FRAME_VIEW = 1, FRAME_FACE = 2, FRAME_DISC = 3, FRAME_CAPSULE = 4,
   FRAME_TEXT = 5, FRAME_BOX = 6, FRAME_LINE = 7, FRAME_WIPE = 8,
   FRAME_CAMERA = 9, FRAME_WORLD = 10, FRAME_DEPTH = 11, FRAME_ASSET = 12,
   FRAME_MESH = 13, FRAME_MODEL = 14, FRAME_ELLIPSE = 15, FRAME_PLATE = 16,
-  FRAME_OUTLINE = 17, FRAME_SHAPES = 18, FRAME_SKETCH = 19;
+  FRAME_OUTLINE = 17, FRAME_SHAPES = 18, FRAME_SKETCH = 19, FRAME_FIGURE = 20,
+  FRAME_LOOK = 21;
 // Fixed sizes; ASSET is variable and measured from its own header.
-const opSize = [0, 5, 13, 8, 10, 9, 9, 9, 4, 25, 13, 3, 0, 5, 20, 11, 0, 5, 0, 14];
+const opSize = [0, 5, 13, 8, 10, 9, 9, 9, 4, 25, 13, 3, 0, 5, 20, 11, 0, 5, 0, 14, 52, 32];
 const sizeAt = (p, at) => p[at] === FRAME_ASSET ? 4 + p[at + 2] * 3 + p[at + 3] * 10
   : p[at] === FRAME_PLATE ? 6 + p[at + 1] * 2 : p[at] === FRAME_SHAPES ? 4 + p[at + 3] : opSize[p[at]] || 0;
 // An outline sits this far behind its own shape, so the shape covers it and
@@ -375,6 +391,30 @@ export function createFrameVm(host) {
       lx = nx; ly = ny;
     }
   }
+  // A flat shape's stadium: round ends with as many steps as the 2 px chord
+  // rule gives, where the game's CAPSULE keeps its own finer table.
+  function stadium(x1, y1, x2, y2, depth, width, r, g, b) {
+    const dx = x2 - x1, dy = y2 - y1, length = Math.hypot(dx, dy), radius = width / 2;
+    if (radius < .5) return;
+    const steps = Math.max(2, Math.ceil(sidesFor(radius) / 2));
+    const ux = length > .001 ? dx / length : 1, uy = length > .001 ? dy / length : 0;
+    const nx = -uy * radius, ny = ux * radius;
+    if (length > .001) {
+      flatFace(x1 + nx, y1 + ny, x1 - nx, y1 - ny, x2 + nx, y2 + ny, depth, r, g, b);
+      flatFace(x1 - nx, y1 - ny, x2 - nx, y2 - ny, x2 + nx, y2 + ny, depth, r, g, b);
+    }
+    // Each end sweeps from the +n side, round its tip, to the −n side.
+    for (const end of [-1, 1]) {
+      const cx = end < 0 ? x1 : x2, cy = end < 0 ? y1 : y2, tx = ux * radius * end, ty = uy * radius * end;
+      let ax = cx + nx, ay = cy + ny;
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps * Math.PI, c = Math.cos(t), sn = Math.sin(t);
+        const bx = cx + nx * c + tx * sn, by = cy + ny * c + ty * sn;
+        flatFace(cx, cy, ax, ay, bx, by, depth, r, g, b);
+        ax = bx; ay = by;
+      }
+    }
+  }
   // A convex polygon, fanned; `grow` pushes each corner out from the middle.
   function plate(p, at, n, depth, r, g, b, grow = 0) {
     let cx = 0, cy = 0;
@@ -407,7 +447,7 @@ export function createFrameVm(host) {
     const wz = m[2] + x * m[5] + y * m[8] + z * m[11];
     const dx = wx - cam[0], dy = wy - cam[1], dz = wz - cam[2];
     const vz = dx * cam[9] + dy * cam[10] + dz * cam[11];
-    if (vz < cam[19]) return false;
+    if (!(vz >= cam[19])) return false;   // behind the lens, or a joint that isn't there
     const k = cam[14] + (cam[15] / vz - cam[14]) * cam[16];
     seen[o] = cam[12] + (dx * cam[3] + dy * cam[4] + dz * cam[5]) * k;
     seen[o + 1] = cam[13] - (dx * cam[6] + dy * cam[7] + dz * cam[8]) * k;
@@ -418,7 +458,9 @@ export function createFrameVm(host) {
     const z = (vz + nudge) * cam[17] + cam[18];
     return z < -1.499 ? -1.499 : z > 1.4 ? 1.4 : z;
   };
-  const shapeSize = (R, i) => 12 + [0, 4, 7, 9, 1 + 3 * R[i + 12], 12][R[i]];
+  // Record lengths: sketch kinds 1–5, figure kinds 11–14 (anchors carry a joint).
+  const shapeSize = (R, i) => R[i] >= 11 ? 12 + [5, 9, 10, 1 + 4 * R[i + 12]][R[i] - 11]
+    : 12 + [0, 4, 7, 9, 1 + 3 * R[i + 12], 12][R[i]];
   const placedModel = new Float64Array(12);
   function drawSketch(p, at) {
     const sketch = sketches.get(p[at + 1]);
@@ -430,6 +472,7 @@ export function createFrameVm(host) {
     const R = sketch.records;
     for (let n = 0, i = 0; n < sketch.count; n++, i += shapeSize(R, i)) {
       const kind = R[i], line = R[i + 1], nudge = R[i + 5], r = R[i + 6], g = R[i + 7], b = R[i + 8], a = i + 12;
+      if (kind >= 11) continue;   // a figure's: drawn by FIGURE, on its joints
       const ax = kind === 4 ? R[a + 1] : R[a], ay = kind === 4 ? R[a + 2] : R[a + 1], az = kind === 4 ? R[a + 3] : R[a + 2];
       // One-sided: skip it when its facing turns from the camera.
       const fx = R[i + 9], fy = R[i + 10], fz = R[i + 11];
@@ -446,7 +489,7 @@ export function createFrameVm(host) {
           ellipse(seen[0], seen[1], flatDepth(seen[2], nudge) + depthShift, rad, 0, 0, rad, cr, cg, cb, grow);
         } else if (kind === 2) {
           if (!seePlaced(m, R[a], R[a + 1], R[a + 2], 0) || !seePlaced(m, R[a + 3], R[a + 4], R[a + 5], 4)) return;
-          capsule(seen[0], seen[1], seen[4], seen[5], flatDepth((seen[2] + seen[6]) / 2, nudge) + depthShift,
+          stadium(seen[0], seen[1], seen[4], seen[5], flatDepth((seen[2] + seen[6]) / 2, nudge) + depthShift,
             R[a + 6] * (seen[3] + seen[7]) * unit + grow * 2, cr, cg, cb);
         } else if (kind === 3) {
           if (!seePlaced(m, R[a], R[a + 1], R[a + 2], 0) || !seePlaced(m, R[a] + R[a + 3], R[a + 1] + R[a + 4], R[a + 2] + R[a + 5], 4) ||
@@ -470,6 +513,127 @@ export function createFrameVm(host) {
       shape(0, 0, r, g, b);
     }
   }
+  // Figures: records that hang on joints. An anchor is joint j plus an
+  // offset — on the head, in its frame (right, up, where it looks) and in
+  // head radii. Resolved to world, then projected and filled as a sketch is.
+  const looks = new Map();
+  const figureSize = shapeSize;
+  const J = new Float64Array(48), headFrame = new Float64Array(10), chestFrame = new Float64Array(10);
+  const anchor = new Float64Array(3);
+  // A joint's frame: the head's (in head radii); the body's joints turn
+  // offsets with the chest, so a hem flares to the body's sides.
+  const frameOf = (j) => j === 0 ? headFrame : j >= 2 ? chestFrame : null;
+  function jointPoint(j, x, y, z, out = anchor) {
+    const f = frameOf(j);
+    if (f) {
+      const r = f[9];
+      for (let k = 0; k < 3; k++) out[k] = J[j * 3 + k] + r * (x * f[k] + y * f[3 + k] + z * f[6 + k]);
+    } else { out[0] = J[j * 3] + x; out[1] = J[j * 3 + 1] + y; out[2] = J[j * 3 + 2] + z; }
+    return out;
+  }
+  const seeWorld = (x, y, z, o) => seePlaced(identityPlace, x, y, z, o);
+  const identityPlace = new Float64Array([0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1]);
+  function drawFigure(p, at) {
+    const sketch = sketches.get(p[at + 1]), look = looks.get(p[at + 2]);
+    if (!sketch || !hasCamera) return;
+    for (let k = 0; k < 48; k++) J[k] = p[at + 4 + k];
+    // Pinned, the figure's depths gather round the pin, a tenth as far apart.
+    const pin = p[at + 3];
+    let centre = 0;
+    if (pin === pin) {
+      const c = Number.isNaN(J[9]) ? 0 : 3;
+      centre = (J[c * 3] - cam[0]) * cam[9] + (J[c * 3 + 1] - cam[1]) * cam[10] + (J[c * 3 + 2] - cam[2]) * cam[11];
+    }
+    const depthAt = (vz, nudge) => pin === pin ? pin + (flatDepth(vz, nudge) - flatDepth(centre, 0)) * .1 : flatDepth(vz, nudge);
+    // The head's frame: forward to where it looks, right and up square to it.
+    let fx = J[3] - J[0], fy = J[4] - J[1], fz = J[5] - J[2];
+    const r = Math.hypot(fx, fy, fz) || 1;
+    fx /= r; fy /= r; fz /= r;
+    let rx = fz, ry = 0, rz = -fx;   // forward × world up (0, -1, 0)
+    const rl = Math.hypot(rx, rz);
+    if (rl < 1e-6) { rx = 1; rz = 0; } else { rx /= rl; rz /= rl; }
+    const ux = ry * fz - rz * fy, uy = rz * fx - rx * fz, uz = rx * fy - ry * fx;
+    headFrame.set([rx, ry, rz, ux, uy, uz, fx, fy, fz, r]);
+    // The chest: up the spine, forward as the head faces, flattened square to it.
+    let cux = J[6] - J[9], cuy = J[7] - J[10], cuz = J[8] - J[11];
+    const cl = Math.hypot(cux, cuy, cuz) || 1;
+    cux /= cl; cuy /= cl; cuz /= cl;
+    const along = fx * cux + fy * cuy + fz * cuz;
+    let cfx = fx - cux * along, cfy = fy - cuy * along, cfz = fz - cuz * along;
+    const cfl = Math.hypot(cfx, cfy, cfz) || 1;
+    cfx /= cfl; cfy /= cfl; cfz /= cfl;
+    // Its x runs from the right hip to the left, whichever way the body faces
+    // (the rig keeps its left hip on one side as it turns), so a hem flares out.
+    let sx = J[30] - J[33], sy = J[31] - J[34], sz = J[32] - J[35];
+    const side = sx * cux + sy * cuy + sz * cuz;
+    sx -= cux * side; sy -= cuy * side; sz -= cuz * side;
+    const sl = Math.hypot(sx, sy, sz);
+    if (sl > 1e-6) { sx /= sl; sy /= sl; sz /= sl; }
+    else { sx = cfy * cuz - cfz * cuy; sy = cfz * cux - cfx * cuz; sz = cfx * cuy - cfy * cux; }
+    chestFrame.set([sx, sy, sz, cux, cuy, cuz, cfx, cfy, cfz, 1]);
+    const R = sketch.records, pal = look || null;
+    const paint = (c, o) => c[o] >= 0 || !pal ? [c[o], c[o + 1], c[o + 2]]
+      : [pal[(-1 - c[o]) * 3], pal[(-1 - c[o]) * 3 + 1], pal[(-1 - c[o]) * 3 + 2]];
+    for (let n = 0, i = 0; n < sketch.count; n++, i += figureSize(R, i)) {
+      const kind = R[i];
+      if (kind < 11) continue;
+      const a = i + 12, j0 = kind === 14 ? R[a + 1] : R[a];
+      const frame = frameOf(j0), scale = frame ? frame[9] : 1, nudge = R[i + 5];
+      const [cr, cg, cb] = paint(R, i + 6);
+      const [er, eg, eb] = paint(R, i + 2);
+      const first = kind === 14 ? jointPoint(R[a + 1], R[a + 2], R[a + 3], R[a + 4]) : jointPoint(R[a], R[a + 1], R[a + 2], R[a + 3]);
+      const px = first[0], py = first[1], pz = first[2];
+      // One-sided: its facing, turned with the head if it hangs on the head.
+      let nx = R[i + 9], ny = R[i + 10], nz = R[i + 11];
+      if (nx || ny || nz) {
+        if (frame) {
+          const wx = nx * frame[0] + ny * frame[3] + nz * frame[6];
+          const wy = nx * frame[1] + ny * frame[4] + nz * frame[7];
+          const wz = nx * frame[2] + ny * frame[5] + nz * frame[8];
+          nx = wx; ny = wy; nz = wz;
+        }
+        if (nx * (px - cam[0]) + ny * (py - cam[1]) + nz * (pz - cam[2]) > 0) continue;
+      }
+      const shape = (grow, shift, ir, ig, ib) => {
+        if (kind === 11) {
+          if (!seeWorld(px, py, pz, 0)) return;
+          const rad = R[a + 4] * scale * seen[3];
+          ellipse(seen[0], seen[1], depthAt(seen[2], nudge) + shift, rad, 0, 0, rad, ir, ig, ib, grow);
+        } else if (kind === 12) {
+          const b = jointPoint(R[a + 4], R[a + 5], R[a + 6], R[a + 7], figureEnd);
+          if (!seeWorld(px, py, pz, 0) || !seeWorld(b[0], b[1], b[2], 4)) return;
+          stadium(seen[0], seen[1], seen[4], seen[5], depthAt((seen[2] + seen[6]) / 2, nudge) + shift,
+            R[a + 8] * scale * (seen[3] + seen[7]) + grow * 2, ir, ig, ib);
+        } else if (kind === 13) {
+          const ax = R[a + 4] * scale, ay = R[a + 5] * scale, az = R[a + 6] * scale;
+          const bx = R[a + 7] * scale, by = R[a + 8] * scale, bz = R[a + 9] * scale;
+          const turn = (x, y, z, o) => frame
+            ? seeWorld(px + x * frame[0] + y * frame[3] + z * frame[6],
+              py + x * frame[1] + y * frame[4] + z * frame[7],
+              pz + x * frame[2] + y * frame[5] + z * frame[8], o)
+            : seeWorld(px + x, py + y, pz + z, o);
+          if (!seeWorld(px, py, pz, 0) || !turn(ax, ay, az, 4) || !turn(bx, by, bz, 8)) return;
+          ellipse(seen[0], seen[1], depthAt(seen[2], nudge) + shift, seen[4] - seen[0], seen[5] - seen[1],
+            seen[8] - seen[0], seen[9] - seen[1], ir, ig, ib, grow);
+        } else {
+          const count = R[a];
+          let vz = 0;
+          for (let k = 0; k < count; k++) {
+            const q = jointPoint(R[a + 1 + k * 4], R[a + 2 + k * 4], R[a + 3 + k * 4], R[a + 4 + k * 4], figureEnd);
+            if (!seeWorld(q[0], q[1], q[2], 0)) return;
+            flatPoly[k * 2] = seen[0]; flatPoly[k * 2 + 1] = seen[1]; vz += seen[2];
+          }
+          plate(flatPoly, 0, count, depthAt(vz / count, nudge) + shift, ir, ig, ib, grow);
+        }
+      };
+      const line = R[i + 1];
+      if (line && seeWorld(px, py, pz, 12) && line * scale * seen[15] >= .5)
+        shape(line * scale * seen[15], outlineBehind, er, eg, eb);
+      shape(0, 0, cr, cg, cb);
+    }
+  }
+  const figureEnd = new Float64Array(3);
+
   // A drum (a cylinder: centre, two radius vectors, half its length along the
   // axis): the far end's ellipse, the band between the ends' tangent points,
   // the near end's ellipse, each at its own depth.
@@ -585,6 +749,12 @@ export function createFrameVm(host) {
         case FRAME_SHAPES:
           storeShapes(p, at);
           at += 4 + p[at + 3]; break;
+        case FRAME_FIGURE:
+          drawFigure(p, at);
+          at += 52; break;
+        case FRAME_LOOK:
+          looks.set(p[at + 1], Float64Array.from(p.subarray(at + 2, at + 32)));
+          at += 32; break;
         case FRAME_SKETCH:
           drawSketch(p, at);
           at += 14; break;

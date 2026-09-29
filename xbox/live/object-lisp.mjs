@@ -22,11 +22,21 @@
 
 // What the game hands an object each tick. Seconds, world units, radians;
 // `hit` and `land` count seconds since the event (large when it never was).
+// `blink`, `hurt`, `skirt` and `glasses` are a figure's: how its face and
+// outfit read this tick.
 export const objectInputs = ["time", "distance", "speed", "lean", "heading",
-  "pitch", "turbo", "hit", "land"];
-const unset = [0, 0, 0, 0, 0, 0, 0, 1e9, 1e9];
+  "pitch", "turbo", "hit", "land", "blink", "hurt", "skirt", "glasses"];
+const unset = [0, 0, 0, 0, 0, 0, 0, 1e9, 1e9, 0, 0, 0, 0];
 // Switches are 0 or 1, so a baked part that reads one is baked once per value.
-const switches = new Set(["turbo"]);
+const switches = new Set(["turbo", "blink", "hurt", "skirt", "glasses"]);
+// A figure's joints, in the order a FIGURE op carries them (frame-vm.mjs, op
+// 20): the head's centre, a point one head-radius along where it looks, then
+// the body. Shapes hang on these; the host is handed their positions a tick.
+export const figureJoints = ["head", "look", "neck", "pelvis", "shoulder-l", "shoulder-r",
+  "elbow-l", "elbow-r", "hand-l", "hand-r", "hip-l", "hip-r", "knee-l", "knee-r", "foot-l", "foot-r"];
+// A figure's colours are slots its LOOK fills per player (op 21), so one
+// baked sketch dresses everyone: `(ink hair)` is slot 1.
+export const figurePalette = ["skin", "hair", "shirt", "pants", "skirt", "shoe", "accent", "iris", "lip", "blush"];
 // `detail` is the level a baked part is drawn at: 0 near, 2 far. The host
 // picks it per MODEL op; outside baked parts it reads 0.
 const detailSlot = objectInputs.length;
@@ -140,7 +150,8 @@ const math = {
 };
 const words = { pi: Math.PI, tau: Math.PI * 2 };
 // A few names for `ink`; anything else is three numbers.
-const inks = { white: [255, 255, 255], black: [0, 0, 0], gray: [128, 128, 128],
+const inks = { ...Object.fromEntries(figurePalette.map((name, slot) => [name, [-1 - slot, 0, 0]])),
+  white: [255, 255, 255], black: [0, 0, 0], gray: [128, 128, 128],
   red: [255, 0, 0], pink: [255, 105, 180], cyan: [0, 255, 255], yellow: [255, 255, 0] };
 
 const maxDepth = 16;
@@ -149,7 +160,8 @@ const shapes = { tri: 9, quad: 12, disc: 1, hoop: 2, band: 2, capsule: 7, line: 
 // Flat shapes: object-space anchors, projected here, drawn as 2D ops.
 const flats = { ball: 4, limb: 7, ring: 2, drum: 3, stroke: 7, plate: 9, slab: 6 };
 const forms = new Set(["def", "let", "if", "repeat", "ink", "glow", "move", "rotate",
-  "scale", "radial", "mirror", "revolve", "outline", "nudge", "toward"]);
+  "scale", "radial", "mirror", "revolve", "outline", "nudge", "toward",
+  "on", "bone", "skin", "surface"]);
 const isStatement = (f) => Array.isArray(f) && (forms.has(f[0]) || f[0] in shapes || f[0] in flats);
 const union = (...sets) => { const out = new Set(); for (const s of sets) for (const x of s) out.add(x); return out; };
 
@@ -440,6 +452,52 @@ export function compile(source, name = "object") {
           s.outline.splice(0, 4, ...was);
         } };
       }
+      case "on": {
+        // (on joint body…): the body's flat shapes hang on a figure joint —
+        // offsets from it, in the head's own frame and head radii for `head`.
+        const joint = figureJoints.indexOf(rest[0]);
+        if (joint < 0) fail(`on wants a joint: ${figureJoints.join(" ")}`, form);
+        if (depth + 1 >= maxDepth) fail(`nested deeper than ${maxDepth}`, form);
+        const inside = body(rest.slice(1), scope, depth + 1, ctx), run = inside.run, to = (depth + 1) * 13;
+        return { ...inside, run: (s) => {
+          if (!s.sketching) return;   // figures bake; there is no per-tick path
+          s.m.set(identity, to);
+          const was = s.joint;
+          s.joint = joint;
+          run(s);
+          s.joint = was;
+        } };
+      }
+      case "bone":
+      case "skin": {
+        // (bone a b radius): a stadium from joint to joint — an arm bends at
+        // the elbow for free. (skin a b c …): a flat polygon through joints;
+        // a corner may be (joint x y z), offset in the body's frame, so a hem
+        // can flare past the knees.
+        const corners = (head === "bone" ? rest.slice(0, 2) : rest).map((c) => Array.isArray(c) ? c : [c, 0, 0, 0]);
+        const joints = corners.map((c) => figureJoints.indexOf(c[0]));
+        if (joints.some((j) => j < 0) || joints.length < 2 || (head === "skin" && joints.length < 3))
+          fail(`${head} wants joints: ${figureJoints.join(" ")}`, form);
+        const reads = new Set(), radius = head === "bone" ? num(rest[2], scope, reads) : null;
+        const offsets = corners.map((c) => c.slice(1, 4).map((v) => num(v ?? 0, scope, reads)));
+        return { reads, draws: true, inkIn: true, inkSets: 0, run: (s) => {
+          if (!s.sketching) return;
+          const at = (k) => [joints[k], ...offsets[k].map((o) => o(s))];
+          if (radius) s.sketching.add(s, FIGURE_SHAPE.limb, ...at(0), ...at(1), radius(s));
+          else s.sketching.add(s, FIGURE_SHAPE.plate, joints.length, ...joints.flatMap((_, k) => at(k)));
+        } };
+      }
+      case "surface": {
+        // (surface body…): shapes on a surface, one-sided along the frame's z
+        // (out of the head, for a face): the host skips them turned away.
+        const inside = body(rest, scope, depth, ctx), run = inside.run, at = depth * 13;
+        return { ...inside, run: (s) => {
+          const was = s.facing;
+          s.facing = axis3(s, at, 2, 1);
+          run(s);
+          s.facing = was;
+        } };
+      }
       case "nudge": {
         // (nudge d body…): the body's flat shapes d world units further back,
         // to settle what covers what where two shapes share a depth.
@@ -509,7 +567,7 @@ export function compile(source, name = "object") {
       const values = new Float64Array(args.length), draw = flatShapes[head], record = recorders[head];
       return { reads, draws: true, inkIn: true, inkSets: 0, run: (s) => {
         for (let i = 0; i < args.length; i++) values[i] = args[i](s);
-        if (s.sketching) record(s, depth * 13, values, axis);
+        if (s.sketching) (s.joint >= 0 ? onJoint[head] || fail(`${head} can't hang on a joint`, form) : record)(s, depth * 13, values, axis);
         else { inkUp(s); draw(s, depth * 13, values, axis); }
       } };
     }
@@ -532,7 +590,7 @@ export function compile(source, name = "object") {
   const run = body(program, top, 0, { ink: [255, 255, 255], glow: false, edge: [0, 24, 20, 30], nudge: 0 }).run;
   const state = { v: new Float64Array(slots), m: new Float64Array(maxDepth * 13),
     r: 255, g: 255, b: 255, glow: false, face: null, model: null, owner: null, rec: null,
-    out: null, view: null, nudge: 0, outline: [0, 24, 20, 30], sketch: null, sketching: null, facing: null,
+    out: null, view: null, nudge: 0, outline: [0, 24, 20, 30], sketch: null, sketching: null, facing: null, joint: -1,
     inked: [0, 0, 0, 0] };
 
   // Bake every part: per switch value, per level, run once into a mesh. Twin
@@ -567,6 +625,7 @@ export function compile(source, name = "object") {
         state.outline.splice(0, 4, ...part.edge);
         state.nudge = part.nudge;
         state.facing = null;
+        state.joint = -1;
         for (const step of part.runs) step(state);
         const mesh = state.rec.done(), sketch = state.sketching.done();
         state.rec = state.sketching = null;
@@ -828,7 +887,7 @@ function see(s, at, x, y, z, o) {
   const V = s.view;
   const dx = world[0] - V[0], dy = world[1] - V[1], dz = world[2] - V[2];
   const vz = dx * V[9] + dy * V[10] + dz * V[11];
-  if (vz < V[19]) return false;
+  if (!(vz >= V[19])) return false;   // behind the lens, or a joint that is not there
   const vx = dx * V[3] + dy * V[4] + dz * V[5], vy = dx * V[6] + dy * V[7] + dz * V[8];
   const k = V[14] + (V[15] / vz - V[14]) * V[16];
   seen[o] = V[12] + vx * k; seen[o + 1] = V[13] - vy * k; seen[o + 2] = vz; seen[o + 3] = k;
@@ -871,10 +930,30 @@ function sketcher() {
   };
 }
 const SHAPE = { ball: 1, limb: 2, ring: 3, plate: 4, drum: 5 };
+// A figure's shapes: the same, but every anchor names its joint first.
+const FIGURE_SHAPE = { ball: 11, limb: 12, ring: 13, plate: 14 };
 // A point of the frame, in the part's space (baking) — into world[o…].
 const at3 = (s, at, x, y, z) => { put(s.m, at, 0, x, y, z); return [world[0], world[1], world[2]]; };
 // An axis of the frame times a length: a vector in the part's space.
 const axis3 = (s, at, axis, length) => [0, 1, 2].map((k) => s.m[at + 3 + axis * 3 + k] * length);
+// On a figure joint, a shape records its anchors as (joint, offset).
+const onJoint = {
+  ball: (s, at, v) => s.sketching.add(s, FIGURE_SHAPE.ball, s.joint, ...at3(s, at, v[0], v[1], v[2]), v[3] * frameSize(s.m, at)),
+  limb: (s, at, v) => s.sketching.add(s, FIGURE_SHAPE.limb, s.joint, ...at3(s, at, v[0], v[1], v[2]),
+    s.joint, ...at3(s, at, v[3], v[4], v[5]), v[6] * frameSize(s.m, at)),
+  ring: (s, at, v, axis) => s.sketching.add(s, FIGURE_SHAPE.ring, s.joint, ...at3(s, at, 0, 0, 0),
+    ...axis3(s, at, (axis + 1) % 3, v[0]), ...axis3(s, at, (axis + 2) % 3, v[0])),
+  stroke: (s, at, v) => {
+    for (let i = 1; i + 5 < v.length; i += 3)
+      s.sketching.add(s, FIGURE_SHAPE.limb, s.joint, ...at3(s, at, v[i], v[i + 1], v[i + 2]),
+        s.joint, ...at3(s, at, v[i + 3], v[i + 4], v[i + 5]), v[0] / 2 * frameSize(s.m, at));
+  },
+  plate: (s, at, v) => {
+    const n = Math.min(16, Math.floor(v.length / 3)), points = [];
+    for (let i = 0; i < n; i++) points.push(s.joint, ...at3(s, at, v[i * 3], v[i * 3 + 1], v[i * 3 + 2]));
+    s.sketching.add(s, FIGURE_SHAPE.plate, n, ...points);
+  },
+};
 const recorders = {
   ball: (s, at, v) => s.sketching.add(s, SHAPE.ball, ...at3(s, at, v[0], v[1], v[2]), v[3] * frameSize(s.m, at)),
   limb: (s, at, v) => s.sketching.add(s, SHAPE.limb, ...at3(s, at, v[0], v[1], v[2]), ...at3(s, at, v[3], v[4], v[5]),
@@ -1001,4 +1080,116 @@ function convexHull(points) {
   for (const q of p) { while (lower.length > 1 && cross(lower.at(-2), lower.at(-1), q) <= 0) lower.pop(); lower.push(q); }
   for (const q of p.reverse()) { while (upper.length > 1 && cross(upper.at(-2), upper.at(-1), q) <= 0) upper.pop(); upper.push(q); }
   return lower.slice(0, -1).concat(upper.slice(0, -1));
+}
+
+// ——— flat figures, drawn here ———
+// The FIGURE op's work for a host without a frame program (the console
+// before R6, the harness): the same resolution frame-vm.mjs does — each
+// anchor a joint plus an offset, in the head's frame and radii on the head —
+// projected through `view` (the CAMERA op's numbers) and handed to `out` as
+// ellipse / capsule / plate calls, an ink edge set by `out.outline` before
+// each. `joints` is 48 numbers, `palette` 30, `pin` as the op's.
+const figureRecordSize = (R, i) => R[i] >= 11 ? 12 + [5, 9, 10, 1 + 4 * R[i + 12]][R[i] - 11]
+  : 12 + [0, 4, 7, 9, 1 + 3 * R[i + 12], 12][R[i]];
+export function drawFigureShapes(sketch, palette, joints, pin, view, out) {
+  const V = view, J = joints;
+  const project = (x, y, z, o, dst) => {
+    const dx = x - V[0], dy = y - V[1], dz = z - V[2];
+    const vz = dx * V[9] + dy * V[10] + dz * V[11];
+    if (!(vz >= V[19])) return false;
+    const k = V[14] + (V[15] / vz - V[14]) * V[16];
+    dst[o] = V[12] + (dx * V[3] + dy * V[4] + dz * V[5]) * k;
+    dst[o + 1] = V[13] - (dx * V[6] + dy * V[7] + dz * V[8]) * k;
+    dst[o + 2] = vz; dst[o + 3] = k;
+    return true;
+  };
+  const flat = (vz, nudge) => {
+    const z = (vz + nudge) * V[17] + V[18];
+    return z < -1.499 ? -1.499 : z > 1.4 ? 1.4 : z;
+  };
+  let centre = 0;
+  if (pin === pin) {
+    const c = Number.isNaN(J[9]) ? 0 : 3;
+    centre = (J[c * 3] - V[0]) * V[9] + (J[c * 3 + 1] - V[1]) * V[10] + (J[c * 3 + 2] - V[2]) * V[11];
+  }
+  const depthAt = (vz, nudge) => pin === pin ? pin + (flat(vz, nudge) - flat(centre, 0)) * .1 : flat(vz, nudge);
+  // The head's frame: where it looks, right and up square to it.
+  let fx = J[3] - J[0], fy = J[4] - J[1], fz = J[5] - J[2];
+  const r = Math.hypot(fx, fy, fz) || 1;
+  fx /= r; fy /= r; fz /= r;
+  let rx = fz, rz = -fx;
+  const rl = Math.hypot(rx, rz);
+  if (rl < 1e-6) { rx = 1; rz = 0; } else { rx /= rl; rz /= rl; }
+  const H = [rx, 0, rz, -rz * fy, rz * fx - rx * fz, rx * fy, fx, fy, fz, r];
+  // The chest: up the spine, forward as the head faces, flattened square to it.
+  let ux = J[6] - J[9], uy = J[7] - J[10], uz = J[8] - J[11];
+  const ul = Math.hypot(ux, uy, uz) || 1;
+  ux /= ul; uy /= ul; uz /= ul;
+  const along = fx * ux + fy * uy + fz * uz;
+  let cx = fx - ux * along, cy = fy - uy * along, cz = fz - uz * along;
+  const cl = Math.hypot(cx, cy, cz) || 1;
+  cx /= cl; cy /= cl; cz /= cl;
+  // Across from the right hip to the left, whichever way the body faces.
+  let sx = J[30] - J[33], sy = J[31] - J[34], sz = J[32] - J[35];
+  const side = sx * ux + sy * uy + sz * uz;
+  sx -= ux * side; sy -= uy * side; sz -= uz * side;
+  const sl = Math.hypot(sx, sy, sz);
+  if (sl > 1e-6) { sx /= sl; sy /= sl; sz /= sl; }
+  else { sx = cy * uz - cz * uy; sy = cz * ux - cx * uz; sz = cx * uy - cy * ux; }
+  const C = [sx, sy, sz, ux, uy, uz, cx, cy, cz, 1];
+  const frameOf = (j) => j === 0 ? H : j >= 2 ? C : null;
+  const turn = (j, x, y, z) => {
+    const F = frameOf(j);
+    return F ? [x * F[0] + y * F[3] + z * F[6], x * F[1] + y * F[4] + z * F[7], x * F[2] + y * F[5] + z * F[8]] : [x, y, z];
+  };
+  const point = (j, x, y, z) => {
+    const F = frameOf(j), s = F ? F[9] : 1, v = turn(j, x * s, y * s, z * s);
+    return [J[j * 3] + v[0], J[j * 3 + 1] + v[1], J[j * 3 + 2] + v[2]];
+  };
+  const paint = (R, o) => R[o] >= 0 || !palette ? [R[o], R[o + 1], R[o + 2]]
+    : [palette[(-1 - R[o]) * 3], palette[(-1 - R[o]) * 3 + 1], palette[(-1 - R[o]) * 3 + 2]];
+  const P = new Float64Array(16), poly = [];
+  const R = sketch.records;
+  for (let n = 0, i = 0; n < sketch.count; n++, i += figureRecordSize(R, i)) {
+    const kind = R[i];
+    if (kind < 11) continue;
+    const a = i + 12, j0 = kind === 14 ? R[a + 1] : R[a], scale = frameOf(j0)?.[9] ?? 1, nudge = R[i + 5];
+    const first = kind === 14 ? point(R[a + 1], R[a + 2], R[a + 3], R[a + 4]) : point(R[a], R[a + 1], R[a + 2], R[a + 3]);
+    if (R[i + 9] || R[i + 10] || R[i + 11]) {
+      const nrm = turn(j0, R[i + 9], R[i + 10], R[i + 11]);
+      if (nrm[0] * (first[0] - V[0]) + nrm[1] * (first[1] - V[1]) + nrm[2] * (first[2] - V[2]) > 0) continue;
+    }
+    const [cr, cg, cb] = paint(R, i + 6), line = R[i + 1];
+    if (line && project(first[0], first[1], first[2], 12, P) && line * scale * P[15] >= .5) {
+      const [er, eg, eb] = paint(R, i + 2);
+      out.outline(line * scale * P[15], er, eg, eb);
+    } else out.outline(0, 0, 0, 0);
+    if (kind === 11) {
+      if (!project(first[0], first[1], first[2], 0, P)) continue;
+      const rad = R[a + 4] * scale * P[3];
+      out.ellipse(P[0], P[1], depthAt(P[2], nudge), rad, 0, 0, rad, cr, cg, cb);
+    } else if (kind === 12) {
+      const b = point(R[a + 4], R[a + 5], R[a + 6], R[a + 7]);
+      if (!project(first[0], first[1], first[2], 0, P) || !project(b[0], b[1], b[2], 4, P)) continue;
+      out.capsule(P[0], P[1], P[4], P[5], depthAt((P[2] + P[6]) / 2, nudge), R[a + 8] * scale * (P[3] + P[7]), cr, cg, cb);
+    } else if (kind === 13) {
+      const u = turn(j0, R[a + 4] * scale, R[a + 5] * scale, R[a + 6] * scale);
+      const w = turn(j0, R[a + 7] * scale, R[a + 8] * scale, R[a + 9] * scale);
+      if (!project(first[0], first[1], first[2], 0, P) || !project(first[0] + u[0], first[1] + u[1], first[2] + u[2], 4, P) ||
+        !project(first[0] + w[0], first[1] + w[1], first[2] + w[2], 8, P)) continue;
+      out.ellipse(P[0], P[1], depthAt(P[2], nudge), P[4] - P[0], P[5] - P[1], P[8] - P[0], P[9] - P[1], cr, cg, cb);
+    } else {
+      const count = R[a];
+      let vz = 0, seenAll = true;
+      poly.length = 0;
+      for (let k = 0; k < count && seenAll; k++) {
+        const q = point(R[a + 1 + k * 4], R[a + 2 + k * 4], R[a + 3 + k * 4], R[a + 4 + k * 4]);
+        seenAll = project(q[0], q[1], q[2], 0, P);
+        poly.push(P[0], P[1]);
+        vz += P[2];
+      }
+      if (seenAll) out.plate(count, poly, depthAt(vz / count, nudge), cr, cg, cb);
+    }
+  }
+  out.outline(0, 0, 0, 0);
 }
