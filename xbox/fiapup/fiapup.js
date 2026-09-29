@@ -42,11 +42,21 @@ const fiapupObjects = (() => {
 
     // What the game hands an object each tick. Seconds, world units, radians;
     // `hit` and `land` count seconds since the event (large when it never was).
+    // `blink`, `hurt`, `skirt` and `glasses` are a figure's: how its face and
+    // outfit read this tick.
     const objectInputs = ["time", "distance", "speed", "lean", "heading",
-      "pitch", "turbo", "hit", "land"];
-    const unset = [0, 0, 0, 0, 0, 0, 0, 1e9, 1e9];
+      "pitch", "turbo", "hit", "land", "blink", "hurt", "skirt", "glasses"];
+    const unset = [0, 0, 0, 0, 0, 0, 0, 1e9, 1e9, 0, 0, 0, 0];
     // Switches are 0 or 1, so a baked part that reads one is baked once per value.
-    const switches = new Set(["turbo"]);
+    const switches = new Set(["turbo", "blink", "hurt", "skirt", "glasses"]);
+    // A figure's joints, in the order a FIGURE op carries them (frame-vm.mjs, op
+    // 20): the head's centre, a point one head-radius along where it looks, then
+    // the body. Shapes hang on these; the host is handed their positions a tick.
+    const figureJoints = ["head", "look", "neck", "pelvis", "shoulder-l", "shoulder-r",
+      "elbow-l", "elbow-r", "hand-l", "hand-r", "hip-l", "hip-r", "knee-l", "knee-r", "foot-l", "foot-r"];
+    // A figure's colours are slots its LOOK fills per player (op 21), so one
+    // baked sketch dresses everyone: `(ink hair)` is slot 1.
+    const figurePalette = ["skin", "hair", "shirt", "pants", "skirt", "shoe", "accent", "iris", "lip", "blush"];
     // `detail` is the level a baked part is drawn at: 0 near, 2 far. The host
     // picks it per MODEL op; outside baked parts it reads 0.
     const detailSlot = objectInputs.length;
@@ -160,7 +170,8 @@ const fiapupObjects = (() => {
     };
     const words = { pi: Math.PI, tau: Math.PI * 2 };
     // A few names for `ink`; anything else is three numbers.
-    const inks = { white: [255, 255, 255], black: [0, 0, 0], gray: [128, 128, 128],
+    const inks = { ...Object.fromEntries(figurePalette.map((name, slot) => [name, [-1 - slot, 0, 0]])),
+      white: [255, 255, 255], black: [0, 0, 0], gray: [128, 128, 128],
       red: [255, 0, 0], pink: [255, 105, 180], cyan: [0, 255, 255], yellow: [255, 255, 0] };
 
     const maxDepth = 16;
@@ -169,7 +180,8 @@ const fiapupObjects = (() => {
     // Flat shapes: object-space anchors, projected here, drawn as 2D ops.
     const flats = { ball: 4, limb: 7, ring: 2, drum: 3, stroke: 7, plate: 9, slab: 6 };
     const forms = new Set(["def", "let", "if", "repeat", "ink", "glow", "move", "rotate",
-      "scale", "radial", "mirror", "revolve", "outline", "nudge", "toward"]);
+      "scale", "radial", "mirror", "revolve", "outline", "nudge", "toward",
+      "on", "bone", "skin", "surface"]);
     const isStatement = (f) => Array.isArray(f) && (forms.has(f[0]) || f[0] in shapes || f[0] in flats);
     const union = (...sets) => { const out = new Set(); for (const s of sets) for (const x of s) out.add(x); return out; };
 
@@ -460,6 +472,52 @@ const fiapupObjects = (() => {
               s.outline.splice(0, 4, ...was);
             } };
           }
+          case "on": {
+            // (on joint body…): the body's flat shapes hang on a figure joint —
+            // offsets from it, in the head's own frame and head radii for `head`.
+            const joint = figureJoints.indexOf(rest[0]);
+            if (joint < 0) fail(`on wants a joint: ${figureJoints.join(" ")}`, form);
+            if (depth + 1 >= maxDepth) fail(`nested deeper than ${maxDepth}`, form);
+            const inside = body(rest.slice(1), scope, depth + 1, ctx), run = inside.run, to = (depth + 1) * 13;
+            return { ...inside, run: (s) => {
+              if (!s.sketching) return;   // figures bake; there is no per-tick path
+              s.m.set(identity, to);
+              const was = s.joint;
+              s.joint = joint;
+              run(s);
+              s.joint = was;
+            } };
+          }
+          case "bone":
+          case "skin": {
+            // (bone a b radius): a stadium from joint to joint — an arm bends at
+            // the elbow for free. (skin a b c …): a flat polygon through joints;
+            // a corner may be (joint x y z), offset in the body's frame, so a hem
+            // can flare past the knees.
+            const corners = (head === "bone" ? rest.slice(0, 2) : rest).map((c) => Array.isArray(c) ? c : [c, 0, 0, 0]);
+            const joints = corners.map((c) => figureJoints.indexOf(c[0]));
+            if (joints.some((j) => j < 0) || joints.length < 2 || (head === "skin" && joints.length < 3))
+              fail(`${head} wants joints: ${figureJoints.join(" ")}`, form);
+            const reads = new Set(), radius = head === "bone" ? num(rest[2], scope, reads) : null;
+            const offsets = corners.map((c) => c.slice(1, 4).map((v) => num(v ?? 0, scope, reads)));
+            return { reads, draws: true, inkIn: true, inkSets: 0, run: (s) => {
+              if (!s.sketching) return;
+              const at = (k) => [joints[k], ...offsets[k].map((o) => o(s))];
+              if (radius) s.sketching.add(s, FIGURE_SHAPE.limb, ...at(0), ...at(1), radius(s));
+              else s.sketching.add(s, FIGURE_SHAPE.plate, joints.length, ...joints.flatMap((_, k) => at(k)));
+            } };
+          }
+          case "surface": {
+            // (surface body…): shapes on a surface, one-sided along the frame's z
+            // (out of the head, for a face): the host skips them turned away.
+            const inside = body(rest, scope, depth, ctx), run = inside.run, at = depth * 13;
+            return { ...inside, run: (s) => {
+              const was = s.facing;
+              s.facing = axis3(s, at, 2, 1);
+              run(s);
+              s.facing = was;
+            } };
+          }
           case "nudge": {
             // (nudge d body…): the body's flat shapes d world units further back,
             // to settle what covers what where two shapes share a depth.
@@ -529,7 +587,7 @@ const fiapupObjects = (() => {
           const values = new Float64Array(args.length), draw = flatShapes[head], record = recorders[head];
           return { reads, draws: true, inkIn: true, inkSets: 0, run: (s) => {
             for (let i = 0; i < args.length; i++) values[i] = args[i](s);
-            if (s.sketching) record(s, depth * 13, values, axis);
+            if (s.sketching) (s.joint >= 0 ? onJoint[head] || fail(`${head} can't hang on a joint`, form) : record)(s, depth * 13, values, axis);
             else { inkUp(s); draw(s, depth * 13, values, axis); }
           } };
         }
@@ -552,7 +610,7 @@ const fiapupObjects = (() => {
       const run = body(program, top, 0, { ink: [255, 255, 255], glow: false, edge: [0, 24, 20, 30], nudge: 0 }).run;
       const state = { v: new Float64Array(slots), m: new Float64Array(maxDepth * 13),
         r: 255, g: 255, b: 255, glow: false, face: null, model: null, owner: null, rec: null,
-        out: null, view: null, nudge: 0, outline: [0, 24, 20, 30], sketch: null, sketching: null, facing: null,
+        out: null, view: null, nudge: 0, outline: [0, 24, 20, 30], sketch: null, sketching: null, facing: null, joint: -1,
         inked: [0, 0, 0, 0] };
 
       // Bake every part: per switch value, per level, run once into a mesh. Twin
@@ -587,6 +645,7 @@ const fiapupObjects = (() => {
             state.outline.splice(0, 4, ...part.edge);
             state.nudge = part.nudge;
             state.facing = null;
+            state.joint = -1;
             for (const step of part.runs) step(state);
             const mesh = state.rec.done(), sketch = state.sketching.done();
             state.rec = state.sketching = null;
@@ -848,7 +907,7 @@ const fiapupObjects = (() => {
       const V = s.view;
       const dx = world[0] - V[0], dy = world[1] - V[1], dz = world[2] - V[2];
       const vz = dx * V[9] + dy * V[10] + dz * V[11];
-      if (vz < V[19]) return false;
+      if (!(vz >= V[19])) return false;   // behind the lens, or a joint that is not there
       const vx = dx * V[3] + dy * V[4] + dz * V[5], vy = dx * V[6] + dy * V[7] + dz * V[8];
       const k = V[14] + (V[15] / vz - V[14]) * V[16];
       seen[o] = V[12] + vx * k; seen[o + 1] = V[13] - vy * k; seen[o + 2] = vz; seen[o + 3] = k;
@@ -891,10 +950,30 @@ const fiapupObjects = (() => {
       };
     }
     const SHAPE = { ball: 1, limb: 2, ring: 3, plate: 4, drum: 5 };
+    // A figure's shapes: the same, but every anchor names its joint first.
+    const FIGURE_SHAPE = { ball: 11, limb: 12, ring: 13, plate: 14 };
     // A point of the frame, in the part's space (baking) — into world[o…].
     const at3 = (s, at, x, y, z) => { put(s.m, at, 0, x, y, z); return [world[0], world[1], world[2]]; };
     // An axis of the frame times a length: a vector in the part's space.
     const axis3 = (s, at, axis, length) => [0, 1, 2].map((k) => s.m[at + 3 + axis * 3 + k] * length);
+    // On a figure joint, a shape records its anchors as (joint, offset).
+    const onJoint = {
+      ball: (s, at, v) => s.sketching.add(s, FIGURE_SHAPE.ball, s.joint, ...at3(s, at, v[0], v[1], v[2]), v[3] * frameSize(s.m, at)),
+      limb: (s, at, v) => s.sketching.add(s, FIGURE_SHAPE.limb, s.joint, ...at3(s, at, v[0], v[1], v[2]),
+        s.joint, ...at3(s, at, v[3], v[4], v[5]), v[6] * frameSize(s.m, at)),
+      ring: (s, at, v, axis) => s.sketching.add(s, FIGURE_SHAPE.ring, s.joint, ...at3(s, at, 0, 0, 0),
+        ...axis3(s, at, (axis + 1) % 3, v[0]), ...axis3(s, at, (axis + 2) % 3, v[0])),
+      stroke: (s, at, v) => {
+        for (let i = 1; i + 5 < v.length; i += 3)
+          s.sketching.add(s, FIGURE_SHAPE.limb, s.joint, ...at3(s, at, v[i], v[i + 1], v[i + 2]),
+            s.joint, ...at3(s, at, v[i + 3], v[i + 4], v[i + 5]), v[0] / 2 * frameSize(s.m, at));
+      },
+      plate: (s, at, v) => {
+        const n = Math.min(16, Math.floor(v.length / 3)), points = [];
+        for (let i = 0; i < n; i++) points.push(s.joint, ...at3(s, at, v[i * 3], v[i * 3 + 1], v[i * 3 + 2]));
+        s.sketching.add(s, FIGURE_SHAPE.plate, n, ...points);
+      },
+    };
     const recorders = {
       ball: (s, at, v) => s.sketching.add(s, SHAPE.ball, ...at3(s, at, v[0], v[1], v[2]), v[3] * frameSize(s.m, at)),
       limb: (s, at, v) => s.sketching.add(s, SHAPE.limb, ...at3(s, at, v[0], v[1], v[2]), ...at3(s, at, v[3], v[4], v[5]),
@@ -1022,7 +1101,119 @@ const fiapupObjects = (() => {
       for (const q of p.reverse()) { while (upper.length > 1 && cross(upper.at(-2), upper.at(-1), q) <= 0) upper.pop(); upper.push(q); }
       return lower.slice(0, -1).concat(upper.slice(0, -1));
     }
-    return { objectInputs, objectLevels, objectLight, read, compile };
+
+    // ——— flat figures, drawn here ———
+    // The FIGURE op's work for a host without a frame program (the console
+    // before R6, the harness): the same resolution frame-vm.mjs does — each
+    // anchor a joint plus an offset, in the head's frame and radii on the head —
+    // projected through `view` (the CAMERA op's numbers) and handed to `out` as
+    // ellipse / capsule / plate calls, an ink edge set by `out.outline` before
+    // each. `joints` is 48 numbers, `palette` 30, `pin` as the op's.
+    const figureRecordSize = (R, i) => R[i] >= 11 ? 12 + [5, 9, 10, 1 + 4 * R[i + 12]][R[i] - 11]
+      : 12 + [0, 4, 7, 9, 1 + 3 * R[i + 12], 12][R[i]];
+    function drawFigureShapes(sketch, palette, joints, pin, view, out) {
+      const V = view, J = joints;
+      const project = (x, y, z, o, dst) => {
+        const dx = x - V[0], dy = y - V[1], dz = z - V[2];
+        const vz = dx * V[9] + dy * V[10] + dz * V[11];
+        if (!(vz >= V[19])) return false;
+        const k = V[14] + (V[15] / vz - V[14]) * V[16];
+        dst[o] = V[12] + (dx * V[3] + dy * V[4] + dz * V[5]) * k;
+        dst[o + 1] = V[13] - (dx * V[6] + dy * V[7] + dz * V[8]) * k;
+        dst[o + 2] = vz; dst[o + 3] = k;
+        return true;
+      };
+      const flat = (vz, nudge) => {
+        const z = (vz + nudge) * V[17] + V[18];
+        return z < -1.499 ? -1.499 : z > 1.4 ? 1.4 : z;
+      };
+      let centre = 0;
+      if (pin === pin) {
+        const c = Number.isNaN(J[9]) ? 0 : 3;
+        centre = (J[c * 3] - V[0]) * V[9] + (J[c * 3 + 1] - V[1]) * V[10] + (J[c * 3 + 2] - V[2]) * V[11];
+      }
+      const depthAt = (vz, nudge) => pin === pin ? pin + (flat(vz, nudge) - flat(centre, 0)) * .1 : flat(vz, nudge);
+      // The head's frame: where it looks, right and up square to it.
+      let fx = J[3] - J[0], fy = J[4] - J[1], fz = J[5] - J[2];
+      const r = Math.hypot(fx, fy, fz) || 1;
+      fx /= r; fy /= r; fz /= r;
+      let rx = fz, rz = -fx;
+      const rl = Math.hypot(rx, rz);
+      if (rl < 1e-6) { rx = 1; rz = 0; } else { rx /= rl; rz /= rl; }
+      const H = [rx, 0, rz, -rz * fy, rz * fx - rx * fz, rx * fy, fx, fy, fz, r];
+      // The chest: up the spine, forward as the head faces, flattened square to it.
+      let ux = J[6] - J[9], uy = J[7] - J[10], uz = J[8] - J[11];
+      const ul = Math.hypot(ux, uy, uz) || 1;
+      ux /= ul; uy /= ul; uz /= ul;
+      const along = fx * ux + fy * uy + fz * uz;
+      let cx = fx - ux * along, cy = fy - uy * along, cz = fz - uz * along;
+      const cl = Math.hypot(cx, cy, cz) || 1;
+      cx /= cl; cy /= cl; cz /= cl;
+      // Across from the right hip to the left, whichever way the body faces.
+      let sx = J[30] - J[33], sy = J[31] - J[34], sz = J[32] - J[35];
+      const side = sx * ux + sy * uy + sz * uz;
+      sx -= ux * side; sy -= uy * side; sz -= uz * side;
+      const sl = Math.hypot(sx, sy, sz);
+      if (sl > 1e-6) { sx /= sl; sy /= sl; sz /= sl; }
+      else { sx = cy * uz - cz * uy; sy = cz * ux - cx * uz; sz = cx * uy - cy * ux; }
+      const C = [sx, sy, sz, ux, uy, uz, cx, cy, cz, 1];
+      const frameOf = (j) => j === 0 ? H : j >= 2 ? C : null;
+      const turn = (j, x, y, z) => {
+        const F = frameOf(j);
+        return F ? [x * F[0] + y * F[3] + z * F[6], x * F[1] + y * F[4] + z * F[7], x * F[2] + y * F[5] + z * F[8]] : [x, y, z];
+      };
+      const point = (j, x, y, z) => {
+        const F = frameOf(j), s = F ? F[9] : 1, v = turn(j, x * s, y * s, z * s);
+        return [J[j * 3] + v[0], J[j * 3 + 1] + v[1], J[j * 3 + 2] + v[2]];
+      };
+      const paint = (R, o) => R[o] >= 0 || !palette ? [R[o], R[o + 1], R[o + 2]]
+        : [palette[(-1 - R[o]) * 3], palette[(-1 - R[o]) * 3 + 1], palette[(-1 - R[o]) * 3 + 2]];
+      const P = new Float64Array(16), poly = [];
+      const R = sketch.records;
+      for (let n = 0, i = 0; n < sketch.count; n++, i += figureRecordSize(R, i)) {
+        const kind = R[i];
+        if (kind < 11) continue;
+        const a = i + 12, j0 = kind === 14 ? R[a + 1] : R[a], scale = frameOf(j0)?.[9] ?? 1, nudge = R[i + 5];
+        const first = kind === 14 ? point(R[a + 1], R[a + 2], R[a + 3], R[a + 4]) : point(R[a], R[a + 1], R[a + 2], R[a + 3]);
+        if (R[i + 9] || R[i + 10] || R[i + 11]) {
+          const nrm = turn(j0, R[i + 9], R[i + 10], R[i + 11]);
+          if (nrm[0] * (first[0] - V[0]) + nrm[1] * (first[1] - V[1]) + nrm[2] * (first[2] - V[2]) > 0) continue;
+        }
+        const [cr, cg, cb] = paint(R, i + 6), line = R[i + 1];
+        if (line && project(first[0], first[1], first[2], 12, P) && line * scale * P[15] >= .5) {
+          const [er, eg, eb] = paint(R, i + 2);
+          out.outline(line * scale * P[15], er, eg, eb);
+        } else out.outline(0, 0, 0, 0);
+        if (kind === 11) {
+          if (!project(first[0], first[1], first[2], 0, P)) continue;
+          const rad = R[a + 4] * scale * P[3];
+          out.ellipse(P[0], P[1], depthAt(P[2], nudge), rad, 0, 0, rad, cr, cg, cb);
+        } else if (kind === 12) {
+          const b = point(R[a + 4], R[a + 5], R[a + 6], R[a + 7]);
+          if (!project(first[0], first[1], first[2], 0, P) || !project(b[0], b[1], b[2], 4, P)) continue;
+          out.capsule(P[0], P[1], P[4], P[5], depthAt((P[2] + P[6]) / 2, nudge), R[a + 8] * scale * (P[3] + P[7]), cr, cg, cb);
+        } else if (kind === 13) {
+          const u = turn(j0, R[a + 4] * scale, R[a + 5] * scale, R[a + 6] * scale);
+          const w = turn(j0, R[a + 7] * scale, R[a + 8] * scale, R[a + 9] * scale);
+          if (!project(first[0], first[1], first[2], 0, P) || !project(first[0] + u[0], first[1] + u[1], first[2] + u[2], 4, P) ||
+            !project(first[0] + w[0], first[1] + w[1], first[2] + w[2], 8, P)) continue;
+          out.ellipse(P[0], P[1], depthAt(P[2], nudge), P[4] - P[0], P[5] - P[1], P[8] - P[0], P[9] - P[1], cr, cg, cb);
+        } else {
+          const count = R[a];
+          let vz = 0, seenAll = true;
+          poly.length = 0;
+          for (let k = 0; k < count && seenAll; k++) {
+            const q = point(R[a + 1 + k * 4], R[a + 2 + k * 4], R[a + 3 + k * 4], R[a + 4 + k * 4]);
+            seenAll = project(q[0], q[1], q[2], 0, P);
+            poly.push(P[0], P[1]);
+            vz += P[2];
+          }
+          if (seenAll) out.plate(count, poly, depthAt(vz / count, nudge), cr, cg, cb);
+        }
+      }
+      out.outline(0, 0, 0, 0);
+    }
+    return { objectInputs, figureJoints, figurePalette, objectLevels, objectLight, read, compile, drawFigureShapes };
   })();
   const sources = {
     puppy: "; puppy-flat — fia's pup, drawn flat: balls and limbs hung on a small\n; skeleton, inked at the silhouette. x forward (nose), y up, z to the pup's\n; right, the origin on the floor under the middle of the body.\n;\n; Every shape is still; only the frames move. The game hands the pose over as\n; the owner's parts (three numbers each, radians unless noted), so each bone\n; is one baked sketch under a moving frame: a tick is about a dozen SKETCH\n; ops and nothing is projected in JS.\n;\n;   body  bob (units) · pitch about the hips (nose up +) · roll along the spine\n;   head  yaw · nod (up +) · cock (the curious tilt)\n;   ears  flop (out from the head) · perk (forward)\n;   tail  wag · droop (down +)\n;   fl fr bl br   swing (paw forward +) · splay (out to the side +)\n;   face  eyes open (0/1) · mouth open (0/1) · tongue (0/1)\n;\n; fiapup.js mirrors the measurements it needs (neck, snout) in `pupRig`;\n; change them together.\n\ndef stand 21\ndef hip 9\ndef side 5.2\ndef leg 14\ndef edge 1.3\n\n(let bob (owner body x))\n(let pitch (owner body y))\n(let roll (owner body z))\n\n; the shadow stays on the floor, behind the pup's own shapes\n(nudge 40\n  (ink 58 104 60)\n  (scale 1.9 1 1.25 (ring y 13)))\n\n(move 0 (+ stand bob) 0\n  (rotate x roll\n    (move (- hip) 0 0 (rotate z pitch (move hip 0 0\n\n      ; far legs first, near legs last: depth sorts them anyway, the order\n      ; only settles ties\n      (move hip -3 (- side) (rotate z (owner fl x) (rotate x (owner fl y))\n        (ink 226 170 110) (limb 0 0 0 0 (- leg) 0 3.1)\n        (ink 250 236 214) (ball .8 (- -.5 leg) 0 3.4)))\n      (move hip -3 side (rotate z (owner fr x) (rotate x (- (owner fr y)))\n        (ink 226 170 110) (limb 0 0 0 0 (- leg) 0 3.1)\n        (ink 250 236 214) (ball .8 (- -.5 leg) 0 3.4)))\n      (move (- hip) -2 (- side) (rotate z (owner bl x) (rotate x (owner bl y))\n        (ink 214 156 98) (limb 0 0 0 0 (- -2.4 leg) 0 3.5)\n        (ink 250 236 214) (ball .8 (- -3.4 leg) 0 3.6)))\n      (move (- hip) -2 side (rotate z (owner br x) (rotate x (- (owner br y)))\n        (ink 214 156 98) (limb 0 0 0 0 (- -2.4 leg) 0 3.5)\n        (ink 250 236 214) (ball .8 (- -3.4 leg) 0 3.6)))\n\n      ; the body: a bean with a cream chest, a brown saddle, a red collar\n      (ink 232 178 118)\n      (outline edge 74 44 30 (limb -8 0 0 8 1 0 9.5))\n      (nudge -1.5\n        (ink 250 236 214) (ball 9 -2.5 0 6.5)\n        (ink 168 104 62) (ball -4 5.5 0 6))\n      (nudge -3\n        (ink 222 58 64) (limb 12 5 -5 12 5 5 1.7)\n        (ink 255 208 70) (ball 13.6 2.5 0 1.6))\n\n      ; the tail, from the rump, up and back\n      (move -15 3 0 (rotate y (owner tail x) (rotate z (owner tail y)\n        (ink 214 156 98)\n        (outline edge 74 44 30 (limb 0 0 0 -6 6 0 2.3))\n        (ink 250 236 214) (ball -6.5 6.8 0 2.4))))\n\n      ; the head on the neck, turned, nodded and cocked\n      (move 14 9 0 (rotate y (owner head x) (rotate z (owner head y) (rotate x (owner head z)\n        (ink 232 178 118)\n        (outline edge 74 44 30 (ball 0 0 0 9))\n        (ink 250 236 214) (ball 7 -3 0 5.4)\n        (nudge -1 (ink 40 28 30) (ball 12 -1.4 0 2.3))\n        (if (> (owner face x) .5)\n          (ink 36 26 30) (ball 5.2 2.6 -4.3 1.8) (ball 5.2 2.6 4.3 1.8)\n          (nudge -.5 (ink 255 255 255) (ball 6 3.3 -4.5 .6) (ball 6 3.3 4.5 .6)))\n        (if (< (owner face x) .5)\n          (ink 60 38 34) (limb 4.4 2.3 -5 6.6 2.3 -3.6 .5) (limb 4.4 2.3 5 6.6 2.3 3.6 .5))\n        (if (> (owner face z) .5)\n          (ink 236 96 120) (limb 9 -6 0 10 -9.5 0 1.9))\n        ; floppy ears, the brown of the saddle\n        (move -1 5.5 -6 (rotate x (owner ears x) (rotate z (owner ears y)\n          (ink 168 104 62) (outline edge 74 44 30 (limb 0 0 0 0 -8 -2.4 3.3)))))\n        (move -1 5.5 6 (rotate x (- (owner ears x)) (rotate z (owner ears y)\n          (ink 168 104 62) (outline edge 74 44 30 (limb 0 0 0 0 -8 2.4 3.3))))))))))))))\n",
@@ -1090,6 +1281,21 @@ const fiapupFrameVm = (() => {
     //              placement: anchors projected here, filled flat, outlined,
     //              one-sided ones skipped when turned away, ellipse sides picked
     //              by projected size. Nothing else is expanded here.
+    //  20 FIGURE   sketch look pin · 16 joints (x y z)   a flat figure: the kept
+    //              shapes of `sketch` whose records are figure kinds (11 ball,
+    //              12 limb, 13 ring, 14 plate), each anchor a joint and an offset
+    //              — in the head's frame and head radii on joint 0 (the frame
+    //              from joint 1, where the head looks), in the chest's frame on
+    //              the body's joints (2 on: up the spine from joint 3, facing as
+    //              the head does, across from the right hip to the left; world
+    //              units), in world units on joint 1.
+    //              Colours below zero are slots of `look`. The joints are the
+    //              pose; nothing about the figure is expanded here. A joint the
+    //              body lacks is NaN, and what hangs on it isn't drawn. `pin`,
+    //              unless NaN, holds the figure at one depth (as the arenas
+    //              stand a fighter at the floor's near edge): each shape keeps a
+    //              tenth of its depth from the pelvis, enough to layer the limbs.
+    //  21 LOOK     handle · 10 × (r g b)   a figure's palette, kept by handle
     //
     // A WORLD face is taken to the current CAMERA here: to camera space, cut at
     // the near plane (Sutherland-Hodgman, before the divide), projected with the
@@ -1104,9 +1310,10 @@ const fiapupFrameVm = (() => {
       FRAME_TEXT = 5, FRAME_BOX = 6, FRAME_LINE = 7, FRAME_WIPE = 8,
       FRAME_CAMERA = 9, FRAME_WORLD = 10, FRAME_DEPTH = 11, FRAME_ASSET = 12,
       FRAME_MESH = 13, FRAME_MODEL = 14, FRAME_ELLIPSE = 15, FRAME_PLATE = 16,
-      FRAME_OUTLINE = 17, FRAME_SHAPES = 18, FRAME_SKETCH = 19;
+      FRAME_OUTLINE = 17, FRAME_SHAPES = 18, FRAME_SKETCH = 19, FRAME_FIGURE = 20,
+      FRAME_LOOK = 21;
     // Fixed sizes; ASSET is variable and measured from its own header.
-    const opSize = [0, 5, 13, 8, 10, 9, 9, 9, 4, 25, 13, 3, 0, 5, 20, 11, 0, 5, 0, 14];
+    const opSize = [0, 5, 13, 8, 10, 9, 9, 9, 4, 25, 13, 3, 0, 5, 20, 11, 0, 5, 0, 14, 52, 32];
     const sizeAt = (p, at) => p[at] === FRAME_ASSET ? 4 + p[at + 2] * 3 + p[at + 3] * 10
       : p[at] === FRAME_PLATE ? 6 + p[at + 1] * 2 : p[at] === FRAME_SHAPES ? 4 + p[at + 3] : opSize[p[at]] || 0;
     // An outline sits this far behind its own shape, so the shape covers it and
@@ -1414,6 +1621,30 @@ const fiapupFrameVm = (() => {
           lx = nx; ly = ny;
         }
       }
+      // A flat shape's stadium: round ends with as many steps as the 2 px chord
+      // rule gives, where the game's CAPSULE keeps its own finer table.
+      function stadium(x1, y1, x2, y2, depth, width, r, g, b) {
+        const dx = x2 - x1, dy = y2 - y1, length = Math.hypot(dx, dy), radius = width / 2;
+        if (radius < .5) return;
+        const steps = Math.max(2, Math.ceil(sidesFor(radius) / 2));
+        const ux = length > .001 ? dx / length : 1, uy = length > .001 ? dy / length : 0;
+        const nx = -uy * radius, ny = ux * radius;
+        if (length > .001) {
+          flatFace(x1 + nx, y1 + ny, x1 - nx, y1 - ny, x2 + nx, y2 + ny, depth, r, g, b);
+          flatFace(x1 - nx, y1 - ny, x2 - nx, y2 - ny, x2 + nx, y2 + ny, depth, r, g, b);
+        }
+        // Each end sweeps from the +n side, round its tip, to the −n side.
+        for (const end of [-1, 1]) {
+          const cx = end < 0 ? x1 : x2, cy = end < 0 ? y1 : y2, tx = ux * radius * end, ty = uy * radius * end;
+          let ax = cx + nx, ay = cy + ny;
+          for (let i = 1; i <= steps; i++) {
+            const t = i / steps * Math.PI, c = Math.cos(t), sn = Math.sin(t);
+            const bx = cx + nx * c + tx * sn, by = cy + ny * c + ty * sn;
+            flatFace(cx, cy, ax, ay, bx, by, depth, r, g, b);
+            ax = bx; ay = by;
+          }
+        }
+      }
       // A convex polygon, fanned; `grow` pushes each corner out from the middle.
       function plate(p, at, n, depth, r, g, b, grow = 0) {
         let cx = 0, cy = 0;
@@ -1446,7 +1677,7 @@ const fiapupFrameVm = (() => {
         const wz = m[2] + x * m[5] + y * m[8] + z * m[11];
         const dx = wx - cam[0], dy = wy - cam[1], dz = wz - cam[2];
         const vz = dx * cam[9] + dy * cam[10] + dz * cam[11];
-        if (vz < cam[19]) return false;
+        if (!(vz >= cam[19])) return false;   // behind the lens, or a joint that isn't there
         const k = cam[14] + (cam[15] / vz - cam[14]) * cam[16];
         seen[o] = cam[12] + (dx * cam[3] + dy * cam[4] + dz * cam[5]) * k;
         seen[o + 1] = cam[13] - (dx * cam[6] + dy * cam[7] + dz * cam[8]) * k;
@@ -1457,7 +1688,9 @@ const fiapupFrameVm = (() => {
         const z = (vz + nudge) * cam[17] + cam[18];
         return z < -1.499 ? -1.499 : z > 1.4 ? 1.4 : z;
       };
-      const shapeSize = (R, i) => 12 + [0, 4, 7, 9, 1 + 3 * R[i + 12], 12][R[i]];
+      // Record lengths: sketch kinds 1–5, figure kinds 11–14 (anchors carry a joint).
+      const shapeSize = (R, i) => R[i] >= 11 ? 12 + [5, 9, 10, 1 + 4 * R[i + 12]][R[i] - 11]
+        : 12 + [0, 4, 7, 9, 1 + 3 * R[i + 12], 12][R[i]];
       const placedModel = new Float64Array(12);
       function drawSketch(p, at) {
         const sketch = sketches.get(p[at + 1]);
@@ -1469,6 +1702,7 @@ const fiapupFrameVm = (() => {
         const R = sketch.records;
         for (let n = 0, i = 0; n < sketch.count; n++, i += shapeSize(R, i)) {
           const kind = R[i], line = R[i + 1], nudge = R[i + 5], r = R[i + 6], g = R[i + 7], b = R[i + 8], a = i + 12;
+          if (kind >= 11) continue;   // a figure's: drawn by FIGURE, on its joints
           const ax = kind === 4 ? R[a + 1] : R[a], ay = kind === 4 ? R[a + 2] : R[a + 1], az = kind === 4 ? R[a + 3] : R[a + 2];
           // One-sided: skip it when its facing turns from the camera.
           const fx = R[i + 9], fy = R[i + 10], fz = R[i + 11];
@@ -1485,7 +1719,7 @@ const fiapupFrameVm = (() => {
               ellipse(seen[0], seen[1], flatDepth(seen[2], nudge) + depthShift, rad, 0, 0, rad, cr, cg, cb, grow);
             } else if (kind === 2) {
               if (!seePlaced(m, R[a], R[a + 1], R[a + 2], 0) || !seePlaced(m, R[a + 3], R[a + 4], R[a + 5], 4)) return;
-              capsule(seen[0], seen[1], seen[4], seen[5], flatDepth((seen[2] + seen[6]) / 2, nudge) + depthShift,
+              stadium(seen[0], seen[1], seen[4], seen[5], flatDepth((seen[2] + seen[6]) / 2, nudge) + depthShift,
                 R[a + 6] * (seen[3] + seen[7]) * unit + grow * 2, cr, cg, cb);
             } else if (kind === 3) {
               if (!seePlaced(m, R[a], R[a + 1], R[a + 2], 0) || !seePlaced(m, R[a] + R[a + 3], R[a + 1] + R[a + 4], R[a + 2] + R[a + 5], 4) ||
@@ -1509,6 +1743,127 @@ const fiapupFrameVm = (() => {
           shape(0, 0, r, g, b);
         }
       }
+      // Figures: records that hang on joints. An anchor is joint j plus an
+      // offset — on the head, in its frame (right, up, where it looks) and in
+      // head radii. Resolved to world, then projected and filled as a sketch is.
+      const looks = new Map();
+      const figureSize = shapeSize;
+      const J = new Float64Array(48), headFrame = new Float64Array(10), chestFrame = new Float64Array(10);
+      const anchor = new Float64Array(3);
+      // A joint's frame: the head's (in head radii); the body's joints turn
+      // offsets with the chest, so a hem flares to the body's sides.
+      const frameOf = (j) => j === 0 ? headFrame : j >= 2 ? chestFrame : null;
+      function jointPoint(j, x, y, z, out = anchor) {
+        const f = frameOf(j);
+        if (f) {
+          const r = f[9];
+          for (let k = 0; k < 3; k++) out[k] = J[j * 3 + k] + r * (x * f[k] + y * f[3 + k] + z * f[6 + k]);
+        } else { out[0] = J[j * 3] + x; out[1] = J[j * 3 + 1] + y; out[2] = J[j * 3 + 2] + z; }
+        return out;
+      }
+      const seeWorld = (x, y, z, o) => seePlaced(identityPlace, x, y, z, o);
+      const identityPlace = new Float64Array([0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1]);
+      function drawFigure(p, at) {
+        const sketch = sketches.get(p[at + 1]), look = looks.get(p[at + 2]);
+        if (!sketch || !hasCamera) return;
+        for (let k = 0; k < 48; k++) J[k] = p[at + 4 + k];
+        // Pinned, the figure's depths gather round the pin, a tenth as far apart.
+        const pin = p[at + 3];
+        let centre = 0;
+        if (pin === pin) {
+          const c = Number.isNaN(J[9]) ? 0 : 3;
+          centre = (J[c * 3] - cam[0]) * cam[9] + (J[c * 3 + 1] - cam[1]) * cam[10] + (J[c * 3 + 2] - cam[2]) * cam[11];
+        }
+        const depthAt = (vz, nudge) => pin === pin ? pin + (flatDepth(vz, nudge) - flatDepth(centre, 0)) * .1 : flatDepth(vz, nudge);
+        // The head's frame: forward to where it looks, right and up square to it.
+        let fx = J[3] - J[0], fy = J[4] - J[1], fz = J[5] - J[2];
+        const r = Math.hypot(fx, fy, fz) || 1;
+        fx /= r; fy /= r; fz /= r;
+        let rx = fz, ry = 0, rz = -fx;   // forward × world up (0, -1, 0)
+        const rl = Math.hypot(rx, rz);
+        if (rl < 1e-6) { rx = 1; rz = 0; } else { rx /= rl; rz /= rl; }
+        const ux = ry * fz - rz * fy, uy = rz * fx - rx * fz, uz = rx * fy - ry * fx;
+        headFrame.set([rx, ry, rz, ux, uy, uz, fx, fy, fz, r]);
+        // The chest: up the spine, forward as the head faces, flattened square to it.
+        let cux = J[6] - J[9], cuy = J[7] - J[10], cuz = J[8] - J[11];
+        const cl = Math.hypot(cux, cuy, cuz) || 1;
+        cux /= cl; cuy /= cl; cuz /= cl;
+        const along = fx * cux + fy * cuy + fz * cuz;
+        let cfx = fx - cux * along, cfy = fy - cuy * along, cfz = fz - cuz * along;
+        const cfl = Math.hypot(cfx, cfy, cfz) || 1;
+        cfx /= cfl; cfy /= cfl; cfz /= cfl;
+        // Its x runs from the right hip to the left, whichever way the body faces
+        // (the rig keeps its left hip on one side as it turns), so a hem flares out.
+        let sx = J[30] - J[33], sy = J[31] - J[34], sz = J[32] - J[35];
+        const side = sx * cux + sy * cuy + sz * cuz;
+        sx -= cux * side; sy -= cuy * side; sz -= cuz * side;
+        const sl = Math.hypot(sx, sy, sz);
+        if (sl > 1e-6) { sx /= sl; sy /= sl; sz /= sl; }
+        else { sx = cfy * cuz - cfz * cuy; sy = cfz * cux - cfx * cuz; sz = cfx * cuy - cfy * cux; }
+        chestFrame.set([sx, sy, sz, cux, cuy, cuz, cfx, cfy, cfz, 1]);
+        const R = sketch.records, pal = look || null;
+        const paint = (c, o) => c[o] >= 0 || !pal ? [c[o], c[o + 1], c[o + 2]]
+          : [pal[(-1 - c[o]) * 3], pal[(-1 - c[o]) * 3 + 1], pal[(-1 - c[o]) * 3 + 2]];
+        for (let n = 0, i = 0; n < sketch.count; n++, i += figureSize(R, i)) {
+          const kind = R[i];
+          if (kind < 11) continue;
+          const a = i + 12, j0 = kind === 14 ? R[a + 1] : R[a];
+          const frame = frameOf(j0), scale = frame ? frame[9] : 1, nudge = R[i + 5];
+          const [cr, cg, cb] = paint(R, i + 6);
+          const [er, eg, eb] = paint(R, i + 2);
+          const first = kind === 14 ? jointPoint(R[a + 1], R[a + 2], R[a + 3], R[a + 4]) : jointPoint(R[a], R[a + 1], R[a + 2], R[a + 3]);
+          const px = first[0], py = first[1], pz = first[2];
+          // One-sided: its facing, turned with the head if it hangs on the head.
+          let nx = R[i + 9], ny = R[i + 10], nz = R[i + 11];
+          if (nx || ny || nz) {
+            if (frame) {
+              const wx = nx * frame[0] + ny * frame[3] + nz * frame[6];
+              const wy = nx * frame[1] + ny * frame[4] + nz * frame[7];
+              const wz = nx * frame[2] + ny * frame[5] + nz * frame[8];
+              nx = wx; ny = wy; nz = wz;
+            }
+            if (nx * (px - cam[0]) + ny * (py - cam[1]) + nz * (pz - cam[2]) > 0) continue;
+          }
+          const shape = (grow, shift, ir, ig, ib) => {
+            if (kind === 11) {
+              if (!seeWorld(px, py, pz, 0)) return;
+              const rad = R[a + 4] * scale * seen[3];
+              ellipse(seen[0], seen[1], depthAt(seen[2], nudge) + shift, rad, 0, 0, rad, ir, ig, ib, grow);
+            } else if (kind === 12) {
+              const b = jointPoint(R[a + 4], R[a + 5], R[a + 6], R[a + 7], figureEnd);
+              if (!seeWorld(px, py, pz, 0) || !seeWorld(b[0], b[1], b[2], 4)) return;
+              stadium(seen[0], seen[1], seen[4], seen[5], depthAt((seen[2] + seen[6]) / 2, nudge) + shift,
+                R[a + 8] * scale * (seen[3] + seen[7]) + grow * 2, ir, ig, ib);
+            } else if (kind === 13) {
+              const ax = R[a + 4] * scale, ay = R[a + 5] * scale, az = R[a + 6] * scale;
+              const bx = R[a + 7] * scale, by = R[a + 8] * scale, bz = R[a + 9] * scale;
+              const turn = (x, y, z, o) => frame
+                ? seeWorld(px + x * frame[0] + y * frame[3] + z * frame[6],
+                  py + x * frame[1] + y * frame[4] + z * frame[7],
+                  pz + x * frame[2] + y * frame[5] + z * frame[8], o)
+                : seeWorld(px + x, py + y, pz + z, o);
+              if (!seeWorld(px, py, pz, 0) || !turn(ax, ay, az, 4) || !turn(bx, by, bz, 8)) return;
+              ellipse(seen[0], seen[1], depthAt(seen[2], nudge) + shift, seen[4] - seen[0], seen[5] - seen[1],
+                seen[8] - seen[0], seen[9] - seen[1], ir, ig, ib, grow);
+            } else {
+              const count = R[a];
+              let vz = 0;
+              for (let k = 0; k < count; k++) {
+                const q = jointPoint(R[a + 1 + k * 4], R[a + 2 + k * 4], R[a + 3 + k * 4], R[a + 4 + k * 4], figureEnd);
+                if (!seeWorld(q[0], q[1], q[2], 0)) return;
+                flatPoly[k * 2] = seen[0]; flatPoly[k * 2 + 1] = seen[1]; vz += seen[2];
+              }
+              plate(flatPoly, 0, count, depthAt(vz / count, nudge) + shift, ir, ig, ib, grow);
+            }
+          };
+          const line = R[i + 1];
+          if (line && seeWorld(px, py, pz, 12) && line * scale * seen[15] >= .5)
+            shape(line * scale * seen[15], outlineBehind, er, eg, eb);
+          shape(0, 0, cr, cg, cb);
+        }
+      }
+      const figureEnd = new Float64Array(3);
+
       // A drum (a cylinder: centre, two radius vectors, half its length along the
       // axis): the far end's ellipse, the band between the ends' tangent points,
       // the near end's ellipse, each at its own depth.
@@ -1624,6 +1979,12 @@ const fiapupFrameVm = (() => {
             case FRAME_SHAPES:
               storeShapes(p, at);
               at += 4 + p[at + 3]; break;
+            case FRAME_FIGURE:
+              drawFigure(p, at);
+              at += 52; break;
+            case FRAME_LOOK:
+              looks.set(p[at + 1], Float64Array.from(p.subarray(at + 2, at + 32)));
+              at += 32; break;
             case FRAME_SKETCH:
               drawSketch(p, at);
               at += 14; break;
