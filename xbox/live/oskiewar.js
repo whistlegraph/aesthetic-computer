@@ -2939,13 +2939,13 @@ function objectOut(object) {
   return out;
 }
 // Flat figures (R4 option c; xbox/OBJECT-DIALECT.md → Figures): a fighter
-// as objects/figure-flat.lisp, shapes hung on the pose's joints. Off until
-// @jeffrey has seen it: ?flat-figures in the page's address, or
-// globalThis.oskiewarFlatFigures = true (false wins over the address).
-const flatFiguresFromUrl = typeof globalThis.location?.search === "string" &&
-  /[?&]flat-figures(&|=|$)/.test(globalThis.location.search);
-const flatFiguresOn = () => globalThis.oskiewarFlatFigures === true ||
-  (flatFiguresFromUrl && globalThis.oskiewarFlatFigures !== false);
+// as objects/figure-flat.lisp, shapes hung on the pose's joints. On by
+// default; ?flat-figures=0 in the page's address or
+// globalThis.oskiewarFlatFigures = false brings back the rig's figures.
+const flatFiguresOffFromUrl = typeof globalThis.location?.search === "string" &&
+  /[?&]flat-figures=(0|off|false)(&|$)/.test(globalThis.location.search);
+const flatFiguresOn = () => globalThis.oskiewarFlatFigures !== false &&
+  !flatFiguresOffFromUrl;
 // The joints a FIGURE op carries (figureJoints in object-lisp.mjs): read off
 // the pose the rig already built. A joint the body lacks stays NaN.
 const figureJointsNow = new Float64Array(48);
@@ -15667,9 +15667,10 @@ let photoEffectsActive = false, photoWeaponsActive = false;
 function roundGraphicsTheme() {
   const requested = globalThis.__oskiewarGraphicsTheme;
   if (requested === "flat" || requested === "photorealistic") return requested;
-  // Flat is the reference look on every host (OSKIEWAR-HOSTS.md R5); the
-  // photographic materials stay available to a host that asks for them.
-  return "flat";
+  // Photographs wherever the host can draw them: the Xbox's controller
+  // legend and sprites come from this theme (the ground and walls stay
+  // solid colour either way); a host without theme bindings falls to flat.
+  return "photorealistic";
 }
 function refreshPhotoTheme() {
   photoThemeActive = roundGraphicsTheme() === "photorealistic" &&
