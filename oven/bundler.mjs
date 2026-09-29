@@ -12,9 +12,9 @@ import fsSync from "fs";
 import path from "path";
 import { gzipSync, gunzipSync, brotliCompressSync, constants as zlibConstants } from "zlib";
 import { execSync } from "child_process";
-import { MongoClient } from "mongodb";
-import sharp from "sharp";
 import { fileURLToPath } from "url";
+// mongodb and sharp load lazily, where they're used, so a job outside the oven
+// (the daily token on jasellite) can pack a KidLisp source with terser alone.
 
 // ─── Configuration ──────────────────────────────────────────────────
 
@@ -293,6 +293,7 @@ async function getDb() {
   const dbName = process.env.MONGODB_NAME;
   if (!uri || !dbName) return null;
   if (!mongoClient) {
+    const { MongoClient } = await import("mongodb");
     mongoClient = await MongoClient.connect(uri);
   }
   return mongoClient.db(dbName);
@@ -697,16 +698,27 @@ async function getCoreBundle(onProgress = () => {}, forceRefresh = false) {
 // ─── KidLisp bundle ─────────────────────────────────────────────────
 
 export async function createBundle(pieceName, onProgress = () => {}, nocompress = false, density = null, brotli = false, noboxart = false, keeplabel = false, forceRefresh = false) {
-  const PIECE_NAME_NO_DOLLAR = pieceName.replace(/^\$/, "");
+  const name = pieceName.replace(/^\$/, "");
+  onProgress({ stage: "fetch", message: `Fetching $${name}...` });
+  const { sources, authorHandle, userCode } = await getKidLispSourceWithDeps(name);
+  const depCount = Object.keys(sources).length - 1;
+  onProgress({ stage: "deps", message: `Found ${depCount} dependenc${depCount === 1 ? "y" : "ies"}` });
+  return packKidLisp({ name, sources, authorHandle, userCode, onProgress, nocompress, density, brotli, noboxart, keeplabel, forceRefresh });
+}
+
+// A KidLisp source the caller already holds, packed exactly as a Keep is but
+// without the trip to /api/store-kidlisp. (the daily token's crawl, packed in
+// node on jasellite.) No $refs are followed and no #paintings are embedded,
+// since a crawl's text can hold either by accident.
+export async function createBundleFromSource(pieceName, source, { authorHandle = "anon", onProgress = () => {}, nocompress = false, density = null, brotli = false, noboxart = true, keeplabel = false, forceRefresh = false, style = "" } = {}) {
+  const name = pieceName.replace(/^\$/, "");
+  return packKidLisp({ name, sources: { [name]: source }, authorHandle, userCode: null, onProgress, nocompress, density, brotli, noboxart, keeplabel, forceRefresh, style, paintings: false });
+}
+
+async function packKidLisp({ name: PIECE_NAME_NO_DOLLAR, sources: kidlispSources, authorHandle, userCode, onProgress, nocompress, density, brotli, noboxart, keeplabel, forceRefresh, style = "", paintings = true }) {
   const PIECE_NAME = "$" + PIECE_NAME_NO_DOLLAR;
-
-  onProgress({ stage: "fetch", message: `Fetching $${PIECE_NAME_NO_DOLLAR}...` });
-
-  const { sources: kidlispSources, authorHandle, userCode } = await getKidLispSourceWithDeps(PIECE_NAME_NO_DOLLAR);
   const mainSource = kidlispSources[PIECE_NAME_NO_DOLLAR];
   const depCount = Object.keys(kidlispSources).length - 1;
-
-  onProgress({ stage: "deps", message: `Found ${depCount} dependenc${depCount === 1 ? "y" : "ies"}` });
 
   const packTime = Date.now();
   const packDate = new Date().toLocaleString("en-US", {
@@ -725,7 +737,7 @@ export async function createBundle(pieceName, onProgress = () => {}, nocompress 
 
   // Paintings
   const allKidlispSource = Object.values(kidlispSources).join("\n");
-  const paintingCodes = extractPaintingCodes(allKidlispSource);
+  const paintingCodes = paintings ? extractPaintingCodes(allKidlispSource) : [];
   const paintingData = {};
 
   if (paintingCodes.length > 0) {
@@ -760,7 +772,7 @@ export async function createBundle(pieceName, onProgress = () => {}, nocompress 
   const htmlContent = generateHTMLBundle({
     PIECE_NAME, PIECE_NAME_NO_DOLLAR, mainSource, kidlispSources,
     files, paintingData, authorHandle, packDate, packTime,
-    gitVersion: GIT_COMMIT, filename, density, bgColor, bdfGlyphs, boxArtPNG, keeplabel,
+    gitVersion: GIT_COMMIT, filename, density, bgColor, bdfGlyphs, boxArtPNG, keeplabel, style,
   });
 
   const method = nocompress ? "none" : brotli ? "brotli" : "gzip";
@@ -2263,6 +2275,7 @@ async function generateBoxArtPNG(pieceName, authorHandle, bgColor, packDate) {
     text-anchor="middle" dominant-baseline="middle">${escapeXml(packDate)}</text>` : ""}
 </svg>`;
 
+  const { default: sharp } = await import("sharp");
   const buf = await sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toBuffer();
   return buf.toString("base64");
 }
@@ -2273,7 +2286,7 @@ async function generateBoxArtPNG(pieceName, authorHandle, bgColor, packDate) {
 function generateHTMLBundle(opts) {
   const {
     PIECE_NAME, PIECE_NAME_NO_DOLLAR, mainSource, kidlispSources,
-    files, paintingData, authorHandle, packDate, packTime, gitVersion, filename, density, bgColor, bdfGlyphs, boxArtPNG, keeplabel,
+    files, paintingData, authorHandle, packDate, packTime, gitVersion, filename, density, bgColor, bdfGlyphs, boxArtPNG, keeplabel, style = "",
   } = opts;
 
   const bgRule = `background: ${bgColor || "black"}; `;
@@ -2288,7 +2301,8 @@ function generateHTMLBundle(opts) {
   <style>
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; ${bgRule}overflow: hidden; }
     canvas { display: block; image-rendering: pixelated; background: black; }
-    #ac-box-art { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; pointer-events: none; }
+    #ac-box-art { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; pointer-events: none; }${style ? `
+    ${style}` : ""}
   </style>
 </head>
 <body>
