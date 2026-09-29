@@ -24,8 +24,15 @@ const moments = {
   rollover: "stage=pet&seconds=3.2", beg: "stage=beg&seconds=2.6", nap: "stage=nap&seconds=9",
   zoomies: "stage=zoomies&seconds=2.4", tug: "stage=tug&seconds=3.2",
 };
-const wanted = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(moments);
-const out = resolve(here, "shots");
+// --phone shoots each moment as a phone shows it (touch UI), upright and on
+// its side, into shots/phone/.
+const phone = process.argv.includes("--phone");
+const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+const wanted = args.length ? args : Object.keys(moments);
+const out = resolve(here, phone ? "shots/phone" : "shots");
+const views = phone
+  ? [{ tag: "portrait", width: 390, height: 844, scale: 2 }, { tag: "landscape", width: 844, height: 390, scale: 2 }]
+  : [{ tag: "", width: 1280, height: 754, scale: 1, clip: 720 }];
 mkdirSync(out, { recursive: true });
 
 const server = await serve(8125);
@@ -33,15 +40,18 @@ const browser = await (await puppeteer()).launch({ headless: true,
   args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--autoplay-policy=no-user-gesture-required"] });
 try {
   const page = await browser.newPage();
-  await page.setViewport({ width: 1280, height: 754 });
   page.on("pageerror", (error) => console.error("page error:", error.message));
-  for (const name of wanted) {
-    await page.goto(`http://127.0.0.1:8125/?pause&${moments[name]}`);
-    await page.waitForFunction(() => (globalThis.__fiapupFrames || 0) > 3, { timeout: 20000 });
-    const state = await page.evaluate(() => globalThis.__fiapup.world.pup.state);
-    const file = resolve(out, `${name}.png`);
-    await page.screenshot({ path: file, clip: { x: 0, y: 0, width: 1280, height: 720 } });
-    console.log(`${name}: pup is ${state} → ${file}`);
+  for (const view of views) {
+    await page.setViewport({ width: view.width, height: view.height, deviceScaleFactor: view.scale,
+      isMobile: phone, hasTouch: phone });
+    for (const name of wanted) {
+      await page.goto(`http://127.0.0.1:8125/?pause${phone ? "&touch&nokeys" : ""}&${moments[name]}`);
+      await page.waitForFunction(() => (globalThis.__fiapupFrames || 0) > 3, { timeout: 20000 });
+      const state = await page.evaluate(() => globalThis.__fiapup.world.pup.state);
+      const file = resolve(out, `${[name, view.tag].filter(Boolean).join("-")}.png`);
+      await page.screenshot({ path: file, clip: { x: 0, y: 0, width: view.width, height: view.clip || view.height } });
+      console.log(`${name}${view.tag ? " " + view.tag : ""}: pup is ${state} → ${file}`);
+    }
   }
 } finally {
   await browser.close();
