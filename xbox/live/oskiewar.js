@@ -6100,8 +6100,12 @@ function samplePad(index) {
   // bubble. Only live play is translated — menus keep A confirm / B back —
   // and bots and the harness speak the internal names directly.
   if (pad && Array.isArray(pad.down) && livePlayButtons() &&
-      globalThis.__oskiewarLegacyButtons !== true)
+      globalThis.__oskiewarLegacyButtons !== true) {
+    // The legend lights the key a finger is on, so it keeps the buttons as
+    // pressed; play reads the translated ones.
+    pad.pressed = pad.down;
     pad.down = translateButtons(index, pad.down);
+  }
   return pad;
 }
 // Live play reads the one layout; menus read the raw pad (A confirm, B back).
@@ -27141,8 +27145,11 @@ function parkControlCaps(){
 // call drawControlLegend makes. It also stood exactly where the pad does.
 function drawParkControls(p,safe){
  if(touchPadShown())return;
- const down=inputPads[p.pad]?.down||[],fighting=!!parkFightRival(p),size=28,c=parkControlCaps();
- const held=[...down];
+ const pad=inputPads[p.pad],fighting=!!parkFightRival(p),size=28,c=parkControlCaps();
+ // The caps are the keys as pressed (Q/E, Shift, Space), so they light from
+ // the untranslated buttons, where Q and E are still two different keys.
+ // The local snapshot keeps them even when netplay rebuilds inputPads.
+ const held=[...(padSnapshots[p.pad]?.pressed||pad?.pressed||pad?.down||[])];
  if((inputPads[p.pad]?.leftY||0)>.48)held.push('ArrowUp');
  const ink=[200,215,232];
  const drop=parkDropName(p);
