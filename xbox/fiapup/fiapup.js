@@ -3289,9 +3289,31 @@ function interpreter() {
   return vm;
 }
 
+// The app icon's picture: the pup's face, close, on a warm plain ground,
+// drawn by the same objects and interpreter as the game (`?portrait`).
+function portraitCamera() {
+  const head = pupRig(world.pup).head, m = camera, tilt = .16, reach = 78;
+  const s = Math.sin(tilt), co = Math.cos(tilt);
+  m[0] = head.x; m[1] = head.y + s * reach - 1.5; m[2] = head.z + co * reach;
+  m[3] = 1; m[4] = 0; m[5] = 0; m[6] = 0; m[7] = co; m[8] = -s; m[9] = 0; m[10] = -s; m[11] = -co;
+  m[12] = screenW / 2; m[13] = screenH * .5; m[14] = 1; m[15] = Math.min(screenW, screenH) * 2.1; m[16] = 1;
+  m[17] = 2.8 / 16000; m[18] = -1.4; m[19] = 12;
+  m[20] = -screenW; m[21] = screenW * 2; m[22] = -screenH; m[23] = screenH * 2;
+}
+
 function paintFrame() {
   measureScreen();
   length = 0; strings = []; stats.ops = {};
+  if (world.portrait) {
+    portraitCamera();
+    op(OP.WIPE, 255, 238, 204);
+    op(OP.CAMERA, ...camera);
+    drawPup();
+    stats.numbers = length;
+    if (typeof frame === "function") frame(program, length, strings);
+    else { interpreter().run(program, length, strings); flushFaces(); }
+    return;
+  }
   aimCamera();
   op(OP.WIPE, 196, 224, 240);
   op(OP.CAMERA, ...camera);
@@ -3336,6 +3358,16 @@ const fiapup = {
   get world() { return world; }, step, screenOf: onScreen, ground, pupReach, playButton, paint: paintFrame, stats, rig: pupRig, owner: pupOwner, place: pupPlace,
   program: () => program.subarray(0, length), strings: () => strings, states: Object.keys(states),
   resend() { sent = new Set(); vm = null; },
+  // The icon's pose: facing you, head cocked, ears up, tongue out, happy.
+  portrait() {
+    world = freshWorld();
+    const p = world.pup;
+    Object.assign(p, { x: 0, z: 0, heading: Math.PI / 2, joy: 1 });
+    Object.assign(p.pose, { bob: 0, pitch: 0, roll: 0, yaw: 0, nod: .12, cock: .22, earFlop: .38,
+      earPerk: .1, wag: .6, droopTail: -.2, eyes: 1, mouth: 1, tongue: 1, shake: 0 });
+    world.portrait = true;
+    return world;
+  },
   // Put the yard in a named moment and let it run `seconds`. The shell's
   // ?stage= and the screenshot tool use these; the game never does.
   stage(name, seconds = 2, touch = false) {

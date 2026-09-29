@@ -14,6 +14,7 @@ targets:
     sources:
       - Sources/Shared
       - Sources/Mac
+      - Assets.xcassets
       - path: ../../xbox/fiapup/index.html
         buildPhase: resources
       - path: ../../xbox/fiapup/fiapup.js
@@ -34,6 +35,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: computer.aesthetic.fiapup
         PRODUCT_NAME: fiapup
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # Signed to run locally; a Developer ID lane comes with a real release.
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual
@@ -47,6 +49,7 @@ targets:
     sources:
       - Sources/Shared
       - Sources/iOS
+      - Assets.xcassets
       - path: ../../xbox/fiapup/index.html
         buildPhase: resources
       - path: ../../xbox/fiapup/fiapup.js
@@ -81,3 +84,4 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: computer.aesthetic.fiapup
         PRODUCT_NAME: fiapup
         TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

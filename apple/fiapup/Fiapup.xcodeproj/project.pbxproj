@@ -10,6 +10,7 @@
 		12B44DCD40746A71777C82EF /* scene3d.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 3314055D93C969909ED00CC2 /* scene3d.mjs */; };
 		165E8C5F3D40975D685DE024 /* FiapupApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EE3AD27A00FD34DDF560FD2 /* FiapupApp.swift */; };
 		3392FC5F755C16A1E36FFA6D /* fiapup.js in Resources */ = {isa = PBXBuildFile; fileRef = 72D8DC0F8CF53E830D2C159D /* fiapup.js */; };
+		4552D6FF8CFDB5A94942103A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4DE5BF3525D95A080E558CED /* Assets.xcassets */; };
 		49BF2B7A0A6D1DB95C70E5DE /* index.html in Resources */ = {isa = PBXBuildFile; fileRef = 514F233BEB734EB07BC3D15C /* index.html */; };
 		5759DDD248E1B52FC2EFB622 /* scene3d.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 3314055D93C969909ED00CC2 /* scene3d.mjs */; };
 		72163459D59C830B00BDF1A9 /* FiapupApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90DB2C3D899AD6348B4342D /* FiapupApp.swift */; };
@@ -19,12 +20,14 @@
 		D3220613DF5DDE7F6BBEF954 /* BundleScheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA9C761DA63D6DECB153DFF3 /* BundleScheme.swift */; };
 		E6179E3823CF652CD359CF81 /* scene3d-webgl.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 866480C72A1A083227A52458 /* scene3d-webgl.mjs */; };
 		EEA539EAACD233D0FE58E6D4 /* fiapup.js in Resources */ = {isa = PBXBuildFile; fileRef = 72D8DC0F8CF53E830D2C159D /* fiapup.js */; };
+		F77AE5E3E776C4BD5E57F753 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4DE5BF3525D95A080E558CED /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		06B01FF3A321F7B842BF3C2B /* FiapupiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FiapupiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3314055D93C969909ED00CC2 /* scene3d.mjs */ = {isa = PBXFileReference; path = scene3d.mjs; sourceTree = "<group>"; };
 		3EE3AD27A00FD34DDF560FD2 /* FiapupApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FiapupApp.swift; sourceTree = "<group>"; };
+		4DE5BF3525D95A080E558CED /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		514F233BEB734EB07BC3D15C /* index.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = index.html; sourceTree = "<group>"; };
 		5F7A13E8C925E00361B0DD7D /* Fiapup.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Fiapup.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		72D8DC0F8CF53E830D2C159D /* fiapup.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = fiapup.js; sourceTree = "<group>"; };
@@ -64,6 +67,7 @@
 		7BFAA6C796DB5D82D125928B = {
 			isa = PBXGroup;
 			children = (
+				4DE5BF3525D95A080E558CED /* Assets.xcassets */,
 				EE6CBF2A513246C44DACAA4C /* fiapup */,
 				1E619E1B4982BCA9878568FC /* iOS */,
 				FF67C22B58F59F592A1312C0 /* live */,
@@ -180,6 +184,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F77AE5E3E776C4BD5E57F753 /* Assets.xcassets in Resources */,
 				3392FC5F755C16A1E36FFA6D /* fiapup.js in Resources */,
 				49BF2B7A0A6D1DB95C70E5DE /* index.html in Resources */,
 				E6179E3823CF652CD359CF81 /* scene3d-webgl.mjs in Resources */,
@@ -191,6 +196,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4552D6FF8CFDB5A94942103A /* Assets.xcassets in Resources */,
 				EEA539EAACD233D0FE58E6D4 /* fiapup.js in Resources */,
 				A2A1601DDA6142628D0E4043 /* index.html in Resources */,
 				C2009CBDB1111E74D1C89488 /* scene3d-webgl.mjs in Resources */,

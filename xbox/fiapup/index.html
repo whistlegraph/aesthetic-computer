@@ -163,7 +163,8 @@ const params = new URLSearchParams(location.search);
 if (params.get("stage")) game.fiapup.stage(params.get("stage"), Number(params.get("seconds")) || 2.5,
   params.has("touch"));
 if (params.has("touch")) game.fiapup.world.touch.mode = true;
-const paused = params.has("pause");
+if (params.has("portrait")) game.fiapup.portrait();
+const paused = params.has("pause") || params.has("portrait");
 globalThis.__fiapup = game.fiapup;
 
 function frame() {
