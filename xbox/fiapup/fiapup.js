@@ -2892,7 +2892,7 @@ function aimCamera() {
   m[6] = 0; m[7] = co; m[8] = -s;                   // up
   m[9] = 0; m[10] = -s; m[11] = -co;                // forward
   m[12] = screenW / 2; m[13] = screenH * (portrait ? .5 : .54);
-  m[14] = 1; m[15] = Math.min(1.2 * screenH, 1.9 * screenW); m[16] = 1;   // orthoScale, focal, all perspective
+  m[14] = 1; m[15] = Math.min(1.2 * screenH, 1.55 * screenW); m[16] = 1;   // orthoScale, focal, all perspective
   m[17] = 2.8 / 16000; m[18] = -1.4; m[19] = 12;    // depth slope and base, near
   m[20] = -screenW * .25; m[21] = screenW * 1.25; m[22] = -screenH * .25; m[23] = screenH * 1.25;
 }

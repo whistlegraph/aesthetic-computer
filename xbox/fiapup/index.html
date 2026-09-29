@@ -176,6 +176,9 @@ function frame() {
   game.paint();
   scene.present({ clear });
   globalThis.__fiapupFrames = (globalThis.__fiapupFrames || 0) + 1;
+  // Safe-area insets settle after the first layout in a WKWebView without a
+  // resize to say so; look again now and then.
+  if (globalThis.__fiapupFrames % 30 === 1) fit();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

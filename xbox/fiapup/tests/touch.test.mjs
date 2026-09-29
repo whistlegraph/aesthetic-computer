@@ -184,5 +184,5 @@ test("portrait frames the pup bigger across the screen than landscape", () => {
   };
   const portrait = share(500), landscape = share(1920);
   assert.ok(portrait > landscape * 2, `portrait ${portrait.toFixed(2)} of the width, landscape ${landscape.toFixed(2)}`);
-  assert.ok(portrait > .2 && portrait < .7);
+  assert.ok(portrait > .15 && portrait < .7, `portrait share ${portrait.toFixed(2)}`);
 });
