@@ -457,67 +457,76 @@ enum TrackpadDrumSkinPad {
             : NSColor(srgbRed: 0.48, green: 0.29, blue: 0.19, alpha: 1) // umber
         NSGraphicsContext.saveGraphicsState()
         body.addClip()
-        clickColor.setFill(); body.fill()
-        hatColor.setFill(); hatZone.fill()
-        snareColor.setFill(); rimZone.fill()
-
-        // Dense parallel wires immediately read as the snare material. The
-        // inner tom and kick fills below mask them out of the center.
-        NSGraphicsContext.saveGraphicsState()
-        rimZone.addClip()
-        let wires = NSBezierPath()
-        stride(from: chart.minX - chart.height,
-               through: chart.maxX, by: 6).forEach { x in
-            wires.move(to: NSPoint(x: x, y: chart.minY))
-            wires.line(to: NSPoint(x: x + chart.height, y: chart.maxY))
-        }
-        (isDark ? NSColor.white : NSColor.black)
-            .withAlphaComponent(0.16).setStroke()
-        wires.lineWidth = 0.55
-        wires.stroke()
-        NSGraphicsContext.restoreGraphicsState()
-
-        rimColor.setFill(); snareZone.fill()
-        kickColor.setFill(); kickZone.fill()
-
-        // Hat teeth span the widened playable metal band; the final bright rail is
-        // the hard chassis click. This remains legible at the overlay's actual
-        // size and makes the two edge instruments visually different.
-        let teeth = NSBezierPath()
-        stride(from: chart.minX + 9, through: chart.maxX - 9, by: 9).forEach { x in
-            let slant: CGFloat = Int((x - chart.minX) / 9).isMultiple(of: 2) ? 2 : -2
-            teeth.move(to: NSPoint(x: x, y: chart.maxY - 5.2))
-            teeth.line(to: NSPoint(x: x + slant, y: chart.maxY - 13.6))
-            teeth.move(to: NSPoint(x: x, y: chart.minY + 5.2))
-            teeth.line(to: NSPoint(x: x - slant, y: chart.minY + 13.6))
-        }
-        stride(from: chart.minY + 10, through: chart.maxY - 10, by: 9).forEach { y in
-            let slant: CGFloat = Int((y - chart.minY) / 9).isMultiple(of: 2) ? 2 : -2
-            teeth.move(to: NSPoint(x: chart.minX + 5.2, y: y))
-            teeth.line(to: NSPoint(x: chart.minX + 13.6, y: y + slant))
-            teeth.move(to: NSPoint(x: chart.maxX - 5.2, y: y))
-            teeth.line(to: NSPoint(x: chart.maxX - 13.6, y: y - slant))
-        }
-        clickColor.withAlphaComponent(0.72).setStroke()
-        teeth.lineWidth = 1.25
-        teeth.stroke()
-
-        let clickRail = NSBezierPath(roundedRect: chart.insetBy(dx: 1.5, dy: 1.5),
-                                     xRadius: 6.5, yRadius: 6.5)
-        (isDark ? NSColor.white : NSColor.black)
-            .withAlphaComponent(0.62).setStroke()
-        clickRail.lineWidth = 2.2
-        clickRail.stroke()
-
-        TrackpadEnergyVisual.draw(energy, in: chart, accent: accent)
-        TrackpadMembraneLighting.draw(membrane, in: chart)
         let boundaryColor = (isDark ? NSColor.white : NSColor.black)
             .withAlphaComponent(isDark ? 0.32 : 0.50)
-        boundaryColor.setStroke()
-        for (zone, width) in [(hatZone, 0.9), (rimZone, 2.0),
-                              (snareZone, 0.9), (kickZone, 1.3)] {
-            zone.lineWidth = width
-            zone.stroke()
+        let kit = MenuBandPercussion.DrumKit.current
+        if kit != .menuBand {
+            // Genre kits bring their own palette and arrangement.
+            TrackDrumKitArt.drawMaterial(kit, in: chart, body: body, dark: isDark)
+            TrackpadEnergyVisual.draw(energy, in: chart, accent: accent)
+            TrackpadMembraneLighting.draw(membrane, in: chart)
+        } else {
+            clickColor.setFill(); body.fill()
+            hatColor.setFill(); hatZone.fill()
+            snareColor.setFill(); rimZone.fill()
+
+            // Dense parallel wires immediately read as the snare material. The
+            // inner tom and kick fills below mask them out of the center.
+            NSGraphicsContext.saveGraphicsState()
+            rimZone.addClip()
+            let wires = NSBezierPath()
+            stride(from: chart.minX - chart.height,
+                   through: chart.maxX, by: 6).forEach { x in
+                wires.move(to: NSPoint(x: x, y: chart.minY))
+                wires.line(to: NSPoint(x: x + chart.height, y: chart.maxY))
+            }
+            (isDark ? NSColor.white : NSColor.black)
+                .withAlphaComponent(0.16).setStroke()
+            wires.lineWidth = 0.55
+            wires.stroke()
+            NSGraphicsContext.restoreGraphicsState()
+
+            rimColor.setFill(); snareZone.fill()
+            kickColor.setFill(); kickZone.fill()
+
+            // Hat teeth span the widened playable metal band; the final bright rail is
+            // the hard chassis click. This remains legible at the overlay's actual
+            // size and makes the two edge instruments visually different.
+            let teeth = NSBezierPath()
+            stride(from: chart.minX + 9, through: chart.maxX - 9, by: 9).forEach { x in
+                let slant: CGFloat = Int((x - chart.minX) / 9).isMultiple(of: 2) ? 2 : -2
+                teeth.move(to: NSPoint(x: x, y: chart.maxY - 5.2))
+                teeth.line(to: NSPoint(x: x + slant, y: chart.maxY - 13.6))
+                teeth.move(to: NSPoint(x: x, y: chart.minY + 5.2))
+                teeth.line(to: NSPoint(x: x - slant, y: chart.minY + 13.6))
+            }
+            stride(from: chart.minY + 10, through: chart.maxY - 10, by: 9).forEach { y in
+                let slant: CGFloat = Int((y - chart.minY) / 9).isMultiple(of: 2) ? 2 : -2
+                teeth.move(to: NSPoint(x: chart.minX + 5.2, y: y))
+                teeth.line(to: NSPoint(x: chart.minX + 13.6, y: y + slant))
+                teeth.move(to: NSPoint(x: chart.maxX - 5.2, y: y))
+                teeth.line(to: NSPoint(x: chart.maxX - 13.6, y: y - slant))
+            }
+            clickColor.withAlphaComponent(0.72).setStroke()
+            teeth.lineWidth = 1.25
+            teeth.stroke()
+
+            let clickRail = NSBezierPath(roundedRect: chart.insetBy(dx: 1.5, dy: 1.5),
+                                         xRadius: 6.5, yRadius: 6.5)
+            (isDark ? NSColor.white : NSColor.black)
+                .withAlphaComponent(0.62).setStroke()
+            clickRail.lineWidth = 2.2
+            clickRail.stroke()
+
+            TrackpadEnergyVisual.draw(energy, in: chart, accent: accent)
+            TrackpadMembraneLighting.draw(membrane, in: chart)
+            boundaryColor.setStroke()
+            for (zone, width) in [(hatZone, 0.9), (rimZone, 2.0),
+                                  (snareZone, 0.9), (kickZone, 1.3)] {
+                zone.lineWidth = width
+                zone.stroke()
+            }
+            TrackDrumKitArt.badge(kit.number, in: chart, on: kickColor)
         }
 
         // While the polyrhythm trainer is up, the skin divides into one
@@ -1226,6 +1235,9 @@ final class TracktrampMetalView: MTKView, MTKViewDelegate {
     private var drewFlatFrame = false
     private var zoneLevels = [Float](repeating: 0, count: 5)
     private var lastZoneUpdate = CACurrentMediaTime()
+    private var builtKit = MenuBandPercussion.DrumKit.current
+    private let kitBanner = NSTextField(labelWithString: "")
+    private var bannerHide: DispatchWorkItem?
 
     init() {
         let device = MTLCreateSystemDefaultDevice()
@@ -1245,6 +1257,43 @@ final class TracktrampMetalView: MTKView, MTKViewDelegate {
         delegate = self
         queue = device?.makeCommandQueue()
         if let device { buildPipeline(device) }
+
+        kitBanner.alignment = .center
+        kitBanner.font = .systemFont(ofSize: 13, weight: .heavy)
+        kitBanner.textColor = .white
+        kitBanner.wantsLayer = true
+        kitBanner.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.62).cgColor
+        kitBanner.layer?.cornerRadius = 7
+        kitBanner.alphaValue = 0
+        addSubview(kitBanner)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(kitDidChange(_:)),
+            name: MenuBandPercussion.DrumKit.didChange, object: nil)
+    }
+
+    /// New kit: re-bake the artwork and flash "number · NAME" over the pad.
+    @objc private func kitDidChange(_ note: Notification) {
+        builtKit = MenuBandPercussion.DrumKit.current
+        rebuildTextureIfNeeded(force: true)
+        let kit = builtKit
+        kitBanner.stringValue = "  \(kit.number) · \(kit.label.uppercased())  "
+        kitBanner.sizeToFit()
+        let size = NSSize(width: kitBanner.frame.width, height: 22)
+        kitBanner.frame = NSRect(x: (bounds.width - size.width) / 2,
+                                 y: (bounds.height - size.height) / 2,
+                                 width: size.width, height: size.height)
+        kitBanner.alphaValue = 1
+        bannerHide?.cancel()
+        let hide = DispatchWorkItem { [weak self] in
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.35
+                self?.kitBanner.animator().alphaValue = 0
+            }
+        }
+        bannerHide = hide
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1, execute: hide)
+        drewFlatFrame = false
+        draw()
     }
 
     required init(coder: NSCoder) {

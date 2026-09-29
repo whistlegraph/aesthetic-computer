@@ -385,7 +385,10 @@ final class MenuBandController {
     /// touched, instead of always defaulting to middle C.
     /// Defaults to 60 (C4) on a fresh session.
     private(set) var lastPlayedNote: UInt8 = 60 {
-        didSet { lastPlayedChord = [lastPlayedNote] }
+        didSet {
+            lastPlayedChord = [lastPlayedNote]
+            lastSoundWasTrackDrum = false   // arrows go back to instruments
+        }
     }
     /// The last thing played, as pitches: one note, or a root and the
     /// extensions it was chorded with. ⇧Space tunes its air to this.
@@ -1114,7 +1117,45 @@ final class MenuBandController {
 
     func trackpadDrumSkin(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
         mixAnalysis.mark("skin-\(MenuBandPercussion.drumSkinZone(at: strike).rawValue)")
+        lastSoundWasTrackDrum = true
         synth.playDrumSkin(strike: strike, anchors: anchors, velocity: velocity)
+    }
+
+    // MARK: - TrackDrum kits
+
+    private let drumKitKey = "notepat.trackDrumKit"
+
+    /// True while the most recent sound came off the TrackDrum skin. Then
+    /// ←/→ step drum kits instead of the melodic instrument; the next played
+    /// note hands the arrows back.
+    private(set) var lastSoundWasTrackDrum = false
+
+    var drumKit: MenuBandPercussion.DrumKit {
+        get {
+            MenuBandPercussion.DrumKit(
+                rawValue: UserDefaults.standard.integer(forKey: drumKitKey)
+            ) ?? .menuBand
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: drumKitKey)
+            synth.percussion.kit = newValue
+            MenuBandPercussion.DrumKit.current = newValue
+            NotificationCenter.default.post(name: MenuBandPercussion.DrumKit.didChange,
+                                            object: newValue)
+        }
+    }
+
+    /// Step the kit and audition it: kick, then snare, on the new voicing.
+    func stepDrumKit(delta: Int) {
+        let kit = drumKit.stepped(by: delta)
+        drumKit = kit
+        debugLog("TrackDrum kit = \(kit.label)")
+        synth.playDrumSkin(strike: CGPoint(x: 0.5, y: 0.5), anchors: [], velocity: 96)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) { [weak self] in
+            self?.synth.playDrumSkin(strike: CGPoint(x: 0.5, y: 0.775),
+                                     anchors: [], velocity: 90)
+        }
+        onChange?()
     }
 
     func trackpadSynthSurface(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
@@ -2351,6 +2392,8 @@ final class MenuBandController {
         // survive the relaunch.
         synth.setMasterVolume(masterVolume)
         synth.setPercussionVolume(percussionVolume)
+        synth.percussion.kit = drumKit
+        MenuBandPercussion.DrumKit.current = drumKit
         synth.setTonesVolume(tonesVolume)
         synth.setMonitorGain(monitorGain)
         // Studio reflex: a Focusrite on the bus means "monitor me". Checked
@@ -3856,6 +3899,18 @@ final class MenuBandController {
         // while the user drags through cells — so the user can scan
         // voices by ear, not just by name. Auto-repeat is allowed so
         // holding an arrow streams through voices.
+        // …unless the last sound came off TrackDrum: then ←/→ flip between
+        // the Menu Band and Electro kits instead. Held
+        // arrows don't auto-repeat through kits — one press, one kit.
+        if (keyCode == 123 || keyCode == 124) && lastSoundWasTrackDrum {
+            if isDown && !isRepeat {
+                let delta = keyCode == 123 ? -1 : 1
+                DispatchQueue.main.async { [weak self] in
+                    self?.stepDrumKit(delta: delta)
+                }
+            }
+            return true
+        }
         switch keyCode {
         case 123:
             if isDown {

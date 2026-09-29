@@ -262,7 +262,8 @@ enum GeneralMIDI {
     static func lingerCategory(for program: UInt8) -> LingerCategory {
         switch Int(program) {
         case 0...7:    return .sustained   // Pianos: long natural release
-        case 8...15:   return .staccato    // Chromatic Percussion (mallets, bells)
+        case 8...15:   return .sustained   // Chromatic Percussion: bells ring out
+                                           // (the doppler retrigger stuttered)
         case 16...23:  return .sustained   // Organs hold forever
         case 24...31:  return .staccato    // Guitars (plucked)
         case 32...37:  return .staccato    // Acoustic / Electric / Slap basses

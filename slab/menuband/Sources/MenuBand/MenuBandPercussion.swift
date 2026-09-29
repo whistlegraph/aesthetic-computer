@@ -48,7 +48,44 @@ final class MenuBandPercussion {
         }
     }
 
-    private enum Wave { case sine, triangle, square, noise }
+    /// Which voicing the TrackDrum skin speaks with. `.menuBand` is the
+    /// original modal membrane; the genre kits keep the same five concentric
+    /// zones (kick, tom, snare, hat, click) but swap what each zone sounds
+    /// like. ←/→ steps through them when the last sound was a TrackDrum hit.
+    enum DrumKit: Int, CaseIterable {
+        case menuBand = 0, electro
+
+        var label: String {
+            switch self {
+            case .menuBand: return "Menu Band"
+            case .electro: return "Electro"
+            }
+        }
+
+        /// 1-based, as shown on the pad and in the switch banner.
+        var number: Int { rawValue + 1 }
+
+        /// Main-thread mirror of the chosen kit for the pad artwork, plus the
+        /// notification the overlay listens to (rebuild texture, flash name).
+        static var current: DrumKit = .menuBand
+        static let didChange = Notification.Name("MenuBandDrumKitDidChange")
+
+        func stepped(by delta: Int) -> DrumKit {
+            let n = Self.allCases.count
+            return DrumKit(rawValue: ((rawValue + delta) % n + n) % n) ?? .menuBand
+        }
+    }
+
+    /// Written from the main thread, read on the control thread that builds
+    /// voices — a plain enum load/store, same as `pitchScale`.
+    var kit: DrumKit = .menuBand
+
+    /// `metal` is the TR-808 cymbal/hat source: six detuned square
+    /// oscillators summed, then shaped by the voice's filter like noise.
+    enum Wave { case sine, triangle, square, noise, metal }
+
+    /// Filter shape for noise / metal voices (`freq` is the cutoff/center).
+    enum NoiseFilter: UInt8 { case lowpass, highpass, bandpass }
 
     /// A drum hit's timestamp + 0…1 level, kept per pitch class so the
     /// menubar can shake/blink the matching key with the live hit data.
@@ -58,7 +95,7 @@ final class MenuBandPercussion {
     }
     /// Most recent hit per pitch class (index == Drum.rawValue). Read as a
     /// snapshot by the icon renderer each frame.
-    private var pulses = [DrumPulse](repeating: DrumPulse(), count: 12)
+    var pulses = [DrumPulse](repeating: DrumPulse(), count: 12)
 
     /// Thread-safe copy of the current per-pitch-class hit pulses.
     func pulseSnapshot() -> [DrumPulse] {
@@ -68,7 +105,7 @@ final class MenuBandPercussion {
 
     // MARK: Voice state (render thread owns the active pool)
 
-    private struct Voice {
+    struct Voice {
         var wave: Wave
         var freq: Double          // Hz; for noise this is the LPF cutoff
         var duration: Double      // seconds (.infinity for held voices)
@@ -93,6 +130,20 @@ final class MenuBandPercussion {
         var na1: Double = 0, na2: Double = 0
         var nx1: Double = 0, nx2: Double = 0, ny1: Double = 0, ny2: Double = 0
         var seed: UInt32 = 1
+        // Genre-kit shaping (all inert at their defaults, so the Menu Band
+        // membrane and the keyboard kit render exactly as before).
+        var delay: Double = 0         // silent lead-in (clap flams)
+        var tau: Double = 0           // exponential decay time constant
+        var expGain: Double = 1
+        var expK: Double = 0          // per-sample multiplier, set lazily
+        var sweep: Double = 0         // Hz above `freq`, decaying to 0
+        var sweepTau: Double = 0
+        var sweepK: Double = 0
+        var drive: Double = 0         // tanh saturation amount (0 = clean)
+        var filter: NoiseFilter = .lowpass
+        var q: Double = 1.0
+        var metalScale: Double = 1.0  // multiplies the six metal oscillators
+        var filtered = false          // run a tonal wave through the biquad
     }
 
     // MARK: Audio graph
@@ -101,7 +152,7 @@ final class MenuBandPercussion {
     /// our synthesis runs at the hardware clock with no resample (the noise
     /// biquad + phase increments use this). Pitch itself is absolute Hz, so
     /// every drum's tones match AC-native regardless of the rate.
-    private var sampleRate: Double = 48_000
+    private(set) var sampleRate: Double = 48_000
     private var format: AVAudioFormat!
     private var sourceNode: AVAudioSourceNode!
     private weak var engine: AVAudioEngine?
@@ -146,8 +197,8 @@ final class MenuBandPercussion {
 
     /// Pending voices staged by the control thread, drained at the top of
     /// each render cycle. Guarded by a tiny critical section.
-    private var pending: [Voice] = []
-    private let lock = NSLock()
+    var pending: [Voice] = []
+    let lock = NSLock()
 
     /// Which surface axis the stereo image follows, as a unit vector over the
     /// centered coordinates (sx, sy). A Mac trackpad pans along its long axis —
@@ -156,7 +207,7 @@ final class MenuBandPercussion {
     /// right on the glass stay left and right in the ears. Default is the Mac's.
     var panAxis = (x: 1.0, y: 0.0)
 
-    private func stereo(_ sx: Double, _ sy: Double, _ reach: Double) -> Double {
+    func stereo(_ sx: Double, _ sy: Double, _ reach: Double) -> Double {
         max(-1.0, min(1.0, (sx * panAxis.x + sy * panAxis.y) * reach))
     }
 
@@ -174,7 +225,7 @@ final class MenuBandPercussion {
     /// Latency probe: when voices were staged (noteOn) vs. when the render
     /// thread first picked them up — the trigger→render handoff, the
     /// percussion-specific slice of keypress→sound latency.
-    private var pendingStageTime: Double = 0
+    var pendingStageTime: Double = 0
     private var lastHandoffSec: Double = 0
     private var pendingTrackpadInputTime: Double = 0
     private var lastTrackpadInputToRenderSec: Double = 0
@@ -251,6 +302,11 @@ final class MenuBandPercussion {
         engine.attach(sourceNode)
         engine.connect(sourceNode, to: output, format: format)
         attached = true
+        // Loudness-match every genre kit now, at the real output rate, so the
+        // first hit on a freshly chosen kit never waits on a measurement.
+        DispatchQueue.global(qos: .utility).async { [self] in
+            for kit in DrumKit.allCases { _ = padGains(for: kit) }
+        }
     }
 
     // MARK: Trigger
@@ -301,6 +357,29 @@ final class MenuBandPercussion {
     /// the membrane from the outer edge, where short noise/square modes become
     /// the hat.
     func playDrumSkin(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
+        if kit != .menuBand {
+            playKit(kit, strike: strike, anchors: anchors, velocity: velocity)
+            return
+        }
+        let (voices, pulseDrum) = membraneVoices(strike: strike, anchors: anchors,
+                                                 velocity: velocity)
+        let now = CACurrentMediaTime()
+        lock.lock()
+        // Stage every onset. The render thread owns the bounded 96-voice
+        // policy and records any pressure; capping here could silently erase
+        // the last finger of a same-frame multitouch strike.
+        pending.append(contentsOf: voices)
+        pulses[pulseDrum.rawValue] = DrumPulse(
+            at: now, level: min(1.0, Double(velocity) / 127.0)
+        )
+        pendingStageTime = now
+        lock.unlock()
+    }
+
+    /// The Menu Band membrane's voices for one strike, unstaged — so the
+    /// genre kits can be loudness-matched against it offline.
+    func membraneVoices(strike: CGPoint, anchors: [CGPoint],
+                        velocity: UInt8) -> ([Voice], Drum) {
         struct Mode { let m: Int32; let root: Double; let gain: Double }
         let modes = [
             Mode(m: 0, root: 2.4048, gain: 0.46),
@@ -435,20 +514,10 @@ final class MenuBandPercussion {
                                     0.20 * click, 0.0001, 0.0048, pan))
         }
 
-        let now = CACurrentMediaTime()
-        lock.lock()
-        // Stage every onset. The render thread owns the bounded 96-voice
-        // policy and records any pressure; capping here could silently erase
-        // the last finger of a same-frame multitouch strike.
-        pending.append(contentsOf: voices)
         let pulseDrum: Drum = edge > 0.55 ? .hatClosed
             : (snareBand > 0.45 ? .snare
                 : (tomBand > 0.45 ? .block : .kick))
-        pulses[pulseDrum.rawValue] = DrumPulse(
-            at: now, level: min(1.0, Double(velocity) / 127.0)
-        )
-        pendingStageTime = now
-        lock.unlock()
+        return (voices, pulseDrum)
     }
 
     /// Finger-up articulation for the continuous surfaces. It is deliberately
@@ -456,6 +525,9 @@ final class MenuBandPercussion {
     /// tiny closure, and the last perimeter strip a near-instant click.
     func playSurfaceLift(at point: CGPoint, anchors: [CGPoint],
                          velocity: UInt8, synthetic: Bool) {
+        // Drum machines don't answer a finger lifting off; only the membrane
+        // (and the synth surface) do.
+        guard synthetic || kit == .menuBand else { return }
         let sx = Double(point.x - 0.5) * 2
         let sy = Double(point.y - 0.5) * 2
         let distance = Self.roundedTrackpadDistance(sx: sx, sy: sy)
@@ -615,6 +687,12 @@ final class MenuBandPercussion {
                             direction: CGVector = .zero,
                             surfaceEnergy: Double = 0,
                             synthetic: Bool = false) {
+        // Head friction belongs to the membrane; the drum machine stays dry
+        // under a dragging finger.
+        if !synthetic, kit == .electro {
+            stopDrumSkinScratch()
+            return
+        }
         let sx = Double(point.x - 0.5) * 2
         let sy = Double(point.y - 0.5) * 2
         let distance = Self.roundedTrackpadDistance(
@@ -799,7 +877,7 @@ final class MenuBandPercussion {
         return 1.0 - min(1.0, inwardDepth / halfHeight)
     }
 
-    private func smoothstep(_ edge0: Double, _ edge1: Double, _ x: Double) -> Double {
+    func smoothstep(_ edge0: Double, _ edge1: Double, _ x: Double) -> Double {
         let t = max(0, min(1, (x - edge0) / (edge1 - edge0)))
         return t * t * (3 - 2 * t)
     }
@@ -911,10 +989,10 @@ final class MenuBandPercussion {
 
     // MARK: Recipe → voices (port of percussion.mjs)
 
-    private func rj(_ c: Double, _ f: Double) -> Double {
+    func rj(_ c: Double, _ f: Double) -> Double {
         c * (1 + (Double.random(in: 0..<1) - 0.5) * 2 * f)
     }
-    private func rn(_ a: Double, _ b: Double) -> Double {
+    func rn(_ a: Double, _ b: Double) -> Double {
         a + Double.random(in: 0..<1) * (b - a)
     }
 
@@ -923,7 +1001,7 @@ final class MenuBandPercussion {
     /// Build one layer. `decay == 0` (the sustain voices) fades across the
     /// whole duration so the tail never clicks off — the JS relies on the
     /// engine's default release for that, which we make explicit here.
-    private func makeVoice(_ wave: Wave, _ tone: Double, _ duration: Double,
+    func makeVoice(_ wave: Wave, _ tone: Double, _ duration: Double,
                            _ volume: Double, _ attack: Double, _ decay: Double,
                            _ pan: Double) -> Voice {
         let p = max(-1.0, min(1.0, pan))
@@ -939,7 +1017,7 @@ final class MenuBandPercussion {
         return voice
     }
 
-    private struct DrumVoices {
+    struct DrumVoices {
         var down: [Voice] = []      // fired on key-down
         var release: [Voice] = []   // fired on key-up (closed-hat lift click)
     }
@@ -1106,17 +1184,34 @@ final class MenuBandPercussion {
 
     // MARK: Noise biquad (matches audio.c setup_noise_filter, Q = 1)
 
-    private func setupNoiseFilter(_ v: inout Voice) {
+    func setupNoiseFilter(_ v: inout Voice) {
+        Self.setupFilter(&v, sampleRate: sampleRate)
+    }
+
+    /// RBJ cookbook biquads. Low-pass at Q 1 is the original noise filter.
+    static func setupFilter(_ v: inout Voice, sampleRate: Double) {
         let cutoff = min(v.freq, sampleRate * 0.45)
-        let q = 1.0
+        let q = max(0.1, v.q)
         let w0 = 2.0 * .pi * cutoff / sampleRate
         let alpha = sin(w0) / (2.0 * q)
         let cosw = cos(w0)
-        let b = (1.0 - cosw) / 2.0
         let norm = 1.0 + alpha
-        v.nb0 = b / norm
-        v.nb1 = (1.0 - cosw) / norm
-        v.nb2 = b / norm
+        switch v.filter {
+        case .lowpass:
+            let b = (1.0 - cosw) / 2.0
+            v.nb0 = b / norm
+            v.nb1 = (1.0 - cosw) / norm
+            v.nb2 = b / norm
+        case .highpass:
+            let b = (1.0 + cosw) / 2.0
+            v.nb0 = b / norm
+            v.nb1 = -(1.0 + cosw) / norm
+            v.nb2 = b / norm
+        case .bandpass:
+            v.nb0 = alpha / norm
+            v.nb1 = 0
+            v.nb2 = -alpha / norm
+        }
         v.na1 = (-2.0 * cosw) / norm
         v.na2 = (1.0 - alpha) / norm
     }
@@ -1130,7 +1225,7 @@ final class MenuBandPercussion {
     // MARK: Envelope (matches audio.c compute_envelope)
 
     @inline(__always)
-    private func envelope(_ v: Voice, at t: Double) -> Double {
+    private static func envelope(_ v: Voice, at t: Double) -> Double {
         var env = 1.0
         if v.attack > 0, t < v.attack {
             env = t / v.attack
@@ -1144,6 +1239,92 @@ final class MenuBandPercussion {
             }
         }
         return env
+    }
+
+    @inline(__always)
+    private static func xorshiftS(_ s: inout UInt32) -> UInt32 {
+        s ^= s << 13; s ^= s >> 17; s ^= s << 5
+        return s
+    }
+
+    /// The 808 cymbal/hat oscillator bank (Hz), per the TR-808 service notes.
+    static let metalFreqs: [Double] = [205.3, 304.4, 369.6, 522.7, 540, 800]
+
+    /// Advance one voice by one sample and return its amplitude (before the
+    /// master gain and pan). Shared by the render thread and the offline
+    /// loudness meter so both hear exactly the same synthesis.
+    @inline(__always)
+    static func nextSample(_ v: inout Voice, pitch: Double, dt: Double) -> Double {
+        let t = v.elapsed - v.delay
+        guard t >= 0 else {
+            v.elapsed += dt
+            return 0
+        }
+        var env = envelope(v, at: t)
+        if v.tau > 0 {
+            if v.expK == 0 { v.expK = exp(-dt / v.tau) }
+            env *= v.expGain
+            v.expGain *= v.expK
+        }
+        let relGain = v.releasing
+            ? max(0.0, 1.0 - v.releaseElapsed / v.releaseFade) : 1.0
+        var s: Double
+        switch v.wave {
+        case .sine:
+            s = sin(2.0 * .pi * v.phase)
+        case .triangle:
+            // Wrap the +0.25 phase offset back into [0,1) — without the wrap
+            // the last quarter ramps to +2.0, adding bright harmonics that
+            // alias at 48k and read as a higher, harsher pitch than AC-native.
+            let tp = (v.phase + 0.25).truncatingRemainder(dividingBy: 1.0)
+            s = 4.0 * abs(tp - 0.5) - 1.0
+        case .square:
+            s = v.phase < 0.5 ? 1.0 : -1.0
+            if v.filtered {
+                let y = v.nb0 * s + v.nb1 * v.nx1 + v.nb2 * v.nx2
+                      - v.na1 * v.ny1 - v.na2 * v.ny2
+                v.nx2 = v.nx1; v.nx1 = s
+                v.ny2 = v.ny1; v.ny1 = y
+                s = y
+            }
+        case .noise, .metal:
+            var x: Double
+            if v.wave == .noise {
+                let r = Double(xorshiftS(&v.seed)) / Double(UInt32.max)
+                x = r * 2.0 - 1.0
+            } else {
+                x = 0
+                for f in metalFreqs {
+                    let ph = (t * f * v.metalScale).truncatingRemainder(dividingBy: 1)
+                    x += ph < 0.5 ? 1 : -1
+                }
+                x /= 6
+            }
+            let y = v.nb0 * x + v.nb1 * v.nx1 + v.nb2 * v.nx2
+                  - v.na1 * v.ny1 - v.na2 * v.ny2
+            v.nx2 = v.nx1; v.nx1 = x
+            v.ny2 = v.ny1; v.ny1 = y
+            s = y
+        }
+        var out = s * env * relGain
+        if v.drive > 0 {
+            out = tanh(out * v.drive) / tanh(v.drive)
+        }
+        out *= v.volume
+        // Kit-wide pitch bend scales the phase increment so tonal drums bend
+        // with the melodic voices. Noise voices use `freq` as a filter
+        // cutoff, not a pitch, so they're left unscaled.
+        var f = v.freq
+        if v.sweep > 0 {
+            if v.sweepK == 0 { v.sweepK = exp(-dt / max(1e-4, v.sweepTau)) }
+            f += v.sweep
+            v.sweep *= v.sweepK
+        }
+        v.phase += f * (v.wave == .noise ? 1.0 : pitch) * dt
+        if v.phase >= 1 { v.phase -= floor(v.phase) }
+        v.elapsed += dt
+        if v.releasing { v.releaseElapsed += dt }
+        return out
     }
 
     // MARK: Render thread
@@ -1171,7 +1352,7 @@ final class MenuBandPercussion {
             let voice = active[index]
             let alive = voice.releasing
                 ? voice.releaseElapsed < voice.releaseFade
-                : (voice.held || voice.elapsed < voice.duration)
+                : (voice.held || voice.elapsed < voice.duration + voice.delay)
             if alive {
                 active[liveWrite] = voice
                 liveWrite += 1
@@ -1266,44 +1447,11 @@ final class MenuBandPercussion {
                 if v.releasing {
                     if v.releaseElapsed >= v.releaseFade { alive = false; break }
                 } else if !v.held {
-                    if v.elapsed >= v.duration { alive = false; break }
+                    if v.elapsed >= v.duration + v.delay { alive = false; break }
                 }
-                let env = envelope(v, at: v.elapsed)
-                let relGain = v.releasing
-                    ? max(0.0, 1.0 - v.releaseElapsed / v.releaseFade) : 1.0
-                var s: Double
-                switch v.wave {
-                case .sine:
-                    s = sin(2.0 * .pi * v.phase)
-                case .triangle:
-                    // Wrap the +0.25 phase offset back into [0,1) — without
-                    // the wrap the last quarter ramps to +2.0, adding bright
-                    // harmonics that alias at 48k and read as a higher,
-                    // harsher pitch than AC-native (block / o key).
-                    let tp = (v.phase + 0.25).truncatingRemainder(dividingBy: 1.0)
-                    s = 4.0 * abs(tp - 0.5) - 1.0
-                case .square:
-                    s = v.phase < 0.5 ? 1.0 : -1.0
-                case .noise:
-                    let r = Double(xorshift(&v.seed)) / Double(UInt32.max)
-                    let white = r * 2.0 - 1.0
-                    let y = v.nb0 * white + v.nb1 * v.nx1 + v.nb2 * v.nx2
-                          - v.na1 * v.ny1 - v.na2 * v.ny2
-                    v.nx2 = v.nx1; v.nx1 = white
-                    v.ny2 = v.ny1; v.ny1 = y
-                    s = y
-                }
-                let amp = s * env * relGain * v.volume * g
+                let amp = Self.nextSample(&v, pitch: pitch, dt: dt) * g
                 left[i] += Float(amp * Double(v.gainL))
                 right[i] += Float(amp * Double(v.gainR))
-                // Kit-wide pitch bend scales the phase increment so
-                // tonal drums (kick/toms/blocks/cowbell) bend with the
-                // melodic voices. Noise voices use `freq` as an LPF
-                // cutoff, not a pitch, so they're left unscaled.
-                v.phase += v.freq * (v.wave == .noise ? 1.0 : pitch) * dt
-                if v.phase >= 1 { v.phase -= floor(v.phase) }
-                v.elapsed += dt
-                if v.releasing { v.releaseElapsed += dt }
             }
             if alive {
                 active[w] = v
