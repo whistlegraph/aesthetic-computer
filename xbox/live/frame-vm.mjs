@@ -33,6 +33,24 @@
 //              normal, which is unlit. A face whose fourth id repeats its
 //              third is one triangle. Nothing is tessellated here: the levels
 //              are meshes the game baked (xbox/live/object-lisp.mjs).
+//  15 ELLIPSE  x y depth · ax ay bx by · r g b   a projected circle: the
+//              points x + a·cos t + b·sin t, a and b conjugate half-axes
+//  16 PLATE    n · n×(x y) · depth · r g b   a flat convex polygon, n 3–16
+//  17 OUTLINE  width r g b   from here on, every DISC, CAPSULE, ELLIPSE and
+//              PLATE is drawn first in this ink, `width` px bigger, a hair
+//              behind its own depth; width 0 stops. Flat objects draw so.
+//  18 SHAPES   handle count length · records   an object's flat shapes, kept
+//              by handle: per record kind (1 ball, 2 limb, 3 ring, 4 plate,
+//              5 drum) · outline width (world units) and its ink rgb ·
+//              nudge (world units back) · rgb · facing xyz (zero = both
+//              sides), then object-space anchors: ball x y z radius; limb
+//              two ends and a radius; ring centre and two radius vectors;
+//              plate n and n points; drum centre, two radius vectors and
+//              half its length as a vector
+//  19 SKETCH   handle · origin(3) x(3) y(3) z(3)   draw kept shapes under a
+//              placement: anchors projected here, filled flat, outlined,
+//              one-sided ones skipped when turned away, ellipse sides picked
+//              by projected size. Nothing else is expanded here.
 //
 // A WORLD face is taken to the current CAMERA here: to camera space, cut at
 // the near plane (Sutherland-Hodgman, before the divide), projected with the
@@ -46,11 +64,15 @@
 export const FRAME_VIEW = 1, FRAME_FACE = 2, FRAME_DISC = 3, FRAME_CAPSULE = 4,
   FRAME_TEXT = 5, FRAME_BOX = 6, FRAME_LINE = 7, FRAME_WIPE = 8,
   FRAME_CAMERA = 9, FRAME_WORLD = 10, FRAME_DEPTH = 11, FRAME_ASSET = 12,
-  FRAME_MESH = 13, FRAME_MODEL = 14;
+  FRAME_MESH = 13, FRAME_MODEL = 14, FRAME_ELLIPSE = 15, FRAME_PLATE = 16,
+  FRAME_OUTLINE = 17, FRAME_SHAPES = 18, FRAME_SKETCH = 19;
 // Fixed sizes; ASSET is variable and measured from its own header.
-const opSize = [0, 5, 13, 8, 10, 9, 9, 9, 4, 25, 13, 3, 0, 5, 20];
-const sizeAt = (p, at) => p[at] === FRAME_ASSET
-  ? 4 + p[at + 2] * 3 + p[at + 3] * 10 : opSize[p[at]] || 0;
+const opSize = [0, 5, 13, 8, 10, 9, 9, 9, 4, 25, 13, 3, 0, 5, 20, 11, 0, 5, 0, 14];
+const sizeAt = (p, at) => p[at] === FRAME_ASSET ? 4 + p[at + 2] * 3 + p[at + 3] * 10
+  : p[at] === FRAME_PLATE ? 6 + p[at + 1] * 2 : p[at] === FRAME_SHAPES ? 4 + p[at + 3] : opSize[p[at]] || 0;
+// An outline sits this far behind its own shape, so the shape covers it and
+// anything nearer covers both.
+const outlineBehind = 2e-6;
 
 // Ring tables by radius bucket, as the game fans them: a small disc is a
 // hexagon, a large one thirty-two sides.
@@ -317,12 +339,178 @@ export function createFrameVm(host) {
     }
   }
 
+  // Flat shapes. An ellipse gets as many sides as keep its chords within
+  // 2 px of the curve (4 to 24): a lamp far off is a diamond, a near wheel
+  // round. One under a pixel isn't drawn at all.
+  const sidesFor = (radius) => radius < 3 ? 4 : radius < 6 ? 5
+    : Math.max(6, Math.min(24, Math.ceil(Math.PI / Math.acos(Math.max(-1, 1 - 2 / radius)))));
+  // `half`: only the half from angle `from` round to `from + π`, as a fan
+  // from the centre — a drum's far end, whose other half the band covers.
+  function ellipse(x, y, depth, ax, ay, bx, by, r, g, b, grow = 0, half = false, from = 0) {
+    if (grow) {
+      const ka = 1 + grow / (Math.hypot(ax, ay) || 1), kb = 1 + grow / (Math.hypot(bx, by) || 1);
+      ax *= ka; ay *= ka; bx *= kb; by *= kb;
+    }
+    const reach = Math.max(Math.hypot(ax, ay), Math.hypot(bx, by));
+    if (reach < .75) return;
+    // Sides by its mean radius, so a long thin ellipse isn't paid for as a circle.
+    const n = sidesFor(Math.max(Math.sqrt(Math.abs(ax * by - ay * bx)), reach * .35));
+    if (half) {
+      const steps = Math.max(2, Math.ceil(n / 2));
+      let lx = x + ax * Math.cos(from) + bx * Math.sin(from), ly = y + ay * Math.cos(from) + by * Math.sin(from);
+      for (let i = 1; i <= steps; i++) {
+        const t = from + i / steps * Math.PI, nx = x + ax * Math.cos(t) + bx * Math.sin(t), ny = y + ay * Math.cos(t) + by * Math.sin(t);
+        flatFace(x, y, lx, ly, nx, ny, depth, r, g, b);
+        lx = nx; ly = ny;
+      }
+      return;
+    }
+    const ox = x + ax, oy = y + ay;
+    let lx = x + ax * Math.cos(Math.PI * 2 / n) + bx * Math.sin(Math.PI * 2 / n);
+    let ly = y + ay * Math.cos(Math.PI * 2 / n) + by * Math.sin(Math.PI * 2 / n);
+    for (let i = 2; i < n; i++) {
+      const c = Math.cos(i / n * Math.PI * 2), s = Math.sin(i / n * Math.PI * 2);
+      const nx = x + ax * c + bx * s, ny = y + ay * c + by * s;
+      flatFace(ox, oy, lx, ly, nx, ny, depth, r, g, b);
+      lx = nx; ly = ny;
+    }
+  }
+  // A convex polygon, fanned; `grow` pushes each corner out from the middle.
+  function plate(p, at, n, depth, r, g, b, grow = 0) {
+    let cx = 0, cy = 0;
+    if (grow) { for (let i = 0; i < n; i++) { cx += p[at + i * 2] / n; cy += p[at + i * 2 + 1] / n; } }
+    const x = (i) => { const v = p[at + i * 2]; if (!grow) return v; const dx = v - cx, dy = p[at + i * 2 + 1] - cy; return v + dx / (Math.hypot(dx, dy) || 1) * grow; };
+    const y = (i) => { const v = p[at + i * 2 + 1]; if (!grow) return v; const dx = p[at + i * 2] - cx, dy = v - cy; return v + dy / (Math.hypot(dx, dy) || 1) * grow; };
+    for (let i = 2; i < n; i++) flatFace(x(0), y(0), x(i - 1), y(i - 1), x(i), y(i), depth, r, g, b);
+  }
+  const ink = { width: 0, r: 0, g: 0, b: 0 };
+  function outlined(op, p, at) {
+    const w = ink.width, d = outlineBehind;
+    if (op === FRAME_DISC) disc(p[at + 1], p[at + 2], p[at + 3] + d, p[at + 4] + w, ink.r, ink.g, ink.b);
+    else if (op === FRAME_CAPSULE) capsule(p[at + 1], p[at + 2], p[at + 3], p[at + 4], p[at + 5] + d, p[at + 6] + w * 2, ink.r, ink.g, ink.b);
+    else if (op === FRAME_ELLIPSE)
+      ellipse(p[at + 1], p[at + 2], p[at + 3] + d, p[at + 4], p[at + 5], p[at + 6], p[at + 7], ink.r, ink.g, ink.b, w);
+    else plate(p, at + 2, p[at + 1], p[at + 2 + p[at + 1] * 2] + d, ink.r, ink.g, ink.b, w);
+  }
+
+  // Sketches: an object's flat shapes, kept by handle (SHAPES) and drawn under
+  // a placement (SKETCH). Each record: kind · outline width, ink rgb · nudge ·
+  // rgb · facing (3; zero = both sides), then its anchors in object space.
+  const sketches = new Map();
+  function storeShapes(p, at) {
+    sketches.set(p[at + 1], { count: p[at + 2], records: Float64Array.from(p.subarray(at + 4, at + 4 + p[at + 3])) });
+  }
+  const seen = new Float64Array(4 * 4), flatPoly = new Float64Array(16);
+  // A placed point to the screen: x, y, view depth, px per world unit.
+  function seePlaced(m, x, y, z, o) {
+    const wx = m[0] + x * m[3] + y * m[6] + z * m[9], wy = m[1] + x * m[4] + y * m[7] + z * m[10];
+    const wz = m[2] + x * m[5] + y * m[8] + z * m[11];
+    const dx = wx - cam[0], dy = wy - cam[1], dz = wz - cam[2];
+    const vz = dx * cam[9] + dy * cam[10] + dz * cam[11];
+    if (vz < cam[19]) return false;
+    const k = cam[14] + (cam[15] / vz - cam[14]) * cam[16];
+    seen[o] = cam[12] + (dx * cam[3] + dy * cam[4] + dz * cam[5]) * k;
+    seen[o + 1] = cam[13] - (dx * cam[6] + dy * cam[7] + dz * cam[8]) * k;
+    seen[o + 2] = vz; seen[o + 3] = k;
+    return true;
+  }
+  const flatDepth = (vz, nudge) => {
+    const z = (vz + nudge) * cam[17] + cam[18];
+    return z < -1.499 ? -1.499 : z > 1.4 ? 1.4 : z;
+  };
+  const shapeSize = (R, i) => 12 + [0, 4, 7, 9, 1 + 3 * R[i + 12], 12][R[i]];
+  const placedModel = new Float64Array(12);
+  function drawSketch(p, at) {
+    const sketch = sketches.get(p[at + 1]);
+    if (!sketch || !hasCamera) return;
+    const m = placedModel;
+    for (let k = 0; k < 12; k++) m[k] = p[at + 2 + k];
+    const unit = Math.cbrt(Math.abs(m[3] * (m[7] * m[11] - m[8] * m[10]) - m[4] * (m[6] * m[11] - m[8] * m[9]) +
+      m[5] * (m[6] * m[10] - m[7] * m[9])));
+    const R = sketch.records;
+    for (let n = 0, i = 0; n < sketch.count; n++, i += shapeSize(R, i)) {
+      const kind = R[i], line = R[i + 1], nudge = R[i + 5], r = R[i + 6], g = R[i + 7], b = R[i + 8], a = i + 12;
+      const ax = kind === 4 ? R[a + 1] : R[a], ay = kind === 4 ? R[a + 2] : R[a + 1], az = kind === 4 ? R[a + 3] : R[a + 2];
+      // One-sided: skip it when its facing turns from the camera.
+      const fx = R[i + 9], fy = R[i + 10], fz = R[i + 11];
+      if (fx || fy || fz) {
+        const wx = fx * m[3] + fy * m[6] + fz * m[9], wy = fx * m[4] + fy * m[7] + fz * m[10], wz = fx * m[5] + fy * m[8] + fz * m[11];
+        const px = m[0] + ax * m[3] + ay * m[6] + az * m[9], py = m[1] + ax * m[4] + ay * m[7] + az * m[10];
+        const pz = m[2] + ax * m[5] + ay * m[8] + az * m[11];
+        if (wx * (px - cam[0]) + wy * (py - cam[1]) + wz * (pz - cam[2]) > 0) continue;
+      }
+      const shape = (grow, depthShift, cr, cg, cb) => {
+        if (kind === 1) {
+          if (!seePlaced(m, R[a], R[a + 1], R[a + 2], 0)) return;
+          const rad = R[a + 3] * seen[3] * unit;
+          ellipse(seen[0], seen[1], flatDepth(seen[2], nudge) + depthShift, rad, 0, 0, rad, cr, cg, cb, grow);
+        } else if (kind === 2) {
+          if (!seePlaced(m, R[a], R[a + 1], R[a + 2], 0) || !seePlaced(m, R[a + 3], R[a + 4], R[a + 5], 4)) return;
+          capsule(seen[0], seen[1], seen[4], seen[5], flatDepth((seen[2] + seen[6]) / 2, nudge) + depthShift,
+            R[a + 6] * (seen[3] + seen[7]) * unit + grow * 2, cr, cg, cb);
+        } else if (kind === 3) {
+          if (!seePlaced(m, R[a], R[a + 1], R[a + 2], 0) || !seePlaced(m, R[a] + R[a + 3], R[a + 1] + R[a + 4], R[a + 2] + R[a + 5], 4) ||
+            !seePlaced(m, R[a] + R[a + 6], R[a + 1] + R[a + 7], R[a + 2] + R[a + 8], 8)) return;
+          ellipse(seen[0], seen[1], flatDepth(seen[2], nudge) + depthShift, seen[4] - seen[0], seen[5] - seen[1],
+            seen[8] - seen[0], seen[9] - seen[1], cr, cg, cb, grow);
+        } else if (kind === 4) {
+          const count = R[a];
+          let vz = 0;
+          for (let k = 0; k < count; k++) {
+            if (!seePlaced(m, R[a + 1 + k * 3], R[a + 2 + k * 3], R[a + 3 + k * 3], 0)) return;
+            flatPoly[k * 2] = seen[0]; flatPoly[k * 2 + 1] = seen[1]; vz += seen[2];
+          }
+          plate(flatPoly, 0, count, flatDepth(vz / count, nudge) + depthShift, cr, cg, cb, grow);
+        } else drum(m, R, a, nudge, grow, depthShift, cr, cg, cb);
+      };
+      // The ink edge is world units wide, sized where the shape is anchored.
+      // Under half a pixel it is left off: a far object keeps its fills.
+      if (line && seePlaced(m, ax, ay, az, 12) && line * seen[15] * unit >= .5)
+        shape(line * seen[15] * unit, outlineBehind, R[i + 2], R[i + 3], R[i + 4]);
+      shape(0, 0, r, g, b);
+    }
+  }
+  // A drum (a cylinder: centre, two radius vectors, half its length along the
+  // axis): the far end's ellipse, the band between the ends' tangent points,
+  // the near end's ellipse, each at its own depth.
+  const drumEnds = [new Float64Array(7), new Float64Array(7)];
+  function drum(m, R, a, nudge, grow, depthShift, cr, cg, cb) {
+    for (const side of [0, 1]) {
+      const s = side ? 1 : -1, e = drumEnds[side];
+      const cx = R[a] + R[a + 9] * s, cy = R[a + 1] + R[a + 10] * s, cz = R[a + 2] + R[a + 11] * s;
+      if (!seePlaced(m, cx, cy, cz, 0) || !seePlaced(m, cx + R[a + 3], cy + R[a + 4], cz + R[a + 5], 4) ||
+        !seePlaced(m, cx + R[a + 6], cy + R[a + 7], cz + R[a + 8], 8)) return;
+      e[0] = seen[0]; e[1] = seen[1]; e[2] = seen[2];
+      e[3] = seen[4] - seen[0]; e[4] = seen[5] - seen[1]; e[5] = seen[8] - seen[0]; e[6] = seen[9] - seen[1];
+    }
+    const [far, near] = drumEnds[0][2] > drumEnds[1][2] ? drumEnds : [drumEnds[1], drumEnds[0]];
+    const cap = (e, half, from) => ellipse(e[0], e[1], flatDepth(e[2], nudge) + depthShift,
+      e[3], e[4], e[5], e[6], cr, cg, cb, grow, half, from);
+    const dx = near[0] - far[0], dy = near[1] - far[1];
+    if (Math.hypot(dx, dy) <= .5) cap(far);
+    else {
+      const t = (e) => Math.atan2(e[5] * dy - e[6] * dx, e[3] * dy - e[4] * dx);
+      const tf = t(far), tn = t(near);
+      // Only the far end's outer half shows past the band.
+      const mid = tf + Math.PI / 2;
+      const outward = (far[3] * Math.cos(mid) + far[5] * Math.sin(mid)) * dx + (far[4] * Math.cos(mid) + far[6] * Math.sin(mid)) * dy < 0;
+      cap(far, true, outward ? tf : tf + Math.PI);
+      const fx = far[3] * Math.cos(tf) + far[5] * Math.sin(tf), fy = far[4] * Math.cos(tf) + far[6] * Math.sin(tf);
+      const nx = near[3] * Math.cos(tn) + near[5] * Math.sin(tn), ny = near[4] * Math.cos(tn) + near[6] * Math.sin(tn);
+      flatPoly[0] = far[0] + fx; flatPoly[1] = far[1] + fy; flatPoly[2] = near[0] + nx; flatPoly[3] = near[1] + ny;
+      flatPoly[4] = near[0] - nx; flatPoly[5] = near[1] - ny; flatPoly[6] = far[0] - fx; flatPoly[7] = far[1] - fy;
+      plate(flatPoly, 0, 4, flatDepth((far[2] + near[2]) / 2, nudge) + depthShift, cr, cg, cb, grow);
+    }
+    cap(near);
+  }
+
   const clipRect = { x: 0, y: 0, w: 0, h: 0 };
   function run(p, length, strings) {
     clip = null;
     hasCamera = false;
     depthMode = 0;
     depthValue = 0;
+    ink.width = 0;
     let at = 0;
     while (at < length) {
       const op = p[at];
@@ -340,9 +528,11 @@ export function createFrameVm(host) {
             p[at + 7], p[at + 8], p[at + 9], p[at + 10], p[at + 11], p[at + 12]);
           at += 13; break;
         case FRAME_DISC:
+          if (ink.width) outlined(op, p, at);
           disc(p[at + 1], p[at + 2], p[at + 3], p[at + 4], p[at + 5], p[at + 6], p[at + 7]);
           at += 8; break;
         case FRAME_CAPSULE:
+          if (ink.width) outlined(op, p, at);
           capsule(p[at + 1], p[at + 2], p[at + 3], p[at + 4], p[at + 5], p[at + 6],
             p[at + 7], p[at + 8], p[at + 9]);
           at += 10; break;
@@ -381,6 +571,26 @@ export function createFrameVm(host) {
         case FRAME_MODEL:
           drawModel(p, at);
           at += 20; break;
+        case FRAME_ELLIPSE:
+          if (ink.width) outlined(op, p, at);
+          ellipse(p[at + 1], p[at + 2], p[at + 3], p[at + 4], p[at + 5], p[at + 6], p[at + 7],
+            p[at + 8], p[at + 9], p[at + 10]);
+          at += 11; break;
+        case FRAME_PLATE: {
+          const n = p[at + 1];
+          if (ink.width) outlined(op, p, at);
+          plate(p, at + 2, n, p[at + 2 + n * 2], p[at + 3 + n * 2], p[at + 4 + n * 2], p[at + 5 + n * 2]);
+          at += 6 + n * 2; break;
+        }
+        case FRAME_SHAPES:
+          storeShapes(p, at);
+          at += 4 + p[at + 3]; break;
+        case FRAME_SKETCH:
+          drawSketch(p, at);
+          at += 14; break;
+        case FRAME_OUTLINE:
+          ink.width = p[at + 1]; ink.r = p[at + 2]; ink.g = p[at + 3]; ink.b = p[at + 4];
+          at += 5; break;
         default:
           // An op this interpreter does not know ends the program rather than
           // walking into its arguments as if they were ops.

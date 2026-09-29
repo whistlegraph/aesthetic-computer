@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createFrameVm, FRAME_VIEW, FRAME_FACE, FRAME_DISC, FRAME_CAPSULE,
   FRAME_TEXT, FRAME_BOX, FRAME_LINE, FRAME_WIPE, FRAME_CAMERA, FRAME_ASSET,
-  FRAME_MODEL } from "../frame-vm.mjs";
+  FRAME_MODEL, FRAME_ELLIPSE, FRAME_PLATE, FRAME_OUTLINE, FRAME_SHAPES,
+  FRAME_SKETCH } from "../frame-vm.mjs";
 
 // A recording host: every call the interpreter makes, by name.
 function host() {
@@ -118,4 +119,64 @@ test("a MODEL places a mesh, mirrors it face-out, lights by its normal, and pick
   const middle = host();
   createFrameVm(middle).run(...program(camera, mesh, model(30)), []);
   assert.equal(middle.calls.length, 0);
+});
+
+// The flat ops: an ELLIPSE fans inside its bounds and reaches them; a PLATE
+// is its polygon fanned; OUTLINE draws each shape first in ink, a hair
+// behind, until it is set back to 0 — and never outlives the program.
+test("ELLIPSE, PLATE and OUTLINE draw flat shapes with ink edges", () => {
+  const h = host();
+  createFrameVm(h).run(...program(
+    [FRAME_ELLIPSE, 100, 50, -1, 40, 0, 0, 10, 1, 2, 3],
+    [FRAME_PLATE, 4, 0, 0, 10, 0, 10, 10, 0, 10, -1, 4, 5, 6]), []);
+  const faces = h.calls.map((c) => c.slice(1));
+  const ellipse = faces.filter((f) => f[9] === 1), plate = faces.filter((f) => f[9] === 4);
+  const xs = ellipse.flatMap((f) => [f[0], f[3], f[6]]), ys = ellipse.flatMap((f) => [f[1], f[4], f[7]]);
+  // Its sides are counted off its mean radius (20 here), so the long ends of
+  // a 40 × 10 ellipse sag a few px short: 7 sides reach x 64, not 60.
+  assert.ok(Math.min(...xs) >= 60 - 1e-9 && Math.min(...xs) < 65 && Math.abs(Math.max(...xs) - 140) < 1e-9, "x from 60 to 140");
+  assert.ok(Math.min(...ys) >= 40 - 1e-9 && Math.max(...ys) <= 60 + 1e-9, "y within 40 to 60");
+  assert.equal(plate.length, 2, "a quad is two triangles");
+
+  const inked = host();
+  const vm = createFrameVm(inked);
+  vm.run(...program([FRAME_OUTLINE, 3, 9, 9, 9], [FRAME_DISC, 50, 50, -1, 10, 200, 0, 0],
+    [FRAME_OUTLINE, 0, 0, 0, 0], [FRAME_DISC, 80, 50, -1, 10, 0, 200, 0]), []);
+  const discs = inked.calls.map((c) => ({ ink: c.slice(10).join(), depth: c[3],
+    reach: Math.max(...[c[1], c[4], c[7]].map((x) => Math.abs(x - (c[10] === 200 ? 50 : c[11] === 200 ? 80 : 50)))) }));
+  const ink = discs.filter((d) => d.ink === "9,9,9"), red = discs.filter((d) => d.ink === "200,0,0");
+  assert.ok(ink.length && red.length && discs.filter((d) => d.ink === "0,200,0").length, "outline, red, green");
+  assert.ok(inked.calls.findIndex((c) => c[10] === 9) < inked.calls.findIndex((c) => c[10] === 200), "ink first");
+  assert.ok(ink.every((d) => d.depth > -1) && red.every((d) => d.depth === -1), "ink a hair behind");
+  assert.ok(Math.max(...ink.map((d) => d.reach)) > 12.9, "3 px bigger");
+  assert.equal(inked.calls.filter((c) => c[10] === 9).length, ink.length, "the green disc has no outline");
+  // A new program starts without one.
+  const next = host();
+  createFrameVm(next).run(...program([FRAME_DISC, 0, 0, -1, 10, 1, 1, 1]), []);
+  vm.run(...program([FRAME_DISC, 0, 0, -1, 10, 1, 1, 1]), []);
+  assert.ok(inked.calls.slice(-next.calls.length).every((c) => c[10] === 1));
+});
+
+// SHAPES + SKETCH: kept flat shapes, placed, projected and filled here. The
+// same flat camera: screen x, y are the world's.
+test("a SKETCH projects its shapes, inks their edges, and skips a face turned away", () => {
+  const camera = [FRAME_CAMERA, 0, 0, -100, 1, 0, 0, 0, -1, 0, 0, 0, 1,
+    0, 0, 1, 1000, 0, 2.8 / 16000, -1.4, 8, -1e4, 1e4, -1e4, 1e4];
+  const head = (kind, edge, rgb, facing) => [kind, edge, 9, 9, 9, 0, ...rgb, ...facing];
+  const records = [
+    ...head(1, 1, [1, 2, 3], [0, 0, 0]), 0, 0, 0, 5,                          // a ball, inked 1 wide
+    ...head(4, 0, [4, 5, 6], [0, 0, -1]), 4, 0, 0, 0, 10, 0, 0, 10, 10, 0, 0, 10, 0,   // a plate facing the camera
+    ...head(4, 0, [7, 8, 9], [0, 0, 1]), 4, 0, 0, 0, 10, 0, 0, 10, 10, 0, 0, 10, 0,    // …and one facing away
+  ];
+  const h = host();
+  createFrameVm(h).run(...program(camera, [FRAME_SHAPES, 5, 3, records.length, ...records],
+    [FRAME_SKETCH, 5, 100, 50, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1]), []);
+  const faces = h.calls.map((c) => c.slice(1));
+  const by = (r) => faces.filter((f) => f[9] === r);
+  const reach = (fs) => Math.max(...fs.flatMap((f) => [f[0], f[3], f[6]])) - 100;
+  assert.ok(by(9).length && Math.abs(reach(by(9)) - 6) < 1e-6, "the ink edge reaches a unit past the ball");
+  assert.ok(Math.abs(reach(by(1)) - 5) < 1e-6, "the ball reaches 5");
+  assert.ok(faces.indexOf(by(9)[0]) < faces.indexOf(by(1)[0]) && by(9)[0][2] > by(1)[0][2], "ink first, a hair behind");
+  assert.equal(by(4).length, 2, "the plate facing the camera is drawn");
+  assert.equal(by(7).length, 0, "the one facing away is not");
 });
