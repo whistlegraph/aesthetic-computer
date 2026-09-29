@@ -1,0 +1,1852 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <script>
+    const jevDemo = new URLSearchParams(location.search).has('jev-vs-jev');
+    if (jevDemo) {
+      globalThis.__oskiewarSelfPlay = true;
+      globalThis.__oskiewarJevPad = (seat, scene) => parent.__jevArena?.pad(seat, scene) || [];
+    }
+    // The game module is the long pole of the whole load, so its download
+    // starts here — first line of the head, ahead of the stylesheet, the
+    // module graph and every probe the shell makes on the way to booting.
+    // It used to start five round trips in: after the parser reached the
+    // module script, after that script's imports and their imports had all
+    // landed, and after an analytics config fetch nobody was waiting for.
+    // `no-cache` revalidates: an unchanged module answers 304 and loads
+    // from disk instead of shipping half a megabyte again. A native shell
+    // that injects the source skips the fetch the same way the module does.
+    globalThis.__oskiewarPieceSourceFetch = globalThis.__fightPieceSource
+      ? null : fetch("/classic/oskiewar.js", { cache: "no-cache" });
+    // This shell can carry a rival's presses inbound off the relay, which is
+    // what lets the game open as a versus room by default. The native shell
+    // publishes and discards, so it never raises this and keeps the climb —
+    // and so does every harness lane: social previews, oven burns and
+    // self-play casts all want the fronts they were built against.
+    {
+      const harness = new URLSearchParams(location.search);
+      globalThis.__oskiewarVersusCapable = !harness.has("social-preview") &&
+        !harness.has("replay-oven") && !harness.has("self-play") && !harness.has("workshop") && !harness.has("map");
+    }
+  </script>
+  <!-- The whole module graph, two levels deep, fetched from the head in one
+       round trip instead of being discovered a level at a time. -->
+  <link rel="modulepreload" href="/classic/oskiewar-sfx.mjs">
+  <link rel="modulepreload" href="/classic/oskiewar-voice.mjs">
+  <link rel="modulepreload" href="/classic/oskiewar-midi.mjs">
+  <link rel="modulepreload" href="/classic/frame-driver.mjs">
+  <link rel="modulepreload" href="/classic/render-quality.mjs">
+  <link rel="modulepreload" href="/classic/photo-theme.mjs">
+  <link rel="preload" as="image" href="/classic/themes/photorealistic/assets/underpass.png">
+  <link rel="preload" as="image" href="/classic/themes/photorealistic/assets/props.png">
+  <link rel="modulepreload" href="/classic/account.mjs">
+  <link rel="modulepreload" href="/classic/round-room.mjs">
+  <link rel="modulepreload" href="/aesthetic.computer/dep/@akamfoad/qr/qr.mjs">
+  <link rel="modulepreload" href="/aesthetic.computer/lib/product-analytics.mjs">
+  <link rel="modulepreload" href="/aesthetic.computer/lib/oskiewar-analytics.mjs">
+  <link rel="modulepreload" href="/aesthetic.computer/lib/auth0-otp.mjs">
+  <link rel="preload" href="/ComicRelief-Regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="icon" href="data:,">
+  <title>oskiewar</title>
+  <meta name="description" content="Play oskiewar in your browser with a keyboard or two gamepads.">
+  <meta name="theme-color" content="#ebf1f8" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#07081c" media="(prefers-color-scheme: dark)">
+  <meta property="og:title" content="oskiewar">
+  <meta property="og:description" content="pick a pal. pick a fight.">
+  <meta property="og:image" content="https://oskiewar.com/social/oskiewar-title.jpg">
+  <meta property="og:image:secure_url" content="https://oskiewar.com/social/oskiewar-title.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="the multicolor oskiewar title screen">
+  <meta property="og:video" content="https://oskiewar.com/social/oskiewar-title.mp4">
+  <meta property="og:video:secure_url" content="https://oskiewar.com/social/oskiewar-title.mp4">
+  <meta property="og:video:type" content="video/mp4">
+  <meta property="og:video:width" content="720">
+  <meta property="og:video:height" content="1280">
+  <meta property="og:url" content="https://oskiewar.com/">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="oskiewar">
+  <meta name="twitter:image" content="https://oskiewar.com/social/oskiewar-title.jpg">
+  <style>
+    @font-face {
+      font-family: "Comic Relief";
+      src: url("./ComicRelief-Regular.woff2") format("woff2"),
+        url("./ComicRelief-Regular.ttf") format("truetype"),
+        url("https://papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf") format("truetype");
+      font-display: block;
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; background: #07081c; }
+    @media (prefers-color-scheme: light) { html, body { background: #ebf1f8; } }
+    @supports (height: 100dvh) { html, body { height: 100dvh; } }
+    body { display: grid; place-items: center; font-family: "Comic Relief", "Comic Sans MS", Arial, sans-serif;
+      cursor: url("/aesthetic.computer/cursors/precise.svg") 12 12, auto; }
+    body.selection-hover {
+      cursor: url("/aesthetic.computer/cursors/active.svg") 12 12, pointer; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh;
+      min-width: 0; min-height: 0; display: block; cursor: inherit; }
+    @supports (height: 100dvh) { canvas { height: 100dvh; } }
+    button, input, label { cursor: inherit; }
+    button:hover, input:hover, label:hover {
+      cursor: url("/aesthetic.computer/cursors/active.svg") 12 12, pointer; }
+    #status { position: absolute; width: 1px; height: 1px; overflow: hidden;
+      clip-path: inset(50%); white-space: nowrap; }
+    /* Invisible ruler for the device's own occlusions. Reading env() straight
+       from JS is not a thing, so the values are worn as padding and measured
+       off the computed style. */
+    #inset-probe { position: fixed; visibility: hidden; pointer-events: none;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right)
+        env(safe-area-inset-bottom) env(safe-area-inset-left); }
+    /* Whoever is signed in owns the bottom-left corner: handle first, then the
+       door out. It used to float in the middle of the title screen, under the
+       wordmark, which put a person's name in the same band as the game's own
+       type and made the logout button read as a menu item. The build stamp
+       moved to the top-left to clear this corner (see drawTitleScreen). */
+    #account { position: fixed; z-index: 6;
+      left: max(14px, env(safe-area-inset-left), var(--inset-left, 0px));
+      bottom: max(14px, env(safe-area-inset-bottom), var(--inset-bottom, 0px));
+      display: flex; flex-direction: row; align-items: center; gap: 10px; }
+    .touch-enabled #account {
+      top: max(12px, env(safe-area-inset-top), var(--inset-top, 0px));
+      bottom: auto;
+    }
+    /* The silent auth check answers well after the first paint. In a row that
+       is fine — the handle appears to the left of a button that has not moved
+       — where the old stacked layout made the door jump a second in. */
+    #account-handle { white-space: nowrap;
+      font: 700 19px/1 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
+      color: #f3f6ff; text-shadow: 2px 3px 0 rgba(4, 7, 18, .65); }
+    #account-handle[hidden] { display: none; }
+    #logout { appearance: none; padding: 7px 11px; border: 2px solid #6e768d;
+      border-radius: 8px; background: #b0b8ca; color: #171b28;
+      font: 700 15px/1 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
+      box-shadow: 2px 3px 0 rgba(20, 25, 38, .35); cursor: pointer;
+      transition: transform .12s ease, background .12s ease,
+        box-shadow .12s ease; }
+    #theme-toggle { position: fixed; right: max(14px, env(safe-area-inset-right));
+      bottom: max(14px, env(safe-area-inset-bottom)); z-index: 4;
+      padding: 9px 12px; border: 2px solid #5b647a; border-radius: 9px;
+      background: #b8c1d2; color: #172036; cursor: pointer;
+      font: 700 15px/1 "Comic Relief", Arial, sans-serif; }
+    body:not(.title-open) #theme-toggle, body.social-preview #theme-toggle { display: none; }
+    #theme-toggle:focus-visible { outline: 3px solid #e6cd5c; outline-offset: 2px; }
+    #logout:hover { background: #d9dfee; transform: translate(-1px, -2px);
+      box-shadow: 4px 6px 0 rgba(20, 25, 38, .4); }
+    #logout:active { transform: translate(1px, 2px);
+      box-shadow: 1px 1px 0 rgba(20, 25, 38, .35); }
+    body:not(.title-open) #account, body.social-preview #account { display: none; }
+    body.midi-out #account { display: none; }
+    body:not(.title-open) #logout, body.social-preview #logout { display: none; }
+    /* Scoring from a DAW is anonymous dummy play, so the account door is shut
+       and the corner it occupied is free for the midi lamp. */
+    body.midi-out #logout { display: none; }
+    /* The midi lamp is drawn by the game in its HUD status lane, not here — an
+       overlay could never match the bug and the clock, which live in game
+       units inside the title-safe frame. */
+
+    /* The sign-in door itself. DOM, not canvas text, and the <input> is the
+       whole reason: it is what summons a phone's keyboard and the Xbox's
+       on-screen one, and what lets a mailed code be pasted or autofilled. A
+       hand-rolled canvas field would cost every one of those.
+       It sits above the account row and outside `.title-open` gating, because
+       the game can open this door from anywhere. */
+    #account-panel { position: fixed; inset: 0; z-index: 20;
+      display: grid; place-items: center; padding: 20px;
+      background: rgba(4, 7, 18, .82); backdrop-filter: blur(3px); }
+    #account-panel[hidden] { display: none; }
+    #account-form { width: 100%; max-width: 25rem;
+      display: flex; flex-direction: column; gap: 12px;
+      padding: 22px; border: 3px solid #6e768d; border-radius: 14px;
+      background: #171b28; box-shadow: 5px 7px 0 rgba(4, 7, 18, .55);
+      font: 400 17px/1.35 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
+      color: #f3f6ff; }
+    #account-title { margin: 0; font-size: 26px; font-weight: 700; }
+    #account-label { font-size: 15px; color: #b0b8ca; }
+    /* 16px is the floor iOS uses to decide whether to zoom the page on focus,
+       and this field is 22 so it also reads from a couch. */
+    #account-field { width: 100%; padding: 12px 13px;
+      border: 2px solid #6e768d; border-radius: 9px;
+      background: #0b0e1a; color: #f3f6ff;
+      font: 400 22px/1.2 "Comic Relief", "Comic Sans MS", Arial, sans-serif; }
+    #account-field:focus { outline: 3px solid #e6cd5c; outline-offset: 1px; }
+    #account-note { margin: 0; min-height: 1.35em; font-size: 15px;
+      color: #b0b8ca; }
+    #account-note.trouble { color: #ff9a8a; }
+    #account-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    #account-panel button { appearance: none; flex: 1 1 auto;
+      padding: 11px 14px; border: 2px solid #6e768d; border-radius: 9px;
+      background: #b0b8ca; color: #171b28;
+      font: 700 17px/1 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
+      box-shadow: 2px 3px 0 rgba(4, 7, 18, .45); cursor: pointer; }
+    #account-panel button:hover { background: #d9dfee; }
+    #account-panel button:focus-visible { outline: 3px solid #e6cd5c;
+      outline-offset: 2px; }
+    #account-panel button[disabled] { opacity: .55; cursor: default; }
+    #account-panel #account-back { flex: 0 1 auto; background: #3b4256;
+      color: #e8ecf8; }
+    #account-panel #account-back:hover { background: #4d566f; }
+    /* The way out when the tenant refuses the in-page path — small, because it
+       is the fallback and not the offer. */
+    #account-panel #account-redirect { flex: 1 1 100%; background: none;
+      border: none; box-shadow: none; color: #b0b8ca; font-size: 14px;
+      font-weight: 400; text-decoration: underline; padding: 2px; }
+    #account-panel #account-redirect:hover { background: none; color: #f3f6ff; }
+    #account-panel.working #account-field { opacity: .6; }
+  </style>
+<script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+  <canvas id="screen" width="1920" height="1080" aria-label="oskiewar stick fight and lava climb"></canvas>
+  <div id="inset-probe" aria-hidden="true"></div>
+  <button id="theme-toggle" type="button">Auto theme</button>
+  <div id="status" role="alert" aria-live="polite"></div>
+  <div id="account">
+    <span id="account-handle" hidden></span>
+    <button id="logout" type="button">log in</button>
+  </div>
+  <div id="account-panel" hidden>
+    <form id="account-form" novalidate autocomplete="on">
+      <h2 id="account-title">sign in</h2>
+      <label id="account-label" for="account-field">your email</label>
+      <input id="account-field" name="email" type="email" inputmode="email"
+        autocomplete="email" autocapitalize="none" spellcheck="false"
+        enterkeyhint="go" maxlength="254">
+      <p id="account-note" role="status" aria-live="polite"></p>
+      <div id="account-actions">
+        <button id="account-go" type="submit">send the code</button>
+        <button id="account-back" type="button">never mind</button>
+        <button id="account-redirect" type="button">or use the web sign-in page</button>
+      </div>
+    </form>
+  </div>
+  <script>
+    const canvas = document.querySelector("#screen");
+    const context = canvas.getContext("2d");
+    const keys = [new Set(), new Set()];
+    const touchPointers = new Map();
+    const selectTaps = [];
+    // `orbit` banks camera gestures — drag, wheel, pinch — as deltas the
+    // piece drains once a tick, in the same units its right stick moves.
+    globalThis.__oskiewarTouch = { taps: selectTaps,
+      pointer: { x: 0, y: 0, active: false },
+      orbit: { yaw: 0, pitch: 0, zoom: 0 } };
+    // A press on empty canvas is a grab on the camera until it proves to be
+    // a click: past a few pixels of travel it orbits, and released still it
+    // is the tap it always was.
+    const grabs = new Map();
+    const grabSlop = 6;
+    const touchEnabled = new URLSearchParams(location.search).has("touch") ||
+      navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches;
+    document.body.classList.toggle("touch-enabled", touchEnabled);
+    document.body.classList.add("title-open");
+    document.body.classList.toggle("social-preview",
+      new URLSearchParams(location.search).has("social-preview"));
+    // Direct native/web route for the large destructible training opponent.
+    // Pal select is intentionally retired; this keeps Spiderdummy reachable
+    // without restoring a screen that no longer matches the front door.
+    globalThis.__oskiewarMap = new URLSearchParams(location.search).get("map") || "station";
+    globalThis.__oskiewarOpponent =
+      (jevDemo ? 'bot' : new URLSearchParams(location.search).get("opponent")) ||
+      ((new URLSearchParams(location.search).has("workshop") || new URLSearchParams(location.search).has("map")) ? "dummy" : "");
+    // `__oskiewarVersusCapable` is raised in the head, beside the fetches
+    // that depend on it.
+    let titleOpen = true;
+    const keyMap = new Map([
+      ["KeyW", [0, "ArrowUp"]], ["KeyS", [0, "ArrowDown"]],
+      ["BracketLeft", [0, "LeftShoulder"]], ["BracketRight", [0, "RightShoulder"]],
+      ["KeyA", [0, "ArrowLeft"]], ["KeyD", [0, "ArrowRight"]],
+      ["Space", [0, "A"]], ["Enter", [0, "B"]],
+      ["ShiftLeft", [0, "X"]], ["ShiftRight", [0, "X"]],
+      ["AltLeft", [0, "Y"]], ["AltRight", [0, "Y"]],
+      ["Escape", [0, "Menu"]], ["Backspace", [0, "Menu"]],
+      ["Tab", [0, "View"]],
+      // Pace keys: the piece steps its own clock on these and never reads
+      // them as "start". +/- reach double speed on the title; , and . are
+      // the same keys, and mid-fight the piece caps them at full speed and
+      // ignores them once a rival is wired in.
+      ["Equal", [0, "SpeedUp"]], ["NumpadAdd", [0, "SpeedUp"]],
+      ["Minus", [0, "SpeedDown"]], ["NumpadSubtract", [0, "SpeedDown"]],
+      ["Period", [0, "SpeedUp"]], ["Comma", [0, "SpeedDown"]],
+      ["ArrowUp", [1, "ArrowUp"]], ["ArrowDown", [1, "ArrowDown"]],
+      ["ArrowLeft", [1, "ArrowLeft"]], ["ArrowRight", [1, "ArrowRight"]],
+      ["KeyK", [1, "A"]], ["KeyL", [1, "B"]], ["Semicolon", [1, "X"]],
+      ["Quote", [1, "Y"]],
+    ]);
+    globalThis.__oskiewarToggleDebug = () => {
+      keys[0].add("View");
+      setTimeout(() => keys[0].delete("View"), 90);
+    };
+    let audioContext = null;
+    // 🔑 The account contract, declared here rather than in `account.mjs`
+    // because the module that mounts the door is deferred and the game reads
+    // this record every frame. It exists, empty and not-yet-ready, from the
+    // first line the game could possibly run.
+    //
+    // `ready` says the shell has finished asking who is here — success or not.
+    // Until then a piece should say nothing about accounts rather than guess
+    // that nobody is signed in.
+    globalThis.__oskiewarAccount = {
+      ready: false, signedIn: false, handle: "", colors: [],
+      // Replaced by `account.mjs` with the real token accessor. Answering null
+      // until then is the honest state: nobody is signed in yet.
+      bearer: async () => null,
+    };
+    // The game's way of asking for a panel: "login", "handle", or "" to shut
+    // it. `account.mjs` replaces this with an accessor so a press lands on the
+    // same frame; until it mounts, a write is just remembered.
+    globalThis.__oskiewarAccountDoor = "";
+    // Whether a panel is actually up. Not the same question as the door: the
+    // game re-decides the door every frame and says "closed" on the title, so
+    // the corner button's panel is raised by the shell alone. The input guards
+    // below need the fact, not the request.
+    globalThis.__oskiewarAccountOpen = false;
+
+    // 🚪 The "add yourself" wall. Declared here, empty, because the game reads
+    // it every frame to decide whether to draw the invitation on the fighter's
+    // head — a ring nobody can open would be worse than no ring. `null` until
+    // `oskiewar-wizard.mjs` mounts, which is exactly what the Xbox and the reel
+    // renderer leave it as.
+    globalThis.__oskiewarWizard = null;
+    globalThis.__oskiewarWizardOpen = false;
+
+    // Keep a stable 1080-unit vertical coordinate system while allowing the
+    // horizontal game surface to follow the browser's actual aspect ratio.
+    // 16:9 therefore remains exactly 1920x1080, while 9:16 becomes 608x1080
+    // instead of a letterboxed landscape image.
+    let logicalWidth = 1920;
+    let logicalHeight = 1080;
+    let resolutionScale = 1;
+    let renderScaleX = 1, renderScaleY = 1;
+    let manualResolution = null;
+    // Hardware occlusions in logical units: home indicator, notch, rounded
+    // corners. env() covers the browsers; the iOS shell pins its scroll view
+    // so env() reads zero there, and the app injects the real insets as
+    // __oskiewarSafeInsets in CSS pixels instead. The deeper source wins.
+    const logicalInset = { top: 0, right: 0, bottom: 0, left: 0 };
+    const insetProbe = document.querySelector("#inset-probe");
+    function resizeCanvas() {
+      if (!globalThis.__oskiewarRenderSurface) return;
+      const bounds = canvas.getBoundingClientRect();
+      const width = Math.max(1, bounds.width);
+      const height = Math.max(1, bounds.height);
+      logicalHeight = 1080;
+      logicalWidth = Math.max(480, Math.min(2880,
+        Math.round(logicalHeight * width / height)));
+      const probe = getComputedStyle(insetProbe);
+      const native = globalThis.__oskiewarSafeInsets || {};
+      const scale = logicalHeight / height;
+      for (const edge of ["top", "right", "bottom", "left"]) {
+        const measured = Math.max(
+          parseFloat(probe["padding-" + edge]) || 0,
+          Number(native[edge]) || 0);
+        logicalInset[edge] = Math.round(measured * scale);
+        // The DOM furniture (the account corner) reads the same merged
+        // answer through these variables, because env() alone is blind to
+        // the natively injected insets.
+        document.documentElement.style.setProperty("--inset-" + edge,
+          measured + "px");
+      }
+      // The remote resolution dial: the experiment lane can shrink the
+      // canvas's backing store while CSS keeps the on-screen size, to price
+      // raster area against primitive count on a machine suspected of
+      // software-rasterizing the frame.
+      // Logical coordinates stay at 1080; pixels follow the actual display.
+      const { pixelWidth, pixelHeight, scaleX, scaleY } =
+        globalThis.__oskiewarRenderSurface(width, height, logicalWidth, logicalHeight,
+          window.devicePixelRatio || 1, resolutionScale);
+      if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+        canvas.width = pixelWidth;
+        canvas.height = pixelHeight;
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = "high";
+      }
+      renderScaleX = scaleX;
+      renderScaleY = scaleY;
+      context.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+    }
+    // Reduce resolution only when drawing is expensive. A refresh or power
+    // cap cannot be fixed by shrinking pixels. Manual res pins the dial.
+    setInterval(() => {
+      if (manualResolution !== null) return;
+      const fps = Number(globalThis.__oskiewarDisplayFps) || 60;
+      const next = globalThis.__oskiewarNextResolutionScale?.(resolutionScale, {
+        fps, renderCpuMs: globalThis.__oskiewarFrameStats?.renderCpuMs || 0,
+      }) ?? resolutionScale;
+      if (next !== resolutionScale) {
+        resolutionScale = next;
+        resizeCanvas();
+      }
+    }, 2000);
+    globalThis.__oskiewarInsetsChanged = resizeCanvas;
+    addEventListener("resize", resizeCanvas, { passive: true });
+    window.visualViewport?.addEventListener("resize", resizeCanvas,
+      { passive: true });
+    if (typeof ResizeObserver === "function")
+      new ResizeObserver(resizeCanvas).observe(document.documentElement);
+
+    function gameView() {
+      return { width: logicalWidth, height: logicalHeight,
+        aspect: logicalWidth / logicalHeight,
+        orientation: logicalWidth < logicalHeight ? "portrait" : "landscape",
+        inset: { ...logicalInset } };
+    }
+
+    function ensureAudio() {
+      if (!audioContext) audioContext = new AudioContext();
+      if (audioContext.state === "suspended") audioContext.resume();
+      return audioContext;
+    }
+
+    // Every gesture that can start the game goes through here. Both banks are
+    // gesture-locked — the voice doubly so, because iOS only grants
+    // speechSynthesis from inside the first touch that asks for it.
+    function unlockAudio() {
+      ensureAudio();
+      globalThis.__oskiewarSfx?.unlock().catch(() => {});
+      globalThis.__oskiewarVoice?.unlock().catch(() => {});
+    }
+
+    // Cached ElevenLabs female:3 rendition of "Oskie War". Separate media
+    // elements create a compact feedback echo without requiring cross-origin
+    // Web Audio access to the public AC audio CDN.
+    const titleVoiceUrl = "https://art.aesthetic.computer/tts-cache/4f0fe9fc3486f07488f3d20685a8b635d1e8a3aad77f00c378f89f70aa77cf23.mp3";
+    // Warmed after boot rather than at parse: three range requests to a
+    // second origin were racing the game module for the first seconds of a
+    // cold load, for a word nobody can hear before the title is tapped.
+    const titleVoiceEchoes = [1, .3, .12].map((volume) => {
+      const voice = new Audio(titleVoiceUrl);
+      voice.preload = "none";
+      voice.volume = volume;
+      return voice;
+    });
+    function warmTitleVoice() {
+      for (const voice of titleVoiceEchoes) {
+        voice.preload = "auto";
+        voice.load();
+      }
+    }
+    function titleVoice() {
+      for (const [index, voice] of titleVoiceEchoes.entries()) {
+        setTimeout(() => {
+          voice.currentTime = 0;
+          voice.play().catch(() => {});
+        }, index * 155);
+      }
+    }
+
+    function titleBeep() {
+      const ac = ensureAudio();
+      const now = ac.currentTime;
+      const oscillator = ac.createOscillator();
+      const envelope = ac.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(620, now);
+      oscillator.frequency.exponentialRampToValueAtTime(930, now + .1);
+      envelope.gain.setValueAtTime(.28, now);
+      envelope.gain.exponentialRampToValueAtTime(.001, now + .13);
+      oscillator.connect(envelope).connect(ac.destination);
+      oscillator.start(now);
+      oscillator.stop(now + .14);
+    }
+
+    // Is a DOM panel standing in front of the canvas? Sign-in and the consent
+    // wall both take the whole keyboard and the whole pointer while they are
+    // up — they own text fields, checkboxes, Enter and Escape — so the game
+    // beneath them must not also receive the press. One predicate rather than
+    // a growing list at each guard.
+    function panelOpen() {
+      return globalThis.__oskiewarAccountOpen === true ||
+        globalThis.__oskiewarWizardOpen === true;
+    }
+
+    function dismissTitle() {
+      if (!titleOpen) return false;
+      titleOpen = false;
+      document.body.classList.remove("title-open");
+      return true;
+    }
+
+    // The head is carved out of the anywhere-button above. `tapTitle` makes the
+    // whole title frame START, which is right for a game somebody wants to
+    // play and wrong for the one place a player who wants to BE the fighter is
+    // already pointing. The circle comes from the game, which is the only
+    // thing that knows where the face went this frame; if no wizard is mounted
+    // the game publishes nothing and the face starts a fight like the rest of
+    // the screen.
+    function tapTitleHead(point) {
+      if (!titleOpen || !point) return false;
+      const head = globalThis.__oskiewarTouch?.titleHead;
+      const wizard = globalThis.__oskiewarWizard;
+      if (!head || !wizard) return false;
+      if (Math.hypot(point.x - head.x, point.y - head.y) > head.radius) return false;
+      unlockAudio();
+      wizard.open();
+      return true;
+    }
+
+    function tapTitle(point = null) {
+      if (!titleOpen) return false;
+      // Anywhere is the button. The bounded start target left the rest of
+      // the screen as negative space that dudded — but the title is an
+      // invitation, not a menu, so the first gesture starts the game
+      // wherever it lands. Any key already arrives here pointless and
+      // starts too.
+      dismissTitle();
+      keys[0].add("A");
+      unlockAudio();
+      setTimeout(() => keys[0].delete("A"), 90);
+      return true;
+    }
+
+    function color(values) {
+      const [r = 255, g = 255, b = 255, a = 255] = values;
+      return `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+    }
+
+    // A run of faces that share a colour is ONE fill, not one fill each.
+    //
+    // Canvas2D antialiases a path on its own and then composites it, so two
+    // faces that share an edge each cover about half of the pixels along that
+    // edge and the background shows through the middle of them. The engine's
+    // geometry is not at fault — the shared vertices arrive bit-identical, and
+    // a quad's two halves carry one colour between them — but every surface
+    // the piece builds out of triangles was wearing its own triangulation: the
+    // fan spokes across a fighter's head, the diagonal across every limb and
+    // every quad. A GPU canvas resolves coverage per sample and hides it; a
+    // CPU canvas (Safari, Firefox, Chrome with canvas acceleration off) draws
+    // every seam. Filling the run as one path computes the coverage of the
+    // whole shape once, so the seams inside it never exist to be drawn.
+    //
+    // The other hosts never needed this. Metal and D3D rasterize with a fill
+    // rule instead of an alpha mask, which is watertight across a shared edge,
+    // so the engine keeps handing every host the same triangle stream and only
+    // the canvas pays — around six flops and a compare per face, against one
+    // saved fill call per run.
+    let facePath = false;
+    let faceInk = "";
+
+    function flushFaces() {
+      if (!facePath) return;
+      facePath = false;
+      context.fill();
+    }
+
+    function wipe(...ink) {
+      flushFaces();
+      context.fillStyle = color(ink);
+      context.fillRect(0, 0, logicalWidth, logicalHeight);
+    }
+
+    function box(x, y, width, height, ...ink) {
+      const style = color(ink);
+      // Translucent overlaps must still composite separately.
+      if (ink.length > 3 && ink[3] < 255) {
+        flushFaces();
+        context.fillStyle = style;
+        context.fillRect(x, y, width, height);
+        return;
+      }
+      if (facePath && style !== faceInk) flushFaces();
+      if (!facePath) {
+        context.fillStyle = style;
+        faceInk = style;
+        context.beginPath();
+        facePath = true;
+      }
+      context.rect(Math.min(x, x + width), Math.min(y, y + height),
+        Math.abs(width), Math.abs(height));
+    }
+
+    function line(x1, y1, x2, y2, width, ...ink) {
+      flushFaces();
+      context.strokeStyle = color(ink);
+      context.lineWidth = width;
+      context.lineCap = "round";
+      context.beginPath();
+      context.moveTo(x1, y1);
+      context.lineTo(x2, y2);
+      context.stroke();
+    }
+
+    function triangle(x1, y1, x2, y2, x3, y3, ...ink) {
+      const style = color(ink);
+      if (facePath && style !== faceInk) flushFaces();
+      if (!facePath) {
+        context.fillStyle = style;
+        faceInk = style;
+        context.beginPath();
+        facePath = true;
+      }
+      // Wound one way, always. A run fills under the nonzero rule, where a
+      // face that arrived backwards would cancel the ones it overlaps into a
+      // hole — and the engine's faces do face both ways, being clipped world
+      // polygons one moment and screen-space fans the next.
+      context.moveTo(x1, y1);
+      if ((x2 - x1) * (y3 - y1) < (x3 - x1) * (y2 - y1)) {
+        context.lineTo(x3, y3);
+        context.lineTo(x2, y2);
+      } else {
+        context.lineTo(x2, y2);
+        context.lineTo(x3, y3);
+      }
+      context.closePath();
+    }
+
+    const blockGlyphs = {
+      A:[14,17,17,31,17,17,17], B:[30,17,17,30,17,17,30], C:[14,17,16,16,16,17,14],
+      D:[30,17,17,17,17,17,30], E:[31,16,16,30,16,16,31], F:[31,16,16,30,16,16,16],
+      G:[14,17,16,23,17,17,15], H:[17,17,17,31,17,17,17], I:[31,4,4,4,4,4,31],
+      J:[7,2,2,2,18,18,12], K:[17,18,20,24,20,18,17], L:[16,16,16,16,16,16,31],
+      M:[17,27,21,21,17,17,17], N:[17,25,21,19,17,17,17], O:[14,17,17,17,17,17,14],
+      P:[30,17,17,30,16,16,16], Q:[14,17,17,17,21,18,13], R:[30,17,17,30,20,18,17],
+      S:[15,16,16,14,1,1,30], T:[31,4,4,4,4,4,4], U:[17,17,17,17,17,17,14],
+      V:[17,17,17,17,17,10,4], W:[17,17,17,21,21,21,10], X:[17,17,10,4,10,17,17],
+      Y:[17,17,10,4,4,4,4], Z:[31,1,2,4,8,16,31],
+      0:[14,17,19,21,25,17,14], 1:[4,12,4,4,4,4,14], 2:[14,17,1,2,4,8,31],
+      3:[30,1,1,14,1,1,30], 4:[2,6,10,18,31,2,2], 5:[31,16,16,30,1,1,30],
+      6:[14,16,16,30,17,17,14], 7:[31,1,2,4,8,8,8], 8:[14,17,17,14,17,17,14],
+      9:[14,17,17,15,1,1,14], ".":[0,0,0,0,0,12,12], ":":[0,4,4,0,4,4,0],
+      "-":[0,0,0,31,0,0,0], "/":[1,2,2,4,8,8,16], "!":[4,4,4,4,4,0,4],
+      " ":[0,0,0,0,0,0,0], "?":[14,17,1,2,4,0,4],
+    };
+
+    function drawText(text, x, y, size, ink) {
+      flushFaces();
+      context.fillStyle = color(ink);
+      context.font = `${size}px "Segoe UI", Arial, sans-serif`;
+      context.textBaseline = "top";
+      context.fillText(String(text), Math.round(x * renderScaleX) / renderScaleX,
+        Math.round(y * renderScaleY) / renderScaleY);
+    }
+
+    function write(text, x, y, size, ...ink) {
+      flushFaces();
+      const cell = Math.max(2, Math.floor(size / 7));
+      const originX = x;
+      let penX = x;
+      let penY = y;
+      context.fillStyle = color(ink);
+      for (const rawCharacter of String(text)) {
+        if (rawCharacter === "\n") {
+          penX = originX;
+          penY += cell * 9;
+          continue;
+        }
+        const rows = blockGlyphs[rawCharacter.toUpperCase()] || blockGlyphs["?"];
+        for (let row = 0; row < 7; row++) {
+          for (let column = 0; column < 5; column++) {
+            if (!(rows[row] & (1 << (4 - column)))) continue;
+            context.fillRect(penX + column * cell, penY + row * cell,
+              Math.max(1, cell - 1), Math.max(1, cell - 1));
+          }
+        }
+        penX += cell * 6;
+      }
+    }
+
+    function systemWrite(text, x, y, size, ...ink) {
+      drawText(text, x, y, size, ink);
+    }
+
+    function comicWrite(text, x, y, size, ...ink) {
+      flushFaces();
+      context.fillStyle = color(ink);
+      context.font = `${size}px "Comic Relief", "Comic Sans MS", Arial, sans-serif`;
+      context.textBaseline = "top";
+      const lines = String(text).split("\n");
+      for (let index = 0; index < lines.length; index++)
+        context.fillText(lines[index], Math.round(x * renderScaleX) / renderScaleX,
+          Math.round((y + index * size * 1.15) * renderScaleY) / renderScaleY);
+    }
+
+    let clientErrorReportStatus = "";
+    let clientErrorSequence = 0;
+    const errorReportDelay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    async function postClientError(message) {
+      const sequence = ++clientErrorSequence;
+      const pieceId = `web-oskiewar-${Date.now()}-${sequence}`;
+      let data;
+      try { data = JSON.parse(String(message)); }
+      catch { data = { message: String(message), stack: null }; }
+      for (let attempt = 0; ; attempt++) {
+        clientErrorReportStatus = `${attempt ? "retrying server post" : "posting to server"} ${pieceId}`;
+        try {
+          const response = await fetch("/api/piece-log", {
+            method: "POST", headers: { "content-type": "application/json" },
+            body: JSON.stringify({ pieceId, phase: "error",
+              meta: { slug: "oskiewar", host: location.host,
+                platform: capabilities().platform, build: "cross-platform" },
+              data }),
+          });
+          if (response.ok) {
+            clientErrorReportStatus = `posted to server ${pieceId}`;
+            return;
+          }
+        } catch {}
+        clientErrorReportStatus = `retrying server post ${pieceId}`;
+        await errorReportDelay(Math.min(30000, 750 * 2 ** Math.min(attempt, 5)));
+      }
+    }
+
+    let simulationMonotonicMs = null;
+    let lastSimulationMonotonicMs = null;
+    let presentationMonotonicMs = null;
+    let renderAlpha = 1;
+    function runtime() {
+      // Frame timing comes from the driver's own profile rather than a second
+      // clock in here: those are measurements it already takes, and the names
+      // are the console's (App.cpp fills the same three), so the debug read-out
+      // and the live payload read identically on either surface. A browser
+      // cannot time the compositor's present, so that stage stays absent rather
+      // than being reported as a measured zero.
+      const frames = globalThis.__oskiewarFrameStats;
+      return { monotonicUs: (simulationMonotonicMs ?? performance.now()) * 1000,
+        simMonotonicUs: (simulationMonotonicMs ?? lastSimulationMonotonicMs ??
+          performance.now()) * 1000,
+        presentationMonotonicUs: (presentationMonotonicMs ??
+          simulationMonotonicMs ?? performance.now()) * 1000,
+        renderAlpha,
+        unixMs: Date.now(),
+        audioLatencyMs: audioContext?.baseLatency ? audioContext.baseLatency * 1000 : 0,
+        frameMs: frames?.frameMs || 0,
+        renderCpuMs: frames?.renderCpuMs || 0,
+        refreshHz: frames?.refreshHz || 0,
+        frameRate: 60, clientErrorReportStatus };
+    }
+    function telemetry(kind, message) {
+      console.debug(kind, message);
+      if (kind === "CLIENT_ERROR" && !clientErrorReportStatus) {
+        clientErrorReportStatus = "queued for server";
+        void postClientError(message);
+      }
+    }
+
+    // Browsers hand out gamepad indices however they please and reuse freed
+    // slots, so a seat is claimed on arrival and held until that exact pad
+    // leaves. Player one never gets bumped when player two plugs in.
+    const padSeats = [null, null];
+    let sampledPads = [null, null];
+    let oddPads = [];
+
+    // The W3C standard layout. It only describes a pad that says it speaks
+    // standard; anything else arranges its buttons its own way, and a guess
+    // there hands the fighter the wrong punch.
+    const padButtons = ["A", "B", "X", "Y", "LeftShoulder", "RightShoulder",
+      "LeftTrigger", "RightTrigger", "View", "Menu", "LeftStick", "RightStick",
+      "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+
+    // Six and seven used to be nameless, because the triggers are analog and
+    // the game reads them as `leftTrigger`/`rightTrigger` instead. Nothing in
+    // the fight ever read those, so on a small pad — the 8BitDo Micro, whose
+    // L2 and R2 are ordinary digital shoulders — two buttons did nothing at
+    // all. They are aliases, not a new vocabulary: the triggers raise the same
+    // actions as the face buttons. Stick-click is another way to jump.
+    const padAliases = { LeftTrigger: "A", RightTrigger: "X",
+      LeftStick: "ArrowUp" };
+
+    // ...but only on pads that need them. A full-size pad's analog triggers
+    // drive the camera zoom instead, and a pad cannot do both: aliasing LT to
+    // A means every zoom-in throws a kick. `inputFamily` cannot make this
+    // call -- it reports "xbox" for ANY connected pad, so keying off it would
+    // strip the aliases from precisely the small pads they exist for.
+    //
+    // So ask the trigger itself. Microsoft's own pads are known good by id,
+    // the same id-matching trick knownStandardPads already uses; anything
+    // else earns the label the first time it reports a value strictly between
+    // rest and full travel, which a digital shoulder never does. Latching is
+    // deliberate -- an analog trigger passes back through 0 constantly, and a
+    // pad that forgot what it was would flicker between zooming and kicking.
+    const analogTriggerIds = [/xbox/i, /vendor:\s*045e/i, /\b045e\b/i,
+      /8bitdo\s+ultimate/i];
+    // The 8BitDo M30 wears Microsoft's 045e id, but its "triggers" are the C
+    // face button and the top-edge R — ordinary digital switches. The vendor
+    // guess would latch them analog and feed every C press to the camera, so
+    // the pad's own name overrules the id it borrowed.
+    const digitalTriggerIds = [/8bitdo\s+m30/i];
+    const analogTriggerPads = new Set();
+    function hasAnalogTriggers(pad) {
+      if (!pad) return false;
+      if (digitalTriggerIds.some((match) => match.test(pad.id || "")))
+        return false;
+      if (analogTriggerPads.has(pad.index)) return true;
+      const known = analogTriggerIds.some((match) => match.test(pad.id || ""));
+      const partial = [6, 7].some((slot) => {
+        const value = pad.buttons?.[slot]?.value || 0;
+        return value > .06 && value < .94;
+      });
+      if (known || partial) { analogTriggerPads.add(pad.index); return true; }
+      return false;
+    }
+
+    // A digital trigger reports `pressed`; an analog one on a pad that never
+    // latches only moves `value`. Half travel is a press either way.
+    const padDown = (button) => button.pressed || button.value > .5;
+
+    // Chrome only stamps `mapping: "standard"` on pads it recognizes by name,
+    // and it does not recognize every pad that is nevertheless wired in the
+    // standard order. Refusing those outright is what made an 8BitDo read as
+    // no pad at all -- the trigger mapping below never got a chance to run.
+    // A narrow table of known ids is a knowable layout rather than a guess,
+    // and it still demands the button and axis count the layout implies.
+    // Anything not on the table keeps going to oddPads, where the HUD names it.
+    const knownStandardPads = [/8bitdo/i, /vendor:\s*2dc8/i, /\b2dc8\b/i];
+    const standardLayout = (pad) => pad.mapping === "standard" ||
+      (knownStandardPads.some((known) => known.test(pad.id || "")) &&
+        (pad.buttons?.length || 0) >= 8 && (pad.axes?.length || 0) >= 2);
+
+    function scanPads() {
+      const live = [];
+      oddPads = [];
+      for (const pad of navigator.getGamepads?.() || []) {
+        if (!pad || pad.connected === false) continue;
+        if (standardLayout(pad)) live.push(pad);
+        else oddPads.push(pad.id || `gamepad ${pad.index}`);
+      }
+      const present = (padIndex) => live.some((pad) => pad.index === padIndex);
+      for (let seat = 0; seat < padSeats.length; seat++)
+        if (padSeats[seat] !== null && !present(padSeats[seat])) {
+          analogTriggerPads.delete(padSeats[seat]);
+          padSeats[seat] = null;
+        }
+      for (const pad of live) {
+        if (padSeats.includes(pad.index)) continue;
+        const seat = padSeats.indexOf(null);
+        if (seat < 0) break;
+        padSeats[seat] = pad.index;
+      }
+      return live;
+    }
+
+    function seatedPad(seat, live) {
+      const padIndex = padSeats[seat];
+      return padIndex === null ? null
+        : live.find((pad) => pad.index === padIndex) || null;
+    }
+
+    function readBrowserPad(seat, live = scanPads()) {
+      const source = seatedPad(seat, live);
+      // While the account panel is open the game is handed a pad with nothing
+      // held. Edge on the Xbox turns the same presses into DOM focus movement
+      // and text entry, which is how the panel is driven from the couch — but
+      // the Gamepad API reports them too, and without this the A that confirms
+      // a verification code also throws a kick. The seat stays connected so a
+      // versus room does not read the pause as somebody walking away.
+      if (globalThis.__oskiewarAccountOpen)
+        return { connected: Boolean(source) || seat === 0,
+          localController: Boolean(source), down: [],
+          leftX: 0, leftY: 0, rightX: 0, rightY: 0,
+          leftTrigger: 0, rightTrigger: 0,
+          analogTriggers: hasAnalogTriggers(source) };
+      const down = new Set(keys[seat]);
+      const analog = hasAnalogTriggers(source);
+      if (source) source.buttons.forEach((button, buttonIndex) => {
+        const name = padButtons[buttonIndex];
+        if (!name || !padDown(button)) return;
+        down.add(name);
+        // A trigger that zooms must not also punch.
+        if (analog && (name === "LeftTrigger" || name === "RightTrigger")) return;
+        if (padAliases[name]) down.add(padAliases[name]);
+      });
+      return {
+        connected: Boolean(source) || down.size > 0 || seat === 0,
+        localController: Boolean(source),
+        down: [...down],
+        // Sticks stay raw. `quantizedInput` gates at .48, the same number the
+        // console reads, so a deadzone here would only stack onto that one.
+        leftX: source?.axes?.[0] || 0,
+        leftY: -(source?.axes?.[1] || 0),
+        rightX: source?.axes?.[2] || 0,
+        rightY: -(source?.axes?.[3] || 0),
+        leftTrigger: source?.buttons?.[6]?.value || 0,
+        rightTrigger: source?.buttons?.[7]?.value || 0,
+        analogTriggers: analog,
+      };
+    }
+
+    function sampleGamepads() {
+      const live = scanPads();
+      sampledPads = [readBrowserPad(0, live), readBrowserPad(1, live)];
+    }
+
+    function browserPad(index) {
+      return sampledPads[index] || readBrowserPad(index);
+    }
+    function gamepad(index = 0) { return browserPad(index); }
+    function controllers() {
+      const live = scanPads();
+      return [0, 1].map((index) => ({ index, connected: browserPad(index).connected,
+        name: seatedPad(index, live)?.id || `KEYBOARD P${index + 1}`,
+        standard: padSeats[index] !== null }));
+    }
+    // The shared dummy tally. `null` means nobody has answered yet, which the
+    // title reads as "say nothing" rather than as zero. Declared up here
+    // because `capabilities` hands it out and is called before the reporting
+    // helpers further down have run.
+    let dummyPops = null;
+    let localCountry = "";
+    let updateAvailable = false;
+    const popsEndpoint = "/api/oskiewar-pops";
+    const socialPreview = jevDemo || new URLSearchParams(location.search).has("social-preview");
+    const replayOven = new URLSearchParams(location.search).has("replay-oven");
+    const reelHud = new URLSearchParams(location.search).has("reel-hud");
+    const reelFullUi = new URLSearchParams(location.search).has("reel-full-ui");
+    // Bot self-play from a plain address, so a browser with no puppeteer to
+    // whisper globals — a phone, a spare display, the jasellite preview — can
+    // watch the game fight itself. Still never a button: entering it takes a
+    // deliberately typed address, same as the flag takes a harness.
+    if (new URLSearchParams(location.search).has("self-play"))
+      globalThis.__oskiewarSelfPlay = true;
+
+    let browserTheme = new URLSearchParams(location.search).get("theme");
+    if (!["light", "dark", "sun"].includes(browserTheme)) {
+      try { browserTheme = localStorage.getItem("oskiewar-theme"); } catch {}
+      if (!["light", "dark", "sun"].includes(browserTheme)) browserTheme = "sun";
+    }
+    // The toggle is a web-only control; the test shell's document has no
+    // such button, so every touch of it is guarded.
+    const themeButton = document.querySelector?.("#theme-toggle");
+    const themeButtonLive = Boolean(themeButton?.addEventListener);
+    function updateThemeButton() {
+      if (!themeButtonLive) return;
+      themeButton.textContent = browserTheme === "sun" ? "Auto theme" :
+        browserTheme === "light" ? "Light mode" : "Dark mode";
+      themeButton.setAttribute("aria-label", themeButton.textContent + "; change appearance");
+    }
+    if (themeButtonLive) themeButton.addEventListener("click", () => {
+      browserTheme = browserTheme === "sun" ? "light" : browserTheme === "light" ? "dark" : "sun";
+      try { localStorage.setItem("oskiewar-theme", browserTheme); } catch {}
+      updateThemeButton();
+      themeButton.blur();
+    });
+    updateThemeButton();
+    function capabilities() {
+      const mac = navigator.userAgent.includes("Mac");
+      const hasGamepad = padSeats.some((padIndex) => padIndex !== null);
+      return { platform: mac ? "macos" : "web",
+        showControlLegend: false,
+        inputFamily: touchEnabled ? "touch" : hasGamepad ? "xbox" : "keyboard",
+        colorScheme: socialPreview ? "light" : browserTheme || "sun",
+        socialPreview: new URLSearchParams(location.search).has("social-preview"),
+        // Offline replay burns ask the game for world pixels only. This is a
+        // render capability, never a player preference, so HUD-free footage
+        // cannot accidentally leak into the live game.
+        replayOven,
+        // The Reel lane keeps the match's own timer, names, stats and command
+        // stream without admitting controls, debug meters, touch UI or QR.
+        reelHud,
+        reelFullUi,
+        country: localCountry,
+        updateReady: updateAvailable,
+        // Scoring sessions are anonymous dummy play; the seam auth attaches to
+        // can read this to keep opponents and accounts out of the way. The
+        // pulse rides along so the HUD's status lamp can answer a real send
+        // without the host needing a new sandbox function to say so.
+        midi: document.body.classList.contains("midi-out"),
+        midiPulse: globalThis.__oskiewarMidiPulse || 0,
+        // How many telemetry watchers are linked to the round on screen. This
+        // is the only reader the game can ever see: AC_NATIVE_PROFILE leaves
+        // the box one way, so a Device Portal reading it is invisible from in
+        // here. The relay counts `role=agent` sockets apart from phone
+        // spectators and tells the publisher, so the debug HUD can say a
+        // machine is watching without lighting up for every QR scan.
+        liveAgents: globalThis.__oskiewarLiveAgents || 0,
+        // The shared dummy count. Null until the first fetch answers, and the
+        // title screen simply says nothing while it is.
+        pops: dummyPops,
+        productName: mac ? "MACOS" : "WEB",
+        version: "CROSS-PLATFORM", graphics: "CANVAS2D", audio: "WEB AUDIO" };
+    }
+
+    async function readLocalCountry() {
+      try {
+        const response = await fetch("/api/oskiewar-country", {
+          cache: "no-store", credentials: "omit",
+        });
+        if (!response.ok) return;
+        const value = String((await response.json())?.country || "").toUpperCase();
+        if (/^[A-Z]{2}$/.test(value)) localCountry = value;
+      } catch {}
+    }
+
+    // Chrome, Firefox and Safari all keep a pad out of `getGamepads` until
+    // someone presses a button on it, and all three fire this at that press —
+    // it is the first moment the legend can stop saying SPACE.
+    function announcePads(arrived) {
+      const line = document.querySelector("#status");
+      if (oddPads.length) {
+        line.textContent =
+          `${oddPads[0]} reports a non-standard layout — use the keyboard`;
+        return;
+      }
+      const seat = arrived ? padSeats.indexOf(arrived.index) : -1;
+      line.textContent = seat >= 0 ? `gamepad ready for player ${seat + 1}`
+        : `gamepads connected: ${padSeats.filter((at) => at !== null).length}`;
+    }
+    addEventListener("gamepadconnected", (event) => {
+      scanPads();
+      announcePads(event.gamepad);
+    });
+    addEventListener("gamepaddisconnected", () => {
+      scanPads();
+      announcePads(null);
+    });
+    scanPads();
+
+    function noiseSource(ac, duration) {
+      const buffer = ac.createBuffer(1, Math.ceil(ac.sampleRate * duration), ac.sampleRate);
+      const channel = buffer.getChannelData(0);
+      for (let i = 0; i < channel.length; i++) channel[i] = Math.random() * 2 - 1;
+      const source = ac.createBufferSource();
+      source.buffer = buffer;
+      return source;
+    }
+
+    function drum(name, amount = 1, pan = 0) {
+      if (Array.isArray(globalThis.__oskiewarOfflineAudioEvents)) {
+        globalThis.__oskiewarOfflineAudioEvents.push({
+          kind: "drum", name, amount, pan,
+          at: runtime().presentationMonotonicUs / 1000,
+        });
+        return;
+      }
+      // The signal-routed AC mock bank is primary after unlock. This legacy
+      // inline kit remains the first-gesture/offline fallback.
+      if (globalThis.__oskiewarSfx?.unlocked &&
+          globalThis.__oskiewarSfx.drum(name, amount, pan)) return;
+      const ac = ensureAudio();
+      const now = ac.currentTime;
+      const output = ac.createGain();
+      const panner = ac.createStereoPanner();
+      output.gain.value = Math.min(0.7, 0.42 * amount);
+      panner.pan.value = Math.max(-1, Math.min(1, pan));
+      output.connect(panner).connect(ac.destination);
+
+      if (name === "kick") {
+        const oscillator = ac.createOscillator();
+        const envelope = ac.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(145, now);
+        oscillator.frequency.exponentialRampToValueAtTime(43, now + 0.16);
+        envelope.gain.setValueAtTime(1, now);
+        envelope.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+        oscillator.connect(envelope).connect(output);
+        oscillator.start(now); oscillator.stop(now + 0.3);
+      } else if (name === "bell") {
+        for (const [frequency, gain, duration] of
+          [[880, .72, .34], [1320, .38, .27], [1760, .2, .18]]) {
+          const oscillator = ac.createOscillator();
+          const envelope = ac.createGain();
+          oscillator.type = frequency === 1760 ? "triangle" : "sine";
+          oscillator.frequency.value = frequency;
+          envelope.gain.setValueAtTime(gain, now);
+          envelope.gain.exponentialRampToValueAtTime(0.001, now + duration);
+          oscillator.connect(envelope).connect(output);
+          oscillator.start(now); oscillator.stop(now + duration);
+        }
+      } else if (name === "modem") {
+        // A tiny negotiated connection: three dry carrier chirps followed by
+        // one settled tone. It is an upload receipt, not a victory fanfare.
+        for (const [offset, frequency, duration, gain] of [
+          [0, 1180, .055, .48], [.07, 1760, .045, .4],
+          [.128, 980, .06, .44], [.205, 1420, .11, .28]]) {
+          const oscillator = ac.createOscillator();
+          const envelope = ac.createGain();
+          oscillator.type = offset === .205 ? "sine" : "square";
+          oscillator.frequency.setValueAtTime(frequency, now + offset);
+          envelope.gain.setValueAtTime(.001, now + offset);
+          envelope.gain.exponentialRampToValueAtTime(gain, now + offset + .008);
+          envelope.gain.exponentialRampToValueAtTime(.001,
+            now + offset + duration);
+          oscillator.connect(envelope).connect(output);
+          oscillator.start(now + offset);
+          oscillator.stop(now + offset + duration);
+        }
+      } else if (name === "whoosh") {
+        const noise = noiseSource(ac, .34);
+        const filter = ac.createBiquadFilter();
+        const envelope = ac.createGain();
+        filter.type = "bandpass";
+        filter.frequency.setValueAtTime(550, now);
+        filter.frequency.exponentialRampToValueAtTime(4200, now + .22);
+        filter.Q.value = .7;
+        envelope.gain.setValueAtTime(.001, now);
+        envelope.gain.exponentialRampToValueAtTime(.72, now + .04);
+        envelope.gain.exponentialRampToValueAtTime(.001, now + .34);
+        noise.connect(filter).connect(envelope).connect(output);
+        noise.start(now); noise.stop(now + .34);
+      } else if (name === "block") {
+        const oscillator = ac.createOscillator();
+        const envelope = ac.createGain();
+        oscillator.type = "triangle";
+        oscillator.frequency.setValueAtTime(205, now);
+        envelope.gain.setValueAtTime(0.75, now);
+        envelope.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+        oscillator.connect(envelope).connect(output);
+        oscillator.start(now); oscillator.stop(now + 0.1);
+      } else {
+        const duration = name === "hat" ? 0.07 : name === "clap" ? 0.16 : 0.2;
+        const noise = noiseSource(ac, duration);
+        const filter = ac.createBiquadFilter();
+        const envelope = ac.createGain();
+        filter.type = name === "hat" ? "highpass" : "bandpass";
+        filter.frequency.value = name === "hat" ? 6500 : 1700;
+        filter.Q.value = name === "hat" ? 0.7 : 0.9;
+        envelope.gain.setValueAtTime(0.9, now);
+        envelope.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        noise.connect(filter).connect(envelope).connect(output);
+        noise.start(now); noise.stop(now + duration);
+      }
+    }
+
+    async function readDummyPops() {
+      if (socialPreview) return;
+      try {
+        const response = await fetch(popsEndpoint, { cache: "no-store" });
+        if (!response.ok) return;
+        const body = await response.json();
+        if (Number.isFinite(body?.pops) && Number.isFinite(body?.hours))
+          dummyPops = { pops: body.pops, hours: body.hours };
+      } catch {}
+    }
+
+    // Reporting is fire-and-forget: a pop that does not reach the counter is
+    // worth less than a frame spent waiting on it. The local tally moves
+    // straight away so the number you just earned is on screen when the round
+    // hands you back to the title.
+    function reportDummyPop() {
+      if (socialPreview) return;
+      if (dummyPops) dummyPops = { ...dummyPops, pops: dummyPops.pops + 1 };
+      fetch(popsEndpoint, { method: "POST", keepalive: true,
+        headers: { "content-type": "application/json" }, body: "{}" })
+        .catch(() => {});
+    }
+
+    function gameSignal(event, player = -1, value = 0, value2 = 0) {
+      if (event === "dummy-popped") reportDummyPop();
+      const run = runtime();
+      const at = Array.isArray(globalThis.__oskiewarOfflineAudioEvents)
+        ? run.presentationMonotonicUs / 1000 : run.monotonicUs / 1000;
+      if (Array.isArray(globalThis.__oskiewarOfflineAudioEvents)) {
+        const pans = globalThis.__oskiewarPlayerPans;
+        globalThis.__oskiewarOfflineAudioEvents.push({
+          kind: "signal", event, player, value, value2, at,
+          pan: player === 0 || player === 1 ? pans?.[player] : 0,
+        });
+      }
+      dispatchEvent(new CustomEvent("oskiewar:signal", {
+        detail: { event, player, value, value2, at },
+      }));
+    }
+
+    async function saveReplay(payload) {
+      if (jevDemo) return true;
+      try {
+        const response = await fetch("https://aesthetic.computer/api/oskiewar-replays?surface=web", {
+          method: "POST", headers: { "content-type": "application/json" }, body: payload,
+        });
+        if (!response.ok) throw new Error(`upload returned ${response.status}`);
+        globalThis.acVisits?.action("round_completed");
+        try {
+          const demo = JSON.parse(payload);
+          if (Array.isArray(demo.finalRoundWins) && Math.max(...demo.finalRoundWins) >= 5)
+            globalThis.acVisits?.action("match_completed");
+        } catch { /* telemetry must never interrupt gameplay */ }
+        return true;
+      } catch (error) {
+        telemetry("REPLAY_WEB_ERROR", error.message);
+        return false;
+      }
+    }
+
+    const liveSockets = new Map();
+    // The host's half of the rollback lane: a packet to the challenger rides
+    // the publisher socket of the room the fight is in. False means the wire
+    // was not up and the game should count the frame as unsent.
+    globalThis.__oskiewarNetSend = (matchId, content) => {
+      const state = liveSockets.get(matchId);
+      if (state?.socket?.readyState !== WebSocket.OPEN) return false;
+      try {
+        state.socket.send(JSON.stringify({ type: "oskiewar:net", content }));
+        return true;
+      } catch { return false; }
+    };
+    // `payload` arrives as JSON the game already serialized. It used to be
+    // parsed to read one field, parsed again to be re-wrapped, and
+    // stringified back — four passes over the whole state per publish, on a
+    // console, thirty times a second. The frame is a string concatenation now
+    // and the one field it needs is read as text: `nextRoundId` is only ever
+    // emitted when it is a real room id.
+    const liveFrame = (payload) =>
+      '{"type":"oskiewar:state","content":' + payload + "}";
+    function publishLive(matchId, payload) {
+      if (jevDemo) { parent.__jevArena?.frame(JSON.parse(payload)); return; }
+      const retiresRoom = /"nextRoundId":"ow-/.test(payload);
+      let state = liveSockets.get(matchId);
+      if (!state) {
+        const socket = new WebSocket(`wss://session-server.aesthetic.computer/oskiewar-live?match=${encodeURIComponent(matchId)}&role=publisher&surface=web`);
+        state = { socket, pending: payload, retire: retiresRoom };
+        liveSockets.set(matchId, state);
+        socket.addEventListener("open", () => {
+          if (state.pending) socket.send(liveFrame(state.pending));
+          state.pending = "";
+          if (state.retire) setTimeout(() => socket.close(1000, "next round"), 0);
+        });
+        // The relay has always told the publishing game who joined its room and
+        // the game has always dropped it on the floor. It is the only inbound
+        // word this socket carries, and it is what lets the debug HUD show that
+        // a telemetry watcher is reading THIS round.
+        socket.addEventListener("message", (event) => {
+          let message;
+          try { message = JSON.parse(event.data); } catch { return; }
+          if (message.type === "oskiewar:viewers")
+            globalThis.__oskiewarLiveAgents =
+              Math.max(0, Number(message.content?.agents) || 0);
+          // A challenger's pad, relayed from the second chair. Stamped with
+          // the wall clock on arrival so the game can read silence as
+          // absence — the two ends share no monotonic clock to compare.
+          if (message.type === "oskiewar:input" && message.content &&
+              typeof message.content === "object")
+            globalThis.__oskiewarRemotePad =
+              { ...message.content, at: Date.now() };
+          // The rollback lane's packets from the challenger. Queued for the
+          // game to drain on its next tick; the engine owns the protocol.
+          if (message.type === "oskiewar:net" && message.content &&
+              typeof message.content === "object")
+            (globalThis.__oskiewarNetInbox ||= []).push(message.content);
+          // Two visitors claimed the same dead room; the relay let one host.
+          // Raise the flag and the game walks this one back in as the
+          // challenger.
+          if (message.type === "oskiewar:error" &&
+              /already has a publisher/i.test(message.content?.message || ""))
+            globalThis.__oskiewarPublishConflict = matchId;
+          // A linked agent asked for a reload. Same safety as the update
+          // poll: on the title it happens now, mid-fight it arms and waits
+          // for the title — an agent must never yank a round out from under
+          // whoever is actually holding the controller.
+          // Render experiment flags from an attached agent: merged shallow so
+          // one probe can flip one layer without resetting the others. The
+          // game reads the global once per painted frame.
+          if (message.type === "oskiewar:flags" && message.content &&
+              typeof message.content === "object") {
+            globalThis.__oskiewarRenderFlags = {
+              ...globalThis.__oskiewarRenderFlags, ...message.content };
+            if (typeof message.content.res === "number") {
+              // A positive res pins the dial by hand; zero hands it back to
+              // the governor.
+              manualResolution = message.content.res > 0
+                ? Math.max(.3, Math.min(1, message.content.res)) : null;
+              if (manualResolution !== null) resolutionScale = manualResolution;
+              resizeCanvas();
+            }
+          }
+          if (message.type === "oskiewar:workshop") {
+            const { id, command } = message.content || {};
+            Promise.resolve().then(() => {
+              if (!globalThis.__oskiewarWorkshopRequest) throw new Error("Workshop unavailable");
+              return globalThis.__oskiewarWorkshopRequest(command);
+            }).then(result => ({ id, ok: true, result }),
+              error => ({ id, ok: false, error: error.message }))
+              .then(content => {
+                if (socket.readyState === WebSocket.OPEN)
+                  socket.send(JSON.stringify({ type: "oskiewar:workshop-result", content }));
+              });
+          }
+          if (message.type === "oskiewar:reload") {
+            if (globalThis.__oskiewarTouch?.screen === "title") {
+              document.querySelector("#status").textContent = "updating";
+              location.reload();
+              return;
+            }
+            updateAvailable = true;
+            document.querySelector("#status").textContent = "update is ready";
+          }
+        });
+        socket.addEventListener("close", () => {
+          liveSockets.delete(matchId);
+          // Each round is its own room, so a closed socket means whoever was
+          // linked is linked to a room that no longer exists. They have to
+          // rejoin the next round's ID, and until they do the mark is off.
+          globalThis.__oskiewarLiveAgents = 0;
+        });
+        return;
+      }
+      state.retire ||= retiresRoom;
+      if (state.socket.readyState === WebSocket.OPEN) {
+        state.socket.send(liveFrame(payload));
+        if (state.retire) setTimeout(() => state.socket.close(1000, "next round"), 0);
+      } else state.pending = payload;
+    }
+
+    function ac() {
+      const account = globalThis.__oskiewarAccount;
+      // A copy, not the record itself: the shell rewrites that record whenever
+      // someone signs in or out, and a piece holding a reference to it would
+      // see a fighter's name change under a running round.
+      const player = account.handle
+        ? { handle: account.handle, colors: account.colors }
+        : { handle: "", colors: [[72,176,156],[118,214,188],
+            [54,128,168],[230,205,92]], anonymous: true };
+      return { fighters: account.handle ? [{
+        handle: account.handle, colors: account.colors,
+      }] : [], player, moodHandle: "", mood: "", source: "web-auth" };
+    }
+
+    addEventListener("keydown", (event) => {
+      if (event.target instanceof HTMLButtonElement) return;
+      // Typing an email address — or ticking a scope box — must not also throw
+      // punches and start the game. Every unmapped key is "start" down here, so
+      // an open panel has to take the whole keyboard, not just the mapped half;
+      // each panel handles its own Enter and Escape.
+      if (panelOpen()) return;
+      const mapped = keyMap.get(event.code);
+      if (!mapped) {
+        if (tapTitle()) event.preventDefault();
+        return;
+      }
+      event.preventDefault();
+      dismissTitle();
+      keys[mapped[0]].add(mapped[1]);
+      unlockAudio();
+    });
+    addEventListener("keyup", (event) => {
+      const mapped = keyMap.get(event.code);
+      if (!mapped) return;
+      event.preventDefault();
+      keys[mapped[0]].delete(mapped[1]);
+    });
+    function releaseGrab(pointerId) {
+      const grab = grabs.get(pointerId);
+      if (!grab) return;
+      grabs.delete(pointerId);
+      clearTimeout(grab.hold);
+      if (grab.held) {
+        keys[0].delete("Y");
+        return;
+      }
+      if (grab.dragging) return;
+      // Released without travel: the tap lands where the press did, and a
+      // click in a fight is still the web's "use item".
+      selectTaps.push({ x: grab.startX, y: grab.startY });
+      if (grab.item) {
+        keys[0].add("Y");
+        setTimeout(() => keys[0].delete("Y"), 90);
+      }
+    }
+    function releaseTouch(pointerId) {
+      releaseGrab(pointerId);
+      const active = touchPointers.get(pointerId);
+      if (!active) return;
+      touchPointers.delete(pointerId);
+      if (![...touchPointers.values()].some((item) => item.key === active.key))
+        keys[0].delete(active.key);
+    }
+    function canvasPoint(event) {
+      const bounds = canvas.getBoundingClientRect();
+      return { x: (event.clientX - bounds.left) * logicalWidth / bounds.width,
+        y: (event.clientY - bounds.top) * logicalHeight / bounds.height };
+    }
+    function touchKeyAt(point) {
+      if (!touchEnabled) return null;
+      const spread = 64;
+      // Mirrors drawTouchControls in the game source — the clusters stand
+      // clear of the home indicator and any notch ear, and a shift there
+      // must land here too or the drawing and the hit test come apart.
+      const cy = logicalHeight - 140 - logicalInset.bottom;
+      const clusters = [
+        [130 + logicalInset.left, [[0, -1, "ArrowUp"], [0, 1, "ArrowDown"],
+          [-1, 0, "ArrowLeft"], [1, 0, "ArrowRight"]]],
+        [logicalWidth - 130 - logicalInset.right, [[0, -1, "Y"], [0, 1, "A"],
+          [-1, 0, "X"], [1, 0, "B"]]],
+      ];
+      for (const [cx, buttons] of clusters)
+        for (const [dx, dy, key] of buttons)
+          if (Math.hypot(point.x - (cx + dx * spread),
+              point.y - (cy + dy * spread)) <= 40) return key;
+      return null;
+    }
+    canvas.addEventListener("pointermove", (event) => {
+      const point = canvasPoint(event);
+      Object.assign(globalThis.__oskiewarTouch.pointer, point, { active: true });
+      const grab = grabs.get(event.pointerId);
+      if (!grab) return;
+      if (!grab.dragging &&
+          Math.hypot(point.x - grab.startX, point.y - grab.startY) > grabSlop) {
+        grab.dragging = true;
+        clearTimeout(grab.hold);
+        if (grab.held) { keys[0].delete("Y"); grab.held = false; }
+      }
+      if (grab.dragging) {
+        const orbit = globalThis.__oskiewarTouch.orbit;
+        // A drag across the whole canvas is a full turn of the lens.
+        orbit.yaw += (point.x - grab.x) / logicalWidth * 1.6;
+        orbit.pitch += (point.y - grab.y) / logicalHeight * .9;
+      }
+      grab.x = point.x;
+      grab.y = point.y;
+    });
+    // The wheel dollies; a trackpad pinch arrives as a ctrl-wheel and
+    // dollies too; sideways scroll, or shift, turns the lens instead.
+    canvas.addEventListener("wheel", (event) => {
+      if (panelOpen()) return;
+      event.preventDefault();
+      const orbit = globalThis.__oskiewarTouch.orbit;
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 400 : 1;
+      const dx = event.deltaX * unit;
+      const dy = event.deltaY * unit;
+      if (event.ctrlKey || event.metaKey) orbit.zoom += dy * .01;
+      else if (event.shiftKey)
+        orbit.yaw += (Math.abs(dx) > Math.abs(dy) ? dx : dy) * .004;
+      else {
+        orbit.zoom += dy * .0025;
+        orbit.yaw += dx * .004;
+      }
+    }, { passive: false });
+    canvas.addEventListener("pointerleave", () => {
+      globalThis.__oskiewarTouch.pointer.active = false;
+    });
+    let pinchScale = 1;
+    canvas.addEventListener("gesturestart", (event) => {
+      if (panelOpen()) return;
+      event.preventDefault();
+      pinchScale = event.scale || 1;
+    }, { passive: false });
+    canvas.addEventListener("gesturechange", (event) => {
+      if (panelOpen()) return;
+      event.preventDefault();
+      const scale = event.scale || 1;
+      globalThis.__oskiewarTouch.orbit.zoom -= Math.log(scale / pinchScale);
+      pinchScale = scale;
+    }, { passive: false });
+    canvas.addEventListener("pointerdown", (event) => {
+      if (globalThis.__oskiewarWizardOpen) return;
+      const point = canvasPoint(event);
+      const touchKey = touchKeyAt(point);
+      if (touchKey) {
+        event.preventDefault();
+        dismissTitle();
+        canvas.setPointerCapture?.(event.pointerId);
+        touchPointers.set(event.pointerId, { key: touchKey });
+        keys[0].add(touchKey);
+        unlockAudio();
+        return;
+      }
+      if (tapTitleHead(point) || tapTitle(point)) {
+        event.preventDefault();
+        return;
+      }
+      const updateButton = globalThis.__oskiewarTouch?.updateButton;
+      if (updateAvailable && updateButton && point.x >= updateButton.x &&
+          point.x <= updateButton.x + updateButton.width &&
+          point.y >= updateButton.y && point.y <= updateButton.y + updateButton.height) {
+        location.reload();
+        return;
+      }
+      const touch = globalThis.__oskiewarTouch;
+      Object.assign(touch.pointer, point, { active: true });
+      unlockAudio();
+      event.preventDefault();
+      // Something under the pointer — a menu option, the title's start word,
+      // a grabbable wordmark letter — takes the press as the tap it always
+      // was. Empty canvas is the camera's.
+      const overUi = Boolean(touch.hover) || touch.titleHover === true ||
+        (touch.titleGlyph ?? -1) >= 0;
+      if (overUi) {
+        selectTaps.push(point);
+        return;
+      }
+      canvas.setPointerCapture?.(event.pointerId);
+      // A primary mouse/trackpad click is the web equivalent of Y / Use Item.
+      // Title interaction returns above, so starting the game never spends or
+      // fires an item on the same click. A click is decided on release, but
+      // a press that stays put is a hold — the rubber SMG fires on a held Y.
+      const item = !touchEnabled && event.button === 0 &&
+        touch.screen === "game";
+      const grab = { x: point.x, y: point.y, startX: point.x, startY: point.y,
+        dragging: false, item, held: false, hold: null };
+      if (item) grab.hold = setTimeout(() => {
+        if (grabs.get(event.pointerId) !== grab || grab.dragging) return;
+        grab.held = true;
+        keys[0].add("Y");
+      }, 160);
+      grabs.set(event.pointerId, grab);
+    });
+    for (const type of ["pointerup", "pointercancel", "lostpointercapture"])
+      canvas.addEventListener(type, (event) => releaseTouch(event.pointerId));
+    canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+    addEventListener("blur", () => {
+      keys.forEach((held) => held.clear());
+      for (const pointerId of touchPointers.keys()) releaseTouch(pointerId);
+      for (const pointerId of grabs.keys()) releaseGrab(pointerId);
+    });
+    globalThis.__fightHost = {
+      runtime, gamepad, controllers, capabilities, telemetry, gameSignal,
+      sampleInput: sampleGamepads,
+      saveReplay, publishLive, ac, drum, wipe, box, line, triangle,
+      write, systemWrite, comicWrite, gameView, flushFaces, canvasContext: context,
+    };
+  </script>
+  <script type="module">
+    import createOskiewarSfx from "/classic/oskiewar-sfx.mjs";
+    import createOskiewarVoice from "/classic/oskiewar-voice.mjs";
+    import createOskiewarMidi from "/classic/oskiewar-midi.mjs";
+    import createFrameDriver from "/classic/frame-driver.mjs";
+    import { renderSurface, nextResolutionScale } from "/classic/render-quality.mjs";
+    import createPhotoTheme from "/classic/photo-theme.mjs";
+    import mountAccount from "/classic/account.mjs";
+    import mountWizard from "/classic/oskiewar-wizard.mjs";
+    import { mountWorkshop } from "/classic/oskiewar-workshop.mjs";
+    if (!socialPreview) await mountWorkshop();
+    import { qrcode } from "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs";
+    import {
+      captureOskiewarAction,
+      initProductAnalytics,
+    } from "/aesthetic.computer/lib/product-analytics.mjs";
+    import { RoundRoom, roundNameFromPath } from "/classic/round-room.mjs";
+    const oskiewarSfx = createOskiewarSfx({
+      contextFactory: () => ensureAudio(), volume: .64, maxVoices: 72,
+    });
+    globalThis.__oskiewarSfx = oskiewarSfx;
+    oskiewarSfx.connectSignals(globalThis);
+
+    // 🔑 The account door, mounted before anything can ask who is here: the
+    // game reads `__oskiewarAccount` from its first frame and writes
+    // `__oskiewarAccountDoor` to raise a panel, and both want their real owner
+    // in place first. The door sounds like the rest of the furniture — a soft
+    // tick on approach, a firmer knock on the way through.
+    globalThis.__oskiewarRenderSurface = renderSurface;
+    globalThis.__oskiewarNextResolutionScale = nextResolutionScale;
+    globalThis.__oskiewarInsetsChanged();
+    const accountDoor = mountAccount({
+      sfx: (name, amount, pan) => oskiewarSfx.drum(name, amount, pan),
+      probe: !socialPreview,
+    });
+
+    // 🚪 The consent wall, mounted after the door it depends on. Kept out of a
+    // social-preview render for the same reason the account probe is: that pass
+    // draws a picture of the title and must not grow furniture a viewer of the
+    // picture could never press.
+    if (!socialPreview)
+      globalThis.__oskiewarWizard = mountWizard({
+        sfx: (name, amount, pan) => oskiewarSfx.drum(name, amount, pan),
+        bearer: () => globalThis.__oskiewarAccount.bearer(),
+      });
+
+    // The fighters' throats and the announcer. Same context, same signal bus,
+    // separate bank — the drums are the room and the voice is the person in
+    // it, and they want different limiters. `?voice=off` for a silent cast,
+    // `?voice=grunts` to keep the synthesized cries but drop every spoken
+    // word, which is what a capture wants when the narration is coming from
+    // somewhere else.
+    const voiceParam = new URLSearchParams(location.search).get("voice");
+    const voiceOff = voiceParam === "0" || voiceParam === "off";
+    const oskiewarVoice = createOskiewarVoice({
+      contextFactory: () => ensureAudio(), volume: .82,
+      speech: voiceParam === "grunts" ? false : undefined,
+    });
+    globalThis.__oskiewarVoice = oskiewarVoice;
+    if (voiceOff) oskiewarVoice.mute(true);
+    else oskiewarVoice.connectSignals(globalThis);
+
+    // Web MIDI out, so a DAW on the same machine can score the fight instead of
+    // the procedural bank. Opt-in, because it takes the bank's place: `?midi`
+    // sends every signal to the IAC bus and silences the built-in voices,
+    // `?midi=both` layers them, and the choice sticks in localStorage. The pad
+    // layout is `oskiewar pads.adg` — note 36 upward, one per signal event.
+    // The lamp answers every note that leaves, so the corner doubles as proof
+    // the bridge is sending even when a pad is still silent.
+    // The HUD draws the lamp; the host only records when a note last left, so
+    // the indicator can never claim a send that did not happen.
+    const oskiewarMidi = createOskiewarMidi({
+      onSignal: () => { globalThis.__oskiewarMidiPulse = Date.now(); },
+    });
+    globalThis.__oskiewarMidi = oskiewarMidi;
+    // The address is the whole state, and nothing about it survives a refresh:
+    // oskiewar.com is the game, `?midi` is this visit, midi.oskiewar.com is the
+    // way to keep it. Remembering the choice meant one visit to `?midi` left the
+    // procedural bank muted on the plain site forever, with nothing on screen
+    // saying why — so the old flag is cleared rather than read.
+    try { localStorage.removeItem("oskiewar-midi"); } catch {}
+    const midiParam = new URLSearchParams(location.search).get("midi");
+    const midiMode = midiParam !== null ? midiParam
+      : location.hostname.startsWith("midi.") ? "1" : null;
+    if (midiMode !== null && midiMode !== "0" && midiMode !== "off") {
+      if (await oskiewarMidi.enable()) {
+        document.body.classList.add("midi-out");
+        oskiewarMidi.connectSignals(globalThis);
+        const layered = midiMode === "both";
+        if (!layered) { oskiewarSfx.mute(true); oskiewarVoice.mute(true); }
+        console.log(`%c[midi]%c out -> ${oskiewarMidi.portName} · ` +
+          `${oskiewarMidi.chart().length} pads on notes ` +
+          `${oskiewarMidi.chart()[0].note}-${oskiewarMidi.chart().at(-1).note} · ` +
+          `procedural bank ${layered ? "layered" : "muted"} · ` +
+          `__oskiewarMidi.chart() for the map`,
+          "color:#0f0;font-weight:bold", "color:inherit");
+      } else {
+        console.warn(`[midi] off — ${oskiewarMidi.lastError}`);
+      }
+    }
+    // A tab hidden mid-match would otherwise leave its last notes held down.
+    addEventListener("pagehide", () => oskiewarMidi.panic());
+    // The analytics config is a round trip the first frame does not need.
+    // It used to be awaited here, ahead of the game module's own fetch —
+    // a full network hop that stood between the visitor and the title.
+    // Actions raised before it lands wait in a short queue.
+    let analyticsReady = false;
+    const analyticsQueue = [];
+    const analytics = (action, properties) => {
+      if (action === "match_started") globalThis.acVisits?.action("round_started");
+      return jevDemo ? false : analyticsReady
+        ? captureOskiewarAction(action, properties)
+        : analyticsQueue.push([action, properties]) > 0;
+    };
+    if (!jevDemo) fetch("/api/product-analytics-config", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .catch(() => null)
+      .then((config) => {
+        if (config) globalThis.acPostHogConfig = config;
+        initProductAnalytics();
+        analyticsReady = true;
+        for (const [action, properties] of analyticsQueue.splice(0))
+          captureOskiewarAction(action, properties);
+      });
+    globalThis.__fightHost.analytics = analytics;
+    globalThis.qrcode = qrcode;
+    // Finish a web sign-in before matchmaking or room URL updates can consume
+    // its callback URL. Ordinary anonymous visits still boot immediately.
+    if (accountDoor.redirectPending) await accountDoor.ready;
+    const workshopRoute = /^\/workshop\/?$/.test(location.pathname);
+    const roundName = roundNameFromPath(location.pathname) || (workshopRoute
+      ? roundNameFromPath("/" + (new URLSearchParams(location.search).get("room") || "")) : "");
+    // The game module download is the long pole of the whole load, so it
+    // starts here, before anything else is awaited. `no-cache` rather than
+    // `no-store` lets the browser revalidate: an unchanged module answers
+    // 304 and loads from disk instead of shipping half a megabyte again.
+    const pieceSourceFetch = globalThis.__fightPieceSource ? null
+      : globalThis.__oskiewarPieceSourceFetch ||
+        fetch("/classic/oskiewar.js", { cache: "no-cache" });
+    // The root opens the title. Only an explicit room link joins a fight;
+    // background discovery must not turn a visit or sign-in into a match.
+    const joinName = roundName;
+    // A visitor arriving through a shared address asks for the second chair
+    // — first to open the link fights the host, everybody after watches.
+    // Harness lanes stay pure spectators.
+    globalThis.__oskiewarRoundBridge = joinName
+      ? new RoundRoom(joinName, { analytics,
+          role: globalThis.__oskiewarVersusCapable === true
+            ? "challenger" : "viewer" })
+      : null;
+    // The versus room's name IS the invitation, so the address bar carries
+    // it as soon as the game mints one — copying the URL is sharing the
+    // fight.
+    setInterval(() => {
+      if (globalThis.__oskiewarTouch?.screen === "title") {
+        if (globalThis.__oskiewarRoomUnavailable && !workshopRoute) {
+          history.replaceState(null, "", "/" + location.search);
+          globalThis.__oskiewarRoomUnavailable = "";
+        }
+        return;
+      }
+      if (globalThis.__oskiewarLocalVersus) {
+        if (location.pathname !== "/") history.replaceState(null, "", "/" + location.search);
+        return;
+      }
+      const room = globalThis.__oskiewarVersusRoom;
+      if (room && !/^\/workshop\/?$/.test(location.pathname) && location.pathname !== "/" + room)
+        history.replaceState(null, "", "/" + room);
+    }, 500);
+    // A challenger who glances at another tab stops simulating — the frame
+    // driver parks with the tab and the engine's own input heartbeat parks
+    // with it — but a glance must not cost the chair. While hidden, the
+    // shell keeps the seat warm with an empty pad; hands off is what hidden
+    // means anyway.
+    setInterval(() => {
+      const bridge = globalThis.__oskiewarRoundBridge;
+      if (document.hidden && bridge?.seat === "challenger")
+        bridge.sendInput?.({ seq: 0, down: [], leftX: 0, leftY: 0 });
+    }, 1000);
+
+    let loadedVersion = "";
+    const responseVersion = (response) => response.headers.get("etag") ||
+      [response.headers.get("last-modified"), response.headers.get("content-length")]
+        .filter(Boolean).join(":");
+    async function checkForUpdate() {
+      if (!loadedVersion || updateAvailable) return;
+      try {
+        const response = await fetch(`/classic/oskiewar.js?update-check=${Date.now()}`,
+          { method: "HEAD", cache: "no-store" });
+        const availableVersion = responseVersion(response);
+        if (response.ok && availableVersion && availableVersion !== loadedVersion) {
+          if (globalThis.__oskiewarTouch?.screen === "title") {
+            document.querySelector("#status").textContent = "updating";
+            location.reload();
+            return;
+          }
+          updateAvailable = true;
+          document.querySelector("#status").textContent = "update is ready";
+        }
+      } catch {}
+    }
+
+    const requestedGraphics = new URLSearchParams(location.search).get("graphics");
+    globalThis.__oskiewarGraphicsTheme = requestedGraphics === "flat" ? "flat" : "photorealistic";
+    const photoTheme = createPhotoTheme(globalThis.__fightHost.canvasContext,
+      globalThis.__fightHost.flushFaces);
+    Object.assign(globalThis.__fightHost, photoTheme);
+    async function start() {
+      if (globalThis.__oskiewarGraphicsTheme === "photorealistic") await photoTheme.ready;
+      let source = globalThis.__fightPieceSource;
+      if (!source) {
+        const response = await pieceSourceFetch;
+        loadedVersion = responseVersion(response);
+        source = await response.text();
+        setInterval(checkForUpdate, 2000);
+      }
+      performance.mark("oskiewar:source");
+      const piece = new Function(
+        "runtime", "gamepad", "controllers", "capabilities", "telemetry",
+        "gameSignal", "saveReplay", "publishLive", "analytics", "ac", "drum", "wipe", "box",
+        "line", "triangle", "write", "systemWrite", "comicWrite", "gameView", "themeReady", "themeAssetReady", "themeSprite", "themeQuad", "themeLighting",
+        `${source}\nreturn { boot, sim, paint };`
+      )(...["runtime", "gamepad", "controllers", "capabilities", "telemetry",
+        "gameSignal", "saveReplay", "publishLive", "analytics", "ac", "drum", "wipe", "box",
+        "line", "triangle", "write", "systemWrite", "comicWrite", "gameView", "themeReady", "themeAssetReady", "themeSprite", "themeQuad", "themeLighting"]
+        .map((name) => globalThis.__fightHost[name]));
+      piece.boot();
+      performance.mark("oskiewar:booted");
+      {
+        const at = (name) => Math.round(performance.getEntriesByName(name)[0]?.startTime || 0);
+        console.log(`%c[boot]%c source at ${at("oskiewar:source")}ms · booted at ` +
+          `${at("oskiewar:booted")}ms · compile+boot ` +
+          `${at("oskiewar:booted") - at("oskiewar:source")}ms`,
+          "color:#0f0;font-weight:bold", "color:inherit");
+      }
+      warmTitleVoice();
+      // The tally is a title-screen ornament, so it is fetched alongside the
+      // first frame rather than gating it, and refreshed slowly — the count
+      // only has to be roughly true, and the local bump already covers the
+      // pop you just earned.
+      readDummyPops();
+      if (!socialPreview) readLocalCountry();
+      if (!socialPreview) setInterval(readDummyPops, 120000);
+      let selectionHoverSoundKey = "";
+      let titleHoverSoundKey = "";
+      let previousPieceScreen = "title";
+      const tabTitles = ["oskiewar", "oskie war", "os ki ewar", "osk ie war",
+        "o skie war", "oskie w ar"];
+      let previousTabTitle = -1;
+      const syncTabTitle = () => {
+        const index = Math.floor(performance.now() / 1250) % tabTitles.length;
+        if (index === previousTabTitle) return;
+        previousTabTitle = index;
+        document.title = tabTitles[index];
+      };
+      const syncSelectionCursor = () => {
+        const pieceScreen = globalThis.__oskiewarTouch?.screen || "";
+        if (pieceScreen === "title" && previousPieceScreen !== "title") {
+          if (updateAvailable) {
+            document.querySelector("#status").textContent = "updating";
+            location.reload();
+            return;
+          }
+          titleOpen = true;
+          document.body.classList.add("title-open");
+        }
+        // The title is a live round now, so leaving it is not always an
+        // explicit dismiss. Follow the piece instead of waiting to be told,
+        // or the account controls hang over a fight nobody wants them in.
+        else if (pieceScreen && pieceScreen !== "title" && titleOpen)
+          dismissTitle();
+        previousPieceScreen = pieceScreen;
+        const hover = globalThis.__oskiewarTouch?.hover || null;
+        const titleHover = globalThis.__oskiewarTouch?.titleHover === true;
+        // A letter of the wordmark is a thing you can grab, so say so.
+        const titleGlyph = globalThis.__oskiewarTouch?.titleGlyph ?? -1;
+        document.body.classList.toggle("selection-hover",
+          Boolean(hover) || titleHover || titleGlyph >= 0);
+        const key = hover ? [hover.back ? "back" : "", hover.option ?? ""].join(":") : "";
+        if (key && key !== selectionHoverSoundKey && !titleOpen)
+          oskiewarSfx.drum("hat", .26, 0);
+        selectionHoverSoundKey = key;
+        // The title's start word and grabbable wordmark letters tick on
+        // approach like everything else — they were the one silent hover.
+        const titleKey = titleHover ? "start"
+          : titleGlyph >= 0 ? "glyph:" + titleGlyph : "";
+        if (titleKey && titleKey !== titleHoverSoundKey)
+          oskiewarSfx.drum("hat", .26, 0);
+        titleHoverSoundKey = titleKey;
+      };
+      const driver = createFrameDriver({
+        // `time-scale` is the public spelling; `speed` remains a compact URL
+        // alias for render/review scripts. Physics always advances in exact
+        // 60 Hz ticks—the scale changes how often those ticks are consumed.
+        timeScale: (() => {
+          const params = new URLSearchParams(location.search);
+          return globalThis.__oskiewarTimeScale ??
+            params.get("time-scale") ?? params.get("speed") ?? 1;
+        })(),
+        sample: globalThis.__fightHost.sampleInput,
+        simulate(simulationAt, presentationAt) {
+          simulationMonotonicMs = simulationAt;
+          lastSimulationMonotonicMs = simulationAt;
+          presentationMonotonicMs = presentationAt;
+          try { piece.sim(); }
+          finally {
+            simulationMonotonicMs = null;
+            presentationMonotonicMs = null;
+          }
+        },
+        paint(presentationAt, alpha, renderSimulationAt) {
+          simulationMonotonicMs = renderSimulationAt;
+          presentationMonotonicMs = presentationAt;
+          renderAlpha = alpha;
+          try { piece.paint(); }
+          finally {
+            simulationMonotonicMs = null;
+            presentationMonotonicMs = null;
+            renderAlpha = 1;
+          }
+          // The last run of faces has nobody behind it to trip the flush, and
+          // the next frame opens with a wipe that would erase it unpainted.
+          globalThis.__fightHost.flushFaces();
+          // The game publishes where each fighter stands on screen; the bank
+          // pans that player's cues to match. Centered pairs mean couch
+          // multiplayer, and the bank is told so rather than left stale.
+          const pans = globalThis.__oskiewarPlayerPans;
+          if (pans && globalThis.__oskiewarSfx) {
+            globalThis.__oskiewarSfx.setPlayerPan(0, pans[0]);
+            globalThis.__oskiewarSfx.setPlayerPan(1, pans[1]);
+          }
+          syncTabTitle();
+          syncSelectionCursor();
+        },
+      });
+      globalThis.__oskiewarFrameStats = driver.stats;
+      globalThis.__oskiewarSetTimeScale = (value) => {
+        const scale = driver.setTimeScale(value);
+        globalThis.__oskiewarTimeScale = scale;
+        return scale;
+      };
+      globalThis.__oskiewarGetTimeScale = () => driver.getTimeScale();
+      const offlineRender = new URLSearchParams(location.search).has("offline-render");
+      if (offlineRender) {
+        globalThis.__oskiewarOfflineStep = () => driver.stepOffline();
+        globalThis.__oskiewarOfflineReady = true;
+      }
+      addEventListener("visibilitychange", () =>
+        driver.setVisible(document.visibilityState === "visible"));
+      addEventListener("pointermove", syncSelectionCursor, { passive: true });
+      addEventListener("pointerleave", () =>
+        document.body.classList.remove("selection-hover"), { passive: true });
+      if (!offlineRender) driver.start();
+    }
+    start().catch((error) => {
+      console.error(error);
+      document.querySelector("#status").textContent = `TEST ERROR: ${error.message}`;
+    });
+  </script>
+</body>
+</html>

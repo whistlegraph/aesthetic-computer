@@ -1134,7 +1134,26 @@ oskiewar.com, midi.oskiewar.com {
     }
 
     # Playable Canvas/Web Audio build shared with the desktop test harness.
-    @oskiewargame path / /workshop /workshop/
+    # Classic: v168, the side-view monowheel park, frozen whole in
+    # xbox/classic with its own paths under /classic/. It is the front door
+    # for now (@jeffrey, 2026-09-29: "hold that, recall that as a mode");
+    # today's 3D game is at /3d. Room links still open the current game.
+    @oskiewarfront path /
+    redir @oskiewarfront /classic{uri} 302
+    @oskiewarclassic path /classic /classic/
+    handle @oskiewarclassic {
+        root * /opt/ac/xbox/classic
+        rewrite * /mac-test.html
+        header Cache-Control no-cache
+        file_server
+    }
+    handle /classic/* {
+        root * /opt/ac/xbox
+        header Cache-Control no-cache
+        file_server
+    }
+
+    @oskiewargame path /3d /3d/ /workshop /workshop/
     handle @oskiewargame {
         root * /opt/ac/xbox/live
         rewrite * /mac-test.html

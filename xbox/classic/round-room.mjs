@@ -1,0 +1,254 @@
+// oskiewar round room transport, 26.08.05
+// Keeps live and stored-demo delivery outside the shared game/render engine.
+
+const WORD = "(?:[bdfgklmnprstvz][aeiou]){3}";
+const ROUND_NAME = new RegExp(`^(?:${WORD}-${WORD}-${WORD}|[a-z]{4,7}[0-9]{1,3})$`);
+
+export function roundNameFromPath(pathname) {
+  const name = String(pathname || "").replace(/^\/+|\/+$/g, "").toLowerCase();
+  return ROUND_NAME.test(name) ? name : "";
+}
+
+export class RoundRoom {
+  constructor(name, { WebSocketImpl = globalThis.WebSocket,
+    fetchImpl = globalThis.fetch, historyImpl = globalThis.history,
+    analytics = () => false, role = "viewer",
+    sessionOrigin = "wss://session-server.aesthetic.computer",
+    replayOrigin = "" } = {}) {
+    if (!ROUND_NAME.test(name || "")) throw new Error("Invalid oskiewar round name");
+    this.name = name;
+    this.WebSocketImpl = WebSocketImpl;
+    this.fetchImpl = typeof fetchImpl === "function"
+      ? fetchImpl.bind(globalThis) : null;
+    this.historyImpl = historyImpl;
+    this.analytics = analytics;
+    this.sessionOrigin = sessionOrigin;
+    this.replayOrigin = replayOrigin;
+    // A challenger asks for the second chair; a viewer only watches. A denied
+    // chair quietly demotes this room to a viewer connection, so the friend
+    // who arrived third still sees the fight they were invited to.
+    this.role = role === "challenger" ? "challenger" : "viewer";
+    this.wantsSeat = this.role === "challenger";
+    this.seatRetryAt = 0;
+    this.seat = "";
+    this.socket = null;
+    // Two named slots, not one shared one. A versus room has no stored replay
+    // and 404s forever, so the 1800 ms replay retry below used to hold the
+    // only slot almost all the time — and a socket closing in that window
+    // asked for a reconnect that was silently dropped, which is how a
+    // spectator or a walked-back challenger wedged on "already has a
+    // challenger" and never came back.
+    this.timers = { reconnect: null, replay: null };
+    this.listener = null;
+    this.live = false;
+    this.hostKnown = false;
+    this.replayChecked = false;
+    this.hasReplay = false;
+    this.lastState = null;
+    this.generation = 0;
+    this.stopped = false;
+    this.deliverySeen = new Set();
+  }
+
+  start(listener) {
+    this.listener = listener;
+    this.stopped = false;
+    this.open();
+    this.loadDemo();
+    return () => this.stop();
+  }
+
+  emit(type, content = {}) {
+    this.listener?.({ type, content, roundName: this.name, live: this.live });
+  }
+
+  track(action, properties = {}) {
+    this.analytics(action, {
+      source_system: "browser",
+      surface: "web",
+      ...properties,
+    });
+  }
+
+  open() {
+    if (this.stopped || !this.WebSocketImpl) return;
+    this.clear("reconnect");
+    const generation = ++this.generation;
+    const id = `ow-${this.name}`;
+    const role = this.role === "challenger" ? "&role=challenger" : "";
+    const socket = new this.WebSocketImpl(
+      `${this.sessionOrigin}/oskiewar-live?match=${encodeURIComponent(id)}&surface=web${role}`);
+    this.socket = socket;
+    socket.addEventListener?.("open", () => {
+      if (generation === this.generation) this.emit("status", { label: "waiting", live: false });
+    });
+    socket.addEventListener?.("message", (event) => {
+      if (generation !== this.generation) return;
+      let message;
+      try { message = JSON.parse(event.data); } catch { return; }
+      if (message.type === "oskiewar:seat") {
+        this.seat = String(message.content?.seat || "");
+        this.emit("seat", { seat: this.seat });
+      } else if (message.type === "oskiewar:status") {
+        this.hostKnown = true;
+        this.live = Boolean(message.content?.live);
+        this.emit("status", { ...message.content,
+          label: this.live ? "live" : "waiting" });
+        // A denied chair used to be forever: the demoted challenger watched
+        // from the grandstand even after the chair emptied, so two windows on
+        // one room could both end up seatless. Status frames say whether the
+        // second chair is held; when it frees, the walked-back challenger
+        // reconnects to take it, paced so a contested chair can't flap.
+        if (this.wantsSeat && this.role === "viewer" &&
+            message.content?.challenger === false) {
+          const at = Date.now();
+          if (at - this.seatRetryAt >= 4000) {
+            this.seatRetryAt = at;
+            this.role = "challenger";
+            ++this.generation;
+            this.socket?.close?.(1000, "retaking the chair");
+            this.socket = null;
+            this.open();
+            return;
+          }
+        }
+        if (!this.live) this.loadDemo();
+      } else if (message.type === "oskiewar:state") {
+        if (message.content?.nextRoundId) {
+          this.move(message.content.nextRoundId);
+          return;
+        }
+        if (!this.deliverySeen.has("live")) {
+          this.deliverySeen.add("live");
+          this.track("live_viewed");
+        }
+        this.lastState = message.content;
+        this.emit("state", message.content);
+        if (message.content?.phase === "match") this.loadDemo(true);
+      } else if (message.type === "oskiewar:net") {
+        // The rollback lane's packets from the host: input frames, the
+        // match-start deal, state hashes. Handed straight to the game.
+        this.emit("net", message.content);
+      } else if (message.type === "oskiewar:error") {
+        // A taken chair is an answer, not a failure: fall back to watching
+        // before the server's close comes through, so the reconnect below
+        // rejoins as one more face in the grandstand.
+        if (this.role === "challenger" &&
+            /challenger/i.test(message.content?.message || "")) {
+          this.role = "viewer";
+          this.seat = "";
+          this.emit("seat", { seat: "", denied: true });
+        }
+        this.emit("status", { label: message.content?.message || "unavailable", live: false });
+      }
+    });
+    const closed = () => {
+      if (generation !== this.generation || this.stopped) return;
+      this.socket = null;
+      this.live = false;
+      this.seat = "";
+      this.loadDemo();
+      this.schedule("reconnect", () => this.open(), 1200);
+    };
+    socket.addEventListener?.("close", closed);
+    socket.addEventListener?.("error", () => socket.close?.());
+  }
+
+  // The challenger's presses, up to the relay and on to the publishing game.
+  // Returns whether the wire took them, so the game can pace its own retries.
+  sendInput(content) {
+    if (this.seat !== "challenger" || this.socket?.readyState !== 1)
+      return false;
+    try {
+      this.socket.send(JSON.stringify({ type: "oskiewar:input", content }));
+      return true;
+    } catch { return false; }
+  }
+
+  // The rollback lane's packets from this seat up to the host. Only the chair
+  // may speak, and only while the wire is up; the return says whether it went.
+  sendNet(content) {
+    if (this.seat !== "challenger" || this.socket?.readyState !== 1)
+      return false;
+    try {
+      this.socket.send(JSON.stringify({ type: "oskiewar:net", content }));
+      return true;
+    } catch { return false; }
+  }
+
+  async loadDemo(force = false) {
+    if (this.stopped || !this.fetchImpl || (this.live && !force)) return;
+    const generation = this.generation;
+    const id = `ow-${this.name}`;
+    try {
+      const response = await this.fetchImpl(
+        `${this.replayOrigin}/api/oskiewar-replays?id=${encodeURIComponent(id)}`,
+        { cache: "no-store" });
+      if (generation !== this.generation || this.stopped) return;
+      if (response.ok) {
+        const replay = (await response.json()).replay;
+        if (generation !== this.generation || this.stopped) return;
+        this.replayChecked = true;
+        this.hasReplay = Boolean(replay);
+        if (replay) {
+          if (!this.deliverySeen.has("replay")) {
+            this.deliverySeen.add("replay");
+            this.track("replay_viewed");
+          }
+          this.emit("demo", replay);
+        }
+        return;
+      }
+      if (response.status === 404) this.replayChecked = true;
+    } catch {}
+    if (!this.live || force) this.schedule("replay", () => this.loadDemo(force), 1800);
+  }
+
+  schedule(slot, action, delay) {
+    if (this.timers[slot] || this.stopped) return;
+    this.timers[slot] = setTimeout(() => {
+      this.timers[slot] = null;
+      action();
+    }, delay);
+  }
+
+  get empty() {
+    return this.hostKnown && !this.live && this.replayChecked && !this.hasReplay;
+  }
+
+  clear(slot) {
+    if (slot) { clearTimeout(this.timers[slot]); this.timers[slot] = null; return; }
+    for (const name of Object.keys(this.timers)) this.clear(name);
+  }
+
+  move(value) {
+    const name = String(value || "").replace(/^ow-/, "");
+    if (!ROUND_NAME.test(name) || name === this.name) return;
+    this.name = name;
+    this.track("round_followed");
+    this.live = false;
+    this.lastState = null;
+    this.hostKnown = false;
+    this.replayChecked = false;
+    this.hasReplay = false;
+    this.deliverySeen = new Set();
+    this.clear();
+    ++this.generation;
+    this.socket?.close?.(1000, "next round");
+    this.socket = null;
+    this.historyImpl?.replaceState?.(null, "", `/${name}`);
+    this.emit("round", { id: `ow-${name}` });
+    this.open();
+    this.loadDemo();
+  }
+
+  stop() {
+    this.stopped = true;
+    ++this.generation;
+    this.clear();
+    this.seat = "";
+    this.socket?.close?.(1000, "leaving");
+    this.socket = null;
+    this.listener = null;
+  }
+}
