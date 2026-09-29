@@ -24,7 +24,7 @@ function createGame({ buffered, onProgram = null }) {
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal",
     "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line",
     "triangle", "triangle3d", "triangles3d", "frame", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, cameraDoll, worldQuad, worldTriangle,
+    `${source}\nreturn { boot, cameraDoll, worldQuad, worldTriangle, drawMonowheel,
        drawSpotShadow, captureQuadMesh, drawQuadMesh,
        stage: () => ({ floorY, worldNear, worldFar }),
        begin: beginFrameProgram, end: endFrameProgram,
@@ -258,3 +258,36 @@ test("a mesh crosses the boundary once, then by handle", () => {
   assert.ok(!kinds[1].includes(12) && kinds[1].includes(13), "second frame: MESH only");
 });
 
+
+// The monowheel is a flat object (objects/monowheel-flat.lisp). Buffered, it
+// goes up as SHAPES once and is three SKETCH ops a frame, drawn by the
+// interpreter; immediate, the game projects the same shapes and fills them
+// itself. Both must cover the same screen.
+test("the flat monowheel draws the same whether buffered or immediate", () => {
+  const programs = [];
+  const immediate = createGame({ buffered: false });
+  const program = createGame({ buffered: true, onProgram: (ops) => programs.push(ops) });
+  const stage = immediate.stage();
+  const camera = { position: { x: 6000, y: stage.floorY - 160, z: -420 },
+    target: { x: 6000, y: stage.floorY - 30, z: 0 }, perspective: .82, width: 600 };
+  const wheel = { x: 6000, y: stage.floorY, z: 0, skatePitch: 0, facing: 1 };
+  place(immediate, camera);
+  place(program, camera);
+  const a = immediate.draw((g) => g.drawMonowheel(wheel));
+  const b = program.draw((g) => g.drawMonowheel(wheel));
+  const box = (faces) => {
+    const out = [Infinity, Infinity, -Infinity, -Infinity];
+    for (const f of faces) for (let v = 0; v < 9; v += 3) {
+      out[0] = Math.min(out[0], f[v]); out[1] = Math.min(out[1], f[v + 1]);
+      out[2] = Math.max(out[2], f[v]); out[3] = Math.max(out[3], f[v + 1]);
+    }
+    return out;
+  };
+  assert.ok(a.length > 20 && b.length > 20, `both draw: immediate ${a.length}, buffered ${b.length}`);
+  box(a).forEach((x, i) => assert.ok(Math.abs(x - box(b)[i]) < 4, `edge ${i}: immediate ${x} buffered ${box(b)[i]}`));
+  const ops = programs[0].map((o) => o.op);
+  assert.equal(ops.filter((op) => op === 18).length, 3, "three sketches go up once");
+  assert.equal(ops.filter((op) => op === 19).length, 3, "three SKETCH ops a frame");
+  program.draw((g) => g.drawMonowheel(wheel));
+  assert.equal(programs[1].filter((o) => o.op === 18).length, 0, "and not again");
+});

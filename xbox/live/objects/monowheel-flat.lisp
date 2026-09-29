@@ -14,8 +14,10 @@ def ink-edge 1.4
 (let squash (* .14 (max 0 (- 1 (* land 5)))))
 (let rattle (* 2.5 (max 0 (- 1 (* hit 4))) (sin (* time 70))))
 
-; the shadow stays flat on the ground, behind everything
-(nudge 40
+; the shadow stays flat on the ground, behind everything: 103 units back is
+; the depth the game gives its own spot shadows (caster + .018), so it sits
+; on the floor the same way theirs do
+(nudge 103
   (ink 14 12 20)
   (move 0 (- r) 0 (scale 2.7 1 .8 (ring y 22))))
 

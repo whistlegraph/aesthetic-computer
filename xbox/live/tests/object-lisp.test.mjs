@@ -246,7 +246,7 @@ test("the monowheel keeps to the object budget", (t) => {
 
 // The flat monowheel the game draws today, measured through the game's own
 // frame program, so the budget is held against something real.
-test("the old flat monowheel, for comparison", (t) => {
+test("the old flat monowheel, for comparison, and the game's flat one", (t) => {
   let ops = [];
   const vm = createFrameVm({ triangle3d: noOp, box: noOp, line: noOp, wipe: noOp, write: noOp, systemWrite: noOp });
   const api = new Function(
@@ -262,12 +262,20 @@ test("the old flat monowheel, for comparison", (t) => {
     noOp, noOp, undefined, (p, n, s) => { ops = vm.decode(p, n, s); }, noOp, noOp,
     () => ({ width: 1920, height: 1080 }));
   api.boot();
-  api.begin();
-  api.drawMonowheel({ x: 6000, y: 900, z: 0, facing: 1, skatePitch: 0, onewheel: true });
-  api.end();
-  const world = ops.filter((o) => o.op === FRAME_WORLD).length;
+  const wheel = { x: 6000, y: 900, z: 0, facing: 1, skatePitch: 0, onewheel: true };
+  const tick = () => { api.begin(); api.drawMonowheel(wheel); api.end(); return ops; };
+  // The old wheel sits behind the game's A/B flag now.
+  globalThis.oskiewarOldMonowheel = true;
+  let world;
+  try { world = tick().filter((o) => o.op === FRAME_WORLD).length; }
+  finally { delete globalThis.oskiewarOldMonowheel; }
   t.diagnostic(`old monowheel tick: ${world} WORLD = ${world * 13} numbers`);
   assert.equal(world, 88);
+  // And the game's flat one: its sketches go up once, then a tick is three SKETCH.
+  const first = tick().map((o) => o.op), second = tick();
+  const numbers = second.filter((o) => o.op === FRAME_SKETCH).reduce((n, o) => n + 1 + o.args.length, 0);
+  t.diagnostic(`the game's flat monowheel tick: ${numbers} numbers (${first.filter((op) => op === FRAME_SHAPES).length} sketches sent once)`);
+  assert.equal(numbers, 42);
 });
 
 // Reported, and bounded only loosely: this Mac is shared, and a timing gate
@@ -386,4 +394,9 @@ test("a flat tick is three SKETCH ops, cheaper than the lit tick", (t) => {
   const [f, l] = [time(flat), time(lit)];
   t.diagnostic(`a tick: flat ${f.toFixed(1)} µs, lit ${l.toFixed(1)} µs`);
   assert.ok(f < 5000);
+});
+
+test("the game carries exactly the lab's compiler and objects (run xbox/tools/embed-objects.mjs after editing)", async () => {
+  const { generate, embedded } = await import("../../tools/embed-objects.mjs");
+  assert.equal(embedded(), generate());
 });
