@@ -2,6 +2,7 @@
 // EASEL_* still means what it meant; see env.mjs.
 import {bothNames} from "./env.mjs";
 import {requireAccountEntry} from "./account-entry.mjs";
+import {isOffline} from "./account-access.mjs";
 import {PIECE_VISUAL,PIECE_RESPONSIVE,PIECE_CLOCK,PIECE_SOUND,PIECE_REPLY} from './piece-prompt.mjs';
 import {createSettingsController,serveSettings,isHarnessRequest,HARNESS_INSTRUCTIONS,PIECE_INSTRUCTIONS} from './harness-settings.mjs';
 import {notebookBindings,bindingRequest,editNotebookBinding} from './notebook-bindings.mjs';
@@ -2595,12 +2596,16 @@ function inboxReport() {
 // Hand a line to the engine. A typed line was shown and remembered on the way
 // in; an inbox line was shown when it arrived and is nobody's to recall with ↑.
 async function startTurn(text, { from = "" } = {}) {
+  let accountError = null;
   try { await session.requireAccount(); }
   catch (error) {
-    const timedOut = error?.name === "TimeoutError" || error?.name === "AbortError" || /timed? ?out|aborted/i.test(error?.message || "");
-    addEntry("error", timedOut
-      ? "Couldn't reach aesthetic.computer to check your account (timed out). Send again to retry."
-      : error.message + " Reopen a to complete account setup.");
+    // Offline with a known handle: let the engine try; it may be local.
+    if (!(isOffline(error) && session.handle)) accountError = error;
+  }
+  if (accountError) {
+    addEntry("error", isOffline(accountError)
+      ? accountError.message + " Send again to retry."
+      : accountError.message + " Reopen a to complete account setup.");
     state.queued = [];
     return finish();
   }
