@@ -15545,9 +15545,9 @@ let photoEffectsActive = false, photoWeaponsActive = false;
 function roundGraphicsTheme() {
   const requested = globalThis.__oskiewarGraphicsTheme;
   if (requested === "flat" || requested === "photorealistic") return requested;
-  // Photographs wherever the host can draw them (the ground and walls stay
-  // solid colour either way); a host without theme bindings falls to flat.
-  return "photorealistic";
+  // Flat is the reference look on every host (OSKIEWAR-HOSTS.md R5); the
+  // photographic materials stay available to a host that asks for them.
+  return "flat";
 }
 function refreshPhotoTheme() {
   photoThemeActive = roundGraphicsTheme() === "photorealistic" &&
@@ -16089,15 +16089,15 @@ const spineBody = (() => {
       beads: 9,               // pelvis .. base of the skull
       length: 84,             // pelvis to the base of the skull
       skull: 36,              // the rope's last link runs on through the head to its crown
-      stiffNeck: .75,         // neck and skull joints: firm, so the head rides the spine
+      stiffNeck: .85,         // neck and skull joints: firm, so the head rides the spine
       hipHeight: 92,          // pelvis above the floor, standing (legs 48 + 47)
       stiffLow: .35,          // bend spring at the pelvis end (per substep, 0..1)
-      stiffHigh: .08,         // … and at the head end: the loosest link
+      stiffHigh: .14,         // … and at the head end: the loosest link
       muscle: 1,              // tone: scales every bend spring
       reaction: .35,          // share of a bend correction pushed back down the rope
       twistStiff: .28,        // how hard each bead follows the one below in twist
       twistRest: .04,         // how hard each bead holds its own resting twist
-      damping: .15,           // velocity lost per frame
+      damping: .2,            // velocity lost per frame
       gravity: 900,           // on the body's own beads (sag, swing)
       riseGravity: 3600,      // on the whole body in flight, going up …
       fallGravity: 5400,      // … and coming down: short, heavy jumps
@@ -16139,8 +16139,8 @@ const spineBody = (() => {
       const leg = [Math.round(46 * legScale), Math.round(45 * legScale)];
       return {
         length: Math.round(pick(62, 78)), skull: Math.round(pick(30, 36)),
-        stiffLow: pick(.22, .5), stiffHigh: pick(.05, .14), stiffNeck: pick(.6, .8),
-        damping: pick(.09, .22), reaction: pick(.2, .45), twistStiff: pick(.18, .38),
+        stiffLow: pick(.22, .5), stiffHigh: pick(.1, .18), stiffNeck: pick(.8, .9),
+        damping: pick(.16, .26), reaction: pick(.2, .45), twistStiff: pick(.18, .38),
         tempo: pick(1.45, 2), lag: pick(.28, .52), sway: pick(.012, .035), wring: pick(.12, .26),
         react: pick(6, 11), shoulder: Math.round(pick(16, 24)), hipWidth: Math.round(pick(9, 13)),
         // Hips set a touch above the legs' length: the rope's weight sags the

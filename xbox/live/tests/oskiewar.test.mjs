@@ -3225,8 +3225,10 @@ test("every synthetic press has a human hold and a clean release", () => {
   harness.fight.startSelfPlay();
   harness.fight.disableBall();
   harness.tick(3000001);
-  const runs = botPressRuns(harness, 480);
-  assert.ok(runs.length > 12, `only ${runs.length} bot presses in eight seconds`);
+  // Long enough that a bot shows its whole repertoire whatever the bodies
+  // rolled: eight seconds hung on which fighter happened to be where.
+  const runs = botPressRuns(harness, 1440);
+  assert.ok(runs.length > 12, `only ${runs.length} bot presses in 24 seconds`);
   for (const run of runs)
     assert.ok(run.frames >= 4,
       `${run.button} on pad ${run.pad + 1} was held ${run.frames} frame(s)`);
