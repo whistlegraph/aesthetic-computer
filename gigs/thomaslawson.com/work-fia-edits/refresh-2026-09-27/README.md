@@ -42,3 +42,10 @@ and `/exhibitions/`, which the plugin serves from `build-cv.mjs` +
 `fia-2026-09-27/tl-cv.csv` (her CV sheet, re-exported 2026-09-28 and
 identical). A real WP page with either slug wins over the plugin's.
 Preview evidence: `evidence/split-preview/`.
+
+v1.5.1 (LIVE 2026-09-29) — Fía: "space under the logo … more consistent formatting".
+The split header now sits in the site header's own 1188px content box (image's
+left edge = logo's left edge at every width) with clamp(1.75rem, 3.5vw, 3.25rem)
+of air under the logo; phones inset it to the page gutters. Preview any CSS change
+against the live site first with `node tools/preview-css.mjs [slugs]`
+(→ evidence/logo-space/), geometry check with `node tools/measure-header.mjs`.

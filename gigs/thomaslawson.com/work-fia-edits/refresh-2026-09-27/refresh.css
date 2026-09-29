@@ -664,21 +664,23 @@ body.tl-refresh:not(#tl) .tl-context-line {
  * ------------------------------------------------------------------ */
 /* Doubled class: outranks the per-page section rules above (In the Studio's is display:block). */
 body.tl-refresh:not(#tl) .elementor-element.tl-split-source.tl-split-source { display: none !important; }
+/* Sits in the header's own content box (1188px, centred: the logo's left
+   edge is the image's left edge) with air under the logo (Fía, 2026-09-29). */
 body.tl-refresh:not(#tl) .tl-split {
-    --tl-split-h: min(78vh, 760px);
-    --tl-split-w: min(50vw, calc(var(--tl-split-h) * (var(--tl-ar, 1))));
+    --tl-split-h: min(72vh, 700px);
+    --tl-split-w: min(50%, calc(var(--tl-split-h) * (var(--tl-ar, 1))));
     order: -200;
     display: grid;
     grid-template-columns: var(--tl-split-w) minmax(0, 1fr);
     align-items: start;
-    width: 100%;
-    margin: 0 0 clamp(2.75rem, 5vw, 4.5rem);
+    width: min(1188px, 100% - 2 * var(--tl-gutter));
+    margin: clamp(1.75rem, 3.5vw, 3.25rem) auto clamp(2.75rem, 5vw, 4.5rem);
     padding: 0;
     box-sizing: border-box;
 }
 body.tl-refresh:not(#tl) .tl-split-media {
     position: sticky;
-    top: 0;
+    top: clamp(1.75rem, 3.5vw, 3.25rem);
     margin: 0;
     line-height: 0;
     align-self: start;
@@ -695,8 +697,8 @@ body.tl-refresh:not(#tl) .tl-split-media img {
 }
 body.tl-refresh:not(#tl) .tl-split-text {
     box-sizing: border-box;
-    max-width: calc(34rem + clamp(2rem, 5vw, 5.5rem) + var(--tl-gutter));
-    padding: clamp(1.75rem, 4.5vw, 4rem) var(--tl-gutter) 0 clamp(2rem, 5vw, 5.5rem);
+    max-width: calc(34rem + clamp(2rem, 5vw, 5.5rem));
+    padding: clamp(1.25rem, 3vw, 2.75rem) 0 0 clamp(2rem, 5vw, 5.5rem);
 }
 body.tl-refresh:not(#tl) .tl-split-title {
     margin: 0 0 clamp(1.1rem, 2vw, 1.6rem) !important;
@@ -905,7 +907,8 @@ body.tl-refresh:not(#tl) .tl-cv-month::before { content: " \00b7 "; }
     body.tl-refresh:not(#tl) .tl-split { grid-template-columns: minmax(0, 1fr); }
     body.tl-refresh:not(#tl) .tl-split-media { position: static; }
     body.tl-refresh:not(#tl) .tl-split-media img { aspect-ratio: var(--tl-ar-m, var(--tl-ar, 1)); }
-    body.tl-refresh:not(#tl) .tl-split-text { max-width: none; padding: 1.5rem var(--tl-gutter) 0; }
+    body.tl-refresh:not(#tl) .tl-split { margin-top: 1.25rem; }
+    body.tl-refresh:not(#tl) .tl-split-text { max-width: none; padding: 1.5rem 0 0; }
     body.tl-refresh:not(#tl) .tl-bts-doors { grid-template-columns: minmax(0, 1fr); }
     body.tl-refresh:not(#tl) .tl-cv-row { grid-template-columns: 3.25rem minmax(0, 1fr); }
 }
