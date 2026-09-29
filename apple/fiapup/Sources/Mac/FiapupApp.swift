@@ -2,37 +2,11 @@
 //
 // The shell (xbox/fiapup/index.html), the game (fiapup.js) and the two scene
 // modules it borrows from oskiewar ship in the bundle, and a fiapup:// scheme
-// serves them, because WebKit won't load ES modules from file:// URLs.
+// (Shared/BundleScheme.swift) serves them, because WebKit won't load ES
+// modules from file:// URLs.
 
 import AppKit
 import WebKit
-
-final class BundleScheme: NSObject, WKURLSchemeHandler {
-  static let types = ["html": "text/html", "js": "text/javascript", "mjs": "text/javascript"]
-
-  func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
-    guard let url = task.request.url else { return }
-    // Resources land flat in the bundle, so live/scene3d.mjs is found by name.
-    var name = url.lastPathComponent
-    if name.isEmpty || name == "/" { name = "index.html" }
-    let ext = (name as NSString).pathExtension
-    guard let file = Bundle.main.url(forResource: (name as NSString).deletingPathExtension,
-                                     withExtension: ext),
-          let data = try? Data(contentsOf: file) else {
-      task.didFailWithError(NSError(domain: "fiapup", code: 404,
-                                    userInfo: [NSLocalizedDescriptionKey: "no \(name) in the bundle"]))
-      return
-    }
-    let type = (Self.types[ext] ?? "application/octet-stream") + "; charset=utf-8"
-    let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1",
-                                   headerFields: ["Content-Type": type, "Cache-Control": "no-store"])!
-    task.didReceive(response)
-    task.didReceive(data)
-    task.didFinish()
-  }
-
-  func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {}
-}
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
   var window: NSWindow!

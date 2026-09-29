@@ -7,37 +7,68 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		06E15B955B25F64D4420F533 /* FiapupApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A90C1042DDDC37FE5AE32676 /* FiapupApp.swift */; };
+		12B44DCD40746A71777C82EF /* scene3d.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 3314055D93C969909ED00CC2 /* scene3d.mjs */; };
+		165E8C5F3D40975D685DE024 /* FiapupApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EE3AD27A00FD34DDF560FD2 /* FiapupApp.swift */; };
 		3392FC5F755C16A1E36FFA6D /* fiapup.js in Resources */ = {isa = PBXBuildFile; fileRef = 72D8DC0F8CF53E830D2C159D /* fiapup.js */; };
 		49BF2B7A0A6D1DB95C70E5DE /* index.html in Resources */ = {isa = PBXBuildFile; fileRef = 514F233BEB734EB07BC3D15C /* index.html */; };
 		5759DDD248E1B52FC2EFB622 /* scene3d.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 3314055D93C969909ED00CC2 /* scene3d.mjs */; };
+		72163459D59C830B00BDF1A9 /* FiapupApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90DB2C3D899AD6348B4342D /* FiapupApp.swift */; };
+		9FF07B6BEBCBF83DF19F6E84 /* BundleScheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA9C761DA63D6DECB153DFF3 /* BundleScheme.swift */; };
+		A2A1601DDA6142628D0E4043 /* index.html in Resources */ = {isa = PBXBuildFile; fileRef = 514F233BEB734EB07BC3D15C /* index.html */; };
+		C2009CBDB1111E74D1C89488 /* scene3d-webgl.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 866480C72A1A083227A52458 /* scene3d-webgl.mjs */; };
+		D3220613DF5DDE7F6BBEF954 /* BundleScheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA9C761DA63D6DECB153DFF3 /* BundleScheme.swift */; };
 		E6179E3823CF652CD359CF81 /* scene3d-webgl.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 866480C72A1A083227A52458 /* scene3d-webgl.mjs */; };
+		EEA539EAACD233D0FE58E6D4 /* fiapup.js in Resources */ = {isa = PBXBuildFile; fileRef = 72D8DC0F8CF53E830D2C159D /* fiapup.js */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		06B01FF3A321F7B842BF3C2B /* FiapupiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FiapupiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3314055D93C969909ED00CC2 /* scene3d.mjs */ = {isa = PBXFileReference; path = scene3d.mjs; sourceTree = "<group>"; };
+		3EE3AD27A00FD34DDF560FD2 /* FiapupApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FiapupApp.swift; sourceTree = "<group>"; };
 		514F233BEB734EB07BC3D15C /* index.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = index.html; sourceTree = "<group>"; };
 		5F7A13E8C925E00361B0DD7D /* Fiapup.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Fiapup.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		72D8DC0F8CF53E830D2C159D /* fiapup.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = fiapup.js; sourceTree = "<group>"; };
 		866480C72A1A083227A52458 /* scene3d-webgl.mjs */ = {isa = PBXFileReference; path = "scene3d-webgl.mjs"; sourceTree = "<group>"; };
-		A90C1042DDDC37FE5AE32676 /* FiapupApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FiapupApp.swift; sourceTree = "<group>"; };
+		AA9C761DA63D6DECB153DFF3 /* BundleScheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundleScheme.swift; sourceTree = "<group>"; };
+		C90DB2C3D899AD6348B4342D /* FiapupApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FiapupApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
-		4C0FCCC0436F706A0D8316E2 /* Sources */ = {
+		053809E63C8140BE22A72A5D /* Shared */ = {
 			isa = PBXGroup;
 			children = (
-				A90C1042DDDC37FE5AE32676 /* FiapupApp.swift */,
+				AA9C761DA63D6DECB153DFF3 /* BundleScheme.swift */,
 			);
-			path = Sources;
+			name = Shared;
+			path = Sources/Shared;
+			sourceTree = "<group>";
+		};
+		176A3F8443C94A735C5BE184 /* Mac */ = {
+			isa = PBXGroup;
+			children = (
+				C90DB2C3D899AD6348B4342D /* FiapupApp.swift */,
+			);
+			name = Mac;
+			path = Sources/Mac;
+			sourceTree = "<group>";
+		};
+		1E619E1B4982BCA9878568FC /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				3EE3AD27A00FD34DDF560FD2 /* FiapupApp.swift */,
+			);
+			name = iOS;
+			path = Sources/iOS;
 			sourceTree = "<group>";
 		};
 		7BFAA6C796DB5D82D125928B = {
 			isa = PBXGroup;
 			children = (
 				EE6CBF2A513246C44DACAA4C /* fiapup */,
+				1E619E1B4982BCA9878568FC /* iOS */,
 				FF67C22B58F59F592A1312C0 /* live */,
-				4C0FCCC0436F706A0D8316E2 /* Sources */,
+				176A3F8443C94A735C5BE184 /* Mac */,
+				053809E63C8140BE22A72A5D /* Shared */,
 				8A2C1BB59A1F77873FD42FD4 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -46,6 +77,7 @@
 			isa = PBXGroup;
 			children = (
 				5F7A13E8C925E00361B0DD7D /* Fiapup.app */,
+				06B01FF3A321F7B842BF3C2B /* FiapupiOS.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -73,6 +105,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		57FFCF39641D1270DB539BB8 /* FiapupiOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 936BEC5C6479FD035CF08789 /* Build configuration list for PBXNativeTarget "FiapupiOS" */;
+			buildPhases = (
+				B559A9532DD01593974AABFB /* Sources */,
+				E026F806B6291169615F7E95 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FiapupiOS;
+			packageProductDependencies = (
+			);
+			productName = FiapupiOS;
+			productReference = 06B01FF3A321F7B842BF3C2B /* FiapupiOS.app */;
+			productType = "com.apple.product-type.application";
+		};
 		8B57CC07F99C52550E12A54D /* Fiapup */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 96E90919635592909DA1ADD5 /* Build configuration list for PBXNativeTarget "Fiapup" */;
@@ -120,6 +170,7 @@
 			projectRoot = "";
 			targets = (
 				8B57CC07F99C52550E12A54D /* Fiapup */,
+				57FFCF39641D1270DB539BB8 /* FiapupiOS */,
 			);
 		};
 /* End PBXProject section */
@@ -136,6 +187,17 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E026F806B6291169615F7E95 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EEA539EAACD233D0FE58E6D4 /* fiapup.js in Resources */,
+				A2A1601DDA6142628D0E4043 /* index.html in Resources */,
+				C2009CBDB1111E74D1C89488 /* scene3d-webgl.mjs in Resources */,
+				12B44DCD40746A71777C82EF /* scene3d.mjs in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -143,7 +205,17 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				06E15B955B25F64D4420F533 /* FiapupApp.swift in Sources */,
+				9FF07B6BEBCBF83DF19F6E84 /* BundleScheme.swift in Sources */,
+				72163459D59C830B00BDF1A9 /* FiapupApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B559A9532DD01593974AABFB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D3220613DF5DDE7F6BBEF954 /* BundleScheme.swift in Sources */,
+				165E8C5F3D40975D685DE024 /* FiapupApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -201,15 +273,32 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		3E67F677E725A877FCE95A7C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = "Info-iOS.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.fiapup;
+				PRODUCT_NAME = fiapup;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
@@ -258,11 +347,11 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -288,6 +377,23 @@
 			};
 			name = Debug;
 		};
+		7334AC7D1966076B375A9E53 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = "Info-iOS.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.fiapup;
+				PRODUCT_NAME = fiapup;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		F535F1CB0CE50771D18DE6DC /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -310,6 +416,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		936BEC5C6479FD035CF08789 /* Build configuration list for PBXNativeTarget "FiapupiOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3E67F677E725A877FCE95A7C /* Debug */,
+				7334AC7D1966076B375A9E53 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		96E90919635592909DA1ADD5 /* Build configuration list for PBXNativeTarget "Fiapup" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
