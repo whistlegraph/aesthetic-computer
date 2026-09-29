@@ -181,11 +181,13 @@ export function renderCrawlGif(g, outPath, { seconds = 30, fps = 12 } = {}) {
 }
 
 // The same crawl as a live KidLisp piece, moving with (clock). Strings keep
-// their punctuation; only \ and " need escaping.
+// their punctuation; only \ and " need escaping. The geometry is in the
+// GIF's pixels, so the screen is pinned to them (gapless) and AC scales it to
+// whatever window, iframe or objkt viewer holds it.
 export function crawlPiece(g, { periodMs = 30000 } = {}) {
   const kl = (s) => s.replace(/\\/g, "").replace(/"/g, '\\"');
   const zNow = `(* (/ (mod (clock) ${periodMs}) ${periodMs}) ${g.TRAVEL.toFixed(1)})`;
-  const src = ["(wipe black)"];
+  const src = [`(resolution ${g.W} ${g.H} 1)`, "(wipe black)"];
   for (const { x, y, c } of g.stars) src.push(`(ink ${c.join(" ")})(plot ${x} ${y})`);
   g.lines.forEach((l, i) => {
     if (!l) return;
