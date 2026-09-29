@@ -9,7 +9,7 @@ set -e
 out="$(cd "$(dirname "$0")/../.." && pwd)/xbox/fiapup/shots/ios"
 mkdir -p "$out"
 moments="${*:-pet:1.1 rollover:3.2 fetch:1.05 beg:2.6 nap:9 zoomies:2.4 tug:3.2}"
-for orientation in portrait landscape; do
+for orientation in ${ORIENTATIONS:-portrait landscape}; do
   for moment in $moments; do
     name="${moment%%:*}" seconds="${moment##*:}"
     stage="$name"; [ "$name" = rollover ] && stage=pet
