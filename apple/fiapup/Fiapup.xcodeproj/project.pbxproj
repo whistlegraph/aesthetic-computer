@@ -1,0 +1,334 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		06E15B955B25F64D4420F533 /* FiapupApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A90C1042DDDC37FE5AE32676 /* FiapupApp.swift */; };
+		3392FC5F755C16A1E36FFA6D /* fiapup.js in Resources */ = {isa = PBXBuildFile; fileRef = 72D8DC0F8CF53E830D2C159D /* fiapup.js */; };
+		49BF2B7A0A6D1DB95C70E5DE /* index.html in Resources */ = {isa = PBXBuildFile; fileRef = 514F233BEB734EB07BC3D15C /* index.html */; };
+		5759DDD248E1B52FC2EFB622 /* scene3d.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 3314055D93C969909ED00CC2 /* scene3d.mjs */; };
+		E6179E3823CF652CD359CF81 /* scene3d-webgl.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 866480C72A1A083227A52458 /* scene3d-webgl.mjs */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		3314055D93C969909ED00CC2 /* scene3d.mjs */ = {isa = PBXFileReference; path = scene3d.mjs; sourceTree = "<group>"; };
+		514F233BEB734EB07BC3D15C /* index.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = index.html; sourceTree = "<group>"; };
+		5F7A13E8C925E00361B0DD7D /* Fiapup.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Fiapup.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		72D8DC0F8CF53E830D2C159D /* fiapup.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = fiapup.js; sourceTree = "<group>"; };
+		866480C72A1A083227A52458 /* scene3d-webgl.mjs */ = {isa = PBXFileReference; path = "scene3d-webgl.mjs"; sourceTree = "<group>"; };
+		A90C1042DDDC37FE5AE32676 /* FiapupApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FiapupApp.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		4C0FCCC0436F706A0D8316E2 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				A90C1042DDDC37FE5AE32676 /* FiapupApp.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		7BFAA6C796DB5D82D125928B = {
+			isa = PBXGroup;
+			children = (
+				EE6CBF2A513246C44DACAA4C /* fiapup */,
+				FF67C22B58F59F592A1312C0 /* live */,
+				4C0FCCC0436F706A0D8316E2 /* Sources */,
+				8A2C1BB59A1F77873FD42FD4 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		8A2C1BB59A1F77873FD42FD4 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				5F7A13E8C925E00361B0DD7D /* Fiapup.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		EE6CBF2A513246C44DACAA4C /* fiapup */ = {
+			isa = PBXGroup;
+			children = (
+				72D8DC0F8CF53E830D2C159D /* fiapup.js */,
+				514F233BEB734EB07BC3D15C /* index.html */,
+			);
+			name = fiapup;
+			path = ../../xbox/fiapup;
+			sourceTree = "<group>";
+		};
+		FF67C22B58F59F592A1312C0 /* live */ = {
+			isa = PBXGroup;
+			children = (
+				866480C72A1A083227A52458 /* scene3d-webgl.mjs */,
+				3314055D93C969909ED00CC2 /* scene3d.mjs */,
+			);
+			name = live;
+			path = ../../xbox/live;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		8B57CC07F99C52550E12A54D /* Fiapup */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 96E90919635592909DA1ADD5 /* Build configuration list for PBXNativeTarget "Fiapup" */;
+			buildPhases = (
+				8DFFAF12DEFC05A25AF19240 /* Sources */,
+				B71779D56972C53042D79E49 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Fiapup;
+			packageProductDependencies = (
+			);
+			productName = Fiapup;
+			productReference = 5F7A13E8C925E00361B0DD7D /* Fiapup.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7823CEB96DDE821D62F2E025 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					8B57CC07F99C52550E12A54D = {
+						ProvisioningStyle = Manual;
+					};
+				};
+			};
+			buildConfigurationList = EE98B45349BBEE1F6847F959 /* Build configuration list for PBXProject "Fiapup" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 7BFAA6C796DB5D82D125928B;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 8A2C1BB59A1F77873FD42FD4 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				8B57CC07F99C52550E12A54D /* Fiapup */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B71779D56972C53042D79E49 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3392FC5F755C16A1E36FFA6D /* fiapup.js in Resources */,
+				49BF2B7A0A6D1DB95C70E5DE /* index.html in Resources */,
+				E6179E3823CF652CD359CF81 /* scene3d-webgl.mjs in Resources */,
+				5759DDD248E1B52FC2EFB622 /* scene3d.mjs in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8DFFAF12DEFC05A25AF19240 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				06E15B955B25F64D4420F533 /* FiapupApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		391F90947A457F6FC365B393 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		4CF50BF47C1D0EE229D2A578 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		6766714E9445395DD848A87E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.fiapup;
+				PRODUCT_NAME = fiapup;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		F535F1CB0CE50771D18DE6DC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.fiapup;
+				PRODUCT_NAME = fiapup;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		96E90919635592909DA1ADD5 /* Build configuration list for PBXNativeTarget "Fiapup" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6766714E9445395DD848A87E /* Debug */,
+				F535F1CB0CE50771D18DE6DC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		EE98B45349BBEE1F6847F959 /* Build configuration list for PBXProject "Fiapup" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				391F90947A457F6FC365B393 /* Debug */,
+				4CF50BF47C1D0EE229D2A578 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 7823CEB96DDE821D62F2E025 /* Project object */;
+}
