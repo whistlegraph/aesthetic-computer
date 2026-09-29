@@ -131,6 +131,19 @@ test("either hand reaches the chalk spot on the floor and stays there", () => {
   }
 });
 
+test("a spin flings the arms out wide, and lets go when it stops", () => {
+  const span = (spin) => {
+    const a = createActor();
+    a.input.spin = spin;
+    for (let f = 0; f < 90; f++) stepActor(a);
+    const l = limbEnd(a.body.arms[0]), r = limbEnd(a.body.arms[1]);
+    return { width: Math.hypot(l.x - r.x, l.z - r.z), high: Math.min(l.y, r.y) };
+  };
+  const rest = span(false), spun = span(true);
+  assert.ok(spun.width > rest.width + 30, `hands ${spun.width.toFixed(0)} apart spinning, ${rest.width.toFixed(0)} at rest`);
+  assert.ok(spun.high > rest.high + 20, "on foot the arms rise as they spread");
+});
+
 test("random bodies (the ones spawns roll) all hold together through every action", async () => {
   const { randomBody } = await import("../spine.mjs");
   for (let seed = 1; seed <= 20; seed++)

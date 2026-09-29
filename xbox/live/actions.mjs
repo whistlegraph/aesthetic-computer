@@ -25,7 +25,7 @@ export function createActor(options = {}) {
   return {
     body: createSpine(options), mode: "foot",
     // What the player is holding: forward/turn in -1..1, and held buttons.
-    input: { forward: 0, turn: 0, run: false, crouch: false, reach: false, grab: false, hand: 1 },
+    input: { forward: 0, turn: 0, run: false, crouch: false, reach: false, grab: false, hand: 1, spin: false },
     action: null,                  // the one-shot playing: { name, t, side }
     target: { x: 70, y: 70, z: 20 },  // what reach and grab go for
     grabbed: false, speed: 0, pushPhase: 0, carve: 0, time: 0,
@@ -74,6 +74,15 @@ export function stepActor(actor) {
       if (a.name === "jump") launch(actor);
       actor.action = null;
     }
+  }
+  // A spin flings the arms out: up and round on foot, wide on a board or in
+  // the air. A punch or kick in progress keeps its arms.
+  if (input.spin && !["punch", "kick"].includes(actor.action?.name)) {
+    const chest = chestFrame(body), o = body.o, grounded = !root.air && actor.mode === "foot";
+    for (const [name, side] of [["left", -1], ["right", 1]])
+      pose.hands[name] = grounded
+        ? { goal: place(chest, 4, 46, side * (o.shoulder + 22)), stiff: .22 }
+        : { goal: place(chest, 0, 14, side * (o.shoulder + 46)), stiff: .22 };
   }
   // Holding reach or grab sends a hand (`input.hand`: 1 right, -1 left) to
   // the target; a grab that arrives pins, and then the target drags the body.

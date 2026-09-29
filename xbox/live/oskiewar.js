@@ -16216,7 +16216,7 @@ const spineBody = (() => {
       beads: 9,               // pelvis .. base of the skull
       length: 84,             // pelvis to the base of the skull
       skull: 36,              // the rope's last link runs on through the head to its crown
-      stiffNeck: .85,         // neck and skull joints: firm, so the head rides the spine
+      stiffNeck: .88,         // neck and skull joints: firm, so the head rides the spine
       hipHeight: 92,          // pelvis above the floor, standing (legs 48 + 47)
       stiffLow: .35,          // bend spring at the pelvis end (per substep, 0..1)
       stiffHigh: .14,         // … and at the head end: the loosest link
@@ -16232,8 +16232,8 @@ const spineBody = (() => {
       carry: .9,              // a driven root's travel the legs carry the body through
                               // (the rest is felt as inertia: sway, lag, whip)
       tempo: 1.7,             // rhythm, cycles per second at full drive
-      lag: .4,                // rhythm phase delay per bead: the whip
-      sway: .025,             // rhythm side bend per joint (radians)
+      lag: .22,               // rhythm phase delay per bead: the whip
+      sway: .012,             // rhythm side bend per joint (radians)
       wring: .18,             // rhythm twist at the ends (radians)
       react: 8,               // how fast muscles move toward what's asked (1/s)
       shoulder: 20,           // half the shoulders
@@ -16266,9 +16266,9 @@ const spineBody = (() => {
       const leg = [Math.round(46 * legScale), Math.round(45 * legScale)];
       return {
         length: Math.round(pick(62, 78)), skull: Math.round(pick(30, 36)),
-        stiffLow: pick(.22, .5), stiffHigh: pick(.1, .18), stiffNeck: pick(.8, .9),
+        stiffLow: pick(.22, .5), stiffHigh: pick(.1, .18), stiffNeck: pick(.84, .88),
         damping: pick(.16, .26), reaction: pick(.2, .45), twistStiff: pick(.18, .38),
-        tempo: pick(1.45, 2), lag: pick(.28, .52), sway: pick(.012, .035), wring: pick(.12, .26),
+        tempo: pick(1.45, 2), lag: pick(.16, .28), sway: pick(.008, .018), wring: pick(.12, .26),
         react: pick(6, 11), shoulder: Math.round(pick(16, 24)), hipWidth: Math.round(pick(9, 13)),
         // Hips set a touch above the legs' length: the rope's weight sags the
         // pelvis a few units, and this leaves the standing knees near straight.
@@ -16798,7 +16798,7 @@ const spineBody = (() => {
       return {
         body: createSpine(options), mode: "foot",
         // What the player is holding: forward/turn in -1..1, and held buttons.
-        input: { forward: 0, turn: 0, run: false, crouch: false, reach: false, grab: false, hand: 1 },
+        input: { forward: 0, turn: 0, run: false, crouch: false, reach: false, grab: false, hand: 1, spin: false },
         action: null,                  // the one-shot playing: { name, t, side }
         target: { x: 70, y: 70, z: 20 },  // what reach and grab go for
         grabbed: false, speed: 0, pushPhase: 0, carve: 0, time: 0,
@@ -16847,6 +16847,15 @@ const spineBody = (() => {
           if (a.name === "jump") launch(actor);
           actor.action = null;
         }
+      }
+      // A spin flings the arms out: up and round on foot, wide on a board or in
+      // the air. A punch or kick in progress keeps its arms.
+      if (input.spin && !["punch", "kick"].includes(actor.action?.name)) {
+        const chest = chestFrame(body), o = body.o, grounded = !root.air && actor.mode === "foot";
+        for (const [name, side] of [["left", -1], ["right", 1]])
+          pose.hands[name] = grounded
+            ? { goal: place(chest, 4, 46, side * (o.shoulder + 22)), stiff: .22 }
+            : { goal: place(chest, 0, 14, side * (o.shoulder + 46)), stiff: .22 };
       }
       // Holding reach or grab sends a hand (`input.hand`: 1 right, -1 left) to
       // the target; a grab that arrives pins, and then the target drags the body.
@@ -17126,6 +17135,7 @@ function updateSpineBodies(now) {
     actor.speed = Math.hypot(p.vx || 0, p.vz || 0);
     input.forward = p.inputZ || 0; input.turn = -(p.inputX || 0);
     input.crouch = !!p.ducking || (p.crouchBlend || 0) > .35;
+    input.spin = !!p.spin && !p.goKart;
     // Landing: the rope takes it, the knees soak it.
     if (wasAir && !body.root.air) { spineBody.land(body, Math.min(900, Math.abs(p.landingSpeed || 0) * .35 + 200)); actor.landedAt = actor.time; }
     // Strikes start the body's own: the spine winds, then throws.
