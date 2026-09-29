@@ -11494,6 +11494,28 @@ class KidLisp {
   }
 
   // Check if a token is part of a timing expression and get its state
+  // One pass over a token list for the highlighter: the paren depth before
+  // each token, and where the timing tokens (1s... 2s 3f!) sit. Each token
+  // used to rescan everything before it, every frame, so a long piece (the
+  // daily crawl, 36 KB) spent seconds per frame colouring its own label.
+  tokenScan(tokens) {
+    let scan = (this.tokenScans ||= new WeakMap()).get(tokens);
+    if (scan) return scan;
+    const depth = new Array(tokens.length + 1), timing = [];
+    let d = 0;
+    for (let i = 0; i < tokens.length; i++) {
+      depth[i] = d;
+      const t = tokens[i];
+      if (t === "(") d++;
+      else if (t === ")") d--;
+      else if (/^\d*\.?\d+[sf](?:\.\.\.?|!)?$/.test(t)) timing.push(i);
+    }
+    depth[tokens.length] = d;
+    scan = { depth, timing };
+    this.tokenScans.set(tokens, scan);
+    return scan;
+  }
+
   getTimingTokenState(token, tokens, index) {
     // First, check if the current token itself is a timing token
     if (/^\d*\.?\d+[sf]\.\.\.?$/.test(token)) {
@@ -11539,7 +11561,8 @@ class KidLisp {
     }
 
     // Check if this token is inside a timing expression's arguments
-    for (let i = 0; i < index; i++) {
+    for (const i of this.tokenScan(tokens).timing) {
+      if (i >= index) break;
       const prevToken = tokens[i];
 
       // Handle cycle timer arguments
@@ -12652,15 +12675,8 @@ class KidLisp {
 
   // Get color for parentheses based on nesting depth (rainbow pattern)
   getParenthesesColor(tokens, index) {
-    // Calculate nesting depth at this position
-    let depth = 0;
-    for (let i = 0; i < index; i++) {
-      if (tokens[i] === "(") {
-        depth++;
-      } else if (tokens[i] === ")") {
-        depth--;
-      }
-    }
+    // Nesting depth at this position.
+    let depth = this.tokenScan(tokens).depth[index];
 
     // Adjust depth for closing parentheses
     if (tokens[index] === ")") {
@@ -12764,6 +12780,8 @@ class KidLisp {
     //   hasSyntaxHighlightSource: !!this.syntaxHighlightSource
     // });
     if (!api.hud || !api.hud.label || !this.syntaxHighlightSource) return;
+    // A pack hides its label (disk.mjs hideLabel), so don't colour it.
+    if (typeof window !== "undefined" && window.acPACK_MODE && !window.acKEEP_LABEL) return;
 
     const coloredString = this.buildColoredKidlispString();
     if (coloredString) {

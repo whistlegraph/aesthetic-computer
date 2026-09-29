@@ -92,4 +92,39 @@ describe("🪙 KidLisp daily token", () => {
       expect(call[3]).toEqual({ bg: [255, 0, 0] });
     });
   });
+
+  // The label highlighter rescanned every earlier token for each token, each
+  // frame; a 36 KB crawl drew once every few seconds in a pack.
+  describe("syntax highlighting a long source", () => {
+    const tokens = ["(", "3s...", "(", "ink", "red", ")", "box", ")", "(", "2s!", "line", ")", "(", "(", "x", ")", ")"];
+
+    it("scans depth and timing tokens once, as the per-token walks did", () => {
+      const lisp = new KidLisp();
+      const { depth, timing } = lisp.tokenScan(tokens);
+      tokens.forEach((_, i) => {
+        let d = 0;
+        for (let j = 0; j < i; j++) d += tokens[j] === "(" ? 1 : tokens[j] === ")" ? -1 : 0;
+        expect(depth[i]).toBe(d);
+      });
+      expect(timing).toEqual([1, 9]);
+      expect(lisp.tokenScan(tokens)).toBe(lisp.tokenScan(tokens));
+    });
+
+    it("colours parens by depth and closes back down", () => {
+      const lisp = new KidLisp();
+      const t = ["(", "(", "x", ")", ")"];
+      expect(lisp.getParenthesesColor(t, 1)).not.toBe(lisp.getParenthesesColor(t, 0));
+      expect(lisp.getParenthesesColor(t, 3)).toBe(lisp.getParenthesesColor(t, 1));
+      expect(lisp.getParenthesesColor(t, 4)).toBe(lisp.getParenthesesColor(t, 0));
+    });
+
+    it("colours a crawl-sized source in well under a frame's budget", () => {
+      const lisp = new KidLisp();
+      const line = '(ink 120 200 255)\n(write "punctuation; (kept) \\"here\\"" (- 256 (* 90 (* 2.4 (* (/ 150 (+ 150 (max (- (* (/ (mod (clock) 30000) 30000) 5000.0) 120.00) 0))) 2)))) 400 nil 1.2)\n';
+      lisp.syntaxHighlightSource = line.repeat(Math.ceil(36000 / line.length));
+      const t0 = performance.now();
+      expect(lisp.buildColoredKidlispString().length).toBeGreaterThan(36000);
+      expect(performance.now() - t0).toBeLessThan(250);
+    });
+  });
 });
