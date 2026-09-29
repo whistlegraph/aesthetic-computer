@@ -100,20 +100,29 @@ stop_monitor() {
 }
 
 agent_running() {
-    # Tracked prompts can belong to Claude or Codex. Keep the global stale-
-    # marker sweep agent-aware: treating "no Claude" as "no work" deletes
-    # live Codex markers, which also makes the menubar stop re-theming those
-    # terminal tabs when macOS flips appearance.
-    #
+    # Only for subagent markers, which carry no pid and belong to Claude.
     # Three shapes of "Claude is running":
     #   1. compiled bundled CLI — process name is literally "claude"
     #   2. legacy node-based CLI — node .../@anthropic-ai/claude-code/cli.js
     #   3. desktop-app embed     — .../claude.app/Contents/MacOS/claude
-    # Codex's compiled CLI is likewise named literally "codex". pgrep -x
-    # catches both native CLIs cheaply; the regex catches Claude's other two.
     pgrep -x claude >/dev/null 2>&1 \
-        || pgrep -x codex >/dev/null 2>&1 \
         || ps -eo command 2>/dev/null | grep -qE 'claude\.app/Contents/MacOS/claude |@anthropic-ai/claude-code/.*cli\.js'
+}
+
+reap_dead_prompts() {
+    # Every prompt marker names its own process (agent_pid, or the legacy
+    # claude_pid; remote mirrors are rewritten to a local pid), so judge each
+    # one by that. A global "is any agent running?" test can't: it knew
+    # Claude and Codex by name and swept live Aesel markers out from under
+    # their open preview cards. A marker without a pid is left alone, as the
+    # menubar leaves it.
+    local f pid
+    for f in "$ACTIVE_DIR"/*; do
+        [[ -f "$f" ]] || continue
+        pid=$(grep -oE '"(agent|claude)_pid": *[0-9]+' "$f" 2>/dev/null | head -1 | grep -oE '[0-9]+$')
+        [[ -n "$pid" && "$pid" != 0 ]] || continue
+        kill -0 "$pid" 2>/dev/null || rm -f "$f"
+    done
 }
 
 active_work_count() {
@@ -144,14 +153,9 @@ while true; do
     lid_state=$(ioreg -r -k AppleClamshellState -d 4 | awk '/AppleClamshellState/{print $NF; exit}')
     sleep_disabled=$(pmset -g | awk '/SleepDisabled/{print $2; exit}')
     sleep_disabled=${sleep_disabled:-0}
-    agent_alive=0
-    agent_running && agent_alive=1
+    reap_dead_prompts
+    agent_running || rm -f "$SUBAGENT_DIR"/* 2>/dev/null
     active_count=$(active_work_count)
-    # Drop stale markers only when no supported agent process is around at all.
-    if (( agent_alive == 0 && active_count > 0 )); then
-        rm -f "$ACTIVE_DIR"/* "$SUBAGENT_DIR"/* 2>/dev/null
-        active_count=0
-    fi
 
     # Lid just closed: darken display (ambient start is gated on Claude activity below).
     if [[ "$lid_state" == "Yes" && "$prev_lid" == "No" ]]; then
