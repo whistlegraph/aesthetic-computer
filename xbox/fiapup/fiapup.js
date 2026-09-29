@@ -2068,7 +2068,9 @@ function freshWorld(seed = 7) {
     rope: { x: -120, z: 70, angle: .4, heldBy: null },
     treat: { onFloor: false, x: 0, y: 0, z: 0, vy: 0 },
     input: { down: new Set(), was: new Set(), x: 0, y: 0 },
-    sounds: [], heard: [], log: [], hearts: [],
+    sounds: [], heard: [], log: [], hearts: [], buzzes: [],
+    touch: { fingers: new Map(), mode: false, petting: false, stroke: 0, lastTap: null, gestures: 0 },
+    ripples: [], callSpot: null,
     camera: { x: 20, z: 10, reach: 300 },
   };
 }
@@ -2132,6 +2134,7 @@ const reachBall = 26, reachRope = 26, reachPup = 44;
 function tickHand(dt) {
   const { hand, ball, rope, pup, input } = world;
   const speed = 250;
+  if (input.x || input.y || input.down.size) world.touch.mode = world.touch.fingers.size > 0;
   hand.vx = input.x * speed; hand.vz = -input.y * speed;
   hand.x = clamp(hand.x + hand.vx * dt, yard.minX, yard.maxX);
   hand.z = clamp(hand.z + hand.vz * dt, yard.minZ - 10, yard.maxZ + 20);
@@ -2153,7 +2156,8 @@ function tickHand(dt) {
   if (pressed("X") && !hand.holding) hand.holding = "treat";
   if (released("X") && hand.holding === "treat") dropTreat();
 
-  hand.petting = holding("A") && !hand.holding && dist(hand.x, hand.z, pup.x, pup.z) < reachPup;
+  hand.petting = (holding("A") && !hand.holding && dist(hand.x, hand.z, pup.x, pup.z) < reachPup) ||
+    world.touch.petting;
   hand.rub = hand.petting ? hand.rub + dt : 0;
   const lift = hand.holding === "treat" ? 50 : hand.petting ? 31 + Math.sin(hand.rub * 10) * 3 : 38;
   hand.height = lerp(hand.height, lift, ease(12, dt));
@@ -2163,19 +2167,31 @@ function tickHand(dt) {
 // The hand reaches in from the right: fingers along `handAxis` (into the
 // yard and to the left), so the camera sees them beside the palm.
 const handAxis = [-.6, 0, -.8];
-const fingertip = () => ({ x: world.hand.x + handAxis[0] * 13, y: world.hand.height - 3,
-  z: world.hand.z + handAxis[2] * 13 });
+// Under touch the finger is the hand, and what it holds is right under it.
+const fingertip = () => world.touch.mode ? { x: world.hand.x, y: world.hand.height - 3, z: world.hand.z }
+  : { x: world.hand.x + handAxis[0] * 13, y: world.hand.height - 3, z: world.hand.z + handAxis[2] * 13 };
 
-function throwBall() {
+// The pad throws the way the hand is moving (or into the yard); a flick
+// throws at the flick's own velocity.
+function throwBall(v = null) {
   const { hand, ball } = world;
   const tip = fingertip();
-  let dx = hand.vx, dz = hand.vz;
-  if (Math.hypot(dx, dz) < 40) { dx = 0; dz = -1; }
-  const m = Math.hypot(dx, dz);
-  Object.assign(ball, { x: tip.x, y: tip.y, z: tip.z, vx: dx / m * 330, vz: dz / m * 330,
-    vy: 170, heldBy: null, thrown: true });
+  if (!v) {
+    let dx = hand.vx, dz = hand.vz;
+    if (Math.hypot(dx, dz) < 40) { dx = 0; dz = -1; }
+    const m = Math.hypot(dx, dz);
+    v = { x: dx / m * 330, z: dz / m * 330, y: 170 };
+  }
+  Object.assign(ball, { x: tip.x, y: tip.y, z: tip.z, vx: v.x, vz: v.z, vy: v.y, heldBy: null, thrown: true });
   hand.holding = null;
   noises.squeak();
+  buzz("light");
+}
+
+// A tap on the phone, where the host has one (the iOS app); nothing elsewhere.
+function buzz(kind) {
+  world.buzzes.push(kind);
+  if (typeof haptic === "function") haptic(kind);
 }
 
 function dropTreat() {
@@ -2184,8 +2200,10 @@ function dropTreat() {
   world.hand.holding = null;
 }
 
-function call() {
+// Called to the hand, or (a tap on the grass) to a spot.
+function call(spot = null) {
   const pup = world.pup;
+  world.callSpot = spot;
   noises.whistle();
   if (["nap", "sleepy"].includes(pup.state)) enter("stretch", "come");
   else if (["idle", "sniff", "parade"].includes(pup.state)) enter("come");
@@ -2304,10 +2322,11 @@ const states = {
   },
   come: {
     tick(dt) {
-      const h = world.hand;
+      const h = world.hand, spot = world.callSpot;
       const next = notice({ ...all, zoom: 0, tired: 0 });
       if (next) return enter(next);
-      if (goTo(h.x, h.z - 6, 180, 34, dt)) { world.pup.joy = Math.min(1, world.pup.joy + .05); enter("idle"); }
+      const arrived = spot ? goTo(spot.x, spot.z, 180, 8, dt) : goTo(h.x, h.z - 6, 180, 34, dt);
+      if (arrived) { world.callSpot = null; world.pup.joy = Math.min(1, world.pup.joy + .05); enter("idle"); }
     },
     pose: () => ({ look: "hand", wag: .9, ears: "bounce" }),
   },
@@ -2323,7 +2342,7 @@ const states = {
         goTo(b.x + b.vx * lead, b.z + b.vz * lead, 200, 0, dt);
         const m = pupRig(p).mouth;
         if (dist(m.x, m.z, b.x, b.z) < 10 && b.y < 12) {
-          b.heldBy = "pup"; b.thrown = false; p.carrying = "ball"; p.phase = "return"; noises.squeak();
+          b.heldBy = "pup"; b.thrown = false; p.carrying = "ball"; p.phase = "return"; noises.squeak(); buzz("medium");
         }
       } else if (p.phase === "return") {
         if (goTo(h.x, h.z - 4, 170, 32, dt)) { p.phase = "drop"; p.time = 0; }
@@ -2387,10 +2406,13 @@ const states = {
       if (next) return enter(next);
       stand(dt); turnTo(h.x, h.z, dt, 1.5);
       if (world.hand.petting) { p.pettedFor += dt; p.unpetted = 0; } else p.unpetted += dt;
-      p.joy = Math.min(1, p.joy + .12 * dt);
+      // A stroke counts for more than a resting hand, up to twice as much.
+      const stroke = clamp(world.touch.stroke / 500, 0, 1);
+      p.joy = Math.min(1, p.joy + (.1 + .2 * stroke) * dt);
       if (p.pettedFor > 1.8) return enter("rollover");
       if (p.unpetted > .4) { p.pettedFor = 0; enter("idle"); }
-      if (world.rng() < dt * 1.2) world.hearts.push({ x: p.x, y: 40, z: p.z, t: 0 });
+      if (world.rng() < dt * (1.2 + 2 * stroke)) world.hearts.push({ x: p.x, y: 40, z: p.z, t: 0 });
+      if (world.hand.petting && Math.floor((p.time - dt) / .35) !== Math.floor(p.time / .35)) buzz("soft");
     },
     pose: () => ({ sit: 1, look: "hand", wag: 1.2, eyes: 0, lean: .5, ears: "soft" }),
   },
@@ -2652,16 +2674,182 @@ function pupOwner(p) {
   };
 }
 
+// ——— touch: the finger is the hand ———
+// The host hands over `touches()`: the fingers down now, each { id, x, y }
+// in the game's screen units. What a finger means is settled by what it
+// lands on (the ball, the rope, the pup, the play button, the grass) and by
+// how it moves and lifts:
+//
+//   on the pup           stroke it: petting while the finger is over it, and
+//                        the stroke's speed makes it count for more
+//   on the ball          drag it; lift with a flick to throw at the flick's
+//                        velocity, or gently to set it down
+//   on the rope          drag it; the pup takes the far end and pulls
+//   on the grass: tap    call the pup to that spot; tap twice to play
+//   on the grass: hold   a treat appears under the finger; lift to drop it
+//
+// Every finger is read on its own, so a second finger doesn't end a stroke;
+// only one at a time holds something.
+
+const slop = 44;            // screen units of forgiveness around a pick
+const holdTreatAfter = .35; // seconds of a still finger before a treat shows
+const tapTravel = 16, tapTime = .3, flickSpeed = 140;
+
+function readTouches(dt) {
+  const t = world.touch, script = globalThis.__fiapupScript;
+  const now = script ? script.touches || [] : typeof touches === "function" ? touches() || [] : [];
+  const ids = new Set();
+  for (const f of now) {
+    ids.add(f.id);
+    const g = t.fingers.get(f.id);
+    if (g) fingerMove(g, f, dt); else fingerDown(f);
+  }
+  for (const [id, g] of t.fingers) if (!ids.has(id)) { t.fingers.delete(id); fingerUp(g); }
+  t.petting = false; t.stroke = 0;
+  for (const g of t.fingers.values()) if (g.kind === "pup" && g.onPup) {
+    t.petting = true; t.stroke = Math.max(t.stroke, g.speed);
+  }
+}
+
+// A screen point to the lawn: the camera ray through it, met with the floor.
+function ground(x, y) {
+  const m = camera, f = m[15];
+  const u = (x - m[12]) / f, v = (m[13] - y) / f;
+  const dx = m[9] + m[3] * u + m[6] * v, dy = m[10] + m[4] * u + m[7] * v, dz = m[11] + m[5] * u + m[8] * v;
+  const s = dy < -.02 ? -m[1] / dy : 2000;
+  return { x: clamp(m[0] + dx * s, -340, 340), z: clamp(m[2] + dz * s, -236, 240) };
+}
+
+function moveHand(at) {
+  world.hand.x = clamp(at.x, yard.minX, yard.maxX);
+  world.hand.z = clamp(at.z, yard.minZ - 10, yard.maxZ + 20);
+}
+
+// How near a screen point is to a world ball of radius r, as a fraction of
+// the pick's reach (under 1 is a hit).
+function reachOf(x, y, wx, wy, wz, r) {
+  const at = onScreen(wx, wy, wz);
+  return at ? Math.hypot(x - at.x, y - at.y) / (r * at.k + slop) : Infinity;
+}
+function pupReach(x, y) {
+  const p = world.pup, rig = pupRig(p), c = Math.cos(p.heading), s = Math.sin(p.heading);
+  const high = 21 + p.pose.bob;
+  return Math.min(reachOf(x, y, p.x, high, p.z, 13), reachOf(x, y, rig.head.x, rig.head.y, rig.head.z, 11),
+    reachOf(x, y, p.x - c * 10, high, p.z - s * 10, 11));
+}
+function ropeReach(x, y) {
+  const r = world.rope;
+  if (r.heldBy && r.heldBy !== "pup") return Infinity;
+  const [a, e] = ropeEnds();
+  let best = Infinity;
+  for (let i = 0; i <= 4; i++)
+    best = Math.min(best, reachOf(x, y, a.x + e[0] * i / 4, a.y + e[1] * i / 4, a.z + e[2] * i / 4, 4));
+  return best;
+}
+const playButton = () => {
+  const s = hud, r = 64 * s;
+  return { x: screenW - inset.right - 40 * s - r, y: screenH - inset.bottom - 40 * s - r, r };
+};
+
+function pick(x, y) {
+  const b = playButton();
+  if (Math.hypot(x - b.x, y - b.y) < b.r * 1.15) return "button";
+  const ball = world.ball, h = world.hand;
+  const hits = [
+    ["ball", ball.heldBy || h.holding ? Infinity : reachOf(x, y, ball.x, ball.y + 5, ball.z, 5) * .8],
+    ["rope", h.holding ? Infinity : ropeReach(x, y) * .9],
+    ["pup", pupReach(x, y)],
+  ].sort((a, b) => a[1] - b[1]);
+  return hits[0][1] < 1 ? hits[0][0] : "ground";
+}
+
+function fingerDown(f) {
+  const t = world.touch, h = world.hand, at = ground(f.x, f.y);
+  t.mode = true; t.gestures++;
+  const g = { id: f.id, x0: f.x, y0: f.y, x: f.x, y: f.y, t0: world.t, moved: 0, speed: 0,
+    samples: [{ t: world.t, x: at.x, z: at.z }], kind: pick(f.x, f.y), owns: null, onPup: false };
+  if (g.kind === "button") play();
+  else if (g.kind === "ball") {
+    h.holding = "ball"; world.ball.heldBy = "hand"; g.owns = "ball"; noises.squeak(); buzz("light");
+  } else if (g.kind === "rope") {
+    const r = world.rope, p = world.pup;
+    // Grab the rope out of its mouth and the tug starts where it stands.
+    if (r.heldBy === "pup") { r.heldBy = "both"; p.carrying = null; enter("tug"); p.phase = "pull"; }
+    else r.heldBy = "hand";
+    h.holding = "rope"; g.owns = "rope";
+  } else if (g.kind === "pup") g.onPup = true;
+  if (g.owns) { moveHand(at); h.height = g.owns === "ball" ? 30 : 34; }
+  t.fingers.set(f.id, g);
+}
+
+function fingerMove(g, f, dt) {
+  const h = world.hand, at = ground(f.x, f.y);
+  const travelled = Math.hypot(f.x - g.x, f.y - g.y);
+  g.x = f.x; g.y = f.y;
+  g.moved = Math.max(g.moved, Math.hypot(f.x - g.x0, f.y - g.y0));
+  g.speed = lerp(g.speed, travelled / dt, .35);
+  g.samples.push({ t: world.t, x: at.x, z: at.z });
+  while (g.samples.length > 2 && world.t - g.samples[0].t > .1) g.samples.shift();
+  if (g.owns) { moveHand(at); return; }
+  if (g.kind === "ground" && g.moved < tapTravel && world.t - g.t0 > holdTreatAfter && !h.holding) {
+    h.holding = "treat"; g.owns = "treat"; moveHand(at); buzz("light");
+    return;
+  }
+  // A stroke may start on the grass beside the pup and run onto it.
+  if (g.kind === "ground" && g.moved >= tapTravel && pupReach(f.x, f.y) < 1) g.kind = "pup";
+  if (g.kind === "pup") {
+    g.onPup = pupReach(f.x, f.y) < 1.3;
+    if (g.onPup) moveHand(at);
+  }
+}
+
+// The flick: the finger's travel over its last tenth of a second, on the lawn.
+function flickOf(g) {
+  const a = g.samples[0], b = g.samples[g.samples.length - 1], span = Math.max(b.t - a.t, tick);
+  let vx = (b.x - a.x) / span, vz = (b.z - a.z) / span;
+  const speed = Math.hypot(vx, vz), top = 560;
+  if (speed > top) { vx *= top / speed; vz *= top / speed; }
+  return { x: vx, z: vz, y: 90 + Math.min(speed, top) * .25, speed };
+}
+
+function fingerUp(g) {
+  const h = world.hand, r = world.rope, p = world.pup;
+  if (g.owns === "ball") {
+    const v = flickOf(g);
+    if (v.speed > flickSpeed) throwBall(v);
+    else {
+      Object.assign(world.ball, { heldBy: null, x: h.x, y: 0, z: h.z, vx: 0, vy: 0, vz: 0, thrown: false });
+      h.holding = null;
+    }
+  } else if (g.owns === "rope") {
+    h.holding = null;
+    if (r.heldBy === "both") { r.heldBy = "pup"; p.carrying = "rope"; }
+    else { r.heldBy = null; r.x = h.x; r.z = h.z; }
+  } else if (g.owns === "treat") dropTreat();
+  else if (g.kind === "ground" && g.moved < tapTravel && world.t - g.t0 < tapTime) {
+    const at = ground(g.x, g.y), last = world.touch.lastTap;
+    world.ripples.push({ x: at.x, z: at.z, t: 0 });
+    if (last && world.t - last.t < .4 && Math.hypot(g.x - last.x, g.y - last.y) < 90) {
+      play(); world.touch.lastTap = null;
+    } else { call(at); moveHand(at); world.touch.lastTap = { t: world.t, x: g.x, y: g.y }; }
+  }
+}
+
 // ——— one tick ———
 
 function step(dt = tick) {
   world.t += dt;
+  measureScreen();
+  aimCamera();
   readPad();
+  readTouches(dt);
   tickHand(dt);
   tickBall(dt);
   tickTreat(dt);
   tickPup(dt);
   followCamera(dt);
+  aimCamera();   // so what's on screen now is what the next touch is read against
+  world.ripples = world.ripples.filter((r) => (r.t += dt) < .45);
   flushSounds();
 }
 
@@ -2669,25 +2857,42 @@ function step(dt = tick) {
 
 const camera = new Float64Array(24);
 let screenW = 1920, screenH = 1080;
+const inset = { top: 0, right: 0, bottom: 0, left: 0 };
+let hud = 1;   // HUD scale: at least its size on a 1080 stage, and never under thumb size
+
+// The host's screen, in the game's units, and what the notch and the home
+// indicator cover (the web shell reports `safe`; the console has none).
+function measureScreen() {
+  const run = typeof runtime === "function" ? runtime() : null;
+  screenW = run?.width || 1920; screenH = run?.height || 1080;
+  Object.assign(inset, { top: 0, right: 0, bottom: 0, left: 0 }, run?.safe || {});
+  // `perPoint` is stage units per screen point (the web shell says; 1080
+  // units squeezed into a phone on its side is ~2.8), so text stays readable.
+  hud = Math.max(screenH / 1080, (run?.perPoint || 0) * .62);
+}
 
 function followCamera(dt) {
   const c = world.camera, p = world.pup, h = world.hand;
-  const tx = lerp(p.x, h.x, .35), tz = lerp(p.z, h.z, .35);
-  const reach = clamp(215 + dist(p.x, p.z, h.x, h.z) * .75, 215, 470);
+  // Under touch with no finger down, the hand is only where a finger last was.
+  const pull = world.touch.mode && !world.touch.fingers.size ? .12 : .35;
+  const tx = lerp(p.x, h.x, pull), tz = lerp(p.z, h.z, pull);
+  const reach = clamp(215 + dist(p.x, p.z, h.x, h.z) * pull * 2.1, 215, 470);
   const k = ease(2.5, dt);
   c.x = lerp(c.x, tx, k); c.z = lerp(c.z, tz, k); c.reach = lerp(c.reach, reach, k);
 }
 
+// Landscape looks across the yard; portrait (the phone held upright) looks
+// down more steeply and frames the pup by the screen's width, so it is big.
 function aimCamera() {
-  const c = world.camera, tilt = .5, scale = screenH / 1080;
+  const c = world.camera, portrait = screenW < screenH, tilt = portrait ? .74 : .5;
   const s = Math.sin(tilt), co = Math.cos(tilt);
   const m = camera;
   m[0] = c.x; m[1] = 16 + s * c.reach; m[2] = c.z + co * c.reach;
   m[3] = 1; m[4] = 0; m[5] = 0;                     // right
   m[6] = 0; m[7] = co; m[8] = -s;                   // up
   m[9] = 0; m[10] = -s; m[11] = -co;                // forward
-  m[12] = screenW / 2; m[13] = screenH * .54;
-  m[14] = 1; m[15] = 1300 * scale; m[16] = 1;       // orthoScale, focal, all perspective
+  m[12] = screenW / 2; m[13] = screenH * (portrait ? .5 : .54);
+  m[14] = 1; m[15] = Math.min(1.2 * screenH, 1.9 * screenW); m[16] = 1;   // orthoScale, focal, all perspective
   m[17] = 2.8 / 16000; m[18] = -1.4; m[19] = 12;    // depth slope and base, near
   m[20] = -screenW * .25; m[21] = screenW * 1.25; m[22] = -screenH * .25; m[23] = screenH * 1.25;
 }
@@ -2796,7 +3001,8 @@ function drawBall() {
   objects.ball(inputs, turnedAt(x, 0, z, b.dir), outs.ball);
 }
 
-function drawRope() {
+// The rope's first knot (world) and the second, from the first.
+function ropeEnds() {
   const r = world.rope, p = world.pup;
   let a, e;
   const mouth = () => pupRig(p).mouth;
@@ -2806,6 +3012,11 @@ function drawRope() {
     a = mouth();
     e = [-Math.cos(p.heading) * 18 + Math.sin(p.heading) * 8, 3.4 - a.y, -Math.sin(p.heading) * 18 - Math.cos(p.heading) * 8];
   } else { a = { x: r.x, y: 3.4, z: r.z }; e = [Math.cos(r.angle) * 30, 0, Math.sin(r.angle) * 30]; }
+  return [a, e];
+}
+
+function drawRope() {
+  const [a, e] = ropeEnds();
   inputs.owner = { end: e };
   objects.rope(inputs, identityAt(a.x, a.y, a.z), outs.rope);
 }
@@ -2852,21 +3063,55 @@ const moods = {
   zoomies: "ZOOMIES!", flop: "phew",
 };
 
+// Touch hints take turns, one short line at a time, until you've tried a few.
+const touchHints = ["stroke the pup", "flick the ball", "tap the grass to call", "hold for a treat",
+  "drag the rope", "double-tap to play"];
+
 function drawHud() {
-  const p = world.pup, s = screenH / 1080;
-  panel(40 * s, 34 * s, 420 * s, 118 * s, 255, 250, 238);
-  text("fiapup", 64 * s, 50 * s, 40 * s, 120, 72, 50);
-  text(moods[p.state] || p.state, 64 * s, 104 * s, 26 * s, 90, 110, 150);
+  const p = world.pup, s = hud, touch = world.touch.mode;
+  const left = inset.left + 28 * s, top = inset.top + 24 * s;
+  const w = Math.min(400 * s, screenW - left - inset.right - 28 * s);
+  panel(left, top, w, 104 * s, 255, 250, 238);
+  text("fiapup", left + 22 * s, top + 14 * s, 38 * s, 120, 72, 50);
+  text(moods[p.state] || p.state, left + 22 * s, top + 64 * s, 26 * s, 90, 110, 150);
   // joy and energy, as two little bars
   const bar = (y, v, r, g, b) => {
-    panel(300 * s, y, 132 * s, 16 * s, 226, 220, 208, -1.491);
-    panel(300 * s, y, 132 * s * clamp(v, 0, 1), 16 * s, r, g, b, -1.492);
+    const x = left + w - 142 * s;
+    panel(x, y, 120 * s, 16 * s, 226, 220, 208, -1.491);
+    panel(x, y, 120 * s * clamp(v, 0, 1), 16 * s, r, g, b, -1.492);
   };
-  bar(62 * s, p.joy, 240, 90, 120);
-  bar(96 * s, p.energy, 110, 180, 110);
-  const hint = world.hand.holding === "ball" ? "A throw" : world.hand.holding === "rope" ? "A let go"
-    : world.hand.holding === "treat" ? "let go of X to drop it" : "A pet / pick up   B call   X treat   Y play";
-  text(hint, 64 * s, screenH - 76 * s, 26 * s, 255, 255, 255);
+  bar(top + 28 * s, p.joy, 240, 90, 120);
+  bar(top + 60 * s, p.energy, 110, 180, 110);
+  const bottom = screenH - inset.bottom;
+  if (!touch) {
+    const hint = world.hand.holding === "ball" ? "A throw" : world.hand.holding === "rope" ? "A let go"
+      : world.hand.holding === "treat" ? "let go of X to drop it" : "A pet / pick up   B call   X treat   Y play";
+    text(hint, left, bottom - 76 * s, 26 * s, 255, 255, 255);
+    return;
+  }
+  // The play button, a thumb's width, bottom right.
+  const b = playButton();
+  op(OP.DISC, b.x, b.y + 5 * s, -1.488, b.r, 90, 130, 70);
+  op(OP.DISC, b.x, b.y, -1.489, b.r, 255, 250, 238);
+  text("play", b.x - 30 * s, b.y - 15 * s, 30 * s, 120, 72, 50);
+  if (world.touch.gestures < 6 && world.t < 30)
+    text(touchHints[Math.floor(world.t / 3) % touchHints.length], left, bottom - 70 * s, 30 * s, 255, 255, 255);
+}
+
+// Under touch there is no glove: a tap leaves a ripple on the grass, and a
+// finger resting on the grass shows a ring that fills toward a treat.
+function drawTouches() {
+  const tilt = screenW < screenH ? .74 : .5, lean = Math.sin(tilt);
+  const ring = (x, z, r, c) => {
+    const at = onScreen(x, 0, z);
+    if (at) op(OP.ELLIPSE, at.x, at.y, at.depth + 30 * camera[17], r * at.k, 0, 0, r * at.k * lean, c, c + 6, c - 10);
+  };
+  for (const rip of world.ripples) ring(rip.x, rip.z, 5 + rip.t * 30, 236 - rip.t * 120);
+  for (const g of world.touch.fingers.values()) {
+    if (g.kind !== "ground" || g.owns) continue;
+    const at = ground(g.x, g.y), u = clamp((world.t - g.t0) / holdTreatAfter, 0, 1);
+    ring(at.x, at.z, 4 + u * 6, 220);
+  }
 }
 
 let vm = null, batch = null, batched = 0;
@@ -2895,8 +3140,7 @@ function interpreter() {
 }
 
 function paintFrame() {
-  const run = typeof runtime === "function" ? runtime() : null;
-  screenW = run?.width || 1920; screenH = run?.height || 1080;
+  measureScreen();
   length = 0; strings = []; stats.ops = {};
   aimCamera();
   op(OP.WIPE, 196, 224, 240);
@@ -2906,7 +3150,8 @@ function paintFrame() {
   drawTreat();
   drawBall();
   drawPup();
-  drawHand();
+  if (!world.touch.mode) drawHand();
+  drawTouches();
   drawHearts();
   drawHud();
   stats.numbers = length;
@@ -2938,12 +3183,12 @@ function leave() {}
 
 // For tests and the web shell: the world, one tick, a staged moment.
 const fiapup = {
-  get world() { return world; }, step, paint: paintFrame, stats, rig: pupRig, owner: pupOwner, place: pupPlace,
+  get world() { return world; }, step, screenOf: onScreen, ground, pupReach, playButton, paint: paintFrame, stats, rig: pupRig, owner: pupOwner, place: pupPlace,
   program: () => program.subarray(0, length), strings: () => strings, states: Object.keys(states),
   resend() { sent = new Set(); vm = null; },
   // Put the yard in a named moment and let it run `seconds`. The shell's
   // ?stage= and the screenshot tool use these; the game never does.
-  stage(name, seconds = 2) {
+  stage(name, seconds = 2, touch = false) {
     world = freshWorld();
     const w = world, p = w.pup, press = [];
     const hold = (buttons, t) => press.push({ buttons, t });
@@ -2960,6 +3205,8 @@ const fiapup = {
       step();
     }
     globalThis.__fiapupScript = null;
+    // Shown as a phone shows it: no glove, the play button.
+    if (touch) { w.touch.mode = true; w.touch.gestures = 9; }
     return world;
   },
 };
