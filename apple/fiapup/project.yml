@@ -23,6 +23,14 @@ targets:
         buildPhase: resources
       - path: ../../xbox/live/scene3d.mjs
         buildPhase: resources
+      - path: ../../xbox/live/frame-vm.mjs
+        buildPhase: resources
+      - path: ../../xbox/fiapup/shell.mjs
+        buildPhase: resources
+      - path: ../../xbox/fiapup/fur.mjs
+        buildPhase: resources
+      - path: ../../xbox/fiapup/fur-lab.html
+        buildPhase: resources
     info:
       path: Info.plist
       properties:
@@ -57,6 +65,14 @@ targets:
       - path: ../../xbox/live/scene3d-webgl.mjs
         buildPhase: resources
       - path: ../../xbox/live/scene3d.mjs
+        buildPhase: resources
+      - path: ../../xbox/live/frame-vm.mjs
+        buildPhase: resources
+      - path: ../../xbox/fiapup/shell.mjs
+        buildPhase: resources
+      - path: ../../xbox/fiapup/fur.mjs
+        buildPhase: resources
+      - path: ../../xbox/fiapup/fur-lab.html
         buildPhase: resources
     info:
       path: Info-iOS.plist

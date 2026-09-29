@@ -38,7 +38,7 @@
     "xbox:test:mac": "sh xbox/tools/mac-test-app.sh",
     "xbox:play": "node xbox/tools/serve-live.mjs",
     "fiapup:play": "node xbox/fiapup/serve.mjs",
-    "fiapup:test": "node --test xbox/fiapup/tests/fiapup.test.mjs xbox/fiapup/tests/touch.test.mjs",
+    "fiapup:test": "node --test xbox/fiapup/tests/fiapup.test.mjs xbox/fiapup/tests/touch.test.mjs xbox/fiapup/tests/fur.test.mjs",
     "fiapup:shots": "node xbox/fiapup/shots.mjs",
     "fiapup:ios": "cd apple/fiapup && xcodegen generate -q && xcodebuild -project Fiapup.xcodeproj -scheme FiapupiOS -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO -quiet build && (xcrun simctl boot 'iPhone 17' || true) && xcrun simctl install booted build/Build/Products/Debug-iphonesimulator/fiapup.app && xcrun simctl launch booted computer.aesthetic.fiapup && open -a Simulator",
     "fiapup:mac": "cd apple/fiapup && xcodegen generate -q && xcodebuild -project Fiapup.xcodeproj -scheme Fiapup -configuration Release -derivedDataPath build -quiet build && open build/Build/Products/Release/fiapup.app",

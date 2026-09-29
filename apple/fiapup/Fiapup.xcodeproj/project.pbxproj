@@ -7,17 +7,25 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0BBE26D055B81A55390CC493 /* shell.mjs in Resources */ = {isa = PBXBuildFile; fileRef = F2743BB4455DD2AF41622362 /* shell.mjs */; };
+		126E161F7D44A6A24463F059 /* frame-vm.mjs in Resources */ = {isa = PBXBuildFile; fileRef = C28DE4DBA8088CDD4B7878B7 /* frame-vm.mjs */; };
 		12B44DCD40746A71777C82EF /* scene3d.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 3314055D93C969909ED00CC2 /* scene3d.mjs */; };
 		165E8C5F3D40975D685DE024 /* FiapupApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EE3AD27A00FD34DDF560FD2 /* FiapupApp.swift */; };
+		1D82BB981E2757E45EB07740 /* shell.mjs in Resources */ = {isa = PBXBuildFile; fileRef = F2743BB4455DD2AF41622362 /* shell.mjs */; };
+		31CF0D656E3583599D25CEB8 /* fur.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 9FB42256CA244796833A4BAE /* fur.mjs */; };
 		3392FC5F755C16A1E36FFA6D /* fiapup.js in Resources */ = {isa = PBXBuildFile; fileRef = 72D8DC0F8CF53E830D2C159D /* fiapup.js */; };
+		3E8C41808A7B37F3771348D8 /* frame-vm.mjs in Resources */ = {isa = PBXBuildFile; fileRef = C28DE4DBA8088CDD4B7878B7 /* frame-vm.mjs */; };
 		4552D6FF8CFDB5A94942103A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4DE5BF3525D95A080E558CED /* Assets.xcassets */; };
 		49BF2B7A0A6D1DB95C70E5DE /* index.html in Resources */ = {isa = PBXBuildFile; fileRef = 514F233BEB734EB07BC3D15C /* index.html */; };
 		5759DDD248E1B52FC2EFB622 /* scene3d.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 3314055D93C969909ED00CC2 /* scene3d.mjs */; };
 		72163459D59C830B00BDF1A9 /* FiapupApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90DB2C3D899AD6348B4342D /* FiapupApp.swift */; };
 		9FF07B6BEBCBF83DF19F6E84 /* BundleScheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA9C761DA63D6DECB153DFF3 /* BundleScheme.swift */; };
 		A2A1601DDA6142628D0E4043 /* index.html in Resources */ = {isa = PBXBuildFile; fileRef = 514F233BEB734EB07BC3D15C /* index.html */; };
+		BF538C16631219DA5F8F1CE1 /* fur-lab.html in Resources */ = {isa = PBXBuildFile; fileRef = 2D22C5ABBDAF6199952402A1 /* fur-lab.html */; };
 		C2009CBDB1111E74D1C89488 /* scene3d-webgl.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 866480C72A1A083227A52458 /* scene3d-webgl.mjs */; };
+		CEA97903B441576D59582C4C /* fur-lab.html in Resources */ = {isa = PBXBuildFile; fileRef = 2D22C5ABBDAF6199952402A1 /* fur-lab.html */; };
 		D3220613DF5DDE7F6BBEF954 /* BundleScheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA9C761DA63D6DECB153DFF3 /* BundleScheme.swift */; };
+		D45657B61A761226AF7D3E49 /* fur.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 9FB42256CA244796833A4BAE /* fur.mjs */; };
 		E6179E3823CF652CD359CF81 /* scene3d-webgl.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 866480C72A1A083227A52458 /* scene3d-webgl.mjs */; };
 		EEA539EAACD233D0FE58E6D4 /* fiapup.js in Resources */ = {isa = PBXBuildFile; fileRef = 72D8DC0F8CF53E830D2C159D /* fiapup.js */; };
 		F77AE5E3E776C4BD5E57F753 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4DE5BF3525D95A080E558CED /* Assets.xcassets */; };
@@ -25,6 +33,7 @@
 
 /* Begin PBXFileReference section */
 		06B01FF3A321F7B842BF3C2B /* FiapupiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FiapupiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2D22C5ABBDAF6199952402A1 /* fur-lab.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "fur-lab.html"; sourceTree = "<group>"; };
 		3314055D93C969909ED00CC2 /* scene3d.mjs */ = {isa = PBXFileReference; path = scene3d.mjs; sourceTree = "<group>"; };
 		3EE3AD27A00FD34DDF560FD2 /* FiapupApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FiapupApp.swift; sourceTree = "<group>"; };
 		4DE5BF3525D95A080E558CED /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -32,8 +41,11 @@
 		5F7A13E8C925E00361B0DD7D /* Fiapup.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Fiapup.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		72D8DC0F8CF53E830D2C159D /* fiapup.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = fiapup.js; sourceTree = "<group>"; };
 		866480C72A1A083227A52458 /* scene3d-webgl.mjs */ = {isa = PBXFileReference; path = "scene3d-webgl.mjs"; sourceTree = "<group>"; };
+		9FB42256CA244796833A4BAE /* fur.mjs */ = {isa = PBXFileReference; path = fur.mjs; sourceTree = "<group>"; };
 		AA9C761DA63D6DECB153DFF3 /* BundleScheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundleScheme.swift; sourceTree = "<group>"; };
+		C28DE4DBA8088CDD4B7878B7 /* frame-vm.mjs */ = {isa = PBXFileReference; path = "frame-vm.mjs"; sourceTree = "<group>"; };
 		C90DB2C3D899AD6348B4342D /* FiapupApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FiapupApp.swift; sourceTree = "<group>"; };
+		F2743BB4455DD2AF41622362 /* shell.mjs */ = {isa = PBXFileReference; path = shell.mjs; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -90,7 +102,10 @@
 			isa = PBXGroup;
 			children = (
 				72D8DC0F8CF53E830D2C159D /* fiapup.js */,
+				2D22C5ABBDAF6199952402A1 /* fur-lab.html */,
+				9FB42256CA244796833A4BAE /* fur.mjs */,
 				514F233BEB734EB07BC3D15C /* index.html */,
+				F2743BB4455DD2AF41622362 /* shell.mjs */,
 			);
 			name = fiapup;
 			path = ../../xbox/fiapup;
@@ -99,6 +114,7 @@
 		FF67C22B58F59F592A1312C0 /* live */ = {
 			isa = PBXGroup;
 			children = (
+				C28DE4DBA8088CDD4B7878B7 /* frame-vm.mjs */,
 				866480C72A1A083227A52458 /* scene3d-webgl.mjs */,
 				3314055D93C969909ED00CC2 /* scene3d.mjs */,
 			);
@@ -186,9 +202,13 @@
 			files = (
 				F77AE5E3E776C4BD5E57F753 /* Assets.xcassets in Resources */,
 				3392FC5F755C16A1E36FFA6D /* fiapup.js in Resources */,
+				3E8C41808A7B37F3771348D8 /* frame-vm.mjs in Resources */,
+				CEA97903B441576D59582C4C /* fur-lab.html in Resources */,
+				31CF0D656E3583599D25CEB8 /* fur.mjs in Resources */,
 				49BF2B7A0A6D1DB95C70E5DE /* index.html in Resources */,
 				E6179E3823CF652CD359CF81 /* scene3d-webgl.mjs in Resources */,
 				5759DDD248E1B52FC2EFB622 /* scene3d.mjs in Resources */,
+				1D82BB981E2757E45EB07740 /* shell.mjs in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -198,9 +218,13 @@
 			files = (
 				4552D6FF8CFDB5A94942103A /* Assets.xcassets in Resources */,
 				EEA539EAACD233D0FE58E6D4 /* fiapup.js in Resources */,
+				126E161F7D44A6A24463F059 /* frame-vm.mjs in Resources */,
+				BF538C16631219DA5F8F1CE1 /* fur-lab.html in Resources */,
+				D45657B61A761226AF7D3E49 /* fur.mjs in Resources */,
 				A2A1601DDA6142628D0E4043 /* index.html in Resources */,
 				C2009CBDB1111E74D1C89488 /* scene3d-webgl.mjs in Resources */,
 				12B44DCD40746A71777C82EF /* scene3d.mjs in Resources */,
+				0BBE26D055B81A55390CC493 /* shell.mjs in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

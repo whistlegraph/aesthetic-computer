@@ -32,6 +32,8 @@ final class GameController: UIViewController, WKScriptMessageHandler {
     view = web
     var query = ["touch"]
     let args = UserDefaults.standard
+    if let fur = args.string(forKey: "fur") { query.append("fur=\(fur)") }
+    if args.bool(forKey: "stats") { query.append("stats") }
     if let stage = args.string(forKey: "stage") {
       query.append("stage=\(stage)")
       if let seconds = args.string(forKey: "seconds") { query.append("seconds=\(seconds)") }
