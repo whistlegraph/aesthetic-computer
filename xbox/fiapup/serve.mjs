@@ -16,6 +16,7 @@ const port = Number(process.argv[2]) || 8124;
 const borrowed = new Map([
   ["/live/scene3d-webgl.mjs", join(live, "scene3d-webgl.mjs")],
   ["/live/scene3d.mjs", join(live, "scene3d.mjs")],
+  ["/live/frame-vm.mjs", join(live, "frame-vm.mjs")],
 ]);
 const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
   ".mjs": "text/javascript; charset=utf-8", ".lisp": "text/plain; charset=utf-8", ".png": "image/png" };

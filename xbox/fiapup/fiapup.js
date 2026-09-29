@@ -3023,8 +3023,10 @@ function followCamera(dt) {
   const c = world.camera, p = world.pup, h = world.hand;
   // Under touch with no finger down, the hand is only where a finger last was.
   const pull = world.touch.mode && !world.touch.fingers.size ? .12 : .35;
-  const tx = lerp(p.x, h.x, pull), tz = lerp(p.z, h.z, pull);
-  const reach = clamp(215 + dist(p.x, p.z, h.x, h.z) * pull * 2.1, 215, 470);
+  let tx = lerp(p.x, h.x, pull), tz = lerp(p.z, h.z, pull);
+  let reach = clamp(215 + dist(p.x, p.z, h.x, h.z) * pull * 2.1, 215, 470);
+  // The fur lab keeps the camera close on the pup.
+  if (world.lab) { tx = p.x; tz = p.z; reach = world.lab; }
   const k = ease(2.5, dt);
   c.x = lerp(c.x, tx, k); c.z = lerp(c.z, tz, k); c.reach = lerp(c.reach, reach, k);
 }
@@ -3355,7 +3357,12 @@ function leave() {}
 
 // For tests and the web shell: the world, one tick, a staged moment.
 const fiapup = {
-  get world() { return world; }, step, screenOf: onScreen, ground, pupReach, playButton, paint: paintFrame, stats, rig: pupRig, owner: pupOwner, place: pupPlace,
+  get world() { return world; }, step,
+  // The SKETCH handles the pup's parts go out under (a fur host draws them).
+  lab(reach = 120) { world.lab = reach; world.camera.reach = reach; Object.assign(world.camera, { x: world.pup.x, z: world.pup.z }); },
+  // A tap on a named thing, or "play", as if a finger had done it (the lab's buttons).
+  stageTap(kind) { if (kind === "play") play(); else tapOn(kind, { x: world.hand.x, z: world.hand.z }); },
+  pupHandles: () => (handles.get(objects.puppy) || []).filter(Boolean), screenOf: onScreen, ground, pupReach, playButton, paint: paintFrame, stats, rig: pupRig, owner: pupOwner, place: pupPlace,
   program: () => program.subarray(0, length), strings: () => strings, states: Object.keys(states),
   resend() { sent = new Set(); vm = null; },
   // The icon's pose: facing you, head cocked, ears up, tongue out, happy.
