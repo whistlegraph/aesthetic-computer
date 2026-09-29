@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fiapup</title>
+<style>
+  :root { --bg: #c4e0f0; --ink: #4a3a34; --soft: #6b7c96; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1d2430; --ink: #e8dccf; --soft: #9aa8c0; } }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+    font: 15px/1.4 ui-rounded, system-ui, sans-serif; overflow: hidden; }
+  #stage { position: absolute; inset: 0 0 34px 0; display: grid; place-items: center; }
+  #frame { position: relative; aspect-ratio: 16 / 9; width: min(100vw, calc((100vh - 34px) * 16 / 9)); }
+  #frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #keys { position: absolute; left: 0; right: 0; bottom: 0; height: 34px; display: flex;
+    gap: 18px; justify-content: center; align-items: center; color: var(--soft); font-size: 13px; }
+  kbd { font: inherit; padding: 1px 6px; border: 1px solid currentColor; border-radius: 5px; }
+</style>
+</head>
+<body>
+<div id="stage"><div id="frame"><canvas id="scene"></canvas><canvas id="text"></canvas></div></div>
+<div id="keys">
+  <span><kbd>WASD</kbd>/<kbd>arrows</kbd> hand</span>
+  <span><kbd>space</kbd> A pet / pick up / throw</span>
+  <span><kbd>C</kbd> B call</span>
+  <span><kbd>T</kbd> X treat (hold)</span>
+  <span><kbd>R</kbd> Y play</span>
+  <span>or an Xbox pad</span>
+</div>
+<script type="module">
+// fiapup's web shell: the console's bindings, in a browser. The game draws
+// through its own copy of the frame interpreter into `triangle3d` (the same
+// depth-tested WebGL scene oskiewar uses) and `write`; it reads `gamepad(0)`.
+import WebGLOskiewarScene3D from "./live/scene3d-webgl.mjs";
+
+const W = 1920, H = 1080;
+const sceneCanvas = document.querySelector("#scene");
+const textCanvas = document.querySelector("#text");
+const ctx = textCanvas.getContext("2d");
+const scene = new WebGLOskiewarScene3D(sceneCanvas);
+scene.setLogicalSize(W, H);
+let clear = [0, 0, 0, 1];
+
+function fit() {
+  const dpr = Math.min(2, devicePixelRatio || 1), rect = sceneCanvas.getBoundingClientRect();
+  const w = Math.max(1, Math.round(rect.width * dpr)), h = Math.max(1, Math.round(rect.height * dpr));
+  scene.resize(w, h);
+  if (textCanvas.width !== w) textCanvas.width = w;
+  if (textCanvas.height !== h) textCanvas.height = h;
+}
+addEventListener("resize", fit);
+fit();
+
+// ——— the bindings ———
+const t0 = performance.now();
+const host = {
+  runtime: () => ({ width: W, height: H, monotonicUs: Math.round((performance.now() - t0) * 1000) }),
+  triangle3d: (...a) => scene.triangle3d(...a),
+  wipe: (r, g, b) => { clear = [r / 255, g / 255, b / 255, 1]; },
+  box: (x, y, w, h, r, g, b) => { ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillRect(x, y, w, h); },
+  line: () => {},
+  write: (s, x, y, size = 32, r = 255, g = 255, b = 255) => {
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.font = `600 ${size}px ui-rounded, "Comic Sans MS", system-ui, sans-serif`;
+    ctx.textBaseline = "top";
+    ctx.fillText(s, x, y);
+  },
+  synth, gamepad,
+};
+
+// ——— sound: one sine with a quick decay, like the console's synth ———
+let audio = null;
+const unlock = () => { audio ||= new AudioContext(); audio.resume?.(); };
+addEventListener("keydown", unlock); addEventListener("pointerdown", unlock);
+function synth(frequency, duration = .1) {
+  if (!audio || audio.state !== "running") return;
+  const at = audio.currentTime, osc = audio.createOscillator(), gain = audio.createGain();
+  osc.frequency.value = frequency;
+  gain.gain.setValueAtTime(.18, at);
+  gain.gain.exponentialRampToValueAtTime(.0001, at + duration + .05);
+  osc.connect(gain).connect(audio.destination);
+  osc.start(at); osc.stop(at + duration + .06);
+}
+
+// ——— the pad: an Xbox controller if there is one, else the keyboard ———
+const keys = new Set();
+const keyMap = { KeyW: "ArrowUp", ArrowUp: "ArrowUp", KeyS: "ArrowDown", ArrowDown: "ArrowDown",
+  KeyA: "ArrowLeft", ArrowLeft: "ArrowLeft", KeyD: "ArrowRight", ArrowRight: "ArrowRight",
+  Space: "A", Enter: "A", KeyC: "B", KeyT: "X", KeyR: "Y", Escape: "Menu" };
+addEventListener("keydown", (e) => { const k = keyMap[e.code]; if (k) { keys.add(k); e.preventDefault(); } });
+addEventListener("keyup", (e) => { const k = keyMap[e.code]; if (k) keys.delete(k); });
+addEventListener("blur", () => keys.clear());
+const padNames = ["A", "B", "X", "Y", "LeftShoulder", "RightShoulder", "LeftTrigger", "RightTrigger",
+  "View", "Menu", "LeftThumb", "RightThumb", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+function gamepad() {
+  const down = new Set(keys);
+  const pad = [...(navigator.getGamepads?.() || [])].find((p) => p?.connected);
+  pad?.buttons.forEach((b, i) => { if (b.pressed && padNames[i]) down.add(padNames[i]); });
+  return { connected: true, down: [...down], leftX: pad?.axes[0] || 0, leftY: -(pad?.axes[1] || 0) };
+}
+
+// ——— the game ———
+const source = await (await fetch("./fiapup.js", { cache: "no-store" })).text();
+const names = Object.keys(host);
+const game = new Function(...names, `${source}\nreturn { boot, sim, paint, act, leave, fiapup };`)(
+  ...names.map((n) => host[n]));
+game.boot();
+const params = new URLSearchParams(location.search);
+if (params.get("stage")) game.fiapup.stage(params.get("stage"), Number(params.get("seconds")) || 2.5);
+const paused = params.has("pause");
+globalThis.__fiapup = game.fiapup;
+
+function frame() {
+  const s = textCanvas.width / W;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, textCanvas.width, textCanvas.height);
+  ctx.setTransform(s, 0, 0, s, 0, 0);
+  scene.beginFrame();
+  if (!paused) game.sim();
+  game.paint();
+  scene.present({ clear });
+  globalThis.__fiapupFrames = (globalThis.__fiapupFrames || 0) + 1;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
