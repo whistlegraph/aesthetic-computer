@@ -70,17 +70,11 @@ enum SigilRenderer {
                 return routeName
             }
         }
-        // An Easel session is holding one named piece, and that name is
-        // already the session's public identity: it is the slug in the address on
-        // the rock and the channel the piece is pushed on. Drawing a second,
-        // unrelated word from the session id meant the rock and the piece
-        // disagreed about what the session was called — you would open `balozo`
-        // and be handed `muzad`. The piece wins, and follows a rename.
-        if session.agentType == "easel" {
-            let slug = (session.piece as NSString).deletingPathExtension
-            let clean = slug.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
-            if !clean.isEmpty { return String(clean.prefix(16)) }
-        }
+        // An Easel session used to take its piece's name here, so the rock
+        // renamed itself the moment a piece was published (`bunido` became
+        // `butterfly`) and again on every swap. A session is not its piece:
+        // it can write several, and preview any. The rock keeps the one name
+        // it was born with; the piece is named on its card and its address.
         return name(forSessionId: session.sessionId)
     }
 

@@ -34,10 +34,20 @@ export async function checkPiece(target, { seconds = 4, cwd = process.cwd() } = 
   const address = file ? `${SITE}/${scratch}` : target.startsWith("http") ? target : `${SITE}/${target.replace(/^\/+/, "")}`;
   const url = `${address}${address.includes("?") ? "&" : "?"}nogap=true&nolabel=true&noauth=true`;
 
+  // Puppeteer's own headless shell when it is installed: a fresh profile of
+  // full Chrome took ~9s to launch and ~13s to close, most of a 40s check,
+  // and under load booted AC four times slower than the shell did.
+  let shell = "";
+  try { shell = puppeteer.executablePath({ headless: "shell" }); } catch {}
   const browser = await puppeteer.launch({
-    headless: "new",
-    ...(existsSync(CHROME) ? { executablePath: CHROME } : {}),
-    args: ["--no-sandbox", "--mute-audio", "--autoplay-policy=no-user-gesture-required"],
+    ...(shell && existsSync(shell)
+      ? { headless: "shell", executablePath: shell }
+      : { headless: "new", ...(existsSync(CHROME) ? { executablePath: CHROME } : {}) }),
+    args: [
+      "--no-sandbox", "--mute-audio", "--autoplay-policy=no-user-gesture-required",
+      "--no-first-run", "--no-default-browser-check", "--disable-extensions",
+      "--disable-component-update", "--disable-background-networking", "--disable-sync",
+    ],
     timeout: 90000,
     protocolTimeout: 90000,
   });
@@ -94,7 +104,11 @@ export async function checkPiece(target, { seconds = 4, cwd = process.cwd() } = 
     await page.keyboard.press("Space").catch(() => {});
     await new Promise((r) => setTimeout(r, Math.max(1000, seconds * 1000 - 1200)));
   } finally {
-    await browser.close();
+    // Nothing is kept from this profile, so there is nothing for a graceful
+    // close to save; it only made every check wait on Chrome's teardown.
+    const chrome = browser.process();
+    if (chrome) chrome.kill("SIGKILL");
+    else await browser.close();
   }
   // A warning whose error was gone before it could be read says nothing the
   // readable one did not; drop it when a readable one exists.

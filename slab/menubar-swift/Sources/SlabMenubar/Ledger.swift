@@ -55,7 +55,6 @@ struct LedgerEntry: Codable, Equatable {
     var proxNamespace: String?
     var proxName: String?
     var proxIdentity: String?
-    var proxPieceName: String?
 }
 
 struct Ledger: Codable {
@@ -416,8 +415,10 @@ final class LedgerStore {
                 loopboyContact: s.loopboyContact.isEmpty ? nil : s.loopboyContact,
                 scanURL: s.scanURL.isEmpty ? nil : s.scanURL)
         }
-        // Easel namespace follows the current artifact; provider identity stays
-        // stable for resuming. Retain collision choices only for this piece.
+        // The Easel address is the rock's own name, never the piece's, so
+        // `prox:aesel:<name>` keeps pointing at the same session however many
+        // pieces it writes or previews. Provider identity stays stable for
+        // resuming, and a collision choice is kept for as long as the session.
         let previous = (try? JSONDecoder().decode(Ledger.self,
             from: Data(contentsOf: URL(fileURLWithPath: Self.localFile))))?.entries ?? []
         let peerFiles = (try? FileManager.default.contentsOfDirectory(atPath: Self.peersDir)) ?? []
@@ -432,17 +433,12 @@ final class LedgerStore {
         for index in easelIndices {
             let session = sessions[index]
             let identity = session.providerSessionId.isEmpty ? session.sessionId : session.providerSessionId
-            let filename = (session.piece as NSString).lastPathComponent
-            let stem = (filename as NSString).deletingPathExtension
-            let clean = stem.lowercased().filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" || $0 == "." }
-            let base = clean.isEmpty ? "untitled" : String(clean.prefix(100))
-            let prior = previous.first { $0.proxIdentity == identity && $0.proxPieceName == base }?.proxName
+            let base = entries[index].name
+            // Only a collision variant of this same name carries over; a name
+            // left from when the address followed the piece does not.
+            let prior = previous.first { $0.proxIdentity == identity }?.proxName
+                .flatMap { $0 == base || $0.hasPrefix(base + "-") ? $0 : nil }
             var name = prior ?? base
-            if used.contains(name) {
-                let owner = String(session.pieceChannel.split(separator: "/").first ?? "")
-                    .lowercased().filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
-                name = owner.isEmpty ? base : owner + "/" + base
-            }
             if used.contains(name) {
                 let collisionBase = name
                 let suffix = String(format: "%016llx", SigilRenderer.seed(for: identity + "\u{1}" + selfHost))
@@ -460,7 +456,6 @@ final class LedgerStore {
             entries[index].proxNamespace = "easel"
             entries[index].proxName = name
             entries[index].proxIdentity = identity
-            entries[index].proxPieceName = base
         }
         entries.append(contentsOf: advertisedAgents())
 

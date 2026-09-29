@@ -121,9 +121,8 @@ struct ClaudeSession {
     var artifactPreview: LocalArtifactPreview?
 
     /// The piece this session is writing, with its extension — `balozo.mjs`.
-    /// Only Easel sets it, and it names the rock: a session that is
-    /// holding a piece should be addressable by that piece's name rather than
-    /// by a second unrelated word drawn from its session id.
+    /// Only Easel sets it. It titles the piece's card, not the rock: the
+    /// rock keeps its session name (see `SigilRenderer.name(for:)`).
     var piece: String = ""
     var piecePublishedAt: String = ""
     var pieceVersion: Int = 0

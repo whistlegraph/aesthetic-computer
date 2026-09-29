@@ -33,6 +33,17 @@ function summary(text) {
   return words.length > 7 ? `${value.slice(0, 47)}…` : value;
 }
 
+// Any way of naming a piece → the bare host+path the rock encodes:
+// `notepat`, `/notepat:c`, `@jeffrey/butterfly`, `$cow`,
+// `https://aesthetic.computer/@jeffrey/butterfly` → `prompt.ac/…`.
+export function previewAddress(target = "") {
+  const path = String(target || "").trim().split(/\s+/)[0]
+    .replace(/^https?:\/\//, "")
+    .replace(/^(www\.)?(aesthetic\.computer|prompt\.ac)(\/|$)/, "")
+    .replace(/^\/+/, "");
+  return path ? `prompt.ac/${path}` : "";
+}
+
 export class SlabSession {
   constructor({
     cwd,
@@ -58,6 +69,8 @@ export class SlabSession {
     this.running = join(this.stateDir, "running-tools", sessionId);
     this.enabled = false;
     this.heartbeat = null;
+    // Set while the rock shows a piece that is not this session's (`preview`).
+    this.pinned = "";
     this.cursorSocket = join(this.stateDir, "cursor.sock");
     this.shape = "arrow";
     this.cursor = null;
@@ -135,12 +148,29 @@ export class SlabSession {
   // session renames its piece, or switches runtime — so the code on the rock
   // always points at what is actually running.
   live(piece = "", scanUrl = "", channel = "") {
+    this.own = { piece: String(piece || ""), piece_channel: String(channel || ""), scan_url: String(scanUrl || "") };
+    if (this.pinned) return;
     this.#update({
-      ...(this.record.scan_url !== String(scanUrl || "") ? {piece_published_at:""} : {}),
-      piece: String(piece || ""),
-      piece_channel: String(channel || ""),
-      scan_url: String(scanUrl || ""),
+      ...(this.record.scan_url !== this.own.scan_url ? {piece_published_at:""} : {}),
+      ...this.own,
     });
+  }
+
+  // Point the rock and its preview at any piece — `notepat`, `@handle/slug`,
+  // `$code`, a full URL — without it becoming this session's piece. The
+  // session goes on writing its own; `preview()` with nothing hands the card
+  // back to it. Returns the address shown, or "" when back on its own.
+  preview(target = "") {
+    const address = previewAddress(target);
+    if (!address) {
+      if (!this.pinned) return "";
+      this.pinned = "";
+      this.#update({ ...(this.own || { piece: "", piece_channel: "", scan_url: "" }), piece_published_at: "", flow: this.ownFlow || "live" });
+      return "";
+    }
+    this.pinned = address;
+    this.#update({ piece: "", piece_channel: "", scan_url: address, piece_published_at: "", flow: "live" });
+    return address;
   }
 
   published() { this.#update({piece_published_at:new Date().toISOString()}); }
@@ -162,6 +192,9 @@ export class SlabSession {
   // question about which to draw that nobody has to answer if it cannot arise.
   flow(state = "live") {
     const clean = ["live", "ahead", "pushing"].includes(state) ? state : "live";
+    this.ownFlow = clean;
+    // Someone else's piece on the card is never ahead of our file.
+    if (this.pinned) return;
     if (this.record.flow === clean) return;
     this.#update({ flow: clean });
   }

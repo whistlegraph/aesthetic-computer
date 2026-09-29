@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { SlabSession } from "../src/slab-session.mjs";
+import { SlabSession, previewAddress } from "../src/slab-session.mjs";
 
 const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
 const exists = async (path) => stat(path).then(() => true, () => false);
@@ -126,4 +126,41 @@ test("a pointer with nobody listening stays quiet", async (context) => {
   session.pointer("hand");
   session.pointer("arrow");
   session.close();
+});
+
+test("previews any piece without taking it as the session's own", async (context) => {
+  const root = await mkdtemp(join(tmpdir(), "easel-slab-"));
+  context.after(() => rm(root, { recursive: true, force: true }));
+  const session = new SlabSession({ cwd: "/project", pid: process.pid, tty: "ttys099", sessionId: "ac-preview", slabHome: root });
+  const active = join(root, "state", "active-prompts", "ac-preview");
+  session.start();
+  session.live("butterfly.mjs", "prompt.ac/@jeffrey/butterfly", "jeffrey/butterfly");
+  session.flow("ahead");
+
+  assert.equal(session.preview("https://aesthetic.computer/notepat"), "prompt.ac/notepat");
+  let marker = await readJson(active);
+  assert.equal(marker.scan_url, "prompt.ac/notepat");
+  assert.equal(marker.piece, "");
+  assert.equal(marker.flow, "live");
+
+  // The session keeps writing its own piece underneath; the card stays put.
+  session.live("moth.mjs", "prompt.ac/@jeffrey/moth", "jeffrey/moth");
+  session.flow("pushing");
+  marker = await readJson(active);
+  assert.equal(marker.scan_url, "prompt.ac/notepat");
+
+  assert.equal(session.preview(""), "");
+  marker = await readJson(active);
+  assert.equal(marker.scan_url, "prompt.ac/@jeffrey/moth");
+  assert.equal(marker.piece, "moth.mjs");
+  assert.equal(marker.flow, "pushing");
+});
+
+test("names a piece any way it is written", () => {
+  assert.equal(previewAddress("notepat"), "prompt.ac/notepat");
+  assert.equal(previewAddress("/notepat:c"), "prompt.ac/notepat:c");
+  assert.equal(previewAddress("@jeffrey/butterfly"), "prompt.ac/@jeffrey/butterfly");
+  assert.equal(previewAddress("$cow"), "prompt.ac/$cow");
+  assert.equal(previewAddress("prompt.ac/@jeffrey/butterfly"), "prompt.ac/@jeffrey/butterfly");
+  assert.equal(previewAddress("  "), "");
 });

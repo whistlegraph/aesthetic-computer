@@ -2368,7 +2368,7 @@ async function submitInput(submittedText, submittedMessages = null) {
         "notice",
         pro
           ? "/ask [on|off] · /provider · /model [name] · /mouse [on|off] · /layout · /inbox · /mode · /backend [id] · /login · /logout · /whoami · /handle [name] · /update · /new · /clear · /close · /quit   ctrl-c interrupts a running turn"
-          : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /mode · /mouse [on|off] · /performance [frames] · /energy · /latest · /login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /update · /open · /qr · /new [thread] · /clear · /quit   ctrl-c interrupts a running turn",
+          : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /mode · /mouse [on|off] · /performance [frames] · /energy · /latest · /login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /preview [piece] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /update · /open · /qr · /new [thread] · /clear · /quit   ctrl-c interrupts a running turn",
       );
       return redraw();
     }
@@ -2441,6 +2441,14 @@ async function submitInput(submittedText, submittedMessages = null) {
     }
     if (command === "/settings" || command === "/effort") return openSettings(command === "/effort" ? 2 : 0);
     if (command === "/model" || command === "/models") return commandModel(rest);
+    // Look at any piece on the rock's card without making it this session's:
+    // `/preview notepat`, `/preview @handle/slug`, `/preview $cow`. Bare
+    // `/preview` hands the card back to the piece being written here.
+    if (command === "/preview") {
+      const shown = slabSession.preview(rest);
+      addEntry("notice", shown ? `Previewing ${shown} · /preview to come back` : "Previewing this session's own piece");
+      return redraw();
+    }
     if (command === "/piece") {
       if (rest) {
         try {
