@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { artifactMode, tokenMetadata, crawlBundle, checkBundle, CRAWL_STYLE } from "../lib/artifact.mjs";
-import { crawlLayout, crawlPiece } from "../lib/crawl.mjs";
+import { crawlLayout, crawlPiece, readablePeriod } from "../lib/crawl.mjs";
 
 const SIGNER = "tz1gkf8EexComFBJvjtT1zdsisdah791KwBE";
 const uris = { html: "ipfs://QmHtml", gif: "ipfs://QmGif", thumb: "ipfs://QmThumb" };
@@ -65,8 +65,12 @@ test("gif metadata is exactly what the daily minted before the switch", () => {
 const layout = crawlLayout({ title: episode.title, body: episode.body, date: episode.date });
 const source = crawlPiece(layout);
 
-test("the crawl pins its screen to the GIF and keeps its punctuation", () => {
-  assert.ok(source.startsWith("(resolution 512 512 1)\n(wipe black)"));
+test("the crawl is responsive, paced for reading, and keeps its punctuation", () => {
+  // No pinned resolution: every size and place comes from the live w and h.
+  assert.ok(source.startsWith("(wipe black)"));
+  assert.doesNotMatch(source, /\(resolution /);
+  assert.match(source, /\(min \(\/ \(\* \.9 w\) \d+\) \(\/ h [\d.]+\)\)/, "text sized from w and h");
+  assert.ok(readablePeriod(layout) >= 30000, "a pass is at least 30 s");
   assert.ok(source.includes(`(write "A DOOR; (FOR LETTERS)"`));
   const written = [...source.matchAll(/\(write "((?:[^"\\]|\\.)*)"/g)].map((m) => m[1]).join(" ");
   assert.equal(written, `A DOOR; (FOR LETTERS) It said \\"hello\\", then (quietly) left; a colon: fine?`);

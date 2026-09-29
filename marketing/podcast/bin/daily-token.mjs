@@ -136,7 +136,9 @@ async function store(source) {
 
 if (!receipt.code) {
   const layout = crawlLayout({ title, body, date });
-  const source = crawlPiece(layout, { periodMs: CRAWL_SECONDS * 1000 });
+  // The live piece is paced for reading and keeps more of its size as a
+  // line recedes (a shallower plane); the GIF stays a 30 s preview.
+  const source = crawlPiece(crawlLayout({ title, body, date, kmin: .62 }));
   if (source.length > 50000) { console.error(`✗ the crawl piece is ${source.length} chars (store-kidlisp takes 50000)`); process.exit(1); }
   const code = await store(source);
   console.log(`  page stored as $${code} — rendering the crawl…`);

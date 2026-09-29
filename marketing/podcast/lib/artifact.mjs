@@ -22,9 +22,9 @@ export function artifactMode(env = process.env) {
   return mode;
 }
 
-// The crawl pins its screen to the GIF's 512², which AC letterboxes by
-// offsetting its wrapper. A pack carries no style.css, so the wrapper is
-// given the position AC's stylesheet would, or it sits in the top-left.
+// The crawl sizes itself from the live screen, but AC still offsets its
+// wrapper to centre the canvas. A pack carries no style.css, so the wrapper
+// is given the position AC's stylesheet would, or it sits in the top-left.
 export const CRAWL_STYLE = "#aesthetic-computer { position: relative; overflow: hidden; }";
 
 // The bundler reads AC_SOURCE_DIR when it loads, so the repo's own runtime is

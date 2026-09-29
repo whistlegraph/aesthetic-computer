@@ -77,7 +77,7 @@ const PALETTES = [
 ];
 const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
 
-export function crawlLayout({ title, body, date, size = 512, cols = 30 }) {
+export function crawlLayout({ title, body, date, size = 512, cols = 30, kmin = 0.42 }) {
   const lines = [];
   for (const t of wrap(fontText(title).toUpperCase(), cols)) lines.push({ text: t, title: true });
   lines.push(null);
@@ -96,7 +96,7 @@ export function crawlLayout({ title, body, date, size = 512, cols = 30 }) {
   // Text scales with k² and so does the spacing (dy/dz = A·k²/D), so a line's
   // gap always tracks its size.
   const u = size / 512;
-  const W = size, H = size, HOR = 70 * u, D = 150, S0 = 2.4 * u, KMIN = 0.42;
+  const W = size, H = size, HOR = 70 * u, D = 150, S0 = 2.4 * u, KMIN = kmin;
   const A = (H - HOR) / (1 - KMIN);
   const L = 12 * S0 * D / A;
   const GONE = D * (1 / KMIN - 1);
@@ -181,22 +181,35 @@ export function renderCrawlGif(g, outPath, { seconds = 30, fps = 12 } = {}) {
 }
 
 // The same crawl as a live KidLisp piece, moving with (clock). Strings keep
-// their punctuation; only \ and " need escaping. The geometry is in the
-// GIF's pixels, so the screen is pinned to them (gapless) and AC scales it to
-// whatever window, iframe or objkt viewer holds it.
-export function crawlPiece(g, { periodMs = 30000 } = {}) {
+// their punctuation; only \\ and " need escaping. It is responsive: every
+// size and place comes from the live w and h each frame (inlined, since a
+// def would freeze at boot), so it fills whatever window, iframe or objkt
+// viewer holds it and reflows when that changes. The text is as wide as the
+// window allows at the near line, and a pass is paced for reading.
+export const READ_WPM = 140;
+export function readablePeriod(g, floorMs = 30000) {
+  const words = g.lines.reduce((n, l) => n + (l ? l.text.split(/\s+/).filter(Boolean).length : 0), 0);
+  return Math.max(floorMs, Math.round(words / READ_WPM * 60000 * 1.2));
+}
+export function crawlPiece(g, { periodMs = readablePeriod(g) } = {}) {
   const kl = (s) => s.replace(/\\/g, "").replace(/"/g, '\\"');
+  const f = (v) => +v.toFixed(4);
+  const cols = Math.max(...g.lines.map((l) => (l ? l.text.length : 0)));
+  // The same plane as the GIF, in fractions of the screen: the horizon at
+  // HOR/H of the height, A/H of it from the near line to the vanishing depth.
+  const hor = f(g.HOR / g.H), a = f(g.A / g.H);
+  const s0 = `(min (/ (* .9 w) ${cols * GW}) (/ h ${f(g.H / g.S0)}))`;
   const zNow = `(* (/ (mod (clock) ${periodMs}) ${periodMs}) ${g.TRAVEL.toFixed(1)})`;
-  const src = [`(resolution ${g.W} ${g.H} 1)`, "(wipe black)"];
-  for (const { x, y, c } of g.stars) src.push(`(ink ${c.join(" ")})(plot ${x} ${y})`);
+  const src = ["(wipe black)"];
+  for (const { x, y, c } of g.stars) src.push(`(ink ${c.join(" ")})(plot (* w ${f(x / g.W)}) (* h ${f(y / g.H)}))`);
   g.lines.forEach((l, i) => {
     if (!l) return;
     const text = kl(l.text);
     const z = `(- ${zNow} ${(i * g.L).toFixed(2)})`;
     const k = `(/ ${g.D} (+ ${g.D} (max ${z} 0)))`;
-    const y = `(- (- ${g.H} (* ${g.A.toFixed(2)} (- 1 ${k}))) (* (max (- ${z} ${g.GONE.toFixed(1)}) 0) 100))`;
-    const s = `(* ${g.S0} (* ${k} ${k}))`;
-    const x = `(- ${g.W / 2} (* ${text.length * GW / 2} ${s}))`;
+    const y = `(- (- h (* h ${a} (- 1 ${k}))) (* (max (- ${z} ${g.GONE.toFixed(1)}) 0) h))`;
+    const s = `(* ${s0} ${k} ${k})`;
+    const x = `(- (/ w 2) (* ${text.length * GW / 2} ${s}))`;
     src.push(`(ink ${l.color.join(" ")})`, `(write "${text}" ${x} ${y} nil ${s})`);
   });
   return src.join("\n");
