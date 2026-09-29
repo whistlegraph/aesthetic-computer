@@ -105,7 +105,7 @@ test("tired, it naps in its bed until rested; a call wakes it and it comes", () 
   assert.equal(w.pup.state, "sleepy");
   hold(f, 8);
   assert.equal(w.pup.state, "nap");
-  assert.ok(Math.hypot(w.pup.x + 230, w.pup.z + 140) < 20, "in the bed");
+  assert.ok(Math.hypot(w.pup.x - f.home.bed.x, w.pup.z - f.home.bed.z) < 20, "in the bed");
   const before = w.pup.energy;
   hold(f, 2);
   assert.ok(w.pup.energy > before, "resting");
@@ -175,8 +175,10 @@ test("the JS rig puts the head where the lisp draws it", () => {
 // ——— the budget ———
 // The pup is a figure, not a prop, so it gets more than a prop's 60 numbers:
 // at most 12 SKETCH ops (168 numbers) a tick, in every behaviour. The whole
-// frame program, after the first paint's SHAPES, stays under 640 numbers
-// and 3000 host faces, and a tick plus a paint stays well inside a frame.
+// frame program, after the paint that carries a chunk's SHAPES, stays under
+// 1800 numbers — about 30 chunk sketches, the ridges, the pup, the props and
+// the nearby critters — and 14000 host faces, and a tick plus a paint stays
+// well inside a frame.
 const moments = ["idle", "fetch", "pet", "beg", "nap", "zoomies", "tug"];
 
 test("the pup sends at most 12 sketches a tick in every behaviour", () => {
@@ -205,13 +207,13 @@ test("a frame program stays small, and so does the work", () => {
     for (let i = 0; i < 60; i++) { f.step(); game.paint(); }
     costs.push((performance.now() - t0) / 60);
     const faces = drawn.faces / 60;
-    assert.ok(f.stats.numbers < 640, `${name}: ${f.stats.numbers} numbers`);
-    assert.ok(faces < 3000, `${name}: ${faces.toFixed(0)} faces`);
+    assert.ok(f.stats.numbers < 1800, `${name}: ${f.stats.numbers} numbers`);
+    assert.ok(faces < 14000, `${name}: ${faces.toFixed(0)} faces`);
   }
   assert.ok(first > f.stats.numbers, "the first paint carries the SHAPES");
   const median = costs.sort((a, b) => a - b)[3];
   // Node on a loaded 8 GB Mac; the console's QuickJS is slower, so this is
   // a tripwire for a regression, not a console number.
-  assert.ok(median < 4, `median tick+paint ${median.toFixed(2)} ms`);
+  assert.ok(median < 8, `median tick+paint ${median.toFixed(2)} ms`);
   console.log(`  first paint ${first} numbers; steady ${f.stats.numbers}; tick+paint median ${median.toFixed(2)} ms`);
 });

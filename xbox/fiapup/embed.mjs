@@ -27,8 +27,12 @@ export const start = "// <sealed>";
 export const end = "// </sealed>";
 
 // What the game draws, by the name it asks for, and the file each compiles from.
-export const objects = { puppy: "puppy-flat", yard: "yard-flat", ball: "ball-flat",
-  rope: "rope-flat", hand: "hand-flat", treat: "treat-flat" };
+export const objects = { puppy: "puppy-flat", camp: "camp-flat", ball: "ball-flat",
+  rope: "rope-flat", hand: "hand-flat", treat: "treat-flat",
+  // the meadow's things, stamped into chunk sketches (flower … birch) or
+  // drawn where they move (butterfly, sheep)
+  flower: "flower-flat", tuft: "tuft-flat", rock: "rock-flat", pine: "pine-flat", birch: "birch-flat",
+  butterfly: "butterfly-flat", sheep: "sheep-flat" };
 
 // A module's source with its `export` keywords taken off, and the names it
 // exported. `export default x;` lines go; the named export already covers x.

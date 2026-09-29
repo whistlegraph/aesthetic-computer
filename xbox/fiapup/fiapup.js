@@ -1217,11 +1217,18 @@ const fiapupObjects = (() => {
   })();
   const sources = {
     puppy: "; puppy-flat — fia's pup, drawn flat: balls and limbs hung on a small\n; skeleton, inked at the silhouette. x forward (nose), y up, z to the pup's\n; right, the origin on the floor under the middle of the body.\n;\n; Every shape is still; only the frames move. The game hands the pose over as\n; the owner's parts (three numbers each, radians unless noted), so each bone\n; is one baked sketch under a moving frame: a tick is about a dozen SKETCH\n; ops and nothing is projected in JS.\n;\n;   body  bob (units) · pitch about the hips (nose up +) · roll along the spine\n;   head  yaw · nod (up +) · cock (the curious tilt)\n;   ears  flop (out from the head) · perk (forward)\n;   tail  wag · droop (down +)\n;   fl fr bl br   swing (paw forward +) · splay (out to the side +)\n;   face  eyes open (0/1) · mouth open (0/1) · tongue (0/1)\n;\n; fiapup.js mirrors the measurements it needs (neck, snout) in `pupRig`;\n; change them together.\n\ndef stand 21\ndef hip 9\ndef side 5.2\ndef leg 14\ndef edge 1.3\n\n(let bob (owner body x))\n(let pitch (owner body y))\n(let roll (owner body z))\n\n; the shadow stays on the floor, behind the pup's own shapes\n(nudge 40\n  (ink 58 104 60)\n  (scale 1.9 1 1.25 (ring y 13)))\n\n(move 0 (+ stand bob) 0\n  (rotate x roll\n    (move (- hip) 0 0 (rotate z pitch (move hip 0 0\n\n      ; far legs first, near legs last: depth sorts them anyway, the order\n      ; only settles ties\n      (move hip -3 (- side) (rotate z (owner fl x) (rotate x (owner fl y))\n        (ink 226 170 110) (limb 0 0 0 0 (- leg) 0 3.1)\n        (ink 250 236 214) (ball .8 (- -.5 leg) 0 3.4)))\n      (move hip -3 side (rotate z (owner fr x) (rotate x (- (owner fr y)))\n        (ink 226 170 110) (limb 0 0 0 0 (- leg) 0 3.1)\n        (ink 250 236 214) (ball .8 (- -.5 leg) 0 3.4)))\n      (move (- hip) -2 (- side) (rotate z (owner bl x) (rotate x (owner bl y))\n        (ink 214 156 98) (limb 0 0 0 0 (- -2.4 leg) 0 3.5)\n        (ink 250 236 214) (ball .8 (- -3.4 leg) 0 3.6)))\n      (move (- hip) -2 side (rotate z (owner br x) (rotate x (- (owner br y)))\n        (ink 214 156 98) (limb 0 0 0 0 (- -2.4 leg) 0 3.5)\n        (ink 250 236 214) (ball .8 (- -3.4 leg) 0 3.6)))\n\n      ; the body: a bean with a cream chest, a brown saddle, a red collar\n      (ink 232 178 118)\n      (outline edge 74 44 30 (limb -8 0 0 8 1 0 9.5))\n      (nudge -1.5\n        (ink 250 236 214) (ball 9 -2.5 0 6.5)\n        (ink 168 104 62) (ball -4 5.5 0 6))\n      (nudge -3\n        (ink 222 58 64) (limb 12 5 -5 12 5 5 1.7)\n        (ink 255 208 70) (ball 13.6 2.5 0 1.6))\n\n      ; the tail, from the rump, up and back\n      (move -15 3 0 (rotate y (owner tail x) (rotate z (owner tail y)\n        (ink 214 156 98)\n        (outline edge 74 44 30 (limb 0 0 0 -6 6 0 2.3))\n        (ink 250 236 214) (ball -6.5 6.8 0 2.4))))\n\n      ; the head on the neck, turned, nodded and cocked\n      (move 14 9 0 (rotate y (owner head x) (rotate z (owner head y) (rotate x (owner head z)\n        (ink 232 178 118)\n        (outline edge 74 44 30 (ball 0 0 0 9))\n        (ink 250 236 214) (ball 7 -3 0 5.4)\n        (nudge -1 (ink 40 28 30) (ball 12 -1.4 0 2.3))\n        (if (> (owner face x) .5)\n          (ink 36 26 30) (ball 5.2 2.6 -4.3 1.8) (ball 5.2 2.6 4.3 1.8)\n          (nudge -.5 (ink 255 255 255) (ball 6 3.3 -4.5 .6) (ball 6 3.3 4.5 .6)))\n        (if (< (owner face x) .5)\n          (ink 60 38 34) (limb 4.4 2.3 -5 6.6 2.3 -3.6 .5) (limb 4.4 2.3 5 6.6 2.3 3.6 .5))\n        (if (> (owner face z) .5)\n          (ink 236 96 120) (limb 9 -6 0 10 -9.5 0 1.9))\n        ; floppy ears, the brown of the saddle\n        (move -1 5.5 -6 (rotate x (owner ears x) (rotate z (owner ears y)\n          (ink 168 104 62) (outline edge 74 44 30 (limb 0 0 0 0 -8 -2.4 3.3)))))\n        (move -1 5.5 6 (rotate x (- (owner ears x)) (rotate z (owner ears y)\n          (ink 168 104 62) (outline edge 74 44 30 (limb 0 0 0 0 -8 2.4 3.3))))))))))))))\n",
-    yard: "; yard-flat — the pup's backyard, drawn flat. World space: x across, y up,\n; z toward the camera; the lawn runs from the fence (z -220) forward past\n; where the camera stands. All of it is still, so it bakes into one sketch\n; and a tick sends one SKETCH for the whole yard.\n;\n; Big flat shapes carry one depth each, so the ground is pushed far back\n; (nudge) and everything that stands on it draws over it. The fence and the\n; hills behind it are pushed back less than the lawn but more than anything\n; the pup can reach.\n\ndef tile 80\ndef fence -220\n\n; past the fence: a meadow, and a hedge along it\n(nudge 6000\n  (ink 146 188 108)\n  (plate -1600 0 -1500  1600 0 -1500  1600 0 -222  -1600 0 -222))\n(nudge 3200\n  (outline 1.6 52 96 58\n    (repeat 19 i\n      (ink (mix 104 92 (% i 2)) (mix 166 152 (% i 2)) (mix 92 84 (% i 2)))\n      (ball (- (* i 70) 630) 18 -262 (+ 30 (* 6 (% i 3)))))))\n\n; a round little tree over the fence, back left\n(nudge 3400\n  (ink 132 92 66) (limb -250 0 -300 -250 120 -300 7)\n  (ink 96 158 88)\n  (outline 1.6 52 96 58\n    (ball -250 150 -300 40) (ball -216 130 -290 28) (ball -284 132 -290 30)))\n\n; the fence: posts and two rails across the back and down both sides\n(nudge 3000\n  (ink 244 232 208)\n  (outline 1.2 150 120 96\n    (repeat 9 i\n      (plate (- (* i tile) 326) 0 fence  (- (* i tile) 314) 0 fence\n             (- (* i tile) 314) 84 fence  (- (* i tile) 326) 84 fence))\n    (plate -330 50 fence  330 50 fence  330 58 fence  -330 58 fence)\n    (plate -330 20 fence  330 20 fence  330 28 fence  -330 28 fence)\n    (mirror x\n      (repeat 5 j\n        (plate 320 0 (- (* (+ j 1) tile) 226)  320 0 (- (* (+ j 1) tile) 214)\n               320 84 (- (* (+ j 1) tile) 214)  320 84 (- (* (+ j 1) tile) 226)))\n      (plate 320 50 fence  320 50 180  320 58 180  320 58 fence)\n      (plate 320 20 fence  320 20 180  320 28 180  320 28 fence))))\n\n; flowers along the fence\n(nudge 2600\n  (repeat 7 i\n    (ink 88 140 70) (limb (- (* i 90) 280) 0 -206 (- (* i 90) 280) 18 -206 1)\n    (ink (mix 255 250 (% i 2)) (mix 150 214 (% i 2)) (mix 190 90 (% i 2)))\n    (ball (- (* i 90) 280) 20 -206 4.5)))\n\n; the lawn, mown in squares\n(nudge 5000\n  (repeat 16 i\n    (repeat 9 j\n      (ink (mix 128 116 (% (+ i j) 2)) (mix 184 170 (% (+ i j) 2)) (mix 98 88 (% (+ i j) 2)))\n      (plate (- (* i tile) 640) 0 (+ fence (* j tile))\n             (- (* i tile) 560) 0 (+ fence (* j tile))\n             (- (* i tile) 560) 0 (+ fence (* (+ j 1) tile))\n             (- (* i tile) 640) 0 (+ fence (* (+ j 1) tile))))))\n\n; the bed, back left: a cushion and its soft middle, a little behind what\n; lies on it\n(move -230 0 -140\n  (nudge 30\n    (ink 110 140 196)\n    (outline 1.4 50 60 96 (move 0 5 0 (drum y 34 10)))\n    (ink 176 198 232) (move 0 10.3 0 (ring y 25))))\n\n; the water bowl, back right\n(move 230 0 -150\n  (nudge 12\n    (ink 222 84 72)\n    (outline 1.2 110 40 36 (move 0 3.5 0 (drum y 11 7)))\n    (ink 130 196 240) (move 0 7.2 0 (ring y 8))))\n",
+    camp: "; camp-flat — home: a picnic blanket in the meadow with the pup's bed and\n; water bowl on it. World space around the camp's middle; the game places\n; it on the ground. All still, so it bakes into one sketch.\n;\n; The blanket lies flat on the grass, pushed back (nudge) so everything\n; standing on it draws over it; the bed and bowl push back a little less.\n\ndef cell 20\n\n; the blanket: a red and cream check, six by five, with a darker hem\n(nudge 3000\n  (ink 150 52 48)\n  (plate -64 .3 -54  64 .3 -54  64 .3 54  -64 .3 54)\n  (repeat 6 i\n    (repeat 5 j\n      (ink (mix 236 214 (% (+ i j) 2)) (mix 226 82 (% (+ i j) 2)) (mix 206 76 (% (+ i j) 2)))\n      (plate (- (* i cell) 60) .6 (- (* j cell) 50)\n             (- (* i cell) 40) .6 (- (* j cell) 50)\n             (- (* i cell) 40) .6 (- (* j cell) 30)\n             (- (* i cell) 60) .6 (- (* j cell) 30)))))\n\n; the bed, at the blanket's left edge: a cushion and its soft middle\n(move -86 0 -30\n  (nudge 30\n    (ink 110 140 196)\n    (outline 1.4 50 60 96 (move 0 5 0 (drum y 34 10)))\n    (ink 176 198 232) (move 0 10.3 0 (ring y 25))))\n\n; the water bowl, at its right\n(move 88 0 -34\n  (nudge 12\n    (ink 222 84 72)\n    (outline 1.2 110 40 36 (move 0 3.5 0 (drum y 11 7)))\n    (ink 130 196 240) (move 0 7.2 0 (ring y 8))))\n",
     ball: "; ball-flat — the fetch ball. The origin is on the floor under the ball;\n; x points the way it rolls. `distance` rolls it; the owner's `ball x` lifts\n; it (a throw, or the pup's mouth). The band is a flat bar across the face,\n; so turning it is what reads as rolling.\n\ndef r 5\n\n(let roll (/ distance r))\n\n(nudge 20 (ink 58 104 60) (scale 1.2 1 1 (ring y 4.4)))\n\n(move 0 (+ r (owner ball x)) 0\n  (rotate z (- roll)\n    (ink 232 72 76)\n    (outline 1 96 30 36 (ball 0 0 0 r))\n    (nudge -1 (ink 255 214 84) (limb 0 -4.3 0 0 4.3 0 1.3))))\n",
     rope: "; rope-flat — the tug rope: a knot at each end and the rope between. The\n; origin is the first knot; the owner's `end` is the second knot, in world\n; units from the first (the object is placed unturned). The first knot bakes;\n; the rope and the far knot move every tick, so they go out as a CAPSULE and\n; an ELLIPSE — the one object here that uses the per-tick flat path.\n\n(ink 70 118 206)\n(outline 1 30 50 96 (ball 0 0 0 3.4))\n(ink 244 244 250)\n(limb 0 0 0 (owner end x) (owner end y) (owner end z) 1.5)\n(ink 70 118 206)\n(outline 1 30 50 96 (ball (owner end x) (owner end y) (owner end z) 3.4))\n",
     hand: "; hand-flat — you: a white-gloved hand over the lawn, fingers reaching into\n; the yard (x; the game turns it in from the right), palm down, thumb on -z. The origin is on the floor\n; under the hand; the owner's `hand` is height · grip (0 open, 1 fist).\n; The shadow stays on the floor so you can tell where the hand is.\n\n(let h (owner hand x))\n\n(nudge 30 (ink 58 104 60) (scale 1.5 1 1.1 (ring y 8)))\n\n(move 0 h 0\n  (rotate z -.3\n    ; the cuff sits under the palm, whatever the depth of its middle says\n    (nudge 22 (ink 236 96 128) (outline 1.2 96 50 70 (limb -15 0 0 -8 0 0 5.2)))\n    (ink 255 252 246)\n    (outline 1.2 96 90 100 (ball 0 0 0 7.4))\n    (if (< (owner hand y) .5)\n      (nudge -6 (outline 1.2 96 90 100\n        (limb 4 .5 -4.6 13 -1 -5.6 2.1) (limb 5 .5 -1.5 15 -1 -1.8 2.1)\n        (limb 5 .5 1.5 15 -1 1.8 2.1) (limb 4 .5 4.6 12 -1 5.4 2)\n        (limb 0 0 -6 5 1 -11 2.2))))\n    (if (> (owner hand y) .5)\n      (nudge -6 (outline 1.2 96 90 100\n        (ball 6 -1 -4 2.6) (ball 7 -1 -1.3 2.6) (ball 7 -1 1.3 2.6) (ball 6 -1 4 2.5)\n        (limb 1 0 -6 5 1 -6.5 2.2))))))\n",
     treat: "; treat-flat — a bone biscuit, lying along z. The origin is its middle.\n\n(ink 214 160 98)\n(outline 1 110 70 40\n  (limb 0 0 -4 0 0 4 1.6)\n  (ball 0 1 -5 1.9) (ball 0 -1 -5 1.9) (ball 0 1 5 1.9) (ball 0 -1 5 1.9))\n",
+    flower: "; flower-flat — a meadow flower: a stem, five petals round a middle. The\n; game stamps it into a chunk's sketch many times; the petals are keyed ink\n; (255 0 255) so each stamp can give them its own colour.\n\n(ink 88 140 70) (limb 0 0 0 0 11 0 .8)\n(move 0 12 0\n  (ink 255 0 255)\n  (radial y 5 (move 2.4 0 0 (ball 0 0 0 1.9)))\n  (nudge -.5 (ink 255 214 84) (ball 0 .4 0 1.3)))\n",
+    tuft: "; tuft-flat — a clump of tall meadow grass: five blades leaning out.\n\n(ink 92 150 70)\n(limb 0 0 0 -3 14 1 .9)\n(limb 0 0 0 2 17 -1 .9)\n(ink 110 168 80)\n(limb 0 0 0 4 12 2 .8)\n(limb 0 0 0 -1 15 -3 .8)\n(limb 0 0 0 -4 10 -2 .8)\n",
+    rock: "; rock-flat — a mossy boulder: grey lumps under one ink line, a cap of moss.\n\n(outline 1.2 70 72 78\n  (ink 150 150 156) (ball 0 5 0 8)\n  (ink 132 132 140) (ball 7 3.5 2 5.5)\n  (ink 168 166 170) (ball -6 3 -1 5))\n(nudge -1 (ink 118 150 86) (ball -1 11.5 -1 3))\n",
+    pine: "; pine-flat — a mountain pine: a trunk and three stacked tiers, drawn as\n; flat plates facing the camera (the game never turns them).\n\n(ink 110 76 54) (limb 0 0 0 0 30 0 3)\n(outline 1.6 34 62 44\n  (ink 46 98 66) (plate -26 16 0  26 16 0  0 52 0)\n  (ink 54 110 72) (plate -21 36 1  21 36 1  0 70 1)\n  (ink 62 122 80) (plate -15 56 2  15 56 2  0 86 2))\n",
+    birch: "; birch-flat — a birch: a white trunk with dark marks, a round light crown.\n\n(outline 1.2 70 70 76 (ink 236 234 226) (limb 0 0 0 0 58 0 2.6))\n(nudge -1 (ink 60 58 62)\n  (limb -2.6 14 0 -.6 15 0 .7)\n  (limb 2.6 27 0 .8 28 0 .7)\n  (limb -2.6 40 0 -1 41 0 .6))\n(outline 1.4 64 110 56\n  (ink 132 184 92) (ball 0 66 0 15)\n  (ink 146 196 100) (ball -11 58 3 10)\n  (ink 120 172 84) (ball 11 60 -3 11))\n",
+    butterfly: "; butterfly-flat — two wings that flap with `time`, on a dark body. The\n; origin is the body; x is the way it flies.\n\n(let flap (* .9 (sin (* time 22))))\n(ink 50 40 44) (limb -2 0 0 2 0 0 .5)\n(rotate x flap\n  (ink 255 170 60) (ball .8 0 2.6 2.4) (ball -1.6 0 2.2 1.6))\n(rotate x (- flap)\n  (ink 255 170 60) (ball .8 0 -2.6 2.4) (ball -1.6 0 -2.2 1.6))\n",
+    sheep: "; sheep-flat — a far-off sheep: a cloud of wool on four dark legs, a dark\n; face. x is the way it faces; `hit` (seconds since a bark) makes it hop.\n\n(let hop (* 6 (max 0 (sin (* (min hit 1) 9.4)))))\n(ink 44 40 44)\n(limb 5 0 -3 5 7 -3 1) (limb 5 0 3 5 7 3 1)\n(limb -5 0 -3 -5 7 -3 1) (limb -5 0 3 -5 7 3 1)\n(move 0 hop 0\n  (outline 1.2 150 146 140\n    (ink 244 242 236) (ball 0 12 0 7) (ball 5 13 0 5.5) (ball -5 13 0 5.5) (ball 0 16 0 5))\n  (ink 50 46 50) (ball 10 14 0 3.2))\n",
   };
   const compiled = {};
   for (const name in sources) compiled[name] = objectLisp.compile(sources[name], name);
@@ -2021,11 +2028,13 @@ const fiapupFrameVm = (() => {
 })();
 // </sealed>
 
-// ——— the yard, in world units (about a centimetre) ———
+// ——— the meadow, in world units (about a centimetre) ———
 
-const yard = { minX: -300, maxX: 300, minZ: -196, maxZ: 170 };
-const bed = { x: -230, z: -140 };
-const bowl = { x: 230, z: -150 };
+// No fence: the bounds are only there to keep numbers sane.
+const yard = { minX: -1e6, maxX: 1e6, minZ: -1e6, maxZ: 1e6 };
+// The bed and bowl sit on the camp's blanket (objects/camp-flat.lisp).
+const bed = { x: -86, z: -30 };
+const bowl = { x: 88, z: -34 };
 const tick = 1 / 60;
 const gravity = 640;
 
@@ -2051,6 +2060,218 @@ const ease = (rate, dt) => 1 - Math.exp(-rate * dt);
 const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const dist = (ax, az, bx, bz) => Math.hypot(bx - ax, bz - az);
 
+// ——— the valley: open meadow, streamed in chunks around the pup ———
+//
+// There is no edge. The ground is a height field (`groundY`): gentle rolling
+// meadow, flat around the camp, rising toward the mountains in the north
+// (−z), with a stream winding east–west across it.
+//
+// The meadow is cut into CHUNK-square chunks. A chunk's still things — its
+// ground tiles, the stream where it passes, and its flowers, grass, rocks
+// and trees — are stamped from the baked objects into ONE record list
+// (the SHAPES format) by `chunkRecords(cx, cz, lod)`. That depends only on
+// the chunk and SEED, so a chunk looks the same every time it comes back.
+// A loaded chunk takes a handle from a small pool, goes up as SHAPES once,
+// and costs one SKETCH a tick. Near chunks (lod 0) carry everything; far
+// ones (lod 1) are coarser ground with only the trees, rocks and stream.
+// Butterflies and sheep are spawned by the chunk (by seed too) and move.
+
+const SEED = 7;
+const CHUNK = 256;
+const home = { x: 0, z: 0 };                           // the camp, where you start
+const smooth = (a, b, t) => { const u = clamp((t - a) / (b - a), 0, 1); return u * u * (3 - 2 * u); };
+const streamZ = (x) => -560 + 140 * Math.sin(x / 410) + 50 * Math.sin(x / 170 + 2);
+const streamWidth = 26;
+
+function groundY(x, z) {
+  const roll = 13 * Math.sin(x / 190 + 1.3) * Math.sin(z / 230 + .4) + 7 * Math.sin((x + z) / 120) +
+    5 * Math.sin((x - 2 * z) / 300);
+  const away = smooth(140, 420, Math.hypot(x - home.x, z - home.z));
+  const rise = smooth(700, 2600, -z) * 320;
+  const d = z - streamZ(x), carve = 7 * Math.exp(-(d * d) / 1600);
+  return roll * away + rise - carve;
+}
+
+function hash3(a, b, c) {
+  let h = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263) ^ Math.imul(c | 0, 1440670441);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+// Stamping: a baked prop's records, placed (turned about y by `yaw`, scaled
+// by `s`) and appended; its keyed ink (255 0 255) becomes `tint`.
+const recordLength = (R, i) => 12 + [0, 4, 7, 9, 1 + 3 * R[i + 12], 12][R[i]];
+function stamp(out, object, x, y, z, yaw = 0, s = 1, tint = null) {
+  const R = object.sketches[0].records, c = Math.cos(yaw), sn = Math.sin(yaw);
+  const vec = (i) => { const a = R[i], b = R[i + 1], d = R[i + 2]; out.list.push((a * c + d * sn) * s, b * s, (-a * sn + d * c) * s); };
+  const pt = (i) => { const a = R[i], b = R[i + 1], d = R[i + 2]; out.list.push(x + (a * c + d * sn) * s, y + b * s, z + (-a * sn + d * c) * s); };
+  for (let i = 0, n = 0; n < object.sketches[0].count; n++, i += recordLength(R, i)) {
+    const kind = R[i], keyed = R[i + 6] === 255 && R[i + 7] === 0 && R[i + 8] === 255;
+    out.list.push(kind, R[i + 1] * s, R[i + 2], R[i + 3], R[i + 4], R[i + 5],
+      keyed && tint ? tint[0] : R[i + 6], keyed && tint ? tint[1] : R[i + 7], keyed && tint ? tint[2] : R[i + 8]);
+    vec(i + 9);
+    const a = i + 12;
+    if (kind === 1) { pt(a); out.list.push(R[a + 3] * s); }
+    else if (kind === 2) { pt(a); pt(a + 3); out.list.push(R[a + 6] * s); }
+    else if (kind === 3) { pt(a); vec(a + 3); vec(a + 6); }
+    else if (kind === 4) { out.list.push(R[a]); for (let k = 0; k < R[a]; k++) pt(a + 1 + k * 3); }
+    else if (kind === 5) { pt(a); vec(a + 3); vec(a + 6); vec(a + 9); }
+    out.count++;
+  }
+}
+// A flat polygon record, straight into a list.
+function plateRecord(out, points, rgb, nudge, edge = null) {
+  out.list.push(4, edge ? edge[0] : 0, edge?.[1] || 0, edge?.[2] || 0, edge?.[3] || 0, nudge, rgb[0], rgb[1], rgb[2],
+    0, 0, 0, points.length / 3, ...points);
+  out.count++;
+}
+
+const sunDir = (() => { const m = Math.hypot(-.42, 1, -.28); return [-.42 / m, 1 / m, -.28 / m]; })();
+const petals = [[250, 150, 190], [250, 248, 240], [190, 140, 240], [255, 220, 90], [140, 176, 250], [255, 130, 110]];
+
+// A chunk's still things, as SHAPES records, and the things a tap can find
+// in it. Same chunk, same lod, same SEED: the same result.
+function chunkRecords(cx, cz, lod) {
+  const out = { list: [], count: 0 }, things = [], critters = [];
+  const x0 = cx * CHUNK, z0 = cz * CHUNK, rng = seeded(hash3(cx, cz, SEED));
+  // ground: tiles shaded by slope toward the sun, drier and paler uphill
+  const n = lod ? 2 : 4, step = CHUNK / n;
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    const ax = x0 + i * step, az = z0 + j * step, bx = ax + step, bz = az + step;
+    const h00 = groundY(ax, az), h10 = groundY(bx, az), h11 = groundY(bx, bz), h01 = groundY(ax, bz);
+    const nx = -((h10 - h00) + (h11 - h01)) / (2 * step), nz = -((h01 - h00) + (h11 - h10)) / (2 * step);
+    const m = Math.hypot(nx, 1, nz), lit = (nx * sunDir[0] + sunDir[1] + nz * sunDir[2]) / m;
+    const high = smooth(0, 300, (h00 + h11) / 2), wobble = (rng() - .5) * 8;
+    const g = [110 + 30 * lit + 34 * high + wobble, 150 + 34 * lit + 14 * high + wobble, 80 + 18 * lit + 30 * high + wobble * .5];
+    plateRecord(out, [ax, h00, az, bx, h10, az, bx, h11, bz, ax, h01, bz], g, 5000);
+  }
+  // the stream, where it runs through this chunk
+  const sstep = lod ? 64 : 32;
+  for (let x = x0; x < x0 + CHUNK; x += sstep) {
+    const za = streamZ(x), zb = streamZ(x + sstep), mid = (za + zb) / 2;
+    if (mid < z0 || mid >= z0 + CHUNK) continue;
+    const w = streamWidth / 2, ya = groundY(x, za) + .4, yb = groundY(x + sstep, zb) + .4;
+    plateRecord(out, [x, ya, za - w, x + sstep, yb, zb - w, x + sstep, yb, zb + w, x, ya, za + w], [118, 178, 222], 4500);
+    if (!lod && rng() < .7) plateRecord(out, [x + 6, ya + .2, za - 1.5, x + 18, yb + .2, zb - 1.5, x + 18, yb + .2, zb + .5, x + 6, ya + .2, za + .5],
+      [214, 236, 250], 4400);
+    things.push({ kind: "stream", x: x + sstep / 2, z: mid });
+  }
+  // what grows here: clear of the camp and the water
+  const clear = (x, z, r = 0) => Math.hypot(x - home.x, z - home.z) > 150 + r && Math.abs(z - streamZ(x)) > 30 + r;
+  const spot = () => ({ x: x0 + rng() * CHUNK, z: z0 + rng() * CHUNK });
+  const north = smooth(200, 1600, -(z0 + CHUNK / 2));
+  const trees = Math.floor(rng() * (1.6 + 2.6 * north) + .35);
+  for (let k = 0; k < trees; k++) {
+    const p = spot();
+    if (!clear(p.x, p.z, 20)) continue;
+    const pine = rng() < .35 + .6 * north, s = .85 + rng() * .5;
+    stamp(out, pine ? objects.pine : objects.birch, p.x, groundY(p.x, p.z), p.z, 0, s);
+  }
+  const rocks = rng() < .55 ? 1 + Math.floor(rng() * 2) : 0;
+  for (let k = 0; k < rocks; k++) {
+    const p = spot();
+    if (clear(p.x, p.z)) stamp(out, objects.rock, p.x, groundY(p.x, p.z) - 1, p.z, rng() * 6.3, .7 + rng() * .8);
+  }
+  if (!lod) {
+    const patches = 1 + Math.floor(rng() * 3);
+    for (let k = 0; k < patches; k++) {
+      const c = spot(), tint = petals[Math.floor(rng() * petals.length)], many = 4 + Math.floor(rng() * 6);
+      for (let f = 0; f < many; f++) {
+        const x = c.x + (rng() - .5) * 50, z = c.z + (rng() - .5) * 50;
+        if (!clear(x, z)) continue;
+        stamp(out, objects.flower, x, groundY(x, z), z, rng() * 6.3, .8 + rng() * .5, tint);
+        things.push({ kind: "flower", x, z });
+      }
+      if (rng() < .6) critters.push({ kind: "butterfly", x: c.x, z: c.z, phase: rng() * 6.3,
+        tint: petals[Math.floor(rng() * petals.length)] });
+    }
+    const tufts = 4 + Math.floor(rng() * 6);
+    for (let k = 0; k < tufts; k++) {
+      const p = spot();
+      if (!clear(p.x, p.z)) continue;
+      stamp(out, objects.tuft, p.x, groundY(p.x, p.z), p.z, rng() * 6.3, .9 + rng() * .6);
+      things.push({ kind: "tuft", x: p.x, z: p.z });
+    }
+  }
+  // sheep graze the higher ground, a few together
+  if (z0 < -600 && rng() < .3) {
+    const c = spot(), many = 2 + Math.floor(rng() * 3);
+    for (let k = 0; k < many; k++)
+      critters.push({ kind: "sheep", x: c.x + (rng() - .5) * 60, z: c.z + (rng() - .5) * 60, phase: rng() * 6.3 });
+  }
+  return { records: Float64Array.from(out.list), count: out.count, things, critters };
+}
+
+// Which chunks are wanted around a point, and at what lod: a window that
+// reaches further ahead (north, −z, where the camera looks) than behind.
+function wantedChunks(x, z) {
+  const pcx = Math.floor(x / CHUNK), pcz = Math.floor(z / CHUNK), want = new Map();
+  for (let cx = pcx - 2; cx <= pcx + 2; cx++) for (let cz = pcz - 4; cz <= pcz + 1; cz++) {
+    const near = Math.abs(cx - pcx) <= 1 && cz >= pcz - 2 && cz <= pcz + 1;
+    want.set(`${cx},${cz}`, { cx, cz, lod: near ? 0 : 1 });
+  }
+  return want;
+}
+
+// Load what's wanted, drop what isn't. A loaded chunk keeps a handle slot;
+// a chunk that changes lod is rebuilt in its slot and goes up again.
+const CHUNK_HANDLES = 64, chunkHandleBase = 5000;
+function streamChunks(w) {
+  const want = wantedChunks(w.pup.x, w.pup.z), loaded = w.chunks;
+  let built = 0;
+  for (const [key, c] of loaded) {
+    const next = want.get(key);
+    if (next && next.lod === c.lod) continue;
+    w.freeSlots.push(c.slot);
+    sent.delete(chunkHandleBase + c.slot);
+    w.critters = w.critters.filter((k) => k.chunk !== key || k.engaged);
+    loaded.delete(key);
+  }
+  for (const [key, c] of want) {
+    if (loaded.has(key)) continue;
+    const made = chunkRecords(c.cx, c.cz, c.lod);
+    const slot = w.freeSlots.pop();
+    loaded.set(key, { ...c, ...made, slot });
+    for (const k of made.critters)
+      if (!w.critters.some((o) => o.id === `${key}:${k.x.toFixed(1)}`))
+        w.critters.push({ ...k, id: `${key}:${k.x.toFixed(1)}`, chunk: key, hx: k.x, hz: k.z, y: 0, hit: 1e9 });
+    built++;
+  }
+  w.chunkBuilds += built;
+  return built;
+}
+
+// ——— the mountains: layered flat ridges far off, lighter and bluer with
+// distance, snow on the far ones. They keep their distance from the camera
+// and slide a little as it moves, nearer ridges more. ———
+const ridges = [
+  { d: 5200, f: .96, h: [620, 980], w: [520, 900], rgb: [206, 220, 236], snow: true },
+  { d: 4200, f: .93, h: [380, 620], w: [420, 760], rgb: [180, 200, 222], snow: true },
+  { d: 3300, f: .88, h: [190, 330], w: [360, 620], rgb: [146, 176, 190], snow: false },
+  { d: 2600, f: .8, h: [80, 170], w: [300, 520], rgb: [120, 158, 150], snow: false },
+];
+const ridgePeriod = 4800;
+const backdrop = (() => {
+  const layers = ridges.map((r, k) => {
+    const rng = seeded(hash3(k, 99, SEED)), out = { list: [], count: 0 };
+    const edge = [9, r.rgb[0] * .78, r.rgb[1] * .8, r.rgb[2] * .84];
+    // two periods and a bit, so sliding by a period never shows a seam
+    for (let x = -ridgePeriod * 1.2; x < ridgePeriod * 1.2;) {
+      const w = r.w[0] + rng() * (r.w[1] - r.w[0]), h = r.h[0] + rng() * (r.h[1] - r.h[0]);
+      plateRecord(out, [x - w, -300, 0, x + w, -300, 0, x + w * .08, h, 0, x - w * .12, h * .96, 0], r.rgb, 12000, edge);
+      if (r.snow) plateRecord(out, [x - w * .3, h * .7, -1, x + w * .08 + w * .22, h * .72, -1, x + w * .08, h, -1,
+        x - w * .12, h * .96, -1], [248, 250, 252], 11990);
+      x += w * (.7 + rng() * .5);
+    }
+    return { records: Float64Array.from(out.list), count: out.count };
+  });
+  // the far meadow under the ridges, and a pale haze of sky behind them
+  const far = { list: [], count: 0 };
+  plateRecord(far, [-9000, -10, -1300, 9000, -10, -1300, 9000, -60, -3000, -9000, -60, -3000], [168, 198, 146], 30000);
+  plateRecord(far, [-12000, -400, -7000, 12000, -400, -7000, 12000, 1100, -7000, -12000, 1100, -7000], [218, 234, 242], 40000);
+  return { layers, far: { records: Float64Array.from(far.list), count: far.count } };
+})();
+
 // ——— the world ———
 
 let world = null;
@@ -2071,7 +2292,9 @@ function freshWorld(seed = 7) {
     sounds: [], heard: [], log: [], hearts: [], buzzes: [],
     touch: { fingers: new Map(), mode: false, petting: false, stroke: 0, lastTap: null, gestures: 0 },
     ripples: [], callSpot: null, goSpot: null, bringTo: null,
-    camera: { x: 20, z: 10, reach: 300 },
+    camera: { x: 20, y: 0, z: 10, reach: 300 },
+    chunks: new Map(), freeSlots: Array.from({ length: CHUNK_HANDLES }, (_, i) => CHUNK_HANDLES - 1 - i),
+    critters: [], chunkBuilds: 0, drops: [],
   };
 }
 
@@ -2172,8 +2395,11 @@ function tickHand(dt) {
 // yard and to the left), so the camera sees them beside the palm.
 const handAxis = [-.6, 0, -.8];
 // Under touch the finger is the hand, and what it holds is right under it.
-const fingertip = () => world.touch.mode ? { x: world.hand.x, y: world.hand.height - 3, z: world.hand.z }
-  : { x: world.hand.x + handAxis[0] * 13, y: world.hand.height - 3, z: world.hand.z + handAxis[2] * 13 };
+const fingertip = () => {
+  const h = world.hand, x = world.touch.mode ? h.x : h.x + handAxis[0] * 13;
+  const z = world.touch.mode ? h.z : h.z + handAxis[2] * 13;
+  return { x, y: groundY(h.x, h.z) + h.height - 3, z };
+};
 
 // The pad throws the way the hand is moving (or into the yard); a flick
 // throws at the flick's own velocity.
@@ -2186,7 +2412,7 @@ function throwBall(v = null) {
     const m = Math.hypot(dx, dz);
     v = { x: dx / m * 330, z: dz / m * 330, y: 170 };
   }
-  Object.assign(ball, { x: tip.x, y: tip.y, z: tip.z, vx: v.x, vz: v.z, vy: v.y, heldBy: null, thrown: true });
+  Object.assign(ball, { x: tip.x, y: tip.y - groundY(tip.x, tip.z), z: tip.z, vx: v.x, vz: v.z, vy: v.y, heldBy: null, thrown: true });
   hand.holding = null;
   noises.squeak();
   buzz("light");
@@ -2200,7 +2426,7 @@ function buzz(kind) {
 
 function dropTreat() {
   const tip = fingertip();
-  Object.assign(world.treat, { onFloor: true, x: tip.x, y: tip.y, z: tip.z, vy: 0 });
+  Object.assign(world.treat, { onFloor: true, x: tip.x, y: tip.y - groundY(tip.x, tip.z), z: tip.z, vy: 0 });
   world.hand.holding = null;
 }
 
@@ -2355,7 +2581,7 @@ const states = {
         stand(dt); turnTo(h.x, h.z, dt);
         if (p.time > .35 && p.carrying === "ball") {
           const m = pupRig(p).mouth;
-          Object.assign(b, { heldBy: null, x: m.x, y: Math.max(0, m.y - 5), z: m.z, vx: 0, vy: 0, vz: 0 });
+          Object.assign(b, { heldBy: null, x: m.x, y: Math.max(0, m.y - 5 - groundY(m.x, m.z)), z: m.z, vx: 0, vy: 0, vz: 0 });
           p.carrying = null; p.joy = Math.min(1, p.joy + .12); p.energy -= .06; noises.yip();
           world.bringTo = null;
         }
@@ -2535,6 +2761,95 @@ const states = {
     },
     pose: (p) => p.phase === "shake" ? { shake: 1, wag: 1.2, ears: "flap", chin: 1 } : { wag: .9, ears: "bounce" },
   },
+  // Tap a flower: it trots over, sniffs it hard, and sneezes.
+  smell: {
+    tick(dt) {
+      const p = world.pup, f = p.target;
+      const next = notice({ treat: 1 });
+      if (next) return enter(next);
+      if (!f) return enter("idle");
+      if (!p.phase) { if (goTo(f.x, f.z, 140, 22, dt)) { p.phase = "sniff"; p.time = 0; } return; }
+      stand(dt); turnTo(f.x, f.z, dt, 6);
+      if (p.phase === "sniff" && Math.floor((p.time - dt) / .28) !== Math.floor(p.time / .28))
+        sound(1700 + world.rng() * 400, .02);
+      if (p.phase === "sniff" && p.time > 1.7) {
+        p.phase = "sneeze"; sound(900, .05); sound(620, .08, .06);
+        world.hearts.push({ x: f.x, y: 14, z: f.z, t: 0 });
+      }
+      if (p.time > 2.5) enter("settle");
+    },
+    pose: (p) => p.phase === "sniff" ? { nose: true, sniffing: true, wag: .9 }
+      : p.phase === "sneeze" ? { wag: 1, chin: 1, eyes: 0, hop: p.time < 1.95 ? 1 : 0 } : { wag: .9, ears: "bounce" },
+  },
+  // Tap a butterfly: it chases it, hopping and snapping, until it flies off.
+  chase: {
+    tick(dt) {
+      const p = world.pup, b = p.target;
+      const next = notice({ treat: 1 });
+      if (next) { if (b) b.engaged = false; return enter(next); }
+      if (!b || b.gone) return enter("settle");
+      b.engaged = true; b.fleeing = true;
+      goTo(b.x, b.z, 215, 4, dt);
+      if (dist(p.x, p.z, b.x, b.z) < 34 && Math.floor((p.time - dt) / .45) !== Math.floor(p.time / .45)) noises.yip();
+      if (p.time > 5) { b.away = world.t; b.engaged = false; enter("settle"); }
+    },
+    pose: (p) => ({ wag: 1.4, ears: "flap", tongue: 1, look: "target",
+      hop: p.target && dist(p.x, p.z, p.target.x, p.target.z) < 34 ? 1 : 0 }),
+  },
+  // Tap the stream: it runs in and splashes about, then shakes off.
+  splash: {
+    tick(dt) {
+      const p = world.pup, s = p.target;
+      const next = notice({ treat: 1 });
+      if (next) return enter(next);
+      if (!p.phase) { if (goTo(s.x, s.z, 170, 4, dt)) { p.phase = "splash"; p.time = 0; } return; }
+      stand(dt);
+      const beat = (every) => Math.floor((p.time - dt) / every) !== Math.floor(p.time / every);
+      if (p.phase === "splash") {
+        p.wet = 1;
+        if (beat(.22)) { sound(280 + world.rng() * 420, .05); spray(p, 6, [150, 200, 240]); }
+        if (p.time > 2.4) { p.phase = "shakeoff"; p.time = 0; goTo(p.x, p.z + 30, 60, 0, dt); }
+      } else {
+        if (beat(.15)) spray(p, 4, [170, 214, 246]);
+        p.wet = Math.max(.4, p.wet - dt * .4);
+        if (p.time > 1.2) enter("settle");
+      }
+    },
+    pose: (p) => p.phase === "splash" ? { hop: 1, wag: 1.3, tongue: 1 }
+      : p.phase === "shakeoff" ? { shake: 1, wiggle: 1, wag: 1, ears: "flap" } : { wag: 1, ears: "bounce" },
+  },
+  // Tap the tall grass: it flops in and rolls about on its back.
+  roll: {
+    tick(dt) {
+      const p = world.pup, g = p.target;
+      const next = notice({ treat: 1 });
+      if (next) return enter(next);
+      if (!p.phase) { if (goTo(g.x, g.z, 150, 6, dt)) { p.phase = "roll"; p.time = 0; noises.yip(); } return; }
+      stand(dt);
+      p.joy = Math.min(1, p.joy + .08 * dt);
+      if (Math.floor((p.time - dt) / .3) !== Math.floor(p.time / .3)) spray(p, 3, [120, 176, 84]);
+      if (p.time > 2.3) enter("settle");
+    },
+    pose: (p) => p.phase === "roll" ? { roll: 1, wriggle: 1, tongue: 1, wag: 1, eyes: 0 } : { wag: .9, ears: "bounce" },
+  },
+  // Tap a sheep: it runs part way, stands its ground and barks; they scatter.
+  bark: {
+    tick(dt) {
+      const p = world.pup, s = p.target;
+      const next = notice({ treat: 1 });
+      if (next) return enter(next);
+      if (!s) return enter("idle");
+      if (!p.phase) { if (goTo(s.x, s.z, 190, 150, dt) || p.time > 4) { p.phase = "bark"; p.time = 0; } return; }
+      stand(dt); turnTo(s.x, s.z, dt, 6);
+      if ([0, .45, .9].some((t) => p.time - dt < t && p.time >= t)) {
+        noises.bark();
+        for (const k of world.critters)
+          if (k.kind === "sheep" && dist(k.x, k.z, s.x, s.z) < 120) { k.hitAt = world.t; k.fleeFrom = { x: p.x, z: p.z }; }
+      }
+      if (p.time > 1.8) enter("settle");
+    },
+    pose: (p) => p.phase === "bark" ? { look: "target", wag: 1.2, ears: "perk", barking: 1 } : { wag: 1, ears: "bounce" },
+  },
   sleepy: {
     tick(dt) {
       const next = notice({ treat: 1 });
@@ -2575,7 +2890,8 @@ const states = {
       const p = world.pup;
       const next = notice({ treat: 1 });
       if (next) return enter(next);
-      const cx = 0, cz = -15, r = 125;
+      if (!p.zoomAt || p.time < tick * 1.5) p.zoomAt = { x: p.x, z: p.z - 110 };
+      const cx = p.zoomAt.x, cz = p.zoomAt.z, r = 125;
       const a = Math.atan2(p.z - cz, p.x - cx) + .55;
       goTo(cx + Math.cos(a) * r, cz + Math.sin(a) * r, 270, 0, dt);
       p.energy -= .06 * dt; p.joy = Math.min(1, p.joy + .04 * dt);
@@ -2595,7 +2911,7 @@ const states = {
 function dropCarried() {
   const p = world.pup, m = pupRig(p).mouth;
   if (p.carrying === "rope") Object.assign(world.rope, { heldBy: null, x: m.x, z: m.z, angle: p.heading + Math.PI });
-  if (p.carrying === "ball") Object.assign(world.ball, { heldBy: null, x: m.x, y: Math.max(0, m.y - 5), z: m.z });
+  if (p.carrying === "ball") Object.assign(world.ball, { heldBy: null, x: m.x, y: Math.max(0, m.y - 5 - groundY(m.x, m.z)), z: m.z });
   p.carrying = null;
 }
 
@@ -2619,7 +2935,7 @@ function tickPup(dt) {
   p.gait += p.speed * dt / 42 * Math.PI * 2;
   if (p.carrying === "ball") {
     const m = pupRig(p).mouth;
-    Object.assign(world.ball, { x: m.x, y: Math.max(0, m.y - 5), z: m.z, dir: p.heading });
+    Object.assign(world.ball, { x: m.x, y: Math.max(0, m.y - 5 - groundY(m.x, m.z)), z: m.z, dir: p.heading });
   }
   world.hearts = world.hearts.filter((h) => (h.t += dt) < 1.4);
   settlePose(dt);
@@ -2635,11 +2951,14 @@ function settlePose(dt) {
     droop: 0, eyes: 1, mouth: 0, tongue: 0, legs: [0, 0, 0, 0], splay: [0, 0, 0, 0] };
 
   // Where the eyes go: the hand, the ball, the treat, or ahead.
-  const lookAt = want.look === "ball" ? world.ball : want.look === "treat" ? fingertip()
-    : want.look === "hand" ? { x: world.hand.x, y: world.hand.height, z: world.hand.z } : null;
+  // (heights here are absolute; the pup's eyes are about 30 over its ground)
+  const above = (x, z, h) => ({ x, y: groundY(x, z) + h, z });
+  const lookAt = want.look === "target" && p.target ? above(p.target.x, p.target.z, p.target.y ?? 10)
+    : want.look === "ball" ? above(world.ball.x, world.ball.z, world.ball.y) : want.look === "treat" ? fingertip()
+    : want.look === "hand" ? above(world.hand.x, world.hand.z, world.hand.height) : null;
   if (lookAt) {
     target.yaw = clamp(wrapAngle(p.heading - Math.atan2(lookAt.z - p.z, lookAt.x - p.x)), -.9, .9);
-    const rise = (lookAt.y ?? 0) - 30, far = Math.max(20, dist(p.x, p.z, lookAt.x, lookAt.z));
+    const rise = lookAt.y - groundY(p.x, p.z) - 30, far = Math.max(20, dist(p.x, p.z, lookAt.x, lookAt.z));
     target.nod = clamp(Math.atan2(rise, far), -.4, .7);
   }
   // A finger just landed: the head comes round and the ears go up at once,
@@ -2698,6 +3017,8 @@ function settlePose(dt) {
   o.shake = want.shake ? Math.sin(t * 15) * .38 : want.sniffing ? Math.sin(t * 22) * .06 : 0;
   if (want.hop) o.bob += Math.abs(Math.sin(p.time * 9)) * 5;
   if (want.wiggle) { o.pitch += Math.sin(t * 22) * .09; o.shake += Math.sin(t * 11) * .2; }
+  if (want.wriggle) { o.roll += Math.sin(t * 7) * .45; o.shake += Math.sin(t * 9) * .3; }
+  if (want.barking) { const b = p.time % .45; o.mouth = b < .18 ? 1 : 0; o.nod = lerp(o.nod, b < .18 ? .45 : .1, .5); }
   if (want.lap) { o.nod = lerp(o.nod, -.8, .5); o.mouth = Math.sin(t * 20) > 0 ? 1 : 0; o.tongue = 1; }
   if (want.chomp) o.shake = Math.sin(t * 18) * .1;
   if (want.chomp) o.mouth = Math.sin(t * 14) > 0 ? 1 : 0;
@@ -2733,7 +3054,7 @@ const framePoint = (m, x, y, z) => ({ x: m[0] + x * m[3] + y * m[6] + z * m[9],
 
 function pupPlace(p, m = new Float64Array(12)) {
   const c = Math.cos(p.heading), s = Math.sin(p.heading);
-  m[0] = p.x; m[1] = 0; m[2] = p.z;
+  m[0] = p.x; m[1] = groundY(p.x, p.z); m[2] = p.z;
   m[3] = c; m[4] = 0; m[5] = s;
   m[6] = 0; m[7] = 1; m[8] = 0;
   m[9] = -s; m[10] = 0; m[11] = c;
@@ -2799,13 +3120,21 @@ function readTouches(dt) {
   }
 }
 
-// A screen point to the lawn: the camera ray through it, met with the floor.
+// A screen point to the meadow: the camera ray through it, met with the
+// ground. The ground isn't flat, so it walks: meet the level of the ground
+// under the last guess, a few times. Above the horizon it lands far off in
+// that direction (nothing is out of reach).
 function ground(x, y) {
   const m = camera, f = m[15];
   const u = (x - m[12]) / f, v = (m[13] - y) / f;
   const dx = m[9] + m[3] * u + m[6] * v, dy = m[10] + m[4] * u + m[7] * v, dz = m[11] + m[5] * u + m[8] * v;
-  const s = dy < -.02 ? -m[1] / dy : 2000;
-  return { x: clamp(m[0] + dx * s, -340, 340), z: clamp(m[2] + dz * s, -236, 240) };
+  const far = 2400 / Math.hypot(dx, dz);
+  let h = world.camera.y || 0, s = far;
+  for (let k = 0; k < 5; k++) {
+    s = dy < -.01 ? Math.min(far, (h - m[1]) / dy) : far;
+    h = groundY(m[0] + dx * s, m[2] + dz * s);
+  }
+  return { x: m[0] + dx * s, z: m[2] + dz * s };
 }
 
 function moveHand(at) {
@@ -2821,7 +3150,7 @@ function reachOf(x, y, wx, wy, wz, r) {
 }
 function pupReach(x, y) {
   const p = world.pup, rig = pupRig(p), c = Math.cos(p.heading), s = Math.sin(p.heading);
-  const high = 21 + p.pose.bob;
+  const high = groundY(p.x, p.z) + 21 + p.pose.bob;
   return Math.min(reachOf(x, y, p.x, high, p.z, 13), reachOf(x, y, rig.head.x, rig.head.y, rig.head.z, 11),
     reachOf(x, y, p.x - c * 10, high, p.z - s * 10, 11));
 }
@@ -2839,7 +3168,7 @@ function ropeReach(x, y) {
 function pick(x, y) {
   const ball = world.ball, h = world.hand;
   const hits = [
-    ["ball", ball.heldBy || h.holding ? Infinity : reachOf(x, y, ball.x, ball.y + 5, ball.z, 5) * .8],
+    ["ball", ball.heldBy || h.holding ? Infinity : reachOf(x, y, ball.x, groundY(ball.x, ball.z) + ball.y + 5, ball.z, 5) * .8],
     ["rope", h.holding ? Infinity : ropeReach(x, y) * .9],
     ["pup", pupReach(x, y)],
   ].sort((a, b) => a[1] - b[1]);
@@ -2849,16 +3178,30 @@ function pick(x, y) {
 // What a tap means: the pup if it's anywhere near, else the nearest thing
 // in the yard it can go and do something with, else that spot on the grass.
 function tapTarget(x, y) {
+  world.tapRef = null;
   if (pupReach(x, y) < 1) return "pup";
   const { ball, rope, treat } = world;
   const hits = [
-    ["ball", ball.heldBy ? Infinity : reachOf(x, y, ball.x, ball.y + 5, ball.z, 9)],
+    ["ball", ball.heldBy ? Infinity : reachOf(x, y, ball.x, groundY(ball.x, ball.z) + ball.y + 5, ball.z, 9)],
     ["rope", rope.heldBy ? Infinity : ropeReach(x, y)],
-    ["treat", treat.onFloor ? reachOf(x, y, treat.x, treat.y, treat.z, 9) : Infinity],
+    ["treat", treat.onFloor ? reachOf(x, y, treat.x, groundY(treat.x, treat.z) + treat.y, treat.z, 9) : Infinity],
     ["bowl", reachOf(x, y, bowl.x, 5, bowl.z, 14)],
     ["bed", reachOf(x, y, bed.x, 6, bed.z, 34)],
+    ["camp", reachOf(x, y, home.x, groundY(home.x, home.z) + 1, home.z, 62) * 1.2],
+    ...critterHits(x, y),
   ].sort((a, b) => a[1] - b[1]);
-  return hits[0][1] < 1 ? hits[0][0] : "grass";
+  if (hits[0][1] < 1) { world.tapRef = hits[0][2] || null; return hits[0][0]; }
+  // The meadow's own things near where the tap lands: a flower, tall grass.
+  const at = ground(x, y);
+  let best = null, bestReach = 1;
+  for (const chunk of world.chunks.values()) for (const t of chunk.things) {
+    if (t.kind === "stream" || Math.abs(t.x - at.x) > 70 || Math.abs(t.z - at.z) > 70) continue;
+    const r = reachOf(x, y, t.x, groundY(t.x, t.z) + (t.kind === "flower" ? 11 : 7), t.z, t.kind === "flower" ? 4 : 8) * 1.4;
+    if (r < bestReach) { bestReach = r; best = t; }
+  }
+  if (best) { world.tapRef = best; return best.kind; }
+  if (Math.abs(at.z - streamZ(at.x)) < streamWidth / 2 + 10) { world.tapRef = { x: at.x, z: streamZ(at.x) }; return "stream"; }
+  return "grass";
 }
 
 // Where a pup brings things when you haven't said: the grass near the
@@ -2885,6 +3228,17 @@ function tapOn(kind, at = null) {
   if (kind === "bed") return enter("sleepy");
   if (kind === "rope") return wake("shake");
   if (kind === "treat") return wake("eat");
+  if (kind === "camp") {
+    world.goSpot = { x: home.x + 12, z: home.z + 24 };
+    world.ripples.push({ x: world.goSpot.x, z: world.goSpot.z, t: 0 });
+    return wake("go");
+  }
+  p.target = world.tapRef;
+  if (kind === "flower") return wake("smell");
+  if (kind === "tuft") return wake("roll");
+  if (kind === "stream") return wake("splash");
+  if (kind === "butterfly") return wake("chase");
+  if (kind === "sheep") return wake("bark");
 }
 
 function fingerDown(f) {
@@ -2987,6 +3341,8 @@ function step(dt = tick) {
   tickBall(dt);
   tickTreat(dt);
   tickPup(dt);
+  tickCritters(dt);
+  keepChunks();
   followCamera(dt);
   aimCamera();   // so what's on screen now is what the next touch is read against
   world.ripples = world.ripples.filter((r) => (r.t += dt) < .45);
@@ -3013,29 +3369,40 @@ function measureScreen() {
 
 function followCamera(dt) {
   const c = world.camera, p = world.pup, h = world.hand;
-  // Under touch with no finger down, the hand is only where a finger last was.
-  const pull = world.touch.mode && !world.touch.fingers.size ? .12 : .35;
-  let tx = lerp(p.x, h.x, pull), tz = lerp(p.z, h.z, pull);
-  let reach = clamp(215 + dist(p.x, p.z, h.x, h.z) * pull * 2.1, 215, 470);
+  // Frame the pup and where it's going: a tapped spot, the ball it's after,
+  // or (with the pad, or a finger down) the hand. Never more than a few
+  // hundred units off the pup, so a long run is followed, not pre-empted.
+  const dest = world.goSpot || (p.state === "fetch" && !world.ball.heldBy ? world.ball : null) ||
+    (world.touch.mode && !world.touch.fingers.size ? p : h);
+  let ox = dest.x - p.x, oz = dest.z - p.z;
+  const far = Math.hypot(ox, oz), lead = Math.min(far * .35, 160);
+  if (far > 1) { ox = ox / far * lead; oz = oz / far * lead; }
+  let tx = p.x + ox, tz = p.z + oz;
+  let reach = clamp(215 + lead * .9 + p.speed * .35, 215, 480);
   // The fur lab keeps the camera close on the pup.
   if (world.lab) { tx = p.x; tz = p.z; reach = world.lab; }
   const k = ease(2.5, dt);
   c.x = lerp(c.x, tx, k); c.z = lerp(c.z, tz, k); c.reach = lerp(c.reach, reach, k);
+  c.y = lerp(c.y, groundY(c.x, c.z), ease(2, dt));
 }
+
+// How far down the camera looks: shallow enough that the mountains stand
+// on the horizon, a little steeper when the phone is upright.
+const tiltNow = () => screenW < screenH ? .4 : .3;
 
 // Landscape looks across the yard; portrait (the phone held upright) looks
 // down more steeply and frames the pup by the screen's width, so it is big.
 function aimCamera() {
-  const c = world.camera, portrait = screenW < screenH, tilt = portrait ? .74 : .5;
+  const c = world.camera, portrait = screenW < screenH, tilt = tiltNow();
   const s = Math.sin(tilt), co = Math.cos(tilt);
   const m = camera;
-  m[0] = c.x; m[1] = 16 + s * c.reach; m[2] = c.z + co * c.reach;
+  m[0] = c.x; m[1] = (c.y || 0) + 16 + s * c.reach; m[2] = c.z + co * c.reach;
   m[3] = 1; m[4] = 0; m[5] = 0;                     // right
   m[6] = 0; m[7] = co; m[8] = -s;                   // up
   m[9] = 0; m[10] = -s; m[11] = -co;                // forward
-  m[12] = screenW / 2; m[13] = screenH * (portrait ? .5 : .54);
+  m[12] = screenW / 2; m[13] = screenH * (portrait ? .56 : .6);
   m[14] = 1; m[15] = Math.min(1.2 * screenH, 1.55 * screenW); m[16] = 1;   // orthoScale, focal, all perspective
-  m[17] = 2.8 / 16000; m[18] = -1.4; m[19] = 12;    // depth slope and base, near
+  m[17] = 2.8 / 44000; m[18] = -1.4; m[19] = 12;    // depth slope and base (to the sky), near
   m[20] = -screenW * .25; m[21] = screenW * 1.25; m[22] = -screenH * .25; m[23] = screenH * 1.25;
 }
 
@@ -3133,7 +3500,145 @@ const turnedAt = (x, y, z, a, m = new Float64Array(12)) => {
 };
 const inputs = { owner: null, distance: 0, time: 0 };
 
-function drawYard() { objects.yard(inputs, identityAt(0, 0, 0), outs.yard); }
+// ——— the meadow's small lives: butterflies and sheep ———
+
+// A spray of droplets or grass bits from the pup.
+function spray(p, n, rgb) {
+  for (let i = 0; i < n; i++) {
+    const a = world.rng() * 6.283, v = 40 + world.rng() * 60;
+    world.drops.push({ x: p.x, y: 14, z: p.z, vx: Math.cos(a) * v, vy: 80 + world.rng() * 90, vz: Math.sin(a) * v, t: 0, rgb });
+  }
+}
+
+function tickCritters(dt) {
+  const t = world.t, p = world.pup;
+  for (const k of world.critters) {
+    if (k.kind === "butterfly") {
+      if (k.away != null) {
+        // flown off: up and away, then gone
+        k.x += Math.cos(k.phase) * 90 * dt; k.z -= 60 * dt; k.y += 50 * dt;
+        k.gone = t - k.away > 3;
+      } else if (k.fleeing) {
+        // just ahead of the pup, dodging
+        const a = Math.atan2(k.z - p.z, k.x - p.x) + Math.sin(t * 3 + k.phase) * .9;
+        const near = dist(k.x, k.z, p.x, p.z);
+        const v = near < 60 ? 200 : 120;
+        k.x += Math.cos(a) * v * dt; k.z += Math.sin(a) * v * dt;
+        k.y = lerp(k.y, 16 + 10 * Math.sin(t * 5 + k.phase), ease(4, dt));
+      } else {
+        // drifting about its flowers
+        const u = t * .6 + k.phase;
+        const tx = k.hx + Math.sin(u) * 40 + Math.sin(u * 2.3) * 12, tz = k.hz + Math.cos(u * .8) * 30;
+        k.x = lerp(k.x, tx, ease(2, dt)); k.z = lerp(k.z, tz, ease(2, dt));
+        k.y = 14 + 8 * Math.sin(u * 3.1);
+      }
+      k.heading = Math.atan2(k.z - (k.pz ?? k.z), k.x - (k.px ?? k.x)) || k.heading || 0;
+      k.px = k.x; k.pz = k.z;
+    } else {
+      const since = t - (k.hitAt ?? -99);
+      if (since < 2.2 && k.fleeFrom) {
+        const a = Math.atan2(k.z - k.fleeFrom.z, k.x - k.fleeFrom.x);
+        k.x += Math.cos(a) * 90 * dt; k.z += Math.sin(a) * 90 * dt; k.heading = a;
+      } else {
+        // grazing: a slow amble about where it started
+        const u = t * .12 + k.phase;
+        const tx = k.hx + Math.sin(u) * 30, tz = k.hz + Math.cos(u * .7) * 24;
+        const dx = tx - k.x, dz = tz - k.z;
+        if (Math.hypot(dx, dz) > 1) k.heading = Math.atan2(dz, dx);
+        k.x = lerp(k.x, tx, ease(.5, dt)); k.z = lerp(k.z, tz, ease(.5, dt));
+      }
+    }
+  }
+  world.critters = world.critters.filter((k) => !k.gone);
+  for (const d of world.drops) {
+    d.t += dt; d.vy -= gravity * dt;
+    d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt;
+  }
+  world.drops = world.drops.filter((d) => d.y > 0 && d.t < 1.2);
+  if (p.wet) p.wet = Math.max(0, p.wet - dt / 20);
+}
+
+// What a tap could mean among the moving things: [kind, reach, which].
+function critterHits(x, y) {
+  return world.critters.map((k) => [k.kind, reachOf(x, y, k.x, groundY(k.x, k.z) + (k.kind === "sheep" ? 12 : k.y), k.z,
+    k.kind === "sheep" ? 14 : 7) * (k.kind === "butterfly" ? .8 : 1), k]);
+}
+
+function drawCritters() {
+  const c = world.camera;
+  for (const k of world.critters) {
+    if (dist(k.x, k.z, c.x, c.z) > 800) continue;
+    const gy = groundY(k.x, k.z);
+    inputs.time = world.t + k.phase;
+    inputs.hit = world.t - (k.hitAt ?? -99);
+    inputs.owner = null;
+    const object = k.kind === "butterfly" ? objects.butterfly : objects.sheep;
+    object(inputs, turnedAt(k.x, gy + (k.kind === "butterfly" ? k.y : 0), k.z, k.heading || 0), outs[k.kind]);
+  }
+  inputs.time = 0; inputs.hit = 1e9;
+  for (const d of world.drops) {
+    const at = onScreen(d.x, groundY(d.x, d.z) + d.y, d.z);
+    if (at) op(OP.DISC, at.x, at.y, at.depth - .00001, Math.max(1.5, at.k * 1.4), d.rgb[0], d.rgb[1], d.rgb[2]);
+  }
+}
+
+// The meadow's chunks, the mountains and the camp, into the frame program.
+const ridgeHandle = 4000, farHandle = 4100;
+function emitRecords(handle, rec, place) {
+  if (!sent.has(handle)) {
+    room(4 + rec.records.length);
+    program[length++] = OP.SHAPES; program[length++] = handle;
+    program[length++] = rec.count; program[length++] = rec.records.length;
+    program.set(rec.records, length); length += rec.records.length;
+    sent.add(handle);
+    stats.ops[OP.SHAPES] = (stats.ops[OP.SHAPES] || 0) + 1;
+  }
+  room(14);
+  program[length++] = OP.SKETCH; program[length++] = handle;
+  for (let k = 0; k < 12; k++) program[length++] = place[k];
+  stats.ops[OP.SKETCH] = (stats.ops[OP.SKETCH] || 0) + 1;
+}
+const placeAt = new Float64Array(12);
+function drawWorld() {
+  const c = world.camera, y = (c.y || 0) - 40;
+  // the far meadow and the sky's haze keep to the camera; each ridge slides
+  // by its parallax, wrapping every ridgePeriod so it never ends
+  placeAt.set([c.x, y, c.z, 1, 0, 0, 0, 1, 0, 0, 0, 1]);
+  emitRecords(farHandle, backdrop.far, placeAt);
+  backdrop.layers.forEach((layer, k) => {
+    const r = ridges[k], slide = ((c.x * (1 - r.f)) % ridgePeriod + ridgePeriod) % ridgePeriod;
+    placeAt.set([c.x - slide, y, c.z - r.d, 1, 0, 0, 0, 1, 0, 0, 0, 1]);
+    emitRecords(ridgeHandle + k, layer, placeAt);
+  });
+  placeAt.set([0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1]);
+  // Only chunks the camera can see: a chunk's middle and reach, on screen.
+  for (const chunk of world.chunks.values()) {
+    const x = (chunk.cx + .5) * CHUNK, z = (chunk.cz + .5) * CHUNK;
+    const at = onScreen(x, groundY(x, z), z), reach = at ? CHUNK * .75 * at.k : 0;
+    if (at ? at.x + reach < 0 || at.x - reach > screenW || at.y + reach < 0 || at.y - reach > screenH * 1.2
+      : dist(x, z, c.x, c.z) > CHUNK * 1.5) continue;
+    emitRecords(chunkHandleBase + chunk.slot, chunk, placeAt);
+  }
+  objects.camp(inputs, identityAt(home.x, groundY(home.x, home.z), home.z), outs.camp);
+}
+
+// Far from camp, a word at the screen's edge says which way home is.
+function drawHome() {
+  const p = world.pup;
+  if (dist(p.x, p.z, home.x, home.z) < 700) return;
+  const at = onScreen(home.x, groundY(home.x, home.z), home.z);
+  if (at && at.x > 0 && at.x < screenW && at.y > 0 && at.y < screenH) return;
+  const cam = world.camera;
+  let dx = home.x - cam.x, dy = home.z - cam.z;       // right, and toward the bottom
+  const m = Math.hypot(dx, dy) || 1; dx /= m; dy /= m;
+  const s = hud, cx = screenW / 2, cy = screenH / 2;
+  const rx = screenW / 2 - inset.left - 120 * s, ry = screenH / 2 - inset.bottom - 90 * s;
+  const k = Math.min(rx / Math.abs(dx || 1e-6), ry / Math.abs(dy || 1e-6));
+  const arrow = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? ">" : "<") : dy > 0 ? "v" : "^";
+  const word = dx > .3 ? `home ${arrow}` : `${arrow} home`;
+  shadowText(word, cx + dx * k - 44 * s, cy + dy * k - 14 * s, 28 * s, 255, 255, 255);
+}
+
 
 function drawPup() {
   const p = world.pup;
@@ -3144,10 +3649,10 @@ function drawPup() {
 function drawBall() {
   const b = world.ball;
   let x = b.x, y = b.y, z = b.z;
-  if (b.heldBy === "hand") { const tip = fingertip(); x = tip.x; y = tip.y - 6; z = tip.z; }
+  if (b.heldBy === "hand") { const tip = fingertip(); x = tip.x; y = tip.y - 6 - groundY(x, tip.z); z = tip.z; }
   inputs.owner = { ball: [y, 0, 0] };
   inputs.distance = b.roll;
-  objects.ball(inputs, turnedAt(x, 0, z, b.dir), outs.ball);
+  objects.ball(inputs, turnedAt(x, groundY(x, z), z, b.dir), outs.ball);
 }
 
 // The rope's first knot (world) and the second, from the first.
@@ -3156,11 +3661,16 @@ function ropeEnds() {
   let a, e;
   const mouth = () => pupRig(p).mouth;
   if (r.heldBy === "both") { const t = fingertip(); a = t; const m = mouth(); e = [m.x - t.x, m.y - t.y, m.z - t.z]; }
-  else if (r.heldBy === "hand") { a = fingertip(); e = [0, 3.4 - a.y, 14]; }
+  else if (r.heldBy === "hand") { a = fingertip(); e = [0, groundY(a.x, a.z + 14) + 3.4 - a.y, 14]; }
   else if (r.heldBy === "pup") {
     a = mouth();
-    e = [-Math.cos(p.heading) * 18 + Math.sin(p.heading) * 8, 3.4 - a.y, -Math.sin(p.heading) * 18 - Math.cos(p.heading) * 8];
-  } else { a = { x: r.x, y: 3.4, z: r.z }; e = [Math.cos(r.angle) * 30, 0, Math.sin(r.angle) * 30]; }
+    const ex = -Math.cos(p.heading) * 18 + Math.sin(p.heading) * 8, ez = -Math.sin(p.heading) * 18 - Math.cos(p.heading) * 8;
+    e = [ex, groundY(a.x + ex, a.z + ez) + 3.4 - a.y, ez];
+  } else {
+    a = { x: r.x, y: groundY(r.x, r.z) + 3.4, z: r.z };
+    const ex = Math.cos(r.angle) * 30, ez = Math.sin(r.angle) * 30;
+    e = [ex, groundY(r.x + ex, r.z + ez) + 3.4 - a.y, ez];
+  }
   return [a, e];
 }
 
@@ -3173,7 +3683,7 @@ function drawRope() {
 function drawTreat() {
   const t = world.treat, h = world.hand;
   if (h.holding === "treat") { const tip = fingertip(); objects.treat(inputs, identityAt(tip.x, tip.y - 2, tip.z - 2), outs.treat); }
-  else if (t.onFloor) objects.treat(inputs, turnedAt(t.x, t.y, t.z, .6), outs.treat);
+  else if (t.onFloor) objects.treat(inputs, turnedAt(t.x, groundY(t.x, t.z) + t.y, t.z, .6), outs.treat);
 }
 
 function drawHand() {
@@ -3181,13 +3691,13 @@ function drawHand() {
   inputs.owner = { hand: [h.height, h.grip, 0] };
   // Object x along handAxis, y up, z = x × y.
   const [ax, , az] = handAxis;
-  const m = new Float64Array([h.x, 0, h.z, ax, 0, az, 0, 1, 0, -az, 0, ax]);
+  const m = new Float64Array([h.x, groundY(h.x, h.z), h.z, ax, 0, az, 0, 1, 0, -az, 0, ax]);
   objects.hand(inputs, m, outs.hand);
 }
 
 function drawHearts() {
   for (const heart of world.hearts) {
-    const at = onScreen(heart.x + Math.sin(heart.t * 5) * 4, heart.y + heart.t * 30, heart.z);
+    const at = onScreen(heart.x + Math.sin(heart.t * 5) * 4, groundY(heart.x, heart.z) + heart.y + heart.t * 30, heart.z);
     if (!at) continue;
     const s = at.k * 3.2 * (1 - heart.t / 1.6), d = at.depth - .002;
     op(OP.DISC, at.x - s * .55, at.y, d, s * .62, 240, 80, 110);
@@ -3222,6 +3732,7 @@ function drawHud() {
   // pup's mood shows in the pup. Only a first-play hint, in shadowed type.
   const left = inset.left + 28 * s;
   const bottom = screenH - inset.bottom;
+  drawHome();
   if (!touch) {
     const hint = world.hand.holding === "ball" ? "A throw" : world.hand.holding === "rope" ? "A let go"
       : world.hand.holding === "treat" ? "let go of X to drop it" : "A pet / pick up   B call   X treat   Y play";
@@ -3235,9 +3746,9 @@ function drawHud() {
 // Under touch there is no glove: a tap leaves a ripple on the grass, and a
 // finger resting on the grass shows a ring that fills toward a treat.
 function drawTouches() {
-  const tilt = screenW < screenH ? .74 : .5, lean = Math.sin(tilt);
+  const lean = Math.sin(tiltNow());
   const ring = (x, z, r, c) => {
-    const at = onScreen(x, 0, z);
+    const at = onScreen(x, groundY(x, z), z);
     if (at) op(OP.ELLIPSE, at.x, at.y, at.depth + 30 * camera[17], r * at.k, 0, 0, r * at.k * lean, c, c + 6, c - 10);
   };
   for (const rip of world.ripples) ring(rip.x, rip.z, 5 + rip.t * 30, 236 - rip.t * 120);
@@ -3287,8 +3798,16 @@ function portraitCamera() {
   m[20] = -screenW; m[21] = screenW * 2; m[22] = -screenH; m[23] = screenH * 2;
 }
 
+// Stream when the pup crosses into another chunk (a paint without a tick,
+// as when paused, still wants the ground).
+function keepChunks() {
+  const at = `${Math.floor(world.pup.x / CHUNK)},${Math.floor(world.pup.z / CHUNK)}`;
+  if (at !== world.chunkAt) { world.chunkAt = at; streamChunks(world); }
+}
+
 function paintFrame() {
   measureScreen();
+  keepChunks();
   length = 0; strings = []; stats.ops = {};
   if (world.portrait) {
     portraitCamera();
@@ -3303,11 +3822,12 @@ function paintFrame() {
   aimCamera();
   op(OP.WIPE, 196, 224, 240);
   op(OP.CAMERA, ...camera);
-  drawYard();
+  drawWorld();
   drawRope();
   drawTreat();
   drawBall();
   drawPup();
+  drawCritters();
   if (!world.touch.mode) drawHand();
   drawTouches();
   drawHearts();
@@ -3346,6 +3866,8 @@ const fiapup = {
   lab(reach = 120) { world.lab = reach; world.camera.reach = reach; Object.assign(world.camera, { x: world.pup.x, z: world.pup.z }); },
   // A tap on a named thing, or "play", as if a finger had done it (the lab's buttons).
   stageTap(kind) { if (kind === "play") play(); else tapOn(kind, { x: world.hand.x, z: world.hand.z }); },
+  // The valley, for tests: where home is, the ground, the chunks.
+  home: { camp: home, bed, bowl }, groundY, chunkRecords, wantedChunks, nearEdge, streamZ, CHUNK, SEED,
   pupHandles: () => (handles.get(objects.puppy) || []).filter(Boolean), screenOf: onScreen, ground, pupReach, paint: paintFrame, stats, rig: pupRig, owner: pupOwner, place: pupPlace,
   program: () => program.subarray(0, length), strings: () => strings, states: Object.keys(states),
   resend() { sent = new Set(); vm = null; },
