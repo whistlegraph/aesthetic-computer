@@ -16,9 +16,9 @@ def ink-edge 1.4
 
 ; the shadow stays flat on the ground, behind everything: 103 units back is
 ; the depth the game gives its own spot shadows (caster + .018), so it sits
-; on the floor the same way theirs do
+; on the floor the same way theirs do, in about their grey
 (nudge 103
-  (ink 14 12 20)
+  (ink 54 58 66)
   (move 0 (- r) 0 (scale 2.7 1 .8 (ring y 22))))
 
 (move 0 (- r) rattle
