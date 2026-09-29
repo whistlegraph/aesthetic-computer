@@ -78,11 +78,16 @@ export function mkdirSync() {}
 export function unlinkSync(path) {
   files.delete(path);
 }
+// The token-refresh lock (a directory) is let go with rmSync; with no token
+// here there is no lock, and a missing path is not an error under `force`.
+export function rmSync(path) {
+  files.delete(path);
+}
 export function watch() {
   return { close() {} };
 }
 
-export default { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, watch };
+export default { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, rmSync, watch };
 
 // Read-only structural tools can inspect only explicitly mounted virtual files.
 export const realpathSync = path => path;
