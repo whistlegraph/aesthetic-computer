@@ -278,6 +278,93 @@ figures, and it suits them better than (b):
   40–50 numbers, against today's ~1700 screen-space ops for all figures.
 - **Face and hair:** flat plates and strokes anchored to the head.
 
+### Flat figures, built (2026-09-28, behind a flag)
+
+`objects/figure-flat.lisp` is option (c). The game draws it in place of the
+rig when `?flat-figures` is in the page's address or
+`globalThis.oskiewarFlatFigures = true`. It is off by default. Gameplay,
+hitboxes and the sim are untouched; this is drawing only.
+
+- **The pose is the input.** The game reads 16 joints off the pose the rig
+  already built (`runnerWorldGeometry`), every frame:
+  - the head's centre, and where it looks;
+  - neck and pelvis;
+  - shoulders, elbows and hands;
+  - hips, knees and feet.
+
+  Joints are found by the limb and the bone's kind, not the full role,
+  because a kick renames the legs `lead-`/`rear-thigh`. A joint the body lacks
+  is NaN, and what hangs on it isn't drawn. A frame-conformance test holds
+  the joints to the rig's bone ends during a punch and a kick.
+- **Where the head looks.** In the pool it's the skater's own heading. In an
+  arena it's toward the lens, turned .42 rad to the facing side, as
+  `drawTrioFace` turns. Both are lifted to the lens's height, so the face
+  sits on the head the way the drawn face does.
+- **The dialect for figures:**
+  - `(bone a b r)` is a stadium between two joints; an arm bends at the elbow
+    for free.
+  - `(skin a b (c x y z) …)` is a flat polygon through joints, optionally
+    offset.
+  - `(on joint …)` hangs shapes on a joint. On `head` it uses the head's frame
+    (x right, y up, z where it looks) in head radii. On a body joint it uses
+    the body's frame (up the spine, facing as the head does, x from the right
+    hip to the left) in world units.
+  - `(surface …)` makes shapes one-sided along the local z, so a face passes
+    out of sight round the back.
+  - Palette names in `ink` (`skin hair shirt pants skirt shoe accent iris lip
+    blush`) are slots a player's LOOK fills, so one baked sketch dresses
+    everyone.
+  - The switches `blink`, `hurt` (X eyes), `skirt` and `glasses` choose the
+    variant.
+- **The face** is `drawTrioFace` moved onto the head's sphere, feature by
+  feature, at the same longitudes and latitudes: tall eyes with an ink rim, a
+  blue iris, a pupil and catchlight, the lash line and three lashes, tilted
+  brows, blush, a small nose, pink lips lifted at one corner, and glasses.
+  It blinks, and shows X eyes when hurt.
+- **The wardrobe:**
+  - shirt and sleeves;
+  - bare forearms and hands;
+  - trousers, or a skirt that flares from the hips past the knees;
+  - shoes;
+  - a hair cap with locks past the temples and a top-knot with its tail;
+  - the chest's heart and daisy.
+- **The ops.**
+  - **FIGURE** (op 20) is sketch · look · pin · 16 joints: **52 numbers per
+    fighter per tick**.
+  - **LOOK** (op 21) is a player's 10-colour palette, sent once.
+  - The host only projects each anchor (joint plus offset in that joint's
+    frame), culls one-sided shapes, and fills with ink edges. It never
+    tessellates a form.
+  - `pin` stands an arena fighter at one depth, the floor's near edge, as the
+    rig does, keeping a tenth of each shape's depth so limbs still layer.
+  - Hosts without `frame` (the console before R6, the harness) draw the same
+    shapes through `drawFigureShapes`, embedded from `object-lisp.mjs`.
+- **Measured, per fighter, through the game's own frame program**
+  (frame-conformance):
+
+  | lens distance | today: numbers | today: host triangles | flat: numbers | flat: host triangles |
+  |---|---|---|---|---|
+  | 260 | 1954 | 586 | 52 | 476 |
+  | 700 | 1954 | 474 | 52 | 306 |
+  | 1500 | 1330 | 322 | 52 | 264 |
+
+  Stadiums and ellipses take the 2 px chord rule. The legs aren't drawn under
+  a skirt.
+
+**Not yet:**
+- The bow, the emo fringe and scars.
+- Hit-segment flashes.
+- `drawSpinArms`' two-tone sleeves.
+- The loose runner's bowed limbs: flat limbs are straight between joints, so
+  a flung arm reads straighter.
+- The sparring target.
+- Dummies' faces and civilians' simpler faces: everyone gets the trio face.
+- Ragdoll and broken-body states. Ragdolls draw flat through the fallen pose;
+  a burst head keeps the rig's drawing.
+- A first-person inset check with the flag on.
+- The console: `FrameVm.cpp` needs FIGURE and LOOK in R6. Until then it takes
+  the immediate path.
+
 ## In the game
 
 Since 2026-09-28 the game draws the monowheel as `objects/monowheel-flat.lisp`.

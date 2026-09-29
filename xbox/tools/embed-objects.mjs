@@ -6,7 +6,7 @@
 // import the compiler the object lab uses. This writes it into a sealed block
 // between markers, in its own scope, with each object's source as a string,
 // and exposes one global, `gameObjects`: each object compiled — and so baked
-// — once, when the script loads. The lab and the game run the same compiler
+// — once, the first time the game asks for it. The lab and the game run the same compiler
 // on the same source.
 //
 //   node xbox/tools/embed-objects.mjs          rewrite the block
@@ -56,9 +56,14 @@ export function generate() {
     "  const sources = {",
     ...sources,
     "  };",
-    "  const compiled = {};",
-    "  for (const name in sources) compiled[name] = objectLisp.compile(sources[name], name);",
-    "  return { ...compiled, light: objectLisp.objectLight, drawFigureShapes: objectLisp.drawFigureShapes };",
+    "  // Each compiled (and baked) the first time it is asked for, not at load:",
+    "  // an object the game never draws costs nothing.",
+    "  const objects = { light: objectLisp.objectLight, drawFigureShapes: objectLisp.drawFigureShapes };",
+    "  for (const name in sources) {",
+    "    let compiled = null;",
+    "    Object.defineProperty(objects, name, { get: () => compiled || (compiled = objectLisp.compile(sources[name], name)) });",
+    "  }",
+    "  return objects;",
     "})();",
     end,
   ].join("\n");

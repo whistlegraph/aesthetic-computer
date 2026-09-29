@@ -303,6 +303,16 @@ nothing waits on the console.
    primitives (world capsules and discs, the face as a textured billboard)
    that every interpreter projects, so no painter is duplicated. (b) is the
    agnostic one and the larger rewrite.
+   **(c), being tried (2026-09-28):** figures as world-anchored flat shapes:
+   bones between the pose's joints, the trio face on the head's sphere, flat
+   fills, ink edges.
+   - **What it avoids:** it duplicates no painter, as (a) would, and bends
+     for free, unlike (b).
+   - **Cost:** one FIGURE op (52 numbers) per fighter, against ~2000 today,
+     and fewer host triangles at every distance.
+   - **Where it is:** in the game behind `?flat-figures` /
+     `globalThis.oskiewarFlatFigures`, off by default.
+   - `xbox/OBJECT-DIALECT.md` → Figures has the design and what isn't done.
 
 1. Keep Canvas2D as a fallback, or make WebGL2 the only web path?
 2. ~~Photo materials on the web or flat as the reference?~~ Flat is the reference (2026-09-26).
