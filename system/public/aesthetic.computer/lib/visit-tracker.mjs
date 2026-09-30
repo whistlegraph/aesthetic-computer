@@ -1,4 +1,4 @@
-import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface } from "./visit-model.mjs";
+import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface, visitReferrer } from "./visit-model.mjs";
 
 const ENDPOINT = "https://aesthetic.computer/api/visit-track";
 
@@ -26,6 +26,7 @@ export function startVisitTracker(win = window, doc = document) {
       version: 1, id: win.crypto.randomUUID(), surface,
       automated: automatedVisit(nav, win.location.search, win.acAutomation === true),
       interacted: false, activeSeconds: 0, inputs: [], actions: [],
+      referrerHost: visitReferrer(doc.referrer),
     };
     visibleMs = 0; lastSent = ""; lastTick = win.performance.now();
     wasVisible = visible();
@@ -82,6 +83,7 @@ export function startVisitTracker(win = window, doc = document) {
     if (!VISIT_ACTIONS.includes(name) || !visible() || disabled()) return false;
     syncRoute();
     if (!state?.interacted) return false;
+    win.acAccountActivity?.action(name);
     if (!state.actions.includes(name)) state.actions.push(name);
     send(); return true;
   };

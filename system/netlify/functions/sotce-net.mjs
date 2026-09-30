@@ -9929,6 +9929,16 @@ export const handler = async (event, context) => {
                   ? window.sotceUSER
                   : await auth0Client.getUser();
 
+                // First-party account activity: verified at the receiving API.
+                import("https://aesthetic.computer/aesthetic.computer/lib/account-activity.mjs").then(({ startAccountActivity }) => {
+                  const activity = startAccountActivity(window, document, {
+                    getUser: () => user,
+                    getToken: () => window.sotceTOKEN || auth0Client.getTokenSilently(),
+                  });
+                  activity.load("aesthetic.computer/disks/sotce");
+                  activity.ready();
+                }).catch(() => {});
+
                 // Load the entire history so scrollback reaches the very first page.
                 // (don't set pageNumber, which would limit the server to one page)
                 const subscribeOptions = { loadAll: true };
@@ -10562,6 +10572,7 @@ export const handler = async (event, context) => {
             }
 
             function logout() {
+              window.acAccountActivity?.stop();
               if (isAuthenticated) {
                 console.log("🔐 Logging out...", window.location.href);
                 chat?.system?.server?.send("logout"); // Log out of chat.
@@ -11449,6 +11460,7 @@ export const handler = async (event, context) => {
 
     // 2. Delete any user data, like posts.
     const database = await connect();
+    await database.db.collection("account-activity").deleteMany({ user: sub, tenant: "sotce" });
 
     // 🗨️ Clear any chat messages owned by the user.
     // Rewrite the "text" field to be null / empty and rewrite the user field to be empty

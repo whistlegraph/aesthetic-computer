@@ -1,5 +1,6 @@
 import { NOPAINT_SESSION_SEED_KEY, noPaintHistoryTarget } from "./lib/nopaint-navigation.mjs";
 import { visitMediaAction } from "./lib/visit-model.mjs";
+import { startAccountActivity } from "./lib/account-activity.mjs";
 
 // 💻 BIOS
 
@@ -1052,6 +1053,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   let diskSupervisor;
   let currentPiece = null; // Gets set to a path after `loaded`.
+  const accountActivity = startAccountActivity();
   let currentPieceHasKeyboard = false;
   let keyboardMaxChars = 256; // Default; pieces can override via keyboard:set-max-chars
 
@@ -13645,6 +13647,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "logout") {
+      accountActivity.stop();
       if (window.acTOKEN) {
         if (window.parent) {
           window.parent.postMessage({ type: "logout" }, "*");
@@ -14497,6 +14500,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Initialize some global stuff after the first piece loads.
     // Unload some already initialized stuff if this wasn't the first load.
     if (type === "disk-loaded") {
+      accountActivity.load(content.path);
       // console.log(`🔍 BIOS: Received disk-loaded for "${content.text}", path="${content.path}"`);
 
       // 🐚 Tell a hosting shell (prompt.ac) about every load, including the
@@ -19400,6 +19404,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (currentPiece !== null) {
         perf.markBoot("disk-loaded-and-booted");
         window.acBOOT_SUCCESS?.(); // Idempotent across later navigations.
+        accountActivity.ready();
       }
 
       // Skip preload marker on default init piece, and toggle it if necessary.

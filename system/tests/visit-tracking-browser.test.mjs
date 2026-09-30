@@ -22,11 +22,12 @@ test("browser funnel, automation, privacy opt-out, private SPA routes and duplic
     });
     const page = await context.newPage();
     await page.clock.install();
-    await page.goto("https://nopaint.art/");
+    await page.goto("https://nopaint.art/", { referer: "https://example.org/private?secret=1" });
     await page.waitForFunction(() => !!window.acVisits);
     await page.waitForTimeout(50);
     assert.equal(received.length, 1);
     assert.equal(received[0].automated, true);
+    assert.equal(received[0].referrerHost, "example.org");
     await page.evaluate(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "a" })));
     await page.waitForTimeout(50);
     assert.equal(received.length, 1, "synthetic input is ignored");

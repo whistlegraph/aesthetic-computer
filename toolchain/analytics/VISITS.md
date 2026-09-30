@@ -80,12 +80,17 @@ An origin header and self-reported events are not cryptographic proof of human
 activity. The collector rejects unreviewed values and oversized bodies and
 uses a bounded, in-memory rate guard (240 requests/minute/source).
 
-No stored IP, user agent, account/handle, referrer, URL, query string, page text,
+No stored IP, user agent, account/handle, full URL, query string, page text,
 form value, key or pointer coordinate. The transient rate-limit digest is
 process-salted, expires after one minute and never leaves memory. Requests omit
 credentials and referrers. No tracking cookies or browser storage are used.
 DNT, GPC, `window.acVisitTrackingDisabled = true`, private routes and embedded
 frames suppress collection. The disclosure is `/network-privacy.html`.
+
+New visit records include `referrerHost`: the browser-reported referring
+hostname, stripped of credentials, path, query and fragment. Local hosts and
+IP literals are excluded. Null means direct or unavailable, not necessarily
+direct traffic. Older visit records without this field are unmeasured.
 
 Render/test harnesses should set `window.acAutomation = true` before loading
 the module, or append `?ac-automation=1`. Existing `social-preview`,
@@ -150,6 +155,43 @@ report is the last changed snapshot, not continuous presence or departure.
 The tool reads existing data; it adds no browser identifiers or new retention.
 
 ## Coverage
+
+### Account activity and referrers
+
+`POST /api/account-activity` verifies a bearer token through the existing
+authorization service. Identity is taken only from the verified account;
+submitted user/handle fields are ignored. AC shell piece loads and reviewed
+actions use a separate in-memory session and client sequence. Built-in public
+piece names are retained; published/inline programs use `published-or-code`.
+Sotce uses its own authentication tenant and the broad `sotce` category, without
+diary page IDs or contents. Embedded shells and private routes are excluded.
+Only signed-in activity after installation is available. Login does not replay
+anonymous actions, and there is no join to anonymous visit IDs.
+
+`account-activity` stores server receipt time, verified account subject, tenant,
+property, session, sequence, piece, action and referral hostname. Actions dedupe
+per piece load; receipt order can differ from client sequence. The endpoint has
+no public read route, bounded requests and a per-account rate limit. Rows expire
+after 35 days; each site's account deletion removes its tenant's rows. Separate
+Sotce identities remain separate accounts. Existing Silo operational firehose
+history has its own retention. These records are not sent to PostHog.
+
+The private analytics MCP exposes:
+
+- `account_activity({hours:24, handle:"@handle"})`: verified account events,
+  public handles where available, otherwise an account alias, and temporary
+  session aliases. Counts are accounts, not unique people. Omit `handle` for
+  all recorded accounts. Results are bounded and report truncation.
+- `network_referrers({hours:24})`: referral hosts grouped by property, with
+  visits, interacted visits and engaged visits. Existing AC boot logs supply
+  a separate historical referral table, stripped to hostnames. Do not add boot
+  counts to visit counts; they measure different things. Neither table proves
+  human identity or a complete marketing attribution chain.
+
+Both default to studio scope and accept `limit` (up to 500). No campaign tags
+are collected. Missing data before deployment cannot be reconstructed.
+
+### Website installation
 
 The shared AC shell covers AC, notepat.com, nopaint.art, laklok.com and mime.ac
 when those domains serve it. Static entry pages cover Whistlegraph, Jas,
