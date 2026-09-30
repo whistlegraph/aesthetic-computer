@@ -92,7 +92,9 @@ const SEGMENTS = [
   // its downbeat, the stretched vowel holds across the bar's last two beats and dips under "lately"
   // v20j: "27.5 is where lately should start" — the midpoint of bar 27 (beat 3): verse 2 enters
   // half a bar early, the stretched vowel dips under "lately"
-  { name: "A intro+verse1", from: 0, to: { bar: 27, beat: 3 }, voiceTo: ME_STEADY_END, tail: { world: true, steady: 0.2, len: 1.2, curve: 0.9 } },
+  // the hold runs exactly to the next sung word ("the me needs to end / fade when lately starts"):
+  // toNextVoice sizes it from the next segment's voiceFrom, plus a short release
+  { name: "A intro+verse1", from: 0, to: { bar: 27, beat: 3 }, voiceTo: ME_STEADY_END, tail: { world: true, steady: 0.2, toNextVoice: true, release: 0.12, curve: 1.0 } },
   // v19: a breath before verse 2 kicks off — verse 1's last full bar of her guitar,
   // slowed a fifth (screwed, 7 st down — in key; 0.78 sat between keys and read "werd") and stuttered on 8ths and 16ths into the pickup;
   // charted as bar 26 so the beds hold verse 1's state and the kit keeps going
@@ -134,6 +136,14 @@ const segs = SEGMENTS.map((s) => { if (s.screw) { const src = barBy(s.screw.bar)
     const seg = { ...s, from: src.t, to: src.t + len, offset, voiceFrom: null, chord: src.chord,
       voice: s.voice ? { ...s.voice, from: anchor(s.voice.from), to: anchor(s.voice.to) } : null }; offset += len; return seg; }
   const from = anchor(s.from), to = anchor(s.to); const seg = { ...s, from, to, offset, voiceFrom: s.voiceFrom ? anchor(s.voiceFrom) : null, voiceTo: s.voiceTo ? anchor(s.voiceTo) : null }; offset += to - from; return seg; });
+segs.forEach((s, i) => {                           // a hold sized to the next voice entry
+  if (!s.tail?.toNextVoice) return;
+  const cut = s.offset + ((s.voiceTo ?? s.to) - s.from);
+  const next = segs.slice(i + 1).find((n) => !n.screw);
+  const enter = next ? next.offset + ((next.voiceFrom ?? next.from) - next.from) : cut + 1;
+  s.tail = { ...s.tail, len: +Math.max(0.15, enter - cut + (s.tail.release ?? 0.12)).toFixed(3) };
+  console.log(`hold ${s.name}: ${cut.toFixed(3)} → next voice ${enter.toFixed(3)} · len ${s.tail.len}s`);
+});
 for (const s of segs) console.log(`${s.name.padEnd(16)} ${s.from.toFixed(3)} → ${s.to.toFixed(3)}  (${(s.to - s.from).toFixed(2)} s) at ${s.offset.toFixed(3)}`);
 writeFileSync(resolve(OUT, "segmap.txt"), segs.map((s) => `${s.from.toFixed(4)} ${s.to.toFixed(4)} ${s.offset.toFixed(4)}`).join("\n") + "\n");
 // v20: sung sound the words file cannot know about — a held tail past a seam, a fragment
