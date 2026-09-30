@@ -334,7 +334,10 @@ if segs and os.path.exists(extras_path):
     extras = json.load(open(extras_path))["extras"]
     for e in [e for e in extras if e.get("mute")]:            # words under a held voice are not sung
         f_ms, t_ms = round((e["from"] - start) * 1000), round((e["to"] - start) * 1000)
-        gone = [w for w in out_rec if f_ms - 5 <= w["fromMs"] < t_ms - 5]
+        def inside(w):            # starts in the span, or more than half of it lies in the span
+            ov = min(w["toMs"], t_ms) - max(w["fromMs"], f_ms)
+            return f_ms - 5 <= w["fromMs"] < t_ms - 5 or ov > 0.5 * max(1, w["toMs"] - w["fromMs"])
+        gone = [w for w in out_rec if inside(w)]
         for w in gone: w["muted"] = True                   # kept in place (the video walks lines by word count), drawn as unsung
         if gone: print(f"  muted: {' '.join(w['text'] for w in gone)} ({f_ms/1000:.2f}–{t_ms/1000:.2f}s)")
     # a sliver a seam left of a word (< 60 ms in the record, ending at a segment end) is not a sung word here

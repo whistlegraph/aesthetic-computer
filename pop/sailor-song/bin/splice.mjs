@@ -83,14 +83,18 @@ const OH1_EAR = { word: "Oh", next: "won't", afterSec: 55, beforeSec: 62 };   //
 const ME_STEADY_END = 59.08;
 const LATELY = { word: "lately", next: "I", afterSec: 90, beforeSec: 100 };
 const SEGMENTS = [
-  { name: "A intro+verse1", from: 0, to: ME_STEADY_END, tail: { world: true, steady: 0.2, len: 1.9, curve: 0.8, vibrato: 0.2 } },   // "meeeeeee…" continues her vowel through the half-bar screw and under "lately"
+  // v20f: the vowel is extended BETWEEN bars 27 and 28 — verse 1 runs to the end of chart bar 27
+  // (its guitar plays the bar out), her voice stops at the end of the steady vowel (voiceTo) and
+  // the stretched vowel fills the rest of the bar, releasing into the screw
+  { name: "A intro+verse1", from: 0, to: { bar: 28, beat: 1 }, voiceTo: ME_STEADY_END, tail: { world: true, steady: 0.2, len: 1.95, curve: 0.9 } },
   // v19: a breath before verse 2 kicks off — verse 1's last full bar of her guitar,
   // slowed a fifth (screwed, 7 st down — in key; 0.78 sat between keys and read "werd") and stuttered on 8ths and 16ths into the pickup;
   // charted as bar 26 so the beds hold verse 1's state and the kit keeps going
-  { name: "S screw", screw: { bar: 26, rate: 2 ** (-7 / 12), lenOfBar: 44, beats: 2 }, asBar: 26 },   // "lately on 28.3": two beats of screw, then verse 2
+  // v20g: no screw — "remove the splice after 28, so we extend the original": the held vowel is
+  // the whole transition; verse 2 follows on two beats of its own guitar pickup, "lately" on the 3rd
   // v20: "lately on 28" — the pickup bar is taken whole (her guitar under the held vowel), so
   // verse 2's first sung word lands on the 28th downbeat of the record (source bar 44)
-  { name: "B verse2", from: { bar: 44, beat: 1 }, to: OH2, voiceFrom: LATELY },   // straight on its downbeat; the "And" pickup is not played
+  { name: "B verse2", from: { bar: 44, beat: 1 }, to: OH2, voiceFrom: LATELY },   // "lately" on the downbeat of record bar 28, right after the held bar
   { name: "C chorus1", from: { bar: 27, beat: 1 }, to: AND, voiceFrom: OH1_EAR },
   { name: "D chorus2..end", from: OH2, to: END },
 ];
@@ -123,7 +127,7 @@ const barBy = (n) => { const b = M.bars.find((x) => x.n === n); if (!b) throw ne
 const segs = SEGMENTS.map((s) => { if (s.screw) { const src = barBy(s.screw.bar), len = barBy(s.screw.lenOfBar).dur * (s.screw.beats || 4) / 4;   // bar 44 is already on the lifted clock
     const seg = { ...s, from: src.t, to: src.t + len, offset, voiceFrom: null, chord: src.chord,
       voice: s.voice ? { ...s.voice, from: anchor(s.voice.from), to: anchor(s.voice.to) } : null }; offset += len; return seg; }
-  const from = anchor(s.from), to = anchor(s.to); const seg = { ...s, from, to, offset, voiceFrom: s.voiceFrom ? anchor(s.voiceFrom) : null }; offset += to - from; return seg; });
+  const from = anchor(s.from), to = anchor(s.to); const seg = { ...s, from, to, offset, voiceFrom: s.voiceFrom ? anchor(s.voiceFrom) : null, voiceTo: s.voiceTo ? anchor(s.voiceTo) : null }; offset += to - from; return seg; });
 for (const s of segs) console.log(`${s.name.padEnd(16)} ${s.from.toFixed(3)} → ${s.to.toFixed(3)}  (${(s.to - s.from).toFixed(2)} s) at ${s.offset.toFixed(3)}`);
 writeFileSync(resolve(OUT, "segmap.txt"), segs.map((s) => `${s.from.toFixed(4)} ${s.to.toFixed(4)} ${s.offset.toFixed(4)}`).join("\n") + "\n");
 // v20: sung sound the words file cannot know about — a held tail past a seam, a fragment
@@ -131,8 +135,9 @@ writeFileSync(resolve(OUT, "segmap.txt"), segs.map((s) => `${s.from.toFixed(4)} 
 // to words-record.json: `extend` stretches the word ending at `from`, else a new word)
 const extras = [];
 for (const s of segs) {
-  if (s.tail && !s.screw) extras.push({ text: null, from: +(s.offset + (s.to - s.from)).toFixed(3), to: +(s.offset + (s.to - s.from) + s.tail.len).toFixed(3), extend: true });
+  if (s.tail && !s.screw) { const cut = s.offset + ((s.voiceTo ?? s.to) - s.from); extras.push({ text: null, from: +cut.toFixed(3), to: +(cut + s.tail.len).toFixed(3), extend: true }); }
   if (!s.screw && s.voiceFrom !== null && s.voiceFrom > s.from) extras.push({ mute: true, from: +s.offset.toFixed(3), to: +(s.offset + (s.voiceFrom - s.from)).toFixed(3) });   // her voice held: those words are not sung here
+  if (!s.screw && s.voiceTo != null && s.voiceTo < s.to) extras.push({ mute: true, from: +(s.offset + (s.voiceTo - s.from) + 0.02).toFixed(3), to: +(s.offset + (s.to - s.from)).toFixed(3) });   // and let go: nor these
   if (s.screw && s.voice) extras.push({ text: "Oh,", from: +(s.offset + s.voice.at).toFixed(3), to: +(s.offset + s.voice.at + (s.voice.to - s.voice.from) + (s.voice.tail?.len || 0)).toFixed(3) });
 }
 writeFileSync(resolve(OUT, "voice-extras.json"), JSON.stringify({ _: "cut-clock seconds; see word-times.py", extras }, null, 1));
@@ -184,7 +189,7 @@ function writeWav(p, chans) {
   writeFileSync(p, buf);
 }
 // the seam: each segment fades in over xf and the previous fades out over the same span (equal power), overlapping
-function assemble(x, xfSec, voice, holds = voice) {
+function assemble(x, xfSec, voice, holds = voice, gate = voice) {
   const total = Math.round(offset * SR), out = new Float32Array(total), XF = Math.round(xfSec * SR);
   for (const s of segs) {
     const a = Math.round(s.from * SR), b = Math.round(s.to * SR), o = Math.round(s.offset * SR);
@@ -200,13 +205,16 @@ function assemble(x, xfSec, voice, holds = voice) {
     for (let i = 0; i < b - a && o + i < total; i++) {
       const src = a + i < x.length ? x[a + i] : 0;
       let gin = s.offset > 0 && i < XF ? Math.sqrt(0.5 - 0.5 * Math.cos(Math.PI * i / XF)) : 1;
-      if (voice && s.voiceFrom !== null) { const v0 = Math.round((s.voiceFrom - s.from) * SR), VF = Math.round(0.012 * SR);   // her voice held until voiceFrom
+      if (gate && s.voiceFrom !== null) { const v0 = Math.round((s.voiceFrom - s.from) * SR), VF = Math.round(0.012 * SR);   // her voice held until voiceFrom
         gin *= i < v0 - VF ? 0 : i < v0 ? 0.5 - 0.5 * Math.cos(Math.PI * (i - (v0 - VF)) / VF) : 1; }
+      if (gate && s.voiceTo != null) { const v1 = Math.round((s.voiceTo - s.from) * SR), VF = Math.round(0.012 * SR);        // and let go at voiceTo (the hold takes over)
+        gin *= i < v1 ? 1 : i < v1 + VF ? 0.5 + 0.5 * Math.cos(Math.PI * (i - v1) / VF) : 0; }
       out[o + i] += src * gin;
     }
     if (voice && holds && s.tail) {                       // v20: only her LEAD is held — a hold on the halo, harmonies and sisters stacked into echo
-      if (s.tail.world) worldHold(x, out, s, o + (b - a), assemble.currentStem);
-      else freezeTail(x, out, b, o + (b - a), s.tail);
+      const cutAt = Math.round((s.voiceTo ?? s.to) * SR), holdAt = o + (cutAt - a);
+      if (s.tail.world) worldHold(x, out, s, holdAt, assemble.currentStem);
+      else freezeTail(x, out, cutAt, holdAt, s.tail);
     }
     // the previous segment's tail rides under this one's head (voice: a 40 ms release, not a hard 12)
     const XO = voice ? Math.round(0.04 * SR) : XF;
@@ -241,9 +249,10 @@ function screw(x, out, s) {
 // just before the cut (cached per stem in src/vox/hold/, remade when the stem is newer)
 function worldHold(x, out, s, at, stem) {
   const HOLD = resolve(VOX, "hold"); mkdirSync(HOLD, { recursive: true });
-  const src = resolve(REG, stem), dst = resolve(HOLD, `${stem.replace(/\.wav$/, "")}-${s.to.toFixed(3)}.wav`);
+  const cut = s.voiceTo ?? s.to;
+  const src = resolve(REG, stem), dst = resolve(HOLD, `${stem.replace(/\.wav$/, "")}-${cut.toFixed(3)}-${s.tail.len}.wav`);
   if (!existsSync(dst) || statSync(dst).mtimeMs < statSync(src).mtimeMs) {
-    execFileSync(resolve(LANE, "../.venv/bin/python"), [resolve(LANE, "../bin/vowel-hold.py"), src, "--at", String(s.to), "--len", String(s.tail.len),
+    execFileSync(resolve(LANE, "../.venv/bin/python"), [resolve(LANE, "../bin/vowel-hold.py"), src, "--at", String(cut), "--len", String(s.tail.len),
       "--steady", String(s.tail.steady ?? 0.2), "--curve", String(s.tail.curve ?? 0.8), "--vibrato", String(s.tail.vibrato ?? 0.2), "--out", dst], { stdio: "inherit" });
   }
   const h = readWav(dst)[0];
@@ -270,8 +279,9 @@ function freezeTail(x, out, cutAt, at, { grab, len, before = 0, curve = 1.6 }) {
 for (const f of readdirSync(REG).filter((f) => f.endsWith(".wav"))) {
   const sustained = /guitar|replay|hum|choir|jeffrey/.test(f);
   const holds = /^vocals-(natural|aesthetivox)\.wav$/.test(f);
+  const gate = /vocals|harm|sister|choir/.test(f);        // v20g: everything sung from her voice follows voiceFrom/voiceTo — the choir was singing "Oh, won't you" under the hold
   assemble.currentStem = f;
-  const chans = readWav(resolve(REG, f)).map((x) => assemble(x, sustained ? 0.08 : 0.012, !sustained, holds));
+  const chans = readWav(resolve(REG, f)).map((x) => assemble(x, sustained ? 0.08 : 0.012, !sustained, holds, gate));
   writeWav(resolve(OUT, f), chans);
   console.log(`  ${sustained ? "80ms" : "12ms"} ${f}`);
 }
