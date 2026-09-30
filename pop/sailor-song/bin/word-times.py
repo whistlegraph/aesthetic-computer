@@ -309,8 +309,10 @@ segmap = os.path.join(VOX, "cut/segmap.txt")
 segs = [tuple(map(float, l.split())) for l in open(segmap).read().strip().split("\n")] if os.path.exists(segmap) and not RAW else []
 def cut_of(t):
     if not segs: return t
+    # a word whose onset IS a seam (the splice cuts on that onset) belongs to the segment
+    # that plays it, not to the one that ends there — hence the 5 ms guard on the end
     for a0, b0, o in segs:
-        if a0 <= t < b0: return t - a0 + o
+        if a0 <= t < b0 - 0.005: return t - a0 + o
     return None
 def rec(t):
     c = cut_of(reg(lock(t))); return None if c is None else c - start
@@ -318,7 +320,7 @@ def rec_end(t0, t1):
     """a word's end, kept inside the segment its start is in (a word can straddle a seam)"""
     r0 = reg(lock(t0)); r1 = reg(lock(t1))
     for a0, b0, o in segs:
-        if a0 <= r0 < b0: return min(r1, b0 - 0.01) - a0 + o - start if r1 >= a0 else r0 - a0 + o - start + 0.06
+        if a0 <= r0 < b0 - 0.005: return min(r1, b0 - 0.01) - a0 + o - start if r1 >= a0 else r0 - a0 + o - start + 0.06
     return None if not segs else None if cut_of(r1) is None else cut_of(r1) - start
 out_take = [{"text": w["text"], "fromMs": round(w["from"] * 1000), "toMs": round(w["to"] * 1000),
              "tokens": [{"text": t["text"], "fromMs": round(t["from"] * 1000), "toMs": round(t["to"] * 1000)} for t in w["tokens"]]} for w in words]
