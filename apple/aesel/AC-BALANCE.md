@@ -1,3 +1,8 @@
+> Historical September 17 proposal. Current code uses braincells, not stones,
+> and includes purchased-wallet billing. The whole-turn caps, tariff ledger,
+> receipt UI, and 24-hour policy below are proposals, not shipped guarantees.
+> See [the current billing contract](../../aesel/docs/local-contract.md).
+
 # AC stones
 
 Product definition · September 17, 2026

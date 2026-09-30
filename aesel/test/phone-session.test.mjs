@@ -472,3 +472,27 @@ test('malformed Fia circle commands are rejected before the model can save succe
  await assert.rejects(validatePieceSource(source([[0,0,9,1,2,1]]),'piece.mjs'),/Circle exactly/);
  await assert.doesNotReject(validatePieceSource(source([[0,0,9,1,1],[1,-8,-6,-8,6,2,1]]),'piece.mjs'));
 });
+
+
+test('renewal retries account verification only and publishes once with the fresh token',async()=>{
+ const renewals=[],requests=[];let armed=false;
+ const session=signedInSession({renewToken:async({force})=>{if(!armed)return "test-token";renewals.push(force);return force?'fresh':'expired';},
+   accountFetch:async(url,init)=>{
+     if(url.includes('/userinfo')&&init.headers.Authorization==='Bearer expired')return new Response('',{status:401});
+     return Response.json(url.includes('/userinfo')?{sub:'test-user'}:{handle:'test'});
+   }});
+ await session.open();armed=true;
+ globalThis.fetch=async(url,init)=>{requests.push({url,init});throw new Error('stop upload after credential check');};
+ await session.publish();
+ assert.deepEqual(renewals,[false,true]);assert.equal(session.state.token,'fresh');
+ assert.equal(requests.length,1,'no automatic replay of public work');
+ assert.ok(JSON.stringify(requests[0].init).includes('fresh'));
+});
+
+test('logout wins delayed token renewal without losing the notebook',async()=>{
+ let finish,armed=false;const refreshed=new Promise(r=>finish=r);
+ const session=signedInSession({renewToken:()=>armed?refreshed:Promise.resolve("test-token")});await session.open();armed=true;
+ const source=session.state.file,id=session.state.id;
+ const pending=session.publish();session.signOut();finish('late-token');await pending;
+ assert.equal(session.state.token,'');assert.equal(session.state.id,id);assert.equal(session.state.file,source);
+});

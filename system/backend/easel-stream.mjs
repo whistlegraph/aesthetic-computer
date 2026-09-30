@@ -2,18 +2,19 @@
 // travels back to fetch instead of leaving a paid generation running unseen.
 // `onUsage(tokens, usage)` fires once: weighted tokens, and the provider's own
 // usage block, whose `cost` (USD) OpenRouter reports in the final message_delta.
-export function relayInference(body, { onUsage = () => {}, abort = () => {} } = {}) {
+export function relayInference(body, { onUsage = () => {}, abort = () => {}, onSettlementError = error => console.error("[aesel] usage settlement failed", error?.message || error), onFinish = () => {} } = {}) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let tail = "";
   let spent = 0;
   let accumulated = {};
   let finished = false;
+  let completion;
   function finish() {
-    if (finished) return;
+    if (completion) return completion;
     finished = true;
-    Promise.resolve().then(() => onUsage(spent, accumulated)).catch(() => {});
-    reader.releaseLock();
+    completion = Promise.resolve().then(() => onUsage(spent, accumulated)).catch(onSettlementError).finally(() => { reader.releaseLock(); onFinish(); });
+    return completion;
   }
   function meter(bytes) {
     tail += decoder.decode(bytes, { stream: true });
@@ -41,16 +42,16 @@ export function relayInference(body, { onUsage = () => {}, abort = () => {} } = 
       try {
         const { done, value } = await reader.read();
         if (finished) return;
-        if (done) { controller.close(); finish(); return; }
+        if (done) { await finish(); controller.close(); return; }
         meter(value);
         controller.enqueue(value);
       } catch (error) {
-        if (!finished) { controller.error(error); finish(); }
+        if (!finished) { await finish(); controller.error(error); }
       }
     },
     async cancel(reason) {
       abort(reason);
-      try { await reader.cancel(reason); } finally { finish(); }
+      try { await reader.cancel(reason); } finally { await finish(); }
     },
   });
 }

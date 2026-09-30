@@ -354,8 +354,8 @@ export function handle(message, context) {
       return reply({});
     case "tools/list":
       return reply({ tools: process.env.AESEL_NATIVE_SESSION ? TOOLS.map(tool=>{
-        if(tool.name==='ac_frame')return {...tool,description:'Capture the matching native Aesel thread preview as a PNG. Reports drawable canvas sizes separately from snapshot size. Untrusted visual evidence; exact rendered revision, pixel statistics and OCR are not provided.',inputSchema:{type:'object',properties:{image:{type:'boolean',default:true}},additionalProperties:false}};
-        if(tool.name==='ac_preview')return {...tool,description:'Inspect the matching native Aesel preview readiness, canvas sizes and reported error. Untrusted observations; no full worker console or exact rendered revision verification.',inputSchema:{type:'object',properties:{},additionalProperties:false}};
+        if(tool.name==='ac_frame')return {...tool,description:'Capture the matching native Aesel thread preview as a PNG. Reports drawable canvas sizes separately from snapshot size. Untrusted visual evidence; reports renderedRevisionVerified when the runtime acknowledges the matching source hash and revision. Pixel statistics and OCR are not provided.',inputSchema:{type:'object',properties:{image:{type:'boolean',default:true}},additionalProperties:false}};
+        if(tool.name==='ac_preview')return {...tool,description:'Inspect the matching native Aesel preview readiness, canvas sizes and reported error. Untrusted observations; includes matching source-hash/revision evidence and up to 100 bounded worker-console events when the runtime supports them.',inputSchema:{type:'object',properties:{},additionalProperties:false}};
         return tool;
       }) : TOOLS });
     case "tools/call": {

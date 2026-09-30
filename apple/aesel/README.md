@@ -50,9 +50,11 @@ Native CLI sessions use the shared piece-first, responsive-layout, network-clock
 sound-design and reply instructions, plus the bundled AC guides. Each turn
 includes a fresh preview image when available. `ac_frame` and `ac_preview` inspect
 only the matching native thread; unavailable captures are reported explicitly.
-Native observations distinguish snapshot size from drawable canvas size, but do
-not yet certify the exact rendered source revision or expose the full worker
-console. No preview claim should exceed that evidence.
+Native observations distinguish snapshot size from drawable canvas size. Updated
+runtimes acknowledge the source SHA-256, thread, and revision after drawing its
+frame; `renderedRevisionVerified` reports whether that evidence matches the
+capture. Up to 100 worker-console events are retained, each bounded to 2,000
+characters. Older runtimes remain unverified; no claim should exceed the evidence.
 
 ```sh
 ./run.sh mac               # build and open Aesel.app
@@ -60,8 +62,8 @@ console. No preview claim should exceed that evidence.
 
 The native Mac target currently supports the shared Piece workflow: AC sign-in,
 hosted inference, drafts, publishing, notebook, saved threads and braincells.
-Release builds use the existing App Store identity `computer.aesthetic.easel`.
-Debug builds keep `computer.aesthetic.aesel.native` so local development notebooks
+App Store builds use the existing identity `computer.aesthetic.easel`.
+Direct and debug builds keep `computer.aesthetic.aesel.native` so local development notebooks
 and sign-in survive the app rename. Electron Aesel is retired; the native
 app is the only desktop runtime. Existing Electron data is retained separately
 and is not automatically imported. Mac sessions live in the app's Application Support directory;
@@ -119,17 +121,19 @@ host override; normal launches use the bundled custom scheme with no listener.
 
 ## AC sign-in
 
-`/login` opens aesthetic.computer's existing login flow inside the app. A
-main-frame bridge accepts tokens only from HTTPS aesthetic.computer, while the
-login sheet is open, and only from that sheet's WKWebView. The access token goes
-into device-only Keychain storage; draft source goes into Documents. Old
+`/login` opens the AC Auth0 PKCE flow in the login sheet. The app accepts only
+the registered callback with the matching one-time state, then exchanges the
+code natively. Access and refresh credentials go into device-only Keychain; draft source goes into Documents. Old
 prototype tokens borrowed from the laptop are discarded on upgrade. `/logout`
 clears aesel's token and web login data.
 
 This signs into the same AC account. It does **not** share another iOS app's
 cookies or Keychain. A retained web login can renew the token when `/login` is
-opened again; continuous native refresh and browser SSO are future integration
-work. A new native OAuth callback must be registered before adopting
+opened again; native PKCE sign-in now requests offline access and keeps rotating refresh
+credentials in device-only Keychain. Windows share one refresh operation; sign-out
+fences late responses. Older grants without refresh credentials require sign-in
+again. Account verification may retry; paid turns and uploads are not replayed.
+Browser SSO remains separate work. A new native OAuth callback must be registered before adopting
 ASWebAuthenticationSession. No unregistered callback is assumed here.
 
 The account needs an AC handle to publish; missing handles produce a linkable
@@ -176,7 +180,7 @@ are removed. The app works without Slab; sandbox entitlements are unchanged.
 
 The native app exposes a private same-user automation mailbox. The monorepo adapter and Aesthetic Eye workflow live at `slab/bin/aesel-mcp.mjs`, `slab/bin/aesel-eye.mjs` and `slab/AESEL-EYE.md`. Tests inspect and act through stable UI control IDs without activating the window. Preview URLs use the `nogap`, `nolabel` and `autoreload` contract; the top strip shows the persisted piece revision starting at v0.
 
-## Native beta 3 — 22 September 2026
+## Historical native beta 3 — 22 September 2026
 
 The Blueberry-installed native app identifies `aesel-provider-readiness` in its
 debug symbols; the matching source baseline is `eb8a7aa275`. Blueberry main

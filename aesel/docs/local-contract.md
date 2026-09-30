@@ -1,111 +1,93 @@
-# Local contract
+# Aesel account, execution, and data contract
 
-Aesel requires no Aesel server.
+Current implementation, September 30, 2026. This replaces the early local-only
+proposal. Aesel requires a verified AC account and an @handle for native,
+browser, and terminal work, including Claude/Codex and private terminal mode.
 
-- No runtime account, telemetry, analytics, cloud sync, or hosted control plane.
-- Configuration, session records, memory, and credentials remain on machines
-  controlled by the user.
-- Peer discovery and control use an explicitly configured LAN or private
-  tailnet. They never create a public listener.
-- Licenses are signed files verified offline. The application does not phone
-  home to remain usable.
-- Updates are user-initiated. An update check may be enabled separately without
-  transmitting workspace or session data.
+## Execution
 
-## Account and publishing boundary
+- Mac and iPhone use SwiftUI/WebKit around the shared JavaScript session. The
+  browser uses that session too; its build deploys separately from Lith.
+- AC hosted inference sends conversation context and tools to AC's inference
+  endpoint, which relays them to OpenRouter. Free allowance and purchased
+  braincells belong to AC, independently of vendor subscriptions.
+- Claude and Codex use installed vendor CLIs. Native Mac connects through an
+  authenticated loopback helper; it rejects browser-origin requests. Phone
+  pairing is not implemented. Provider credentials stay on the execution host.
+- Terminal piece mode restricts provider configuration. Pro mode inherits
+  supported local provider configuration and tooling. Approval and containment
+  depend on the bridge: Claude approvals are not an operating-system sandbox;
+  Codex uses its configured workspace sandbox. Neither implies offline use.
 
-Signing in talks to Auth0 (`hi.aesthetic.computer`) and `aesthetic.computer`
-only when the user runs `/login`, and stores the result in `~/.ac-token`, the
-shared Aesthetic Computer session file. Publishing sends one piece's source
-and the session token to `aesthetic.computer` only when the user runs
-`/publish`. The engine bridge never receives the token; publishing is an
-interface action, not an agent tool.
+## Credentials and recovery
 
-Auto-publish (`--autopublish`, `AESEL_AUTOPUBLISH=1`, `/autopublish`)
-is the one way that becomes repeated rather than per-command: with it on, the
-interface publishes the session's piece a couple of seconds after every save,
-and the last save is flushed on the way out. It is off by default and has to be
-turned on per session or per environment, because it writes to a public route
-under the user's own handle. It changes when publishing happens, not who does
-it — still the interface, still the same one file, and the token still never
-reaches the bridge. The agent cannot turn it on, and the transcript keeps one
-line naming the URL each publish went to.
+The terminal shares `~/.ac-token` with AC tools. Native access and rotating
+refresh credentials use device-only Keychain items; refresh credentials never
+enter notebooks, exported files, or the session WebView. Native sign-in requests
+`offline_access`; older grants without a refresh token need a new sign-in.
+Concurrent native windows share a refresh operation. Sign-out or account
+replacement invalidates late refresh results. Transient failures preserve saved
+credentials and work. Only account verification is retried after renewal;
+inference and publishing are never automatically replayed because of auth failure.
+The browser uses Auth0's SPA SDK for its own sign-in lifecycle.
 
-## Live piece boundary
+## Publishing and preview
 
-The session's piece is pushed to `aesthetic.computer/run` on a private code
-channel every time its file changes. The session server retains the last
-message a channel received, so a phone that scans the code later still receives
-the piece without the interface re-announcing it. That request carries
-the piece's source and the channel token, and nothing else: no account token, no
-workspace paths, no conversation. The channel token is random per session and is
-never reused.
+Piece auto-publishing is on by default. Native sessions save the publication
+setting per thread; terminal sessions can use `/autopublish off`,
+`--no-autopublish`, or `AESEL_AUTOPUBLISH=0`. Pro/private terminal sessions do not
+publish pieces. Turning publishing off does not unpublish earlier public work.
 
-Pushing is the interface's own action, on a file the user can see, and stops
-when the session ends. It is the one thing Aesel sends without being
-asked each time, so it is worth stating plainly: while the interface is open,
-the piece on screen is repeatedly leaving the machine.
+Publishing sends source under the signed-in handle and verifies public bytes.
+Native receipts bind source, owner, and revision; a newer draft is not marked
+published by an older upload. Local history and notebook export are separate
+from public publication.
 
-## Inference boundary
+Terminal live channels send source and an AC bearer token to `/run`; signed-in
+channel ownership is enforced by the token, not secrecy of the channel name.
+Native preview injects local source into the network-loaded AC runtime. Turning
+publishing off therefore does not imply an offline runtime or no runtime traffic.
 
-The terminal interface is always Aesel. Engines are internal bridges,
-not alternate client interfaces or command shortcuts.
+Native preview evidence matches thread, revision, and SHA-256 of the supplied
+source. The worker carries identity on rendered frames and the browser
+acknowledges after drawing. Captures without matching evidence are not certified.
+The local diagnostic bridge retains the latest 100 worker-console events,
+truncated to 2,000 characters each. Ordinary runtime telemetry remains separate.
+Older deployed runtimes cannot supply this proof; app and runtime updates are
+both needed. Rendering proof does not certify interaction, accessibility, or
+correct artwork.
 
-Two bridges exist, both remote: Claude Code in headless stream-json mode (the
-default, on `claude-opus-5`) and Codex app-server. `--backend` and
-`/backend` choose between them and `--model` and `/model` name the model. The
-interface labels remote inference before a prompt is sent. Provider terms
-govern that traffic, and each bridge signs in with its own vendor's existing
-credentials on this machine; Aesel stores no key of its own.
+## Conversations and retention
 
-Neither bridge inherits the user's own agent configuration. Codex is started
-with `on-request` approvals and a `workspace-write` sandbox regardless of what
-`~/.codex/config.toml` says; Claude is started with `--setting-sources ""` and
-`--strict-mcp-config`, so the user's allow-lists, hooks and MCP servers are not
-in the session. On both, an approval is answered in this terminal and nowhere
-else, and an `a` — allow for the session — is held in memory for the life of
-the session rather than written to a settings file.
+Non-private terminal sessions require the account-bound transcript disclosure:
+messages, assistant replies, and artifact references are uploaded to AC and
+retained until deletion. `/transcript delete` removes the uploaded transcript;
+future messages can be uploaded under the accepted policy. Private terminal
+mode omits the shared journal and hides its subject from Slab; provider inference
+and account verification still use the network.
 
-### Why the Claude bridge opens on Opus and not Fable
+Native notebooks live in app-local storage; browser notebooks live in
+account-separated localStorage. These clients do not instantiate the terminal
+transcript journal. Hosted inference still sends their conversation context
+through AC to the provider. Browser disclosure currently also mentions staff
+access; do not treat that wording as proof of a separate transcript-sync feature.
+Local notebooks are not cross-device sync or an automatic backup.
 
-Fable is the model this bridge was built for and the one it should default to.
-The account it runs on cannot currently bill it: `claude --model
-claude-fable-5-1` answers `out_of_credits`, with the seven-day overage already
-spent, and `--fallback-model` does not rescue that. The harness selects and
-requests Fable correctly — it fails at the provider, not here — but a default
-that greets every session with a red error line is not a default, so the bridge
-opens on `claude-opus-5` instead.
+## Purchased braincells
 
-`/model claude-fable-5-1` still reaches for Fable at any time. When the credits
-are back, `DEFAULT_CLAUDE_MODEL` in `src/claude-server.mjs` and the matching
-string in `bin/aesthetic` go back to Fable and this section comes out.
+Purchased-wallet reservations atomically include settled daily spending, all
+outstanding holds, and the new request. Pending work crossing midnight remains
+reserved until resolved. A settlement records its intended charge before the
+balance mutation; removal of the hold prevents duplicate or late charges.
 
-### The sandbox gap on the Claude bridge
+Inference has a five-minute upstream deadline. Lith reconciles persisted
+settlements and releases unknown holds after ten minutes, once that deadline
+has passed. Unknown usage is AC's expense. Reservations also reconcile when the
+account next requests paid work. A database outage delays recovery and is logged;
+it must not trigger another inference request. These limits apply per upstream
+request, not to a user-selected whole-turn spending ceiling.
 
-The two bridges are not equivalent on containment, and the difference is worth
-stating rather than papering over.
-
-Codex runs commands under an operating-system sandbox: writes are confined to
-the workspace and `networkAccess` is false, so an approved command still cannot
-reach the network without a second, explicit escalation.
-
-Claude Code has no equivalent sandbox. On that bridge Aesel confines
-the file tools to the workspace, removes WebFetch and WebSearch, and routes
-every prompt to this terminal — and Claude does prompt before a command that
-touches the network — but the prompt is the whole boundary. A shell command the
-user approves runs with the user's own privileges and can reach the network.
-Read-only commands are auto-approved by Claude's own classifier, as reads
-inside the sandbox are on the Codex bridge.
-
-Aesel therefore does not claim that agent tools are network-isolated
-on the Claude bridge. Where that matters, `--backend codex` is the bridge with
-a kernel behind its approvals.
-
-A future local bridge must route inference only to a loopback or explicitly
-configured private endpoint, reject known cloud model names, and disable
-telemetry, feedback, browser integration, WebFetch, and WebSearch surfaces.
-
-Local inference will not by itself impose an operating-system network sandbox
-on shell commands run by the agent. A command the user approves can still
-access the network. Strict offline enforcement is required before the product
-may claim that arbitrary agent tools are network-isolated.
+The free allowance still uses post-request metering and can overshoot under
+concurrency. A customer-visible settlement history, whole-turn budgets, and a
+versioned tariff ledger remain separate work; the older AC-stones proposal is
+not the current billing contract.

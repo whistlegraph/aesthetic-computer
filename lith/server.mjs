@@ -1479,6 +1479,23 @@ if (!DEV && process.env.ACCOUNT_DELETION_RUNNER !== "off") {
   setInterval(runAccountDeletions, 15 * 60_000).unref();
 }
 
+// Recover durable settlements and expired, unmetered holds after interruption.
+if (!DEV) {
+  let reconcilingCredits=false;
+  const reconcileCredits=async()=>{
+    if(reconcilingCredits)return;
+    reconcilingCredits=true;
+    try {
+      const paid=await import(pathToFileURL(join(SYSTEM,"backend","easel-paid-credits.mjs")).href);
+      const count=await paid.withWallets(w=>paid.reconcilePaidHolds(w));
+      if(count)console.log("[lith] recovered credit holds:",count);
+    } catch { console.error("[lith] credit reconciliation failed; will retry"); }
+    finally { reconcilingCredits=false; }
+  };
+  setTimeout(reconcileCredits,30_000).unref();
+  setInterval(reconcileCredits,60_000).unref();
+}
+
 // --- Daily metrics ---
 // Folds each finished day of visits, downloads and app opens into
 // `metrics-daily` (system/backend/metrics-daily.mjs). Idempotent, so an

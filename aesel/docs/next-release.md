@@ -1,4 +1,11 @@
-# Next development build
+# Historical media proposal and release notes
+
+The sections below preserve earlier plans, not the current release checklist.
+Use [the native inventory](../../apple/aesel/ROADMAP.md) and
+[the current data contract](local-contract.md) for implemented behavior and
+remaining work. The shipped source version is recorded in `aesel/package.json`.
+
+# Earlier development notes
 
 Piece-first answers, direct harness settings controls, eight new donkey poses,
 and a full-width intermediate output horizon. See

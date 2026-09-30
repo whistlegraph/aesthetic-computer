@@ -91,7 +91,7 @@ const memoryStore = () => {
   };
 };
 
-export function createSession({ storage = memoryStore(), emit = () => {}, hostRPC = null, retryOptions = {}, accountFetch = (...args) => fetch(...args) } = {}) {
+export function createSession({ storage = memoryStore(), emit = () => {}, hostRPC = null, renewToken = null, retryOptions = {}, accountFetch = (...args) => fetch(...args) } = {}) {
   const state = {
     accountVerified: false,
     token: "",
@@ -513,9 +513,7 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
       cwd: "/piece",
       model: state.model,
       piece: { file: state.file },
-      // The bridge awaits `token()` per turn so a desktop session can refresh
-      // a stale one mid-conversation; the phone has nothing to refresh yet.
-      token: async () => state.token,
+      token: () => currentToken(),
       site: SITE,
       // Stored and called as `this.fetch(…)`. Node tolerates that; a browser
       // throws "Illegal invocation" unless window.fetch is bound to window.
@@ -667,10 +665,32 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
     }
   }
 
+  async function currentToken(force = false) {
+    if (!renewToken) return state.token;
+    const epoch=accountEpoch;
+    const token=await renewToken({force});
+    if(epoch!==accountEpoch)throw new Error("Your AC account changed. Try again.");
+    if(!token)throw new Error("Sign in again to renew your AC session. Your work is saved.");
+    if(token!==state.token){state.token=token;write({token});}
+    return token;
+  }
+
+  // Retry account verification only. Never replay inference or an upload after
+  // an auth failure: those may already have performed paid or public work.
+  async function verifiedToken() {
+    let token=await currentToken();
+    try { return {token,account:await verifyAccount(token,{fetch:accountFetch})}; }
+    catch(error) {
+      if(error.status!==401 || !renewToken)throw error;
+      token=await currentToken(true);
+      return {token,account:await verifyAccount(token,{fetch:accountFetch})};
+    }
+  }
+
   async function verifyWorkAccount() {
-    const epoch = accountEpoch, token = state.token;
+    const epoch = accountEpoch;
     try {
-      const account = await verifyAccount(token, {fetch:accountFetch});
+      const {account,token} = await verifiedToken();
       if (epoch !== accountEpoch || token !== state.token) throw new Error("Your AC account changed. Sign in again.");
       state.accountVerified = true;
       state.handle = account.handle;
@@ -719,7 +739,8 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
     state.token = saved.token;
     state.handle = "";
     try {
-      const handle = await resolveHandle(saved.token);
+      const {account} = await verifiedToken();
+      const handle = account.handle;
       if (epoch !== accountEpoch) return false;
       state.accountVerified = true;
       state.handle = handle;
@@ -813,7 +834,10 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
     resumeTurn,
     respondToApproval,
     history,
-    refreshCredits: credits.refresh,
+    refreshCredits: async () => {
+      try { await verifyWorkAccount(); return await credits.refresh(); }
+      catch(error) { say("notice",{scope:"account",text:error.message,action:"signIn"}); }
+    },
     buyCredits: credits.buy,
     checkCheckout: credits.check,
     route,

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {paidCheckout,CREDIT_PACK,reservationSize,fulfillCheckout,reserve,settle,refundCheckout,braincellRate} from '../backend/easel-paid-credits.mjs';
+import {paidCheckout,CREDIT_PACK,reservationSize,fulfillCheckout,reserve,settle,settleDurably,reconcileWallet,DAILY_PAID_BRAINCELL_CAP,refundCheckout,braincellRate} from '../backend/easel-paid-credits.mjs';
 import {createHandler} from '../netlify/functions/easel-checkout.mjs';
 const paid={id:'cs_test_123',mode:'payment',payment_status:'paid',status:'complete',livemode:false,amount_total:500,currency:'usd',client_reference_id:'user1',metadata:{type:'ac-credits',pack:CREDIT_PACK.id,userSub:'user1'}};
 test('only a matching, confirmed server offer can grant credit',()=>{
@@ -52,6 +52,17 @@ if(process.env.AC_CREDITS_TEST_MONGO==='true'){
    assert.equal((await w.findOne({_id:user})).balance,499800);
    await refundCheckout(s,500,w,{live:false});await refundCheckout(s,250,w,{live:false});
    assert.equal((await w.findOne({_id:user})).balance,-200);
+   const now=new Date('2026-09-30T12:00:00Z');
+   await w.updateOne({_id:user},{$set:{balance:10000000,holds:{},daily:{'2026-09-30':DAILY_PAID_BRAINCELL_CAP-100}}});
+   const capped=await Promise.all(Array.from({length:10},()=>reserve(user,100,w,{now})));
+   assert.equal(capped.filter(Boolean).length,1,'Mongo reserves remaining daily capacity only once');
+   const last=capped.find(Boolean);
+   await Promise.all([settleDurably(last,75,w,{now}),settleDurably(last,75,w,{now})]);
+   const final=await w.findOne({_id:user});
+   assert.equal(final.daily['2026-09-30'],DAILY_PAID_BRAINCELL_CAP-25);
+   assert.equal(final.balance,10000000-75);
+   assert.equal(await reconcileWallet(final,w,{now}),0);
+
   }finally{await w.deleteOne({_id:user});await c.disconnect();}
  });
 }

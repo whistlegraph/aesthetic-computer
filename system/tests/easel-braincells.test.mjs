@@ -2,15 +2,30 @@
 // the rate fallback, the daily wallet cap and settlement that cannot repeat.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {authorizePaidRequest,braincellRate,braincellsFromCost,BRAINCELLS_PER_USD,CREDIT_PACK,DAILY_PAID_BRAINCELL_CAP,INFERENCE_MARKUP,OUT_OF_BRAINCELLS,reserve,settle,usageBraincells} from '../backend/easel-paid-credits.mjs';
+import {authorizePaidRequest,braincellRate,braincellsFromCost,BRAINCELLS_PER_USD,CREDIT_PACK,DAILY_PAID_BRAINCELL_CAP,INFERENCE_MARKUP,OUT_OF_BRAINCELLS,reserve,settle,settleDurably,reconcileWallet,HOLD_LIFETIME_MS,usageBraincells} from '../backend/easel-paid-credits.mjs';
 import {DEFAULT_EASEL_MODEL,EASEL_MODELS,HOSTED_MAX_TOKENS,inferenceRequest} from '../backend/easel-policy.mjs';
 import {relayInference} from '../backend/easel-stream.mjs';
 
 // Just enough of a Mongo collection for the wallet's conditional updates.
 const get=(doc,path)=>path.split('.').reduce((v,k)=>v?.[k],doc);
 function put(doc,path,value){const keys=path.split('.');const last=keys.pop();let at=doc;for(const k of keys)at=at[k]??={};if(value===undefined)delete at[last];else at[last]=value;}
+function expr(value,doc,vars={}) {
+ if(typeof value==='string'&&value.startsWith('$$'))return get(vars,value.slice(2));
+ if(typeof value==='string'&&value.startsWith('$'))return get(doc,value.slice(1));
+ if(Array.isArray(value))return value.map(v=>expr(v,doc,vars));
+ if(!value||typeof value!=='object'||!Object.keys(value).some(k=>k.startsWith('$')))return value;
+ const [[op,args]]=Object.entries(value);
+ if(op==='$map')return expr(args.input,doc,vars).map(v=>expr(args.in,doc,{...vars,[args.as]:v}));
+ const a=expr(args,doc,vars);
+ if(op==='$ifNull')return a[0]??a[1];
+ if(op==='$objectToArray')return Object.entries(a).map(([k,v])=>({k,v}));
+ if(op==='$sum'||op==='$add')return a.reduce((n,v)=>n+v,0);
+ if(op==='$lte')return a[0]<=a[1];
+ throw Error('Unsupported mock operator '+op);
+}
 function matches(doc,filter){
  return Object.entries(filter).every(([path,want])=>{
+  if(path==='$expr')return expr(want,doc);
   const have=get(doc,path);
   if(want&&typeof want==='object'){
    if('$gte' in want)return have>=want.$gte;
@@ -114,4 +129,61 @@ test('the hold grows with max_tokens and with the model rate',async()=>{
  const kimi=await authorizePaidRequest({user:'u',model:'moonshotai/kimi-k3',body,maxTokens:32000,withWallets:using});
  assert.ok(small.amount<large.amount&&large.amount<kimi.amount);
  assert.ok(large.amount<(32000+4096+100)*1,'flash holds under one braincell a token');
+});
+
+
+test('pending holds and requested amount cannot overshoot the daily cap',async()=>{
+ const now=new Date('2026-09-30T12:00:00Z');
+ const w=wallets([{_id:'u',balance:10000000,daily:{'2026-09-30':DAILY_PAID_BRAINCELL_CAP-100}}]);
+ const holds=await Promise.all([reserve('u',100,w,{now}),reserve('u',100,w,{now})]);
+ assert.equal(holds.filter(Boolean).length,1);
+ assert.equal(await reserve('u',1,w,{now}),null);
+ await settle(holds.find(Boolean),75,w,{now});
+ assert.ok(await reserve('u',25,w,{now}));
+ assert.equal(await reserve('u',1,w,{now}),null);
+});
+
+test('recovery settles a persisted charge once after a database failure',async()=>{
+ const now=new Date('2026-09-30T12:00:00Z'),w=wallets([{_id:'u',balance:1000}]);
+ const hold=await reserve('u',100,w,{now});
+ const update=w.updateOne;
+ w.updateOne=async(filter,change)=>{if(change.$unset)throw Error('database offline');return update(filter,change);};
+ await assert.rejects(settleDurably(hold,30,w,{now}),/database offline/);
+ assert.equal(w.docs[0].holds[hold.id].settlement,30);
+ w.updateOne=update;
+ const snapshot=structuredClone(w.docs[0]);
+ assert.equal(await reconcileWallet(snapshot,w,{now}),1);
+ assert.equal(await reconcileWallet(snapshot,w,{now}),0);
+ assert.equal(w.docs[0].balance,970);
+});
+
+test('expired unknown holds refund once and fence late charges; active work stays held',async()=>{
+ const now=new Date('2026-09-30T23:59:00Z'),w=wallets([{_id:'u',balance:1000}]);
+ const hold=await reserve('u',100,w,{now});
+ assert.equal(await reconcileWallet(w.docs[0],w,{now}),0);
+ assert.equal(await reconcileWallet(w.docs[0],w,{now:new Date(+now+HOLD_LIFETIME_MS)}),1);
+ assert.equal(await settleDurably(hold,80,w,{now}),false);
+ assert.equal(w.docs[0].balance,1000);
+ assert.equal(w.docs[0].daily['2026-09-30'],0);
+});
+
+test('stream completion awaits settlement and reports its failure exactly once',async()=>{
+ let attempts=0,errors=0,finished=0;
+ const text=await new Response(relayInference(new Response('data: {"usage":{"output_tokens":1}}\n\n').body,{
+   onUsage:async()=>{attempts++;await new Promise(r=>setImmediate(r));throw Error('database down');},
+   onSettlementError:()=>errors++,onFinish:()=>finished++,
+ })).text();
+ assert.ok(text.includes('output_tokens'));
+ assert.deepEqual([attempts,errors,finished],[1,1,1]);
+});
+
+
+test('stream cancellation aborts upstream and waits for one settlement',async()=>{
+ let aborted=0,settled=0,cancelled=0;
+ const source=new ReadableStream({start(c){c.enqueue(new TextEncoder().encode('data: {"usage":{"output_tokens":7}}\n\n'));},cancel(){cancelled++;}});
+ const reader=relayInference(source,{abort:()=>aborted++,onUsage:async tokens=>{
+   assert.equal(tokens,7);await new Promise(r=>setImmediate(r));settled++;
+ }}).getReader();
+ await reader.read();await reader.cancel('user stopped');
+ assert.deepEqual([aborted,settled,cancelled],[1,1,1]);
 });

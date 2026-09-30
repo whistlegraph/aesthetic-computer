@@ -39,11 +39,10 @@ The interface uses the Aesthetic Computer prompt's palette (purple ground, pink
 prompt, orange highlight, magenta handle) and shows the signed-in `@handle` and
 the piece currently being worked on in the header.
 
-At startup Easel offers exactly two surfaces: `AC piece (blank)` keeps the
-existing piece-authoring flow; `nopaint.art brush` starts a JavaScript brush
-whose exported `brush` function runs inside No Paint's existing canvas,
-gesture, undo, pan/zoom, and bake pipeline. `--genre piece|nopaint` chooses one
-without the picker.
+Native Mac and iPhone open the Piece workflow. The terminal also exposes media
+through `/medium` and `--medium`; its nopaint brush surface is selected with
+`--genre nopaint`. Picture, Sound, Paper, and Game Boy toolkits remain
+terminal-only. See the [current inventory](../apple/aesel/ROADMAP.md).
 
 Inside the TUI: `/login`, `/logout`, `/whoami`, `/publish [file] [slug]`,
 `/autopublish [on|off]`, `/piece [name]`, `/runtime [mjs|lisp|processing]`,
@@ -131,7 +130,7 @@ tree behind it. Each bridge signs in with the vendor CLI's own credentials
 already on the machine.
 
 Approvals come back to this terminal on both bridges: `y` once, `a` for the
-session, `n` to deny. Neither bridge inherits the user's own agent
+session, `n` to deny. In piece mode, neither bridge inherits the user's own agent
 configuration — Codex is pinned to `on-request` approvals and a
 `workspace-write` sandbox, and Claude is launched with `--setting-sources ""`
 and `--strict-mcp-config` — so nothing but the person watching can approve a
@@ -157,9 +156,8 @@ written down in [`docs/local-contract.md`](docs/local-contract.md).
 
 ## The session's piece, live on a phone
 
-Opening Aesel asks whether to open a blank AC piece or a nopaint.art brush.
-Either gets a random pronounceable
-name, it is a real file in the workspace, and a QR code for it sits in the
+A terminal Piece session opens a blank AC piece by default; `--genre nopaint`
+selects a brush. Each gets a random pronounceable name, it is a real file in the workspace, and a QR code for it sits in the
 bottom right of the interface. Scan the code and the piece runs on your phone;
 every edit the agent makes reaches it a moment later.
 
@@ -219,10 +217,9 @@ terminal closes. It is **on by default**: the address on the rock is the piece's
 published address, so a session that never publishes has nothing to point a
 camera at. It coalesces — a publish runs once the saves stop,
 never more than one at a time, and never twice for the same bytes — and it
-flushes the pending save on exit. Off by default, since it writes to a public
-route under your own handle: turn it on per session with the flag or
-`/autopublish`, or for every session with `AESEL_AUTOPUBLISH=1`, which
-`--no-autopublish` overrides. With it on the engine is told the piece is
+flushes the pending save on exit. Disable it with `--no-autopublish`, `/autopublish off`, or
+`AESEL_AUTOPUBLISH=0`. Native notebooks save their own per-thread publication
+setting. Turning it off does not remove earlier public versions. With it on the engine is told the piece is
 already live and told not to ask you to publish.
 
 ```sh
@@ -284,7 +281,7 @@ Aesel is proprietary. See `LICENSE`.
 On Fish installations with existing `ac` or `aesthetic` functions, the
 installer preserves them as `ac-repo` and `aesthetic-platform`.
 
-The product boundary is recorded in
+The current account, publishing, inference, transcript, and billing boundary is recorded in
 [`docs/local-contract.md`](docs/local-contract.md).
 
 Each complete piece update gets a local version (`v1`, `v2`, …). `/versions`

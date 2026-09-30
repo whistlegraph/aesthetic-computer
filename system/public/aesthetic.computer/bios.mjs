@@ -19435,6 +19435,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
     
     // 🎨 Hide boot canvas when piece's paint function takes over from default noise16
+    if (type === "aesel-preview") {
+      window.dispatchEvent(new CustomEvent("aesel-preview", {detail: content}));
+      consumeDiskSends(send);
+      return;
+    }
     if (type === "piece-paint-ready") {
       if (window.acHIDE_BOOT_LOG) {
         window.acHIDE_BOOT_LOG();
@@ -20915,6 +20920,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       if (debug && frameCached && content.loading !== true) UI.cached(uiCtx); // Pause icon.
+
+      if (content.aeselPreview && !content.loading && !freezeFrameFrozen) {
+        window.dispatchEvent(new CustomEvent("aesel-preview", {detail: {...content.aeselPreview, kind: "painted"}}));
+      }
 
       // Note: We keep the transform scaled for the next frame to avoid redundant operations
     }

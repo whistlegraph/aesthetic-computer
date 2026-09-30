@@ -123,13 +123,16 @@ export const handler = stream(async (event) => {
   }
   const settlePaid = async braincells => {
     if(!paidHold)return;
-    const {withWallets,settle}=await import("../../backend/easel-paid-credits.mjs");
-    await withWallets(w=>settle(paidHold,braincells,w));
+    const {withWallets,settleDurably}=await import("../../backend/easel-paid-credits.mjs");
+    await withWallets(w=>settleDurably(paidHold,braincells,w));
   };
 
   console.log(`🎨 easel @${handle} — ${MODELS[model].label}${budget ? ` · ${budget.remaining} left` : ""}`);
 
   const controller = new AbortController();
+  const {INFERENCE_DEADLINE_MS}=await import("../../backend/easel-paid-credits.mjs");
+  const deadline=setTimeout(()=>controller.abort(),INFERENCE_DEADLINE_MS);
+  deadline.unref?.();
   let upstream;
   try { upstream = await fetch(OPENROUTER, {
     signal: controller.signal,
@@ -153,9 +156,10 @@ export const handler = stream(async (event) => {
     }),
   });
 
-  } catch(error) { await settlePaid(0); return fail(502,"Inference provider could not be reached."); }
+  } catch(error) { clearTimeout(deadline); await settlePaid(0); return fail(502,"Inference provider could not be reached."); }
 
   if (!upstream.ok) {
+    clearTimeout(deadline);
     await settlePaid(0);
     const detail = await upstream.text();
     console.log(`🎨 easel upstream ${upstream.status}: ${detail.slice(0, 200)}`);
@@ -167,6 +171,8 @@ export const handler = stream(async (event) => {
   // keeps the first token as fast as the provider makes it.
   const passthrough = relayInference(upstream.body, {
     abort: () => controller.abort(),
+    onFinish: () => clearTimeout(deadline),
+    onSettlementError: () => console.error("[aesel] settlement pending recovery", paidHold?.id || "free-allowance"),
     onUsage: async (tokens, usage) => {
       const { recordUsage } = await import("../../backend/ai-budget.mjs");
       const {usageBraincells,reservationSize}=await import("../../backend/easel-paid-credits.mjs");
