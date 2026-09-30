@@ -5,9 +5,9 @@ release makes JavaScript pieces using hosted AC braincells, publishes edits to
 the signed-in handle and embeds the public piece. It does not run a local CLI.
 
 ```sh
-npm ci --prefix easel/web
-node easel/web/build.mjs
-node easel/web/serve.mjs
+npm ci --prefix aesel/web
+node aesel/web/build.mjs
+node aesel/web/serve.mjs
 # http://localhost:8771/try/
 ```
 
@@ -34,7 +34,7 @@ between computers. Download source before clearing browser data. Model output
 is rendered as text; preview code runs on the separate AC origin in a sandboxed
 iframe. The gate discloses public publishing and existing staff access.
 
-After committing and pushing to main, run `bash easel/web/deploy.sh`. It builds
+After committing and pushing to main, run `bash aesel/web/deploy.sh`. It builds
 from that pushed commit on lith, then atomically switches the `/try/` symlink
 to the new release. It does not deploy other working-tree changes or restart
 the monolith. The existing aesel.app Caddy site serves the result. Prior releases
@@ -45,8 +45,8 @@ again when its shared engine dependencies change.
 Validation:
 
 ```sh
-node --test easel/web/storage.test.mjs easel/test/phone-session.test.mjs easel/test/phone-credits.test.mjs
-node easel/web/browser.test.mjs
+node --test aesel/web/storage.test.mjs aesel/test/phone-session.test.mjs aesel/test/phone-credits.test.mjs
+node aesel/web/browser.test.mjs
 ```
 
 The browser test needs the local server and installed Chrome. It uses the real

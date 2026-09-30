@@ -70,7 +70,13 @@
 
       const hostRPC = globalThis.webkit?.messageHandlers?.aeselHost
         ? (method, params) => globalThis.webkit.messageHandlers.aeselHost.postMessage({method, params}) : null;
-      const session = createSession({ storage, emit: post, hostRPC });
+      const renewToken = globalThis.webkit?.messageHandlers?.aeselAccount
+        ? async ({force = false} = {}) => {
+          const result = await globalThis.webkit.messageHandlers.aeselAccount.postMessage({method:"token",force});
+          if(result.error)throw Object.assign(new Error(result.error),{status:result.status});
+          return result.token;
+        } : null;
+      const session = createSession({ storage, emit: post, hostRPC, renewToken });
 
       // Every call is wrapped so a thrown error reaches Swift as an event
       // rather than vanishing into an unhandled rejection the host cannot see.
@@ -105,10 +111,10 @@
         resumeTurn: guard("reconnect", () => session.resumeTurn()),
         respondToApproval: guard("approval", (id, decision) => session.respondToApproval(String(id), String(decision))),
         publish: guard("publish", () => session.publish()),
-        adoptToken: guard("adoptToken", async (token) => {
+        adoptToken: async (token) => {
           await session.adoptToken(String(token));
           await session.open();
-        }),
+        },
         restore: guard("restore", async () => {
           const restoring = session.restore();
           await session.open();

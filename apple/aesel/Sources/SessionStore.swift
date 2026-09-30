@@ -128,7 +128,30 @@ final class SessionStore {
          kSecAttrAccount as String: "access-token"]
     }
 
+    var credentialKey: String { tokenService }
+    private var renewalQuery: [String: Any] {
+        var query = tokenQuery; query[kSecAttrAccount as String] = "oauth-renewal"; return query
+    }
+    func renewalRecord() -> Data? {
+        var query = renewalQuery
+        query[kSecReturnData as String] = true; query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var item: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess else { return nil }
+        return item as? Data
+    }
+    func saveRenewalRecord(_ data: Data, accessToken: String) throws {
+        var status = SecItemUpdate(renewalQuery as CFDictionary, [kSecValueData as String:data] as CFDictionary)
+        if status == errSecItemNotFound {
+            var query = renewalQuery; query[kSecValueData as String] = data
+            query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+            status = SecItemAdd(query as CFDictionary, nil)
+        }
+        guard status == errSecSuccess else { throw NSError(domain: "AeselKeychain", code: Int(status), userInfo: [NSLocalizedDescriptionKey:"Could not save renewed sign-in in Keychain."]) }
+        saveToken(accessToken)
+    }
+
     func clearToken() {
+        SecItemDelete(renewalQuery as CFDictionary)
         Self.tokenReads[tokenService] = .loaded(nil)
         SecItemDelete(tokenQuery as CFDictionary)
     }
@@ -157,6 +180,10 @@ final class SessionStore {
 
     private func saveToken(_ token: String) {
         guard !token.isEmpty else { clearToken(); return }
+        // An older notebook window may checkpoint its previous access token
+        // while another window rotates credentials. Never roll the vault back.
+        if let data = renewalRecord(), let record = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let current = record["accessToken"] as? String, current != token { return }
         // Session checkpoints repeat the token. Do not delete/recreate its
         // Keychain item: that loses the user's saved access permission.
         guard self.token() != token else { return }

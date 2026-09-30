@@ -28,7 +28,7 @@ test('native input attaches a fresh thread-bound image and distinguishes drawabl
  const f=fixture();const input=await nativeInputPixels('thread',f);
  assert.equal(input.images[0].data,png);assert.match(input.context,/"width":89/);assert.match(input.context,/"snapshot":\{"width":1,"height":1\}/);
  assert.match(input.context,/"renderedRevisionVerified":false/);
- assert.deepEqual(f.calls.map(c=>c[0]),['state','preview','capture','state']);
+ assert.deepEqual(f.calls.map(c=>c[0]),['state','preview','capture','preview','state']);
  const inspection=await nativePreview('thread',{...fixture(),image:false});assert.deepEqual(inspection.images,[]);
 });
 test('missing, unready, cross-thread and changed previews never attach another thread or stale pixels',async()=>{
@@ -52,4 +52,23 @@ test('native tool discovery describes actual capture limits and rejects unsuppor
   const refused=await handle({id:2,method:'tools/call',params:{name:'ac_preview',arguments:{revision:'pretend'}}},{cwd:'/work'});
   assert.equal(refused.result.isError,true);assert.match(refused.result.content[0].text,/unavailable/);
  }finally{if(previous===undefined)delete process.env.AESEL_NATIVE_SESSION;else process.env.AESEL_NATIVE_SESSION=previous;}
+});
+
+
+test('native proof requires the same source hash, revision and frame identity across capture',async()=>{
+ const evidence={sourceHash:'abc',sessionID:'thread',revision:2,requestID:7,rendered:true,events:[{level:'error',message:'piece failure'}]};
+ const rpc=async method=>method==='state'?{instance:'i',session:{id:'thread'},piece:{version:2,sourceHash:'abc',sourceBytes:10},preview:{visible:true}}:
+   method==='capture'?{mimeType:'image/png',data:png}:{inspection:JSON.stringify({ready:true,evidence})};
+ const result=await nativePreview('thread',{rpc});
+ assert.equal(result.metadata.renderedRevisionVerified,true);assert.equal(result.images.length,1);
+ assert.equal(result.metadata.events[0].message,'piece failure');
+ evidence.rendered=false;
+ const waiting=await nativePreview('thread',{rpc});assert.equal(waiting.images.length,0);assert.equal(waiting.metadata.events.length,1);
+ evidence.rendered=true;evidence.sourceHash='old';
+ assert.equal((await nativePreview('thread',{rpc})).metadata.renderedRevisionVerified,false);
+ let n=0;
+ await assert.rejects(nativePreview('thread',{rpc:async method=>{
+   if(method==='preview')evidence.requestID=++n;
+   return rpc(method);
+ }}),/changed during capture/);
 });

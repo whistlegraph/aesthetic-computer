@@ -10,6 +10,7 @@
 		06DAB9B425E19C4E02F25A24 /* AeselPieceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72A337044339282DB88573A0 /* AeselPieceView.swift */; };
 		084DDDE9E374CC8B27DEA518 /* slab-theme.json in Resources */ = {isa = PBXBuildFile; fileRef = AACC6D25723505FB156B46F0 /* slab-theme.json */; };
 		0B56E0A1E07AD7B531824F41 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13B505C3279E0F8DB5292B86 /* Session.swift */; };
+		0E80A5C3DFE4DD46A21E9F24 /* NativeTokenRenewal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53A49D0B49187C6DC184761D /* NativeTokenRenewal.swift */; };
 		113D31E951393CC4B352014A /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DD20E2826C7E253AFDDDF7C /* SessionStore.swift */; };
 		11761C5613CB79BA5AD0E801 /* LaunchPing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92968DF5C690392605590A85 /* LaunchPing.swift */; };
 		15625BEE72859E0B3AA9421E /* ComicRelief-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 99FE2FC14157DB3F88708A6B /* ComicRelief-Bold.ttf */; };
@@ -62,6 +63,7 @@
 		A6126E0DBAC8A47345F0079B /* NativeWebAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD0D3F1FABED1CF8FA86867 /* NativeWebAuthentication.swift */; };
 		A766FD4831AD3177B8902DA5 /* ApplePlatform.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F4BC5239A9B70F128C1DC84 /* ApplePlatform.swift */; };
 		A989A8D07DAA87AB483EC748 /* AeselButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A512F7F818F52E3E58D3B7CB /* AeselButtonStyle.swift */; };
+		AA2732C81BD2D876C5A6E85F /* NativeTokenRenewal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53A49D0B49187C6DC184761D /* NativeTokenRenewal.swift */; };
 		AC4159B335B9A16CFF670F02 /* AeselAutomation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E270B97E651FC0013152574F /* AeselAutomation.swift */; };
 		AC7B6241A0E7F2791E06F1CA /* ComicRelief-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 99FE2FC14157DB3F88708A6B /* ComicRelief-Bold.ttf */; };
 		B6CD08B664BE9DA1354DEA03 /* NotebookDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90DE4FA98343A247299E9ACA /* NotebookDocument.swift */; };
@@ -100,6 +102,7 @@
 		47AE0766266534A8EE665542 /* Session */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Session; path = Resources/Session; sourceTree = SOURCE_ROOT; };
 		4A54F121629B5E78C6F46F6A /* COMIC-RELIEF-OFL-1.1.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "COMIC-RELIEF-OFL-1.1.txt"; sourceTree = "<group>"; };
 		505E152C400C5CE69463B39F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		53A49D0B49187C6DC184761D /* NativeTokenRenewal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeTokenRenewal.swift; sourceTree = "<group>"; };
 		5D9AB5CF1D7C27E6930F81B1 /* Braincells.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Braincells.swift; sourceTree = "<group>"; };
 		6975BD799206CFA5D9095BDB /* NativeSignIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSignIn.swift; sourceTree = "<group>"; };
 		72A337044339282DB88573A0 /* AeselPieceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselPieceView.swift; sourceTree = "<group>"; };
@@ -177,6 +180,7 @@
 				92968DF5C690392605590A85 /* LaunchPing.swift */,
 				9675E31C13077439E6F36AE1 /* NativeHostConnection.swift */,
 				6975BD799206CFA5D9095BDB /* NativeSignIn.swift */,
+				53A49D0B49187C6DC184761D /* NativeTokenRenewal.swift */,
 				FDD0D3F1FABED1CF8FA86867 /* NativeWebAuthentication.swift */,
 				90DE4FA98343A247299E9ACA /* NotebookDocument.swift */,
 				9CDBBA3D80069AB001DCB170 /* NotebookWebView.swift */,
@@ -374,6 +378,7 @@
 				7179F7E1202917D1C1E57EA1 /* LaunchPing.swift in Sources */,
 				52D74FA73C3384F2C2FF141B /* NativeHostConnection.swift in Sources */,
 				E86DBFD43D2C7D107F428424 /* NativeSignIn.swift in Sources */,
+				0E80A5C3DFE4DD46A21E9F24 /* NativeTokenRenewal.swift in Sources */,
 				409522297780D3241B3182FF /* NativeWebAuthentication.swift in Sources */,
 				B6CD08B664BE9DA1354DEA03 /* NotebookDocument.swift in Sources */,
 				2177ABB4922D91CD4C857EF1 /* NotebookWebView.swift in Sources */,
@@ -412,6 +417,7 @@
 				11761C5613CB79BA5AD0E801 /* LaunchPing.swift in Sources */,
 				B7FDFEA06B2AF78A0D5E0398 /* NativeHostConnection.swift in Sources */,
 				CC92640C1396E0646F1CDD0F /* NativeSignIn.swift in Sources */,
+				AA2732C81BD2D876C5A6E85F /* NativeTokenRenewal.swift in Sources */,
 				A6126E0DBAC8A47345F0079B /* NativeWebAuthentication.swift in Sources */,
 				2F68084D06FAA7A44BA04C71 /* NotebookDocument.swift in Sources */,
 				209EDA86EAD34DFC2EFD8848 /* NotebookWebView.swift in Sources */,

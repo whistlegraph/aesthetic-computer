@@ -28,7 +28,7 @@ struct NativeSignIn {
     var url: URL {
         var url = URLComponents(string: "https://hi.aesthetic.computer/authorize")!
         url.queryItems = ["response_type":"code", "client_id":Self.clientID, "redirect_uri":Self.callback,
-                          "scope":"openid profile email", "state":state,
+                          "scope":"openid profile email offline_access", "state":state,
                           "code_challenge":Self.base64url(Data(SHA256.hash(data: Data(verifier.utf8)))),
                           "code_challenge_method":"S256", "prompt":"login"].map { URLQueryItem(name: $0.key, value: $0.value) }
         if signUp { url.queryItems?.append(URLQueryItem(name: "screen_hint", value: "signup")) }
@@ -51,15 +51,31 @@ struct NativeSignIn {
         return try JSONSerialization.data(withJSONObject: ["grant_type":"authorization_code", "client_id":Self.clientID,
                                                            "redirect_uri":Self.callback, "code_verifier":verifier, "code":code])
     }
-    static func exchange(_ body: Data) async throws -> String {
+    struct Tokens: Codable, Equatable {
+        let accessToken: String
+        let refreshToken: String?
+        let expiresAt: Date
+    }
+    static func refresh(_ token: String) async throws -> Tokens {
+        let body = try JSONSerialization.data(withJSONObject: ["grant_type":"refresh_token", "client_id":clientID, "refresh_token":token])
+        return try await exchange(body, previousRefreshToken: token)
+    }
+    static func exchange(_ body: Data, previousRefreshToken: String? = nil) async throws -> Tokens {
         var request = URLRequest(url: URL(string: "https://hi.aesthetic.computer/oauth/token")!)
         request.httpMethod = "POST"; request.httpBody = body; request.timeoutInterval = 30
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard (response as? HTTPURLResponse)?.statusCode == 200,
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let rejected = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        if status == 401 || (status == 400 && rejected?["error"] as? String == "invalid_grant") {
+            throw NSError(domain: "AeselSignIn", code: 401, userInfo: [NSLocalizedDescriptionKey:"Sign in again to renew your AC session. Your work is saved."])
+        }
+        guard status == 200,
               let value = try JSONSerialization.jsonObject(with: data) as? [String:Any],
               let token = value["access_token"] as? String, !token.isEmpty else { throw failure("Sign-in could not finish. Try again.") }
-        return token
+        let seconds = value["expires_in"] as? Double ?? 3600
+        return Tokens(accessToken: token, refreshToken: value["refresh_token"] as? String ?? previousRefreshToken,
+                      expiresAt: Date().addingTimeInterval(max(0, seconds)))
     }
     static func ignoresNavigationFailure(_ error: NSError, callbackAccepted: Bool, presented: Bool) -> Bool {
         // Once the callback is accepted, token exchange owns completion. WebKit's

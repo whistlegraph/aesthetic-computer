@@ -33,6 +33,7 @@ final class SessionHost: NSObject {
     private let nativeHost = NativeHostConnection()
     private let session: Session
     private let store: SessionStore
+    private let renewal: NativeTokenRenewal
     /// Calls that arrive before the page finishes loading. Without this, a
     /// sign-in completing during launch is silently dropped.
     private var pending: [String] = []
@@ -46,6 +47,7 @@ final class SessionHost: NSObject {
         automation = AeselAutomation(windowID: windowID)
         self.session = session
         self.store = store
+        renewal = NativeTokenRenewal(store: store)
         #if os(macOS)
         prox = AeselProx(session: session)
         #endif
@@ -55,6 +57,7 @@ final class SessionHost: NSObject {
 
         let controller = WKUserContentController()
         controller.add(self, name: "aesel")
+        controller.addScriptMessageHandler(renewal, contentWorld: .page, name: "aeselAccount")
         controller.addScriptMessageHandler(nativeHost, contentWorld: .page, name: "aeselHost")
 
         var guides: [String: String] = [:]
@@ -91,6 +94,7 @@ final class SessionHost: NSObject {
 
         webView = WKWebView(frame: .zero, configuration: configuration)
         nativeHost.sessionView = webView
+        renewal.sessionView = webView
         automation.host = webView
         webView.navigationDelegate = self
         webView.isHidden = true
@@ -227,10 +231,11 @@ final class SessionHost: NSObject {
             session.signInLoading = true
             signInExchange = Task { [weak self] in
                 do {
-                    let token = try await NativeSignIn.exchange(body)
+                    let tokens = try await NativeSignIn.exchange(body)
                     guard let self, !Task.isCancelled, self.signInGeneration == generation, self.session.showSignIn else { return }
                     guard self.loaded else { throw NativeSignIn.failure("The notebook is still loading. Try again.") }
-                    _ = try await self.webView.callAsyncJavaScript("return await aesel.adoptToken(token);", arguments: ["token": token], in: nil, contentWorld: .page)
+                    try self.store.saveRenewalRecord(JSONEncoder().encode(tokens), accessToken: tokens.accessToken)
+                    _ = try await self.webView.callAsyncJavaScript("return await aesel.adoptToken(token);", arguments: ["token": tokens.accessToken], in: nil, contentWorld: .page)
                     guard !Task.isCancelled, self.signInGeneration == generation, self.session.showSignIn else { return }
                     self.session.signInError = nil; self.session.signInLoading = false; self.session.showSignIn = false
                 } catch {
@@ -252,6 +257,7 @@ final class SessionHost: NSObject {
     }
 
     func signOut() {
+        cancelSignIn()
         loginTimeout?.cancel()
         call("void aesel.signOut();")
         store.clearToken()

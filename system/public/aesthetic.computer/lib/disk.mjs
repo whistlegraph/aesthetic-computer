@@ -1,3 +1,4 @@
+import { createPreviewEvidence } from "./preview-evidence.mjs";
 import { createPlaybackClock } from "./playback-clock.mjs";
 // Manages a piece and the transitions between pieces like a
 // hypervisor or shell.
@@ -1129,6 +1130,7 @@ import { setPackMode, getPackMode, checkPackMode } from "./pack-mode.mjs";
 // 🧾 Piece run telemetry → /api/piece-log (collection: piece-runs)
 // Captures console output during a piece's lifetime. Each piece load
 // gets a fresh pieceId; events are batched and flushed every 2s.
+const previewEvidence = createPreviewEvidence(message => send(message));
 const pieceRuns = (() => {
   let current = null;
   const startPerf = performance.now();
@@ -1162,6 +1164,7 @@ const pieceRuns = (() => {
   function patch(level) {
     console[level] = function (...args) {
       origConsole[level](...args);
+      previewEvidence.record(level,args.map(serialize).join(" "));
       if (!current) return;
       current.events.push({
         level,
@@ -7875,6 +7878,8 @@ async function load(
     return true;
   }
 
+  const previewIdentity = await previewEvidence.begin(parsed.source, parsed.aeselPreview);
+
   // Reload a previously sideloaded piece on subsequent loads.
   if (
     !parsed.source &&
@@ -10344,6 +10349,7 @@ async function load(
 
     currentText = slug;
     currentCode = sourceCode;
+    previewEvidence.activate(previewIdentity);
 
     // 🧾 Begin piece-run telemetry (batched console capture → /api/piece-log)
     try {
@@ -14606,6 +14612,7 @@ async function makeFrame({ data: { type, content } }) {
 
             // Always call paint() - piece paints underneath, GOL overlays on top
             paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
+            if (paint !== defaults.paint) previewEvidence.paint();
             graph.gpuLogTick(); // 📊 GPU effect logging every 8 frames
             // Increment piece frame counter only when we actually paint
             pieceFrameCount++;
@@ -17352,6 +17359,9 @@ async function makeFrame({ data: { type, content } }) {
       // console.log("Sent data:", sendData);
 
       sendData.sound = sound;
+      // A transition can still cover the new piece after its paint has run.
+      // Certify only frames whose final pixels reveal the current revision.
+      sendData.aeselPreview = golTransition.active ? null : previewEvidence.frame();
 
       // Log first render sent back to main thread
       if (!globalThis._firstRenderSent) {

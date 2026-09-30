@@ -530,7 +530,7 @@ struct ContentView: View {
                     .frame(width: previewSize.width, height: previewSize.height)
                     .clipped()
             } else if let url = session.previewURL {
-                PieceView(url: url, source: session.displayedSource, preview: preview)
+                PieceView(url: url, source: session.displayedSource, sessionID: session.currentSessionID, revision: session.displayedRevision, preview: preview)
                     .frame(width: previewSize.width, height: previewSize.height, alignment: .topTrailing)
                     .clipped()
                     .overlay { AeselPreviewInset() }
@@ -561,7 +561,7 @@ struct ContentView: View {
             if !oskiewar.room.isEmpty {
                 artifactPreview
             } else if let url = session.previewURL {
-                PieceView(url: url, source: session.displayedSource, preview: preview)
+                PieceView(url: url, source: session.displayedSource, sessionID: session.currentSessionID, revision: session.displayedRevision, preview: preview)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             Button { expandedPreview = false } label: {
@@ -845,7 +845,7 @@ struct ContentView: View {
         ]
         return ["schema": 1, "surface": !session.accountReady ? "account" : expandedPreview ? "preview" : showSettings ? "settings" : showHome ? "home" : "notebook",
                 "overlays": ["settings": session.accountReady && showSettings, "home": session.accountReady && showHome, "help": session.accountReady && showHelp, "signin": session.showSignIn],
-                "piece": ["route": session.route, "version": session.displayedRevision, "currentVersion": session.currentRevision, "readOnly": session.viewingHistory, "sourceBytes": session.displayedSource.utf8.count,
+                "piece": ["route": session.route, "version": session.displayedRevision, "currentVersion": session.currentRevision, "readOnly": session.viewingHistory, "sourceBytes": session.displayedSource.utf8.count, "sourceHash": PiecePreview.sourceHash(session.displayedSource),
                           "previewURL": session.previewURL?.absoluteString ?? "", "shareURL": session.shareURL?.absoluteString ?? ""],
                 "oskiewar": ["room": oskiewar.room, "status": oskiewar.status, "update": oskiewar.editStatus, "artifact": oskiewar.artifact.wire],
                 "composer": ["characters": draft.count, "placeholder": "", "focused": writing],

@@ -1,5 +1,6 @@
 import SwiftUI
 import WebKit
+import CryptoKit
 import ACWaveform
 
 /// One runtime retained while moving between the corner and expanded preview.
@@ -12,6 +13,8 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
     @Published var clockRate: Double?
     @Published var volume: Double = 1 { didSet { updateSource() } }
     private var source = ""
+    private var sessionID = ""
+    private var revision = 0
     private var requestedURL: URL?
     private let messages = PreviewMessages()
     /// The piece's output waveform; ContentView stands it behind the preview.
@@ -33,7 +36,20 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
         configuration.mediaTypesRequiringUserActionForPlayback = []
         configuration.userContentController.addUserScript(WKUserScript(source: """
         (() => {
-          let ready = false, rendered = '', failed = false, startupTimedOut = false;
+          let ready = false, rendered = '', requestID = 0, failed = false, startupTimedOut = false;
+          window.__aeselEvidence = null;
+          window.addEventListener('aesel-preview', event => {
+            const value = event.detail, expected = window.__aeselIdentity;
+            if (!expected || !value || value.sourceHash !== expected.sourceHash ||
+                value.sessionID !== expected.sessionID || value.revision !== expected.revision || value.requestID !== requestID) return;
+            const evidence = window.__aeselEvidence ||= {...expected, requestID, rendered: false, events: []};
+            if (value.kind === 'invalidated') { evidence.invalidated = true; evidence.rendered = false; }
+            if (value.kind === 'painted' && !evidence.invalidated) evidence.rendered = true;
+            if (value.kind === 'console' && value.event) {
+              evidence.events.push(value.event);
+              if (evidence.events.length > 100) evidence.events.shift();
+            }
+          });
           window.addEventListener('ac-clock-state', event => {
             window.webkit.messageHandlers.previewClock.postMessage(event.detail.rate);
           });
@@ -73,13 +89,15 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
             window.AC?.setMasterVolume?.(window.__aeselVolume ?? 1);
             window.AC?.setClockRate?.((window.__aeselTempo ?? 120) / 120);
             const source = window.__aeselSource;
-            if (!ready || !window.acSEND || !source || source === rendered) return;
-            rendered = source;
+            const identity = window.__aeselIdentity;
+            const key = JSON.stringify([source, identity]);
+            if (!ready || !window.acSEND || !source || key === rendered) return;
+            rendered = key; requestID++; window.__aeselEvidence = null;
             const flags = new URLSearchParams();
             const query = new URLSearchParams(location.search);
             for (const key of ['nogap', 'nolabel', 'autoreload']) flags.set(key, 'true');
             for (const key of ['preview', 'icon']) if (query.has(key)) flags.set(key, query.get(key));
-            window.acSEND({type: 'dropped:piece', content: {name: 'aesel-preview', source, search: flags.toString(), isKidLisp: false}});
+            window.acSEND({type: 'dropped:piece', content: {name: 'aesel-preview', source, search: flags.toString(), isKidLisp: false, aeselPreview: identity ? {...identity, requestID} : undefined}});
           };
           window.__aeselSyncClock = () => {
             window.__aeselTempo = 120;
@@ -123,10 +141,11 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
         return web
     }
 
-    func update(url: URL, source: String, scheme: ColorScheme) {
+    func update(url: URL, source: String, sessionID: String, revision: Int, scheme: ColorScheme) {
         ApplePlatform.setAppearance(view, colorScheme: scheme)
         if self.source != source { failure = nil; hasAudio = false }
         self.source = source
+        self.sessionID = sessionID; self.revision = revision
         if requestedURL != url {
             failure = nil; clockRate = nil; requestedURL = url
             waveform.clear()
@@ -134,10 +153,11 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
         } else { updateSource() }
     }
     private func updateSource() {
-        guard let data = try? JSONSerialization.data(withJSONObject: [source]),
+        guard let data = try? JSONSerialization.data(withJSONObject: [source, ["sessionID": sessionID, "revision": revision, "sourceHash": Self.sourceHash(source)]]),
               let json = String(data: data, encoding: .utf8) else { return }
-        view.evaluateJavaScript("window.__aeselTempo = \(tempo); window.__aeselVolume = \(volume); window.__aeselSource = \(json)[0]; window.__aeselRender?.();")
+        view.evaluateJavaScript("window.__aeselTempo = \(tempo); window.__aeselVolume = \(volume); window.__aeselSource = \(json)[0]; window.__aeselIdentity = \(json)[1]; window.__aeselRender?.();")
     }
+    static func sourceHash(_ source: String) -> String { SHA256.hash(data: Data(source.utf8)).map { String(format: "%02x", $0) }.joined() }
     func setBackdrop(_ rgb: [Double]) {
         guard rgb.count == 3, rgb.allSatisfy({ $0.isFinite && (0...255).contains($0) }) else { return }
         background = Color(red: rgb[0] / 255, green: rgb[1] / 255, blue: rgb[2] / 255)
@@ -202,11 +222,13 @@ private final class PreviewMessages: NSObject, WKScriptMessageHandler {
 struct PieceView: View {
     let url: URL
     let source: String
+    let sessionID: String
+    let revision: Int
     @ObservedObject var preview: PiecePreview
     @Environment(\.paint) private var paint
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            PieceWebView(url: url, source: source, preview: preview)
+            PieceWebView(url: url, source: source, sessionID: sessionID, revision: revision, preview: preview)
             if let failure = preview.failure {
                 VStack(spacing: 10) {
                     Text(failure).font(Paint.font(14)).multilineTextAlignment(.center)
@@ -219,10 +241,12 @@ struct PieceView: View {
 private struct PieceWebView: AeselWebViewRepresentable {
     let url: URL
     let source: String
+    let sessionID: String
+    let revision: Int
     let preview: PiecePreview
     @Environment(\.colorScheme) private var colorScheme
     func makeWebView(context: Context) -> WKWebView { preview.view }
     func updateWebView(_ view: WKWebView, context: Context) {
-        preview.update(url: url, source: source, scheme: colorScheme)
+        preview.update(url: url, source: source, sessionID: sessionID, revision: revision, scheme: colorScheme)
     }
 }

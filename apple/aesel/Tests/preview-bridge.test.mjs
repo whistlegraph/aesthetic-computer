@@ -60,3 +60,27 @@ test('changing tempo reaches the clock bridge without reinjecting or restarting 
   events['ac-clock-state']({detail:{rate:0.5}});assert.deepEqual(confirmed,[0.5]);
   window.__aeselSyncClock();assert.equal(window.__aeselTempo,120);assert.equal(rates.at(-1),1);assert.equal(sent.length,2);
 });
+
+
+test('preview ignores stale worker acknowledgements and retains bounded console diagnostics',()=>{
+ const events={},ticks=[],sent=[];
+ const identity={sessionID:'thread',revision:2,sourceHash:'hash'};
+ const window={preloaded:true,__aeselSource:'piece',__aeselIdentity:identity,acSEND:m=>sent.push(m),
+   addEventListener:(name,fn)=>events[name]=fn,webkit:{messageHandlers:{previewFailure:{postMessage(){}}}}};
+ vm.runInNewContext(script,{window,location:{search:''},URLSearchParams,setInterval:fn=>ticks.push(fn),clearInterval(){},setTimeout(){}});
+ ticks[1]();const expected=sent[0].content.aeselPreview;
+ events['aesel-preview']({detail:{...expected,sourceHash:'old',kind:'painted'}});
+ assert.equal(window.__aeselEvidence,null);
+ events['aesel-preview']({detail:{...expected,kind:'loaded'}});
+ assert.equal(window.__aeselEvidence.rendered,false);
+ events['aesel-preview']({detail:{...expected,kind:'painted'}});
+ assert.equal(window.__aeselEvidence.rendered,true);
+ for(let n=0;n<105;n++)events['aesel-preview']({detail:{...expected,kind:'console',event:{message:String(n)}}});
+ assert.equal(window.__aeselEvidence.events.length,100);
+ events['aesel-preview']({detail:{...expected,kind:'invalidated'}});
+ events['aesel-preview']({detail:{...expected,kind:'painted'}});
+ assert.equal(window.__aeselEvidence.rendered,false,'navigation invalidates proof even if an old frame arrives');
+ window.__aeselSource='next';window.__aeselRender();
+ events['aesel-preview']({detail:{...expected,kind:'painted'}});
+ assert.equal(window.__aeselEvidence,null);
+});

@@ -63,12 +63,19 @@ export function reservationSize(body,maxTokens,{validateMedia=true}={}) {
   if(validateMedia && /"type"\s*:\s*"(?:image|document|input_audio|video)"/.test(input))throw new Error('Braincells currently support hosted text and code requests.');
   return Math.ceil(Buffer.byteLength(input,'utf8')*1.25)+maxTokens+4096;
 }
-// A hold is refused once today's settled spend reaches the cap. What a day has
-// spent lives under `daily.<YYYY-MM-DD>`, one small key per day of use.
+// Pending work counts until settled, including work crossing midnight. This
+// conservative bound avoids spending the same daily capacity concurrently.
+export const INFERENCE_DEADLINE_MS = 5 * 60_000;
+export const HOLD_LIFETIME_MS = 10 * 60_000;
+const outstanding = wallet => Object.values(wallet?.holds || {}).reduce((n,h)=>n+h.amount,0);
 export async function reserve(user,amount,wallets,{id=randomUUID(),now=new Date(),cap=DAILY_PAID_BRAINCELL_CAP}={}) {
   if(!Number.isSafeInteger(amount)||amount<1)throw new Error('Invalid credit reservation');
-  const result=await wallets.updateOne({_id:user,balance:{$gte:amount},[`daily.${dayKey(now)}`]:{$not:{$gte:cap}},[`holds.${id}`]:{$exists:false}},{$inc:{balance:-amount},$set:{[`holds.${id}`]:{amount,at:now}}});
-  return result.modifiedCount===1?{user,id,amount,day:dayKey(now)}:null;
+  const day=dayKey(now);
+  const result=await wallets.updateOne({_id:user,balance:{$gte:amount},[`holds.${id}`]:{$exists:false},
+    $expr:{$lte:[{$add:[{$ifNull:[`$daily.${day}`,0]},
+      {$sum:{$map:{input:{$objectToArray:{$ifNull:['$holds',{}]}},as:'hold',in:'$$hold.v.amount'}}},amount]},cap]}},
+    {$inc:{balance:-amount},$set:{[`holds.${id}`]:{amount,at:now,day,expiresAt:new Date(+now+HOLD_LIFETIME_MS)}}});
+  return result.modifiedCount===1?{user,id,amount,day}:null;
 }
 // Charge a finished request `braincells` against its hold and refund the rest.
 // Keyed by the hold's id: the update only matches while that hold exists and it
@@ -80,6 +87,44 @@ export async function settle(hold,braincells,wallets,{now=new Date()}={}) {
   const result=await wallets.updateOne({_id:hold.user,[`holds.${hold.id}.amount`]:hold.amount},{$inc:{balance:hold.amount-charged,spent:charged,[`daily.${hold.day||dayKey(now)}`]:charged},$unset:{[`holds.${hold.id}`]:''},$set:{updatedAt:now}});
   return result.modifiedCount===1;
 }
+// Persist the intended settlement before applying it. A crash between these
+// writes is recovered by Lith's runner; removal of the hold fences late charges.
+export async function settleDurably(hold,braincells,wallets,{now=new Date()}={}) {
+  if(!hold)return false;
+  if(!Number.isFinite(braincells)||braincells<0)throw new Error('Invalid metered usage');
+  const charged=Math.min(hold.amount,Math.ceil(braincells));
+  await wallets.updateOne({_id:hold.user,[`holds.${hold.id}.amount`]:hold.amount,
+    [`holds.${hold.id}.settlement`]:{$exists:false}},
+    {$set:{[`holds.${hold.id}.settlement`]:charged}});
+  const wallet=await wallets.findOne({_id:hold.user});
+  const pending=wallet?.holds?.[hold.id];
+  if(!pending)return false;
+  return settle({...hold,day:pending.day||dayKey(new Date(pending.at))},pending.settlement,wallets,{now});
+}
+
+export async function reconcileWallet(wallet,wallets,{now=new Date()}={}) {
+  let recovered=0;
+  for(const [id,pending] of Object.entries(wallet?.holds || {})) {
+    const hold={user:wallet._id,id,amount:pending.amount,day:pending.day||dayKey(new Date(pending.at))};
+    if(Number.isFinite(pending.settlement)) {
+      if(await settle(hold,pending.settlement,wallets,{now}))recovered++;
+    } else if(+new Date(pending.expiresAt || +new Date(pending.at)+HOLD_LIFETIME_MS)<=+now) {
+      // The server deadline has passed. Unknown usage is AC's expense. Use
+      // the same first-writer settlement claim as normal completion.
+      if(await settleDurably(hold,0,wallets,{now}))recovered++;
+    }
+  }
+  return recovered;
+}
+
+export async function reconcilePaidHolds(wallets,{now=new Date()}={}) {
+  let recovered=0;
+  for await(const wallet of wallets.find({holds:{$exists:true,$ne:{}}})) {
+    recovered+=await reconcileWallet(wallet,wallets,{now});
+  }
+  return recovered;
+}
+
 // OpenRouter's reported cost, as braincells: twice the price, at pack value.
 // Rounded to a millionth first so float noise (0.001 × 400,000) cannot tip a
 // whole braincell.
@@ -126,12 +171,14 @@ export async function authorizePaidRequest({user,model,body,maxTokens,now=new Da
   const rate=braincellRate(model,inputBound);
   const amount=Math.ceil(reservationSize(body,maxTokens)*rate);
   return using(async wallets=>{
+    const prior=await wallets.findOne({_id:user});
+    await reconcileWallet(prior,wallets,{now});
     const hold=await reserve(user,amount,wallets,{now});
     if(hold)return {...hold,rate,inputBound};
-    const wallet=await wallets.findOne({_id:user},{projection:{[`daily.${dayKey(now)}`]:1}});
-    if((Number(wallet?.daily?.[dayKey(now)])||0)>=DAILY_PAID_BRAINCELL_CAP){
+    const wallet=await wallets.findOne({_id:user},{projection:{daily:1,holds:1}});
+    if((Number(wallet?.daily?.[dayKey(now)])||0)+outstanding(wallet)+amount>DAILY_PAID_BRAINCELL_CAP){
       const minutes=Math.ceil((Date.parse(dayKey(now)+'T00:00:00Z')+86400000-now)/60000);
-      throw Object.assign(new Error(`That is today's limit of ${DAILY_PAID_BRAINCELL_CAP.toLocaleString('en-US')} bought braincells. It resets at midnight UTC, in ${Math.floor(minutes/60)}h ${minutes%60}m.`),{statusCode:429});
+      throw Object.assign(new Error(`This request and pending work would exceed today's limit of ${DAILY_PAID_BRAINCELL_CAP.toLocaleString('en-US')} bought braincells. It resets at midnight UTC, in ${Math.floor(minutes/60)}h ${minutes%60}m.`),{statusCode:429});
     }
     throw Object.assign(new Error(OUT_OF_BRAINCELLS),{statusCode:402});
   });
