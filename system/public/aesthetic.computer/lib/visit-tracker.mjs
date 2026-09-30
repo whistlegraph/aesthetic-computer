@@ -92,7 +92,18 @@ export function startVisitTracker(win = window, doc = document) {
       // Typing in account/contact/editor fields is not collected as interaction.
       if (e.target?.closest?.("input,textarea,select,[contenteditable], [data-ac-no-track]")) return;
       interact(e.pointerType === "touch" ? "touch" : input);
-      if (e.target?.tagName === "CANVAS") action("canvas_interacted");
+      // AC renders through pointer-transparent canvases. Only count contact
+      // inside its marked display, not DOM controls laid over it or prompt keys.
+      if (event === "pointerdown" || event === "touchstart") {
+        const point = e.touches?.[0] || e;
+        const display = doc.querySelector("canvas[data-ac-visit-canvas]");
+        const rect = display?.getBoundingClientRect();
+        const background = e.target === doc.body || e.target === doc.documentElement ||
+          e.target?.id === "aesthetic-computer";
+        if (e.target?.tagName === "CANVAS" || (background && rect &&
+            point.clientX >= rect.left && point.clientX < rect.right &&
+            point.clientY >= rect.top && point.clientY < rect.bottom)) action("canvas_interacted");
+      }
     }, true);
   }
   on(win, "click", e => {

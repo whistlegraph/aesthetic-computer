@@ -1,12 +1,28 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { validateVisit, visitUpdate, visitProperty, visitSurface, automatedVisit } from "../public/aesthetic.computer/lib/visit-model.mjs";
+import { validateVisit, visitUpdate, visitProperty, visitSurface, automatedVisit, visitMediaAction, VISIT_ACTIONS } from "../public/aesthetic.computer/lib/visit-model.mjs";
 import { handler } from "../netlify/functions/visit-track.mjs";
 
 const snapshot = () => ({ version: 1, id: randomUUID(), surface: "home",
   activeSeconds: 10, interacted: true, automated: false,
   inputs: ["pointer"], actions: ["link_followed"] });
+
+test("creation milestones require a confirmed media record and carry no content", () => {
+  for (const result of [null, {}, { slug: "upload-only" }, { code: "" }, { code: 123 }, { code: "abc", error: "failed" }])
+    assert.equal(visitMediaAction("png", result), null);
+  assert.equal(visitMediaAction("png", { code: "abc", slug: "private-name" }), "painting_saved");
+  for (const ext of ["zip", "mp4", "webm"])
+    assert.equal(visitMediaAction(ext, { code: "abc" }), "tape_saved");
+  assert.equal(visitMediaAction("mjs", { code: "abc" }), null);
+  const value = snapshot();
+  value.actions = [...VISIT_ACTIONS];
+  assert.ok(Buffer.byteLength(JSON.stringify(value)) < 2048, "all action flags fit the collector limit");
+  const visit = validateVisit(value, "https://aesthetic.computer");
+  assert.ok(visit);
+  assert.equal(visitUpdate(visit).$max["actions.painting_saved"], true);
+  assert.equal(validateVisit({ ...value, interacted: false }, "https://aesthetic.computer"), null);
+});
 
 test("property identity comes from a reviewed HTTPS origin, not submitted data", () => {
   const value = snapshot();

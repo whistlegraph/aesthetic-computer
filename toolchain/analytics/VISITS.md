@@ -46,6 +46,28 @@ Product code can call `window.acVisits?.action(name)` for a reviewed action.
 New actions must be added to the shared allowlist with a documented success
 condition and a test. Do not infer publish/purchase/account success from clicks.
 
+AC pieces running in the worker can send
+`{ type: "visit:action", content: { action: "reviewed_name" } }` through their
+existing `api.send`. BIOS forwards only the action name to the same collector;
+no piece source, notes, command text, media identifiers or account data are sent.
+The collector still requires visible-page interaction and respects private
+routes, opt-outs and known automation. These hooks do not use PostHog.
+
+| Action | Success condition |
+| --- | --- |
+| `canvas_interacted` | Trusted pointer/touch contact with a canvas, or inside AC's marked pointer-transparent display; overlaid DOM controls and keyboard input alone do not qualify |
+| `note_played` | Notepat accepts a manual pad, keyboard or MIDI note and triggers its voice path; wrong song notes and Autopat do not qualify; this is not proof of audible output |
+| `painting_edited` | No Paint commits an accepted proposal to the artwork and undo history; generated previews do not qualify |
+| `recording_started` | The runtime's MediaRecorder emits `start`; recorder requests or permission prompts alone do not qualify |
+| `painting_saved` | PNG upload tracking returns a successful media record with a code |
+| `tape_saved` | ZIP/MP4/WebM upload tracking or tape draft finalization returns a successful record with a code; downstream transcoding may still be pending |
+
+MIDI-only use still needs an independently recorded interaction in the visit.
+The new creation hooks cover Notepat, No Paint and the shared media upload
+paths, not every piece or every recording implementation. These per-visit
+flags describe occurrence, not note/stroke totals or unique people. Historical
+zeros before these hooks ship mean unmeasured activity, not absence of use.
+
 ## Storage and privacy
 
 `network-visits` stores one document per property + random visit UUID. A
@@ -96,6 +118,36 @@ The earliest retained event indicates available history, not deployment time.
 Check the deployment/coverage record before interpreting a zero. Archived
 aggregate reports may be kept without visit IDs. No retrospective backfill is
 possible for the period before installation.
+
+Reports include `actionVisits` (visits with any reviewed action) and cumulative
+`interacted30`, `interacted60`, `interacted180`, `interacted600` visible-time
+thresholds. The analytics MCP exposes thresholds under `depth`, keyed by seconds.
+Action totals overlap; do not sum them to count visits. Lith's daily rollup
+retains these counts and each action flag for newly folded days. Previously
+written daily rows are unchanged and may lack these fields; missing means
+unavailable, not zero. Raw visit reports can still aggregate retained records.
+
+### AC Human Fishery
+
+The analytics MCP's `human_fishery` tool reads Silo's existing `_firehose`
+(`silo/server.mjs`, MongoDB change stream → history + WebSocket dashboard),
+filters to `network-visits`, and resolves recent, non-automated visits with
+interaction. It adds no separate stream or raw event storage. Firehose
+throttling/deduplication means this is a sampled operational feed, not a complete
+audit log. Call with `{ "minutes": 5, "scope": "studio" }`, then repeat
+after at least 15 seconds. Use `startedAfter` (ISO UTC) to watch only new visits
+after a deployment. The maximum lookback is 60 minutes and the maximum result
+is 200 visits; `truncated` explicitly marks an incomplete snapshot.
+
+Each fish has a temporary name derived from its random visit ID and the UTC
+day. Raw visit IDs stay on Lith. The tool exposes only the public property,
+broad landing category, arrival/last-report time, visible-time bucket and
+reviewed action flags. A fish is one visit, not a person. Same-page actions can
+accumulate, but separate page loads and domains cannot be connected. There is
+no stored event sequence: compare successive snapshots to see newly observed
+milestones, not the exact order or time in which actions occurred. The last
+report is the last changed snapshot, not continuous presence or departure.
+The tool reads existing data; it adds no browser identifiers or new retention.
 
 ## Coverage
 
