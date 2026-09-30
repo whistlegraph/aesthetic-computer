@@ -17359,7 +17359,9 @@ async function makeFrame({ data: { type, content } }) {
       // console.log("Sent data:", sendData);
 
       sendData.sound = sound;
-      sendData.aeselPreview = previewEvidence.frame();
+      // A transition can still cover the new piece after its paint has run.
+      // Certify only frames whose final pixels reveal the current revision.
+      sendData.aeselPreview = golTransition.active ? null : previewEvidence.frame();
 
       // Log first render sent back to main thread
       if (!globalThis._firstRenderSent) {
