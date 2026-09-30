@@ -14,6 +14,8 @@
 //   --offset   record start on the cut clock (or --receipt <events.json> to read startSec)
 //   --from/to  render only this record window (seconds) — the seam you are judging
 //   --sync-ms  display latency compensation (default 50, measured by loner's synccal)
+//   --audio-only <wav>  write just the click + kick + vocal mix (record clock, from --from) and stop —
+//              score-video.mjs --lyrics --click uses this to put the lyric check's clip lanes on a click
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { resolve, dirname, basename } from "node:path";
@@ -35,7 +37,7 @@ const SR = 48_000;
 const words = JSON.parse(readFileSync(WORDS, "utf8")).filter((w) => !w.muted);
 const bars = JSON.parse(readFileSync(BARS, "utf8")).bars.slice().sort((a, b) => a.t - b.t);
 const end = TO ?? Math.max(...words.map((w) => w.toMs / 1000)) + 2;
-const PRE = 1.0;                                             // a second of grid before the window
+const PRE = FROM > 0 ? 1.0 : 0;                              // a second of grid before the window
 const t0 = FROM - PRE, dur = end - t0;
 
 // ── audio: the vocal slice (cut clock = record + OFFSET) over click + kick on the chart's beats ──
@@ -65,7 +67,9 @@ let pk = 0; for (let i = 0; i < NT; i++) pk = Math.max(pk, Math.abs(mix[i]));
 if (pk > 0.9) for (let i = 0; i < NT; i++) mix[i] *= 0.9 / pk;
 const stb = new Float32Array(NT * 2); for (let i = 0; i < NT; i++) { stb[2 * i] = mix[i]; stb[2 * i + 1] = mix[i]; }
 writeFileSync(`${WORK}/.line.f32`, Buffer.from(stb.buffer));
-sh("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-f", "f32le", "-ar", String(SR), "-ac", "2", "-i", `${WORK}/.line.f32`, "-c:a", "pcm_s16le", `${WORK}/.line.wav`]);
+const lineWav = arg("audio-only") ? resolve(arg("audio-only")) : `${WORK}/.line.wav`;
+sh("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-f", "f32le", "-ar", String(SR), "-ac", "2", "-i", `${WORK}/.line.f32`, "-c:a", "pcm_s16le", lineWav]);
+if (arg("audio-only")) { console.log(`✓ ${lineWav}  (click + kick + vocal, record ${t0.toFixed(2)}–${end.toFixed(2)}s)`); process.exit(0); }
 
 // ── video: word labels + bar.beat counter as PNGs (no drawtext in this ffmpeg), beat/bar flashes ──
 const inWin = words.filter((w) => w.toMs / 1000 >= t0 && w.fromMs / 1000 <= end);
@@ -90,7 +94,7 @@ d.text((40, 8), S["title"], font=small, fill=(255, 255, 255, 110)); img.save(f"{
 `], { stdio: ["ignore", "inherit", "inherit"] });
 if (gen.status !== 0) { console.error("✗ label gen failed"); process.exit(1); }
 
-const inputs = ["-f", "lavfi", "-i", `color=c=0x101018:s=1920x1080:r=60:d=${dur.toFixed(2)}`, "-i", `${WORK}/.line.wav`, "-i", `${WORK}/labels/title.png`];
+const inputs = ["-f", "lavfi", "-i", `color=c=0x101018:s=1920x1080:r=60:d=${dur.toFixed(2)}`, "-i", lineWav, "-i", `${WORK}/labels/title.png`];
 inWin.forEach((_, i) => inputs.push("-i", `${WORK}/labels/w${String(i).padStart(3, "0")}.png`));
 counter.forEach((_, i) => inputs.push("-i", `${WORK}/labels/c${String(i).padStart(3, "0")}.png`));
 let fc = `[0:v][2:v]overlay=0:20[b0]`; let k = 0;

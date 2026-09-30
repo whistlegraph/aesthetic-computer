@@ -39,9 +39,17 @@ function newestCut() {
   return mp3s.map((f) => resolve(OUT, f))
     .sort((a, b) => execFileSync("stat", ["-f%m", b]) - execFileSync("stat", ["-f%m", a]))[0];
 }
-const audio = resolve(arg("audio") || newestCut());
-const stem = basename(audio).replace(/\.(mp3|wav|flac)$/, "").replace(/-master$/, "");
+const base = resolve(arg("audio") || newestCut());
+const stem = basename(base).replace(/\.(mp3|wav|flac)$/, "").replace(/-master$/, "");
 const receiptPath = [arg("events"), resolve(OUT, `${stem}.events.json`)].filter(Boolean).map((p) => resolve(p)).find(existsSync);
+// v20: --click — the lyric check's clip lanes over her stem on a bare click + kick (pop/bin/lyricline.mjs
+// builds the mix from the chart's real beats) instead of the full record: the timing proof, with clips
+const CLICK = !!arg("click");
+const clickWav = resolve(OUT, `.${stem}-click.wav`);
+if (CLICK) execFileSync("node", [resolve(LANE, "../bin/lyricline.mjs"), "--vocal", resolve(LANE, "src/vox/cut/vocals-natural.wav"),
+  "--words", resolve(LANE, "src/words-record.json"), "--bars", resolve(LANE, "measures.cut.json"), "--receipt", receiptPath,
+  "--from", "0", "--audio-only", clickWav], { stdio: "inherit" });
+const audio = CLICK ? clickWav : base;
 const R = receiptPath ? JSON.parse(readFileSync(receiptPath, "utf8")) : {};
 if (!receiptPath) console.warn("! no events receipt found — drawing audio only");
 const wordsPath = resolve(LANE, "src/words-record.json");
@@ -52,7 +60,7 @@ const lyricLines = existsSync(resolve(LANE, "src/lyrics-sung.txt"))
 const W = Number(arg("width", 1280)), H = Number(arg("height", 720));
 const FPS = Number(arg("fps", 30));
 const LYRICS = !!arg("lyrics");   // v19: the lyric check — only the words, over her own waveform
-const outPath = resolve(arg("out") || resolve(OUT, `${stem}-${LYRICS ? "lyrics" : "score"}.mp4`));
+const outPath = resolve(arg("out") || resolve(OUT, `${stem}-${LYRICS ? "lyrics" : "score"}${CLICK ? "-click" : ""}.mp4`));
 
 const probe = (p, k) => execFileSync("ffprobe", ["-v", "error", "-show_entries", `format=${k}`, "-of", "csv=p=0", p], { encoding: "utf8" }).trim();
 const DUR = Number(probe(audio, "duration"));

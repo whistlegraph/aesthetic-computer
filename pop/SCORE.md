@@ -284,7 +284,8 @@ seeds; the ear decides; the videos prove it.
 5. **Prove** — two videos, judged by eye and ear together:
    - the **lyric check** (`score-video.mjs --lyrics`): every word a block on its own lane over her
      waveform, bars numbered in playing order with `bar.beat` under every beat, so any moment
-     can be named ("28.2");
+     can be named ("28.2"); with `--click` the same lanes play over her stem on a bare click + kick
+     (the clip-lane click video — loner's review-score4 language on lyricline's audio);
    - the **lyricline** (`pop/bin/lyricline.mjs`): her stem on a bare click + kick from the chart's
      real beat times, each word flashing at the instant its audio lands, the `bar.beat` counter
      running. Render only the seam in question (`--from/--to`). Born on imab, fixed-BPM; this
