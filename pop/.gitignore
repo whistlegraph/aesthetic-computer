@@ -59,3 +59,14 @@ boombaboom/sources/*.wav
 emotribtranse/c/emotribtranse
 emotribtranse/c/out/
 emotribtranse/out/
+
+# sailor-song: niece's take + derived audio stay local (see ASSETS.md)
+sailor-song/src/
+sailor-song/c/sailorremix
+
+# sailor-song cover: her photo stays out of git
+sailor-song/cover/*.jpg
+sailor-song/cover/*.png
+
+# afternoon-study: master, stems, WORLD cache (sources stay on the Shelf)
+afternoon-study/out/

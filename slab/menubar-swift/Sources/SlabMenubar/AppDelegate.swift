@@ -4024,11 +4024,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @discardableResult
     private static func axTilePass(snapshot: AXTiler.Snapshot,
                                    geom: ScreenGeom, textSize: TextSize) -> AXPass? {
-        NSLog("🧩 [tile] windows=%d ids=%@ iterm=%d term=%d acpane=%d stage=%d",
+        NSLog("🧩 [tile] windows=%d ids=%@ iterm=%d term=%d acpane=%d wizard=%d stage=%d",
               snapshot.all.count,
               snapshot.signature.map(String.init).joined(separator: ","),
               snapshot.iterm.count, snapshot.terminal.count, snapshot.acPanes.count,
-              snapshot.stage.count)
+              snapshot.wizards.count, snapshot.stage.count)
         // A stage window (GeForce NOW) is an ordinary, equal grid cell first.
         // Only when the app clamps above its cell — its configured floor is
         // bigger than the grid can offer — does it get a column of its own,
