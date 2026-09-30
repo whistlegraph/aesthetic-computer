@@ -113,3 +113,31 @@ original results are in
 OpenRouter's [Decisions SDK source](https://github.com/OpenRouterTeam/go-sdk/blob/main/decisions.go)
 specifies `POST /api/alpha/decisions`; its chat endpoint is not the Jev interface.
 TypeSafe documents the model's [typed decision primitives and limitations](https://docs.typesafe.ai/concepts/system-one).
+
+## Walkieware musical input
+
+`POST /api/easel-musical-jev` accepts authenticated, replaceable observations:
+`{schema:"walkieware-input/v1",sessionId,sequence,features}`. The fixed feature
+schema contains speech-presence flags, pitch-contour category, capped attack
+count, rhythm regularity and energy category. It accepts no transcript, PCM,
+source, arbitrary prompt, question or provider URL. Speech-to-text and musical
+feature extraction share the phone's sample timeline; only the coding model
+receives the words and detailed measurements.
+
+`MusicalInputAdvisor` starts during the hold, coalesces unchanged observations,
+allows at most three streaming calls plus one final call, and reuses a matching
+recommendation on release. Responses must match the session and sequence and
+meet the experimental 0.8 confidence threshold. Old, uncertain or failed
+responses are ignored. The client deadline is 900 ms; the provider deadline is
+one second. Advice is optional and cannot publish or certify a piece.
+
+The server keeps provider credentials private and requires an AC account with
+a handle. Atomic Mongo counters limit this separate advice allowance to 30
+requests/minute and 500/day per account, and 20,000/day globally. Failed calls
+consume their reservations. Only quota counters are persisted by the endpoint;
+observations are not saved. These limits count requests, not dollars or coding
+braincells. Phone receipts are saved only during explicit debug fixture runs.
+
+Live results and failed attempts are retained under
+`apple/walkieware/Tests/audio/`. Decision latency is not an end-to-end creation
+speed claim: the existing coding model still generates the piece.

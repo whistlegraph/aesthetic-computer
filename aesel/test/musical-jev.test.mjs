@@ -34,3 +34,7 @@ test('atomic quota reservation refuses a full counter',async()=>{
  let increments=0;const budget=musicalBudget({updateOne:async()=>{},findOneAndUpdate:async()=>{increments++;return null;}});
  assert.equal(await budget.consume('subject',Date.now()),false);assert.equal(increments,1);
 });
+test('default fetch keeps its global receiver for Safari',async t=>{
+ t.mock.method(globalThis,'fetch',async function(_,o){assert.equal(this,globalThis);const b=JSON.parse(o.body);return Response.json({...b,schema:'walkieware-decision/v1',choice:'follow_speech',confidence:.95});});
+ const advisor=new MusicalInputAdvisor({token:()=> 'test'});assert.equal((await advisor.finish(input)).choice,'follow_speech');
+});
