@@ -67,23 +67,22 @@ const OH2 = { word: "Oh", next: "won't", afterSec: 105, beforeSec: 112, lead: 0.
 // quietest 10 ms is take 59.66 = reg 59.182. Verse 1 ends there with a short release on
 // "me?", and chorus 1's voice opens from the same point. Reg seconds (bar 27 is unlifted).
 const ME_END = 59.182, OH_START = 59.19;
-// v20: "ohh… ohhhhh" between the verses. By ear (SyllaWizard, hand bounds) chorus 1's "Oh"
-// is take 59.52–59.94 — it had already begun inside verse 1's last segment and was cut off
-// at ME_END as a 130 ms sliver, so the join to "And lately" felt disconnected. Now verse 1
-// runs through the whole "Oh" to the onset of "won't" and holds the vowel with grains
-// (a short "ohh"); the screw is a full bar again, and over it chorus 2's "Oh" (a second
-// performance of the same D#4) re-attacks and is held long ("ohhhhh") into verse 2's pickup.
-const WONT1 = { word: "won't", next: "you", afterSec: 55, beforeSec: 62 };
-const WONT2 = { word: "won't", next: "you", afterSec: 105, beforeSec: 112 };
+// v20: the join to verse 2 felt disconnected (chorus 1's "Oh" had begun inside verse 1's last
+// segment and was cut off as a 130 ms sliver). Tried an "ohh… ohhhhh" — by ear it is better to
+// simply EXTEND her last "me?": "meeeeeee… lately". Verse 1 now ends exactly where the ear
+// (SyllaWizard hand bounds) puts the onset of "Oh", so no Oh is heard here at all; the "me?"
+// D#4 vowel is held with grains across the whole screw bar and into verse 2, whose voice opens
+// on "lately" (the "And" pickup is not sung). Chorus 1's voice opens on that same Oh onset.
+const OH1_EAR = { word: "Oh", next: "won't", afterSec: 55, beforeSec: 62 };   // the hand-drawn onset (SyllaWizard), take 59.52
+const LATELY = { word: "lately", next: "I", afterSec: 90, beforeSec: 100 };
 const SEGMENTS = [
-  { name: "A intro+verse1", from: 0, to: WONT1, tail: { grab: 0.22, before: 0.02, len: 0.55, curve: 1.2 } },
+  { name: "A intro+verse1", from: 0, to: OH1_EAR, tail: { grab: 0.2, before: 0.03, len: 2.7, curve: 1.15 } },   // "meeeeeee…" reaches "lately"
   // v19: a breath before verse 2 kicks off — verse 1's last full bar of her guitar,
   // slowed a fifth (screwed, 7 st down — in key; 0.78 sat between keys and read "werd") and stuttered on 8ths and 16ths into the pickup;
   // charted as bar 26 so the beds hold verse 1's state and the kit keeps going
-  { name: "S screw", screw: { bar: 26, rate: 2 ** (-7 / 12), lenOfBar: 44, beats: 4 }, asBar: 26,
-    voice: { from: OH2, to: WONT2, at: 0.5, tail: { grab: 0.22, before: 0.02, len: 1.15, curve: 1.0 } } },   // v20: the long "ohhhhh"
-  { name: "B verse2", from: { bar: 43, beat: 4 }, to: OH2, voiceFrom: AND },
-  { name: "C chorus1", from: { bar: 27, beat: 1 }, to: AND, voiceFrom: OH_START },
+  { name: "S screw", screw: { bar: 26, rate: 2 ** (-7 / 12), lenOfBar: 44, beats: 4 }, asBar: 26 },
+  { name: "B verse2", from: { bar: 43, beat: 4 }, to: OH2, voiceFrom: LATELY },
+  { name: "C chorus1", from: { bar: 27, beat: 1 }, to: AND, voiceFrom: OH1_EAR },
   { name: "D chorus2..end", from: OH2, to: END },
 ];
 const NOTES = JSON.parse(readFileSync(resolve(LANE, "vox-notes.json"), "utf8")).notes.map((n) => ({ t: regOf(n.t), note: n.note })).sort((x, y) => x.t - y.t);
@@ -123,7 +122,8 @@ writeFileSync(resolve(OUT, "segmap.txt"), segs.map((s) => `${s.from.toFixed(4)} 
 // to words-record.json: `extend` stretches the word ending at `from`, else a new word)
 const extras = [];
 for (const s of segs) {
-  if (s.tail && !s.screw) extras.push({ text: "Oh,", from: +(s.offset + (s.to - s.from)).toFixed(3), to: +(s.offset + (s.to - s.from) + s.tail.len).toFixed(3), extend: true });
+  if (s.tail && !s.screw) extras.push({ text: null, from: +(s.offset + (s.to - s.from)).toFixed(3), to: +(s.offset + (s.to - s.from) + s.tail.len).toFixed(3), extend: true });
+  if (!s.screw && s.voiceFrom !== null && s.voiceFrom > s.from) extras.push({ mute: true, from: +s.offset.toFixed(3), to: +(s.offset + (s.voiceFrom - s.from)).toFixed(3) });   // her voice held: those words are not sung here
   if (s.screw && s.voice) extras.push({ text: "Oh,", from: +(s.offset + s.voice.at).toFixed(3), to: +(s.offset + s.voice.at + (s.voice.to - s.voice.from) + (s.voice.tail?.len || 0)).toFixed(3) });
 }
 writeFileSync(resolve(OUT, "voice-extras.json"), JSON.stringify({ _: "cut-clock seconds; see word-times.py", extras }, null, 1));

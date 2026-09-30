@@ -332,15 +332,21 @@ out_rec = [{"text": w["text"], "fromMs": round(rec(w["from"]) * 1000), "toMs": r
 extras_path = os.path.join(VOX, "cut/voice-extras.json")
 if segs and os.path.exists(extras_path):
     extras = json.load(open(extras_path))["extras"]
+    for e in [e for e in extras if e.get("mute")]:            # words under a held voice are not sung
+        f_ms, t_ms = round((e["from"] - start) * 1000), round((e["to"] - start) * 1000)
+        gone = [w for w in out_rec if f_ms - 5 <= w["fromMs"] < t_ms - 5]
+        out_rec[:] = [w for w in out_rec if w not in gone]
+        if gone: print(f"  muted: {' '.join(w['text'] for w in gone)} ({f_ms/1000:.2f}–{t_ms/1000:.2f}s)")
+    extras = [e for e in extras if not e.get("mute")]
     for k, e in enumerate(extras):
         f_ms, t_ms = round((e["from"] - start) * 1000), round((e["to"] - start) * 1000)
         if k + 1 < len(extras): t_ms = min(t_ms, round((extras[k + 1]["from"] - start) * 1000))   # a hold yields to the next re-attack
         if e.get("extend"):
-            cands = [w for w in out_rec if norm(w["text"]) == norm(e["text"]) and abs(w["toMs"] - f_ms) <= 30]
+            cands = [w for w in out_rec if (e["text"] is None or norm(w["text"]) == norm(e["text"])) and abs(w["toMs"] - f_ms) <= 30]
             if cands:
                 w = cands[0]; w["toMs"] = t_ms
                 if w["tokens"]: w["tokens"][-1]["toMs"] = t_ms
-                print(f"  extra: {e['text']!r} held to {t_ms/1000:.2f}s")
+                print(f"  extra: {w['text']!r} held to {t_ms/1000:.2f}s")
         else:
             out_rec.append({"text": e["text"], "fromMs": f_ms, "toMs": t_ms, "tokens": [{"text": e["text"], "fromMs": f_ms, "toMs": t_ms}]})
             print(f"  extra: {e['text']!r} re-sung at {f_ms/1000:.2f}–{t_ms/1000:.2f}s")
