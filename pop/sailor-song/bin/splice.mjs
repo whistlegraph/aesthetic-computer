@@ -76,7 +76,7 @@ const ME_END = 59.182, OH_START = 59.19;
 const OH1_EAR = { word: "Oh", next: "won't", afterSec: 55, beforeSec: 62 };   // the hand-drawn onset (SyllaWizard), take 59.52
 const LATELY = { word: "lately", next: "I", afterSec: 90, beforeSec: 100 };
 const SEGMENTS = [
-  { name: "A intro+verse1", from: 0, to: OH1_EAR, tail: { grab: 0.2, before: 0.03, len: 2.7, curve: 1.15 } },   // "meeeeeee…" reaches "lately"
+  { name: "A intro+verse1", from: 0, to: OH1_EAR, tail: { grab: 0.2, before: 0.03, len: 3.4, curve: 0.85 } },   // "meeeeeee…" holds level and dips under "lately… I"
   // v19: a breath before verse 2 kicks off — verse 1's last full bar of her guitar,
   // slowed a fifth (screwed, 7 st down — in key; 0.78 sat between keys and read "werd") and stuttered on 8ths and 16ths into the pickup;
   // charted as bar 26 so the beds hold verse 1's state and the kit keeps going

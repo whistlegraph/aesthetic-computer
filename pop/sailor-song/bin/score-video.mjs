@@ -318,6 +318,19 @@ function drawLyrics(fi) {
   // the word lanes
   const LY = VY + VH + 12, LH = 64, LG = 6;
   for (let r = 0; r < LANES_N; r++) rect(PLOT_X, LY + r * (LH + LG), PLOT_W, LH, 238, 233, 228, 0.9);
+  // v20: the bars, so words can be read against the measure — a line and its number on every
+  // downbeat, a thin tick on the beats, from the voice strip down through the lanes
+  const gridBottom = LY + LANES_N * (LH + LG) - LG;
+  for (const b of bars) {
+    const tb = b.t - OFFSET; if (tb + b.dur < wA || tb > wA + LWIN) continue;
+    const xb = xOf(tb);
+    if (xb >= PLOT_X && xb <= PLOT_X + PLOT_W) {
+      rect(xb, VY - 18, 2, gridBottom - VY + 18, 90, 40, 120, 0.55);
+      text(String(b.n), xb + 5, VY - 18, 90, 40, 120, 2, 0.95);
+    }
+    for (let j = 1; j < b.beats.length - 1; j++) { const xj = xOf(b.beats[j] - OFFSET);
+      if (xj >= PLOT_X && xj <= PLOT_X + PLOT_W) rect(xj, VY - 8, 1, gridBottom - VY + 8, 90, 40, 120, 0.22); }
+  }
   const PAL = [[120, 70, 190], [60, 110, 200], [30, 150, 140], [200, 120, 40], [170, 60, 150]];
   WORDS.forEach((w, k) => {
     if (w.muted) return;
