@@ -94,7 +94,9 @@ const SEGMENTS = [
   // half a bar early, the stretched vowel dips under "lately"
   // the hold runs exactly to the next sung word ("the me needs to end / fade when lately starts"):
   // toNextVoice sizes it from the next segment's voiceFrom, plus a short release
-  { name: "A intro+verse1", from: 0, to: { bar: 27, beat: 3 }, voiceTo: ME_STEADY_END, tail: { world: true, steady: 0.2, toNextVoice: true, release: 0.12, curve: 1.0 } },
+  // v20k: "lately on 28.2" — bar 27 plays out, one beat of verse 2's pickup guitar, then "lately";
+  // the held "me" runs to that edge (toNextVoice)
+  { name: "A intro+verse1", from: 0, to: { bar: 28, beat: 1 }, voiceTo: ME_STEADY_END, tail: { world: true, steady: 0.2, toNextVoice: true, release: 0.12, curve: 1.0 } },
   // v19: a breath before verse 2 kicks off — verse 1's last full bar of her guitar,
   // slowed a fifth (screwed, 7 st down — in key; 0.78 sat between keys and read "werd") and stuttered on 8ths and 16ths into the pickup;
   // charted as bar 26 so the beds hold verse 1's state and the kit keeps going
@@ -102,7 +104,7 @@ const SEGMENTS = [
   // the whole transition; verse 2 follows on two beats of its own guitar pickup, "lately" on the 3rd
   // v20: "lately on 28" — the pickup bar is taken whole (her guitar under the held vowel), so
   // verse 2's first sung word lands on the 28th downbeat of the record (source bar 44)
-  { name: "B verse2", from: { bar: 44, beat: 1 }, to: OH2, voiceFrom: LATELY },   // "lately" lands on 27.3
+  { name: "B verse2", from: { bar: 43, beat: 4 }, to: OH2, voiceFrom: LATELY },   // one pickup beat, "lately" on 28.2
   { name: "C chorus1", from: { bar: 27, beat: 1 }, to: AND, voiceFrom: OH1_EAR },
   { name: "D chorus2..end", from: OH2, to: END },
 ];

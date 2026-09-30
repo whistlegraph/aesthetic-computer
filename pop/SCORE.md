@@ -265,3 +265,32 @@ Third-party lyrics (emo rap reference corpus, etc) live in the vault. They are n
 ---
 
 *maintained by @jeffrey*
+
+## Tracking a vocal — the definitive process (2026-09-30)
+
+Every sung vocal in /pop goes through the same five instruments, in this order. The aligner
+seeds; the ear decides; the videos prove it.
+
+1. **Seed** — `pop/<lane>/bin/word-times.py --fa` (MMS forced alignment of the known lyric,
+   onsets snapped ≤ 40 ms to a detected attack, words tiled edge to edge, breath ≥ 250 ms).
+   The syllable-bump re-cut is opt-in (`--shape`); it scored worse than raw alignment.
+2. **Ear** — `sylla-prep.py` cuts one clip per line and writes a spec with `track` = the whole
+   stem; `SyllaWizard --spec …` opens the entire vocal as one scrolling spectrogram with every
+   word's box in place. Drag edges, "from here ▶" to shift everything after a word, Save.
+3. **Collect + study** — `sylla-collect.py` folds the boxes into `src/word-bounds.json`;
+   `bounds-study.py [--apply]` scores the hand bounds against the machines and her envelope and
+   nudges late onsets (an attack 30–120 ms before a loud onset) and short releases.
+4. **Apply** — `word-times.py --fa` again (hand bounds win), then the lane's splice and bake.
+5. **Prove** — two videos, judged by eye and ear together:
+   - the **lyric check** (`score-video.mjs --lyrics`): every word a block on its own lane over her
+     waveform, bars numbered in playing order with `bar.beat` under every beat, so any moment
+     can be named ("28.2");
+   - the **lyricline** (`pop/bin/lyricline.mjs`): her stem on a bare click + kick from the chart's
+     real beat times, each word flashing at the instant its audio lands, the `bar.beat` counter
+     running. Render only the seam in question (`--from/--to`). Born on imab, fixed-BPM; this
+     one follows the chart.
+
+Holding a vowel across a seam: `pop/bin/vowel-hold.py` (Rubber Band R3 stretch of the real
+vowel by default; `world` and `loop` kept), applied to the LEAD stem only, sized to the next
+sung word (`tail.toNextVoice` in the splice). Cut at the end of the steady pitch, never in a
+glide. Reference lane: `pop/sailor-song/` (README has the command sequence).

@@ -48,6 +48,10 @@ pop/.venv/bin/python pop/sailor-song/bin/bounds-study.py [--apply]      # the ea
 pop/.venv/bin/python pop/sailor-song/bin/word-times.py --fa
 node pop/sailor-song/bin/splice.mjs && bash pop/sailor-song/bin/bake.sh
 node pop/sailor-song/bin/score-video.mjs --lyrics --audio pop/sailor-song/out/sailor-song-v19.mp3
+node pop/bin/lyricline.mjs --vocal pop/sailor-song/src/vox/cut/vocals-natural.wav \
+  --words pop/sailor-song/src/words-record.json --bars pop/sailor-song/measures.cut.json \
+  --receipt pop/sailor-song/out/sailor-song-v19.events.json --from 28 --to 40 \
+  --title "sailor song" --out pop/sailor-song/out/sailor-song-v19-lyricline-crossing.mp4   # the seam, on a click
 ```
 
 What the 2026-09-29 hand pass (273 words) taught the tooling — `bin/bounds-study.py`
