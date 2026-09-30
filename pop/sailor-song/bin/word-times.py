@@ -335,7 +335,7 @@ if segs and os.path.exists(extras_path):
     for e in [e for e in extras if e.get("mute")]:            # words under a held voice are not sung
         f_ms, t_ms = round((e["from"] - start) * 1000), round((e["to"] - start) * 1000)
         gone = [w for w in out_rec if f_ms - 5 <= w["fromMs"] < t_ms - 5]
-        out_rec[:] = [w for w in out_rec if w not in gone]
+        for w in gone: w["muted"] = True                   # kept in place (the video walks lines by word count), drawn as unsung
         if gone: print(f"  muted: {' '.join(w['text'] for w in gone)} ({f_ms/1000:.2f}–{t_ms/1000:.2f}s)")
     extras = [e for e in extras if not e.get("mute")]
     for k, e in enumerate(extras):

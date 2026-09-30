@@ -236,6 +236,7 @@ function drawFrame(fi) {
   for (const b of bars) for (let j = 0; j < b.beats.length - 1; j++) { const tb = b.beats[j]; if (tb < wA || tb > wB) continue;
     const x = xOfWin(tb); rect(x, TRAY_Y + TRAY_H - (j === 0 ? 12 : 7), 1, j === 0 ? 12 : 7, 120, 40, 90, j === 0 ? 0.9 : 0.5); }
   for (const w of WORDS) {
+    if (w.muted) continue;                                   // held under another voice: not sung here
     const a = OFFSET + w.fromMs / 1000, b = OFFSET + w.toMs / 1000;
     if (b < wA || a > wB) continue;
     const x0 = xOfWin(a), x1 = xOfWin(b), now = tAbs >= a && tAbs < b, sung = tAbs >= b;
@@ -272,7 +273,8 @@ function lyricBand(tRel, LYR_Y, LYR_H, maxScale) {
     const toks = L.text.split(/\s+/);
     toks.forEach((tok, k) => {
       const w = L.words[k]; const a = w ? w.fromMs / 1000 : 0, b = w ? w.toMs / 1000 : 0;
-      const sung = tRel >= b, now = tRel >= a && tRel < b;
+      const muted = !!(w && w.muted);                        // in the line but not sung: stays grey
+      const sung = !muted && tRel >= b, now = !muted && tRel >= a && tRel < b;
       const wpx = textW(tok, scale) - 1 * scale;
       // the unsung word in grey, the sung word in ink, the word being sung wiped
       // left to right in red — piecewise through its whisper tokens when it has them
@@ -318,6 +320,7 @@ function drawLyrics(fi) {
   for (let r = 0; r < LANES_N; r++) rect(PLOT_X, LY + r * (LH + LG), PLOT_W, LH, 238, 233, 228, 0.9);
   const PAL = [[120, 70, 190], [60, 110, 200], [30, 150, 140], [200, 120, 40], [170, 60, 150]];
   WORDS.forEach((w, k) => {
+    if (w.muted) return;
     const a = w.fromMs / 1000, b = w.toMs / 1000;
     if (b < wA || a > wA + LWIN) return;
     const r = k % LANES_N, y0 = LY + r * (LH + LG), mid = y0 + LH / 2;
@@ -336,7 +339,7 @@ function drawLyrics(fi) {
 
 // one stream of words scrolling right to left, the sung word crossing the playhead as she sings it
 const TSC = 4, TGAP = 6 * TSC;
-const REC = WORDS.slice().sort((a, b) => a.fromMs - b.fromMs);   // record order: verse 2 plays before chorus 1 now
+const REC = WORDS.filter((w) => !w.muted).sort((a, b) => a.fromMs - b.fromMs);   // record order: verse 2 plays before chorus 1 now
 const tickX = []; { let x = 0; for (const w of REC) { tickX.push(x); x += textW(w.text, TSC) + TGAP; } }
 function lyricTicker(tRel, headX, Y, Hh) {
   rect(PLOT_X, Y, PLOT_W, Hh, 244, 240, 236, 0.9);
