@@ -309,7 +309,8 @@ function drawLyrics(fi) {
   text(`${title}  -  lyric check`, PAD, 22, 40, 30, 45, 3);
   const clock = `${String(Math.floor(tRel / 60)).padStart(2, "0")}:${String((tRel % 60).toFixed(1)).padStart(4, "0")}`;
   text(clock, W - PAD - textW(clock, 3), 22, 120, 110, 130, 3);
-  text(`BAR ${barAt(tAbs)}   HER VOICE ONLY - ONE BLOCK PER WORD (FORCED ALIGNMENT)`, PAD, 52, 130, 120, 140, 2);
+  const recBar = (() => { let k = 0; bars.forEach((b, i) => { if (tAbs >= b.t) k = i + 1; }); return k; })();
+  text(`BAR ${recBar}   HER VOICE ONLY - ONE BLOCK PER WORD (FORCED ALIGNMENT)`, PAD, 52, 130, 120, 140, 2);
   const wA = tRel - LWIN * 0.35, xOf = (t) => PLOT_X + ((t - wA) / LWIN) * PLOT_W, tOf = (x) => wA + ((x - PLOT_X) / PLOT_W) * LWIN;
   // the whole voice, thin, on top
   const VY = 84, VH = 60, vmid = VY + VH / 2;
@@ -318,20 +319,23 @@ function drawLyrics(fi) {
   // the word lanes
   const LY = VY + VH + 12, LH = 64, LG = 6;
   for (let r = 0; r < LANES_N; r++) rect(PLOT_X, LY + r * (LH + LG), PLOT_W, LH, 238, 233, 228, 0.9);
-  // v20: the bars, so words can be read against the measure — a line and its number on every
-  // downbeat, a thin tick on the beats, from the voice strip down through the lanes
+  // v20: the bars, so words can be read against the measure — every bar and every beat carries
+  // an ID you can say out loud: the bar is its count in the RECORD (1 upward in playing order,
+  // as loner's review score does), a beat is bar.beat ("28.3"). Heavier line every 4 bars.
   const gridBottom = LY + LANES_N * (LH + LG) - LG;
   bars.forEach((b, k) => {
     const tb = b.t - OFFSET; if (tb + b.dur < wA || tb > wA + LWIN) return;
-    const xb = xOf(tb);
+    const id = k + 1, xb = xOf(tb), heavy = id % 4 === 1;
     if (xb >= PLOT_X && xb <= PLOT_X + PLOT_W) {
-      rect(xb, VY - 18, 2, gridBottom - VY + 18, 90, 40, 120, 0.55);
-      // the chart's bar number (what the engine and the splice speak), the record's own count small beside it
-      text(String(b.n), xb + 5, VY - 18, 90, 40, 120, 2, 0.95);
-      if (b.n !== k + 1) text(`#${k + 1}`, xb + 5 + textW(String(b.n), 2) + 3, VY - 14, 120, 90, 140, 1, 0.8);
+      rect(xb, VY - 18, heavy ? 3 : 2, gridBottom - VY + 18 + 14, 90, 40, 120, heavy ? 0.75 : 0.5);
+      text(String(id), xb + 5, VY - 18, 90, 40, 120, 2, 0.95);
+      if (b.n !== id) text(`chart ${b.n}`, xb + 5 + textW(String(id), 2) + 4, VY - 14, 150, 130, 160, 1, 0.7);
     }
-    for (let j = 1; j < b.beats.length - 1; j++) { const xj = xOf(b.beats[j] - OFFSET);
-      if (xj >= PLOT_X && xj <= PLOT_X + PLOT_W) rect(xj, VY - 8, 1, gridBottom - VY + 8, 90, 40, 120, 0.22); }
+    for (let j = 0; j < b.beats.length - 1; j++) { const xj = xOf(b.beats[j] - OFFSET);
+      if (xj < PLOT_X || xj > PLOT_X + PLOT_W) continue;
+      if (j > 0) rect(xj, VY - 8, 1, gridBottom - VY + 8 + 14, 90, 40, 120, 0.22);
+      text(`${id}.${j + 1}`, xj + 3, gridBottom + 3, 110, 80, 130, 1, j === 0 ? 0.9 : 0.6);   // the beat's address, under the lanes
+    }
   });
   const PAL = [[120, 70, 190], [60, 110, 200], [30, 150, 140], [200, 120, 40], [170, 60, 150]];
   WORDS.forEach((w, k) => {
