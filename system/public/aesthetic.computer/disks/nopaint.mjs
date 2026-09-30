@@ -715,6 +715,7 @@ function commitProposal(api) {
   persistPiece(api);
   persistPainting(api);
   recordDecision(api, "paint", layer.id);
+  api.send?.({ type: "visit:action", content: { action: "painting_edited" } });
   clearProposal(api);
   chooseProposal(api);
   publishTestState();

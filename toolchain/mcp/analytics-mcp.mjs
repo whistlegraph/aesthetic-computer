@@ -16,6 +16,8 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import zlib from "node:zlib";
 import { serveStdio, serveHttp, httpPort } from "./http-front.mjs";
+import { VISIT_ACTIONS, VISIT_DEPTHS } from "../../system/public/aesthetic.computer/lib/visit-model.mjs";
+import { fisheryOptions } from "../analytics/human-fishery.mjs";
 
 const pexec = promisify(execFile);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -35,8 +37,17 @@ const APPS = {
   aestheticcomputer: "6450940883",
   aesel: "6812823093",
 };
-const ACTIONS = ["download_clicked", "media_started", "link_followed", "canvas_interacted",
-  "round_started", "round_completed", "match_completed", "mime_interact", "mime_scroll_feed", "mime_original_open"];
+const ACTIONS = VISIT_ACTIONS;
+
+async function humanFishery(args = {}) {
+  fisheryOptions(args); // Validate before making an SSH call.
+  const { minutes = 5, scope = "studio", limit = 50, startedAfter } = args;
+  const quoted = "'" + JSON.stringify({ minutes, scope, limit, startedAfter }).replaceAll("'", "'\\''") + "'";
+  const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/human-fishery-report.mjs ${quoted}`;
+  const { stdout } = await pexec("ssh", ["-i", SSH_KEY, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", LITH, remote],
+    { timeout: 30000, maxBuffer: 1024 * 1024 });
+  return JSON.parse(stdout.slice(stdout.indexOf("{")));
+}
 
 // 🌐 Visits
 
@@ -52,10 +63,12 @@ async function visitsReport({ hours = 48, scope = "all", end } = {}) {
 
   const sites = {};
   for (const row of report.audience) {
-    const site = sites[row._id.property] ??= { group: row.group, visits: 0, interacted: 0, engaged: 0, visibleMinutes: 0, surfaces: {}, actions: {} };
+    const site = sites[row._id.property] ??= { group: row.group, visits: 0, interacted: 0, engaged: 0, actionVisits: 0, depth: {}, visibleMinutes: 0, surfaces: {}, actions: {} };
     site.visits += row.visits;
     site.interacted += row.interacted;
     site.engaged += row.engaged;
+    site.actionVisits += row.actionVisits || 0;
+    for (const seconds of VISIT_DEPTHS) site.depth[seconds] = (site.depth[seconds] || 0) + (row[`interacted${seconds}`] || 0);
     site.visibleMinutes += row.activeSecondsLowerBound / 60;
     site.surfaces[row._id.surface] = (site.surfaces[row._id.surface] || 0) + row.visits;
     for (const a of ACTIONS) if (row[a]) site.actions[a] = (site.actions[a] || 0) + row[a];
@@ -74,6 +87,8 @@ async function visitsReport({ hours = 48, scope = "all", end } = {}) {
     window: { start: report.start, end: report.end, scope, earliestRetainedVisit: report.earliestRetainedVisit },
     unit: report.unit,
     totals: { visits: sum("visits"), interacted: sum("interacted"), engaged: sum("engaged"),
+      actionVisits: sum("actionVisits"),
+      depth: Object.fromEntries(VISIT_DEPTHS.map(seconds => [seconds, Object.values(sites).reduce((n, site) => n + site.depth[seconds], 0)])),
       automated: Object.values(automated).reduce((n, v) => n + v, 0) },
     sites: Object.fromEntries(Object.entries(sites).sort((a, b) => b[1].visits - a[1].visits)),
     automatedBySite: automated,
@@ -230,6 +245,17 @@ async function appDownloads({ days = 7, apps = Object.keys(APPS) } = {}) {
 
 const TOOLS = [
   {
+    name: "human_fishery",
+    description: "AC Human Fishery: watch recent likely-human activity through Silo's existing MongoDB firehose on Lith. Returns temporary fish names for non-automated visits with interaction, public property, broad surface, visible-time depth and action flags. Read-only snapshots; repeat after at least 15 seconds for changes. Does not identify people, link separate visits or infer cross-site journeys. lastReportedAt is the last changed snapshot, not proof someone is still online.",
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: { type: "object", additionalProperties: false, properties: {
+      minutes: { type: "number", minimum: 1, maximum: 60, description: "Look back this many minutes for reported activity; default 5" },
+      scope: { type: "string", enum: ["studio", "clients", "all"], description: "Default studio" },
+      limit: { type: "integer", minimum: 1, maximum: 200, description: "Maximum fish returned; default 50" },
+      startedAfter: { type: "string", description: "Optional ISO date: only visits arriving after this time, useful for watching the first arrival after a deploy" },
+    } },
+  },
+  {
     name: "visits_report",
     description: "First-party page visits across AC web properties (from lith's network-visits collector), folded per site: visits, interacted, engaged (10s+), visible minutes, actions, automated traffic. Page visits, not unique people. Retention is 35 days; collection began 2026-09-23.",
     inputSchema: {
@@ -287,6 +313,7 @@ const TOOLS = [
 
 async function callTool(name, args = {}) {
   const result = name === "visits_report" ? await visitsReport(args)
+    : name === "human_fishery" ? await humanFishery(args)
     : name === "direct_downloads" ? await directDownloads(args)
     : name === "daily_metrics" ? await dailyMetrics(args)
     : name === "app_opens" ? await appOpens(args)
