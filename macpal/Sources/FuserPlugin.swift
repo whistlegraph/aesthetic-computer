@@ -419,7 +419,8 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     private var tick4 = 0   // git refresh every 4th tick (~4s)
 
     // minimal: hide every info row (status line, tasks, overtime, terminal pane)
-    // so the badge is just the avatar graphic + the name title.
+    // so the badge is just the avatar graphic + the name title, except a live
+    // mission, so a machine watching the lanes still shows the lane board.
     let minimal: Bool
 
     init(home: String, repo: String, minimal: Bool = false) {
@@ -657,7 +658,11 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     // Reserved height from the y=12 baseline up to where the name sits — the
     // exact bottom-up stack the original badge computed.
     func stackHeight(in controller: PalController) -> CGFloat {
-        if minimal { return 0 }
+        // minimal keeps only a live mission: the lane board a machine is watching.
+        if minimal {
+            let h = missionMetrics(width: controller.fullWidth - 14).total
+            return h > 0 ? h + 8 : 0
+        }
         // Mission mode stands the terminal pane down: its height leaves the
         // stack, so the todo list owns the badge's lower half until the
         // mission goes stale or is cleared.
@@ -675,10 +680,10 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     func layoutRows(in controller: PalController, originY: CGFloat) {
         if minimal {
             statusField.isHidden = true; tasksField.isHidden = true
-            missionTitleField.isHidden = true; missionAgentField.isHidden = true
-            missionItemFields.forEach { $0.isHidden = true }
             overtimeField.isHidden = true; overtimeChip.isHidden = true
             paneContainer?.isHidden = true
+            let mm = missionMetrics(width: controller.fullWidth - 14)
+            layoutMission(y: originY, width: controller.fullWidth - 14, mm: mm)
             return
         }
         let base = originY                     // 12 in practice (single plugin)
@@ -703,26 +708,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         statusField.isHidden = false
         statusField.frame = NSRect(x: 0, y: statusY, width: W, height: 22)
 
-        // Mission block: title, agent line, then items, top-down within its
-        // slot. Display-only — clicks pass through.
-        let missionVisible = mission != nil && missionH > 0
-        missionTitleField.isHidden = !missionVisible
-        missionAgentField.isHidden = !(missionVisible && mm.agent > 0)
-        missionItemFields.forEach { $0.isHidden = !missionVisible }
-        if missionVisible {
-            var my = missionY + missionH - mm.title
-            missionTitleField.frame = NSRect(x: 7, y: my, width: missionW, height: mm.title)
-            if mm.agent > 0 {
-                my -= mm.agent + 1
-                missionAgentField.frame = NSRect(x: 7, y: my, width: missionW, height: mm.agent)
-            }
-            my -= 5
-            for (i, f) in missionItemFields.enumerated() {
-                my -= mm.items[i]
-                f.frame = NSRect(x: 7, y: my, width: missionW, height: mm.items[i])
-                my -= 3   // breathing room between rows
-            }
-        }
+        layoutMission(y: missionY, width: missionW, mm: mm)
         overtimeField.isHidden = queueH <= 0
         overtimeField.frame = NSRect(x: 6, y: overtimeY, width: W - 12, height: queueH)
         overtimeChip.isHidden = chipH <= 0
@@ -740,13 +726,38 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         }
     }
 
+    // Mission block: title, agent line, then items, top-down within its
+    // slot. Display-only — clicks pass through.
+    private func layoutMission(y missionY: CGFloat, width missionW: CGFloat,
+                               mm: (title: CGFloat, agent: CGFloat, items: [CGFloat], total: CGFloat)) {
+        let missionVisible = mission != nil && mm.total > 0
+        missionTitleField.isHidden = !missionVisible
+        missionAgentField.isHidden = !(missionVisible && mm.agent > 0)
+        missionItemFields.forEach { $0.isHidden = !missionVisible }
+        guard missionVisible else { return }
+        var my = missionY + mm.total - mm.title
+        missionTitleField.frame = NSRect(x: 7, y: my, width: missionW, height: mm.title)
+        if mm.agent > 0 {
+            my -= mm.agent + 1
+            missionAgentField.frame = NSRect(x: 7, y: my, width: missionW, height: mm.agent)
+        }
+        my -= 5
+        for (i, f) in missionItemFields.enumerated() {
+            my -= mm.items[i]
+            f.frame = NSRect(x: 7, y: my, width: missionW, height: mm.items[i])
+            my -= 3   // breathing room between rows
+        }
+    }
+
     func setCollapsed(_ collapsed: Bool) {
         if minimal {
             statusField.isHidden = true; tasksField.isHidden = true
-            missionTitleField.isHidden = true; missionAgentField.isHidden = true
-            missionItemFields.forEach { $0.isHidden = true }
             overtimeField.isHidden = true; overtimeChip.isHidden = true
             paneContainer?.isHidden = true
+            missionTitleField.isHidden = collapsed || mission == nil
+            missionAgentField.isHidden = collapsed || mission == nil
+                || missionAgentField.attributedStringValue.length == 0
+            missionItemFields.forEach { $0.isHidden = collapsed || mission == nil }
             return
         }
         let hide = collapsed
