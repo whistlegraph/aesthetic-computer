@@ -309,8 +309,7 @@ function drawLyrics(fi) {
   text(`${title}  -  lyric check`, PAD, 22, 40, 30, 45, 3);
   const clock = `${String(Math.floor(tRel / 60)).padStart(2, "0")}:${String((tRel % 60).toFixed(1)).padStart(4, "0")}`;
   text(clock, W - PAD - textW(clock, 3), 22, 120, 110, 130, 3);
-  const recBar = (() => { let k = 0; bars.forEach((b, i) => { if (tAbs >= b.t) k = i + 1; }); return k; })();
-  text(`BAR ${recBar}   HER VOICE ONLY - ONE BLOCK PER WORD (FORCED ALIGNMENT)`, PAD, 52, 130, 120, 140, 2);
+  text(`BAR ${barAt(tAbs)}   HER VOICE ONLY - ONE BLOCK PER WORD (FORCED ALIGNMENT)`, PAD, 52, 130, 120, 140, 2);
   const wA = tRel - LWIN * 0.35, xOf = (t) => PLOT_X + ((t - wA) / LWIN) * PLOT_W, tOf = (x) => wA + ((x - PLOT_X) / PLOT_W) * LWIN;
   // the whole voice, thin, on top
   const VY = 84, VH = 60, vmid = VY + VH / 2;
@@ -320,16 +319,17 @@ function drawLyrics(fi) {
   const LY = VY + VH + 12, LH = 64, LG = 6;
   for (let r = 0; r < LANES_N; r++) rect(PLOT_X, LY + r * (LH + LG), PLOT_W, LH, 238, 233, 228, 0.9);
   // v20: the bars, so words can be read against the measure — every bar and every beat carries
-  // an ID you can say out loud: the bar is its count in the RECORD (1 upward in playing order,
-  // as loner's review score does), a beat is bar.beat ("28.3"). Heavier line every 4 bars.
+  // an ID you can say out loud. The ID is the CHART's bar number (her take's bar, what the splice
+  // anchors and the engine's orchestration speak): it never changes when the arrangement does.
+  // The record's own playing-order count is the small "#n" beside it. A beat is bar.beat ("27.3").
   const gridBottom = LY + LANES_N * (LH + LG) - LG;
   bars.forEach((b, k) => {
     const tb = b.t - OFFSET; if (tb + b.dur < wA || tb > wA + LWIN) return;
-    const id = k + 1, xb = xOf(tb), heavy = id % 4 === 1;
+    const id = b.n, xb = xOf(tb), heavy = id % 4 === 1;
     if (xb >= PLOT_X && xb <= PLOT_X + PLOT_W) {
       rect(xb, VY - 18, heavy ? 3 : 2, gridBottom - VY + 18 + 14, 90, 40, 120, heavy ? 0.75 : 0.5);
       text(String(id), xb + 5, VY - 18, 90, 40, 120, 2, 0.95);
-      if (b.n !== id) text(`chart ${b.n}`, xb + 5 + textW(String(id), 2) + 4, VY - 14, 150, 130, 160, 1, 0.7);
+      if (k + 1 !== id) text(`#${k + 1}`, xb + 5 + textW(String(id), 2) + 4, VY - 14, 150, 130, 160, 1, 0.7);
     }
     for (let j = 0; j < b.beats.length - 1; j++) { const xj = xOf(b.beats[j] - OFFSET);
       if (xj < PLOT_X || xj > PLOT_X + PLOT_W) continue;
