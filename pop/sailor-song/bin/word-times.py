@@ -337,14 +337,19 @@ if segs and os.path.exists(extras_path):
         gone = [w for w in out_rec if f_ms - 5 <= w["fromMs"] < t_ms - 5]
         for w in gone: w["muted"] = True                   # kept in place (the video walks lines by word count), drawn as unsung
         if gone: print(f"  muted: {' '.join(w['text'] for w in gone)} ({f_ms/1000:.2f}–{t_ms/1000:.2f}s)")
+    # a sliver a seam left of a word (< 60 ms in the record, ending at a segment end) is not a sung word here
+    seam_ends = [round((a0_ + 0 if False else (o_ + (b0_ - a0_) - start)) * 1000) for a0_, b0_, o_ in segs]
+    for w in out_rec:
+        if w["toMs"] - w["fromMs"] < 60 and any(abs(w["toMs"] - se) <= 15 for se in seam_ends):
+            w["muted"] = True; print(f"  sliver muted: {w['text']!r} {w['fromMs']/1000:.2f}–{w['toMs']/1000:.2f}s")
     extras = [e for e in extras if not e.get("mute")]
     for k, e in enumerate(extras):
         f_ms, t_ms = round((e["from"] - start) * 1000), round((e["to"] - start) * 1000)
         if k + 1 < len(extras): t_ms = min(t_ms, round((extras[k + 1]["from"] - start) * 1000))   # a hold yields to the next re-attack
         if e.get("extend"):
-            cands = [w for w in out_rec if (e["text"] is None or norm(w["text"]) == norm(e["text"])) and abs(w["toMs"] - f_ms) <= 30]
+            cands = [w for w in out_rec if not w.get("muted") and (e["text"] is None or norm(w["text"]) == norm(e["text"])) and abs(w["toMs"] - f_ms) <= 60]
             if cands:
-                w = cands[0]; w["toMs"] = t_ms
+                w = max(cands, key=lambda w: w["toMs"] - w["fromMs"]); w["toMs"] = t_ms
                 if w["tokens"]: w["tokens"][-1]["toMs"] = t_ms
                 print(f"  extra: {w['text']!r} held to {t_ms/1000:.2f}s")
         else:

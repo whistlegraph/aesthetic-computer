@@ -24,7 +24,8 @@
 //
 //   node pop/sailor-song/bin/splice.mjs
 
-import { readFileSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, statSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -74,9 +75,15 @@ const ME_END = 59.182, OH_START = 59.19;
 // D#4 vowel is held with grains across the whole screw bar and into verse 2, whose voice opens
 // on "lately" (the "And" pickup is not sung). Chorus 1's voice opens on that same Oh onset.
 const OH1_EAR = { word: "Oh", next: "won't", afterSec: 55, beforeSec: 62 };   // the hand-drawn onset (SyllaWizard), take 59.52
+// v20e: "can't we just be continuing the original me" — by pyin on the reg lead her "me?" holds a
+// steady D#4 from 58.73 to 59.08, flicks up to A#4 (the question) at 59.12–59.16, dips at 59.18 and
+// goes straight into "Oh". Verse 1 now ends at the END OF THE STEADY VOWEL and the vowel is
+// continued with WORLD (pop/bin/vowel-hold.py: her own spectral frames, f0 held with a slow vibrato)
+// — the aesthetivox way, not grains. The flick and the Oh are not heard.
+const ME_STEADY_END = 59.08;
 const LATELY = { word: "lately", next: "I", afterSec: 90, beforeSec: 100 };
 const SEGMENTS = [
-  { name: "A intro+verse1", from: 0, to: OH1_EAR, tail: { grab: 0.12, before: 0.03, len: 1.9, curve: 0.8 } },   // "meeeeeee…" holds through the half-bar screw and dips under "lately"
+  { name: "A intro+verse1", from: 0, to: ME_STEADY_END, tail: { world: true, steady: 0.2, len: 1.9, curve: 0.8, vibrato: 0.2 } },   // "meeeeeee…" continues her vowel through the half-bar screw and under "lately"
   // v19: a breath before verse 2 kicks off — verse 1's last full bar of her guitar,
   // slowed a fifth (screwed, 7 st down — in key; 0.78 sat between keys and read "werd") and stuttered on 8ths and 16ths into the pickup;
   // charted as bar 26 so the beds hold verse 1's state and the kit keeps going
@@ -197,7 +204,10 @@ function assemble(x, xfSec, voice, holds = voice) {
         gin *= i < v0 - VF ? 0 : i < v0 ? 0.5 - 0.5 * Math.cos(Math.PI * (i - (v0 - VF)) / VF) : 1; }
       out[o + i] += src * gin;
     }
-    if (voice && holds && s.tail) freezeTail(x, out, b, o + (b - a), s.tail);   // v20: only her LEAD is held — a hold on the halo, harmonies and sisters stacked into echo
+    if (voice && holds && s.tail) {                       // v20: only her LEAD is held — a hold on the halo, harmonies and sisters stacked into echo
+      if (s.tail.world) worldHold(x, out, s, o + (b - a), assemble.currentStem);
+      else freezeTail(x, out, b, o + (b - a), s.tail);
+    }
     // the previous segment's tail rides under this one's head (voice: a 40 ms release, not a hard 12)
     const XO = voice ? Math.round(0.04 * SR) : XF;
     const prevTail = segs.find((p) => (p.tail || p.screw) && Math.abs(p.offset + (p.to - p.from) - s.offset) < 1e-6);
@@ -227,6 +237,20 @@ function screw(x, out, s) {
     for (let i = 0; i < len && at + i < n; i++) { const fade = Math.min(1, i / F, (len - i) / F); out[o + at + i] += slow[from + i] * fade * g; }
     at += len; });
 }
+// the vowel continued by WORLD: pop/bin/vowel-hold.py renders `len` s of her own frames from
+// just before the cut (cached per stem in src/vox/hold/, remade when the stem is newer)
+function worldHold(x, out, s, at, stem) {
+  const HOLD = resolve(VOX, "hold"); mkdirSync(HOLD, { recursive: true });
+  const src = resolve(REG, stem), dst = resolve(HOLD, `${stem.replace(/\.wav$/, "")}-${s.to.toFixed(3)}.wav`);
+  if (!existsSync(dst) || statSync(dst).mtimeMs < statSync(src).mtimeMs) {
+    execFileSync(resolve(LANE, "../.venv/bin/python"), [resolve(LANE, "../bin/vowel-hold.py"), src, "--at", String(s.to), "--len", String(s.tail.len),
+      "--steady", String(s.tail.steady ?? 0.2), "--curve", String(s.tail.curve ?? 0.8), "--vibrato", String(s.tail.vibrato ?? 0.2), "--out", dst], { stdio: "inherit" });
+  }
+  const h = readWav(dst)[0];
+  for (let i = 0; i < h.length && at + i < out.length; i++) out[at + i] += h[i];
+  const XIN = Math.round(0.03 * SR);                     // the real vowel hands over under the hold's entry
+  for (let i = 0; i < XIN && at - XIN + i >= 0; i++) out[at - XIN + i] *= Math.cos(0.5 * Math.PI * i / XIN);
+}
 function freezeTail(x, out, cutAt, at, { grab, len, before = 0, curve = 1.6 }) {
   const G = Math.round(0.09 * SR), HOP = Math.round(0.0225 * SR), N = Math.round(len * SR), B = Math.round(grab * SR);
   const base = cutAt - Math.round(before * SR) - B, XIN = Math.round(0.03 * SR);   // `before`: grab clear of the move into the next word
@@ -246,6 +270,7 @@ function freezeTail(x, out, cutAt, at, { grab, len, before = 0, curve = 1.6 }) {
 for (const f of readdirSync(REG).filter((f) => f.endsWith(".wav"))) {
   const sustained = /guitar|replay|hum|choir|jeffrey/.test(f);
   const holds = /^vocals-(natural|aesthetivox)\.wav$/.test(f);
+  assemble.currentStem = f;
   const chans = readWav(resolve(REG, f)).map((x) => assemble(x, sustained ? 0.08 : 0.012, !sustained, holds));
   writeWav(resolve(OUT, f), chans);
   console.log(`  ${sustained ? "80ms" : "12ms"} ${f}`);
