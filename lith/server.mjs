@@ -1454,7 +1454,7 @@ if (DEV && HAS_SSL) {
 
 // Share authentication, concurrency guards and durable quotas with the HTTP lane.
 const musicalAPI = await import(pathToFileURL(join(SYSTEM, "netlify/functions/easel-musical-jev.mjs")).href);
-attachMusicalSocket(server, {authenticate:musicalAPI.authenticateMusical, decide:musicalAPI.musicalDecision});
+const musicalSocket = attachMusicalSocket(server, {authenticate:musicalAPI.authenticateMusical, decide:musicalAPI.musicalDecision});
 
 // --- Account deletions ---
 // Purges accounts whose grace period has ended (system/backend/
@@ -1531,6 +1531,7 @@ const DRAIN_TIMEOUT = 10_000; // 10s max wait
 
 function gracefulShutdown(signal) {
   console.log(`[lith] ${signal} received, draining connections...`);
+  musicalSocket.close();
   server.close(() => {
     console.log("[lith] all connections drained, exiting");
     process.exit(0);
