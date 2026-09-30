@@ -47,6 +47,7 @@ if (typeof globalThis.awslambda === "undefined") {
 }
 
 import express from "express";
+import {attachMusicalSocket} from "./musical-socket.mjs";
 import { sendStream } from "./stream-response.mjs";
 import { userMediaTarget } from "./media-path.mjs";
 import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync, renameSync, statSync } from "fs";
@@ -1450,6 +1451,10 @@ if (DEV && HAS_SSL) {
     console.log(`lith listening on http://localhost:${PORT}`);
   });
 }
+
+// Share authentication, concurrency guards and durable quotas with the HTTP lane.
+const musicalAPI = await import(pathToFileURL(join(SYSTEM, "netlify/functions/easel-musical-jev.mjs")).href);
+attachMusicalSocket(server, {authenticate:musicalAPI.authenticateMusical, decide:musicalAPI.musicalDecision});
 
 // --- Account deletions ---
 // Purges accounts whose grace period has ended (system/backend/

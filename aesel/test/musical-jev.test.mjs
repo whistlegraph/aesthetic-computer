@@ -38,3 +38,8 @@ test('default fetch keeps its global receiver for Safari',async t=>{
  t.mock.method(globalThis,'fetch',async function(_,o){assert.equal(this,globalThis);const b=JSON.parse(o.body);return Response.json({...b,schema:'walkieware-decision/v1',choice:'follow_speech',confidence:.95});});
  const advisor=new MusicalInputAdvisor({token:()=> 'test'});assert.equal((await advisor.finish(input)).choice,'follow_speech');
 });
+test('changed final observations request fresh advice instead of reusing the earlier state',async()=>{
+ const bodies=[];const a=new MusicalInputAdvisor({token:()=> 'test',fetchImpl:async(_,o)=>{const b=JSON.parse(o.body);bodies.push(b);return Response.json({...b,schema:'walkieware-decision/v1',choice:b.features.hasSpeech?'follow_speech':'trace_pitch',confidence:.95});}});
+ a.observe(input);await a.pending.work;const result=await a.finish({...input,transcript:'',words:[]});
+ assert.equal(result.choice,'trace_pitch');assert.equal(bodies.length,2);assert.notEqual(bodies[0].sessionId,bodies[1].sessionId);
+});

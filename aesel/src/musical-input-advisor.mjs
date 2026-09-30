@@ -20,8 +20,8 @@ export class MusicalInputAdvisor {
     const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('deadline'));},this.timeoutMs);});
     const response=await Promise.race([deadline,this.fetchImpl(this.endpoint,{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json',Authorization:`Bearer ${bearer}`},body:JSON.stringify({schema:'walkieware-input/v1',sessionId,sequence,features})}).then(async r=>{if(!r.ok)throw Error(`http_${r.status}`);return r.json();})]);
     if(this.sessionId!==sessionId||controller.signal.aborted||response.schema!=='walkieware-decision/v1'||response.sessionId!==sessionId||response.sequence!==sequence||!Object.hasOwn(MUSICAL_CHOICES,response.choice)||!Number.isFinite(response.confidence)||response.confidence<.8||response.confidence>1)return null;
-    const value={key,choice:response.choice,cue:MUSICAL_CHOICES[response.choice],elapsedMs:Math.round(performance.now()-started)};
-    this.cache=value;this.onEvent('jevDecision',{choice:value.choice,elapsedMs:value.elapsedMs,sequence});return value;
+    const value={key,choice:response.choice,cue:MUSICAL_CHOICES[response.choice],elapsedMs:Math.round(performance.now()-started),transport:response.transport||'http',transportMs:response.transportMs,serverMs:response.serverMs,providerMs:response.elapsedMs};
+    this.cache=value;this.onEvent('jevDecision',{choice:value.choice,elapsedMs:value.elapsedMs,sequence,transport:response.transport||'http',transportMs:response.transportMs,serverMs:response.serverMs,providerMs:response.elapsedMs});return value;
    }catch(error){if(this.sessionId===sessionId)this.onEvent('jevFallback',{reason:/^http_\d+$/.test(error.message)?error.message:controller.signal.aborted?'timeout_or_cancel':error.name||'unavailable'});return null;}
    finally{clearTimeout(timer);if(this.sessionId===sessionId)this.pending=null;}
   })();

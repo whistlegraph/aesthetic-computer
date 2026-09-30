@@ -141,3 +141,31 @@ braincells. Phone receipts are saved only during explicit debug fixture runs.
 Live results and failed attempts are retained under
 `apple/walkieware/Tests/audio/`. Decision latency is not an end-to-end creation
 speed claim: the existing coding model still generates the piece.
+
+### Persistent phone input
+
+Lith's existing DigitalOcean process serves `wss://aesthetic.computer/api/easel-musical-stream`.
+The phone opens it after sign-in and closes it while backgrounded. Authentication
+is the first JSON message (`{type:"authenticate",token}`), never a URL query;
+`ready` confirms the session. Sessions renew after ten minutes. A foreground
+client reconnects after disconnects, and HTTP remains available while cold.
+Once a decision has been sent, a disconnect does not replay it over HTTP.
+
+`{type:"observation",body:<walkieware-input/v1>}` receives an immediate
+`received` acknowledgement followed by a `decision` or `error`, both with the
+original session and sequence. One decision runs per socket; only the latest
+waiting observation survives. `{type:"cancel",sessionId}` aborts active work
+and drops pending work for that capture. Heartbeats, bounded messages, two
+connections per account and a global connection cap bound the transport.
+Authentication is reused; durable per-decision quotas and the shared account
+concurrency guard still apply across HTTP and sockets.
+
+Receipts separate acknowledgement round-trip (`transportMs`), server processing
+including quota checks (`serverMs`), and provider request duration (`providerMs`).
+Acknowledgement time includes scheduling and is not a pure network measurement.
+The upstream Decisions API remains HTTP. Neither this transport nor a separate
+VM removes provider inference latency. Measure these components before moving
+regions or provisioning another service.
+
+Focused validation: `node --test lith/musical-socket.test.mjs aesel/test/musical-jev.test.mjs`.
+Phone validation: `node apple/walkieware/Tests/musical-benchmark.mjs mixed-request --jev --socket`.

@@ -16,21 +16,22 @@ export function musicalBudget(collection) {
 export function createMusicalHandler({authenticate,budget,evaluate=evaluateChoices,now=Date.now}={}) {
  const busy=new Set();
  const reply=(statusCode,value)=>({statusCode,headers:{'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type, Authorization','Access-Control-Allow-Methods':'POST, OPTIONS'},body:JSON.stringify(value)});
- return async event=>{
+ return async (event,{subject:trustedSubject,signal}={})=>{
   if(event.httpMethod==='OPTIONS')return reply(200,{});
   if(event.httpMethod!=='POST')return reply(405,{error:'POST only'});
   if(!event.headers?.authorization)return reply(401,{error:'Sign in first'});
   if(typeof event.body!=='string'||event.body.length>2048)return reply(400,{error:'Invalid observation'});
   let body,request;
   try{body=JSON.parse(event.body);if(body.schema!=='walkieware-input/v1'||! /^[a-f0-9-]{36}$/i.test(body.sessionId)||!Number.isInteger(body.sequence)||body.sequence<1||body.sequence>1000||Object.keys(body).some(k=>!['schema','sessionId','sequence','features'].includes(k)))throw Error();request=musicalDecisionRequest(body.features);}catch{return reply(400,{error:'Invalid observation'});}
-  let subject;try{subject=await authenticate(event.headers);}catch{return reply(503,{error:'Account check unavailable'});}
+  let subject;try{subject=trustedSubject??await authenticate(event.headers);}catch{return reply(503,{error:'Account check unavailable'});}
   if(!subject)return reply(401,{error:'A valid account with a handle is required'});
   if(busy.has(subject)||busy.size>=8)return reply(429,{error:'Decision already running'});
   busy.add(subject);
   try{
    if(!await budget.consume(subject,now()))return reply(429,{error:'Decision allowance reached'});
    const started=performance.now();
-   const result=await evaluate(request,{signal:AbortSignal.timeout(1000)});
+   const deadline=AbortSignal.timeout(1000);
+   const result=await evaluate(request,{signal:signal?AbortSignal.any([signal,deadline]):deadline});
    const answer=result.answers?.mapping, confidence=answer?.probabilities?.[answer.choice];
    if(!Object.hasOwn(MUSICAL_CHOICES,answer?.choice)||!Number.isFinite(confidence)||confidence<0||confidence>1)throw Error('Invalid answer');
    return reply(200,{schema:'walkieware-decision/v1',sessionId:body.sessionId,sequence:body.sequence,choice:answer.choice,confidence,elapsedMs:Math.round(performance.now()-started)});
