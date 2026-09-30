@@ -76,12 +76,14 @@ const ME_END = 59.182, OH_START = 59.19;
 const OH1_EAR = { word: "Oh", next: "won't", afterSec: 55, beforeSec: 62 };   // the hand-drawn onset (SyllaWizard), take 59.52
 const LATELY = { word: "lately", next: "I", afterSec: 90, beforeSec: 100 };
 const SEGMENTS = [
-  { name: "A intro+verse1", from: 0, to: OH1_EAR, tail: { grab: 0.2, before: 0.03, len: 3.4, curve: 0.85 } },   // "meeeeeee…" holds level and dips under "lately… I"
+  { name: "A intro+verse1", from: 0, to: OH1_EAR, tail: { grab: 0.2, before: 0.03, len: 4.6, curve: 0.8 } },   // "meeeeeee…" holds through the screw and the pickup bar, dips under "lately"
   // v19: a breath before verse 2 kicks off — verse 1's last full bar of her guitar,
   // slowed a fifth (screwed, 7 st down — in key; 0.78 sat between keys and read "werd") and stuttered on 8ths and 16ths into the pickup;
   // charted as bar 26 so the beds hold verse 1's state and the kit keeps going
   { name: "S screw", screw: { bar: 26, rate: 2 ** (-7 / 12), lenOfBar: 44, beats: 4 }, asBar: 26 },
-  { name: "B verse2", from: { bar: 43, beat: 4 }, to: OH2, voiceFrom: LATELY },
+  // v20: "lately on 28" — the pickup bar is taken whole (her guitar under the held vowel), so
+  // verse 2's first sung word lands on the 28th downbeat of the record (source bar 44)
+  { name: "B verse2", from: { bar: 43, beat: 1 }, to: OH2, voiceFrom: LATELY },
   { name: "C chorus1", from: { bar: 27, beat: 1 }, to: AND, voiceFrom: OH1_EAR },
   { name: "D chorus2..end", from: OH2, to: END },
 ];
