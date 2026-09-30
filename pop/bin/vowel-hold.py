@@ -23,10 +23,81 @@ ap.add_argument("wav"); ap.add_argument("--at", type=float, required=True); ap.a
 ap.add_argument("--out", required=True); ap.add_argument("--steady", type=float, default=0.2)
 ap.add_argument("--curve", type=float, default=0.8); ap.add_argument("--vibrato", type=float, default=0.15)
 ap.add_argument("--fade-in", type=float, default=0.03)
+ap.add_argument("--method", choices=["stretch", "loop", "world"], default="stretch",
+                help="stretch = the real vowel time-stretched with Rubber Band R3 (default: the recording's own movement, slowed); loop = period-aligned loop; world = WORLD resynthesis")
 a = ap.parse_args()
 FRAME_MS = 5.0
 x, fs = sf.read(a.wav, always_2d=True)
 mono = x.mean(1).astype(np.float64)
+
+def loop_hold():
+    """The real vowel, looped: the loop is a whole number of pitch periods long and its join is
+    placed where the waveform best repeats, so every repeat is phase coherent; a one-period
+    equal-power crossfade at each join; vibrato by re-reading the result at a slowly wobbling rate."""
+    end = int(a.at * fs); n_st = int(a.steady * fs); seg = mono[end - n_st:end]
+    tail = seg[-int(0.1 * fs):]                       # period from the last 100 ms (100–500 Hz)
+    ac = np.correlate(tail, tail, "full")[len(tail) - 1:]
+    lo, hi = int(fs / 500), int(fs / 100)
+    period = lo + int(np.argmax(ac[lo:hi]))
+    L = max(1, round(0.12 * fs / period)) * period            # ~120 ms, whole periods
+    # best join: shift j in the last 3 periods where seg[t] ≈ seg[t-L] over one period
+    best, bj = None, 0
+    for j in range(0, 3 * period):
+        b = len(seg) - j; a0 = b - period
+        if a0 - L < 0: break
+        d = np.mean((seg[a0:b] - seg[a0 - L:b - L]) ** 2)
+        if best is None or d < best: best, bj = d, j
+    loop = seg[len(seg) - bj - L:len(seg) - bj]                 # the last L samples ending at the join
+    XF = period; win = np.sin(0.5 * np.pi * np.arange(XF) / XF) ** 2
+    N = int(a.len * fs) + L
+    y = np.zeros(N + L); pos = 0
+    # first pass: the real signal continues seamlessly from the cut (loop starts at its join phase)
+    while pos < N:
+        if pos == 0: y[:L] = loop; pos = L; continue
+        y[pos - XF:pos] = y[pos - XF:pos] * (1 - win) + loop[:XF] * win        # equal-power over one period
+        y[pos:pos + L - XF] = loop[XF:]; pos += L - XF
+    y = y[: int(a.len * fs)]
+    if a.vibrato > 0:                                            # slow re-read: ±vibrato st at 5.2 Hz, growing in over 0.4 s
+        t = np.arange(len(y)) / fs; env = np.clip(t / 0.4, 0, 1)
+        rate = 2 ** (a.vibrato * env * np.sin(2 * np.pi * 5.2 * t) / 12)
+        phase = np.cumsum(rate) - rate[0]
+        y = np.interp(phase, np.arange(len(y)), y)
+    print(f"loop hold: period {period} samples ({fs / period:.1f} Hz) · loop {L / fs * 1000:.0f} ms · join mse {best:.2e}")
+    return y
+
+def stretch_hold():
+    """Rubber Band R3 stretches the last `steady` s of the real vowel to the hold's length: no
+    synthesis, no loop — her own recording with its own movement, slowed."""
+    import subprocess, tempfile, os
+    end = int(a.at * fs); n_st = int(a.steady * fs); seg = x[end - n_st:end]
+    ratio = (a.len + 0.15) / a.steady
+    with tempfile.TemporaryDirectory() as d:
+        src, dst = os.path.join(d, "in.wav"), os.path.join(d, "out.wav")
+        sf.write(src, seg.astype(np.float32), fs, subtype="FLOAT")
+        subprocess.run(["rubberband", "-3", "-t", f"{ratio:.4f}", "-q", src, dst], check=True)
+        y, _ = sf.read(dst, always_2d=True)
+    y = y[int(0.05 * fs): int(0.05 * fs) + int(a.len * fs)]         # skip the stretcher's first 50 ms
+    print(f"stretch hold: {a.steady:.2f}s × {ratio:.1f} (Rubber Band R3)")
+    return y
+
+if a.method == "stretch":
+    y = stretch_hold()
+    n = len(y); env = (1 - np.arange(n) / n) ** a.curve
+    fi = int(a.fade_in * fs); env[:fi] *= np.sin(0.5 * np.pi * np.arange(fi) / fi)
+    y = y * env[:, None]
+    sf.write(a.out, y.astype(np.float32), fs, subtype="FLOAT")
+    print(f"hold {a.len:.2f}s (stretch) from {a.steady:.2f}s before {a.at:.3f}s → {a.out}")
+    raise SystemExit(0)
+
+if a.method == "loop":
+    y = loop_hold()
+    n = len(y); env = (1 - np.arange(n) / n) ** a.curve
+    fi = int(a.fade_in * fs); env[:fi] *= np.sin(0.5 * np.pi * np.arange(fi) / fi)
+    y *= env
+    out = np.repeat(y[:, None], x.shape[1], axis=1) if x.shape[1] > 1 else y
+    sf.write(a.out, out.astype(np.float32), fs, subtype="FLOAT")
+    print(f"hold {a.len:.2f}s (loop) from {a.steady:.2f}s before {a.at:.3f}s → {a.out}")
+    raise SystemExit(0)
 w0, w1 = int(max(0, a.at - 1.0) * fs), int(a.at * fs)
 seg = mono[w0:w1]
 f0, t = pw.harvest(seg, fs, f0_floor=150.0, f0_ceil=900.0, frame_period=FRAME_MS)
