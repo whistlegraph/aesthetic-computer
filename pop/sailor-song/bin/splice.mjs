@@ -118,6 +118,15 @@ const segs = SEGMENTS.map((s) => { if (s.screw) { const src = barBy(s.screw.bar)
   const from = anchor(s.from), to = anchor(s.to); const seg = { ...s, from, to, offset, voiceFrom: s.voiceFrom ? anchor(s.voiceFrom) : null }; offset += to - from; return seg; });
 for (const s of segs) console.log(`${s.name.padEnd(16)} ${s.from.toFixed(3)} → ${s.to.toFixed(3)}  (${(s.to - s.from).toFixed(2)} s) at ${s.offset.toFixed(3)}`);
 writeFileSync(resolve(OUT, "segmap.txt"), segs.map((s) => `${s.from.toFixed(4)} ${s.to.toFixed(4)} ${s.offset.toFixed(4)}`).join("\n") + "\n");
+// v20: sung sound the words file cannot know about — a held tail past a seam, a fragment
+// re-attacked over the screw — so the lyric video can label it (word-times.py applies these
+// to words-record.json: `extend` stretches the word ending at `from`, else a new word)
+const extras = [];
+for (const s of segs) {
+  if (s.tail && !s.screw) extras.push({ text: "Oh,", from: +(s.offset + (s.to - s.from)).toFixed(3), to: +(s.offset + (s.to - s.from) + s.tail.len).toFixed(3), extend: true });
+  if (s.screw && s.voice) extras.push({ text: "Oh,", from: +(s.offset + s.voice.at).toFixed(3), to: +(s.offset + s.voice.at + (s.voice.to - s.voice.from) + (s.voice.tail?.len || 0)).toFixed(3) });
+}
+writeFileSync(resolve(OUT, "voice-extras.json"), JSON.stringify({ _: "cut-clock seconds; see word-times.py", extras }, null, 1));
 const recOf = (t) => { for (const s of segs) if (!s.screw && t >= s.from && t < s.to) return t - s.from + s.offset; return null; };
 
 // ── the chart: bars in record order, partial bars truncated at the seams ──

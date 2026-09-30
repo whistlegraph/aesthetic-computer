@@ -327,6 +327,23 @@ out_take = [{"text": w["text"], "fromMs": round(w["from"] * 1000), "toMs": round
 out_rec = [{"text": w["text"], "fromMs": round(rec(w["from"]) * 1000), "toMs": round((rec_end(w["from"], w["to"]) if segs else (rec(w["to"]) if rec(w["to"]) is not None else rec(w["from"]) + 0.06)) * 1000),
             "tokens": [{"text": t["text"], "fromMs": round(rec(t["from"]) * 1000), "toMs": round((rec(t["to"]) if rec(t["to"]) is not None else rec(t["from"])) * 1000)}
                        for t in w["tokens"] if rec(t["from"]) is not None]} for w in words if rec(w["from"]) is not None]
+# v20: sung sound past the words — a vowel held over a seam (extend that word), a fragment re-sung
+# over the screw (a new word, appended AFTER the lyric so the per-line walk in the video stays true)
+extras_path = os.path.join(VOX, "cut/voice-extras.json")
+if segs and os.path.exists(extras_path):
+    extras = json.load(open(extras_path))["extras"]
+    for k, e in enumerate(extras):
+        f_ms, t_ms = round((e["from"] - start) * 1000), round((e["to"] - start) * 1000)
+        if k + 1 < len(extras): t_ms = min(t_ms, round((extras[k + 1]["from"] - start) * 1000))   # a hold yields to the next re-attack
+        if e.get("extend"):
+            cands = [w for w in out_rec if norm(w["text"]) == norm(e["text"]) and abs(w["toMs"] - f_ms) <= 30]
+            if cands:
+                w = cands[0]; w["toMs"] = t_ms
+                if w["tokens"]: w["tokens"][-1]["toMs"] = t_ms
+                print(f"  extra: {e['text']!r} held to {t_ms/1000:.2f}s")
+        else:
+            out_rec.append({"text": e["text"], "fromMs": f_ms, "toMs": t_ms, "tokens": [{"text": e["text"], "fromMs": f_ms, "toMs": t_ms}]})
+            print(f"  extra: {e['text']!r} re-sung at {f_ms/1000:.2f}–{t_ms/1000:.2f}s")
 # (kept in lyric order: the video tools slice words per lyric line, then sort the lines by time)
 if segs: print(f"arrangement: {len(segs)} segments, {len(words) - len(out_rec)} words outside them dropped")
 json.dump(out_take, open(os.path.join(SRC, "words-aligned.json"), "w"), indent=1)
