@@ -88,7 +88,9 @@ const SEGMENTS = [
   // the stretched vowel fills the rest of the bar, releasing into the screw
   // v20h: "lately should start at 27.5" — verse 2 enters mid-bar, at 27.3, where her voice lets go;
   // the stretched vowel spills on under "lately I tried"
-  { name: "A intro+verse1", from: 0, to: { bar: 27, beat: 3 }, voiceTo: ME_STEADY_END, tail: { world: true, steady: 0.2, len: 1.1, curve: 0.9 } },   // the hold ends with "lately"
+  // v20i: "lately starts at 44.3" — two beats later than 27.3: bar 27 plays out, verse 2 follows on
+  // its downbeat, the stretched vowel holds across the bar's last two beats and dips under "lately"
+  { name: "A intro+verse1", from: 0, to: { bar: 28, beat: 1 }, voiceTo: ME_STEADY_END, tail: { world: true, steady: 0.2, len: 2.0, curve: 0.9 } },
   // v19: a breath before verse 2 kicks off — verse 1's last full bar of her guitar,
   // slowed a fifth (screwed, 7 st down — in key; 0.78 sat between keys and read "werd") and stuttered on 8ths and 16ths into the pickup;
   // charted as bar 26 so the beds hold verse 1's state and the kit keeps going
