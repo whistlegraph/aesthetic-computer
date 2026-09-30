@@ -1,4 +1,4 @@
-import {verifyAccount, requireHandle} from "./account-access.mjs";
+import {verifyAccount, requireHandle, offlineError} from "./account-access.mjs";
 // ac-session.mjs — the shared Aesthetic Computer sign-in.
 //
 // Every AC desktop app reads one file, ~/.ac-token, minted by `ac-login` with
@@ -152,15 +152,21 @@ export class ACSession extends EventEmitter {
       if (!record?.access_token) throw new Error("not signed in — run /login");
       if (!stale(record)) return record.access_token;
       if (!record.refresh_token) throw new Error("session expired — run /login");
-      const response = await this.fetch(`https://${this.authDomain}/oauth/token`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          grant_type: "refresh_token",
-          client_id: CLIENT_ID,
-          refresh_token: record.refresh_token,
-        }),
-      });
+      let response;
+      try {
+        response = await this.fetch(`https://${this.authDomain}/oauth/token`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            grant_type: "refresh_token",
+            client_id: CLIENT_ID,
+            refresh_token: record.refresh_token,
+          }),
+          signal: AbortSignal.timeout(8000),
+        });
+      } catch (error) {
+        throw offlineError(error);
+      }
       if (!response.ok) throw new Error(`session refresh failed (HTTP ${response.status}) — run /login`);
       const next = await response.json();
       record.access_token = next.access_token;

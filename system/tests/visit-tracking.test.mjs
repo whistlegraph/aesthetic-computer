@@ -31,6 +31,8 @@ test("only bounded signals pass and bot evidence cannot be cleared", () => {
   assert.equal(bot.automated, true);
   assert.equal(visitUpdate(bot).$max.automated, true);
   assert.equal(automatedVisit({}, "?offline-render"), true);
+  assert.equal(automatedVisit({ userAgent: "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; GoogleOther) Chrome/153.0.8010.52 Safari/537.36" }), true);
+  assert.equal(automatedVisit({ userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 (compatible; meta-webindexer/1.1)" }), true);
 });
 
 test("cumulative updates preserve milestones and expire after 35 days", () => {

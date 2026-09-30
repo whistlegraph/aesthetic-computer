@@ -47,8 +47,12 @@ enum AXTiler {
         /// column of its own rather than a grid cell. Only the first stage
         /// window is staged; any extra ones fall into the ordinary grid.
         let stage: [Window]
+        /// Wizard windows (SyllaWizard, JukeWizard, …): ordinary grid cells,
+        /// found by executable name because the wizards are bare SwiftPM
+        /// binaries with no bundle identifier.
+        let wizards: [Window]
 
-        var all: [Window] { iterm + terminal + acPanes + stage }
+        var all: [Window] { iterm + terminal + acPanes + wizards + stage }
         var signature: [CGWindowID] { all.map(\.id).sorted() }
     }
 
@@ -57,6 +61,32 @@ enum AXTiler {
     /// (`nv-min-window-size` in the bundle's GeForceNOW.json) is honored by
     /// measuring what the window accepted rather than assuming.
     static let stageBundleIDs = [GameMode.gfnBundleID]
+
+    /// The wizard roster (date-wizard/…/WizardRoster.swift plus the wizards
+    /// it omits), by executable name. `swift build` products carry no
+    /// CFBundleIdentifier, so `NSRunningApplication` is matched on the
+    /// binary's file name instead. Every wizard window tiles as an equal
+    /// grid cell, the same way GeForce NOW joins the grid.
+    static let wizardExecutables: [String] = [
+        "ChartWizard", "ClipWizard", "DateWizard", "GlyphWizard", "JukeWizard",
+        "NarratorWizard", "ShotWizard", "SyllaWizard", "WaveWizard",
+    ]
+
+    private static func wizardApps(_ exe: String) -> [NSRunningApplication] {
+        NSWorkspace.shared.runningApplications.filter {
+            $0.executableURL?.lastPathComponent == exe && !$0.isTerminated
+        }
+    }
+
+    private static func wizardWindowRefs(liveWindows: [LiveWindow],
+                                          requireGeometry: Bool = true) -> [Window] {
+        wizardExecutables.flatMap { exe in
+            let apps = wizardApps(exe)
+            guard !apps.isEmpty else { return [Window]() }
+            return windowRefs(bundleId: "wizard:\(exe)", liveWindows: liveWindows,
+                              requireGeometry: requireGeometry, apps: apps)
+        }
+    }
 
     /// Leave native full screen (own Space) so the window can be framed on
     /// this Space. Returns true when the attribute was set and cleared.
@@ -98,7 +128,8 @@ enum AXTiler {
                 + easelWindowRefs(liveWindows: liveWindows),
             stage: stageBundleIDs.flatMap {
                 windowRefs(bundleId: $0, liveWindows: liveWindows)
-            }
+            },
+            wizards: wizardWindowRefs(liveWindows: liveWindows)
         )
     }
 
@@ -116,6 +147,7 @@ enum AXTiler {
             + windowRefs(bundleId: "computer.aesthetic.app", requireStandardSubrole: false,
                          liveWindows: liveWindows, requireGeometry: false)
             + easelWindowRefs(liveWindows: liveWindows, requireGeometry: false)
+            + wizardWindowRefs(liveWindows: liveWindows, requireGeometry: false)
             + stageBundleIDs.flatMap {
                 windowRefs(bundleId: $0, liveWindows: liveWindows, requireGeometry: false)
             }
@@ -152,8 +184,11 @@ enum AXTiler {
                                    requireStandardSubrole: Bool = true,
                                    liveWindows: [LiveWindow],
                                    requireGeometry: Bool = true,
-                                   requireEaselIdentity: Bool = false) -> [Window] {
-        let apps = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId)
+                                   requireEaselIdentity: Bool = false,
+                                   apps explicitApps: [NSRunningApplication]? = nil) -> [Window] {
+        // `bundleId` is the census/cache key; a bundle-less app (a wizard)
+        // passes its processes explicitly under a synthetic key.
+        let apps = explicitApps ?? NSRunningApplication.runningApplications(withBundleIdentifier: bundleId)
         let liveIDs = Set(liveWindows.map(\.id))
         var out: [Window] = []
         var seen = Set<CGWindowID>()

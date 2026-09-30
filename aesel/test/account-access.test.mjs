@@ -49,3 +49,14 @@ test('account changes during verification cannot unlock a different session',asy
   await assert.rejects(checking,/changed/);
   assert.equal(JSON.parse(await readFile(session.file,'utf8')).access_token,'different');
 });
+test('offline boots on the cached handle; offline without one asks only to retry',async t=>{
+  const session=await fixture(t,async()=>{throw new TypeError('fetch failed');});
+  await assert.rejects(session.requireAccount(),e=>e.code==='offline');
+  let written='';
+  assert.equal(await requireAccountEntry(session,{output:{write(s){written+=s;}},question:async()=>assert.fail('asked')}),true);
+  assert.match(written,/offline · continuing as @cached/);
+  const prompts=[];
+  const stranger={handle:'',async requireAccount(){throw Object.assign(Error('offline'),{code:'offline'});}};
+  assert.equal(await requireAccountEntry(stranger,{output:{write(){}},question:async p=>{prompts.push(p);return '/quit';}}),false);
+  assert.deepEqual(prompts,['/retry · /quit\n> ']);
+});

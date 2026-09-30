@@ -1,0 +1,2228 @@
+{
+ "source": "measures.json + vox-notes.json + take.analysis.json",
+ "date": "2026-09-29",
+ "rhythm": {
+  "motif": {
+   "box": "x..xx..x",
+   "n": 8,
+   "k": 4,
+   "onsets": [
+    0,
+    3,
+    4,
+    7
+   ],
+   "ioi": [
+    3,
+    1,
+    3,
+    1
+   ],
+   "necklace": "00110011",
+   "bracelet": "00110011",
+   "euclidean": false,
+   "evenness": 0.9554096625192922,
+   "evennessIoi": 0.33333333333333337,
+   "ioiVariance": 1,
+   "vertexDistance": 2,
+   "balance": {
+    "magnitude": 1.1102230246251565e-16,
+    "normalized": 2.7755575615628914e-17,
+    "angle": 0,
+    "balanced": true
+   },
+   "rhythmicOddity": false,
+   "intervalVector": [
+    0,
+    2,
+    0,
+    2,
+    2
+   ],
+   "winogradDeep": false,
+   "erdosDeep": false,
+   "offbeatness": {
+    "count": 2,
+    "positions": [
+     3,
+     7
+    ],
+    "degenerate": false
+   },
+   "syncopation": {
+    "lhl": 0,
+    "cScore": 0,
+    "noteToBeat": 0.5,
+    "offbeatness": {
+     "count": 2,
+     "positions": [
+      3,
+      7
+     ],
+     "degenerate": false
+    }
+   },
+   "periodic": true,
+   "metricWeights": [
+    4,
+    1,
+    2,
+    1,
+    3,
+    1,
+    2,
+    1
+   ]
+  },
+  "kitPattern": {
+   "box": "x..xx..x",
+   "note": "render.mjs kit: kick 1 and &2, snare 3, rim &4 — the SAME necklace as her hand; the kit doubles her, it does not interlock"
+  },
+  "distances": {
+   "E(4,8) straight 8ths": {
+    "box": "x.x.x.x.",
+    "chronotonic": 1,
+    "rotation": 0,
+    "swap": 2
+   },
+   "tresillo E(3,8)": {
+    "box": "x..x..x.",
+    "chronotonic": 0.5,
+    "rotation": 0,
+    "swap": null
+   },
+   "cinquillo": {
+    "box": "x.xx.xx.",
+    "chronotonic": 1,
+    "rotation": 1,
+    "swap": null
+   },
+   "her complement (hocket partner)": {
+    "box": ".xx..xx.",
+    "chronotonic": 0,
+    "rotation": 2,
+    "swap": 0
+   }
+  },
+  "patternCounts": {
+   ".x.xxx..": 1,
+   "x.......": 1,
+   "........": 1,
+   "x.xxx.xx": 4,
+   "x..xx.xx": 9,
+   "x.x.x.xx": 1,
+   "...xx..x": 1,
+   "x..xx..x": 37,
+   "x..xx.x.": 4,
+   "x..xxxxx": 10,
+   "..x.x..x": 1,
+   "x..xx...": 2,
+   "xxxxx.x.": 1,
+   "xxx.xxxx": 1,
+   "x..xxx.x": 3,
+   "x.xxx...": 1,
+   "xxxxxxx.": 1,
+   "xx.xxxx.": 1,
+   "xxxxx..x": 1,
+   "xxxxxxxx": 1
+  },
+  "perBarDrift": [
+   {
+    "n": 1,
+    "strum": ".x.xxx..",
+    "chord": "G#m",
+    "chronotonic": 1.25,
+    "extraOnsets": 0
+   },
+   {
+    "n": 2,
+    "strum": "x.......",
+    "chord": "G#m",
+    "chronotonic": 5.5,
+    "extraOnsets": -3
+   },
+   {
+    "n": 3,
+    "strum": "........",
+    "chord": "G#m",
+    "chronotonic": 2.5,
+    "extraOnsets": -4
+   },
+   {
+    "n": 4,
+    "strum": "x.xxx.xx",
+    "chord": "B",
+    "chronotonic": 1,
+    "extraOnsets": 2
+   },
+   {
+    "n": 5,
+    "strum": "x.xxx.xx",
+    "chord": "B",
+    "chronotonic": 1,
+    "extraOnsets": 2
+   },
+   {
+    "n": 6,
+    "strum": "x..xx.xx",
+    "chord": "G#m",
+    "chronotonic": 0.5,
+    "extraOnsets": 1
+   },
+   {
+    "n": 7,
+    "strum": "x..xx.xx",
+    "chord": "G#m",
+    "chronotonic": 0.5,
+    "extraOnsets": 1
+   },
+   {
+    "n": 8,
+    "strum": "x..xx.xx",
+    "chord": "B",
+    "chronotonic": 0.5,
+    "extraOnsets": 1
+   },
+   {
+    "n": 9,
+    "strum": "x..xx.xx",
+    "chord": "B",
+    "chronotonic": 0.5,
+    "extraOnsets": 1
+   },
+   {
+    "n": 10,
+    "strum": "x.x.x.xx",
+    "chord": "G#m",
+    "chronotonic": 1,
+    "extraOnsets": 1
+   },
+   {
+    "n": 11,
+    "strum": "x.xxx.xx",
+    "chord": "B",
+    "chronotonic": 1,
+    "extraOnsets": 2
+   },
+   {
+    "n": 13,
+    "strum": "...xx..x",
+    "chord": "B",
+    "chronotonic": 0.75,
+    "extraOnsets": -1
+   },
+   {
+    "n": 14,
+    "strum": "x..xx..x",
+    "chord": "G#m",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 15,
+    "strum": "x..xx..x",
+    "chord": "G#m",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 16,
+    "strum": "x..xx..x",
+    "chord": "B",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 17,
+    "strum": "x..xx.x.",
+    "chord": "B",
+    "chronotonic": 0.5,
+    "extraOnsets": 0
+   },
+   {
+    "n": 18,
+    "strum": "x..xx..x",
+    "chord": "Emaj7",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 19,
+    "strum": "x..xxxxx",
+    "chord": "B",
+    "chronotonic": 0.75,
+    "extraOnsets": 2
+   },
+   {
+    "n": 20,
+    "strum": "x..xx..x",
+    "chord": "G#m",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 21,
+    "strum": "x..xx..x",
+    "chord": "G#m",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 22,
+    "strum": "x..xx..x",
+    "chord": "B",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 23,
+    "strum": "x..xx..x",
+    "chord": "B",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 24,
+    "strum": "x..xx..x",
+    "chord": "B",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 25,
+    "strum": "x..xx.x.",
+    "chord": "B",
+    "chronotonic": 0.5,
+    "extraOnsets": 0
+   },
+   {
+    "n": 26,
+    "strum": "x..xx..x",
+    "chord": "B",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 28,
+    "strum": "x..xx..x",
+    "chord": "Emaj7",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 29,
+    "strum": "..x.x..x",
+    "chord": "Emaj7",
+    "chronotonic": 0.5,
+    "extraOnsets": -1
+   },
+   {
+    "n": 30,
+    "strum": "x..xx..x",
+    "chord": "G#m",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 31,
+    "strum": "x..xxxxx",
+    "chord": "G#m",
+    "chronotonic": 0.75,
+    "extraOnsets": 2
+   },
+   {
+    "n": 32,
+    "strum": "x..xx..x",
+    "chord": "B",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 33,
+    "strum": "x..xx...",
+    "chord": "B",
+    "chronotonic": 0.75,
+    "extraOnsets": -1
+   },
+   {
+    "n": 34,
+    "strum": "x..xx..x",
+    "chord": "B",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 35,
+    "strum": "x..xx.xx",
+    "chord": "G#m",
+    "chronotonic": 0.5,
+    "extraOnsets": 1
+   },
+   {
+    "n": 36,
+    "strum": "x..xx..x",
+    "chord": "G#m",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 37,
+    "strum": "x..xxxxx",
+    "chord": "G#m",
+    "chronotonic": 0.75,
+    "extraOnsets": 2
+   },
+   {
+    "n": 38,
+    "strum": "x..xx..x",
+    "chord": "B",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 39,
+    "strum": "x..xx.xx",
+    "chord": "B",
+    "chronotonic": 0.5,
+    "extraOnsets": 1
+   },
+   {
+    "n": 40,
+    "strum": "x..xx..x",
+    "chord": "B",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 41,
+    "strum": "x..xx..x",
+    "chord": "Emaj7",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 42,
+    "strum": "xxxxx.x.",
+    "chord": "B",
+    "chronotonic": 1.25,
+    "extraOnsets": 2
+   },
+   {
+    "n": 43,
+    "strum": "xxx.xxxx",
+    "chord": "G#m",
+    "chronotonic": 1.5,
+    "extraOnsets": 3
+   },
+   {
+    "n": 44,
+    "strum": "x..xx..x",
+    "chord": "G#m",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 45,
+    "strum": "x..xx..x",
+    "chord": "G#m",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 46,
+    "strum": "x..xx..x",
+    "chord": "B",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 47,
+    "strum": "x..xx..x",
+    "chord": "B",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 48,
+    "strum": "x..xx..x",
+    "chord": "G#m",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 49,
+    "strum": "x..xx.x.",
+    "chord": "Emaj7",
+    "chronotonic": 0.5,
+    "extraOnsets": 0
+   },
+   {
+    "n": 50,
+    "strum": "x..xx..x",
+    "chord": "G#m",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 51,
+    "strum": "x..xx.xx",
+    "chord": "G#m",
+    "chronotonic": 0.5,
+    "extraOnsets": 1
+   },
+   {
+    "n": 52,
+    "strum": "x..xx..x",
+    "chord": "B",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 53,
+    "strum": "x..xxx.x",
+    "chord": "B",
+    "chronotonic": 0.5,
+    "extraOnsets": 1
+   },
+   {
+    "n": 54,
+    "strum": "x..xx...",
+    "chord": "B",
+    "chronotonic": 0.75,
+    "extraOnsets": -1
+   },
+   {
+    "n": 55,
+    "strum": "x..xxxxx",
+    "chord": "G#m",
+    "chronotonic": 0.75,
+    "extraOnsets": 2
+   },
+   {
+    "n": 56,
+    "strum": "x..xx..x",
+    "chord": "G#m",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 57,
+    "strum": "x..xxxxx",
+    "chord": "G#m",
+    "chronotonic": 0.75,
+    "extraOnsets": 2
+   },
+   {
+    "n": 58,
+    "strum": "x..xx..x",
+    "chord": "B",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 59,
+    "strum": "x..xxxxx",
+    "chord": "B",
+    "chronotonic": 0.75,
+    "extraOnsets": 2
+   },
+   {
+    "n": 60,
+    "strum": "x..xx..x",
+    "chord": "B",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 61,
+    "strum": "x..xxxxx",
+    "chord": "B",
+    "chronotonic": 0.75,
+    "extraOnsets": 2
+   },
+   {
+    "n": 62,
+    "strum": "x..xx..x",
+    "chord": "G#m",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 63,
+    "strum": "x..xx.xx",
+    "chord": "G#m",
+    "chronotonic": 0.5,
+    "extraOnsets": 1
+   },
+   {
+    "n": 64,
+    "strum": "x..xx..x",
+    "chord": "B",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 65,
+    "strum": "x.xxx...",
+    "chord": "B",
+    "chronotonic": 1.25,
+    "extraOnsets": 0
+   },
+   {
+    "n": 66,
+    "strum": "x..xxxxx",
+    "chord": "B",
+    "chronotonic": 0.75,
+    "extraOnsets": 2
+   },
+   {
+    "n": 67,
+    "strum": "x..xxx.x",
+    "chord": "G#m",
+    "chronotonic": 0.5,
+    "extraOnsets": 1
+   },
+   {
+    "n": 68,
+    "strum": "xxxxxxx.",
+    "chord": "G#m",
+    "chronotonic": 1.5,
+    "extraOnsets": 3
+   },
+   {
+    "n": 69,
+    "strum": "x..xx..x",
+    "chord": "G#m",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 70,
+    "strum": "x..xxxxx",
+    "chord": "G#m",
+    "chronotonic": 0.75,
+    "extraOnsets": 2
+   },
+   {
+    "n": 71,
+    "strum": "x..xx..x",
+    "chord": "B",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 72,
+    "strum": "x.xxx.xx",
+    "chord": "B",
+    "chronotonic": 1,
+    "extraOnsets": 2
+   },
+   {
+    "n": 73,
+    "strum": "x..xx..x",
+    "chord": "Emaj7",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 74,
+    "strum": "x..xx.x.",
+    "chord": "B",
+    "chronotonic": 0.5,
+    "extraOnsets": 0
+   },
+   {
+    "n": 75,
+    "strum": "x..xx..x",
+    "chord": "G#m",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 76,
+    "strum": "xx.xxxx.",
+    "chord": "G#m",
+    "chronotonic": 1.25,
+    "extraOnsets": 2
+   },
+   {
+    "n": 77,
+    "strum": "x..xxx.x",
+    "chord": "B",
+    "chronotonic": 0.5,
+    "extraOnsets": 1
+   },
+   {
+    "n": 78,
+    "strum": "xxxxx..x",
+    "chord": "B",
+    "chronotonic": 0.75,
+    "extraOnsets": 2
+   },
+   {
+    "n": 79,
+    "strum": "x..xx.xx",
+    "chord": "B",
+    "chronotonic": 0.5,
+    "extraOnsets": 1
+   },
+   {
+    "n": 80,
+    "strum": "x..xx..x",
+    "chord": "Emaj7",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 81,
+    "strum": "xxxxxxxx",
+    "chord": "G#m",
+    "chronotonic": 1.5,
+    "extraOnsets": 4
+   },
+   {
+    "n": 82,
+    "strum": "x..xx..x",
+    "chord": "G#m",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   },
+   {
+    "n": 83,
+    "strum": "x..xxxxx",
+    "chord": "G#m",
+    "chronotonic": 0.75,
+    "extraOnsets": 2
+   },
+   {
+    "n": 84,
+    "strum": "x..xx..x",
+    "chord": "B",
+    "chronotonic": 0,
+    "extraOnsets": 0
+   }
+  ],
+  "driftBySection": {
+   "intro": {
+    "bars": 10,
+    "meanChronotonic": 1.425,
+    "meanExtraOnsets": 0.2,
+    "verbatim": 0
+   },
+   "verse1": {
+    "bars": 15,
+    "meanChronotonic": 0.233,
+    "meanExtraOnsets": 0.2,
+    "verbatim": 10
+   },
+   "chorus1": {
+    "bars": 16,
+    "meanChronotonic": 0.406,
+    "meanExtraOnsets": 0.563,
+    "verbatim": 8
+   },
+   "verse2": {
+    "bars": 8,
+    "meanChronotonic": 0.125,
+    "meanExtraOnsets": 0.125,
+    "verbatim": 6
+   },
+   "chorus2": {
+    "bars": 16,
+    "meanChronotonic": 0.453,
+    "meanExtraOnsets": 0.75,
+    "verbatim": 6
+   },
+   "break": {
+    "bars": 4,
+    "meanChronotonic": 0.563,
+    "meanExtraOnsets": 1.25,
+    "verbatim": 2
+   },
+   "bridge": {
+    "bars": 9,
+    "meanChronotonic": 0.5,
+    "meanExtraOnsets": 0.889,
+    "verbatim": 3
+   },
+   "outro": {
+    "bars": 4,
+    "meanChronotonic": 0.563,
+    "meanExtraOnsets": 1.5,
+    "verbatim": 2
+   }
+  },
+  "morphToStraight": [
+   "x..xx..x",
+   "x.x.x..x",
+   "x.x.x.x."
+  ]
+ },
+ "beatBins": {
+  "offbeatStrums": 149,
+  "offbeatPhaseMedian": 0.511,
+  "offbeatPhaseP10": 0.436,
+  "offbeatPhaseP90": 0.578,
+  "swingRatio": 1.045,
+  "offbeatLateMsAt120": 5.5,
+  "voiceVsGrid": {
+   "all": {
+    "signedMedianMs": 16,
+    "absMedianMs": 41
+   },
+   "bySection": {
+    "verse1": {
+     "notes": 65,
+     "signedMedianMs": 38,
+     "absMedianMs": 49,
+     "lateShare": 0.646
+    },
+    "chorus1": {
+     "notes": 70,
+     "signedMedianMs": 16,
+     "absMedianMs": 36,
+     "lateShare": 0.514
+    },
+    "verse2": {
+     "notes": 38,
+     "signedMedianMs": 13,
+     "absMedianMs": 30,
+     "lateShare": 0.421
+    },
+    "chorus2": {
+     "notes": 76,
+     "signedMedianMs": 5,
+     "absMedianMs": 52,
+     "lateShare": 0.408
+    },
+    "bridge": {
+     "notes": 29,
+     "signedMedianMs": 9,
+     "absMedianMs": 35,
+     "lateShare": 0.483
+    }
+   },
+   "longNotesSignedMs": 7,
+   "shortNotesSignedMs": 29,
+   "afterLockVox": "lock-vox.mjs pulls these onto the grid: abs median 41 → 8 ms (its own readout)"
+  },
+  "note": "digest 07 (Danielsen): a beat is a bin, not a point. Her & sits late of the mathematical 8th; that offset is the groove and must live in a separate microtiming layer, never folded into onsets"
+ },
+ "entrainment": {
+  "medianBpm": 120.9,
+  "periodsMs": {
+   "eighth": 248.1,
+   "quarter": 496.3,
+   "half": 992.6,
+   "bar": 1985.1,
+   "chordCycle2bars": 3970.2
+  },
+  "window": {
+   "floorMs": 100,
+   "ceilingMs": 2000,
+   "sweetSpotMs": [
+    500,
+    700
+   ]
+  },
+  "felt": {
+   "quarterInSweetSpot": false,
+   "quarterMsFromSweetSpot": -3.7,
+   "halfInWindow": true,
+   "barAtCeiling": true,
+   "chordCycleFelt": false
+  },
+  "bpmBySection": {
+   "intro": {
+    "median": 125,
+    "min": 120.9,
+    "max": 127.6,
+    "start": 5,
+    "end": 24.3
+   },
+   "verse1": {
+    "median": 113.6,
+    "min": 109.4,
+    "max": 123.8,
+    "start": 24.3,
+    "end": 61.2
+   },
+   "chorus1": {
+    "median": 119.5,
+    "min": 113.8,
+    "max": 121.6,
+    "start": 61.2,
+    "end": 93.3
+   },
+   "verse2": {
+    "median": 114.8,
+    "min": 113,
+    "max": 117.5,
+    "start": 93.3,
+    "end": 110.1
+   },
+   "chorus2": {
+    "median": 123,
+    "min": 116.8,
+    "max": 125.3,
+    "start": 110.1,
+    "end": 141.5
+   },
+   "break": {
+    "median": 123,
+    "min": 120.9,
+    "max": 123.8,
+    "start": 141.5,
+    "end": 149.4
+   },
+   "bridge": {
+    "median": 121.6,
+    "min": 120.9,
+    "max": 125.3,
+    "start": 149.4,
+    "end": 167
+   },
+   "outro": {
+    "median": 130,
+    "min": 123.8,
+    "max": 130.8,
+    "start": 167,
+    "end": 174.5
+   }
+  },
+  "tempoArch": {
+   "verse1Sag": -7.3,
+   "chorus1Lift": -1.4,
+   "bridge": 0.7
+  }
+ },
+ "harmony": {
+  "key": {
+   "key": "G# minor",
+   "r": 0.814
+  },
+  "tuningCents": 13,
+  "vocabulary": {
+   "G#m": "vi (the Cmaj7 shape through the open low string: Emaj7/G#)",
+   "B": "I",
+   "Emaj7": "IV"
+  },
+  "barCounts": {
+   "G#m": 35,
+   "B": 42,
+   "Emaj7": 7
+  },
+  "runs": [
+   {
+    "chord": "G#m",
+    "from": 1,
+    "to": 3,
+    "bars": 3
+   },
+   {
+    "chord": "B",
+    "from": 4,
+    "to": 5,
+    "bars": 2
+   },
+   {
+    "chord": "G#m",
+    "from": 6,
+    "to": 7,
+    "bars": 2
+   },
+   {
+    "chord": "B",
+    "from": 8,
+    "to": 9,
+    "bars": 2
+   },
+   {
+    "chord": "G#m",
+    "from": 10,
+    "to": 10,
+    "bars": 1
+   },
+   {
+    "chord": "B",
+    "from": 11,
+    "to": 13,
+    "bars": 3
+   },
+   {
+    "chord": "G#m",
+    "from": 14,
+    "to": 15,
+    "bars": 2
+   },
+   {
+    "chord": "B",
+    "from": 16,
+    "to": 17,
+    "bars": 2
+   },
+   {
+    "chord": "Emaj7",
+    "from": 18,
+    "to": 18,
+    "bars": 1
+   },
+   {
+    "chord": "B",
+    "from": 19,
+    "to": 19,
+    "bars": 1
+   },
+   {
+    "chord": "G#m",
+    "from": 20,
+    "to": 21,
+    "bars": 2
+   },
+   {
+    "chord": "B",
+    "from": 22,
+    "to": 27,
+    "bars": 6
+   },
+   {
+    "chord": "Emaj7",
+    "from": 28,
+    "to": 29,
+    "bars": 2
+   },
+   {
+    "chord": "G#m",
+    "from": 30,
+    "to": 31,
+    "bars": 2
+   },
+   {
+    "chord": "B",
+    "from": 32,
+    "to": 34,
+    "bars": 3
+   },
+   {
+    "chord": "G#m",
+    "from": 35,
+    "to": 37,
+    "bars": 3
+   },
+   {
+    "chord": "B",
+    "from": 38,
+    "to": 40,
+    "bars": 3
+   },
+   {
+    "chord": "Emaj7",
+    "from": 41,
+    "to": 41,
+    "bars": 1
+   },
+   {
+    "chord": "B",
+    "from": 42,
+    "to": 42,
+    "bars": 1
+   },
+   {
+    "chord": "G#m",
+    "from": 43,
+    "to": 45,
+    "bars": 3
+   },
+   {
+    "chord": "B",
+    "from": 46,
+    "to": 47,
+    "bars": 2
+   },
+   {
+    "chord": "G#m",
+    "from": 48,
+    "to": 48,
+    "bars": 1
+   },
+   {
+    "chord": "Emaj7",
+    "from": 49,
+    "to": 49,
+    "bars": 1
+   },
+   {
+    "chord": "G#m",
+    "from": 50,
+    "to": 51,
+    "bars": 2
+   },
+   {
+    "chord": "B",
+    "from": 52,
+    "to": 54,
+    "bars": 3
+   },
+   {
+    "chord": "G#m",
+    "from": 55,
+    "to": 57,
+    "bars": 3
+   },
+   {
+    "chord": "B",
+    "from": 58,
+    "to": 61,
+    "bars": 4
+   },
+   {
+    "chord": "G#m",
+    "from": 62,
+    "to": 63,
+    "bars": 2
+   },
+   {
+    "chord": "B",
+    "from": 64,
+    "to": 66,
+    "bars": 3
+   },
+   {
+    "chord": "G#m",
+    "from": 67,
+    "to": 70,
+    "bars": 4
+   },
+   {
+    "chord": "B",
+    "from": 71,
+    "to": 72,
+    "bars": 2
+   },
+   {
+    "chord": "Emaj7",
+    "from": 73,
+    "to": 73,
+    "bars": 1
+   },
+   {
+    "chord": "B",
+    "from": 74,
+    "to": 74,
+    "bars": 1
+   },
+   {
+    "chord": "G#m",
+    "from": 75,
+    "to": 76,
+    "bars": 2
+   },
+   {
+    "chord": "B",
+    "from": 77,
+    "to": 79,
+    "bars": 3
+   },
+   {
+    "chord": "Emaj7",
+    "from": 80,
+    "to": 80,
+    "bars": 1
+   },
+   {
+    "chord": "G#m",
+    "from": 81,
+    "to": 83,
+    "bars": 3
+   },
+   {
+    "chord": "B",
+    "from": 84,
+    "to": 84,
+    "bars": 1
+   }
+  ],
+  "runLengths": {
+   "G#m": {
+    "runs": 15,
+    "median": 2,
+    "max": 4
+   },
+   "B": {
+    "runs": 17,
+    "median": 2,
+    "max": 6
+   },
+   "Emaj7": {
+    "runs": 6,
+    "median": 1,
+    "max": 2
+   }
+  },
+  "harmonicRhythmBeats": 8.8,
+  "ivBars": [
+   "18:verse1",
+   "28:chorus1",
+   "29:chorus1",
+   "41:chorus1",
+   "49:verse2",
+   "73:bridge",
+   "80:bridge"
+  ]
+ },
+ "melody": {
+  "notes": 279,
+  "tonic": "G#3 = midi 56 (guitar frame)",
+  "range": {
+   "lo": 52,
+   "hi": 68
+  },
+  "degreeShareByDuration": {
+   "1": 0.073,
+   "2": 0.025,
+   "4": 0.075,
+   "5": 0.34,
+   "b3": 0.219,
+   "b6": 0.138,
+   "b7": 0.13
+  },
+  "motion": {
+   "steps": 157,
+   "leaps": 110,
+   "repeats": 8,
+   "stepShare": 0.571,
+   "intervalHist": {
+    "0": 8,
+    "1": 17,
+    "2": 49,
+    "3": 10,
+    "4": 6,
+    "5": 19,
+    "6": 1,
+    "7": 10,
+    "8": 4,
+    "9": 4,
+    "-8": 5,
+    "-2": 60,
+    "-4": 25,
+    "-5": 9,
+    "-10": 1,
+    "-1": 31,
+    "-3": 13,
+    "-7": 2,
+    "-9": 1
+   }
+  },
+  "phrases": [
+   {
+    "start": 26.3,
+    "bar": 11,
+    "section": "verse1",
+    "beatIn": 4,
+    "offsetMs": 368,
+    "beats": 17.1,
+    "notes": 15,
+    "lo": 56,
+    "hi": 68,
+    "first": 64,
+    "last": 66,
+    "degreeLast": "b7",
+    "contour": "rise"
+   },
+   {
+    "start": 35.1,
+    "bar": 16,
+    "section": "verse1",
+    "beatIn": 1,
+    "offsetMs": 43,
+    "beats": 3.6,
+    "notes": 4,
+    "lo": 58,
+    "hi": 63,
+    "first": 58,
+    "last": 63,
+    "degreeLast": "5",
+    "contour": "rise"
+   },
+   {
+    "start": 37.3,
+    "bar": 17,
+    "section": "verse1",
+    "beatIn": 1,
+    "offsetMs": 22,
+    "beats": 7.4,
+    "notes": 8,
+    "lo": 59,
+    "hi": 68,
+    "first": 59,
+    "last": 63,
+    "degreeLast": "5",
+    "contour": "rise"
+   },
+   {
+    "start": 41.3,
+    "bar": 18,
+    "section": "verse1",
+    "beatIn": 4,
+    "offsetMs": 295,
+    "beats": 6,
+    "notes": 6,
+    "lo": 56,
+    "hi": 68,
+    "first": 68,
+    "last": 56,
+    "degreeLast": "1",
+    "contour": "fall"
+   },
+   {
+    "start": 45.6,
+    "bar": 20,
+    "section": "verse1",
+    "beatIn": 4,
+    "offsetMs": 294,
+    "beats": 4.1,
+    "notes": 4,
+    "lo": 59,
+    "hi": 63,
+    "first": 61,
+    "last": 63,
+    "degreeLast": "5",
+    "contour": "rise"
+   },
+   {
+    "start": 48,
+    "bar": 22,
+    "section": "verse1",
+    "beatIn": 1,
+    "offsetMs": 21,
+    "beats": 3.6,
+    "notes": 3,
+    "lo": 59,
+    "hi": 63,
+    "first": 59,
+    "last": 63,
+    "degreeLast": "5",
+    "contour": "rise"
+   },
+   {
+    "start": 50.1,
+    "bar": 23,
+    "section": "verse1",
+    "beatIn": 1,
+    "offsetMs": 28,
+    "beats": 16,
+    "notes": 12,
+    "lo": 56,
+    "hi": 68,
+    "first": 59,
+    "last": 63,
+    "degreeLast": "5",
+    "contour": "rise"
+   },
+   {
+    "start": 58.4,
+    "bar": 26,
+    "section": "verse1",
+    "beatIn": 4,
+    "offsetMs": 315,
+    "beats": 4,
+    "notes": 6,
+    "lo": 59,
+    "hi": 68,
+    "first": 68,
+    "last": 59,
+    "degreeLast": "b3",
+    "contour": "fall"
+   },
+   {
+    "start": 61.2,
+    "bar": 28,
+    "section": "chorus1",
+    "beatIn": 1,
+    "offsetMs": 57,
+    "beats": 2.7,
+    "notes": 2,
+    "lo": 64,
+    "hi": 66,
+    "first": 66,
+    "last": 64,
+    "degreeLast": "b6",
+    "contour": "fall"
+   },
+   {
+    "start": 63,
+    "bar": 28,
+    "section": "chorus1",
+    "beatIn": 4,
+    "offsetMs": 193,
+    "beats": 7.6,
+    "notes": 11,
+    "lo": 56,
+    "hi": 66,
+    "first": 63,
+    "last": 63,
+    "degreeLast": "5",
+    "contour": "level"
+   },
+   {
+    "start": 67.1,
+    "bar": 30,
+    "section": "chorus1",
+    "beatIn": 4,
+    "offsetMs": 344,
+    "beats": 11.3,
+    "notes": 14,
+    "lo": 58,
+    "hi": 66,
+    "first": 66,
+    "last": 59,
+    "degreeLast": "b3",
+    "contour": "fall"
+   },
+   {
+    "start": 73.1,
+    "bar": 33,
+    "section": "chorus1",
+    "beatIn": 4,
+    "offsetMs": 278,
+    "beats": 23.6,
+    "notes": 27,
+    "lo": 59,
+    "hi": 66,
+    "first": 59,
+    "last": 63,
+    "degreeLast": "5",
+    "contour": "rise"
+   },
+   {
+    "start": 85.2,
+    "bar": 39,
+    "section": "chorus1",
+    "beatIn": 4,
+    "offsetMs": 293,
+    "beats": 15.3,
+    "notes": 11,
+    "lo": 61,
+    "hi": 68,
+    "first": 61,
+    "last": 63,
+    "degreeLast": "5",
+    "contour": "rise"
+   },
+   {
+    "start": 93.1,
+    "bar": 43,
+    "section": "chorus1",
+    "beatIn": 4,
+    "offsetMs": 257,
+    "beats": 16.7,
+    "notes": 17,
+    "lo": 56,
+    "hi": 68,
+    "first": 56,
+    "last": 64,
+    "degreeLast": "b6",
+    "contour": "rise"
+   },
+   {
+    "start": 101.8,
+    "bar": 47,
+    "section": "verse2",
+    "beatIn": 4,
+    "offsetMs": 509,
+    "beats": 4,
+    "notes": 5,
+    "lo": 56,
+    "hi": 61,
+    "first": 56,
+    "last": 61,
+    "degreeLast": "4",
+    "contour": "rise"
+   },
+   {
+    "start": 104.7,
+    "bar": 49,
+    "section": "verse2",
+    "beatIn": 3,
+    "offsetMs": -208,
+    "beats": 10,
+    "notes": 12,
+    "lo": 61,
+    "hi": 68,
+    "first": 61,
+    "last": 61,
+    "degreeLast": "4",
+    "contour": "level"
+   },
+   {
+    "start": 110.1,
+    "bar": 52,
+    "section": "chorus2",
+    "beatIn": 1,
+    "offsetMs": 67,
+    "beats": 2.6,
+    "notes": 3,
+    "lo": 63,
+    "hi": 66,
+    "first": 66,
+    "last": 63,
+    "degreeLast": "5",
+    "contour": "fall"
+   },
+   {
+    "start": 111.8,
+    "bar": 52,
+    "section": "chorus2",
+    "beatIn": 4,
+    "offsetMs": 202,
+    "beats": 3.4,
+    "notes": 6,
+    "lo": 59,
+    "hi": 66,
+    "first": 63,
+    "last": 59,
+    "degreeLast": "b3",
+    "contour": "fall"
+   },
+   {
+    "start": 113.8,
+    "bar": 53,
+    "section": "chorus2",
+    "beatIn": 4,
+    "offsetMs": 296,
+    "beats": 1.8,
+    "notes": 3,
+    "lo": 59,
+    "hi": 66,
+    "first": 59,
+    "last": 66,
+    "degreeLast": "b7",
+    "contour": "rise"
+   },
+   {
+    "start": 115.1,
+    "bar": 54,
+    "section": "chorus2",
+    "beatIn": 3,
+    "offsetMs": 63,
+    "beats": 0.7,
+    "notes": 1,
+    "lo": 63,
+    "hi": 63,
+    "first": 63,
+    "last": 63,
+    "degreeLast": "5",
+    "contour": "one"
+   },
+   {
+    "start": 115.8,
+    "bar": 54,
+    "section": "chorus2",
+    "beatIn": 4,
+    "offsetMs": 330,
+    "beats": 14.8,
+    "notes": 18,
+    "lo": 58,
+    "hi": 66,
+    "first": 66,
+    "last": 63,
+    "degreeLast": "5",
+    "contour": "fall"
+   },
+   {
+    "start": 123.6,
+    "bar": 58,
+    "section": "chorus2",
+    "beatIn": 4,
+    "offsetMs": 299,
+    "beats": 1.5,
+    "notes": 2,
+    "lo": 64,
+    "hi": 66,
+    "first": 66,
+    "last": 64,
+    "degreeLast": "b6",
+    "contour": "fall"
+   },
+   {
+    "start": 124.7,
+    "bar": 59,
+    "section": "chorus2",
+    "beatIn": 3,
+    "offsetMs": -54,
+    "beats": 16.6,
+    "notes": 24,
+    "lo": 52,
+    "hi": 68,
+    "first": 63,
+    "last": 63,
+    "degreeLast": "5",
+    "contour": "level"
+   },
+   {
+    "start": 133.4,
+    "bar": 63,
+    "section": "chorus2",
+    "beatIn": 4,
+    "offsetMs": 265,
+    "beats": 14.4,
+    "notes": 10,
+    "lo": 59,
+    "hi": 66,
+    "first": 59,
+    "last": 63,
+    "degreeLast": "5",
+    "contour": "rise"
+   },
+   {
+    "start": 151.1,
+    "bar": 72,
+    "section": "bridge",
+    "beatIn": 4,
+    "offsetMs": 268,
+    "beats": 3.2,
+    "notes": 4,
+    "lo": 58,
+    "hi": 66,
+    "first": 58,
+    "last": 63,
+    "degreeLast": "5",
+    "contour": "rise"
+   },
+   {
+    "start": 153.1,
+    "bar": 73,
+    "section": "bridge",
+    "beatIn": 4,
+    "offsetMs": 286,
+    "beats": 3.4,
+    "notes": 3,
+    "lo": 63,
+    "hi": 66,
+    "first": 66,
+    "last": 63,
+    "degreeLast": "5",
+    "contour": "fall"
+   },
+   {
+    "start": 155.3,
+    "bar": 75,
+    "section": "bridge",
+    "beatIn": 1,
+    "offsetMs": 35,
+    "beats": 6.6,
+    "notes": 9,
+    "lo": 59,
+    "hi": 64,
+    "first": 63,
+    "last": 63,
+    "degreeLast": "5",
+    "contour": "level"
+   },
+   {
+    "start": 159.2,
+    "bar": 77,
+    "section": "bridge",
+    "beatIn": 1,
+    "offsetMs": 20,
+    "beats": 2.6,
+    "notes": 4,
+    "lo": 63,
+    "hi": 66,
+    "first": 64,
+    "last": 63,
+    "degreeLast": "5",
+    "contour": "fall"
+   },
+   {
+    "start": 160.9,
+    "bar": 77,
+    "section": "bridge",
+    "beatIn": 4,
+    "offsetMs": 321,
+    "beats": 12.1,
+    "notes": 5,
+    "lo": 59,
+    "hi": 66,
+    "first": 66,
+    "last": 59,
+    "degreeLast": "b3",
+    "contour": "fall"
+   }
+  ],
+  "phraseBeats": {
+   "median": 6,
+   "p90": 16.7
+  },
+  "cadenceDegrees": {
+   "1": 1,
+   "4": 2,
+   "5": 17,
+   "b7": 2,
+   "b3": 4,
+   "b6": 3
+  },
+  "registerBySection": {
+   "intro": {
+    "notes": 1,
+    "medianMidi": 68,
+    "lo": 68,
+    "hi": 68,
+    "meanDurMs": 235
+   },
+   "verse1": {
+    "notes": 65,
+    "medianMidi": 61,
+    "lo": 56,
+    "hi": 68,
+    "meanDurMs": 513.5
+   },
+   "chorus1": {
+    "notes": 70,
+    "medianMidi": 63,
+    "lo": 52,
+    "hi": 68,
+    "meanDurMs": 445.5
+   },
+   "verse2": {
+    "notes": 38,
+    "medianMidi": 61,
+    "lo": 56,
+    "hi": 68,
+    "meanDurMs": 424.9
+   },
+   "chorus2": {
+    "notes": 76,
+    "medianMidi": 63,
+    "lo": 52,
+    "hi": 68,
+    "meanDurMs": 382.8
+   },
+   "break": null,
+   "bridge": {
+    "notes": 29,
+    "medianMidi": 63,
+    "lo": 58,
+    "hi": 66,
+    "meanDurMs": 519.5
+   },
+   "outro": null
+  },
+  "topDegree4grams": [
+   [
+    "b7 b6 5 b3",
+    12
+   ],
+   [
+    "5 1 b7 1",
+    6
+   ],
+   [
+    "1 b7 1 5",
+    5
+   ],
+   [
+    "b6 b7 b6 5",
+    5
+   ],
+   [
+    "5 b6 5 b3",
+    5
+   ],
+   [
+    "b3 4 b7 b6",
+    4
+   ]
+  ],
+  "phrasesBySection": {
+   "verse1": 8,
+   "chorus1": 6,
+   "verse2": 2,
+   "chorus2": 8,
+   "bridge": 5
+  },
+  "chordToneShare": 0.687,
+  "nonChordToneByChord": {
+   "B": 20.9,
+   "G#m": 15.2,
+   "Emaj7": 3.1
+  },
+  "harmonyStemChordToneShare": {
+   "shift+2": 0.546,
+   "shift-2": 0.604,
+   "shift+4": 0.348,
+   "shift-5": 0.546,
+   "shift-7": 0.687
+  }
+ },
+ "form": {
+  "durationS": 179.14,
+  "bars": 84,
+  "sections": [
+   {
+    "section": "intro",
+    "bars": 10,
+    "from": 1,
+    "to": 10,
+    "start": 5,
+    "end": 24.3,
+    "frac": 0.028
+   },
+   {
+    "section": "verse1",
+    "bars": 17,
+    "from": 11,
+    "to": 27,
+    "start": 24.3,
+    "end": 61.2,
+    "frac": 0.136
+   },
+   {
+    "section": "chorus1",
+    "bars": 16,
+    "from": 28,
+    "to": 43,
+    "start": 61.2,
+    "end": 93.3,
+    "frac": 0.341
+   },
+   {
+    "section": "verse2",
+    "bars": 8,
+    "from": 44,
+    "to": 51,
+    "start": 93.3,
+    "end": 110.1,
+    "frac": 0.521
+   },
+   {
+    "section": "chorus2",
+    "bars": 16,
+    "from": 52,
+    "to": 67,
+    "start": 110.1,
+    "end": 141.5,
+    "frac": 0.614
+   },
+   {
+    "section": "break",
+    "bars": 4,
+    "from": 68,
+    "to": 71,
+    "start": 141.5,
+    "end": 149.4,
+    "frac": 0.79
+   },
+   {
+    "section": "bridge",
+    "bars": 9,
+    "from": 72,
+    "to": 80,
+    "start": 149.4,
+    "end": 167,
+    "frac": 0.834
+   },
+   {
+    "section": "outro",
+    "bars": 4,
+    "from": 81,
+    "to": 84,
+    "start": 167,
+    "end": 174.5,
+    "frac": 0.932
+   }
+  ],
+  "phraseLengthCheck": [
+   {
+    "section": "intro",
+    "bars": 10,
+    "inR1Set": false
+   },
+   {
+    "section": "verse1",
+    "bars": 17,
+    "inR1Set": false
+   },
+   {
+    "section": "chorus1",
+    "bars": 16,
+    "inR1Set": true
+   },
+   {
+    "section": "verse2",
+    "bars": 8,
+    "inR1Set": true
+   },
+   {
+    "section": "chorus2",
+    "bars": 16,
+    "inR1Set": true
+   },
+   {
+    "section": "break",
+    "bars": 4,
+    "inR1Set": false
+   },
+   {
+    "section": "bridge",
+    "bars": 9,
+    "inR1Set": false
+   },
+   {
+    "section": "outro",
+    "bars": 4,
+    "inR1Set": false
+   }
+  ],
+  "rules": {
+   "R5climaxAt": {
+    "frac": 0.71,
+    "t": 127.2,
+    "bar": 60,
+    "section": "chorus2"
+   },
+   "R6stillnessAt": {
+    "frac": 0.36,
+    "t": 64.5,
+    "bar": 29,
+    "section": "chorus1"
+   },
+   "popBuildLayerEntries": [
+    {
+     "frac": 0.1,
+     "bar": 9,
+     "section": "intro"
+    },
+    {
+     "frac": 0.28,
+     "bar": 24,
+     "section": "verse1"
+    },
+    {
+     "frac": 0.4,
+     "bar": 34,
+     "section": "chorus1"
+    },
+    {
+     "frac": 0.62,
+     "bar": 52,
+     "section": "chorus2"
+    },
+    {
+     "frac": 0.78,
+     "bar": 66,
+     "section": "chorus2"
+    }
+   ]
+  },
+  "measured": {
+   "voxDbBySection": {
+    "intro": -76.5,
+    "verse1": -24.1,
+    "chorus1": -22.1,
+    "verse2": -21,
+    "chorus2": -24,
+    "break": -76.6,
+    "bridge": -22.8,
+    "outro": -73.8
+   },
+   "gtrDbBySection": {
+    "intro": -21.5,
+    "verse1": -20.2,
+    "chorus1": -19.9,
+    "verse2": -20.7,
+    "chorus2": -20,
+    "break": -17.3,
+    "bridge": -19.6,
+    "outro": -17.3
+   },
+   "loudestVoxBars": [
+    {
+     "bar": 15,
+     "section": "verse1",
+     "t": 33,
+     "dB": -16.5
+    },
+    {
+     "bar": 22,
+     "section": "verse1",
+     "t": 47.9,
+     "dB": -16.5
+    },
+    {
+     "bar": 18,
+     "section": "verse1",
+     "t": 39.4,
+     "dB": -16.9
+    },
+    {
+     "bar": 47,
+     "section": "verse2",
+     "t": 99.7,
+     "dB": -16.9
+    },
+    {
+     "bar": 19,
+     "section": "verse1",
+     "t": 41.6,
+     "dB": -17.6
+    },
+    {
+     "bar": 50,
+     "section": "verse2",
+     "t": 106,
+     "dB": -17.8
+    },
+    {
+     "bar": 80,
+     "section": "bridge",
+     "t": 165,
+     "dB": -18.3
+    },
+    {
+     "bar": 45,
+     "section": "verse2",
+     "t": 95.5,
+     "dB": -19
+    }
+   ],
+   "herClimax": {
+    "bar": 15,
+    "t": 33,
+    "frac": 0.184,
+    "section": "verse1",
+    "plateauBars": [
+     18,
+     19
+    ]
+   },
+   "voxRmsPerBar": [
+    -79.3,
+    -83.3,
+    -83.1,
+    -75.3,
+    -74.3,
+    -74.9,
+    -75.9,
+    -76.2,
+    -75.4,
+    -67.8,
+    -43.7,
+    -27.3,
+    -19.3,
+    -24.3,
+    -16.5,
+    -25,
+    -23.9,
+    -16.9,
+    -17.6,
+    -29.1,
+    -26.6,
+    -16.5,
+    -26.2,
+    -26.9,
+    -20.8,
+    -25.1,
+    -23.6,
+    -19.6,
+    -20.5,
+    -22.1,
+    -20.9,
+    -19.4,
+    -22.8,
+    -20.6,
+    -21.8,
+    -23.1,
+    -20.3,
+    -28,
+    -25.3,
+    -24.9,
+    -20.5,
+    -20.6,
+    -23.4,
+    -21.3,
+    -19,
+    -20.6,
+    -16.9,
+    -27.1,
+    -23.9,
+    -17.8,
+    -21.1,
+    -22.1,
+    -23.3,
+    -26.4,
+    -22.3,
+    -20.8,
+    -23.6,
+    -24.8,
+    -27.7,
+    -24,
+    -20.9,
+    -27,
+    -24.9,
+    -27.3,
+    -22.4,
+    -21.5,
+    -25.3,
+    -76.1,
+    -77.1,
+    -77.2,
+    -76.2,
+    -36.5,
+    -20,
+    -19,
+    -23.4,
+    -23.5,
+    -21.9,
+    -21.6,
+    -21.4,
+    -18.3,
+    -64.5,
+    -77.5,
+    -76.9,
+    -76.4
+   ],
+   "gtrRmsPerBar": [
+    -21.2,
+    -32.6,
+    -47.7,
+    -14.5,
+    -14.3,
+    -14.5,
+    -14.1,
+    -18.9,
+    -18.5,
+    -18.3,
+    -18.1,
+    -19.9,
+    -22.5,
+    -15.7,
+    -17.1,
+    -23.5,
+    -22.4,
+    -21.8,
+    -19.9,
+    -17.8,
+    -17.6,
+    -21.9,
+    -22.8,
+    -20.7,
+    -19.7,
+    -21.6,
+    -21.2,
+    -18.4,
+    -21.6,
+    -16.6,
+    -17.2,
+    -21.5,
+    -21.3,
+    -20.5,
+    -20.1,
+    -18.1,
+    -17.1,
+    -22.5,
+    -21.5,
+    -20.6,
+    -19.8,
+    -22.3,
+    -19.3,
+    -17.8,
+    -18.9,
+    -22.4,
+    -24.9,
+    -23.1,
+    -21.9,
+    -18.5,
+    -18.3,
+    -22.8,
+    -22.9,
+    -22,
+    -19.2,
+    -18.8,
+    -17.7,
+    -20.9,
+    -20.7,
+    -20.3,
+    -18.1,
+    -17.8,
+    -17.4,
+    -21,
+    -21.7,
+    -20.1,
+    -19,
+    -17.4,
+    -16.2,
+    -15.2,
+    -20.3,
+    -18.6,
+    -19.3,
+    -20.3,
+    -18,
+    -17.2,
+    -20.9,
+    -21,
+    -20.7,
+    -20.2,
+    -17,
+    -16.6,
+    -15.9,
+    -19.9
+   ]
+  }
+ },
+ "cut": {
+  "rule": "chamber-04 form facts: tracks run about 1:30; wannadash went 3:28 → 1:54 by removing repeated statements, seams on downbeats with 10 ms fades",
+  "keepBars": [
+   [
+    7,
+    43
+   ],
+   [
+    68,
+    84
+   ]
+  ],
+  "dropBars": [
+   [
+    1,
+    6
+   ],
+   [
+    44,
+    67
+   ]
+  ],
+  "lengthS": 109.7,
+  "lengthMMSS": "1:50",
+  "seams": [
+   {
+    "bar": 68,
+    "t": 141.514,
+    "chord": "G#m",
+    "prevChord": "G#m"
+   }
+  ],
+  "note": "verse2 + chorus2 restate verse1 + chorus1 on the same chords; the break (68–71) then lands right after chorus1 — check the lyric carries"
+ },
+ "bass": {
+  "tempoBand": "dub techno 110–125 (R12)",
+  "subRoots": {
+   "G#1 (midi 32)": 52.3,
+   "B1 (midi 35)": 62.2,
+   "E1 (midi 28)": 41.5,
+   "E2 (midi 40)": 83
+  },
+  "R1": "sub 30–60 Hz octave (C1–C2), mono, sine plus 2nd/3rd harmonic; B1 at 62 Hz sits at the top of the band — E1 and G#1 are the sub's home",
+  "R3": "kit is kick 1 / snare 3 at 120.9: the dubstep half-time layout; a one-drop variant leaves beat 1 empty and puts kick + cross-stick on 3",
+  "R4": "first bass entry late: at least one 8-bar phrase of drums and space before it (her intro is 10 bars — the sub can wait until bar 11)",
+  "R5": {
+   "delayMs": 461.5,
+   "repeats": "4–5",
+   "note": "0.93 of a beat, so it revolves around her beat rather than locking; in follow mode compute it per bar from measures.json"
+  },
+  "R8": "duck the sub 2–3 dB per kick, fastest attack; her guitar's low G#2 (104 Hz) and B2 (124 Hz) share the kick body band 100–200 Hz — high-pass the guitar or thin the kick body",
+  "R9": "mono below 100 Hz; stereo only on returns and on the sines above 100 Hz",
+  "R10": "a harmonic copy of the sub high-passed at 150 Hz carrying 250–700 Hz so the note survives a phone",
+  "phoneBand": "MASTERING.md: loudest 8 s may lose ≤ 5 dB through the mono 180 Hz–8 kHz proxy"
+ }
+}

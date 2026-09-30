@@ -10,6 +10,7 @@
 		06DAB9B425E19C4E02F25A24 /* AeselPieceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72A337044339282DB88573A0 /* AeselPieceView.swift */; };
 		084DDDE9E374CC8B27DEA518 /* slab-theme.json in Resources */ = {isa = PBXBuildFile; fileRef = AACC6D25723505FB156B46F0 /* slab-theme.json */; };
 		0B56E0A1E07AD7B531824F41 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13B505C3279E0F8DB5292B86 /* Session.swift */; };
+		0E80A5C3DFE4DD46A21E9F24 /* NativeTokenRenewal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53A49D0B49187C6DC184761D /* NativeTokenRenewal.swift */; };
 		113D31E951393CC4B352014A /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DD20E2826C7E253AFDDDF7C /* SessionStore.swift */; };
 		11761C5613CB79BA5AD0E801 /* LaunchPing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92968DF5C690392605590A85 /* LaunchPing.swift */; };
 		15625BEE72859E0B3AA9421E /* ComicRelief-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 99FE2FC14157DB3F88708A6B /* ComicRelief-Bold.ttf */; };
@@ -26,6 +27,7 @@
 		2F68084D06FAA7A44BA04C71 /* NotebookDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90DE4FA98343A247299E9ACA /* NotebookDocument.swift */; };
 		32BC67BB516A0013CEBABB9D /* AeselTerminal.swift in Sources */ = {isa = PBXBuildFile; fileRef = D182E09559F9A925B015A88C /* AeselTerminal.swift */; };
 		3661DCFA19E2594688511C86 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13B505C3279E0F8DB5292B86 /* Session.swift */; };
+		38B0F8FFC41A2695FCB12994 /* ACWaveform in Frameworks */ = {isa = PBXBuildFile; productRef = 2AE035DFA0EE7DAADBE70E09 /* ACWaveform */; };
 		409522297780D3241B3182FF /* NativeWebAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD0D3F1FABED1CF8FA86867 /* NativeWebAuthentication.swift */; };
 		425B0F1B7F268C335FDC4043 /* AeselTerminal.swift in Sources */ = {isa = PBXBuildFile; fileRef = D182E09559F9A925B015A88C /* AeselTerminal.swift */; };
 		44709587196D5718C5B25542 /* COMIC-RELIEF-OFL-1.1.txt in Resources */ = {isa = PBXBuildFile; fileRef = 4A54F121629B5E78C6F46F6A /* COMIC-RELIEF-OFL-1.1.txt */; };
@@ -61,6 +63,7 @@
 		A6126E0DBAC8A47345F0079B /* NativeWebAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD0D3F1FABED1CF8FA86867 /* NativeWebAuthentication.swift */; };
 		A766FD4831AD3177B8902DA5 /* ApplePlatform.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F4BC5239A9B70F128C1DC84 /* ApplePlatform.swift */; };
 		A989A8D07DAA87AB483EC748 /* AeselButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A512F7F818F52E3E58D3B7CB /* AeselButtonStyle.swift */; };
+		AA2732C81BD2D876C5A6E85F /* NativeTokenRenewal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53A49D0B49187C6DC184761D /* NativeTokenRenewal.swift */; };
 		AC4159B335B9A16CFF670F02 /* AeselAutomation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E270B97E651FC0013152574F /* AeselAutomation.swift */; };
 		AC7B6241A0E7F2791E06F1CA /* ComicRelief-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 99FE2FC14157DB3F88708A6B /* ComicRelief-Bold.ttf */; };
 		B6CD08B664BE9DA1354DEA03 /* NotebookDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90DE4FA98343A247299E9ACA /* NotebookDocument.swift */; };
@@ -75,6 +78,7 @@
 		C5E4BB3C192D944F7CB281FC /* Session in Resources */ = {isa = PBXBuildFile; fileRef = 47AE0766266534A8EE665542 /* Session */; };
 		CAD62C40B80A11D34190847E /* AeselSourceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 174356CADCC7413BFE9ABF1A /* AeselSourceView.swift */; };
 		CC92640C1396E0646F1CDD0F /* NativeSignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6975BD799206CFA5D9095BDB /* NativeSignIn.swift */; };
+		CFEFC4A1FC3739C0ADF94439 /* ACWaveform in Frameworks */ = {isa = PBXBuildFile; productRef = FBA1380C3C418B0684E60080 /* ACWaveform */; };
 		D1D4EE707AFBE4CB22C77682 /* AeselAutomation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E270B97E651FC0013152574F /* AeselAutomation.swift */; };
 		D975E3BE49FE480A8E0EE2A9 /* SignInPanelLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = E18D254092D8CB3C00DA9756 /* SignInPanelLayout.swift */; };
 		E24FA3D4F33A360267A7EAB6 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 196EC264FACF61F5D4F16400 /* PrivacyInfo.xcprivacy */; };
@@ -92,11 +96,13 @@
 		196EC264FACF61F5D4F16400 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		22509229E839210D9200B4AA /* Aesel.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Aesel.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		228E709932A29DC953A73B71 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		33E689E0C31E763A0B081673 /* ACWaveform */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ACWaveform; path = ../../slab/packages/ACWaveform; sourceTree = SOURCE_ROOT; };
 		3405C669DD22957E6E9FC52B /* AeselProviderPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselProviderPicker.swift; sourceTree = "<group>"; };
 		3BD16B382BBDB5D06475826D /* AeselVersionList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselVersionList.swift; sourceTree = "<group>"; };
 		47AE0766266534A8EE665542 /* Session */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Session; path = Resources/Session; sourceTree = SOURCE_ROOT; };
 		4A54F121629B5E78C6F46F6A /* COMIC-RELIEF-OFL-1.1.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "COMIC-RELIEF-OFL-1.1.txt"; sourceTree = "<group>"; };
 		505E152C400C5CE69463B39F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		53A49D0B49187C6DC184761D /* NativeTokenRenewal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeTokenRenewal.swift; sourceTree = "<group>"; };
 		5D9AB5CF1D7C27E6930F81B1 /* Braincells.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Braincells.swift; sourceTree = "<group>"; };
 		6975BD799206CFA5D9095BDB /* NativeSignIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSignIn.swift; sourceTree = "<group>"; };
 		72A337044339282DB88573A0 /* AeselPieceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselPieceView.swift; sourceTree = "<group>"; };
@@ -128,6 +134,25 @@
 		FDD0D3F1FABED1CF8FA86867 /* NativeWebAuthentication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeWebAuthentication.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFrameworksBuildPhase section */
+		AEF34C23F36AB91363A44222 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CFEFC4A1FC3739C0ADF94439 /* ACWaveform in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA15AF90D75BD74F97518DD3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				38B0F8FFC41A2695FCB12994 /* ACWaveform in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
 /* Begin PBXGroup section */
 		10821474428BA314BB316CD0 /* Sources */ = {
 			isa = PBXGroup;
@@ -155,6 +180,7 @@
 				92968DF5C690392605590A85 /* LaunchPing.swift */,
 				9675E31C13077439E6F36AE1 /* NativeHostConnection.swift */,
 				6975BD799206CFA5D9095BDB /* NativeSignIn.swift */,
+				53A49D0B49187C6DC184761D /* NativeTokenRenewal.swift */,
 				FDD0D3F1FABED1CF8FA86867 /* NativeWebAuthentication.swift */,
 				90DE4FA98343A247299E9ACA /* NotebookDocument.swift */,
 				9CDBBA3D80069AB001DCB170 /* NotebookWebView.swift */,
@@ -171,6 +197,7 @@
 			isa = PBXGroup;
 			children = (
 				47AE0766266534A8EE665542 /* Session */,
+				B18C4AF0BB0E24D8C1E6E42E /* Packages */,
 				CF2FDCFF84387B5BBA01E415 /* Resources */,
 				10821474428BA314BB316CD0 /* Sources */,
 				AB4E40D4AB00182B8B99E0D0 /* Products */,
@@ -184,6 +211,14 @@
 				99EE09710898E704A2EDB590 /* AeselMac.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		B18C4AF0BB0E24D8C1E6E42E /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				33E689E0C31E763A0B081673 /* ACWaveform */,
+			);
+			name = Packages;
 			sourceTree = "<group>";
 		};
 		CF2FDCFF84387B5BBA01E415 /* Resources */ = {
@@ -208,6 +243,7 @@
 			buildPhases = (
 				637239781D81E75E1E756D3E /* Sources */,
 				9B16354BD258F58AE2915677 /* Resources */,
+				AEF34C23F36AB91363A44222 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -215,6 +251,7 @@
 			);
 			name = Aesel;
 			packageProductDependencies = (
+				FBA1380C3C418B0684E60080 /* ACWaveform */,
 			);
 			productName = Aesel;
 			productReference = 22509229E839210D9200B4AA /* Aesel.app */;
@@ -226,6 +263,7 @@
 			buildPhases = (
 				FE126C5A82E5DACF43957B94 /* Sources */,
 				D69DF980C6E5B37A19FF3612 /* Resources */,
+				DA15AF90D75BD74F97518DD3 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -233,6 +271,7 @@
 			);
 			name = AeselMac;
 			packageProductDependencies = (
+				2AE035DFA0EE7DAADBE70E09 /* ACWaveform */,
 			);
 			productName = AeselMac;
 			productReference = 99EE09710898E704A2EDB590 /* AeselMac.app */;
@@ -266,6 +305,9 @@
 			);
 			mainGroup = 34716D2929B4074C97E662AE;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				D7C668A00EB2266BBCD1E223 /* XCLocalSwiftPackageReference "../../slab/packages/ACWaveform" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AB4E40D4AB00182B8B99E0D0 /* Products */;
 			projectDirPath = "";
@@ -336,6 +378,7 @@
 				7179F7E1202917D1C1E57EA1 /* LaunchPing.swift in Sources */,
 				52D74FA73C3384F2C2FF141B /* NativeHostConnection.swift in Sources */,
 				E86DBFD43D2C7D107F428424 /* NativeSignIn.swift in Sources */,
+				0E80A5C3DFE4DD46A21E9F24 /* NativeTokenRenewal.swift in Sources */,
 				409522297780D3241B3182FF /* NativeWebAuthentication.swift in Sources */,
 				B6CD08B664BE9DA1354DEA03 /* NotebookDocument.swift in Sources */,
 				2177ABB4922D91CD4C857EF1 /* NotebookWebView.swift in Sources */,
@@ -374,6 +417,7 @@
 				11761C5613CB79BA5AD0E801 /* LaunchPing.swift in Sources */,
 				B7FDFEA06B2AF78A0D5E0398 /* NativeHostConnection.swift in Sources */,
 				CC92640C1396E0646F1CDD0F /* NativeSignIn.swift in Sources */,
+				AA2732C81BD2D876C5A6E85F /* NativeTokenRenewal.swift in Sources */,
 				A6126E0DBAC8A47345F0079B /* NativeWebAuthentication.swift in Sources */,
 				2F68084D06FAA7A44BA04C71 /* NotebookDocument.swift in Sources */,
 				209EDA86EAD34DFC2EFD8848 /* NotebookWebView.swift in Sources */,
@@ -618,6 +662,24 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		D7C668A00EB2266BBCD1E223 /* XCLocalSwiftPackageReference "../../slab/packages/ACWaveform" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../slab/packages/ACWaveform;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		2AE035DFA0EE7DAADBE70E09 /* ACWaveform */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ACWaveform;
+		};
+		FBA1380C3C418B0684E60080 /* ACWaveform */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ACWaveform;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 4BB171217B34B598A623D582 /* Project object */;
 }

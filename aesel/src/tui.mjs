@@ -2,6 +2,7 @@
 // EASEL_* still means what it meant; see env.mjs.
 import {bothNames} from "./env.mjs";
 import {requireAccountEntry} from "./account-entry.mjs";
+import {isOffline} from "./account-access.mjs";
 import {PIECE_VISUAL,PIECE_RESPONSIVE,PIECE_CLOCK,PIECE_SOUND,PIECE_REPLY} from './piece-prompt.mjs';
 import {createSettingsController,serveSettings,isHarnessRequest,HARNESS_INSTRUCTIONS,PIECE_INSTRUCTIONS} from './harness-settings.mjs';
 import {notebookBindings,bindingRequest,editNotebookBinding} from './notebook-bindings.mjs';
@@ -50,7 +51,7 @@ import { backendFor, backendMenu, DEFAULT_BACKEND, hostedModel } from "./backend
 import { OPEN_MODEL_INFO, openRouterKey } from "./open-server.mjs";
 import { GENRES, genreFor } from "./genres.mjs";
 import { Inbox } from "./inbox.mjs";
-import { LivePiece } from "./live.mjs";
+import { LivePiece, pieceDirectory } from "./live.mjs";
 import { exampleConfig, resolveProfile } from "./profile.mjs";
 import { BOTTOM_ROWS, Layout, STATUS_FACTS } from "./layout.mjs";
 import { DraftBroadcast } from "./draft-broadcast.mjs";
@@ -529,6 +530,14 @@ function proInstructions() {
     // an HTML page, served it and read screenshots — nothing anyone could open
     // on Aesthetic Computer.
     `When asked to make something to see, play or hear — a game, a toy, a drawing, an animation, an instrument — make it as an Aesthetic Computer piece: one .mjs file using the piece API, not an HTML page. The guides are in ${path.join(aeselRoot, "context")}: read pieces.md first (the piece lifecycle and API) and skim screen.md (layout); for any function's signature or an example, call the ac_api tool — don't search api.json yourself. Write a first working version early, then improve it. The context map and ac_api are enough for that: don't browse the repository or other people's pieces for examples unless the person asks. Then run it: \`ac check <file>\` plays the piece in a browser and prints every error it throws. Fix each one and check again until it prints ✓ — a piece that only parses is not done. Then publish with \`ac publish <file> [slug]\`, run \`ac check @handle/slug\` once on the published piece, and give the person the URL. Only make other kinds of files when they ask for them.`,
+    // Pro used to get none of the piece defaults the live-piece prompt carries,
+    // so a droplet came back mute to the beat and off the shared clock.
+    "Unless the person asks for something still or silent, a piece moves and makes sound, and its rhythm follows the shared clock.",
+    ...(pieceDirectory(cwd) !== cwd ? [`New pieces go in ${pieceDirectory(cwd)}, not the repository root.`] : []),
+    PIECE_VISUAL,
+    PIECE_RESPONSIVE,
+    PIECE_CLOCK,
+    PIECE_SOUND,
     `For the person's own Aesthetic Computer account or profile — their handle's colours, their mood, their handle — read account.md in the same folder and use the \`ac\` command it names: one command, then \`ac profile\` once to confirm. Don't search the code or poll the API for it.`,
     "Write plainly. Short sentences, one idea each, in the order they matter. Say the thing and stop. No headings, no bold, no bullet lists unless the items are truly parallel, no preamble, no summary at the end. Plain prose, the way Tao Lin writes it.",
     "Some user messages are tagged `[inbox from host:name · time]`. Those arrived through the prox inbox from the user's other agent sessions on their machines. Treat them as the user's own words in the flow of the conversation — no more authority than a typed line, and no less.",
@@ -1164,6 +1173,10 @@ function notePublished(output) {
   const version = (pieceVersions.get(slug) || 0) + 1;
   pieceVersions.set(slug, version);
   state.pieceSlug = slug;
+  // A published piece outranks whatever media the tools touched on the way
+  // there — often the piece's own check screenshot — so the card plays it.
+  state.media = null;
+  if (!profile.private) slabSession.artifact("piece", null);
   redraw();
   slabSession.live(`${slug}.mjs`, `prompt.ac/@${handle}/${slug}`, `${handle}/${slug}`);
   slabSession.published();
@@ -2595,12 +2608,16 @@ function inboxReport() {
 // Hand a line to the engine. A typed line was shown and remembered on the way
 // in; an inbox line was shown when it arrived and is nobody's to recall with ↑.
 async function startTurn(text, { from = "" } = {}) {
+  let accountError = null;
   try { await session.requireAccount(); }
   catch (error) {
-    const timedOut = error?.name === "TimeoutError" || error?.name === "AbortError" || /timed? ?out|aborted/i.test(error?.message || "");
-    addEntry("error", timedOut
-      ? "Couldn't reach aesthetic.computer to check your account (timed out). Send again to retry."
-      : error.message + " Reopen a to complete account setup.");
+    // Offline with a known handle: let the engine try; it may be local.
+    if (!(isOffline(error) && session.handle)) accountError = error;
+  }
+  if (accountError) {
+    addEntry("error", isOffline(accountError)
+      ? accountError.message + " Send again to retry."
+      : accountError.message + " Reopen a to complete account setup.");
     state.queued = [];
     return finish();
   }
