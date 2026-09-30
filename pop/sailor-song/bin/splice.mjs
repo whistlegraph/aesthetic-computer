@@ -76,14 +76,14 @@ const ME_END = 59.182, OH_START = 59.19;
 const OH1_EAR = { word: "Oh", next: "won't", afterSec: 55, beforeSec: 62 };   // the hand-drawn onset (SyllaWizard), take 59.52
 const LATELY = { word: "lately", next: "I", afterSec: 90, beforeSec: 100 };
 const SEGMENTS = [
-  { name: "A intro+verse1", from: 0, to: OH1_EAR, tail: { grab: 0.2, before: 0.03, len: 4.6, curve: 0.8 } },   // "meeeeeee…" holds through the screw and the pickup bar, dips under "lately"
+  { name: "A intro+verse1", from: 0, to: OH1_EAR, tail: { grab: 0.12, before: 0.03, len: 1.9, curve: 0.8 } },   // "meeeeeee…" holds through the half-bar screw and dips under "lately"
   // v19: a breath before verse 2 kicks off — verse 1's last full bar of her guitar,
   // slowed a fifth (screwed, 7 st down — in key; 0.78 sat between keys and read "werd") and stuttered on 8ths and 16ths into the pickup;
   // charted as bar 26 so the beds hold verse 1's state and the kit keeps going
-  { name: "S screw", screw: { bar: 26, rate: 2 ** (-7 / 12), lenOfBar: 44, beats: 4 }, asBar: 26 },
+  { name: "S screw", screw: { bar: 26, rate: 2 ** (-7 / 12), lenOfBar: 44, beats: 2 }, asBar: 26 },   // "lately on 28.3": two beats of screw, then verse 2
   // v20: "lately on 28" — the pickup bar is taken whole (her guitar under the held vowel), so
   // verse 2's first sung word lands on the 28th downbeat of the record (source bar 44)
-  { name: "B verse2", from: { bar: 43, beat: 1 }, to: OH2, voiceFrom: LATELY },
+  { name: "B verse2", from: { bar: 44, beat: 1 }, to: OH2, voiceFrom: LATELY },   // straight on its downbeat; the "And" pickup is not played
   { name: "C chorus1", from: { bar: 27, beat: 1 }, to: AND, voiceFrom: OH1_EAR },
   { name: "D chorus2..end", from: OH2, to: END },
 ];
@@ -177,7 +177,7 @@ function writeWav(p, chans) {
   writeFileSync(p, buf);
 }
 // the seam: each segment fades in over xf and the previous fades out over the same span (equal power), overlapping
-function assemble(x, xfSec, voice) {
+function assemble(x, xfSec, voice, holds = voice) {
   const total = Math.round(offset * SR), out = new Float32Array(total), XF = Math.round(xfSec * SR);
   for (const s of segs) {
     const a = Math.round(s.from * SR), b = Math.round(s.to * SR), o = Math.round(s.offset * SR);
@@ -197,7 +197,7 @@ function assemble(x, xfSec, voice) {
         gin *= i < v0 - VF ? 0 : i < v0 ? 0.5 - 0.5 * Math.cos(Math.PI * (i - (v0 - VF)) / VF) : 1; }
       out[o + i] += src * gin;
     }
-    if (voice && s.tail) freezeTail(x, out, b, o + (b - a), s.tail);
+    if (voice && holds && s.tail) freezeTail(x, out, b, o + (b - a), s.tail);   // v20: only her LEAD is held — a hold on the halo, harmonies and sisters stacked into echo
     // the previous segment's tail rides under this one's head (voice: a 40 ms release, not a hard 12)
     const XO = voice ? Math.round(0.04 * SR) : XF;
     const prevTail = segs.find((p) => (p.tail || p.screw) && Math.abs(p.offset + (p.to - p.from) - s.offset) < 1e-6);
@@ -245,7 +245,8 @@ function freezeTail(x, out, cutAt, at, { grab, len, before = 0, curve = 1.6 }) {
 }
 for (const f of readdirSync(REG).filter((f) => f.endsWith(".wav"))) {
   const sustained = /guitar|replay|hum|choir|jeffrey/.test(f);
-  const chans = readWav(resolve(REG, f)).map((x) => assemble(x, sustained ? 0.08 : 0.012, !sustained));
+  const holds = /^vocals-(natural|aesthetivox)\.wav$/.test(f);
+  const chans = readWav(resolve(REG, f)).map((x) => assemble(x, sustained ? 0.08 : 0.012, !sustained, holds));
   writeWav(resolve(OUT, f), chans);
   console.log(`  ${sustained ? "80ms" : "12ms"} ${f}`);
 }
