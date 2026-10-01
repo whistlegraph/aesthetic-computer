@@ -45,7 +45,7 @@ export class WalkiewareThread {
       if(m.type==='conflict'){this.ready=false;this.sending=false;this.onStatus(this.identity.code,'History conflict');}
       if(m.type==='error'){this.ready=false;this.sending=false;this.onStatus(this.identity.code,m.error);}
       if(m.type==='command') {
-        try{if(!this.ready||this.sending)throw Error('Thread is not synchronized');const result=await this.onCommand(m);this.sync();await this.flush();this.send({type:'result',id:m.id,...result});}
+        try{if(m.action==='layout'){const result=await this.onCommand(m);this.send({type:'result',id:m.id,...result});return;}if(!this.ready||this.sending)throw Error('Thread is not synchronized');const result=await this.onCommand(m);this.sync();await this.flush();this.send({type:'result',id:m.id,...result});}
         catch(error){this.send({type:'result',id:m.id,ok:false,error:error.message});}
         this.sync();this.update();
       }
