@@ -5,7 +5,8 @@ export function attachMusicalSocket(server, {authenticate, decide, authMs=5000, 
  const wss=new WebSocketServer({noServer:true,maxPayload:8192,perMessageDeflate:false});
  const accounts=new Map();
  const upgrade=(req,socket,head)=>{
-  if(req.url!=='/api/easel-musical-stream'||wss.clients.size>=64){socket.end('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n');return;}
+  if(req.url!=='/api/easel-musical-stream')return;
+  if(wss.clients.size>=64){socket.end('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n');return;}
   wss.handleUpgrade(req,socket,head,ws=>wss.emit('connection',ws));
  };
  server.on('upgrade',upgrade);
