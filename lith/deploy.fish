@@ -243,6 +243,19 @@ sh xbox/tools/precompress-live.sh"
     exit 1
 end
 
+# Validate the committed public-host inventory on the deployment checkout.
+# This does not read the maintainer's possibly dirty local working tree.
+echo -e "$GREEN-> Verifying public machine discovery...$NC"
+if not ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && node utilities/generate-machine-manifests.mjs --check"
+    echo -e "$RED x Machine discovery is stale or a public host is unclassified; restoring $PREVIOUS_HEAD.$NC"
+    ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
+cd $REMOTE_DIR && \
+git reset --hard $PREVIOUS_HEAD --quiet && \
+git rev-parse HEAD > system/public/.commit-ref && \
+sh xbox/tools/precompress-live.sh"
+    exit 1
+end
+
 # Upload env (only if the vault has one — otherwise keep the remote's existing env)
 # Note: lith.service reads EnvironmentFile=/opt/ac/system/.env, so the canonical
 # vault source lives at aesthetic-computer-vault/lith/.env and is uploaded into
