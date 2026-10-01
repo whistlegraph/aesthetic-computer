@@ -1,0 +1,48 @@
+name: Aesel Windows
+on:
+  workflow_dispatch:
+  push:
+    branches: [aesel-windows]
+    paths: ['aesel/**', '.github/workflows/aesel-windows.yml']
+permissions:
+  contents: read
+jobs:
+  release:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            aesel
+            apple/aesel/Resources/Assets.xcassets/AppIcon.appiconset
+            system/public/aesel
+            system/public/aesthetic.computer/dep
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Bundle shared Aesel session
+        shell: pwsh
+        run: |
+          npm ci --prefix aesel/web
+          if ($LASTEXITCODE) { throw 'npm ci failed' }
+          node aesel/windows/prepare.mjs
+          if ($LASTEXITCODE) { throw 'Web bundle failed' }
+      - name: Build, run Windows smoke, and package
+        shell: pwsh
+        run: ./aesel/windows/package.ps1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: aesel-windows-x64
+          if-no-files-found: error
+          path: |
+            aesel/windows/dist/*setup.exe
+            aesel/windows/dist/latest.json
+            aesel/windows/dist/SHA256SUMS.txt
+            aesel/windows/dist/smoke/*.json
+            aesel/windows/dist/smoke/*.txt
+            aesel/windows/dist/smoke/*.png
