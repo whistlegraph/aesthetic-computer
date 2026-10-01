@@ -30,7 +30,7 @@ const snippet = `${start}
 (machine_discovery) {
     map {host} {machine_readme_file} {
         default ""
-${hosts.map(h => `        ${h} ${hostMap.get(h).file || `machine/${hostMap.get(h).host}.txt`}`).join("\n")}
+${hosts.map(h => `        ~(?i)^${h.replaceAll(".", "[.]")}$ ${hostMap.get(h).file || `machine/${hostMap.get(h).host}.txt`}`).join("\n")}
     }
     @machine_host host ${hosts.join(" ")}
     header @machine_host +Link "</llms.txt>; rel=\\"describedby\\"; type=\\"text/plain\\""
