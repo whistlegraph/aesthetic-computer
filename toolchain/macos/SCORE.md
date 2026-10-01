@@ -169,6 +169,10 @@ passes, and it is never included in the weekly LaunchAgent.
 Use [Neo cleanup](NEO-CLEANUP.md) for the verified worktree and local Photos
 procedures, recovery records, and the host's daily schedule.
 
+The [AC performance guard](PERFORMANCE-GUARD.md) checks disk headroom every
+30 seconds and gates new shell-launched Git worktrees and Swift builds. Install
+it on every fleet Mac; deployment verifies the PATH shims as well as launchd.
+
 Keep at least 20 GiB free on Neo for swap and system updates. Its hourly
 `disk-space-watch` checks only filesystem free space and warns at most once
 per day; it never deletes data. Install it with

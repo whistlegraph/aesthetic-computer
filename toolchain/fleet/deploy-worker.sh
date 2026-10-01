@@ -29,17 +29,18 @@ REMOTE_TMP="$(ssh -o BatchMode=yes "$HOST" 'mktemp -d /tmp/ac-fleet-worker.XXXXX
 
 cleanup() {
   ssh -o BatchMode=yes -o ConnectTimeout=5 "$HOST" \
-    "rm -f '$REMOTE_TMP/worker.mjs' '$REMOTE_TMP/install-worker.sh' '$REMOTE_TMP/performance-guard.sh' '$REMOTE_TMP/token'; rmdir '$REMOTE_TMP' 2>/dev/null || true" \
+    "rm -f '$REMOTE_TMP/worker.mjs' '$REMOTE_TMP/install-worker.sh' '$REMOTE_TMP/performance-guard.sh' '$REMOTE_TMP/performance_guard.py' '$REMOTE_TMP/git-guard.sh' '$REMOTE_TMP/swift-guard.sh' '$REMOTE_TMP/build-lock.sh' '$REMOTE_TMP/token'; rmdir '$REMOTE_TMP' 2>/dev/null || true" \
     >/dev/null 2>&1 || true
 }
 trap cleanup EXIT HUP INT TERM
 
 scp -q "$HERE/worker.mjs" "$HERE/install-worker.sh" \
-  "$REPO/toolchain/macos/performance-guard.sh" "$TOKEN" "$HOST:$REMOTE_TMP/"
+  "$REPO/toolchain/macos/performance-guard.sh" "$REPO/toolchain/macos/performance_guard.py" \
+  "$REPO/toolchain/macos/git-guard.sh" "$REPO/toolchain/macos/swift-guard.sh" \
+  "$REPO/slab/bin/build-lock.sh" "$TOKEN" "$HOST:$REMOTE_TMP/"
 ssh -o BatchMode=yes "$HOST" \
   "mkdir -p '$REMOTE_HOME/.local/lib/ac-fleet-worker'; \
-   install -m 755 '$REMOTE_TMP/performance-guard.sh' '$REMOTE_HOME/.local/lib/ac-fleet-worker/performance-guard.sh'; \
-   env AC_REPO='$REMOTE_REPO' bash '$REMOTE_HOME/.local/lib/ac-fleet-worker/performance-guard.sh' --install; \
+   env AC_REPO='$REMOTE_REPO' bash '$REMOTE_TMP/performance-guard.sh' --install && \
    bash '$REMOTE_TMP/install-worker.sh' --name '$NAME' --role '$ROLE' --token-file '$REMOTE_TMP/token'"
 
 echo "deployed fleet worker to $NAME ($HOST, $ROLE)"
