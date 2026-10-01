@@ -1,0 +1,36 @@
+{
+  "build": 18,
+  "deployedRevision": "c40d07222f",
+  "endpoint": "wss://aesthetic.computer/api/easel-musical-stream",
+  "host": "Existing Lith DigitalOcean service",
+  "validation": {
+    "focusedTests": "12/12 passed, including real local WebSocket authentication, coalescing, abort, renewal, reconnect, HTTP fallback and timing",
+    "nativeBridge": "Passed musical mode with mocked speech/inference",
+    "iosBuild": "Passed; installed on physical iPhone",
+    "production": "Revision verified; WebSocket upgraded successfully and unauthenticated observation closed with code 1008"
+  },
+  "phoneBenchmark": {
+    "status": "passed",
+    "runID": "C79C1A68-8513-49AC-B573-464EE1C1F503",
+    "result": "apple/walkieware/Tests/audio/mixed-request-C79C1A68-8513-49AC-B573-464EE1C1F503/result.json",
+    "scope": "Fresh piece; real-time synthetic speech and whistle PCM through on-device recognition and local DSP; real authenticated socket and inference; microphone hardware excluded.",
+    "finalAdvice": {
+      "choice": "follow_speech",
+      "elapsedMs": 232,
+      "providerMs": 174,
+      "serverMs": 202,
+      "transport": "socket",
+      "transportMs": 30
+    },
+    "firstWordsVisibleMs": 715,
+    "releaseToRequestMs": 275,
+    "releaseToFirstPaintMs": 15460,
+    "screenshot": "preview.png visually inspected; pink circle visible; animation not evaluated from this still"
+  },
+  "limitations": [
+    "Provider Decisions call remains HTTP",
+    "Raw microphone audio stays on device",
+    "One successful phone run does not establish a controlled end-to-end speedup"
+  ],
+  "normalMode": "Installed debug build with audio fixture promotion; relaunched with fixtures disabled, new pink-circle version copied to normal ledger, rope sequence ledger retained. Console verified controls ready, preview runtime ready and checkpoint painted."
+}

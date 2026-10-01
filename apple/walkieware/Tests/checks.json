@@ -1,0 +1,763 @@
+{
+  "build": 42,
+  "date": "2026-09-30",
+  "deviceBuild": "passed; signed; installed",
+  "deviceLaunch": "Build42 installed and launched; wwVufor connected and initial checkpoint painted",
+  "simulatorBuild": "passed",
+  "nativePreview": "AC runtime loaded; injected checkpoint visibly painted; native-preview-smoke.png",
+  "streamTest": "PASS: native bridge regression including 32 local edits, rollback, progressive rendering, and typed engine API; speech/inference mocked.",
+  "latency": "16ms release-to-request in fixture run, excluding speech recognition and model/network latency",
+  "liveEndToEnd": "passed twice on physical iPhone using real-time Jeffrey ElevenLabs PCM fixture, on-device recognition, authenticated AC inference, and painted checkpoint evidence",
+  "implementation": "shared Aesel AcServer; native speech; native PKCE/Keychain; seeded bundled guides; local previews; no automatic publishing",
+  "latencyMs": {
+    "audioDuration": 1301,
+    "firstRecognizedWords": 569,
+    "firstVisibleWords": 577,
+    "releaseToRequest": 26,
+    "requestToFirstModelOutput": 1459,
+    "requestToFirstCheckpoint": 1827,
+    "releaseToFirstPaint": 1906
+  },
+  "fixes": [
+    "canonical bundle path comparison on physical iOS",
+    "native loading/error/reload and content process recovery",
+    "native seeding of guide texts avoids status-0 custom scheme fetch",
+    "larger controls and text; footer replaced by Type and Account buttons",
+    "Removed Type button; retained Account and voice controls."
+  ],
+  "incrementalCompiler": "PASS: complete exported paint prefixes accepted; unfinished functions/strings rejected; no fabricated syntax.",
+  "providerComparison": "audio/comparison.json; existing DeepSeek default retained after serial relay samples",
+  "phoneNetwork": "Passed: AC HEAD 250ms cold / 41ms reused; OpenRouter models HEAD 125ms cold / 39ms reused. Public transport checks exclude inference compute.",
+  "deviceMode": "Normal mode: wwHesop, head 70, Ready to play, no runtime errors.",
+  "sequenceBenchmark": {
+    "build": 12,
+    "runID": "91FA6332-9E99-41D3-A0A5-2EFA4E6BCF57",
+    "passed": 32,
+    "total": 32,
+    "nativeScreenshots": 96,
+    "behavioralFrames": 46080,
+    "firstPaintMs": {
+      "median": 4151,
+      "p95": 6992,
+      "max": 10111
+    },
+    "scope": "32 consecutive text edits, one live phone and model session; excludes speech."
+  },
+  "sharedEngineTests": "22/22 focused engine, version ledger and scenario tests passed",
+  "pixelReview": "All 29 OCR-flagged screenshots visually reviewed; labels present. Counter/playfield contrast remains a design improvement.",
+  "layeredEdits": {
+    "enabled": "Walkieware only; shared engine default remains off",
+    "versioning": "One local snapshot per successfully completed and painted ask; multiple preview layers; failed asks restore parent; undo retains branches",
+    "stressRun": "9D11077E-5968-4405-9247-F80B6B02D960",
+    "passedMoves": 12,
+    "failedMove": 13,
+    "failure": "Stopped after six tool rounds; rolled back",
+    "followup": "Instruct model to group patches and await revision before next call"
+  },
+  "sceneTest": {
+    "runID": "C63B453C-B449-4078-A3EA-28658C411161",
+    "verifiedLocally": [
+      1,
+      2
+    ],
+    "firstPaintMs": [
+      22768,
+      7209
+    ],
+    "scope": "Real model text asks on physical phone; separate version per ask; source probes at two sizes; screenshots reviewed. Later moves unverified due intermittent developer connection."
+  },
+  "jevProbe": {
+    "requests": 10,
+    "successful": 10,
+    "expectedMatches": 9,
+    "medianMs": 129,
+    "maxMs": 338,
+    "scope": "Synthetic bounded decisions from development host; not measured phone end-to-end speedup",
+    "phoneEnabled": true
+  },
+  "mixedInput": {
+    "build": 16,
+    "scope": "Physical iPhone; synthetic PCM injected in real time through on-device Speech and the same local music analyzer as microphone input. Real authenticated inference and AC painting. Microphone hardware and natural singing not tested.",
+    "tests": [
+      {
+        "fixture": "sine-tone",
+        "passed": true,
+        "releaseToRequestMs": 34,
+        "releaseToPaintMs": 61040,
+        "evidence": "apple/walkieware/Tests/audio/sine-tone-285BC25A-011B-4E31-AF8B-5A587C271D8B/result.json"
+      },
+      {
+        "fixture": "whistle-sweep",
+        "passed": true,
+        "releaseToRequestMs": 28,
+        "releaseToPaintMs": 7774,
+        "evidence": "apple/walkieware/Tests/audio/whistle-sweep-BE01074A-D906-4565-941D-945CDD175B60/result.json"
+      },
+      {
+        "fixture": "mixed-request",
+        "passed": true,
+        "releaseToRequestMs": 31,
+        "releaseToPaintMs": 11150,
+        "evidence": "apple/walkieware/Tests/audio/mixed-request-37B14D0D-2FBE-4072-BDF0-7FD8C2CE5A8B/result.json"
+      }
+    ],
+    "limitations": [
+      "Dominant monophonic pitch estimates, not chord/instrument recognition",
+      "Energy onsets, not established tempo or beats",
+      "Creative mappings are model interpretations"
+    ]
+  },
+  "jevIntegration": {
+    "build": 17,
+    "deployedRevision": "0e9914452c",
+    "endpoint": "/api/easel-musical-jev",
+    "scope": "Physical iPhone, real-time synthetic PCM through on-device recognition and local DSP, authenticated production Jev and code inference. Microphone hardware excluded.",
+    "transport": "Bounded incremental authenticated HTTP observations; aggregate features only to Jev; session and sequence identity; stale responses rejected.",
+    "unitTests": "8/8 focused musical Jev tests passed; native musical bridge and Swift DSP checks passed.",
+    "mixed": {
+      "runID": "4389E5CA-9E94-4C18-9DB9-E7293C30AB44",
+      "passed": true,
+      "result": "apple/walkieware/Tests/audio/mixed-request-4389E5CA-9E94-4C18-9DB9-E7293C30AB44/result.json",
+      "firstVisibleWordsMs": 664,
+      "appliedAdvice": {
+        "choice": "follow_speech",
+        "elapsedMs": 253
+      },
+      "releaseToRequestMs": 296,
+      "releaseToPaintMs": 21742
+    },
+    "whistle": {
+      "runID": "61A7587F-ED25-4A98-8A91-51CBC10AD624",
+      "choice": "trace_pitch",
+      "decisionMs": 482,
+      "cachedBeforeRelease": true,
+      "releaseToRequestMs": 36,
+      "releaseToPaintMs": 53051,
+      "note": "Passed prior cache-specific checks; predates jevApplied marker."
+    },
+    "earlierFailures": [
+      "Initial phone run exposed Safari fetch receiver bug; fixed and deployed.",
+      "Prior mixed run failed overly strict cache-hit expectation despite successful generation; final evidence now verifies advice applied and permits changed-feature refresh."
+    ],
+    "normalMode": "Relaunched with audio/sequence/network fixtures disabled and saved sequence version 4 restored to normal ledger. Console confirmed controls ready, preview runtime ready, checkpoint painted.",
+    "limitations": [
+      "Jev chooses bounded optional interpretation cues, not code.",
+      "Code model latency remains variable; no end-to-end speedup established."
+    ]
+  },
+  "socketIntegration": {
+    "build": 18,
+    "deployedRevision": "c40d07222f",
+    "endpoint": "wss://aesthetic.computer/api/easel-musical-stream",
+    "host": "Existing Lith DigitalOcean service",
+    "validation": {
+      "focusedTests": "12/12 passed, including real local WebSocket authentication, coalescing, abort, renewal, reconnect, HTTP fallback and timing",
+      "nativeBridge": "Passed musical mode with mocked speech/inference",
+      "iosBuild": "Passed; installed on physical iPhone",
+      "production": "Revision verified; WebSocket upgraded successfully and unauthenticated observation closed with code 1008"
+    },
+    "phoneBenchmark": {
+      "status": "passed",
+      "runID": "C79C1A68-8513-49AC-B573-464EE1C1F503",
+      "result": "apple/walkieware/Tests/audio/mixed-request-C79C1A68-8513-49AC-B573-464EE1C1F503/result.json",
+      "scope": "Fresh piece; real-time synthetic speech and whistle PCM through on-device recognition and local DSP; real authenticated socket and inference; microphone hardware excluded.",
+      "finalAdvice": {
+        "choice": "follow_speech",
+        "elapsedMs": 232,
+        "providerMs": 174,
+        "serverMs": 202,
+        "transport": "socket",
+        "transportMs": 30
+      },
+      "firstWordsVisibleMs": 715,
+      "releaseToRequestMs": 275,
+      "releaseToFirstPaintMs": 15460,
+      "screenshot": "preview.png visually inspected; pink circle visible; animation not evaluated from this still"
+    },
+    "limitations": [
+      "Provider Decisions call remains HTTP",
+      "Raw microphone audio stays on device",
+      "One successful phone run does not establish a controlled end-to-end speedup"
+    ],
+    "normalMode": "Installed debug build with audio fixture promotion; relaunched with fixtures disabled, new pink-circle version copied to normal ledger, rope sequence ledger retained. Console verified controls ready, preview runtime ready and checkpoint painted."
+  },
+  "instantPiece": {
+    "build": 19,
+    "runID": "8465746E-1FD1-4E24-A3F4-3B6A65802B01",
+    "passed": true,
+    "checks": {
+      "soundSubmitted": true,
+      "requestDispatched": true,
+      "finished": true,
+      "painted": true,
+      "pitchDetected": true,
+      "wordsPreserved": true,
+      "wordsTimestamped": true,
+      "jevDecisionReceived": true,
+      "currentAdviceApplied": true,
+      "socketAdviceApplied": true,
+      "socketAcknowledged": true,
+      "starterPainted": true,
+      "starterBeforeModel": true,
+      "starterUnder200ms": true
+    },
+    "scope": "Physical iPhone; real-time synthetic speech and whistle PCM, on-device recognition and DSP, authenticated production socket and code model. Microphone hardware excluded.",
+    "implementation": "Fresh explicit circle/square requests get local editable AC source before Jev or code inference completes. Existing pieces are preserved; starter and refinements share one version. Provider failure preserves a painted starter; cancellation rolls back.",
+    "timingMs": {
+      "firstPainted": 91,
+      "starterPainted": 93,
+      "requestDispatched": 194,
+      "firstModelOutput": 23791,
+      "firstCheckpoint": 25292,
+      "generationFinished": 33265
+    },
+    "advice": {
+      "choice": "follow_speech",
+      "elapsedMs": 160,
+      "providerMs": 95,
+      "serverMs": 122,
+      "transport": "socket",
+      "transportMs": 69
+    },
+    "coldSocketFallback": true,
+    "sourceEvidence": "apple/walkieware/Tests/audio/mixed-request-8465746E-1FD1-4E24-A3F4-3B6A65802B01/result.json",
+    "visualReview": "Screenshot inspected: pink circle visible. Still image does not verify animation.",
+    "focusedTests": "4 local source tests plus native bridge: starter/refinement one version, retained starter on provider failure, no replacement of existing pieces, cancel during interpretation prevents request/version.",
+    "modelComparison": {
+      "simple": "audio/provider-1790810920467.json",
+      "mixedWithStarter": "audio/provider-1790811108615.json",
+      "decision": "Retain DeepSeek; no demonstrated faster equivalent refinement. Model latency remains variable."
+    },
+    "limitations": [
+      "Under-200ms result is one warm-preview fixture run, not a latency percentile or general guarantee.",
+      "Local vocabulary currently circles and squares; other requests still depend on code inference.",
+      "Model refinement took 33.3 seconds after release in this run."
+    ],
+    "normalMode": "Relaunched with audio/sequence/network fixtures disabled and latest result promoted into normal ledger. Console confirmed controls, preview runtime and painted checkpoint. Attached devicectl console timed out after launch."
+  },
+  "localIteration": {
+    "build": 21,
+    "implementation": "Canonical editable circle/square scene with local color, size, position, bounce, speed, freeze and center commands. No code inference for supported local commands. Unsupported commands or modified sources use existing model path. No Keep requirement before next ask.",
+    "unitTests": "32 sequential edits, exact expected properties, 3840 simulated frames across two sizes, one version per ask and undo all 32 passed. Unsupported/modified inputs and bounds tested.",
+    "browserTests": "32 local edits with undo/replay each passed, zero inference requests, next voice ask enabled. Painted acknowledgements mocked. Existing generation/refinement/cancellation regressions passed.",
+    "phoneRun": {
+      "runID": "09CDBEB7-B67C-4451-B0CC-B2A83F45F208",
+      "complete": true,
+      "verifiedMoves": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32
+      ],
+      "paintMs": {
+        "median": 48,
+        "p95": 62,
+        "max": 63
+      },
+      "scope": "Local text ask to painted frame on physical iPhone. Speech and provider latency excluded. Every move checked properties, one version, undo/replay, paint, and three screenshots.",
+      "screenshots": 96,
+      "inferenceRequests": 0,
+      "visualReview": "All 96 screenshot frames inspected in review.png: expected color, size and position changes visible; frozen frames stable and bouncing frames vary. Sparse captures do not prove frame-by-frame continuity."
+    },
+    "limitations": [
+      "Supported unchanged canonical scenes only; other requests use code generation.",
+      "Live edits still reload source, but build 21 shares motion state in memory."
+    ],
+    "normalMode": "Build 21 relaunched with all fixtures disabled and tested local scene promoted to normal ledger. Controls, preview runtime, and painted checkpoint confirmed. Rope scene remains in its separate sequence ledger.",
+    "phasePreservation": {
+      "build": 21,
+      "unitTests": "Shared runtime store preserves phase across color/size/speed edits and undo. Freeze retains current height; a new scene starts independently.",
+      "phoneValidation": "All 32 moves passed with stateful motion source, including freeze and resume. Exact phase continuity tested with shared-store module reloads in focused tests; phone snapshots are sparse motion evidence."
+    },
+    "previousPhoneRun": {
+      "runID": "B0D61081-9B9B-4203-94A2-A2742C0968E3",
+      "complete": true,
+      "verifiedMoves": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32
+      ],
+      "paintMs": {
+        "median": 49,
+        "p95": 56,
+        "max": 79
+      },
+      "scope": "Local text ask to first painted frame; physical iPhone. Excludes speech and model latency. One version, undo/replay and properties verified for every move; 96 screenshots retained.",
+      "visualReview": "All 96 frames inspected in review.png contact sheet; colors, sizes and position changes visible. Three-frame samples are not continuous motion recordings."
+    }
+  },
+  "spaceIteration": {
+    "build": 23,
+    "scope": "Six successive text asks on physical iPhone. First line local; remaining edits real code model. Speech excluded. Screenshots and source reviewed; 720-frame probes at two sizes per stage.",
+    "steps": [
+      {
+        "index": 1,
+        "prompt": "Make a white line",
+        "runID": "5238B9C7-94D7-43F0-B8B8-A3DE56402062",
+        "checks": {
+          "committedSourcePainted": true,
+          "featureTests": true,
+          "finished": true,
+          "noRuntimeErrors": true,
+          "oneVersionPerAsk": true,
+          "sourceBounded": true,
+          "sourceChanged": true,
+          "threeFramesCaptured": true
+        },
+        "visualAndRuntimePassed": true,
+        "nativeVerdictAcknowledged": true,
+        "paintMs": 51,
+        "finishedMs": 61,
+        "version": 1
+      },
+      {
+        "index": 2,
+        "prompt": "Transform this horizontal line into a small pointed spaceship hull, facing upward. Preserve its visual continuity: the old line becomes the wide base and two new diagonal edges meet at a nose above it. White outline on the same dark background. Static; no wings, windows, stars or exhaust yet.",
+        "runID": "5238B9C7-94D7-43F0-B8B8-A3DE56402062",
+        "checks": {
+          "committedSourcePainted": true,
+          "featureTests": true,
+          "finished": true,
+          "noRuntimeErrors": true,
+          "oneVersionPerAsk": true,
+          "sourceBounded": true,
+          "sourceChanged": true,
+          "threeFramesCaptured": true
+        },
+        "visualAndRuntimePassed": true,
+        "nativeVerdictAcknowledged": true,
+        "paintMs": 7855,
+        "finishedMs": 9650,
+        "version": 2
+      },
+      {
+        "index": 3,
+        "prompt": "Add two symmetric swept-back wings to the same hull. Make the silhouette clearly recognizable as a little spaceship, keeping the pointed nose and body. Static; no stars or exhaust yet.",
+        "runID": "5238B9C7-94D7-43F0-B8B8-A3DE56402062",
+        "checks": {
+          "committedSourcePainted": true,
+          "featureTests": true,
+          "finished": true,
+          "noRuntimeErrors": true,
+          "oneVersionPerAsk": true,
+          "sourceBounded": true,
+          "sourceChanged": true,
+          "threeFramesCaptured": true
+        },
+        "visualAndRuntimePassed": true,
+        "nativeVerdictAcknowledged": true,
+        "paintMs": 5497,
+        "finishedMs": 9103,
+        "version": 3
+      },
+      {
+        "index": 4,
+        "prompt": "Add a cyan cockpit window inside the upper hull and a small pink stripe on each wing. Keep all existing ship geometry. Static, no extra text or interface.",
+        "runID": "5238B9C7-94D7-43F0-B8B8-A3DE56402062",
+        "checks": {
+          "committedSourcePainted": true,
+          "featureTests": true,
+          "finished": true,
+          "noRuntimeErrors": true,
+          "oneVersionPerAsk": true,
+          "sourceBounded": true,
+          "sourceChanged": true,
+          "threeFramesCaptured": true
+        },
+        "visualAndRuntimePassed": true,
+        "nativeVerdictAcknowledged": true,
+        "paintMs": 6273,
+        "finishedMs": 7813,
+        "version": 4
+      },
+      {
+        "index": 5,
+        "prompt": "Add a warm orange and yellow exhaust flame below the ship. Animate its length with a gentle repeating pulse, while the hull and wings remain stationary. Keep the cockpit and stripes. IMPORTANT: the nozzle is at the center of the REARMOST horizontal edge (the existing tail coordinate), not at the original horizontal line y inside the body. Both flame edges must start exactly at tail, with all flame geometry below tail. Pulse its length between 5% and 15% of screen height, clamping to leave a margin at the bottom. No flame inside the body. No stars yet.",
+        "runID": "CF7BBDFF-0C91-4754-B1C3-1C7878099F31",
+        "checks": {
+          "animationChanged": true,
+          "committedSourcePainted": true,
+          "featureTests": true,
+          "finished": true,
+          "motionFramesCaptured": true,
+          "noRuntimeErrors": true,
+          "oneVersionPerAsk": true,
+          "sourceBounded": true,
+          "sourceChanged": true
+        },
+        "visualAndRuntimePassed": true,
+        "nativeVerdictAcknowledged": true,
+        "paintMs": 10705,
+        "finishedMs": 14917,
+        "version": 6
+      },
+      {
+        "index": 6,
+        "prompt": "Make the same spaceship fly through space: add a sparse field of small stars moving downward behind it, with wrapping at the screen edge, and a slight gentle bank of the complete ship. Preserve the hull, two wings, cyan cockpit, pink stripes, and attached animated exhaust. Keep the ship fully on screen. No text or extra interface.",
+        "runID": "CF7BBDFF-0C91-4754-B1C3-1C7878099F31",
+        "checks": {
+          "animationChanged": true,
+          "committedSourcePainted": true,
+          "finished": true,
+          "motionFramesCaptured": true,
+          "noRuntimeErrors": true,
+          "oneVersionPerAsk": true,
+          "sourceBounded": true,
+          "sourceChanged": true
+        },
+        "visualAndRuntimePassed": true,
+        "nativeVerdictAcknowledged": false,
+        "paintMs": 45921,
+        "finishedMs": 51763,
+        "version": 7
+      }
+    ],
+    "rejectedAttempts": [
+      {
+        "runID": "5238B9C7-94D7-43F0-B8B8-A3DE56402062",
+        "index": 5,
+        "reason": "Flame began inside body; rejected and undone"
+      },
+      {
+        "runID": "084761A5-3954-472F-8F61-4F625AF31E64",
+        "index": 5,
+        "reason": "No verified version committed; previous scene retained"
+      }
+    ],
+    "motionReview": "24 chronological phone snapshots each for accepted thruster and flight; source confirms downward star wrapping and shared rotation of all ship parts.",
+    "normalMode": "Not confirmed: developer connection dropped after uploading final acceptance, before normal-mode launch could succeed."
+  },
+  "walkiewareThreads": {
+    "backendRevision": "34291d3d74",
+    "focusedTests": 9,
+    "phoneCode": "wwHesop",
+    "remoteEditRoundTripMs": 943,
+    "remoteEditVersion": 69,
+    "guardedUndoHead": 68,
+    "currentHeadAfterUserEdit": 70,
+    "build27RestoredHead": 70,
+    "scope": "Remote edit timing includes rendering and saved acknowledgement, excludes speech and generation.",
+    "acRouteVerification": "Route reaches sign-in screen in browser harness; authenticated playback not yet verified.",
+    "threeDimensionalDemo": {
+      "code": "wwLehoh",
+      "reviewedFrames": 48,
+      "video": "threads/wwLehoh/spaceship-3d.mp4",
+      "scope": "Separate browser demo; CPU-projected 3D geometry. Generation attempt hit output limit; direct source edit verified."
+    }
+  },
+  "versionFeed": {
+    "utterances": true,
+    "currentVersionHighlighted": true,
+    "idleStatusRemoved": true,
+    "codeActivityRemoved": true,
+    "failedAttemptPreservesWorkingHead": true,
+    "musicalContour": true,
+    "relativeTimestamps": true,
+    "tapToCheckout": true,
+    "branchRetainsFutureVersions": true,
+    "keepUndoRemoved": true,
+    "branchParentVisible": true
+  },
+  "utteranceLimit": {
+    "seconds": 8,
+    "nativeDeadline": true,
+    "visibleCountdown": true,
+    "browserAutoSubmitTest": "passed",
+    "duplicateReleaseTest": "passed",
+    "scope": "Browser speech bridge mocked; native signed build passed."
+  },
+  "previewStyle": "Plain 4:3 aspect ratio, normal colors, no bezel or filter; native bridge pins zero runtime gap",
+  "framing": {
+    "before": {
+      "x": 4,
+      "y": 4,
+      "width": 422,
+      "height": 292,
+      "viewport": [
+        430,
+        300
+      ]
+    },
+    "after": {
+      "x": 0,
+      "y": 0,
+      "width": 431,
+      "height": 300,
+      "viewport": [
+        431,
+        300
+      ]
+    },
+    "scope": "Real AC browser runtime; force no-gap and viewport resize",
+    "deployedRevision": "e4cf37115b",
+    "productionResizeCheck": {
+      "nogap": true,
+      "x": 0,
+      "y": 0,
+      "width": 404,
+      "height": 303,
+      "viewport": [
+        404,
+        303
+      ]
+    }
+  },
+  "identityHeader": "@handle / wwCode below preview, aligned to picture right edge; character colors and comic styling retained",
+  "liveLayout": {
+    "code": "wwFifuh",
+    "acknowledged": true,
+    "unchangedLedger": true,
+    "transport": "owner-authenticated WebSocket",
+    "scope": "CSS updated open physical phone app after launch, no restart for layout command"
+  },
+  "freshScreen": "Prototype controls and blank preview caption hidden; old review MutationObserver and gamepad/keyboard controller removed from generated bundle; initial version persisted",
+  "historyPlacement": "Immediately beneath preview caption; scroll occupies remaining space above talk button",
+  "nativeShell": {
+    "nativeControls": [
+      "header",
+      "preview caption",
+      "version feed",
+      "musical contour",
+      "recording transcript",
+      "hold progress",
+      "account/new-piece menu"
+    ],
+    "engine": "Dedicated Walkieware HTML; JS ledger remains authoritative; typed display snapshots; throttled/deduplicated; history only on change",
+    "runtime": "Persistent WKWebView through version and card changes; separate weak coordinator",
+    "progress": "Native TimelineView begins on listening event; eight-second native deadline retained",
+    "screenshots": [
+      "native-shell/walkieware-native-empty.png",
+      "native-shell/walkieware-native-history.png",
+      "native-shell/walkieware-native-recording.png"
+    ],
+    "screenshotScope": "Simulator; populated and recording screens are isolated fixtures, not live microphone recordings",
+    "contractTests": "Passed: early provisional previews, snapshots without source/token, delta history, native checkout, native layout tokens",
+    "physicalLiveLayout": {
+      "code": "wwFifuh",
+      "head": 0,
+      "unchangedLedger": true,
+      "fromSpacing": 12,
+      "toSpacing": 10,
+      "nativeAcknowledgement": true,
+      "restartedForLayout": false
+    }
+  },
+  "swipeToType": {
+    "directions": [
+      "left",
+      "right"
+    ],
+    "revealThresholdPoints": 18,
+    "openThresholdPoints": 72,
+    "characterLimit": 96,
+    "voiceCancelledOnSwipe": true,
+    "tests": "Native XCTest case passed both directions, truncation and no version change on cancel; speech mocked in simulator fixture. Xcode result finalization stalled after passed suite and was interrupted."
+  },
+  "basePiece": {
+    "source": "noiseTinted([128,128,128],0,0)",
+    "head": 0,
+    "code": "wwVufor",
+    "versions": 1,
+    "devicePainted": true,
+    "runtimeErrors": [],
+    "oldBlankThread": "archived locally before assigning new immutable v0",
+    "existingEditedHistory": "preserved",
+    "screenshot": "native-shell/walkieware-native-static.png"
+  },
+  "latestIteration": {
+    "build": 46,
+    "installedOnPhone": true,
+    "uiTest": "Passed: Type left / Talk right, inline typing, 96-character cap, preview above keyboard, cancel preserves version in light and dark appearances",
+    "bridgeTest": "Passed native-shell contract",
+    "dragRepair": {
+      "thread": "wwVufor",
+      "version": 14,
+      "cause": "API guide incorrectly documented id instead of pointerId",
+      "validation": "Grab, move, release with pointerId zero passed; device accepted repaired version"
+    },
+    "theme": "Slab status colors across background, controls, ink and history; system/light/dark selection",
+    "screenshots": "native-shell/walkieware-ready-{light,dark}.png (simulator fixtures, before final dock background mask)"
+  },
+  "buttonLabelIteration": {
+    "build": 47,
+    "installedOnPhone": true,
+    "validation": "Device and simulator builds passed; two simulator frames visually inspected",
+    "type": "Cyan, bold monospace, type-in animation",
+    "talk": "Orange, comic font, outward-moving rays",
+    "reduceMotion": "Both labels remain static",
+    "launch": "Blocked: device locked"
+  },
+  "layoutIteration": {
+    "build": 52,
+    "installedAndLaunched": true,
+    "base": "Random CSS hex color persisted in v0; no automatic title",
+    "caption": "Running version left, handle/code right, below preview",
+    "history": "Alternating backgrounds, outlined comic version labels",
+    "validation": [
+      "base-piece tests: 2 passed",
+      "native bridge contract passed",
+      "device and simulator builds passed"
+    ]
+  },
+  "storyContextAndRecording": {
+    "build": 57,
+    "validation": [
+      "Device build passed",
+      "9 focused JS tests passed",
+      "Native fullscreen story UI test passed on build55; selected version restored",
+      "Original PCM file round-trip preserved duration, sample rate and sample values",
+      "Native bridge output streaming/recovery/story checks passed on final build57 bundle"
+    ],
+    "changes": [
+      "Bounded live output feed",
+      "Selected branch ancestry sent with each request",
+      "Ordinary spoken edits do not imply transcript or acoustic visualization",
+      "Recover interrupted request once, then explicit retry",
+      "Original microphone recordings saved locally and linked through version request metadata",
+      "No prompt or generated instruction beneath preview"
+    ],
+    "limits": [
+      "Original microphone playback only available for newly captured recordings on this device; old/typed versions fall back to speech synthesis",
+      "Hardware microphone capture/playback not yet auditioned",
+      "Intent policy evaluated against saved wwMupol/wwTamof evidence, not a fresh live model replay",
+      "No confirmed native crash report; reload recovery tested, not a forced physical-device crash"
+    ],
+    "installedOnPhone": true
+  },
+  "inferenceIsolation": {
+    "build": 58,
+    "installed": true,
+    "validation": [
+      "Device build passed",
+      "3 input-routing tests passed",
+      "Browser test confirmed ordinary spoken request reaches mocked provider without mixed-input wrapper or recording ID; history/recovery/live-output checks passed"
+    ],
+    "behavior": "Ordinary transcripts only; retain audio in version history. Sound evidence and Jev advice only for nonverbal input or explicit sound references.",
+    "limits": "Sound references use a conservative phrase rule, not a learned speech-versus-music classifier. Existing generated scenes are not automatically rewritten. No fresh live provider quality evaluation."
+  },
+  "compactPlayback": {
+    "build": 60,
+    "installedAndLaunched": true,
+    "features": [
+      "One-line version and content with background RMS waveform",
+      "Current spoken word follows original audio player clock; silent gaps clear the word",
+      "Playback trims leading/trailing silence with 80ms/120ms padding; original recording preserved"
+    ],
+    "validation": [
+      "Device build passed",
+      "Native fullscreen playback/restore UI test passed",
+      "Native browser bridge test passed",
+      "Swift word onset/offset/gap checks passed",
+      "Swift silence trimming and internal pause checks passed",
+      "Actual wwBonog recording inspected: playback range 0.68\u20133.78 seconds; all recognized words retained"
+    ],
+    "limits": [
+      "Trim uses energy threshold; noisy recordings may retain ambient sound",
+      "Timestamp accuracy depends on on-device speech recognition",
+      "Original recording playback on phone has not been manually auditioned this turn"
+    ]
+  },
+  "playOnlyNarration": {
+    "build": 61,
+    "installed": true,
+    "validation": "Device build passed; version selection calls checkout without scheduling speech; word UI gated on fullscreen playback",
+    "behavior": "Tapping versions is silent, with no spoken-word label. Play retains fullscreen original recording playback and synced words."
+  },
+  "rolodex": {
+    "build": 64,
+    "installedAndLaunched": true,
+    "behavior": "Top-anchored snapping version rows select silently after 160ms settling; preview and version/content caption follow selection; identity remains above preview; fullscreen Play unchanged.",
+    "validation": [
+      "Device build passed",
+      "Native swipe UI test passed (15.5 seconds): selected version changed, spoken-word label absent, identity remained visible"
+    ],
+    "limits": "UI swipe test passed on build63; build64 removes top padding and moves snap anchor to top after screenshot review. Xcode test runner was interrupted after suite passed because report finalization stalled."
+  },
+  "continuousVersions": {
+    "build": 66,
+    "installedAndLaunched": true,
+    "behavior": "Single continuous list below preview; active version appears once; version labels left, utterances right; fixed row height and font size; no scaling transition; silent snap selection. Fullscreen Play keeps its own version/word caption.",
+    "validation": [
+      "Device build passed",
+      "Native scrolling selection test passed (13.2 seconds)"
+    ]
+  },
+  "singlePendingRow": {
+    "build": 68,
+    "installed": true,
+    "validation": [
+      "Device build passed",
+      "Source review confirms only pending row has generation spinner"
+    ],
+    "behavior": "No Building status line; one pending utterance row, spinner and stop icon. Pending row stays visible above scroll targets; live output stream retained."
+  },
+  "outputContinuation": {
+    "build": 69,
+    "installed": true,
+    "validation": [
+      "22 AcServer tests passed, including completed-tool retention, truncated-argument discard, continuation exhaustion",
+      "8 recovery/context/input tests passed",
+      "Browser bridge test passed including checkpoint restored into next provider request",
+      "Device build passed"
+    ],
+    "behavior": "Walkieware permits 4 output-limit continuations without consuming tool rounds; 12 tool rounds; failed attempts retain last rendered source for retry. Native feed shows streamed code rather than tool JSON. Generic failure line removed from upper UI.",
+    "limits": "Provider/billing limits remain. Repeated output cutoffs eventually pause with resumable checkpoint. Existing wwGihap failure predates checkpoint persistence; retry begins from saved v2. No live provider replay yet."
+  }
+}

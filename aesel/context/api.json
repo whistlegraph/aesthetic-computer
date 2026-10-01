@@ -438,7 +438,7 @@
    "doc": "Clip drawing to a rectangle until unmask().",
    "source": "lib/graph.mjs:1838",
    "examples": [
-    "disks/chat.mjs:1385  mask({",
+    "disks/chat.mjs:1391  mask({",
     "disks/clocks.mjs:152  mask({",
     "disks/commits.mjs:326  mask({ x: 0, y: topMargin, width: w, height: chatHeight });"
    ]
@@ -450,7 +450,7 @@
    "doc": "Lift the clip set by mask().",
    "source": "lib/graph.mjs:1843",
    "examples": [
-    "disks/chat.mjs:2312  unmask();",
+    "disks/chat.mjs:2318  unmask();",
     "disks/clocks.mjs:205  unmask(); // End masking",
     "disks/commits.mjs:485  unmask();"
    ]
@@ -527,7 +527,7 @@
    "doc": "Efficient Gaussian blur using separable filtering with linear sampling optimization Creates smooth blur effect by applying horizontal then vertical Gaussian convolution",
    "source": "lib/graph.mjs:7352",
    "examples": [
-    "disks/notepat.mjs:8583  blur(0.5);"
+    "disks/notepat.mjs:8587  blur(0.5);"
    ]
   },
   {
@@ -817,7 +817,7 @@
    "examples": [
     "disks/hell_-world.mjs:873  prevBtn.box = new geo.Box(",
     "disks/hell_-world.mjs:901  nextBtn.box = new geo.Box(",
-    "disks/notepat.mjs:8806  buttons[label].box = new geo.Box(...geometry);"
+    "disks/notepat.mjs:8810  buttons[label].box = new geo.Box(...geometry);"
    ]
   },
   {
@@ -850,8 +850,8 @@
   {
    "name": "pens",
    "path": "pens",
-   "signature": "pens() → [{ x, y, id, drawing }]",
-   "doc": "Every active pointer, for multitouch. Pass to btn.act(e, callbacks, pens()).",
+   "signature": "pens() → [{ x, y, pointerId, pointerNumber, drawing }]",
+   "doc": "Every active pointer, for multitouch. Use pointerId for identity (not id); zero is valid, so use null for no held pointer. Pass to btn.act(e, callbacks, pens()).",
    "source": "lib/disk.mjs",
    "examples": []
   },
