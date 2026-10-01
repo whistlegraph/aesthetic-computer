@@ -80,12 +80,17 @@ An origin header and self-reported events are not cryptographic proof of human
 activity. The collector rejects unreviewed values and oversized bodies and
 uses a bounded, in-memory rate guard (240 requests/minute/source).
 
-No stored IP, user agent, account/handle, referrer, URL, query string, page text,
+No stored IP, user agent, account/handle, full URL, query string, page text,
 form value, key or pointer coordinate. The transient rate-limit digest is
 process-salted, expires after one minute and never leaves memory. Requests omit
 credentials and referrers. No tracking cookies or browser storage are used.
 DNT, GPC, `window.acVisitTrackingDisabled = true`, private routes and embedded
 frames suppress collection. The disclosure is `/network-privacy.html`.
+
+New visit records include `referrerHost`: the browser-reported referring
+hostname, stripped of credentials, path, query and fragment. Local hosts and
+IP literals are excluded. Null means direct or unavailable, not necessarily
+direct traffic. Older visit records without this field are unmeasured.
 
 Render/test harnesses should set `window.acAutomation = true` before loading
 the module, or append `?ac-automation=1`. Existing `social-preview`,
@@ -150,6 +155,95 @@ report is the last changed snapshot, not continuous presence or departure.
 The tool reads existing data; it adds no browser identifiers or new retention.
 
 ## Coverage
+
+### Account activity and referrers
+
+`POST /api/account-activity` verifies a bearer token through the existing
+authorization service. Identity is taken only from the verified account;
+submitted user/handle fields are ignored. AC shell piece loads and reviewed
+actions use a separate in-memory session and client sequence. Built-in public
+piece names are retained; published/inline programs use `published-or-code`.
+Sotce uses its own authentication tenant and the broad `sotce` category, without
+diary page IDs or contents. Embedded shells and private routes are excluded.
+Only signed-in activity after installation is available. Login does not replay
+anonymous actions, and there is no join to anonymous visit IDs.
+
+`account-activity` stores server receipt time, verified account subject, tenant,
+property, session, sequence, piece, action and referral hostname. Actions dedupe
+per piece load; receipt order can differ from client sequence. The endpoint has
+no public read route, bounded requests and a per-account rate limit. Rows expire
+after 35 days; each site's account deletion removes its tenant's rows. Separate
+Sotce identities remain separate accounts. Existing Silo operational firehose
+history has its own retention. These records are not sent to PostHog.
+
+The private analytics MCP exposes:
+
+- `account_activity({hours:24, handle:"@handle"})`: verified account events,
+  public handles where available, otherwise an account alias, and temporary
+  session aliases. Counts are accounts, not unique people. Omit `handle` for
+  all recorded accounts. Results are bounded and report truncation.
+- `network_referrers({hours:24})`: referral hosts grouped by property, with
+  visits, interacted visits and engaged visits. Existing AC boot logs supply
+  a separate historical referral table, stripped to hostnames. Do not add boot
+  counts to visit counts; they measure different things. Neither table proves
+  human identity or a complete marketing attribution chain.
+
+Both default to studio scope and accept `limit` (up to 500). No campaign tags
+are collected. Missing data before deployment cannot be reconstructed.
+Use `account_activity({hours:24, property:"sotce.net"})` or
+`network_referrers({hours:24, property:"sotce.net"})` to isolate Sotce; add
+`handle` to follow a particular account with a resolvable public handle.
+
+Sotce's authenticated feed additionally records `sotce_page_viewed` after two
+foreground display seconds and `sotce_page_visible_30s` after thirty. Only the
+displayed, loaded card qualifies: prefetched pages, flipped backs, transitions,
+editors and hidden tabs do not. Time gaps are capped at one second. Returning
+to a page after viewing another can produce another milestone; no page key,
+number or content leaves the browser through this feed. These indicate display,
+not verified reading or unique pages. Canvas and virtualized DOM views are covered.
+
+`sotce_page_touched` requires a newly inserted touch (`touchCreated: true`),
+excluding existing touches, the author's own page and failed writes.
+`sotce_question_submitted` requires a successful saved question; it is the sole
+allowed milestone within `/ask`, with no form content. `/comment`, `/chat`,
+`/write` and `/respond` remain excluded. These four Sotce milestones can repeat
+within a session and carry client sequence numbers. They remain best-effort
+browser reports with server-verified identity; the existing `sotce-touches`
+and `sotce-asks` collections are authoritative for saved operation totals.
+
+### Laer Klokken feature use
+
+`/laer-klokken` aliases to `laklok`. Both that canvas piece and the standalone
+HTML sister (`laklok.com/html/`, recorded as `laklok-vector`) now send repeated
+authenticated feature events. `lib/laklok-activity.mjs` is the reviewed catalog
+and identifies which controls exist in each interface. It contains no message,
+recipient, link, chosen theme or language values. Boot restores and repeated
+clicks on the already-selected theme/filter do not count as changes.
+
+The canvas worker uses `account:action`; BIOS passes only the action name to
+the first-party account collector. The HTML client uses its existing Auth0
+session, rechecks token expiry when sending, and posts to the same endpoint.
+The server verifies identity and rejects Laklok events attributed to another
+piece. These detailed counts require sign-in; anonymous visits keep their
+existing broad measurements. Opt-outs, private routes and automation guards
+still apply. Radio/send/edit/media/navigation events are named `*_requested`
+and must not be reported as successful playback, delivery or completed loading.
+
+Use `feature_usage({hours:168})`, optionally with `handle:"@someone"`, for ranked
+features, counts per account and UTC daily opens/action counts. Maximum lookback
+is 840 hours (35 days), with at most 50 account rows. Top-feature totals cover
+all matching accounts even when account detail is truncated. `property` can
+restrict to a reviewed host; omitting it includes Laklok served through AC too.
+
+Reports require `featureVersion:1`, so earlier piece opens do not fabricate
+unused-feature rows. `notRecorded` means zero recorded uses of a control
+supported by that account's observed interface, not proof the control was
+visible or unused. Days without events are unobserved. Counts are best effort:
+offline use, opt-outs, unloads and rate limits can leave gaps. Repeated Laklok
+events are not deduplicated while a prior request is in flight; the client caps
+concurrent sends at 20 and the server's per-account rate limit still applies.
+
+### Website installation
 
 The shared AC shell covers AC, notepat.com, nopaint.art, laklok.com and mime.ac
 when those domains serve it. Static entry pages cover Whistlegraph, Jas,

@@ -54,6 +54,19 @@ export const INPUTS = Object.freeze(["pointer", "touch", "keyboard", "scroll", "
 export const RETENTION_DAYS = 35;
 export const VISIT_COLLECTION = "network-visits";
 
+// Referral site only. Paths, credentials, searches and fragments never survive.
+export function visitReferrer(value) {
+  if (!value) return null;
+  try {
+    const url = new URL(value.includes("://") ? value : `https://${value}`);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password ||
+        host.length > 253 || !/^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(host) ||
+        /^[\d.]+$/.test(host) || /\.(?:local|internal|localhost)$/.test(host)) return null;
+    return host;
+  } catch { return null; }
+}
+
 export function visitGroup(property) {
   return CLIENT_VISIT_PROPERTIES.includes(property) ? "clients" : "studio";
 }
@@ -110,6 +123,7 @@ export function validateVisit(body, origin, userAgent = "") {
     activeSeconds: body.activeSeconds, interacted: body.interacted,
     automated: body.automated || automatedVisit({ userAgent }),
     inputs: [...new Set(body.inputs)], actions: [...new Set(body.actions)],
+    referrerHost: typeof body.referrerHost === "string" ? visitReferrer(body.referrerHost) : null,
   };
 }
 
@@ -119,7 +133,7 @@ export function visitUpdate(visit, now = new Date()) {
   for (const input of visit.inputs) max[`inputs.${input}`] = true;
   for (const action of visit.actions) max[`actions.${action}`] = true;
   return {
-    $setOnInsert: { property: visit.property, group: visitGroup(visit.property), surface: visit.surface,
+    $setOnInsert: { property: visit.property, group: visitGroup(visit.property), surface: visit.surface, referrerHost: visit.referrerHost,
       expiresAt: new Date(now.getTime() + RETENTION_DAYS * 86400000) },
     $min: { startedAt: now }, $max: { ...max, lastSeenAt: now },
   };

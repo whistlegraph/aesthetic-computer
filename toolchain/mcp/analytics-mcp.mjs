@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import zlib from "node:zlib";
 import { serveStdio, serveHttp, httpPort } from "./http-front.mjs";
-import { VISIT_ACTIONS, VISIT_DEPTHS } from "../../system/public/aesthetic.computer/lib/visit-model.mjs";
+import { VISIT_ACTIONS, VISIT_DEPTHS, visitProperty, visitScopeMatch } from "../../system/public/aesthetic.computer/lib/visit-model.mjs";
 import { fisheryOptions } from "../analytics/human-fishery.mjs";
 
 const pexec = promisify(execFile);
@@ -46,6 +46,18 @@ async function humanFishery(args = {}) {
   const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/human-fishery-report.mjs ${quoted}`;
   const { stdout } = await pexec("ssh", ["-i", SSH_KEY, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", LITH, remote],
     { timeout: 30000, maxBuffer: 1024 * 1024 });
+  return JSON.parse(stdout.slice(stdout.indexOf("{")));
+}
+
+async function journeyReport(mode, args = {}) {
+  const { hours = 24, limit = mode === "features" ? 30 : 100, scope = "studio", handle, property } = args;
+  if (!Number.isFinite(hours) || hours <= 0 || hours > 840 || !Number.isInteger(limit) || limit < 1 || limit > (mode === "features" ? 50 : 500) ||
+      !["studio", "clients", "all"].includes(scope) || (handle !== undefined && !/^@?[a-z0-9_-]{1,64}$/i.test(handle))) throw new Error("Invalid report options");
+  if (property !== undefined && !visitScopeMatch(scope).property.$in.includes(visitProperty(property))) throw new Error("Property is outside the selected scope");
+  const quoted = "'" + JSON.stringify({ hours, limit, scope, handle, property }).replaceAll("'", "'\\''") + "'";
+  const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/journey-report.mjs ${mode} ${quoted}`;
+  const { stdout } = await pexec("ssh", ["-i", SSH_KEY, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", LITH, remote],
+    { timeout: 30000, maxBuffer: 2 * 1024 * 1024 });
   return JSON.parse(stdout.slice(stdout.indexOf("{")));
 }
 
@@ -244,6 +256,22 @@ async function appDownloads({ days = 7, apps = Object.keys(APPS) } = {}) {
 // 🔌 MCP
 
 const TOOLS = [
+  ...["account_activity", "network_referrers", "feature_usage"].map(name => ({
+    name,
+    description: name === "feature_usage"
+      ? "Laer Klokken/laklok feature-use counts by authenticated account: ranked controls, per-account counts, UTC daily activity and supported features with no recorded use. Covers canvas and HTML clients from the feature rollout onward. Zero is not proof of non-use. Optional public handle/property filter; up to 35 days, at most 50 accounts. No chat content, page contents or link destinations."
+      : name === "account_activity"
+      ? "Follow server-verified authenticated accounts through public AC/Sotce activity: public handle, runtime session alias, piece opens and action milestones. Optional handle filter. Only records from the account-activity rollout onward; no inferred identities or retroactive joins to anonymous fish. Login does not prove human activity. Private SSH-backed read."
+      : "Referral sites across the Aesthetic network: first-party visits plus separately labeled historical AC boot referrals. Domain only, no full referrer URLs. Null is direct-or-unavailable. Excludes known automation; visits and boots are separate instruments and must not be summed.",
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: { type: "object", additionalProperties: false, properties: {
+      hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
+      limit: { type: "integer", minimum: 1, maximum: name === "feature_usage" ? 50 : 500, description: name === "feature_usage" ? "Maximum accounts; default 30" : "Maximum rows; default 100" },
+      scope: { type: "string", enum: ["studio", "clients", "all"], description: "Default studio" },
+      property: { type: "string", description: "Optional reviewed site, e.g. sotce.net; must belong to selected scope" },
+      ...(name !== "network_referrers" ? { handle: { type: "string", description: "Optional public handle, with or without @" } } : {}),
+    } },
+  })),
   {
     name: "human_fishery",
     description: "AC Human Fishery: watch recent likely-human activity through Silo's existing MongoDB firehose on Lith. Returns temporary fish names for non-automated visits with interaction, public property, broad surface, visible-time depth and action flags. Read-only snapshots; repeat after at least 15 seconds for changes. Does not identify people, link separate visits or infer cross-site journeys. lastReportedAt is the last changed snapshot, not proof someone is still online.",
@@ -313,6 +341,9 @@ const TOOLS = [
 
 async function callTool(name, args = {}) {
   const result = name === "visits_report" ? await visitsReport(args)
+    : name === "account_activity" ? await journeyReport("accounts", args)
+    : name === "feature_usage" ? await journeyReport("features", args)
+    : name === "network_referrers" ? await journeyReport("referrers", args)
     : name === "human_fishery" ? await humanFishery(args)
     : name === "direct_downloads" ? await directDownloads(args)
     : name === "daily_metrics" ? await dailyMetrics(args)

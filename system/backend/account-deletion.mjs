@@ -308,6 +308,7 @@ const DELETE = [
   ["mimechan", (sub) => ({ user: sub })],
   ["hearts", (sub) => ({ user: sub })],
   ["piece-user-hits", (sub) => ({ user: sub })],
+  ["account-activity", (sub) => ({ user: sub, tenant: "aesthetic" })],
   ["cal-feeds", (sub) => ({ user: sub })],
   ["calendar", (sub) => ({ user: sub })],
   ["laklok-themes", (sub) => ({ _id: sub })],
