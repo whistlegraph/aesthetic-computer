@@ -47,8 +47,13 @@ test('real sockets isolate accounts, persist versions and relay checked commands
  const command=await device.next('command');assert.equal(command.text,'Make it 3D');await agent.next('accepted');
  agent.send({type:'command',id:'edit-2',action:'undo',baseVersion:0,baseHash:'stale'});assert.equal((await agent.next('result')).error,'Device busy');
  device.send({type:'result',id:'edit-1',ok:true,head:1});assert.equal((await agent.next('result')).ok,true);
- device.ws.close();assert.equal((await agent.next('presence')).online,false);
- agent.send({type:'command',id:'edit-3',action:'undo',baseVersion:0,baseHash:'stale'});assert.match((await agent.next('result')).error,/offline/);
+ agent.ws.close();await once(agent.ws,'close');
+ const second=await client(f.url,{role:'agent',code:'wwRuboh'});assert.equal((await second.next('ready')).online,true);
+ device.send({type:'ping'});assert.equal((await device.next('pong')).attached,true);
+ second.ws.close();
+ device.ws.close();await once(device.ws,'close');
+ const offline=await client(f.url,{role:'agent',code:'wwRuboh'});assert.equal((await offline.next('ready')).online,false);
+ offline.send({type:'command',id:'edit-3',action:'undo',baseVersion:0,baseHash:'stale'});assert.match((await offline.next('result')).error,/offline/);
 });
 test('phone client persists identity, coalesces ledger sync without echo loop and survives reconnect',{timeout:5000},async t=>{
  const f=await fixture(t),values=new Map(),storage={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v)};

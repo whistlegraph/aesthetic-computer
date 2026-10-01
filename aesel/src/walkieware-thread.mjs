@@ -13,18 +13,22 @@ export function threadIdentity(storage,key,uuid=()=>crypto.randomUUID()) {
   const value={id:uuid(),code:null};storage.setItem(key+'-thread',JSON.stringify(value));return value;
 }
 export class WalkiewareThread {
-  constructor({storage,key,token,ledger,state,onStatus,onCommand,WebSocketImpl=globalThis.WebSocket,url='wss://aesthetic.computer/api/walkieware-stream'}) {
-    Object.assign(this,{storage,key,token,ledger,state,onStatus,onCommand,WebSocketImpl,url});
+  constructor({storage,key,token,ledger,state,onStatus,onCommand,WebSocketImpl=globalThis.WebSocket,url='wss://aesthetic.computer/api/walkieware-stream',heartbeatMs=15000,maxIdleMs=45000,reconnectMs=3000}) {
+    Object.assign(this,{storage,key,token,ledger,state,onStatus,onCommand,WebSocketImpl,url,heartbeatMs,maxIdleMs,reconnectMs});
     this.identity=threadIdentity(storage,key);this.revision=Number(storage.getItem(key+'-cloud-revision')||0);this.last=storage.getItem(key+'-cloud-ledger')||'';
     this.active=false;this.sending=false;this.ready=false;
   }
   async resume() {
     this.active=true;if(this.ws)return;
-    const token=await this.token();if(!token||!this.active)return;
+    const token=await this.token();if(!token||!this.active||this.ws)return;
     const ws=this.ws=new this.WebSocketImpl(this.url);
+    this.lastSeen=Date.now();
+    this.heartbeat=setInterval(()=>{if(Date.now()-this.lastSeen>this.maxIdleMs)this.disconnect(ws);else if(this.ready)this.send({type:'ping'});},this.heartbeatMs);
     ws.onopen=()=>this.send({type:'authenticate',role:'device',token,id:this.identity.id});
     ws.onmessage=async event=>{
       let m;try{m=JSON.parse(event.data);}catch{return;}
+      if(this.ws!==ws)return;
+      this.lastSeen=Date.now();
       if(m.type==='ready') {
         this.identity.code=m.thread.code;this.storage.setItem(this.key+'-thread',JSON.stringify(this.identity));
         const cloud=ledgerText(m.thread.ledger),local=ledgerText(this.ledger());
@@ -46,12 +50,13 @@ export class WalkiewareThread {
         this.sync();this.update();
       }
     };
-    ws.onclose=()=>{if(this.ws!==ws)return;this.ws=null;this.ready=false;this.sending=false;this.onStatus(this.identity.code,'Offline');if(this.active)this.timer=setTimeout(()=>this.resume(),3000);};
+    ws.onclose=()=>this.disconnect(ws);
     ws.onerror=()=>{};
   }
   send(value){if(this.ws?.readyState===1)this.ws.send(JSON.stringify(value));}
   sync(){if(!this.ready||this.sending)return;const ledger=this.ledger(),next=ledgerText(ledger);if(next===this.last)return;this.sending=true;this.send({type:'sync',revision:this.revision,ledger});}
   update(){if(this.ready)this.send({type:'state',state:this.state()});}
   async flush(){for(let i=0;i<100;i++){if(!this.ready)throw Error('Connection lost; inspect history before retrying');if(!this.sending&&this.last===ledgerText(this.ledger()))return;await new Promise(r=>setTimeout(r,100));}throw Error('Version sync pending; inspect before retrying');}
-  suspend(){this.active=false;clearTimeout(this.timer);this.ws?.close();}
+  disconnect(ws){if(this.ws!==ws)return;this.ws=null;this.ready=false;this.sending=false;clearInterval(this.heartbeat);this.onStatus(this.identity.code,'Offline');try{ws.close();}catch{}if(this.active)this.timer=setTimeout(()=>this.resume(),this.reconnectMs);}
+  suspend(){this.active=false;clearTimeout(this.timer);if(this.ws)this.disconnect(this.ws);}
 }

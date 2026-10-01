@@ -43,6 +43,7 @@ export function attachWalkiewareSocket(server,{authenticate,store,authMs=5000,li
         if(!saved){send(ws,{type:'conflict',thread:publicThread(await (await store()).read(owner,row.code))});return;}
         row=saved;broadcast({type:'saved',thread:publicThread(row)});return;
       }
+      if(m.type==='ping'){send(ws,{type:'pong',online:!!room.device,role,peers:room.clients.size,attached:rooms.get(row._id)===room});return;}
       if(m.type==='state'&&role==='device') {
         const state=m.state;
         if(!state||JSON.stringify(state).length>525000)throw Error('Invalid state');
