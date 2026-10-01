@@ -26,7 +26,10 @@ export class SemanticBrowser {
       this.connection=(async()=>{
         const {chromium}=await import("playwright-core");
         // Attach without changing the user's media/focus/download preferences.
-        const browser=await chromium.connectOverCDP(this.endpoint(),{noDefaults:true,timeout:10000});
+        // A cold ordinary-Chrome connection may await the host's Modalpolice
+        // scan and consent action. Match the raw CDP handshake deadline so a
+        // premature timeout does not leave another stale approval dialog.
+        const browser=await chromium.connectOverCDP(this.endpoint(),{noDefaults:true,timeout:60000});
         browser.on("disconnected",()=>{this.connection=null;this.inspector=null;this.pages.clear();});
         return browser;
       })();

@@ -1,0 +1,11 @@
+{
+  "thread": "wwTamof",
+  "head": 1,
+  "utterance": "The most beautiful mountain in the universe",
+  "startedAt": "2026-10-01T05:34:34.644Z",
+  "finishedAt": "2026-10-01T05:35:20.575Z",
+  "elapsedSeconds": 45.931,
+  "finding": "v1 encodes RMS and pitch arrays as a ridge and trail, then displays all transcript words; ordinary scene request was over-interpreted as an audio visualization. No runtime errors reported.",
+  "changes": "Generation and mixed-input policies prioritize the requested scene, disallow unrequested transcript/recording visualizations; branch ancestry is included with subsequent requests.",
+  "limits": "Inspected saved source and diagnostics; no live model replay or visual capture of this thread performed; historical versions unchanged."
+}

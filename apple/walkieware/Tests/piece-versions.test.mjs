@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {PieceVersions} from '../Resources/Web/piece-versions.mjs';
+const values=new Map();const storage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)};
+const ledger=new PieceVersions(storage,'test','initial');
+ledger.commit({source:'two layers',request:'make it',layers:2,parent:0});
+assert.equal(ledger.value.versions.length,2);assert.equal(ledger.head.parent,0);
+assert.equal(new PieceVersions(storage,'test').head.source,'two layers');
+ledger.undo();ledger.commit({source:'branch',request:'try again',layers:1,parent:0});
+assert.equal(ledger.head.id,2);assert.equal(ledger.head.parent,0);assert.equal(ledger.value.versions[1].source,'two layers');
+assert.throws(()=>ledger.commit({source:'stale',parent:1}));
+storage.setItem=()=>{throw Error('Quota exceeded');};assert.throws(()=>ledger.commit({source:'lost'}));assert.equal(ledger.head.source,'branch');
+console.log('PASS: one version per ask, persisted parent chain, undo/branch retention, stale parent and storage-failure protection.');

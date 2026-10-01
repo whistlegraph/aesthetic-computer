@@ -1,3 +1,4 @@
+import { speechCaption } from "./speech-caption.mjs";
 // Speech, 23.08.09.15.50
 // A thin API over the web speech synthesis API,
 // with cloud support.
@@ -39,7 +40,11 @@ if (synth?.onvoiceschanged !== undefined) {
 // and returns a mp3 file.
 
 function speak(words, voice, mode = "local", opts = {}) {
-  if (!synth) console.warn("No speech is supported on this platform.");
+  voice ||= "female";
+  if (mode === "local" && !synth) {
+    window.acSEND?.({type:"speech:error",content:{status:0,provider:"local",message:"Speech synthesis unavailable"}});
+    return;
+  }
   if (mode === "local") {
     if (synth.speaking) {
       console.error("🗣️ Already speaking...");
@@ -52,17 +57,30 @@ function speak(words, voice, mode = "local", opts = {}) {
     if (voice.startsWith("female")) voiceIndex = 9;
     if (voice.startsWith("male")) voiceIndex = 10;
 
-    utterance.voice = voices[voiceIndex];
+    utterance.voice = voices.find(v => v.name === voice) || voices[voiceIndex] || voices.find(v => v.default) || voices[0];
+    if(opts.lang)utterance.lang=opts.lang;
+    if(Number.isFinite(opts.rate))utterance.rate=Math.max(0.1,Math.min(10,opts.rate));
+    let caption;
+    utterance.onstart = () => {
+      caption=speechCaption(words,opts.captions===true);
+      window.acSEND?.({type:"speech:started",content:{text:words,voice,mode}});
+    };
+    utterance.onboundary = event => {
+      if(event.name!=="word")return;
+      const index=event.charIndex;
+      const length=event.charLength || words.slice(index).match(/^\S+/)?.[0].length || 0;
+      caption?.boundary(index,length);
+      window.acSEND?.({type:"speech:word",content:{text:words,word:words.slice(index,index+length),charIndex:index,charLength:length,elapsed: event.elapsedTime}});
+    };
+    utterance.onend = () => {
+      caption?.end();
+      if(!opts.skipCompleted)window.acSEND?.({type:"speech:completed"});
+    };
     // console.log("Speaking:", words, utterance.voice);
 
-    if (!opts.skipCompleted) {
-      utterance.onend = function (event) {
-        // console.log("🗣️ Speech completed:", event);
-        window.acSEND({ type: "speech:completed" }); // Send to piece.
-      };
-    }
-
     utterance.onerror = function (event) {
+      caption?.end();
+      window.acSEND?.({type:"speech:error",content:{status:0,provider:"local",message:event.error}});
       console.error("🗣️ Speech failure:", event);
     };
 
@@ -106,6 +124,8 @@ function speak(words, voice, mode = "local", opts = {}) {
         return;
       }
       
+      const caption=speechCaption(words,opts.captions===true);
+      window.acSEND?.({type:"speech:started",content:{text:words,voice,mode}});
       speakAPI.playSfx(
         id,
         label,
@@ -117,6 +137,7 @@ function speak(words, voice, mode = "local", opts = {}) {
           targetDuration: opts.targetDuration, // Time stretch to target duration, then pitch shift
         },
         () => {
+          caption.end();
           if (!opts.skipCompleted) window.acSEND({ type: "speech:completed" });
         },
       );

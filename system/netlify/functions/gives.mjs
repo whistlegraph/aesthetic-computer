@@ -12,6 +12,27 @@ const dev = process.env.CONTEXT !== "production";
 let cachedGives = null;
 let cacheTimestamp = 0;
 const CACHE_TTL = 60000; // 1 minute cache
+let subscriberCache = null;
+let subscriberRequest = null;
+
+async function getSubscribers(stripe) {
+  if (subscriberCache && Date.now() - subscriberCache.at < CACHE_TTL) {
+    return subscriberCache.data;
+  }
+  // Share in-flight work across homepage visitors; count beyond Stripe's first page.
+  if (!subscriberRequest) {
+    subscriberRequest = (async () => {
+      let activeSubscribers = 0;
+      for await (const subscription of stripe.subscriptions.list({ status: 'active', limit: 100 })) {
+        activeSubscribers++;
+      }
+      const data = { activeSubscribers, lastUpdated: new Date().toISOString() };
+      subscriberCache = { at: Date.now(), data };
+      return data;
+    })().finally(() => { subscriberRequest = null; });
+  }
+  return subscriberRequest;
+}
 
 export async function handler(event, context) {
   // Handle CORS preflight
@@ -23,12 +44,14 @@ export async function handler(event, context) {
     return respond(405, { error: "Method not allowed" });
   }
 
+  const subscribersOnly = event.queryStringParameters?.summary === 'subscribers';
+
   // Always use production Stripe key for gives feed (show real donations)
   const stripeKey = process.env.STRIPE_API_PRIV_KEY;
 
   if (!stripeKey) {
     // Return empty gives in dev when Stripe isn't configured
-    if (dev) {
+    if (dev && !subscribersOnly) {
       return respond(200, { gives: [], total: 0, cached: false, dev: true });
     }
     return respond(500, { error: "Stripe not configured" });
@@ -36,13 +59,18 @@ export async function handler(event, context) {
 
   // Return cached data if fresh
   const now = Date.now();
-  if (cachedGives && (now - cacheTimestamp) < CACHE_TTL) {
+  if (!subscribersOnly && cachedGives && (now - cacheTimestamp) < CACHE_TTL) {
     return respond(200, cachedGives);
   }
 
   const stripe = new Stripe(stripeKey);
 
   try {
+    if (subscribersOnly) {
+      return respond(200, await getSubscribers(stripe), {
+        'Cache-Control': 'public, max-age=60',
+      });
+    }
     const limit = parseInt(event.queryStringParameters?.limit) || 100;
     
     // Only show gives from 2025 onwards (when give page launched)
@@ -165,13 +193,9 @@ export async function handler(event, context) {
     }, 0);
 
     // Count active monthly subscribers
-    let activeSubscribers = 0;
+    let activeSubscribers = null;
     try {
-      const subscriptions = await stripe.subscriptions.list({
-        status: 'active',
-        limit: 100,
-      });
-      activeSubscribers = subscriptions.data.length;
+      ({ activeSubscribers } = await getSubscribers(stripe));
     } catch (e) {
       console.log('Could not fetch subscriptions:', e.message);
     }
@@ -188,7 +212,7 @@ export async function handler(event, context) {
 
     // Cache the result
     cachedGives = result;
-    cacheTimestamp = now;
+    cacheTimestamp = Date.now();
 
     return respond(200, result);
   } catch (error) {

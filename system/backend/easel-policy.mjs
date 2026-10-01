@@ -32,7 +32,47 @@ export function inferenceRequest(body) {
   const wanted = body.max_tokens === undefined ? DEFAULT_MAX_TOKENS : body.max_tokens;
   if (!Number.isSafeInteger(wanted) || wanted < 1) throw new Error("max_tokens must be a positive integer.");
   if (!Array.isArray(body.messages) || body.messages.length === 0) throw new Error("At least one message is required.");
-  return { model, maxTokens: Math.min(wanted, HOSTED_MAX_TOKENS) };
+  return { model, maxTokens: Math.min(wanted, HOSTED_MAX_TOKENS), reasoning: reasoningRequest(body.reasoning), thinking: thinkingRequest(body.thinking) };
+}
+
+// Anthropic's own `thinking` field. Measured 2026-10-01: on OpenRouter's
+// messages endpoint this is the one shape DeepSeek v4.1 flash honors —
+// {type:"disabled"} drops its thinking to zero where every `reasoning`
+// form above left thousands of hidden tokens.
+export function thinkingRequest(thinking) {
+  if (thinking === undefined || thinking === null) return null;
+  if (typeof thinking !== "object" || Array.isArray(thinking)) throw new Error("thinking must be an object.");
+  if (thinking.type === "disabled") return { type: "disabled" };
+  if (thinking.type === "enabled") {
+    const budget = thinking.budget_tokens;
+    if (!Number.isSafeInteger(budget) || budget < 1024 || budget > HOSTED_MAX_TOKENS) throw new Error("thinking.budget_tokens must be an integer from 1024 up to the hosted ceiling.");
+    return { type: "enabled", budget_tokens: budget };
+  }
+  throw new Error("thinking.type must be enabled or disabled.");
+}
+
+// OpenRouter's `reasoning` object, forwarded only in the shapes its docs name.
+// A surface that paints the piece as it streams asks for {effort:"none"}:
+// hidden thinking is paid for, counts against max_tokens, and shows nothing.
+const REASONING_EFFORTS = new Set(["none", "minimal", "low", "medium", "high"]);
+export function reasoningRequest(reasoning) {
+  if (reasoning === undefined || reasoning === null) return null;
+  if (typeof reasoning !== "object" || Array.isArray(reasoning)) throw new Error("reasoning must be an object.");
+  const out = {};
+  if (reasoning.effort !== undefined) {
+    if (!REASONING_EFFORTS.has(reasoning.effort)) throw new Error("reasoning.effort must be none, minimal, low, medium or high.");
+    out.effort = reasoning.effort;
+  }
+  if (reasoning.max_tokens !== undefined) {
+    if (!Number.isSafeInteger(reasoning.max_tokens) || reasoning.max_tokens < 0 || reasoning.max_tokens > HOSTED_MAX_TOKENS) throw new Error("reasoning.max_tokens must be a non-negative integer.");
+    out.max_tokens = reasoning.max_tokens;
+  }
+  for (const flag of ["enabled", "exclude"]) {
+    if (reasoning[flag] === undefined) continue;
+    if (typeof reasoning[flag] !== "boolean") throw new Error(`reasoning.${flag} must be a boolean.`);
+    out[flag] = reasoning[flag];
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 export function inferenceBudgetFailure(budget, handle) {

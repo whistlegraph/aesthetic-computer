@@ -169,6 +169,10 @@ passes, and it is never included in the weekly LaunchAgent.
 Use [Neo cleanup](NEO-CLEANUP.md) for the verified worktree and local Photos
 procedures, recovery records, and the host's daily schedule.
 
+The [AC performance guard](PERFORMANCE-GUARD.md) checks disk headroom every
+30 seconds and gates new shell-launched Git worktrees and Swift builds. Install
+it on every fleet Mac; deployment verifies the PATH shims as well as launchd.
+
 Keep at least 20 GiB free on Neo for swap and system updates. Its hourly
 `disk-space-watch` checks only filesystem free space and warns at most once
 per day; it never deletes data. Install it with
@@ -341,3 +345,17 @@ shared `fleet-browser` access lease, use Chrome's `DevToolsActivePort`, touch
 its owner while active, and release it when finished. Never invent a
 `/tmp/*-chrome` profile or another debugging port. The manager refuses
 competing debug instances and the launchd reaper expires abandoned access.
+
+Reuse the resident Puppet/CDP connection across client requests. A lease alone
+does not share a WebSocket, and Chrome asks again for each new connection.
+Avoid restarting the browser core when only an MCP client needs refreshing.
+Ordinary Chrome also needs a profile window open to show its consent dialog;
+a windowless process can reject debugging with HTTP 403.
+
+The operator-approved fleet consent handler is Captutor Modalpolice:
+`node slab/captutor/bin/install-nag-fighter.mjs --allow-remote-debugging` installs
+its login watcher and explicit persistent policy. See
+[`slab/captutor/README.md`](../../slab/captutor/README.md). It handles only
+recognized native Chrome dialogs, never page content or unknown prompts.
+Verify its live status and handled events; installation alone is not proof.
+A locked desktop still needs unlocking. Do not turn off Chrome's consent checks.

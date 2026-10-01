@@ -98,8 +98,8 @@ export const handler = stream(async (event) => {
     return fail(400, `Malformed request: ${error.message}`);
   }
 
-  let model, maxTokens;
-  try { ({ model, maxTokens } = inferenceRequest(body)); }
+  let model, maxTokens, reasoning, thinking;
+  try { ({ model, maxTokens, reasoning, thinking } = inferenceRequest(body)); }
   catch (error) { return fail(400, error.message); }
 
   // Has this handle spent its day? Over budget is a refusal here rather than a
@@ -152,6 +152,8 @@ export const handler = stream(async (event) => {
       system: body.system,
       messages: body.messages,
       tools: body.tools,
+      ...(reasoning ? { reasoning } : {}),
+      ...(thinking ? { thinking } : {}),
       stream: true,
     }),
   });

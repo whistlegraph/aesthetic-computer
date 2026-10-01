@@ -366,3 +366,55 @@ test('runtime model identity is grounded and bundled stream progress is coalesce
   assert.equal(notifications.filter(e=>e.method==='turn/progress'&&e.params.phase==='generating').length,1);
   assert.equal(notifications.filter(e=>e.method==='item/agentMessage/delta').map(e=>e.params.delta).join(''),'one two three');
 });
+
+test('embedded preview can retain runtime feedback without offering desktop frame capture',async t=>{
+ const dir=await mkdtemp(join(tmpdir(),'ac-embedded-'));t.after(()=>rm(dir,{recursive:true,force:true}));
+ const file=join(dir,'piece.mjs');await writeFile(file,'export function paint(){}');
+ for(const frameCapture of [false,true]){
+  let sent;const engine=new AcServer({cwd:dir,piece:{file},preview:true,frameCapture,jev:null,token:()=> 'test',fetch:async(url,options)=>{sent=JSON.parse(options.body);return serving(say('done'))();}});
+  await engine.startTurn('test');assert(sent.tools.some(t=>t.name==='ac_preview'));assert.equal(sent.tools.some(t=>t.name==='ac_frame'),frameCapture);
+ }
+});
+
+test('thinking deltas surface as reasoning notifications and never enter the answer',async t=>{
+ const dir=await mkdtemp(join(tmpdir(),'ac-thinking-'));t.after(()=>rm(dir,{recursive:true,force:true}));
+ const file=join(dir,'piece.mjs');await writeFile(file,'export function paint(){}');
+ const reasoning=[],answers=[];
+ const engine=new AcServer({cwd:dir,piece:{file},jev:null,token:()=> 'test',fetch:async()=>serving([
+  {type:'content_block_start',index:0,content_block:{type:'thinking',thinking:''}},
+  {type:'content_block_delta',index:0,delta:{type:'thinking_delta',thinking:'the berries should vanish one at a time'}},
+  {type:'content_block_stop',index:0},
+  {type:'content_block_delta',index:1,delta:{type:'text_delta',text:'done'}},
+  {type:'message_delta',delta:{stop_reason:'end_turn'}},
+ ])()});
+ engine.on('notification',({method,params})=>{if(method==='item/reasoning/delta')reasoning.push(params.delta);if(method==='item/agentMessage/delta')answers.push(params.delta);});
+ await engine.startTurn('eat them');
+ assert.deepEqual(reasoning,['the berries should vanish one at a time']);
+ assert.deepEqual(answers,['done']);
+ assert.ok(!JSON.stringify(engine.messages).includes('vanish one at a time'),'thinking is not kept in the conversation');
+});
+
+test('a reasoning object is forwarded as given, and absent by default',async t=>{
+ const dir=await mkdtemp(join(tmpdir(),'ac-reasoning-'));t.after(()=>rm(dir,{recursive:true,force:true}));
+ const file=join(dir,'piece.mjs');await writeFile(file,'export function paint(){}');
+ for(const reasoning of [undefined,{effort:'none'},'none']){
+  let sent;const engine=new AcServer({cwd:dir,piece:{file},reasoning,thinking:reasoning&&typeof reasoning==='object'?{type:'disabled'}:undefined,jev:null,token:()=> 'test',fetch:async(url,options)=>{sent=JSON.parse(options.body);return serving(say('done'))();}});
+  await engine.startTurn('test');
+  if(reasoning&&typeof reasoning==='object'){assert.deepEqual(sent.reasoning,reasoning);assert.deepEqual(sent.thinking,{type:'disabled'});}else{assert.equal('reasoning' in sent,false);assert.equal('thinking' in sent,false);}
+ }
+});
+
+test('layered edits reject stale/ambiguous/broken changes and apply small valid replacements',async t=>{
+ const dir=await mkdtemp(join(tmpdir(),'ac-layer-'));t.after(()=>rm(dir,{recursive:true,force:true}));
+ const file=join(dir,'piece.mjs');const original='export function paint({wipe}) { wipe("pink"); }\n';
+ for(const kind of ['valid','stale','ambiguous','broken']){
+  await writeFile(file,original);let calls=0,engine;
+  engine=new AcServer({cwd:dir,piece:{file},layeredEdits:true,frameCapture:false,preview:false,jev:null,token:()=> 'test',fetch:async(url,options)=>{
+   const sent=JSON.parse(options.body);assert(sent.tools.some(t=>t.name==='edit_piece'));
+   if(calls++)return serving(say('done'))();
+   const input={revision:kind==='stale'?'stale':engine.revisionForSource(original),edits:[{search:kind==='ambiguous'?'i':'"pink"',replace:kind==='broken'?'(': '"blue"'}]};
+   return serving([{type:'content_block_start',index:0,content_block:{type:'tool_use',id:'edit',name:'edit_piece'}},{type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:JSON.stringify(input)}},{type:'content_block_stop',index:0},{type:'message_delta',delta:{stop_reason:'tool_use'}}])();
+  }});
+  await engine.startTurn('make it blue');assert.equal(await readFile(file,'utf8'),kind==='valid'?original.replace('pink','blue'):original);
+ }
+});

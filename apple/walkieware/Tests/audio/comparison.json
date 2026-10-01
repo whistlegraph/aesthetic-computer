@@ -1,0 +1,183 @@
+{
+  "scope": "Small serial desktop samples through the authenticated AC relay; not a provider ranking or a physical-phone latency distribution. Same Make a pink circle prompt and shared Walkieware instructions. Two-tool-round limit measures initial output, not full completion.",
+  "selectedModel": "deepseek/deepseek-v4.1-flash",
+  "reason": "Lowest measured initial code latency among tested relay models; existing default retained.",
+  "desktopRuns": [
+    {
+      "model": "deepseek/deepseek-v4.1-flash",
+      "headersMs": 1036,
+      "firstOutputMs": 1038,
+      "firstCodeMs": 1038,
+      "firstCheckpointMs": 1236,
+      "hasPaint": true,
+      "error": "Stopped after 2 tool rounds."
+    },
+    {
+      "model": "qwen/qwen3.7-plus",
+      "headersMs": 1493,
+      "firstOutputMs": 2199,
+      "firstCodeMs": 2199,
+      "firstCheckpointMs": 3536,
+      "hasPaint": true,
+      "error": "Stopped after 2 tool rounds."
+    },
+    {
+      "model": "z-ai/glm-5.3-flash",
+      "headersMs": 6339,
+      "firstOutputMs": 21797,
+      "firstCodeMs": 21797,
+      "firstCheckpointMs": 24561,
+      "hasPaint": true,
+      "error": "Stopped after 2 tool rounds."
+    },
+    {
+      "model": "openai/gpt-5.6-luna",
+      "headersMs": 2735,
+      "firstOutputMs": 2749,
+      "firstCodeMs": 2749,
+      "firstCheckpointMs": 3334,
+      "hasPaint": true,
+      "error": "Stopped after 2 tool rounds."
+    },
+    {
+      "model": "deepseek/deepseek-v4.1-flash",
+      "headersMs": 901,
+      "firstOutputMs": 1041,
+      "firstCodeMs": 1041,
+      "firstCheckpointMs": 1344,
+      "hasPaint": true,
+      "error": "Stopped after 2 tool rounds."
+    },
+    {
+      "model": "openai/gpt-5.6-luna",
+      "headersMs": 3613,
+      "firstOutputMs": 4353,
+      "firstCodeMs": 4353,
+      "firstCheckpointMs": 4668,
+      "hasPaint": true,
+      "error": "Stopped after 2 tool rounds."
+    },
+    {
+      "model": "deepseek/deepseek-v4.1-flash",
+      "headersMs": 390,
+      "firstOutputMs": 431,
+      "firstCodeMs": 431,
+      "firstCheckpointMs": 717,
+      "hasPaint": true,
+      "error": "Stopped after 2 tool rounds."
+    },
+    {
+      "model": "openai/gpt-5.6-luna",
+      "headersMs": 2738,
+      "firstOutputMs": 3423,
+      "firstCodeMs": 3423,
+      "firstCheckpointMs": 3871,
+      "hasPaint": true,
+      "error": "Stopped after 2 tool rounds."
+    }
+  ],
+  "phoneQwen": {
+    "audioDuration": 1301,
+    "firstRecognizedWords": 586,
+    "firstVisibleWords": 588,
+    "releaseToRequest": 35,
+    "requestToHeaders": 1979,
+    "requestToFirstModelOutput": 7223,
+    "requestToFirstCheckpoint": 8499,
+    "requestToIncrementalCompile": 8329,
+    "releaseToFirstPaint": 8441
+  },
+  "phoneDeepSeekLatest": {
+    "audioDuration": 1301,
+    "firstRecognizedWords": 583,
+    "firstVisibleWords": 590,
+    "releaseToRequest": 36,
+    "requestToHeaders": 1212,
+    "requestToFirstModelOutput": 1342,
+    "requestToFirstCheckpoint": 1957,
+    "requestToIncrementalCompile": 1823,
+    "releaseToFirstPaint": 1920
+  },
+  "phoneNetwork": {
+    "device": "physical iPhone",
+    "probes": [
+      {
+        "attempt": 1,
+        "status": 200,
+        "totalMs": 250,
+        "transactions": [
+          {
+            "connectMs": 44,
+            "dnsMs": 1,
+            "protocol": "h3",
+            "requestToHeadersMs": 154,
+            "reusedConnection": false,
+            "tlsMs": 44
+          }
+        ],
+        "url": "https://aesthetic.computer/aesel.json"
+      },
+      {
+        "attempt": 2,
+        "status": 200,
+        "totalMs": 41,
+        "transactions": [
+          {
+            "connectMs": null,
+            "dnsMs": null,
+            "protocol": "h3",
+            "requestToHeadersMs": 40,
+            "reusedConnection": true,
+            "tlsMs": null
+          }
+        ],
+        "url": "https://aesthetic.computer/aesel.json"
+      },
+      {
+        "attempt": 1,
+        "status": 200,
+        "totalMs": 125,
+        "transactions": [
+          {
+            "connectMs": 49,
+            "dnsMs": 26,
+            "protocol": "h2",
+            "requestToHeadersMs": 47,
+            "reusedConnection": false,
+            "tlsMs": 35
+          }
+        ],
+        "url": "https://openrouter.ai/api/v1/models"
+      },
+      {
+        "attempt": 2,
+        "status": 200,
+        "totalMs": 39,
+        "transactions": [
+          {
+            "connectMs": null,
+            "dnsMs": null,
+            "protocol": "h2",
+            "requestToHeadersMs": 38,
+            "reusedConnection": true,
+            "tlsMs": null
+          }
+        ],
+        "url": "https://openrouter.ai/api/v1/models"
+      }
+    ],
+    "scope": "HEAD transport probes; excludes authenticated inference and provider compute"
+  },
+  "incrementalPreview": "Complete parseable paint prefixes run during streamed tool arguments; unfinished syntax is never completed synthetically.",
+  "phoneLuna": {
+    "audioDuration": 1302,
+    "firstRecognizedWords": 570,
+    "firstVisibleWords": 587,
+    "releaseToRequest": 25,
+    "requestToHeaders": 2834,
+    "requestToFirstModelOutput": 3430,
+    "requestToFirstCheckpoint": 3672,
+    "requestToIncrementalCompile": null,
+    "releaseToFirstPaint": 3754
+  }
+}

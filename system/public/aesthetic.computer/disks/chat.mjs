@@ -1045,6 +1045,7 @@ async function boot(
             token,
             sub: user.sub,
           });
+          options?.onAction?.("message_edit_requested");
           notice("EDITED");
         }
         return;
@@ -1054,7 +1055,11 @@ async function boot(
       // to start/stop the mini-player without reaching for the button.
       const radioCmd = parseRadioCommand(text);
       if (radioCmd) {
-        applyRadioCommand(radioCmd, send);
+        applyRadioCommand(radioCmd, message => {
+          send(message);
+          if (message.type === "stream:play") options?.onAction?.("radio_play_requested");
+          if (message.type === "stream:pause") options?.onAction?.("radio_pause_requested");
+        });
         notice(radioCmd.toast || "", ["orange", 0]);
         return;
       }
@@ -1103,6 +1108,7 @@ async function boot(
             sub: user.sub,
             font: userSelectedFont, // 🔤 Include selected font
           });
+          options?.onAction?.("message_send_requested");
           notice("SENT");
         }
       }
@@ -3395,7 +3401,11 @@ function act(
                     pen.y >= r8dioPlayerBounds.y && pen.y < r8dioPlayerBounds.y + r8dioPlayerBounds.h;
       if (inBar) {
         beep();
-        toggleR8dioPlayback(send);
+        toggleR8dioPlayback(message => {
+          send(message);
+          if (message.type === "stream:play") options?.onAction?.("radio_play_requested");
+          if (message.type === "stream:pause") options?.onAction?.("radio_pause_requested");
+        });
       }
     }
   }

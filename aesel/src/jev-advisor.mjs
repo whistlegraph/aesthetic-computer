@@ -12,7 +12,7 @@ const cues = {
   reconsider: 'Previous repairs have not cleared the error. Reconsider its cause using API and runtime evidence before editing again.',
   continue: 'Continue the existing flow without an extra intervention.',
 };
-const knownTools = new Set(['write_piece', 'ac_api', 'ac_preview', 'ac_frame']);
+const knownTools = new Set(['write_piece', 'edit_piece', 'ac_api', 'ac_preview', 'ac_frame']);
 
 export function configuredJev({ env = process.env, home = homedir() } = {}) {
   let config = {};
@@ -33,7 +33,7 @@ export class JevAdvisor {
   }
   beginTurn() { this.calls = 0; this.seen = new Set(); this.writes = 0; this.apiLookups = 0; this.failures = 0; }
   async advise({ feedback, blocks, results, signal }) {
-    this.writes += blocks.filter(b => b.name === 'write_piece').length;
+    this.writes += blocks.filter(b => ['write_piece','edit_piece'].includes(b.name)).length;
     this.apiLookups += blocks.filter(b => b.name === 'ac_api').length;
     const failedTools = blocks.filter((b, i) => results[i]?.is_error && knownTools.has(b.name)).map(b => b.name);
     const errors = (feedback?.logs || []).filter(l => l.level === 'error');
@@ -51,6 +51,8 @@ export class JevAdvisor {
     const state = { errors: [...kinds].sort(), failedTools, currentPreview: !!feedback,
       frameObserved: !!feedback?.frame, priorWrites: Math.min(this.writes, 12),
       apiLookups: Math.min(this.apiLookups, 12), repeatedFailure: this.failures > 1 };
+    if (failedTools.includes('edit_piece'))
+      return { choice: 'repair', cue: 'The atomic edit was rejected; none of its replacements were applied. Use the current revision and exact unique text from the current source. Correct the rejected patch rather than repeating it or assuming a partial edit landed.', local: true };
     if (kinds.has('syntax') || failedTools.includes('write_piece'))
       return { choice: 'repair', cue: cues.repair, local: true };
     const fingerprint = JSON.stringify({ ...state, priorWrites: undefined });

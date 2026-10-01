@@ -2156,7 +2156,7 @@ function sim({ sound, simCount, num, clock, painting }) {
         const key = event.key;
         if (key) {
           const note = key.toLowerCase();
-          const started = startButtonNote(note, 127, autopatApi);
+          const started = startButtonNote(note, 127, autopatApi, true);
           if (started) {
             autopatState.activeNote = note;
             autopatState.activeNoteEnd = now + durationSeconds;
@@ -2197,7 +2197,7 @@ function sim({ sound, simCount, num, clock, painting }) {
       const current = song?.[songIndex]?.[0];
       if (current) {
         const note = current.toLowerCase();
-        const started = startButtonNote(note, 127, autopatApi);
+        const started = startButtonNote(note, 127, autopatApi, true);
         if (started) {
           autopatState.activeNote = note;
           autopatState.activeNoteEnd = now + noteSeconds;
@@ -6407,7 +6407,7 @@ function applyPitchBendToNotes(noteKeys, { immediate = false } = {}) {
   });
 }
 
-function startButtonNote(note, velocity = 127, apiRef = null) {
+function startButtonNote(note, velocity = 127, apiRef = null, automatic = false) {
   anyDown = true;
   perfStats.lastKeyTime = performance.now();
   noteShake[note] = 3; // Trigger per-note typography shake
@@ -6453,6 +6453,7 @@ function startButtonNote(note, velocity = 127, apiRef = null) {
         publishNotepatMidi("note_off", midi, 0, 0);
       }
     }
+    if (!automatic) apiRef?.send?.({ type: "visit:action", content: { action: "note_played" } });
     return true;
   }
 
@@ -6560,6 +6561,7 @@ function startButtonNote(note, velocity = 127, apiRef = null) {
     }
   }
 
+  if (!automatic) apiRef?.send?.({ type: "visit:action", content: { action: "note_played" } });
   return true;
 }
 
@@ -7548,6 +7550,7 @@ function act({
       buttons[buttonNote].over = true;
     }
 
+    api.send?.({ type: "visit:action", content: { action: "note_played" } });
     return true;
   };
 
@@ -8321,6 +8324,7 @@ function act({
           pictureAdd(api, tone);
           udpServer?.send("tv", { note: buttonNote }); // Send udp message for note.
         }
+        api.send?.({ type: "visit:action", content: { action: "note_played" } });
       }
     }
 

@@ -1,5 +1,55 @@
 # Computer-use latency
 
+## Decision context, October 1, 2026
+
+The browser chooser now receives observed selection state and up to three
+caller-supplied action summaries. It refuses unknown prior outcomes and rejects
+a suggestion if selection changes during inference. History belongs to the
+caller and must reset on navigation or a new task; it is not shared across clients.
+
+Six MiniWoB episodes per arm (three tasks, two seeds) all passed using the
+existing Chrome profile through Puppet's HTTP MCP and resident CDP connection:
+
+| Decision path | Large-model calls | Jev accepted | Total episode time |
+| --- | ---: | ---: | ---: |
+| Full rendered DOM + planner | 9 | — | 62.06 s |
+| Compact controls + planner | 10 | — | 65.85 s |
+| Compact controls + original Jev | 7 | 2/9 | 46.24 s |
+| Compact controls + Jev with context | 6 | 3/9 | 46.47 s |
+
+One additional tab-task decision stayed on Jev, but total time did **not**
+improve over the original Jev run. Context-arm medians were 4.24 ms for DOM
+observation, 252.97 ms for Jev, 6.76 s for the larger planner, and 17.72 ms for
+click plus evaluator feedback. Decision fallbacks dominate this sample.
+
+These are sequential pilot batches, with identical initial observations across
+arms. GPT-6 Astra High ran through a fresh Codex CLI process per decision, so
+planner timing includes startup and network. Jev kept its 0.9 confidence gate
+and 1.5-second deadline. The context arm also changes chooser instructions and
+adds a post-action observation before retaining history; the individual effects
+are not isolated. The experimental DOM adapter is distinct from production AX
+collection. This does not measure native Frame or Codex's built-in browser.
+[Measurements and per-episode evidence](benchmarks/decision-context-2026-10-01.json).
+
+For continued improvement, preserve task success, action counts, fallback rate,
+and stage median/p95 alongside latency. Add repeated-click failures as regression
+cases. Expand to delayed UI, moving/replaced controls, larger pages, and native
+apps before claiming general real-time use. The next experiment should avoid
+large-model calls for directly resolvable targets while retaining fresh-target
+and post-action checks. Local routing, event-driven observations, and reusable
+verified action sequences remain future work. The local benchmark daemon was
+refreshed and its live `puppet_choose` call selected the requested tab with
+`selected:false`, without input. At the time of this benchmark, other resident
+chooser services had not yet been refreshed.
+
+Regression checks:
+
+```sh
+node --test slab/test/jev-computer-use.test.mjs slab/test/puppet-choose.test.mjs slab/test/computer-use-protocol.test.mjs
+```
+
+## Native input baseline, September 21, 2026
+
 Zero intentional mouse hold is now the default for `frame_click` on updated
 native hosts. An interleaved sweep tested 40, 10, 5, 2.5, 1, 0.5, 0.1, and 0 ms
 in Chrome and a real AppKit button. All **1,800 single-click timing trials**

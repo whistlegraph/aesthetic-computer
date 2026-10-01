@@ -101,6 +101,22 @@ closing the lid before relying on unattended work.
 
 Choose its cursor/accent identity through the [fleet tools](README.md).
 
+For a browser-automation host, provision the ordinary Chrome profile and enable
+remote debugging through `chrome://inspect/#remote-debugging`. Keep a window open
+in that profile, and use the resident Puppet service for CDP. With the operator's
+fleet debugging policy authorized, install the shared consent handler:
+
+```sh
+node ~/aesthetic-computer/slab/captutor/bin/install-nag-fighter.mjs --allow-remote-debugging
+```
+
+It starts at login and remembers that policy across tool restarts. Verify a
+connection and a `remote-debugging` handled event in
+`~/.local/share/captutor/nag-fighter/events.jsonl`; also check `status.json` for
+Accessibility failures or a locked desktop. The dialog may appear briefly before
+the handler acts. Use `--deny-remote-debugging` to revoke this policy. Details:
+[Modalpolice](../../../slab/captutor/README.md).
+
 For the fourth Mac, repeat these steps with its own name. No new Fish fork or
 copied Neo home directory is needed. Record exceptions in the machine's local
 configuration, and improve this shared path when another missing step appears.

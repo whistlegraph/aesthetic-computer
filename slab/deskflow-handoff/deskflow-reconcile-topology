@@ -9,6 +9,7 @@ SET_ROLE="$HOME/.local/bin/deskflow-set-role"
 RETARGET="$HOME/.local/bin/deskflow-retarget-client"
 LOCK="$HOME/.config/slab/deskflow-reconcile.lock"
 LOG="$HOME/Library/Logs/deskflow-handoff.log"
+source "$(dirname "$0")/deskflow-lock"
 
 if [[ ! -f "$HANDOFF" || ! -f "$STATE" ]]; then
   exit 0
@@ -48,10 +49,10 @@ PEERS=("${VALUES[@]:5}")
 [[ "$CONTROLLER" == "true" ]] || exit 0
 [[ ${#PEERS[@]} -ge 1 && -n "$ADDRESS" ]] || exit 0
 
-if ! mkdir "$LOCK" 2>/dev/null; then
+if ! deskflow_lock_acquire "$LOCK"; then
   exit 0
 fi
-trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT
+trap deskflow_lock_release EXIT
 
 SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=4 -o ConnectionAttempts=1
           -o ControlMaster=no -o ControlPath=none)
@@ -129,7 +130,7 @@ fi
 for peer in "${PEERS[@]:1}"; do targets+=("$peer"); done
 
 for peer in "${targets[@]}"; do
-  "$RETARGET" "$peer" "$ADDRESS" "$EPOCH" >> "$LOG" 2>&1 &
+  "$RETARGET" "$peer" "$ADDRESS" "$EPOCH" >> "$LOG" 2>&1 9>&- &
   pids+=("$!")
 done
 

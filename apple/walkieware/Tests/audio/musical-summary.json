@@ -1,0 +1,33 @@
+{
+  "build": 16,
+  "scope": "Physical iPhone; synthetic PCM injected in real time through on-device Speech and the same local music analyzer as microphone input. Real authenticated inference and AC painting. Microphone hardware and natural singing not tested.",
+  "tests": [
+    {
+      "fixture": "sine-tone",
+      "passed": true,
+      "releaseToRequestMs": 34,
+      "releaseToPaintMs": 61040,
+      "evidence": "apple/walkieware/Tests/audio/sine-tone-285BC25A-011B-4E31-AF8B-5A587C271D8B/result.json"
+    },
+    {
+      "fixture": "whistle-sweep",
+      "passed": true,
+      "releaseToRequestMs": 28,
+      "releaseToPaintMs": 7774,
+      "evidence": "apple/walkieware/Tests/audio/whistle-sweep-BE01074A-D906-4565-941D-945CDD175B60/result.json"
+    },
+    {
+      "fixture": "mixed-request",
+      "passed": true,
+      "releaseToRequestMs": 31,
+      "releaseToPaintMs": 11150,
+      "evidence": "apple/walkieware/Tests/audio/mixed-request-37B14D0D-2FBE-4072-BDF0-7FD8C2CE5A8B/result.json"
+    }
+  ],
+  "limitations": [
+    "Dominant monophonic pitch estimates, not chord/instrument recognition",
+    "Energy onsets, not established tempo or beats",
+    "Creative mappings are model interpretations",
+    "Jev not yet enabled in the phone path"
+  ]
+}

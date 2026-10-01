@@ -1168,7 +1168,7 @@ async function main() {
         ...(flags.after ? {after: JSON.parse(flags.after)} : {}),
         ...(flags.state ? {state: flags.state} : {}),
         timeout: Number(flags.timeout || 5000),
-      }}, {timeoutMs: 45000});
+      }}, {timeoutMs: 135000});
       console.log(JSON.stringify(result, null, 2));
       return;
     }

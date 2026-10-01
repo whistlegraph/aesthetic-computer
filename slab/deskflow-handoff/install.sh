@@ -56,7 +56,7 @@ write_fingerprints() {
   done
 }
 
-for file in deskflow-role-runner deskflow-set-role deskflow-role-state deskflow-retarget-client deskflow-reconcile-topology deskflow-claim-control deskflow-role-watchdog deskflow-seat-ready deskflow-active-screen deskflow-yield-control deskflow-start deskflow-resolve-ipv4; do
+for file in deskflow-lock deskflow-role-runner deskflow-set-role deskflow-role-state deskflow-retarget-client deskflow-reconcile-topology deskflow-claim-control deskflow-role-watchdog deskflow-seat-ready deskflow-active-screen deskflow-yield-control deskflow-start deskflow-resolve-ipv4; do
   cp "$HERE/$file" "$HOME/.local/bin/$file"
   chmod 755 "$HOME/.local/bin/$file"
 done
@@ -148,10 +148,13 @@ STANDBY="$HOME/Library/LaunchAgents/computer.aesthetic.deskflow-standby-server.p
 launchctl bootout "gui/${UID_}/computer.aesthetic.deskflow-standby-server" 2>/dev/null || true
 rm -f "$HOME/.config/slab/deskflow-standby-enabled" "$STANDBY"
 
-for old in computer.aesthetic.deskflow-watchdog computer.aesthetic.deskflow-server-watchdog; do
+# The pre-handoff studio watcher treats a healthy client as a dead server and
+# restarts it every two minutes. Only the role-aware watchdog should own this.
+for old in computer.aesthetic.deskflow-watchdog computer.aesthetic.deskflow-server-watchdog computer.aesthetic.deskflow-studio-watch; do
   launchctl bootout "gui/${UID_}/${old}" 2>/dev/null || true
 done
 launchctl disable "gui/${UID_}/computer.aesthetic.deskflow-server-watchdog" 2>/dev/null || true
+launchctl disable "gui/${UID_}/computer.aesthetic.deskflow-studio-watch" 2>/dev/null || true
 
 WATCHDOG="$HOME/Library/LaunchAgents/computer.aesthetic.deskflow-watchdog.plist"
 cat > "$WATCHDOG" <<EOF

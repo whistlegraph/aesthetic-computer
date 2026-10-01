@@ -236,7 +236,7 @@ const OVERRIDES = {
 const STATIC = [
   { name: "screen", path: "screen", signature: "screen.width, screen.height, screen.pixels, screen.center", doc: "The canvas. Read width/height in paint(); never write screen.pixels directly (writes can silently drop) — draw into your own painting buffer and paste() it.", source: "lib/disk.mjs" },
   { name: "pen", path: "pen", signature: "pen.x, pen.y, pen.drawing, pen.delta", doc: "The single primary pointer; null when there is none. Read in paint()/sim().", source: "lib/disk.mjs" },
-  { name: "pens", path: "pens", signature: "pens() → [{ x, y, id, drawing }]", doc: "Every active pointer, for multitouch. Pass to btn.act(e, callbacks, pens()).", source: "lib/disk.mjs" },
+  { name: "pens", path: "pens", signature: "pens() → [{ x, y, pointerId, pointerNumber, drawing }]", doc: "Every active pointer, for multitouch. Use pointerId for identity (not id); zero is valid, so use null for no held pointer. Pass to btn.act(e, callbacks, pens()).", source: "lib/disk.mjs" },
   { name: "event", path: "act(e)", signature: "e.is(\"touch\") | e.is(\"draw\") | e.is(\"lift\") | e.is(\"keyboard:down:space\") | e.is(\"reframed\") ; e.x, e.y, e.delta, e.key", doc: "Events arrive in act({ event: e, ... }). Pointer: touch → draw → lift. Keys: keyboard:down:<key>, keyboard:up:<key>.", source: "lib/disk.mjs" },
   { name: "sim", path: "sim", signature: "function sim({ ... }) — runs 120 times per second", doc: "Physics and timers go here, not in paint(); paint() runs at display rate and only when something needs painting.", source: "lib/disk.mjs" },
   { name: "needsPaint", path: "needsPaint", signature: "needsPaint()", doc: "Ask for another paint() when the piece is static and something changed.", source: "lib/disk.mjs" },
