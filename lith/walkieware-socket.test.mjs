@@ -66,3 +66,14 @@ test('phone client persists identity, coalesces ledger sync without echo loop an
  phone.sync();await new Promise(r=>setTimeout(r,30));assert.equal((await f.store.read('owner','wwRuboh')).revision,1);
  phone.suspend();await new Promise(r=>setTimeout(r,30));await phone.resume();await new Promise(r=>setTimeout(r,80));assert.equal(phone.ready,true);assert.equal((await f.store.read('owner','wwRuboh')).revision,1);
 });
+test('silent socket stalls reconnect even when close never emits; concurrent resume opens one socket',{timeout:2000},async()=>{
+ const values=new Map(),storage={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v)};
+ let count=0,offline=0;
+ class SilentSocket {
+  constructor(){count++;this.readyState=1;queueMicrotask(()=>this.onopen?.());}
+  send(text){const m=JSON.parse(text);if(m.type==='authenticate')queueMicrotask(()=>this.onmessage?.({data:JSON.stringify({type:'ready',thread:{code:'wwRuboh',revision:1,ledger}})}));}
+  close(){this.readyState=3;}
+ }
+ const phone=new WalkiewareThread({storage,key:'stall',token:()=> 'owner',ledger:()=>ledger,state:()=>({}),onStatus:(_,status)=>{if(status==='Offline')offline++;},onCommand:async()=>({ok:true}),WebSocketImpl:SilentSocket,heartbeatMs:5,maxIdleMs:15,reconnectMs:1});
+ try{await Promise.all([phone.resume(),phone.resume()]);assert.equal(count,1);await new Promise(r=>setTimeout(r,55));assert.ok(count>=2);assert.ok(offline>=1);}finally{phone.suspend();}
+});

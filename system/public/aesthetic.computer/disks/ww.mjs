@@ -1,10 +1,12 @@
 // Walkieware, 26.09.30
 // Open your running Walkieware piece by its ww code.
 let socket,child,api,problem='Connecting…',generation=0,stopped=false;
-export async function boot($) {
+export function boot($) {api=$;void connect($).catch(error=>problem=error.message);}
+async function connect($) {
   api=$;const code=$.params[0];
   if(!/^ww[a-z]{5,12}$/i.test(code||'')){problem='Enter a ww code';return;}
-  const token=await $.authorize();
+  let token;try{token=await $.authorize?.();}catch{}
+  if(stopped)return;
   if(!token){problem='Sign in to open your Walkieware piece';return;}
   socket=new WebSocket('wss://aesthetic.computer/api/walkieware-stream');
   socket.onopen=()=>socket.send(JSON.stringify({type:'authenticate',role:'agent',token,code}));
