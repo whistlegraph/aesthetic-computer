@@ -58,5 +58,6 @@ export function mongoWalkiewareStore(collection, {name=pronounceableCode}={}) {
 }
 export function publicThread(row) {
   if(!row)return null;
-  return {id:row._id,code:row.code,revision:row.revision,ledger:row.ledger,updatedAt:row.updatedAt,diagnostics:row.diagnostics};
+  const head=row.ledger?.versions.find(v=>v.id===row.ledger.head);
+  return {id:row._id,code:row.code,revision:row.revision,ledger:row.ledger,head:head?.id,sourceHash:head?sourceHash(head.source):null,updatedAt:row.updatedAt,diagnostics:row.diagnostics};
 }
