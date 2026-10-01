@@ -54,10 +54,10 @@ export function attachWalkiewareSocket(server,{authenticate,store,authMs=5000,li
         const id=typeof m.id==='string'&&/^[a-zA-Z0-9-]{1,80}$/.test(m.id)?m.id:randomUUID();
         if(!room.device){send(ws,{type:'result',id,ok:false,error:'Device offline; saved versions remain available'});return;}
         if(room.commands.size||room.state?.busy){send(ws,{type:'result',id,ok:false,error:'Device busy'});return;}
-        if(!['ask','undo'].includes(m.action)||!Number.isSafeInteger(m.baseVersion)||typeof m.baseHash!=='string'||(m.action==='ask'&&(typeof m.text!=='string'||!m.text.trim()||m.text.length>20000)))throw Error('Invalid command');
+        if(!['ask','undo','edit'].includes(m.action)||!Number.isSafeInteger(m.baseVersion)||typeof m.baseHash!=='string'||(m.action==='ask'&&(typeof m.text!=='string'||!m.text.trim()||m.text.length>20000))||(m.action==='edit'&&(typeof m.source!=='string'||Buffer.byteLength(m.source)>500000||!m.source.trim())))throw Error('Invalid command');
         const timer=setTimeout(()=>{room.commands.delete(id);send(ws,{type:'result',id,ok:false,error:'Timed out; inspect history before retrying'});},180000);timer.unref?.();
         room.commands.set(id,{ws,timer});
-        send(room.device,{type:'command',id,action:m.action,text:m.text,baseVersion:m.baseVersion,baseHash:m.baseHash});
+        send(room.device,{type:'command',id,action:m.action,text:m.text,source:m.source,baseVersion:m.baseVersion,baseHash:m.baseHash});
         send(ws,{type:'accepted',id});return;
       }
       if(m.type==='result'&&role==='device') {

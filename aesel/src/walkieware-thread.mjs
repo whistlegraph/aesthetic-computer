@@ -1,5 +1,12 @@
 // Stable local identity; the server atomically reserves its pronounceable code.
 const ledgerText = ledger => ledger?JSON.stringify({format:ledger.format,head:ledger.head,versions:ledger.versions.map(v=>({id:v.id,parent:v.parent,source:v.source,request:v.request??null,createdAt:v.createdAt||'',layers:Number.isInteger(v.layers)?v.layers:0}))}):'null';
+export async function verifyThreadRevision(command,state) {
+  const before=state();if(before.busy)throw Error('Device busy');
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(before.source));
+  const hash=[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
+  const after=state();
+  if(after.busy||after.head!==before.head||after.source!==before.source||command.baseVersion!==after.head||command.baseHash!==hash)throw Error('Version changed; inspect before editing');
+}
 export function threadIdentity(storage,key,uuid=()=>crypto.randomUUID()) {
   const saved=storage.getItem(key+'-thread');
   if(saved){const value=JSON.parse(saved);if(typeof value.id!=='string')throw Error('Invalid thread identity');return value;}
@@ -32,7 +39,7 @@ export class WalkiewareThread {
         this.storage.setItem(this.key+'-cloud-revision',String(this.revision));this.storage.setItem(this.key+'-cloud-ledger',this.last);this.sync();
       }
       if(m.type==='conflict'){this.ready=false;this.sending=false;this.onStatus(this.identity.code,'History conflict');}
-      if(m.type==='error'){this.sending=false;this.onStatus(this.identity.code,m.error);}
+      if(m.type==='error'){this.ready=false;this.sending=false;this.onStatus(this.identity.code,m.error);}
       if(m.type==='command') {
         try{if(!this.ready||this.sending)throw Error('Thread is not synchronized');const result=await this.onCommand(m);this.sync();await this.flush();this.send({type:'result',id:m.id,...result});}
         catch(error){this.send({type:'result',id:m.id,ok:false,error:error.message});}

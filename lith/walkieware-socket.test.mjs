@@ -6,9 +6,17 @@ import {WebSocket} from 'ws';
 import {attachWalkiewareSocket} from './walkieware-socket.mjs';
 import {attachMusicalSocket} from './musical-socket.mjs';
 import {mongoWalkiewareStore,validateLedger,sourceHash} from '../system/backend/walkieware.mjs';
-import {WalkiewareThread,threadIdentity} from '../aesel/src/walkieware-thread.mjs';
+import {WalkiewareThread,threadIdentity,verifyThreadRevision} from '../aesel/src/walkieware-thread.mjs';
 const id='11111111-1111-4111-8111-111111111111';
 const ledger={format:1,head:0,versions:[{id:0,parent:null,source:'export function paint({wipe}){wipe(0);}',request:null,createdAt:'today',layers:0}]};
+test('remote edits reject stale versions, mismatched source and a local ask starting during hashing',async()=>{
+ const source=ledger.versions[0].source,state={busy:false,head:0,source};
+ const command={baseVersion:0,baseHash:sourceHash(source)};
+ await verifyThreadRevision(command,()=>state);
+ await assert.rejects(verifyThreadRevision({...command,baseVersion:1},()=>state),/Version changed/);
+ await assert.rejects(verifyThreadRevision({...command,baseHash:'wrong'},()=>state),/Version changed/);
+ let n=0;await assert.rejects(verifyThreadRevision(command,()=>({...state,busy:++n>1})),/Version changed/);
+});
 function memoryCollection(){
  const docs=new Map();
  const find=query=>[...docs.values()].find(row=>Object.entries(query).every(([k,v])=>row[k]===v));
