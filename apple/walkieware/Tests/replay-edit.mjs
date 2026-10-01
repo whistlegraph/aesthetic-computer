@@ -22,7 +22,7 @@ const t0=performance.now();const now=()=>Math.round(performance.now()-t0);
 const rounds=[];let round=null;let painted=initial;let feedback=null;
 const log=(...a)=>console.log(String(now()).padStart(6)+'ms',...a);
 const server=new AcServer({cwd,piece:{file,checkpoint:async()=>{painted=await readFile(file,'utf8');feedback={rendered:true,logs:[],updatedAt:new Date().toISOString()};}},
-  model,token:()=>token,preview:true,rounds:12,outputContinuations:4,jev:null,reasoning:process.env.REASONING_JSON?JSON.parse(process.env.REASONING_JSON):process.env.REASONING==='on'?null:{effort:'none'},frameCapture:false,layeredEdits:true,developerInstructions:GENERATION_INSTRUCTIONS,
+  model,token:()=>token,preview:true,rounds:12,outputContinuations:4,jev:null,reasoning:process.env.REASONING_JSON?JSON.parse(process.env.REASONING_JSON):process.env.REASONING==='on'?null:{effort:'none'},thinking:process.env.THINKING_JSON?JSON.parse(process.env.THINKING_JSON):process.env.REASONING==='on'?null:{type:'disabled'},frameCapture:false,layeredEdits:true,developerInstructions:GENERATION_INSTRUCTIONS,
   fetch:async(url,options)=>{
     round={n:rounds.length+1,request:now(),bodyBytes:Buffer.byteLength(options.body),tools:[],deltaBytes:0};rounds.push(round);
     const body=JSON.parse(options.body);round.messages=body.messages.length;round.systemBytes=JSON.stringify(body.system).length;round.toolDefs=body.tools?.length;

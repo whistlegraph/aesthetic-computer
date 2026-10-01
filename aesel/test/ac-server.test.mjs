@@ -398,9 +398,9 @@ test('a reasoning object is forwarded as given, and absent by default',async t=>
  const dir=await mkdtemp(join(tmpdir(),'ac-reasoning-'));t.after(()=>rm(dir,{recursive:true,force:true}));
  const file=join(dir,'piece.mjs');await writeFile(file,'export function paint(){}');
  for(const reasoning of [undefined,{effort:'none'},'none']){
-  let sent;const engine=new AcServer({cwd:dir,piece:{file},reasoning,jev:null,token:()=> 'test',fetch:async(url,options)=>{sent=JSON.parse(options.body);return serving(say('done'))();}});
+  let sent;const engine=new AcServer({cwd:dir,piece:{file},reasoning,thinking:reasoning&&typeof reasoning==='object'?{type:'disabled'}:undefined,jev:null,token:()=> 'test',fetch:async(url,options)=>{sent=JSON.parse(options.body);return serving(say('done'))();}});
   await engine.startTurn('test');
-  if(reasoning&&typeof reasoning==='object')assert.deepEqual(sent.reasoning,reasoning);else assert.equal('reasoning' in sent,false);
+  if(reasoning&&typeof reasoning==='object'){assert.deepEqual(sent.reasoning,reasoning);assert.deepEqual(sent.thinking,{type:'disabled'});}else{assert.equal('reasoning' in sent,false);assert.equal('thinking' in sent,false);}
  }
 });
 

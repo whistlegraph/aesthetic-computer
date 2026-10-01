@@ -32,7 +32,23 @@ export function inferenceRequest(body) {
   const wanted = body.max_tokens === undefined ? DEFAULT_MAX_TOKENS : body.max_tokens;
   if (!Number.isSafeInteger(wanted) || wanted < 1) throw new Error("max_tokens must be a positive integer.");
   if (!Array.isArray(body.messages) || body.messages.length === 0) throw new Error("At least one message is required.");
-  return { model, maxTokens: Math.min(wanted, HOSTED_MAX_TOKENS), reasoning: reasoningRequest(body.reasoning) };
+  return { model, maxTokens: Math.min(wanted, HOSTED_MAX_TOKENS), reasoning: reasoningRequest(body.reasoning), thinking: thinkingRequest(body.thinking) };
+}
+
+// Anthropic's own `thinking` field. Measured 2026-10-01: on OpenRouter's
+// messages endpoint this is the one shape DeepSeek v4.1 flash honors —
+// {type:"disabled"} drops its thinking to zero where every `reasoning`
+// form above left thousands of hidden tokens.
+export function thinkingRequest(thinking) {
+  if (thinking === undefined || thinking === null) return null;
+  if (typeof thinking !== "object" || Array.isArray(thinking)) throw new Error("thinking must be an object.");
+  if (thinking.type === "disabled") return { type: "disabled" };
+  if (thinking.type === "enabled") {
+    const budget = thinking.budget_tokens;
+    if (!Number.isSafeInteger(budget) || budget < 1024 || budget > HOSTED_MAX_TOKENS) throw new Error("thinking.budget_tokens must be an integer from 1024 up to the hosted ceiling.");
+    return { type: "enabled", budget_tokens: budget };
+  }
+  throw new Error("thinking.type must be enabled or disabled.");
 }
 
 // OpenRouter's `reasoning` object, forwarded only in the shapes its docs name.

@@ -73,6 +73,16 @@ test('a reasoning object passes through in the documented shapes only',()=>{
  assert.equal(inferenceRequest({messages,reasoning:{}}).reasoning,null,'an empty object sends nothing');
 });
 
+test('Anthropic-style thinking passes through as disabled or a bounded budget',()=>{
+ const messages=[{role:'user',content:'hi'}];
+ assert.equal(inferenceRequest({messages}).thinking,null);
+ assert.deepEqual(inferenceRequest({messages,thinking:{type:'disabled',extra:1}}).thinking,{type:'disabled'},'Walkieware turns thinking off');
+ assert.deepEqual(inferenceRequest({messages,thinking:{type:'enabled',budget_tokens:2048}}).thinking,{type:'enabled',budget_tokens:2048});
+ assert.throws(()=>inferenceRequest({messages,thinking:{type:'enabled',budget_tokens:10}}),/budget_tokens/);
+ assert.throws(()=>inferenceRequest({messages,thinking:{type:'sometimes'}}),/thinking\.type/);
+ assert.throws(()=>inferenceRequest({messages,thinking:'off'}),/must be an object/);
+});
+
 test('a reported cost is billed at twice the price, at pack value',()=>{
  assert.equal(INFERENCE_MARKUP,2);
  assert.equal(BRAINCELLS_PER_USD,CREDIT_PACK.credits/(CREDIT_PACK.amount/100));
