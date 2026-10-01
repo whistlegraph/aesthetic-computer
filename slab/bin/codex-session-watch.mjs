@@ -15,11 +15,13 @@ import { readFile, writeFile, stat, unlink, utimes } from "node:fs/promises";
 import { realpathSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { join } from "node:path";
+import { join, basename, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 
-const [sid, _beginArg, wrapperArg, tty = "", cwd = ""] = process.argv.slice(2);
-if (!sid) process.exit(1);
+const [sid = "", _beginArg, wrapperArg, tty = "", cwd = ""] = process.argv.slice(2);
+const isMain = process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain && !sid) process.exit(1);
 const wrapperPid = Number(wrapperArg) || 0;
 
 const SLAB_HOME = process.env.SLAB_HOME || join(homedir(), ".local", "share", "slab");
@@ -28,6 +30,7 @@ const AWAITING = join(SLAB_HOME, "state", "awaiting-prompts", sid);
 const RUNNING = join(SLAB_HOME, "state", "running-tools", sid);
 const OPEN_IMAGES = join(SLAB_HOME, "state", "open-images");
 const SESSIONS = join(process.env.CODEX_HOME || join(homedir(), ".codex"), "sessions");
+const CODEX_ROOT = process.env.CODEX_HOME || join(homedir(), ".codex");
 const LOOPBOY_CONFIG = join(homedir(), ".config", "slab", "loopboy.json");
 const execFileAsync = promisify(execFile);
 
@@ -47,8 +50,54 @@ const wrapperAlive = () => {
 // cwd and start within the same second, so "newest file" cross-wires their
 // rocks. The wrapper and Codex are parent/child; Codex keeps its own rollout
 // open for writing, giving us an exact, resume-safe association via lsof.
+export function rolloutFromTitle(rows, title, cwd) {
+  const matches = rows.filter(row => typeof row.name === "string" && row.name.length >= 4
+    && resolve(row.cwd) === resolve(cwd)
+    && (title === row.name || title.endsWith(`${row.name} | ${basename(row.cwd)}`)));
+  // Never guess between concurrent windows or similarly named threads.
+  return matches.length === 1 ? matches[0].rollout_path : null;
+}
+
+async function namedRollout() {
+  if (!/^ttys[0-9]+$/.test(tty)) return null;
+  try {
+    // New Codex versions share a daemon: its open files belong to MANY TUIs.
+    // Match this TTY's exact displayed thread name to local thread metadata.
+    // Read names/paths only; no prompts, transcript text, or credentials.
+    const { stdout: title } = await execFileAsync("/usr/bin/osascript", ["-e", `
+      if application "Terminal" is not running then return ""
+      tell application "Terminal"
+        repeat with w in windows
+          if tty of selected tab of w is "/dev/${tty}" then return name of w
+        end repeat
+      end tell
+      return ""`], { timeout: 2000 });
+    if (!title.trim()) return null;
+    const { stdout } = await execFileAsync("/usr/bin/sqlite3", ["-readonly", "-json",
+      join(CODEX_ROOT, "state_5.sqlite"),
+      "select name,cwd,rollout_path from threads where archived=0 and name is not null"], { timeout: 2000 });
+    const path = rolloutFromTitle(JSON.parse(stdout || "[]"), title.trim(), cwd);
+    return path?.startsWith(SESSIONS + "/") ? path : null;
+  } catch { return null; }
+}
+
 async function findRollout() {
-  for (let i = 0; i < 40 && wrapperAlive(); i++) {
+  // Reinstalling Slab reattaches watchers to the same live wrappers. Once an
+  // exact identity is known, prefer it even while Slab owns the window title.
+  try {
+    const marker = JSON.parse(await readFile(ACTIVE, "utf8"));
+    const id = marker.provider_session_id || marker.codex_session_id;
+    if (/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(id || "")) {
+      const { stdout } = await execFileAsync("/usr/bin/sqlite3", ["-readonly", "-json",
+        join(CODEX_ROOT, "state_5.sqlite"), `select rollout_path from threads where id='${id}'`], { timeout: 2000 });
+      const path = JSON.parse(stdout || "[]")[0]?.rollout_path;
+      if (path?.startsWith(SESSIONS + "/") && (await stat(path)).isFile()) return path;
+    }
+  } catch {}
+  // A resume picker can remain open indefinitely; keep waiting for selection.
+  for (let i = 0; wrapperAlive(); i++) {
+    const named = await namedRollout();
+    if (named) return named;
     try {
       // BSD/macOS ps has no Linux `-P <parent>` selector. Read its compact
       // PID/PPID table and select the wrapper's children ourselves.
@@ -75,19 +124,22 @@ async function findRollout() {
       const pids = [...descendants]
         .filter((pid) => pid !== wrapperPid && pid !== process.pid)
         .map(String);
+      const rollouts = new Set();
       for (const pid of pids) {
-        const { stdout } = await execFileAsync("/usr/sbin/lsof", ["-Fn", "-p", pid]);
-        const rollout = stdout.split("\n")
+        let stdout;
+        try { ({ stdout } = await execFileAsync("/usr/sbin/lsof", ["-Fn", "-p", pid], { timeout: 2000 })); }
+        catch { continue; }
+        for (const rollout of stdout.split("\n")
           .filter((line) => line.startsWith("n"))
           .map((line) => line.slice(1))
-          .find((p) => p.startsWith(SESSIONS + "/")
-            && p.includes("/rollout-") && p.endsWith(".jsonl"));
-        if (rollout) return rollout;
+          .filter((p) => p.startsWith(SESSIONS + "/")
+            && p.includes("/rollout-") && p.endsWith(".jsonl"))) rollouts.add(rollout);
       }
+      if (rollouts.size === 1) return [...rollouts][0];
     } catch {
       // Codex may not have opened its rollout yet; retry below.
     }
-    await sleep(500);
+    await sleep(i < 20 ? 500 : 5000);
   }
   return null;
 }
@@ -182,7 +234,7 @@ async function onVisualArtifact(path) {
   await onAwaiting("visual artifact ready for review");
 }
 
-function handleLine(line, ctx) {
+export function handleLine(line, ctx) {
   // Image generation returns a saved host path beside an inline bitmap. Match
   // only tool response items so quoted history cannot reopen stale artifacts.
   const isImageToolOutput = line.includes('"type":"response_item"')
@@ -190,7 +242,7 @@ function handleLine(line, ctx) {
   const generated = isImageToolOutput
     ? line.match(/Generated images are saved[^\n]*? as (\/[^\s]+\.(?:png|jpe?g|webp))/i)
     : null;
-  if (generated) ctx.pending.push(() => onVisualArtifact(generated[1]));
+  if (generated && !ctx.replaying) ctx.pending.push(() => onVisualArtifact(generated[1]));
   let obj;
   try { obj = JSON.parse(line); } catch { return; }
   const type = obj.type;
@@ -204,7 +256,7 @@ function handleLine(line, ctx) {
       // simply "codex" for the entire first turn. Update the visible subject
       // when the actual user message arrives; later user items in the same
       // rollout naturally win over injected context blocks.
-      ctx.pending.push(() => updateMarker({
+      if (!ctx.replaying) ctx.pending.push(() => updateMarker({
         subject: t.slice(0, 140),
         summary: summarize(t),
       }));
@@ -212,6 +264,7 @@ function handleLine(line, ctx) {
     return;
   }
   if (type === "response_item" && payload.role === "assistant") {
+    if (ctx.replaying) return;
     const t = textOf(payload);
     if (/\bRESPONDING\b/i.test(t)) {
       ctx.pending.push(() => updateMarker({
@@ -227,11 +280,29 @@ function handleLine(line, ctx) {
   }
   if (type === "event_msg") {
     const pt = payload.type || "";
-    if (pt === "task_started" || pt === "user_turn") ctx.pending.push(() => onTurnStart(ctx.lastUser));
-    else if (pt === "task_complete" || pt === "turn_complete") {
-      ctx.pending.push(() => onTurnComplete(payload.last_agent_message || ""));
+    const transition = fn => {
+      if (ctx.replaying) ctx.pending = [fn];
+      else ctx.pending.push(fn);
+    };
+    if (pt === "task_started" || pt === "user_turn") {
+      ctx.turnActive = true;
+      transition(() => onTurnStart(ctx.lastUser));
     }
-    else if (pt.includes("approval") || pt.includes("elicitation")) ctx.pending.push(() => onAwaiting("codex needs approval"));
+    else if (pt === "task_complete" || pt === "turn_complete") {
+      ctx.turnActive = false;
+      transition(() => onTurnComplete(payload.last_agent_message || ""));
+    }
+    else if (pt === "turn_aborted") {
+      ctx.turnActive = false;
+      transition(async () => {
+        await rm(RUNNING); await rm(AWAITING);
+        await updateMarker({ state: "interrupted" });
+      });
+    }
+    else if (pt.includes("approval") || pt.includes("elicitation")) {
+      ctx.turnActive = false;
+      transition(() => onAwaiting("codex needs approval"));
+    }
   }
 }
 
@@ -245,6 +316,7 @@ async function main() {
     if (providerId) await updateMarker({
       codex_session_id: providerId,
       provider_session_id: providerId,
+      transcript_path: file,
     });
   } catch {}
   // Replay once from the beginning so a resumed Codex window immediately
@@ -252,7 +324,7 @@ async function main() {
   // or aging into interrupted until the user submits another prompt. After
   // that first pass `offset` makes this an ordinary incremental tail.
   let offset = 0;
-  const ctx = { lastUser: "", pending: [], turnActive: false, lastHeartbeatAt: 0 };
+  const ctx = { lastUser: "", pending: [], turnActive: false, lastHeartbeatAt: 0, replaying: true };
   while (wrapperAlive()) {
     let size = offset;
     try { size = (await stat(file)).size; } catch { break; }
@@ -265,9 +337,13 @@ async function main() {
       const tail = chunk.subarray(offset).toString("utf8");
       offset = chunk.length;
       for (const line of tail.split("\n")) if (line.trim()) handleLine(line, ctx);
+      if (ctx.replaying && ctx.lastUser) {
+        await updateMarker({ subject: ctx.lastUser.slice(0, 140), summary: summarize(ctx.lastUser) });
+      }
       // Apply transitions in order; last one wins the visible state.
       for (const fn of ctx.pending) await fn();
       ctx.pending = [];
+      ctx.replaying = false;
     }
     // Codex can spend many minutes inside one tool call without appending a
     // new rollout event. Keep both marker channels fresh for the full active
@@ -283,7 +359,7 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+if (isMain) main().catch((error) => {
   console.error(`codex-session-watch: ${error?.stack || error}`);
   process.exit(1);
 });

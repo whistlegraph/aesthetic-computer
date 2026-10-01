@@ -217,12 +217,15 @@ provision_iterm2_profiles() {
 # Keep the launcher and its color-probe handoff with this installed release.
 provision_terminal_launcher() {
     mkdir -p "${HOME}/.local/bin"
-    for script in codex-slab slab-prepare-terminal.mjs; do
+    for script in codex-slab slab-prepare-terminal.mjs codex-session-watch.mjs slab-repair-codex-watchers.mjs; do
         local source="${SCRIPT_DIR}/../bin/${script}"
         [[ -f "$source" ]] || continue
         chmod +x "$source"
         ln -sfn "$source" "${HOME}/.local/bin/${script}"
     done
+    if command -v node >/dev/null 2>&1 && [[ -d "${HOME}/.local/share/slab/state/active-prompts" ]]; then
+        node "${SCRIPT_DIR}/../bin/slab-repair-codex-watchers.mjs"
+    fi
 }
 
 # Disable Terminal.app's "Do you want to terminate the running processes?" modal

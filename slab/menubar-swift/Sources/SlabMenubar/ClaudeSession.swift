@@ -283,7 +283,7 @@ enum ClaudeSessionReader {
                 // has overwritten it yet) — preserve so applyTerminalDecor
                 // paints the appearance-matched bg.
                 // (no-op: keep s.state == .blank)
-            } else if s.agentType == "easel",
+            } else if s.agentType == "easel" || s.agentType == "codex",
                       s.state == .complete || s.state == .awaiting || s.state == .interrupted {
                 // Easel receives app-server lifecycle events
                 // directly, so its marker can state this transition without
@@ -416,7 +416,7 @@ enum ClaudeSessionReader {
             case "blank": return .blank
             case "complete" where agentType == "easel": return .complete
             case "awaiting" where agentType == "easel": return .awaiting
-            case "interrupted" where agentType == "easel": return .interrupted
+            case "interrupted" where agentType == "easel" || agentType == "codex": return .interrupted
             default: return .working
             }
         }()

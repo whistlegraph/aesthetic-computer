@@ -29,6 +29,7 @@ scp -q "$HERE/install.sh" "$HERE/Info.plist" \
   "$HERE/computer.slab.menubar.plist.tmpl" "$TARGET:$STAGE/menubar-swift/"
 scp -q "$REPO/slab/bin/build-lock.sh" "$TARGET:$STAGE/bin/"
 scp -q "$REPO/slab/bin/codex-slab" "$REPO/slab/bin/slab-prepare-terminal.mjs" "$TARGET:$STAGE/bin/"
+scp -q "$REPO/slab/bin/codex-session-watch.mjs" "$REPO/slab/bin/slab-repair-codex-watchers.mjs" "$TARGET:$STAGE/bin/"
 if [[ -f "$HERE/AppIcon.icns" ]]; then
   scp -q "$HERE/AppIcon.icns" "$TARGET:$STAGE/menubar-swift/"
 fi
