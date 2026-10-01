@@ -1,0 +1,116 @@
+{
+  "events": [
+    {
+      "details": {},
+      "event": "holdStarted",
+      "ms": 0.027125000997330062
+    },
+    {
+      "details": {
+        "durationMs": 1300.3125
+      },
+      "event": "audioStarted",
+      "ms": 140.2378333332308
+    },
+    {
+      "details": {},
+      "event": "firstRecognizedWords",
+      "ms": 710.5612083341839
+    },
+    {
+      "details": {},
+      "event": "transcriptPainted",
+      "ms": 727.0045833338372
+    },
+    {
+      "details": {},
+      "event": "audioEnded",
+      "ms": 1441.8287500011502
+    },
+    {
+      "details": {},
+      "event": "releaseReceived",
+      "ms": 1448.384958333918
+    },
+    {
+      "details": {
+        "characters": 18,
+        "matchesFixture": true
+      },
+      "event": "submittedTranscript",
+      "ms": 1461.9335833340301
+    },
+    {
+      "details": {},
+      "event": "generationEntered",
+      "ms": 1470.8516666669311
+    },
+    {
+      "details": {},
+      "event": "guidesReady",
+      "ms": 1472.0990000005258
+    },
+    {
+      "details": {},
+      "event": "requestDispatched",
+      "ms": 1473.258125000939
+    },
+    {
+      "details": {
+        "javascriptError": ""
+      },
+      "event": "finalDelivered",
+      "ms": 1474.390333334668
+    },
+    {
+      "details": {
+        "status": 200
+      },
+      "event": "inferenceHeaders",
+      "ms": 4307.494708333252
+    },
+    {
+      "details": {},
+      "event": "firstModelOutput",
+      "ms": 4903.494875001343
+    },
+    {
+      "details": {},
+      "event": "firstCheckpoint",
+      "ms": 5144.919416667108
+    },
+    {
+      "details": {},
+      "event": "firstPainted",
+      "ms": 5202.394625001034
+    },
+    {
+      "details": {},
+      "event": "generationFinished",
+      "ms": 11836.162125000556
+    }
+  ],
+  "fixture": "Make a pink circle.",
+  "mode": "real-time injected PCM; microphone hardware excluded",
+  "model": "openai/gpt-5.6-luna",
+  "runID": "ff0c4989-4dcc-450e-9398-80b3278aa318",
+  "completion": "finished",
+  "metricsMs": {
+    "audioDuration": 1302,
+    "firstRecognizedWords": 570,
+    "firstVisibleWords": 587,
+    "releaseToRequest": 25,
+    "requestToHeaders": 2834,
+    "requestToFirstModelOutput": 3430,
+    "requestToFirstCheckpoint": 3672,
+    "requestToIncrementalCompile": null,
+    "releaseToFirstPaint": 3754
+  },
+  "assertions": {
+    "generationFinished": true,
+    "transcriptMatches": true,
+    "wordsBeforeRelease": true,
+    "requestSubmitted": true,
+    "piecePainted": true
+  }
+}

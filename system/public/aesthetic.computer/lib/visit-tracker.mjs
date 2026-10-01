@@ -1,4 +1,4 @@
-import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface } from "./visit-model.mjs";
+import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface, visitReferrer } from "./visit-model.mjs";
 
 const ENDPOINT = "https://aesthetic.computer/api/visit-track";
 
@@ -26,6 +26,7 @@ export function startVisitTracker(win = window, doc = document) {
       version: 1, id: win.crypto.randomUUID(), surface,
       automated: automatedVisit(nav, win.location.search, win.acAutomation === true),
       interacted: false, activeSeconds: 0, inputs: [], actions: [],
+      referrerHost: visitReferrer(doc.referrer),
     };
     visibleMs = 0; lastSent = ""; lastTick = win.performance.now();
     wasVisible = visible();
@@ -82,6 +83,7 @@ export function startVisitTracker(win = window, doc = document) {
     if (!VISIT_ACTIONS.includes(name) || !visible() || disabled()) return false;
     syncRoute();
     if (!state?.interacted) return false;
+    win.acAccountActivity?.action(name);
     if (!state.actions.includes(name)) state.actions.push(name);
     send(); return true;
   };
@@ -92,7 +94,18 @@ export function startVisitTracker(win = window, doc = document) {
       // Typing in account/contact/editor fields is not collected as interaction.
       if (e.target?.closest?.("input,textarea,select,[contenteditable], [data-ac-no-track]")) return;
       interact(e.pointerType === "touch" ? "touch" : input);
-      if (e.target?.tagName === "CANVAS") action("canvas_interacted");
+      // AC renders through pointer-transparent canvases. Only count contact
+      // inside its marked display, not DOM controls laid over it or prompt keys.
+      if (event === "pointerdown" || event === "touchstart") {
+        const point = e.touches?.[0] || e;
+        const display = doc.querySelector("canvas[data-ac-visit-canvas]");
+        const rect = display?.getBoundingClientRect();
+        const background = e.target === doc.body || e.target === doc.documentElement ||
+          e.target?.id === "aesthetic-computer";
+        if (e.target?.tagName === "CANVAS" || (background && rect &&
+            point.clientX >= rect.left && point.clientX < rect.right &&
+            point.clientY >= rect.top && point.clientY < rect.bottom)) action("canvas_interacted");
+      }
     }, true);
   }
   on(win, "click", e => {

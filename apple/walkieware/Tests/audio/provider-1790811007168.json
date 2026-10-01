@@ -1,0 +1,26 @@
+{
+  "scope": "Desktop → same AC relay. First validated checkpoint, no rendered-frame timing. Two-round cap.",
+  "workload": "mixed audio with local starter",
+  "results": [
+    {
+      "model": "deepseek/deepseek-v4.1-flash",
+      "headersMs": 1715,
+      "firstOutputMs": null,
+      "firstCodeMs": null,
+      "firstCheckpointMs": null,
+      "sourceChanged": false,
+      "hasPaint": true,
+      "error": "Stopped after 2 tool rounds."
+    },
+    {
+      "model": "qwen/qwen3.7-plus",
+      "headersMs": 1381,
+      "firstOutputMs": 7289,
+      "firstCodeMs": 7289,
+      "firstCheckpointMs": 9016,
+      "sourceChanged": false,
+      "hasPaint": true,
+      "error": "Stopped after 2 tool rounds."
+    }
+  ]
+}

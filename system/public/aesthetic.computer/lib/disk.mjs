@@ -11299,6 +11299,12 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Speech boundaries let pieces synchronize their own captions or animation.
+  if (type === "speech:started" || type === "speech:word") {
+    actAlerts.push({ name: type, content });
+    return;
+  }
+
   // 🗣️ An act that fires when an utterance has ended in the Web Speech API.
   if (type === "speech:completed") {
     actAlerts.push("speech:completed");

@@ -1,0 +1,7 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {musicalPrompt} from '../Resources/Web/musical-input.mjs';
+const input=()=>({transcript:'Make it bounce like this',words:[{text:'this',atMs:600,durationMs:200}],sound:{schema:'walkieware-sound/v1',durationMs:2500,audibleMs:1800,frames:[{atMs:900,rms:.2,pitchHz:880},{atMs:1100,rms:.2,pitchHz:1320}],onsetsMs:[900,1100]}});
+test('mixed prompt retains timestamp relationship and separates evidence from intent',()=>{const p=musicalPrompt(input());const data=JSON.parse(p.split('INPUT DATA:\n')[1]);assert.equal(data.words[0].atMs,600);assert.equal(data.sound.frames[1].pitchHz,1320);assert.match(p,/prosody/);assert.match(p,/must not override/);});
+test('sound without words is valid; forged fields and unbounded arrays are rejected',()=>{const i=input();i.transcript='';i.words=[];assert.match(musicalPrompt(i),/no words/);i.sound.frames[0].pitchHz=NaN;assert.throws(()=>musicalPrompt(i));const huge=input();huge.words=Array(257).fill(huge.words[0]);assert.throws(()=>musicalPrompt(huge));});
+
+test('original recording reference survives without sending audio samples',()=>{const i=input();i.sound.recordingID='7f936621-9d84-42aa-923a-85e258f8b0a0';const data=JSON.parse(musicalPrompt(i).split('INPUT DATA:\n')[1]);assert.equal(data.sound.recordingID,i.sound.recordingID);assert.equal(data.sound.pcm,undefined);i.sound.recordingID='../bad';assert.equal(JSON.parse(musicalPrompt(i).split('INPUT DATA:\n')[1]).sound.recordingID,undefined);});

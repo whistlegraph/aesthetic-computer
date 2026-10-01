@@ -1,0 +1,522 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		09A89EDEB03772B566D345A9 /* PlaybackWord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50D5B994181BB8DD173DBA13 /* PlaybackWord.swift */; };
+		0DAF293EA0DCA59330C836C6 /* InputButtonLabels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49B317E893F3D8506A3F246D /* InputButtonLabels.swift */; };
+		27410D22F96D8006B6D29452 /* VersionNarrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8E12122840B2375C0AB2ED0 /* VersionNarrator.swift */; };
+		28DE33D8B94B853B408571A1 /* WalkiewareAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3EC37299741D5E90E45EE5F /* WalkiewareAccount.swift */; };
+		349E23AC69F23D16290DCB48 /* NetworkBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690D4836B59F77E01D9326D4 /* NetworkBenchmark.swift */; };
+		386E3D38C79AB6CF23166708 /* Fixtures in Resources */ = {isa = PBXBuildFile; fileRef = 5E4DE7A1D969E42D910F4BCB /* Fixtures */; };
+		3BF2B70E0C018C0D43C0134A /* WalkiewareScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220B6400DBD8900B5058A7F0 /* WalkiewareScreen.swift */; };
+		3D181C343F0CF5296E1C4035 /* SwipeToTypeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EA4916078A47F08CDF99B5E /* SwipeToTypeTests.swift */; };
+		465DCE826B91CD18CE48CEF7 /* PlaybackCaption.swift in Sources */ = {isa = PBXBuildFile; fileRef = C614C7FAFB7C430BF574D1B9 /* PlaybackCaption.swift */; };
+		4EDE3317EA5C40F16CB7E32A /* WalkiewareTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BB854B6224E9C6EC2FC901D /* WalkiewareTheme.swift */; };
+		5FD9722A7E3D5329D7B1E770 /* CodeTicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 654A6A5F8172661179904170 /* CodeTicker.swift */; };
+		6380DEC1F53B213D184FD656 /* WalkiewareHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03D832B5A1A03E760A43BBF8 /* WalkiewareHeader.swift */; };
+		6D7B5EBEDBC462D5029C784D /* Web in Resources */ = {isa = PBXBuildFile; fileRef = 315FD6C024E525106C7FD3BE /* Web */; };
+		7EC06C94440CDAF9B846F0BB /* SequenceBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06F16D0B24CA61442FFD0E27 /* SequenceBenchmark.swift */; };
+		8681CA8AC5E530EAD0589219 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 110077D3E4AF92775C4E6D74 /* Assets.xcassets */; };
+		8CD6B532DB3A5B03BC35EEDD /* HeaderSheetsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67B2C6F3854EDC996115B080 /* HeaderSheetsTests.swift */; };
+		91EBE2405BCB456959613E70 /* RecordingTrim.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35720E8232DBFB5B795FBEEA /* RecordingTrim.swift */; };
+		97AB97086118FC695F4B2133 /* AudioBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45F6D30D7883EC26BF391CC7 /* AudioBenchmark.swift */; };
+		99B11F258C6DD8DEAD32A419 /* MusicalInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A7C5768F0EE9F4A8A288767 /* MusicalInput.swift */; };
+		B01CCEF94DAC4203687C68CB /* SpeechCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 054D4872CAC359CCAFE93F95 /* SpeechCapture.swift */; };
+		C57CC34DE256A25EDF176C4A /* NativeScreenFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF403AD7661862BCAC9B2F95 /* NativeScreenFixture.swift */; };
+		E0B6A4DB98A5C44344C74589 /* WorkspaceCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40BA9A3C78CC0324903812B /* WorkspaceCoordinator.swift */; };
+		F1E262539EDCC86364A1B426 /* UtteranceRecording.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A3D6D0D1C0C32051B6C6AF4 /* UtteranceRecording.swift */; };
+		F9A4BC365780D687A6B8CADB /* NativeSignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC5AD9D9D7F376F72D8137A3 /* NativeSignIn.swift */; };
+		FC34834B44AA5AF9FDB73AC0 /* WalkiewareApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBA7AE20BF7B4A303BD2F09A /* WalkiewareApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		6F13103C020139BADAEDA415 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8084B60DC12031BB4CBCF868 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 42E03A3EE36136CA4C61FBD8;
+			remoteInfo = Walkieware;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		03D832B5A1A03E760A43BBF8 /* WalkiewareHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkiewareHeader.swift; sourceTree = "<group>"; };
+		054D4872CAC359CCAFE93F95 /* SpeechCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechCapture.swift; sourceTree = "<group>"; };
+		06F16D0B24CA61442FFD0E27 /* SequenceBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SequenceBenchmark.swift; sourceTree = "<group>"; };
+		110077D3E4AF92775C4E6D74 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		1A7C5768F0EE9F4A8A288767 /* MusicalInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicalInput.swift; sourceTree = "<group>"; };
+		220B6400DBD8900B5058A7F0 /* WalkiewareScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkiewareScreen.swift; sourceTree = "<group>"; };
+		315FD6C024E525106C7FD3BE /* Web */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Web; path = Resources/Web; sourceTree = SOURCE_ROOT; };
+		35720E8232DBFB5B795FBEEA /* RecordingTrim.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingTrim.swift; sourceTree = "<group>"; };
+		3EA4916078A47F08CDF99B5E /* SwipeToTypeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeToTypeTests.swift; sourceTree = "<group>"; };
+		45F6D30D7883EC26BF391CC7 /* AudioBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioBenchmark.swift; sourceTree = "<group>"; };
+		49B317E893F3D8506A3F246D /* InputButtonLabels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputButtonLabels.swift; sourceTree = "<group>"; };
+		4A3D6D0D1C0C32051B6C6AF4 /* UtteranceRecording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtteranceRecording.swift; sourceTree = "<group>"; };
+		50D5B994181BB8DD173DBA13 /* PlaybackWord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackWord.swift; sourceTree = "<group>"; };
+		5E4DE7A1D969E42D910F4BCB /* Fixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fixtures; path = Resources/Fixtures; sourceTree = SOURCE_ROOT; };
+		654A6A5F8172661179904170 /* CodeTicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeTicker.swift; sourceTree = "<group>"; };
+		67B2C6F3854EDC996115B080 /* HeaderSheetsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderSheetsTests.swift; sourceTree = "<group>"; };
+		690D4836B59F77E01D9326D4 /* NetworkBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkBenchmark.swift; sourceTree = "<group>"; };
+		706045AC87F69577059E617E /* Walkieware.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Walkieware.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7BB854B6224E9C6EC2FC901D /* WalkiewareTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkiewareTheme.swift; sourceTree = "<group>"; };
+		92FF8B832524B3AC4D8291F7 /* WalkiewareUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = WalkiewareUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C614C7FAFB7C430BF574D1B9 /* PlaybackCaption.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackCaption.swift; sourceTree = "<group>"; };
+		CBA7AE20BF7B4A303BD2F09A /* WalkiewareApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkiewareApp.swift; sourceTree = "<group>"; };
+		D40BA9A3C78CC0324903812B /* WorkspaceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceCoordinator.swift; sourceTree = "<group>"; };
+		E8E12122840B2375C0AB2ED0 /* VersionNarrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionNarrator.swift; sourceTree = "<group>"; };
+		F3EC37299741D5E90E45EE5F /* WalkiewareAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkiewareAccount.swift; sourceTree = "<group>"; };
+		FC5AD9D9D7F376F72D8137A3 /* NativeSignIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSignIn.swift; sourceTree = "<group>"; };
+		FF403AD7661862BCAC9B2F95 /* NativeScreenFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeScreenFixture.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		64241EA4D5013A2F023B9C2B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				706045AC87F69577059E617E /* Walkieware.app */,
+				92FF8B832524B3AC4D8291F7 /* WalkiewareUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		759B7C408B1B0527C2AD8111 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				45F6D30D7883EC26BF391CC7 /* AudioBenchmark.swift */,
+				654A6A5F8172661179904170 /* CodeTicker.swift */,
+				49B317E893F3D8506A3F246D /* InputButtonLabels.swift */,
+				1A7C5768F0EE9F4A8A288767 /* MusicalInput.swift */,
+				FF403AD7661862BCAC9B2F95 /* NativeScreenFixture.swift */,
+				690D4836B59F77E01D9326D4 /* NetworkBenchmark.swift */,
+				C614C7FAFB7C430BF574D1B9 /* PlaybackCaption.swift */,
+				50D5B994181BB8DD173DBA13 /* PlaybackWord.swift */,
+				35720E8232DBFB5B795FBEEA /* RecordingTrim.swift */,
+				06F16D0B24CA61442FFD0E27 /* SequenceBenchmark.swift */,
+				054D4872CAC359CCAFE93F95 /* SpeechCapture.swift */,
+				4A3D6D0D1C0C32051B6C6AF4 /* UtteranceRecording.swift */,
+				E8E12122840B2375C0AB2ED0 /* VersionNarrator.swift */,
+				F3EC37299741D5E90E45EE5F /* WalkiewareAccount.swift */,
+				CBA7AE20BF7B4A303BD2F09A /* WalkiewareApp.swift */,
+				03D832B5A1A03E760A43BBF8 /* WalkiewareHeader.swift */,
+				220B6400DBD8900B5058A7F0 /* WalkiewareScreen.swift */,
+				7BB854B6224E9C6EC2FC901D /* WalkiewareTheme.swift */,
+				D40BA9A3C78CC0324903812B /* WorkspaceCoordinator.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		8FD6F530EA415417DBA563F3 /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				67B2C6F3854EDC996115B080 /* HeaderSheetsTests.swift */,
+				3EA4916078A47F08CDF99B5E /* SwipeToTypeTests.swift */,
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
+		B5485CCC09007955BCE3FAD6 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				110077D3E4AF92775C4E6D74 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		BE17EABD594C8C886A6D0245 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				FC5AD9D9D7F376F72D8137A3 /* NativeSignIn.swift */,
+			);
+			name = Sources;
+			path = ../aesel/Sources;
+			sourceTree = "<group>";
+		};
+		C071A173F178420C7C9D1E5B = {
+			isa = PBXGroup;
+			children = (
+				5E4DE7A1D969E42D910F4BCB /* Fixtures */,
+				315FD6C024E525106C7FD3BE /* Web */,
+				B5485CCC09007955BCE3FAD6 /* Resources */,
+				759B7C408B1B0527C2AD8111 /* Sources */,
+				BE17EABD594C8C886A6D0245 /* Sources */,
+				8FD6F530EA415417DBA563F3 /* UITests */,
+				64241EA4D5013A2F023B9C2B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		42E03A3EE36136CA4C61FBD8 /* Walkieware */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9AB1AE4E54E1BFC66F8BBF63 /* Build configuration list for PBXNativeTarget "Walkieware" */;
+			buildPhases = (
+				A94692E5600895DA74C938CE /* Sources */,
+				4974A5C50239A88086F1106C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Walkieware;
+			packageProductDependencies = (
+			);
+			productName = Walkieware;
+			productReference = 706045AC87F69577059E617E /* Walkieware.app */;
+			productType = "com.apple.product-type.application";
+		};
+		81D2432862B40D4001794C08 /* WalkiewareUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 34421FD1E3396B200792DD4F /* Build configuration list for PBXNativeTarget "WalkiewareUITests" */;
+			buildPhases = (
+				73CBE11E83DAED65CF9C53C2 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E923111DA65188CE1920567F /* PBXTargetDependency */,
+			);
+			name = WalkiewareUITests;
+			packageProductDependencies = (
+			);
+			productName = WalkiewareUITests;
+			productReference = 92FF8B832524B3AC4D8291F7 /* WalkiewareUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		8084B60DC12031BB4CBCF868 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					42E03A3EE36136CA4C61FBD8 = {
+						DevelopmentTeam = FB5948YR3S;
+						ProvisioningStyle = Automatic;
+					};
+					81D2432862B40D4001794C08 = {
+						DevelopmentTeam = FB5948YR3S;
+						ProvisioningStyle = Automatic;
+						TestTargetID = 42E03A3EE36136CA4C61FBD8;
+					};
+				};
+			};
+			buildConfigurationList = C8AEC1C5A0A8FB1D9040DACF /* Build configuration list for PBXProject "Walkieware" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = C071A173F178420C7C9D1E5B;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 64241EA4D5013A2F023B9C2B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				42E03A3EE36136CA4C61FBD8 /* Walkieware */,
+				81D2432862B40D4001794C08 /* WalkiewareUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		4974A5C50239A88086F1106C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8681CA8AC5E530EAD0589219 /* Assets.xcassets in Resources */,
+				386E3D38C79AB6CF23166708 /* Fixtures in Resources */,
+				6D7B5EBEDBC462D5029C784D /* Web in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		73CBE11E83DAED65CF9C53C2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8CD6B532DB3A5B03BC35EEDD /* HeaderSheetsTests.swift in Sources */,
+				3D181C343F0CF5296E1C4035 /* SwipeToTypeTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A94692E5600895DA74C938CE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				97AB97086118FC695F4B2133 /* AudioBenchmark.swift in Sources */,
+				5FD9722A7E3D5329D7B1E770 /* CodeTicker.swift in Sources */,
+				0DAF293EA0DCA59330C836C6 /* InputButtonLabels.swift in Sources */,
+				99B11F258C6DD8DEAD32A419 /* MusicalInput.swift in Sources */,
+				C57CC34DE256A25EDF176C4A /* NativeScreenFixture.swift in Sources */,
+				F9A4BC365780D687A6B8CADB /* NativeSignIn.swift in Sources */,
+				349E23AC69F23D16290DCB48 /* NetworkBenchmark.swift in Sources */,
+				465DCE826B91CD18CE48CEF7 /* PlaybackCaption.swift in Sources */,
+				09A89EDEB03772B566D345A9 /* PlaybackWord.swift in Sources */,
+				91EBE2405BCB456959613E70 /* RecordingTrim.swift in Sources */,
+				7EC06C94440CDAF9B846F0BB /* SequenceBenchmark.swift in Sources */,
+				B01CCEF94DAC4203687C68CB /* SpeechCapture.swift in Sources */,
+				F1E262539EDCC86364A1B426 /* UtteranceRecording.swift in Sources */,
+				27410D22F96D8006B6D29452 /* VersionNarrator.swift in Sources */,
+				28DE33D8B94B853B408571A1 /* WalkiewareAccount.swift in Sources */,
+				FC34834B44AA5AF9FDB73AC0 /* WalkiewareApp.swift in Sources */,
+				6380DEC1F53B213D184FD656 /* WalkiewareHeader.swift in Sources */,
+				3BF2B70E0C018C0D43C0134A /* WalkiewareScreen.swift in Sources */,
+				4EDE3317EA5C40F16CB7E32A /* WalkiewareTheme.swift in Sources */,
+				E0B6A4DB98A5C44344C74589 /* WorkspaceCoordinator.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		E923111DA65188CE1920567F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 42E03A3EE36136CA4C61FBD8 /* Walkieware */;
+			targetProxy = 6F13103C020139BADAEDA415 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		55581D923FD71085A5BE5C00 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.walkieware;
+				PRODUCT_NAME = Walkieware;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		64033FF21ACF026231FDE1EC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.walkieware.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Walkieware;
+			};
+			name = Debug;
+		};
+		74FA50C11A066D9925210D70 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.walkieware.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Walkieware;
+			};
+			name = Release;
+		};
+		CE4FAD40D07521935A8ABD31 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.walkieware;
+				PRODUCT_NAME = Walkieware;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		D9BC626811DF91C4D14568C9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 82;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = FB5948YR3S;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		DC1BE817F31584CABAB3C583 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 82;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = FB5948YR3S;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		34421FD1E3396B200792DD4F /* Build configuration list for PBXNativeTarget "WalkiewareUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				64033FF21ACF026231FDE1EC /* Debug */,
+				74FA50C11A066D9925210D70 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9AB1AE4E54E1BFC66F8BBF63 /* Build configuration list for PBXNativeTarget "Walkieware" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				55581D923FD71085A5BE5C00 /* Debug */,
+				CE4FAD40D07521935A8ABD31 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C8AEC1C5A0A8FB1D9040DACF /* Build configuration list for PBXProject "Walkieware" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D9BC626811DF91C4D14568C9 /* Debug */,
+				DC1BE817F31584CABAB3C583 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 8084B60DC12031BB4CBCF868 /* Project object */;
+}

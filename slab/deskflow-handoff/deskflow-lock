@@ -1,0 +1,15 @@
+#!/bin/bash
+# Source from the role scripts. The kernel releases this lock when the process
+# exits, including SIGKILL/reboot. Keep the file so contenders share one inode.
+# Detached work must close fd 9 so it cannot outlive the owning transaction.
+deskflow_lock_acquire() {
+  exec 9> "$1.flock"
+  if ! /usr/bin/lockf -s -t "${2:-0}" 9; then
+    exec 9>&-
+    return 1
+  fi
+}
+
+deskflow_lock_release() {
+  exec 9>&-
+}

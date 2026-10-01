@@ -1,0 +1,51 @@
+name: Walkieware
+options:
+  bundleIdPrefix: computer.aesthetic
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    DEVELOPMENT_TEAM: FB5948YR3S
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "82"
+targets:
+  Walkieware:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+      - ../aesel/Sources/NativeSignIn.swift
+      - path: Resources/Assets.xcassets
+      - path: Resources/Fixtures
+        type: folder
+        buildPhase: resources
+      - path: Resources/Web
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: computer.aesthetic.walkieware
+        PRODUCT_NAME: Walkieware
+        INFOPLIST_FILE: Info.plist
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    scheme:
+      gatherCoverageData: false
+
+  WalkiewareUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
+    dependencies:
+      - target: Walkieware
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: computer.aesthetic.walkieware.uitests
+        GENERATE_INFOPLIST_FILE: YES
+    scheme:
+      testTargets:
+        - WalkiewareUITests

@@ -37,8 +37,25 @@ Keep these modules and tests identical to their `captutor/` counterparts in Iris
 
 `node slab/captutor/bin/install-nag-fighter.mjs` installs a persistent macOS
 launch agent. It clears the known Chrome automation banner between takes,
-remembers matches, and flags other dialogs. It never grants remote-debugging
-consent. Stage Mode owns the desk while `stage-mode.json` exists, so the idle
+remembers matches, and flags other dialogs. By default it does not grant
+remote-debugging consent. An operator can persistently authorize handling
+Chrome's exact native consent dialog with:
+
+```sh
+node slab/captutor/bin/install-nag-fighter.mjs --allow-remote-debugging
+```
+
+This writes `allowRemoteDebugging:true` to the operator's existing policy,
+preserving other fields and backing up changed policy and launch-agent files.
+The watcher reloads that policy between scans. Use `--deny-remote-debugging`
+to revoke it. Native recognition and a second scan still guard each action.
+The watcher scans every Chrome process and binds each action to its observed PID;
+page-rendered dialogs and unknown native prompts are never approved. Chrome
+may briefly show the dialog before the watcher handles it; this policy removes
+the repeated manual Allow step, not Chrome's consent UI itself. It needs macOS
+Accessibility and Automation grants for the logged-in host account.
+
+Stage Mode owns the desk while `stage-mode.json` exists, so the idle
 watcher yields to the renderer's guards instead of racing their clicks.
 Status, events and service logs live in `~/.local/share/captutor/nag-fighter/`.
 The loop waits 1.5 seconds between native scans; scans add several seconds.

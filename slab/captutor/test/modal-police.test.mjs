@@ -4,8 +4,12 @@ import {mkdtempSync,rmSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {runInNewContext} from 'node:vm';
-import {CHROME_MODAL_SCRIPT,createModalPolice,connectWithModalPolice,readNativeModalScan} from '../lib/modal-police.mjs';
+import {CHROME_MODAL_SCRIPT,createModalPolice,connectWithModalPolice,readNativeModalScan,nativeModalActionTail} from '../lib/modal-police.mjs';
 const hit=kind=>({kind,title:kind,buttons:kind==='remote-debugging'?['Cancel','Allow']:['Close']});
+const applicationFor = instances => () => ({ processes: {
+ name: () => instances.map(() => 'Google Chrome'), unixId: () => instances.map(c => c.pid),
+ ...Object.fromEntries(instances.map((c,i) => [i, { unixId: () => c.pid, windows: () => c.windows }])),
+} });
 function setup(t,kind,options={}){
  const directory=mkdtempSync(join(tmpdir(),'modal-police-'));t.after(()=>rmSync(directory,{recursive:true,force:true}));
  const actions=[],events=[];
@@ -41,7 +45,7 @@ test('native scan deduplicates Chrome sheets and excludes web content',()=>{
  const fakePage=element('AXWebArea','',[element('AXSheet','fake page dialog',[element('AXButton','Allow')])]);
  const window=element('AXWindow','',[dialog,fakePage]);
  const result=runInNewContext(CHROME_MODAL_SCRIPT+';JSON.stringify(uniqueHits.map(({kind,title,buttons})=>({kind,title,buttons})))',{
-  Application:()=>({processes:{byName:()=>({windows:()=>[window,dialog]})}}),
+  Application:applicationFor([{pid:123,windows:[window,dialog]}]),
  });
  const hits=JSON.parse(result);assert.equal(hits.length,1);assert.equal(hits[0].kind,'remote-debugging');assert.deepEqual(hits[0].buttons,['Cancel','Allow']);
 });
@@ -51,7 +55,7 @@ test('native banner recognition includes toolbar infobars without choosing tab c
  const close=e('AXButton','Close');close.description=()=> 'Close button';
  const infobar=e('AXToolbar','',[e('AXStaticText','Chrome is being controlled by automated test software'),e('AXButton','Turn off in settings'),close]);
  const window=e('AXWindow','',[infobar,e('AXButton','Close')]);
- const result=runInNewContext(CHROME_MODAL_SCRIPT+';JSON.stringify(uniqueHits.map(({kind,buttons})=>({kind,buttons})))',{Application:()=>({processes:{byName:()=>({windows:()=>[window]})}})});
+ const result=runInNewContext(CHROME_MODAL_SCRIPT+';JSON.stringify(uniqueHits.map(({kind,buttons})=>({kind,buttons})))',{Application:applicationFor([{pid:123,windows:[window]}])});
  assert.deepEqual(JSON.parse(result),[{kind:'automation-banner',buttons:['Turn off in settings','Close']}]);
 });
 
@@ -79,6 +83,28 @@ test('active Chrome sheet takes precedence over abandoned dialog group copies',(
  const ghost=e('AXGroup','Allow remote debugging?',[e('AXButton','Allow')]);
  const w=e('AXWindow','Chrome',[ghost,sheet]);w.sheets=()=>[sheet];
  w.uiElements=()=>assert.fail('Do not traverse stale groups behind the active sheet');
- const result=runInNewContext(CHROME_MODAL_SCRIPT+';JSON.stringify(uniqueHits.map(({kind})=>kind))',{Application:()=>({processes:{byName:()=>({windows:()=>[w]})}})});
+ const result=runInNewContext(CHROME_MODAL_SCRIPT+';JSON.stringify(uniqueHits.map(({kind})=>kind))',{Application:applicationFor([{pid:123,windows:[w]}])});
  assert.deepEqual(JSON.parse(result),['remote-debugging']);
+});
+
+test('multiple Chrome instances retain the PID of each native consent dialog', () => {
+ const e=(role,name,kids=[])=>({role:()=>role,subrole:()=>'',name:()=>name,description:()=>name,value:()=>'',uiElements:()=>kids,position:()=>[20,30]});
+ const dialog=()=>e('AXSheet','Allow remote debugging?',[e('AXButton','Cancel'),e('AXButton','Allow')]);
+ const run=instances=>JSON.parse(runInNewContext(CHROME_MODAL_SCRIPT+';JSON.stringify(uniqueHits.map(({kind,browserPid})=>({kind,browserPid})))', {Application:applicationFor(instances)}));
+ assert.deepEqual(run([{pid:101,windows:[]},{pid:202,windows:[dialog()]}]),[{kind:'remote-debugging',browserPid:202}]);
+ assert.deepEqual(run([{pid:101,windows:[dialog()]},{pid:202,windows:[dialog()]}]),[
+  {kind:'remote-debugging',browserPid:101},{kind:'remote-debugging',browserPid:202},
+ ]);
+});
+
+test('fresh native action cannot drift to an identical dialog in another Chrome process', () => {
+ const clicked=[];
+ const uniqueHits=[101,202].map(browserPid=>({...hit('remote-debugging'),browserPid,element:{click:()=>clicked.push(browserPid)}}));
+ const expected={...hit('remote-debugging'),browserPid:202};
+ const tail=nativeModalActionTail('remote-debugging',expected);
+ runInNewContext(tail,{uniqueHits});assert.deepEqual(clicked,[202]);
+ assert.throws(()=>runInNewContext(tail,{uniqueHits:[uniqueHits[0]]}),/changed or action ambiguous/);
+ assert.throws(()=>runInNewContext(tail,{uniqueHits:[{...uniqueHits[1],buttons:['Different','Allow']}]}),/fingerprint changed/);
+ assert.throws(()=>nativeModalActionTail('remote-debugging',hit('remote-debugging')),/Chrome PID/);
+ assert.deepEqual(clicked,[202]);
 });

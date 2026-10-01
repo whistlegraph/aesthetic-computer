@@ -15,7 +15,7 @@ const mocks = {
   ].map((name) => [name, "synthetic"])),
   "../../public/aesthetic.computer/lib/helpers.mjs": {
     defaultTemplateStringProcessor: (strings, ...values) =>
-      strings.reduce((text, part, i) => text + part + (values[i] ?? ""), ""),
+      strings.reduce((text, part, i) => text + part + (i === strings.length - 1 ? "" : String(values[i])), ""),
   },
   "../../backend/http.mjs": {
     respond: (statusCode, body, headers) => ({ statusCode, body, headers }),
@@ -55,6 +55,19 @@ test("known static routes still return their own responses", async () => {
   const response = await module.namespace.handler({ httpMethod: "GET", path: "/sw.js", headers: {} });
   assert.equal(response.statusCode, 200);
   assert.match(response.body, /addEventListener\("push"/);
+});
+
+test("generated Sotce browser modules compile with the activity hooks", async () => {
+  const response = await module.namespace.handler({ httpMethod: "GET", path: "/", headers: {} });
+  assert.equal(response.statusCode, 200);
+  let modules = 0;
+  for (const [, attributes, source] of response.body.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)) {
+    if (!source.trim() || /application\/ld\+json/.test(attributes)) continue;
+    if (/type=["']module["']/.test(attributes)) { new vm.SourceTextModule(source, { context }); modules++; }
+    else new vm.Script(source);
+  }
+  assert.ok(modules > 0);
+  assert.match(response.body, /sotce-activity\.mjs/);
 });
 
 

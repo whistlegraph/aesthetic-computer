@@ -1,0 +1,119 @@
+{
+  "events": [
+    {
+      "details": {},
+      "event": "holdStarted",
+      "ms": 0.030125000193947926
+    },
+    {
+      "details": {
+        "durationMs": 1300.3125
+      },
+      "event": "audioStarted",
+      "ms": 77.14012500036915
+    },
+    {
+      "details": {},
+      "event": "firstRecognizedWords",
+      "ms": 662.722583334471
+    },
+    {
+      "details": {},
+      "event": "transcriptPainted",
+      "ms": 664.7408333337808
+    },
+    {
+      "details": {},
+      "event": "audioEnded",
+      "ms": 1378.320416666611
+    },
+    {
+      "details": {},
+      "event": "releaseReceived",
+      "ms": 1386.2652083334979
+    },
+    {
+      "details": {
+        "characters": 18,
+        "matchesFixture": true
+      },
+      "event": "submittedTranscript",
+      "ms": 1401.5416666679812
+    },
+    {
+      "details": {},
+      "event": "generationEntered",
+      "ms": 1418.89537499992
+    },
+    {
+      "details": {},
+      "event": "guidesReady",
+      "ms": 1420.265125001606
+    },
+    {
+      "details": {},
+      "event": "requestDispatched",
+      "ms": 1421.3764166670444
+    },
+    {
+      "details": {
+        "javascriptError": ""
+      },
+      "event": "finalDelivered",
+      "ms": 1422.8787916672445
+    },
+    {
+      "details": {
+        "status": 200
+      },
+      "event": "inferenceHeaders",
+      "ms": 3400.525375000143
+    },
+    {
+      "details": {},
+      "event": "firstModelOutput",
+      "ms": 8643.94108333363
+    },
+    {
+      "details": {},
+      "event": "firstIncrementalCompile",
+      "ms": 9749.910000000455
+    },
+    {
+      "details": {},
+      "event": "firstPainted",
+      "ms": 9826.780666668128
+    },
+    {
+      "details": {},
+      "event": "firstCheckpoint",
+      "ms": 9920.833291667805
+    },
+    {
+      "details": {},
+      "event": "generationFinished",
+      "ms": 12682.178583334462
+    }
+  ],
+  "fixture": "Make a pink circle.",
+  "mode": "real-time injected PCM; microphone hardware excluded",
+  "model": "qwen/qwen3.7-plus",
+  "runID": "9b4cdf40-bfa6-4a03-8c40-172b19a87b31",
+  "metricsMs": {
+    "audioDuration": 1301,
+    "firstRecognizedWords": 586,
+    "firstVisibleWords": 588,
+    "releaseToRequest": 35,
+    "requestToHeaders": 1979,
+    "requestToFirstModelOutput": 7223,
+    "requestToFirstCheckpoint": 8499,
+    "requestToIncrementalCompile": 8329,
+    "releaseToFirstPaint": 8441
+  },
+  "assertions": {
+    "transcriptMatches": true,
+    "wordsBeforeRelease": true,
+    "requestSubmitted": true,
+    "piecePainted": true
+  }
+}

@@ -1,0 +1,14 @@
+import {readdir,writeFile} from 'node:fs/promises';
+import {join,resolve} from 'node:path';
+import {spawnSync} from 'node:child_process';
+import {balls} from '../Resources/Web/sequence-benchmark.mjs';
+const root=resolve(process.argv[2]||'');const folder=join(root,'device');
+const files=(await readdir(folder)).filter(n=>/^move-\d\d-frame-\d\.png$/.test(n)).sort().map(n=>join(folder,n));
+const result=spawnSync('/tmp/walkieware-counter-ocr',files,{encoding:'utf8',timeout:120000,maxBuffer:8*1024*1024});
+if(result.status!==0)throw Error(result.stderr||result.error?.message||'Compile Tests/counter-ocr.swift to /tmp/walkieware-counter-ocr first');
+const text=JSON.parse(result.stdout);
+const normalize=s=>s.toLowerCase().replace(/[аесоруіп]/g,c=>({'а':'a','е':'e','с':'c','о':'o','р':'p','у':'y','і':'i','п':'n'})[c]).replace(/[^a-z]/g,'');
+const frames=text.map(r=>{const move=Number(r.path.match(/move-(\d+)/)[1]);const expected=balls.slice(0,Math.floor(move/4)).map(b=>b.name);const seen=normalize(r.text.join(' '));return {...r,move,expected,missing:expected.filter(name=>!seen.includes(normalize(name)))};});
+const report={scope:'Local Apple Vision OCR of original native PNGs. Missing names require visual review; OCR alone cannot prove a rendering defect.',frames:frames.length,counterLabels:frames.reduce((n,f)=>n+f.expected.length,0),framesNeedingReview:frames.filter(f=>f.missing.length||f.error),observations:frames};
+await writeFile(join(root,'pixel-text.json'),JSON.stringify(report,null,2)+'\n');
+console.log(JSON.stringify({...report,observations:undefined},null,2));

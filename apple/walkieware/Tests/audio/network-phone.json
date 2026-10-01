@@ -1,0 +1,70 @@
+{
+  "device" : "physical iPhone",
+  "probes" : [
+    {
+      "attempt" : 1,
+      "status" : 200,
+      "totalMs" : 250,
+      "transactions" : [
+        {
+          "connectMs" : 44,
+          "dnsMs" : 1,
+          "protocol" : "h3",
+          "requestToHeadersMs" : 154,
+          "reusedConnection" : false,
+          "tlsMs" : 44
+        }
+      ],
+      "url" : "https:\/\/aesthetic.computer\/aesel.json"
+    },
+    {
+      "attempt" : 2,
+      "status" : 200,
+      "totalMs" : 41,
+      "transactions" : [
+        {
+          "connectMs" : null,
+          "dnsMs" : null,
+          "protocol" : "h3",
+          "requestToHeadersMs" : 40,
+          "reusedConnection" : true,
+          "tlsMs" : null
+        }
+      ],
+      "url" : "https:\/\/aesthetic.computer\/aesel.json"
+    },
+    {
+      "attempt" : 1,
+      "status" : 200,
+      "totalMs" : 125,
+      "transactions" : [
+        {
+          "connectMs" : 49,
+          "dnsMs" : 26,
+          "protocol" : "h2",
+          "requestToHeadersMs" : 47,
+          "reusedConnection" : false,
+          "tlsMs" : 35
+        }
+      ],
+      "url" : "https:\/\/openrouter.ai\/api\/v1\/models"
+    },
+    {
+      "attempt" : 2,
+      "status" : 200,
+      "totalMs" : 39,
+      "transactions" : [
+        {
+          "connectMs" : null,
+          "dnsMs" : null,
+          "protocol" : "h2",
+          "requestToHeadersMs" : 38,
+          "reusedConnection" : true,
+          "tlsMs" : null
+        }
+      ],
+      "url" : "https:\/\/openrouter.ai\/api\/v1\/models"
+    }
+  ],
+  "scope" : "HEAD transport probes; excludes authenticated inference and provider compute"
+}

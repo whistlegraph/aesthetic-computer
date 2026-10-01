@@ -1,0 +1,41 @@
+{
+  "scope": "Desktop → same AC relay. Same Walkieware prompt. No audio or rendered-frame timing.",
+  "results": [
+    {
+      "model": "deepseek/deepseek-v4.1-flash",
+      "headersMs": 901,
+      "firstOutputMs": 1041,
+      "firstCodeMs": 1041,
+      "firstCheckpointMs": 1344,
+      "hasPaint": true,
+      "error": "Stopped after 2 tool rounds."
+    },
+    {
+      "model": "openai/gpt-5.6-luna",
+      "headersMs": 3613,
+      "firstOutputMs": 4353,
+      "firstCodeMs": 4353,
+      "firstCheckpointMs": 4668,
+      "hasPaint": true,
+      "error": "Stopped after 2 tool rounds."
+    },
+    {
+      "model": "deepseek/deepseek-v4.1-flash",
+      "headersMs": 390,
+      "firstOutputMs": 431,
+      "firstCodeMs": 431,
+      "firstCheckpointMs": 717,
+      "hasPaint": true,
+      "error": "Stopped after 2 tool rounds."
+    },
+    {
+      "model": "openai/gpt-5.6-luna",
+      "headersMs": 2738,
+      "firstOutputMs": 3423,
+      "firstCodeMs": 3423,
+      "firstCheckpointMs": 3871,
+      "hasPaint": true,
+      "error": "Stopped after 2 tool rounds."
+    }
+  ]
+}

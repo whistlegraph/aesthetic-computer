@@ -341,3 +341,17 @@ shared `fleet-browser` access lease, use Chrome's `DevToolsActivePort`, touch
 its owner while active, and release it when finished. Never invent a
 `/tmp/*-chrome` profile or another debugging port. The manager refuses
 competing debug instances and the launchd reaper expires abandoned access.
+
+Reuse the resident Puppet/CDP connection across client requests. A lease alone
+does not share a WebSocket, and Chrome asks again for each new connection.
+Avoid restarting the browser core when only an MCP client needs refreshing.
+Ordinary Chrome also needs a profile window open to show its consent dialog;
+a windowless process can reject debugging with HTTP 403.
+
+The operator-approved fleet consent handler is Captutor Modalpolice:
+`node slab/captutor/bin/install-nag-fighter.mjs --allow-remote-debugging` installs
+its login watcher and explicit persistent policy. See
+[`slab/captutor/README.md`](../../slab/captutor/README.md). It handles only
+recognized native Chrome dialogs, never page content or unknown prompts.
+Verify its live status and handled events; installation alone is not proof.
+A locked desktop still needs unlocking. Do not turn off Chrome's consent checks.

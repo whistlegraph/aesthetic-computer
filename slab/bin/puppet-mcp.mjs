@@ -129,7 +129,9 @@ async function toolTerm({ machine }) {
 }
 
 async function toolSemantic(action, args) {
-  const result = await rpc({ cmd: "semantic", machine: args.machine, args: { ...args, action } }, { timeoutMs: 45000 });
+  // Cold raw-CDP and Playwright connections can each await native consent.
+  // Keep the reply channel open beyond both handshakes and the bounded action.
+  const result = await rpc({ cmd: "semantic", machine: args.machine, args: { ...args, action } }, { timeoutMs: 135000 });
   const { image, ...evidence } = result;
   return [...(image ? [{ type: "image", data: image, mimeType: "image/jpeg" }] : []), ...text(evidence)];
 }
@@ -156,11 +158,18 @@ const SEMANTIC_TOOLS = ["snapshot", "click", "fill", "wait"].map(action => ({
 const TOOLS = [
   ...SEMANTIC_TOOLS,
   { name: "puppet_choose", act: false,
-    description: "CHOOSE without clicking: observe an exact page and ask Jev to select a visible named control for a bounded goal. Sends only the goal and up to 40 control labels to OpenRouter. Returns a strict locator or observe/wait fallback. Use when selection needs reasoning; known locators should go directly to puppet_click. Selection grants no authorization.",
+    description: "CHOOSE without clicking: observe an exact page and ask Jev to select a visible named control for a bounded goal. Sends the goal, up to 40 control labels/roles/selection states and optional recent-action summaries to OpenRouter. Returns a strict locator or observe/wait fallback. Use when selection needs reasoning; known locators should go directly to puppet_click. Selection grants no authorization.",
     inputSchema: { type: "object", properties: {
       machine: { type: "string" }, target: { type: "string", description: "Exact page ID." },
       goal: { type: "string", minLength: 1, maxLength: 500 },
       previousOutcome: { type: "string", enum: ["verified", "unknown"], description: "Unknown prior input must be verified before deciding again." },
+      recentActions: { type: "array", maxItems: 3, description: "Last three actions, oldest first, from this exact page and task only. Reset on navigation or a new task. Verified means the effect was observed. Never include typed values or secrets.",
+        items: { type: "object", additionalProperties: false, properties: {
+          action: { type: "string", enum: ["click", "fill"] },
+          label: { type: "string", minLength: 1, maxLength: 160 },
+          role: { type: "string", minLength: 1, maxLength: 30 },
+          outcome: { type: "string", enum: ["verified", "unknown"] },
+        }, required: ["action", "label", "role", "outcome"] } },
     }, required: ["machine", "target", "goal"] } },
   { name: "puppet_list", act: false,
     description: "List machines and exact browser page IDs in compact tables. Read-only; full:true returns raw JSON state.",

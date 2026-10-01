@@ -1,0 +1,121 @@
+{
+  "events": [
+    {
+      "details": {},
+      "event": "holdStarted",
+      "ms": 0.03579166695999447
+    },
+    {
+      "details": {
+        "durationMs": 1300.3125
+      },
+      "event": "audioStarted",
+      "ms": 135.17175000015413
+    },
+    {
+      "details": {},
+      "event": "firstRecognizedWords",
+      "ms": 717.8019166676677
+    },
+    {
+      "details": {},
+      "event": "transcriptPainted",
+      "ms": 725.1517500008049
+    },
+    {
+      "details": {},
+      "event": "audioEnded",
+      "ms": 1436.6285416672326
+    },
+    {
+      "details": {},
+      "event": "releaseReceived",
+      "ms": 1443.5744583333872
+    },
+    {
+      "details": {
+        "characters": 18,
+        "matchesFixture": true
+      },
+      "event": "submittedTranscript",
+      "ms": 1463.3361666674318
+    },
+    {
+      "details": {},
+      "event": "generationEntered",
+      "ms": 1475.0597083329922
+    },
+    {
+      "details": {},
+      "event": "guidesReady",
+      "ms": 1477.7187500003492
+    },
+    {
+      "details": {},
+      "event": "requestDispatched",
+      "ms": 1479.208833334269
+    },
+    {
+      "details": {
+        "javascriptError": ""
+      },
+      "event": "finalDelivered",
+      "ms": 1481.0679583333695
+    },
+    {
+      "details": {
+        "status": 200
+      },
+      "event": "inferenceHeaders",
+      "ms": 2691.2068750007165
+    },
+    {
+      "details": {},
+      "event": "firstModelOutput",
+      "ms": 2820.90108333432
+    },
+    {
+      "details": {},
+      "event": "firstIncrementalCompile",
+      "ms": 3302.0735416666867
+    },
+    {
+      "details": {},
+      "event": "firstPainted",
+      "ms": 3363.6957083344896
+    },
+    {
+      "details": {},
+      "event": "firstCheckpoint",
+      "ms": 3436.1176666679967
+    },
+    {
+      "details": {},
+      "event": "generationFinished",
+      "ms": 5690.949583333349
+    }
+  ],
+  "fixture": "Make a pink circle.",
+  "mode": "real-time injected PCM; microphone hardware excluded",
+  "model": "deepseek/deepseek-v4.1-flash",
+  "runID": "84cdd5c9-c2dd-46d5-8c3c-47d0a795536d",
+  "completion": "finished",
+  "metricsMs": {
+    "audioDuration": 1301,
+    "firstRecognizedWords": 583,
+    "firstVisibleWords": 590,
+    "releaseToRequest": 36,
+    "requestToHeaders": 1212,
+    "requestToFirstModelOutput": 1342,
+    "requestToFirstCheckpoint": 1957,
+    "requestToIncrementalCompile": 1823,
+    "releaseToFirstPaint": 1920
+  },
+  "assertions": {
+    "generationFinished": true,
+    "transcriptMatches": true,
+    "wordsBeforeRelease": true,
+    "requestSubmitted": true,
+    "piecePainted": true
+  }
+}
