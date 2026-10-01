@@ -36,6 +36,10 @@ internal static class SmokeTest
         core.WebResourceRequested += (_, e) => {
             var uri = new Uri(e.Request.Uri);
             if (uri.Host == "aesel.app") return; // Packaged assets; no network.
+            if (e.Request.Method == "OPTIONS") {
+                e.Response = core.Environment.CreateWebResourceResponse(new MemoryStream(), 204, "No Content", "Access-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, PUT, OPTIONS\r\nAccess-Control-Allow-Headers: *\r\n");
+                return;
+            }
             var body = "{}"; var type = "application/json";
             if (uri.AbsolutePath == "/userinfo") body = "{\"sub\":\"auth0|windows-fixture\"}";
             else if (uri.AbsolutePath == "/handle") body = "{\"handle\":\"windows-fixture\"}";

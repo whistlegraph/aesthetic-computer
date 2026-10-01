@@ -25,9 +25,11 @@ SetupMutex=AestheticComputer.Aesel.Setup
 AppMutex=Local\AestheticComputer.Aesel.Windows
 [Files]
 Source: "dist\app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "dist\deps\WebView2Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 [Icons]
 Name: "{autoprograms}\Aesel"; Filename: "{app}\Aesel.exe"
 [Run]
+Filename: "{tmp}\WebView2Setup.exe"; Parameters: "/silent /install"; StatusMsg: "Checking Microsoft WebView2 Runtime…"; Flags: waituntilterminated
 Filename: "{app}\Aesel.exe"; Description: "Open Aesel"; Flags: nowait postinstall skipifsilent
 ; Account and notebook data are deliberately retained on uninstall. Reinstalling
 ; or updating must not delete art. Remove LocalAppData/Aesthetic Computer/Aesel
