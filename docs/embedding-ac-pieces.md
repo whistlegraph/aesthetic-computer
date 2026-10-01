@@ -135,3 +135,20 @@ the class and edge-to-edge bounds must survive both.
 that have no normal query string. BIOS honors it on every reframe, including
 explicit nonzero gap requests. It is not a URL parameter, and an ordinary web
 embed should use `nogap=true` rather than depend on script injection.
+
+## Iterate on Walkieware layout without restarting
+
+For a running Walkieware app with the live-layout bridge, send a CSS file through
+its existing owner-authenticated thread socket:
+
+```sh
+node slab/bin/ww.mjs layout wwRuboh /tmp/walkieware-layout.css
+```
+
+The stylesheet replaces the previous live override and persists locally across
+launches. An empty file clears it. This updates the surrounding app shell, not
+the cross-origin AC document. It does not reload the WebView, regenerate the
+piece, or add a piece version. The device must be online and idle; the command
+returns an acknowledgement after applying the override. CSS is limited to 100 KB.
+Native Swift changes still require an app build/install; this is a CSS iteration
+path, not Swift code hot reload.

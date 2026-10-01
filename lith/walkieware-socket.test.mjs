@@ -47,6 +47,10 @@ test('real sockets isolate accounts, persist versions and relay checked commands
  const command=await device.next('command');assert.equal(command.text,'Make it 3D');await agent.next('accepted');
  agent.send({type:'command',id:'edit-2',action:'undo',baseVersion:0,baseHash:'stale'});assert.equal((await agent.next('result')).error,'Device busy');
  device.send({type:'result',id:'edit-1',ok:true,head:1});assert.equal((await agent.next('result')).ok,true);
+ agent.send({type:'command',id:'layout-1',action:'layout',css:'#live-work {padding: 12px}',baseVersion:0,baseHash:sourceHash(ledger.versions[0].source)});
+ const layout=await device.next('command');assert.equal(layout.css,'#live-work {padding: 12px}');await agent.next('accepted');
+ device.send({type:'result',id:'layout-1',ok:true,head:0});assert.equal((await agent.next('result')).head,0);
+ assert.equal((await f.store.read('owner','wwRuboh')).ledger.versions.length,1,'layout does not create piece history');
  agent.ws.close();await once(agent.ws,'close');
  const second=await client(f.url,{role:'agent',code:'wwRuboh'});assert.equal((await second.next('ready')).online,true);
  device.send({type:'ping'});assert.equal((await device.next('pong')).attached,true);
