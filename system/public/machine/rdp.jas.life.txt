@@ -5,7 +5,7 @@
 ## Resources
 
 - [Website](https://rdp.jas.life/): Public entry point.
-- [About](https://rdp.jas.life/about/): Project background.
+- [About](https://rdp.jas.life/about/index.html): Project background.
 - [Metadata](https://rdp.aesthetic.computer/): Published collection metadata.
 
 ## Network
