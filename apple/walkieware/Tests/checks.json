@@ -778,7 +778,8 @@
    "13 relay policy tests passed incl. reasoning shapes",
    "AcServer tests passed"
   ],
-  "limits": "Needs a lith deploy before the phone benefits; the deployed relay drops the field. Live re-measure owed after deploy."
+  "limits": "Needs a lith deploy before the phone benefits; the deployed relay drops the field. Live re-measure owed after deploy.",
+  "result": "Deployed relay forwards the field (probe: malformed values get 400). OpenRouter /api/v1/messages ignores every shape for deepseek/deepseek-v4.1-flash: effort none \u2192 4958 thinking tokens, enabled false \u2192 3495, max_tokens 64 \u2192 2364. Thinking varies 2.3K\u20138.1K tokens on the same prompt. Open: does Anthropic-style thinking:{type:\"disabled\"} or /chat/completions honor it (probe-openrouter.mjs, @jeffrey runs it with the vault key)."
  },
  "selectorAndTicker": {
   "build": 74,
@@ -845,5 +846,72 @@
    "Device build passed"
   ],
   "limits": "Not yet auditioned by voice on the phone this turn."
+ },
+ "modelComparison": {
+  "date": "2026-10-01",
+  "edit": "wwGihap v2 basket + \"Someone is eating them\", desktop replay through the production relay, reasoning effort none requested",
+  "rows": [
+   {
+    "model": "deepseek/deepseek-v4.1-flash",
+    "totalMs": 15959,
+    "firstCodeMs": 12687,
+    "thinkingTokens": 4958,
+    "quality": "animated: berries vanish, critter chomps (best)"
+   },
+   {
+    "model": "openai/gpt-5.6-luna",
+    "totalMs": 12704,
+    "firstCodeMs": 6037,
+    "thinkingTokens": 266,
+    "quality": "static thief head, no eating animation"
+   },
+   {
+    "model": "qwen/qwen3.7-plus",
+    "totalMs": 41448,
+    "firstCodeMs": 7184,
+    "thinkingTokens": 263,
+    "quality": "invented tap-to-start interaction; 57 tok/s"
+   },
+   {
+    "model": "deepseek/deepseek-v4-pro",
+    "totalMs": 49035,
+    "firstCodeMs": 24181,
+    "thinkingTokens": 1444,
+    "quality": "four rounds"
+   },
+   {
+    "model": "deepseek/deepseek-chat-v3.1",
+    "totalMs": 58095,
+    "firstCodeMs": 1444,
+    "thinkingTokens": 0,
+    "quality": "static eater; five rounds, three of them chatter"
+   }
+  ],
+  "conclusion": "Keep DeepSeek v4.1 flash; its hidden thinking is the latency. Until it can be switched off, stream the thinking into the ticker (reasoningStream)."
+ },
+ "reasoningStream": {
+  "build": 78,
+  "change": "AcServer emits item/reasoning/delta for thinking_delta events (never kept in the conversation); the engine shows the reasoning in the pending-row ticker, dimmed and plain, until code arrives; phase reads Thinking\u2026",
+  "validation": [
+   "22 AcServer tests passed incl. thinking-delta case",
+   "native-bridge browser test passed",
+   "Live replay: first reasoning text at 669 ms, first code at 23.6 s on a heavy run \u2014 the ticker is busy for the whole gap"
+  ]
+ },
+ "sessionSplit": {
+  "build": 78,
+  "change": "SpeechCapture.swift owns the microphone, recognizer, pitch/energy analysis and release timing and reports through onEvent/onLevel/onReplayRelease; WalkiewareSession keeps screen state and the web bridge. WalkiewareApp.swift shrinks by ~180 lines.",
+  "validation": [
+   "Simulator build passed",
+   "Full UI suite: see sessionSplitUITests"
+  ]
+ },
+ "sessionSplitUITests": {
+  "build": 78,
+  "validation": [
+   "SwipeToTypeTests 3/3 passed on the split (inline typing both appearances, silent version scrolling, story restore)",
+   "HeaderSheetsTests 2/2 passed after the dismissal check became a proper disappearance wait",
+   "Device build 78 installed (launch blocked: phone locked)"
+  ]
  }
 }

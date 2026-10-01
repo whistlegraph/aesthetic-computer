@@ -496,7 +496,12 @@ export class AcServer extends EventEmitter {
             }
           } else if (event.type === "content_block_delta") {
             const delta = event.delta;
-            if (delta?.type === "text_delta" && delta.text) {
+            if (delta?.type === "thinking_delta" && delta.thinking) {
+              // A reasoning model's hidden work. Not part of the answer and
+              // never fed back, but a surface that shows the piece being made
+              // can scroll it rather than sit silent for ten seconds.
+              this.emit("notification", { method: "item/reasoning/delta", params: { itemId: messageId, delta: delta.thinking } });
+            } else if (delta?.type === "text_delta" && delta.text) {
               text += delta.text;
               this.emit("notification", {
                 method: "item/agentMessage/delta",

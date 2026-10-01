@@ -242,26 +242,19 @@ final class WalkiewareSession: NSObject, ObservableObject, WKScriptMessageHandle
         if recoveryCount < 1 { recoveryCount += 1; reloadWorkspace() }
         else { startupFailure = "The workspace stopped. Tap Reload to reopen it." }
     }
-    private let engine = AVAudioEngine()
-    private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     let account = WalkiewareAccount()
+    // The microphone, recognizer and release timing live in SpeechCapture; this
+    // class only turns its events into screen state and bridge messages.
+    private let capture = SpeechCapture()
+    override init() {
+        super.init()
+        capture.onEvent = { [weak self] kind, text, id in self?.emit(kind, text: text, id: id) }
+        capture.onLevel = { [weak self] rms in guard let self else { return }; self.microphoneLevels = Array(self.microphoneLevels.dropFirst()) + [rms] }
+        capture.onReplayRelease = { [weak self] in self?.webView?.evaluateJavaScript("voiceEnd()", completionHandler: nil) }
+    }
     private var previewFrame: WKFrameInfo?
     private var previewSource = ""
     private var previewThreadID = UUID().uuidString
-    private var request: SFSpeechAudioBufferRecognitionRequest?
-    private var task: SFSpeechRecognitionTask?
-    private var turn = ""
-    private var held = false
-    private var tapped = false
-    private var latest = ""
-    private var musicalInput = MusicalInput()
-    private var wordSegments: [[String: Any]] = []
-    private var delivering = false
-    private var recognitionFinal = false
-    private var audioEnded = false
-    private var replayTask: Task<Void, Never>?
-    private var finishing: Task<Void, Never>?
-    private var deadline: Task<Void, Never>?
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         if !message.frameInfo.isMainFrame,
@@ -362,9 +355,12 @@ final class WalkiewareSession: NSObject, ObservableObject, WKScriptMessageHandle
             guard let source = body["source"] as? String, source.utf8.count < 500_000 else { return }
             if let id = body["threadID"] as? String, UUID(uuidString: id) != nil { previewThreadID = id }
             previewSource = source; renderPreview()
-        case "start": start(id)
-        case "stop": if id == turn { stop() }
-        case "cancel": if id == turn { cancel() }
+        case "start":
+            capturePhase = .opening; captureError = nil; transcript = ""
+            microphoneLevels = Array(repeating: 0, count: 28)
+            capture.start(id)
+        case "stop": capture.stop(matching: id)
+        case "cancel": if id == capture.turn { cancel() }
         case "share":
             guard let value = body["data"] as? String, value.count < 10_000_000,
                   value.hasPrefix("data:image/png;base64,"),
@@ -401,7 +397,7 @@ final class WalkiewareSession: NSObject, ObservableObject, WKScriptMessageHandle
         }
         if kind == "partial", !text.isEmpty { AudioBenchmark.mark("firstRecognizedWords") }
         if kind == "final" { AudioBenchmark.checkTranscript(text) }
-        let event = ["kind": kind, "text": text, "id": id ?? turn]
+        let event = ["kind": kind, "text": text, "id": id ?? capture.turn]
         guard let data = try? JSONSerialization.data(withJSONObject: event),
               let json = String(data: data, encoding: .utf8) else { return }
         webView?.evaluateJavaScript("window.walkieNativeEvent?.(\(json))") { _, error in
@@ -411,175 +407,8 @@ final class WalkiewareSession: NSObject, ObservableObject, WKScriptMessageHandle
         }
     }
 
-    private func start(_ id: String) {
-        cancel()
-        capturePhase = .opening; captureError = nil; transcript = ""
-        microphoneLevels = Array(repeating: 0, count: 28)
-        turn = id; held = true; latest = ""; wordSegments = []; delivering = false; recognitionFinal = false; audioEnded = false
-        #if DEBUG
-        if NativeScreenFixture.enabled && NativeScreenFixture.mode == "gestures" { emit("listening"); return }
-        #endif
-        musicalInput = MusicalInput()
-        musicalInput.onUpdate = { [weak self] pitch, rms in
-            Task { @MainActor in
-                guard let self, self.turn == id, self.held else { return }
-                self.microphoneLevels = Array(self.microphoneLevels.dropFirst()) + [rms.isFinite ? max(0, rms) : 0]
-                if let pitch, rms > 0.012 { self.emit("sound", text: "\(Int(pitch)) Hz") }
-            }
-        }
-        musicalInput.onObservation = { [weak self] sound in
-            Task { @MainActor in
-                guard let self, self.turn == id, self.held else { return }
-                let value: [String: Any] = ["transcript":self.latest,"words":self.wordSegments,"sound":sound]
-                guard let data = try? JSONSerialization.data(withJSONObject:value), let json = String(data:data,encoding:.utf8) else { return }
-                self.emit("musicalObservation", text:json)
-            }
-        }
-        if AudioBenchmark.enabled { AudioBenchmark.reset(); AudioBenchmark.mark("holdStarted") }
-        Task { [weak self] in
-            guard let self else { return }
-            let speech = await withCheckedContinuation { continuation in
-                SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0 == .authorized) }
-            }
-            guard self.turn == id, self.held else { return }
-            guard speech else { self.fail("Speech permission is off. Enable it in Settings."); return }
-            let microphone = await AVCaptureDevice.requestAccess(for: .audio)
-            guard self.turn == id, self.held else { return }
-            guard microphone else { self.fail("Microphone permission is off."); return }
-            guard let recognizer = self.recognizer, recognizer.isAvailable,
-                  recognizer.supportsOnDeviceRecognition else {
-                self.fail("On-device English speech is unavailable."); return
-            }
-            do {
-                let session = AVAudioSession.sharedInstance()
-                try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetooth])
-                try session.setActive(true)
-                let request = SFSpeechAudioBufferRecognitionRequest()
-                request.shouldReportPartialResults = true
-                request.taskHint = .dictation
-                request.requiresOnDeviceRecognition = true
-                request.contextualStrings = ["Walkieware", "Aesthetic Computer", "garden", "flowers"]
-                self.request = request
-                if !AudioBenchmark.enabled {
-                let input = self.engine.inputNode
-                let format = input.outputFormat(forBus: 0)
-                guard format.sampleRate > 0, format.channelCount > 0 else {
-                    self.fail("No microphone is available."); return
-                }
-                let sound = self.musicalInput
-                input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in request.append(buffer); sound.feed(buffer) }
-                self.tapped = true
-                self.engine.prepare()
-                try self.engine.start()
-                }
-                self.emit("listening")
-                self.task = recognizer.recognitionTask(with: request) { [weak self] result, error in
-                    let text = result?.bestTranscription.formattedString
-                    let segments = result?.bestTranscription.segments.map { ["text": $0.substring, "atMs": $0.timestamp * 1000, "durationMs": $0.duration * 1000, "confidence": Double($0.confidence)] as [String: Any] }
-                    let isFinal = result?.isFinal ?? false
-                    let message = error?.localizedDescription
-                    Task { @MainActor in
-                        guard let self, self.turn == id else { return }
-                        if let segments { self.wordSegments = Array(segments.prefix(256)) }
-                        if let text { self.latest = text; self.emit("partial", text: text) }
-                        if isFinal { self.recognitionFinal = true; AudioBenchmark.mark("recognitionFinal") }
-                        if self.audioEnded && isFinal { self.deliver() }
-                        else if self.audioEnded && message != nil && self.latest.isEmpty {
-                            self.deliver() // Sound remains useful when speech finds no words.
-                        }
-                    }
-                }
-                if AudioBenchmark.enabled {
-                    let sound = self.musicalInput
-                    self.replayTask = Task { [weak self] in
-                        do {
-                            try await AudioBenchmark.replay(into: request, sound: sound) {
-                                self?.webView?.evaluateJavaScript("voiceEnd()", completionHandler: nil)
-                            }
-                        } catch { if !Task.isCancelled { self?.fail("Audio fixture replay failed.") } }
-                    }
-                }
-                self.deadline = Task { [weak self] in
-                    try? await Task.sleep(for: .seconds(8))
-                    guard !Task.isCancelled, let self, self.turn == id else { return }
-                    self.stop()
-                }
-            } catch { self.fail("Could not start the microphone. Please try again.") }
-        }
-    }
-
-    private func stopAudio() {
-        engine.stop()
-        if tapped { engine.inputNode.removeTap(onBus: 0); tapped = false }
-        request?.endAudio()
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-    }
-
-    private func stop() {
-        guard !turn.isEmpty, held else { return }
-        held = false
-        AudioBenchmark.mark("releaseReceived")
-        guard request != nil else { cancel(); return }
-        // Capture a release tail, within the eight-second recording budget. A
-        // thumb lifts a beat before the last word lands; 0.25 s clipped endings.
-        let elapsed = captureStarted.map { Date().timeIntervalSince($0) } ?? 8
-        let tail = min(0.45, max(0, 8 - elapsed))
-        emit("processing")
-        finishing?.cancel()
-        let id = turn
-        finishing = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(tail))
-            guard !Task.isCancelled, let self, self.turn == id else { return }
-            self.stopAudio()
-            self.audioEnded = true
-            AudioBenchmark.mark("audioDrained")
-            if self.recognitionFinal { self.deliver(); return }
-            // endAudio lets recognition consume every queued buffer and finalize.
-            // If it never does, the partial transcript is still the person's
-            // words: send what was heard rather than throw the utterance away.
-            try? await Task.sleep(for: .seconds(3))
-            guard !Task.isCancelled, self.turn == id, !self.delivering else { return }
-            AudioBenchmark.mark("recognitionTimedOut", fields: ["recognizedCharacters": self.latest.count])
-            self.deliver()
-        }
-    }
-
-    private func deliver() {
-        guard !delivering, !turn.isEmpty else { return }
-        delivering = true
-        let text = latest.trimmingCharacters(in: .whitespacesAndNewlines)
-        let id = turn, words = wordSegments
-        stopAudio()
-        musicalInput.finish { [weak self] sound in
-            Task { @MainActor in
-                guard let self, self.turn == id else { return }
-                guard !text.isEmpty || (sound["audibleMs"] as? Double ?? 0) >= 150 else {
-                    self.fail("I didn’t hear words or a sound. Hold to try again."); return
-                }
-                let value: [String: Any] = ["transcript":text,"words":words,"sound":sound]
-                guard let data = try? JSONSerialization.data(withJSONObject:value), let json = String(data:data,encoding:.utf8) else { self.fail("Could not read sound input."); return }
-                AudioBenchmark.checkTranscript(text)
-                AudioBenchmark.mark("soundSubmitted", fields: value)
-                self.cancel()
-                self.emit("mixedFinal", text:json, id:id)
-            }
-        }
-    }
-
-    private func fail(_ message: String) {
-        AudioBenchmark.mark("recognitionFailed", fields: ["message": message, "recognizedCharacters": latest.count])
-        let id = turn
-        cancel()
-        emit("error", text: message, id: id)
-    }
-
     func cancel() {
         capturePhase = .idle; captureStarted = nil
-        turn = ""; held = false
-        replayTask?.cancel(); replayTask = nil
-        finishing?.cancel(); finishing = nil
-        deadline?.cancel(); deadline = nil
-        stopAudio()
-        task?.cancel(); task = nil; request = nil
+        capture.cancel()
     }
 }

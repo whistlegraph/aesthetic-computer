@@ -263,7 +263,7 @@ struct VersionFeed: View {
                 HStack(spacing: 12) {
                     if snapshot.busy { ProgressView().frame(width: 48) }
                     if snapshot.busy, let output = snapshot.output, !output.isEmpty {
-                        CodeTicker(output: output)
+                        CodeTicker(output: output, thinking: snapshot.phase.hasPrefix("Thinking"))
                     } else {
                     Text(attempt.request.replacingOccurrences(of: #" · [0-9.]+ seconds$"#, with: "", options: .regularExpression))
                         .font(.custom("ComicRelief-Regular", size: textSize, relativeTo: .title3))

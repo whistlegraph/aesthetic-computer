@@ -26,6 +26,7 @@
 		91EBE2405BCB456959613E70 /* RecordingTrim.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35720E8232DBFB5B795FBEEA /* RecordingTrim.swift */; };
 		97AB97086118FC695F4B2133 /* AudioBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45F6D30D7883EC26BF391CC7 /* AudioBenchmark.swift */; };
 		99B11F258C6DD8DEAD32A419 /* MusicalInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A7C5768F0EE9F4A8A288767 /* MusicalInput.swift */; };
+		B01CCEF94DAC4203687C68CB /* SpeechCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 054D4872CAC359CCAFE93F95 /* SpeechCapture.swift */; };
 		C57CC34DE256A25EDF176C4A /* NativeScreenFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF403AD7661862BCAC9B2F95 /* NativeScreenFixture.swift */; };
 		E0B6A4DB98A5C44344C74589 /* WorkspaceCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40BA9A3C78CC0324903812B /* WorkspaceCoordinator.swift */; };
 		F1E262539EDCC86364A1B426 /* UtteranceRecording.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A3D6D0D1C0C32051B6C6AF4 /* UtteranceRecording.swift */; };
@@ -45,6 +46,7 @@
 
 /* Begin PBXFileReference section */
 		03D832B5A1A03E760A43BBF8 /* WalkiewareHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkiewareHeader.swift; sourceTree = "<group>"; };
+		054D4872CAC359CCAFE93F95 /* SpeechCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechCapture.swift; sourceTree = "<group>"; };
 		06F16D0B24CA61442FFD0E27 /* SequenceBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SequenceBenchmark.swift; sourceTree = "<group>"; };
 		110077D3E4AF92775C4E6D74 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1A7C5768F0EE9F4A8A288767 /* MusicalInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicalInput.swift; sourceTree = "<group>"; };
@@ -95,6 +97,7 @@
 				50D5B994181BB8DD173DBA13 /* PlaybackWord.swift */,
 				35720E8232DBFB5B795FBEEA /* RecordingTrim.swift */,
 				06F16D0B24CA61442FFD0E27 /* SequenceBenchmark.swift */,
+				054D4872CAC359CCAFE93F95 /* SpeechCapture.swift */,
 				4A3D6D0D1C0C32051B6C6AF4 /* UtteranceRecording.swift */,
 				E8E12122840B2375C0AB2ED0 /* VersionNarrator.swift */,
 				F3EC37299741D5E90E45EE5F /* WalkiewareAccount.swift */,
@@ -263,6 +266,7 @@
 				09A89EDEB03772B566D345A9 /* PlaybackWord.swift in Sources */,
 				91EBE2405BCB456959613E70 /* RecordingTrim.swift in Sources */,
 				7EC06C94440CDAF9B846F0BB /* SequenceBenchmark.swift in Sources */,
+				B01CCEF94DAC4203687C68CB /* SpeechCapture.swift in Sources */,
 				F1E262539EDCC86364A1B426 /* UtteranceRecording.swift in Sources */,
 				27410D22F96D8006B6D29452 /* VersionNarrator.swift in Sources */,
 				28DE33D8B94B853B408571A1 /* WalkiewareAccount.swift in Sources */,
@@ -390,7 +394,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 77;
+				CURRENT_PROJECT_VERSION = 78;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -457,7 +461,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 77;
+				CURRENT_PROJECT_VERSION = 78;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_NS_ASSERTIONS = NO;

@@ -30,7 +30,7 @@ try{lastAttempt=JSON.parse(localStorage.getItem(storageKey+'-attempt')||'null');
 let versions=null,turnSucceeded=false,turnRequest='',turnParent=null,turnRuntimeFailed=false,turnError='';
 let token = '', busy = false, server, source = '', previous = '', pending = '', checkpoints = 0;
 let feedback = null, lastPaintedSource = '', previewSource = '', provisional = '', compileTimer = null;
-let outputStream='',code = '', codeItem = '', firstDelta = false, started = 0, timer, ready = false, painted = false;
+let outputStream='',reasoningStream='',code = '', codeItem = '', firstDelta = false, started = 0, timer, ready = false, painted = false;
 const events = [];
 const signIn=document.createElement('button');signIn.id='connect-ac';signIn.textContent='Account';signIn.onclick=()=>post({action:'signIn'});const identity=document.createElement('div');identity.id='walkieware-identity';const codeLabel=document.createElement('span');codeLabel.id='walkieware-thread';identity.append(signIn,codeLabel);document.body.append(identity);
 let accountToken='',accountHandle='',accountPalette=[];
@@ -216,6 +216,9 @@ function makeServer(){
       $('live-details').open=true;
     }
     if(method==='item/agentMessage/delta'){delta(params.delta);$('live-request').textContent+=params.delta;}
+    // Reasoning streams before any code. Let it fly by in the ticker, dimmed by
+    // the native side, so the wait reads as work rather than silence.
+    if(method==='item/reasoning/delta'){reasoningStream=(reasoningStream+params.delta).slice(-6000);if(!firstDelta){benchmark('firstReasoning');log('Model thinking');}if(!code)outputStream=reasoningStream;phase('Thinking…');nativeSnapshot();}
     if(method==='item/started')benchmark('toolStarted',{tool:params.item?.tool||params.item?.type});
     if(method==='item/completed' && params.item?.status?.startsWith('failed')) {log(params.item.status);benchmark('toolFailed',{message:params.item.status});}
     if(method==='turn/usage') log('Usage · '+(params.usage.output_tokens??0)+' output tokens');
@@ -238,7 +241,7 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
     activeAttempt=saveAttempt(localStorage,storageKey,recovered||{id:crypto.randomUUID(),text,displayText,localText,parent:versions.head.id,baseSource:versions.head.source,retries:0,status:'working'});
   } catch { phase('Could not save request for recovery');return; }
   recoveryPending=false;
-  pending='';busy=true;outputStream='';previous=source;turnStarter='';starterPainted=false;turnCancelled=false;turnSucceeded=false;turnRuntimeFailed=false;turnError='';turnRequest=text;turnParent=versions?.head.id;review(false);firstDelta=false;checkpoints=0;code='';codeItem='';
+  pending='';busy=true;outputStream='';reasoningStream='';previous=source;turnStarter='';starterPainted=false;turnCancelled=false;turnSucceeded=false;turnRuntimeFailed=false;turnError='';turnRequest=text;turnParent=versions?.head.id;review(false);firstDelta=false;checkpoints=0;code='';codeItem='';
   lastAttempt={request:displayText.slice(0,20000),parent:turnParent,status:'working',startedAt:new Date().toISOString()};
   document.body.classList.add('live-mode');phase('Sending…');log('Submitted');
   timer=setInterval(()=>$('live-time').textContent=((performance.now()-started)/1000).toFixed(1)+'s',100);

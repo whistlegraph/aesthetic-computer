@@ -376,6 +376,24 @@ test('embedded preview can retain runtime feedback without offering desktop fram
  }
 });
 
+test('thinking deltas surface as reasoning notifications and never enter the answer',async t=>{
+ const dir=await mkdtemp(join(tmpdir(),'ac-thinking-'));t.after(()=>rm(dir,{recursive:true,force:true}));
+ const file=join(dir,'piece.mjs');await writeFile(file,'export function paint(){}');
+ const reasoning=[],answers=[];
+ const engine=new AcServer({cwd:dir,piece:{file},jev:null,token:()=> 'test',fetch:async()=>serving([
+  {type:'content_block_start',index:0,content_block:{type:'thinking',thinking:''}},
+  {type:'content_block_delta',index:0,delta:{type:'thinking_delta',thinking:'the berries should vanish one at a time'}},
+  {type:'content_block_stop',index:0},
+  {type:'content_block_delta',index:1,delta:{type:'text_delta',text:'done'}},
+  {type:'message_delta',delta:{stop_reason:'end_turn'}},
+ ])()});
+ engine.on('notification',({method,params})=>{if(method==='item/reasoning/delta')reasoning.push(params.delta);if(method==='item/agentMessage/delta')answers.push(params.delta);});
+ await engine.startTurn('eat them');
+ assert.deepEqual(reasoning,['the berries should vanish one at a time']);
+ assert.deepEqual(answers,['done']);
+ assert.ok(!JSON.stringify(engine.messages).includes('vanish one at a time'),'thinking is not kept in the conversation');
+});
+
 test('a reasoning object is forwarded as given, and absent by default',async t=>{
  const dir=await mkdtemp(join(tmpdir(),'ac-reasoning-'));t.after(()=>rm(dir,{recursive:true,force:true}));
  const file=join(dir,'piece.mjs');await writeFile(file,'export function paint(){}');
