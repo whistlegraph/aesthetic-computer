@@ -88,7 +88,7 @@ struct WalkiewareScreen: View {
                 } label: {
                     Image(systemName: "play.fill").font(.system(size: 28, weight: .bold)).frame(width: 44, height: 44)
                 }
-                .disabled(session.snapshot.busy || session.capturePhase != .idle || !session.engineReady)
+                .disabled(session.snapshot.busy || session.capturePhase != .idle || !session.engineReady || !session.snapshot.versions.contains(where: { $0.id > 0 }))
                 .accessibilityLabel("Play version story").accessibilityIdentifier("play-versions")
             }.frame(height: narrator.isPlaying ? 0 : nil).clipped().accessibilityHidden(narrator.isPlaying)
             VStack(spacing: 4) {
@@ -111,32 +111,24 @@ struct WalkiewareScreen: View {
             }
             .aspectRatio(narrator.isPlaying ? nil : 4 / 3, contentMode: .fit)
             .frame(maxHeight: narrator.isPlaying ? .infinity : nil)
+            .overlay {
+                if narrator.isPlaying { Rectangle().strokeBorder(paper.opacity(0.8), lineWidth: 2).allowsHitTesting(false) }
+            }
             .overlay(alignment: .topTrailing) {
                 if narrator.isPlaying { Button { narrator.stop() } label: { Image(systemName: "xmark.circle.fill").font(.largeTitle).padding(16).background(.black.opacity(0.5), in: Circle()) }.accessibilityLabel("Close version story") }
             }
             if narrator.isPlaying && (session.snapshot.hasPreview || session.snapshot.hasHistory) {
                 HStack(alignment: .bottom) {
-                    ComicTitle(text: "v\(session.snapshot.head)", size: 22)
+                    ComicTitle(text: "v\(session.snapshot.head)", size: session.layout.historySize)
                         .accessibilityLabel("Running version \(session.snapshot.head)")
                     Spacer(minLength: 0)
-                    if narrator.isPlaying && !narrator.currentWord.isEmpty {
-                        Text(narrator.currentWord)
-                            .font(.custom("ComicRelief-Bold", size: 32, relativeTo: .title))
-                            .lineLimit(2).minimumScaleFactor(0.7)
-                            .accessibilityIdentifier("spoken-word")
-                    }
+                    PlaybackCaption(text: narrator.utterance, spokenRange: narrator.spokenRange, accent: accent)
+                        .font(.custom("ComicRelief-Regular", size: session.layout.historySize, relativeTo: .title3))
+                        .multilineTextAlignment(.trailing)
+                        .accessibilityIdentifier("spoken-word")
+
                 }
             }
-            }
-            if session.snapshot.busy, let output = session.snapshot.output, !output.isEmpty {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        Text(output).font(.system(size: 14, design: .monospaced))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Color.clear.frame(height: 1).id("output-end")
-                    }.frame(height: 100).padding(10).background(theme.surface)
-                        .onChange(of: output) { _, _ in proxy.scrollTo("output-end", anchor: .bottom) }
-                }.accessibilityLabel("Live model output")
             }
             if !narrator.error.isEmpty { Text(narrator.error).foregroundStyle(.orange) }
             if let failure = session.captureError { Text(failure).font(.body).foregroundStyle(.orange).frame(maxWidth: .infinity, alignment: .leading) }
@@ -230,6 +222,7 @@ struct VersionFeed: View {
     let stop: () -> Void
     let retry: () -> Void
     let select: (Int) -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var focusedVersion: Int?
     private var rowHeight: CGFloat { max(56, textSize + 28) }
     var body: some View {
@@ -237,8 +230,73 @@ struct VersionFeed: View {
         ScrollView {
 
             LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(snapshot.versions.reversed()) { version in
-                    Button { focusedVersion = version.id; select(version.id) } label: {
+                ForEach(snapshot.versions.filter { $0.id > 0 }.reversed()) { version in
+                    Button {
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { focusedVersion = version.id }
+                    } label: {
+                        VersionRow(version: version, foreground: foreground, selected: version.id == snapshot.head, textSize: textSize, rowHeight: rowHeight)
+                    }.buttonStyle(.plain).disabled(disabled)
+                        .id(version.id)
+                        .visualEffect { content, geometry in
+                            let distance = max(0, geometry.frame(in: .scrollView(axis: .vertical)).minY)
+                            return content.opacity(Double(max(0.22, 1 - distance / 280)))
+                        }
+                        .accessibilityAddTraits(version.id == snapshot.head ? [.isSelected] : [])
+                        .accessibilityIdentifier("version-\(version.id)")
+                        .accessibilityValue(version.id == snapshot.head ? "Current version" : "")
+                }
+            }.scrollTargetLayout().font(.custom("ComicRelief-Regular", size: textSize, relativeTo: .title3))
+        }
+        .safeAreaPadding(.bottom, max(0, geometry.size.height - rowHeight))
+        .scrollTargetBehavior(.viewAligned)
+        .scrollPosition(id: $focusedVersion, anchor: .top)
+        .overlay(alignment: .top) {
+            if snapshot.versions.contains(where: { $0.id > 0 }) {
+            Rectangle().fill(foreground.opacity(0.055))
+                .overlay(alignment: .bottom) { Rectangle().fill(foreground.opacity(0.35)).frame(height: 1) }
+                .overlay(alignment: .top) { Rectangle().fill(foreground.opacity(0.35)).frame(height: 1) }
+                .frame(height: rowHeight).allowsHitTesting(false).accessibilityHidden(true)
+            }
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if let attempt = snapshot.attempt, ["working", "failed", "unchanged", "interrupted"].contains(attempt.status) {
+                HStack(spacing: 12) {
+                    if snapshot.busy { ProgressView().frame(width: 48) }
+                    if snapshot.busy, let output = snapshot.output, !output.isEmpty {
+                        CodeTicker(output: output)
+                    } else {
+                    Text(attempt.request.replacingOccurrences(of: #" · [0-9.]+ seconds$"#, with: "", options: .regularExpression))
+                        .font(.custom("ComicRelief-Regular", size: textSize, relativeTo: .title3))
+                        .lineLimit(1).truncationMode(.tail).frame(maxWidth: .infinity, alignment: .trailing)
+                    }
+                    if snapshot.busy {
+                        Button(action: stop) { KidlispStopMark() }.buttonStyle(KidlispStopStyle()).accessibilityLabel("Stop generation")
+                    } else if attempt.status == "interrupted" || attempt.status == "failed" {
+                        Button("Try again", action: retry).disabled(disabled)
+                    }
+                }.frame(height: rowHeight).padding(.horizontal, 10)
+            }
+        }
+        .scrollDisabled(disabled)
+        .onAppear { focusedVersion = snapshot.head > 0 ? snapshot.head : nil }
+        .onChange(of: snapshot.versions.count) { _, _ in focusedVersion = snapshot.head }
+        .task(id: focusedVersion) {
+            try? await Task.sleep(for: .milliseconds(320))
+            guard !Task.isCancelled, !disabled, let focusedVersion, focusedVersion != snapshot.head else { return }
+            select(focusedVersion)
+        }
+        .accessibilityLabel("Version history").accessibilityIdentifier("version-rolodex")
+        }
+    }
+}
+
+private struct VersionRow: View {
+    let version: PieceRevision
+    let foreground: Color
+    let selected: Bool
+    let textSize: CGFloat
+    let rowHeight: CGFloat
+    var body: some View {
                         HStack(spacing: 12) {
                             ComicTitle(text: "v\(version.id)", size: textSize).frame(width: 48, alignment: .leading)
                             Text(version.utterance).lineLimit(1).truncationMode(.tail)
@@ -251,44 +309,8 @@ struct VersionFeed: View {
                         .background {
                             if let sound = version.sound { VersionWaveform(sound: sound).foregroundStyle(foreground.opacity(0.12)).allowsHitTesting(false).accessibilityHidden(true) }
                         }
-                        .foregroundStyle(version.id == snapshot.head ? selectionColor : foreground.opacity(0.8))
+                        .foregroundStyle(selected ? foreground : foreground.opacity(0.8))
                         .contentShape(Rectangle())
-                    }.buttonStyle(.plain).disabled(disabled)
-                        .id(version.id)
-                        .accessibilityAddTraits(version.id == snapshot.head ? [.isSelected] : [])
-                        .accessibilityIdentifier("version-\(version.id)")
-                        .accessibilityValue(version.id == snapshot.head ? "Current version" : "")
-                }
-            }.scrollTargetLayout().font(.custom("ComicRelief-Regular", size: textSize, relativeTo: .title3))
-        }
-        .safeAreaPadding(.bottom, max(0, geometry.size.height - rowHeight))
-        .scrollTargetBehavior(.viewAligned)
-        .scrollPosition(id: $focusedVersion, anchor: .top)
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if let attempt = snapshot.attempt, ["working", "failed", "unchanged", "interrupted"].contains(attempt.status) {
-                HStack(spacing: 12) {
-                    if snapshot.busy { ProgressView().frame(width: 48) }
-                    Text(attempt.request.replacingOccurrences(of: #" · [0-9.]+ seconds$"#, with: "", options: .regularExpression))
-                        .font(.custom("ComicRelief-Regular", size: textSize, relativeTo: .title3))
-                        .lineLimit(1).truncationMode(.tail).frame(maxWidth: .infinity, alignment: .trailing)
-                    if snapshot.busy {
-                        Button(action: stop) { KidlispStopMark() }.buttonStyle(KidlispStopStyle()).accessibilityLabel("Stop generation")
-                    } else if attempt.status == "interrupted" || attempt.status == "failed" {
-                        Button("Try again", action: retry).disabled(disabled)
-                    }
-                }.frame(height: rowHeight).padding(.horizontal, 10)
-            }
-        }
-        .scrollDisabled(disabled)
-        .onAppear { focusedVersion = snapshot.head }
-        .onChange(of: snapshot.versions.count) { _, _ in focusedVersion = snapshot.head }
-        .task(id: focusedVersion) {
-            try? await Task.sleep(for: .milliseconds(160))
-            guard !Task.isCancelled, !disabled, let focusedVersion, focusedVersion != snapshot.head else { return }
-            select(focusedVersion)
-        }
-        .accessibilityLabel("Version history").accessibilityIdentifier("version-rolodex")
-        }
     }
 }
 

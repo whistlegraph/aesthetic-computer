@@ -5,6 +5,7 @@ import AVFoundation
     @Published var isPlaying = false
     @Published var utterance = ""
     @Published var currentWord = ""
+    @Published var spokenRange: NSRange?
     private var words: [PlaybackWord] = []
     private var wordClock: Task<Void, Never>?
     @Published var error = ""
@@ -24,7 +25,7 @@ import AVFoundation
     func play(_ session: WalkiewareSession) {
         stop()
         self.session = session
-        versions = session.snapshot.versions.sorted { $0.id < $1.id }
+        versions = session.snapshot.versions.filter { $0.id > 0 }.sorted { $0.id < $1.id }
         guard !versions.isEmpty else { return }
         isPlaying = true; index = 0; show(versions[0], presentation: true)
     }
@@ -34,7 +35,7 @@ import AVFoundation
         session.command("checkout", version: version)
     }
     private func show(_ row: PieceRevision, presentation: Bool) {
-        wordClock?.cancel(); currentWord = ""; words = row.words ?? []
+        wordClock?.cancel(); currentWord = ""; spokenRange = nil; words = row.words ?? []
         waiting = row.id; recordingID = row.recordingID; utterance = row.utterance; error = ""
         session?.command(presentation ? "presentVersion" : "checkout", version: row.id)
         let expected = run
@@ -75,6 +76,7 @@ import AVFoundation
                     audio.stop(); self.player = nil; self.advanceAfterPause(); return
                 }
                 self.currentWord = PlaybackWord.at(audio.currentTime * 1000, in: self.words)
+                self.spokenRange = PlaybackWord.range(at: audio.currentTime * 1000, in: self.words, text: self.utterance)
                 try? await Task.sleep(for: .milliseconds(30))
             }
         }
@@ -83,7 +85,7 @@ import AVFoundation
         let text = (utterance.speechString as NSString).substring(with: characterRange)
         Task { @MainActor [weak self] in
             guard let self, self.spoken === utterance else { return }
-            self.currentWord = text
+            self.currentWord = text; self.spokenRange = characterRange
         }
     }
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
@@ -99,7 +101,7 @@ import AVFoundation
         }
     }
     private func advanceAfterPause() {
-        wordClock?.cancel(); currentWord = ""
+        wordClock?.cancel(); currentWord = ""; spokenRange = nil
         guard isPlaying else { return }
         let expected = run
         timer = Task { [weak self] in
