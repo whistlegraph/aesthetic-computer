@@ -152,3 +152,29 @@ piece, or add a piece version. The device must be online and idle; the command
 returns an acknowledgement after applying the override. CSS is limited to 100 KB.
 Native Swift changes still require an app build/install; this is a CSS iteration
 path, not Swift code hot reload.
+
+Walkieware's native shell keeps its `Workspace` WebView at one stable SwiftUI
+position. `WalkiewareScreen.swift` owns the preview card, trailing caption,
+version feed, and talk dock. `engine.mjs` remains the authority for versions
+and generation; it sends typed, throttled display snapshots and accepts native
+checkout/new-piece/stop commands. The engine document is the dedicated
+`Resources/Web/shell.html`, not an Aesel prototype. Early provisional previews
+are distinct from committed versions, so streaming remains visible before a
+version is saved.
+
+For live native layout tuning, the same CSS transport accepts bounded tokens:
+
+```css
+:root {
+  --ww-spacing: 12;
+  --ww-page-inset: 20;
+  --ww-history-size: 22;
+  --ww-talk-height: 98;
+  --ww-title-size: 30;
+}
+```
+
+The bridge reads these as numeric values and Swift clamps them to supported
+ranges before updating observable layout state. This changes native layout
+without recreating WebKit. Other CSS declarations affect only the web host;
+they do not style SwiftUI controls. An empty override restores the defaults.
