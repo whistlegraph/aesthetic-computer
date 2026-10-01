@@ -1744,12 +1744,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
 
+    if (gap === undefined) gap = lastGap ?? startGap;
+    lastGap = gap;
+
     gap === 0
       ? document.body.classList.add("nogap")
       : document.body.classList.remove("nogap");
-
-    if (gap === undefined) gap = lastGap ?? startGap;
-    lastGap = gap;
 
     // Cache the current canvas if needed (only if not already frozen - resize handler handles the capture now)
     if (
