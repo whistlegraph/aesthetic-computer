@@ -186,6 +186,7 @@ function world() {
     tapes: [{ user: SUB, code: "t1" }],
     "chat-system": [{ user: SUB, text: "hello" }, { user: OTHER, text: "hey" }],
     "chat-clock": [{ user: SUB, text: "tick" }],
+    "account-activity": [{ user: SUB, tenant: "aesthetic", action: "note_played" }, { user: OTHER, tenant: "aesthetic", action: "piece_opened" }, { user: SUB, tenant: "sotce", action: "piece_opened" }],
     logs: [{ users: [SUB], text: "hi @me" }, { users: [OTHER], text: "hi @them" }],
     "device-creds": [{ _id: SUB, claudeToken: "sk-ant-x", githubPat: "ghp_x" }],
     "news-posts": [{ user: SUB, code: "n1" }],
@@ -268,6 +269,7 @@ test("the purge removes the account everywhere and keeps only what it must, with
   }
   assert.equal(db.all("paintings").length, 1, "other people's work stays");
   assert.equal(db.all("chat-system").length, 1);
+  assert.deepEqual(db.all("account-activity"), [{ user: OTHER, tenant: "aesthetic", action: "piece_opened" }, { user: SUB, tenant: "sotce", action: "piece_opened" }]);
   assert.equal(db.all("device-creds").length, 0, "saved device secrets are deleted");
 
   const kidlisp = Object.fromEntries(db.all("kidlisp").map((k) => [k.code, k]));

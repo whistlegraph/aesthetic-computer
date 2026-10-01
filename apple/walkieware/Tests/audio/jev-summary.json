@@ -1,0 +1,38 @@
+{
+  "build": 17,
+  "deployedRevision": "0e9914452c",
+  "endpoint": "/api/easel-musical-jev",
+  "scope": "Physical iPhone, real-time synthetic PCM through on-device recognition and local DSP, authenticated production Jev and code inference. Microphone hardware excluded.",
+  "transport": "Bounded incremental authenticated HTTP observations; aggregate features only to Jev; session and sequence identity; stale responses rejected.",
+  "unitTests": "8/8 focused musical Jev tests passed; native musical bridge and Swift DSP checks passed.",
+  "mixed": {
+    "runID": "4389E5CA-9E94-4C18-9DB9-E7293C30AB44",
+    "passed": true,
+    "result": "apple/walkieware/Tests/audio/mixed-request-4389E5CA-9E94-4C18-9DB9-E7293C30AB44/result.json",
+    "firstVisibleWordsMs": 664,
+    "appliedAdvice": {
+      "choice": "follow_speech",
+      "elapsedMs": 253
+    },
+    "releaseToRequestMs": 296,
+    "releaseToPaintMs": 21742
+  },
+  "whistle": {
+    "runID": "61A7587F-ED25-4A98-8A91-51CBC10AD624",
+    "choice": "trace_pitch",
+    "decisionMs": 482,
+    "cachedBeforeRelease": true,
+    "releaseToRequestMs": 36,
+    "releaseToPaintMs": 53051,
+    "note": "Passed prior cache-specific checks; predates jevApplied marker."
+  },
+  "earlierFailures": [
+    "Initial phone run exposed Safari fetch receiver bug; fixed and deployed.",
+    "Prior mixed run failed overly strict cache-hit expectation despite successful generation; final evidence now verifies advice applied and permits changed-feature refresh."
+  ],
+  "normalMode": "Relaunched with audio/sequence/network fixtures disabled and saved sequence version 4 restored to normal ledger. Console confirmed controls ready, preview runtime ready, checkpoint painted.",
+  "limitations": [
+    "Jev chooses bounded optional interpretation cues, not code.",
+    "Code model latency remains variable; no end-to-end speedup established."
+  ]
+}

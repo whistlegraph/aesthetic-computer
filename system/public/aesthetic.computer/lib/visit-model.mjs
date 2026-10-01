@@ -37,12 +37,35 @@ export const VISIT_ACTIONS = Object.freeze([
   "link_followed", "download_clicked", "canvas_interacted", "media_started",
   "round_started", "round_completed", "match_completed",
   "mime_interact", "mime_scroll_feed", "mime_original_open",
+  "note_played", "painting_edited", "recording_started",
+  "painting_saved", "tape_saved",
 ]);
+export const VISIT_DEPTHS = Object.freeze([30, 60, 180, 600]);
+// Public upload milestones require a returned record code, never a click.
+export function visitMediaAction(extension, result) {
+  if (result?.error || typeof result?.code !== "string" || !result.code) return null;
+  if (extension === "png") return "painting_saved";
+  if (["zip", "mp4", "webm"].includes(extension)) return "tape_saved";
+  return null;
+}
 export const ACTIVE_BUCKETS = Object.freeze([0, 10, 30, 60, 180, 600]);
 export const SURFACES = Object.freeze(["home", "play", "gallery", "read", "support", "other"]);
 export const INPUTS = Object.freeze(["pointer", "touch", "keyboard", "scroll", "gamepad"]);
 export const RETENTION_DAYS = 35;
 export const VISIT_COLLECTION = "network-visits";
+
+// Referral site only. Paths, credentials, searches and fragments never survive.
+export function visitReferrer(value) {
+  if (!value) return null;
+  try {
+    const url = new URL(value.includes("://") ? value : `https://${value}`);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password ||
+        host.length > 253 || !/^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(host) ||
+        /^[\d.]+$/.test(host) || /\.(?:local|internal|localhost)$/.test(host)) return null;
+    return host;
+  } catch { return null; }
+}
 
 export function visitGroup(property) {
   return CLIENT_VISIT_PROPERTIES.includes(property) ? "clients" : "studio";
@@ -100,6 +123,7 @@ export function validateVisit(body, origin, userAgent = "") {
     activeSeconds: body.activeSeconds, interacted: body.interacted,
     automated: body.automated || automatedVisit({ userAgent }),
     inputs: [...new Set(body.inputs)], actions: [...new Set(body.actions)],
+    referrerHost: typeof body.referrerHost === "string" ? visitReferrer(body.referrerHost) : null,
   };
 }
 
@@ -109,7 +133,7 @@ export function visitUpdate(visit, now = new Date()) {
   for (const input of visit.inputs) max[`inputs.${input}`] = true;
   for (const action of visit.actions) max[`actions.${action}`] = true;
   return {
-    $setOnInsert: { property: visit.property, group: visitGroup(visit.property), surface: visit.surface,
+    $setOnInsert: { property: visit.property, group: visitGroup(visit.property), surface: visit.surface, referrerHost: visit.referrerHost,
       expiresAt: new Date(now.getTime() + RETENTION_DAYS * 86400000) },
     $min: { startedAt: now }, $max: { ...max, lastSeenAt: now },
   };
@@ -125,6 +149,10 @@ export function visitReportPipeline(start, end, byPeriod = false, scope = "studi
         : { surface: "$surface" }) },
       visits: { $sum: 1 }, interacted: count("interacted"), engaged: count("engaged"),
       activeSecondsLowerBound: { $sum: "$activeSeconds" },
+      actionVisits: { $sum: { $cond: [{ $or: VISIT_ACTIONS.map(action => ({ $eq: [`$actions.${action}`, true] })) }, 1, 0] } },
+      ...Object.fromEntries(VISIT_DEPTHS.map(seconds => [`interacted${seconds}`, {
+        $sum: { $cond: [{ $and: ["$interacted", { $gte: ["$activeSeconds", seconds] }] }, 1, 0] },
+      }])),
       ...Object.fromEntries(VISIT_ACTIONS.map(action => [action, count(`actions.${action}`)])),
     } },
     { $sort: { "_id.property": 1, "_id.automated": 1, visits: -1 } },

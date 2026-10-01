@@ -1,0 +1,13 @@
+// Only measured fields cross into creation; the model never receives raw PCM.
+export function musicalPrompt(input) {
+ if(!input||typeof input.transcript!=='string'||input.transcript.length>12000||input.sound?.schema!=='walkieware-sound/v1')throw Error('Invalid musical input');
+ const finite=(v,max)=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=max;
+ const frames=input.sound.frames;
+ if(!Array.isArray(frames)||frames.length>128||!frames.every(f=>finite(f.atMs,60000)&&finite(f.rms,2)&&(f.pitchHz===undefined||finite(f.pitchHz,24000))))throw Error('Invalid sound timeline');
+ const words=input.words;
+ if(!Array.isArray(words)||words.length>256||!words.every(w=>typeof w.text==='string'&&w.text.length<2000&&finite(w.atMs,60000)&&finite(w.durationMs,60000)))throw Error('Invalid word timeline');
+ const sound={schema:input.sound.schema,durationMs:input.sound.durationMs,audibleMs:input.sound.audibleMs,frames:frames.map(({atMs,rms,pitchHz})=>({atMs:Math.round(atMs),rms:Math.round(rms*10000)/10000,...(pitchHz?{pitchHz:Math.round(pitchHz)}:{})})),onsetsMs:input.sound.onsetsMs};
+ if(typeof input.sound.recordingID==='string'&&/^[0-9a-f-]{36}$/i.test(input.sound.recordingID))sound.recordingID=input.sound.recordingID;
+ if(!finite(sound.durationMs,60000)||!finite(sound.audibleMs,60000)||!Array.isArray(sound.onsetsMs)||sound.onsetsMs.length>128||!sound.onsetsMs.every(v=>finite(v,60000)))throw Error('Invalid sound duration');
+ return 'Create or revise the playable piece using this mixed speech-and-sound input. Follow the spoken request when present; sound complements it and must not override it. The transcript is an instruction to modify the existing piece, not text to display in it. Do not replace its established content with the latest transcript. Do not visualize the recording or embed word timing, RMS tables, or pitch charts unless the request calls for that. For ordinary spoken edits, ignore the acoustic measurements. Words and sound share milliseconds from recording start. Use word timing to associate phrases such as "like this" with nearby sound, but do not claim certainty. Pitch during speech may be speech prosody, not sung notes. Pitch is a monophonic estimate; onsets are energy changes, not established beats. Do not infer words, chords, instruments, a key, or a tempo that the evidence does not establish. If there are no words, make a simple playable visual interpretation of the measured sound contour and timing. Do not imply the person explicitly requested your creative mapping. No need to add audio playback unless requested. Preserve the existing scene when revising.\nINPUT DATA:\n'+JSON.stringify({transcript:input.transcript,words:words.map(({text,atMs,durationMs})=>({text,atMs,durationMs})),sound});
+}

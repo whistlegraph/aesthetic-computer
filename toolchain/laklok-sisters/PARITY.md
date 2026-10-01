@@ -46,6 +46,7 @@ same change — an unmirrored constant is future drift.
 | Hearts display | chat.mjs | `.heart` | neither side *sends* `chat:heart` yet |
 | Presence + connection status | chat lib | header counts + dot | |
 | 128-char cap | chat.mjs `chatMaxChars` | `maxlength` | checked |
+| Authenticated feature events | `laklokAction` → BIOS → account-activity | existing Auth0 session → account-activity | shared catalog `lib/laklok-activity.mjs`; settings, theme/filter, mode, send/edit requests; no message contents |
 
 ## Known one-sided features (deliberate, revisit when they matter)
 
@@ -60,3 +61,10 @@ same change — an unmirrored constant is future drift.
 
 The biggest remaining gap is the attach/upload lane and `!tape` rendering on
 the vector side.
+
+Feature analytics follow actual interface capabilities: language, mail and
+radio controls are counted on raster; older-history and image/media openings
+on vector. The report excludes unsupported controls from zero-use lists.
+Other controls (including hearts, attach, delete, font picker and vox) are not
+yet instrumented. Radio and message events count requests, not playback or
+server-confirmed delivery. Both clients use the same opt-outs and 35-day feed.

@@ -1,0 +1,54 @@
+{
+  "build": 19,
+  "runID": "8465746E-1FD1-4E24-A3F4-3B6A65802B01",
+  "passed": true,
+  "checks": {
+    "soundSubmitted": true,
+    "requestDispatched": true,
+    "finished": true,
+    "painted": true,
+    "pitchDetected": true,
+    "wordsPreserved": true,
+    "wordsTimestamped": true,
+    "jevDecisionReceived": true,
+    "currentAdviceApplied": true,
+    "socketAdviceApplied": true,
+    "socketAcknowledged": true,
+    "starterPainted": true,
+    "starterBeforeModel": true,
+    "starterUnder200ms": true
+  },
+  "scope": "Physical iPhone; real-time synthetic speech and whistle PCM, on-device recognition and DSP, authenticated production socket and code model. Microphone hardware excluded.",
+  "implementation": "Fresh explicit circle/square requests get local editable AC source before Jev or code inference completes. Existing pieces are preserved; starter and refinements share one version. Provider failure preserves a painted starter; cancellation rolls back.",
+  "timingMs": {
+    "firstPainted": 91,
+    "starterPainted": 93,
+    "requestDispatched": 194,
+    "firstModelOutput": 23791,
+    "firstCheckpoint": 25292,
+    "generationFinished": 33265
+  },
+  "advice": {
+    "choice": "follow_speech",
+    "elapsedMs": 160,
+    "providerMs": 95,
+    "serverMs": 122,
+    "transport": "socket",
+    "transportMs": 69
+  },
+  "coldSocketFallback": true,
+  "sourceEvidence": "apple/walkieware/Tests/audio/mixed-request-8465746E-1FD1-4E24-A3F4-3B6A65802B01/result.json",
+  "visualReview": "Screenshot inspected: pink circle visible. Still image does not verify animation.",
+  "focusedTests": "4 local source tests plus native bridge: starter/refinement one version, retained starter on provider failure, no replacement of existing pieces, cancel during interpretation prevents request/version.",
+  "modelComparison": {
+    "simple": "audio/provider-1790810920467.json",
+    "mixedWithStarter": "audio/provider-1790811108615.json",
+    "decision": "Retain DeepSeek; no demonstrated faster equivalent refinement. Model latency remains variable."
+  },
+  "limitations": [
+    "Under-200ms result is one warm-preview fixture run, not a latency percentile or general guarantee.",
+    "Local vocabulary currently circles and squares; other requests still depend on code inference.",
+    "Model refinement took 33.3 seconds after release in this run."
+  ],
+  "normalMode": "Relaunched with audio/sequence/network fixtures disabled and latest result promoted into normal ledger. Console confirmed controls, preview runtime and painted checkpoint. Attached devicectl console timed out after launch."
+}

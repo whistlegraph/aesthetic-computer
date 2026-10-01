@@ -113,3 +113,59 @@ original results are in
 OpenRouter's [Decisions SDK source](https://github.com/OpenRouterTeam/go-sdk/blob/main/decisions.go)
 specifies `POST /api/alpha/decisions`; its chat endpoint is not the Jev interface.
 TypeSafe documents the model's [typed decision primitives and limitations](https://docs.typesafe.ai/concepts/system-one).
+
+## Walkieware musical input
+
+`POST /api/easel-musical-jev` accepts authenticated, replaceable observations:
+`{schema:"walkieware-input/v1",sessionId,sequence,features}`. The fixed feature
+schema contains speech-presence flags, pitch-contour category, capped attack
+count, rhythm regularity and energy category. It accepts no transcript, PCM,
+source, arbitrary prompt, question or provider URL. Speech-to-text and musical
+feature extraction share the phone's sample timeline; only the coding model
+receives the words and detailed measurements.
+
+`MusicalInputAdvisor` starts during the hold, coalesces unchanged observations,
+allows at most three streaming calls plus one final call, and reuses a matching
+recommendation on release. Responses must match the session and sequence and
+meet the experimental 0.8 confidence threshold. Old, uncertain or failed
+responses are ignored. The client deadline is 900 ms; the provider deadline is
+one second. Advice is optional and cannot publish or certify a piece.
+
+The server keeps provider credentials private and requires an AC account with
+a handle. Atomic Mongo counters limit this separate advice allowance to 30
+requests/minute and 500/day per account, and 20,000/day globally. Failed calls
+consume their reservations. Only quota counters are persisted by the endpoint;
+observations are not saved. These limits count requests, not dollars or coding
+braincells. Phone receipts are saved only during explicit debug fixture runs.
+
+Live results and failed attempts are retained under
+`apple/walkieware/Tests/audio/`. Decision latency is not an end-to-end creation
+speed claim: the existing coding model still generates the piece.
+
+### Persistent phone input
+
+Lith's existing DigitalOcean process serves `wss://aesthetic.computer/api/easel-musical-stream`.
+The phone opens it after sign-in and closes it while backgrounded. Authentication
+is the first JSON message (`{type:"authenticate",token}`), never a URL query;
+`ready` confirms the session. Sessions renew after ten minutes. A foreground
+client reconnects after disconnects, and HTTP remains available while cold.
+Once a decision has been sent, a disconnect does not replay it over HTTP.
+
+`{type:"observation",body:<walkieware-input/v1>}` receives an immediate
+`received` acknowledgement followed by a `decision` or `error`, both with the
+original session and sequence. One decision runs per socket; only the latest
+waiting observation survives. `{type:"cancel",sessionId}` aborts active work
+and drops pending work for that capture. Heartbeats, bounded messages, two
+connections per account and a global connection cap bound the transport.
+Authentication is reused; durable per-decision quotas and the shared account
+concurrency guard still apply across HTTP and sockets.
+
+Receipts separate acknowledgement round-trip (`transportMs`), server processing
+including quota checks (`serverMs`), and provider request duration (`providerMs`).
+Acknowledgement time includes scheduling and is not a pure network measurement.
+The upstream Decisions API remains HTTP. Neither this transport nor a separate
+VM removes provider inference latency. Measure these components before moving
+regions or provisioning another service.
+
+Focused validation: `node --test lith/musical-socket.test.mjs aesel/test/musical-jev.test.mjs`.
+Phone validation: `node apple/walkieware/Tests/musical-benchmark.mjs mixed-request --jev --socket`.

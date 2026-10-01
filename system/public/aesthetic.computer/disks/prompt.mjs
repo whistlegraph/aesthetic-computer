@@ -666,6 +666,8 @@ const KEN_BURNS_MAX_ZOOM = 1.25;
 const KEN_BURNS_CYCLE_MS = 8000;
 
 let handles; // Keep track of total handles set.
+let activeSubscribers = null;
+let subscribersBtn;
 let motd; // Store the moods of the day text
 let motdByHandle; // Store the mood author handle
 let motdFrame = 0; // Animation frame counter for MOTD effects (time-based)
@@ -1164,6 +1166,21 @@ async function boot({
   server = socket((id, type, content) => {
     // console.log("🧦 Got message:", id, type, content);
   });
+
+  // Fetch the small, cached subscriber summary without donation history.
+  activeSubscribers = null;
+  fetch("/api/gives?summary=subscribers", { signal: AbortSignal.timeout(8000) })
+    .then((res) => {
+      if (!res.ok) throw new Error("Subscriber count unavailable");
+      return res.json();
+    })
+    .then((data) => {
+      if (Number.isSafeInteger(data.activeSubscribers) && data.activeSubscribers >= 0) {
+        activeSubscribers = data.activeSubscribers;
+        needsPaint();
+      }
+    })
+    .catch(() => {}); // Keep the prompt usable when the count is unavailable.
 
   // Fetch handle count.
   fetch("/handle?count=true")
@@ -6243,6 +6260,22 @@ function paint($) {
     notepatBtn.btn.disabled = true;
   }
 
+  // A steady link to Give, independent of the rotating promotional slot.
+  if (showLoginCurtain && !$.system.prompt.input.canType &&
+      !$.system.prompt.input.text && activeSubscribers !== null && screen.height >= 280) {
+    const label = `${activeSubscribers.toLocaleString()} monthly subscriber${activeSubscribers === 1 ? "" : "s"}`;
+    const position = { screen, center: "x", y: Math.floor(screen.height / 2 + 65) };
+    if (!subscribersBtn) subscribersBtn = new $.ui.TextButtonSmall(label, position);
+    else subscribersBtn.reposition(position, label);
+    subscribersBtn.btn.disabled = false;
+    subscribersBtn.paint($,
+      [[50, 25, 45], [160, 80, 130], 255, [50, 25, 45]],
+      [[90, 35, 70], [255, 145, 200], 255, [90, 35, 70]],
+    );
+  } else if (subscribersBtn) {
+    subscribersBtn.btn.disabled = true;
+  }
+
   // 🎰 Polychrome border effect pointing to top-left corner (on login curtain)
   if (showLoginCurtain && flairEnabled) {
     const activeProduct = products.getActiveProduct();
@@ -8289,6 +8322,7 @@ function act({
           ["wallet", walletBtn?.btn],
           [promptPromo.label, promoAdBtn?.btn],
           ["give", giveBtn?.btn],
+          ["subscribers", subscribersBtn?.btn],
           ["so", soBtn?.btn],
           ["soft", softBtn?.btn],
           ["os", osBtn?.btn],
@@ -8682,6 +8716,7 @@ function act({
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
       (profile?.btn.disabled === false && profile?.btn.box.contains(e)) ||
       (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)) ||
+      (subscribersBtn?.btn.disabled === false && subscribersBtn?.btn.box.contains(e)) ||
       (notepatBtn?.btn.disabled === false && notepatBtn?.btn.box.contains(e)) ||
       (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
@@ -8702,6 +8737,7 @@ function act({
       (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
       (promoAdBtn?.btn.disabled === false && promoAdBtn?.btn.box.contains(e)) ||
       (giveBtn?.btn.disabled === false && giveBtn?.btn.box.contains(e)) ||
+      (subscribersBtn?.btn.disabled === false && subscribersBtn?.btn.box.contains(e)) ||
       (soBtn?.btn?.disabled === false && soBtn?.btn?.box.contains(e)) ||
       (softBtn?.btn?.disabled === false && softBtn?.btn?.box.contains(e)) ||
       (osBtn?.btn?.disabled === false && osBtn?.btn?.box.contains(e)) ||
@@ -8776,6 +8812,20 @@ function act({
   });
   }
 
+
+  // Subscriber count opens Give.
+  if (subscribersBtn && !subscribersBtn.btn.disabled) {
+    subscribersBtn.btn.act(e, {
+      down: () => downSound(),
+      push: () => {
+        pushSound();
+        const url = "https://give.aesthetic.computer";
+        if (net.iframe) send({ type: "post-to-parent", content: { type: "openExternal", url } });
+        else jump(url);
+      },
+      cancel: () => cancelSound(),
+    });
+  }
 
   // 📬 Mail button — straight to the inbox.
   if (mailBtn) {

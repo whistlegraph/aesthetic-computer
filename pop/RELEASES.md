@@ -7,6 +7,96 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 
 ---
 
+## nighttime study — RENDER (2026-09-30; Ringing Voice, @jeffrey ear-check next)
+
+- **Latest: Ringing Voice.** 9:48 · 104 BPM. Measured vowel spectra from all
+  three takes become pitched bells, including exposed chord strikes. Decays
+  reach 38.4 seconds; upper formants fade faster than the fundamental. Lead and
+  choir room tails extend to 10–20 seconds; final ring-out gains 16 seconds.
+  Tuned lead, chorale parts, narrative and dance pulse retained.
+  `afternoon-study/bin/render-night-ringing.py` →
+  `afternoon-study/out/nighttime-ringing/nighttime-study-ringing.{wav,mp3}`.
+  −18.0 LUFS · −2.5 dBTP · LRA 16.2; mono loss 0.38 dB, phone-proxy loss 1.06 dB.
+  Bell-decay envelopes and six lead/backing balance windows checked; QA saved.
+
+- **Earlier: Aesthetivox Chorale.** 9:32 · 104 BPM. Thirty-six recorded phrases,
+  voice from the opening, stronger WORLD note locking with original unvoiced
+  sounds, separately led bass/tenor/upper harmonies, and extended source-vowel
+  endings. Preserves the suite's narrative and dance pulse; instruments sit lower.
+  `afternoon-study/bin/render-night-chorale.py` →
+  `afternoon-study/out/nighttime-chorale/nighttime-study-chorale.{wav,mp3}`.
+  −18.6 LUFS · −2.5 dBTP · LRA 16.4; mono loss 0.11 dB, phone-proxy loss 0.81 dB.
+  Opening lead and three choir pitches independently checked within 1.4 cents
+  median absolute error; six sampled sections place combined vocals 6–26 dB
+  above instruments. Source ranges, voicings, tuning settings and QA saved.
+
+- **Earlier: Vocal Suite.** 9:32 · 104 BPM. Eighteen continuous phrases from the
+  original microphone recordings replace the note-bank foreground; original
+  pitch, timing and breaths retained. Overture → exposition → development →
+  slow movement → transformed return → coda. New instrumental themes, extended
+  sine sustains, 14–24-second bells, and a dance pulse. Voice enters at 0:18.
+  `afternoon-study/bin/render-night-suite.py` →
+  `afternoon-study/out/nighttime-suite/nighttime-study-suite.{wav,mp3}`.
+  −16.7 LUFS · −2.5 dBTP · LRA 14.7; mono loss 0.02 dB, phone-proxy loss 0.72 dB.
+  Six sampled vocal passages were checked against the backing; source ranges,
+  original recording hashes, separate stems, measurements and QA are saved.
+
+- **Earlier: Dance pass.** 9:05 · 108 BPM. Revised after the first mix felt morose:
+  major sixth/ninth harmony, steady kick, swung brush ticks, answering bass,
+  articulated vocal rolls and new lead melodies from the same three takes.
+  Shorter reverbs and lighter upper-register hums. Render:
+  `afternoon-study/bin/render-night-dance.py`; master:
+  `afternoon-study/out/nighttime-dance/nighttime-study-dance.{wav,mp3}`.
+  −20.1 LUFS · −2.5 dBTP · LRA 8.5; mono loss 0.22 dB, phone-proxy loss 0.99 dB.
+  24-bit / 48 kHz WAV and 320 kbps MP3, private master backup complete.
+
+- **Lane:** `pop/afternoon-study/`, companion to Afternoon Study. 9:05 · 72 BPM ·
+  160 bars plus room tail. New melodies from @jeffrey's September 26 Lemon Kittens,
+  Indigo Shadows and Saffron Swallows note banks; rolling vocals, sustained hums,
+  sparse grand piano and low mallets.
+- **Arrangement:** chamber platter phrase growth, unequal phrase lengths,
+  two-voice stillness at 3:07, late bloom at 6:00, opening recalled at half density;
+  rhythm platter complementary vocal/mallet attacks. Sources and applications in
+  `afternoon-study/README.md`; reproducible score in `bin/render-night.py`.
+- **Master:** `afternoon-study/out/nighttime/nighttime-study.{wav,mp3}`;
+  separate stems, event score, loudness measurements and hashes in the same directory.
+  Ambient dynamics retained with measured static gain and an oversampled ceiling.
+- **Artist:** Aesthetic Dot Computer. Private listening draft; not submitted.
+
+## afternoon study — RENDER (v5 2026-09-29: mallet kit, forward grand, sparse bass; @jeffrey ear-check next)
+
+- **Lane:** `pop/afternoon-study/` · one dance track from the three Sep 26 Menu Band
+  takes, played from the `pop/tape-sketches/` Aesthetivox note banks as three singers.
+  118 BPM · 76 bars · 2:35 · C (Cmaj7 | Am7 | Fmaj7 | G7; Bbmaj7 in the breakdown).
+  Verse/chorus melodies written for the record are sung by **Lemon Kittens**' samples
+  through a nearest-sample picker (WORLD ≤5 st + octaves, stretched to the written
+  length, legato); harmony thirds, −12 under the chorus (never below G3), +12 in chorus
+  two. **Saffron Swallows** sings the whole-note counter line, the chord-tone sixteenth
+  arpeggio with octave trades, the un-chopped arch over the breakdown, and a reversed C4
+  swell into each drop. **Indigo Shadows**: hums = a three-voice hymn pad, short notes =
+  the off-beat pulse, loud hits only = a quiet layer under the marimba clave.
+  **Grand piano** (the Salamander bank AC OS plays, voiced like pianotrax) sits forward at
+  −17 LUFS: solo intro with the tune up high and a falling run, verse comping, chorus
+  blocks doubling the hook with grace notes and +24 sparkle, pentatonic runs at phrase
+  ends, trills, two-octave-up broken chords in the breakdown, a marimba gliss into drops.
+  **Percussion is all synthesized mallets**: modal marimba (pop/marimba presets) on the
+  son clave, woodblock 3:4 hemiola, bubble pops, brush swishes on 2+4, a clickless soft
+  kick. Bass rests (root on one, an answer on the and-of-two, a pickup). Builds per
+  femrag++: block/bubble roll 4→32, sweeping riser, breath, A1→A2 sub stinger.
+  Separation: vocal buses centred, instruments notched at 3.6 k and ducked. Form: intro 4
+  · verse 8 · build 4 · chorus 16 · hymn 8 · verse 8 · build 4 · chorus 16 · outro 8.
+- **Master:** `out/afternoon-study.{wav,mp3}` (copy on the Desktop) · −12.3 LUFS · LRA 7.2 ·
+  −1.8 dBTP. `out/chart.{txt,svg}`, `out/stems/{vocals,instrumental}.wav`,
+  `out/receipts.json` (melodies, samples + shifts, piano bank, breaths, SHA-256s).
+- **Earlier cuts today:** v1 chopped-takes house · v2 pop (sampled claps, risers) · v3
+  extended/subtle · v4 written melodies + CC0 kit + grand (the ticks read as static, the
+  lows too constant, the grand buried). All superseded by v5.
+- **Artist:** Aesthetic Dot Computer (intended).
+- **Next:** @jeffrey hears it → tune by ear (piano level and fills, mallet kit level,
+  bass spacing) · cover · packet.
+
+---
+
 ## eight gigabytes — RENDER (first cut 2026-09-26; @jeffrey ear-check next)
 
 - **Lane:** `pop/eightgigabytes/` · the pop cut of the MacNeoPolitan Trio's

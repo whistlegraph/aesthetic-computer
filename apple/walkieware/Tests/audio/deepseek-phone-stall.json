@@ -1,0 +1,95 @@
+{
+  "events": [
+    {
+      "details": {},
+      "event": "holdStarted",
+      "ms": 0.05008333391742781
+    },
+    {
+      "details": {
+        "durationMs": 1300.3125
+      },
+      "event": "audioStarted",
+      "ms": 76.05129166768165
+    },
+    {
+      "details": {},
+      "event": "firstRecognizedWords",
+      "ms": 908.0837083347433
+    },
+    {
+      "details": {},
+      "event": "transcriptPainted",
+      "ms": 911.8107083340874
+    },
+    {
+      "details": {},
+      "event": "audioEnded",
+      "ms": 1377.6957083337038
+    },
+    {
+      "details": {},
+      "event": "releaseReceived",
+      "ms": 1380.4021250016376
+    },
+    {
+      "details": {
+        "characters": 18,
+        "matchesFixture": true
+      },
+      "event": "submittedTranscript",
+      "ms": 1396.6487083343964
+    },
+    {
+      "details": {},
+      "event": "generationEntered",
+      "ms": 1407.970000000205
+    },
+    {
+      "details": {},
+      "event": "guidesReady",
+      "ms": 1410.3046666677983
+    },
+    {
+      "details": {},
+      "event": "requestDispatched",
+      "ms": 1412.0765833340556
+    },
+    {
+      "details": {
+        "javascriptError": ""
+      },
+      "event": "finalDelivered",
+      "ms": 1413.4662083342846
+    },
+    {
+      "details": {
+        "status": 200
+      },
+      "event": "inferenceHeaders",
+      "ms": 2666.1179166676447
+    }
+  ],
+  "fixture": "Make a pink circle.",
+  "mode": "real-time injected PCM; microphone hardware excluded",
+  "model": "deepseek/deepseek-v4.1-flash",
+  "runID": "8b70be4e-2c87-41fa-a862-aa29ed66594e",
+  "metricsMs": {
+    "audioDuration": 1302,
+    "firstRecognizedWords": 832,
+    "firstVisibleWords": 836,
+    "releaseToRequest": 32,
+    "requestToHeaders": 1254,
+    "requestToFirstModelOutput": null,
+    "requestToFirstCheckpoint": null,
+    "requestToIncrementalCompile": null,
+    "releaseToFirstPaint": null
+  },
+  "assertions": {
+    "transcriptMatches": true,
+    "wordsBeforeRelease": true,
+    "requestSubmitted": true,
+    "piecePainted": false
+  },
+  "completion": "inconclusive: no output captured before polling ended; iOS subsequently reported device locked"
+}
