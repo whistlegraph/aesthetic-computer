@@ -166,3 +166,49 @@ artifacts:
 branches:
   only:
     - main
+    - aesel-windows
+
+# Aesel has a separate branch lane so app releases do not build Xbox packages.
+for:
+  - branches:
+      only:
+        - aesel-windows
+    only_commits:
+      files:
+        - aesel/
+        - appveyor.yml
+    cache: []
+    clone_script:
+      - cmd: git init .
+      - cmd: git remote add origin https://github.com/whistlegraph/aesthetic-computer.git
+      - cmd: git config core.sparseCheckout true
+      - cmd: echo aesel/>>.git\info\sparse-checkout
+      - cmd: echo apple/aesel/Resources/Assets.xcassets/AppIcon.appiconset/>>.git\info\sparse-checkout
+      - cmd: echo system/public/aesel/>>.git\info\sparse-checkout
+      - cmd: echo system/public/aesthetic.computer/dep/>>.git\info\sparse-checkout
+      - cmd: git fetch --depth=1 --filter=blob:none origin %APPVEYOR_REPO_COMMIT%
+      - cmd: git checkout --detach FETCH_HEAD
+    install:
+      - ps: Install-Product node 24 x64
+      - ps: |
+          $ErrorActionPreference = 'Stop'
+          Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile "$env:TEMP/dotnet-install.ps1"
+          & "$env:TEMP/dotnet-install.ps1" -Channel 10.0 -InstallDir "$env:LOCALAPPDATA/Microsoft/dotnet"
+          $env:PATH = "$env:LOCALAPPDATA/Microsoft/dotnet;$env:PATH"
+          Invoke-WebRequest https://go.microsoft.com/fwlink/p/?LinkId=2124703 -OutFile "$env:TEMP/WebView2Setup.exe"
+          $signature = Get-AuthenticodeSignature "$env:TEMP/WebView2Setup.exe"
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') { throw 'WebView2 installer signature check failed' }
+          Start-Process "$env:TEMP/WebView2Setup.exe" -ArgumentList '/silent','/install' -Wait
+          choco install innosetup --no-progress -y
+      - cmd: npm ci --prefix aesel/web
+      - cmd: node aesel/windows/prepare.mjs
+    build_script:
+      - cmd: pwsh -NoProfile -File aesel/windows/package.ps1
+    test: off
+    on_finish:
+      - ps: Get-ChildItem aesel/windows/dist/smoke -File -ErrorAction SilentlyContinue | ForEach-Object { Push-AppveyorArtifact $_.FullName -FileName $_.Name }
+    artifacts:
+      - path: aesel/windows/dist/*setup.exe
+        name: aesel-windows-x64
+      - path: aesel/windows/dist/latest.json
+      - path: aesel/windows/dist/SHA256SUMS.txt

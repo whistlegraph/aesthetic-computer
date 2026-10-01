@@ -1,9 +1,6 @@
 name: Aesel Windows
 on:
   workflow_dispatch:
-  push:
-    branches: [aesel-windows]
-    paths: ['aesel/**', '.github/workflows/aesel-windows.yml']
 permissions:
   contents: read
 jobs:
