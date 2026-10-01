@@ -1,0 +1,15 @@
+# Jeffrey Scudder NFT Record
+
+> A public catalog of created and collected works with provenance references.
+
+Holder and quantity data are dated snapshots, not current ownership or financial advice. Cite the snapshot and original record.
+
+## Resources
+
+- [Website](https://nft.aesthetic.computer/): Public entry point.
+- [Catalog JSON](https://nft.aesthetic.computer/data/catalog.json): Stable public catalog endpoint; includes snapshot dates and caveats.
+- [Radical Digital Painting metadata](https://rdp.aesthetic.computer/): Published token metadata.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

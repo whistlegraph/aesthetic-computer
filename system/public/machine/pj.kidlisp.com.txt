@@ -1,0 +1,12 @@
+# KidLisp PJ
+
+> A projection interface for KidLisp.
+
+## Resources
+
+- [Website](https://pj.kidlisp.com/): Public entry point.
+- [Editor](https://kidlisp.com/): Create and run programs.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

@@ -1,0 +1,13 @@
+# Aesthetic Computer p5 entry
+
+> An alternate creative-coding entry point in the Aesthetic Computer network.
+
+## Resources
+
+- [Website](https://p5.aesthetic.computer/): Public entry point.
+- [Processing playground](https://processing.aesthetic.computer/): Processing-style Java playground.
+- [L5 playground](https://l5.aesthetic.computer/): Processing-style Lua playground.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

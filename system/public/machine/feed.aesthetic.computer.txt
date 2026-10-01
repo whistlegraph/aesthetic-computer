@@ -1,0 +1,14 @@
+# Aesthetic Computer Feed
+
+> A DP-1 playlist and channel service.
+
+Follow the landing page's API documentation. Do not treat internal or authenticated operations as public.
+
+## Resources
+
+- [Website](https://feed.aesthetic.computer/): Public entry point.
+- [Service health](https://feed.aesthetic.computer/health): Existing public health endpoint.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

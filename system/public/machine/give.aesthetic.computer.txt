@@ -1,0 +1,15 @@
+# Give to Aesthetic Computer
+
+> Support Aesthetic Computer.
+
+Donations, subscription changes and billing-portal actions require the visitor's own authorization.
+
+## Resources
+
+- [Website](https://give.aesthetic.computer/): Public entry point.
+- [Public costs](https://bills.aesthetic.computer/): Published operating-cost information.
+- [Project](https://aesthetic.computer/about): About Aesthetic Computer.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

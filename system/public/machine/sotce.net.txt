@@ -1,0 +1,13 @@
+# Sotce Net
+
+> Sotce's writing and community.
+
+Only the public landing page is described here. Subscriber pages, account records, chats, device identities and push notifications are not public machine resources. Sign-in and subscription boundaries still apply.
+
+## Resources
+
+- [Website](https://sotce.net/): Public entry point.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

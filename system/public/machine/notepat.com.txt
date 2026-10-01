@@ -1,0 +1,14 @@
+# Notepat
+
+> A touch and keyboard musical instrument on Aesthetic Computer.
+
+## Resources
+
+- [Website](https://notepat.com/): Public entry point.
+- [Piece source](https://aesthetic.computer/disks/notepat.mjs): Published JavaScript implementation.
+- [Ableton device](https://notepat.com/amxd): Current Notepat Max for Live device.
+- [Piece runtime API (JSON)](https://aesthetic.computer/docs.json): JavaScript lifecycle, drawing, audio, input and piece metadata.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

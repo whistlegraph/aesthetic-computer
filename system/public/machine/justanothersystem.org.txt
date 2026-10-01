@@ -1,0 +1,15 @@
+# Just Another System
+
+> Jeffrey Alan Scudder's stretched painting gallery.
+
+Gallery administration remains authenticated. Attribute paintings to their creator and link the record when citing.
+
+## Resources
+
+- [Website](https://justanothersystem.org/): Public entry point.
+- [Registry JSON](https://justanothersystem.org/registry.json): The public painting registry used by the gallery.
+- [Jeffrey](https://jas.life/): Artist portfolio.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

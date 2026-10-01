@@ -1,0 +1,15 @@
+# Aesthetic Dot Computer
+
+> Music releases and public release records.
+
+Public records contain release information, not the private rights, legal-party or delivery overlay. Respect the licensing of each recording.
+
+## Resources
+
+- [Website](https://pop.aesthetic.computer/): Public entry point.
+- [Release catalog](https://pop.aesthetic.computer/releases/catalog.json): The public catalog used by the site.
+- [Marimbaba release](https://pop.aesthetic.computer/releases/marimbaba.json): Public example release record.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

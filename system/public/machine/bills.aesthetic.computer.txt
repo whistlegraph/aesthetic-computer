@@ -1,0 +1,14 @@
+# Aesthetic Computer Bills
+
+> The public infrastructure-cost dashboard for Aesthetic Computer.
+
+Use dates shown by the dashboard when citing costs. This is not an account, invoice or payment-credential API.
+
+## Resources
+
+- [Website](https://bills.aesthetic.computer/): Public entry point.
+- [Support AC](https://give.aesthetic.computer/): Support the project.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

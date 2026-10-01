@@ -1,0 +1,13 @@
+# Processing on Aesthetic Computer
+
+> A Processing-style Java playground using the L5 runtime.
+
+## Resources
+
+- [Website](https://processing.aesthetic.computer/): Public entry point.
+- [L5](https://l5.aesthetic.computer/): Related Lua playground and reference.
+- [Source repository](https://tangled.org/aesthetic.computer/core): Canonical source; GitHub is a mirror.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

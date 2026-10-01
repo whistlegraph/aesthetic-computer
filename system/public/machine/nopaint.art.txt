@@ -1,0 +1,14 @@
+# No Paint
+
+> Aesthetic Computer's No Paint remake and the preserved painting archive.
+
+## Resources
+
+- [Website](https://nopaint.art/): Public entry point.
+- [Classic app](https://nopaint.art/classic): Preserved earlier application.
+- [Gallery](https://nopaint.art/gallery/): Public painting records.
+- [Gallery JSON](https://nopaint.art/gallery/gallery.json): The same public gallery data used by the page.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

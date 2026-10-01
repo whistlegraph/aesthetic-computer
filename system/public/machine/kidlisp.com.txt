@@ -1,0 +1,15 @@
+# KidLisp
+
+> A browser editor for a Lisp dialect for generative art, running on Aesthetic Computer.
+
+## Resources
+
+- [Website](https://kidlisp.com/): Public entry point.
+- [Learn](https://learn.kidlisp.com/): Language lessons and examples.
+- [Runtime reference](https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs): Published interpreter source.
+- [Remote MCP](https://aesthetic.computer/mcp): Existing JSON-RPC endpoint with KidLisp validation, examples and publishing tools.
+- [Public HTTP API (JSON)](https://aesthetic.computer/api?format=json): Supported endpoints, request schemas, authentication and limits.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

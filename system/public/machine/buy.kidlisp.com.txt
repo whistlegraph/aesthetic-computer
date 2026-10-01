@@ -1,0 +1,14 @@
+# Buy KidLisp
+
+> The KidLisp purchasing page.
+
+Purchases are user actions; this discovery file does not authorize a transaction.
+
+## Resources
+
+- [Website](https://buy.kidlisp.com/): Public entry point.
+- [KidLisp](https://kidlisp.com/): Editor and language.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

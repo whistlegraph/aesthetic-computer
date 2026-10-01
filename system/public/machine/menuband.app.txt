@@ -1,0 +1,17 @@
+# Menu Band
+
+> A music app for the Mac menu bar.
+
+Recorded takes and account data are private, not part of this manifest.
+
+## Resources
+
+- [Website](https://menuband.app/): Public entry point.
+- [App Store](https://apps.apple.com/app/id6767311903): Current public store listing.
+- [Support](https://menuband.app/support.html): Help and support.
+- [Privacy](https://menuband.app/privacy.html): Data handling.
+- [Advanced](https://menuband.app/advanced.html): Additional installation and usage information.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

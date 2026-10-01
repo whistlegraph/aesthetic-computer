@@ -1,0 +1,13 @@
+# L5
+
+> A Processing-style Lua playground on Aesthetic Computer.
+
+## Resources
+
+- [Website](https://l5.aesthetic.computer/): Public entry point.
+- [L5 docs](https://l5.aesthetic.computer/docs): Playground reference.
+- [Source repository](https://tangled.org/aesthetic.computer/core): Canonical source; GitHub is a mirror.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

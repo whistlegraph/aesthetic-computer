@@ -1,0 +1,15 @@
+# MIME
+
+> Comments on Aesthetic Computer media: paintings, tapes, pieces and their creators.
+
+Use public media permalinks for citations. Account access and posting require the visitor's own authorization.
+
+## Resources
+
+- [Website](https://mime.ac/): Public entry point.
+- [Public API](https://aesthetic.computer/api?format=json): Supported AC integrations.
+- [Source](https://aesthetic.computer/mime/index.html): Published browser interface.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

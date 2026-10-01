@@ -1,0 +1,13 @@
+# Quiltnet
+
+> A catalog of handmade quilts.
+
+Use the public catalog for names, images and attribution. No separate public API is advertised.
+
+## Resources
+
+- [Website](https://quiltnet.org/): Public entry point.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.
