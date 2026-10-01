@@ -211,6 +211,38 @@ within a session and carry client sequence numbers. They remain best-effort
 browser reports with server-verified identity; the existing `sotce-touches`
 and `sotce-asks` collections are authoritative for saved operation totals.
 
+### Laer Klokken feature use
+
+`/laer-klokken` aliases to `laklok`. Both that canvas piece and the standalone
+HTML sister (`laklok.com/html/`, recorded as `laklok-vector`) now send repeated
+authenticated feature events. `lib/laklok-activity.mjs` is the reviewed catalog
+and identifies which controls exist in each interface. It contains no message,
+recipient, link, chosen theme or language values. Boot restores and repeated
+clicks on the already-selected theme/filter do not count as changes.
+
+The canvas worker uses `account:action`; BIOS passes only the action name to
+the first-party account collector. The HTML client uses its existing Auth0
+session, rechecks token expiry when sending, and posts to the same endpoint.
+The server verifies identity and rejects Laklok events attributed to another
+piece. These detailed counts require sign-in; anonymous visits keep their
+existing broad measurements. Opt-outs, private routes and automation guards
+still apply. Radio/send/edit/media/navigation events are named `*_requested`
+and must not be reported as successful playback, delivery or completed loading.
+
+Use `feature_usage({hours:168})`, optionally with `handle:"@someone"`, for ranked
+features, counts per account and UTC daily opens/action counts. Maximum lookback
+is 840 hours (35 days), with at most 50 account rows. Top-feature totals cover
+all matching accounts even when account detail is truncated. `property` can
+restrict to a reviewed host; omitting it includes Laklok served through AC too.
+
+Reports require `featureVersion:1`, so earlier piece opens do not fabricate
+unused-feature rows. `notRecorded` means zero recorded uses of a control
+supported by that account's observed interface, not proof the control was
+visible or unused. Days without events are unobserved. Counts are best effort:
+offline use, opt-outs, unloads and rate limits can leave gaps. Repeated Laklok
+events are not deduplicated while a prior request is in flight; the client caps
+concurrent sends at 20 and the server's per-account rate limit still applies.
+
 ### Website installation
 
 The shared AC shell covers AC, notepat.com, nopaint.art, laklok.com and mime.ac

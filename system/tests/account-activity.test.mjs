@@ -5,6 +5,7 @@ import { createAccountActivityHandler } from "../backend/account-activity-handle
 import { startAccountActivity } from "../public/aesthetic.computer/lib/account-activity.mjs";
 import { visitReferrer } from "../public/aesthetic.computer/lib/visit-model.mjs";
 import { activityPiece, validateAccountActivity, SOTCE_ACTIONS } from "../public/aesthetic.computer/lib/account-activity-model.mjs";
+import { laklokAction } from "../public/aesthetic.computer/lib/laklok-activity.mjs";
 
 const snapshot = () => ({ version: 1, id: randomUUID(), session: randomUUID(), sequence: 1, piece: "notepat", action: "note_played", automated: false, referrerHost: "example.org" });
 test("referral reporting keeps only public site names", () => {
@@ -114,5 +115,27 @@ test("Sotce action sequences stay in their tenant and private editors permit onl
   assert.equal(f.sent.length, count + 1);
   f.win.location.pathname = "/"; f.disable(); f.api.action("sotce_page_viewed"); await settle();
   assert.equal(f.sent.length, count + 1);
+  f.api.stop();
+});
+
+test("laklok feature events preserve rapid repeated uses, reject other pieces and carry no content", async () => {
+  const signals = [];
+  laklokAction({ send: value => signals.push(value) }, "settings_opened");
+  laklokAction({ send: value => signals.push(value) }, "arbitrary-message-text");
+  assert.deepEqual(signals, [{ type: "account:action", content: { action: "laklok_settings_opened" } }]);
+  const body = { ...snapshot(), piece: "laklok", action: "laklok_settings_opened", featureVersion: 1 };
+  assert.equal(validateAccountActivity(body, "https://laklok.com").featureVersion, 1);
+  assert.equal(validateAccountActivity({ ...body, piece: "notepat" }, "https://laklok.com"), null);
+  assert.equal(validateAccountActivity({ ...body, featureVersion: undefined }, "https://laklok.com"), null);
+  const f = browserFixture();
+  f.user({ sub: "one" }); f.api.load("aesthetic.computer/disks/laklok"); f.api.ready(); await settle();
+  f.api.action("laklok_settings_opened"); f.api.action("laklok_settings_opened"); f.api.action("laklok_settings_opened"); await settle();
+  const rows = f.sent.map(row => JSON.parse(row.body));
+  assert.equal(rows.filter(row => row.action === "laklok_settings_opened").length, 3);
+  assert.deepEqual(rows.map(row => row.sequence), [1, 2, 3, 4]);
+  assert.ok(rows.every(row => row.featureVersion === 1));
+  f.api.load("aesthetic.computer/disks/notepat"); f.api.ready(); await settle();
+  const count = f.sent.length;
+  f.api.action("laklok_settings_opened"); await settle(); assert.equal(f.sent.length, count);
   f.api.stop();
 });

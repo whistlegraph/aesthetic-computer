@@ -6,6 +6,7 @@ import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { Query, Aggregator } from "mingo";
 import * as model from "../public/aesthetic.computer/lib/visit-model.mjs";
+import { laklokFeatureReport } from "../../toolchain/analytics/laklok-feature-report.mjs";
 
 async function report(mode, args, data) {
   let output, closed = false;
@@ -29,7 +30,7 @@ async function report(mode, args, data) {
   await module.link(specifier => {
     const exports = specifier === "node:crypto" ? { createHash }
       : specifier.includes("database.mjs") ? { connect: async () => ({ db }), closePool: async () => { closed = true; } }
-      : model;
+      : specifier.includes("laklok-feature-report") ? { laklokFeatureReport } : model;
     return new vm.SyntheticModule(Object.keys(exports), function () {
       for (const [key, value] of Object.entries(exports)) this.setExport(key, value);
     }, { context });
@@ -39,6 +40,30 @@ async function report(mode, args, data) {
   return output;
 }
 const at = new Date(Date.now() - 1000);
+test("feature usage counts repeated actions, excludes uninstrumented history and limits zero-use claims to supported controls", async () => {
+  const base = { user: "auth0|one", tenant: "aesthetic", property: "laklok.com", at, piece: "laklok-vector", featureVersion: 1 };
+  const data = { "account-activity": [
+    { ...base, action: "piece_opened" },
+    { ...base, action: "laklok_theme_changed" },
+    { ...base, action: "laklok_theme_changed" },
+    { ...base, action: "laklok_filter_changed", at: new Date(+at - 86400000) },
+    { ...base, user: "old-user", featureVersion: undefined, action: "piece_opened" },
+    { ...base, user: "auth0|two", piece: "laklok", action: "piece_opened" },
+  ], "@handles": [{ _id: "auth0|one", handle: "listener" }] };
+  const result = await report("features", { hours: 48, handle: "@listener", limit: 1 }, data);
+  assert.equal(result.accounts.length, 1);
+  const account = result.accounts[0];
+  assert.equal(account.account, "@listener");
+  assert.equal(account.features.laklok_theme_changed, 2);
+  assert.ok(account.notRecorded.includes("laklok_message_send_requested"));
+  assert.ok(!account.notRecorded.includes("laklok_radio_play_requested"), "vector has no radio control");
+  assert.equal(account.daily.length, 2);
+  assert.equal(account.daily.reduce((n, row) => n + row.uses, 0), 3);
+  assert.equal(result.topFeatures[0].count, 2);
+  assert.doesNotMatch(JSON.stringify(result), /auth0\||old-user/);
+  const bounded = await report("features", { hours: 48, limit: 1 }, data);
+  assert.equal(bounded.truncated, true);
+});
 test("private account report counts distinct tenant/accounts, resolves handles and bounds event detail", async () => {
   const data = {
     "account-activity": [

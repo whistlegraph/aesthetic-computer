@@ -18,6 +18,7 @@
 
 import { Chat } from "../lib/chat.mjs"; // TODO: Eventually expand to `net.Socket`
 import * as chat from "./chat.mjs"; // Import chat everywhere.
+import { laklokAction } from "../lib/laklok-activity.mjs";
 import {
   LAK_THEMES,
   realtimeTick,
@@ -142,7 +143,7 @@ function chatView() {
 function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net, query }) {
   client = new Chat(debug, send);
   client.connect("clock"); // Connect to 'clock' chat. (DB stays `chat-clock`.)
-  chat.boot(api, client.system); // Use default font
+  chat.boot(api, client.system, { onAction: name => laklokAction(api, name) }); // Use default font
 
   // 🚫 chat.boot stamps a prompt.ac/chat QR to the LEFT of the HUD label; clear
   // it so laklok shows only its own laklok.com QR in the top-right (paintCorner).
@@ -393,12 +394,14 @@ function act($) {
   // so a tap on a chip never scrolls the chat underneath.
   if (e.is("touch") && hit(gearBox)) {
     settingsOpen = !settingsOpen;
+    if (settingsOpen) laklokAction($, "settings_opened");
     needsPaint?.();
     return;
   }
 
   // 📬 The envelope is the door to mail.
   if (e.is("touch") && !settingsOpen && hit(mailBox)) {
+    laklokAction($, "mail_open_requested");
     jump("mail");
     return;
   }
@@ -413,19 +416,23 @@ function act($) {
       if (chip) {
         const { type, value } = chip.action;
         if (type === "mode" && value === "vector") {
+          laklokAction($, "mode_switch_requested");
           jump("out:https://laklok.com/html/");
         } else if (type === "theme") {
+          if (lakTheme !== value) laklokAction($, "theme_changed");
           lakTheme = value;
           saveTema(store, value);
           if (value === "realtime") realtimeTick(); // catch up before first paint
           chat.refresh(client.system); // recolor cached message lines
           reportTema(net, value);
         } else if (type === "links") {
+          if (lakLinksOnly !== value) laklokAction($, "filter_changed");
           lakLinksOnly = value;
           store["laklok:links"] = value;
           store.persist("laklok:links");
           chat.refresh(client.system); // relayout the filtered feed
         } else if (type === "lang") {
+          if (lakLang !== value) laklokAction($, "language_changed");
           lakLang = value;
           saveLang(store, value);
         }
@@ -437,7 +444,7 @@ function act($) {
     return;
   }
 
-  chat.act($, chatView(), { allowDelete: true });
+  chat.act($, chatView(), { allowDelete: true, onAction: name => laklokAction($, name) });
 }
 
 function sim($) {

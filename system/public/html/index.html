@@ -407,6 +407,8 @@
   <div id="lightbox"><img alt="" /></div>
 
 <script type="module">
+import { startAccountActivity } from "/aesthetic.computer/lib/account-activity.mjs";
+function laklokEvent(name) { window.acAccountActivity?.action("laklok_" + name); }
 // ── laklok HTML chat client ────────────────────────────────────────────────
 // Connects to the live `chat-clock` instance (Laer Klokken). History via REST,
 // realtime via WebSocket — same wire protocol as the AC piece, no AC runtime.
@@ -428,6 +430,12 @@ const $send = document.getElementById("send");
 const $gate = document.getElementById("gate");
 const $gear = document.getElementById("gear");
 const $settings = document.getElementById("settings");
+$log.addEventListener("click", e => {
+  if (e.isTrusted && e.target.closest("a.embed")) laklokEvent("media_open_requested");
+});
+$log.addEventListener("play", e => {
+  if (e.isTrusted && e.target.matches("video.embed,audio.embed")) laklokEvent("media_open_requested");
+}, true);
 
 // 🎪 Circus marquee — each letter its own color + bounce phase.
 const CIRCUS = ["#ff5050","#ffd246","#78d2ff","#8cf096","#ff96dc","#b496ff"];
@@ -527,6 +535,7 @@ applyLinksFilter(linksOnly);
 $gear.onclick = (e) => {
   e.stopPropagation();
   const open = $settings.classList.toggle("open");
+  if (open) laklokEvent("settings_opened");
   $gear.classList.toggle("open", open);
 };
 document.addEventListener("click", (e) => {
@@ -538,9 +547,15 @@ document.addEventListener("click", (e) => {
 $settings.addEventListener("click", (e) => {
   const chip = e.target.closest(".chip");
   if (!chip) return;
-  if (chip.dataset.mode === "raster") location.href = "https://laklok.com";
-  if (chip.dataset.tema) { applyTheme(chip.dataset.tema); reportTheme(); }
-  if (chip.dataset.links !== undefined) applyLinksFilter(chip.dataset.links === "1");
+  if (chip.dataset.mode === "raster") { laklokEvent("mode_switch_requested"); location.href = "https://laklok.com"; }
+  if (chip.dataset.tema) {
+    if (theme !== chip.dataset.tema) laklokEvent("theme_changed");
+    applyTheme(chip.dataset.tema); reportTheme();
+  }
+  if (chip.dataset.links !== undefined) {
+    if (linksOnly !== (chip.dataset.links === "1")) laklokEvent("filter_changed");
+    applyLinksFilter(chip.dataset.links === "1");
+  }
 });
 
 // ── Handle tinting ──────────────────────────────────────────────────────────
@@ -672,6 +687,7 @@ function ogEmbed(url) {
       listen.className = "listen"; listen.textContent = "▶"; listen.title = "lyt her";
       listen.onclick = (e) => {
         e.preventDefault(); e.stopPropagation(); // play in place, don't open the link
+        laklokEvent("media_open_requested");
         const frame = document.createElement("iframe");
         frame.className = "embed player"; frame.allow = "autoplay";
         frame.src = meta.player.src; frame.title = meta.title || "SoundCloud";
@@ -745,6 +761,7 @@ function attachEmbeds(row, text) {
 const $lightbox = document.getElementById("lightbox");
 const $lightboxImg = $lightbox.querySelector("img");
 function lightbox(src) {
+  laklokEvent("media_open_requested");
   if (!src) return;
   $lightboxImg.src = src;
   $lightbox.classList.add("open");
@@ -1107,7 +1124,7 @@ async function loadHistory(before = null) {
   }
   loadingMore = false;
 }
-$loadmore.onclick = () => { if (!exhausted) loadHistory(oldestCursor); };
+$loadmore.onclick = () => { if (!exhausted) { laklokEvent("history_older_requested"); loadHistory(oldestCursor); } };
 $log.addEventListener("scroll", () => { if ($log.scrollTop < 60 && !exhausted) loadHistory(oldestCursor); });
 
 // ── Presence ──────────────────────────────────────────────────────────────────
@@ -1125,6 +1142,12 @@ function setPresence(online, here) {
 // Signing in at laklok.com (the raster piece) stores the SPA SDK cache under
 // `@@auth0spajs@@…` keys; posting sends the same access token the piece would.
 const auth = { token: null, sub: null, handle: null };
+const accountActivity = startAccountActivity(window, document, {
+  getUser: () => auth.sub ? { sub: auth.sub } : null,
+  getToken: () => { const session = findAcSession(); return session?.sub === auth.sub ? session.token : null; },
+});
+accountActivity.load("aesthetic.computer/disks/laklok-vector");
+accountActivity.ready();
 
 // 📊 Theme census — the same /api/laklok-theme the raster piece reports to:
 // once at sign-in and on every tema chip tap. Anonymous readers aren't counted.
@@ -1296,12 +1319,14 @@ function post(text) {
       type: "chat:edit",
       content: { id: editingId, text, token: auth.token, sub: auth.sub },
     }));
+    laklokEvent("message_edit_requested");
     cancelEdit();
   } else {
     ws.send(JSON.stringify({
       type: "chat:message",
       content: { text, token: auth.token, sub: auth.sub, font: "font_1" },
     }));
+    laklokEvent("message_send_requested");
   }
 }
 // 🗑 Same payload the raster's copy-modal delete sends; the server answers

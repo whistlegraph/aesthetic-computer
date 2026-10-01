@@ -3,11 +3,12 @@
 import { createHash } from "node:crypto";
 import { connect, closePool } from "../../system/backend/database.mjs";
 import { visitScopeMatch, visitReferrer, visitProperty, visitSurface, automatedVisit } from "../../system/public/aesthetic.computer/lib/visit-model.mjs";
+import { laklokFeatureReport } from "./laklok-feature-report.mjs";
 
 const mode = process.argv[2];
-const { hours = 24, limit = 100, handle, scope = "studio", property } = JSON.parse(process.argv[3] || "{}");
-if (!["accounts", "referrers"].includes(mode) || !Number.isFinite(hours) || hours <= 0 || hours > 840 ||
-    !Number.isInteger(limit) || limit < 1 || limit > 500 ||
+const { hours = 24, limit = mode === "features" ? 30 : 100, handle, scope = "studio", property } = JSON.parse(process.argv[3] || "{}");
+if (!["accounts", "referrers", "features"].includes(mode) || !Number.isFinite(hours) || hours <= 0 || hours > 840 ||
+    !Number.isInteger(limit) || limit < 1 || limit > (mode === "features" ? 50 : 500) ||
     (handle !== undefined && !/^@?[a-z0-9_-]{1,64}$/i.test(handle))) throw new Error("Invalid report options");
 const scoped = visitScopeMatch(scope), end = new Date(), start = new Date(+end - hours * 3600000);
 if (property !== undefined) {
@@ -17,7 +18,9 @@ if (property !== undefined) {
 }
 const { db } = await connect();
 try {
-  if (mode === "accounts") {
+  if (mode === "features") {
+    console.log(JSON.stringify(await laklokFeatureReport(db, { start, end, scoped, handle, limit })));
+  } else if (mode === "accounts") {
     const query = { at: { $gte: start, $lt: end }, ...scoped };
     if (handle) {
       const handles = await db.collection("@handles").find({ handle: handle.replace(/^@/, "") }, { projection: { _id: 1 } }).limit(10).toArray();

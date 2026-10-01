@@ -18428,6 +18428,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "account:action") {
+      accountActivity.action(content?.action);
+      return;
+    }
     if (type === "visit:action") {
       window.acVisits?.action(content?.action);
       return;
