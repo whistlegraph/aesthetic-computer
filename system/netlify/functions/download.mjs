@@ -13,14 +13,9 @@ import { connect } from "../../backend/database.mjs";
 import { createHmac } from "node:crypto";
 import { respond } from "../../backend/http.mjs";
 import { automatedVisit } from "../../public/aesthetic.computer/lib/visit-model.mjs";
+import { resolveAppDownload } from "../../backend/app-downloads.mjs";
 
 export const DOWNLOAD_COLLECTION = "downloads";
-
-// Only these files redirect, so this can't be used as an open redirect.
-const APPS = {
-  slab: { base: "https://assets.aesthetic.computer/slab/", file: /^Slab-(\d+(?:\.\d+){1,2})\.dmg$/ },
-  aesel: { base: "https://releases.aesthetic.computer/aesel/mac/", file: /^aesel-(\d+(?:\.\d+){1,2})-arm64\.dmg$/ },
-};
 
 // Keyed on a secret lith already holds, so the hash can't be reversed by
 // hashing every address, and it stays stable across restarts.
@@ -56,16 +51,15 @@ export async function handler(event) {
 
   if (query.whoami !== undefined) return respond(200, { hash: addressHash(event) }, headers);
 
-  const app = APPS[query.app];
-  const match = app && typeof query.file === "string" && query.file.match(app.file);
-  if (!match) return respond(404, { error: "Unknown download" }, headers);
+  const download = resolveAppDownload(query.app, query.file);
+  if (!download) return respond(404, { error: "Unknown download" }, headers);
 
-  const location = app.base + query.file;
+  const { location, version } = download;
   if (event.httpMethod === "GET") {
     const agent = event.headers?.["user-agent"] || "";
     const at = new Date();
     const row = {
-      app: query.app, version: match[1], file: query.file, at, day: at.toISOString().slice(0, 10),
+      app: query.app, version, file: query.file, at, day: at.toISOString().slice(0, 10),
       hash: addressHash(event), country: event.headers?.["cf-ipcountry"] || null,
       platform: platform(agent), automated: automatedVisit({ userAgent: agent }),
       from: typeof query.from === "string" ? query.from.slice(0, 32) : null,

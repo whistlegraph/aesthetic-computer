@@ -13,11 +13,12 @@ namespace Aesel;
 
 // One app process and one serialized credential owner. Rotating refresh tokens
 // stay in a CurrentUser DPAPI envelope; only access tokens enter the WebView.
-internal sealed class NativeAuth(string directory)
+internal sealed class NativeAuth(string directory, HttpClient? transport = null)
 {
     internal const string ClientId = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
     internal const string Callback = "http://localhost:44233/callback";
-    static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(30) };
+    static readonly HttpClient DefaultHttp = new() { Timeout = TimeSpan.FromSeconds(30) };
+    readonly HttpClient Http = transport ?? DefaultHttp;
     readonly SemaphoreSlim gate = new(1, 1);
     readonly string file = Path.Combine(directory, "account.dat");
     sealed record Credentials(string Access, string? Refresh, long Expires);
@@ -35,6 +36,8 @@ internal sealed class NativeAuth(string directory)
         File.WriteAllBytes(file + ".new", bytes);
         File.Move(file + ".new", file, true);
     }
+
+    internal void SeedSmokeCredential() => Save(new("expired-fixture-token", "fixture-refresh", 0));
 
     async Task<Credentials> Exchange(object body, string? previousRefresh = null)
     {

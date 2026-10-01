@@ -1,4 +1,6 @@
 using System.IO;
+using System.Net;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -13,6 +15,21 @@ internal static class SmokeTest
     static int rounds;
     static string uploaded = "";
     const string Source = "export function paint({ wipe }) { wipe(\"purple\"); }\n";
+    sealed class AuthTransport : HttpMessageHandler
+    {
+        internal int Refreshes;
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancel)
+        {
+            if (request.RequestUri?.AbsoluteUri == "https://hi.aesthetic.computer/oauth/token") {
+                using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancel));
+                if (body.RootElement.GetProperty("refresh_token").GetString() != "fixture-refresh") throw new Exception("Wrong refresh credential.");
+                Refreshes++;
+                await Task.Delay(30, cancel);
+                return new(HttpStatusCode.OK) { Content = new StringContent("{\"access_token\":\"native-smoke-token\",\"refresh_token\":\"rotated-fixture\",\"expires_in\":3600}") };
+            }
+            throw new Exception("Unexpected native auth request: " + request.RequestUri);
+        }
+    }
     internal static void Attach(CoreWebView2 core)
     {
         core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
@@ -82,10 +99,26 @@ internal static class SmokeTest
             MainWindow.IsApp("https://aesel.app/anything") || MainWindow.IsApp("https://user@aesel.app/try/")) throw new Exception("Callback/origin boundary failed.");
         var secret = Encoding.UTF8.GetBytes("test-only-credential");
         if (!ProtectedData.Unprotect(ProtectedData.Protect(secret, null, DataProtectionScope.CurrentUser), null, DataProtectionScope.CurrentUser).SequenceEqual(secret)) throw new Exception("Windows credential encryption failed.");
+        var transport = new AuthTransport();
+        using var http = new HttpClient(transport);
+        var credentialDirectory = Path.Combine(directory, "credential-check");
+        Directory.CreateDirectory(credentialDirectory);
+        var credentials = new NativeAuth(credentialDirectory, http);
+        credentials.SeedSmokeCredential();
+        var renewed = await Task.WhenAll(Enumerable.Range(0, 6).Select(_ => credentials.Call("getTokenSilently", CancellationToken.None)));
+        if (transport.Refreshes != 1 || renewed.Any(token => (string?)token != "native-smoke-token")) throw new Exception("Concurrent token renewal failed.");
+        var envelope = File.ReadAllBytes(Path.Combine(credentialDirectory, "account.dat"));
+        if (Encoding.UTF8.GetString(envelope).Contains("fixture")) throw new Exception("Unencrypted credential.");
+        var decoded = Encoding.UTF8.GetString(ProtectedData.Unprotect(envelope, null, DataProtectionScope.CurrentUser));
+        if (!decoded.Contains("rotated-fixture")) throw new Exception("Rotated refresh token was not saved.");
+        await credentials.Call("logout", CancellationToken.None);
+        if ((bool)(await credentials.Call("isAuthenticated", CancellationToken.None))! || File.Exists(Path.Combine(credentialDirectory, "account.dat"))) throw new Exception("Sign-out retained credentials.");
         await Until(core, "!!document.getElementById('workspace') && !document.getElementById('workspace').hidden");
         await core.ExecuteScriptAsync("document.getElementById('input').value='Make a purple piece.';document.getElementById('send').click();");
         await Until(core, "!!document.querySelector('#log .answer') && !document.getElementById('preview').hidden && !document.getElementById('send').disabled");
-        if (rounds != 2 || uploaded != Source) throw new Exception($"Generation/upload failed: {rounds} requests, {uploaded.Length} bytes.");
+        var uploadDeadline = DateTime.UtcNow.AddSeconds(15);
+        while (uploaded != Source && DateTime.UtcNow < uploadDeadline) await Task.Delay(100);
+        if (rounds != 2 || uploaded != Source) throw new Exception($"Generation/upload failed: {rounds} requests, {JsonSerializer.Serialize(uploaded)}.");
         await Until(core, "document.querySelectorAll('#log img').length===0 && !JSON.stringify(localStorage).includes('windows-smoke-token')");
         var id = await core.ExecuteScriptAsync("document.getElementById('history').value");
         core.Reload();
