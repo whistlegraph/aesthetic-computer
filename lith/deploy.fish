@@ -193,8 +193,10 @@ end
 
 if test "$LOCAL_BRANCH" = "$TARGET_BRANCH"
     set LOCAL_HEAD (git -C $REPO_ROOT rev-parse HEAD)
-    if test "$LOCAL_HEAD" != "$ORIGIN_HEAD"
-        echo -e "$RED x Local $TARGET_BRANCH is ahead of origin/$TARGET_BRANCH.$NC"
+    # A behind checkout is safe: production uses origin's pushed commit below.
+    # Refuse only local commits not preserved on the deployment branch.
+    if not git -C $REPO_ROOT merge-base --is-ancestor $LOCAL_HEAD $ORIGIN_HEAD
+        echo -e "$RED x Local $TARGET_BRANCH is ahead of or diverged from origin/$TARGET_BRANCH.$NC"
         echo -e "$YELLOW   Push first. This deploy script no longer rsyncs uncommitted or unpushed code into production.$NC"
         exit 1
     end
