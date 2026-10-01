@@ -5,6 +5,7 @@
 # new build in place, and compares the deployed php sha256 with the local build.
 #
 #   ./deploy-plugin.sh            # deploy
+#   TL_MEDIA_DIR=dir ./deploy-plugin.sh   # also upload media to uploads/tl-refresh/
 #   ./deploy-plugin.sh --keys     # list credential field NAMES only, if host/user lookup fails
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -54,6 +55,12 @@ put $php tl-design-refresh.php
 get tl-design-refresh.php $here/.deploy-tmp/served.php
 SFTP
 echo "backup of previous live file: backups/tl-design-refresh-$stamp.php"
+# Optional: TL_MEDIA_DIR=<dir> also puts every file in <dir> into
+# wp-content/uploads/tl-refresh/ (media the plugin references by URL).
+if [ -n "${TL_MEDIA_DIR:-}" ]; then
+  media_remote="${TL_MEDIA_REMOTE:-public_html/wp-content/uploads/tl-refresh}"
+  { echo "-mkdir $media_remote"; echo "cd $media_remote"; for f in "$TL_MEDIA_DIR"/*; do [ -f "$f" ] && echo "put \"$f\""; done; echo "ls -l"; } | sftp "${ssh_opts[@]}" -b - "$user@$host"
+fi
 echo "live   sha256: $(shasum -a 256 "$here/.deploy-tmp/served.php" | cut -d' ' -f1)"
 echo "local  sha256: $(shasum -a 256 "$php" | cut -d' ' -f1)"
 grep -m1 -i 'Version:' "$here/.deploy-tmp/served.php"

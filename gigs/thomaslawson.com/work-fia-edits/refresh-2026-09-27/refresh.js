@@ -11,6 +11,92 @@
         return (value || '').replace(/[​-‍﻿]/g, '').replace(/\s+/g, ' ').trim();
     }
 
+    /* ---- 0. Fixes from the 2026-09-30 meeting (Fía). They run first, so the
+       sections below see the corrected words and links. ---- */
+    var UP = 'https://www.thomaslawson.com/wp-content/uploads/';
+    var MEDIA = UP + 'tl-refresh/';
+    var main = document.querySelector('main') || document.getElementById('content') || body;
+    function on(id) { return body.classList.contains('page-id-' + id); }
+    function retext(root, re, to) {
+        var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        var node;
+        while ((node = walker.nextNode())) {
+            if (re.test(node.nodeValue)) node.nodeValue = node.nodeValue.replace(re, to);
+            re.lastIndex = 0;
+        }
+    }
+    function el(tag, cls, text) {
+        var e = document.createElement(tag);
+        if (cls) e.className = cls;
+        if (text) e.textContent = text;
+        return e;
+    }
+    /* Hedi Slimane's name. */
+    retext(main, /Silmane/g, 'Slimane');
+    /* The Municipal Building mural is one portrait of the city. */
+    /* Fía: "Portrait of New York" is singular wherever it appears. */
+    retext(body, /Portraits of New York/g, 'Portrait of New York');
+    if (on(1622)) {
+        /* Tom's notes: Portrait of New York (1989) comes before Memory Lingers
+           Here, which opens "As I was completing the New York project". */
+        var tops = Array.prototype.slice.call(main.querySelectorAll('.elementor-top-section'));
+        var textOf = function (sec) { var t = sec.querySelector('.elementor-widget-text-editor'); return t ? t.textContent : ''; };
+        var memIdx = tops.findIndex(function (sec) { return /As I was completing the New York project/.test(textOf(sec)); });
+        var porIdx = tops.findIndex(function (sec) { return /knowing I could rely on Russell Rainbolt/.test(textOf(sec)); });
+        if (memIdx > -1 && porIdx > memIdx && !main.querySelector('.tl-moved')) {
+            tops.slice(porIdx).forEach(function (sec) {
+                sec.classList.add('tl-moved');
+                tops[memIdx].parentNode.insertBefore(sec, tops[memIdx]);
+            });
+        }
+    }
+    /* Yeats's Deirdre (Tom's notes: "fix spelling"). */
+    if (on(1660)) retext(main, /\bDeidre\b/g, 'Deirdre');
+    /* REALLIFE 15 pointed at an unrelated East of Borneo article; until its
+       scan is uploaded, the cover opens the cover. */
+    if (on(1819)) {
+        var r15 = window.TL_SHELVES && window.TL_SHELVES['reallife-15-cover.jpg'];
+        if (r15) r15.h = UP + '2023/12/REALLIFE-15-cover.jpg';
+        main.querySelectorAll('a[href*="the-journey-west"]').forEach(function (a) {
+            var col = a.closest('.elementor-column');
+            if (col && col.querySelector('img[src*="REALLIFE-15-cover"]')) a.href = UP + '2023/12/REALLIFE-15-cover.jpg';
+        });
+    }
+    /* Deirdre: Tom's opening film of birds, beside the paragraph about it. */
+    if (on(1660) && !document.querySelector('.tl-video')) {
+        var birds = Array.prototype.find.call(main.querySelectorAll('.elementor-widget-text-editor'), function (t) {
+            return /video of birds/i.test(t.textContent);
+        });
+        if (birds) {
+            var vf = el('figure', 'tl-video');
+            var v = document.createElement('video');
+            v.controls = true; v.preload = 'none'; v.setAttribute('playsinline', '');
+            v.poster = MEDIA + 'deirdre-birds-poster.jpg';
+            v.setAttribute('aria-label', 'Birds, the opening film for Deirdre');
+            var vs = document.createElement('source');
+            vs.src = MEDIA + 'deirdre-birds.mp4'; vs.type = 'video/mp4';
+            v.appendChild(vs);
+            vf.appendChild(v);
+            vf.appendChild(el('figcaption', '', 'Birds, the opening film for Deirdre'));
+            birds.parentNode.insertBefore(vf, birds.nextSibling);
+        }
+    }
+    /* Art School: the last four items had paragraph captions; give them the
+       same label as every other item, and name the Sohrab Mohebbi interview. */
+    if (on(1878)) {
+        main.querySelectorAll('.elementor-widget-image + .elementor-widget-text-editor').forEach(function (t) {
+            var text = clean(t.textContent);
+            if (!text || text.length > 200) return;
+            if (/Sohrab Mohebbi/.test(text)) text = 'Sohrab Mohebbi Interview';
+            var w = el('div', 'elementor-element elementor-widget elementor-widget-heading tl-caption-label');
+            var c = el('div', 'elementor-widget-container');
+            var h = el('h5', 'elementor-heading-title elementor-size-default', text);
+            h.setAttribute('data-tl-role', 'caption');
+            c.appendChild(h); w.appendChild(c);
+            t.replaceWith(w);
+        });
+    }
+
     /* ---- 1. All-caps labels → title case (authored caps, not CSS). ---- */
     var KEEP = /^(REALLIFE|MOCA|LACE|LAXART|CAE|PS1|P\.S\.1|USA|UK|US|LA|NY|NYC|TV|BBC|CCA|SVA|UCLA|ICA|II|III|IV|VI|VII|VIII|IX|XI|XII|TL|DJ)$/;
     var SMALL = /^(a|an|and|as|at|by|for|from|in|into|of|on|or|the|to|with)$/;
@@ -366,9 +452,17 @@
        widgets move into the new column so nothing is duplicated.
          ar    fallback proportions until the image reports its own
          m     phone crop (portraits only), with its focal point           */
+    /* Recent work from Valise (window.TL_RECENT, newest first, printed by the
+       plugin on Home and In the Studio). */
+    var RECENT = (window.TL_RECENT || []).filter(function (w) { return w && w.u; });
+    function valiseSize(u, width) { return u.replace(/\/rs:fit:\d+:\d+\//, '/rs:fit:' + width + ':0/'); }
+    function recentLead() {
+        /* The newest landscape picture reads best beside the intro. */
+        return RECENT.filter(function (w) { return w.w && w.h && w.w >= w.h; })[0] || RECENT[0] || null;
+    }
     var SPLIT = {
         'page-id-68':   { sel: '.elementor-element-3d58b5f', title: 'About' },
-        'page-id-140':  { sel: '.elementor-element-71fa6aa', ar: '720/556', bg: 'https://www.thomaslawson.com/wp-content/uploads/2022/09/2010_Tree_HR.jpg' },
+        'page-id-140':  { sel: '.elementor-element-71fa6aa', ar: '720/556', recent: true, bg: 'https://www.thomaslawson.com/wp-content/uploads/2022/09/2010_Tree_HR.jpg' },
         'page-id-1177': { sel: '.elementor-element-1b54d5a' },
         'page-id-1147': { sel: '.elementor-element-ba54885' },
         'page-id-808':  { sel: '.elementor-element-825b6e9', m: '4/5', focus: '50% 42%' },
@@ -393,7 +487,12 @@
         if (!section) return true;
         var src = '', alt = '', ar = cfg.ar || '';
         var srcImg = section.querySelector('.elementor-widget-image img');
-        if (srcImg) {
+        var lead = cfg.recent && recentLead();
+        if (lead) {
+            src = valiseSize(lead.u, 1400);
+            alt = lead.t + (lead.ys ? ', ' + lead.ys : '');
+            if (lead.w && lead.h) ar = lead.w + '/' + lead.h;
+        } else if (srcImg) {
             src = bestSrc(srcImg);
             alt = srcImg.getAttribute('alt') || '';
             var w = parseInt(srcImg.getAttribute('width'), 10), h = parseInt(srcImg.getAttribute('height'), 10);
@@ -437,35 +536,269 @@
         return true;
     });
 
-    /* ---- 10. Beyond the Studio → Curatorial Projects + Exhibitions (Fía, 2026-09-28).
-       Two doors under the header, to the pages the plugin builds from Tom's
-       CV (window.TL_CV, counts generated by build-cv.mjs). ---- */
-    var CV = window.TL_CV;
-    if (CV && body.classList.contains('page-id-1177') && !document.querySelector('.tl-bts-doors')) {
-        var dash = ' – ';
-        var doors = [
-            ['/curatorial-projects/', 'Curatorial Projects', CV.curatorial.n + ' exhibitions curated, ' + CV.curatorial.from + dash + CV.curatorial.to, CV.curatorial.img],
-            ['/exhibitions/', 'Exhibitions', CV.exhibitions.solo + ' solo, ' + CV.exhibitions.group + ' group, ' + CV.exhibitions.from + dash + CV.exhibitions.to, CV.exhibitions.img]
-        ];
-        var nav = document.createElement('nav');
-        nav.className = 'tl-bts-doors';
-        nav.setAttribute('aria-label', 'Beyond the Studio');
-        doors.forEach(function (d) {
-            var a = document.createElement('a');
-            a.className = 'tl-bts-door';
-            a.href = d[0];
-            var im = document.createElement('img');
-            im.src = d[3]; im.alt = ''; im.loading = 'lazy'; im.decoding = 'async';
-            var t = document.createElement('span');
-            t.className = 'tl-bts-door-title';
-            t.textContent = d[1];
-            var s = document.createElement('span');
-            s.className = 'tl-bts-door-meta';
-            s.textContent = d[2];
-            a.appendChild(im); a.appendChild(t); a.appendChild(s);
-            nav.appendChild(a);
+    /* ---- 10. Beyond the Studio as an index (Fía, 2026-09-30). ----
+       One row per project: title, its opening lines, and a strip of its
+       pictures (window.TL_BTS, read from each project page by the plugin).
+       Exhibitions leads the list; Curatorial Projects is gone from here,
+       since Art in a Broader Context already holds those shows. ---- */
+    if (on(1177) && !document.querySelector('.tl-bts-index')) {
+        var BTS = window.TL_BTS || {};
+        var CVS = window.TL_CV;
+        var cards = [], seen = {}, holders = [];
+        main.querySelectorAll('a[href*="/beyond-the-studio-"]').forEach(function (a) {
+            if (a.closest('.tl-split')) return;
+            var m = a.getAttribute('href').match(/\/(beyond-the-studio-[^\/?#]+)/);
+            if (!m || seen[m[1]]) return;
+            seen[m[1]] = true;
+            var col = a.closest('.elementor-column') || a.parentElement;
+            var img = col.querySelector('img');
+            cards.push({ slug: m[1], href: a.getAttribute('href'), title: clean(col.textContent), img: img && (img.currentSrc || img.src) });
+            var sec = a.closest('.elementor-top-section');
+            if (sec && holders.indexOf(sec) < 0) holders.push(sec);
         });
-        var anchor = document.querySelector('.tl-split');
-        if (anchor) anchor.parentNode.insertBefore(nav, anchor.nextSibling);
+        /* Tom's notes: Early New York before Painted Installations, as it happened. */
+        var iE = cards.findIndex(function (c) { return /early-new-york/.test(c.slug); });
+        var iP = cards.findIndex(function (c) { return /painted-installations/.test(c.slug); });
+        if (iE > -1 && iP > -1 && iP < iE) cards.splice(iP, 0, cards.splice(iE, 1)[0]);
+        if (cards.length) {
+            var list = el('ol', 'tl-bts-index');
+            var row = function (href, title, text, imgs, n) {
+                var li = el('li', 'tl-bts-row');
+                var a = el('a', 'tl-bts-row-link');
+                a.href = href;
+                var head = el('span', 'tl-bts-row-head');
+                head.appendChild(el('span', 'tl-bts-row-n', n));
+                head.appendChild(el('span', 'tl-bts-row-title', title));
+                a.appendChild(head);
+                if (text) a.appendChild(el('span', 'tl-bts-row-text', text));
+                if (imgs.length) {
+                    var strip = el('span', 'tl-bts-row-strip');
+                    imgs.slice(0, 6).forEach(function (u) {
+                        var im = document.createElement('img');
+                        im.src = u; im.alt = ''; im.loading = 'lazy'; im.decoding = 'async';
+                        strip.appendChild(im);
+                    });
+                    a.appendChild(strip);
+                }
+                li.appendChild(a);
+                return li;
+            };
+            var n = 0;
+            var pad = function (i) { return (i < 10 ? '0' : '') + i; };
+            if (CVS && CVS.exhibitions) {
+                var ex = CVS.exhibitions;
+                list.appendChild(row('/exhibitions/', 'Exhibitions', ex.solo + ' solo and ' + ex.group + ' group exhibitions, ' + ex.from + ' – ' + ex.to + '.', [ex.img], pad(++n)));
+            }
+            cards.forEach(function (c) {
+                var d = BTS[c.slug] || {};
+                var imgs = (d.imgs && d.imgs.length) ? d.imgs : (c.img ? [c.img] : []);
+                list.appendChild(row(c.href, c.title, d.text || '', imgs, pad(++n)));
+            });
+            var first = holders[0];
+            first.parentNode.insertBefore(list, first);
+            holders.forEach(function (h) { h.classList.add('tl-bts-source'); h.setAttribute('aria-hidden', 'true'); });
+        }
+    }
+
+    /* ---- 11. A small lightbox: About's pictures and the new studio
+       periods open full size (Fía, 2026-09-30). ---- */
+    function lightbox(src, caption, opener) {
+        var ov = el('div', 'tl-lb');
+        ov.setAttribute('role', 'dialog');
+        ov.setAttribute('aria-modal', 'true');
+        ov.setAttribute('aria-label', caption || 'Image');
+        var im = document.createElement('img');
+        im.src = src; im.alt = caption || '';
+        var fig = el('figure', 'tl-lb-figure');
+        fig.appendChild(im);
+        if (caption) fig.appendChild(el('figcaption', 'tl-lb-caption', caption));
+        var close = el('button', 'tl-lb-close', '×');
+        close.type = 'button';
+        close.setAttribute('aria-label', 'Close');
+        ov.appendChild(fig); ov.appendChild(close);
+        function shut() {
+            ov.remove();
+            document.removeEventListener('keydown', key);
+            document.documentElement.classList.remove('tl-lb-open');
+            if (opener && opener.focus) opener.focus();
+        }
+        function key(e) { if (e.key === 'Escape') shut(); }
+        ov.addEventListener('click', function (e) { if (e.target !== im) shut(); });
+        document.addEventListener('keydown', key);
+        document.documentElement.classList.add('tl-lb-open');
+        body.appendChild(ov);
+        close.focus();
+    }
+    function largest(img) {
+        var best = { url: img.currentSrc || img.src, w: 0 };
+        (img.getAttribute('srcset') || '').split(',').forEach(function (s) {
+            var p = s.trim().split(/\s+/), w = parseInt(p[1], 10) || 0;
+            if (p[0] && w > best.w && w <= 2600) best = { url: p[0], w: w };
+        });
+        return best.url;
+    }
+    if (on(68)) {
+        main.querySelectorAll('.elementor-widget-image img').forEach(function (img) {
+            if (img.closest('.tl-split, .tl-split-source, a')) return;
+            var col = img.closest('.elementor-column');
+            var label = col ? Array.prototype.map.call(col.querySelectorAll('.elementor-heading-title'), function (h) { return clean(h.textContent); }).filter(function (t) { return t && t !== '-' && t !== '–'; }).join(', ') : '';
+            img.classList.add('tl-zoomable');
+            img.tabIndex = 0;
+            img.setAttribute('role', 'button');
+            img.setAttribute('aria-label', 'Enlarge' + (label ? ': ' + label : ''));
+            var open = function () { lightbox(largest(img), label, img); };
+            img.addEventListener('click', open);
+            img.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+        });
+    }
+    document.querySelectorAll('a.tl-zoom').forEach(function (a) {
+        a.addEventListener('click', function (e) {
+            if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+            e.preventDefault();
+            lightbox(a.href, a.getAttribute('data-caption') || '', a);
+        });
+    });
+
+    /* ---- 12. In the Studio: the two newest periods, from Valise
+       (window.TL_PERIODS), above 2017 – 2020. ---- */
+    var PERIODS = window.TL_PERIODS || [];
+    if (on(140) && PERIODS.length && !document.querySelector('.tl-period')) {
+        var oldest = main.querySelector('.elementor-top-section img[src*="2019_Head-in-Hands"]');
+        var before = oldest && oldest.closest('.elementor-top-section');
+        if (before) {
+            PERIODS.forEach(function (p) {
+                var sec = el('section', 'tl-period');
+                var a = el('a', 'tl-period-link');
+                a.href = '/' + p.slug + '/';
+                a.setAttribute('aria-label', p.title);
+                var lab = el('span', 'tl-period-label');
+                lab.appendChild(el('span', 'tl-period-range', p.title));
+                a.appendChild(lab);
+                var works = el('span', 'tl-period-works');
+                p.works.forEach(function (w) {
+                    var im = document.createElement('img');
+                    im.src = valiseSize(w.u, 700); im.alt = w.t; im.loading = 'lazy'; im.decoding = 'async';
+                    if (w.w && w.h) { im.width = w.w; im.height = w.h; }
+                    works.appendChild(im);
+                });
+                a.appendChild(works);
+                sec.appendChild(a);
+                before.parentNode.insertBefore(sec, before);
+            });
+        }
+    }
+
+    /* ---- 13. Home: a carousel of recent work from Valise. ---- */
+    function mountCarousel(tries) {
+        if (document.querySelector('.tl-carousel')) return;
+        /* The polish plugin builds .tl-home-artwork around the painting. */
+        var holder = document.querySelector('.tl-home-artwork');
+        if (!holder) { if (tries < 30) setTimeout(function () { mountCarousel(tries + 1); }, 100); return; }
+        {
+            var slides = RECENT.slice(0, 12);
+            var car = el('section', 'tl-carousel');
+            car.setAttribute('aria-roledescription', 'carousel');
+            car.setAttribute('aria-label', 'Recent work');
+            var stage = el('div', 'tl-carousel-stage');
+            var cap = el('p', 'tl-carousel-caption');
+            cap.setAttribute('aria-live', 'polite');
+            var figs = slides.map(function (w, i) {
+                var a = el('a', 'tl-carousel-slide');
+                a.href = '/' + (w.y >= 2022 ? 'inthestudio_2022-present' : 'inthestudio_2020-2022') + '/';
+                a.setAttribute('aria-roledescription', 'slide');
+                a.setAttribute('aria-label', (i + 1) + ' of ' + slides.length + ': ' + w.t);
+                var im = document.createElement('img');
+                im.src = valiseSize(w.u, 1200); im.alt = w.t; im.decoding = 'async';
+                if (i > 1) im.loading = 'lazy';
+                a.appendChild(im);
+                stage.appendChild(a);
+                return a;
+            });
+            var prev = el('button', 'tl-carousel-btn tl-carousel-prev', '←');
+            var next = el('button', 'tl-carousel-btn tl-carousel-next', '→');
+            prev.type = next.type = 'button';
+            prev.setAttribute('aria-label', 'Previous work');
+            next.setAttribute('aria-label', 'Next work');
+            var foot = el('div', 'tl-carousel-foot');
+            foot.appendChild(cap);
+            var ctl = el('span', 'tl-carousel-controls');
+            ctl.appendChild(prev); ctl.appendChild(next);
+            foot.appendChild(ctl);
+            car.appendChild(stage); car.appendChild(foot);
+            var cur = 0, timer = null;
+            var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+            var show = function (i) {
+                cur = (i + figs.length) % figs.length;
+                figs.forEach(function (f, j) {
+                    f.classList.toggle('is-on', j === cur);
+                    f.tabIndex = j === cur ? 0 : -1;
+                    f.setAttribute('aria-hidden', j === cur ? 'false' : 'true');
+                });
+                var w = slides[cur];
+                cap.textContent = w.t + (w.ys ? ', ' + w.ys : '');
+            };
+            var stop = function () { clearInterval(timer); timer = null; };
+            var go = function () { if (!still && !timer) timer = setInterval(function () { show(cur + 1); }, 5000); };
+            prev.addEventListener('click', function () { stop(); show(cur - 1); });
+            next.addEventListener('click', function () { stop(); show(cur + 1); });
+            car.addEventListener('mouseenter', stop);
+            car.addEventListener('mouseleave', go);
+            car.addEventListener('focusin', stop);
+            var x0 = null;
+            stage.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; }, { passive: true });
+            stage.addEventListener('touchend', function (e) {
+                if (x0 === null) return;
+                var dx = e.changedTouches[0].clientX - x0; x0 = null;
+                if (Math.abs(dx) > 40) { stop(); show(cur + (dx < 0 ? 1 : -1)); }
+            });
+            show(0);
+            holder.innerHTML = '';
+            holder.appendChild(car);
+            go();
+        }
+    }
+    if (on(10) && RECENT.length > 1) mountCarousel(0);
+
+    /* ---- 14. News: one grid, newest first, with Tom's find from a JetBlue
+       screen — the Portrait of New York mural behind a Law & Order scene. ---- */
+    if (on(1898) && !document.querySelector('.tl-news-grid')) {
+        var items = [], secs = [];
+        main.querySelectorAll('.elementor-top-section').forEach(function (sec) {
+            if (sec.closest('.tl-split') || sec.classList.contains('tl-split-source')) return;
+            var cols = sec.querySelectorAll('.elementor-top-column');
+            var got = false;
+            cols.forEach(function (col) {
+                var img = col.querySelector('.elementor-widget-image img');
+                var title = col.querySelector('.elementor-heading-title');
+                if (!img || !title) return;
+                var link = img.closest('a') || col.querySelector('a');
+                items.push({ href: link ? link.href : '', ext: link ? link.target === '_blank' : false, src: largest(img), title: clean(title.textContent) });
+                got = true;
+            });
+            if (got) secs.push(sec);
+        });
+        if (secs.length) {
+            items.unshift({ href: '/beyond-the-studio-portraits-of-new-york/', ext: false, src: MEDIA + 'law-and-order-portrait-of-new-york.jpg', title: 'Portrait of New York, spotted behind a scene of Law & Order (early 1990s)' });
+            var grid = el('section', 'tl-news-grid');
+            items.forEach(function (it) {
+                var art = el('article', 'tl-news-item');
+                var a = el('a', 'tl-news-cover');
+                if (it.href) a.href = it.href;
+                if (it.ext) { a.target = '_blank'; a.rel = 'noopener'; }
+                var im = document.createElement('img');
+                im.src = it.src; im.alt = ''; im.loading = 'lazy'; im.decoding = 'async';
+                a.appendChild(im);
+                art.appendChild(a);
+                var h = el('h2', 'tl-news-title');
+                var ha = el('a', '', it.title);
+                if (it.href) ha.href = it.href;
+                if (it.ext) { ha.target = '_blank'; ha.rel = 'noopener'; ha.className = 'tl-opens'; }
+                h.appendChild(ha);
+                art.appendChild(h);
+                grid.appendChild(art);
+            });
+            secs[0].parentNode.insertBefore(grid, secs[0]);
+            secs.forEach(function (sx) { sx.classList.add('tl-news-source'); sx.setAttribute('aria-hidden', 'true'); });
+        }
     }
 })();
