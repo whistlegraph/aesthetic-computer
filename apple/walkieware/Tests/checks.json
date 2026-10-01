@@ -913,5 +913,29 @@
    "HeaderSheetsTests 2/2 passed after the dismissal check became a proper disappearance wait",
    "Device build 78 installed (launch blocked: phone locked)"
   ]
+ },
+ "thinkingDisabled": {
+  "date": "2026-10-01",
+  "deployed": "52417f692e",
+  "probe": "OpenRouter honors Anthropic thinking:{type:\"disabled\"} on /messages for deepseek-v4.1-flash (0 thinking tokens); reasoning.effort none / enabled false / max_tokens 0 are ignored; /chat/completions honors reasoning too.",
+  "measured": [
+   {
+    "run": 1,
+    "totalMs": 4327,
+    "firstCodeMs": 797,
+    "thinking": 0,
+    "rounds": 2
+   },
+   {
+    "run": 2,
+    "totalMs": 6425,
+    "firstCodeMs": 475,
+    "thinking": 0,
+    "rounds": 5
+   }
+  ],
+  "before": "15959\u201323740 ms total, 11.8\u201323.6 s to first code, 2.3K\u20138.1K thinking tokens",
+  "quality": "Both runs animate the eating (bobbing hand; berries popping on a clock). Thinking-on runs were a little richer (a chomping critter); the trade is 3\u20135\u00d7 faster visible iteration.",
+  "build": 79
  }
 }
