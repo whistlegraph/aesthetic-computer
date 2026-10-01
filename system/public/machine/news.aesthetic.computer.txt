@@ -1,0 +1,14 @@
+# Aesthetic Computer News
+
+> Aesthetic Computer's newsletter.
+
+Only publicly visible pages may be read anonymously. Subscription and contributor permissions remain in force.
+
+## Resources
+
+- [Website](https://news.aesthetic.computer/): Public entry point.
+- [Project](https://aesthetic.computer/about): About Aesthetic Computer.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

@@ -1,0 +1,16 @@
+# Aesthetic Computer Linked Data
+
+> Public CIDOC CRM representations of published people, paintings, pieces and moods.
+
+Use content negotiation on entity URLs for the supported structured representations. No write endpoint is exposed by this manifest.
+
+## Resources
+
+- [Website](https://data.aesthetic.computer/): Public entry point.
+- [Dataset description](https://data.aesthetic.computer/.well-known/void): Existing VoID dataset metadata.
+- [Entity sitemap](https://data.aesthetic.computer/sitemap.xml): Published entity URIs.
+- [SPARQL](https://data.aesthetic.computer/sparql): Read-only query endpoint; provide a query parameter and an appropriate Accept header.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

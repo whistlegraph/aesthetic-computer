@@ -1,0 +1,13 @@
+# Jeffrey Alan Scudder
+
+> Jeffrey Alan Scudder's public portfolio and CV.
+
+## Resources
+
+- [Website](https://jas.life/): Public entry point.
+- [Papers](https://papers.aesthetic.computer/): Published research.
+- [Paintings](https://justanothersystem.org/): Stretched painting gallery.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

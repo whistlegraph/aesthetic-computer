@@ -1,0 +1,16 @@
+# Aesthetic Computer Public API
+
+> The supported HTTP integration contract for Aesthetic Computer.
+
+Read the documented authentication and limits. An /api handler being present in source does not make it a supported public integration. Publishing creates public content and needs user intent.
+
+## Resources
+
+- [Website](https://api.aesthetic.computer/): Public entry point.
+- [Public HTTP API (JSON)](https://aesthetic.computer/api?format=json): Supported endpoints, request schemas, authentication and limits.
+- [Piece runtime API (JSON)](https://aesthetic.computer/docs.json): JavaScript lifecycle, drawing, audio, input and piece metadata.
+- [Remote MCP](https://aesthetic.computer/mcp): Existing JSON-RPC endpoint; exposes validation, resources and publishing tools.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

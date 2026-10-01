@@ -1,0 +1,1044 @@
+{
+  "title": "Aesthetic Computer public machine directory",
+  "version": 1,
+  "description": "Curated public products served by this stack. This is a link directory, not an agent protocol or an authorization grant. See each resource's own terms, authentication and attribution.",
+  "properties": [
+    {
+      "url": "https://aesthetic.computer/",
+      "title": "Aesthetic Computer",
+      "summary": "Creative computing with JavaScript pieces and KidLisp.",
+      "llms": "https://aesthetic.computer/llms.txt",
+      "aliases": [
+        "www.aesthetic.computer"
+      ],
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://aesthetic.computer/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Public HTTP API (JSON)",
+          "url": "https://aesthetic.computer/api?format=json",
+          "description": "Supported endpoints, request schemas, authentication and limits."
+        },
+        {
+          "title": "Piece runtime API (JSON)",
+          "url": "https://aesthetic.computer/docs.json",
+          "description": "JavaScript lifecycle, drawing, audio, input and piece metadata."
+        },
+        {
+          "title": "Source repository",
+          "url": "https://tangled.org/aesthetic.computer/core",
+          "description": "Canonical source; GitHub is a mirror."
+        }
+      ]
+    },
+    {
+      "url": "https://whistlegraph.org/",
+      "title": "Whistlegraph",
+      "summary": "An index of drawing, singing and graphic scores.",
+      "llms": "https://whistlegraph.org/llms.txt",
+      "aliases": [
+        "www.whistlegraph.org"
+      ],
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://whistlegraph.org/",
+          "description": "Public entry point."
+        }
+      ]
+    },
+    {
+      "url": "https://prompt.ac/",
+      "title": "Prompt",
+      "summary": "A fast HTML prompt for navigating Aesthetic Computer pieces and Whistlegraph works.",
+      "llms": "https://prompt.ac/llms.txt",
+      "aliases": [
+        "www.prompt.ac"
+      ],
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://prompt.ac/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Piece catalog",
+          "url": "https://aesthetic.computer/llms-full.txt",
+          "description": "Piece names, links, source and advertised controls."
+        },
+        {
+          "title": "Whistlegraph commands",
+          "url": "https://whistlegraph.org/api/commands",
+          "description": "Public JSON command feed."
+        },
+        {
+          "title": "Aesel terminal release",
+          "url": "https://prompt.ac/aesel.json",
+          "description": "Current terminal version, archive and checksum."
+        },
+        {
+          "title": "Source repository",
+          "url": "https://tangled.org/aesthetic.computer/core",
+          "description": "Canonical source; GitHub is a mirror."
+        }
+      ]
+    },
+    {
+      "url": "https://aesel.app/",
+      "title": "Aesel",
+      "summary": "An assistant for making and publishing Aesthetic Computer pieces.",
+      "llms": "https://aesel.app/llms.txt",
+      "aliases": [
+        "www.aesel.app"
+      ],
+      "note": "Use the release manifests for current versions; do not infer support or availability from an old download filename. Account notebooks and provider credentials are not public resources.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://aesel.app/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Browser app",
+          "url": "https://aesel.app/try/",
+          "description": "Sign in with an Aesthetic Computer account and handle to make pieces using AC braincells."
+        },
+        {
+          "title": "Mac release manifest",
+          "url": "https://releases.aesthetic.computer/aesel/mac/latest.json",
+          "description": "Current signed Mac release and SHA-256 checksum; follow its dmg field."
+        },
+        {
+          "title": "Windows release manifest",
+          "url": "https://releases.aesthetic.computer/aesel/windows/latest.json",
+          "description": "Current Windows x64 beta installer, SHA-256 checksum and signing status. AC braincells; vendor CLI providers and automatic updating are not included."
+        },
+        {
+          "title": "Terminal release manifest",
+          "url": "https://prompt.ac/aesel.json",
+          "description": "Current terminal build and archive."
+        },
+        {
+          "title": "Support",
+          "url": "https://aesel.app/support.html",
+          "description": "Supported workflows and help."
+        },
+        {
+          "title": "Privacy",
+          "url": "https://aesel.app/privacy.html",
+          "description": "Data handling."
+        },
+        {
+          "title": "Piece runtime API (JSON)",
+          "url": "https://aesthetic.computer/docs.json",
+          "description": "JavaScript lifecycle, drawing, audio, input and piece metadata."
+        }
+      ]
+    },
+    {
+      "url": "https://kidlisp.com/",
+      "title": "KidLisp",
+      "summary": "A browser editor for a Lisp dialect for generative art, running on Aesthetic Computer.",
+      "llms": "https://kidlisp.com/llms.txt",
+      "aliases": [
+        "www.kidlisp.com"
+      ],
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://kidlisp.com/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Learn",
+          "url": "https://learn.kidlisp.com/",
+          "description": "Language lessons and examples."
+        },
+        {
+          "title": "Runtime reference",
+          "url": "https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs",
+          "description": "Published interpreter source."
+        },
+        {
+          "title": "Remote MCP",
+          "url": "https://aesthetic.computer/mcp",
+          "description": "Existing JSON-RPC endpoint with KidLisp validation, examples and publishing tools."
+        },
+        {
+          "title": "Public HTTP API (JSON)",
+          "url": "https://aesthetic.computer/api?format=json",
+          "description": "Supported endpoints, request schemas, authentication and limits."
+        }
+      ]
+    },
+    {
+      "url": "https://learn.kidlisp.com/",
+      "title": "Learn KidLisp",
+      "summary": "Language lessons and examples for KidLisp.",
+      "llms": "https://learn.kidlisp.com/llms.txt",
+      "aliases": [],
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://learn.kidlisp.com/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Editor",
+          "url": "https://kidlisp.com/",
+          "description": "Try a program."
+        },
+        {
+          "title": "Decree",
+          "url": "https://learn.kidlisp.com/decree",
+          "description": "Published language guidance."
+        },
+        {
+          "title": "Piece runtime API (JSON)",
+          "url": "https://aesthetic.computer/docs.json",
+          "description": "JavaScript lifecycle, drawing, audio, input and piece metadata."
+        }
+      ]
+    },
+    {
+      "url": "https://keep.kidlisp.com/",
+      "title": "KidLisp Keeps",
+      "summary": "Preserve and collect KidLisp artworks.",
+      "llms": "https://keep.kidlisp.com/llms.txt",
+      "aliases": [
+        "keeps.kidlisp.com"
+      ],
+      "note": "Wallet and minting actions require the visitor's own authorization. A public artwork is not a license to reuse it.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://keep.kidlisp.com/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Technology",
+          "url": "https://keep.kidlisp.com/technology",
+          "description": "How keeps work."
+        },
+        {
+          "title": "Editor",
+          "url": "https://kidlisp.com/",
+          "description": "Create and run programs."
+        }
+      ]
+    },
+    {
+      "url": "https://buy.kidlisp.com/",
+      "title": "Buy KidLisp",
+      "summary": "The KidLisp purchasing page.",
+      "llms": "https://buy.kidlisp.com/llms.txt",
+      "aliases": [],
+      "note": "Purchases are user actions; this discovery file does not authorize a transaction.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://buy.kidlisp.com/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "KidLisp",
+          "url": "https://kidlisp.com/",
+          "description": "Editor and language."
+        }
+      ]
+    },
+    {
+      "url": "https://pj.kidlisp.com/",
+      "title": "KidLisp PJ",
+      "summary": "A projection interface for KidLisp.",
+      "llms": "https://pj.kidlisp.com/llms.txt",
+      "aliases": [],
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://pj.kidlisp.com/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Editor",
+          "url": "https://kidlisp.com/",
+          "description": "Create and run programs."
+        }
+      ]
+    },
+    {
+      "url": "https://device.kidlisp.com/",
+      "title": "KidLisp Devices",
+      "summary": "Pair supported display devices with KidLisp.",
+      "llms": "https://device.kidlisp.com/llms.txt",
+      "aliases": [],
+      "note": "Device pairing and control require the owner's authorization.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://device.kidlisp.com/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "KidLisp",
+          "url": "https://kidlisp.com/",
+          "description": "Editor and language."
+        }
+      ]
+    },
+    {
+      "url": "https://top.kidlisp.com/",
+      "title": "Top KidLisp",
+      "summary": "Browse a public KidLisp playlist.",
+      "llms": "https://top.kidlisp.com/llms.txt",
+      "aliases": [],
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://top.kidlisp.com/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Editor",
+          "url": "https://kidlisp.com/",
+          "description": "Create and run programs."
+        }
+      ]
+    },
+    {
+      "url": "https://calm.kidlisp.com/",
+      "title": "Calm KidLisp",
+      "summary": "A calm playback view of KidLisp artworks.",
+      "llms": "https://calm.kidlisp.com/llms.txt",
+      "aliases": [],
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://calm.kidlisp.com/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Editor",
+          "url": "https://kidlisp.com/",
+          "description": "Create and run programs."
+        }
+      ]
+    },
+    {
+      "url": "https://notepat.com/",
+      "title": "Notepat",
+      "summary": "A touch and keyboard musical instrument on Aesthetic Computer.",
+      "llms": "https://notepat.com/llms.txt",
+      "aliases": [
+        "www.notepat.com"
+      ],
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://notepat.com/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Piece source",
+          "url": "https://aesthetic.computer/disks/notepat.mjs",
+          "description": "Published JavaScript implementation."
+        },
+        {
+          "title": "Ableton device",
+          "url": "https://notepat.com/amxd",
+          "description": "Current Notepat Max for Live device."
+        },
+        {
+          "title": "Piece runtime API (JSON)",
+          "url": "https://aesthetic.computer/docs.json",
+          "description": "JavaScript lifecycle, drawing, audio, input and piece metadata."
+        }
+      ]
+    },
+    {
+      "url": "https://laklok.com/",
+      "title": "Laklok / Lær Klokken",
+      "summary": "Clock-themed music and community on Aesthetic Computer.",
+      "llms": "https://laklok.com/llms.txt",
+      "aliases": [
+        "www.laklok.com"
+      ],
+      "note": "These links describe the public interfaces. Account activity, notifications and device identities are not public machine resources.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://laklok.com/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "HTML interface",
+          "url": "https://laklok.com/html/",
+          "description": "DOM-based alternative to the canvas piece."
+        },
+        {
+          "title": "Piece source",
+          "url": "https://aesthetic.computer/disks/laklok.mjs",
+          "description": "Published implementation."
+        },
+        {
+          "title": "Aesthetic Computer",
+          "url": "https://aesthetic.computer/laer-klokken",
+          "description": "The related AC piece."
+        }
+      ]
+    },
+    {
+      "url": "https://menuband.app/",
+      "title": "Menu Band",
+      "summary": "A music app for the Mac menu bar.",
+      "llms": "https://menuband.app/llms.txt",
+      "aliases": [
+        "www.menuband.app"
+      ],
+      "note": "Recorded takes and account data are private, not part of this manifest.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://menuband.app/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "App Store",
+          "url": "https://apps.apple.com/app/id6767311903",
+          "description": "Current public store listing."
+        },
+        {
+          "title": "Support",
+          "url": "https://menuband.app/support.html",
+          "description": "Help and support."
+        },
+        {
+          "title": "Privacy",
+          "url": "https://menuband.app/privacy.html",
+          "description": "Data handling."
+        },
+        {
+          "title": "Advanced",
+          "url": "https://menuband.app/advanced.html",
+          "description": "Additional installation and usage information."
+        }
+      ]
+    },
+    {
+      "url": "https://mime.ac/",
+      "title": "MIME",
+      "summary": "Comments on Aesthetic Computer media: paintings, tapes, pieces and their creators.",
+      "llms": "https://mime.ac/llms.txt",
+      "aliases": [
+        "www.mime.ac"
+      ],
+      "note": "Use public media permalinks for citations. Account access and posting require the visitor's own authorization.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://mime.ac/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Public API",
+          "url": "https://aesthetic.computer/api?format=json",
+          "description": "Supported AC integrations."
+        },
+        {
+          "title": "Source",
+          "url": "https://aesthetic.computer/mime/index.html",
+          "description": "Published browser interface."
+        }
+      ]
+    },
+    {
+      "url": "https://nopaint.art/",
+      "title": "No Paint",
+      "summary": "Aesthetic Computer's No Paint remake and the preserved painting archive.",
+      "llms": "https://nopaint.art/llms.txt",
+      "aliases": [
+        "www.nopaint.art"
+      ],
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://nopaint.art/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Classic app",
+          "url": "https://nopaint.art/classic",
+          "description": "Preserved earlier application."
+        },
+        {
+          "title": "Gallery",
+          "url": "https://nopaint.art/gallery/",
+          "description": "Public painting records."
+        },
+        {
+          "title": "Gallery JSON",
+          "url": "https://nopaint.art/gallery/gallery.json",
+          "description": "The same public gallery data used by the page."
+        }
+      ]
+    },
+    {
+      "url": "https://oskiewar.com/",
+      "title": "Oskie War",
+      "summary": "A live shared music interface with durable round URLs and a MIDI view.",
+      "llms": "https://oskiewar.com/llms.txt",
+      "aliases": [
+        "www.oskiewar.com",
+        "midi.oskiewar.com"
+      ],
+      "note": "Live publishing and device access require the visitor's participation and authorization.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://oskiewar.com/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "MIDI view",
+          "url": "https://midi.oskiewar.com/",
+          "description": "The same site with MIDI bridge enabled."
+        },
+        {
+          "title": "Source repository",
+          "url": "https://tangled.org/aesthetic.computer/core",
+          "description": "Canonical source; GitHub is a mirror."
+        }
+      ]
+    },
+    {
+      "url": "https://sotce.net/",
+      "title": "Sotce Net",
+      "summary": "Sotce's writing and community.",
+      "llms": "https://sotce.net/llms.txt",
+      "aliases": [
+        "www.sotce.net"
+      ],
+      "note": "Only the public landing page is described here. Subscriber pages, account records, chats, device identities and push notifications are not public machine resources. Sign-in and subscription boundaries still apply.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://sotce.net/",
+          "description": "Public entry point."
+        }
+      ]
+    },
+    {
+      "url": "https://papers.aesthetic.computer/",
+      "title": "Aesthetic Computer Papers",
+      "summary": "Papers and published research collections by Jeffrey Alan Scudder and collaborators.",
+      "llms": "https://papers.aesthetic.computer/llms.txt",
+      "aliases": [
+        "papers.prompt.ac"
+      ],
+      "note": "Cite the particular paper, author, date and version. A manifest entry does not establish that a paper is peer reviewed.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://papers.aesthetic.computer/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Platter",
+          "url": "https://papers.aesthetic.computer/platter",
+          "description": "Published research collections."
+        },
+        {
+          "title": "Jeffrey's Platter manifest",
+          "url": "https://papers.aesthetic.computer/platter/jeffrey/manifest.json",
+          "description": "Published collection metadata and evidence links."
+        },
+        {
+          "title": "Drawing collection manifest",
+          "url": "https://papers.aesthetic.computer/platter/jeffrey/drawings/manifest.json",
+          "description": "Published drawing collection."
+        }
+      ]
+    },
+    {
+      "url": "https://data.aesthetic.computer/",
+      "title": "Aesthetic Computer Linked Data",
+      "summary": "Public CIDOC CRM representations of published people, paintings, pieces and moods.",
+      "llms": "https://data.aesthetic.computer/llms.txt",
+      "aliases": [],
+      "note": "Use content negotiation on entity URLs for the supported structured representations. No write endpoint is exposed by this manifest.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://data.aesthetic.computer/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Dataset description",
+          "url": "https://data.aesthetic.computer/.well-known/void",
+          "description": "Existing VoID dataset metadata."
+        },
+        {
+          "title": "Entity sitemap",
+          "url": "https://data.aesthetic.computer/sitemap.xml",
+          "description": "Published entity URIs."
+        },
+        {
+          "title": "SPARQL",
+          "url": "https://data.aesthetic.computer/sparql",
+          "description": "Read-only query endpoint; provide a query parameter and an appropriate Accept header."
+        }
+      ]
+    },
+    {
+      "url": "https://api.aesthetic.computer/",
+      "title": "Aesthetic Computer Public API",
+      "summary": "The supported HTTP integration contract for Aesthetic Computer.",
+      "llms": "https://api.aesthetic.computer/llms.txt",
+      "aliases": [
+        "api.prompt.ac"
+      ],
+      "note": "Read the documented authentication and limits. An /api handler being present in source does not make it a supported public integration. Publishing creates public content and needs user intent.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://api.aesthetic.computer/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Public HTTP API (JSON)",
+          "url": "https://aesthetic.computer/api?format=json",
+          "description": "Supported endpoints, request schemas, authentication and limits."
+        },
+        {
+          "title": "Piece runtime API (JSON)",
+          "url": "https://aesthetic.computer/docs.json",
+          "description": "JavaScript lifecycle, drawing, audio, input and piece metadata."
+        },
+        {
+          "title": "Remote MCP",
+          "url": "https://aesthetic.computer/mcp",
+          "description": "Existing JSON-RPC endpoint; exposes validation, resources and publishing tools."
+        }
+      ]
+    },
+    {
+      "url": "https://sitemap.aesthetic.computer/",
+      "title": "Aesthetic Computer Network",
+      "summary": "A map of Aesthetic Computer's public products and routes.",
+      "llms": "https://sitemap.aesthetic.computer/llms.txt",
+      "aliases": [
+        "sitemap.prompt.ac"
+      ],
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://sitemap.aesthetic.computer/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Machine directory",
+          "url": "https://aesthetic.computer/network.json",
+          "description": "Curated property summaries, machine entry points and links; not an account or visitor directory."
+        },
+        {
+          "title": "AC piece catalog",
+          "url": "https://aesthetic.computer/llms-full.txt",
+          "description": "Published piece source and controls."
+        }
+      ]
+    },
+    {
+      "url": "https://pop.aesthetic.computer/",
+      "title": "Aesthetic Dot Computer",
+      "summary": "Music releases and public release records.",
+      "llms": "https://pop.aesthetic.computer/llms.txt",
+      "aliases": [],
+      "note": "Public records contain release information, not the private rights, legal-party or delivery overlay. Respect the licensing of each recording.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://pop.aesthetic.computer/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Release catalog",
+          "url": "https://pop.aesthetic.computer/releases/catalog.json",
+          "description": "The public catalog used by the site."
+        },
+        {
+          "title": "Marimbaba release",
+          "url": "https://pop.aesthetic.computer/releases/marimbaba.json",
+          "description": "Public example release record."
+        }
+      ]
+    },
+    {
+      "url": "https://nft.aesthetic.computer/",
+      "title": "Jeffrey Scudder NFT Record",
+      "summary": "A public catalog of created and collected works with provenance references.",
+      "llms": "https://nft.aesthetic.computer/llms.txt",
+      "aliases": [],
+      "note": "Holder and quantity data are dated snapshots, not current ownership or financial advice. Cite the snapshot and original record.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://nft.aesthetic.computer/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Catalog JSON",
+          "url": "https://nft.aesthetic.computer/data/catalog.json",
+          "description": "Stable public catalog endpoint; includes snapshot dates and caveats."
+        },
+        {
+          "title": "Radical Digital Painting metadata",
+          "url": "https://rdp.aesthetic.computer/",
+          "description": "Published token metadata."
+        }
+      ]
+    },
+    {
+      "url": "https://rdp.aesthetic.computer/",
+      "title": "Radical Digital Painting Metadata",
+      "summary": "Permanent metadata host for the Radical Digital Painting collection.",
+      "llms": "https://rdp.aesthetic.computer/llms.txt",
+      "aliases": [],
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://rdp.aesthetic.computer/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Example token JSON",
+          "url": "https://rdp.aesthetic.computer/json/1.json",
+          "description": "Metadata pattern: /json/<token-id>.json."
+        },
+        {
+          "title": "Collection catalog",
+          "url": "https://nft.aesthetic.computer/data/catalog.json",
+          "description": "Public provenance and collection context."
+        }
+      ]
+    },
+    {
+      "url": "https://rdp.jas.life/",
+      "title": "Radical Digital Painting",
+      "summary": "An archive of Jeffrey Alan Scudder's digital paintings.",
+      "llms": "https://rdp.jas.life/llms.txt",
+      "aliases": [],
+      "note": "The legacy public host currently returns 404; use the metadata host while routing is repaired.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://rdp.jas.life/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Metadata",
+          "url": "https://rdp.aesthetic.computer/",
+          "description": "Published collection metadata."
+        }
+      ]
+    },
+    {
+      "url": "https://jas.life/",
+      "title": "Jeffrey Alan Scudder",
+      "summary": "Jeffrey Alan Scudder's public portfolio and CV.",
+      "llms": "https://jas.life/llms.txt",
+      "aliases": [
+        "www.jas.life"
+      ],
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://jas.life/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Papers",
+          "url": "https://papers.aesthetic.computer/",
+          "description": "Published research."
+        },
+        {
+          "title": "Paintings",
+          "url": "https://justanothersystem.org/",
+          "description": "Stretched painting gallery."
+        }
+      ]
+    },
+    {
+      "url": "https://justanothersystem.org/",
+      "title": "Just Another System",
+      "summary": "Jeffrey Alan Scudder's stretched painting gallery.",
+      "llms": "https://justanothersystem.org/llms.txt",
+      "aliases": [
+        "www.justanothersystem.org"
+      ],
+      "note": "Gallery administration remains authenticated. Attribute paintings to their creator and link the record when citing.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://justanothersystem.org/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Registry JSON",
+          "url": "https://justanothersystem.org/registry.json",
+          "description": "The public painting registry used by the gallery."
+        },
+        {
+          "title": "Jeffrey",
+          "url": "https://jas.life/",
+          "description": "Artist portfolio."
+        }
+      ]
+    },
+    {
+      "url": "https://quiltnet.org/",
+      "title": "Quiltnet",
+      "summary": "A catalog of handmade quilts.",
+      "llms": "https://quiltnet.org/llms.txt",
+      "aliases": [
+        "www.quiltnet.org"
+      ],
+      "note": "Use the public catalog for names, images and attribution. No separate public API is advertised.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://quiltnet.org/",
+          "description": "Public entry point."
+        }
+      ]
+    },
+    {
+      "url": "https://bills.aesthetic.computer/",
+      "title": "Aesthetic Computer Bills",
+      "summary": "The public infrastructure-cost dashboard for Aesthetic Computer.",
+      "llms": "https://bills.aesthetic.computer/llms.txt",
+      "aliases": [],
+      "note": "Use dates shown by the dashboard when citing costs. This is not an account, invoice or payment-credential API.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://bills.aesthetic.computer/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Support AC",
+          "url": "https://give.aesthetic.computer/",
+          "description": "Support the project."
+        }
+      ]
+    },
+    {
+      "url": "https://give.aesthetic.computer/",
+      "title": "Give to Aesthetic Computer",
+      "summary": "Support Aesthetic Computer.",
+      "llms": "https://give.aesthetic.computer/llms.txt",
+      "aliases": [],
+      "note": "Donations, subscription changes and billing-portal actions require the visitor's own authorization.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://give.aesthetic.computer/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Public costs",
+          "url": "https://bills.aesthetic.computer/",
+          "description": "Published operating-cost information."
+        },
+        {
+          "title": "Project",
+          "url": "https://aesthetic.computer/about",
+          "description": "About Aesthetic Computer."
+        }
+      ]
+    },
+    {
+      "url": "https://nela.aesthetic.computer/",
+      "title": "NELA Computer Club",
+      "summary": "The public NELA Computer Club support page.",
+      "llms": "https://nela.aesthetic.computer/llms.txt",
+      "aliases": [],
+      "note": "Donations require the visitor's own authorization.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://nela.aesthetic.computer/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Aesthetic Computer",
+          "url": "https://aesthetic.computer",
+          "description": "Creative computing platform."
+        }
+      ]
+    },
+    {
+      "url": "https://l5.aesthetic.computer/",
+      "title": "L5",
+      "summary": "A Processing-style Lua playground on Aesthetic Computer.",
+      "llms": "https://l5.aesthetic.computer/llms.txt",
+      "aliases": [
+        "l5.prompt.ac"
+      ],
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://l5.aesthetic.computer/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "L5 docs",
+          "url": "https://l5.aesthetic.computer/docs",
+          "description": "Playground reference."
+        },
+        {
+          "title": "Source repository",
+          "url": "https://tangled.org/aesthetic.computer/core",
+          "description": "Canonical source; GitHub is a mirror."
+        }
+      ]
+    },
+    {
+      "url": "https://processing.aesthetic.computer/",
+      "title": "Processing on Aesthetic Computer",
+      "summary": "A Processing-style Java playground using the L5 runtime.",
+      "llms": "https://processing.aesthetic.computer/llms.txt",
+      "aliases": [
+        "processing.prompt.ac"
+      ],
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://processing.aesthetic.computer/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "L5",
+          "url": "https://l5.aesthetic.computer/",
+          "description": "Related Lua playground and reference."
+        },
+        {
+          "title": "Source repository",
+          "url": "https://tangled.org/aesthetic.computer/core",
+          "description": "Canonical source; GitHub is a mirror."
+        }
+      ]
+    },
+    {
+      "url": "https://p5.aesthetic.computer/",
+      "title": "Aesthetic Computer p5 entry",
+      "summary": "An alternate creative-coding entry point in the Aesthetic Computer network.",
+      "llms": "https://p5.aesthetic.computer/llms.txt",
+      "aliases": [
+        "p5.prompt.ac"
+      ],
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://p5.aesthetic.computer/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Processing playground",
+          "url": "https://processing.aesthetic.computer/",
+          "description": "Processing-style Java playground."
+        },
+        {
+          "title": "L5 playground",
+          "url": "https://l5.aesthetic.computer/",
+          "description": "Processing-style Lua playground."
+        }
+      ]
+    },
+    {
+      "url": "https://news.aesthetic.computer/",
+      "title": "Aesthetic Computer News",
+      "summary": "Aesthetic Computer's newsletter.",
+      "llms": "https://news.aesthetic.computer/llms.txt",
+      "aliases": [],
+      "note": "Only publicly visible pages may be read anonymously. Subscription and contributor permissions remain in force.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://news.aesthetic.computer/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Project",
+          "url": "https://aesthetic.computer/about",
+          "description": "About Aesthetic Computer."
+        }
+      ]
+    },
+    {
+      "url": "https://feed.aesthetic.computer/",
+      "title": "Aesthetic Computer Feed",
+      "summary": "A DP-1 playlist and channel service.",
+      "llms": "https://feed.aesthetic.computer/llms.txt",
+      "aliases": [],
+      "note": "Follow the landing page's API documentation. Do not treat internal or authenticated operations as public.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://feed.aesthetic.computer/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Service health",
+          "url": "https://feed.aesthetic.computer/health",
+          "description": "Existing public health endpoint."
+        }
+      ]
+    },
+    {
+      "url": "https://tv.whistlegraph.org/",
+      "title": "Whistlegraph TV",
+      "summary": "A viewing interface for the Whistlegraph archive.",
+      "llms": "https://tv.whistlegraph.org/llms.txt",
+      "aliases": [],
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://tv.whistlegraph.org/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Whistlegraph machine index",
+          "url": "https://whistlegraph.org/llms.txt",
+          "description": "Works, source records, attribution and machine-access terms."
+        }
+      ]
+    },
+    {
+      "url": "https://pals.aesthetic.computer/",
+      "title": "Aesthetic Computer Pals",
+      "summary": "Aesthetic Computer partner and pal logo service.",
+      "llms": "https://pals.aesthetic.computer/llms.txt",
+      "aliases": [],
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://pals.aesthetic.computer/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Aesthetic Computer",
+          "url": "https://aesthetic.computer",
+          "description": "Project home."
+        },
+        {
+          "title": "Source repository",
+          "url": "https://tangled.org/aesthetic.computer/core",
+          "description": "Canonical source; GitHub is a mirror."
+        }
+      ]
+    }
+  ]
+}

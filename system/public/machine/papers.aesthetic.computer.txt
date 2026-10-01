@@ -1,0 +1,16 @@
+# Aesthetic Computer Papers
+
+> Papers and published research collections by Jeffrey Alan Scudder and collaborators.
+
+Cite the particular paper, author, date and version. A manifest entry does not establish that a paper is peer reviewed.
+
+## Resources
+
+- [Website](https://papers.aesthetic.computer/): Public entry point.
+- [Platter](https://papers.aesthetic.computer/platter): Published research collections.
+- [Jeffrey's Platter manifest](https://papers.aesthetic.computer/platter/jeffrey/manifest.json): Published collection metadata and evidence links.
+- [Drawing collection manifest](https://papers.aesthetic.computer/platter/jeffrey/drawings/manifest.json): Published drawing collection.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

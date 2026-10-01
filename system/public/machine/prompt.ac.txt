@@ -1,0 +1,15 @@
+# Prompt
+
+> A fast HTML prompt for navigating Aesthetic Computer pieces and Whistlegraph works.
+
+## Resources
+
+- [Website](https://prompt.ac/): Public entry point.
+- [Piece catalog](https://aesthetic.computer/llms-full.txt): Piece names, links, source and advertised controls.
+- [Whistlegraph commands](https://whistlegraph.org/api/commands): Public JSON command feed.
+- [Aesel terminal release](https://prompt.ac/aesel.json): Current terminal version, archive and checksum.
+- [Source repository](https://tangled.org/aesthetic.computer/core): Canonical source; GitHub is a mirror.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

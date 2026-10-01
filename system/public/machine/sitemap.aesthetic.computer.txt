@@ -1,0 +1,13 @@
+# Aesthetic Computer Network
+
+> A map of Aesthetic Computer's public products and routes.
+
+## Resources
+
+- [Website](https://sitemap.aesthetic.computer/): Public entry point.
+- [Machine directory](https://aesthetic.computer/network.json): Curated property summaries, machine entry points and links; not an account or visitor directory.
+- [AC piece catalog](https://aesthetic.computer/llms-full.txt): Published piece source and controls.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

@@ -1,0 +1,14 @@
+# NELA Computer Club
+
+> The public NELA Computer Club support page.
+
+Donations require the visitor's own authorization.
+
+## Resources
+
+- [Website](https://nela.aesthetic.computer/): Public entry point.
+- [Aesthetic Computer](https://aesthetic.computer): Creative computing platform.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

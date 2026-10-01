@@ -1,0 +1,20 @@
+# Aesel
+
+> An assistant for making and publishing Aesthetic Computer pieces.
+
+Use the release manifests for current versions; do not infer support or availability from an old download filename. Account notebooks and provider credentials are not public resources.
+
+## Resources
+
+- [Website](https://aesel.app/): Public entry point.
+- [Browser app](https://aesel.app/try/): Sign in with an Aesthetic Computer account and handle to make pieces using AC braincells.
+- [Mac release manifest](https://releases.aesthetic.computer/aesel/mac/latest.json): Current signed Mac release and SHA-256 checksum; follow its dmg field.
+- [Windows release manifest](https://releases.aesthetic.computer/aesel/windows/latest.json): Current Windows x64 beta installer, SHA-256 checksum and signing status. AC braincells; vendor CLI providers and automatic updating are not included.
+- [Terminal release manifest](https://prompt.ac/aesel.json): Current terminal build and archive.
+- [Support](https://aesel.app/support.html): Supported workflows and help.
+- [Privacy](https://aesel.app/privacy.html): Data handling.
+- [Piece runtime API (JSON)](https://aesthetic.computer/docs.json): JavaScript lifecycle, drawing, audio, input and piece metadata.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

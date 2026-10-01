@@ -1,0 +1,15 @@
+# Oskie War
+
+> A live shared music interface with durable round URLs and a MIDI view.
+
+Live publishing and device access require the visitor's participation and authorization.
+
+## Resources
+
+- [Website](https://oskiewar.com/): Public entry point.
+- [MIDI view](https://midi.oskiewar.com/): The same site with MIDI bridge enabled.
+- [Source repository](https://tangled.org/aesthetic.computer/core): Canonical source; GitHub is a mirror.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

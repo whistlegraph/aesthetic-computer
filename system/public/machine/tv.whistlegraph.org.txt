@@ -1,0 +1,12 @@
+# Whistlegraph TV
+
+> A viewing interface for the Whistlegraph archive.
+
+## Resources
+
+- [Website](https://tv.whistlegraph.org/): Public entry point.
+- [Whistlegraph machine index](https://whistlegraph.org/llms.txt): Works, source records, attribution and machine-access terms.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

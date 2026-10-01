@@ -1,0 +1,14 @@
+# KidLisp Devices
+
+> Pair supported display devices with KidLisp.
+
+Device pairing and control require the owner's authorization.
+
+## Resources
+
+- [Website](https://device.kidlisp.com/): Public entry point.
+- [KidLisp](https://kidlisp.com/): Editor and language.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

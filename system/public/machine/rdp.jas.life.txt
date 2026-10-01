@@ -1,0 +1,14 @@
+# Radical Digital Painting
+
+> An archive of Jeffrey Alan Scudder's digital paintings.
+
+The legacy public host currently returns 404; use the metadata host while routing is repaired.
+
+## Resources
+
+- [Website](https://rdp.jas.life/): Public entry point.
+- [Metadata](https://rdp.aesthetic.computer/): Published collection metadata.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

@@ -1,0 +1,14 @@
+# Learn KidLisp
+
+> Language lessons and examples for KidLisp.
+
+## Resources
+
+- [Website](https://learn.kidlisp.com/): Public entry point.
+- [Editor](https://kidlisp.com/): Try a program.
+- [Decree](https://learn.kidlisp.com/decree): Published language guidance.
+- [Piece runtime API (JSON)](https://aesthetic.computer/docs.json): JavaScript lifecycle, drawing, audio, input and piece metadata.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

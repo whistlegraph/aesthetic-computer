@@ -1,0 +1,13 @@
+# Aesthetic Computer Pals
+
+> Aesthetic Computer partner and pal logo service.
+
+## Resources
+
+- [Website](https://pals.aesthetic.computer/): Public entry point.
+- [Aesthetic Computer](https://aesthetic.computer): Project home.
+- [Source repository](https://tangled.org/aesthetic.computer/core): Canonical source; GitHub is a mirror.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

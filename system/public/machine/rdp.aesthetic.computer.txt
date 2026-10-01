@@ -1,0 +1,13 @@
+# Radical Digital Painting Metadata
+
+> Permanent metadata host for the Radical Digital Painting collection.
+
+## Resources
+
+- [Website](https://rdp.aesthetic.computer/): Public entry point.
+- [Example token JSON](https://rdp.aesthetic.computer/json/1.json): Metadata pattern: /json/<token-id>.json.
+- [Collection catalog](https://nft.aesthetic.computer/data/catalog.json): Public provenance and collection context.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.
