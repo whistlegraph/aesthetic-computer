@@ -49,14 +49,16 @@ aliases keep their canonical destination. Client properties (`false.work`,
 `danzballet.studio`, `gym.anthonyzollo.com`) and authenticated infrastructure are
 outside this change. The IPFS gateway retains its own protocol behavior.
 
-Two covered hosts need separate serving repairs, observed 2026-10-01:
+Two public-probe limitations were observed 2026-10-01:
 
 - `rdp.jas.life` public DNS reaches a missing Vercel deployment (404). Its Lith
   manifest is ready but will not be reachable until the public route reaches
   Lith. The working collection metadata is at `rdp.aesthetic.computer`.
-- `sotce.net` fails certificate-chain validation in Node HTTPS on both Neo and
-  Chicken. This is a measured client failure, not proof of global unavailability;
-  do not bypass certificate validation in the probe.
+- The local network intercepts `sotce.net`: local DNS returns a documentation
+  address and the certificate is issued by the UniFi SSL Certificate Authority.
+  Public DNS returns Cloudflare addresses. Local Node/curl certificate failures
+  therefore do not establish a production TLS problem. Run the normal HTTPS
+  probe from an unaffected network; never disable certificate validation.
 
 `wipppps.world` currently reaches an external site, despite legacy Caddy rules.
 Other separately hosted properties (Shopify shop/gift, status/grab workers,
