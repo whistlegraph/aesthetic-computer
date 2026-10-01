@@ -15,10 +15,14 @@
 		386E3D38C79AB6CF23166708 /* Fixtures in Resources */ = {isa = PBXBuildFile; fileRef = 5E4DE7A1D969E42D910F4BCB /* Fixtures */; };
 		3BF2B70E0C018C0D43C0134A /* WalkiewareScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220B6400DBD8900B5058A7F0 /* WalkiewareScreen.swift */; };
 		3D181C343F0CF5296E1C4035 /* SwipeToTypeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EA4916078A47F08CDF99B5E /* SwipeToTypeTests.swift */; };
+		465DCE826B91CD18CE48CEF7 /* PlaybackCaption.swift in Sources */ = {isa = PBXBuildFile; fileRef = C614C7FAFB7C430BF574D1B9 /* PlaybackCaption.swift */; };
 		4EDE3317EA5C40F16CB7E32A /* WalkiewareTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BB854B6224E9C6EC2FC901D /* WalkiewareTheme.swift */; };
+		5FD9722A7E3D5329D7B1E770 /* CodeTicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 654A6A5F8172661179904170 /* CodeTicker.swift */; };
+		6380DEC1F53B213D184FD656 /* WalkiewareHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03D832B5A1A03E760A43BBF8 /* WalkiewareHeader.swift */; };
 		6D7B5EBEDBC462D5029C784D /* Web in Resources */ = {isa = PBXBuildFile; fileRef = 315FD6C024E525106C7FD3BE /* Web */; };
 		7EC06C94440CDAF9B846F0BB /* SequenceBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06F16D0B24CA61442FFD0E27 /* SequenceBenchmark.swift */; };
 		8681CA8AC5E530EAD0589219 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 110077D3E4AF92775C4E6D74 /* Assets.xcassets */; };
+		8CD6B532DB3A5B03BC35EEDD /* HeaderSheetsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67B2C6F3854EDC996115B080 /* HeaderSheetsTests.swift */; };
 		91EBE2405BCB456959613E70 /* RecordingTrim.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35720E8232DBFB5B795FBEEA /* RecordingTrim.swift */; };
 		97AB97086118FC695F4B2133 /* AudioBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45F6D30D7883EC26BF391CC7 /* AudioBenchmark.swift */; };
 		99B11F258C6DD8DEAD32A419 /* MusicalInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A7C5768F0EE9F4A8A288767 /* MusicalInput.swift */; };
@@ -40,6 +44,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		03D832B5A1A03E760A43BBF8 /* WalkiewareHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkiewareHeader.swift; sourceTree = "<group>"; };
 		06F16D0B24CA61442FFD0E27 /* SequenceBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SequenceBenchmark.swift; sourceTree = "<group>"; };
 		110077D3E4AF92775C4E6D74 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1A7C5768F0EE9F4A8A288767 /* MusicalInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicalInput.swift; sourceTree = "<group>"; };
@@ -52,10 +57,13 @@
 		4A3D6D0D1C0C32051B6C6AF4 /* UtteranceRecording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtteranceRecording.swift; sourceTree = "<group>"; };
 		50D5B994181BB8DD173DBA13 /* PlaybackWord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackWord.swift; sourceTree = "<group>"; };
 		5E4DE7A1D969E42D910F4BCB /* Fixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fixtures; path = Resources/Fixtures; sourceTree = SOURCE_ROOT; };
+		654A6A5F8172661179904170 /* CodeTicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeTicker.swift; sourceTree = "<group>"; };
+		67B2C6F3854EDC996115B080 /* HeaderSheetsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderSheetsTests.swift; sourceTree = "<group>"; };
 		690D4836B59F77E01D9326D4 /* NetworkBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkBenchmark.swift; sourceTree = "<group>"; };
 		706045AC87F69577059E617E /* Walkieware.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Walkieware.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7BB854B6224E9C6EC2FC901D /* WalkiewareTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkiewareTheme.swift; sourceTree = "<group>"; };
 		92FF8B832524B3AC4D8291F7 /* WalkiewareUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = WalkiewareUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C614C7FAFB7C430BF574D1B9 /* PlaybackCaption.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackCaption.swift; sourceTree = "<group>"; };
 		CBA7AE20BF7B4A303BD2F09A /* WalkiewareApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkiewareApp.swift; sourceTree = "<group>"; };
 		D40BA9A3C78CC0324903812B /* WorkspaceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceCoordinator.swift; sourceTree = "<group>"; };
 		E8E12122840B2375C0AB2ED0 /* VersionNarrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionNarrator.swift; sourceTree = "<group>"; };
@@ -78,10 +86,12 @@
 			isa = PBXGroup;
 			children = (
 				45F6D30D7883EC26BF391CC7 /* AudioBenchmark.swift */,
+				654A6A5F8172661179904170 /* CodeTicker.swift */,
 				49B317E893F3D8506A3F246D /* InputButtonLabels.swift */,
 				1A7C5768F0EE9F4A8A288767 /* MusicalInput.swift */,
 				FF403AD7661862BCAC9B2F95 /* NativeScreenFixture.swift */,
 				690D4836B59F77E01D9326D4 /* NetworkBenchmark.swift */,
+				C614C7FAFB7C430BF574D1B9 /* PlaybackCaption.swift */,
 				50D5B994181BB8DD173DBA13 /* PlaybackWord.swift */,
 				35720E8232DBFB5B795FBEEA /* RecordingTrim.swift */,
 				06F16D0B24CA61442FFD0E27 /* SequenceBenchmark.swift */,
@@ -89,6 +99,7 @@
 				E8E12122840B2375C0AB2ED0 /* VersionNarrator.swift */,
 				F3EC37299741D5E90E45EE5F /* WalkiewareAccount.swift */,
 				CBA7AE20BF7B4A303BD2F09A /* WalkiewareApp.swift */,
+				03D832B5A1A03E760A43BBF8 /* WalkiewareHeader.swift */,
 				220B6400DBD8900B5058A7F0 /* WalkiewareScreen.swift */,
 				7BB854B6224E9C6EC2FC901D /* WalkiewareTheme.swift */,
 				D40BA9A3C78CC0324903812B /* WorkspaceCoordinator.swift */,
@@ -99,6 +110,7 @@
 		8FD6F530EA415417DBA563F3 /* UITests */ = {
 			isa = PBXGroup;
 			children = (
+				67B2C6F3854EDC996115B080 /* HeaderSheetsTests.swift */,
 				3EA4916078A47F08CDF99B5E /* SwipeToTypeTests.swift */,
 			);
 			path = UITests;
@@ -231,6 +243,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8CD6B532DB3A5B03BC35EEDD /* HeaderSheetsTests.swift in Sources */,
 				3D181C343F0CF5296E1C4035 /* SwipeToTypeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -240,11 +253,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				97AB97086118FC695F4B2133 /* AudioBenchmark.swift in Sources */,
+				5FD9722A7E3D5329D7B1E770 /* CodeTicker.swift in Sources */,
 				0DAF293EA0DCA59330C836C6 /* InputButtonLabels.swift in Sources */,
 				99B11F258C6DD8DEAD32A419 /* MusicalInput.swift in Sources */,
 				C57CC34DE256A25EDF176C4A /* NativeScreenFixture.swift in Sources */,
 				F9A4BC365780D687A6B8CADB /* NativeSignIn.swift in Sources */,
 				349E23AC69F23D16290DCB48 /* NetworkBenchmark.swift in Sources */,
+				465DCE826B91CD18CE48CEF7 /* PlaybackCaption.swift in Sources */,
 				09A89EDEB03772B566D345A9 /* PlaybackWord.swift in Sources */,
 				91EBE2405BCB456959613E70 /* RecordingTrim.swift in Sources */,
 				7EC06C94440CDAF9B846F0BB /* SequenceBenchmark.swift in Sources */,
@@ -252,6 +267,7 @@
 				27410D22F96D8006B6D29452 /* VersionNarrator.swift in Sources */,
 				28DE33D8B94B853B408571A1 /* WalkiewareAccount.swift in Sources */,
 				FC34834B44AA5AF9FDB73AC0 /* WalkiewareApp.swift in Sources */,
+				6380DEC1F53B213D184FD656 /* WalkiewareHeader.swift in Sources */,
 				3BF2B70E0C018C0D43C0134A /* WalkiewareScreen.swift in Sources */,
 				4EDE3317EA5C40F16CB7E32A /* WalkiewareTheme.swift in Sources */,
 				E0B6A4DB98A5C44344C74589 /* WorkspaceCoordinator.swift in Sources */,
@@ -374,7 +390,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 71;
+				CURRENT_PROJECT_VERSION = 77;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -441,7 +457,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 71;
+				CURRENT_PROJECT_VERSION = 77;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_NS_ASSERTIONS = NO;

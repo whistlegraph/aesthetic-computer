@@ -80,17 +80,7 @@ struct WalkiewareScreen: View {
     var body: some View {
         VStack(spacing: session.layout.spacing) {
             HStack {
-                Menu {
-                    Button("New piece", systemImage: "plus") { narrator.stop(); showComposer = false; session.command("newPiece") }.disabled(session.snapshot.busy || session.capturePhase != .idle) 
-                    Picker("Appearance", selection: $appearance) {
-                        Text("System").tag("system")
-                        Text("Light").tag("light")
-                        Text("Dark").tag("dark")
-                    }
-                    Button(session.snapshot.handle.isEmpty ? "Sign in" : "@" + session.snapshot.handle, systemImage: "person") { session.command("signIn") }
-                } label: {
-                    ComicTitle(text: identity, colors: session.snapshot.colors, size: session.layout.titleSize)
-                }.accessibilityLabel(identity + ", settings").accessibilityIdentifier("workspace-settings")
+                IdentityHeader(session: session, appearance: $appearance, size: session.layout.historySize) { narrator.stop(); showComposer = false }
                 Spacer()
                 Button {
                     showComposer = false

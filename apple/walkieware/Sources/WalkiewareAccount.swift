@@ -25,6 +25,10 @@ import UIKit
         }
         return tokens.accessToken
     }
+    /// Forgets the stored sign-in. The thread history stays on the device.
+    func signOut() {
+        SecItemDelete(key as CFDictionary)
+    }
     private func save(_ tokens: NativeSignIn.Tokens) throws {
         let data = try JSONEncoder().encode(tokens)
         let update = [kSecValueData as String: data]

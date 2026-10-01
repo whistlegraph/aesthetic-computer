@@ -779,5 +779,71 @@
    "AcServer tests passed"
   ],
   "limits": "Needs a lith deploy before the phone benefits; the deployed relay drops the field. Live re-measure owed after deploy."
+ },
+ "selectorAndTicker": {
+  "build": 74,
+  "installedAndLaunched": true,
+  "features": [
+   "One-line code ticker in pending status row",
+   "Fixed top selector with animated taps and progressive row fading",
+   "Hidden internal v0 in history and playback",
+   "Header uses same size as version labels",
+   "Fullscreen preview border and full utterance caption with synchronized word emphasis"
+  ],
+  "validation": [
+   "Device build passed",
+   "Native scroll and fullscreen playback tests both passed (22.4 seconds total)",
+   "Timestamp and repeated-word highlight checks passed",
+   "Normal selector screenshot visually inspected"
+  ],
+  "limits": [
+   "Tap animation timing not measured in native test",
+   "Code ticker manually inspected in source; no generation screenshot this turn"
+  ]
+ },
+ "narrationAndFrog": {
+  "build": 76,
+  "installed": true,
+  "validation": [
+   "Caption browser test passed with mocked speech callbacks",
+   "Disk worker bundle rebuilt",
+   "Device build passed",
+   "wwGikur original code: 1760 non-finite drawing calls over 160 frames; repaired: zero",
+   "Guarded wwGikur repair accepted as v2, no runtime errors reported"
+  ],
+  "limits": [
+   "Web speech voices and word boundary availability depend on browser/device",
+   "Cloud captions have utterance text, not word alignment",
+   "No physical-device audible narration check",
+   "wwTovoz monitored through v10; existing narrator request is still implemented as text, not speech in its saved source"
+  ]
+ },
+ "headerSheets": {
+  "build": 77,
+  "installed": true,
+  "behavior": "Top-left identity split: tapping @handle opens an Account sheet (handle, appearance picker, Sign out with confirmation; Sign in when signed out); tapping /code opens a Pieces sheet listing every piece on the phone (code, last utterance, version count, relative time) with New piece. Opening another piece archives the current one (ledger, source, thread identity, cloud sync state) and restores the chosen archive, then reloads.",
+  "validation": [
+   "Simulator build passed",
+   "native-bridge browser test passed (32 local edits, recovery, layout tokens)",
+   "Device build passed; installed on the iPhone 14 Pro Max (launch blocked: phone locked)",
+   "HeaderSheetsTests UI test: see headerSheetsUITest"
+  ],
+  "limits": "Sign out keeps pieces on the phone; a signed-out device cannot make versions. Archived pieces live in localStorage only."
+ },
+ "busyFixture": {
+  "build": 77,
+  "mode": "WALKIE_NATIVE_SCREEN_FIXTURE=working",
+  "behavior": "Simulator-only fixture holds the pending row open with streamed code and a working attempt so the busy UI (spinner, code ticker, kidlisp stop disc) can be screenshot without a model or account.",
+  "validation": [
+   "Screenshot reviewed: pending row with stop disc above v3/v2/v1 in the working theme"
+  ]
+ },
+ "releaseTail": {
+  "build": 77,
+  "change": "Release tail 0.25 s \u2192 0.45 s within the 8 s budget; when recognition does not finalize in 3 s the partial transcript is delivered instead of failing with \"Speech didn\u2019t finish transcribing\".",
+  "validation": [
+   "Device build passed"
+  ],
+  "limits": "Not yet auditioned by voice on the phone this turn."
  }
 }

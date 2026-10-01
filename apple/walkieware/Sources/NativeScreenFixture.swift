@@ -6,7 +6,7 @@ enum NativeScreenFixture {
     static var mode: String { ProcessInfo.processInfo.environment["WALKIE_NATIVE_SCREEN_FIXTURE"] ?? "" }
     static var enabled: Bool {
         #if targetEnvironment(simulator)
-        return ["history", "recording", "gestures"].contains(mode)
+        return ["history", "recording", "gestures", "working"].contains(mode)
         #else
         return false
         #endif
@@ -25,7 +25,8 @@ enum NativeScreenFixture {
         ]
         let ledger: [String: Any] = ["format": 1, "head": 3, "versions": versions]
         let json = String(data: try! JSONSerialization.data(withJSONObject: ledger), encoding: .utf8)!
-        return "window.__walkiewareDisableThread=true;localStorage.setItem('walkieware-source-versions',JSON.stringify(\(json)));localStorage.setItem('walkieware-source',\(json).versions[3].source);"
+        let busy = mode == "working" ? "window.__walkiewareFixtureBusy='Someone is eating them';" : ""
+        return busy + "window.__walkiewareDisableThread=true;localStorage.setItem('walkieware-source-versions',JSON.stringify(\(json)));localStorage.setItem('walkieware-source',\(json).versions[3].source);"
     }
 }
 #endif

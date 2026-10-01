@@ -173,15 +173,18 @@ final class WalkiewareSession: NSObject, ObservableObject, WKScriptMessageHandle
     @Published var narratedFrame = 0
     var narratedVersion: Int?
     @Published var workspaceReady = false
+    @Published var pieces: [PieceSummary] = []
 
-    func command(_ action: String, version: Int? = nil, text: String? = nil) {
-        guard ["checkout", "newPiece", "stop", "signIn", "ask", "retry", "presentVersion", "endPresentation"].contains(action) else { return }
-        if action == "newPiece" {
+    func command(_ action: String, version: Int? = nil, text: String? = nil, piece: String? = nil) {
+        guard ["checkout", "newPiece", "openPiece", "stop", "signIn", "ask", "retry", "presentVersion", "endPresentation"].contains(action) else { return }
+        if action == "newPiece" || action == "openPiece" {
             guard engineReady, !snapshot.busy, capturePhase == .idle else { return }
+            if action == "openPiece" { guard let piece, pieces.contains(where: { $0.id == piece && !$0.current }) else { return } }
             previewSource = ""; engineReady = false
         }
         var value: [String: Any] = ["action": action]
         if let version { value["version"] = version }
+        if action == "openPiece", let piece { value["piece"] = piece }
         if action == "ask" {
             guard engineReady, !snapshot.busy, capturePhase == .idle, let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, text.count <= 96 else { return }
             value["text"] = text
@@ -194,6 +197,12 @@ final class WalkiewareSession: NSObject, ObservableObject, WKScriptMessageHandle
         webView?.evaluateJavaScript("voiceStart()")
     }
     func endHold() { webView?.evaluateJavaScript("voiceEnd()") }
+    /// Drops the Keychain sign-in and tells the engine, which parks its sockets.
+    func signOut() {
+        guard capturePhase == .idle else { return }
+        account.signOut()
+        emitEngine(["kind": "account", "token": ""])
+    }
     func cancelHold() { webView?.evaluateJavaScript("voiceEnd(true)"); cancel() }
 
     @Published var startupFailure: String?
@@ -304,11 +313,23 @@ final class WalkiewareSession: NSObject, ObservableObject, WKScriptMessageHandle
                 next.handle = "preview"; next.code = "wwDemo"
                 next.colors = [[220,180,255],[150,150,255],[255,170,80],[90,220,140],[90,215,210],[200,140,255],[255,140,210],[150,225,90]]
                 if !engineReady && NativeScreenFixture.mode == "recording" { capturePhase = .recording; captureStarted = Date(); transcript = "Make the moon bounce like this…" }
+                // The fixture runs without a cloud thread, so the engine posts no
+                // piece list; seed one so the pieces sheet can be exercised.
+                if pieces.isEmpty {
+                    let formatter = ISO8601DateFormatter()
+                    pieces = [PieceSummary(id: "fixture", code: "wwDemo", utterance: "Add a little moon", versions: 3, updatedAt: formatter.string(from: Date().addingTimeInterval(-30)), current: true),
+                              PieceSummary(id: "fixture-pond", code: "wwPond", utterance: "A frog on a lily pad", versions: 5, updatedAt: formatter.string(from: Date().addingTimeInterval(-5400)), current: false)]
+                }
             }
             #endif
             snapshot = next; engineReady = true
         case "voiceIdle":
             capturePhase = .idle; captureStarted = nil
+        case "pieces":
+            guard let value = body["pieces"] as? [[String: Any]], value.count <= 256,
+                  let data = try? JSONSerialization.data(withJSONObject: value),
+                  let next = try? JSONDecoder().decode([PieceSummary].self, from: data) else { return }
+            pieces = next
 
         case "threadStatus":
             if let code = body["code"] as? String, let status = body["status"] as? String {
@@ -499,9 +520,10 @@ final class WalkiewareSession: NSObject, ObservableObject, WKScriptMessageHandle
         held = false
         AudioBenchmark.mark("releaseReceived")
         guard request != nil else { cancel(); return }
-        // Capture a short release tail, within the eight-second recording budget.
+        // Capture a release tail, within the eight-second recording budget. A
+        // thumb lifts a beat before the last word lands; 0.25 s clipped endings.
         let elapsed = captureStarted.map { Date().timeIntervalSince($0) } ?? 8
-        let tail = min(0.25, max(0, 8 - elapsed))
+        let tail = min(0.45, max(0, 8 - elapsed))
         emit("processing")
         finishing?.cancel()
         let id = turn
@@ -513,13 +535,12 @@ final class WalkiewareSession: NSObject, ObservableObject, WKScriptMessageHandle
             AudioBenchmark.mark("audioDrained")
             if self.recognitionFinal { self.deliver(); return }
             // endAudio lets recognition consume every queued buffer and finalize.
+            // If it never does, the partial transcript is still the person's
+            // words: send what was heard rather than throw the utterance away.
             try? await Task.sleep(for: .seconds(3))
             guard !Task.isCancelled, self.turn == id, !self.delivering else { return }
-            if self.latest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                self.deliver() // Preserve nonverbal musical input.
-            } else {
-                self.fail("Speech didn’t finish transcribing. Please try again.")
-            }
+            AudioBenchmark.mark("recognitionTimedOut", fields: ["recognizedCharacters": self.latest.count])
+            self.deliver()
         }
     }
 

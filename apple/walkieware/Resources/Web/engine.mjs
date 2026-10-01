@@ -99,6 +99,7 @@ function jumpVersion(id) {
   render(source||'export function paint({wipe}) {wipe("black");}');review(false);phase('');
 }
 setInterval(()=>document.querySelectorAll('#version-feed time').forEach(t=>t.textContent=relativeTime(t.dateTime)),15000);
+let postPieces=()=>{};
 let nativeTimer=null,nativeLedger=null,nativeRevisions=[],nativeLast='',captionSource=null,caption='';
 function nativeSnapshot(){
   if(!window.__walkiewareNativeShell||nativeTimer)return;
@@ -113,6 +114,7 @@ function nativeSnapshot(){
     const serialized=JSON.stringify(snapshot);if(serialized===nativeLast&&!historyChanged)return;nativeLast=serialized;
     if(historyChanged)snapshot.versions=nativeRevisions;
     post({action:'snapshot',snapshot});
+    if(historyChanged)postPieces();
   },80);
 }
 window.walkiewareNativeCommand=command=>{
@@ -124,6 +126,7 @@ window.walkiewareNativeCommand=command=>{
   }
   if(command.action==='endPresentation'){presentedVersion=null;narrationPending=null;render(source);nativeSnapshot();}
   if(command.action==='newPiece'&&!busy)window.walkiewareNewPiece?.();
+  if(command.action==='openPiece'&&!busy&&typeof command.piece==='string')window.walkiewareOpenPiece?.(command.piece);
   if(command.action==='retry'&&!busy)void resumeAttempt(true);
   if(command.action==='stop')$('live-stop').click();
   if(command.action==='signIn')post({action:'signIn'});
@@ -366,6 +369,14 @@ if(versions&&['working','failed','interrupted'].includes(lastAttempt?.status)){
     localStorage.removeItem(storageKey+'-inflight');lastAttempt={...lastAttempt,status:'completed',error:''};
   }else if(lastAttempt.status==='working'){lastAttempt={...lastAttempt,status:'interrupted',error:'Interrupted before finishing'};}
 }
+// Simulator fixture: hold the pending row open with streamed code so the busy
+// state can be screenshot without a model or an account. Never leaves DEBUG.
+if(typeof window.__walkiewareFixtureBusy==='string'){
+  busy=true;ui.hidden=false;document.body.classList.add('live-mode','live-preview');
+  lastAttempt={request:window.__walkiewareFixtureBusy,parent:versions?.head.id??0,status:'working',startedAt:new Date().toISOString()};
+  outputStream='export function paint({ wipe, ink, circle, screen }) {\n  wipe("#151838");\n  ink("#4653c6");\n  circle(screen.width / 2, screen.height / 2, 40, true);';
+  $('live-code').textContent=outputStream;phase('Writing…');$('live-stop').hidden=false;review(false);
+}
 updateFeed();
 if(versions&&!window.__walkiewareSequence&&!window.__walkiewareBenchmark&&!window.__walkiewareDisableThread) {
   const label=codeLabel;label.setAttribute('aria-live','polite');
@@ -399,12 +410,44 @@ if(versions&&!window.__walkiewareSequence&&!window.__walkiewareBenchmark&&!windo
   const newPiece=document.createElement('button');newPiece.textContent='New piece';newPiece.style.cssText='font:24px Comic,Arial;padding:14px';
   newPiece.onclick=window.walkiewareNewPiece=()=>{
     if(busy)return;
-    const archive='walkieware-archive-'+thread.identity.id;
-    localStorage.setItem(archive,JSON.stringify({identity:thread.identity,ledger:versions.value,source}));
-    thread.suspend();
-    for(const suffix of ['', '-versions','-thread','-cloud-revision','-cloud-ledger','-attempt','-inflight'])localStorage.removeItem(storageKey+suffix);
+    archiveCurrentPiece();
     location.reload();
   };
+  // Every piece on this phone: the open one plus the archives "New piece" left.
+  // Opening another swaps archives, so the current one is never lost.
+  const ARCHIVE='walkieware-archive-',ARCHIVE_SUFFIXES=['-cloud-revision','-cloud-ledger'];
+  function archiveCurrentPiece(){
+    const extras={};for(const suffix of ARCHIVE_SUFFIXES){const v=localStorage.getItem(storageKey+suffix);if(v!==null)extras[suffix]=v;}
+    localStorage.setItem(ARCHIVE+thread.identity.id,JSON.stringify({identity:thread.identity,ledger:versions.value,source,extras,archivedAt:new Date().toISOString()}));
+    thread.suspend();
+    for(const suffix of ['', '-versions','-thread','-cloud-revision','-cloud-ledger','-attempt','-inflight'])localStorage.removeItem(storageKey+suffix);
+  }
+  function pieceSummary(id,identity,ledger,current){
+    const made=(ledger?.versions||[]).filter(v=>v.id>0),last=made.at(-1);
+    return {id,code:identity?.code||'',utterance:last?utterance(last.request).slice(0,160):'',versions:made.length,updatedAt:last?.createdAt||made[0]?.createdAt||'',current};
+  }
+  function pieceList(){
+    const list=[pieceSummary(thread.identity.id,thread.identity,versions.value,true)];
+    for(let i=0;i<localStorage.length;i++){
+      const key=localStorage.key(i);if(!key?.startsWith(ARCHIVE))continue;
+      try{const saved=JSON.parse(localStorage.getItem(key));if(saved?.identity?.id&&saved.identity.id!==thread.identity.id)list.push(pieceSummary(saved.identity.id,saved.identity,saved.ledger,false));}catch{}
+    }
+    return list.sort((a,b)=>(b.current-a.current)||(Date.parse(b.updatedAt)||0)-(Date.parse(a.updatedAt)||0)).slice(0,256);
+  }
+  postPieces=()=>post({action:'pieces',pieces:pieceList()});
+  window.walkiewareOpenPiece=id=>{
+    if(busy||id===thread.identity.id)return;
+    let saved;try{saved=JSON.parse(localStorage.getItem(ARCHIVE+id));}catch{}
+    if(!saved?.identity?.id||!saved.ledger){phase('That piece is no longer on this phone');postPieces();return;}
+    archiveCurrentPiece();
+    localStorage.setItem(storageKey,saved.source||'');
+    localStorage.setItem(storageKey+'-versions',JSON.stringify(saved.ledger));
+    localStorage.setItem(storageKey+'-thread',JSON.stringify(saved.identity));
+    for(const [suffix,value] of Object.entries(saved.extras||{}))localStorage.setItem(storageKey+suffix,value);
+    localStorage.removeItem(ARCHIVE+id);
+    location.reload();
+  };
+  postPieces();
   $('info').append(newPiece);
 }
 post({action:'account'});
