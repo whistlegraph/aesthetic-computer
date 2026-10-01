@@ -937,5 +937,16 @@
   "before": "15959\u201323740 ms total, 11.8\u201323.6 s to first code, 2.3K\u20138.1K thinking tokens",
   "quality": "Both runs animate the eating (bobbing hand; berries popping on a clock). Thinking-on runs were a little richer (a chomping critter); the trade is 3\u20135\u00d7 faster visible iteration.",
   "build": 79
+ },
+ "aboutLineAndCultureRule": {
+  "build": 82,
+  "case": "wwTovoz v8 (3D tree, singing treecreeper, narrator field notes) + \"The tree is Latina\" \u2014 the real miss from 2026-09-30 23:50, replayed through the production relay with thinking off",
+  "results": {
+   "plain (no about-line)": "3/3 translated the field notes to Spanish; 0/3 changed the tree",
+   "about-line only": "3/3 still translated (one recast the tree as a speaking ceiba); 0/3 visual",
+   "about-line + culture-adjective rule": "0/3 translated; 2/3 changed the tree visually (a palm; a flowering araucaria on a Latin American hillside); 1/3 instead added the English narration v8 had asked for"
+  },
+  "kept": "Both: the piece keeps `export const caption` and every request opens with it; adjectives of culture/nationality/place describe how things look, never the language of text or speech unless words, text, language or voice are mentioned.",
+  "limits": "Three runs per arm; the about-line alone did not move this case, its value is for follow-ups with no noun (\"make her bigger\"). Judged by diff, not rendered frames."
  }
 }
