@@ -3100,8 +3100,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         for a in changes {
             let escTty = esc(a.tty)
             tm.append("          if ttyName ends with \"\(escTty)\" then")
+            tm.append("            set _slabMigrated to false")
             tm.append("            if name of current settings of t is not \"\(TerminalReadability.profileName)\" then")
+            tm.append("              set _slabOldFont to font name of current settings of t")
+            tm.append("              set _slabOldSize to font size of current settings of t")
             tm.append("              set current settings of t to slabSS")
+            tm.append("              set _slabMigrated to true")
             tm.append("            end if")
             for (property, color) in [("background color", a.palette.bg),
                                        ("normal text color", a.palette.text),
@@ -3109,6 +3113,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                        ("cursor color", a.palette.cursor)] {
                 if let color { tm.append("            set \(property) of t to \(rgbStr(color))") }
             }
+            // Setting tab colors creates its private profile copy. Preserve
+            // the live font there, including Monaspace on older seeded tabs.
+            tm.append("            if _slabMigrated then")
+            tm.append("              set font name of current settings of t to _slabOldFont")
+            tm.append("              set font size of current settings of t to _slabOldSize")
+            tm.append("            end if")
             if a.title.isEmpty {
                 tm.append("            set title displays custom title of t to false")
             } else {
