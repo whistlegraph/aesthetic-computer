@@ -6,7 +6,16 @@ import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 const run = promisify(execFile);
 export const CHROME_MODAL_SCRIPT = `
-const chrome=Application('System Events').processes.byName('Google Chrome');
+const processes=Application('System Events').processes;
+// Name-based JXA specifiers can resolve two Chrome instances to the first PID.
+// Read the collections in batches, then retain an indexed, PID-checked reference.
+const processNames=processes.name(),processIds=processes.unixId();
+const chromes=[];
+for(let index=0;index<processNames.length;index++)if(processNames[index]==='Google Chrome'){
+ const chrome=processes[index];
+ if(chrome.unixId()!==processIds[index])throw Error('Chrome process list changed');
+ chromes.push({chrome,pid:processIds[index]});
+}
 const hits=[];
 function text(e){const a=[];for(const k of ['name','description','value'])try{const v=String(e[k]());if(v&&v!=='undefined')a.push(v);}catch{}return [...new Set(a)].join(' ').slice(0,1000);}
 function walk(e,depth){
@@ -31,17 +40,17 @@ function walk(e,depth){
  }
  return {texts,buttons,modal};
 }
-let windowIndex=0;
+for(const {chrome,pid} of chromes){let windowIndex=0;
 for(const w of chrome.windows()){const start=hits.length;let sheets=[];try{sheets=w.sheets();}catch{}
  // Chrome can retain off-screen AX group copies of expired consent dialogs.
  // A real attached sheet is the active blocking surface; inspect it first.
- for(const root of sheets.length?sheets:[w])walk(root,0);for(const h of hits.slice(start))h.windowIndex=windowIndex;windowIndex++;}
+ for(const root of sheets.length?sheets:[w])walk(root,0);for(const h of hits.slice(start)){h.windowIndex=windowIndex;h.browserPid=pid;}windowIndex++;}}
 // Chrome may expose the same sheet both below its window and as a window.
 const uniqueHits=[];const seen=new Set(),physical=new Set();
 for(const h of hits){let position=null;try{position=h.element.position();}catch{}
  // Chrome can report duplicate sheet positions during a native relayout.
- const key=JSON.stringify([h.windowIndex,h.kind,h.title,h.buttons,h.kind==='remote-debugging'?null:position]);
- const physicalKey=JSON.stringify([h.kind,h.title,h.buttons,position]);
+ const key=JSON.stringify([h.browserPid,h.windowIndex,h.kind,h.title,h.buttons,h.kind==='remote-debugging'?null:position]);
+ const physicalKey=JSON.stringify([h.browserPid,h.kind,h.title,h.buttons,position]);
  if(!seen.has(key)&&!physical.has(physicalKey))uniqueHits.push(h);
  seen.add(key);physical.add(physicalKey);
 }
@@ -58,10 +67,15 @@ export async function readNativeModalScan(execute){
   return hits;
  }
 }
+export function nativeModalActionTail(action,expected) {
+ if(!['remote-debugging','automation-banner'].includes(action)||!Number.isInteger(expected?.browserPid)||expected.browserPid<=0)
+  throw Error('Native modal action requires a recognized kind and Chrome PID');
+ return `const h=uniqueHits.filter(h=>h.kind===${JSON.stringify(action)}&&h.browserPid===${JSON.stringify(expected.browserPid)});if(h.length!==1||!h[0].element)throw Error('Modal changed or action ambiguous');if(JSON.stringify([h[0].kind,h[0].title,[...h[0].buttons].sort()])!==${JSON.stringify(JSON.stringify([expected.kind,expected.title,[...expected.buttons].sort()]))})throw Error('Modal fingerprint changed');h[0].element.click();JSON.stringify(true);`;
+}
 async function native(action,expected) {
  const tail=action
-  ? `const h=uniqueHits.filter(h=>h.kind===${JSON.stringify(action)});if(h.length!==1||!h[0].element)throw Error('Modal changed or action ambiguous');if(JSON.stringify([h[0].kind,h[0].title,[...h[0].buttons].sort()])!==${JSON.stringify(JSON.stringify(expected?[expected.kind,expected.title,[...expected.buttons].sort()]:null))})throw Error('Modal fingerprint changed');h[0].element.click();JSON.stringify(true);`
-  : `JSON.stringify(uniqueHits.map(({kind,title,buttons})=>({kind,title,buttons})));`;
+  ? nativeModalActionTail(action,expected)
+  : `JSON.stringify(uniqueHits.map(({kind,title,buttons,browserPid})=>({kind,title,buttons,browserPid})));`;
  const execute=()=>run('/usr/bin/osascript',['-l','JavaScript','-e',CHROME_MODAL_SCRIPT+tail],{timeout:30000,maxBuffer:128*1024});
  // Never replay a click. Only retry a read-only scan with an empty response.
  if(!action)return readNativeModalScan(execute);

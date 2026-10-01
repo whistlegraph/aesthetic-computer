@@ -1,0 +1,1787 @@
+{
+  "at": "2026-10-01T20:31:39.887Z",
+  "model": "gpt-6-astra",
+  "reasoning": "high",
+  "upstream": {
+    "name": "MiniWoB++",
+    "revision": "33c3b4ddef8c6eb67c57a29663d844b1eda7e614"
+  },
+  "methodology": "MiniWoB upstream tasks, seeds 101/202, 120-second episode budget, max four trusted clicks. Full rendered-DOM+controls versus controls-only observation. Same planner and current goal/history. Context arm adds selected state and last three verified clicks to Jev, then falls back to the same planner. A post-action observation checks for an effect before retaining history. Exact fixture target, live geometry and label rechecked before clicks. Reward globals read only by evaluator. Not an official MiniWoB score. Model calls use a fresh Codex CLI process; timings include startup and network.",
+  "summaries": {
+    "full": {
+      "episodes": 6,
+      "passed": 6,
+      "steps": 9,
+      "jevAccepted": 0,
+      "largeModelCalls": 9,
+      "totalMs": 62057.41,
+      "observation": {
+        "samples": 9,
+        "medianMs": 4.95,
+        "p95Ms": 7.09
+      },
+      "jev": null,
+      "planner": {
+        "samples": 9,
+        "medianMs": 5905.23,
+        "p95Ms": 11112.21
+      },
+      "clickAndScore": {
+        "samples": 9,
+        "medianMs": 15.86,
+        "p95Ms": 57.29
+      }
+    },
+    "compact": {
+      "episodes": 6,
+      "passed": 6,
+      "steps": 10,
+      "jevAccepted": 0,
+      "largeModelCalls": 10,
+      "totalMs": 65850.24,
+      "observation": {
+        "samples": 10,
+        "medianMs": 6.0,
+        "p95Ms": 19.11
+      },
+      "jev": null,
+      "planner": {
+        "samples": 10,
+        "medianMs": 6005.21,
+        "p95Ms": 9582.05
+      },
+      "clickAndScore": {
+        "samples": 10,
+        "medianMs": 19.73,
+        "p95Ms": 24.72
+      }
+    },
+    "compact-jev": {
+      "episodes": 6,
+      "passed": 6,
+      "steps": 9,
+      "jevAccepted": 2,
+      "largeModelCalls": 7,
+      "totalMs": 46236.05,
+      "observation": {
+        "samples": 9,
+        "medianMs": 4.93,
+        "p95Ms": 7.95
+      },
+      "jev": {
+        "samples": 9,
+        "medianMs": 213.23,
+        "p95Ms": 364.15
+      },
+      "planner": {
+        "samples": 7,
+        "medianMs": 6086.99,
+        "p95Ms": 7062.43
+      },
+      "clickAndScore": {
+        "samples": 9,
+        "medianMs": 15.91,
+        "p95Ms": 37.09
+      }
+    },
+    "compact-jev-context": {
+      "episodes": 6,
+      "passed": 6,
+      "steps": 9,
+      "jevAccepted": 3,
+      "largeModelCalls": 6,
+      "totalMs": 46472.03,
+      "observation": {
+        "samples": 9,
+        "medianMs": 4.24,
+        "p95Ms": 8.11
+      },
+      "jev": {
+        "samples": 9,
+        "medianMs": 252.97,
+        "p95Ms": 443.53
+      },
+      "planner": {
+        "samples": 6,
+        "medianMs": 6764.47,
+        "p95Ms": 10621.16
+      },
+      "clickAndScore": {
+        "samples": 9,
+        "medianMs": 17.72,
+        "p95Ms": 27.15
+      }
+    }
+  },
+  "pairs": [
+    {
+      "task": "click-button",
+      "seed": 101,
+      "identicalInitialObservations": true
+    },
+    {
+      "task": "click-button",
+      "seed": 202,
+      "identicalInitialObservations": true
+    },
+    {
+      "task": "click-dialog-2",
+      "seed": 101,
+      "identicalInitialObservations": true
+    },
+    {
+      "task": "click-dialog-2",
+      "seed": 202,
+      "identicalInitialObservations": true
+    },
+    {
+      "task": "click-tab-2",
+      "seed": 101,
+      "identicalInitialObservations": true
+    },
+    {
+      "task": "click-tab-2",
+      "seed": 202,
+      "identicalInitialObservations": true
+    }
+  ],
+  "chooserHashes": {
+    "baseline": "fb091d84600f0f503f96dcb9dfda43b8307c37e5527677a7f16f4dd1b9f07873",
+    "context": "c11ff9993a6bd374ec6775f2677f071e3ee9cceeb0fac2c43fee9a11a3d8dcbf"
+  },
+  "limits": [
+    "Six episodes per arm; sequential batches, not evidence of a general speedup.",
+    "Actual Puppet HTTP MCP and resident CDP on an existing Chrome profile. Observer is the experimental rendered-DOM adapter, not production Accessibility collection.",
+    "Planner timings include a fresh Codex CLI process and network. Jev timings include network; 0.9 confidence gate and 1.5s deadline unchanged.",
+    "Context arm changes chooser instructions as well as state/history; their individual effects are not isolated.",
+    "Context arm adds a post-action observation before recording a verified action; clickAndScore excludes that extra observation, totalMs includes it.",
+    "Evaluator reward state never enters model prompts. No native Frame timing or Codex built-in browser comparison in these arms.",
+    "The local exploratory runners and fixture server remain outside the repository; this artifact preserves measurements, not a portable live benchmark."
+  ],
+  "samples": [
+    {
+      "task": "click-button",
+      "seed": 101,
+      "mode": "full",
+      "steps": [
+        {
+          "observationMs": 4.7725410000000466,
+          "observationChars": 252,
+          "candidateCount": 2,
+          "goal": "Click on the \"Okay\" button.",
+          "modelCalls": 1,
+          "planner": {
+            "choice": "c2",
+            "ms": 6161.009083,
+            "usage": {
+              "input_tokens": 9419,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 16,
+              "reasoning_output_tokens": 0
+            },
+            "promptChars": 699
+          },
+          "actionVerifyMs": 9.870832999999948,
+          "selected": {
+            "id": "c2",
+            "label": "Okay",
+            "role": "button"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.9485
+          }
+        }
+      ],
+      "passed": true,
+      "initialHash": "4ebfc7d24013bc4aa44895f23350cad2dfbb1873d8b25585e95408b4e891cc6d",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.9485
+      },
+      "elapsedMs": 6399.302916000001
+    },
+    {
+      "task": "click-button",
+      "seed": 101,
+      "mode": "compact",
+      "steps": [
+        {
+          "observationMs": 6.568624999999884,
+          "observationChars": 47,
+          "candidateCount": 2,
+          "goal": "Click on the \"Okay\" button.",
+          "modelCalls": 1,
+          "planner": {
+            "choice": "c2",
+            "ms": 5548.033,
+            "usage": {
+              "input_tokens": 9356,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 16,
+              "reasoning_output_tokens": 0
+            },
+            "promptChars": 494
+          },
+          "actionVerifyMs": 16.99212499999885,
+          "selected": {
+            "id": "c2",
+            "label": "Okay",
+            "role": "button"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.9535
+          }
+        }
+      ],
+      "passed": true,
+      "initialHash": "4ebfc7d24013bc4aa44895f23350cad2dfbb1873d8b25585e95408b4e891cc6d",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.9535
+      },
+      "elapsedMs": 5752.361207999999
+    },
+    {
+      "task": "click-button",
+      "seed": 202,
+      "mode": "compact",
+      "steps": [
+        {
+          "observationMs": 6.125082999998995,
+          "observationChars": 83,
+          "candidateCount": 4,
+          "goal": "Click on the \"ok\" button.",
+          "modelCalls": 1,
+          "planner": {
+            "choice": "c2",
+            "ms": 5012.653041,
+            "usage": {
+              "input_tokens": 9368,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 16,
+              "reasoning_output_tokens": 0
+            },
+            "promptChars": 528
+          },
+          "actionVerifyMs": 14.050999999999476,
+          "selected": {
+            "id": "c2",
+            "label": "ok",
+            "role": "button"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.95805
+          }
+        }
+      ],
+      "passed": true,
+      "initialHash": "17ba7b274694c6d0f5a9be1097cc714c92e4ff2988e64d7f2255a25438659392",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.95805
+      },
+      "elapsedMs": 5241.367292000001
+    },
+    {
+      "task": "click-button",
+      "seed": 202,
+      "mode": "full",
+      "steps": [
+        {
+          "observationMs": 3.331833000000188,
+          "observationChars": 274,
+          "candidateCount": 4,
+          "goal": "Click on the \"ok\" button.",
+          "modelCalls": 1,
+          "planner": {
+            "choice": "c2",
+            "ms": 5004.153291999999,
+            "usage": {
+              "input_tokens": 9432,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 16,
+              "reasoning_output_tokens": 0
+            },
+            "promptChars": 719
+          },
+          "actionVerifyMs": 11.90754200000083,
+          "selected": {
+            "id": "c2",
+            "label": "ok",
+            "role": "button"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.9572083333333333
+          }
+        }
+      ],
+      "passed": true,
+      "initialHash": "17ba7b274694c6d0f5a9be1097cc714c92e4ff2988e64d7f2255a25438659392",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.9572083333333333
+      },
+      "elapsedMs": 5296.05025
+    },
+    {
+      "task": "click-dialog-2",
+      "seed": 101,
+      "mode": "full",
+      "steps": [
+        {
+          "observationMs": 4.948833999998897,
+          "observationChars": 329,
+          "candidateCount": 3,
+          "goal": "Click the button in the dialog box labeled \"x\".",
+          "modelCalls": 1,
+          "planner": {
+            "choice": "c0",
+            "ms": 7122.481333,
+            "usage": {
+              "input_tokens": 9455,
+              "cached_input_tokens": 9216,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 16,
+              "reasoning_output_tokens": 0
+            },
+            "promptChars": 796
+          },
+          "actionVerifyMs": 57.29370800000106,
+          "selected": {
+            "id": "c0",
+            "label": "Close",
+            "role": "button"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.9401333333333334
+          }
+        }
+      ],
+      "passed": true,
+      "initialHash": "3b58493d9def9aa2cff6b208f0648e90b4f7086cc949692bebf8a47545ec2eff",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.9401333333333334
+      },
+      "elapsedMs": 7362.021083
+    },
+    {
+      "task": "click-dialog-2",
+      "seed": 101,
+      "mode": "compact",
+      "steps": [
+        {
+          "observationMs": 4.7786249999990105,
+          "observationChars": 61,
+          "candidateCount": 3,
+          "goal": "Click the button in the dialog box labeled \"x\".",
+          "modelCalls": 1,
+          "planner": {
+            "choice": "c0",
+            "ms": 5536.3187080000025,
+            "usage": {
+              "input_tokens": 9365,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 31,
+              "reasoning_output_tokens": 13
+            },
+            "promptChars": 528
+          },
+          "actionVerifyMs": 24.72166699999798,
+          "selected": {
+            "id": "c0",
+            "label": "Close",
+            "role": "button"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.9536
+          }
+        }
+      ],
+      "passed": true,
+      "initialHash": "3b58493d9def9aa2cff6b208f0648e90b4f7086cc949692bebf8a47545ec2eff",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.9536
+      },
+      "elapsedMs": 5822.786042
+    },
+    {
+      "task": "click-dialog-2",
+      "seed": 202,
+      "mode": "compact",
+      "steps": [
+        {
+          "observationMs": 12.461750000002212,
+          "observationChars": 61,
+          "candidateCount": 3,
+          "goal": "Click the button in the dialog box labeled \"x\".",
+          "modelCalls": 1,
+          "planner": {
+            "choice": "c0",
+            "ms": 5854.580709000002,
+            "usage": {
+              "input_tokens": 9365,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 29,
+              "reasoning_output_tokens": 11
+            },
+            "promptChars": 528
+          },
+          "actionVerifyMs": 24.422207999996317,
+          "selected": {
+            "id": "c0",
+            "label": "Close",
+            "role": "button"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.950875
+          }
+        }
+      ],
+      "passed": true,
+      "initialHash": "69e8d895781b9a51a10dfe64bc051ee632bd7f835ed42e05b6f151c1e488f8ad",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.950875
+      },
+      "elapsedMs": 6061.175374999999
+    },
+    {
+      "task": "click-dialog-2",
+      "seed": 202,
+      "mode": "full",
+      "steps": [
+        {
+          "observationMs": 4.693249999996624,
+          "observationChars": 332,
+          "candidateCount": 3,
+          "goal": "Click the button in the dialog box labeled \"x\".",
+          "modelCalls": 1,
+          "planner": {
+            "choice": "c0",
+            "ms": 5037.884208000003,
+            "usage": {
+              "input_tokens": 9459,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 16,
+              "reasoning_output_tokens": 0
+            },
+            "promptChars": 799
+          },
+          "actionVerifyMs": 26.870208000000275,
+          "selected": {
+            "id": "c0",
+            "label": "Close",
+            "role": "button"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.9577083333333334
+          }
+        }
+      ],
+      "passed": true,
+      "initialHash": "69e8d895781b9a51a10dfe64bc051ee632bd7f835ed42e05b6f151c1e488f8ad",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.9577083333333334
+      },
+      "elapsedMs": 5233.338291
+    },
+    {
+      "task": "click-tab-2",
+      "seed": 101,
+      "mode": "full",
+      "steps": [
+        {
+          "observationMs": 5.704333000001498,
+          "observationChars": 764,
+          "candidateCount": 10,
+          "goal": "Switch between the tabs to find and click on the link \"in\".",
+          "modelCalls": 1,
+          "planner": {
+            "choice": "c2",
+            "ms": 5072.526875000003,
+            "usage": {
+              "input_tokens": 9607,
+              "cached_input_tokens": 7552,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 16,
+              "reasoning_output_tokens": 0
+            },
+            "promptChars": 1243
+          },
+          "actionVerifyMs": 39.683209000002535,
+          "selected": {
+            "id": "c2",
+            "label": "Tab #2",
+            "role": "tab"
+          },
+          "score": {
+            "done": false,
+            "rawReward": 0,
+            "reward": 0,
+            "reason": null
+          }
+        },
+        {
+          "observationMs": 7.086667000003217,
+          "observationChars": 912,
+          "candidateCount": 15,
+          "goal": "Switch between the tabs to find and click on the link \"in\".",
+          "modelCalls": 1,
+          "planner": {
+            "choice": "c9",
+            "ms": 9940.024790999996,
+            "usage": {
+              "input_tokens": 9682,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 16,
+              "reasoning_output_tokens": 0
+            },
+            "promptChars": 1432
+          },
+          "actionVerifyMs": 15.86066700000083,
+          "selected": {
+            "id": "c9",
+            "label": "in",
+            "role": "control"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.8741666666666666
+          }
+        }
+      ],
+      "passed": true,
+      "initialHash": "ce56f759e8d25c66644a7294dd808c716467865f865de839a30218a1ea6f2ac8",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.8741666666666666
+      },
+      "elapsedMs": 15316.399666999998
+    },
+    {
+      "task": "click-tab-2",
+      "seed": 101,
+      "mode": "compact",
+      "steps": [
+        {
+          "observationMs": 5.666583999998693,
+          "observationChars": 256,
+          "candidateCount": 10,
+          "goal": "Switch between the tabs to find and click on the link \"in\".",
+          "modelCalls": 1,
+          "planner": {
+            "choice": "c2",
+            "ms": 6464.157082999998,
+            "usage": {
+              "input_tokens": 9436,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 31,
+              "reasoning_output_tokens": 13
+            },
+            "promptChars": 735
+          },
+          "actionVerifyMs": 23.885416000004625,
+          "selected": {
+            "id": "c2",
+            "label": "Tab #2",
+            "role": "tab"
+          },
+          "score": {
+            "done": false,
+            "rawReward": 0,
+            "reward": 0,
+            "reason": null
+          }
+        },
+        {
+          "observationMs": 8.65662500000326,
+          "observationChars": 348,
+          "candidateCount": 15,
+          "goal": "Switch between the tabs to find and click on the link \"in\".",
+          "modelCalls": 1,
+          "planner": {
+            "choice": "c9",
+            "ms": 6155.838459000006,
+            "usage": {
+              "input_tokens": 9482,
+              "cached_input_tokens": 7552,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 16,
+              "reasoning_output_tokens": 0
+            },
+            "promptChars": 868
+          },
+          "actionVerifyMs": 18.771916999990935,
+          "selected": {
+            "id": "c9",
+            "label": "in",
+            "role": "control"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.8942666666666667
+          }
+        }
+      ],
+      "passed": true,
+      "initialHash": "ce56f759e8d25c66644a7294dd808c716467865f865de839a30218a1ea6f2ac8",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.8942666666666667
+      },
+      "elapsedMs": 12920.311457999996
+    },
+    {
+      "task": "click-tab-2",
+      "seed": 202,
+      "mode": "compact",
+      "steps": [
+        {
+          "observationMs": 5.87416699998721,
+          "observationChars": 218,
+          "candidateCount": 8,
+          "goal": "Switch between the tabs to find and click on the link \"Diam.\".",
+          "modelCalls": 1,
+          "planner": {
+            "choice": "c2",
+            "ms": 8501.28979200001,
+            "usage": {
+              "input_tokens": 9423,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 96,
+              "reasoning_output_tokens": 78
+            },
+            "promptChars": 700
+          },
+          "actionVerifyMs": 12.511583999992581,
+          "selected": {
+            "id": "c2",
+            "label": "Tab #2",
+            "role": "tab"
+          },
+          "score": {
+            "done": false,
+            "rawReward": 0,
+            "reward": 0,
+            "reason": null
+          }
+        },
+        {
+          "observationMs": 4.754415999996127,
+          "observationChars": 272,
+          "candidateCount": 11,
+          "goal": "Switch between the tabs to find and click on the link \"Diam.\".",
+          "modelCalls": 1,
+          "planner": {
+            "choice": "c0",
+            "ms": 6499.930416999996,
+            "usage": {
+              "input_tokens": 9459,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 37,
+              "reasoning_output_tokens": 19
+            },
+            "promptChars": 795
+          },
+          "actionVerifyMs": 19.669708000001265,
+          "selected": {
+            "id": "c0",
+            "label": "Tab #1",
+            "role": "tab"
+          },
+          "score": {
+            "done": false,
+            "rawReward": 0,
+            "reward": 0,
+            "reason": null
+          }
+        },
+        {
+          "observationMs": 4.914499999998952,
+          "observationChars": 218,
+          "candidateCount": 8,
+          "goal": "Switch between the tabs to find and click on the link \"Diam.\".",
+          "modelCalls": 1,
+          "planner": {
+            "choice": "c4",
+            "ms": 9582.047584,
+            "usage": {
+              "input_tokens": 9454,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 55,
+              "reasoning_output_tokens": 37
+            },
+            "promptChars": 783
+          },
+          "actionVerifyMs": 19.7867499999993,
+          "selected": {
+            "id": "c4",
+            "label": "Tab #3",
+            "role": "tab"
+          },
+          "score": {
+            "done": false,
+            "rawReward": 0,
+            "reward": 0,
+            "reason": null
+          }
+        },
+        {
+          "observationMs": 19.11416699999245,
+          "observationChars": 250,
+          "candidateCount": 10,
+          "goal": "Switch between the tabs to find and click on the link \"Diam.\".",
+          "modelCalls": 1,
+          "planner": {
+            "choice": "c7",
+            "ms": 5034.284083000006,
+            "usage": {
+              "input_tokens": 9480,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 16,
+              "reasoning_output_tokens": 0
+            },
+            "promptChars": 857
+          },
+          "actionVerifyMs": 22.466583000001265,
+          "selected": {
+            "id": "c7",
+            "label": "Diam.",
+            "role": "control"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.7509250000000001
+          }
+        }
+      ],
+      "passed": true,
+      "initialHash": "5ce0399ef210c5a5f7daa73ddc82070361608cbc57b103b9064b7b66492b309e",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.7509250000000001
+      },
+      "elapsedMs": 30052.236584000013
+    },
+    {
+      "task": "click-tab-2",
+      "seed": 202,
+      "mode": "full",
+      "steps": [
+        {
+          "observationMs": 5.3460829999967245,
+          "observationChars": 701,
+          "candidateCount": 8,
+          "goal": "Switch between the tabs to find and click on the link \"Diam.\".",
+          "modelCalls": 1,
+          "planner": {
+            "choice": "c2",
+            "ms": 5013.904416999998,
+            "usage": {
+              "input_tokens": 9581,
+              "cached_input_tokens": 7552,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 16,
+              "reasoning_output_tokens": 0
+            },
+            "promptChars": 1183
+          },
+          "actionVerifyMs": 14.074666000000434,
+          "selected": {
+            "id": "c2",
+            "label": "Tab #2",
+            "role": "tab"
+          },
+          "score": {
+            "done": false,
+            "rawReward": 0,
+            "reward": 0,
+            "reason": null
+          }
+        },
+        {
+          "observationMs": 5.24199999999837,
+          "observationChars": 819,
+          "candidateCount": 11,
+          "goal": "Switch between the tabs to find and click on the link \"Diam.\".",
+          "modelCalls": 1,
+          "planner": {
+            "choice": "c4",
+            "ms": 11112.213292,
+            "usage": {
+              "input_tokens": 9640,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 49,
+              "reasoning_output_tokens": 31
+            },
+            "promptChars": 1342
+          },
+          "actionVerifyMs": 19.7711249999993,
+          "selected": {
+            "id": "c4",
+            "label": "Tab #3",
+            "role": "tab"
+          },
+          "score": {
+            "done": false,
+            "rawReward": 0,
+            "reward": 0,
+            "reason": null
+          }
+        },
+        {
+          "observationMs": 4.597666999994544,
+          "observationChars": 749,
+          "candidateCount": 10,
+          "goal": "Switch between the tabs to find and click on the link \"Diam.\".",
+          "modelCalls": 1,
+          "planner": {
+            "choice": "c7",
+            "ms": 5905.226999999999,
+            "usage": {
+              "input_tokens": 9629,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 16,
+              "reasoning_output_tokens": 0
+            },
+            "promptChars": 1314
+          },
+          "actionVerifyMs": 11.70891699999629,
+          "selected": {
+            "id": "c7",
+            "label": "Diam.",
+            "role": "control"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.8156833333333333
+          }
+        }
+      ],
+      "passed": true,
+      "initialHash": "5ce0399ef210c5a5f7daa73ddc82070361608cbc57b103b9064b7b66492b309e",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.8156833333333333
+      },
+      "elapsedMs": 22450.302500000005
+    },
+    {
+      "at": "2026-10-01T20:18:38.331Z",
+      "task": "click-button",
+      "seed": 101,
+      "mode": "compact-jev",
+      "steps": [
+        {
+          "observationMs": 7.9508340000001,
+          "observationChars": 47,
+          "candidateCount": 2,
+          "goal": "Click on the \"Okay\" button.",
+          "modelCalls": 1,
+          "jevMs": 210.86483299999998,
+          "jev": {
+            "action": "target",
+            "probability": 0.99,
+            "usage": {
+              "input_tokens": 490,
+              "output_tokens": 51,
+              "cost": 2.058e-05
+            }
+          },
+          "actionVerifyMs": 19.457875000000058,
+          "selected": {
+            "id": "c2",
+            "label": "Okay",
+            "role": "button"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.9979916666666667
+          }
+        }
+      ],
+      "passed": true,
+      "initialHash": "4ebfc7d24013bc4aa44895f23350cad2dfbb1873d8b25585e95408b4e891cc6d",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.9979916666666667
+      },
+      "elapsedMs": 721.74925
+    },
+    {
+      "at": "2026-10-01T20:18:39.054Z",
+      "task": "click-button",
+      "seed": 202,
+      "mode": "compact-jev",
+      "steps": [
+        {
+          "observationMs": 3.929499999999962,
+          "observationChars": 83,
+          "candidateCount": 4,
+          "goal": "Click on the \"ok\" button.",
+          "modelCalls": 1,
+          "jevMs": 161.54387499999984,
+          "jev": {
+            "action": "target",
+            "probability": 0.98,
+            "usage": {
+              "input_tokens": 584,
+              "output_tokens": 69,
+              "cost": 2.4528e-05
+            }
+          },
+          "actionVerifyMs": 12.558915999999954,
+          "selected": {
+            "id": "c2",
+            "label": "ok",
+            "role": "button"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.9984833333333333
+          }
+        }
+      ],
+      "passed": true,
+      "initialHash": "17ba7b274694c6d0f5a9be1097cc714c92e4ff2988e64d7f2255a25438659392",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.9984833333333333
+      },
+      "elapsedMs": 344.76541699999984
+    },
+    {
+      "at": "2026-10-01T20:18:39.400Z",
+      "task": "click-dialog-2",
+      "seed": 101,
+      "mode": "compact-jev",
+      "steps": [
+        {
+          "observationMs": 5.606457999999975,
+          "observationChars": 61,
+          "candidateCount": 3,
+          "goal": "Click the button in the dialog box labeled \"x\".",
+          "modelCalls": 2,
+          "jevMs": 186.684708,
+          "jev": {
+            "action": "observe",
+            "reason": "uncertain",
+            "usage": {
+              "input_tokens": 540,
+              "output_tokens": 60,
+              "cost": 2.268e-05
+            }
+          },
+          "planner": {
+            "choice": "c0",
+            "ms": 6994.242167,
+            "usage": {
+              "input_tokens": 9365,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 36,
+              "reasoning_output_tokens": 18
+            },
+            "promptChars": 528
+          },
+          "actionVerifyMs": 13.835458000001381,
+          "selected": {
+            "id": "c0",
+            "label": "Close",
+            "role": "button"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.9399333333333333
+          }
+        }
+      ],
+      "passed": true,
+      "initialHash": "3b58493d9def9aa2cff6b208f0648e90b4f7086cc949692bebf8a47545ec2eff",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.9399333333333333
+      },
+      "elapsedMs": 7359.093000000001
+    },
+    {
+      "at": "2026-10-01T20:18:46.760Z",
+      "task": "click-dialog-2",
+      "seed": 202,
+      "mode": "compact-jev",
+      "steps": [
+        {
+          "observationMs": 3.5436250000002474,
+          "observationChars": 61,
+          "candidateCount": 3,
+          "goal": "Click the button in the dialog box labeled \"x\".",
+          "modelCalls": 2,
+          "jevMs": 197.28462500000023,
+          "jev": {
+            "action": "observe",
+            "reason": "uncertain",
+            "usage": {
+              "input_tokens": 540,
+              "output_tokens": 60,
+              "cost": 2.268e-05
+            }
+          },
+          "planner": {
+            "choice": "c0",
+            "ms": 6086.994584,
+            "usage": {
+              "input_tokens": 9365,
+              "cached_input_tokens": 7552,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 28,
+              "reasoning_output_tokens": 10
+            },
+            "promptChars": 528
+          },
+          "actionVerifyMs": 18.85291700000016,
+          "selected": {
+            "id": "c0",
+            "label": "Close",
+            "role": "button"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.9473916666666666
+          }
+        }
+      ],
+      "passed": true,
+      "initialHash": "69e8d895781b9a51a10dfe64bc051ee632bd7f835ed42e05b6f151c1e488f8ad",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.9473916666666666
+      },
+      "elapsedMs": 6478.394542
+    },
+    {
+      "at": "2026-10-01T20:18:53.238Z",
+      "task": "click-tab-2",
+      "seed": 101,
+      "mode": "compact-jev",
+      "steps": [
+        {
+          "observationMs": 6.813249999999243,
+          "observationChars": 256,
+          "candidateCount": 10,
+          "goal": "Switch between the tabs to find and click on the link \"in\".",
+          "modelCalls": 2,
+          "jevMs": 311.3819169999988,
+          "jev": {
+            "action": "observe",
+            "reason": "uncertain",
+            "usage": {
+              "input_tokens": 909,
+              "output_tokens": 121,
+              "cost": 3.8178e-05
+            }
+          },
+          "planner": {
+            "choice": "c2",
+            "ms": 5839.718332999999,
+            "usage": {
+              "input_tokens": 9436,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 29,
+              "reasoning_output_tokens": 11
+            },
+            "promptChars": 735
+          },
+          "actionVerifyMs": 37.09370900000067,
+          "selected": {
+            "id": "c2",
+            "label": "Tab #2",
+            "role": "tab"
+          },
+          "score": {
+            "done": false,
+            "rawReward": 0,
+            "reward": 0,
+            "reason": null
+          }
+        },
+        {
+          "observationMs": 6.579541999999492,
+          "observationChars": 348,
+          "candidateCount": 15,
+          "goal": "Switch between the tabs to find and click on the link \"in\".",
+          "modelCalls": 2,
+          "jevMs": 264.4148750000022,
+          "jev": {
+            "action": "observe",
+            "reason": "uncertain",
+            "usage": {
+              "input_tokens": 1156,
+              "output_tokens": 173,
+              "cost": 4.8552e-05
+            }
+          },
+          "planner": {
+            "choice": "c9",
+            "ms": 5300.752166999999,
+            "usage": {
+              "input_tokens": 9482,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 16,
+              "reasoning_output_tokens": 0
+            },
+            "promptChars": 868
+          },
+          "actionVerifyMs": 13.631583000002138,
+          "selected": {
+            "id": "c9",
+            "label": "in",
+            "role": "control"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.9016666666666666
+          }
+        }
+      ],
+      "passed": true,
+      "initialHash": "ce56f759e8d25c66644a7294dd808c716467865f865de839a30218a1ea6f2ac8",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.9016666666666666
+      },
+      "elapsedMs": 11957.623375000001
+    },
+    {
+      "at": "2026-10-01T20:19:05.197Z",
+      "task": "click-tab-2",
+      "seed": 202,
+      "mode": "compact-jev",
+      "steps": [
+        {
+          "observationMs": 3.7597079999977723,
+          "observationChars": 218,
+          "candidateCount": 8,
+          "goal": "Switch between the tabs to find and click on the link \"Diam.\".",
+          "modelCalls": 2,
+          "jevMs": 253.94700000000012,
+          "jev": {
+            "action": "observe",
+            "reason": "uncertain",
+            "usage": {
+              "input_tokens": 808,
+              "output_tokens": 105,
+              "cost": 3.3936e-05
+            }
+          },
+          "planner": {
+            "choice": "c2",
+            "ms": 7062.433875000002,
+            "usage": {
+              "input_tokens": 9423,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 103,
+              "reasoning_output_tokens": 85
+            },
+            "promptChars": 700
+          },
+          "actionVerifyMs": 24.806250000001455,
+          "selected": {
+            "id": "c2",
+            "label": "Tab #2",
+            "role": "tab"
+          },
+          "score": {
+            "done": false,
+            "rawReward": 0,
+            "reward": 0,
+            "reason": null
+          }
+        },
+        {
+          "observationMs": 4.0179170000046724,
+          "observationChars": 272,
+          "candidateCount": 11,
+          "goal": "Switch between the tabs to find and click on the link \"Diam.\".",
+          "modelCalls": 2,
+          "jevMs": 364.1502080000064,
+          "jev": {
+            "action": "observe",
+            "reason": "uncertain",
+            "usage": {
+              "input_tokens": 959,
+              "output_tokens": 131,
+              "cost": 4.0278e-05
+            }
+          },
+          "planner": {
+            "choice": "c4",
+            "ms": 6415.555042,
+            "usage": {
+              "input_tokens": 9459,
+              "cached_input_tokens": 7552,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 16,
+              "reasoning_output_tokens": 0
+            },
+            "promptChars": 795
+          },
+          "actionVerifyMs": 15.91016700000182,
+          "selected": {
+            "id": "c4",
+            "label": "Tab #3",
+            "role": "tab"
+          },
+          "score": {
+            "done": false,
+            "rawReward": 0,
+            "reward": 0,
+            "reason": null
+          }
+        },
+        {
+          "observationMs": 4.932749999999942,
+          "observationChars": 250,
+          "candidateCount": 10,
+          "goal": "Switch between the tabs to find and click on the link \"Diam.\".",
+          "modelCalls": 2,
+          "jevMs": 213.23229100000026,
+          "jev": {
+            "action": "observe",
+            "reason": "uncertain",
+            "usage": {
+              "input_tokens": 902,
+              "output_tokens": 123,
+              "cost": 3.7884e-05
+            }
+          },
+          "planner": {
+            "choice": "c7",
+            "ms": 4797.466375000004,
+            "usage": {
+              "input_tokens": 9465,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 16,
+              "reasoning_output_tokens": 0
+            },
+            "promptChars": 815
+          },
+          "actionVerifyMs": 11.733958999997412,
+          "selected": {
+            "id": "c7",
+            "label": "Diam.",
+            "role": "control"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.8399833333333333
+          }
+        }
+      ],
+      "passed": true,
+      "initialHash": "5ce0399ef210c5a5f7daa73ddc82070361608cbc57b103b9064b7b66492b309e",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.8399833333333333
+      },
+      "elapsedMs": 19374.427250000004
+    },
+    {
+      "at": "2026-10-01T20:31:40.292Z",
+      "task": "click-button",
+      "seed": 101,
+      "mode": "compact-jev-context",
+      "steps": [
+        {
+          "observationMs": 5.62341600000002,
+          "observationChars": 47,
+          "candidateCount": 2,
+          "goal": "Click on the \"Okay\" button.",
+          "modelCalls": 1,
+          "jevMs": 182.684708,
+          "jev": {
+            "action": "target",
+            "probability": 0.99,
+            "usage": {
+              "input_tokens": 535,
+              "output_tokens": 51,
+              "cost": 2.247e-05
+            }
+          },
+          "actionVerifyMs": 16.63454200000001,
+          "selected": {
+            "id": "c2",
+            "label": "Okay",
+            "role": "button"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.998275
+          },
+          "effectObserved": true
+        }
+      ],
+      "passed": true,
+      "initialHash": "4ebfc7d24013bc4aa44895f23350cad2dfbb1873d8b25585e95408b4e891cc6d",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.998275
+      },
+      "elapsedMs": 529.1354169999998
+    },
+    {
+      "at": "2026-10-01T20:31:40.822Z",
+      "task": "click-button",
+      "seed": 202,
+      "mode": "compact-jev-context",
+      "steps": [
+        {
+          "observationMs": 6.619999999999891,
+          "observationChars": 83,
+          "candidateCount": 4,
+          "goal": "Click on the \"ok\" button.",
+          "modelCalls": 1,
+          "jevMs": 346.68062499999996,
+          "jev": {
+            "action": "target",
+            "probability": 0.98,
+            "usage": {
+              "input_tokens": 629,
+              "output_tokens": 69,
+              "cost": 2.6418e-05
+            }
+          },
+          "actionVerifyMs": 12.430084000000079,
+          "selected": {
+            "id": "c2",
+            "label": "ok",
+            "role": "button"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.9963083333333334
+          },
+          "effectObserved": true
+        }
+      ],
+      "passed": true,
+      "initialHash": "17ba7b274694c6d0f5a9be1097cc714c92e4ff2988e64d7f2255a25438659392",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.9963083333333334
+      },
+      "elapsedMs": 590.1221670000002
+    },
+    {
+      "at": "2026-10-01T20:31:41.413Z",
+      "task": "click-dialog-2",
+      "seed": 101,
+      "mode": "compact-jev-context",
+      "steps": [
+        {
+          "observationMs": 8.108625000000075,
+          "observationChars": 61,
+          "candidateCount": 3,
+          "goal": "Click the button in the dialog box labeled \"x\".",
+          "modelCalls": 2,
+          "jevMs": 196.99687499999982,
+          "jev": {
+            "action": "observe",
+            "reason": "uncertain",
+            "usage": {
+              "input_tokens": 585,
+              "output_tokens": 60,
+              "cost": 2.457e-05
+            }
+          },
+          "planner": {
+            "choice": "c0",
+            "ms": 5543.102958,
+            "usage": {
+              "input_tokens": 9365,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 37,
+              "reasoning_output_tokens": 19
+            },
+            "promptChars": 528
+          },
+          "actionVerifyMs": 27.15337499999987,
+          "selected": {
+            "id": "c0",
+            "label": "Close",
+            "role": "button"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.95185
+          },
+          "effectObserved": true
+        }
+      ],
+      "passed": true,
+      "initialHash": "3b58493d9def9aa2cff6b208f0648e90b4f7086cc949692bebf8a47545ec2eff",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.95185
+      },
+      "elapsedMs": 6029.412542
+    },
+    {
+      "at": "2026-10-01T20:31:47.443Z",
+      "task": "click-dialog-2",
+      "seed": 202,
+      "mode": "compact-jev-context",
+      "steps": [
+        {
+          "observationMs": 3.260250000000269,
+          "observationChars": 61,
+          "candidateCount": 3,
+          "goal": "Click the button in the dialog box labeled \"x\".",
+          "modelCalls": 2,
+          "jevMs": 178.86304199999995,
+          "jev": {
+            "action": "observe",
+            "reason": "uncertain",
+            "usage": {
+              "input_tokens": 585,
+              "output_tokens": 60,
+              "cost": 2.457e-05
+            }
+          },
+          "planner": {
+            "choice": "c0",
+            "ms": 6654.845292,
+            "usage": {
+              "input_tokens": 9365,
+              "cached_input_tokens": 7552,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 35,
+              "reasoning_output_tokens": 17
+            },
+            "promptChars": 528
+          },
+          "actionVerifyMs": 21.59650000000147,
+          "selected": {
+            "id": "c0",
+            "label": "Close",
+            "role": "button"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.9428416666666667
+          },
+          "effectObserved": true
+        }
+      ],
+      "passed": true,
+      "initialHash": "69e8d895781b9a51a10dfe64bc051ee632bd7f835ed42e05b6f151c1e488f8ad",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.9428416666666667
+      },
+      "elapsedMs": 7032.530000000001
+    },
+    {
+      "at": "2026-10-01T20:31:54.476Z",
+      "task": "click-tab-2",
+      "seed": 101,
+      "mode": "compact-jev-context",
+      "steps": [
+        {
+          "observationMs": 4.475000000000364,
+          "observationChars": 256,
+          "candidateCount": 10,
+          "goal": "Switch between the tabs to find and click on the link \"in\".",
+          "modelCalls": 2,
+          "jevMs": 443.53304200000093,
+          "jev": {
+            "action": "observe",
+            "reason": "uncertain",
+            "usage": {
+              "input_tokens": 972,
+              "output_tokens": 123,
+              "cost": 4.0824e-05
+            }
+          },
+          "planner": {
+            "choice": "c2",
+            "ms": 7353.108,
+            "usage": {
+              "input_tokens": 9436,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 16,
+              "reasoning_output_tokens": 0
+            },
+            "promptChars": 735
+          },
+          "actionVerifyMs": 23.17541699999856,
+          "selected": {
+            "id": "c2",
+            "label": "Tab #2",
+            "role": "tab"
+          },
+          "score": {
+            "done": false,
+            "rawReward": 0,
+            "reward": 0,
+            "reason": null
+          },
+          "effectObserved": true
+        },
+        {
+          "observationMs": 3.256208000002516,
+          "observationChars": 348,
+          "candidateCount": 15,
+          "goal": "Switch between the tabs to find and click on the link \"in\".",
+          "modelCalls": 1,
+          "jevMs": 291.4773329999989,
+          "jev": {
+            "action": "target",
+            "probability": 0.93,
+            "usage": {
+              "input_tokens": 1265,
+              "output_tokens": 173,
+              "cost": 5.313e-05
+            }
+          },
+          "actionVerifyMs": 13.997957999999926,
+          "selected": {
+            "id": "c9",
+            "label": "in",
+            "role": "control"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.931875
+          },
+          "effectObserved": true
+        }
+      ],
+      "passed": true,
+      "initialHash": "ce56f759e8d25c66644a7294dd808c716467865f865de839a30218a1ea6f2ac8",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.931875
+      },
+      "elapsedMs": 8363.398415999998
+    },
+    {
+      "at": "2026-10-01T20:32:02.841Z",
+      "task": "click-tab-2",
+      "seed": 202,
+      "mode": "compact-jev-context",
+      "steps": [
+        {
+          "observationMs": 4.20245900000009,
+          "observationChars": 218,
+          "candidateCount": 8,
+          "goal": "Switch between the tabs to find and click on the link \"Diam.\".",
+          "modelCalls": 2,
+          "jevMs": 276.8601250000029,
+          "jev": {
+            "action": "observe",
+            "reason": "uncertain",
+            "usage": {
+              "input_tokens": 871,
+              "output_tokens": 105,
+              "cost": 3.6582e-05
+            }
+          },
+          "planner": {
+            "choice": "c2",
+            "ms": 6874.090875000002,
+            "usage": {
+              "input_tokens": 9423,
+              "cached_input_tokens": 7552,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 67,
+              "reasoning_output_tokens": 49
+            },
+            "promptChars": 700
+          },
+          "actionVerifyMs": 17.721541999999317,
+          "selected": {
+            "id": "c2",
+            "label": "Tab #2",
+            "role": "tab"
+          },
+          "score": {
+            "done": false,
+            "rawReward": 0,
+            "reward": 0,
+            "reason": null
+          },
+          "effectObserved": true
+        },
+        {
+          "observationMs": 4.239165999999386,
+          "observationChars": 272,
+          "candidateCount": 11,
+          "goal": "Switch between the tabs to find and click on the link \"Diam.\".",
+          "modelCalls": 2,
+          "jevMs": 252.9651670000021,
+          "jev": {
+            "action": "observe",
+            "reason": "uncertain",
+            "usage": {
+              "input_tokens": 1068,
+              "output_tokens": 133,
+              "cost": 4.4856e-05
+            }
+          },
+          "planner": {
+            "choice": "c4",
+            "ms": 10621.155124999997,
+            "usage": {
+              "input_tokens": 9459,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 84,
+              "reasoning_output_tokens": 66
+            },
+            "promptChars": 795
+          },
+          "actionVerifyMs": 9.893917000001238,
+          "selected": {
+            "id": "c4",
+            "label": "Tab #3",
+            "role": "tab"
+          },
+          "score": {
+            "done": false,
+            "rawReward": 0,
+            "reward": 0,
+            "reason": null
+          },
+          "effectObserved": true
+        },
+        {
+          "observationMs": 3.8462910000016564,
+          "observationChars": 250,
+          "candidateCount": 10,
+          "goal": "Switch between the tabs to find and click on the link \"Diam.\".",
+          "modelCalls": 2,
+          "jevMs": 245.387999999999,
+          "jev": {
+            "action": "observe",
+            "reason": "uncertain",
+            "usage": {
+              "input_tokens": 1048,
+              "output_tokens": 123,
+              "cost": 4.4016e-05
+            }
+          },
+          "planner": {
+            "choice": "c7",
+            "ms": 5380.965332999993,
+            "usage": {
+              "input_tokens": 9465,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 16,
+              "reasoning_output_tokens": 0
+            },
+            "promptChars": 815
+          },
+          "actionVerifyMs": 20.10191599999962,
+          "selected": {
+            "id": "c7",
+            "label": "Diam.",
+            "role": "control"
+          },
+          "score": {
+            "done": true,
+            "rawReward": 1,
+            "reward": 0.8021416666666666
+          },
+          "effectObserved": true
+        }
+      ],
+      "passed": true,
+      "initialHash": "5ce0399ef210c5a5f7daa73ddc82070361608cbc57b103b9064b7b66492b309e",
+      "score": {
+        "done": true,
+        "rawReward": 1,
+        "reward": 0.8021416666666666
+      },
+      "elapsedMs": 23927.433042
+    }
+  ]
+}

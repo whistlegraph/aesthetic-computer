@@ -57,8 +57,9 @@ resolve the intended element, wait until usable, act once, and check the outcome
 - `puppet_choose` reads the exact page's named accessible controls and asks Jev
   to select one for a supplied goal. It returns a strict locator without input;
   use `puppet_click` with a postcondition after checking the suggestion. Known
-  locators stay direct. Only the goal and at most 40 control labels/roles go to
-  OpenRouter; URLs, IDs, screenshots, field values, and locators stay local.
+  locators stay direct. The goal, at most 40 control labels/roles/selection states,
+  and optional recent-action summaries go to OpenRouter. URLs, IDs, screenshots,
+  field values, and locators are not added to that payload.
   Stale/changed controls, ambiguous labels, unknown previous input, unavailable
   decisions, and low confidence cause an observe/wait fallback. This is an
   explicit tool call, not an automatic extra step on every click.
@@ -94,9 +95,41 @@ The MCP equivalents use the same names with a `puppet_` prefix and explicit
 exactly; multiple matches fail. Existing pixel/CDP tools remain available.
 
 Jev selection through MCP uses `puppet_choose` with `{machine, target, goal}`.
+For multi-step tasks, callers can pass `recentActions`: at most three entries,
+oldest first, shaped as `{action: "click" | "fill", label, role, outcome: "verified" | "unknown"}`.
+Keep history within the same exact page and task; clear it on navigation or a
+new task. Only record `verified` after observing the action's effect. Typed values,
+selectors and extra fields are never forwarded. An unknown outcome prevents
+another decision until the caller verifies it. History stays caller-owned so
+independent clients cannot mix their tasks. Selected states come from the fresh
+accessibility tree; a selection change during inference invalidates the suggestion.
 Credentials are loaded on demand from `OPENROUTER_API_KEY` or the existing
 `~/.config/aesthetic-computer/jev.env`. Captutor's `bin/jev-frame.mjs` uses the
 same credential source. Neither route executes Jev's suggestion automatically.
+
+### Chrome consent across the fleet
+
+Reuse the resident Puppet service and its warm connections. A fleet-browser
+lease shares endpoint discovery and ownership; it does not by itself multiplex
+WebSocket connections. The current raw CDP and Playwright paths attach separately.
+Do not restart the browser core merely to reload an MCP client.
+
+The fleet's approved unattended consent policy is implemented by
+[Captutor Modalpolice](captutor/README.md). Install its persistent watcher with
+`node slab/captutor/bin/install-nag-fighter.mjs --allow-remote-debugging`.
+It recognizes Chrome's native consent dialog, rechecks before pressing Allow,
+reloads policy changes, and starts at login. Unknown dialogs and web-page content
+are excluded. `--deny-remote-debugging` revokes the policy. Chrome may briefly
+show the dialog; this removes the manual approval step, not the UI itself.
+
+Ordinary Chrome must have a window open in the profile receiving the consent
+dialog. A background Chrome process with no window can reject a connection
+immediately with HTTP 403 even while debugging is enabled. Use `fleet-browser
+open --new-window --url about:blank` with the host's existing profile, then acquire
+access. A locked desktop still prevents native dialog handling. Check
+`~/.local/share/captutor/nag-fighter/status.json` and `events.jsonl` to distinguish
+an installed watcher from a successfully handled connection. Captutor Stage
+Mode retains ownership while filming; its connection guard reads the same policy.
 
 Wordplay is a playable, randomized browser exercise for this route:
 

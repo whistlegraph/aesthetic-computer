@@ -35,6 +35,35 @@ test('Jev selects from fresh browser controls without sending input', async t =>
     } });
     assert.equal(result.reason, 'control_changed');
   });
+  await t.test('AX tab state and caller history reach Jev without performing an action', async () => {
+    await page.setContent('<div role="tablist"><button role="tab" aria-selected="true">Tab 1</button><button role="tab" aria-selected="false">Tab 2</button></div>');
+    const recentActions = [{ action: 'click', role: 'tab', label: 'Tab 1', outcome: 'verified' }];
+    const result = await choosePageTarget(page, 'page', { goal, recentActions }, { evaluate: async request => {
+      assert.deepEqual(request.state.targets, [
+        { id: 'target_0', label: 'Tab 1', role: 'tab', selected: true },
+        { id: 'target_1', label: 'Tab 2', role: 'tab', selected: false },
+      ]);
+      assert.deepEqual(request.state.recentActions, recentActions);
+      return reply;
+    } });
+    assert.equal(result.action, 'target'); assert.equal(result.performed, false);
+    assert.equal(await page.getByRole('tab', { name: 'Tab 1' }).getAttribute('aria-selected'), 'true');
+  });
+  await t.test('selection changes during inference invalidate a decision even if the chosen button is unchanged', async () => {
+    await page.setContent('<button>brief</button><div role="tablist"><button role="tab" aria-selected="true">Tab 1</button><button role="tab" aria-selected="false">Tab 2</button></div>');
+    const result = await choosePageTarget(page, 'page', { goal }, { evaluate: async () => {
+      await page.getByRole('tab', { name: 'Tab 1' }).evaluate(b => b.setAttribute('aria-selected', 'false'));
+      await page.getByRole('tab', { name: 'Tab 2' }).evaluate(b => b.setAttribute('aria-selected', 'true'));
+      return reply;
+    } });
+    assert.equal(result.reason, 'page_state_changed'); assert.equal(result.performed, false);
+  });
+  await t.test('unknown history is rejected before touching the browser', async () => {
+    const result = await choosePageTarget(null, 'page', { goal,
+      recentActions: [{ action: 'click', role: 'tab', label: 'Tab 1', outcome: 'unknown' }] },
+      { evaluate: () => assert.fail('must not call') });
+    assert.equal(result.reason, 'verify_previous_action');
+  });
   await t.test('unknown prior input, dense pages, and invalid goals never call Jev', async () => {
     const options = { evaluate: () => assert.fail('must not call') };
     assert.equal((await choosePageTarget(page, 'page', { goal, previousOutcome: 'unknown' }, options)).reason, 'verify_previous_action');
