@@ -1,0 +1,12 @@
+{
+  "text": "Make a pink circle.",
+  "provider": "ElevenLabs via AC /api/say",
+  "voice": "jeffrey-pvc",
+  "voiceID": "ZXoQQp5X0PKHGwyZpVIT",
+  "model": "eleven_multilingual_v2",
+  "speed": 1,
+  "sha256": "7b7b836a7e5e574b1b8857d3cb196eb454514b06e02edfda2ad2f46068204b65",
+  "sampleRate": 16000,
+  "channels": 1,
+  "replay": "real-time PCM chunks; fixed cached audio, not regenerated per test"
+}

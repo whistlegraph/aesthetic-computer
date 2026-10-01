@@ -25,3 +25,9 @@ test('configuration requires explicit opt-in and a key',()=>{
   assert.equal(configuredJev({env:{AESEL_JEV:'1'},home:'/nonexistent'}),null);
   assert.ok(configuredJev({env:{AESEL_JEV:'1',OPENROUTER_API_KEY:'x'},home:'/nonexistent'}));
 });
+
+test('rejected layered edits get local atomic-repair guidance without a Jev round trip',async()=>{
+ let calls=0;const jev=new JevAdvisor({evaluate:async()=>{calls++;return response;}});
+ const result=await jev.advise({feedback:null,blocks:[{name:'edit_piece'}],results:[{is_error:true,content:'PRIVATE_SECRET search not found'}]});
+ assert.equal(result.local,true);assert.match(result.cue,/none of its replacements were applied/);assert.doesNotMatch(result.cue,/PRIVATE_SECRET/);assert.equal(calls,0);assert.equal(jev.writes,1);
+});

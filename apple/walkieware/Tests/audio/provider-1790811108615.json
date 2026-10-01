@@ -1,0 +1,26 @@
+{
+  "scope": "Desktop → same AC relay. First validated checkpoint, no rendered-frame timing. Six-round cap, 45-second deadline.",
+  "workload": "mixed audio with local starter",
+  "results": [
+    {
+      "model": "deepseek/deepseek-v4.1-flash",
+      "headersMs": 1820,
+      "firstOutputMs": 10509,
+      "firstCodeMs": 10509,
+      "firstCheckpointMs": 12007,
+      "sourceChanged": true,
+      "hasPaint": true,
+      "error": null
+    },
+    {
+      "model": "qwen/qwen3.7-plus",
+      "headersMs": 1726,
+      "firstOutputMs": 10173,
+      "firstCodeMs": null,
+      "firstCheckpointMs": null,
+      "sourceChanged": false,
+      "hasPaint": true,
+      "error": null
+    }
+  ]
+}

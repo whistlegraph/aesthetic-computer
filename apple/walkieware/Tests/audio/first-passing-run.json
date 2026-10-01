@@ -1,0 +1,103 @@
+{
+  "events": [
+    {
+      "details": {},
+      "event": "holdStarted",
+      "ms": 0.030500000320898835
+    },
+    {
+      "details": {
+        "durationMs": 1300.3125
+      },
+      "event": "audioStarted",
+      "ms": 69.8391249998167
+    },
+    {
+      "details": {},
+      "event": "firstRecognizedWords",
+      "ms": 664.2341249998935
+    },
+    {
+      "details": {},
+      "event": "transcriptPainted",
+      "ms": 671.7175833337024
+    },
+    {
+      "details": {},
+      "event": "audioEnded",
+      "ms": 1371.3092916668757
+    },
+    {
+      "details": {},
+      "event": "releaseReceived",
+      "ms": 1379.7782499996174
+    },
+    {
+      "details": {
+        "characters": 18,
+        "matchesFixture": true
+      },
+      "event": "submittedTranscript",
+      "ms": 1394.7126249995563
+    },
+    {
+      "details": {},
+      "event": "generationEntered",
+      "ms": 1412.0179583333083
+    },
+    {
+      "details": {},
+      "event": "guidesReady",
+      "ms": 1413.3882083333447
+    },
+    {
+      "details": {},
+      "event": "requestDispatched",
+      "ms": 1414.4802083337709
+    },
+    {
+      "details": {
+        "javascriptError": ""
+      },
+      "event": "finalDelivered",
+      "ms": 1415.663833333383
+    },
+    {
+      "details": {},
+      "event": "firstModelOutput",
+      "ms": 3589.2066249998607
+    },
+    {
+      "details": {},
+      "event": "firstCheckpoint",
+      "ms": 3779.3155416666195
+    },
+    {
+      "details": {},
+      "event": "firstPainted",
+      "ms": 3872.8580416664045
+    },
+    {
+      "details": {},
+      "event": "generationFinished",
+      "ms": 5953.841083332918
+    }
+  ],
+  "fixture": "Make a pink circle.",
+  "mode": "real-time injected PCM; microphone hardware excluded",
+  "metricsMs": {
+    "audioDuration": 1301,
+    "firstRecognizedWords": 594,
+    "firstVisibleWords": 602,
+    "releaseToRequest": 35,
+    "requestToFirstModelOutput": 2175,
+    "requestToFirstCheckpoint": 2365,
+    "releaseToFirstPaint": 2493
+  },
+  "assertions": {
+    "transcriptMatches": true,
+    "wordsBeforeRelease": true,
+    "requestSubmitted": true,
+    "piecePainted": true
+  }
+}

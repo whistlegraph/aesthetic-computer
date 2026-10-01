@@ -1,0 +1,61 @@
+{
+  "events": [
+    {
+      "details": {},
+      "event": "holdStarted",
+      "ms": 0.04562499998428393
+    },
+    {
+      "details": {
+        "durationMs": 1300.3125
+      },
+      "event": "audioStarted",
+      "ms": 3608.8388333337207
+    },
+    {
+      "details": {},
+      "event": "firstRecognizedWords",
+      "ms": 4215.436250000494
+    },
+    {
+      "details": {},
+      "event": "transcriptPainted",
+      "ms": 4222.19104166652
+    },
+    {
+      "details": {},
+      "event": "audioEnded",
+      "ms": 4910.188208333238
+    },
+    {
+      "details": {},
+      "event": "releaseReceived",
+      "ms": 4918.673166666849
+    },
+    {
+      "details": {
+        "characters": 18,
+        "matchesFixture": true
+      },
+      "event": "submittedTranscript",
+      "ms": 4939.822041666957
+    }
+  ],
+  "fixture": "Make a pink circle.",
+  "mode": "real-time injected PCM; microphone hardware excluded",
+  "metricsMs": {
+    "audioDuration": 1301,
+    "firstRecognizedWords": 607,
+    "firstVisibleWords": 613,
+    "releaseToRequest": null,
+    "requestToFirstModelOutput": null,
+    "requestToFirstCheckpoint": null,
+    "releaseToFirstPaint": null
+  },
+  "assertions": {
+    "transcriptMatches": true,
+    "wordsBeforeRelease": true,
+    "requestSubmitted": false,
+    "piecePainted": false
+  }
+}

@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {runnablePrefix} from '../Resources/Web/stream-preview.mjs';
+const paint='export function paint({wipe}) {wipe("pink");}';
+assert.equal(runnablePrefix(paint+'\nexport function act({event}) {'),paint);
+assert.equal(runnablePrefix('export function paint({wipe}) {wipe("pink");'),null);
+assert.equal(runnablePrefix('const text="export function paint() {}";'),null);
+assert.equal(runnablePrefix(paint+'\nconst x="unfinished'),paint);
+assert.equal(runnablePrefix('export function boot() {}'),null);
+assert.equal(runnablePrefix(paint),paint);
+assert.equal(runnablePrefix('export function paint(){ const x="}";'),null);
+console.log('PASS incremental compiler: complete paint prefixes; unfinished functions and strings rejected; no fabricated syntax.');
