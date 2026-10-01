@@ -1473,6 +1473,9 @@ mime.ac {
 
 www.mime.ac {
     tls {
+        # Keep this SNI on its managed certificate, as for the apex. Without
+        # a distinct TLS policy the :443 origin certificate wins selection.
+        protocols tls1.2 tls1.3
         issuer acme {
             dir https://acme-v02.api.letsencrypt.org/directory
         }

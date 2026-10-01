@@ -730,12 +730,16 @@
       "summary": "An archive of Jeffrey Alan Scudder's digital paintings.",
       "llms": "https://rdp.jas.life/llms.txt",
       "aliases": [],
-      "note": "The legacy public host currently returns 404; use the metadata host while routing is repaired.",
       "resources": [
         {
           "title": "Website",
           "url": "https://rdp.jas.life/",
           "description": "Public entry point."
+        },
+        {
+          "title": "About",
+          "url": "https://rdp.jas.life/about/index.html",
+          "description": "Project background."
         },
         {
           "title": "Metadata",

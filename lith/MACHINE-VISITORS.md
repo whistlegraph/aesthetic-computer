@@ -49,16 +49,24 @@ aliases keep their canonical destination. Client properties (`false.work`,
 `danzballet.studio`, `gym.anthonyzollo.com`) and authenticated infrastructure are
 outside this change. The IPFS gateway retains its own protocol behavior.
 
-Two public-probe limitations were observed 2026-10-01:
+The 2026-10-01 public audit found and repaired three pre-existing serving gaps:
 
-- `rdp.jas.life` public DNS reaches a missing Vercel deployment (404). Its Lith
-  manifest is ready but will not be reachable until the public route reaches
-  Lith. The working collection metadata is at `rdp.aesthetic.computer`.
-- The local network intercepts `sotce.net`: local DNS returns a documentation
-  address and the certificate is issued by the UniFi SSL Certificate Authority.
-  Public DNS returns Cloudflare addresses. Local Node/curl certificate failures
-  therefore do not establish a production TLS problem. Run the normal HTTPS
-  probe from an unaffected network; never disable certificate validation.
+- `www.prompt.ac` lacked an explicit DNS record and inherited the `100::`
+  wildcard, producing Cloudflare 522. A proxied A override now points at Lith.
+- `rdp.jas.life` inherited a Vercel wildcard and returned DEPLOYMENT_NOT_FOUND.
+  A proxied A override now reaches its already-published Lith painting gallery.
+- `www.mime.ac` selected the catch-all origin certificate. Its own TLS policy
+  now selects the managed certificate, matching the existing apex pattern.
+
+Both DNS changes add only the exact hostname, preserving wildcard records and
+all other hosts. Removing those explicit records restores the prior behavior.
+The public directory contains no DNS credentials or control-plane identifiers.
+
+The local network intercepts `sotce.net`: local DNS returns a documentation
+address and the certificate is issued by the UniFi SSL Certificate Authority.
+Public DNS returns Cloudflare addresses; normal HTTPS from Lith verifies Sotce's
+manifest successfully. Run the probe from an unaffected network; never disable
+certificate validation.
 
 `wipppps.world` currently reaches an external site, despite legacy Caddy rules.
 Other separately hosted properties (Shopify shop/gift, status/grab workers,
