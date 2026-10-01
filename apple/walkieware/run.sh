@@ -16,7 +16,7 @@ if [[ "$mode" == simulator ]]; then
 elif [[ "$mode" == device ]]; then
   derived=${DERIVED:-/tmp/walkieware-dd}
   xcodebuild -project Walkieware.xcodeproj -scheme Walkieware -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath "$derived" -allowProvisioningUpdates -jobs 2 build
-  device=${DEVICE:-$(xcrun devicectl list devices --json-output - 2>/dev/null | python3 -c 'import json,sys; devices=json.load(sys.stdin).get("result",{}).get("devices",[]); matches=[d["identifier"] for d in devices if d.get("hardwareProperties",{}).get("deviceType")=="iPhone" and d.get("connectionProperties",{}).get("pairingState")=="paired"]; print(matches[0] if len(matches)==1 else "")')}
+  device=${DEVICE:-$(xcrun devicectl list devices --json-output - 2>/dev/null | python3 -c 'import json,sys; devices=json.load(sys.stdin).get("result",{}).get("devices",[]); matches=[d["identifier"] for d in devices if d.get("hardwareProperties",{}).get("deviceType")=="iPhone" and d.get("hardwareProperties",{}).get("reality")=="physical" and d.get("connectionProperties",{}).get("pairingState")=="paired"]; print(matches[0] if len(matches)==1 else "")')}
   [[ -n "$device" ]] || { echo 'Select a paired iPhone with DEVICE=<identifier>.' >&2; exit 1; }
   xcrun devicectl device install app --device "$device" "$derived/Build/Products/Debug-iphoneos/Walkieware.app"
   xcrun devicectl device process launch --device "$device" --terminate-existing computer.aesthetic.walkieware

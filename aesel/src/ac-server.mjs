@@ -136,6 +136,11 @@ export class AcServer extends EventEmitter {
     frameCapture = true,
     layeredEdits = false,
     outputContinuations = 0,
+    // OpenRouter's `reasoning` object, forwarded as given. A surface that shows
+    // the piece being written wants {effort:"none"}: a reasoning model's
+    // hidden thinking streams nothing visible, and on Walkieware it measured
+    // as two thirds of all output tokens and ten seconds before the first line.
+    reasoning = null,
   } = {}) {
     super();
     this.cwd = cwd;
@@ -148,6 +153,7 @@ export class AcServer extends EventEmitter {
     this.frameCapture = frameCapture;
     this.layeredEdits = layeredEdits;
     this.outputContinuations = Math.max(0, Math.min(8, outputContinuations));
+    this.reasoning = reasoning && typeof reasoning === "object" ? reasoning : null;
     this.approvals = new Map();
     this.model = (Object.hasOwn(models, model) ? models[model] : model) || fallbackModel;
     // No model named on the relay is Automatic: the request names none, and
@@ -408,6 +414,7 @@ export class AcServer extends EventEmitter {
         tools,
         // A workspace turn writes whole files; the relay allows it up to 32,000.
         max_tokens: this.endpoint || this.workspace ? 32000 : 8192,
+        ...(this.reasoning ? {reasoning: this.reasoning} : {}),
         ...(this.endpoint ? {stream: true} : {}),
       }),
     }), {controller, timeoutMs:this.networkTimeouts.connect}); }

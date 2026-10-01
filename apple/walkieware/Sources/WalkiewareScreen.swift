@@ -282,7 +282,7 @@ struct VersionFeed: View {
                         .font(.custom("ComicRelief-Regular", size: textSize, relativeTo: .title3))
                         .lineLimit(1).truncationMode(.tail).frame(maxWidth: .infinity, alignment: .trailing)
                     if snapshot.busy {
-                        Button(action: stop) { Image(systemName: "stop.fill").frame(width: 32, height: 44) }.accessibilityLabel("Stop generation")
+                        Button(action: stop) { KidlispStopMark() }.buttonStyle(KidlispStopStyle()).accessibilityLabel("Stop generation")
                     } else if attempt.status == "interrupted" || attempt.status == "failed" {
                         Button("Try again", action: retry).disabled(disabled)
                     }
@@ -318,6 +318,32 @@ struct VersionWaveform: View {
             }
             context.stroke(bars, with: .foreground, lineWidth: max(2, size.width / CGFloat(max(1, frames.count)) * 0.6))
         }.clipped()
+    }
+}
+
+// kidlisp.com's stop button: a red disc with a white rounded square, lifted by
+// a soft drop shadow and a hairline highlight along its top edge.
+struct KidlispStopMark: View {
+    @Environment(\.colorScheme) private var scheme
+    var diameter: CGFloat = 44
+    private var red: Color { scheme == .dark ? Color(red: 239 / 255, green: 83 / 255, blue: 80 / 255) : Color(red: 244 / 255, green: 67 / 255, blue: 54 / 255) }
+    var body: some View {
+        ZStack {
+            Circle().fill(red)
+                .overlay(Circle().strokeBorder(.white.opacity(scheme == .dark ? 0.3 : 0.2), lineWidth: 1).mask(LinearGradient(colors: [.white, .clear], startPoint: .top, endPoint: .center)))
+                .shadow(color: .black.opacity(scheme == .dark ? 0.6 : 0.3), radius: 3, y: 3)
+            RoundedRectangle(cornerRadius: 2, style: .continuous).fill(.white).frame(width: diameter * 14 / 48, height: diameter * 14 / 48)
+        }
+        .frame(width: diameter, height: diameter)
+        .contentShape(Circle())
+    }
+}
+
+struct KidlispStopStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.95 : 1)
+            .animation(.easeOut(duration: 0.2), value: configuration.isPressed)
     }
 }
 

@@ -376,6 +376,16 @@ test('embedded preview can retain runtime feedback without offering desktop fram
  }
 });
 
+test('a reasoning object is forwarded as given, and absent by default',async t=>{
+ const dir=await mkdtemp(join(tmpdir(),'ac-reasoning-'));t.after(()=>rm(dir,{recursive:true,force:true}));
+ const file=join(dir,'piece.mjs');await writeFile(file,'export function paint(){}');
+ for(const reasoning of [undefined,{effort:'none'},'none']){
+  let sent;const engine=new AcServer({cwd:dir,piece:{file},reasoning,jev:null,token:()=> 'test',fetch:async(url,options)=>{sent=JSON.parse(options.body);return serving(say('done'))();}});
+  await engine.startTurn('test');
+  if(reasoning&&typeof reasoning==='object')assert.deepEqual(sent.reasoning,reasoning);else assert.equal('reasoning' in sent,false);
+ }
+});
+
 test('layered edits reject stale/ambiguous/broken changes and apply small valid replacements',async t=>{
  const dir=await mkdtemp(join(tmpdir(),'ac-layer-'));t.after(()=>rm(dir,{recursive:true,force:true}));
  const file=join(dir,'piece.mjs');const original='export function paint({wipe}) { wipe("pink"); }\n';
