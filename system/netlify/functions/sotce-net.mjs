@@ -8596,6 +8596,14 @@ export const handler = async (event, context) => {
                 g.goToPage = goToPage;
                 g.totalPages = totalPages;
                 g.getCurrentPage = () => currentPageIndex;
+                window.acSotceVisiblePage = () => {
+                  const rect = canvas.getBoundingClientRect();
+                  const item = pageCache.get(displayedPageIndex);
+                  if (!running || !canvas.isConnected || !item || showingBack || isFlipping ||
+                      transitionDirection !== 0 || dragDelta !== 0 || isWheelScrolling ||
+                      rect.width <= 0 || rect.height <= 0 || rect.bottom <= 0 || rect.top >= innerHeight) return null;
+                  return (item.type === "question" ? "question:" : "page:") + displayedPageIndex;
+                };
                 
                 // Cleanup
                 const observer = new MutationObserver(() => {
@@ -9124,6 +9132,17 @@ export const handler = async (event, context) => {
                 }
                 
                 // Initial render - show 3 pages around current
+                window.acSotceVisiblePage = () => {
+                  if (!binding.isConnected) return null;
+                  const bounds = binding.getBoundingClientRect();
+                  if (bounds.height <= 0 || bounds.width <= 0 || bounds.bottom <= 0 || bounds.top >= innerHeight) return null;
+                  const center = (Math.max(0, bounds.top) + Math.min(innerHeight, bounds.bottom)) / 2;
+                  for (const [index, page] of renderedPages) {
+                    const rect = page.getBoundingClientRect();
+                    if (page.dataset.loaded === "true" && !page.classList.contains("reverse") && rect.top <= center && rect.bottom >= center) return "page:" + index;
+                  }
+                  return null;
+                };
                 console.log("📖 Virtualized scroll view: starting at page", currentPageIndex, "of", totalPages);
                 await updateVisiblePages(currentPageIndex, true); // skipScroll=true, we'll do it manually
                 
@@ -9930,13 +9949,17 @@ export const handler = async (event, context) => {
                   : await auth0Client.getUser();
 
                 // First-party account activity: verified at the receiving API.
-                import("https://aesthetic.computer/aesthetic.computer/lib/account-activity.mjs").then(({ startAccountActivity }) => {
+                Promise.all([
+                  import("https://aesthetic.computer/aesthetic.computer/lib/account-activity.mjs"),
+                  import("https://aesthetic.computer/aesthetic.computer/lib/sotce-activity.mjs"),
+                ]).then(([{ startAccountActivity }, { startSotceActivity }]) => {
                   const activity = startAccountActivity(window, document, {
                     getUser: () => user,
                     getToken: () => window.sotceTOKEN || auth0Client.getTokenSilently(),
                   });
                   activity.load("aesthetic.computer/disks/sotce");
                   activity.ready();
+                  startSotceActivity(window, document);
                 }).catch(() => {});
 
                 // Load the entire history so scrollback reaches the very first page.
@@ -10572,6 +10595,7 @@ export const handler = async (event, context) => {
             }
 
             function logout() {
+              window.acSotceActivity?.stop();
               window.acAccountActivity?.stop();
               if (isAuthenticated) {
                 console.log("🔐 Logging out...", window.location.href);
@@ -10690,8 +10714,10 @@ export const handler = async (event, context) => {
                 } else {
                   const clonedResponse = response.clone();
                   try {
+                    const result = await clonedResponse.json();
+                    window.acSotceActivity?.response(method, endpoint, response.status, result);
                     return {
-                      ...(await clonedResponse.json()),
+                      ...result,
                       status: response.status,
                     };
                   } catch (error) {
@@ -11390,6 +11416,7 @@ export const handler = async (event, context) => {
 
     if (page) {
       const touches = database.db.collection("sotce-touches");
+      let touchCreated = false;
 
       // Try to touch the page.
       if (page.user !== user.sub) {
@@ -11403,6 +11430,7 @@ export const handler = async (event, context) => {
             page: id, // Page ID from the request body
             when: new Date(), // Current date and time
           });
+          touchCreated = true;
         } catch (error) {
           if (error.code === 11000) {
             // Duplicate key error, meaning the user has already touched this page
@@ -11432,7 +11460,7 @@ export const handler = async (event, context) => {
       }
 
       await database.disconnect();
-      return respond(200, { touches: handles });
+      return respond(200, { touches: handles, touchCreated });
     } else {
       await database.disconnect();
       return respond(404, { message: "No page found to touch." });
@@ -11562,7 +11590,7 @@ export const handler = async (event, context) => {
 
     await database.disconnect();
     shell.log("❓ Question submitted:", insertion.insertedId);
-    return respond(200, { _id: insertion.insertedId });
+    return respond(200, { _id: insertion.insertedId, success: true });
   } else if (path === "/asks" && method === "get") {
     // ❓ Get user's own questions
     const user = await authorize(event.headers, "sotce");
@@ -11856,6 +11884,14 @@ export const handler = async (event, context) => {
           </p>
           <p>
             We do not sell your data.
+          </p>
+          <p>
+            Our first-party analytics record signed-in page viewing milestones,
+            newly saved touches, successful question submissions, and referring
+            website names. They do not include diary or question text or page
+            identifiers. Records expire after 35 days; Do Not Track and Global
+            Privacy Control disable collection.
+            <a href="https://aesthetic.computer/network-privacy.html">Measurement details</a>.
           </p>
           <p>
             Delete your account from the settings page. Write to <code>mail@sotce.net</code> with questions.

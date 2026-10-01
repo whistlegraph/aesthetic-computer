@@ -5,11 +5,16 @@ import { connect, closePool } from "../../system/backend/database.mjs";
 import { visitScopeMatch, visitReferrer, visitProperty, visitSurface, automatedVisit } from "../../system/public/aesthetic.computer/lib/visit-model.mjs";
 
 const mode = process.argv[2];
-const { hours = 24, limit = 100, handle, scope = "studio" } = JSON.parse(process.argv[3] || "{}");
+const { hours = 24, limit = 100, handle, scope = "studio", property } = JSON.parse(process.argv[3] || "{}");
 if (!["accounts", "referrers"].includes(mode) || !Number.isFinite(hours) || hours <= 0 || hours > 840 ||
     !Number.isInteger(limit) || limit < 1 || limit > 500 ||
     (handle !== undefined && !/^@?[a-z0-9_-]{1,64}$/i.test(handle))) throw new Error("Invalid report options");
 const scoped = visitScopeMatch(scope), end = new Date(), start = new Date(+end - hours * 3600000);
+if (property !== undefined) {
+  const canonical = visitProperty(property);
+  if (!canonical || !scoped.property.$in.includes(canonical)) throw new Error("Property is outside the selected scope");
+  scoped.property.$in = [canonical];
+}
 const { db } = await connect();
 try {
   if (mode === "accounts") {

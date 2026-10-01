@@ -190,6 +190,26 @@ The private analytics MCP exposes:
 
 Both default to studio scope and accept `limit` (up to 500). No campaign tags
 are collected. Missing data before deployment cannot be reconstructed.
+Use `account_activity({hours:24, property:"sotce.net"})` or
+`network_referrers({hours:24, property:"sotce.net"})` to isolate Sotce; add
+`handle` to follow a particular account with a resolvable public handle.
+
+Sotce's authenticated feed additionally records `sotce_page_viewed` after two
+foreground display seconds and `sotce_page_visible_30s` after thirty. Only the
+displayed, loaded card qualifies: prefetched pages, flipped backs, transitions,
+editors and hidden tabs do not. Time gaps are capped at one second. Returning
+to a page after viewing another can produce another milestone; no page key,
+number or content leaves the browser through this feed. These indicate display,
+not verified reading or unique pages. Canvas and virtualized DOM views are covered.
+
+`sotce_page_touched` requires a newly inserted touch (`touchCreated: true`),
+excluding existing touches, the author's own page and failed writes.
+`sotce_question_submitted` requires a successful saved question; it is the sole
+allowed milestone within `/ask`, with no form content. `/comment`, `/chat`,
+`/write` and `/respond` remain excluded. These four Sotce milestones can repeat
+within a session and carry client sequence numbers. They remain best-effort
+browser reports with server-verified identity; the existing `sotce-touches`
+and `sotce-asks` collections are authoritative for saved operation totals.
 
 ### Website installation
 

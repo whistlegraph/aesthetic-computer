@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { createAccountActivityHandler } from "../backend/account-activity-handler.mjs";
 import { startAccountActivity } from "../public/aesthetic.computer/lib/account-activity.mjs";
 import { visitReferrer } from "../public/aesthetic.computer/lib/visit-model.mjs";
-import { activityPiece, validateAccountActivity } from "../public/aesthetic.computer/lib/account-activity-model.mjs";
+import { activityPiece, validateAccountActivity, SOTCE_ACTIONS } from "../public/aesthetic.computer/lib/account-activity-model.mjs";
 
 const snapshot = () => ({ version: 1, id: randomUUID(), session: randomUUID(), sequence: 1, piece: "notepat", action: "note_played", automated: false, referrerHost: "example.org" });
 test("referral reporting keeps only public site names", () => {
@@ -91,4 +91,28 @@ test("logout or opt-out during token retrieval prevents late account attribution
     f.api.load("aesthetic.computer/disks/notepat"); f.api.ready(); await settle();
     change(f); release("token"); await settle(); assert.equal(f.sent.length, 0); f.api.stop();
   }
+});
+
+test("Sotce action sequences stay in their tenant and private editors permit only the submitted-question milestone", async () => {
+  for (const action of SOTCE_ACTIONS) {
+    const body = { ...snapshot(), piece: "sotce", action };
+    assert.equal(validateAccountActivity(body, "https://aesthetic.computer"), null);
+    assert.equal(validateAccountActivity(body, "https://sotce.net").tenant, "sotce");
+  }
+  const f = browserFixture();
+  f.win.location.hostname = "sotce.net"; f.win.location.pathname = "/1";
+  f.user({ sub: "sotce-user" }); f.api.load("aesthetic.computer/disks/sotce"); f.api.ready(); await settle();
+  f.api.action("sotce_page_viewed"); await settle();
+  f.api.action("sotce_page_viewed"); await settle();
+  assert.equal(f.sent.filter(x => JSON.parse(x.body).action === "sotce_page_viewed").length, 2);
+  f.win.location.pathname = "/ask";
+  const count = f.sent.length;
+  f.tick(); f.api.action("canvas_interacted"); f.api.action("sotce_page_viewed"); await settle();
+  assert.equal(f.sent.length, count);
+  f.api.action("sotce_question_submitted"); await settle(); assert.equal(f.sent.length, count + 1);
+  f.win.location.pathname = "/comment"; f.tick(); f.api.action("sotce_page_touched"); await settle();
+  assert.equal(f.sent.length, count + 1);
+  f.win.location.pathname = "/"; f.disable(); f.api.action("sotce_page_viewed"); await settle();
+  assert.equal(f.sent.length, count + 1);
+  f.api.stop();
 });

@@ -31,12 +31,16 @@ activity against the account verified by our authentication service. This
 includes public built-in piece names (other programs use a broad category),
 reviewed action milestones, the referring website hostname, server receipt
 time, and a temporary session identifier. Sotce records the site category,
-not diary page numbers or contents. Repeated actions are flags per piece load,
-not a log of every note or stroke.</p>
+not diary page numbers or contents. AC actions are flags per piece load,
+not a log of every note or stroke. Sotce also records each displayed-page
+milestone after two visible seconds, thirty seconds of foreground page display,
+newly saved touches and successful question submissions. These are activity
+signals, not proof that someone read a page.</p>
 <p>This feed lets our administrators follow account activity and resolve public
 handles. It is not joined to anonymous visit identifiers and does not assign
 earlier anonymous activity to an account. Records expire after 35 days. The
-same privacy controls and private-route exclusions apply. Chat, form contents,
+same privacy controls and private-route exclusions apply, except for the
+successful-submission milestone in Sotce's question form. Chat, form contents,
 full referring URLs and search parameters are excluded. Account activity is
 not proof that a unique human was present.</p>
 <p>A missing referrer means direct or unavailable: browsers, apps and redirects

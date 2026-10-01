@@ -56,6 +56,10 @@ test("private account report counts distinct tenant/accounts, resolves handles a
   const one = await report("accounts", { handle: "@painter" }, data);
   assert.deepEqual(one.totals, { accounts: 1, events: 2 });
   assert.ok(one.events.every(row => row.account === "@painter"));
+  const site = await report("accounts", { property: "nopaint.art" }, data);
+  assert.deepEqual(site.totals, { accounts: 1, events: 1 });
+  assert.ok(site.events.every(row => row.property === "nopaint.art"));
+  await assert.rejects(report("accounts", { property: "false.work" }, data), /outside the selected scope/);
 });
 test("referral report separates old boots, excludes automation and unmeasured visits, and strips URLs", async () => {
   const result = await report("referrers", {}, {

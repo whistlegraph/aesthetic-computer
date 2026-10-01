@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import zlib from "node:zlib";
 import { serveStdio, serveHttp, httpPort } from "./http-front.mjs";
-import { VISIT_ACTIONS, VISIT_DEPTHS } from "../../system/public/aesthetic.computer/lib/visit-model.mjs";
+import { VISIT_ACTIONS, VISIT_DEPTHS, visitProperty, visitScopeMatch } from "../../system/public/aesthetic.computer/lib/visit-model.mjs";
 import { fisheryOptions } from "../analytics/human-fishery.mjs";
 
 const pexec = promisify(execFile);
@@ -50,10 +50,11 @@ async function humanFishery(args = {}) {
 }
 
 async function journeyReport(mode, args = {}) {
-  const { hours = 24, limit = 100, scope = "studio", handle } = args;
+  const { hours = 24, limit = 100, scope = "studio", handle, property } = args;
   if (!Number.isFinite(hours) || hours <= 0 || hours > 840 || !Number.isInteger(limit) || limit < 1 || limit > 500 ||
       !["studio", "clients", "all"].includes(scope) || (handle !== undefined && !/^@?[a-z0-9_-]{1,64}$/i.test(handle))) throw new Error("Invalid report options");
-  const quoted = "'" + JSON.stringify({ hours, limit, scope, handle }).replaceAll("'", "'\\''") + "'";
+  if (property !== undefined && !visitScopeMatch(scope).property.$in.includes(visitProperty(property))) throw new Error("Property is outside the selected scope");
+  const quoted = "'" + JSON.stringify({ hours, limit, scope, handle, property }).replaceAll("'", "'\\''") + "'";
   const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/journey-report.mjs ${mode} ${quoted}`;
   const { stdout } = await pexec("ssh", ["-i", SSH_KEY, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", LITH, remote],
     { timeout: 30000, maxBuffer: 2 * 1024 * 1024 });
@@ -265,6 +266,7 @@ const TOOLS = [
       hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
       limit: { type: "integer", minimum: 1, maximum: 500, description: "Maximum rows; default 100" },
       scope: { type: "string", enum: ["studio", "clients", "all"], description: "Default studio" },
+      property: { type: "string", description: "Optional reviewed site, e.g. sotce.net; must belong to selected scope" },
       ...(name === "account_activity" ? { handle: { type: "string", description: "Optional public handle, with or without @" } } : {}),
     } },
   })),
