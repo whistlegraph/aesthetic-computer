@@ -2,11 +2,10 @@
 
 > An archive of Jeffrey Alan Scudder's digital paintings.
 
-The legacy public host currently returns 404; use the metadata host while routing is repaired.
-
 ## Resources
 
 - [Website](https://rdp.jas.life/): Public entry point.
+- [About](https://rdp.jas.life/about/): Project background.
 - [Metadata](https://rdp.aesthetic.computer/): Published collection metadata.
 
 ## Network
