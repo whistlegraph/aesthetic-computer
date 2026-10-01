@@ -7,6 +7,7 @@
 // are read by toolchain/mcp/analytics-mcp.mjs, not here.
 
 import { VISIT_ACTIONS, VISIT_DEPTHS } from "../public/aesthetic.computer/lib/visit-model.mjs";
+import { nativeUsageDaily } from "./native-usage.mjs";
 
 export const METRICS_DAILY_COLLECTION = "metrics-daily";
 const DAY = 86400000;
@@ -47,7 +48,8 @@ async function foldDay(db, start) {
   return { day, generatedAt: new Date(),
     visits: tally(visits, ["visits", "interacted", "engaged", "automated", "actionVisits", ...VISIT_ACTIONS, ...VISIT_DEPTHS.map(seconds => `interacted${seconds}`)]),
     downloads: tally(downloads, ["downloads", "places", "automated"]),
-    opens: tally(opens, ["active", "opens", "fresh"]) };
+    opens: tally(opens, ["active", "opens", "fresh"]),
+    nativeUsage: await nativeUsageDaily(db, start, end) };
 }
 
 // Writes every finished day in the backfill window that has no row yet.
@@ -58,7 +60,15 @@ export async function rollupMissingDays(db, now = new Date()) {
   const written = [];
   for (let back = BACKFILL_DAYS; back >= 1; back--) {
     const start = new Date(+today - back * DAY), day = start.toISOString().slice(0, 10);
-    if (day < FIRST_DAY || have.has(day)) continue;
+    if (day < FIRST_DAY) continue;
+    if (have.has(day)) {
+      // iOS persists offline snapshots for seven days. Refresh only its
+      // counts while leaving already-folded web/desktop measurements intact.
+      if (back <= 8) await collection.updateOne({ _id: day }, { $set: {
+        nativeUsage: await nativeUsageDaily(db, start, new Date(+start + DAY)),
+      } });
+      continue;
+    }
     await collection.updateOne({ _id: day }, { $setOnInsert: await foldDay(db, start) }, { upsert: true });
     written.push(day);
   }

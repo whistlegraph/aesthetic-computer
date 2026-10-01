@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>PreferenceSpecifiers</key><array>
+    <dict><key>Type</key><string>PSGroupSpecifier</string>
+      <key>FooterText</key><string>Share counts of app opens, time in the foreground, successful loads and canvas interactions. A random identifier is kept in this app’s settings. Counts are not linked to your account. First observed can include an update or reinstall. Turn this off to stop sending usage and discard unsent counts.</string></dict>
+    <dict><key>Type</key><string>PSToggleSwitchSpecifier</string>
+      <key>Title</key><string>Share app usage</string><key>Key</key><string>acUsageEnabled</string>
+      <key>DefaultValue</key><true/></dict>
+  </array>
+</dict></plist>

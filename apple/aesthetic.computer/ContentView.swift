@@ -149,6 +149,7 @@ class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate, WKNavigationD
 
     // MARK: navigation
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        LaunchPing.loaded(false)
         // Only watchdog real network loads; offline.html doesn't have JS that
         // can heartbeat back, so we'd false-alarm on the static offline page.
         if let url = webView.url, url.scheme == "https" || url.scheme == "http" {
@@ -195,6 +196,15 @@ class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate, WKNavigationD
             bootStatus?.heartbeat()
         case "boot:ready":
             bootStatus?.heartbeat(ready: true)
+            if message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https",
+               message.frameInfo.securityOrigin.host == "aesthetic.computer" {
+                LaunchPing.loaded(true)
+            }
+        case "usage:canvas":
+            if message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https",
+               message.frameInfo.securityOrigin.host == "aesthetic.computer" {
+                LaunchPing.interacted()
+            }
         case "reload":
             bootStatus?.requestReload()
         case "reload-online":
@@ -255,6 +265,18 @@ struct WebView: UIViewRepresentable {
         config.userContentController.addUserScript(userScript)
         config.userContentController.add(context.coordinator, name: "iOSAppLog")
         config.userContentController.add(context.coordinator, name: "iOSApp")
+        // One boolean for a trusted canvas touch. No keys, coordinates or URLs.
+        config.userContentController.addUserScript(WKUserScript(source: """
+            (() => {
+              let sent = false;
+              document.addEventListener('visibilitychange', () => { if (!document.hidden) sent = false; });
+              document.addEventListener('pointerdown', e => {
+                if (sent || !e.isTrusted || !(e.target instanceof HTMLCanvasElement)) return;
+                sent = true;
+                window.webkit.messageHandlers.iOSApp.postMessage(JSON.stringify({type:'usage:canvas'}));
+              }, {capture:true, passive:true});
+            })();
+            """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
 
         // 🧹 Wipe every cache surface that has been observed to keep stale
         // /aesthetic.computer/*.mjs (boot, bios, disk, ...) alive between
@@ -375,6 +397,7 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var lastBackgroundedAt: Date? = nil
     @State private var lastForceLiveTrigger: Int = 0
+    @State private var usageScene = UUID()
 
     private let liveURL = "https://aesthetic.computer"
     private var offlineURL: String {
@@ -415,6 +438,8 @@ struct ContentView: View {
             .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 24 : 0)
             .background(Color(red: grey, green: grey, blue: grey))
             .ignoresSafeArea(.keyboard, edges: .bottom)
+            .onAppear { handleScenePhase(scenePhase) }
+            .onDisappear { LaunchPing.remove(scene: usageScene) }
             .onChange(of: scenePhase) { newPhase in
                 handleScenePhase(newPhase)
             }
@@ -441,8 +466,10 @@ struct ContentView: View {
     private func handleScenePhase(_ phase: ScenePhase) {
         switch phase {
         case .background:
+            LaunchPing.inactive(scene: usageScene, background: true)
             lastBackgroundedAt = Date()
         case .active:
+            LaunchPing.active(scene: usageScene)
             // After a long sleep the WebView often holds a stale runtime
             // (sockets timed out, modules half-loaded). A fresh load is
             // cheaper than debugging which subsystem gave up.
@@ -453,7 +480,9 @@ struct ContentView: View {
                 }
             }
             lastBackgroundedAt = nil
-        default:
+        case .inactive:
+            LaunchPing.inactive(scene: usageScene, background: false)
+        @unknown default:
             break
         }
     }

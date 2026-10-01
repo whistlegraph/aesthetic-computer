@@ -332,3 +332,30 @@ Debug builds, dev Electron and `acLaunchPingDisabled` skip the ping.
 
 Readout: `node --env-file=.env ../toolchain/analytics/opens-report.mjs --days 7`
 on lith, or the `app_opens` tool in `toolchain/mcp/analytics-mcp.mjs`.
+
+### AC iOS 1.2
+
+The store's 1.1 (4) predates launch telemetry. Version 1.2 (5) uses
+`/api/app-session` instead of the older launch endpoint. Its cumulative
+snapshots contain only schema/app/version/build/platform, random install and
+session UUIDs, session start, foreground seconds and first-observed,
+successful-load and canvas-interaction flags. A foreground after background
+creates an open; an inactive/active system interruption does not. Background
+push delivery never creates an open. Timers pause while inactive. A session
+is attributed to its opening UTC day, including time across midnight.
+
+Use `ios_usage` in the analytics MCP or `ios-usage-report.mjs --days 7` on Lith.
+Active installs are distinct app-local IDs; returning installs appear on at
+least two days in the selected window. Engaged sessions loaded successfully,
+received a trusted canvas touch and were active for at least ten seconds.
+Foreground time alone does not establish attention. First observed includes
+upgrades to this telemetry version, and backup restore may preserve an ID.
+Apple's downloads report remains the source for acquisition counts.
+
+Snapshots coalesce locally (128 sessions, seven days), survive process death,
+and are acknowledged only after successful delivery. Server `$max` updates
+make replay and reordering idempotent. Raw `native-app-sessions` expire after
+35 days; `metrics-daily.nativeUsage` retains counts and refreshes the recent
+eight days for delayed delivery. No identifiers enter daily rollups or MCP
+responses. Settings → Apps → aesthetic → Share app usage disables sending
+and discards queued snapshots; Debug builds are silent.

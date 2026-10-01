@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AC1250000000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AC1250000000000000000002 /* PrivacyInfo.xcprivacy */; };
+		AC1250000000000000000003 /* Settings.bundle in Resources */ = {isa = PBXBuildFile; fileRef = AC1250000000000000000004 /* Settings.bundle */; };
 		41F5CDC72B2931AF00F7FF87 /* aesthetic_computerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41F5CDC62B2931AF00F7FF87 /* aesthetic_computerApp.swift */; };
 		AC1A0C012E9A000000000001 /* LaunchPing.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC1A0C012E9A000000000002 /* LaunchPing.swift */; };
 		41F5CDC92B2931AF00F7FF87 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41F5CDC82B2931AF00F7FF87 /* ContentView.swift */; };
@@ -44,6 +46,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AC1250000000000000000002 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		AC1250000000000000000004 /* Settings.bundle */ = {isa = PBXFileReference; lastKnownFileType = wrapper.plug-in; path = Settings.bundle; sourceTree = "<group>"; };
 		41CFB5D12B2A5D8D001954C9 /* aesthetic-computer-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "aesthetic-computer-Info.plist"; sourceTree = SOURCE_ROOT; };
 		41F5CDC32B2931AF00F7FF87 /* aesthetic.computer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = aesthetic.computer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		41F5CDC62B2931AF00F7FF87 /* aesthetic_computerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = aesthetic_computerApp.swift; sourceTree = "<group>"; };
@@ -108,6 +112,8 @@
 				41F5CDC62B2931AF00F7FF87 /* aesthetic_computerApp.swift */,
 				41F5CDC82B2931AF00F7FF87 /* ContentView.swift */,
 				AC1A0C012E9A000000000002 /* LaunchPing.swift */,
+				AC1250000000000000000002 /* PrivacyInfo.xcprivacy */,
+				AC1250000000000000000004 /* Settings.bundle */,
 				41F5CDCA2B2931B000F7FF87 /* Assets.xcassets */,
 				41F5CDCC2B2931B000F7FF87 /* Preview Content */,
 			);
@@ -228,6 +234,8 @@
 			files = (
 				41F5CDCE2B2931B000F7FF87 /* Preview Assets.xcassets in Resources */,
 				41F5CDCB2B2931B000F7FF87 /* Assets.xcassets in Resources */,
+				AC1250000000000000000001 /* PrivacyInfo.xcprivacy in Resources */,
+				AC1250000000000000000003 /* Settings.bundle in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -410,7 +418,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = aesthetic.computer/aesthetic.computer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_ASSET_PATHS = "\"aesthetic.computer/Preview Content\"";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_PREVIEWS = YES;
@@ -428,7 +436,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = aesthetic.computer;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -445,7 +453,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "aesthetic.computer/aesthetic.computer-release.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_ASSET_PATHS = "\"aesthetic.computer/Preview Content\"";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_PREVIEWS = YES;
@@ -463,7 +471,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = aesthetic.computer;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -477,7 +485,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "iMessage App Icon";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = aesthetic/Info.plist;
@@ -489,7 +497,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = aesthetic.computer.aesthetic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -504,7 +512,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "iMessage App Icon";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = aesthetic/Info.plist;
@@ -516,7 +524,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = aesthetic.computer.aesthetic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;

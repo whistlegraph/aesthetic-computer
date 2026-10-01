@@ -161,6 +161,15 @@ async function appOpens({ days = 7 } = {}) {
   return { since: report.start, note: report.unit, apps };
 }
 
+async function iosUsage({ days = 7 } = {}) {
+  days = Number(days);
+  if (!Number.isInteger(days) || days < 1 || days > 35) throw new Error("days must be 1..35");
+  const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/ios-usage-report.mjs --days ${days}`;
+  const { stdout } = await pexec("ssh", ["-i", SSH_KEY, "-o", "ConnectTimeout=10", LITH, remote],
+    { timeout: 90_000, maxBuffer: 32 * 1024 * 1024 });
+  return JSON.parse(stdout.slice(stdout.indexOf("{")));
+}
+
 // 📅 Daily
 
 // lith folds each finished day of visits, direct downloads and app opens into
@@ -284,6 +293,11 @@ const TOOLS = [
     } },
   },
   {
+    name: "ios_usage",
+    description: "AC iOS 1.2+ foreground opens, unique active installs, first-observed installs, returning installs, active seconds, successful loads and canvas engagement. App Store downloads remain separate. Older builds have no coverage; no user/account identities are returned.",
+    inputSchema: { type: "object", properties: { days: { type: "integer", description: "UTC days including today (default 7, max 35)" } } },
+  },
+  {
     name: "visits_report",
     description: "First-party page visits across AC web properties (from lith's network-visits collector), folded per site: visits, interacted, engaged (10s+), visible minutes, actions, automated traffic. Page visits, not unique people. Retention is 35 days; collection began 2026-09-23.",
     inputSchema: {
@@ -348,6 +362,7 @@ async function callTool(name, args = {}) {
     : name === "direct_downloads" ? await directDownloads(args)
     : name === "daily_metrics" ? await dailyMetrics(args)
     : name === "app_opens" ? await appOpens(args)
+    : name === "ios_usage" ? await iosUsage(args)
     : name === "app_downloads" ? await appDownloads(args)
     : (() => { throw new Error(`unknown tool ${name}`); })();
   return [{ type: "text", text: JSON.stringify(result, null, 2) }];

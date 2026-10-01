@@ -65,6 +65,16 @@ an account, device, advertising identifier or address, and it is not shared
 with anyone. We use it to count how many installs open each day. Records are
 kept for 35 days, and a coarse country from our network provider is kept with
 them.</p>
+<p>Aesthetic Computer for iOS 1.2 adds foreground session counts, seconds spent
+active, successful-load and canvas-interaction flags. It sends cumulative
+snapshots so retries do not count as additional opens. The random install ID
+is kept in app settings, survives updates and may be restored with a backup;
+it is not an account or hardware identifier. “First observed” can therefore
+include an existing installation updating to this version. Offline snapshots
+are kept for at most seven days on the device; server session records expire
+after 35 days, while daily totals contain counts only. In iOS Settings → Apps
+→ aesthetic, turn off “Share app usage” to stop sending and discard queued
+snapshots. Debug builds do not send these counts.</p>
 <p>This describes the shared visit tracker. Existing account services, product
 analytics, purchases and public gameplay recordings have separate purposes
 and are not joined into its records.</p>

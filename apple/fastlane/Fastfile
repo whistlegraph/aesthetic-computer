@@ -20,8 +20,8 @@ API_ISSUER = "69a6de78-fa3c-47e3-e053-5b8c7c11a4d1"
 API_KEY_PATH = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_S4TQKG6U99.p8")
 BUNDLE = "aesthetic.computer"
 TEAM = "FB5948YR3S"
-VERSION = ENV.fetch("AC_IOS_VERSION", "1.1")
-BUILD_NUMBER = ENV.fetch("AC_IOS_BUILD_NUMBER", "4")
+VERSION = ENV.fetch("AC_IOS_VERSION", "1.2")
+BUILD_NUMBER = ENV.fetch("AC_IOS_BUILD_NUMBER", "5")
 
 # Everything is anchored to this Fastfile's own location so the lanes resolve
 # no matter where fastlane is invoked from.
@@ -103,12 +103,9 @@ platform :ios do
   #    opening the portal. The same credentials go to the export step, which
   #    is where the re-signing actually happens.
   lane :build do
-    # Xcode 15+ refuses to archive for any iOS destination until the iOS
-    # platform (the simulator runtime, ~8 GB) is installed, even though the
-    # device SDK ships inside Xcode.app. Xcode point updates have dropped it
-    # before (26.6 did), so check rather than discover it ten minutes in.
-    runtimes = sh("xcrun simctl runtime list 2>/dev/null | grep -c iOS || true", log: false).strip.to_i
-    UI.user_error!("Xcode has no iOS platform installed — run `xcodebuild -downloadPlatform iOS` first (~8 GB)") if runtimes.zero?
+    # A device archive needs the iPhoneOS SDK, not an installed simulator.
+    sdk = sh("xcrun --sdk iphoneos --show-sdk-path", log: false).strip
+    UI.user_error!("Xcode has no iPhoneOS SDK installed") unless File.directory?(sdk)
     build_ios_app(
       project: PROJECT,
       scheme: SCHEME,
