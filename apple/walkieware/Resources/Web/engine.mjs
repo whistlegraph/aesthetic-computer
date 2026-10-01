@@ -202,7 +202,7 @@ vfs.setWriteHandler((path,value)=>{
 const guides = vfs.preload(['pieces.md','screen.md','hand.md','kidlisp.md','api.json'].map(name=>'/easel/context/'+name));
 function makeServer(){
   const value=new AcServer({cwd:'/piece',piece:{file,checkpoint:async()=>{const target=source.trimEnd();for(let i=0;i<100;i++){if(painted&&lastPaintedSource.trimEnd()===target)return;await new Promise(resolve=>setTimeout(resolve,20));}}},frameCapture:false,layeredEdits:true,token:()=>token,model:window.__walkiewareModel||DEFAULT_MODEL,
-    fetch:async(...args)=>{benchmark('requestDispatched');const response=await globalThis.fetch(...args);benchmark('inferenceHeaders',{status:response.status});return response;},preview:true,rounds:12,outputContinuations:4,
+    fetch:async(...args)=>{benchmark('requestDispatched');const response=await globalThis.fetch(...args);benchmark('inferenceHeaders',{status:response.status});return response;},preview:true,rounds:12,outputContinuations:4,reasoning:{effort:'none'},
     developerInstructions:GENERATION_INSTRUCTIONS});
   value.runtimeFeedback=()=>feedback;
   value.on('notification',({method,params})=>{
