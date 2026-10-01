@@ -8,13 +8,18 @@ import {ACSession,USER_AGENT} from '../../../aesel/src/ac-session.mjs';
 import {AcServer} from '../../../aesel/src/ac-server.mjs';
 import {GENERATION_INSTRUCTIONS,DEFAULT_MODEL} from '../Resources/Web/generation-policy.mjs';
 import {inferenceRequest} from '../Resources/Web/inference-input.mjs';
+import {contextualRequest} from '../Resources/Web/branch-context.mjs';
+import {existsSync} from 'node:fs';
 import {mkdtemp,writeFile,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 
 const model=process.argv[2]||DEFAULT_MODEL;
 const prompt=process.argv[3]||'Someone is eating them';
-const initial=await readFile(new URL(process.env.REPLAY_SOURCE||'./fixtures/basket-v2.mjs',import.meta.url),'utf8');
+// REPLAY_LEDGER=<json ledger> replays against a thread's head version with the
+// same branch context the phone sends; REPLAY_SOURCE replays a bare source.
+const ledger=process.env.REPLAY_LEDGER?JSON.parse(await readFile(process.env.REPLAY_LEDGER,'utf8')):null;
+const initial=ledger?ledger.versions.find(v=>v.id===ledger.head).source:await readFile(new URL(process.env.REPLAY_SOURCE||'./fixtures/basket-v2.mjs',import.meta.url),'utf8');
 const session=new ACSession();const token=await session.token();if(!token)throw Error('Sign in first');
 const cwd=await mkdtemp(join(tmpdir(),'ww-replay-'));const file=join(cwd,'piece.mjs');await writeFile(file,initial);
 
@@ -45,7 +50,7 @@ server.on('notification',({method,params})=>{
   if(method==='model/reported')round.reported=params.reported;
 });
 const deadline=setTimeout(()=>{log('DEADLINE interrupt');server.interrupt();},240000);
-try{await server.startTurn(inferenceRequest(prompt));}catch(e){log('error',e.message);}finally{clearTimeout(deadline);server.close();}
+try{await server.startTurn(ledger?contextualRequest(ledger,inferenceRequest(prompt)):inferenceRequest(prompt));}catch(e){log('error',e.message);}finally{clearTimeout(deadline);server.close();}
 const final=await readFile(file,'utf8');
 console.log('\n=== SUMMARY',model,JSON.stringify(prompt),'reasoning',process.env.REASONING_JSON||(process.env.REASONING==='on'?'default':'none'));
 console.log('total',now(),'ms · rounds',rounds.length,'· source',initial.length,'→',final.length,'chars · changed',final!==initial);
