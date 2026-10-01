@@ -121,6 +121,13 @@ controllers in server mode. Login/resume and the 45-second watchdog also compare
 controller generations: the newer server reasserts the same generation to
 missing clients, while an older server demotes itself.
 
+Claim, reconciliation, and role changes use kernel locks through `lockf`.
+Process exit or reboot releases them automatically; the persistent `.flock`
+files do not themselves mean a lock is held. Detached work closes the lock's
+file descriptor. The former empty-directory locks could survive a reboot
+indefinitely. The installer also disables the obsolete studio watcher, whose
+server-only check repeatedly restarted healthy clients.
+
 `install.sh` installs one machine. `UNIPOINTER_PREBUILT` can supply an existing
 compatible binary when the destination's Swift compiler and SDK do not match.
 `deploy.fish` installs the five-Mac Neo/Blueberry/Chicken/Panda/Frisbee topology

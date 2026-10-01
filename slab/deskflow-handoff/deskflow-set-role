@@ -16,6 +16,7 @@ EPOCH_FILE="$HOME/.config/slab/deskflow-role-epoch"
 ROLE_LOCK="$HOME/.config/slab/deskflow-set-role.lock"
 LABEL="computer.aesthetic.deskflow"
 UID_=$(id -u)
+source "$(dirname "$0")/deskflow-lock"
 
 case "$ROLE" in
   server) ;;
@@ -36,22 +37,11 @@ mkdir -p "$HOME/.config/slab" "$HOME/Library/Deskflow"
 # Claims from the two physical controllers can overlap. Serialize the epoch
 # check, state write, and core restart as one transaction; otherwise an older
 # claim that passed the check first can finish last and resurrect split-brain.
-LOCKED=false
-for _ in {1..500}; do
-  if /usr/bin/shlock -f "$ROLE_LOCK" -p "$$"; then
-    LOCKED=true
-    break
-  fi
-  sleep 0.01
-done
-if [[ "$LOCKED" != "true" ]]; then
+if ! deskflow_lock_acquire "$ROLE_LOCK" 5; then
   echo "deskflow-set-role: role transaction lock timed out" >&2
   exit 75
 fi
-cleanup_role_lock() {
-  rm -f "$ROLE_LOCK"
-}
-trap cleanup_role_lock EXIT
+trap deskflow_lock_release EXIT
 
 if ! [[ "$EPOCH" =~ ^[0-9]+$ ]]; then
   echo "deskflow-set-role: invalid claim generation" >&2
@@ -158,7 +148,7 @@ fi
 if [[ "$ROLE" == "client" ]]; then
   # Headless display clients can report an invalid screen shape while their
   # monitor is asleep. A brief user-activity pulse makes the first edge usable.
-  /usr/bin/caffeinate -u -t 2 >/dev/null 2>&1 &
+  /usr/bin/caffeinate -u -t 2 >/dev/null 2>&1 9>&- &
 fi
 /bin/launchctl kill SIGKILL "gui/${UID_}/${LABEL}" 2>/dev/null || true
 sleep 0.02
