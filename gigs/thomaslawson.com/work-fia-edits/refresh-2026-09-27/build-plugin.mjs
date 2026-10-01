@@ -49,13 +49,15 @@ function tl_refresh_cv_slug() {
     $path = isset($_SERVER['REQUEST_URI']) ? (string) parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) : '';
     $slug = trim($path, '/');
     $pages = tl_refresh_cv_pages();
-    return isset($pages[$slug]) ? $slug : null;
+    if (isset($pages[$slug])) { return $slug; }
+    return isset(tl_refresh_recent_periods()[$slug]) ? $slug : null;
 }
 function tl_refresh_cv_route() {
     $slug = tl_refresh_cv_slug();
     if (!$slug || !is_404()) { return; }
     $pages = tl_refresh_cv_pages();
-    $page = $pages[$slug];
+    $page = isset($pages[$slug]) ? $pages[$slug] : tl_refresh_recent_page($slug);
+    if (!$page) { return; }
     global $wp_query;
     $wp_query->is_404 = false;
     status_header(200);
@@ -129,11 +131,143 @@ function tl_refresh_valise_works() {
     return $out;
 }
 
+
+/* ---- Recent work from Valise (Fía + Tom, 2026-09-30) ----
+   Every Valise artwork dated 2020 or later that has a photograph, newest
+   first: the home carousel, the In the Studio opening image, and the two
+   new periods (2020–2022, 2022–present). Server-side key, cached 12h;
+   an admin can append ?valise_refresh=1 to rebuild. */
+function tl_refresh_valise_recent() {
+    static $memo = null;
+    if ($memo !== null) { return $memo; }
+    if (!function_exists('tl_valise_api_key') || !tl_valise_api_key()) { return $memo = array(); }
+    $cached = get_transient('tl_refresh_recent_v1');
+    if ($cached !== false && !(current_user_can('manage_options') && isset($_GET['valise_refresh']))) { return $memo = $cached; }
+    $out = array(); $url = TL_VALISE_API_BASE . '/artworks?limit=100'; $guard = 0;
+    while ($url && $guard < 40) {
+        $resp = wp_remote_get($url, array('headers' => array('Authorization' => 'Bearer ' . tl_valise_api_key(), 'Accept' => 'application/json'), 'timeout' => 20));
+        if (is_wp_error($resp) || wp_remote_retrieve_response_code($resp) !== 200) { break; }
+        $body = json_decode(wp_remote_retrieve_body($resp), true);
+        if (empty($body['data']) || !is_array($body['data'])) { break; }
+        foreach ($body['data'] as $w) {
+            $t = isset($w['title']) ? trim((string) $w['title']) : '';
+            $ys = isset($w['year']) ? trim((string) $w['year']) : '';
+            if ($t === '' || empty($w['images'][0]['url']) || !preg_match('/(?:19|20)\\d\\d/', $ys, $m)) { continue; }
+            $y = intval($m[0]);
+            if ($y < 2020) { continue; }
+            $im = $w['images'][0];
+            $out[] = array(
+                't'  => $t,
+                'y'  => $y,
+                'ys' => $ys,
+                'm'  => isset($w['medium']) ? trim((string) $w['medium']) : '',
+                'd'  => isset($w['dimensions']) ? trim((string) $w['dimensions']) : '',
+                'u'  => tl_valise_img_url($w, 1600),
+                'w'  => isset($im['width']) ? intval($im['width']) : 0,
+                'h'  => isset($im['height']) ? intval($im['height']) : 0,
+            );
+        }
+        $url = isset($body['page']['next']) ? $body['page']['next'] : null;
+        $guard++;
+    }
+    /* Newest first; keep Valise's own order within a year. */
+    foreach ($out as $i => &$row) { $row['i'] = $i; } unset($row);
+    usort($out, function ($a, $b) { return $a['y'] === $b['y'] ? $a['i'] - $b['i'] : $b['y'] - $a['y']; });
+    foreach ($out as &$row) { unset($row['i']); } unset($row);
+    set_transient('tl_refresh_recent_v1', $out, $out ? 12 * HOUR_IN_SECONDS : 10 * MINUTE_IN_SECONDS);
+    return $memo = $out;
+}
+
+/* The two new In the Studio periods. A work dated 2022 belongs to the later one. */
+function tl_refresh_recent_periods() {
+    return array(
+        'inthestudio_2022-present' => array('title' => '2022 – present', 'from' => 2022, 'to' => 9999),
+        'inthestudio_2020-2022'    => array('title' => '2020 – 2022',    'from' => 2020, 'to' => 2021),
+    );
+}
+function tl_refresh_recent_in($from, $to) {
+    return array_values(array_filter(tl_refresh_valise_recent(), function ($w) use ($from, $to) { return $w['y'] >= $from && $w['y'] <= $to; }));
+}
+function tl_refresh_valise_size($u, $width) {
+    return preg_replace('#/rs:fit:\\d+:\\d+/#', '/rs:fit:' . intval($width) . ':0/', $u);
+}
+function tl_refresh_recent_page($slug) {
+    $periods = tl_refresh_recent_periods();
+    if (!isset($periods[$slug])) { return null; }
+    $p = $periods[$slug];
+    $works = tl_refresh_recent_in($p['from'], $p['to']);
+    if (!$works) { return null; }
+    $lead = $works[0];
+    $ar = ($lead['w'] && $lead['h']) ? $lead['w'] . '/' . $lead['h'] : '4/3';
+    $h  = '<header class="tl-split tl-split-static" style="--tl-ar:' . esc_attr($ar) . '">';
+    $h .= '<figure class="tl-split-media"><img src="' . esc_url(tl_refresh_valise_size($lead['u'], 1400)) . '" alt="' . esc_attr($lead['t']) . '" decoding="async"></figure>';
+    $h .= '<div class="tl-split-text"><a class="tl-eyebrow" href="/in-the-studio/">In the Studio</a><h1 class="tl-split-title">' . esc_html($p['title']) . '</h1>';
+    $h .= '<p class="tl-split-lede">' . count($works) . ' ' . (count($works) === 1 ? 'work' : 'works') . '.</p></div></header>';
+    $h .= '<section class="tl-recent-grid">';
+    foreach ($works as $w) {
+        $cap = array_filter(array($w['ys'], $w['m'], $w['d']));
+        $h .= '<figure class="tl-recent-work"><a class="tl-zoom" href="' . esc_url(tl_refresh_valise_size($w['u'], 2000)) . '" data-caption="' . esc_attr($w['t'] . ($cap ? ', ' . implode(', ', $cap) : '')) . '">';
+        $h .= '<img loading="lazy" decoding="async" src="' . esc_url(tl_refresh_valise_size($w['u'], 900)) . '"' . (($w['w'] && $w['h']) ? ' width="' . intval($w['w']) . '" height="' . intval($w['h']) . '"' : '') . ' alt="' . esc_attr($w['t']) . '"></a>';
+        $h .= '<figcaption><span class="tl-recent-title">' . esc_html($w['t']) . '</span>' . ($cap ? '<span class="tl-recent-meta">' . esc_html(implode(', ', $cap)) . '</span>' : '') . '</figcaption></figure>';
+    }
+    $h .= '</section>';
+    return array('title' => 'In the Studio ' . str_replace(' – ', '–', $p['title']), 'html' => $h);
+}
+
+/* Beyond the Studio as an index (Fía, 2026-09-30): each project's first
+   paragraph and a strip of its pictures, read from the project page. */
+function tl_refresh_bts_index() {
+    $cached = get_transient('tl_refresh_bts_v1');
+    if ($cached !== false && !(current_user_can('manage_options') && isset($_GET['valise_refresh']))) { return $cached; }
+    $out = array();
+    $pages = get_posts(array('post_type' => 'page', 'post_status' => 'publish', 'numberposts' => 50, 'orderby' => 'menu_order', 'order' => 'ASC'));
+    foreach ($pages as $pg) {
+        if (strpos($pg->post_name, 'beyond-the-studio-') !== 0) { continue; }
+        $raw = (string) get_post_meta($pg->ID, '_elementor_data', true) . ' ' . (string) $pg->post_content;
+        $raw = str_replace('\\/', '/', $raw);
+        preg_match_all('#https?://[^"\\'\\s\\\\\\\\]+/wp-content/uploads/[^"\\'\\s\\\\\\\\]+?\\.(?:jpe?g|png)#i', $raw, $mm);
+        $imgs = array(); $seen = array();
+        foreach ($mm[0] as $u) {
+            $base = preg_replace('#-\\d+x\\d+(\\.\\w+)$#', '$1', preg_replace('#-scaled(\\.\\w+)$#', '$1', $u));
+            if (isset($seen[$base])) { continue; }
+            $seen[$base] = true;
+            $id = attachment_url_to_postid($base);
+            if (!$id) { $id = attachment_url_to_postid($u); }
+            $thumb = $id ? wp_get_attachment_image_url($id, 'medium') : $u;
+            if ($thumb) { $imgs[] = $thumb; }
+            if (count($imgs) >= 8) { break; }
+        }
+        $text = '';
+        $plain = wp_strip_all_tags(preg_replace('#<(p|div|h\\d)[^>]*>#i', "\\n", (string) $pg->post_content));
+        foreach (preg_split('/\\n+/', html_entity_decode($plain, ENT_QUOTES, 'UTF-8')) as $line) {
+            $line = trim(preg_replace('/\\s+/u', ' ', $line));
+            if (mb_strlen($line) > 120) { $text = $line; break; }
+        }
+        if ($text && mb_strlen($text) > 230) { $cut = mb_substr($text, 0, 230); $sp = strrpos($cut, ' '); $text = rtrim($sp ? substr($cut, 0, $sp) : $cut) . '…'; }
+        $out[$pg->post_name] = array('imgs' => $imgs, 'text' => $text);
+    }
+    set_transient('tl_refresh_bts_v1', $out, 12 * HOUR_IN_SECONDS);
+    return $out;
+}
+
 function tl_refresh_js() {
     if (in_array('tl-studio-detail', get_body_class(), true)) {
         $works = tl_refresh_valise_works();
         echo '<script id="tl-refresh-valise">window.TL_VALISE = ' . wp_json_encode($works) . ";</script>\n";
         echo '<!-- tl-refresh-valise: ' . count($works) . " works -->\n";
+    }
+    $classes = get_body_class();
+    if (is_front_page() || in_array('page-id-140', $classes, true)) {
+        $recent = tl_refresh_valise_recent();
+        $periods = array();
+        foreach (tl_refresh_recent_periods() as $slug => $p) {
+            $ws = tl_refresh_recent_in($p['from'], $p['to']);
+            if ($ws) { $periods[] = array('slug' => $slug, 'title' => $p['title'], 'works' => array_slice($ws, 0, 3)); }
+        }
+        echo '<script id="tl-refresh-recent">window.TL_RECENT = ' . wp_json_encode(array_slice($recent, 0, 24)) . '; window.TL_PERIODS = ' . wp_json_encode($periods) . ";</script>\n";
+    }
+    if (in_array('page-id-1177', $classes, true)) {
+        echo '<script id="tl-refresh-bts">window.TL_BTS = ' . wp_json_encode(tl_refresh_bts_index()) . ";</script>\n";
     }
     ?>
 <script id="tl-refresh-js">

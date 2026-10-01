@@ -912,3 +912,205 @@ body.tl-refresh:not(#tl) .tl-cv-month::before { content: " \00b7 "; }
     body.tl-refresh:not(#tl) .tl-bts-doors { grid-template-columns: minmax(0, 1fr); }
     body.tl-refresh:not(#tl) .tl-cv-row { grid-template-columns: 3.25rem minmax(0, 1fr); }
 }
+
+/* ------------------------------------------------------------------ *
+ * 16. Fía, 2026-09-30 — the meeting's fixes.
+ * ------------------------------------------------------------------ */
+body.tl-refresh:not(#tl) :is(.tl-bts-source, .tl-news-source) { display: none !important; }
+
+/* Beyond the Studio: an index — title, opening lines, a strip of pictures. */
+body.tl-refresh:not(#tl) .tl-bts-index {
+    order: -198;
+    list-style: none !important;
+    width: min(var(--tl-wide), 100vw - 2 * var(--tl-gutter));
+    margin: 0 auto clamp(3rem, 6vw, 5rem) !important;
+    padding: 0 !important;
+    border-top: 1px solid var(--tl-rule);
+    box-sizing: border-box;
+}
+body.tl-refresh:not(#tl) .tl-bts-row { margin: 0 !important; border-bottom: 1px solid var(--tl-rule); }
+body.tl-refresh:not(#tl) .tl-bts-row-link {
+    display: grid;
+    grid-template-columns: minmax(0, 17rem) minmax(0, 1fr);
+    grid-template-areas: "head text" "head strip";
+    column-gap: clamp(1.25rem, 4vw, 3rem);
+    row-gap: 0.9rem;
+    padding: clamp(1.25rem, 2.5vw, 1.75rem) 0;
+    color: var(--tl-ink) !important;
+}
+body.tl-refresh:not(#tl) .tl-bts-row-head { grid-area: head; display: flex; gap: 0.9rem; align-items: baseline; }
+body.tl-refresh:not(#tl) .tl-bts-row-n {
+    font-family: var(--tl-sans);
+    font-size: var(--tl-fs-small);
+    color: var(--tl-muted);
+    font-variant-numeric: tabular-nums;
+}
+body.tl-refresh:not(#tl) .tl-bts-row-title {
+    font-family: var(--tl-sans);
+    font-size: var(--tl-fs-title);
+    font-weight: 500;
+    line-height: 1.18;
+    letter-spacing: -0.018em;
+}
+body.tl-refresh:not(#tl) .tl-bts-row-link:hover .tl-bts-row-title { color: var(--tl-accent); }
+body.tl-refresh:not(#tl) .tl-bts-row-text {
+    grid-area: text;
+    max-width: var(--tl-measure);
+    font-family: var(--tl-serif);
+    font-size: var(--tl-fs-body);
+    line-height: 1.5;
+    color: var(--tl-ink);
+}
+body.tl-refresh:not(#tl) .tl-bts-row-strip {
+    grid-area: strip;
+    display: flex;
+    gap: 0.5rem;
+    overflow: hidden;
+}
+body.tl-refresh:not(#tl) .tl-bts-row-strip img {
+    display: block;
+    height: clamp(64px, 8vw, 104px);
+    width: auto;
+    max-width: none;
+    flex: none;
+    object-fit: cover;
+    transition: opacity 0.2s;
+}
+body.tl-refresh:not(#tl) .tl-bts-row-link:hover .tl-bts-row-strip img { opacity: 0.88; }
+
+/* Deirdre's film. */
+body.tl-refresh:not(#tl) .tl-video { margin: 1.5rem 0 2rem !important; max-width: 46rem; }
+body.tl-refresh:not(#tl) .tl-video video { display: block; width: 100%; height: auto; background: #000; aspect-ratio: 704 / 480; }
+body.tl-refresh:not(#tl) .tl-video figcaption {
+    margin-top: 0.5rem;
+    font-family: var(--tl-sans);
+    font-size: var(--tl-fs-small);
+    color: var(--tl-muted);
+}
+
+/* Lightbox (About, recent periods). */
+body.tl-refresh:not(#tl) .tl-zoomable { cursor: zoom-in; }
+body.tl-refresh:not(#tl) .tl-zoomable:focus-visible { outline: 2px solid var(--tl-accent); outline-offset: 3px; }
+html.tl-lb-open { overflow: hidden; }
+.tl-lb {
+    position: fixed; inset: 0; z-index: 100000;
+    display: flex; align-items: center; justify-content: center;
+    padding: clamp(1rem, 4vw, 3rem);
+    background: rgba(255, 249, 239, 0.97);
+    cursor: zoom-out;
+}
+.tl-lb-figure { margin: 0; display: flex; flex-direction: column; align-items: center; max-height: 100%; }
+.tl-lb-figure img { max-width: 100%; max-height: calc(100vh - 7rem); width: auto; height: auto; object-fit: contain; cursor: default; }
+.tl-lb-caption { margin-top: 0.75rem; font: 400 14px/1.4 "Inter", "Helvetica Neue", Arial, sans-serif; color: #6c665d; text-align: center; }
+.tl-lb-close {
+    position: absolute; top: 0.75rem; right: 1rem;
+    border: 0 !important; background: none !important; padding: 0.25rem 0.5rem !important;
+    font: 300 34px/1 "Inter", "Helvetica Neue", Arial, sans-serif; color: #1d1c1a !important; cursor: pointer;
+}
+
+/* In the Studio: the two newest periods, styled like the rows below. */
+body.tl-refresh:not(#tl) .tl-period {
+    width: min(var(--tl-wide), 100vw - 2 * var(--tl-gutter));
+    margin: 0 auto clamp(2rem, 4vw, 3rem);
+    box-sizing: border-box;
+}
+body.tl-refresh:not(#tl) .tl-period-link { display: block; color: var(--tl-ink) !important; }
+body.tl-refresh:not(#tl) .tl-period-label { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
+body.tl-refresh:not(#tl) .tl-period-label::after { content: ""; flex: 1; border-top: 1px solid var(--tl-rule); }
+body.tl-refresh:not(#tl) .tl-period-range {
+    font-family: var(--tl-sans);
+    font-size: var(--tl-fs-label);
+    font-variant-numeric: tabular-nums;
+}
+body.tl-refresh:not(#tl) .tl-period-link:hover .tl-period-range { color: var(--tl-accent); }
+body.tl-refresh:not(#tl) .tl-period-works {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(1rem, 3vw, 2.5rem);
+    align-items: center;
+}
+body.tl-refresh:not(#tl) .tl-period-works img {
+    display: block;
+    width: 100%;
+    height: clamp(150px, 18vw, 240px);
+    object-fit: contain;
+}
+
+/* Recent periods: the work grid. */
+body.tl-refresh:not(#tl) .tl-recent-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+    gap: clamp(1.5rem, 3.5vw, 3rem);
+    align-items: end;
+    width: min(var(--tl-wide), 100vw - 2 * var(--tl-gutter));
+    margin: clamp(2rem, 5vw, 4rem) auto clamp(3rem, 6vw, 5rem);
+    box-sizing: border-box;
+}
+body.tl-refresh:not(#tl) .tl-recent-work { margin: 0 !important; }
+body.tl-refresh:not(#tl) .tl-recent-work a { display: block; cursor: zoom-in; }
+body.tl-refresh:not(#tl) .tl-recent-work img { display: block; width: 100%; height: auto; }
+body.tl-refresh:not(#tl) .tl-recent-work figcaption { margin-top: 0.6rem; font-family: var(--tl-sans); line-height: 1.4; }
+body.tl-refresh:not(#tl) .tl-recent-title { display: block; font-size: var(--tl-fs-label); color: var(--tl-ink); }
+body.tl-refresh:not(#tl) .tl-recent-meta { display: block; font-size: var(--tl-fs-small); color: var(--tl-muted); }
+
+/* Home: recent work from Valise. */
+body.tl-refresh:not(#tl) .tl-carousel { width: 100%; }
+body.tl-refresh:not(#tl) .tl-carousel-stage { position: relative; aspect-ratio: 720 / 556; }
+body.tl-refresh:not(#tl) .tl-carousel-slide {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; visibility: hidden;
+    transition: opacity 0.9s ease, visibility 0s linear 0.9s;
+}
+body.tl-refresh:not(#tl) .tl-carousel-slide.is-on { opacity: 1; visibility: visible; transition: opacity 0.9s ease; }
+body.tl-refresh:not(#tl) .tl-carousel-slide img { max-width: 100%; max-height: 100%; width: auto !important; height: auto !important; aspect-ratio: auto !important; object-fit: contain; }
+body.tl-refresh:not(#tl) .tl-carousel-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-top: 0.75rem; }
+body.tl-refresh:not(#tl) .tl-carousel-caption {
+    margin: 0 !important;
+    font-family: var(--tl-sans);
+    font-size: var(--tl-fs-small);
+    color: var(--tl-muted);
+}
+body.tl-refresh:not(#tl) .tl-carousel-controls { display: flex; gap: 0.25rem; flex: none; }
+body.tl-refresh:not(#tl) .tl-carousel-btn {
+    border: 0 !important; background: none !important;
+    padding: 0.2rem 0.45rem !important;
+    font: 400 18px/1 var(--tl-sans) !important;
+    color: var(--tl-ink) !important;
+    cursor: pointer;
+}
+body.tl-refresh:not(#tl) .tl-carousel-btn:hover { color: var(--tl-accent) !important; }
+@media (prefers-reduced-motion: reduce) {
+    body.tl-refresh:not(#tl) .tl-carousel-slide { transition: none; }
+}
+
+/* News: one grid. */
+body.tl-refresh:not(#tl) .tl-news-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(2rem, 4vw, 3.5rem) clamp(1.25rem, 3vw, 2.5rem);
+    align-items: start;
+    width: min(var(--tl-wide), 100vw - 2 * var(--tl-gutter));
+    margin: clamp(2rem, 5vw, 4rem) auto clamp(3rem, 6vw, 5rem);
+    box-sizing: border-box;
+}
+body.tl-refresh:not(#tl) .tl-news-item { margin: 0; }
+body.tl-refresh:not(#tl) .tl-news-cover { display: block; line-height: 0; }
+body.tl-refresh:not(#tl) .tl-news-cover img { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: contain; }
+body.tl-refresh:not(#tl) .tl-news-title {
+    margin: 0.75rem 0 0 !important;
+    font-family: var(--tl-sans) !important;
+    font-size: var(--tl-fs-label) !important;
+    font-weight: 400 !important;
+    line-height: 1.4 !important;
+    letter-spacing: 0 !important;
+}
+body.tl-refresh:not(#tl) .tl-news-title a { color: var(--tl-ink) !important; }
+body.tl-refresh:not(#tl) .tl-news-title a:hover { color: var(--tl-accent) !important; }
+
+@media (max-width: 767px) {
+    body.tl-refresh:not(#tl) .tl-bts-row-link { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "text" "strip"; }
+    body.tl-refresh:not(#tl) .tl-news-grid { grid-template-columns: minmax(0, 1fr); }
+    body.tl-refresh:not(#tl) .tl-period-works { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
+    body.tl-refresh:not(#tl) .tl-period-works img { height: 110px; }
+}
