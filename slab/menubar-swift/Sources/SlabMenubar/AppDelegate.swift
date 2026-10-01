@@ -2593,7 +2593,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let bg else { return self }
             return Palette(bg: bg,
                 text: text.map { TerminalReadability.ink($0, on: bg) },
-                bold: bold.map { TerminalReadability.ink($0, on: bg) },
+                bold: bold.map { TerminalReadability.ink($0, on: bg, minimum: 4.5) },
                 cursor: cursor.map { TerminalReadability.ink($0, on: bg, minimum: 3) })
         }
     }
@@ -2873,12 +2873,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         for s in state.claudeSessions where !s.tty.isEmpty {
             seen.insert(s.sessionId)
+            // Codex caches its terminal background at startup. Keep that
+            // appearance for its lifetime; status hues still change normally.
+            let sessionDark = s.agentType == "codex" ? (s.terminalDark ?? darkAppearance) : darkAppearance
             // Pulse only the attention states — every other state holds steady
             // so working/blank/stale sessions don't churn osascript on the
             // 0.6 s blink tick.
             let isAttention = (s.state == .complete || s.state == .awaiting || s.state == .interrupted)
             let blink = isAttention && blinkPhase
-            let decor = Self.statusDecor(for: s.state, dark: darkAppearance, blink: blink, agentType: s.agentType)
+            let decor = Self.statusDecor(for: s.state, dark: sessionDark, blink: blink, agentType: s.agentType)
             var palette = decor.palette
             let glyph = decor.glyph
             let loopboyLabel = loopboyLabels[s.sessionId]
@@ -2886,16 +2889,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let loopboyPending = loopboyLabel.map { loopboyPendingContacts.contains($0) } ?? false
             let loopboyBeat = loopboyLabel != nil && Date() < loopboyHeartbeatVisibleUntil
             if loopboyLabel != nil {
-                palette = Self.loopboyTint(palette, dark: darkAppearance, active: loopboyActive)
+                palette = Self.loopboyTint(palette, dark: sessionDark, active: loopboyActive)
                 if loopboyPending && !loopboyActive {
                     palette = Palette(
-                        bg: (65535, 39000, 53500), text: (26000, 800, 13000),
-                        bold: (16000, 0, 8000), cursor: (65535, 5000, 34000))
+                        bg: sessionDark ? (16000, 2000, 9500) : (65535, 39000, 53500),
+                        text: sessionDark ? (65535, 45000, 55000) : (26000, 800, 13000),
+                        bold: sessionDark ? (65535, 54000, 62000) : (16000, 0, 8000),
+                        cursor: (65535, 5000, 34000))
                 }
                 if loopboyBeat {
                     palette = Palette(
-                        bg: (65535, 61000, 30000), text: (23000, 10500, 0),
-                        bold: (12000, 4500, 0), cursor: (65535, 12000, 33000))
+                        bg: sessionDark ? (17000, 12000, 1000) : (65535, 61000, 30000),
+                        text: sessionDark ? (65535, 61000, 30000) : (23000, 10500, 0),
+                        bold: sessionDark ? (65535, 64000, 51000) : (12000, 4500, 0),
+                        cursor: (65535, 12000, 33000))
                 }
             }
             // She texted (theme-by-status on): fold a shared magenta accent
@@ -2954,7 +2961,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // texted" magenta-tinted palette its own settings set so Terminal
             // windows show the accent too (their colors come from the profile,
             // not ad-hoc RGB). Provisioned below from this Assignment.palette.
-            let profile = Self.profileName(for: s.state, dark: darkAppearance, blink: blink, agentType: s.agentType)
+            let profile = Self.profileName(for: s.state, dark: sessionDark, blink: blink, agentType: s.agentType)
                 + (loopboyLabel != nil ? "-loopboy" : "")
                 + (loopboyPending ? "-pending" : "")
                 + (loopboyBeat ? "-heartbeat" : "")
@@ -3062,8 +3069,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         // Terminal's tab color properties are independent overrides. A single
-        // readable profile disables hard-coded app colors; each tab keeps its
-        // own status palette without a profile switch on every heartbeat.
+        // rainbow profile enables app colors; each tab keeps its own status
+        // palette without a profile switch on every heartbeat.
         let readableURL: URL
         do {
             readableURL = try TerminalReadability.writeProfile(in:
@@ -3112,6 +3119,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                        ("bold text color", a.palette.bold),
                                        ("cursor color", a.palette.cursor)] {
                 if let color { tm.append("            set \(property) of t to \(rgbStr(color))") }
+            }
+            if let bg = a.palette.bg {
+                // Encode the control bytes so AppleScript/shell quoting cannot
+                // reinterpret them. The TTY comes from the matched live tab.
+                let encoded = Data(TerminalReadability.paletteEscape(on: bg).utf8).base64EncodedString()
+                tm.append("            do shell script \"/usr/bin/printf %s '\(encoded)' | /usr/bin/base64 -D > \" & quoted form of ttyName")
             }
             // Setting tab colors creates its private profile copy. Preserve
             // the live font there, including Monaspace on older seeded tabs.

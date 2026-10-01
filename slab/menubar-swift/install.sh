@@ -214,6 +214,17 @@ provision_iterm2_profiles() {
     ok "provisioned ${n} iTerm2 profile(s): tiled bg image + Blend 0.5"
 }
 
+# Keep the launcher and its color-probe handoff with this installed release.
+provision_terminal_launcher() {
+    mkdir -p "${HOME}/.local/bin"
+    for script in codex-slab slab-prepare-terminal.mjs; do
+        local source="${SCRIPT_DIR}/../bin/${script}"
+        [[ -f "$source" ]] || continue
+        chmod +x "$source"
+        ln -sfn "$source" "${HOME}/.local/bin/${script}"
+    done
+}
+
 # Disable Terminal.app's "Do you want to terminate the running processes?" modal
 # on every profile, so Slab can close provisioned windows without a popover.
 # The per-profile GUI control is Settings → Profiles → Shell → "Ask before
@@ -356,6 +367,7 @@ fi
 
 provision_tailscale_cli
 provision_iterm2_profiles
+provision_terminal_launcher
 provision_terminal_close_warning
 
 # No unload here. A launchctl unload/load cycle re-registers the background item

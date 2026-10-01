@@ -4,15 +4,25 @@ Terminal.app profiles for new Slab machines. Live status colors come from
 `AppDelegate.statusDecor`; `TerminalReadability` checks their contrast after
 status, pulse, and message tints are combined.
 
-Slab's readable profiles disable app-supplied ANSI/RGB colors, which can
-otherwise disappear against a changing background. Status backgrounds, bold
-ink, underlines, and inverse text remain. Terminal still dims text explicitly
-marked faint by an app. iTerm2 uses its per-character minimum contrast instead.
+Slab preserves app-supplied colors. Its sixteen ANSI swatches span red, orange,
+yellow, green, blue, indigo and violet, adjusted to at least 4.5:1 against each
+status page. Default text targets 7:1, bold ink 4.5:1, and the cursor 3:1.
+The extended 256-color cube and truecolor remain app-owned: Terminal has no
+per-character contrast floor for them or faint text. iTerm2 uses its native
+per-character minimum contrast.
 
-The menubar imports `Slab-Readable-v1` once and applies colors independently to
+The menubar imports `Slab-Rainbow-v2` once and applies colors independently to
 each tab. It closes only the import's own temporary window; running sessions
 are preserved. Reinstalling the menubar updates live tabs without reseeding or
 quitting Terminal.
+
+`codex-slab` prepares Terminal's page before Codex probes its colors, then
+records that appearance in the session marker. Status hues continue changing;
+an existing Codex session keeps its startup light/dark appearance because Codex
+caches that background. New sessions pick up the current Slab appearance.
+Older sessions without the marker continue following the appearance setting;
+resume them through `codex-slab` if their app colors were chosen for the wrong
+background. Slab never restarts an active agent to change its colors.
 
 ## What's here
 

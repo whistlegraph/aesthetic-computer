@@ -41,14 +41,23 @@ tty=${SLAB_TERMINAL_TTY:-$(ps -o tty= -p $$ 2>/dev/null | tr -d ' ')}
 cwd=$PWD
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
+# Codex probes its terminal colors once. Set Slab's page BEFORE launching it,
+# then retain that appearance while its status hues change during the session.
+terminal_dark=null
+if command -v node >/dev/null 2>&1 && [[ -f "$SLAB_BIN/slab-prepare-terminal.mjs" ]]; then
+    terminal_dark=$(node "$SLAB_BIN/slab-prepare-terminal.mjs" "$tty" 2>/dev/null) || terminal_dark=null
+fi
+case "$terminal_dark" in true|false|null) ;; *) terminal_dark=null ;; esac
+
 # Fresh window reads "blank" (like Claude's SessionStart) until the first turn.
 jq -n \
     --arg sid "$sid" --arg cwd "$cwd" --arg tty "$tty" \
     --arg pid "$$" --arg ts "$ts" \
+    --argjson terminal_dark "$terminal_dark" \
     --arg nudge "${SLAB_NUDGE_SCREEN:-}" --arg contact "${SLAB_LOOPBOY_CONTACT:-}" \
     '{session_id:$sid, cwd:$cwd, subject:"codex session", summary:"codex",
       tty:$tty, agent_pid:($pid|tonumber), agent_type:"codex",
-      updated:$ts, state:"blank", nudge_screen:$nudge, loopboy_contact:$contact}' \
+      updated:$ts, state:"blank", terminal_dark:$terminal_dark, nudge_screen:$nudge, loopboy_contact:$contact}' \
     > "$ACTIVE_DIR/$sid" 2>/dev/null
 
 # Background watcher: derives per-turn state from the rollout JSONL.

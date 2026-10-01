@@ -85,6 +85,8 @@ struct ClaudeSession {
     /// in the menu. The state/color engine is agent-agnostic, so this is
     /// display-only.
     var agentType: String = "claude"
+    /// Appearance prepared before Codex's one-time terminal-color probe.
+    var terminalDark: Bool? = nil
 
     /// Aesel was Easel. A writer that has flipped says "aesel"; inside Slab
     /// the interface stays "easel", so every comparison here holds for both.
@@ -434,6 +436,7 @@ enum ClaudeSessionReader {
         )
         session.remoteHost = (obj["remote_host"] as? String) ?? ""
         session.agentType = agentType
+        session.terminalDark = obj["terminal_dark"] as? Bool
         session.hostApp = (obj["host_app"] as? String) ?? ""
         session.hostPid = (obj["host_pid"] as? Int) ?? 0
         session.hostWindowID = (obj["host_window_id"] as? Int) ?? 0
