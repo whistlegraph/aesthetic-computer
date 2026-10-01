@@ -168,7 +168,6 @@ struct WalkiewareScreen: View {
         .tint(paper)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: themePhase)
     }
-    private var identity: String { (session.snapshot.handle.isEmpty ? "Sign in" : "@" + session.snapshot.handle) + (session.snapshot.code.isEmpty ? "" : "/" + session.snapshot.code) }
     private var canTalk: Bool { session.workspaceReady && session.engineReady && !session.snapshot.busy && session.capturePhase != .processing }
     private var talkControl: some View {
         TimelineView(.animation(minimumInterval: 1 / 30, paused: session.capturePhase != .recording)) { context in

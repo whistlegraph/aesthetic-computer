@@ -84,7 +84,7 @@ struct AccountSheet: View {
             List {
                 Section {
                     if handle.isEmpty {
-                        Button { signIn(); dismiss() } label: { Label("Sign in to Aesthetic Computer", systemImage: "person") }
+                        Button { signIn(); dismiss() } label: { Label("Log in to Aesthetic Computer", systemImage: "person") }
                     } else {
                         HStack {
                             ComicTitle(text: "@" + handle, colors: colors, size: 26)
@@ -127,13 +127,19 @@ struct IdentityHeader: View {
     let beforeOpening: () -> Void
     @State private var showingPieces = false
     @State private var showingAccount = false
-    private var handleText: String { session.snapshot.handle.isEmpty ? "Sign in" : "@" + session.snapshot.handle }
+    private var signedIn: Bool { !session.snapshot.handle.isEmpty }
+    private var handleText: String { signedIn ? "@" + session.snapshot.handle : "Log in" }
     var body: some View {
         HStack(spacing: 0) {
-            Button { beforeOpening(); showingAccount = true } label: {
+            // Signed out, the whole corner is one plain "Log in" that starts the
+            // login; the piece code and the account sheet wait for a handle.
+            Button {
+                beforeOpening()
+                if signedIn { showingAccount = true } else { session.command("signIn") }
+            } label: {
                 ComicTitle(text: handleText, colors: session.snapshot.colors, size: size)
-            }.buttonStyle(.plain).accessibilityLabel(handleText + ", account").accessibilityIdentifier("workspace-account")
-            if !session.snapshot.code.isEmpty {
+            }.buttonStyle(.plain).accessibilityLabel(signedIn ? handleText + ", account" : "Log in").accessibilityIdentifier("workspace-account")
+            if signedIn && !session.snapshot.code.isEmpty {
                 Button { beforeOpening(); showingPieces = true } label: {
                     ComicTitle(text: "/" + session.snapshot.code, size: size)
                 }.buttonStyle(.plain).accessibilityLabel(session.snapshot.code + ", pieces").accessibilityIdentifier("workspace-settings")
