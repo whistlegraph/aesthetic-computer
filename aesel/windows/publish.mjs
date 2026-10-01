@@ -5,7 +5,7 @@ import {resolve,dirname,basename} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
 import {execFileSync,spawnSync} from 'node:child_process';
-const root=resolve(dirname(fileURLToPath(import.meta.url)),'../..');
+const root=process.env.AESEL_SOURCE_REPO || resolve(dirname(fileURLToPath(import.meta.url)),'../..');
 const dir=resolve(process.argv[2] || 'aesel/windows/dist');
 const manifest=JSON.parse(await readFile(resolve(dir,'latest.json'),'utf8'));
 const result=JSON.parse(await readFile(resolve(dir,'result.json'),'utf8').catch(()=>readFile(resolve(dir,'smoke/result.json'),'utf8')));

@@ -36,8 +36,11 @@ pwsh -File aesel/windows/package.ps1
 `package.ps1` publishes the self-contained x64 app, runs it on Windows with an
 isolated profile and mocked account/inference/upload traffic, captures the
 workspace/sign-in screens, then builds the per-user installer and SHA-256 feed.
+The installer includes Microsoft's signature-verified WebView2 bootstrapper and
+installs the runtime if needed. The installed app is tested again after setup.
 The smoke checks generation, upload, preview, escaping, persistence, thread
-switching, sign-out, account isolation, callback boundaries and Windows DPAPI.
+switching, sign-out, account isolation, callback boundaries, Windows DPAPI,
+and serialized refresh-token rotation.
 It does not certify real-user OAuth or provider billing.
 
 The existing AppVeyor project builds the `aesel-windows` branch using its
@@ -46,7 +49,10 @@ the account billing lock is cleared. Inspect both screenshots and the test
 result before publication; never publish a compile-only artifact.
 
 Release artifacts go under `releases.aesthetic.computer/aesel/windows/`.
-Upload the immutable installer first and `latest.json` last. The manifest records
+Run `node aesel/windows/publish.mjs ARTIFACT_DIR` with the existing Spaces
+credentials in the environment. When running this script from a staged copy,
+set `AESEL_SOURCE_REPO` to the canonical checkout used for ancestry checks.
+It uploads the immutable installer first and `latest.json` last. The manifest records
 the build revision, hash, architecture, beta channel, and unsigned status.
 Only a revision preserved on knot `main` may be published. The website links
 through `/api/download?app=aesel&file=aesel-VERSION-windows-x64-setup.exe` so
