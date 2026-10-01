@@ -20,7 +20,7 @@ STATE = Path.home() / ".local/share/slab/performance"
 FLOOR = 20 * 1024**3
 INTERVAL = 30
 MAX_LOG = 5 * 1024**2
-VERSION = "2026-10-01.1"
+VERSION = "2026-10-01.2"
 
 
 def run(args, timeout=2):
@@ -345,6 +345,33 @@ def sample(repair=False):
         return 0
 
 
+def ensure_shell_path():
+    """macOS path_helper can reorder zsh PATH after .zshenv has run."""
+    home = Path.home()
+    shell = os.environ.get("SHELL", "/bin/zsh")
+    expected = [str(home / ".local/bin/git"), str(home / ".local/bin/swift")]
+    if run([shell, "-lc", "command -v git; command -v swift"], timeout=8).splitlines() == expected:
+        return
+    name = Path(shell).name
+    if name == "zsh":
+        profile = home / ".zprofile"
+        block = '\n# AC performance guard PATH\nexport PATH="$HOME/.local/bin:$PATH"\n# End AC performance guard PATH\n'
+    elif name == "bash":
+        profile = next((home / p for p in (".bash_profile", ".bash_login", ".profile") if (home / p).exists()), home / ".profile")
+        block = '\n# AC performance guard PATH\nexport PATH="$HOME/.local/bin:$PATH"\n# End AC performance guard PATH\n'
+    elif name == "fish":
+        profile = home / ".config/fish/conf.d/ac-performance-guard.fish"
+        block = '\n# AC performance guard PATH\nfish_add_path --path --prepend --move "$HOME/.local/bin"\n# End AC performance guard PATH\n'
+    else:
+        raise RuntimeError(f"Add ~/.local/bin before system commands in {shell}")
+    profile = profile.resolve()
+    profile.parent.mkdir(parents=True, exist_ok=True)
+    old = profile.read_text() if profile.exists() else ""
+    atomic(profile, old.replace(block, "").rstrip() + "\n" + block)
+    if run([shell, "-lc", "command -v git; command -v swift"], timeout=8).splitlines() != expected:
+        raise RuntimeError(f"Shell still bypasses guards after updating {profile}")
+
+
 def install(preserve_git=False):
     home = Path.home()
     target = home / ".local/lib/ac-performance-guard"
@@ -388,6 +415,7 @@ def install(preserve_git=False):
         replacement.unlink(missing_ok=True)
         replacement.symlink_to(target / source)
         os.replace(replacement, link)
+    ensure_shell_path()
     repo = os.environ.get("AC_REPO", str(home / "aesthetic-computer"))
     atomic(target / "repo-path", repo + "\n")
     config = {"Label": LABEL, "ProgramArguments": ["/bin/bash", str(target / "performance-guard.sh"), "--once", "--repair"],

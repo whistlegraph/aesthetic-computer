@@ -136,6 +136,17 @@ class GuardTests(unittest.TestCase):
         result = subprocess.run(["/bin/bash", str(self.state / "swift-guard.sh"), "build", "--package-path", str(self.state)], capture_output=True)
         self.assertEqual(result.returncode, 75)
 
+    def test_login_path_repair_preserves_profile(self):
+        profile = self.state / ".zprofile"
+        profile.write_text("# existing setting\nexport MY_SETTING=yes\n")
+        expected = f"{self.state}/.local/bin/git\n{self.state}/.local/bin/swift"
+        with patch.object(guard.Path, "home", return_value=self.state), \
+                patch.dict(os.environ, {"SHELL": "/bin/zsh"}), \
+                patch.object(guard, "run", side_effect=["/usr/bin/git\n/usr/bin/swift", expected]):
+            guard.ensure_shell_path()
+        self.assertIn("export MY_SETTING=yes", profile.read_text())
+        self.assertEqual(profile.read_text().count("# AC performance guard PATH"), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
