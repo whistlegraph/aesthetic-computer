@@ -2587,7 +2587,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     typealias RGB = (Int, Int, Int)
     /// One coordinated per-status palette: bg + foreground + bold + cursor,
     /// so the whole window shifts as a single tone.
-    struct Palette { let bg: RGB?; let text: RGB?; let bold: RGB?; let cursor: RGB? }
+    struct Palette {
+        let bg: RGB?; let text: RGB?; let bold: RGB?; let cursor: RGB?
+        var readable: Palette {
+            guard let bg else { return self }
+            return Palette(bg: bg,
+                text: text.map { TerminalReadability.ink($0, on: bg) },
+                bold: bold.map { TerminalReadability.ink($0, on: bg) },
+                cursor: cursor.map { TerminalReadability.ink($0, on: bg, minimum: 3) })
+        }
+    }
 
     /// Single source of truth for the per-status palette + status glyph,
     /// shared by the iTerm2 live-property path and the Terminal.app
@@ -2766,9 +2775,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// Terminal.app settings-set name for a status × appearance. Terminal
-    /// can't set ad-hoc per-window RGB like iTerm2, so slab provisions one
-    /// named profile per combo and just switches a tab's `current settings`.
+    /// Stable palette identity for decor deduplication and diagnostics.
+    /// Terminal tabs use the shared readable profile with independent colors.
     static func profileName(
         for state: ClaudeSession.State, dark: Bool, blink: Bool = false,
         agentType: String = "claude"
@@ -2780,10 +2788,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .rendering: s = "rendering"
         case .complete: s = "complete"
         case .awaiting: s = "awaiting"
-        // No dedicated Terminal.app settings set for interrupted — reuse the
-        // calm "complete" (slate) profile so Terminal users still leave green.
-        // iTerm2 + the menubar polygon use the distinct violet palette above.
-        case .interrupted: s = "complete"
+        case .interrupted: s = "interrupted"
         case .stale:    s = "stale"
         }
         // Codex-backed interfaces share a settings-set family so their
@@ -2800,9 +2805,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         default:               agentSuffix = ""
         }
         let base = "Slab-\(s)-\(dark ? "dark" : "light")\(agentSuffix)"
-        // Only attention states ever pulse; the suffix keeps the alt
-        // settings set distinct so Terminal.app can flip between two
-        // provisioned profiles per tick.
+        // Only attention states ever pulse.
         return blink && (state == .complete || state == .awaiting)
             ? "\(base)-pulse"
             : base
@@ -2813,8 +2816,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// only emits an osascript when something actually changed since the
     /// last pass (state flipped, subject moved, appearance flipped, or a new
     /// session appeared). iTerm2 gets ad-hoc per-session colors + wallpaper;
-    /// Terminal.app gets a provisioned `Slab-<state>-<appearance>` settings
-    /// set switched per tab (it has no per-window RGB / bg-image scripting).
+    /// Terminal.app uses a readable base profile plus per-tab RGB overrides.
     /// Both blocks are `is running`-guarded so a non-running terminal is a
     /// cheap no-op and is never launched.
     /// Publish colors only, never session metadata. Standalone clients can
@@ -2916,6 +2918,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     bold:   blend(palette.bold, msgBright, 0.35),
                     cursor: msg)
             }
+            palette = palette.readable
             if let text = palette.text {
                 PromptSigilOverlayController.shared.setPromptColor(
                     sessionId: s.sessionId,
@@ -3033,6 +3036,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 if let cursor = a.palette.cursor {
                     it.append("              set cursor color of s to \(rgbStr(cursor))")
                 }
+                // iTerm's renderer can preserve app colors and clamp each
+                // glyph against its actual background, including RGB + dim.
+                // SetProfileProperty accepts base64 JSON: MC41NQ== is 0.55.
+                it.append("              set _slabContrast to (ASCII character 27) & \"]1337;SetProfileProperty=Minimum Contrast=MC41NQ==\" & (ASCII character 7)")
+                it.append("              do shell script \"/usr/bin/printf %s \" & quoted form of _slabContrast & \" > \" & quoted form of ttyName")
                 it.append("              set name of s to \"\(esc(a.title))\"")
                 it.append("              set background image of s to \"\(esc(a.wallpaper))\"")
                 it.append("            end if")
@@ -3053,20 +3061,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", itScript])
         }
 
-        // ── Terminal.app: provisioned settings sets switched per tab ────
-        // Terminal has no per-window RGB or bg-image scripting, so slab
-        // provisions one named settings set per distinct status×appearance
-        // (idempotent: reuse if present, always re-push colors so a palette
-        // tweak propagates) and switches each matching tab's
-        // `current settings`. Font is copied from the user's default profile
-        // so only colors change. (Terminal applies a profile's window size
-        // on switch — if tiled windows jump, that's the known Terminal-only
-        // tradeoff of per-window theming here.)
-        var profileOrder: [String] = []
-        var profilePalette: [String: Palette] = [:]
-        for a in changes where profilePalette[a.profile] == nil {
-            profileOrder.append(a.profile)
-            profilePalette[a.profile] = a.palette
+        // Terminal's tab color properties are independent overrides. A single
+        // readable profile disables hard-coded app colors; each tab keeps its
+        // own status palette without a profile switch on every heartbeat.
+        let readableURL: URL
+        do {
+            readableURL = try TerminalReadability.writeProfile(in:
+                URL(fileURLWithPath: "\(Paths.slabHome)/terminal"))
+        } catch {
+            lastTerminalDecor.removeAll()
+            NSLog("Slab readable profile failed: %@", error.localizedDescription)
+            return
         }
         var tm: [String] = [
             "if application \"Terminal\" is running then",
@@ -3077,84 +3082,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             "      set end of _slabDecorIds to id of _slabDecorWindow",
             "      set end of _slabDecorBounds to bounds of _slabDecorWindow",
             "    end repeat",
+            TerminalReadability.bootstrapScript(profileURL: readableURL),
+            "    set clean commands of slabSS to \(Self.terminalCleanCommands)",
+            "    try",
+            "      set clean commands of default settings to \(Self.terminalCleanCommands)",
+            "      set clean commands of startup settings to \(Self.terminalCleanCommands)",
+            "    end try",
         ]
-        for name in profileOrder {
-            let pal = profilePalette[name]!
-            let n = esc(name)
-            tm.append("    set slabE to (every settings set whose name is \"\(n)\")")
-            tm.append("    if (count of slabE) is 0 then")
-            tm.append("      set slabSS to (make new settings set with properties {name:\"\(n)\"})")
-            tm.append("    else")
-            tm.append("      set slabSS to item 1 of slabE")
-            tm.append("    end if")
-            tm.append("    if (count of slabE) is 0 then")
-            tm.append("    try")
-            tm.append("      set font name of slabSS to font name of default settings")
-            tm.append("    end try")
-            tm.append("    end if")
-            // Keep the family from the user's default, but ALWAYS refresh the
-            // size. Existing Slab profiles may have been created for an older
-            // grid at 10pt; assigning one of those after an 11-window tile at
-            // 9pt makes Terminal grow the window by several character rows.
-            // Scatter pins the tiny font; tiled uses the newest grid font;
-            // before the first tile, inherit the user's default.
-            let decorFont = scatterMode ? Self.scatterFontSize : lastTiledFontSize
-            tm.append("    try")
-            if let f = decorFont {
-                tm.append("      set font size of slabSS to \(f)")
-            } else {
-                tm.append("      set font size of slabSS to font size of default settings")
-            }
-            tm.append("    end try")
-            // Close windows without the "terminate running processes?" modal:
-            // `clean commands` is Terminal's allowlist of processes ignored when
-            // deciding whether to warn on close. Include shells + dev runtimes so
-            // Slab can close terminals (dev servers, REPLs) without a popover.
-            // The same list goes on Terminal's default and startup profiles:
-            // a window opened before Slab dresses it (or never dressed) would
-            // otherwise ask before an agent — or Aesel closing itself — can
-            // shut it.
-            tm.append("    try")
-            tm.append("      set clean commands of slabSS to \(Self.terminalCleanCommands)")
-            tm.append("    end try")
-            tm.append("    try")
-            tm.append("      set clean commands of default settings to \(Self.terminalCleanCommands)")
-            tm.append("      set clean commands of startup settings to \(Self.terminalCleanCommands)")
-            tm.append("    end try")
-            // A fresh `make new settings set` inherits Terminal's FACTORY
-            // title components (working dir + process + size all on), not
-            // the user's default profile — so a themed window read
-            // "aesthetic-computer — <title> — claude — 80×24". Turn off
-            // every component AppleScript can reach; the two it can't
-            // (working dir + active process) are plist-only and handled by
-            // `patchTerminalTitleComponents()` when Terminal next quits.
-            tm.append("    try")
-            tm.append("      set title displays window size of slabSS to false")
-            tm.append("      set title displays device name of slabSS to false")
-            tm.append("      set title displays shell path of slabSS to false")
-            tm.append("      set title displays settings name of slabSS to false")
-            tm.append("    end try")
-            if let bg = pal.bg {
-                tm.append("    try")
-                tm.append("      set background color of slabSS to \(rgbStr(bg))")
-                tm.append("    end try")
-            }
-            if let text = pal.text {
-                tm.append("    try")
-                tm.append("      set normal text color of slabSS to \(rgbStr(text))")
-                tm.append("    end try")
-            }
-            if let bold = pal.bold {
-                tm.append("    try")
-                tm.append("      set bold text color of slabSS to \(rgbStr(bold))")
-                tm.append("    end try")
-            }
-            if let cursor = pal.cursor {
-                tm.append("    try")
-                tm.append("      set cursor color of slabSS to \(rgbStr(cursor))")
-                tm.append("    end try")
-            }
-        }
+        let decorFont = scatterMode ? Self.scatterFontSize : lastTiledFontSize
+        tm.append("    set font size of slabSS to " + (decorFont.map(String.init) ?? "font size of default settings"))
         tm.append(contentsOf: [
             "    repeat with w in windows",
             "      repeat with t in tabs of w",
@@ -3164,12 +3100,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         for a in changes {
             let escTty = esc(a.tty)
             tm.append("          if ttyName ends with \"\(escTty)\" then")
-            // Reassigning the same Terminal settings set is not a no-op: it
-            // reapplies that profile's rows/columns and can resize the whole
-            // window. Fuse/heartbeat refreshes must never touch geometry.
-            tm.append("            if name of current settings of t is not \"\(esc(a.profile))\" then")
-            tm.append("              set current settings of t to settings set \"\(esc(a.profile))\"")
+            tm.append("            if name of current settings of t is not \"\(TerminalReadability.profileName)\" then")
+            tm.append("              set current settings of t to slabSS")
             tm.append("            end if")
+            for (property, color) in [("background color", a.palette.bg),
+                                       ("normal text color", a.palette.text),
+                                       ("bold text color", a.palette.bold),
+                                       ("cursor color", a.palette.cursor)] {
+                if let color { tm.append("            set \(property) of t to \(rgbStr(color))") }
+            }
             if a.title.isEmpty {
                 tm.append("            set title displays custom title of t to false")
             } else {
@@ -3202,7 +3141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             try? tmScript.write(toFile: "/tmp/slab-decor-terminal.scpt",
                                 atomically: true, encoding: .utf8)
             dlog("wrote /tmp/slab-decor-*.scpt iterm=\(itermInstalled) "
-                + "profiles=\(profileOrder.count)")
+                + "readable=\(TerminalReadability.profileName)")
         }
         // Terminal profile assignment can mutate font and character rows. Run
         // it on the same serial queue as tile font normalization so a heartbeat
@@ -3211,7 +3150,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // a status change must not move Aesel or any other window back into an
         // old grid, including after a manual tile with auto-tiling disabled.
         tileFontQueue.async {
-            _ = ShellRunner.run("/usr/bin/osascript", args: ["-e", tmScript])
+            let result = ShellRunner.run("/usr/bin/osascript", args: ["-e", tmScript], timeout: 15)
+            if result.status != 0 {
+                NSLog("Slab Terminal decor failed (%d); retrying", result.status)
+                DispatchQueue.main.async { self.lastTerminalDecor.removeAll() }
+            }
         }
     }
 

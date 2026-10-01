@@ -1,9 +1,18 @@
 # Slab terminal seed
 
-Canonical Terminal.app appearance for any machine running Slab. This is the
-single source of truth for the look — capture it once on a reference machine,
-commit it, and `slab-seed-terminal` reproduces it byte-for-byte on every new
-machine.
+Terminal.app profiles for new Slab machines. Live status colors come from
+`AppDelegate.statusDecor`; `TerminalReadability` checks their contrast after
+status, pulse, and message tints are combined.
+
+Slab's readable profiles disable app-supplied ANSI/RGB colors, which can
+otherwise disappear against a changing background. Status backgrounds, bold
+ink, underlines, and inverse text remain. Terminal still dims text explicitly
+marked faint by an app. iTerm2 uses its per-character minimum contrast instead.
+
+The menubar imports `Slab-Readable-v1` once and applies colors independently to
+each tab. It closes only the import's own temporary window; running sessions
+are preserved. Reinstalling the menubar updates live tabs without reseeding or
+quitting Terminal.
 
 ## What's here
 
