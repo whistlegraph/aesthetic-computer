@@ -19,7 +19,8 @@ function boot({ wipe, screen, params, colon, api }) {
 }
 
 // paint: runs every frame
-function paint({ wipe, ink, line, circle, screen }) {
+function paint({ wipe, ink, line, circle, screen, paintCount }) {
+  const frame = Number(paintCount); // AC exposes paintCount, not a frame property.
   // Render graphics
 }
 
