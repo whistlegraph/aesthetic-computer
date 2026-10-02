@@ -422,7 +422,7 @@ function configureWorldMap(name, course = poolDesert ? "desert" : skateCourse) {
   skateparkMap = name === "skatepark";
   skateCourse = course === "pool" || course === "desert" ? "pool" : course === "halfpipe" ? "halfpipe" : course === "indoor" ? "indoor" : "park";
   poolDesert = skateparkMap && course === "desert";
-  roomDepth = poolOnly() ? 6000 : 900;
+  roomDepth = poolOnly() ? (poolDesert ? desertGrid().depth : 6000) : 900;
   worldNear = -roomDepth / 2; worldFar = roomDepth / 2;
   // The seeded park layout and the doorway walk-in belong to the park; the
   // 2D maps share those feature objects, so leaving puts them back.
@@ -444,7 +444,7 @@ function configureWorldMap(name, course = poolDesert ? "desert" : skateCourse) {
   skateBoosts.length = 0;
   if (skateparkMap && !indoor && !halfpipeOnly()) { skateLoops.push(...parkLoops); skateBoosts.push(...parkBoosts); }
   if(indoor)skateLoops.push({x:tileCenterX(44),radius:260});
-  gridCols = !skateparkMap ? 40 : poolOnly() ? 96 : halfpipeOnly() ? 24 : indoor ? indoorCols : 320;
+  gridCols = !skateparkMap ? 40 : poolOnly() ? (poolDesert ? desertGrid().cols : 96) : halfpipeOnly() ? 24 : indoor ? indoorCols : 320;
   gridWidth = gridCols * tileSize;
   if (gridField.length !== gridCols * gridRows) gridField = new Float32Array(gridCols * gridRows);
   worldRight = gridLeft + gridWidth + wallThickness;
@@ -22371,12 +22371,22 @@ const desertParams=()=>desertLevel||(desertLevel=gameObjects.ow.islandParams(nul
 function desertHome(){return desertParams().home;}
 const desertSeaY=()=>parkDeckY+desertParams().island.sea;
 function desertFloorAt(x,z){
-  const {home,island,dunes}=desertParams(),d=Math.hypot(x-home.x,z-home.z);
+  const {home,middle,island,dunes}=desertParams(),d=Math.hypot(x-home.x,z-home.z),m=Math.hypot(x-middle.x,z-middle.z);
   const away=clamp((d-700)/1400,0,1),ease=away*away*(3-2*away);
-  const beach=clamp((d-(island.radius-island.shore))/island.shore,0,1);
-  const drop=clamp((d-island.radius)/900,0,1);
-  const dune=(.5+.5*Math.sin(x/1150+Math.sin(z/1700)*1.3))*dunes[0]+(.5+.5*Math.sin(z/820+x/2600+1.7))*dunes[1]+(.5+.5*Math.sin((x-z)/430))*dunes[2];
+  const beach=clamp((m-(island.radius-island.shore))/island.shore,0,1);
+  const drop=clamp((m-island.radius)/900,0,1);
+  // The dunes grow the further you ride from home: the three fields as
+  // written, and a long slow swell that only tells past the first stretch.
+  const far=clamp((d-2500)/5000,0,1);
+  const dune=(.5+.5*Math.sin(x/1150+Math.sin(z/1700)*1.3))*dunes[0]*(1+far*.6)+(.5+.5*Math.sin(z/820+x/2600+1.7))*dunes[1]*(1+far*.6)+(.5+.5*Math.sin((x-z)/430))*dunes[2]
+    +(.5+.5*Math.sin(x/2600+Math.sin(z/3100)*1.1+.4))*dunes[0]*1.4*far;
   return parkDeckY-dune*ease*(1-beach)+drop*drop*island.deep;
+}
+// The desert's grid holds the whole island and a stretch of sea round it:
+// columns to the right of the origin, depth either side of z = 0.
+function desertGrid(){
+  const {middle,island}=desertParams(),sea=1500;
+  return {cols:Math.ceil((middle.x+island.radius+sea-gridLeft)/tileSize),depth:2*Math.ceil((Math.abs(middle.z)+island.radius+sea)/100)*100};
 }
 const desertPalette={sand:[232,203,148],shade:[206,168,118],crest:[246,226,178],sea:[86,164,210],shallows:[128,196,214]};
 function drawDesertGeometry(){
@@ -26868,9 +26878,13 @@ const gameObjects = (() => {
       "ROCKET LAUNCHER", "LIGHT SABER", "GRENADE"];
 
     // The desert as it ships: a .ow that says less than this gets these.
+    // `home` is where you start (flat sand); `middle` is the island's centre,
+    // pushed out past home so the dunes run on for a long way before the sea.
+    // The world's grid is sized from middle and radius (desertGrid in the game).
     const ISLAND_DEFAULTS = Object.freeze({
       home: { x: 2840, z: 0 },
-      island: { radius: 2900, shore: 700, sea: 40, deep: 300 },
+      middle: { x: 7340, z: 0 },
+      island: { radius: 7400, shore: 900, sea: 40, deep: 300 },
       dunes: [150, 70, 14],
       supply: { chalk: 420, paint: 760, monowheel: 260 },
     });
@@ -26925,6 +26939,7 @@ const gameObjects = (() => {
           case "title": level.title = String(unquote(rest[0] ?? "")); break;
           // island
           case "home": level.home = { x: number(rest[0], "home x"), z: number(rest[1] ?? 0, "home z") }; break;
+          case "middle": level.middle = { x: number(rest[0], "middle x"), z: number(rest[1] ?? 0, "middle z") }; break;
           case "island": {
             level.island = { ...(level.island || {}) };
             for (let i = 0; i + 1 < rest.length; i += 2) {
@@ -26960,7 +26975,7 @@ const gameObjects = (() => {
         }
       }
       if (!level.kind) fail(`level ${name} wants a kind`);
-      const islandOnly = ["home", "island", "dunes", "supply"], arenaOnly = ["terrain", "decks", "spawns", "pickups", "skateboard"];
+      const islandOnly = ["home", "middle", "island", "dunes", "supply"], arenaOnly = ["terrain", "decks", "spawns", "pickups", "skateboard"];
       for (const key of islandOnly) if (key in level && level.kind !== "island") fail(`${key} belongs to an island level`);
       for (const key of arenaOnly) if (key in level && level.kind !== "arena") fail(`${key} belongs to an arena level`);
       return level;
@@ -26990,6 +27005,8 @@ const gameObjects = (() => {
       const d = ISLAND_DEFAULTS;
       return {
         home: { ...d.home, ...(level?.home || {}) },
+        // An island with a home but no middle is centred on its home.
+        middle: level?.middle ? { ...d.middle, ...level.middle } : level?.home ? { ...level.home } : { ...d.middle },
         island: { ...d.island, ...(level?.island || {}) },
         dunes: level?.dunes?.length ? [0, 1, 2].map((i) => level.dunes[i] ?? d.dunes[i]) : d.dunes.slice(),
         supply: { ...d.supply, ...(level?.supply || {}) },
@@ -27028,6 +27045,7 @@ const gameObjects = (() => {
       const lines = [`title ${quote(level.title ?? level.name)}`, `kind ${level.kind}`];
       if (level.kind === "island") {
         if (level.home) lines.push(`home ${num(level.home.x)} ${num(level.home.z ?? 0)}`);
+        if (level.middle) lines.push(`middle ${num(level.middle.x)} ${num(level.middle.z ?? 0)}`);
         if (level.island) lines.push("island " + Object.entries(level.island).map(([k, v]) => `${k} ${num(v)}`).join(" "));
         if (level.dunes) lines.push("dunes " + level.dunes.map(num).join(" "));
         for (const [k, v] of Object.entries(level.supply || {})) lines.push(`supply ${k} ${num(v)}`);
@@ -27271,14 +27289,19 @@ function seedStreetTexture(){
  if(typeof decalTint!=='function'||!poolDecalsNative)return;
  const bounds={x:gridLeft-parkLotMargin,z:worldNear-parkLotMargin,w:gridWidth+parkLotMargin*2,h:roomDepth+parkLotMargin*2};
  const pix=(x,z)=>[(x-bounds.x)/bounds.w*parkDecalResolution,(z-bounds.z)/bounds.h*parkDecalResolution];
- for(let x=gridLeft-parkLotMargin;x<gridLeft+gridWidth+parkLotMargin;x+=180)for(let z=worldNear-parkLotMargin;z<worldFar+parkLotMargin;z+=180){
-  const edge=poolDistance(x+90,z+90);if(edge.d<edge.bowl.radius+70||parkHalfPipeHeight(x+90,z+90)>0)continue;
+ // The desert is four times the park's area: its cells are twice the size,
+ // so seeding it costs what seeding the park does.
+ const cell=poolDesert?360:180,half=cell/2;
+ for(let x=gridLeft-parkLotMargin;x<gridLeft+gridWidth+parkLotMargin;x+=cell)for(let z=worldNear-parkLotMargin;z<worldFar+parkLotMargin;z+=cell){
+  const edge=poolDistance(x+half,z+half);if(edge.d<edge.bowl.radius+70||parkHalfPipeHeight(x+half,z+half)>0)continue;
   const n=Math.abs(Math.sin(x*.173+z*.617)),gray=45+Math.round(n*33);
   // The park's ground is asphalt; the desert's is sand, warm and grainy.
   // Sand and sea vary slowly, over many cells, or the texels read as tiles.
   const soft=.5+.5*Math.sin(x*.0017+Math.sin(z*.0011)*2);
-  const tint=poolDesert?(desertFloorAt(x+90,z+90)>desertSeaY()?[80+Math.round(soft*10),158+Math.round(soft*8),206+Math.round(soft*6)]:[228+Math.round(soft*10),198+Math.round(soft*9),144+Math.round(soft*8)]):[gray,gray+2,gray+6];
-  decalTint(0,0,128,128,...pix(x,z),...pix(x+180,z),...pix(x+180,z+180),...pix(x,z+180),...tint);poolDecalCount++;
+  // The cells are stamped with hard edges, so neighbours must differ by only
+  // a shade or the ground reads as a checkerboard.
+  const tint=poolDesert?(desertFloorAt(x+half,z+half)>desertSeaY()?[82+Math.round(soft*4),160+Math.round(soft*4),208+Math.round(soft*3)]:[230+Math.round(soft*4),200+Math.round(soft*4),146+Math.round(soft*3)]):[gray,gray+2,gray+6];
+  decalTint(0,0,128,128,...pix(x,z),...pix(x+cell,z),...pix(x+cell,z+cell),...pix(x,z+cell),...tint);poolDecalCount++;
  }
 }
 function resetParkSupply(now){

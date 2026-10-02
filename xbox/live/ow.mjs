@@ -28,9 +28,13 @@ export const ARENA_ITEMS = ["HANDGUN", "SPACE LASER", "RUBBER SMG",
   "ROCKET LAUNCHER", "LIGHT SABER", "GRENADE"];
 
 // The desert as it ships: a .ow that says less than this gets these.
+// `home` is where you start (flat sand); `middle` is the island's centre,
+// pushed out past home so the dunes run on for a long way before the sea.
+// The world's grid is sized from middle and radius (desertGrid in the game).
 export const ISLAND_DEFAULTS = Object.freeze({
   home: { x: 2840, z: 0 },
-  island: { radius: 2900, shore: 700, sea: 40, deep: 300 },
+  middle: { x: 7340, z: 0 },
+  island: { radius: 7400, shore: 900, sea: 40, deep: 300 },
   dunes: [150, 70, 14],
   supply: { chalk: 420, paint: 760, monowheel: 260 },
 });
@@ -85,6 +89,7 @@ export function readLevel(name, source, read) {
       case "title": level.title = String(unquote(rest[0] ?? "")); break;
       // island
       case "home": level.home = { x: number(rest[0], "home x"), z: number(rest[1] ?? 0, "home z") }; break;
+      case "middle": level.middle = { x: number(rest[0], "middle x"), z: number(rest[1] ?? 0, "middle z") }; break;
       case "island": {
         level.island = { ...(level.island || {}) };
         for (let i = 0; i + 1 < rest.length; i += 2) {
@@ -120,7 +125,7 @@ export function readLevel(name, source, read) {
     }
   }
   if (!level.kind) fail(`level ${name} wants a kind`);
-  const islandOnly = ["home", "island", "dunes", "supply"], arenaOnly = ["terrain", "decks", "spawns", "pickups", "skateboard"];
+  const islandOnly = ["home", "middle", "island", "dunes", "supply"], arenaOnly = ["terrain", "decks", "spawns", "pickups", "skateboard"];
   for (const key of islandOnly) if (key in level && level.kind !== "island") fail(`${key} belongs to an island level`);
   for (const key of arenaOnly) if (key in level && level.kind !== "arena") fail(`${key} belongs to an arena level`);
   return level;
@@ -150,6 +155,8 @@ export function islandParams(level = null) {
   const d = ISLAND_DEFAULTS;
   return {
     home: { ...d.home, ...(level?.home || {}) },
+    // An island with a home but no middle is centred on its home.
+    middle: level?.middle ? { ...d.middle, ...level.middle } : level?.home ? { ...level.home } : { ...d.middle },
     island: { ...d.island, ...(level?.island || {}) },
     dunes: level?.dunes?.length ? [0, 1, 2].map((i) => level.dunes[i] ?? d.dunes[i]) : d.dunes.slice(),
     supply: { ...d.supply, ...(level?.supply || {}) },
@@ -188,6 +195,7 @@ export function writeLevel(level) {
   const lines = [`title ${quote(level.title ?? level.name)}`, `kind ${level.kind}`];
   if (level.kind === "island") {
     if (level.home) lines.push(`home ${num(level.home.x)} ${num(level.home.z ?? 0)}`);
+    if (level.middle) lines.push(`middle ${num(level.middle.x)} ${num(level.middle.z ?? 0)}`);
     if (level.island) lines.push("island " + Object.entries(level.island).map(([k, v]) => `${k} ${num(v)}`).join(" "));
     if (level.dunes) lines.push("dunes " + level.dunes.map(num).join(" "));
     for (const [k, v] of Object.entries(level.supply || {})) lines.push(`supply ${k} ${num(v)}`);

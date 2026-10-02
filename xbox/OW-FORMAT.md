@@ -12,7 +12,8 @@ desert; the shipped example is `xbox/live/levels/monowheel-desert.ow`.
 title "monowheel desert"
 kind island
 home 2840 0
-island radius 2900 shore 700 sea 40 deep 300
+middle 7340 0
+island radius 7400 shore 900 sea 40 deep 300
 dunes 150 70 14
 supply chalk 420
 supply paint 760
@@ -29,11 +30,15 @@ supply monowheel 260
   (`gameObjects.<name>`): today `monowheel` and `figure`. An object the game
   never draws costs nothing; a replaced one compiles on its next ask.
 - **Levels** have a `kind`:
-  - `island` — the monowheel desert machine. `home x z`, `island radius
-    shore sea deep`, `dunes a b c` (the three dune amplitudes), `supply
-    chalk|paint|monowheel <ring radius>`; what a level leaves out keeps the
-    shipped default (`ISLAND_DEFAULTS` in `ow.mjs`). `title` is what the
-    title screen and the HUD call it.
+  - `island` — the monowheel desert machine. `home x z` (where you start,
+    flat sand), `middle x z` (the island's centre; pushed out past home so
+    the dunes run on before the sea; a level with a home and no middle is
+    centred on its home), `island radius shore sea deep`, `dunes a b c`
+    (the three dune amplitudes; they grow with distance from home), `supply
+    chalk|paint|monowheel <ring radius>`. The world's grid is sized from
+    middle and radius. What a level leaves out keeps the shipped default
+    (`ISLAND_DEFAULTS` in `ow.mjs`). `title` is what the title screen and
+    the HUD call it.
   - `arena` — the 2D map, exactly `ac.oskiewar.map` v1 (`oskiewar-map.mjs`):
     `flat from to [lift]`, `bank|transition from to rise dir [lift]`, `deck
     col cols row`, `spawn a b`, `pickup KIND col amount` (a kind with a space

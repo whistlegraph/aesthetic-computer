@@ -5,7 +5,8 @@
 title "monowheel desert"
 kind island
 home 2840 0
-island radius 2900 shore 700 sea 40 deep 300
+middle 7340 0
+island radius 7400 shore 900 sea 40 deep 300
 dunes 150 70 14
 supply chalk 420
 supply paint 760
