@@ -36,6 +36,14 @@ export const ISLAND_DEFAULTS = Object.freeze({
   middle: { x: 7340, z: 0 },
   island: { radius: 7400, shore: 900, sea: 40, deep: 300 },
   dunes: [150, 70, 14],
+  // Large hills, each an ellipse (x z rx rz height) with the park's rounded
+  // profile, set well away from home so the start stays flat.
+  hills: [
+    { x: 5600, z: 2900, rx: 2300, rz: 1900, height: 760 },
+    { x: 9900, z: -2300, rx: 2800, rz: 2300, height: 980 },
+    { x: 11200, z: 2600, rx: 2100, rz: 2000, height: 700 },
+    { x: 3400, z: -3600, rx: 1900, rz: 1600, height: 560 },
+  ],
   supply: { chalk: 420, paint: 760, monowheel: 260 },
 });
 
@@ -99,6 +107,14 @@ export function readLevel(name, source, read) {
         break;
       }
       case "dunes": level.dunes = rest.map((v, i) => number(v, `dune ${i + 1}`)); break;
+      case "hill": {
+        if (rest.length !== 5) fail("hill wants x z rx rz height");
+        const [x, z, rx, rz, height] = rest.map((v, i) => number(v, `hill ${["x", "z", "rx", "rz", "height"][i]}`));
+        if (rx <= 0 || rz <= 0) fail("a hill's radii are positive");
+        (level.hills = level.hills || []).push({ x, z, rx, rz, height });
+        break;
+      }
+      case "hills": if (rest[0] !== "none") fail("hills none is the only hills line; a hill is one `hill` line"); level.hills = []; break;
       case "supply": {
         if (!["chalk", "paint", "monowheel"].includes(rest[0])) fail(`supply knows chalk paint monowheel, not ${rest[0]}`);
         level.supply = { ...(level.supply || {}), [rest[0]]: number(rest[1], `supply ${rest[0]}`) };
@@ -125,7 +141,7 @@ export function readLevel(name, source, read) {
     }
   }
   if (!level.kind) fail(`level ${name} wants a kind`);
-  const islandOnly = ["home", "middle", "island", "dunes", "supply"], arenaOnly = ["terrain", "decks", "spawns", "pickups", "skateboard"];
+  const islandOnly = ["home", "middle", "island", "dunes", "hills", "supply"], arenaOnly = ["terrain", "decks", "spawns", "pickups", "skateboard"];
   for (const key of islandOnly) if (key in level && level.kind !== "island") fail(`${key} belongs to an island level`);
   for (const key of arenaOnly) if (key in level && level.kind !== "arena") fail(`${key} belongs to an arena level`);
   return level;
@@ -159,6 +175,8 @@ export function islandParams(level = null) {
     middle: level?.middle ? { ...d.middle, ...level.middle } : level?.home ? { ...level.home } : { ...d.middle },
     island: { ...d.island, ...(level?.island || {}) },
     dunes: level?.dunes?.length ? [0, 1, 2].map((i) => level.dunes[i] ?? d.dunes[i]) : d.dunes.slice(),
+    // A level that says nothing of hills gets the shipped ones; `hills none` is flat.
+    hills: level?.hills ? level.hills.map((h) => ({ ...h })) : d.hills.map((h) => ({ ...h })),
     supply: { ...d.supply, ...(level?.supply || {}) },
   };
 }
@@ -198,6 +216,7 @@ export function writeLevel(level) {
     if (level.middle) lines.push(`middle ${num(level.middle.x)} ${num(level.middle.z ?? 0)}`);
     if (level.island) lines.push("island " + Object.entries(level.island).map(([k, v]) => `${k} ${num(v)}`).join(" "));
     if (level.dunes) lines.push("dunes " + level.dunes.map(num).join(" "));
+    if (level.hills) lines.push(...(level.hills.length ? level.hills.map((h) => `hill ${[h.x, h.z, h.rx, h.rz, h.height].map(num).join(" ")}`) : ["hills none"]));
     for (const [k, v] of Object.entries(level.supply || {})) lines.push(`supply ${k} ${num(v)}`);
   } else if (level.kind === "arena") {
     for (const f of level.terrain || [])

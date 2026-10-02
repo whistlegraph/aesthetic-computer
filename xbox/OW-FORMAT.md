@@ -15,6 +15,10 @@ home 2840 0
 middle 7340 0
 island radius 7400 shore 900 sea 40 deep 300
 dunes 150 70 14
+hill 5600 2900 2300 1900 760
+hill 9900 -2300 2800 2300 980
+hill 11200 2600 2100 2000 700
+hill 3400 -3600 1900 1600 560
 supply chalk 420
 supply paint 760
 supply monowheel 260
@@ -34,7 +38,9 @@ supply monowheel 260
     flat sand), `middle x z` (the island's centre; pushed out past home so
     the dunes run on before the sea; a level with a home and no middle is
     centred on its home), `island radius shore sea deep`, `dunes a b c`
-    (the three dune amplitudes; they grow with distance from home), `supply
+    (the three dune amplitudes; they grow with distance from home), `hill x
+    z rx rz height` (one line a hill, an ellipse with the park's rounded
+    profile; `hills none` for a flat island), `supply
     chalk|paint|monowheel <ring radius>`. The world's grid is sized from
     middle and radius. What a level leaves out keeps the shipped default
     (`ISLAND_DEFAULTS` in `ow.mjs`). `title` is what the title screen and

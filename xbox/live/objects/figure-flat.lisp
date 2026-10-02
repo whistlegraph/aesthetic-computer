@@ -24,6 +24,7 @@ def face-edge .075
       (bone hip-r knee-r (+ 5.6 edge)))
     (bone knee-l foot-l (+ 5 edge))
     (bone knee-r foot-r (+ 5 edge))
+    (bone shoulder-l shoulder-r (+ 4.6 edge))
     (bone shoulder-l elbow-l (+ 4.6 edge))
     (bone shoulder-r elbow-r (+ 4.6 edge))
     (bone elbow-l hand-l (+ 4 edge))
@@ -38,27 +39,38 @@ def face-edge .075
   (bone knee-l foot-l 5)
   (bone knee-r foot-r 5))
 (outline edge 20 16 28
+  ; the neck joint sits at the shoulder line (the torso bone's top), so the
+  ; neck is a thin stem from just under it up into the head, set a touch
+  ; back so the shoulders cover its base and the head its top
+  (ink skin)
+  (nudge 3 (bone (neck 0 -4 0) head 4))
+  ; the torso: a capsule whose rounded top sits under the shoulder bar (its
+  ; top centre a radius below the shoulder line), so nothing domes up above
+  ; the shoulders — that dome read as a thick neck — and wide enough that the
+  ; shoulders do not hang past it. Its hem sits under the skirt.
+  (ink shirt)
+  (bone (neck 0 -16 0) (pelvis 0 4 0) 16)
   (if skirt
-    ; a skirt: from the hips, flaring to a hem past the knees (x runs to her
-    ; left hip, so +x is out on the left)
+    ; a skirt over the hem: a waist a shade narrower than the torso, flaring
+    ; to a hem past the knees (x runs to her left hip, so +x is out on the left)
     (ink skirt)
-    (skin (hip-l 4 4 0) (hip-r -4 4 0) (knee-r -20 -16 0) (knee-l 20 -16 0)))
+    (nudge -.5 (skin (hip-l 3 6 0) (hip-r -3 6 0) (knee-r -20 -16 0) (knee-l 20 -16 0))))
   (ink shoe)
   (on foot-l (ball 0 0 0 5.4))
   (on foot-r (ball 0 0 0 5.4))
+  ; the shoulders are a bar at the sleeves' own width, one ink with the arms
+  ; (the limb silhouette above), so a sleeve continues the shoulder with no
+  ; step and no line
   (ink shirt)
-  (bone neck pelvis 13.5)
-  (bone shoulder-l shoulder-r 7)
   (outline 0
+    (bone shoulder-l shoulder-r 4.6)
     (bone shoulder-l elbow-l 4.6)
     (bone shoulder-r elbow-r 4.6)
     (ink skin)
     (bone elbow-l hand-l 4)
     (bone elbow-r hand-r 4)
     (on hand-l (ball 0 0 0 4.6))
-    (on hand-r (ball 0 0 0 4.6)))
-  (ink skin)
-  (bone neck head 4))
+    (on hand-r (ball 0 0 0 4.6))))
 
 ; the chest's decals, flat on the shirt's front (the neck joint's frame:
 ; x right, y up the spine, z forward): a heart and a daisy
