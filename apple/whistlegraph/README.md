@@ -70,4 +70,4 @@ node apple/whistlegraph/Tests/native-bridge.test.cjs --native-shell --drawing
 
 ## App icon
 
-The app uses the existing Whistlegraph Dot Org artist avatar from `pop/artist/whistlegraph-dot-org/wgdo-avatar-3000.jpg`. `./build-icon.sh` converts that published artwork to the opaque 1,024-pixel iOS icon without changing the mark.
+The app icon depicts **Butterfly Cosplayer (IMAB)** by Jeffrey Alan Scudder. `Artwork/imab-icon.png` is a generated adaptation of the existing drawing in `pop/hellsine/assets/whistlegraph-butterfly.png`, using the original performance glyph at `system/public/whistlegraph.org/glyphs/imab.jpg` as a color reference. It is not the original score image. The built-in imagegen prompt is retained in `Artwork/imab-icon.prompt.txt`. `./build-icon.sh` packages the adaptation as an opaque 1,024-pixel iOS icon.
