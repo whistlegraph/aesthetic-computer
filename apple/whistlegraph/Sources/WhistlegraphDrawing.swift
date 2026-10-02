@@ -85,7 +85,10 @@ final class GestureInkView: UIView {
             let origin = CGPoint(x: first[0] / 1000 * bounds.width, y: first[1] / 1000 * bounds.height)
             path.move(to: origin)
             for p in stroke.dropFirst() { path.addLine(to: CGPoint(x: p[0] / 1000 * bounds.width, y: p[1] / 1000 * bounds.height)) }
-            if stroke.count == 1 { path.addLine(to: CGPoint(x: origin.x + 0.1, y: origin.y)) }
+            // Touch-up adds a timed sample even when a held tap never moved.
+            if stroke.allSatisfy({ $0[0] == first[0] && $0[1] == first[1] }) {
+                path.addLine(to: CGPoint(x: origin.x + 0.1, y: origin.y))
+            }
             UIColor.black.withAlphaComponent(0.8).setStroke(); path.lineWidth = 7; path.stroke()
             UIColor(red: 1, green: 0.14, blue: 1, alpha: 1).setStroke(); path.lineWidth = 4; path.stroke()
         }

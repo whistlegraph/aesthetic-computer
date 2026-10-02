@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeDrawing,withDrawing,inputData,drawingEvidence} from '../Resources/Web/drawing-input.mjs';
+import {normalizeDrawing,withDrawing,inputData,drawingEvidence,drawingGeometry} from '../Resources/Web/drawing-input.mjs';
 import {inferenceRequest} from '../Resources/Web/inference-input.mjs';
 import {musicalPrompt} from '../Resources/Web/musical-input.mjs';
 import {selectedBranch} from '../Resources/Web/branch-context.mjs';
@@ -35,4 +35,31 @@ test('malformed or oversized strokes and clocks are rejected before provider sub
 test('selected branch descriptions retain the presence of drawings without raw coordinate prose',()=>{
  const context=selectedBranch({head:1,versions:[{id:0,parent:null,source:''},{id:1,parent:0,request:withDrawing('a bird',sketch),source:''}]});
  assert.equal(context.history[0].request,'a bird [with drawing]');
+});
+test('provider geometry fits every edge with one scale across portrait, square and landscape',()=>{
+ for(const aspect of [.25,.5,1,1.333,4]){
+  const original={...sketch,aspect,strokes:[[[0,0,0],[1000,1000,200,900]]]};
+  const evidence=drawingGeometry(original);
+  assert.equal(evidence.width,1000);assert.ok(Math.abs(evidence.width/evidence.height-aspect)<.00001);
+  assert.deepEqual(evidence.strokes[0].at(-1),[evidence.width,evidence.height,200,900]);
+  for(const [w,h] of [[600,450],[300,600]]){
+   const scale=Math.min(w/evidence.width,h/evidence.height);
+   for(const [x,y] of evidence.strokes.flat()){
+    assert.ok(x*scale<=w+.001);assert.ok(y*scale<=h+.001);
+   }
+  }
+  assert.deepEqual(original.strokes[0].at(-1),[1000,1000,200,900],'stored coordinates stay normalized');
+  assert.equal(evidence.speechStartMs,sketch.speechStartMs);
+ }
+});
+test('compact model observations retain full bounds, endpoints, dot timing and alignment',()=>{
+ const points=Array.from({length:30},(_,i)=>[i*10,i===7?1000:200,i*100]);
+ const input={...sketch,aspect:2,strokes:[points,[[390,580,4000],[390,580,4300]]]};
+ const evidence=JSON.parse(drawingEvidence(input).split('\n').at(-1));
+ assert.equal(evidence.strokes[0].samples.length,6);
+ assert.deepEqual(evidence.strokes[0].bounds,[0,100,290,500],'bounds include extrema omitted from sample trajectory');
+ assert.deepEqual(evidence.strokes[0].samples[0],[0,100,0]);
+ assert.deepEqual(evidence.strokes[0].samples.at(-1),[290,100,2900]);
+ assert.deepEqual(evidence.strokes[1].samples,[[390,290,4000],[390,290,4300]]);
+ assert.equal(evidence.speechStartMs,-500);
 });

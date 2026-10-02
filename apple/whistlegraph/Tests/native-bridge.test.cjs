@@ -124,6 +124,19 @@ const server = http.createServer(async (req, res) => {
       const {imageInputBound}=await import('../../../system/backend/easel-input-images.mjs');
       assert.ok(imageInputBound({messages:[{role:'user',content:[rendered.block]}]})>768*576,'real browser PNG passes hosted bounds');
       if(process.env.CHALK_IMAGE_OUT)await require('node:fs/promises').writeFile(process.env.CHALK_IMAGE_OUT,Buffer.from(rendered.block.source.data,'base64'));
+      const rabbit=JSON.parse(await readFile(resolve(__dirname,'fixtures/chalk-rabbit.json'),'utf8'));
+      const dots=await page.evaluate(async drawing=>{
+        const {drawingImage}=await import('./drawing-input.mjs');
+        const canvas=document.createElement('canvas'),block=drawingImage(drawing,canvas);
+        const ctx=canvas.getContext('2d');
+        const dark=(x,y)=>{const p=ctx.getImageData(Math.floor(x/1000*canvas.width)-2,Math.floor(y/1000*canvas.height)-2,5,5).data;return [...p].some((v,i)=>i%4===0&&v<128);};
+        const eyes=[dark(390,580),dark(472,553)],empty=dark(50,950);
+        drawingImage({...drawing,strokes:[[[500,500,0]]]},canvas);
+        return {block,eyes,empty,single:dark(500,500)};
+      },rabbit);
+      assert.deepEqual(dots.eyes,[true,true],'the rabbit\'s timed stationary strokes remain visible eyes');
+      assert.ok(dots.single&&!dots.empty,'single-point taps paint without fabricating marks elsewhere');
+      if(process.env.CHALK_RABBIT_OUT)await require('node:fs/promises').writeFile(process.env.CHALK_RABBIT_OUT,Buffer.from(dots.block.source.data,'base64'));
       assert.deepEqual(errors,[]);console.log('PASS: typed and spoken gesture input, aligned sound, per-version attachment, and failed-draft retention');return;
     }
     if(process.argv.includes('--checked-edits')) {

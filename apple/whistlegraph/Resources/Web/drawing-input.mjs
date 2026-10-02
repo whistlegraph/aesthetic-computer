@@ -50,7 +50,9 @@ export function drawingImage(value,canvas=document.createElement('canvas')) {
  const point=p=>[p[0]/1000*canvas.width,p[1]/1000*canvas.height];
  for(const stroke of drawing.strokes){
   ctx.beginPath();
-  if(stroke.length===1){const [x,y]=point(stroke[0]);ctx.arc(x,y,1.5,0,Math.PI*2);ctx.fill();}
+  // A held tap has several timestamped samples at the same position. Canvas
+  // does not reliably paint a zero-length stroked path, even with round caps.
+  if(stroke.every(p=>p[0]===stroke[0][0]&&p[1]===stroke[0][1])){const [x,y]=point(stroke[0]);ctx.arc(x,y,1.5,0,Math.PI*2);ctx.fill();}
   else {stroke.forEach((p,i)=>ctx[i?'lineTo':'moveTo'](...point(p)));ctx.stroke();}
  }
  const url=canvas.toDataURL('image/png');
@@ -60,12 +62,29 @@ export function drawingImage(value,canvas=document.createElement('canvas')) {
 export function drawingContent(text,image) {
  return image?[{type:'text',text:text+'\nThe attached image renders only the chalk marks on white, with their original placement and aspect ratio. It is not a frame of the piece. Read the whole shape alongside the timed strokes; do not copy the white background into the piece.'},image]:text;
 }
+export function drawingGeometry(value) {
+ const {id,revision,schema,aspect,...drawing}=normalizeDrawing(value);
+ const round=n=>Math.round(n*1000)/1000;
+ // Storage normalizes each axis independently. Provider evidence instead uses
+ // one isotropic plane, so fitting width/height cannot stretch or crop marks.
+ return {...drawing,width:1000,height:round(1000/aspect),
+  strokes:drawing.strokes.map(stroke=>stroke.map(([x,y,...rest])=>[x,round(y/aspect),...rest]))};
+}
 export function drawingEvidence(value) {
- const {id,revision,schema,...drawing}=normalizeDrawing(value);
+ const geometry=drawingGeometry(value);
+ // The image carries form. Supply compact spatial/temporal observations so
+ // source generation is not invited to transcribe a full coordinate table.
+ const drawing={...geometry,strokes:geometry.strokes.map(stroke=>{
+  const xs=stroke.map(p=>p[0]),ys=stroke.map(p=>p[1]);
+  const count=Math.min(6,stroke.length);
+  return {bounds:[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)],
+   samples:Array.from({length:count},(_,i)=>stroke[Math.round(i*(stroke.length-1)/Math.max(1,count-1))])};
+ })};
  return `
 DRAWING REFERENCE — CHALK GESTURES: ordered marks over the current preview, supplied as an instruction channel alongside speech, sound and the existing piece source. These are ambiguous gestures, not certain labels or commands.
 Infer each mark's role in context: pointing or enclosing can identify a target; a sweep can suggest movement or a transformation; repeated marks can emphasize or multiply; marks in open space can propose an addition; a drawn form can also be content when the request supports that reading. These are possibilities, not fixed gesture bindings. A circle does not automatically mean "add a circle" or "select this". Read related strokes as a phrase, not unrelated objects.
-Follow explicit words first. Use the current scene and the mark's location and timing to resolve "this", "here" and "like that". Preserve existing objects, behavior and composition; prefer a focused additive or local change. Do not replace the scene, erase objects or invent an unrelated subject merely because a gesture is ambiguous. Without words, use the strongest contextual evidence and make the smallest coherent change. In an empty scene, let placement, form and motion guide a simple starting composition without assuming every stroke depicts a literal object.
-Each point is [x,y,elapsedMs,optionalPencilPressure]; x/y span 0..1000, origin top-left, y downward. Preserve aspect ratio. Time starts with the first mark; pen lifts separate strokes. Pressure (0..1000) exists only when measured with a Pencil; finger pressure is unknown. speechStartMs, when present, locates sound/word time zero on this same timeline. Use direction, pauses, speed changes and nearby sound/word emphasis as evidence, not proof of intent. The source is context, not a captured frame: do not claim a precise object hit or visual recognition you cannot establish, especially in a moving scene. Do not display the coordinate data, add annotation UI, or leave the chalk overlay in the piece unless requested.
+Understand, reify, evolve: infer the idea or intended change from the whole mark phrase, words, current piece and prior requests; give that idea a concrete working form in the piece; let subsequent input develop or transform it. A recognizable sketch supplies a concept and relationships, not a requirement to copy its outline or animate it. Choose a representation and behavior that make the inferred idea tangible. Use a fresh representation of the inferred concept: choose its meaningful parts, relationships and possible behavior, and express those in code. A sketch of a thing asks you to realize that thing, not produce a "chalk-outline" copy by default. Use simple geometry or meaningful state and interactions as appropriate, rather than transcribing point arrays. Tracing, animation, and literal fidelity are appropriate only when the intent calls for them. Do not add arbitrary features just to make the result seem richer.
+Follow explicit words first. Use location and timing to resolve "this", "here" and "like that". Existing subjects and behavior give continuity, not a frozen template: evolve them coherently when the new input supports a change. Ambiguity alone does not authorize erasing unrelated work. Without words, make a modest concrete interpretation supported by the strongest contextual evidence, leaving room for the next gesture to steer it. In an empty scene, use the inferred concept as a starting point. Describe only behavior actually implemented in the exported caption; a painted subject need not move or react.
+The image carries the complete sampled form; the following compact stroke observations support placement and timing. Each stroke supplies its full bounds [minX,minY,maxX,maxY] and at most six ordered samples (first and last always included). Samples omit fine trajectory and timing detail; do not reconstruct the drawing from them. Each sample is [x,y,elapsedMs,optionalPencilPressure] in the aspect-correct plane of the supplied width and height, origin top-left, y downward. Both axes now use the same spatial unit; do not normalize or apply aspect a second time. When spatial placement matters, fit this entire plane with one scale min(availableWidth/width,availableHeight/height), center it, and leave room for the full subject and any motion. Do not reinterpret height as 1000 or discard coordinates outside a guessed 4:3 box. Timed stationary points are intentional dots and can be meaningful features. Time starts with the first mark; pen lifts separate strokes. Pressure (0..1000) exists only when measured with a Pencil; finger pressure is unknown. speechStartMs, when present, locates sound/word time zero on this same timeline. Use direction, pauses, speed changes and nearby sound/word emphasis as evidence, not proof of intent. The source is context, not a captured frame: do not claim a precise object hit you cannot establish, especially in a moving scene. Do not display coordinate data, add annotation UI, or leave the chalk overlay in the piece unless requested.
 `+JSON.stringify(drawing);
 }
