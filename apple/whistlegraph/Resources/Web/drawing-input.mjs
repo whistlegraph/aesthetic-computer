@@ -1,4 +1,4 @@
-// Bounded vector gestures, in the preview's coordinate space. No pixels or raw audio.
+// Bounded vector gestures, in the preview's coordinate space. No raw audio.
 export const INPUT_MARKER='\nINPUT DATA:\n';
 export function inputData(request) {
  const at=typeof request==='string'?request.indexOf(INPUT_MARKER):-1;
@@ -36,6 +36,29 @@ export function withDrawing(request,value) {
  const combined='Interpret this combined request.\n'+INPUT_MARKER+JSON.stringify({...input,drawing});
  if(combined.length>20000)throw Error('Combined request is too large');
  return combined;
+}
+// Render from the same saved vectors used for timing and recovery. Never read
+// the preview canvas: this image contains only submitted chalk marks.
+export function drawingImage(value,canvas=document.createElement('canvas')) {
+ const drawing=normalizeDrawing(value),side=768;
+ canvas.width=Math.round(side*Math.min(1,drawing.aspect));
+ canvas.height=Math.round(side/Math.max(1,drawing.aspect));
+ const ctx=canvas.getContext('2d');
+ if(!ctx)throw Error('Could not render chalk');
+ ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);
+ ctx.strokeStyle=ctx.fillStyle='#202020';ctx.lineWidth=3;ctx.lineCap=ctx.lineJoin='round';
+ const point=p=>[p[0]/1000*canvas.width,p[1]/1000*canvas.height];
+ for(const stroke of drawing.strokes){
+  ctx.beginPath();
+  if(stroke.length===1){const [x,y]=point(stroke[0]);ctx.arc(x,y,1.5,0,Math.PI*2);ctx.fill();}
+  else {stroke.forEach((p,i)=>ctx[i?'lineTo':'moveTo'](...point(p)));ctx.stroke();}
+ }
+ const url=canvas.toDataURL('image/png');
+ if(!url.startsWith('data:image/png;base64,')||url.length>700000)throw Error('Could not encode chalk image');
+ return {type:'image',source:{type:'base64',media_type:'image/png',data:url.split(',')[1]}};
+}
+export function drawingContent(text,image) {
+ return image?[{type:'text',text:text+'\nThe attached image renders only the chalk marks on white, with their original placement and aspect ratio. It is not a frame of the piece. Read the whole shape alongside the timed strokes; do not copy the white background into the piece.'},image]:text;
 }
 export function drawingEvidence(value) {
  const {id,revision,schema,...drawing}=normalizeDrawing(value);

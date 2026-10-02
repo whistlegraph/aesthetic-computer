@@ -1,4 +1,4 @@
-import {withDrawing,inputData} from './drawing-input.mjs';
+import {withDrawing,inputData,drawingImage,drawingContent} from './drawing-input.mjs';
 import {inferenceRequest,wantsSoundEvidence} from './inference-input.mjs';
 import {contextualRequest,selectedBranch} from './branch-context.mjs';
 import {compileEditContract,sourceChecks,validateCandidate,runEditExperiment} from '/easel/src/edit-contract.mjs';
@@ -276,6 +276,8 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
   activeChecked=window.__whistlegraphCheckedEdits===true;validationChecks=[];runtimeErrors.length=0;
   try{
     activeReceipt=new AttemptReceipt({requestID:activeAttempt.id,parent:turnParent,parentHash:await hashSource(previous),path:activeChecked?'compiled':'current',model:window.__walkiewareModel||DEFAULT_MODEL,journal:receipts});
+    const drawing=inputData(text)?.drawing;
+    const chalkImage=drawing?drawingImage(drawing):null;
     text=inferenceRequest(text);
     if(recovered?.checkpoint){source=recovered.checkpoint;vfs.mount(file,source);render(source);text+='\nContinue the unfinished request from this saved checkpoint. Preserve its completed edits.';}
 
@@ -320,7 +322,7 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
       try{
         const result=await runEditExperiment({prompt,cancelled:()=>turnCancelled,
           onRepair:()=>{activeReceipt.value.repairs=1;activeReceipt.save();phase('Repairing…');},
-          generate:async(task,repair)=>{server?.close();server=makeServer({checked:true,repair});turnSucceeded=false;await server.startTurn(task);return turnSucceeded;},
+          generate:async(task,repair)=>{server?.close();server=makeServer({checked:true,repair});turnSucceeded=false;await server.startTurn(drawingContent(task,chalkImage));return turnSucceeded;},
           inspect:async()=>{
             const target=source,hash=await hashSource(target);
             for(let i=0;i<100&&!turnCancelled&&(!painted||lastPaintedSource!==target);i++)await new Promise(resolve=>setTimeout(resolve,20));
@@ -332,8 +334,11 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
         }
       }finally{clearTimeout(deadline);}
     }else{
-      if(server?.checked){server.close();server=null;}
-      server??=makeServer();await server.startTurn(contextualRequest(versions.value,text));
+      // Branch context already carries history. Retire visual conversations at
+      // turn boundaries so an old sketch cannot masquerade as the current one.
+      if(server?.checked||server?.hasChalk||chalkImage){server?.close();server=null;}
+      server??=makeServer();server.hasChalk=!!chalkImage;
+      await server.startTurn(drawingContent(contextualRequest(versions.value,text),chalkImage));
     }
   }catch(error){turnError=error.message;phase('Could not start');log(error.message);}
   finally{

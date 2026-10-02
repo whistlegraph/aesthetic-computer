@@ -83,8 +83,13 @@ const server = http.createServer(async (req, res) => {
       assert.equal(requests,1,'one combined ask');
       assert.match(JSON.stringify(inferenceBodies[0]),/DRAWING REFERENCE/);
       assert.match(JSON.stringify(inferenceBodies[0]),/make this bounce/);
+      const images=body=>body.messages.flatMap(m=>Array.isArray(m.content)?m.content:[]).filter(b=>b.type==='image');
+      assert.equal(images(inferenceBodies[0]).length,1);
+      const png=Buffer.from(images(inferenceBodies[0])[0].source.data,'base64');
+      assert.equal(png.readUInt32BE(16),768);assert.equal(png.readUInt32BE(20),576);
       const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('walkieware-source-versions')).versions.at(-1));
       assert.ok(saved.request.includes('whistlegraph-drawing/v1'),'gesture belongs to committed version');
+      assert.ok(!saved.request.includes('base64'),'history stores recoverable vectors rather than derived pixels');
       assert.ok(await page.evaluate(()=>__nativeMessages.some(m=>m.action==='drawingCommitted'&&m.revision===4)));
       // Exercise the actual microphone bridge: drawing and sound arrive in one final event.
       await page.evaluate(drawing=>{
@@ -94,6 +99,7 @@ const server = http.createServer(async (req, res) => {
       },{...sketch,revision:5});
       await page.waitForFunction(()=>JSON.parse(localStorage.getItem('walkieware-source-versions')).head===2&&!walkiewareIsBusy());
       assert.equal(requests,2);const mixed=JSON.stringify(inferenceBodies[1]);
+      assert.equal(images(inferenceBodies[1]).length,1,'only the current sketch travels with this turn');
       assert.match(mixed,/speechStartMs/);assert.match(mixed,/440/);assert.match(mixed,/follow this sweep/);
       assert.ok(!mixed.includes('22222222-2222'),'provider never gets recording identity');
       await page.waitForFunction(()=>__nativeMessages.some(m=>m.action==='snapshot'&&m.snapshot.versions?.some(v=>v.id===2&&v.hasDrawing)));
@@ -103,6 +109,21 @@ const server = http.createServer(async (req, res) => {
       assert.equal(await page.evaluate(()=>__nativeMessages.some(m=>m.action==='drawingCommitted'&&m.revision===6)),false);
       await page.evaluate(drawing=>walkiewareAskDrawing('',drawing),{...sketch,strokes:[[[Infinity,0,0]]]});
       assert.equal(requests,3,'invalid drawing cannot call provider');
+      const sailboat=JSON.parse(await readFile(resolve(__dirname,'fixtures/chalk-sailboat.json'),'utf8'));
+      const rendered=await page.evaluate(async drawing=>{
+        const {drawingImage}=await import('./drawing-input.mjs');
+        const portrait=drawingImage({...drawing,aspect:.5});
+        const canvas=document.createElement('canvas'),block=drawingImage(drawing,canvas);
+        const pixels=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
+        const dark=(x,y)=>pixels[(Math.round(y/1000*canvas.height)*canvas.width+Math.round(x/1000*canvas.width))*4]<128;
+        return {block,portrait,hull:dark(478,834),mast:dark(575,140),sail:dark(750,298),empty:dark(50,50)};
+      },sailboat);
+      assert.ok(rendered.hull&&rendered.mast&&rendered.sail&&!rendered.empty,'all sailboat parts retain placement');
+      const portrait=Buffer.from(rendered.portrait.source.data,'base64');
+      assert.equal(portrait.readUInt32BE(16),384);assert.equal(portrait.readUInt32BE(20),768);
+      const {imageInputBound}=await import('../../../system/backend/easel-input-images.mjs');
+      assert.ok(imageInputBound({messages:[{role:'user',content:[rendered.block]}]})>768*576,'real browser PNG passes hosted bounds');
+      if(process.env.CHALK_IMAGE_OUT)await require('node:fs/promises').writeFile(process.env.CHALK_IMAGE_OUT,Buffer.from(rendered.block.source.data,'base64'));
       assert.deepEqual(errors,[]);console.log('PASS: typed and spoken gesture input, aligned sound, per-version attachment, and failed-draft retention');return;
     }
     if(process.argv.includes('--checked-edits')) {
@@ -115,6 +136,7 @@ const server = http.createServer(async (req, res) => {
       assert.ok(inferenceBodies[0].messages.some(m=>JSON.stringify(m).includes('EDIT CONTRACT')));
       assert.ok(inferenceBodies[1].messages.some(m=>JSON.stringify(m).includes('REPAIR THIS CANDIDATE ONCE')));
       assert.ok(inferenceBodies.every(b=>JSON.stringify(b.messages).includes('DRAWING REFERENCE')),'both passes retain gesture intent');
+      assert.ok(inferenceBodies.every(b=>b.messages.some(m=>Array.isArray(m.content)&&m.content.some(c=>c.type==='image'))),'initial and repair passes retain chalk pixels');
       assert.ok(inferenceBodies.every(b=>b.max_tokens===4096&&b.thinking.type==='disabled'));
       const receipt=await page.evaluate(()=>JSON.parse(localStorage.getItem('walkieware-source-receipts')).at(-1).receipt);
       assert.equal(receipt.repairs,1);assert.equal(receipt.rounds.length,2);assert.equal(receipt.rounds[0].reportedModel,'fixture/reported');
