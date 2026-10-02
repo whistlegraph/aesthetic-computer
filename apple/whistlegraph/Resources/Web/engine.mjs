@@ -1,3 +1,4 @@
+import {withDrawing,inputData} from './drawing-input.mjs';
 import {inferenceRequest,wantsSoundEvidence} from './inference-input.mjs';
 import {contextualRequest,selectedBranch} from './branch-context.mjs';
 import {compileEditContract,sourceChecks,validateCandidate,runEditExperiment} from '/easel/src/edit-contract.mjs';
@@ -69,7 +70,7 @@ function phase(text) { $('live-phase').textContent = text; updateFeed(); threadU
 function musicalData(request) {
   try{return JSON.parse(request.split('\nINPUT DATA:\n')[1]);}catch{return null;}
 }
-function utterance(request) {return musicalData(request)?.transcript|| (musicalData(request)?'Sound':request)||'Starting piece';}
+function utterance(request) {return musicalData(request)?.transcript|| (musicalData(request)?.drawing?'Drawing':musicalData(request)?'Sound':request)||'Starting piece';}
 function relativeTime(date) {
   const seconds=Math.max(0,Math.floor((Date.now()-Date.parse(date))/1000));
   if(!Number.isFinite(seconds))return '';
@@ -110,7 +111,7 @@ function nativeSnapshot(){
   nativeTimer=setTimeout(()=>{
     nativeTimer=null;
     const historyChanged=nativeLedger!==versions?.value;
-    if(historyChanged){nativeLedger=versions?.value;nativeRevisions=(versions?.value.versions||[]).map(v=>{const sound=musicalData(v.request)?.sound;return {id:v.id,parent:v.parent,utterance:(v.id===0&&!v.request?'':utterance(v.request)).slice(0,1000),createdAt:v.createdAt,recordingID:sound?.recordingID||null,words:(musicalData(v.request)?.words||[]).slice(0,256),sound:sound?{durationMs:sound.durationMs,frames:sound.frames.filter((_,i)=>i%Math.max(1,Math.ceil(sound.frames.length/64))===0)}:null};});}
+    if(historyChanged){nativeLedger=versions?.value;nativeRevisions=(versions?.value.versions||[]).map(v=>{const sound=musicalData(v.request)?.sound;return {id:v.id,parent:v.parent,hasDrawing:!!musicalData(v.request)?.drawing,utterance:(v.id===0&&!v.request?'':utterance(v.request)).slice(0,1000),createdAt:v.createdAt,recordingID:sound?.recordingID||null,words:(musicalData(v.request)?.words||[]).slice(0,256),sound:sound?{durationMs:sound.durationMs,frames:sound.frames.filter((_,i)=>i%Math.max(1,Math.ceil(sound.frames.length/64))===0)}:null};});}
     const displayVersion=presentedVersion===null?versions?.head:versions?.value.versions.find(v=>v.id===presentedVersion);
     if(captionSource!==displayVersion?.source){captionSource=displayVersion?.source;caption=pieceCaption(captionSource||'');}
     const phaseText=$('live-phase').textContent;
@@ -122,7 +123,7 @@ function nativeSnapshot(){
   },80);
 }
 window.walkiewareNativeCommand=command=>{
-  if(command.action==='ask'&&typeof command.text==='string'&&command.text.trim()&&Array.from(new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(command.text)).length<=96&&!busy)void ask(command.text.trim());
+  if(command.action==='ask'&&typeof command.text==='string'&&(command.text.trim()||command.drawing)&&Array.from(new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(command.text)).length<=96&&!busy)void window.walkiewareAskDrawing(command.text.trim(),command.drawing);
   if(command.action==='checkout'&&!busy){presentedVersion=null;narrationPending=command.version;jumpVersion(command.version);}
   if(command.action==='presentVersion'&&!busy){
     const version=versions?.value.versions.find(v=>v.id===command.version);
@@ -278,7 +279,7 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
     text=inferenceRequest(text);
     if(recovered?.checkpoint){source=recovered.checkpoint;vfs.mount(file,source);render(source);text+='\nContinue the unfinished request from this saved checkpoint. Preserve its completed edits.';}
 
-    const local=recovered?.checkpoint?null:localEdit(source,localText);
+    const local=recovered?.checkpoint||inputData(turnRequest)?.drawing?null:localEdit(source,localText);
     if(local){
       activeReceipt.value.path='local';activeReceipt.value.model=null;activeReceipt.save();
       if(!local.changed){noChange=true;return;}
@@ -290,7 +291,7 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
       if(turnSucceeded)benchmark('localEditPainted',{action:local.action});
       return;
     }
-    if(!source||isBasePiece(source)){
+    if(!inputData(turnRequest)?.drawing&&(!source||isBasePiece(source))){
       turnStarter=starter||instantPiece(text)||'';
       if(turnStarter){
         source=turnStarter;vfs.mount(file,source);checkpoints=1;
@@ -346,7 +347,7 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
       if(turnSucceeded){benchmark('refinementFailed',{message:turnError||'Refinement unavailable'});log('Refinement failed; kept the starter');server?.close();server=null;}
     }
     if(turnSucceeded&&!turnCancelled&&!turnRuntimeFailed&&painted&&lastPaintedSource===source){
-      try {const version=versions.commit({source,request:turnRequest,layers:checkpoints,parent:turnParent,requestID:activeAttempt?.id});saved();phase(`v${version.id} · Ready to play`);log(`Saved v${version.id} · ${checkpoints} layers`);benchmark('versionCommitted',{version:version.id,layers:checkpoints});}
+      try {const version=versions.commit({source,request:turnRequest,layers:checkpoints,parent:turnParent,requestID:activeAttempt?.id});saved();phase(`v${version.id} · Ready to play`);log(`Saved v${version.id} · ${checkpoints} layers`);const drawing=inputData(turnRequest)?.drawing;if(drawing)post({action:'drawingCommitted',drawingID:drawing.id,revision:drawing.revision});benchmark('versionCommitted',{version:version.id,layers:checkpoints});}
       catch(error){turnSucceeded=false;turnError=error.message;phase('Could not save version');log(error.message);benchmark('generationFailed',{message:error.message});}
     }else turnSucceeded=false;
     if(!turnSucceeded){source=previous;vfs.mount(file,source);saved();const restored=source||'export function paint({wipe}) {wipe("black");}';if(previewSource!==restored)render(restored);server?.close();server=null;log('Restored previous version');}
@@ -392,6 +393,10 @@ window.walkiewareEngineEvent=event=>{
 $('live-stop').onclick=()=>{turnCancelled=true;pending='';server?.interrupt();if(!busy){end();phase('Stopped');}};
 window.walkiewareUndo=()=>{try{source=versions.undo().source;}catch(error){log(error.message);return;}previous=source;vfs.mount(file,source);saved();server?.close();server=null;render(source||'export function paint({wipe}) {wipe("black");}');review(false);phase('Undone');};
 window.walkiewareAsk=ask;
+window.walkiewareAskDrawing=(text,drawing)=>{
+  try{return ask(withDrawing(text,drawing),text||(drawing?'Drawing':''),null,null,drawing?'':text);}
+  catch(error){phase('Could not read drawing');log(error.message);return Promise.resolve();}
+};
 let musicalTurn=0;
 const musicalSocket=new MusicalInputSocket({token:()=>token,onEvent:benchmark});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){musicalSocket.suspend();thread?.suspend();}else{musicalSocket.resume();thread?.resume();}});
@@ -400,8 +405,8 @@ window.walkiewareInputStart=()=>{musicalTurn++;musicalAdvisor.reset();};
 window.walkiewareInputCancel=()=>{musicalTurn++;musicalAdvisor.cancel();};
 window.walkiewareObserveSound=input=>{musicalPrompt(input);if(wantsSoundEvidence(input.transcript))musicalAdvisor.observe(input);};
 window.walkiewareAskSound=async input=>{
- const prompt=musicalPrompt(input);const useSound=wantsSoundEvidence(input.transcript);if(!useSound)musicalAdvisor.cancel();phase(useSound?'Interpreting sound…':'Sending…');
- return ask(prompt,`${input.transcript||'Sound'} · ${(input.sound.durationMs/1000).toFixed(1)} seconds`,!useSound||localEdit(source,input.transcript)?null:musicalAdvisor.finish(input),instantPiece(input.transcript),input.transcript);
+ const prompt=withDrawing(musicalPrompt(input),input.drawing);const useSound=!!input.drawing||wantsSoundEvidence(input.transcript);if(!useSound)musicalAdvisor.cancel();phase(useSound?'Interpreting sound…':'Sending…');
+ return ask(prompt,`${input.transcript||'Sound'} · ${(input.sound.durationMs/1000).toFixed(1)} seconds`,input.drawing||!useSound||localEdit(source,input.transcript)?null:musicalAdvisor.finish(input),input.drawing?null:instantPiece(input.transcript),input.drawing?'':input.transcript);
 };
 window.walkiewareIsBusy=()=>busy;
 window.walkiewareHasReview=()=>false;

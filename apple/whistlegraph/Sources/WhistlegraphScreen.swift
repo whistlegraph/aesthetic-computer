@@ -27,6 +27,7 @@ struct PieceRevision: Decodable, Identifiable {
     let utterance: String
     let createdAt: String
     let sound: PieceSound?
+    var hasDrawing: Bool? = nil
     var date: Date? {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -59,6 +60,8 @@ struct NativeLayout {
 
 struct WhistlegraphScreen: View {
     @ObservedObject var session: WhistlegraphSession
+    @ObservedObject private var drawing: DrawingDraft
+    init(session: WhistlegraphSession) { self.session = session; self.drawing = session.drawing }
     @StateObject private var narrator = VersionNarrator()
     @Environment(\.scenePhase) private var scenePhase
     @State private var held = false
@@ -99,11 +102,16 @@ struct WhistlegraphScreen: View {
                     .allowsHitTesting(session.snapshot.hasPreview && session.capturePhase == .idle)
                     .accessibilityHidden(!session.snapshot.hasPreview)
                 if !session.snapshot.hasPreview && !session.engineReady { ProgressView() }
-                if session.capturePhase == .recording || session.capturePhase == .opening {
+                if !drawing.enabled && (session.capturePhase == .recording || session.capturePhase == .opening) {
                     ScrollView {
                         Text(session.transcript.isEmpty ? (session.capturePhase == .opening ? "Opening microphone…" : "Listening…") : session.transcript)
                             .font(.custom("ComicRelief-Regular", size: 30, relativeTo: .title)).frame(maxWidth: .infinity, alignment: .leading).padding(18)
                     }.background(theme.background.opacity(0.95))
+                }
+                if !narrator.isPlaying && (drawing.enabled || drawing.hasInk) {
+                    DrawingPad(draft: drawing, interactive: drawing.enabled && canTalk)
+                        .background(drawing.enabled ? Color.black.opacity(0.16) : Color.clear)
+                        .allowsHitTesting(drawing.enabled && canTalk)
                 }
                 if let failure = session.startupFailure {
                     VStack(spacing: 12) { Text(failure); Button("Reload") { session.reloadWorkspace() } }.padding().background(.black.opacity(0.85))
@@ -116,6 +124,32 @@ struct WhistlegraphScreen: View {
             }
             .overlay(alignment: .topTrailing) {
                 if narrator.isPlaying { Button { narrator.stop() } label: { Image(systemName: "xmark.circle.fill").font(.largeTitle).padding(16).background(.black.opacity(0.5), in: Circle()) }.accessibilityLabel("Close version story") }
+            }
+            if !narrator.isPlaying {
+                HStack(spacing: 18) {
+                    Button { ButtonSounds.play(.tick); drawing.enabled.toggle() } label: {
+                        Label("Draw", systemImage: drawing.enabled ? "pencil.tip.crop.circle.fill" : "pencil.tip.crop.circle")
+                    }.accessibilityIdentifier("draw-control").accessibilityValue(drawing.enabled ? "On" : "Off")
+                        .disabled(!canTalk)
+                    if drawing.hasInk {
+                        Button { drawing.undo() } label: { Image(systemName: "arrow.uturn.backward") }
+                            .accessibilityLabel("Undo stroke").accessibilityIdentifier("drawing-undo").disabled(!canTalk)
+                        Button { drawing.clear() } label: { Image(systemName: "trash") }
+                            .accessibilityLabel("Clear drawing").accessibilityIdentifier("drawing-clear").disabled(!canTalk)
+                    }
+                    Spacer(minLength: 0)
+                    if drawing.hasInk && !showComposer {
+                        Button("Send") { ButtonSounds.play(.sent); session.command("ask", text: "") }
+                            .accessibilityLabel("Send drawing").accessibilityIdentifier("drawing-send")
+                            .disabled(!canTalk || session.capturePhase != .idle)
+                    }
+                }.font(.title3).buttonStyle(.plain).frame(minHeight: 44)
+                if drawing.full { Text("Drawing full · send or undo a stroke").font(.caption) }
+                if drawing.enabled && (session.capturePhase == .recording || session.capturePhase == .opening) {
+                    Text(session.transcript.isEmpty ? "Listening…" : session.transcript)
+                        .font(.custom("ComicRelief-Regular", size: 20)).lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading).allowsHitTesting(false)
+                }
             }
             if narrator.isPlaying && (session.snapshot.hasPreview || session.snapshot.hasHistory) {
                 HStack(alignment: .bottom) {
@@ -133,7 +167,7 @@ struct WhistlegraphScreen: View {
             if !narrator.error.isEmpty { Text(narrator.error).foregroundStyle(.orange) }
             if let failure = session.captureError { Text(failure).font(.body).foregroundStyle(.orange).frame(maxWidth: .infinity, alignment: .leading) }
             if !narrator.isPlaying && (session.snapshot.hasPiece || session.snapshot.hasHistory || session.snapshot.busy || session.snapshot.attempt?.status == "failed") {
-                VersionFeed(snapshot: session.snapshot, foreground: paper, selectionColor: paper, textSize: session.layout.historySize, disabled: session.snapshot.busy || session.capturePhase != .idle, stop: { session.command("stop") }, retry: { session.command("retry") }) { narrator.select($0, session: session) }
+                VersionFeed(snapshot: session.snapshot, foreground: paper, selectionColor: paper, textSize: session.layout.historySize, disabled: session.snapshot.busy || session.capturePhase != .idle, holdSelection: drawing.hasInk, stop: { session.command("stop") }, retry: { session.command("retry") }) { narrator.select($0, session: session) }
             } else if !narrator.isPlaying { Spacer(minLength: 0) }
         }
         .padding(.horizontal, narrator.isPlaying ? 0 : session.layout.pageInset)
@@ -141,7 +175,7 @@ struct WhistlegraphScreen: View {
         .safeAreaInset(edge: .bottom, spacing: 8) {
             Group {
                 if narrator.isPlaying { EmptyView() } else if showComposer {
-                    InlineRequestComposer(theme: theme, disabled: session.snapshot.busy, cancel: { ButtonSounds.play(.pop); showComposer = false }) { text in
+                    InlineRequestComposer(theme: theme, disabled: session.snapshot.busy, hasDrawing: drawing.hasInk, cancel: { ButtonSounds.play(.pop); showComposer = false }) { text in
                         ButtonSounds.play(.sent); session.command("ask", text: text); showComposer = false
                     }
                 } else {
@@ -174,8 +208,10 @@ struct WhistlegraphScreen: View {
             let progress = session.captureStarted.map { min(1, max(0, context.date.timeIntervalSince($0) / 8)) } ?? 0
             VStack(spacing: 10) {
                 if session.capturePhase == .recording {
-                    Text("Talk").font(.custom("ComicRelief-Bold", size: 30, relativeTo: .title2))
+                    Text(drawing.enabled ? "Tap to send" : "Talk").font(.custom("ComicRelief-Bold", size: 30, relativeTo: .title2))
                     MicrophoneWaveform(levels: session.microphoneLevels).frame(height: 22)
+                } else if drawing.enabled {
+                    VStack(spacing: 4) { ShoutButtonLabel(); Text("Tap to talk").font(.caption) }
                 } else { ShoutButtonLabel() }
                 if session.capturePhase == .recording {
                     ProgressView(value: progress).tint(theme.buttonInk)
@@ -191,10 +227,16 @@ struct WhistlegraphScreen: View {
             .overlay(RoundedRectangle(cornerRadius: 34, style: .continuous).strokeBorder(paper, lineWidth: 3))
             .contentShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
             .gesture(DragGesture(minimumDistance: 0).updating($touching) { _, state, _ in state = true }.onChanged { value in
+                guard !drawing.enabled else { return }
                 guard canTalk || held else { return }
                 guard !held, session.capturePhase == .idle else { return }
                 held = true; ButtonSounds.play(.press); session.beginHold()
             }.onEnded { value in
+                if drawing.enabled {
+                    if session.capturePhase == .recording { ButtonSounds.play(.release); session.endHold() }
+                    else if canTalk && session.capturePhase == .idle { ButtonSounds.play(.press); session.beginHold() }
+                    return
+                }
                 if held { ButtonSounds.play(.release); session.endHold() }
                 held = false
             })
@@ -203,7 +245,7 @@ struct WhistlegraphScreen: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Talk")
-            .accessibilityHint("Hold to record, release to send. Up to eight seconds.")
+            .accessibilityHint(drawing.enabled ? "Tap to record while drawing. Tap again to send, or send automatically after eight seconds." : "Hold to record, release to send. Up to eight seconds.")
             .accessibilityIdentifier("talk-control")
             .accessibilityAddTraits(.isButton)
             .accessibilityAction(named: Text("Type a request")) { if canTalk { session.cancelHold(); ButtonSounds.play(.key); showComposer = true } }
@@ -218,6 +260,7 @@ struct VersionFeed: View {
     var selectionColor: Color
     var textSize: CGFloat = 22
     let disabled: Bool
+    var holdSelection = false
     let stop: () -> Void
     let retry: () -> Void
     let select: (Int) -> Void
@@ -234,7 +277,7 @@ struct VersionFeed: View {
                         ButtonSounds.play(.tick); withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { focusedVersion = version.id }
                     } label: {
                         VersionRow(version: version, foreground: foreground, selected: version.id == snapshot.head, textSize: textSize, rowHeight: rowHeight)
-                    }.buttonStyle(.plain).disabled(disabled)
+                    }.buttonStyle(.plain).disabled(disabled || holdSelection)
                         .id(version.id)
                         .visualEffect { content, geometry in
                             let distance = max(0, geometry.frame(in: .scrollView(axis: .vertical)).minY)
@@ -276,12 +319,12 @@ struct VersionFeed: View {
                 }.frame(height: rowHeight).padding(.horizontal, 10)
             }
         }
-        .scrollDisabled(disabled)
+        .scrollDisabled(disabled || holdSelection)
         .onAppear { focusedVersion = snapshot.head > 0 ? snapshot.head : nil }
         .onChange(of: snapshot.versions.count) { _, _ in focusedVersion = snapshot.head }
         .task(id: focusedVersion) {
             try? await Task.sleep(for: .milliseconds(320))
-            guard !Task.isCancelled, !disabled, let focusedVersion, focusedVersion != snapshot.head else { return }
+            guard !Task.isCancelled, !disabled, !holdSelection, let focusedVersion, focusedVersion != snapshot.head else { return }
             select(focusedVersion)
         }
         .accessibilityLabel("Version history").accessibilityIdentifier("version-rolodex")
@@ -298,6 +341,7 @@ private struct VersionRow: View {
     var body: some View {
                         HStack(spacing: 12) {
                             ComicTitle(text: "v\(version.id)", size: textSize).frame(width: 48, alignment: .leading)
+                            if version.hasDrawing == true { Image(systemName: "pencil.tip").accessibilityLabel("With drawing") }
                             Text(version.utterance).lineLimit(1).truncationMode(.tail)
                                 .frame(maxWidth: .infinity, alignment: .trailing)
                         }
@@ -388,6 +432,7 @@ struct ComicTitle: View {
 struct InlineRequestComposer: View {
     let theme: WhistlegraphTheme
     var disabled: Bool
+    var hasDrawing = false
     let cancel: () -> Void
     let send: (String) -> Void
     @FocusState private var focused: Bool
@@ -395,7 +440,7 @@ struct InlineRequestComposer: View {
     @StateObject private var keySounds = PromptKeySounds()
     private var prompt: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
     private func submit() {
-        guard !disabled, !prompt.isEmpty else { return }
+        guard !disabled, !prompt.isEmpty || hasDrawing else { return }
         send(prompt)
     }
     private func singleLine(_ value: String) -> String {
@@ -427,7 +472,7 @@ struct InlineRequestComposer: View {
                 Text("\(text.count) / 96").accessibilityIdentifier("request-count").monospacedDigit().foregroundStyle(.secondary)
                 Spacer()
                 Button("Send", action: submit)
-                    .disabled(disabled || prompt.isEmpty)
+                    .disabled(disabled || (prompt.isEmpty && !hasDrawing))
             }.font(.title3)
         }.padding(14)
             .background(theme.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))

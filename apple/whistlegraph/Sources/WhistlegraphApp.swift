@@ -179,26 +179,30 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     var narratedVersion: Int?
     @Published var workspaceReady = false
     @Published var pieces: [PieceSummary] = []
+    let drawing = DrawingDraft()
+    private var speechStartedAt: TimeInterval?
 
     func command(_ action: String, version: Int? = nil, text: String? = nil, piece: String? = nil) {
         guard ["checkout", "newPiece", "openPiece", "stop", "signIn", "ask", "retry", "presentVersion", "endPresentation"].contains(action) else { return }
         if action == "newPiece" || action == "openPiece" {
             guard engineReady, !snapshot.busy, capturePhase == .idle else { return }
             if action == "openPiece" { guard let piece, pieces.contains(where: { $0.id == piece && !$0.current }) else { return } }
+            drawing.clear(); drawing.enabled = false
             previewSource = ""; engineReady = false
         }
         var value: [String: Any] = ["action": action]
         if let version { value["version"] = version }
         if action == "openPiece", let piece { value["piece"] = piece }
         if action == "ask" {
-            guard engineReady, !snapshot.busy, capturePhase == .idle, let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, text.count <= 96 else { return }
+            guard engineReady, !snapshot.busy, capturePhase == .idle, let text, (!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || drawing.hasInk), text.count <= 96 else { return }
             value["text"] = text
+            if let sketch = drawing.payload() { value["drawing"] = sketch }
         }
         Task { _ = try? await webView?.callAsyncJavaScript("window.walkiewareNativeCommand?.(command)", arguments: ["command": value], in: nil, contentWorld: .page) }
     }
     func beginHold() {
         guard engineReady, !snapshot.busy, capturePhase == .idle else { return }
-        captureError = nil; transcript = ""; capturePhase = .opening
+        captureError = nil; transcript = ""; speechStartedAt = nil; capturePhase = .opening
         webView?.evaluateJavaScript("voiceStart()")
     }
     func endHold() { webView?.evaluateJavaScript("voiceEnd()") }
@@ -253,6 +257,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     private let capture = SpeechCapture()
     override init() {
         super.init()
+        capture.hasVisualInput = { [weak self] in self?.drawing.hasInk == true }
         capture.onEvent = { [weak self] kind, text, id in self?.emit(kind, text: text, id: id) }
         capture.onLevel = { [weak self] rms in guard let self else { return }; self.microphoneLevels = Array(self.microphoneLevels.dropFirst()) + [rms] }
         capture.onReplayRelease = { [weak self] in self?.webView?.evaluateJavaScript("voiceEnd()", completionHandler: nil) }
@@ -357,6 +362,8 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
                 case .failure(let error): self?.emitEngine(["kind": "error", "text": error.localizedDescription])
                 }
             }
+        case "drawingCommitted":
+            if let id = body["drawingID"] as? String, let revision = body["revision"] as? Int { drawing.consume(id: id, revision: revision) }
         case "render":
             guard let source = body["source"] as? String, source.utf8.count < 500_000 else { return }
             if let id = body["threadID"] as? String, UUID(uuidString: id) != nil { previewThreadID = id }
@@ -399,7 +406,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
 
     private func emit(_ kind: String, text: String = "", id: String? = nil) {
         switch kind {
-        case "listening": capturePhase = .recording; captureStarted = Date()
+        case "listening": capturePhase = .recording; captureStarted = Date(); speechStartedAt = ProcessInfo.processInfo.systemUptime
         case "partial": transcript = text
         case "processing", "mixedFinal", "final": capturePhase = .processing; captureStarted = nil; if kind != "processing" { ButtonSounds.play(.sent) }
         case "error": capturePhase = .idle; captureStarted = nil; captureError = text; ButtonSounds.play(.error)
@@ -407,7 +414,8 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         }
         if kind == "partial", !text.isEmpty { AudioBenchmark.mark("firstRecognizedWords") }
         if kind == "final" { AudioBenchmark.checkTranscript(text) }
-        let event = ["kind": kind, "text": text, "id": id ?? capture.turn]
+        var event: [String: Any] = ["kind": kind, "text": text, "id": id ?? capture.turn]
+        if ["mixedFinal", "final"].contains(kind), let sketch = drawing.payload(speechStart: speechStartedAt) { event["drawing"] = sketch }
         guard let data = try? JSONSerialization.data(withJSONObject: event),
               let json = String(data: data, encoding: .utf8) else { return }
         webView?.evaluateJavaScript("window.walkieNativeEvent?.(\(json))") { _, error in

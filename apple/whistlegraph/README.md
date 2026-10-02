@@ -54,3 +54,20 @@ node apple/whistlegraph/Tests/native-bridge.test.cjs --native-shell --checked-ed
 ```
 
 Both experiment browser checks use mock inference. They verify the contract, repair limit, rollback, render identity, and receipt fields without spending braincells.
+
+## Drawing with words and sound
+
+**Draw** toggles an ink layer over the preview above the controls. The keyboard and microphone remain available. While Draw is on, Talk uses tap-to-record / tap-to-send (still capped at eight seconds), leaving a finger free to draw. Typed Enter sends text and the current sketch together; Send beside the drawing can submit it alone. Undo removes the last stroke; Clear discards the sketch. Turning Draw off returns touch interaction to the piece while retaining visible unsent marks.
+
+Each successful version retains its combined request: transcript, ordered normalized strokes, elapsed stroke timing, optional measured Pencil pressure, and existing sound/word measurements. Sound time zero is aligned to the drawing timeline. Finger pressure is unknown. Failed requests retain the draft and saved request for retry; a successful commit consumes only the matching draft revision. Unsubmitted native sketches are in memory; accepted attempts use the existing durable recovery journal. New/open piece discards the current sketch.
+
+The existing model interprets vector coordinates and measured sound cues in one request. This is not image recognition or raw-audio inference, and gesture meaning remains uncertain. Drawing bypasses text-only local shortcuts so the marks cannot silently be ignored. Sampling caps the prompt at 320 points across at most 32 strokes (the native draft retains at most 1,200 points). Timings and endpoints survive sampling; fine detail can be lost. No separate inference endpoint or backend rollout is required.
+
+```sh
+node --test apple/whistlegraph/Tests/drawing-input.test.mjs
+node apple/whistlegraph/Tests/native-bridge.test.cjs --native-shell --drawing
+```
+
+## App icon
+
+The app uses the existing Whistlegraph Dot Org artist avatar from `pop/artist/whistlegraph-dot-org/wgdo-avatar-3000.jpg`. `./build-icon.sh` converts that published artwork to the opaque 1,024-pixel iOS icon without changing the mark.

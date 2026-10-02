@@ -1,7 +1,7 @@
 function words(request) {
   if(!request)return '';
   const marker='\nINPUT DATA:\n',at=request.indexOf(marker);
-  if(at>=0){try{return JSON.parse(request.slice(at+marker.length)).transcript||'[nonverbal sound request]';}catch{}}
+  if(at>=0){try{const input=JSON.parse(request.slice(at+marker.length));return (input.transcript||'')+(input.drawing?' [with drawing]':'')||'[nonverbal sound request]';}catch{}}
   return request;
 }
 // A piece carries its own one-line statement of what it is (export const

@@ -34,6 +34,7 @@
 		C4390906B03E8E8666BC54A3 /* SequenceBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = B55FB4AA387E716F9FEE0F83 /* SequenceBenchmark.swift */; };
 		D3D16A0333764D0E5C3B620D /* SpeechCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7A25F803FAC121BFECC1AD7 /* SpeechCapture.swift */; };
 		D9E54D2F66B9FC35483A8F45 /* PlaybackCaption.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D3B156A3435E646EE0E6EEA /* PlaybackCaption.swift */; };
+		FAC2911EFFCA887527D2415F /* WhistlegraphDrawing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D9A8C801D3B9D1192D1143 /* WhistlegraphDrawing.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -64,6 +65,7 @@
 		5D233DBB6F87184A91C13D41 /* MusicalInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicalInput.swift; sourceTree = "<group>"; };
 		6D137824491A01D4C19417B8 /* VersionNarrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionNarrator.swift; sourceTree = "<group>"; };
 		8F9B92C3457F07429C8C2600 /* UtteranceRecording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtteranceRecording.swift; sourceTree = "<group>"; };
+		99D9A8C801D3B9D1192D1143 /* WhistlegraphDrawing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphDrawing.swift; sourceTree = "<group>"; };
 		A542DD3D25782F331540474E /* Whistlegraph.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Whistlegraph.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5904655414F61AE746DF6D5 /* WhistlegraphUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = WhistlegraphUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B4F9A906C6B2232BD07BEFE5 /* PromptKeySounds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptKeySounds.swift; sourceTree = "<group>"; };
@@ -120,6 +122,7 @@
 				6D137824491A01D4C19417B8 /* VersionNarrator.swift */,
 				060870DF76C6FC078A48A276 /* WhistlegraphAccount.swift */,
 				BA5F188938A81E704BB7F9F9 /* WhistlegraphApp.swift */,
+				99D9A8C801D3B9D1192D1143 /* WhistlegraphDrawing.swift */,
 				1BC2C1DC5E036F689EA59561 /* WhistlegraphHeader.swift */,
 				E66B3ADC4D6D837FABC53B8F /* WhistlegraphScreen.swift */,
 				D25F85E540016CEBC3A6BC09 /* WhistlegraphTheme.swift */,
@@ -270,6 +273,7 @@
 				8A9F944BA95C971D70ADDF6B /* VersionNarrator.swift in Sources */,
 				AFDE98CF6460438CE2205674 /* WhistlegraphAccount.swift in Sources */,
 				26D07334E2DEBA6705671BB0 /* WhistlegraphApp.swift in Sources */,
+				FAC2911EFFCA887527D2415F /* WhistlegraphDrawing.swift in Sources */,
 				73873BDDC483417E2F6E1143 /* WhistlegraphHeader.swift in Sources */,
 				4B35B066F49BDD9BD8B90B5A /* WhistlegraphScreen.swift in Sources */,
 				41FC24FA4CF0D6C4D0C9E7C3 /* WhistlegraphTheme.swift in Sources */,
@@ -384,7 +388,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 85;
+				CURRENT_PROJECT_VERSION = 86;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -469,7 +473,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 85;
+				CURRENT_PROJECT_VERSION = 86;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_NS_ASSERTIONS = NO;

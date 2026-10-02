@@ -10,6 +10,7 @@ import Speech
 // session maps those onto published state and the JavaScript bridge.
 @MainActor final class SpeechCapture {
     /// listening · partial · sound · musicalObservation · processing · mixedFinal · error
+    var hasVisualInput: () -> Bool = { false }
     var onEvent: (_ kind: String, _ text: String, _ id: String) -> Void = { _, _, _ in }
     /// Latest microphone energy, for the live waveform.
     var onLevel: (_ rms: Double) -> Void = { _ in }
@@ -181,7 +182,7 @@ import Speech
         musicalInput.finish { [weak self] sound in
             Task { @MainActor in
                 guard let self, self.turn == id else { return }
-                guard !text.isEmpty || (sound["audibleMs"] as? Double ?? 0) >= 150 else {
+                guard !text.isEmpty || (sound["audibleMs"] as? Double ?? 0) >= 150 || self.hasVisualInput() else {
                     self.fail("I didn’t hear words or a sound. Hold to try again."); return
                 }
                 let value: [String: Any] = ["transcript":text,"words":words,"sound":sound]

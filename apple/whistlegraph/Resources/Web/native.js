@@ -103,7 +103,7 @@
   const blocked = () => window.walkiewareIsBusy ? window.walkiewareIsBusy() : gameMode === 'review';
   $('info').querySelector('h2').textContent = 'Whistlegraph';
   $('info').querySelectorAll('p')[0].textContent = 'Hold to talk. Release to make. Your words are transcribed on the iPhone; recordings stay on this phone for playback. Allow Speech and Microphone access the first time, then hold again.';
-  $('info').querySelectorAll('p')[1].textContent = 'Your ww code identifies this piece. Source, versions, and live errors sync privately to your AC account so your other devices and agents can inspect and edit it. Audio stays on this phone.';
+  $('info').querySelectorAll('p')[1].textContent = 'Your ww code identifies this piece. Source, versions, and live errors sync privately to your AC account so your other devices and agents can inspect and edit it. Drawings and measured sound cues travel with your requests. Recordings stay on this phone.';
   $('speak').setAttribute('aria-label', 'Hold to talk to Whistlegraph');
   $('export').hidden = true;
   $('reset').hidden = true;
@@ -133,14 +133,14 @@
     $('speak-label').textContent = 'Finishing…'; $('voice-heading').textContent = 'Finishing…';
     send('stop');
   };
-  async function makeFromWords(text, sound=false) {
+  async function makeFromWords(text, sound=false, drawing=null) {
     if (completing) return;
     clearClock(); completing = true; voiceBusy = true; $('speak').disabled = true;
     $('voice-state').hidden = true;
     $('speak-label').textContent = 'Working…';
     if (!window.walkiewareAsk) { id = ''; clearVoice(); toast('Generation is still loading. Please try again.'); return; }
     id = '';
-    try { await (sound ? window.walkiewareAskSound(JSON.parse(text)) : window.walkiewareAsk(text)); }
+    try { await (sound ? window.walkiewareAskSound({...JSON.parse(text),drawing}) : window.walkiewareAskDrawing(text,drawing)); }
     catch { clearVoice(); toast("Could not interpret this sound. Please try again."); }
   }
   window.walkiewareRecording=()=>talking||voiceBusy||starting||completing;
@@ -153,8 +153,8 @@
     if (event.kind === 'partial') { $('voice-transcript').textContent = event.text; $('voice-transcript').scrollTop = $('voice-transcript').scrollHeight; requestAnimationFrame(()=>window.webkit.messageHandlers.walkie.postMessage({action:'benchmark',id:'engine',event:'transcriptPainted'})); }
     if (event.kind === 'musicalObservation') { try { window.walkiewareObserveSound?.(JSON.parse(event.text)); } catch {} }
     if (event.kind === 'sound') { $('voice-heading').textContent = 'Listening · '+event.text; }
-    if (event.kind === 'mixedFinal') { talking = false; makeFromWords(event.text, true); }
-    if (event.kind === 'final') { talking = false; makeFromWords(event.text); }
+    if (event.kind === 'mixedFinal') { talking = false; makeFromWords(event.text, true, event.drawing); }
+    if (event.kind === 'final') { talking = false; makeFromWords(event.text, false, event.drawing); }
     if (event.kind === 'error') { const message = event.text; id = ''; clearVoice(); toast(message); }
   };
   $('words-form').onsubmit = event => {

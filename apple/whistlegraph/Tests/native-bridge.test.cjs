@@ -75,14 +75,46 @@ const server = http.createServer(async (req, res) => {
     await page.goto('http://127.0.0.1:'+server.address().port+'/index.html?walkie=1');
     await page.waitForFunction(()=>typeof window.walkiewareAsk==='function');
     assert.deepEqual(errors,[]);
+    if(process.argv.includes('--drawing')) {
+      await page.evaluate(()=>{walkiewareEngineEvent({kind:'account',token:'fixture-only'});walkiewareEngineEvent({kind:'previewReady'});});
+      const sketch={schema:'whistlegraph-drawing/v1',id:'11111111-1111-4111-8111-111111111111',revision:4,aspect:4/3,strokes:[[[100,200,0],[300,100,100],[400,300,500]]],speechStartMs:-200};
+      await page.evaluate(drawing=>walkiewareNativeCommand({action:'ask',text:'make this bounce',drawing}),sketch);
+      await page.waitForFunction(()=>JSON.parse(localStorage.getItem('walkieware-source-versions')).head===1&&!walkiewareIsBusy());
+      assert.equal(requests,1,'one combined ask');
+      assert.match(JSON.stringify(inferenceBodies[0]),/DRAWING REFERENCE/);
+      assert.match(JSON.stringify(inferenceBodies[0]),/make this bounce/);
+      const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('walkieware-source-versions')).versions.at(-1));
+      assert.ok(saved.request.includes('whistlegraph-drawing/v1'),'gesture belongs to committed version');
+      assert.ok(await page.evaluate(()=>__nativeMessages.some(m=>m.action==='drawingCommitted'&&m.revision===4)));
+      // Exercise the actual microphone bridge: drawing and sound arrive in one final event.
+      await page.evaluate(drawing=>{
+        voiceStart();const id=__nativeMessages.filter(m=>m.action==='start').at(-1).id;
+        walkieNativeEvent({id,kind:'listening'});
+        walkieNativeEvent({id,kind:'mixedFinal',drawing,text:JSON.stringify({transcript:'follow this sweep',words:[{text:'sweep',atMs:700,durationMs:250}],sound:{schema:'walkieware-sound/v1',durationMs:1200,audibleMs:1000,frames:[{atMs:700,rms:.8,pitchHz:440}],onsetsMs:[700],recordingID:'22222222-2222-4222-8222-222222222222'}})});
+      },{...sketch,revision:5});
+      await page.waitForFunction(()=>JSON.parse(localStorage.getItem('walkieware-source-versions')).head===2&&!walkiewareIsBusy());
+      assert.equal(requests,2);const mixed=JSON.stringify(inferenceBodies[1]);
+      assert.match(mixed,/speechStartMs/);assert.match(mixed,/440/);assert.match(mixed,/follow this sweep/);
+      assert.ok(!mixed.includes('22222222-2222'),'provider never gets recording identity');
+      await page.waitForFunction(()=>__nativeMessages.some(m=>m.action==='snapshot'&&m.snapshot.versions?.some(v=>v.id===2&&v.hasDrawing)));
+      // A provider failure must not consume the draft or add a version.
+      await page.evaluate(drawing=>walkiewareAskDrawing('try another',drawing),{...sketch,revision:6});
+      assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('walkieware-source-versions')).head),2);
+      assert.equal(await page.evaluate(()=>__nativeMessages.some(m=>m.action==='drawingCommitted'&&m.revision===6)),false);
+      await page.evaluate(drawing=>walkiewareAskDrawing('',drawing),{...sketch,strokes:[[[Infinity,0,0]]]});
+      assert.equal(requests,3,'invalid drawing cannot call provider');
+      assert.deepEqual(errors,[]);console.log('PASS: typed and spoken gesture input, aligned sound, per-version attachment, and failed-draft retention');return;
+    }
     if(process.argv.includes('--checked-edits')) {
       await page.evaluate(()=>{walkiewareEngineEvent({kind:'inferenceSettings',checkedEdits:true});walkiewareEngineEvent({kind:'account',token:'fixture-only'});walkiewareEngineEvent({kind:'previewReady'});});
       const before=await page.evaluate(()=>localStorage.getItem('walkieware-source-versions'));
-      await page.evaluate(()=>walkiewareAsk('Make the cats bounce'));
+      const checkedSketch={schema:'whistlegraph-drawing/v1',id:'33333333-3333-4333-8333-333333333333',revision:1,aspect:4/3,strokes:[[[100,500,0],[200,100,500],[300,500,1000]]]};
+      await page.evaluate(drawing=>walkiewareAskDrawing('Make the cats bounce',drawing),checkedSketch);
       await page.waitForFunction(()=>!walkiewareIsBusy());
       assert.equal(requests,2,'exactly one repair generation');
       assert.ok(inferenceBodies[0].messages.some(m=>JSON.stringify(m).includes('EDIT CONTRACT')));
       assert.ok(inferenceBodies[1].messages.some(m=>JSON.stringify(m).includes('REPAIR THIS CANDIDATE ONCE')));
+      assert.ok(inferenceBodies.every(b=>JSON.stringify(b.messages).includes('DRAWING REFERENCE')),'both passes retain gesture intent');
       assert.ok(inferenceBodies.every(b=>b.max_tokens===4096&&b.thinking.type==='disabled'));
       const receipt=await page.evaluate(()=>JSON.parse(localStorage.getItem('walkieware-source-receipts')).at(-1).receipt);
       assert.equal(receipt.repairs,1);assert.equal(receipt.rounds.length,2);assert.equal(receipt.rounds[0].reportedModel,'fixture/reported');
