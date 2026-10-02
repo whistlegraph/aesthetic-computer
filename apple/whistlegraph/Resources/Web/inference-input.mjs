@@ -8,7 +8,7 @@ export function inferenceRequest(request) {
   const input=inputData(request);
   if(!input)return request;
   const transcript=input.transcript.trim();
-  let prompt=transcript|| (input.drawing?'Interpret this drawing.':'Create a playable interpretation of this nonverbal sound.');
+  let prompt=transcript|| (input.drawing?'Infer the intended edit from these chalk gestures and the current piece.':'Create a playable interpretation of this nonverbal sound.');
   // Drawing makes gesture/sound alignment relevant even for ordinary speech.
   if(input.sound&&(input.drawing||wantsSoundEvidence(transcript))){
     const {recordingID,...sound}=input.sound;

@@ -9,7 +9,7 @@ const sound={transcript:'make it move',words:[{text:'move',atMs:1500,durationMs:
 test('typed and drawing-only requests preserve a bounded vector attachment in one request',()=>{
  const stored=withDrawing('make this bounce',sketch),parsed=inputData(stored);
  assert.equal(parsed.transcript,'make this bounce');assert.deepEqual(parsed.drawing.strokes,sketch.strokes);
- assert.match(inferenceRequest(stored),/make this bounce/);assert.match(inferenceRequest(withDrawing('',sketch)),/Interpret this drawing/);
+ assert.match(inferenceRequest(stored),/make this bounce/);assert.match(inferenceRequest(withDrawing('',sketch)),/Infer the intended edit from these chalk gestures/);
  assert.doesNotMatch(inferenceRequest(stored),new RegExp(sketch.id));
  assert.equal(withDrawing('hello',null),'hello');
 });
