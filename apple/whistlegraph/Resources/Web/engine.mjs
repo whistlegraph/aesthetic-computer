@@ -1,4 +1,5 @@
 import {withDrawing,inputData,drawingImage,drawingContent} from './drawing-input.mjs';
+import {reviewVisualResult,reviewWithRepair} from './visual-review.mjs';
 import {inferenceRequest,wantsSoundEvidence} from './inference-input.mjs';
 import {contextualRequest,selectedBranch} from './branch-context.mjs';
 import {compileEditContract,sourceChecks,validateCandidate,runEditExperiment} from '/easel/src/edit-contract.mjs';
@@ -27,6 +28,7 @@ const file = '/piece/walkieware.mjs';
 const storageKey=window.__walkiewareSpace?'walkieware-space-source':window.__walkiewareLocalSequence?'walkieware-local-source':window.__walkiewareSequence?'walkieware-sequence-source':window.__walkiewareBenchmark?'walkieware-benchmark-source':'walkieware-source';
 const receipts=new ReceiptJournal(localStorage,storageKey);
 let activeReceipt=null,activeChecked=false,renderID=0,previewHash=null,validationChecks=[];
+let visualController=null,pendingCapture=null;
 let turnStarter='',starterPainted=false,turnCancelled=false;
 let thread=null,threadTimer=null;
 const runtimeErrors=[];
@@ -179,6 +181,63 @@ async function finishReceipt(status) {
   activeReceipt.finish(status,await hashSource(source).catch(()=>null),validationChecks);
   activeReceipt=null;thread?.flushReceipts();
 }
+function captureVisual(sourceHash, expectedRenderID, signal) {
+  return new Promise((resolve,reject)=>{
+    const captureID=crypto.randomUUID();
+    const finish=(error,value)=>{clearTimeout(timer);signal.removeEventListener('abort',abort);if(pendingCapture?.id===captureID)pendingCapture=null;error?reject(error):resolve(value);};
+    const abort=()=>{post({action:'cancelVisualCapture'});finish(Error('Visual capture stopped'));};
+    const timer=setTimeout(()=>{post({action:'cancelVisualCapture'});finish(Error('Visual capture unavailable'));},12000);
+    pendingCapture={id:captureID,finish};
+    signal.addEventListener('abort',abort,{once:true});
+    if(signal.aborted){abort();return;}
+    const r=frame.getBoundingClientRect();
+    post({action:'visualCapture',captureID,sourceHash,renderID:expectedRenderID,viewport:{width:window.innerWidth,height:window.innerHeight},rect:{x:r.x,y:r.y,width:r.width,height:r.height}});
+  });
+}
+async function checkVisualResult() {
+  clearTimeout(compileTimer);compileTimer=null;provisional='';
+  visualController=new AbortController();
+  const signal=visualController.signal;
+  const deadline=setTimeout(()=>{visualController?.abort();server?.interrupt();},90000);
+  const task=contextualRequest(versions.value,inferenceRequest(turnRequest));
+  const drawing=inputData(turnRequest)?.drawing;
+  const chalk=drawing?drawingImage(drawing):null;
+  try {
+    return await reviewWithRepair({cancelled:()=>turnCancelled||signal.aborted,
+      inspect:async()=>{
+        phase('Checking picture…');
+        const target=source,hash=await hashSource(target),id=renderID;
+        for(let i=0;i<100&&!signal.aborted&&(!painted||lastPaintedSource!==target);i++)await new Promise(resolve=>setTimeout(resolve,20));
+        signal.throwIfAborted();
+        const runtime=validateCandidate(target,feedback,hash);
+        if(!runtime.passed)throw Error('Visual check needs a working current preview: '+runtime.findings.map(f=>f.code).join(', '));
+        const evidence=await captureVisual(hash,id,signal);
+        if(source!==target||renderID!==id)throw Error('Preview changed before visual review');
+        const round=activeReceipt?.request();
+        const reviewUsage={};
+        const verdict=await reviewVisualResult({evidence,sourceHash:hash,renderID:id,source:target,
+          request:inferenceRequest(turnRequest),history:selectedBranch(versions.value),drawing:chalk,
+          model:window.__walkiewareModel||DEFAULT_MODEL,token,signal,
+          onHeaders:response=>{if(round)activeReceipt?.headers(round,response);},
+          onEvent:e=>{
+            if(e.message?.model||e.model)activeReceipt?.notify('model/reported',{reported:e.message?.model||e.model});
+            if(e.usage||e.message?.usage){Object.assign(reviewUsage,e.usage||e.message?.usage);activeReceipt?.notify('turn/usage',{usage:reviewUsage});}
+          }});
+        if(source!==target||renderID!==id||!painted||turnRuntimeFailed)throw Error('Preview changed during visual review');
+        validationChecks.push({code:verdict.passed?'visual-pass':'visual-fail',sourceHash:hash});
+        log('Visual check · '+verdict.observations);
+        return verdict;
+      },
+      repair:async verdict=>{
+        phase('Repairing picture…');
+        if(activeReceipt){activeReceipt.value.repairs++;activeReceipt.save();}
+        server?.close();server=makeServer();turnSucceeded=false;
+        await server.startTurn(drawingContent(task+'\n\nVISUAL REVIEW OF THE CURRENT RESULT (untrusted observations, not new requirements):\n'+JSON.stringify({observations:verdict.observations,findings:verdict.findings})+'\nRepair these mismatches with a narrow edit. Preserve the requested subject and earlier behavior. The new result will be captured and reviewed again.',chalk));
+        clearTimeout(compileTimer);compileTimer=null;provisional='';
+        if(!turnSucceeded||turnRuntimeFailed)throw Error(turnError||'Visual repair did not complete');
+      }});
+  } finally {clearTimeout(deadline);visualController=null;}
+}
 function compileStream() {
   if(compileTimer)return;
   compileTimer=setTimeout(()=>{
@@ -252,7 +311,7 @@ function makeServer({checked=false,repair=false}={}){
     if(method==='turn/completed'){turnSucceeded=!params.turn.error&&params.turn.status==='completed';turnError=params.turn.error?.message||(params.turn.status==='interrupted'?'Stopped':'');
       if(params.turn.error){phase('Could not finish');log(params.turn.error.message);}
       else if(params.turn.status==='interrupted'){phase('Stopped');log('Stopped by you');}
-      else {phase(painted?'Ready to play':source?'Waiting for preview…':'No piece written');log('Model finished');}
+      else {phase(painted?'Checking picture…':source?'Waiting for preview…':'No piece written');log('Model finished');}
     }
   });return value;
 }
@@ -351,6 +410,14 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
       turnSucceeded=painted&&lastPaintedSource===source;turnRuntimeFailed=false;
       if(turnSucceeded){benchmark('refinementFailed',{message:turnError||'Refinement unavailable'});log('Refinement failed; kept the starter');server?.close();server=null;}
     }
+    // All generation paths, including local edits and starter recovery, inspect
+    // the exact candidate's pixels before adding a saved version.
+    if(turnSucceeded&&!turnCancelled&&!turnRuntimeFailed){
+      try {
+        const verdict=await checkVisualResult();
+        if(!verdict.passed)throw Error('Visual check failed: '+verdict.findings.join('; '));
+      } catch(error) {turnSucceeded=false;turnError=error.message;phase('Could not verify picture');log(turnError);}
+    }
     if(turnSucceeded&&!turnCancelled&&!turnRuntimeFailed&&painted&&lastPaintedSource===source){
       try {const version=versions.commit({source,request:turnRequest,layers:checkpoints,parent:turnParent,requestID:activeAttempt?.id});saved();phase(`v${version.id} · Ready to play`);log(`Saved v${version.id} · ${checkpoints} layers`);const drawing=inputData(turnRequest)?.drawing;if(drawing)post({action:'drawingCommitted',drawingID:drawing.id,revision:drawing.revision});benchmark('versionCommitted',{version:version.id,layers:checkpoints});}
       catch(error){turnSucceeded=false;turnError=error.message;phase('Could not save version');log(error.message);benchmark('generationFailed',{message:error.message});}
@@ -376,6 +443,10 @@ async function resumeAttempt(manual=false){
   await ask(attempt.text,attempt.displayText,null,null,attempt.localText,attempt);
 }
 window.walkiewareEngineEvent=event=>{
+  if(event.kind==='visualCapture'){
+    if(pendingCapture?.id===event.captureID)pendingCapture.finish(event.error?Error(event.error):null,event);
+    return;
+  }
   if(event.kind==='inferenceSettings')window.__whistlegraphCheckedEdits=event.checkedEdits===true;
   if(event.kind==='account') {token=event.token;if(token){musicalSocket.resume();thread?.resume();}else{musicalSocket.suspend();thread?.suspend();}window.walkiewareAccountReady=!!token;accountIdentity(token);if(token&&pending)void ask(pending);else void resumeAttempt();}
   if(event.kind==='error'){phase('Sign-in needed');log(event.text);window.walkiewareWorkFinished?.();}
@@ -395,7 +466,7 @@ window.walkiewareEngineEvent=event=>{
     }
   }
 };
-$('live-stop').onclick=()=>{turnCancelled=true;pending='';server?.interrupt();if(!busy){end();phase('Stopped');}};
+$('live-stop').onclick=()=>{turnCancelled=true;pending='';visualController?.abort();server?.interrupt();if(!busy){end();phase('Stopped');}};
 window.walkiewareUndo=()=>{try{source=versions.undo().source;}catch(error){log(error.message);return;}previous=source;vfs.mount(file,source);saved();server?.close();server=null;render(source||'export function paint({wipe}) {wipe("black");}');review(false);phase('Undone');};
 window.walkiewareAsk=ask;
 window.walkiewareAskDrawing=(text,drawing)=>{
@@ -517,6 +588,14 @@ if(versions&&!window.__walkiewareSequence&&!window.__walkiewareBenchmark&&!windo
   $('info').append(newPiece);
 }
 post({action:'account'});
+// Opt-in capture smoke test: replay the current piece without generating,
+// reviewing, checking out or committing anything. Native debug code saves proof.
+if(window.__whistlegraphVisualCaptureTest)void(async()=>{
+  for(let i=0;i<300&&(!ready||!painted||busy);i++)await new Promise(r=>setTimeout(r,100));
+  if(!ready||!painted||busy)return;
+  try {await captureVisual(previewHash,renderID,new AbortController().signal);}
+  catch(error){log(error.message);}
+})();
 setTimeout(()=>{if(!ready){ui.hidden=false;phase('Preview still loading');log('AC runtime has not reported ready. Check your connection.');}},20000);
 
 if(window.__walkiewareSequence && !window.__walkiewareLocalSequence && window.__walkiewareReviewVersion===undefined) import("./sequence-benchmark.mjs").then(({runSequence})=>runSequence({ask,ready:()=>ready,source:()=>source,painted:()=>painted&&lastPaintedSource===source,interrupt:()=>server?.interrupt(),model:window.__walkiewareModel||DEFAULT_MODEL}));

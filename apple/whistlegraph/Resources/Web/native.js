@@ -103,7 +103,7 @@
   const blocked = () => window.walkiewareIsBusy ? window.walkiewareIsBusy() : gameMode === 'review';
   $('info').querySelector('h2').textContent = 'Whistlegraph';
   $('info').querySelectorAll('p')[0].textContent = 'Hold to talk. Release to make. Your words are transcribed on the iPhone; recordings stay on this phone for playback. Allow Speech and Microphone access the first time, then hold again.';
-  $('info').querySelectorAll('p')[1].textContent = 'Your ww code identifies this piece. Source, versions, and live errors sync privately to your AC account so your other devices and agents can inspect and edit it. Drawings and measured sound cues travel with your requests. Recordings stay on this phone.';
+  $('info').querySelectorAll('p')[1].textContent = 'Your ww code identifies this piece. Source, versions, and live errors sync privately to your AC account so your other devices and agents can inspect and edit it. Drawings and measured sound cues travel with your requests. Each generated edit also sends cropped, timed preview frames to AC for a visual check before saving. Recordings stay on this phone.';
   $('speak').setAttribute('aria-label', 'Hold to talk to Whistlegraph');
   $('export').hidden = true;
   $('reset').hidden = true;

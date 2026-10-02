@@ -6,14 +6,26 @@ const puppeteer = require('puppeteer');
 const root = resolve(__dirname, '../Resources/Web');
 const pause = ms => new Promise(r => setTimeout(r, ms));
 const inferenceBodies=[];
-let requests = 0, releaseAt = 0, submittedAt = 0;
+let requests = 0, visualRequests = 0, releaseAt = 0, submittedAt = 0;
 const server = http.createServer(async (req, res) => {
   if(req.url === '/mock-inference') {
-    requests++; if(requests===1) submittedAt = Date.now();
-    let incoming="";for await(const chunk of req)incoming+=chunk;inferenceBodies.push(JSON.parse(incoming));
+    let incoming="";for await(const chunk of req)incoming+=chunk;const parsed=JSON.parse(incoming);
+    const visual=typeof parsed.system==='string' && parsed.system.includes('You review a generated');
+    if(!visual){requests++;if(requests===1)submittedAt=Date.now();inferenceBodies.push(parsed);}
     res.writeHead(200, {'Content-Type':'text/event-stream'});
     const send = event => res.write('data: '+JSON.stringify(event)+'\n\n');
-    if(process.argv.includes('--checked-edits')) {
+    if(visual) {
+      visualRequests++;
+      assert.equal(parsed.messages[0].content.filter(b=>b.type==='image').length>=4,true);
+      const failed=process.argv.includes('--visual-fails');
+      send({type:'content_block_delta',delta:{type:'text_delta',text:JSON.stringify({passed:!failed,observations:'Fixture-only visual evidence; not a physical capture.',findings:failed?['Requested subject is missing.']:[]})}});
+      send({type:'message_delta',delta:{stop_reason:'end_turn'}});res.end();return;
+    }
+    if(process.argv.includes('--visual-fails')) {
+      send({type:'content_block_start',index:0,content_block:{type:'tool_use',id:'visual-candidate-'+requests,name:'write_piece'}});
+      send({type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:JSON.stringify({source:'export function paint({wipe}) {wipe('+requests+');}'})}});
+      send({type:'content_block_stop',index:0});send({type:'message_delta',delta:{stop_reason:'end_turn'}});
+    } else if(process.argv.includes('--checked-edits')) {
       const invalid=requests===1||process.argv.includes('--repair-fails');
       const source=invalid?'export const caption="Cats"; export function paint({wipe,ink}) {wipe(0);ink(`hsl(30,100%,50%)`).circle(30,30,10);}':'export const caption="Bouncing cats"; export function paint({wipe,ink}) {wipe(0);ink(255,128,0).circle(30,30,10);}';
       send({type:'message_start',message:{id:'provider-'+requests,model:'fixture/reported',usage:{input_tokens:10}}});
@@ -70,11 +82,22 @@ const server = http.createServer(async (req, res) => {
       const fetchOriginal=window.fetch.bind(window);
       window.fetch=(url,init)=>{if(String(url).includes('/api/handle-colors'))return Promise.resolve(Response.json({colors:[{r:200,g:100,b:255}]}));if(String(url).includes('/userinfo'))return Promise.resolve(Response.json({sub:'fixture-user'}));if(String(url).includes('/handle?for='))return Promise.resolve(Response.json({handle:'fixture'}));if(String(url).includes('/api/easel-musical-jev')){const b=JSON.parse(init.body);return Promise.resolve(Response.json({schema:'walkieware-decision/v1',sessionId:b.sessionId,sequence:b.sequence,choice:'follow_speech',confidence:.95}));}if(String(url).startsWith('/easel/context/')){window.__guideFetches++;return Promise.resolve({ok:false,status:0});}return fetchOriginal(String(url).includes('/api/easel-inference')?'/mock-inference':url,init);};
       window.__nativeMessages=[];
-      window.webkit={messageHandlers:{walkie:{postMessage:m=>{window.__nativeMessages.push(m);if(m.action==='render')setTimeout(async()=>{const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(m.source));const sourceHash=[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');window.walkiewareEngineEvent({kind:'previewEvent',event:{kind:'painted',sourceHash,requestID:m.renderID}});},20);}}}};
+      window.webkit={messageHandlers:{walkie:{postMessage:m=>{window.__nativeMessages.push(m);if(m.action==='visualCapture'){const canvas=document.createElement('canvas');canvas.width=32;canvas.height=24;canvas.getContext('2d').fillRect(0,0,32,24);setTimeout(()=>window.walkiewareEngineEvent({kind:'visualCapture',captureID:m.captureID,sourceHash:window.__staleVisual?'old':m.sourceHash,renderID:m.renderID,frames:[0,800,1600,2400].map(atMs=>({atMs,width:32,height:24,png:canvas.toDataURL('image/png').split(',')[1]}))}),10);}if(m.action==='render')setTimeout(async()=>{const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(m.source));const sourceHash=[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');window.walkiewareEngineEvent({kind:'previewEvent',event:{kind:'painted',sourceHash,requestID:m.renderID}});},20);}}}};
     },guideSeed,process.argv.includes('--native-shell'));
     await page.goto('http://127.0.0.1:'+server.address().port+'/index.html?walkie=1');
     await page.waitForFunction(()=>typeof window.walkiewareAsk==='function');
     assert.deepEqual(errors,[]);
+    if(process.argv.includes('--visual-fails')||process.argv.includes('--visual-stale')) {
+      await page.evaluate(stale=>{window.__staleVisual=stale;walkiewareEngineEvent({kind:'account',token:'fixture-only'});walkiewareEngineEvent({kind:'previewReady'});},process.argv.includes('--visual-stale'));
+      const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('walkieware-source-versions')));
+      await page.evaluate(()=>walkiewareAsk('Give the picture a butterfly with intact rotating wings'));
+      const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('walkieware-source-versions')));
+      assert.deepEqual(after,before,'rejected visual evidence cannot commit or change the selected version');
+      assert.equal(visualRequests,process.argv.includes('--visual-fails')?2:0);
+      assert.equal(requests,process.argv.includes('--visual-fails')?2:1,'at most one repair; stale capture buys none');
+      assert.equal(await page.evaluate(()=>walkiewareIsBusy()),false);
+      console.log('PASS: visual rejection preserves the ledger; repair is bounded and rechecked; stale captures fail before inference. Mock capture and provider.');return;
+    }
     if(process.argv.includes('--drawing')) {
       await page.evaluate(()=>{walkiewareEngineEvent({kind:'account',token:'fixture-only'});walkiewareEngineEvent({kind:'previewReady'});});
       const sketch={schema:'whistlegraph-drawing/v1',id:'11111111-1111-4111-8111-111111111111',revision:4,aspect:4/3,strokes:[[[100,200,0],[300,100,100],[400,300,500]]],speechStartMs:-200};
@@ -152,7 +175,7 @@ const server = http.createServer(async (req, res) => {
       assert.ok(inferenceBodies.every(b=>b.messages.some(m=>Array.isArray(m.content)&&m.content.some(c=>c.type==='image'))),'initial and repair passes retain chalk pixels');
       assert.ok(inferenceBodies.every(b=>b.max_tokens===4096&&b.thinking.type==='disabled'));
       const receipt=await page.evaluate(()=>JSON.parse(localStorage.getItem('walkieware-source-receipts')).at(-1).receipt);
-      assert.equal(receipt.repairs,1);assert.equal(receipt.rounds.length,2);assert.equal(receipt.rounds[0].reportedModel,'fixture/reported');
+      assert.equal(receipt.repairs,1);assert.equal(receipt.rounds.length,process.argv.includes('--repair-fails')?2:3);assert.equal(receipt.rounds[0].reportedModel,'fixture/reported');
       assert.equal(receipt.rounds[0].providerRequestID,'provider-1');assert.equal(receipt.rounds[1].usage.costUSD,.001);
       assert.ok(receipt.observations.every(o=>o.sourceHash.length===64));assert.equal(receipt.acceptance,'unreviewed');
       assert.ok(!JSON.stringify(receipt).includes('Make the cats bounce'),'receipt has no prompt text');
@@ -160,7 +183,7 @@ const server = http.createServer(async (req, res) => {
         assert.equal(receipt.status,'failed');assert.equal(receipt.checks[0].code,'unsupported-hsl');
         assert.equal(await page.evaluate(()=>localStorage.getItem('walkieware-source-versions')),before,'failed repair cannot commit the invalid candidate');
       }else{
-        assert.equal(receipt.status,'completed');assert.deepEqual(receipt.checks,[]);
+        assert.equal(receipt.status,'completed');assert.deepEqual(receipt.checks.map(c=>c.code),['visual-pass']);
         assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('walkieware-source-versions')).head),1);
       }
       const last=await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='render').at(-1));
@@ -260,7 +283,8 @@ const server = http.createServer(async (req, res) => {
     assert.equal(await page.$eval('#live-phase',e=>e.hidden),true);
     assert.equal(await page.$eval('#live-details',e=>e.hidden),true);
     assert.equal(requests,1);assert.ok(submittedAt-releaseAt<500,'no artificial release delay');
-    assert.equal(await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='render').length),2);
+    assert.ok(await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='render').length>=2));
+    assert.equal(visualRequests,1,'one required visual check after generation');
     await page.evaluate(()=>walkiewareEngineEvent({kind:'previewEvent',event:{kind:'painted'}}));
     await page.screenshot({path:resolve(__dirname,'screenshots/live-stream.png')});
     if(process.argv.includes('--musical'))assert.equal(await page.$eval('#version-feed svg',e=>e.getAttribute('role')),'img');
@@ -313,9 +337,9 @@ const server = http.createServer(async (req, res) => {
         results.push({text,ms,properties:JSON.stringify(readScene(current.source))===JSON.stringify(expected),oneVersion:after.versions.length===before.versions.length+1,undo:undone.head===before.head});
       }return results;
     });
-    assert.equal(localRun.length,32);assert.ok(localRun.every(r=>r.properties&&r.oneVersion&&r.undo));assert.equal(requests,6,'32 local edits and replays dispatch zero model requests');
+    assert.equal(localRun.length,32);assert.ok(localRun.every(r=>r.properties&&r.oneVersion&&r.undo));assert.equal(requests,6,'32 local edits and replays dispatch zero generation requests');
     assert.equal(await page.$eval('#speak',e=>e.disabled),false,'next ask does not require Keep first');
-    console.log('PASS: 32 local browser edits plus undo/replay each; zero inference; next ask enabled. Mock painted-frame acknowledgements.');
+    console.log('PASS: 32 local browser edits plus undo/replay each; zero generation inference; mocked visual review on each edit; next ask enabled.');
     assert.deepEqual(errors,[]);
     console.log('PASS: instant source is painted and retained if refinement fails; subsequent edits preserve the existing piece.');
     console.log('PASS: live words before release; release-to-request '+(submittedAt-releaseAt)+'ms (fixture); streamed code before checkpoints; two progressive renders; Undo; selection disabled on controls only; typed revision; provider failure preserves preview; two layers commit one version; failure after painting rolls back without committing. Speech and inference mocked.');

@@ -106,6 +106,9 @@ struct Workspace: UIViewRepresentable {
         if ProcessInfo.processInfo.environment["WALKIE_SCENE_TEST"] == "1" {
             config.userContentController.addUserScript(WKUserScript(source: "window.__walkiewareScene = true;", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         }
+        if ProcessInfo.processInfo.environment["WHISTLEGRAPH_VISUAL_CAPTURE_TEST"] == "1" {
+            config.userContentController.addUserScript(WKUserScript(source: "window.__whistlegraphVisualCaptureTest = true;", injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
         if let revision = Int(ProcessInfo.processInfo.environment["WALKIE_REVIEW_VERSION"] ?? ""), revision >= 0 {
             config.userContentController.addUserScript(WKUserScript(source: "window.__walkiewareReviewVersion = \(revision);", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         }
@@ -265,6 +268,8 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     private var previewFrame: WKFrameInfo?
     private var previewSource = ""
     private var previewRequestID = 0
+    private var paintedPreviewHash: String?
+    private var visualCaptureTask: Task<Void, Never>?
     private var previewThreadID = UUID().uuidString
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -280,6 +285,12 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
                 renderPreview()
                 emitEngine(["kind": "previewReady"])
             } else if body["action"] as? String == "previewEvent" {
+                if let event = body["event"] as? [String: Any],
+                   event["requestID"] as? Int == previewRequestID,
+                   event["sourceHash"] as? String == VisualCapture.hash(previewSource) {
+                    if event["kind"] as? String == "painted" { paintedPreviewHash = event["sourceHash"] as? String }
+                    if event["kind"] as? String == "invalidated" { paintedPreviewHash = nil }
+                }
                 #if DEBUG
                 if let event = body["event"] as? [String: Any], event["kind"] as? String == "painted" { print("[walkieware] checkpoint painted"); AudioBenchmark.mark("firstPainted")
                     if AudioBenchmark.enabled {
@@ -300,6 +311,33 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
               let action = body["action"] as? String,
               let id = body["id"] as? String, id.count <= 100 else { return }
         switch action {
+        case "cancelVisualCapture":
+            visualCaptureTask?.cancel()
+        case "visualCapture":
+            guard let captureID = body["captureID"] as? String, UUID(uuidString: captureID) != nil,
+                  let hash = body["sourceHash"] as? String,
+                  let renderID = body["renderID"] as? Int,
+                  let viewport = body["viewport"] as? [String: Double],
+                  let rect = body["rect"] as? [String: Double], let webView else { return }
+            visualCaptureTask?.cancel()
+            visualCaptureTask = Task { [weak self] in
+                guard let self else { return }
+                var result: [String: Any] = ["kind": "visualCapture", "captureID": captureID, "sourceHash": hash, "renderID": renderID]
+                do {
+                    result["frames"] = try await VisualCapture.frames(view: webView, rect: rect, viewport: viewport) {
+                        self.previewRequestID == renderID && self.paintedPreviewHash == hash
+                    }
+                } catch { result["error"] = error.localizedDescription }
+                #if DEBUG
+                result["geometry"] = ["viewport": viewport, "rect": rect, "view": ["width": webView.bounds.width, "height": webView.bounds.height]]
+                if ProcessInfo.processInfo.environment["WHISTLEGRAPH_VISUAL_CAPTURE_TEST"] == "1",
+                   let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first,
+                   let data = try? JSONSerialization.data(withJSONObject: result) {
+                    try? data.write(to: directory.appendingPathComponent("whistlegraph-visual-capture.json"), options: .atomic)
+                }
+                #endif
+                self.emitEngine(result)
+            }
         case "narrationReady":
             narratedVersion = body["version"] as? Int; narratedFrame += 1
         case "layout":
@@ -366,6 +404,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             if let id = body["drawingID"] as? String, let revision = body["revision"] as? Int { drawing.consume(id: id, revision: revision) }
         case "render":
             guard let source = body["source"] as? String, source.utf8.count < 500_000 else { return }
+            visualCaptureTask?.cancel(); paintedPreviewHash = nil
             if let id = body["threadID"] as? String, UUID(uuidString: id) != nil { previewThreadID = id }
             previewRequestID = body["renderID"] as? Int ?? 0
             previewSource = source; renderPreview()
