@@ -75,13 +75,15 @@ export function stepActor(actor) {
       actor.action = null;
     }
   }
-  // A spin flings the arms out: up and round on foot, wide on a board or in
-  // the air. A punch or kick in progress keeps its arms.
+  // A spin flings the arms out level, like a helicopter, so whatever a
+  // hand holds (the axe) is flung out sideways with it: straight out on
+  // foot, wide on a board or in the air. A punch or kick in progress
+  // keeps its arms.
   if (input.spin && !["punch", "kick"].includes(actor.action?.name)) {
     const chest = chestFrame(body), o = body.o, grounded = !root.air && actor.mode === "foot";
     for (const [name, side] of [["left", -1], ["right", 1]])
       pose.hands[name] = grounded
-        ? { goal: place(chest, 4, 46, side * (o.shoulder + 22)), stiff: .22 }
+        ? { goal: place(chest, 2, 6, side * (o.shoulder + 48)), stiff: .22 }
         : { goal: place(chest, 0, 14, side * (o.shoulder + 46)), stiff: .22 };
   }
   // Holding reach or grab sends a hand (`input.hand`: 1 right, -1 left) to
@@ -121,12 +123,17 @@ function basePose(actor) {
     // half a cycle apart. Half the cycle a foot is planted and sweeps back
     // at exactly the body's speed (so it doesn't skate); the other half it
     // swings forward through the air.
-    const f = Math.max(.3, frequency(body)), stride = Math.min(95, speed / (4 * f)), lift = 18 + 14 * drive;
+    // A foot-forward walk: the stride is long for the cadence, the swing
+    // foot plants a third of a stride ahead of the pelvis rather than
+    // under it, and the feet track wide of the hips. (Measured: the lift
+    // is what keeps a planted foot from sliding; the bias and the width
+    // cut the slide, 22 -> 16 u/s at a walk.)
+    const f = Math.max(.3, frequency(body)), stride = Math.min(110, speed / (4 * f)), lift = 18 + 14 * drive;
     for (const [name, s] of [["left", -1], ["right", 1]]) {
       const phase = body.rhythm.phase + (s > 0 ? Math.PI : 0), { along: sweep, up: rise } = footCycle(phase);
-      const along = stride * sweep, up = rise * lift * drive;
+      const along = stride * sweep + stride * .3 * drive, up = rise * lift * drive;
       // A planted foot is pinned where it stands; a swinging one chases.
-      pose.feet[name] = { goal: travelPoint(body, along, s * (o.hipWidth + (input.crouch ? 10 : 2)), 3 + up), stiff: .55, pin: !body.root.air && up === 0 && drive > .05 };
+      pose.feet[name] = { goal: travelPoint(body, along, s * (o.hipWidth + (input.crouch ? 12 : 8)), 3 + up), stiff: .55, pin: !body.root.air && up === 0 && drive > .05 };
       // Arms swing against the legs, loose: a gentle goal, gravity does the rest.
       const chest = chestFrame(body);
       pose.hands[name] = { goal: place(chest, -stride * .7 * Math.sin(phase) * drive + 6, -58 + 10 * drive, s * (o.shoulder + 6)), stiff: .05 };

@@ -38,9 +38,9 @@ export const defaults = {
   hold: .5,               // how hard the pelvis follows the root (the legs)
   carry: .9,              // a driven root's travel the legs carry the body through
                           // (the rest is felt as inertia: sway, lag, whip)
-  tempo: 1.7,             // rhythm, cycles per second at full drive
-  lag: .22,               // rhythm phase delay per bead: the whip
-  sway: .012,             // rhythm side bend per joint (radians)
+  tempo: 1.5,             // rhythm, cycles per second at full drive
+  lag: .3,                // rhythm phase delay per bead: the whip
+  sway: .016,             // rhythm side bend per joint (radians)
   wring: .18,             // rhythm twist at the ends (radians)
   react: 8,               // how fast muscles move toward what's asked (1/s)
   shoulder: 20,           // half the shoulders
@@ -75,7 +75,7 @@ export function randomBody(seed) {
     length: Math.round(pick(62, 78)), skull: Math.round(pick(30, 36)),
     stiffLow: pick(.22, .5), stiffHigh: pick(.1, .18), stiffNeck: pick(.84, .88),
     damping: pick(.16, .26), reaction: pick(.2, .45), twistStiff: pick(.18, .38),
-    tempo: pick(1.45, 2), lag: pick(.16, .28), sway: pick(.008, .018), wring: pick(.12, .26),
+    tempo: pick(1.3, 1.75), lag: pick(.22, .36), sway: pick(.01, .022), wring: pick(.12, .26),
     react: pick(6, 11), shoulder: Math.round(pick(16, 24)), hipWidth: Math.round(pick(9, 13)),
     // Hips set a touch above the legs' length: the rope's weight sags the
     // pelvis a few units, and this leaves the standing knees near straight.

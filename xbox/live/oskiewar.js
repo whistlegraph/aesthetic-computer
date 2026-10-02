@@ -272,6 +272,11 @@ let skateparkMap = globalThis.__oskiewarMap === "skatepark";
 // "indoor" is the full hall. Freeskate defaults to a compact bare halfpipe;
 // hosts can opt into "indoor" or "skatepark" with __oskiewarFreeskateMap.
 let skateCourse = "park";
+// The monowheel desert: the pool machinery (3D park physics, camera, decals,
+// loose vehicles) under open dunes instead of the park — no bowls, pipe,
+// building, karts or kids; a monowheel, chalk and paint cans. Freeskate's
+// default course; __oskiewarFreeskateMap = "pool" brings the park back.
+let poolDesert = false;
 const parkLoops = [
   { x: 6300, radius: 320 }, { x: 15300, radius: 420 },
   { x: 24300, radius: 500 },
@@ -407,13 +412,16 @@ const seaLevelY = floorY;
 const pondAt = (x) => parkSegments.find((segment) => segment.kind === "pond" &&
   x > segment.left && x < segment.right) || null;
 
-function configureWorldMap(name, course = skateCourse) {
+// The default course is the one running, desert included: callers that only
+// name the map ("skatepark") must not drop the rider back into the park.
+function configureWorldMap(name, course = poolDesert ? "desert" : skateCourse) {
   // A normal round keeps its current workshop/local variant. Only entering
   // or leaving the long course needs to replace the world dimensions.
   if (name !== "skatepark" && !skateparkMap) return;
-  const previousMap = skateparkMap + "/" + skateCourse;
+  const previousMap = skateparkMap + "/" + skateCourse + (poolDesert ? "/desert" : "");
   skateparkMap = name === "skatepark";
-  skateCourse = course === "pool" ? "pool" : course === "halfpipe" ? "halfpipe" : course === "indoor" ? "indoor" : "park";
+  skateCourse = course === "pool" || course === "desert" ? "pool" : course === "halfpipe" ? "halfpipe" : course === "indoor" ? "indoor" : "park";
+  poolDesert = skateparkMap && course === "desert";
   roomDepth = poolOnly() ? 6000 : 900;
   worldNear = -roomDepth / 2; worldFar = roomDepth / 2;
   // The seeded park layout and the doorway walk-in belong to the park; the
@@ -424,7 +432,8 @@ function configureWorldMap(name, course = skateCourse) {
   }
   // The marks on the ground belong to the ground: kept through resets,
   // cleared only when the map itself changes.
-  if (previousMap !== skateparkMap + "/" + skateCourse) {
+  if (previousMap !== skateparkMap + "/" + skateCourse + (poolDesert ? "/desert" : "")) {
+    releaseQuadMesh(poolSurfaceMesh); poolSurfaceMesh = null;
     decals.length = 0;
     clearPoolDecals();
     bloodDrops.length = 0;
@@ -1631,7 +1640,7 @@ function parkEntranceDoor(){
 }
 function startParkEntrance(p,now){
  // The walk-in is a welcome for a person holding a pad; bots start playing.
- if(selfPlay||p.bot||p.npc||globalThis.__oskiewarParkIntro===false)return;
+ if(selfPlay||p.bot||p.npc||poolDesert||globalThis.__oskiewarParkIntro===false)return;
  const door=parkEntranceDoor();p.x=p.spawnX=door.x;p.z=door.z-1100;p.y=poolFloorAt(p.x,p.z);
  p.vx=p.vy=p.vz=0;p.grounded=true;p.poolYaw=poolCameraYaw=Math.PI/2;
  p.skateboard=p.onewheel=false;p.parkEntrance={at:now,progress:0};
@@ -1651,6 +1660,7 @@ function updateParkEntrance(p,pad,dt,now){
  return false;
 }
 function parkHalfPipeHeight(x,z){
+  if(poolDesert)return 0;
   const p=parkHalfPipe3D,d=Math.abs(x-p.x),end=Math.abs(z-p.z);
   if(d>=p.hx||end>=p.hz)return 0;
   const curve=clamp(d-p.flat,0,p.radius);
@@ -1671,6 +1681,8 @@ function bowlDistance(x,z,bowl){
   return {d,nx:d?Math.sign(dx)*a/d:0,nz:d?Math.sign(dz)*b/d:0,bowl};
 }
 function poolDistance(x,z){
+  // The desert has no bowls: every rim test fails and slopes come from the dunes.
+  if(poolDesert)return {d:1e9,nx:0,nz:0,bowl:parkPools[0]};
   let best=null;
   for(const bowl of parkPools){const edge=bowlDistance(x,z,bowl);if(!best||edge.d-bowl.radius<best.d-best.bowl.radius)best=edge;}
   return best;
@@ -1687,6 +1699,7 @@ function parkGroundAt(x,z){
   return parkDeckY-Math.max(height,parkHalfPipeHeight(x,z));
 }
 function poolFloorAt(x,z=0){
+  if(poolDesert)return desertFloorAt(x,z);
   const door=parkEntranceDoor();
   if(Math.abs(x-door.x)<140&&z>door.z-1400&&z<door.z+650)return parkDeckY-20;
   if(Math.hypot(x-5200,z+260)<360)return parkDeckY-18;
@@ -1696,6 +1709,9 @@ function poolFloorAt(x,z=0){
 }
 // The far-right bowl is milk; its rim and floor still use the park's collision surface.
 function milkAt(x,z){
+ // The desert ends in the sea: the same water the milk bowl is, everywhere
+ // the island's floor is under it.
+ if(poolDesert){const y=desertSeaY();return desertFloorAt(x,z)>y?{y,bowl:null}:null;}
  const bowl=parkPools[2],y=parkDeckY+32;
  return bowlDistance(x,z,bowl).d<bowl.radius&&bowlHeight(x,z,bowl)>y?{y,bowl}:null;
 }
@@ -1815,7 +1831,7 @@ function boundParkBody(p,previous={x:p.x,z:p.z||0}){
   const tunnel=outdoorTunnelAt(p.x,p.z||0);
   if(tunnel!==null&&p.y<tunnel+180&&(p.previousY??p.y)>=tunnel+180){p.y=tunnel+180;p.vy=Math.max(0,p.vy);}
   const radius=p.pad===undefined?18:25,height=p.pad===undefined?40:180;
-  for(const {w,bay,u,old,dist} of parkWallContact(previous,{x:p.x,y:p.y-height/2,z:p.z||0},radius)){
+  for(const {w,bay,u,old,dist} of poolDesert?[]:parkWallContact(previous,{x:p.x,y:p.y-height/2,z:p.z||0},radius)){
     const horizontal=u>bay*w.width+109+radius&&u<(bay+1)*w.width-109-radius;
     const wt=parkDeckY-parkBuildingHeight+269,wb=parkDeckY-99;
     const impactY=p.y-height*.5,impact=horizontal&&impactY>wt&&impactY<wb;
@@ -1831,7 +1847,7 @@ function boundParkBody(p,previous={x:p.x,z:p.z||0}){
     z=clamp(p.z||0,race.z-race.radius-1200+25,worldFar+parkLotMargin-25);
   if(x!==p.x)p.vx=0;if(z!==p.z)p.vz=0;p.x=x;p.z=z;
   const ceiling=parkDeckY-parkBuildingHeight+(p.pad===undefined?70:230);
-  if(insidePark(p.x,p.z)&&p.y<ceiling&&!brokenParkRoof.has(parkRoofKey(p.x,p.z||0))){
+  if(!poolDesert&&insidePark(p.x,p.z)&&p.y<ceiling&&!brokenParkRoof.has(parkRoofKey(p.x,p.z||0))){
     if(p.vy<-350&&(p.poolPipeLocked||p.skateboard||p.spin?.rate>5))breakParkRoof(p);
     else {p.y=ceiling;p.vy=Math.max(0,p.vy);if(!p.poolVert?.pipe)p.poolVert=null;}
   }
@@ -2210,6 +2226,10 @@ const crouchJumpVelocity = 1960;
 const ultraJumpVelocity = 3960;
 const crouchHopVelocity = 980;
 const pogoBounceVelocity = 2100;
+// How fast a park player on foot comes round, radians a second at full
+// steer. A competitive value: keys and sticks both arrive clamped to ±1
+// (see `axis` in the park update), so no device turns quicker than this.
+const parkFootTurnRate = 2.4;
 const headBounceVelocity = 1100;
 const jumpAnticipationUs = 50000;
 // Letting go of up mid-rise snips the arc: a tap is a hop, a hold is a jump.
@@ -3141,10 +3161,11 @@ const nativeMeshUpload = typeof meshUpload === "function" ? meshUpload : null;
 const nativeMeshDraw = typeof meshDraw === "function" ? meshDraw : null;
 const nativeMeshFree = typeof meshFree === "function" ? meshFree : null;
 const nativeRetainedMeshes = nativeMeshUpload !== null && nativeMeshDraw !== null;
-// sceneApi 3: a park figure goes over as one list of round cones and the host
-// raymarches it (xbox/native-bios/SdfPixelShader.hlsl). The ablate lane's
-// `sdf` flag turns it off; a host without the pass returns false and the
-// tessellated figure draws instead.
+// sceneApi 3: a park figure can go over as one list of round cones for the
+// host to raymarch (xbox/native-bios/SdfPixelShader.hlsl). Off unless the
+// render flags say `sdf: true`: the raymarched bodies cost the console too
+// much, so figures draw flat (figure-flat.lisp) over the tessellated world
+// and fall back to the polygonal rig, never the SDF pass, by default.
 const nativeSdfFigure = typeof sdfFigure === "function" ? sdfFigure : null;
 const nativeSdfBubble = typeof sdfBubble === "function" ? sdfBubble : null;
 // The host paints the sky behind everything (procedural gradient, sun and
@@ -6494,7 +6515,8 @@ function drawFreeskateSpeed(ink = [245, 248, 255]) {
   const readout = meter.text;
   // Top centre: the mode.
   const titleSize = compactLayout() ? 26 : 34;
-  const title = gameSpeed === 1 ? "freeskate" : "freeskate \u00b7 \u00d7" + gameSpeed;
+  const mode = freeskateModeName();
+  const title = gameSpeed === 1 ? mode : mode + " \u00b7 \u00d7" + gameSpeed;
   typeWrite(title, viewCenterX() - handleWidth(title, titleSize) / 2 + 2,
     safe.top + 3, titleSize, ...contrastShadow(ink));
   typeWrite(title, viewCenterX() - handleWidth(title, titleSize) / 2,
@@ -6889,8 +6911,11 @@ function dressFreeskater(rider, advance = false) {
 function freeskateCourse() {
   const requested = String(globalThis.__oskiewarFreeskateMap || "").trim().toLowerCase();
   return requested === "skatepark" || requested === "park" ? "park"
-    : requested === "indoor" ? "indoor" : requested === "halfpipe" ? "halfpipe" : "pool";
+    : requested === "indoor" ? "indoor" : requested === "halfpipe" ? "halfpipe"
+    : requested === "pool" ? "pool" : "desert";
 }
+// What the mode is called on the title and the HUD: the course, not the verb.
+const freeskateModeName = () => freeskateCourse() === "desert" ? "monowheel desert" : "freeskate";
 
 // Indoors you start on foot beside your one board; the long park still
 // drops you in riding.
@@ -6908,6 +6933,8 @@ function boardForRider(player, loose = false) {
 }
 function ensureFreeskateBoards() {
   if(poolOnly()){
+    // The desert's ride is the monowheel; no board is set down.
+    if(poolDesert)return;
     const board=balls.find(item=>item.type==='skateboard');
     if(board){board.seat=0;board.condition={health:100,cracks:[],brokenAt:0};placeFreeskateBoard(players[0],board);}
     return;
@@ -6992,7 +7019,7 @@ function beginFreeskate(now, seededLayout = false) {
   configureWorldMap("skatepark", freeskateCourse());
   // The title and scripted runs stand in the base hall; a person pressing
   // Start (enterGame) deals this room's layout.
-  if(poolOnly()){if(seededLayout)applyParkLayout(Math.floor(hashUnit(sessionName+' park layout')*4294967296));else restoreParkLayout();}
+  if(poolOnly()){if(seededLayout&&!poolDesert)applyParkLayout(Math.floor(hashUnit(sessionName+' park layout')*4294967296));else restoreParkLayout();}
   resetSkateRopes();
   resetRoofPanes();
   boardState.health = 100; boardState.cracks.length = 0; boardState.brokenAt = 0;
@@ -7023,7 +7050,7 @@ function beginFreeskate(now, seededLayout = false) {
   parkFreeskateChair();
   for (const pickup of [...gunPickups, ...saberPickups, ...grenadePickups])
     pickup.active = false;
-  if(poolOnly()){rider.spawnX=rider.x=parkHalfPipe3D.x;rider.z=parkHalfPipe3D.z;rider.y=poolFloorAt(rider.x,rider.z);}
+  if(poolOnly()){const start=poolDesert?desertHome():parkHalfPipe3D;rider.spawnX=rider.x=start.x;rider.z=start.z;rider.y=poolFloorAt(rider.x,rider.z);}
   // Clear loose vehicles before placing the course's board or monowheel.
   for (const item of balls) item.active = false;
   if (indoorSkate() || halfpipeOnly()) {
@@ -7050,6 +7077,9 @@ function beginFreeskate(now, seededLayout = false) {
 // the wall the way survival parks it, so the camera, the scorekeeping and
 // the reactions all read a one-body room.
 function beginVersusLobby(now, { title = false } = {}) {
+  // The lobby is an arena room: a title that stood over a 3D course (the
+  // park, the desert) hands the map back before the chair is set.
+  if (skateparkMap) { configureWorldMap("station"); resetSkateRopes(); }
   gameMode = "fight";
   selfPlay = false;
   fightOpponent = "versus-lobby";
@@ -13313,7 +13343,7 @@ function updatePoolPlayer(p, pad, dt, now) {
     if(input.vertical>0&&!held.includes('A'))held.push('A');
     if(input.vertical<0&&!held.includes('X'))held.push('X');
   }
-  if(held.includes('X')&&Math.hypot(p.x-parkRecord.x-parkRecord.radius*.85,(p.z||0)-parkRecord.z+parkRecord.radius*.6)<160){
+  if(!poolDesert&&held.includes('X')&&Math.hypot(p.x-parkRecord.x-parkRecord.radius*.85,(p.z||0)-parkRecord.z+parkRecord.radius*.6)<160){
     parkRecord.needle=clamp(parkRecord.needle+turn*dt*.3,.05,.95);
     parkRecord.phase=parkRecord.needle*32;parkRecord.wobble=.12;turn=throttle=0;
   }
@@ -13361,7 +13391,7 @@ function updatePoolPlayer(p, pad, dt, now) {
   const wasGrounded=p.grounded;
   const oldHeading=p.poolYaw||0;
   const speedBefore=Math.hypot(p.vx,p.vz||0);
-  const turnRate=p.goKart?lerp(2.4,1.2,clamp(speedBefore/3400,0,1)):p.onewheel?lerp(2.8,1.9,clamp(speedBefore/3000,0,1)):3.2;
+  const turnRate=p.goKart?lerp(2.4,1.2,clamp(speedBefore/3400,0,1)):p.onewheel?lerp(2.8,1.9,clamp(speedBefore/3000,0,1)):parkFootTurnRate;
   // Steering changes the rider's heading. Forward always pushes along that heading.
   p.poolYaw=oldHeading-turn*turnRate*dt;
   const bank=turn*(p.skateboard?.34:.18)*clamp(speedBefore/1400,0,1);
@@ -16231,9 +16261,9 @@ const spineBody = (() => {
       hold: .5,               // how hard the pelvis follows the root (the legs)
       carry: .9,              // a driven root's travel the legs carry the body through
                               // (the rest is felt as inertia: sway, lag, whip)
-      tempo: 1.7,             // rhythm, cycles per second at full drive
-      lag: .22,               // rhythm phase delay per bead: the whip
-      sway: .012,             // rhythm side bend per joint (radians)
+      tempo: 1.5,             // rhythm, cycles per second at full drive
+      lag: .3,                // rhythm phase delay per bead: the whip
+      sway: .016,             // rhythm side bend per joint (radians)
       wring: .18,             // rhythm twist at the ends (radians)
       react: 8,               // how fast muscles move toward what's asked (1/s)
       shoulder: 20,           // half the shoulders
@@ -16268,7 +16298,7 @@ const spineBody = (() => {
         length: Math.round(pick(62, 78)), skull: Math.round(pick(30, 36)),
         stiffLow: pick(.22, .5), stiffHigh: pick(.1, .18), stiffNeck: pick(.84, .88),
         damping: pick(.16, .26), reaction: pick(.2, .45), twistStiff: pick(.18, .38),
-        tempo: pick(1.45, 2), lag: pick(.16, .28), sway: pick(.008, .018), wring: pick(.12, .26),
+        tempo: pick(1.3, 1.75), lag: pick(.22, .36), sway: pick(.01, .022), wring: pick(.12, .26),
         react: pick(6, 11), shoulder: Math.round(pick(16, 24)), hipWidth: Math.round(pick(9, 13)),
         // Hips set a touch above the legs' length: the rope's weight sags the
         // pelvis a few units, and this leaves the standing knees near straight.
@@ -16848,13 +16878,15 @@ const spineBody = (() => {
           actor.action = null;
         }
       }
-      // A spin flings the arms out: up and round on foot, wide on a board or in
-      // the air. A punch or kick in progress keeps its arms.
+      // A spin flings the arms out level, like a helicopter, so whatever a
+      // hand holds (the axe) is flung out sideways with it: straight out on
+      // foot, wide on a board or in the air. A punch or kick in progress
+      // keeps its arms.
       if (input.spin && !["punch", "kick"].includes(actor.action?.name)) {
         const chest = chestFrame(body), o = body.o, grounded = !root.air && actor.mode === "foot";
         for (const [name, side] of [["left", -1], ["right", 1]])
           pose.hands[name] = grounded
-            ? { goal: place(chest, 4, 46, side * (o.shoulder + 22)), stiff: .22 }
+            ? { goal: place(chest, 2, 6, side * (o.shoulder + 48)), stiff: .22 }
             : { goal: place(chest, 0, 14, side * (o.shoulder + 46)), stiff: .22 };
       }
       // Holding reach or grab sends a hand (`input.hand`: 1 right, -1 left) to
@@ -16894,12 +16926,17 @@ const spineBody = (() => {
         // half a cycle apart. Half the cycle a foot is planted and sweeps back
         // at exactly the body's speed (so it doesn't skate); the other half it
         // swings forward through the air.
-        const f = Math.max(.3, frequency(body)), stride = Math.min(95, speed / (4 * f)), lift = 18 + 14 * drive;
+        // A foot-forward walk: the stride is long for the cadence, the swing
+        // foot plants a third of a stride ahead of the pelvis rather than
+        // under it, and the feet track wide of the hips. (Measured: the lift
+        // is what keeps a planted foot from sliding; the bias and the width
+        // cut the slide, 22 -> 16 u/s at a walk.)
+        const f = Math.max(.3, frequency(body)), stride = Math.min(110, speed / (4 * f)), lift = 18 + 14 * drive;
         for (const [name, s] of [["left", -1], ["right", 1]]) {
           const phase = body.rhythm.phase + (s > 0 ? Math.PI : 0), { along: sweep, up: rise } = footCycle(phase);
-          const along = stride * sweep, up = rise * lift * drive;
+          const along = stride * sweep + stride * .3 * drive, up = rise * lift * drive;
           // A planted foot is pinned where it stands; a swinging one chases.
-          pose.feet[name] = { goal: travelPoint(body, along, s * (o.hipWidth + (input.crouch ? 10 : 2)), 3 + up), stiff: .55, pin: !body.root.air && up === 0 && drive > .05 };
+          pose.feet[name] = { goal: travelPoint(body, along, s * (o.hipWidth + (input.crouch ? 12 : 8)), 3 + up), stiff: .55, pin: !body.root.air && up === 0 && drive > .05 };
           // Arms swing against the legs, loose: a gentle goal, gravity does the rest.
           const chest = chestFrame(body);
           pose.hands[name] = { goal: place(chest, -stride * .7 * Math.sin(phase) * drive + 6, -58 + 10 * drive, s * (o.shoulder + 6)), stiff: .05 };
@@ -20676,7 +20713,7 @@ function drawLooseRunner(player,world,t,lod){
   const ordered=[...groups.values()].map(bones=>({bones,depth:bones.reduce((sum,b)=>sum+b.depth,0)/bones.length})).sort((a,b)=>b.depth-a.depth);
   // With a raymarching host the body is one SDF figure and these flat
   // strokes are skipped; the drawn head, face and cloth still go on top.
-  const sdfBody=nativeSdfFigure&&renderFlags.sdf!==false&&drawSdfRunner(player,world,t,true);
+  const sdfBody=nativeSdfFigure&&renderFlags.sdf===true&&drawSdfRunner(player,world,t,true);
   if(!sdfBody)for(const {bones,depth} of ordered){
     const limb=/arm|leg/.test(bones[0].part||'');
     if(!limb){
@@ -20838,7 +20875,7 @@ function drawSdfRunner(player,world,t,loose=false){
   return true;
 }
 function drawSpatialRunner(player,world,t,lod=0){
-  if(nativeSdfFigure&&renderFlags.sdf!==false&&drawSdfRunner(player,world,t))return;
+  if(nativeSdfFigure&&renderFlags.sdf===true&&drawSdfRunner(player,world,t))return;
   const scale=player.civilian?(player.bodyScale||1):1;
   // The ink silhouette stays smooth even when the shaded volume uses fewer
   // polygons. It sits behind the volume, at real actor depth, not HUD depth.
@@ -21001,7 +21038,7 @@ function drawPlayerBubble(player,t){
   const world=shieldGeometry(player);
   // A raymarching host shades the bubble as a real sphere: fresnel rim,
   // thin-film colour and a glint, blended over the world.
-  if(nativeSdfBubble&&renderFlags.sdf!==false){
+  if(nativeSdfBubble&&renderFlags.sdf===true){
     const tint=player.accent||[150,220,255];
     try{if(nativeSdfBubble(world.x,world.y,world.z,world.radius,tint[0],tint[1],tint[2],mainNativeCamera()))return;}catch{}
   }
@@ -22160,7 +22197,45 @@ function parkSurfaceColor(base,x,z){
   for(const lamp of parkLights)light=Math.max(light,Math.max(0,1-Math.hypot(x-lamp.x,z-lamp.z)/1450));
   return mixColor(base,[255,236,197],light*light*.18);
 }
+// ——— the monowheel desert ———
+// An island: dunes roll under the wheel, the sand lies flat for 700 units
+// round home so you start on level ground, flattens again to a beach, and
+// past the island's radius falls away under the sea — the edge of the world
+// is water you can swim in, not a wall. Heights in world units (y down, so
+// the ground is parkDeckY minus the dune). Home keeps the x the park's pipe
+// stood at: self-play stays on this course and its bots read the arena's
+// columns off x, which is proven at that spot.
+function desertHome(){return {x:2840,z:0};}
+const desertIsland={radius:2900,shore:700,sea:40,deep:300};
+const desertSeaY=()=>parkDeckY+desertIsland.sea;
+function desertFloorAt(x,z){
+  const home=desertHome(),d=Math.hypot(x-home.x,z-home.z);
+  const away=clamp((d-700)/1400,0,1),ease=away*away*(3-2*away);
+  const beach=clamp((d-(desertIsland.radius-desertIsland.shore))/desertIsland.shore,0,1);
+  const drop=clamp((d-desertIsland.radius)/900,0,1);
+  const dune=(.5+.5*Math.sin(x/1150+Math.sin(z/1700)*1.3))*150+(.5+.5*Math.sin(z/820+x/2600+1.7))*70+(.5+.5*Math.sin((x-z)/430))*14;
+  return parkDeckY-dune*ease*(1-beach)+drop*drop*desertIsland.deep;
+}
+const desertPalette={sand:[232,203,148],shade:[206,168,118],crest:[246,226,178],sea:[86,164,210],shallows:[128,196,214]};
+function drawDesertGeometry(){
+  const step=240,left=gridLeft-parkLotMargin,right=gridLeft+gridWidth+parkLotMargin,near=worldNear-parkLotMargin,far=worldFar+parkLotMargin,sea=desertSeaY();
+  // The sea first, one sheet: a host that paints in order (the web) then
+  // lays the island over it; a host with depth cuts the shore exactly.
+  worldQuad({x:left,y:sea,z:near},{x:right,y:sea,z:near},{x:right,y:sea,z:far},{x:left,y:sea,z:far},desertPalette.sea);
+  for(let z=near;z<far;z+=step)for(let x=left;x<right;x+=step){
+    const corner=(x,z)=>({x,y:Math.min(sea,desertFloorAt(x,z)),z});
+    const a=corner(x,z),b=corner(x+step,z),c=corner(x+step,z+step),d=corner(x,z+step);
+    if(a.y===sea&&b.y===sea&&c.y===sea&&d.y===sea)continue;   // seabed: under the sheet
+    // The sun sits off to +x: a face climbing that way catches it, a face
+    // falling away sits in shade. Sand at the waterline reads as shallows.
+    const rise=(b.y+c.y-a.y-d.y)/2,lit=clamp(-rise/60,-1,1),grain=Math.sin(x*.0071+z*.0043)*.5+.5;
+    const wet=Math.max(0,(a.y+b.y+c.y+d.y)/4-parkDeckY)/desertIsland.sea;
+    const dry=mixColor(desertPalette.sand,lit<0?desertPalette.shade:desertPalette.crest,Math.abs(lit)*.8+grain*.1);
+    worldQuad(a,b,c,d,wet>0?mixColor(dry,desertPalette.shallows,wet*.7):dry);
+  }
+}
 function drawPoolGeometry() {
+  if(poolDesert){drawDesertGeometry();return;}
   drawParkParkingLot();
   const ink=parkPalette.pool,ground=parkPalette.ground,rampInk=parkPalette.ramp;
   const holes=parkPools.map(b=>({x:b.x,z:b.z,hx:b.halfX+b.radius+b.deck,hz:b.halfZ+b.radius+b.deck})).concat(parkRamps,parkHalfPipe3D);
@@ -22241,7 +22316,7 @@ function drawPoolGeometry() {
 }
 let pipeSurfaceMesh=null,pipeSurfaceKey='';
 function drawTerrainSurface(left,right,near,far,color){
- if(poolOnly()){poolSurfaceMesh ||= captureQuadMesh(drawPoolGeometry);drawParkScene(poolSurfaceMesh);drawOutdoorCircuit();return;}
+ if(poolOnly()){poolSurfaceMesh ||= captureQuadMesh(drawPoolGeometry);drawParkScene(poolSurfaceMesh);if(!poolDesert)drawOutdoorCircuit();return;}
  if(!indoorSkate()){drawTerrainSurfaceGeometry(left,right,near,far,color);return;}
  const key=gridCols+':'+near+':'+far+':'+color.join(',');
  if(key!==pipeSurfaceKey){pipeSurfaceKey=key;releaseQuadMesh(pipeSurfaceMesh);pipeSurfaceMesh=captureQuadMesh(()=>drawTerrainSurfaceGeometry(worldLeft,worldRight,near,far,color));}
@@ -22567,7 +22642,7 @@ function drawParkBuilding(){
   }
 }
 function drawRoomSurfaces(left, right, top, bottom, color) {
-  if(poolOnly()){drawParkBuilding();return;}
+  if(poolOnly()){if(!poolDesert)drawParkBuilding();return;}
   if (halfpipeOnly()) return;
   // The station has no room to surface. Every plane this function used to
   // raise — the plaster sheet behind the fighters, the segmented left wall,
@@ -23793,12 +23868,14 @@ function drawDummyPopLine(titleY, titleSize, transitionInk) {
   typeWrite(line, x, y, size, ...ink);
 }
 
-const titlePrompt = () => freeskateRequested() ? "freeskate" : "start";
+const titlePrompt = () => freeskateRequested() ? freeskateModeName() : "start";
 function titleButtonRect() {
   const compact = compactLayout();
-  const textSize = compact ? 64 : 60;
-  const textWidth = handleWidth(titlePrompt(), textSize);
   const width = Math.min(viewWidth() - 48, compact ? 320 : 360);
+  // "monowheel desert" is a longer word than "start": the size fits the button.
+  const textSize = Math.min(compact ? 64 : 60,
+    Math.floor((width - 28) / Math.max(.01, handleWidth(titlePrompt(), 1))));
+  const textWidth = handleWidth(titlePrompt(), textSize);
   const height = 112;
   return { x: viewCenterX() - width / 2,
     y: viewHeight * (compact ? .61 : .64) - (compact ? 10 : 15),
@@ -25038,7 +25115,7 @@ function gamePaint() {
       drawRunner(renderable.item, t, showRunnerLabels);
     }
   }
-  if(poolOnly()){for(const peer of parkPeers.values()){interpolateParkPeer(peer,Date.now());if(Date.now()-peer.receivedAt<3000&&parkActorVisible(peer))drawRunner(peer,t,true);}drawCerealMilk(t);drawParkStereo();drawAeselFairy(t);{const saved=triangleDepth;drawParkSupply();triangleDepth=saved;}}
+  if(poolOnly()){for(const peer of parkPeers.values()){interpolateParkPeer(peer,Date.now());if(Date.now()-peer.receivedAt<3000&&parkActorVisible(peer))drawRunner(peer,t,true);}if(!poolDesert){drawCerealMilk(t);drawParkStereo();}drawAeselFairy(t);{const saved=triangleDepth;drawParkSupply();triangleDepth=saved;}}
   if(poolOnly())drawLensBlood();
   // Debug geometry shares the unfiltered overlay pass, behind screen UI.
   triangleDepth = -1.465;
@@ -25364,7 +25441,7 @@ function updatePoolLooseVehicle(v,dt,now,board){
 const monowheel={active:false,x:0,y:0,z:0,vx:0,vy:0,safeUntil:0};
 const parkSupply={nextAt:0,drone:null,drop:null,ko:null};
 function resetMonowheel(){
- const x=poolOnly()?7600:halfpipeOnly()?clamp(players[0].x+170,gridLeft+60,gridLeft+gridWidth-60):tileCenterX(37);
+ const x=poolOnly()?(poolDesert?desertHome().x+260:7600):halfpipeOnly()?clamp(players[0].x+170,gridLeft+60,gridLeft+gridWidth-60):tileCenterX(37);
  Object.assign(monowheel,{active:true,x,y:terrainFloorAt(x),z:0,vx:0,vy:0,vz:0,poolYaw:0,skatePitch:0,safeUntil:0});
 }
 function monowheelFrame(p, local=false){
@@ -26600,7 +26677,7 @@ const gameObjects = (() => {
   })();
   const sources = {
     monowheel: "; monowheel-flat — the freeskate onewheel, drawn flat: world-anchored 2D shapes\n; with ink outlines, no lighting. The same rig as monowheel.lisp: x forward,\n; y up, z to the rider's right, the axle at the origin, a 24 radius tire.\n; Three parts bake — the shadow, the rolling wheel, the leaning deck — so a\n; tick is three SKETCH ops, and the host projects and fills the shapes.\n; Only the silhouettes (tire, deck) carry ink: the details sit on fills that\n; already contrast, and every outline doubles what the host draws.\n\ndef r 24\ndef half 13\ndef ink-edge 1.4\n\n(let roll (/ distance r))\n(let squash (* .14 (max 0 (- 1 (* land 5)))))\n(let rattle (* 2.5 (max 0 (- 1 (* hit 4))) (sin (* time 70))))\n\n; the shadow stays flat on the ground, behind everything: 103 units back is\n; the depth the game gives its own spot shadows (caster + .018), so it sits\n; on the floor the same way theirs do, in about their grey\n(nudge 103\n  (ink 54 58 66)\n  (move 0 (- r) 0 (scale 2.7 1 .8 (ring y 22))))\n\n(move 0 (- r) rattle\n  (rotate x lean\n    (scale (+ 1 squash) (- 1 squash) 1\n      (move 0 r 0\n        ; the wheel rolls as one: the tire (round, so turning it changes\n        ; nothing), then the face you can see — rim, web, spokes, hub\n        (rotate z (- roll)\n          (ink 40 36 48)\n          (outline ink-edge 20 16 28 (drum z r (* half 2)))\n          (toward z\n            (move 0 0 half\n              (ink (mix 214 236 turbo) (mix 216 190 turbo) (mix 226 255 turbo))\n              (ring z 17)\n              (ink 58 52 66)\n              (move 0 0 .2 (ring z 13.5))\n              (ink (mix 232 190 turbo) (mix 72 90 turbo) (mix 130 255 turbo))\n              ; spokes as flat bars: two triangles each where a round end costs eight\n              (plate -13 -1.4 .4  13 -1.4 .4  13 1.4 .4  -13 1.4 .4)\n              (plate -1.4 -13 .4  1.4 -13 .4  1.4 13 .4  -1.4 13 .4)\n              (ink 70 64 80)\n              (ball 0 0 .6 3.5))))\n        ; one deck, fore to aft, the tire poking through it; lamps at the\n        ; ends, white ahead and red behind\n        (nudge 14\n          (ink (mix 44 102 turbo) (mix 42 35 turbo) (mix 54 163 turbo))\n          (outline ink-edge 20 16 28 (slab -60 2 -19 60 8 19)))\n        (ink 240 244 250)\n        (ball 62 5 0 3.2)\n        (ink 240 70 70)\n        (ball -62 5 0 3.2)))))\n",
-    figure: "; figure-flat — an oskiewar fighter drawn flat: shapes hung on the pose's\n; joints, which the game hands over every tick (a FIGURE op), inked on the\n; silhouette. Colours are palette slots a player's LOOK fills, so one baked\n; sketch dresses everyone. Limbs are bones between joints, so an arm bends at\n; the elbow for free. The face is the trio face (drawTrioFace in oskiewar.js):\n; each feature sits on the head's sphere at the same longitude and latitude,\n; in its own tangent frame (x right, y up, z out; head radii), one-sided, so it\n; turns with the head and passes out of sight round the back.\n; Switches: blink, hurt (X eyes), skirt, glasses.\n\ndef edge 1.3\ndef face-edge .075\n\n; the body, back to front as depth sorts it: legs, torso, arms, head\n(outline edge 20 16 28\n  ; legs: thighs unless a skirt hides them; shins show below its hem\n  (ink pants)\n  (if (not skirt)\n    (bone hip-l knee-l 5.6)\n    (bone hip-r knee-r 5.6))\n  (bone knee-l foot-l 5)\n  (bone knee-r foot-r 5)\n  (if skirt\n    ; a skirt: from the hips, flaring to a hem past the knees (x runs to her\n    ; left hip, so +x is out on the left)\n    (ink skirt)\n    (skin (hip-l 4 4 0) (hip-r -4 4 0) (knee-r -20 -16 0) (knee-l 20 -16 0)))\n  (ink shoe)\n  (on foot-l (ball 0 0 0 5.4))\n  (on foot-r (ball 0 0 0 5.4))\n  (ink shirt)\n  (bone neck pelvis 13.5)\n  (bone shoulder-l shoulder-r 7)\n  (bone shoulder-l elbow-l 4.6)\n  (bone shoulder-r elbow-r 4.6)\n  (ink skin)\n  (bone elbow-l hand-l 4)\n  (bone elbow-r hand-r 4)\n  (on hand-l (ball 0 0 0 4.6))\n  (on hand-r (ball 0 0 0 4.6))\n  (bone neck head 4))\n\n; the chest's decals, flat on the shirt's front (the neck joint's frame:\n; x right, y up the spine, z forward): a heart and a daisy\n(on neck\n  (surface\n    (ink 255 70 120)\n    (ball -7.5 -12 14.5 2.6)\n    (ball -3.5 -12 14.5 2.6)\n    (plate -10 -12.8 14.5  -1 -12.8 14.5  -5.5 -18 14.5)\n    (ink 255 255 255)\n    (repeat 5 k\n      (move 5 -19 14.6 (rotate z (* k (/ tau 5)) (ball 2 0 0 1.6))))\n    (ink 250 205 60)\n    (ball 5 -19 14.8 1.3)))\n\n; the head, inked in head radii like everything hung on it\n(on head\n  (outline .06 20 16 28\n    ; hair behind the head, so the face shows in front and a cap round it,\n    ; locks falling past the temples, a knot on top with its tail\n    (ink hair)\n    (ball 0 .12 -.2 1.04)\n    (stroke .34  -.8 .4 -.25  -.86 -.3 -.3)\n    (stroke .34  .8 .4 -.25  .86 -.3 -.3)\n    (ball 0 .95 -.35 .3)\n    (stroke .2  0 1.05 -.4  .08 1.42 -.62)\n    (ink skin)\n    (ball 0 0 0 1)))\n\n(on head\n  ; the fringe, a cap of hair over the brow\n  (ink hair)\n  (surface (rotate x -1.02 (move 0 0 .96 (scale 1 .5 1 (ring z .82)))))\n  ; blush\n  (ink blush)\n  (repeat 2 side\n    (rotate y (* (- (* side 2) 1) .56) (rotate x .37 (move 0 0 .97\n      (surface (scale 1 .55 1 (ring z .2)))))))\n  ; eyes: white with an ink rim, iris, pupil, catchlights; lash line and lashes;\n  ; the brow at a curious tilt. Blinking, a lid; hurt, an X.\n  (repeat 2 side\n    (let s (- (* side 2) 1))\n    (rotate y (* s .3675) (rotate x (- .0875 (* s .0245)) (move 0 0 .97\n      (surface\n        (if (and (not blink) (not hurt))\n          (if glasses\n            ; a round frame: a dark ring, the lens in skin inside it\n            (ink 24 18 26)\n            (move 0 0 -.03 (scale 1 1.12 1 (ring z .3)))\n            (ink skin)\n            (move 0 0 -.02 (scale 1 1.12 1 (ring z .255))))\n          (outline face-edge 24 18 26\n            (ink 248 248 250)\n            (scale 1 1.67 1 (ring z .162)))\n          (ink iris)\n          (move 0 0 .02 (ring z .082))\n          (ink 6 6 10)\n          (move 0 0 .03 (ring z .05))\n          (ink 255 255 255)\n          (move -.02 .035 .04 (ring z .023))\n          (ink 24 18 26)\n          (stroke .12  -.17 .09 .05  -.08 .25 .05  .08 .25 .05  .17 .09 .05)\n          (stroke .07  (* s .15) .2 .05  (* s .27) .33 .05)\n          (stroke .06  (* s .08) .25 .05  (* s .17) .38 .05))\n        (if blink\n          (ink 24 18 26)\n          (stroke .08  -.16 0 .02  -.07 -.06 .02  .07 -.06 .02  .16 0 .02))\n        (if hurt\n          (ink 24 18 26)\n          (stroke .09  -.13 .13 .02  .13 -.13 .02)\n          (stroke .09  -.13 -.13 .02  .13 .13 .02))\n        (ink 24 18 26)\n        (stroke .09  -.15 (+ .37 (* s .02)) .02  -.02 .43 .02  .15 (+ .36 (* s .01)) .02))))))\n  ; glasses' bridge\n  (if glasses\n    (ink 24 18 26)\n    (rotate x .09 (move 0 0 .99 (surface (stroke .05  -.1 0 0  .1 0 0)))))\n  ; nose and mouth: a small check, pink lips with the far corner lifted\n  (ink 24 18 26)\n  (rotate x .33 (move 0 0 .98 (surface (stroke .045  .005 .04 .01  -.025 -.02 .01  .02 -.02 .01))))\n  (rotate x .57 (move 0 0 .95 (surface\n    (ink lip)\n    (scale 1 .38 1 (ring z .24))\n    (ink 24 18 26)\n    (stroke .055  -.24 .01 .02  0 -.02 .02  .24 .05 .02)))))\n",
+    figure: "; figure-flat — an oskiewar fighter drawn flat: shapes hung on the pose's\n; joints, which the game hands over every tick (a FIGURE op), inked on the\n; silhouette. Colours are palette slots a player's LOOK fills, so one baked\n; sketch dresses everyone. Limbs are bones between joints, so an arm bends at\n; the elbow for free. The face is the trio face (drawTrioFace in oskiewar.js):\n; each feature sits on the head's sphere at the same longitude and latitude,\n; in its own tangent frame (x right, y up, z out; head radii), one-sided, so it\n; turns with the head and passes out of sight round the back.\n; Switches: blink, hurt (X eyes), skirt, glasses.\n\ndef edge 1.3\ndef face-edge .075\n\n; the body, back to front as depth sorts it: legs, torso, arms, head.\n; A limb wears one ink silhouette, not one per bone: the whole leg's or\n; arm's ink goes down first, a touch further back, and the bones fill over\n; it, so the knee and the elbow carry no line across them. The torso, the\n; skirt, the shoes and the neck keep their own edge.\n(outline 0\n  (ink 20 16 28)\n  (nudge 1\n    (if (not skirt)\n      (bone hip-l knee-l (+ 5.6 edge))\n      (bone hip-r knee-r (+ 5.6 edge)))\n    (bone knee-l foot-l (+ 5 edge))\n    (bone knee-r foot-r (+ 5 edge))\n    (bone shoulder-l elbow-l (+ 4.6 edge))\n    (bone shoulder-r elbow-r (+ 4.6 edge))\n    (bone elbow-l hand-l (+ 4 edge))\n    (bone elbow-r hand-r (+ 4 edge))\n    (on hand-l (ball 0 0 0 (+ 4.6 edge)))\n    (on hand-r (ball 0 0 0 (+ 4.6 edge))))\n  ; legs: thighs unless a skirt hides them; shins show below its hem\n  (ink pants)\n  (if (not skirt)\n    (bone hip-l knee-l 5.6)\n    (bone hip-r knee-r 5.6))\n  (bone knee-l foot-l 5)\n  (bone knee-r foot-r 5))\n(outline edge 20 16 28\n  (if skirt\n    ; a skirt: from the hips, flaring to a hem past the knees (x runs to her\n    ; left hip, so +x is out on the left)\n    (ink skirt)\n    (skin (hip-l 4 4 0) (hip-r -4 4 0) (knee-r -20 -16 0) (knee-l 20 -16 0)))\n  (ink shoe)\n  (on foot-l (ball 0 0 0 5.4))\n  (on foot-r (ball 0 0 0 5.4))\n  (ink shirt)\n  (bone neck pelvis 13.5)\n  (bone shoulder-l shoulder-r 7)\n  (outline 0\n    (bone shoulder-l elbow-l 4.6)\n    (bone shoulder-r elbow-r 4.6)\n    (ink skin)\n    (bone elbow-l hand-l 4)\n    (bone elbow-r hand-r 4)\n    (on hand-l (ball 0 0 0 4.6))\n    (on hand-r (ball 0 0 0 4.6)))\n  (ink skin)\n  (bone neck head 4))\n\n; the chest's decals, flat on the shirt's front (the neck joint's frame:\n; x right, y up the spine, z forward): a heart and a daisy\n(on neck\n  (surface\n    (ink 255 70 120)\n    (ball -7.5 -12 14.5 2.6)\n    (ball -3.5 -12 14.5 2.6)\n    (plate -10 -12.8 14.5  -1 -12.8 14.5  -5.5 -18 14.5)\n    (ink 255 255 255)\n    (repeat 5 k\n      (move 5 -19 14.6 (rotate z (* k (/ tau 5)) (ball 2 0 0 1.6))))\n    (ink 250 205 60)\n    (ball 5 -19 14.8 1.3)))\n\n; the head, inked in head radii like everything hung on it\n(on head\n  (outline .06 20 16 28\n    ; hair behind the head, so the face shows in front and a cap round it,\n    ; locks falling past the temples, a knot on top with its tail\n    (ink hair)\n    (ball 0 .12 -.2 1.04)\n    (stroke .34  -.8 .4 -.25  -.86 -.3 -.3)\n    (stroke .34  .8 .4 -.25  .86 -.3 -.3)\n    (ball 0 .95 -.35 .3)\n    (stroke .2  0 1.05 -.4  .08 1.42 -.62)\n    (ink skin)\n    (ball 0 0 0 1)))\n\n(on head\n  ; the fringe, a cap of hair over the brow\n  (ink hair)\n  (surface (rotate x -1.02 (move 0 0 .96 (scale 1 .5 1 (ring z .82)))))\n  ; blush\n  (ink blush)\n  (repeat 2 side\n    (rotate y (* (- (* side 2) 1) .56) (rotate x .37 (move 0 0 .97\n      (surface (scale 1 .55 1 (ring z .2)))))))\n  ; eyes: white with an ink rim, iris, pupil, catchlights; lash line and lashes;\n  ; the brow at a curious tilt. Blinking, a lid; hurt, an X.\n  (repeat 2 side\n    (let s (- (* side 2) 1))\n    (rotate y (* s .3675) (rotate x (- .0875 (* s .0245)) (move 0 0 .97\n      (surface\n        (if (and (not blink) (not hurt))\n          (if glasses\n            ; a round frame: a dark ring, the lens in skin inside it\n            (ink 24 18 26)\n            (move 0 0 -.03 (scale 1 1.12 1 (ring z .3)))\n            (ink skin)\n            (move 0 0 -.02 (scale 1 1.12 1 (ring z .255))))\n          (outline face-edge 24 18 26\n            (ink 248 248 250)\n            (scale 1 1.67 1 (ring z .162)))\n          (ink iris)\n          (move 0 0 .02 (ring z .082))\n          (ink 6 6 10)\n          (move 0 0 .03 (ring z .05))\n          (ink 255 255 255)\n          (move -.02 .035 .04 (ring z .023))\n          (ink 24 18 26)\n          (stroke .12  -.17 .09 .05  -.08 .25 .05  .08 .25 .05  .17 .09 .05)\n          (stroke .07  (* s .15) .2 .05  (* s .27) .33 .05)\n          (stroke .06  (* s .08) .25 .05  (* s .17) .38 .05))\n        (if blink\n          (ink 24 18 26)\n          (stroke .08  -.16 0 .02  -.07 -.06 .02  .07 -.06 .02  .16 0 .02))\n        (if hurt\n          (ink 24 18 26)\n          (stroke .09  -.13 .13 .02  .13 -.13 .02)\n          (stroke .09  -.13 -.13 .02  .13 .13 .02))\n        (ink 24 18 26)\n        (stroke .09  -.15 (+ .37 (* s .02)) .02  -.02 .43 .02  .15 (+ .36 (* s .01)) .02))))))\n  ; glasses' bridge\n  (if glasses\n    (ink 24 18 26)\n    (rotate x .09 (move 0 0 .99 (surface (stroke .05  -.1 0 0  .1 0 0)))))\n  ; nose and mouth: a small check, pink lips with the far corner lifted\n  (ink 24 18 26)\n  (rotate x .33 (move 0 0 .98 (surface (stroke .045  .005 .04 .01  -.025 -.02 .01  .02 -.02 .01))))\n  (rotate x .57 (move 0 0 .95 (surface\n    (ink lip)\n    (scale 1 .38 1 (ring z .24))\n    (ink 24 18 26)\n    (stroke .055  -.24 .01 .02  0 -.02 .02  .24 .05 .02)))))\n",
   };
   // Each compiled (and baked) the first time it is asked for, not at load:
   // an object the game never draws costs nothing.
@@ -26651,6 +26728,55 @@ function drawMonowheelQuads(p){
 }
 const chalkColors=[{name:'PINK',rgb:[255,55,190]},{name:'CYAN',rgb:[40,244,255]},{name:'LIME',rgb:[145,255,45]},{name:'YELLOW',rgb:[255,242,55]},{name:'ORANGE',rgb:[255,133,35]},{name:'VIOLET',rgb:[192,99,255]}];
 const chalkPickups=[],parkAxes=[],parkKarts=[];
+// Paint cans: pick one up and B pours it as you go, a stroke three chalks
+// wide; set it down and it stands; ride or run through a standing one and
+// it tips the way you were going, slides, and pours a streak behind it with
+// a puddle where it stops. `spill` is how much paint is left, in run length.
+const paintColors=[{name:'RED',rgb:[232,52,66]},{name:'BLUE',rgb:[52,96,236]},{name:'WHITE',rgb:[246,246,240]},{name:'BLACK',rgb:[34,32,38]},{name:'GREEN',rgb:[48,186,96]},{name:'GOLD',rgb:[250,206,52]}];
+const paintCans=[],paintCanRadius=13,paintCanHeight=36,paintCanSpill=2400;
+function placePaintCan(x,z,color,spill=paintCanSpill,safeUntil=0){
+ paintCans.push({x,z,y:poolFloorAt(x,z),color:{name:color.name,rgb:color.rgb},active:true,tipped:false,yaw:0,vx:0,vz:0,spill,last:null,safeUntil});
+}
+function updatePaintCans(dt,now){
+ for(const can of paintCans){
+  if(!can.active)continue;
+  if(!can.tipped)for(const p of activePlayers()){
+   if(!p.alive||p.dummy)continue;
+   const speed=Math.hypot(p.vx,p.vz||0),reach=p.skateboard||p.onewheel||p.goKart?60:40;
+   if(speed<140||Math.hypot(p.x-can.x,(p.z||0)-can.z)>reach||Math.abs(p.y-can.y)>90)continue;
+   can.tipped=true;can.yaw=Math.atan2(p.vz||0,p.vx);can.vx=p.vx*.7;can.vz=(p.vz||0)*.7;can.last={x:can.x,z:can.z};can.safeUntil=now+600000;
+   playDrum('block',.5,panPlayer(p));emitSignal('paint-tip',p.pad,0,Math.round(speed));break;
+  }
+  if(!can.tipped)continue;
+  const before={x:can.x,z:can.z},slope=poolSlopeAt(can.x,can.z);
+  can.vx=(can.vx+1800*slope.x*dt)*Math.exp(-dt*2.4);can.vz=(can.vz+1800*slope.z*dt)*Math.exp(-dt*2.4);
+  can.x+=can.vx*dt;can.z+=can.vz*dt;boundParkBody(can,before);can.y=poolFloorAt(can.x,can.z);
+  const speed=Math.hypot(can.vx,can.vz);
+  if(speed>6)can.yaw=Math.atan2(can.vz,can.vx);
+  if(can.spill<=0)continue;
+  const last=can.last||(can.last={x:can.x,z:can.z}),run=Math.hypot(can.x-last.x,can.z-last.z);
+  if(run>=18&&run<400){addDecal({kind:'chalk',x:last.x,z:last.z,x2:can.x,z2:can.z,size:Math.max(6,chalkTexel()*2.2),color:can.color.rgb});can.spill-=run*2;can.last={x:can.x,z:can.z};}
+  if(speed<8){const r=Math.max(8,chalkTexel()*(2.5+can.spill/paintCanSpill*3));addDecal({kind:'chalk',x:can.x-r*.3,z:can.z,x2:can.x+r*.3,z2:can.z,size:r,color:can.color.rgb});can.spill=0;}
+ }
+}
+function drawPaintCan(can){
+ const k=projectionScaleAt(can),r=paintCanRadius,h=paintCanHeight,lid=[225,228,232];
+ if(!can.tipped){
+  worldCapsule(can.x,can.y-r,can.z,can.x,can.y-h+r,can.z,Math.max(2,r*k),can.color.rgb);
+  worldCapsule(can.x,can.y-h+r*.7,can.z,can.x,can.y-h+r*.5,can.z,Math.max(2,r*.9*k),lid);
+  return;
+ }
+ const c=Math.cos(can.yaw),s=Math.sin(can.yaw),half=h/2-r;
+ worldCapsule(can.x-c*half,can.y-r,can.z-s*half,can.x+c*half,can.y-r,can.z+s*half,Math.max(2,r*k),can.color.rgb);
+ worldCapsule(can.x+c*(half-r*.3),can.y-r,can.z+s*(half-r*.3),can.x+c*(half-r*.1),can.y-r,can.z+s*(half-r*.1),Math.max(2,r*.9*k),lid);
+}
+// The desert's supplies: chalk in a ring round home, paint cans in a wider
+// one, the monowheel beside you (resetMonowheel).
+function resetDesertSupply(now){
+ const home=desertHome();
+ chalkColors.forEach((color,i)=>{const a=i/chalkColors.length*Math.PI*2+.4,x=home.x+Math.cos(a)*420,z=home.z+Math.sin(a)*420;chalkPickups.push({x,z,y:poolFloorAt(x,z)-12,color,active:true});});
+ paintColors.forEach((color,i)=>{const a=i/paintColors.length*Math.PI*2+.9,x=home.x+Math.cos(a)*760,z=home.z+Math.sin(a)*760;placePaintCan(x,z,color);});
+}
 // The chalk touches down beside the hand that holds it: ahead of the body on
 // that hand's side (+z is the right arm in the rig), wider out of a go-kart
 // so the reach clears its side. Local x is forward along the rig's facing.
@@ -26725,7 +26851,9 @@ function updateChalk(p,held,now){
  if(previous){const distance=Math.hypot(tip.x-previous.x,tip.z-previous.z);
   // A stroke is at least ~1.6 texels of the pool surface wide, or it breaks
   // into dots on the coarser console texture.
-  if(distance>=2&&distance<180){addDecal({kind:'chalk',x:previous.x,z:previous.z,x2:tip.x,z2:tip.z,size:Math.max(4,chalkTexel()*.8),color:p.chalkColor.rgb});if(now>=(p.nextChalkSound||0)){playDrum('hat',.025+Math.min(.025,distance/1000),panPlayer(p));p.nextChalkSound=now+90000;}}
+  const paint=p.chalkColor.paint,dry=paint&&p.chalkColor.spill<=0;
+  if(paint&&!dry)p.chalkColor.spill-=distance;
+  if(distance>=2&&distance<180&&!dry){addDecal({kind:'chalk',x:previous.x,z:previous.z,x2:tip.x,z2:tip.z,size:Math.max(4,chalkTexel()*(paint?2.4:.8)),color:p.chalkColor.rgb});if(now>=(p.nextChalkSound||0)){playDrum('hat',.025+Math.min(.025,distance/1000),panPlayer(p));p.nextChalkSound=now+90000;}}
  }
  // The stroke only advances when it lands. Moving the start point on a
  // skipped (too short) segment left gaps whenever the chalk moved slowly.
@@ -26746,6 +26874,13 @@ function drawHeldChalk(p,t){
  if(!p.chalkColor||!p.alive)return;
  const world=runnerWorldGeometry(p,t),arm=world.segments.find(s=>s.part===assignedItemArm(p,'chalk')&&/forearm$/.test(s.role));if(!arm)return;
  const hand={x:arm.x2,y:arm.y2,z:arm.z2},aim=p.chalkDrawing?chalkTip(p):{x:hand.x+8,y:hand.y+16,z:hand.z};
+ if(p.chalkColor.paint){
+  // A can hangs from the hand, and tips toward the ground as it pours.
+  const d=Math.hypot(aim.x-hand.x,aim.y-hand.y,aim.z-hand.z)||1,k=paintCanHeight/d;
+  const base={x:hand.x+(aim.x-hand.x)*k,y:hand.y+(aim.y-hand.y)*k,z:hand.z+(aim.z-hand.z)*k};
+  worldCapsule(hand.x,hand.y,hand.z,base.x,base.y,base.z,Math.max(2,paintCanRadius*projectionScaleAt(hand)),p.chalkColor.rgb);
+  return;
+ }
  // The stick is a stick: it points where it should but never stretches.
  const d=Math.hypot(aim.x-hand.x,aim.y-hand.y,aim.z-hand.z)||1,k=chalkStick/d;
  const tip={x:hand.x+(aim.x-hand.x)*k,y:hand.y+(aim.y-hand.y)*k,z:hand.z+(aim.z-hand.z)*k};
@@ -26758,14 +26893,20 @@ function seedStreetTexture(){
  for(let x=gridLeft-parkLotMargin;x<gridLeft+gridWidth+parkLotMargin;x+=180)for(let z=worldNear-parkLotMargin;z<worldFar+parkLotMargin;z+=180){
   const edge=poolDistance(x+90,z+90);if(edge.d<edge.bowl.radius+70||parkHalfPipeHeight(x+90,z+90)>0)continue;
   const n=Math.abs(Math.sin(x*.173+z*.617)),gray=45+Math.round(n*33);
-  decalTint(0,0,128,128,...pix(x,z),...pix(x+180,z),...pix(x+180,z+180),...pix(x,z+180),gray,gray+2,gray+6);poolDecalCount++;
+  // The park's ground is asphalt; the desert's is sand, warm and grainy.
+  // Sand and sea vary slowly, over many cells, or the texels read as tiles.
+  const soft=.5+.5*Math.sin(x*.0017+Math.sin(z*.0011)*2);
+  const tint=poolDesert?(desertFloorAt(x+90,z+90)>desertSeaY()?[80+Math.round(soft*10),158+Math.round(soft*8),206+Math.round(soft*6)]:[228+Math.round(soft*10),198+Math.round(soft*9),144+Math.round(soft*8)]):[gray,gray+2,gray+6];
+  decalTint(0,0,128,128,...pix(x,z),...pix(x+180,z),...pix(x+180,z+180),...pix(x,z+180),...tint);poolDecalCount++;
  }
 }
 function resetParkSupply(now){
  for(const chunk of kartTrailChunks.values())for(const mesh of chunk.batches)releaseQuadMesh(mesh);kartTrailChunks.clear();
  parkKarts.length=0;for(const p of players)p.goKart=null;
  chalkPickups.length=0;parkAxes.length=0;for(const p of players){p.chalkColor=null;p.chalkPrevious=null;p.chalkDrawing=false;}
- if(poolOnly()){
+ paintCans.length=0;
+ if(poolOnly()&&poolDesert)resetDesertSupply(now);
+ else if(poolOnly()){
   chalkColors.forEach((color,i)=>{const [x,z]=[[900,900],[2300,-1700],[4300,2300],[6000,-2100],[7900,900],[3300,worldNear-900]][i];chalkPickups.push({x,z,y:poolFloorAt(x,z)-12,color,active:true});});
   for(const [x,z,color] of [[5000,worldNear-1200,[108,190,235]]])parkKarts.push({x,z,y:poolFloorAt(x,z),poolYaw:0,color,active:true,safeUntil:0});
   for(let i=gunPickups.length-1;i>=0;i--)if(gunPickups[i].parkScatter)gunPickups.splice(i,1);
@@ -26795,6 +26936,8 @@ function updateParkSupply(dt,now){
  if(poolOnly()){
   for(const kart of parkKarts)if(kart.active&&now>=kart.safeUntil)for(const p of activePlayers())if(p.alive&&!p.skateboard&&Math.hypot(p.x-kart.x,(p.z||0)-kart.z)<75&&Math.abs(p.y-kart.y)<100){p.goKart=kart;p.skateboard=true;p.onewheel=false;p.poolYaw=kart.poolYaw; kart.active=false;break;}
   for(const chalk of chalkPickups)if(chalk.active&&now>=(chalk.safeUntil||0))for(const p of activePlayers())if(p.alive&&freeItemArm(p,'chalk')&&Math.hypot(p.x-chalk.x,(p.z||0)-chalk.z)<35&&Math.abs(p.y-chalk.y)<70){p.handItems ||= {};p.handItems.chalk=freeItemArm(p,'chalk');p.chalkColor=chalk.color;chalk.active=false;playDrum('hat',.25,panPlayer(p));break;}
+  for(const can of paintCans)if(can.active&&now>=(can.safeUntil||0))for(const p of activePlayers())if(p.alive&&!p.skateboard&&!p.onewheel&&!p.goKart&&Math.hypot(p.vx,p.vz||0)<140&&freeItemArm(p,'chalk')&&Math.hypot(p.x-can.x,(p.z||0)-can.z)<38&&Math.abs(p.y-can.y)<70){p.handItems ||= {};p.handItems.chalk=freeItemArm(p,'chalk');p.chalkColor={name:can.color.name,rgb:can.color.rgb,paint:true,spill:can.spill};can.active=false;playDrum('block',.3,panPlayer(p));break;}
+  updatePaintCans(dt,now);
   for(const axe of parkAxes)if(axe.active&&now>=(axe.safeUntil||0))for(const p of activePlayers())if(p.alive&&freeItemArm(p,'axe')&&Math.hypot(p.x-axe.x,(p.z||0)-axe.z)<55&&Math.abs(p.y-axe.y-65)<100){p.handItems ||= {};p.handItems.axe=freeItemArm(p,'axe')||availableArm(p);p.axeHeld=true;axe.active=false;break;}
   if(axePickup.active)for(const p of activePlayers())if(p.alive&&freeItemArm(p,'axe')&&
     Math.hypot(p.x-axePickup.x,(p.z||0)-(axePickup.z||0))<65&&Math.abs(p.y-axePickup.y-65)<100){
@@ -26825,12 +26968,13 @@ function updateParkSupply(dt,now){
   }
  }
 }
-function parkDropName(p){return p.axeHeld?'axe':p.gunAmmo>0?(p.gunMode==='RUBBER SMG'?'smg':'pistol'):p.chalkColor?'chalk':'';}
+function parkDropName(p){return p.axeHeld?'axe':p.gunAmmo>0?(p.gunMode==='RUBBER SMG'?'smg':'pistol'):p.chalkColor?(p.chalkColor.paint?'paint':'chalk'):'';}
 function dropParkItem(p,now){
  const name=parkDropName(p);if(!name)return false;
  const yaw=p.poolYaw||0,x=p.x+Math.cos(yaw)*65,z=(p.z||0)+Math.sin(yaw)*65,y=poolFloorAt(x,z);
  if(p.axeHeld){parkAxes.push({x,z,y:y-65,active:true,safeUntil:now+1200000});p.axeHeld=false;}
  else if(p.gunAmmo>0){gunPickups.push({kind:p.gunMode,amount:p.gunAmmo,x,z,y:y-65,active:true,parkScatter:true,safeUntil:now+1200000});p.gunAmmo=0;}
+ else if(p.chalkColor.paint){placePaintCan(x,z,p.chalkColor,p.chalkColor.spill??paintCanSpill,now+1200000);p.chalkColor=null;}
  else{chalkPickups.push({x,z,y:y-12,color:p.chalkColor,active:true,safeUntil:now+1200000});p.chalkColor=null;}
  p.lastButton='DROPPED '+name.toUpperCase();p.lastButtonAt=now;return true;
 }
@@ -26890,7 +27034,7 @@ function drawGoKartBody(place,body){
 }
 function drawParkPickupLabels(){
  if(!poolOnly())return;
- const rider=players[0],items=[...gunPickups.filter(i=>i.active).map(i=>({...i,label:i.kind==='RUBBER SMG'?'SMG':'pistol',ink:[120,215,255]})),...parkAxes.filter(i=>i.active).map(i=>({...i,label:'axe',ink:[255,168,102]})),...chalkPickups.filter(i=>i.active).map(i=>({...i,label:i.color.name.toLowerCase()+' chalk',ink:i.color.rgb})),...parkKarts.filter(i=>i.active).map(i=>({...i,label:'go-kart',ink:i.color}))];
+ const rider=players[0],items=[...gunPickups.filter(i=>i.active).map(i=>({...i,label:i.kind==='RUBBER SMG'?'SMG':'pistol',ink:[120,215,255]})),...parkAxes.filter(i=>i.active).map(i=>({...i,label:'axe',ink:[255,168,102]})),...chalkPickups.filter(i=>i.active).map(i=>({...i,label:i.color.name.toLowerCase()+' chalk',ink:i.color.rgb})),...paintCans.filter(i=>i.active).map(i=>({...i,label:i.color.name.toLowerCase()+' paint'+(i.tipped?' (tipped)':''),ink:i.color.rgb})),...parkKarts.filter(i=>i.active).map(i=>({...i,label:'go-kart',ink:i.color}))];
  if(axePickup.active)items.push({...axePickup,label:'axe',ink:[255,168,102]});
  if(monowheel.active)items.push({...monowheel,label:'monowheel',ink:[205,169,255]});
  for(const b of balls)if(b.active&&b.type==='skateboard'&&b.heldBy<0)items.push({...b,label:'skateboard',ink:[158,225,173]});
@@ -26904,6 +27048,7 @@ function drawParkSupply(){
  if(axePickup.active){const p=projectPoint(axePickup.x,axePickup.y,axePickup.z||0),t=projectPoint(axePickup.x+30,axePickup.y-130,axePickup.z||0);const old=triangleDepth;triangleDepth=p.z;drawBigAxe(p.x,p.y,t.x,t.y,cameraScale());triangleDepth=old;}
  for(const kart of parkKarts)if(kart.active)drawGoKart(kart);
  for(const chalk of chalkPickups)if(chalk.active)worldCapsule(chalk.x-10,chalk.y,chalk.z,chalk.x+10,chalk.y,chalk.z,8*projectionScaleAt(chalk),chalk.color.rgb);
+ for(const can of paintCans)if(can.active)drawPaintCan(can);
  for(const axe of parkAxes)if(axe.active){const p=projectPoint(axe.x,axe.y,axe.z),top=projectPoint(axe.x+30,axe.y-130,axe.z),old=triangleDepth;triangleDepth=p.z;drawBigAxe(p.x,p.y,top.x,top.y,projectionScaleAt(axe));triangleDepth=old;}
  const d=parkSupply.drone;
  if(d){
@@ -27454,7 +27599,7 @@ function drawSpinArms(player,t,geometry,front,color,outline){
 const parkKids=[];
 function resetParkKids(){
  parkKids.length=0;
- if(!indoorSkate()&&!poolOnly())return;
+ if(poolDesert||(!indoorSkate()&&!poolOnly()))return;
  const skin=[[255,214,194],[198,139,104],[118,78,61],[239,185,142],[160,111,90],[255,222,199],[213,160,122],[144,96,76]];
  const inks=[[237,105,119],[84,183,172],[244,179,67],[129,139,222],[180,105,183],[92,159,208],[216,134,81],[149,184,95]];
  for(let i=0;i<8;i++){

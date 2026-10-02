@@ -11,15 +11,33 @@
 def edge 1.3
 def face-edge .075
 
-; the body, back to front as depth sorts it: legs, torso, arms, head
-(outline edge 20 16 28
+; the body, back to front as depth sorts it: legs, torso, arms, head.
+; A limb wears one ink silhouette, not one per bone: the whole leg's or
+; arm's ink goes down first, a touch further back, and the bones fill over
+; it, so the knee and the elbow carry no line across them. The torso, the
+; skirt, the shoes and the neck keep their own edge.
+(outline 0
+  (ink 20 16 28)
+  (nudge 1
+    (if (not skirt)
+      (bone hip-l knee-l (+ 5.6 edge))
+      (bone hip-r knee-r (+ 5.6 edge)))
+    (bone knee-l foot-l (+ 5 edge))
+    (bone knee-r foot-r (+ 5 edge))
+    (bone shoulder-l elbow-l (+ 4.6 edge))
+    (bone shoulder-r elbow-r (+ 4.6 edge))
+    (bone elbow-l hand-l (+ 4 edge))
+    (bone elbow-r hand-r (+ 4 edge))
+    (on hand-l (ball 0 0 0 (+ 4.6 edge)))
+    (on hand-r (ball 0 0 0 (+ 4.6 edge))))
   ; legs: thighs unless a skirt hides them; shins show below its hem
   (ink pants)
   (if (not skirt)
     (bone hip-l knee-l 5.6)
     (bone hip-r knee-r 5.6))
   (bone knee-l foot-l 5)
-  (bone knee-r foot-r 5)
+  (bone knee-r foot-r 5))
+(outline edge 20 16 28
   (if skirt
     ; a skirt: from the hips, flaring to a hem past the knees (x runs to her
     ; left hip, so +x is out on the left)
@@ -31,13 +49,15 @@ def face-edge .075
   (ink shirt)
   (bone neck pelvis 13.5)
   (bone shoulder-l shoulder-r 7)
-  (bone shoulder-l elbow-l 4.6)
-  (bone shoulder-r elbow-r 4.6)
+  (outline 0
+    (bone shoulder-l elbow-l 4.6)
+    (bone shoulder-r elbow-r 4.6)
+    (ink skin)
+    (bone elbow-l hand-l 4)
+    (bone elbow-r hand-r 4)
+    (on hand-l (ball 0 0 0 4.6))
+    (on hand-r (ball 0 0 0 4.6)))
   (ink skin)
-  (bone elbow-l hand-l 4)
-  (bone elbow-r hand-r 4)
-  (on hand-l (ball 0 0 0 4.6))
-  (on hand-r (ball 0 0 0 4.6))
   (bone neck head 4))
 
 ; the chest's decals, flat on the shirt's front (the neck joint's frame:
