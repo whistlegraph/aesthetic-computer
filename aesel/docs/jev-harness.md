@@ -114,7 +114,7 @@ OpenRouter's [Decisions SDK source](https://github.com/OpenRouterTeam/go-sdk/blo
 specifies `POST /api/alpha/decisions`; its chat endpoint is not the Jev interface.
 TypeSafe documents the model's [typed decision primitives and limitations](https://docs.typesafe.ai/concepts/system-one).
 
-## Walkieware musical input
+## Whistlegraph musical input
 
 `POST /api/easel-musical-jev` accepts authenticated, replaceable observations:
 `{schema:"walkieware-input/v1",sessionId,sequence,features}`. The fixed feature
@@ -139,7 +139,7 @@ observations are not saved. These limits count requests, not dollars or coding
 braincells. Phone receipts are saved only during explicit debug fixture runs.
 
 Live results and failed attempts are retained under
-`apple/walkieware/Tests/audio/`. Decision latency is not an end-to-end creation
+`apple/whistlegraph/Tests/audio/`. Decision latency is not an end-to-end creation
 speed claim: the existing coding model still generates the piece.
 
 ### Persistent phone input
@@ -168,4 +168,4 @@ VM removes provider inference latency. Measure these components before moving
 regions or provisioning another service.
 
 Focused validation: `node --test lith/musical-socket.test.mjs aesel/test/musical-jev.test.mjs`.
-Phone validation: `node apple/walkieware/Tests/musical-benchmark.mjs mixed-request --jev --socket`.
+Phone validation: `node apple/whistlegraph/Tests/musical-benchmark.mjs mixed-request --jev --socket`.

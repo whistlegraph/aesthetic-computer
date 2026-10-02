@@ -1,0 +1,530 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0300D7A47360F4B79AB5B31F /* SwipeToTypeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 212791F2E33DED2E1C368651 /* SwipeToTypeTests.swift */; };
+		10C0A16D4803EC60EAC29531 /* RecordingTrim.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1EFF8BAE7678E320E3DCA0 /* RecordingTrim.swift */; };
+		123228FADA6696AB354306C7 /* InputButtonLabels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35643029A3E82EEDEAC8DED6 /* InputButtonLabels.swift */; };
+		13604BE92157CDBFDD32AA19 /* WorkspaceCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147EAC245AD250B9B652F903 /* WorkspaceCoordinator.swift */; };
+		14FFBE48767E2576693FB7B3 /* MusicalInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D233DBB6F87184A91C13D41 /* MusicalInput.swift */; };
+		19717448D7598ADAABBF739E /* HeaderSheetsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F98F7D3CE551FC6458D1F37 /* HeaderSheetsTests.swift */; };
+		26D07334E2DEBA6705671BB0 /* WhistlegraphApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA5F188938A81E704BB7F9F9 /* WhistlegraphApp.swift */; };
+		275555C74507A6F62B0F037B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FF5F023E15041FF61F9FD358 /* Assets.xcassets */; };
+		2F01E350A7FF55359B002344 /* ButtonSounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ABFC6C11146A1540B635EE6 /* ButtonSounds.swift */; };
+		2F15D5A580A90A18E92D90F1 /* AudioBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CC14C186FE1CB5B19AD1D72 /* AudioBenchmark.swift */; };
+		41FC24FA4CF0D6C4D0C9E7C3 /* WhistlegraphTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D25F85E540016CEBC3A6BC09 /* WhistlegraphTheme.swift */; };
+		49D6E6ED3128002039D4F931 /* UtteranceRecording.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F9B92C3457F07429C8C2600 /* UtteranceRecording.swift */; };
+		4B35B066F49BDD9BD8B90B5A /* WhistlegraphScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E66B3ADC4D6D837FABC53B8F /* WhistlegraphScreen.swift */; };
+		5646BD41AA620CC47BF89361 /* Web in Resources */ = {isa = PBXBuildFile; fileRef = 4BA75145769FC4401A11BBE8 /* Web */; };
+		73873BDDC483417E2F6E1143 /* WhistlegraphHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BC2C1DC5E036F689EA59561 /* WhistlegraphHeader.swift */; };
+		77291EEE768914D5F5EDB84B /* PlaybackWord.swift in Sources */ = {isa = PBXBuildFile; fileRef = E97104E13862EE30444D07C9 /* PlaybackWord.swift */; };
+		77EC5FCFB7F9BF4A6BD4F94B /* NativeSignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21D4A924CCE7B4BEC62E98A9 /* NativeSignIn.swift */; };
+		8A9F944BA95C971D70ADDF6B /* VersionNarrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D137824491A01D4C19417B8 /* VersionNarrator.swift */; };
+		9DBA1AF2AD7E3EDF69C8132A /* CodeTicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10E2AAA0A3F2BA1A5AEBED58 /* CodeTicker.swift */; };
+		A028C6EA0D6572E890932C2D /* PromptKeySounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F9A906C6B2232BD07BEFE5 /* PromptKeySounds.swift */; };
+		A570F13C0C8CA571474ED406 /* NetworkBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BBA0E45689010CB41A6A8FF /* NetworkBenchmark.swift */; };
+		AF90A4AEA7F08A553D48A9AB /* Fixtures in Resources */ = {isa = PBXBuildFile; fileRef = E38DD74717D0CE306D97D1CC /* Fixtures */; };
+		AFDE98CF6460438CE2205674 /* WhistlegraphAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 060870DF76C6FC078A48A276 /* WhistlegraphAccount.swift */; };
+		B35A82E6CD62E5D1D9460EE3 /* NativeScreenFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B20A9A8612C57068C67239A /* NativeScreenFixture.swift */; };
+		C4390906B03E8E8666BC54A3 /* SequenceBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = B55FB4AA387E716F9FEE0F83 /* SequenceBenchmark.swift */; };
+		D3D16A0333764D0E5C3B620D /* SpeechCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7A25F803FAC121BFECC1AD7 /* SpeechCapture.swift */; };
+		D9E54D2F66B9FC35483A8F45 /* PlaybackCaption.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D3B156A3435E646EE0E6EEA /* PlaybackCaption.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		327D3C34113B84475F7B6DDF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 56FDF3DA4FBDD22D86E4AC5D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 047F10E01C5220A6A2287419;
+			remoteInfo = Whistlegraph;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		060870DF76C6FC078A48A276 /* WhistlegraphAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphAccount.swift; sourceTree = "<group>"; };
+		10E2AAA0A3F2BA1A5AEBED58 /* CodeTicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeTicker.swift; sourceTree = "<group>"; };
+		147EAC245AD250B9B652F903 /* WorkspaceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceCoordinator.swift; sourceTree = "<group>"; };
+		1BC2C1DC5E036F689EA59561 /* WhistlegraphHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphHeader.swift; sourceTree = "<group>"; };
+		1CC14C186FE1CB5B19AD1D72 /* AudioBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioBenchmark.swift; sourceTree = "<group>"; };
+		212791F2E33DED2E1C368651 /* SwipeToTypeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeToTypeTests.swift; sourceTree = "<group>"; };
+		21D4A924CCE7B4BEC62E98A9 /* NativeSignIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSignIn.swift; sourceTree = "<group>"; };
+		35643029A3E82EEDEAC8DED6 /* InputButtonLabels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputButtonLabels.swift; sourceTree = "<group>"; };
+		3F98F7D3CE551FC6458D1F37 /* HeaderSheetsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderSheetsTests.swift; sourceTree = "<group>"; };
+		4BA75145769FC4401A11BBE8 /* Web */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Web; path = Resources/Web; sourceTree = SOURCE_ROOT; };
+		4BBA0E45689010CB41A6A8FF /* NetworkBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkBenchmark.swift; sourceTree = "<group>"; };
+		4D3B156A3435E646EE0E6EEA /* PlaybackCaption.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackCaption.swift; sourceTree = "<group>"; };
+		5ABFC6C11146A1540B635EE6 /* ButtonSounds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ButtonSounds.swift; sourceTree = "<group>"; };
+		5B20A9A8612C57068C67239A /* NativeScreenFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeScreenFixture.swift; sourceTree = "<group>"; };
+		5D233DBB6F87184A91C13D41 /* MusicalInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicalInput.swift; sourceTree = "<group>"; };
+		6D137824491A01D4C19417B8 /* VersionNarrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionNarrator.swift; sourceTree = "<group>"; };
+		8F9B92C3457F07429C8C2600 /* UtteranceRecording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtteranceRecording.swift; sourceTree = "<group>"; };
+		A542DD3D25782F331540474E /* Whistlegraph.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Whistlegraph.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A5904655414F61AE746DF6D5 /* WhistlegraphUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = WhistlegraphUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B4F9A906C6B2232BD07BEFE5 /* PromptKeySounds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptKeySounds.swift; sourceTree = "<group>"; };
+		B55FB4AA387E716F9FEE0F83 /* SequenceBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SequenceBenchmark.swift; sourceTree = "<group>"; };
+		B7A25F803FAC121BFECC1AD7 /* SpeechCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechCapture.swift; sourceTree = "<group>"; };
+		BA5F188938A81E704BB7F9F9 /* WhistlegraphApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphApp.swift; sourceTree = "<group>"; };
+		CC1EFF8BAE7678E320E3DCA0 /* RecordingTrim.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingTrim.swift; sourceTree = "<group>"; };
+		D25F85E540016CEBC3A6BC09 /* WhistlegraphTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphTheme.swift; sourceTree = "<group>"; };
+		E38DD74717D0CE306D97D1CC /* Fixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fixtures; path = Resources/Fixtures; sourceTree = SOURCE_ROOT; };
+		E66B3ADC4D6D837FABC53B8F /* WhistlegraphScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphScreen.swift; sourceTree = "<group>"; };
+		E97104E13862EE30444D07C9 /* PlaybackWord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackWord.swift; sourceTree = "<group>"; };
+		FF5F023E15041FF61F9FD358 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		1D6DE83AE1574DDAA01368DE /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				FF5F023E15041FF61F9FD358 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		23F41F67DD8FCB029020283D = {
+			isa = PBXGroup;
+			children = (
+				E38DD74717D0CE306D97D1CC /* Fixtures */,
+				4BA75145769FC4401A11BBE8 /* Web */,
+				1D6DE83AE1574DDAA01368DE /* Resources */,
+				90190872F8D95875E1FFF827 /* Sources */,
+				BCA8AB62D544DD3CEB0F7DF9 /* Sources */,
+				A8D1DCE6550AE55C396F659B /* UITests */,
+				FDD4A248926DDEBE0C6EC796 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		90190872F8D95875E1FFF827 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				1CC14C186FE1CB5B19AD1D72 /* AudioBenchmark.swift */,
+				5ABFC6C11146A1540B635EE6 /* ButtonSounds.swift */,
+				10E2AAA0A3F2BA1A5AEBED58 /* CodeTicker.swift */,
+				35643029A3E82EEDEAC8DED6 /* InputButtonLabels.swift */,
+				5D233DBB6F87184A91C13D41 /* MusicalInput.swift */,
+				5B20A9A8612C57068C67239A /* NativeScreenFixture.swift */,
+				4BBA0E45689010CB41A6A8FF /* NetworkBenchmark.swift */,
+				4D3B156A3435E646EE0E6EEA /* PlaybackCaption.swift */,
+				E97104E13862EE30444D07C9 /* PlaybackWord.swift */,
+				B4F9A906C6B2232BD07BEFE5 /* PromptKeySounds.swift */,
+				CC1EFF8BAE7678E320E3DCA0 /* RecordingTrim.swift */,
+				B55FB4AA387E716F9FEE0F83 /* SequenceBenchmark.swift */,
+				B7A25F803FAC121BFECC1AD7 /* SpeechCapture.swift */,
+				8F9B92C3457F07429C8C2600 /* UtteranceRecording.swift */,
+				6D137824491A01D4C19417B8 /* VersionNarrator.swift */,
+				060870DF76C6FC078A48A276 /* WhistlegraphAccount.swift */,
+				BA5F188938A81E704BB7F9F9 /* WhistlegraphApp.swift */,
+				1BC2C1DC5E036F689EA59561 /* WhistlegraphHeader.swift */,
+				E66B3ADC4D6D837FABC53B8F /* WhistlegraphScreen.swift */,
+				D25F85E540016CEBC3A6BC09 /* WhistlegraphTheme.swift */,
+				147EAC245AD250B9B652F903 /* WorkspaceCoordinator.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		A8D1DCE6550AE55C396F659B /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				3F98F7D3CE551FC6458D1F37 /* HeaderSheetsTests.swift */,
+				212791F2E33DED2E1C368651 /* SwipeToTypeTests.swift */,
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
+		BCA8AB62D544DD3CEB0F7DF9 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				21D4A924CCE7B4BEC62E98A9 /* NativeSignIn.swift */,
+			);
+			name = Sources;
+			path = ../aesel/Sources;
+			sourceTree = "<group>";
+		};
+		FDD4A248926DDEBE0C6EC796 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A542DD3D25782F331540474E /* Whistlegraph.app */,
+				A5904655414F61AE746DF6D5 /* WhistlegraphUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		047F10E01C5220A6A2287419 /* Whistlegraph */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D078E2B73D1D33A6ECCB8348 /* Build configuration list for PBXNativeTarget "Whistlegraph" */;
+			buildPhases = (
+				08FE7DA642D63309620A8BA1 /* Sources */,
+				75BBEA53DD88C313F97FB28E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Whistlegraph;
+			packageProductDependencies = (
+			);
+			productName = Whistlegraph;
+			productReference = A542DD3D25782F331540474E /* Whistlegraph.app */;
+			productType = "com.apple.product-type.application";
+		};
+		C8A0961E27B5AB970CE50E2A /* WhistlegraphUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 464713D269DDF90C640B5D79 /* Build configuration list for PBXNativeTarget "WhistlegraphUITests" */;
+			buildPhases = (
+				99EB6954AC1E520A17BEACA4 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E1D11BB127FC9479BF540404 /* PBXTargetDependency */,
+			);
+			name = WhistlegraphUITests;
+			packageProductDependencies = (
+			);
+			productName = WhistlegraphUITests;
+			productReference = A5904655414F61AE746DF6D5 /* WhistlegraphUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		56FDF3DA4FBDD22D86E4AC5D /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					047F10E01C5220A6A2287419 = {
+						DevelopmentTeam = FB5948YR3S;
+						ProvisioningStyle = Automatic;
+					};
+					C8A0961E27B5AB970CE50E2A = {
+						DevelopmentTeam = FB5948YR3S;
+						ProvisioningStyle = Automatic;
+						TestTargetID = 047F10E01C5220A6A2287419;
+					};
+				};
+			};
+			buildConfigurationList = 2D8648563C289680B01A0C84 /* Build configuration list for PBXProject "Whistlegraph" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 23F41F67DD8FCB029020283D;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = FDD4A248926DDEBE0C6EC796 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				047F10E01C5220A6A2287419 /* Whistlegraph */,
+				C8A0961E27B5AB970CE50E2A /* WhistlegraphUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		75BBEA53DD88C313F97FB28E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				275555C74507A6F62B0F037B /* Assets.xcassets in Resources */,
+				AF90A4AEA7F08A553D48A9AB /* Fixtures in Resources */,
+				5646BD41AA620CC47BF89361 /* Web in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		08FE7DA642D63309620A8BA1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2F15D5A580A90A18E92D90F1 /* AudioBenchmark.swift in Sources */,
+				2F01E350A7FF55359B002344 /* ButtonSounds.swift in Sources */,
+				9DBA1AF2AD7E3EDF69C8132A /* CodeTicker.swift in Sources */,
+				123228FADA6696AB354306C7 /* InputButtonLabels.swift in Sources */,
+				14FFBE48767E2576693FB7B3 /* MusicalInput.swift in Sources */,
+				B35A82E6CD62E5D1D9460EE3 /* NativeScreenFixture.swift in Sources */,
+				77EC5FCFB7F9BF4A6BD4F94B /* NativeSignIn.swift in Sources */,
+				A570F13C0C8CA571474ED406 /* NetworkBenchmark.swift in Sources */,
+				D9E54D2F66B9FC35483A8F45 /* PlaybackCaption.swift in Sources */,
+				77291EEE768914D5F5EDB84B /* PlaybackWord.swift in Sources */,
+				A028C6EA0D6572E890932C2D /* PromptKeySounds.swift in Sources */,
+				10C0A16D4803EC60EAC29531 /* RecordingTrim.swift in Sources */,
+				C4390906B03E8E8666BC54A3 /* SequenceBenchmark.swift in Sources */,
+				D3D16A0333764D0E5C3B620D /* SpeechCapture.swift in Sources */,
+				49D6E6ED3128002039D4F931 /* UtteranceRecording.swift in Sources */,
+				8A9F944BA95C971D70ADDF6B /* VersionNarrator.swift in Sources */,
+				AFDE98CF6460438CE2205674 /* WhistlegraphAccount.swift in Sources */,
+				26D07334E2DEBA6705671BB0 /* WhistlegraphApp.swift in Sources */,
+				73873BDDC483417E2F6E1143 /* WhistlegraphHeader.swift in Sources */,
+				4B35B066F49BDD9BD8B90B5A /* WhistlegraphScreen.swift in Sources */,
+				41FC24FA4CF0D6C4D0C9E7C3 /* WhistlegraphTheme.swift in Sources */,
+				13604BE92157CDBFDD32AA19 /* WorkspaceCoordinator.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		99EB6954AC1E520A17BEACA4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				19717448D7598ADAABBF739E /* HeaderSheetsTests.swift in Sources */,
+				0300D7A47360F4B79AB5B31F /* SwipeToTypeTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		E1D11BB127FC9479BF540404 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 047F10E01C5220A6A2287419 /* Whistlegraph */;
+			targetProxy = 327D3C34113B84475F7B6DDF /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		A4F9F566CE43BDCE24ADFC22 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.walkieware;
+				PRODUCT_NAME = Whistlegraph;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A9A9486226BC03219DE1297E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.walkieware.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Whistlegraph;
+			};
+			name = Release;
+		};
+		AD4B90D6D3584CAD888031A3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.walkieware.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Whistlegraph;
+			};
+			name = Debug;
+		};
+		BCA778403189480DF26581DD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 84;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = FB5948YR3S;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		DF6FB2365BDDD57C0133CB5D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.walkieware;
+				PRODUCT_NAME = Whistlegraph;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		E9F6ECF0F5885FE9BAC20620 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 84;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = FB5948YR3S;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2D8648563C289680B01A0C84 /* Build configuration list for PBXProject "Whistlegraph" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BCA778403189480DF26581DD /* Debug */,
+				E9F6ECF0F5885FE9BAC20620 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		464713D269DDF90C640B5D79 /* Build configuration list for PBXNativeTarget "WhistlegraphUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AD4B90D6D3584CAD888031A3 /* Debug */,
+				A9A9486226BC03219DE1297E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D078E2B73D1D33A6ECCB8348 /* Build configuration list for PBXNativeTarget "Whistlegraph" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A4F9F566CE43BDCE24ADFC22 /* Debug */,
+				DF6FB2365BDDD57C0133CB5D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 56FDF3DA4FBDD22D86E4AC5D /* Project object */;
+}
