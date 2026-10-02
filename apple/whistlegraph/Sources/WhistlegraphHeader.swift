@@ -73,6 +73,8 @@ struct PiecesSheet: View {
 
 // Tapping the handle: who is signed in, and the door out. Settings grow here.
 struct AccountSheet: View {
+    var setCheckedEdits: (Bool) -> Void = { _ in }
+    @AppStorage("whistlegraph-checked-edits") private var checkedEdits = false
     let handle: String
     let colors: [[Double]]
     @Binding var appearance: String
@@ -106,6 +108,11 @@ struct AccountSheet: View {
                     Toggle("Interface sounds", isOn: $sounds).accessibilityIdentifier("account-sounds")
                         .onChange(of: sounds) { _, on in if on { ButtonSounds.play(.tick) } }
                 } footer: { Text("Keys and buttons respect silent mode. Haptics stay on.") }
+                Section {
+                    Toggle("Check edits (experimental)", isOn: $checkedEdits)
+                        .accessibilityIdentifier("account-checked-edits")
+                        .onChange(of: checkedEdits) { _, enabled in setCheckedEdits(enabled) }
+                } footer: { Text("Checks generated code and may try one repair. May use more braincells.") }
                 if !handle.isEmpty {
                     Section {
                         Button(role: .destructive) { confirmingSignOut = true } label: { Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right") }
@@ -158,7 +165,7 @@ struct IdentityHeader: View {
                         newPiece: { session.command("newPiece") })
         }
         .sheet(isPresented: $showingAccount) {
-            AccountSheet(handle: session.snapshot.handle, colors: session.snapshot.colors, appearance: $appearance,
+            AccountSheet(setCheckedEdits: { session.setCheckedEdits($0) }, handle: session.snapshot.handle, colors: session.snapshot.colors, appearance: $appearance,
                          signIn: { session.command("signIn") }, signOut: { session.signOut() })
         }
     }

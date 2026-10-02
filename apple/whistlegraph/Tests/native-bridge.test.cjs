@@ -13,7 +13,15 @@ const server = http.createServer(async (req, res) => {
     let incoming="";for await(const chunk of req)incoming+=chunk;inferenceBodies.push(JSON.parse(incoming));
     res.writeHead(200, {'Content-Type':'text/event-stream'});
     const send = event => res.write('data: '+JSON.stringify(event)+'\n\n');
-    if(requests === 1 || (process.argv.includes("--native-shell") && requests === 2)) {
+    if(process.argv.includes('--checked-edits')) {
+      const invalid=requests===1||process.argv.includes('--repair-fails');
+      const source=invalid?'export const caption="Cats"; export function paint({wipe,ink}) {wipe(0);ink(`hsl(30,100%,50%)`).circle(30,30,10);}':'export const caption="Bouncing cats"; export function paint({wipe,ink}) {wipe(0);ink(255,128,0).circle(30,30,10);}';
+      send({type:'message_start',message:{id:'provider-'+requests,model:'fixture/reported',usage:{input_tokens:10}}});
+      send({type:'content_block_start',index:0,content_block:{type:'tool_use',id:'checked-'+requests,name:'write_piece'}});
+      send({type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:JSON.stringify({source})}});
+      send({type:'content_block_stop',index:0});
+      send({type:'message_delta',delta:{stop_reason:'end_turn'},usage:{output_tokens:20,cost:.001}});
+    } else if(requests === 1 || (process.argv.includes("--native-shell") && requests === 2)) {
       send({type:'content_block_start',index:0,content_block:{type:'tool_use',id:'checkpoint-1',name:'write_piece'}});
       const body=JSON.stringify({source:'export function paint({wipe}) { wipe("purple"); }'});
       send({type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:body.slice(0,38)}});
@@ -62,11 +70,37 @@ const server = http.createServer(async (req, res) => {
       const fetchOriginal=window.fetch.bind(window);
       window.fetch=(url,init)=>{if(String(url).includes('/api/handle-colors'))return Promise.resolve(Response.json({colors:[{r:200,g:100,b:255}]}));if(String(url).includes('/userinfo'))return Promise.resolve(Response.json({sub:'fixture-user'}));if(String(url).includes('/handle?for='))return Promise.resolve(Response.json({handle:'fixture'}));if(String(url).includes('/api/easel-musical-jev')){const b=JSON.parse(init.body);return Promise.resolve(Response.json({schema:'walkieware-decision/v1',sessionId:b.sessionId,sequence:b.sequence,choice:'follow_speech',confidence:.95}));}if(String(url).startsWith('/easel/context/')){window.__guideFetches++;return Promise.resolve({ok:false,status:0});}return fetchOriginal(String(url).includes('/api/easel-inference')?'/mock-inference':url,init);};
       window.__nativeMessages=[];
-      window.webkit={messageHandlers:{walkie:{postMessage:m=>{window.__nativeMessages.push(m);if(m.action==='render')setTimeout(()=>window.walkiewareEngineEvent({kind:'previewEvent',event:{kind:'painted'}}),20);}}}};
+      window.webkit={messageHandlers:{walkie:{postMessage:m=>{window.__nativeMessages.push(m);if(m.action==='render')setTimeout(async()=>{const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(m.source));const sourceHash=[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');window.walkiewareEngineEvent({kind:'previewEvent',event:{kind:'painted',sourceHash,requestID:m.renderID}});},20);}}}};
     },guideSeed,process.argv.includes('--native-shell'));
     await page.goto('http://127.0.0.1:'+server.address().port+'/index.html?walkie=1');
     await page.waitForFunction(()=>typeof window.walkiewareAsk==='function');
     assert.deepEqual(errors,[]);
+    if(process.argv.includes('--checked-edits')) {
+      await page.evaluate(()=>{walkiewareEngineEvent({kind:'inferenceSettings',checkedEdits:true});walkiewareEngineEvent({kind:'account',token:'fixture-only'});walkiewareEngineEvent({kind:'previewReady'});});
+      const before=await page.evaluate(()=>localStorage.getItem('walkieware-source-versions'));
+      await page.evaluate(()=>walkiewareAsk('Make the cats bounce'));
+      await page.waitForFunction(()=>!walkiewareIsBusy());
+      assert.equal(requests,2,'exactly one repair generation');
+      assert.ok(inferenceBodies[0].messages.some(m=>JSON.stringify(m).includes('EDIT CONTRACT')));
+      assert.ok(inferenceBodies[1].messages.some(m=>JSON.stringify(m).includes('REPAIR THIS CANDIDATE ONCE')));
+      assert.ok(inferenceBodies.every(b=>b.max_tokens===4096&&b.thinking.type==='disabled'));
+      const receipt=await page.evaluate(()=>JSON.parse(localStorage.getItem('walkieware-source-receipts')).at(-1).receipt);
+      assert.equal(receipt.repairs,1);assert.equal(receipt.rounds.length,2);assert.equal(receipt.rounds[0].reportedModel,'fixture/reported');
+      assert.equal(receipt.rounds[0].providerRequestID,'provider-1');assert.equal(receipt.rounds[1].usage.costUSD,.001);
+      assert.ok(receipt.observations.every(o=>o.sourceHash.length===64));assert.equal(receipt.acceptance,'unreviewed');
+      assert.ok(!JSON.stringify(receipt).includes('Make the cats bounce'),'receipt has no prompt text');
+      if(process.argv.includes('--repair-fails')){
+        assert.equal(receipt.status,'failed');assert.equal(receipt.checks[0].code,'unsupported-hsl');
+        assert.equal(await page.evaluate(()=>localStorage.getItem('walkieware-source-versions')),before,'failed repair cannot commit the invalid candidate');
+      }else{
+        assert.equal(receipt.status,'completed');assert.deepEqual(receipt.checks,[]);
+        assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('walkieware-source-versions')).head),1);
+      }
+      const last=await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='render').at(-1));
+      await page.evaluate(m=>walkiewareEngineEvent({kind:'previewEvent',event:{kind:'console',sourceHash:'0'.repeat(64),requestID:m.renderID,event:{level:'error',message:'stale error'}}}),last);
+      assert.equal(await page.evaluate(()=>document.getElementById('live-events').textContent.includes('stale error')),false);
+      assert.deepEqual(errors,[]);console.log('PASS: compiled edit contract, source-linked checks, one bounded repair, content-free receipts, and rollback');return;
+    }
     if(process.argv.includes('--native-shell')) {
       await page.waitForFunction(()=>__nativeMessages.some(m=>m.action==='snapshot'));
       assert.equal(await page.$eval('.top',e=>getComputedStyle(e).display),'none','Swift owns visible chrome');

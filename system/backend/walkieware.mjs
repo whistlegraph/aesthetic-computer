@@ -1,4 +1,5 @@
 import {randomInt, createHash} from 'node:crypto';
+import {validateReceipt} from './whistlegraph-receipt.mjs';
 
 export const validID = value => typeof value === 'string' && /^[a-f0-9-]{36}$/i.test(value);
 export const validCode = value => typeof value === 'string' && /^ww[a-z]{5,12}$/i.test(value);
@@ -41,7 +42,23 @@ export function mongoWalkiewareStore(collection, {name=pronounceableCode}={}) {
       throw Error('Unable to reserve a name');
     },
     async read(owner,code) {if(!validCode(code))return null;return collection.findOne({owner,codeKey:code.toLowerCase()});},
-    async list(owner) {return collection.find({owner},{projection:{owner:0,ledger:0}}).sort({updatedAt:-1}).limit(100).toArray();},
+    async list(owner) {return collection.find({owner},{projection:{owner:0,ledger:0,receipts:0}}).sort({updatedAt:-1}).limit(100).toArray();},
+    async receipt(owner,id,value) {
+      const receipt=validateReceipt(value);
+      // First write wins; retries are idempotent within the retained history.
+      await collection.updateOne({_id:id,owner,'receipts.id':{$ne:receipt.id}},{$push:{receipts:{$each:[receipt],$slice:-100}}});
+      const row=await collection.findOne({_id:id,owner});
+      const saved=row?.receipts?.find(r=>r.id===receipt.id);
+      if(!saved)throw Error('Thread unavailable');
+      if(JSON.stringify(saved)!==JSON.stringify(receipt))throw Error('Attempt receipts are immutable');
+      return receipt.id;
+    },
+    async clearReceipts(owner,code) {
+      if(!validCode(code))return false;
+      const row=await collection.findOne({owner,codeKey:code.toLowerCase()});
+      if(!row)return false;
+      await collection.updateOne({_id:row._id,owner},{$unset:{receipts:''}});return true;
+    },
     async state(owner,id,state){await collection.updateOne({_id:id,owner},{$set:{diagnostics:state}});},
     async save(owner,id,revision,ledger) {
       ledger=validateLedger(ledger);
@@ -59,5 +76,5 @@ export function mongoWalkiewareStore(collection, {name=pronounceableCode}={}) {
 export function publicThread(row) {
   if(!row)return null;
   const head=row.ledger?.versions.find(v=>v.id===row.ledger.head);
-  return {id:row._id,code:row.code,revision:row.revision,ledger:row.ledger,head:head?.id,sourceHash:head?sourceHash(head.source):null,updatedAt:row.updatedAt,diagnostics:row.diagnostics};
+  return {id:row._id,code:row.code,revision:row.revision,ledger:row.ledger,head:head?.id,sourceHash:head?sourceHash(head.source):null,updatedAt:row.updatedAt,diagnostics:row.diagnostics,receipts:row.receipts};
 }

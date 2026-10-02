@@ -4,6 +4,7 @@ import {createServer} from 'node:http';
 import {once} from 'node:events';
 import {WebSocket} from 'ws';
 import {attachWalkiewareSocket} from './walkieware-socket.mjs';
+import {ReceiptJournal,AttemptReceipt,hashSource} from '../aesel/src/attempt-receipt.mjs';
 import {attachMusicalSocket} from './musical-socket.mjs';
 import {mongoWalkiewareStore,validateLedger,sourceHash} from '../system/backend/walkieware.mjs';
 import {WalkiewareThread,threadIdentity,verifyThreadRevision} from '../aesel/src/walkieware-thread.mjs';
@@ -19,8 +20,8 @@ test('remote edits reject stale versions, mismatched source and a local ask star
 });
 function memoryCollection(){
  const docs=new Map();
- const find=query=>[...docs.values()].find(row=>Object.entries(query).every(([k,v])=>row[k]===v));
- return {createIndex:async()=>{},findOne:async q=>structuredClone(find(q)||null),insertOne:async row=>{if(docs.has(row._id)||find({codeKey:row.codeKey}))throw Object.assign(Error('duplicate'),{code:11000});docs.set(row._id,structuredClone(row));},updateOne:async(q,u)=>{const row=find(q);if(!row)return {modifiedCount:0};Object.assign(row,structuredClone(u.$set));for(const [k,v]of Object.entries(u.$inc||{}))row[k]+=v;return {modifiedCount:1};}};
+ const find=query=>[...docs.values()].find(row=>Object.entries(query).every(([k,v])=>k==='receipts.id'?!row.receipts?.some(r=>r.id===v.$ne):row[k]===v));
+ return {createIndex:async()=>{},findOne:async q=>structuredClone(find(q)||null),insertOne:async row=>{if(docs.has(row._id)||find({codeKey:row.codeKey}))throw Object.assign(Error('duplicate'),{code:11000});docs.set(row._id,structuredClone(row));},updateOne:async(q,u)=>{const row=find(q);if(!row)return {modifiedCount:0};Object.assign(row,structuredClone(u.$set));for(const [k,v]of Object.entries(u.$inc||{}))row[k]+=v;for(const [k,v]of Object.entries(u.$push||{}))row[k]=[...(row[k]||[]),...structuredClone(v.$each)].slice(v.$slice);for(const k of Object.keys(u.$unset||{}))delete row[k];return {modifiedCount:1};}};
 }
 function inbox(ws){const queue=[],waiters=[];ws.on('message',raw=>{const m=JSON.parse(raw);const i=waiters.findIndex(w=>w.type===m.type);if(i<0)queue.push(m);else waiters.splice(i,1)[0].resolve(m);});return type=>{const i=queue.findIndex(m=>m.type===type);return i>=0?Promise.resolve(queue.splice(i,1)[0]):new Promise(resolve=>waiters.push({type,resolve}));};}
 async function client(url,auth){const ws=new WebSocket(url),next=inbox(ws);await once(ws,'open');ws.send(JSON.stringify({type:'authenticate',token:'owner',...auth}));return {ws,next,send:m=>ws.send(JSON.stringify(m))};}
@@ -80,4 +81,53 @@ test('silent socket stalls reconnect even when close never emits; concurrent res
  }
  const phone=new WalkiewareThread({storage,key:'stall',token:()=> 'owner',ledger:()=>ledger,state:()=>({}),onStatus:(_,status)=>{if(status==='Offline')offline++;},onCommand:async()=>({ok:true}),WebSocketImpl:SilentSocket,heartbeatMs:5,maxIdleMs:15,reconnectMs:1});
  try{await Promise.all([phone.resume(),phone.resume()]);assert.equal(count,1);await new Promise(r=>setTimeout(r,55));assert.ok(count>=2);assert.ok(offline>=1);}finally{phone.suspend();}
+});
+
+async function completedReceipt(){
+ const values=new Map(),storage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)};
+ const recorder=new AttemptReceipt({journal:new ReceiptJournal(storage,'test'),requestID:id,parent:0,parentHash:await hashSource('before'),path:'current',model:'tested/model'});
+ recorder.request();recorder.finish('failed',await hashSource('before'));return recorder.value;
+}
+test('receipt store is owner-scoped, immutable, retry-idempotent and bounded',async()=>{
+ const store=mongoWalkiewareStore(memoryCollection(),{name:()=> 'wwRuboh'});await store.open('owner',id);
+ const receipt=await completedReceipt();await store.receipt('owner',id,receipt);await store.receipt('owner',id,receipt);
+ assert.equal((await store.read('owner','wwRuboh')).receipts.length,1);
+ await assert.rejects(store.receipt('owner',id,{...receipt,status:'completed'}),/immutable/);
+ await assert.rejects(store.receipt('stranger',id,receipt),/unavailable/);
+ for(let i=0;i<101;i++)await store.receipt('owner',id,{...receipt,id:crypto.randomUUID()});
+ assert.equal((await store.read('owner','wwRuboh')).receipts.length,100);
+ assert.equal(await store.clearReceipts('stranger','wwRuboh'),false);
+ assert.equal(await store.clearReceipts('owner','wwRuboh'),true);assert.equal((await store.read('owner','wwRuboh')).receipts,undefined);
+});
+test('socket acknowledges persisted receipts and rejects agent uploads',{timeout:5000},async t=>{
+ const f=await fixture(t),device=await client(f.url,{role:'device',id});
+ assert.ok((await device.next('ready')).capabilities.includes('attempt-receipts-v1'));
+ const receipt=await completedReceipt();device.send({type:'receipt',receipt});assert.equal((await device.next('receiptSaved')).id,receipt.id);
+ assert.equal((await f.store.read('owner','wwRuboh')).receipts[0].status,'failed');
+ const agent=await client(f.url,{role:'agent',code:'wwRuboh'});await agent.next('ready');
+ agent.send({type:'receipt',receipt});assert.match((await agent.next('error')).error,/Unsupported/);
+});
+
+test('receipt client defers old servers, retries after lost acknowledgement, and drains on acknowledgement',async()=>{
+ const values=new Map(),storage={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v)};
+ const receipts=new ReceiptJournal(storage,'delivery'),receipt=await completedReceipt();receipts.save(receipt);
+ const sockets=[];
+ class Socket {
+  constructor(){this.readyState=1;this.sent=[];sockets.push(this);}
+  send(text){this.sent.push(JSON.parse(text));}
+  close(){this.readyState=3;}
+  async ready(capabilities){await this.onmessage({data:JSON.stringify({type:'ready',capabilities,thread:{code:'wwRuboh',revision:0,ledger}})});}
+ }
+ const phone=new WalkiewareThread({storage,key:'delivery',receipts,token:()=> 'owner',ledger:()=>ledger,state:()=>({}),onStatus:()=>{},onCommand:async()=>({}),WebSocketImpl:Socket});
+ try {
+  await phone.resume();await sockets[0].ready(undefined);
+  assert.equal(sockets[0].sent.some(m=>m.type==='receipt'),false);assert.equal(receipts.pending().id,receipt.id);
+  phone.suspend();await phone.resume();await sockets[1].ready(['attempt-receipts-v1']);
+  assert.equal(sockets[1].sent.filter(m=>m.type==='receipt').length,1);
+  phone.flushReceipts();assert.equal(sockets[1].sent.filter(m=>m.type==='receipt').length,1);
+  phone.suspend();await phone.resume();await sockets[2].ready(['attempt-receipts-v1']);
+  assert.equal(sockets[2].sent.find(m=>m.type==='receipt').receipt.id,receipt.id);
+  await sockets[2].onmessage({data:JSON.stringify({type:'receiptSaved',id:receipt.id})});
+  assert.equal(receipts.pending(),null);assert.equal(phone.ready,true);
+ }finally{phone.suspend();}
 });

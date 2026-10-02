@@ -108,7 +108,7 @@ struct WhistlegraphPreview {
       window.acFORCE_NOGAP = true;
       let ready = false, revision = 0, paintedRevision = 0, sessionID = '';
       const post = body => window.webkit.messageHandlers.walkie.postMessage(body);
-      window.walkiewareRender = async (source, threadID) => {
+      window.walkiewareRender = async (source, threadID, renderID) => {
         if (!ready) return;
         sessionID = threadID;
         const current = ++revision;
@@ -117,7 +117,7 @@ struct WhistlegraphPreview {
         const hash = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2,'0')).join('');
         window.acSEND({type:'dropped:piece',content:{name:'walkieware-preview',source,
           search:'noauth=true&noplot=true&nogap=true&nolabel=true',isKidLisp:false,
-          aeselPreview:{sessionID,revision:current,sourceHash:hash,requestID:current}}});
+          aeselPreview:{sessionID,revision:current,sourceHash:hash,requestID:Number.isSafeInteger(renderID)?renderID:current}}});
       };
       window.addEventListener('aesel-preview', e => {
         if (e.detail?.sessionID !== sessionID || e.detail?.revision !== revision) return;

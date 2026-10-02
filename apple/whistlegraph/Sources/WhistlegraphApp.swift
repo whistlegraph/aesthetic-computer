@@ -43,6 +43,11 @@ struct Workspace: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.userContentController.addUserScript(WKUserScript(source: "window.__walkiewareNativeShell = true;", injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        var checkedEdits = UserDefaults.standard.bool(forKey: "whistlegraph-checked-edits")
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["WALKIE_COMPILED_TASK"] == "1" { checkedEdits = true }
+        #endif
+        config.userContentController.addUserScript(WKUserScript(source: "window.__whistlegraphCheckedEdits = \(checkedEdits);", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         config.userContentController.add(context.coordinator, name: "walkie")
         config.setURLSchemeHandler(WhistlegraphBundle(), forURLScheme: "walkieware")
         // Custom-scheme fetch responses have status 0 on device. Seed the
@@ -254,6 +259,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     }
     private var previewFrame: WKFrameInfo?
     private var previewSource = ""
+    private var previewRequestID = 0
     private var previewThreadID = UUID().uuidString
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -354,6 +360,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         case "render":
             guard let source = body["source"] as? String, source.utf8.count < 500_000 else { return }
             if let id = body["threadID"] as? String, UUID(uuidString: id) != nil { previewThreadID = id }
+            previewRequestID = body["renderID"] as? Int ?? 0
             previewSource = source; renderPreview()
         case "start":
             capturePhase = .opening; captureError = nil; transcript = ""
@@ -378,8 +385,11 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         guard let frame = previewFrame, !previewSource.isEmpty else { return }
         let source = previewSource
         let threadID = previewThreadID
-        Task { _ = try? await webView?.callAsyncJavaScript("window.walkiewareRender?.(source, threadID);", arguments: ["source": source, "threadID": threadID], in: frame, contentWorld: .page) }
+        let renderID = previewRequestID
+        Task { _ = try? await webView?.callAsyncJavaScript("window.walkiewareRender?.(source, threadID, renderID);", arguments: ["source": source, "threadID": threadID, "renderID": renderID], in: frame, contentWorld: .page) }
     }
+
+    func setCheckedEdits(_ enabled: Bool) { emitEngine(["kind": "inferenceSettings", "checkedEdits": enabled]) }
 
     func emitEngine(_ event: [String: Any]) {
         guard let data = try? JSONSerialization.data(withJSONObject: event),

@@ -480,7 +480,7 @@ export class AcServer extends EventEmitter {
 
           const reportedModel = event.message?.model || event.model;
           if (typeof reportedModel === "string" && reportedModel) {
-            this.emit("notification", { method: "model/reported", params: { requested: this.model, reported: reportedModel } });
+            this.emit("notification", { method: "model/reported", params: { requested: this.model, reported: reportedModel, ...(event.message?.id ? {providerRequestID: event.message.id} : {}) } });
           }
           const counts = event.usage || event.message?.usage;
           if (counts) Object.assign(usage, counts);

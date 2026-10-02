@@ -28,3 +28,29 @@ node apple/whistlegraph/Tests/native-bridge.test.cjs --native-shell
 ```
 
 The browser check uses Puppeteer and Chrome with mock inference; it makes no model requests. Native UI tests live in the `WhistlegraphUITests` scheme.
+
+## Checked edits (experimental)
+
+Account settings → **Check edits (experimental)** enables a deterministic edit contract containing the selected branch requests, caption, and known API failures. It defaults off; the existing DeepSeek path with thinking disabled remains the default. Debug launches can set `WALKIE_COMPILED_TASK=1`.
+
+The experiment checks JavaScript syntax, direct unsupported HSL drawing calls, invalid `ink.box`-style calls, and matching-source runtime feedback. Each render carries a SHA-256 source hash and render ID; stale feedback is ignored. An actionable failure after a completed generation permits one repair. A failed or unverified result restores the previous piece without committing a version. A painted frame is execution evidence, not visual or semantic acceptance; animation timing still needs observation.
+
+Limits: four initial tool rounds with one output continuation, two repair rounds without continuations, 4,096 output tokens per provider call, and a 75-second generation/validation deadline. This allows at most seven provider calls per attempt; it is not a monetary cap. A resumed request is a new attempt. Existing deterministic local edits still bypass inference.
+
+## Attempt receipts
+
+The app retains the latest 100 attempt receipts per thread locally and uploads finalized receipts when the backend advertises `attempt-receipts-v1`. Older servers continue working while uploads remain pending. Reconnect retries are idempotent. The server retains the latest 100 receipts per thread; archives retain their separate local journal. Account deletion removes server threads and their receipts.
+
+Receipts contain source hashes, parent version, render IDs, timings, check codes, model identifiers, provider request IDs, and reported usage. Missing usage/cost remains null. They exclude prompt text, generated source, audio, console text, and raw responses. These are client-observed diagnostics, not authoritative billing records; acceptance remains `unreviewed`.
+
+Authenticated `GET /api/walkieware?code=<thread>` includes receipts. `DELETE /api/walkieware?code=<thread>&receipts=1` clears retained server receipts for that owner; pending local receipts may upload afterward.
+
+Additional checks, from the repository root:
+
+```sh
+node --test aesel/test/edit-contract.test.mjs aesel/test/attempt-receipt.test.mjs lith/walkieware-socket.test.mjs
+node apple/whistlegraph/Tests/native-bridge.test.cjs --native-shell --checked-edits
+node apple/whistlegraph/Tests/native-bridge.test.cjs --native-shell --checked-edits --repair-fails
+```
+
+Both experiment browser checks use mock inference. They verify the contract, repair limit, rollback, render identity, and receipt fields without spending braincells.

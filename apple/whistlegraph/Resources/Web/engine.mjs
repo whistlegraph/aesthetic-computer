@@ -1,5 +1,7 @@
 import {inferenceRequest,wantsSoundEvidence} from './inference-input.mjs';
-import {contextualRequest} from './branch-context.mjs';
+import {contextualRequest,selectedBranch} from './branch-context.mjs';
+import {compileEditContract,sourceChecks,validateCandidate,runEditExperiment} from '/easel/src/edit-contract.mjs';
+import {ReceiptJournal,AttemptReceipt,hashSource} from '/easel/src/attempt-receipt.mjs';
 import {pieceCaption} from './piece-caption.mjs';
 import {readAttempt,saveAttempt,claimAttempt} from './attempt-recovery.mjs';
 import {initializeBasePiece,isBasePiece} from './base-piece.mjs';
@@ -22,6 +24,8 @@ const post = body => window.webkit.messageHandlers.walkie.postMessage({id:'engin
 const benchmark=(event,fields={})=>{post({action:'benchmark',event,fields});window.__walkiewareSequenceEvent?.(event,fields);};
 const file = '/piece/walkieware.mjs';
 const storageKey=window.__walkiewareSpace?'walkieware-space-source':window.__walkiewareLocalSequence?'walkieware-local-source':window.__walkiewareSequence?'walkieware-sequence-source':window.__walkiewareBenchmark?'walkieware-benchmark-source':'walkieware-source';
+const receipts=new ReceiptJournal(localStorage,storageKey);
+let activeReceipt=null,activeChecked=false,renderID=0,previewHash=null,validationChecks=[];
 let turnStarter='',starterPainted=false,turnCancelled=false;
 let thread=null,threadTimer=null;
 const runtimeErrors=[];
@@ -158,14 +162,29 @@ function updateFeed() {
   $('live-time').hidden=!busy;nativeSnapshot();
 }
 
-function render(value) { previewSource=value; painted=false; feedback=null; post({action:'render',source:value,threadID:thread?.identity.id}); }
+function render(value) {
+  previewSource=value;painted=false;feedback=null;previewHash=null;
+  const id=++renderID;
+  void hashSource(value).then(hash=>{
+    if(id!==renderID)return;
+    previewHash=hash;
+    feedback={rendered:false,sourceHash:hash,revision:hash,requestID:id,logs:activeChecked?sourceChecks(value).map(f=>({level:'error',text:f.message,code:f.code})):[],updatedAt:new Date().toISOString()};
+    post({action:'render',source:value,threadID:thread?.identity.id,renderID:id});
+  }).catch(()=>{if(id===renderID){turnRuntimeFailed=true;turnError='Could not identify preview source';phase(turnError);}});
+}
+async function finishReceipt(status) {
+  if(!activeReceipt)return;
+  activeReceipt.value.checkpoints=checkpoints;
+  activeReceipt.finish(status,await hashSource(source).catch(()=>null),validationChecks);
+  activeReceipt=null;thread?.flushReceipts();
+}
 function compileStream() {
   if(compileTimer)return;
   compileTimer=setTimeout(()=>{
     compileTimer=null;
     if(!busy)return;
     const candidate=runnablePrefix(partialSource(code));
-    if(!candidate||candidate.trimEnd()===previewSource.trimEnd())return;
+    if(!candidate||candidate===previewSource)return;
     provisional=candidate;
     document.body.classList.add('live-preview');
     benchmark('firstIncrementalCompile');log('Running streamed code');
@@ -200,15 +219,22 @@ vfs.setWriteHandler((path,value)=>{
   $('play-deck').hidden=true;
   $('live-code').textContent=value;
   phase(ready?'Evaluating…':'Loading preview…'); log(`Checkpoint ${checkpoints} · valid JavaScript`);
-  if(value.trimEnd()!==previewSource.trimEnd())render(value);
+  if(value!==previewSource)render(value);
 });
 const guides = vfs.preload(['pieces.md','screen.md','hand.md','kidlisp.md','api.json'].map(name=>'/easel/context/'+name));
-function makeServer(){
-  const value=new AcServer({cwd:'/piece',piece:{file,checkpoint:async()=>{const target=source.trimEnd();for(let i=0;i<100;i++){if(painted&&lastPaintedSource.trimEnd()===target)return;await new Promise(resolve=>setTimeout(resolve,20));}}},frameCapture:false,layeredEdits:true,token:()=>token,model:window.__walkiewareModel||DEFAULT_MODEL,
-    fetch:async(...args)=>{benchmark('requestDispatched');const response=await globalThis.fetch(...args);benchmark('inferenceHeaders',{status:response.status});return response;},preview:true,rounds:12,outputContinuations:4,reasoning:{effort:'none'},thinking:{type:'disabled'},
+function makeServer({checked=false,repair=false}={}){
+  const value=new AcServer({cwd:'/piece',piece:{file,checkpoint:async()=>{const target=source;for(let i=0;i<100;i++){if(painted&&lastPaintedSource===target)return;await new Promise(resolve=>setTimeout(resolve,20));}}},frameCapture:false,layeredEdits:true,token:()=>token,model:window.__walkiewareModel||DEFAULT_MODEL,
+    fetch:async(url,options)=>{
+      benchmark('requestDispatched');const recorder=activeReceipt,round=recorder?.request();
+      if(checked){const body=JSON.parse(options.body);body.max_tokens=4096;options={...options,body:JSON.stringify(body)};}
+      const response=await globalThis.fetch(url,options);if(round)recorder.headers(round,response);
+      benchmark('inferenceHeaders',{status:response.status});return response;
+    },preview:true,rounds:checked?(repair?2:4):12,outputContinuations:checked?(repair?0:1):4,reasoning:{effort:'none'},thinking:{type:'disabled'},
     developerInstructions:GENERATION_INSTRUCTIONS});
+  value.checked=checked;
   value.runtimeFeedback=()=>feedback;
   value.on('notification',({method,params})=>{
+    activeReceipt?.notify(method,params);
     if(method==='turn/progress' && !firstDelta) phase(params.phase==='connecting'?'Connecting…':'Waiting for model…');
     if(method==='item/modelCode/delta'){
       delta('');if(codeItem!==params.itemId){benchmark('layerStarted',{tool:params.tool||'write_piece'});code='';codeItem=params.itemId;}
@@ -246,12 +272,15 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
   document.body.classList.add('live-mode');phase('Sending…');log('Submitted');
   timer=setInterval(()=>$('live-time').textContent=((performance.now()-started)/1000).toFixed(1)+'s',100);
   let noChange=false;
+  activeChecked=window.__whistlegraphCheckedEdits===true;validationChecks=[];runtimeErrors.length=0;
   try{
+    activeReceipt=new AttemptReceipt({requestID:activeAttempt.id,parent:turnParent,parentHash:await hashSource(previous),path:activeChecked?'compiled':'current',model:window.__walkiewareModel||DEFAULT_MODEL,journal:receipts});
     text=inferenceRequest(text);
     if(recovered?.checkpoint){source=recovered.checkpoint;vfs.mount(file,source);render(source);text+='\nContinue the unfinished request from this saved checkpoint. Preserve its completed edits.';}
 
     const local=recovered?.checkpoint?null:localEdit(source,localText);
     if(local){
+      activeReceipt.value.path='local';activeReceipt.value.model=null;activeReceipt.save();
       if(!local.changed){noChange=true;return;}
       server?.close();server=null;source=local.source;vfs.mount(file,source);checkpoints=1;
       document.body.classList.add('live-preview');$('initial').hidden=true;$('play-deck').hidden=true;
@@ -284,11 +313,31 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
     const missing=await guides;if(missing.length)throw Error('Bundled piece guides are unavailable: '+missing.join(', '));
     benchmark('guidesReady');
     vfs.mount(file,source||'export function paint({wipe}) { wipe("black"); }');
-    server??=makeServer();await server.startTurn(contextualRequest(versions.value,text));
+    if(activeChecked){
+      const prompt=compileEditContract({request:text,...selectedBranch(versions.value),source});
+      const deadline=setTimeout(()=>{turnCancelled=true;turnError='Edit check timed out';server?.interrupt();},75000);
+      try{
+        const result=await runEditExperiment({prompt,cancelled:()=>turnCancelled,
+          onRepair:()=>{activeReceipt.value.repairs=1;activeReceipt.save();phase('Repairing…');},
+          generate:async(task,repair)=>{server?.close();server=makeServer({checked:true,repair});turnSucceeded=false;await server.startTurn(task);return turnSucceeded;},
+          inspect:async()=>{
+            const target=source,hash=await hashSource(target);
+            for(let i=0;i<100&&!turnCancelled&&(!painted||lastPaintedSource!==target);i++)await new Promise(resolve=>setTimeout(resolve,20));
+            return validateCandidate(target,feedback,hash);
+          }});
+        if(result.validation){
+          validationChecks=result.validation.findings.map(f=>({code:f.code,sourceHash:result.validation.sourceHash}));
+          if(!result.validation.passed){turnSucceeded=false;turnRuntimeFailed=true;turnError='Edit check failed: '+result.validation.findings.map(f=>f.code).join(', ');}
+        }
+      }finally{clearTimeout(deadline);}
+    }else{
+      if(server?.checked){server.close();server=null;}
+      server??=makeServer();await server.startTurn(contextualRequest(versions.value,text));
+    }
   }catch(error){turnError=error.message;phase('Could not start');log(error.message);}
   finally{
-    if(noChange){localStorage.removeItem(storageKey+'-inflight');activeAttempt=null;lastAttempt={...lastAttempt,status:'unchanged'};end();phase('Already there');benchmark('localEditUnchanged');return;}
-    if(!turnSucceeded&&!turnCancelled&&turnStarter&&starterPainted){
+    if(noChange){await finishReceipt('unchanged');localStorage.removeItem(storageKey+'-inflight');activeAttempt=null;lastAttempt={...lastAttempt,status:'unchanged'};end();phase('Already there');benchmark('localEditUnchanged');return;}
+    if(!activeChecked&&!turnSucceeded&&!turnCancelled&&turnStarter&&starterPainted){
       // A failed refinement must not erase the useful, verified first drawing.
       source=turnStarter;vfs.mount(file,source);
       if(previewSource!==source)render(source);
@@ -296,13 +345,14 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
       turnSucceeded=painted&&lastPaintedSource===source;turnRuntimeFailed=false;
       if(turnSucceeded){benchmark('refinementFailed',{message:turnError||'Refinement unavailable'});log('Refinement failed; kept the starter');server?.close();server=null;}
     }
-    if(turnSucceeded&&!turnRuntimeFailed&&painted&&lastPaintedSource.trimEnd()===source.trimEnd()){
+    if(turnSucceeded&&!turnCancelled&&!turnRuntimeFailed&&painted&&lastPaintedSource===source){
       try {const version=versions.commit({source,request:turnRequest,layers:checkpoints,parent:turnParent,requestID:activeAttempt?.id});saved();phase(`v${version.id} · Ready to play`);log(`Saved v${version.id} · ${checkpoints} layers`);benchmark('versionCommitted',{version:version.id,layers:checkpoints});}
       catch(error){turnSucceeded=false;turnError=error.message;phase('Could not save version');log(error.message);benchmark('generationFailed',{message:error.message});}
     }else turnSucceeded=false;
-    if(!turnSucceeded){source=previous;vfs.mount(file,source);saved();const restored=source||'export function paint({wipe}) {wipe("black");}';if(previewSource.trimEnd()!==restored.trimEnd())render(restored);server?.close();server=null;log('Restored previous version');}
+    if(!turnSucceeded){source=previous;vfs.mount(file,source);saved();const restored=source||'export function paint({wipe}) {wipe("black");}';if(previewSource!==restored)render(restored);server?.close();server=null;log('Restored previous version');}
     benchmark(turnSucceeded?'generationFinished':'generationFailed',{message:turnSucceeded?'':turnError||'No verified version was committed'});
     lastAttempt={...lastAttempt,status:turnSucceeded?'completed':'failed',error:turnError||(!turnSucceeded?'No verified version was committed':''),runtimeErrors:[...runtimeErrors],finishedAt:new Date().toISOString()};threadUpdate();
+    await finishReceipt(turnCancelled?'interrupted':turnSucceeded?'completed':'failed');
     if(activeAttempt){
       if(turnSucceeded||turnCancelled)localStorage.removeItem(storageKey+'-inflight');
       else saveAttempt(localStorage,storageKey,{...activeAttempt,status:'failed'});
@@ -320,17 +370,20 @@ async function resumeAttempt(manual=false){
   await ask(attempt.text,attempt.displayText,null,null,attempt.localText,attempt);
 }
 window.walkiewareEngineEvent=event=>{
+  if(event.kind==='inferenceSettings')window.__whistlegraphCheckedEdits=event.checkedEdits===true;
   if(event.kind==='account') {token=event.token;if(token){musicalSocket.resume();thread?.resume();}else{musicalSocket.suspend();thread?.suspend();}window.walkiewareAccountReady=!!token;accountIdentity(token);if(token&&pending)void ask(pending);else void resumeAttempt();}
   if(event.kind==='error'){phase('Sign-in needed');log(event.text);window.walkiewareWorkFinished?.();}
   if(event.kind==='previewReady'){ready=true;log('AC runtime ready');}
   if(event.kind==='previewEvent'){
-    if(event.event.kind==='painted'){if(turnStarter&&previewSource===turnStarter&&!starterPainted){starterPainted=true;benchmark('starterPainted');}if(previewSource.trimEnd()!==previous.trimEnd())window.__walkiewareSequenceEvent?.('painted');painted=true;lastPaintedSource=previewSource;if(busy&&activeAttempt&&source===previewSource&&!turnRuntimeFailed){activeAttempt={...activeAttempt,checkpoint:source};try{saveAttempt(localStorage,storageKey,activeAttempt);}catch(error){log('Could not persist checkpoint: '+error.message);}}feedback={rendered:true,logs:[],updatedAt:new Date().toISOString()};log('Checkpoint painted');phase(busy?'Building…':'Ready to play');if(narrationPending!==null){post({action:'narrationReady',version:narrationPending});narrationPending=null;}void resumeAttempt();}
-    if(event.event.kind==='invalidated'){turnRuntimeFailed=true;window.__walkiewareSequenceEvent?.('runtimeError',{message:'Preview invalidated'});painted=false;feedback={rendered:false,logs:[{level:'error',text:'Preview invalidated'}],updatedAt:new Date().toISOString()};log('Preview failed; inspect activity');phase('Preview error');if(lastPaintedSource && lastPaintedSource!==previewSource){render(lastPaintedSource);log('Restored last painted checkpoint');}}
+    if(event.event?.sourceHash!==previewHash||event.event?.requestID!==renderID)return;
+    activeReceipt?.observe(event.event);
+    if(event.event.kind==='painted'){if(turnStarter&&previewSource===turnStarter&&!starterPainted){starterPainted=true;benchmark('starterPainted');}if(previewSource.trimEnd()!==previous.trimEnd())window.__walkiewareSequenceEvent?.('painted');painted=true;lastPaintedSource=previewSource;if(busy&&activeAttempt&&source===previewSource&&!turnRuntimeFailed){activeAttempt={...activeAttempt,checkpoint:source};try{saveAttempt(localStorage,storageKey,activeAttempt);}catch(error){log('Could not persist checkpoint: '+error.message);}}feedback={...feedback,rendered:true,updatedAt:new Date().toISOString()};if(activeReceipt&&previewSource.trimEnd()!==previous.trimEnd())activeReceipt.painted();log('Checkpoint painted');phase(busy?'Building…':'Ready to play');if(narrationPending!==null){post({action:'narrationReady',version:narrationPending});narrationPending=null;}void resumeAttempt();}
+    if(event.event.kind==='invalidated'){turnRuntimeFailed=true;window.__walkiewareSequenceEvent?.('runtimeError',{message:'Preview invalidated'});painted=false;feedback={...feedback,rendered:false,logs:[...(feedback?.logs||[]),{level:'error',text:'Preview invalidated'}],updatedAt:new Date().toISOString()};log('Preview failed; inspect activity');phase('Preview error');if(lastPaintedSource && lastPaintedSource!==previewSource){render(lastPaintedSource);log('Restored last painted checkpoint');}}
     if(event.event.kind==='console'&&['error','warn'].includes(event.event.event?.level)){
       const entry={level:event.event.event.level,text:event.event.event.message||'Runtime error'};
       if(/\b(?:Paint|Sim|Boot) failure\b/i.test(entry.text))entry.level='error';
       log(entry.text);runtimeErrors.push(entry.text);if(runtimeErrors.length>20)runtimeErrors.shift();
-      feedback={rendered:painted,logs:[...(feedback?.logs||[]),entry].slice(-20),updatedAt:new Date().toISOString()};
+      feedback={...feedback,rendered:painted,logs:[...(feedback?.logs||[]),entry].slice(-20),updatedAt:new Date().toISOString()};
       if(entry.level==='error'){turnRuntimeFailed=true;turnError=entry.text;window.__walkiewareSequenceEvent?.('runtimeError',{message:entry.text});}
       threadUpdate();
     }
@@ -383,7 +436,7 @@ if(typeof window.__walkiewareFixtureBusy==='string'){
 updateFeed();
 if(versions&&!window.__walkiewareSequence&&!window.__walkiewareBenchmark&&!window.__walkiewareDisableThread) {
   const label=codeLabel;label.setAttribute('aria-live','polite');
-  thread=new WalkiewareThread({storage:localStorage,key:storageKey,token:()=>token,ledger:()=>versions.value,
+  thread=new WalkiewareThread({storage:localStorage,key:storageKey,receipts,token:()=>token,ledger:()=>versions.value,
     state:()=>({busy,phase:$('live-phase').textContent,head:versions.head.id,source:versions.head.source,errors:runtimeErrors,attempt:lastAttempt}),
     onStatus:(code,status)=>{label.textContent=code?'/'+code:'';label.title=status;label.dataset.status=status;post({action:'threadStatus',code:code||'',threadID:thread.identity.id,status});nativeSnapshot();},
     onCommand:async command=>{
@@ -418,12 +471,12 @@ if(versions&&!window.__walkiewareSequence&&!window.__walkiewareBenchmark&&!windo
   };
   // Every piece on this phone: the open one plus the archives "New piece" left.
   // Opening another swaps archives, so the current one is never lost.
-  const ARCHIVE='walkieware-archive-',ARCHIVE_SUFFIXES=['-cloud-revision','-cloud-ledger'];
+  const ARCHIVE='walkieware-archive-',ARCHIVE_SUFFIXES=['-cloud-revision','-cloud-ledger','-receipts'];
   function archiveCurrentPiece(){
     const extras={};for(const suffix of ARCHIVE_SUFFIXES){const v=localStorage.getItem(storageKey+suffix);if(v!==null)extras[suffix]=v;}
     localStorage.setItem(ARCHIVE+thread.identity.id,JSON.stringify({identity:thread.identity,ledger:versions.value,source,extras,archivedAt:new Date().toISOString()}));
     thread.suspend();
-    for(const suffix of ['', '-versions','-thread','-cloud-revision','-cloud-ledger','-attempt','-inflight'])localStorage.removeItem(storageKey+suffix);
+    for(const suffix of ['', '-versions','-thread','-cloud-revision','-cloud-ledger','-attempt','-inflight','-receipts'])localStorage.removeItem(storageKey+suffix);
   }
   function pieceSummary(id,identity,ledger,current){
     const made=(ledger?.versions||[]).filter(v=>v.id>0),last=made.at(-1);
@@ -456,13 +509,13 @@ if(versions&&!window.__walkiewareSequence&&!window.__walkiewareBenchmark&&!windo
 post({action:'account'});
 setTimeout(()=>{if(!ready){ui.hidden=false;phase('Preview still loading');log('AC runtime has not reported ready. Check your connection.');}},20000);
 
-if(window.__walkiewareSequence && !window.__walkiewareLocalSequence && window.__walkiewareReviewVersion===undefined) import("./sequence-benchmark.mjs").then(({runSequence})=>runSequence({ask,ready:()=>ready,source:()=>source,painted:()=>painted&&lastPaintedSource.trimEnd()===source.trimEnd(),interrupt:()=>server?.interrupt(),model:window.__walkiewareModel||DEFAULT_MODEL}));
+if(window.__walkiewareSequence && !window.__walkiewareLocalSequence && window.__walkiewareReviewVersion===undefined) import("./sequence-benchmark.mjs").then(({runSequence})=>runSequence({ask,ready:()=>ready,source:()=>source,painted:()=>painted&&lastPaintedSource===source,interrupt:()=>server?.interrupt(),model:window.__walkiewareModel||DEFAULT_MODEL}));
 
 if(window.__walkiewareSequence && Number.isInteger(window.__walkiewareReviewVersion)) void (async()=>{
   const revision=versions.value.versions.find(v=>v.id===window.__walkiewareReviewVersion);
   if(!revision){phase('Review version unavailable');return;}
   source=revision.source;render(source);
-  for(let i=0;i<300&&!(ready&&painted&&lastPaintedSource.trimEnd()===source.trimEnd());i++)await new Promise(r=>setTimeout(r,100));
+  for(let i=0;i<300&&!(ready&&painted&&lastPaintedSource===source);i++)await new Promise(r=>setTimeout(r,100));
   if(!painted){phase('Review preview unavailable');return;}
   phase(`Reviewing v${revision.id}`);
   const r=frame.getBoundingClientRect();

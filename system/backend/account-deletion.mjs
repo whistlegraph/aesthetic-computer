@@ -295,6 +295,7 @@ const DELETE = [
   ["moods", (sub) => ({ user: sub })],
   ["push-tokens", (sub) => ({ user: sub })],
   ["easel-transcripts-private", (sub) => ({ owner: sub })],
+  ["walkieware-threads", (sub) => ({ owner: sub })],
   ["tells", (sub) => ({ $or: [{ to: sub }, { from: sub }] })],
   ["tapes", (sub) => ({ user: sub })],
   ["tape-drafts", (sub) => ({ user: sub })],
