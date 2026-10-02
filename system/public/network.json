@@ -1023,7 +1023,7 @@
     {
       "url": "https://pals.aesthetic.computer/",
       "title": "Aesthetic Computer Pals",
-      "summary": "Aesthetic Computer partner and pal logo service.",
+      "summary": "Public Pals artwork: original stills, video loops and animated images for reuse in other placements.",
       "llms": "https://pals.aesthetic.computer/llms.txt",
       "aliases": [],
       "resources": [
@@ -1031,6 +1031,16 @@
           "title": "Website",
           "url": "https://pals.aesthetic.computer/",
           "description": "Public entry point."
+        },
+        {
+          "title": "Pals catalogue",
+          "url": "https://pals.aesthetic.computer/pals.json",
+          "description": "Machine-readable stills, animations, formats and collections."
+        },
+        {
+          "title": "Dripped Pals",
+          "url": "https://pals.aesthetic.computer/dripped",
+          "description": "Pink-sky and black-background artwork with PNG, MP4, WebP and APNG downloads."
         },
         {
           "title": "Aesthetic Computer",

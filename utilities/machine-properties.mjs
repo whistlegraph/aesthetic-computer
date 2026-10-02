@@ -48,7 +48,7 @@ export const properties = [
   property("news.aesthetic.computer", "Aesthetic Computer News", "Aesthetic Computer's newsletter.", [["Project", `${ac}/about`, "About Aesthetic Computer."]], {note: "Only publicly visible pages may be read anonymously. Subscription and contributor permissions remain in force."}),
   property("feed.aesthetic.computer", "Aesthetic Computer Feed", "A DP-1 playlist and channel service.", [["Service health", "https://feed.aesthetic.computer/health", "Existing public health endpoint."]], {note: "Follow the landing page's API documentation. Do not treat internal or authenticated operations as public."}),
   property("tv.whistlegraph.org", "Whistlegraph TV", "A viewing interface for the Whistlegraph archive.", [["Whistlegraph machine index", "https://whistlegraph.org/llms.txt", "Works, source records, attribution and machine-access terms."]]),
-  property("pals.aesthetic.computer", "Aesthetic Computer Pals", "Aesthetic Computer partner and pal logo service.", [["Aesthetic Computer", ac, "Project home."], source]),
+  property("pals.aesthetic.computer", "Aesthetic Computer Pals", "Public Pals artwork: original stills, video loops and animated images for reuse in other placements.", [["Pals catalogue", "https://pals.aesthetic.computer/pals.json", "Machine-readable stills, animations, formats and collections."], ["Dripped Pals", "https://pals.aesthetic.computer/dripped", "Pink-sky and black-background artwork with PNG, MP4, WebP and APNG downloads."], ["Aesthetic Computer", ac, "Project home."], source]),
 ];
 
 // Every explicit Caddy host is accounted for in the validation command. Keep

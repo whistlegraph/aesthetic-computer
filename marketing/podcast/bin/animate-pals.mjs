@@ -22,6 +22,9 @@
 //                          materials, else turntable; morph is opt-in — it melts the mark)
 //   --concurrency N        parallel fal jobs (default 3)
 //   --encode-only          skip fal, just (re)encode webp+apng from existing .mp4s
+//   --webp-size N          WebP width (default 720); smaller embeds can use 512
+//   --webp-fps N           WebP frame rate (default 24); smaller embeds can use 15
+//   --keep-last-frame      for already-prepared loops without a duplicate final frame
 //   --force                regenerate even if the .mp4 already exists
 //   --dry                  print the plan + cost estimate and exit
 //
@@ -56,6 +59,12 @@ const CONCURRENCY = Number(flag("concurrency", 3));
 const ENCODE_ONLY = has("encode-only");
 const FORCE = has("force");
 const DRY = has("dry");
+const WEBP_SIZE = Number(flag("webp-size", 720));
+const WEBP_FPS = Number(flag("webp-fps", FPS));
+if (!Number.isInteger(WEBP_SIZE) || WEBP_SIZE < 64 || WEBP_SIZE > 2160 ||
+    !Number.isInteger(WEBP_FPS) || WEBP_FPS < 1 || WEBP_FPS > 60) {
+  throw new Error("WebP size must be 64–2160 pixels and frame rate 1–60 fps");
+}
 
 const allSlugs = logoSlugs.map((f) => f.replace(/^pals-/, "").replace(/\.png$/, ""));
 const trayFilter = flag("tray");
@@ -111,17 +120,17 @@ export function encodeTurnaround(slug) {
   const mp4 = resolve(OUT, `${slug}.mp4`);
   const webp = resolve(OUT, `${slug}.webp`);
   const apng = resolve(OUT, `${slug}.apng`);
-  const keep = frameCount(mp4) - 1; // drop the duplicated last frame → clean loop
+  const keep = frameCount(mp4) - (has("keep-last-frame") ? 0 : 1);
   const base = `trim=end_frame=${keep},setpts=PTS-STARTPTS`;
 
-  // WebP: 720px @ 24fps lossy — this ffmpeg has no libwebp, so frames → img2webp.
+  // WebP: default 720px @ 24fps; smaller copies serve constrained embeds.
   const frames = resolve(tmpdir(), `pals-frames-${slug}-${process.pid}`);
   rmSync(frames, { recursive: true, force: true });
   mkdirSync(frames, { recursive: true });
   execFileSync("ffmpeg", ["-y", "-hide_banner", "-loglevel", "error", "-i", mp4,
-    "-vf", `${base},fps=${FPS},scale=720:-1:flags=lanczos`, resolve(frames, "%04d.png")]);
+    "-vf", `${base},fps=${WEBP_FPS},scale=${WEBP_SIZE}:-1:flags=lanczos`, resolve(frames, "%04d.png")]);
   const pngs = readdirSync(frames).filter((f) => f.endsWith(".png")).sort().map((f) => resolve(frames, f));
-  execFileSync("img2webp", ["-loop", "0", "-d", String(Math.round(1000 / FPS)), "-lossy", "-q", "72", "-m", "4", ...pngs, "-o", webp]);
+  execFileSync("img2webp", ["-loop", "0", "-d", String(Math.round(1000 / WEBP_FPS)), "-lossy", "-q", "72", "-m", "4", ...pngs, "-o", webp]);
   rmSync(frames, { recursive: true, force: true });
 
   // APNG: 400px @ 12fps, 256-colour palette, mixed prediction — PNG frames are

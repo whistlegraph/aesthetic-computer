@@ -1,0 +1,46 @@
+{
+  "provider": "fal.ai",
+  "model": "bytedance/seedance-2.0/image-to-video",
+  "prompt": "The pink sunset clouds billow very slowly, with soft rose sunlight and atmospheric rays breathing gently behind the cyan glyphs. The liquid surface glints subtly and the tiny hanging drips sway almost imperceptibly, then settle. The emblem remains steady and clear against the photographic pink sky. Locked camera. Preserve the exact connected contours, scale, orientation and placement of both cyan glyphs for the whole clip. Do not rotate the logo or turn it into a creature. No cuts, zooms, text, new objects, or shape morphing. One smooth gentle cycle returning to the exact starting appearance. The silhouette must stay recognizable at every instant.",
+  "source": "stills/psycho-dripped-pink.png",
+  "endFrame": "same as source",
+  "duration": 6,
+  "aspectRatio": "1:1",
+  "resolution": "1080p",
+  "audio": false,
+  "output": {
+    "width": 1440,
+    "height": 1440,
+    "fps": 24,
+    "duration": 6.041667,
+    "bytes": 7579979
+  },
+  "qa": {
+    "frames": 145,
+    "loopSeamMeanAbsolutePixelDelta": 3.1499837239583335,
+    "finalStepMeanAbsolutePixelDelta": 0.16422526041666666,
+    "review": "Six sampled frames inspected: glyphs remain recognizable; no camera cuts or new objects.",
+    "deliveryLoopSeamMeanAbsolutePixelDelta": 2.1533203125,
+    "deliveryFrames": 132,
+    "firstThreeAdjacentFramesMaxMeanAbsolutePixelDelta": 2.1460774739583335,
+    "loopBoundaryMatchesAdjacentMotion": true
+  },
+  "delivery": {
+    "width": 1440,
+    "height": 1440,
+    "r_frame_rate": "24/1",
+    "duration": 5.5,
+    "bytes": 8280629,
+    "loopTreatment": "0.5-second cyclic crossfade; original FAL output preserved in .source.mp4",
+    "webp": {
+      "width": 512,
+      "fps": 15
+    },
+    "apng": {
+      "width": 400,
+      "fps": 12
+    }
+  },
+  "seed": 539715592,
+  "generatedAt": "2026-10-02T00:24:05.303Z"
+}

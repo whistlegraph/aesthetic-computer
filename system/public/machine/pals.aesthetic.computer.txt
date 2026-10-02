@@ -1,10 +1,12 @@
 # Aesthetic Computer Pals
 
-> Aesthetic Computer partner and pal logo service.
+> Public Pals artwork: original stills, video loops and animated images for reuse in other placements.
 
 ## Resources
 
 - [Website](https://pals.aesthetic.computer/): Public entry point.
+- [Pals catalogue](https://pals.aesthetic.computer/pals.json): Machine-readable stills, animations, formats and collections.
+- [Dripped Pals](https://pals.aesthetic.computer/dripped): Pink-sky and black-background artwork with PNG, MP4, WebP and APNG downloads.
 - [Aesthetic Computer](https://aesthetic.computer): Project home.
 - [Source repository](https://tangled.org/aesthetic.computer/core): Canonical source; GitHub is a mirror.
 

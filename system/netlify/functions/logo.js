@@ -17,6 +17,7 @@ import { respond } from "../../backend/http.mjs";
 import {
   logoUrl, turnaroundUrl, randomPal, stillSlugs, turnaroundSlugs, turnaroundFormats,
 } from "../../backend/logo.mjs";
+import { renderDrippedPals } from "../../backend/pals-gallery.mjs";
 
 const CORS = { "Access-Control-Allow-Origin": "*" };
 const NO_CACHE = { "Cache-Control": "no-store" };
@@ -46,12 +47,17 @@ export async function handler(event, context) {
   const query = new URLSearchParams(event.queryStringParameters || {});
   const previous = query.get("previousLogo");
 
+  if (assetPath === "dripped" || assetPath === "dripped/") {
+    return { statusCode: 200, headers: { "Content-Type": "text/html; charset=utf-8", ...NO_CACHE }, body: renderDrippedPals() };
+  }
+
   // ── catalogue ───────────────────────────────────────────────────────
   if (assetPath === "pals.json") {
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json", ...CORS, "Cache-Control": "public, max-age=300" },
       body: JSON.stringify({
+        collections: [{ slug: "dripped", url: "https://pals.aesthetic.computer/dripped", pals: ["psycho-dripped-pink", "psycho-dripped"] }],
         stills: stillSlugs.map((slug) => ({ slug, png: logoUrl(slug) })),
         turnarounds: turnaroundSlugs.map((slug) => Object.fromEntries([
           ["slug", slug], ...turnaroundFormats.map((f) => [f, turnaroundUrl(slug, f)]),
@@ -65,7 +71,13 @@ export async function handler(event, context) {
   if (named) {
     const [, slug, format] = named;
     const url = format === "png" ? logoUrl(slug) : turnaroundUrl(slug, format);
-    return url ? redirect(url) : respond(404, { error: "Pal not found." });
+    if (!url) return respond(404, { error: "Pal not found." });
+    if (query.get("download") === "1") {
+      const response = await proxy(url, format);
+      response.headers["Content-Disposition"] = `attachment; filename="pals-${slug}.${format}"`;
+      return response;
+    }
+    return redirect(url);
   }
 
   // ── random animated (turnaround / auth0 are legacy aliases) ─────────
@@ -112,10 +124,12 @@ export async function handler(event, context) {
       }
       body.blurred { filter: blur(5px); }
       img { object-fit: contain; width: 100vw; height: 100%; cursor: pointer; }
+      .collection { position:fixed;bottom:16px;right:16px;color:white;background:#291522dd;padding:12px 18px;border-radius:24px;font:16px system-ui;text-decoration:none; }
     </style>
   </head>
   <body>
     <img crossorigin src="${pal.url}" alt="pals ${pal.slug}" onclick="next()">
+    <a class="collection" href="/dripped">Dripped Pals ↗</a>
     <script>
       const strippedUrl = window.location.origin + window.location.pathname;
       window.history.replaceState({}, document.title, strippedUrl);

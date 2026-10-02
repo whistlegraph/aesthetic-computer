@@ -1,0 +1,46 @@
+{
+  "provider": "fal.ai",
+  "model": "bytedance/seedance-2.0/image-to-video",
+  "prompt": "Animate only the liquid surface: glossy cyan, magenta and lime highlights travel slowly along the existing glyph contours. Hanging gummy droplets stretch very slightly, wobble, and settle back without detaching. A subtle light shimmer breathes once. The black background remains still. Locked camera. Preserve the exact connected contours, scale, orientation and placement of both cyan glyphs for the whole clip. Do not rotate the logo or turn it into a creature. No cuts, zooms, text, new objects, or shape morphing. One smooth gentle cycle returning to the exact starting appearance. The silhouette must stay recognizable at every instant.",
+  "source": "stills/psycho-dripped.png",
+  "endFrame": "same as source",
+  "duration": 6,
+  "aspectRatio": "1:1",
+  "resolution": "1080p",
+  "audio": false,
+  "output": {
+    "width": 1440,
+    "height": 1440,
+    "fps": 24,
+    "duration": 6.041667,
+    "bytes": 10405353
+  },
+  "qa": {
+    "frames": 145,
+    "loopSeamMeanAbsolutePixelDelta": 2.9828287760416665,
+    "finalStepMeanAbsolutePixelDelta": 0.3868815104166667,
+    "review": "Six sampled frames inspected: glyphs remain recognizable; no camera cuts or new objects.",
+    "deliveryLoopSeamMeanAbsolutePixelDelta": 1.4915364583333333,
+    "deliveryFrames": 132,
+    "firstThreeAdjacentFramesMaxMeanAbsolutePixelDelta": 2.386474609375,
+    "loopBoundaryMatchesAdjacentMotion": true
+  },
+  "delivery": {
+    "width": 1440,
+    "height": 1440,
+    "r_frame_rate": "24/1",
+    "duration": 5.5,
+    "bytes": 8613847,
+    "loopTreatment": "0.5-second cyclic crossfade; original FAL output preserved in .source.mp4",
+    "webp": {
+      "width": 512,
+      "fps": 15
+    },
+    "apng": {
+      "width": 400,
+      "fps": 12
+    }
+  },
+  "seed": 2096261136,
+  "generatedAt": "2026-10-02T00:23:51.746Z"
+}

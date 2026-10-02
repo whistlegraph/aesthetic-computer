@@ -52,6 +52,8 @@ export const logoSlugs = [
   "pals-nat-walnut.png",
   "pals-nat-wool.png",
   "pals-neon.png",
+  "pals-psycho-dripped-pink.png",
+  "pals-psycho-dripped.png",
   "pals-risograph.png",
   "pals-wood.png",
 ];
@@ -88,6 +90,8 @@ export const turnaroundSlugs = [
   "nat-terracotta",
   "nat-walnut",
   "neon",
+  "psycho-dripped",
+  "psycho-dripped-pink",
   "risograph",
   "wood",
 ];
