@@ -51,6 +51,28 @@
       ]
     },
     {
+      "url": "https://whistlegraph.app/",
+      "title": "Whistlegraph for iPhone",
+      "summary": "Make playful software with drawing, speech and typed requests.",
+      "llms": "https://whistlegraph.app/llms.txt",
+      "aliases": [
+        "www.whistlegraph.app"
+      ],
+      "note": "Early access is by invitation. The website offers an email request; no public App Store or TestFlight download is advertised yet.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://whistlegraph.app/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Whistlegraph art archive",
+          "url": "https://whistlegraph.org/",
+          "description": "The drawing and singing practice behind the app."
+        }
+      ]
+    },
+    {
       "url": "https://prompt.ac/",
       "title": "Prompt",
       "summary": "A fast HTML prompt for navigating Aesthetic Computer pieces and Whistlegraph works.",

@@ -1,0 +1,14 @@
+# Whistlegraph for iPhone
+
+> Make playful software with drawing, speech and typed requests.
+
+Early access is by invitation. The website offers an email request; no public App Store or TestFlight download is advertised yet.
+
+## Resources
+
+- [Website](https://whistlegraph.app/): Public entry point.
+- [Whistlegraph art archive](https://whistlegraph.org/): The drawing and singing practice behind the app.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.
