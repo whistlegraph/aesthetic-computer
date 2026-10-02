@@ -19679,39 +19679,53 @@ function drawStickGate(x, y, size, pad, ink) {
 
 const controlRailWidth = () => compactLayout() ? 138 : 188;
 
-// Touch is part of the game surface, not a DOM overlay. One drawn d-pad and
-// four action discs share the exact centers used by mac-test's canvas hit zones.
+// Touch is part of the game surface, not a DOM overlay. A radial thumbstick
+// on the left and four action discs on the right; the discs share the exact
+// centers used by mac-test's canvas hit zones, and the stick's base is
+// wherever the thumb landed (mac-test's touchStick), at rest in its corner.
 const touchPadShown = () => typeof capabilities === "function" &&
   capabilities().inputFamily === "touch" && !capabilities().socialPreview;
 // The top of the Y disc, the pad's highest reach (see the arithmetic below).
-const touchPadTop = () => viewHeight - 140 - viewInset.bottom - 64 - 27;
+const touchPadTop = () => viewHeight - 56 - viewInset.bottom - 2 * Math.round((globalThis.__oskiewarTouch?.stickRadius || 58) * 1.05) - 40;
 function drawTouchControls() {
   if (!touchPadShown()) return;
-  const held = localPad().down || [];
-  const spread = 64;
+  const pad = localPad(), held = pad.down || [];
+  const touch = globalThis.__oskiewarTouch, stick = touch?.stick;
+  const radius = touch?.stickRadius || 58;
+  // The discs' spread scales with the stick (mac-test's touchActionSpread).
+  const spread = Math.round(radius * 1.05);
   // The clusters stand clear of the home indicator and any notch ear; the
   // shell's touchKeyAt mirrors this arithmetic, so a shift here must land
   // there too or the drawing and the hit test come apart.
-  const cy = viewHeight - 140 - viewInset.bottom;
-  const dpadX = 130 + viewInset.left;
+  // The cluster sits one spread plus a margin in from the corner (the
+  // shell's touchKeyAt says the same), and the stick rests a radius in.
+  const cy = viewHeight - 56 - spread - viewInset.bottom;
+  const stickX = stick?.active ? stick.baseX : 56 + radius + viewInset.left;
+  const stickY = stick?.active ? stick.baseY : viewHeight - 56 - radius - viewInset.bottom;
   const idle = mixColor([58, 66, 86], [170, 180, 196], visualTheme.light);
   const live = mixColor([110, 220, 150], [38, 128, 88], visualTheme.light);
-  const arm = 38;
-  const thick = 18;
-  const directions = [[0, -1, "ArrowUp"], [0, 1, "ArrowDown"],
-    [-1, 0, "ArrowLeft"], [1, 0, "ArrowRight"]];
-  for (const [dx, dy, key] of directions)
-    filledCapsule(dpadX + dx * 8, cy + dy * 8,
-      dpadX + dx * arm, cy + dy * arm, thick,
-      held.includes(key) ? live : idle);
-  filledDisc(dpadX, cy, thick, held.some((key) => key.startsWith("Arrow"))
-    ? live : idle);
-  const actionX = viewWidth() - 130 - viewInset.right;
+  const ground = mixColor([7, 8, 28], [230, 239, 247], visualTheme.light);
+  // The stick: a ring, a dim well, four faint ticks for the directions, and
+  // the knob at the pad's left-stick vector — so what is drawn is exactly
+  // what the game reads. Screen y grows downward; the pad reports up as +.
+  const lx = Number(pad.leftX) || 0, ly = Number(pad.leftY) || 0;
+  const leaning = Math.hypot(lx, ly) > .12;
+  filledDisc(stickX, stickY, radius + 4, mixColor(ground, idle, .5));
+  filledDisc(stickX, stickY, radius, mixColor(ground, idle, .18));
+  for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]])
+    filledCapsule(stickX + dx * (radius - 16), stickY + dy * (radius - 16),
+      stickX + dx * (radius - 6), stickY + dy * (radius - 6), 5, mixColor(ground, idle, .6));
+  const knob = Math.round(radius * .45);
+  const knobX = stickX + lx * (radius - 10), knobY = stickY - ly * (radius - 10);
+  filledDisc(knobX + 1, knobY + 3, knob, [6, 8, 18]);
+  filledDisc(knobX, knobY, knob, leaning ? live : idle);
+  filledDisc(knobX, knobY - knob * .27, knob * .62, mixColor(leaning ? live : idle, [255, 255, 255], .22));
+  const actionX = viewWidth() - 56 - spread - viewInset.right;
   const commandGlyph = { A: "/", B: "*", X: ")", Y: "+" };
   for (const [dx, dy, key] of [[0, -1, "Y"], [0, 1, "A"],
       [-1, 0, "X"], [1, 0, "B"]])
-    drawPadButton(key, actionX + dx * spread - 27,
-      cy + dy * spread - 25, 35, held.includes(key), 1, commandGlyph[key]);
+    drawPadButton(key, actionX + dx * spread - Math.round(spread * .48),
+      cy + dy * spread - Math.round(spread * .45), Math.round(spread * .62), held.includes(key), 1, commandGlyph[key]);
 }
 
 function keycapRunWidth(entries, size) {

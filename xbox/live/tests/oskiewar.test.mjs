@@ -904,16 +904,19 @@ test("hardware insets stand the layout off the occluded screen edges", () => {
   assert.doesNotThrow(() => inset.paint());
   // The clusters shift in the game's painter and in the shell's hit test as
   // one arithmetic — drawn buttons and touched buttons must agree.
+  // The action cluster sits one spread plus a margin in from the corner,
+  // and the thumbstick rests a radius in; the stick's base otherwise lands
+  // wherever the thumb did (the shell's touchStick).
   assert.match(source,
-    /const cy = viewHeight - 140 - viewInset\.bottom/);
-  assert.match(source, /const dpadX = 130 \+ viewInset\.left/);
+    /const cy = viewHeight - 56 - spread - viewInset\.bottom/);
+  assert.match(source, /56 \+ radius \+ viewInset\.left/);
   assert.match(source,
-    /const actionX = viewWidth\(\) - 130 - viewInset\.right/);
+    /const actionX = viewWidth\(\) - 56 - spread - viewInset\.right/);
   assert.match(webShell,
-    /const cy = logicalHeight - 140 - logicalInset\.bottom/);
-  assert.match(webShell, /\[130 \+ logicalInset\.left,/);
+    /const cy = logicalHeight - 56 - spread - logicalInset\.bottom/);
   assert.match(webShell,
-    /\[logicalWidth - 130 - logicalInset\.right,/);
+    /const cx = logicalWidth - 56 - spread - logicalInset\.right/);
+  assert.match(webShell, /touch-action: none/);
   assert.match(webShell, /__oskiewarSafeInsets/);
   assert.match(nativeShellApp, /safeAreaInsetsDidChange/);
   assert.match(nativeShellApp, /__oskiewarSafeInsets/);

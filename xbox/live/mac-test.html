@@ -104,7 +104,10 @@
       cursor: url("/aesthetic.computer/cursors/precise.svg") 12 12, auto; }
     body.selection-hover {
       cursor: url("/aesthetic.computer/cursors/active.svg") 12 12, pointer; }
-    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh;
+    canvas {
+      /* A thumb on the stick must never become a page pan: the browser would
+         cancel the pointer at the first move and the stick would spring back. */
+      touch-action: none; position: fixed; inset: 0; width: 100vw; height: 100vh;
       min-width: 0; min-height: 0; display: block; cursor: inherit; }
     @supports (height: 100dvh) { canvas { height: 100dvh; } }
     /* Three strata, the console's frame order: the 2D canvas is the CPU
@@ -288,10 +291,19 @@
     }
     const keys = [new Set(), new Set()];
     const touchPointers = new Map();
+    // The radial thumbstick (drawTouchControls draws it): a touch landing in
+    // the lower-left of the screen plants the stick's base where the thumb
+    // is, and the thumb's offset from there — up to `touchStickRadius` — is
+    // the pad's left stick, a true analog vector, which the park steers and
+    // throttles by. Released, it springs to center.
+    // Sized for a thumb: about 44 CSS px of travel whatever the canvas's
+    // logical scale (a phone draws two or three logical px per CSS px).
+    const touchStickRadius = () => Math.round(Math.max(58, Math.min(120, 44 * (logicalWidth / Math.max(1, canvas.clientWidth || logicalWidth)))));
+    const touchStick = { active: false, pointerId: null, baseX: 0, baseY: 0, x: 0, y: 0 };
     const selectTaps = [];
     // `orbit` banks camera gestures — drag, wheel, pinch — as deltas the
     // piece drains once a tick, in the same units its right stick moves.
-    globalThis.__oskiewarTouch = { taps: selectTaps,
+    globalThis.__oskiewarTouch = { taps: selectTaps, stick: touchStick, get stickRadius() { return touchStickRadius(); }, keyAt: (point) => touchKeyAt(point),
       pointer: { x: 0, y: 0, active: false },
       orbit: { yaw: 0, pitch: 0, zoom: 0 } };
     // A press on empty canvas is a grab on the camera until it proves to be
@@ -1043,8 +1055,8 @@
         down: [...down],
         // Sticks stay raw. `quantizedInput` gates at .48, the same number the
         // console reads, so a deadzone here would only stack onto that one.
-        leftX: source?.axes?.[0] || 0,
-        leftY: -(source?.axes?.[1] || 0),
+        leftX: source ? source.axes?.[0] || 0 : seat === 0 && touchStick.active ? touchStick.x : 0,
+        leftY: source ? -(source.axes?.[1] || 0) : seat === 0 && touchStick.active ? touchStick.y : 0,
         rightX: source?.axes?.[2] || 0,
         rightY: -(source?.axes?.[3] || 0),
         leftTrigger: source?.buttons?.[6]?.value || 0,
@@ -1537,7 +1549,31 @@
         setTimeout(() => keys[0].delete("Y"), 90);
       }
     }
+    function releaseStick(pointerId) {
+      if (!touchStick.active || touchStick.pointerId !== pointerId) return false;
+      Object.assign(touchStick, { active: false, pointerId: null, x: 0, y: 0 });
+      return true;
+    }
+    function moveStick(pointerId, point) {
+      if (!touchStick.active || touchStick.pointerId !== pointerId) return false;
+      const dx = point.x - touchStick.baseX, dy = point.y - touchStick.baseY;
+      const radius = touchStickRadius();
+      const reach = Math.hypot(dx, dy), k = reach > radius ? radius / reach : 1;
+      // Screen y grows downward; the pad reports up as positive.
+      touchStick.x = dx * k / radius;
+      touchStick.y = -dy * k / radius;
+      return true;
+    }
+    // Where a thumb may land to take the stick: the lower-left of the screen,
+    // clear of the action discs on the right.
+    // The action discs' spread scales with the stick, so a disc is a thumb wide.
+    const touchActionSpread = () => Math.round(touchStickRadius() * 1.05);
+    function stickZoneAt(point) {
+      return touchEnabled && !touchStick.active && point.x < logicalWidth * .45 &&
+        point.y > logicalHeight * .4;
+    }
     function releaseTouch(pointerId) {
+      if (releaseStick(pointerId)) return;
       releaseGrab(pointerId);
       const active = touchPointers.get(pointerId);
       if (!active) return;
@@ -1552,26 +1588,23 @@
     }
     function touchKeyAt(point) {
       if (!touchEnabled) return null;
-      const spread = 64;
-      // Mirrors drawTouchControls in the game source — the clusters stand
-      // clear of the home indicator and any notch ear, and a shift there
-      // must land here too or the drawing and the hit test come apart.
-      const cy = logicalHeight - 140 - logicalInset.bottom;
-      const clusters = [
-        [130 + logicalInset.left, [[0, -1, "ArrowUp"], [0, 1, "ArrowDown"],
-          [-1, 0, "ArrowLeft"], [1, 0, "ArrowRight"]]],
-        [logicalWidth - 130 - logicalInset.right, [[0, -1, "Y"], [0, 1, "A"],
-          [-1, 0, "X"], [1, 0, "B"]]],
-      ];
-      for (const [cx, buttons] of clusters)
-        for (const [dx, dy, key] of buttons)
-          if (Math.hypot(point.x - (cx + dx * spread),
-              point.y - (cy + dy * spread)) <= 40) return key;
+      const spread = touchActionSpread();
+      // Mirrors drawTouchControls in the game source — the action cluster
+      // stands clear of the home indicator and any notch ear, and a shift
+      // there must land here too or the drawing and the hit test come apart.
+      // The left side is the thumbstick's (stickZoneAt).
+      // The cluster sits one spread plus a margin in from the corner, so its
+      // lowest and rightmost discs stay whole on a short, wide phone.
+      const cy = logicalHeight - 56 - spread - logicalInset.bottom;
+      const cx = logicalWidth - 56 - spread - logicalInset.right;
+      for (const [dx, dy, key] of [[0, -1, "Y"], [0, 1, "A"], [-1, 0, "X"], [1, 0, "B"]])
+        if (Math.hypot(point.x - (cx + dx * spread), point.y - (cy + dy * spread)) <= spread * .74) return key;
       return null;
     }
     canvas.addEventListener("pointermove", (event) => {
       const point = canvasPoint(event);
       Object.assign(globalThis.__oskiewarTouch.pointer, point, { active: true });
+      if (moveStick(event.pointerId, point)) return;
       const grab = grabs.get(event.pointerId);
       if (!grab) return;
       if (!grab.dragging &&
@@ -1625,6 +1658,14 @@
     canvas.addEventListener("pointerdown", (event) => {
       if (globalThis.__oskiewarWizardOpen) return;
       const point = canvasPoint(event);
+      if (stickZoneAt(point) && globalThis.__oskiewarTouch?.screen === "game") {
+        event.preventDefault();
+        canvas.setPointerCapture?.(event.pointerId);
+        Object.assign(touchStick, { active: true, pointerId: event.pointerId,
+          baseX: point.x, baseY: point.y, x: 0, y: 0 });
+        unlockAudio();
+        return;
+      }
       const touchKey = touchKeyAt(point);
       if (touchKey) {
         event.preventDefault();
@@ -1681,6 +1722,7 @@
     addEventListener("blur", () => {
       keys.forEach((held) => held.clear());
       for (const pointerId of touchPointers.keys()) releaseTouch(pointerId);
+      releaseStick(touchStick.pointerId);
       for (const pointerId of grabs.keys()) releaseGrab(pointerId);
     });
     globalThis.__fightHost = {
