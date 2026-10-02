@@ -179,7 +179,7 @@ export const handler = stream(async (event) => {
       const { recordUsage } = await import("../../backend/ai-budget.mjs");
       const {usageBraincells,reservationSize}=await import("../../backend/easel-paid-credits.mjs");
       const braincells=usageBraincells({model,tokens,cost:usage?.cost,
-        inputBound:paidHold?.inputBound??reservationSize(body,0,{validateMedia:false})});
+        inputBound:paidHold?.inputBound??reservationSize(body,0)});
       if(paidHold) await settlePaid(braincells);
       else await recordUsage(handle, braincells, { model });
     },
