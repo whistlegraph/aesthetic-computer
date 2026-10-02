@@ -1,1 +1,3 @@
-Adds optional app usage counts to help us understand successful loads and canvas use. Manage “Share app usage” in iOS Settings → Apps → aesthetic. Usage counts are separate from your account and never include your paintings, messages or typed input.
+A new dripping icon. Notifications now start when you enter “notifs”; enter “nonotifs” to turn them off. You can explore without a notification prompt on launch.
+
+Optional app usage counts help us understand successful loads and canvas use. Manage “Share app usage” in iOS Settings → Apps → aesthetic. Usage counts are separate from your account and never include your paintings, messages or typed input.

@@ -1,3 +1,4 @@
+import { installIOSPushBridge } from "./lib/ios-push.mjs";
 import { NOPAINT_SESSION_SEED_KEY, noPaintHistoryTarget } from "./lib/nopaint-navigation.mjs";
 import { visitMediaAction } from "./lib/visit-model.mjs";
 import { startAccountActivity } from "./lib/account-activity.mjs";
@@ -15521,6 +15522,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "notifications:web") {
+      if (window.webkit?.messageHandlers?.iOSApp) return;
       window.acRequestNotifications?.(content);
       return;
     }
@@ -24385,105 +24387,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     });
   };
 
-  // 🔔 Native push-token bridge.
-  // Swift calls window.iOSReceivePushToken with the raw APNs device token
-  // (hex) — no Firebase. We register it right away, anonymously if no one is
-  // logged in (topic broadcasts still arrive), then re-register bound to the
-  // user once session:started fires (iOSTryRegisterPushToken, called from
-  // boot.mjs after login) so tells and per-device addressing work.
-  let _iosPushToken = null;
-  let _iosPushRegisteredAs; // undefined = not registered; null = anonymous
-  let _iosPushInflight = false;
-
-  function iosPushDeviceId() {
-    let id;
-    try {
-      id = localStorage.getItem("ac-push-device-id");
-      if (!id) {
-        id = crypto.randomUUID();
-        localStorage.setItem("ac-push-device-id", id);
-      }
-    } catch {
-      id = crypto.randomUUID();
-    }
-    return id;
+  // Permission is requested by native only after the user enters `notifs`.
+  if (window.webkit?.messageHandlers?.iOSApp) {
+    installIOSPushBridge(window);
+    iOSAppSend({ type: "notifications:ready" });
   }
 
-  window.iOSReceivePushToken = (token) => {
-    if (typeof token !== "string" || !/^[0-9a-fA-F]{32,512}$/.test(token)) {
-      console.warn("📱 🔔 Ignoring malformed APNs token.");
-      return;
-    }
-    if (_iosPushToken !== token) {
-      _iosPushToken = token;
-      _iosPushRegisteredAs = undefined;
-    }
-    window.iOSTryRegisterPushToken();
-  };
-
-  window.iOSTryRegisterPushToken = async () => {
-    if (!_iosPushToken || _iosPushInflight) return;
-    const sub = window.acUSER?.sub || null;
-    if (_iosPushRegisteredAs !== undefined && _iosPushRegisteredAs === sub)
-      return; // Already registered for this identity.
-    _iosPushInflight = true;
-    try {
-      const headers = { "Content-Type": "application/json" };
-      if (sub && window.auth0Client) {
-        try {
-          const authToken = await window.auth0Client.getTokenSilently();
-          if (!authToken) return; // Retry after the session settles.
-          headers.Authorization = `Bearer ${authToken}`;
-        } catch {
-          return;
-        }
-      }
-      const res = await fetch("/api/register-push-token", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          kind: "apns",
-          token: _iosPushToken,
-          platform: "ios",
-          deviceId: iosPushDeviceId(),
-          label: /iPad/.test(navigator.userAgent) ? "iPad app" : "iPhone app",
-          topics: ["scream", "mood"],
-        }),
-      });
-      if (res.ok) {
-        _iosPushRegisteredAs = sub;
-        console.log(
-          `📱 🔔 Push token registered${sub ? " (user-bound)" : " (anonymous)"}.`,
-        );
-      } else {
-        console.warn("📱 🔔 Push token registration failed:", res.status);
-      }
-    } catch (err) {
-      console.warn("📱 🔔 Push token registration error:", err);
-    } finally {
-      _iosPushInflight = false;
-    }
-  };
-
-  window.iOSUnregisterPushToken = async () => {
-    if (!_iosPushToken) return;
-    try {
-      // The token itself is the capability — no auth needed to remove it.
-      await fetch("/api/register-push-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          kind: "apns",
-          token: _iosPushToken,
-          remove: true,
-        }),
-      });
-      _iosPushRegisteredAs = undefined;
-      console.log("📱 🔕 Push token unregistered.");
-    } catch (err) {
-      console.warn("📱 🔔 Push token unregister error:", err);
-    }
-  };
 } // End of boot function
 
 function iOSAppSend(message) {

@@ -1,0 +1,7 @@
+Built-in image generation tool; model selection was not exposed.
+Edit target: the refined cyan chalk-figure icon.
+
+Edit the reference into a square iOS app icon. Preserve the twin contours and diagonal composition. Make it psychedelic, irreverent, vivid, trippy and dripping: a cyan core with magenta, acid lime, violet and yellow, gummy drips and beads, wet highlights on dark charcoal. Keep it readable at 60px. No extra mascots, faces, text or jewelry. Full opaque square.
+
+Generated source: icon-psycho-dripped-source.png (1254 × 1254 RGB).
+App asset: ../aesthetic.computer/Assets.xcassets/AppIcon.appiconset/iconAS.png (1024 × 1024 RGB).

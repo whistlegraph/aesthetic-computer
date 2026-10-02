@@ -212,13 +212,15 @@ class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate, WKNavigationD
             // offline (used by the offline.html "Tap to retry" button — the
             // monitor can lag behind a real reconnect by a few seconds).
             bootStatus?.requestForceLive()
-        case "notifications":
-            if let body = dictionary["body"] as? Bool, body == true {
-                AppDelegate.shared?.triggerSubscribe()
-                showAlert(title: "SUBSCRIBED", message: "You have successfully subscribed to notifications. Type \"nonotifs\" to unsubscribe.")
-            } else if let body = dictionary["body"] as? Bool, body == false {
-                AppDelegate.shared?.triggerUnsubscribe()
-                showAlert(title: "UNSUBSCRIBED", message: "You have successfully unsubscribed from notifications. Type \"notifs\" to subscribe.")
+        case "notifications:ready", "notifications":
+            guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https",
+                  message.frameInfo.securityOrigin.host == "aesthetic.computer",
+                  let webView = message.webView else { return }
+            if type == "notifications:ready" {
+                AppDelegate.shared?.pushBridgeReady(in: webView)
+            } else if let enabled = dictionary["body"] as? Bool {
+                if enabled { AppDelegate.shared?.triggerSubscribe(in: webView) }
+                else { AppDelegate.shared?.triggerUnsubscribe(in: webView) }
             }
         case "url":
             if let urlString = dictionary["body"] as? String, let url = URL(string: urlString) {
@@ -229,18 +231,6 @@ class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate, WKNavigationD
         }
     }
 
-    func showAlert(title: String, message: String) {
-        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootViewController = windowScene.windows.first?.rootViewController {
-            var currentController = rootViewController
-            while let presentedController = currentController.presentedViewController {
-                currentController = presentedController
-            }
-            currentController.present(alert, animated: true, completion: nil)
-        }
-    }
 }
 
 // MARK: - WebView
