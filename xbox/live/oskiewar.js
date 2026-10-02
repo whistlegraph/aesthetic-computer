@@ -4634,6 +4634,9 @@ let liveNextAt = 0;
 // The session room ticks slower than a round room: nobody spectates a title
 // screen at 20Hz, and an agent reading fps is happy at four.
 const sessionSnapshotIntervalUs = 250000;
+// In the park the session frame is also everyone's presence: twenty a
+// second, or a friend moves in four steps a second and reads as choppy.
+const parkPresenceIntervalUs = 50000;
 let sessionNextAt = 0;
 // Which round the session room was last told about, so the hand-off frame
 // goes out exactly once per round instead of flapping the native shell's
@@ -5046,7 +5049,7 @@ function publishSession(now) {
   }
   sessionAnnouncedRound = "";
   if (now < sessionNextAt) return;
-  sessionNextAt = now + sessionSnapshotIntervalUs;
+  sessionNextAt = now + (poolOnly() ? parkPresenceIntervalUs : sessionSnapshotIntervalUs);
   try {
     publishLive("ow-" + sessionName, JSON.stringify(spectatorState(now)));
   } catch (error) {
@@ -9632,15 +9635,34 @@ function receiveParkPeers(packet){
   if(f.id===packet.self||![f.x,f.y,f.z,f.yaw].every(Number.isFinite))continue;
   keep.add(f.id);let peer=parkPeers.get(f.id);
   if(!peer){peer={...players[0],pad:32+f.id,removedParts:[],partDamage:{},previous:[],spin:null,goKart:null,gunAmmo:0,grenadeAmmo:0,axeHeld:false,chalkColor:null,skateboard:false,dummy:false,npc:true,remote:true,rig:null,hair:null,skirtCloth:null};parkPeers.set(f.id,peer);}
-  peer.samples ||= [];peer.samples.push({at:now,x:f.x,y:f.y,z:f.z,yaw:f.yaw});if(peer.samples.length>5)peer.samples.shift();
+  peer.samples ||= [];
+  // How far apart samples really arrive sets how far behind the peer is
+  // drawn (interpolateParkPeer): a smoothed gap, not a house number.
+  const last=peer.samples.at(-1);if(last)peer.gapMs=lerp(peer.gapMs||(now-last.at),now-last.at,.3);
+  peer.samples.push({at:now,x:f.x,y:f.y,z:f.z,yaw:f.yaw,vx:Number.isFinite(f.vx)?f.vx:NaN,vz:Number.isFinite(f.vz)?f.vz:NaN});if(peer.samples.length>8)peer.samples.shift();
   if(peer.samples.length===1){peer.x=f.x;peer.y=f.y;peer.z=f.z;peer.poolYaw=f.yaw;}
   Object.assign(peer,{alive:f.alive,grounded:f.grounded,ducking:f.ducking,blocking:f.blocking,skateboard:f.skateboard,name:f.name==='NOBODY'?'GUEST '+f.id:f.name,color:f.color,receivedAt:now});
  }
  for(const id of parkPeers.keys())if(!keep.has(id))parkPeers.delete(id);
 }
+// A peer is drawn a little behind the present — one and a half sample gaps,
+// so there is nearly always a later sample to glide toward — and when the
+// latest sample is older than that it is carried on at its own speed for up
+// to a quarter second (dead reckoning) rather than frozen until the next.
 function interpolateParkPeer(peer,now){
  const samples=peer.samples;if(!samples?.length)return;
- const target=now-120;let a=samples[0],b=a;
+ const delay=clamp((peer.gapMs||100)*1.5,60,400),target=now-delay;
+ const newest=samples.at(-1);
+ if(target>=newest.at){
+  const previous=samples.length>1?samples.at(-2):null;
+  const ahead=Math.min(target-newest.at,250)/1000;
+  const vx=Number.isFinite(newest.vx)?newest.vx:previous&&newest.at>previous.at?(newest.x-previous.x)/(newest.at-previous.at)*1000:0;
+  const vz=Number.isFinite(newest.vz)?newest.vz:previous&&newest.at>previous.at?(newest.z-previous.z)/(newest.at-previous.at)*1000:0;
+  peer.x=newest.x+vx*ahead;peer.z=newest.z+vz*ahead;peer.y=newest.y;peer.poolYaw=newest.yaw;peer.vx=vx;peer.vz=vz;
+  if(peer.grounded)peer.y=poolFloorAt(peer.x,peer.z);
+  return;
+ }
+ let a=samples[0],b=a;
  for(let i=1;i<samples.length;i++){b=samples[i];if(b.at>=target)break;a=b;}
  const t=b.at>a.at?clamp((target-a.at)/(b.at-a.at),0,1):1;
  const teleport=Math.hypot(b.x-a.x,b.y-a.y,b.z-a.z)>2000;

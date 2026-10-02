@@ -290,9 +290,14 @@ export class OskiewarLiveManager {
     for(const [socket,peer] of room.parkPeers)if(socket.readyState!==1||now-peer.at>3000)room.parkPeers.delete(socket);
     let peer=room.parkPeers.get(ws);
     if(!peer){if(room.parkPeers.size>=16)return;peer={id:++room.parkNextId|| (room.parkNextId=1),at:0};room.parkPeers.set(ws,peer);}
-    if(now-peer.at<100)return;
+    // Twenty answers a second a peer, matching the park's own publish rate:
+    // at the old ten, with the game sending every 250 ms, a peer moved in
+    // four steps a second and read as choppy. Velocity rides along so the
+    // game can dead-reckon between samples.
+    if(now-peer.at<40)return;
     const f=state.fighters[0];peer.at=now;
-    peer.fighter={name:f.name,color:f.color,x:f.x,y:f.y,z:f.z,alive:f.alive,grounded:f.grounded,ducking:f.ducking,blocking:f.blocking,
+    const v=(n)=>finite(n,100000)?Math.round(n*10)/10:0;
+    peer.fighter={name:f.name,color:f.color,x:f.x,y:f.y,z:f.z,vx:v(f.vx),vy:v(f.vy),vz:v(f.vz),alive:f.alive,grounded:f.grounded,ducking:f.ducking,blocking:f.blocking,
       yaw:finite(f.poolYaw,100000)?f.poolYaw:0,skateboard:!!f.skateboard};
     room.updatedAt=now;
     const echo=finite(state.park.sentAt,1e13)?state.park.sentAt:0;
