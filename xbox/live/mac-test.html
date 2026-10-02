@@ -314,9 +314,14 @@
     // Pal select is intentionally retired; this keeps Spiderdummy reachable
     // without restoring a screen that no longer matches the front door.
     globalThis.__oskiewarMap = new URLSearchParams(location.search).get("map") || "station";
+    // ?level=desert|pool|indoor|halfpipe|park opens freeskate on that course;
+    // ?ow=<url> loads a .ow package (xbox/OW-FORMAT.md) before the game boots.
+    const levelParam = new URLSearchParams(location.search).get("level") || "";
+    if (levelParam) globalThis.__oskiewarFreeskateMap = levelParam;
     globalThis.__oskiewarOpponent =
       (jevDemo ? 'bot' : new URLSearchParams(location.search).get("opponent")) ||
-      ((new URLSearchParams(location.search).has("workshop") || new URLSearchParams(location.search).has("map")) ? "dummy" : "");
+      (levelParam ? "freeskate"
+        : (new URLSearchParams(location.search).has("workshop") || new URLSearchParams(location.search).has("map")) ? "dummy" : "");
     // `__oskiewarVersusCapable` is raised in the head, beside the fetches
     // that depend on it.
     let titleOpen = true;
@@ -1932,6 +1937,11 @@
     Object.assign(globalThis.__fightHost, photoTheme);
     async function start() {
       if (globalThis.__oskiewarGraphicsTheme === "photorealistic") await photoTheme.ready;
+      const owUrl = new URLSearchParams(location.search).get("ow");
+      if (owUrl) {
+        try { globalThis.__oskiewarOw = await (await fetch(owUrl, { cache: "no-cache" })).text(); }
+        catch (error) { console.warn("ow:", error); }
+      }
       let source = globalThis.__fightPieceSource;
       if (!source) {
         const response = await pieceSourceFetch;

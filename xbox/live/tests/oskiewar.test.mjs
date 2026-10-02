@@ -134,7 +134,7 @@ function createFight(startImmediately = true, enterGame = true,
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "triangles3d", "write", "systemWrite", "gameView",
-    `${source}\nreturn { configureWorldMap, resetSkateRopes, skateRopes, skateLoops, skateBoosts, skateRopeInput, updateSkateRopes, skateLoopStep, skateBoostStep, spectatorState, netSnapshot, netRestore, netStateHash, get gridCols() { return gridCols; }, get gridWidth() { return gridWidth; }, boot, sim, paint, playDrum, airParticles, countPoseBuilds: (run) => { const original = buildRunnerWorldGeometry; let count = 0; buildRunnerWorldGeometry = (...args) => { count++; return original(...args); }; try { run(); } finally { buildRunnerWorldGeometry = original; } return count; }, skateContact, skateFrame, resetSkate, dismountSkateboard, terrainProfile, terrainSamples, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, commandFade, dummyPopLine, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, impacts, gunPickups, saberPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, sampleCombatBoxes, combatBoxContact, jevStrikeOptions, combatRect, buildBoxTree, queryBoxTree, boxesOverlap, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, frameMeterState: (index) => frameMeterState(players[index], runtime().monotonicUs), frameMeters: () => frameMeters.map((meter) => meter.slice()), windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), killLocal: () => killPlayer(players[0], 0, runtime().monotonicUs, "BLASTED"), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), selfBallDummy: () => killPlayer(players[1], 1, runtime().monotonicUs, "BALLED"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), startSurvival: (bot = false) => startSurvivalRun(runtime().monotonicUs, bot), survivalState: () => ({ active: survivalActive(), lavaY: survivalLavaY, height: survivalHeight, bestHeight: survivalBestHeight, peakLevel: survivalPeakLevel }), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })) }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraInputState: () => ({ yaw: playerCameraYaw, pitch: playerCameraPitch, zoom: playerCameraZoom }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, sessionState: () => sessionName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, terrainFloorAt, terrainTangentAt, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), platformTable: () => activeLedges().map((rung) => ({ ...rung })), backToTitle: () => returnToTitle(runtime().monotonicUs, "test"), enterLobby: () => beginVersusLobby(runtime().monotonicUs), enterFreeskate: () => beginFreeskate(runtime().monotonicUs), halfpipe, halfpipeRadius, tileCenterX, freeskateState: () => freeskateActive(), lobbyState: () => ({ lane: fightOpponent, lobby: lobbyActive() }), botSceneState: (index = 0) => players[index].botScene, botSceneNow: (index = 0) => botScene(players[index], players[index ? 0 : 1], runtime().monotonicUs), botSubgoalState: (index = 0) => players[index].botSubgoal, frameRect: () => fighterFrameRect(), liveFrameCount: () => liveSequence, roundState: () => ({ roundResult, roundElapsedUs, matchOver, gameplayStarted, roundStartedAt, timed: roundIsTimed(), introAge: runtime().monotonicUs - roundStartedAt, introLimit: roundIntroDurationUs() }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), netHealth, qrBox: spectatorQrBox, mapState: () => ({ name: currentMapName, id: currentMapId, map: workshopSnapshot() }), versusAllowed, versusDoor, setVersusRequiresAccount: (value) => { versusRequiresAccount = Boolean(value); }, wireHealth: () => ({ gapMs: roundViewerGapMs, jitterMs: roundViewerJitterMs, lossPct: roundViewerLossPct, delayMs: roundViewerDelayMs, queued: roundViewerFrames.length }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length, speed: instantReplay.speed, action: instantReplay.action } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay, gameSpeedState: () => gameSpeed, replayActionCurve, replayRampStep, startInstantReplay: (now) => startInstantReplay(now), blendReplayGeometry, syncReplayCollection, moveKeys, moveColor, isHeadOnly, photoRegions, terrainSkirtTiles };`
+    `${source}\nreturn { configureWorldMap, resetSkateRopes, skateRopes, skateLoops, skateBoosts, skateRopeInput, updateSkateRopes, skateLoopStep, skateBoostStep, spectatorState, netSnapshot, netRestore, netStateHash, get gridCols() { return gridCols; }, get gridWidth() { return gridWidth; }, boot, sim, paint, playDrum, airParticles, countPoseBuilds: (run) => { const original = buildRunnerWorldGeometry; let count = 0; buildRunnerWorldGeometry = (...args) => { count++; return original(...args); }; try { run(); } finally { buildRunnerWorldGeometry = original; } return count; }, skateContact, skateFrame, resetSkate, dismountSkateboard, terrainProfile, terrainSamples, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, commandFade, dummyPopLine, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, impacts, gunPickups, saberPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, sampleCombatBoxes, combatBoxContact, jevStrikeOptions, combatRect, buildBoxTree, queryBoxTree, boxesOverlap, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, frameMeterState: (index) => frameMeterState(players[index], runtime().monotonicUs), frameMeters: () => frameMeters.map((meter) => meter.slice()), windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), killLocal: () => killPlayer(players[0], 0, runtime().monotonicUs, "BLASTED"), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), selfBallDummy: () => killPlayer(players[1], 1, runtime().monotonicUs, "BALLED"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), startSurvival: (bot = false) => startSurvivalRun(runtime().monotonicUs, bot), survivalState: () => ({ active: survivalActive(), lavaY: survivalLavaY, height: survivalHeight, bestHeight: survivalBestHeight, peakLevel: survivalPeakLevel }), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })) }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraInputState: () => ({ yaw: playerCameraYaw, pitch: playerCameraPitch, zoom: playerCameraZoom }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, sessionState: () => sessionName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, terrainFloorAt, terrainTangentAt, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), platformTable: () => activeLedges().map((rung) => ({ ...rung })), backToTitle: () => returnToTitle(runtime().monotonicUs, "test"), enterLobby: () => beginVersusLobby(runtime().monotonicUs), enterFreeskate: () => beginFreeskate(runtime().monotonicUs), swapCourse: (course) => swapCourse(course, runtime().monotonicUs), installOw: (text, swap = true) => installOw(text, swap ? runtime().monotonicUs : null), courseState: () => ({ course: freeskateCourseNow(), title: courseTitle(freeskateCourseNow()), desert: poolDesert, pool: poolOnly(), home: poolDesert ? { ...desertHome() } : null, room: sessionName }), monowheelState: () => ({ ...monowheel }), paintCans, chalkPickups, objectSources: () => gameObjects.sources(), desertParams: () => desertParams(), halfpipe, halfpipeRadius, tileCenterX, freeskateState: () => freeskateActive(), lobbyState: () => ({ lane: fightOpponent, lobby: lobbyActive() }), botSceneState: (index = 0) => players[index].botScene, botSceneNow: (index = 0) => botScene(players[index], players[index ? 0 : 1], runtime().monotonicUs), botSubgoalState: (index = 0) => players[index].botSubgoal, frameRect: () => fighterFrameRect(), liveFrameCount: () => liveSequence, roundState: () => ({ roundResult, roundElapsedUs, matchOver, gameplayStarted, roundStartedAt, timed: roundIsTimed(), introAge: runtime().monotonicUs - roundStartedAt, introLimit: roundIntroDurationUs() }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), netHealth, qrBox: spectatorQrBox, mapState: () => ({ name: currentMapName, id: currentMapId, map: workshopSnapshot() }), versusAllowed, versusDoor, setVersusRequiresAccount: (value) => { versusRequiresAccount = Boolean(value); }, wireHealth: () => ({ gapMs: roundViewerGapMs, jitterMs: roundViewerJitterMs, lossPct: roundViewerLossPct, delayMs: roundViewerDelayMs, queued: roundViewerFrames.length }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length, speed: instantReplay.speed, action: instantReplay.action } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay, gameSpeedState: () => gameSpeed, replayActionCurve, replayRampStep, startInstantReplay: (now) => startInstantReplay(now), blendReplayGeometry, syncReplayCollection, moveKeys, moveColor, isHeadOnly, photoRegions, terrainSkirtTiles };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000),
       simCount: Math.floor(now / 16667), paintCount: 0,
@@ -7835,4 +7835,114 @@ test("replays show projectiles, and wind back to play the big moment again", () 
   assert.ok(sawShot, "the shot is in the replay");
   assert.ok(wentBack, "the replay wound back");
   assert.equal(fight.instantReplayState().active, false, "and then finished");
+});
+
+// ——— levels: swapping under the rider, .ow packages, public park rooms ———
+
+// The harness shares the real global object between boots, so what a host
+// would set once before the game loads is set here and cleared after.
+const roomGlobals = ["__oskiewarSessionName", "__oskiewarParkRoom", "__oskiewarFreeskateMap", "__oskiewarOw"];
+function withRoomGlobals(values, run) {
+  const saved = Object.fromEntries(roomGlobals.map((key) => [key, globalThis[key]]));
+  for (const key of roomGlobals) delete globalThis[key];
+  Object.assign(globalThis, values);
+  try { run(); } finally {
+    for (const key of roomGlobals) { if (saved[key] === undefined) delete globalThis[key]; else globalThis[key] = saved[key]; }
+  }
+}
+
+
+test("a level swaps under the rider and keeps what they ride and hold", () => withRoomGlobals({}, () => {
+  const { fight, tick } = createFight(false, false);
+  fight.enterFreeskate();
+  tick(100000);
+  assert.equal(fight.courseState().course, "desert");
+  assert.equal(fight.courseState().room, "desert1", "the desert is one public room");
+  const rider = fight.players[0];
+  rider.onewheel = true; rider.skateboard = true;
+  rider.chalkColor = { name: "RED", rgb: [232, 52, 66], paint: true, spill: 2400 };
+  assert.equal(fight.swapCourse("pool"), true);
+  assert.equal(fight.courseState().course, "pool");
+  assert.equal(fight.courseState().room, "park1", "the park is its own public room");
+  assert.equal(rider.onewheel, true, "still riding");
+  assert.equal(rider.chalkColor.name, "RED", "still holding the paint");
+  assert.equal(fight.monowheelState().active, false, "the ridden monowheel is not also set down");
+  for (let frame = 0; frame < 60; frame++) tick();
+  assert.ok([rider.x, rider.y, rider.z].every(Number.isFinite), "the rider stands on the park");
+  fight.swapCourse("halfpipe");
+  assert.equal(fight.courseState().pool, false);
+  assert.equal(rider.onewheel, true);
+  assert.equal(rider.chalkColor.name, "RED");
+  for (let frame = 0; frame < 60; frame++) tick();
+  assert.ok([rider.x, rider.y].every(Number.isFinite), "the rider stands on the half-pipe");
+  // A go-kart comes to a 3D course and stays behind where there is no
+  // ground for it.
+  fight.swapCourse("pool");
+  tick();
+  rider.goKart = { x: 0, z: 0, y: 0, poolYaw: 0, color: [1, 2, 3], active: false, safeUntil: 0 };
+  rider.skateboard = true; rider.onewheel = false;
+  fight.swapCourse("desert");
+  assert.ok(rider.goKart, "the kart came to the desert");
+  fight.swapCourse("indoor");
+  assert.equal(rider.goKart, null);
+  assert.equal(rider.skateboard, false);
+  for (let frame = 0; frame < 60; frame++) tick();
+  fight.swapCourse("desert");
+  assert.equal(fight.courseState().desert, true);
+  assert.deepEqual(fight.courseState().home, { x: 2840, z: 0 });
+  assert.throws(() => fight.swapCourse("moon"), /no such course/);
+}));
+
+test("a .ow island reshapes the desert, names it, and brings an object", () => withRoomGlobals({}, () => {
+  const { fight, tick } = createFight(false, false);
+  fight.enterFreeskate();
+  tick(100000);
+  const carried = fight.installOw([";; ow 1", ";; level moon", 'title "moon dunes"', "kind island",
+    "home 2000 0", "island radius 1500", "supply paint 300",
+    ";; object monowheel", "outline 1 20 16 28", "  ball 0 0 0 10", ""].join("\n"));
+  assert.deepEqual(carried, { level: "moon", title: "moon dunes", course: "desert", objects: ["monowheel"] });
+  assert.equal(fight.courseState().title, "moon dunes");
+  assert.deepEqual(fight.courseState().home, { x: 2000, z: 0 });
+  assert.equal(fight.desertParams().island.radius, 1500);
+  assert.equal(fight.desertParams().island.sea, 40, "what the level leaves out keeps its default");
+  for (const can of fight.paintCans)
+    assert.ok(Math.abs(Math.hypot(can.x - 2000, can.z) - 300) < 1, "paint cans ring home at 300");
+  assert.ok(fight.objectSources().includes("monowheel"));
+  for (let frame = 0; frame < 30; frame++) tick();
+}));
+
+test("a .ow with an arena level waits for a versus room", () => withRoomGlobals({}, () => {
+  const { fight, tick } = createFight(false, false);
+  fight.enterFreeskate();
+  tick(100000);
+  assert.throws(() => fight.installOw(";; ow 1\n;; level yard\nkind arena\nflat 0 40\nspawn 4 34\n"), /arena level/);
+}));
+
+
+test("a private park link keeps its room through a course swap; a public one picks the course", () => {
+  withRoomGlobals({ __oskiewarSessionName: "regga890" }, () => {
+    const { fight, tick } = createFight(false, false);
+    fight.enterFreeskate();
+    tick(100000);
+    assert.equal(fight.courseState().room, "regga890");
+    fight.swapCourse("pool");
+    assert.equal(fight.courseState().room, "regga890", "a private room is a private room on every course");
+  });
+  withRoomGlobals({ __oskiewarSessionName: "park1" }, () => {
+    const { fight, tick } = createFight(false, false);
+    fight.enterFreeskate();
+    tick(100000);
+    assert.equal(fight.courseState().course, "pool", "the public park room opens on the park");
+    assert.equal(fight.courseState().room, "park1");
+  });
+});
+
+test("a .ow handed to the host before boot shapes the first freeskate", () => {
+  withRoomGlobals({ __oskiewarOw: ";; ow 1\n;; level dune\ntitle \"dune sea\"\nkind island\nisland radius 1800\n" }, () => {
+    const { fight, tick } = createFight(false, false);
+    fight.enterFreeskate();
+    tick(100000);
+    assert.equal(fight.courseState().title, "dune sea");
+    assert.equal(fight.desertParams().island.radius, 1800);
+  });
 });

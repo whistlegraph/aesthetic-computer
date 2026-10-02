@@ -568,11 +568,14 @@ const TOOLS = [
       "kind flat/bank/transition, lift -450–720, rise 0–720, dir -1/1), decks (col,cols,row), " +
       "two spawns (columns 0–39), pickups (kind,col,amount), skateboard boolean. " +
       "Item kinds: HANDGUN, SPACE LASER, RUBBER SMG, ROCKET LAUNCHER, LIGHT SABER, GRENADE. " +
-      "Read the returned map after changes, then watch play and iterate. Network edits switch both players to the host stream. Survival/replay editing is unavailable.",
+      "Read the returned map after changes, then watch play and iterate. Network edits switch both players to the host stream. Survival/replay editing is unavailable. " +
+      "level swaps the freeskate course under the rider — course: desert|pool|indoor|halfpipe|park — or loads a .ow package (ow: the file's text; xbox/OW-FORMAT.md: a level, objects, or both); " +
+      "the rider keeps their vehicle and what they hold. With neither it reports the course, the levels and the objects the game carries.",
     inputSchema: { type: "object", additionalProperties: false, required: ["op"], properties: {
       op: { type: "string", enum: ["inspect", "apply", "drop", "undo", "reset-round", "restart-level",
-        "highlight", "save", "publish", "load", "list"] },
+        "highlight", "save", "publish", "load", "list", "level"] },
       revision: { type: "integer", minimum: 0 }, map: { type: "object" },
+      course: { type: "string", enum: ["desert", "pool", "indoor", "halfpipe", "park"] }, ow: { type: "string" },
       item: { type: "object", required: ["kind", "col", "amount"], properties: {
         kind: { type: "string" }, col: { type: "number" }, amount: { type: "integer" } } },
       enabled: { type: "boolean" }, name: { type: "string", maxLength: 60 },

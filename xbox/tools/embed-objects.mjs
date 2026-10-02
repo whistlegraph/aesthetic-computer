@@ -40,6 +40,10 @@ function unexport(source) {
 export function generate() {
   const lisp = unexport(read("object-lisp.mjs"));
   if (/^import /m.test(lisp.body)) throw new Error("object-lisp.mjs: the game can't carry imports");
+  // The .ow package reader rides along (xbox/OW-FORMAT.md): a level and its
+  // objects arrive as one text, and the game reads it with the same reader.
+  const ow = unexport(read("ow.mjs"));
+  if (/^import /m.test(ow.body)) throw new Error("ow.mjs: the game can't carry imports");
   const indent = (text) => text.trimEnd().split("\n").map((line) => (line ? "    " + line : line)).join("\n");
   const sources = Object.entries(objects).map(([name, file]) =>
     `    ${name}: ${JSON.stringify(read(`objects/${file}.lisp`))},`);
@@ -53,16 +57,24 @@ export function generate() {
     indent(lisp.body),
     `    return { ${lisp.names.join(", ")} };`,
     "  })();",
+    "  const owLisp = (() => {",
+    indent(ow.body),
+    `    return { ${ow.names.join(", ")} };`,
+    "  })();",
     "  const sources = {",
     ...sources,
     "  };",
     "  // Each compiled (and baked) the first time it is asked for, not at load:",
     "  // an object the game never draws costs nothing.",
-    "  const objects = { light: objectLisp.objectLight, drawFigureShapes: objectLisp.drawFigureShapes };",
-    "  for (const name in sources) {",
-    "    let compiled = null;",
-    "    Object.defineProperty(objects, name, { get: () => compiled || (compiled = objectLisp.compile(sources[name], name)) });",
-    "  }",
+    "  const objects = { light: objectLisp.objectLight, drawFigureShapes: objectLisp.drawFigureShapes, read: objectLisp.read, ow: owLisp };",
+    "  const compiled = {};",
+    "  const ask = (name) => Object.defineProperty(objects, name, { configurable: true,",
+    "    get: () => compiled[name] || (compiled[name] = objectLisp.compile(sources[name], name)) });",
+    "  for (const name in sources) ask(name);",
+    "  // A .ow package can bring its own object by a name the game draws: the",
+    "  // next ask compiles the new source. `sources()` lists what it carries.",
+    "  objects.define = (name, source) => { sources[name] = source; delete compiled[name]; ask(name); };",
+    "  objects.sources = () => Object.keys(sources);",
     "  return objects;",
     "})();",
     end,

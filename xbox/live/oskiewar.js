@@ -4081,6 +4081,17 @@ function workshopCommand(command) {
     throw new Error("Edit through the room host; survival and replay editing are unavailable");
   if (!command || typeof command !== "object") throw new Error("Expected a workshop command");
   const { op } = command;
+  if (op === "level") {
+    const now = runtime().monotonicUs;
+    let carried = null;
+    if (command.ow) carried = installOw(String(command.ow), freeskateActive() ? now : null);
+    else if (command.course) {
+      if (!freeskateActive()) throw new Error("Courses swap in freeskate; this room is in a round");
+      swapCourse(String(command.course), now);
+    }
+    return { course: freeskateCourseNow(), title: courseTitle(freeskateCourseNow()), carried,
+      levels: freeskateLevels.map((c) => ({ course: c, title: courseTitle(c) })), objects: gameObjects.sources() };
+  }
   if (op === "inspect") return { room: "ow-" + (versusRoomName || sessionName),
     revision: workshopRevision, map: workshopSnapshot(),
     highlights: workshopHighlight, undo: workshopHistory.length,
@@ -6709,7 +6720,7 @@ function drawAltitudeGauge(altitude, safe, ink, small) {
 // full, half and quarter, for working a trick through slowly.
 let freeskateMenu = null;
 const freeskateSpeeds = [1, .5, .25];
-const freeskateMenuRows = ["speed", "resume", "back to title"];
+const freeskateMenuRows = ["level", "speed", "resume", "back to title"];
 function updateFreeskateMenu(now) {
   const down = padSnapshots[0]?.down || [];
   const pad = padSnapshots[0] || {};
@@ -6721,7 +6732,13 @@ function updateFreeskateMenu(now) {
   if (pressed("ArrowUp")) menu.row = (menu.row + freeskateMenuRows.length - 1) % freeskateMenuRows.length;
   if (pressed("ArrowDown")) menu.row = (menu.row + 1) % freeskateMenuRows.length;
   const step = pressed("ArrowRight") ? 1 : pressed("ArrowLeft") ? -1 : 0;
+  // Left and right on the level row step through the courses; A takes the
+  // rider there, with whatever they ride and hold (swapCourse).
   if (step && menu.row === 0) {
+    menu.level = (menu.level + step + freeskateLevels.length) % freeskateLevels.length;
+    playDrum("hat", .45, step * .3);
+  }
+  if (step && menu.row === 1) {
     const index = Math.max(0, freeskateSpeeds.indexOf(gameSpeed));
     gameSpeed = freeskateSpeeds[clamp(index + step, 0, freeskateSpeeds.length - 1)];
     gameSpeedChangedAt = now;
@@ -6729,8 +6746,13 @@ function updateFreeskateMenu(now) {
     playDrum("hat", .45, step * .3);
   }
   if (pressed("A")) {
-    if (menu.row === 1) freeskateMenu = null;
-    else if (menu.row === 2) { freeskateMenu = null; returnToTitle(now, "menu"); }
+    if (menu.row === 0) {
+      const course = freeskateLevels[menu.level];
+      freeskateMenu = null;
+      if (course !== freeskateCourseNow()) swapCourse(course, now);
+    }
+    else if (menu.row === 2) freeskateMenu = null;
+    else if (menu.row === 3) { freeskateMenu = null; returnToTitle(now, "menu"); }
     else {
       const index = Math.max(0, freeskateSpeeds.indexOf(gameSpeed));
       gameSpeed = freeskateSpeeds[(index + 1) % freeskateSpeeds.length];
@@ -6747,7 +6769,9 @@ function drawFreeskateMenu(ink) {
   const size = compactLayout() ? 34 : 50;
   const gap = Math.round(size * 1.35);
   const speedLabel = (speed) => speed === 1 ? "\u00d71" : speed === .5 ? "\u00d7\u00bd" : "\u00d7\u00bc";
+  const candidate = freeskateLevels[freeskateMenu.level];
   const rows = [
+    "level  " + (candidate === freeskateCourseNow() ? "[" + courseTitle(candidate) + "]" : "< " + courseTitle(candidate) + " >"),
     "speed  " + freeskateSpeeds.map((speed) =>
       speed === gameSpeed ? "[" + speedLabel(speed) + "]" : speedLabel(speed)).join("  "),
     "resume", "back to title",
@@ -6915,7 +6939,30 @@ function freeskateCourse() {
     : requested === "pool" ? "pool" : "desert";
 }
 // What the mode is called on the title and the HUD: the course, not the verb.
-const freeskateModeName = () => freeskateCourse() === "desert" ? "monowheel desert" : "freeskate";
+const freeskateModeName = () => courseTitle(freeskateCourse());
+// The freeskate courses, in the order the pause menu steps through them, and
+// what each is called. The running one is `freeskateCourseNow()`.
+const freeskateLevels = ["desert", "pool", "indoor", "halfpipe", "park"];
+const courseTitle = (course) => course === "desert" ? desertTitle : course === "pool" ? "the park"
+  : course === "indoor" ? "indoor" : course === "halfpipe" ? "halfpipe" : course === "park" ? "long park" : "freeskate";
+const freeskateCourseNow = () => !skateparkMap ? "station" : poolDesert ? "desert" : skateCourse;
+// Everyone on a course shares one public park room, so friends meet without
+// a link, from the website and the Xbox alike: the room is named by the
+// course, in the speakable-id shape every host and the relay accept. A
+// ?park=<name> link (or OSKIEWAR_ROOM) picks a private room instead, and a
+// public room's name picks its course for whoever follows the link.
+const publicParkRooms = { desert: "desert1", pool: "park1", indoor: "indoor1", halfpipe: "pipe1", park: "long1" };
+const courseForParkRoom = (name) => Object.keys(publicParkRooms).find((course) => publicParkRooms[course] === name) || "";
+const requestedParkRoom = () => /^[a-z0-9-]{5,24}$/.test(globalThis.__oskiewarParkRoom || "") ? globalThis.__oskiewarParkRoom : "";
+const parkRoomFor = (course) => requestedParkRoom() || publicParkRooms[course] || publicParkRooms.desert;
+function joinParkRoom(course) {
+  const room = parkRoomFor(course);
+  if (room === sessionName) return false;
+  sessionName = room; globalThis.__oskiewarSessionName = room;
+  parkPeers.clear(); Object.assign(parkConnection, { at: 0, ping: null, count: 1 });
+  if (typeof qrcode === "function") spectatorQr = spectatorCode("https://oskiewar.com/?park=" + sessionName);
+  return true;
+}
 
 // Indoors you start on foot beside your one board; the long park still
 // drops you in riding.
@@ -7006,6 +7053,7 @@ function freeskateRequested() {
 // Freeskate starts with one rider beside a monowheel in the empty swimming pool.
 // The existing hall and long park remain explicit host options.
 function beginFreeskate(now, seededLayout = false) {
+  applyPendingOw();
   freeskateSecond = false;
   gameMode = "fight";
   selfPlay = false;
@@ -7065,9 +7113,90 @@ function beginFreeskate(now, seededLayout = false) {
   resetParkKids();
   resetParkWindows();
   if(poolOnly()&&!Number.isFinite(startX))startParkEntrance(rider,now);
+  if(poolOnly())joinParkRoom(freeskateCourseNow());
   if(poolOnly()&&typeof qrcode==='function')spectatorQr=spectatorCode("https://oskiewar.com/?park="+sessionName);
   roundStartedAt = now - roundIntroDurationUs();
   emitSignal("freeskate", 0, 1, 0);
+}
+
+// ——— levels: swapping under the rider, and .ow packages ———
+// A course swap is fast and keeps the rider: whatever they ride and hold
+// comes with them (a go-kart only to a 3D course), the ground under them is
+// the new course's, and nothing else resets — no round, no roster, no title.
+function swapCourse(course, now) {
+  if (!freeskateActive()) return false;
+  if (!freeskateLevels.includes(course)) throw new Error(`no such course: ${course}`);
+  const rider = players[0];
+  const keep = { skateboard: rider.skateboard, onewheel: rider.onewheel, goKart: rider.goKart,
+    skateVx: rider.skateVx || 0, skatePitch: rider.skatePitch || 0, chalkColor: rider.chalkColor,
+    axeHeld: rider.axeHeld, handItems: { ...(rider.handItems || {}) }, gunAmmo: rider.gunAmmo,
+    gunMode: rider.gunMode, spin: rider.spin, poolYaw: rider.poolYaw || 0, facing: rider.facing || 1 };
+  globalThis.__oskiewarFreeskateMap = course;   // the title and the next freeskate keep it
+  configureWorldMap("skatepark", course);
+  if (poolOnly()) restoreParkLayout();
+  resetSkateRopes(); resetRoofPanes();
+  for (const item of balls) item.active = false;
+  Object.assign(rider, { parkEntrance: null, poolVert: null, poolPipeLocked: false, swimming: false,
+    vx: 0, vy: 0, vz: 0, grounded: true, frozenGeometry: undefined, replayGeometry: undefined });
+  if (poolOnly()) {
+    const start = poolDesert ? desertHome() : parkHalfPipe3D;
+    rider.spawnX = rider.x = start.x; rider.z = start.z; rider.y = poolFloorAt(rider.x, rider.z);
+    rider.poolYaw = keep.poolYaw; poolCameraYaw = keep.poolYaw; poolCameraDip = 0; poolCameraReturnYaw = null;
+  } else {
+    rider.spawnX = rider.x = tileCenterX(Math.floor((halfpipe.floorFrom + halfpipe.floorTo) / 2));
+    rider.z = 0; rider.y = terrainFloorAt(rider.x); rider.facing = keep.facing;
+  }
+  // The course's own supplies first, then what the rider brought: a kart
+  // stays behind where there is no 3D ground for it, and a ridden monowheel
+  // is not also set down loose.
+  resetMonowheel(); resetParkSupply(now); resetParkKids(); resetParkWindows();
+  const kart = keep.goKart && poolOnly() ? keep.goKart : null;
+  Object.assign(rider, { skateboard: keep.skateboard && (kart !== null || !keep.goKart), onewheel: keep.onewheel,
+    goKart: kart, skateVx: keep.skateVx, skatePitch: poolOnly() ? keep.skatePitch : 0, chalkColor: keep.chalkColor,
+    axeHeld: keep.axeHeld, handItems: keep.handItems, gunAmmo: keep.gunAmmo, gunMode: keep.gunMode, spin: keep.spin });
+  if (kart) kart.active = false;
+  if (keep.onewheel) monowheel.active = false;
+  ensureFreeskateBoards();
+  parkFreeskateChair();
+  if (poolOnly()) joinParkRoom(course);
+  renderPreviousState = null;
+  return true;
+}
+// A .ow package (xbox/OW-FORMAT.md): its objects replace the game's by name,
+// and its level becomes the freeskate course — at once when freeskate is
+// running and `now` is given, otherwise for the next freeskate. An arena
+// level is the workshop's and waits for a versus room. Returns what it
+// carried. `__oskiewarOw` set by a host before boot is read at the first
+// freeskate (applyPendingOw).
+function installOw(text, now = null) {
+  const ow = gameObjects.ow.readOw(String(text), { read: gameObjects.read });
+  for (const [name, source] of Object.entries(ow.objects)) gameObjects.define(name, source);
+  const course = ow.level ? installLevel(ow.level, now) : null;
+  return { level: ow.level?.name ?? null, title: ow.level?.title ?? null, course, objects: Object.keys(ow.objects) };
+}
+function installLevel(level, now = null) {
+  if (level.kind === "arena") {
+    if (freeskateActive()) throw new Error("an arena level is for the versus rooms; leave freeskate first");
+    const validate = globalThis.__oskiewarValidateMap || ((map) => map);
+    installWorkshopMap(validate(gameObjects.ow.levelToMap(level)), true);
+    return "station";
+  }
+  let course = level.kind;
+  if (level.kind === "island") {
+    desertLevel = gameObjects.ow.islandParams(level); desertTitle = level.title;
+    releaseQuadMesh(poolSurfaceMesh); poolSurfaceMesh = null;
+    if (poolDesert) clearPoolDecals();
+    course = "desert";
+  }
+  if (freeskateActive() && now !== null) swapCourse(course, now);
+  else globalThis.__oskiewarFreeskateMap = course;
+  return course;
+}
+let pendingOwApplied = false;
+function applyPendingOw() {
+  if (pendingOwApplied || !globalThis.__oskiewarOw) return;
+  pendingOwApplied = true;
+  try { installOw(String(globalThis.__oskiewarOw)); } catch (error) { console.warn("ow: " + error.message); }
 }
 
 // The versus lobby: one fighter, an empty chair, and the address as the
@@ -7389,7 +7518,7 @@ function resetParkSession(now){
  motorFrequency=75;motorSpeed=motorPhase=0;gameSpeed=1;parkLayoutSeed=null;
  if(netSession)netLeave('title');netInbox.length=0;netPeerHello=null;
  globalThis.__oskiewarNetInbox=[];
- if(poolOnly()){sessionName=pronounceableMatchName();globalThis.__oskiewarSessionName=sessionName;}
+ if(poolOnly()){sessionName=parkRoomFor(freeskateCourseNow());globalThis.__oskiewarSessionName=sessionName;}
 }
 function returnToTitle(now, reason = "back") {
   // Park state only: the 2D fight keeps its own health scale and net seats.
@@ -7653,7 +7782,7 @@ function consumeSystemButtons(now) {
   // again, for working a trick through slowly. There is no round to leave.
   // In freeskate Start opens the pause menu (speed, resume, title).
   if (freeskateActive()) {
-    freeskateMenu = freeskateMenu ? null : { row: 0, previous: padSnapshots[0]?.down?.slice() || [] };
+    freeskateMenu = freeskateMenu ? null : { row: 0, level: Math.max(0, freeskateLevels.indexOf(freeskateCourseNow())), previous: padSnapshots[0]?.down?.slice() || [] };
     if(freeskateMenu&&motorRunning){if(typeof oscillatorStop==='function')oscillatorStop();else if(typeof oscillator==='function')oscillator(motorFrequency,0);motorRunning=false;}
     playDrum("hat", .5, 0);
     emitSignal("freeskate-menu", -1, freeskateMenu ? 1 : 0, 0);
@@ -9656,7 +9785,13 @@ function gameBoot() {
   // a crash the restart exists to paper over.
   if (!sessionName) {
     seedNames(Math.floor(Math.random() * 4294967296));
-    sessionName = /^[a-z0-9-]{5,24}$/.test(globalThis.__oskiewarSessionName||'') ? globalThis.__oskiewarSessionName : pronounceableMatchName();
+    const asked = /^[a-z0-9-]{5,24}$/.test(globalThis.__oskiewarSessionName||'') ? globalThis.__oskiewarSessionName : "";
+    // A link to a public room brings its course along; any other name asked
+    // for is a private room and stays one through course swaps.
+    if (asked && courseForParkRoom(asked)) globalThis.__oskiewarFreeskateMap = courseForParkRoom(asked);
+    else if (asked) globalThis.__oskiewarParkRoom = asked;
+    sessionName = asked || (freeskateRequested() ? parkRoomFor(freeskateCourse()) : pronounceableMatchName());
+    globalThis.__oskiewarSessionName = sessionName;
   }
   startedAt = runtime().monotonicUs;
   roundStartedAt = startedAt;
@@ -22205,16 +22340,21 @@ function parkSurfaceColor(base,x,z){
 // the ground is parkDeckY minus the dune). Home keeps the x the park's pipe
 // stood at: self-play stays on this course and its bots read the arena's
 // columns off x, which is proven at that spot.
-function desertHome(){return {x:2840,z:0};}
-const desertIsland={radius:2900,shore:700,sea:40,deep:300};
-const desertSeaY=()=>parkDeckY+desertIsland.sea;
+// The desert's numbers come from its level — levels/monowheel-desert.ow,
+// whose values are the defaults in ow.mjs — and a loaded .ow island level
+// replaces them (installLevel). `desertTitle` is what the title and the
+// HUD call the course. Read lazily: gameObjects is defined further down.
+let desertLevel=null,desertTitle="monowheel desert";
+const desertParams=()=>desertLevel||(desertLevel=gameObjects.ow.islandParams(null));
+function desertHome(){return desertParams().home;}
+const desertSeaY=()=>parkDeckY+desertParams().island.sea;
 function desertFloorAt(x,z){
-  const home=desertHome(),d=Math.hypot(x-home.x,z-home.z);
+  const {home,island,dunes}=desertParams(),d=Math.hypot(x-home.x,z-home.z);
   const away=clamp((d-700)/1400,0,1),ease=away*away*(3-2*away);
-  const beach=clamp((d-(desertIsland.radius-desertIsland.shore))/desertIsland.shore,0,1);
-  const drop=clamp((d-desertIsland.radius)/900,0,1);
-  const dune=(.5+.5*Math.sin(x/1150+Math.sin(z/1700)*1.3))*150+(.5+.5*Math.sin(z/820+x/2600+1.7))*70+(.5+.5*Math.sin((x-z)/430))*14;
-  return parkDeckY-dune*ease*(1-beach)+drop*drop*desertIsland.deep;
+  const beach=clamp((d-(island.radius-island.shore))/island.shore,0,1);
+  const drop=clamp((d-island.radius)/900,0,1);
+  const dune=(.5+.5*Math.sin(x/1150+Math.sin(z/1700)*1.3))*dunes[0]+(.5+.5*Math.sin(z/820+x/2600+1.7))*dunes[1]+(.5+.5*Math.sin((x-z)/430))*dunes[2];
+  return parkDeckY-dune*ease*(1-beach)+drop*drop*island.deep;
 }
 const desertPalette={sand:[232,203,148],shade:[206,168,118],crest:[246,226,178],sea:[86,164,210],shallows:[128,196,214]};
 function drawDesertGeometry(){
@@ -22229,7 +22369,7 @@ function drawDesertGeometry(){
     // The sun sits off to +x: a face climbing that way catches it, a face
     // falling away sits in shade. Sand at the waterline reads as shallows.
     const rise=(b.y+c.y-a.y-d.y)/2,lit=clamp(-rise/60,-1,1),grain=Math.sin(x*.0071+z*.0043)*.5+.5;
-    const wet=Math.max(0,(a.y+b.y+c.y+d.y)/4-parkDeckY)/desertIsland.sea;
+    const wet=Math.max(0,(a.y+b.y+c.y+d.y)/4-parkDeckY)/desertParams().island.sea;
     const dry=mixColor(desertPalette.sand,lit<0?desertPalette.shade:desertPalette.crest,Math.abs(lit)*.8+grain*.1);
     worldQuad(a,b,c,d,wet>0?mixColor(dry,desertPalette.shallows,wet*.7):dry);
   }
@@ -25441,7 +25581,7 @@ function updatePoolLooseVehicle(v,dt,now,board){
 const monowheel={active:false,x:0,y:0,z:0,vx:0,vy:0,safeUntil:0};
 const parkSupply={nextAt:0,drone:null,drop:null,ko:null};
 function resetMonowheel(){
- const x=poolOnly()?(poolDesert?desertHome().x+260:7600):halfpipeOnly()?clamp(players[0].x+170,gridLeft+60,gridLeft+gridWidth-60):tileCenterX(37);
+ const x=poolOnly()?(poolDesert?desertHome().x+desertParams().supply.monowheel:7600):halfpipeOnly()?clamp(players[0].x+170,gridLeft+60,gridLeft+gridWidth-60):tileCenterX(37);
  Object.assign(monowheel,{active:true,x,y:terrainFloorAt(x),z:0,vx:0,vy:0,vz:0,poolYaw:0,skatePitch:0,safeUntil:0});
 }
 function monowheelFrame(p, local=false){
@@ -26675,17 +26815,236 @@ const gameObjects = (() => {
     }
     return { objectInputs, figureJoints, figurePalette, objectLevels, objectLight, read, compile, drawFigureShapes };
   })();
+  const owLisp = (() => {
+    // ow.mjs — the .ow package: an oskiewar level, objects, or both, in one text
+    // file (xbox/OW-FORMAT.md).
+    //
+    // A .ow is object-lisp text with section banners, so the same reader that
+    // reads an object reads it, and an object section is byte-for-byte the
+    // .lisp it came from:
+    //
+    //   ;; ow 1
+    //   ;; level monowheel-desert
+    //   title "monowheel desert"
+    //   kind island
+    //   home 2840 0
+    //   ;; object monowheel
+    //   …the object's source, unchanged…
+    //
+    // This module has no imports: the game carries it inside the gameObjects
+    // block (xbox/tools/embed-objects.mjs), and a global script can't import.
+    // The reader is handed in (`read` from object-lisp.mjs), the one dependency.
+
+    const OW_VERSION = 1;
+    const OW_FORMAT = "ac.oskiewar.ow";
+
+    // What a level can be. `island` is the monowheel desert machine with its
+    // numbers; `arena` is the 2D map (ac.oskiewar.map, the workshop's); the rest
+    // name a built-in freeskate course and carry nothing.
+    const LEVEL_KINDS = ["island", "arena", "pool", "park", "indoor", "halfpipe"];
+    const ARENA_ITEMS = ["HANDGUN", "SPACE LASER", "RUBBER SMG",
+      "ROCKET LAUNCHER", "LIGHT SABER", "GRENADE"];
+
+    // The desert as it ships: a .ow that says less than this gets these.
+    const ISLAND_DEFAULTS = Object.freeze({
+      home: { x: 2840, z: 0 },
+      island: { radius: 2900, shore: 700, sea: 40, deep: 300 },
+      dunes: [150, 70, 14],
+      supply: { chalk: 420, paint: 760, monowheel: 260 },
+    });
+
+    const banner = /^;; (ow|level|object)(?:\s+(.*?))?\s*$/;
+    const unquote = (v) => typeof v === "string" && /^(["']).*\1$/.test(v) ? v.slice(1, -1) : v;
+    const fail = (why) => { throw new Error(`ow: ${why}`); };
+
+    // ——— reading ———
+
+    // The sections of a .ow, by banner. Text before the first banner must be
+    // empty or comments; the `;; ow N` header comes first.
+    function splitOw(text) {
+      const lines = String(text).replace(/\r\n?/g, "\n").split("\n");
+      let version = null, current = null;
+      const sections = [];
+      for (const line of lines) {
+        const m = line.match(banner);
+        if (!m) {
+          if (current) current.lines.push(line);
+          else if (line.trim() && !line.trim().startsWith(";")) fail(version === null ? "the file must open with ;; ow 1" : `text before the first section: ${line.trim()}`);
+          continue;
+        }
+        if (m[1] === "ow") {
+          if (version !== null) fail("one ;; ow header");
+          version = Number(m[2]);
+          if (version !== OW_VERSION) fail(`version ${m[2]} (this reader knows ${OW_VERSION})`);
+          continue;
+        }
+        if (version === null) fail("the file must open with ;; ow 1");
+        if (!m[2] || !/^[a-z][a-z0-9-]*$/.test(m[2])) fail(`${m[1]} wants a kebab-case name`);
+        current = { kind: m[1], name: m[2], lines: [] };
+        sections.push(current);
+      }
+      if (version === null) fail("the file must open with ;; ow 1");
+      for (const s of sections) s.source = s.lines.join("\n").replace(/^\n+|\n+$/g, "") + "\n";
+      return { version, sections };
+    }
+
+    // A level section's forms into a typed level. `read` is object-lisp's.
+    function readLevel(name, source, read) {
+      const level = { name, kind: null, title: name.replace(/-/g, " ") };
+      const forms = read(source);
+      const number = (v, what) => { if (typeof v !== "number" || !Number.isFinite(v)) fail(`${what} wants a number, got ${v}`); return v; };
+      for (const form of forms) {
+        if (!Array.isArray(form) || !form.length) fail(`a level line is a call, got ${JSON.stringify(form)}`);
+        const [head, ...rest] = form;
+        switch (head) {
+          case "kind":
+            if (!LEVEL_KINDS.includes(rest[0])) fail(`kind is one of ${LEVEL_KINDS.join(" ")}, not ${rest[0]}`);
+            level.kind = rest[0]; break;
+          case "title": level.title = String(unquote(rest[0] ?? "")); break;
+          // island
+          case "home": level.home = { x: number(rest[0], "home x"), z: number(rest[1] ?? 0, "home z") }; break;
+          case "island": {
+            level.island = { ...(level.island || {}) };
+            for (let i = 0; i + 1 < rest.length; i += 2) {
+              if (!["radius", "shore", "sea", "deep"].includes(rest[i])) fail(`island knows radius shore sea deep, not ${rest[i]}`);
+              level.island[rest[i]] = number(rest[i + 1], `island ${rest[i]}`);
+            }
+            break;
+          }
+          case "dunes": level.dunes = rest.map((v, i) => number(v, `dune ${i + 1}`)); break;
+          case "supply": {
+            if (!["chalk", "paint", "monowheel"].includes(rest[0])) fail(`supply knows chalk paint monowheel, not ${rest[0]}`);
+            level.supply = { ...(level.supply || {}), [rest[0]]: number(rest[1], `supply ${rest[0]}`) };
+            break;
+          }
+          // arena (ac.oskiewar.map v1)
+          case "flat": case "bank": case "transition": {
+            level.terrain = level.terrain || [];
+            const [from, to] = [number(rest[0], `${head} from`), number(rest[1], `${head} to`)];
+            if (head === "flat") level.terrain.push({ from, to, kind: head, lift: rest[2] === undefined ? 0 : number(rest[2], "flat lift"), rise: 0, dir: 1 });
+            else level.terrain.push({ from, to, kind: head, rise: number(rest[2], `${head} rise`), dir: number(rest[3], `${head} dir`), lift: rest[4] === undefined ? 0 : number(rest[4], `${head} lift`) });
+            break;
+          }
+          case "deck": (level.decks = level.decks || []).push({ col: number(rest[0], "deck col"), cols: number(rest[1], "deck cols"), row: number(rest[2], "deck row") }); break;
+          case "spawn": level.spawns = rest.map((v, i) => number(v, `spawn ${i + 1}`)); break;
+          case "pickup": {
+            const kind = String(unquote(rest[0]));
+            if (!ARENA_ITEMS.includes(kind)) fail(`pickup is one of ${ARENA_ITEMS.join(", ")}, not ${kind}`);
+            (level.pickups = level.pickups || []).push({ kind, col: number(rest[1], "pickup col"), amount: number(rest[2] ?? 0, "pickup amount") });
+            break;
+          }
+          case "skateboard": level.skateboard = rest[0] !== "no" && rest[0] !== 0 && rest[0] !== "off"; break;
+          default: fail(`a level doesn't know \`${head}\``);
+        }
+      }
+      if (!level.kind) fail(`level ${name} wants a kind`);
+      const islandOnly = ["home", "island", "dunes", "supply"], arenaOnly = ["terrain", "decks", "spawns", "pickups", "skateboard"];
+      for (const key of islandOnly) if (key in level && level.kind !== "island") fail(`${key} belongs to an island level`);
+      for (const key of arenaOnly) if (key in level && level.kind !== "arena") fail(`${key} belongs to an arena level`);
+      return level;
+    }
+
+    // The whole package: { version, level | null, objects: { name: source } }.
+    function readOw(text, { read }) {
+      if (typeof read !== "function") fail("readOw wants object-lisp's read");
+      const { version, sections } = splitOw(text);
+      const out = { format: OW_FORMAT, version, level: null, objects: {} };
+      for (const s of sections) {
+        if (s.kind === "level") {
+          if (out.level) fail("one level a package");
+          out.level = readLevel(s.name, s.source, read);
+        } else {
+          if (s.name in out.objects) fail(`object ${s.name} twice`);
+          read(s.source);   // it must at least read
+          out.objects[s.name] = s.source;
+        }
+      }
+      return out;
+    }
+
+    // ——— the island's numbers, filled in ———
+
+    function islandParams(level = null) {
+      const d = ISLAND_DEFAULTS;
+      return {
+        home: { ...d.home, ...(level?.home || {}) },
+        island: { ...d.island, ...(level?.island || {}) },
+        dunes: level?.dunes?.length ? [0, 1, 2].map((i) => level.dunes[i] ?? d.dunes[i]) : d.dunes.slice(),
+        supply: { ...d.supply, ...(level?.supply || {}) },
+      };
+    }
+
+    // ——— the arena level and ac.oskiewar.map, both ways ———
+
+    function levelToMap(level) {
+      if (level.kind !== "arena") fail(`levelToMap wants an arena level, got ${level.kind}`);
+      return { format: "ac.oskiewar.map", version: 1, name: level.title,
+        features: (level.terrain || []).map((f) => ({ ...f })),
+        spawns: (level.spawns || []).slice(),
+        decks: (level.decks || []).map((d) => ({ ...d })),
+        pickups: (level.pickups || []).map((p) => ({ ...p })),
+        skateboard: level.skateboard !== false };
+    }
+
+    function levelFromMap(map, name = slug(map.name)) {
+      return { name, kind: "arena", title: map.name,
+        terrain: (map.features || []).map((f) => ({ from: f.from, to: f.to, kind: f.kind, lift: f.lift || 0, rise: f.rise || 0, dir: f.dir === -1 ? -1 : 1 })),
+        decks: (map.decks || []).map((d) => ({ col: d.col, cols: d.cols, row: d.row })),
+        spawns: (map.spawns || []).slice(),
+        pickups: (map.pickups || []).map((p) => ({ kind: p.kind, col: p.col, amount: p.amount || 0 })),
+        skateboard: map.skateboard !== false };
+    }
+
+    const slug = (text) => String(text || "level").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").replace(/^[^a-z]/, "l$&") || "level";
+
+    // ——— writing ———
+
+    const quote = (text) => `"${String(text).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+    const num = (v) => Number.isInteger(v) ? String(v) : String(+v.toFixed(4));
+
+    function writeLevel(level) {
+      const lines = [`title ${quote(level.title ?? level.name)}`, `kind ${level.kind}`];
+      if (level.kind === "island") {
+        if (level.home) lines.push(`home ${num(level.home.x)} ${num(level.home.z ?? 0)}`);
+        if (level.island) lines.push("island " + Object.entries(level.island).map(([k, v]) => `${k} ${num(v)}`).join(" "));
+        if (level.dunes) lines.push("dunes " + level.dunes.map(num).join(" "));
+        for (const [k, v] of Object.entries(level.supply || {})) lines.push(`supply ${k} ${num(v)}`);
+      } else if (level.kind === "arena") {
+        for (const f of level.terrain || [])
+          lines.push(f.kind === "flat" ? `flat ${num(f.from)} ${num(f.to)}${f.lift ? " " + num(f.lift) : ""}`
+            : `${f.kind} ${num(f.from)} ${num(f.to)} ${num(f.rise || 0)} ${f.dir === -1 ? -1 : 1}${f.lift ? " " + num(f.lift) : ""}`);
+        for (const d of level.decks || []) lines.push(`deck ${num(d.col)} ${num(d.cols)} ${num(d.row)}`);
+        if (level.spawns) lines.push("spawn " + level.spawns.map(num).join(" "));
+        for (const p of level.pickups || []) lines.push(`pickup ${/\s/.test(p.kind) ? quote(p.kind) : p.kind} ${num(p.col)} ${num(p.amount || 0)}`);
+        if (level.skateboard === false) lines.push("skateboard no");
+      }
+      return lines.join("\n") + "\n";
+    }
+
+    function writeOw({ level = null, objects = {} } = {}) {
+      const parts = [`;; ow ${OW_VERSION}`];
+      if (level) parts.push(`;; level ${level.name}`, writeLevel(level).trimEnd());
+      for (const [name, source] of Object.entries(objects))
+        parts.push(`;; object ${name}`, String(source).replace(/\r\n?/g, "\n").replace(/^\n+|\n+$/g, ""));
+      return parts.join("\n") + "\n";
+    }
+    return { OW_VERSION, OW_FORMAT, LEVEL_KINDS, ARENA_ITEMS, ISLAND_DEFAULTS, splitOw, readLevel, readOw, islandParams, levelToMap, levelFromMap, slug, writeLevel, writeOw };
+  })();
   const sources = {
     monowheel: "; monowheel-flat — the freeskate onewheel, drawn flat: world-anchored 2D shapes\n; with ink outlines, no lighting. The same rig as monowheel.lisp: x forward,\n; y up, z to the rider's right, the axle at the origin, a 24 radius tire.\n; Three parts bake — the shadow, the rolling wheel, the leaning deck — so a\n; tick is three SKETCH ops, and the host projects and fills the shapes.\n; Only the silhouettes (tire, deck) carry ink: the details sit on fills that\n; already contrast, and every outline doubles what the host draws.\n\ndef r 24\ndef half 13\ndef ink-edge 1.4\n\n(let roll (/ distance r))\n(let squash (* .14 (max 0 (- 1 (* land 5)))))\n(let rattle (* 2.5 (max 0 (- 1 (* hit 4))) (sin (* time 70))))\n\n; the shadow stays flat on the ground, behind everything: 103 units back is\n; the depth the game gives its own spot shadows (caster + .018), so it sits\n; on the floor the same way theirs do, in about their grey\n(nudge 103\n  (ink 54 58 66)\n  (move 0 (- r) 0 (scale 2.7 1 .8 (ring y 22))))\n\n(move 0 (- r) rattle\n  (rotate x lean\n    (scale (+ 1 squash) (- 1 squash) 1\n      (move 0 r 0\n        ; the wheel rolls as one: the tire (round, so turning it changes\n        ; nothing), then the face you can see — rim, web, spokes, hub\n        (rotate z (- roll)\n          (ink 40 36 48)\n          (outline ink-edge 20 16 28 (drum z r (* half 2)))\n          (toward z\n            (move 0 0 half\n              (ink (mix 214 236 turbo) (mix 216 190 turbo) (mix 226 255 turbo))\n              (ring z 17)\n              (ink 58 52 66)\n              (move 0 0 .2 (ring z 13.5))\n              (ink (mix 232 190 turbo) (mix 72 90 turbo) (mix 130 255 turbo))\n              ; spokes as flat bars: two triangles each where a round end costs eight\n              (plate -13 -1.4 .4  13 -1.4 .4  13 1.4 .4  -13 1.4 .4)\n              (plate -1.4 -13 .4  1.4 -13 .4  1.4 13 .4  -1.4 13 .4)\n              (ink 70 64 80)\n              (ball 0 0 .6 3.5))))\n        ; one deck, fore to aft, the tire poking through it; lamps at the\n        ; ends, white ahead and red behind\n        (nudge 14\n          (ink (mix 44 102 turbo) (mix 42 35 turbo) (mix 54 163 turbo))\n          (outline ink-edge 20 16 28 (slab -60 2 -19 60 8 19)))\n        (ink 240 244 250)\n        (ball 62 5 0 3.2)\n        (ink 240 70 70)\n        (ball -62 5 0 3.2)))))\n",
     figure: "; figure-flat — an oskiewar fighter drawn flat: shapes hung on the pose's\n; joints, which the game hands over every tick (a FIGURE op), inked on the\n; silhouette. Colours are palette slots a player's LOOK fills, so one baked\n; sketch dresses everyone. Limbs are bones between joints, so an arm bends at\n; the elbow for free. The face is the trio face (drawTrioFace in oskiewar.js):\n; each feature sits on the head's sphere at the same longitude and latitude,\n; in its own tangent frame (x right, y up, z out; head radii), one-sided, so it\n; turns with the head and passes out of sight round the back.\n; Switches: blink, hurt (X eyes), skirt, glasses.\n\ndef edge 1.3\ndef face-edge .075\n\n; the body, back to front as depth sorts it: legs, torso, arms, head.\n; A limb wears one ink silhouette, not one per bone: the whole leg's or\n; arm's ink goes down first, a touch further back, and the bones fill over\n; it, so the knee and the elbow carry no line across them. The torso, the\n; skirt, the shoes and the neck keep their own edge.\n(outline 0\n  (ink 20 16 28)\n  (nudge 1\n    (if (not skirt)\n      (bone hip-l knee-l (+ 5.6 edge))\n      (bone hip-r knee-r (+ 5.6 edge)))\n    (bone knee-l foot-l (+ 5 edge))\n    (bone knee-r foot-r (+ 5 edge))\n    (bone shoulder-l elbow-l (+ 4.6 edge))\n    (bone shoulder-r elbow-r (+ 4.6 edge))\n    (bone elbow-l hand-l (+ 4 edge))\n    (bone elbow-r hand-r (+ 4 edge))\n    (on hand-l (ball 0 0 0 (+ 4.6 edge)))\n    (on hand-r (ball 0 0 0 (+ 4.6 edge))))\n  ; legs: thighs unless a skirt hides them; shins show below its hem\n  (ink pants)\n  (if (not skirt)\n    (bone hip-l knee-l 5.6)\n    (bone hip-r knee-r 5.6))\n  (bone knee-l foot-l 5)\n  (bone knee-r foot-r 5))\n(outline edge 20 16 28\n  (if skirt\n    ; a skirt: from the hips, flaring to a hem past the knees (x runs to her\n    ; left hip, so +x is out on the left)\n    (ink skirt)\n    (skin (hip-l 4 4 0) (hip-r -4 4 0) (knee-r -20 -16 0) (knee-l 20 -16 0)))\n  (ink shoe)\n  (on foot-l (ball 0 0 0 5.4))\n  (on foot-r (ball 0 0 0 5.4))\n  (ink shirt)\n  (bone neck pelvis 13.5)\n  (bone shoulder-l shoulder-r 7)\n  (outline 0\n    (bone shoulder-l elbow-l 4.6)\n    (bone shoulder-r elbow-r 4.6)\n    (ink skin)\n    (bone elbow-l hand-l 4)\n    (bone elbow-r hand-r 4)\n    (on hand-l (ball 0 0 0 4.6))\n    (on hand-r (ball 0 0 0 4.6)))\n  (ink skin)\n  (bone neck head 4))\n\n; the chest's decals, flat on the shirt's front (the neck joint's frame:\n; x right, y up the spine, z forward): a heart and a daisy\n(on neck\n  (surface\n    (ink 255 70 120)\n    (ball -7.5 -12 14.5 2.6)\n    (ball -3.5 -12 14.5 2.6)\n    (plate -10 -12.8 14.5  -1 -12.8 14.5  -5.5 -18 14.5)\n    (ink 255 255 255)\n    (repeat 5 k\n      (move 5 -19 14.6 (rotate z (* k (/ tau 5)) (ball 2 0 0 1.6))))\n    (ink 250 205 60)\n    (ball 5 -19 14.8 1.3)))\n\n; the head, inked in head radii like everything hung on it\n(on head\n  (outline .06 20 16 28\n    ; hair behind the head, so the face shows in front and a cap round it,\n    ; locks falling past the temples, a knot on top with its tail\n    (ink hair)\n    (ball 0 .12 -.2 1.04)\n    (stroke .34  -.8 .4 -.25  -.86 -.3 -.3)\n    (stroke .34  .8 .4 -.25  .86 -.3 -.3)\n    (ball 0 .95 -.35 .3)\n    (stroke .2  0 1.05 -.4  .08 1.42 -.62)\n    (ink skin)\n    (ball 0 0 0 1)))\n\n(on head\n  ; the fringe, a cap of hair over the brow\n  (ink hair)\n  (surface (rotate x -1.02 (move 0 0 .96 (scale 1 .5 1 (ring z .82)))))\n  ; blush\n  (ink blush)\n  (repeat 2 side\n    (rotate y (* (- (* side 2) 1) .56) (rotate x .37 (move 0 0 .97\n      (surface (scale 1 .55 1 (ring z .2)))))))\n  ; eyes: white with an ink rim, iris, pupil, catchlights; lash line and lashes;\n  ; the brow at a curious tilt. Blinking, a lid; hurt, an X.\n  (repeat 2 side\n    (let s (- (* side 2) 1))\n    (rotate y (* s .3675) (rotate x (- .0875 (* s .0245)) (move 0 0 .97\n      (surface\n        (if (and (not blink) (not hurt))\n          (if glasses\n            ; a round frame: a dark ring, the lens in skin inside it\n            (ink 24 18 26)\n            (move 0 0 -.03 (scale 1 1.12 1 (ring z .3)))\n            (ink skin)\n            (move 0 0 -.02 (scale 1 1.12 1 (ring z .255))))\n          (outline face-edge 24 18 26\n            (ink 248 248 250)\n            (scale 1 1.67 1 (ring z .162)))\n          (ink iris)\n          (move 0 0 .02 (ring z .082))\n          (ink 6 6 10)\n          (move 0 0 .03 (ring z .05))\n          (ink 255 255 255)\n          (move -.02 .035 .04 (ring z .023))\n          (ink 24 18 26)\n          (stroke .12  -.17 .09 .05  -.08 .25 .05  .08 .25 .05  .17 .09 .05)\n          (stroke .07  (* s .15) .2 .05  (* s .27) .33 .05)\n          (stroke .06  (* s .08) .25 .05  (* s .17) .38 .05))\n        (if blink\n          (ink 24 18 26)\n          (stroke .08  -.16 0 .02  -.07 -.06 .02  .07 -.06 .02  .16 0 .02))\n        (if hurt\n          (ink 24 18 26)\n          (stroke .09  -.13 .13 .02  .13 -.13 .02)\n          (stroke .09  -.13 -.13 .02  .13 .13 .02))\n        (ink 24 18 26)\n        (stroke .09  -.15 (+ .37 (* s .02)) .02  -.02 .43 .02  .15 (+ .36 (* s .01)) .02))))))\n  ; glasses' bridge\n  (if glasses\n    (ink 24 18 26)\n    (rotate x .09 (move 0 0 .99 (surface (stroke .05  -.1 0 0  .1 0 0)))))\n  ; nose and mouth: a small check, pink lips with the far corner lifted\n  (ink 24 18 26)\n  (rotate x .33 (move 0 0 .98 (surface (stroke .045  .005 .04 .01  -.025 -.02 .01  .02 -.02 .01))))\n  (rotate x .57 (move 0 0 .95 (surface\n    (ink lip)\n    (scale 1 .38 1 (ring z .24))\n    (ink 24 18 26)\n    (stroke .055  -.24 .01 .02  0 -.02 .02  .24 .05 .02)))))\n",
   };
   // Each compiled (and baked) the first time it is asked for, not at load:
   // an object the game never draws costs nothing.
-  const objects = { light: objectLisp.objectLight, drawFigureShapes: objectLisp.drawFigureShapes };
-  for (const name in sources) {
-    let compiled = null;
-    Object.defineProperty(objects, name, { get: () => compiled || (compiled = objectLisp.compile(sources[name], name)) });
-  }
+  const objects = { light: objectLisp.objectLight, drawFigureShapes: objectLisp.drawFigureShapes, read: objectLisp.read, ow: owLisp };
+  const compiled = {};
+  const ask = (name) => Object.defineProperty(objects, name, { configurable: true,
+    get: () => compiled[name] || (compiled[name] = objectLisp.compile(sources[name], name)) });
+  for (const name in sources) ask(name);
+  // A .ow package can bring its own object by a name the game draws: the
+  // next ask compiles the new source. `sources()` lists what it carries.
+  objects.define = (name, source) => { sources[name] = source; delete compiled[name]; ask(name); };
+  objects.sources = () => Object.keys(sources);
   return objects;
 })();
 // </objects>
@@ -26773,9 +27132,9 @@ function drawPaintCan(can){
 // The desert's supplies: chalk in a ring round home, paint cans in a wider
 // one, the monowheel beside you (resetMonowheel).
 function resetDesertSupply(now){
- const home=desertHome();
- chalkColors.forEach((color,i)=>{const a=i/chalkColors.length*Math.PI*2+.4,x=home.x+Math.cos(a)*420,z=home.z+Math.sin(a)*420;chalkPickups.push({x,z,y:poolFloorAt(x,z)-12,color,active:true});});
- paintColors.forEach((color,i)=>{const a=i/paintColors.length*Math.PI*2+.9,x=home.x+Math.cos(a)*760,z=home.z+Math.sin(a)*760;placePaintCan(x,z,color);});
+ const home=desertHome(),{supply}=desertParams();
+ chalkColors.forEach((color,i)=>{const a=i/chalkColors.length*Math.PI*2+.4,x=home.x+Math.cos(a)*supply.chalk,z=home.z+Math.sin(a)*supply.chalk;chalkPickups.push({x,z,y:poolFloorAt(x,z)-12,color,active:true});});
+ paintColors.forEach((color,i)=>{const a=i/paintColors.length*Math.PI*2+.9,x=home.x+Math.cos(a)*supply.paint,z=home.z+Math.sin(a)*supply.paint;placePaintCan(x,z,color);});
 }
 // The chalk touches down beside the hand that holds it: ahead of the body on
 // that hand's side (+z is the right arm in the rig), wider out of a go-kart
