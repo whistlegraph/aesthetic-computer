@@ -3,9 +3,29 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { looksLikePiece, planPublish, publishPiece, slugFor } from "../src/publish.mjs";
+import { looksLikePiece, planPublish, publishPiece, publishedCommand, slugFor } from "../src/publish.mjs";
 
 const SOURCE = "export function paint({ wipe }) { wipe(70, 50, 100); }\n";
+
+test("repo output cannot invent a published piece or its version", () => {
+  const aggregatedOutput = "https://aesthetic.computer/@tester/smiley\n";
+  for (const command of ["npm test", "cat aesel/test/publish.test.mjs", "ac check @tester/smiley", "printf 'ac publish smiley.mjs'", "node --input-type=module", "AESEL_DRY_RUN=1 ac publish smiley.mjs"]) {
+    assert.equal(publishedCommand({ type: "commandExecution", command, exitCode: 0, aggregatedOutput }, "tester"), null, command);
+  }
+});
+
+test("only a successful publish command attaches the signed-in handle's piece", () => {
+  const item = { type: "commandExecution", command: "ac publish smiley.mjs", exitCode: 0, aggregatedOutput: "https://aesthetic.computer/@tester/smiley\n" };
+  for (const command of [item.command, '/bin/zsh -lc "ac publish smiley.mjs"', "/bin/bash -c 'aesel publish smiley.mjs'", '"/Users/test/.local/bin/ac" publish smiley.mjs']) {
+    assert.deepEqual(publishedCommand({ ...item, command }, "tester"), { handle: "tester", slug: "smiley", route: "https://aesthetic.computer/@tester/smiley" });
+  }
+  for (const patch of [
+    { exitCode: 1 }, { exitCode: null }, { type: "mcpToolCall" },
+    { aggregatedOutput: "would publish smiley.mjs as https://aesthetic.computer/@tester/smiley\n" },
+    { aggregatedOutput: "https://aesthetic.computer/@someone-else/smiley\n" },
+  ]) assert.equal(publishedCommand({ ...item, ...patch }, "tester"), null);
+  assert.equal(publishedCommand(item, ""), null);
+});
 
 async function piece(context, name = "smiley.mjs", source = SOURCE) {
   const root = await mkdtemp(join(tmpdir(), "easel-publish-"));

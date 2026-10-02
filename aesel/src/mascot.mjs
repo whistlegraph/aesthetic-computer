@@ -32,12 +32,12 @@ const POSES = {
   wave: pose({0:"   /\\ //             /\\",3:"  \\_____/---/ /--> | *  |"}),
   blink: pose({1:"  ( - - )           /  \\"}),
 };
-const ONE_ROW = {stand:"//o>",work:["//o>","\\\\o>","//o>","//->"]};
-export const MASCOT_ROW_WIDTH = 4;
+const ONE_ROW = {stand:"//(o.o)>",work:["//(o.o)>","//(o.o)>","\\\\(o.o)>","//(^.^)>","//(o.o)>","//(-.-)>"]};
+export const MASCOT_ROW_WIDTH = 8;
 
 // How fast he dances. Slow enough not to strobe beside text someone is
 // reading, fast enough to read as motion rather than a glitch.
-const DANCE_MS = 220;
+const DANCE_MS = 320;
 
 // The one-row guy. `busy` is the only input that changes him: standing when it
 // is your turn, dancing while the machine has the floor.

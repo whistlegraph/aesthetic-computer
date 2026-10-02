@@ -1,0 +1,21 @@
+#!/bin/sh
+set -eu
+launcher=$0
+case "$launcher" in */*) ;; *) launcher=./$launcher ;; esac
+while [ -L "$launcher" ]; do
+  target=$(readlink "$launcher")
+  case "$target" in
+    /*) launcher=$target ;;
+    *) launcher=${launcher%/*}/$target ;;
+  esac
+done
+base=$(CDPATH= cd -P -- "${launcher%/*}" && pwd)
+case "${1:-}" in
+  --help|-h|help|--version|-V|version|doctor|history|login|logout|whoami|publish|colors|profile|mood|handle|check)
+    exec "${AESEL_JS_RUNTIME:-bun}" "$base/../../src/terminal-cli.mjs" "$@" ;;
+esac
+if [ ! -x "$base/.build/aesel-native" ]; then
+  printf '%s\n' 'Build first: make -C aesel/experiments/c-tui' >&2
+  exit 1
+fi
+exec "$base/.build/aesel-native" -- "${AESEL_JS_RUNTIME:-bun}" "$base/../../src/terminal-cli.mjs" "$@"

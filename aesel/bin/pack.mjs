@@ -18,6 +18,7 @@ import { createHash } from "node:crypto";
 import { copyFileSync, mkdirSync, readFileSync, statSync, writeFileSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {buildTui} from './build-tui.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const aesel = join(HERE, "..");
@@ -32,6 +33,7 @@ const STAMP = join(aesel, "install.json");
 const INCLUDE = ["bin", "src", "shell", "context", "media", "layouts", "package.json", "README.md", "LICENSE", "install.json"];
 
 const version = JSON.parse(readFileSync(join(aesel, "package.json"), "utf8")).version;
+await buildTui();
 
 // The stamp is part of the archive, so it is written before tarring and removed
 // after: a working checkout must not acquire one by having run this script.

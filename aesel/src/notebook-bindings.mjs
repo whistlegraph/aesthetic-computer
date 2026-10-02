@@ -1,4 +1,4 @@
-import {parse} from './vendor/acorn.mjs';
+import {parse} from './source-parser.mjs';
 import {createHash} from 'node:crypto';
 export const bindingRevision=source=>createHash('sha256').update(source).digest('hex');
 const number=node=>node?.type==='Literal'&&typeof node.value==='number'?node.value:node?.type==='UnaryExpression'&&['-','+'].includes(node.operator)&&node.argument?.type==='Literal'&&typeof node.argument.value==='number'?(node.operator==='-'?-1:1)*node.argument.value:null;

@@ -44,7 +44,7 @@ test('MCP settings call reaches the live session without editing the workspace',
 });
 
 test('obvious harness requests skip canvas capture but ordinary piece requests keep it',()=>{
- for(const text of ['open settings','show me your settings','switch to Codex','switch provider','which model are you using in your settings?','what is your provider?','which model are you using?']) {
+ for(const text of ['open settings','show me your settings','switch to Codex','switch provider','which model are you using in your settings?','what is your provider?','which model are you using?','reify','please reload aesel']) {
   assert.equal(isHarnessRequest(text),true,text);
  }
  for(const text of ['3+3 = ?','draw a model of a donkey','show me a settings panel in the piece','what is 3+3?'])assert.equal(isHarnessRequest(text),false,text);
@@ -52,4 +52,17 @@ test('obvious harness requests skip canvas capture but ordinary piece requests k
 test('parallel setting updates merge instead of losing the earlier change',async()=>{
  const f=fixture();await Promise.all([f.controller.call({action:'update',provider:'codex'}),f.controller.call({action:'update',effort:'high'})]);
  await f.controller.flush();assert.equal(f.changes[0].provider,'codex');assert.equal(f.changes[0].effort,'high');
+});
+
+test('reification uses the session control and reports queued before reloading', async t => {
+ let requested = 0;
+ const controller = createSettingsController({read:()=>({reifyPending:requested > 0}),
+  reify:()=>{requested++;return 'queued';}});
+ const bridge = await serveSettings(args=>controller.call(args));
+ t.after(()=>bridge.close());
+ const response = await callSettings({action:'reify'}, {socket:bridge.socket});
+ assert.equal(response.status, 'queued'); assert.equal(response.reifyPending, true);
+ assert.equal(requested, 1);
+ await assert.rejects(callSettings({action:'reify',model:'anything'}, {socket:bridge.socket}), /Only update/);
+ await assert.rejects(fixture().controller.call({action:'reify'}), /unavailable/);
 });

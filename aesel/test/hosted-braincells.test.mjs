@@ -64,6 +64,7 @@ test("Automatic names no model, so the relay runs its default; a chosen one is s
   for (const [model, expected] of [["", undefined], ["kimi", "moonshotai/kimi-k3"]]) {
     let sent;
     const engine = new BACKENDS.ac.Engine({ model, jev: null, token: async () => "tok", fetch: async (_url, o) => { sent = JSON.parse(o.body); return sse(say("ok")); } });
+    await engine.connect();
     await engine.startTurn("hi");
     assert.equal(sent.model, expected);
   }
@@ -75,6 +76,7 @@ test("pro on the aesthetic provider carries the OpenRouter bridge's workspace lo
   let sent;
   const engine = new BACKENDS.ac.Engine({ cwd: dir, pro: true, token: async () => "tok", site: "https://relay.test",
     fetch: async (url, o) => { urls.push(url); sent = JSON.parse(o.body); return sse(say("ok")); } });
+  await engine.connect();
   assert.equal(engine.workspace, true);
   assert.equal(engine.rounds, 80);
   assert.ok(engine.extensions instanceof McpTools, "the person's MCP servers load in pro");
@@ -87,6 +89,7 @@ test("pro on the aesthetic provider carries the OpenRouter bridge's workspace lo
   assert.deepEqual(urls, ["https://relay.test/api/easel-inference"], "only messages go to the relay");
 
   const piece = new BACKENDS.ac.Engine({ cwd: dir, token: async () => "tok" });
+  await piece.connect();
   assert.equal(piece.workspace, false);
   assert.equal(piece.rounds, 12);
   assert.equal(piece.extensions, null);

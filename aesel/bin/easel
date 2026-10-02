@@ -1,322 +1,46 @@
-#!/usr/bin/env bash
-
+#!/bin/bash
 set -euo pipefail
 
-# AESEL_* first; EASEL_* is the same setting under the old name.
-# Empty unless asked for: the interface remembers the provider you last
-# chose, and a first launch starts on the hosted one, which needs nothing
-# installed. Passing a default here overrode that memory on every launch.
-DEFAULT_BACKEND="${AESEL_BACKEND:-${EASEL_BACKEND:-}}"
-DEFAULT_CLAUDE_MODEL="claude-opus-5"
 script_path="${BASH_SOURCE[0]}"
+runtime="${AESEL_JS_RUNTIME:-${EASEL_JS_RUNTIME:-node}}"
+# Bun can resolve the installed symlink in the runtime we are already opening.
+# Keep Node's shell path for Macs that rely on the bundled Node executable.
+if [[ "$runtime" == bun || "$runtime" == */bun ]]; then
+    exec "$runtime" --eval '
+        const fs = require("node:fs"), path = require("node:path"), url = require("node:url");
+        const root = path.dirname(path.dirname(fs.realpathSync(process.argv[1])));
+        const helpers = path.resolve(root, "../../Helpers");
+        try {
+            fs.accessSync(path.join(helpers, "node"), fs.constants.X_OK);
+            process.env.PATH = helpers + path.delimiter + (process.env.PATH || "");
+        } catch {}
+        process.argv[1] = path.join(root, "src/terminal-cli.mjs");
+        // Reify must execute its new entry, not repeat this bootstrap.
+        const evaluated = process.execArgv.indexOf("--eval");
+        if (evaluated >= 0) process.execArgv.splice(evaluated, 2);
+        import(url.pathToFileURL(process.argv[1]).href);
+    ' "$script_path" "$@"
+fi
+launch_directory="$PWD"
+[[ "$script_path" == /* ]] || script_path="$PWD/$script_path"
 while [[ -L "$script_path" ]]; do
-    script_directory="$(cd "$(dirname "$script_path")" && pwd -P)"
-    link_target="$(readlink "$script_path")"
+    cd -P "${script_path%/*}"
+    script_directory="$PWD"
+    link_target="$(command -p readlink "$script_path")"
     if [[ "$link_target" == /* ]]; then
         script_path="$link_target"
     else
         script_path="$script_directory/$link_target"
     fi
 done
-PROJECT_DIR="$(cd "$(dirname "$script_path")/.." && pwd -P)"
+cd -P "${script_path%/*}/.."
+PROJECT_DIR="$PWD"
+cd "$launch_directory"
 # Prefer the runtime carried by the native Mac bundle.
 if [[ -x "$PROJECT_DIR/../../Helpers/node" ]]; then
-    PATH="$(cd "$PROJECT_DIR/../../Helpers" && pwd -P):$PATH"
+    PATH="$PROJECT_DIR/../../Helpers:$PATH"
 fi
 
-# One source of truth. This used to be a literal, which meant that after a
-# self-update the launcher went on reporting the version it was written with
-# while package.json — the file the updater actually compares — had moved on.
-# Two places to change a version is one place to forget.
-VERSION="$(node -p "require('$PROJECT_DIR/package.json').version" 2>/dev/null || echo "?")"
-
-usage() {
-    cat <<'EOF'
-Usage: ac [directory] [--runtime mjs|lisp|processing]
-                      [--piece FILE] [--resume THREAD_ID]
-                      [--genre piece|nopaint]
-                      [--backend claude|codex|ac|open] [--model NAME]
-                      [--autopublish | --no-autopublish]
-                      [--pro] [--private]
-       aesthetic [directory]
-       aesthetic doctor
-       aesthetic login | logout | whoami
-       aesthetic publish <file> [slug]
-       aesthetic colors <colour…>
-
-Open the aesel terminal interface in a workspace, or manage the
-shared Aesthetic Computer sign-in (~/.ac-token) and publish a piece under
-your @handle at https://aesthetic.computer/@handle/slug.
-
-Each session starts by choosing an AC blank piece or a nopaint.art brush,
-then shows a QR code that runs it live on a phone. --genre makes that
-choice at launch; --runtime picks an AC piece's language.
-
---backend picks the engine bridge. claude (the default, on claude-opus-5)
-and codex each drive that vendor's CLI and need a subscription to it. ac
-needs neither -- it runs on Aesthetic Computer's own account, metered
-against your @handle. --model names the model on that bridge, and
-/backend and /model change either one mid-session.
-
---autopublish publishes the piece under your @handle a couple of seconds
-after every save, so the session's URL is live the whole time it is being
-worked on. On by default, because the address on the prompt rock is that
-published URL and it has to answer from the first second.
---no-autopublish or AESEL_AUTOPUBLISH=0 turns it off, and /autopublish
-toggles it mid-session.
-
-Pro is the default here (`piece` or --piece/--genre asks for the piece
-interface instead). Pro is the same interface as a general harness: no piece, no QR, nothing
-published, and the engine runs with your own settings, skills and MCP
-servers (approvals still come back here; /ask off runs without asking).
---private keeps this session's subject out of the Slab marker and the
-transcript index. Either can also be set per directory in
-~/.config/aesel/profiles.json (/profile shows the shape).
-EOF
-}
-
-fail() {
-    printf 'aesthetic: %s\n' "$*" >&2
-    exit 1
-}
-
-has_command() {
-    command -v "$1" >/dev/null 2>&1
-}
-
-doctor() {
-    printf 'aesel %s\n' "$VERSION"
-    printf 'interface: %s\n' "$PROJECT_DIR/src/tui.mjs"
-    printf 'control plane: local\n'
-    printf 'telemetry: off\n'
-
-    if has_command node; then
-        printf 'node: %s\n' "$(command -v node)"
-    else
-        printf 'node: not installed\n'
-    fi
-
-    for backend in claude codex; do
-        if has_command "$backend"; then
-            printf 'engine bridge %s: ready\n' "$backend"
-        else
-            printf 'engine bridge %s: unavailable (install the %s CLI)\n' "$backend" "$backend"
-        fi
-    done
-
-    # The hosted bridge is the one a fresh machine has, so doctor has to answer
-    # the question that machine is actually asking: can I work here at all? Its
-    # readiness is a handle, not a binary.
-    if has_command node && [[ -n "$(node "$PROJECT_DIR/src/cli.mjs" whoami 2>/dev/null | grep '^@' || true)" ]]; then
-        printf 'engine bridge ac: ready (hosted, no subscription needed)\n'
-    else
-        printf 'engine bridge ac: needs an @handle — run ac, then /login\n'
-    fi
-
-    if [[ -n "$DEFAULT_BACKEND" ]]; then printf 'default engine bridge: %s\n' "$DEFAULT_BACKEND"
-    else printf 'default engine bridge: the one you chose last (first launch: aesthetic)\n'; fi
-
-    if has_command node; then
-        printf 'account: %s\n' "$(node "$PROJECT_DIR/src/cli.mjs" whoami 2>/dev/null || printf 'not signed in')"
-    fi
-}
-
-case "${1:-}" in
-    --help|-h|help)
-        usage
-        exit 0
-        ;;
-    --version|-V|version)
-        printf 'aesel %s\n' "$VERSION"
-        exit 0
-        ;;
-    doctor)
-        [[ $# -eq 1 ]] || fail "doctor takes no arguments"
-        doctor
-        exit 0
-        ;;
-    history)
-        # The way back into an earlier session: a list, a number, the old
-        # thread on the same engine in the same directory. `--last` skips the list.
-        shift
-        exec node "$PROJECT_DIR/src/history-cli.mjs" "$@"
-        ;;
-    login|logout|whoami|publish|colors|profile|mood|handle|check)
-        has_command node || fail "Node.js is required"
-        exec node "$PROJECT_DIR/src/cli.mjs" "$@"
-        ;;
-esac
-
-target_directory=""
-resume_thread=""
-initial_prompt=""
-initial_piece=""
-runtime=""
-genre=""
-backend=""
-model=""
-# Empty means "whatever the environment says"; the interface reads
-# AESEL_AUTOPUBLISH itself, and these two flags override it.
-autopublish=""
-pro=""
-private=""
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        # The terminal is pro: the GUI is the ordinary, piece-first Aesel,
-        # and this is the harness for people who live in a terminal. `pro`
-        # still reads as a word; `piece` asks for the older piece interface.
-        --pro|pro)
-            pro="on"
-            shift
-            ;;
-        --piece-mode|piece)
-            pro="off"
-            shift
-            ;;
-        --private)
-            private="on"
-            shift
-            ;;
-        --autopublish)
-            autopublish="on"
-            shift
-            ;;
-        --no-autopublish)
-            autopublish="off"
-            shift
-            ;;
-        --resume)
-            [[ $# -ge 2 ]] || fail "--resume requires a thread id"
-            [[ "$2" =~ ^[0-9A-Fa-f-]{36}$ ]] || fail "invalid thread id"
-            resume_thread="$2"
-            shift 2
-            ;;
-        --piece)
-            [[ $# -ge 2 ]] || fail "--piece requires a file"
-            initial_piece="$2"
-            shift 2
-            ;;
-        --prompt)
-            [[ $# -ge 2 ]] || fail "--prompt requires text"
-            [[ ${#2} -le 4000 ]] || fail "prompt exceeds 4000 characters"
-            initial_prompt="$2"
-            shift 2
-            ;;
-        --backend|--engine)
-            [[ $# -ge 2 ]] || fail "--backend requires an engine"
-            case "$2" in
-                # backends.mjs resolves the aliases; this is the same set.
-                # It has to be kept in step by hand, and once was not: `ac` was
-                # added there and not here, which left the one bridge needing no
-                # subscription unreachable from the command line.
-                claude|codex|ac|open|openrouter|anthropic|fable|openai|gpt|aesthetic|hosted|free) backend="$2" ;;
-                *) fail "unknown backend: $2 (claude, codex, ac, open)" ;;
-            esac
-            shift 2
-            ;;
-        --model)
-            [[ $# -ge 2 ]] || fail "--model requires a name"
-            [[ "$2" =~ ^[A-Za-z0-9._@:-]+$ ]] || fail "invalid model name: $2"
-            model="$2"
-            shift 2
-            ;;
-        --runtime)
-            [[ $# -ge 2 ]] || fail "--runtime requires a language"
-            case "$2" in
-                # The names people reach for are accepted alongside the file
-                # extensions; runtimes.mjs resolves the aliases.
-                mjs|lisp|lua|js|kidlisp|processing|l5) runtime="$2" ;;
-                *) fail "unknown runtime: $2 (mjs, lisp, processing)" ;;
-            esac
-            shift 2
-            ;;
-        --genre)
-            [[ $# -ge 2 ]] || fail "--genre requires piece or nopaint"
-            case "$2" in
-                piece|ac|blank) genre="piece" ;;
-                nopaint|brush) genre="nopaint" ;;
-                *) fail "unknown genre: $2 (piece, nopaint)" ;;
-            esac
-            shift 2
-            ;;
-        --)
-            shift
-            [[ $# -le 1 ]] || fail "expected one workspace directory"
-            if [[ $# -eq 1 ]]; then target_directory="$1"; fi
-            shift $(( $# > 0 ? 1 : 0 ))
-            ;;
-        -*)
-            fail "unknown option: $1"
-            ;;
-        *)
-            [[ -z "$target_directory" ]] || fail "expected one workspace directory; run aesthetic --help"
-            target_directory="$1"
-            shift
-            ;;
-    esac
-done
-
-target_directory="${target_directory:-$PWD}"
-[[ -d "$target_directory" ]] || fail "directory does not exist: $target_directory"
-target_directory="$(cd "$target_directory" && pwd -P)"
-
-if [[ "$genre" == "nopaint" && -n "$runtime" && "$runtime" != "mjs" && "$runtime" != "js" ]]; then
-    fail "nopaint brushes use the javascript runtime"
-fi
-
-has_command node || fail "Node.js is required"
-
-# The bridge is a subprocess, so the one that will be spawned has to be here.
-selected_backend="${backend:-$DEFAULT_BACKEND}"
-case "$selected_backend" in
-    anthropic|fable) selected_backend="claude" ;;
-    openai|gpt) selected_backend="codex" ;;
-    aesthetic|hosted|free) selected_backend="ac" ;;
-    openrouter) selected_backend="open" ;;
-esac
-
-# Only the bridges that drive a vendor CLI have a binary to find. `ac` runs on
-# Aesthetic Computer's own account over HTTP, so there is nothing to install and
-# a missing binary is not how it fails — it fails on a missing @handle, in the
-# interface, where that can be explained.
-if [[ -n "$selected_backend" && "$selected_backend" != "ac" && "$selected_backend" != "open" ]]; then
-    has_command "$selected_backend" ||
-        fail "the $selected_backend engine bridge is not installed"
-fi
-
-# Naming a piece or a genre is asking for the piece interface.
-if [[ -z "$pro" && -z "$initial_piece" && -z "$genre" ]]; then pro="on"; fi
-
-if [[ "${AESEL_DRY_RUN:-${EASEL_DRY_RUN:-0}}" == "1" ]]; then
-    printf 'interface=easel\n'
-    printf 'directory=%s\n' "$target_directory"
-    printf 'resume=%s\n' "$([[ -n "$resume_thread" ]] && printf yes || printf no)"
-    printf 'initial_prompt=%s\n' "$([[ -n "$initial_prompt" ]] && printf yes || printf no)"
-    printf 'runtime=%s\n' "$([[ "$genre" == nopaint ]] && printf mjs || printf '%s' "${runtime:-mjs}")"
-    printf 'genre=%s\n' "${genre:-choose}"
-    printf 'autopublish=%s\n' "${autopublish:-$([[ "${AESEL_AUTOPUBLISH:-${EASEL_AUTOPUBLISH:-0}}" =~ ^(1|on|true|yes)$ ]] && printf on || printf off)}"
-    printf 'backend=%s\n' "${selected_backend:-remembered}"
-    printf 'model=%s\n' "${model:-$([[ "$selected_backend" == claude ]] && printf '%s' "$DEFAULT_CLAUDE_MODEL")}"
-    printf 'pro=%s\n' "${pro:-off}"
-    printf 'private=%s\n' "${private:-off}"
-    exit 0
-fi
-
-[[ -t 0 && -t 1 ]] || fail "an interactive terminal is required"
-
-export AESTHETIC_CODE=1
-# Both names: anything spawned beneath may predate the rename.
-export AESEL_VERSION="$VERSION" EASEL_VERSION="$VERSION"
-arguments=("--cwd" "$target_directory")
-if [[ -n "$resume_thread" ]]; then arguments+=("--resume" "$resume_thread"); fi
-if [[ -n "$initial_prompt" ]]; then arguments+=("--prompt" "$initial_prompt"); fi
-if [[ -n "$initial_piece" ]]; then arguments+=("--piece" "$initial_piece"); fi
-if [[ -n "$runtime" ]]; then arguments+=("--runtime" "$runtime"); fi
-if [[ -n "$genre" ]]; then arguments+=("--genre" "$genre"); fi
-if [[ "$autopublish" == "on" ]]; then arguments+=("--autopublish"); fi
-if [[ "$autopublish" == "off" ]]; then arguments+=("--no-autopublish"); fi
-if [[ "$pro" == "on" ]]; then arguments+=("--pro"); fi
-if [[ "$private" == "on" ]]; then arguments+=("--private"); fi
-if [[ -n "$selected_backend" ]]; then arguments+=("--backend" "$selected_backend"); fi
-if [[ -n "$model" ]]; then arguments+=("--model" "$model"); fi
-exec node "$PROJECT_DIR/src/tui.mjs" "${arguments[@]}"
+# exec performs the PATH search itself. Capturing command -v in a subshell
+# first adds another macOS process launch to every open.
+exec "$runtime" "$PROJECT_DIR/src/terminal-cli.mjs" "$@"

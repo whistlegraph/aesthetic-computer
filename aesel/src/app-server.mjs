@@ -1,8 +1,8 @@
-import { spawn } from "node:child_process";
+import {spawnBridge as spawn} from './bridge-process.mjs';
 import { EventEmitter } from "node:events";
 import { createInterface } from "node:readline";
 
-import { codexMcpArgs } from "./tools.mjs";
+import { codexMcpArgs } from "./tool-config.mjs";
 import { VERSION } from "./version.mjs";
 import { bothNames } from "./env.mjs";
 
@@ -19,6 +19,7 @@ export class AppServer extends EventEmitter {
     // bridge has always chosen a model. A name here overrides it per thread.
     model = "",
     effort = "",
+    requestTimeout = 30000,
   }) {
     super();
     this.cwd = cwd;
@@ -29,12 +30,17 @@ export class AppServer extends EventEmitter {
     this.developerInstructions = developerInstructions;
     this.model = model;
     this.effort = effort;
+    this.requestTimeout = requestTimeout;
     this.child = null;
     this.nextId = 1;
     this.pending = new Map();
     this.threadId = null;
     this.turnId = null;
     this.closed = false;
+    this.rateLimits = null;
+    this.rateLimitsRevision = 0;
+    this.rateLimitsRequest = null;
+    this.rateLimitsTimer = null;
   }
 
   async connect() {
@@ -50,6 +56,7 @@ export class AppServer extends EventEmitter {
     });
 
     this.child.once("error", (error) => this.#failAll(error));
+    this.child.stdin.on("error", (error) => this.#failAll(error));
     this.child.once("exit", (code, signal) => {
       const suffix = signal ? ` (${signal})` : code === null ? "" : ` (${code})`;
       this.#failAll(new Error(`engine bridge closed${suffix}`));
@@ -86,7 +93,27 @@ export class AppServer extends EventEmitter {
       capabilities: { experimentalApi: true },
     });
     this.notify("initialized", {});
+    // Account usage must never hold up opening a thread (including API-key
+    // accounts, which cannot read ChatGPT limits).
+    void this.refreshRateLimits();
+    this.rateLimitsTimer = setInterval(() => void this.refreshRateLimits(), 60_000);
+    this.rateLimitsTimer.unref();
     return this.resumeThreadId ? this.resumeThread(this.resumeThreadId) : this.newThread();
+  }
+
+  refreshRateLimits() {
+    if (this.closed || this.rateLimitsRequest) return this.rateLimitsRequest;
+    const revision = this.rateLimitsRevision;
+    this.rateLimitsRequest = this.request("account/rateLimits/read", {}, { timeout: 6000 })
+      .then((result) => {
+        if (this.closed || revision !== this.rateLimitsRevision) return;
+        const limits = result?.rateLimitsByLimitId?.codex ?? result?.rateLimits;
+        this.rateLimits = limits && (!limits.limitId || limits.limitId === "codex") ? limits : null;
+        this.emit("notification", { method: "account/rateLimits/updated", params: { rateLimits: this.rateLimits } });
+      })
+      .catch(() => {}) // Keep the last reading through temporary failures.
+      .finally(() => { this.rateLimitsRequest = null; });
+    return this.rateLimitsRequest;
   }
 
   async newThread() {
@@ -139,11 +166,20 @@ export class AppServer extends EventEmitter {
     });
   }
 
-  request(method, params) {
+  request(method, params, { timeout = this.requestTimeout } = {}) {
     const id = this.nextId++;
-    this.#send({ method, id, params });
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      const timer = timeout ? setTimeout(() => {
+        this.pending.delete(id);
+        reject(Object.assign(new Error(`${method} timed out`), {name:"TimeoutError", method}));
+      }, timeout) : null;
+      timer?.unref();
+      this.pending.set(id, {
+        resolve: (result) => { clearTimeout(timer); resolve(result); },
+        reject: (error) => { clearTimeout(timer); reject(error); },
+      });
+      try { this.#send({ method, id, params }); }
+      catch (error) { this.pending.get(id).reject(error); this.pending.delete(id); }
     });
   }
 
@@ -162,11 +198,14 @@ export class AppServer extends EventEmitter {
   close() {
     if (this.closed) return;
     this.closed = true;
+    clearInterval(this.rateLimitsTimer);
+    for (const { reject } of this.pending.values()) reject(new Error("engine bridge closed"));
+    this.pending.clear();
     this.child?.kill("SIGTERM");
   }
 
   #send(message) {
-    if (!this.child?.stdin.writable) throw new Error("engine bridge is not writable");
+    if (this.closed || !this.child?.stdin.writable) throw Object.assign(new Error("engine bridge is not writable"), {bridgeFailure:true});
     this.child.stdin.write(`${JSON.stringify(message)}\n`);
   }
 
@@ -176,7 +215,7 @@ export class AppServer extends EventEmitter {
       if (!waiter) return;
       this.pending.delete(message.id);
       if (message.error) {
-        waiter.reject(new Error(message.error.message || "engine request failed"));
+        waiter.reject(Object.assign(new Error(message.error.message || "engine request failed"), message.error.data, {code:message.error.code}));
       } else {
         waiter.resolve(message.result);
       }
@@ -188,11 +227,30 @@ export class AppServer extends EventEmitter {
       return;
     }
 
+    if (message.method === "turn/started") this.turnId = message.params?.turn?.id || this.turnId;
+    if (message.method === "account/rateLimits/updated") {
+      const limits = message.params?.rateLimits;
+      if (limits && (!limits.limitId || limits.limitId === "codex")) {
+        // Rolling updates are sparse: a missing weekly window is not a reset.
+        this.rateLimits = { ...this.rateLimits, ...Object.fromEntries(Object.entries(limits).filter(([, value]) => value != null)) };
+        this.rateLimitsRevision++;
+      }
+    } else if (message.method === "account/updated") {
+      this.rateLimits = null;
+      this.rateLimitsRevision++;
+      void this.refreshRateLimits();
+    } else if (message.method === "turn/completed") {
+      void this.refreshRateLimits();
+    }
     if (message.method) this.emit("notification", message);
   }
 
   #failAll(error) {
-    if (this.closed && this.pending.size === 0) return;
+    clearInterval(this.rateLimitsTimer);
+    if (this.closed) return;
+    this.closed = true;
+    error.bridgeFailure = true;
+    this.child?.kill("SIGTERM");
     for (const { reject } of this.pending.values()) reject(error);
     this.pending.clear();
     this.emit("fatal", error);

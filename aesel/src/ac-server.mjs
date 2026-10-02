@@ -41,22 +41,14 @@ import { API_WORKFLOW } from "./api-context.mjs";
 import { createHash, randomUUID } from "node:crypto";
 import { configuredJev } from "./jev-advisor.mjs";
 import { WORKSPACE_INSTRUCTIONS, WORKSPACE_TOOLS, WORKSPACE_TOOL_NAMES, runWorkspaceTool, toolboxInstructions, contextMap } from "./workspace-tools.mjs";
-import { OPEN_MODELS } from "./open-models.mjs";
 
 const SITE = process.env.AESEL_SITE || "https://aesthetic.computer";
 
 // Names a person would type, mapped to what the endpoint allowlists. The server
 // decides in the end; these exist so `/model glm` works. The open models are
 // the same list the OpenRouter bridge offers; the rest are older hosted names.
-export const AC_MODELS = {
-  ...OPEN_MODELS,
-  luna: "openai/gpt-5.6-luna",
-  opus: "anthropic/claude-opus-5",
-  sonnet: "anthropic/claude-sonnet-4.6",
-  gpt: "openai/gpt-5.4",
-};
-
-export const DEFAULT_AC_MODEL = AC_MODELS.flash;
+import {AC_MODELS,DEFAULT_AC_MODEL} from './provider-defaults.mjs';
+export {AC_MODELS,DEFAULT_AC_MODEL};
 
 
 // Asked to close out, the model ends its own session: the interface waits for

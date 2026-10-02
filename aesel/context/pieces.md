@@ -19,8 +19,7 @@ function boot({ wipe, screen, params, colon, api }) {
 }
 
 // paint: runs every frame
-function paint({ wipe, ink, line, circle, screen, paintCount }) {
-  const frame = Number(paintCount); // AC exposes paintCount, not a frame property.
+function paint({ wipe, ink, line, circle, screen }) {
   // Render graphics
 }
 
@@ -288,18 +287,3 @@ source piece-name          # Fork existing piece
   `piece-name:param1:param2`, user pieces via `@handle/piece-name`,
   QR sharing via `share piece-name`
 - Leaves (pieces) stay small and can be loop-generated — see `HAND.md`
-
-### Spoken narration and captions
-
-Use the top-level `speak` API for a spoken voice; `speaker` exposes audio analysis and is not text-to-speech. A request for a narrator requires audible speech, not just drawn text.
-
-```js
-export function act({event, speak}) {
-  if (event.is("touch")) speak("A small bird sings from its branch.", "male", "local", {captions: true, lang: "en-US", rate: 0.9});
-  // event.is("speech:completed") signals when another line can begin.
-}
-```
-
-Call once from an interaction or on `speech:completed`, never every frame. Local mode uses device/browser voices without a network round trip. `speech:started` supplies `event.content.text`; `speech:word` supplies `{text, word, charIndex, charLength, elapsed}` for synchronized animation. Word boundaries depend on browser/voice support; captions still show the full utterance without them. `speech:error` reports failures.
-
-`{captions: true}` enables the shared caption overlay. Local voices highlight actual reported word boundaries. Cloud mode can show the utterance but currently has no word alignment; do not invent timing. Cloud voices use `speak(text, "male:18", "cloud", {captions: true})` and require the hosted voice service. Generated narration is synthesized voice, distinct from Walkieware's original microphone playback. Do not invent factual claims about a depicted species; use scene-grounded narration unless facts were supplied or verified.

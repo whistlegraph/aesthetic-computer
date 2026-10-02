@@ -1,3 +1,4 @@
+import './own-ink.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {syntaxSpans,syntaxLine} from '../src/syntax.mjs';
@@ -15,11 +16,11 @@ test('fenced source is highlighted and retains clean terminal text',()=>{
  assert.match(colored,/const\x1b/);
 });
 
-test('raw command source and wrapped URLs carry colors and complete hyperlink targets',()=>{
+test('raw command source is absent while wrapped URLs retain complete hyperlink targets',()=>{
  const url='https://aesthetic.computer/@jeffrey/a-long-piece-name-for-testing';
  const state={entries:[{kind:'command',text:"node <<'JS'\nconst color = 42;\nJS"},{kind:'assistant',text:'Live at '+url}],input:'',status:'ready'};
  const output=renderFrame(state,48,30,true);
- assert.match(output,/const\x1b/);
+ assert.doesNotMatch(cleanText(output),/node <<|const color/);
  assert.ok(output.includes('\x1b]8;;'+url+'\x07'));
  assert.equal(cleanText(output),cleanText(renderFrame(state,48,30,false)));
 });

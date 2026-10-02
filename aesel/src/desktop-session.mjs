@@ -8,9 +8,9 @@ const LIMIT = 32 * 1024 * 1024;
 export function desktopSnapshot({ cwd, backend, model, effort = "", live, state, options, engine, handoff = "", archivedConversation = [] }) {
   return clone({ schema: 1, cwd: resolve(cwd), savedAt: new Date().toISOString(), backend, model, effort,
     live: { file: live.file, runtime: live.runtime?.id || live.runtime, channel: live.fallbackChannel || live.channel, genre: live.genre?.id || "piece" },
-    ui: Object.fromEntries(["entries", "input", "cursor", "history", "historyIndex", "queued", "medium", "livePaused", "showQr", "autoAllow", "scrollOffset"].map((key) => [key, state[key]]).filter(([, value]) => value !== undefined)),
+    ui: Object.fromEntries(["entries", "input", "cursor", "history", "historyIndex", "queued", "medium", "livePaused", "showQr", "autoAllow", "scrollOffset", "pieceSlug", "media", "spend"].map((key) => [key, state[key]]).filter(([, value]) => value !== undefined)),
     options: { autopublish: options.autopublish, mouseEnabled: options.mouseEnabled },
-    engine: { threadId: engine.threadId || "", ...(backend === "ac" ? { messages: engine.messages || [], turns: engine.turns || 0 } : {}) }, handoff, archivedConversation });
+    engine: { threadId: engine.threadId || "", ...(Number.isSafeInteger(engine.turns) ? {turns: engine.turns} : {}), ...(["ac", "open"].includes(backend) ? { messages: engine.messages || [], turns: engine.turns || 0 } : {}) }, handoff, archivedConversation });
 }
 export function validateDesktopSession(snapshot, cwd) {
   if (snapshot?.schema !== 1 || snapshot.cwd !== resolve(cwd) || !["ac", "claude", "codex", "open"].includes(snapshot.backend)) throw new Error("Invalid desktop session or workspace mismatch.");
@@ -19,9 +19,14 @@ export function validateDesktopSession(snapshot, cwd) {
   if (snapshot.artifactId !== undefined && (!/^[a-f0-9-]{36}$/.test(snapshot.artifactId) || !Number.isSafeInteger(snapshot.artifactVersion) || snapshot.artifactVersion < 1)) throw new Error("Invalid saved artifact reference.");
   if (snapshot.effort !== undefined && (typeof snapshot.effort !== "string" || !/^[a-z0-9-]{0,40}$/.test(snapshot.effort))) throw new Error("Invalid saved effort.");
   const ui = snapshot.ui;
-  if (!ui || !Array.isArray(ui.entries) || !ui.entries.every((e) => e && typeof e.id === "string" && typeof e.kind === "string" && typeof e.text === "string") || typeof ui.input !== "string" || !Array.isArray(ui.history) || !Array.isArray(ui.queued) || ![...ui.history, ...ui.queued].every((v) => typeof v === "string") || !Number.isInteger(ui.cursor) || ui.cursor < 0 || ui.cursor > Array.from(ui.input).length) throw new Error("Invalid desktop transcript or draft.");
-  if (typeof snapshot.engine?.threadId !== "string" || (snapshot.backend === "ac" && (!Array.isArray(snapshot.engine.messages) || !Number.isSafeInteger(snapshot.engine.turns) || snapshot.engine.turns < 0))) throw new Error("Invalid desktop engine history.");
+  const queuedLine = v => typeof v === "string" || (v && v.inbox === true && typeof v.from === "string" && typeof v.text === "string" && Object.keys(v).every(k => ["inbox", "from", "text"].includes(k)));
+  if (!ui || !Array.isArray(ui.entries) || !ui.entries.every((e) => e && typeof e.id === "string" && typeof e.kind === "string" && typeof e.text === "string") || typeof ui.input !== "string" || !Array.isArray(ui.history) || !ui.history.every(v => typeof v === "string") || !Array.isArray(ui.queued) || !ui.queued.every(queuedLine) || !Number.isInteger(ui.cursor) || ui.cursor < 0 || ui.cursor > Array.from(ui.input).length) throw new Error("Invalid desktop transcript or draft.");
+  if (typeof snapshot.engine?.threadId !== "string" || ((snapshot.backend === "ac" || snapshot.engine?.messages !== undefined) && (!Array.isArray(snapshot.engine.messages) || !Number.isSafeInteger(snapshot.engine.turns) || snapshot.engine.turns < 0))) throw new Error("Invalid desktop engine history.");
   if (typeof snapshot.handoff !== "string" || !Array.isArray(snapshot.archivedConversation)) throw new Error("Invalid desktop handoff context.");
+  const recovery = snapshot.recovery;
+  if (recovery != null && (typeof recovery.text !== "string" || typeof recovery.from !== "string" ||
+      typeof recovery.accepted !== "boolean" || typeof recovery.submitted !== "boolean" ||
+      Object.keys(recovery).some(key => !["text", "from", "accepted", "submitted"].includes(key)))) throw new Error("Invalid saved recovery request.");
   return snapshot;
 }
 export async function readDesktopSession(file, cwd) {
@@ -47,7 +52,8 @@ export async function writeDesktopSession(file, snapshot) {
 export function restoreDesktopEngine(engine, snapshot) {
   if (!snapshot) return;
   engine.threadId = snapshot.engine.threadId;
-  if (snapshot.backend === "ac") { engine.messages = clone(snapshot.engine.messages); engine.turns = snapshot.engine.turns; }
+  if (Number.isSafeInteger(snapshot.engine.turns)) engine.turns = snapshot.engine.turns;
+  if (["ac", "open"].includes(snapshot.backend)) { engine.messages = clone(snapshot.engine.messages || []); engine.turns = snapshot.engine.turns || 0; }
 }
 export async function writeDesktopControl({ sessionPath, controlPath, snapshot, action }) {
   if (!sessionPath || !controlPath || !["restart", "update", "home"].includes(action)) throw new Error("Desktop restart/update is not configured.");

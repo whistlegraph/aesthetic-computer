@@ -3,7 +3,7 @@
 // A pro session has no piece, so nothing tells the Slab card what to show.
 // What it has instead is a stream of tool calls, and the paths in them say
 // what is being made: the png a brush just wrote, the mp4 ffmpeg just
-// finished. This reads those paths out of a tool's input and output, keeps
+// finished. This reads paths explicitly named in a tool's input, keeps
 // the ones that are real files of a kind a card can show, and puts the
 // freshest first.
 import { statSync } from "node:fs";
@@ -48,8 +48,9 @@ export function mediaPaths(text, cwd, { home = homedir() } = {}) {
   return found.sort((a, b) => b.mtimeMs - a.mtimeMs);
 }
 
-// The text of a tool item worth reading for paths: what it was told, what it
-// touched, and the tail of what it said back.
+// Only explicit tool targets can nominate a preview. Output is evidence,
+// not a selection: git status, searches and source reads can list unrelated
+// media already on disk.
 export function itemText(item) {
   if (!item) return "";
   return [
@@ -58,7 +59,6 @@ export function itemText(item) {
     item.path,
     ...(item.changes || []).map((change) => change?.path),
     item.input ? JSON.stringify(item.input) : "",
-    typeof item.aggregatedOutput === "string" ? item.aggregatedOutput.slice(-4000) : "",
   ].filter(Boolean).join("\n");
 }
 

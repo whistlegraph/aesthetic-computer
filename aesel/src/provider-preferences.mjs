@@ -6,7 +6,7 @@ export const preferencesPath=()=>join(configDir(),'provider.json');
 export function providerPreferences(value){
  if(!value||!['ac','claude','codex','open'].includes(value.backend))return null;
  if(typeof value.model!=='string'||value.model.length>200||/[\x00-\x1f]/.test(value.model))return null;
- if(!['','none','minimal','low','medium','high','xhigh','max'].includes(value.effort||''))return null;
+ if(!['','none','minimal','low','medium','high','xhigh','max','ultra'].includes(value.effort||''))return null;
  return {backend:value.backend,model:value.model,effort:value.effort||''};
 }
 export async function readProviderPreferences(file=preferencesPath()){try{return providerPreferences(JSON.parse(await readFile(file,'utf8')));}catch{return null;}}

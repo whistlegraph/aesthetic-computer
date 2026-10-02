@@ -8,12 +8,14 @@ import {createSettingsController,serveSettings,isHarnessRequest,HARNESS_INSTRUCT
 import {notebookBindings,bindingRequest,editNotebookBinding} from './notebook-bindings.mjs';
 import {writeFileSync as writeBindingFile,renameSync as renameBindingFile,statSync as statBindingFile} from 'node:fs';
 import {conceptRequest} from './concept-request.mjs';
-import {takeSubmittedBatch,inputBatchDelay} from './input-batch.mjs';
+import {takeSubmittedBatch,inputBatchDelay,trimSubmittedInput} from './input-batch.mjs';
 import {startNativeGamepad} from './native-gamepad.mjs';
 import {requestFeedback} from './request-feedback.mjs';
 import {publicActivity,observeToolActivity} from './public-activity.mjs';
+import {beginTurnActivity,recordToolActivity,recordTurnUsage,recordCodexUsage,finishTurnActivity} from './turn-activity.mjs';
 import {notebookConversationEntry} from './notebook-conversation.mjs';
 import {connectionFailure,conciseFailure} from './connection-status.mjs';
+import {TurnRecovery,CONTINUE_INTERRUPTED_TURN} from './turn-recovery.mjs';
 import {ApprovalQueue, approvalFor, approvalShape, defaultApprovalResponse} from "./approvals.mjs";
 import {readProviderPreferences,saveProviderPreferences,chooseProviderPreferences} from './provider-preferences.mjs';
 import {captureFrame} from "./preview-frame.mjs";
@@ -40,7 +42,7 @@ import { ACSession, SITE, USER_AGENT } from "./ac-session.mjs";
 import { Audience } from "./audience.mjs";
 import { AutoPublisher } from "./autopublish.mjs";
 import { RuntimeFeedback, readRuntimeFeedback, runtimeFeedbackContext } from "./runtime-feedback.mjs";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { Diagnostics } from "./diagnostics.mjs";
 import { EASEL_HEIGHT, aeselFrame, aeselNextFrame, aeselWidth } from "./easel.mjs";
 import { Energy, energyReport } from "./energy.mjs";
@@ -48,7 +50,8 @@ import {pickerModels,drawerKey,drawerIndex,normalizeSettings} from "./provider-p
 import { cachedCatalog, loadCatalog, newestModel, preferNewer } from "./model-catalog.mjs";
 import { providerLabel } from "./render.mjs";
 import { backendFor, backendMenu, DEFAULT_BACKEND, hostedModel } from "./backends.mjs";
-import { OPEN_MODEL_INFO, openRouterKey } from "./open-server.mjs";
+import {OPEN_MODEL_INFO} from './open-models.mjs';
+import {openRouterKey} from './open-key.mjs';
 import { GENRES, genreFor } from "./genres.mjs";
 import { Inbox } from "./inbox.mjs";
 import { LivePiece, pieceDirectory } from "./live.mjs";
@@ -56,7 +59,7 @@ import { exampleConfig, resolveProfile } from "./profile.mjs";
 import { BOTTOM_ROWS, Layout, STATUS_FACTS } from "./layout.mjs";
 import { DraftBroadcast } from "./draft-broadcast.mjs";
 import { applyUpdate, checkForUpdate, currentVersion, installed, isNewer } from "./updates.mjs";
-import { publishPiece } from "./publish.mjs";
+import { publishPiece, publishedCommand } from "./publish.mjs";
 import { syncPictureWip, pictureWipAddress } from "./picture-wip.mjs";
 import { publishPicture, publishedPicture } from "./publish-picture.mjs";
 import { qrBlock } from "./qr.mjs";
@@ -70,6 +73,12 @@ import { desktopSnapshot, readDesktopSession, writeDesktopSession, restoreDeskto
 import { archiveThread, replaceWork } from './new-work.mjs';
 import { FrameDiff } from './frame-diff.mjs';
 import { Transcript } from "./transcript.mjs";
+import {markStartup,flushStartupTrace} from './startup-trace.mjs';
+import {Appearance} from './appearance.mjs';
+import {nativeTerminalPhase} from './native-terminal.mjs';
+
+markStartup('imports');
+nativeTerminalPhase('boot');
 
 const frameDiff = new FrameDiff({clearOnResize:!process.env.AESEL_DESKTOP});
 
@@ -107,7 +116,10 @@ const session = new ACSession();
 try {
   if (!await requireAccountEntry(session)) process.exit(0);
 } catch (error) { process.stderr.write(error.message + "\n"); process.exit(1); }
-const slabSession = new SlabSession({ cwd, pro, private: profile.private });
+markStartup('account');
+const continuingId = flag("--continue-session") && option("--checkpoint") ? option("--session-id") : "";
+if (continuingId && !/^[a-f0-9-]{36}$/i.test(continuingId)) throw new Error("Invalid session ID");
+const slabSession = new SlabSession({ cwd, pro, private: profile.private, ...(continuingId ? {sessionId: continuingId} : {}) });
 slabSession.start();
 slabSession.identity(session.handle);
 process.once("exit", () => slabSession.close());
@@ -117,8 +129,10 @@ let sharingAcknowledgment;
 try { sharingAcknowledgment = profile.private ? null : await requireSharing({root:path.join(configDir(),'disclosures'),session}); }
 catch(error){process.stderr.write(error.message+'\n');process.exit(1);}
 if(!profile.private && !sharingAcknowledgment)process.exit(0);
+markStartup('sharing');
 const desktopSessionPath = process.env.AESEL_DESKTOP_SESSION || "";
-const localSessionPath = desktopSessionPath || path.join(workspaceDir(cwd),"session.json");
+const localSessionPath = desktopSessionPath || option("--checkpoint") || path.join(workspaceDir(cwd),"session.json");
+const reifyCheckpointPath = path.join(workspaceDir(cwd), "sessions", `${slabSession.sessionId}.json`);
 let desktopRestored = null;
 let desktopRestoreError = "";
 // Open straight into a piece. Checkpoint restarts still resume their thread.
@@ -134,7 +148,9 @@ if(flag('--continue-session')) {
 }
 
 const artifacts = new Artifacts(cwd);
-let currentArtifact = await artifacts.selected();
+markStartup('checkpoint');
+const plainWorkspace=pro&&!desktopRestored&&!option('--medium');
+let currentArtifact = plainWorkspace?null:await artifacts.selected();
 let picturePublication = null;
 let pictureWip = null;
 let draftPublication = null;
@@ -145,15 +161,16 @@ if(desktopRestored?.artifactId) {
   if(desktopRestored.artifactVersion && currentArtifact.version!==desktopRestored.artifactVersion)
     await artifacts.rollback(desktopRestored.artifactVersion);
 } else if(desktopRestored?.ui.medium==='piece') await artifacts.select('piece');
-if(launchMedium || option('--medium')) {
+if(!plainWorkspace&&(launchMedium || option('--medium'))) {
   const kind=launchMedium || option('--medium');
   if(kind==='piece')await artifacts.select('piece');
   else await artifacts.create(kind);
 }
-currentArtifact=await artifacts.selected();
+if(!plainWorkspace)currentArtifact=await artifacts.selected();
+markStartup('artifacts');
 const resumeThreadId = desktopRestored?.engine.threadId || option("--resume");
 const initialPrompt = desktopRestored ? "" : option("--prompt");
-const initialPiece = desktopRestored?.live.file || option("--piece");
+const initialPiece = pro ? "" : desktopRestored?.live.file || option("--piece");
 const requestedGenre = option("--genre") || desktopRestored?.live.genre;
 
 async function chooseGenre() {
@@ -174,6 +191,7 @@ async function chooseGenre() {
   };
 
   process.stdout.write("\x1b[?1049h\x1b[?25l");
+  nativeTerminalPhase('gate');
   process.stdin.setRawMode(true);
   process.stdin.resume();
   draw();
@@ -184,6 +202,7 @@ async function chooseGenre() {
       process.stdout.off("resize", draw);
       process.stdin.setRawMode(false);
       process.stdin.pause();
+      nativeTerminalPhase('boot');
       if (!choice) process.stdout.write("\x1b[?25h\x1b[?1049l");
       resolve(choice);
     };
@@ -234,14 +253,15 @@ let archivedConversation = desktopRestored?.archivedConversation || [];
 // AESEL_MOUSE=1 or 0 overrides either default.
 // The pro frame's shape, read early: the mouse default is part of it.
 const shape = new Layout();
-// Which appearance the Mac is in, for the tray's ground: black in dark mode,
-// white in light. Asked once at start and again on every resize, which is
-// also when the Slab menubar redresses a window.
-function appearance() {
-  if (process.platform !== "darwin") return "dark";
-  try { return /dark/i.test(execFileSync("defaults", ["read", "-g", "AppleInterfaceStyle"], { encoding: "utf8", timeout: 1500, stdio: ["ignore", "pipe", "ignore"] })) ? "dark" : "light"; } catch { return "light"; }
+const appearance=new Appearance();
+function refreshAppearance(){
+  if(!pro)return;
+  void appearance.refresh().then(mode=>{
+    if(closing||state.tray===mode)return;
+    state.tray=mode;setAppearance(mode);redraw();
+  });
 }
-let mouseEnabled = process.env.AESEL_MOUSE === "0" ? false : process.env.AESEL_MOUSE === "1" ? true : pro ? (shape.spec.mouse ?? true) : (desktopRestored?.options?.mouseEnabled ?? true);
+let mouseEnabled = desktopRestored?.options?.mouseEnabled ?? (process.env.AESEL_MOUSE === "0" ? false : process.env.AESEL_MOUSE === "1" ? true : pro ? shape.spec.mouse ?? true : true);
 
 // Every session opens on a new blank piece with a random name. It is a real
 // file in the workspace, and every edit is pushed to whatever scanned the QR.
@@ -308,8 +328,9 @@ const state = {
   // Tokens and dollars on this thread. The dollars are what the provider
   // billed (OpenRouter reports it per response), never an estimate.
   spend: { thread: "", tokens: 0, usd: 0, billed: false },
-  // The account's braincells (free today + bought), shared by every session.
+  // Account usage belongs to the active provider.
   braincells: null,
+  codexRateLimits: null,
   // A newer Aesel ready to run: { version, kind: "checkout" | "release", dismissed }.
   update: null,
   qr: null,
@@ -327,7 +348,7 @@ const state = {
   // Pro too: it is the harness for someone who already trusts it with their
   // machine, and a question before every `ls` is friction, not safety there.
   autoAllow: true,
-  tray: pro ? (() => { const mode = appearance(); setAppearance(mode); return mode; })() : "",
+  tray: pro ? (() => { setAppearance(appearance.value); return appearance.value; })() : "",
   entries: [
     // Pro opens onto nothing but the bar: the mode and the model sit under
     // it, and the agreement was the disclosure.
@@ -343,10 +364,12 @@ const state = {
     ...(profile.private && !quiet ? [{ id: "profile", kind: "notice", text: `Profile · ${profile.reason}` }] : []),
   ],
 };
+markStartup('state');
 
-if (desktopRestored) Object.assign(state, desktopRestored.ui, { medium: currentArtifact?.kind || "piece", showQr: true });
+if (desktopRestored) Object.assign(state, desktopRestored.ui, { medium: currentArtifact?.kind || "piece" });
+if(pro)setAppearance(state.tray);
 // Older checkpoints included automatic approval notices in the conversation.
-state.entries = state.entries.filter(entry => !(entry.kind === 'notice' && /^Ran: /.test(entry.text)));
+state.entries = state.entries.filter(entry => !['command', 'change'].includes(entry.kind) && !(entry.kind === 'notice' && /^Ran: /.test(entry.text)));
 if (desktopRestoreError) state.entries.push({ id: "desktop-restore-error", kind: "error", text: desktopRestoreError });
 
 let transcriptJournal = null;
@@ -647,7 +670,7 @@ const draftBroadcast = new DraftBroadcast({cwd,session,onState:result=>{
 let broadcastOwner=session.read()?.user?.sub || "";
 
 live.handle = session.handle || "";
-if (process.env.AESEL_KEEP_PREVIEW === '1' && desktopRestored?.liveTransfer) {
+if ((option("--checkpoint") || process.env.AESEL_KEEP_PREVIEW === '1') && desktopRestored?.liveTransfer) {
   live.lastSentIdentity = desktopRestored.liveTransfer.sentIdentity;
   autopublish.published = desktopRestored.liveTransfer.published;
   autopublish.publishedAt = desktopRestored.liveTransfer.publishedAt || 0;
@@ -657,7 +680,7 @@ if (process.env.AESEL_KEEP_PREVIEW === '1' && desktopRestored?.liveTransfer) {
 // One history for the session, whichever engine writes it. Keyed by the same
 // id the Slab marker carries, so a transcript and a rock can be matched up.
 const transcript = new Transcript({ sessionId: slabSession.sessionId, private: profile.private });
-transcript.meta({ cwd, engine: backend.id, model, handle: session.handle || "", pro, subject: "" });
+transcript.meta({ cwd, engine: backend.id, model, handle: session.handle || "", pro, ...(!desktopRestored ? {subject: ""} : {}) });
 
 // Messages from other sessions arrive here, on a socket named in the marker,
 // never through the keyboard. The socket is optional: a path too long to bind
@@ -678,10 +701,13 @@ shape.on("change", (spec) => {
 // Listening before the bind: opening drains the file queue, and a line that
 // piled up while nobody was here is the first thing worth hearing.
 inbox.on("message", receiveInbox);
-try {
-  slabSession.inboxSocket(await inbox.open());
-} catch (error) {
-  addEntry("notice", `Inbox socket unavailable · ${errorText(error)} · messages.jsonl still drains`);
+async function openInbox(){
+  try {
+    slabSession.inboxSocket(await inbox.open());
+  } catch (error) {
+    addEntry("notice", `Inbox socket unavailable · ${errorText(error)} · messages.jsonl still drains`);
+    redraw();
+  }
 }
 // Remote senders may only be able to append to the file. It is read at every
 // turn boundary, and on a slow tick while idle so a line does not wait on the
@@ -692,7 +718,6 @@ const inboxPoll = setInterval(() => {
 inboxPoll.unref?.();
 
 // One engine at a time, wired to the same handlers however it was built.
-let lastRelaunchAt = 0;
 function openEngine({ resume = "" } = {}) {
   const opened = new backend.Engine({
     cwd,
@@ -732,8 +757,8 @@ function openEngine({ resume = "" } = {}) {
       SLAB_AGENT_TYPE: "aesel",
     },
   });
-  opened.on("notification", (...args) => { if (!closing && opened === engine) handleNotification(...args); });
-  opened.on("request", (...args) => { if (!closing && opened === engine) handleRequest(...args); });
+  opened.on("notification", (...args) => { if (!closing && !opened.closed && opened === engine) handleNotification(...args); });
+  opened.on("request", (...args) => { if (!closing && !opened.closed && opened === engine) handleRequest(...args); });
   opened.on("protocolError", (error) => {
     if (closing || opened !== engine) return;
     addEntry("error", errorText(error));
@@ -741,34 +766,18 @@ function openEngine({ resume = "" } = {}) {
   });
   opened.on("fatal", (error) => {
     if (closing || opened !== engine) return;
-    state.status = "offline";
-    addEntry("error", errorText(error));
-    slabSession.awaitingInput("easel engine bridge is offline");
-    // A turn the bridge died under is over; nothing will complete it.
-    if (state.busy) { state.busy = false; turnAssistant = []; }
-    redraw();
-    // A bridge that died is relaunched so the next line has somewhere to go —
-    // the interface used to sit there deaf, with every key typed into a
-    // thread that no longer existed. Once a few seconds, so a bridge that
-    // dies on arrival does not spin.
-    if (Date.now() - lastRelaunchAt > 5000) {
-      lastRelaunchAt = Date.now();
-      setTimeout(() => {
-        if (closing || engine !== opened) return;
-        addEntry("notice", `Reopening ${backend.label} · the conversation so far goes with it`);
-        void restartEngine("Engine", backend, model, effort, { drain: false }).catch(() => {});
-      }, 300);
-    }
+    recoverEngine(error, {reconnect:true});
   });
   return opened;
 }
 
 let harnessPanelPending=false;
+let reifyPending=false, reifyTimer=null;
 const harnessSettings=createSettingsController({
  read:()=>({provider:backend.id,model:state.model||model,selectedModel:model,effort,autopublish:autopublish.enabled,
   medium:state.medium,busy:state.busy,account:session.handle?`@${session.handle}`:null,
   providers:['ac','claude','codex','open'].map(id=>({id,models:pickerModels({backend:id,model:id===backend.id?model:backendFor(id).defaultModel,catalog:catalogFor(id)})})),
-  supported:['provider','model','effort','autopublish']}),
+  reifyPending, supported:['provider','model','effort','autopublish','reify']}),
  normalize:(patch,pending)=>{
   const previous=pending||{provider:backend.id,model,effort,autopublish:autopublish.enabled};
   if(patch.provider)backendFor(patch.provider);
@@ -778,6 +787,7 @@ const harnessSettings=createSettingsController({
   return next;
  },
  isBusy:()=>state.busy,
+ reify:()=>requestReify(),
  open:()=>{
   if(process.env.AESEL_DESKTOP){process.stdout.write('\x1b]777;easel-settings:open\x07');return 'opened';}
   if(state.busy){harnessPanelPending=true;return 'queued';}
@@ -793,9 +803,14 @@ const harnessSettings=createSettingsController({
  },
 });
 const harnessBridge=await serveSettings(args=>harnessSettings.call(args));
+markStartup('local-services');
 let engine = openEngine({ resume: resumeThreadId });
+markStartup('engine-created');
 restoreDesktopEngine(engine, desktopRestored);
 let drawing = false;
+// A stdin chunk can contain many keys. Paint its final state once, retaining
+// immediate input priority over any coalesced background redraw.
+let processingInput = false, inputRedraw = 0;
 let redrawTimer = null;
 let lastDrawAt = 0;
 let pendingModelGlyphs = "", resetModelGlyphs = false;
@@ -988,7 +1003,8 @@ function retitle() {
   lastTitle = title;
   process.stdout.write(`\x1b]0;${title}\x07`);
 }
-function redraw() {
+function redraw(immediate = false) {
+  if (processingInput) { inputRedraw = Math.max(inputRedraw, immediate ? 2 : 1); return; }
   // Provider metadata also belongs to the title screen, before its first frame.
   if (process.env.AESEL_DESKTOP && !closing) {
     const historyKey=`${live.file}:${live.revision?.revision||""}`;
@@ -999,19 +1015,26 @@ function redraw() {
     if (provider !== lastProvider) { lastProvider = provider; process.stdout.write(`\x1b]777;easel-provider:${provider}\x07`); }
   }
   if (closing || drawing || splashing) return;
-  // Token bursts coalesce into at most 30 terminal frames/second.
-  const remaining = 33 - (Date.now() - lastDrawAt);
+  // Stream bursts coalesce at 60 Hz; editing the prompt paints immediately.
+  const remaining = immediate ? 0 : 16 - (Date.now() - lastDrawAt);
   if (remaining > 0) {
     if (!redrawTimer) redrawTimer = setTimeout(() => { redrawTimer = null; redraw(); }, remaining);
     return;
   }
+  clearTimeout(redrawTimer); redrawTimer = null;
   lastDrawAt = Date.now();
   drawing = true;
   try {
-    const count = transcriptLineCount(state, process.stdout.columns || 80, process.stdout.rows || 24, process.env.NO_COLOR !== "1");
-    if (state.scrollOffset) state.scrollOffset = Math.max(0, state.scrollOffset + count - lastTranscriptLines);
-    lastTranscriptLines = count;
+    // At the latest reply only the visible rows need layout. Counting the
+    // entire history is needed solely to keep a scrolled viewport anchored.
+    if (state.scrollOffset) {
+      const count = transcriptLineCount(state, process.stdout.columns || 80, process.stdout.rows || 24, process.env.NO_COLOR !== "1");
+      state.scrollOffset = Math.max(0, state.scrollOffset + count - lastTranscriptLines);
+      lastTranscriptLines = count;
+    }
+    state.mascotMs = Date.now() - danceStartedAt;
     state.providerSettings={backend:backend.id,model:state.model||model,effort};
+    state.codexRateLimits = backend.id === "codex" ? engine.rateLimits : null;
     state.modelLabel = modelLabel(backend.id, state.model || model);
     retitle();
     if (process.env.AESEL_DESKTOP) {
@@ -1050,7 +1073,7 @@ let desktopTimer = null;
 let desktopHandoff = false;
 let desktopSave = Promise.resolve();
 function captureDesktop() {
-  return { liveTransfer:{sentIdentity:live.lastSentIdentity,published:autopublish.published,publishedAt:autopublish.publishedAt}, ...(live.revision?.version!==undefined?{pieceVersion:live.revision.version}:{}), ...(currentArtifact?{artifactId:currentArtifact.id,artifactVersion:currentArtifact.version}:{}), ...desktopSnapshot({ cwd, backend: backend.id, effort, model: state.model || model, live, state,
+  return { recovery:recoveryRequest&&(turnRecovery.active||turnRecovery.providerWaiting||recoveryPaused)?{...recoveryRequest}:null, slab:slabSession.snapshot(), publicationVersions:[...pieceVersions], liveTransfer:{sentIdentity:live.lastSentIdentity,published:autopublish.published,publishedAt:autopublish.publishedAt}, ...(live.revision?.version!==undefined?{pieceVersion:live.revision.version}:{}), ...(currentArtifact?{artifactId:currentArtifact.id,artifactVersion:currentArtifact.version}:{}), ...desktopSnapshot({ cwd, backend: backend.id, effort, model, live, state,
     options: { autopublish: autopublish.enabled, mouseEnabled }, engine, handoff, archivedConversation }), ...(transcriptJournal ? {transcriptId:transcriptJournal.header.id}:{}) };
 }
 function saveDesktopIdle() {
@@ -1065,7 +1088,7 @@ async function requestDesktop(action) {
   }
   if (desktopHandoff || closing) return;
   desktopPending = action;
-  if (state.busy || liveOperation || manualPublishInFlight || autopublish.running || live.sending) {
+  if (turnRecovery.active || state.busy || liveOperation || manualPublishInFlight || autopublish.running || live.sending) {
     if (!desktopTimer) {
       if (desktopAnnounced !== action) {
         desktopAnnounced = action;
@@ -1090,7 +1113,7 @@ async function requestDesktop(action) {
         if (autopublish.published !== live.source()) throw new Error("The piece changed during upload. Retry restart after it settles.");
       }
     }
-    if (state.busy || liveOperation || manualPublishInFlight || autopublish.running || live.sending) throw new Error("New work started while preparing restart; try again when idle.");
+    if (turnRecovery.active || state.busy || liveOperation || manualPublishInFlight || autopublish.running || live.sending) throw new Error("New work started while preparing restart; try again when idle.");
     process.stdin.pause();
     await transcriptPending.catch(() => {});
     await desktopSave.catch(() => {});
@@ -1160,16 +1183,14 @@ end repeat`;
 }
 
 // A pro session makes pieces and publishes them with `ac publish`, which
-// prints the piece's address. Seeing one tells Slab there is a piece now —
-// its name and version on the strip, its live preview in the corner — the
-// same fields a piece session reports from its own publishing.
-const pieceVersions = new Map();
+// reports a successful publish. Ordinary command output can contain piece
+// URLs too, especially when reading source or running the repository's tests.
+const pieceVersions = new Map(desktopRestored?.publicationVersions || []);
 // What the turn in flight has taken, for the line that closes it.
-let turnStartedAt = 0, turnTools = 0, turnTokensAt = 0, turnUsdAt = 0;
-function notePublished(output) {
-  const match = /https:\/\/aesthetic\.computer\/@([\w.-]+)\/([\w.-]+)/.exec(output);
-  if (!match) return;
-  const [, handle, slug] = match;
+function notePublished(item) {
+  const publication = publishedCommand(item, session.handle);
+  if (!publication) return;
+  const { handle, slug } = publication;
   const version = (pieceVersions.get(slug) || 0) + 1;
   pieceVersions.set(slug, version);
   state.pieceSlug = slug;
@@ -1178,7 +1199,7 @@ function notePublished(output) {
   state.media = null;
   if (!profile.private) slabSession.artifact("piece", null);
   redraw();
-  slabSession.live(`${slug}.mjs`, `prompt.ac/@${handle}/${slug}`, `${handle}/${slug}`);
+  slabSession.live(`${slug}.mjs`, `prompt.ac/@${handle}/${slug}`, `${handle}/${slug}`, { source: "publication" });
   slabSession.published();
   slabSession.revision({ version, revision: "", updatedAt: new Date().toISOString() });
 }
@@ -1187,7 +1208,7 @@ function notePublished(output) {
 // what was bought. Quietly keeps the last number when the site can't be reached.
 let braincellsAt = 0;
 async function refreshBraincells() {
-  if (!session.signedIn || Date.now() - braincellsAt < 3000) return;
+  if (backend.id !== "ac" || !session.signedIn || Date.now() - braincellsAt < 3000) return;
   braincellsAt = Date.now();
   try {
     const token = await session.token();
@@ -1202,11 +1223,48 @@ async function refreshBraincells() {
 // Become the new code without closing the window: shut down as a quit would,
 // then replace this process with a fresh one on the same thread.
 let restartArgs = null;
+function requestReify() {
+  if (desktopSessionPath) { void requestDesktop("restart"); return "queued"; }
+  if (closing || finishing) throw new Error("Aesel is already closing");
+  if (typeof process.execve !== "function") throw new Error("This Node version cannot reify in place");
+  reifyPending = true;
+  const attempt = async () => {
+    reifyTimer = null;
+    if (!reifyPending || closing || finishing) return;
+    if (turnRecovery.active || state.busy || liveOperation || manualPublishInFlight || autopublish.running || live.sending || harnessSettings.pending) {
+      reifyTimer = setTimeout(attempt, 150); return;
+    }
+    await restartInPlace();
+  };
+  // Return the control response before replacing an idle process. During a
+  // turn this waits for its final message; queued prompts stay behind reify.
+  if (!reifyTimer) reifyTimer = setTimeout(attempt, 150);
+  return "queued";
+}
 async function restartInPlace() {
+  if (turnRecovery.active || state.busy || liveOperation || manualPublishInFlight || autopublish.running || live.sending) {
+    flash("wait for this turn and uploads to finish, then /restart");
+    return redraw();
+  }
+  if (typeof process.execve !== "function") {
+    addEntry("error", "This Node version cannot restart in place. Upgrade Node, then reopen Aesel.");
+    return redraw();
+  }
+  try {
+    execFileSync(process.execPath, ["--experimental-vm-modules", "--no-warnings",
+      fileURLToPath(new URL("../bin/reify-check.mjs", import.meta.url)),
+      fileURLToPath(new URL(".", import.meta.url))], {timeout: 15000, stdio: ["ignore", "pipe", "pipe"]});
+  } catch (error) {
+    reifyPending = false;
+    addEntry("error", `Reify stopped: ${cleanText(error.stderr?.toString() || error.message)}`);
+    redraw(); drainQueue(); return;
+  }
   // The window comes back as it is now, not as it was launched: the provider
-  // and model chosen since, and the thread (which belongs to that provider).
-  const replaced = new Set(["--resume", "--backend", "--model"]);
-  const args = arguments_.filter((a, i, all) => !replaced.has(a) && !replaced.has(all[i - 1]));
+  // and model chosen since, the thread, draft, and selected artifact. finish
+  // saves that snapshot before replacing the process. Never replay --prompt.
+  const replaced = new Set(["--resume", "--backend", "--model", "--effort", "--prompt", "--piece", "--medium", "--genre", "--runtime", "--checkpoint", "--session-id"]);
+  const args = arguments_.filter((a, i, all) => a !== "--continue-session" && !replaced.has(a) && !replaced.has(all[i - 1]));
+  args.push("--continue-session", "--checkpoint", reifyCheckpointPath, "--session-id", slabSession.sessionId);
   args.push("--backend", backend.id);
   if (model) args.push("--model", model);
   if (engine.threadId) args.push("--resume", engine.threadId);
@@ -1217,6 +1275,8 @@ async function restartInPlace() {
 async function finish(code = 0) {
   if (closing || finishing) return;
   finishing = true;
+  if(turnRecovery.active)cancelRecovery();
+  clearTimeout(reifyTimer); reifyTimer = null;
   clearTimeout(desktopTimer); desktopTimer = null;
   if (code !== 75) {
     try {
@@ -1231,12 +1291,19 @@ async function finish(code = 0) {
         });
       }
       process.stdin.pause();
+      if (restartArgs && autopublish.pending) {
+        if (!await autopublish.flush()) throw new Error("The last save did not publish; it must finish before reifying.");
+      }
+      await transcriptPending.catch(() => {});
       await desktopSave.catch(() => {});
-      await writeDesktopSession(localSessionPath, captureDesktop());
+      const snapshot = captureDesktop();
+      await writeDesktopSession(localSessionPath, snapshot);
+      if (restartArgs && reifyCheckpointPath !== localSessionPath) await writeDesktopSession(reifyCheckpointPath, snapshot);
       if(desktopSessionPath) process.stdout.write('\x1b]777;easel-phase:closing\x07');
     } catch (error) {
-      addEntry("error", `Cannot quit safely: desktop state could not be saved (${error.message}).`);
+      addEntry("error", `Cannot ${restartArgs ? "reify" : "quit"} safely: session state could not be saved (${error.message}).`);
       finishing = false;
+      restartArgs = null; reifyPending = false;
       process.stdin.resume();
 startNativeGamepad();
       redraw(); return;
@@ -1244,6 +1311,7 @@ startNativeGamepad();
   }
   await transcriptPending.catch(() => {});
   closing = true;
+  turnRecovery.reset();clearTimeout(reconnectTimer);
   performanceAbort?.abort();
   session.unwatch();
   const pending = autopublish.pending || autopublish.running;
@@ -1254,7 +1322,7 @@ startNativeGamepad();
   // marker and no marker at all should be told the same thing — nobody home.
   await inbox.close().catch(() => {});
   shape.close();
-  slabSession.close();
+  slabSession.close({preserve: Boolean(restartArgs)});
   transcript.event("engine", { status: "closed", engine: backend.id, model: state.model || model });
   transcript.close();
   engine.close();
@@ -1283,7 +1351,7 @@ startNativeGamepad();
   // All durable saves/uploads above have settled; sockets must not delay desktop exit.
   if(desktopSessionPath) process.exit(code);
   if (restartArgs && typeof process.execve === "function") {
-    process.execve(process.execPath, [process.execPath, fileURLToPath(import.meta.url), ...restartArgs], process.env);
+    process.execve(process.execPath, [process.execPath, ...process.execArgv, fileURLToPath(new URL('./launch.mjs',import.meta.url)), ...restartArgs], process.env);
   }
 }
 
@@ -1303,6 +1371,52 @@ function notePiece(file) {
   state.piece = `${live.slug}${live.runtime.extension}`;
 }
 
+let recoveryRequest=desktopRestored?.recovery||null,recoveryNeedsReconnect=false,recoveryPaused=Boolean(recoveryRequest);
+const completedTurns=new Set();
+if(recoveryPaused)state.recoveryNotice='Recovery paused · /retry';
+const turnRecovery=new TurnRecovery({
+  changed:notice=>{state.recoveryNotice=notice;redraw();},
+  exhausted:error=>{
+    recoveryPaused=true;state.busy=false;state.status='failed';
+    updateEntry('engine-recovery','error',`Connection recovery paused: ${conciseFailure(error)} · /retry to continue`);
+    slabSession.awaitingInput('connection recovery paused');saveDesktopIdle();redraw();
+  },
+  stalled:()=>recoverEngine(new Error('The provider connection timed out.'),{reconnect:true}),
+  run:async({isCurrent})=>{
+    if(closing||finishing||!isCurrent())return;
+    if(recoveryNeedsReconnect){
+      const result=await restartEngine('Connection',backend,model,effort,{drain:false,recovering:true});
+      if(!result?.ok)throw result?.cause||new Error(result?.error||'Could not reconnect');
+      recoveryNeedsReconnect=false;
+    }
+    if(!isCurrent()||closing||finishing)return;
+    const request=recoveryRequest;
+    if(request){
+      const text=request.accepted ? CONTINUE_INTERRUPTED_TURN : request.submitted
+        ? `${CONTINUE_INTERRUPTED_TURN}\nThe interrupted request was: ${request.text}` : request.text;
+      await startTurn(text,{from:request.from,recovery:true});
+    }else{state.status='ready';state.busy=false;setImmediate(drainQueue);}
+  },
+});
+function recoverEngine(error,{reconnect=false}={}){
+  if(closing||finishing)return;
+  recoveryNeedsReconnect ||= reconnect;
+  recoveryPaused=false;
+  // A terminal failure cannot keep the spinner or an approval drawer alive.
+  state.busy=false;state.status='reconnecting';engine.turnId=null;
+  approvalQueue.pending=[];state.approval=null;
+  state.activityTools?.clear();state.toolsNow?.clear();state.toolNow='';
+  state.activityStage='';state.activityText='';state.activityIntent='';
+  if(reconnect)engine.close();
+  slabSession.awaitingInput('reconnecting');
+  turnRecovery.schedule(error);saveDesktopIdle();redraw();
+}
+function cancelRecovery(){
+  if(turnRecovery.active&&state.busy){engine.close();recoveryNeedsReconnect=true;}
+  turnRecovery.reset();recoveryPaused=true;state.recoveryNotice='Recovery stopped · /retry';
+  state.busy=false;state.status='ready';slabSession.interrupted();saveDesktopIdle();redraw();
+}
+
 let reconnectTimer=null,reconnectDelay=3000,hostOffline=false;
 function lostConnection(error){
   if(!connectionFailure(error))return false;
@@ -1316,7 +1430,7 @@ async function checkConnection(){
     if(hostOffline)throw Error('internet disconnected');
     const response=await fetch(`${SITE}/`,{method:'HEAD',headers:{'User-Agent':USER_AGENT},signal:AbortSignal.timeout(5000)});if(!response.ok)throw Error('network error');
     state.connectionNotice='';reconnectDelay=3000;
-    if(state.medium==='piece'&&!liveOperation){if(live.ahead)await live.push();if(autopublish.enabled&&!autopublishBlocker()){autopublish.note(live.source());await autopublish.flush();}}
+    if(networked&&state.medium==='piece'&&!liveOperation){if(live.ahead)await live.push();if(autopublish.enabled&&!autopublishBlocker()){autopublish.note(live.source());await autopublish.flush();}}
     redraw();drainQueue();
   }catch(error){if(connectionFailure(error)){reconnectDelay=Math.min(60000,reconnectDelay*2);lostConnection(error);}else{liveError(error);redraw();drainQueue();}}
 }
@@ -1459,7 +1573,7 @@ function noteMedia(item) {
   if (!pro) return;
   const next = mediaPaths(itemText(item), cwd)[0];
   if (!mediaChanged(state.media, next)) return;
-  state.media = { ...next, version: (state.media?.version || 0) + 1 };
+  state.media = { ...next, source: "tool-input", version: (state.media?.version || 0) + 1 };
   transcript.event("media", { path: next.path, mime: next.mime, kind: next.kind });
   if (profile.private) return;
   slabSession.artifact(next.kind, { path: next.path, mime: next.mime, name: next.name, version: state.media.version, artifactId: slabSession.sessionId });
@@ -1488,7 +1602,14 @@ function restoreThread(thread) {
 }
 
 function handleNotification({ method, params = {} }) {
+  if (method === "account/rateLimits/updated" || method === "account/updated") {
+    redraw();
+    return;
+  }
   state.lastRequestEventAt = Date.now();
+  const eventTurn=params.turnId||params.turn?.id;
+  if(method!=='turn/started'&&eventTurn&&completedTurns.has(eventTurn))return;
+  if (['item/agentMessage/delta','item/started','item/completed'].includes(method)||(method==='turn/progress'&&params.bytes>0)) turnRecovery.progress();
   if (method === "serverRequest/resolved") {
     approvalQueue.resolve(params.requestId, engine);
     showPendingApproval();
@@ -1496,7 +1617,9 @@ function handleNotification({ method, params = {} }) {
   }
   switch (method) {
     case "turn/started":
-      turnStartedAt = Date.now(); turnTools = 0; turnTokensAt = state.spend.tokens; turnUsdAt = state.spend.usd;
+      if(recoveryRequest)recoveryRequest.accepted=true;
+      completedTurns.delete(params.turn?.id);
+      beginTurnActivity(state, params.turn?.id || engine.turnId || randomUUID(), engine.threadId || '');
       pendingModelGlyphs="";resetModelGlyphs=true;
       state.activityText="";state.activityIntent="";state.activityStage="";state.activityMessageId=null;state.activityTools?.clear();state.toolsNow?.clear();state.toolNow="";
       state.requestStartedAt ||= Date.now();
@@ -1513,13 +1636,12 @@ function handleNotification({ method, params = {} }) {
       break;
     case "turn/usage": {
       state.energy.add(params.model || state.model || model, params.usage);
-      const thread = engine.threadId || "";
-      if (state.spend.thread !== thread) state.spend = { thread, tokens: 0, usd: 0, billed: false };
-      const u = params.usage || {};
-      state.spend.tokens += (u.input_tokens || 0) + (u.output_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
-      if (typeof u.cost === "number") { state.spend.usd += u.cost; state.spend.billed = true; }
+      recordTurnUsage(state, params.usage || {});
       break;
     }
+    case "thread/tokenUsage/updated":
+      recordCodexUsage(state, params);
+      break;
     case "turn/progress":
       state.status = params.phase || "working";
       if (["connecting", "waiting", "composing"].includes(state.status)) {
@@ -1552,11 +1674,7 @@ function handleNotification({ method, params = {} }) {
       if (params.item?.type === "fileChange") state.status = "writing";
       const summary = itemSummary(params.item);
       if (summary) {
-        // Every tool is a line of the conversation, its output scrolling under
-        // it, so a long turn is visibly working rather than silently busy. Pro
-        // also names the current one on the status line.
-        if (pro) { (state.toolsNow ||= new Map()).set(params.item.id, summary.text); state.toolNow = summary.text; turnTools += 1; }
-        updateEntry(params.item.id, summary.kind, summary.text);
+        recordToolActivity(state, params.item);
         transcript.event("tool_call", { id: params.item.id, name: summary.kind, input: summary.text });
       }
       break;
@@ -1564,6 +1682,7 @@ function handleNotification({ method, params = {} }) {
     case "item/completed": {
       noteMedia(params.item);
       const item = params.item;
+      if (pro) notePublished(item);
       observeToolActivity(state, method, item);
       if (item?.type === "agentMessage") { updateEntry(item.id, "assistant", item.text); transcriptCompleted.add(item.id);if (!turnAssistant.includes(item.id)) turnAssistant.push(item.id);const entry=state.entries.find(e=>e.id===item.id);if(entry){entry.activityOnly=state.busy;state.activityMessageId=entry.id;state.activityText=entry.text;} }
       const summary = itemSummary(item);
@@ -1574,35 +1693,21 @@ function handleNotification({ method, params = {} }) {
         } else if (item.status) {
           suffix = ` · ${item.status}`;
         }
-        if (pro) { state.toolsNow?.delete(item.id); state.toolNow = state.toolsNow?.size ? [...state.toolsNow.values()].at(-1) : ""; }
-        const shown = state.entries.find((entry) => entry.id === item.id);
-        const tail = shown?.text.split("\n").slice(1).join("\n");
-        updateEntry(item.id, summary.kind, `${summary.text}${suffix}${tail ? `\n${tail}` : ""}`);
+        recordToolActivity(state, item, true);
         transcript.event("tool_result", { id: item.id, name: summary.kind, summary: `${summary.text}${suffix}` });
       }
       break;
     }
-    case "item/commandExecution/outputDelta": {
-      if (pro && params.delta) notePublished(String(params.delta));
-      const entry = state.entries.find((candidate) => candidate.id === params.itemId);
-      if (entry && params.delta) {
-        // The last few lines of what the command is printing, under it.
-        const lines = cleanText(params.delta).trim().split("\n").filter((line) => line.trim()).slice(-3);
-        if (lines.length) entry.text = `${entry.text.split("\n")[0]}\n${lines.map((line, i) => `${i ? "  " : "⎿ "}${clipText(line, 200)}`).join("\n")}`;
-      }
+    case "item/commandExecution/outputDelta":
+      // Raw output remains in the provider's log, outside the conversation.
       break;
-    }
     case "turn/completed": {
-      if (pro && turnStartedAt) {
-        // One line at the end of a turn: what it took.
-        const seconds = Math.round((Date.now() - turnStartedAt) / 1000);
-        const took = seconds >= 60 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${seconds}s`;
-        const tokens = state.spend.tokens - turnTokensAt, usd = state.spend.usd - turnUsdAt;
-        const size = (n) => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : `${n}`;
-        const status = params.turn?.status === "completed" ? "✓" : params.turn?.status === "interrupted" ? "■" : "✕";
-        addEntry("notice", `${status} ${turnTools} tool${turnTools === 1 ? "" : "s"} · ${took}${tokens > 0 ? ` · ${size(tokens)} tok` : ""}${usd > 0 ? ` · $${usd < 0.01 ? usd.toFixed(4) : usd.toFixed(3)}` : ""}`);
-        turnStartedAt = 0;
-      }
+      const completedId=params.turn?.id||engine.turnId;
+      if(completedId){completedTurns.add(completedId);if(completedTurns.size>32)completedTurns.delete(completedTurns.values().next().value);}
+      turnRecovery.progress();
+      // Some bridges put usage only on completion. Do not add it twice if
+      // streamed usage already measured this turn.
+      if (params.turn?.usage && !state.turnActivity?.metered) recordTurnUsage(state, params.turn.usage);
       // Refused for braincells: the meter is stale by definition, so re-read it now.
       if (params.turn?.error?.billing) braincellsAt = 0;
       void refreshBraincells();
@@ -1612,6 +1717,8 @@ function handleNotification({ method, params = {} }) {
       // message of its own, so the meter reads it from here when it is there.
       if (params.turn?.usage) state.energy.add(params.turn.model || state.model || model, params.turn.usage);
       const finalReply=state.entries.find(e=>e.id===state.activityMessageId);if(finalReply)delete finalReply.activityOnly;
+      const usageReceipt = finishTurnActivity(state, params.turn?.status || 'completed');
+      if (usageReceipt && !process.env.AESEL_DESKTOP) state.entries.push(usageReceipt);
       state.activityText="";state.activityIntent="";state.activityStage="";state.activityMessageId=null;state.activityTools?.clear();state.toolsNow?.clear();state.toolNow="";
       state.busy = false;
       state.status = params.turn?.status === "failed" ? "failed" : "ready";
@@ -1621,7 +1728,7 @@ function handleNotification({ method, params = {} }) {
       const failure = params.turn?.error;
       // A braincell refusal is the relay's own sentence; show it whole.
       if (failure?.billing) addEntry("error", failure.message);
-      else if (failure&&!lostConnection(failure.message||JSON.stringify(failure))) addEntry("error", conciseFailure(failure.message||JSON.stringify(failure)));
+      else if (failure&&!connectionFailure(failure)) addEntry("error", conciseFailure(failure.message||JSON.stringify(failure)));
       if (params.turn?.status === "interrupted") slabSession.interrupted();
       else if (params.turn?.status === "failed") slabSession.awaitingInput("easel turn failed");
       else slabSession.complete();
@@ -1650,13 +1757,18 @@ function handleNotification({ method, params = {} }) {
       // An interrupt is a decision about everything you were going to say, not
       // just the turn that was running, so ctrl-c drops the queue with it. An
       // urgent inbox line interrupts to go first, not to cancel the rest.
-      const forInbox = state.interruptFor === "inbox";
+      const forInbox = state.interruptFor === "inbox", stoppedByUser=state.interruptFor === "user";
       state.interruptFor = null;
       if (params.turn?.status === "interrupted" && state.queued.length && !forInbox) {
         const dropped = state.queued.length;
         state.queued.length = 0;
         for (const entry of state.entries) delete entry.awaitingTurn;
         addEntry("notice", `Stopped · ${dropped} follow-up messages were not sent.`);
+      }
+      if(failure&&connectionFailure(failure)&&!stoppedByUser) {
+        recoverEngine(failure);
+      }else{
+        turnRecovery.reset();recoveryPaused=false;recoveryRequest=null;
       }
       journalFinalMessages();
       saveDesktopIdle();
@@ -1679,12 +1791,22 @@ function handleNotification({ method, params = {} }) {
     case "warning":
       addEntry("notice", params.message || "Engine warning");
       break;
-    case "error":
-      if(!lostConnection(params.error?.message||"Engine error"))addEntry("error", conciseFailure(params.error?.message||"Engine error"));
-      if (!params.willRetry) state.status = "failed";
+    case "error": {
+      const failure=params.error||new Error('Engine error');
+      if(params.willRetry){
+        if(connectionFailure(failure))turnRecovery.providerRetry();
+        else updateEntry('engine-warning','notice',conciseFailure(failure));
+      }else if(state.busy||engine.turnId){
+        // Some providers emit an error without a following completion.
+        handleNotification({method:'turn/completed',params:{turn:{id:params.turnId||engine.turnId,status:'failed',error:failure}}});
+      }else if(connectionFailure(failure))recoverEngine(failure);
+      else {state.status='failed';addEntry('error',conciseFailure(failure));}
       break;
+    }
   }
-  redraw();
+  // Text already arrived from the engine. Paint it now; footer/tool updates
+  // can wait for the next coalesced frame.
+  redraw(method === "item/agentMessage/delta");
 }
 
 const approvalQueue = new ApprovalQueue();
@@ -1930,7 +2052,7 @@ function engineLabel() {
 
 // Provider thread IDs cannot cross engines; carry recent conversation and
 // keep the old connection available until the replacement connects.
-async function restartEngine(note, nextBackend = backend, nextModel = model, nextEffort = nextBackend === backend ? effort : "", {drain=true}={}) {
+async function restartEngine(note, nextBackend = backend, nextModel = model, nextEffort = nextBackend === backend ? effort : "", {drain=true,recovering=false}={}) {
   if(nextBackend.id==='ac'){
     if(nextModel&&!hostedModel(nextModel)){addEntry("error",`AC hosted runs ${Object.keys(OPEN_MODEL_INFO).join(", ")}, or Automatic.`);return redraw();}
     nextModel=hostedModel(nextModel);
@@ -1951,6 +2073,7 @@ async function restartEngine(note, nextBackend = backend, nextModel = model, nex
   state.busy = true;
   redraw();
   const previous = engine;
+  if(recovering)previous.close();
   try {
     // A Claude thread is only on disk once a turn has run; resuming a thread
     // that never had one is answered with an error the CLI prints before it
@@ -1966,6 +2089,7 @@ async function restartEngine(note, nextBackend = backend, nextModel = model, nex
     saveDesktopIdle();
     // Provider and model changes are reflected in settings, not chat.
     state.status = "ready";
+    void refreshBraincells();
     transcript.meta({ engine: backend.id, model: state.model });
     transcript.event("engine", { status: "restarted", engine: backend.id, model: state.model, thread: engine.threadId });
   } catch (error) {
@@ -1978,13 +2102,13 @@ async function restartEngine(note, nextBackend = backend, nextModel = model, nex
     effort = previousEffort;
     state.model = previousLabel;
     handoff = previousHandoff;
-    addEntry("error", errorText(error));
-    state.status = "ready";
+    if(!recovering)addEntry("error", errorText(error));
+    state.status = recovering ? "offline" : "ready";
   }
   state.busy = false;
   redraw();
   if(drain)drainQueue();
-  return switchError?{ok:false,error:errorText(switchError)}:{ok:true};
+  return switchError?{ok:false,error:errorText(switchError),cause:switchError}:{ok:true};
 }
 
 function openSettings(row=0) {
@@ -2167,9 +2291,9 @@ async function commandPerformance(rest) {
 // Start the next queued line, if the turn that just ended left one. Routed back
 // through the same path a typed line takes, so a queued `/command` still behaves
 // like a command rather than becoming a prompt.
-let inputBatchTimer=null,lastSubmittedInputAt=0;
+let inputBatchTimer=null,lastSubmittedInputAt=0,drainingInput=false;
 function drainQueue() {
-  if (state.busy || state.connectionNotice || !state.queued.length || desktopHandoff || finishing) return;
+  if (turnRecovery.active || recoveryPaused || drainingInput || state.busy || state.status === 'connecting' || hostOffline || !state.queued.length || desktopHandoff || finishing || reifyPending) return;
   // An inbox line was never typed: it was shown when it arrived, stays out of
   // the history, and goes to the engine on its own rather than in a batch.
   if (state.queued[0]?.inbox) {
@@ -2184,7 +2308,9 @@ function drainQueue() {
   if(delay>0){inputBatchTimer=setTimeout(()=>{inputBatchTimer=null;drainQueue();},delay);return;}
   const batch=takeSubmittedBatch(state.queued);
   // Submitted follow-ups form one continuation; leave the editor draft untouched.
-  submitInput(batch.join("\n"),batch).catch(error=>{addEntry("error",errorText(error));redraw();});
+  drainingInput=true;
+  submitInput(batch.join("\n"),batch).catch(error=>{addEntry("error",errorText(error));redraw();})
+    .finally(()=>{drainingInput=false;drainQueue();});
 }
 
 // A message from another session. Shown at once; started at once if the
@@ -2205,7 +2331,7 @@ function receiveInbox(message) {
     if (state.approval) answerApproval("\u0003");
     else engine.interrupt().catch((error) => addEntry("error", errorText(error)));
     state.status = "interrupting";
-  } else if (state.busy || state.status !== "ready") {
+  } else if (state.busy || state.status !== "ready" || turnRecovery.active || recoveryPaused || reifyPending) {
     state.queued.push(line);
     addEntry("notice", `Queued · inbox from ${from}`);
   } else {
@@ -2222,12 +2348,15 @@ function enqueueUserMessage(text) {
   state.queued.push(text);
   const entryId=addEntry("user",text);
   state.entries.find(entry=>entry.id===entryId).awaitingTurn=true;
-  lastSubmittedInputAt=Date.now();journalFinalMessages();drainQueue();return redraw();
+  lastSubmittedInputAt=state.busy ? Date.now() : 0;
+  // A queued follow-up is saved now; an idle submission is saved by startTurn.
+  if (state.busy) journalFinalMessages();
+  drainQueue();return redraw(true);
 }
 async function submitInput(submittedText, submittedMessages = null) {
   if (desktopHandoff || finishing) return;
   const fromEditor = submittedText === undefined;
-  const text = (fromEditor ? state.input : submittedText).trim();
+  const text = trimSubmittedInput(fromEditor ? state.input : submittedText);
   if (fromEditor) {
     state.input = "";
     state.cursor = 0;
@@ -2238,6 +2367,12 @@ async function submitInput(submittedText, submittedMessages = null) {
   if (text.startsWith("/")) {
     const [command, ...restWords] = text.split(/\s+/);
     const rest = restWords.join(" ");
+    if(command==='/retry'){
+      if(state.busy&&!turnRecovery.providerWaiting){flash('Wait for the current turn, or Ctrl-C to stop it');return redraw();}
+      const reconnect=turnRecovery.providerWaiting||recoveryNeedsReconnect||engine.closed;
+      turnRecovery.reset();recoveryPaused=false;
+      recoverEngine(new Error('Connection lost'),{reconnect});return;
+    }
     if (command === "/quit" || command === "/exit") return finish();
     if (command === "/close") return closeOut();
     if (command === "/about") {
@@ -2330,7 +2465,11 @@ async function submitInput(submittedText, submittedMessages = null) {
       return redraw();
     }
     if (command === "/home") return requestDesktop("home");
-    if (command === "/restart") return requestDesktop("restart");
+    if (command === "/restart" || command === "/reify") {
+      try { requestReify(); flash("reify queued"); }
+      catch (error) { addEntry("error", errorText(error)); }
+      return redraw();
+    }
     if (command === "/update" && desktopSessionPath) return requestDesktop("update");
     if (command === "/update") {
       if (rest.trim() === "later") {
@@ -2386,8 +2525,8 @@ async function submitInput(submittedText, submittedMessages = null) {
       addEntry(
         "notice",
         pro
-          ? "/ask [on|off] · /provider · /model [name] · /mouse [on|off] · /layout · /inbox · /mode · /backend [id] · /login · /logout · /whoami · /handle [name] · /update · /new · /clear · /close · /quit   ctrl-c interrupts a running turn"
-          : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /mode · /mouse [on|off] · /performance [frames] · /energy · /latest · /login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /preview [piece] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /update · /open · /qr · /new [thread] · /clear · /quit   ctrl-c interrupts a running turn",
+          ? "/ask [on|off] · /provider · /model [name] · /mouse [on|off] · /layout · /inbox · /mode · /backend [id] · /login · /logout · /whoami · /handle [name] · /reify · /update · /new · /clear · /close · /quit   ctrl-c interrupts a running turn"
+          : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /mode · /mouse [on|off] · /performance [frames] · /energy · /latest · /login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /preview [piece] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /reify · /update · /open · /qr · /new [thread] · /clear · /quit   ctrl-c interrupts a running turn",
       );
       return redraw();
     }
@@ -2607,7 +2746,8 @@ function inboxReport() {
 
 // Hand a line to the engine. A typed line was shown and remembered on the way
 // in; an inbox line was shown when it arrived and is nobody's to recall with ↑.
-async function startTurn(text, { from = "" } = {}) {
+async function startTurn(text, { from = "", recovery = false } = {}) {
+  if(!recovery){turnRecovery.reset();recoveryPaused=false;recoveryRequest={text,from,accepted:false,submitted:false};}
   let accountError = null;
   try { await session.requireAccount(); }
   catch (error) {
@@ -2621,7 +2761,7 @@ async function startTurn(text, { from = "" } = {}) {
     state.queued = [];
     return finish();
   }
-  if (!from) {
+  if (!from && !recovery) {
     transcript.event("user", { text });
     // The first thing asked is what the session was about.
     if (!subject) {
@@ -2629,7 +2769,7 @@ async function startTurn(text, { from = "" } = {}) {
       transcript.meta({ subject });
     }
   }
-  slabSession.working(text);
+  slabSession.working(recovery ? recoveryRequest?.text : text);
   state.requestStartedAt = Date.now();
   state.lastRequestEventAt = Date.now();
   state.progressBytes = 0;
@@ -2649,11 +2789,14 @@ async function startTurn(text, { from = "" } = {}) {
       pixels=await inputPixels(cwd,{channel:live.channel,revision:createHash('sha256').update(live.source()).digest('hex'),images:backend.id!=='ac'});
       state.activityStage='';redraw();
     }
+    if(recoveryRequest)recoveryRequest.submitted=true;
     await engine.startTurn(text+runtimeFeedbackContext(observed)+pixels.context,{images:pixels.images});
   } catch (error) {
     state.busy = false;
     state.status = "failed";
-    if(!lostConnection(error))addEntry("error",conciseFailure(error));
+    if(recovery)throw error;
+    if(connectionFailure(error)||error.bridgeFailure)recoverEngine(error,{reconnect:true});
+    else {recoveryRequest=null;addEntry("error",conciseFailure(error));slabSession.awaitingInput('turn failed');}
     redraw();
     // A turn that never started emits no turn/completed, so the queue has to be
     // let go from here too or it waits for a turn that will never come.
@@ -2693,7 +2836,7 @@ function scrollTranscript(delta) {
   state.scrollOffset = Math.max(0, Math.min(Math.max(0, count - (height - 5)),
     offset + (offset ? count - lastTranscriptLines : 0) + delta));
   lastTranscriptLines = count;
-  redraw();
+  redraw(true);
 }
 
 function insertText(value) {
@@ -2823,12 +2966,19 @@ function handleKey(input) {
   if (answerApproval(input)) return;
 
   if (input === "\u0003") {
+    if(turnRecovery.active||recoveryPaused){cancelRecovery();return;}
+    if(turnRecovery.providerWaiting){turnRecovery.reset();recoveryPaused=true;}
     if(!state.busy&&state.queued.length){state.queued=[];clearTimeout(inputBatchTimer);inputBatchTimer=null;for(const entry of state.entries)delete entry.awaitingTurn;return redraw();}
     if (performanceAbort) { performanceAbort.abort(new Error("Benchmark cancelled.")); return; }
     if (state.busy) {
+      state.interruptFor="user";turnRecovery.reset();
       state.status = "interrupting";
       redraw();
-      engine.interrupt().catch((error) => addEntry("error", errorText(error)));
+      engine.interrupt().catch((error) => {
+        if(state.status!=='interrupting')return;
+        engine.close();engine.turnId=null;recoveryNeedsReconnect=true;
+        cancelRecovery();addEntry('notice',`Connection stopped: ${conciseFailure(error)}`);redraw();
+      });
     } else {
       finish();
     }
@@ -2864,13 +3014,22 @@ function handleKey(input) {
   } else if (!input.startsWith("\x1b")) {
     insertText(input);
   }
-  redraw();
+  redraw(true);
 }
 
 const inputDecoder = new InputDecoder();
 const utf8Decoder = new StringDecoder("utf8");
 let escapeTimer;
 function handleKeys(buffer) {
+  processingInput = true;
+  try { decodeKeys(buffer); }
+  finally {
+    processingInput = false;
+    const requested = inputRedraw; inputRedraw = 0;
+    if (requested) redraw(requested === 2);
+  }
+}
+function decodeKeys(buffer) {
   clearTimeout(escapeTimer);
   const tokens = inputDecoder.push(utf8Decoder.write(buffer));
   escapeTimer = setTimeout(() => inputDecoder.escape().forEach(handleKey), 35);
@@ -2980,17 +3139,20 @@ function splashTick() {
 const splashStartedAt = Date.now();
 // Title-screen animation is disabled while launches go directly to a piece.
 
+markStartup('terminal-setup');
 process.stdin.setRawMode(true);
 process.stdin.resume();
 startNativeGamepad();
 process.stdin.on("data", handleKeys);
-process.stdout.on("resize", () => { if (pro) { state.tray = appearance(); setAppearance(state.tray); } redraw(); });
+process.stdout.on("resize", () => { redraw(true);refreshAppearance(); });
 process.on("SIGWINCH", () => { frameDiff.reset(); lastLayout = ""; lastProvider = ""; lastConversation = ""; lastPrompt = ""; redraw(); });
 if (desktopSessionPath) process.on("SIGUSR2", () => {
   readDesktopIntent(process.env.AESEL_DESKTOP_INTENT).then(requestDesktop).catch((error) => { addEntry("error", errorText(error)); redraw(); });
 });
 process.on("SIGTERM", () => finish(143));
 process.on("SIGHUP", () => finish(129));
+markStartup('input-ready');
+nativeTerminalPhase('ready');
 
 // A sign-in or sign-out anywhere in the AC suite shows up here live.
 session.watch().on("change", () => {
@@ -2999,6 +3161,7 @@ session.watch().on("change", () => {
   refreshAccount(true);
   redraw();
 });
+markStartup('account-watched');
 
 // Mint this session's blank piece and the QR code that opens it on a phone.
 // Pro mints nothing; a private session has the file and none of the phone.
@@ -3007,6 +3170,14 @@ live.broadcastEnabled = networked;
 if (state.medium === "piece" && networked) live.watch(liveError);
 if (networked) publishBlankOnce();
 refreshAccount();
+markStartup('account-refreshed');
+slabSession.restore(desktopRestored?.slab);
+// Older auto-selections could come from unrelated paths in command output.
+// Drop those once on reload; explicit piece previews keep their own source.
+if (pro && state.media && state.media.source !== "tool-input") {
+  state.media = null;
+  slabSession.artifact("piece", null);
+}
 
 // 🆕 A newer Aesel, announced in the window that is already open. A release
 // install asks the feed every half hour; a checkout notices its own
@@ -3117,10 +3288,21 @@ if (pro) {
   // connecting, the engine answers behind it, and a line typed meanwhile
   // waits in the queue for it.
   state.status = "connecting";
-  redraw();
+  markStartup('first-render');
+  redraw(true);
+  markStartup('editable');
+  // Let terminal input and the first paint reach the event loop before
+  // background worker creation. The cached appearance is already visible.
+  setTimeout(refreshAppearance,100).unref();
+  await new Promise(resolve=>setTimeout(resolve,0));
 } else if (!process.env.AESEL_DESKTOP) bootFrame();
+// Listening for peer messages can start alongside the provider handshake;
+// binding its socket need not hold up opening and editing the prompt.
+const inboxReady=openInbox();
 try {
   const connection = await engine.connect();
+  await inboxReady;
+  markStartup('engine-connected');flushStartupTrace();
   bootDone();
   slabSession.connected(connection?.thread?.id || engine.threadId);
   state.status = "ready";
@@ -3132,7 +3314,7 @@ try {
   if (desktopRestored || quiet) {
     // Restoring an existing thread is silent, and so is the terminal: the
     // status line under the bar already says the engine is there.
-    if (quiet && resumeThreadId) restoreThread(connection.thread);
+    if (quiet && resumeThreadId && !desktopRestored) restoreThread(connection.thread);
   } else if (resumeThreadId && !restoreThread(connection.thread)) {
     addEntry("notice", `Resumed thread · ${engineLabel()}`);
   } else {
@@ -3174,7 +3356,8 @@ try {
 } catch (error) {
   bootDone();
   state.status = "offline";
-  addEntry("error", errorText(error));
+  if(connectionFailure(error)||error.bridgeFailure)recoverEngine(error,{reconnect:true});
+  else addEntry("error", errorText(error));
   redraw();
 }
 

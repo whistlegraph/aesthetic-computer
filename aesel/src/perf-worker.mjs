@@ -2,6 +2,12 @@
 import vm from "node:vm";
 import { performance } from "node:perf_hooks";
 
+// Check the executing runtime too: a PATH entry named node must not silently
+// accept permission flags while running an unrestricted engine.
+if(process.versions.bun || !process.permission?.has || process.permission.has('fs.read')){
+  throw new Error('Headless benchmark requires a permission-restricted Node process.');
+}
+
 let input = "";
 for await (const chunk of process.stdin) input += chunk;
 try {

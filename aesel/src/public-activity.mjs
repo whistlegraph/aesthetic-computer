@@ -31,6 +31,7 @@ export function observeToolActivity(state, method, item) {
 }
 
 export function publicActivity(state) {
+  if (state.recoveryNotice) return state.recoveryNotice;
   if (state.connectionNotice) return "I'm offline; your changes are kept here";
   if (state.previewNotice && !state.busy) return "I need to fix the code; I've kept the previous preview";
   if (!state.busy) return '';

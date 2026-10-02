@@ -8,6 +8,27 @@ import { SlabSession, previewAddress } from "../src/slab-session.mjs";
 const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
 const exists = async (path) => stat(path).then(() => true, () => false);
 
+test("reification keeps Slab identity and a borrowed preview without restoring sockets", async t => {
+  const root = await mkdtemp(join(tmpdir(), "aesel-slab-reify-"));
+  t.after(()=>rm(root,{recursive:true,force:true}));
+  const options = {cwd:"/project",tty:"ttys099",sessionId:"stable-session",slabHome:root,pro:true};
+  const before = new SlabSession(options); before.start();
+  before.working("improve Aesel");
+  before.live("real.mjs", "prompt.ac/@tester/real", "tester/real", {source:"publication"});
+  before.preview("notepat"); before.complete(); before.inboxSocket("old.sock");
+  const snapshot = before.snapshot(); before.close({preserve:true});
+  assert.equal(await exists(before.active), true);
+  assert.equal(snapshot.record.inbox_socket, undefined);
+  const after = new SlabSession(options); after.start(); after.inboxSocket("new.sock"); after.restore(snapshot);
+  const marker = await readJson(after.active);
+  assert.equal(marker.subject, "improve Aesel"); assert.equal(marker.state,"complete");
+  assert.equal(marker.scan_url,"prompt.ac/notepat"); assert.equal(marker.inbox_socket,"new.sock");
+  after.preview("");
+  assert.equal((await readJson(after.active)).scan_url,"prompt.ac/@tester/real");
+  assert.equal((await readJson(after.active)).preview_source,"publication");
+  after.close();
+});
+
 test("publishes the full Slab prompt lifecycle", async (context) => {
   const root = await mkdtemp(join(tmpdir(), "easel-slab-"));
   context.after(() => rm(root, { recursive: true, force: true }));
@@ -69,6 +90,7 @@ test("a private marker never carries the prompt, and pro and the inbox socket ar
   session.start();
   let marker = await readJson(active);
   assert.equal(marker.pro, true);
+  assert.equal(marker.preview_source, "");
   assert.equal(marker.private, true);
   assert.equal(marker.subject, "private");
   assert.equal(marker.summary, "private");
@@ -163,4 +185,23 @@ test("names a piece any way it is written", () => {
   assert.equal(previewAddress("$cow"), "prompt.ac/$cow");
   assert.equal(previewAddress("prompt.ac/@jeffrey/butterfly"), "prompt.ac/@jeffrey/butterfly");
   assert.equal(previewAddress("  "), "");
+});
+
+test("repo sessions advertise the source of an explicit preview", async (context) => {
+  const root = await mkdtemp(join(tmpdir(), "easel-slab-"));
+  context.after(() => rm(root, { recursive: true, force: true }));
+  const session = new SlabSession({ cwd: "/project", tty: "ttys099", sessionId: "repo", slabHome: root, pro: true });
+  context.after(() => session.close());
+  session.start();
+  const active = join(root, "state/active-prompts/repo");
+  session.live("test.mjs", "prompt.ac/@tester/test");
+  assert.equal((await readJson(active)).preview_source, "", "a URL alone is not a publication");
+  session.live("real.mjs", "prompt.ac/@tester/real", "tester/real", { source: "publication" });
+  assert.equal((await readJson(active)).preview_source, "publication");
+  session.preview("notepat");
+  assert.equal((await readJson(active)).preview_source, "manual");
+  session.preview("");
+  assert.equal((await readJson(active)).preview_source, "publication");
+  session.artifact("picture", { path: "/tmp/real.png", version: 1 });
+  assert.equal((await readJson(active)).preview_source, "artifact");
 });

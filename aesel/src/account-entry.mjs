@@ -1,5 +1,6 @@
 import {createInterface} from 'node:readline/promises';
 import {isOffline} from './account-access.mjs';
+import {nativeTerminalPhase} from './native-terminal.mjs';
 
 // Finish account setup before constructing a workspace or starting any engine.
 // Offline is not signed out: an account that already holds a handle boots on
@@ -8,6 +9,7 @@ export async function requireAccountEntry(session, {input=process.stdin, output=
   let terminal;
   const ask = question || (async prompt => {
     terminal ||= createInterface({input,output});
+    nativeTerminalPhase('gate');
     return terminal.question(prompt);
   });
   try {
@@ -35,5 +37,5 @@ export async function requireAccountEntry(session, {input=process.stdin, output=
         else if (answer !== '/retry' && answer !== '') output.write('Complete AC sign-in and handle setup to continue.\n');
       } catch (error) { output.write(`${error.message}\n`); }
     }
-  } finally { terminal?.close(); }
+  } finally { terminal?.close(); nativeTerminalPhase('boot'); }
 }

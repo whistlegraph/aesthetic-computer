@@ -34,8 +34,8 @@
 // workspace, WebFetch and WebSearch are removed, and network commands do
 // prompt — but the prompt, not the kernel, is the boundary. See
 // docs/local-contract.md.
-import { spawn } from "node:child_process";
-import { mcpConfig, SERVER_NAME } from "./tools.mjs";
+import {spawnBridge as spawn} from './bridge-process.mjs';
+import { mcpConfig, SERVER_NAME } from "./tool-config.mjs";
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { createInterface } from "node:readline";
@@ -49,7 +49,8 @@ import { bothNames } from "./env.mjs";
 // (`out_of_credits`, seven-day overage exhausted), and a default that greets
 // every session with a red error line is not a default. Opus until the credits
 // come back, then this goes straight back to "claude-fable-5-1".
-export const DEFAULT_CLAUDE_MODEL = "claude-opus-5";
+import {DEFAULT_CLAUDE_MODEL} from './provider-defaults.mjs';
+export {DEFAULT_CLAUDE_MODEL};
 
 // Tools whose work is a file change, and the input field naming the file. The
 // interface watches these to follow the piece the agent is writing.

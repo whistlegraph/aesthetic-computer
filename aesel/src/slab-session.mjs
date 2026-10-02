@@ -1,6 +1,7 @@
 import {
   appendFileSync,
   mkdirSync,
+  readFileSync,
   renameSync,
   rmSync,
   utimesSync,
@@ -71,6 +72,7 @@ export class SlabSession {
     this.heartbeat = null;
     // Set while the rock shows a piece that is not this session's (`preview`).
     this.pinned = "";
+    this.previewSource = pro ? "" : "piece";
     this.cursorSocket = join(this.stateDir, "cursor.sock");
     this.shape = "arrow";
     this.cursor = null;
@@ -87,6 +89,8 @@ export class SlabSession {
       // that read both names. A menubar from before then drops the rock:
       // update it with `npm run menubar:parity -- deploy <host>`.
       agent_type: "aesel",
+      loopboy_contact: process.env.SLAB_LOOPBOY_CONTACT || "",
+      loopboy_adoption: process.env.AESEL_DESKTOP === "1" ? 0 : 1,
       ...(process.env.AESEL_DESKTOP === '1' ? {
         host_app:'computer.aesthetic.easel',
         host_bundle_id:process.env.AESEL_HOST_BUNDLE_ID || 'computer.aesthetic.easel',
@@ -94,6 +98,7 @@ export class SlabSession {
         host_window_id:Number(process.env.AESEL_HOST_WINDOW_ID)||0,
       }:{}),
       pro: Boolean(pro),
+      preview_source: this.previewSource,
       private: this.private,
       // Where a sender reaches this session without touching its keyboard.
       // Empty until the inbox has bound; see inbox.mjs.
@@ -139,6 +144,31 @@ export class SlabSession {
     this.#update({ provider_session_id: providerSessionId || "" });
   }
 
+  snapshot() {
+    this.#write(); // Include bindings adopted by Prox since the last update.
+    const fields = ["subject", "summary", "started_at", "state", "loopboy_contact", "loopboy_binding",
+      "piece", "scan_url", "piece_channel", "piece_version", "piece_revision", "piece_updated_at",
+      "piece_published_at", "preview_source", "artifact_kind", "artifact_preview", "flow"];
+    return structuredClone({ sessionId: this.sessionId, pinned: this.pinned,
+      previewSource: this.previewSource, own: this.own, ownFlow: this.ownFlow,
+      record: Object.fromEntries(fields.filter(key => Object.hasOwn(this.record, key)).map(key => [key, this.record[key]])) });
+  }
+
+  restore(snapshot) {
+    if (!snapshot || snapshot.sessionId !== this.sessionId) return;
+    const allowed = Object.keys(this.snapshot().record);
+    // Optional artwork keys may not exist in a fresh marker yet.
+    allowed.push("piece_channel", "piece_version", "piece_revision", "piece_updated_at",
+      "piece_published_at", "artifact_kind", "artifact_preview", "loopboy_binding");
+    const record = Object.fromEntries(Object.entries(snapshot.record || {}).filter(([key]) => allowed.includes(key)));
+    this.pinned = snapshot.pinned || "";
+    this.previewSource = snapshot.previewSource || "";
+    this.own = snapshot.own;
+    this.ownFlow = snapshot.ownFlow;
+    if (this.private) { record.subject = "private"; record.summary = "private"; }
+    this.#update(record);
+  }
+
   // Which @handle this rock acts as (display only; never email or name).
   identity(handle = "", colors = null) {
     this.#update({ handle: String(handle || "").replace(/^@/, ""),handle_colors:colors });
@@ -147,12 +177,14 @@ export class SlabSession {
   // The live piece and its scan address. Called whenever either changes — a
   // session renames its piece, or switches runtime — so the code on the rock
   // always points at what is actually running.
-  live(piece = "", scanUrl = "", channel = "") {
+  live(piece = "", scanUrl = "", channel = "", { source = this.record.pro ? "" : "piece" } = {}) {
+    this.previewSource = source;
     this.own = { piece: String(piece || ""), piece_channel: String(channel || ""), scan_url: String(scanUrl || "") };
     if (this.pinned) return;
     this.#update({
       ...(this.record.scan_url !== this.own.scan_url ? {piece_published_at:""} : {}),
       ...this.own,
+      preview_source: this.previewSource,
     });
   }
 
@@ -165,11 +197,11 @@ export class SlabSession {
     if (!address) {
       if (!this.pinned) return "";
       this.pinned = "";
-      this.#update({ ...(this.own || { piece: "", piece_channel: "", scan_url: "" }), piece_published_at: "", flow: this.ownFlow || "live" });
+      this.#update({ ...(this.own || { piece: "", piece_channel: "", scan_url: "" }), preview_source: this.previewSource, piece_published_at: "", flow: this.ownFlow || "live" });
       return "";
     }
     this.pinned = address;
-    this.#update({ piece: "", piece_channel: "", scan_url: address, piece_published_at: "", flow: "live" });
+    this.#update({ piece: "", piece_channel: "", scan_url: address, preview_source: "manual", piece_published_at: "", flow: "live" });
     return address;
   }
 
@@ -180,7 +212,8 @@ export class SlabSession {
   }
 
   artifact(kind, preview) {
-    this.#update({ artifact_kind: kind, artifact_preview: preview });
+    this.previewSource = kind !== "piece" && preview ? "artifact" : this.record.pro ? "" : "piece";
+    this.#update({ artifact_kind: kind, artifact_preview: preview, preview_source: this.pinned ? "manual" : this.previewSource });
   }
 
   // Where the file stands against what the address is serving:
@@ -274,13 +307,15 @@ export class SlabSession {
     this.cursor.write(`${JSON.stringify({ cursor: this.shape, session: this.sessionId, tty: this.tty })}\n`);
   }
 
-  close() {
+  close({ preserve = false } = {}) {
     this.pointer("arrow");
     this.cursor?.end();
     this.cursor = null;
     this.#stopHeartbeat();
-    this.#remove(this.active);
-    if(this.fleetActive)this.#remove(this.fleetActive);
+    if (!preserve) {
+      this.#remove(this.active);
+      if(this.fleetActive)this.#remove(this.fleetActive);
+    }
     this.#remove(this.awaiting);
     this.#remove(this.running);
     this.enabled = false;
@@ -308,6 +343,16 @@ export class SlabSession {
 
   #write() {
     if (!this.enabled) return;
+    // Prox can adopt a running TUI without restarting its engine. Preserve
+    // only its binding fields; the rest of the session state is ours to write.
+    try {
+      const existing = JSON.parse(readFileSync(this.active, "utf8"));
+      if (existing.session_id === this.sessionId && existing.agent_pid === this.pid) {
+        for (const key of ["loopboy_contact", "loopboy_binding"]) {
+          if (Object.hasOwn(existing, key)) this.record[key] = existing[key];
+        }
+      }
+    } catch {}
     const temporary = `${this.active}.${this.pid}.tmp`;
     try {
       writeFileSync(temporary, `${JSON.stringify(this.record)}\n`, { mode: 0o600 });

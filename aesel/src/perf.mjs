@@ -1,7 +1,17 @@
 // Headless logic timings with counted drawing stubs; never actual render FPS.
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import { extname } from "node:path";
+import { extname,join,delimiter } from "node:path";
+import {accessSync,constants} from 'node:fs';
+
+function nodeRuntime(){
+  if(!process.versions.bun)return process.execPath;
+  for(const directory of (process.env.PATH||'').split(delimiter)){
+    const candidate=join(directory,'node');
+    try{accessSync(candidate,constants.X_OK);return candidate;}catch{}
+  }
+  throw Error('Headless benchmarks require Node with --permission support; install Node 24 or newer.');
+}
 
 function bounded(value, fallback, min, max, name) {
   const number = value === undefined ? fallback : value;
@@ -13,7 +23,8 @@ export async function benchmarkPiece({ file, frames, warmup, width, height, seed
   if (!file || extname(file) !== ".mjs") throw new Error("Headless logic benchmarks currently support .mjs pieces only.");
   // The child needs stable Node permissions. Never silently fall back to an
   // unrestricted process on an older installed runtime.
-  if (Number(process.versions.node.split(".")[0]) < 22 || !process.allowedNodeEnvironmentFlags.has("--permission")) throw new Error("Headless benchmarks require Node with --permission support; use Node 24 or newer.");
+  if (!process.versions.bun && (Number(process.versions.node.split(".")[0]) < 22 || !process.allowedNodeEnvironmentFlags.has("--permission"))) throw new Error("Headless benchmarks require Node with --permission support; use Node 24 or newer.");
+  const executable=nodeRuntime();
   const options = {
     frames: bounded(frames, 600, 1, 1200, "frames"),
     warmup: bounded(warmup, 60, 0, 120, "warmup"),
@@ -29,7 +40,7 @@ export async function benchmarkPiece({ file, frames, warmup, width, height, seed
   if (Buffer.byteLength(source) > 1_048_576) throw new Error("The piece exceeds the benchmark's 1 MB source limit.");
   signal?.throwIfAborted();
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ["--permission", "--no-addons", "--max-old-space-size=64", "--experimental-vm-modules", "--input-type=module", "-e", worker], {
+    const child = spawn(executable, ["--permission", "--no-addons", "--max-old-space-size=64", "--experimental-vm-modules", "--input-type=module", "-e", worker], {
       env: { NODE_NO_WARNINGS: "1" },
       stdio: ["pipe", "pipe", "pipe"],
     });

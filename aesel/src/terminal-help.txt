@@ -1,0 +1,40 @@
+Usage: ac [directory] [--runtime mjs|lisp|processing]
+                      [--piece FILE] [--resume THREAD_ID]
+                      [--genre piece|nopaint]
+                      [--backend claude|codex|ac|open] [--model NAME]
+                      [--autopublish | --no-autopublish]
+                      [--pro] [--private]
+       aesthetic [directory]
+       aesthetic doctor
+       aesthetic login | logout | whoami
+       aesthetic publish <file> [slug]
+       aesthetic colors <colour…>
+
+Open the aesel terminal interface in a workspace, or manage the
+shared Aesthetic Computer sign-in (~/.ac-token) and publish a piece under
+your @handle at https://aesthetic.computer/@handle/slug.
+
+Each session starts by choosing an AC blank piece or a nopaint.art brush,
+then shows a QR code that runs it live on a phone. --genre makes that
+choice at launch; --runtime picks an AC piece's language.
+
+--backend picks the engine bridge. claude (the default, on claude-opus-5)
+and codex each drive that vendor's CLI and need a subscription to it. ac
+needs neither -- it runs on Aesthetic Computer's own account, metered
+against your @handle. --model names the model on that bridge, and
+/backend and /model change either one mid-session.
+
+--autopublish publishes the piece under your @handle a couple of seconds
+after every save, so the session's URL is live the whole time it is being
+worked on. On by default, because the address on the prompt rock is that
+published URL and it has to answer from the first second.
+--no-autopublish or AESEL_AUTOPUBLISH=0 turns it off, and /autopublish
+toggles it mid-session.
+
+Pro is the default here (`piece` or --piece/--genre asks for the piece
+interface instead). Pro is the same interface as a general harness: no piece, no QR, nothing
+published, and the engine runs with your own settings, skills and MCP
+servers (approvals still come back here; /ask off runs without asking).
+--private keeps this session's subject out of the Slab marker and the
+transcript index. Either can also be set per directory in
+~/.config/aesel/profiles.json (/profile shows the shape).

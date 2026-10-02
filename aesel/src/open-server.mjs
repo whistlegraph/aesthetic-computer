@@ -6,10 +6,8 @@
 // pointed straight at OpenRouter with the person's own key — no vendor CLI, no
 // handle budget. In a pro session (a repository rather than a piece) it also
 // carries the workspace tools, which is what makes it a coding agent.
-import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
-import { parseEnv } from "node:util";
+import {openRouterKey} from './open-key.mjs';
+export {openRouterKey};
 
 import { AcServer } from "./ac-server.mjs";
 import { McpTools } from "./mcp-client.mjs";
@@ -18,17 +16,6 @@ const OPENROUTER = "https://openrouter.ai/api/v1/messages";
 
 import { DEFAULT_OPEN_MODEL, OPEN_MODELS } from "./open-models.mjs";
 export { OPEN_MODEL_INFO, OPEN_MODELS, DEFAULT_OPEN_MODEL } from "./open-models.mjs";
-
-export function openRouterKey({ env = process.env, home = homedir() } = {}) {
-  if (env.OPENROUTER_API_KEY) return env.OPENROUTER_API_KEY;
-  for (const file of [".config/aesthetic-computer/openrouter.env", ".config/aesthetic-computer/jev.env"]) {
-    try {
-      const key = parseEnv(readFileSync(join(home, file), "utf8")).OPENROUTER_API_KEY;
-      if (key) return key;
-    } catch {}
-  }
-  return "";
-}
 
 // What a pro session (a repository rather than a piece) adds to either loop:
 // the workspace tools, room for a repository task, and the person's MCP

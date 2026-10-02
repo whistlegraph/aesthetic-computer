@@ -47,8 +47,25 @@ terminal-only. See the [current inventory](../apple/aesel/ROADMAP.md).
 Inside the TUI: `/login`, `/logout`, `/whoami`, `/publish [file] [slug]`,
 `/autopublish [on|off]`, `/piece [name]`, `/runtime [mjs|lisp|processing]`,
 `/backend [claude|codex]`,
-`/model [name]`, `/energy`, `/qr`, `/live`, `/new`, `/clear`, `/help`, `/quit`. Press
+`/model [name]`, `/energy`, `/qr`, `/live`, `/new`, `/clear`, `/reify`, `/help`, `/quit`. Press
 `ctrl-c` to interrupt a running turn or exit while idle.
+
+Network interruptions keep the conversation and queued input. Aesel lets the provider reconnect first, then resumes an interrupted turn up to three times. A stuck provider retry is reopened after 90 seconds. Ctrl-C stops recovery; `/retry` resumes it. Authentication and billing failures require attention instead of automatic retries.
+
+`/reify` (also `/restart`) loads local code edits in the same terminal without a
+release or version bump. It waits for the current reply and uploads, checks the
+source for syntax errors, and saves a private checkpoint for this session.
+The conversation, draft and cursor, queued messages, provider settings, selected
+artifact, preview and Slab identity survive. Queued messages continue after the
+reload; the opening prompt is not replayed. Syntax or checkpoint failures leave
+the current session running. Agents can request it through
+`aesel_settings({action: "reify"})`; the response is `queued` until the turn ends.
+
+Bun can host the terminal with `AESEL_JS_RUNTIME=bun ac`. Node remains the default. In a checkout, `bun aesel/bin/build-bun.mjs` builds reusable bytecode; source edits or a different Bun version automatically fall back to current JavaScript until rebuilt. `/reify` keeps the selected runtime and launch options. This setting is separate from the piece’s `/runtime` language. The headless `/perf` command uses a permission-restricted Node helper under Bun; Node 24 or newer must be installed.
+
+The optional [native terminal host](experiments/c-tui/README.md) accepts an opening draft in C while the complete Bun TUI starts. It retains the existing providers, tools, recovery and terminal features.
+
+Compare both hosts with `python3 aesel/bin/bench-runtimes.py --entry launch --launcher --runs 7 --out /tmp/aesel-runtimes.json`. Both use the same local reply stream and isolated test accounts. Bun recovery checks: `AESEL_TEST_RUNTIME=bun AESEL_TEST_ENTRY=launch.mjs python3 aesel/test/network-tui.py` and `AESEL_TEST_RUNTIME=bun AESEL_TEST_ENTRY=launch.mjs python3 aesel/test/restart-tui.py`.
 
 ## Engine bridges
 
@@ -235,6 +252,60 @@ ac --autopublish
 aesthetic doctor
 npm test
 ```
+
+`npm run test:ui` checks typing, streaming, scrolling, and animation in a
+300-message conversation against a 16.7 ms frame budget. The donkey, breathing
+handle, and message shimmer stay enabled. It also checks reflow from 100 to 32
+columns against 100 ms, and the first code block in a fresh process against
+16.7 ms. The JavaScript parser loads only when code needs highlighting or notebook
+controls. `npm run test:input` checks real PTY bursts, cursor edits, Unicode
+paste, and trimmed submission. Characters in one input chunk share a paint;
+individual keystrokes still paint immediately. `npm run test:latency` adds that
+input check, terminal observer tests, and
+five real Aesel PTY sessions.
+It fails if p95 exceeds 250 ms to an editable prompt, 16.7 ms to echo input
+(idle or streaming), 100 ms from Enter to request, 250 ms to first reply, or
+25 ms from a supplied token to terminal output. Timing tests run separately
+from the parallel correctness suite to avoid measuring test-runner contention.
+
+`npm run bench:tui` compares Aesel's direct loop and its Claude/Codex bridges
+with the installed native TUIs. It interleaves five launches of each and saves
+raw samples, versions, source hashes, p50/p95, and failed comparisons to
+`tmp/tui-latency/latest.json` at the repository root. It exits nonzero unless
+Aesel meets its budgets and matches or beats each peer at both percentiles.
+Missing binaries or incomplete replies fail; they are never fast samples.
+
+`npm run test:startup` checks an installed-style `ac` symlink against Codex over
+20 interleaved trials, including shell and symlink resolution. Add `--launcher a`
+or `--launcher aes` to check those aliases; `--launcher direct` measures the
+launcher file without an installed symlink. It requires a strict win at both p50 and p95, complete
+replies in every trial, and unchanged source hashes throughout the run.
+`npm run test:startup -- --runtime bun` checks the optional Bun host. Build with
+`npm run build:tui` (Node) or `npm run build:bun` before measuring; traces record
+whether verified built code or source was loaded. Node's compile cache starts
+empty, is reused across trials, and retains the first cold sample. Add
+`--cold-cache` for an empty Node cache on every trial. Filesystem caches remain
+warm; Bun bytecode is built ahead of time. Reports go to
+`tmp/tui-latency/startup.json`. Bun resolves installed launcher symlinks inside
+its own process. `AESEL_TEST_RUNTIME=bun AESEL_TEST_LAUNCHER=ac python3 test/restart-tui.py`
+checks reify through that public launcher, including loading
+edited source from a relocated installation.
+Reports separate prompt visibility and first input echo, CLI setup, build
+verification, terminal setup, first render, engine import, and worker timings.
+They record terminal observer overhead without subtracting it.
+They also record executable paths, host load, and PATH directory probe times. Slow or
+unavailable automounts in PATH can delay shell launchers before JavaScript starts;
+the benchmark preserves the inherited PATH so that cost stays visible.
+
+The benchmark uses isolated settings, a fake AC account, and identical local
+SSE replies: 100 ms to the first token, then one chunk every 40 ms. No paid
+model calls or personal credentials are used. Account/network latency, personal
+hooks/MCP configuration, GUI launchers, and physical pixel presentation are
+outside the measurement. “Open” means process launch to confirmed editable
+input; the first reply includes any remaining bridge startup. Filesystem caches
+are not cleared. Claude uses `--bare`; Codex uses `--no-daemon`. The direct
+Aesel target uses its real agent loop with only the inference endpoint replaced.
+For a narrow run: `python3 bin/bench-tui.py --columns 40 --runs 5 --compare`.
 
 ## Aesel pro modules
 

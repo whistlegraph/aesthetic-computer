@@ -3,8 +3,74 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { cleanText, renderFrame, renderGenrePicker, textWidth, wrapText } from "../src/render.mjs";
 
+test("the footer meters the active provider and fits Codex usage in a narrow terminal", async () => {
+  const { proStatus } = await import("../src/render.mjs");
+  const base = {
+    profile: { name: "pro" }, account: "@tester", model: "gpt-test", status: "ready", entries: [], input: "",
+    spend: { tokens: 12345, usd: 0, billed: false }, braincells: 500000,
+    codexRateLimits: { primary: { usedPercent: 23, windowDurationMins: 300 }, secondary: { usedPercent: 61, windowDurationMins: 10080 } },
+  };
+  for (const backend of ["codex", "ac", "claude", "open"]) {
+    const state = { ...base, providerSettings: { backend } };
+    const line = proStatus(state, 100, false).line;
+    assert.match(line, /12\.3k tok/);
+    if (backend === "codex") assert.match(line, /codex 5h 23% · 7d 61% used/);
+    else assert.doesNotMatch(line, /codex.*used/);
+    if (backend === "ac") assert.match(line, /500\.0k braincells/);
+    else assert.doesNotMatch(line, /braincells/);
+  }
+  const codex = { ...base, providerSettings: { backend: "codex" } };
+  for (const width of [32, 60, 100]) {
+    const frame = renderFrame(codex, width, 16, false);
+    assert.match(frame, /codex 5h 23% · 7d 61% used/);
+    assert.doesNotMatch(frame, /braincells/);
+    assert.ok(frame.split("\n").every(row => textWidth(row) === width));
+  }
+});
+
+test("Codex usage distinguishes zero, missing, expired and nonstandard quota windows", async () => {
+  const { proStatus } = await import("../src/render.mjs");
+  const line = limits => proStatus({ providerSettings: { backend: "codex" }, codexRateLimits: limits, braincells: 500000 }, 100, false).line;
+  assert.match(line(null), /codex usage unavailable/);
+  assert.match(line({ primary: { usedPercent: null } }), /codex usage unavailable/);
+  assert.match(line({ primary: { usedPercent: 0, windowDurationMins: 15 } }), /codex 15m 0% used/);
+  assert.match(line({ primary: { usedPercent: 100, windowDurationMins: 300 } }), /codex 5h 100% used/);
+  assert.match(line({ primary: { usedPercent: 75, windowDurationMins: 300, resetsAt: 1 } }), /codex usage unavailable/);
+  assert.doesNotMatch(line(null), /braincells/);
+});
+
 test("cleans terminal control sequences", () => {
   assert.equal(cleanText("safe\x1b[2J\x00 text"), "safe text");
+});
+
+test("short pro messages fit their text without white cap rows or minimum-width tails", () => {
+  const state = { profile: { name: "pro" }, entries: [
+    { kind: "user", text: "hi   \n  \n" },
+    { kind: "assistant", text: "\n\nhi.  \n \n" },
+  ], input: "" };
+  const frame = cleanText(renderFrame(state, 40, 14, true));
+  assert.deepEqual(frame.split("\n").filter(row => row.trim()).map(row => row.trimEnd()), [
+    " ╭────╮", " │ hi │", " ╰────╯", "  hi.",
+  ]);
+});
+
+test("trailing whitespace does not widen messages, and code indentation survives", () => {
+  const entries = [
+    { kind: "user", text: "first\n  second\n\nthird" },
+    { kind: "assistant", text: "**Done.**\n\n```js\n  const x = 1;\n```" },
+  ];
+  for (const width of [32, 80]) for (const busy of [false, true]) {
+    const base = { profile: { name: "pro" }, entries, input: "draft ", busy, mascotMs: 240 };
+    const padded = { ...base, entries: entries.map(entry => ({ ...entry,
+      text: "\n\n" + entry.text.split("\n").map(line => line + " \t ").join("\n") + "\n  \n",
+    })) };
+    renderFrame(base, width, 24, true);
+    const frame = renderFrame(padded, width, 24, true);
+    assert.deepEqual(padded.pageRows, base.pageRows);
+    assert.ok(padded.pageRows.some(row => row.includes("  const x = 1;")));
+    assert.ok(frame.split("\n").every(row => textWidth(cleanText(row)) === width));
+    assert.equal(padded.input, "draft ", "typing keeps its separator for the next word");
+  }
 });
 
 test("wraps content to the available width", () => {
@@ -325,7 +391,19 @@ test("the pro frame takes its shape from the layout", () => {
   assert.equal(rows.length, 10);
   assert.match(rows[7], /^─+$/, "the rule is where the layout put it");
   assert.match(rows[8], /^> /, "the prompt glyph is the layout's, on the bar's first cell");
-  assert.equal(rows[9].trim(), "gpt-6-astra | codex", "only the facts asked for, with the separator asked for");
+  assert.match(rows[9].trim(), /^gpt-6-astra \| codex\s+codex usage unavailable$/, "the requested facts and separator precede the account meter");
+});
+
+test("custom pro layouts can still request the header and full workspace path", () => {
+  for (const useColor of [false, true]) {
+    const state = {profile:{name:"pro"},account:"@tester",workspace:"/client/project",mode:"remote",
+      status:"ready",entries:[],input:"draft",layout:{bottom:["header","path","bar","status"]}};
+    const rows=cleanText(renderFrame(state,80,14,useColor)).split("\n");
+    assert.match(rows[10],/Aesel\s+@tester/);
+    assert.match(rows[11],/\/client\/project/);
+    assert.match(rows[12],/^draft/);
+    assert.deepEqual(state.cursorCell,{row:13,col:6});
+  }
 });
 
 test("in pro the model on the status line is the one thing to click, and it opens settings", async () => {
@@ -436,7 +514,7 @@ test("while the machine works the handle breathes on the dance clock", async () 
   assert.equal(proStatus({ ...base, busy: false, mascotMs: 700 }, 80, true).line, proStatus({ ...base, busy: false, mascotMs: 100 }, 80, true).line, "and holds still when idle");
 });
 
-test("in pro a question takes the page with three answers, and a running tool rides the status line", async () => {
+test("approvals keep their details while the status line omits raw commands", async () => {
   const { approvalModal, proStatus } = await import("../src/render.mjs");
   const base = { workspace: "/c", mode: "remote", status: "approval", input: "", account: "@t", model: "m", profile: { name: "pro" }, entries: [{ id: "a", kind: "assistant", text: "I will list the files." }] };
   const frame = renderFrame({ ...base, approval: { id: 1, subject: "run: ls -la" }, approvalIndex: 1 }, 80, 20, false);
@@ -449,7 +527,8 @@ test("in pro a question takes the page with three answers, and a running tool ri
   const rows = approvalModal({ approval: { subject: "x" }, approvalIndex: 0 }, 80, 12, false);
   assert.equal(rows.length, 12, "the modal fills exactly the transcript rows");
   const busy = { ...base, status: "working", busy: true, requestStartedAt: Date.now(), toolNow: "/bin/zsh -lc \"git status --short\"" };
-  assert.match(proStatus(busy, 100, false).line, /s… · \/bin\/zsh -lc "git status --short"/, "the tool shows beside the timer");
+  assert.match(proStatus(busy, 100, false).line, /\/\/\(o\.o\)> .*s…/);
+  assert.doesNotMatch(proStatus(busy, 100, false).line, /zsh|git status/);
   assert.doesNotMatch(renderFrame(busy, 100, 20, false), /RUN/, "and not as a line of the conversation");
 });
 
@@ -470,12 +549,56 @@ test("while the machine works, the line it is working on runs a colour wave, fra
   assert.equal(wave(idle), undefined, "and so does the line once the answer has landed");
 });
 
-test("running tools are provisional rows at the foot of the page, and leave when they finish", () => {
+test("tool activity rolls through bounded rows and leaves no commands in scrollback", () => {
   const base = { workspace: "/c", mode: "remote", status: "tool", input: "", account: "@t", model: "m", profile: { name: "pro" }, busy: true, requestStartedAt: Date.now(),
-    entries: [{ id: "u", kind: "user", text: "check the tree" }] };
-  const running = renderFrame({ ...base, toolsNow: new Map([["t1", "git status --short"], ["t2", "Task · look for the failing test"]]) }, 80, 16, false);
-  assert.match(running, /⋯ git status --short/);
-  assert.match(running, /⋯ Task · look for the failing test/);
-  const done = renderFrame({ ...base, busy: false, toolsNow: new Map() }, 80, 16, false);
-  assert.doesNotMatch(done, /⋯/, "nothing of them stays");
+    entries: [{ id: "u", kind: "user", text: "check the tree" }, {kind: 'command', text: 'RAW_COMMAND'}, {kind: 'change', text: 'RAW_PATCH'}],
+    turnActivity: {feed: [{text:'old tool',status:'done'}, {text:'reading files',status:'done'}, {text:'checking tests',status:'running'}]} };
+  const running = renderFrame(base, 80, 16, false);
+  assert.match(running, /· reading files/);
+  assert.match(running, /› checking tests/);
+  assert.doesNotMatch(running, /old tool|RAW_COMMAND|RAW_PATCH/);
+  const done = renderFrame({ ...base, busy: false }, 80, 16, false);
+  assert.doesNotMatch(done, /reading files|checking tests|RAW_COMMAND|RAW_PATCH/);
+  assert.match(done, /check the tree/);
+});
+
+test('usage sits under the reply and the feed stays visible while scrolling', () => {
+  const entries = Array.from({length: 20}, (_, i) => ({kind:'assistant',text:`Reply ${i}`}));
+  entries.push({kind:'usage',text:'4 tools · 12s · 6.2k tokens · 800 reasoning tokens'});
+  for (const [width, height] of [[32,10],[60,16],[100,28]]) {
+    const state = {profile:{name:'pro'},entries,input:'draft',busy:false};
+    const frame = renderFrame(state, width, height, false);
+    assert.match(frame, /4 tools/);
+    assert.ok(frame.indexOf('Reply 19') < frame.indexOf('4 tools'));
+    assert.equal(frame.split('\n').length, height);
+    assert.ok(frame.split('\n').every(row=>textWidth(row)===width));
+    const scrolled = renderFrame({...state,busy:true,scrollOffset:10,turnActivity:{feed:[{text:'reading files',status:'running'}]}},width,height,false);
+    assert.match(scrolled,/› reading files/);
+    assert.match(scrolled,/draft/);
+  }
+});
+
+test('the running donkey has separate ear, face and nose colors and keeps its width', async () => {
+  const {proStatus} = await import('../src/render.mjs');
+  const {mascotRow,MASCOT_ROW_WIDTH} = await import('../src/mascot.mjs');
+  const poses = new Set();
+  for(let ms=0;ms<2400;ms+=160) {
+    const pose=mascotRow(ms,true);poses.add(pose);
+    assert.equal(textWidth(pose),MASCOT_ROW_WIDTH);
+    const line=proStatus({busy:true,mascotMs:ms,layout:{status:['activity']}},80,true).line;
+    assert.ok(new Set(line.match(/\x1b\[38;[0-9;]*m/g)).size>=3);
+    assert.ok(cleanText(line).includes(pose));
+  }
+  assert.ok(poses.size>=3);
+});
+
+test('recovery controls remain readable at 32 columns while usage yields its space',()=>{
+  const state={profile:{name:'pro'},entries:[],input:'draft',busy:false,recoveryNotice:'Recovery paused · /retry',
+    account:'@tester',model:'gpt-test',spend:{tokens:1000000},providerSettings:{backend:'codex'},codexRateLimits:{primary:{usedPercent:50,windowDurationMins:300}}};
+  for(const notice of ['Recovery paused · /retry','Retry 1/3 in 1s · Ctrl-C stop','Reconnecting · Ctrl-C stop']){
+    state.recoveryNotice=notice;
+    const frame=renderFrame(state,32,16,false);
+    assert.match(frame,new RegExp(notice.replaceAll('/', '\\/')));
+    assert.ok(frame.split('\n').every(row=>textWidth(row)===32));
+  }
 });

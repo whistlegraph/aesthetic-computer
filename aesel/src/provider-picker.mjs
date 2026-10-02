@@ -1,4 +1,4 @@
-import { OPEN_MODEL_INFO } from './open-server.mjs';
+import { OPEN_MODEL_INFO } from './open-models.mjs';
 import {spawn} from 'node:child_process';
 import {createInterface} from 'node:readline';
 import {BACKENDS,hostedModel} from './backends.mjs';

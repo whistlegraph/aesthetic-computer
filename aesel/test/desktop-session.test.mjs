@@ -70,3 +70,27 @@ test("desktop intent accepts restart/update/home and consumes the request", asyn
   await writeFile(file, JSON.stringify({ action: "home" })); assert.equal(await readDesktopIntent(file), "home");
   await writeFile(file, JSON.stringify({ action: "shell", command: "unsafe" })); await assert.rejects(readDesktopIntent(file), /Invalid/);
 });
+
+test("reification keeps inbox follow-ups and hosted-provider memory", async t => {
+  const {root, snapshot} = await fixture(t);
+  snapshot.backend = "open";
+  const inbox = {inbox:true,from:"peer:sender",text:"queued inbox message"};
+  snapshot.ui.queued.push(inbox);
+  const file = join(root, "session.json");
+  await writeDesktopSession(file, snapshot);
+  const restored = await readDesktopSession(file, root), engine = {};
+  restoreDesktopEngine(engine, restored);
+  assert.deepEqual(engine.messages, snapshot.engine.messages);
+  assert.deepEqual(restored.ui.queued, ["make it spin", inbox]);
+  snapshot.ui.queued.push({inbox:true,from:"peer",text:"text",command:"not a message"});
+  await assert.rejects(writeDesktopSession(file, snapshot), /transcript/);
+});
+
+test('a paused network recovery survives reload with its prompt and queue',async t=>{
+  const {root,snapshot}=await fixture(t),file=join(root,'session.json');
+  snapshot.recovery={text:'continue the current work',from:'',accepted:true,submitted:true};
+  await writeDesktopSession(file,snapshot);
+  const restored=await readDesktopSession(file,root);
+  assert.deepEqual(restored.recovery,snapshot.recovery);assert.deepEqual(restored.ui.queued,snapshot.ui.queued);
+  snapshot.recovery.token='must not persist';await assert.rejects(writeDesktopSession(file,snapshot),/recovery request/);
+});

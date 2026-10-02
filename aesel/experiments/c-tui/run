@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+base=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ ! -x "$base/.build/aesel-c" ]; then
+  printf '%s\n' 'Build first: make -C aesel/experiments/c-tui' >&2
+  exit 1
+fi
+exec "$base/.build/aesel-c" --bridge "$base/bridge.mjs" --runtime "${AESEL_JS_RUNTIME:-bun}" "$@"

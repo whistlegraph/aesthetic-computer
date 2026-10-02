@@ -1,5 +1,5 @@
 // Token colors only: never execute source or accept terminal escapes from it.
-import {tokenizer} from './vendor/acorn.mjs';
+import {tokenizer} from './source-parser.mjs';
 const cache=new Map();
 export function syntaxSpans(source) {
   if(cache.has(source))return cache.get(source);

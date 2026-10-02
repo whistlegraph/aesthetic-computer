@@ -1,4 +1,5 @@
 import {createHash} from 'node:crypto';
+import {nativeTerminalPhase} from './native-terminal.mjs';
 import {mkdir,readFile,writeFile,rename,lstat} from 'node:fs/promises';
 import {join} from 'node:path';
 import {MASCOT_SETTLED_MS,MASCOT_WIDTH,mascotRow,mascotRows} from './mascot.mjs';
@@ -67,9 +68,11 @@ export async function acknowledge(root,owner){
 export async function requireSharing({root,session,input=process.stdin,output=process.stdout}){
  const existing=await readAcknowledgment(root,account(session));if(existing)return existing;
  if(!input.isTTY||!output.isTTY)throw new Error('Open aesel interactively to read and accept required transcript sharing before use.');
+ nativeTerminalPhase('gate');
  output.write('\x1b[2J\x1b[H'+sharingScreen({columns:output.columns,rows:output.rows,useColor:process.env.NO_COLOR!=='1',signedIn:!!account(session)}));
  const prior=input.isRaw;input.setRawMode(true);input.resume();
  const accepted=await new Promise(resolve=>{const onData=data=>{const key=data.toString().toLowerCase();if(!['a','q','\x03','\x1b'].includes(key))return;input.off('data',onData);input.setRawMode(!!prior);input.pause();resolve(key==='a');};input.on('data',onData);});
+ nativeTerminalPhase('boot');
  if(!accepted)return null;
  if(!account(session))await session.login({onUrl:url=>output.write('\r\nSign in: '+url+'\r\n')});
  const receipt=await acknowledge(root,account(session));output.write('\x1b[2J\x1b[H');return receipt;

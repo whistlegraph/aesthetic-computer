@@ -1,3 +1,4 @@
+import './own-ink.mjs';
 import test from "node:test";
 import assert from "node:assert/strict";
 import { InputDecoder, mouseEvent } from "../src/mouse.mjs";

@@ -17,6 +17,24 @@ export const PUBLISHABLE = {
 };
 export const MAX_SOURCE_LENGTH = 100_000;
 
+// Only a successful, direct CLI publication can attach a piece to repo work.
+// URLs in source, test output, checks and dry runs are not publications.
+export function publishedCommand(item, handle) {
+  if (item?.type !== "commandExecution" || item.exitCode !== 0 || !handle) return null;
+  let command = String(item.command || "").trim();
+  const shell = /^(?:\S*\/)?(?:ba|z|fi)?sh\s+-(?:lc|c)\s+([\s\S]+)$/.exec(command);
+  if (shell) {
+    command = shell[1];
+    const quote = command[0];
+    if ((quote === "'" || quote === '"') && command.at(-1) === quote) command = command.slice(1, -1);
+  }
+  if (!/^(?:(?:[^\s"';&|]+\/)?(?:ac|aesel|easel)|"[^"\n]+\/(?:ac|aesel|easel)"|'[^'\n]+\/(?:ac|aesel|easel)')\s+publish\s+\S/.test(command)) return null;
+  const output = String(item.aggregatedOutput || "");
+  const urls = output.split(/\r?\n/).map(line => /^https:\/\/aesthetic\.computer\/@([\w.-]+)\/([\w-]+)$/.exec(line.trim())).filter(Boolean);
+  const match = urls.findLast(([, owner]) => owner === handle.replace(/^@/, ""));
+  return match ? { handle: match[1], slug: match[2], route: match[0] } : null;
+}
+
 export function slugFor(file, explicit = "") {
   const slug = String(explicit || basename(file, extname(file))).trim();
   if (!/^[a-zA-Z0-9_-]+$/.test(slug)) {

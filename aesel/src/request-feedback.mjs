@@ -1,5 +1,6 @@
 // Observed request stages, without implying progress percentages or hidden reasoning.
 export function requestFeedback(state, now = Date.now()) {
+  if(state.recoveryNotice)return state.recoveryNotice;
   const seconds=Math.max(0,Math.floor((now-(state.requestStartedAt||now))/1000));
   const model=/luna/i.test(state.model||'')?'Luna':String(state.model||'model').split('/').at(-1);
   const phase={preparing:'Preparing request',connecting:'Connecting',waiting:`Waiting for ${model}`,generating:'Receiving reply',composing:'Writing code',writing:'Saving changes',tool:'Running tool',approval:'Waiting for approval',interrupting:'Stopping'}[state.status]||'Working';

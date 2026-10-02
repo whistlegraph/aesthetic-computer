@@ -52,7 +52,7 @@ test("an 80 by 24 terminal shows the whole donkey, the sentence and the keys; a 
   assert.ok(rows.length <= 25, `fits in 24 rows, got ${rows.length}`);
   assert.ok(rows.some((row) => /\( [o-] [o-] \)/.test(row)), "one sentence leaves room for all of him");
   const short = plainRows(sharingScreen({ columns: 80, rows: 12, useColor: false }));
-  assert.ok(short.length <= 13 && short.some((row) => /\/\/o>\s+aesel/.test(row)), "his one-row self stands in when the window is short");
+  assert.ok(short.length <= 13 && short.some((row) => /\/\/\(o\.o\)>\s+aesel/.test(row)), "his one-row self stands in when the window is short");
   assert.ok(rows.some((row) => row.includes("[Q] Quit")), "the keys are on screen");
   assert.ok(rows.every((row) => row.length <= 80), "nothing wraps");
 });

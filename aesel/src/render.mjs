@@ -218,6 +218,8 @@ const within = (code, ranges) => ranges.some(([low, high]) => code >= low && cod
 
 function charWidth(character) {
   const code = character.codePointAt(0);
+  // Most terminal cells, including the empty page, are printable ASCII.
+  if (code >= 0x20 && code <= 0x7e) return 1;
   if (within(code, ZERO)) return 0;
   return within(code, WIDE) ? 2 : 1;
 }
@@ -386,14 +388,48 @@ function outputRows(source,width,useColor,tone,code=false,prose=false,ink=null){
   });
 }
 
+// Typing and footer animation do not change the conversation. Keep its wrapped
+// rows, including syntax and links, instead of repainting the full history.
+// Content, layout and appearance are part of the key; streamed edits miss it.
+const entryCache = new Map();
 function entryLines(entry, width, useColor, gutter = "wide") {
+  const key = JSON.stringify([entry.kind, entry.text, entry.from, entry.wave, width, useColor, gutter, TYPED_STYLE, CORNERS, LIGHT]);
+  if (entryCache.has(key)) {
+    const rows = entryCache.get(key);
+    entryCache.delete(key); entryCache.set(key, rows);
+    return rows;
+  }
+  const rows = drawEntryLines(entry, width, useColor, gutter);
+  // Large streaming replies should not retain a copy of every partial version.
+  if (key.length <= 16000) {
+    entryCache.set(key, rows);
+    if (entryCache.size > 1024) entryCache.delete(entryCache.keys().next().value);
+  }
+  return rows;
+}
+
+function drawEntryLines(entry, width, useColor, gutter = "wide") {
+  // Older checkpoints may still contain tool payloads. They never return to
+  // the page; current activity has its own bounded feed below it.
+  if (entry.kind === 'command' || entry.kind === 'change') return [];
+  if (entry.kind === 'usage') {
+    const rows = [], room = Math.max(1, width - 1);
+    let row = '';
+    for (const part of cleanText(entry.text).split(' · ')) {
+      const next = row ? `${row} · ${part}` : part;
+      if (textWidth(next) <= room) { row = next; continue; }
+      if (row) rows.push(row);
+      const wrapped = wrapText(part, room);
+      row = wrapped.pop() || ''; rows.push(...wrapped);
+    }
+    if (row) rows.push(row);
+    return rows.map(line => paint(useColor, 'muted', ` ${line}`));
+  }
   const [label, tone] = STYLES[entry.kind] || STYLES.notice;
   // Pro reads like a page: your lines and the replies flush left, and only
   // a notice, an error or an inbox line wears a two-cell mark.
   const flush = gutter === "narrow" && (entry.kind === "typed" || entry.kind === "assistant");
-  // In pro a reply is a cloud: its prose in dark ink on a near-white ground
-  // with a cell of air around it and rounded ends, so what the machine says
-  // reads as a message and not as more of the page.
+  // Pro replies use dark ink on a light ground with one cell on each side.
   const cloud = gutter === "narrow" && entry.kind === "assistant" && useColor;
   const typed = gutter === "narrow" && entry.kind === "typed" && useColor;
   const prefix = flush ? "" : gutter === "narrow" ? `${label.slice(0, 1)} ` : `${label.padEnd(4)} `;
@@ -401,6 +437,8 @@ function entryLines(entry, width, useColor, gutter = "wide") {
   // An inbox line leads with who sent it — `↓ host:name · text` — so the
   // sender is read before the request, the way the model reads the stamp.
   const bodyTone = BODY_TONES[entry.kind] || "text";
+  const text = cleanText(entry.kind === "inbox" && entry.from ? `${entry.from} · ${entry.text}` : entry.text)
+    .replace(/[\t ]+$/gm, "").replace(/^\n+|\n+$/g, "");
   if (entry.kind === "typed" && entry.wave !== undefined && useColor) {
     // The shimmer: the words in the page's ink with a spark of the prompt's
     // pink, three letters wide, travelling through them one step per frame —
@@ -408,14 +446,14 @@ function entryLines(entry, width, useColor, gutter = "wide") {
     const spark = [fg(palette.prompt), fg(palette.highlight), fg(palette.prompt)];
     const hues = { length: 1 };
     let at = 0;
-    const total = Array.from(cleanText(entry.text)).length + 3;
+    const total = Array.from(text).length + 3;
     const head = entry.wave % Math.max(1, total);
     const inkFor = () => { const d = at - head; at += 1; return d >= -2 && d <= 0 ? spark[d + 2] : color.text; };
-    const inner = Math.max(1, width - prefix.length - (TYPED_STYLE === "lines" ? 0 : 4));
-    const painted = wrapText(cleanText(entry.text), inner).map((line) => Array.from(line).map((ch) => `${TYPED_STYLE === "bubble" ? bg(TYPED_TINT.bg) : ""}${inkFor()}${ch}`).join(""));
+    const inner = Math.max(1, width - prefix.length - (TYPED_STYLE === "lines" ? 0 : TYPED_STYLE === "bubble" ? 2 : 4));
+    const painted = wrapText(text, inner).map((line) => Array.from(line).map((ch) => `${TYPED_STYLE === "bubble" ? bg(TYPED_TINT.bg) : ""}${inkFor()}${ch}`).join(""));
     return TYPED_STYLE === "bubble" ? cloudRows(painted, width - prefix.length, TYPED_TINT) : TYPED_STYLE === "outline" ? outlineRows(painted, width - prefix.length, true) : painted.map((row) => `${row}${color.reset}${color.ground}`);
   }
-  const rows=[],text=cleanText(entry.kind === "inbox" && entry.from ? `${entry.from} · ${entry.text}` : entry.text),parts=text.split(/(^[ \t]*```[^\n]*$)/m);
+  const rows=[],parts=text.split(/(^[ \t]*```[^\n]*$)/m);
   let fenced=false;
   for(const part of parts){
     if(/^[ \t]*```/.test(part)){
@@ -630,12 +668,7 @@ export function frameLayout(state, rows = 24) {
   return {rows:height, trayStartRow:height-trayRows, trayRows};
 }
 
-export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
-  const width = Math.max(32, columns);
-  const height = Math.max(10, rows);
-  const ground = useColor ? color.ground : "";
-  const reset = useColor ? color.reset : "";
-
+function frameHeader(state, width, useColor) {
   const mode = state.mode === "local" ? "LOCAL" : "REMOTE";
   const status = String(state.status || "ready").toUpperCase();
   const right = `${paint(useColor, state.mode === "local" ? "status" : "highlight", mode)} · ${paint(useColor, statusTone(state.status), status)}`;
@@ -696,6 +729,17 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
       " ".repeat(Math.max(1, width - 2 - textWidth(workspace) - textWidth(audience.plain))) +
       `${audience.painted} `
     : paint(useColor, "muted", ` ${workspace}`);
+  return {header, pathLine};
+}
+
+export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
+  const width = Math.max(32, columns);
+  const height = Math.max(10, rows);
+  const ground = useColor ? color.ground : "";
+  const reset = useColor ? color.reset : "";
+
+  let headerCache;
+  const header = () => headerCache ??= frameHeader(state, width, useColor);
 
   // Pro has no header band: four rows at the bottom — air, the bar, air, the
   // status line — and the rest is the conversation.
@@ -733,60 +777,43 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
           return list;
         }, []) : state.entries;
         const working = pro && state.busy ? grouped.reduce((found, entry, index) => (entry.kind === "user" ? index : found), -1) : -1;
-        return grouped.flatMap((entry, index) => {
+        // Work backward only as far as the viewport needs. Reflowing invisible
+        // history on every resize blocks input and animation on long threads.
+        const chunks=[];
+        let covered=0;
+        const needed=transcriptRows+Math.max(0,state.scrollOffset||0);
+        for(let index=grouped.length-1;index>=0&&covered<needed;index--){
+          const entry=grouped[index];
           const lines = entryLines(pro && entry.kind === "user" ? { ...entry, kind: "typed", ...(index === working ? { wave: Math.floor((state.mascotMs || 0) / 120) } : {}) } : entry, contentWidth, useColor, pro ? "narrow" : "wide");
           // A cloud's rows are not ruled; the flag rides along with the row.
           if (pro && (entry.kind === "assistant" || entry.kind === "user")) for (const line of lines) unruled.add(line);
-          return lines;
-        });
+          chunks.push(lines);covered+=lines.length;
+        }
+        return chunks.reverse().flat();
       })();
-  // Provisional rows: the tools and subtasks running right now, one line each
-  // at the foot of the transcript, gone the moment each one finishes. They
-  // are not entries; nothing of them is kept on the page.
-  const provisional = pro && state.busy && state.toolsNow?.size
-    ? [...state.toolsNow.values()].map((text) => paint(useColor, "muted", clipText(`⋯ ${String(text).replace(/\s+/g, " ")}`, contentWidth)))
-    : [];
-  for (const row of provisional) { transcript.push(row); unruled.add(row); }
+  // A pinned rolling feed: new work displaces old work without adding scrollback.
+  const feedSize = Math.min(3, Math.max(1, Math.floor(height / 6)));
+  const provisional = !state.about && !state.settings && state.busy
+    ? (state.turnActivity?.feed || []).slice(-feedSize).map(item => {
+        const mark = item.status === 'failed' ? '!' : item.status === 'done' ? '·' : '›';
+        const tone = item.status === 'failed' ? 'error' : item.status === 'done' ? 'muted' : 'inbox';
+        return paint(useColor, tone, clipText(`${mark} ${item.text}`, contentWidth));
+      }) : [];
+  for (const row of provisional) unruled.add(row);
   const drawer=drawerRows(state,width,height,useColor);
-  const availableRows=transcriptRows-drawer.length;
+  const availableRows=Math.max(0,transcriptRows-drawer.length-provisional.length);
   const start = state.about ? Math.min(state.aboutScroll || 0, Math.max(0, transcript.length - transcriptRows))
     : Math.max(0, transcript.length - availableRows - (state.scrollOffset || 0));
   const visible = transcript.slice(start, start + availableRows);
   while (visible.length < availableRows) state.about ? visible.push("") : visible.unshift("");
 
-  visible.push(...drawer);
+  visible.push(...provisional, ...drawer);
   const body = visible.map((line, index) => {
     const row = ` ${fit(line, contentWidth)}`;
     if (!qr) return row;
     const band = index - (transcriptRows - qr.height);
     return band >= 0 ? `${row} ${qr.lines[band]}` : row;
   });
-
-  const controlsWidth = process.env.AESEL_DESKTOP ? Math.max(22,width-10) : width;
-  let prompt;
-  if (state.approval) {
-    // The subject gets whatever the label and the three answers leave, measured
-    // rather than guessed: a hand-counted margin was two columns short, and the
-    // row it overflowed wrapped every approval into a scroll.
-    const choices = "  y once  a session  n deny";
-    const room = Math.max(4, controlsWidth - textWidth("ALLOW ") - textWidth(choices));
-    const subject = clipText(state.approval.subject || "requested action", room);
-    prompt = `${paint(useColor, "highlight bold", "ALLOW")} ${subject}  ${paint(useColor, "bold", cleanText(state.approval.choicesText || "y once  a session  n deny"))}`;
-  } else {
-    const input = Array.from(cleanText(state.input || ""));
-    const cursor = Math.max(0, Math.min(state.cursor ?? input.length, input.length));
-    const room = Math.max(1, width - 3);
-    const start = Math.max(0, cursor - room + 1);
-    const visibleInput = input.slice(start, start + room);
-    const visibleCursor = cursor - start;
-    const before = visibleInput.slice(0, visibleCursor).join("");
-    const underCursor = visibleInput[visibleCursor] || " ";
-    const after = visibleInput.slice(visibleCursor + 1).join("");
-    const cursorCell = useColor ? paint(true, "block", underCursor) : underCursor;
-    prompt = `${paint(useColor, "prompt bold", "›")} ${start > 0 ? "‹" : ""}${before}${cursorCell}${after}`;
-  }
-
-  if (state.desktopProsePrompt) prompt = "";
 
   if (pro) {
     // Codex's shape: the transcript, a bar to type in with a blank line on
@@ -828,8 +855,8 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
       status: () => statusLine,
       rule: () => paint(useColor, "muted", "─".repeat(width)),
       help: () => ` ${paint(useColor, "muted", clipText(state.busy ? requestFeedback(state) : "/help · /layout · /inbox · /mode · /ask · ctrl-c quit", width - 2))}`,
-      header: () => header,
-      path: () => pathLine,
+      header: () => header().header,
+      path: () => header().pathLine,
     };
     // Notebook lines: a faint rule under the rest of every transcript row,
     // the way the GUI's page is ruled. Only the blank part of a row is
@@ -865,14 +892,40 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
       .join("\n");
   }
 
+  const controlsWidth = process.env.AESEL_DESKTOP ? Math.max(22,width-10) : width;
+  let prompt;
+  if (state.approval) {
+    // The subject gets whatever the label and the three answers leave, measured
+    // rather than guessed: a hand-counted margin was two columns short, and the
+    // row it overflowed wrapped every approval into a scroll.
+    const choices = "  y once  a session  n deny";
+    const room = Math.max(4, controlsWidth - textWidth("ALLOW ") - textWidth(choices));
+    const subject = clipText(state.approval.subject || "requested action", room);
+    prompt = `${paint(useColor, "highlight bold", "ALLOW")} ${subject}  ${paint(useColor, "bold", cleanText(state.approval.choicesText || "y once  a session  n deny"))}`;
+  } else {
+    const input = Array.from(cleanText(state.input || ""));
+    const cursor = Math.max(0, Math.min(state.cursor ?? input.length, input.length));
+    const room = Math.max(1, width - 3);
+    const start = Math.max(0, cursor - room + 1);
+    const visibleInput = input.slice(start, start + room);
+    const visibleCursor = cursor - start;
+    const before = visibleInput.slice(0, visibleCursor).join("");
+    const underCursor = visibleInput[visibleCursor] || " ";
+    const after = visibleInput.slice(visibleCursor + 1).join("");
+    const cursorCell = useColor ? paint(true, "block", underCursor) : underCursor;
+    prompt = `${paint(useColor, "prompt bold", "›")} ${start > 0 ? "‹" : ""}${before}${cursorCell}${after}`;
+  }
+
+  if (state.desktopProsePrompt) prompt = "";
+
+  const {header: titleLine, pathLine} = header();
   const rule = paint(useColor, "muted", "─".repeat(width));
   // The little guy keeps the far corner from the QR code. He is one row and he
   // does not move: an animated footer costs a full repaint every few seconds
   // for the rest of the session, and the entrance already showed he is alive.
   // He dances while the machine has the floor and stands while it is yours —
   // the one fact the interface would otherwise need a row and a word to say.
-  const pose = Array.from(mascotRow(state.mascotMs ?? 0, Boolean(state.busy)));
-  const guy = pose.map((ch,i)=>paint(useColor,i<2?'handle':'soft',ch)).join('');
+  const guy = paintedMascot(state, useColor);
   const helpText = state.settings ? " ↑ ↓ choose · Tab field · Enter select · Apply saves · Esc cancel" : state.about ? " Esc back · ↑/↓ scroll"
     : state.scrollOffset ? ` ${state.scrollOffset} lines above · End latest`
     : state.hover === "about" ? " aesel home · click"
@@ -891,7 +944,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const controls=modelControls(state,width);
   const controlLine=controls.length?' '+controls.map(c=>paint(useColor,c.selected||state.hover===c.action?'block bold':c.tone+' bold',c.text.padEnd(c.width))).join(''):pathLine;
   const desktop = state.desktop || state.desktopProsePrompt;
-  const lines = [...body, desktop ? "" : rule, desktop ? "" : header, desktop ? "" : controlLine, prompt, desktop ? "" : help];
+  const lines = [...body, desktop ? "" : rule, desktop ? "" : titleLine, desktop ? "" : controlLine, prompt, desktop ? "" : help];
   return lines
     .slice(0, height)
     .map((line,index) => {const fitted=fit(line,width);return `${ground}${useColor && !process.env.AESEL_DESKTOP && index>=height-4?woodgrain(fitted,index-(height-4)):fitted}${reset}`;})
@@ -1030,7 +1083,7 @@ export function setTypedStyle(style) { TYPED_STYLE = ["outline", "bubble", "line
 function outlineRows(rows, width, painted = false) {
   while (rows.length > 1 && !paintedWidth(rows[rows.length - 1])) rows.pop();
   while (rows.length > 1 && !paintedWidth(rows[0])) rows.shift();
-  const inner = Math.min(width - 4, Math.max(4, ...rows.map((row) => paintedWidth(row))));
+  const inner = Math.min(width - 4, Math.max(1, ...rows.map((row) => paintedWidth(row))));
   const ink = paint(true, "prompt", "").replace(/\x1b\[0m.*$/, "");
   const line = (text) => `${ink}${text}${color.reset}${color.ground}`;
   // The words inside are set in the page's own ink, white on the ground —
@@ -1053,24 +1106,20 @@ function cloudInk(role, value, tint = CLOUD_TINT) {
   return `${bg(tint.bg)}${fg(inks[base] || tint.ink)}${bold ? "\x1b[1m" : ""}${value}${bold ? "\x1b[22m" : ""}`;
 }
 
-// Rows of a reply wrapped in their cloud: a rounded top edge drawn with the
-// lower half-blocks, the rows on the cloud's ground with a cell of air at
-// either side, a rounded bottom edge with the upper half-blocks. Code inside
-// keeps its own dark ground, the way a code block sits in any bubble.
+// Flat cards use only their text rows. Rounded styles add half-block caps.
+// Code keeps its own dark ground inside the card.
 function cloudRows(rows, width, tint = CLOUD_TINT) {
   // Air is the cloud's own; blank rows at either end are not kept.
   while (rows.length > 1 && !paintedWidth(rows[rows.length - 1])) rows.pop();
   while (rows.length > 1 && !paintedWidth(rows[0])) rows.shift();
-  const inner = Math.min(width - 2, Math.max(8, ...rows.map((row) => paintedWidth(row))));
+  const inner = Math.min(width - 2, Math.max(1, ...rows.map((row) => paintedWidth(row))));
   const edge = fg(tint.bg);
   const ground = `${color.reset}${color.ground}`;
-  // The edges: plain half-block rows by default, which read as a soft card —
-  // corner glyphs looked stepped or spiky at text size. `corners: slant` cuts
-  // them with the triangles, `corners: block` with the quadrants.
-  const ends = CORNERS === "slant" ? ["◢", "◣", "◥", "◤"] : CORNERS === "block" ? ["▗", "▖", "▝", "▘"] : ["▄", "▄", "▀", "▀"];
+  const body = rows.map((row) => `${bg(tint.bg)}${fg(tint.ink)} ${fit(row.replace(/\x1b\[49m/g, bg(tint.bg)), inner)}${bg(tint.bg)} ${ground}`);
+  if (CORNERS === "flat") return body;
+  const ends = CORNERS === "slant" ? ["◢", "◣", "◥", "◤"] : ["▗", "▖", "▝", "▘"];
   const top = `${edge}${ends[0]}${"▄".repeat(inner)}${ends[1]}${ground}`;
   const bottom = `${edge}${ends[2]}${"▀".repeat(inner)}${ends[3]}${ground}`;
-  const body = rows.map((row) => `${bg(tint.bg)}${fg(tint.ink)} ${fit(row.replace(/\x1b\[49m/g, bg(tint.bg)), inner)}${bg(tint.bg)} ${ground}`);
   return [top, ...body, bottom];
 }
 
@@ -1150,6 +1199,35 @@ export function breathingHandle(account, state) {
 
 // The status line under the bar, and where each fact on it starts, so the
 // frame can paint it and a click can find the model on it.
+function paintedMascot(state, useColor) {
+  const pose = mascotRow(state.mascotMs ?? 0, Boolean(state.busy));
+  if (!useColor) return pose;
+  const ears = exact([255, 130, 200]), face = exact([120, 220, 255]), nose = exact([255, 218, 120]);
+  return Array.from(pose).map((ch, i) => `${i < 2 || ch === '.' ? ears : ch === '>' ? nose : face}${ch}`).join('') + color.reset + color.ground;
+}
+
+function statusFact(name, text, state, useColor) {
+  if (!useColor) return text;
+  if (name === "workspace") {
+    return text.split(/(\/)/).map((part, index, parts) => {
+      return paint(true, part === "/" || part === "~" ? "muted" : index === parts.length - 1 ? "inbox bold" : "inbox", part);
+    }).join("");
+  }
+  if (name === "model") {
+    return paint(true, "run bold", text);
+  }
+  const activity = state.status === "offline" ? "error"
+    : state.recoveryNotice || state.connectionNotice || state.status === "connecting" ? "run" : "status";
+  const tone = { engine: "edit", media: "handle", mode: state.mode === "local" ? "status" : "inbox", inbox: "run bold", activity }[name] || "soft";
+  return paint(true, tone, text);
+}
+
+function statusSpend(text, useColor) {
+  if (!useColor) return text;
+  return text.split(/(\$?\d+(?:\.\d+)?[kM%dhm]?)/).map(part =>
+    paint(true, /^\$?\d/.test(part) ? "run" : "muted", part)).join("");
+}
+
 export function proStatus(state, width, useColor, shape = state.layout || {}) {
   const status = shape.status || ["handle", "workspace", "media", "model", "activity"];
   const separator = shape.separator ?? " · ";
@@ -1170,7 +1248,7 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
     media: state.media ? `${state.media.glyph} ${clipText(state.media.name, Math.max(12, Math.floor(width / 4)))}` : "",
     // The little guy dances on the line while the machine has the floor, and
     // beside him the seconds, the way Claude Code counts them.
-    activity: state.busy ? `${mascotRow(state.mascotMs ?? 0, true)} ${workingTimer(state)}${state.toolNow ? ` · ${clipText(state.toolNow.replace(/\s+/g, " "), Math.max(12, Math.floor(width / 3)))}` : ""}` : state.selection && !state.selection.active ? "selected · Enter copies · Esc clears" : state.flash && state.flash.until > Date.now() ? state.flash.text : state.status === "connecting" ? "connecting…" : state.status === "offline" ? "offline" : state.scrollOffset ? `${state.scrollOffset} lines above · End latest` : "",
+      activity: state.recoveryNotice || state.connectionNotice || (state.busy ? `${mascotRow(state.mascotMs ?? 0, true)} ${workingTimer(state)}` : state.selection && !state.selection.active ? "selected · Enter copies · Esc clears" : state.flash && state.flash.until > Date.now() ? state.flash.text : state.status === "connecting" ? "connecting…" : state.status === "offline" ? "offline" : state.scrollOffset ? `${state.scrollOffset} lines above · End latest` : ""),
     inbox: queuedInbox ? `${queuedInbox} inbox queued` : "",
   };
   const muted = (text) => paint(useColor, "muted", text);
@@ -1179,7 +1257,7 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
   // the machine is doing is the last thing to be cut.
   const keep = new Set(status);
   // The thread's cost holds its corner; the place and the engine give way first.
-  const spend = spendText(state.spend, state.braincells);
+  const spend = state.recoveryNotice ? "" : spendText(state, width - 5);
   const reserve = spend ? textWidth(spend) + 3 : 0;
   const measure = () => [...keep].reduce((n, name) => (plain[name] ? n + textWidth(plain[name]) + (n ? textWidth(separator) : 0) : n), 1) + reserve;
   for (const name of ["engine", "media", "workspace", "model", "handle", "mode", "inbox"]) {
@@ -1202,29 +1280,56 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
     const hovered = (name === "model" && state.hover === "model") || (name === "engine" && state.hover === "provider");
     // While the machine works the handle breathes: bright, then muted, on the
     // dance clock — a pulse you can see from across the room.
-    line += name === "handle" && text.startsWith("@") ? coloredHandle(account, breathingHandle(account, state), useColor) + (route ? paint(useColor, "highlight", route) : "") : hovered && useColor ? paint(useColor, "muted", `\x1b[4m${text}\x1b[24m`) : muted(text);
+    let fact;
+    if (name === "activity" && state.busy && !state.recoveryNotice && !state.connectionNotice) {
+      fact = paintedMascot(state, useColor) + statusFact(name, text.slice(MASCOT_ROW_WIDTH), state, useColor);
+    } else if (name === "handle" && text.startsWith("@")) {
+      fact = coloredHandle(account, breathingHandle(account, state), useColor) + (route ? paint(useColor, "highlight", route) : "");
+    } else {
+      fact = statusFact(name, text, state, useColor);
+    }
+    line += hovered && useColor ? `\x1b[4m${fact.replace(/\x1b\[0m/g, "\x1b[0m\x1b[4m")}\x1b[24m` : fact;
     x += textWidth(text);
   }
   // What this thread has cost, flush right: tokens always, dollars when the
   // provider billed them.
   if (spend && x + 3 + textWidth(spend) <= width - 1) {
-    line += " ".repeat(width - 1 - x - textWidth(spend)) + muted(spend);
+    line += " ".repeat(width - 1 - x - textWidth(spend)) + statusSpend(spend, useColor);
     x = width - 1;
   }
   return { line, spans };
 }
 
 const compact = (n) => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : `${n}`;
-// This thread's tokens and, when billed, its dollars; then the account's
-// braincells — free today plus bought — which every session shares, so it
-// is the one number that says where the whole account stands.
-function spendText(spend, braincells) {
+// These are percentages used, not remaining. Use the reported durations;
+// accounts need not have the same quota windows. An expired reading is unknown.
+function codexUsageText(limits) {
+  const windows = [limits?.primary, limits?.secondary].flatMap((window, index) => {
+    if (!Number.isFinite(window?.usedPercent) || (Number.isFinite(window.resetsAt) && window.resetsAt * 1000 <= Date.now())) return [];
+    const minutes = window.windowDurationMins;
+    const label = !Number.isFinite(minutes) || minutes <= 0 ? (index ? "secondary" : "primary")
+      : minutes % 1440 === 0 ? `${minutes / 1440}d`
+      : minutes % 60 === 0 ? `${minutes / 60}h` : `${minutes}m`;
+    return [`${label} ${Math.max(0, Math.round(window.usedPercent))}%`];
+  });
+  return windows.length ? `codex ${windows.join(" · ")} used` : "codex usage unavailable";
+}
+
+function spendText(state, width) {
+  const { spend, braincells, codexRateLimits, providerSettings } = state;
   const parts = [];
   if (spend?.tokens) {
     const usd = spend.usd;
     parts.push(spend.billed ? `${compact(spend.tokens)} tok · $${usd < 0.01 ? usd.toFixed(4) : usd < 1 ? usd.toFixed(3) : usd.toFixed(2)}` : `${compact(spend.tokens)} tok`);
   }
-  if (Number.isFinite(braincells)) parts.push(`${compact(Math.max(0, Math.round(braincells)))} braincells`);
+  const backend = providerSettings?.backend;
+  const account = backend === "codex" ? codexUsageText(codexRateLimits)
+    : backend === "ac" && Number.isFinite(braincells) ? `${compact(Math.max(0, Math.round(braincells)))} braincells` : "";
+  if (account) {
+    // Keep the account meter when the terminal cannot fit both counters.
+    if (textWidth([...parts, account].join(" · ")) > width) return account;
+    parts.push(account);
+  }
   return parts.join(" · ");
 }
 

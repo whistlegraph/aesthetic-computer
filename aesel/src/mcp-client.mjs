@@ -97,6 +97,9 @@ class StdioTransport {
     this.child = spawn(command, args, { cwd: root, env: { ...process.env, ...env }, stdio: ["pipe", "pipe", "ignore"] });
     this.child.on("error", (error) => this.#fail(error));
     this.child.on("exit", () => this.#fail(new Error("server exited")));
+    // A server that dies mid-write leaves an EPIPE on its stdin; unheard, it
+    // would take Aesel down with it rather than just that server's tools.
+    this.child.stdin.on("error", (error) => this.#fail(error));
     createInterface({ input: this.child.stdout }).on("line", (line) => {
       let reply;
       try { reply = JSON.parse(line); } catch { return; }
@@ -109,10 +112,11 @@ class StdioTransport {
     this.pending.clear();
   }
   request(message, { signal } = {}) {
-    this.child.stdin.write(`${JSON.stringify(message)}\n`);
-    if (message.id === undefined) return Promise.resolve(null);
+    if (this.child.exitCode !== null || this.child.stdin.destroyed) return Promise.reject(new Error("server exited"));
+    if (message.id === undefined) { this.child.stdin.write(`${JSON.stringify(message)}\n`); return Promise.resolve(null); }
     return new Promise((resolve, reject) => {
       this.pending.set(message.id, { resolve, reject });
+      this.child.stdin.write(`${JSON.stringify(message)}\n`);
       signal?.addEventListener("abort", () => { this.pending.delete(message.id); reject(signal.reason); }, { once: true });
     });
   }

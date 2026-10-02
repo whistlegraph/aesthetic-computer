@@ -1,7 +1,6 @@
 import {revisionSummary} from './revision-summary.mjs';
 // Complete piece snapshots stay on this machine; rollback appends, never erases.
 import { createHash, randomUUID } from "node:crypto";
-import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import { historyDir } from "./paths.mjs";
 import { extname, join, resolve } from "node:path";
@@ -12,15 +11,11 @@ const digest = (source) => createHash("sha256").update(source).digest("hex");
 export async function validatePieceSource(source, file) {
   if (typeof source !== "string" || !source.trim()) throw new Error("The piece is empty.");
   if (extname(file) !== ".mjs") return; // Other runtimes retain their own loader validation.
-  await new Promise((resolveCheck, reject) => {
-    const child = spawn(process.execPath, ["--input-type=module", "--check"], { stdio: ["pipe", "ignore", "pipe"] });
-    let detail = "";
-    child.stderr.on("data", (chunk) => { if (detail.length < 4096) detail += chunk; });
-    child.on("error", reject);
-    child.stdin.on("error", () => {});
-    child.on("close", (code) => code === 0 ? resolveCheck() : reject(new Error(`Incomplete or invalid JavaScript; previous preview kept. ${detail.trim()}`)));
-    child.stdin.end(source);
-  });
+  // Bun does not implement Node's stdin --check contract. Use the bundled
+  // parser on both runtimes; parsing neither imports nor executes the piece.
+  const { parse } = await import("./vendor/acorn.mjs");
+  try { parse(source, { ecmaVersion: "latest", sourceType: "module" }); }
+  catch (error) { throw new Error(`Incomplete or invalid JavaScript; previous preview kept. ${error.message}`); }
 }
 
 export class PieceRevisions {

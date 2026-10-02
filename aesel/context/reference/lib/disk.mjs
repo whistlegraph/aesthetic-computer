@@ -11299,6 +11299,12 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Speech boundaries let pieces synchronize their own captions or animation.
+  if (type === "speech:started" || type === "speech:word") {
+    actAlerts.push({ name: type, content });
+    return;
+  }
+
   // 🗣️ An act that fires when an utterance has ended in the Web Speech API.
   if (type === "speech:completed") {
     actAlerts.push("speech:completed");
@@ -17359,7 +17365,9 @@ async function makeFrame({ data: { type, content } }) {
       // console.log("Sent data:", sendData);
 
       sendData.sound = sound;
-      sendData.aeselPreview = previewEvidence.frame();
+      // A transition can still cover the new piece after its paint has run.
+      // Certify only frames whose final pixels reveal the current revision.
+      sendData.aeselPreview = golTransition.active ? null : previewEvidence.frame();
 
       // Log first render sent back to main thread
       if (!globalThis._firstRenderSent) {

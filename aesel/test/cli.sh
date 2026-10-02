@@ -38,9 +38,57 @@ output="$(AESEL_DRY_RUN=1 "$CLI" "$WORK_DIR")"
 assert_contains "$output" 'interface=easel'
 assert_contains "$output" "directory=$WORK_DIR"
 
+assert_contains "$output" 'js_runtime=node'
+output="$(AESEL_DRY_RUN=1 AESEL_JS_RUNTIME="$(command -v node)" "$CLI" "$WORK_DIR")"
+assert_contains "$output" "js_runtime=$(command -v node)"
+if AESEL_DRY_RUN=1 AESEL_JS_RUNTIME="$TEST_ROOT/missing-runtime" "$CLI" "$WORK_DIR" >/dev/null 2>&1; then
+    printf 'Expected a missing JavaScript host to fail\n' >&2
+    exit 1
+fi
+
 output="$(AESEL_DRY_RUN=1 "$TEST_BIN/ac" "$WORK_DIR")"
 assert_contains "$output" 'interface=easel'
 assert_contains "$output" "directory=$WORK_DIR"
+
+# The Mac bundle must still work on a machine with no Node on PATH.
+BUNDLE="$TEST_ROOT/Example App.app/Contents"
+mkdir -p "$BUNDLE/Resources/aesel/bin" "$BUNDLE/Helpers"
+cp "$PROJECT_DIR/bin/easel" "$BUNDLE/Resources/aesel/bin/easel"
+ln -s "$PROJECT_DIR/src" "$BUNDLE/Resources/aesel/src"
+ln -s "$(command -v node)" "$BUNDLE/Helpers/node"
+output="$(PATH=/usr/bin:/bin "$BUNDLE/Resources/aesel/bin/easel" --version)"
+assert_contains "$output" "aesel $expected_version"
+
+# Installed aliases may be relative symlink chains and may live in paths with
+# spaces. They must retain the workspace, mode and flags without another shell.
+mkdir -p "$TEST_ROOT/alias links"
+for alias in a aes; do
+    ln -s "$PROJECT_DIR/bin/$alias" "$TEST_ROOT/alias links/$alias"
+    ln -s "../alias links/$alias" "$TEST_BIN/$alias"
+    output="$(AESEL_DRY_RUN=1 "$TEST_BIN/$alias" --private --model test-model "$WORK_DIR")"
+    assert_contains "$output" "directory=$WORK_DIR"
+    assert_contains "$output" 'pro=on'
+    assert_contains "$output" 'private=on'
+    assert_contains "$output" 'model=test-model'
+    output="$("$TEST_BIN/$alias" --version)"
+    assert_contains "$output" "aesel $expected_version"
+    cp "$PROJECT_DIR/bin/$alias" "$BUNDLE/Resources/aesel/bin/$alias"
+    output="$(PATH=/usr/bin:/bin "$BUNDLE/Resources/aesel/bin/$alias" --version)"
+    assert_contains "$output" "aesel $expected_version"
+done
+
+if command -v bun >/dev/null 2>&1; then
+    # Bun resolves the real launcher itself, including alias chains and spaces.
+    for entry in "$CLI" "$TEST_BIN/ac" "$TEST_BIN/a" "$TEST_BIN/aes" "$BUNDLE/Resources/aesel/bin/easel"; do
+        output="$(AESEL_JS_RUNTIME=bun AESEL_DRY_RUN=1 "$entry" --private --model test-model "$WORK_DIR")"
+        assert_contains "$output" 'js_runtime=bun'
+        assert_contains "$output" "directory=$WORK_DIR"
+        assert_contains "$output" 'private=on'
+        assert_contains "$output" 'model=test-model'
+        output="$(AESEL_JS_RUNTIME="$(command -v bun)" "$entry" --version)"
+        assert_contains "$output" "aesel $expected_version"
+    done
+fi
 
 output="$(AESEL_DRY_RUN=1 "$CLI" --resume 00000000-0000-0000-0000-000000000001 --prompt continue "$WORK_DIR")"
 assert_contains "$output" 'resume=yes'

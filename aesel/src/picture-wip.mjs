@@ -5,7 +5,6 @@ import { randomBytes, createHash } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 import { SITE, USER_AGENT } from './ac-session.mjs';
 import { decode } from '../media/picture/png.mjs';
-import { createNoPaintPiece, createNoPaintProposalLayer, appendNoPaintLayer, sameNoPaintPixels, JSZip } from '../media/picture/ac-tools.mjs';
 const queues = new WeakMap();
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const owner = session => session.read?.()?.user?.sub || session.handle || 'guest';
@@ -31,6 +30,7 @@ export function pictureWipAddress(record, site=SITE) {
   return {code:record.code,tag:`#${record.code}`,status:record.status,route:`${site}/#${record.code}`,scanUrl:`${new URL(site).host}/#${record.code}`,steps:record.steps,revision:record.revision};
 }
 export async function pictureState(current) {
+  const {createNoPaintPiece,createNoPaintProposalLayer,appendNoPaintLayer,sameNoPaintPixels}=await import('../media/picture/ac-tools.mjs');
   let piece;
   for(let version=1;version<=current.version;version++) {
     const root=join(current.root,'..',`v${version}`);
@@ -86,6 +86,7 @@ async function sync({artifacts,session,fetch=globalThis.fetch,site=SITE}) {
 }
 
 export async function pictureRecording(piece) {
+  const {JSZip}=await import('../media/picture/ac-tools.mjs');
   const zip=new JSZip();
   const steps=[];
   for(let i=0;i<piece.layers.length;i++) {

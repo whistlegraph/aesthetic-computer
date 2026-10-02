@@ -9,10 +9,9 @@
 // Claude is the default. Codex was the first and still works exactly as it
 // did; the two differ mainly in where the model name comes from, which is why
 // each one carries its own answer for `/model`.
-import { AC_MODELS } from "./ac-server.mjs";
-import { AppServer } from "./app-server.mjs";
-import { ClaudeServer, DEFAULT_CLAUDE_MODEL } from "./claude-server.mjs";
-import { DEFAULT_OPEN_MODEL, HostedServer, OPEN_MODELS, OpenServer } from "./open-server.mjs";
+import {AC_MODELS,DEFAULT_CLAUDE_MODEL} from './provider-defaults.mjs';
+import {DEFAULT_OPEN_MODEL,OPEN_MODELS} from './open-models.mjs';
+import {deferredEngine} from './deferred-engine.mjs';
 
 export const BACKENDS = {
   claude: {
@@ -23,7 +22,7 @@ export const BACKENDS = {
     defaultModel: DEFAULT_CLAUDE_MODEL,
     // Where a model comes from when the interface does not name one.
     modelSource: "the --model flag",
-    Engine: ClaudeServer,
+    Engine: deferredEngine(async()=> (await import('./claude-server.mjs')).ClaudeServer),
   },
   // The only bridge that needs nothing installed. It talks to
   // aesthetic.computer, which buys the inference and meters it against the
@@ -39,7 +38,7 @@ export const BACKENDS = {
     modelSource: "aesthetic.computer",
     hosted: true,
     models: AC_MODELS,
-    Engine: HostedServer,
+    Engine: deferredEngine(async()=> (await import('./open-server.mjs')).HostedServer),
   },
   codex: {
     id: "codex",
@@ -48,7 +47,7 @@ export const BACKENDS = {
     // Empty: Codex reads its own configuration unless a name is given.
     defaultModel: "",
     modelSource: "~/.codex/config.toml",
-    Engine: AppServer,
+    Engine: deferredEngine(async()=> (await import('./app-server.mjs')).AppServer),
   },
   // Aesel's own loop on an open-weight model through OpenRouter, paid by the
   // person's own key. Nothing to install, like `ac`, but no handle budget.
@@ -59,7 +58,7 @@ export const BACKENDS = {
     defaultModel: DEFAULT_OPEN_MODEL,
     modelSource: "OpenRouter",
     models: OPEN_MODELS,
-    Engine: OpenServer,
+    Engine: deferredEngine(async()=> (await import('./open-server.mjs')).OpenServer),
   },
 };
 

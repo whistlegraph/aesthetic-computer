@@ -25,7 +25,8 @@
 // one hole `--strict-mcp-config` leaves open on purpose.
 //
 //   node src/tools.mjs --cwd /path/to/workspace
-import { bothNames } from "./env.mjs";
+import {SERVER_NAME} from './tool-config.mjs';
+export {SERVER_NAME,codexMcpArgs,mcpConfig} from './tool-config.mjs';
 import { readFileSync, readdirSync, existsSync, statSync, realpathSync } from "node:fs";
 import { dirname, join, resolve, relative, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,12 +37,11 @@ import { readRuntimeFeedback } from "./runtime-feedback.mjs";
 import { apiEntries } from "./api-context.mjs";
 import { createInterface } from "node:readline";
 
-import { parse } from "./vendor/acorn.mjs";
+import { parse } from "./source-parser.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const aesel = join(HERE, "..");
 
-export const SERVER_NAME = "ac";
 export const TOOL_PREFIX = `mcp__${SERVER_NAME}__`;
 
 // Where the pieces are: the repo's disks folder when the workspace is the
@@ -397,33 +397,6 @@ export function serve({ cwd = process.cwd(), input = process.stdin, output = pro
     if (response) output.write(`${JSON.stringify(response)}\n`);
   });
   return lines;
-}
-
-// The MCP configuration the Claude bridge passes with --mcp-config: this file,
-// run by the same node that is running aesel, pointed at the workspace.
-export function codexMcpArgs(cwd,environment={}) {
-  return Object.entries(mcpConfig(cwd,environment).mcpServers).flatMap(([name, config]) => [
-    '-c', `mcp_servers.${name}.command=${JSON.stringify(config.command)}`,
-    '-c', `mcp_servers.${name}.args=${JSON.stringify(config.args)}`,
-    ...Object.entries(config.env||{}).flatMap(([key,value])=>['-c', `mcp_servers.${name}.env.${key}=${JSON.stringify(value)}`]),
-  ]);
-}
-export function mcpConfig(cwd,environment={}) {
-  const env={...(process.versions.electron?{ELECTRON_RUN_AS_NODE:"1"}:{}),...bothNames({AESEL_HARNESS_SOCKET:environment.AESEL_HARNESS_SOCKET}),...(environment.AESEL_NATIVE_SESSION?{AESEL_NATIVE_SESSION:environment.AESEL_NATIVE_SESSION}:{})};
-  return {
-    mcpServers: {
-      'easel-media': {
-        command: process.execPath,
-        ...(Object.keys(env).length?{env}:{}),
-        args: [fileURLToPath(new URL('./media-mcp.mjs', import.meta.url)), '--cwd', cwd],
-      },
-      [SERVER_NAME]: {
-        command: process.execPath,
-        ...(Object.keys(env).length?{env}:{}),
-        args: [fileURLToPath(import.meta.url), "--cwd", cwd],
-      },
-    },
-  };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

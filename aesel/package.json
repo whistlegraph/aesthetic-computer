@@ -4,7 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build:bun": "bun bin/build-bun.mjs",
+    "bench:runtimes": "python3 bin/bench-runtimes.py --entry launch --launcher --runs 7 --out ../tmp/tui-latency/runtimes.json",
     "test": "node bin/sync-context.mjs --check && node --test test/*.test.mjs && bash test/cli.sh",
-    "context": "node bin/sync-context.mjs"
+    "context": "node bin/sync-context.mjs",
+    "test:ui": "AESEL_PERFORMANCE=1 node --test test/tui-performance.test.mjs",
+    "test:input": "python3 test/input-tui.py",
+    "build:tui": "node bin/build-tui.mjs",
+    "test:startup": "python3 test/terminal-probe-test.py && python3 bin/bench-tui.py --targets aesel-codex-launcher,codex --launcher ac --runs 20 --compare-startup --trace-startup --out ../tmp/tui-latency/startup.json",
+    "test:network": "node --test test/turn-recovery.test.mjs test/app-server.test.mjs test/network.test.mjs && python3 test/network-tui.py",
+    "test:latency": "npm run test:input && npm run test:ui && python3 test/terminal-probe-test.py && python3 bin/bench-tui.py --targets aesel --runs 5 --gate",
+    "bench:tui": "python3 bin/bench-tui.py --targets aesel,aesel-claude,aesel-codex,claude,codex --runs 5 --compare --out ../tmp/tui-latency/latest.json"
   }
 }

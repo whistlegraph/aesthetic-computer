@@ -33,7 +33,9 @@ test("revisions survive restart, deduplicate saves, and rollback appends", async
 
 test("validation parses without executing and rejects incomplete JavaScript", async () => {
   await validatePieceSource('throw new Error("must not execute"); export const x = 1;', "piece.mjs");
+  await validatePieceSource('import missing from "./does-not-exist.mjs"; await missing(); export {missing};', "piece.mjs");
   await assert.rejects(validatePieceSource("export function paint( {", "piece.mjs"), /invalid JavaScript/);
+  await assert.rejects(validatePieceSource("export const x = 1; export const x = 2;", "piece.mjs"), /invalid JavaScript/);
 });
 
 test("file watcher versions external edits and never pushes unfinished JavaScript", async (t) => {

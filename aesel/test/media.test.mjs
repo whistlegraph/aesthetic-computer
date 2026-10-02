@@ -35,10 +35,23 @@ test("resolves relative and home paths against the workspace, and skips what is 
   assert.deepEqual(mediaPaths("", root), []);
 });
 
-test("reads a tool item's command, changes, input and output", () => {
+test("reads explicit tool targets without treating printed paths as selections", () => {
   const text = itemText({ command: "ls", tool: "Read · a.png", changes: [{ path: "b.mov" }], input: { file_path: "c.wav" }, aggregatedOutput: "wrote d.pdf" });
-  for (const name of ["ls", "a.png", "b.mov", "c.wav", "d.pdf"]) assert.ok(text.includes(name), name);
+  for (const name of ["ls", "a.png", "b.mov", "c.wav"]) assert.ok(text.includes(name), name);
+  assert.ok(!text.includes("d.pdf"));
   assert.equal(itemText(null), "");
+});
+
+test("repository listings and source reads cannot switch to an unrelated media file", () => {
+  for (const command of ["git status --short", "rg --files", "cat source.mjs"]) {
+    const item = { type: "commandExecution", command, exitCode: 0,
+      aggregatedOutput: `?? ${png}\n?? ${mov}\n${wav}\n` };
+    assert.deepEqual(mediaPaths(itemText(item), root), []);
+  }
+  const item = { type: "commandExecution", command: `open ${png}`, aggregatedOutput: mov };
+  assert.deepEqual(mediaPaths(itemText(item), root).map(file => file.path), [png]);
+  const view = { type: "dynamicToolCall", tool: "view_image", input: { path: png } };
+  assert.deepEqual(mediaPaths(itemText(view), root).map(file => file.path), [png]);
 });
 
 test("a sighting replaces the current one only when the file or its write time differs", () => {
