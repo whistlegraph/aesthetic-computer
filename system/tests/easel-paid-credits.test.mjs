@@ -11,6 +11,9 @@ test('only a matching, confirmed server offer can grant credit',()=>{
 test('reservation covers byte-heavy input and rejects unmetered media',()=>{
  assert.ok(reservationSize({messages:[{content:'é'.repeat(100)}]},100)>reservationSize({messages:[{content:'a'.repeat(100)}]},100));
  assert.throws(()=>reservationSize({messages:[{content:[{type:'image',source:{}}]}]},100));
+ const image={type:'image',source:{type:'base64',media_type:'image/png',data:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aKxkAAAAASUVORK5CYII='}};
+ const body={messages:[{role:'user',content:[image]}]};
+ assert.equal(reservationSize(body,100),Math.ceil(Buffer.byteLength(JSON.stringify(body))*1.25)+1+4096+100+4096);
 });
 const event=body=>({httpMethod:'POST',headers:{authorization:'Bearer test'},body:JSON.stringify(body)});
 function handler(options={}){return createHandler({stripe:{checkout:{sessions:{create:async()=>({id:'cs_test_new',url:'https://checkout.stripe.com/test'}),retrieve:async()=>paid}},webhooks:{constructEvent(){throw Error('invalid')}}},verifyUser:async()=>({sub:'user1'}),handleFor:async()=>'@tester',secret:'test',fulfill:async()=>true,...options});}

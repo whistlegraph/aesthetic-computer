@@ -2,6 +2,7 @@
 // what OpenRouter reports it cost, or at the model's fixed rate when the
 // provider reports no cost (easel-paid-credits.mjs). The older entries stay
 // because installed clients still ask for them by name.
+import {imageInputBound} from './easel-input-images.mjs';
 export const EASEL_MODELS = {
   "deepseek/deepseek-v4.1-flash": { label: "DeepSeek V4.1 Flash" },
   "deepseek/deepseek-v4-pro": { label: "DeepSeek V4 Pro" },
@@ -32,6 +33,7 @@ export function inferenceRequest(body) {
   const wanted = body.max_tokens === undefined ? DEFAULT_MAX_TOKENS : body.max_tokens;
   if (!Number.isSafeInteger(wanted) || wanted < 1) throw new Error("max_tokens must be a positive integer.");
   if (!Array.isArray(body.messages) || body.messages.length === 0) throw new Error("At least one message is required.");
+  imageInputBound(body);
   return { model, maxTokens: Math.min(wanted, HOSTED_MAX_TOKENS), reasoning: reasoningRequest(body.reasoning), thinking: thinkingRequest(body.thinking) };
 }
 

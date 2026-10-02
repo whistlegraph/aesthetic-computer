@@ -4,6 +4,7 @@
 import { randomUUID } from 'node:crypto';
 import { connect } from './database.mjs';
 import { dayKey } from './ai-budget.mjs';
+import { imageInputBound } from './easel-input-images.mjs';
 export const CREDIT_PACK = Object.freeze({ id:'braincells-1m-v1', amount:500, currency:'usd', credits:1_000_000, unit:'braincells' });
 // What a braincell is worth: the pack's price, so $5 buys 1,000,000.
 export const BRAINCELLS_PER_USD = CREDIT_PACK.credits / (CREDIT_PACK.amount / 100);
@@ -56,12 +57,13 @@ export async function revokeGrant(grant,wallets) {
   const result=await wallets.updateOne({_id:grant.user},[{$set:{balance:{$subtract:['$balance',{$max:[0,{$subtract:[grant.credits,{$ifNull:[`$${path}`,0]}]}]}]},[path]:{$max:[grant.credits,{$ifNull:[`$${path}`,0]}]},updatedAt:'$$NOW'}}]);
   return result.modifiedCount===1;
 }
-export function reservationSize(body,maxTokens,{validateMedia=true}={}) {
+export function reservationSize(body,maxTokens) {
   // UTF-8 bytes upper-bound text tokens, including JSON tool definitions.
-  // Unsupported media is rejected below; it cannot hide unbounded token cost.
+  // Static PNG pixels have a separate conservative bound. Other media remains
+  // unsupported; it cannot hide unbounded token cost.
   const input=JSON.stringify({system:body.system,messages:body.messages,tools:body.tools});
-  if(validateMedia && /"type"\s*:\s*"(?:image|document|input_audio|video)"/.test(input))throw new Error('Braincells currently support hosted text and code requests.');
-  return Math.ceil(Buffer.byteLength(input,'utf8')*1.25)+maxTokens+4096;
+  const images=imageInputBound(body);
+  return Math.ceil(Buffer.byteLength(input,'utf8')*1.25)+images+maxTokens+4096;
 }
 // Pending work counts until settled, including work crossing midnight. This
 // conservative bound avoids spending the same daily capacity concurrently.
