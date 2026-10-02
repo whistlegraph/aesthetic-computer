@@ -48,9 +48,9 @@ struct DrawingPad: UIViewRepresentable {
     var interactive: Bool
     func makeUIView(context: Context) -> GestureInkView {
         let view = GestureInkView(); view.backgroundColor = .clear; view.isOpaque = false
-        view.isMultipleTouchEnabled = false; view.accessibilityIdentifier = "drawing-pad"
-        view.accessibilityLabel = "Drawing over the piece"
-        view.accessibilityHint = "Draw with a finger or Pencil while talking or typing."
+        view.isMultipleTouchEnabled = false; view.isExclusiveTouch = false; view.accessibilityIdentifier = "drawing-pad"
+        view.accessibilityLabel = "Chalk over the piece"
+        view.accessibilityHint = "Add chalk strokes with a finger or Pencil while talking or typing."
         return view
     }
     func updateUIView(_ view: GestureInkView, context: Context) {

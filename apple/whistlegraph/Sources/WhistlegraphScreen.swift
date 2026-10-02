@@ -65,7 +65,6 @@ struct WhistlegraphScreen: View {
     @StateObject private var narrator = VersionNarrator()
     @Environment(\.scenePhase) private var scenePhase
     @State private var held = false
-    @GestureState private var touching = false
     @State private var showComposer = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
@@ -80,6 +79,7 @@ struct WhistlegraphScreen: View {
     private var theme: WhistlegraphTheme { WhistlegraphTheme(phase: themePhase, dark: colorScheme == .dark) }
     private var paper: Color { theme.foreground }
     private var accent: Color { theme.accent }
+    private var chalkActive: Bool { drawing.enabled || held || session.capturePhase == .opening || session.capturePhase == .recording }
     var body: some View {
         VStack(spacing: session.layout.spacing) {
             HStack {
@@ -102,16 +102,10 @@ struct WhistlegraphScreen: View {
                     .allowsHitTesting(session.snapshot.hasPreview && session.capturePhase == .idle)
                     .accessibilityHidden(!session.snapshot.hasPreview)
                 if !session.snapshot.hasPreview && !session.engineReady { ProgressView() }
-                if !drawing.enabled && (session.capturePhase == .recording || session.capturePhase == .opening) {
-                    ScrollView {
-                        Text(session.transcript.isEmpty ? (session.capturePhase == .opening ? "Opening microphone…" : "Listening…") : session.transcript)
-                            .font(.custom("ComicRelief-Regular", size: 30, relativeTo: .title)).frame(maxWidth: .infinity, alignment: .leading).padding(18)
-                    }.background(theme.background.opacity(0.95))
-                }
-                if !narrator.isPlaying && (drawing.enabled || drawing.hasInk) {
-                    DrawingPad(draft: drawing, interactive: drawing.enabled && canTalk)
-                        .background(drawing.enabled ? Color.black.opacity(0.16) : Color.clear)
-                        .allowsHitTesting(drawing.enabled && canTalk)
+                if !narrator.isPlaying && (chalkActive || drawing.hasInk) {
+                    DrawingPad(draft: drawing, interactive: chalkActive && canTalk)
+                        .background(chalkActive ? Color.black.opacity(0.16) : Color.clear)
+                        .allowsHitTesting(chalkActive && canTalk)
                 }
                 if let failure = session.startupFailure {
                     VStack(spacing: 12) { Text(failure); Button("Reload") { session.reloadWorkspace() } }.padding().background(.black.opacity(0.85))
@@ -128,24 +122,24 @@ struct WhistlegraphScreen: View {
             if !narrator.isPlaying {
                 HStack(spacing: 18) {
                     Button { ButtonSounds.play(.tick); drawing.enabled.toggle() } label: {
-                        Label("Draw", systemImage: drawing.enabled ? "pencil.tip.crop.circle.fill" : "pencil.tip.crop.circle")
+                        Label("Chalk", systemImage: drawing.enabled ? "pencil.tip.crop.circle.fill" : "pencil.tip.crop.circle")
                     }.accessibilityIdentifier("draw-control").accessibilityValue(drawing.enabled ? "On" : "Off")
                         .disabled(!canTalk)
                     if drawing.hasInk {
                         Button { drawing.undo() } label: { Image(systemName: "arrow.uturn.backward") }
                             .accessibilityLabel("Undo stroke").accessibilityIdentifier("drawing-undo").disabled(!canTalk)
                         Button { drawing.clear() } label: { Image(systemName: "trash") }
-                            .accessibilityLabel("Clear drawing").accessibilityIdentifier("drawing-clear").disabled(!canTalk)
+                            .accessibilityLabel("Clear chalk").accessibilityIdentifier("drawing-clear").disabled(!canTalk)
                     }
                     Spacer(minLength: 0)
                     if drawing.hasInk && !showComposer {
                         Button("Send") { ButtonSounds.play(.sent); session.command("ask", text: "") }
-                            .accessibilityLabel("Send drawing").accessibilityIdentifier("drawing-send")
+                            .accessibilityLabel("Send chalk").accessibilityIdentifier("drawing-send")
                             .disabled(!canTalk || session.capturePhase != .idle)
                     }
                 }.font(.title3).buttonStyle(.plain).frame(minHeight: 44)
-                if drawing.full { Text("Drawing full · send or undo a stroke").font(.caption) }
-                if drawing.enabled && (session.capturePhase == .recording || session.capturePhase == .opening) {
+                if drawing.full { Text("Chalk full · send or undo a stroke").font(.caption) }
+                if session.capturePhase == .recording || session.capturePhase == .opening {
                     Text(session.transcript.isEmpty ? "Listening…" : session.transcript)
                         .font(.custom("ComicRelief-Regular", size: 20)).lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading).allowsHitTesting(false)
@@ -208,10 +202,8 @@ struct WhistlegraphScreen: View {
             let progress = session.captureStarted.map { min(1, max(0, context.date.timeIntervalSince($0) / 8)) } ?? 0
             VStack(spacing: 10) {
                 if session.capturePhase == .recording {
-                    Text(drawing.enabled ? "Tap to send" : "Talk").font(.custom("ComicRelief-Bold", size: 30, relativeTo: .title2))
+                    Text("Talk").font(.custom("ComicRelief-Bold", size: 30, relativeTo: .title2))
                     MicrophoneWaveform(levels: session.microphoneLevels).frame(height: 22)
-                } else if drawing.enabled {
-                    VStack(spacing: 4) { ShoutButtonLabel(); Text("Tap to talk").font(.caption) }
                 } else { ShoutButtonLabel() }
                 if session.capturePhase == .recording {
                     ProgressView(value: progress).tint(theme.buttonInk)
@@ -226,26 +218,25 @@ struct WhistlegraphScreen: View {
             .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 34, style: .continuous).strokeBorder(paper, lineWidth: 3))
             .contentShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
-            .gesture(DragGesture(minimumDistance: 0).updating($touching) { _, state, _ in state = true }.onChanged { value in
-                guard !drawing.enabled else { return }
-                guard canTalk || held else { return }
-                guard !held, session.capturePhase == .idle else { return }
-                held = true; ButtonSounds.play(.press); session.beginHold()
-            }.onEnded { value in
-                if drawing.enabled {
-                    if session.capturePhase == .recording { ButtonSounds.play(.release); session.endHold() }
-                    else if canTalk && session.capturePhase == .idle { ButtonSounds.play(.press); session.beginHold() }
-                    return
-                }
-                if held { ButtonSounds.play(.release); session.endHold() }
-                held = false
-            })
-            .onChange(of: touching) { _, active in
-                if !active && held { held = false; session.cancelHold() }
+            .overlay {
+                TalkHoldInput(enabled: canTalk || held, began: {
+                    guard canTalk, !held, session.capturePhase == .idle else { return }
+                    held = true; ButtonSounds.play(.press); session.beginHold()
+                }, ended: {
+                    guard held else { return }
+                    held = false
+                    if session.capturePhase == .opening || session.capturePhase == .recording {
+                        ButtonSounds.play(.release); session.endHold()
+                    }
+                }, cancelled: {
+                    guard held else { return }
+                    held = false
+                    if session.capturePhase == .opening || session.capturePhase == .recording { session.cancelHold() }
+                }).accessibilityHidden(true)
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Talk")
-            .accessibilityHint(drawing.enabled ? "Tap to record while drawing. Tap again to send, or send automatically after eight seconds." : "Hold to record, release to send. Up to eight seconds.")
+            .accessibilityHint("Hold to record and use another finger to chalk above. Release to send. Up to eight seconds.")
             .accessibilityIdentifier("talk-control")
             .accessibilityAddTraits(.isButton)
             .accessibilityAction(named: Text("Type a request")) { if canTalk { session.cancelHold(); ButtonSounds.play(.key); showComposer = true } }
@@ -341,7 +332,7 @@ private struct VersionRow: View {
     var body: some View {
                         HStack(spacing: 12) {
                             ComicTitle(text: "v\(version.id)", size: textSize).frame(width: 48, alignment: .leading)
-                            if version.hasDrawing == true { Image(systemName: "pencil.tip").accessibilityLabel("With drawing") }
+                            if version.hasDrawing == true { Image(systemName: "pencil.tip").accessibilityLabel("With chalk") }
                             Text(version.utterance).lineLimit(1).truncationMode(.tail)
                                 .frame(maxWidth: .infinity, alignment: .trailing)
                         }
