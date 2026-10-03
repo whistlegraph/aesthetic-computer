@@ -4,6 +4,7 @@ struct PieceSnapshot: Decodable {
     var code = ""
     var caption: String?
     var output: String?
+    var inference: InferenceSnapshot?
     var handle = ""
     var colors: [[Double]] = []
     var head = 0
@@ -15,7 +16,7 @@ struct PieceSnapshot: Decodable {
     var attempt: PieceAttempt?
     var revisions: [PieceRevision]? = []
     var versions: [PieceRevision] { get { revisions ?? [] } set { revisions = newValue } }
-    enum CodingKeys: String, CodingKey { case code, caption, output, handle, colors, head, hasPiece, hasPreview, error, busy, phase, attempt; case revisions = "versions" }
+    enum CodingKeys: String, CodingKey { case code, caption, output, inference, handle, colors, head, hasPiece, hasPreview, error, busy, phase, attempt; case revisions = "versions" }
     var hasHistory: Bool { versions.count > 1 }
 }
 struct PieceAttempt: Decodable { let request: String; let status: String; let error: String }
@@ -146,6 +147,7 @@ struct WhistlegraphScreen: View {
                             .accessibilityLabel("Send chalk").accessibilityIdentifier("drawing-send")
                             .disabled(!canTalk || session.capturePhase != .idle)
                     }
+                    BrainButton(session: session) { showComposer = false }
                 }.font(.title3).buttonStyle(.plain).frame(minHeight: 44)
                 if drawing.full { Text("Chalk full · send or undo a stroke").font(.caption) }
                 if session.capturePhase == .recording || session.capturePhase == .opening {

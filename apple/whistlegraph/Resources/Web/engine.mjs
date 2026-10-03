@@ -19,8 +19,8 @@ import {musicalPrompt} from './musical-input.mjs';
 import {PieceVersions} from './piece-versions.mjs';
 // The same inference/tool loop as Aesel, with a piece-first streaming renderer.
 import {AcServer} from '/easel/src/ac-server.mjs';
-import {DEFAULT_MODEL,REPAIR_MODEL,GENERATION_INSTRUCTIONS} from './generation-policy.mjs';
-import {runnablePrefix} from './stream-preview.mjs';
+import {DEFAULT_MODEL,generationProfile,modelChoices,MODEL_LABELS,GENERATION_INSTRUCTIONS} from './generation-policy.mjs';
+import {runnablePrefix,partialString,streamedEdits,streamedCode} from './stream-preview.mjs';
 import * as vfs from '/easel/phone/shim/fs.mjs';
 
 const post = body => window.webkit.messageHandlers.walkie.postMessage({id:'engine',...body});
@@ -38,17 +38,40 @@ try{lastAttempt=JSON.parse(localStorage.getItem(storageKey+'-attempt')||'null');
 let versions=null,turnSucceeded=false,turnRequest='',turnParent=null,turnRuntimeFailed=false,turnError='';
 let token = '', busy = false, server, source = '', previous = '', pending = '', checkpoints = 0;
 let feedback = null, lastPaintedSource = '', previewSource = '', provisional = '', compileTimer = null;
+let streamTool='',streamBase='',streamRevision='',rejectedPreview='';
 let outputStream='',reasoningStream='',code = '', codeItem = '', firstDelta = false, started = 0, timer, ready = false, painted = false;
 const events = [];
 const signIn=document.createElement('button');signIn.id='connect-ac';signIn.textContent='Account';signIn.onclick=()=>post({action:'signIn'});const identity=document.createElement('div');identity.id='walkieware-identity';const codeLabel=document.createElement('span');codeLabel.id='walkieware-thread';identity.append(signIn,codeLabel);document.body.append(identity);
-let accountToken='',accountHandle='',accountPalette=[];
+let accountToken='',accountHandle='',accountPalette=[],accountVerification=Promise.resolve();
+let turnHandle='',turnModel='',activeModel='',braincells=null,braincellsError='',creditsRequest=0;
+function selectedModel(handle=accountHandle){try{return localStorage.getItem('whistlegraph-model-'+handle)||'';}catch{return '';}}
+function profile(repair=false){return generationProfile(busy?turnHandle:accountHandle,{repair,model:busy?turnModel:selectedModel()});}
+async function refreshBraincells(){
+  const currentToken=token,request=++creditsRequest;
+  if(!currentToken){braincells=null;braincellsError='Sign in to view braincells';nativeSnapshot();return;}
+  braincellsError='';nativeSnapshot();
+  try{
+    const response=await fetch('https://aesthetic.computer/api/easel-credits',{headers:{Authorization:'Bearer '+currentToken},signal:AbortSignal.timeout(8000)});
+    if(!response.ok)throw Error('Braincells unavailable');
+    const value=await response.json();
+    if(![value.remaining,value.used,value.limit,value.purchased].every(v=>Number.isFinite(v)&&v>=0))throw Error('Braincells unavailable');
+    if(token!==currentToken||request!==creditsRequest)return;
+    braincells=value;braincellsError='';
+  }catch{if(token!==currentToken||request!==creditsRequest)return;braincells=null;braincellsError='Braincells unavailable';}
+  nativeSnapshot();
+}
+function inferenceSnapshot(){
+  const model=activeModel||profile().model,receipt=activeReceipt?.value||receipts.rows.at(-1)?.receipt;
+  return {model,label:MODEL_LABELS[model]||model,provider:'OpenRouter',selection:profile().model,models:modelChoices(accountHandle),braincells,braincellsError,
+    usage:receipt?{inputTokens:receipt.rounds.reduce((n,r)=>n+(r.usage?.inputTokens||0),0),outputTokens:receipt.rounds.reduce((n,r)=>n+(r.usage?.outputTokens||0),0),rounds:receipt.rounds.length,repairs:receipt.repairs,status:receipt.status}:null};
+}
 function paintHandle(handle,colors=handleCharacterColors('@'+handle)){
   accountPalette=colors;
   signIn.replaceChildren(...Array.from('@'+handle,(character,index)=>{const span=document.createElement('span');span.textContent=character;span.style.color='rgb('+colors[index].join(',')+')';return span;}));nativeSnapshot();
 }
 function accountIdentity(value){
-  if(value===accountToken)return;accountToken=value;accountHandle='';signIn.textContent=value?'…':'Sign in';
-  if(value)void verifyAccount(value).then(account=>{if(accountToken!==value)return;accountHandle=account.handle;if(!accountHandle){signIn.textContent='Set handle';return;}paintHandle(accountHandle);const handle=accountHandle;void fetchHandleColors('@'+handle).then(colors=>{if(accountToken===value&&accountHandle===handle)paintHandle(handle,colors);}).catch(()=>{});}).catch(()=>{if(accountToken===value)signIn.textContent='Retry sign-in';});
+  if(value===accountToken)return;accountToken=value;accountHandle='';braincells=null;braincellsError='';signIn.textContent=value?'…':'Sign in';
+  accountVerification=value?verifyAccount(value).then(account=>{if(accountToken!==value)return;accountHandle=account.handle;if(!accountHandle){signIn.textContent='Set handle';return;}paintHandle(accountHandle);void refreshBraincells();const handle=accountHandle;void fetchHandleColors('@'+handle).then(colors=>{if(accountToken===value&&accountHandle===handle)paintHandle(handle,colors);}).catch(()=>{});}).catch(()=>{if(accountToken===value)signIn.textContent='Retry sign-in';}):Promise.resolve();
 }
 const $ = id => document.getElementById(id);
 const ui = document.createElement('section'); ui.id = 'live-work'; ui.hidden = true;
@@ -118,7 +141,7 @@ function nativeSnapshot(){
     const displayVersion=presentedVersion===null?versions?.head:versions?.value.versions.find(v=>v.id===presentedVersion);
     if(captionSource!==displayVersion?.source){captionSource=displayVersion?.source;caption=pieceCaption(captionSource||'');}
     const phaseText=$('live-phase').textContent;
-    const snapshot={output:outputStream,caption,code:thread?.identity.code||'',handle:accountHandle,colors:accountPalette,head:displayVersion?.id||0,hasPiece:!!source.trim(),hasPreview:!!source.trim()||!!provisional.trim(),busy,phase:phaseText,error:!busy&&/error|unavailable|could not|sign.in|loading|no piece/i.test(phaseText)?phaseText:'',attempt:lastAttempt?{request:lastAttempt.request.slice(0,1000),status:lastAttempt.status,error:lastAttempt.error||''}:null};
+    const snapshot={inference:inferenceSnapshot(),output:outputStream,caption,code:thread?.identity.code||'',handle:accountHandle,colors:accountPalette,head:displayVersion?.id||0,hasPiece:!!source.trim(),hasPreview:!!source.trim()||!!provisional.trim(),busy,phase:phaseText,error:!busy&&/error|unavailable|could not|sign.in|loading|no piece/i.test(phaseText)?phaseText:'',attempt:lastAttempt?{request:lastAttempt.request.slice(0,1000),status:lastAttempt.status,error:lastAttempt.error||''}:null};
     const serialized=JSON.stringify(snapshot);if(serialized===nativeLast&&!historyChanged)return;nativeLast=serialized;
     if(historyChanged)snapshot.versions=nativeRevisions;
     post({action:'snapshot',snapshot});
@@ -126,6 +149,11 @@ function nativeSnapshot(){
   },80);
 }
 window.walkiewareNativeCommand=command=>{
+  if(command.action==='refreshBraincells')void refreshBraincells();
+  if(command.action==='setModel'&&!busy&&accountHandle&&modelChoices(accountHandle).some(m=>m.id===command.text)){
+    try{localStorage.setItem('whistlegraph-model-'+accountHandle,command.text);}catch{return;}
+    server?.close();server=null;activeModel='';nativeSnapshot();
+  }
   if(command.action==='ask'&&typeof command.text==='string'&&(command.text.trim()||command.drawing)&&Array.from(new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(command.text)).length<=96&&!busy)void window.walkiewareAskDrawing(command.text.trim(),command.drawing);
   if(command.action==='checkout'&&!busy){presentedVersion=null;narrationPending=command.version;jumpVersion(command.version);}
   if(command.action==='presentVersion'&&!busy){
@@ -218,7 +246,7 @@ async function checkVisualResult() {
         const reviewUsage={};
         const verdict=await reviewVisualResult({evidence,sourceHash:hash,renderID:id,source:target,
           request:inferenceRequest(turnRequest),history:selectedBranch(versions.value),drawing:chalk,
-          model:window.__walkiewareModel||DEFAULT_MODEL,token,signal,
+          model:window.__walkiewareModel||profile().model,token,signal,
           onHeaders:response=>{if(round)activeReceipt?.headers(round,response);},
           onEvent:e=>{
             if(e.message?.model||e.model)activeReceipt?.notify('model/reported',{reported:e.message?.model||e.model});
@@ -245,61 +273,51 @@ function compileStream() {
   compileTimer=setTimeout(()=>{
     compileTimer=null;
     if(!busy)return;
-    const candidate=runnablePrefix(partialSource(code));
-    if(!candidate||candidate===previewSource)return;
+    const candidate=streamTool==='edit_piece'?streamedEdits(code,streamBase,streamRevision):runnablePrefix(partialString(code).value);
+    if(!candidate||candidate===previewSource||candidate===rejectedPreview)return;
     provisional=candidate;
     document.body.classList.add('live-preview');
     benchmark('firstIncrementalCompile');log('Running streamed code');
     render(candidate);
-  },80);
+  },160);
 }
 function saved() { try { localStorage.setItem(storageKey,source); } catch {} updateFeed(); }
 function review(show) { $('speak').disabled=busy; $('speak-label').textContent=busy?'Working…':'Hold to talk'; }
-function end() { clearTimeout(compileTimer);compileTimer=null; if(provisional && previewSource!==source){render(source||'export function paint({wipe}) {wipe("black");}');provisional='';} busy=false; updateFeed(); clearInterval(timer); $('live-stop').hidden=true; review(source!==previous); window.walkiewareWorkFinished?.(); }
+function end() { clearTimeout(compileTimer);compileTimer=null; if(provisional && previewSource!==source){render(source||'export function paint({wipe}) {wipe("black");}');provisional='';} busy=false;activeModel='';void refreshBraincells(); updateFeed(); clearInterval(timer); $('live-stop').hidden=true; review(source!==previous); window.walkiewareWorkFinished?.(); }
 function delta(text) {
   outputStream=(outputStream+text).slice(-6000);
   if (!firstDelta) {firstDelta=true; log('First model output');benchmark('firstModelOutput');}
   phase('Writing…');
 }
-function partialSource(json,field='source') {
-  const start=json.match(field==='replace'?/"replace"\s*:\s*"/:/"source"\s*:\s*"/);if(!start)return '';
-  const raw=json.slice(start.index+start[0].length);
-  let out='';for(let i=0;i<raw.length;i++){
-    const c=raw[i];if(c==='"')break;
-    if(c!=='\\'){out+=c;continue;}
-    const next=raw[++i];if(next===undefined)break;
-    if(next==='u'){const hex=raw.slice(i+1,i+5);if(!/^[0-9a-f]{4}$/i.test(hex))break;out+=String.fromCharCode(parseInt(hex,16));i+=4;}
-    else out+=({n:'\n',r:'\r',t:'\t',b:'\b',f:'\f','"':'"','\\':'\\','/':'/'})[next]??'';
-  }return out;
-}
 vfs.setWriteHandler((path,value)=>{
   if(path!==file)return;
-  clearTimeout(compileTimer);compileTimer=null;provisional='';
+  clearTimeout(compileTimer);compileTimer=null;const wasProvisional=!!provisional;provisional='';rejectedPreview='';
   source=value;checkpoints++;benchmark('firstCheckpoint');
   turnRuntimeFailed=false;
   document.body.classList.add('live-preview'); $('initial').hidden=true;
   $('play-deck').hidden=true;
   $('live-code').textContent=value;
   phase(ready?'Evaluating…':'Loading preview…'); log(`Checkpoint ${checkpoints} · valid JavaScript`);
-  if(value!==previewSource)render(value);
+  if(wasProvisional||value!==previewSource)render(value);
 });
 const guides = vfs.preload(['pieces.md','screen.md','hand.md','kidlisp.md','api.json'].map(name=>'/easel/context/'+name));
 function makeServer({repair=false}={}){
-  const value=new AcServer({cwd:'/piece',piece:{file,checkpoint:async()=>{const target=source;for(let i=0;i<100;i++){if(painted&&lastPaintedSource===target)return;await new Promise(resolve=>setTimeout(resolve,20));}}},frameCapture:false,layeredEdits:true,token:()=>token,model:repair?(window.__walkiewareRepairModel||REPAIR_MODEL):(window.__walkiewareModel||DEFAULT_MODEL),
+  const settings=profile(repair);activeModel=(repair?window.__walkiewareRepairModel:window.__walkiewareModel)||settings.model;nativeSnapshot();
+  const value=new AcServer({cwd:'/piece',piece:{file,checkpoint:async()=>{const target=source;for(let i=0;i<100;i++){if(painted&&lastPaintedSource===target)return;await new Promise(resolve=>setTimeout(resolve,20));}}},frameCapture:false,layeredEdits:true,token:()=>token,model:activeModel,
     fetch:async(url,options)=>{
       benchmark('requestDispatched');const recorder=activeReceipt,round=recorder?.request();
-      const body=JSON.parse(options.body);body.max_tokens=4096;options={...options,body:JSON.stringify(body)};
+      const body=JSON.parse(options.body);body.max_tokens=settings.maxTokens;options={...options,body:JSON.stringify(body)};
       const response=await globalThis.fetch(url,options);if(round)recorder.headers(round,response);
       benchmark('inferenceHeaders',{status:response.status});return response;
-    },preview:true,rounds:repair?2:4,outputContinuations:repair?0:1,reasoning:repair?{max_tokens:1024}:{effort:'none'},thinking:repair?{type:'enabled',budget_tokens:1024}:{type:'disabled'},
+    },preview:true,rounds:settings.rounds,outputContinuations:settings.outputContinuations,reasoning:settings.reasoning,thinking:settings.thinking,
     developerInstructions:GENERATION_INSTRUCTIONS});
   value.runtimeFeedback=()=>feedback;
   value.on('notification',({method,params})=>{
     activeReceipt?.notify(method,params);
     if(method==='turn/progress' && !firstDelta) phase(params.phase==='connecting'?'Connecting…':'Waiting for model…');
     if(method==='item/modelCode/delta'){
-      delta('');if(codeItem!==params.itemId){benchmark('layerStarted',{tool:params.tool||'write_piece'});code='';codeItem=params.itemId;}
-      code+=params.delta;const visibleCode=params.tool==='edit_piece'?partialSource(code,'replace'):partialSource(code);$('live-code').textContent=visibleCode;outputStream=visibleCode.slice(-6000);nativeSnapshot();if(params.tool!=='edit_piece')compileStream();else phase('Editing…');
+      delta('');if(codeItem!==params.itemId){benchmark('layerStarted',{tool:params.tool||'write_piece'});code='';codeItem=params.itemId;streamTool=params.tool||'write_piece';streamBase=source;streamRevision=value.revisionForSource(source);rejectedPreview='';}
+      code+=params.delta;const visibleCode=streamedCode(code,params.tool);$('live-code').textContent=visibleCode;outputStream=visibleCode.slice(-6000);nativeSnapshot();compileStream();if(params.tool==='edit_piece')phase('Editing…');
       $('live-details').open=true;
     }
     if(method==='item/agentMessage/delta'){delta(params.delta);$('live-request').textContent+=params.delta;}
@@ -308,7 +326,7 @@ function makeServer({repair=false}={}){
     if(method==='item/reasoning/delta'){reasoningStream=(reasoningStream+params.delta).slice(-6000);if(!firstDelta){benchmark('firstReasoning');log('Model thinking');}if(!code)outputStream=reasoningStream;phase('Thinking…');nativeSnapshot();}
     if(method==='item/started')benchmark('toolStarted',{tool:params.item?.tool||params.item?.type});
     if(method==='item/completed' && params.item?.status?.startsWith('failed')) {log(params.item.status);benchmark('toolFailed',{message:params.item.status});}
-    if(method==='turn/usage') log('Usage · '+(params.usage.output_tokens??0)+' output tokens');
+    if(method==='turn/usage'){log('Usage · '+(params.usage.output_tokens??0)+' output tokens');nativeSnapshot();}
     if(method==='turn/completed'){turnSucceeded=!params.turn.error&&params.turn.status==='completed';turnError=params.turn.error?.message||(params.turn.status==='interrupted'?'Stopped':'');
       if(params.turn.error){phase('Could not finish');log(params.turn.error.message);}
       else if(params.turn.status==='interrupted'){phase('Stopped');log('Stopped by you');}
@@ -335,7 +353,8 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
   let noChange=false;
   validationChecks=[];runtimeErrors.length=0;
   try{
-    activeReceipt=new AttemptReceipt({requestID:activeAttempt.id,parent:turnParent,parentHash:await hashSource(previous),path:'compiled',model:window.__walkiewareModel||DEFAULT_MODEL,journal:receipts});
+    await accountVerification;if(turnCancelled)throw Error('Stopped');turnHandle=accountToken===token?accountHandle:'';turnModel=selectedModel(turnHandle);
+    activeReceipt=new AttemptReceipt({requestID:activeAttempt.id,parent:turnParent,parentHash:await hashSource(previous),path:'compiled',model:window.__walkiewareModel||profile().model,journal:receipts});
     const drawing=inputData(text)?.drawing;
     const chalkImage=drawing?drawingImage(drawing):null;
     text=inferenceRequest(text);
@@ -377,7 +396,7 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
     benchmark('guidesReady');
     vfs.mount(file,source||'export function paint({wipe}) { wipe("black"); }');
     const prompt=compileEditContract({request:text,...selectedBranch(versions.value),source});
-    const deadline=setTimeout(()=>{turnCancelled=true;turnError='Edit check timed out';server?.interrupt();},75000);
+    const deadline=setTimeout(()=>{turnCancelled=true;turnError='Edit check timed out';server?.interrupt();},turnHandle==='jeffrey'?180000:75000);
     try{
       const result=await runEditExperiment({prompt,cancelled:()=>turnCancelled,
         onRepair:()=>{activeReceipt.value.repairs=1;activeReceipt.save();phase('Repairing…');},
@@ -446,8 +465,15 @@ window.walkiewareEngineEvent=event=>{
   if(event.kind==='previewReady'){ready=true;log('AC runtime ready');}
   if(event.kind==='previewEvent'){
     if(event.event?.sourceHash!==previewHash||event.event?.requestID!==renderID)return;
-    activeReceipt?.observe(event.event);
-    if(event.event.kind==='painted'){if(turnStarter&&previewSource===turnStarter&&!starterPainted){starterPainted=true;benchmark('starterPainted');}if(previewSource.trimEnd()!==previous.trimEnd())window.__walkiewareSequenceEvent?.('painted');painted=true;lastPaintedSource=previewSource;if(busy&&activeAttempt&&source===previewSource&&!turnRuntimeFailed){activeAttempt={...activeAttempt,checkpoint:source};try{saveAttempt(localStorage,storageKey,activeAttempt);}catch(error){log('Could not persist checkpoint: '+error.message);}}feedback={...feedback,rendered:true,updatedAt:new Date().toISOString()};if(activeReceipt&&previewSource.trimEnd()!==previous.trimEnd())activeReceipt.painted();log('Checkpoint painted');phase(busy?'Building…':lastAttempt?.status==='failed'?'Could not finish · previous version restored':'Ready to play');if(narrationPending!==null){post({action:'narrationReady',version:narrationPending});narrationPending=null;}void resumeAttempt();}
+    const streamingPreview=!!provisional&&previewSource===provisional;
+    if(streamingPreview&&(event.event.kind==='invalidated'||event.event.kind==='console'&&(event.event.event?.level==='error'||/\b(?:Paint|Sim|Boot) failure\b/i.test(event.event.event?.message||'')))){
+      rejectedPreview=provisional;log('Waiting for more source');
+      const fallback=lastPaintedSource!==previewSource?lastPaintedSource:source;
+      if(fallback&&fallback!==previewSource)render(fallback);
+      return;
+    }
+    if(!streamingPreview)activeReceipt?.observe(event.event);
+    if(event.event.kind==='painted'){if(turnStarter&&previewSource===turnStarter&&!starterPainted){starterPainted=true;benchmark('starterPainted');}if(previewSource.trimEnd()!==previous.trimEnd())window.__walkiewareSequenceEvent?.('painted');painted=true;lastPaintedSource=previewSource;if(busy&&activeAttempt&&source===previewSource&&!turnRuntimeFailed){activeAttempt={...activeAttempt,checkpoint:source};try{saveAttempt(localStorage,storageKey,activeAttempt);}catch(error){log('Could not persist checkpoint: '+error.message);}}feedback={...feedback,rendered:true,updatedAt:new Date().toISOString()};if(!streamingPreview&&activeReceipt&&previewSource.trimEnd()!==previous.trimEnd())activeReceipt.painted();log('Checkpoint painted');phase(busy?'Building…':lastAttempt?.status==='failed'?'Could not finish · previous version restored':'Ready to play');if(narrationPending!==null){post({action:'narrationReady',version:narrationPending});narrationPending=null;}void resumeAttempt();}
     if(event.event.kind==='invalidated'){turnRuntimeFailed=true;window.__walkiewareSequenceEvent?.('runtimeError',{message:'Preview invalidated'});painted=false;feedback={...feedback,rendered:false,logs:[...(feedback?.logs||[]),{level:'error',text:'Preview invalidated'}],updatedAt:new Date().toISOString()};log('Preview failed; inspect activity');phase('Preview error');if(lastPaintedSource && lastPaintedSource!==previewSource){render(lastPaintedSource);log('Restored last painted checkpoint');}}
     if(event.event.kind==='console'&&['error','warn'].includes(event.event.event?.level)){
       const entry={level:event.event.event.level,text:event.event.event.message||'Runtime error'};

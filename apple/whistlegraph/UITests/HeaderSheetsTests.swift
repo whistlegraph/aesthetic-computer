@@ -24,6 +24,7 @@ final class HeaderSheetsTests: XCTestCase {
         code.tap()
         XCTAssertTrue(app.buttons["pieces-new"].waitForExistence(timeout: 10), "the pieces sheet offers New piece")
         XCTAssertTrue(app.buttons["piece-wwDemo"].exists, "the open piece is listed by its code")
+        XCTAssertFalse(app.segmentedControls["brain-pixel-size"].exists, "pixel size belongs to Brain settings")
         app.buttons["Done"].tap()
         XCTAssertTrue(waitForDisappearance(of: app.buttons["pieces-new"]), "Done closes the pieces sheet")
     }
@@ -41,17 +42,17 @@ final class HeaderSheetsTests: XCTestCase {
 
     func testPixelSizePersistsAcrossLaunches() {
         let app = launch()
-        let code = app.buttons["workspace-settings"]
+        let code = app.buttons["brain-settings"]
         XCTAssertTrue(code.waitForExistence(timeout: 20))
         code.tap()
-        let picker = app.segmentedControls["pieces-pixel-size"]
+        let picker = app.segmentedControls["brain-pixel-size"]
         XCTAssertTrue(picker.waitForExistence(timeout: 10))
         for size in [1, 2, 3, 4] {
             picker.buttons["\(size)×"].tap()
             XCTAssertTrue(picker.buttons["\(size)×"].isSelected)
         }
         let image = XCTAttachment(screenshot: app.screenshot())
-        image.name = "Pixel size in the piece menu"; image.lifetime = .keepAlways; add(image)
+        image.name = "Pixel size in Brain settings"; image.lifetime = .keepAlways; add(image)
         app.terminate()
         app.launch()
         XCTAssertTrue(code.waitForExistence(timeout: 20))

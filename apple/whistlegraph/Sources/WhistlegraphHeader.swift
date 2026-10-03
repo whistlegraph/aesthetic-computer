@@ -22,7 +22,7 @@ struct PieceSummary: Decodable, Identifiable {
 struct PiecesSheet: View {
     let pieces: [PieceSummary]
     let colors: [[Double]]
-    @Binding var pixelSize: Int
+    let inference: InferenceSnapshot?
     let disabled: Bool
     let open: (String) -> Void
     let newPiece: () -> Void
@@ -36,15 +36,8 @@ struct PiecesSheet: View {
                             .font(.custom("ComicRelief-Bold", size: 20, relativeTo: .title3))
                     }.disabled(disabled).accessibilityIdentifier("pieces-new")
                 }
-                Section("Pixel size") {
-                    Picker("Pixel size", selection: $pixelSize) {
-                        ForEach(1...4, id: \.self) { size in
-                            Text("\(size)×").tag(size)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .disabled(disabled)
-                    .accessibilityIdentifier("pieces-pixel-size")
+                if let inference {
+                    Section { LabeledContent(inference.label, value: inference.provider) }
                 }
                 Section(pieces.count == 1 ? "Your piece" : "Your pieces") {
                     ForEach(pieces) { piece in
@@ -164,7 +157,7 @@ struct IdentityHeader: View {
         }
         .sheet(isPresented: $showingPieces) {
             PiecesSheet(pieces: session.pieces, colors: session.snapshot.colors,
-                        pixelSize: Binding(get: { session.pixelSize }, set: { session.setPixelSize($0) }),
+                        inference: session.snapshot.inference,
                         disabled: session.snapshot.busy || session.capturePhase != .idle,
                         open: { session.command("openPiece", piece: $0) },
                         newPiece: { session.command("newPiece") })

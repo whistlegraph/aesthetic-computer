@@ -1,0 +1,14 @@
+{
+  "build": 98,
+  "date": "2026-10-03",
+  "deviceBuild": "Signed iOS build passed and installed on the paired iPhone.",
+  "javascriptTests": {"passed": 50, "command": "node --test apple/whistlegraph/Tests/*.test.mjs"},
+  "browserTests": ["--native-shell --streaming", "--native-shell --streaming --jeffrey", "--native-shell --checked-edits", "--native-shell --checked-edits --repair-fails"],
+  "browserScope": "Mock inference and paint events verified streamed paint statements, incomplete-helper recovery, exact replacement previews, final review, verified-account model selection, persisted model settings, allowance display, single repair and rollback. No browser client errors in streaming checks.",
+  "nativeLexer": "CodeSyntax.swift and CodeSyntaxCheck.swift compiled with swiftc; Unicode, comments, calls, numbers and unfinished strings passed.",
+  "liveInference": "Authenticated OpenRouter-backed Opus 5 request returned HTTP 200, the requested model, OK, and end_turn with the demo token/thinking configuration. This small probe does not establish generated-art quality or latency.",
+  "allowance": "Authenticated easel-credits endpoint returned valid daily and purchased balances. Daily billing limits were not changed.",
+  "wwTenef": "The failed attempt stopped after four tool rounds and restored v0; reported glyph-cache messages were warnings. Later cloud state showed saved v1 before installation.",
+  "nativeUI": "Brain sheet and syntax colors compiled but were not visually exercised on the locked physical phone. Header XCTest navigation was updated but not run.",
+  "remoteAgents": "No remote Claude/Codex subscription bridge was connected. This build uses hosted inference."
+}

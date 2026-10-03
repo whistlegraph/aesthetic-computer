@@ -192,7 +192,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     }
 
     func command(_ action: String, version: Int? = nil, text: String? = nil, piece: String? = nil) {
-        guard ["checkout", "newPiece", "openPiece", "stop", "signIn", "ask", "retry", "presentVersion", "endPresentation"].contains(action) else { return }
+        guard ["checkout", "newPiece", "openPiece", "stop", "signIn", "ask", "retry", "presentVersion", "endPresentation", "setModel", "refreshBraincells"].contains(action) else { return }
         if action == "newPiece" || action == "openPiece" {
             guard engineReady, !snapshot.busy, capturePhase == .idle else { return }
             if action == "openPiece" { guard let piece, pieces.contains(where: { $0.id == piece && !$0.current }) else { return } }
@@ -200,6 +200,10 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             previewSource = ""; engineReady = false
         }
         var value: [String: Any] = ["action": action]
+        if action == "setModel" {
+            guard !snapshot.busy, capturePhase == .idle, let text else { return }
+            value["text"] = text
+        }
         if let version { value["version"] = version }
         if action == "openPiece", let piece { value["piece"] = piece }
         if action == "ask" {

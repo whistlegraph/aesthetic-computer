@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		0300D7A47360F4B79AB5B31F /* SwipeToTypeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 212791F2E33DED2E1C368651 /* SwipeToTypeTests.swift */; };
 		03C5B25FC742430AFD02AD1E /* StoryMovieSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 250E0B1999C7810299ACB7A9 /* StoryMovieSheet.swift */; };
+		0438F503606B4A37262B7CCC /* BrainSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E61EF96840670F2F894F970 /* BrainSettings.swift */; };
 		10C0A16D4803EC60EAC29531 /* RecordingTrim.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1EFF8BAE7678E320E3DCA0 /* RecordingTrim.swift */; };
 		123228FADA6696AB354306C7 /* InputButtonLabels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35643029A3E82EEDEAC8DED6 /* InputButtonLabels.swift */; };
 		13604BE92157CDBFDD32AA19 /* WorkspaceCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147EAC245AD250B9B652F903 /* WorkspaceCoordinator.swift */; };
@@ -26,6 +27,7 @@
 		4B35B066F49BDD9BD8B90B5A /* WhistlegraphScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E66B3ADC4D6D837FABC53B8F /* WhistlegraphScreen.swift */; };
 		5646BD41AA620CC47BF89361 /* Web in Resources */ = {isa = PBXBuildFile; fileRef = 4BA75145769FC4401A11BBE8 /* Web */; };
 		603B85FC4E28D17FF1E5F457 /* StoryCardStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 477B640525BC627AFB40D7A7 /* StoryCardStyle.swift */; };
+		620B74996F82DC86FA07B6DB /* CodeSyntax.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C2AB1140648295BB7905317 /* CodeSyntax.swift */; };
 		73873BDDC483417E2F6E1143 /* WhistlegraphHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BC2C1DC5E036F689EA59561 /* WhistlegraphHeader.swift */; };
 		749AC25AE02AAE4BCDA5683A /* VisualCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DF0A171A5771A7A1FD56852 /* VisualCapture.swift */; };
 		77291EEE768914D5F5EDB84B /* PlaybackWord.swift in Sources */ = {isa = PBXBuildFile; fileRef = E97104E13862EE30444D07C9 /* PlaybackWord.swift */; };
@@ -75,12 +77,14 @@
 		4BA75145769FC4401A11BBE8 /* Web */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Web; path = Resources/Web; sourceTree = SOURCE_ROOT; };
 		4BBA0E45689010CB41A6A8FF /* NetworkBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkBenchmark.swift; sourceTree = "<group>"; };
 		4D3B156A3435E646EE0E6EEA /* PlaybackCaption.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackCaption.swift; sourceTree = "<group>"; };
+		4E61EF96840670F2F894F970 /* BrainSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrainSettings.swift; sourceTree = "<group>"; };
 		5ABFC6C11146A1540B635EE6 /* ButtonSounds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ButtonSounds.swift; sourceTree = "<group>"; };
 		5B20A9A8612C57068C67239A /* NativeScreenFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeScreenFixture.swift; sourceTree = "<group>"; };
 		5D233DBB6F87184A91C13D41 /* MusicalInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicalInput.swift; sourceTree = "<group>"; };
 		5DF0A171A5771A7A1FD56852 /* VisualCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualCapture.swift; sourceTree = "<group>"; };
 		6D137824491A01D4C19417B8 /* VersionNarrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionNarrator.swift; sourceTree = "<group>"; };
 		88B494AD8CD86FCC5DE0E4CC /* StoryExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryExport.swift; sourceTree = "<group>"; };
+		8C2AB1140648295BB7905317 /* CodeSyntax.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeSyntax.swift; sourceTree = "<group>"; };
 		8C42750EF4F7E96146B03585 /* StoryControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryControls.swift; sourceTree = "<group>"; };
 		8F9B92C3457F07429C8C2600 /* UtteranceRecording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtteranceRecording.swift; sourceTree = "<group>"; };
 		99D9A8C801D3B9D1192D1143 /* WhistlegraphDrawing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphDrawing.swift; sourceTree = "<group>"; };
@@ -126,7 +130,9 @@
 			isa = PBXGroup;
 			children = (
 				1CC14C186FE1CB5B19AD1D72 /* AudioBenchmark.swift */,
+				4E61EF96840670F2F894F970 /* BrainSettings.swift */,
 				5ABFC6C11146A1540B635EE6 /* ButtonSounds.swift */,
+				8C2AB1140648295BB7905317 /* CodeSyntax.swift */,
 				10E2AAA0A3F2BA1A5AEBED58 /* CodeTicker.swift */,
 				35643029A3E82EEDEAC8DED6 /* InputButtonLabels.swift */,
 				5D233DBB6F87184A91C13D41 /* MusicalInput.swift */,
@@ -286,7 +292,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				2F15D5A580A90A18E92D90F1 /* AudioBenchmark.swift in Sources */,
+				0438F503606B4A37262B7CCC /* BrainSettings.swift in Sources */,
 				2F01E350A7FF55359B002344 /* ButtonSounds.swift in Sources */,
+				620B74996F82DC86FA07B6DB /* CodeSyntax.swift in Sources */,
 				9DBA1AF2AD7E3EDF69C8132A /* CodeTicker.swift in Sources */,
 				123228FADA6696AB354306C7 /* InputButtonLabels.swift in Sources */,
 				14FFBE48767E2576693FB7B3 /* MusicalInput.swift in Sources */,
@@ -428,7 +436,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 97;
+				CURRENT_PROJECT_VERSION = 98;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -513,7 +521,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 97;
+				CURRENT_PROJECT_VERSION = 98;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_NS_ASSERTIONS = NO;

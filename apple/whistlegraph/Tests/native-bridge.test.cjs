@@ -21,7 +21,23 @@ const server = http.createServer(async (req, res) => {
       send({type:'content_block_delta',delta:{type:'text_delta',text:JSON.stringify({passed:!failed,observations:'Fixture-only visual evidence; not a physical capture.',findings:failed?['Requested subject is missing.']:[]})}});
       send({type:'message_delta',delta:{stop_reason:'end_turn'}});res.end();return;
     }
-    if(process.argv.includes('--visual-fails')) {
+    if(process.argv.includes('--streaming')) {
+      const tool=requests===1?'write_piece':'edit_piece';
+      const source='export function paint({wipe}) {wipe("pink"); helper();}\nfunction helper(){return 1;}';
+      const revision=JSON.stringify(parsed.messages).match(/Current revision: ([^.]+)\./)?.[1];
+      const body=JSON.stringify(requests===1?{source}:{revision,edits:[{search:'"pink"',replace:'"navy"'},{search:'return 1;',replace:'return 2;'}]});
+      send({type:'content_block_start',index:0,content_block:{type:'tool_use',id:'stream-'+requests,name:tool}});
+      const cut=requests===1?body.indexOf(' helper();'):body.indexOf('},{')+1;
+      send({type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:body.slice(0,cut)}});
+      await pause(400);
+      if(requests===1){
+        const more=body.indexOf('return 1;');
+        send({type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:body.slice(cut,more)}});
+        await pause(400);
+        send({type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:body.slice(more)}});
+      }else send({type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:body.slice(cut)}});
+      send({type:'content_block_stop',index:0});send({type:'message_delta',delta:{stop_reason:requests===1?'tool_use':'end_turn'}});
+    } else if(process.argv.includes('--visual-fails')) {
       send({type:'content_block_start',index:0,content_block:{type:'tool_use',id:'visual-candidate-'+requests,name:'write_piece'}});
       send({type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:JSON.stringify({source:'export function paint({wipe}) {wipe('+requests+');}'})}});
       send({type:'content_block_stop',index:0});send({type:'message_delta',delta:{stop_reason:'end_turn'}});
@@ -74,19 +90,55 @@ const server = http.createServer(async (req, res) => {
     await page.setViewport({width:430,height:850});
     await page.setRequestInterception(true);page.on('request',r=>r.isNavigationRequest()&&r.url().startsWith('https://aesthetic.computer/')?r.respond({status:200,contentType:'text/html',body:'<body style="background:#19172e;color:#f4efdd">Preview fixture</body>'}):r.continue());
     const guideSeed=Object.fromEntries(await Promise.all(['pieces.md','screen.md','hand.md','kidlisp.md','api.json'].map(async name=>['/easel/context/'+name,await readFile(resolve(root,'easel/context',name),'utf8')])));
-    await page.evaluateOnNewDocument((seed,nativeShell)=>{
+    await page.evaluateOnNewDocument((seed,nativeShell,personal)=>{
       window.__walkiewareNativeShell=nativeShell;
       window.__aeselGuides=seed;
       window.__walkiewareDisableThread=true;
       window.__guideFetches=0;
       const fetchOriginal=window.fetch.bind(window);
-      window.fetch=(url,init)=>{if(String(url).includes('/api/handle-colors'))return Promise.resolve(Response.json({colors:[{r:200,g:100,b:255}]}));if(String(url).includes('/userinfo'))return Promise.resolve(Response.json({sub:'fixture-user'}));if(String(url).includes('/handle?for='))return Promise.resolve(Response.json({handle:'fixture'}));if(String(url).includes('/api/easel-musical-jev')){const b=JSON.parse(init.body);return Promise.resolve(Response.json({schema:'walkieware-decision/v1',sessionId:b.sessionId,sequence:b.sequence,choice:'follow_speech',confidence:.95}));}if(String(url).startsWith('/easel/context/')){window.__guideFetches++;return Promise.resolve({ok:false,status:0});}return fetchOriginal(String(url).includes('/api/easel-inference')?'/mock-inference':url,init);};
+      window.fetch=(url,init)=>{if(String(url).includes('/api/easel-credits'))return Promise.resolve(Response.json({remaining:180000,used:20000,limit:200000,purchased:50000}));if(String(url).includes('/api/handle-colors'))return Promise.resolve(Response.json({colors:[{r:200,g:100,b:255}]}));if(String(url).includes('/userinfo'))return Promise.resolve(Response.json({sub:'fixture-user'}));if(String(url).includes('/handle?for='))return Promise.resolve(Response.json({handle:personal?'jeffrey':'fixture'}));if(String(url).includes('/api/easel-musical-jev')){const b=JSON.parse(init.body);return Promise.resolve(Response.json({schema:'walkieware-decision/v1',sessionId:b.sessionId,sequence:b.sequence,choice:'follow_speech',confidence:.95}));}if(String(url).startsWith('/easel/context/')){window.__guideFetches++;return Promise.resolve({ok:false,status:0});}return fetchOriginal(String(url).includes('/api/easel-inference')?'/mock-inference':url,init);};
       window.__nativeMessages=[];
       window.webkit={messageHandlers:{walkie:{postMessage:m=>{window.__nativeMessages.push(m);if(m.action==='visualCapture'){const canvas=document.createElement('canvas');canvas.width=32;canvas.height=24;canvas.getContext('2d').fillRect(0,0,32,24);setTimeout(()=>window.walkiewareEngineEvent({kind:'visualCapture',captureID:m.captureID,sourceHash:window.__staleVisual?'old':m.sourceHash,renderID:m.renderID,frames:[0,800,1600,2400].map(atMs=>({atMs,width:32,height:24,png:canvas.toDataURL('image/png').split(',')[1]}))}),10);}if(m.action==='render')setTimeout(async()=>{const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(m.source));const sourceHash=[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');window.walkiewareEngineEvent({kind:'previewEvent',event:{kind:'painted',sourceHash,requestID:m.renderID}});},20);}}}};
-    },guideSeed,process.argv.includes('--native-shell'));
+    },guideSeed,process.argv.includes('--native-shell'),process.argv.includes('--jeffrey'));
     await page.goto('http://127.0.0.1:'+server.address().port+'/index.html?walkie=1');
     await page.waitForFunction(()=>typeof window.walkiewareAsk==='function');
     assert.deepEqual(errors,[]);
+    if(process.argv.includes('--streaming')) {
+      await page.evaluate(()=>{
+        const post=window.webkit.messageHandlers.walkie.postMessage;
+        window.webkit.messageHandlers.walkie.postMessage=m=>{
+          // A later helper has not arrived: simulate a real provisional runtime
+          // failure. It must not consume the one repair or poison the final code.
+          if(m.action==='render'&&m.source.includes('helper();')&&!m.source.includes('function helper')){
+            window.__nativeMessages.push(m);
+            setTimeout(async()=>{const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(m.source));const sourceHash=[...new Uint8Array(d)].map(v=>v.toString(16).padStart(2,'0')).join('');walkiewareEngineEvent({kind:'previewEvent',event:{kind:'console',sourceHash,requestID:m.renderID,event:{level:'error',message:'Paint failure: helper is not defined'}}});},20);
+          }else post(m);
+        };
+        walkiewareEngineEvent({kind:'account',token:'fixture-only'});walkiewareEngineEvent({kind:'previewReady'});
+      });
+      await page.evaluate(()=>walkiewareAsk('Draw a clover with a bee'));
+      const state=await page.evaluate(()=>({ledger:JSON.parse(localStorage.getItem('walkieware-source-versions')),messages:__nativeMessages,phase:document.getElementById('live-phase').textContent}));
+      assert.equal(state.ledger.head,1,JSON.stringify(state));
+      assert.equal(inferenceBodies[0].model,process.argv.includes('--jeffrey')?'anthropic/claude-opus-5':'deepseek/deepseek-v4.1-flash');
+      assert.equal(inferenceBodies[0].max_tokens,process.argv.includes('--jeffrey')?16384:4096);
+      assert.equal(requests,2,'provisional failures do not buy repair inference');
+      assert.equal(visualRequests,1,'final candidate is still visually checked');
+      const renders=state.messages.filter(m=>m.action==='render').map(m=>m.source);
+      assert.ok(renders.includes('export function paint({wipe}) {wipe("pink");\n}'),'first statement runs before paint finishes streaming');
+      assert.ok(renders.some(s=>s.includes('"navy"')&&s.includes('return 1;')),'first exact edit runs before the second edit arrives');
+      assert.match(state.ledger.versions.at(-1).source,/return 2/);
+      assert.ok(!state.ledger.versions.at(-1).source.includes('\n}'),'provisional closing brace is never committed');
+      await page.waitForFunction(()=>__nativeMessages.some(m=>m.action==='snapshot'&&m.snapshot.inference?.braincells));
+      const settings=await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1).snapshot.inference);
+      assert.equal(settings.provider,'OpenRouter');assert.equal(settings.braincells.remaining,180000);
+      await page.evaluate(()=>walkiewareNativeCommand({action:'setModel',text:'deepseek/deepseek-v4-pro'}));
+      await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1).snapshot.inference.selection==='deepseek/deepseek-v4-pro');
+      await page.reload();await page.waitForFunction(()=>typeof walkiewareAsk==='function');
+      await page.evaluate(()=>walkiewareEngineEvent({kind:'account',token:'fixture-only'}));
+      await page.waitForFunction(()=>__nativeMessages.some(m=>m.action==='snapshot'&&m.snapshot.inference?.selection==='deepseek/deepseek-v4-pro'));
+      assert.deepEqual(errors,[]);
+      console.log('PASS streaming: early paint statements, missing-helper recovery, exact edits before tool completion, and mandatory final review. Mock provider and paint events.');return;
+    }
     if(process.argv.includes('--visual-fails')||process.argv.includes('--visual-stale')) {
       await page.evaluate(stale=>{window.__staleVisual=stale;walkiewareEngineEvent({kind:'account',token:'fixture-only'});walkiewareEngineEvent({kind:'previewReady'});},process.argv.includes('--visual-stale'));
       const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('walkieware-source-versions')));
