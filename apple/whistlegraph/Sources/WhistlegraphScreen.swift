@@ -80,6 +80,10 @@ struct WhistlegraphScreen: View {
     private var theme: WhistlegraphTheme { WhistlegraphTheme(phase: themePhase, dark: colorScheme == .dark) }
     private var paper: Color { theme.foreground }
     private var accent: Color { theme.accent }
+    private var storyBackground: Color {
+        let rgb = StoryCardStyle.background(code: session.snapshot.code, version: session.snapshot.head)
+        return Color(red: Double(rgb[0]) / 255, green: Double(rgb[1]) / 255, blue: Double(rgb[2]) / 255)
+    }
     private var chalkActive: Bool { drawing.enabled || held || session.capturePhase == .opening || session.capturePhase == .recording }
     var body: some View {
         VStack(spacing: narrator.isPlaying ? 0 : session.layout.spacing) {
@@ -152,8 +156,7 @@ struct WhistlegraphScreen: View {
             }
             if narrator.isPlaying {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("v\(session.snapshot.head)")
-                        .font(.system(size: 15, weight: .semibold, design: .monospaced)).foregroundStyle(.white.opacity(0.65))
+                    ComicTitle(text: "v\(session.snapshot.head)", size: 22)
                         .accessibilityLabel("Running version \(session.snapshot.head)")
                         .accessibilityIdentifier("story-version")
                     PlaybackCaption(text: narrator.utterance, spokenRange: narrator.spokenRange, accent: .yellow)
@@ -169,7 +172,7 @@ struct WhistlegraphScreen: View {
             .padding(.bottom, narrator.isPlaying ? 150 : 0)
             .frame(maxWidth: .infinity)
             .frame(height: narrator.isPlaying ? UIScreen.main.bounds.width * 16 / 9 : nil)
-            .background(narrator.isPlaying ? Color.black : Color.clear)
+            .background(narrator.isPlaying ? storyBackground : Color.clear)
             if !narrator.error.isEmpty && !narrator.isPlaying { Text(narrator.error).foregroundStyle(.orange) }
             if let failure = session.captureError, !narrator.isPlaying { Text(failure).font(.body).foregroundStyle(.orange).frame(maxWidth: .infinity, alignment: .leading) }
             if !narrator.isPlaying && (session.snapshot.hasPiece || session.snapshot.hasHistory || session.snapshot.busy || session.snapshot.attempt?.status == "failed") {
@@ -197,7 +200,7 @@ struct WhistlegraphScreen: View {
                     }
                 }
             }.padding(.horizontal, session.layout.pageInset).foregroundStyle(paper)
-                .background(narrator.isPlaying ? Color.black : theme.background)
+                .background(narrator.isPlaying ? storyBackground : theme.background)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay {
@@ -219,7 +222,7 @@ struct WhistlegraphScreen: View {
         .onChange(of: scenePhase) { _, value in if value == .background { exporter.cancel(); narrator.stop() } else if value == .inactive { narrator.setPaused(true) } }
         .onChange(of: session.capturePhase) { _, value in if value != .idle { narrator.stop() } }
         .onDisappear { exporter.cancel(); narrator.stop() }
-        .background((narrator.isPlaying ? Color.black : theme.background).ignoresSafeArea())
+        .background((narrator.isPlaying ? storyBackground : theme.background).ignoresSafeArea())
         .tint(paper)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: themePhase)
     }

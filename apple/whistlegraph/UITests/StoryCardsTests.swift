@@ -88,14 +88,14 @@ final class StoryCardsTests: XCTestCase {
         XCTAssertTrue(pause.waitForExistence(timeout: 10)); pause.tap()
         XCTAssertEqual(pause.label, "Resume story")
         XCTAssertTrue(app.buttons["story-export"].exists)
-        XCTAssertTrue(app.staticTexts["story-version"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "story-version").firstMatch.waitForExistence(timeout: 10))
         let caption = app.staticTexts["spoken-word"]
         XCTAssertTrue(caption.exists)
         let picture = app.webViews["story-picture"]
-        if picture.exists { XCTAssertGreaterThanOrEqual(app.staticTexts["story-version"].frame.minY, picture.frame.maxY) }
+        if picture.exists { XCTAssertGreaterThanOrEqual(app.descendants(matching: .any).matching(identifier: "story-version").firstMatch.frame.minY, picture.frame.maxY) }
         XCTAssertLessThan(caption.frame.maxY, app.frame.height * 0.8)
         app.buttons["Next card"].tap()
-        let version = app.staticTexts["story-version"]
+        let version = app.descendants(matching: .any).matching(identifier: "story-version").firstMatch
         expectation(for: NSPredicate(format: "label == %@", "Running version 3"), evaluatedWith: version)
         waitForExpectations(timeout: 10)
         // v2 is a sibling branch and must not appear in this story.

@@ -8,7 +8,7 @@ Typing uses AC's `compkey` sample and QWERTY pitch mapping. Enter sends the prom
 
 ## Story cards
 
-The stacked-cards button opens the selected version's ancestry as a vertical story. Pause, previous, next, and close leave the editing selection intact. The picture keeps its 4:3 aspect; its version and spoken caption sit directly below it with space reserved around them for social-app overlays.
+The stacked-cards button opens the selected version's ancestry as a vertical story. Pause, previous, next, and close leave the editing selection intact. The picture keeps its 4:3 aspect; its version and spoken caption sit directly below it with space reserved around them for social-app overlays. Each version gets a stable colored card background behind both the picture and captions. Version labels use the same bold Comic lettering, dark outline, and cyan/pink shadows as the editing interface; MP4s retain that styling.
 
 Export uses the shared AC `canvas-tape.mjs` hardware encoder, also used by BIOS HD tapes. An internal 1080×1920 canvas composes only program pixels and captions; native AVFoundation adds the original local utterances or file-rendered speech. No screen or microphone recording is used. Export runs through the story in the foreground, with a ten-minute/256 MB limit, cancellation, and a local MP4 preview offering Save video (Photos add-only permission) and Share. Program-generated synth audio is not yet mixed into this story export.
 

@@ -53,7 +53,7 @@ struct StoryMovie: Identifiable { let id = UUID(); let url: URL }
         }
         #endif
         keys = Dictionary(uniqueKeysWithValues: rows.map { row in
-            (row.id, StoryCache.key(["story-card-v2-jeffrey", session.snapshot.code, String(row.id), row.createdAt, row.utterance, row.recordingID ?? "", String(session.pixelSize)]))
+            (row.id, StoryCache.key(["story-card-v3-comic", session.snapshot.code, String(row.id), row.createdAt, row.utterance, row.recordingID ?? "", String(session.pixelSize), StoryCardStyle.cssBackground(code: session.snapshot.code, version: row.id)]))
         })
         storyKey = StoryCache.key(["story-movie-v2"] + rows.compactMap { keys[$0.id] })
         readyURL = cache.find(storyKey); completedCards = rows.filter { cached($0) != nil }.count
@@ -81,7 +81,7 @@ struct StoryMovie: Identifiable { let id = UUID(); let url: URL }
             FileManager.default.createFile(atPath: url.path, contents: nil)
             raw = url; file = try FileHandle(forWritingTo: url)
             session?.storyTapeEvent = { [weak self] event in self?.receive(event) }
-            try await session?.storyTape("update", arguments: ["value": ["version": row.id, "caption": row.utterance]])
+            try await session?.storyTape("update", arguments: ["value": ["version": row.id, "caption": row.utterance, "background": StoryCardStyle.cssBackground(code: session?.snapshot.code ?? "", version: row.id)]])
             guard operation == expected, active else { return }
             try await session?.storyTape("start", arguments: ["id": expected.uuidString])
             guard operation == expected, active else { return }
