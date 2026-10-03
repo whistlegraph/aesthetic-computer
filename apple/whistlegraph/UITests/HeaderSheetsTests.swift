@@ -17,6 +17,36 @@ final class HeaderSheetsTests: XCTestCase {
         return app
     }
 
+    // Read-only inspection of the installed phone account and its current piece.
+    func testPhoneBrainPanelAndPieceMenu() {
+        let app = XCUIApplication()
+        app.launch()
+        let brain = app.buttons["brain-settings"]
+        XCTAssertTrue(brain.waitForExistence(timeout: 30))
+        func capture(_ name: String) {
+            let image = XCTAttachment(screenshot: app.screenshot())
+            image.name = name; image.lifetime = .keepAlways; add(image)
+        }
+        capture("Build 98 phone workspace")
+        brain.tap()
+        XCTAssertTrue(app.segmentedControls["brain-pixel-size"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["OpenRouter"].waitForExistence(timeout: 15))
+        capture("Build 98 phone Brain settings")
+        // Expand the sheet to inspect the allowance and request usage below it.
+        app.swipeUp()
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "brain-balance").firstMatch.waitForExistence(timeout: 15), app.debugDescription)
+        capture("Build 98 phone braincells and usage")
+        app.buttons["Done"].tap()
+        XCTAssertTrue(waitForDisappearance(of: app.segmentedControls["brain-pixel-size"]))
+        app.buttons["workspace-settings"].tap()
+        XCTAssertTrue(app.buttons["pieces-new"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["OpenRouter"].exists)
+        XCTAssertFalse(app.segmentedControls["brain-pixel-size"].exists)
+        capture("Build 98 phone piece menu")
+        app.buttons["Done"].tap()
+        XCTAssertTrue(waitForDisappearance(of: app.buttons["pieces-new"]))
+    }
+
     func testPieceCodeOpensPiecesSheetWithNewPiece() {
         let app = launch()
         let code = app.buttons["workspace-settings"]
