@@ -45,10 +45,10 @@ pop/.venv/bin/python pop/sailor-song/bin/sylla-prep.py
 sylla-wizard/.build/debug/SyllaWizard --spec pop/sailor-song/src/sylla/spec.json   # --lines = one line per page
 pop/.venv/bin/python pop/sailor-song/bin/sylla-collect.py
 pop/.venv/bin/python pop/sailor-song/bin/bounds-study.py [--apply]      # the ear vs the machines, nudges
-pop/.venv/bin/python pop/sailor-song/bin/word-times.py --fa
-node pop/sailor-song/bin/splice.mjs && bash pop/sailor-song/bin/bake.sh
-node pop/sailor-song/bin/score-video.mjs --lyrics --audio pop/sailor-song/out/sailor-song-v19.mp3
-node pop/sailor-song/bin/score-video.mjs --lyrics --click --audio pop/sailor-song/out/sailor-song-v19.mp3   # same lanes, her stem on a click + kick
+node pop/sailor-song/bin/splice.mjs && bash pop/sailor-song/bin/bake.sh   # VERSION is #define'd in c/sailorremix.c
+pop/.venv/bin/python pop/sailor-song/bin/word-times.py --fa    # AFTER the bake: it reads the newest events receipt
+node pop/sailor-song/bin/score-video.mjs --lyrics --audio pop/sailor-song/out/sailor-song-v21.mp3
+node pop/sailor-song/bin/score-video.mjs --lyrics --click --audio pop/sailor-song/out/sailor-song-v21.mp3   # same lanes, her stem on a click + kick
 node pop/bin/lyricline.mjs --vocal pop/sailor-song/src/vox/cut/vocals-natural.wav \
   --words pop/sailor-song/src/words-record.json --bars pop/sailor-song/measures.cut.json \
   --receipt pop/sailor-song/out/sailor-song-v19.events.json --from 28 --to 40 \
@@ -144,6 +144,44 @@ bridge), each step at its own seat; every drop displaces the whole ring and
 springs it back (chamber-04 rule 10). `bin/regularize.mjs` keeps her rubato
 through the bedroom bars and 30% of it after: verse 2 119, choruses 120–121,
 outro 122 instead of 130. Master: −10.9 LUFS, −2.1 dBTP, LRA 6.6.
+
+## v25 (natural layout · orchestral pop · the performance video)
+
+2026-10-03, on neo. The v20 rearrangement (verse 1 → verse 2 → chorus 1 …) and its
+held-vowel seams are gone: `splice.mjs` plays the take in its own order, one segment,
+to the end of the regularized stems (her chord rings down and she reaches for the
+phone — that is the ending). The record opens two bars before her first word under a
+2 s rise. What the engine adds on top of v6:
+
+- **Orchestra** (`bin/orchestra.mjs` → `src/orch/`, FluidSynth + GeneralUser GS, from
+  her chart): strings, cello, pizz on her strum motif, horns, timpani, harp, glock on
+  her melody, choir aahs, a string **quartet** with lines of its own, a **taiko**, and a
+  **button** chord on the last downbeat. Where a part plays is decided there; how loud,
+  in `ORCH[NSEC]`; where it sits, in the `SEAT[]` table (every part on an HRTF path).
+- **The build:** kick on her 1 & 3 from bar 14 at 12 % rising on a square; chorus 1 big
+  but not the floor; verse 2 pulls back; the floor + implosion on chorus 2; the break
+  keeps the beat; bridge → outro is a continuous ramp and the outro is the finale.
+- **Her:** 2.5:1 leveler, half the air, a de-esser, thin doubles, close-miked all the
+  way; the cathedral tail halved. A **scream** double (clipped, growled, wide) from the
+  back half of chorus 1. Her guitar at full from the first sample, the replays under it.
+- **Effects:** the "k-kiss" **stutter** (her own "kiss" onset on 16ths into each chorus
+  and the bridge), dotted-8th **throws** of "sailor?" spinning overhead, two-bar risers
+  and implosions at every lift, whole-ring **turns** across the bar before each lift
+  and a continuous lap through the finale, a **wub** bass (saw + swept SVF) from chorus 2.
+
+```sh
+node pop/sailor-song/bin/orchestra.mjs                       # the parts (re-run after a chart change)
+node pop/sailor-song/bin/splice.mjs && VERSION=v25d bash pop/sailor-song/bin/bake.sh   # VERSION also #define'd in c/sailorremix.c
+pop/.venv/bin/python pop/sailor-song/bin/word-times.py --fa   # after the bake (reads the newest receipt)
+node pop/sailor-song/bin/perf-strip.mjs --audio pop/sailor-song/out/sailor-song-v25d.mp3 --height 130
+node pop/sailor-song/bin/perf-video.mjs --audio pop/sailor-song/out/sailor-song-v25d.mp3 --height 540 \
+  --strip pop/sailor-song/out/sailor-song-v25d-strip.mp4      # her video retimed onto the record, strip + section grade
+```
+
+`perf-video.mjs` retimes `src/take.mov` (the iMessage copy, 960×540, 30 fps) frame by frame
+through `src/vox/reg/timemap.txt` — record clock → her take's clock — and lays the mix under
+it, the way `marketing/talking-head/bin/warp-to-sing.mjs` rode the YC talking head onto a
+sung take. `--no-grade` skips the colour shift; this ffmpeg has no `drawtext`, so no title.
 
 ## Platter reading
 

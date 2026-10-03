@@ -24,6 +24,7 @@
 //
 //   node pop/sailor-song/bin/splice.mjs
 
+import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
@@ -43,7 +44,9 @@ const through = (path) => { const m = readFileSync(path, "utf8").trim().split("\
 const lock = through(resolve(VOX, "locked/timemap.txt")), reg = through(resolve(REG, "timemap.txt"));
 const regOf = (takeSec) => reg(lock(takeSec));
 const norm = (s) => s.toLowerCase().replace(/[^a-z']/g, "");
-const END = M.bars.at(-1).t + M.bars.at(-1).dur + 0.5;
+// v25: "at 2:27 isn't there some kind of ending" — the take runs 10 s past the last charted bar: her chord
+// rings down and she reaches for the phone. The record keeps all of it (END = the regularized stems' length).
+const END = Number(execSync(`ffprobe -v error -show_entries format=duration -of csv=p=0 "${resolve(LANE, "src/vox/reg/vocals-natural.wav")}"`).toString()) - 0.02;
 
 // v17: "me?" runs straight into "Oh" with no breath — the split is the tuned-note onset of
 // "Oh" (her pitch change), found from vox-notes.json in the 0.3 s around the word's start
@@ -82,7 +85,14 @@ const OH1_EAR = { word: "Oh", next: "won't", afterSec: 55, beforeSec: 62 };   //
 // — the aesthetivox way, not grains. The flick and the Oh are not heard.
 const ME_STEADY_END = 59.08;
 const LATELY = { word: "lately", next: "I", afterSec: 90, beforeSec: 100 };
+// v21: "i wanna go back to the original layout of the song — verse 1 then chorus then verse 2 then
+// chorus etc": the take in its own order, one segment, no seams. Her "me?" runs into chorus 1's
+// "Oh" as she sang it. The rearranged layout (verse 1 → verse 2 → chorus 1 → chorus 2..) is kept
+// below as SEGMENTS_V20 for the record.
 const SEGMENTS = [
+  { name: "take", from: 0, to: END },
+];
+const SEGMENTS_V20 = [
   // v20f: the vowel is extended BETWEEN bars 27 and 28 — verse 1 runs to the end of chart bar 27
   // (its guitar plays the bar out), her voice stops at the end of the steady vowel (voiceTo) and
   // the stretched vowel fills the rest of the bar, releasing into the screw
@@ -96,7 +106,10 @@ const SEGMENTS = [
   // toNextVoice sizes it from the next segment's voiceFrom, plus a short release
   // v20k: "lately on 28.2" — bar 27 plays out, one beat of verse 2's pickup guitar, then "lately";
   // the held "me" runs to that edge (toNextVoice)
-  { name: "A intro+verse1", from: 0, to: { bar: 28, beat: 1 }, voiceTo: ME_STEADY_END, tail: { world: true, steady: 0.2, toNextVoice: true, release: 0.12, curve: 1.0 } },
+  // v20m: "lately should start at 27.5" — the midpoint of bar 27 (beat 3), as v20j, with the hold sized to the next voice
+  // v20n: "1 beat beforehand" — 27.2; that is before the steady vowel ends, so "me" was cut at the beat:
+  // "the 'lately' comes too soon now". Back to 27.3 (v20m).
+  { name: "A intro+verse1", from: 0, to: { bar: 27, beat: 3 }, voiceTo: ME_STEADY_END, tail: { world: true, steady: 0.2, toNextVoice: true, release: 0.12, curve: 1.0 } },
   // v19: a breath before verse 2 kicks off — verse 1's last full bar of her guitar,
   // slowed a fifth (screwed, 7 st down — in key; 0.78 sat between keys and read "werd") and stuttered on 8ths and 16ths into the pickup;
   // charted as bar 26 so the beds hold verse 1's state and the kit keeps going
@@ -104,7 +117,10 @@ const SEGMENTS = [
   // the whole transition; verse 2 follows on two beats of its own guitar pickup, "lately" on the 3rd
   // v20: "lately on 28" — the pickup bar is taken whole (her guitar under the held vowel), so
   // verse 2's first sung word lands on the 28th downbeat of the record (source bar 44)
-  { name: "B verse2", from: { bar: 43, beat: 4 }, to: OH2, voiceFrom: LATELY },   // one pickup beat, "lately" on 28.2
+  // v20l: "lately should start on 28" — no pickup beat at all (the one-beat bar was counting as its own
+  // bar on screen, "lately" on 29.1): verse 2 enters on chart bar 44's downbeat
+  // v20m: that downbeat falls on 27.3, so "lately" is on 27.3
+  { name: "B verse2", from: { bar: 44, beat: 1 }, to: OH2, voiceFrom: LATELY },
   { name: "C chorus1", from: { bar: 27, beat: 1 }, to: AND, voiceFrom: OH1_EAR },
   { name: "D chorus2..end", from: OH2, to: END },
 ];
