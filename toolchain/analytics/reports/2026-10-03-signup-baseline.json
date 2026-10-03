@@ -1,0 +1,37 @@
+{
+  "measuredAt": "2026-10-03T18:26:26.724Z",
+  "start": "2026-09-01T07:00:00.000Z",
+  "source": "Auth0 aesthetic tenant account records joined to Mongo @handles; handle:create logs",
+  "cohort": {
+    "accountsCreated": 64,
+    "emailVerifiedNow": 46,
+    "withHandleNow": 27,
+    "accountToHandlePercent": 42.2
+  },
+  "allHandlesCreated": 31,
+  "last24Hours": {
+    "accountsCreated": 0,
+    "handlesCreated": 1
+  },
+  "last7Days": {
+    "accountsCreated": 6,
+    "withHandleNow": 3,
+    "handlesCreated": 5
+  },
+  "previous7Days": {
+    "accountsCreated": 12,
+    "withHandleNow": 6,
+    "handlesCreated": 7
+  },
+  "latestHandle": {
+    "handle": "krikri",
+    "when": "2026-10-02T22:40:41.829Z"
+  },
+  "latestWebhookSignup": "2025-10-19T11:56:01.819Z",
+  "funnelAvailable": false,
+  "limits": [
+    "Existing current accounts only; deletions and linked identities can change historical counts.",
+    "Handle ownership is measured now, not necessarily on the signup date.",
+    "No signup-attempt instrumentation existed at measurement time; visitor-to-signup conversion cannot be reconstructed."
+  ]
+}

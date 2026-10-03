@@ -48,6 +48,8 @@ import { createWebGLBlitter } from "./lib/webgl-blit.mjs";
 import * as CaptureSession from "./lib/capture-session.mjs";
 import * as SoundOnFilm from "./lib/sound-on-film.mjs";
 
+window.addEventListener("ac:handle-created", () => captureProductAction("handle_created"));
+
 // import * as TwoD from "./lib/2d.mjs"; // 🆕 2D GPU Renderer.
 const TwoD = undefined;
 const {
@@ -643,6 +645,7 @@ function preserveViewParams(path) {
 
 function performHistoryRewrite(path, historical) {
   if (checkPackMode()) return;
+  window.acSignup?.remember(window.location.href);
   path = preserveViewParams(path);
   if (historical) {
     console.log("Rewriting to:", path);
@@ -13625,6 +13628,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           "*",
         );
       }
+      return;
+    }
+
+    if (type === "onboarding:open") {
+      if (window.acSignup && window.auth0Client && !window.acTOKEN) {
+        window.acSignup.resume(window.auth0Client, window.acUSER, true);
+      } else {
+        send({ type: "jump", content: { piece: "prompt~handle " } });
+      }
+      return;
+    }
+    if (type === "onboarding:complete") {
+      if (window.acSignup && !window.acTOKEN) window.acSignup.complete();
+      else send({ type: "jump", content: { piece: "chat" } });
       return;
     }
 

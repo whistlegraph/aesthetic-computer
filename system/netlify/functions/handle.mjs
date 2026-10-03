@@ -378,7 +378,7 @@ export async function handler(event, context) {
             return respond(400, { message: "same" });
           }
 
-          await handles.updateOne({ _id: primarySub }, { $set: { handle } });
+          await handles.updateOne({ _id: primarySub }, { $set: { handle, updatedAt: new Date() } });
 
           if (!primarySub.startsWith("sotce-")) {
             await logger.log(`@${existingUser.handle} is now @${handle}`, {
@@ -397,7 +397,7 @@ export async function handler(event, context) {
           if (await handleQuarantined(database.db, handle)) throw new Error("taken");
 
           // Add a new `@handles` document for this user.
-          await handles.insertOne({ _id: primarySub, handle });
+          await handles.insertOne({ _id: primarySub, handle, createdAt: new Date(), updatedAt: new Date() });
 
           if (!primarySub.startsWith("sotce-")) {
             await logger.log(`hi @${handle}`, {

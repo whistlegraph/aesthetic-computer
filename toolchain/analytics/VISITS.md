@@ -359,3 +359,31 @@ make replay and reordering idempotent. Raw `native-app-sessions` expire after
 eight days for delayed delivery. No identifiers enter daily rollups or MCP
 responses. Settings → Apps → aesthetic → Share app usage disables sending
 and discards queued snapshots; Debug builds are silent.
+
+## Signup
+
+On Lith, from `/opt/ac/system`, run:
+
+```sh
+node --env-file=.env ../toolchain/analytics/signup-report.mjs --days 35
+```
+
+The report compares the last seven days with the previous seven: new Auth0
+accounts, current email verification, and those accounts with a handle. Handle
+creation by older accounts is counted separately. Deleted or merged accounts
+are absent from Auth0's current records. The `users` signup webhook is a
+diagnostic, not the account-count source; it was stale at the October 3 baseline.
+
+Web signup attempts record entry source, referrer hostname and cumulative
+milestones through authentication, verification and handle completion in
+`signup-attempts`. Login and handle-only attempts stay separate. Each attempt
+has a random ID, expires after 35 days, and carries no account ID, email, handle,
+prompt, full URL or token. DNT, GPC and marked automation are excluded. The
+existing `ac_handle_created` product event remains in place.
+
+Use weekly account counts and account-to-handle completion to assess signup
+changes; use attempt milestones to locate friction. Attempts are not unique
+people, and page visits are not unique visitors. Do not infer a pre-deployment
+funnel or divide counts from different coverage windows. The October 3 baseline
+is in `reports/2026-10-03-signup-baseline.json`. No scheduled report or growth
+target is configured by this change.

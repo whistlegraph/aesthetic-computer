@@ -71,9 +71,7 @@ function paint({ wipe, ink, write, box, screen, user, handle, help }) {
     ink(0, 255, 120).write("Ready!", { x: marginX, y });
     ink(255).write("Set your handle", { x: marginX + 42, y });
     y += isSmall ? 10 : 14;
-    ink(140).write("Type:", { x: marginX, y });
-    ink(255, 220, 100).write("handle", { x: marginX + 34, y });
-    ink(180).write("yourname", { x: marginX + 76, y });
+    ink(140).write("Press Set handle to choose a name.", { x: marginX, y });
     y += isSmall ? 14 : 20;
   } else {
     ink(0, 255, 120).write("You have:", { x: marginX, y });
@@ -124,7 +122,7 @@ function paint({ wipe, ink, write, box, screen, user, handle, help }) {
     openPromptBtn.paint({ ink, box, write }, [[64, 0, 64], 255, 255, [64, 0, 64]]);
 
     // Subtext under button (small pulse)
-    if (!isSmall) {
+    if (!isSmall && currentHandle) {
       const pulse = 0.65 + Math.sin(help.repeat * 0.07) * 0.2;
       ink(120, Math.floor(255 * pulse)).write(
         "(type: handle yourname)",
@@ -134,7 +132,7 @@ function paint({ wipe, ink, write, box, screen, user, handle, help }) {
   }
 }
 
-function act({ event: e, net, jump, screen, store, user }) {
+function act({ event: e, net, jump, screen, store, user, send, handle }) {
   if (e.is("reframed")) {
     // Reposition in paint on next frame.
   }
@@ -146,16 +144,21 @@ function act({ event: e, net, jump, screen, store, user }) {
 
   openPromptBtn?.btn?.act(e, {
     push: () => {
-      // Use prompt's prefill route used elsewhere (e.g. profile.mjs)
-      store["prompt:splash"] = true;
-      jump("prompt~handle ");
+      if (user && !handle() && !net.iframe) send({ type: "onboarding:open" });
+      else {
+        store["prompt:splash"] = true;
+        jump("prompt~handle ");
+      }
     },
   });
 
   // Keyboard shortcut: enter opens prompt
   if (e.is("keyboard:down:enter")) {
-    store["prompt:splash"] = true;
-    jump("prompt~handle ");
+    if (user && !handle() && !net.iframe) send({ type: "onboarding:open" });
+    else {
+      store["prompt:splash"] = true;
+      jump("prompt~handle ");
+    }
   }
 
   // Escape returns to prompt

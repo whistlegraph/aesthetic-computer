@@ -609,6 +609,16 @@ const tokenCache = {
 const TOKEN_CACHE_MS = 23 * 60 * 60 * 1000; // 23 hours
 
 // 📚 Library (Useful functions used throughout the file.)
+// Resend verification without changing an address or touching a sister tenant.
+export async function resendVerificationEmail(sub) {
+  const { got } = await import("got");
+  const token = await getAccessToken(got, "aesthetic");
+  await got(`${aestheticBaseURI}/api/v2/jobs/verification-email`, {
+    method: "POST", headers: { Authorization: `Bearer ${token}` },
+    json: { user_id: sub }, timeout: { request: 10000 },
+  });
+}
+
 // Obtain an auth0 access token for our M2M API.
 async function getAccessToken(got, tenant = "aesthetic") {
   // 🚀 Check in-memory token cache first

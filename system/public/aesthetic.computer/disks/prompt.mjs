@@ -3991,7 +3991,8 @@ async function halt($, text) {
         store["handle"] = res.handle;
         if (!previousHandle) {
           send({ type: "analytics", content: { action: "handle_created" } });
-          jump("chat");
+          if (net.iframe) jump("chat");
+          else send({ type: "onboarding:complete" });
           beep();
         }
         // store.persist("handle");
@@ -8789,15 +8790,17 @@ function act({
       } else if (profileAction === "profile") {
         jump(handle() || "profile");
       } else if (profileAction === "set-handle") {
-        notice("ENTER HANDLE", ["yellow", "blue"]);
-        const text = "handle ";
-        system.prompt.input.text = text;
-        system.prompt.input.snap();
-        system.prompt.input.runnable = true;
-        firstActivation = false;
-        send({ type: "keyboard:text:replace", content: { text } });
-        // send({ type: "keyboard:unlock" });
-        // send({ type: "keyboard:open" });
+        if (!net.iframe) {
+          send({ type: "onboarding:open" });
+        } else {
+          notice("ENTER HANDLE", ["yellow", "blue"]);
+          const text = "handle ";
+          system.prompt.input.text = text;
+          system.prompt.input.snap();
+          system.prompt.input.runnable = true;
+          firstActivation = false;
+          send({ type: "keyboard:text:replace", content: { text } });
+        }
       }
     },
     cancel: () => {

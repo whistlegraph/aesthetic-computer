@@ -1,4 +1,5 @@
 import { createBootDiagnostics } from "./lib/boot-diagnostics.mjs";
+import { createSignupFlow } from "./lib/signup-flow.mjs";
 import { NOPAINT_SESSION_SEED_KEY, noPaintStartingPiece } from "./lib/nopaint-navigation.mjs";
 
 // `aesthetic.computer` Bootstrap, 23.02.16.19.23
@@ -1520,6 +1521,7 @@ const skipAuth = window.acNOAUTH || (!likelyLoggedIn && !sandboxed && !location.
 // Login must survive a failed or expired saved session, including early returns
 // from the restore flow below. Install it before attempting authentication.
 if (!sandboxed && !window.acNOAUTH) {
+  window.acSignup = createSignupFlow(window, document);
   window.acLOGIN = async (mode) => {
     // 🖥️ The desktop app signs in the way every AC Mac app does — the
     // system browser and the shared ~/.ac-token — and hands the session back
@@ -1528,18 +1530,24 @@ if (!sandboxed && !window.acNOAUTH) {
     if (typeof window.acDESKTOP?.login === "function") {
       return window.acDESKTOP.login(mode);
     }
-    // Lazy-load Auth0 if not already loaded
-    if (!window.auth0Client) {
-      console.log("🔐 Loading Auth0 on-demand for login...");
-      await loadAuth0Script();
-      await setupAuth0Client();
+    window.acSignup.start(mode === "signup" ? "signup" : "login");
+    try {
+      // Lazy-load Auth0 if not already loaded
+      if (!window.auth0Client) {
+        console.log("🔐 Loading Auth0 on-demand for login...");
+        await loadAuth0Script();
+        await setupAuth0Client();
+      }
+      const opts = { prompt: "login" };
+      if (mode === "signup") opts.screen_hint = mode;
+      // An explicit login replaces any session supplied by an embedding host.
+      // Otherwise an expired session-aesthetic masks the fresh Auth0 callback.
+      safeLocalStorageRemove("session-aesthetic");
+      return await window.auth0Client.loginWithRedirect({ authorizationParams: opts });
+    } catch (error) {
+      window.acSignup.failed();
+      throw error;
     }
-    const opts = { prompt: "login" };
-    if (mode === "signup") opts.screen_hint = mode;
-    // An explicit login replaces any session supplied by an embedding host.
-    // Otherwise an expired session-aesthetic masks the fresh Auth0 callback.
-    safeLocalStorageRemove("session-aesthetic");
-    return window.auth0Client.loginWithRedirect({ authorizationParams: opts });
   };
 }
 
@@ -1639,8 +1647,10 @@ if (!sandboxed && !skipAuth) {
         bootLog("auth0 handling redirect callback");
         try {
           await auth0Client.handleRedirectCallback();
+          window.acSignup?.track("auth_returned");
           bootLog(`auth0 redirect callback ok (${Math.round(performance.now() - redirectStart)}ms)`);
         } catch (e) {
+          window.acSignup?.failed();
           console.error("🔐", e);
           bootLog(
             `auth0 redirect callback failed (${Math.round(performance.now() - redirectStart)}ms): ${e?.error || e?.name || "error"}: ${e?.error_description || e?.message || e}`,
@@ -1848,6 +1858,11 @@ if (!sandboxed && !skipAuth) {
 
         // 🔔 If the native iOS app handed us a push token before login, register it now.
         window.iOSTryRegisterPushToken?.();
+
+        // Continue this tab's onboarding only; ordinary restored sessions stay put.
+        if (window.name !== "ac-login-popup") {
+          window.acSignup?.resume(auth0Client, userProfile);
+        }
 
         // Background: fetch handle from /user and refresh token if needed.
         // This runs after the disk already has auth — it just enriches data.
