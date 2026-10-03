@@ -4902,7 +4902,7 @@ function spectatorState(now, nextRoundId = "") {
       ...(workshopMap ? { workshop: workshopMap } : {}) },
     at: run.unixMs || 0, phase,
     aesel: {artifact:aeselArtifactWire},
-    park:poolOnly()?{enabled:true,sentAt:Date.now(),layoutSeed:parkLayoutSeed}:undefined,
+    park:poolOnly()?{enabled:true,sentAt:Date.now(),layoutSeed:parkLayoutSeed,tag:parkClientTag}:undefined,
     course: skateparkMap ? "skatepark" : "station",
     ropes: skateRopes.length ? skateRopes.map((rope) => rope.nodes.map((node) =>
       [node.x, node.y, node.px, node.py].map((value) => Math.round(value * 100) / 100))) : undefined,
@@ -9626,13 +9626,20 @@ function netHostBegin(now) {
 
 const parkPeers=new Map();
 const parkConnection={at:0,ping:null,count:1};
+// This client's mark on its own park frames. The relay hands every peer's
+// back, and a peer wearing ours is us — a second socket of ours the relay
+// still holds (a reconnect's half-open predecessor) — and is never drawn or
+// counted, whatever id the relay gave it.
+const parkClientTag=Math.random().toString(36).slice(2,10);
 function receiveParkPeers(packet){
  if(!poolOnly()||!Array.isArray(packet.peers)||packet.peers.length>16)return;
- const now=Date.now(),keep=new Set();parkConnection.at=now;parkConnection.count=packet.peers.length;
+ const now=Date.now(),keep=new Set();parkConnection.at=now;
+ const others=packet.peers.filter(f=>f.id!==packet.self&&f.tag!==parkClientTag);
+ parkConnection.count=others.length+1;
  if(Number.isInteger(packet.layoutSeed)&&packet.layoutSeed>=0&&packet.layoutSeed<=4294967295)applyParkLayout(packet.layoutSeed);
  if(Number.isFinite(packet.echo))parkConnection.ping=clamp(now-packet.echo,0,9999);
- for(const f of packet.peers){
-  if(f.id===packet.self||![f.x,f.y,f.z,f.yaw].every(Number.isFinite))continue;
+ for(const f of others){
+  if(![f.x,f.y,f.z,f.yaw].every(Number.isFinite))continue;
   keep.add(f.id);let peer=parkPeers.get(f.id);
   if(!peer){peer={...players[0],pad:32+f.id,removedParts:[],partDamage:{},previous:[],spin:null,goKart:null,gunAmmo:0,grenadeAmmo:0,axeHeld:false,chalkColor:null,skateboard:false,dummy:false,npc:true,remote:true,rig:null,hair:null,skirtCloth:null};parkPeers.set(f.id,peer);}
   peer.samples ||= [];

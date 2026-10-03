@@ -288,8 +288,15 @@ export class OskiewarLiveManager {
     room.parkLayoutSeed ??= Number.isInteger(state.park.layoutSeed)&&state.park.layoutSeed>=0&&state.park.layoutSeed<=4294967295?state.park.layoutSeed:(this.now() ^ Math.floor(Math.random()*4294967296))>>>0;
     const now=this.now();
     for(const [socket,peer] of room.parkPeers)if(socket.readyState!==1||now-peer.at>3000)room.parkPeers.delete(socket);
+    // A client marks its frames with a tag. Another socket wearing the same
+    // tag is the same client — its half-open predecessor after a reconnect —
+    // and leaves, or the room would hold the one player twice and hand each
+    // socket the other as a peer: a ghost in their own costume.
+    const tag=typeof state.park.tag==="string"&&/^[a-z0-9]{1,16}$/.test(state.park.tag)?state.park.tag:"";
+    if(tag)for(const [socket,p] of room.parkPeers)if(socket!==ws&&p.tag===tag)room.parkPeers.delete(socket);
     let peer=room.parkPeers.get(ws);
     if(!peer){if(room.parkPeers.size>=16)return;peer={id:++room.parkNextId|| (room.parkNextId=1),at:0};room.parkPeers.set(ws,peer);}
+    peer.tag=tag;
     // Twenty answers a second a peer, matching the park's own publish rate:
     // at the old ten, with the game sending every 250 ms, a peer moved in
     // four steps a second and read as choppy. Velocity rides along so the
@@ -298,7 +305,7 @@ export class OskiewarLiveManager {
     const f=state.fighters[0];peer.at=now;
     const v=(n)=>finite(n,100000)?Math.round(n*10)/10:0;
     peer.fighter={name:f.name,color:f.color,x:f.x,y:f.y,z:f.z,vx:v(f.vx),vy:v(f.vy),vz:v(f.vz),alive:f.alive,grounded:f.grounded,ducking:f.ducking,blocking:f.blocking,
-      yaw:finite(f.poolYaw,100000)?f.poolYaw:0,skateboard:!!f.skateboard};
+      yaw:finite(f.poolYaw,100000)?f.poolYaw:0,skateboard:!!f.skateboard,tag:tag||undefined};
     room.updatedAt=now;
     const echo=finite(state.park.sentAt,1e13)?state.park.sentAt:0;
     const peers=[...room.parkPeers.values()].map(p=>({id:p.id,...p.fighter}));

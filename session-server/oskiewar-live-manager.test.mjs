@@ -689,3 +689,21 @@ test('park publishers coexist anonymously, echo ping timestamps, and expire disc
  assert.equal(host.sent.findLast(m=>m.type==='oskiewar:net').content.peers.length,1);
  manager.close?.();
 });
+
+test('a park frame\'s client tag rides back on the peer, and a second socket wearing the same tag replaces the first',()=>{
+ let now=10000;const manager=new OskiewarLiveManager({now:()=>now}),host=new FakeSocket(),again=new FakeSocket(),other=new FakeSocket();
+ const url='/oskiewar-live?match=kikke752&role=publisher';
+ const publish=(socket,seq,tag)=>socket.emit('message',JSON.stringify({type:'oskiewar:state',content:{...state(seq),park:{enabled:true,sentAt:now,tag}}}));
+ manager.handleConnection(host,{url});publish(host,1,'abc123');
+ manager.handleConnection(other,{url});now+=110;publish(other,1,'zzz999');now+=110;publish(host,2,'abc123');
+ let packet=host.sent.findLast(m=>m.type==='oskiewar:net').content;
+ assert.equal(packet.peers.length,2);
+ assert.deepEqual(packet.peers.map(p=>p.tag).sort(),['abc123','zzz999']);
+ // The same client comes back on a new socket while its old one still reads open.
+ manager.handleConnection(again,{url});now+=110;publish(again,1,'abc123');
+ packet=again.sent.findLast(m=>m.type==='oskiewar:net').content;
+ assert.equal(packet.peers.length,2,'the old socket of the same client is gone, the other client stays');
+ assert.deepEqual(packet.peers.map(p=>p.tag).sort(),['abc123','zzz999']);
+ assert.equal(packet.peers.filter(p=>p.tag==='abc123').length,1);
+ manager.close?.();
+});
