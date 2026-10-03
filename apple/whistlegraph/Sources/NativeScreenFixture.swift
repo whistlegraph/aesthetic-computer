@@ -1,14 +1,15 @@
 #if DEBUG
 import Foundation
 
-// Simulator-only screen fixtures. Never connect a fixture to a cloud thread.
+// Isolated screen fixtures; only the story export fixture runs on a phone.
+// Never connect a fixture to a cloud thread.
 enum NativeScreenFixture {
     static var mode: String { ProcessInfo.processInfo.environment["WALKIE_NATIVE_SCREEN_FIXTURE"] ?? "" }
     static var enabled: Bool {
         #if targetEnvironment(simulator)
-        return ["history", "recording", "gestures", "working"].contains(mode)
+        return ["history", "recording", "gestures", "working", "story"].contains(mode)
         #else
-        return false
+        return mode == "story"
         #endif
     }
     static var script: String {
@@ -26,7 +27,7 @@ enum NativeScreenFixture {
         let ledger: [String: Any] = ["format": 1, "head": 3, "versions": versions]
         let json = String(data: try! JSONSerialization.data(withJSONObject: ledger), encoding: .utf8)!
         let busy = mode == "working" ? "window.__walkiewareFixtureBusy='Someone is eating them';" : ""
-        return busy + "window.__walkiewareDisableThread=true;localStorage.setItem('walkieware-source-versions',JSON.stringify(\(json)));localStorage.setItem('walkieware-source',\(json).versions[3].source);"
+        return busy + "window.__whistlegraphFixture=true;window.__walkiewareDisableThread=true;localStorage.setItem('whistlegraph-fixture-source-versions',JSON.stringify(\(json)));localStorage.setItem('whistlegraph-fixture-source',\(json).versions[3].source);"
     }
 }
 #endif

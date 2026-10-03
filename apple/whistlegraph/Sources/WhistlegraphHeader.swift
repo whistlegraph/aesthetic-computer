@@ -22,6 +22,7 @@ struct PieceSummary: Decodable, Identifiable {
 struct PiecesSheet: View {
     let pieces: [PieceSummary]
     let colors: [[Double]]
+    @Binding var pixelSize: Int
     let disabled: Bool
     let open: (String) -> Void
     let newPiece: () -> Void
@@ -34,6 +35,16 @@ struct PiecesSheet: View {
                         Label("New piece", systemImage: "plus")
                             .font(.custom("ComicRelief-Bold", size: 20, relativeTo: .title3))
                     }.disabled(disabled).accessibilityIdentifier("pieces-new")
+                }
+                Section("Pixel size") {
+                    Picker("Pixel size", selection: $pixelSize) {
+                        ForEach(1...4, id: \.self) { size in
+                            Text("\(size)×").tag(size)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .disabled(disabled)
+                    .accessibilityIdentifier("pieces-pixel-size")
                 }
                 Section(pieces.count == 1 ? "Your piece" : "Your pieces") {
                     ForEach(pieces) { piece in
@@ -73,8 +84,6 @@ struct PiecesSheet: View {
 
 // Tapping the handle: who is signed in, and the door out. Settings grow here.
 struct AccountSheet: View {
-    var setCheckedEdits: (Bool) -> Void = { _ in }
-    @AppStorage("whistlegraph-checked-edits") private var checkedEdits = false
     let handle: String
     let colors: [[Double]]
     @Binding var appearance: String
@@ -108,11 +117,6 @@ struct AccountSheet: View {
                     Toggle("Interface sounds", isOn: $sounds).accessibilityIdentifier("account-sounds")
                         .onChange(of: sounds) { _, on in if on { ButtonSounds.play(.tick) } }
                 } footer: { Text("Keys and buttons respect silent mode. Haptics stay on.") }
-                Section {
-                    Toggle("Check edits (experimental)", isOn: $checkedEdits)
-                        .accessibilityIdentifier("account-checked-edits")
-                        .onChange(of: checkedEdits) { _, enabled in setCheckedEdits(enabled) }
-                } footer: { Text("Checks generated code and may try one repair. May use more braincells.") }
                 if !handle.isEmpty {
                     Section {
                         Button(role: .destructive) { confirmingSignOut = true } label: { Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right") }
@@ -160,12 +164,13 @@ struct IdentityHeader: View {
         }
         .sheet(isPresented: $showingPieces) {
             PiecesSheet(pieces: session.pieces, colors: session.snapshot.colors,
+                        pixelSize: Binding(get: { session.pixelSize }, set: { session.setPixelSize($0) }),
                         disabled: session.snapshot.busy || session.capturePhase != .idle,
                         open: { session.command("openPiece", piece: $0) },
                         newPiece: { session.command("newPiece") })
         }
         .sheet(isPresented: $showingAccount) {
-            AccountSheet(setCheckedEdits: { session.setCheckedEdits($0) }, handle: session.snapshot.handle, colors: session.snapshot.colors, appearance: $appearance,
+            AccountSheet(handle: session.snapshot.handle, colors: session.snapshot.colors, appearance: $appearance,
                          signIn: { session.command("signIn") }, signOut: { session.signOut() })
         }
     }

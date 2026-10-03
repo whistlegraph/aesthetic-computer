@@ -6,6 +6,14 @@ From this directory, run `./run.sh device` to bundle, build, install, and open t
 
 Typing uses AC's `compkey` sample and QWERTY pitch mapping. Enter sends the prompt, pasted line breaks become spaces, and the limit is 96 characters. Account settings control key and button sounds together.
 
+## Story cards
+
+The stacked-cards button opens the selected version's ancestry as a vertical story. Pause, previous, next, and close leave the editing selection intact. The picture keeps its 4:3 aspect; its version and spoken caption sit directly below it with space reserved around them for social-app overlays.
+
+Export uses the shared AC `canvas-tape.mjs` hardware encoder, also used by BIOS HD tapes. An internal 1080×1920 canvas composes only program pixels and captions; native AVFoundation adds the original local utterances or file-rendered speech. No screen or microphone recording is used. Export runs through the story in the foreground, with a ten-minute/256 MB limit, cancellation, and a local MP4 preview offering Save video (Photos add-only permission) and Share. Program-generated synth audio is not yet mixed into this story export.
+
+`StoryCardsTests` checks branch navigation, caption placement, selection restoration, and the on-device MP4 flow. The `story` debug fixture uses separate local storage and no cloud thread; it writes `Documents/story-export-test.mp4` for frame/audio inspection.
+
 ## Update compatibility
 
 Whistlegraph updates the existing Walkieware installation. Keep these persisted and deployed contracts until an explicit migration replaces them:
@@ -29,13 +37,19 @@ node apple/whistlegraph/Tests/native-bridge.test.cjs --native-shell
 
 The browser check uses Puppeteer and Chrome with mock inference; it makes no model requests. Native UI tests live in the `WhistlegraphUITests` scheme.
 
-## Checked edits (experimental)
+## Edit checks
 
-Account settings → **Check edits (experimental)** enables a deterministic edit contract containing the selected branch requests, caption, and known API failures. It defaults off; the existing DeepSeek path with thinking disabled remains the default. Debug launches can set `WALKIE_COMPILED_TASK=1`.
+Every generated edit runs syntax/API checks and waits for matching-source runtime feedback before the visual review. Client errors trigger at most one repair across code and visual checks. A candidate that still fails restores the previous saved version; its failure remains visible after the restored frame paints. Missing or stale evidence cannot trigger a paid repair or save a version. There is no opt-out setting.
 
-The experiment checks JavaScript syntax, direct unsupported HSL drawing calls, invalid `ink.box`-style calls, and matching-source runtime feedback. Each render carries a SHA-256 source hash and render ID; stale feedback is ignored. An actionable failure after a completed generation permits one repair. A failed or unverified result restores the previous piece without committing a version. A painted frame is execution evidence, not visual or semantic acceptance; animation timing still needs observation.
+The initial generation allows four tool rounds and one output continuation, with two repair rounds and no repair continuation. Provider calls use a 4,096-token output limit. Code generation/checking has a 75-second deadline; visual review has a separate 90-second deadline. These bound work, not cost. A painted frame is execution evidence, not visual acceptance.
 
-Limits: four initial tool rounds with one output continuation, two repair rounds without continuations, 4,096 output tokens per provider call, and a 75-second generation/validation deadline. This allows at most seven provider calls per attempt; it is not a monetary cap. A resumed request is a new attempt. Existing deterministic local edits still bypass inference.
+## Pixel size
+
+Tap the piece name → Pixel size: **1×, 2×, 3×, 4×**. The default is **2×**, matching `bios.mjs`. Bigger values make bigger pixels. Changes resize the live preview without creating a version or restarting the piece; the preference survives app launches.
+
+## Story export
+
+The story share button shows preparation, card-rendering progress, audio preparation, and the encoder's MP4 percentage. Cancel stops the export and returns to the story. The completed video opens with Save video and Share; saving to Photos displays activity until it finishes. Video capture runs at the story's playback speed.
 
 ## Attempt receipts
 
@@ -53,7 +67,7 @@ node apple/whistlegraph/Tests/native-bridge.test.cjs --native-shell --checked-ed
 node apple/whistlegraph/Tests/native-bridge.test.cjs --native-shell --checked-edits --repair-fails
 ```
 
-Both experiment browser checks use mock inference. They verify the contract, repair limit, rollback, render identity, and receipt fields without spending braincells.
+The browser checks use mock inference. They verify the contract, repair limit, rollback, render identity, and receipt fields without spending braincells.
 
 ## Chalk with words and sound
 

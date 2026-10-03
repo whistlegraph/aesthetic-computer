@@ -10,3 +10,4 @@ Tests/threads/
 Tests/native-shell/
 Tests/scenes/
 Tests/spaces/
+Resources/Web/canvas-tape.mjs

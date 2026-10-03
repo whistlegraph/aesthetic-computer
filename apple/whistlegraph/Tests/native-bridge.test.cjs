@@ -17,7 +17,7 @@ const server = http.createServer(async (req, res) => {
     if(visual) {
       visualRequests++;
       assert.equal(parsed.messages[0].content.filter(b=>b.type==='image').length>=4,true);
-      const failed=process.argv.includes('--visual-fails');
+      const failed=process.argv.includes('--visual-fails')||process.argv.includes('--review-fails-after-repair');
       send({type:'content_block_delta',delta:{type:'text_delta',text:JSON.stringify({passed:!failed,observations:'Fixture-only visual evidence; not a physical capture.',findings:failed?['Requested subject is missing.']:[]})}});
       send({type:'message_delta',delta:{stop_reason:'end_turn'}});res.end();return;
     }
@@ -25,9 +25,9 @@ const server = http.createServer(async (req, res) => {
       send({type:'content_block_start',index:0,content_block:{type:'tool_use',id:'visual-candidate-'+requests,name:'write_piece'}});
       send({type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:JSON.stringify({source:'export function paint({wipe}) {wipe('+requests+');}'})}});
       send({type:'content_block_stop',index:0});send({type:'message_delta',delta:{stop_reason:'end_turn'}});
-    } else if(process.argv.includes('--checked-edits')) {
-      const invalid=requests===1||process.argv.includes('--repair-fails');
-      const source=invalid?'export const caption="Cats"; export function paint({wipe,ink}) {wipe(0);ink(`hsl(30,100%,50%)`).circle(30,30,10);}':'export const caption="Bouncing cats"; export function paint({wipe,ink}) {wipe(0);ink(255,128,0).circle(30,30,10);}';
+    } else if(process.argv.includes('--checked-edits')||process.argv.includes('--runtime-errors')) {
+      const invalid=!process.argv.includes('--runtime-errors')&&(requests===1||process.argv.includes('--repair-fails'));
+      const source=invalid?'export const caption="Cats"; export function paint({wipe,ink}) {wipe(0);ink(`hsl(30,100%,50%)`).circle(30,30,10);}':'export const caption="Bouncing cats"; export function paint({wipe,ink}) {wipe(0);ink(255,128,0).circle(30,30,'+ (10+requests) +');}';
       send({type:'message_start',message:{id:'provider-'+requests,model:'fixture/reported',usage:{input_tokens:10}}});
       send({type:'content_block_start',index:0,content_block:{type:'tool_use',id:'checked-'+requests,name:'write_piece'}});
       send({type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:JSON.stringify({source})}});
@@ -96,6 +96,8 @@ const server = http.createServer(async (req, res) => {
       assert.equal(visualRequests,process.argv.includes('--visual-fails')?2:0);
       assert.equal(requests,process.argv.includes('--visual-fails')?2:1,'at most one repair; stale capture buys none');
       assert.equal(await page.evaluate(()=>walkiewareIsBusy()),false);
+      await page.waitForFunction(()=>__nativeMessages.some(m=>m.action==='snapshot'&&m.snapshot.phase==='Could not finish · previous version restored'));
+      assert.match(await page.evaluate(()=>document.getElementById('live-phase').textContent),/Could not finish/,'rollback paint must retain the failure status');
       console.log('PASS: visual rejection preserves the ledger; repair is bounded and rechecked; stale captures fail before inference. Mock capture and provider.');return;
     }
     if(process.argv.includes('--drawing')) {
@@ -162,8 +164,13 @@ const server = http.createServer(async (req, res) => {
       if(process.env.CHALK_RABBIT_OUT)await require('node:fs/promises').writeFile(process.env.CHALK_RABBIT_OUT,Buffer.from(dots.block.source.data,'base64'));
       assert.deepEqual(errors,[]);console.log('PASS: typed and spoken gesture input, aligned sound, per-version attachment, and failed-draft retention');return;
     }
-    if(process.argv.includes('--checked-edits')) {
-      await page.evaluate(()=>{walkiewareEngineEvent({kind:'inferenceSettings',checkedEdits:true});walkiewareEngineEvent({kind:'account',token:'fixture-only'});walkiewareEngineEvent({kind:'previewReady'});});
+    if(process.argv.includes('--checked-edits')||process.argv.includes('--runtime-errors')) {
+      await page.evaluate(runtimeErrors=>{
+        if(runtimeErrors){
+          const post=window.webkit.messageHandlers.walkie.postMessage;let candidates=0;
+          window.webkit.messageHandlers.walkie.postMessage=m=>{post(m);if(m.action==='render'&&m.source.includes('Bouncing cats')&&++candidates===1)setTimeout(async()=>{const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(m.source));const hash=[...new Uint8Array(d)].map(v=>v.toString(16).padStart(2,'0')).join('');walkiewareEngineEvent({kind:'previewEvent',event:{kind:'console',sourceHash:hash,requestID:m.renderID,event:{level:'error',message:'Paint failure: fixture runtime error'}}});},25);};
+        }
+        walkiewareEngineEvent({kind:'inferenceSettings',checkedEdits:false});walkiewareEngineEvent({kind:'account',token:'fixture-only'});walkiewareEngineEvent({kind:'previewReady'});},process.argv.includes('--runtime-errors'));
       const before=await page.evaluate(()=>localStorage.getItem('walkieware-source-versions'));
       const checkedSketch={schema:'whistlegraph-drawing/v1',id:'33333333-3333-4333-8333-333333333333',revision:1,aspect:4/3,strokes:[[[100,500,0],[200,100,500],[300,500,1000]]]};
       await page.evaluate(drawing=>walkiewareAskDrawing('Make the cats bounce',drawing),checkedSketch);
@@ -179,7 +186,10 @@ const server = http.createServer(async (req, res) => {
       assert.equal(receipt.rounds[0].providerRequestID,'provider-1');assert.equal(receipt.rounds[1].usage.costUSD,.001);
       assert.ok(receipt.observations.every(o=>o.sourceHash.length===64));assert.equal(receipt.acceptance,'unreviewed');
       assert.ok(!JSON.stringify(receipt).includes('Make the cats bounce'),'receipt has no prompt text');
-      if(process.argv.includes('--repair-fails')){
+      if(process.argv.includes('--review-fails-after-repair')){
+        assert.equal(receipt.status,'failed');assert.deepEqual(receipt.checks.map(c=>c.code),['visual-fail']);
+        assert.equal(await page.evaluate(()=>localStorage.getItem('walkieware-source-versions')),before,'visual failure after a code repair cannot save or purchase another repair');
+      }else if(process.argv.includes('--repair-fails')){
         assert.equal(receipt.status,'failed');assert.equal(receipt.checks[0].code,'unsupported-hsl');
         assert.equal(await page.evaluate(()=>localStorage.getItem('walkieware-source-versions')),before,'failed repair cannot commit the invalid candidate');
       }else{

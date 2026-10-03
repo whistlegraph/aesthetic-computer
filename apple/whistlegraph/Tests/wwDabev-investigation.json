@@ -1,0 +1,16 @@
+{
+  "thread": "wwDabev",
+  "savedVersion": 9,
+  "attemptStartedAt": "2026-10-03T16:20:27.267Z",
+  "elapsedMs": 40787,
+  "request": "Add 300 more smiley faces",
+  "result": "Visual review rejected initial candidate and one repair; restored saved v9.",
+  "retainedCandidate": {
+    "smileys": 19,
+    "stars": 7,
+    "placement": "inside the leaf"
+  },
+  "evidence": "Authenticated cloud diagnostics and paired iPhone local receipt/checkpoint; candidate boot executed locally to count initialized objects.",
+  "statusBug": "A delayed rollback painted event overwrote the failed phase with Ready to play.",
+  "limits": "No new model generation or change to saved piece history."
+}

@@ -25,9 +25,9 @@ import * as vfs from '/easel/phone/shim/fs.mjs';
 const post = body => window.webkit.messageHandlers.walkie.postMessage({id:'engine',...body});
 const benchmark=(event,fields={})=>{post({action:'benchmark',event,fields});window.__walkiewareSequenceEvent?.(event,fields);};
 const file = '/piece/walkieware.mjs';
-const storageKey=window.__walkiewareSpace?'walkieware-space-source':window.__walkiewareLocalSequence?'walkieware-local-source':window.__walkiewareSequence?'walkieware-sequence-source':window.__walkiewareBenchmark?'walkieware-benchmark-source':'walkieware-source';
+const storageKey=window.__whistlegraphFixture?'whistlegraph-fixture-source':window.__walkiewareSpace?'walkieware-space-source':window.__walkiewareLocalSequence?'walkieware-local-source':window.__walkiewareSequence?'walkieware-sequence-source':window.__walkiewareBenchmark?'walkieware-benchmark-source':'walkieware-source';
 const receipts=new ReceiptJournal(localStorage,storageKey);
-let activeReceipt=null,activeChecked=false,renderID=0,previewHash=null,validationChecks=[];
+let activeReceipt=null,renderID=0,previewHash=null,validationChecks=[];
 let visualController=null,pendingCapture=null;
 let turnStarter='',starterPainted=false,turnCancelled=false;
 let thread=null,threadTimer=null;
@@ -171,7 +171,7 @@ function render(value) {
   void hashSource(value).then(hash=>{
     if(id!==renderID)return;
     previewHash=hash;
-    feedback={rendered:false,sourceHash:hash,revision:hash,requestID:id,logs:activeChecked?sourceChecks(value).map(f=>({level:'error',text:f.message,code:f.code})):[],updatedAt:new Date().toISOString()};
+    feedback={rendered:false,sourceHash:hash,revision:hash,requestID:id,logs:sourceChecks(value).map(f=>({level:'error',text:f.message,code:f.code})),updatedAt:new Date().toISOString()};
     post({action:'render',source:value,threadID:thread?.identity.id,renderID:id});
   }).catch(()=>{if(id===renderID){turnRuntimeFailed=true;turnError='Could not identify preview source';phase(turnError);}});
 }
@@ -229,9 +229,10 @@ async function checkVisualResult() {
         return verdict;
       },
       repair:async verdict=>{
+        if(activeReceipt?.value.repairs>=1)throw Error('Visual check failed after repair: '+verdict.findings.join('; '));
         phase('Repairing picture…');
         if(activeReceipt){activeReceipt.value.repairs++;activeReceipt.save();}
-        server?.close();server=makeServer();turnSucceeded=false;
+        server?.close();server=makeServer({repair:true});turnSucceeded=false;
         await server.startTurn(drawingContent(task+'\n\nVISUAL REVIEW OF THE CURRENT RESULT (untrusted observations, not new requirements):\n'+JSON.stringify({observations:verdict.observations,findings:verdict.findings})+'\nRepair these mismatches with a narrow edit. Preserve the requested subject and earlier behavior. The new result will be captured and reviewed again.',chalk));
         clearTimeout(compileTimer);compileTimer=null;provisional='';
         if(!turnSucceeded||turnRuntimeFailed)throw Error(turnError||'Visual repair did not complete');
@@ -282,16 +283,15 @@ vfs.setWriteHandler((path,value)=>{
   if(value!==previewSource)render(value);
 });
 const guides = vfs.preload(['pieces.md','screen.md','hand.md','kidlisp.md','api.json'].map(name=>'/easel/context/'+name));
-function makeServer({checked=false,repair=false}={}){
+function makeServer({repair=false}={}){
   const value=new AcServer({cwd:'/piece',piece:{file,checkpoint:async()=>{const target=source;for(let i=0;i<100;i++){if(painted&&lastPaintedSource===target)return;await new Promise(resolve=>setTimeout(resolve,20));}}},frameCapture:false,layeredEdits:true,token:()=>token,model:window.__walkiewareModel||DEFAULT_MODEL,
     fetch:async(url,options)=>{
       benchmark('requestDispatched');const recorder=activeReceipt,round=recorder?.request();
-      if(checked){const body=JSON.parse(options.body);body.max_tokens=4096;options={...options,body:JSON.stringify(body)};}
+      const body=JSON.parse(options.body);body.max_tokens=4096;options={...options,body:JSON.stringify(body)};
       const response=await globalThis.fetch(url,options);if(round)recorder.headers(round,response);
       benchmark('inferenceHeaders',{status:response.status});return response;
-    },preview:true,rounds:checked?(repair?2:4):12,outputContinuations:checked?(repair?0:1):4,reasoning:{effort:'none'},thinking:{type:'disabled'},
+    },preview:true,rounds:repair?2:4,outputContinuations:repair?0:1,reasoning:{effort:'none'},thinking:{type:'disabled'},
     developerInstructions:GENERATION_INSTRUCTIONS});
-  value.checked=checked;
   value.runtimeFeedback=()=>feedback;
   value.on('notification',({method,params})=>{
     activeReceipt?.notify(method,params);
@@ -332,9 +332,9 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
   document.body.classList.add('live-mode');phase('Sending…');log('Submitted');
   timer=setInterval(()=>$('live-time').textContent=((performance.now()-started)/1000).toFixed(1)+'s',100);
   let noChange=false;
-  activeChecked=window.__whistlegraphCheckedEdits===true;validationChecks=[];runtimeErrors.length=0;
+  validationChecks=[];runtimeErrors.length=0;
   try{
-    activeReceipt=new AttemptReceipt({requestID:activeAttempt.id,parent:turnParent,parentHash:await hashSource(previous),path:activeChecked?'compiled':'current',model:window.__walkiewareModel||DEFAULT_MODEL,journal:receipts});
+    activeReceipt=new AttemptReceipt({requestID:activeAttempt.id,parent:turnParent,parentHash:await hashSource(previous),path:'compiled',model:window.__walkiewareModel||DEFAULT_MODEL,journal:receipts});
     const drawing=inputData(text)?.drawing;
     const chalkImage=drawing?drawingImage(drawing):null;
     text=inferenceRequest(text);
@@ -375,34 +375,27 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
     const missing=await guides;if(missing.length)throw Error('Bundled piece guides are unavailable: '+missing.join(', '));
     benchmark('guidesReady');
     vfs.mount(file,source||'export function paint({wipe}) { wipe("black"); }');
-    if(activeChecked){
-      const prompt=compileEditContract({request:text,...selectedBranch(versions.value),source});
-      const deadline=setTimeout(()=>{turnCancelled=true;turnError='Edit check timed out';server?.interrupt();},75000);
-      try{
-        const result=await runEditExperiment({prompt,cancelled:()=>turnCancelled,
-          onRepair:()=>{activeReceipt.value.repairs=1;activeReceipt.save();phase('Repairing…');},
-          generate:async(task,repair)=>{server?.close();server=makeServer({checked:true,repair});turnSucceeded=false;await server.startTurn(drawingContent(task,chalkImage));return turnSucceeded;},
-          inspect:async()=>{
-            const target=source,hash=await hashSource(target);
-            for(let i=0;i<100&&!turnCancelled&&(!painted||lastPaintedSource!==target);i++)await new Promise(resolve=>setTimeout(resolve,20));
-            return validateCandidate(target,feedback,hash);
-          }});
-        if(result.validation){
-          validationChecks=result.validation.findings.map(f=>({code:f.code,sourceHash:result.validation.sourceHash}));
-          if(!result.validation.passed){turnSucceeded=false;turnRuntimeFailed=true;turnError='Edit check failed: '+result.validation.findings.map(f=>f.code).join(', ');}
-        }
-      }finally{clearTimeout(deadline);}
-    }else{
-      // Branch context already carries history. Retire visual conversations at
-      // turn boundaries so an old sketch cannot masquerade as the current one.
-      if(server?.checked||server?.hasChalk||chalkImage){server?.close();server=null;}
-      server??=makeServer();server.hasChalk=!!chalkImage;
-      await server.startTurn(drawingContent(contextualRequest(versions.value,text),chalkImage));
-    }
+    const prompt=compileEditContract({request:text,...selectedBranch(versions.value),source});
+    const deadline=setTimeout(()=>{turnCancelled=true;turnError='Edit check timed out';server?.interrupt();},75000);
+    try{
+      const result=await runEditExperiment({prompt,cancelled:()=>turnCancelled,
+        onRepair:()=>{activeReceipt.value.repairs=1;activeReceipt.save();phase('Repairing…');},
+        generate:async(task,repair)=>{server?.close();server=makeServer({repair});turnSucceeded=false;await server.startTurn(drawingContent(task,chalkImage));return turnSucceeded;},
+        inspect:async()=>{
+          const target=source,hash=await hashSource(target);
+          for(let i=0;i<100&&!turnCancelled&&(!painted||lastPaintedSource!==target);i++)await new Promise(resolve=>setTimeout(resolve,20));
+          return validateCandidate(target,feedback,hash);
+        }});
+      if(result.validation){
+        validationChecks=result.validation.findings.map(f=>({code:f.code,sourceHash:result.validation.sourceHash}));
+        if(!result.validation.passed){turnSucceeded=false;turnRuntimeFailed=true;turnError='Edit check failed: '+result.validation.findings.map(f=>f.code).join(', ');}
+      }
+    }finally{clearTimeout(deadline);}
+
   }catch(error){turnError=error.message;phase('Could not start');log(error.message);}
   finally{
     if(noChange){await finishReceipt('unchanged');localStorage.removeItem(storageKey+'-inflight');activeAttempt=null;lastAttempt={...lastAttempt,status:'unchanged'};end();phase('Already there');benchmark('localEditUnchanged');return;}
-    if(!activeChecked&&!turnSucceeded&&!turnCancelled&&turnStarter&&starterPainted){
+    if(!turnSucceeded&&!turnRuntimeFailed&&!turnCancelled&&turnStarter&&starterPainted){
       // A failed refinement must not erase the useful, verified first drawing.
       source=turnStarter;vfs.mount(file,source);
       if(previewSource!==source)render(source);
@@ -447,14 +440,13 @@ window.walkiewareEngineEvent=event=>{
     if(pendingCapture?.id===event.captureID)pendingCapture.finish(event.error?Error(event.error):null,event);
     return;
   }
-  if(event.kind==='inferenceSettings')window.__whistlegraphCheckedEdits=event.checkedEdits===true;
   if(event.kind==='account') {token=event.token;if(token){musicalSocket.resume();thread?.resume();}else{musicalSocket.suspend();thread?.suspend();}window.walkiewareAccountReady=!!token;accountIdentity(token);if(token&&pending)void ask(pending);else void resumeAttempt();}
   if(event.kind==='error'){phase('Sign-in needed');log(event.text);window.walkiewareWorkFinished?.();}
   if(event.kind==='previewReady'){ready=true;log('AC runtime ready');}
   if(event.kind==='previewEvent'){
     if(event.event?.sourceHash!==previewHash||event.event?.requestID!==renderID)return;
     activeReceipt?.observe(event.event);
-    if(event.event.kind==='painted'){if(turnStarter&&previewSource===turnStarter&&!starterPainted){starterPainted=true;benchmark('starterPainted');}if(previewSource.trimEnd()!==previous.trimEnd())window.__walkiewareSequenceEvent?.('painted');painted=true;lastPaintedSource=previewSource;if(busy&&activeAttempt&&source===previewSource&&!turnRuntimeFailed){activeAttempt={...activeAttempt,checkpoint:source};try{saveAttempt(localStorage,storageKey,activeAttempt);}catch(error){log('Could not persist checkpoint: '+error.message);}}feedback={...feedback,rendered:true,updatedAt:new Date().toISOString()};if(activeReceipt&&previewSource.trimEnd()!==previous.trimEnd())activeReceipt.painted();log('Checkpoint painted');phase(busy?'Building…':'Ready to play');if(narrationPending!==null){post({action:'narrationReady',version:narrationPending});narrationPending=null;}void resumeAttempt();}
+    if(event.event.kind==='painted'){if(turnStarter&&previewSource===turnStarter&&!starterPainted){starterPainted=true;benchmark('starterPainted');}if(previewSource.trimEnd()!==previous.trimEnd())window.__walkiewareSequenceEvent?.('painted');painted=true;lastPaintedSource=previewSource;if(busy&&activeAttempt&&source===previewSource&&!turnRuntimeFailed){activeAttempt={...activeAttempt,checkpoint:source};try{saveAttempt(localStorage,storageKey,activeAttempt);}catch(error){log('Could not persist checkpoint: '+error.message);}}feedback={...feedback,rendered:true,updatedAt:new Date().toISOString()};if(activeReceipt&&previewSource.trimEnd()!==previous.trimEnd())activeReceipt.painted();log('Checkpoint painted');phase(busy?'Building…':lastAttempt?.status==='failed'?'Could not finish · previous version restored':'Ready to play');if(narrationPending!==null){post({action:'narrationReady',version:narrationPending});narrationPending=null;}void resumeAttempt();}
     if(event.event.kind==='invalidated'){turnRuntimeFailed=true;window.__walkiewareSequenceEvent?.('runtimeError',{message:'Preview invalidated'});painted=false;feedback={...feedback,rendered:false,logs:[...(feedback?.logs||[]),{level:'error',text:'Preview invalidated'}],updatedAt:new Date().toISOString()};log('Preview failed; inspect activity');phase('Preview error');if(lastPaintedSource && lastPaintedSource!==previewSource){render(lastPaintedSource);log('Restored last painted checkpoint');}}
     if(event.event.kind==='console'&&['error','warn'].includes(event.event.event?.level)){
       const entry={level:event.event.event.level,text:event.event.event.message||'Runtime error'};

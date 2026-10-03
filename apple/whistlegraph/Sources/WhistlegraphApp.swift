@@ -43,11 +43,6 @@ struct Workspace: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.userContentController.addUserScript(WKUserScript(source: "window.__walkiewareNativeShell = true;", injectionTime: .atDocumentStart, forMainFrameOnly: true))
-        var checkedEdits = UserDefaults.standard.bool(forKey: "whistlegraph-checked-edits")
-        #if DEBUG
-        if ProcessInfo.processInfo.environment["WALKIE_COMPILED_TASK"] == "1" { checkedEdits = true }
-        #endif
-        config.userContentController.addUserScript(WKUserScript(source: "window.__whistlegraphCheckedEdits = \(checkedEdits);", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         config.userContentController.add(context.coordinator, name: "walkie")
         config.setURLSchemeHandler(WhistlegraphBundle(), forURLScheme: "walkieware")
         // Custom-scheme fetch responses have status 0 on device. Seed the
@@ -62,6 +57,8 @@ struct Workspace: UIViewRepresentable {
         if let data = try? JSONSerialization.data(withJSONObject: guides), let json = String(data: data, encoding: .utf8) {
             config.userContentController.addUserScript(WKUserScript(source: "window.__aeselGuides = \(json);", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         }
+        config.userContentController.addUserScript(WKUserScript(source: StoryTape.script, injectionTime: .atDocumentStart, forMainFrameOnly: false))
+        config.userContentController.addUserScript(WKUserScript(source: "window.__walkiewarePixelSize = \(voice.pixelSize);", injectionTime: .atDocumentStart, forMainFrameOnly: false))
         config.userContentController.addUserScript(WKUserScript(source: WhistlegraphPreview.script, injectionTime: .atDocumentStart, forMainFrameOnly: false))
         #if DEBUG
         if NativeScreenFixture.enabled { config.userContentController.addUserScript(WKUserScript(source: NativeScreenFixture.script, injectionTime: .atDocumentStart, forMainFrameOnly: true)) }
@@ -182,8 +179,17 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     var narratedVersion: Int?
     @Published var workspaceReady = false
     @Published var pieces: [PieceSummary] = []
+    @Published private(set) var pixelSize = WhistlegraphPreview.savedPixelSize
     let drawing = DrawingDraft()
     private var speechStartedAt: TimeInterval?
+
+    func setPixelSize(_ size: Int) {
+        guard (1...4).contains(size), !snapshot.busy, capturePhase == .idle else { return }
+        pixelSize = size
+        UserDefaults.standard.set(size, forKey: WhistlegraphPreview.pixelSizeKey)
+        guard let frame = previewFrame else { return }
+        Task { _ = try? await webView?.callAsyncJavaScript("window.walkiewareSetPixelSize?.(size);", arguments: ["size": size], in: frame, contentWorld: .page) }
+    }
 
     func command(_ action: String, version: Int? = nil, text: String? = nil, piece: String? = nil) {
         guard ["checkout", "newPiece", "openPiece", "stop", "signIn", "ask", "retry", "presentVersion", "endPresentation"].contains(action) else { return }
@@ -265,6 +271,11 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         capture.onLevel = { [weak self] rms in guard let self else { return }; self.microphoneLevels = Array(self.microphoneLevels.dropFirst()) + [rms] }
         capture.onReplayRelease = { [weak self] in self?.webView?.evaluateJavaScript("voiceEnd()", completionHandler: nil) }
     }
+    var storyTapeEvent: (([String: Any]) -> Void)?
+    func storyTape(_ action: String, arguments: [String: Any] = [:]) async throws {
+        guard let frame = previewFrame, let webView else { throw NSError(domain: "StoryTape", code: 1, userInfo: [NSLocalizedDescriptionKey: "The piece is not ready to export."]) }
+        _ = try await webView.callAsyncJavaScript("if (!window.whistlegraphStoryTape) throw Error('Canvas tape is unavailable'); await window.whistlegraphStoryTape[action](value ?? id);", arguments: ["action": action, "value": arguments["value"] ?? NSNull(), "id": arguments["id"] ?? NSNull()], in: frame, contentWorld: .page)
+    }
     private var previewFrame: WKFrameInfo?
     private var previewSource = ""
     private var previewRequestID = 0
@@ -277,6 +288,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
            message.frameInfo.request.url?.host == "aesthetic.computer",
            message.frameInfo.request.url?.scheme == "https",
            let body = message.body as? [String: Any] {
+            if body["action"] as? String == "storyTape" { storyTapeEvent?(body); return }
             if body["action"] as? String == "previewReady" {
                 #if DEBUG
                 print("[walkieware] preview runtime ready")
@@ -432,10 +444,10 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         let source = previewSource
         let threadID = previewThreadID
         let renderID = previewRequestID
-        Task { _ = try? await webView?.callAsyncJavaScript("window.walkiewareRender?.(source, threadID, renderID);", arguments: ["source": source, "threadID": threadID, "renderID": renderID], in: frame, contentWorld: .page) }
+        let size = pixelSize
+        Task { _ = try? await webView?.callAsyncJavaScript("window.walkiewareSetPixelSize?.(size); window.walkiewareRender?.(source, threadID, renderID);", arguments: ["source": source, "threadID": threadID, "renderID": renderID, "size": size], in: frame, contentWorld: .page) }
     }
 
-    func setCheckedEdits(_ enabled: Bool) { emitEngine(["kind": "inferenceSettings", "checkedEdits": enabled]) }
 
     func emitEngine(_ event: [String: Any]) {
         guard let data = try? JSONSerialization.data(withJSONObject: event),

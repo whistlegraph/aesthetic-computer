@@ -63,6 +63,7 @@ struct WhistlegraphScreen: View {
     @ObservedObject private var drawing: DrawingDraft
     init(session: WhistlegraphSession) { self.session = session; self.drawing = session.drawing }
     @StateObject private var narrator = VersionNarrator()
+    @StateObject private var exporter = StoryExport()
     @Environment(\.scenePhase) private var scenePhase
     @State private var held = false
     @State private var showComposer = false
@@ -81,7 +82,7 @@ struct WhistlegraphScreen: View {
     private var accent: Color { theme.accent }
     private var chalkActive: Bool { drawing.enabled || held || session.capturePhase == .opening || session.capturePhase == .recording }
     var body: some View {
-        VStack(spacing: session.layout.spacing) {
+        VStack(spacing: narrator.isPlaying ? 0 : session.layout.spacing) {
             HStack {
                 IdentityHeader(session: session, appearance: $appearance, size: session.layout.historySize) { narrator.stop(); showComposer = false }
                 Spacer()
@@ -89,12 +90,12 @@ struct WhistlegraphScreen: View {
                     showComposer = false
                     ButtonSounds.play(.play); narrator.play(session)
                 } label: {
-                    Image(systemName: "play.fill").font(.system(size: 28, weight: .bold)).frame(width: 44, height: 44)
+                    Image(systemName: "rectangle.stack.fill").font(.system(size: 28, weight: .bold)).frame(width: 44, height: 44)
                 }
                 .disabled(session.snapshot.busy || session.capturePhase != .idle || !session.engineReady || !session.snapshot.versions.contains(where: { $0.id > 0 }))
-                .accessibilityLabel("Play version story").accessibilityIdentifier("play-versions")
+                .accessibilityLabel("Open story cards").accessibilityIdentifier("play-versions")
             }.frame(height: narrator.isPlaying ? 0 : nil).clipped().accessibilityHidden(narrator.isPlaying)
-            VStack(spacing: 4) {
+            VStack(spacing: narrator.isPlaying ? 12 : 4) {
             // This representable never changes identity when cards or versions change.
             ZStack {
                 Workspace(voice: session)
@@ -111,13 +112,17 @@ struct WhistlegraphScreen: View {
                     VStack(spacing: 12) { Text(failure); Button("Reload") { session.reloadWorkspace() } }.padding().background(.black.opacity(0.85))
                 }
             }
-            .aspectRatio(narrator.isPlaying ? nil : 4 / 3, contentMode: .fit)
-            .frame(maxHeight: narrator.isPlaying ? .infinity : nil)
+            .aspectRatio(4.0 / 3.0, contentMode: .fit)
+            .frame(maxWidth: .infinity)
+            .accessibilityIdentifier("story-picture")
             .overlay {
-                if narrator.isPlaying { Rectangle().strokeBorder(paper.opacity(0.8), lineWidth: 2).allowsHitTesting(false) }
-            }
-            .overlay(alignment: .topTrailing) {
-                if narrator.isPlaying { Button { narrator.stop() } label: { Image(systemName: "xmark.circle.fill").font(.largeTitle).padding(16).background(.black.opacity(0.5), in: Circle()) }.accessibilityLabel("Close version story") }
+                if narrator.isPlaying && !exporter.busy {
+                    HStack {
+                        Color.clear.contentShape(Rectangle()).frame(width: 28).onTapGesture { narrator.previous() }
+                        Spacer().allowsHitTesting(false)
+                        Color.clear.contentShape(Rectangle()).frame(width: 28).onTapGesture { narrator.next() }
+                    }.accessibilityHidden(true)
+                }
             }
             if !narrator.isPlaying {
                 HStack(spacing: 18) {
@@ -145,21 +150,28 @@ struct WhistlegraphScreen: View {
                         .frame(maxWidth: .infinity, alignment: .leading).allowsHitTesting(false)
                 }
             }
-            if narrator.isPlaying && (session.snapshot.hasPreview || session.snapshot.hasHistory) {
-                HStack(alignment: .bottom) {
-                    ComicTitle(text: "v\(session.snapshot.head)", size: session.layout.historySize)
+            if narrator.isPlaying {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("v\(session.snapshot.head)")
+                        .font(.system(size: 15, weight: .semibold, design: .monospaced)).foregroundStyle(.white.opacity(0.65))
                         .accessibilityLabel("Running version \(session.snapshot.head)")
-                    Spacer(minLength: 0)
-                    PlaybackCaption(text: narrator.utterance, spokenRange: narrator.spokenRange, accent: accent)
-                        .font(.custom("ComicRelief-Regular", size: session.layout.historySize, relativeTo: .title3))
-                        .multilineTextAlignment(.trailing)
+                        .accessibilityIdentifier("story-version")
+                    PlaybackCaption(text: narrator.utterance, spokenRange: narrator.spokenRange, accent: .yellow)
+                        .font(.custom("ComicRelief-Regular", size: 22, relativeTo: .title3))
+                        .lineLimit(3).multilineTextAlignment(.leading)
                         .accessibilityIdentifier("spoken-word")
-
-                }
+                }.frame(maxWidth: .infinity, minHeight: 82, alignment: .topLeading).foregroundStyle(.white)
+                Spacer(minLength: 0)
             }
             }
-            if !narrator.error.isEmpty { Text(narrator.error).foregroundStyle(.orange) }
-            if let failure = session.captureError { Text(failure).font(.body).foregroundStyle(.orange).frame(maxWidth: .infinity, alignment: .leading) }
+            .padding(.horizontal, narrator.isPlaying ? 28 : 0)
+            .padding(.top, narrator.isPlaying ? 100 : 0)
+            .padding(.bottom, narrator.isPlaying ? 150 : 0)
+            .frame(maxWidth: .infinity)
+            .frame(height: narrator.isPlaying ? UIScreen.main.bounds.width * 16 / 9 : nil)
+            .background(narrator.isPlaying ? Color.black : Color.clear)
+            if !narrator.error.isEmpty && !narrator.isPlaying { Text(narrator.error).foregroundStyle(.orange) }
+            if let failure = session.captureError, !narrator.isPlaying { Text(failure).font(.body).foregroundStyle(.orange).frame(maxWidth: .infinity, alignment: .leading) }
             if !narrator.isPlaying && (session.snapshot.hasPiece || session.snapshot.hasHistory || session.snapshot.busy || session.snapshot.attempt?.status == "failed") {
                 VersionFeed(snapshot: session.snapshot, foreground: paper, selectionColor: paper, textSize: session.layout.historySize, disabled: session.snapshot.busy || session.capturePhase != .idle, holdSelection: drawing.hasInk, stop: { session.command("stop") }, retry: { session.command("retry") }) { narrator.select($0, session: session) }
             } else if !narrator.isPlaying { Spacer(minLength: 0) }
@@ -185,16 +197,37 @@ struct WhistlegraphScreen: View {
                     }
                 }
             }.padding(.horizontal, session.layout.pageInset).foregroundStyle(paper)
-                .background(theme.background)
+                .background(narrator.isPlaying ? Color.black : theme.background)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay {
+            if narrator.isPlaying {
+                StoryControls(narrator: narrator, exporter: exporter, export: exportStory, close: { exporter.cancel(); narrator.stop() })
+                    .opacity(exporter.busy ? 0 : 1).allowsHitTesting(!exporter.busy)
+                if exporter.busy {
+                    VStack { Spacer(); StoryExportProgress(narrator: narrator, exporter: exporter) { exporter.cancel(); narrator.setPaused(true) } }
+                }
+            }
+        }
+        .alert("Could not export", isPresented: Binding(get: { !exporter.error.isEmpty }, set: { if !$0 { exporter.error = "" } })) {
+            Button("OK") { exporter.error = "" }
+        } message: { Text(exporter.error) }
+        .sheet(item: $exporter.movie, onDismiss: { exporter.clearMovie() }) { movie in StoryMovieSheet(url: movie.url) }
         .statusBarHidden(narrator.isPlaying)
+        .onChange(of: narrator.isPlaying) { _, playing in if !playing && exporter.busy { exporter.cancel() } }
         .onChange(of: session.narratedFrame) { _, _ in narrator.painted(session.narratedVersion) }
-        .onChange(of: scenePhase) { _, value in if value != .active { narrator.stop() } }
+        .onChange(of: scenePhase) { _, value in if value == .background { exporter.cancel(); narrator.stop() } else if value == .inactive && !exporter.busy { narrator.setPaused(true) } }
         .onChange(of: session.capturePhase) { _, value in if value != .idle { narrator.stop() } }
-        .onDisappear { narrator.stop() }
-        .background(theme.background.ignoresSafeArea())
+        .onDisappear { exporter.cancel(); narrator.stop() }
+        .background((narrator.isPlaying ? Color.black : theme.background).ignoresSafeArea())
         .tint(paper)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: themePhase)
+    }
+    private func exportStory() {
+        narrator.setPaused(true)
+        narrator.onComplete = { exporter.finish() }
+        narrator.onNarration = { await exporter.addNarration($0) }
+        exporter.begin(session: session) { narrator.restart() }
     }
     private var canTalk: Bool { session.workspaceReady && session.engineReady && !session.snapshot.busy && session.capturePhase != .processing }
     private var talkControl: some View {

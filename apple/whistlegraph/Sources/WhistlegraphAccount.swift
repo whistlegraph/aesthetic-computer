@@ -102,10 +102,25 @@ final class WhistlegraphBundle: NSObject, WKURLSchemeHandler {
 }
 
 struct WhistlegraphPreview {
+    static let pixelSizeKey = "walkieware-pixel-size"
+    // bios.mjs defaults to two CSS points per framebuffer pixel on iPhone.
+    static var savedPixelSize: Int {
+        let saved = UserDefaults.standard.integer(forKey: pixelSizeKey)
+        return (1...4).contains(saved) ? saved : 2
+    }
     static let script = """
     (() => {
       if (window === window.top || location.origin !== 'https://aesthetic.computer') return;
       window.acFORCE_NOGAP = true;
+      window.walkiewareSetPixelSize = size => {
+        if (!Number.isInteger(size) || size < 1 || size > 4) return;
+        window.__walkiewarePixelSize = size;
+        window.acPACK_DENSITY = size;
+        window.acAutoDensityOverride = true;
+        try { localStorage.setItem('ac-density', String(size)); } catch {}
+        window.postMessage({type:'ac-density-change', density:size}, location.origin);
+      };
+      window.walkiewareSetPixelSize(window.__walkiewarePixelSize ?? 2);
       let ready = false, revision = 0, paintedRevision = 0, sessionID = '';
       const post = body => window.webkit.messageHandlers.walkie.postMessage(body);
       window.walkiewareRender = async (source, threadID, renderID) => {

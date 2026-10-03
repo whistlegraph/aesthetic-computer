@@ -38,4 +38,26 @@ final class HeaderSheetsTests: XCTestCase {
         app.buttons["Done"].tap()
         XCTAssertTrue(waitForDisappearance(of: app.buttons["account-sign-out"]), "Done closes the account sheet")
     }
+
+    func testPixelSizePersistsAcrossLaunches() {
+        let app = launch()
+        let code = app.buttons["workspace-settings"]
+        XCTAssertTrue(code.waitForExistence(timeout: 20))
+        code.tap()
+        let picker = app.segmentedControls["pieces-pixel-size"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 10))
+        for size in [1, 2, 3, 4] {
+            picker.buttons["\(size)×"].tap()
+            XCTAssertTrue(picker.buttons["\(size)×"].isSelected)
+        }
+        let image = XCTAttachment(screenshot: app.screenshot())
+        image.name = "Pixel size in the piece menu"; image.lifetime = .keepAlways; add(image)
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(code.waitForExistence(timeout: 20))
+        code.tap()
+        XCTAssertTrue(picker.waitForExistence(timeout: 10))
+        XCTAssertTrue(picker.buttons["4×"].isSelected)
+        picker.buttons["2×"].tap()
+    }
 }
