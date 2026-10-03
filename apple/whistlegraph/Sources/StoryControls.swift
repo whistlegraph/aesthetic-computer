@@ -64,17 +64,24 @@ struct StoryControls: View {
                 Button(action: export) {
                     if exporter.busy { ProgressView().tint(.white).frame(width: 44, height: 44) }
                     else { Image(systemName: "square.and.arrow.up").frame(width: 44, height: 44) }
-                }.accessibilityLabel("Export MP4").accessibilityIdentifier("story-export").disabled(exporter.busy)
+                }.accessibilityLabel("Export MP4").accessibilityIdentifier("story-export").disabled(exporter.requested)
+                    .popover(item: $exporter.movie, arrowEdge: .top) { movie in
+                        StoryMovieSheet(url: movie.url).presentationCompactAdaptation(.popover)
+                    }
+            }
+            if exporter.readyURL != nil || exporter.busy {
+                Text(exporter.readyURL != nil ? "Video ready" : "Preparing video · \(exporter.completedCards)/\(narrator.count)")
+                    .font(.caption).accessibilityIdentifier("story-video-status")
             }
             Spacer()
             HStack(spacing: 32) {
                 Button { narrator.previous() } label: { Image(systemName: "backward.end.fill").frame(width: 52, height: 48) }
-                    .accessibilityLabel("Previous card").disabled(exporter.busy)
+                    .accessibilityLabel("Previous card").disabled(exporter.requested)
                 Button { narrator.setPaused(!narrator.isPaused) } label: {
                     Image(systemName: narrator.isPaused ? "play.fill" : "pause.fill").frame(width: 52, height: 48)
-                }.accessibilityLabel(narrator.isPaused ? "Resume story" : "Pause story").accessibilityIdentifier("story-pause").disabled(exporter.busy)
+                }.accessibilityLabel(narrator.isPaused ? "Resume story" : "Pause story").accessibilityIdentifier("story-pause").disabled(exporter.requested)
                 Button { narrator.next() } label: { Image(systemName: "forward.end.fill").frame(width: 52, height: 48) }
-                    .accessibilityLabel("Next card").disabled(exporter.busy)
+                    .accessibilityLabel("Next card").disabled(exporter.requested)
             }
         }.font(.system(size: 20, weight: .semibold)).foregroundStyle(.white).buttonStyle(.plain)
             .padding(.horizontal, 20).padding(.vertical, 8)

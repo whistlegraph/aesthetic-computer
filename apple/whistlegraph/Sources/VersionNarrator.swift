@@ -1,7 +1,7 @@
 import SwiftUI
 import AVFoundation
 
-@MainActor final class VersionNarrator: NSObject, ObservableObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDelegate {
+@MainActor final class VersionNarrator: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published var isPlaying = false
     @Published var isPaused = false
     @Published var utterance = ""
@@ -12,7 +12,12 @@ import AVFoundation
     @Published private(set) var count = 0
     @Published private(set) var progress = 0.0
     var onComplete: (() -> Void)?
-    var onNarration: ((PieceRevision) async -> Void)?
+    var onNarration: ((PieceRevision, StoryAudio?) async -> Void)?
+    var onCardComplete: (() async -> Void)?
+    var onSkip: (() -> Void)?
+    var onPause: ((Bool) -> Void)?
+    var shouldPlay: ((Int) -> Bool)?
+    var branch: [PieceRevision] { versions }
     private var words: [PlaybackWord] = []
     private var clock: Task<Void, Never>?
     private var recordingID: String?
@@ -22,15 +27,13 @@ import AVFoundation
     private var elapsed = 0.0
     private var duration = 4.0
     private var tail: Double?
-    private let voice = AVSpeechSynthesizer()
     private weak var session: WhistlegraphSession?
     private var versions: [PieceRevision] = []
     private var waiting: Int?
-    private var spoken: AVSpeechUtterance?
     private var timer: Task<Void, Never>?
     private var run = UUID()
     private var completed = false
-    override init() { super.init(); voice.delegate = self }
+    override init() { super.init() }
 
     func play(_ session: WhistlegraphSession) {
         stop()
@@ -52,25 +55,23 @@ import AVFoundation
     }
     func next() {
         guard isPlaying else { return }
+        onSkip?()
         if index + 1 < count { index += 1; show() }
         else { setPaused(true); progress = 1 }
     }
-    func previous() { guard isPlaying else { return }; index = max(0, index - 1); show() }
-    func restart() { guard isPlaying else { return }; index = 0; isPaused = false; show() }
+    func previous() { guard isPlaying else { return }; onSkip?(); index = max(0, index - 1); show() }
+    func restart() { guard isPlaying else { return }; onSkip?(); index = 0; isPaused = false; show() }
+    func jump(to target: Int) { guard isPlaying, versions.indices.contains(target) else { return }; onSkip?(); index = target; isPaused = false; show() }
     func setPaused(_ paused: Bool) {
         guard isPlaying else { return }
         isPaused = paused
-        if paused { player?.pause(); voice.pauseSpeaking(at: .immediate) }
+        onPause?(paused)
+        if paused { player?.pause() }
         else if completed { restart() }
-        else {
-            player?.play()
-            if voice.isPaused { voice.continueSpeaking() }
-            else if !voice.isSpeaking, let spoken { voice.speak(spoken) }
-        }
+        else { player?.play() }
     }
     private func clearPlayback() {
         clock?.cancel(); timer?.cancel(); run = UUID(); waiting = nil
-        spoken = nil; voice.stopSpeaking(at: .immediate)
         player?.stop(); player = nil; currentWord = ""; spokenRange = nil
     }
     private func show() {
@@ -91,33 +92,33 @@ import AVFoundation
         waiting = nil; timer?.cancel()
         let expected = run, row = versions[index]
         Task {
-            await onNarration?(row)
+            let sound: StoryAudio?
+            do { sound = try await StoryVoice.audio(for: row) }
+            catch {
+                guard run == expected, isPlaying else { return }
+                stop(); self.error = "Could not prepare narration. Try again when connected."; return
+            }
             guard run == expected, isPlaying else { return }
-            startNarration()
+            await onNarration?(row, sound)
+            guard run == expected, isPlaying else { return }
+            startNarration(sound)
+            if isPaused { onPause?(true) }
         }
     }
-    private func startNarration() {
-        duration = max(4, Double(utterance.split(separator: " ").count) / 2.5 + 1.5)
+    private func startNarration(_ sound: StoryAudio?) {
+        duration = 4
         do {
             let audio = AVAudioSession.sharedInstance()
             try audio.setCategory(.playback, mode: .default); try audio.setActive(true)
-            if let recordingID, let url = UtteranceRecording.url(recordingID), FileManager.default.fileExists(atPath: url.path) {
-                let original = try AVAudioPlayer(contentsOf: url), trim = try RecordingTrim.read(url)
-                original.currentTime = trim.start; playbackStart = trim.start; playbackEnd = trim.end
-                duration = max(4, trim.end - trim.start + 1.5)
-                original.delegate = self; player = original; original.prepareToPlay()
-                if !isPaused { original.play() }
-            }
-        } catch { self.error = "Original recording unavailable; reading the transcript." }
-        if player == nil {
-            if utterance.isEmpty { tail = 4 }
-            else {
-                let line = AVSpeechUtterance(string: utterance)
-                line.rate = AVSpeechUtteranceDefaultSpeechRate; line.voice = AVSpeechSynthesisVoice(language: "en-US")
-                spoken = line
-                if !isPaused { voice.speak(line) }
-            }
-        }
+            if let sound {
+                let recording = try AVAudioPlayer(contentsOf: sound.url)
+                recording.currentTime = sound.start; playbackStart = sound.start; playbackEnd = sound.end
+                duration = max(4, sound.end - sound.start + 1.5)
+                if !sound.original { words = [] }
+                recording.delegate = self; player = recording; recording.prepareToPlay()
+                if !isPaused { recording.play() }
+            } else { tail = 4 }
+        } catch { stop(); self.error = "Could not play narration."; return }
         let expected = run
         clock = Task { [weak self] in
             var last = Date()
@@ -142,18 +143,12 @@ import AVFoundation
     }
     private func narrationFinished() { currentWord = ""; spokenRange = nil; tail = max(1.5, 4 - elapsed); duration = elapsed + (tail ?? 1.5) }
     private func finishCard() {
-        if index + 1 < count { index += 1; show() }
-        else { completed = true; isPaused = true; progress = 1; onComplete?() }
-    }
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, willSpeakRangeOfSpeechString range: NSRange, utterance: AVSpeechUtterance) {
-        Task { @MainActor [weak self] in
-            guard let self, self.spoken === utterance else { return }
-            self.currentWord = (utterance.speechString as NSString).substring(with: range); self.spokenRange = range
-        }
-    }
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor [weak self] in
-            guard let self, self.spoken === utterance else { return }; self.spoken = nil; self.narrationFinished()
+        let expected = run
+        Task {
+            await onCardComplete?()
+            guard run == expected, isPlaying else { return }
+            if let next = ((index + 1)..<count).first(where: { shouldPlay?($0) ?? true }) { index = next; show() }
+            else { completed = true; isPaused = true; progress = 1; onComplete?() }
         }
     }
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {

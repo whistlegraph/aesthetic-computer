@@ -88,7 +88,7 @@ struct WhistlegraphScreen: View {
                 Spacer()
                 Button {
                     showComposer = false
-                    ButtonSounds.play(.play); narrator.play(session)
+                    ButtonSounds.play(.play); openStory()
                 } label: {
                     Image(systemName: "rectangle.stack.fill").font(.system(size: 28, weight: .bold)).frame(width: 44, height: 44)
                 }
@@ -116,7 +116,7 @@ struct WhistlegraphScreen: View {
             .frame(maxWidth: .infinity)
             .accessibilityIdentifier("story-picture")
             .overlay {
-                if narrator.isPlaying && !exporter.busy {
+                if narrator.isPlaying && !exporter.requested {
                     HStack {
                         Color.clear.contentShape(Rectangle()).frame(width: 28).onTapGesture { narrator.previous() }
                         Spacer().allowsHitTesting(false)
@@ -203,8 +203,8 @@ struct WhistlegraphScreen: View {
         .overlay {
             if narrator.isPlaying {
                 StoryControls(narrator: narrator, exporter: exporter, export: exportStory, close: { exporter.cancel(); narrator.stop() })
-                    .opacity(exporter.busy ? 0 : 1).allowsHitTesting(!exporter.busy)
-                if exporter.busy {
+                    .opacity(exporter.requested ? 0 : 1).allowsHitTesting(!exporter.requested)
+                if exporter.requested {
                     VStack { Spacer(); StoryExportProgress(narrator: narrator, exporter: exporter) { exporter.cancel(); narrator.setPaused(true) } }
                 }
             }
@@ -212,22 +212,31 @@ struct WhistlegraphScreen: View {
         .alert("Could not export", isPresented: Binding(get: { !exporter.error.isEmpty }, set: { if !$0 { exporter.error = "" } })) {
             Button("OK") { exporter.error = "" }
         } message: { Text(exporter.error) }
-        .sheet(item: $exporter.movie, onDismiss: { exporter.clearMovie() }) { movie in StoryMovieSheet(url: movie.url) }
         .statusBarHidden(narrator.isPlaying)
-        .onChange(of: narrator.isPlaying) { _, playing in if !playing && exporter.busy { exporter.cancel() } }
+        .onChange(of: narrator.isPlaying) { _, playing in if !playing { exporter.cancel() } }
         .onChange(of: session.narratedFrame) { _, _ in narrator.painted(session.narratedVersion) }
-        .onChange(of: scenePhase) { _, value in if value == .background { exporter.cancel(); narrator.stop() } else if value == .inactive && !exporter.busy { narrator.setPaused(true) } }
+        .onChange(of: exporter.movie?.id) { _, value in if value != nil { narrator.setPaused(true) } }
+        .onChange(of: scenePhase) { _, value in if value == .background { exporter.cancel(); narrator.stop() } else if value == .inactive { narrator.setPaused(true) } }
         .onChange(of: session.capturePhase) { _, value in if value != .idle { narrator.stop() } }
         .onDisappear { exporter.cancel(); narrator.stop() }
         .background((narrator.isPlaying ? Color.black : theme.background).ignoresSafeArea())
         .tint(paper)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: themePhase)
     }
+    private func openStory() {
+        narrator.onNarration = { row, audio in await exporter.startCard(row, audio: audio) }
+        narrator.onCardComplete = { await exporter.finishCard() }
+        narrator.onSkip = { exporter.skipCard() }
+        narrator.onPause = { exporter.pause($0) }
+        narrator.shouldPlay = { !exporter.requested || exporter.needsCard(at: $0) }
+        narrator.play(session)
+        exporter.prepare(session: session, rows: narrator.branch)
+    }
     private func exportStory() {
-        narrator.setPaused(true)
-        narrator.onComplete = { exporter.finish() }
-        narrator.onNarration = { await exporter.addNarration($0) }
-        exporter.begin(session: session) { narrator.restart() }
+        if exporter.readyURL != nil { narrator.setPaused(true); exporter.request(); return }
+        let restart = exporter.needsRestart(before: narrator.index)
+        exporter.request()
+        if restart, let missing = exporter.firstMissingIndex { narrator.jump(to: missing) } else { narrator.setPaused(false) }
     }
     private var canTalk: Bool { session.workspaceReady && session.engineReady && !session.snapshot.busy && session.capturePhase != .processing }
     private var talkControl: some View {

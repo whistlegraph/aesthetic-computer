@@ -180,7 +180,11 @@ const server = http.createServer(async (req, res) => {
       assert.ok(inferenceBodies[1].messages.some(m=>JSON.stringify(m).includes('REPAIR THIS CANDIDATE ONCE')));
       assert.ok(inferenceBodies.every(b=>JSON.stringify(b.messages).includes('DRAWING REFERENCE')),'both passes retain gesture intent');
       assert.ok(inferenceBodies.every(b=>b.messages.some(m=>Array.isArray(m.content)&&m.content.some(c=>c.type==='image'))),'initial and repair passes retain chalk pixels');
-      assert.ok(inferenceBodies.every(b=>b.max_tokens===4096&&b.thinking.type==='disabled'));
+      assert.ok(inferenceBodies.every(b=>b.max_tokens===4096));
+      assert.equal(inferenceBodies[0].model,'deepseek/deepseek-v4.1-flash');
+      assert.equal(inferenceBodies[0].thinking.type,'disabled');
+      assert.equal(inferenceBodies[1].model,'deepseek/deepseek-v4-pro');
+      assert.equal(inferenceBodies[1].thinking.budget_tokens,1024);
       const receipt=await page.evaluate(()=>JSON.parse(localStorage.getItem('walkieware-source-receipts')).at(-1).receipt);
       assert.equal(receipt.repairs,1);assert.equal(receipt.rounds.length,process.argv.includes('--repair-fails')?2:3);assert.equal(receipt.rounds[0].reportedModel,'fixture/reported');
       assert.equal(receipt.rounds[0].providerRequestID,'provider-1');assert.equal(receipt.rounds[1].usage.costUSD,.001);

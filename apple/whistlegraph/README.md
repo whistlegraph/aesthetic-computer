@@ -41,7 +41,7 @@ The browser check uses Puppeteer and Chrome with mock inference; it makes no mod
 
 Every generated edit runs syntax/API checks and waits for matching-source runtime feedback before the visual review. Client errors trigger at most one repair across code and visual checks. A candidate that still fails restores the previous saved version; its failure remains visible after the restored frame paints. Missing or stale evidence cannot trigger a paid repair or save a version. There is no opt-out setting.
 
-The initial generation allows four tool rounds and one output continuation, with two repair rounds and no repair continuation. Provider calls use a 4,096-token output limit. Code generation/checking has a 75-second deadline; visual review has a separate 90-second deadline. These bound work, not cost. A painted frame is execution evidence, not visual acceptance.
+The initial generation uses DeepSeek V4.1 Flash with four tool rounds and one output continuation. The single repair uses DeepSeek V4 Pro with a 1,024-token thinking budget, two tool rounds and no continuation. Provider calls retain the 4,096-token output limit. Remote requests and remote edit descriptions use the same 96-grapheme, single-line limit as phone typing; oversized requests are rejected before generation. Diagnostic context and source code are separate from the short user request. Code generation/checking has a 75-second deadline; visual review has a separate 90-second deadline. These bound work, not cost. A painted frame is execution evidence, not visual acceptance.
 
 ## Pixel size
 
@@ -49,7 +49,13 @@ Tap the piece name → Pixel size: **1×, 2×, 3×, 4×**. The default is **2×*
 
 ## Story export
 
-The story share button shows preparation, card-rendering progress, audio preparation, and the encoder's MP4 percentage. Cancel stops the export and returns to the story. The completed video opens with Save video and Share; saving to Photos displays activity until it finishes. Video capture runs at the story's playback speed.
+Opening cards starts preparing the MP4 as they play. Each completed card is cached on the device; pause omits paused time and seeking discards only an unfinished card. The selected branch is assembled from those clips without re-encoding their video. Reopening a completed story can share immediately, including after relaunch. Cache keys include piece identity, immutable revision metadata, pixel size, and rendering/voice format. Changed branches reuse unchanged cards. The movie cache evicts older unprotected files above 256 MB; iOS may also reclaim it.
+
+The share button shows progress when preparation is unfinished and opens a compact Save video / Share MP4 popover when ready. Automatic preparation never opens the popover. Save video shows activity through the Photos write. Capture runs at playback speed while cards remain open in the foreground; leaving cards or backgrounding the app stops unfinished work and retains completed clips.
+
+Original voice recordings remain the narration when available. Computer narration uses Jeffrey’s ElevenLabs voice through AC `/api/say`, shared by card playback and export, with a 32 MB local audio cache. The API key stays on the server. If the service is unavailable, device speech can finish the export; fallback clips have separate cache keys so reopening can retry Jeffrey’s voice.
+
+`Tests/StoryCacheCheck.swift` exercises real AVFoundation composition, partial completion/relaunch, warm export, density invalidation, cancellation, and cache eviction with a supplied MP4 fixture; run `sh apple/whistlegraph/Tests/story-cache.test.sh` on macOS to generate that fixture and run the check. `Tests/story-tape.test.mjs` covers pause/resume and stale chunks after cancellation. `StoryCardsTests` covers background preparation and the compact cached-export popover.
 
 ## Attempt receipts
 

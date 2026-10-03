@@ -1,8 +1,8 @@
 // Injected into the piece frame with the shared AC canvas-tape encoder.
 (() => {
   if (window === window.top || location.origin !== 'https://aesthetic.computer') return;
-  let recorder, timer, session, state={}, delivery=Promise.resolve(), failure=null;
-  const post = body => window.webkit.messageHandlers.walkie.postMessage({action:'storyTape',session,...body});
+  let capture=null, state={};
+  const post = (session,body) => window.webkit.messageHandlers.walkie.postMessage({action:'storyTape',session,...body});
   const canvas=document.createElement('canvas'); canvas.width=1080;canvas.height=1920;
   const ctx=canvas.getContext('2d');
   function draw() {
@@ -20,19 +20,29 @@
   window.whistlegraphStoryTape={
     update(value){state=value;},
     async start(id){
-      await window.whistlegraphStoryFont;
-      if(recorder)throw Error('A tape is already exporting.');session=id;failure=null;delivery=Promise.resolve();
-      draw();recorder=createCanvasTapeRecorder(canvas,{fps:30,mp4Only:true});
-      recorder.ondataavailable=e=>{if(!e.data.size)return;delivery=delivery.then(async()=>{
-        const bytes=new Uint8Array(await e.data.arrayBuffer());
-        for(let i=0;i<bytes.length;i+=192000){let s='';for(const b of bytes.subarray(i,i+192000))s+=String.fromCharCode(b);post({kind:'chunk',data:btoa(s)});}
-      }).catch(error=>{failure=error;});};
-      recorder.onerror=e=>{failure=e.error||Error('Canvas tape encoding failed');};
-      recorder.onstop=()=>{clearInterval(timer);delivery.then(()=>post(failure?{kind:'error',error:failure.message}:{kind:'done'}));recorder=null;};
-      timer=setInterval(()=>{try{draw();}catch(error){failure=error;clearInterval(timer);if(recorder?.state!=='inactive')recorder.stop();}},1000/30);
-      recorder.start(1000);
+      if(capture)throw Error('A tape is already exporting.');
+      const current={id,recorder:null,timer:null,delivery:Promise.resolve(),failure:null};capture=current;
+      try {
+        await window.whistlegraphStoryFont;
+        if(capture!==current)return;
+        draw();const recorder=current.recorder=createCanvasTapeRecorder(canvas,{fps:30,mp4Only:true});
+        recorder.ondataavailable=e=>{if(!e.data.size)return;current.delivery=current.delivery.then(async()=>{
+          if(capture!==current)return;
+          const bytes=new Uint8Array(await e.data.arrayBuffer());
+          for(let i=0;i<bytes.length&&capture===current;i+=192000){let s='';for(const b of bytes.subarray(i,i+192000))s+=String.fromCharCode(b);post(id,{kind:'chunk',data:btoa(s)});}
+        }).catch(error=>{current.failure=error;});};
+        recorder.onerror=e=>{current.failure=e.error||Error('Canvas tape encoding failed');};
+        recorder.onstop=()=>{clearInterval(current.timer);current.delivery.then(()=>{
+          if(capture!==current)return;capture=null;
+          post(id,current.failure?{kind:'error',error:current.failure.message}:{kind:'done'});
+        });};
+        current.timer=setInterval(()=>{try{draw();}catch(error){current.failure=error;clearInterval(current.timer);if(recorder.state!=='inactive')recorder.stop();}},1000/30);
+        recorder.start(1000);
+      } catch(error) { if(capture===current){window.whistlegraphStoryTape.cancel();throw error;} }
     },
-    stop(){if(recorder?.state!=='inactive')recorder?.stop();},
-    cancel(){clearInterval(timer);if(recorder){recorder.ondataavailable=null;recorder.onstop=null;if(recorder.state!=='inactive')recorder.stop();recorder=null;}session=null;}
+    pause(){if(capture?.recorder?.state==='recording')capture.recorder.pause();},
+    resume(){if(capture?.recorder?.state==='paused')capture.recorder.resume();},
+    stop(){if(capture?.recorder?.state!=='inactive')capture?.recorder?.stop();},
+    cancel(){const current=capture;capture=null;if(!current)return;clearInterval(current.timer);const recorder=current.recorder;if(recorder){recorder.ondataavailable=null;recorder.onstop=null;if(recorder.state!=='inactive')recorder.stop();}}
   };
 })();

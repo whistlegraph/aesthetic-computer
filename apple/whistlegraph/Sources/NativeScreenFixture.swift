@@ -19,10 +19,10 @@ enum NativeScreenFixture {
         let input = ["transcript": "OK go like…", "sound": sound] as [String: Any]
         let request = "Sound request\nINPUT DATA:\n" + String(data: try! JSONSerialization.data(withJSONObject: input), encoding: .utf8)!
         let versions: [[String: Any]] = [
-            ["id": 0, "parent": NSNull(), "source": "", "request": NSNull(), "createdAt": formatter.string(from: Date().addingTimeInterval(-420))],
-            ["id": 1, "parent": 0, "source": source, "request": request, "createdAt": formatter.string(from: Date().addingTimeInterval(-180))],
-            ["id": 2, "parent": 1, "source": source, "request": "Make it pink", "createdAt": formatter.string(from: Date().addingTimeInterval(-120))],
-            ["id": 3, "parent": 1, "source": source, "request": "Add a little moon", "createdAt": formatter.string(from: Date().addingTimeInterval(-30))]
+            ["id": 0, "parent": NSNull(), "source": "", "request": NSNull(), "createdAt": formatter.string(from: Date(timeIntervalSince1970: 1_780_000_000).addingTimeInterval(-420))],
+            ["id": 1, "parent": 0, "source": source, "request": request, "createdAt": formatter.string(from: Date(timeIntervalSince1970: 1_780_000_000).addingTimeInterval(-180))],
+            ["id": 2, "parent": 1, "source": source, "request": "Make it pink", "createdAt": formatter.string(from: Date(timeIntervalSince1970: 1_780_000_000).addingTimeInterval(-120))],
+            ["id": 3, "parent": 1, "source": source, "request": "Add a little moon", "createdAt": formatter.string(from: Date(timeIntervalSince1970: 1_780_000_000).addingTimeInterval(-30))]
         ]
         let ledger: [String: Any] = ["format": 1, "head": 3, "versions": versions]
         let json = String(data: try! JSONSerialization.data(withJSONObject: ledger), encoding: .utf8)!

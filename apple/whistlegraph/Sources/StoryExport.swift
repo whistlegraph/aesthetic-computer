@@ -3,101 +3,173 @@ import AVFoundation
 
 struct StoryMovie: Identifiable { let id = UUID(); let url: URL }
 
+// One canvas encoder, one card at a time. Completed cards are durable; seeking
+// discards only the unfinished card. Assembly reuses the cached MP4 tracks.
 @MainActor final class StoryExport: ObservableObject {
     enum Stage: Equatable { case preparing, rendering, finishingVideo, narration, encoding }
     @Published private(set) var busy = false
+    @Published private(set) var requested = false
     @Published private(set) var recording = false
     @Published private(set) var stage = Stage.preparing
     @Published private(set) var progress = 0.0
+    @Published private(set) var completedCards = 0
+    @Published private(set) var readyURL: URL?
     @Published var movie: StoryMovie?
     @Published var error = ""
+    private let cache: StoryCache
+    private static var fixtureReset = false
     private weak var session: WhistlegraphSession?
+    private var rows: [PieceRevision] = []
+    private var keys: [Int: String] = [:]
+    private var storyKey = ""
+    private var active = false
     private var operation = UUID()
+    private var storyRun = UUID()
+    private var currentKey: String?
     private var raw: URL?
-    private var sharedURL: URL?
     private var file: FileHandle?
     private var bytes = 0
-    private var tapeStarted = false
+    private var audio: StoryAudio?
     private var previousIdleTimer: Bool?
-    private var started = Date()
     private var exportSession: AVAssetExportSession?
-    private var narration: [(at: Double, task: Task<(URL, Double, Bool), Error>)] = []
     private var deadline: Task<Void, Never>?
+    private var completion: CheckedContinuation<Void, Never>?
+    private var reset: Task<Void, Never>?
+    private var assembly: Task<Void, Never>?
 
-    func begin(session: WhistlegraphSession, started: @escaping () -> Void) {
-        guard !busy else { return }
-        self.session = session; operation = UUID(); let expected = operation
-        stage = .preparing; progress = 0
-        busy = true; error = ""; bytes = 0; narration = []; tapeStarted = false
-        previousIdleTimer = UIApplication.shared.isIdleTimerDisabled; UIApplication.shared.isIdleTimerDisabled = true
-        Task {
-            do {
-                let url = FileManager.default.temporaryDirectory.appendingPathComponent("story-canvas-\(expected).mp4")
-                FileManager.default.createFile(atPath: url.path, contents: nil)
-                raw = url; file = try FileHandle(forWritingTo: url)
-                session.storyTapeEvent = { [weak self] event in self?.receive(event) }
-                guard operation == expected else { return }
-                self.started = Date(); recording = true; started()
-                deadline = Task { [weak self] in
-                    try? await Task.sleep(for: .seconds(600))
-                    guard !Task.isCancelled, let self, self.operation == expected else { return }
-                    self.fail("Story export exceeded ten minutes. Export a shorter branch.")
-                }
-            } catch { if operation == expected { fail(error.localizedDescription) } }
+    init(cache: StoryCache? = nil) {
+        #if DEBUG
+        self.cache = cache ?? StoryCache(name: NativeScreenFixture.enabled ? "StoryMovies-Fixture" : "StoryMovies")
+        #else
+        self.cache = cache ?? StoryCache()
+        #endif
+    }
+
+    func prepare(session: WhistlegraphSession, rows: [PieceRevision]) {
+        cancel(); self.session = session; self.rows = rows
+        #if DEBUG
+        if NativeScreenFixture.enabled, !Self.fixtureReset, ProcessInfo.processInfo.environment["WALKIE_RESET_STORY_CACHE"] == "1" {
+            try? FileManager.default.removeItem(at: cache.directory); Self.fixtureReset = true
         }
+        #endif
+        keys = Dictionary(uniqueKeysWithValues: rows.map { row in
+            (row.id, StoryCache.key(["story-card-v2-jeffrey", session.snapshot.code, String(row.id), row.createdAt, row.utterance, row.recordingID ?? "", String(session.pixelSize)]))
+        })
+        storyKey = StoryCache.key(["story-movie-v2"] + rows.compactMap { keys[$0.id] })
+        readyURL = cache.find(storyKey); completedCards = rows.filter { cached($0) != nil }.count
+        active = true; busy = readyURL == nil; stage = .preparing; error = ""
+        if readyURL == nil { assembleIfReady() }
     }
-    func update(version: Int, caption: String) {
-        guard busy else { return }
-        Task { try? await session?.storyTape("update", arguments: ["value": ["version": version, "caption": caption]]) }
-    }
-    func addNarration(_ row: PieceRevision) async {
-        guard recording else { return }
-        do {
-            try await session?.storyTape("update", arguments: ["value": ["version": row.id, "caption": row.utterance]])
-            if !tapeStarted {
-                try await session?.storyTape("start", arguments: ["id": operation.uuidString])
-                tapeStarted = true; started = Date(); stage = .rendering
-            }
-        } catch { fail(error.localizedDescription); return }
-        guard !row.utterance.isEmpty || row.recordingID != nil else { return }
-        let at = Date().timeIntervalSince(started)
-        let task = Task<(URL, Double, Bool), Error> {
-            if let id = row.recordingID, let url = UtteranceRecording.url(id), FileManager.default.fileExists(atPath: url.path) {
-                return (url, try RecordingTrim.read(url).start, false)
-            }
-            return (try await StorySpeech.render(row.utterance), 0, true)
+    private func cached(_ row: PieceRevision) -> URL? { keys[row.id].flatMap { cache.find($0) } }
+    var firstMissingIndex: Int? { rows.firstIndex { cached($0) == nil } }
+    func needsCard(at index: Int) -> Bool { rows.indices.contains(index) && cached(rows[index]) == nil }
+
+    // Called after this exact revision paints and its narration file is ready.
+    func startCard(_ row: PieceRevision, audio: StoryAudio?) async {
+        guard active, readyURL == nil, cached(row) == nil, assembly == nil else { return }
+        if let audio, audio.url.lastPathComponent.hasPrefix("story-voice-"), let key = keys[row.id] {
+            keys[row.id] = StoryCache.key([key, "device-fallback"])
+            storyKey = StoryCache.key(["story-movie-v2"] + rows.compactMap { keys[$0.id] })
         }
-        narration.append((at, task))
-    }
-    func finish() {
-        guard recording else { return }; recording = false
-        stage = .finishingVideo
+        discardCard()
         let expected = operation
-        Task { do { try await session?.storyTape("stop") } catch { if operation == expected { fail(error.localizedDescription) } } }
+        await reset?.value
+        guard active, operation == expected else { return }
+        do {
+            currentKey = keys[row.id]; self.audio = audio; bytes = 0
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("story-canvas-\(expected).mp4")
+            FileManager.default.createFile(atPath: url.path, contents: nil)
+            raw = url; file = try FileHandle(forWritingTo: url)
+            session?.storyTapeEvent = { [weak self] event in self?.receive(event) }
+            try await session?.storyTape("update", arguments: ["value": ["version": row.id, "caption": row.utterance]])
+            guard operation == expected, active else { return }
+            try await session?.storyTape("start", arguments: ["id": expected.uuidString])
+            guard operation == expected, active else { return }
+            previousIdleTimer = UIApplication.shared.isIdleTimerDisabled; UIApplication.shared.isIdleTimerDisabled = true
+            recording = true; busy = true; stage = .rendering
+            deadline = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(120))
+                guard !Task.isCancelled, let self, self.operation == expected else { return }
+                self.fail("This card took too long to export. Try again.")
+            }
+        } catch { if operation == expected { fail(error.localizedDescription) } }
+    }
+    func pause(_ paused: Bool) {
+        guard recording else { return }
+        let expected = operation
+        Task {
+            guard operation == expected else { return }
+            try? await session?.storyTape(paused ? "pause" : "resume")
+        }
+    }
+    func finishCard() async {
+        guard recording else { assembleIfReady(); return }
+        recording = false; stage = .finishingVideo
+        let expected = operation
+        await withCheckedContinuation { continuation in
+            completion = continuation
+            Task {
+                guard operation == expected else { return }
+                do { try await session?.storyTape("stop") }
+                catch { if operation == expected { fail(error.localizedDescription) } }
+            }
+        }
+    }
+    func request() {
+        if let readyURL { movie = StoryMovie(url: readyURL); return }
+        requested = true; active = true; busy = true; error = ""
+        assembleIfReady()
+    }
+    func needsRestart(before index: Int) -> Bool {
+        !recording && assembly == nil || rows.prefix(index).contains { cached($0) == nil }
+    }
+    func skipCard() { if raw != nil || recording { discardCard() } }
+    func discardCard() {
+        operation = UUID(); exportSession?.cancelExport(); exportSession = nil
+        cleanupCard()
+        let current = session, earlier = reset
+        reset = Task { await earlier?.value; try? await current?.storyTape("cancel") }
+    }
+    func cancel() {
+        active = false; storyRun = UUID(); assembly?.cancel(); assembly = nil
+        discardCard(); busy = false; requested = false
+    }
+    func clearMovie() { movie = nil }
+    private func cleanupCard() {
+        if let previousIdleTimer { UIApplication.shared.isIdleTimerDisabled = previousIdleTimer }; previousIdleTimer = nil
+        deadline?.cancel(); deadline = nil
+        try? file?.close(); file = nil
+        if let raw { try? FileManager.default.removeItem(at: raw) }; raw = nil
+        audio = nil; currentKey = nil; session?.storyTapeEvent = nil; recording = false
+        completion?.resume(); completion = nil
+    }
+    private func fail(_ message: String) {
+        let showError = requested
+        cancel()
+        // Automatic preparation must not interrupt browsing with a modal alert.
+        if showError { error = message }
     }
     private func receive(_ event: [String: Any]) {
-        guard busy, event["session"] as? String == operation.uuidString else { return }
+        guard active, event["session"] as? String == operation.uuidString else { return }
         do {
             switch event["kind"] as? String {
             case "chunk":
                 guard let value = event["data"] as? String, value.count <= 300_000, let data = Data(base64Encoded: value) else { throw ExportError.invalidChunk }
-                bytes += data.count; guard bytes <= 256_000_000 else { throw ExportError.tooLarge }
+                bytes += data.count; guard bytes <= 128_000_000 else { throw ExportError.tooLarge }
                 try file?.write(contentsOf: data)
             case "done":
                 try file?.close(); file = nil
                 let expected = operation
+                guard let raw, let key = currentKey else { throw ExportError.noVideo }
+                let sound = audio
                 Task {
                     do {
-                        guard let raw else { throw ExportError.noVideo }
-                        let output = try await mux(raw, operation: expected)
-                        guard operation == expected else { try? FileManager.default.removeItem(at: output); return }
-                        #if DEBUG
-                        if NativeScreenFixture.enabled && NativeScreenFixture.mode == "story" {
-                            let evidence = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("story-export-test.mp4")
-                            try? FileManager.default.removeItem(at: evidence); try FileManager.default.copyItem(at: output, to: evidence)
-                        }
-                        #endif
-                        sharedURL = output; movie = StoryMovie(url: output); cleanup(); busy = false; recording = false
+                        let output = try await compose([(raw, sound)], expected: expected, isCard: true)
+                        defer { try? FileManager.default.removeItem(at: output) }
+                        guard operation == expected, active else { return }
+                        _ = try cache.store(output, key: key, protecting: Set(keys.values))
+                        completedCards = rows.filter { cached($0) != nil }.count
+                        cleanupCard(); stage = .preparing; assembleIfReady()
                     } catch { if operation == expected { fail(error.localizedDescription) } }
                 }
             case "error": fail(event["error"] as? String ?? "Canvas recording failed.")
@@ -105,114 +177,92 @@ struct StoryMovie: Identifiable { let id = UUID(); let url: URL }
             }
         } catch { fail(error.localizedDescription) }
     }
-    private func cleanup() {
-        if let previousIdleTimer { UIApplication.shared.isIdleTimerDisabled = previousIdleTimer }; previousIdleTimer = nil
-        deadline?.cancel(); try? file?.close(); file = nil
-        if let raw { try? FileManager.default.removeItem(at: raw) }; raw = nil
-        session?.storyTapeEvent = nil
-        for item in narration { Task { if let (url, _, temporary) = try? await item.task.value, temporary { try? FileManager.default.removeItem(at: url) } } }
-        narration = []
-    }
-    private func fail(_ message: String) { cancel(); error = message }
-    func cancel() {
-        operation = UUID(); exportSession?.cancelExport(); exportSession = nil
-        let current = session
-        Task { try? await current?.storyTape("cancel") }
-        cleanup(); busy = false; recording = false
-    }
-    func clearMovie() { if let sharedURL { try? FileManager.default.removeItem(at: sharedURL) }; sharedURL = nil; movie = nil }
-    private func checkOperation(_ expected: UUID) throws {
-        guard busy, operation == expected else { throw CancellationError() }
-    }
-    private func mux(_ raw: URL, operation expected: UUID) async throws -> URL {
-        try checkOperation(expected)
-        stage = .narration; progress = 0
-        let asset = AVURLAsset(url: raw), mix = AVMutableComposition()
-        let duration = try await asset.load(.duration)
-        try checkOperation(expected)
-        guard let video = try await asset.loadTracks(withMediaType: .video).first,
-              let destination = mix.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else { throw ExportError.noVideo }
-        try destination.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: video, at: .zero)
-        destination.preferredTransform = try await video.load(.preferredTransform)
-        let clips = narration
-        for (index, clip) in clips.enumerated() {
-            let (url, trim, _) = try await clip.task.value
-            try checkOperation(expected)
-            let audio = AVURLAsset(url: url)
-            guard let track = try await audio.loadTracks(withMediaType: .audio).first,
-                  let target = mix.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) else { continue }
-            let length = try await audio.load(.duration).seconds - trim
-            let end = index+1 < clips.count ? clips[index+1].at : duration.seconds
-            let seconds = min(length, end-clip.at, duration.seconds-clip.at)
-            if seconds > 0 { try target.insertTimeRange(CMTimeRange(start: CMTime(seconds: trim, preferredTimescale: 600), duration: CMTime(seconds: seconds, preferredTimescale: 600)), of: track, at: CMTime(seconds: clip.at, preferredTimescale: 600)) }
-            progress = Double(index + 1) / Double(clips.count)
+    private func assembleIfReady() {
+        guard active, readyURL == nil, assembly == nil, !rows.isEmpty else { return }
+        let clips = rows.compactMap { cached($0) }
+        guard clips.count == rows.count else { return }
+        let expected = operation, run = storyRun, key = storyKey
+        stage = .encoding; progress = 0
+        assembly = Task {
+            defer { if storyRun == run { assembly = nil } }
+            do {
+                let output = try await compose(clips.map { ($0, nil) }, expected: expected, isCard: false)
+                defer { try? FileManager.default.removeItem(at: output) }
+                guard storyRun == run, active else { return }
+                let cached = try cache.store(output, key: key)
+                #if DEBUG
+                if NativeScreenFixture.enabled && NativeScreenFixture.mode == "story" {
+                    let evidence = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("story-export-test.mp4")
+                    try? FileManager.default.removeItem(at: evidence); try FileManager.default.copyItem(at: cached, to: evidence)
+                }
+                #endif
+                readyURL = cached; busy = false
+                if requested { requested = false; movie = StoryMovie(url: cached) }
+            } catch { if storyRun == run { fail(error.localizedDescription) } }
         }
-        try checkOperation(expected)
-        guard let exporter = AVAssetExportSession(asset: mix, presetName: AVAssetExportPresetHighestQuality) else { throw ExportError.noVideo }
+    }
+    private func check(_ expected: UUID) throws {
+        guard active, operation == expected, !Task.isCancelled else { throw CancellationError() }
+    }
+    private func compose(_ clips: [(URL, StoryAudio?)], expected: UUID, isCard: Bool) async throws -> URL {
+        try check(expected)
+        let mix = AVMutableComposition()
+        guard let video = mix.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else { throw ExportError.noVideo }
+        var cursor = CMTime.zero
+        for (url, narration) in clips {
+            let asset = AVURLAsset(url: url), length = try await asset.load(.duration)
+            try check(expected)
+            guard let track = try await asset.loadTracks(withMediaType: .video).first else { throw ExportError.noVideo }
+            try video.insertTimeRange(CMTimeRange(start: .zero, duration: length), of: track, at: cursor)
+            video.preferredTransform = try await track.load(.preferredTransform)
+            let soundAsset = narration.map { AVURLAsset(url: $0.url) } ?? asset
+            if let sound = try await soundAsset.loadTracks(withMediaType: .audio).first,
+               let target = mix.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
+                let trim = narration?.start ?? 0
+                let soundDuration = try await soundAsset.load(.duration).seconds
+                let seconds = min(length.seconds, (narration?.end ?? soundDuration) - trim)
+                if seconds > 0 { try target.insertTimeRange(CMTimeRange(start: CMTime(seconds: trim, preferredTimescale: 600), duration: CMTime(seconds: seconds, preferredTimescale: 600)), of: sound, at: cursor) }
+            }
+            cursor = cursor + length
+            guard cursor.seconds <= 600 else { throw ExportError.tooLong }
+        }
+        try check(expected)
+        guard let exporter = AVAssetExportSession(asset: mix, presetName: isCard ? AVAssetExportPresetHighestQuality : AVAssetExportPresetPassthrough) else { throw ExportError.noVideo }
         let output = FileManager.default.temporaryDirectory.appendingPathComponent("Whistlegraph-\(UUID()).mp4")
         exporter.outputURL = output; exporter.outputFileType = .mp4; exporter.shouldOptimizeForNetworkUse = true; exportSession = exporter
         stage = .encoding; progress = 0
         let monitor = Task { [weak self] in
             while !Task.isCancelled {
-                guard let self, self.operation == expected, self.busy else { return }
+                guard let self, self.operation == expected, self.active else { return }
                 self.progress = Double(exporter.progress)
                 try? await Task.sleep(for: .milliseconds(150))
             }
         }
         defer { monitor.cancel() }
         await exporter.export()
-        guard operation == expected else { try? FileManager.default.removeItem(at: output); throw CancellationError() }
-        exportSession = nil
-        guard exporter.status == .completed else { try? FileManager.default.removeItem(at: output); throw exporter.error ?? ExportError.noVideo }
-        progress = 1
-        return output
+        do {
+            try check(expected); exportSession = nil
+            guard exporter.status == .completed else { throw exporter.error ?? ExportError.noVideo }
+            progress = 1; return output
+        } catch { try? FileManager.default.removeItem(at: output); throw error }
     }
     private enum ExportError: LocalizedError {
-        case noVideo, invalidChunk, tooLarge
+        case noVideo, invalidChunk, tooLarge, tooLong
         var errorDescription: String? {
-            switch self { case .noVideo: return "Could not create the MP4."; case .invalidChunk: return "Invalid canvas tape data."; case .tooLarge: return "This story is too large. Export a shorter branch." }
+            switch self {
+            case .noVideo: return "Could not create the MP4."
+            case .invalidChunk: return "Invalid canvas tape data."
+            case .tooLarge: return "This card is too large to export."
+            case .tooLong: return "Export a story shorter than ten minutes."
+            }
         }
     }
 }
 
-// Render fallback narration to an audio file, never through a microphone.
-@MainActor private final class StorySpeech {
-    private let voice = AVSpeechSynthesizer()
-    private var file: AVAudioFile?
-    private var continuation: CheckedContinuation<URL, Error>?
-    private var timeout: Task<Void, Never>?
-    private let url = FileManager.default.temporaryDirectory.appendingPathComponent("story-voice-\(UUID()).caf")
-    static func render(_ text: String) async throws -> URL {
-        let renderer = StorySpeech()
-        return try await renderer.render(text)
-    }
-    private func render(_ text: String) async throws -> URL {
-        try await withCheckedThrowingContinuation { continuation in
-            self.continuation = continuation
-            self.timeout = Task {
-                try? await Task.sleep(for: .seconds(45))
-                guard !Task.isCancelled, let pending = self.continuation else { return }
-                self.continuation = nil; self.voice.stopSpeaking(at: .immediate)
-                pending.resume(throwing: NSError(domain: "StorySpeech", code: 1, userInfo: [NSLocalizedDescriptionKey: "Narration rendering timed out."]))
-            }
-            let line = AVSpeechUtterance(string: text.isEmpty ? " " : text)
-            line.rate = AVSpeechUtteranceDefaultSpeechRate; line.voice = AVSpeechSynthesisVoice(language: "en-US")
-            voice.write(line) { buffer in
-                guard let pcm = buffer as? AVAudioPCMBuffer else { return }
-                Task { @MainActor in
-                    guard let continuation = self.continuation else { return }
-                    do {
-                        if pcm.frameLength == 0 { self.timeout?.cancel(); self.continuation = nil; self.file = nil; continuation.resume(returning: self.url); return }
-                        if self.file == nil { self.file = try AVAudioFile(forWriting: self.url, settings: pcm.format.settings) }
-                        try self.file?.write(from: pcm)
-                    } catch { self.timeout?.cancel(); self.continuation = nil; continuation.resume(throwing: error) }
-                }
-            }
-        }
-    }
-}
+#if canImport(UIKit)
 struct StoryShareSheet: UIViewControllerRepresentable {
     let url: URL
     func makeUIViewController(context: Context) -> UIActivityViewController { UIActivityViewController(activityItems: [url], applicationActivities: nil) }
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
+#endif

@@ -1,0 +1,24 @@
+{
+  "build": 96,
+  "date": "2026-10-03",
+  "deviceBuild": "Signed iOS build passed; installed build number verified on paired iPhone.",
+  "javascriptTests": {
+    "passed": 49,
+    "command": "node --test apple/whistlegraph/Tests/*.test.mjs"
+  },
+  "browserTests": [
+    "--native-shell --checked-edits",
+    "--native-shell --checked-edits --repair-fails"
+  ],
+  "browserScope": "Mock inference verified Flash generation, Pro repair with 1024 thinking tokens, single repair budget, and rollback; no claim about live repair quality or latency.",
+  "nativeCache": "Passed real AVFoundation clip composition, partial completion/reopen, full MP4 duration, instant cached share, density invalidation, appended-branch reuse, cancellation, and eviction.",
+  "nativeCacheCommand": "sh apple/whistlegraph/Tests/story-cache.test.sh",
+  "voiceEndpoint": "Live AC Jeffrey voice request returned HTTP 200 audio/mpeg; valid 44.1 kHz MP3.",
+  "uiTests": "New cache and popover XCTest coverage added but not executed: paired phone locked and simulator host unreachable. Build 95 had six passing simulator tests; that result does not verify the new UI.",
+  "limits": [
+    "New cards render at playback speed while cards are open in the foreground.",
+    "iOS may reclaim cached clips; missing clips are regenerated.",
+    "Program synth audio is not mixed into MP4s.",
+    "Offline narration can use device speech; its cache key is distinct from Jeffrey narration."
+  ]
+}

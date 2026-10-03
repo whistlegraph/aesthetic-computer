@@ -1,4 +1,5 @@
 import {withDrawing,inputData,drawingImage,drawingContent} from './drawing-input.mjs';
+import {checkedPrompt} from './prompt-limit.mjs';
 import {reviewVisualResult,reviewWithRepair} from './visual-review.mjs';
 import {inferenceRequest,wantsSoundEvidence} from './inference-input.mjs';
 import {contextualRequest,selectedBranch} from './branch-context.mjs';
@@ -18,7 +19,7 @@ import {musicalPrompt} from './musical-input.mjs';
 import {PieceVersions} from './piece-versions.mjs';
 // The same inference/tool loop as Aesel, with a piece-first streaming renderer.
 import {AcServer} from '/easel/src/ac-server.mjs';
-import {DEFAULT_MODEL,GENERATION_INSTRUCTIONS} from './generation-policy.mjs';
+import {DEFAULT_MODEL,REPAIR_MODEL,GENERATION_INSTRUCTIONS} from './generation-policy.mjs';
 import {runnablePrefix} from './stream-preview.mjs';
 import * as vfs from '/easel/phone/shim/fs.mjs';
 
@@ -284,13 +285,13 @@ vfs.setWriteHandler((path,value)=>{
 });
 const guides = vfs.preload(['pieces.md','screen.md','hand.md','kidlisp.md','api.json'].map(name=>'/easel/context/'+name));
 function makeServer({repair=false}={}){
-  const value=new AcServer({cwd:'/piece',piece:{file,checkpoint:async()=>{const target=source;for(let i=0;i<100;i++){if(painted&&lastPaintedSource===target)return;await new Promise(resolve=>setTimeout(resolve,20));}}},frameCapture:false,layeredEdits:true,token:()=>token,model:window.__walkiewareModel||DEFAULT_MODEL,
+  const value=new AcServer({cwd:'/piece',piece:{file,checkpoint:async()=>{const target=source;for(let i=0;i<100;i++){if(painted&&lastPaintedSource===target)return;await new Promise(resolve=>setTimeout(resolve,20));}}},frameCapture:false,layeredEdits:true,token:()=>token,model:repair?(window.__walkiewareRepairModel||REPAIR_MODEL):(window.__walkiewareModel||DEFAULT_MODEL),
     fetch:async(url,options)=>{
       benchmark('requestDispatched');const recorder=activeReceipt,round=recorder?.request();
       const body=JSON.parse(options.body);body.max_tokens=4096;options={...options,body:JSON.stringify(body)};
       const response=await globalThis.fetch(url,options);if(round)recorder.headers(round,response);
       benchmark('inferenceHeaders',{status:response.status});return response;
-    },preview:true,rounds:repair?2:4,outputContinuations:repair?0:1,reasoning:{effort:'none'},thinking:{type:'disabled'},
+    },preview:true,rounds:repair?2:4,outputContinuations:repair?0:1,reasoning:repair?{max_tokens:1024}:{effort:'none'},thinking:repair?{type:'enabled',budget_tokens:1024}:{type:'disabled'},
     developerInstructions:GENERATION_INSTRUCTIONS});
   value.runtimeFeedback=()=>feedback;
   value.on('notification',({method,params})=>{
@@ -520,16 +521,19 @@ if(versions&&!window.__walkiewareSequence&&!window.__walkiewareBenchmark&&!windo
       }
       await verifyThreadRevision(command,()=>({busy,head:versions.head.id,source:versions.head.source}));
       const before=versions.head.id;
-      if(command.action==='ask')await ask(command.text);
+      if(command.action==='ask')await ask(checkedPrompt(command.text));
       else if(command.action==='undo')window.walkiewareUndo();
       else if(command.action==='edit') {
+        const request=checkedPrompt(command.text||'Remote source edit');
+        const findings=sourceChecks(command.source);
+        if(findings.length)throw Error('Source check failed: '+findings.map(f=>f.message).join('; '));
         busy=true;previous=source;turnRuntimeFailed=false;turnCancelled=false;checkpoints=1;server?.close();server=null;review(false);
         source=command.source;vfs.mount(file,source);phase('Applying remote edit…');render(source);
         try {
           for(let i=0;i<500&&!painted&&!turnRuntimeFailed&&!turnCancelled;i++)await new Promise(r=>setTimeout(r,10));
           await new Promise(r=>setTimeout(r,250));
           if(!painted||lastPaintedSource!==source||turnRuntimeFailed||turnCancelled)throw Error('Remote edit did not paint cleanly');
-          versions.commit({source,request:'Remote source edit',layers:1,parent:before});saved();phase('Ready to play');
+          versions.commit({source,request,layers:1,parent:before});saved();phase('Ready to play');
         }catch(error){source=previous;vfs.mount(file,source);render(source);throw error;}
         finally{end();}
       }

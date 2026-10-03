@@ -13,6 +13,7 @@
 		123228FADA6696AB354306C7 /* InputButtonLabels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35643029A3E82EEDEAC8DED6 /* InputButtonLabels.swift */; };
 		13604BE92157CDBFDD32AA19 /* WorkspaceCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147EAC245AD250B9B652F903 /* WorkspaceCoordinator.swift */; };
 		14FFBE48767E2576693FB7B3 /* MusicalInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D233DBB6F87184A91C13D41 /* MusicalInput.swift */; };
+		15EE658816EEA4B8BE6AAF5A /* StoryVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49854384EFBA11ABDE4F70C6 /* StoryVoice.swift */; };
 		19717448D7598ADAABBF739E /* HeaderSheetsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F98F7D3CE551FC6458D1F37 /* HeaderSheetsTests.swift */; };
 		26D07334E2DEBA6705671BB0 /* WhistlegraphApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA5F188938A81E704BB7F9F9 /* WhistlegraphApp.swift */; };
 		275555C74507A6F62B0F037B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FF5F023E15041FF61F9FD358 /* Assets.xcassets */; };
@@ -28,6 +29,7 @@
 		749AC25AE02AAE4BCDA5683A /* VisualCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DF0A171A5771A7A1FD56852 /* VisualCapture.swift */; };
 		77291EEE768914D5F5EDB84B /* PlaybackWord.swift in Sources */ = {isa = PBXBuildFile; fileRef = E97104E13862EE30444D07C9 /* PlaybackWord.swift */; };
 		77EC5FCFB7F9BF4A6BD4F94B /* NativeSignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21D4A924CCE7B4BEC62E98A9 /* NativeSignIn.swift */; };
+		7C8A0DCC5322399983CC8E43 /* StoryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = E86622F951A1F67F055D69F9 /* StoryCache.swift */; };
 		87EDDAE34B992D308236F1A9 /* StoryCardsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8B4655A00B6DC810F7203D1 /* StoryCardsTests.swift */; };
 		8A9F944BA95C971D70ADDF6B /* VersionNarrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D137824491A01D4C19417B8 /* VersionNarrator.swift */; };
 		9DBA1AF2AD7E3EDF69C8132A /* CodeTicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10E2AAA0A3F2BA1A5AEBED58 /* CodeTicker.swift */; };
@@ -67,6 +69,7 @@
 		35643029A3E82EEDEAC8DED6 /* InputButtonLabels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputButtonLabels.swift; sourceTree = "<group>"; };
 		3F98F7D3CE551FC6458D1F37 /* HeaderSheetsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderSheetsTests.swift; sourceTree = "<group>"; };
 		4728CB634CB3E4AED4F4D353 /* TalkHoldInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkHoldInput.swift; sourceTree = "<group>"; };
+		49854384EFBA11ABDE4F70C6 /* StoryVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryVoice.swift; sourceTree = "<group>"; };
 		4BA75145769FC4401A11BBE8 /* Web */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Web; path = Resources/Web; sourceTree = SOURCE_ROOT; };
 		4BBA0E45689010CB41A6A8FF /* NetworkBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkBenchmark.swift; sourceTree = "<group>"; };
 		4D3B156A3435E646EE0E6EEA /* PlaybackCaption.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackCaption.swift; sourceTree = "<group>"; };
@@ -90,6 +93,7 @@
 		D25F85E540016CEBC3A6BC09 /* WhistlegraphTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphTheme.swift; sourceTree = "<group>"; };
 		E38DD74717D0CE306D97D1CC /* Fixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fixtures; path = Resources/Fixtures; sourceTree = SOURCE_ROOT; };
 		E66B3ADC4D6D837FABC53B8F /* WhistlegraphScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphScreen.swift; sourceTree = "<group>"; };
+		E86622F951A1F67F055D69F9 /* StoryCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryCache.swift; sourceTree = "<group>"; };
 		E97104E13862EE30444D07C9 /* PlaybackWord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackWord.swift; sourceTree = "<group>"; };
 		FF5F023E15041FF61F9FD358 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -132,10 +136,12 @@
 				CC1EFF8BAE7678E320E3DCA0 /* RecordingTrim.swift */,
 				B55FB4AA387E716F9FEE0F83 /* SequenceBenchmark.swift */,
 				B7A25F803FAC121BFECC1AD7 /* SpeechCapture.swift */,
+				E86622F951A1F67F055D69F9 /* StoryCache.swift */,
 				8C42750EF4F7E96146B03585 /* StoryControls.swift */,
 				88B494AD8CD86FCC5DE0E4CC /* StoryExport.swift */,
 				250E0B1999C7810299ACB7A9 /* StoryMovieSheet.swift */,
 				03AEEA7D7E12C650CB618757 /* StoryTape.swift */,
+				49854384EFBA11ABDE4F70C6 /* StoryVoice.swift */,
 				4728CB634CB3E4AED4F4D353 /* TalkHoldInput.swift */,
 				8F9B92C3457F07429C8C2600 /* UtteranceRecording.swift */,
 				6D137824491A01D4C19417B8 /* VersionNarrator.swift */,
@@ -290,10 +296,12 @@
 				10C0A16D4803EC60EAC29531 /* RecordingTrim.swift in Sources */,
 				C4390906B03E8E8666BC54A3 /* SequenceBenchmark.swift in Sources */,
 				D3D16A0333764D0E5C3B620D /* SpeechCapture.swift in Sources */,
+				7C8A0DCC5322399983CC8E43 /* StoryCache.swift in Sources */,
 				3CF6178F7BA1702ADFA457B7 /* StoryControls.swift in Sources */,
 				47DADA794ABD0CD203CFF48C /* StoryExport.swift in Sources */,
 				03C5B25FC742430AFD02AD1E /* StoryMovieSheet.swift in Sources */,
 				E55F422280707B98E1D3E842 /* StoryTape.swift in Sources */,
+				15EE658816EEA4B8BE6AAF5A /* StoryVoice.swift in Sources */,
 				D8E8FFEA41DF3B0073DC5373 /* TalkHoldInput.swift in Sources */,
 				49D6E6ED3128002039D4F931 /* UtteranceRecording.swift in Sources */,
 				8A9F944BA95C971D70ADDF6B /* VersionNarrator.swift in Sources */,
@@ -416,7 +424,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 95;
+				CURRENT_PROJECT_VERSION = 96;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -501,7 +509,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 95;
+				CURRENT_PROJECT_VERSION = 96;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_NS_ASSERTIONS = NO;
