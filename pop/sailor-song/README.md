@@ -228,6 +228,47 @@ node pop/sailor-song/bin/splice.mjs && pop/.venv/bin/python pop/sailor-song/bin/
 VERSION=v73 bash pop/sailor-song/bin/bake.sh && pop/.venv/bin/python pop/sailor-song/bin/word-times.py --fa
 ```
 
+## v104 (2026-10-04 · the second critics' pass, the opening, the drop)
+
+Three more critics (mix · arrangement · pop) read v100 for "a master / pop release"; v101 took what
+they measured and jeffrey's ear took the rest through v104. Where it landed:
+
+- **The opening is one guitar path.** The record starts on her strums at bar 10 (`startSecOut =
+  bar_n(10)->beats[0] − 0.12`, eight strums before her word). The raw-guitar blend that used to
+  brighten the intro is gone before the button (`kRaw` only after bar 84) and the ×7 intro gain is
+  ×1 — the twangs and the guitar under her voice are the same sound. No radio, no previews, no
+  tape-start. Her verse-1 level eases up over bars 14–20 (`v_her`).
+- **The air is born with her word, slowly.** Both the pitched air bed and the wax hiss rise as
+  `((t − firstWordT)/12)²` — nothing before she sings, barely there in her first line, under her
+  by the second. (v101's linear 8 s read as "it just comes in right away".)
+- **The pickup is lazy.** Two beats before each "kiss" (bars 27 and 51) the regular kit, the 16th
+  trap hats and the 16th-grid kicks all sit out; what plays is a clap on 3 and a kick on 4,
+  ~28 ms *behind* the beat (`hum_lazy`), then her hesitation, then the drop. "A little fast …
+  spaced out more … more air there, catch that drop better."
+- **No "wrong" exception.** v86's reverse kick + bell frill + her third on "wrong" is deleted —
+  "those exceptions feel like bugs now." Her vowel choir, the deep gong on bar 44 and the rise-2
+  gong at 68 stay.
+- **Critics' pass (v101).** Her register is hers while she sings (`sheSings`: tenor lead 69–79,
+  vowel choir from 66, ostinato at ROOT+36, struck-pad octave only when she is out); the quartet
+  and aahs enter in chorus 2 / bridge and swell in (`v_orch`), the viola sits 49–55; chorus 2's
+  strings swell over 52–56, verse 2's climb over 47–52; verse 2 is stripped so chorus 2 arrives
+  (`DANCE[CHORUS2].hbass .9`, `gDrop` floor 0.6→1 over 52–54); her level steps 1.4 → 1.5 → 1.6
+  chorus 1 → chorus 2 → bridge; the glitch stop gates every bus and ends 3 ms before the downbeat
+  (it was chopping the gong); the bass folds to mono below 500 Hz from bar 81; third/octave sines
+  and `H_DOWN8` are out of the chorus harm sets; the fallback kit (`kitOff`) can no longer leak
+  after bar 82. `orchestra.mjs`: `sus()` suspends the D♯ voice, pickup strings ÷1.6, no horn
+  stab, glock only chorus 2 ≥ 60, timpani/taiko/pizz eager by `EAGER`.
+- **Vinyl chain.** The second compressor is 1.5:1 / 30 ms / unity makeup (ffmpeg's `makeup`
+  floor is 1, not 0 — v101's first cut died on that). −12.2 LUFS, −2.8 dBFS peak.
+- **Video (in flight).** `perf-relight.mjs` relights her room from the record (lamp, string
+  lights, window; chord tint; kicks bloom) over a subject matte; round 2 = Apple Vision subject
+  lifting for the matte, bouncing-ball singalong lyrics in black-and-white comic lettering with
+  mix-coloured shadows, and a VHS pass. `guitar-track.py`, `person-matte.py`, `room-lights.py`,
+  `glyph-atlas.py` feed it.
+
+Gotchas this round: a `// comment` appended mid-line swallowed an inline block's closing brace
+(again); `sheSings` was used before it was declared; never run two bakes at once.
+
 ## Platter reading
 
 [`ANALYSIS.md`](ANALYSIS.md) reads the take against the rhythm, chamber and

@@ -90,7 +90,7 @@
 #include "sailor-chart.h"
 
 #define SR 48000
-#define VERSION "v75"
+#define VERSION "v104"
 #define EAGER 0.009          // v73: "eager" placement — percussion pushes ~9 ms ahead of the grid
 #define PIANO_ON 0           // v71: "let's be rid of the piano" — the sampler stays, the part is off
 #define SHIFT27 0.0          // v53: how much earlier everything after bar 27 plays, now that the regularizer fits it to four beats
@@ -175,22 +175,22 @@ typedef struct {
 } Arr;
 #define H(i, g, az) [i] = { g, az }
 static const Arr ARR[NSEC] = {
-    [INTRO]   = { 0, 0, 0,      0, 0, 0, 0, 0, 0, 0,        0, 0, 0, 0, 0, 0, 0, 0, 0,      // v43: nothing of hers before she sings — the radio
+    [INTRO]   = { 1.1, 0, 0,    0, 0, 0, 0, 0, 0, 0,        0, 0, 0, 0, 0, 0, 0, 0, 0,      // v101: her guitar, same as verse 1
                   { { 0 } }, .10, .3 },
     [VERSE1]  = { 1.1, 0, 0,     0, 0, 0, 0, 0, .25, 0,      .8, .7, .3, 0, 0, 0, 0, 0, 0,    // v8: end state of the evolution (gated per bar below)
                   { H(H_DOWN3, .16, 40) }, .07, .45 },
-    [CHORUS1] = { 1.35, .7, 0,   1, 0, .8, .5, 0, .5, 1,     1, 1, 1, .3, .2, 0, 0, 0, 0,   // v22: her guitar back, strong
+    [CHORUS1] = { 1.4, .5, 0,   1, 0, .8, .5, 0, .5, 1,     1, 1, 1, .3, .2, 0, 0, 0, 0,   // v22: her guitar back, strong
                   { H(H_UP3, .34, -50), H(H_DOWN3, .30, 50), H(H_DOWN6, .2, 0) }, .18, 1.0 },   // v16: harmonies up
     [VERSE2]  = { 1.15, .4, 0,  .35, 0, 0, 0, 0, 0, .3,     .5, .3, .2, 0, 0, 0, 0, 0, 0,    // v75: stripped so chorus 2 is an arrival
                   { H(H_DOWN3, .30, 45), H(H_UP3, .30, -45), H(H_DOWN6, .18, 0) }, .12, .8 },   // v19: harmonies come in with the cathedral
-    [CHORUS2] = { 1.45, 1.0, .6, 1.1, 0, .9, .5, 0, .6, 1,   1, 1, 1, .3, .3, 0, 0, 0, 0,   // v49: her guitar front and centre in chorus 2 (+3 dB, the acoustic replay full)
-                  { H(H_UP3, .36, -60), H(H_DOWN3, .34, 60), H(H_DOWN6, .25, -20), H(H_DOWN8, .24, 0) }, .18, 1.0 },
-    [BREAK]   = { 1.2, .5, 0,    .8, 0, .4, .3, 0, .3, .6,   .8, 0, 0, 0, 0, 0, 1, 0, 0,   // v27: the break is a break — sub + hook, no tenor/high bed   // v24: no dead space — the beat stays, and rises
+    [CHORUS2] = { 1.5, .7, .5, 1.1, 0, .9, .5, 0, .6, 1,   .7, 1, 1, .3, .3, 0, 0, 0, 0,   // v49: her guitar front and centre in chorus 2 (+3 dB, the acoustic replay full)
+                  { H(H_UP3, .36, -60), H(H_DOWN3, .34, 60), H(H_DOWN6, .25, -20) }, .18, 1.0 },   // v101: no down8
+    [BREAK]   = { 1.5, .5, 0,    .8, 0, .4, .3, 0, .3, .6,   .8, 0, 0, 0, 0, 0, 1, 0, 0,   // v27: the break is a break — sub + hook, no tenor/high bed   // v24: no dead space — the beat stays, and rises
                   { { 0 } }, .20, .2 },
-    [BRIDGE]  = { 1.2, .6, .7,   1, 0, .7, .4, 0, .6, .9,    1, 1, 1, .2, .3, 0, 0, .3, .3,
+    [BRIDGE]  = { 1.6, .6, .7,   1, 0, .7, .4, 0, .6, .9,    1, 1, 1, .2, .3, 0, 0, .3, .3,
                   { { 0 } }, .06, .9 },                   // harmonies rove, see harm_at()   // v32: almost dry — the cat-and-mouse verse up close
     [OUTRO]   = { 1.3, .8, .8,    1.2, 0, 1, .5, 0, .7, 1,    1, 1, 1, .3, .3, 0, 0, .3, .4,   // v24: the FINALE
-                  { H(H_UP3, .4, -60), H(H_DOWN3, .4, 60), H(H_DOWN6, .28, -20), H(H_DOWN8, .24, 0) }, .20, 1.0 },
+                  { H(H_UP3, .4, -60), H(H_DOWN3, .4, 60), H(H_DOWN6, .28, -20) }, .20, 1.0 },
 };
 // "pitching around": in the bridge her harmony changes interval and place each bar
 static double evo(int bar, int from, int to);
@@ -323,6 +323,15 @@ static void gong(double t, int midi, double g) {
         add(bellM, a + i, v * fmin(1, u / 0.006) * g * 0.35); }
     ev(t, "gong", 4.0, g, midi);
 }
+// v88: THE DEEP GONG — the FEM gong an octave or two down, longer (×2 decays), with a slow vibrato on every partial
+static void gong_deep(double t, int midi, double g, double vibHz, double vibCents) {
+    static const double P[5] = { 1.0, 2.0, 2.98, 4.2, 5.43 }, D[5] = { 8.4, 6.8, 5.2, 3.8, 2.6 }, A[5] = { 1.0, 0.5, 0.35, 0.2, 0.12 };
+    long a = at(t); double f = mtof(midi), ph[5] = { 0 };
+    for (long i = 0; i < 10.0 * SR; i++) { double u = (double)i / SR, v = 0, vib = pow(2, vibCents / 1200 * sin(2 * PI * vibHz * u) * fmin(1, u / 1.5));
+        for (int k = 0; k < 5; k++) { ph[k] += 2 * PI * f * P[k] * vib * (1 + 0.0015 * k) / SR; v += sin(ph[k]) * A[k] * exp(-u / D[k]); }
+        add(bellM, a + i, v * fmin(1, u / 0.01) * g * 0.4); }
+    ev(t, "gong", 8.0, g, midi);
+}
 static void fem_bell(double t, int midi, double g) {
     while (midi > 76) midi -= 12;
     while (midi < 63) midi += 12;
@@ -409,7 +418,7 @@ static float *automate(BarValue fn, int arg) {
 }
 #define ARRV(field) static double v_##field(const ChartBar *b, int x) { (void)x; return ARR[section_of(b->n)].field; }
 ARRV(send) ARRV(air) ARRV(acg) ARRV(elg)
-static double v_her(const ChartBar *b, int x) { (void)x; int s = section_of(b->n); double g = ARR[s].her; return s == VERSE1 ? g * (0.08 + 0.92 * evo(b->n, 14, 20)) : g; }   // v31c: "very quiet first few bars so it sounds like isolated vocal"   // v28: "start the track with the vocal … lose some of the guitar in the beginning, just have percussion" — a sixth of it under her first line, in by 19
+static double v_her(const ChartBar *b, int x) { (void)x; int s = section_of(b->n); double g = ARR[s].her; return s == VERSE1 || s == INTRO ? g * (0.55 + 0.45 * evo(b->n, 14, 20)) : g; }   // v101: a real level from the first strum (the 8 % creep made the twangs a different instrument)   // v28: "start the track with the vocal … lose some of the guitar in the beginning, just have percussion" — a sixth of it under her first line, in by 19
 // v6.6: warm — the opening vocal close to the mic: proximity below 350 Hz, no air, almost no room; eases out by the floor
 // v7: the choir stands behind her in the choruses, the bridge and the outro; a breath of it in verse 2
 static double v_choir(const ChartBar *b, int x) { (void)x; int s = section_of(b->n);   // v67: the choir fades in over the chorus's first six bars
@@ -427,18 +436,22 @@ static const double ORCH[NSEC][NORCH] = {
     [VERSE1]  = {  .3,  .5,  .6,   0,  .8,   0,   0,   0,   0,   0,   0,   0,   0 },
     [CHORUS1] = {  .3,  .7,   0,  .6,  .8,   0,   0,  .6,  .7,  .7,  .7,  .7,   0 },
     [VERSE2]  = {   0,   0,  .4,   0,   0,  .4,   0,   0,  .3,  .3,   0,   0,   0 },   // v75: thinned
-    [CHORUS2] = {  .4,  .8,   0,  .8,   1,   0,  .7,  .9,  .9,  .9,  .9,  .9,  .5 },
+    [CHORUS2] = {  .4,  .8,   0,  .8,   1,   0,  .7,  .6,  .6,  .6,  .6,  .6,  .5 },   // v101: quartet + aahs −3.5 dB — they sat over her 300 Hz–2 kHz
     [BREAK]   = {  .4,  .6,   0,  .5,  .7,  .7,   0,  .5,  .7,  .7,  .7,  .7,  .6 },   // v24: the break rises instead of emptying
-    [BRIDGE]  = {  .4,  .8,   0,  .9,   1,  .6,  .8,  .9,   1,   1,   1,   1,  .6 },
+    [BRIDGE]  = {  .4,  .8,   0,  .9,   1,  .6,  .8,  .6,  .7,  .7,  .7,  .7,  .6 },
     [OUTRO]   = {  .5,   1,   0,   1,   1,  .8,   1,   1,   1,   1,   1,   1,  .6 } };  // v24: the finale; v30: taiko supports the toms
 // v75: THE ENERGY CURVE — one shape over the whole record that every played velocity follows: verse 1 rising, chorus 1 high,
 // verse 2 dipping and climbing, chorus 2 full, break and bridge climbing to the finale, the release falling away
 static double curveE(int n) { int s = section_of(n);
     switch (s) { case INTRO: return 0.5; case VERSE1: return 0.6 + 0.25 * evo(n, 14, 27); case CHORUS1: return 0.9; case VERSE2: return 0.55 + 0.3 * evo(n, 47, 52);
         case CHORUS2: return 1.0; case BREAK: return 0.7 + 0.2 * evo(n, 68, 73); case BRIDGE: return 0.8 + 0.2 * evo(n, 73, 81); case OUTRO: return n >= 83 ? 0.6 : 1.05; } return 1; }
-static double v_orch(const ChartBar *b, int o) { return (KICK_ONLY && o == O_TAIKO) ? 0 : ORCH[section_of(b->n)][o]; }   // v48: no taiko in kick-only
-static double v_dissolve(const ChartBar *b, int x) { (void)x; return evo(b->n, 81, 85); }   // v41: 0 → 1 across the finale: the band closes through a lowpass
-static double v_room(const ChartBar *b, int x) { (void)x; return 1 - 0.8 * evo(b->n, 72, 84); }   // v39: "towards the end we lose the reverb" — the room eases out from the bridge to the last bar
+static double v_orch(const ChartBar *b, int o) { int s = section_of(b->n); double g = (KICK_ONLY && o == O_TAIKO) ? 0 : ORCH[s][o];
+    if (s == CHORUS2 && (o == O_STRINGS || o == O_AAHS || o == O_VLN1 || o == O_VLN2 || o == O_VIOLA || o == O_QCELLO)) g *= 0.55 + 0.45 * evo(b->n, 52, 56);   // v101: chorus 2's bed swells in like chorus 1's
+    if (s == VERSE2 && (o == O_PIZZ || o == O_HARP || o == O_VLN1 || o == O_VLN2)) g *= 1 + 0.75 * evo(b->n, 47, 52);   // v101: verse 2 climbs
+    return g; }
+static double v_dissolve(const ChartBar *b, int x) { (void)x; return evo(b->n, 83, 85); }   // v101: 81–82 keep their top   // v41: 0 → 1 across the finale: the band closes through a lowpass
+static double v_room(const ChartBar *b, int x) { (void)x; return b->n >= 84 ? 0 : 1 - 0.8 * evo(b->n, 72, 84); }   // v77: no room at all from the button   // v39: "towards the end we lose the reverb" — the room eases out from the bridge to the last bar
+static double v_pumpv(const ChartBar *b, int x) { (void)x; int s = section_of(b->n); return (s == CHORUS1 || s == CHORUS2 || s == BRIDGE || s == OUTRO) ? 0.15 : 0.36; }   // v101
 static double v_orch_side(const ChartBar *b, int x) { (void)x; int s = section_of(b->n); return s == BREAK || s == OUTRO ? 0.5 : 1; }     // v27
 static double v_orch_shelf(const ChartBar *b, int x) { (void)x; int s = section_of(b->n); return s == BREAK || s == OUTRO ? 0.6 : 0; }    // v27: +4 dB above 3 kHz
 // v24: the quartet's seats, each leaning a little on its own phase
@@ -559,7 +572,7 @@ static double turn_disp(double t) {
     if (t >= LAP_T0 && t < LAP_T1) d += 360 * (t - LAP_T0) / (LAP_T1 - LAP_T0);                                               // v65: the whole ring turns once, slowly, across chorus 2
     if (t >= WOB_T0 && t < WOB_T1) { double x = (t - WOB_T0) / (WOB_T1 - WOB_T0); d += 35 * sin(2 * PI * 0.5 * (t - WOB_T0)) * fmin(1, x * 4) * fmin(1, (1 - x) * 4); }   // v65: ±35° at 0.5 Hz
     for (int k = 0; k < 4; k++) { double x = (t - TURN_T0[k]) / TURN_D[k]; if (x > 0 && x < 1) d += 360 * x * x * x * (x * (6 * x - 15) + 10); }
-    if (t > FIN_T0) d += 360 * (t - FIN_T0) / FIN_LAP;
+    (void)FIN_LAP;   // v101: no lap in the finale — it put the mids anti-phase
     return d;
 }
 static double impact_disp(double t) {          // degrees of azimuth displacement
@@ -648,7 +661,8 @@ static float *zeros(void) { return (float *)calloc(N, sizeof(float)); }
 // humanize: ±4 ms, ±12 % — a hand, not a sequencer ("a bit midi like")
 static double hum_t(double t) { return t + rnd() * 0.004; }
 static double hum_g(double g) { return g * (1 + rnd() * 0.12); }
-static double hum_t2(double t, double ms) { return t - EAGER + rnd() * ms / 1000; }   // v6.4: looser hands; v73: eager — ahead of the beat
+static double hum_t2(double t, double ms) { return t - EAGER + rnd() * ms / 1000; }
+static double hum_lazy(double t, double ms) { return t + 0.028 + rnd() * ms / 1000; }   // v103: lazy hands — behind the beat, for the pickup into the drop   // v6.4: looser hands; v73: eager — ahead of the beat
 static double hum_g2(double g, double pct) { return g * (1 + rnd() * pct); }
 
 // ── the dance layer (v5.2: "turn the song into a dance mix") ─────────────
@@ -770,6 +784,13 @@ static void stride(double t, int k, double g) {   // one stride from the steady 
     for (long i = 0; i < n; i++) { double w = fmin(1, i / (0.01 * SR)) * fmin(1, (n - i) / (0.06 * SR)); add(horseM, a + i, sample(GALLOP.L, GALLOP.n, sa + i) * w * g); } }
 static void neigh(double t, double rate, double g) { if (!NEIGH.L) return; long a = at(t); double pos = 0;
     for (long i = 0; pos < NEIGH.n - 1; i++, pos += rate) { long j = (long)pos; double f = pos - j; add(horseM, a + i, (NEIGH.L[j] * (1 - f) + NEIGH.L[j + 1] * f) * g); } ev(t, "neigh", NEIGH.n / SR / rate, g, -1); }
+// v85: CLICK — a 2 ms bright tick (filtered noise + a 3 kHz ping), the 16th-grid percussion the record was missing
+static void click(double t, double g, double pan) {
+    long a = at(t); double ph = 0, hp = 0, prev = 0;
+    for (long i = 0; i < 0.03 * SR; i++) { double u = (double)i / SR, nz = rnd(); hp = nz - prev; prev = nz; ph += 2 * PI * 3200 / SR;
+        double v = (hp * 0.6 * exp(-u * 900) + sin(ph) * 0.5 * exp(-u * 350)) * g * fmin(1, i / (0.0005 * SR));
+        add(pcM, a + i, v * (1 - 0.3 * pan)); }
+}
 static void open_hat(double t, double g) {
     long a = at(t); double p1 = 0, p2 = 0;
     for (long i = 0; i < 0.24 * SR; i++) { double u = (double)i / SR, nz = rnd(), h1 = nz - p1; p1 = nz; double h2 = h1 - p2; p2 = h1;
@@ -796,7 +817,7 @@ static void riser(double t0, double t1, double g) {
 //                    4otf  clap  ohat  hbass  (v5.2)
 static const double DANCE[NSEC][4] = {
     [INTRO] = { 0, 0, 0, 0 }, [VERSE1] = { .8, 0, .5, .7 }, [CHORUS1] = { 1.1, 1, .9, 1.1 }, [VERSE2] = { .35, 0, 0, .3 },   // v75: stripped — kick on 1, no claps/hats
-    [CHORUS2] = { 1.25, 1, 1.1, 1.1 }, [BREAK] = { .9, .5, .6, .8 }, [BRIDGE] = { 1.2, .9, 1, 1 }, [OUTRO] = { 1.3, 1, 1.1, 1.1 } };   // v24: the break keeps the beat; the outro is the finale
+    [CHORUS2] = { 1.25, 1, 1.1, .9 }, [BREAK] = { .9, .5, .6, .8 }, [BRIDGE] = { 1.2, .9, 1, 1 }, [OUTRO] = { 1.3, 1, 1.1, 1.1 } };   // v24: the break keeps the beat; the outro is the finale
 
 // ── hand percussion (v5.1: "we have no actual percussion yet") ───────────
 // shaker: band-passed noise with a swell-in (the bead mass lags the hand)
@@ -937,9 +958,9 @@ int main(void) {
     // v36: the held "long"s RISE an octave and keep going (bin/pitch-fx.py: f0 cleaned, the vowel extended on her own frames);
     // the engine replaces her lead with the rise, and lays a gliding sine + bells on every scale step the glide crosses (the .curve)
     // v55: a fourth: "kiss" itself, placed a beat and a bit before where it was sung and held to "me" (60.84) — only the start of the word moves
-    static struct { const char *name; double t0, t1, orig; int slide; } FX[4] = { { "rise-long-1", 86.40, 0, 90.95, 1 }, { "rise-long-2", 132.68, 0, 137.08, 1 }, { "hold-out", 159.40, 0, 160.97, 1 }, { "kiss-hold-OFF", 60.07, 0, 60.84, 1 } };   // v57: off — her timing
+    static struct { const char *name; double t0, t1, orig; int slide; } FX[4] = { { "rise-long-1", 86.40, 0, 90.95, 1 }, { "rise-long-2", 132.68, 0, 0, 1 }, { "hold-out-OFF", 159.40, 0, 0, 1 }, { "kiss-hold-OFF", 60.07, 0, 60.84, 1 } };   // v94: the warped words carry her own ending (orig 0 = to the file's end); v96: her "out" as she sang it — the ghosts extend it   // v57: off — her timing
     Stereo fxS[4]; int nfx = 0; for (int q = 0; q < 4; q++) { snprintf(pth, sizeof pth, LANE "/src/vox/fx/%s.wav", FX[q].name); fxS[q] = access(pth, F_OK) == 0 ? load_wav(pth) : (Stereo){ 0 }; nfx += !!fxS[q].L;
-        if (fxS[q].L && FX[q].t1 == 0) FX[q].t1 = FX[q].t0 + (double)fxS[q].n / SR; }
+        if (fxS[q].L && FX[q].t1 == 0) FX[q].t1 = FX[q].t0 + (double)fxS[q].n / SR; if (fxS[q].L && FX[q].orig == 0) FX[q].orig = FX[q].t1 - 0.06; }
     int ntom = 0; for (int q = 0; q < 4; q++) { snprintf(pth, sizeof pth, LANE "/src/kit/tom-%d.wav", q + 1); TOM_S[q] = access(pth, F_OK) == 0 ? load_wav(pth) : (Stereo){ 0 };
         if (TOM_S[q].L) { double pk = 0; for (long i = 0; i < TOM_S[q].n; i++) pk = fmax(pk, fabs(TOM_S[q].L[i])); if (pk > 0) for (long i = 0; i < TOM_S[q].n; i++) TOM_S[q].L[i] *= (float)(0.8 / pk); ntom++; } }
     fprintf(stderr, "stems: %s · orchestra: %d/%d parts · toms: %d/4 samples · octave fx: %d/3\n", stems, norch, NORCH, ntom, nfx);
@@ -986,10 +1007,12 @@ int main(void) {
       double drift = pos / SR - tz;   // should be ~0: where the glide hands back to her
       for (long i = a0; i < az && i < vox.n; i++) { double w = fmin(1, (double)(az - i) / (0.03 * SR)); vox.L[i] = (float)(tmp[i - a0] * w + sample(vox.L, vox.n, i) * (1 - w) * (i >= at(firstWordT) ? 0 : 1)); if (vox.R && vox.R != vox.L) vox.R[i] = vox.L[i]; }
       free(tmp); fprintf(stderr, "tape-start: %.2f → %.2f s, hand-back drift %.3f s\n", t0, tz, drift); }
-    startSecOut = bar_n(11)->beats[3] - 0.02;   // v74: ONE guitar twang before she swings — the strum on bar 11's fourth beat, then her word
+    startSecOut = bar_n(10)->beats[0] - 0.12;   // v101: eight strums (bars 10–11) before her word, ONE guitar path throughout — the twangs and the guitar under her are the same sound
     N = vox.n + 3 * SR;   // v27: three seconds past the stems so the button, the 808 and the 7.5 s tail release (v26 faded them at 0.4 s)
     pL = zeros(); pR = zeros();
     bedroom_level(&gtr, bar_n(16)->t);                                 // v6: until bar 16
+    Stereo gtrRaw = { (float *)malloc(gtr.n * sizeof(float)), (float *)malloc(gtr.n * sizeof(float)), gtr.n };   // v78: her guitar as the phone heard it
+    memcpy(gtrRaw.L, gtr.L, gtr.n * sizeof(float)); memcpy(gtrRaw.R, gtr.R, gtr.n * sizeof(float));
     pop_guitar(&gtr, 1.5); pop_guitar(&acg, 1.3);
     // v59: HER HAND — the strum attacks lifted: the 2–6 kHz band's fast envelope against its slow one, the burst of a pick/nail boosted for its length
     { float *ch[2] = { gtr.L, gtr.R }; const double kh = 1 - exp(-2 * PI * 2000 / SR), kl = 1 - exp(-2 * PI * 6000 / SR);
@@ -1007,13 +1030,14 @@ int main(void) {
     horseM = zeros(); GALLOP = access(LANE "/src/sfx/gallop.wav", F_OK) == 0 ? load_wav(LANE "/src/sfx/gallop.wav") : (Stereo){ 0 }; NEIGH = access(LANE "/src/sfx/neigh.wav", F_OK) == 0 ? load_wav(LANE "/src/sfx/neigh.wav") : (Stereo){ 0 };
     HORSE_T0 = bar_n(68)->t; HORSE_T1 = bar_n(80)->t + bar_n(80)->dur; fprintf(stderr, "horse: gallop %s, neigh %s\n", GALLOP.L ? "yes" : "no", NEIGH.L ? "yes" : "no");
     // v59: the 12-string — her guitar an octave up, quietly, under the choruses, the bridge climb and the finale
-    { static const int SEG[4][2] = { { 28, 43 }, { 52, 67 }, { 77, 80 }, { 81, 82 } }; static const double G12[4] = { .22, .3, .3, .35 };
+    { static const int SEG[4][2] = { { 28, 43 }, { 52, 67 }, { 77, 80 }, { 81, 82 } }; static const double G12[4] = { .14, .2, .3, .35 };   // v81: the 12-string back too in the choruses
       for (int q = 0; q < 4; q++) { long a = at(bar_n(SEG[q][0])->t), z = at(bar_n(SEG[q][1])->t + bar_n(SEG[q][1])->dur);
           shift_into(gtr.L, gtr.n, g12L, a, z, ratio_octave, G12[q]); shift_into(gtr.R, gtr.n, g12R, a, z, ratio_octave, G12[q]); } }
     // v59: THE CLIMB — out of the break, bars 71–72, her guitar steps up the scale an 8th at a time to the octave, into the bridge
     { const ChartBar *b71 = bar_n(71), *b72 = bar_n(72); CLIMB_T0 = b71->t; CLIMB_T1 = b72->t + b72->dur; CLIMB_STEP = (CLIMB_T1 - CLIMB_T0) / 8;
       shift_into(gtr.L, gtr.n, g12L, at(CLIMB_T0), at(CLIMB_T1), ratio_climb, 0.9); shift_into(gtr.R, gtr.n, g12R, at(CLIMB_T0), at(CLIMB_T1), ratio_climb, 0.9);
       ev(CLIMB_T0, "gtr-climb", CLIMB_T1 - CLIMB_T0, 1, -1); }
+    // v79: the camera nudge is kept as it is (v77 pitched it up — "we shouldn't have")
     { const ChartBar *b73 = bar_n(73), *b76 = bar_n(76); PITCHY_T0 = b73->t; PITCHY_T1 = b76->t + b76->dur; PITCHY_BEAT = b73->dur / b73->nb;   // v73: the pitchy guitar in the dead zone
       shift_into(gtr.L, gtr.n, g12L, at(PITCHY_T0), at(PITCHY_T1), ratio_pitchy, 0.85); shift_into(gtr.R, gtr.n, g12R, at(PITCHY_T0), at(PITCHY_T1), ratio_pitchy, 0.85); ev(PITCHY_T0, "gtr-pitchy", PITCHY_T1 - PITCHY_T0, 1, -1); } float *stM = zeros(), *throwM = zeros();   // v24: the wub bass and the stutter; v25: the throws
     for (int h = 0; h < NHARM; h++) { arpG[h] = zeros(); arpAz[h] = zeros(); }
@@ -1053,19 +1077,21 @@ int main(void) {
         static const double DZ0[4] = { 0, 0, 0, 0 };
         const int release = s == OUTRO && b->n >= 82;                                      // v27: her ring-out, the band leaves; v41: from 82 — the last word dissolves
         const double *dzT = ((s == BREAK && b->n < 70) || release) ? DZ0 : DANCE[s];      // v27: the break's first two bars have no kit
-        const double dzv[4] = { dzT[0], KICK_ONLY ? 0 : dzT[1], KICK_ONLY ? 0 : dzT[2], dzT[3] }; const double *dz = dzv;   // v48: kick only
+        const double dzv[4] = { dzT[0] * (s == VERSE2 ? 1 + 1.1 * evo(b->n, 48, 52) : 1), KICK_ONLY ? 0 : dzT[1], KICK_ONLY ? 0 : dzT[2], dzT[3] }; const double *dz = dzv;   // v48: kick only; v101: verse 2's kick climbs
+        const int kitOff = dzT == DZ0;
+        const int sheSings = s == VERSE1 || s == CHORUS1 || s == VERSE2 || s == CHORUS2 || (s == BREAK && b->n == 72) || s == BRIDGE;   // v101: her register is hers while she sings   // v100: the kit is OFF here on purpose — the v2 pocket-kit fallback below must not fill the hole (it was firing the loudest 808s of the record in the release)
         const double kickLift = b->n >= 81 ? 1.41 : b->n >= 52 ? 1.35 : 1;                // v27: the kick grows; v75: +2.6 dB at the floor
         for (int q = 0; q < NIMPACT; q++) if (IMPACT_BARS[q] == b->n) {
             const ChartBar *pb = bar_n(b->n - 1); const int pk = pb && pickup_bar(pb->n);
             const double tI = bt[0] + VOICE_LAG; (void)pk;                          // v56: the implosion lands on "kiss" — its whoosh was covering "Oh, won't you"
-            IMPACT_T[q] = tI; if (b->n != 28 && b->n != 52) { explosion(tI, b->n == 81 ? 1.0 : 0.8); blast(tI, b->n == 81 ? 0.9 : 0.6); }
+            if (b->n != 28 && b->n != 52) { IMPACT_T[q] = tI; explosion(tI, b->n == 81 ? 1.0 : 0.8); blast(tI, b->n == 81 ? 0.9 : 0.6); }   // v101: the ring is yanked only at 73/81
             else gong(tI, 78, b->n == 52 ? 0.95 : 0.6);   // v59: "kiss" rings a FEM gong; v75: chorus 2's bigger
             }   // v11: implosions; v25: at every lift; v28: and a blast out; v33: chorus 1's is the biggest
         for (int q = 0; q < NIMPACT; q++) if (IMPACT_BARS[q] == b->n + 2) { const ChartBar *nx = &CHART_BARS[k + 1 < CHART_NBARS ? k + 1 : k]; double tEnd = pickup_bar(nx->n) ? pickup_t(nx) : CHART_BARS[k + 2 < CHART_NBARS ? k + 2 : k].t;
             (void)tEnd; }   // v39: no risers — "filter sweeps are a little cheesy" (the implosion/blast stay)   // v25: a two-bar noise riser into each lift; v35: ending on the pickup
         const int pos = k + 1, posV2 = pos_n(44), posC1 = pos_n_after(27, posV2);                   // v13: positions in the record
         // v22: by section — the take plays in its own order now. Chorus 1 is big but not the floor, verse 2 pulls back, chorus 2 lands whole
-        const double gDrop = b->n >= FLOOR_BAR ? 1 : s == CHORUS1 ? 0.6 + 0.2 * evo(b->n, 28, 36) : s == VERSE2 ? 0.45 : s == VERSE1 ? 0.5 * evo(b->n, 20, 28) : 0;   // v27: verse 1's pads, high pair and pickup bass were gated to 0   (void)pos; (void)posV2; (void)posC1;
+        const double gDrop = b->n >= FLOOR_BAR ? 0.6 + 0.4 * evo(b->n, 52, 54) : s == CHORUS1 ? 0.6 + 0.2 * evo(b->n, 28, 36) : s == VERSE2 ? 0.45 : s == VERSE1 ? 0.5 * evo(b->n, 20, 28) : 0;   // v27: verse 1's pads, high pair and pickup bass were gated to 0   (void)pos; (void)posV2; (void)posC1;
         // v6.6: hills — every section rises to its middle and settles into its edge
         const int secLen = (s + 1 < NSEC ? SEC_FROM[s + 1] : CHART_NBARS + 1) - SEC_FROM[s];
         const double hill = s == INTRO ? 1 : 0.84 + 0.16 * sin(PI * (b->n - SEC_FROM[s] + 0.5) / secLen);
@@ -1085,7 +1111,7 @@ int main(void) {
         const int hatDrop = (s == CHORUS1 || s == CHORUS2 || s == OUTRO) && ph == 3 && (phN % 2 == 1);
         const int fillBar = (s == CHORUS1 || s == CHORUS2 || s == BRIDGE || s == OUTRO || s == VERSE2) && ph == 3 && nb > 3, lift27 = 0;
         const double eag = (1 + 0.09 * ph / 3.0) * curveE(b->n);   // v73: builds across each phrase; v75: × the record's energy curve
-        if (dz[0] && gKick > 0) for (int j = 0; j < nb; j++) { if ((s == VERSE1 || s == VERSE2) && j % 2) continue; if (s == VERSE2 && j == 2 && b->n < 48) continue;   // v49: the verses on her 1 and 3; v75: verse 2 on 1 only until 48   // v22: her 1 and 3 in the verses; v27: and in the finale (half-time, big)
+        if (dz[0] && gKick > 0) for (int j = 0; j < nb; j++) { if (pickup_bar(b->n) && j >= pickup_j(b)) continue; if ((s == VERSE1 || s == VERSE2) && j % 2) continue; if (s == VERSE2 && j == 2 && b->n < 48) continue;   // v49: the verses on her 1 and 3; v75: verse 2 on 1 only until 48   // v22: her 1 and 3 in the verses; v27: and in the finale (half-time, big)
             // (v49: bars 73–76 keep the floor too — steady; the orchestra is what thins there)
             double g = 0.95 * dz[0] * (j % 2 ? 0.9 : 1) * gKick * hill * kickLift * (0.7 + 0.3 * curveE(b->n));   // v75: the kick rides the curve too (gently)
             // v46: the hit's own life — downbeats hardest and longest, 3 a touch under, 2 and 4 softer and shorter; half-time
@@ -1095,7 +1121,7 @@ int main(void) {
             const double dec = decS * (j % 2 ? 0.85 : 1) * (1 + 0.15 * rnd()), atk = (j == 0 ? 1.1 : 0.9) * (1 + 0.15 * rnd());
             // (v49: no double time — "when the kick starts doubling up i don't like it")
             dance_kick_v(hum_t2(bt[j], 2), g, vel, atk, dec); ev(bt[j], "kick", 0.1, g * vel, -1); }   // v46: ±2 ms — the kick stays on her hand
-        if (dz[1] && gKick > 0 && !(s == BRIDGE && b->n < 77)) for (int j = 0; j < nb; j++) { if (halfTime ? j != 2 : !(j % 2)) continue; clap(hum_t2(bt[j], 4), hum_g2(0.75 * dz[1] * swell * gDrop * hill * gKick * eag, 0.1)); clap(hum_t2(bt[j] + 0.012, 4), hum_g2(0.4 * dz[1] * swell * gDrop * hill * gKick, 0.15)); ev(bt[j], "clap", 0.1, dz[1], -1);   // v38: a second clap 12 ms late — wider; v46: humanized
+        if (dz[1] && gKick > 0 && !(s == BRIDGE && b->n < 77)) for (int j = 0; j < nb; j++) { if (pickup_bar(b->n) && j >= pickup_j(b)) continue; if (halfTime ? j != 2 : !(j % 2)) continue; clap(hum_t2(bt[j], 4), hum_g2(0.75 * dz[1] * swell * gDrop * hill * gKick * eag, 0.1)); clap(hum_t2(bt[j] + 0.012, 4), hum_g2(0.4 * dz[1] * swell * gDrop * hill * gKick, 0.15)); ev(bt[j], "clap", 0.1, dz[1], -1);   // v38: a second clap 12 ms late — wider; v46: humanized
             snare_hit(hum_t2(bt[j], 3), hum_g2((halfTime ? 0.5 : 0.7) * dz[1] * gDrop * hill * kickLift * eag, 0.12)); ev(bt[j], "snare", 0.1, dz[1], -1); }   // v30: a snare under every clap
         // v30: TOM FILLS — hi → mid → low → floor in 16ths: on the last beat of bridge/finale phrases, and on beat 3 of the bar
         // before each lift (beat 4 is the dropout); the taiko sample steps back to support them
@@ -1106,21 +1132,33 @@ int main(void) {
                 tom(t, TOMS[q] * pr, (0.55 + 0.15 * q) * fmax(0.6, dz[0]) * kickLift, -1 + q * 0.66); ev(t, "tom", 0.1, 0.6, -1); }
               if (pickup_bar(b->n)) { snare_hit(t, 0.25 + 0.15 * q); snare_hit(t + (bt[tomFill + 1] - bt[tomFill]) / 8, 0.2 + 0.12 * q); } } }   // v33: a snare roll under the pickup into each chorus
         // v35: from the pickup beat the chorus kit is already playing — kick on every beat, clap on the next beat, open hats
-        if (pickup_bar(b->n)) { const double dzc[4] = { .7, 1, .9, 1.1 }; for (int j = pickup_j(b); j < nb; j++) {   // v56: softer under "Oh, won't you"
-            dance_kick(bt[j], 0.95 * dzc[0] * 1.26); ev(bt[j], "kick", 0.1, 1, -1);
-            if ((j == 2 || j == 4) && !KICK_ONLY) { clap(bt[j], 0.75 * dzc[1]); snare_hit(bt[j], 0.6); ev(bt[j], "clap", 0.1, 1, -1); }
-            if (!KICK_ONLY) { open_hat(MID(j) + BIN_OFF, 0.36 * dzc[2]); ev(MID(j), "hat", 0.1, 1, -1); } } }
+        // v103: "a little fast ... spaced out more ... lazy ... more air there, catch that drop better" — the pickup is TWO lazy hits
+        // (clap on 3, kick on 4, ~28 ms behind her), no hats, and the regular kit sits out those two beats so the drop has air
+        if (pickup_bar(b->n)) { const int j0 = pickup_j(b);
+            if (!KICK_ONLY) { clap(hum_lazy(bt[j0], 6), 0.55); snare_hit(hum_lazy(bt[j0], 6), 0.5); ev(bt[j0], "clap", 0.1, 1, -1); }
+            if (nb - 1 > j0) { dance_kick(hum_lazy(bt[nb - 1], 6), 0.5); ev(bt[nb - 1], "kick", 0.1, 1, -1); } }
         // v61: REVERSE KICKS into every 4-bar phrase downbeat from the floor on; REVERSE SNARES into the fill-bar claps; WUB KICKS
         // (the kick's tail wobbling through the filter) on chorus 2's and the finale's big downbeats; REVERSE TOMS into the climb
         if ((s == CHORUS2 || s == BRIDGE || s == OUTRO) && ph == 3 && !release) { const ChartBar *nx = k + 1 < CHART_NBARS ? &CHART_BARS[k + 1] : NULL; if (nx) rev_kick(nx->t, 0.7 * kickLift, 0.9 * beatDur); }
         if (fillBar && (s == CHORUS1 || s == CHORUS2) && nb > 3 && !KICK_ONLY) rev_snare(bt[3], 0.45, 0.75 * beatDur);
         if ((b->n == 52 || b->n == 60 || b->n == 64 || b->n == 81) && dz[0]) { wub(bt[0], bt[0] + 0.65, ROOT[b->chord] - 12, 0.65, 3, 0.55); ev(bt[0], "wub-kick", 0.65, 0.55, -1); }
         if (s == BRIDGE && b->n >= 77 && ph % 2 == 0 && !KICK_ONLY) { const ChartBar *nx = k + 1 < CHART_NBARS ? &CHART_BARS[k + 1] : NULL; if (nx) rev_tom(nx->t, 120, 0.6, 1.2 * beatDur); }
+        // v85: the 16th grid — CLICKS on x·x·xx·x per beat-pair in chorus 2, the climb and the finale (eager, humanized), and a
+        // 16th-note sine OSTINATO on the chord tones (root · 5th · 3rd · 5th, an octave above her) on the melody bus
+        if ((s == CHORUS2 || (s == BRIDGE && b->n >= 77) || (s == OUTRO && !release)) && !KICK_ONLY) {
+            static const int PAT[8] = { 1, 0, 1, 0, 1, 1, 0, 1 };
+            for (int j = 0; j < nb; j++) for (int q = 0; q < 4; q++) { int k = (j * 4 + q) % 8; if (!PAT[k]) continue;
+                double t = bt[j] + (bt[j + 1] - bt[j]) * q / 4, g = (q == 0 ? 0.5 : 0.32) * eag * (0.9 + 0.1 * rnd());
+                click(hum_t2(t, 3), g, q % 2 ? 0.5 : -0.5); ev(t, "click", 0.02, g, -1); }
+            int ost[4]; { int root12 = ROOT[b->chord] + 36; ost[0] = root12; ost[1] = root12 + 7; ost[2] = root12 + (b->chord == 2 ? 4 : 3); ost[3] = root12 + 7; }   // v101: above her
+            for (int j = 0; j < nb; j++) for (int q = 0; q < 4; q++) { double t = bt[j] + (bt[j + 1] - bt[j]) * q / 4;
+                sine(melM, NULL, t, beatDur * 0.22, ost[q], 0.05 * curveE(b->n) * (q == 0 ? 1 : 0.75) * swellIn, 0, 0.004, 0.08, 2); }
+            ev(bt[0], "ostinato", b->dur, 0.5, ost[0]); }
         // v27: one fill shape per section, never on a stutter bar (51): chorus 1 a clap roll in 16ths; chorus 2 kick + clap in 8ths across 3–4; bridge/finale leave it to the timpani
-        if (fillBar && dz[1] && b->n != 51 && s == CHORUS1) for (int q = 0; q < 4; q++) { double t = bt[3] + (bt[4] - bt[3]) * q / 4, g = (0.3 + 0.17 * q) * dz[1] * gDrop * hill; clap(t, g); ev(t, "clap", 0.05, g, -1); }
+        if (fillBar && dz[1] && b->n != 51 && s == CHORUS1) for (int q = 1; q < 4; q++) { double t = bt[3] + (bt[4] - bt[3]) * q / 4, g = (0.3 + 0.17 * q) * dz[1] * gDrop * hill; clap(t, g); ev(t, "clap", 0.05, g, -1); }
         if (fillBar && dz[1] && b->n != 51 && s == CHORUS2) for (int q = 0; q < 4; q++) { double t = bt[2] + (bt[4] - bt[2]) * q / 4, g = (0.4 + 0.15 * q) * dz[1] * gDrop * hill; clap(t, g); ev(t, "clap", 0.05, g, -1);
-            if (q % 2 == 0 && dz[0]) { dance_kick(t, 0.55 * dz[0] * gKick * kickLift); ev(t, "kick", 0.1, 0.55, -1); } }
-        if (dz[2] && gHat > 0 && !hatDrop) for (int j = 0; j < nb; j++) {
+            if (q % 2 == 1 && dz[0] && !(pickup_bar(b->n) && t >= pickup_t(b) - 0.01)) { dance_kick(t, 0.55 * dz[0] * gKick * kickLift); ev(t, "kick", 0.1, 0.55, -1); } }
+        if (dz[2] && gHat > 0 && !hatDrop) for (int j = 0; j < nb; j++) { if (pickup_bar(b->n) && j >= pickup_j(b)) continue;
             if (j % 2 == 0) { open_hat(hum_t2(MID(j) + BIN_OFF, 4), hum_g2(0.42 * dz[2] * swell * gHat * gDrop * hill * (b->n >= 52 ? 0.8 : 1) * (s == BRIDGE && b->n < 77 ? 0.5 : 1) * eag, 0.12)); ev(MID(j), "hat", 0.1, dz[2], -1); }   // v46: humanized   // v27: −2 dB from the floor; half in 73–76
             else { trap_hat(MID(j) + BIN_OFF, 0.24 * dz[2] * swell * gHat * gDrop, 0.3); ev(MID(j), "hat", 0.02, dz[2] * 0.5, -1); } }
         // v19: rolling hats from verse 2 on — ghost 16ths on every "e" and "a", and a 32nd roll into every other downbeat
@@ -1145,11 +1183,11 @@ int main(void) {
         // v6.4: airplanes — an 8-bar jet into chorus 1, chorus 2 and the bridge (4 bars out of the break)
         if (0) air(b->t, CHART_BARS[k + (b->n == 73 ? 8 : 16) - 1].t + CHART_BARS[k + (b->n == 73 ? 8 : 16) - 1].dur, 0.10);
         // (v6.6: the snare roll into the bridge is gone — the jet is the hill)
-        if (o->kick && !dz[0]) { kick(bt[0], 0.95 * o->kick); ev(bt[0], "kick", 0.1, o->kick, -1);
+        if (o->kick && !dz[0] && !kitOff) { kick(bt[0], 0.95 * o->kick); ev(bt[0], "kick", 0.1, o->kick, -1);
                        if (nb > 2) { kick(MID(1), 0.6 * o->kick); ev(MID(1), "kick", 0.1, o->kick * 0.6, -1); } }
         // v8: no snare — the 808 clap is the backbeat
-        if (o->clap && nb > 2 && !dz[1] && !KICK_ONLY) { clap(bt[2], 0.5 * o->clap * swell); ev(bt[2], "clap", 0.1, o->clap, -1); }   // v48b: this fallback was the snare under the kick
-        if (o->rim && nb > 3 && gHat > 0 && !KICK_ONLY) { rim(MID(1) + BIN_OFF, 0.16 * o->rim * gHat); rim(MID(3) + BIN_OFF, 0.2 * o->rim * gHat); ev(MID(1), "rim", 0.05, o->rim, -1); ev(MID(3), "rim", 0.05, o->rim, -1); }   // v8: 808 rim on her &2 / &4
+        if (o->clap && nb > 2 && !dz[1] && !KICK_ONLY && !kitOff) { clap(bt[2], 0.5 * o->clap * swell); ev(bt[2], "clap", 0.1, o->clap, -1); }   // v48b: this fallback was the snare under the kick
+        if (o->rim && nb > 3 && gHat > 0 && !KICK_ONLY && !kitOff) { rim(MID(1) + BIN_OFF, 0.16 * o->rim * gHat); rim(MID(3) + BIN_OFF, 0.2 * o->rim * gHat); ev(MID(1), "rim", 0.05, o->rim, -1); ev(MID(3), "rim", 0.05, o->rim, -1); }   // v8: 808 rim on her &2 / &4
         if (dz[0] && gHat > 0 && nb > 3 && !KICK_ONLY) { bubble(MID(1) + BIN_OFF, 0.22 * gHat * gDrop, b->n % 2 ? -0.6 : 0.6); ev(MID(1), "bubble", 0.05, gHat, -1);
             if (b->n % 2 == 0) { bubble(MID(3) + BIN_OFF, 0.16 * gHat * gDrop, b->n % 4 ? 0.4 : -0.4); ev(MID(3), "bubble", 0.05, gHat, -1); } }   // v11: bubble pops
         if (o->hat) for (int j = 0; j < nb; j++) { soft_hat(bt[j], 0.15 * o->hat, -0.35); soft_hat(MID(j), 0.09 * o->hat, 0.35); }
@@ -1221,7 +1259,7 @@ int main(void) {
         // v68b: no neighs ("lose the neigh but keep the gallops")
         // v68: her vowel choir — "ooo" swelling in over the opening bars and under her first line, "aaa" through chorus 2 and the
         // climb, both in the finale, "ooo" quiet in the release; three voices on the chord tones in her range, seated around her
-        { int vt[3], nv = 0; for (int m = 56; m <= 78 && nv < 3; m++) { int pc = m % 12; if ((pc == pcs[0] || pc == pcs[1] || pc == pcs[2]) && VOWEL[0][m].L) vt[nv++] = m; }
+        { int vt[3], nv = 0; for (int m = sheSings ? 66 : 56; m <= 78 && nv < 3; m++) { int pc = m % 12; if ((pc == pcs[0] || pc == pcs[1] || pc == pcs[2]) && VOWEL[0][m].L) vt[nv++] = m; }
           double gv = 0; int which = 0;
           // v69: not at the start ("they don't blend with the first vocal") — more elsewhere: chorus 1's back half, verse 2, the break
           if (s == CHORUS1 && b->n >= 36) { gv = 0.36 * evo(b->n, 36, 40); which = 1; } else if (s == VERSE2) { gv = 0.2 * evo(b->n, 49, 52); which = 0; } else if (s == BREAK) { gv = 0.4; which = 0; }   // v75: verse 2's vowels only at its very end
@@ -1229,7 +1267,7 @@ int main(void) {
           else if (s == OUTRO && !release) { gv = 0.55; which = (b->n % 2); } else if (release) { gv = 0.3; which = 0; }
           if (gv > 0) for (int k = 0; k < nv; k++) vowel(hum_t2(b->t, 12), vt[k], b->dur * 1.02, gv * (k == 1 ? 0.85 : 1), which, k); }
         // 808 on the kick points, gliding into her root
-        if (o->b808 && !dz[3]) { int r = ROOT[b->chord] - 12;
+        if (o->b808 && !dz[3] && !kitOff) { int r = ROOT[b->chord] - 12;
             eight08(bt[0], r, beatDur * 1.4, 0.8 * o->b808); ev(bt[0], "808", beatDur * 1.4, o->b808, r);
             if (nb > 2) { eight08(MID(1), r, beatDur * 1.3, 0.6 * o->b808); ev(MID(1), "808", beatDur * 1.3, o->b808 * 0.6, r); } }
         // trap hats: 16ths, accents on the beat, a roll into every other bar line
@@ -1239,9 +1277,10 @@ int main(void) {
         if (o->trap && trapG > 0 && !hatDrop && !release && !KICK_ONLY) {
             int roll = 0, trip = 0;
             for (int j = 0; j < nb; j++) {
-                int last = j == nb - 1 && roll, div = last ? (trip ? 6 : 8) : ((s == CHORUS2 || s == BRIDGE || (s == VERSE1 && b->n >= 22)) ? 4 : 2);
+                int last = j == nb - 1 && roll, div = last ? (trip ? 6 : 8) : ((s == VERSE1 && b->n >= 22) ? 4 : 2);   // v101: 8ths — the clicks own the 16th grid in the big sections
                 for (int q = 0; q < div; q++) {
                     double t = bt[j] + (bt[j + 1] - bt[j]) * q / div;
+                    if (pickup_bar(b->n) && t >= pickup_t(b) - 0.01) continue;   // v104: the 16ths stop for the lazy pickup — they were the "fast" before the drop
                     double acc = q == 0 ? 1 : (q % 2 ? 0.55 : 0.75);
                     double g = 0.5 * o->trap * acc * (last ? 0.6 + 0.4 * q / div : 1) * swell * trapG * eag;
                     trap_hat(hum_t2(t, 3), hum_g2(g, 0.15), q % 2 ? 0.45 : -0.25); ev(t, "hat", 0.02, g, -1);   // v46: humanized
@@ -1252,17 +1291,18 @@ int main(void) {
         const double dur = b->dur * 0.97;
         if (o->sub && gSub > 0) { sine(sL, sR, b->t, dur, ROOT[b->chord] - 12, 0.26 * o->sub * gSub, 0, 0.35, 0.9, 0);
                       sine(sL, sR, b->t, dur, ROOT[b->chord], 0.16 * o->sub * gSub, 0, 0.35, 0.9, 1); ev(b->t, "sub", dur, o->sub * gSub, ROOT[b->chord] - 12); }
-        lead(tenor, 3, pcs, 67, 79);
-        if (o->tenor && gTen > 0) for (int v = 0; v < 3; v++) { sine(padM[v], NULL, b->t, dur, tenor[v], 0.4 * o->tenor * swell * gTen * gDrop * hill, 0, 0.35, 0.9, 7); ev(b->t, "pad", dur, o->tenor * gTen, tenor[v]); }   // v44: up (was .26)
+        lead(tenor, 3, pcs, 69, 79);   // v101: clear of her G#4
+        const int early = s == BRIDGE && b->n < 77;   // v101: her quietest line — the engine thins too, not only the orchestra
+        if (o->tenor && gTen > 0 && !early) for (int v = 0; v < 3; v++) { sine(padM[v], NULL, b->t, dur, tenor[v], 0.4 * o->tenor * swell * gTen * gDrop * hill, 0, 0.35, 0.9, 7); ev(b->t, "pad", dur, o->tenor * gTen, tenor[v]); }   // v44: up (was .26)
         // v44: "the main pads as sine waves" — the whole chord, 51–83, as slow detuned sines on the touring pad seats; the sampled strings step back
-        if (o->tenor && gTen > 0) { int vp[6], nv = 0; for (int m = 51; m <= 83 && nv < 6; m++) { int pc = m % 12; if (pc == pcs[0] || pc == pcs[1] || pc == pcs[2]) vp[nv++] = m; }
+        if (o->tenor && gTen > 0) { int vp[6], nv = 0; for (int m = sheSings ? 71 : 51; m <= 83 && nv < 6; m++) { int pc = m % 12; if (pc == pcs[0] || pc == pcs[1] || pc == pcs[2]) vp[nv++] = m; }
             const int struck = (s == CHORUS1 || s == CHORUS2 || s == OUTRO || (s == BRIDGE && b->n >= 77));   // v70: in the big sections the pad is STRUCK on her strum motif (1, &2, 3, &4) — snappy, with her hand — over a low sustain
-            for (int k = 0; k < nv; k++) { sine(padM[k % 3], NULL, b->t, dur, vp[k], 0.11 * o->tenor * swell * gTen * gDrop * hill * (k >= 3 ? 0.7 : 1) * (struck ? 0.45 : 1), 0, 0.5, 1.2, 9); ev(b->t, "pad", dur, o->tenor * gTen * 0.5, vp[k]); }
+            for (int k = 0; k < nv; k++) { sine(padM[k % 3], NULL, b->t, dur, vp[k], 0.11 * o->tenor * swell * gTen * gDrop * hill * (k >= 3 ? 0.7 : 1) * (struck ? 0.8 : 1), 0, 0.5, 1.2, 9); ev(b->t, "pad", dur, o->tenor * gTen * 0.5, vp[k]); }   // v81: the sustained sine chords soft-replace the guitar in the choruses (.45 → .8)
             if (struck && nb > 3) { const double pts[4] = { bt[0], MID(1), bt[2], MID(3) }; const double pg[4] = { 1.0, 0.7, 0.85, 0.7 };
-                for (int q = 0; q < 4; q++) for (int k = 0; k < nv && k < 4; k++) { sine(padM[k % 3], NULL, pts[q] + BIN_OFF, beatDur * 0.42, vp[k] + (k >= 2 ? 12 : 0), 0.13 * o->tenor * gTen * gDrop * hill * pg[q] * (k == 3 ? 0.7 : 1) * curveE(b->n), 0, 0.02, 0.22, 9); }
+                for (int q = 0; q < 4; q++) for (int k = 0; k < nv && k < 4; k++) { sine(padM[k % 3], NULL, pts[q] + BIN_OFF, beatDur * 0.42, vp[k] + (k >= 2 && !sheSings ? 12 : 0), 0.13 * o->tenor * gTen * gDrop * hill * pg[q] * (k == 3 ? 0.7 : 1) * curveE(b->n), 0, 0.02, 0.22, 9); }
                 ev(bt[0], "pad-hit", b->dur, o->tenor, vp[0]); } }
         lead(high, 2, pcs, 76, 88);
-        if (o->high) for (int v = 0; v < 2; v++) { sine(hiM, NULL, b->t, dur, high[v], 0.10 * o->high * swell * gDrop, 0, 0.8, 1.4, 7); ev(b->t, "high", dur, o->high, high[v]); }
+        if (o->high && !early) for (int v = 0; v < 2; v++) { sine(hiM, NULL, b->t, dur, high[v], 0.10 * o->high * swell * gDrop, 0, 0.8, 1.4, 7); ev(b->t, "high", dur, o->high, high[v]); }
         if (o->descant) {   // one long high chord tone per bar, leaning down by step
             int c = -1; for (int d = -1; d >= -2 && c < 0; d--) { int m = nearest(pcs, 3, desc + d, 83, 93); if (m <= desc) c = m; }
             if (c < 0) c = nearest(pcs, 3, desc, 83, 93);
@@ -1270,7 +1310,7 @@ int main(void) {
             sine(hiM, NULL, b->t, dur, c, 0.04 * o->descant, 0, 1.0, 1.8, 4); ev(b->t, "descant", dur, o->descant, c);
         }
         // vibraphone arpeggio on her 8ths (16ths in the last bridge bars)
-        if (o->vib) {
+        if (o->vib && !early && !release) {
             int tones[6]; for (int j = 0; j < 6; j++) tones[j] = nearest(pcs, 3, 76 + j * 3, 76, 93);   // v6.3: vibes an octave up, out of her way
             int dens = (s == BRIDGE && b->n >= 77) ? 4 : 2, c = 0;
             for (int j = 0; j < nb; j++) for (int q = 0; q < dens; q++)
@@ -1306,7 +1346,10 @@ int main(void) {
           double drop = 0.75 + 0.25 * sin(2 * PI * 1.7 * (t - r0)) * sin(2 * PI * 0.23 * (t - r0) + 1);        // the signal fades in and out
           const double air = 0.015, floor_ = 0.006, t20 = bar_n(20)->t, t24 = bar_n(24)->t;   // v72: a trace                        // v60: "keep a bit of air" — down to a floor by bar 24, never gone
           // v70: the radio is back before she sings; the air under her stays a whisper
-          double after = t < firstWordT ? 0.3 * fmin(1, (t - r0) / fmax(0.5, len)) : t < firstWordT + 1.6 ? 0.3 - (0.3 - air) * (t - firstWordT) / 1.6 : t < t20 ? air : t < t24 ? air + (floor_ - air) * (t - t20) / (t24 - t20) : floor_;   // v68: from silence, a whisper before she sings
+          // v88: no static before her
+          double after = t < firstWordT ? 0 : t < firstWordT + 1.6 ? 0 : t < t20 ? air : t < t24 ? air + (floor_ - air) * (t - t20) / (t24 - t20) : floor_;
+          { const double tD0 = bar_n(84)->t, tD1 = 173.4; if (t >= tD0) after *= fmax(0, 1 - (t - tD0) / (tD1 - tD0)); }   // v77: the noise dips from the button, gone before the camera nudge (173.7)
+          if (t < firstWordT + 12.0) { double ua = fmax(0, (t - firstWordT) / 12.0); after = air * ua * ua; }   // v102: slower — squared over 12 s, so it is not there when she starts, only under her by the second line                                    // v88: born with her voice, rising over her first line (8 s) — a bed for it   // v68: from silence, a whisper before she sings
           double env = fmin(1, (t - r0) / len * 1.6) * (t < firstWordT ? drop : 1) * after;       // steady once she is in — air, not drops
           (void)u; double w = fmax(0, (t - r0) < len * 0.5 ? 1 - (t - r0) / (len * 0.5) : 1 - ((t - r0) - len * 0.5) / (len * 0.5));
           wph += 2 * PI * (700 + 2600 * w * w) / SR; double whistle = sin(wph) * 0.05 * fmax(0, 1 - (t - r0) / len);   // the whistle is gone by her entry
@@ -1321,7 +1364,7 @@ int main(void) {
                 double xin = (b1 - b2) * 0.9, y = b0 * xin - b0 * resX2[k] - a1 * resY1[k] - a2 * resY2[k]; resX2[k] = resX1[k]; resX1[k] = xin; resY2[k] = resY1[k]; resY1[k] = y; resOut[k] = y; }
             double tonal = (resOut[0] + resOut[1] + resOut[2]) * 1.0;   // v74: the resonators were adding gain the level cuts never touched
             double dryL = (b1 - b2) * 0.9, dryR = (c1 - c2) * 0.9;
-            add(radL, i, (dryL * (1 - 0.7 * mix) + tonal * mix + crackle + whistle) * env * 0.04); add(radR, i, (dryR * (1 - 0.7 * mix) + tonal * mix * 0.9 + crackle + whistle) * env * 0.04); } }   // v75: −9 dB more
+            add(radL, i, (dryL * (1 - 0.7 * mix) + tonal * mix + crackle + whistle) * env * 0.014); add(radR, i, (dryR * (1 - 0.7 * mix) + tonal * mix * 0.9 + crackle + whistle) * env * 0.014); } }   // v84: −9 dB more again (−24 dB from v60)
       // the fragments: her first words, re-triggered on the 8th grid, each slower and lower, through the static's band
       // v45: just "I saw", tuning in — at 0.6× from bar 10, at 0.8× from bar 11, then her real one at 26.20: one gesture, not a collage
       static const double FR[2][2] = { { 26.20, 1.25 }, { 26.20, 1.25 } }, RT[2] = { 0.6, 0.8 }, LPF[2] = { 1600, 3200 }; static const int FB[2] = { 10, 11 }, FJ[2] = { 0, 0 };
@@ -1335,13 +1378,16 @@ int main(void) {
           ev(fb->beats[FJ[q]], "radio", FR[q][1] / RT[q], 1, -1); } }
     // v39: CHOPPED & SCREWED — her last word, "out" (159.46 s), re-triggered across the finale, each repeat slower and lower
     // than the last (resampled: rate 1 → 0.7), two to a bar on 1 and 3, the last one alone on bar 84's downbeat
-    { const double OUT_T = 159.46 - SHIFT27, OUT_L = 1.3; static const int OB[8] = { 80, 81, 81, 82, 82, 83, 83, 84 }; static const int OJ[8] = { 2, 0, 2, 0, 2, 0, 2, 0 };   // v41: from bar 80 beat 3 — right off her own "out"
-      static const double RATE[8] = { 1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.64 }, OG[8] = { .9, .9, .85, .82, .8, .78, .76, .8 };
+    { const double OUT_T = 159.46 - SHIFT27, OUT_L = 1.3; static const int OB[5] = { 80, 81, 81, 82, 83 }; static const int OJ[5] = { 2, 0, 2, 0, 0 };   // v96: her real "out" first, then ghosts — echoing off it, each a little slower and fainter
+      static const double RATE[5] = { 1.0, 0.96, 0.92, 0.88, 0.84 }, OG[5] = { .55, .45, .38, .3, .24 };
       long sa = at(OUT_T);
-      for (int q = 0; q < 8; q++) { const ChartBar *ob = bar_n(OB[q]); if (!ob || ob->nb <= OJ[q]) continue; long a = at(ob->beats[OJ[q]]); int n = (int)(OUT_L * SR / RATE[q]);
+      for (int q = 0; q < 5; q++) { const ChartBar *ob = bar_n(OB[q]); if (!ob || ob->nb <= OJ[q]) continue; long a = at(ob->beats[OJ[q]]); int n = (int)(OUT_L * SR / RATE[q]);
           for (int i = 0; i < n; i++) { double pos = i * RATE[q]; long j = sa + (long)pos; double f = pos - floor(pos);
               double w = fmin(1, i / (0.006 * SR)) * fmin(1, (n - i) / (0.15 * SR)); add(stM, a + i, (sample(vox.L, vox.n, j) * (1 - f) + sample(vox.L, vox.n, j + 1) * f) * w * OG[q]); }
           ev(ob->beats[OJ[q]], "out", OUT_L / RATE[q], OG[q], -1); } }
+    // v88: at 1:10 — a deep FEM gong, G#2, with a slow vibrato, ringing eight seconds (the downbeat nearest 70 s of the record)
+    { const ChartBar *gb = bar_n(44); gong_deep(gb->t, 44, 0.75, 4.6, 14); }   // v101: on bar 44's downbeat — her first rise lands on the deep bell
+    // v103: the "wrong" exception (v86: reverse kick + bell frill + her third) is gone — "those exceptions feel like bugs now"
     // v24: THE STUTTER — "the k-kiss hiccup should be musically recovered": the first 90 ms of her own
     // "kiss" (the chorus downbeat word) repeated on 16ths across the last two beats of the bar before
     // each chorus and the bridge, rising, a trap hat under each — the hiccup becomes the pickup
@@ -1358,13 +1404,12 @@ int main(void) {
         if (!b || v->dur < 0.18) continue;
         const Arr *o = &ARR[section_of(b->n)];
         ev(v->t, "vox", v->dur, 1, v->midi);
-        if (o->third) sine(sL, sR, v->t, v->dur, third_above(v->midi), 0.06 * o->third, 0.3, 0.06, 0.35, 2);
-        if (o->octave) sine(hiM, NULL, v->t, v->dur, v->midi + 12, 0.03 * o->octave, 0, 0.08, 0.5, 4);
+        // (v101: the v6 third/octave sines were inaudible dead weight — the sister sine does this now)
         // v29: COUNTERPOINT — "sine bells and sines that mirror or chorale her lead": a sine MIRROR of her line (inverted
         // about her median D#4, snapped to the key, an octave up, one beat behind — contrary motion in canon), a three-voice
         // sine CHORALE under each note (a 3rd and a 6th below, in the key), and BELLS in canon on her longer notes
-        { static const double MIRROR[NSEC] = { 0, 0, .5, .3, .8, .6, .8, .6 }, CHORALE[NSEC] = { 0, .25, .6, .4, .9, .5, .9, .7 }, CANON[NSEC] = { 0, 0, .4, .5, .7, .8, .7, .5 };
-          const int sec = section_of(b->n); const double beat = b->dur / b->nb, gV1 = sec == VERSE1 ? evo(b->n, 20, 27) : 1;
+        { static const double MIRROR[NSEC] = { 0, 0, .5, .3, .8, 0, .8, 0 }, CHORALE[NSEC] = { 0, .25, 0, .4, 0, 0, 0, 0 }, CANON[NSEC] = { 0, 0, .4, .5, .7, .8, .7, .5 };   // v101: the chorale doubled the harmony stems — verses only; no mirror where she is silent
+          const int sec = section_of(b->n); const double beat = b->dur / b->nb, gV1 = (sec == VERSE1 ? evo(b->n, 20, 27) : 1) * (sec == BRIDGE && b->n < 77 ? 0.35 : 1);   // v101: 73–76 thin
           // v33: THE SISTER SINE — a sine on her exact pitch (and its octave), following every note she sings; on the melody
           // bus, which the hollow does not duck (the v29 melody sines sat on the sine bus and were ducked 8 dB while she sang)
           { static const double SIS[NSEC] = { 0, .35, .7, .5, .9, .6, .85, .8 };
@@ -1423,7 +1468,7 @@ int main(void) {
             add(melM, i, (sin(ph) * 0.07 + sin(ph2) * 0.025) * g);
             int st = scale_step((int)floor(m + 0.02), 0); if (st > lastStep) { fem_bell(t, st + 12, 0.16); ev(t, "bell", 0.5, 1, st + 12); lastStep = st; } }
         ev(ct[0], "rise", ct[nc - 1] - ct[0], 1, (int)lround(cm[0]));
-        if (q < 2) { const ChartBar *gb = bar_n(q == 0 ? 44 : 68); gong(gb->t, (int)lround(cm[nc - 1]) + 12, q == 0 ? 0.6 : 0.5); } }   // v42: the gong on the climb's top note starts the next part
+        if (q == 1) { const ChartBar *gb = bar_n(68); gong(gb->t, (int)lround(cm[nc - 1]) + 12, 0.5); } }   // v42: the gong on the climb's top note starts the next part; v101: at 44 the DEEP gong takes it
     // v60: THE LISTENER — claps, snare and toms from a seat that sways slowly front-right ↔ front-left (the kick stays centre);
     // her guitar from where it sits in the room, a little left of her and near
     float *pcL = zeros(), *pcR = zeros(); spatialize(pcM, NULL, sway_pc, el_near, 1.15, pcL, pcR, 1.0);
@@ -1479,8 +1524,9 @@ int main(void) {
     float *herA = automate(v_her, 0), *acgA = automate(v_acg, 0), *elgA = automate(v_elg, 0);
     float *farA = automate(v_far, 0), *cathA = automate(v_cath, 0), *roomA = automate(v_room, 0), *dissA = automate(v_dissolve, 0);
     double dsL = 0, dsR = 0;   // v41: the dissolve lowpass state
-    double gbL = 0, gbR = 0; const double k3kG = 1 - exp(-2 * PI * 3000 / SR);   // v48: her guitar's brightness shelf after the button
-    float *screamA = automate(v_scream, 0), *orchA[NORCH]; for (int o = 0; o < NORCH; o++) orchA[o] = automate(v_orch, o);
+    double gbL = 0, gbR = 0, gbRL = 0, gbRR = 0; const double k3kG = 1 - exp(-2 * PI * 3000 / SR), k4kG = 1 - exp(-2 * PI * 4000 / SR);   // v48: her guitar's brightness shelf after the button; v98: and on the opening twangs
+    float *g12oL = zeros(), *g12oR = zeros(); shift_into(gtr.L, gtr.n, g12oL, at(startSecOut), at(firstWordT + 0.1), ratio_octave, 1.0); shift_into(gtr.R, gtr.n, g12oR, at(startSecOut), at(firstWordT + 0.1), ratio_octave, 1.0);   // v98: the opening's shimmer
+    float *screamA = automate(v_scream, 0), *pumpVA = automate(v_pumpv, 0), *orchA[NORCH]; for (int o = 0; o < NORCH; o++) orchA[o] = automate(v_orch, o);
     // v24: "spatialize the thing more" — the orchestra sits in the room on paths, one per part: the section
     // strings tour, the cello right and low, horns behind, timpani centre, the harp sweeps, the glock orbits
     // overhead, the choir behind on its lap, the quartet in its four seats, the taiko wide
@@ -1514,16 +1560,16 @@ int main(void) {
     // v27: THE DROPOUT — the last beat before every lift (bars 27, 51, 72) the band leaves: her, her guitar, the stutter and the riser tail alone, then the impact
     // v57: THE GLITCH IS THE DROP — on her false "k-" (60.44) everything stops dead with her; 0.23 s of nothing but her hesitation,
     // then the chorus lands on the real "kiss" (60.675, bar 28's downbeat)
-    { long a = at(60.435), z = at(60.672), r = (long)(0.003 * SR);
-      float *gated[24] = { dL, dR, tL, tR, sL, sR, b808, spL, spR, hiL, hiR, hL, hR, cL, cR, sisL, sisR, jL, jR, orKL, orKR, orDL, orDR, wubM };
-      for (int q = 0; q < 24; q++) for (long i = a - r; i < z; i++) { if (i < 0 || i >= N) continue; double g = i < a ? 1 - (double)(i - (a - r)) / r : 0; gated[q][i] *= (float)g; } }
+    { long a = at(60.435), z = at(bar_n(28)->t) - (long)(0.003 * SR), r = (long)(0.003 * SR);   // v101: the stop ends 3 ms before the downbeat (it was chopping the gong), and gates EVERY bus but her
+      float *gated[] = { dL, dR, sL, sR, b808, spL, spR, hiL, hiR, hL, hR, cL, cR, sisL, sisR, jL, jR, orKL, orKR, orDL, orDR, wubM, pcL, pcR, htL, htR, melL, melR, vwL, vwR, hsL, hsR, g12L, g12R, pnL, pnR, radL, radR, exL, exR, rsL, rsR };
+      for (size_t q = 0; q < sizeof gated / sizeof *gated; q++) for (long i = a - r; i < z; i++) { if (i < 0 || i >= N) continue; double g = i < a ? 1 - (double)(i - (a - r)) / r : 0; gated[q][i] *= (float)g; } }
     { static const int DROP_BARS[1] = { 72 };   // v56: no dropout under "Oh, won't you" (27, 51) — only into the bridge
       float *gate = (float *)malloc(N * sizeof(float)); for (long i = 0; i < N; i++) gate[i] = 1;
       for (int q = 0; q < 1; q++) { const ChartBar *db = bar_n(DROP_BARS[q]); double zT = pickup_bar(db->n) ? pickup_t(db) : db->t + db->dur, bd = pickup_bar(db->n) ? db->dur / db->nb : (db->t + db->dur - db->beats[db->nb - 1]);
           long a = at(zT - bd / 2), z = at(zT), r = (long)(0.005 * SR);   // v33: the last 8th before the lift; v35: before the pickup
           for (long i = a - r; i < z; i++) { if (i < 0 || i >= N) continue; double g = i < a ? 1 - (double)(i - (a - r)) / r : i >= z - r ? (double)(i - (z - r)) / r : 0; gate[i] = (float)fmin(gate[i], g); } }
-      float *gated[24] = { dL, dR, tL, tR, sL, sR, b808, spL, spR, hiL, hiR, hL, hR, cL, cR, sisL, sisR, jL, jR, orKL, orKR, orDL, orDR, wubM };
-      for (int q = 0; q < 24; q++) for (long i = 0; i < N; i++) gated[q][i] *= gate[i];
+      float *gated[] = { dL, dR, sL, sR, b808, spL, spR, hiL, hiR, hL, hR, cL, cR, sisL, sisR, jL, jR, orKL, orKR, orDL, orDR, wubM, pcL, pcR, htL, htR, melL, melR, vwL, vwR, hsL, hsR, g12L, g12R, pnL, pnR };   // v101: the real buses
+      for (size_t q = 0; q < sizeof gated / sizeof *gated; q++) for (long i = 0; i < N; i++) gated[q][i] *= gate[i];
       free(gate); }
     const long atButton = at(bar_n(84)->t), atFirstWord = at(firstWordT);
     // v22: the scream — her lead levelled, driven into a clip, high-passed, growled at 31 Hz
@@ -1554,7 +1600,7 @@ int main(void) {
         for (int q = 0; q < 4; q++) { if (!fxS[q].L) continue; double u = tt - FX[q].t0; if (u < 0 || tt >= FX[q].t1) continue;
             double y = sample(fxS[q].L, fxS[q].n, i - at(FX[q].t0));
             if (FX[q].slide) { double w = fmin(1, u / 0.12); w = w * w * (3 - 2 * w); double keep = fmin(1, fmax(0, (FX[q].orig - tt) / 0.08));   // v37: replace her only while HER note lasts;
-                x = x * (1 - w * keep) + y; }                                                                                                       // past it the extension is ADDED — her next words stay
+                x = x * (1 - w * keep) + y * (1 + 1.25 * (1 - keep)); }                                                                              // past it the extension is ADDED, +7 dB — it was buried (v90)
             else ghost += y * 0.38; }                                                                                                                // the ghost sits under her
         // v34: CONSONANTS — the 2–8 kHz band's fast envelope against its slow one: when a burst stands out (a c, k, t, p), that band
         // is lifted for its length only; vowels and held sibilants are not. The first "coughed" gets a further lift by hand.
@@ -1567,7 +1613,7 @@ int main(void) {
         env = pw > env ? aA * env + (1 - aA) * pw : aR * env + (1 - aR) * pw;
         double lv = sqrt(env), gt = lv > 0.06 ? pow(lv / 0.06, 1.0 / 2.5 - 1) : 1;   // v25: 2.5:1 (was 4:1) — "less processed"
         gcur = gt < gcur ? gt : gcur + (gt - gcur) * 0.0005;
-        double v0 = (x + ghost) * gcur * (3.3 + 0.25 * warmA[i]) * (1 - 0.36 * fmin(1, e));   // v68: she NEEDS to be stronger   // v61: she is the loudest thing (2.2 → 2.8)   // v30: she pumps with the kick, ~−4 dB (v25: −2); v33: + the ghost   // v19: her voice pumps with the kick, audibly (was 0.2)
+        double v0 = (x + ghost) * gcur * (3.7 + 0.25 * warmA[i]) * (1 - pumpVA[i] * fmin(1, e));   // v77: +1 dB; v101: 0.15 pump where the floor is four-on-the-floor, 0.36 elsewhere   // v68: she NEEDS to be stronger   // v61: she is the loudest thing (2.2 → 2.8)   // v30: she pumps with the kick, ~−4 dB (v25: −2); v33: + the ghost   // v19: her voice pumps with the kick, audibly (was 0.2)
           // v15: a hair louder when close vlp += (v0 - vlp) * k7;   // her voice rides the kick's pump, lightly
         vwarm += (v0 - vwarm) * k350;
         const double warm = warmA[i];
@@ -1594,10 +1640,13 @@ int main(void) {
         // before her first word (bar 11) her guitar comes through a lowpass that opens from 220 Hz
         // and a gain that creeps up from a third, so the picture of her strumming has a sound
         double gtl = gsL[i], gtrr = gsR[i];   // v60: her guitar from its seat
+        { double kRaw = tt < firstWordT ? 1 : fmax(0, 1 - (tt - firstWordT) / 1.9); if (i >= atButton) kRaw = fmax(kRaw, fmin(1, (double)(i - atButton) / (0.8 * SR)));   // v79: and after the button, the phone guitar again — nudge and all   // v78: "the opening twang should be realtime" — the untouched phone guitar until her word, handing over across her first bar
+          if (kRaw > 0 && i >= atButton) { double rl = sample(gtrRaw.L, gtrRaw.n, i), rr = sample(gtrRaw.R, gtrRaw.n, i);   // v101: the raw phone guitar only AFTER the button now; the opening uses the same seated guitar as the rest
+              gtl = gtl * (1 - kRaw) + rl * 1.1 * kRaw; gtrr = gtrr * (1 - kRaw) + rr * 1.1 * kRaw; } }
         // v23b: "too much of her starting guitar" — an eighth to start, held low until the last bars (k³), lowpass from 150 Hz
         if (0 && tt < introT) { double k = fmax(0, (tt - introT0) / (introT - introT0)), fc = 150 * pow(6000 / 150.0, k * k * k), kc = 1 - exp(-2 * PI * fc / SR);
             ilpL += (gtl - ilpL) * kc; ilpR += (gtrr - ilpR) * kc; double ig = 0.12 + 0.88 * k * k * k; gtl = ilpL * ig; gtrr = ilpR * ig; }
-        const double gBtn = (i >= atButton ? 1.6 : 1) * (tt >= CLIMB_T0 && tt < CLIMB_T1 ? fmax(0.15, 1 - (tt - CLIMB_T0) / (CLIMB_T1 - CLIMB_T0) * 1.2) : 1) * (tt >= bar_n(70)->t && tt < PITCHY_T1 ? 1.6 : 1) * (tt >= PITCHY_T0 && tt < PITCHY_T1 ? 0.5 : 1);   // v73: +4 dB through the dead zone; the dry guitar yields to the pitchy one   // v27: +4 dB after the button; v59: the dry guitar yields to the climb
+        const double gBtn = (i >= at(173.4) ? 0.4 : i >= atButton ? 1.6 : 1) * (tt >= CLIMB_T0 && tt < CLIMB_T1 ? fmax(0.15, 1 - (tt - CLIMB_T0) / (CLIMB_T1 - CLIMB_T0) * 1.2) : 1) * (tt >= bar_n(70)->t && tt < PITCHY_T1 ? 1.6 : 1) * (tt >= PITCHY_T0 && tt < PITCHY_T1 ? 0.5 : 1) * 1.0;   // v73: the dead zone; v77: the nudge; v78: the intro strums at full, easing to the verse level over her first bar   // v27: +4 dB after the button; v59: the dry guitar yields to the climb
         double gl = ((gtl + g12L[i]) * herA[i] * 1.3 * hpump * gBtn) + (sample(acg.L, acg.n, i) * acgA[i] * 0.55 + sample(elg.L, elg.n, i) * elgA[i] * 0.8) * pump * vd;   // v66: HER guitar is not hollowed under her voice (the replays still are)
         double gr = ((gtrr + g12R[i]) * herA[i] * 1.3 * hpump * gBtn) + (sample(acg.R, acg.n, i) * acgA[i] * 0.55 + sample(elg.R, elg.n, i) * elgA[i] * 0.8) * pump * vd;
         double pl = (spL[i] + hiL[i] * pump) * vd, pr = (spR[i] + hiR[i] * pump) * vd;
@@ -1614,11 +1663,12 @@ int main(void) {
         double roomGl = 0, roomGr = 0;
         if (i >= atButton) { double d = fmin(1, (double)(i - atButton) / (0.8 * SR));   // v48: over 0.8 s her guitar steps out of the dissolve, +6 dB above 3 kHz — the room, bright and dry
             gbL += (gl - gbL) * k3kG; gbR += (gr - gbR) * k3kG; roomGl = (gl + (gl - gbL) * 1.0) * d; roomGr = (gr + (gr - gbR) * 1.0) * d; gl *= 1 - d; gr *= 1 - d; }
-        double bandL = hL[i] * hpump * hd + hv * 0.6 * hpump + gl + dlp * 1.3 + pcL[i] * 1.2 + htL[i] * 1.3 + pnL[i] * pump * vd * 0.9 + hsL[i] * 1.0 + vwL[i] * hpump * 1.1 + (tL[i] + rsL[i]) * 1.3 + pL[i] * 0.9 + b808[i] * 0.42 + sl * 0.85 + pl + exL[i] * 0.5 + jl + chl + jd + ssl + ol + wb + melL[i] * pump;
-        double bandR = hR[i] * hpump * hd + hv * 0.6 * hpump + gr + drp * 1.3 + pcR[i] * 1.2 + htR[i] * 1.3 + pnR[i] * pump * vd * 0.9 + hsR[i] * 1.0 + vwR[i] * hpump * 1.1 + (tR[i] + rsR[i]) * 1.3 + pR[i] * 0.9 + b808[i] * 0.42 + sr * 0.85 + pr + exR[i] * 0.5 + jr + chr + jd + ssr + orr + wb + melR[i] * pump;
+        double bandL = hL[i] * hpump * hd + hv * 0.6 * hpump + gl + dlp * 1.3 + pcL[i] * 1.2 + htL[i] * 1.3 + pnL[i] * pump * vd * 0.9 + hsL[i] * 1.0 + vwL[i] * hpump * hd * 1.1 + (tL[i] + rsL[i]) * 1.3 + pL[i] * 0.9 + b808[i] * 0.42 + sl * 0.85 + pl + exL[i] * 0.5 + jl + chl + jd + ssl + ol + wb + melL[i] * pump;
+        double bandR = hR[i] * hpump * hd + hv * 0.6 * hpump + gr + drp * 1.3 + pcR[i] * 1.2 + htR[i] * 1.3 + pnR[i] * pump * vd * 0.9 + hsR[i] * 1.0 + vwR[i] * hpump * hd * 1.1 + (tR[i] + rsR[i]) * 1.3 + pR[i] * 0.9 + b808[i] * 0.42 + sr * 0.85 + pr + exR[i] * 0.5 + jr + chr + jd + ssr + orr + wb + melR[i] * pump;
         if (dissA[i] > 0.001) { double d = dissA[i], fc = 8000 * pow(300.0 / 8000, d), kd = 1 - exp(-2 * PI * fc / SR); dsL += (bandL - dsL) * kd; dsR += (bandR - dsR) * kd; bandL = dsL; bandR = dsR; }
-        L[i] = (float)(v + thL + scl + stM[i] * 1.5 + bandL + radL[i] + roomGl);
-        R[i] = (float)(v + thR + scrr + stM[i] * 1.5 + bandR + radR[i] + roomGr);
+        const double airDuck = (1 - 0.9 * fmin(1, venv / 0.012)) * (tt < bar_n(20)->t ? 0.5 : 1);   // v83: ducks fully even under her quiet verse-1 singing; verse 1's floor halved
+        L[i] = (float)(v + thL + scl + stM[i] * 1.5 + bandL + radL[i] * airDuck + roomGl);
+        R[i] = (float)(v + thR + scrr + stM[i] * 1.5 + bandR + radR[i] * airDuck + roomGr);
         // v6.4: SPACE — more of everything into the room, the doubles and the jets too
         // v8.2: no room on her in the opening — the send is closed while warm, and opens as the mix grows
         xL[i] = (float)(1 - 0.97 * warm) * roomA[i] * (float)(v * sendA[i] * 1.5 + thL * 0.8 + hL[i] * 0.5 + hv * 1.2 + sl * 0.5 + pl * 0.7 + dlp * 0.06 + gl * 0.1 + exL[i] * 0.8 + jl * 0.6 + chl * 0.9 + jd * 0.5 + ssl * 1.0 + scl * 0.6 + ol * 0.7 + wb * 0.15 + stM[i] * 0.8 + melL[i] * 0.5 + gl * sendA[i] * 1.3);   // v68: her guitar in her room
@@ -1650,19 +1700,20 @@ int main(void) {
     // v60: THE WAX PRINT — pop/lib/substrate.mjs "vinyl": tube drive 1.8 (tanh, normalized), an even-harmonic bias, a soft hiss
     // v60b: "things are maxing out" — the sum is brought to a 0.5 peak BEFORE the print (it was going in hot), drive 1.2 (was 1.8)
     { double pk = 1e-6; for (long i = 0; i < N; i++) { pk = fmax(pk, fabs(L[i])); pk = fmax(pk, fabs(R[i])); } const double pre = 0.5 / pk;
-      const double drive = 1.2, nrm = 1 / tanh(drive), bias = 0.30 * 0.12, hiss = 0.0035; double hl = 0, hr = 0; const double kh = 1 - exp(-2 * PI * 6000 / SR);
+      const double drive = 1.2, nrm = 1 / tanh(drive), bias = 0.30 * 0.12, hiss = 0.0009; double hl = 0, hr = 0; const double kh = 1 - exp(-2 * PI * 6000 / SR);   // v92: the wax hiss back, dialed way down (−12 dB from v90's half), rising in over her first bars — it was the "noise at the start" all along, from sample 0
       for (long i = 0; i < N; i++) { double l = L[i] * pre, r = R[i] * pre; l = tanh(l * drive) * nrm + bias * l * fabs(l); r = tanh(r * drive) * nrm + bias * r * fabs(r);
-          hl += (rnd() - hl) * kh; hr += (rnd() - hr) * kh; L[i] = (float)(l * 0.9 + hl * hiss); R[i] = (float)(r * 0.9 + hr * hiss); } }
+          double hin = fmin(1, fmax(0, ((double)i / SR - firstWordT) / 12.0)); hin *= hin;   // v102: from her word (not the first twang), squared over 12 s   // v92: no hiss before her — it rises over her first eight seconds
+          hl += (rnd() - hl) * kh; hr += (rnd() - hr) * kh; L[i] = (float)(l * 0.9 + hl * hiss * hin); R[i] = (float)(r * 0.9 + hr * hiss * hin); } }
     // bass mono below 120 Hz (house rule)
-    { double ml = 0, mr = 0, k = 1 - exp(-2 * PI * 120 / SR);
-      for (long i = 0; i < N; i++) { ml += (L[i] - ml) * k; mr += (R[i] - mr) * k; double m = (ml + mr) / 2; L[i] += (float)(m - ml); R[i] += (float)(m - mr); } }
+    { double ml = 0, mr = 0; const double k120 = 1 - exp(-2 * PI * 120 / SR), k500 = 1 - exp(-2 * PI * 500 / SR); const long a81 = at(bar_n(81)->t);
+      for (long i = 0; i < N; i++) { const double k = i >= a81 ? k500 : k120; ml += (L[i] - ml) * k; mr += (R[i] - mr) * k; double m = (ml + mr) / 2; L[i] += (float)(m - ml); R[i] += (float)(m - mr); } }
     // v6.6: the record starts on her first sung word (the first charted note after 23 s), 60 ms early
     long start = at(startSecOut); if (start < 0) start = 0;
     long endAt = END_BAR <= CHART_BARS[CHART_NBARS - 1].n ? at(bar_n(END_BAR)->t + 1.6) : N; if (endAt > N) endAt = N;
     { long last = at(bar_n(84)->t); for (long i = N - 1; i > last; i--) if (fabs(L[i]) > 0.004 || fabs(R[i]) > 0.004) { last = i; break; }   // v67: "too many dead seconds" — the file ends 0.5 s after the last thing heard
       long cut = last + (long)(0.5 * SR); if (cut < endAt) endAt = cut; }
     long M = endAt - start; float *oL = L + start, *oR = R + start;
-    long fin = (long)(0.005 * SR), fout = (long)(0.4 * SR);   // v72: she is the first sample; v67: a short fall at the trimmed end
+    long fin = (long)(0.11 * SR), fout = (long)(0.4 * SR);   // v91: a 110 ms rise that lands on the first strum
     for (long i = 0; i < fin; i++) { double g = 0.5 - 0.5 * cos(PI * i / fin); oL[i] *= (float)g; oR[i] *= (float)g; }
     for (long i = 0; i < fout; i++) { double g = 0.5 - 0.5 * cos(PI * i / fout); oL[M - 1 - i] *= (float)g; oR[M - 1 - i] *= (float)g; }
     double peak = 0; for (long i = 0; i < M; i++) { peak = fmax(peak, fabs(oL[i])); peak = fmax(peak, fabs(oR[i])); }

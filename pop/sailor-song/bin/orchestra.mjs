@@ -48,9 +48,10 @@ const TPS = 960;                                            // ticks per second 
 const tick = (s) => Math.round(s * TPS);
 const vlq = (n) => { const out = [n & 0x7f]; while ((n >>= 7)) out.unshift((n & 0x7f) | 0x80); return out; };
 const u32 = (n) => [(n >> 24) & 255, (n >> 16) & 255, (n >> 8) & 255, n & 255];
+const EAGER = 0.009;   // v101: the kit plays 9 ms ahead of the grid (c/sailorremix.c EAGER); the drums here must too
 class Part {
-  constructor(name, program) { this.name = name; this.program = program; this.ev = []; this.count = 0; this.receipt = []; }
-  note(t, midi, dur, vel) {
+  constructor(name, program) { this.name = name; this.program = program; this.ev = []; this.count = 0; this.receipt = []; this.eager = name === "timpani" || name === "taiko" || name === "pizz"; }
+  note(t, midi, dur, vel) { if (this.eager) t -= EAGER;
     if (dur <= 0.02 || midi < 24 || midi > 108) return;
     const v = Math.max(1, Math.min(127, Math.round(vel)));
     this.ev.push({ t: tick(t), b: [0x90, midi, v] }, { t: tick(t + dur), b: [0x80, midi, 0] });
@@ -110,8 +111,8 @@ for (const b of bars) {
   // v27 register rule: while she sings, nothing sustained in 56–70 — a low pair under her and a high trio over her
   const lowPair = voicing(c, 44, 55, 2), hiTrio = voicing(c, 71, 83, 3), top = voicing(c, 83, 91, 2);
   // v67: the chorus's sustained parts swell in over its first four bars (the pickup stab and the timpani still mark the downbeat)
-  const swellIn = s === "chorus1" ? 0.3 + 0.7 * grow(n, 28, 32) : s === "chorus2" ? 0.3 + 0.7 * grow(n, 52, 56) : 1;
-  const sus = (part, t, ms, dur, vel) => ms.forEach((m, i) => (i === ms.length - 1 ? susNote(part, t, m, dur, vel, n) : part.note(t, m, dur, vel)));
+  const swellIn = s === "chorus1" ? 0.6 + 0.4 * grow(n, 28, 32) : s === "chorus2" ? 0.6 + 0.4 * grow(n, 52, 56) : 1;   // v101: from .6 — the downbeat was an 11 dB step down from the pickup
+  const sus = (part, t, ms, dur, vel) => ms.forEach((m) => (m % 12 === 3 ? susNote(part, t, m, dur, vel, n) : part.note(t, m, dur, vel)));   // v101: the D# voice suspends (it was the last voice, usually not a D#)
 
   // STRINGS
   if (s === "verse1" && n >= 22) { const g = grow(n, 22, 28); sus(P.strings, b.t, lowPair, b.dur * 1.02, 30 + 36 * g); }
@@ -177,7 +178,7 @@ for (const b of bars) {
       for (let j = 0; j < nb; j++) for (let q = 0; q < 2; q++) { const i = (j * 2 + q) % run.length, t = bt[j] + (bt[j + 1] - bt[j]) * q / 2;
         P.vln1.note(t, run[i] + (finale ? 12 : 0), beat / 2 * 1.1, vel * (q ? 0.8 : 1));
         if (q) P.vln2.note(t, lo[Math.min(lo.length - 1, i + 1)], beat / 2 * 1.1, vel * 0.75); }
-      for (const j of [0, 2]) if (bt[j]) sus(P.viola, bt[j], voicing(c, 51, 62, 2), beat * 2 * 0.98, vel * 0.85);
+      for (const j of [0, 2]) if (bt[j]) sus(P.viola, bt[j], voicing(c, 49, 55, 2), beat * 2 * 0.98, vel * 0.85);   // v101: below her
       if (!finale) for (let j = 0; j < nb; j++) for (let q = 0; q < 2; q++) P.qcello.note(bt[j] + (bt[j + 1] - bt[j]) * q / 2, root + (q ? 7 : 0), beat / 2 * 0.9, vel * (q ? 0.7 : 0.9));
     } else if (s === "verse2") {
       for (const [part, m] of [[P.vln1, hi[2]], [P.vln2, hi[0]]]) part.note(b.t, m, b.dur * 1.03, 56);
@@ -191,7 +192,7 @@ for (const b of bars) {
       const k = Math.min(hi.length - 1, (n - 73) % 4 + 1);
       for (let j = 0; j < nb; j++) for (let q = 0; q < 4; q++) { const t = bt[j] + (bt[j + 1] - bt[j]) * q / 4;
         P.vln1.note(t, hi[k], beat / 4 * 1.2, vel * (q ? 0.7 : 0.95)); P.vln2.note(t, hi[Math.max(0, k - 2)], beat / 4 * 1.2, vel * 0.65); }
-      if (!early) { sus(P.viola, b.t, voicing(c, 51, 62, 2), b.dur * 1.03, vel * 0.8); P.qcello.note(b.t, root, b.dur * 1.03, vel * 0.9); }
+      // (v101: viola/qcello sit out the climb — they arrive with the finale)
     }
   }
 
@@ -205,7 +206,7 @@ for (const b of bars) {
   }
 
   // AAHS — a block choir ABOVE her (68–83): the second half of chorus 1, chorus 2, the bridge climb, the finale, a soft release
-  if ((s === "chorus1" && n >= 36) || s === "chorus2" || (s === "bridge" && !early) || s === "outro") {
+  if ((s === "chorus1" && n >= 36) || s === "chorus2" || s === "outro") {   // v101: no aahs in the bridge — 81 is the arrival
     const v = voicing(c, 68, 83, 4), g = s === "chorus1" ? grow(n, 36, 40) : s === "chorus2" ? 0.2 + 0.8 * grow(n, 52, 58) : release ? 0.55 : 1;   // v67: the aahs come in late
     sus(P.aahs, b.t, v, b.dur * 1.05, (big || finale ? 92 : 76) * g);
   }
@@ -213,8 +214,8 @@ for (const b of bars) {
   // THE PICKUP (v35) — the chorus begins on "Oh, won't you": from beat 3 of bars 27 and 51 the strings, horns and timpani
   // are already in, at the chorus's own voicing and weight
   if (n === 27 || n === 51) { const jP = nb > 2 ? nb - 2 : 0, tP = bt[jP], dP = b.t + b.dur - tP, cv = n === 51; const nc = c;   // v51: two beats before "kiss" (27.4 / 51.3)
-    sus(P.strings, tP, voicing(nc, 71, 83, 3), dP * 1.02, cv ? 94 : 84); for (const m of voicing(nc, 44, 55, 2)) P.strings.note(tP, m, dP * 1.02, cv ? 84 : 70);
-    for (const m of voicing(nc, 44, 56, 3)) { P.horns.note(tP, m, dP * 1.02, 88); P.horns.note(tP, m, beat * 0.9, 104); }
+    sus(P.strings, tP, voicing(nc, 71, 83, 3), dP * 1.02, cv ? 64 : 56); for (const m of voicing(nc, 44, 55, 2)) P.strings.note(tP, m, dP * 1.02, cv ? 56 : 46);   // v101: ÷1.6 — the run-up under the landing
+    for (const m of voicing(nc, 44, 56, 3)) P.horns.note(tP, m, dP * 1.02, 60);
     P.timpani.note(tP, root, beat * 1.5, cv ? 112 : 100); if (cv) P.taiko.note(tP, root, beat * 0.8, 112);
     for (let j = jP; j < nb; j++) for (let q = 0; q < 2; q++) { const t = bt[j] + (bt[j + 1] - bt[j]) * q / 2; P.vln1.note(t, tones(nc, 71, 88)[(j * 2 + q) % 4], beat / 2 * 1.1, cv ? 90 : 78); } }
   // THE ANSWER (v27) — her kiss figure comes back in her own silences: pizz + harp after chorus 1 (bar 42), glock +
@@ -241,7 +242,7 @@ for (const v of notes) {
   if (v.dur < 0.18) continue;
   const b = bars.find((x) => v.t >= x.t && v.t < x.t + x.dur); if (!b) continue;
   const s = section(b.n);
-  if ((s === "chorus2" && b.n >= 60) || (s === "bridge" && b.n >= 77)) P.glock.note(v.t, v.midi + 12, Math.max(0.25, v.dur), 68);
+  if (s === "chorus2" && b.n >= 60) P.glock.note(v.t, v.midi + 12, Math.max(0.25, v.dur), 68);   // v101: the climb keeps its glock for the finale's kiss answer
 }
 
 // ── render ──
