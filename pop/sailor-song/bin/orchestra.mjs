@@ -96,10 +96,11 @@ for (const b of bars) {
   if (s === "verse1" && b.n >= 22) {
     const g = grow(b.n, 22, 28);
     for (const m of voicing(c, 51, 63, 3)) P.strings.note(b.t, m, b.dur * 1.02, 30 + 40 * g);
-  } else if (chorus) {
-    const v = voicing(c, 51, 75, 6), swell = 1 + 0.15 * Math.sin(Math.PI * (PHRASE(b.n) + 0.5) / 4);
-    for (const m of v) P.strings.note(b.t, m, b.dur * 1.02, (big ? 96 : 84) * swell);
-    if (big) for (const m of voicing(c, 75, 83, 2)) P.strings.note(b.t, m, b.dur * 1.02, 72);
+  } else if (chorus) {   // v26: variation — chorus 1 legato; chorus 2 legato for two phrases, re-bowed on every beat for the next two
+    const v = voicing(c, 51, 75, 6), swell = 1 + 0.15 * Math.sin(Math.PI * (PHRASE(b.n) + 0.5) / 4), phN = Math.floor((b.n - SEC_FROM[s]) / 4);
+    if (big && phN % 4 >= 2) { for (let j = 0; j < nb; j++) for (const m of v) P.strings.note(bt[j], m, beat * 1.05, 92 * swell); }
+    else for (const m of v) P.strings.note(b.t, m, b.dur * 1.02, (big ? 96 : 84) * swell);
+    if (big && phN >= 2) for (const m of voicing(c, 75, 83, 2)) P.strings.note(b.t, m, b.dur * 1.02, 72);
   } else if (s === "verse2") {
     for (const m of voicing(c, 68, 80, 2)) P.strings.note(b.t, m, b.dur * 1.02, 48);
   } else if (s === "break") {
@@ -132,9 +133,9 @@ for (const b of bars) {
   // HORNS — sustained chord tones in the choruses and the bridge, swelling across each phrase;
   // a stab on every phrase downbeat
   if (chorus || s === "bridge" || s === "outro") {
-    const ph = PHRASE(b.n), v = voicing(c, 56, 68, 3), swell = 64 + 24 * ph / 3 + (big ? 16 : 0) + (s === "outro" ? 24 : 0);
-    for (const m of v) P.horns.note(b.t, m, b.dur * 1.02, swell);
-    if (ph === 0) for (const m of v) P.horns.note(b.t, m - 12, beat * 0.9, 100);
+    const ph = PHRASE(b.n), v = voicing(c, 56, 68, 3), swell = 64 + 24 * ph / 3 + (big ? 16 : 0) + (s === "outro" ? 24 : 0), phN = Math.floor((b.n - SEC_FROM[s]) / 4);
+    if (phN % 2 === 0) { for (const m of v) P.horns.note(b.t, m, b.dur * 1.02, swell); if (ph === 0) for (const m of v) P.horns.note(b.t, m - 12, beat * 0.9, 100); }   // v26: odd phrases sustain…
+    else if (ph === 1 || ph === 3) { for (const m of v) { P.horns.note(bt[0], m, beat * 0.5, 96); if (nb > 2) P.horns.note(mid(1), m, beat * 0.4, 84); } }   // …even phrases stab (bars 2 and 4)
   }
 
   // TIMPANI — the chorus and bridge downbeats on her root; a roll into every lift
@@ -148,7 +149,7 @@ for (const b of bars) {
   }
 
   // HARP — 8th-note arpeggios across the chord: verse 2, the break, the bridge and the outro
-  if (s === "verse2" || s === "break" || s === "bridge" || s === "outro") {
+  if ((s === "verse2" && b.n >= 48) || s === "break" || s === "bridge" || s === "outro") {   // v26: the harp waits for verse 2's second half
     const seq = tones(c, 56, 83); const up = seq.slice(0, 6), run = [...up, ...up.slice(1, -1).reverse()];
     const dens = s === "bridge" ? 4 : 2; let i = 0;
     for (let j = 0; j < nb; j++) for (let q = 0; q < dens; q++) {
@@ -220,7 +221,7 @@ for (const v of notes) {
   if (v.dur < 0.18) continue;
   const b = bars.find((x) => v.t >= x.t && v.t < x.t + x.dur); if (!b) continue;
   const s = section(b.n);
-  if (s === "chorus2" || s === "bridge" || s === "outro") P.glock.note(v.t, v.midi + 12, Math.max(0.25, v.dur), s === "outro" ? 56 : 68);
+  if ((s === "chorus2" && b.n >= 60) || s === "bridge" || s === "outro") P.glock.note(v.t, v.midi + 12, Math.max(0.25, v.dur), s === "outro" ? 56 : 68);   // v26: glock from chorus 2's second half
 }
 
 // ── render ──

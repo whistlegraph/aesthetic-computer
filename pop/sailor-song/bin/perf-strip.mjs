@@ -32,16 +32,13 @@ const LANES = [
   { name: "kit",      voices: ["kick", "clap", "hat", "rim", "conga", "bubble", "impact"], rgb: [90, 150, 240] },
   { name: "bass",     voices: ["bass", "sub", "808"],                rgb: [120, 110, 230], lo: 30, hi: 50 },
   { name: "bed",      voices: ["pad", "high", "descant", "arp", "hook", "vib", "bell"], rgb: [170, 120, 220], lo: 60, hi: 93 },
-  { name: "strings",  orch: "strings",                               rgb: [220, 120, 90],  lo: 50, hi: 88 },
-  { name: "cello",    orch: "cello",                                 rgb: [190, 100, 70],  lo: 42, hi: 52 },
-  { name: "pizz",     orch: "pizz",                                  rgb: [230, 150, 110], lo: 55, hi: 68 },
+  { name: "strings",  orchs: ["strings", "cello", "pizz"],           rgb: [220, 120, 90],  lo: 40, hi: 88 },
   { name: "horns",    orch: "horns",                                 rgb: [240, 200, 80],  lo: 44, hi: 70 },
-  { name: "timpani",  orch: "timpani",                               rgb: [200, 140, 60] },
+  { name: "drums",    orchs: ["timpani", "taiko"],                   rgb: [200, 140, 60] },
   { name: "harp",     orch: "harp",                                  rgb: [140, 210, 190], lo: 56, hi: 84 },
   { name: "glock",    orch: "glock",                                 rgb: [200, 240, 250], lo: 66, hi: 82 },
   { name: "choir",    orch: "aahs",                                  rgb: [230, 180, 230], lo: 56, hi: 72 },
   { name: "quartet",  orchs: ["vln1", "vln2", "viola", "qcello"],      rgb: [250, 140, 120], lo: 44, hi: 95 },
-  { name: "taiko",    orch: "taiko",                                 rgb: [240, 110, 60] },
   { name: "wub",      voices: ["wub"],                               rgb: [100, 240, 180], lo: 28, hi: 40 },
   { name: "stutter",  voices: ["stutter"],                           rgb: [255, 80, 80] },
 ];
@@ -73,13 +70,26 @@ const FONT = {
   6:"00110010001000011110100011000101110",7:"11111000010001000100001000010000100",8:"01110100011000101110100011000101110",9:"01110100011000101111000010001001100",
   ":":"00000001000010000000000010000100000"," ":"00000000000000000000000000000000000","-":"00000000000000001111100000000000000",".":"00000000000000000000000000110001100",
   "#":"01010010101111101010111110101001010","@":"01110100011011110101101111000001110","/":"00001000100010001000100010000000000","+":"00000001000010001111100010000100000",
+  "'":"00100001000010000000000000000000000",",":"00000000000000000000000001100010010","?":"01110100010000100010001000000000100","!":"00100001000010000100001000000000100",
+  "(":"00010001000100001000010000100000010",")":"01000001000001000010000100010001000","\"":"01010010100000000000000000000000000",";":"00000001000010000000000010000100100",
 };
 const text = (s, x, y, r, g, b, scale = 1, a = 1) => { let cx = x; for (const ch of String(s).toUpperCase()) { const gl = FONT[ch];
   if (gl) for (let j = 0; j < 7; j++) for (let i = 0; i < 5; i++) if (gl[j * 5 + i] === "1") rect(cx + i * scale, y + j * scale, scale, scale, r, g, b, a); cx += 6 * scale; } return cx - x; };
 const textW = (s, scale = 1) => String(s).length * 6 * scale;
 
+// ── lyrics (v26): the sung line, the word lit as she sings it ──
+const WORDS = (() => { try { return JSON.parse(readFileSync(resolve(LANE, "src/words-record.json"), "utf8")); } catch { return []; } })()
+  .map((w) => ({ text: w.text, a: w.fromMs / 1000 + T0, b: w.toMs / 1000 + T0, muted: !!w.muted }));
+const norm = (t) => t.toLowerCase().replace(/[^a-z0-9']/g, "");
+const LINES = []; { let k = 0; const lyr = (() => { try { return readFileSync(resolve(LANE, "src/lyrics-sung.txt"), "utf8"); } catch { return ""; } })()
+    .split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("["));
+  for (const line of lyr) { const toks = line.split(/\s+/), got = []; let kk = k;
+    for (const tok of toks) { const n = norm(tok); if (!n) continue; let j = kk; while (j < WORDS.length && j < kk + 6 && norm(WORDS[j].text) !== n) j++;
+      if (j < WORDS.length && j < kk + 6) { got.push({ tok, w: WORDS[j] }); kk = j + 1; } else got.push({ tok, w: null }); }
+    const timed = got.filter((g) => g.w); if (timed.length) { LINES.push({ words: got, a: timed[0].w.a, b: timed.at(-1).w.b }); k = kk; } } }
+const LYRIC_H = 34;
 // ── layout ──
-const HEAD = 24, LABEL_W = 56, NOW_X = LABEL_W + Math.round((W - LABEL_W) * 0.3);
+const HEAD = 24 + LYRIC_H, LABEL_W = 56, NOW_X = LABEL_W + Math.round((W - LABEL_W) * 0.3);
 const laneH = (H - HEAD) / LANES.length;
 const xOf = (t, now) => NOW_X + ((t - now) / WIN) * (W - LABEL_W);
 const nFrames = Math.ceil(DUR * FPS);
@@ -109,15 +119,23 @@ function drawFrame(fi) {
   });
   // playhead
   rect(NOW_X - 1, HEAD - 4, 2, H - HEAD + 4, 255, 255, 255, 0.85);
+  // the lyric line (v26): the line in flight, or the next one arriving half a second early
+  { const li = LINES.findIndex((l) => now >= l.a - 0.6 && now < l.b + 0.8); const L = li >= 0 ? LINES[li] : null;
+    if (L) { const fits = (sc) => L.words.reduce((a, g) => a + textW(g.tok, sc) + 6 * sc, -6 * sc) <= W - 16;
+      const sc = fits(3) ? 3 : 2, gap = 6 * sc, total = L.words.reduce((a, g) => a + textW(g.tok, sc) + gap, -gap); let x = Math.max(8, Math.round((W - total) / 2));
+      for (const g of L.words) { const w = g.w, on = w && now >= w.a && now < w.b, done = w && now >= w.b;
+        const al = on ? 1 : done ? 0.85 : 0.45; const [r, gg, b] = on ? [255, 220, 120] : [255, 255, 255];
+        if (on) rect(x - 3, 4, textW(g.tok, sc) + 6, 7 * sc + 6, 255, 200, 90, 0.18);
+        text(g.tok, x, sc === 3 ? 7 : 10, r, gg, b, sc, al); x += textW(g.tok, sc) + gap; } } }
   // header: section · bar · chord · tempo, and the record's section ribbon
   const bar = barAt(now), sec = secAt(now);
   const bpm = bar ? Math.round(240 / bar.dur) : 0;
   const line = `${sec ? sec.name : ""}   bar ${bar ? bar.n : "-"}   ${bar ? bar.chord : ""}   ${bpm || "-"} bpm   g# minor`;
-  text(line, 6, 6, 255, 255, 255, 2, 0.9);
+  text(line, 6, LYRIC_H + 6, 255, 255, 255, 2, 0.9);
   const ribX = W - 260, ribW = 250;
   sections.forEach((s, si) => { const x0 = ribX + (s.a - T0) / DUR * ribW, x1 = ribX + (s.b - T0) / DUR * ribW; const live = sec === s;
-    rect(x0, 8, Math.max(1, x1 - x0 - 1), 8, 220 - 120 * si / 7, 120 + 60 * si / 7, 200, live ? 0.95 : 0.35); });
-  rect(ribX + (now - T0) / DUR * ribW - 1, 5, 2, 14, 255, 255, 255, 0.95);
+    rect(x0, LYRIC_H + 8, Math.max(1, x1 - x0 - 1), 8, 220 - 120 * si / 7, 120 + 60 * si / 7, 200, live ? 0.95 : 0.35); });
+  rect(ribX + (now - T0) / DUR * ribW - 1, LYRIC_H + 5, 2, 14, 255, 255, 255, 0.95);
 }
 
 const ff = spawn("ffmpeg", ["-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", `${W}x${H}`, "-r", String(FPS), "-i", "-",

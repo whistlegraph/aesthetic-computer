@@ -90,7 +90,7 @@
 #include "sailor-chart.h"
 
 #define SR 48000
-#define VERSION "v25d"
+#define VERSION "v26"
 #define END_BAR 999          // v23: "the song should end how her video ends" — the record runs to the end of her take (v9 cut at 82 + 1.5 s)
 #define START_BAR 11         // v6.6: (the pre-roll is now her first WORD; see main)
 #define FLOOR_BAR 52         // v10: the one chorus — the floor drops on its "kiss"
@@ -176,17 +176,17 @@ static const Arr ARR[NSEC] = {
     [VERSE1]  = { .9, 0, 0,     0, 0, 0, 0, 0, .25, 0,      .8, .7, .3, 0, 0, 0, 0, 0, 0,    // v8: end state of the evolution (gated per bar below)
                   { H(H_DOWN3, .16, 40) }, .07, .45 },
     [CHORUS1] = { 1.0, .6, 0,   1, 0, .8, .5, 0, .5, 1,     1, 1, 1, .3, .2, 0, 0, 0, 0,   // v22: her guitar back, strong
-                  { H(H_UP3, .45, -50), H(H_DOWN3, .40, 50), H(H_DOWN6, .28, 0) }, .18, 1.0 },   // v16: harmonies up
+                  { H(H_UP3, .34, -50), H(H_DOWN3, .30, 50), H(H_DOWN6, .2, 0) }, .18, 1.0 },   // v16: harmonies up
     [VERSE2]  = { .85, .35, 0,  .8, 0, 0, .35, 0, .2, .4,   .7, .6, .3, 0, 0, 0, 0, 0, 0,    // a verse, not a chorus
                   { H(H_DOWN3, .30, 45), H(H_UP3, .30, -45), H(H_DOWN6, .18, 0) }, .12, .8 },   // v19: harmonies come in with the cathedral
     [CHORUS2] = { 1.0, .7, .6,  1.1, 0, .9, .5, 0, .6, 1,   1, 1, 1, .3, .3, 1, 0, 0, 0,
-                  { H(H_UP3, .48, -60), H(H_DOWN3, .45, 60), H(H_DOWN6, .33, -20), H(H_DOWN8, .30, 0) }, .18, 1.0 },
+                  { H(H_UP3, .36, -60), H(H_DOWN3, .34, 60), H(H_DOWN6, .25, -20), H(H_DOWN8, .24, 0) }, .18, 1.0 },
     [BREAK]   = { .8, .4, 0,    .8, 0, .4, .3, 0, .3, .6,   .8, 1, 1, 0, 0, .6, 1, 0, 0,   // v24: no dead space — the beat stays, and rises
                   { { 0 } }, .20, .2 },
     [BRIDGE]  = { .9, .6, .7,   1, 0, .7, .4, 0, .6, .9,    1, 1, 1, .2, .3, .7, 0, .3, .3,
                   { { 0 } }, .16, .9 },                   // harmonies rove, see harm_at()   // v22b: send down, she stays in front
     [OUTRO]   = { 1, .8, .8,    1.2, 0, 1, .5, 0, .7, 1,    1, 1, 1, .3, .3, 1, 0, .3, .4,   // v24: the FINALE
-                  { H(H_UP3, .5, -60), H(H_DOWN3, .5, 60), H(H_DOWN6, .35, -20), H(H_DOWN8, .3, 0) }, .20, 1.0 },
+                  { H(H_UP3, .4, -60), H(H_DOWN3, .4, 60), H(H_DOWN6, .28, -20), H(H_DOWN8, .24, 0) }, .20, 1.0 },
 };
 // "pitching around": in the bridge her harmony changes interval and place each bar
 static double evo(int bar, int from, int to);
@@ -392,10 +392,10 @@ static double v_her(const ChartBar *b, int x) { (void)x; return ARR[section_of(b
 // v6.6: warm — the opening vocal close to the mic: proximity below 350 Hz, no air, almost no room; eases out by the floor
 // v7: the choir stands behind her in the choruses, the bridge and the outro; a breath of it in verse 2
 static double v_choir(const ChartBar *b, int x) { (void)x; int s = section_of(b->n);   // v22: block harmonies — up and early
-    return s == CHORUS1 ? 0.75 * evo(b->n, 28, 32) : s == VERSE2 ? 0.3 : s == CHORUS2 ? 1.1 : s == BREAK ? 0.5 : s == BRIDGE ? 1.0 : s == OUTRO ? 1.2 : 0; }
+    return s == CHORUS1 ? 0.55 * evo(b->n, 28, 32) : s == VERSE2 ? 0.25 : s == CHORUS2 ? 0.8 : s == BREAK ? 0.5 : s == BRIDGE ? 0.75 : s == OUTRO ? 0.9 : 0; }   // v26: back a step
 // v22: SCREAM — a distorted double of her lead (clipped, growled, wide) under the big sections
 static double v_scream(const ChartBar *b, int x) { (void)x; int s = section_of(b->n);
-    return s == CHORUS1 ? 0.35 * evo(b->n, 34, 38) : s == CHORUS2 ? 0.45 : s == BREAK ? 0.25 : s == BRIDGE ? 0.5 + 0.25 * evo(b->n, 73, 80) : s == OUTRO ? 0.7 : 0; }   // v25: a shade less
+    return s == CHORUS1 ? 0.2 * evo(b->n, 34, 38) : s == CHORUS2 ? 0.28 : s == BREAK ? 0.15 : s == BRIDGE ? 0.3 + 0.15 * evo(b->n, 73, 80) : s == OUTRO ? 0.45 : 0; }   // v26: "too many effects on her vocal" — the scream is a shadow
 // v22: the ORCHESTRA (bin/orchestra.mjs → src/orch): where a part plays is decided there; how loud, here
 enum { O_STRINGS, O_CELLO, O_PIZZ, O_HORNS, O_TIMP, O_HARP, O_GLOCK, O_AAHS, O_VLN1, O_VLN2, O_VIOLA, O_QCELLO, O_TAIKO, NORCH };
 static const char *ORCH_FILE[NORCH] = { "strings", "cello", "pizz", "horns", "timpani", "harp", "glock", "aahs", "vln1", "vln2", "viola", "qcello", "taiko" };
@@ -471,7 +471,7 @@ static int rec_pos(const ChartBar *b) { return (int)(b - CHART_BARS) + 1; }
 static double v_far(const ChartBar *b, int x) { (void)x; return rec_pos(b) < pos_n(11) ? 1 : rec_pos(b) < pos_n(44) ? 1 - evo(b->n, 13, 25) : 0; }   // far = quiet
 static double v_cath(const ChartBar *b, int x) { (void)x; return 0.6 * evo(rec_pos(b), pos_n(22), CHART_NBARS - 6); }   // v22b: "we still need her to have an up front voice" — half the stone (was 1.3)
 static double v_warm(const ChartBar *b, int x) { (void)x; return 1 - 0.6 * evo(rec_pos(b), pos_n(20), CHART_NBARS - 6); }   // v25: she stays closer all the way (was 0.85)
-static double v_thick(const ChartBar *b, int x) { (void)x; int s = section_of(b->n); return s == INTRO ? 0 : s == VERSE1 ? 0.25 * evo(b->n, 16, 24) : s == BREAK ? 0 : s == VERSE2 ? 0.25 : 0.3; }   // v15: the doubles trimmed so the lead stays in front; v25: thinner still
+static double v_thick(const ChartBar *b, int x) { (void)x; int s = section_of(b->n); return s == INTRO ? 0 : s == VERSE1 ? 0.25 * evo(b->n, 16, 24) : s == BREAK ? 0 : s == VERSE2 ? 0.18 : 0.2; }   // v15: the doubles trimmed so the lead stays in front; v26: thinner still
 static double v_harm_g(const ChartBar *b, int h) { return harm_at(b->n, h).g; }
 static double v_harm_az(const ChartBar *b, int h) { return harm_at(b->n, h).az; }
 
@@ -841,15 +841,23 @@ int main(void) {
         const double gSub = evo(b->n, 16, 22), gTen = evo(b->n, 20, 26), gShk = evo(b->n, 14, 18), gCon = evo(b->n, 18, 22);   // v7: her first line alone; the shuffle from bar 14, congas from 18
         // v6 HOCKET: the floor doubles her 1 and 3 and lands in her empty 2 and 4;
         // open hats on the complement's &1/&3; her own &2/&4 get a soft accent at her bin
-        if (dz[0] && gKick > 0) for (int j = 0; j < nb; j++) { if ((s == VERSE1 || s == VERSE2) && j % 2) continue;   // v22: her 1 and 3 in the verses; four on the floor everywhere else
+        // v26: VARIATION — chorus 1 is half-time (kick 1 and 3 with an &4 pickup, clap on 3) so chorus 2's four on
+        // the floor is an event; the hats drop out for the last bar of every other phrase; every phrase ends in a fill
+        const int ph = (b->n - SEC_FROM[s]) % 4, phN = (b->n - SEC_FROM[s]) / 4, halfTime = s == CHORUS1;
+        const int hatDrop = (s == CHORUS1 || s == CHORUS2 || s == OUTRO) && ph == 3 && (phN % 2 == 1);
+        const int fillBar = (s == CHORUS1 || s == CHORUS2 || s == BRIDGE || s == OUTRO || s == VERSE2) && ph == 3 && nb > 3;
+        if (dz[0] && gKick > 0) for (int j = 0; j < nb; j++) { if ((s == VERSE1 || s == VERSE2 || halfTime) && j % 2) continue;   // v22: her 1 and 3 in the verses; four on the floor everywhere else
             double g = 0.95 * dz[0] * (j % 2 ? 0.9 : 1) * gKick * hill;
             dance_kick(bt[j], g); ev(bt[j], "kick", 0.1, g, -1); }
-        if (dz[1] && gKick > 0) for (int j = 1; j < nb; j += 2) { clap(bt[j], 0.75 * dz[1] * swell * gDrop * hill * gKick); ev(bt[j], "clap", 0.1, dz[1], -1); }
-        if (dz[2] && gHat > 0) for (int j = 0; j < nb; j++) {
+        if (dz[0] && gKick > 0 && halfTime && nb > 3) { dance_kick(MID(3), 0.6 * dz[0] * gKick * hill); ev(MID(3), "kick", 0.1, 0.6 * dz[0], -1); }   // v26: the &4 pickup
+        if (dz[1] && gKick > 0) for (int j = 0; j < nb; j++) { if (halfTime ? j != 2 : !(j % 2)) continue; clap(bt[j], 0.75 * dz[1] * swell * gDrop * hill * gKick); ev(bt[j], "clap", 0.1, dz[1], -1); }
+        if (fillBar && dz[1]) { for (int q = 0; q < 4; q++) { double t = bt[3] + (bt[4] - bt[3]) * q / 4, g = (0.3 + 0.17 * q) * dz[1] * gDrop * hill; clap(t, g); ev(t, "clap", 0.05, g, -1); }
+            if (phN % 2 == 0 && dz[0]) { dance_kick(MID(2), 0.5 * dz[0] * gKick); ev(MID(2), "kick", 0.1, 0.5, -1); } }   // v26: the phrase-end fill — a clap roll, every other phrase a kick double
+        if (dz[2] && gHat > 0 && !hatDrop) for (int j = 0; j < nb; j++) {
             if (j % 2 == 0) { open_hat(MID(j) + BIN_OFF, 0.42 * dz[2] * swell * gHat * gDrop * hill); ev(MID(j), "hat", 0.1, dz[2], -1); }
             else { trap_hat(MID(j) + BIN_OFF, 0.24 * dz[2] * swell * gHat * gDrop, 0.3); ev(MID(j), "hat", 0.02, dz[2] * 0.5, -1); } }
         // v19: rolling hats from verse 2 on — ghost 16ths on every "e" and "a", and a 32nd roll into every other downbeat
-        if (dz[2] && gHat > 0) for (int j = 0; j < nb; j++) {
+        if (dz[2] && gHat > 0 && !hatDrop) for (int j = 0; j < nb; j++) {
             const double bd = bt[j + 1] - bt[j];
             for (int q = 1; q < 4; q += 2) trap_hat(bt[j] + bd * q / 4 + BIN_OFF, (q == 3 ? 0.16 : 0.11) * dz[2] * swell * gDrop * hill, q == 3 ? 0.35 : -0.35);
             if (j == nb - 1 && b->n % 2) for (int q = 0; q < 8; q++) trap_hat(bt[j] + bd * q / 8 + BIN_OFF, (0.07 + 0.02 * q) * dz[2] * swell * gDrop, -0.5 + q / 7.0); }
@@ -900,7 +908,8 @@ int main(void) {
             if (pc[2] && gCon > 0) { int lo = ROOT[b->chord] + 12, hi = lo + 7; double cg = pc[2] * gCon;   // tuned to her root / fifth
                 if (nb > 1) { conga(hum_t2(MID(1) + BIN_OFF, 9), hi, hum_g2(0.30 * cg, 0.22), 0.35, 0); ev(MID(1), "conga", 0.1, cg, hi); }
                 if (nb > 3) { conga(hum_t2(bt[3], 9), lo, hum_g2(0.34 * cg, 0.22), 0.25, 0); conga(hum_t2(MID(3) + BIN_OFF, 9), hi, hum_g2(0.26 * cg, 0.22), 0.35, 1); ev(bt[3], "conga", 0.1, cg, lo); }
-                if (b->n % 2 == 0 && nb > 2) { conga(hum_t2(bt[1] + (bt[2] - bt[1]) * 2 / 3.0, 9), hi, hum_g2(0.2 * cg, 0.25), 0.3, 1); } }   // v6.4: a triplet slap every other bar
+                if (b->n % 2 == 0 && nb > 2) { conga(hum_t2(bt[1] + (bt[2] - bt[1]) * 2 / 3.0, 9), hi, hum_g2(0.2 * cg, 0.25), 0.3, 1); }   // v6.4: a triplet slap every other bar
+                if (fillBar && s == VERSE2) for (int q = 0; q < 3; q++) { double t = bt[3] + (bt[4] - bt[3]) * q / 3; conga(t, q == 2 ? lo : hi, 0.3 * cg * (0.7 + 0.15 * q), 0.3, q % 2); ev(t, "conga", 0.08, cg, q == 2 ? lo : hi); } }   // v26: verse 2 phrase ends on a conga fill
         }
         // v24: the wub on her root, two octaves under the sub, one sweep per beat (8ths from the bridge)
         if (WUB[s] > 0) { wub(b->t, b->t + b->dur, ROOT[b->chord] - 24, beatDur, WUB_RATE[s], WUB[s] * hill); ev(b->t, "wub", b->dur, WUB[s], ROOT[b->chord] - 24); }
@@ -953,7 +962,7 @@ int main(void) {
     // v25: THROWS — her "sailor?" at the end of each chorus thrown into a dotted-8th echo that spins round the head
     { static const double THROW_T[2] = { 63.37, 109.27 };   // onsets, engine clock (src/words-record.json + startSec)
       for (int q = 0; q < 2; q++) { const ChartBar *tb = bar_at(THROW_T[q]); if (!tb) continue; double dot = tb->dur / 4 * 1.5; long sa = at(THROW_T[q]); int n = (int)(0.55 * SR);
-          for (int h = 1; h <= 4; h++) { long a = at(THROW_T[q] + h * dot); double g = 0.5 * pow(0.68, h - 1);
+          for (int h = 1; h <= 3; h++) { long a = at(THROW_T[q] + h * dot); double g = 0.34 * pow(0.62, h - 1);   // v26: three, quieter
               for (int i = 0; i < n; i++) { double w = fmin(1, i / (0.006 * SR)) * fmin(1, (n - i) / (0.08 * SR)); add(throwM, a + i, sample(vox.L, vox.n, sa + i) * w * g); }
               ev(THROW_T[q] + h * dot, "throw", 0.55, g, -1); } } }
     // v24: THE STUTTER — "the k-kiss hiccup should be musically recovered": the first 90 ms of her own
@@ -1101,8 +1110,8 @@ int main(void) {
         // v6.3: HOLLOW — the bed is keyed to her: while she sings, sines, guitars,
         // harmonies and halo step back (up to −6 dB, 10 ms in, 200 ms out via env)
         venv = lv > venv ? venv + (lv - venv) * 0.02 : venv + (lv - venv) * 0.0006;
-        const double vd = 1 - 0.5 * fmin(1, venv / 0.05), hd = 1 - 0.3 * fmin(1, venv / 0.05);
-        double hv = sample(halo.L, halo.n, i) * 0.22 * hd * (1 - 0.6 * warm);   // v8.1: the halo up; v8.2: mostly out while she is up close
+        const double vd = 1 - 0.6 * fmin(1, venv / 0.05), hd = 1 - 0.4 * fmin(1, venv / 0.05);   // v26: the bed steps back further while she sings (−8 dB)
+        double hv = sample(halo.L, halo.n, i) * 0.15 * hd * (1 - 0.6 * warm);   // v26: halo down   // v8.1: the halo up; v8.2: mostly out while she is up close
         // v6.4: THICK — two drifting copies of her lead, 28 and 41 ms late (the platter's
         // unison spacing), each wandering ±1.2 ms so they detune a few cents, panned apart
         double tt = (double)i / SR;
