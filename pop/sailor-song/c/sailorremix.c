@@ -90,7 +90,7 @@
 #include "sailor-chart.h"
 
 #define SR 48000
-#define VERSION "v104"
+#define VERSION "v106"
 #define EAGER 0.009          // v73: "eager" placement — percussion pushes ~9 ms ahead of the grid
 #define PIANO_ON 0           // v71: "let's be rid of the piano" — the sampler stays, the part is off
 #define SHIFT27 0.0          // v53: how much earlier everything after bar 27 plays, now that the regularizer fits it to four beats
@@ -1014,6 +1014,9 @@ int main(void) {
     Stereo gtrRaw = { (float *)malloc(gtr.n * sizeof(float)), (float *)malloc(gtr.n * sizeof(float)), gtr.n };   // v78: her guitar as the phone heard it
     memcpy(gtrRaw.L, gtr.L, gtr.n * sizeof(float)); memcpy(gtrRaw.R, gtr.R, gtr.n * sizeof(float));
     pop_guitar(&gtr, 1.5); pop_guitar(&acg, 1.3);
+    // v106: PRESENCE — a nylon guitar on a phone has little above 6 kHz, so pop_guitar's 10 kHz shelf lifts almost nothing; her
+    // strum's brightness lives at 2–5 kHz. +5 dB high shelf from 2.5 kHz on her guitar, all song (the opening is this guitar alone)
+    { float *ch[2] = { gtr.L, gtr.R }; for (int c = 0; c < 2; c++) { Biquad sh = bq(2, 2500, 0.7, 5.0); for (long i = 0; i < gtr.n; i++) ch[c][i] = (float)bq_run(&sh, ch[c][i]); } }
     // v59: HER HAND — the strum attacks lifted: the 2–6 kHz band's fast envelope against its slow one, the burst of a pick/nail boosted for its length
     { float *ch[2] = { gtr.L, gtr.R }; const double kh = 1 - exp(-2 * PI * 2000 / SR), kl = 1 - exp(-2 * PI * 6000 / SR);
       for (int c = 0; c < 2; c++) { double h = 0, l = 0, fast = 0, slow = 0; float *b = ch[c];
@@ -1525,7 +1528,7 @@ int main(void) {
     float *farA = automate(v_far, 0), *cathA = automate(v_cath, 0), *roomA = automate(v_room, 0), *dissA = automate(v_dissolve, 0);
     double dsL = 0, dsR = 0;   // v41: the dissolve lowpass state
     double gbL = 0, gbR = 0, gbRL = 0, gbRR = 0; const double k3kG = 1 - exp(-2 * PI * 3000 / SR), k4kG = 1 - exp(-2 * PI * 4000 / SR);   // v48: her guitar's brightness shelf after the button; v98: and on the opening twangs
-    float *g12oL = zeros(), *g12oR = zeros(); shift_into(gtr.L, gtr.n, g12oL, at(startSecOut), at(firstWordT + 0.1), ratio_octave, 1.0); shift_into(gtr.R, gtr.n, g12oR, at(startSecOut), at(firstWordT + 0.1), ratio_octave, 1.0);   // v98: the opening's shimmer
+    // (v98's octave-down opening copy was computed here and never mixed — removed in v105)
     float *screamA = automate(v_scream, 0), *pumpVA = automate(v_pumpv, 0), *orchA[NORCH]; for (int o = 0; o < NORCH; o++) orchA[o] = automate(v_orch, o);
     // v24: "spatialize the thing more" — the orchestra sits in the room on paths, one per part: the section
     // strings tour, the cello right and low, horns behind, timpani centre, the harp sweeps, the glock orbits
@@ -1639,7 +1642,11 @@ int main(void) {
         // v23 INTRO: "hear her guitar just a bit in the very start, a semblance of it in lower pitches" —
         // before her first word (bar 11) her guitar comes through a lowpass that opens from 220 Hz
         // and a gain that creeps up from a third, so the picture of her strumming has a sound
-        double gtl = gsL[i], gtrr = gsR[i];   // v60: her guitar from its seat
+        // v105: "a sort of low pass filter on the first few bars" — the seat alone (mono fold + front HRTF at −12°) is dull, and before
+        // her voice there is nothing to mask it. Her guitar is now the untouched phone stereo blended with the seat, one fixed ratio all song
+        // (v105 blended the raw phone copy in — it is the PRE-EQ stem, so the opening got darker; v106: the seat again, and the
+        // brightness comes from a presence shelf on her guitar itself, see pop_guitar's caller)
+        double gtl = gsL[i], gtrr = gsR[i];
         { double kRaw = tt < firstWordT ? 1 : fmax(0, 1 - (tt - firstWordT) / 1.9); if (i >= atButton) kRaw = fmax(kRaw, fmin(1, (double)(i - atButton) / (0.8 * SR)));   // v79: and after the button, the phone guitar again — nudge and all   // v78: "the opening twang should be realtime" — the untouched phone guitar until her word, handing over across her first bar
           if (kRaw > 0 && i >= atButton) { double rl = sample(gtrRaw.L, gtrRaw.n, i), rr = sample(gtrRaw.R, gtrRaw.n, i);   // v101: the raw phone guitar only AFTER the button now; the opening uses the same seated guitar as the rest
               gtl = gtl * (1 - kRaw) + rl * 1.1 * kRaw; gtrr = gtrr * (1 - kRaw) + rr * 1.1 * kRaw; } }

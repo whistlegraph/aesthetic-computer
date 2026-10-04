@@ -39,11 +39,12 @@ const takeOf = (reg) => { const x = reg * SR; let i = 1; while (i < pairs.length
 
 // the take's frames, once, on the output grid (scratch beside the lane's out/)
 const probe = execFileSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height,r_frame_rate", "-of", "csv=p=0", SRC]).toString().trim().split(",");
-const FRAMES = resolve(OUT, `.take-frames-${FPS}-${HEIGHT}`);
+const SRC_FPS = eval(probe[2]) || 30, XFPS = Math.min(FPS, SRC_FPS);     // the cache holds each take frame once, even for a 60 fps output
+const FRAMES = resolve(OUT, `.take-frames-${XFPS}-${HEIGHT}`);
 if (!existsSync(FRAMES) || readdirSync(FRAMES).length < 100) {
   mkdirSync(FRAMES, { recursive: true });
-  console.log(`▸ extracting ${probe[0]}×${probe[1]} @ ${probe[2]} → ${FPS} fps, ${HEIGHT}p`);
-  execFileSync("ffmpeg", ["-v", "error", "-y", "-i", SRC, "-vf", `fps=${FPS},scale=-2:${HEIGHT}`, "-q:v", "3", resolve(FRAMES, "f%06d.jpg")], { stdio: "inherit" });
+  console.log(`▸ extracting ${probe[0]}×${probe[1]} @ ${probe[2]} → ${XFPS} fps, ${HEIGHT}p`);
+  execFileSync("ffmpeg", ["-v", "error", "-y", "-i", SRC, "-vf", `fps=${XFPS},scale=-2:${HEIGHT}`, "-q:v", "2", resolve(FRAMES, "f%06d.jpg")], { stdio: "inherit" });
 }
 const nSrc = readdirSync(FRAMES).filter((f) => f.endsWith(".jpg")).length;
 
@@ -52,7 +53,7 @@ const nOut = Math.ceil(recordDur * FPS);
 const lines = ["ffconcat version 1.0"]; let held = 0, skipped = 0, prev = -1;
 for (let k = 0; k < nOut; k++) {
   const take = takeOf(k / FPS + startSec);
-  let idx = Math.min(nSrc, Math.max(1, Math.round(take * FPS) + 1));
+  let idx = Math.min(nSrc, Math.max(1, Math.round(take * XFPS) + 1));
   if (idx === prev) held++; else if (prev >= 0 && idx > prev + 1) skipped += idx - prev - 1;
   prev = idx;
   lines.push(`file 'f${String(idx).padStart(6, "0")}.jpg'`, `duration ${(1 / FPS).toFixed(6)}`);
@@ -77,5 +78,5 @@ const graph = STRIP
   ? `[0:v]fps=${FPS},format=yuv420p${grade}[v];[2:v]format=rgba,colorchannelmixer=aa=0.82[s];[v][s]overlay=0:main_h-overlay_h:format=auto,format=yuv420p[o]`
   : `[0:v]fps=${FPS},format=yuv420p${grade}[o]`;
 execFileSync("ffmpeg", ["-v", "error", "-y", ...inputs, "-filter_complex", graph, "-map", "[o]", "-map", "1:a",
-  "-c:v", "libx264", "-crf", "18", "-preset", "medium", "-c:a", "aac", "-b:a", "256k", "-movflags", "+faststart", "-shortest", outPath], { stdio: "inherit" });
+  "-c:v", "libx264", "-crf", "15", "-preset", "medium", "-c:a", "aac", "-b:a", "256k", "-movflags", "+faststart", "-shortest", outPath], { stdio: "inherit" });
 console.log(`✓ ${outPath}${STRIP ? " (+strip)" : ""}${GRADE ? " (graded)" : ""}`);
