@@ -183,6 +183,51 @@ through `src/vox/reg/timemap.txt` — record clock → her take's clock — and 
 it, the way `marketing/talking-head/bin/warp-to-sing.mjs` rode the YC talking head onto a
 sung take. `--no-grade` skips the colour shift; this ffmpeg has no `drawtext`, so no title.
 
+## v73 (2026-10-04 · the critics' pass and the day after)
+
+Four subagent critics (mix · arrangement · timing · pop) reviewed v26; v27 fixed what they
+measured (phantom 5th beats, dead gates, the orchestra voiced on top of her, the drop that was
+only louder, the demo ending) and the rest of the day was jeffrey's ear. Where it landed:
+
+- **Form.** Natural order, record opens on her first word. Steady four-on-the-floor from the
+  chorus-1 pickup (`pickup_t`, two beats before "kiss"); no double time. **The glitch is the
+  drop:** her "k-" false start before chorus 1 stays (lifted), the band stops dead on it, the
+  chorus lands on "kiss" with a FEM **gong** (no implosion whoosh over "Oh, won't you"). Her
+  bar 27 and her pickup line are untouched (`regularize.mjs --fit-bars` exists but is off).
+- **Her.** Voice loudest (lead 3.3, 2.5:1 leveler, body/presence/de-tin bands, consonant
+  enhancer); guitar seated WITH her (centre, near, her room send), not hollowed; chorus beds
+  swell in over four bars; her own **vowel choir** ("ooo"/"aaa" from her held vowels, WORLD) in
+  chorus 1's back half, verse 2, the break, chorus 2, the climb, the finale; quantized octave
+  **rises** on both held "long"s with a gong at the next part; the last "out" held and
+  chopped-and-screwed into a dissolve (band out from 82, lowpass closing, room gone, her guitar
+  bright and dry after the button on her last strum); file ends 0.5 s after the last sound.
+- **Kit.** Kick tuned (G#1 body, D#3 box), per-hit velocity/attack/decay, humanized and
+  **eager** (−9 ms, +9 %/phrase); synthesized snare + real **toms** (`src/kit/tom-1..4.wav`,
+  CC0 Freesound 634272 · 634273 · 808545 · 685559); reverse kicks/snares/toms, pitched toms,
+  wub kicks; percussion and hats on HRTF seats; the **gallop** (`src/sfx/gallop.wav`, CC0
+  archive.org Red_Library_Animals_Horses_1 / R13-10) one stride per kick through the break
+  and bridge, passing right → left. No neigh.
+- **Bed.** Sine pads are the main pad (strings at a third), struck on her strum motif in the
+  big sections; sister sine + mirror + chorale on an un-ducked melody bus; 12-string octave
+  double of her guitar, a quantized guitar climb out of the break and a per-beat pitchy guitar
+  through 73–76; pitched **air** (resonators on the bar's chord, an octave up in choruses,
+  flexing with her strums) at a trace; turns, shifts, a slow lap across chorus 2, a wobble on
+  the climb. The Salamander grand sampler is in the engine behind `PIANO_ON 0` (tried, cut).
+- **Master.** `cut.sh` prints through the `vinyl` substrate (`pop/lib/substrate.mjs`): wax
+  drive in-engine (sum normalized to 0.5 first), the vinyl EQ/wow/glue chain, then ONLY the
+  loudness gain + ceiling — a clipper after the vinyl limiter was eating the master. −12 LUFS.
+
+Gotchas: every hard-wired stem time shifts when the regularizer changes (`SHIFT27`); an edit
+to her lead must also hit the derived stems (halo, harm-*, choir-*, sister-*); a `// comment`
+appended to a multi-declaration line swallows the rest of it; `out/` grows ~180 MB a version —
+purge intermediates, keep mp3s; a NaN anywhere poisons the wax normalization (the engine now
+reports the first NaN per bus before the mix).
+
+```sh
+node pop/sailor-song/bin/splice.mjs && pop/.venv/bin/python pop/sailor-song/bin/pitch-fx.py && node pop/sailor-song/bin/orchestra.mjs
+VERSION=v73 bash pop/sailor-song/bin/bake.sh && pop/.venv/bin/python pop/sailor-song/bin/word-times.py --fa
+```
+
 ## Platter reading
 
 [`ANALYSIS.md`](ANALYSIS.md) reads the take against the rhythm, chamber and
