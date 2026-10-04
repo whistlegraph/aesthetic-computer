@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import AVFoundation
 import AudioToolbox
 import CoreAudio
@@ -89,11 +90,11 @@ final class MenuBandInputMonitor {
         return p
     }()
     private var nanScrubbed = 0
-    /// Watchdog: capture callbacks per stats interval. Zero while attached
-    /// means the AUHAL went quiet (its device churned away under it) —
-    /// reopen on whatever the live input device is now.
+    /// Zero callbacks can also mean a sleeping/unavailable device. Recovery
+    /// must be bounded: reopening forever churns the system's mic indicator.
     private var captures = 0
-    private var stalledIntervals = 0
+    private let recovery = InputMonitorRecovery()
+    private var sleepObservers: [NSObjectProtocol] = []
     private let watchdogQueue = DispatchQueue(label: "menuband.monitor.watchdog")
     /// IO cycle the host wants on the device while monitoring. Written on the
     /// input unit before start and re-asserted whenever the device flips
@@ -118,6 +119,22 @@ final class MenuBandInputMonitor {
     private var leadAccum = 0
     private var pulls = 0
     private var lastStatsLog: TimeInterval = 0
+
+    init() {
+        let center = NSWorkspace.shared.notificationCenter
+        sleepObservers = [
+            center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: nil) { [weak self] _ in
+                self?.recovery.setSleeping(true, now: ProcessInfo.processInfo.systemUptime)
+            },
+            center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: nil) { [weak self] _ in
+                self?.recovery.setSleeping(false, now: ProcessInfo.processInfo.systemUptime)
+            },
+        ]
+    }
+
+    func resetRecoveryForDeviceChange() {
+        recovery.deviceDidChange(now: ProcessInfo.processInfo.systemUptime)
+    }
 
     private var healthTimer: DispatchSourceTimer?
     private func startHealthTimer() {
@@ -209,6 +226,7 @@ final class MenuBandInputMonitor {
         }
         monoMixer.outputVolume = 0
         attached = true
+        recovery.setAttached(true, now: ProcessInfo.processInfo.systemUptime)
 
         let status = AudioOutputUnitStart(inputUnit!)
         NSLog("MenuBand monitor: direct device input on \(device) ch=\(deviceChannels) sr=\(sampleRate) (start \(status))")
@@ -219,6 +237,7 @@ final class MenuBandInputMonitor {
     /// the engine around this; the source node detaches cleanly either way.
     func detach(from engine: AVAudioEngine) {
         guard attached else { return }
+        recovery.setAttached(false, now: ProcessInfo.processInfo.systemUptime)
         stopHealthTimer()
         removeDryTap()
         removeBufferListener()
@@ -252,7 +271,7 @@ final class MenuBandInputMonitor {
     /// the Scarlett). Close and reopen it on the current input device; the
     /// engine-side graph (source node, buses, tap) stays as it is.
     func restartInput() {
-        guard attached else { return }
+        guard attached, !recovery.isSleeping else { return }
         removeBufferListener()
         closeInputUnit()
         guard let device = Self.resolveInputDevice(), openInputUnit(on: device) else {
@@ -751,14 +770,15 @@ final class MenuBandInputMonitor {
         pulls = 0
         nanScrubbed = 0
         os_unfair_lock_unlock(ringLock)
-        if attached, c == 0 {
-            stalledIntervals += 1
-            NSLog("MenuBand monitor: WATCHDOG — no input callbacks for \(stalledIntervals * 5) s on device \(inputDevice); reopening on the live input")
-            watchdogQueue.async { [weak self] in
-                DispatchQueue.main.async { self?.restartInput() }
+        if let ticket = recovery.request(captures: c, now: now) {
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let attempt = self.recovery.claim(ticket) else { return }
+                NSLog("MenuBand monitor: WATCHDOG — no input callbacks; recovery \(attempt)/\(InputMonitorRecovery.maximumAttempts)")
+                self.restartInput()
+                if attempt == InputMonitorRecovery.maximumAttempts {
+                    NSLog("MenuBand monitor: WATCHDOG — retry budget exhausted; waiting for wake or device change")
+                }
             }
-        } else {
-            stalledIntervals = 0
         }
         let leadMs = sampleRate > 0 ? Double(avgLead) / sampleRate * 1000 : 0
         NSLog(String(format: "MenuBand monitor: health dev=%u captures=%d lead=%d frames (%.2f ms) pulls=%d underflows=%d drops=%d overflows=%d nan=%d wetUnderflows=%d enabled=%d gain=%.2f duck=%.2f (5 s)",
@@ -806,6 +826,8 @@ final class MenuBandInputMonitor {
     }
 
     deinit {
+        stopHealthTimer()
+        for observer in sleepObservers { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
         closeInputUnit()
         freeRing()
         ringLock.deallocate()

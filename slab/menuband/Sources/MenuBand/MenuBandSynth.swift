@@ -1735,7 +1735,10 @@ final class MenuBandSynth {
     private var bindingAuditTimer: DispatchSourceTimer?
     private var bindingAuditStrikes = 0
     /// A real device-list change gives the audit its tries back.
-    func resetBindingAudit() { bindingAuditStrikes = 0 }
+    func resetBindingAudit() {
+        bindingAuditStrikes = 0
+        inputMonitor.resetRecoveryForDeviceChange()
+    }
 
     /// After a plug-in/unplug: if the monitor is open on a device that the
     /// automatic/pinned pick no longer resolves to (the laptop mic while a

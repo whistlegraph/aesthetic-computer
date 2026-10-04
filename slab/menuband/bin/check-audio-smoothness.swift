@@ -10,6 +10,46 @@ private func check(_ condition: @autoclosure () -> Bool, _ message: String) {
 @main
 enum AudioSmoothnessChecks {
     static func main() throws {
+        let recovery = InputMonitorRecovery()
+        recovery.setAttached(true, now: 0)
+        check(recovery.request(captures: 0, now: 5) == nil, "no initial settling time")
+        check(recovery.request(captures: 100, now: 10) == nil, "healthy input was restarted")
+        var recoveryAttempts: [Int] = []
+        for tick in 2...8640 {
+            if let ticket = recovery.request(captures: 0, now: Double(tick * 5)),
+               let attempt = recovery.claim(ticket) { recoveryAttempts.append(attempt) }
+        }
+        check(recoveryAttempts == [1, 2, 3], "overnight stall exceeded three microphone restarts")
+        recovery.setSleeping(true, now: 43201)
+        recovery.deviceDidChange(now: 43202)
+        check(recovery.request(captures: 0, now: 50000) == nil, "device change enabled recovery during sleep")
+        recovery.setSleeping(false, now: 50001)
+        check(recovery.request(captures: 0, now: 50006) == nil, "no wake settling time")
+        let beforeSleep = recovery.request(captures: 0, now: 50011)!
+        check(recovery.request(captures: 0, now: 50016) == nil, "queued duplicate restart")
+        recovery.setSleeping(true, now: 50017)
+        check(recovery.claim(beforeSleep) == nil, "queued restart survived sleep")
+        recovery.setSleeping(false, now: 50020)
+        let beforeDeviceChange = recovery.request(captures: 0, now: 50030)!
+        recovery.deviceDidChange(now: 50031)
+        check(recovery.claim(beforeDeviceChange) == nil, "queued restart survived device change")
+        let beforeDetach = recovery.request(captures: 0, now: 50041)!
+        recovery.setAttached(false, now: 50042)
+        check(recovery.claim(beforeDetach) == nil, "queued restart survived detach")
+        check(recovery.request(captures: 0, now: 50100) == nil, "detached input was restarted")
+        recovery.setAttached(true, now: 50200)
+        for tick in 0..<3 {
+            let ticket = recovery.request(captures: 0, now: Double(50210 + tick * 5))!
+            check(recovery.claim(ticket) == tick + 1, "reattach did not restore retry budget")
+            check(recovery.claim(ticket) == nil, "restart ticket executed twice")
+        }
+        recovery.deviceDidChange(now: 50300)
+        check(recovery.request(captures: 0, now: 50305) == nil, "no device-change settling time")
+        let freshTicket = recovery.request(captures: 0, now: 50310)!
+        check(recovery.claim(beforeDetach) == nil, "stale ticket consumed fresh request")
+        check(recovery.claim(freshTicket) == 1, "device change did not restore retry budget")
+        print("PASS: 12-hour microphone stall capped at three retries; sleep/wake, device change, detach, queued cancellation")
+
         var cursor = MonitorReadCursor()
         let partial = cursor.plan(read: 100, written: 108, frames: 16, lead: 32)
         check(partial.count == 8 && partial.underrun, "underrun read unpublished samples")
