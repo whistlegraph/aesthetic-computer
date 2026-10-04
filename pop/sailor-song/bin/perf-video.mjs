@@ -9,7 +9,7 @@
 // demuxer, the way marketing/talking-head/bin/warp-to-sing.mjs rode the YC talking head
 // onto a sung take. Nothing is interpolated: a held bar holds frames, a rushed bar skips.
 //
-//   node pop/sailor-song/bin/perf-video.mjs [--audio out/sailor-song-v22.mp3] [--fps 30] [--height 1080]
+//   node pop/sailor-song/bin/perf-video.mjs [--audio out/sailor-song-v22.mp3] [--fps 30] [--height 1080] [--up 1080] [--cover]
 //     → out/sailor-song-v22-perf.mp4
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -23,7 +23,7 @@ const newestCut = () => readdirSync(OUT).filter((f) => /^sailor-song-v\d+[a-z]?\
   .sort((a, b) => execFileSync("stat", ["-f%m", b]) - execFileSync("stat", ["-f%m", a]))[0];
 const AUDIO = resolve(arg("audio") || newestCut());
 const stem = basename(AUDIO).replace(/\.(mp3|wav|flac)$/, "");
-const FPS = Number(arg("fps", 30)), HEIGHT = Number(arg("height", 1080));
+const FPS = Number(arg("fps", 30)), HEIGHT = Number(arg("height", 1080)), UP = Number(arg("up", 0));   // --up 1080: cache at --height, deliver scaled up (lanczos + a touch of unsharp)
 const SRC = resolve(LANE, "src/take.mov");
 const receiptPath = resolve(OUT, `${stem}.events.json`);
 if (!existsSync(SRC)) { console.error(`✗ ${SRC} missing — her original (IMG_8699.mov) goes there`); process.exit(1); }
@@ -67,16 +67,21 @@ console.log(`▸ ${nOut} frames · ${held} held · ${skipped} skipped · record 
 // --grade shifts the picture's colour slowly with the sections (hue / saturation / brightness,
 // eased over 3 s at each boundary) — "slowly affect the colors of the video as it changes sections"
 const outPath = resolve(OUT, `${stem}-perf.mp4`);
-const STRIP = arg("strip") ? resolve(arg("strip")) : null, GRADE = !arg("no-grade");
+const STRIP = arg("strip") ? resolve(arg("strip")) : null, COVER = !!arg("cover"), GRADE = !arg("no-grade") && !COVER;
+// --cover: the single's cover look (bin/cover.py v8) instead of the section hue drift — the room near neutral, the shirt
+// pushed deep red and the magentas pulled toward it, wood warm, a hard S with the blacks down, saturation up, and on
+// the upscale a real sharpen (CAS + unsharp). "sharper, deeper red, contrast — like the cover" (jeffrey, v103).
+const COVER_GRADE = ",selectivecolor=reds=-0.35 0.15 0.12 0.12:magentas=-0.1 0.2 0.35 0.1:yellows=-0.1 0.05 0.15 0:whites=0 0 0 -0.04,curves=master='0/0 0.1/0.06 0.5/0.5 0.9/0.95 1/1',eq=saturation=1.22:contrast=1.06";
 const LOOK = { intro: [0, 0.85, -0.03], verse1: [4, 0.95, 0], chorus1: [14, 1.18, 0.04], verse2: [-10, 0.95, 0], chorus2: [30, 1.42, 0.08], break: [-28, 0.8, -0.03], bridge: [18, 1.2, 0.04], outro: [36, 1.48, 0.09] };
 const secs = (R.sections || []).map((x) => ({ name: x.name, a: x.start - startSec })).filter((x) => LOOK[x.name]).sort((x, y) => x.a - y.a);
 const gradeExpr = (k) => { let e = String(LOOK[secs[0]?.name || "intro"][k]); for (let i = 1; i < secs.length; i++) { const d = LOOK[secs[i].name][k] - LOOK[secs[i - 1].name][k];
   if (d) e += `+(${d.toFixed(3)})*clip((t-${Math.max(0, secs[i].a).toFixed(2)})/3,0,1)`; } return e; };
-const grade = GRADE ? `,hue=h='${gradeExpr(0)}':s='${gradeExpr(1)}':b='${gradeExpr(2)}'` : "";
+const grade = COVER ? COVER_GRADE : GRADE ? `,hue=h='${gradeExpr(0)}':s='${gradeExpr(1)}':b='${gradeExpr(2)}'` : "";
 const inputs = ["-f", "concat", "-safe", "0", "-i", list, "-i", AUDIO, ...(STRIP ? ["-i", STRIP] : [])];
+const up = UP ? `,scale=-2:${UP}:flags=lanczos${COVER ? ",cas=0.55,unsharp=5:5:0.5:5:5:0" : ",unsharp=5:5:0.4:5:5:0"}` : COVER ? ",cas=0.4" : "";
 const graph = STRIP
-  ? `[0:v]fps=${FPS},format=yuv420p${grade}[v];[2:v]format=rgba,colorchannelmixer=aa=0.82[s];[v][s]overlay=0:main_h-overlay_h:format=auto,format=yuv420p[o]`
-  : `[0:v]fps=${FPS},format=yuv420p${grade}[o]`;
+  ? `[0:v]fps=${FPS},format=yuv420p${grade}${up}[v];[2:v]format=rgba,colorchannelmixer=aa=0.82[s];[v][s]overlay=0:main_h-overlay_h:format=auto,format=yuv420p[o]`
+  : `[0:v]fps=${FPS},format=yuv420p${grade}${up}[o]`;
 execFileSync("ffmpeg", ["-v", "error", "-y", ...inputs, "-filter_complex", graph, "-map", "[o]", "-map", "1:a",
   "-c:v", "libx264", "-crf", "15", "-preset", "medium", "-c:a", "aac", "-b:a", "256k", "-movflags", "+faststart", "-shortest", outPath], { stdio: "inherit" });
-console.log(`✓ ${outPath}${STRIP ? " (+strip)" : ""}${GRADE ? " (graded)" : ""}`);
+console.log(`✓ ${outPath}${STRIP ? " (+strip)" : ""}${COVER ? " (cover grade)" : GRADE ? " (graded)" : ""}${UP ? ` (up ${UP})` : ""}`);

@@ -82,6 +82,15 @@ if "--apply" in sys.argv:
     import numpy as np, librosa
     y, sr = librosa.load(os.path.join(SRC, ".word-times", "dry16.wav"), sr=16000)
     env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=160); tt = librosa.frames_to_time(np.arange(len(env)), sr=sr, hop_length=160)
+    # a SHIFT is applied only when it brings the line's onsets measurably nearer her attacks on the dry stem (> 15 ms)
+    ons = librosa.onset.onset_detect(y=y, sr=sr, units="time", hop_length=160, backtrack=True)
+    near = lambda t: float(np.min(np.abs(ons - t)))
+    for line, idx in LINES:
+        if idx[0] not in shift: continue
+        d0 = st.median(near(takeOf(WORDS[j]["fromMs"] / 1000 + R)) for j in idx); d1 = st.median(near(takeOf(WORDS[j]["fromMs"] / 1000 + shift[idx[0]] + R)) for j in idx)
+        keep = d1 < d0 - 0.015; print(f"  {'keep ' if keep else 'DROP '} shift {shift[idx[0]] * 1000:+.0f} ms: record {d0 * 1000:.0f} ms from her attacks, shifted {d1 * 1000:.0f} ms   {line}")
+        if not keep:
+            for j in idx: shift.pop(j, None)
     out = []; nsyl = 0
     for j, w in enumerate(WORDS):
         w = dict(w)

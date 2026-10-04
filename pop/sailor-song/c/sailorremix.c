@@ -90,7 +90,7 @@
 #include "sailor-chart.h"
 
 #define SR 48000
-#define VERSION "v106"
+#define VERSION "v107"
 #define EAGER 0.009          // v73: "eager" placement — percussion pushes ~9 ms ahead of the grid
 #define PIANO_ON 0           // v71: "let's be rid of the piano" — the sampler stays, the part is off
 #define SHIFT27 0.0          // v53: how much earlier everything after bar 27 plays, now that the regularizer fits it to four beats
@@ -1396,6 +1396,19 @@ int main(void) {
     // each chorus and the bridge, rising, a trap hat under each — the hiccup becomes the pickup
     { static const double KISS_T[3] = { 60.67, 106.60, 146.065 };   // her "kiss" onsets, and the bridge's own first word "And" (v27)
       static const int INTO[3] = { 28, 52, 73 }; const double SL = 0.09;
+      // v107: THE VOICED GLITCH — "it was better with the intentional glitching rather than this pause; it should be voiced and
+      // elaborate": inside the v57 stop, her own voiced "ki" (the onset of the real "kiss") stutters in 32nds after her "k-",
+      // each grain a scale step higher (0 2 4 5 7 9), panned side to side, a trap hat under each, a tom under the last — the
+      // hesitation becomes a ki-ki-ki run that lands on KISS. The band still stops dead around it; the stutter bus is not gated.
+      { const double kiss = KISS_T[0], kT = 60.435, down = bar_n(28)->t; const ChartBar *pb = bar_n(27); const double beat = pb->dur / pb->nb, s32 = beat / 8;
+        static const int ST[6] = { 0, 2, 4, 5, 7, 9 }; const double GL = 0.055; const double src0 = (kiss + 0.012) * SR;
+        int h = 0; for (double t = kT + 0.045; t < down - 0.015 && h < 6; t += s32, h++) {
+            double ratio = pow(2, ST[h] / 12.0), g = 0.5 + 0.5 * h / 5.0; long a = at(t); int n = (int)(GL * SR);
+            for (int i = 0; i < n; i++) { double pp = src0 + i * ratio; long j = (long)pp; double f = pp - j;
+                double v = sample(vox.L, vox.n, j) * (1 - f) + sample(vox.L, vox.n, j + 1) * f;
+                double w = fmin(1, i / (0.003 * SR)) * fmin(1, (n - i) / (0.010 * SR)); add(stM, a + i, v * w * g); }
+            trap_hat(t, 0.22 * g, h % 2 ? 0.45 : -0.45); ev(t, "stutter", GL, g, -1); }
+        if (h > 0) tom(kT + 0.045 + (h - 1) * s32, 120, 0.45, 0.3); }
       for (int q = 0; q < 0; q++) { const ChartBar *pb = bar_n(INTO[q] - 1); if (!pb || pb->nb < 4) continue;   // v28: OFF — "i don't like the added glitchiness on the k-kiss"; the dropout and the whip do the work
           const double src = KISS_T[q], t0 = pb->beats[pb->nb - 2], step = (pb->beats[pb->nb] - t0) / 8; long sa = at(src);   // v27: the LAST two beats (bar 27 has five)
           for (int h = 0; h < 8; h++) { double t = t0 + h * step, g = 0.3 + 0.7 * h / 7.0; long a = at(t); int n = (int)(SL * SR);
