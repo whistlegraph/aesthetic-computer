@@ -67,7 +67,7 @@ console.log(`▸ ${nOut} frames · ${held} held · ${skipped} skipped · record 
 // eased over 3 s at each boundary) — "slowly affect the colors of the video as it changes sections"
 const outPath = resolve(OUT, `${stem}-perf.mp4`);
 const STRIP = arg("strip") ? resolve(arg("strip")) : null, GRADE = !arg("no-grade");
-const LOOK = { intro: [0, 0.85, -0.03], verse1: [4, 0.95, 0], chorus1: [14, 1.18, 0.04], verse2: [-10, 0.95, 0], chorus2: [24, 1.35, 0.07], break: [-28, 0.8, -0.03], bridge: [40, 1.45, 0.08], outro: [0, 0.85, -0.04] };
+const LOOK = { intro: [0, 0.85, -0.03], verse1: [4, 0.95, 0], chorus1: [14, 1.18, 0.04], verse2: [-10, 0.95, 0], chorus2: [30, 1.42, 0.08], break: [-28, 0.8, -0.03], bridge: [18, 1.2, 0.04], outro: [36, 1.48, 0.09] };
 const secs = (R.sections || []).map((x) => ({ name: x.name, a: x.start - startSec })).filter((x) => LOOK[x.name]).sort((x, y) => x.a - y.a);
 const gradeExpr = (k) => { let e = String(LOOK[secs[0]?.name || "intro"][k]); for (let i = 1; i < secs.length; i++) { const d = LOOK[secs[i].name][k] - LOOK[secs[i - 1].name][k];
   if (d) e += `+(${d.toFixed(3)})*clip((t-${Math.max(0, secs[i].a).toFixed(2)})/3,0,1)`; } return e; };

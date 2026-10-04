@@ -31,7 +31,8 @@ const LANES = [
   { name: "guitar",   voices: ["gtr"],                               rgb: [230, 170, 70] },
   { name: "kit",      voices: ["kick", "clap", "hat", "rim", "conga", "bubble", "impact"], rgb: [90, 150, 240] },
   { name: "bass",     voices: ["bass", "sub", "808"],                rgb: [120, 110, 230], lo: 30, hi: 50 },
-  { name: "bed",      voices: ["pad", "high", "descant", "arp", "hook", "vib", "bell"], rgb: [170, 120, 220], lo: 60, hi: 93 },
+  { name: "bed",      voices: ["pad", "high", "descant", "arp", "hook", "vib"], rgb: [170, 120, 220], lo: 60, hi: 93 },
+  { name: "mirror",   voices: ["mirror", "chorale", "bell"],            rgb: [255, 170, 200], lo: 50, hi: 90 },
   { name: "strings",  orchs: ["strings", "cello", "pizz"],           rgb: [220, 120, 90],  lo: 40, hi: 88 },
   { name: "horns",    orch: "horns",                                 rgb: [240, 200, 80],  lo: 44, hi: 70 },
   { name: "drums",    orchs: ["timpani", "taiko"],                   rgb: [200, 140, 60] },
@@ -39,8 +40,8 @@ const LANES = [
   { name: "glock",    orch: "glock",                                 rgb: [200, 240, 250], lo: 66, hi: 82 },
   { name: "choir",    orch: "aahs",                                  rgb: [230, 180, 230], lo: 56, hi: 72 },
   { name: "quartet",  orchs: ["vln1", "vln2", "viola", "qcello"],      rgb: [250, 140, 120], lo: 44, hi: 95 },
+  { name: "piano",    voices: ["piano"],                             rgb: [240, 240, 200], lo: 30, hi: 90 },
   { name: "wub",      voices: ["wub"],                               rgb: [100, 240, 180], lo: 28, hi: 40 },
-  { name: "stutter",  voices: ["stutter"],                           rgb: [255, 80, 80] },
 ];
 for (const l of LANES) {
   const keys = l.orchs || (l.orch ? [l.orch] : null);
