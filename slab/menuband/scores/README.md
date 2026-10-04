@@ -52,6 +52,40 @@ comma-separated `token:beats`, where token is a MIDI note number (60 = middle C)
 or a drum letter (`k s h ho c rd cr`), and `r` is a rest —
 e.g. `60:0.25,r:0.5,67:1`.
 
+## Collections (an album in one file)
+
+A `.mbscore` may hold **tracks instead of voices**: a list of sibling scores.
+Opening it in Menu Band shows the track list — sections, member dots, bpm,
+length — and a double-click (or Return / Play) performs that track exactly as
+opening its own file would. Stop halts whatever is sounding. ⌘-Space previews
+the list; the Finder thumbnail is the album sleeve.
+
+```jsonc
+{
+  "title": "The MacNeoPolitan Trio",
+  "composer": "The machines — neo, blueberry and frisbee — with jeffrey",
+  "machines": 3,
+  "description": "…",
+  "gap": 4,                                   // seconds of hall between tracks when played in order
+  "tracks": [
+    { "file": "trio-i-birth.mbscore",         // relative to this file (or absolute)
+      "title": "I. Birth",                    // hints: title, section, machines, bpm, seconds,
+      "section": "Movements",                 //   requiresFleet — cached from the sibling so a
+      "machines": 3, "bpm": 132, "seconds": 83.2 }   //   reader can list without opening it
+  ]
+}
+```
+
+A collection has `tracks` and no `voices`; that pair is the whole signal.
+`file` is the only required key per track — a reader fills missing hints from
+the sibling (and the sibling stays the truth). A track may itself be a
+collection; it opens to its own list.
+
+The MacNeoPolitan Trio's album is
+`grants/culturehub-la-2026/macneopolitan/scores/macneopolitan.mbscore`, written
+by `bin/collection.mjs` there; `node bin/trio.mjs scores/macneopolitan.mbscore`
+lists it, `--track N` conducts one track and `--setlist` conducts them all.
+
 ## Composing for more machines
 
 Set `machines` to 3+ and add that many voices (SATB choir, a rhythm section, a

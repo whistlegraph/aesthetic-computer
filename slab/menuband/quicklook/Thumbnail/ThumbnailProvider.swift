@@ -37,6 +37,9 @@ enum ScoreThumb {
         struct Note { let start, dur: Double; let midi, voice: Int }
         struct Hit { let start: Double; let lane, voice: Int }
         let title = (obj["title"] as? String) ?? "Menu Band Score"
+        if obj["voices"] == nil, let tracks = obj["tracks"] as? [[String: Any]] {
+            drawCollection(title: title, tracks: tracks, size: size); return
+        }
         let voices = (obj["voices"] as? [[String: Any]]) ?? []
         var notes: [Note] = []; var hits: [Hit] = []; var total = 1.0
         for (vi, voice) in voices.enumerated() {
@@ -97,5 +100,55 @@ enum ScoreThumb {
             .foregroundColor: isDark ? NSColor.white : NSColor(white: 0.12, alpha: 1),
             .paragraphStyle: ps,
         ]).draw(in: NSRect(x: W * 0.08, y: H - H * 0.15, width: W * 0.84, height: H * 0.10))
+    }
+
+    /// A collection's card: the title over the first few track names, with a
+    /// count for the rest — an album sleeve, where a score gets a piano roll.
+    private static func drawCollection(title: String, tracks: [[String: Any]], size: CGSize) {
+        let isDark = NSAppearance.currentDrawing().bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        let W = size.width, H = size.height
+        let inset = W * 0.035
+        let card = NSBezierPath(roundedRect: NSRect(x: inset, y: inset, width: W - inset * 2, height: H - inset * 2),
+                                xRadius: W * 0.14, yRadius: W * 0.14)
+        (isDark ? NSColor(srgbRed: 0.10, green: 0.11, blue: 0.15, alpha: 1)
+                : NSColor(srgbRed: 0.97, green: 0.97, blue: 0.98, alpha: 1)).setFill()
+        card.fill()
+        card.setClip()
+        let ink = isDark ? NSColor.white : NSColor(white: 0.12, alpha: 1)
+        let names = tracks.compactMap { e -> String? in
+            (e["title"] as? String) ?? ((e["file"] as? String) as NSString?)?.deletingPathExtension
+        }
+        let rowH = H * 0.082
+        let listTop = H - H * 0.30
+        let listBottom = H * 0.12
+        let fit = max(1, Int((listTop - listBottom) / rowH))
+        let shown = names.count > fit ? Array(names.prefix(fit - 1)) : names
+        let ps = NSMutableParagraphStyle(); ps.lineBreakMode = .byTruncatingTail
+        for (i, name) in shown.enumerated() {
+            let y = listTop - CGFloat(i + 1) * rowH
+            palette[i % palette.count].setFill()
+            let d = rowH * 0.32
+            NSBezierPath(ovalIn: NSRect(x: W * 0.12, y: y + (rowH - d) / 2, width: d, height: d)).fill()
+            NSAttributedString(string: name, attributes: [
+                .font: NSFont.systemFont(ofSize: rowH * 0.62, weight: .medium),
+                .foregroundColor: ink.withAlphaComponent(0.9), .paragraphStyle: ps,
+            ]).draw(in: NSRect(x: W * 0.12 + d + W * 0.03, y: y + rowH * 0.12, width: W * 0.72 - d, height: rowH * 0.8))
+        }
+        if names.count > shown.count {
+            let y = listTop - CGFloat(shown.count + 1) * rowH
+            NSAttributedString(string: "+ \(names.count - shown.count) more", attributes: [
+                .font: NSFont.systemFont(ofSize: rowH * 0.55, weight: .regular),
+                .foregroundColor: ink.withAlphaComponent(0.5), .paragraphStyle: ps,
+            ]).draw(in: NSRect(x: W * 0.12 + rowH * 0.32 + W * 0.03, y: y + rowH * 0.12, width: W * 0.7, height: rowH * 0.8))
+        }
+        let tps = NSMutableParagraphStyle(); tps.alignment = .center; tps.lineBreakMode = .byTruncatingTail
+        NSAttributedString(string: title, attributes: [
+            .font: NSFont.systemFont(ofSize: H * 0.075, weight: .bold),
+            .foregroundColor: ink, .paragraphStyle: tps,
+        ]).draw(in: NSRect(x: W * 0.08, y: H - H * 0.15, width: W * 0.84, height: H * 0.10))
+        NSAttributedString(string: "\(names.count) tracks", attributes: [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: H * 0.05, weight: .medium),
+            .foregroundColor: ink.withAlphaComponent(0.5), .paragraphStyle: tps,
+        ]).draw(in: NSRect(x: W * 0.08, y: H * 0.05, width: W * 0.84, height: H * 0.07))
     }
 }

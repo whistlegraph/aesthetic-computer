@@ -4873,11 +4873,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// double-clicked on becomes the host. Reads the JSON and fires every voice
     /// at one shared start instant so the whole arrangement renders locally
     /// (in sync, robot badge lit). No conductor, no ssh — just open the file.
+    /// A collection (`tracks` naming sibling scores, no `voices`) opens to its
+    /// track list instead; picking a track comes back through here.
     func playScoreFile(_ url: URL) {
         guard let data = try? Data(contentsOf: url),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let voices = obj["voices"] as? [[String: Any]] else {
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             NSLog("🎼 mbscore: could not read \(url.lastPathComponent)")
+            return
+        }
+        if obj["voices"] == nil, let tracks = obj["tracks"] as? [[String: Any]] {
+            NSLog("🎼 mbscore collection: \(obj["title"] as? String ?? url.lastPathComponent) — \(tracks.count) track(s)")
+            ScoreTrackListController.present(collection: url, obj: obj,
+                play: { [weak self] track in self?.playScoreFile(track) },
+                stop: { [weak self] in self?.stopScore(broadcast: false) })
+            return
+        }
+        guard let voices = obj["voices"] as? [[String: Any]] else {
+            NSLog("🎼 mbscore: \(url.lastPathComponent) carries neither voices nor tracks")
             return
         }
         let bpm = obj["bpm"].map { "\($0)" } ?? "120"

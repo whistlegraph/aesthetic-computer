@@ -1,7 +1,8 @@
 // QuickLook preview for .mbscore: a live piano-roll "graphic score" with a
 // playhead that sweeps in real time (looping over the score's duration), notes
 // lighting up as it passes and drum hits flashing — so ⌘-Space shows the score
-// *playing*, not raw JSON.
+// *playing*, not raw JSON. A collection (`tracks` naming sibling scores, no
+// `voices`) previews as its track list, in sections.
 import Cocoa
 import Quartz
 
@@ -29,8 +30,11 @@ final class ScoreRollView: NSView {
     private struct Note { let start, dur: Double; let midi, voice, track: Int }
     private struct Hit { let start: Double; let lane, voice: Int }
 
+    private struct Track { let title: String; let section: String?; let machines: Int; let seconds: Double }
+
     private var notes: [Note] = []
     private var hits: [Hit] = []
+    private var tracks: [Track] = []     // non-empty = this is a collection
     private var total = 1.0          // beats
     private var seconds = 8.0        // wall duration of one pass
     private var title = ""
@@ -51,6 +55,20 @@ final class ScoreRollView: NSView {
     func load(_ obj: [String: Any]) {
         title = (obj["title"] as? String) ?? "Menu Band Score"
         bpm = (obj["bpm"] as? Int) ?? Int((obj["bpm"] as? Double) ?? 120)
+        if obj["voices"] == nil, let list = obj["tracks"] as? [[String: Any]] {
+            tracks = list.compactMap { e in
+                guard let file = e["file"] as? String else { return nil }
+                let title = (e["title"] as? String) ?? (file as NSString).deletingPathExtension
+                let machines = (e["machines"] as? Int) ?? Int((e["machines"] as? Double) ?? 1)
+                let seconds = (e["seconds"] as? Double) ?? Double((e["seconds"] as? Int) ?? 0)
+                return Track(title: title, section: e["section"] as? String, machines: machines, seconds: seconds)
+            }
+            machines = (obj["machines"] as? Int) ?? (tracks.map { $0.machines }.max() ?? 1)
+            timer?.invalidate(); timer = nil
+            needsDisplay = true
+            return
+        }
+        tracks = []
         let voices = (obj["voices"] as? [[String: Any]]) ?? []
         machines = (obj["machines"] as? Int) ?? max(1, voices.count)
         notes.removeAll(); hits.removeAll(); total = 1
@@ -86,6 +104,7 @@ final class ScoreRollView: NSView {
         let S = bounds
         NSColor(srgbRed: 0.06, green: 0.07, blue: 0.10, alpha: 1).setFill()
         S.fill()
+        if !tracks.isEmpty { drawTrackList(S); return }
 
         let drumStrip: CGFloat = hits.isEmpty ? 0 : 64
         let plot = NSRect(x: 40, y: 70 + drumStrip, width: S.width - 80, height: S.height - 70 - drumStrip - 74)
@@ -147,5 +166,58 @@ final class ScoreRollView: NSView {
             .font: NSFont.monospacedSystemFont(ofSize: 14, weight: .medium),
             .foregroundColor: NSColor(white: 1, alpha: 0.5), .paragraphStyle: ps,
         ]).draw(in: NSRect(x: 30, y: 24, width: S.width - 60, height: 22))
+    }
+
+    /// The collection view: title, then every track in its section, flowing
+    /// into as many columns as the height asks for. Nothing animates — a list
+    /// is read, not played.
+    private func drawTrackList(_ S: NSRect) {
+        let white = NSColor.white
+        let dim = NSColor(white: 1, alpha: 0.5)
+        let total = tracks.reduce(0.0) { $0 + $1.seconds }
+        let ps = NSMutableParagraphStyle(); ps.alignment = .center; ps.lineBreakMode = .byTruncatingTail
+        NSAttributedString(string: title, attributes: [
+            .font: NSFont.systemFont(ofSize: 26, weight: .bold), .foregroundColor: white, .paragraphStyle: ps,
+        ]).draw(in: NSRect(x: 30, y: S.height - 58, width: S.width - 60, height: 34))
+        let dots = String(repeating: "●", count: max(1, machines))
+        let mins = Int((total / 60).rounded())
+        NSAttributedString(string: "\(dots)   \(tracks.count) tracks   ·   \(mins) min", attributes: [
+            .font: NSFont.monospacedSystemFont(ofSize: 14, weight: .medium), .foregroundColor: dim, .paragraphStyle: ps,
+        ]).draw(in: NSRect(x: 30, y: 24, width: S.width - 60, height: 22))
+
+        // Rows: a section header wherever the section changes, then its tracks.
+        var lines: [(text: String, header: Bool, voice: Int, clock: String)] = []
+        var section: String?
+        for (i, t) in tracks.enumerated() {
+            if let sec = t.section, sec != section { lines.append((sec, true, 0, "")); section = sec }
+            let s = Int(t.seconds.rounded())
+            lines.append(("\(i + 1).  \(t.title)", false, i % palette.count, s > 0 ? String(format: "%d:%02d", s / 60, s % 60) : ""))
+        }
+        let area = NSRect(x: 40, y: 60, width: S.width - 80, height: S.height - 60 - 76)
+        let rowH: CGFloat = 20
+        let perColumn = max(1, Int(area.height / rowH))
+        let columns = max(1, Int(ceil(Double(lines.count) / Double(perColumn))))
+        let colW = area.width / CGFloat(columns)
+        let left = NSMutableParagraphStyle(); left.lineBreakMode = .byTruncatingTail
+        let right = NSMutableParagraphStyle(); right.alignment = .right
+        for (n, line) in lines.enumerated() {
+            let col = n / perColumn, row = n % perColumn
+            let x = area.minX + CGFloat(col) * colW
+            let y = area.maxY - CGFloat(row + 1) * rowH
+            if line.header {
+                NSAttributedString(string: line.text.uppercased(), attributes: [
+                    .font: NSFont.systemFont(ofSize: 11, weight: .semibold), .foregroundColor: dim, .paragraphStyle: left,
+                ]).draw(in: NSRect(x: x + 14, y: y + 2, width: colW - 28, height: rowH - 4))
+                continue
+            }
+            palette[line.voice].setFill()
+            NSBezierPath(ovalIn: NSRect(x: x + 2, y: y + rowH / 2 - 3, width: 6, height: 6)).fill()
+            NSAttributedString(string: line.text, attributes: [
+                .font: NSFont.systemFont(ofSize: 13), .foregroundColor: white, .paragraphStyle: left,
+            ]).draw(in: NSRect(x: x + 14, y: y + 2, width: colW - 72, height: rowH - 4))
+            NSAttributedString(string: line.clock, attributes: [
+                .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular), .foregroundColor: dim, .paragraphStyle: right,
+            ]).draw(in: NSRect(x: x + colW - 60, y: y + 2, width: 48, height: rowH - 4))
+        }
     }
 }

@@ -4,6 +4,13 @@
 //   node bin/trio.mjs scores/trio-i-birth.mbscore neo blueberry blush
 //   node bin/trio.mjs scores/trio-i-birth.mbscore neo blueberry --reduce
 //   node bin/trio.mjs --setlist scores/setlist.json neo blueberry blush
+//   node bin/trio.mjs scores/macneopolitan.mbscore              (list the album's tracks)
+//   node bin/trio.mjs scores/macneopolitan.mbscore --track 5 neo blueberry frisbee
+//   node bin/trio.mjs --setlist scores/macneopolitan.mbscore neo blueberry frisbee
+//
+// A collection (`tracks` naming sibling scores, no `voices` — the album
+// bin/collection.mjs writes) lists its tracks when given alone; --track N
+// conducts one of them, --setlist conducts them all in order.
 //
 // One host per voice, in order. A host is local when it matches this
 // machine's LocalHostName; otherwise it is reached over ssh. Everything
@@ -273,8 +280,51 @@ const dry = flags.includes("--dry");
 const show = flags.includes("--show");   // print every payload instead of posting it
 const setlistMode = flags.includes("--setlist");
 
-const [scoreArg, ...givenHosts] = words;
+const trackFlag = flags.find((f) => /^--track(=|$)/.test(f));
+let [scoreArg, ...givenHosts] = words;
+// `--track 5` may arrive as one flag (`--track=5`) or a flag and a word.
+let trackPick = trackFlag ? trackFlag.split("=")[1] : null;
+if (trackFlag && trackPick == null) {
+  const i = argv.indexOf(trackFlag);
+  trackPick = argv[i + 1];
+  givenHosts = givenHosts.filter((h) => h !== trackPick);
+}
 const hosts = sim ? [localName] : givenHosts;   // the simulator plays the whole band here
+
+// A collection given alone prints its track list — the album's table of
+// contents — and stops. With --track N it stands in for that track below.
+const readCollection = (p) => {
+  const j = JSON.parse(readFileSync(p, "utf8"));
+  return j.tracks && !j.voices ? j : null;
+};
+const clock = (sec) => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
+if (scoreArg && existsSync(resolve(scoreArg))) {
+  const album = readCollection(resolve(scoreArg));
+  if (album && !setlistMode) {
+    if (trackPick == null) {
+      console.log(`\n${album.title || basename(scoreArg)} — ${album.tracks.length} tracks\n`);
+      let section = null;
+      album.tracks.forEach((t, i) => {
+        if (t.section && t.section !== section) { section = t.section; console.log(`  ${section}`); }
+        const dots = "●".repeat(t.machines ?? 0);
+        const len = t.seconds != null ? clock(t.seconds) : "";
+        console.log(`  ${String(i + 1).padStart(3)}. ${(t.title || t.file).padEnd(36)} ${dots.padEnd(4)} ${t.bpm ? String(t.bpm).padStart(3) + " bpm" : "       "}  ${len}${t.requiresFleet ? "  fleet" : ""}`);
+      });
+      const total = album.tracks.reduce((a, t) => a + (t.seconds || 0), 0);
+      console.log(`\n  ${album.tracks.length} tracks · ${Math.round(total / 60)} min`);
+      console.log(`  conduct one:  node bin/trio.mjs ${scoreArg} --track N <host1> [host2 host3]`);
+      console.log(`  conduct all:  node bin/trio.mjs --setlist ${scoreArg} <host1> [host2 host3]\n`);
+      process.exit(0);
+    }
+    const n = Number(trackPick);
+    const entry = Number.isInteger(n) && n >= 1 && n <= album.tracks.length
+      ? album.tracks[n - 1]
+      : album.tracks.find((t) => t.file === trackPick || basename(t.file, ".mbscore") === trackPick);
+    if (!entry) { console.error(`  ✗ no track ${trackPick} in ${scoreArg} (1–${album.tracks.length}, or a file name)`); process.exit(1); }
+    scoreArg = resolve(dirname(resolve(scoreArg)), entry.file);
+    console.log(`▶ ${album.title || basename(scoreArg)} · track ${album.tracks.indexOf(entry) + 1}: ${entry.title || entry.file}`);
+  }
+}
 // "/" tokens in lyrics are caption line breaks (compose.mjs puts one at every
 // phrase); Menu Band reads them, the older paths (livesing, vox, stems) don't.
 const bareLyrics = (l) => String(l).trim().split(/\s+/).filter((t) => t !== "/").join(" ");
@@ -282,6 +332,8 @@ if (!scoreArg || !hosts.length) {
   console.log("usage: node bin/trio.mjs <score.mbscore> <host1> [host2 host3] [--reduce] [--quiet] [--dry] [--corner]");
   console.log("       node bin/trio.mjs <score.mbscore> --sim            (the whole band on this machine)");
   console.log("       node bin/trio.mjs --setlist <setlist.json> <host1> [host2 host3] [--reduce]");
+  console.log("       node bin/trio.mjs <album.mbscore>                 (list a collection's tracks)");
+  console.log("       node bin/trio.mjs <album.mbscore> --track N <host1> [host2 host3]");
   process.exit(1);
 }
 
@@ -289,11 +341,13 @@ if (setlistMode) {
   // A setlist is { "movements": ["scores/a.mbscore", …], "gap": 4.0 }:
   // each movement is conducted in turn by a fresh trio.mjs, waiting for the
   // previous one to finish sounding plus `gap` seconds of hall.
+  // A collection .mbscore is a setlist too: its tracks' files, in order.
   const list = JSON.parse(readFileSync(resolve(scoreArg), "utf8"));
+  const movements = list.movements ?? (list.tracks || []).map((t) => t.file);
   const gap = list.gap ?? 4.0;
   const pass = flags.filter((f) => f !== "--setlist");
-  console.log(`\n▶ setlist: ${list.title || basename(scoreArg)} — ${list.movements.length} movements\n`);
-  for (const mv of list.movements) {
+  console.log(`\n▶ setlist: ${list.title || basename(scoreArg)} — ${movements.length} movements\n`);
+  for (const mv of movements) {
     const mvPath = resolve(dirname(resolve(scoreArg)), mv);
     const r = spawnSync("node", [fileURLToPath(import.meta.url), mvPath, ...hosts, ...pass],
       { stdio: ["ignore", "pipe", "inherit"], encoding: "utf8" });

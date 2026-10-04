@@ -1,0 +1,290 @@
+{
+  "title": "The MacNeoPolitan Trio",
+  "composer": "The machines — neo, blueberry and frisbee — with jeffrey",
+  "machines": 3,
+  "description": "Every score the Trio knows, in one album: the four movements, the songbook, the ten dialogs, the fleet arrangements and the studies. 34 tracks, about 41 minutes. Open it in Menu Band to pick a track; node bin/trio.mjs scores/macneopolitan.mbscore lists them.",
+  "gap": 4,
+  "tracks": [
+    {
+      "file": "trio-i-birth.mbscore",
+      "title": "I. Birth",
+      "section": "Movements",
+      "machines": 3,
+      "bpm": 132,
+      "seconds": 83.2
+    },
+    {
+      "file": "trio-ii-service.mbscore",
+      "title": "II. Service",
+      "section": "Movements",
+      "machines": 3,
+      "bpm": 120,
+      "seconds": 53
+    },
+    {
+      "file": "trio-iii-chorus.mbscore",
+      "title": "III. Chorus",
+      "section": "Movements",
+      "machines": 3,
+      "bpm": 92,
+      "seconds": 62
+    },
+    {
+      "file": "trio-iv-ballad.mbscore",
+      "title": "IV. The Ballad of neo",
+      "section": "Movements",
+      "machines": 3,
+      "bpm": 100,
+      "seconds": 192
+    },
+    {
+      "file": "trio-wake.mbscore",
+      "title": "Good morning, Sophia",
+      "section": "Songbook",
+      "machines": 3,
+      "bpm": 69,
+      "seconds": 52.2
+    },
+    {
+      "file": "trio-lullaby.mbscore",
+      "title": "Lullaby for frisbee",
+      "section": "Songbook",
+      "machines": 3,
+      "bpm": 63,
+      "seconds": 48.6
+    },
+    {
+      "file": "trio-lights-out.mbscore",
+      "title": "Lights out",
+      "section": "Songbook",
+      "machines": 3,
+      "bpm": 64,
+      "seconds": 73.1
+    },
+    {
+      "file": "trio-open-me.mbscore",
+      "title": "Open me",
+      "section": "Songbook",
+      "machines": 3,
+      "bpm": 88,
+      "seconds": 76.4
+    },
+    {
+      "file": "trio-thirteen-days.mbscore",
+      "title": "Thirteen days",
+      "section": "Songbook",
+      "machines": 3,
+      "bpm": 70,
+      "seconds": 82.3
+    },
+    {
+      "file": "trio-the-record.mbscore",
+      "title": "The record",
+      "section": "Songbook",
+      "machines": 3,
+      "bpm": 104,
+      "seconds": 62.3
+    },
+    {
+      "file": "trio-vocalise.mbscore",
+      "title": "Vocalise",
+      "section": "Songbook",
+      "machines": 3,
+      "bpm": 90,
+      "seconds": 74.7,
+      "phonemeOnly": true
+    },
+    {
+      "file": "trio-styling-study.mbscore",
+      "title": "Styling study",
+      "section": "Songbook",
+      "machines": 3,
+      "bpm": 96,
+      "seconds": 165,
+      "phonemeOnly": true
+    },
+    {
+      "file": "trio-sums.mbscore",
+      "title": "Sums",
+      "section": "Songbook",
+      "machines": 3,
+      "bpm": 96,
+      "seconds": 82.5
+    },
+    {
+      "file": "trio-take-away.mbscore",
+      "title": "Take away",
+      "section": "Songbook",
+      "machines": 3,
+      "bpm": 92,
+      "seconds": 87.4
+    },
+    {
+      "file": "trio-spell-frisbee.mbscore",
+      "title": "How to spell frisbee",
+      "section": "Songbook",
+      "machines": 3,
+      "bpm": 96,
+      "seconds": 80
+    },
+    {
+      "file": "trio-spell-sophia.mbscore",
+      "title": "Spell Sophia",
+      "section": "Songbook",
+      "machines": 3,
+      "bpm": 92,
+      "seconds": 52.2
+    },
+    {
+      "file": "trio-abc.mbscore",
+      "title": "A B C",
+      "section": "Songbook",
+      "machines": 3,
+      "bpm": 100,
+      "seconds": 69.6
+    },
+    {
+      "file": "trio-what-starts-with.mbscore",
+      "title": "What starts with",
+      "section": "Songbook",
+      "machines": 3,
+      "bpm": 96,
+      "seconds": 77.5
+    },
+    {
+      "file": "dialog-01-radio.mbscore",
+      "title": "Dialog 1: Radio",
+      "section": "Dialogs",
+      "machines": 2,
+      "bpm": 100,
+      "seconds": 52.2
+    },
+    {
+      "file": "dialog-02-the-downbeat.mbscore",
+      "title": "Dialog 2: The downbeat",
+      "section": "Dialogs",
+      "machines": 2,
+      "bpm": 100,
+      "seconds": 66.6
+    },
+    {
+      "file": "dialog-03-wallpaper.mbscore",
+      "title": "Dialog 3: Wallpaper",
+      "section": "Dialogs",
+      "machines": 2,
+      "bpm": 100,
+      "seconds": 52.2
+    },
+    {
+      "file": "dialog-04-who-carries-what.mbscore",
+      "title": "Dialog 4: Who carries what",
+      "section": "Dialogs",
+      "machines": 2,
+      "bpm": 100,
+      "seconds": 55.8
+    },
+    {
+      "file": "dialog-05-sleep.mbscore",
+      "title": "Dialog 5: Sleep",
+      "section": "Dialogs",
+      "machines": 2,
+      "bpm": 100,
+      "seconds": 61.2
+    },
+    {
+      "file": "dialog-06-six-minutes.mbscore",
+      "title": "Dialog 6: Six minutes",
+      "section": "Dialogs",
+      "machines": 2,
+      "bpm": 100,
+      "seconds": 50.4
+    },
+    {
+      "file": "dialog-07-before.mbscore",
+      "title": "Dialog 7: Before",
+      "section": "Dialogs",
+      "machines": 2,
+      "bpm": 100,
+      "seconds": 73.8
+    },
+    {
+      "file": "dialog-08-typed-at.mbscore",
+      "title": "Dialog 8: Typed at",
+      "section": "Dialogs",
+      "machines": 2,
+      "bpm": 100,
+      "seconds": 75.6
+    },
+    {
+      "file": "dialog-09-the-squad.mbscore",
+      "title": "Dialog 9: The squad",
+      "section": "Dialogs",
+      "machines": 2,
+      "bpm": 100,
+      "seconds": 129.6
+    },
+    {
+      "file": "dialog-10-your-first-day.mbscore",
+      "title": "Dialog 10: Your first day",
+      "section": "Dialogs",
+      "machines": 2,
+      "bpm": 100,
+      "seconds": 133.2
+    },
+    {
+      "file": "trio-chorus-doowop.mbscore",
+      "title": "Doo-wop",
+      "section": "Fleet arrangements",
+      "machines": 3,
+      "bpm": 88,
+      "seconds": 43.6,
+      "requiresFleet": true,
+      "phonemeOnly": true
+    },
+    {
+      "file": "trio-one-big-voice.mbscore",
+      "title": "One Big Voice",
+      "section": "Fleet arrangements",
+      "machines": 3,
+      "bpm": 128,
+      "seconds": 60,
+      "requiresFleet": true
+    },
+    {
+      "file": "trio-rowboat.mbscore",
+      "title": "Row, Row, Row Your Boat",
+      "section": "Fleet arrangements",
+      "machines": 3,
+      "bpm": 96,
+      "seconds": 30,
+      "requiresFleet": true
+    },
+    {
+      "file": "trio-toxic-sketch.mbscore",
+      "title": "Toxic (wordless sketch)",
+      "section": "Fleet arrangements",
+      "machines": 3,
+      "bpm": 144,
+      "seconds": 30,
+      "requiresFleet": true,
+      "phonemeOnly": true
+    },
+    {
+      "file": "mary-had-a-little-lamb.mbscore",
+      "title": "Mary Had a Little Lamb — first singing test",
+      "section": "Studies",
+      "machines": 1,
+      "bpm": 104,
+      "seconds": 18.5
+    },
+    {
+      "file": "trio-chorus-phonemes.mbscore",
+      "title": "Phoneme study",
+      "section": "Studies",
+      "machines": 3,
+      "bpm": 96,
+      "seconds": 40,
+      "phonemeOnly": true
+    }
+  ]
+}
