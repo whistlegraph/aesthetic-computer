@@ -189,7 +189,7 @@ for (const s of segs) {
     const beats = inside.map((t) => +(t - s.from + s.offset).toFixed(3));
     if (beats.length && beats[0] > +(Math.max(t0, s.from) - s.from + s.offset).toFixed(3) + 1e-6) beats.unshift(+(Math.max(t0, s.from) - s.from + s.offset).toFixed(3));
     const endT = +(Math.min(t1, s.to) - s.from + s.offset).toFixed(3);
-    if (!beats.length || beats.at(-1) < endT - 1e-6) beats.push(endT);
+    if (!beats.length || beats.at(-1) < endT - 0.005) beats.push(endT);   // v27: a 1 ms sliver past the next downbeat is not a beat (bars 38/49/70/75/81 were firing twice)
     if (beats.length < 2) continue;                               // v19d: a one-beat pickup is a bar too (its kick keeps the pulse)
     const cutL = t0 < s.from, cutR = t1 > s.to;
     bars.push({ ...b, n: s.asBar ?? b.n, t: beats[0], dur: +(endT - beats[0]).toFixed(3), beats, strum: cutL ? b.strum.slice(-(beats.length - 1) * 2) : cutR ? b.strum.slice(0, (beats.length - 1) * 2) : b.strum });

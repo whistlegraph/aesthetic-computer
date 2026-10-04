@@ -27,6 +27,8 @@ const TUNE = Number(/#define CHART_TUNE ([\d.]+)/.exec(H)[1]);   // semitones ov
 const bars = [...H.matchAll(/\{ (\d+), ([\d.]+), ([\d.]+), (\d), (\d), \{ ([^}]+) \} \}/g)]
   .map((m) => ({ n: +m[1], t: +m[2], dur: +m[3], chord: +m[4], nb: +m[5], beats: m[6].split(",").map(Number) }));
 const notes = [...H.matchAll(/\{ ([\d.]+), ([\d.]+), (\d+) \}/g)].map((m) => ({ t: +m[1], dur: +m[2], midi: +m[3] }));
+// v52: THE HESITATION (see c/sailorremix.c) — her voice from 60.08 to 64.29 plays 0.58 s earlier; her notes follow
+const VOX_CUT = { a: 60.08, until: 64.29, d: 0 }; for (const v of notes) if (v.t >= VOX_CUT.a && v.t < VOX_CUT.until) v.t -= VOX_CUT.d;   // v53: off — the chart itself moved
 if (bars.length < 80 || notes.length < 100) { console.error(`✗ chart parse: ${bars.length} bars, ${notes.length} notes`); process.exit(1); }
 
 // the form (c/sailorremix.c SEC_FROM) and the harmony: Emaj7 bars sound G#m over her open G#
@@ -84,144 +86,162 @@ const P = {
 };
 const barN = (n) => bars.find((b) => b.n === n);
 
+// ── what she sings, bar by bar (the parts stay out of her way) ──
+const sungIn = new Map();                                   // bar n → the pitch classes she sings in it
+for (const v of notes) { const b = bars.find((x) => v.t >= x.t && v.t < x.t + x.dur); if (!b) continue; if (!sungIn.has(b.n)) sungIn.set(b.n, new Set()); sungIn.get(b.n).add(v.midi % 12); }
+const sings = (n) => sungIn.has(n);
+const herE = (n) => !!sungIn.get(n)?.has(4);               // E: the 4th over B, the b6 over G#m — her one non-triad note, 39 times
+// v27: THE SUSPENSION — where she sings E, a part's D# (pc 3) holds E for the first half and resolves to D#: the 4–3 she is singing
+const susNote = (part, t, m, dur, vel, n) => { if (herE(n) && m % 12 === 3) { part.note(t, m + 1, dur * 0.55, vel); part.note(t + dur * 0.55, m, dur * 0.47, vel * 0.9); } else part.note(t, m, dur, vel); };
+const chordRun = (n) => { const i = bars.findIndex((b) => b.n === n); let a = i; while (a > 0 && bars[a - 1].chord === bars[i].chord) a--; let z = i; while (z + 1 < bars.length && bars[z + 1].chord === bars[i].chord) z++; return { from: a, to: z, pos: i - a }; };
+// v27: HER KISS FIGURE — the first seven sung notes of bar 28 ("kiss me on the mouth and love me like a sailor"), as fractions of the bar
+const b28 = barN(28), KISS = notes.filter((v) => v.t >= b28.t - 0.7 && v.t < b28.t + 2 * b28.dur).slice(0, 7).map((v) => ({ off: (v.t - b28.t) / b28.dur, dur: v.dur / b28.dur, midi: v.midi }));
+const kissAt = (part, bar, lift, vel) => { for (const k of KISS) part.note(bar.t + k.off * bar.dur, k.midi + lift, Math.max(0.15, k.dur * bar.dur), vel); };
+
 // ── the parts, bar by bar ──
 for (const b of bars) {
-  const s = section(b.n), c = b.chord, root = ROOT[c], bt = b.beats, nb = b.nb, beat = b.dur / nb;
+  const s = section(b.n), c = b.chord, root = ROOT[c], bt = b.beats, nb = b.nb, beat = b.dur / nb, n = b.n;
   const mid = (j) => bt[j] + (bt[j + 1] - bt[j]) / 2;
-  const chorus = s === "chorus1" || s === "chorus2", big = s === "chorus2" || s === "bridge";
-  const last = b.n === 27 || b.n === 51 || b.n === 72;        // the bar before a lift
+  const chorus = s === "chorus1" || s === "chorus2", big = s === "chorus2";
+  const ph = PHRASE(n), phN = Math.floor((n - SEC_FROM[s]) / 4);
+  const early = s === "bridge" && n < 77;                       // v27: bars 73–76 — her quietest line, the band thins
+  const finale = s === "outro" && n <= 81, release = s === "outro" && n >= 82;   // v41: the orchestra lets go from 82 — the last word dissolves   // v27: 81–82 full, 83–84 the band leaves her ring-out
+  const lift = n === 27 || n === 51 || n === 72;                 // the bar before a lift
+  // v27 register rule: while she sings, nothing sustained in 56–70 — a low pair under her and a high trio over her
+  const lowPair = voicing(c, 44, 55, 2), hiTrio = voicing(c, 71, 83, 3), top = voicing(c, 83, 91, 2);
+  // v67: the chorus's sustained parts swell in over its first four bars (the pickup stab and the timpani still mark the downbeat)
+  const swellIn = s === "chorus1" ? 0.3 + 0.7 * grow(n, 28, 32) : s === "chorus2" ? 0.3 + 0.7 * grow(n, 52, 56) : 1;
+  const sus = (part, t, ms, dur, vel) => ms.forEach((m, i) => (i === ms.length - 1 ? susNote(part, t, m, dur, vel, n) : part.note(t, m, dur, vel)));
 
-  // STRINGS — creep in under verse 1 (bar 22 → 27), full chords in the choruses, high and thin
-  // in verse 2, swelling through the break and the bridge, long in the outro
-  if (s === "verse1" && b.n >= 22) {
-    const g = grow(b.n, 22, 28);
-    for (const m of voicing(c, 51, 63, 3)) P.strings.note(b.t, m, b.dur * 1.02, 30 + 40 * g);
-  } else if (chorus) {   // v26: variation — chorus 1 legato; chorus 2 legato for two phrases, re-bowed on every beat for the next two
-    const v = voicing(c, 51, 75, 6), swell = 1 + 0.15 * Math.sin(Math.PI * (PHRASE(b.n) + 0.5) / 4), phN = Math.floor((b.n - SEC_FROM[s]) / 4);
-    if (big && phN % 4 >= 2) { for (let j = 0; j < nb; j++) for (const m of v) P.strings.note(bt[j], m, beat * 1.05, 92 * swell); }
-    else for (const m of v) P.strings.note(b.t, m, b.dur * 1.02, (big ? 96 : 84) * swell);
-    if (big && phN >= 2) for (const m of voicing(c, 75, 83, 2)) P.strings.note(b.t, m, b.dur * 1.02, 72);
-  } else if (s === "verse2") {
-    for (const m of voicing(c, 68, 80, 2)) P.strings.note(b.t, m, b.dur * 1.02, 48);
-  } else if (s === "break") {
-    const g = grow(b.n, 68, 73);
-    for (const m of voicing(c, 56, 75, 4)) P.strings.note(b.t, m, b.dur * 1.02, 56 + 36 * g);
-  } else if (s === "bridge") {
-    // the climb: re-bowed every beat, louder bar by bar, an octave added from 77
-    const g = grow(b.n, 73, 81);
-    for (let j = 0; j < nb; j++) for (const m of voicing(c, 51, 75, 5)) P.strings.note(bt[j], m, beat * 1.05, 70 + 40 * g);
-    if (b.n >= 77) for (const m of voicing(c, 75, 87, 3)) P.strings.note(b.t, m, b.dur * 1.02, 84);
-  } else if (s === "outro") {   // v24: the finale — "if anything we should still be ramping up"
-    for (let j = 0; j < nb; j++) for (const m of voicing(c, 51, 75, 5)) P.strings.note(bt[j], m, beat * 1.05, 110);
-    for (const m of voicing(c, 75, 87, 3)) P.strings.note(b.t, m, b.dur * 1.02, 96);
-  }
+  // STRINGS
+  if (s === "verse1" && n >= 22) { const g = grow(n, 22, 28); sus(P.strings, b.t, lowPair, b.dur * 1.02, 30 + 36 * g); }
+  else if (s === "chorus1") { sus(P.strings, b.t, hiTrio, b.dur * 1.02, 80 * swellIn); if (n >= 32) for (const m of lowPair) P.strings.note(b.t, m, b.dur * 1.02, 70); }   // the low pair enters at phrase 2
+  else if (s === "chorus2") {
+    if (phN >= 2) { for (let j = 0; j < nb; j++) { sus(P.strings, bt[j], hiTrio, beat * 1.05, 92); for (const m of lowPair) P.strings.note(bt[j], m, beat * 1.05, 84); } }
+    else { sus(P.strings, b.t, hiTrio, b.dur * 1.02, 94 * swellIn); for (const m of lowPair) P.strings.note(b.t, m, b.dur * 1.02, 84 * swellIn); }
+    if (n >= 60) for (const m of top) P.strings.note(b.t, m, b.dur * 1.02, 70);
+  } else if (s === "break") { const g = grow(n, 68, 73), v = sings(n) ? [...lowPair, ...hiTrio] : voicing(c, 56, 75, 4); sus(P.strings, b.t, v, b.dur * 1.02, 52 + 36 * g); }
+  else if (early) { for (const m of lowPair) P.strings.note(b.t, m, b.dur * 1.02, 56); }
+  else if (s === "bridge") { const g = grow(n, 77, 81); for (let j = 0; j < nb; j++) { sus(P.strings, bt[j], hiTrio, beat * 1.05, 84 + 26 * g); for (const m of lowPair) P.strings.note(bt[j], m, beat * 1.05, 78 + 20 * g); } for (const m of top) P.strings.note(b.t, m, b.dur * 1.02, 84); }
+  else if (finale) { for (let j = 0; j < nb; j++) for (const m of voicing(c, 51, 75, 5)) P.strings.note(bt[j], m, beat * 1.05, 110); for (const m of top) P.strings.note(b.t, m, b.dur * 1.02, 96); }
+  else if (release) { for (const m of voicing(c, 51, 75, 4)) P.strings.note(b.t, m, b.dur * 1.04, n === 83 ? 72 : 52); }
 
-  // CELLO — long root and fifth from bar 18, under everything but the break
-  if ((s === "verse1" && b.n >= 18) || s === "verse2" || chorus || s === "bridge" || s === "outro") {
-    const g = s === "verse1" ? 0.5 + 0.5 * grow(b.n, 18, 27) : 1;
-    P.cello.note(b.t, root, b.dur * 1.04, (chorus || s === "bridge" ? 92 : 72) * g);
-    P.cello.note(b.t, root + 7, b.dur * 1.04, (chorus || s === "bridge" ? 76 : 56) * g);
-  }
+  // CELLO — root and fifth through verse 1 and chorus 1; from chorus 2 a LAMENT BASS down each chord run
+  // (G#m: G# F# E D# — her Emaj7 shape and the m7; B: D# C# B), one step per half bar, holding the last
+  if ((s === "verse1" && n >= 18) || s === "chorus1" || s === "verse2") {
+    const g = s === "verse1" ? 0.5 + 0.5 * grow(n, 18, 27) : 1;
+    P.cello.note(b.t, root, b.dur * 1.04, (s === "chorus1" ? 88 : 68) * g); if (s !== "verse2") P.cello.note(b.t, root + 7, b.dur * 1.04, (s === "chorus1" ? 72 : 52) * g);
+  } else if (s === "chorus2" || (s === "bridge" && !early) || finale) {
+    const r = chordRun(n), seq = c === 2 ? [39, 37, 35] : [44, 42, 40, 39];
+    for (let h = 0; h < 2; h++) { const m = seq[Math.min(seq.length - 1, r.pos * 2 + h)]; P.cello.note(b.t + h * b.dur / 2, m, b.dur / 2 * 1.04, finale ? 100 : 86); }
+  } else if (early || s === "break" || release) { P.cello.note(b.t, root, b.dur * 1.04, release ? 60 : 72); }
 
-  // PIZZICATO — her own strum motif X..XX..X (1, &2, 3, &4) on root / fifth, in the verses only
-  if ((s === "verse1" && b.n >= 14) || s === "verse2") {
-    const g = s === "verse1" ? 0.55 + 0.45 * grow(b.n, 14, 24) : 1;
+  // PIZZICATO — her strum motif X..XX..X (1, &2, 3, &4) on root / fifth, in the verses
+  if ((s === "verse1" && n >= 14) || s === "verse2") {
+    const g = s === "verse1" ? 0.55 + 0.45 * grow(n, 14, 24) : 1;
     const hits = [[bt[0], root + 12, 84], [mid(1), root + 19, 62], [bt[2], root + 12, 78], [mid(3), root + 19, 62]];
     for (const [t, m, v] of hits) if (t) P.pizz.note(t, m, beat * 0.6, v * g);
   }
 
-  // HORNS — sustained chord tones in the choruses and the bridge, swelling across each phrase;
-  // a stab on every phrase downbeat
-  if (chorus || s === "bridge" || s === "outro") {
-    const ph = PHRASE(b.n), v = voicing(c, 56, 68, 3), swell = 64 + 24 * ph / 3 + (big ? 16 : 0) + (s === "outro" ? 24 : 0), phN = Math.floor((b.n - SEC_FROM[s]) / 4);
-    if (phN % 2 === 0) { for (const m of v) P.horns.note(b.t, m, b.dur * 1.02, swell); if (ph === 0) for (const m of v) P.horns.note(b.t, m - 12, beat * 0.9, 100); }   // v26: odd phrases sustain…
-    else if (ph === 1 || ph === 3) { for (const m of v) { P.horns.note(bt[0], m, beat * 0.5, 96); if (nb > 2) P.horns.note(mid(1), m, beat * 0.4, 84); } }   // …even phrases stab (bars 2 and 4)
+  // HORNS — tenor voicing (44–56), under her: sustains on odd phrases, stabs on even; the bridge climb; the finale
+  if (((chorus || (s === "bridge" && !early)) && true) || finale) {
+    const v = voicing(c, 44, 56, 3), swell = 64 + 24 * ph / 3 + (big ? 16 : 0) + (finale ? 24 : 0);
+    if (finale || phN % 2 === 0) { sus(P.horns, b.t, v, b.dur * 1.02, swell * swellIn); if (ph === 0) for (const m of v) P.horns.note(b.t, m, beat * 0.9, 100); }
+    else if (ph === 1 || ph === 3) { for (const m of v) { P.horns.note(bt[0], m, beat * 0.5, 96); if (nb > 2) P.horns.note(mid(1), m, beat * 0.4, 84); } }
   }
 
-  // TIMPANI — the chorus and bridge downbeats on her root; a roll into every lift
-  if (chorus || s === "bridge" || s === "outro") {
-    if (PHRASE(b.n) % 2 === 0 || s === "outro") P.timpani.note(bt[0], root, beat * 1.5, big || s === "outro" ? 112 : 92);
-    if (PHRASE(b.n) === 3 && nb > 3) P.timpani.note(bt[3], root, beat * 0.8, 70);
+  // TIMPANI — chorus and bridge-climb downbeats on her root; a roll into every lift and into the button
+  if (chorus || (s === "bridge" && !early) || finale) {
+    if (ph % 2 === 0 || finale) P.timpani.note(bt[0], root, beat * 1.5, big || finale ? 112 : 92);
+    if (ph === 3 && nb > 3 && !lift) P.timpani.note(bt[3], root, beat * 0.8, 70);
   }
-  if (last && nb >= 3) {                                        // a crescendo roll over the last two beats
-    const t0 = bt[nb - 2], t1 = bt[nb] ?? b.t + b.dur, k = 16;
-    for (let q = 0; q < k; q++) P.timpani.note(t0 + (t1 - t0) * q / k, root, (t1 - t0) / k * 1.2, 40 + 72 * q / (k - 1));
+  if ((n === 27 || n === 51 || n === 72 || n === 80 || n === 83) && nb >= 3) { const pk = n === 27 || n === 51; const t0 = pk ? bt[nb - 3] : bt[nb - 2], t1 = pk ? bt[nb - 2] : (bt[nb] ?? b.t + b.dur), k = pk ? 8 : 16;   // v51: the roll lands on the pickup beat
+    for (let q = 0; q < k; q++) P.timpani.note(t0 + (t1 - t0) * q / k, root, (t1 - t0) / k * 1.2, 40 + 72 * q / (k - 1)); }
+
+  // HARP — arpeggios above her (68+): verse 2's second half, the break, the bridge, the finale (16ths), a slow release
+  if ((s === "verse2" && n >= 48) || s === "break" || s === "bridge" || s === "outro") {
+    const seq = tones(c, 68, 95), up = seq.slice(0, 6), run = [...up, ...up.slice(1, -1).reverse()];
+    const dens = finale ? 4 : release ? 1 : 2; let i = 0;
+    for (let j = 0; j < nb; j++) for (let q = 0; q < dens; q++) { const t = bt[j] + (bt[j + 1] - bt[j]) * q / dens;
+      P.harp.note(t, run[i++ % run.length], beat / dens * 2.5, (q === 0 ? 76 : 60) * (early ? 0.6 : release ? 0.7 : 1)); }
   }
 
-  // HARP — 8th-note arpeggios across the chord: verse 2, the break, the bridge and the outro
-  if ((s === "verse2" && b.n >= 48) || s === "break" || s === "bridge" || s === "outro") {   // v26: the harp waits for verse 2's second half
-    const seq = tones(c, 56, 83); const up = seq.slice(0, 6), run = [...up, ...up.slice(1, -1).reverse()];
-    const dens = s === "bridge" ? 4 : 2; let i = 0;
-    for (let j = 0; j < nb; j++) for (let q = 0; q < dens; q++) {
-      const t = bt[j] + (bt[j + 1] - bt[j]) * q / dens;
-      P.harp.note(t, run[i++ % run.length], beat / dens * 2.5, (q === 0 ? 76 : 60) * (s === "outro" ? 0.8 : 1));
-    }
-  }
-
-  // QUARTET (v24) — not a pad: lines. Chorus 1: violin I runs the chord in 8ths, violin II answers on
-  // the offbeats a third under, viola double-stops re-bowed on 1 and 3, cello root/fifth in 8ths.
-  // Verse 2: the violins hold high thirds. The break: the quartet alone swells. The bridge: 16th
-  // tremolo climbing. The outro is the finale: everything, an octave up.
+  // QUARTET — lines, above and below her. Chorus 1: violin I runs the chord in 8ths (71+), violin II answers a
+  // third under on the offbeats, viola double-stops 51–62 on 1 and 3, cello 8ths. Verse 2: the violins hold
+  // high thirds. The break: a swell. Bars 73–76: violins tremolo alone, soft. 77–80 and the finale: full tremolo.
   if (chorus || s === "bridge" || s === "outro" || s === "verse2" || s === "break") {
-    const hi = tones(c, 71, 88), lo = tones(c, 64, 80), fin = s === "outro";
-    const vel = s === "chorus1" ? 78 : s === "chorus2" ? 90 : s === "bridge" ? 84 + 24 * grow(b.n, 73, 81) : fin ? 104 : 60;
-    if (chorus || fin) {
+    const hi = tones(c, 71, 88), lo = tones(c, 64, 80);
+    const vel = s === "chorus1" ? 78 * swellIn : s === "chorus2" ? 90 * swellIn : early ? 62 + 10 * grow(n, 73, 77) : s === "bridge" ? 84 + 24 * grow(n, 77, 81) : finale ? 104 : release ? 56 : 60;
+    if (chorus || finale) {
       const run = [...hi.slice(0, 4), ...hi.slice(1, 3).reverse()];
       for (let j = 0; j < nb; j++) for (let q = 0; q < 2; q++) { const i = (j * 2 + q) % run.length, t = bt[j] + (bt[j + 1] - bt[j]) * q / 2;
-        P.vln1.note(t, run[i] + (fin ? 12 : 0), beat / 2 * 1.1, vel * (q ? 0.8 : 1));
+        P.vln1.note(t, run[i] + (finale ? 12 : 0), beat / 2 * 1.1, vel * (q ? 0.8 : 1));
         if (q) P.vln2.note(t, lo[Math.min(lo.length - 1, i + 1)], beat / 2 * 1.1, vel * 0.75); }
-      for (const j of [0, 2]) if (bt[j]) for (const m of voicing(c, 60, 72, 2)) P.viola.note(bt[j], m, beat * 2 * 0.98, vel * 0.85);
-      for (let j = 0; j < nb; j++) for (let q = 0; q < 2; q++) P.qcello.note(bt[j] + (bt[j + 1] - bt[j]) * q / 2, root + (q ? 7 : 0), beat / 2 * 0.9, vel * (q ? 0.7 : 0.9));
+      for (const j of [0, 2]) if (bt[j]) sus(P.viola, bt[j], voicing(c, 51, 62, 2), beat * 2 * 0.98, vel * 0.85);
+      if (!finale) for (let j = 0; j < nb; j++) for (let q = 0; q < 2; q++) P.qcello.note(bt[j] + (bt[j + 1] - bt[j]) * q / 2, root + (q ? 7 : 0), beat / 2 * 0.9, vel * (q ? 0.7 : 0.9));
     } else if (s === "verse2") {
       for (const [part, m] of [[P.vln1, hi[2]], [P.vln2, hi[0]]]) part.note(b.t, m, b.dur * 1.03, 56);
     } else if (s === "break") {
-      const g = 0.6 + 0.4 * grow(b.n, 68, 73);
+      const g = 0.6 + 0.4 * grow(n, 68, 73);
       P.vln1.note(b.t, hi[3], b.dur * 1.03, 70 * g); P.vln2.note(b.t, hi[1], b.dur * 1.03, 64 * g);
-      for (const m of voicing(c, 60, 72, 2)) P.viola.note(b.t, m, b.dur * 1.03, 62 * g); P.qcello.note(b.t, root, b.dur * 1.03, 72 * g);
+      sus(P.viola, b.t, voicing(c, 51, 62, 2), b.dur * 1.03, 62 * g); P.qcello.note(b.t, root, b.dur * 1.03, 72 * g);
+    } else if (release) {
+      P.vln1.note(b.t, hi[2], b.dur * 1.04, vel); P.vln2.note(b.t, hi[0], b.dur * 1.04, vel * 0.9);
     } else {   // bridge: tremolo 16ths, up the chord bar by bar
-      const k = Math.min(hi.length - 1, (b.n - 73) % 4 + 1);
+      const k = Math.min(hi.length - 1, (n - 73) % 4 + 1);
       for (let j = 0; j < nb; j++) for (let q = 0; q < 4; q++) { const t = bt[j] + (bt[j + 1] - bt[j]) * q / 4;
         P.vln1.note(t, hi[k], beat / 4 * 1.2, vel * (q ? 0.7 : 0.95)); P.vln2.note(t, hi[Math.max(0, k - 2)], beat / 4 * 1.2, vel * 0.65); }
-      for (const m of voicing(c, 60, 72, 2)) P.viola.note(b.t, m, b.dur * 1.03, vel * 0.8); P.qcello.note(b.t, root, b.dur * 1.03, vel * 0.9);
+      if (!early) { sus(P.viola, b.t, voicing(c, 51, 62, 2), b.dur * 1.03, vel * 0.8); P.qcello.note(b.t, root, b.dur * 1.03, vel * 0.9); }
     }
   }
 
-  // TAIKO (v24) — big drums: 1 and 3 in chorus 2, rising through the break, every beat and a
-  // 16th fill into each phrase in the bridge and the finale
-  if (s === "chorus2" || s === "break" || s === "bridge" || s === "outro") {
-    const g = s === "break" ? 0.4 + 0.6 * grow(b.n, 68, 73) : s === "chorus2" ? 0.85 : 1;
+  // TAIKO — on her roots (44/47, not the sample's G/A/C): 1 and 3 in chorus 2, from bar 70 in the break, every beat
+  // with a fill into each phrase in the bridge climb and the finale
+  if (s === "chorus2" || (s === "break" && n >= 70) || (s === "bridge" && !early) || finale) {
+    const g = s === "break" ? 0.5 + 0.5 * grow(n, 70, 73) : s === "chorus2" ? 0.85 : 1;
     const hits = s === "chorus2" || s === "break" ? [0, 2] : [0, 1, 2, 3];
-    for (const j of hits) if (bt[j] != null) P.taiko.note(bt[j], j % 2 ? 48 : 43, beat * 0.8, (j % 2 ? 84 : 112) * g);
-    if (s !== "chorus2" && PHRASE(b.n) === 3 && nb > 3) for (let q = 0; q < 4; q++) P.taiko.note(bt[3] + beat * q / 4, 45, beat / 4, (70 + 12 * q) * g);
-    if ((s === "bridge" || s === "outro") && nb > 3) P.taiko.note(mid(3), 48, beat * 0.4, 72 * g);
+    for (const j of hits) if (bt[j] != null) P.taiko.note(bt[j], j % 2 ? root + 3 : root, beat * 0.8, (j % 2 ? 84 : 112) * g);
+    if (s !== "chorus2" && ph === 3 && nb > 3 && !lift) for (let q = 0; q < 4; q++) P.taiko.note(bt[3] + beat * q / 4, root + 1, beat / 4, (70 + 12 * q) * g);
   }
 
-  // AAHS — a block choir on the chord: the second half of chorus 1, all of chorus 2, the bridge, the outro
-  if ((s === "chorus1" && b.n >= 36) || s === "chorus2" || s === "bridge" || s === "outro") {
-    const v = voicing(c, 56, 71, 4), g = s === "chorus1" ? grow(b.n, 36, 40) : 1;
-    for (const m of v) P.aahs.note(b.t, m, b.dur * 1.05, (big ? 92 : 76) * g);
+  // AAHS — a block choir ABOVE her (68–83): the second half of chorus 1, chorus 2, the bridge climb, the finale, a soft release
+  if ((s === "chorus1" && n >= 36) || s === "chorus2" || (s === "bridge" && !early) || s === "outro") {
+    const v = voicing(c, 68, 83, 4), g = s === "chorus1" ? grow(n, 36, 40) : s === "chorus2" ? 0.2 + 0.8 * grow(n, 52, 58) : release ? 0.55 : 1;   // v67: the aahs come in late
+    sus(P.aahs, b.t, v, b.dur * 1.05, (big || finale ? 92 : 76) * g);
   }
+
+  // THE PICKUP (v35) — the chorus begins on "Oh, won't you": from beat 3 of bars 27 and 51 the strings, horns and timpani
+  // are already in, at the chorus's own voicing and weight
+  if (n === 27 || n === 51) { const jP = nb > 2 ? nb - 2 : 0, tP = bt[jP], dP = b.t + b.dur - tP, cv = n === 51; const nc = c;   // v51: two beats before "kiss" (27.4 / 51.3)
+    sus(P.strings, tP, voicing(nc, 71, 83, 3), dP * 1.02, cv ? 94 : 84); for (const m of voicing(nc, 44, 55, 2)) P.strings.note(tP, m, dP * 1.02, cv ? 84 : 70);
+    for (const m of voicing(nc, 44, 56, 3)) { P.horns.note(tP, m, dP * 1.02, 88); P.horns.note(tP, m, beat * 0.9, 104); }
+    P.timpani.note(tP, root, beat * 1.5, cv ? 112 : 100); if (cv) P.taiko.note(tP, root, beat * 0.8, 112);
+    for (let j = jP; j < nb; j++) for (let q = 0; q < 2; q++) { const t = bt[j] + (bt[j + 1] - bt[j]) * q / 2; P.vln1.note(t, tones(nc, 71, 88)[(j * 2 + q) % 4], beat / 2 * 1.1, cv ? 90 : 78); } }
+  // THE ANSWER (v27) — her kiss figure comes back in her own silences: pizz + harp after chorus 1 (bar 42), glock +
+  // violin I an octave up after chorus 2 (bar 66), and the horns open the finale with it (bar 81 — the one new thing there)
+  if (n === 42) { kissAt(P.pizz, b, 0, 92); kissAt(P.harp, b, 12, 84); }
+  if (n === 66) { kissAt(P.glock, b, 12, 80); kissAt(P.vln1, b, 12, 92); }
+  if (n === 81) { kissAt(P.horns, b, -12, 112); kissAt(P.strings, b, 0, 100); }
 }
 
-// THE BUTTON (v25) — the end of bar 84 is the record's last downbeat: a timpani roll into it, then the
-// whole orchestra holds the chord for five seconds under her ring-out, taiko and timpani on the hit
-{ const b84 = barN(84); if (b84) { const tE = b84.t + b84.dur, c = b84.chord, root = ROOT[c], beat = b84.dur / b84.nb;
-  for (let q = 0; q < 12; q++) P.timpani.note(b84.beats[2] + (tE - b84.beats[2]) * q / 12, root, beat / 6 * 1.2, 50 + 70 * q / 11);
-  P.timpani.note(tE, root, 2.5, 120); P.taiko.note(tE, 43, 1.2, 120); P.taiko.note(tE + 0.02, 48, 1.0, 100);
-  for (const m of voicing(c, 51, 87, 8)) P.strings.note(tE, m, 5.0, 110);
-  for (const m of voicing(c, 56, 68, 3)) { P.horns.note(tE, m, 4.5, 104); P.horns.note(tE, m - 12, 4.5, 96); }
-  for (const [part, m] of [[P.vln1, tones(c, 79, 91)[1]], [P.vln2, tones(c, 71, 83)[1]], [P.viola, tones(c, 60, 72)[0]], [P.qcello, root]]) part.note(tE, m, 5.0, 108);
-  P.cello.note(tE, root, 5.0, 100); P.cello.note(tE, root - 12, 5.0, 90);
-  for (const m of voicing(c, 56, 71, 4)) P.aahs.note(tE, m, 5.0, 100);
-  for (const m of tones(c, 56, 95)) P.harp.note(tE + 0.02 * (m - 56) / 4, m, 3.0, 80);   // one upward harp sweep
+// THE BUTTON (v27) — on her LAST STRUM, bar 84's downbeat: the roll came in bar 83; the hit, then the chord
+// let go in three steps over three seconds so her guitar is the last thing heard
+{ const b84 = barN(84); if (b84) { const tB = b84.t, c = b84.chord, root = ROOT[c];
+  P.timpani.note(tB - 0.008, root, 2.5, 120); P.taiko.note(tB, root, 1.2, 120);
+  for (const [dt, vel] of [[0, 104], [1.0, 74], [2.0, 46]]) {
+    for (const m of voicing(c, 51, 87, 8)) P.strings.note(tB + dt, m, 1.15, vel);
+    for (const m of voicing(c, 44, 56, 3)) P.horns.note(tB + dt, m, 1.15, vel);
+    for (const m of voicing(c, 68, 83, 4)) P.aahs.note(tB + dt, m, 1.15, vel * 0.9);
+    P.cello.note(tB + dt, root, 1.15, vel); P.vln1.note(tB + dt, tones(c, 79, 91)[1], 1.15, vel); P.vln2.note(tB + dt, tones(c, 71, 83)[1], 1.15, vel * 0.9); }
+  for (const m of tones(c, 56, 95)) P.harp.note(tB + 0.02 * (m - 56) / 4, m, 2.5, 80);   // one upward sweep
 } }
 
-// GLOCKENSPIEL — her melody an octave up, chorus 2, the bridge and the outro
+// GLOCKENSPIEL — her melody an octave up: chorus 2's second half and the bridge climb (where she sings)
 for (const v of notes) {
   if (v.dur < 0.18) continue;
   const b = bars.find((x) => v.t >= x.t && v.t < x.t + x.dur); if (!b) continue;
   const s = section(b.n);
-  if ((s === "chorus2" && b.n >= 60) || s === "bridge" || s === "outro") P.glock.note(v.t, v.midi + 12, Math.max(0.25, v.dur), s === "outro" ? 56 : 68);   // v26: glock from chorus 2's second half
+  if ((s === "chorus2" && b.n >= 60) || (s === "bridge" && b.n >= 77)) P.glock.note(v.t, v.midi + 12, Math.max(0.25, v.dur), 68);
 }
 
 // ── render ──

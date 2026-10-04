@@ -20,25 +20,35 @@ COVER="$LANE/cover/sailor-song-cover.jpg"   # v6.2: clean, no title text
 trap 'rm -f "$PRE"' EXIT
 
 echo "→ translation premaster"
-ffmpeg -y -v error -i "$FULL" -af \
-  "highpass=f=32,bass=g=-2.5:f=90:w=0.7,equalizer=f=220:t=q:w=0.9:g=0.6,\
-equalizer=f=900:t=q:w=0.85:g=1.6,treble=g=1.2:f=7500:w=0.6" -ar 48000 -c:a pcm_f32le "$PRE"
+# v60: SUBSTRATE=vinyl — the wax-record master (pop/lib/substrate.mjs): its EQ tilt, wow + flutter and tube glue replace the
+# translation EQ; the density/loudness stage below still sets the ceiling
+if [ "${SUBSTRATE:-vinyl}" = "vinyl" ]; then
+  CHAIN="volume=-4dB,$(node -e 'import("'"$LANE"'/../lib/substrate.mjs").then(m=>process.stdout.write(m.masterChain("vinyl")))')"   # v60b: −4 dB in, so the glue stops pinning
+  echo "  substrate: vinyl"
+else
+  CHAIN="highpass=f=32,bass=g=-2.5:f=90:w=0.7,equalizer=f=220:t=q:w=0.9:g=0.6,equalizer=f=900:t=q:w=0.85:g=1.6,treble=g=1.2:f=7500:w=0.6"
+fi
+ffmpeg -y -v error -i "$FULL" -af "$CHAIN" -ar 48000 -c:a pcm_f32le "$PRE"
 
 density() {   # $1 = static gain dB
-  echo "acompressor=threshold=0.20:ratio=1.5:attack=30:release=180:knee=4:link=maximum:detection=rms:mix=0.50,\
-volume=4.0dB,asoftclip=type=tanh:threshold=0.62:output=0.92,volume=${1}dB,\
-aresample=192000,alimiter=limit=${LIMIT:-0.730}:attack=4:release=120:asc=true:asc_level=0.35:level=false,aresample=48000"
+  if [ "${SUBSTRATE:-vinyl}" = "vinyl" ]; then   # v60c: the wax already glued and limited itself — only the loudness gain and the ceiling here (the clipper was eating the master)
+    echo "volume=${1}dB,aresample=192000,alimiter=limit=${LIMIT:-0.725}:attack=4:release=120:asc=true:asc_level=0.35:level=false,aresample=48000"
+  else
+    echo "acompressor=threshold=0.28:ratio=1.5:attack=30:release=180:knee=4:link=maximum:detection=rms:mix=0.30,\
+volume=2.5dB,asoftclip=type=tanh:threshold=0.82:output=0.92,volume=${1}dB,\
+aresample=192000,alimiter=limit=${LIMIT:-0.725}:attack=4:release=120:asc=true:asc_level=0.35:level=false,aresample=48000"
+  fi
 }
 measure() { ffmpeg -hide_banner -nostats -i "$1" -af "$2${2:+,}ebur128=peak=true:framelog=quiet" -f null - 2>&1 \
   | awk '/Summary/{s=1} s&&/ I:/{print $2; exit}'; }
 
 echo "→ density + loudness taken at the ceiling (measured, not guessed)"
-GAIN2="${GAIN2:-6.0}"
+GAIN2="${GAIN2:-0.0}"
 for pass in 1 2 3; do
   I=$(measure "$PRE" "$(density "$GAIN2")")
   echo "  pass $pass: GAIN2=${GAIN2} dB → ${I} LUFS"
-  awk -v i="$I" 'BEGIN{exit !(i > -10.3 && i < -9.7)}' && break
-  GAIN2=$(awk -v g="$GAIN2" -v i="$I" 'BEGIN{printf "%.2f", g + (-10 - i)}')
+  awk -v i="$I" 'BEGIN{exit !(i > -12.3 && i < -11.7)}' && break   # v39: −12 LUFS — "the mix feels a little maxed out"
+  GAIN2=$(awk -v g="$GAIN2" -v i="$I" 'BEGIN{printf "%.2f", g + (-12 - i)}')
 done
 ffmpeg -y -v error -i "$PRE" -af "$(density "$GAIN2")" -ar 48000 -c:a pcm_s24le "$MASTER"
 

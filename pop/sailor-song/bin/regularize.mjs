@@ -49,7 +49,19 @@ const sorted = [...bpm].sort((a, b) => a - b), median = sorted[sorted.length >> 
 const smooth = bpm.map((_, i) => { const a = Math.max(0, i - WIN), z = Math.min(bpm.length, i + WIN + 1); return bpm.slice(a, z).reduce((s, v) => s + v, 0) / (z - a); });
 // how much of her sway to keep per beat: all of it before the floor, KEEP after, eased over 4 bars before FLOOR_BAR
 const keepAt = (i) => { const n = barOfBeat[i]; if (n >= FLOOR_BAR) return KEEP; if (n < FLOOR_BAR - 4) return 1; const x = (n - (FLOOR_BAR - 4)) / 4; return 1 + (KEEP - 1) * (0.5 - 0.5 * Math.cos(Math.PI * x)); };
-const target = bpm.map((v, i) => { const k = keepAt(i); return (k >= 1 ? v : median + k * (smooth[i] - median)) * (barOfBeat[i] >= LIFT_BAR ? LIFT : 1); });
+// v32: the lift EASES in over the four bars before LIFT_BAR (it was a 5.6 % step on the downbeat of 28 — "kiss me on
+// the mouth" was squeezed 11 %), and no beat is ever squeezed more than SQUEEZE (6 %) against how she played it
+const SQUEEZE = Number(flags.squeeze ?? 1.06);
+const liftAt = (i) => { const n = barOfBeat[i]; if (n >= LIFT_BAR) return LIFT; if (n < LIFT_BAR - 4) return 1; const x = (n - (LIFT_BAR - 4)) / 4; return 1 + (LIFT - 1) * (0.5 - 0.5 * Math.cos(Math.PI * x)); };
+let target = bpm.map((v, i) => { const k = keepAt(i); const t = (k >= 1 ? v : median + k * (smooth[i] - median)) * liftAt(i); return Math.min(t, v * SQUEEZE); });
+// v53: FIT — a bar she stretched to five beats (27: "to me? … oh won't you") is compressed to four, so the chorus downbeat lands
+// on "kiss" and the band's "1" is hers. Each of the bar's intervals is scaled by the same factor; the squeeze cap does not apply.
+const FIT = String(flags["fit-bars"] ?? "").split(",").filter(Boolean).map(Number);   // v54: off by default — "there was never a problem with the 'oh won't you' timing"
+for (const fb of FIT) { const idx = ibi.map((_, i) => i).filter((i) => barOfBeat[i] === fb); if (idx.length <= 4) continue;
+  const raw = idx.reduce((a, i) => a + ibi[i], 0), nb = idx.length;
+  const near = ibi.map((_, i) => i).filter((i) => (barOfBeat[i] === fb - 1 || barOfBeat[i] === fb + 1)); const beatT = near.reduce((a, i) => a + 60 / target[i], 0) / near.length;
+  const want = 4 * beatT; for (const i of idx) target[i] = bpm[i] * (raw / want);
+  console.log(`  fit bar ${fb}: ${nb} beats ${raw.toFixed(2)} s → 4 beats ${want.toFixed(2)} s (×${(want / raw).toFixed(3)})`); }
 const dst = [src[0]];
 for (let i = 0; i < target.length; i++) dst.push(dst[i] + 60 / target[i]);
 const ratio = ibi.map((d, i) => (60 / target[i]) / d);
