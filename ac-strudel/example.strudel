@@ -1,0 +1,76 @@
+// PAT / for Will — https://pat.aesthetic.computer
+await import('https://pat.aesthetic.computer/s')
+
+// VOICES — change .s(...) in any block below.
+// ac_orbit: feedback FM, interlocking pulses, moving stereo
+// ac_glass: metallic FM, triangle fifth, inharmonic overtones
+// ac_swarm: detuned saws, triangle fifth, sine sub
+// ac_bloom: softer FM, triangle/sine layers, stereo drift
+// ac_marimba: rosewood modal mallet; .n() changes brightness and ring
+// ac_stone: inharmonic bar; ac_water: rising drip; ac_kick: falling sine drum
+// Stone Wattajetta arrangement: https://pat.aesthetic.computer/stone
+// ac_triangle_fifth / ac_triangle / ac_sine: original simple voices
+// ac_major / ac_minor / ac_sus2: one root triggers a three-note sine chord
+// These are custom recipes using established synthesis techniques.
+// The original six derive from AC OS Notepat; the four rich voices extend them.
+// Track arrangements: https://pat.aesthetic.computer/marimbaba
+// Faster remix: https://pat.aesthetic.computer/marimbaba-orbit
+
+// TIME — new notes/key every 10 minutes when you open or re-evaluate.
+// Keep a version by replacing Date.now() with a fixed timestamp.
+// While playing, signals keep changing timbre, space, and layer levels.
+// Generated strings need mini(...); quoted pattern literals use double quotes.
+const epoch = Math.floor(Date.now() / 600000)
+let seed = epoch >>> 0
+const dice = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296)
+const root = [45, 48, 50, 53][epoch % 4]
+const scale = [0, 2, 3, 5, 7, 9, 10]
+const phrase = (count, opening) => Array.from({length: count}, (_, i) =>
+  i === 0 ? String(root + 24 + opening) :
+    dice() < .16 ? '~' : String(root + 24 + scale[Math.floor(dice() * scale.length)])
+).join(' ')
+const melody = phrase(13, 0)
+const sparks = phrase(7, 7)
+const chord = (offset, intervals) => '[' + intervals.map(n => root + offset + n).join(',') + ']'
+const harmony = '<' + [chord(0, [0,3,7,10]), chord(-5, [0,3,7]), chord(-4, [0,4,7]), chord(-2, [0,4,7])].join(' ') + '>'
+setcpm(24)
+
+// ORBIT — .n(0..1) is the timbre macro: feedback/FM depth and brightness.
+// sine/perlin are Strudel signals; different periods avoid a short shared loop.
+// Each $: block is independent. Select a whole block and toggle // to mute it.
+// All four enter on beat one: tonic lead, fifth accent, chord, and bass.
+$: note(mini(melody)).s('ac_orbit').slow(2)
+  .n(perlin.slow(11).range(.12,.95))
+  .attack(.008).decay(.2).sustain(.55).release(.6)
+  .gain(sine.slow(17).range(.32,.5))
+  .pan(sine.slow(19)).lpf(sine.slow(23).range(600,6000))
+  .delay(.3).delaytime(.375).delayfeedback(.35).room(.35)
+  ._pianoroll()
+
+// GLASS — seven-note phrase against orbit's thirteen; notes/rests vary per epoch.
+$: note(mini(sparks)).s('ac_glass').slow(3)
+  .n(sine.slow(13).range(.1,.9))
+  .attack(.004).gain(sine.slow(29).range(.16,.3)).release(.8)
+  .pan(sine.slow(31)).delay(.25).delaytime(.5).room(.45)
+
+// BLOOM — extended chords; attack/decay/sustain/release are seconds, except
+// sustain (0..1). .slow(4) stretches the harmonic progression.
+$: note(mini(harmony)).s('ac_bloom').slow(4)
+  .n(perlin.slow(37).range(.15,.8))
+  .attack(.06).decay(.4).sustain(.65).release(1.8)
+  .gain(.2).lpf(sine.slow(41).range(650,3200)).room(.5)
+
+// SWARM — bass with changing tone and level. Filters/delay/reverb/pan are
+// Strudel effects; FM, detune, and internal movement belong to these voices.
+$: note(mini('<' + [root-12, root-17, root-16, root-14].join(' ') + '> ~ ~ [~ ' + root + ']'))
+  .s('ac_swarm').slow(2).n(sine.slow(7).range(.15,.8))
+  .attack(.006).release(.25).gain(.4).lpf(850)
+
+// SOLO LAB — comment out the four active blocks above and uncomment this.
+// note(...) accepts note names or MIDI numbers; freq(...) accepts hertz.
+// All voices: .attack .decay .sustain .release .gain .pan .lpf .hpf .delay .room
+// Rich voices: .n(0..1). Synth-specific Strudel controls such as .fm() are
+// not wired into these custom voices; use .n() for their internal modulation.
+// $: note("c3 eb3 g3 bb3").s('ac_orbit').n("<0 .25 .5 .75 1>")
+//   .attack(.02).release(.7).gain(.4).room(.3)
+// $: freq("110 165 220").s('ac_triangle_fifth').gain(.4)

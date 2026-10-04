@@ -1,0 +1,331 @@
+(() => {
+// AC OS Notepat voices for Strudel. https://aesthetic.computer
+// Recipes: fedac/native/pieces/notepat.mjs (triangle Shift alternate and chords).
+// Uses Web Audio's band-limited oscillators; this is not a recording of the
+// native mixer, its echo, or its output saturation.
+// Glass, swarm, bloom, and orbit extend those recipes as new Strudel sounds.
+
+const voices = Object.freeze({
+  ac_triangle: { wave: 'triangle', ratios: [1], levels: [0.5] },
+  ac_triangle_fifth: { wave: 'triangle', ratios: [1, 1.5], levels: [0.42, 0.12] },
+  ac_sine: { wave: 'sine', ratios: [1], levels: [0.5] },
+  ac_major: { wave: 'sine', ratios: [1, 2 ** (4 / 12), 2 ** (7 / 12)] },
+  ac_minor: { wave: 'sine', ratios: [1, 2 ** (3 / 12), 2 ** (7 / 12)] },
+  ac_sus2: { wave: 'sine', ratios: [1, 2 ** (2 / 12), 2 ** (7 / 12)] },
+  ac_glass: { rich: 'glass' },
+  ac_swarm: { rich: 'swarm' },
+  ac_bloom: { rich: 'bloom' },
+  ac_orbit: { rich: 'orbit' },
+  ac_marimba: { modal: true },
+  ac_stone: { modal: 'stone' },
+  ac_water: { chirp: 'water' },
+  ac_kick: { chirp: 'kick' },
+});
+
+const bounded = (value, fallback, min, max) => {
+  const n = Number(value ?? fallback);
+  return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
+};
+
+function marimbaVoice(ctx, time, value, frequency, onended, stone = false) {
+  // Modal reduction of pop/marimba/synths/marimba.mjs, rosewood preset.
+  // Preserves its 1:4:9.2 ratios and T60 decay relationships; omits the
+  // source renderer's mallet convolution and resonator tube model.
+  const color = bounded(value.n, 0.5, 0, 1);
+  const duration = bounded(value.duration, 0.5, 0.001, 3600);
+  const attack = Math.min(bounded(value.attack, 0.001, 0, 60), duration);
+  const decay = Math.min(bounded(value.decay, 0, 0, 60), duration - attack);
+  const sustain = bounded(value.sustain, 1, 0, 1);
+  const release = bounded(value.release, 0.25, 0, 60);
+  const end = time + duration + release + 0.005;
+  const node = ctx.createGain();
+  node.gain.setValueAtTime(attack ? 0 : 1, time);
+  if (attack) node.gain.linearRampToValueAtTime(1, time + attack);
+  node.gain.linearRampToValueAtTime(sustain, time + attack + decay);
+  node.gain.setValueAtTime(sustain, time + duration);
+  node.gain.linearRampToValueAtTime(0, end - 0.005);
+  // Stone is a designed inharmonic bar surrogate, not the offline FEM model.
+  const ratios = stone ? [1, 2.756, 5.404] : [1, 4, 9.2];
+  const t60 = stone ? [2.8, 1.1, 0.38] : [1.6, 0.32, 0.09];
+  const levels = [1, 0.32 * (0.3 + color * 1.4), 0.1 * (0.3 + color * 1.4)];
+  const scale = 0.48 / levels.reduce((a, b) => a + b, 0);
+  const oscillators = [], gains = [];
+  let remaining = 3, finished = false;
+  ratios.forEach((ratio, i) => {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = Math.min(frequency * ratio, ctx.sampleRate * 0.45);
+    const amplitude = levels[i] * scale;
+    const ring = t60[i] * (0.8 + color * 0.8);
+    g.gain.setValueAtTime(amplitude, time);
+    g.gain.exponentialRampToValueAtTime(amplitude * 0.001, time + ring);
+    g.gain.exponentialRampToValueAtTime(0.0000001, time + ring * 2);
+    o.connect(g).connect(node);
+    o.onended = () => {
+      if (--remaining === 0 && !finished) {
+        finished = true;
+        [...oscillators, ...gains, node].forEach(n => n.disconnect());
+        onended?.();
+      }
+    };
+    oscillators.push(o); gains.push(g);
+    o.start(time); o.stop(end);
+  });
+  return { node, stop(at) {
+    if (finished) return;
+    const stopAt = Math.max(ctx.currentTime, Math.min(at, end));
+    node.gain.cancelAndHoldAtTime(stopAt);
+    node.gain.linearRampToValueAtTime(0, stopAt + 0.005);
+    oscillators.forEach(o => o.stop(Math.min(end, stopAt + 0.005)));
+  } };
+}
+
+function chirpVoice(ctx, time, value, frequency, kind, onended) {
+  const color = bounded(value.n, 0.5, 0, 1);
+  const kick = kind === 'kick';
+  const duration = bounded(value.duration, 0.2, 0.001, 3600);
+  const release = bounded(value.release, 0.08, 0, 60);
+  const end = time + duration + release + 0.005;
+  const node = ctx.createGain(), oscillator = ctx.createOscillator();
+  const attack = Math.min(bounded(value.attack, kick ? 0.007 : 0.003, 0, 60), duration);
+  const ring = kick ? 0.12 + color * 0.2 : 0.055 + color * 0.1;
+  node.gain.setValueAtTime(attack ? 0 : 0.5, time);
+  if (attack) node.gain.linearRampToValueAtTime(0.5, time + attack);
+  node.gain.exponentialRampToValueAtTime(0.00001, Math.min(end - 0.005, time + attack + ring));
+  node.gain.setValueAtTime(0, end);
+  oscillator.frequency.setValueAtTime(kick ? 126 + color * 20 : frequency * 0.55, time);
+  oscillator.frequency.exponentialRampToValueAtTime(kick ? 43 : frequency,
+    time + Math.min(duration, kick ? 0.055 + color * 0.04 : 0.07));
+  oscillator.connect(node);
+  let finished = false;
+  oscillator.onended = () => {
+    if (finished) return;
+    finished = true; oscillator.disconnect(); node.disconnect(); onended?.();
+  };
+  oscillator.start(time); oscillator.stop(end);
+  return { node, stop(at) {
+    if (finished) return;
+    const stopAt = Math.max(ctx.currentTime, Math.min(at, end));
+    node.gain.cancelAndHoldAtTime(stopAt);
+    node.gain.linearRampToValueAtTime(0, stopAt + 0.005);
+    oscillator.stop(Math.min(end, stopAt + 0.005));
+  } };
+}
+
+function richVoice(ctx, time, value, frequency, kind, onended, cps = 0.5) {
+  // n is a 0..1 timbre macro: FM depth, detune, and filter motion.
+  const color = bounded(value.n, 0.5, 0, 1);
+  const duration = bounded(value.duration, 0.5, 0.001, 3600);
+  const attack = Math.min(bounded(value.attack, kind === 'bloom' ? 0.18 : 0.006, 0, 60), duration);
+  const decay = Math.min(bounded(value.decay, kind === 'glass' ? 0.3 : 0.1, 0, 60), duration - attack);
+  const sustain = bounded(value.sustain, kind === 'glass' ? 0.24 : 0.8, 0, 1);
+  const release = bounded(value.release, kind === 'glass' ? 0.35 : 0.6, 0, 60);
+  const holdEnd = time + duration;
+  const end = holdEnd + release + 0.005;
+  const node = ctx.createGain();
+  const allNodes = [node], oscillators = [];
+  const keep = object => { allNodes.push(object); return object; };
+  const gain = level => {
+    const g = keep(ctx.createGain()); g.gain.value = level; return g;
+  };
+  const osc = (type, hz) => {
+    const o = keep(ctx.createOscillator());
+    o.type = type;
+    o.frequency.value = Math.max(0.05, Math.min(hz, ctx.sampleRate * 0.4));
+    oscillators.push(o); return o;
+  };
+  const filter = keep(ctx.createBiquadFilter());
+  filter.type = 'lowpass';
+  filter.Q.value = 0.5;
+  const cutoff = Math.min(ctx.sampleRate * 0.4, frequency * (5 + color * 15));
+  filter.frequency.setValueAtTime(cutoff, time);
+  filter.frequency.exponentialRampToValueAtTime(
+    Math.max(60, cutoff * (kind === 'glass' ? 0.24 : 0.55)), holdEnd,
+  );
+  filter.connect(node);
+  node.gain.setValueAtTime(attack ? 0 : 1, time);
+  if (attack) node.gain.linearRampToValueAtTime(1, time + attack);
+  node.gain.linearRampToValueAtTime(sustain, time + attack + decay);
+  node.gain.setValueAtTime(sustain, holdEnd);
+  node.gain.linearRampToValueAtTime(0, holdEnd + release);
+
+  const layers = kind === 'glass'
+    ? [[1, 0.24, 'sine', 0], [1.5, 0.10, 'triangle', 0], [2.756, 0.07, 'sine', 0]]
+    : kind === 'swarm'
+      ? [[1, 0.12, 'sawtooth', -1], [1, 0.12, 'sawtooth', 1], [1.5, 0.09, 'triangle', 0.4], [0.5, 0.10, 'sine', 0]]
+      : [[1, 0.15, 'triangle', -1], [1, 0.12, 'triangle', 1], [1.5, 0.09, 'sine', -0.5], [2, 0.06, 'sine', 0.5]];
+  layers.forEach(([ratio, level, wave, spread], i) => {
+    const carrier = osc(wave, frequency * ratio);
+    carrier.detune.value = spread * (4 + color * 18);
+    const pan = keep(ctx.createStereoPanner());
+    pan.pan.value = spread * 0.45;
+    const pulse = gain(kind === 'orbit' ? 0.72 : 1);
+    carrier.connect(gain(level)).connect(pulse).connect(pan).connect(filter);
+    if (kind === 'orbit') {
+      // Amplitude pulses locked to the scheduler's cycle rate.
+      osc('sine', bounded(cps, 0.5, 0.01, 20) * (i + 2))
+        .connect(gain(0.28)).connect(pulse.gain);
+    }
+    if (kind !== 'swarm') {
+      const mod = osc('sine', frequency * ratio * (kind === 'glass' ? 2.756 : 1.5));
+      const depth = gain(frequency * ratio * (0.08 + color * (kind === 'glass' ? 2.4 : 0.6)));
+      mod.connect(depth).connect(carrier.frequency);
+      depth.gain.setValueAtTime(depth.gain.value, time);
+      depth.gain.exponentialRampToValueAtTime(
+        Math.max(0.001, depth.gain.value * 0.08), time + Math.min(duration, 0.3 + color),
+      );
+      if (kind === 'orbit') {
+        // Carrier -> delay -> modulator pitch -> carrier pitch. The delay
+        // makes the feedback cycle valid, while sine outputs bound its level.
+        const feedback = keep(ctx.createDelay(0.05));
+        feedback.delayTime.value = 0.004 + i * 0.002;
+        carrier.connect(feedback).connect(gain(frequency * (0.15 + color * 1.4)))
+          .connect(mod.frequency);
+        const shape = osc('sine', 0.13 + i * 0.07);
+        shape.connect(gain(frequency * ratio * color * 0.24)).connect(depth.gain);
+      }
+    }
+    const drift = osc('sine', 0.19 + i * 0.11 + color * 0.35);
+    drift.connect(gain(2 + color * 6)).connect(carrier.detune);
+    if (kind === 'bloom' || kind === 'orbit') drift.connect(gain(0.3)).connect(pan.pan);
+  });
+  let remaining = oscillators.length, finished = false;
+  for (const oscillator of oscillators) {
+    oscillator.onended = () => {
+      if (--remaining === 0 && !finished) {
+        finished = true;
+        allNodes.forEach(n => n.disconnect());
+        onended?.();
+      }
+    };
+    oscillator.start(time);
+    oscillator.stop(end);
+  }
+  return {
+    node,
+    stop(at) {
+      if (finished) return;
+      const stopAt = Math.max(ctx.currentTime, Math.min(at, end));
+      node.gain.cancelAndHoldAtTime(stopAt);
+      node.gain.linearRampToValueAtTime(0, stopAt + 0.005);
+      for (const o of oscillators) o.stop(Math.min(end, stopAt + 0.005));
+    },
+  };
+}
+
+function registerNotepat(api = globalThis) {
+  const { registerSound, getAudioContext, getFrequencyFromValue } = api;
+  if (![registerSound, getAudioContext, getFrequencyFromValue].every(fn => typeof fn === 'function')) {
+    throw new Error('Import Notepat inside Strudel, or pass its audio API to registerNotepat().');
+  }
+  for (const [name, recipe] of Object.entries(voices)) {
+    registerSound(name, (time, value, onended, cps) => {
+      const ctx = getAudioContext();
+      const frequency = bounded(getFrequencyFromValue(value), 220, 1, ctx.sampleRate / 2 - 1);
+      if (recipe.modal) return marimbaVoice(ctx, time, value, frequency, onended, recipe.modal === 'stone');
+      if (recipe.chirp) return chirpVoice(ctx, time, value, frequency, recipe.chirp, onended);
+      if (recipe.rich) return richVoice(ctx, time, value, frequency, recipe.rich, onended, cps);
+      const duration = bounded(value.duration, 0.5, 0.001, 3600);
+      const attack = Math.min(bounded(value.attack, 0.02, 0, 60), duration);
+      const decay = Math.min(bounded(value.decay, 0, 0, 60), duration - attack);
+      const sustain = bounded(value.sustain, 1, 0, 1);
+      const release = bounded(value.release, 0.1, 0, 60);
+      const holdEnd = time + duration;
+      const end = holdEnd + release + 0.005;
+      const node = ctx.createGain();
+      node.gain.setValueAtTime(attack ? 0 : 1, time);
+      if (attack) node.gain.linearRampToValueAtTime(1, time + attack);
+      node.gain.linearRampToValueAtTime(sustain, time + attack + decay);
+      node.gain.setValueAtTime(sustain, holdEnd);
+      node.gain.linearRampToValueAtTime(0, holdEnd + release);
+
+      const oscillators = [];
+      let remaining = recipe.ratios.length;
+      let finished = false;
+      for (let i = 0; i < recipe.ratios.length; i++) {
+        const oscillator = ctx.createOscillator();
+        oscillator.type = recipe.wave;
+        oscillator.frequency.value = Math.min(frequency * recipe.ratios[i], ctx.sampleRate / 2 - 1);
+        const gain = ctx.createGain();
+        // Preserve the native triangle layer balance. Chords share headroom.
+        gain.gain.value = (recipe.levels?.[i] ?? 0.5 / recipe.ratios.length)
+          * (recipe.wave === 'triangle' ? -1 : 1);
+        oscillator.connect(gain).connect(node);
+        oscillator.onended = () => {
+          oscillator.disconnect();
+          gain.disconnect();
+          if (--remaining === 0 && !finished) {
+            finished = true;
+            node.disconnect();
+            onended?.();
+          }
+        };
+        oscillator.start(time);
+        oscillator.stop(end);
+        oscillators.push(oscillator);
+      }
+      return {
+        node,
+        // Strudel calls this when retiring a voice, including polyphony steals.
+        stop(at) {
+          if (finished) return;
+          const stopAt = Math.max(ctx.currentTime, Math.min(at, end));
+          node.gain.cancelAndHoldAtTime(stopAt);
+          node.gain.linearRampToValueAtTime(0, stopAt + 0.005);
+          for (const oscillator of oscillators) oscillator.stop(Math.min(end, stopAt + 0.005));
+        },
+      };
+    }, { type: 'synth' });
+  }
+  return Object.keys(voices);
+}
+
+registerNotepat();
+
+})()
+
+// MARIMBABA / ORBIT REMIX — @jeffrey / aesthetic.computer
+// https://pat.aesthetic.computer/marimbaba-orbit
+// Lead: pop/marimba/marimbaba.np — all 24 bars, original pitches and durations.
+// Accompaniment: a reduced arrangement informed by bin/render-marimbaba.mjs.
+// This is an editable score adaptation, not playback of the released master.
+
+// TEMPO — one cycle = one 3/4 bar. 84 BPM remix; set 56/3 for the lullaby.
+setcpm(84/3)
+
+// MELODY — @ weights are beats. mini(...) parses the assembled strings.
+// Five sections: hush, twinkle, wow, ba-ba, sleep. Total: 72 beats / 24 bars.
+const melody = mini([
+  // hush: 4 bars
+  'c5@1 a4@1 f4@1 f4@3 a4@1.5 g4@1.5 f4@3',
+  // twinkle: 6 bars
+  'f5@1 a5@1 c6@0.5 a5@0.5 g5@3 f5@1 g5@1 a5@0.5 g5@0.5 f5@3 bb5@1 d6@1 bb5@1 c6@1.5 a5@1.5',
+  // wow: 4 bars
+  '[g5,bb5]@6 a5@1 g5@1 a5@1 f5@3',
+  // baba: 4 bars
+  'a5@0.5 g5@0.5 a5@1 f5@1 c6@0.5 bb5@0.5 c6@1 a5@1 g5@1 f5@1 e5@1 f5@3',
+  // sleep: 6 bars
+  'c5@1.5 a4@1.5 g4@1 f4@1 f4@1 a4@1 g4@1 f4@1 f4@3 f3@3 ~@3',
+].join(' ')).note().slow(24)
+
+// SINGER — ac_marimba uses the source rosewood ratios 1:4:9.2.
+// .n(0..1) changes mallet brightness and ring; change .s(...) to recast it.
+$: melody.s('ac_marimba').n(perlin.slow(13).range(.35,.9))
+  .attack(.001).release(.5).gain(.8).room(.3)._pianoroll()
+
+// ROCKING BASS — starts on beat one. Roots follow the source bass figure.
+$: note("<f2 f2 f2 f2 f2 f3 f2 f3 f2 f3 f2 f2 f2 f2 f2 c3 bb1 f2 f2 f2 f2 f2 f2 f2>").s('ac_swarm')
+  .n(.15).attack(.008).decay(.25).sustain(.25).release(.3).gain(.3).lpf(450)
+
+// HARMONY — F / Bb / Gm / F / C / F, following the renderer's chord map.
+// Rearticulated once per bar; intentionally reduced from the finished mix.
+$: note("<[f3,a3,c4] [f3,a3,c4] [f3,a3,c4] [f3,a3,c4] [f3,a3,c4] [f3,a3,c4] [f3,a3,c4] [bb2,d3,f3] [bb2,d3,f3] [bb2,d3,f3] [g3,bb3,d4] [g3,bb3,d4] [g3,bb3,d4] [g3,bb3,d4] [f3,a3,c4] [c3,e3,g3] [f3,a3,c4] [f3,a3,c4] [f3,a3,c4] [f3,a3,c4] [f3,a3,c4] [f3,a3,c4] [f3,a3,c4] [f3,a3,c4]>").s('ac_bloom')
+  .n(.08).attack(.06).release(.65).gain(.16).lpf(1800).room(.4)
+
+// ORBIT DOUBLE — exact same melody, different spectral rhythm and stereo motion.
+// Comment out this block to hear just the marimba-led arrangement.
+$: melody.s('ac_orbit').n(perlin.slow(17).range(.15,.85))
+  .gain(sine.slow(23).range(.1,.22)).pan(sine.slow(19))
+  .attack(.004).release(.4).delay(.2).delaytime(.357).room(.3)
+
+// All active blocks play together. Comment out a whole $: block to mute it.
+// Voices/controls: https://pat.aesthetic.computer/source

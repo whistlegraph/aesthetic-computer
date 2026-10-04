@@ -21,6 +21,10 @@ The primary frontend origin is `209.38.133.33`.
 
 ## Other Live Exceptions
 
+- `pat.aesthetic.computer` is a Workers custom domain for `ac-strudel-notepat`
+  (added 2026-10-03). `/` opens the Strudel demo, `/s` serves the synth module,
+  and `/paste` serves standalone source. Deploy from `ac-strudel/deploy.mjs`;
+  this host does not route through lith.
 - `aesthetic.computer` keeps its non-lith service records for PDS, session, silo, oven, spaces/CDN, Auth0, Shopify, Stripe, and Cloudflare Worker endpoints.
 - `prompt.ac` keeps `*.prompt.ac -> 100::` for the Worker wildcard.
 - `prompt.ac` zone ruleset "prompt.ac bare-domain auto-redirect" (dynamic

@@ -1,0 +1,49 @@
+// STONE — @jeffrey / aesthetic.computer · pat.aesthetic.computer/stone
+// Will: mute any complete $: block. All 12 parts are enabled; .n = voice color.
+// Compact Wattajetta reinterpretation: rephrased melody, synthetic stone, no samples.
+await import('https://pat.aesthetic.computer/s')
+setcpm(132/4)
+const bass = note("<e1 g1 a1 d2 e1 g1 a1 d2 e1>/2")
+const tune = n("3 4 4 2 1 3 2 0 1 4 3 5 4 2 1 0 2").scale('E4:minor:pentatonic').palindrome().slow(17/8)
+const color = perlin.slow(13).range(.15,.85)
+
+// Kick + sub: immediate, centered floor.
+$: note("e1*4").s('ac_kick').n(.35).gain(.75)
+$: bass.s('ac_sine').attack(.01).release(.1).gain(.3)
+
+// Swarm: offbeat gallop, filtered detuned saws + sub.
+$: bass.transpose(12).struct("[~ x]*4").s('ac_swarm').n(.12)
+  .decay(.1).sustain(.05).release(.04).lpf(650).gain(.22)
+
+// Stone: 17-note phrase runs across bars; brightness, ring and pan drift.
+$: tune.s('ac_stone').n(color).release(sine.slow(7.3).range(.1,1.2))
+  .pan(sine.slow(13).range(.2,.8)).room(.25).gain(.3)._pianoroll()
+
+// Water: rotating five-note droplets, three hits against eight steps.
+$: note("<e3 g3 a3 b3 d4>").euclid(3,8).s('ac_water').n(color)
+  .pan(sine.slow(17)).delay(.15).delaytime(.227).gain(.25)
+
+// Bowls: the bass two octaves up, long stone tails.
+$: bass.transpose(24).s('ac_stone').n(.16).release(1.4).room(.4).gain(.12)
+
+// Marimba: a slower answer, with each phrase reversed on alternate turns.
+$: n("0 3 2 4 1").scale('E3:minor:pentatonic').palindrome().slow(5/2)
+  .s('ac_marimba').n(color).pan(.3).room(.2).gain(.22)
+
+// Bloom: minor/suspended harmony, breathing on a different clock.
+$: note("<[e3,g3,b3] [e3,a3,b3] [d3,g3,b3] [d3,a3,b3]>/4").s('ac_bloom')
+  .n(.1).attack(.04).release(.8).lpf(1400).gain(sine.slow(19).range(.06,.12))
+
+// Notepat fifths: short syncopated triangle stabs.
+$: note("e3 ~ [g3 a3] ~").s('ac_triangle_fifth').decay(.08).sustain(0).gain(.12)
+
+// Orbit: quiet feedback-FM counterline; seven notes against the stone's 17.
+$: n("0 2 4 3 1 2 0").scale('E4:minor:pentatonic').slow(7/2).s('ac_orbit')
+  .n(color).release(.2).lpf(2300).pan(sine.slow(23)).gain(.09)
+
+// Glass: backbeat on 2 + 4; dry metallic strikes.
+$: note("~ e4 ~ e4").s('ac_glass').n(.85).decay(.04).sustain(0).hpf(700).gain(.28)
+
+// Shakers: 5→7→9→11 hits, 18 bars each; the necklace rotates five steps/bar.
+$: note('b6').euclidRot("<5 7 9 11>/18",16,"<0 5 10 15 4 9 14 3 8 13 2 7 12 1 6 11>")
+  .s('ac_glass').n(.9).attack(.001).decay(.018).sustain(0).release(.01).hpf(4500).gain(.1)
