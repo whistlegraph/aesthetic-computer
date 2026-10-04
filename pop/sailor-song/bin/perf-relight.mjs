@@ -40,16 +40,19 @@ const BASE = resolve(arg("base") || (existsSync(resolve(OUT, `${stem}-perf.mp4`)
     .find((f) => { const r = f.replace(/-perf\.mp4$/, ".events.json"); try { return sameClock(JSON.parse(readFileSync(r, "utf8")), R); } catch { return false; } }) || resolve(OUT, `${stem}-perf.mp4`)));
 if (!existsSync(BASE)) { console.error(`✗ base video missing: ${BASE} (render perf-video.mjs without --strip first)`); process.exit(1); }
 const probe = execFileSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height,r_frame_rate,nb_frames", "-of", "csv=p=0", BASE]).toString().trim().split(",");
-const LYRIC_ONLY = !!arg("lyric-only"), NO_LYRIC = !!arg("no-lyric"), SMALL = !!arg("small"), BALL = !!arg("ball");   // --ball: the bouncing ball (jeffrey lost it, v103)
+const DELIVER = Number(arg("deliver", 0)), LYRIC_ONLY = !!arg("lyric-only"), NO_LYRIC = !!arg("no-lyric"), SMALL = !!arg("small"), BALL = !!arg("ball");   // --ball: the bouncing ball (jeffrey lost it, v103)
+// --vertical: the reel. A 9:16 window of the take (304×540 of the 960×540, centred on her at x 370) composited at
+// 1080×1920 (--small: 540×960), the lyric a size smaller and placed between her face and the guitar (v103).
+const VERTICAL = !!arg("vertical"), VIEW = VERTICAL ? { x: 218, y: 0, w: 304, h: 540 } : { x: 0, y: 0, w: 960, h: 540 };
 // speed (v103: "why is it so slow?"): the take is 960×540, so compositing at 1080 only costs — --small works at 540 and
 // --deliver 1080 upscales (lanczos + CAS) inside the encoder; --jobs N cuts the record into N stretches rendered in
 // parallel (video only) and concatenates them, muxing the audio once.
-const DELIVER = Number(arg("deliver", 0)), JOBS = Number(arg("jobs", 0)), NO_AUDIO = !!arg("no-audio"), X264 = !!arg("x264");   // the Mac's VideoToolbox encodes by default (libx264 at 1080p60 was the clock); --x264 for the software path   // --no-lyric: the room and her, no words
-const W = SMALL ? 960 : +probe[0], H = SMALL ? 540 : +probe[1], FPS = eval(probe[2]), NF = +probe[3] || 0;
+const JOBS = Number(arg("jobs", 0)), NO_AUDIO = !!arg("no-audio"), X264 = !!arg("x264");   // the Mac's VideoToolbox encodes by default (libx264 at 1080p60 was the clock); --x264 for the software path   // --no-lyric: the room and her, no words
+const W = VERTICAL ? (SMALL ? 540 : 1080) : SMALL ? 960 : +probe[0], H = VERTICAL ? (SMALL ? 960 : 1920) : SMALL ? 540 : +probe[1], FPS = eval(probe[2]), NF = +probe[3] || 0;
 const FROM = Number(arg("from", 0)), TO = arg("to") ? Number(arg("to")) : null;
 if (JOBS > 1) {                                                             // the conductor: N of this script, then one concat
   const dur = TO ?? Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", BASE]).toString());
-  const out = resolve(arg("out") || resolve(OUT, `${stem}-relight.mp4`)), tmp = mkdtempSync(join(tmpdir(), "relight-jobs-")), step = Math.ceil((dur - FROM) / JOBS);
+  const out = resolve(arg("out") || resolve(OUT, `${stem}-relight${VERTICAL ? "-reel" : ""}.mp4`)), tmp = mkdtempSync(join(tmpdir(), "relight-jobs-")), step = Math.ceil((dur - FROM) / JOBS);
   const skip = ["--jobs", "--out", "--from", "--to"], pass = process.argv.slice(2).filter((a, i, A) => !skip.includes(a) && !skip.includes(A[i - 1]));
   const kids = [], segs = [];
   for (let k = 0; k < JOBS; k++) { const a = FROM + k * step, b = Math.min(dur, a + step); if (a >= dur) break; const seg = join(tmp, `seg-${k}.mp4`); segs.push(seg);
@@ -60,8 +63,13 @@ if (JOBS > 1) {                                                             // t
   for (const f of segs) try { unlinkSync(f); } catch {} try { unlinkSync(list); } catch {}
   console.log(`${mux.status ? "✗" : "✓"} ${out}  (${JOBS} jobs)`); process.exit(mux.status || 0);
 }
-const outPath = resolve(arg("out") || resolve(OUT, `${stem}-${LYRIC_ONLY ? "lyric" : "relight"}${TO ? `-${FROM}-${TO}` : ""}.mp4`));
-const sx = W / 960, sy = H / 540;
+const outPath = resolve(arg("out") || resolve(OUT, `${stem}-${LYRIC_ONLY ? "lyric" : "relight"}${VERTICAL ? "-reel" : ""}${TO ? `-${FROM}-${TO}` : ""}.mp4`));
+const sx = W / VIEW.w, sy = H / VIEW.h, VX = VIEW.x, VY = VIEW.y;              // take space → frame: (x - VX) * sx, (y - VY) * sy
+// the OUTPUT space (v103: "the lyrics are burned in in a way that they aren't crisp — sharpened after bake?"): the room is
+// composited at the base's size, upscaled here (bilinear), and the lyric is drawn AFTER that at full delivery size from
+// a finer atlas, so the words never pass through the encoder's upscale + sharpen
+const OH = DELIVER && DELIVER !== H ? DELIVER : H, OW = Math.round(W * OH / H), osx = OW / VIEW.w, osy = OH / VIEW.h, OB = OH !== H ? Buffer.alloc(OW * OH * 3) : null;
+let ob = null;                                                                   // the buffer the lyric draws on and the encoder gets
 
 // ── the take's clock: record time → reg time (+startSec) → take time, through the timemap, like perf-video.mjs ──
 const pairs = readFileSync(resolve(LANE, "src/vox/reg/timemap.txt"), "utf8").trim().split("\n").map((l) => l.trim().split(/\s+/).map(Number)).filter((p) => p.length === 2);
@@ -86,10 +94,10 @@ const shape = (v) => { const t = Math.min(1, Math.max(0, (v / 255 - 0.25) / 0.6)
 matteAt = (take) => { const k = Math.round(take * MFPS);
   while (mIdx < k && !mEnd) { if (!readMatte()) break; mIdx++; }
   if (mIdx === mLast) return; mLast = mIdx;                                // a held take frame: the matte is already up
-  if (MW === W && MH === H) { for (let i = 0; i < W * H; i++) M[i] = shape(mraw[i]); return; }
-  const fx = MW / W, fy = MH / H;                                            // bilinear up (the 60 fps / 1080p deliveries)
-  for (let y = 0; y < H; y++) { const v = Math.min(MH - 1.001, Math.max(0, (y + 0.5) * fy - 0.5)), v0 = v | 0, fv = v - v0, r0 = v0 * MW, r1 = (v0 + 1) * MW;
-    for (let x = 0; x < W; x++) { const u = Math.min(MW - 1.001, Math.max(0, (x + 0.5) * fx - 0.5)), u0 = u | 0, fu = u - u0;
+  if (MW === W && MH === H && !VERTICAL) { for (let i = 0; i < W * H; i++) M[i] = shape(mraw[i]); return; }
+  const fx = (MW / 960) * VIEW.w / W, fy = (MH / 540) * VIEW.h / H, ox = VX * MW / 960, oy = VY * MH / 540;   // bilinear, through the viewport
+  for (let y = 0; y < H; y++) { const v = Math.min(MH - 1.001, Math.max(0, oy + (y + 0.5) * fy - 0.5)), v0 = v | 0, fv = v - v0, r0 = v0 * MW, r1 = (v0 + 1) * MW;
+    for (let x = 0; x < W; x++) { const u = Math.min(MW - 1.001, Math.max(0, ox + (x + 0.5) * fx - 0.5)), u0 = u | 0, fu = u - u0;
       M[y * W + x] = shape((mraw[r0 + u0] * (1 - fu) + mraw[r0 + u0 + 1] * fu) * (1 - fv) + (mraw[r1 + u0] * (1 - fu) + mraw[r1 + u0 + 1] * fu) * fv); } } };
 
 }
@@ -100,7 +108,7 @@ matteAt = (take) => { const k = Math.round(take * MFPS);
 const TRACK = (() => { try { return JSON.parse(readFileSync(resolve(LANE, "src/guitar-track.json"), "utf8")); } catch { return null; } })();
 const TFPS = TRACK && TRACK.length > 1 ? (TRACK.length - 1) / TRACK.at(-1).t : 30;
 const repairMatte = (take) => { if (LYRIC_ONLY) return;
-  if (TRACK) { const k = TRACK[Math.min(TRACK.length - 1, Math.max(0, Math.round(take * TFPS)))], hx = k.hole[0] * sx, hy = k.hole[1] * sy, ex = k.head[0] * sx, ey = k.head[1] * sy;
+  if (TRACK) { const k = TRACK[Math.min(TRACK.length - 1, Math.max(0, Math.round(take * TFPS)))], hx = (k.hole[0] - VX) * sx, hy = (k.hole[1] - VY) * sy, ex = (k.head[0] - VX) * sx, ey = (k.head[1] - VY) * sy;
     const L = Math.hypot(ex - hx, ey - hy), ux = (ex - hx) / L, uy = (ey - hy) / L, nx = uy, ny = -ux, soft = 8 * sx;
     const cx = hx + ux * 15 * sx - nx * 25 * sy, cy = hy + uy * 15 * sx - ny * 25 * sy, A = 200 * sx, B = 124 * sy;        // the body: an ellipse along the neck
     const x0 = Math.max(0, cx - A - soft) | 0, x1 = Math.min(W - 1, cx + A + soft) | 0, y0 = Math.max(0, cy - A - soft) | 0, y1 = Math.min(H - 1, cy + A + soft) | 0;
@@ -111,18 +119,78 @@ const repairMatte = (take) => { if (LYRIC_ONLY) return;
     const by0 = Math.max(0, Math.min(hy + uy * s0, hy + uy * s1) - 60) | 0, by1 = Math.min(H - 1, Math.max(hy + uy * s0, hy + uy * s1) + 60) | 0;
     for (let y = by0; y <= by1; y++) for (let x = bx0; x <= bx1; x++) { const dx = x - hx, dy = y - hy, a = dx * ux + dy * uy, b = Math.abs(dx * nx + dy * ny); if (a < s0 || a > s1) continue;
       const hw = hw0 + (hw1 - hw0) * (a - s0) / (s1 - s0) + (a > L * 0.95 ? 12 * sy : 0), m = Math.min(1, (hw + soft - b) / soft); if (m > 0) { const o = y * W + x; if (m > M[o]) M[o] = m; } } }
-  const Lp = LIGHTS.lamp, lx = Lp.x * sx, ly = Lp.y * sy, lr = Lp.r * 1.15 * sx;
+  const Lp = LIGHTS.lamp, lx = (Lp.x - VX) * sx, ly = (Lp.y - VY) * sy, lr = Lp.r * 1.15 * sx;
   for (let y = Math.max(0, ly - lr) | 0; y <= Math.min(H - 1, ly + lr); y++) for (let x = Math.max(0, lx - lr) | 0; x <= Math.min(W - 1, lx + lr); x++) { if (Math.hypot(x - lx, y - ly) > lr) continue;
     const o = y * W + x, p = o * 3, lum = (fb[p] * 0.299 + fb[p + 1] * 0.587 + fb[p + 2] * 0.114) / 255, keep = 1 - Math.min(1, Math.max(0, (lum - 0.42) / 0.18)); M[o] *= keep; } };
+
+// a 3-tap blur each way on the matte (v103: "edge aliasing on the right side of her"): the composite's edge stays soft
+const M2 = new Float32Array(W * H);
+const softenMatte = () => { if (LYRIC_ONLY) return;
+  for (let y = 0; y < H; y++) { const r = y * W; M2[r] = M[r]; M2[r + W - 1] = M[r + W - 1]; for (let x = 1; x < W - 1; x++) M2[r + x] = (M[r + x - 1] + 2 * M[r + x] + M[r + x + 1]) * 0.25; }
+  for (let x = 0; x < W; x++) { M[x] = M2[x]; M[(H - 1) * W + x] = M2[(H - 1) * W + x]; } for (let y = 1; y < H - 1; y++) for (let x = 0; x < W; x++) { const o = y * W + x; M[o] = (M2[o - W] + 2 * M2[o] + M2[o + W]) * 0.25; } };
+
+// ── the single's cover grade (bin/cover.py v8, as perf-video --cover had it), applied HERE so it can arrive with the
+//    arrangement (v103: "fade in all the overlay elements so it starts like the straight video she sent, and the colour
+//    grading gets more into our world as the instruments queue up"): a natural cubic S-curve through the cover's
+//    points, saturation 1.22, contrast 1.06, and the reds pushed deeper (the shirt) — mixed in by `arrive` ──
+const CURVE = (() => { const X = [0, 0.1, 0.5, 0.9, 1], Y = [0, 0.06, 0.5, 0.95, 1], n = X.length, h = [], a = [], l = [1], mu = [0], z = [0], c = new Array(n).fill(0), b = [], d = [];
+  for (let i = 0; i < n - 1; i++) h[i] = X[i + 1] - X[i]; for (let i = 1; i < n - 1; i++) a[i] = 3 / h[i] * (Y[i + 1] - Y[i]) - 3 / h[i - 1] * (Y[i] - Y[i - 1]);
+  for (let i = 1; i < n - 1; i++) { l[i] = 2 * (X[i + 1] - X[i - 1]) - h[i - 1] * mu[i - 1]; mu[i] = h[i] / l[i]; z[i] = (a[i] - h[i - 1] * z[i - 1]) / l[i]; }
+  for (let j = n - 2; j >= 0; j--) { c[j] = z[j] - mu[j] * c[j + 1]; b[j] = (Y[j + 1] - Y[j]) / h[j] - h[j] * (c[j + 1] + 2 * c[j]) / 3; d[j] = (c[j + 1] - c[j]) / (3 * h[j]); }
+  const lut = new Uint8ClampedArray(256); for (let v = 0; v < 256; v++) { const x = v / 255; let j = 0; while (j < n - 2 && x > X[j + 1]) j++; const t = x - X[j]; lut[v] = Math.round(255 * (Y[j] + b[j] * t + c[j] * t * t + d[j] * t * t * t)); } return lut; })();
+const coverGrade = (a) => { if (a <= 0.002) return; const ia = 1 - a;
+  for (let p = 0; p < W * H * 3; p += 3) { let r = fb[p], g = fb[p + 1], b = fb[p + 2];
+    const mx = Math.max(g, b), red = r > mx ? (r - mx) / 255 : 0;                           // the reds, by how red they are
+    r = Math.min(255, r * (1 + 0.14 * red)); g *= 1 - 0.06 * red; b *= 1 - 0.1 * red;
+    r = CURVE[r | 0]; g = CURVE[g | 0]; b = CURVE[b | 0];
+    const l = 0.299 * r + 0.587 * g + 0.114 * b; r = l + (r - l) * 1.22; g = l + (g - l) * 1.22; b = l + (b - l) * 1.22;
+    r = (r - 128) * 1.06 + 128; g = (g - 128) * 1.06 + 128; b = (b - 128) * 1.06 + 128;
+    fb[p] = Math.max(0, Math.min(255, fb[p] * ia + r * a)); fb[p + 1] = Math.max(0, Math.min(255, fb[p + 1] * ia + g * a)); fb[p + 2] = Math.max(0, Math.min(255, fb[p + 2] * ia + b * a)); } };
+
+// ── the stage light on her (v103: "front lighting on her face, depth-modelled, bump-mapped"): depth-map.py's clip
+//    (src/depth-take.mp4, half res, closer = brighter) streamed like the matte; normals from the depth gradient,
+//    a key from the upper left front and a rim from the right, Lambert-shaded, applied inside the matte only —
+//    and only where the depth is continuous (the silhouette's depth cliff would otherwise draw a dark outline) —
+//    plus a soft frontal spot on her face. All of it arrives with the arrangement. Absent the clip, no stage light. ──
+const DEPTH = resolve(LANE, "src/depth-take.mp4");
+const STAGE = !LYRIC_ONLY && !arg("no-stage") && existsSync(DEPTH) && (() => { try { return execFileSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=nb_frames", "-of", "csv=p=0", DEPTH], { stdio: ["ignore", "pipe", "ignore"] }).toString().trim() !== ""; } catch { return false; } })();   // a clip still being written is not a clip
+let depthAt = () => {}; const DN = STAGE ? new Float32Array(W * H) : null;         // the shading gain per pixel, 1 = untouched
+if (STAGE) { const [DW, DH] = execFileSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", DEPTH]).toString().trim().split(",").map(Number);
+  const DFIFO = join(mkdtempSync(join(tmpdir(), "relight-depth-")), "depth.gray"); execFileSync("mkfifo", [DFIFO]);
+  const ddec = spawn("ffmpeg", ["-v", "error", "-i", DEPTH, "-f", "rawvideo", "-pix_fmt", "gray", "-y", DFIFO], { stdio: ["ignore", "ignore", "inherit"] });
+  const DFD = openSync(DFIFO, "r"), draw = Buffer.alloc(DW * DH), dq = new Float32Array(DW * DH), gq = new Float32Array(DW * DH); let dIdx = -1, dEnd = false, dLast = -2;
+  const readDepth = () => { let got = 0; while (got < draw.length) { const n = readSync(DFD, draw, got, draw.length - got, null); if (n <= 0) { dEnd = true; return false; } got += n; } return true; };
+  const Lk = [-0.35, -0.55, 0.75], Lr = [0.7, -0.2, 0.6]; for (const L of [Lk, Lr]) { const n = Math.hypot(...L); L[0] /= n; L[1] /= n; L[2] /= n; }
+  const RELIEF = 120 * (DW / 960), K = 0.65, CLIFF = 0.06;                            // depth units per pixel of slope; the key's strength; a gradient past this is a silhouette, not a face
+  depthAt = (take) => { const k = Math.round(take * MFPS); while (dIdx < k && !dEnd) { if (!readDepth()) break; dIdx++; } if (dIdx === dLast) return; dLast = dIdx;
+    for (let i = 0; i < DW * DH; i++) dq[i] = draw[i] / 255;
+    // the shading at depth resolution: Sobel normals, two lights, the cliff test
+    for (let y = 1; y < DH - 1; y++) for (let x = 1; x < DW - 1; x++) { const o = y * DW + x;
+      const gx = (dq[o - DW + 1] + 2 * dq[o + 1] + dq[o + DW + 1] - dq[o - DW - 1] - 2 * dq[o - 1] - dq[o + DW - 1]) / 8, gy = (dq[o + DW - 1] + 2 * dq[o + DW] + dq[o + DW + 1] - dq[o - DW - 1] - 2 * dq[o - DW] - dq[o - DW + 1]) / 8;
+      const cliff = Math.min(1, Math.max(0, (Math.hypot(gx, gy) - CLIFF * 0.5) / (CLIFF * 0.5)));                 // 1 at a depth cliff
+      const nx = -gx * RELIEF, ny = -gy * RELIEF, nn = Math.hypot(nx, ny, 1), sk = Math.max(0, (nx * Lk[0] + ny * Lk[1] + Lk[2]) / nn), sr = Math.max(0, (nx * Lr[0] + ny * Lr[1] + Lr[2]) / nn);
+      gq[o] = 1 + (K * (sk - Lk[2]) + 0.25 * K * (sr - Lr[2])) * (1 - cliff); }
+    for (let x = 0; x < DW; x++) { gq[x] = 1; gq[(DH - 1) * DW + x] = 1; } for (let y = 0; y < DH; y++) { gq[y * DW] = 1; gq[y * DW + DW - 1] = 1; }
+    // up to the frame through the viewport, bilinear
+    const fx = (DW / 960) * VIEW.w / W, fy = (DH / 540) * VIEW.h / H, ox = VX * DW / 960, oy = VY * DH / 540;
+    for (let y = 0; y < H; y++) { const v = Math.min(DH - 1.001, Math.max(0, oy + (y + 0.5) * fy - 0.5)), v0 = v | 0, fv = v - v0, r0 = v0 * DW, r1 = (v0 + 1) * DW;
+      for (let x = 0; x < W; x++) { const u = Math.min(DW - 1.001, Math.max(0, ox + (x + 0.5) * fx - 0.5)), u0 = u | 0, fu = u - u0;
+        DN[y * W + x] = (gq[r0 + u0] * (1 - fu) + gq[r0 + u0 + 1] * fu) * (1 - fv) + (gq[r1 + u0] * (1 - fu) + gq[r1 + u0 + 1] * fu) * fv; } } };
+  process.on("exit", () => { try { closeSync(DFD); ddec.kill(); unlinkSync(DFIFO); } catch {} }); }
+// the face spot: a soft disc of light where her head is (the matte's topmost mass), front-on
+let faceX = W * 0.4, faceY = H * 0.3;
+const findFace = () => { let sx_ = 0, sy_ = 0, n = 0; const step = 4 * sx | 0 || 1;
+  for (let y = 0; y < H * 0.6; y += step) for (let x = 0; x < W; x += step) { const m = M[y * W + x]; if (m > 0.5) { const wgt = 1 - y / (H * 0.6); sx_ += x * wgt; sy_ += y * wgt; n += wgt; } }
+  if (n > 0) { faceX += (sx_ / n - faceX) * 0.1; faceY += (sy_ / n + 0.1 * H - faceY) * 0.1; } };
 
 // ── the lights (room-lights.py), as static fields over the frame ──
 const LIGHTS = JSON.parse(readFileSync(resolve(LANE, "src/room-lights.json"), "utf8"));
 const LAMP = new Float32Array(W * H), WINDOW = new Float32Array(W * H);
-{ const L = LIGHTS.lamp, lx = L.x * sx, ly = L.y * sy, s2 = 2 * (250 * sx) ** 2, Wn = LIGHTS.window, soft = 70 * sx;
+{ const L = LIGHTS.lamp, lx = (L.x - VX) * sx, ly = (L.y - VY) * sy, s2 = 2 * (250 * sx) ** 2, Wn = { x0: LIGHTS.window.x0 - VX, x1: LIGHTS.window.x1 - VX, y0: LIGHTS.window.y0 - VY, y1: LIGHTS.window.y1 - VY }, soft = 70 * sx;
   const edge = (d) => Math.min(1, Math.max(0, d / soft));
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const o = y * W + x; LAMP[o] = Math.exp(-((x - lx) ** 2 + (y - ly) ** 2) / s2);
     const inx = edge(x - Wn.x0 * sx + soft * 0.5) * edge(Wn.x1 * sx - x + soft * 0.5), iny = edge(y - Wn.y0 * sy + soft * 0.5) * edge(Wn.y1 * sy - y + soft * 0.5); WINDOW[o] = inx * iny; } }
-const FAIRY = LIGHTS.fairy.map(([x, y], i) => ({ x: x * sx, y: y * sy, i }));
+const FAIRY = LIGHTS.fairy.map(([x, y], i) => ({ x: (x - VX) * sx, y: (y - VY) * sy, i }));
 
 // ── the score: sections → energy, bars → chord tint, events → the lights ──
 const sections = (R.sections || []).slice().sort((a, b) => a.start - b.start), bars = (R.bars || []).slice().sort((a, b) => a.t - b.t);
@@ -135,7 +203,7 @@ const HUE = { "G#m": [255, 160, 50], "B": [140, 100, 255], "Emaj7": [240, 200, 1
 const chordAt = (t) => { let c = null; for (const b of bars) { if (t >= b.t) c = b; else break; } return c; };
 const vmax = {}; for (const e of R.events || []) vmax[e.voice] = Math.max(vmax[e.voice] || 0, e.gain ?? 0.5);
 const pick = (...voices) => (R.events || []).filter((e) => voices.includes(e.voice)).map((e) => ({ t: e.t, dur: e.dur || 0.1, g: (e.gain ?? 0.5) / (vmax[e.voice] || 1) })).sort((a, b) => a.t - b.t);
-const KICKS = pick("kick", "wub-kick", "rev-kick"), HATS = pick("hat", "click", "rim"), PADS = pick("pad", "pad-hit", "high", "vib"), BELLS = pick("bell", "gong", "rise", "impact");
+const KICKS = pick("kick", "wub-kick", "rev-kick"), HATS = pick("hat", "click", "rim"), PADS = pick("pad", "pad-hit", "high", "vib"), BELLS = pick("bell", "gong", "rise", "impact"), ARPS = pick("arp", "ostinato", "hook");
 const downbeat = (t) => bars.some((b) => Math.abs(b.t - t) < 0.04);
 for (const k of KICKS) { k.down = downbeat(k.t); k.w = k.down ? 1.6 : 1; }
 // an envelope over a list: the sum of each event's attack-less decay since it hit (dec seconds to 1/e), windowed
@@ -149,8 +217,8 @@ for (const h of HATS) { const r = fnv(String(h.t)); h.pts = [0, 1, 2, 3, 4, 5, 6
 const WORDS_FILE = ["src/words-video.json", "src/words-record.json"].map((f) => resolve(LANE, f)).find(existsSync);   // lyric-judge.py's corrected copy first
 const WORDS = (() => { try { return JSON.parse(readFileSync(WORDS_FILE, "utf8")); } catch { return []; } })().map((w) => ({ text: w.text, a: w.fromMs / 1000 + T0, b: w.toMs / 1000 + T0,
   syl: (w.tokens && w.tokens.length && w.tokens.map((t) => t.text).join("") === w.text ? w.tokens : [{ text: w.text, fromMs: w.fromMs, toMs: w.toMs }]).map((t) => ({ text: t.text, a: t.fromMs / 1000 + T0, b: t.toMs / 1000 + T0 })) }));
-const ATLAS = resolve(LANE, "src/glyph-atlas/comic-72");
-if (!existsSync(`${ATLAS}.json`)) execFileSync(PY, [resolve(HERE, "glyph-atlas.py")], { stdio: "inherit" });
+const APX = osx >= 1.5 ? 144 : 72, ATLAS = resolve(LANE, `src/glyph-atlas/comic-${APX}`);
+if (!existsSync(`${ATLAS}.json`)) execFileSync(PY, [resolve(HERE, "glyph-atlas.py"), "--px", String(APX), "--stroke", String(APX / 24)], { stdio: "inherit" });
 const GA = JSON.parse(readFileSync(`${ATLAS}.json`, "utf8")), GFILL = readFileSync(`${ATLAS}.fill.raw`), GOUTER = readFileSync(`${ATLAS}.outer.raw`);
 const WHITE = [250, 250, 250], GREY = [135, 135, 135], BLACK = [12, 12, 12], SPACE = GA.glyphs[" "].adv;
 const norm = (t) => t.toLowerCase().replace(/[^a-z0-9']/g, "");
@@ -175,14 +243,17 @@ const CHUNKS = []; for (const L of LINES) { const n = L.words.length, parts = Ma
     else cuts = Array.from({ length: parts - 1 }, (_, k) => Math.round((k + 1) * n / parts)); }
   let prev = 0; for (const c of [...cuts, n]) { const words = L.words.slice(prev, c), timed = words.filter((g) => g.w); prev = c;
     if (timed.length) CHUNKS.push({ words, a: timed[0].w.a, b: timed.at(-1).w.b }); } }
-const SC_MAX = 0.5 * sx, ROW = H * 0.925, GRAV = 1400 * sy, SLIDE = 0.22 * W;   // px/s² — the ball's gravity; how far a line slides
-for (const C of CHUNKS) { const tw = C.words.reduce((a, g) => a + g.adv, 0) + SPACE * (C.words.length - 1);
-  C.sc = Math.min(SC_MAX, (W * 0.86) / tw); let pen = (W - tw * C.sc) / 2; for (const g of C.words) { g.x = pen; g.base = ROW; pen += (g.adv + SPACE) * C.sc; } }
+const SC_MAX = (VERTICAL ? 0.19 : 0.4) * osx * (72 / GA.px) /* the finer atlas draws the same size */, ROW = VERTICAL ? OH * 0.555 : OH * 0.88, GAP = SPACE * 1.7, GRAV = 1400 * osy, SLIDE = 0.22 * OW;   // v103: smaller, higher, words further apart; the reel a size smaller, between her face and the guitar
+for (const C of CHUNKS) { const tw = C.words.reduce((a, g) => a + g.adv, 0) + GAP * (C.words.length - 1);
+  C.sc = Math.min(SC_MAX, (OW * 0.86) / tw); let pen = (OW - tw * C.sc) / 2; for (const g of C.words) { g.x = pen; g.base = ROW; pen += (g.adv + GAP) * C.sc; } }
 // the switch between chunks (v103: "the prior opacities off to the left, the next shifts in to centre and opacities in"):
 // one 0.35 s move shared by both, placed in the gap after the last word, or just before the next when there is no gap
 CHUNKS.forEach((C, i) => { const P = CHUNKS[i - 1], N = CHUNKS[i + 1];
-  if (N) { const t0 = Math.max(C.b, N.a - 0.45); C.outA = N.a - t0 < 0.15 ? N.a - 0.3 : t0; C.outB = Math.min(N.a, C.outA + 0.35); } else { C.outA = C.b + 0.1; C.outB = C.b + 0.5; }
-  C.inA = P ? P.outA : C.a - 0.6; C.inB = P ? P.outB : C.a - 0.25; });
+  // the next line comes in as soon as this one's last word is done (v103: "as soon as that extended long ends, swap — not
+  // de-highlight and wait"); only across a long instrumental gap (> 4 s) does it hold off until 1.5 s before its first word
+  // in sequence, never overlapping: the old line is gone in 0.15 s, the new one arrives over the next 0.2 s
+  if (N) { C.outA = N.a - C.b > 4 ? N.a - 1.5 : Math.min(C.b + 0.05, N.a - 0.35); C.outB = Math.min(N.a - 0.2, C.outA + 0.15); } else { C.outA = C.b + 0.1; C.outB = C.b + 0.5; }
+  C.inA = P ? P.outB : C.a - 0.6; C.inB = P ? Math.min(C.a, P.outB + 0.2) : C.a - 0.25; });
 const easeIO = (f) => f * f * (3 - 2 * f);
 // a chunk's alpha and x-shift now: in from the right, out to the left
 const chunkState = (C, now) => { if (now < C.inA || now > C.outB) return null;
@@ -204,6 +275,22 @@ const px = (x, y, r, g, b, a = 1) => { x |= 0; y |= 0; if (x < 0 || y < 0 || x >
 const add = (x, y, r, g, b, a) => { x |= 0; y |= 0; if (x < 0 || y < 0 || x >= W || y >= H) return; const o = (y * W + x) * 3, k = a * (1 - M[y * W + x]);   // the room only
   fb[o] = Math.min(255, fb[o] + r * k); fb[o + 1] = Math.min(255, fb[o + 1] + g * k); fb[o + 2] = Math.min(255, fb[o + 2] + b * k); };
 const glow = (x, y, rad, r, g, b, a) => { const R2 = rad * rad; for (let j = -rad; j <= rad; j++) for (let i = -rad; i <= rad; i++) { const d2 = i * i + j * j; if (d2 > R2) continue; add(x + i, y + j, r, g, b, a * (1 - d2 / R2) ** 2); } };
+// the same, on the output buffer (the lyric layer)
+const pxO = (x, y, r, g, b, a = 1) => { x |= 0; y |= 0; if (x < 0 || y < 0 || x >= OW || y >= OH) return; const o = (y * OW + x) * 3;
+  ob[o] = Math.min(255, ob[o] * (1 - a) + r * a); ob[o + 1] = Math.min(255, ob[o + 1] * (1 - a) + g * a); ob[o + 2] = Math.min(255, ob[o + 2] * (1 - a) + b * a); };
+const blobO = (cx, cy, rx, ry, r, g, b, a = 1) => { for (let y = Math.floor(cy - ry - 1); y <= cy + ry + 1; y++) for (let x = Math.floor(cx - rx - 1); x <= cx + rx + 1; x++) {
+  const d = Math.hypot((x + 0.5 - cx) / rx, (y + 0.5 - cy) / ry) * Math.min(rx, ry); const k = Math.min(1, Math.max(0, Math.min(rx, ry) - d + 0.75)); if (k > 0) pxO(x, y, r, g, b, a * k); } };
+const glyphO = (layer, g, cx, cy, sc, rot, r, gg, b, a) => { const w = g.w, h = GA.H, cs = Math.cos(rot), sn = Math.sin(rot), rad = Math.hypot(w, h) * sc / 2;
+  for (let Y = Math.floor(cy - rad); Y <= cy + rad; Y++) for (let X = Math.floor(cx - rad); X <= cx + rad; X++) {
+    const dx = X - cx, dy = Y - cy, u = (dx * cs + dy * sn) / sc + w / 2, v = (-dx * sn + dy * cs) / sc + h / 2;
+    if (u < 0 || v < 0 || u >= w - 1 || v >= h - 1) continue; const u0 = u | 0, v0 = v | 0, fu = u - u0, fv = v - v0, o = v0 * GA.W + g.x + u0;
+    const c = (layer[o] * (1 - fu) + layer[o + 1] * fu) * (1 - fv) + (layer[o + GA.W] * (1 - fu) + layer[o + GA.W + 1] * fu) * fv;
+    if (c > 2) pxO(X, Y, r, gg, b, a * c / 255); } };
+// the composite, up to the output size (bilinear; an exact 2× when it is one)
+const upscale = () => { if (!OB) { ob = fb; return; } ob = OB; const fx = W / OW, fy = H / OH;
+  for (let y = 0; y < OH; y++) { const v = Math.min(H - 1.001, Math.max(0, (y + 0.5) * fy - 0.5)), v0 = v | 0, fv = v - v0, r0 = v0 * W * 3, r1 = (v0 + 1) * W * 3, q = y * OW * 3;
+    for (let x = 0; x < OW; x++) { const u = Math.min(W - 1.001, Math.max(0, (x + 0.5) * fx - 0.5)), u0 = u | 0, fu = u - u0, a = r0 + u0 * 3, b = r1 + u0 * 3, o = q + x * 3;
+      for (let c = 0; c < 3; c++) ob[o + c] = (fb[a + c] * (1 - fu) + fb[a + 3 + c] * fu) * (1 - fv) + (fb[b + c] * (1 - fu) + fb[b + 3 + c] * fu) * fv; } } };
 // a filled ellipse with a 1.5 px antialiased edge, over everything (the ball)
 const blob = (cx, cy, rx, ry, r, g, b, a = 1) => { for (let y = Math.floor(cy - ry - 1); y <= cy + ry + 1; y++) for (let x = Math.floor(cx - rx - 1); x <= cx + rx + 1; x++) {
   const d = Math.hypot((x + 0.5 - cx) / rx, (y + 0.5 - cy) / ry) * Math.min(rx, ry); const k = Math.min(1, Math.max(0, Math.min(rx, ry) - d + 0.75)); if (k > 0) px(x, y, r, g, b, a * k); } };
@@ -222,23 +309,29 @@ function glide(now) { const E = energyAt(now); amb += (E - amb) * Math.min(1, (1
   for (let i = 0; i < 3; i++) { tint[i] += (want[i] - tint[i]) * Math.min(1, (1 / FPS) / 0.7); hue[i] += (wantHue[i] - hue[i]) * Math.min(1, (1 / FPS) / 0.7); } return c; }
 const CAM_MOVE = 178.24;                                                  // take seconds: she picks the camera up; the room's lights are nowhere after that
 function drawFrame(fi) {
-  const now = T0 + FROM + fi / FPS, take = takeOf(now); matteAt(take); repairMatte(take); const c = glide(now);
-  const lightsOn = 1 - Math.min(1, Math.max(0, (take - (CAM_MOVE - 0.74)) / 0.6));
-  const room = 0.72 + 0.28 * amb;                                        // v103: a simple grade — the room breathes with the sections, never goes out
+  const now = T0 + FROM + fi / FPS, take = takeOf(now); matteAt(take); repairMatte(take); softenMatte(); if (STAGE) { depthAt(take); findFace(); } const c = glide(now);
+  // the relight arrives with the arrangement (v103: "the opening should look naturally lit too"): nothing through the intro,
+  // rising from the kick's entrance (10.8 s) to full at chorus 1 (38.4 s); and a 2 s dissolve back to the plain picture
+  // before she reaches for the camera
+  const arrive = Math.min(1, Math.max(0, (now - T0 - 10.8) / (38.4 - 10.8))), arriveS = arrive * arrive * (3 - 2 * arrive);
+  const lightsOn = arriveS * (1 - Math.min(1, Math.max(0, (take - (CAM_MOVE - 2.3)) / 2.0)));
+  const room = 1 + (0.72 + 0.28 * amb - 1) * lightsOn;                    // v103: a simple grade — the room breathes with the sections, never goes out; gone by the end
   const lampBloom = Math.min(0.5, env(KICKS, now, 0.08, 0.03)) * lightsOn, lampOn = (0.12 * amb + 0.2 * lampBloom) * lightsOn;      // a burst, not a whiteout
   const bellRaw = env(BELLS, now, 1.4, 0.1), windowGlow = Math.min(0.15, 0.08 * bellRaw) * lightsOn, windowOn = (0.15 + 0.1 * amb) * lightsOn;
   const padLevel = Math.min(1, sounding(PADS, now) * 0.6) * lightsOn;
-  if (!LYRIC_ONLY) {
+  if (!LYRIC_ONLY) { coverGrade(arriveS);
   // 1. the room: multiplicative gain (ambient × tint, lifted by the lamp's pool and the window), her kept close to natural
-  const T = tint.map((t) => 0.55 + 0.45 * t);                              // the chord's tint at half strength
+  const T = tint.map((t) => 1 + (0.55 + 0.45 * t - 1) * lightsOn);          // the chord's tint at half strength, gone by the end
   const fgGain = 0.92 + 0.08 * room, fgTint = T.map((t) => 0.8 + 0.2 * t);   // she stays nearly natural, just a little of the room's colour
-  for (let o = 0, p = 0; o < W * H; o++, p += 3) { const m = M[o], lamp = LAMP[o], win = WINDOW[o];
+  const spotR2 = (0.17 * W) ** 2, spotK = 0.22 * lightsOn, stageK = lightsOn;    // the face spot and the bump key arrive with the rest
+  for (let o = 0, p = 0, y = 0, x = 0; o < W * H; o++, p += 3, x = ++x === W ? (y++, 0) : x) { const m = M[o], lamp = LAMP[o], win = WINDOW[o];
     const g = room + lampOn * lamp + windowOn * win * (1 - room) + windowGlow * win * 0.6;
-    const gr = (g * T[0] + lampBloom * lamp * 0.1) * (1 - m) + fgGain * fgTint[0] * m, gg = (g * T[1] + lampBloom * lamp * 0.08) * (1 - m) + fgGain * fgTint[1] * m, gb = (g * T[2] + lampBloom * lamp * 0.06) * (1 - m) + fgGain * fgTint[2] * m;
+    const dx = x - faceX, dy = y - faceY, spot = 1 + spotK * Math.max(0, 1 - (dx * dx + dy * dy) / spotR2), fg = fgGain * spot * (STAGE ? 1 + (DN[o] - 1) * stageK : 1);
+    const gr = (g * T[0] + lampBloom * lamp * 0.1) * (1 - m) + fg * fgTint[0] * m, gg = (g * T[1] + lampBloom * lamp * 0.08) * (1 - m) + fg * fgTint[1] * m, gb = (g * T[2] + lampBloom * lamp * 0.06) * (1 - m) + fg * fgTint[2] * m;
     fb[p] = Math.min(255, fb[p] * gr); fb[p + 1] = Math.min(255, fb[p + 1] * gg); fb[p + 2] = Math.min(255, fb[p + 2] * gb); }
   // 2. the lamp's bloom and the window's glow, added to the room
-  if (lampBloom > 0.02) { const L = LIGHTS.lamp, lx = L.x * sx, ly = L.y * sy, R0 = Math.round(L.r * 1.6 * sx); glow(lx, ly, R0, 255, 228, 180, 0.18 * lampBloom); glow(lx, ly, Math.round(R0 * 2.4), 255, 220, 170, 0.04 * lampBloom); }
-  if (windowGlow > 0.02) { const Wn = LIGHTS.window; for (let y = Wn.y0 * sy; y < Wn.y1 * sy; y += 2) for (let x = Wn.x0 * sx; x < Wn.x1 * sx; x += 2) { const k = WINDOW[(y | 0) * W + (x | 0)] * 0.12 * windowGlow; add(x, y, 225, 238, 255, k); add(x + 1, y, 225, 238, 255, k); add(x, y + 1, 225, 238, 255, k); add(x + 1, y + 1, 225, 238, 255, k); } }
+  if (lampBloom > 0.02) { const L = LIGHTS.lamp, lx = (L.x - VX) * sx, ly = (L.y - VY) * sy, R0 = Math.round(L.r * 1.6 * sx); glow(lx, ly, R0, 255, 228, 180, 0.18 * lampBloom); glow(lx, ly, Math.round(R0 * 2.4), 255, 220, 170, 0.04 * lampBloom); }
+  if (windowGlow > 0.02) { const Wn = LIGHTS.window; for (let y = Math.max(0, (Wn.y0 - VY) * sy); y < Math.min(H, (Wn.y1 - VY) * sy); y += 2) for (let x = Math.max(0, (Wn.x0 - VX) * sx); x < Math.min(W, (Wn.x1 - VX) * sx); x += 2) { const k = WINDOW[(y | 0) * W + (x | 0)] * 0.12 * windowGlow; add(x, y, 225, 238, 255, k); add(x + 1, y, 225, 238, 255, k); add(x, y + 1, 225, 238, 255, k); add(x + 1, y + 1, 225, 238, 255, k); } }
   // 3. the fairy lights: a bead of light each, glowing with the pads, a handful flashing on each hat
   const flash = new Float32Array(FAIRY.length); for (let i = HATS.cur || 0; i < HATS.length && HATS[i].t <= now; i++) { const dt = now - HATS[i].t; if (dt < 0.35) for (const p of HATS[i].pts) flash[p] = Math.max(flash[p], HATS[i].g * Math.exp(-dt / 0.07)); }
   if (lightsOn > 0) for (const f of FAIRY) { const base = (0.08 + 0.3 * padLevel + 0.25 * amb) * lightsOn, fl = flash[f.i] * 1.2 * lightsOn;
@@ -247,20 +340,35 @@ function drawFrame(fi) {
   }
   // 4. the singalong: the chunk being sung (and the one leaving); letters fill in syllable by syllable, the sung
   //    syllable pops, the sung word a touch larger, a held syllable kerns outward and sways; the ball rides its one path.
-  if (!NO_LYRIC) { const k = Math.min(1, 0.3 + 0.7 * amb) * (1 + 0.5 * lampBloom), fl = Math.min(1, bellRaw) * 120, SH = hue.map((h) => Math.min(255, h * k + fl)), off = 5 * sx;
-    const states = new Map(); for (const C of CHUNKS) { const st = chunkState(C, now); if (st) states.set(C, st); }
+  upscale();                                                                  // the room is done at the base size; the words go on at the output size
+  // the dance (v103: "start formal, black and white, less shaky; as the ornament comes in, increase the shake and the
+  // colour, so the captions surprise the way the arrangement does"): 0 through the intro and verse 1, a first step
+  // when the kick lands, half at chorus 1, full from chorus 2, resting in the break, back up through the bridge
+  const DANCE = [[-99, 0], [2.1, 0], [10.8, 0.15], [23.6, 0.2], [38.4, 0.55], [69.1, 0.35], [84.9, 1], [115.3, 0.3], [124.8, 0.7], [139.9, 1]];
+  const rn = now - T0; let dance = 0; for (let i = 1; i < DANCE.length; i++) { const [t0, d0] = DANCE[i - 1], [t1, d1] = DANCE[i]; if (rn >= t0 && rn < t1) { dance = d0 + (d1 - d0) * Math.min(1, (rn - t0) / 2.0); break; } if (rn >= t1) dance = d1; }
+  if (!NO_LYRIC) { const k = Math.min(1, 0.3 + 0.7 * amb) * (1 + 0.5 * lampBloom), fl = Math.min(1, bellRaw) * 120, SH = hue.map((h) => Math.min(255, (h * k + fl) * dance)), off = 0.07 * GA.px * (CHUNKS[0]?.sc ?? SC_MAX);   // the shadow tight under the glyph (v103: "too far from the captions")
+    // the "longs" (v103: "when arpeggiating should blink colors rapidly — psychic effects"): a held syllable's letters run
+    // the hue wheel, each letter a step behind the last, blinking at 6 Hz, 16 Hz with the arp under it
+    const arp = Math.min(1, sounding(ARPS, now) * 0.5), psyHz = 6 + 10 * arp;
+    const psychic = (i, wild) => { const hh = (now * psyHz / 6 + i * 0.13) % 1, i6 = (hh * 6) | 0, fr = hh * 6 - i6, Q = 255 * (1 - 0.9 * fr), T = 255 * (1 - 0.9 * (1 - fr)), lo = 25;
+      const c = [[255, T, lo], [Q, 255, lo], [lo, 255, T], [lo, Q, 255], [T, lo, 255], [255, lo, Q]][i6], blink = 0.55 + 0.45 * (Math.sin(2 * Math.PI * now * psyHz + i * 0.9) > 0 ? 1 : 0.35);
+      return c.map((v) => Math.round((250 * (1 - wild) + v * blink * wild))); };
+    const easeIn = CHUNKS.length ? Math.min(1, Math.max(0, (now - CHUNKS[0].inA) / 2.5)) : 1;          // the captions ease in over their first line
+    const states = new Map(); for (const C of CHUNKS) { const st = chunkState(C, now); if (st) states.set(C, { al: st.al * easeIn, dx: st.dx }); }
     for (const [C, st] of states) { const al = st.al, sc = C.sc, em = GA.px * sc;
-      for (const w of C.words) { const timed = !!w.w, wordOn = timed && now >= w.w.a, cur = wordOn && now < w.w.b + 0.1;
-        const prevOn = timed ? false : (() => { const p = C.words[C.words.indexOf(w) - 1]; return p && p.w ? now >= p.w.b : wordOn; })();
-        const wildW = timed ? Math.max(0, ...w.w.syl.map((t) => now >= t.a && now < t.b && t.b - t.a > 0.6 && now - t.a > 0.25 ? Math.abs(Math.sin(Math.PI * (now - t.a - 0.25) * 3.2)) : 0)) : 0;
-        const kern = wildW * 0.09 * GA.px; let pen = w.x + st.dx - kern * sc * (w.gl.length - 1) / 2;
+      // the words stay put (v103: "the other words need to stay put"); a held word kerns out about its own centre, by the dance
+      const wildOf = (w) => w.w ? dance * Math.max(0, ...w.w.syl.map((t) => now >= t.a && now < t.b && t.b - t.a > 0.6 && now - t.a > 0.25 ? Math.abs(Math.sin(Math.PI * (now - t.a - 0.25) * 3.2)) : 0)) : 0;
+      for (const [wi, w] of C.words.entries()) { const timed = !!w.w, wordOn = timed && now >= w.w.a, cur = wordOn && now < w.w.b + 0.1;
+        const prevOn = timed ? false : (() => { const p = C.words[wi - 1]; return p && p.w ? now >= p.w.b : wordOn; })();
+        const wildW = wildOf(w), kern = wildW * 0.05 * GA.px; let pen = w.x + st.dx - kern * sc * (w.gl.length - 1) / 2;
         for (const q of w.gl) { const gg = q.g, t = timed ? w.w.syl[q.si] : null;
           const lit = t ? t.a + (t.b - t.a) * q.sk / q.sn : 1e9, on = timed ? now >= lit : prevOn;
-          const held = t && now >= t.a && now < t.b && t.b - t.a > 0.6 && now - t.a > 0.25, wild = held ? Math.abs(Math.sin(Math.PI * (now - t.a - 0.25) * 3.2)) : 0;
-          const sylPop = t && now >= t.a ? 1 + 0.14 * Math.max(0, 1 - (now - t.a) / 0.15) : 1, chPop = on && t ? 1 + 0.12 * Math.max(0, 1 - (now - lit) / 0.1) : 1;
-          const s2 = sc * sylPop * chPop * (cur ? 1.06 + 0.05 * lampBloom : 1) * (1 + 0.12 * wild), sway = 0.6 * Math.sin(2 * Math.PI * now / q.per + q.ph);
-          const lat = wild * em * 0.05 * Math.sin(now * 23 + q.ph * 5), cx = pen + gg.adv * sc / 2 + lat, cy = ROW - (GA.ascent - GA.H / 2) * s2 + (q.jy + sway) * sc - wild * em * 0.07 * Math.sin(now * 40 + q.ph * 7), gx = cx + (gg.w / 2 + gg.dx - gg.adv / 2) * s2, rot = q.rot * (1 + 2.5 * wild);
-          glyph(GOUTER, gg, gx + off, cy + off, s2, rot, ...SH, al); glyph(GOUTER, gg, gx, cy, s2, rot, ...BLACK, al); glyph(GFILL, gg, gx, cy, s2, rot, ...(on ? WHITE : GREY), al);
+          const held = t && now >= t.a && now < t.b && t.b - t.a > 0.6 && now - t.a > 0.25, wild = held ? dance * Math.abs(Math.sin(Math.PI * (now - t.a - 0.25) * 3.2)) : 0;
+          const sylPop = t && now >= t.a ? 1 + 0.14 * dance * Math.max(0, 1 - (now - t.a) / 0.15) : 1, chPop = on && t ? 1 + (0.04 + 0.08 * dance) * Math.max(0, 1 - (now - lit) / 0.1) : 1;
+          const s2 = sc * sylPop * chPop * (cur ? 1 + (0.06 + 0.05 * lampBloom) * dance : 1) * (1 + 0.12 * wild), sway = 0.6 * dance * Math.sin(2 * Math.PI * now / q.per + q.ph);
+          const lat = wild * em * 0.05 * Math.sin(now * 23 + q.ph * 5), cx = pen + gg.adv * sc / 2 + lat, cy = ROW - (GA.ascent - GA.H / 2) * s2 + (q.jy * dance + sway) * sc - wild * em * 0.07 * Math.sin(now * 40 + q.ph * 7), gx = cx + (gg.w / 2 + gg.dx - gg.adv / 2) * s2, rot = q.rot * dance * (1 + 2.5 * wild);
+          const isLong = /^long\OW*$/i.test(w.tok) && w.w && w.w.b - w.w.a > 1.2, fill = on ? (isLong && cur && arp > 0.05 ? psychic(w.gl.indexOf(q), Math.min(1, arp * 3)) : WHITE) : GREY;   // the rainbow: only the long 'long's (held > 1.2 s), under the arpeggio
+          glyphO(GOUTER, gg, gx + off, cy + off, s2, rot, ...SH, al); glyphO(GOUTER, gg, gx, cy, s2, rot, ...BLACK, al); glyphO(GFILL, gg, gx, cy, s2, rot, ...fill, al);
           pen += gg.adv * sc + kern * sc; } } }
     // the ball: between landing j and j+1 it sits DWELL then flies one gravity arc, each end riding its own chunk's slide
     if (BALL && LANDS.length && now >= CHUNKS[0].inA && now < LANDS.at(-1).b + 0.5) {
@@ -271,32 +379,32 @@ function drawFrame(fi) {
       if (j < 0) { const f = Math.min(1, Math.max(0, (now - CHUNKS[0].inA) / Math.max(0.2, LANDS[0].t - CHUNKS[0].inA))); bx = sx_(LANDS[0]); by = top - (1 - f * f) * cap * 3; al = Math.min(1, f * 2); }   // the drop-in
       else { const g = LANDS[j], n = LANDS[j + 1], dt = now - g.t; bx = sx_(g); by = top; chroma = g.chroma;
         if (n) { const gap = n.t - g.t, dwell = Math.min(DWELL, gap * 0.25), T = gap - dwell, f = Math.min(1, Math.max(0, (dt - dwell) / T));
-          const apex = Math.min(H * 0.45, Math.max(cap * 0.5, GRAV * T * T / 8)); bx = sx_(g) + (sx_(n) - sx_(g)) * f; by = top - 4 * f * (1 - f) * apex; chroma = g.chroma || n.chroma; }
+          const apex = Math.min(OH * 0.45, Math.max(cap * 0.5, GRAV * T * T / 8)); bx = sx_(g) + (sx_(n) - sx_(g)) * f; by = top - 4 * f * (1 - f) * apex; chroma = g.chroma || n.chroma; }
         else al = Math.max(0, 1 - (now - g.b) / 0.5);
         if (dt < 0.09) { const s = 1 - dt / 0.09; sqx = 1 + 0.3 * s; sqy = 1 - 0.25 * s; } }   // the squash: a shape, not a move
       let ballRGB = WHITE; if (chroma) { const hh = (now * 1.5) % 1, i6 = (hh * 6) | 0, fr = hh * 6 - i6, Q = 255 * (1 - 0.85 * fr), T = 255 * (1 - 0.85 * (1 - fr)), lo = 255 * 0.15;
         ballRGB = [[255, T, lo], [Q, 255, lo], [lo, 255, T], [lo, Q, 255], [T, lo, 255], [255, lo, Q]][i6].map(Math.round); }
-      if (al > 0) { blob(bx + off, by + off, br * sqx, br * sqy, ...SH, al); blob(bx, by, br * sqx + 1.6, br * sqy + 1.6, ...BLACK, al); blob(bx, by, br * sqx, br * sqy, ...ballRGB, al); } } }
+      if (al > 0) { blobO(bx + off, by + off, br * sqx, br * sqy, ...SH, al); blobO(bx, by, br * sqx + 1.6, br * sqy + 1.6, ...BLACK, al); blobO(bx, by, br * sqx, br * sqy, ...ballRGB, al); } } }
 }
 
 // ── the pipes; the VHS lives on the encoder's input ──
 const VHS_CHAIN = ["format=yuv444p", "chromashift=cbh=3:crh=-2", "gblur=sigma=0.9:sigmaV=0.01", "noise=c0s=9:c0f=t+u:c1s=4:c1f=t+u:c2s=4:c2f=t+u",
   "drawgrid=w=iw:h=3:t=1:c=black@0.09", "drawbox=y='mod(t*23\\,ih+80)-40':w=iw:h=22:c=white@0.045:t=fill", "vignette=angle=PI/8", "eq=saturation=1.08:contrast=1.02", "format=yuv420p"].join(",");
-const UP_CHAIN = DELIVER && DELIVER !== H ? `scale=-2:${DELIVER}:flags=lanczos,cas=0.4` : "";
+const UP_CHAIN = "";                                                        // the upscale happens in here now, before the words
 const VF = [UP_CHAIN, arg("vhs") ? VHS_CHAIN : ""].filter(Boolean); const VHS = VF.length ? ["-vf", VF.join(",")] : [];
 const frameBytes = W * H * 3;
 const ONLY = arg("only") ? String(arg("only")).split(",").map((t) => Math.round((Number(t) - FROM) * FPS)) : null, PNG = arg("png") ? resolve(arg("png")) : OUT;
-const dec = spawn("ffmpeg", ["-v", "error", ...(FROM ? ["-ss", String(FROM)] : []), ...(TO ? ["-to", String(TO)] : []), "-i", BASE, ...(SMALL ? ["-vf", "scale=960:540"] : []), "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { stdio: ["ignore", "pipe", "inherit"] });
-const enc = ONLY ? null : spawn("ffmpeg", ["-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", `${W}x${H}`, "-r", String(FPS), "-i", "-", ...(NO_AUDIO ? [] : [...(FROM ? ["-ss", String(FROM)] : []), ...(TO ? ["-to", String(TO)] : []), "-i", AUDIO, "-map", "0:v", "-map", "1:a"]), ...VHS,
-  ...(X264 || LYRIC_ONLY ? ["-c:v", "libx264", "-crf", LYRIC_ONLY ? "20" : "15", "-preset", LYRIC_ONLY ? "veryfast" : "medium"] : ["-c:v", "h264_videotoolbox", "-b:v", (DELIVER || H) >= 1080 ? "16M" : "8M", "-profile:v", "high", "-allow_sw", "1"]), "-pix_fmt", "yuv420p", ...(NO_AUDIO ? [] : ["-c:a", "aac", "-b:a", "256k", "-shortest"]), "-movflags", "+faststart", outPath], { stdio: ["pipe", "inherit", "inherit"] });
+const dec = spawn("ffmpeg", ["-v", "error", ...(FROM ? ["-ss", String(FROM)] : []), ...(TO ? ["-to", String(TO)] : []), "-i", BASE, "-vf", VERTICAL ? `crop=iw*${VIEW.w / 960}:ih:iw*${VIEW.x / 960}:0,scale=${W}:${H}:flags=lanczos` : SMALL ? "scale=960:540" : "null", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { stdio: ["ignore", "pipe", "inherit"] });
+const enc = ONLY ? null : spawn("ffmpeg", ["-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", `${OW}x${OH}`, "-r", String(FPS), "-i", "-", ...(NO_AUDIO ? [] : [...(FROM ? ["-ss", String(FROM)] : []), ...(TO ? ["-to", String(TO)] : []), "-i", AUDIO, "-map", "0:v", "-map", "1:a"]), ...VHS,
+  ...(X264 || LYRIC_ONLY ? ["-c:v", "libx264", "-crf", LYRIC_ONLY ? "20" : "15", "-preset", LYRIC_ONLY ? "veryfast" : "medium"] : ["-c:v", "h264_videotoolbox", "-b:v", OH >= 1080 ? "16M" : "8M", "-profile:v", "high", "-allow_sw", "1"]), "-pix_fmt", "yuv420p", ...(NO_AUDIO ? [] : ["-c:a", "aac", "-b:a", "256k", "-shortest"]), "-movflags", "+faststart", outPath], { stdio: ["pipe", "inherit", "inherit"] });
 let pending = Buffer.alloc(0), fi = 0;
 dec.stdout.on("data", (chunk) => { pending = pending.length ? Buffer.concat([pending, chunk]) : chunk;
   while (pending.length >= frameBytes) { fb = Buffer.from(pending.subarray(0, frameBytes)); pending = pending.subarray(frameBytes);
     if (ONLY) { if (ONLY.includes(fi)) { drawFrame(fi); const f = resolve(PNG, `${stem}-${(FROM + fi / FPS).toFixed(1)}s.png`);
-        execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", `${W}x${H}`, "-i", "-", ...VHS, "-frames:v", "1", f], { input: fb }); console.log(`  ${f}`); }
+        execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", `${OW}x${OH}`, "-i", "-", ...VHS, "-frames:v", "1", f], { input: ob }); console.log(`  ${f}`); }
       else { matteAt(takeOf(T0 + FROM + fi / FPS)); glide(T0 + FROM + fi / FPS); } fi++; if (fi > Math.max(...ONLY)) { dec.kill(); process.exit(0); } continue; }
     drawFrame(fi++);
-    if (!enc.stdin.write(fb)) { dec.stdout.pause(); enc.stdin.once("drain", () => dec.stdout.resume()); }
+    if (!enc.stdin.write(ob)) { dec.stdout.pause(); enc.stdin.once("drain", () => dec.stdout.resume()); }
     if (fi % 300 === 0) process.stdout.write(`\r  ${NF ? Math.round(100 * fi / NF) + "%" : fi}`); } });
 dec.stdout.on("end", () => enc && enc.stdin.end());
 enc && enc.on("close", (code) => { try { if (MFD != null) { closeSync(MFD); mdec.kill(); unlinkSync(FIFO); } } catch {}

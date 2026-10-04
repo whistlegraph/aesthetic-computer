@@ -58,8 +58,32 @@ for j, w in enumerate(WORDS):
     for q in range(fa_i, min(len(FA), fa_i + 4)):
         if norm(FA[q]["text"]) == norm(w["text"]): fa_of[j] = FA[q]; fa_i = q + 1; break
 
+# whisper-1's words (take clock), matched in order by text, as the SECOND independent witness: where it and the
+# forced alignment agree within 250 ms on a word's onset, that onset is the anchor even when the record disagrees
+# (v103: the bridge — words-record runs ~1.2 s late from "we can run away" on; both witnesses say so)
+WH = json.load(open(os.path.join(SRC, ".word-times", "openai-whisper1.json")))["words"]; wh_i = 0; wh_of = {}
+for j, w in enumerate(WORDS):
+    for q in range(wh_i, min(len(WH), wh_i + 8)):
+        if norm(WH[q]["word"]) == norm(w["text"]): wh_of[j] = WH[q]; wh_i = q + 1; break
+anchor = {j: fa_of[j]["from"] for j in fa_of if j in wh_of and abs(wh_of[j]["start"] - fa_of[j]["from"]) < 0.25}
+# an anchored word vouches for the next one when the forced alignment runs them together (< 0.5 s apart) — whisper
+# mis-segments a held last word ("sit it OUT": it heard 'it' for three seconds), the phonetic aligner does not
+for j in sorted(list(anchor)):
+    k = j + 1
+    while k < len(WORDS) and k not in anchor and k in fa_of and j in fa_of and fa_of[k]["from"] - fa_of[k - 1]["to"] < 0.5 and fa_of[k - 1]["to"] >= fa_of[k - 1]["from"]:
+        anchor[k] = fa_of[k]["from"]; j = k; k += 1
 # the bounds
 rec = [(takeOf(w["fromMs"] / 1000 + T0), takeOf(w["toMs"] / 1000 + T0)) for w in WORDS]
+# a record onset more than 0.4 s from an anchored neighbourhood is slid onto the witnesses: each unanchored word takes
+# the median offset of the anchored words within ±3 s of it (when there are at least three), before the fine search
+offs = {j: anchor[j] - rec[j][0] for j in anchor}
+for j in range(len(WORDS)):
+    if j in anchor: continue
+    near = [offs[k] for k in offs if abs(rec[k][0] - rec[j][0]) < 3.0]
+    if len(near) >= 3 and abs(st.median(near)) > 0.4: rec[j] = (rec[j][0] + st.median(near), rec[j][1] + st.median(near))
+for j in anchor: rec[j] = (anchor[j], rec[j][1] + (anchor[j] - rec[j][0]))
+slid = sum(1 for j in range(len(WORDS)) if abs(rec[j][0] - takeOf(WORDS[j]["fromMs"] / 1000 + T0)) > 0.4)
+print(f"▸ {len(anchor)} words anchored by forced alignment ∧ whisper; {slid} words slid > 0.4 s onto the witnesses before the fine search")
 starts, ends = [], []
 for j, w in enumerate(WORDS):
     a, b = rec[j]; fa = fa_of.get(j)
@@ -69,8 +93,9 @@ for j, w in enumerate(WORDS):
     if starts: s = max(s, starts[-1] + 0.08)                                                                # order is kept
     starts.append(s)
     nxt = rec[j + 1][0] if j + 1 < len(WORDS) else b + 1.0
-    p0, p1 = at(s), at(max(s + 0.06, min(b + 0.25, nxt + 0.1))); pk = p0 + int(np.argmax(db[p0:p1])) if p1 > p0 else p0
-    e = offset_after(tt[pk], min(b + 0.3, nxt + 0.05), db[pk]); e = max(e, tt[pk] + 0.04, s + 0.08)
+    far = max(b, fa["to"] if fa and fa["to"] > fa["from"] else b)                                            # a held last note runs as long as the aligner heard it
+    p0, p1 = at(s), at(max(s + 0.06, min(far + 0.25, nxt + 0.1))); pk = p0 + int(np.argmax(db[p0:p1])) if p1 > p0 else p0
+    e = offset_after(tt[pk], min(far + 0.3, nxt + 0.05), db[pk]); e = max(e, tt[pk] + 0.04, s + 0.08)
     ends.append(e)
 for j in range(len(WORDS) - 1):                                                                             # a word never runs into the next one's start
     if ends[j] > starts[j + 1]: ends[j] = starts[j + 1]
@@ -94,6 +119,21 @@ def syllables(text):
     parts.append(text[prev:]); return [p for p in parts if p]
 env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=160); et = librosa.frames_to_time(np.arange(len(env)), sr=sr, hop_length=160)
 
+# the holds ring on in the RECORD longer than on the dry stem — the sister voices, the mirror and the aaa carry a 'long'
+# for a second after she stops — so a word held > 1.2 s stays lit until the receipt's last vocal-layer event over it
+# has ended (the newest events.json is the mix the video plays). (v103: "the second long cuts off a few seconds early")
+EV = json.load(open(os.path.join(OUTD, newest))).get("events", []); VOC = {"vox", "sister", "chorale", "mirror", "aaa", "ooo", "halo"}
+ext = 0
+for j in range(len(WORDS)):
+    if ends[j] - starts[j] < 1.2: continue
+    a, b = regOf(starts[j]), regOf(ends[j]); ring = b
+    while True:                                                                   # chain outward: a layer that starts before the ring ends (+0.3 s) extends it (the ooo's carry the second long into the break)
+        nb = max([e["t"] + e.get("dur", 0) for e in EV if e["voice"] in VOC and e["t"] < ring + 0.3 and e["t"] + e.get("dur", 0) > a], default=ring)
+        if nb <= ring + 0.01: break
+        ring = nb                                                                 # (the next word's start is the only cap: a 'long' rides its whole ring)
+    nxt = regOf(starts[j + 1]) if j + 1 < len(WORDS) else ring + 1; new_end = takeOf(min(ring, nxt - 0.05))
+    if new_end > ends[j] + 0.2: ext += 1; print(f"  hold {WORDS[j]['text']!r} @ {master(starts[j]):.2f}s: stem +{ends[j] - starts[j]:.2f}s → the record's layers ring to +{new_end - starts[j]:.2f}s"); ends[j] = new_end
+print(f"▸ {ext} holds extended to the record's ring ({newest})")
 out = []; moved = []
 for j, w in enumerate(WORDS):
     s, e = starts[j], ends[j]; a, b = rec[j]; ds, de = s - a, e - b
