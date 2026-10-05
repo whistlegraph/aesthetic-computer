@@ -24,6 +24,7 @@ ap.add_argument("--size", type=int, default=3000)
 ap.add_argument("--debug", default="")                # v8: dump the grade masks here
 ap.add_argument("--src", default="")                  # the take; default src/take.mov (the Desktop IMG_8699.mov copy is gone)
 ap.add_argument("--out", default="")                  # output stem; default cover/sailor-song-cover
+ap.add_argument("--face", default="0.10,0.50")        # v120: fraction of the height kept free of glitch bands — "no glitch on her face"
 a = ap.parse_args()
 LANE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(LANE, "cover"); os.makedirs(OUT, exist_ok=True)
@@ -172,6 +173,8 @@ grng = np.random.default_rng(8699)
 for y0, h, shift, cshift in [(int(a.size * f), int(a.size * hh), sh, cs) for f, hh, sh, cs in
                              [(0.06, 0.018, 24, 8), (0.47, 0.010, -16, 16), (0.585, 0.026, 40, -8), (0.73, 0.008, -8, 24), (0.86, 0.014, 56, 0)]]:
     y0 -= y0 % 8; h = max(8, h - h % 8)
+    f0, f1 = [float(v) for v in a.face.split(",")]
+    if y0 + h > a.size * f0 and y0 < a.size * f1: continue                 # v120: never across her face
     band = np.roll(low[y0:y0 + h], shift, axis=1)
     band[..., 0] = np.roll(band[..., 0], cshift, axis=1)                 # red torn sideways
     arr[y0:y0 + h] = band
@@ -183,7 +186,7 @@ t = img.copy().convert("RGBA")
 layer = Image.new("RGBA", t.size, (0, 0, 0, 0))
 d = ImageDraw.Draw(layer)
 font = ImageFont.truetype("/System/Library/Fonts/NewYorkItalic.ttf", int(a.size * 0.045))
-text = "sailor song"
+text = "Sage's Sailor Song"   # v120: the title
 pad = int(a.size * 0.05)
 bb = d.textbbox((0, 0), text, font=font)
 pos = (pad, a.size - pad - (bb[3] - bb[1]) - bb[1])

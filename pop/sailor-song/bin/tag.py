@@ -17,11 +17,11 @@ try: tags = ID3(a.dst)
 except ID3NoHeaderError: tags = ID3()
 tags.delete(a.dst); tags = ID3()
 P, W, S = a.performer, "Gigi Perez", "Aesthetic Dot Computer"
-tags.add(TIT2(encoding=3, text="Sailor Song"))
+tags.add(TIT2(encoding=3, text="Sage's Sailor Song"))   # v120: the title
 tags.add(TIT3(encoding=3, text="cover of Gigi Perez — remixed by Aesthetic Dot Computer"))
 tags.add(TPE1(encoding=3, text=P))                     # artist / performer
 tags.add(TPE2(encoding=3, text=P))                     # album artist
-tags.add(TALB(encoding=3, text="Sailor Song"))
+tags.add(TALB(encoding=3, text="Sage's Sailor Song"))
 tags.add(TCOM(encoding=3, text=W))                     # composer
 tags.add(TEXT(encoding=3, text=W))                     # lyricist
 tags.add(TIPL(encoding=3, people=[["producer", S], ["engineer", S], ["mix", S], ["arranger", S]]))
