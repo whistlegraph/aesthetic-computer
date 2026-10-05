@@ -14,8 +14,10 @@ final class WhistlegraphMintTests: XCTestCase {
         app.webViews.buttons["Connect Tezos wallet"].tap()
         let temple = app.staticTexts["Temple"]
         XCTAssertTrue(temple.waitForExistence(timeout: 30))
+        let picker = XCTAttachment(screenshot: app.screenshot())
+        picker.name = "Mint wallet picker"; picker.lifetime = .keepAlways; add(picker)
         temple.tap()
-        let open = app.alerts.buttons["Open"]
+        let open = app.buttons["Open"]
         if open.waitForExistence(timeout: 3) { open.tap() }
         let wallet = XCUIApplication(bundleIdentifier: "com.madfish.temple-wallet")
         XCTAssertTrue(wallet.wait(for: .runningForeground, timeout: 25))
