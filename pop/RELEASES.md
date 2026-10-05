@@ -7,6 +7,32 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 
 ---
 
+## sailor song (sage oc) — HOLD · awaiting Sage's word (delivered to her 2026-10-04)
+
+- **What:** @jeffrey's niece Sage (**sage oc**, O'Connor) singing Gigi Perez's *Sailor Song* with
+  nylon guitar on a phone, remixed *under* her take by Aesthetic Dot Computer. **A cover** — not ours
+  to distribute without (a) Sage's and her parents' yes and (b) a mechanical licence (DistroKid's
+  cover licensing). Label as delivered: artist **sage oc**, track **sailor song**.
+- **Lane:** `pop/sailor-song/` · engine `c/sailorremix.c` (v120) → `bin/bake.sh` → vinyl substrate
+  master · 2:32 · −11.6 LUFS · −2.8 dBFS peak · README has the story through v104 (v105–v120 TODO).
+- **Delivered to Sage (Desktop 2026-10-04, hard links into `out/`):** `sage oc - sailor song.mp3`
+  (`out/sailor-song-v120.mp3` tagged by `bin/tag.py`: Sage performer, Gigi Perez composer/lyricist,
+  Aesthetic Dot Computer producer; cover embedded) · `sage oc - sailor song.mp4` (main cut,
+  `out/sailor-song-v120-relight.mp4`, 1080p60) · `sage oc - sailor song (Fia's Cut).mp4`
+  (`out/sailor-song-v120-relight-fia.mp4`, noun stickers on the caption row) · reel in progress
+  (`out/sailor-song-v120-reel-fia.mp4`, chorus 1, 9:16, emoji floating up).
+- **Cover:** `cover/sailor-song-cover-v120-video.jpg` (`bin/cover-video.py`, frame 139 s of the relit
+  video, glitch bands off her face, no title text; `-title.jpg` variant exists).
+- **Video:** `bin/perf-relight.mjs` over the `bin/perf-video.mjs` base — Apple Vision matte, relit room,
+  syllable captions, strum ripple, kiss-glitch RGB split, held-"long" event; `--fia` stickers
+  (Noto emoji, Apache-2.0; Anne Hathaway head CC BY-SA 2.0 — credit in `EYECONS-CREDITS.md` must
+  accompany any public post of Fia's Cut or the reel).
+- **Before any submission:** Sage's reply · parental consent (she is a minor) · mechanical licence ·
+  decide the release artist (DistroKid artist "sage oc" vs. a feature) · brighten check per
+  MASTERING.md phone-proxy rule (v119 fixed the 52 Hz lane; re-measure).
+
+---
+
 ## nighttime study — RENDER (2026-09-30; Ringing Voice, @jeffrey ear-check next)
 
 - **Latest: Ringing Voice.** 9:48 · 104 BPM. Measured vowel spectra from all
