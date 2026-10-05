@@ -90,7 +90,7 @@
 #include "sailor-chart.h"
 
 #define SR 48000
-#define VERSION "v119"
+#define VERSION "v120"
 #define EAGER 0.009          // v73: "eager" placement — percussion pushes ~9 ms ahead of the grid
 #define PIANO_ON 1          // v112: ON — "I wanted the piano" (v71 had turned it off)
 #define SHIFT27 0.0          // v53: how much earlier everything after bar 27 plays, now that the regularizer fits it to four beats
@@ -1431,11 +1431,14 @@ int main(void) {
 #define KI_GRAIN(T, RATIO, G) do { long a_ = at(T); int n_ = (int)(GL * SR); for (int i = 0; i < n_; i++) { double pp = src0 + i * (RATIO); long j = (long)pp; double f = pp - j; \
             double v = sample(vox.L, vox.n, j) * (1 - f) + sample(vox.L, vox.n, j + 1) * f; double w = fmin(1, i / (0.003 * SR)) * fmin(1, (n_ - i) / (0.010 * SR)); add(stM, a_ + i, v * w * (G)); } } while (0)
         for (int q = 0; q < 3; q++) { double t = runT0 - beat + q * s32, ratio = pow(2, ST[q] / 12.0) * 0.5; KI_GRAIN(t, ratio, 0.45); ev(t, "stutter", GL, 0.45, -1); }
-        int h = 0; for (double t = runT0; t < 60.49 && h < 6; t += s32, h++) {   // v115: the run ends where the stretched "kiss" begins (60.50)
-            double ratio = pow(2, ST[h] / 12.0) * 0.5, g = (0.5 + 0.5 * h / 5.0) * 1.6;
+        int h = 0; for (double t = runT0; t < down - 0.015 && h < 6; t += s32, h++) {   // v120: through to the downbeat again   // v115: the run ends where the stretched "kiss" begins (60.50)
+            double ratio = pow(2, ST[h] / 12.0) * 0.71, g = (0.5 + 0.5 * h / 5.0) * 2.2;   // v120: a fifth down (not an octave), ×2.2 — fuller
             KI_GRAIN(t, ratio, g);
-            trap_hat(t, 0.06 * g, h % 2 ? 0.45 : -0.45); ev(t, "stutter", GL, g, -1); }
+            trap_hat(t, 0.08 * g, h % 2 ? 0.45 : -0.45); ev(t, "stutter", GL, g, -1); }
 #undef KI_GRAIN
+        // v120: "k-kkkk-kiss" — two more of HER unvoiced k bursts (30 ms from 60.435) at 64ths right after her own
+        { const double KB = 0.030; double ksrc = kT * SR; for (int q = 1; q <= 2; q++) { long a = at(kT + q * s32 / 2); int n = (int)(KB * SR);
+            for (int i = 0; i < n; i++) { double w = fmin(1, i / (0.002 * SR)) * fmin(1, (n - i) / (0.008 * SR)); add(stM, a + i, sample(vox.L, vox.n, (long)ksrc + i) * w * 2.0); } ev(kT + q * s32 / 2, "stutter", KB, 2.0, -1); } }
         if (h > 0) tom(runT0 + (h - 1) * s32, 120, 0.5, 0.3); }
       for (int q = 0; q < 0; q++) { const ChartBar *pb = bar_n(INTO[q] - 1); if (!pb || pb->nb < 4) continue;   // v28: OFF — "i don't like the added glitchiness on the k-kiss"; the dropout and the whip do the work
           const double src = KISS_T[q], t0 = pb->beats[pb->nb - 2], step = (pb->beats[pb->nb] - t0) / 8; long sa = at(src);   // v27: the LAST two beats (bar 27 has five)
@@ -1643,7 +1646,7 @@ int main(void) {
         // (v49: the k- cut moved to load time, across all her stems)
         for (int q = 0; q < 4; q++) { if (!fxS[q].L) continue; double u = tt - FX[q].t0; if (u < 0 || tt >= FX[q].t1) continue;
             double y = sample(fxS[q].L, fxS[q].n, i - at(FX[q].t0));
-            if (FX[q].slide) { double w = fmin(1, u / 0.12); w = w * w * (3 - 2 * w); double keep = fmin(1, fmax(0, (FX[q].orig - tt) / 0.08));   // v37: replace her only while HER note lasts;
+            if (FX[q].slide) { double w = fmin(1, u / (q == 3 ? 0.03 : 0.12)); w = w * w * (3 - 2 * w); if (q == 3 && tt < 60.66) y *= 1.5;   /* v120: the stretched kiss snaps in (30 ms, not 120) and is +3.5 dB inside the hole — "the kiss is still empty" */ double keep = fmin(1, fmax(0, (FX[q].orig - tt) / 0.08));   // v37: replace her only while HER note lasts;
                 x = x * (1 - w * keep) + y * (1 + 1.25 * (1 - keep)); }                                                                              // past it the extension is ADDED, +7 dB — it was buried (v90)
             else ghost += y * 0.38; }                                                                                                                // the ghost sits under her
         // v34: CONSONANTS — the 2–8 kHz band's fast envelope against its slow one: when a burst stands out (a c, k, t, p), that band
