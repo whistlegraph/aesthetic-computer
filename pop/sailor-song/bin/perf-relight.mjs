@@ -294,7 +294,7 @@ const glyphO = (layer, g, cx, cy, sc, rot, r, gg, b, a) => { const w = g.w, h = 
 // the composite, up to the output size (bilinear; an exact 2× when it is one)
 // the zoom bumps (v103: "zoom-bump the video on that glitch so it feels like we sit into the chorus, BOOM"): a push-in
 // that ratchets up in three steps through the ki-ki-ki, peaks on the downbeat, and eases back; about her head
-const BUMPS = [{ t: 38.444, pre: 0.3, amt: 0.09 }, { t: 84.898, pre: 0.12, amt: 0.05 }];
+const BUMPS = [{ t: 38.444, pre: 0.34, amt: 0.09 }, { t: 84.898, pre: 0.12, amt: 0.05 }];
 const zoomAt = (rn) => { let z = 1; for (const b of BUMPS) { const d = rn - b.t;
   if (d >= -b.pre && d < 0) { const f = 1 + d / b.pre; z += b.amt * 0.55 * (Math.floor(f * 3) / 3 + ((f * 3) % 1) * 0.35); }
   else if (d >= 0 && d < 0.5) { const f = d / 0.5; z += b.amt * (1 - f) * (1 - f); } } return z; };
@@ -303,6 +303,23 @@ const upscale = () => { const z = ZOOM; if (!OB && z === 1) { ob = fb; return; }
   for (let y = 0; y < OH; y++) { const v = Math.min(H - 1.001, Math.max(0, oy + (y + 0.5) * fy - 0.5)), v0 = v | 0, fv = v - v0, r0 = v0 * W * 3, r1 = (v0 + 1) * W * 3, q = y * OW * 3;
     for (let x = 0; x < OW; x++) { const u = Math.min(W - 1.001, Math.max(0, ox + (x + 0.5) * fx - 0.5)), u0 = u | 0, fu = u - u0, a = r0 + u0 * 3, b = r1 + u0 * 3, o = q + x * 3;
       for (let c = 0; c < 3; c++) ob[o + c] = (fb[a + c] * (1 - fu) + fb[a + 3 + c] * fu) * (1 - fv) + (fb[b + c] * (1 - fu) + fb[b + 3 + c] * fu) * fv; } } };
+// a wise sharpen on the delivered picture, before the words (v103: "a post smart sharpen over all the video so it's all
+// crisp"): unsharp on luma only (no colour fringing), the amount gated by local contrast — flat skin, wall and bokeh get
+// almost none, edges and texture get the full dose — and a clamp so no halo overshoots its neighbours by more than a step
+const SHARP = { amount: 0.9, radius: 1, lo: 6, hi: 40, clamp: 28 }, SB = Buffer.alloc(0);
+let LUM = null, BLR = null;
+const sharpen = () => { if (ob === fb && !OB && ZOOM === 1) return;                // (never on the raw composite when nothing was rescaled)
+  const n = OW * OH; if (!LUM || LUM.length !== n) { LUM = new Float32Array(n); BLR = new Float32Array(n); }
+  for (let i = 0, p = 0; i < n; i++, p += 3) LUM[i] = 0.299 * ob[p] + 0.587 * ob[p + 1] + 0.114 * ob[p + 2];
+  for (let y = 0; y < OH; y++) { const r = y * OW; BLR[r] = LUM[r]; BLR[r + OW - 1] = LUM[r + OW - 1]; for (let x = 1; x < OW - 1; x++) BLR[r + x] = (LUM[r + x - 1] + 2 * LUM[r + x] + LUM[r + x + 1]) * 0.25; }
+  for (let x = 0; x < OW; x++) { LUM[x] = BLR[x]; LUM[(OH - 1) * OW + x] = BLR[(OH - 1) * OW + x]; }
+  for (let y = 1; y < OH - 1; y++) for (let x = 0; x < OW; x++) { const o = y * OW + x; LUM[o] = (BLR[o - OW] + 2 * BLR[o] + BLR[o + OW]) * 0.25; }   // LUM is now the blur
+  for (let y = 1; y < OH - 1; y++) for (let x = 1; x < OW - 1; x++) { const o = y * OW + x, p = o * 3, l = 0.299 * ob[p] + 0.587 * ob[p + 1] + 0.114 * ob[p + 2], d = l - LUM[o];
+    const ad = Math.abs(d); if (ad < 0.5) continue;
+    const gate = Math.min(1, Math.max(0, (ad * 4 - SHARP.lo) / (SHARP.hi - SHARP.lo)));                  // local contrast: how much detail is really here
+    let add = d * SHARP.amount * gate; if (add > SHARP.clamp) add = SHARP.clamp; else if (add < -SHARP.clamp) add = -SHARP.clamp;
+    if (add === 0) continue; const k = (l + add) / (l + 1e-3);
+    ob[p] = Math.max(0, Math.min(255, ob[p] * k)); ob[p + 1] = Math.max(0, Math.min(255, ob[p + 1] * k)); ob[p + 2] = Math.max(0, Math.min(255, ob[p + 2] * k)); } };
 // a filled ellipse with a 1.5 px antialiased edge, over everything (the ball)
 const blob = (cx, cy, rx, ry, r, g, b, a = 1) => { for (let y = Math.floor(cy - ry - 1); y <= cy + ry + 1; y++) for (let x = Math.floor(cx - rx - 1); x <= cx + rx + 1; x++) {
   const d = Math.hypot((x + 0.5 - cx) / rx, (y + 0.5 - cy) / ry) * Math.min(rx, ry); const k = Math.min(1, Math.max(0, Math.min(rx, ry) - d + 0.75)); if (k > 0) px(x, y, r, g, b, a * k); } };
@@ -334,7 +351,13 @@ function drawFrame(fi) {
   const padLevel = Math.min(1, sounding(PADS, now) * 0.6) * lightsOn;
   // a held 'long' (the rainbow word): the room's lights flicker through the same colours (v103)
   const arpEnv = Math.min(1, env(ARPS, now, 0.8) * 0.35), longW = WORDS.find((w) => /^long\W*$/i.test(w.text) && w.b - w.a > 1.2 && now >= w.a + 0.25 && now < w.b);
-  const longOn = longW && arpEnv > 0.05 ? Math.min(1, arpEnv * 3) * lightsOn : 0, flickHz = 6 + 10 * arpEnv;
+  const longOn = longW && arpEnv > 0.05 ? Math.min(1, arpEnv * 3) * lightsOn * 0.6 : 0, flickHz = 6 + 10 * arpEnv;   // the word keeps its blink; the room steps TO THE BEAT, subtly (jeffrey)
+  const beatOf = (() => { const b = chordAt(now); if (!b) return { k: 0, f: 0 }; const per = b.dur / 4, k = Math.floor((now - b.t) / per), f = ((now - b.t) % per) / per; return { k: b.n * 4 + k, f }; })();
+  const roomHue = (i) => wheel(((beatOf.k + i) % 12) / 12), roomPulse = 0.75 + 0.25 * (1 - beatOf.f) * (1 - beatOf.f);   // a new colour each beat, a soft pulse on the beat
+  // every bulb its own (jeffrey: "variable in brightness, flicker with the lyric, not ALL lit"): a hashed brightness 0.25–1,
+  // and each bulb follows the word's blink in its own phase, so at any instant a third of the string is up, the rest low
+  const bulb = (i) => { const h = fnv(`bulb:${i}`), bright = 0.25 + 0.75 * ((h >>> 8) % 100) / 100, ph = ((h >>> 16) % 100) / 100;
+    const blink = 0.5 + 0.5 * Math.sin(2 * Math.PI * (now * flickHz / 2 + ph)); return bright * (0.35 + 0.65 * Math.pow(blink, 3)); };
   const wheel = (ph) => { const hh = ((ph % 1) + 1) % 1, i6 = (hh * 6) | 0, fr = hh * 6 - i6, Q = 255 * (1 - 0.9 * fr), T = 255 * (1 - 0.9 * (1 - fr)), lo = 25; return [[255, T, lo], [Q, 255, lo], [lo, 255, T], [lo, Q, 255], [T, lo, 255], [255, lo, Q]][i6]; };
   if (!LYRIC_ONLY) { coverGrade(arriveS);
   // 1. the room: multiplicative gain (ambient × tint, lifted by the lamp's pool and the window), her kept close to natural
@@ -347,19 +370,19 @@ function drawFrame(fi) {
     const gr = (g * T[0] + lampBloom * lamp * 0.1) * (1 - m) + fg * fgTint[0] * m, gg = (g * T[1] + lampBloom * lamp * 0.08) * (1 - m) + fg * fgTint[1] * m, gb = (g * T[2] + lampBloom * lamp * 0.06) * (1 - m) + fg * fgTint[2] * m;
     fb[p] = Math.min(255, fb[p] * gr); fb[p + 1] = Math.min(255, fb[p + 1] * gg); fb[p + 2] = Math.min(255, fb[p + 2] * gb); }
   // 2. the lamp's bloom and the window's glow, added to the room
-  if (longOn > 0) { const L = LIGHTS.lamp, lx = (L.x - VX) * sx, ly = (L.y - VY) * sy, c = wheel(now * flickHz / 6 + 0.5), blink = Math.sin(2 * Math.PI * now * flickHz) > 0 ? 1 : 0.4; glow(lx, ly, Math.round(L.r * 1.5 * sx), c[0], c[1], c[2], 0.16 * longOn * blink); }
+  if (longOn > 0) { const L = LIGHTS.lamp, lx = (L.x - VX) * sx, ly = (L.y - VY) * sy, c = roomHue(6), blink = roomPulse; glow(lx, ly, Math.round(L.r * 1.5 * sx), c[0], c[1], c[2], 0.12 * longOn * blink); }
   if (lampBloom > 0.02) { const L = LIGHTS.lamp, lx = (L.x - VX) * sx, ly = (L.y - VY) * sy, R0 = Math.round(L.r * 1.6 * sx); glow(lx, ly, R0, 255, 228, 180, 0.18 * lampBloom); glow(lx, ly, Math.round(R0 * 2.4), 255, 220, 170, 0.04 * lampBloom); }
   if (windowGlow > 0.02) { const Wn = LIGHTS.window; for (let y = Math.max(0, (Wn.y0 - VY) * sy); y < Math.min(H, (Wn.y1 - VY) * sy); y += 2) for (let x = Math.max(0, (Wn.x0 - VX) * sx); x < Math.min(W, (Wn.x1 - VX) * sx); x += 2) { const k = WINDOW[(y | 0) * W + (x | 0)] * 0.12 * windowGlow; add(x, y, 225, 238, 255, k); add(x + 1, y, 225, 238, 255, k); add(x, y + 1, 225, 238, 255, k); add(x + 1, y + 1, 225, 238, 255, k); } }
   // 3. the fairy lights: a bead of light each, glowing with the pads, a handful flashing on each hat
   const flash = new Float32Array(FAIRY.length); for (let i = HATS.cur || 0; i < HATS.length && HATS[i].t <= now; i++) { const dt = now - HATS[i].t; if (dt < 0.35) for (const p of HATS[i].pts) flash[p] = Math.max(flash[p], HATS[i].g * Math.exp(-dt / 0.07)); }
   if (lightsOn > 0) for (const f of FAIRY) { const base = (0.08 + 0.3 * padLevel + 0.25 * amb) * lightsOn, fl = flash[f.i] * 1.2 * lightsOn;
-    let cr = 170, cg = 150, cb = 255; if (longOn > 0) { const c = wheel(now * flickHz / 6 + f.i * 0.07), blink = Math.sin(2 * Math.PI * now * flickHz + f.i * 0.9) > 0 ? 1 : 0.35; cr += (c[0] - cr) * longOn; cg += (c[1] - cg) * longOn; cb += (c[2] - cb) * longOn; glow(f.x, f.y, Math.round(9 * sx), c[0], c[1], c[2], 0.5 * longOn * blink); }
+    let cr = 170, cg = 150, cb = 255; if (longOn > 0) { const c = roomHue((f.i / 6) | 0), k = longOn * roomPulse * bulb(f.i); cr += (c[0] - cr) * k; cg += (c[1] - cg) * k; cb += (c[2] - cb) * k; glow(f.x, f.y, Math.round(11 * sx), c[0], c[1], c[2], 0.6 * k); glow(f.x, f.y, Math.round(4 * sx), c[0], c[1], c[2], 0.5 * k); }   // a bit more colour shooting off each bulb
     glow(f.x, f.y, Math.round(7 * sx), cr, cg, cb, 0.5 * base); glow(f.x, f.y, 2, 235, 230, 255, 0.7 * base);
     if (fl > 0.02) { glow(f.x, f.y, Math.round(12 * sx), 210, 200, 255, 0.6 * fl); glow(f.x, f.y, 3, 255, 255, 255, 0.9 * fl); } }
   }
   // 4. the singalong: the chunk being sung (and the one leaving); letters fill in syllable by syllable, the sung
   //    syllable pops, the sung word a touch larger, a held syllable kerns outward and sways; the ball rides its one path.
-  ZOOM = zoomAt(now - T0); upscale();                                          // the room is done at the base size; the words go on at the output size
+  ZOOM = zoomAt(now - T0); upscale(); sharpen();                               // the room is done at the base size, upscaled, SHARPENED, then the words go on
   // the dance (v103: "start formal, black and white, less shaky; as the ornament comes in, increase the shake and the
   // colour, so the captions surprise the way the arrangement does"): 0 through the intro and verse 1, a first step
   // when the kick lands, half at chorus 1, full from chorus 2, resting in the break, back up through the bridge

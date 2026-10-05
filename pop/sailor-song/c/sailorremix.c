@@ -90,7 +90,7 @@
 #include "sailor-chart.h"
 
 #define SR 48000
-#define VERSION "v113"
+#define VERSION "v114"
 #define EAGER 0.009          // v73: "eager" placement — percussion pushes ~9 ms ahead of the grid
 #define PIANO_ON 1          // v112: ON — "I wanted the piano" (v71 had turned it off)
 #define SHIFT27 0.0          // v53: how much earlier everything after bar 27 plays, now that the regularizer fits it to four beats
@@ -1416,13 +1416,20 @@ int main(void) {
         int kissM = 63; for (int k = 0; k < CHART_NNOTES; k++) if (fabs(CHART_NOTES[k].t - kiss) < 0.12) { kissM = CHART_NOTES[k].midi; break; }
         const double runT0 = kT - 2 * s32;
         fem_bell(runT0, kissM + 12, 0.6); ev(runT0, "bell", 1.2, 0.6, kissM + 12);
+        // v114: "way too loud" at ×4.5 → "more of a lower-octave, background kind of thing", "bring up HER original k-", "preview it
+        // a bit beforehand": the run is an OCTAVE DOWN at ×1.6 with the hats tucked, her own lead "k-…kiss" (60.42–60.70) lifted +4 dB,
+        // and three ghost grains of the same run one beat earlier (over "you"), a whisper before the band stops
+        { long ga = at(60.42), gz = at(60.70), gr = (long)(0.010 * SR);
+          for (long i = ga - gr; i < gz + gr && i < vox.n; i++) { double w = i < ga ? (double)(i - (ga - gr)) / gr : i > gz ? 1 - (double)(i - gz) / gr : 1; double k = 1 + 0.6 * fmax(0, w); vox.L[i] *= (float)k; if (vox.R) vox.R[i] *= (float)k; } }
+#define KI_GRAIN(T, RATIO, G) do { long a_ = at(T); int n_ = (int)(GL * SR); for (int i = 0; i < n_; i++) { double pp = src0 + i * (RATIO); long j = (long)pp; double f = pp - j; \
+            double v = sample(vox.L, vox.n, j) * (1 - f) + sample(vox.L, vox.n, j + 1) * f; double w = fmin(1, i / (0.003 * SR)) * fmin(1, (n_ - i) / (0.010 * SR)); add(stM, a_ + i, v * w * (G)); } } while (0)
+        for (int q = 0; q < 3; q++) { double t = runT0 - beat + q * s32, ratio = pow(2, ST[q] / 12.0) * 0.5; KI_GRAIN(t, ratio, 0.45); ev(t, "stutter", GL, 0.45, -1); }
         int h = 0; for (double t = runT0; t < down - 0.015 && h < 6; t += s32, h++) {
-            double ratio = pow(2, ST[h] / 12.0), g = (0.5 + 0.5 * h / 5.0) * 4.5; long a = at(t); int n = (int)(GL * SR);   // v111: ×4.5 (+13 dB) — her voice is ×3.9 in the mix bus and the grains were raw; it sat 11 dB under
-            for (int i = 0; i < n; i++) { double pp = src0 + i * ratio; long j = (long)pp; double f = pp - j;
-                double v = sample(vox.L, vox.n, j) * (1 - f) + sample(vox.L, vox.n, j + 1) * f;
-                double w = fmin(1, i / (0.003 * SR)) * fmin(1, (n - i) / (0.010 * SR)); add(stM, a + i, v * w * g); }
-            trap_hat(t, 0.12 * g, h % 2 ? 0.45 : -0.45); ev(t, "stutter", GL, g, -1); }
-        if (h > 0) tom(runT0 + (h - 1) * s32, 120, 0.7, 0.3); }
+            double ratio = pow(2, ST[h] / 12.0) * 0.5, g = (0.5 + 0.5 * h / 5.0) * 1.6;
+            KI_GRAIN(t, ratio, g);
+            trap_hat(t, 0.06 * g, h % 2 ? 0.45 : -0.45); ev(t, "stutter", GL, g, -1); }
+#undef KI_GRAIN
+        if (h > 0) tom(runT0 + (h - 1) * s32, 120, 0.5, 0.3); }
       for (int q = 0; q < 0; q++) { const ChartBar *pb = bar_n(INTO[q] - 1); if (!pb || pb->nb < 4) continue;   // v28: OFF — "i don't like the added glitchiness on the k-kiss"; the dropout and the whip do the work
           const double src = KISS_T[q], t0 = pb->beats[pb->nb - 2], step = (pb->beats[pb->nb] - t0) / 8; long sa = at(src);   // v27: the LAST two beats (bar 27 has five)
           for (int h = 0; h < 8; h++) { double t = t0 + h * step, g = 0.3 + 0.7 * h / 7.0; long a = at(t); int n = (int)(SL * SR);
