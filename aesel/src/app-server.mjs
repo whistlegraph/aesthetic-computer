@@ -21,9 +21,11 @@ export class AppServer extends EventEmitter {
     model = "",
     effort = "",
     requestTimeout = 30000,
+    dynamicTools,
   }) {
     super();
     this.cwd = cwd;
+    this.dynamicTools = dynamicTools;
     this.command = command;
     this.args = args.includes("app-server") ? [...args, ...codexMcpArgs(cwd,environment)] : args;
     this.environment = environment;
@@ -122,8 +124,10 @@ export class AppServer extends EventEmitter {
       cwd: this.cwd,
       approvalPolicy: "on-request",
       approvalsReviewer: "user",
-      sandbox: "workspace-write",
+      sandbox: this.dynamicTools ? "read-only" : "workspace-write",
+      ...(this.dynamicTools ? {config: {"features.shell_tool": false, "web_search": "disabled"}} : {}),
       ephemeral: false,
+      ...(this.dynamicTools ? {dynamicTools: this.dynamicTools.map(t=>({...t,type:"function"}))} : {}),
       sessionStartSource: this.threadId ? "clear" : "startup",
       ...(this.model ? { model: this.model } : {}),
       ...(this.developerInstructions ? { developerInstructions: this.developerInstructions } : {}),
@@ -139,7 +143,8 @@ export class AppServer extends EventEmitter {
       cwd: this.cwd,
       approvalPolicy: "on-request",
       approvalsReviewer: "user",
-      sandbox: "workspace-write",
+      sandbox: this.dynamicTools ? "read-only" : "workspace-write",
+      ...(this.dynamicTools ? {config: {"features.shell_tool": false, "web_search": "disabled"}} : {}),
       ...(this.model ? { model: this.model } : {}),
       ...(this.developerInstructions ? { developerInstructions: this.developerInstructions } : {}),
     });

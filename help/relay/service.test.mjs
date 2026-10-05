@@ -86,3 +86,21 @@ test('phone MCP only exposes declared tools and returns the owner response',asyn
  const preflight=await fetch(f.url()+base,{method:'OPTIONS',headers:{origin:'walkieware://app'}});
  assert.equal(preflight.headers.get('access-control-allow-origin'),'walkieware://app');
 });
+
+test('Astra phone tools use the same owner gate and preserve dynamic tool results',async t=>{
+ const f=await setup(t), tools=[{name:'write_piece',description:'Save',inputSchema:{type:'object'}}];
+ assert.equal((await f.call(base,{provider:'codex',model:'gpt-6-astra',clientTools:tools},'other')).status,403);
+ const {thread}=await f.call(base,{provider:'codex',model:'gpt-6-astra',clientTools:tools});
+ await f.call(`${base}/${thread.id}/turn`,{requestId:randomUUID(),text:'Draw'});
+ await new Promise(r=>setTimeout(r,5));
+ const e=f.engine();let response;
+ e.respond=(id,result)=>response={id,result};
+ e.emit('request',{id:101,method:'item/tool/call',params:{tool:'write_piece',arguments:{source:'blue'}}});
+ const state=await f.call(`${base}/${thread.id}`);
+ assert.equal(state.pending[0].method,'phone/tool');assert.equal(state.pending[0].params.name,'write_piece');
+ assert.equal((await f.call(`${base}/${thread.id}/respond`,{id:101,result:{content:[{type:'text',text:'Saved'}]}})).status,200);
+ assert.deepEqual(response,{id:101,result:{success:true,contentItems:[{type:'inputText',text:'Saved'}]}});
+ e.emit('request',{id:102,method:'item/tool/call',params:{tool:'Bash',arguments:{}}});
+ assert.equal(response.result.success,false);
+ assert.equal((await f.call(`${base}/${thread.id}`)).pending.length,0);
+});
