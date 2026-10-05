@@ -294,12 +294,19 @@ const glyphO = (layer, g, cx, cy, sc, rot, r, gg, b, a) => { const w = g.w, h = 
 // the composite, up to the output size (bilinear; an exact 2× when it is one)
 // the zoom bumps (v103: "zoom-bump the video on that glitch so it feels like we sit into the chorus, BOOM"): a push-in
 // that ratchets up in three steps through the ki-ki-ki, peaks on the downbeat, and eases back; about her head
-const BUMPS = [{ t: 38.444, pre: 0.34, amt: 0.09 }, { t: 84.898, pre: 0.12, amt: 0.05 }];
-const zoomAt = (rn) => { let z = 1; for (const b of BUMPS) { const d = rn - b.t;
-  if (d >= -b.pre && d < 0) { const f = 1 + d / b.pre; z += b.amt * 0.55 * (Math.floor(f * 3) / 3 + ((f * 3) % 1) * 0.35); }
-  else if (d >= 0 && d < 0.5) { const f = d / 0.5; z += b.amt * (1 - f) * (1 - f); } } return z; };
+// QUANTIZED (jeffrey): one hard step per grain of the ki-ki-ki — the receipt's stutter events — held between, the
+// last step on the downbeat, then an ease back; chorus 2 gets a smaller bump keyed to its downbeat alone
+const STUT = (R.events || []).filter((e) => e.voice === "stutter").map((e) => e.t - T0).sort((a, b) => a - b);
+const BUMPS = [{ t: 38.444, steps: STUT.filter((t) => t > 37.5 && t < 38.444), amt: 0.09 }, { t: 84.898, steps: [84.898 - 0.12, 84.898 - 0.06], amt: 0.05 }];
+// …and not a staircase: each grain JUMPS the frame somewhere — a hashed zoom (in or out) and a hashed offset — held until
+// the next grain, the downbeat landing the big push, then the ease back (jeffrey: "jumping around based on the glitch")
+const jumpOf = (t, amt) => { const h = fnv(`jump:${t.toFixed(3)}`); return { z: 1 + amt * (0.35 + 0.65 * ((h >>> 4) % 100) / 100) * (((h >>> 12) & 1) ? 1 : -0.45), dx: (((h >>> 16) % 100) / 100 - 0.5) * amt * 1.6, dy: (((h >>> 24) % 100) / 100 - 0.5) * amt * 1.0 }; };
+let ZDX = 0, ZDY = 0;
+const zoomAt = (rn) => { let z = 1; ZDX = 0; ZDY = 0; for (const b of BUMPS) { const d = rn - b.t;
+  if (d < 0) { let last = null; for (const t of b.steps) if (rn >= t) last = t; if (last != null) { const j = jumpOf(last, b.amt); z = j.z; ZDX = j.dx; ZDY = j.dy; } }
+  else if (d < 0.5) { const f = d / 0.5; z += b.amt * (1 - f) * (1 - f); } } return z; };
 let ZOOM = 1; const ZB = Buffer.alloc(W * H * 3);
-const upscale = () => { const z = ZOOM; if (!OB && z === 1) { ob = fb; return; } ob = OB || ZB; const fx = W / OW / z, fy = H / OH / z, cx = W * 0.4, cy = H * 0.3, ox = cx - cx / z, oy = cy - cy / z;
+const upscale = () => { const z = ZOOM; if (!OB && z === 1 && !ZDX && !ZDY) { ob = fb; return; } ob = OB || ZB; const fx = W / OW / z, fy = H / OH / z, cx = W * 0.4, cy = H * 0.3, ox = cx - cx / z + ZDX * W, oy = cy - cy / z + ZDY * H;
   for (let y = 0; y < OH; y++) { const v = Math.min(H - 1.001, Math.max(0, oy + (y + 0.5) * fy - 0.5)), v0 = v | 0, fv = v - v0, r0 = v0 * W * 3, r1 = (v0 + 1) * W * 3, q = y * OW * 3;
     for (let x = 0; x < OW; x++) { const u = Math.min(W - 1.001, Math.max(0, ox + (x + 0.5) * fx - 0.5)), u0 = u | 0, fu = u - u0, a = r0 + u0 * 3, b = r1 + u0 * 3, o = q + x * 3;
       for (let c = 0; c < 3; c++) ob[o + c] = (fb[a + c] * (1 - fu) + fb[a + 3 + c] * fu) * (1 - fv) + (fb[b + c] * (1 - fu) + fb[b + 3 + c] * fu) * fv; } } };
