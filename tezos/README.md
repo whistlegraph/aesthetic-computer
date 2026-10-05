@@ -66,8 +66,9 @@
 ### Braincell purchases
 
 Whistlegraph opens `/braincells/` in the browser to pair with Temple or another
-Beacon wallet. `/api/easel-tezos` sells the existing $5 / 1,000,000 braincell pack
-to `aesthetic.tez`, using a 15-minute mainnet quote. A signed account message binds
+Beacon wallet. `/api/easel-tezos` offers $3 / 600,000 and $5 / 1,000,000 braincell packs
+to `aesthetic.tez`, using a 15-minute mainnet quote. Choose the pack before
+connecting the wallet; the first signed quote fixes its price and credit amount. A signed account message binds
 the payer; TzKT must report the exact transfer and three confirmations before AC
 adds credit. No wallet keys are stored by AC.
 

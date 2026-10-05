@@ -5,10 +5,14 @@ import { CREDIT_PACK, fulfillGrant } from './easel-paid-credits.mjs';
 export const TEZOS_TREASURY = 'tz1gkf8EexComFBJvjtT1zdsisdah791KwBE'; // aesthetic.tez
 export const CONFIRMATIONS = 3;
 export const QUOTE_MS = 15 * 60_000;
+export const TEZOS_CREDIT_PACKS = Object.freeze([
+  Object.freeze({ id:'braincells-600k-v1', amount:300, credits:600_000 }),
+  CREDIT_PACK,
+]);
 const API = 'https://api.tzkt.io/v1';
 const digest = value => createHash('sha256').update(value).digest('hex');
 export const paymentError = (status, message) => Object.assign(new Error(message), { status });
-const publicIntent = i => ({ id:i._id, handle:i.handle, status:i.status, credits:i.credits, usd:i.usd,
+const publicIntent = i => ({ id:i._id, handle:i.handle, status:i.status, credits:i.credits, usd:i.usd, pack:i.pack || CREDIT_PACK.id,
   network:'mainnet', recipient:i.recipient, sender:i.sender || null, amountMutez:i.amountMutez || null,
   expiresAt:i.expiresAt || null, operationHash:i.operationHash || null, confirmations:CONFIRMATIONS });
 
@@ -29,13 +33,14 @@ export async function chainJSON(path, fetcher = fetch) {
   return response.json();
 }
 
-export function quoteAmount(head, now = new Date()) {
+export function quoteAmount(head, now = new Date(), cents = CREDIT_PACK.amount) {
   if (head.chain !== 'mainnet' || head.chainId !== 'NetXdQprcVkpaWU' || !head.synced || !Number.isFinite(head.quoteUsd) || head.quoteUsd <= 0 ||
       !Number.isSafeInteger(head.level) || !Number.isFinite(Date.parse(head.timestamp)) ||
       Math.abs(+now - Date.parse(head.timestamp)) > 5 * 60_000 || !Number.isSafeInteger(head.quoteLevel) || head.quoteLevel < head.level - 100) {
     throw paymentError(503, 'A fresh Tezos price is unavailable. Try again shortly.');
   }
-  const mutez = Math.ceil((CREDIT_PACK.amount / 100) / head.quoteUsd * 1e6);
+  if (!TEZOS_CREDIT_PACKS.some(pack => pack.amount === cents)) throw paymentError(400, 'Unknown braincell pack');
+  const mutez = Math.ceil((cents / 100) / head.quoteUsd * 1e6);
   if (!Number.isSafeInteger(mutez) || mutez < 1) throw paymentError(503, 'Invalid Tezos quote');
   return String(mutez);
 }
@@ -91,25 +96,31 @@ export function tezosPayments({ intents, claims, wallets, chain = chainJSON, ver
     async status(secret) {
       const intent = await lookup(secret);
       const expired = !intent.sender && +now() - +new Date(intent.createdAt) > 24 * 3600_000;
-      return { ...publicIntent(intent), ...(expired ? { status:'expired' } : {}), payload:ownershipPayload(intent) };
+      return { ...publicIntent(intent), ...(expired ? { status:'expired' } : {}), payload:ownershipPayload(intent),
+        offers:TEZOS_CREDIT_PACKS.map(pack => ({ id:pack.id, credits:pack.credits, usd:pack.amount / 100 })) };
     },
     async quote(secret, proof) {
       const intent = await lookup(secret);
       if (intent.status === 'credited') return publicIntent(intent);
       if (intent.sender) {
         if (intent.sender !== proof.address) throw paymentError(409, 'This checkout belongs to a different wallet');
+        if (proof.pack && proof.pack !== (intent.pack || CREDIT_PACK.id)) throw paymentError(409, 'This checkout already has a fixed pack');
         if (+now() > Date.parse(intent.expiresAt)) throw paymentError(409, 'Quote expired. Start a new checkout; do not pay this quote.');
         return publicIntent(intent);
       }
       if (+now() - +new Date(intent.createdAt) > 24 * 3600_000) throw paymentError(409, 'Checkout expired');
       if (!verify(intent, proof)) throw paymentError(403, 'Wallet ownership signature did not verify');
+      const pack = TEZOS_CREDIT_PACKS.find(pack => pack.id === (proof.pack ?? CREDIT_PACK.id));
+      if (!pack) throw paymentError(400, 'Unknown braincell pack');
       const head = await chain('/head');
       const quotedAt = now();
-      const quote = { status:'quoted', sender:proof.address, amountMutez:quoteAmount(head, quotedAt),
+      const quote = { status:'quoted', sender:proof.address, pack:pack.id, credits:pack.credits, usd:pack.amount / 100,
+        amountMutez:quoteAmount(head, quotedAt, pack.amount),
         quotedAt:quotedAt.toISOString(), expiresAt:new Date(+quotedAt + QUOTE_MS).toISOString(), quoteUsd:head.quoteUsd };
       await intents.updateOne({ _id:intent._id, sender:{ $exists:false } }, { $set:quote });
       const saved = await lookup(secret);
       if (saved.sender !== proof.address) throw paymentError(409, 'Another wallet already claimed this checkout');
+      if (saved.pack !== pack.id) throw paymentError(409, 'Another quote already fixed the pack for this checkout');
       return publicIntent(saved);
     },
     async confirm(secret, operationHash) {

@@ -35,7 +35,7 @@ function collection() {
     },
   };
 }
-async function fixture() {
+async function fixture(pack) {
   const intents = collection(), claims = collection(), wallets = collection();
   let clock = time;
   const state = { head:{ ...head }, txs:[] };
@@ -43,7 +43,7 @@ async function fixture() {
     chain:async path => path === '/head' ? state.head : state.txs });
   const created = await p.create('user', '@test');
   const secret = new URL(created.checkoutURL).hash.slice(1);
-  const quoted = await p.quote(secret, { address:sender, signature:'valid' });
+  const quoted = await p.quote(secret, { address:sender, signature:'valid', pack });
   const intent = [...intents.docs.values()][0];
   const tx = { id:1234, hash, status:'applied', sender:{ address:sender }, target:{ address:TEZOS_TREASURY },
     amount:Number(quoted.amountMutez), timestamp:new Date(+time + 1000).toISOString(), level:100 };
@@ -52,9 +52,27 @@ async function fixture() {
 
 test('quotes use the existing $5 pack and reject stale or wrong-network prices', () => {
   assert.equal(quoteAmount(head, time), '12500000');
+  assert.equal(quoteAmount(head, time, 300), '7500000');
+  assert.throws(() => quoteAmount(head, time, 1), /Unknown/);
   for (const patch of [{ quoteUsd:0 }, { synced:false }, { chain:'ghostnet' }, { chainId:'other' }, { timestamp:'bad' }, { quoteLevel:0 }])
     assert.throws(() => quoteAmount({ ...head, ...patch }, time), /price|quote/);
   assert.throws(() => quoteAmount(head, new Date(+time + 3600_000)), /fresh/);
+});
+
+test('$3 buys exactly 600,000 braincells and a signed quote cannot change packs', async () => {
+  const f = await fixture('braincells-600k-v1');
+  assert.equal(f.quoted.usd, 3);
+  assert.equal(f.quoted.credits, 600_000);
+  assert.equal(f.quoted.amountMutez, '7500000');
+  await assert.rejects(f.p.quote(f.secret, { address:sender, signature:'valid', pack:'braincells-1m-v1' }), /fixed pack/);
+  f.state.txs = [f.tx];
+  assert.equal((await f.p.confirm(f.secret, hash)).credits, 600_000);
+  await f.p.confirm(f.secret, hash);
+  assert.equal(f.wallets.docs.get('user').balance, 600_000);
+  const created = await f.p.create('user', '@test');
+  const secret = new URL(created.checkoutURL).hash.slice(1);
+  await assert.rejects(f.p.quote(secret, { address:sender, signature:'valid', pack:'invented', credits:99_000_000, usd:0.01 }), /Unknown/);
+  assert.equal((await f.p.status(secret)).status, 'created');
 });
 
 test('display conversions expose a dated, expiring rate without requiring a checkout', async () => {

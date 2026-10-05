@@ -8,9 +8,10 @@
 <link rel="stylesheet" href="checkout.css">
 <main>
   <img class="brain" src="/aesthetic.computer/braincell.svg" alt="" width="64" height="64">
-  <h1>1,000,000 braincells</h1>
+  <h1 id="quantity">Braincells</h1>
   <p id="account">Loading checkout…</p>
-  <p id="price">$5 in tez, plus the wallet’s network fee.</p>
+  <label id="pack-label" hidden>Amount <select id="pack" aria-label="Amount"></select></label>
+  <p id="price"></p>
   <p id="wallet" hidden></p>
   <button id="connect" hidden>Connect wallet</button>
   <button id="pay" hidden>Pay in tez</button>

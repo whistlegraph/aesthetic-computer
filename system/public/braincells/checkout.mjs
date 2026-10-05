@@ -5,7 +5,7 @@ if (/^[a-f0-9]{64}$/.test(fragment)) {
   sessionStorage.setItem('ac-tezos-checkout', fragment);
   history.replaceState(null, '', location.pathname);
 }
-let client, intent, busy = false, polling = false;
+let client, intent, offers = [], busy = false, polling = false;
 const say = text => { $('status').textContent = text; };
 async function api(action, body = {}) {
   const r = await fetch('/api/easel-tezos', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${secret}` },
@@ -16,6 +16,15 @@ async function api(action, body = {}) {
 }
 function show(next) {
   intent = next;
+  if (next.offers) {
+    offers = next.offers;
+    $('pack').replaceChildren(...offers.map(offer => new Option(`$${offer.usd} · ${offer.credits.toLocaleString()} braincells`, offer.id)));
+  }
+  const savedPack = sessionStorage.getItem(`ac-tezos-pack:${intent.id}`);
+  $('pack').value = intent.sender ? intent.pack : offers.some(offer => offer.id === savedPack) ? savedPack : intent.pack;
+  $('pack-label').hidden = Boolean(intent.sender) || intent.status !== 'created';
+  $('pack').disabled = busy || Boolean(intent.sender);
+  showPack();
   $('account').textContent = `For @${intent.handle}`;
   $('recipient').hidden = false;
   $('return').hidden = false;
@@ -32,6 +41,12 @@ function show(next) {
   if (intent.status === 'credited') { say('Braincells added. They’re ready to use in AC.'); sessionStorage.removeItem(`ac-tezos-op:${intent.id}`); }
   else if (expired || intent.status === 'expired') say('Quote expired. Check an existing payment, or return to Whistlegraph for a new checkout.');
 }
+function showPack() {
+  const pack = !intent.sender && offers.find(offer => offer.id === $('pack').value) || intent;
+  $('quantity').textContent = `${pack.credits.toLocaleString()} braincells`;
+  if (!intent.sender) $('price').textContent = `$${pack.usd} in tez, plus the wallet’s network fee.`;
+}
+$('pack').onchange = () => { sessionStorage.setItem(`ac-tezos-pack:${intent.id}`, $('pack').value); showPack(); };
 async function useWallet() {
   if (!client) client = new window.beacon.DAppClient({ name:'AC braincells', network:{ type:'mainnet' }, enableMetrics:false,
     appUrl:'https://aesthetic.computer/braincells/', iconUrl:'https://aesthetic.computer/aesthetic.computer/braincell.svg', disableDefaultEvents:false });
@@ -44,16 +59,17 @@ async function useWallet() {
 async function action(work) {
   if (busy) return;
   busy = true;
-  for (const id of ['connect','pay','check']) $(id).disabled = true;
+  for (const id of ['connect','pay','check','pack']) $(id).disabled = true;
   try { await work(); } catch (error) { say(error.message || 'Wallet request interrupted. Check payment before trying again.'); }
-  finally { busy = false; for (const id of ['connect','pay','check']) $(id).disabled = false; }
+  finally { busy = false; for (const id of ['connect','pay','check']) $(id).disabled = false; $('pack').disabled = Boolean(intent.sender); }
 }
 $('connect').onclick = () => action(async () => {
+  const pack = $('pack').value;
   say('Choose Temple or another Tezos wallet.');
   const account = await useWallet();
   say('Approve the account message in your wallet. This does not move tez.');
   const signed = await client.requestSignPayload({ signingType:'micheline', payload:intent.payload, sourceAddress:account.address });
-  show(await api('quote', { address:account.address, publicKey:account.publicKey, signature:signed.signature }));
+  show(await api('quote', { pack, address:account.address, publicKey:account.publicKey, signature:signed.signature }));
   say('Review the amount, then pay in your wallet. Quote lasts 15 minutes.');
 });
 $('pay').onclick = () => action(async () => {
