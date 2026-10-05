@@ -308,6 +308,10 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     override init() {
         super.init()
         capture.hasVisualInput = { [weak self] in self?.drawing.hasInk == true }
+        capture.speechToken = { [weak self] in
+            guard let self, self.snapshot.handle == "jeffrey" else { return nil }
+            return try await self.account.token()
+        }
         capture.onEvent = { [weak self] kind, text, id in self?.emit(kind, text: text, id: id) }
         capture.onLevel = { [weak self] rms in guard let self else { return }; self.microphoneLevels = Array(self.microphoneLevels.dropFirst()) + [rms] }
         capture.onReplayRelease = { [weak self] in self?.webView?.evaluateJavaScript("voiceEnd()", completionHandler: nil) }
