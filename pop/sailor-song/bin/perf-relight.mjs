@@ -291,31 +291,60 @@ const glyphO = (layer, g, cx, cy, sc, rot, r, gg, b, a) => { const w = g.w, h = 
     if (u < 0 || v < 0 || u >= w - 1 || v >= h - 1) continue; const u0 = u | 0, v0 = v | 0, fu = u - u0, fv = v - v0, o = v0 * GA.W + g.x + u0;
     const c = (layer[o] * (1 - fu) + layer[o + 1] * fu) * (1 - fv) + (layer[o + GA.W] * (1 - fu) + layer[o + GA.W + 1] * fu) * fv;
     if (c > 2) pxO(X, Y, r, gg, b, a * c / 255); } };
-// the composite, up to the output size (bilinear; an exact 2× when it is one)
-// the zoom bumps (v103: "zoom-bump the video on that glitch so it feels like we sit into the chorus, BOOM"): a push-in
-// that ratchets up in three steps through the ki-ki-ki, peaks on the downbeat, and eases back; about her head
-// QUANTIZED (jeffrey): one hard step per grain of the ki-ki-ki — the receipt's stutter events — held between, the
-// last step on the downbeat, then an ease back; chorus 2 gets a smaller bump keyed to its downbeat alone
+// the composite, up to the output size (bilinear), with two things done to the picture on the way up — both are
+// per-pixel SOURCE OFFSETS inside the same bilinear pass, so a frame with neither costs nothing extra:
+//
+// the kiss glitch (v103 zoom-bumped it; v120, jeffrey: "we don't need so much of a zoom glitch, maybe just a bit of
+// color separation would do"): no zoom, no jump — each grain of the ki-ki-ki (the receipt's stutter events) SPLITS the
+// colour, the red channel pulled a few px one way and the blue the other (hashed direction per grain, 2–6 px at 1080),
+// held until the next grain, a slightly bigger split landing on the downbeat and easing out over 0.4 s; chorus 2's
+// downbeat gets a smaller one
 const STUT = (R.events || []).filter((e) => e.voice === "stutter").map((e) => e.t - T0).sort((a, b) => a - b);
-const BUMPS = [{ t: 38.444, steps: STUT.filter((t) => t > 38.0 && t < 38.444), amt: 0.09 }, { t: 84.898, steps: [84.898 - 0.12, 84.898 - 0.06], amt: 0.05 }];   // the picture jumps only on the grains inside the stop (jeffrey: the early ones "unnecessary")
-// …and not a staircase: each grain JUMPS the frame somewhere — a hashed zoom (in or out) and a hashed offset — held until
-// the next grain, the downbeat landing the big push, then the ease back (jeffrey: "jumping around based on the glitch")
-const jumpOf = (t, amt) => { const h = fnv(`jump:${t.toFixed(3)}`); return { z: 1 + amt * (0.35 + 0.65 * ((h >>> 4) % 100) / 100) * (((h >>> 12) & 1) ? 1 : -0.45), dx: (((h >>> 16) % 100) / 100 - 0.5) * amt * 1.6, dy: (((h >>> 24) % 100) / 100 - 0.5) * amt * 1.0 }; };
-let ZDX = 0, ZDY = 0;
-const zoomAt = (rn) => { let z = 1; ZDX = 0; ZDY = 0; for (const b of BUMPS) { const d = rn - b.t;
-  if (d < 0) { let last = null; for (const t of b.steps) if (rn >= t) last = t; if (last != null) { const j = jumpOf(last, b.amt); z = j.z; ZDX = j.dx; ZDY = j.dy; } }
-  else if (d < 0.5) { const f = d / 0.5; z += b.amt * (1 - f) * (1 - f); } } return z; };
-let ZOOM = 1; const ZB = Buffer.alloc(W * H * 3);
-const upscale = () => { const z = ZOOM; if (!OB && z === 1 && !ZDX && !ZDY) { ob = fb; return; } ob = OB || ZB; const fx = W / OW / z, fy = H / OH / z, cx = W * 0.4, cy = H * 0.3, ox = cx - cx / z + ZDX * W, oy = cy - cy / z + ZDY * H;
-  for (let y = 0; y < OH; y++) { const v = Math.min(H - 1.001, Math.max(0, oy + (y + 0.5) * fy - 0.5)), v0 = v | 0, fv = v - v0, r0 = v0 * W * 3, r1 = (v0 + 1) * W * 3, q = y * OW * 3;
-    for (let x = 0; x < OW; x++) { const u = Math.min(W - 1.001, Math.max(0, ox + (x + 0.5) * fx - 0.5)), u0 = u | 0, fu = u - u0, a = r0 + u0 * 3, b = r1 + u0 * 3, o = q + x * 3;
-      for (let c = 0; c < 3; c++) ob[o + c] = (fb[a + c] * (1 - fu) + fb[a + 3 + c] * fu) * (1 - fv) + (fb[b + c] * (1 - fu) + fb[b + 3 + c] * fu) * fv; } } };
+const BUMPS = [{ t: 38.444, steps: STUT.filter((t) => t > 38.0 && t < 38.444), amt: 1 }, { t: 84.898, steps: [84.898 - 0.12, 84.898 - 0.06], amt: 0.55 }];   // only the grains inside the stop (jeffrey: the early ones "unnecessary")
+const splitOf = (t, amt) => { const h = fnv(`split:${t.toFixed(3)}`), px = (2 + 4 * ((h >>> 4) % 100) / 100) * amt, th = (((h >>> 12) % 100) / 100 - 0.5) * 1.4 + (((h >>> 20) & 1) ? Math.PI : 0);   // mostly sideways, either way, a little tilt
+  return { dx: px * Math.cos(th), dy: px * Math.sin(th) }; };
+let SPLIT = { dx: 0, dy: 0 };                                                 // the red channel's offset in 1080 px; blue gets the opposite
+const splitAt = (rn) => { SPLIT = { dx: 0, dy: 0 }; for (const b of BUMPS) { const d = rn - b.t;
+  if (d < 0) { let last = null; for (const t of b.steps) if (rn >= t) last = t; if (last != null) SPLIT = splitOf(last, b.amt); }
+  else if (d < 0.4) { const f = d / 0.4, k = (1 - f) * (1 - f), s = splitOf(b.t, b.amt), m = Math.hypot(s.dx, s.dy), big = 6 * b.amt * k / m; SPLIT = { dx: s.dx * big, dy: s.dy * big }; } } };   // the downbeat: the top of the grains' range, in its own hashed direction
+// the twangs (v120, jeffrey: "I wonder if the guitar parts could somehow warble the edges of the video — add a bit of
+// motion blur / displacement / ripple — that'd be really nice for the twangs specifically"): every gtr event in the
+// receipt (her strums) sends a ripple in from the FRAME EDGES — a sine along the distance to each edge (wavelength
+// ~50 px, travelling inward at ~300 px/s), its amplitude 4–8 px at 1080 by the strum's gain, weighted (1 - d/B)² over
+// the outer 17 % of the frame and zero inside it (her face is never touched), decaying over ~350 ms; the four edges
+// each contribute along their own normal, summed, so the corners stay continuous — one 1-D table per axis per frame.
+// While it rings, a light motion blur near the edges only: 30 % of the previous output frame, by the same edge weight.
+const GTRS = pick("gtr");
+const RIP = { amp: 10, band: 0.17, lambda: 50, speed: 300, tau: 0.15, len: 0.45, blur: 0.3 }, RING = [];   // px at 1080 (× the strum's gain), the band's share of the frame, px, px/s, s, s, the ghost's share
+const RX = new Float32Array(OW), RY = new Float32Array(OH), BX = new Float32Array(OW), BY = new Float32Array(OH);   // the displacement and the edge weight, per column / per row
+let ripOn = 0, PREV = null, prevFi = -2;
+const rippleAt = (now) => { RING.length = 0; for (let i = GTRS.cur || 0; i < GTRS.length && GTRS[i].t <= now; i++) { const dt = now - GTRS[i].t; if (dt > RIP.len) { if (i === (GTRS.cur || 0)) GTRS.cur = i + 1; continue; } RING.push({ dt, g: GTRS[i].g }); }
+  ripOn = 0; if (!RING.length) return; const S = OH / 1080, B = RIP.band * Math.min(OW, OH), w2 = 2 * Math.PI / (RIP.lambda * S);
+  const early = 1 + 0.4 * (1 - Math.min(1, Math.max(0, (now - T0 - 10.8) / (38.4 - 10.8))));            // before the kick the ripple is the only effect: a little bigger, so it reads; back to size by chorus 1
+  const waves = RING.map((r) => { const e = Math.exp(-r.dt / RIP.tau) * Math.min(1, (RIP.len - r.dt) / 0.05); ripOn = Math.max(ripOn, e); return { a: RIP.amp * S * early * r.g * e, ph: -w2 * RIP.speed * S * r.dt }; });
+  const f = (d) => { if (d >= B) return 0; const w = (1 - d / B) ** 2; let s = 0; for (const q of waves) s += q.a * Math.sin(w2 * d + q.ph); return s * w; }, wgt = (d) => d >= B ? 0 : (1 - d / B) ** 2;
+  for (let x = 0; x < OW; x++) { const dL = x + 0.5, dR = OW - 0.5 - x; RX[x] = f(dL) - f(dR); BX[x] = Math.min(1, wgt(dL) + wgt(dR)); }
+  for (let y = 0; y < OH; y++) { const dT = y + 0.5, dB = OH - 0.5 - y; RY[y] = f(dT) - f(dB); BY[y] = Math.min(1, wgt(dT) + wgt(dB)); } };
+const ZB = Buffer.alloc(W * H * 3);
+const upscale = (fi) => { const rip = ripOn > 0.002, spl = Math.abs(SPLIT.dx) + Math.abs(SPLIT.dy) > 0.05; if (!OB && !rip && !spl) { ob = fb; return; } ob = OB || ZB;
+  const fx = W / OW, fy = H / OH, S = OH / 1080, sdx = SPLIT.dx * S * fx, sdy = SPLIT.dy * S * fy;         // the split, in base px
+  const blur = rip && PREV && prevFi === fi - 1 ? RIP.blur * ripOn : 0;                                          // a ghost of the last frame, only while it rings and only from a frame that was kept
+  const bl = (c, u, v) => { const u0 = u | 0, v0 = v | 0, fu = u - u0, fv = v - v0, a = (v0 * W + u0) * 3 + c, b = a + W * 3; return (fb[a] * (1 - fu) + fb[a + 3] * fu) * (1 - fv) + (fb[b] * (1 - fu) + fb[b + 3] * fu) * fv; };
+  const cu = (u) => Math.min(W - 1.001, Math.max(0, u)), cv = (v) => Math.min(H - 1.001, Math.max(0, v));
+  for (let y = 0; y < OH; y++) { const vy = y + 0.5, q = y * OW * 3, ry = rip ? RY[y] : 0, by = rip ? BY[y] : 0;
+    for (let x = 0; x < OW; x++) { const o = q + x * 3, rx = rip ? RX[x] : 0;
+      const u = cu((x + 0.5 + rx) * fx - 0.5), v = cv((vy + ry) * fy - 0.5);
+      if (spl) { ob[o] = bl(0, cu(u + sdx), cv(v + sdy)); ob[o + 1] = bl(1, u, v); ob[o + 2] = bl(2, cu(u - sdx), cv(v - sdy)); }
+      else { const u0 = u | 0, v0 = v | 0, fu = u - u0, fv = v - v0, a = (v0 * W + u0) * 3, b = a + W * 3;
+        for (let c = 0; c < 3; c++) ob[o + c] = (fb[a + c] * (1 - fu) + fb[a + 3 + c] * fu) * (1 - fv) + (fb[b + c] * (1 - fu) + fb[b + 3 + c] * fu) * fv; }
+      if (blur) { const k = blur * Math.max(by, rip ? BX[x] : 0); if (k > 0.002) { ob[o] += (PREV[o] - ob[o]) * k; ob[o + 1] += (PREV[o + 1] - ob[o + 1]) * k; ob[o + 2] += (PREV[o + 2] - ob[o + 2]) * k; } } } }
+  if (rip) { if (!PREV) PREV = Buffer.alloc(OW * OH * 3); ob.copy(PREV); prevFi = fi; } };
 // a wise sharpen on the delivered picture, before the words (v103: "a post smart sharpen over all the video so it's all
 // crisp"): unsharp on luma only (no colour fringing), the amount gated by local contrast — flat skin, wall and bokeh get
 // almost none, edges and texture get the full dose — and a clamp so no halo overshoots its neighbours by more than a step
 const SHARP = { amount: 0.9, radius: 1, lo: 6, hi: 40, clamp: 28 }, SB = Buffer.alloc(0);
 let LUM = null, BLR = null;
-const sharpen = () => { if (ob === fb && !OB && ZOOM === 1) return;                // (never on the raw composite when nothing was rescaled)
+const sharpen = () => { if (ob === fb) return;                                       // (never on the raw composite when nothing was rescaled)
   const n = OW * OH; if (!LUM || LUM.length !== n) { LUM = new Float32Array(n); BLR = new Float32Array(n); }
   for (let i = 0, p = 0; i < n; i++, p += 3) LUM[i] = 0.299 * ob[p] + 0.587 * ob[p + 1] + 0.114 * ob[p + 2];
   for (let y = 0; y < OH; y++) { const r = y * OW; BLR[r] = LUM[r]; BLR[r + OW - 1] = LUM[r + OW - 1]; for (let x = 1; x < OW - 1; x++) BLR[r + x] = (LUM[r + x - 1] + 2 * LUM[r + x] + LUM[r + x + 1]) * 0.25; }
@@ -400,7 +429,7 @@ function drawFrame(fi) {
   }
   // 4. the singalong: the chunk being sung (and the one leaving); letters fill in syllable by syllable, the sung
   //    syllable pops, the sung word a touch larger, a held syllable kerns outward and sways; the ball rides its one path.
-  ZOOM = zoomAt(now - T0); upscale(); sharpen();                               // the room is done at the base size, upscaled, SHARPENED, then the words go on
+  splitAt(now - T0); rippleAt(now); upscale(fi); sharpen();                     // the room is done at the base size, upscaled (the twangs' ripple, the kiss's split), SHARPENED, then the words go on
   if (!NO_LYRIC) { const k = Math.min(1, 0.3 + 0.7 * amb) * (1 + 0.5 * lampBloom), fl = Math.min(1, bellRaw) * 120, SH = hue.map((h) => Math.min(255, (h * k + fl) * dance)), off = 0.07 * GA.px * (CHUNKS[0]?.sc ?? SC_MAX);   // the shadow tight under the glyph (v103: "too far from the captions")
     // the "longs" (v103: "when arpeggiating should blink colors rapidly — psychic effects"): a held syllable's letters run
     // the hue wheel, each letter a step behind the last, blinking at 6 Hz, 16 Hz with the arp under it
