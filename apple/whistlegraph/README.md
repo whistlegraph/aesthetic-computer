@@ -4,6 +4,8 @@ The iPhone app for making AC pieces with voice, sound, and typing. Product domai
 
 From this directory, run `./run.sh device` to bundle, build, install, and open the app on a paired iPhone. Use `DEVICE=<identifier>` if more than one phone is paired. `./run.sh simulator` builds for a simulator; select one with `SIMULATOR=<identifier>`. XcodeGen generates `Whistlegraph.xcodeproj` from `project.yml`.
 
+For an unsigned build transferred from poorslice, run `bash sign-device.sh <Whistlegraph.app> <identity> <profile> <entitlements>` before packaging or installing. This signs embedded debug libraries before the app and verifies all nested signatures. An install succeeding does not prove launch succeeds: verify the unlocked phone opens the workspace before marking a build launch-verified.
+
 Typing uses AC's `compkey` sample and QWERTY pitch mapping. Enter sends the prompt, pasted line breaks become spaces, and the limit is 96 characters. Account settings control key and button sounds together.
 
 ## Story cards
