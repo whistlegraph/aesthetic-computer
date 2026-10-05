@@ -90,9 +90,9 @@
 #include "sailor-chart.h"
 
 #define SR 48000
-#define VERSION "v107"
+#define VERSION "v113"
 #define EAGER 0.009          // v73: "eager" placement — percussion pushes ~9 ms ahead of the grid
-#define PIANO_ON 0           // v71: "let's be rid of the piano" — the sampler stays, the part is off
+#define PIANO_ON 1          // v112: ON — "I wanted the piano" (v71 had turned it off)
 #define SHIFT27 0.0          // v53: how much earlier everything after bar 27 plays, now that the regularizer fits it to four beats
 #define KICK_ONLY 0          // v48: "try removing all percussion other than kick" — claps, snares, hats, toms, shaker, congas, taiko off
 #define END_BAR 999          // v23: "the song should end how her video ends" — the record runs to the end of her take (v9 cut at 82 + 1.5 s)
@@ -517,6 +517,11 @@ static double v_sis_hum(const ChartBar *b, int x) { (void)x; int s = section_of(
 static int rec_pos(const ChartBar *b) { return (int)(b - CHART_BARS) + 1; }
 static double v_far(const ChartBar *b, int x) { (void)x; return rec_pos(b) < pos_n(11) ? 1 : rec_pos(b) < pos_n(44) ? 1 - evo(b->n, 13, 25) : 0; }   // far = quiet
 static double v_cath(const ChartBar *b, int x) { (void)x; return 0.6 * evo(rec_pos(b), pos_n(22), CHART_NBARS - 6) * (section_of(b->n) == BRIDGE ? 0.3 : 1); }   // v32: the cat-and-mouse verse is close — the stone steps back   // v22b: "we still need her to have an up front voice" — half the stone (was 1.3)
+// v108: POWER — "the mix is a little tame now; bring more instruments up — more power, in amplitude / velocity": the band
+// (everything but her voice) lifts by section, +2 dB in the choruses, +2.5 in the finale, her voice half a dB with it
+static double v_power(const ChartBar *b, int x) { (void)x; int s = section_of(b->n), n = b->n;
+    switch (s) { case INTRO: return 1; case VERSE1: return 1 + 0.1 * evo(n, 20, 27); case CHORUS1: return 1.26; case VERSE2: return 1.12;
+        case CHORUS2: return 1.32; case BREAK: return 1.2; case BRIDGE: return 1.24 + 0.08 * evo(n, 77, 81); case OUTRO: return n >= 83 ? 1 : 1.35; } return 1; }
 static double v_warm(const ChartBar *b, int x) { (void)x; if (section_of(b->n) == BRIDGE) return 0.65; return 1 - 0.6 * evo(rec_pos(b), pos_n(20), CHART_NBARS - 6); }   // v32: "bring her voice back in" for the bridge — at the mic again   // v25: she stays closer all the way (was 0.85)
 static double v_thick(const ChartBar *b, int x) { (void)x; int s = section_of(b->n); return s == INTRO ? 0 : s == VERSE1 ? 0.25 * evo(b->n, 16, 24) : s == BREAK ? 0 : s == VERSE2 ? 0.18 : 0.2; }   // v15: the doubles trimmed so the lead stays in front; v26: thinner still
 static double v_harm_g(const ChartBar *b, int h) { return harm_at(b->n, h).g; }
@@ -882,6 +887,9 @@ static Biquad bq(int type, double f, double q, double db) {
     double A = pow(10, db / 40), w = 2 * PI * f / SR, c = cos(w), sn = sin(w), al = sn / (2 * q), b0, b1, b2, a0, a1, a2;
     if (type == 0) { b0 = (1 + c) / 2; b1 = -(1 + c); b2 = b0; a0 = 1 + al; a1 = -2 * c; a2 = 1 - al; }            // highpass
     else if (type == 1) { b0 = 1 + al * A; b1 = -2 * c; b2 = 1 - al * A; a0 = 1 + al / A; a1 = -2 * c; a2 = 1 - al / A; }  // bell
+    else if (type == 3) { double sq = 2 * sqrt(A) * al;                                                             // low shelf (v109)
+        b0 = A * ((A + 1) - (A - 1) * c + sq); b1 = 2 * A * ((A - 1) - (A + 1) * c); b2 = A * ((A + 1) - (A - 1) * c - sq);
+        a0 = (A + 1) + (A - 1) * c + sq; a1 = -2 * ((A - 1) + (A + 1) * c); a2 = (A + 1) + (A - 1) * c - sq; }
     else { double sq = 2 * sqrt(A) * al;                                                                            // high shelf
         b0 = A * ((A + 1) + (A - 1) * c + sq); b1 = -2 * A * ((A - 1) + (A + 1) * c); b2 = A * ((A + 1) + (A - 1) * c - sq);
         a0 = (A + 1) - (A - 1) * c + sq; a1 = 2 * ((A - 1) - (A + 1) * c); a2 = (A + 1) - (A - 1) * c - sq; }
@@ -1116,7 +1124,7 @@ int main(void) {
         const double eag = (1 + 0.09 * ph / 3.0) * curveE(b->n);   // v73: builds across each phrase; v75: × the record's energy curve
         if (dz[0] && gKick > 0) for (int j = 0; j < nb; j++) { if (pickup_bar(b->n) && j >= pickup_j(b)) continue; if ((s == VERSE1 || s == VERSE2) && j % 2) continue; if (s == VERSE2 && j == 2 && b->n < 48) continue;   // v49: the verses on her 1 and 3; v75: verse 2 on 1 only until 48   // v22: her 1 and 3 in the verses; v27: and in the finale (half-time, big)
             // (v49: bars 73–76 keep the floor too — steady; the orchestra is what thins there)
-            double g = 0.95 * dz[0] * (j % 2 ? 0.9 : 1) * gKick * hill * kickLift * (0.7 + 0.3 * curveE(b->n));   // v75: the kick rides the curve too (gently)
+            double g = 1.08 * dz[0] * (j % 2 ? 0.9 : 1) * gKick * hill * kickLift * (0.65 + 0.35 * curveE(b->n));   // v108: harder, and more of the curve   // v75: the kick rides the curve too (gently)
             // v46: the hit's own life — downbeats hardest and longest, 3 a touch under, 2 and 4 softer and shorter; half-time
             // sections ring longer, the floor is tighter, the finale biggest; ±8 % velocity, ±15 % attack and decay per hit
             const double vel = (j == 0 ? 1.0 : j == 2 ? 0.92 : 0.82) * (1 + 0.08 * rnd());
@@ -1124,7 +1132,7 @@ int main(void) {
             const double dec = decS * (j % 2 ? 0.85 : 1) * (1 + 0.15 * rnd()), atk = (j == 0 ? 1.1 : 0.9) * (1 + 0.15 * rnd());
             // (v49: no double time — "when the kick starts doubling up i don't like it")
             dance_kick_v(hum_t2(bt[j], 2), g, vel, atk, dec); ev(bt[j], "kick", 0.1, g * vel, -1); }   // v46: ±2 ms — the kick stays on her hand
-        if (dz[1] && gKick > 0 && !(s == BRIDGE && b->n < 77)) for (int j = 0; j < nb; j++) { if (pickup_bar(b->n) && j >= pickup_j(b)) continue; if (halfTime ? j != 2 : !(j % 2)) continue; clap(hum_t2(bt[j], 4), hum_g2(0.75 * dz[1] * swell * gDrop * hill * gKick * eag, 0.1)); clap(hum_t2(bt[j] + 0.012, 4), hum_g2(0.4 * dz[1] * swell * gDrop * hill * gKick, 0.15)); ev(bt[j], "clap", 0.1, dz[1], -1);   // v38: a second clap 12 ms late — wider; v46: humanized
+        if (dz[1] && gKick > 0 && !(s == BRIDGE && b->n < 77)) for (int j = 0; j < nb; j++) { if (pickup_bar(b->n) && j >= pickup_j(b)) continue; if (halfTime ? j != 2 : !(j % 2)) continue; clap(hum_t2(bt[j], 4), hum_g2(0.85 * dz[1] * swell * gDrop * hill * gKick * eag, 0.1)); clap(hum_t2(bt[j] + 0.012, 4), hum_g2(0.4 * dz[1] * swell * gDrop * hill * gKick, 0.15)); ev(bt[j], "clap", 0.1, dz[1], -1);   // v38: a second clap 12 ms late — wider; v46: humanized
             snare_hit(hum_t2(bt[j], 3), hum_g2((halfTime ? 0.5 : 0.7) * dz[1] * gDrop * hill * kickLift * eag, 0.12)); ev(bt[j], "snare", 0.1, dz[1], -1); }   // v30: a snare under every clap
         // v30: TOM FILLS — hi → mid → low → floor in 16ths: on the last beat of bridge/finale phrases, and on beat 3 of the bar
         // before each lift (beat 4 is the dropout); the taiko sample steps back to support them
@@ -1401,14 +1409,20 @@ int main(void) {
       // each grain a scale step higher (0 2 4 5 7 9), panned side to side, a trap hat under each, a tom under the last — the
       // hesitation becomes a ki-ki-ki run that lands on KISS. The band still stops dead around it; the stutter bus is not gated.
       { const double kiss = KISS_T[0], kT = 60.435, down = bar_n(28)->t; const ChartBar *pb = bar_n(27); const double beat = pb->dur / pb->nb, s32 = beat / 8;
-        static const int ST[6] = { 0, 2, 4, 5, 7, 9 }; const double GL = 0.055; const double src0 = (kiss + 0.012) * SR;
-        int h = 0; for (double t = kT + 0.045; t < down - 0.015 && h < 6; t += s32, h++) {
-            double ratio = pow(2, ST[h] / 12.0), g = 0.5 + 0.5 * h / 5.0; long a = at(t); int n = (int)(GL * SR);
+        // v113: "even cuter / more musical, start a bit earlier, add a bell — ding!!! fem bell, strong one": the run now starts a 16th
+        // BEFORE her hesitation (over the tail of "you"), five grains up the major pentatonic (0 2 4 7 9), and one strong fem bell an
+        // octave above her "kiss" note rings from the first grain through the stop into the drop
+        static const int ST[6] = { 0, 2, 4, 7, 9, 12 }; const double GL = 0.055; const double src0 = (kiss + 0.012) * SR;
+        int kissM = 63; for (int k = 0; k < CHART_NNOTES; k++) if (fabs(CHART_NOTES[k].t - kiss) < 0.12) { kissM = CHART_NOTES[k].midi; break; }
+        const double runT0 = kT - 2 * s32;
+        fem_bell(runT0, kissM + 12, 0.6); ev(runT0, "bell", 1.2, 0.6, kissM + 12);
+        int h = 0; for (double t = runT0; t < down - 0.015 && h < 6; t += s32, h++) {
+            double ratio = pow(2, ST[h] / 12.0), g = (0.5 + 0.5 * h / 5.0) * 4.5; long a = at(t); int n = (int)(GL * SR);   // v111: ×4.5 (+13 dB) — her voice is ×3.9 in the mix bus and the grains were raw; it sat 11 dB under
             for (int i = 0; i < n; i++) { double pp = src0 + i * ratio; long j = (long)pp; double f = pp - j;
                 double v = sample(vox.L, vox.n, j) * (1 - f) + sample(vox.L, vox.n, j + 1) * f;
                 double w = fmin(1, i / (0.003 * SR)) * fmin(1, (n - i) / (0.010 * SR)); add(stM, a + i, v * w * g); }
-            trap_hat(t, 0.22 * g, h % 2 ? 0.45 : -0.45); ev(t, "stutter", GL, g, -1); }
-        if (h > 0) tom(kT + 0.045 + (h - 1) * s32, 120, 0.45, 0.3); }
+            trap_hat(t, 0.12 * g, h % 2 ? 0.45 : -0.45); ev(t, "stutter", GL, g, -1); }
+        if (h > 0) tom(runT0 + (h - 1) * s32, 120, 0.7, 0.3); }
       for (int q = 0; q < 0; q++) { const ChartBar *pb = bar_n(INTO[q] - 1); if (!pb || pb->nb < 4) continue;   // v28: OFF — "i don't like the added glitchiness on the k-kiss"; the dropout and the whip do the work
           const double src = KISS_T[q], t0 = pb->beats[pb->nb - 2], step = (pb->beats[pb->nb] - t0) / 8; long sa = at(src);   // v27: the LAST two beats (bar 27 has five)
           for (int h = 0; h < 8; h++) { double t = t0 + h * step, g = 0.3 + 0.7 * h / 7.0; long a = at(t); int n = (int)(SL * SR);
@@ -1536,7 +1550,7 @@ int main(void) {
       free(gh); free(gl); free(gm); }
 
     // ── mix ──
-    float *sendA = automate(v_send, 0), *airA = automate(v_air, 0), *thickA = automate(v_thick, 0), *warmA = automate(v_warm, 0);
+    float *sendA = automate(v_send, 0), *powerA = automate(v_power, 0), *airA = automate(v_air, 0), *thickA = automate(v_thick, 0), *warmA = automate(v_warm, 0);
     float *herA = automate(v_her, 0), *acgA = automate(v_acg, 0), *elgA = automate(v_elg, 0);
     float *farA = automate(v_far, 0), *cathA = automate(v_cath, 0), *roomA = automate(v_room, 0), *dissA = automate(v_dissolve, 0);
     double dsL = 0, dsR = 0;   // v41: the dissolve lowpass state
@@ -1629,7 +1643,7 @@ int main(void) {
         env = pw > env ? aA * env + (1 - aA) * pw : aR * env + (1 - aR) * pw;
         double lv = sqrt(env), gt = lv > 0.06 ? pow(lv / 0.06, 1.0 / 2.5 - 1) : 1;   // v25: 2.5:1 (was 4:1) — "less processed"
         gcur = gt < gcur ? gt : gcur + (gt - gcur) * 0.0005;
-        double v0 = (x + ghost) * gcur * (3.7 + 0.25 * warmA[i]) * (1 - pumpVA[i] * fmin(1, e));   // v77: +1 dB; v101: 0.15 pump where the floor is four-on-the-floor, 0.36 elsewhere   // v68: she NEEDS to be stronger   // v61: she is the loudest thing (2.2 → 2.8)   // v30: she pumps with the kick, ~−4 dB (v25: −2); v33: + the ghost   // v19: her voice pumps with the kick, audibly (was 0.2)
+        double v0 = (x + ghost) * gcur * (3.9 + 0.25 * warmA[i]) * (1 - pumpVA[i] * fmin(1, e));   // v77: +1 dB; v101: 0.15 pump where the floor is four-on-the-floor, 0.36 elsewhere   // v68: she NEEDS to be stronger   // v61: she is the loudest thing (2.2 → 2.8)   // v30: she pumps with the kick, ~−4 dB (v25: −2); v33: + the ghost   // v19: her voice pumps with the kick, audibly (was 0.2)
           // v15: a hair louder when close vlp += (v0 - vlp) * k7;   // her voice rides the kick's pump, lightly
         vwarm += (v0 - vwarm) * k350;
         const double warm = warmA[i];
@@ -1677,7 +1691,7 @@ int main(void) {
         // v22: the scream rides with her (not keyed), two copies 9 and 14 ms late, wide
         double scl = sample(scr, N, i - 432) * screamA[i] * 0.22, scrr = sample(scr, N, i - 672) * screamA[i] * 0.22;
         // v22: the orchestra — pads keyed to her (hollow) and pumped; the timpani and pizz untouched by her voice
-        double ol = (orKL[i] * pump * vd + orDL[i] * hpump) * 0.6, orr = (orKR[i] * pump * vd + orDR[i] * hpump) * 0.6;   // v61: under her   // v24: from the spatial buses
+        double ol = (orKL[i] * pump * vd + orDL[i] * hpump) * 0.72, orr = (orKR[i] * pump * vd + orDR[i] * hpump) * 0.72;   // v108: 0.6 → 0.72   // v61: under her   // v24: from the spatial buses
         double wb = wubM[i] * pump * 0.55;   // v24: the wub, pumped with the kick, mono (bass rule)
         // v41: everything that is not her closes through a lowpass across the finale (8 kHz → 300 Hz by bar 84) — the dissolve
         double roomGl = 0, roomGr = 0;
@@ -1685,6 +1699,7 @@ int main(void) {
             gbL += (gl - gbL) * k3kG; gbR += (gr - gbR) * k3kG; roomGl = (gl + (gl - gbL) * 1.0) * d; roomGr = (gr + (gr - gbR) * 1.0) * d; gl *= 1 - d; gr *= 1 - d; }
         double bandL = hL[i] * hpump * hd + hv * 0.6 * hpump + gl + dlp * 1.3 + pcL[i] * 1.2 + htL[i] * 1.3 + pnL[i] * pump * vd * 0.9 + hsL[i] * 1.0 + vwL[i] * hpump * hd * 1.1 + (tL[i] + rsL[i]) * 1.3 + pL[i] * 0.9 + b808[i] * 0.42 + sl * 0.85 + pl + exL[i] * 0.5 + jl + chl + jd + ssl + ol + wb + melL[i] * pump;
         double bandR = hR[i] * hpump * hd + hv * 0.6 * hpump + gr + drp * 1.3 + pcR[i] * 1.2 + htR[i] * 1.3 + pnR[i] * pump * vd * 0.9 + hsR[i] * 1.0 + vwR[i] * hpump * hd * 1.1 + (tR[i] + rsR[i]) * 1.3 + pR[i] * 0.9 + b808[i] * 0.42 + sr * 0.85 + pr + exR[i] * 0.5 + jr + chr + jd + ssr + orr + wb + melR[i] * pump;
+        bandL *= powerA[i]; bandR *= powerA[i];   // v108: power
         if (dissA[i] > 0.001) { double d = dissA[i], fc = 8000 * pow(300.0 / 8000, d), kd = 1 - exp(-2 * PI * fc / SR); dsL += (bandL - dsL) * kd; dsR += (bandR - dsR) * kd; bandL = dsL; bandR = dsR; }
         const double airDuck = (1 - 0.9 * fmin(1, venv / 0.012)) * (tt < bar_n(20)->t ? 0.5 : 1);   // v83: ducks fully even under her quiet verse-1 singing; verse 1's floor halved
         L[i] = (float)(v + thL + scl + stM[i] * 1.5 + bandL + radL[i] * airDuck + roomGl);
@@ -1717,10 +1732,15 @@ int main(void) {
           float *ch[2] = { L, R };
           for (int c = 0; c < 2; c++) { double x = ch[c][i]; h[c][0] += (x - h[c][0]) * kh; double y = x - h[c][0]; h[c][1] += (y - h[c][1]) * kh; y -= h[c][1];
               l[c][0] += (y - l[c][0]) * kl; l[c][1] += (l[c][0] - l[c][1]) * kl; ch[c][i] = (float)(x * (1 - k) + l[c][1] * 1.6 * k); } } }
+    // v109: THE TILT — "some of the audio mix seems muffled": measured over chorus 1 the mix had nearly all its energy under
+    // 200 Hz, 1–4 kHz −10 dB and 4–10 kHz −16.5 dB against the total. A master tilt before the print: low shelf −2.5 dB at 160 Hz,
+    // presence shelf +2.5 dB from 3.2 kHz, air +1.5 dB from 9 kHz
+    { Biquad lsL = bq(3, 160, 0.7, -2.5), lsR = bq(3, 160, 0.7, -2.5), hsL = bq(2, 3200, 0.7, 2.5), hsR = bq(2, 3200, 0.7, 2.5), aL = bq(2, 9000, 0.7, 1.5), aR = bq(2, 9000, 0.7, 1.5);
+      for (long i = 0; i < N; i++) { L[i] = (float)bq_run(&aL, bq_run(&hsL, bq_run(&lsL, L[i]))); R[i] = (float)bq_run(&aR, bq_run(&hsR, bq_run(&lsR, R[i]))); } }
     // v60: THE WAX PRINT — pop/lib/substrate.mjs "vinyl": tube drive 1.8 (tanh, normalized), an even-harmonic bias, a soft hiss
     // v60b: "things are maxing out" — the sum is brought to a 0.5 peak BEFORE the print (it was going in hot), drive 1.2 (was 1.8)
     { double pk = 1e-6; for (long i = 0; i < N; i++) { pk = fmax(pk, fabs(L[i])); pk = fmax(pk, fabs(R[i])); } const double pre = 0.5 / pk;
-      const double drive = 1.2, nrm = 1 / tanh(drive), bias = 0.30 * 0.12, hiss = 0.0009; double hl = 0, hr = 0; const double kh = 1 - exp(-2 * PI * 6000 / SR);   // v92: the wax hiss back, dialed way down (−12 dB from v90's half), rising in over her first bars — it was the "noise at the start" all along, from sample 0
+      const double drive = 1.05, nrm = 1 / tanh(drive), bias = 0.30 * 0.12, hiss = 0.0009; double hl = 0, hr = 0; const double kh = 1 - exp(-2 * PI * 6000 / SR);   // v92: the wax hiss back, dialed way down (−12 dB from v90's half), rising in over her first bars — it was the "noise at the start" all along, from sample 0
       for (long i = 0; i < N; i++) { double l = L[i] * pre, r = R[i] * pre; l = tanh(l * drive) * nrm + bias * l * fabs(l); r = tanh(r * drive) * nrm + bias * r * fabs(r);
           double hin = fmin(1, fmax(0, ((double)i / SR - firstWordT) / 12.0)); hin *= hin;   // v102: from her word (not the first twang), squared over 12 s   // v92: no hiss before her — it rises over her first eight seconds
           hl += (rnd() - hl) * kh; hr += (rnd() - hr) * kh; L[i] = (float)(l * 0.9 + hl * hiss * hin); R[i] = (float)(r * 0.9 + hr * hiss * hin); } }

@@ -47,11 +47,11 @@ measure() { ffmpeg -hide_banner -nostats -i "$1" -af "$2${2:+,}ebur128=peak=true
 
 echo "→ density + loudness taken at the ceiling (measured, not guessed)"
 GAIN2="${GAIN2:-0.0}"
-for pass in 1 2 3; do
+for pass in 1 2 3 4; do
   I=$(measure "$PRE" "$(density "$GAIN2")")
   echo "  pass $pass: GAIN2=${GAIN2} dB → ${I} LUFS"
-  awk -v i="$I" 'BEGIN{exit !(i > -12.3 && i < -11.7)}' && break   # v39: −12 LUFS — "the mix feels a little maxed out"
-  GAIN2=$(awk -v g="$GAIN2" -v i="$I" 'BEGIN{printf "%.2f", g + (-12 - i)}')
+  awk -v i="$I" 'BEGIN{exit !(i > -11.6 && i < -11.0)}' && break   # v108: −11.3 LUFS — "the mix is a little tame now" (v39 was −12)
+  GAIN2=$(awk -v g="$GAIN2" -v i="$I" 'BEGIN{printf "%.2f", g + (-11.3 - i)}')
 done
 ffmpeg -y -v error -i "$PRE" -af "$(density "$GAIN2")" -ar 48000 -c:a pcm_s24le "$MASTER"
 

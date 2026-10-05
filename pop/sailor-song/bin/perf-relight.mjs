@@ -153,7 +153,7 @@ const coverGrade = (a) => { if (a <= 0.002) return; const ia = 1 - a;
 //    and only where the depth is continuous (the silhouette's depth cliff would otherwise draw a dark outline) —
 //    plus a soft frontal spot on her face. All of it arrives with the arrangement. Absent the clip, no stage light. ──
 const DEPTH = resolve(LANE, "src/depth-take.mp4");
-const STAGE = !LYRIC_ONLY && !arg("no-stage") && existsSync(DEPTH) && (() => { try { return execFileSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=nb_frames", "-of", "csv=p=0", DEPTH], { stdio: ["ignore", "pipe", "ignore"] }).toString().trim() !== ""; } catch { return false; } })();   // a clip still being written is not a clip
+const STAGE = !LYRIC_ONLY && !!arg("stage") && existsSync(DEPTH) && (() => { try { return execFileSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=nb_frames", "-of", "csv=p=0", DEPTH], { stdio: ["ignore", "pipe", "ignore"] }).toString().trim() !== ""; } catch { return false; } })();   // a clip still being written is not a clip
 let depthAt = () => {}; const DN = STAGE ? new Float32Array(W * H) : null;         // the shading gain per pixel, 1 = untouched
 if (STAGE) { const [DW, DH] = execFileSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", DEPTH]).toString().trim().split(",").map(Number);
   const DFIFO = join(mkdtempSync(join(tmpdir(), "relight-depth-")), "depth.gray"); execFileSync("mkfifo", [DFIFO]);
@@ -161,7 +161,7 @@ if (STAGE) { const [DW, DH] = execFileSync("ffprobe", ["-v", "error", "-select_s
   const DFD = openSync(DFIFO, "r"), draw = Buffer.alloc(DW * DH), dq = new Float32Array(DW * DH), gq = new Float32Array(DW * DH); let dIdx = -1, dEnd = false, dLast = -2;
   const readDepth = () => { let got = 0; while (got < draw.length) { const n = readSync(DFD, draw, got, draw.length - got, null); if (n <= 0) { dEnd = true; return false; } got += n; } return true; };
   const Lk = [-0.35, -0.55, 0.75], Lr = [0.7, -0.2, 0.6]; for (const L of [Lk, Lr]) { const n = Math.hypot(...L); L[0] /= n; L[1] /= n; L[2] /= n; }
-  const RELIEF = 120 * (DW / 960), K = 0.65, CLIFF = 0.06;                            // depth units per pixel of slope; the key's strength; a gradient past this is a silhouette, not a face
+  const RELIEF = 90 * (DW / 960), K = 0.28, CLIFF = 0.06;             // v103: toned down ("too extreme")                            // depth units per pixel of slope; the key's strength; a gradient past this is a silhouette, not a face
   depthAt = (take) => { const k = Math.round(take * MFPS); while (dIdx < k && !dEnd) { if (!readDepth()) break; dIdx++; } if (dIdx === dLast) return; dLast = dIdx;
     for (let i = 0; i < DW * DH; i++) dq[i] = draw[i] / 255;
     // the shading at depth resolution: Sobel normals, two lights, the cliff test
@@ -252,8 +252,13 @@ CHUNKS.forEach((C, i) => { const P = CHUNKS[i - 1], N = CHUNKS[i + 1];
   // the next line comes in as soon as this one's last word is done (v103: "as soon as that extended long ends, swap — not
   // de-highlight and wait"); only across a long instrumental gap (> 4 s) does it hold off until 1.5 s before its first word
   // in sequence, never overlapping: the old line is gone in 0.15 s, the new one arrives over the next 0.2 s
-  if (N) { C.outA = N.a - C.b > 4 ? N.a - 1.5 : Math.min(C.b + 0.05, N.a - 0.35); C.outB = Math.min(N.a - 0.2, C.outA + 0.15); } else { C.outA = C.b + 0.1; C.outB = C.b + 0.5; }
-  C.inA = P ? P.outB : C.a - 0.6; C.inB = P ? Math.min(C.a, P.outB + 0.2) : C.a - 0.25; });
+  // and never before the last word has finished (v103: "some words don't fully complete"): when lines run together the
+  // out and in squeeze into whatever gap there is, the new line finishing its fade-in a touch after its first word if it must
+  // the dead zone (v103: "readability vs timing"): a finished line holds 0.35 s before it slides, when the gap allows; a
+  // shorter gap shares itself out (hold 40%, out 25%, in the rest); under 0.2 s it is a hard cut
+  if (N) { const gap = N.a - C.b; if (gap > 4) { C.outA = N.a - 1.5; C.outB = C.outA + 0.15; } else if (gap >= 0.9) { C.outA = C.b + 0.35; C.outB = C.outA + 0.15; } else if (gap >= 0.2) { C.outA = C.b + gap * 0.4; C.outB = C.outA + gap * 0.25; } else { C.outA = C.b; C.outB = C.b + 0.06; } }
+  else { C.outA = C.b + 0.1; C.outB = C.b + 0.5; }
+  C.inA = P ? P.outB : C.a - 0.6; C.inB = P ? (C.a - P.outB < 0.2 ? P.outB + 0.06 : Math.min(C.a, P.outB + 0.2)) : C.a - 0.25; });
 const easeIO = (f) => f * f * (3 - 2 * f);
 // a chunk's alpha and x-shift now: in from the right, out to the left
 const chunkState = (C, now) => { if (now < C.inA || now > C.outB) return null;
@@ -287,9 +292,16 @@ const glyphO = (layer, g, cx, cy, sc, rot, r, gg, b, a) => { const w = g.w, h = 
     const c = (layer[o] * (1 - fu) + layer[o + 1] * fu) * (1 - fv) + (layer[o + GA.W] * (1 - fu) + layer[o + GA.W + 1] * fu) * fv;
     if (c > 2) pxO(X, Y, r, gg, b, a * c / 255); } };
 // the composite, up to the output size (bilinear; an exact 2× when it is one)
-const upscale = () => { if (!OB) { ob = fb; return; } ob = OB; const fx = W / OW, fy = H / OH;
-  for (let y = 0; y < OH; y++) { const v = Math.min(H - 1.001, Math.max(0, (y + 0.5) * fy - 0.5)), v0 = v | 0, fv = v - v0, r0 = v0 * W * 3, r1 = (v0 + 1) * W * 3, q = y * OW * 3;
-    for (let x = 0; x < OW; x++) { const u = Math.min(W - 1.001, Math.max(0, (x + 0.5) * fx - 0.5)), u0 = u | 0, fu = u - u0, a = r0 + u0 * 3, b = r1 + u0 * 3, o = q + x * 3;
+// the zoom bumps (v103: "zoom-bump the video on that glitch so it feels like we sit into the chorus, BOOM"): a push-in
+// that ratchets up in three steps through the ki-ki-ki, peaks on the downbeat, and eases back; about her head
+const BUMPS = [{ t: 38.444, pre: 0.3, amt: 0.09 }, { t: 84.898, pre: 0.12, amt: 0.05 }];
+const zoomAt = (rn) => { let z = 1; for (const b of BUMPS) { const d = rn - b.t;
+  if (d >= -b.pre && d < 0) { const f = 1 + d / b.pre; z += b.amt * 0.55 * (Math.floor(f * 3) / 3 + ((f * 3) % 1) * 0.35); }
+  else if (d >= 0 && d < 0.5) { const f = d / 0.5; z += b.amt * (1 - f) * (1 - f); } } return z; };
+let ZOOM = 1; const ZB = Buffer.alloc(W * H * 3);
+const upscale = () => { const z = ZOOM; if (!OB && z === 1) { ob = fb; return; } ob = OB || ZB; const fx = W / OW / z, fy = H / OH / z, cx = W * 0.4, cy = H * 0.3, ox = cx - cx / z, oy = cy - cy / z;
+  for (let y = 0; y < OH; y++) { const v = Math.min(H - 1.001, Math.max(0, oy + (y + 0.5) * fy - 0.5)), v0 = v | 0, fv = v - v0, r0 = v0 * W * 3, r1 = (v0 + 1) * W * 3, q = y * OW * 3;
+    for (let x = 0; x < OW; x++) { const u = Math.min(W - 1.001, Math.max(0, ox + (x + 0.5) * fx - 0.5)), u0 = u | 0, fu = u - u0, a = r0 + u0 * 3, b = r1 + u0 * 3, o = q + x * 3;
       for (let c = 0; c < 3; c++) ob[o + c] = (fb[a + c] * (1 - fu) + fb[a + 3 + c] * fu) * (1 - fv) + (fb[b + c] * (1 - fu) + fb[b + 3 + c] * fu) * fv; } } };
 // a filled ellipse with a 1.5 px antialiased edge, over everything (the ball)
 const blob = (cx, cy, rx, ry, r, g, b, a = 1) => { for (let y = Math.floor(cy - ry - 1); y <= cy + ry + 1; y++) for (let x = Math.floor(cx - rx - 1); x <= cx + rx + 1; x++) {
@@ -315,32 +327,39 @@ function drawFrame(fi) {
   // before she reaches for the camera
   const arrive = Math.min(1, Math.max(0, (now - T0 - 10.8) / (38.4 - 10.8))), arriveS = arrive * arrive * (3 - 2 * arrive);
   const lightsOn = arriveS * (1 - Math.min(1, Math.max(0, (take - (CAM_MOVE - 2.3)) / 2.0)));
+  const toBlack = Math.min(1, Math.max(0, (take - (CAM_MOVE - 1.1)) / 0.9));                        // v103 "align the ending": black by the time she reaches, the music's tail under it
   const room = 1 + (0.72 + 0.28 * amb - 1) * lightsOn;                    // v103: a simple grade — the room breathes with the sections, never goes out; gone by the end
   const lampBloom = Math.min(0.5, env(KICKS, now, 0.08, 0.03)) * lightsOn, lampOn = (0.12 * amb + 0.2 * lampBloom) * lightsOn;      // a burst, not a whiteout
   const bellRaw = env(BELLS, now, 1.4, 0.1), windowGlow = Math.min(0.15, 0.08 * bellRaw) * lightsOn, windowOn = (0.15 + 0.1 * amb) * lightsOn;
   const padLevel = Math.min(1, sounding(PADS, now) * 0.6) * lightsOn;
+  // a held 'long' (the rainbow word): the room's lights flicker through the same colours (v103)
+  const arpEnv = Math.min(1, env(ARPS, now, 0.8) * 0.35), longW = WORDS.find((w) => /^long\W*$/i.test(w.text) && w.b - w.a > 1.2 && now >= w.a + 0.25 && now < w.b);
+  const longOn = longW && arpEnv > 0.05 ? Math.min(1, arpEnv * 3) * lightsOn : 0, flickHz = 6 + 10 * arpEnv;
+  const wheel = (ph) => { const hh = ((ph % 1) + 1) % 1, i6 = (hh * 6) | 0, fr = hh * 6 - i6, Q = 255 * (1 - 0.9 * fr), T = 255 * (1 - 0.9 * (1 - fr)), lo = 25; return [[255, T, lo], [Q, 255, lo], [lo, 255, T], [lo, Q, 255], [T, lo, 255], [255, lo, Q]][i6]; };
   if (!LYRIC_ONLY) { coverGrade(arriveS);
   // 1. the room: multiplicative gain (ambient × tint, lifted by the lamp's pool and the window), her kept close to natural
   const T = tint.map((t) => 1 + (0.55 + 0.45 * t - 1) * lightsOn);          // the chord's tint at half strength, gone by the end
   const fgGain = 0.92 + 0.08 * room, fgTint = T.map((t) => 0.8 + 0.2 * t);   // she stays nearly natural, just a little of the room's colour
-  const spotR2 = (0.17 * W) ** 2, spotK = 0.22 * lightsOn, stageK = lightsOn;    // the face spot and the bump key arrive with the rest
+  const spotR2 = (0.2 * W) ** 2, spotK = STAGE ? 0.1 * lightsOn : 0, stageK = lightsOn;    // the face spot and the bump key arrive with the rest
   for (let o = 0, p = 0, y = 0, x = 0; o < W * H; o++, p += 3, x = ++x === W ? (y++, 0) : x) { const m = M[o], lamp = LAMP[o], win = WINDOW[o];
     const g = room + lampOn * lamp + windowOn * win * (1 - room) + windowGlow * win * 0.6;
     const dx = x - faceX, dy = y - faceY, spot = 1 + spotK * Math.max(0, 1 - (dx * dx + dy * dy) / spotR2), fg = fgGain * spot * (STAGE ? 1 + (DN[o] - 1) * stageK : 1);
     const gr = (g * T[0] + lampBloom * lamp * 0.1) * (1 - m) + fg * fgTint[0] * m, gg = (g * T[1] + lampBloom * lamp * 0.08) * (1 - m) + fg * fgTint[1] * m, gb = (g * T[2] + lampBloom * lamp * 0.06) * (1 - m) + fg * fgTint[2] * m;
     fb[p] = Math.min(255, fb[p] * gr); fb[p + 1] = Math.min(255, fb[p + 1] * gg); fb[p + 2] = Math.min(255, fb[p + 2] * gb); }
   // 2. the lamp's bloom and the window's glow, added to the room
+  if (longOn > 0) { const L = LIGHTS.lamp, lx = (L.x - VX) * sx, ly = (L.y - VY) * sy, c = wheel(now * flickHz / 6 + 0.5), blink = Math.sin(2 * Math.PI * now * flickHz) > 0 ? 1 : 0.4; glow(lx, ly, Math.round(L.r * 1.5 * sx), c[0], c[1], c[2], 0.16 * longOn * blink); }
   if (lampBloom > 0.02) { const L = LIGHTS.lamp, lx = (L.x - VX) * sx, ly = (L.y - VY) * sy, R0 = Math.round(L.r * 1.6 * sx); glow(lx, ly, R0, 255, 228, 180, 0.18 * lampBloom); glow(lx, ly, Math.round(R0 * 2.4), 255, 220, 170, 0.04 * lampBloom); }
   if (windowGlow > 0.02) { const Wn = LIGHTS.window; for (let y = Math.max(0, (Wn.y0 - VY) * sy); y < Math.min(H, (Wn.y1 - VY) * sy); y += 2) for (let x = Math.max(0, (Wn.x0 - VX) * sx); x < Math.min(W, (Wn.x1 - VX) * sx); x += 2) { const k = WINDOW[(y | 0) * W + (x | 0)] * 0.12 * windowGlow; add(x, y, 225, 238, 255, k); add(x + 1, y, 225, 238, 255, k); add(x, y + 1, 225, 238, 255, k); add(x + 1, y + 1, 225, 238, 255, k); } }
   // 3. the fairy lights: a bead of light each, glowing with the pads, a handful flashing on each hat
   const flash = new Float32Array(FAIRY.length); for (let i = HATS.cur || 0; i < HATS.length && HATS[i].t <= now; i++) { const dt = now - HATS[i].t; if (dt < 0.35) for (const p of HATS[i].pts) flash[p] = Math.max(flash[p], HATS[i].g * Math.exp(-dt / 0.07)); }
   if (lightsOn > 0) for (const f of FAIRY) { const base = (0.08 + 0.3 * padLevel + 0.25 * amb) * lightsOn, fl = flash[f.i] * 1.2 * lightsOn;
-    glow(f.x, f.y, Math.round(7 * sx), 170, 150, 255, 0.5 * base); glow(f.x, f.y, 2, 235, 230, 255, 0.7 * base);
+    let cr = 170, cg = 150, cb = 255; if (longOn > 0) { const c = wheel(now * flickHz / 6 + f.i * 0.07), blink = Math.sin(2 * Math.PI * now * flickHz + f.i * 0.9) > 0 ? 1 : 0.35; cr += (c[0] - cr) * longOn; cg += (c[1] - cg) * longOn; cb += (c[2] - cb) * longOn; glow(f.x, f.y, Math.round(9 * sx), c[0], c[1], c[2], 0.5 * longOn * blink); }
+    glow(f.x, f.y, Math.round(7 * sx), cr, cg, cb, 0.5 * base); glow(f.x, f.y, 2, 235, 230, 255, 0.7 * base);
     if (fl > 0.02) { glow(f.x, f.y, Math.round(12 * sx), 210, 200, 255, 0.6 * fl); glow(f.x, f.y, 3, 255, 255, 255, 0.9 * fl); } }
   }
   // 4. the singalong: the chunk being sung (and the one leaving); letters fill in syllable by syllable, the sung
   //    syllable pops, the sung word a touch larger, a held syllable kerns outward and sways; the ball rides its one path.
-  upscale();                                                                  // the room is done at the base size; the words go on at the output size
+  ZOOM = zoomAt(now - T0); upscale();                                          // the room is done at the base size; the words go on at the output size
   // the dance (v103: "start formal, black and white, less shaky; as the ornament comes in, increase the shake and the
   // colour, so the captions surprise the way the arrangement does"): 0 through the intro and verse 1, a first step
   // when the kick lands, half at chorus 1, full from chorus 2, resting in the break, back up through the bridge
@@ -349,7 +368,7 @@ function drawFrame(fi) {
   if (!NO_LYRIC) { const k = Math.min(1, 0.3 + 0.7 * amb) * (1 + 0.5 * lampBloom), fl = Math.min(1, bellRaw) * 120, SH = hue.map((h) => Math.min(255, (h * k + fl) * dance)), off = 0.07 * GA.px * (CHUNKS[0]?.sc ?? SC_MAX);   // the shadow tight under the glyph (v103: "too far from the captions")
     // the "longs" (v103: "when arpeggiating should blink colors rapidly — psychic effects"): a held syllable's letters run
     // the hue wheel, each letter a step behind the last, blinking at 6 Hz, 16 Hz with the arp under it
-    const arp = Math.min(1, sounding(ARPS, now) * 0.5), psyHz = 6 + 10 * arp;
+    const arp = Math.min(1, env(ARPS, now, 0.8) * 0.35), psyHz = 6 + 10 * arp;   // an envelope (0.8 s decay): the rainbow rides through the thinner arpeggio in the break
     const psychic = (i, wild) => { const hh = (now * psyHz / 6 + i * 0.13) % 1, i6 = (hh * 6) | 0, fr = hh * 6 - i6, Q = 255 * (1 - 0.9 * fr), T = 255 * (1 - 0.9 * (1 - fr)), lo = 25;
       const c = [[255, T, lo], [Q, 255, lo], [lo, 255, T], [lo, Q, 255], [T, lo, 255], [255, lo, Q]][i6], blink = 0.55 + 0.45 * (Math.sin(2 * Math.PI * now * psyHz + i * 0.9) > 0 ? 1 : 0.35);
       return c.map((v) => Math.round((250 * (1 - wild) + v * blink * wild))); };
@@ -362,12 +381,12 @@ function drawFrame(fi) {
         const prevOn = timed ? false : (() => { const p = C.words[wi - 1]; return p && p.w ? now >= p.w.b : wordOn; })();
         const wildW = wildOf(w), kern = wildW * 0.05 * GA.px; let pen = w.x + st.dx - kern * sc * (w.gl.length - 1) / 2;
         for (const q of w.gl) { const gg = q.g, t = timed ? w.w.syl[q.si] : null;
-          const lit = t ? t.a + (t.b - t.a) * q.sk / q.sn : 1e9, on = timed ? now >= lit : prevOn;
+          const lit = t ? t.a + Math.min(0.6, (t.b - t.a) * 0.8) * q.sk / q.sn : 1e9, on = timed ? now >= lit : prevOn;   // the last letter lit by 80% of the syllable
           const held = t && now >= t.a && now < t.b && t.b - t.a > 0.6 && now - t.a > 0.25, wild = held ? dance * Math.abs(Math.sin(Math.PI * (now - t.a - 0.25) * 3.2)) : 0;
           const sylPop = t && now >= t.a ? 1 + 0.14 * dance * Math.max(0, 1 - (now - t.a) / 0.15) : 1, chPop = on && t ? 1 + (0.04 + 0.08 * dance) * Math.max(0, 1 - (now - lit) / 0.1) : 1;
           const s2 = sc * sylPop * chPop * (cur ? 1 + (0.06 + 0.05 * lampBloom) * dance : 1) * (1 + 0.12 * wild), sway = 0.6 * dance * Math.sin(2 * Math.PI * now / q.per + q.ph);
           const lat = wild * em * 0.05 * Math.sin(now * 23 + q.ph * 5), cx = pen + gg.adv * sc / 2 + lat, cy = ROW - (GA.ascent - GA.H / 2) * s2 + (q.jy * dance + sway) * sc - wild * em * 0.07 * Math.sin(now * 40 + q.ph * 7), gx = cx + (gg.w / 2 + gg.dx - gg.adv / 2) * s2, rot = q.rot * dance * (1 + 2.5 * wild);
-          const isLong = /^long\OW*$/i.test(w.tok) && w.w && w.w.b - w.w.a > 1.2, fill = on ? (isLong && cur && arp > 0.05 ? psychic(w.gl.indexOf(q), Math.min(1, arp * 3)) : WHITE) : GREY;   // the rainbow: only the long 'long's (held > 1.2 s), under the arpeggio
+          const isLong = /^long\W*$/i.test(w.tok) && w.w && w.w.b - w.w.a > 1.2, fill = on ? (isLong && cur && arp > 0.05 ? psychic(w.gl.indexOf(q), Math.min(1, arp * 3)) : WHITE) : GREY;   // the rainbow: only the long 'long's (held > 1.2 s), under the arpeggio
           glyphO(GOUTER, gg, gx + off, cy + off, s2, rot, ...SH, al); glyphO(GOUTER, gg, gx, cy, s2, rot, ...BLACK, al); glyphO(GFILL, gg, gx, cy, s2, rot, ...fill, al);
           pen += gg.adv * sc + kern * sc; } } }
     // the ball: between landing j and j+1 it sits DWELL then flies one gravity arc, each end riding its own chunk's slide
@@ -385,6 +404,7 @@ function drawFrame(fi) {
       let ballRGB = WHITE; if (chroma) { const hh = (now * 1.5) % 1, i6 = (hh * 6) | 0, fr = hh * 6 - i6, Q = 255 * (1 - 0.85 * fr), T = 255 * (1 - 0.85 * (1 - fr)), lo = 255 * 0.15;
         ballRGB = [[255, T, lo], [Q, 255, lo], [lo, 255, T], [lo, Q, 255], [T, lo, 255], [255, lo, Q]][i6].map(Math.round); }
       if (al > 0) { blobO(bx + off, by + off, br * sqx, br * sqy, ...SH, al); blobO(bx, by, br * sqx + 1.6, br * sqy + 1.6, ...BLACK, al); blobO(bx, by, br * sqx, br * sqy, ...ballRGB, al); } } }
+  if (toBlack > 0) { const k = 1 - toBlack; for (let i = 0; i < ob.length; i++) ob[i] *= k; }   // the end: to black
 }
 
 // ── the pipes; the VHS lives on the encoder's input ──

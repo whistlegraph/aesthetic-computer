@@ -172,7 +172,7 @@ for (const b of bars) {
   // high thirds. The break: a swell. Bars 73–76: violins tremolo alone, soft. 77–80 and the finale: full tremolo.
   if (chorus || s === "bridge" || s === "outro" || s === "verse2" || s === "break") {
     const hi = tones(c, 71, 88), lo = tones(c, 64, 80);
-    const vel = s === "chorus1" ? 78 * swellIn : s === "chorus2" ? 90 * swellIn : early ? 62 + 10 * grow(n, 73, 77) : s === "bridge" ? 84 + 24 * grow(n, 77, 81) : finale ? 104 : release ? 56 : 60;
+    const vel = s === "chorus1" ? 88 * swellIn : s === "chorus2" ? 100 * swellIn : early ? 66 + 12 * grow(n, 73, 77) : s === "bridge" ? 94 + 26 * grow(n, 77, 81) : finale ? 114 : release ? 56 : 62;   // v108: power — played harder
     if (chorus || finale) {
       const run = [...hi.slice(0, 4), ...hi.slice(1, 3).reverse()];
       for (let j = 0; j < nb; j++) for (let q = 0; q < 2; q++) { const i = (j * 2 + q) % run.length, t = bt[j] + (bt[j + 1] - bt[j]) * q / 2;

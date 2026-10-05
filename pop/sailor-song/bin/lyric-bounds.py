@@ -124,7 +124,7 @@ env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=160); et = librosa.fra
 # has ended (the newest events.json is the mix the video plays). (v103: "the second long cuts off a few seconds early")
 EV = json.load(open(os.path.join(OUTD, newest))).get("events", []); VOC = {"vox", "sister", "chorale", "mirror", "aaa", "ooo", "halo"}
 ext = 0
-for j in range(len(WORDS)):
+for j in range(len(WORDS) - 1):                                               # (not the last word: the final 'out' keeps her own utterance's length — jeffrey)
     if ends[j] - starts[j] < 1.2: continue
     a, b = regOf(starts[j]), regOf(ends[j]); ring = b
     while True:                                                                   # chain outward: a layer that starts before the ring ends (+0.3 s) extends it (the ooo's carry the second long into the break)
