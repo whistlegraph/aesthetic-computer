@@ -1,0 +1,33 @@
+#!/usr/bin/env fish
+# ac-ssh — run a command on a fleet host with passphrase requests routed home.
+#
+# Usage: ac-ssh <host> <command…>
+#
+# Tunnels a socket on <host> back to this machine's slab daemon and sets
+# AC_DAEMON_SOCK for the command, so any `ac-passphrase` it runs opens the
+# native modal HERE. The secret travels the ssh connection only; nothing is
+# cached on <host> beyond what the command itself does with it.
+#
+# Example — unlock poorslice's vault from neo:
+#   ac-ssh poorslice 'cd ~/aesthetic-computer/aesthetic-computer-vault &&
+#     ac-passphrase gpg-vault | gpg --batch --pinentry-mode loopback \
+#       --passphrase-fd 0 -d lith/.env.gpg >/dev/null && fish vault-tool.fish unlock'
+
+if test (count $argv) -lt 2
+    echo "usage: ac-ssh <host> <command…>" >&2
+    exit 2
+end
+
+set host $argv[1]
+set local_sock "$HOME/.ac-daemon.sock"
+if not test -S $local_sock
+    echo "ac-ssh: no slab daemon socket at $local_sock — is the menubar app running here?" >&2
+    exit 2
+end
+
+# A fresh path per call: sshd will not replace a stale socket file by default.
+set remote_sock /tmp/ac-daemon-(random 100000 999999).sock
+set remote_path 'export PATH=/opt/homebrew/bin:$HOME/.local/bin:$HOME/node/bin:$PATH'
+
+ssh -t -o ExitOnForwardFailure=yes -R $remote_sock:$local_sock $host \
+    "$remote_path; export AC_DAEMON_SOCK=$remote_sock; trap 'rm -f $remote_sock' EXIT; $argv[2..-1]"

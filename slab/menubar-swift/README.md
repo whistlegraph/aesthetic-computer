@@ -232,6 +232,18 @@ set phrase (echo $resp | jq -r '.secret // empty')
 
 The modal is a native `NSAlert` + `NSSecureTextField`, brought to the front with `NSApp.activate(ignoringOtherApps:)`.
 
+### Asking from another machine
+
+`ac-ssh <host> <command>` runs a command on a fleet host with its passphrase requests routed home: it tunnels a one-off socket on the host back to this Mac's daemon and sets `AC_DAEMON_SOCK`, which `ac-passphrase` prefers over its own socket. The modal opens where you sit, the host's lock screen doesn't matter, and the secret travels only the ssh connection.
+
+```fish
+ac-ssh poorslice 'cd ~/aesthetic-computer/aesthetic-computer-vault &&
+  ac-passphrase gpg-vault | gpg --batch --pinentry-mode loopback --passphrase-fd 0 -d lith/.env.gpg >/dev/null &&
+  fish vault-tool.fish unlock'
+```
+
+`vault-tool unlock` skips files that already have plaintext, so a host with an old `.env` keeps it; compare the decrypted `.gpg` against the plaintext before trusting either.
+
 ## Fleet parity (same menu bar on every Mac)
 
 `slab/bin/menubar-parity.mjs` (`npm run menubar:parity -- <cmd>`) keeps
