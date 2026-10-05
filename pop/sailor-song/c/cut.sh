@@ -25,8 +25,9 @@ echo "→ translation premaster"
 if [ "${SUBSTRATE:-vinyl}" = "vinyl" ]; then
   CHAIN="volume=-4dB,$(node -e 'import("'"$LANE"'/../lib/substrate.mjs").then(m=>process.stdout.write(m.masterChain("vinyl")))')"   # v60b: −4 dB in, so the glue stops pinning
   # v101 (measured): the chain's 4.4 Hz "flutter" was a ±26-cent chorus pedal on her voice → ±2 cents; its second compressor
+  # v119: the substrate's +2.2 dB at 52 Hz → +0.2 — the record's 52 Hz lane was 37–43 % of all energy in the choruses
   # (3.2:1, 10 ms, +2.4 makeup) flattened the arc to a 2.4 LU window and shaved the kick's first 15 ms → 1.5:1, 30 ms, no makeup
-  CHAIN="$(printf '%s' "$CHAIN" | sed -e 's/vibrato=f=4.4:d=0.22/vibrato=f=4.4:d=0.02/' -e 's/acompressor=threshold=-12dB:ratio=3.2:attack=10:release=160:makeup=2.4:knee=8/acompressor=threshold=-12dB:ratio=1.5:attack=30:release=160:makeup=1:knee=8/')"
+  CHAIN="$(printf '%s' "$CHAIN" | sed -e 's/equalizer=f=52:t=q:w=0.9:g=2.2/equalizer=f=52:t=q:w=0.9:g=0.2/' -e 's/vibrato=f=4.4:d=0.22/vibrato=f=4.4:d=0.02/' -e 's/acompressor=threshold=-12dB:ratio=3.2:attack=10:release=160:makeup=2.4:knee=8/acompressor=threshold=-12dB:ratio=1.5:attack=30:release=160:makeup=1:knee=8/')"
   echo "  substrate: vinyl"
 else
   CHAIN="highpass=f=32,bass=g=-2.5:f=90:w=0.7,equalizer=f=220:t=q:w=0.9:g=0.6,equalizer=f=900:t=q:w=0.85:g=1.6,treble=g=1.2:f=7500:w=0.6"

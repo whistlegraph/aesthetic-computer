@@ -297,7 +297,7 @@ const glyphO = (layer, g, cx, cy, sc, rot, r, gg, b, a) => { const w = g.w, h = 
 // QUANTIZED (jeffrey): one hard step per grain of the ki-ki-ki — the receipt's stutter events — held between, the
 // last step on the downbeat, then an ease back; chorus 2 gets a smaller bump keyed to its downbeat alone
 const STUT = (R.events || []).filter((e) => e.voice === "stutter").map((e) => e.t - T0).sort((a, b) => a - b);
-const BUMPS = [{ t: 38.444, steps: STUT.filter((t) => t > 37.5 && t < 38.444), amt: 0.09 }, { t: 84.898, steps: [84.898 - 0.12, 84.898 - 0.06], amt: 0.05 }];
+const BUMPS = [{ t: 38.444, steps: STUT.filter((t) => t > 38.0 && t < 38.444), amt: 0.09 }, { t: 84.898, steps: [84.898 - 0.12, 84.898 - 0.06], amt: 0.05 }];   // the picture jumps only on the grains inside the stop (jeffrey: the early ones "unnecessary")
 // …and not a staircase: each grain JUMPS the frame somewhere — a hashed zoom (in or out) and a hashed offset — held until
 // the next grain, the downbeat landing the big push, then the ease back (jeffrey: "jumping around based on the glitch")
 const jumpOf = (t, amt) => { const h = fnv(`jump:${t.toFixed(3)}`); return { z: 1 + amt * (0.35 + 0.65 * ((h >>> 4) % 100) / 100) * (((h >>> 12) & 1) ? 1 : -0.45), dx: (((h >>> 16) % 100) / 100 - 0.5) * amt * 1.6, dy: (((h >>> 24) % 100) / 100 - 0.5) * amt * 1.0 }; };
@@ -345,13 +345,18 @@ function glide(now) { const E = energyAt(now); amb += (E - amb) * Math.min(1, (1
   for (let i = 0; i < 3; i++) { tint[i] += (want[i] - tint[i]) * Math.min(1, (1 / FPS) / 0.7); hue[i] += (wantHue[i] - hue[i]) * Math.min(1, (1 / FPS) / 0.7); } return c; }
 const CAM_MOVE = 178.24;                                                  // take seconds: she picks the camera up; the room's lights are nowhere after that
 function drawFrame(fi) {
-  const now = T0 + FROM + fi / FPS, take = takeOf(now); matteAt(take); repairMatte(take); softenMatte(); if (STAGE) { depthAt(take); findFace(); } const c = glide(now);
+  const now = T0 + FROM + fi / FPS, take = takeOf(now); matteAt(take); repairMatte(take); softenMatte(); if (STAGE) depthAt(take); findFace(); const c = glide(now);
   // the relight arrives with the arrangement (v103: "the opening should look naturally lit too"): nothing through the intro,
   // rising from the kick's entrance (10.8 s) to full at chorus 1 (38.4 s); and a 2 s dissolve back to the plain picture
   // before she reaches for the camera
   const arrive = Math.min(1, Math.max(0, (now - T0 - 10.8) / (38.4 - 10.8))), arriveS = arrive * arrive * (3 - 2 * arrive);
+  // the dance (v103: "start formal, black and white, less shaky; as the ornament comes in, increase the shake and the
+  // colour, so the captions surprise the way the arrangement does"): 0 through the intro and verse 1, a first step
+  // when the kick lands, half at chorus 1, full from chorus 2, resting in the break, back up through the bridge
+  const DANCE = [[-99, 0], [2.1, 0], [10.8, 0.15], [23.6, 0.2], [38.4, 0.55], [69.1, 0.35], [84.9, 1], [115.3, 0.3], [124.8, 0.7], [139.9, 1]];
+  const rn = now - T0; let dance = 0; for (let i = 1; i < DANCE.length; i++) { const [t0, d0] = DANCE[i - 1], [t1, d1] = DANCE[i]; if (rn >= t0 && rn < t1) { dance = d0 + (d1 - d0) * Math.min(1, (rn - t0) / 2.0); break; } if (rn >= t1) dance = d1; }
   const lightsOn = arriveS * (1 - Math.min(1, Math.max(0, (take - (CAM_MOVE - 2.3)) / 2.0)));
-  const toBlack = Math.min(1, Math.max(0, (take - (CAM_MOVE - 1.1)) / 0.9));                        // v103 "align the ending": black by the time she reaches, the music's tail under it
+  const toBlack = 0;                                                                                  // no dip to black: jeffrey likes her moving the camera; the effects just dissolve off first
   const room = 1 + (0.72 + 0.28 * amb - 1) * lightsOn;                    // v103: a simple grade — the room breathes with the sections, never goes out; gone by the end
   const lampBloom = Math.min(0.5, env(KICKS, now, 0.08, 0.03)) * lightsOn, lampOn = (0.12 * amb + 0.2 * lampBloom) * lightsOn;      // a burst, not a whiteout
   const bellRaw = env(BELLS, now, 1.4, 0.1), windowGlow = Math.min(0.15, 0.08 * bellRaw) * lightsOn, windowOn = (0.15 + 0.1 * amb) * lightsOn;
@@ -377,7 +382,13 @@ function drawFrame(fi) {
     const gr = (g * T[0] + lampBloom * lamp * 0.1) * (1 - m) + fg * fgTint[0] * m, gg = (g * T[1] + lampBloom * lamp * 0.08) * (1 - m) + fg * fgTint[1] * m, gb = (g * T[2] + lampBloom * lamp * 0.06) * (1 - m) + fg * fgTint[2] * m;
     fb[p] = Math.min(255, fb[p] * gr); fb[p + 1] = Math.min(255, fb[p + 1] * gg); fb[p + 2] = Math.min(255, fb[p + 2] * gb); }
   // 2. the lamp's bloom and the window's glow, added to the room
-  if (longOn > 0) { const L = LIGHTS.lamp, lx = (L.x - VX) * sx, ly = (L.y - VY) * sy, c = roomHue(6), blink = roomPulse; glow(lx, ly, Math.round(L.r * 1.5 * sx), c[0], c[1], c[2], 0.12 * longOn * blink); }
+  // the ceiling flicker: a radial halo on the wall and ceiling BEHIND HER HEAD (jeffrey: "radial, behind her head, so it's
+  // more related"), its colour the beat's, pulsing with it; the room only (the matte keeps it off her)
+  const kickHalo = Math.min(1, env(KICKS, now, 0.12, 0.02)) * (0.04 + 0.26 * dance) * lightsOn;         // the kick pumps it: a whisper at the start, hard by the choruses (jeffrey)
+  if (longOn > 0 || kickHalo > 0.01) { const c = longOn > 0 ? roomHue(6) : hue.map((h) => h * 0.9 + 25), k = Math.max(0.22 * longOn * roomPulse, kickHalo), R0 = (0.26 + 0.08 * kickHalo) * W, R2 = R0 * R0, hx = faceX, hy = faceY - 0.06 * H;
+    const y0 = Math.max(0, hy - R0) | 0, y1 = Math.min(H - 1, hy + R0) | 0, x0 = Math.max(0, hx - R0) | 0, x1 = Math.min(W - 1, hx + R0) | 0;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const d2 = (x - hx) ** 2 + (y - hy) ** 2; if (d2 > R2) continue; const o = y * W + x, a = k * (1 - d2 / R2) ** 2 * (1 - M[o]), p = o * 3;
+      fb[p] = Math.min(255, fb[p] + c[0] * a); fb[p + 1] = Math.min(255, fb[p + 1] + c[1] * a); fb[p + 2] = Math.min(255, fb[p + 2] + c[2] * a); } }
   if (lampBloom > 0.02) { const L = LIGHTS.lamp, lx = (L.x - VX) * sx, ly = (L.y - VY) * sy, R0 = Math.round(L.r * 1.6 * sx); glow(lx, ly, R0, 255, 228, 180, 0.18 * lampBloom); glow(lx, ly, Math.round(R0 * 2.4), 255, 220, 170, 0.04 * lampBloom); }
   if (windowGlow > 0.02) { const Wn = LIGHTS.window; for (let y = Math.max(0, (Wn.y0 - VY) * sy); y < Math.min(H, (Wn.y1 - VY) * sy); y += 2) for (let x = Math.max(0, (Wn.x0 - VX) * sx); x < Math.min(W, (Wn.x1 - VX) * sx); x += 2) { const k = WINDOW[(y | 0) * W + (x | 0)] * 0.12 * windowGlow; add(x, y, 225, 238, 255, k); add(x + 1, y, 225, 238, 255, k); add(x, y + 1, 225, 238, 255, k); add(x + 1, y + 1, 225, 238, 255, k); } }
   // 3. the fairy lights: a bead of light each, glowing with the pads, a handful flashing on each hat
@@ -390,11 +401,6 @@ function drawFrame(fi) {
   // 4. the singalong: the chunk being sung (and the one leaving); letters fill in syllable by syllable, the sung
   //    syllable pops, the sung word a touch larger, a held syllable kerns outward and sways; the ball rides its one path.
   ZOOM = zoomAt(now - T0); upscale(); sharpen();                               // the room is done at the base size, upscaled, SHARPENED, then the words go on
-  // the dance (v103: "start formal, black and white, less shaky; as the ornament comes in, increase the shake and the
-  // colour, so the captions surprise the way the arrangement does"): 0 through the intro and verse 1, a first step
-  // when the kick lands, half at chorus 1, full from chorus 2, resting in the break, back up through the bridge
-  const DANCE = [[-99, 0], [2.1, 0], [10.8, 0.15], [23.6, 0.2], [38.4, 0.55], [69.1, 0.35], [84.9, 1], [115.3, 0.3], [124.8, 0.7], [139.9, 1]];
-  const rn = now - T0; let dance = 0; for (let i = 1; i < DANCE.length; i++) { const [t0, d0] = DANCE[i - 1], [t1, d1] = DANCE[i]; if (rn >= t0 && rn < t1) { dance = d0 + (d1 - d0) * Math.min(1, (rn - t0) / 2.0); break; } if (rn >= t1) dance = d1; }
   if (!NO_LYRIC) { const k = Math.min(1, 0.3 + 0.7 * amb) * (1 + 0.5 * lampBloom), fl = Math.min(1, bellRaw) * 120, SH = hue.map((h) => Math.min(255, (h * k + fl) * dance)), off = 0.07 * GA.px * (CHUNKS[0]?.sc ?? SC_MAX);   // the shadow tight under the glyph (v103: "too far from the captions")
     // the "longs" (v103: "when arpeggiating should blink colors rapidly — psychic effects"): a held syllable's letters run
     // the hue wheel, each letter a step behind the last, blinking at 6 Hz, 16 Hz with the arp under it

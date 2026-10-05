@@ -90,7 +90,7 @@
 #include "sailor-chart.h"
 
 #define SR 48000
-#define VERSION "v118"
+#define VERSION "v119"
 #define EAGER 0.009          // v73: "eager" placement — percussion pushes ~9 ms ahead of the grid
 #define PIANO_ON 1          // v112: ON — "I wanted the piano" (v71 had turned it off)
 #define SHIFT27 0.0          // v53: how much earlier everything after bar 27 plays, now that the regularizer fits it to four beats
@@ -1021,6 +1021,9 @@ int main(void) {
     bedroom_level(&gtr, bar_n(16)->t);                                 // v6: until bar 16
     Stereo gtrRaw = { (float *)malloc(gtr.n * sizeof(float)), (float *)malloc(gtr.n * sizeof(float)), gtr.n };   // v78: her guitar as the phone heard it
     memcpy(gtrRaw.L, gtr.L, gtr.n * sizeof(float)); memcpy(gtrRaw.R, gtr.R, gtr.n * sizeof(float));
+    // v119: the stems end at 174.27 s mid-noise (her hands on the camera) — a 20 ms fade at each stem's end, no hard cut
+    { Stereo *se[3] = { &vox, &gtr, &gtrRaw }; long fl = (long)(0.02 * SR);
+      for (int q = 0; q < 3; q++) { Stereo *st = se[q]; if (!st->L) continue; for (long i = 0; i < fl && i < st->n; i++) { float w = (float)i / fl; st->L[st->n - 1 - i] *= w; if (st->R) st->R[st->n - 1 - i] *= w; } } }
     pop_guitar(&gtr, 1.5); pop_guitar(&acg, 1.3);
     // v106: PRESENCE — a nylon guitar on a phone has little above 6 kHz, so pop_guitar's 10 kHz shelf lifts almost nothing; her
     // strum's brightness lives at 2–5 kHz. +5 dB high shelf from 2.5 kHz on her guitar, all song (the opening is this guitar alone)
@@ -1231,7 +1234,7 @@ int main(void) {
         // break, a fem bell an 8th behind on the chord's top tones, ringing out: her playing trails into bells
         if ((b->n >= 66 && b->n <= 72) && nb > 3) { int tops[4]; int nt = 0; for (int m = 83; m >= 72 && nt < 4; m--) { int pc = m % 12; if (pc == pcs[0] || pc == pcs[1] || pc == pcs[2]) tops[nt++] = m; }
             const double pts[4] = { bt[0], MID(1), bt[2], MID(3) }; const double g = 0.13 * (b->n <= 67 ? 0.8 : 1.0) * evo(b->n, 66, 69);
-            for (int q = 0; q < 4; q++) { double t = pts[q] + beatDur / 2; sine(melM, NULL, hum_t(t), 0.55, tops[q % nt], hum_g(g) * 1.6, 0, 0.003, 0.45, 2); ev(t, "ping", 0.55, g, tops[q % nt]); } }   // v117: sine pings, not FEM bells — "like rubber under the vocals"
+            for (int q = 0; q < 4; q++) { double t = pts[q] + beatDur / 2; sine(melM, NULL, hum_t(t), 0.55, tops[q % nt], hum_g(g) * 0.9, 0, 0.003, 0.45, 2); ev(t, "ping", 0.55, g, tops[q % nt]); } }   // v119: ×0.9 (was 1.6) — several reached her level under the held long   // v117: sine pings, not FEM bells — "like rubber under the vocals"
         // v24: the wub on her root, two octaves under the sub, one sweep per beat (8ths from the bridge)
         if (WUB[s] > 0 && !release) { wub(b->t, b->t + b->dur, ROOT[b->chord] - 24, beatDur, WUB_RATE[s], WUB[s] * hill * (s == BRIDGE && b->n < 77 ? 0.5 : 1)); ev(b->t, "wub", b->dur, WUB[s], ROOT[b->chord] - 24); }
         // v62: THE PIANO — jazz voicings from her cycle: G#m9 (G# B D# F# A#), Emaj7 (E G# B D#) on her Emaj7/G# bar, Bmaj9
@@ -1746,7 +1749,7 @@ int main(void) {
     // v109: THE TILT — "some of the audio mix seems muffled": measured over chorus 1 the mix had nearly all its energy under
     // 200 Hz, 1–4 kHz −10 dB and 4–10 kHz −16.5 dB against the total. A master tilt before the print: low shelf −2.5 dB at 160 Hz,
     // presence shelf +2.5 dB from 3.2 kHz, air +1.5 dB from 9 kHz
-    { Biquad lsL = bq(3, 160, 0.7, -2.5), lsR = bq(3, 160, 0.7, -2.5), hsL = bq(2, 3200, 0.7, 2.5), hsR = bq(2, 3200, 0.7, 2.5), aL = bq(2, 9000, 0.7, 1.5), aR = bq(2, 9000, 0.7, 1.5);
+    { Biquad lsL = bq(3, 160, 0.7, -3.5), lsR = bq(3, 160, 0.7, -3.5),   /* v119: −3.5 (was −2.5) — one 52 Hz line was 40 % of all energy */ hsL = bq(2, 3200, 0.7, 2.5), hsR = bq(2, 3200, 0.7, 2.5), aL = bq(2, 9000, 0.7, 1.5), aR = bq(2, 9000, 0.7, 1.5);
       for (long i = 0; i < N; i++) { L[i] = (float)bq_run(&aL, bq_run(&hsL, bq_run(&lsL, L[i]))); R[i] = (float)bq_run(&aR, bq_run(&hsR, bq_run(&lsR, R[i]))); } }
     // v60: THE WAX PRINT — pop/lib/substrate.mjs "vinyl": tube drive 1.8 (tanh, normalized), an even-harmonic bias, a soft hiss
     // v60b: "things are maxing out" — the sum is brought to a 0.5 peak BEFORE the print (it was going in hot), drive 1.2 (was 1.8)

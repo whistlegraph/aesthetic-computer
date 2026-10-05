@@ -9,8 +9,8 @@ violet through feathered hue masks, hard S, blacks down), upscaled locally
 (lanczos + mild unsharp; nothing leaves this machine) and grained to
 hide the upscale.
 
-  pop/.venv/bin/python pop/sailor-song/bin/cover.py [--t 11.583] [--x 110]
-  → cover/sailor-song-cover.jpg (clean) + cover/sailor-song-cover-title.jpg
+  pop/.venv/bin/python pop/sailor-song/bin/cover.py [--t 11.583] [--x 110] [--src src/take.mov] [--out cover/stem]
+  → <stem>.jpg (clean) + <stem>-title.jpg; default stem cover/sailor-song-cover
 """
 import argparse, os, subprocess
 import numpy as np
@@ -22,12 +22,16 @@ ap.add_argument("--t", type=float, default=107.15)   # v6.2: eyes open at the le
 ap.add_argument("--x", type=int, default=80)         # square crop left edge (of 960)
 ap.add_argument("--size", type=int, default=3000)
 ap.add_argument("--debug", default="")                # v8: dump the grade masks here
+ap.add_argument("--src", default="")                  # the take; default src/take.mov (the Desktop IMG_8699.mov copy is gone)
+ap.add_argument("--out", default="")                  # output stem; default cover/sailor-song-cover
 a = ap.parse_args()
 LANE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(LANE, "cover"); os.makedirs(OUT, exist_ok=True)
+SRC = a.src or os.path.join(LANE, "src", "take.mov")
+STEM = a.out or os.path.join(OUT, "sailor-song-cover"); os.makedirs(os.path.dirname(STEM), exist_ok=True)
 W, H = 960, 540
 
-raw = subprocess.run(["ffmpeg", "-v", "error", "-ss", str(a.t), "-i", os.path.expanduser("~/Desktop/IMG_8699.mov"),
+raw = subprocess.run(["ffmpeg", "-v", "error", "-ss", str(a.t), "-i", SRC,
     "-vf", "scale=in_color_matrix=bt2020:in_range=tv:out_range=pc,format=rgb48le",
     "-frames:v", "1", "-f", "rawvideo", "-"], capture_output=True, check=True).stdout
 im = np.frombuffer(raw, dtype="<u2").reshape(H, W, 3).astype(np.float64) / 65535.0
@@ -166,13 +170,13 @@ low = np.asarray(Image.open(buf).convert("RGB")).copy()
 arr = np.asarray(img).copy()
 grng = np.random.default_rng(8699)
 for y0, h, shift, cshift in [(int(a.size * f), int(a.size * hh), sh, cs) for f, hh, sh, cs in
-                             [(0.31, 0.018, 24, 8), (0.47, 0.010, -16, 16), (0.585, 0.026, 40, -8), (0.73, 0.008, -8, 24), (0.86, 0.014, 56, 0)]]:
+                             [(0.06, 0.018, 24, 8), (0.47, 0.010, -16, 16), (0.585, 0.026, 40, -8), (0.73, 0.008, -8, 24), (0.86, 0.014, 56, 0)]]:
     y0 -= y0 % 8; h = max(8, h - h % 8)
     band = np.roll(low[y0:y0 + h], shift, axis=1)
     band[..., 0] = np.roll(band[..., 0], cshift, axis=1)                 # red torn sideways
     arr[y0:y0 + h] = band
 img = Image.fromarray(arr)
-img.save(os.path.join(OUT, "sailor-song-cover.jpg"), quality=92, subsampling=0)
+img.save(STEM + ".jpg", quality=92, subsampling=0)
 
 # ── titled variant ──────────────────────────────────────────────────────
 t = img.copy().convert("RGBA")
@@ -188,5 +192,5 @@ ImageDraw.Draw(shadow).text(pos, text, font=font, fill=(40, 20, 10, 150))
 shadow = shadow.filter(ImageFilter.GaussianBlur(a.size * 0.004))
 d.text(pos, text, font=font, fill=(255, 246, 236, 235))
 t = Image.alpha_composite(Image.alpha_composite(t, shadow), layer).convert("RGB")
-t.save(os.path.join(OUT, "sailor-song-cover-title.jpg"), quality=92, subsampling=0)
-print("✓", OUT)
+t.save(STEM + "-title.jpg", quality=92, subsampling=0)
+print("✓", STEM + ".jpg")
