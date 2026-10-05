@@ -4,6 +4,37 @@ import XCTest
 // the pieces sheet with a way to start a new piece. Runs on the simulator
 // against the "history" fixture, which signs nothing in and reaches no cloud.
 final class HeaderSheetsTests: XCTestCase {
+    func testPieceAudioStartsWithoutTouch() {
+        let app = XCUIApplication()
+        app.launchEnvironment["WALKIE_NATIVE_SCREEN_FIXTURE"] = "audio"
+        app.launch()
+        let result = app.staticTexts["audio-autoplay-result"]
+        let playing = expectation(for: NSPredicate(format: "label == %@", "Piece audio without a tap"), evaluatedWith: result)
+        XCTAssertEqual(XCTWaiter.wait(for: [playing], timeout: 65), .completed, "The real AC synth must produce a waveform before any tap")
+    }
+    func testTVSheetAndStoryDuringGeneration() {
+        let app = XCUIApplication()
+        app.launchEnvironment["WALKIE_NATIVE_SCREEN_FIXTURE"] = "working"
+        app.launch()
+        let tv = app.buttons["project-tv"]
+        XCTAssertTrue(tv.waitForExistence(timeout: 25))
+        tv.tap()
+        XCTAssertTrue(app.navigationBars["TV"].waitForExistence(timeout: 10))
+        app.buttons["Done"].tap()
+        let cards = app.buttons["play-versions"]
+        expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: cards)
+        waitForExpectations(timeout: 40)
+        let workspace = XCTAttachment(screenshot: app.screenshot()); workspace.name = "Wood frame and TV while generating"; workspace.lifetime = .keepAlways; add(workspace)
+        cards.tap()
+        XCTAssertTrue(app.buttons["story-pause"].waitForExistence(timeout: 15))
+        let ready = app.staticTexts["story-video-status"]
+        expectation(for: NSPredicate(format: "label CONTAINS %@", "Video ready"), evaluatedWith: ready)
+        waitForExpectations(timeout: 60)
+        app.buttons["Close version story"].tap()
+        XCTAssertTrue(app.buttons["play-versions"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["version-3"].isEnabled, "Generation still locks editing after story playback")
+    }
+
     /// Sheets dismiss with an animation; poll until the element is really gone.
     private func waitForDisappearance(of element: XCUIElement, timeout: TimeInterval = 6) -> Bool {
         let gone = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: element)

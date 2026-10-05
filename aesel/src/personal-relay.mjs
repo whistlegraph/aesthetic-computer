@@ -6,11 +6,11 @@ export function personalUsage(u={}) {
   cache_creation_input_tokens:u.cacheCreationInputTokens??u.cache_creation_input_tokens,
   cost:null,cost_estimate_usd:u.costBasis==='list'?u.costUSD:null};
 }
-export async function runPersonalTurn({token,model,instructions='',content,tools=[],onTool,onEvent=()=>{},onHeaders=()=>{},signal,storage,key='personal-relay',fetch=globalThis.fetch,pollMs=350}) {
+export async function runPersonalTurn({token,model,effort,instructions='',content,tools=[],onTool,onEvent=()=>{},onHeaders=()=>{},signal,storage,key='personal-relay',fetch=globalThis.fetch,pollMs=350}) {
  const parts=Array.isArray(content)?content:[{type:'text',text:String(content)}];
  const text=parts.filter(p=>p.type==='text').map(p=>p.text).join('\n');
  const images=parts.filter(p=>p.type==='image').map(p=>({mimeType:p.source.media_type,data:p.source.data}));
- const signature=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify({model,instructions,text,images})))),b=>b.toString(16).padStart(2,'0')).join('');
+ const signature=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify({model,effort,instructions,text,images})))),b=>b.toString(16).padStart(2,'0')).join('');
  let state;try{state=JSON.parse(storage?.getItem(key)||'null');}catch{}
  if(!state || (state.finished && state.signature!==signature))state={signature,requestId:crypto.randomUUID(),sessionId:null,results:{}};
  const save=()=>storage?.setItem(key,JSON.stringify(state));save();
@@ -22,11 +22,12 @@ export async function runPersonalTurn({token,model,instructions='',content,tools
   if(path.endsWith('/turn'))onHeaders(response);return result;
  };
  let cursor=0,answer='',finished=false,disconnectedAt=0;
+ const codexUsage={inputTokens:0,outputTokens:0,cacheReadInputTokens:0};
  const abort=()=>{if(state.sessionId&&!finished)void call('/'+state.sessionId+'/interrupt',{}, {detached:true}).catch(()=>{});};
  signal?.addEventListener('abort',abort,{once:true});
  try {
   signal?.throwIfAborted();
-  if(!state.sessionId){const created=await call('',{provider:'claude',model:model.replace(/^anthropic\//,''),instructions,clientTools:tools});state.sessionId=created.thread.id;save();}
+  if(!state.sessionId){const created=await call('',{provider:model.startsWith('openai/')?'codex':'claude',model:model.replace(/^(anthropic|openai)\//,''),effort,instructions,clientTools:tools});state.sessionId=created.thread.id;save();}
   const input={requestId:state.requestId,text,images};
   try{await call('/'+state.sessionId+'/turn',input);}catch(error){if(error.status || signal?.aborted)throw error;await call('/'+state.sessionId+'/turn',input);}
   for(;;){
@@ -41,6 +42,11 @@ export async function runPersonalTurn({token,model,instructions='',content,tools
     const {method,params}=entry.value;
     if(method==='item/agentMessage/delta')answer+=params.delta||'';
     if(method==='item/completed'&&params.item?.type==='agentMessage'&&!answer)answer=params.item.text||'';
+    if(method==='thread/tokenUsage/updated' && params.tokenUsage?.last) {
+      const u=params.tokenUsage.last;codexUsage.inputTokens+=u.inputTokens||0;codexUsage.outputTokens+=u.outputTokens||0;codexUsage.cacheReadInputTokens+=u.cachedInputTokens||0;
+      onEvent({method:'turn/usage',params:{model,usage:personalUsage(codexUsage)}});
+    }
+    if(['item/reasoning/textDelta','item/reasoning/summaryTextDelta'].includes(method))onEvent({method:'item/reasoning/delta',params});
     if(method==='turn/usage')onEvent({method,params:{...params,usage:personalUsage(params.usage)}});
     else onEvent(entry.value);
     if(method==='turn/completed'){

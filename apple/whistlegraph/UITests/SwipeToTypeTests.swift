@@ -70,3 +70,33 @@ final class SwipeToTypeTests: XCTestCase {
         }
     }
 }
+
+extension SwipeToTypeTests {
+    func testSwipeTalkLatchesDrawingAndAudio() {
+        let app = XCUIApplication()
+        app.launchEnvironment["WALKIE_NATIVE_SCREEN_FIXTURE"] = "gestures"
+        app.launch()
+        let talk = app.buttons["talk-control"]
+        XCTAssertTrue(talk.waitForExistence(timeout: 25))
+        expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: talk)
+        waitForExpectations(timeout: 30)
+        let original = talk.frame.width
+        let start = talk.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5))
+        start.press(forDuration: 0.5, thenDragTo: start.withOffset(CGVector(dx: -100, dy: 0)))
+        expectation(for: NSPredicate(format: "label == %@", "Send performance"), evaluatedWith: talk)
+        waitForExpectations(timeout: 10)
+        XCTAssertFalse(app.buttons["type-control"].isHittable)
+        XCTAssertGreaterThan(talk.frame.width, original * 1.5)
+        let pad = app.otherElements.matching(NSPredicate(format: "label == %@", "Chalk over the piece")).firstMatch
+        XCTAssertTrue(pad.waitForExistence(timeout: 5))
+        pad.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.3)).press(forDuration: 0.1, thenDragTo: pad.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.6)))
+        Thread.sleep(forTimeInterval: 9)
+        XCTAssertEqual(talk.label, "Send performance", "Lifting from a stroke and passing the ordinary hold limit must not submit")
+        let image = XCTAttachment(screenshot: app.screenshot()); image.name = "Chalk and audio performance"; image.lifetime = .keepAlways; add(image)
+        app.buttons["Cancel recording, keep drawing"].tap()
+        expectation(for: NSPredicate(format: "hittable == true"), evaluatedWith: app.buttons["type-control"])
+        waitForExpectations(timeout: 5)
+        XCTAssertTrue(pad.exists, "Cancelling keeps the local drawing")
+        app.terminate()
+    }
+}

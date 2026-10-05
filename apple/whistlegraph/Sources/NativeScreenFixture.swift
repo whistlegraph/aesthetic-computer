@@ -7,13 +7,13 @@ enum NativeScreenFixture {
     static var mode: String { ProcessInfo.processInfo.environment["WALKIE_NATIVE_SCREEN_FIXTURE"] ?? "" }
     static var enabled: Bool {
         #if targetEnvironment(simulator)
-        return ["history", "recording", "gestures", "working", "story"].contains(mode)
+        return ["history", "recording", "gestures", "working", "story", "audio"].contains(mode)
         #else
         return mode == "story"
         #endif
     }
     static var script: String {
-        let source = "export function paint({wipe,ink,screen}){wipe(25,23,46);ink(220,240,160).circle(screen.width/2,screen.height/2,35,true);ink(255,140,200).circle(screen.width/2+12,screen.height/2-12,8,true);}"
+        let source = (mode == "audio" ? "let ticks=0;export function sim({sound}){if(ticks++%30===0)sound.synth({type:'sine',tone:440,duration:0.3,volume:0.15});}" : "") + "export function paint({wipe,ink,screen}){wipe(25,23,46);ink(220,240,160).circle(screen.width/2,screen.height/2,35,true);ink(255,140,200).circle(screen.width/2+12,screen.height/2-12,8,true);}"
         let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let sound: [String: Any] = ["durationMs": 3200, "frames": (0..<40).map { i -> [String: Any] in ["atMs": i * 80, "rms": 0.05, "pitchHz": 700 + i % 10 * 35] }]
         let input = ["transcript": "OK go like…", "sound": sound] as [String: Any]

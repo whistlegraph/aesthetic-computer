@@ -63,3 +63,14 @@ test('compact model observations retain full bounds, endpoints, dot timing and a
  assert.deepEqual(evidence.strokes[1].samples,[[390,290,4000],[390,290,4300]]);
  assert.equal(evidence.speechStartMs,-500);
 });
+
+test('a performance keeps timed words, sound, and drawing on their stated clocks',async()=>{
+ const {musicalPrompt}=await import('../Resources/Web/musical-input.mjs');
+ const request=musicalPrompt({transcript:'like this',words:[{text:'this',atMs:1200,durationMs:200}],sound:{schema:'walkieware-sound/v1',durationMs:3000,audibleMs:2000,frames:[{atMs:1200,rms:0.1,pitchHz:440}],onsetsMs:[1200]},performance:{schema:'whistlegraph-performance/v1',timeline:'audio-start'}});
+ const drawing={schema:'whistlegraph-drawing/v1',id:'11111111-1111-4111-8111-111111111111',revision:2,aspect:4/3,strokes:[[[10,10,0],[20,20,1200]]],speechStartMs:-300};
+ const combined=withDrawing(request,drawing),parsed=inputData(combined);
+ assert.equal(parsed.performance.timeline,'audio-start');assert.equal(parsed.words[0].atMs,1200);assert.equal(parsed.drawing.speechStartMs,-300);
+ assert.match(combined,/audioTimeMs = point\[2\] - drawing.speechStartMs/);
+ assert.match(inferenceRequest(combined),/whistlegraph-performance\/v1/);
+ assert.match(inferenceRequest(combined),/"speechStartMs":-300/);
+});

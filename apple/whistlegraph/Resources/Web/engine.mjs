@@ -63,7 +63,7 @@ async function refreshBraincells(){
 }
 function inferenceSnapshot(){
   const model=activeModel||profile().model,receipt=activeReceipt?.value||receipts.rows.at(-1)?.receipt;
-  return {model,label:MODEL_LABELS[model]||model,provider:profile().personalRelay?'Personal Claude':'OpenRouter',selection:profile().model,models:modelChoices(accountHandle),braincells,braincellsError,threadCost:receipts.cost.snapshot(),
+  return {model,label:MODEL_LABELS[model]||model,provider:profile().personalRelay?(model.startsWith('openai/')?'Personal Codex':'Personal Claude'):'OpenRouter',selection:profile().model,models:modelChoices(accountHandle),braincells,braincellsError,threadCost:receipts.cost.snapshot(),
     usage:receipt?{inputTokens:receipt.rounds.reduce((n,r)=>n+(r.usage?.inputTokens||0),0),outputTokens:receipt.rounds.reduce((n,r)=>n+(r.usage?.outputTokens||0),0),rounds:receipt.rounds.length,repairs:receipt.repairs,status:receipt.status}:null};
 }
 function paintHandle(handle,colors=handleCharacterColors('@'+handle)){
@@ -157,11 +157,11 @@ window.walkiewareNativeCommand=command=>{
   }
   if(command.action==='ask'&&typeof command.text==='string'&&(command.text.trim()||command.drawing)&&Array.from(new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(command.text)).length<=96&&!busy)void window.walkiewareAskDrawing(command.text.trim(),command.drawing);
   if(command.action==='checkout'&&!busy){presentedVersion=null;narrationPending=command.version;jumpVersion(command.version);}
-  if(command.action==='presentVersion'&&!busy){
+  if(command.action==='presentVersion'){
     const version=versions?.value.versions.find(v=>v.id===command.version);
-    if(version){presentedVersion=version.id;narrationPending=version.id;render(version.source||'export function paint({wipe}){wipe("black");}');nativeSnapshot();}
+    if(version)post({action:'presentation',version:version.id,source:version.source||'export function paint({wipe}){wipe("black");}'});
   }
-  if(command.action==='endPresentation'){presentedVersion=null;narrationPending=null;render(source);nativeSnapshot();}
+  if(command.action==='endPresentation'){presentedVersion=null;narrationPending=null;}
   if(command.action==='newPiece'&&!busy)window.walkiewareNewPiece?.();
   if(command.action==='openPiece'&&!busy&&typeof command.piece==='string')window.walkiewareOpenPiece?.(command.piece);
   if(command.action==='retry'&&!busy)void resumeAttempt(true);
@@ -406,7 +406,8 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
     benchmark('guidesReady');
     vfs.mount(file,source||'export function paint({wipe}) { wipe("black"); }');
     const prompt=compileEditContract({request:text,...selectedBranch(versions.value),source});
-    const deadline=setTimeout(()=>{turnCancelled=true;turnError='Edit check timed out';server?.interrupt();},turnHandle==='jeffrey'?180000:75000);
+    // Jeffrey's personal turns may keep working until completion or explicit Stop.
+    const deadline=turnHandle==='jeffrey'?null:setTimeout(()=>{turnCancelled=true;turnError='Edit check timed out';server?.interrupt();},75000);
     try{
       const result=await runEditExperiment({prompt,cancelled:()=>turnCancelled,
         onRepair:()=>{activeReceipt.value.repairs=1;activeReceipt.save();phase('Repairing…');},
@@ -584,7 +585,7 @@ if(versions&&!window.__walkiewareSequence&&!window.__walkiewareBenchmark&&!windo
   };
   // Every piece on this phone: the open one plus the archives "New piece" left.
   // Opening another swaps archives, so the current one is never lost.
-  const ARCHIVE='walkieware-archive-',ARCHIVE_SUFFIXES=['-cloud-revision','-cloud-ledger','-receipts','-receipt-cost'];
+  const ARCHIVE='walkieware-archive-',ARCHIVE_SUFFIXES=['-cloud-revision','-cloud-ledger','-receipts','-receipt-cost','-attempt','-inflight'];
   function archiveCurrentPiece(){
     const extras={};for(const suffix of ARCHIVE_SUFFIXES){const v=localStorage.getItem(storageKey+suffix);if(v!==null)extras[suffix]=v;}
     localStorage.setItem(ARCHIVE+thread.identity.id,JSON.stringify({identity:thread.identity,ledger:versions.value,source,extras,archivedAt:new Date().toISOString()}));

@@ -25,6 +25,20 @@ import Speech
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
     private var held = false
+    private var maxDuration = 8.0
+    func latchPerformance() {
+        maxDuration = 45
+        if listeningSince != nil { scheduleDeadline() }
+    }
+    private func scheduleDeadline() {
+        deadline?.cancel()
+        let id = turn, remaining = max(0, maxDuration - (listeningSince.map { Date().timeIntervalSince($0) } ?? 0))
+        deadline = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(remaining))
+            guard !Task.isCancelled, let self, self.turn == id else { return }
+            self.stop()
+        }
+    }
     private var tapped = false
     private var listeningSince: Date?
     private var latest = ""
@@ -126,11 +140,7 @@ import Speech
                         } catch { if !Task.isCancelled { self?.fail("Audio fixture replay failed.") } }
                     }
                 }
-                self.deadline = Task { [weak self] in
-                    try? await Task.sleep(for: .seconds(8))
-                    guard !Task.isCancelled, let self, self.turn == id else { return }
-                    self.stop()
-                }
+                self.scheduleDeadline()
             } catch { self.fail("Could not start the microphone. Please try again.") }
         }
     }
@@ -139,7 +149,7 @@ import Speech
         engine.stop()
         if tapped { engine.inputNode.removeTap(onBus: 0); tapped = false }
         request?.endAudio()
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        PieceAudio.activate()
     }
 
     /// The thumb lifted. Ignored when `id` names a hold that is no longer this one.
@@ -152,7 +162,7 @@ import Speech
         // Capture a release tail, within the eight-second recording budget. A
         // thumb lifts a beat before the last word lands; 0.25 s clipped endings.
         let elapsed = listeningSince.map { Date().timeIntervalSince($0) } ?? 8
-        let tail = min(0.45, max(0, 8 - elapsed))
+        let tail = min(0.45, max(0, maxDuration - elapsed))
         emit("processing")
         finishing?.cancel()
         let id = turn
@@ -203,7 +213,7 @@ import Speech
     }
 
     func cancel() {
-        turn = ""; held = false; listeningSince = nil
+        turn = ""; held = false; listeningSince = nil; maxDuration = 8
         replayTask?.cancel(); replayTask = nil
         finishing?.cancel(); finishing = nil
         deadline?.cancel(); deadline = nil

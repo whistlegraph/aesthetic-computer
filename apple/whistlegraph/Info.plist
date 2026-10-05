@@ -4,4 +4,7 @@
 <key>NSMicrophoneUsageDescription</key><string>Hold the talk button to tell Whistlegraph what to make. Recording stops when you release it.</string>
 <key>NSSpeechRecognitionUsageDescription</key><string>Whistlegraph turns your spoken request into text. Speech recognition runs on this iPhone. Recordings stay on this phone for playback.</string>
 <key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string></array><key>UIUserInterfaceStyle</key><string>Dark</string><key>ITSAppUsesNonExemptEncryption</key><false/>
+<key>NSLocalNetworkUsageDescription</key><string>Find AC OS devices on your Wi-Fi and project your Whistlegraph piece to them.</string>
+<key>NSBonjourServices</key><array><string>_http._tcp</string></array>
+<key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
 </dict></plist>

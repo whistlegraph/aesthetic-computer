@@ -19,6 +19,11 @@ struct WhistlegraphApp: App {
             ZStack {
                 Color(uiColor: .systemBackground).ignoresSafeArea()
                 WhistlegraphScreen(session: voice)
+                #if DEBUG
+                if NativeScreenFixture.mode == "audio" {
+                    Text(voice.audioTestResult).accessibilityIdentifier("audio-autoplay-result")
+                }
+                #endif
                 if !voice.workspaceReady {
                     VStack(spacing: 20) {
                         Text("whistlegraph").font(.largeTitle.bold())
@@ -32,6 +37,7 @@ struct WhistlegraphApp: App {
             .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
             .onChange(of: phase) { _, value in
                 if value == .background { voice.cancelHold() }
+                if value == .active && voice.capturePhase == .idle { voice.resumePieceAudio() }
             }
         }
     }
@@ -57,6 +63,9 @@ struct Workspace: UIViewRepresentable {
         if let data = try? JSONSerialization.data(withJSONObject: guides), let json = String(data: data, encoding: .utf8) {
             config.userContentController.addUserScript(WKUserScript(source: "window.__aeselGuides = \(json);", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         }
+        #if DEBUG
+        if NativeScreenFixture.mode == "audio" { config.userContentController.addUserScript(WKUserScript(source: "window.__whistlegraphAudioTest = true;", injectionTime: .atDocumentStart, forMainFrameOnly: false)) }
+        #endif
         config.userContentController.addUserScript(WKUserScript(source: StoryTape.script, injectionTime: .atDocumentStart, forMainFrameOnly: false))
         config.userContentController.addUserScript(WKUserScript(source: "window.__walkiewarePixelSize = \(voice.pixelSize);", injectionTime: .atDocumentStart, forMainFrameOnly: false))
         config.userContentController.addUserScript(WKUserScript(source: WhistlegraphPreview.script, injectionTime: .atDocumentStart, forMainFrameOnly: false))
@@ -144,6 +153,8 @@ struct Workspace: UIViewRepresentable {
         #endif
         config.preferences.inactiveSchedulingPolicy = .none
         config.allowsInlineMediaPlayback = true
+        config.mediaTypesRequiringUserActionForPlayback = []
+        PieceAudio.activate()
         let view = WKWebView(frame: .zero, configuration: config)
         view.allowsLinkPreview = false
         view.isOpaque = false
@@ -170,6 +181,8 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     @Published var layout = NativeLayout()
     @Published var snapshot = PieceSnapshot()
     @Published var engineReady = false
+    private var performanceTurn = false
+    @Published var performanceCapture = false
     @Published var capturePhase: CapturePhase = .idle
     @Published var captureStarted: Date?
     @Published var microphoneLevels = Array(repeating: 0.0, count: 28)
@@ -178,10 +191,20 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     @Published var narratedFrame = 0
     var narratedVersion: Int?
     @Published var workspaceReady = false
+    #if DEBUG
+    @Published var audioTestResult = "Waiting for piece audio"
+    #endif
     @Published var pieces: [PieceSummary] = []
     @Published private(set) var pixelSize = WhistlegraphPreview.savedPixelSize
     let drawing = DrawingDraft()
+    let tv = WhistlegraphTV()
     private var speechStartedAt: TimeInterval?
+
+    func resumePieceAudio() {
+        PieceAudio.activate()
+        guard let frame = previewFrame else { return }
+        Task { _ = try? await webView?.callAsyncJavaScript("window.AC?.startAudio?.();", arguments: [:], in: frame, contentWorld: .page) }
+    }
 
     func setPixelSize(_ size: Int) {
         guard (1...4).contains(size), !snapshot.busy, capturePhase == .idle else { return }
@@ -199,6 +222,14 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             drawing.clear(); drawing.enabled = false
             previewSource = ""; engineReady = false
         }
+        if action == "presentVersion" || action == "endPresentation" {
+            presentingStory = action == "presentVersion"
+            if !presentingStory { storyPreview.stop() }
+            if let frame = previewFrame {
+                let script = presentingStory ? "window.__storyPreviousVolume ??= window.AC?.getMasterVolume(); window.AC?.setMasterVolume(0);" : "window.AC?.setMasterVolume(window.__storyPreviousVolume ?? 1); delete window.__storyPreviousVolume;"
+                Task { _ = try? await webView?.callAsyncJavaScript(script, arguments: [:], in: frame, contentWorld: .page) }
+            }
+        }
         var value: [String: Any] = ["action": action]
         if action == "setModel" {
             guard !snapshot.busy, capturePhase == .idle, let text else { return }
@@ -215,8 +246,14 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     }
     func beginHold() {
         guard engineReady, !snapshot.busy, capturePhase == .idle else { return }
+        performanceTurn = false
         captureError = nil; transcript = ""; speechStartedAt = nil; capturePhase = .opening
         webView?.evaluateJavaScript("voiceStart()")
+    }
+    func latchPerformance() {
+        guard capturePhase == .opening || capturePhase == .recording else { return }
+        performanceTurn = true; performanceCapture = true; drawing.enabled = true; capture.latchPerformance()
+        webView?.evaluateJavaScript("window.walkiewareLatchPerformance?.()")
     }
     func endHold() { webView?.evaluateJavaScript("voiceEnd()") }
     /// Drops the Keychain sign-in and tells the engine, which parks its sockets.
@@ -225,7 +262,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         account.signOut()
         emitEngine(["kind": "account", "token": ""])
     }
-    func cancelHold() { webView?.evaluateJavaScript("voiceEnd(true)"); cancel() }
+    func cancelHold() { performanceCapture = false; webView?.evaluateJavaScript("voiceEnd(true)"); cancel() }
 
     @Published var startupFailure: String?
     private var startupTimeout: Task<Void, Never>?
@@ -275,8 +312,12 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         capture.onLevel = { [weak self] rms in guard let self else { return }; self.microphoneLevels = Array(self.microphoneLevels.dropFirst()) + [rms] }
         capture.onReplayRelease = { [weak self] in self?.webView?.evaluateJavaScript("voiceEnd()", completionHandler: nil) }
     }
+    @Published var storyStatus = ""
+    lazy var storyPreview = StoryPreview(session: self)
+    private var presentingStory = false
     var storyTapeEvent: (([String: Any]) -> Void)?
     func storyTape(_ action: String, arguments: [String: Any] = [:]) async throws {
+        if presentingStory { try await storyPreview.tape(action, arguments: arguments); return }
         guard let frame = previewFrame, let webView else { throw NSError(domain: "StoryTape", code: 1, userInfo: [NSLocalizedDescriptionKey: "The piece is not ready to export."]) }
         _ = try await webView.callAsyncJavaScript("if (!window.whistlegraphStoryTape) throw Error('Canvas tape is unavailable'); await window.whistlegraphStoryTape[action](value ?? id);", arguments: ["action": action, "value": arguments["value"] ?? NSNull(), "id": arguments["id"] ?? NSNull()], in: frame, contentWorld: .page)
     }
@@ -292,6 +333,15 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
            message.frameInfo.request.url?.host == "aesthetic.computer",
            message.frameInfo.request.url?.scheme == "https",
            let body = message.body as? [String: Any] {
+            #if DEBUG
+            if NativeScreenFixture.mode == "audio", body["action"] as? String == "audioProbe" {
+                let peak = body["peak"] as? Double ?? 0
+                let gestures = body["gestures"] as? Int ?? -1
+                if peak > 0.001 && gestures == 0 { audioTestResult = "Piece audio without a tap" }
+                else { audioTestResult = "Audio: \(body["state"] ?? "unknown"), worklet \(body["ready"] ?? false), peak \(peak), gestures \(gestures)" }
+                return
+            }
+            #endif
             if body["action"] as? String == "storyTape" { storyTapeEvent?(body); return }
             if body["action"] as? String == "previewReady" {
                 #if DEBUG
@@ -304,7 +354,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
                 if let event = body["event"] as? [String: Any],
                    event["requestID"] as? Int == previewRequestID,
                    event["sourceHash"] as? String == VisualCapture.hash(previewSource) {
-                    if event["kind"] as? String == "painted" { paintedPreviewHash = event["sourceHash"] as? String }
+                    if event["kind"] as? String == "painted" { paintedPreviewHash = event["sourceHash"] as? String; tv.update(previewSource) }
                     if event["kind"] as? String == "invalidated" { paintedPreviewHash = nil }
                 }
                 #if DEBUG
@@ -354,6 +404,9 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
                 #endif
                 self.emitEngine(result)
             }
+        case "presentation":
+            guard presentingStory, let version = body["version"] as? Int, let source = body["source"] as? String, source.utf8.count <= 512_000 else { return }
+            storyPreview.present(version: version, source: source)
         case "narrationReady":
             narratedVersion = body["version"] as? Int; narratedFrame += 1
         case "layout":
@@ -380,8 +433,9 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
                 }
             }
             #endif
-            snapshot = next; engineReady = true
+            snapshot = next; tv.updateProgress(next); engineReady = true
         case "voiceIdle":
+            performanceCapture = false
             capturePhase = .idle; captureStarted = nil
         case "pieces":
             guard let value = body["pieces"] as? [[String: Any]], value.count <= 256,
@@ -428,6 +482,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             capturePhase = .opening; captureError = nil; transcript = ""
             microphoneLevels = Array(repeating: 0, count: 28)
             capture.start(id)
+            if performanceCapture { capture.latchPerformance() }
         case "stop": capture.stop(matching: id)
         case "cancel": if id == capture.turn { cancel() }
         case "share":
@@ -460,6 +515,8 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     }
 
     private func emit(_ kind: String, text: String = "", id: String? = nil) {
+        if ["processing", "mixedFinal", "final", "error"].contains(kind) { resumePieceAudio() }
+        if ["processing", "mixedFinal", "final", "error"].contains(kind) { performanceCapture = false }
         switch kind {
         case "listening": capturePhase = .recording; captureStarted = Date(); speechStartedAt = ProcessInfo.processInfo.systemUptime
         case "partial": transcript = text
@@ -470,6 +527,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         if kind == "partial", !text.isEmpty { AudioBenchmark.mark("firstRecognizedWords") }
         if kind == "final" { AudioBenchmark.checkTranscript(text) }
         var event: [String: Any] = ["kind": kind, "text": text, "id": id ?? capture.turn]
+        if performanceTurn { event["performance"] = true }
         if ["mixedFinal", "final"].contains(kind), let sketch = drawing.payload(speechStart: speechStartedAt) { event["drawing"] = sketch }
         guard let data = try? JSONSerialization.data(withJSONObject: event),
               let json = String(data: data, encoding: .utf8) else { return }

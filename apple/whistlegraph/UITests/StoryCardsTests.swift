@@ -91,7 +91,7 @@ final class StoryCardsTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "story-version").firstMatch.waitForExistence(timeout: 10))
         let caption = app.staticTexts["spoken-word"]
         XCTAssertTrue(caption.exists)
-        let picture = app.webViews["story-picture"]
+        let picture = app.webViews.matching(identifier: "story-picture").firstMatch
         if picture.exists { XCTAssertGreaterThanOrEqual(app.descendants(matching: .any).matching(identifier: "story-version").firstMatch.frame.minY, picture.frame.maxY) }
         XCTAssertLessThan(caption.frame.maxY, app.frame.height * 0.8)
         app.buttons["Next card"].tap()

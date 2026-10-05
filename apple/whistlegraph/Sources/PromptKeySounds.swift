@@ -42,9 +42,7 @@ import SwiftUI
         guard ButtonSounds.enabled, let sample, !voices.isEmpty else { return }
         do {
             if !engine.isRunning {
-                // Keyboard feedback respects silent mode and mixes with the piece.
-                try AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default)
-                try AVAudioSession.sharedInstance().setActive(true)
+                // Share the piece's playback session without changing its category.
                 try engine.start()
             }
             let voice = voices[cursor]

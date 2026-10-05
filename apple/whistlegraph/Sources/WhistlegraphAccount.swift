@@ -123,8 +123,19 @@ struct WhistlegraphPreview {
       window.walkiewareSetPixelSize(window.__walkiewarePixelSize ?? 2);
       let ready = false, revision = 0, paintedRevision = 0, sessionID = '';
       const post = body => window.webkit.messageHandlers.walkie.postMessage(body);
+      if (window.__whistlegraphAudioTest) {
+        let gestures = 0, checks = 0;
+        window.addEventListener('pointerdown', () => gestures++);
+        const probe = setInterval(() => {
+          const waveform = window.AC?.readOutputWaveform?.() || [];
+          const peak = waveform.reduce((value,sample) => Math.max(value,Math.abs(sample)),0);
+          post({action:'audioProbe',peak,gestures,state:window.AC?.startAudio?.().state || 'unavailable',ready:!!window.audioWorkletReady});
+          if (peak > 0.001 || ++checks > 240) clearInterval(probe);
+        },250);
+      }
       window.walkiewareRender = async (source, threadID, renderID) => {
         if (!ready) return;
+        window.AC?.startAudio?.();
         sessionID = threadID;
         const current = ++revision;
         const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
@@ -141,7 +152,7 @@ struct WhistlegraphPreview {
       });
       const poll = setInterval(() => {
         if (!window.preloaded || !window.acSEND) return;
-        clearInterval(poll); ready = true; post({action:'previewReady'});
+        clearInterval(poll); ready = true; window.AC?.startAudio?.(); post({action:'previewReady'});
       }, 100);
     })();
     """

@@ -67,7 +67,10 @@ struct WhistlegraphScreen: View {
     @StateObject private var exporter = StoryExport()
     @Environment(\.scenePhase) private var scenePhase
     @State private var held = false
+    @State private var chalkDrag: CGFloat = 0
+    private var chalkReveal: CGFloat { session.performanceCapture ? 1 : min(1, chalkDrag / 80) }
     @State private var showComposer = false
+    @State private var showTV = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage("walkieware-appearance") private var appearance = "system"
@@ -91,25 +94,31 @@ struct WhistlegraphScreen: View {
             HStack {
                 IdentityHeader(session: session, appearance: $appearance, size: session.layout.historySize) { narrator.stop(); showComposer = false }
                 Spacer()
+                Button { showTV = true } label: {
+                    Image(systemName: "tv").font(.system(size: 26, weight: .bold)).frame(width: 44, height: 44)
+                }.accessibilityLabel("Project to TV").accessibilityIdentifier("project-tv")
                 Button {
                     showComposer = false
                     ButtonSounds.play(.play); openStory()
                 } label: {
                     Image(systemName: "rectangle.stack.fill").font(.system(size: 28, weight: .bold)).frame(width: 44, height: 44)
                 }
-                .disabled(session.snapshot.busy || session.capturePhase != .idle || !session.engineReady || !session.snapshot.versions.contains(where: { $0.id > 0 }))
+                .disabled(session.capturePhase != .idle || !session.engineReady || !session.snapshot.versions.contains(where: { $0.id > 0 }))
                 .accessibilityLabel("Open story cards").accessibilityIdentifier("play-versions")
             }.frame(height: narrator.isPlaying ? 0 : nil).clipped().accessibilityHidden(narrator.isPlaying)
             VStack(spacing: narrator.isPlaying ? 12 : 4) {
             // This representable never changes identity when cards or versions change.
+            GeometryReader { geometry in
             ZStack {
                 Workspace(voice: session)
                     .opacity(session.snapshot.hasPreview ? 1 : 0)
                     .allowsHitTesting(session.snapshot.hasPreview && session.capturePhase == .idle)
-                    .accessibilityHidden(!session.snapshot.hasPreview)
+                    .accessibilityHidden(!session.snapshot.hasPreview || narrator.isPlaying)
+                if narrator.isPlaying { StoryWorkspace(player: session.storyPreview) }
                 if !session.snapshot.hasPreview && !session.engineReady { ProgressView() }
                 if !narrator.isPlaying && (chalkActive || drawing.hasInk) {
                     DrawingPad(draft: drawing, interactive: chalkActive && canTalk)
+                        .accessibilityIdentifier("drawing-pad")
                         .background(chalkActive ? Color.black.opacity(0.16) : Color.clear)
                         .allowsHitTesting(chalkActive && canTalk)
                 }
@@ -117,8 +126,13 @@ struct WhistlegraphScreen: View {
                     VStack(spacing: 12) { Text(failure); Button("Reload") { session.reloadWorkspace() } }.padding().background(.black.opacity(0.85))
                 }
             }
-            .aspectRatio(4.0 / 3.0, contentMode: .fit)
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            }
+            .frame(height: max(1, (UIScreen.main.bounds.width - (narrator.isPlaying ? 0 : session.layout.pageInset * 2) - 12) * 3 / 4))
             .frame(maxWidth: .infinity)
+            .overlay { WhistlegraphPreviewInset() }
+            .padding(6)
+            .background(WhistlegraphWoodFrame())
             .accessibilityIdentifier("story-picture")
             .overlay {
                 if narrator.isPlaying && !exporter.requested {
@@ -131,6 +145,10 @@ struct WhistlegraphScreen: View {
             }
             if !narrator.isPlaying {
                 HStack(spacing: 18) {
+                    if session.performanceCapture {
+                        Button { session.cancelHold() } label: { Image(systemName: "xmark") }
+                            .accessibilityLabel("Cancel recording, keep drawing")
+                    }
                     Button { ButtonSounds.play(.tick); drawing.enabled.toggle() } label: {
                         Label("Chalk", systemImage: drawing.enabled ? "pencil.tip.crop.circle.fill" : "pencil.tip.crop.circle")
                     }.accessibilityIdentifier("draw-control").accessibilityValue(drawing.enabled ? "On" : "Off")
@@ -161,8 +179,8 @@ struct WhistlegraphScreen: View {
             }
             if narrator.isPlaying {
                 VStack(alignment: .leading, spacing: 6) {
-                    ComicTitle(text: "v\(session.snapshot.head)", size: 22)
-                        .accessibilityLabel("Running version \(session.snapshot.head)")
+                    ComicTitle(text: "v\(narrator.currentVersion ?? session.snapshot.head)", size: 22)
+                        .accessibilityLabel("Running version \(narrator.currentVersion ?? session.snapshot.head)")
                         .accessibilityIdentifier("story-version")
                     PlaybackCaption(text: narrator.utterance, spokenRange: narrator.spokenRange, accent: .yellow)
                         .font(.custom("ComicRelief-Regular", size: 22, relativeTo: .title3))
@@ -193,7 +211,7 @@ struct WhistlegraphScreen: View {
                         ButtonSounds.play(.sent); session.command("ask", text: text); showComposer = false
                     }
                 } else {
-                    HStack(spacing: 12) {
+                    HStack(spacing: 12 * (1 - chalkReveal)) {
                         Button { ButtonSounds.play(.key); showComposer = true } label: {
                             TypingButtonLabel()
                                 .frame(maxWidth: .infinity, minHeight: session.layout.talkHeight)
@@ -201,6 +219,8 @@ struct WhistlegraphScreen: View {
                                 .background(Color(red: 0.40, green: 0.83, blue: 0.95), in: RoundedRectangle(cornerRadius: 34, style: .continuous))
                                 .overlay(RoundedRectangle(cornerRadius: 34, style: .continuous).strokeBorder(paper, lineWidth: 3))
                         }.buttonStyle(.plain).disabled(!canTalk || session.capturePhase != .idle).accessibilityLabel("Type").accessibilityIdentifier("type-control")
+                        .frame(width: max(0, (UIScreen.main.bounds.width - session.layout.pageInset * 2 - 12) / 2 * (1 - chalkReveal)))
+                        .clipped().opacity(1 - chalkReveal).allowsHitTesting(chalkReveal == 0).accessibilityHidden(chalkReveal > 0.9)
                         talkControl
                     }
                 }
@@ -221,11 +241,12 @@ struct WhistlegraphScreen: View {
             Button("OK") { exporter.error = "" }
         } message: { Text(exporter.error) }
         .statusBarHidden(narrator.isPlaying)
+        .sheet(isPresented: $showTV) { WhistlegraphTVSheet(tv: session.tv) }
         .onChange(of: narrator.isPlaying) { _, playing in if !playing { exporter.cancel() } }
         .onChange(of: session.narratedFrame) { _, _ in narrator.painted(session.narratedVersion) }
         .onChange(of: exporter.movie?.id) { _, value in if value != nil { narrator.setPaused(true) } }
         .onChange(of: scenePhase) { _, value in if value == .background { exporter.cancel(); narrator.stop() } else if value == .inactive { narrator.setPaused(true) } }
-        .onChange(of: session.capturePhase) { _, value in if value != .idle { narrator.stop() } }
+        .onChange(of: session.capturePhase) { _, value in if value != .idle { narrator.stop() }; if value == .idle || value == .processing { chalkDrag = 0; held = false } }
         .onDisappear { exporter.cancel(); narrator.stop() }
         .background((narrator.isPlaying ? storyBackground : theme.background).ignoresSafeArea())
         .tint(paper)
@@ -249,46 +270,56 @@ struct WhistlegraphScreen: View {
     private var canTalk: Bool { session.workspaceReady && session.engineReady && !session.snapshot.busy && session.capturePhase != .processing }
     private var talkControl: some View {
         TimelineView(.animation(minimumInterval: 1 / 30, paused: session.capturePhase != .recording)) { context in
-            let progress = session.captureStarted.map { min(1, max(0, context.date.timeIntervalSince($0) / 8)) } ?? 0
+            let duration = session.performanceCapture ? 45.0 : 8.0
+            let progress = session.captureStarted.map { min(1, max(0, context.date.timeIntervalSince($0) / duration)) } ?? 0
             VStack(spacing: 10) {
-                if session.capturePhase == .recording {
-                    Text("Talk").font(.custom("ComicRelief-Bold", size: 30, relativeTo: .title2))
+                if session.capturePhase == .recording || chalkReveal > 0.5 {
+                    Text(session.performanceCapture ? "Send" : chalkReveal > 0.5 ? "Chalk" : "Talk").font(.custom("ComicRelief-Bold", size: 30, relativeTo: .title2))
                     MicrophoneWaveform(levels: session.microphoneLevels).frame(height: 22)
                 } else { ShoutButtonLabel() }
                 if session.capturePhase == .recording {
                     ProgressView(value: progress).tint(theme.buttonInk)
-                        .accessibilityLabel("Recording time").accessibilityValue("\(Int(progress * 8)) of 8 seconds")
+                        .accessibilityLabel("Recording time").accessibilityValue("\(Int(progress * duration)) of \(Int(duration)) seconds")
                 }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, minHeight: session.layout.talkHeight)
             .foregroundStyle(theme.buttonInk)
-            .background(Color(red: 1, green: 0.64, blue: 0.43).opacity(canTalk ? 1 : 0.55))
+            .background((chalkReveal > 0.5 ? Color(red: 0.94, green: 0.88, blue: 0.79) : Color(red: 1, green: 0.64, blue: 0.43)).opacity(canTalk ? 1 : 0.55))
             .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 34, style: .continuous).strokeBorder(paper, lineWidth: 3))
             .contentShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
             .overlay {
                 TalkHoldInput(enabled: canTalk || held, began: {
+                    if session.performanceCapture { held = true; return }
                     guard canTalk, !held, session.capturePhase == .idle else { return }
-                    held = true; ButtonSounds.play(.press); session.beginHold()
+                    chalkDrag = 0; held = true; ButtonSounds.play(.press); session.beginHold()
+                }, moved: { delta in
+                    guard held, !session.performanceCapture else { return }
+                    chalkDrag = max(0, -delta)
                 }, ended: {
                     guard held else { return }
                     held = false
+                    if chalkDrag >= 48 && !session.performanceCapture {
+                        session.latchPerformance(); chalkDrag = 0; ButtonSounds.play(.tick); return
+                    }
+                    chalkDrag = 0
                     if session.capturePhase == .opening || session.capturePhase == .recording {
                         ButtonSounds.play(.release); session.endHold()
                     }
                 }, cancelled: {
                     guard held else { return }
-                    held = false
+                    held = false; chalkDrag = 0
                     if session.capturePhase == .opening || session.capturePhase == .recording { session.cancelHold() }
                 }).accessibilityHidden(true)
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Talk")
-            .accessibilityHint("Hold to record and use another finger to chalk above. Release to send. Up to eight seconds.")
+            .accessibilityLabel(session.performanceCapture ? "Send performance" : "Talk")
+            .accessibilityHint(session.performanceCapture ? "Drawing and microphone are recording together. Tap to send. Up to 45 seconds." : "Hold to record. Swipe left and release to draw and record together. Release without swiping to send.")
             .accessibilityIdentifier("talk-control")
             .accessibilityAddTraits(.isButton)
+            .accessibilityAction(named: Text("Draw and record")) { if canTalk { session.beginHold(); session.latchPerformance() } }
             .accessibilityAction(named: Text("Type a request")) { if canTalk { session.cancelHold(); ButtonSounds.play(.key); showComposer = true } }
             .accessibilityAction { if session.capturePhase == .recording { session.endHold() } else if canTalk { session.beginHold() } }
         }
@@ -345,7 +376,12 @@ struct VersionFeed: View {
             if let attempt = snapshot.attempt, ["working", "failed", "unchanged", "interrupted"].contains(attempt.status) {
                 HStack(spacing: 12) {
                     if snapshot.busy { ProgressView().frame(width: 48) }
-                    if snapshot.busy, let output = snapshot.output, !output.isEmpty {
+                    if snapshot.busy && snapshot.phase.hasPrefix("Checking picture") {
+                        Text("Checking picture…")
+                            .font(.custom("ComicRelief-Regular", size: textSize, relativeTo: .title3))
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .accessibilityIdentifier("generation-phase")
+                    } else if snapshot.busy, let output = snapshot.output, !output.isEmpty {
                         CodeTicker(output: output, thinking: snapshot.phase.hasPrefix("Thinking"))
                     } else {
                     Text(attempt.request.replacingOccurrences(of: #" · [0-9.]+ seconds$"#, with: "", options: .regularExpression))

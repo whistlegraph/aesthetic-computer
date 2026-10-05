@@ -112,10 +112,12 @@
     $('more-menu').hidden = true;
     window.webkit.messageHandlers.walkie.postMessage({action: 'share', id: 'image', data: canvas.toDataURL('image/png')});
   };
-  let id = '', starting = false, completing = false, voiceClock;
+  let id = '', starting = false, completing = false, performanceCapture = false, voiceClock;
+  window.walkiewareLatchPerformance = () => { performanceCapture = true; clearClock(); $('speak-label').textContent='Draw + talk · Send when done'; };
+
   const clearClock=()=>{clearInterval(voiceClock);voiceClock=null;};
   const send = action => window.webkit.messageHandlers.walkie.postMessage({action, id});
-  function clearVoice() { window.webkit.messageHandlers.walkie.postMessage({action:'voiceIdle',id:'engine'}); clearClock(); talking = false; voiceBusy = false; starting = false; completing = false; $('voice-state').hidden = true; $('speak').classList.remove('holding'); document.body.classList.remove('making'); $('speak').disabled = blocked(); $('speak-label').textContent = blocked() ? 'Working…' : 'Hold to talk'; }
+  function clearVoice() { performanceCapture = false; window.webkit.messageHandlers.walkie.postMessage({action:'voiceIdle',id:'engine'}); clearClock(); talking = false; voiceBusy = false; starting = false; completing = false; $('voice-state').hidden = true; $('speak').classList.remove('holding'); document.body.classList.remove('making'); $('speak').disabled = blocked(); $('speak-label').textContent = blocked() ? 'Working…' : 'Hold to talk'; }
   voiceStart = () => {
     if (talking || voiceBusy || blocked()) return;
     window.webkit.messageHandlers.walkie.postMessage({action:'account',id:'engine'});
@@ -133,14 +135,14 @@
     $('speak-label').textContent = 'Finishing…'; $('voice-heading').textContent = 'Finishing…';
     send('stop');
   };
-  async function makeFromWords(text, sound=false, drawing=null) {
+  async function makeFromWords(text, sound=false, drawing=null, performance=false) {
     if (completing) return;
     clearClock(); completing = true; voiceBusy = true; $('speak').disabled = true;
     $('voice-state').hidden = true;
     $('speak-label').textContent = 'Working…';
     if (!window.walkiewareAsk) { id = ''; clearVoice(); toast('Generation is still loading. Please try again.'); return; }
     id = '';
-    try { await (sound ? window.walkiewareAskSound({...JSON.parse(text),drawing}) : window.walkiewareAskDrawing(text,drawing)); }
+    try { await (sound ? window.walkiewareAskSound({...JSON.parse(text),drawing,...(performance?{performance:{schema:"whistlegraph-performance/v1",timeline:"audio-start"}}:{})}) : window.walkiewareAskDrawing(text,drawing)); }
     catch { clearVoice(); toast("Could not interpret this sound. Please try again."); }
   }
   window.walkiewareRecording=()=>talking||voiceBusy||starting||completing;
@@ -149,11 +151,11 @@
 
   window.walkieNativeEvent = event => {
     if (event.id !== id || !id) return;
-    if (event.kind === 'listening') { starting = false; clearClock(); const began=performance.now(); $('speak-label').textContent='8s · Release to send'; voiceClock=setInterval(()=>{const left=Math.max(0,8-(performance.now()-began)/1000);$('speak-label').textContent=Math.ceil(left)+'s · Release to send';if(left<=0)voiceEnd();},100); $('voice-heading').textContent = 'Listening…'; $('voice-transcript').textContent = ''; }
+    if (event.kind === 'listening') { starting = false; clearClock(); const began=performance.now(); $('speak-label').textContent='8s · Release to send'; voiceClock=setInterval(()=>{if(performanceCapture){clearClock();return;}const left=Math.max(0,8-(performance.now()-began)/1000);$('speak-label').textContent=Math.ceil(left)+'s · Release to send';if(left<=0)voiceEnd();},100); $('voice-heading').textContent = 'Listening…'; $('voice-transcript').textContent = ''; }
     if (event.kind === 'partial') { $('voice-transcript').textContent = event.text; $('voice-transcript').scrollTop = $('voice-transcript').scrollHeight; requestAnimationFrame(()=>window.webkit.messageHandlers.walkie.postMessage({action:'benchmark',id:'engine',event:'transcriptPainted'})); }
     if (event.kind === 'musicalObservation') { try { window.walkiewareObserveSound?.(JSON.parse(event.text)); } catch {} }
     if (event.kind === 'sound') { $('voice-heading').textContent = 'Listening · '+event.text; }
-    if (event.kind === 'mixedFinal') { talking = false; makeFromWords(event.text, true, event.drawing); }
+    if (event.kind === 'mixedFinal') { talking = false; makeFromWords(event.text, true, event.drawing, event.performance===true); }
     if (event.kind === 'final') { talking = false; makeFromWords(event.text, false, event.drawing); }
     if (event.kind === 'error') { const message = event.text; id = ''; clearVoice(); toast(message); }
   };

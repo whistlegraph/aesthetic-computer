@@ -33,7 +33,7 @@ export function normalizeDrawing(value) {
 export function withDrawing(request,value) {
  if(!value)return request;
  const drawing=normalizeDrawing(value),input=inputData(request)||{transcript:request};
- const combined='Interpret this combined request.\n'+INPUT_MARKER+JSON.stringify({...input,drawing});
+ const combined=(input.performance?.schema==='whistlegraph-performance/v1'?'Interpret this Whistlegraph performance as coordinated drawing, voice and sound. Spoken instructions guide the result; use the measured gesture and sound timing together. Audio frames and words use milliseconds from microphone start. For each stroke point, audioTimeMs = point[2] - drawing.speechStartMs; negative times are marks made before recording. Preserve the entire drawing and its intent. Pitch and onset measurements are estimates, not certain notes or beats. Do not display this data as text.\n':'Interpret this combined request.\n')+INPUT_MARKER+JSON.stringify({...input,drawing});
  if(combined.length>20000)throw Error('Combined request is too large');
  return combined;
 }

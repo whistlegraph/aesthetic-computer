@@ -77,7 +77,7 @@ The browser checks use mock inference. They verify the contract, repair limit, r
 
 ## Chalk with words and sound
 
-**Chalk** toggles an ink layer over the preview above the controls. The keyboard and microphone remain available. Hold Talk with one finger and chalk over the preview with another, even when Chalk was off. Releasing Talk sends the combined request (still capped at eight seconds). The Chalk toggle keeps the layer available between recordings and while typing. Typed Enter sends text and the current sketch together; Send beside the drawing can submit it alone. Undo removes the last stroke; Clear discards the sketch. Turning Chalk off returns touch interaction to the piece while retaining visible unsent marks.
+**Chalk** toggles an ink layer over the preview above the controls. The keyboard and microphone remain available. Hold Talk with one finger and chalk over the preview with another, even when Chalk was off. Releasing Talk normally sends the combined request (up to eight seconds). Swipe left on Talk and release to latch a performance: Type folds away, Talk widens into a chalk-colored Send control, and the microphone stays open while drawing. Tap Send to submit both, up to 45 seconds. The original recording stays local; the model receives the transcript, word timing, measured pitch/energy, and the drawing image plus timed strokes. A `whistlegraph-performance/v1` marker keeps this joint interpretation distinct from an ordinary spoken edit. The Chalk toggle keeps the layer available between recordings and while typing. Typed Enter sends text and the current sketch together; Send beside the drawing can submit it alone. Undo removes the last stroke; Clear discards the sketch. Turning Chalk off returns touch interaction to the piece while retaining visible unsent marks.
 
 Each successful version retains its combined request: transcript, ordered normalized strokes, elapsed stroke timing, optional measured Pencil pressure, and existing sound/word measurements. Sound time zero is aligned to the drawing timeline. Finger pressure is unknown. Failed requests retain the draft and saved request for retry; a successful commit consumes only the matching draft revision. Unsubmitted native sketches are in memory; accepted attempts use the existing durable recovery journal. New/open piece discards the current sketch.
 
@@ -102,3 +102,24 @@ The app icon depicts **Butterfly Cosplayer (IMAB)** by Jeffrey Alan Scudder. `Ar
 Build 98: the brain button below the preview opens pixel size (eye), model selection, provider, daily/purchased braincells, and request usage. New Piece and Your Pieces remain in the piece-name menu, alongside the selected model/provider. Model selection persists per verified account. Jeffrey defaults to hosted Claude Opus 5 with 16,384 output tokens, 4,096 thinking tokens, 12 tool rounds and a 180-second generation/check deadline; other accounts retain their existing budgets. Both still have one shared repair attempt and mandatory source/runtime/picture checks. This is OpenRouter inference, not a remote Claude/Codex subscription connection.
 
 The code ticker highlights JavaScript. The preview compiles completed paint statements during streaming using a temporary closing brace, and complete revision-checked replacements during edits. Provisional errors wait for more source; partial previews never enter the saved version history. The final tool source must still pass checks.
+
+
+## TV and providers (build 102)
+
+TV discovers AC OS devices on the same LAN. Choose a receiver to forward painted
+checkpoints; the current code and generation phase appear in Comic Relief along
+the bottom while work is active. Status updates do not restart the piece. A
+15-second missing heartbeat clears stale progress using the receiver's own clock.
+The receiver executes the piece natively; independent animation state and missing
+native APIs can still produce differences from the phone.
+
+The brain menu offers personal Claude Opus 5 and GPT-6 Astra to verified
+`@jeffrey`, alongside the existing AC inference choices. Switching applies to
+subsequent work and is disabled during a turn. The admin relay separately checks
+the verified Auth0 owner subject; provider credentials stay on the server.
+Codex usage includes token counts; absent dollar pricing remains an incomplete
+cost, never a fabricated zero. The current provider stays selected after upgrade.
+
+Story playback owns a separate WebKit runtime so it can play during generation
+without replacing the pixels under visual review. The wood frame belongs to the
+phone's chrome and is excluded from the piece, TV output, and story exports.

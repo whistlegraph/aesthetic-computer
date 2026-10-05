@@ -18,3 +18,7 @@ assert.equal(generationProfile('jeffrey',{model:DEFAULT_MODEL,repair:true}).mode
 assert.equal(generationProfile('jeffrey').personalRelay,true);
 assert.equal(!!generationProfile('fixture').personalRelay,false);
 assert.equal(generationProfile('jeffrey',{model:DEFAULT_MODEL}).personalRelay,false);
+
+assert.equal(generationProfile('jeffrey',{model:'openai/gpt-6-astra'}).personalRelay,true);
+assert.equal(generationProfile('jeffrey',{model:'openai/gpt-6-astra'}).model,'openai/gpt-6-astra');
+for (const handle of ['', 'fixture', 'Jeffrey', 'jeffrey-other']) assert.equal(generationProfile(handle,{model:'openai/gpt-6-astra'}).model,DEFAULT_MODEL);

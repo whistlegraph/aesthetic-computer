@@ -17,6 +17,7 @@ import AVFoundation
     var onSkip: (() -> Void)?
     var onPause: ((Bool) -> Void)?
     var shouldPlay: ((Int) -> Bool)?
+    var currentVersion: Int? { versions.indices.contains(index) ? versions[index].id : nil }
     var branch: [PieceRevision] { versions }
     private var words: [PlaybackWord] = []
     private var clock: Task<Void, Never>?
@@ -82,7 +83,7 @@ import AVFoundation
         session?.command("presentVersion", version: row.id)
         let expected = run
         timer = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(10))
+            try? await Task.sleep(for: .seconds(30))
             guard !Task.isCancelled, let self, self.run == expected, self.waiting != nil else { return }
             self.stop(); self.error = "This version did not finish loading."
         }
