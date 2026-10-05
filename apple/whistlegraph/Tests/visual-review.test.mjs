@@ -61,3 +61,25 @@ test('personal visual review sends all four images through the private relay onl
  }});
  assert.equal(result.passed,true);assert.equal(submitted.images.length,4);assert.deepEqual(submitted.images.map(i=>i.data),[png,png,png,png]);
 });
+
+test('personal review survives the old 45-second deadline and still accepts a late verdict',async t=>{
+ t.mock.timers.enable({apis:['setTimeout']});
+ let signal,finish,ready;const waiting=new Promise(r=>ready=r);
+ const call=reviewVisualResult({evidence:evidence(),sourceHash:'hash',renderID:7,source:'source',request:'drawing',history:[],model:'anthropic/claude-opus-5',token:'owner',personalRelay:true,fetch:async(url,options)=>{
+  if(url.endsWith('/sessions'))return Response.json({thread:{id:'session'}});
+  if(url.endsWith('/turn'))return Response.json({status:'running'});
+  signal=options.signal;return new Promise((resolve,reject)=>{finish=resolve;signal.addEventListener('abort',()=>reject(signal.reason),{once:true});ready();});
+ }});
+ await waiting;t.mock.timers.tick(60000);assert.equal(signal.aborted,false);
+ finish(Response.json({pending:[],events:[{seq:1,type:'notification',value:{method:'item/agentMessage/delta',params:{delta:JSON.stringify(pass)}}},{seq:2,type:'notification',value:{method:'turn/completed',params:{turn:{status:'completed'}}}}]}));
+ assert.equal((await call).passed,true);
+});
+test('a real review timeout preserves failure with an actionable recovery message',async t=>{
+ t.mock.timers.enable({apis:['setTimeout']});
+ let ready;const waiting=new Promise(r=>ready=r);
+ const call=reviewVisualResult({evidence:evidence(),sourceHash:'hash',renderID:7,source:'source',request:'drawing',history:[],model:'model',token:'owner',fetch:async(url,options)=>new Promise((resolve,reject)=>{
+  options.signal.addEventListener('abort',()=>reject(options.signal.reason),{once:true});ready();
+ })});
+ const check=assert.rejects(call,/Visual review timed out.*checkpoint remain saved/);
+ await waiting;t.mock.timers.tick(45000);await check;
+});

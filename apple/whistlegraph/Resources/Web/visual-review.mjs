@@ -28,7 +28,10 @@ export async function reviewVisualResult({evidence, sourceHash, renderID, source
   const controller = new AbortController(), abort = () => controller.abort();
   if (signal?.aborted) controller.abort();
   signal?.addEventListener('abort', abort, {once:true});
-  const deadline = setTimeout(abort, 45000);
+  // Subscription Opus can spend longer than 45 seconds on image reasoning.
+  // Keep Stop responsive while allowing time for image reasoning.
+  let timedOut = false;
+  const deadline = setTimeout(() => {timedOut=true;abort();}, personalRelay ? 300000 : 45000);
   try {
     if(personalRelay) {
       const result=await runPersonalTurn({token,model,instructions:VISUAL_REVIEW_INSTRUCTIONS,
@@ -72,6 +75,10 @@ export async function reviewVisualResult({evidence, sourceHash, renderID, source
     }} finally {await reader.cancel().catch(()=>{});}
     if (!finished || stop!=='end_turn') throw Error('Visual review did not finish');
     return {...parseVerdict(text),sourceHash,renderID};
+  } catch(error) {
+    if(timedOut)throw Error('Visual review timed out before a verdict. Your request and generated checkpoint remain saved for retry.');
+    if(signal?.aborted)throw Error('Visual review stopped');
+    throw error;
   } finally {clearTimeout(deadline);signal?.removeEventListener('abort',abort);}
 }
 

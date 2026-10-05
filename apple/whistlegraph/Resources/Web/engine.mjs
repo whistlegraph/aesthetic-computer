@@ -228,7 +228,9 @@ async function checkVisualResult() {
   clearTimeout(compileTimer);compileTimer=null;provisional='';
   visualController=new AbortController();
   const signal=visualController.signal;
-  const deadline=setTimeout(()=>{visualController?.abort();server?.interrupt();},90000);
+  // Allow two personal reviews plus a repair; each review has its own deadline.
+  let timedOut=false;
+  const deadline=setTimeout(()=>{timedOut=true;visualController?.abort();server?.interrupt();},profile().personalRelay?900000:90000);
   const task=contextualRequest(versions.value,inferenceRequest(turnRequest));
   const drawing=inputData(turnRequest)?.drawing;
   const chalk=drawing?drawingImage(drawing):null;
@@ -267,6 +269,9 @@ async function checkVisualResult() {
         clearTimeout(compileTimer);compileTimer=null;provisional='';
         if(!turnSucceeded||turnRuntimeFailed)throw Error(turnError||'Visual repair did not complete');
       }});
+  } catch(error) {
+    if(timedOut)throw Error('Visual check timed out. Your request and generated checkpoint remain saved for retry.');
+    throw error;
   } finally {clearTimeout(deadline);visualController=null;}
 }
 function compileStream() {
