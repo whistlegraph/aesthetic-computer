@@ -32,7 +32,7 @@
 
 import { stream } from "@netlify/functions";
 import { relayInference } from "../../backend/easel-stream.mjs";
-import { EASEL_MODELS as MODELS, inferenceRequest, inferenceBudgetFailure } from "../../backend/easel-policy.mjs";
+import { EASEL_MODELS as MODELS, inferenceRequest, inferenceBudgetFailure, unlimitedBraincells } from "../../backend/easel-policy.mjs";
 
 const OPENROUTER = "https://openrouter.ai/api/v1/messages";
 
@@ -68,7 +68,7 @@ export const handler = stream(async (event) => {
   }
 
   // Who is asking, and may they?
-  let handle = "", userSub = "";
+  let handle = "", userSub = "", unlimited = false;
   try {
     const { authorize, getHandleOrEmail } = await import("../../backend/authorization.mjs");
     const user = await Promise.race([
@@ -80,6 +80,7 @@ export const handler = stream(async (event) => {
     const handleOrEmail = await getHandleOrEmail(user.sub);
     if (typeof handleOrEmail === "string" && handleOrEmail.startsWith("@")) {
       handle = handleOrEmail.slice(1);
+      unlimited = unlimitedBraincells(user, handle);
     }
   } catch (error) {
     // Unlike /api/ask, a failed check here refuses rather than falling back:
@@ -112,7 +113,7 @@ export const handler = stream(async (event) => {
   } catch (error) {
     console.log("🪙 easel: budget unavailable —", error.message);
   }
-  const budgetFailure = inferenceBudgetFailure(budget, handle);
+  const budgetFailure = unlimited ? null : inferenceBudgetFailure(budget, handle);
   let paidHold = null;
   if (budgetFailure) {
     if (budgetFailure.statusCode !== 429) return fail(budgetFailure.statusCode, budgetFailure.message);

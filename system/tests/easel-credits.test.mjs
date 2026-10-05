@@ -49,3 +49,19 @@ test("unknown allowances and malformed purchased balances never become dollar ba
     401,
   );
 });
+
+test('uncapped status uses the verified account, never a claimed request handle', async () => {
+  const previous = process.env.ADMIN_SUB;
+  process.env.ADMIN_SUB = 'owner';
+  try {
+    const owner = {...deps, authorize: async () => ({sub:'owner',email_verified:true}), getHandleOrEmail: async () => '@jeffrey'};
+    const result = await createHandler(owner)(event);
+    assert.equal(JSON.parse(result.body).unlimited, true);
+    const spoof = await createHandler({...owner, authorize: async () => ({sub:'other',email_verified:true})})({...event, body:JSON.stringify({handle:'jeffrey',unlimited:true})});
+    assert.equal(JSON.parse(spoof.body).unlimited, false);
+    const unverified = await createHandler({...owner, authorize: async () => ({sub:'owner',email_verified:false})})(event);
+    assert.equal(JSON.parse(unverified.body).unlimited, false);
+  } finally {
+    if (previous === undefined) delete process.env.ADMIN_SUB; else process.env.ADMIN_SUB = previous;
+  }
+});

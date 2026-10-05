@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {authorizePaidRequest,braincellRate,braincellsFromCost,BRAINCELLS_PER_USD,CREDIT_PACK,DAILY_PAID_BRAINCELL_CAP,INFERENCE_MARKUP,OUT_OF_BRAINCELLS,reserve,settle,settleDurably,reconcileWallet,HOLD_LIFETIME_MS,usageBraincells} from '../backend/easel-paid-credits.mjs';
-import {DEFAULT_EASEL_MODEL,EASEL_MODELS,HOSTED_MAX_TOKENS,inferenceRequest} from '../backend/easel-policy.mjs';
+import {DEFAULT_EASEL_MODEL,EASEL_MODELS,HOSTED_MAX_TOKENS,inferenceRequest,unlimitedBraincells} from '../backend/easel-policy.mjs';
 import {relayInference} from '../backend/easel-stream.mjs';
 
 // Just enough of a Mongo collection for the wallet's conditional updates.
@@ -207,4 +207,12 @@ test('stream cancellation aborts upstream and waits for one settlement',async()=
  }}).getReader();
  await reader.read();await reader.cancel('user stopped');
  assert.deepEqual([aborted,settled,cancelled],[1,1,1]);
+});
+
+test('only verified Jeffrey matching the configured admin account has uncapped inference',()=>{
+ const user={sub:'owner',email_verified:true};
+ assert.equal(unlimitedBraincells(user,'jeffrey','owner'),true);
+ for(const [u,h,admin] of [[user,'tester','owner'],[user,'jeffrey','other'],[user,'jeffrey',''],[{sub:'owner'},'jeffrey','owner'],[{sub:'owner',email_verified:'true'},'jeffrey','owner'],[null,'jeffrey','owner']]) {
+  assert.equal(unlimitedBraincells(u,h,admin),false);
+ }
 });
