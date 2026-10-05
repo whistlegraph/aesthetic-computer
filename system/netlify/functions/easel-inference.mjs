@@ -31,6 +31,7 @@
 // real charge when the stream ends.
 
 import { stream } from "@netlify/functions";
+import { inferenceProviderFailure } from "../../backend/easel-provider-error.mjs";
 import { relayInference } from "../../backend/easel-stream.mjs";
 import { EASEL_MODELS as MODELS, inferenceRequest, inferenceBudgetFailure, unlimitedBraincells } from "../../backend/easel-policy.mjs";
 
@@ -166,7 +167,7 @@ export const handler = stream(async (event) => {
     await settlePaid(0);
     const detail = await upstream.text();
     console.log(`🎨 easel upstream ${upstream.status}: ${detail.slice(0, 200)}`);
-    return fail(upstream.status, `Inference provider returned ${upstream.status}.`);
+    return fail(upstream.status, inferenceProviderFailure(upstream.status, detail));
   }
 
   // Pass the SSE through untouched, watching for the usage block on the way so

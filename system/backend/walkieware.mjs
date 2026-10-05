@@ -1,12 +1,14 @@
 import {randomInt, createHash} from 'node:crypto';
 
 export const validID = value => typeof value === 'string' && /^[a-f0-9-]{36}$/i.test(value);
-export const validCode = value => typeof value === 'string' && /^ww[a-z]{5,12}$/i.test(value);
+// New Whistlegraph threads use wg; persisted ww identifiers remain readable.
+export const THREAD_CODE_PREFIX = 'wg';
+export const validCode = value => typeof value === 'string' && /^(?:wg|ww)[a-z]{5,12}$/i.test(value);
 export function pronounceableCode() {
   const consonants='bdfghklmnprstvz', vowels='aeiou';
   let word='';
   for (let i=0;i<5;i++) word+=(i%2?vowels:consonants)[randomInt(i%2?vowels.length:consonants.length)];
-  return 'ww'+word[0].toUpperCase()+word.slice(1);
+  return THREAD_CODE_PREFIX+word[0].toUpperCase()+word.slice(1);
 }
 export const sourceHash = source => createHash('sha256').update(source).digest('hex');
 export function validateLedger(ledger) {

@@ -5,7 +5,7 @@ import {once} from 'node:events';
 import {WebSocket} from 'ws';
 import {attachWalkiewareSocket} from './walkieware-socket.mjs';
 import {attachMusicalSocket} from './musical-socket.mjs';
-import {mongoWalkiewareStore,validateLedger,sourceHash} from '../system/backend/walkieware.mjs';
+import {mongoWalkiewareStore,validateLedger,sourceHash,validCode,pronounceableCode} from '../system/backend/walkieware.mjs';
 import {WalkiewareThread,threadIdentity,verifyThreadRevision} from '../aesel/src/walkieware-thread.mjs';
 const id='11111111-1111-4111-8111-111111111111';
 const ledger={format:1,head:0,versions:[{id:0,parent:null,source:'export function paint({wipe}){wipe(0);}',request:null,createdAt:'today',layers:0}]};
@@ -24,14 +24,14 @@ function memoryCollection(){
 }
 function inbox(ws){const queue=[],waiters=[];ws.on('message',raw=>{const m=JSON.parse(raw);const i=waiters.findIndex(w=>w.type===m.type);if(i<0)queue.push(m);else waiters.splice(i,1)[0].resolve(m);});return type=>{const i=queue.findIndex(m=>m.type===type);return i>=0?Promise.resolve(queue.splice(i,1)[0]):new Promise(resolve=>waiters.push({type,resolve}));};}
 async function client(url,auth){const ws=new WebSocket(url),next=inbox(ws);await once(ws,'open');ws.send(JSON.stringify({type:'authenticate',token:'owner',...auth}));return {ws,next,send:m=>ws.send(JSON.stringify(m))};}
-async function fixture(t){const server=createServer();const store=mongoWalkiewareStore(memoryCollection(),{name:()=> 'wwRuboh'});const auth=async h=>h.authorization==='Bearer owner'?'owner':h.authorization==='Bearer stranger'?'stranger':null;
+async function fixture(t){const server=createServer();const store=mongoWalkiewareStore(memoryCollection(),{name:()=> 'wgRuboh'});const auth=async h=>h.authorization==='Bearer owner'?'owner':h.authorization==='Bearer stranger'?'stranger':null;
  const musical=attachMusicalSocket(server,{authenticate:auth,decide:async()=>{}});
  const binding=attachWalkiewareSocket(server,{authenticate:auth,store:async()=>store});server.listen(0,'127.0.0.1');await once(server,'listening');t.after(()=>{binding.close();musical.close();server.close();});return {url:`ws://127.0.0.1:${server.address().port}/api/walkieware-stream`,store};}
 test('names are reserved, versions immutable, undo retains history, stale writes rejected',async()=>{
- let n=0;const store=mongoWalkiewareStore(memoryCollection(),{name:()=>++n<3?'wwRuboh':'wwLemop'});
- assert.equal((await store.open('owner',id)).code,'wwRuboh');
- assert.equal((await store.open('owner','22222222-2222-4222-8222-222222222222')).code,'wwLemop');
- await assert.rejects(store.open('other',id));assert.equal(await store.read('other','wwRuboh'),null);
+ let n=0;const store=mongoWalkiewareStore(memoryCollection(),{name:()=>++n<3?'wgRuboh':'wgLemop'});
+ assert.equal((await store.open('owner',id)).code,'wgRuboh');
+ assert.equal((await store.open('owner','22222222-2222-4222-8222-222222222222')).code,'wgLemop');
+ await assert.rejects(store.open('other',id));assert.equal(await store.read('other','wgRuboh'),null);
  assert.ok(await store.save('owner',id,0,ledger));assert.equal(await store.save('owner',id,0,ledger),null);
  const changed=structuredClone(ledger);changed.versions[0].source='tampered';await assert.rejects(store.save('owner',id,1,changed),/immutable/);
  const next=structuredClone(ledger);next.versions.push({id:1,parent:0,source:'new',request:'edit',createdAt:'today',layers:1});next.head=1;
@@ -39,10 +39,10 @@ test('names are reserved, versions immutable, undo retains history, stale writes
  assert.throws(()=>validateLedger({...ledger,head:99}));
 });
 test('real sockets isolate accounts, persist versions and relay checked commands to the running device',{timeout:5000},async t=>{
- const f=await fixture(t),device=await client(f.url,{role:'device',id});assert.equal((await device.next('ready')).thread.code,'wwRuboh');
+ const f=await fixture(t),device=await client(f.url,{role:'device',id});assert.equal((await device.next('ready')).thread.code,'wgRuboh');
  device.send({type:'sync',revision:0,ledger});await device.next('saved');
- const intruder=await client(f.url,{role:'agent',code:'wwRuboh',token:'stranger'});assert.match((await intruder.next('error')).error,/unavailable/);
- const agent=await client(f.url,{role:'agent',code:'wwRuboh'});assert.equal((await agent.next('ready')).thread.ledger.head,0);
+ const intruder=await client(f.url,{role:'agent',code:'wgRuboh',token:'stranger'});assert.match((await intruder.next('error')).error,/unavailable/);
+ const agent=await client(f.url,{role:'agent',code:'wgRuboh'});assert.equal((await agent.next('ready')).thread.ledger.head,0);
  agent.send({type:'command',id:'edit-1',action:'ask',text:'Make it 3D',baseVersion:0,baseHash:sourceHash(ledger.versions[0].source)});
  const command=await device.next('command');assert.equal(command.text,'Make it 3D');await agent.next('accepted');
  agent.send({type:'command',id:'edit-2',action:'undo',baseVersion:0,baseHash:'stale'});assert.equal((await agent.next('result')).error,'Device busy');
@@ -50,13 +50,13 @@ test('real sockets isolate accounts, persist versions and relay checked commands
  agent.send({type:'command',id:'layout-1',action:'layout',css:'#live-work {padding: 12px}',baseVersion:0,baseHash:sourceHash(ledger.versions[0].source)});
  const layout=await device.next('command');assert.equal(layout.css,'#live-work {padding: 12px}');await agent.next('accepted');
  device.send({type:'result',id:'layout-1',ok:true,head:0});assert.equal((await agent.next('result')).head,0);
- assert.equal((await f.store.read('owner','wwRuboh')).ledger.versions.length,1,'layout does not create piece history');
+ assert.equal((await f.store.read('owner','wgRuboh')).ledger.versions.length,1,'layout does not create piece history');
  agent.ws.close();await once(agent.ws,'close');
- const second=await client(f.url,{role:'agent',code:'wwRuboh'});assert.equal((await second.next('ready')).online,true);
+ const second=await client(f.url,{role:'agent',code:'wgRuboh'});assert.equal((await second.next('ready')).online,true);
  device.send({type:'ping'});assert.equal((await device.next('pong')).attached,true);
  second.ws.close();
  device.ws.close();await once(device.ws,'close');
- const offline=await client(f.url,{role:'agent',code:'wwRuboh'});assert.equal((await offline.next('ready')).online,false);
+ const offline=await client(f.url,{role:'agent',code:'wgRuboh'});assert.equal((await offline.next('ready')).online,false);
  offline.send({type:'command',id:'edit-3',action:'undo',baseVersion:0,baseHash:'stale'});assert.match((await offline.next('result')).error,/offline/);
 });
 test('phone client persists identity, coalesces ledger sync without echo loop and survives reconnect',{timeout:5000},async t=>{
@@ -64,20 +64,36 @@ test('phone client persists identity, coalesces ledger sync without echo loop an
  const identity=threadIdentity(storage,'piece',()=>id);assert.equal(threadIdentity(storage,'piece',()=> 'wrong').id,identity.id);
  let connectedResolve;const connected=new Promise(r=>connectedResolve=r);
  const phone=new WalkiewareThread({storage,key:'piece',token:()=> 'owner',ledger:()=>ledger,state:()=>({busy:false,head:0,source:ledger.versions[0].source}),onStatus:(code,status)=>{if(status==='Connected')connectedResolve(code);},onCommand:async()=>({ok:true}),WebSocketImpl:WebSocket,url:f.url});t.after(()=>phone.suspend());
- await phone.resume();assert.equal(await connected,'wwRuboh');
+ await phone.resume();assert.equal(await connected,'wgRuboh');
  for(let i=0;i<50&&phone.sending;i++)await new Promise(r=>setTimeout(r,10));
- await new Promise(r=>setTimeout(r,50));assert.equal((await f.store.read('owner','wwRuboh')).revision,1);
- phone.sync();await new Promise(r=>setTimeout(r,30));assert.equal((await f.store.read('owner','wwRuboh')).revision,1);
- phone.suspend();await new Promise(r=>setTimeout(r,30));await phone.resume();await new Promise(r=>setTimeout(r,80));assert.equal(phone.ready,true);assert.equal((await f.store.read('owner','wwRuboh')).revision,1);
+ await new Promise(r=>setTimeout(r,50));assert.equal((await f.store.read('owner','wgRuboh')).revision,1);
+ phone.sync();await new Promise(r=>setTimeout(r,30));assert.equal((await f.store.read('owner','wgRuboh')).revision,1);
+ phone.suspend();await new Promise(r=>setTimeout(r,30));await phone.resume();await new Promise(r=>setTimeout(r,80));assert.equal(phone.ready,true);assert.equal((await f.store.read('owner','wgRuboh')).revision,1);
 });
 test('silent socket stalls reconnect even when close never emits; concurrent resume opens one socket',{timeout:2000},async()=>{
  const values=new Map(),storage={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v)};
  let count=0,offline=0;
  class SilentSocket {
   constructor(){count++;this.readyState=1;queueMicrotask(()=>this.onopen?.());}
-  send(text){const m=JSON.parse(text);if(m.type==='authenticate')queueMicrotask(()=>this.onmessage?.({data:JSON.stringify({type:'ready',thread:{code:'wwRuboh',revision:1,ledger}})}));}
+  send(text){const m=JSON.parse(text);if(m.type==='authenticate')queueMicrotask(()=>this.onmessage?.({data:JSON.stringify({type:'ready',thread:{code:'wgRuboh',revision:1,ledger}})}));}
   close(){this.readyState=3;}
  }
  const phone=new WalkiewareThread({storage,key:'stall',token:()=> 'owner',ledger:()=>ledger,state:()=>({}),onStatus:(_,status)=>{if(status==='Offline')offline++;},onCommand:async()=>({ok:true}),WebSocketImpl:SilentSocket,heartbeatMs:5,maxIdleMs:15,reconnectMs:1});
  try{await Promise.all([phone.resume(),phone.resume()]);assert.equal(count,1);await new Promise(r=>setTimeout(r,55));assert.ok(count>=2);assert.ok(offline>=1);}finally{phone.suspend();}
+});
+
+test('new codes use wg while existing ww threads keep their identity and ownership',async()=>{
+ for(let i=0;i<100;i++)assert.match(pronounceableCode(),/^wg[A-Z][a-z]{4}$/);
+ for(const code of ['wgPaluf','wwPaluf','WGPALUF','wwpaluf'])assert.equal(validCode(code),true);
+ for(const code of ['wg','wgabc','xxPaluf','wgPaluf/','wgPalu1',null])assert.equal(validCode(code),false);
+ const collection=memoryCollection();
+ const legacy=mongoWalkiewareStore(collection,{name:()=> 'wwPaluf'});
+ await legacy.open('owner',id);
+ const current=mongoWalkiewareStore(collection);
+ assert.equal((await current.open('owner',id)).code,'wwPaluf');
+ assert.equal((await current.read('owner','WWPALUF'))._id,id);
+ assert.equal(await current.read('stranger','wwPaluf'),null);
+ const next=await current.open('owner','22222222-2222-4222-8222-222222222222');
+ assert.match(next.code,/^wg/);
+ assert.equal((await current.read('owner',next.code.toUpperCase()))._id,next._id);
 });
