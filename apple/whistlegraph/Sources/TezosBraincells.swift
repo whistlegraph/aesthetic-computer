@@ -13,6 +13,7 @@ import StoreKit
     private struct Response: Decodable {
         let checkoutURL: URL?
         let status: String?
+        let credits: Int?
         let error: String?
     }
     func prepare() async {
@@ -74,7 +75,7 @@ import StoreKit
             else { payment = try await request("confirm", bearer: secret) }
             if payment.status == "credited" {
                 UserDefaults.standard.removeObject(forKey: storageKey)
-                notice = "1,000,000 braincells added."
+                notice = payment.credits.map { "\($0.formatted()) braincells added." } ?? "Braincells added."
                 session.command("refreshBraincells")
             } else if payment.status == "expired" {
                 UserDefaults.standard.removeObject(forKey: storageKey)
