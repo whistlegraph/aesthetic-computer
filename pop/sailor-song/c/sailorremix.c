@@ -90,7 +90,7 @@
 #include "sailor-chart.h"
 
 #define SR 48000
-#define VERSION "v116"
+#define VERSION "v117"
 #define EAGER 0.009          // v73: "eager" placement — percussion pushes ~9 ms ahead of the grid
 #define PIANO_ON 1          // v112: ON — "I wanted the piano" (v71 had turned it off)
 #define SHIFT27 0.0          // v53: how much earlier everything after bar 27 plays, now that the regularizer fits it to four beats
@@ -333,7 +333,7 @@ static void gong_deep(double t, int midi, double g, double vibHz, double vibCent
     ev(t, "gong", 8.0, g, midi);
 }
 static void fem_bell(double t, int midi, double g) {
-    while (midi > 88) midi -= 12;   // v116: the bank now runs E4–E6 (was E4–E5, the loner rule) — the break's bells were asked at 72–83 and folded an octave down
+    while (midi > 76) midi -= 12;   // v117: back to E5 — v116's octave up read as "rubber"; the bank still holds E4–E6   // v116: the bank now runs E4–E6 (was E4–E5, the loner rule) — the break's bells were asked at 72–83 and folded an octave down
     while (midi < 63) midi += 12;
     if (!BELLS[midi].L) {
         char p[256]; snprintf(p, sizeof p, LANE "/src/bells/bell-%d.wav", midi);
@@ -1231,7 +1231,7 @@ int main(void) {
         // break, a fem bell an 8th behind on the chord's top tones, ringing out: her playing trails into bells
         if ((b->n >= 66 && b->n <= 72) && nb > 3) { int tops[4]; int nt = 0; for (int m = 83; m >= 72 && nt < 4; m--) { int pc = m % 12; if (pc == pcs[0] || pc == pcs[1] || pc == pcs[2]) tops[nt++] = m; }
             const double pts[4] = { bt[0], MID(1), bt[2], MID(3) }; const double g = 0.13 * (b->n <= 67 ? 0.8 : 1.0) * evo(b->n, 66, 69);
-            for (int q = 0; q < 4; q++) { double t = pts[q] + beatDur / 2; fem_bell(hum_t(t), tops[q % nt], hum_g(g)); ev(t, "bell", 0.6, g, tops[q % nt]); } }
+            for (int q = 0; q < 4; q++) { double t = pts[q] + beatDur / 2; sine(melM, NULL, hum_t(t), 0.55, tops[q % nt], hum_g(g) * 1.6, 0, 0.003, 0.45, 2); ev(t, "ping", 0.55, g, tops[q % nt]); } }   // v117: sine pings, not FEM bells — "like rubber under the vocals"
         // v24: the wub on her root, two octaves under the sub, one sweep per beat (8ths from the bridge)
         if (WUB[s] > 0 && !release) { wub(b->t, b->t + b->dur, ROOT[b->chord] - 24, beatDur, WUB_RATE[s], WUB[s] * hill * (s == BRIDGE && b->n < 77 ? 0.5 : 1)); ev(b->t, "wub", b->dur, WUB[s], ROOT[b->chord] - 24); }
         // v62: THE PIANO — jazz voicings from her cycle: G#m9 (G# B D# F# A#), Emaj7 (E G# B D#) on her Emaj7/G# bar, Bmaj9
@@ -1458,7 +1458,7 @@ int main(void) {
           if (MIRROR[sec] > 0) { int mm = scale_step(2 * 63 - v->midi, 0) + 12; sine(mirM, NULL, v->t + beat, v->dur, mm, 0.05 * MIRROR[sec], 0, 0.05, 0.45, 5); ev(v->t + beat, "mirror", v->dur, MIRROR[sec], mm); }
           if (CHORALE[sec] > 0) { int c3 = scale_step(v->midi, -2), c6 = scale_step(v->midi, -5);
               sine(melM, NULL, v->t, v->dur, c3, 0.04 * CHORALE[sec] * gV1, 0, 0.05, 0.4, 3); sine(melM, NULL, v->t, v->dur, c6, 0.034 * CHORALE[sec] * gV1, 0, 0.05, 0.4, 3); ev(v->t, "chorale", v->dur, CHORALE[sec], c3); }
-          if (CANON[sec] > 0 && v->dur >= 0.35) { fem_bell(v->t + beat / 2, v->midi + 12, 0.14 * CANON[sec]); ev(v->t + beat / 2, "bell", 0.5, CANON[sec], v->midi + 12); } }
+          if (CANON[sec] > 0 && v->dur >= 0.35) { sine(melM, NULL, v->t + beat / 2, 0.5, v->midi + 12, 0.14 * CANON[sec] * 1.6, 0, 0.003, 0.4, 2); ev(v->t + beat / 2, "ping", 0.5, CANON[sec], v->midi + 12); } }   // v117: sine, not FEM
     }
     // fem bell answers: in every breath > 1 s her last three notes ring back
     for (int k = 1; k < CHART_NNOTES; k++) {
