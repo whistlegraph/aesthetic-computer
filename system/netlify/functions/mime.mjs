@@ -5,7 +5,7 @@ import { respond as httpRespond } from "../../backend/http.mjs";
 import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
 import {
   MEDIA_KINDS, MEDIA_THREADS, mediaPipeline, parseMediaThread,
-  mediaThread, resolveMedia, sourceRecord, publicPosts, mediaFile, publicMediaUrl,
+  mediaThread, resolveMedia, sourceRecord, publicPosts, mediaFile, publicMediaUrl, packedMediaUrl,
 } from "../../backend/mime-media.mjs";
 
 const respond = (status, body, headers = {}) => httpRespond(status, body, { "Cache-Control": "no-store", ...headers });
@@ -127,8 +127,11 @@ async function serveFile(db, posts, code) {
 
 async function servePoster(db, code) {
   const ref = parseMediaThread(code);
-  if (ref?.kind !== "tape") return respond(404, { error: "poster not found" });
+  if (!["tape", "whistlegraph"].includes(ref?.kind)) return respond(404, { error: "poster not found" });
   const record = await sourceRecord(db, code);
+  if (ref.kind === "whistlegraph") return record?.coverUri
+    ? respond(302, "", { Location: packedMediaUrl(record.coverUri), "X-Content-Type-Options": "nosniff" })
+    : respond(404, { error: "poster not found" });
   if (!record?.thumbnailUrl) return respond(404, { error: "poster not found" });
   return respond(302, "", { Location: publicMediaUrl(record.thumbnailUrl), "X-Content-Type-Options": "nosniff" });
 }
@@ -155,7 +158,7 @@ async function getIndex(db, posts, page, feedOnly = false) {
       { $sort: { bumped: -1, _id: 1 } },
     ]).toArray(),
     Promise.all([
-      ...["painting", "tape", "kidlisp", "piece"].map((kind) =>
+      ...["whistlegraph", "painting", "tape", "kidlisp", "piece"].map((kind) =>
         db.collection(MEDIA_KINDS[kind]).aggregate([...mediaPipeline(kind, {}, false), ...order]).toArray()),
       posts.aggregate([{ $match: { parent: null } }, { $project: { "file.data": 0 } }, ...order]).toArray(),
     ]),

@@ -13,6 +13,10 @@ if (uri && !/^mongodb:\/\/(127\.0\.0\.1|localhost|\[::1\])[:/]/.test(uri)) {
 let client, db, handler;
 const paintingId = new ObjectId();
 const paintingThread = `painting_${paintingId}`;
+const packId = "a".repeat(64);
+const packThread = `whistlegraph_${packId}`;
+const artifactUri = "ipfs://QmfM7Jc8vdju2qCVNJ8ZZc2RQ9ma3QyEjYGXHb9xR5RPfp";
+const coverUri = "ipfs://QmbU6bEoXPXGr42FkoazpfQ4xx1r96MnHsXHTACByfV7S5";
 const when = new Date("2026-09-01T12:00:00Z");
 const fixture = (code, extra = {}) => ({ code, slug: code, when, ...extra });
 const file = (name, type = "image/png") => ({ name, type, data: Buffer.from("fixture").toString("base64") });
@@ -43,6 +47,17 @@ before(async () => {
   ]);
   await db.collection("kidlisp").insertOne(fixture("lisp", { source: "(wipe red)", user: "auth0|fixture" }));
   await db.collection("tape-drafts").insertOne(fixture("never-published"));
+  const pack = { _id: packId, code: "wgDefen", version: 7, status: "minted", mintedAt: when,
+    user: "auth0|fixture", title: "Spinning tree", aspect: "2:3", bytes: 642922,
+    artifactUri, coverUri, tokenId: "885469", nonce: "secret-nonce", signature: "secret-signature",
+    source: "private-source", threadId: "private-thread" };
+  await db.collection("whistlegraph-mints").insertMany([
+    pack,
+    ...["packing", "packed", "ready", "requested", "failed"].map((status, i) => ({ ...pack, _id: String(i).repeat(64), status })),
+    { ...pack, _id: "b".repeat(64), private: true },
+    { ...pack, _id: "c".repeat(64), visibility: "unlisted" },
+    { ...pack, _id: "d".repeat(64), artifactUri: "https://evil.example/art.html" },
+  ]);
 });
 
 after(async () => { if (db) await db.dropDatabase(); if (client) await client.close(); });
@@ -61,10 +76,10 @@ test("public media automatically become attributed posts without writes", { skip
   const response = await get();
   assert.equal(response.statusCode, 200);
   const index = body(response);
-  assert.equal(index.recent.length, 8);
+  assert.equal(index.recent.length, 9);
   assert.equal(index.boards.find((b) => b.board === "image/png").threads, 3);
   assert.deepEqual(new Set(index.boards.map((b) => b.board)), new Set([
-    "image/png", "video/mp4", "application/zip", "text/javascript", "text/x-lua", "text/x-lisp",
+    "image/png", "video/mp4", "application/zip", "text/javascript", "text/x-lua", "text/x-lisp", "text/html",
   ]));
   const painting = index.recent.find((p) => p.code === paintingThread);
   assert.equal(painting.name, "@artist");
@@ -76,6 +91,36 @@ test("public media automatically become attributed posts without writes", { skip
   const resolved = body(await get({ media: "painting", code: "art" }));
   assert.equal(resolved.op.code, paintingThread);
   assert.deepEqual(resolved.replies, []);
+});
+
+test("Whistlegraph publishes only confirmed packs, with provenance and no mint secrets", { skip: !uri }, async () => {
+  const response = await get();
+  const packs = body(response).recent.filter(p => p.media?.kind === "whistlegraph");
+  assert.equal(packs.length, 1);
+  const [pack] = packs;
+  assert.equal(pack.code, packThread);
+  assert.equal(pack.name, "@artist");
+  assert.equal(pack.when, when.toISOString());
+  assert.deepEqual(pack.origin, { name: "Whistlegraph", url: "https://whistlegraph.app/" });
+  assert.equal(pack.media.title, "Spinning tree");
+  assert.equal(pack.media.aspect, "2:3");
+  assert.equal(pack.media.packed, true);
+  assert.equal(pack.media.tokenUrl, "https://teia.art/objkt/885469");
+  assert.equal(pack.file.name, "wgDefen-v7.html");
+  assert.equal(pack.file.type, "text/html");
+  assert.equal(pack.file.size, 642922);
+  assert.doesNotMatch(response.body, /secret-|private-|nonce|signature|threadId|auth0/);
+  for (const [key, uri] of [["file", artifactUri], ["poster", coverUri]]) {
+    const result = await get({ [key]: packThread });
+    assert.equal(result.statusCode, 302);
+    assert.equal(result.headers.Location, uri.replace("ipfs://", "https://ipfs.aesthetic.computer/ipfs/"));
+  }
+  assert.equal(body(await get({ media: "whistlegraph", code: packId })).op.code, packThread);
+  await db.collection("whistlegraph-mints").updateOne({ _id: packId }, { $set: { hidden: true } });
+  for (const key of ["thread", "file", "poster"]) assert.equal((await get({ [key]: packThread })).statusCode, 404);
+  assert.equal((await post({ parent: packThread, text: "hidden" })).statusCode, 404);
+  assert.ok(!body(await get()).recent.some(p => p.code === packThread));
+  await db.collection("whistlegraph-mints").updateOne({ _id: packId }, { $unset: { hidden: "" } });
 });
 
 test("simultaneous first replies share one thread, with current source metadata", { skip: !uri }, async () => {
@@ -201,7 +246,7 @@ test("archive pagination is stable and new uploads appear without a sync job", {
   assert.equal(new Set([...first.threads, ...second.threads].map((t) => t.op.code)).size, 24);
   const recent = body(await get());
   assert.equal(recent.hasMore, true);
-  for (const kind of ["painting", "tape", "kidlisp", "piece"]) {
+  for (const kind of ["whistlegraph", "painting", "tape", "kidlisp", "piece"]) {
     assert.ok(recent.recent.some((p) => p.media?.kind === kind), kind + " stays visible during a painting burst");
   }
   const next = body(await get({ page: "1" }));

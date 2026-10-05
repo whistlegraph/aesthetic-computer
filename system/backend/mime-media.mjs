@@ -7,6 +7,7 @@ export const MEDIA_KINDS = {
   tape: "tapes",
   piece: "pieces",
   kidlisp: "kidlisp",
+  whistlegraph: "whistlegraph-mints",
 };
 export const MEDIA_THREADS = "mime-media-threads";
 
@@ -22,10 +23,30 @@ const visible = {
 const nonempty = { $type: "string", $ne: "" };
 const literal = (value) => ({ $literal: value });
 const pieceExtension = { $toLower: { $ifNull: ["$extension", { $ifNull: ["$ext", "mjs"] }] } };
+const ipfsPattern = /^ipfs:\/\/Qm[1-9A-HJ-NP-Za-km-z]{44}$/;
+const origins = {
+  painting: { name: "Aesthetic Computer", url: "https://aesthetic.computer/" },
+  tape: { name: "Aesthetic Computer", url: "https://aesthetic.computer/" },
+  piece: { name: "Aesthetic Computer", url: "https://aesthetic.computer/" },
+  kidlisp: { name: "KidLisp", url: "https://kidlisp.com/" },
+  whistlegraph: { name: "Whistlegraph", url: "https://whistlegraph.app/" },
+};
+
+function sourceVisibility(kind) {
+  if (kind === "whistlegraph") return { ...visible, status: "minted",
+    artifactUri: { $regex: ipfsPattern }, tokenId: { $type: "string", $regex: /^\d+$/ } };
+  return { ...visible, ...(kind === "kidlisp" ? { source: nonempty } : { slug: nonempty }) };
+}
+
+export function packedMediaUrl(uri) {
+  if (typeof uri !== "string" || !ipfsPattern.test(uri)) throw new Error("Invalid packed artwork URI");
+  return "https://ipfs.aesthetic.computer/ipfs/" + uri.slice(7);
+}
 
 export function mediaPipeline(kind, match = {}, activity = true) {
   if (!Object.hasOwn(MEDIA_KINDS, kind)) throw new Error("Unknown media kind");
-  const type = kind === "painting" ? literal("image/png")
+  const packed = kind === "whistlegraph";
+  const type = packed ? literal("text/html") : kind === "painting" ? literal("image/png")
     : kind === "kidlisp" ? literal("text/x-lisp")
     : kind === "tape" ? { $cond: [
       { $and: [{ $eq: ["$mp4Status", "complete"] }, { $ne: [{ $ifNull: ["$mp4Url", ""] }, ""] }] },
@@ -38,17 +59,19 @@ export function mediaPipeline(kind, match = {}, activity = true) {
       ], default: "text/javascript",
     } };
   const pipeline = [
-    { $match: { ...visible, ...(kind === "kidlisp" ? { source: nonempty } : { slug: nonempty }), ...match } },
+    { $match: { ...match, ...sourceVisibility(kind) } },
     { $project: {
       _id: 0,
       code: { $concat: [kind + "_", { $toString: "$_id" }] },
       parent: literal(null), board: type,
-      when: { $ifNull: ["$when", { $toDate: "$_id" }] },
+      when: packed ? "$mintedAt" : { $ifNull: ["$when", { $toDate: "$_id" }] },
       text: literal(""),
       _media: {
         kind: literal(kind), id: { $toString: "$_id" }, code: "$code",
-        user: "$user", slug: "$slug", size: "$size",
+        user: "$user", slug: "$slug", size: packed ? "$bytes" : "$size",
         hasPoster: { $ne: [{ $ifNull: ["$thumbnailUrl", ""] }, ""] },
+        ...(packed ? { title: "$title", version: "$version", aspect: "$aspect",
+          artifactUri: "$artifactUri", coverUri: "$coverUri", tokenId: "$tokenId" } : {}),
       },
     } },
   ];
@@ -66,6 +89,8 @@ export function mediaPipeline(kind, match = {}, activity = true) {
 
 export function parseMediaThread(code) {
   if (typeof code !== "string") return null;
+  const pack = /^whistlegraph_([a-f0-9]{64})$/.exec(code);
+  if (pack) return { kind: "whistlegraph", id: pack[1] };
   const match = /^(painting|tape|piece|kidlisp)_([a-f0-9]{24})$/.exec(code);
   return match ? { kind: match[1], id: new ObjectId(match[2]) } : null;
 }
@@ -79,14 +104,14 @@ export async function resolveMedia(db, kind, ref) {
   if (typeof ref !== "string" || !ref) return null;
   // Prefer a public short code. An ObjectId is the fallback for legacy records.
   return await mediaThread(db, kind, { code: ref }) ||
-    (/^[a-f0-9]{24}$/.test(ref) ? mediaThread(db, kind, { _id: new ObjectId(ref) }) : null);
+    (kind === "whistlegraph" && /^[a-f0-9]{64}$/.test(ref) ? mediaThread(db, kind, { _id: ref }) :
+      /^[a-f0-9]{24}$/.test(ref) ? mediaThread(db, kind, { _id: new ObjectId(ref) }) : null);
 }
 
 export async function sourceRecord(db, code) {
   const ref = parseMediaThread(code);
   if (!ref) return null;
-  return db.collection(MEDIA_KINDS[ref.kind]).findOne({ ...visible,
-    ...(ref.kind === "kidlisp" ? { source: nonempty } : { slug: nonempty }), _id: ref.id });
+  return db.collection(MEDIA_KINDS[ref.kind]).findOne({ ...sourceVisibility(ref.kind), _id: ref.id });
 }
 
 export async function publicPosts(db, docs) {
@@ -101,16 +126,18 @@ export async function publicPosts(db, docs) {
     const extension = {
       "image/png": "png", "video/mp4": "mp4", "application/zip": "zip",
       "text/javascript": "mjs", "text/x-lisp": "lisp", "text/x-lua": "lua",
+      "text/html": "html",
     }[doc.board];
     const url = `/api/mime?file=${encodeURIComponent(doc.code)}`;
     const file = media
-      ? { name: `${media.code || media.id}.${extension}`, type: doc.board, size: media.size ?? null, url,
-          ...(media.kind === "tape" && media.hasPoster ? { poster: `/api/mime?poster=${encodeURIComponent(doc.code)}` } : {}) }
+      ? { name: `${media.code || media.id}${media.kind === "whistlegraph" ? "-v" + media.version : ""}.${extension}`, type: doc.board, size: media.size ?? null, url,
+          ...((media.kind === "tape" && media.hasPoster || media.kind === "whistlegraph" && ipfsPattern.test(media.coverUri || "")) ? { poster: `/api/mime?poster=${encodeURIComponent(doc.code)}` } : {}) }
       : doc.file ? { name: doc.file.name, type: doc.file.type, size: doc.file.size, url } : null;
     let original;
     if (media?.code) {
       const code = encodeURIComponent(media.code);
-      original = media.kind === "painting" ? `https://aesthetic.computer/#${code}`
+      original = media.kind === "whistlegraph" ? packedMediaUrl(media.artifactUri)
+        : media.kind === "painting" ? `https://aesthetic.computer/#${code}`
         : media.kind === "tape" ? `https://aesthetic.computer/!${code}`
         : media.kind === "kidlisp" ? `https://aesthetic.computer/$${code}`
         : `https://aesthetic.computer/${code}`;
@@ -119,9 +146,12 @@ export async function publicPosts(db, docs) {
       code: doc.code, parent: doc.parent, board: doc.board,
       name: media || doc.user ? handle : doc.name, text: doc.text, when: doc.when,
       replies: doc.replies || 0, file,
+      origin: origins[media?.kind] || { name: "Mime", url: "https://mime.ac/" },
       ...(media ? { media: {
         kind: media.kind, id: media.id, code: media.code || null,
         url: original || url, author: handle,
+        ...(media.kind === "whistlegraph" ? { title: media.title, version: media.version,
+          aspect: media.aspect, packed: true, tokenUrl: `https://teia.art/objkt/${media.tokenId}` } : {}),
       } } : {}),
     };
   });
@@ -130,6 +160,7 @@ export async function publicPosts(db, docs) {
 // Resolve storage only from an allowlisted, visible media record. Request
 // bodies cannot supply external URLs or choose arbitrary collections/buckets.
 export function mediaFile(kind, record) {
+  if (kind === "whistlegraph") return { url: packedMediaUrl(record.artifactUri) };
   if ((kind === "kidlisp" || kind === "piece") && typeof record.source === "string") {
     return { text: record.source };
   }

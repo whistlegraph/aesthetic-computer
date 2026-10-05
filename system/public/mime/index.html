@@ -129,12 +129,15 @@
     .avatar { background: var(--author); color: var(--card); border-color: var(--author); }
     .byline { min-width: 0; flex: 1; }
     .name { font-weight: 650; color: var(--author); font-size: 16px; text-decoration: none; }
-    .post time { white-space: nowrap; font-size: 11px; }
-    .media-label { display: block; color: var(--dim); font-size: 12px; text-decoration: none; }
+    .post time { white-space: nowrap; font-size: 12px; }
+    .media-label { display: block; color: var(--ink); font-size: 14px; text-decoration: none; }
+    .media-origin { display: block; color: var(--dim); font-size: 12px; text-decoration: none; }
     .feed-media { width: 100%; aspect-ratio: 4 / 3; display: grid; place-items: center;
       grid-template: minmax(0, 1fr) / minmax(0, 1fr); overflow: hidden; background: var(--media);
       border-block: 1px solid var(--card-edge); }
     .feed-media.media-audio { aspect-ratio: auto; min-height: 112px; }
+    .feed-media.media-pack { aspect-ratio: var(--media-ratio, 2 / 3);
+      width: min(100%, calc(min(55svh, 600px) * var(--pack-ratio, .666667))); margin-inline: auto; }
     .feed-media.media-image, .feed-media.media-video { aspect-ratio: var(--media-ratio, 4 / 3); }
     .feed-media.media-image > img, .feed-media.media-video > video { object-fit: contain; }
     .media-loading { position: absolute; z-index: 1; left: 50%; top: 50%; transform: translate(-50%, -50%);
@@ -154,7 +157,7 @@
     .save-ribbon svg { width: 20px; height: 26px; fill: transparent; stroke: currentColor; stroke-width: 2; }
     .save-ribbon[aria-pressed="true"] svg { fill: currentColor; }
     .saved-link { padding: 8px; font-size: 13px; font-weight: 650; }
-    .mime-type { display: block; width: fit-content; margin-top: 2px; color: var(--dim); font-size: 11px; font-weight: 400; }
+    .mime-type { display: block; width: fit-content; margin-top: 2px; color: var(--dim); font-size: 12px; font-weight: 400; }
     .media-error { margin: 20px; padding: 16px; background: var(--card); border-radius: 6px; text-align: center; }
     .feed-media { position: relative; isolation: isolate; }
     .feed-media::before { content: ""; position: absolute; inset: -32px; z-index: -1; pointer-events: none;
@@ -184,6 +187,8 @@
     .body .gt { color: var(--green); }
     .post-actions { display: flex; align-items: center; gap: 10px; padding: 13px 14px 15px; flex-wrap: wrap; }
     .post-actions .source-button { margin-left: auto; font-size: 13px; }
+    .post-actions:has(.download-pack) { gap: 8px; }
+    .post-actions:has(.download-pack) > * { font-size: 12px; }
     .comment-preview { padding: 0 14px 13px; font-size: 14px; }
     .comment-preview p { margin: 4px 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .comment-preview .name { font-size: inherit; margin-right: 8px; }
@@ -626,7 +631,8 @@ function syncPieceFocus() {
     if (!focused.isConnected || document.hidden || !document.hasFocus()) return;
     const iframe = el("iframe");
     iframe.title = focused.dataset.title;
-    iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
+    iframe.setAttribute("sandbox", focused.dataset.packed === "true" ? "allow-scripts" : "allow-scripts allow-same-origin");
+    iframe.referrerPolicy = "no-referrer";
     iframe.setAttribute("allow", "autoplay 'none'; camera 'none'; microphone 'none'");
     iframe.addEventListener("load", () => { iframe.dataset.ready = "true"; }, { once: true });
     iframe.src = focused.dataset.player;
@@ -650,6 +656,7 @@ function syncPieceFocus() {
 const RUNNABLE = {
   kidlisp: { prefix: "$", label: "KidLisp $", poster: true },
   piece: { prefix: "", label: "piece ", poster: false },
+  whistlegraph: { prefix: "", label: "Whistlegraph ", poster: true },
 };
 
 function renderRunnable(post) {
@@ -662,17 +669,24 @@ function renderRunnable(post) {
   // a card can never act as the signed-in user.
   preview.dataset.player = "https://aesthetic.computer/" + address + "?nogap=true&nolabel=true&noauth=true";
   preview.dataset.title = kind.label + code + (post.name ? " by " + post.name : "");
+  if (post.media.kind === "whistlegraph") {
+    preview.dataset.packed = "true";
+    preview.dataset.player = post.media.url;
+    preview.dataset.title = (post.media.title || code) + (post.name ? " by " + post.name : "");
+  }
   if (!kind.poster) return preview;
   const image = el("img");
   image.alt = preview.dataset.title;
   image.loading = "lazy";
   image.decoding = "async";
   image.addEventListener("load", () => { image.dataset.ready = "true"; }, { once: true });
-  image.src = "https://oven.aesthetic.computer/grab/webp/512/512/" + encodeURIComponent(kind.prefix + code);
+  if (post.media.kind === "whistlegraph" && !post.file.poster) return preview;
+  image.src = post.media.kind === "whistlegraph" ? post.file.poster
+    : "https://oven.aesthetic.computer/grab/webp/512/512/" + encodeURIComponent(kind.prefix + code);
   image.addEventListener("error", () => {
     image.remove();
     const link = el("a", null, "Open " + kind.prefix + code);
-    link.href = "https://aesthetic.computer/" + address;
+    link.href = post.media.url || "https://aesthetic.computer/" + address;
     preview.prepend(link);
   }, { once: true });
   preview.append(image);
@@ -868,15 +882,21 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
   const byline = el("div", "byline");
   byline.append(authorName(post.name));
   if (root) {
-    const source = el("a", "media-label", post.media ? post.media.kind + (post.media.code ? " " + post.media.code : "") : post.file?.name || "post " + post.code);
+    const source = el("a", "media-label", post.media?.title || (post.media ? post.media.kind + (post.media.code ? " " + post.media.code : "") : post.file?.name || "post " + post.code));
     source.href = post.media?.url || "#/t/" + post.code;
     byline.append(source);
+    if (post.origin) {
+      const origin = el("a", "media-origin", post.origin.name);
+      origin.href = post.origin.url;
+      byline.append(origin);
+    }
     const mime = el("span", "mime-type", post.file?.type || post.board || "text/plain");
     byline.append(mime);
   }
   const time = el("time", null, ago(post.when));
   time.dateTime = post.when;
   time.title = new Date(post.when).toLocaleString();
+  time.setAttribute("aria-label", time.title);
   meta.append(avatar, byline, time);
   if (root) meta.append(saveRibbon(post.code));
   div.append(meta);
@@ -884,6 +904,13 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
     const runnable = post.media?.code && Object.hasOwn(RUNNABLE, post.media.kind);
     const file = runnable ? renderRunnable(post) : renderFile(post.file);
     const frame = el("div", "feed-media");
+    if (runnable && post.media.packed) {
+      const aspect = ["2:3", "9:16", "1:1", "4:3", "16:9"].includes(post.media.aspect) ? post.media.aspect : "2:3";
+      const [width, height] = aspect.split(":").map(Number);
+      frame.classList.add("media-pack");
+      frame.style.setProperty("--media-ratio", `${width} / ${height}`);
+      frame.style.setProperty("--pack-ratio", width / height);
+    }
     if (inFeed && file.tagName === "VIDEO") { file.muted = true; file.loop = true; }
     if (post.media?.kind === "tape" && post.media.code) frame.dataset.tape = post.media.code;
     frame.append(file);
@@ -926,11 +953,35 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
     div.append(frame);
   }
   if (post.text) div.append(renderText(post.text));
-  if (root && !inThread) {
+  if (root) {
     const actions = el("div", "post-actions");
-    const discuss = el("a", "discussion", "comment" + (post.replies ? " · " + post.replies : ""));
-    discuss.href = "#/t/" + post.code + "?comment=1";
-    actions.append(discuss);
+    if (!inThread) {
+      const discuss = el("a", "discussion", "comment" + (post.replies ? " · " + post.replies : ""));
+      discuss.href = "#/t/" + post.code + "?comment=1";
+      actions.append(discuss);
+    }
+    if (post.media?.packed) {
+      const download = el("button", "download-pack", ".html ↓");
+      download.setAttribute("aria-label", "Download " + post.file.name);
+      download.addEventListener("click", async () => {
+        download.disabled = true;
+        try {
+          const response = await fetch(post.file.url);
+          if (!response.ok) throw new Error("Download failed");
+          const url = URL.createObjectURL(new Blob([await response.arrayBuffer()], { type: "text/html" }));
+          const link = el("a"); link.href = url; link.download = post.file.name;
+          document.body.append(link); link.click(); link.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 60000);
+          download.textContent = ".html ↓";
+        } catch { download.textContent = "Retry .html ↓"; }
+        finally { download.disabled = false; }
+      });
+      actions.append(download);
+      if (post.media.tokenUrl) {
+        const token = el("a", "token-link", "OBJKT ↗"); token.href = post.media.tokenUrl;
+        actions.append(token);
+      }
+    }
     if (post.media?.url) {
       const source = el("a", "source-button", "open ↗");
       source.href = post.media.url;
@@ -938,7 +989,7 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
       actions.append(source);
     }
     div.append(actions);
-    if (post.preview?.length) {
+    if (!inThread && post.preview?.length) {
       const preview = el("div", "comment-preview");
       for (const reply of post.preview) {
         const line = el("p");
