@@ -1,0 +1,1405 @@
+From b3fd7858a1cd2f62a1291788724fd4856820e1f6 Mon Sep 17 00:00:00 2001
+From: "prompt.ac/@jeffrey" <mail@aesthetic.computer>
+Date: Mon, 5 Oct 2026 11:45:03 -0700
+Subject: [PATCH] NELA optional theme ported onto Outline v1.9.2
+
+Snapshot of ~/nela-outline-1.9.2 (the v1.9.2 release tree with the NELA theme applied).
+---
+ app/actions/definitions/collections.tsx       |  14 +-
+ app/actions/definitions/documents.tsx         |  12 +-
+ app/actions/definitions/navigation.tsx        |  14 +-
+ app/components/Avatar/Avatar.tsx              |  41 ++-
+ app/components/Avatar/RetroInitials.tsx       |  93 +++++++
+ app/components/Button.tsx                     |   2 +-
+ app/components/Icons/CollectionIcon.tsx       |   2 +-
+ app/components/Input.tsx                      |   3 +-
+ app/components/InputSearch.tsx                |   2 +-
+ app/components/NelaIcons.test.tsx             |  38 +++
+ app/components/NelaIcons.tsx                  | 253 ++++++++++++++++++
+ app/components/NelaStyles.tsx                 | 123 +++++++++
+ app/components/Sidebar/App.tsx                |   3 +-
+ app/components/Sidebar/Shared.tsx             |   2 +-
+ app/components/Sidebar/Sidebar.tsx            |   2 +
+ .../Sidebar/components/ArchiveLink.tsx        |   2 +-
+ .../Sidebar/components/CollectionRow.tsx      |   2 +-
+ .../Sidebar/components/DocumentRow.tsx        |   2 +-
+ .../Sidebar/components/DraftsLink.tsx         |   2 +-
+ .../Sidebar/components/TrashLink.tsx          |   2 +-
+ .../Sidebar/hooks/useSidebarLabelAndIcon.tsx  |   3 +-
+ app/components/Theme.tsx                      |   2 +
+ app/hooks/useBuildTheme.ts                    |  31 ++-
+ app/scenes/Document/components/Document.tsx   |  18 +-
+ .../Document/components/DocumentMeta.tsx      |   5 +-
+ .../Document/components/DocumentTitle.tsx     |   6 +-
+ app/scenes/Settings/Preferences.tsx           |  33 ++-
+ app/stores/UiStore.test.ts                    |  41 +++
+ app/stores/UiStore.ts                         |  38 +++
+ app/typings/styled-components.d.ts            |   1 +
+ shared/styles/nela.test.ts                    |  28 ++
+ shared/styles/nela.ts                         |  79 ++++++
+ 32 files changed, 840 insertions(+), 59 deletions(-)
+ create mode 100644 app/components/Avatar/RetroInitials.tsx
+ create mode 100644 app/components/NelaIcons.test.tsx
+ create mode 100644 app/components/NelaIcons.tsx
+ create mode 100644 app/components/NelaStyles.tsx
+ create mode 100644 app/stores/UiStore.test.ts
+ create mode 100644 shared/styles/nela.test.ts
+ create mode 100644 shared/styles/nela.ts
+
+diff --git a/app/actions/definitions/collections.tsx b/app/actions/definitions/collections.tsx
+index 08729e4..a698e15 100644
+--- a/app/actions/definitions/collections.tsx
++++ b/app/actions/definitions/collections.tsx
+@@ -1,24 +1,26 @@
+ import {
+   SortAlphabeticalReverseIcon,
+   SortAlphabeticalIcon,
+-  ArchiveIcon,
+-  CollectionIcon,
+   EditIcon,
+   ExportIcon,
+   ImportIcon,
+   SortManualIcon,
+-  NewDocumentIcon,
+   PadlockIcon,
+-  PlusIcon,
+   RestoreIcon,
+-  SearchIcon,
+   ShapesIcon,
+   StarredIcon,
+   SubscribeIcon,
+-  TrashIcon,
+   UnstarredIcon,
+   UnsubscribeIcon,
+ } from "outline-icons";
++import {
++  ArchiveIcon,
++  CollectionIcon,
++  NewDocumentIcon,
++  PlusIcon,
++  SearchIcon,
++  TrashIcon,
++} from "~/components/NelaIcons";
+ import { toast } from "sonner";
+ import { errToString } from "@shared/utils/error";
+ import Collection from "~/models/Collection";
+diff --git a/app/actions/definitions/documents.tsx b/app/actions/definitions/documents.tsx
+index 20a4029..e6e921b 100644
+--- a/app/actions/definitions/documents.tsx
++++ b/app/actions/definitions/documents.tsx
+@@ -7,18 +7,13 @@ import {
+   StarredIcon,
+   PrintIcon,
+   UnstarredIcon,
+-  DocumentIcon,
+-  NewDocumentIcon,
+   ShapesIcon,
+   ImportIcon,
+   PinIcon,
+-  SearchIcon,
+   UnsubscribeIcon,
+   SubscribeIcon,
+   MoveIcon,
+-  TrashIcon,
+   CrossIcon,
+-  ArchiveIcon,
+   ShuffleIcon,
+   HistoryIcon,
+   GraphIcon,
+@@ -35,6 +30,13 @@ import {
+   EmbedIcon,
+   OpenIcon,
+ } from "outline-icons";
++import {
++  DocumentIcon,
++  NewDocumentIcon,
++  SearchIcon,
++  TrashIcon,
++  ArchiveIcon,
++} from "~/components/NelaIcons";
+ import { toast } from "sonner";
+ import { errToString } from "@shared/utils/error";
+ import Icon from "@shared/components/Icon";
+diff --git a/app/actions/definitions/navigation.tsx b/app/actions/definitions/navigation.tsx
+index 51bdc19..d2f48cc 100644
+--- a/app/actions/definitions/navigation.tsx
++++ b/app/actions/definitions/navigation.tsx
+@@ -1,19 +1,21 @@
+ import {
+-  HomeIcon,
+-  SearchIcon,
+-  ArchiveIcon,
+-  TrashIcon,
+   OpenIcon,
+-  SettingsIcon,
+   KeyboardIcon,
+   EmailIcon,
+   LogoutIcon,
+   ProfileIcon,
+   BrowserIcon,
+   ShapesIcon,
+-  DraftsIcon,
+   BugIcon,
+ } from "outline-icons";
++import {
++  HomeIcon,
++  SearchIcon,
++  ArchiveIcon,
++  TrashIcon,
++  SettingsIcon,
++  DraftsIcon,
++} from "~/components/NelaIcons";
+ import { UrlHelper } from "@shared/utils/UrlHelper";
+ import { isMac } from "@shared/utils/browser";
+ import stores from "~/stores";
+diff --git a/app/components/Avatar/Avatar.tsx b/app/components/Avatar/Avatar.tsx
+index 126a0a1..c5876a3 100644
+--- a/app/components/Avatar/Avatar.tsx
++++ b/app/components/Avatar/Avatar.tsx
+@@ -1,8 +1,9 @@
+ import { observer } from "mobx-react";
+ import * as React from "react";
+-import styled from "styled-components";
++import styled, { useTheme } from "styled-components";
+ import useBoolean from "~/hooks/useBoolean";
+ import Initials from "./Initials";
++import { RetroInitials } from "./RetroInitials";
+ import Tooltip from "../Tooltip";
+ 
+ export enum AvatarSize {
+@@ -50,6 +51,7 @@ type Props = {
+ };
+ 
+ function Avatar(props: Props) {
++  const theme = useTheme();
+   const {
+     model,
+     style,
+@@ -63,21 +65,36 @@ function Avatar(props: Props) {
+   const initial =
+     model?.initial || (model?.name ? model.name[0] : "").toUpperCase();
+ 
++  const retro = !!theme.nela && (!src || error);
++
+   const content = (
+     <Relative
+       style={style}
+       $variant={variant}
+       $size={props.size}
++      $retro={retro}
+       className={className}
+     >
+       {src && !error ? (
+         <Image onError={handleError} src={src} {...rest} />
+-      ) : model ? (
+-        <Initials color={model.color} {...rest}>
+-          {initial}
+-        </Initials>
+       ) : (
+-        <Initials {...rest} />
++        <Initials
++          color={model?.color}
++          {...rest}
++          aria-label={props.alt || model?.name || initial}
++          role={retro ? "img" : undefined}
++          style={retro ? { background: "transparent" } : undefined}
++        >
++          {retro ? (
++            <RetroInitials
++              initial={initial}
++              seed={model?.id || model?.name || initial}
++              size={props.size}
++            />
++          ) : model ? (
++            initial
++          ) : null}
++        </Initials>
+       )}
+     </Relative>
+   );
+@@ -93,12 +110,20 @@ Avatar.defaultProps = {
+   size: AvatarSize.Medium,
+ };
+ 
+-const Relative = styled.div<{ $variant: AvatarVariant; $size: AvatarSize }>`
++const Relative = styled.div<{
++  $variant: AvatarVariant;
++  $size: AvatarSize;
++  $retro: boolean;
++}>`
+   position: relative;
+   user-select: none;
+   flex-shrink: 0;
+   border-radius: ${(props) =>
+-    props.$variant === AvatarVariant.Round ? "50%" : `${props.$size / 8}px`};
++    props.$retro
++      ? "0"
++      : props.$variant === AvatarVariant.Round
++        ? "50%"
++        : `${props.$size / 8}px`};
+   overflow: hidden;
+   width: ${(props) => props.$size}px;
+   height: ${(props) => props.$size}px;
+diff --git a/app/components/Avatar/RetroInitials.tsx b/app/components/Avatar/RetroInitials.tsx
+new file mode 100644
+index 0000000..35a264e
+--- /dev/null
++++ b/app/components/Avatar/RetroInitials.tsx
+@@ -0,0 +1,93 @@
++import { useTheme } from "styled-components";
++
++interface Props {
++  initial: string;
++  seed: string;
++  size: number;
++}
++
++const letters: Record<string, string[]> = {
++  A: ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
++  B: ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
++  C: ["01111", "10000", "10000", "10000", "10000", "10000", "01111"],
++  D: ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
++  E: ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
++  F: ["11111", "10000", "10000", "11110", "10000", "10000", "10000"],
++  G: ["01111", "10000", "10000", "10111", "10001", "10001", "01111"],
++  H: ["10001", "10001", "10001", "11111", "10001", "10001", "10001"],
++  I: ["11111", "00100", "00100", "00100", "00100", "00100", "11111"],
++  J: ["00111", "00010", "00010", "00010", "10010", "10010", "01100"],
++  K: ["10001", "10010", "10100", "11000", "10100", "10010", "10001"],
++  L: ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
++  M: ["10001", "11011", "10101", "10101", "10001", "10001", "10001"],
++  N: ["10001", "11001", "11001", "10101", "10011", "10011", "10001"],
++  O: ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
++  P: ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
++  Q: ["01110", "10001", "10001", "10001", "10101", "10010", "01101"],
++  R: ["11110", "10001", "10001", "11110", "10100", "10010", "10001"],
++  S: ["01111", "10000", "10000", "01110", "00001", "00001", "11110"],
++  T: ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
++  U: ["10001", "10001", "10001", "10001", "10001", "10001", "01110"],
++  V: ["10001", "10001", "10001", "10001", "10001", "01010", "00100"],
++  W: ["10001", "10001", "10001", "10101", "10101", "10101", "01010"],
++  X: ["10001", "10001", "01010", "00100", "01010", "10001", "10001"],
++  Y: ["10001", "10001", "01010", "00100", "00100", "00100", "00100"],
++  Z: ["11111", "00001", "00010", "00100", "01000", "10000", "11111"],
++};
++
++/**
++ * A notched pixel tile for a default letter avatar; photographs use the original renderer.
++ *
++ * @param props the initial, stable identity seed, and displayed size.
++ * @returns a decorative SVG, with the accessible label supplied by Avatar.
++ */
++export function RetroInitials({ initial, seed, size }: Props) {
++  const theme = useTheme();
++  const colors = ["#91e9bd", "#8cdcf4", "#d1b1f4", "#ffc6a5", "#f3df8c"];
++  const hash = [...seed].reduce(
++    (value, char) => (value * 31 + (char.codePointAt(0) ?? 0)) >>> 0,
++    0
++  );
++  const background = colors[hash % colors.length];
++  const glyph = letters[initial.toUpperCase()];
++  const drawing = glyph
++    ?.flatMap((row, y) =>
++      [...row].flatMap((cell, x) =>
++        cell === "1" ? [`M${7 + x * 2} ${5 + y * 2}h2v2h-2z`] : []
++      )
++    )
++    .join("");
++  return (
++    <svg
++      width={size}
++      height={size}
++      viewBox="0 0 24 24"
++      shapeRendering="crispEdges"
++      aria-hidden="true"
++      focusable="false"
++      data-nela-avatar
++    >
++      <path
++        fill={theme.isDark ? "#17382a" : "#456355"}
++        d="M4 0h16v2h2v2h2v16h-2v2h-2v2H4v-2H2v-2H0V4h2V2h2z"
++      />
++      <path fill={background} d="M4 2h16v2h2v16h-2v2H4v-2H2V4h2z" />
++      <path fill="#ffffff" fillOpacity=".7" d="M4 4h2v2H4z" />
++      {drawing ? (
++        <path d={drawing} fill="#172b23" />
++      ) : (
++        <text
++          x="12"
++          y="16"
++          textAnchor="middle"
++          fontFamily="monospace"
++          fontSize={initial.length > 1 ? 9 : 12}
++          fontWeight="700"
++          fill="#172b23"
++        >
++          {initial || "?"}
++        </text>
++      )}
++    </svg>
++  );
++}
+diff --git a/app/components/Button.tsx b/app/components/Button.tsx
+index 765f3d8..b4b5b8b 100644
+--- a/app/components/Button.tsx
++++ b/app/components/Button.tsx
+@@ -24,7 +24,7 @@ const RealButton = styled(ActionButton)<RealProps>`
+   background: ${s("accent")};
+   color: ${s("accentText")};
+   box-shadow: rgba(0, 0, 0, 0.2) 0px 1px 2px;
+-  border-radius: 6px;
++  border-radius: ${(props) => (props.theme.nela ? "0" : "6px")};
+   font-size: 14px;
+   font-weight: 500;
+   height: 32px;
+diff --git a/app/components/Icons/CollectionIcon.tsx b/app/components/Icons/CollectionIcon.tsx
+index dee49b4..dfa43c0 100644
+--- a/app/components/Icons/CollectionIcon.tsx
++++ b/app/components/Icons/CollectionIcon.tsx
+@@ -1,5 +1,5 @@
+ import { observer } from "mobx-react";
+-import { CollectionIcon, PrivateCollectionIcon } from "outline-icons";
++import { CollectionIcon, PrivateCollectionIcon } from "~/components/NelaIcons";
+ import { getLuminance } from "polished";
+ import Icon from "@shared/components/Icon";
+ import { colorPalette } from "@shared/utils/collections";
+diff --git a/app/components/Input.tsx b/app/components/Input.tsx
+index 99c5cf8..4e37f5b 100644
+--- a/app/components/Input.tsx
++++ b/app/components/Input.tsx
+@@ -119,7 +119,8 @@ export const Outline = styled(Flex)<{
+       : props.$focused
+         ? props.theme.inputBorderFocused
+         : props.theme.inputBorder};
+-  border-radius: ${(props) => (props.$round ? "16px" : "4px")};
++  border-radius: ${(props) =>
++    props.theme.nela ? "0" : props.$round ? "16px" : "4px"};
+   font-weight: normal;
+   align-items: center;
+   overflow: hidden;
+diff --git a/app/components/InputSearch.tsx b/app/components/InputSearch.tsx
+index d52b2e5..068bd24 100644
+--- a/app/components/InputSearch.tsx
++++ b/app/components/InputSearch.tsx
+@@ -1,4 +1,4 @@
+-import { SearchIcon } from "outline-icons";
++import { SearchIcon } from "~/components/NelaIcons";
+ import * as React from "react";
+ import { useTranslation } from "react-i18next";
+ import { useTheme } from "styled-components";
+diff --git a/app/components/NelaIcons.test.tsx b/app/components/NelaIcons.test.tsx
+new file mode 100644
+index 0000000..41b09da
+--- /dev/null
++++ b/app/components/NelaIcons.test.tsx
+@@ -0,0 +1,38 @@
++import { createRef } from "react";
++import { render, unmountComponentAtNode } from "react-dom";
++import { act } from "react-dom/test-utils";
++import { ThemeProvider } from "styled-components";
++import { buildNelaTheme } from "@shared/styles/nela";
++import { buildLightTheme } from "@shared/styles/theme";
++import { HomeIcon } from "./NelaIcons";
++
++test("keeps the SVG ref attached when switching between NELA and Outline", () => {
++  const container = document.createElement("div");
++  const ref = createRef<SVGSVGElement>();
++  const outline = buildLightTheme({});
++  try {
++    act(() => {
++      render(
++        <ThemeProvider theme={buildNelaTheme(outline)}>
++          <HomeIcon ref={ref} />
++        </ThemeProvider>,
++        container
++      );
++    });
++    expect(ref.current?.hasAttribute("data-nela-icon")).toBe(true);
++    act(() => {
++      render(
++        <ThemeProvider theme={outline}>
++          <HomeIcon ref={ref} />
++        </ThemeProvider>,
++        container
++      );
++    });
++    expect(ref.current?.tagName.toLowerCase()).toBe("svg");
++    expect(ref.current?.hasAttribute("data-nela-icon")).toBe(false);
++  } finally {
++    act(() => {
++      unmountComponentAtNode(container);
++    });
++  }
++});
+diff --git a/app/components/NelaIcons.tsx b/app/components/NelaIcons.tsx
+new file mode 100644
+index 0000000..c8c36c3
+--- /dev/null
++++ b/app/components/NelaIcons.tsx
+@@ -0,0 +1,253 @@
++import * as Original from "outline-icons";
++import { forwardRef, useContext } from "react";
++import type * as React from "react";
++import { ThemeContext } from "styled-components";
++
++interface IconProps {
++  size?: number;
++  color?: string;
++  className?: string;
++  onClick?: (event: React.MouseEvent<SVGElement>) => void;
++  ref?: React.Ref<SVGSVGElement>;
++  open?: boolean;
++  expanded?: boolean;
++  outline?: boolean;
++}
++
++function pixelIcon(
++  Fallback: React.ComponentType<IconProps>,
++  rows: string[],
++  openRows = rows
++) {
++  return forwardRef<SVGSVGElement, IconProps>(function NelaIcon(props, ref) {
++    const theme = useContext(ThemeContext);
++    if (!theme?.nela) {
++      return <Fallback {...props} ref={ref} />;
++    }
++    const pixels = props.open || props.expanded ? openRows : rows;
++    const drawing = pixels
++      .flatMap((row, y) =>
++        [...row].flatMap((cell, x) =>
++          cell === "#" ? [`M${x} ${y}h1v1h-1z`] : []
++        )
++      )
++      .join("");
++    return (
++      <svg
++        ref={ref}
++        width={props.size ?? 24}
++        height={props.size ?? 24}
++        viewBox="0 0 12 12"
++        fill={props.color ?? "currentColor"}
++        className={props.className}
++        onClick={props.onClick}
++        shapeRendering="crispEdges"
++        aria-hidden="true"
++        focusable="false"
++        data-nela-icon
++      >
++        <path d={drawing} />
++      </svg>
++    );
++  });
++}
++
++/** Pixel house; falls back to Outline when the NELA skin is off. */
++export const HomeIcon = pixelIcon(Original.HomeIcon, [
++  "............",
++  ".....##.....",
++  "....####....",
++  "...######...",
++  "..##....##..",
++  ".##......##.",
++  "..#......#..",
++  "..#..##..#..",
++  "..#..##..#..",
++  "..####.###..",
++  "............",
++  "............",
++]);
++/** Pixel magnifying glass. */
++export const SearchIcon = pixelIcon(Original.SearchIcon, [
++  "............",
++  "...####.....",
++  "..#....#....",
++  ".#......#...",
++  ".#......#...",
++  ".#......#...",
++  "..#....#....",
++  "...####.....",
++  ".......##...",
++  "........##..",
++  ".........##.",
++  "............",
++]);
++/** Pixel page with a folded corner. */
++export const DocumentIcon = pixelIcon(Original.DocumentIcon, [
++  "............",
++  "..#####.....",
++  "..#...##....",
++  "..#...###...",
++  "..#.....#...",
++  "..#.###.#...",
++  "..#.....#...",
++  "..#.###.#...",
++  "..#.....#...",
++  "..#######...",
++  "............",
++  "............",
++]);
++/** Pixel page used for new-document actions. */
++export const NewDocumentIcon = pixelIcon(Original.NewDocumentIcon, [
++  "............",
++  "..#####.....",
++  "..#...##....",
++  "..#...###...",
++  "..#.....#...",
++  "..#..#..#...",
++  "..#.###.#...",
++  "..#..#..#...",
++  "..#.....#...",
++  "..#######...",
++  "............",
++  "............",
++]);
++/** Pixel notebook with an open-state spine. */
++export const CollectionIcon = pixelIcon(Original.CollectionIcon, [
++  "............",
++  "..#######...",
++  ".##.....#...",
++  ".##.....#...",
++  ".##.###.#...",
++  ".##.....#...",
++  ".##.....#...",
++  ".##.....#...",
++  ".##.....#...",
++  "..#######...",
++  "............",
++  "............",
++]);
++/** Pixel lock for private collections. */
++export const PrivateCollectionIcon = pixelIcon(Original.PrivateCollectionIcon, [
++  "............",
++  "....###.....",
++  "...#...#....",
++  "...#...#....",
++  "..#######...",
++  "..#.....#...",
++  "..#..#..#...",
++  "..#..#..#...",
++  "..#.....#...",
++  "..#######...",
++  "............",
++  "............",
++]);
++/** Pixel archive box; the lid lifts on drop targets. */
++export const ArchiveIcon = pixelIcon(
++  Original.ArchiveIcon,
++  [
++    "............",
++    ".##########.",
++    ".#........#.",
++    ".##########.",
++    "..#......#..",
++    "..#.####.#..",
++    "..#......#..",
++    "..#......#..",
++    "..########..",
++    "............",
++    "............",
++    "............",
++  ],
++  [
++    ".##########.",
++    ".#........#.",
++    ".##########.",
++    "............",
++    "..########..",
++    "..#.####.#..",
++    "..#......#..",
++    "..#......#..",
++    "..########..",
++    "............",
++    "............",
++    "............",
++  ]
++);
++/** Pixel wastebasket; preserves its open drop-target state. */
++export const TrashIcon = pixelIcon(
++  Original.TrashIcon,
++  [
++    "............",
++    ".....##.....",
++    "..########..",
++    "............",
++    "...#....#...",
++    "...#.##.#...",
++    "...#.##.#...",
++    "...#.##.#...",
++    "...#....#...",
++    "...######...",
++    "............",
++    "............",
++  ],
++  [
++    "..########..",
++    ".....##.....",
++    "............",
++    "............",
++    "...#....#...",
++    "...#.##.#...",
++    "...#.##.#...",
++    "...#.##.#...",
++    "...#....#...",
++    "...######...",
++    "............",
++    "............",
++  ]
++);
++/** Pixel pencil for drafts. */
++export const DraftsIcon = pixelIcon(Original.DraftsIcon, [
++  "............",
++  "........##..",
++  ".......####.",
++  "......####..",
++  ".....####...",
++  "....####....",
++  "...####.....",
++  "..####......",
++  "..###.......",
++  "..##........",
++  "............",
++  "............",
++]);
++/** Pixel cross for add actions. */
++export const PlusIcon = pixelIcon(Original.PlusIcon, [
++  "............",
++  "............",
++  ".....##.....",
++  ".....##.....",
++  ".....##.....",
++  "..########..",
++  "..########..",
++  ".....##.....",
++  ".....##.....",
++  ".....##.....",
++  "............",
++  "............",
++]);
++/** Pixel gear for personal settings. */
++export const SettingsIcon = pixelIcon(Original.SettingsIcon, [
++  "............",
++  ".....##.....",
++  "..##.##.##..",
++  "..########..",
++  "...##..##...",
++  ".###....###.",
++  ".###....###.",
++  "...##..##...",
++  "..########..",
++  "..##.##.##..",
++  ".....##.....",
++  "............",
++]);
+diff --git a/app/components/NelaStyles.tsx b/app/components/NelaStyles.tsx
+new file mode 100644
+index 0000000..dfce2bb
+--- /dev/null
++++ b/app/components/NelaStyles.tsx
+@@ -0,0 +1,123 @@
++import { createGlobalStyle } from "styled-components";
++
++/** NELA's type scale, spacing, and square controls. */
++export const NelaStyles = createGlobalStyle`
++  @media screen {
++    html {
++      --font-size-body: 13px;
++      --line-height-body: 1.538461538;
++      --line-height-h: 1.538461538;
++      --nela-text-size: 13px;
++      --nela-text-leading: 20px;
++      --nela-heading-leading: 20px;
++    }
++
++    body {
++      font-size: 13px;
++      line-height: var(--nela-text-leading);
++    }
++
++    body :is(h1, h2, h3, h4, h5, h6) {
++      margin: 0;
++      padding: 0;
++      color: ${({ theme }) => theme.text};
++      font-size: var(--nela-text-size) !important;
++      line-height: var(--nela-heading-leading) !important;
++      font-weight: 700 !important;
++    }
++
++    body :is(h1, h2, h3, h4, h5, h6) > svg {
++      width: 1.2em;
++      height: 1.2em;
++    }
++
++    body h2 {
++      margin-top: 3em;
++    }
++
++    body .ProseMirror {
++      --font-size-h1: var(--nela-text-size);
++      --font-size-h2: var(--nela-text-size);
++      --font-size-h3: var(--nela-text-size);
++      --font-size-h4: var(--nela-text-size);
++      --font-size-h5: var(--nela-text-size);
++      --font-size-h6: var(--nela-text-size);
++    }
++
++    body .ProseMirror :is(p, li) {
++      font-size: var(--nela-text-size);
++      line-height: var(--nela-text-leading);
++    }
++
++    body .ProseMirror.ProseMirror p {
++      margin-top: 1em !important;
++      margin-bottom: 1em !important;
++    }
++
++    body .ProseMirror.ProseMirror li {
++      margin-bottom: 2em;
++    }
++
++    body .ProseMirror.ProseMirror li > p {
++      margin: 0 !important;
++      font-size: inherit;
++    }
++
++    body .ProseMirror.ProseMirror li[data-type="checkbox_item"] > div > p:first-child {
++      margin-top: 0 !important;
++    }
++
++    body .ProseMirror.ProseMirror li[data-type="checkbox_item"] > div > p:last-child {
++      margin-bottom: 0 !important;
++    }
++
++    body .ProseMirror.ProseMirror h2 {
++      margin-top: 3em;
++      margin-bottom: 0;
++    }
++
++    body .ProseMirror.ProseMirror h3 {
++      margin-top: 2em;
++      margin-bottom: 0;
++      padding: 2px 0 2px 2px;
++      background: ${({ theme }) => theme.text};
++      color: ${({ theme }) => theme.background};
++    }
++
++    body .ProseMirror h3 a {
++      color: ${({ theme }) => (theme.isDark ? "#003340" : "#c7f3ff")};
++    }
++
++    body .ProseMirror pre {
++      font-size: var(--nela-text-size);
++      line-height: var(--nela-heading-leading);
++    }
++
++    body :is(button, input, select, textarea) {
++      font-size: var(--nela-text-size);
++    }
++
++    body :is(button, input, select, textarea, [role="dialog"], [role="menu"], [role="listbox"], [role="combobox"]) {
++      border-radius: 0 !important;
++    }
++
++    body :is(a, button, input, select, textarea, [tabindex]):focus-visible {
++      outline: 2px solid ${({ theme }) => theme.link};
++      outline-offset: 2px;
++    }
++
++    body :is(.ProseMirror, .editor) a {
++      text-decoration: underline;
++      text-underline-offset: 3px;
++    }
++
++    @media (max-width: 540px) {
++      html {
++        --nela-text-size: 15.6px;
++        --nela-text-leading: 24px;
++        --nela-heading-leading: 24px;
++        --line-height-body: 1.538461538;
++      }
++    }
++  }
++`;
+diff --git a/app/components/Sidebar/App.tsx b/app/components/Sidebar/App.tsx
+index 703fcc2..a78c452 100644
+--- a/app/components/Sidebar/App.tsx
++++ b/app/components/Sidebar/App.tsx
+@@ -1,5 +1,6 @@
+ import { observer } from "mobx-react";
+-import { SearchIcon, HomeIcon, SidebarIcon } from "outline-icons";
++import { SidebarIcon } from "outline-icons";
++import { SearchIcon, HomeIcon } from "~/components/NelaIcons";
+ import { useEffect, useState, useCallback, useRef } from "react";
+ import {
+   DragActiveProvider,
+diff --git a/app/components/Sidebar/Shared.tsx b/app/components/Sidebar/Shared.tsx
+index 6f665a1..fabbe8d 100644
+--- a/app/components/Sidebar/Shared.tsx
++++ b/app/components/Sidebar/Shared.tsx
+@@ -1,6 +1,6 @@
+ import { useKBar } from "kbar";
+ import { observer } from "mobx-react";
+-import { SearchIcon } from "outline-icons";
++import { SearchIcon } from "~/components/NelaIcons";
+ import { useCallback, useEffect, useMemo } from "react";
+ import { useTranslation } from "react-i18next";
+ import styled from "styled-components";
+diff --git a/app/components/Sidebar/Sidebar.tsx b/app/components/Sidebar/Sidebar.tsx
+index 1076b1e..c38b822 100644
+--- a/app/components/Sidebar/Sidebar.tsx
++++ b/app/components/Sidebar/Sidebar.tsx
+@@ -365,6 +365,8 @@ const Container = styled(Flex)<ContainerProps>`
+   inset-inline-start: 0;
+   width: 100%;
+   background: ${s("sidebarBackground")};
++  ${(props) =>
++    props.theme.nela && `border-inline-end: 1px solid ${props.theme.divider};`}
+   transition:
+     box-shadow 150ms ease-in-out,
+     transform 250ms cubic-bezier(0.34, 1.15, 0.64, 1)
+diff --git a/app/components/Sidebar/components/ArchiveLink.tsx b/app/components/Sidebar/components/ArchiveLink.tsx
+index 9a5b7dd..9811435 100644
+--- a/app/components/Sidebar/components/ArchiveLink.tsx
++++ b/app/components/Sidebar/components/ArchiveLink.tsx
+@@ -1,6 +1,6 @@
+ import { isUndefined } from "es-toolkit/compat";
+ import { observer } from "mobx-react";
+-import { ArchiveIcon } from "outline-icons";
++import { ArchiveIcon } from "~/components/NelaIcons";
+ import { useState, useEffect, useCallback } from "react";
+ import { useTranslation } from "react-i18next";
+ import Flex from "@shared/components/Flex";
+diff --git a/app/components/Sidebar/components/CollectionRow.tsx b/app/components/Sidebar/components/CollectionRow.tsx
+index 9518bbd..555aa37 100644
+--- a/app/components/Sidebar/components/CollectionRow.tsx
++++ b/app/components/Sidebar/components/CollectionRow.tsx
+@@ -1,6 +1,6 @@
+ import type { Location, LocationDescriptor } from "history";
+ import { observer } from "mobx-react";
+-import { PlusIcon } from "outline-icons";
++import { PlusIcon } from "~/components/NelaIcons";
+ import * as React from "react";
+ import type { ConnectDropTarget } from "react-dnd";
+ import { useTranslation } from "react-i18next";
+diff --git a/app/components/Sidebar/components/DocumentRow.tsx b/app/components/Sidebar/components/DocumentRow.tsx
+index 0f452a4..9d73b00 100644
+--- a/app/components/Sidebar/components/DocumentRow.tsx
++++ b/app/components/Sidebar/components/DocumentRow.tsx
+@@ -1,6 +1,6 @@
+ import type { Location, LocationDescriptor } from "history";
+ import { observer } from "mobx-react";
+-import { PlusIcon } from "outline-icons";
++import { PlusIcon } from "~/components/NelaIcons";
+ import * as React from "react";
+ import type { ConnectDragSource } from "react-dnd";
+ import { useTranslation } from "react-i18next";
+diff --git a/app/components/Sidebar/components/DraftsLink.tsx b/app/components/Sidebar/components/DraftsLink.tsx
+index 9b9d02f..d878b16 100644
+--- a/app/components/Sidebar/components/DraftsLink.tsx
++++ b/app/components/Sidebar/components/DraftsLink.tsx
+@@ -1,5 +1,5 @@
+ import { observer } from "mobx-react";
+-import { DraftsIcon } from "outline-icons";
++import { DraftsIcon } from "~/components/NelaIcons";
+ import { useTranslation } from "react-i18next";
+ import styled from "styled-components";
+ import Flex from "~/components/Flex";
+diff --git a/app/components/Sidebar/components/TrashLink.tsx b/app/components/Sidebar/components/TrashLink.tsx
+index 0c72680..90fc956 100644
+--- a/app/components/Sidebar/components/TrashLink.tsx
++++ b/app/components/Sidebar/components/TrashLink.tsx
+@@ -1,5 +1,5 @@
+ import { observer } from "mobx-react";
+-import { TrashIcon } from "outline-icons";
++import { TrashIcon } from "~/components/NelaIcons";
+ import { useDrop } from "react-dnd";
+ import { useTranslation } from "react-i18next";
+ import DocumentDelete from "~/scenes/DocumentDelete";
+diff --git a/app/components/Sidebar/hooks/useSidebarLabelAndIcon.tsx b/app/components/Sidebar/hooks/useSidebarLabelAndIcon.tsx
+index 16f95d9..daf6aa7 100644
+--- a/app/components/Sidebar/hooks/useSidebarLabelAndIcon.tsx
++++ b/app/components/Sidebar/hooks/useSidebarLabelAndIcon.tsx
+@@ -1,4 +1,5 @@
+-import { DocumentIcon, QuestionMarkIcon } from "outline-icons";
++import { QuestionMarkIcon } from "outline-icons";
++import { DocumentIcon } from "~/components/NelaIcons";
+ import * as React from "react";
+ import Icon from "@shared/components/Icon";
+ import CollectionIcon from "~/components/Icons/CollectionIcon";
+diff --git a/app/components/Theme.tsx b/app/components/Theme.tsx
+index 3c6051f..6bed27e 100644
+--- a/app/components/Theme.tsx
++++ b/app/components/Theme.tsx
+@@ -8,6 +8,7 @@ import { TeamPreference, UserPreference } from "@shared/types";
+ import { isRTLLanguage } from "@shared/utils/rtl";
+ import useBuildTheme from "~/hooks/useBuildTheme";
+ import useStores from "~/hooks/useStores";
++import { NelaStyles } from "./NelaStyles";
+ 
+ type Props = {
+   children?: React.ReactNode;
+@@ -61,6 +62,7 @@ const Theme: React.FC = ({ children }: Props) => {
+               auth.user?.getPreference(UserPreference.UseCursorPointer) ?? true
+             }
+           />
++          {theme.nela && <NelaStyles />}
+           {children}
+         </>
+       </ThemeProvider>
+diff --git a/app/hooks/useBuildTheme.ts b/app/hooks/useBuildTheme.ts
+index 1d1842f..757e4db 100644
+--- a/app/hooks/useBuildTheme.ts
++++ b/app/hooks/useBuildTheme.ts
+@@ -6,7 +6,8 @@ import {
+   buildPitchBlackTheme,
+ } from "@shared/styles/theme";
+ import type { CustomTheme } from "@shared/types";
+-import { Theme } from "~/stores/UiStore";
++import { buildNelaTheme } from "@shared/styles/nela";
++import { Skin, Theme } from "~/stores/UiStore";
+ import useMediaQuery from "~/hooks/useMediaQuery";
+ import useStores from "./useStores";
+ import useQuery from "./useQuery";
+@@ -40,20 +41,22 @@ export default function useBuildTheme(
+   }, [queryTheme, ui]);
+ 
+   const resolvedTheme = overrideTheme ?? ui.resolvedTheme;
++  const skin = ui.skin;
+ 
+-  const theme = useMemo(
+-    () =>
+-      isPrinting
+-        ? buildLightTheme(customTheme)
+-        : isMobile
+-          ? resolvedTheme === "dark"
+-            ? buildPitchBlackTheme(customTheme)
+-            : buildLightTheme(customTheme)
+-          : resolvedTheme === "dark"
+-            ? buildDarkTheme(customTheme)
+-            : buildLightTheme(customTheme),
+-    [customTheme, isMobile, isPrinting, resolvedTheme]
+-  );
++  const theme = useMemo(() => {
++    const baseTheme = isPrinting
++      ? buildLightTheme(customTheme)
++      : isMobile
++        ? resolvedTheme === "dark"
++          ? buildPitchBlackTheme(customTheme)
++          : buildLightTheme(customTheme)
++        : resolvedTheme === "dark"
++          ? buildDarkTheme(customTheme)
++          : buildLightTheme(customTheme);
++    return skin === Skin.Nela && !isPrinting
++      ? buildNelaTheme(baseTheme)
++      : baseTheme;
++  }, [customTheme, isMobile, isPrinting, resolvedTheme, skin]);
+ 
+   return theme;
+ }
+diff --git a/app/scenes/Document/components/Document.tsx b/app/scenes/Document/components/Document.tsx
+index 3b4ef92..02ab662 100644
+--- a/app/scenes/Document/components/Document.tsx
++++ b/app/scenes/Document/components/Document.tsx
+@@ -5,7 +5,7 @@ import * as React from "react";
+ import { useTranslation } from "react-i18next";
+ import { Prompt, useHistory, useLocation } from "react-router-dom";
+ import { toast } from "sonner";
+-import styled from "styled-components";
++import styled, { css } from "styled-components";
+ import breakpoint from "styled-components-breakpoint";
+ import { EditorStyleHelper } from "@shared/editor/styles/EditorStyleHelper";
+ import { s } from "@shared/styles";
+@@ -538,6 +538,22 @@ const EditorContainer = styled.div<EditorContainerProps>`
+           : "1 / -1"
+         : 2};
+   `};
++
++  ${(props) =>
++    props.theme.nela &&
++    css`
++      @media screen {
++        padding-inline: 10px;
++        ${
++          !props.docFullWidth &&
++          css`
++            width: 100%;
++            max-width: 540px;
++            margin-inline: auto;
++          `
++        }
++      }
++    `}
+ `;
+ 
+ const Background = styled(Container)`
+diff --git a/app/scenes/Document/components/DocumentMeta.tsx b/app/scenes/Document/components/DocumentMeta.tsx
+index 61c74c5..1ac4110 100644
+--- a/app/scenes/Document/components/DocumentMeta.tsx
++++ b/app/scenes/Document/components/DocumentMeta.tsx
+@@ -115,8 +115,9 @@ const InsightsButton = styled(NudeButton)`
+ 
+ export const Meta = styled(DocumentMeta)<{ $rtl?: boolean }>`
+   justify-content: ${(props) => (props.$rtl ? "flex-end" : "flex-start")};
+-  margin: -12px 0 2em 0;
+-  font-size: 14px;
++  margin: ${(props) => (props.theme.nela ? "8px 0 2em" : "-12px 0 2em 0")};
++  font-size: ${(props) => (props.theme.nela ? "13px" : "14px")};
++  ${(props) => props.theme.nela && "line-height: 20px; flex-wrap: wrap;"}
+   position: relative;
+   user-select: none;
+   z-index: 1;
+diff --git a/app/scenes/Document/components/DocumentTitle.tsx b/app/scenes/Document/components/DocumentTitle.tsx
+index bfc0771..be9b651 100644
+--- a/app/scenes/Document/components/DocumentTitle.tsx
++++ b/app/scenes/Document/components/DocumentTitle.tsx
+@@ -296,11 +296,11 @@ const StyledIconPicker = styled(IconPicker)`
+ 
+ const Title = styled(ContentEditable)<TitleProps>`
+   position: relative;
+-  line-height: ${lineHeight};
++  line-height: ${(props) => (props.theme.nela ? "var(--nela-heading-leading)" : lineHeight)};
+   margin-top: 8vh;
+   margin-bottom: 0.5em;
+-  font-size: ${fontSize};
+-  font-weight: 600;
++  font-size: ${(props) => (props.theme.nela ? "var(--nela-text-size)" : fontSize)};
++  font-weight: ${(props) => (props.theme.nela ? 700 : 600)};
+   border: 0;
+   padding: 0;
+   cursor: ${(props) => (props.readOnly ? "default" : "text")};
+diff --git a/app/scenes/Settings/Preferences.tsx b/app/scenes/Settings/Preferences.tsx
+index fd01721..e771ff6 100644
+--- a/app/scenes/Settings/Preferences.tsx
++++ b/app/scenes/Settings/Preferences.tsx
+@@ -1,5 +1,5 @@
+ import { observer } from "mobx-react";
+-import { SettingsIcon } from "outline-icons";
++import { SettingsIcon } from "~/components/NelaIcons";
+ import * as React from "react";
+ import { Trans, useTranslation } from "react-i18next";
+ import { toast } from "sonner";
+@@ -9,7 +9,7 @@ import {
+   TeamPreference,
+   UserPreference,
+ } from "@shared/types";
+-import { Theme } from "~/stores/UiStore";
++import { Skin, Theme } from "~/stores/UiStore";
+ import Button from "~/components/Button";
+ import Heading from "~/components/Heading";
+ import type { Option } from "~/components/InputSelect";
+@@ -55,6 +55,22 @@ function Preferences() {
+     [t]
+   );
+ 
++  const skinOptions: Option[] = React.useMemo(
++    () => [
++      { type: "item", label: "NELA", value: Skin.Nela },
++      { type: "item", label: "Outline", value: Skin.Default },
++    ],
++    []
++  );
++
++  const handleSkinChange = React.useCallback(
++    (value: string) => {
++      ui.setSkin(value === Skin.Nela ? Skin.Nela : Skin.Default);
++      toast.success(t("Preferences saved"));
++    },
++    [t, ui]
++  );
++
+   const handleUseCursorPointerChange = React.useCallback(
+     async (checked: boolean) => {
+       user.setPreference(UserPreference.UseCursorPointer, checked);
+@@ -214,6 +230,19 @@ function Preferences() {
+           labelHidden
+         />
+       </SettingRow>
++      <SettingRow
++        name="skin"
++        label={t("Skin")}
++        description={t("Saved for your account in this browser.")}
++      >
++        <InputSelect
++          options={skinOptions}
++          value={ui.skin}
++          onChange={handleSkinChange}
++          label={t("Skin")}
++          labelHidden
++        />
++      </SettingRow>
+       <SettingRow
+         name={UserPreference.UseCursorPointer}
+         label={t("Use pointer cursor")}
+diff --git a/app/stores/UiStore.test.ts b/app/stores/UiStore.test.ts
+new file mode 100644
+index 0000000..b0cad6f
+--- /dev/null
++++ b/app/stores/UiStore.test.ts
+@@ -0,0 +1,41 @@
++import Storage from "@shared/utils/Storage";
++import stores from "~/stores";
++import UiStore, { Skin, Theme } from "./UiStore";
++
++describe("personal skins", () => {
++  beforeEach(() => {
++    Storage.remove("UI_STORE");
++    stores.users.add({ id: "skin-user-a", name: "A" });
++    stores.users.add({ id: "skin-user-b", name: "B" });
++    stores.auth.currentUserId = "skin-user-a";
++  });
++
++  afterEach(() => {
++    stores.auth.currentUserId = undefined;
++    Storage.remove("UI_STORE");
++  });
++
++  test("defaults to NELA and keeps color scheme independent", () => {
++    const ui = new UiStore(stores);
++    expect(ui.skin).toBe(Skin.Nela);
++    expect(ui.theme).toBe(Theme.System);
++    ui.setTheme(Theme.Light);
++    expect(ui.skin).toBe(Skin.Nela);
++    ui.setSkin(Skin.Default);
++    expect(ui.skin).toBe(Skin.Default);
++    expect(ui.theme).toBe(Theme.Light);
++  });
++
++  test("restores a user's choice without applying it to another account", () => {
++    const ui = new UiStore(stores);
++    ui.setSkin(Skin.Default);
++    const restored = new UiStore(stores);
++    expect(restored.skin).toBe(Skin.Default);
++    stores.auth.currentUserId = "skin-user-b";
++    expect(restored.skin).toBe(Skin.Nela);
++    stores.auth.currentUserId = undefined;
++    expect(restored.skin).toBe(Skin.Nela);
++    stores.auth.currentUserId = "skin-user-a";
++    expect(restored.skin).toBe(Skin.Default);
++  });
++});
+diff --git a/app/stores/UiStore.ts b/app/stores/UiStore.ts
+index 5ccfd5c..6313e88 100644
+--- a/app/stores/UiStore.ts
++++ b/app/stores/UiStore.ts
+@@ -19,6 +19,12 @@ export enum Theme {
+   System = "system",
+ }
+ 
++/** Visual skins, independent of the light/dark color scheme. */
++export enum Skin {
++  Default = "default",
++  Nela = "nela",
++}
++
+ export enum SystemTheme {
+   Light = "light",
+   Dark = "dark",
+@@ -31,6 +37,7 @@ type PersistedData = Pick<
+   | "languagePromptDismissed"
+   | "rightSidebar"
+   | "theme"
++  | "skinPreferences"
+   | "sidebarWidth"
+   | "sidebarRightWidth"
+   | "sidebarCollapsed"
+@@ -46,6 +53,10 @@ class UiStore {
+   @observable
+   theme: Theme;
+ 
++  /** Skin choices are local to this browser and scoped to each signed-in user. */
++  @observable
++  skinPreferences: Record<string, Skin> = {};
++
+   // themeOverride is set when a theme query parameter is detected, persists for the session
+   @observable
+   themeOverride: Theme | undefined;
+@@ -147,6 +158,7 @@ class UiStore {
+     this.tocVisible = data.tocVisible;
+     this.rightSidebar = data.rightSidebar ?? null;
+     this.theme = data.theme || Theme.System;
++    this.skinPreferences = data.skinPreferences || {};
+ 
+     // system theme listeners
+     if (window.matchMedia) {
+@@ -183,6 +195,7 @@ class UiStore {
+ 
+         // Note: we do not sync all properties here, sidebar widths cause fighting between windows
+         this.theme = newData.theme;
++        this.skinPreferences = newData.skinPreferences || {};
+         this.languagePromptDismissed = newData.languagePromptDismissed;
+         this.sidebarCollapsed = !!newData.sidebarCollapsed;
+         this.tocVisible = newData.tocVisible;
+@@ -288,6 +301,30 @@ class UiStore {
+     });
+   };
+ 
++  /**
++   * Save a skin for the current user without changing the color scheme.
++   *
++   * @param skin the selected skin.
++   */
++  @action
++  setSkin = (skin: Skin) => {
++    const userId = this.rootStore.auth.user?.id;
++    if (!userId) {
++      return;
++    }
++    this.skinPreferences = { ...this.skinPreferences, [userId]: skin };
++    this.persist();
++  };
++
++  /** NELA is the site default; honor a user's saved choice of the original skin. */
++  @computed
++  get skin(): Skin {
++    const userId = this.rootStore.auth.user?.id;
++    return userId && this.skinPreferences[userId] === Skin.Default
++      ? Skin.Default
++      : Skin.Nela;
++  }
++
+   /**
+    * Set a theme override from a query parameter. This persists for the session
+    * but is not saved to localStorage.
+@@ -481,6 +518,7 @@ class UiStore {
+       languagePromptDismissed: this.languagePromptDismissed,
+       rightSidebar: this.rightSidebar,
+       theme: this.theme,
++      skinPreferences: this.skinPreferences,
+     };
+   }
+ 
+diff --git a/app/typings/styled-components.d.ts b/app/typings/styled-components.d.ts
+index 4f893b8..44b8105 100644
+--- a/app/typings/styled-components.d.ts
++++ b/app/typings/styled-components.d.ts
+@@ -124,6 +124,7 @@ declare module "styled-components" {
+ 
+   export interface DefaultTheme
+     extends Colors, Spacing, Breakpoints, EditorTheme {
++    nela?: boolean;
+     background: string;
+     backgroundSecondary: string;
+     backgroundTertiary: string;
+diff --git a/shared/styles/nela.test.ts b/shared/styles/nela.test.ts
+new file mode 100644
+index 0000000..9e60a05
+--- /dev/null
++++ b/shared/styles/nela.test.ts
+@@ -0,0 +1,28 @@
++import { getContrast } from "polished";
++import { buildNelaTheme } from "./nela";
++import { buildDarkTheme, buildLightTheme } from "./theme";
++
++describe("NELA skin", () => {
++  test.each([buildLightTheme, buildDarkTheme])(
++    "keeps text, links, controls, and focus readable",
++    (buildTheme) => {
++      const base = buildTheme({});
++      const original = { ...base };
++      const skin = buildNelaTheme(base);
++      for (const color of [skin.text, skin.textSecondary, skin.link]) {
++        expect(getContrast(color, skin.background)).toBeGreaterThanOrEqual(4.5);
++      }
++      expect(getContrast(skin.accentText, skin.accent)).toBeGreaterThanOrEqual(
++        4.5
++      );
++      expect(
++        getContrast(skin.inputBorderFocused, skin.inputBackground)
++      ).toBeGreaterThanOrEqual(3);
++      expect(base).toEqual(original);
++      expect(base.nela).toBeUndefined();
++      expect(skin.isDark).toBe(base.isDark);
++      expect(skin.danger).toBe(base.danger);
++      expect(skin.warning).toBe(base.warning);
++    }
++  );
++});
+diff --git a/shared/styles/nela.ts b/shared/styles/nela.ts
+new file mode 100644
+index 0000000..3974f4c
+--- /dev/null
++++ b/shared/styles/nela.ts
+@@ -0,0 +1,79 @@
++import type { DefaultTheme } from "styled-components";
++
++/**
++ * Apply NELA's monospace, green and cyan palette to either color scheme.
++ * Semantic colors and document formatting remain supplied by the base theme.
++ *
++ * @param base the resolved light or dark theme.
++ * @returns a new NELA theme without mutating the default.
++ */
++export function buildNelaTheme(base: DefaultTheme): DefaultTheme {
++  const dark = base.isDark;
++  const background = dark ? "#000000" : "#ffffff";
++  const surface = dark ? "#061b14" : "#f1f8f4";
++  const hover = dark ? "#0b3023" : "#dfefe7";
++  const active = dark ? "#124735" : "#cce3d8";
++  const green = dark ? "#00d080" : "#00663e";
++  const cyan = dark ? "#00c4fd" : "#006888";
++  const secondary = dark ? "#8ab4a2" : "#426354";
++  const border = dark ? "#326f5b" : "#8ca99b";
++
++  return {
++    ...base,
++    nela: true,
++    fontFamily: "monospace",
++    fontFamilyMono: "monospace",
++    fontWeightMedium: 600,
++    fontWeightBold: 700,
++    accent: green,
++    accentText: background,
++    selected: cyan,
++    link: cyan,
++    cursor: green,
++    text: green,
++    textSecondary: secondary,
++    textTertiary: secondary,
++    placeholder: secondary,
++    background,
++    backgroundSecondary: surface,
++    backgroundTertiary: hover,
++    backgroundQuaternary: active,
++    sidebarBackground: background,
++    sidebarHoverBackground: surface,
++    sidebarActiveBackground: hover,
++    sidebarControlHoverBackground: hover,
++    sidebarDraftBorder: border,
++    sidebarText: secondary,
++    divider: border,
++    titleBarDivider: border,
++    inputBackground: background,
++    inputBorder: border,
++    inputBorderFocused: cyan,
++    listItemHoverBackground: surface,
++    mentionBackground: hover,
++    mentionHoverBackground: active,
++    menuBackground: background,
++    menuItemSelected: hover,
++    menuShadow: `0 0 0 1px ${border}`,
++    modalBackground: background,
++    modalShadow: `0 0 0 1px ${cyan}`,
++    buttonNeutralBackground: background,
++    buttonNeutralHoverBackground: hover,
++    buttonNeutralText: green,
++    buttonNeutralBorder: border,
++    tooltipBackground: dark ? cyan : "#003b4d",
++    tooltipText: dark ? background : "#ffffff",
++    toastBackground: surface,
++    toastText: green,
++    quote: cyan,
++    codeBackground: surface,
++    codeBorder: border,
++    embedBorder: border,
++    horizontalRule: border,
++    progressBarBackground: surface,
++    scrollbarBackground: background,
++    scrollbarThumb: border,
++    tableSelected: cyan,
++    tableSelectedBackground: hover,
++  };
++}
+
+base-commit: eec58aecd42ecf9a7fb0cc20e95bbf7a121ea891
+-- 
+2.54.0 (Apple Git-157)
+
