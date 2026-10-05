@@ -70,6 +70,11 @@
     font:16px/1.6 var(--sans);
     -webkit-font-smoothing:antialiased;
   }
+  /* the app bumper — one line across the top pointing at whistlegraph.app */
+  .bumper{display:block; background:var(--margin); color:var(--paper); text-align:center; font-size:14px; line-height:1.4; padding:8px 16px; text-decoration:none}
+  .bumper:visited{color:var(--paper)}
+  .bumper:hover{background:var(--ink); color:var(--paper)}
+  .bumper b{text-decoration:underline; text-underline-offset:2px}
   /* the page: one plain paper column */
   .pad{
     max-width:820px; margin:0 auto; min-height:100vh;
@@ -315,6 +320,7 @@
 <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
+<a class="bumper" href="https://whistlegraph.app/" data-i18n-html="bumper.app">Whistlegraph for iPhone — early access at <b>whistlegraph.app</b> →</a>
 <div class="pad">
 
   <dialog class="theme-dialog" id="themeDialog" aria-labelledby="themeTitle">
@@ -561,6 +567,7 @@ const EN={
   "filters.toggle":"Filters","filters.label":"Filter:",
   "section.aria":"Archive section","section.works":"Whistlegraphs","section.posts":"Posts",
   "section.about":"History","section.wild":"Wild",
+  "bumper.app":"Whistlegraph for iPhone — early access at <b>whistlegraph.app</b> →",
   "sort.viewed":"Popularity","sort.duration":"Duration","sort.videos":"Most videos",
   "sort.year":"By year","sort.title":"Title A–Z","sort.author":"Author A–Z",
   "sort.reverse":"Reverse order","sort.newest":"Newest","sort.oldest":"Oldest",
