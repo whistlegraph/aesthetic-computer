@@ -62,7 +62,10 @@ struct BrainSettings: View {
                     Picker("Pixel size", selection: Binding(get: { session.pixelSize }, set: { session.setPixelSize($0) })) {
                         ForEach(1...4, id: \.self) { Text("\($0)×").tag($0) }
                     }.pickerStyle(.segmented).disabled(disabled).accessibilityIdentifier("brain-pixel-size")
-                } header: { Label("Pixel size", systemImage: "eye") }
+                    Picker("Aspect ratio", selection: Binding(get: { session.previewFormat }, set: { session.setPreviewFormat($0) })) {
+                        ForEach(PreviewFormat.allCases) { Text($0.rawValue).tag($0) }
+                    }.pickerStyle(.segmented).disabled(disabled).accessibilityIdentifier("brain-preview-format")
+                } header: { Label("Preview", systemImage: "eye") }
                 if let inference = session.snapshot.inference {
                     Section {
                         Picker("Model", selection: Binding(get: { inference.selection }, set: { session.command("setModel", text: $0) })) {

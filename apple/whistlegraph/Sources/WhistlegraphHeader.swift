@@ -26,6 +26,7 @@ struct PiecesSheet: View {
     let disabled: Bool
     let open: (String) -> Void
     let newPiece: () -> Void
+    var mintSession: WhistlegraphSession? = nil
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
@@ -38,6 +39,15 @@ struct PiecesSheet: View {
                 }
                 if let inference {
                     Section { LabeledContent(inference.label, value: inference.provider) }
+                }
+                if let session = mintSession, session.snapshot.handle == "jeffrey", session.snapshot.hasPiece {
+                    #if DEBUG
+                    Section {
+                        NavigationLink { WhistlegraphMintSheet(session: session) } label: {
+                            Label("Mint on HEN", systemImage: "seal")
+                        }.disabled(disabled).accessibilityIdentifier("pieces-mint")
+                    }
+                    #endif
                 }
                 Section(pieces.count == 1 ? "Your piece" : "Your pieces") {
                     ForEach(pieces) { piece in
@@ -160,7 +170,7 @@ struct IdentityHeader: View {
                         inference: session.snapshot.inference,
                         disabled: session.snapshot.busy || session.capturePhase != .idle,
                         open: { session.command("openPiece", piece: $0) },
-                        newPiece: { session.command("newPiece") })
+                        newPiece: { session.command("newPiece") }, mintSession: session)
         }
         .sheet(isPresented: $showingAccount) {
             AccountSheet(handle: session.snapshot.handle, colors: session.snapshot.colors, appearance: $appearance,

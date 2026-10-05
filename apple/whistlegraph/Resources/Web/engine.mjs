@@ -405,7 +405,9 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
     const missing=await guides;if(missing.length)throw Error('Bundled piece guides are unavailable: '+missing.join(', '));
     benchmark('guidesReady');
     vfs.mount(file,source||'export function paint({wipe}) { wipe("black"); }');
-    const prompt=compileEditContract({request:text,...selectedBranch(versions.value),source});
+    const viewport=frame.getBoundingClientRect();
+    const prompt=compileEditContract({request:text,...selectedBranch(versions.value),source})+
+      `\nCurrent preview: ${Math.round(viewport.width)} × ${Math.round(viewport.height)} CSS points. Compose for this shape using screen.width and screen.height; keep subjects within the canvas and remain responsive when it resizes.`;
     // Jeffrey's personal turns may keep working until completion or explicit Stop.
     const deadline=turnHandle==='jeffrey'?null:setTimeout(()=>{turnCancelled=true;turnError='Edit check timed out';server?.interrupt();},75000);
     try{

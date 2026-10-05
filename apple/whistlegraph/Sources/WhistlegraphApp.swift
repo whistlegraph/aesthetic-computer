@@ -202,6 +202,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     #endif
     @Published var pieces: [PieceSummary] = []
     @Published private(set) var pixelSize = WhistlegraphPreview.savedPixelSize
+    @Published private(set) var previewFormat = PreviewFormat.saved
     let drawing = DrawingDraft()
     let tv = WhistlegraphTV()
     private var speechStartedAt: TimeInterval?
@@ -218,6 +219,14 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         UserDefaults.standard.set(size, forKey: WhistlegraphPreview.pixelSizeKey)
         guard let frame = previewFrame else { return }
         Task { _ = try? await webView?.callAsyncJavaScript("window.walkiewareSetPixelSize?.(size);", arguments: ["size": size], in: frame, contentWorld: .page) }
+    }
+
+    func setPreviewFormat(_ format: PreviewFormat) {
+        guard !snapshot.busy, capturePhase == .idle else { return }
+        previewFormat = format
+        UserDefaults.standard.set(format.rawValue, forKey: PreviewFormat.preference)
+        // WKWebView resizes the live framebuffer. Keep the piece, its state,
+        // and the normalized chalk strokes instead of reloading the runtime.
     }
 
     func command(_ action: String, version: Int? = nil, text: String? = nil, piece: String? = nil) {
@@ -338,6 +347,22 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     private var paintedPreviewHash: String?
     private var visualCaptureTask: Task<Void, Never>?
     private var previewThreadID = UUID().uuidString
+
+    func mintCapture() async throws -> (hash: String, png: String) {
+        guard let webView, !snapshot.busy, !presentingStory, !previewSource.isEmpty,
+              paintedPreviewHash == VisualCapture.hash(previewSource) else {
+            throw NativeSignIn.failure("Wait for this version to finish painting.")
+        }
+        let hash = VisualCapture.hash(previewSource), request = previewRequestID
+        let geometry = try await webView.callAsyncJavaScript("const r = document.getElementById('live-piece').getBoundingClientRect(); return {rect:{x:r.x,y:r.y,width:r.width,height:r.height},viewport:{width:innerWidth,height:innerHeight}};", arguments: [:], in: nil, contentWorld: .page)
+        guard let geometry = geometry as? [String: Any], let rect = geometry["rect"] as? [String: Double],
+              let viewport = geometry["viewport"] as? [String: Double] else { throw NativeSignIn.failure("Could not locate the artwork.") }
+        let frames = try await VisualCapture.frames(view: webView, rect: rect, viewport: viewport, count: 1) {
+            self.previewRequestID == request && self.paintedPreviewHash == hash
+        }
+        guard let png = frames.first?["png"] as? String else { throw NativeSignIn.failure("Could not capture the artwork cover.") }
+        return (hash, png)
+    }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         if !message.frameInfo.isMainFrame,

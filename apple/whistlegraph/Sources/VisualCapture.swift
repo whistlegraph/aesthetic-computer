@@ -8,7 +8,7 @@ import CryptoKit
         SHA256.hash(data: Data(source.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 
-    static func frames(view: WKWebView, rect: [String: Double], viewport: [String: Double], current: () -> Bool) async throws -> [[String: Any]] {
+    static func frames(view: WKWebView, rect: [String: Double], viewport: [String: Double], count: Int = 4, current: () -> Bool) async throws -> [[String: Any]] {
         let values = ["x", "y", "width", "height"].compactMap { rect[$0] }
         guard values.count == 4, values.allSatisfy({ $0.isFinite }) else { throw failure("Invalid preview bounds") }
         guard let cssWidth = viewport["width"], cssWidth.isFinite, cssWidth > 0,
@@ -24,7 +24,7 @@ import CryptoKit
         let crop = requested.intersection(view.bounds)
         let started = ProcessInfo.processInfo.systemUptime
         var frames: [[String: Any]] = []
-        for index in 0..<4 {
+        for index in 0..<count {
             if index > 0 { try await Task.sleep(nanoseconds: 800_000_000) }
             try Task.checkCancellation()
             guard current(), UIApplication.shared.applicationState == .active else { throw failure("Preview changed or app left the foreground") }

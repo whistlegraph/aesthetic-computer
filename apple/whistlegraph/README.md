@@ -150,3 +150,40 @@ checkout in the default browser, and handoff to the installed Temple app. It
 stops before wallet connection approval, signing, or sending tez.
 `HeaderSheetsTests/testPhoneThreeDollarCheckout` selects the $3 pack, verifies
 600,000 braincells, and captures Temple's screen without approving a request.
+
+## Preview format and HEN pilot (build 106)
+
+Brain → Preview holds pixel size and aspect ratio. The default is 2:3; 9:16,
+1:1, 4:3 and 16:9 are available. The canvas fits a bounded height so history,
+Brain and input remain accessible. Changing format resizes the existing runtime
+and preserves the selected version. Generation receives the actual preview
+size. The preference affects the working preview; story-card output retains its
+existing format.
+
+Debug builds signed in as @jeffrey expose Pieces → Mint on HEN. Choose the title,
+editions and royalties, then pack the saved version and review the single HTML
+file inside the app. A Tezos wallet signs an ownership message before minting.
+The pilot API requires `WHISTLEGRAPH_MINT_PILOT=true` and checks cloud ownership,
+version and source hash. AC login tokens stay out of mint links. Artwork and
+metadata are public on IPFS; wallet ownership gates minting, not viewing.
+
+A pending wallet request cannot be dispatched again or discarded. Reopening the
+preview checks the unique metadata URI on mainnet, requires three confirmations
+and verifies the HEN token transfer. No automatic wallet signing or listing.
+An explicitly rejected wallet request currently stays pending for investigation;
+the pilot does not offer a potentially duplicate retry.
+
+Validation:
+
+```sh
+node --test system/tests/whistlegraph-mint.test.mjs
+node system/tests/whistlegraph-mint-browser.mjs
+```
+
+`PreviewFormatTests/testPhonePreviewFormats` checks all five shapes, control
+access and persistence on the paired phone. The opt-in
+`WhistlegraphMintTests/testPhoneSpinningTreePackPreview` pins wgDefen's selected
+version, verifies the tree renders, and stops before wallet connection or signing.
+`WhistlegraphMintTests/testPhoneSpinningTreeTempleHandoff` opens the installed
+Temple app and stops before wallet approval or signing. The mint preview uses
+AC's IPFS gateway; its sandbox cannot access the mint page or wallet storage.

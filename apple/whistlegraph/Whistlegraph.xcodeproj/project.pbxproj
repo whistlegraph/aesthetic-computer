@@ -22,6 +22,7 @@
 		2F15D5A580A90A18E92D90F1 /* AudioBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CC14C186FE1CB5B19AD1D72 /* AudioBenchmark.swift */; };
 		3CF6178F7BA1702ADFA457B7 /* StoryControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C42750EF4F7E96146B03585 /* StoryControls.swift */; };
 		41FC24FA4CF0D6C4D0C9E7C3 /* WhistlegraphTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D25F85E540016CEBC3A6BC09 /* WhistlegraphTheme.swift */; };
+		45228E0CFD91217E60751356 /* WhistlegraphMintTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19C05FBB23D515547035D490 /* WhistlegraphMintTests.swift */; };
 		461CDD30BD59491846FCFBF6 /* StoryPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65C2FC346829168FF4AEEED3 /* StoryPreview.swift */; };
 		47DADA794ABD0CD203CFF48C /* StoryExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88B494AD8CD86FCC5DE0E4CC /* StoryExport.swift */; };
 		49D6E6ED3128002039D4F931 /* UtteranceRecording.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F9B92C3457F07429C8C2600 /* UtteranceRecording.swift */; };
@@ -31,6 +32,8 @@
 		5D29324F2AF09B53070D7644 /* LiveTranscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7848DB9FED6B955BC193F650 /* LiveTranscription.swift */; };
 		603B85FC4E28D17FF1E5F457 /* StoryCardStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 477B640525BC627AFB40D7A7 /* StoryCardStyle.swift */; };
 		620B74996F82DC86FA07B6DB /* CodeSyntax.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C2AB1140648295BB7905317 /* CodeSyntax.swift */; };
+		63AC2EF656BB908FC6B195DA /* WhistlegraphMint.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95FEBB51736F61D93DD1A7A /* WhistlegraphMint.swift */; };
+		67D674B7AF9E1E056C10BEDF /* PreviewFormatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85CE7F71D92E8328A7BDA44D /* PreviewFormatTests.swift */; };
 		73873BDDC483417E2F6E1143 /* WhistlegraphHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BC2C1DC5E036F689EA59561 /* WhistlegraphHeader.swift */; };
 		749AC25AE02AAE4BCDA5683A /* VisualCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DF0A171A5771A7A1FD56852 /* VisualCapture.swift */; };
 		77291EEE768914D5F5EDB84B /* PlaybackWord.swift in Sources */ = {isa = PBXBuildFile; fileRef = E97104E13862EE30444D07C9 /* PlaybackWord.swift */; };
@@ -39,6 +42,7 @@
 		86581AE590F8A301268220CA /* CostDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 919CF3F0659F42F321B22145 /* CostDisplay.swift */; };
 		87EDDAE34B992D308236F1A9 /* StoryCardsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8B4655A00B6DC810F7203D1 /* StoryCardsTests.swift */; };
 		8A9F944BA95C971D70ADDF6B /* VersionNarrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D137824491A01D4C19417B8 /* VersionNarrator.swift */; };
+		938427295F53A8EC1E70C0A9 /* PreviewFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 478EF62AE288CE06A64A3EA4 /* PreviewFormat.swift */; };
 		9DBA1AF2AD7E3EDF69C8132A /* CodeTicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10E2AAA0A3F2BA1A5AEBED58 /* CodeTicker.swift */; };
 		9E5F0B7DC1CB3E9F4FBE9B90 /* WhistlegraphWoodFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = E14D13AF43AD0C735B4EA3CB /* WhistlegraphWoodFrame.swift */; };
 		9E961DFF3A1C8C9BD8E57866 /* PieceAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31AAC74C07F21688CEFF544F /* PieceAudio.swift */; };
@@ -72,6 +76,7 @@
 		060870DF76C6FC078A48A276 /* WhistlegraphAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphAccount.swift; sourceTree = "<group>"; };
 		10E2AAA0A3F2BA1A5AEBED58 /* CodeTicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeTicker.swift; sourceTree = "<group>"; };
 		147EAC245AD250B9B652F903 /* WorkspaceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceCoordinator.swift; sourceTree = "<group>"; };
+		19C05FBB23D515547035D490 /* WhistlegraphMintTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphMintTests.swift; sourceTree = "<group>"; };
 		1BC2C1DC5E036F689EA59561 /* WhistlegraphHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphHeader.swift; sourceTree = "<group>"; };
 		1CC14C186FE1CB5B19AD1D72 /* AudioBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioBenchmark.swift; sourceTree = "<group>"; };
 		212791F2E33DED2E1C368651 /* SwipeToTypeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeToTypeTests.swift; sourceTree = "<group>"; };
@@ -83,6 +88,7 @@
 		458C9CB2E8C0FD09BF96501D /* TezosBraincells.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TezosBraincells.swift; sourceTree = "<group>"; };
 		4728CB634CB3E4AED4F4D353 /* TalkHoldInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkHoldInput.swift; sourceTree = "<group>"; };
 		477B640525BC627AFB40D7A7 /* StoryCardStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryCardStyle.swift; sourceTree = "<group>"; };
+		478EF62AE288CE06A64A3EA4 /* PreviewFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewFormat.swift; sourceTree = "<group>"; };
 		49854384EFBA11ABDE4F70C6 /* StoryVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryVoice.swift; sourceTree = "<group>"; };
 		4BA75145769FC4401A11BBE8 /* Web */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Web; path = Resources/Web; sourceTree = SOURCE_ROOT; };
 		4BBA0E45689010CB41A6A8FF /* NetworkBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkBenchmark.swift; sourceTree = "<group>"; };
@@ -96,6 +102,7 @@
 		65C2FC346829168FF4AEEED3 /* StoryPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryPreview.swift; sourceTree = "<group>"; };
 		6D137824491A01D4C19417B8 /* VersionNarrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionNarrator.swift; sourceTree = "<group>"; };
 		7848DB9FED6B955BC193F650 /* LiveTranscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTranscription.swift; sourceTree = "<group>"; };
+		85CE7F71D92E8328A7BDA44D /* PreviewFormatTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewFormatTests.swift; sourceTree = "<group>"; };
 		88B494AD8CD86FCC5DE0E4CC /* StoryExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryExport.swift; sourceTree = "<group>"; };
 		8C2AB1140648295BB7905317 /* CodeSyntax.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeSyntax.swift; sourceTree = "<group>"; };
 		8C42750EF4F7E96146B03585 /* StoryControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryControls.swift; sourceTree = "<group>"; };
@@ -104,6 +111,7 @@
 		99D9A8C801D3B9D1192D1143 /* WhistlegraphDrawing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphDrawing.swift; sourceTree = "<group>"; };
 		A542DD3D25782F331540474E /* Whistlegraph.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Whistlegraph.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5904655414F61AE746DF6D5 /* WhistlegraphUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = WhistlegraphUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A95FEBB51736F61D93DD1A7A /* WhistlegraphMint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphMint.swift; sourceTree = "<group>"; };
 		B4F9A906C6B2232BD07BEFE5 /* PromptKeySounds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptKeySounds.swift; sourceTree = "<group>"; };
 		B55FB4AA387E716F9FEE0F83 /* SequenceBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SequenceBenchmark.swift; sourceTree = "<group>"; };
 		B7A25F803FAC121BFECC1AD7 /* SpeechCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechCapture.swift; sourceTree = "<group>"; };
@@ -159,6 +167,7 @@
 				31AAC74C07F21688CEFF544F /* PieceAudio.swift */,
 				4D3B156A3435E646EE0E6EEA /* PlaybackCaption.swift */,
 				E97104E13862EE30444D07C9 /* PlaybackWord.swift */,
+				478EF62AE288CE06A64A3EA4 /* PreviewFormat.swift */,
 				B4F9A906C6B2232BD07BEFE5 /* PromptKeySounds.swift */,
 				CB5E6AF3AF51BAA89BAC231E /* RecordedTranscription.swift */,
 				CC1EFF8BAE7678E320E3DCA0 /* RecordingTrim.swift */,
@@ -181,6 +190,7 @@
 				BA5F188938A81E704BB7F9F9 /* WhistlegraphApp.swift */,
 				99D9A8C801D3B9D1192D1143 /* WhistlegraphDrawing.swift */,
 				1BC2C1DC5E036F689EA59561 /* WhistlegraphHeader.swift */,
+				A95FEBB51736F61D93DD1A7A /* WhistlegraphMint.swift */,
 				E66B3ADC4D6D837FABC53B8F /* WhistlegraphScreen.swift */,
 				D25F85E540016CEBC3A6BC09 /* WhistlegraphTheme.swift */,
 				5DACE2604B34CCB5EB3EE8AC /* WhistlegraphTV.swift */,
@@ -194,8 +204,10 @@
 			isa = PBXGroup;
 			children = (
 				3F98F7D3CE551FC6458D1F37 /* HeaderSheetsTests.swift */,
+				85CE7F71D92E8328A7BDA44D /* PreviewFormatTests.swift */,
 				B8B4655A00B6DC810F7203D1 /* StoryCardsTests.swift */,
 				212791F2E33DED2E1C368651 /* SwipeToTypeTests.swift */,
+				19C05FBB23D515547035D490 /* WhistlegraphMintTests.swift */,
 			);
 			path = UITests;
 			sourceTree = "<group>";
@@ -330,6 +342,7 @@
 				9E961DFF3A1C8C9BD8E57866 /* PieceAudio.swift in Sources */,
 				D9E54D2F66B9FC35483A8F45 /* PlaybackCaption.swift in Sources */,
 				77291EEE768914D5F5EDB84B /* PlaybackWord.swift in Sources */,
+				938427295F53A8EC1E70C0A9 /* PreviewFormat.swift in Sources */,
 				A028C6EA0D6572E890932C2D /* PromptKeySounds.swift in Sources */,
 				E81F2B275AC7E65EC667E67F /* RecordedTranscription.swift in Sources */,
 				10C0A16D4803EC60EAC29531 /* RecordingTrim.swift in Sources */,
@@ -352,6 +365,7 @@
 				26D07334E2DEBA6705671BB0 /* WhistlegraphApp.swift in Sources */,
 				FAC2911EFFCA887527D2415F /* WhistlegraphDrawing.swift in Sources */,
 				73873BDDC483417E2F6E1143 /* WhistlegraphHeader.swift in Sources */,
+				63AC2EF656BB908FC6B195DA /* WhistlegraphMint.swift in Sources */,
 				4B35B066F49BDD9BD8B90B5A /* WhistlegraphScreen.swift in Sources */,
 				561DCBD95EB8AECF60476DE7 /* WhistlegraphTV.swift in Sources */,
 				41FC24FA4CF0D6C4D0C9E7C3 /* WhistlegraphTheme.swift in Sources */,
@@ -365,8 +379,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				19717448D7598ADAABBF739E /* HeaderSheetsTests.swift in Sources */,
+				67D674B7AF9E1E056C10BEDF /* PreviewFormatTests.swift in Sources */,
 				87EDDAE34B992D308236F1A9 /* StoryCardsTests.swift in Sources */,
 				0300D7A47360F4B79AB5B31F /* SwipeToTypeTests.swift in Sources */,
+				45228E0CFD91217E60751356 /* WhistlegraphMintTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -468,7 +484,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 105;
+				CURRENT_PROJECT_VERSION = 106;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -553,7 +569,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 105;
+				CURRENT_PROJECT_VERSION = 106;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_NS_ASSERTIONS = NO;

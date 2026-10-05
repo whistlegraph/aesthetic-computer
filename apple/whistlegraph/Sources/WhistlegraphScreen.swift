@@ -89,6 +89,10 @@ struct WhistlegraphScreen: View {
         return Color(red: Double(rgb[0]) / 255, green: Double(rgb[1]) / 255, blue: Double(rgb[2]) / 255)
     }
     private var chalkActive: Bool { drawing.enabled || held || session.capturePhase == .opening || session.capturePhase == .recording }
+    private var previewSize: CGSize {
+        session.previewFormat.fit(width: UIScreen.main.bounds.width - session.layout.pageInset * 2 - 12,
+                                  height: min(380, UIScreen.main.bounds.height * 0.4))
+    }
     var body: some View {
         VStack(spacing: narrator.isPlaying ? 0 : session.layout.spacing) {
             HStack {
@@ -128,8 +132,8 @@ struct WhistlegraphScreen: View {
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
             }
-            .frame(height: max(1, (UIScreen.main.bounds.width - (narrator.isPlaying ? 0 : session.layout.pageInset * 2) - 12) * 3 / 4))
-            .frame(maxWidth: .infinity)
+            .frame(width: narrator.isPlaying ? nil : previewSize.width,
+                   height: narrator.isPlaying ? max(1, (UIScreen.main.bounds.width - 12) * 3 / 4) : previewSize.height)
             .overlay { WhistlegraphPreviewInset() }
             .padding(6)
             .background(WhistlegraphWoodFrame())
@@ -143,6 +147,7 @@ struct WhistlegraphScreen: View {
                     }.accessibilityHidden(true)
                 }
             }
+            .frame(maxWidth: .infinity)
             if !narrator.isPlaying {
                 HStack(spacing: 18) {
                     if session.performanceCapture {
