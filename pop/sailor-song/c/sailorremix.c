@@ -90,7 +90,7 @@
 #include "sailor-chart.h"
 
 #define SR 48000
-#define VERSION "v117"
+#define VERSION "v118"
 #define EAGER 0.009          // v73: "eager" placement — percussion pushes ~9 ms ahead of the grid
 #define PIANO_ON 1          // v112: ON — "I wanted the piano" (v71 had turned it off)
 #define SHIFT27 0.0          // v53: how much earlier everything after bar 27 plays, now that the regularizer fits it to four beats
@@ -1328,7 +1328,7 @@ int main(void) {
                 vib(hum_t(bt[j] + (bt[j + 1] - bt[j]) * q / dens), tones[c++ % 6], hum_g(0.10 * o->vib * swell), beatDur / dens * 1.5);
         }
         // a fem bell on every other downbeat where the trap plays
-        if (o->bell && o->trap && b->n % 2 == 0) fem_bell(bt[0], nearest(pcs, 3, 72, 68, 76), 0.18 * o->bell);
+        if (o->bell && o->trap && b->n % 2 == 0) sine(melM, NULL, bt[0], 1.2, nearest(pcs, 3, 72, 68, 76) + 12, 0.12 * o->bell, 0, 0.004, 1.0, 5);   // v118: angelic sine, not FEM
         ev(b->t, "gtr", dur, o->her, -1);
     }
     // v25: THE BUTTON — the end of bar 84 is the last downbeat: implosion, kick, a long 808 on her root; the
@@ -1458,7 +1458,7 @@ int main(void) {
           if (MIRROR[sec] > 0) { int mm = scale_step(2 * 63 - v->midi, 0) + 12; sine(mirM, NULL, v->t + beat, v->dur, mm, 0.05 * MIRROR[sec], 0, 0.05, 0.45, 5); ev(v->t + beat, "mirror", v->dur, MIRROR[sec], mm); }
           if (CHORALE[sec] > 0) { int c3 = scale_step(v->midi, -2), c6 = scale_step(v->midi, -5);
               sine(melM, NULL, v->t, v->dur, c3, 0.04 * CHORALE[sec] * gV1, 0, 0.05, 0.4, 3); sine(melM, NULL, v->t, v->dur, c6, 0.034 * CHORALE[sec] * gV1, 0, 0.05, 0.4, 3); ev(v->t, "chorale", v->dur, CHORALE[sec], c3); }
-          if (CANON[sec] > 0 && v->dur >= 0.35) { sine(melM, NULL, v->t + beat / 2, 0.5, v->midi + 12, 0.14 * CANON[sec] * 1.6, 0, 0.003, 0.4, 2); ev(v->t + beat / 2, "ping", 0.5, CANON[sec], v->midi + 12); } }   // v117: sine, not FEM
+          if (CANON[sec] > 0 && v->dur >= 0.5) { sine(melM, NULL, v->t + beat / 2, 1.1, v->midi + 24, 0.14 * CANON[sec] * 0.8, 0, 0.004, 1.0, 5); ev(v->t + beat / 2, "ping", 1.1, CANON[sec], v->midi + 24); } }   // v118: "too many … more high pitched like angelic" — her notes ≥ 0.5 s only, two octaves up, soft, a long shimmering release   // v117: sine, not FEM
     }
     // fem bell answers: in every breath > 1 s her last three notes ring back
     for (int k = 1; k < CHART_NNOTES; k++) {
@@ -1472,7 +1472,7 @@ int main(void) {
         double e8 = (b->beats[1] - b->beats[0]) / 2;
         for (int j = 0, from = k >= 3 ? k - 3 : 0; from + j < k; j++) {
             double t = end + 0.12 + j * e8;
-            if (t < CHART_NOTES[k].t - 0.1) fem_bell(hum_t(t), CHART_NOTES[from + j].midi + 12, hum_g(0.16 * o->bell * gBell));
+            if (t < CHART_NOTES[k].t - 0.1) sine(melM, NULL, hum_t(t), 0.9, CHART_NOTES[from + j].midi + 24, hum_g(0.10 * o->bell * gBell), 0, 0.004, 0.8, 5);   // v118: angelic sine, not FEM
         }
     }
     // the hook on sines over the guitar break: chorus 1 bars 28–31 re-laid on 68–71
@@ -1507,7 +1507,7 @@ int main(void) {
             double hz = 440 * pow(2, (m + CHART_TUNE - 69) / 12.0); ph += 2 * PI * hz / SR; ph2 += 2 * PI * hz * 2 / SR;
             double u = (t - ct[0]) / 0.4, g = fmin(1, u) * fmin(1, (ct[nc - 1] - t) / 0.5); g = g * g * (3 - 2 * g);
             add(melM, i, (sin(ph) * 0.07 + sin(ph2) * 0.025) * g);
-            int st = scale_step((int)floor(m + 0.02), 0); if (st > lastStep) { fem_bell(t, st + 12, 0.16); ev(t, "bell", 0.5, 1, st + 12); lastStep = st; } }
+            int st = scale_step((int)floor(m + 0.02), 0); if (st > lastStep) { sine(melM, NULL, t, 1.0, st + 24, 0.11, 0, 0.004, 0.9, 5); ev(t, "ping", 1.0, 1, st + 24); lastStep = st; } }   // v118: angelic sine, not FEM
         ev(ct[0], "rise", ct[nc - 1] - ct[0], 1, (int)lround(cm[0]));
         if (q == 1) { const ChartBar *gb = bar_n(68); gong(gb->t, (int)lround(cm[nc - 1]) + 12, 0.5); } }   // v42: the gong on the climb's top note starts the next part; v101: at 44 the DEEP gong takes it
     // v60: THE LISTENER — claps, snare and toms from a seat that sways slowly front-right ↔ front-left (the kick stays centre);
@@ -1691,7 +1691,7 @@ int main(void) {
         // v23b: "too much of her starting guitar" — an eighth to start, held low until the last bars (k³), lowpass from 150 Hz
         if (0 && tt < introT) { double k = fmax(0, (tt - introT0) / (introT - introT0)), fc = 150 * pow(6000 / 150.0, k * k * k), kc = 1 - exp(-2 * PI * fc / SR);
             ilpL += (gtl - ilpL) * kc; ilpR += (gtrr - ilpR) * kc; double ig = 0.12 + 0.88 * k * k * k; gtl = ilpL * ig; gtrr = ilpR * ig; }
-        const double gBtn = (i >= at(173.4) ? 0.4 : i >= atButton ? 1.6 : 1) * (tt >= CLIMB_T0 && tt < CLIMB_T1 ? fmax(0.15, 1 - (tt - CLIMB_T0) / (CLIMB_T1 - CLIMB_T0) * 1.2) : 1) * (tt >= bar_n(70)->t && tt < PITCHY_T1 ? 1.6 : 1) * (tt >= PITCHY_T0 && tt < PITCHY_T1 ? 0.5 : 1) * 1.0;   // v73: the dead zone; v77: the nudge; v78: the intro strums at full, easing to the verse level over her first bar   // v27: +4 dB after the button; v59: the dry guitar yields to the climb
+        const double gBtn = (i >= atButton ? 1.6 : 1)   /* v118: no dip after 173.4 — "the end can still have her sounds of moving the camera" */ * (tt >= CLIMB_T0 && tt < CLIMB_T1 ? fmax(0.15, 1 - (tt - CLIMB_T0) / (CLIMB_T1 - CLIMB_T0) * 1.2) : 1) * (tt >= bar_n(70)->t && tt < PITCHY_T1 ? 1.6 : 1) * (tt >= PITCHY_T0 && tt < PITCHY_T1 ? 0.5 : 1) * 1.0;   // v73: the dead zone; v77: the nudge; v78: the intro strums at full, easing to the verse level over her first bar   // v27: +4 dB after the button; v59: the dry guitar yields to the climb
         double gl = ((gtl + g12L[i]) * herA[i] * 1.3 * hpump * gBtn) + (sample(acg.L, acg.n, i) * acgA[i] * 0.55 + sample(elg.L, elg.n, i) * elgA[i] * 0.8) * pump * vd;   // v66: HER guitar is not hollowed under her voice (the replays still are)
         double gr = ((gtrr + g12R[i]) * herA[i] * 1.3 * hpump * gBtn) + (sample(acg.R, acg.n, i) * acgA[i] * 0.55 + sample(elg.R, elg.n, i) * elgA[i] * 0.8) * pump * vd;
         double pl = (spL[i] + hiL[i] * pump) * vd, pr = (spR[i] + hiR[i] * pump) * vd;
