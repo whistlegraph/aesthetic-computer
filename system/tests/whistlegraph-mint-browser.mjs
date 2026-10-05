@@ -32,12 +32,12 @@ try {
  const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.setViewport({width:430,height:900,deviceScaleFactor:1});
  await page.setRequestInterception(true);page.on('request',req=>{
-  if(req.url().startsWith('https://ipfs.io/ipfs/'))req.respond({status:200,contentType:'text/html',body:'<body style="background:purple;color:white">Packed artwork</body>'});
+  if(req.url().startsWith('https://ipfs.aesthetic.computer/ipfs/'))req.respond({status:200,contentType:'text/html',body:'<body style="background:purple;color:white">Packed artwork</body>'});
   else if(req.url().startsWith(base))req.continue();else req.abort();
  });
  await page.goto(base+'/mint/#'+'a'.repeat(64));await page.waitForSelector('#connect:not([hidden])');
  assert.equal(new URL(page.url()).hash,'');
- const frame=page.frames().find(f=>f.url().startsWith('https://ipfs.io'));
+ const frame=page.frames().find(f=>f.url().startsWith('https://ipfs.aesthetic.computer'));
  assert.equal(await frame.evaluate(()=>{try{void top.localStorage;return false;}catch{return true;}}),true);
  await page.click('#connect');await page.waitForSelector('#mint:not([hidden])');
  assert.equal(await page.$eval('#mint',e=>e.disabled),true);

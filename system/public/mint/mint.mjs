@@ -22,7 +22,7 @@ function show(state) {
   $('art').dataset.aspect = intent.aspect || '2:3';
   $('settings').textContent = `${intent.editions} edition${intent.editions === 1 ? '' : 's'} · ${intent.royalties / 10}% royalties · Tezos mainnet`;
   if (/^ipfs:\/\/Qm[1-9A-HJ-NP-Za-km-z]{44}$/.test(intent.artifactUri || '')) {
-    const src = 'https://ipfs.io/ipfs/' + intent.artifactUri.slice(7);
+    const src = 'https://ipfs.aesthetic.computer/ipfs/' + intent.artifactUri.slice(7);
     if ($('art').src !== src) $('art').src = src;
     $('art').hidden = false;
   }
