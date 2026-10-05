@@ -21,6 +21,7 @@
 //   … --from 36 --to 48 --out X.mp4  → just that stretch of the record, as a clip (a preview)
 //   … --lyric-only --small --from 36 --to 48 → the words and ball alone over the picture at 960×540, fast — the timing loop
 //   … --no-lyric                      → the room and her, no words
+//   … --fia                           → Fia's Cut: the sung nouns float up as eyecons (src/eyecons, bin/eyecons.py) → <stem>-relight-fia.mp4
 import { readFileSync, writeFileSync, existsSync, openSync, readSync, closeSync, unlinkSync, mkdtempSync, readdirSync, statSync } from "node:fs";
 import { spawn, execFileSync, spawnSync } from "node:child_process";
 import { dirname, resolve, basename, join } from "node:path";
@@ -42,6 +43,7 @@ const BASE = resolve(arg("base") || (existsSync(resolve(OUT, `${stem}-perf.mp4`)
 if (!existsSync(BASE)) { console.error(`✗ base video missing: ${BASE} (render perf-video.mjs without --strip first)`); process.exit(1); }
 const probe = execFileSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height,r_frame_rate,nb_frames", "-of", "csv=p=0", BASE]).toString().trim().split(",");
 const DELIVER = Number(arg("deliver", 0)), LYRIC_ONLY = !!arg("lyric-only"), NO_LYRIC = !!arg("no-lyric"), SMALL = !!arg("small"), BALL = !!arg("ball");   // --ball: the bouncing ball (jeffrey lost it, v103)
+const FIA = !!arg("fia");                                                   // Fia's Cut: the eyecons (a separate deliverable; off by default, the main render untouched)
 // --vertical: the reel. A 9:16 window of the take (304×540 of the 960×540, centred on her at x 370) composited at
 // 1080×1920 (--small: 540×960), the lyric a size smaller and placed between her face and the guitar (v103).
 const VERTICAL = !!arg("vertical"), VIEW = VERTICAL ? { x: 218, y: 0, w: 304, h: 540 } : { x: 0, y: 0, w: 960, h: 540 };
@@ -64,7 +66,7 @@ if (JOBS > 1) {                                                             // t
   for (const f of segs) try { unlinkSync(f); } catch {} try { unlinkSync(list); } catch {}
   console.log(`${mux.status ? "✗" : "✓"} ${out}  (${JOBS} jobs)`); process.exit(mux.status || 0);
 }
-const outPath = resolve(arg("out") || resolve(OUT, `${stem}-${LYRIC_ONLY ? "lyric" : "relight"}${VERTICAL ? "-reel" : ""}${TO ? `-${FROM}-${TO}` : ""}.mp4`));
+const outPath = resolve(arg("out") || resolve(OUT, `${stem}-${LYRIC_ONLY ? "lyric" : "relight"}${VERTICAL ? "-reel" : ""}${FIA ? "-fia" : ""}${TO ? `-${FROM}-${TO}` : ""}.mp4`));
 const sx = W / VIEW.w, sy = H / VIEW.h, VX = VIEW.x, VY = VIEW.y;              // take space → frame: (x - VX) * sx, (y - VY) * sy
 // the OUTPUT space (v103: "the lyrics are burned in in a way that they aren't crisp — sharpened after bake?"): the room is
 // composited at the base's size, upscaled here (bilinear), and the lyric is drawn AFTER that at full delivery size from
@@ -274,6 +276,56 @@ for (let i = LANDS.length - 1; i >= 0; i--) { const L = LANDS[i], next = LANDS[i
   if (until > 0.85) { const k = Math.floor(until / 0.42), extra = []; for (let q = 1; q <= k; q++) extra.push({ t: L.t + q * until / (k + 1), b: L.b, x: L.x, C: L.C, chroma: true }); LANDS.splice(i + 1, 0, ...extra); } }
 const DWELL = 0.08;
 
+// ── Fia's Cut (--fia): the eyecons. (Fia, via jeffrey: "a version with eyecons like a cutout of Anne Hathaway's face and
+//    other floating identifiers … wiggling up like emoji or illustrations like clipart, to represent the nouns.") Each
+//    concrete noun in the lyric has a sticker in src/eyecons/<name>.png (bin/eyecons.py: Noto emoji and a Commons photo
+//    of Anne Hathaway, white cutout border, soft shadow). When the noun is sung its eyecon wiggles up from under the frame
+//    into a resting spot beside her head — never over her face: the face shield's centre and radius pick the spot, left
+//    or right, alternating — with a springy ease (8 % overshoot), a 4° wobble at 2 Hz and a slow bob while it floats,
+//    then drifts up and fades 1.6 s after the word ends, or sooner when the next noun wants its side or a fourth arrives
+//    (three at most). ~16 % of the frame's height; the Hathaway cutout bigger. Drawn after the picture is upscaled and
+//    sharpened and before the words, so the lyric stays on top. Everything is a function of the clock: no state.
+const EYE_MAP = [[/^saw$/, "eyes"], [/^anne$/, "hathaway", { size: 1.35, span: 2 }], [/^pen$/, "pen"], [/^coughed$/, "cough"], [/^knees$/, "knees"], [/^baby$/, "baby"],
+  [/^kiss$/, "kiss"], [/^mouth$/, "mouth"], [/^love$/, "heart"], [/^sailor$/, "sailboat"], [/^taste$/, "tongue"], [/^flavor$/, "icecream"], [/^god$/, "pray"], [/^savior$/, "halo"],
+  [/^mom$/, "mom"], [/^worried$/, "worried"], [/^sleep$/, "sleep"], [/^wait$/, "hourglass"], [/^sting$/, "bee"], [/^bleeding$/, "blood"], [/^run$/, "runner", { span: 2 }],
+  [/^walls$/, "bricks"], [/^house$/, "house"], [/^cat$/, "cat"], [/^mouse$/, "mouse"], [/^forever$/, "infinity"], [/^sit$/, "chair", { span: 3 }]];
+const EYE_DIR = resolve(LANE, "src/eyecons"), EYE_IMG = {}, CUES = [];
+const EYE = { size: 0.26, rise: 0.65, out: 0.5, linger: 1.6, max: 3 };     // the sticker canvas as a share of OH (the picture inside it ~16 %); s; s; s after the word; on screen at once
+if (FIA) {
+  // the stickers, decoded by ffmpeg to rgba and premultiplied (so the bilinear blit never pulls dark fringe out of the transparent pixels)
+  for (const name of new Set(EYE_MAP.map((e) => e[1]))) { const f = resolve(EYE_DIR, `${name}.png`); if (!existsSync(f)) { console.error(`⚠ no eyecon for ${name} (${f}) — run bin/eyecons.py`); continue; }
+    const [w, h] = execFileSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", f]).toString().trim().split(",").map(Number);
+    const px_ = execFileSync("ffmpeg", ["-v", "error", "-i", f, "-f", "rawvideo", "-pix_fmt", "rgba", "-"], { maxBuffer: 1 << 26 });
+    for (let o = 0; o < px_.length; o += 4) { const a = px_[o + 3] / 255; px_[o] *= a; px_[o + 1] *= a; px_[o + 2] *= a; } EYE_IMG[name] = { w, h, px: px_ }; }
+  // the cues: one per sung noun, sides alternating; a noun of several words (Anne Hathaway, run away, sit it out) holds through them all
+  let side = 1; for (let i = 0; i < WORDS.length; i++) { const n = norm(WORDS[i].text), e = EYE_MAP.find(([re]) => re.test(n)); if (!e || !EYE_IMG[e[1]]) continue;
+    const o = e[2] || {}, span = o.span || 1, last = WORDS[Math.min(WORDS.length - 1, i + span - 1)];
+    CUES.push({ name: e[1], a: WORDS[i].a, b: last.b, size: o.size || 1, side, h: fnv(`eye:${e[1]}:${i}`) }); side = -side; i += span - 1; }
+  for (const [i, c] of CUES.entries()) { c.out = c.b + EYE.linger;                                   // when it leaves: after its linger …
+    for (let j = i + 1; j < CUES.length && CUES[j].a < c.out; j++) if (CUES[j].side === c.side) { c.out = CUES[j].a; break; } }   // … or when the next noun on its side arrives
+  for (const [i, c] of CUES.entries()) { const up = CUES.slice(0, i).filter((p) => p.out + EYE.out > c.a).sort((x, y) => x.a - y.a);   // … or when it is the oldest of four
+    if (up.length >= EYE.max) up[0].out = Math.min(up[0].out, c.a); }
+  console.log(`  Fia's Cut: ${CUES.length} eyecon cues from ${Object.keys(EYE_IMG).length} stickers`); }
+const easeOutBack = (p, c1 = 1.4) => { const c3 = c1 + 1; return 1 + c3 * (p - 1) ** 3 + c1 * (p - 1) ** 2; };   // c1 1.4 → ~8 % overshoot
+// a premultiplied rgba sticker blitted onto the output buffer, scaled and tilted about its centre (bilinear)
+const spriteO = (im, cx, cy, sc, rot, al) => { const w = im.w, h = im.h, P = im.px, cs = Math.cos(rot), sn = Math.sin(rot), rad = Math.hypot(w, h) * sc / 2;
+  const X0 = Math.max(0, Math.floor(cx - rad)), X1 = Math.min(OW - 1, Math.ceil(cx + rad)), Y0 = Math.max(0, Math.floor(cy - rad)), Y1 = Math.min(OH - 1, Math.ceil(cy + rad));
+  for (let Y = Y0; Y <= Y1; Y++) for (let X = X0; X <= X1; X++) { const dx = X + 0.5 - cx, dy = Y + 0.5 - cy, u = (dx * cs + dy * sn) / sc + w / 2 - 0.5, v = (-dx * sn + dy * cs) / sc + h / 2 - 0.5;
+    if (u < 0 || v < 0 || u >= w - 1 || v >= h - 1) continue; const u0 = u | 0, v0 = v | 0, fu = u - u0, fv = v - v0, o = (v0 * w + u0) * 4, q = o + w * 4;
+    const a = ((P[o + 3] * (1 - fu) + P[o + 7] * fu) * (1 - fv) + (P[q + 3] * (1 - fu) + P[q + 7] * fu) * fv) / 255 * al; if (a < 0.004) continue;
+    const r = ((P[o] * (1 - fu) + P[o + 4] * fu) * (1 - fv) + (P[q] * (1 - fu) + P[q + 4] * fu) * fv) * al, g = ((P[o + 1] * (1 - fu) + P[o + 5] * fu) * (1 - fv) + (P[q + 1] * (1 - fu) + P[q + 5] * fu) * fv) * al, b = ((P[o + 2] * (1 - fu) + P[o + 6] * fu) * (1 - fv) + (P[q + 2] * (1 - fu) + P[q + 6] * fu) * fv) * al;   // premultiplied: the colour already carries the alpha
+    const k = (Y * OW + X) * 3; ob[k] = Math.min(255, ob[k] * (1 - a) + r); ob[k + 1] = Math.min(255, ob[k + 1] * (1 - a) + g); ob[k + 2] = Math.min(255, ob[k + 2] * (1 - a) + b); } };
+// the eyecons now: for each live cue, where it is on its path (rise, float, leave), then the blit — oldest first, so the newest sits on top
+const drawEyecons = (now) => { const FCX = faceX * OW / W, FCY = faceY * OH / H, FR = 0.2 * OH;   // the face shield, as upscale() has it
+  for (const c of CUES) { if (now < c.a || now > c.out + EYE.out) continue; const im = EYE_IMG[c.name], size = EYE.size * OH * c.size, u = now - c.a, ph = (c.h % 1000) / 1000 * Math.PI * 2;
+    const rest = { x: Math.min(OW - size / 2 - 0.02 * OW, Math.max(size / 2 + 0.02 * OW, FCX + c.side * (FR + size / 2 + 0.02 * OW))), y: FCY - 0.06 * OH };   // beside her head, not her shoulder
+    const p = Math.min(1, u / EYE.rise), f = easeOutBack(p), settle = 1 - p;
+    let x = rest.x + settle * size * 0.12 * Math.sin(2 * Math.PI * 4.5 * u + ph), y = OH + size * 0.6 + (rest.y - OH - size * 0.6) * f;   // up from under the frame, springing past the spot and back
+    y += size * 0.03 * Math.sin(2 * Math.PI * 0.6 * u + ph);                                                                             // the slow bob
+    let rot = settle * 0.17 * Math.sin(2 * Math.PI * 4.5 * u + ph) + 0.07 * Math.sin(2 * Math.PI * 2 * u + ph), sc = 0.7 + 0.3 * f, al = Math.min(1, u / 0.12);   // ~10° wiggle on the way up, 4° wobble at 2 Hz after
+    const v = now - c.out; if (v > 0) { const q = Math.min(1, v / EYE.out), e = q * q; y -= size * 0.5 * e; al *= 1 - e; sc *= 1 - 0.1 * e; }   // the leave: up and gone
+    spriteO(im, x, y, sc * size / im.w, rot, al); } };
+
 // ── drawing on the rgb24 frame buffer ──
 let fb = null;
 const px = (x, y, r, g, b, a = 1) => { x |= 0; y |= 0; if (x < 0 || y < 0 || x >= W || y >= H) return; const o = (y * W + x) * 3;
@@ -469,6 +521,7 @@ function drawFrame(fi) {
   //    syllable pops, the sung word a touch larger, a held syllable kerns outward and sways; the ball rides its one path.
   splitAt(now - T0); longAt(now, beatOf.f); if (LONG.k > 0) { const th = now * 0.7, m = 4 * LONG.k * (0.4 + 0.6 * Math.cos(Math.PI * beatOf.f) ** 2); SPLIT = { dx: SPLIT.dx + m * Math.cos(th), dy: SPLIT.dy + m * Math.sin(th) }; }   // the long's split: up to 4 px, breathing with the beat, turning
   rippleAt(now); upscale(fi); sharpen();                                       // the room is done at the base size, upscaled (the twangs' ripple, the kiss's split, the long's swim), SHARPENED, then the words go on
+  if (FIA) drawEyecons(now);                                                   // Fia's Cut: the eyecons ride between the picture and the words
   if (!NO_LYRIC) { const k = Math.min(1, 0.3 + 0.7 * amb) * (1 + 0.5 * lampBloom), fl = Math.min(1, bellRaw) * 120, SH = hue.map((h) => Math.min(255, (h * k + fl) * dance)), off = 0.07 * GA.px * (CHUNKS[0]?.sc ?? SC_MAX);   // the shadow tight under the glyph (v103: "too far from the captions")
     // the "longs" (v103: "when arpeggiating should blink colors rapidly — psychic effects"): a held syllable's letters run
     // the hue wheel, each letter a step behind the last, blinking at 6 Hz, 16 Hz with the arp under it
