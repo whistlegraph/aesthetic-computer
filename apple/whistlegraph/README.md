@@ -148,3 +148,5 @@ on the paired phone without initiating a purchase.
 `HeaderSheetsTests/testPhoneLiveTezosCheckout` checks the live rate, authenticated
 checkout in the default browser, and handoff to the installed Temple app. It
 stops before wallet connection approval, signing, or sending tez.
+`HeaderSheetsTests/testPhoneThreeDollarCheckout` selects the $3 pack, verifies
+600,000 braincells, and captures Temple's screen without approving a request.

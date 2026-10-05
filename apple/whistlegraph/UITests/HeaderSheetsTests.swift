@@ -68,6 +68,50 @@ final class HeaderSheetsTests: XCTestCase {
         XCTAssertTrue(walletApp.wait(for: .runningForeground, timeout: 25), "checkout hands off to installed Temple")
     }
 
+    // Prepares the small pack and stops after opening the wallet.
+    func testPhoneThreeDollarCheckout() {
+        let app = XCUIApplication()
+        app.launch()
+        XCTAssertTrue(app.buttons["brain-settings"].waitForExistence(timeout: 30))
+        app.buttons["brain-settings"].tap(); app.swipeUp()
+        XCTAssertTrue(app.buttons["brain-buy-tezos"].waitForExistence(timeout: 15))
+        app.buttons["brain-buy-tezos"].tap()
+        let browsers = ["com.apple.mobilesafari", "com.google.chrome.ios"].map { XCUIApplication(bundleIdentifier: $0) }
+        let opened = expectation(for: NSPredicate { _, _ in browsers.contains { $0.state == .runningForeground } }, evaluatedWith: nil)
+        guard XCTWaiter.wait(for: [opened], timeout: 20) == .completed,
+              let browser = browsers.first(where: { $0.state == .runningForeground }) else { XCTFail("Browser did not open"); return }
+        let amount = browser.webViews.descendants(matching: .any).matching(identifier: "Amount").firstMatch
+        guard amount.waitForExistence(timeout: 20) else {
+            print("Checkout controls:", browser.webViews.buttons.allElementsBoundByIndex.map { $0.label })
+            XCTFail("Amount selector unavailable"); return
+        }
+        amount.tap()
+        let option = browser.buttons["$3 · 600,000 braincells"]
+        if option.waitForExistence(timeout: 2) { option.tap() }
+        else if browser.pickerWheels.count == 1 {
+            browser.pickerWheels.element.adjust(toPickerWheelValue: "$3 · 600,000 braincells")
+            if browser.buttons["Done"].exists { browser.buttons["Done"].tap() }
+        } else {
+            print("Amount controls:", browser.buttons.allElementsBoundByIndex.map { $0.label })
+            XCTFail("Could not select the $3 pack"); return
+        }
+        guard browser.staticTexts["600,000 braincells"].waitForExistence(timeout: 10) else {
+            XCTFail("The checkout must show the $3 pack before connecting"); return
+        }
+        let quote = XCTAttachment(screenshot: browser.screenshot()); quote.name = "Three dollar checkout"; quote.lifetime = .keepAlways; add(quote)
+        browser.buttons["Connect wallet"].tap()
+        let wallet = XCUIApplication(bundleIdentifier: "com.madfish.temple-wallet")
+        if !wallet.wait(for: .runningForeground, timeout: 3) {
+            let temple = browser.staticTexts["Temple"]
+            guard temple.waitForExistence(timeout: 15) else { XCTFail("Temple unavailable"); return }
+            temple.tap()
+            let open = browser.alerts.buttons["Open"]
+            if open.waitForExistence(timeout: 3) { open.tap() }
+        }
+        XCTAssertTrue(wallet.wait(for: .runningForeground, timeout: 25))
+        let screen = XCTAttachment(screenshot: wallet.screenshot()); screen.name = "Temple handoff screen"; screen.lifetime = .keepAlways; add(screen)
+    }
+
     func testPieceAudioStartsWithoutTouch() {
         let app = XCUIApplication()
         app.launchEnvironment["WALKIE_NATIVE_SCREEN_FIXTURE"] = "audio"
