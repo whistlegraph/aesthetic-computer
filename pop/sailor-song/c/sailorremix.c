@@ -90,7 +90,7 @@
 #include "sailor-chart.h"
 
 #define SR 48000
-#define VERSION "v115"
+#define VERSION "v116"
 #define EAGER 0.009          // v73: "eager" placement — percussion pushes ~9 ms ahead of the grid
 #define PIANO_ON 1          // v112: ON — "I wanted the piano" (v71 had turned it off)
 #define SHIFT27 0.0          // v53: how much earlier everything after bar 27 plays, now that the regularizer fits it to four beats
@@ -333,7 +333,7 @@ static void gong_deep(double t, int midi, double g, double vibHz, double vibCent
     ev(t, "gong", 8.0, g, midi);
 }
 static void fem_bell(double t, int midi, double g) {
-    while (midi > 76) midi -= 12;
+    while (midi > 88) midi -= 12;   // v116: the bank now runs E4–E6 (was E4–E5, the loner rule) — the break's bells were asked at 72–83 and folded an octave down
     while (midi < 63) midi += 12;
     if (!BELLS[midi].L) {
         char p[256]; snprintf(p, sizeof p, LANE "/src/bells/bell-%d.wav", midi);
