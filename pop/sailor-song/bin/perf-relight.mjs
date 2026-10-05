@@ -35,9 +35,10 @@ const R = JSON.parse(readFileSync(resolve(OUT, `${stem}.events.json`), "utf8")),
 // the base: this version's, else the newest *-perf.mp4 whose receipt shares this record's clock (startSec and sections —
 // the picture is the same film; only the mix moved), so a new mix needs no new base
 const sameClock = (a, b) => a.startSec === b.startSec && JSON.stringify(a.sections) === JSON.stringify(b.sections);
+const PERFS = readdirSync(OUT).filter((f) => /^sailor-song-v\d+-perf\.mp4$/.test(f)).map((f) => resolve(OUT, f)).sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
 const BASE = resolve(arg("base") || (existsSync(resolve(OUT, `${stem}-perf.mp4`)) ? resolve(OUT, `${stem}-perf.mp4`)
-  : readdirSync(OUT).filter((f) => /^sailor-song-v\d+-perf\.mp4$/.test(f)).map((f) => resolve(OUT, f)).sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)
-    .find((f) => { const r = f.replace(/-perf\.mp4$/, ".events.json"); try { return sameClock(JSON.parse(readFileSync(r, "utf8")), R); } catch { return false; } }) || resolve(OUT, `${stem}-perf.mp4`)));
+  : PERFS.find((f) => { const r = f.replace(/-perf\.mp4$/, ".events.json"); try { return sameClock(JSON.parse(readFileSync(r, "utf8")), R); } catch { return false; } })
+    || (PERFS[0] && (console.error(`⚠ no base's receipt shares this record's clock (a receipt pruned from out/?) — taking the newest: ${basename(PERFS[0])}`), PERFS[0])) || resolve(OUT, `${stem}-perf.mp4`)));
 if (!existsSync(BASE)) { console.error(`✗ base video missing: ${BASE} (render perf-video.mjs without --strip first)`); process.exit(1); }
 const probe = execFileSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height,r_frame_rate,nb_frames", "-of", "csv=p=0", BASE]).toString().trim().split(",");
 const DELIVER = Number(arg("deliver", 0)), LYRIC_ONLY = !!arg("lyric-only"), NO_LYRIC = !!arg("no-lyric"), SMALL = !!arg("small"), BALL = !!arg("ball");   // --ball: the bouncing ball (jeffrey lost it, v103)
@@ -307,38 +308,76 @@ let SPLIT = { dx: 0, dy: 0 };                                                 //
 const splitAt = (rn) => { SPLIT = { dx: 0, dy: 0 }; for (const b of BUMPS) { const d = rn - b.t;
   if (d < 0) { let last = null; for (const t of b.steps) if (rn >= t) last = t; if (last != null) SPLIT = splitOf(last, b.amt); }
   else if (d < 0.4) { const f = d / 0.4, k = (1 - f) * (1 - f), s = splitOf(b.t, b.amt), m = Math.hypot(s.dx, s.dy), big = 6 * b.amt * k / m; SPLIT = { dx: s.dx * big, dy: s.dy * big }; } } };   // the downbeat: the top of the grains' range, in its own hashed direction
+// the arrangement's dance (v103: "start formal, black and white, less shaky; as the ornament comes in, increase the shake
+// and the colour, so the captions surprise the way the arrangement does"): 0 through the intro and verse 1, a first step
+// when the kick lands, half at chorus 1, full from chorus 2, resting in the break, back up through the bridge; each step
+// a 2 s ramp. The captions, the lights and now the twangs' ripple all ride it.
+const DANCE = [[-99, 0], [2.1, 0], [10.8, 0.15], [23.6, 0.2], [38.4, 0.55], [69.1, 0.35], [84.9, 1], [115.3, 0.3], [124.8, 0.7], [139.9, 1]];
+const danceAt = (rn) => { let dance = 0; for (let i = 1; i < DANCE.length; i++) { const [t0, d0] = DANCE[i - 1], [t1, d1] = DANCE[i]; if (rn >= t0 && rn < t1) { dance = d0 + (d1 - d0) * Math.min(1, (rn - t0) / 2.0); break; } if (rn >= t1) dance = d1; } return dance; };
 // the twangs (v120, jeffrey: "I wonder if the guitar parts could somehow warble the edges of the video — add a bit of
-// motion blur / displacement / ripple — that'd be really nice for the twangs specifically"): every gtr event in the
-// receipt (her strums) sends a ripple in from the FRAME EDGES — a sine along the distance to each edge (wavelength
-// ~50 px, travelling inward at ~300 px/s), its amplitude 4–8 px at 1080 by the strum's gain, weighted (1 - d/B)² over
-// the outer 17 % of the frame and zero inside it (her face is never touched), decaying over ~350 ms; the four edges
-// each contribute along their own normal, summed, so the corners stay continuous — one 1-D table per axis per frame.
-// While it rings, a light motion blur near the edges only: 30 % of the previous output frame, by the same edge weight.
-const GTRS = pick("gtr");
-const RIP = { amp: 10, band: 0.17, lambda: 50, speed: 300, tau: 0.15, len: 0.45, blur: 0.3 }, RING = [];   // px at 1080 (× the strum's gain), the band's share of the frame, px, px/s, s, s, the ghost's share
+// motion blur / displacement / ripple — that'd be really nice for the twangs specifically"; then "attached to every
+// twang", "only come in post chorus, not in the intro", "get more extreme like the other effects"): every strum she
+// plays — bin/strum-onsets.py's src/strums.json, onsets off the guitar stem (the receipt's gtr events are one a bar;
+// they are the fallback) — sends a ripple in from the FRAME EDGES: a sine along the distance to each edge (wavelength
+// ~50 px, travelling inward at ~300 px/s), weighted (1 - d/B)² over the outer 17 % of the frame and zero inside it (her
+// face is never touched), decaying over ~350 ms. Its amplitude is the dance × the strum's strength: nothing before
+// chorus 1, ~3–5 px there, the full 10 px by chorus 2 and the finale. The four edges each contribute along their own
+// normal, summed, so the corners stay continuous — one 1-D table per axis per frame. While it rings, a light motion
+// blur near the edges only: a share of the previous output frame, by the same edge weight.
+const STRUMS_FILE = resolve(LANE, "src/strums.json");
+const STRUMS = existsSync(STRUMS_FILE) ? JSON.parse(readFileSync(STRUMS_FILE, "utf8")).map((o) => ({ t: o.t, g: o.gain })).sort((a, b) => a.t - b.t) : pick("gtr");
+const RIP_FROM = 38.4;                                                        // record s: chorus 1; before it the strums leave the picture alone
+const RIP = { amp: 10, band: 0.17, lambda: 50, speed: 300, tau: 0.15, len: 0.45, blur: 0.2 }, RING = [];   // px at 1080 (× dance × strength), the band's share of the frame, px, px/s, s, s, the ghost's share
 const RX = new Float32Array(OW), RY = new Float32Array(OH), BX = new Float32Array(OW), BY = new Float32Array(OH);   // the displacement and the edge weight, per column / per row
 let ripOn = 0, PREV = null, prevFi = -2;
-const rippleAt = (now) => { RING.length = 0; for (let i = GTRS.cur || 0; i < GTRS.length && GTRS[i].t <= now; i++) { const dt = now - GTRS[i].t; if (dt > RIP.len) { if (i === (GTRS.cur || 0)) GTRS.cur = i + 1; continue; } RING.push({ dt, g: GTRS[i].g }); }
-  ripOn = 0; if (!RING.length) return; const S = OH / 1080, B = RIP.band * Math.min(OW, OH), w2 = 2 * Math.PI / (RIP.lambda * S);
-  const early = 1 + 0.4 * (1 - Math.min(1, Math.max(0, (now - T0 - 10.8) / (38.4 - 10.8))));            // before the kick the ripple is the only effect: a little bigger, so it reads; back to size by chorus 1
-  const waves = RING.map((r) => { const e = Math.exp(-r.dt / RIP.tau) * Math.min(1, (RIP.len - r.dt) / 0.05); ripOn = Math.max(ripOn, e); return { a: RIP.amp * S * early * r.g * e, ph: -w2 * RIP.speed * S * r.dt }; });
-  const f = (d) => { if (d >= B) return 0; const w = (1 - d / B) ** 2; let s = 0; for (const q of waves) s += q.a * Math.sin(w2 * d + q.ph); return s * w; }, wgt = (d) => d >= B ? 0 : (1 - d / B) ** 2;
+// the held 'long's (v120, jeffrey: "get really cool on the held 'long' rainbow times"): while the lyric runs its rainbow
+// and the room steps hue to the beat, the PICTURE goes too — slow waves rolling in from the edges at full amplitude,
+// the whole frame swimming outward from her face (a radial wave, a breath per beat; the one place she may move), a
+// chromatic split that breathes with the beat in a slowly turning direction, and feedback trails that bloom outward
+// (the last frame pulled back toward her and kept). In over 0.4 s from where the rainbow starts, out within 0.5 s of
+// the word's end (the second ends at 122.0; "And we can run" follows).
+const LONGS = WORDS.filter((w) => /^long\W*$/i.test(w.text) && w.b - w.a > 1.2);
+const LONG = { k: 0, cx: 0, cy: 0, a: 0, w: 0, ph: 0, trail: 0, zoom: 1 };
+const longAt = (now, beatF) => { let k = 0; for (const w of LONGS) { const a = w.a + 0.25; if (now < a || now > w.b + 0.5) continue; k = Math.max(k, now < w.b ? Math.min(1, (now - a) / 0.4) : 1 - (now - w.b) / 0.5); }
+  k = Math.max(0, k); k = k * k * (3 - 2 * k); LONG.k = k; if (!k) return; const S = OH / 1080;
+  LONG.cx = faceX * OW / W; LONG.cy = faceY * OH / H;                                                                  // the swim's centre: her face, in output px
+  const breath = 0.6 + 0.4 * Math.cos(Math.PI * beatF) ** 2;                                                           // fullest on the beat, easing through it
+  LONG.a = 7 * S * k * breath; LONG.w = 2 * Math.PI / (230 * S); LONG.ph = -LONG.w * 90 * S * now;                   // the radial wave: 7 px, λ 230 px, outward at 90 px/s
+  LONG.trail = 0.5 * k; LONG.zoom = 1 - 0.012 * k; };                                                                 // the feedback: half the last frame, pulled 1.2 % toward her each frame
+const rippleAt = (now) => { RING.length = 0; const S = OH / 1080, B = RIP.band * Math.min(OW, OH), rn = now - T0;
+  for (let i = STRUMS.cur || 0; i < STRUMS.length && STRUMS[i].t <= now; i++) { const dt = now - STRUMS[i].t; if (dt > RIP.len) { if (i === (STRUMS.cur || 0)) STRUMS.cur = i + 1; continue; } if (rn >= RIP_FROM) RING.push({ dt, g: STRUMS[i].g }); }
+  ripOn = 0; const waves = [];
+  if (RING.length) { const dance = danceAt(rn), w2 = 2 * Math.PI / (RIP.lambda * S);
+    for (const r of RING) { const e = Math.exp(-r.dt / RIP.tau) * Math.min(1, (RIP.len - r.dt) / 0.05) * dance; ripOn = Math.max(ripOn, e); waves.push({ a: RIP.amp * S * (0.35 + 0.65 * r.g) * e, w: w2, ph: -w2 * RIP.speed * S * r.dt }); } }
+  if (LONG.k > 0) { const w2 = 2 * Math.PI / (110 * S); ripOn = Math.max(ripOn, LONG.k); waves.push({ a: RIP.amp * S * LONG.k, w: w2, ph: -w2 * 90 * S * now }); }   // the long: a slow wave, full size, rolling in
+  if (!waves.length) return;
+  const f = (d) => { if (d >= B) return 0; const w = (1 - d / B) ** 2; let s = 0; for (const q of waves) s += q.a * Math.sin(q.w * d + q.ph); return s * w; }, wgt = (d) => d >= B ? 0 : (1 - d / B) ** 2;
   for (let x = 0; x < OW; x++) { const dL = x + 0.5, dR = OW - 0.5 - x; RX[x] = f(dL) - f(dR); BX[x] = Math.min(1, wgt(dL) + wgt(dR)); }
   for (let y = 0; y < OH; y++) { const dT = y + 0.5, dB = OH - 0.5 - y; RY[y] = f(dT) - f(dB); BY[y] = Math.min(1, wgt(dT) + wgt(dB)); } };
 const ZB = Buffer.alloc(W * H * 3);
-const upscale = (fi) => { const rip = ripOn > 0.002, spl = Math.abs(SPLIT.dx) + Math.abs(SPLIT.dy) > 0.05; if (!OB && !rip && !spl) { ob = fb; return; } ob = OB || ZB;
+const upscale = (fi) => { const rip = ripOn > 0.002, lng = LONG.k > 0.002, spl = Math.abs(SPLIT.dx) + Math.abs(SPLIT.dy) > 0.05; if (!OB && !rip && !spl && !lng) { ob = fb; return; } ob = OB || ZB;
   const fx = W / OW, fy = H / OH, S = OH / 1080, sdx = SPLIT.dx * S * fx, sdy = SPLIT.dy * S * fy;         // the split, in base px
-  const blur = rip && PREV && prevFi === fi - 1 ? RIP.blur * ripOn : 0;                                          // a ghost of the last frame, only while it rings and only from a frame that was kept
+  const held = PREV && prevFi === fi - 1, blur = rip && held ? RIP.blur * ripOn : 0, trail = lng && held ? LONG.trail : 0;   // ghosts only from a frame that was kept
   const bl = (c, u, v) => { const u0 = u | 0, v0 = v | 0, fu = u - u0, fv = v - v0, a = (v0 * W + u0) * 3 + c, b = a + W * 3; return (fb[a] * (1 - fu) + fb[a + 3] * fu) * (1 - fv) + (fb[b] * (1 - fu) + fb[b + 3] * fu) * fv; };
   const cu = (u) => Math.min(W - 1.001, Math.max(0, u)), cv = (v) => Math.min(H - 1.001, Math.max(0, v));
+  const LCX = LONG.cx, LCY = LONG.cy, LA = LONG.a, LW = LONG.w, LPH = LONG.ph, LZ = LONG.zoom;
+  // the face shield (v120, jeffrey: "make sure there is no glitch on her face"): inside a disc on the matte's head nothing
+  // moves, splits, blurs or trails — every offset and ghost is scaled by (1 - shield), a 60 px smoothstep at the rim
+  const FCX = faceX * OW / W, FCY = faceY * OH / H, FR = 0.2 * OH, FS = 60 * S, FE = FR + FS;
   for (let y = 0; y < OH; y++) { const vy = y + 0.5, q = y * OW * 3, ry = rip ? RY[y] : 0, by = rip ? BY[y] : 0;
-    for (let x = 0; x < OW; x++) { const o = q + x * 3, rx = rip ? RX[x] : 0;
-      const u = cu((x + 0.5 + rx) * fx - 0.5), v = cv((vy + ry) * fy - 0.5);
-      if (spl) { ob[o] = bl(0, cu(u + sdx), cv(v + sdy)); ob[o + 1] = bl(1, u, v); ob[o + 2] = bl(2, cu(u - sdx), cv(v - sdy)); }
+    const ady = Math.abs(vy - FCY);
+    for (let x = 0; x < OW; x++) { const o = q + x * 3; let keep = 1; const adx = Math.abs(x + 0.5 - FCX);
+      if (ady < FE && adx < FE) { const d = Math.sqrt(adx * adx + ady * ady); if (d <= FR) keep = 0; else if (d < FE) { const t = (d - FR) / FS; keep = t * t * (3 - 2 * t); } }
+      let X = x + 0.5 + (rip ? RX[x] * keep : 0), Y = vy + ry * keep;
+      if (lng && keep) { const dx = X - LCX, dy = Y - LCY, r = Math.sqrt(dx * dx + dy * dy) + 1e-3, sw = LA * keep * Math.sin(LW * r + LPH); X += dx / r * sw; Y += dy / r * sw; }
+      const u = cu(X * fx - 0.5), v = cv(Y * fy - 0.5);
+      if (spl) { const kx = sdx * keep, ky = sdy * keep; ob[o] = bl(0, cu(u + kx), cv(v + ky)); ob[o + 1] = bl(1, u, v); ob[o + 2] = bl(2, cu(u - kx), cv(v - ky)); }
       else { const u0 = u | 0, v0 = v | 0, fu = u - u0, fv = v - v0, a = (v0 * W + u0) * 3, b = a + W * 3;
         for (let c = 0; c < 3; c++) ob[o + c] = (fb[a + c] * (1 - fu) + fb[a + 3 + c] * fu) * (1 - fv) + (fb[b + c] * (1 - fu) + fb[b + 3 + c] * fu) * fv; }
-      if (blur) { const k = blur * Math.max(by, rip ? BX[x] : 0); if (k > 0.002) { ob[o] += (PREV[o] - ob[o]) * k; ob[o + 1] += (PREV[o + 1] - ob[o + 1]) * k; ob[o + 2] += (PREV[o + 2] - ob[o + 2]) * k; } } } }
-  if (rip) { if (!PREV) PREV = Buffer.alloc(OW * OH * 3); ob.copy(PREV); prevFi = fi; } };
+      if (trail && keep) { const px_ = Math.min(OW - 1.001, Math.max(0, LCX + (x + 0.5 - LCX) * LZ - 0.5)), py_ = Math.min(OH - 1.001, Math.max(0, LCY + (y + 0.5 - LCY) * LZ - 0.5)), u0 = px_ | 0, v0 = py_ | 0, fu = px_ - u0, fv = py_ - v0, a = (v0 * OW + u0) * 3, b = a + OW * 3;
+        for (let c = 0; c < 3; c++) { const g = (PREV[a + c] * (1 - fu) + PREV[a + 3 + c] * fu) * (1 - fv) + (PREV[b + c] * (1 - fu) + PREV[b + 3 + c] * fu) * fv; ob[o + c] += (g - ob[o + c]) * trail * keep; } }
+      else if (blur && keep) { const k = blur * keep * Math.max(by, BX[x]); if (k > 0.002) { ob[o] += (PREV[o] - ob[o]) * k; ob[o + 1] += (PREV[o + 1] - ob[o + 1]) * k; ob[o + 2] += (PREV[o + 2] - ob[o + 2]) * k; } } } }
+  if (rip || lng) { if (!PREV) PREV = Buffer.alloc(OW * OH * 3); ob.copy(PREV); prevFi = fi; } };
 // a wise sharpen on the delivered picture, before the words (v103: "a post smart sharpen over all the video so it's all
 // crisp"): unsharp on luma only (no colour fringing), the amount gated by local contrast — flat skin, wall and bokeh get
 // almost none, edges and texture get the full dose — and a clamp so no halo overshoots its neighbours by more than a step
@@ -382,8 +421,7 @@ function drawFrame(fi) {
   // the dance (v103: "start formal, black and white, less shaky; as the ornament comes in, increase the shake and the
   // colour, so the captions surprise the way the arrangement does"): 0 through the intro and verse 1, a first step
   // when the kick lands, half at chorus 1, full from chorus 2, resting in the break, back up through the bridge
-  const DANCE = [[-99, 0], [2.1, 0], [10.8, 0.15], [23.6, 0.2], [38.4, 0.55], [69.1, 0.35], [84.9, 1], [115.3, 0.3], [124.8, 0.7], [139.9, 1]];
-  const rn = now - T0; let dance = 0; for (let i = 1; i < DANCE.length; i++) { const [t0, d0] = DANCE[i - 1], [t1, d1] = DANCE[i]; if (rn >= t0 && rn < t1) { dance = d0 + (d1 - d0) * Math.min(1, (rn - t0) / 2.0); break; } if (rn >= t1) dance = d1; }
+  const rn = now - T0, dance = danceAt(rn);
   const lightsOn = arriveS * (1 - Math.min(1, Math.max(0, (take - (CAM_MOVE - 2.3)) / 2.0)));
   const toBlack = 0;                                                                                  // no dip to black: jeffrey likes her moving the camera; the effects just dissolve off first
   const room = 1 + (0.72 + 0.28 * amb - 1) * lightsOn;                    // v103: a simple grade — the room breathes with the sections, never goes out; gone by the end
@@ -429,7 +467,8 @@ function drawFrame(fi) {
   }
   // 4. the singalong: the chunk being sung (and the one leaving); letters fill in syllable by syllable, the sung
   //    syllable pops, the sung word a touch larger, a held syllable kerns outward and sways; the ball rides its one path.
-  splitAt(now - T0); rippleAt(now); upscale(fi); sharpen();                     // the room is done at the base size, upscaled (the twangs' ripple, the kiss's split), SHARPENED, then the words go on
+  splitAt(now - T0); longAt(now, beatOf.f); if (LONG.k > 0) { const th = now * 0.7, m = 4 * LONG.k * (0.4 + 0.6 * Math.cos(Math.PI * beatOf.f) ** 2); SPLIT = { dx: SPLIT.dx + m * Math.cos(th), dy: SPLIT.dy + m * Math.sin(th) }; }   // the long's split: up to 4 px, breathing with the beat, turning
+  rippleAt(now); upscale(fi); sharpen();                                       // the room is done at the base size, upscaled (the twangs' ripple, the kiss's split, the long's swim), SHARPENED, then the words go on
   if (!NO_LYRIC) { const k = Math.min(1, 0.3 + 0.7 * amb) * (1 + 0.5 * lampBloom), fl = Math.min(1, bellRaw) * 120, SH = hue.map((h) => Math.min(255, (h * k + fl) * dance)), off = 0.07 * GA.px * (CHUNKS[0]?.sc ?? SC_MAX);   // the shadow tight under the glyph (v103: "too far from the captions")
     // the "longs" (v103: "when arpeggiating should blink colors rapidly — psychic effects"): a held syllable's letters run
     // the hue wheel, each letter a step behind the last, blinking at 6 Hz, 16 Hz with the arp under it
