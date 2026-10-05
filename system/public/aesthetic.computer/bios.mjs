@@ -4231,6 +4231,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   window.addEventListener("keydown", eagerAudioActivation);
   window.addEventListener("touchstart", eagerAudioActivation);
 
+  // Native hosts can permit autoplay before creating their WebView. Start the
+  // real piece audio graph without manufacturing a pointer/keyboard gesture.
+  window.AC.startAudio = () => {
+    startSound();
+    resumeAudioContext("native-host");
+    return { state: audioContext?.state || "unavailable", ready: !!window.audioWorkletReady };
+  };
+
   // 🔍 Density Keyboard Controls (Cmd/Ctrl + / - / 0)
   // Uses standard zoom keys - browser may also zoom, but density will change too
   const DENSITY_MIN = 0.5;
