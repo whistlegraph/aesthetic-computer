@@ -1,0 +1,17 @@
+:root { color-scheme:light dark; font:17px system-ui,sans-serif; }
+body { margin:0; background:Canvas; color:CanvasText; }
+main { max-width:600px; margin:auto; padding:20px 20px 40px; }
+h1 { font-size:26px; margin:0 0 12px; }
+p { line-height:1.4; overflow-wrap:anywhere; }
+iframe { display:block; border:0; width:min(100%, 253px); aspect-ratio:2/3; margin:auto; background:#222; }
+iframe[data-aspect="9:16"] { width:min(100%, 214px); aspect-ratio:9/16; }
+iframe[data-aspect="1:1"] { width:min(100%, 380px); aspect-ratio:1; }
+iframe[data-aspect="4:3"] { width:100%; aspect-ratio:4/3; }
+iframe[data-aspect="16:9"] { width:100%; aspect-ratio:16/9; }
+button { display:block; width:100%; min-height:50px; margin:16px 0; font:inherit; border-radius:12px; border:1px solid GrayText; }
+button:disabled { opacity:.5; }
+label { display:block; margin:18px 0; }
+input { width:20px; height:20px; vertical-align:middle; }
+[hidden] { display:none !important; }
+a { color:LinkText; }
+#wallet { font:13px ui-monospace,monospace; }

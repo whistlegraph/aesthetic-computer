@@ -32,6 +32,8 @@ const listUsbDevices = async () => {
 };
 
 function initialize() {
+  // Standalone art runs in marketplace sandboxes without USB permission.
+  if (globalThis.acPACK_MODE) return;
   // Check if WebUSB is supported and available in this context
   if (typeof navigator !== 'undefined' && navigator.usb && 
       navigator.usb.getDevices && typeof navigator.usb.getDevices === 'function') {
@@ -54,4 +56,3 @@ function initialize() {
 }
 
 export { initialize, connectToUsb };
-

@@ -505,17 +505,17 @@ async function minifyJS(content, relativePath) {
 
 // ─── Dependency discovery ───────────────────────────────────────────
 
-async function discoverDependencies(acDir, essentialFiles, skipFiles) {
+async function discoverDependencies(acDir, essentialFiles, skipFiles, sources = {}) {
   const discovered = new Set(essentialFiles);
   const toProcess = [...essentialFiles];
 
   while (toProcess.length > 0) {
     const file = toProcess.shift();
     const fullPath = path.join(acDir, file);
-    if (!fsSync.existsSync(fullPath)) continue;
+    if (sources[file] === undefined && !fsSync.existsSync(fullPath)) continue;
 
     try {
-      const content = await fs.readFile(fullPath, "utf8");
+      const content = sources[file] ?? await fs.readFile(fullPath, "utf8");
       // Exclude `?` from the path char class so cache-bust queries
       // (`./foo.mjs?v=123`) don't get baked into the resolved VFS key —
       // otherwise `fs.readFile('lib/foo.mjs?v=123')` fails and the file is
@@ -800,7 +800,14 @@ async function packKidLisp({ name: PIECE_NAME_NO_DOLLAR, sources: kidlispSources
 
 // ─── JS piece bundle ────────────────────────────────────────────────
 
-export async function createJSPieceBundle(pieceName, onProgress = () => {}, nocompress = false, density = null, brotli = false, noboxart = false, keeplabel = false, forceDaw = false, forceRefresh = false) {
+export async function createJSPieceBundleFromSource(pieceName, source, { onProgress = () => {}, density = 2, nocompress = false } = {}) {
+  if (!/^[a-zA-Z0-9_-]{1,80}$/.test(pieceName)) throw new Error("Invalid piece name");
+  if (typeof source !== "string" || !source.trim() || Buffer.byteLength(source) > 500_000) throw new Error("Invalid piece source");
+  if (!Number.isInteger(density) || density < 1 || density > 4) throw new Error("Invalid pixel size");
+  return createJSPieceBundle(pieceName, onProgress, nocompress, density, false, true, false, false, false, source);
+}
+
+export async function createJSPieceBundle(pieceName, onProgress = () => {}, nocompress = false, density = null, brotli = false, noboxart = false, keeplabel = false, forceDaw = false, forceRefresh = false, source = undefined) {
   const acDir = AC_SOURCE_DIR;
   onProgress({ stage: "init", message: `Bundling ${pieceName}...` });
 
@@ -821,16 +828,16 @@ export async function createJSPieceBundle(pieceName, onProgress = () => {}, noco
 
   const piecePath = `disks/${pieceName}.mjs`;
   const pieceFullPath = path.join(acDir, piecePath);
-  if (!fsSync.existsSync(pieceFullPath)) {
+  if (source === undefined && !fsSync.existsSync(pieceFullPath)) {
     throw new Error(`Piece '${pieceName}' not found at ${piecePath}`);
   }
 
   onProgress({ stage: "piece", message: `Loading ${pieceName}.mjs...` });
 
-  const pieceContent = await fs.readFile(pieceFullPath, "utf8");
+  const pieceContent = source ?? await fs.readFile(pieceFullPath, "utf8");
   files[piecePath] = { content: rewriteImports(pieceContent, piecePath), binary: false, type: "mjs" };
 
-  const pieceDepFiles = await discoverDependencies(acDir, [piecePath], SKIP_FILES);
+  const pieceDepFiles = await discoverDependencies(acDir, [piecePath], SKIP_FILES, { [piecePath]: pieceContent });
   onProgress({ stage: "deps", message: `Found ${pieceDepFiles.length} dependencies...` });
 
   for (const depFile of pieceDepFiles) {
@@ -852,7 +859,7 @@ export async function createJSPieceBundle(pieceName, onProgress = () => {}, noco
 
   const boxArtPNG = noboxart ? null : await generateBoxArtPNG(pieceName, null, null, packDate).catch(() => null);
 
-  const htmlContent = generateJSPieceHTMLBundle({ pieceName, files, packDate, packTime, gitVersion: GIT_COMMIT, bdfGlyphs, boxArtPNG, keeplabel, forceDaw });
+  const htmlContent = generateJSPieceHTMLBundle({ pieceName, files, packDate, packTime, gitVersion: GIT_COMMIT, bdfGlyphs, boxArtPNG, keeplabel, forceDaw, density });
   const filename = `${pieceName}-${bundleTimestamp}.html`;
 
   const method = nocompress ? "none" : brotli ? "brotli" : "gzip";
@@ -2509,7 +2516,7 @@ function generateHTMLBundle(opts) {
 }
 
 function generateJSPieceHTMLBundle(opts) {
-  const { pieceName, files, packDate, packTime, gitVersion, bdfGlyphs, boxArtPNG, keeplabel, forceDaw } = opts;
+  const { pieceName, files, packDate, packTime, gitVersion, bdfGlyphs, boxArtPNG, keeplabel, forceDaw, density } = opts;
 
   const boxArtImg = renderBoxArt(pieceName, boxArtPNG);
 
@@ -2522,6 +2529,7 @@ function generateJSPieceHTMLBundle(opts) {
   <style>
     body { margin: 0; padding: 0; overflow: hidden; background: #222; }
     canvas { display: block; image-rendering: pixelated; }
+    #aesthetic-computer { position: relative; overflow: hidden; }
     #ac-box-art { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; pointer-events: none; }
   </style>
 </head>
@@ -2595,6 +2603,7 @@ function generateJSPieceHTMLBundle(opts) {
     window.KIDLISP_SUPPRESS_SNAPSHOT_LOGS = true;
     window.__acKidlispConsoleEnabled = false;
     window.acSTARTING_PIECE = "${pieceName}";
+    ${density && !forceDaw ? `window.acPACK_DENSITY = ${density};` : ""}
     window.acPACK_PIECE = "${pieceName}";
     window.acPACK_DATE = "${packDate}";
     window.acPACK_GIT = "${gitVersion}";

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' https: wss:; img-src 'self' https: data: blob:; font-src 'self'; frame-src https://ipfs.io https://verify.walletconnect.org; base-uri 'none'; form-action 'none'">
+<title>Mint Whistlegraph</title>
+<link rel="stylesheet" href="mint.css">
+<main>
+  <h1 id="title">Mint on HEN</h1>
+  <p id="piece"></p>
+  <iframe id="art" title="Packed artwork" sandbox="allow-scripts allow-pointer-lock" allow="autoplay" referrerpolicy="no-referrer" hidden></iframe>
+  <p id="settings"></p>
+  <p id="wallet"></p>
+  <button id="connect" hidden>Connect Tezos wallet</button>
+  <label id="review" hidden><input id="checked" type="checkbox"> I checked the packed artwork.</label>
+  <button id="mint" hidden>Mint in wallet</button>
+  <button id="check" hidden>Check mint</button>
+  <p id="status" role="status" aria-live="polite">Preparing the HTML pack…</p>
+  <a id="token" hidden target="_blank" rel="noopener noreferrer">View on Teia</a>
+  <p>Minting publishes this version permanently. Your wallet shows the network fee. The artwork will be public.</p>
+  <a href="whistlegraph://mint">Return to Whistlegraph</a>
+</main>
+<script src="/braincells/vendor/beacon-sdk.min.js"></script>
+<script type="module" src="mint.mjs"></script>
+</html>
