@@ -22,6 +22,8 @@ import { writeFileSync, mkdirSync, existsSync, readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync, spawnSync } from "node:child_process";
+import { deliverDaily } from "../lib/daily-delivery.mjs";
+import { publishingQueue } from "../lib/publishing-queue.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -43,12 +45,25 @@ if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { console.error(`✗ bad --date ${date}`)
 const slug = `daily-${date}`;
 const spokenDate = new Date(`${date}T12:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
-// Idempotence: one episode per day. A Buzzsprout receipt means this date
-// already shipped — the clockwork can fire again without double-posting.
+// Production and delivery have separate checkpoints. A billing failure or
+// rerun reuses the finished episode instead of paying to narrate it again.
 const receipt = resolve(ROOT, "out", `${slug}.buzzsprout.json`);
-if (existsSync(receipt) && !flags.force) {
-  console.log(`✓ ${slug} already published (${receipt}); nothing to do.`);
-  process.exit(0);
+const queued = publishingQueue(resolve(ROOT, "out")).find((job) => job.slug === slug);
+const dailyDir = resolve(ROOT, "out", "daily");
+const mdPath = resolve(dailyDir, `${slug}.md`);
+const prepared = [mdPath, resolve(ROOT, "out", `${slug}.mp3`), resolve(ROOT, "out", `${slug}.json`)].every(existsSync);
+if (queued && queued.private !== Boolean(flags.stage)) {
+  console.error(`✗ ${slug} is queued ${queued.private ? "private (use --stage)" : "public"}; preserving its visibility`);
+  process.exit(1);
+}
+if (flags.force && (queued || existsSync(receipt))) {
+  console.error(`✗ ${slug} is already queued or uploaded; use Buzzsprout replace for an intentional audio revision`);
+  process.exit(1);
+}
+if ((prepared && !flags.force) || queued || existsSync(receipt)) {
+  console.log(`✓ ${slug} already produced; reusing its saved episode`);
+  if (flags.dry) process.exit(0);
+  process.exit(deliverDaily({ root: ROOT, date, stage: Boolean(flags.stage), mint: process.env.DAILY_MINT === "1" }));
 }
 
 // ── 1. gather ────────────────────────────────────────────────────────────
@@ -151,9 +166,7 @@ const words = fm[2].trim().split(/\s+/).length;
 if (words < 150 || words > 420) { console.error(`✗ script body is ${words} words (want 240-320); refusing.`); process.exit(1); }
 if (REDACT.some((re) => re.test(script))) { console.error("✗ redacted term leaked into the script; refusing."); process.exit(1); }
 
-const dailyDir = resolve(ROOT, "out", "daily");
 mkdirSync(dailyDir, { recursive: true });
-const mdPath = resolve(dailyDir, `${slug}.md`);
 writeFileSync(mdPath, script + "\n");
 console.log(`  script: ${mdPath} (${words} words · "${fm[1].trim()}")`);
 
@@ -165,18 +178,5 @@ if (flags.force) produceArgs.push("--force");
 const p = spawnSync("node", produceArgs, { cwd: ROOT, stdio: "inherit" });
 if (p.status !== 0) { console.error("✗ produce failed"); process.exit(1); }
 
-// ── 4. publish ───────────────────────────────────────────────────────────
-const pubArgs = ["bin/buzzsprout.mjs", slug];
-if (flags.stage) pubArgs.push("--private");
-const b = spawnSync("node", pubArgs, { cwd: ROOT, stdio: "inherit" });
-if (b.status !== 0) { console.error("✗ buzzsprout publish failed"); process.exit(1); }
-console.log(`✓ ${slug} ${flags.stage ? "staged private" : "published"} — ${fm[1].trim()}`);
-
-// ── 5. mint ──────────────────────────────────────────────────────────────
-// The appliance opts in with DAILY_MINT=1: the episode becomes a hic et nunc
-// token (bin/daily-token.mjs). A mint failure never unpublishes the show;
-// the token's own receipt lets the next run resume it.
-if (process.env.DAILY_MINT === "1" && !flags.stage) {
-  const t = spawnSync("node", ["bin/daily-token.mjs", "--date", date], { cwd: ROOT, stdio: "inherit" });
-  if (t.status !== 0) console.error(`✗ ${slug} token failed; rerun node bin/daily-token.mjs --date ${date}`);
-}
+// ── 4–5. queue delivery, then mint independently ─────────────────────────
+process.exit(deliverDaily({ root: ROOT, date, stage: Boolean(flags.stage), mint: process.env.DAILY_MINT === "1" }));

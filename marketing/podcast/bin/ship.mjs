@@ -30,6 +30,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { hosted } from "../lib/hosted.mjs";
+import { QUEUED_EXIT } from "../lib/publishing-queue.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -71,6 +72,7 @@ const run = (cmd, args, opts = {}) => {
 console.log(`\x1b[35m● ship ${slug} → ${siteName}\x1b[0m`);
 
 // ── 2. Buzzsprout ────────────────────────────────────────────────────────
+let buzzsproutQueued = false;
 if (flags.has("--cdn-only")) {
   step(2, "Buzzsprout skipped (--cdn-only)");
 } else {
@@ -78,7 +80,11 @@ if (flags.has("--cdn-only")) {
   const bzArgs = [resolve(HERE, "buzzsprout.mjs"), slug];
   if (flags.has("--private")) bzArgs.push("--private");
   if (flags.has("--force")) bzArgs.push("--force");
-  run("node", bzArgs);
+  const uploaded = spawnSync(process.execPath, bzArgs, { stdio: "inherit", cwd: ROOT });
+  if (uploaded.status === QUEUED_EXIT) {
+    buzzsproutQueued = !existsSync(resolve(OUT, `${slug}.buzzsprout.json`));
+    console.log("  Buzzsprout has queued uploads; continuing CDN delivery.");
+  } else if (uploaded.status !== 0) process.exit(1);
 }
 
 // ── 3. CDN (hosted name — backs the papers podcast link) ──────────────────
@@ -148,7 +154,7 @@ console.log(`  CDN mp3   ${a}   ${cdnMp3}`);
 console.log(`  papers pdf ${b}  ${pdf}${b === 200 ? "" : "  (deploy the papers site to light it)"}`);
 
 // ── finish ───────────────────────────────────────────────────────────────
-console.log(`\n\x1b[32m✓ ${slug} shipped\x1b[0m — episode is live on ${flags.has("--cdn-only") ? "the CDN" : "Buzzsprout + CDN"}.`);
+console.log(`\n\x1b[32m✓ ${slug} shipped\x1b[0m — episode is live on ${flags.has("--cdn-only") || buzzsproutQueued ? "the CDN" : "Buzzsprout + CDN"}.${buzzsproutQueued ? " Buzzsprout upload is queued." : ""}`);
 console.log(`  Subscribe/verify: https://feeds.buzzsprout.com/2628235.rss  ·  https://pod.prompt.ac`);
 if (b !== 200 || !flags.has("--papers")) {
   console.log(`\n  Finish the papers listing (lights the "podcast" link on the essay):`);

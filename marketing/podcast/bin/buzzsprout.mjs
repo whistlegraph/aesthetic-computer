@@ -16,13 +16,17 @@
 //     and out/<slug>-cover-1400.png as episode artwork if present.
 //   node bin/buzzsprout.mjs artwork <slug>  # (re)set just the episode image
 //   node bin/buzzsprout.mjs list            # list existing episodes
+//   node bin/buzzsprout.mjs enqueue <slug>  # save upload without contacting API
+//   node bin/buzzsprout.mjs queue           # inspect pending uploads
+//   node bin/buzzsprout.mjs retry [--limit=3] # retry oldest uploads
 //
-// Writes out/<slug>.buzzsprout.json receipt on success.
+// Writes out/<slug>.buzzsprout.json on success. Exit 75 means uploads remain
+// queued (including billing blocks); consumers must not call that published.
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
-import { hosted } from "../lib/hosted.mjs";
+import { episodeDescription, enqueueEpisode, publishingQueue, drainPublishingQueue, QUEUED_EXIT } from "../lib/publishing-queue.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -53,21 +57,38 @@ function loadCreds() {
   return { token, podcast };
 }
 
-const { token, podcast } = loadCreds();
-const API = `https://www.buzzsprout.com/api/${podcast}`;
-const auth = { Authorization: `Token token="${token}"` };
-
 const argv = process.argv.slice(2);
 const flags = new Set(argv.filter((a) => a.startsWith("--")));
 const positional = argv.filter((a) => !a.startsWith("--"));
 
-const episodeDescription = (slug, meta = {}) => {
-  const title = meta.title || slug;
-  const siteName = hosted(slug) || `aesthetic-${slug}-essay`;
-  const essayUrl = `https://papers.aesthetic.computer/${siteName}.pdf`;
-  const sourceLine = meta.link ? `Explore Aesthetic Computer: ${meta.link}` : `Read the essay: ${essayUrl}`;
-  return `${meta.description || `A reading of "${title}" in @jeffrey's voice.`}\n\nWrite with questions and feedback: mail@aesthetic.computer. Unless you ask us not to, your letter may be read or mentioned on a future episode.\n\n${sourceLine}\nMore readings + papers: https://papers.aesthetic.computer`;
-};
+if (positional[0] === "queue") {
+  const jobs = publishingQueue(OUT);
+  for (const job of jobs) console.log(`${job.slug}\t${job.status}\t${job.private ? "private" : "public"}\t${job.lastError || "awaiting upload"}`);
+  console.log(`${jobs.length} upload(s) queued`);
+  process.exit(0);
+}
+
+// Queueing needs a destination, but never a working API token or subscription.
+if (positional[0] === "enqueue") {
+  const job = enqueueEpisode({ out: OUT, slug: positional[1], podcast: process.env.BUZZSPROUT_PODCAST_ID || "2628235", privateEpisode: flags.has("--private") });
+  console.log(`${job.slug}: ${job.status}`);
+  process.exit(0);
+}
+
+const { token, podcast } = loadCreds();
+const API = `https://www.buzzsprout.com/api/${podcast}`;
+const auth = { Authorization: `Token token="${token}"` };
+
+async function retryQueue() {
+  try {
+    const limit = Number([...flags].find((f) => f.startsWith("--limit="))?.slice(8) || 3);
+    const result = await drainPublishingQueue({ out: OUT, podcast, token, limit });
+    if (result.remaining) console.log(`  ${result.remaining} upload(s) remain queued`);
+    process.exit(result.needsReview ? 1 : result.remaining ? QUEUED_EXIT : 0);
+  } catch (error) { console.error(`✗ ${error.message}`); process.exit(1); }
+}
+
+if (positional[0] === "retry") await retryQueue();
 
 // ── list ───────────────────────────────────────────────────────────────
 if (positional[0] === "list") {
@@ -184,40 +205,8 @@ if (positional[0] === "replace") {
 const slug = positional[0];
 if (!slug) { console.error("usage: buzzsprout.mjs <slug> [--private] | stage <slug> | publish <slug> | replace <slug> | artwork <slug> | list"); process.exit(1); }
 
-const mp3 = resolve(OUT, `${slug}.mp3`);
-const metaPath = resolve(OUT, `${slug}.json`);
-if (!existsSync(mp3)) { console.error(`✗ missing ${mp3}`); process.exit(1); }
-const meta = existsSync(metaPath) ? JSON.parse(readFileSync(metaPath, "utf8")) : {};
-
-const receiptPath = resolve(OUT, `${slug}.buzzsprout.json`);
-if (existsSync(receiptPath) && !flags.has("--force")) {
-  console.error(`✗ ${slug} already published (${receiptPath}). Use --force to re-post.`);
-  process.exit(1);
-}
-
-const title = meta.title || slug;
-const description = episodeDescription(slug, meta);
-
-const fd = new FormData();
-fd.append("title", title);
-fd.append("description", description);
-fd.append("artist", "@jeffrey");
-// Buzzsprout keeps an episode private until it has a published_at. Default to
-// publishing now (public); --private stages it for review instead.
-if (flags.has("--private")) fd.append("private", "true");
-else fd.append("published_at", new Date().toISOString());
-fd.append("audio_file", new Blob([readFileSync(mp3)], { type: "audio/mpeg" }), basename(mp3));
-// Attach the per-episode cover if one exists, so new episodes never inherit
-// the show's default artwork. (Set it later on any episode with `artwork`.)
-const coverPath = [`${slug}-cover-1400.png`, `${slug}-cover.png`].map((f) => resolve(OUT, f)).find(existsSync);
-if (coverPath) fd.append("artwork_file", new Blob([readFileSync(coverPath)], { type: "image/png" }), basename(coverPath));
-
-console.log(`▸ publishing "${title}" to Buzzsprout (${(readFileSync(mp3).length / 1e6).toFixed(1)} MB${coverPath ? ` + ${basename(coverPath)}` : ""})…`);
-const res = await fetch(`${API}/episodes.json`, { method: "POST", headers: auth, body: fd });
-if (!res.ok) { console.error(`✗ publish ${res.status}: ${(await res.text()).slice(0, 300)}`); process.exit(1); }
-const ep = await res.json();
-writeFileSync(receiptPath, JSON.stringify(ep, null, 2) + "\n");
-console.log(`✓ published · episode #${ep.episode_number ?? ep.id}`);
-console.log(`  ${ep.audio_url || ""}`);
-console.log(`  receipt · ${receiptPath}`);
-console.log(`  → auto-distributes to Spotify / Apple / YouTube per your Buzzsprout settings.`);
+try {
+  const job = enqueueEpisode({ out: OUT, slug, podcast, privateEpisode: flags.has("--private"), force: flags.has("--force") });
+  console.log(`${slug}: ${job.status}`);
+  await retryQueue();
+} catch (error) { console.error(`✗ ${error.message}`); process.exit(1); }

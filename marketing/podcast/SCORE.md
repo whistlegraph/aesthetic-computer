@@ -20,14 +20,30 @@ REDACTED — client/confidential lanes never reach the model), write a
 `--bedstyle club --frame daily` (116 BPM four-on-the-floor bed), publish via
 Buzzsprout. `daily-YYYY-MM-DD` slugs are pattern-cleared in `lib/hosted.mjs`;
 the content guard is daily.mjs's redaction filter + prompt rules + word-count
-and leak checks (it refuses to produce on any violation). One episode per day
-(Buzzsprout receipt = done). Clockwork: **jasellite** cron `30 0 * * *` UTC
+and leak checks (it refuses to produce on any violation). One episode per day:
+finished script + MP3 + sidecar are reused on reruns, independently of delivery.
+Clockwork: **jasellite** cron `30 0 * * *` UTC
 (~8:30 PM ET) via `~/.local/bin/podcast-daily` — sources
 `~/.config/ac/buzzsprout.env`, sets `TZ=America/New_York`, ff-merges the
 checkout, logs to `~/.podcast-daily.log`. Dailies wear one committed static
 cover (`assets/the-daily-cover*.png`) so the appliance needs no xelatex; the
 commit log is read from `FETCH_HEAD` after a best-effort fetch. `--stage`
 publishes private for review; `--dry` writes the script only.
+
+**Publishing queue.** `out/publishing-queue/<slug>/` snapshots the audio,
+artwork, show notes, original publish date, destination and visibility before
+upload. Each daily retries up to three jobs, oldest first. A Buzzsprout billing
+rejection stops that retry pass and keeps the jobs; it never stops daily audio
+production or the independent token stage. Without an episode receipt, token
+metadata links to the show. Queued private episodes remain private.
+`bin/buzzsprout.mjs queue` inspects the queue; `retry --limit=3` retries it;
+`enqueue <slug> [--private]` saves an already-produced episode without uploading.
+Exit 75 means queued, not published. Other errors remain visible after the
+token stage. Network ambiguity and non-billing errors require inspection rather
+than automatic reposting: reconcile a found Buzzsprout episode into its receipt,
+or reset the job status to `queued` only after confirming no upload landed.
+The `.upload.lock` serializes uploaders; after a crash, check its PID before
+removing a stale lock. A saved receipt always wins over a leftover queue job.
 
 **The daily token (bin/daily-token.mjs).** With `DAILY_MINT=1` the episode is
 also minted as a hic et nunc OBJKT signed by aesthetic.tez, named just the
