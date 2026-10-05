@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https: wss:; img-src 'self' https: data: blob:; font-src 'self'; frame-src https://verify.walletconnect.org; base-uri 'none'; form-action 'none'">
+<title>AC braincells</title>
+<link rel="stylesheet" href="checkout.css">
+<main>
+  <img class="brain" src="/aesthetic.computer/braincell.svg" alt="" width="64" height="64">
+  <h1>1,000,000 braincells</h1>
+  <p id="account">Loading checkout…</p>
+  <p id="price">$5 in tez, plus the wallet’s network fee.</p>
+  <p id="wallet" hidden></p>
+  <button id="connect" hidden>Connect wallet</button>
+  <button id="pay" hidden>Pay in tez</button>
+  <button id="check" class="secondary" hidden>Check payment</button>
+  <p id="status" role="status" aria-live="polite"></p>
+  <p id="recipient" hidden>To <a href="https://tzkt.io/tz1gkf8EexComFBJvjtT1zdsisdah791KwBE" target="_blank" rel="noopener noreferrer">aesthetic.tez</a></p>
+  <a id="return" hidden href="whistlegraph://braincells">Return to Whistlegraph</a>
+</main>
+<script src="vendor/beacon-sdk.min.js"></script>
+<script type="module" src="checkout.mjs"></script>
+</html>

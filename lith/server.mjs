@@ -1338,6 +1338,12 @@ app.post("/menuband-logs",
   directFn("menuband-logs"));
 
 // Static files
+// Checkout capabilities must not be embedded in another site's frame or cached.
+app.use('/braincells', (_req, res, next) => {
+  res.set({ 'Content-Security-Policy':"frame-ancestors 'none'", 'X-Frame-Options':'DENY',
+    'Referrer-Policy':'no-referrer', 'Cache-Control':'no-store' });
+  next();
+});
 app.use(express.static(PUBLIC, { extensions: ["html"], dotfiles: "allow" }));
 
 // --- keeps-social: SSR meta tags for social crawlers on keep/buy.kidlisp.com ---

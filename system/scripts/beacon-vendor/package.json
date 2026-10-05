@@ -1,0 +1,14 @@
+{
+  "name": "ac-beacon-vendor",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@airgap/beacon-dapp": "4.8.1",
+    "esbuild": "0.25.12",
+    "buffer": "6.0.3"
+  }
+}

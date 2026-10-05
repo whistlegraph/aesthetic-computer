@@ -63,6 +63,32 @@
 
 ## 🔧 Quick Commands
 
+### Braincell purchases
+
+Whistlegraph opens `/braincells/` in the browser to pair with Temple or another
+Beacon wallet. `/api/easel-tezos` sells the existing $5 / 1,000,000 braincell pack
+to `aesthetic.tez`, using a 15-minute mainnet quote. A signed account message binds
+the payer; TzKT must report the exact transfer and three confirmations before AC
+adds credit. No wallet keys are stored by AC.
+
+Set `AC_TEZOS_CREDITS_ENABLED=true` in Lith's service environment to enable new
+checkouts. Turning it off still permits already-paid checkouts to settle. Public
+`POST {"action":"price"}` returns a timestamped USD/tez display rate with a
+five-minute expiry; it does not create a purchase.
+
+Records live in `ac-tezos-checkouts` and `ac-tezos-payments`; the existing
+`ac-credit-wallets` grant ledger prevents duplicate credits. Reopening Whistlegraph
+reconciles pending payments, including transfers whose wallet callback was lost.
+Transfers outside the quote window, wrong amounts, and extra transfers need
+manual reconciliation; never grant from a client claim alone.
+
+Run `node --test system/tests/tezos-credits.test.mjs` and
+`node system/tests/tezos-checkout.browser.mjs`. The vendored Beacon build is pinned
+in `system/scripts/beacon-vendor/`; run `npm ci --ignore-scripts` and `npm run build`
+there to reproduce it. Local shims provide browser Buffer, remove an unused Node
+crypto import, and disable Beacon's optional metrics (including its first-run
+IndexedDB race). The page's CSP requires no script eval.
+
 ```bash
 # Active contract (from the registry)
 jq -r '.activeContracts.mainnet.keeps' tezos/contracts.json   # -> KT1Q1irs...YwBB

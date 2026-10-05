@@ -1,0 +1,8 @@
+{
+  "package": "@airgap/beacon-dapp",
+  "version": "4.8.1",
+  "source": "https://registry.npmjs.org/@airgap/beacon-dapp/-/beacon-dapp-4.8.1.tgz",
+  "integrity": "sha512-HxDsMoKlJlzCynVFuVXT54ivYkUydWjrfPLuT04mPsZRaJToOuFg72bJFlYzeE3iZKZRNPjOIyAPkmkJZEGnZQ==",
+  "build": "system/scripts/beacon-vendor/build.mjs",
+  "sha256": "3f966c4780c56a97a4adb1344a551f7149fd4bf6e4dc1d028d9d78e7ba04735e"
+}
