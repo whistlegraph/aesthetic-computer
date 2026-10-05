@@ -3518,11 +3518,10 @@ final class PromptSigilOverlayController {
         }
     }
 
-    /// Establish tty → CGWindowID. osascript gives tty → window bounds (the
-    /// only API that knows a tab's tty); we then match those bounds to the
-    /// in-process CGWindowList snapshot to recover each window's CGWindowID.
-    /// Runs off-main (osascript blocks) and is the sole forking path — gated to
-    /// at most one in flight and a slow cadence.
+    /// Read tty → native window ID for visible tabs. Validate those exact IDs
+    /// against the on-screen snapshot; a minimized window can share another
+    /// window's bounds, so geometry must never decide ownership.
+    /// Apple Events run off-main with at most one probe in flight.
     private func rebind() {
         bindInFlight = true
         lastBind = Date()
@@ -3531,7 +3530,7 @@ final class PromptSigilOverlayController {
         let wantTerminal = running.contains("com.apple.Terminal")
         let wantIterm = running.contains("com.googlecode.iterm2")
         guard wantTerminal || wantIterm else { bindInFlight = false; return }
-        let script = boundsScript(terminal: wantTerminal, iterm: wantIterm)
+        let script = TerminalWindowBindings.script(terminal: wantTerminal, iterm: wantIterm)
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             // Execute in-process. Child `osascript` processes inherit this
@@ -3549,109 +3548,21 @@ final class PromptSigilOverlayController {
             } else {
                 result = (0, descriptor?.stringValue ?? "")
             }
-            var ttyBounds: [String: (CGFloat, CGFloat, CGFloat, CGFloat)] = [:]
-            for line in result.output.split(separator: "\n") {
-                let parts = line.split(separator: "|")
-                guard parts.count == 2 else { continue }
-                let dev = (parts[0].trimmingCharacters(in: .whitespaces) as NSString).lastPathComponent
-                let nums = parts[1].split(separator: ",").compactMap {
-                    Double($0.trimmingCharacters(in: .whitespaces)).map { CGFloat($0) }
-                }
-                guard nums.count == 4 else { continue }
-                // osascript bounds {l,t,r,b} → {x,y,w,h}.
-                ttyBounds[dev] = (nums[0], nums[1], nums[2] - nums[0], nums[3] - nums[1])
-            }
             if result.status != 0 {
                 NSLog("🪨 [bind] terminal probe failed status=\(result.status): \(result.output.prefix(240))")
-            } else if ttyBounds.isEmpty {
-                NSLog("🪨 [bind] terminal probe returned no tty bounds")
             }
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                // Match against a fresh snapshot (windows may have moved during
-                // the osascript round-trip).
                 let wins = self.snapshotWindows().terminals
-                var newBinding: [String: Int] = [:]
-                for (tty, tb) in ttyBounds {
-                    if let hit = wins.first(where: { Self.boundsMatch($0.value, tb) }) {
-                        newBinding[tty] = hit.key
-                    }
-                }
-                // Never let a transient AppleScript timeout erase a healthy
-                // wall. Retain bindings whose tty + CG window are both still
-                // live, then merge any fresh matches over them. A failed probe
-                // therefore costs one delayed rebind, not five seconds where
-                // every rock (and its hover card) disappears.
-                let liveTtys = Set(self.overlays.values.map(\.tty))
-                var merged = self.binding.filter {
-                    liveTtys.contains($0.key) && wins[$0.value] != nil
-                }
-                if result.status == 0 {
-                    merged.merge(newBinding) { _, fresh in fresh }
-                }
-                self.binding = merged
+                self.binding = TerminalWindowBindings.reconcile(
+                    previous: self.binding,
+                    probeOutput: result.status == 0 ? result.output : nil,
+                    liveKeys: Set(self.overlays.values.map(\.tty)),
+                    visibleWindowIDs: Set(wins.keys))
                 self.bindInFlight = false
                 self.reposition()
             }
         }
     }
 
-    /// Bounds match within a couple of points (osascript ints vs CGWindow
-    /// floats; the occasional 1px rounding).
-    private static func boundsMatch(
-        _ a: (CGFloat, CGFloat, CGFloat, CGFloat), _ b: (CGFloat, CGFloat, CGFloat, CGFloat)
-    ) -> Bool {
-        abs(a.0 - b.0) <= 2 && abs(a.1 - b.1) <= 2 && abs(a.2 - b.2) <= 2 && abs(a.3 - b.3) <= 2
-    }
-
-    /// AppleScript that emits `<dev-tty>|l,t,r,b` per tab/session for the
-    /// running terminals only (never launches a closed one).
-    private func boundsScript(terminal: Bool, iterm: Bool) -> String {
-        var s = "set out to \"\"\n"
-        if terminal {
-            s += """
-            tell application "Terminal"
-                repeat with w in windows
-                    try
-                        set b to bounds of w
-                        set bs to ((item 1 of b) as text) & "," & ((item 2 of b) as text) & "," & ((item 3 of b) as text) & "," & ((item 4 of b) as text)
-                        repeat with t in tabs of w
-                            try
-                                set out to out & (tty of t) & "|" & bs & linefeed
-                            end try
-                        end repeat
-                    end try
-                end repeat
-            end tell
-
-            """
-        }
-        if iterm {
-            s += """
-            tell application "iTerm2"
-                repeat with w in windows
-                    try
-                        set p to position of w
-                        set sz to size of w
-                        set lx to item 1 of p
-                        set ty to item 2 of p
-                        set rx to lx + (item 1 of sz)
-                        set by to ty + (item 2 of sz)
-                        set bs to (lx as text) & "," & (ty as text) & "," & (rx as text) & "," & (by as text)
-                        repeat with t in tabs of w
-                            repeat with ss in sessions of t
-                                try
-                                    set out to out & (tty of ss) & "|" & bs & linefeed
-                                end try
-                            end repeat
-                        end repeat
-                    end try
-                end repeat
-            end tell
-
-            """
-        }
-        s += "return out"
-        return s
-    }
 }
