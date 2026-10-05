@@ -3977,6 +3977,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let window: AXUIElement
         let id: CGWindowID
         let isTerminal: Bool
+        let isChrome: Bool
         let bounds: (left: Int, top: Int, right: Int, bottom: Int)
     }
     private struct AXPass {
@@ -3990,11 +3991,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @discardableResult
     private static func axTilePass(snapshot: AXTiler.Snapshot,
                                    geom: ScreenGeom, textSize: TextSize) -> AXPass? {
-        NSLog("🧩 [tile] windows=%d ids=%@ iterm=%d term=%d acpane=%d wizard=%d stage=%d",
+        NSLog("🧩 [tile] windows=%d ids=%@ iterm=%d term=%d acpane=%d chrome=%d wizard=%d stage=%d",
               snapshot.all.count,
               snapshot.signature.map(String.init).joined(separator: ","),
               snapshot.iterm.count, snapshot.terminal.count, snapshot.acPanes.count,
-              snapshot.wizards.count, snapshot.stage.count)
+              snapshot.chrome.count, snapshot.wizards.count, snapshot.stage.count)
         // A stage window (GeForce NOW) is an ordinary, equal grid cell first.
         // Only when the app clamps above its cell — its configured floor is
         // bigger than the grid can offer — does it get a column of its own,
@@ -4069,6 +4070,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             pick = localityAssignment(windowCenters: windowCenters, cellCenters: cellCenters)
         }
         let terminalIDs = Set(snapshot.terminal.map(\.id))
+        let chromeIDs = Set(snapshot.chrome.map(\.id))
+        var chromeCorrections: [ChromeTileScript.Placement] = []
         var placements: [AXPlacement] = []
         var terminalPlacements: [AXPlacement] = []
         var misfitTerminalIDs: [CGWindowID] = []
@@ -4082,6 +4085,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 all[wi].element, left: cell.left, top: cell.top,
                 right: cell.right, bottom: cell.bottom)
             let isTerminal = terminalIDs.contains(all[wi].id)
+            let isChrome = chromeIDs.contains(all[wi].id)
+            if isChrome, let residual,
+               residual.width > 1 || residual.height > 1,
+               let frame = AXTiler.frame(all[wi].element) {
+                chromeCorrections.append(.init(
+                    current: (Int(frame.minX.rounded()), Int(frame.minY.rounded()),
+                              Int(frame.maxX.rounded()), Int(frame.maxY.rounded())),
+                    target: cell))
+            }
             if isTerminal,
                let residual,
                abs(residual.width) > 1 || abs(residual.height) > 1 {
@@ -4095,11 +4107,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 overflow = true
             }
             let placement = AXPlacement(window: all[wi].element, id: all[wi].id,
-                                        isTerminal: isTerminal, bounds: cell)
+                                        isTerminal: isTerminal, isChrome: isChrome, bounds: cell)
             placements.append(placement)
             if isTerminal { terminalPlacements.append(placement) }
         }
         if let stagePlacement { placements.append(stagePlacement) }
+        if !chromeCorrections.isEmpty {
+            let result = ShellRunner.run("/usr/bin/osascript", args: ["-e",
+                ChromeTileScript.make(placements: chromeCorrections)], timeout: 3)
+            NSLog("🧩 [tile-chrome] requested=%d applied=%@ status=%d",
+                  chromeCorrections.count,
+                  result.output.trimmingCharacters(in: .whitespacesAndNewlines), result.status)
+        }
         return (AXPass(nIterm: snapshot.iterm.count, nTerm: snapshot.terminal.count,
                        fontSize: layout.fontSize, placements: placements,
                        terminalPlacements: terminalPlacements,
@@ -4148,11 +4167,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 height: geom.height)
         }
         return AXPlacement(window: stage.element, id: stage.id,
-                           isTerminal: false, bounds: cell)
+                           isTerminal: false, isChrome: false, bounds: cell)
     }
 
     private static func repin(_ pass: AXPass, includeTerminal: Bool = true) {
-        for placement in pass.placements where includeTerminal || !placement.isTerminal {
+        // Even an identical AX write expands a Chrome window below its minimum.
+        // Its final AppleScript bounds were already applied in the tile pass.
+        for placement in pass.placements
+            where !placement.isChrome && (includeTerminal || !placement.isTerminal) {
             let b = placement.bounds
             AXTiler.setFrameFitting(placement.window, left: b.left, top: b.top,
                                     right: b.right, bottom: b.bottom)

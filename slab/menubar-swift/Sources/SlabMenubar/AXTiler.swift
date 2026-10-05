@@ -43,6 +43,7 @@ enum AXTiler {
         let iterm: [Window]
         let terminal: [Window]
         let acPanes: [Window]
+        let chrome: [Window]
         /// Stage windows: a game stream (GeForce NOW) that wants one big
         /// column of its own rather than a grid cell. Only the first stage
         /// window is staged; any extra ones fall into the ordinary grid.
@@ -52,7 +53,7 @@ enum AXTiler {
         /// binaries with no bundle identifier.
         let wizards: [Window]
 
-        var all: [Window] { iterm + terminal + acPanes + wizards + stage }
+        var all: [Window] { iterm + terminal + acPanes + chrome + wizards + stage }
         var signature: [CGWindowID] { all.map(\.id).sorted() }
     }
 
@@ -126,6 +127,7 @@ enum AXTiler {
             acPanes: windowRefs(bundleId: "computer.aesthetic.app",
                                 requireStandardSubrole: false, liveWindows: liveWindows)
                 + easelWindowRefs(liveWindows: liveWindows),
+            chrome: windowRefs(bundleId: "com.google.Chrome", liveWindows: liveWindows),
             stage: stageBundleIDs.flatMap {
                 windowRefs(bundleId: $0, liveWindows: liveWindows)
             },
@@ -147,6 +149,8 @@ enum AXTiler {
             + windowRefs(bundleId: "computer.aesthetic.app", requireStandardSubrole: false,
                          liveWindows: liveWindows, requireGeometry: false)
             + easelWindowRefs(liveWindows: liveWindows, requireGeometry: false)
+            + windowRefs(bundleId: "com.google.Chrome", liveWindows: liveWindows,
+                         requireGeometry: false)
             + wizardWindowRefs(liveWindows: liveWindows, requireGeometry: false)
             + stageBundleIDs.flatMap {
                 windowRefs(bundleId: $0, liveWindows: liveWindows, requireGeometry: false)
