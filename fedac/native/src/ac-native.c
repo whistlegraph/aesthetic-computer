@@ -3932,6 +3932,13 @@ int main(int argc, char *argv[]) {
                 }
             }
         }
+        const char *scale_env = getenv("AC_PIXEL_SCALE");
+        if (scale_env) {
+            char *end;
+            long requested = strtol(scale_env, &end, 10);
+            if (*scale_env && !*end && requested >= 1 && requested <= 16)
+                pixel_scale = (int)requested;
+        }
         ac_log("pixel_scale=%d (display %dx%d -> screen %dx%d)\n",
                pixel_scale, display->width, display->height,
                display->width / pixel_scale, display->height / pixel_scale);

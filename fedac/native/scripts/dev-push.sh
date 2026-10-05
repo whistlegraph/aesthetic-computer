@@ -48,6 +48,9 @@ PIECE_FILE="$NATIVE/pieces/$PIECE.mjs"
 
 # Same list as docker-build.sh §2p — modules pieces import as ../lib/X.mjs.
 LIB_FILES=()
+for libmjs in saved-wifi.mjs platform-physics.mjs; do
+    LIB_FILES+=("$NATIVE/lib/$libmjs")
+done
 for libmjs in melody-parser.mjs notepat-convert.mjs note-colors.mjs num.mjs percussion.mjs synth.mjs nom.mjs; do
     [ -f "$WEB_LIB/$libmjs" ] && LIB_FILES+=("$WEB_LIB/$libmjs")
 done

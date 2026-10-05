@@ -1,0 +1,10 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {createWorld,step,STEP,body} from './platform-physics.mjs';
+const run=(s,n,input={})=>{for(let i=0;i<n;i++)step(s,input);};
+test('rests on the floor without sinking or gaining energy',()=>{const s=createWorld();run(s,1200);assert.ok(Math.abs(s.player.y-466)<.05);assert.equal(s.player.vy,0);for(const o of s.objects)assert.ok(Number.isFinite(o.x)&&Number.isFinite(o.y));});
+test('held jump rises higher than a tap; both land',()=>{const heights=[];for(const hold of [false,true]){const s=createWorld();run(s,10);step(s,{jumpPressed:true,jumpHeld:hold});let top=s.player.y;for(let i=0;i<160;i++){step(s,{jumpHeld:hold});top=Math.min(top,s.player.y);}heights.push(top);assert.ok(s.player.grounded);}assert.ok(heights[1]<heights[0]-25);});
+test('jump buffer works shortly before landing',()=>{const s=createWorld();s.player.y=455;s.player.vy=180;step(s,{jumpPressed:true});run(s,10);assert.ok(s.player.vy<0);});
+test('ball bounces and push transfers momentum to a crate',()=>{const s=createWorld();s.objects=[body('ball',150,410,24,24)];run(s,40);assert.ok(s.objects[0].vy<0);const w=createWorld();w.player.x=100;w.objects=[body('crate',130,466,28,28)];run(w,40,{axis:1});assert.ok(w.objects[0].x>140);});
+test('spring launches player and falling respawns',()=>{const s=createWorld();s.player.x=585;run(s,10);assert.ok(s.player.vy<-500);s.player.y=730;step(s,{});assert.equal(s.player.x,100);assert.equal(s.player.y,440);});
+test('stress: objects stay finite, bounded in count, and simulation deterministic',()=>{const a=createWorld(),b=createWorld();for(let i=0;i<3000;i++){const input={axis:Math.sin(i/60),jumpPressed:i%85===0,jumpHeld:i%85<30,run:true,spawn:i%50===0,shove:i%43===0,facing:1};step(a,input,STEP);step(b,input,STEP);for(const o of [a.player,...a.objects])assert.ok([o.x,o.y,o.vx,o.vy].every(Number.isFinite));assert.ok(a.objects.length<=24);}assert.deepEqual(a,b);});

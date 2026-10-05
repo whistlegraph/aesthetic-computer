@@ -2935,7 +2935,9 @@ static JSValue js_page(JSContext *ctx, JSValueConst this_val, int argc, JSValueC
     return proxy;
 }
 
-// paste(painting, dx?, dy?) — alpha-composite a painting onto the current render target
+// paste(painting, dx?, dy?, sx?, sy?, width?, height?) — alpha-composite a
+// painting or source rectangle. Cropped copies restore sprite backgrounds
+// without clearing or copying the whole screen.
 static JSValue js_paste(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
     if (!current_rt || !current_rt->graph) return JS_UNDEFINED;
@@ -2948,7 +2950,25 @@ static JSValue js_paste(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     if (argc >= 2) JS_ToInt32(ctx, &dx, argv[1]);
     if (argc >= 3) JS_ToInt32(ctx, &dy, argv[2]);
 
-    graph_paste(current_rt->graph, src, dx, dy);
+    if (argc >= 7) {
+        int sx, sy, width, height;
+        if (JS_ToInt32(ctx, &sx, argv[3]) || JS_ToInt32(ctx, &sy, argv[4]) ||
+            JS_ToInt32(ctx, &width, argv[5]) || JS_ToInt32(ctx, &height, argv[6]))
+            return JS_EXCEPTION;
+        // Reject out-of-bounds source rectangles; do not form a pointer until
+        // subtraction-based bounds checks have ruled out overflow.
+        if (sx < 0 || sy < 0 || width < 1 || height < 1 ||
+            sx >= src->width || sy >= src->height ||
+            width > src->width - sx || height > src->height - sy)
+            return JS_UNDEFINED;
+        ACFramebuffer crop = {
+            .pixels = src->pixels + (size_t)sy * src->stride + sx,
+            .width = width, .height = height, .stride = src->stride
+        };
+        graph_paste(current_rt->graph, &crop, dx, dy);
+    } else {
+        graph_paste(current_rt->graph, src, dx, dy);
+    }
     return JS_UNDEFINED;
 }
 
@@ -8498,7 +8518,7 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
     JS_SetPropertyStr(ctx, api, "painting", JS_NewCFunction(ctx, js_painting, "painting", 3));
 
     // paste, page (real implementations), layer, sharpen (stubs)
-    JS_SetPropertyStr(ctx, api, "paste", JS_NewCFunction(ctx, js_paste, "paste", 3));
+    JS_SetPropertyStr(ctx, api, "paste", JS_NewCFunction(ctx, js_paste, "paste", 7));
     JS_SetPropertyStr(ctx, api, "page", JS_NewCFunction(ctx, js_page, "page", 1));
     JS_SetPropertyStr(ctx, api, "layer", JS_NewCFunction(ctx, js_noop, "layer", 1));
     JS_SetPropertyStr(ctx, api, "sharpen", JS_NewCFunction(ctx, js_noop, "sharpen", 1));

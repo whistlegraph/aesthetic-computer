@@ -269,6 +269,9 @@ fi
 # Copy shared JS libraries needed by pieces (pure JS, no browser deps)
 AC_LIB_DIR="${NATIVE_DIR}/../../system/public/aesthetic.computer/lib"
 mkdir -p "${INITRAMFS_DIR}/lib"
+for lib_file in saved-wifi.mjs platform-physics.mjs; do
+    cp "${NATIVE_DIR}/lib/${lib_file}" "${INITRAMFS_DIR}/lib/"
+done
 for lib_file in melody-parser.mjs notepat-convert.mjs note-colors.mjs percussion.mjs num.mjs; do
     if [ -f "${AC_LIB_DIR}/${lib_file}" ]; then
         cp "${AC_LIB_DIR}/${lib_file}" "${INITRAMFS_DIR}/lib/"

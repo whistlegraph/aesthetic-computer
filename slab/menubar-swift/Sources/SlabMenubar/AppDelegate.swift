@@ -188,6 +188,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// System-wide ⌘⌥T → re-tile agent terminals. Kept alive for the app's
     /// lifetime; unregistered in `applicationWillTerminate`.
     private var tileHotkey: GlobalHotkey?
+    private let acKeyboardRemote = ACKeyboardRemote()
     /// System-wide ⌘⌥S → scatter every session into tiny confetti windows.
     /// A Carbon global hotkey, not just a menu keyEquivalent: a status-bar
     /// app's menu shortcuts only fire when it's frontmost, so ⌘⌥S would
@@ -261,6 +262,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             object: nil
         )
         menuBandPerformanceFocused = Self.menuBandPerformanceFocusIsLive()
+        acKeyboardRemote.canConnect = { [weak self] in
+            !(self?.menuBandPerformanceFocused ?? true)
+        }
+        acKeyboardRemote.onCaptureChanged = { [weak self] capturing in
+            guard let self else { return }
+            if capturing {
+                PromptSigilOverlayController.shared.endKeyboardFocus()
+                self.navHoldTap?.stop()
+                self.zoomLensTap?.stop()
+                NavHoldHint.shared.endHold()
+            } else {
+                _ = self.navHoldTap?.start()
+                _ = self.zoomLensTap?.start()
+            }
+        }
+        acKeyboardRemote.start()
 
         // Bring the fleet control plane up before any optional probes. A
         // wedged Messages, Terminal, or system-metrics subprocess must not
@@ -457,6 +474,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        acKeyboardRemote.shutdown()
         tileHotkey?.unregister()
         scatterHotkey?.unregister()
         promptRockFocusHotkey?.unregister()
@@ -500,6 +518,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             ?? Self.menuBandPerformanceFocusIsLive()
         guard focused != menuBandPerformanceFocused else { return }
         menuBandPerformanceFocused = focused
+        acKeyboardRemote.setPerformanceFocused(focused)
         if focused {
             promptRockFocusHotkey?.unregister()
             promptRockFocusHotkey = nil

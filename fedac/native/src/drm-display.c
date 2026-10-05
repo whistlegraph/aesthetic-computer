@@ -432,10 +432,24 @@ ACDisplay *drm_init(void) {
         return fbdev_init();
     }
 
-    // Prefer internal panel (eDP/LVDS) over external (HDMI/DP) to avoid slow EDID probes
+    // Explicit closed-lid TV use: make HDMI primary, so its aspect and pixel
+    // grid define the piece instead of mirroring the internal panel's canvas.
+    const char *hdmi_env = getenv("AC_HDMI_ONLY");
+    int hdmi_only = hdmi_env && strcmp(hdmi_env, "1") == 0;
     drmModeConnector *conn = NULL;
+    if (hdmi_only) {
+        for (int i = 0; i < res->count_connectors; i++) {
+            drmModeConnector *c = drmModeGetConnector(d->fd, res->connectors[i]);
+            if (!c) continue;
+            if (c->connection == DRM_MODE_CONNECTED && c->count_modes > 0 &&
+                (c->connector_type == DRM_MODE_CONNECTOR_HDMIA ||
+                 c->connector_type == DRM_MODE_CONNECTOR_HDMIB)) { conn = c; break; }
+            drmModeFreeConnector(c);
+        }
+        if (!conn) hdmi_only = 0; // Unplugged TV: keep the laptop usable.
+    }
     // First pass: look for internal panel
-    for (int i = 0; i < res->count_connectors; i++) {
+    for (int i = 0; !conn && i < res->count_connectors; i++) {
         drmModeConnector *c = drmModeGetConnector(d->fd, res->connectors[i]);
         if (!c) continue;
         if (c->connection == DRM_MODE_CONNECTED && c->count_modes > 0 &&
@@ -469,6 +483,15 @@ ACDisplay *drm_init(void) {
 
     d->connector_id = conn->connector_id;
     d->mode = conn->modes[0];
+    if (hdmi_only) {
+        for (int i = 0; i < conn->count_modes; i++) {
+            drmModeModeInfo *m = &conn->modes[i];
+            if (m->hdisplay == 1920 && m->vdisplay == 1080 && m->vrefresh == 60 &&
+                !(m->flags & (DRM_MODE_FLAG_INTERLACE | DRM_MODE_FLAG_DBLSCAN))) {
+                d->mode = *m; break;
+            }
+        }
+    }
     d->width = d->mode.hdisplay;
     d->height = d->mode.vdisplay;
     fprintf(stderr, "[drm] Display: %dx%d @ %dHz\n",
@@ -523,6 +546,18 @@ ACDisplay *drm_init(void) {
         return fbdev_init();
     }
 
+    if (hdmi_only) {
+        // Disable other scanouts only after HDMI successfully mode-sets.
+        drmModeRes *outputs = drmModeGetResources(d->fd);
+        if (outputs) {
+            for (int i = 0; i < outputs->count_crtcs; i++)
+                if (outputs->crtcs[i] != d->crtc_id)
+                    drmModeSetCrtc(d->fd, outputs->crtcs[i], 0, 0, 0, NULL, 0, NULL);
+            drmModeFreeResources(outputs);
+        }
+        ac_log("[drm] HDMI-only primary: %dx%d@%d; other CRTCs disabled\n",
+               d->width, d->height, d->mode.vrefresh);
+    }
     fprintf(stderr, "[drm] Ready\n");
     return d;
 }
@@ -696,6 +731,8 @@ static int drm_pick_secondary_mode(drmModeConnector *conn, int screen_w, int scr
 }
 
 ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary, int screen_w, int screen_h) {
+    const char *hdmi_only = getenv("AC_HDMI_ONLY");
+    if (hdmi_only && strcmp(hdmi_only, "1") == 0) return NULL;
     if (!primary || primary->is_fbdev || primary->fd < 0) return NULL;
     if (primary->is_sdl) return NULL;
 
@@ -851,6 +888,8 @@ ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary, int screen_w, int scr
 }
 
 int drm_secondary_is_connected(ACDisplay *primary) {
+    const char *hdmi_only = getenv("AC_HDMI_ONLY");
+    if (hdmi_only && strcmp(hdmi_only, "1") == 0) return 0;
     if (!primary || primary->is_fbdev || primary->fd < 0) return 0;
     drmModeRes *res = drmModeGetResources(primary->fd);
     if (!res) return 0;

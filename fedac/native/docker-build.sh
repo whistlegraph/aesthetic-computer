@@ -700,6 +700,9 @@ fi
 # These are pure JS with no DOM/browser deps — work in QuickJS as-is.
 # The module loader resolves "../lib/X.mjs" → "/lib/X.mjs" in the initramfs.
 mkdir -p "$IROOT/lib"
+for libmjs in saved-wifi.mjs platform-physics.mjs; do
+    cp "$NATIVE/lib/$libmjs" "$IROOT/lib/$libmjs"
+done
 for libmjs in melody-parser.mjs notepat-convert.mjs note-colors.mjs num.mjs percussion.mjs synth.mjs nom.mjs; do
     SRC_LIB="$SRC/system/public/aesthetic.computer/lib/$libmjs"
     if [ -f "$SRC_LIB" ]; then

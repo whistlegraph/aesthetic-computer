@@ -43,6 +43,27 @@ network, SSD, and GPU. Hover expands it into readable local history rows with
 current values; click pins the same panel. It does not poll or display other
 machines.
 
+## AC keyboard remote
+
+Press **Command–Option–L** or click the **AC** keyboard item to connect. Once
+**Remote → ac0** appears, keys go to the AC laptop. Repeat the shortcut or click
+the item to return to the Mac; Escape goes to AC's prompt. Capture starts only
+after the receiver answers. Sleep, session lock, a broken connection, or a lost
+event tap releases remote keys and returns local typing. Leave Menu Band's
+performance mode before connecting; its Command–Command gesture stays unchanged.
+
+The user-local `~/.config/slab/ac-remote.json` contains an SSH host alias and a
+short display label: `{"host":"ac0-remote","label":"ac0"}`. Configure that alias
+in `~/.ssh/config` with a verified host key and key-based login. The receiver
+must be installed as `/mnt/tools/ac-keyboard-remote` on AC OS; its source lives
+in `fedac/native/tools/ac-keyboard-remote.c`. One persistent SSH stream carries
+physical key codes and a one-second heartbeat. Keyboard positions follow the
+US layout, with the ISO extra key supported; this does not translate IME text.
+No typed keys are logged. Slab requires its existing Accessibility grant.
+
+Run `tests/ac-remote-test.sh` for synthetic keyboard and failure-path tests;
+it creates events in memory and never posts or captures desktop input.
+
 ## Window zoom
 
 Double-tap Control over a window to zoom; repeat to exit. Command–Option–arrow

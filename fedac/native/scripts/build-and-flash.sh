@@ -199,6 +199,9 @@ cp "${NATIVE_DIR}/lib/spatial-rehearsal.mjs" "${INITRAMFS_DIR}/lib/"
 # Aesel's Claude bridge translator (pieces/aesel.mjs imports it from /lib).
 cp "${NATIVE_DIR}/lib/aesel-bridge.mjs" "${INITRAMFS_DIR}/lib/"
 cp "${NATIVE_DIR}/lib/aesel-ac.mjs" "${INITRAMFS_DIR}/lib/"
+for lib_file in saved-wifi.mjs platform-physics.mjs; do
+    cp "${NATIVE_DIR}/lib/${lib_file}" "${INITRAMFS_DIR}/lib/"
+done
 cp "${NATIVE_DIR}/scores/"*.nsscore "${INITRAMFS_DIR}/scores/"
 cp "${NATIVE_DIR}/scores/notespatial-native.nsscore" "${INITRAMFS_DIR}/pieces/spatial-rehearsal.nsscore"
 
