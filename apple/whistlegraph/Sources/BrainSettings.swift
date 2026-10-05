@@ -91,7 +91,7 @@ struct BrainSettings: View {
                         } else {
                             Text(inference.braincellsError).foregroundStyle(.secondary)
                         }
-                        Button("Refresh") { session.command("refreshBraincells") }
+                        Button("Refresh") { session.command("refreshBraincells"); Task { await prices.refresh() } }
                         TezosPurchaseButton(session: session, purchase: session.tezosBraincells)
                     }
                     if let usage = inference.usage {
@@ -150,12 +150,17 @@ struct ThreadCostLabel: View {
     @AppStorage(CostUnit.preference) private var unit: CostUnit = .usd
     @ObservedObject private var prices = TezDisplayRate.shared
     private var amount: String { unit.amount(usd: cost.usd, rate: prices.rate, partial: cost.partial) }
+    private var value: String {
+        if cost.partial && cost.usd == 0 { return "Cost unavailable" }
+        if unit == .tezos && prices.rate?.isFresh != true { return "Rate unavailable" }
+        return (cost.partial ? "≥ " : "") + (cost.estimated == true || unit == .tezos ? "≈ " : "") + amount
+    }
     var body: some View {
-        Text((cost.partial ? "≥ " : "") + (cost.estimated == true || unit == .tezos ? "≈ " : "") + amount)
+        Text(value)
             .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             .lineLimit(1).fixedSize(horizontal: true, vertical: false)
             .accessibilityLabel("Provider inference value, " + unit.label)
-            .accessibilityValue((cost.partial ? "At least " : "") + amount)
+            .accessibilityValue(value)
             .accessibilityIdentifier("thread-cost")
             .task(id: unit) { if unit == .tezos { await prices.refresh() } }
     }

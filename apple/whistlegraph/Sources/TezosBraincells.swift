@@ -52,7 +52,7 @@ import StoreKit
             if checkout == nil {
                 let result = try await request("create", bearer: token)
                 guard let url = result.checkoutURL, url.scheme == "https", url.host == "aesthetic.computer",
-                      url.path == "/braincells/", let secret = url.fragment, secret.count == 64,
+                      url.path == "/braincells", url.hasDirectoryPath, let secret = url.fragment, secret.count == 64,
                       secret.allSatisfy({ $0.isHexDigit }) else { throw NativeSignIn.failure("Invalid checkout link.") }
                 let saved = Pending(url: url, handle: session.snapshot.handle)
                 UserDefaults.standard.set(try JSONEncoder().encode(saved), forKey: storageKey)

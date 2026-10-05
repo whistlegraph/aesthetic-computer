@@ -144,3 +144,6 @@ testing. The API flag `AC_TEZOS_CREDITS_ENABLED` controls new purchases.
 
 `HeaderSheetsTests/testPhoneCostUnitToggle` checks all three units and persistence
 on the paired phone without initiating a purchase.
+`HeaderSheetsTests/testPhoneLiveTezosCheckout` checks the live rate, authenticated
+checkout in the default browser, and handoff to the installed Temple app. It
+stops before wallet connection approval, signing, or sending tez.

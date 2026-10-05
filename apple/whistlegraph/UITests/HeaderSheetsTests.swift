@@ -30,6 +30,44 @@ final class HeaderSheetsTests: XCTestCase {
         app.buttons["Done"].tap()
     }
 
+    // Opens Temple; never approves a wallet connection, signature or payment.
+    func testPhoneLiveTezosCheckout() {
+        let app = XCUIApplication()
+        app.launch()
+        let brain = app.buttons["brain-settings"]
+        XCTAssertTrue(brain.waitForExistence(timeout: 30))
+        brain.tap(); app.swipeUp()
+        let units = app.segmentedControls["brain-cost-unit"]
+        XCTAssertTrue(units.waitForExistence(timeout: 15))
+        units.buttons["Tezos"].tap()
+        let rate = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "1 tez = ")).firstMatch
+        XCTAssertTrue(rate.waitForExistence(timeout: 20), "live timestamped Tezos rate")
+        let balance = XCTAttachment(screenshot: app.screenshot())
+        balance.name = "Live Tezos balance"; balance.lifetime = .keepAlways; add(balance)
+        app.buttons["brain-buy-tezos"].tap()
+        let browsers = ["com.apple.mobilesafari", "com.google.chrome.ios"].map { XCUIApplication(bundleIdentifier: $0) }
+        let opened = expectation(for: NSPredicate { _, _ in browsers.contains { $0.state == .runningForeground } }, evaluatedWith: nil)
+        guard XCTWaiter.wait(for: [opened], timeout: 20) == .completed,
+              let browser = browsers.first(where: { $0.state == .runningForeground }) else {
+            XCTFail("default browser did not open"); return
+        }
+        let connect = browser.buttons["Connect wallet"]
+        guard connect.waitForExistence(timeout: 30) else {
+            let failure = XCTAttachment(screenshot: app.screenshot()); failure.name = "Checkout did not open"; failure.lifetime = .keepAlways; add(failure)
+            XCTFail("authenticated checkout did not open in the default browser"); return
+        }
+        connect.tap()
+        let temple = browser.staticTexts["Temple"]
+        XCTAssertTrue(temple.waitForExistence(timeout: 30), "Temple is offered on iOS")
+        let wallet = XCTAttachment(screenshot: browser.screenshot())
+        wallet.name = "Temple wallet picker on iPhone"; wallet.lifetime = .keepAlways; add(wallet)
+        temple.tap()
+        let open = browser.alerts.buttons["Open"]
+        if open.waitForExistence(timeout: 3) { open.tap() }
+        let walletApp = XCUIApplication(bundleIdentifier: "com.madfish.temple-wallet")
+        XCTAssertTrue(walletApp.wait(for: .runningForeground, timeout: 25), "checkout hands off to installed Temple")
+    }
+
     func testPieceAudioStartsWithoutTouch() {
         let app = XCUIApplication()
         app.launchEnvironment["WALKIE_NATIVE_SCREEN_FIXTURE"] = "audio"

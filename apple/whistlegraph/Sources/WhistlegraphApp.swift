@@ -38,7 +38,7 @@ struct WhistlegraphApp: App {
             .onChange(of: phase) { _, value in
                 if value == .background { voice.cancelHold() }
                 if value == .active && voice.capturePhase == .idle { voice.resumePieceAudio() }
-                if value == .active { Task { await voice.tezosBraincells.refresh(session: voice) } }
+                if value == .active { Task { await TezDisplayRate.shared.refresh(); await voice.tezosBraincells.refresh(session: voice) } }
             }
             .onOpenURL { url in
                 if url.scheme == "whistlegraph" && url.host == "braincells" {
