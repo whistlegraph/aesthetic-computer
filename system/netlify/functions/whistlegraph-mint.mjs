@@ -44,12 +44,12 @@ export function createHandler({ mints, authorize, handleFor, pilot = false, star
 const running = new Map();
 export async function handler(event) {
   if (event.httpMethod !== 'POST' || event.body?.length > 1_500_000) return createHandler({})(event);
-  const [{ connect }, { authorize, getHandleOrEmail }, { packWhistlegraph, normalizeMintCover, pinMintFile }] = await Promise.all([
+  const [{ connect }, { authorize, getHandleOrEmail }, { packWhistlegraph, normalizeMintCover, pinMintFile, pinMintDirectory }] = await Promise.all([
     import('../../backend/database.mjs'), import('../../backend/authorization.mjs'), import('../../backend/whistlegraph-pack.mjs'),
   ]);
   const connection = await connect();
   const mints = whistlegraphMints({ intents:connection.db.collection('whistlegraph-mints'),
-    threads:connection.db.collection('walkieware-threads'), pack:packWhistlegraph, cover:normalizeMintCover, pin:pinMintFile });
+    threads:connection.db.collection('walkieware-threads'), pack:packWhistlegraph, cover:normalizeMintCover, pin:pinMintFile, pinDirectory:pinMintDirectory });
   const start = secret => {
     if (running.has(secret) || running.size >= 2) return;
     const job = mints.prepare(secret).catch(error => console.error('Whistlegraph pack failed:', error.name))

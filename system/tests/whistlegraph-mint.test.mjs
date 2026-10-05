@@ -5,7 +5,10 @@ import { InMemorySigner } from '@taquito/signer';
 import { b58cencode, prefix } from '@taquito/utils';
 import sharp from 'sharp';
 import { whistlegraphMints, hash, mintPayload, verifyMintWallet, matchingMint, mintOperation, HEN_MINTER, HEN_OBJKTS } from '../backend/whistlegraph-mint.mjs';
-import { normalizeMintCover } from '../backend/whistlegraph-pack.mjs';
+import { normalizeMintCover, pinMintDirectory } from '../backend/whistlegraph-pack.mjs';
+import { createServer } from 'node:http';
+import { teiaPackage, TEIA_FORMAT } from '../backend/whistlegraph-teia.mjs';
+import AdmZip from 'adm-zip';
 import { createHandler } from '../netlify/functions/whistlegraph-mint.mjs';
 function collection() {
   const docs = new Map();
@@ -45,7 +48,8 @@ async function fixture() {
   const source = 'export function paint({wipe}) { wipe("red"); }';
   await threads.insertOne({ _id:'piece', owner:'user', code:'wgDefen', codeKey:'wgdefen', ledger:{ head:7, versions:[{ id:7, source }] } });
   const mints = whistlegraphMints({ intents, threads, now:() => time, cover:async () => Buffer.from('cover'),
-    pack:async () => { state.packs++; return { html:'<html>packed</html>', version:'test' }; },
+    pack:async () => { state.packs++; return { html:'<html><head></head>packed</html>', version:'test', preview:{ gif:Buffer.from('gif'), thumbnail:Buffer.from('png'), frames:48 } }; },
+    pinDirectory:async files => { state.files = files; return 'ipfs://Qm' + 'a'.repeat(44); },
     pin:async (name, mime, bytes) => { pins.push({ name, mime, bytes }); return 'ipfs://Qm' + hash(bytes).slice(0,44); },
     verify:(_i, p) => p.signature === 'valid',
     chain:async path => path === '/head' ? state.head : path.startsWith('/tokens/') ? state.transfers : state.txs });
@@ -82,14 +86,20 @@ test('only the owner can snapshot a saved exact version; a retry preserves its s
   await assert.rejects(f.mints.create('stranger', '@other', f.input), /another account/);
   assert.equal(f.intents.docs.size, 1);
 });
-test('packing is claimed once, removes temporary source/cover, and pins HTML plus cover', async () => {
+test('packing is claimed once and publishes a Teia directory, ZIP, HTML, GIF and thumbnail', async () => {
   const f = await fixture(); await f.mints.create('user', '@test', f.input);
   await Promise.all([f.mints.prepare(f.secret), f.mints.prepare(f.secret)]);
   assert.equal(f.state.packs, 1);
-  assert.deepEqual(f.pins.map(p => p.mime), ['text/html','image/png']);
+  assert.deepEqual(f.pins.map(p => p.mime), ['text/html','image/gif','image/png','application/zip']);
+  assert.deepEqual(f.state.files.map(p => p.name), ['index.html','cover.gif','thumbnail.png']);
+  const zip = new AdmZip(f.pins.find(p => p.mime === 'application/zip').bytes);
+  assert.match(zip.readAsText('index.html'), /property="og:image" content="cover.gif"/);
+  assert.match(zip.readAsText('index.html'), /Content-Security-Policy/);
   const i = [...f.intents.docs.values()][0];
   assert.equal(i.status, 'packed'); assert.equal(i.source, undefined); assert.equal(i.cover, undefined);
-  assert.equal(i.artifactHash, hash('<html>packed</html>'));
+  assert.equal(i.artifactHash, hash('<html><head></head>packed</html>'));
+  assert.equal(i.artifactMimeType, TEIA_FORMAT);
+  assert.equal(i.previewFrames, 48);
 });
 test('real signed ownership proof binds account, source, version and mint nonce', async () => {
   const signer = new InMemorySigner(b58cencode(randomBytes(32), prefix.edsk2));
@@ -105,10 +115,45 @@ test('wallet ownership is required, metadata immutable and mint dispatch happens
   const metadata = JSON.parse(f.pins.find(p => p.mime === 'application/json').bytes);
   assert.equal(metadata.whistlegraph.version, 7); assert.equal(metadata.whistlegraph.sourceHash, f.input.sourceHash);
   assert.deepEqual(metadata.creators, [address]);
+  assert.deepEqual(metadata.formats.map(f => f.mimeType), [TEIA_FORMAT, 'image/gif', 'image/png']);
+  assert.notEqual(metadata.thumbnailUri, metadata.displayUri);
   const first = await f.mints.begin(f.secret);
   assert.deepEqual(first.operation, mintOperation([...f.intents.docs.values()][0]));
   assert.equal(first.operation.destination, HEN_MINTER); assert.equal(first.operation.amount, '0');
   await assert.rejects(f.mints.begin(f.secret), /already pending/);
+});
+test('missing previews and legacy HTML-only intents cannot mint again', async () => {
+  assert.throws(() => teiaPackage('<html><head></head></html>', { frames:1 }), /required/);
+  const f = await ready();
+  const i = [...f.intents.docs.values()][0];
+  delete i.artifactMimeType;
+  await assert.rejects(f.mints.begin(f.secret), /corrected Teia package/);
+  await assert.rejects(f.mints.bind(f.secret, { address, signature:'valid' }), /corrected Teia package/);
+  assert.equal(i.status, 'ready');
+});
+test('IPFS packages use the wrapping directory CID, with all three required files', async () => {
+  const cid = 'Qm' + 'a'.repeat(44);
+  let seen;
+  const server = createServer(async (req,res) => {
+    let body = ''; for await (const part of req) body += part;
+    if (req.url.startsWith('/api/v0/add')) {
+      seen = { url:req.url, body };
+      res.end(JSON.stringify({ Name:'index.html', Hash:'Qm' + 'b'.repeat(44) }) + '\n' + JSON.stringify({ Name:'', Hash:cid }) + '\n');
+    } else res.end('{}');
+  });
+  await new Promise(resolve => server.listen(0,'127.0.0.1',resolve));
+  const old = { api:process.env.IPFS_API_URL, seed:process.env.IPFS_SEEDER_URL };
+  process.env.IPFS_API_URL = process.env.IPFS_SEEDER_URL = 'http://127.0.0.1:' + server.address().port;
+  try {
+    const { files } = teiaPackage('<html><head></head></html>', { gif:Buffer.from('gif'), thumbnail:Buffer.from('png'), frames:48 });
+    assert.equal(await pinMintDirectory(files), 'ipfs://' + cid);
+    assert.match(seen.url, /wrap-with-directory=true/);
+    for (const name of ['index.html','cover.gif','thumbnail.png']) assert.ok(seen.body.includes(`filename="${name}"`));
+    await assert.rejects(pinMintDirectory(files.slice(0,2)), /Incomplete/);
+  } finally {
+    for (const [key,value] of [['IPFS_API_URL',old.api],['IPFS_SEEDER_URL',old.seed]]) if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    await new Promise(resolve => server.close(resolve));
+  }
 });
 test('lost callbacks recover the unique applied mint and wait for chain confirmations and token transfer', async () => {
   const f = await requested();

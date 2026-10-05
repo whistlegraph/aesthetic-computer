@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { getPkhfromPk, verifySignature, validateAddress } from '@taquito/utils';
 import { chainJSON } from './tezos-credits.mjs';
+import { teiaPackage, TEIA_FORMAT, TEIA_PACKAGE_VERSION } from './whistlegraph-teia.mjs';
 
 export const HEN_MINTER = 'KT1Hkg5qeNhfwpKW4fXvq7HGZB9z2EnmCCA9';
 export const HEN_OBJKTS = 'KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton';
@@ -10,6 +11,8 @@ const publicState = i => ({ id:i._id, code:i.code, version:i.version, sourceHash
   title:i.title, description:i.description, editions:i.editions, royalties:i.royalties, handle:i.handle,
   status:i.status, sender:i.sender, artifactUri:i.artifactUri, coverUri:i.coverUri, metadataUri:i.metadataUri,
   artifactHash:i.artifactHash, bytes:i.bytes, operationHash:i.operationHash, tokenId:i.tokenId,
+  htmlUri:i.htmlUri, zipUri:i.zipUri, thumbnailUri:i.thumbnailUri, artifactMimeType:i.artifactMimeType,
+  packageVersion:i.packageVersion, previewFrames:i.previewFrames,
   error:i.error, network:'mainnet', contract:HEN_OBJKTS });
 
 export function mintPayload(i) {
@@ -25,11 +28,18 @@ export function verifyMintWallet(i, proof) {
 }
 export function mintMetadata(i) {
   return { name:i.title, description:i.description, tags:['whistlegraph', 'aesthetic-computer', 'interactive', 'generative'],
-    symbol:'OBJKT', artifactUri:i.artifactUri, displayUri:i.coverUri, thumbnailUri:i.coverUri,
-    creators:[i.sender], formats:[{ uri:i.artifactUri, mimeType:'text/html' }], decimals:0,
+    symbol:'OBJKT', artifactUri:i.artifactUri, displayUri:i.coverUri, thumbnailUri:i.thumbnailUri,
+    creators:[i.sender], formats:[{ uri:i.artifactUri, mimeType:TEIA_FORMAT, fileName:`${i.code}-v${i.version}.zip`, fileSize:i.zipBytes },
+      { uri:i.coverUri, mimeType:'image/gif', fileName:'cover.gif' },
+      { uri:i.thumbnailUri, mimeType:'image/png', fileName:'thumbnail.png' }], decimals:0,
     isBooleanAmount:false, shouldPreferSymbol:false, date:new Date(i.createdAt).toISOString(),
     whistlegraph:{ code:i.code, version:i.version, sourceHash:i.sourceHash, artifactHash:i.artifactHash,
-      pixelSize:i.density, previewAspect:i.aspect, mintId:i._id, packVersion:i.packVersion } };
+      pixelSize:i.density, previewAspect:i.aspect, mintId:i._id, packVersion:i.packVersion,
+      htmlUri:i.htmlUri, packageVersion:i.packageVersion, previewFrames:i.previewFrames } };
+}
+function requireTeiaPackage(i) {
+  if (i.artifactMimeType !== TEIA_FORMAT || i.packageVersion !== TEIA_PACKAGE_VERSION || !i.thumbnailUri || !i.coverUri || !i.zipUri || !(i.previewFrames >= 2))
+    throw mintError(409, 'This preview needs the corrected Teia package. Discard it and prepare a new preview.');
 }
 export function mintOperation(i) {
   return { kind:'transaction', destination:HEN_MINTER, amount:'0', parameters:{ entrypoint:'mint_OBJKT',
@@ -47,7 +57,7 @@ export function matchingMint(i, tx) {
 
 // Persist each step before opening a wallet. A lost browser callback recovers by
 // the unique metadata URI, never by an approximate amount or the latest token.
-export function whistlegraphMints({ intents, threads, pack, pin, cover, chain = chainJSON, verify = verifyMintWallet, now = () => new Date() }) {
+export function whistlegraphMints({ intents, threads, pack, pin, pinDirectory, cover, chain = chainJSON, verify = verifyMintWallet, now = () => new Date() }) {
   async function lookup(secret) {
     if (typeof secret !== 'string' || !/^[a-f0-9]{64}$/.test(secret)) throw mintError(401, 'Invalid mint link');
     const i = await intents.findOne({ _id:hash(secret) });
@@ -101,9 +111,14 @@ export function whistlegraphMints({ intents, threads, pack, pin, cover, chain = 
       if (!claimed.modifiedCount) return publicState(i);
       try {
         const packed = await pack(i);
-        const artifactUri = await pin('index.html', 'text/html', Buffer.from(packed.html));
-        const coverUri = await pin('cover.png', 'image/png', Buffer.from(i.cover, 'base64'));
-        await intents.updateOne({ _id:i._id, status:'packing' }, { $set:{ status:'packed', artifactUri, coverUri,
+        const bundle = teiaPackage(packed.html, packed.preview);
+        const htmlUri = await pin('index.html', 'text/html', Buffer.from(packed.html));
+        const artifactUri = await pinDirectory(bundle.files);
+        const coverUri = await pin('cover.gif', 'image/gif', Buffer.from(packed.preview.gif));
+        const thumbnailUri = await pin('thumbnail.png', 'image/png', Buffer.from(packed.preview.thumbnail));
+        const zipUri = await pin(`${i.code}-v${i.version}.zip`, 'application/zip', bundle.zip);
+        await intents.updateOne({ _id:i._id, status:'packing' }, { $set:{ status:'packed', artifactUri, coverUri, thumbnailUri, htmlUri, zipUri,
+          artifactMimeType:TEIA_FORMAT, packageVersion:TEIA_PACKAGE_VERSION, previewFrames:packed.preview.frames, zipBytes:bundle.zip.length,
           artifactHash:hash(packed.html), bytes:Buffer.byteLength(packed.html), packVersion:packed.version }, $unset:{ source:'', cover:'', lease:'' } });
       } catch (error) {
         await intents.updateOne({ _id:i._id, status:'packing' }, { $set:{ status:'failed', error:'Packing failed. Open a new mint preview.' }, $unset:{ source:'', cover:'', lease:'' } });
@@ -114,6 +129,7 @@ export function whistlegraphMints({ intents, threads, pack, pin, cover, chain = 
     async bind(secret, proof) {
       const i = await lookup(secret);
       await alive(i);
+      requireTeiaPackage(i);
       if (i.sender && i.sender !== proof.address) throw mintError(409, 'This mint belongs to a different wallet');
       if (i.metadataUri) return publicState(i);
       if (i.status !== 'packed' && i.status !== 'binding') throw mintError(409, 'Wait for the HTML pack');
@@ -127,6 +143,7 @@ export function whistlegraphMints({ intents, threads, pack, pin, cover, chain = 
     },
     async begin(secret) {
       const i = await lookup(secret); await alive(i);
+      requireTeiaPackage(i);
       if (i.status !== 'ready') throw mintError(409, 'A wallet request is already pending. Check the mint before trying again.');
       const changed = await intents.updateOne({ _id:i._id, status:'ready' }, { $set:{ status:'requested', requestedAt:now() } });
       if (!changed.modifiedCount) throw mintError(409, 'A wallet request is already pending');

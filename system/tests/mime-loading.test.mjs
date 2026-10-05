@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHandler} from '../netlify/functions/mime.mjs';
-import {publicPosts, publicMediaUrl} from '../backend/mime-media.mjs';
+import {publicPosts, publicMediaUrl, mediaFile} from '../backend/mime-media.mjs';
 const code='tape_6aa83d4ef78ff6472a0a64b2';
 test('tape file and poster reads each validate current visibility with one lookup',async()=>{
  let calls=0,visible=true;
@@ -26,4 +26,11 @@ test('feed-only reads skip the global MIME census, normal inventory retains it',
  const handler=createHandler(async()=>({db}));
  let r=await handler({httpMethod:'GET',queryStringParameters:{feed:'1'}});assert.equal(r.statusCode,200);assert.equal(census,0);
  r=await handler({httpMethod:'GET',queryStringParameters:{}});assert.equal(r.statusCode,200);assert.equal(census,1);
+});
+test('Teia directory packs retain a standalone HTML preview and download in Mime',async()=>{
+ const htmlUri='ipfs://Qm'+'a'.repeat(44),artifactUri='ipfs://Qm'+'b'.repeat(44);
+ const [post]=await publicPosts({},[{code:'whistlegraph_'+'a'.repeat(64),parent:null,board:'text/html',_media:{kind:'whistlegraph',id:'id',code:'wgDefen',version:7,htmlUri,artifactUri,tokenId:'885470'}}]);
+ assert.equal(post.file.name,'wgDefen-v7.html');assert.equal(post.file.type,'text/html');
+ assert.equal(post.media.url,'https://ipfs.aesthetic.computer/ipfs/'+htmlUri.slice(7));
+ assert.equal(mediaFile('whistlegraph',{htmlUri,artifactUri}).url,post.media.url);
 });

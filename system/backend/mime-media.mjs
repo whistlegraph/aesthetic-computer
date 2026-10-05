@@ -71,7 +71,7 @@ export function mediaPipeline(kind, match = {}, activity = true) {
         user: "$user", slug: "$slug", size: packed ? "$bytes" : "$size",
         hasPoster: { $ne: [{ $ifNull: ["$thumbnailUrl", ""] }, ""] },
         ...(packed ? { title: "$title", version: "$version", aspect: "$aspect",
-          artifactUri: "$artifactUri", coverUri: "$coverUri", tokenId: "$tokenId" } : {}),
+          artifactUri: "$artifactUri", htmlUri: "$htmlUri", coverUri: "$coverUri", tokenId: "$tokenId" } : {}),
       },
     } },
   ];
@@ -136,7 +136,7 @@ export async function publicPosts(db, docs) {
     let original;
     if (media?.code) {
       const code = encodeURIComponent(media.code);
-      original = media.kind === "whistlegraph" ? packedMediaUrl(media.artifactUri)
+      original = media.kind === "whistlegraph" ? packedMediaUrl(media.htmlUri || media.artifactUri)
         : media.kind === "painting" ? `https://aesthetic.computer/#${code}`
         : media.kind === "tape" ? `https://aesthetic.computer/!${code}`
         : media.kind === "kidlisp" ? `https://aesthetic.computer/$${code}`
@@ -160,7 +160,7 @@ export async function publicPosts(db, docs) {
 // Resolve storage only from an allowlisted, visible media record. Request
 // bodies cannot supply external URLs or choose arbitrary collections/buckets.
 export function mediaFile(kind, record) {
-  if (kind === "whistlegraph") return { url: packedMediaUrl(record.artifactUri) };
+  if (kind === "whistlegraph") return { url: packedMediaUrl(record.htmlUri || record.artifactUri) };
   if ((kind === "kidlisp" || kind === "piece") && typeof record.source === "string") {
     return { text: record.source };
   }

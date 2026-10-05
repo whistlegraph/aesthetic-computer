@@ -10,10 +10,15 @@
   <h1 id="title">Mint on HEN</h1>
   <p id="piece"></p>
   <iframe id="art" title="Packed artwork" sandbox="allow-scripts allow-pointer-lock" allow="autoplay" referrerpolicy="no-referrer" hidden></iframe>
+  <div id="previews" hidden>
+    <figure><img id="cover" alt="Animated marketplace preview"><figcaption>Animated preview</figcaption></figure>
+    <figure><img id="thumbnail" alt="Marketplace thumbnail"><figcaption>Thumbnail</figcaption></figure>
+  </div>
+  <a id="package" hidden>Download Teia ZIP</a>
   <p id="settings"></p>
   <p id="wallet"></p>
   <button id="connect" hidden>Connect Tezos wallet</button>
-  <label id="review" hidden><input id="checked" type="checkbox"> I checked the packed artwork.</label>
+  <label id="review" hidden><input id="checked" type="checkbox"> I checked the artwork, animated preview, and thumbnail.</label>
   <button id="mint" hidden>Mint in wallet</button>
   <button id="check" hidden>Check mint</button>
   <p id="status" role="status" aria-live="polite">Preparing the HTML pack…</p>

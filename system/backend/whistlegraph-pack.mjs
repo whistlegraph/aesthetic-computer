@@ -39,3 +39,21 @@ export async function pinMintFile(name, mime, content) {
     { method:'POST', signal:AbortSignal.timeout(120_000) }).catch(() => {});
   return `ipfs://${cid}`;
 }
+
+export async function pinMintDirectory(files) {
+  if (!Array.isArray(files) || files.length !== 3 || new Set(files.map(file => file.name)).size !== 3) throw new Error('Incomplete Teia package');
+  const form = new FormData();
+  for (const file of files) {
+    if (!['index.html','cover.gif','thumbnail.png'].includes(file.name) || !file.content.length || file.content.length > 12_000_000) throw new Error('Invalid Teia package file');
+    form.append('file', new Blob([file.content], { type:file.mime }), file.name);
+  }
+  const response = await fetch(`${process.env.IPFS_API_URL || 'http://localhost:5001'}/api/v0/add?pin=true&cid-version=0&wrap-with-directory=true`,
+    { method:'POST', body:form, signal:AbortSignal.timeout(60_000) });
+  if (!response.ok) throw new Error('IPFS directory pin failed');
+  const entries = (await response.text()).trim().split('\n').map(line => JSON.parse(line));
+  const root = entries.find(entry => entry.Name === '');
+  if (!/^Qm[1-9A-HJ-NP-Za-km-z]{44}$/.test(root?.Hash || '')) throw new Error('IPFS directory missing');
+  fetch(`${process.env.IPFS_SEEDER_URL || 'http://137.184.237.166:5001'}/api/v0/pin/add?arg=${root.Hash}`,
+    { method:'POST', signal:AbortSignal.timeout(120_000) }).catch(() => {});
+  return `ipfs://${root.Hash}`;
+}
