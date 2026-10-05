@@ -1,3 +1,4 @@
+import {ReceiptCost} from './receipt-cost.mjs';
 // Content-free, client-observed receipts. They are not authoritative billing.
 export const RECEIPT_LIMIT = 100;
 const number = n => Number.isFinite(n) && n >= 0 ? n : null;
@@ -13,6 +14,7 @@ export class ReceiptJournal {
     for (const row of this.rows) if (row.receipt.status === 'running') {
       Object.assign(row.receipt, {status: 'interrupted', finishedAt: new Date().toISOString(), elapsedMs: null}); row.pending = true;
     }
+    this.cost = new ReceiptCost(storage, key, this.rows, RECEIPT_LIMIT);
     this.persist();
   }
   persist() { try { this.storage.setItem(this.key, JSON.stringify(this.rows)); } catch { /* Generation must survive a full storage quota. */ } }
@@ -20,7 +22,7 @@ export class ReceiptJournal {
     const row = {receipt: structuredClone(receipt), pending: receipt.status !== 'running'};
     const index = this.rows.findIndex(r => r.receipt.id === receipt.id);
     if (index < 0) this.rows.push(row); else this.rows[index] = row;
-    this.rows = this.rows.slice(-RECEIPT_LIMIT); this.persist();
+    this.rows = this.rows.slice(-RECEIPT_LIMIT); this.cost.record(receipt, this.rows); this.persist();
   }
   pending() { return this.rows.find(r => r.pending)?.receipt ?? null; }
   acknowledge(id) { const row = this.rows.find(r => r.receipt.id === id); if (row) { row.pending = false; this.persist(); } }

@@ -27,7 +27,8 @@ enum NativeScreenFixture {
         let ledger: [String: Any] = ["format": 1, "head": 3, "versions": versions]
         let json = String(data: try! JSONSerialization.data(withJSONObject: ledger), encoding: .utf8)!
         let busy = mode == "working" ? "window.__walkiewareFixtureBusy='Someone is eating them';" : ""
-        return busy + "window.__whistlegraphFixture=true;window.__walkiewareDisableThread=true;localStorage.setItem('whistlegraph-fixture-source-versions',JSON.stringify(\(json)));localStorage.setItem('whistlegraph-fixture-source',\(json).versions[3].source);"
+        let cost = "localStorage.removeItem('whistlegraph-fixture-source-receipt-cost');localStorage.setItem('whistlegraph-fixture-source-receipts',JSON.stringify([{receipt:{format:1,id:'fixture-cost',repairs:0,status:'success',rounds:[{usage:{costUSD:0.42}}]}}]));"
+        return busy + cost + "window.__whistlegraphFixture=true;window.__walkiewareDisableThread=true;localStorage.setItem('whistlegraph-fixture-source-versions',JSON.stringify(\(json)));localStorage.setItem('whistlegraph-fixture-source',\(json).versions[3].source);"
     }
 }
 #endif

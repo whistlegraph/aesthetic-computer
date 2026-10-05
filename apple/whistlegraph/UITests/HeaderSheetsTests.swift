@@ -14,6 +14,10 @@ final class HeaderSheetsTests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment["WALKIE_NATIVE_SCREEN_FIXTURE"] = "history"
         app.launch()
+        // The button exists as "Log in" before the engine has loaded the fixture.
+        let account = app.buttons.matching(identifier: "workspace-account")
+            .matching(NSPredicate(format: "label == %@", "@preview, account")).firstMatch
+        XCTAssertTrue(account.waitForExistence(timeout: 25), "the signed-in fixture is ready")
         return app
     }
 
@@ -68,6 +72,19 @@ final class HeaderSheetsTests: XCTestCase {
         XCTAssertTrue(app.segmentedControls.firstMatch.exists, "appearance moved into the account sheet")
         app.buttons["Done"].tap()
         XCTAssertTrue(waitForDisappearance(of: app.buttons["account-sign-out"]), "Done closes the account sheet")
+    }
+
+    func testThreadCostAppearsLeftOfBrain() {
+        let app = launch()
+        let cost = app.staticTexts["thread-cost"]
+        XCTAssertTrue(cost.waitForExistence(timeout: 20))
+        XCTAssertEqual(cost.value as? String, "$0.42")
+        let brain = app.buttons["brain-settings"]
+        XCTAssertTrue(brain.exists)
+        XCTAssertLessThanOrEqual(cost.frame.maxX, brain.frame.minX)
+        XCTAssertLessThan(abs(cost.frame.midY - brain.frame.midY), 3)
+        let image = XCTAttachment(screenshot: app.screenshot())
+        image.name = "Thread cost left of brain"; image.lifetime = .keepAlways; add(image)
     }
 
     func testPixelSizePersistsAcrossLaunches() {

@@ -8,6 +8,7 @@ struct InferenceSnapshot: Decodable {
         let limit: Double
         let purchased: Double
         let resetsAt: String?
+        let unlimited: Bool?
     }
     struct Usage: Decodable {
         let inputTokens: Int
@@ -24,6 +25,8 @@ struct InferenceSnapshot: Decodable {
     let braincells: Braincells?
     let braincellsError: String
     let usage: Usage?
+    struct ThreadCost: Decodable { let usd: Double; let partial: Bool }
+    let threadCost: ThreadCost?
 }
 
 struct BrainButton: View {
@@ -66,12 +69,16 @@ struct BrainSettings: View {
                     }
                     Section("Braincells") {
                         if let balance = inference.braincells {
-                            LabeledContent("Daily remaining", value: cells(balance.remaining) + " / " + cells(balance.limit))
-                                .accessibilityIdentifier("brain-balance")
-                            ProgressView(value: min(balance.used, balance.limit), total: max(1, balance.limit))
-                                .accessibilityLabel("Daily braincells used").accessibilityValue(cells(balance.used))
+                            if balance.unlimited == true {
+                                LabeledContent("Allowance", value: "Unlimited")
+                            } else {
+                                LabeledContent("Daily remaining", value: cells(balance.remaining) + " / " + cells(balance.limit))
+                                    .accessibilityIdentifier("brain-balance")
+                                ProgressView(value: min(balance.used, balance.limit), total: max(1, balance.limit))
+                                    .accessibilityLabel("Daily braincells used").accessibilityValue(cells(balance.used))
+                            }
                             LabeledContent("Purchased", value: cells(balance.purchased))
-                            if let reset = balance.resetsAt.flatMap({ ISO8601DateFormatter().date(from: $0) ?? ISO8601DateFormatter.fullPrecision.date(from: $0) }) {
+                            if balance.unlimited != true, let reset = balance.resetsAt.flatMap({ ISO8601DateFormatter().date(from: $0) ?? ISO8601DateFormatter.fullPrecision.date(from: $0) }) {
                                 LabeledContent("Daily reset", value: reset.formatted(date: .omitted, time: .shortened))
                             }
                         } else if inference.braincellsError.isEmpty {
@@ -103,5 +110,21 @@ private extension ISO8601DateFormatter {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
+    }
+}
+
+struct ThreadCostLabel: View {
+    let cost: InferenceSnapshot.ThreadCost
+    private var amount: String {
+        cost.partial ? (floor(cost.usd * 100) / 100).formatted(.currency(code: "USD")) :
+            (cost.usd > 0 && cost.usd < 0.01 ? "< $0.01" : cost.usd.formatted(.currency(code: "USD")))
+    }
+    var body: some View {
+        Text((cost.partial ? "≥ " : "") + amount)
+            .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            .lineLimit(1).fixedSize(horizontal: true, vertical: false)
+            .accessibilityLabel("Thread inference cost, USD")
+            .accessibilityValue((cost.partial ? "At least " : "") + amount)
+            .accessibilityIdentifier("thread-cost")
     }
 }

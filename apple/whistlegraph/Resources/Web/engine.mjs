@@ -62,7 +62,7 @@ async function refreshBraincells(){
 }
 function inferenceSnapshot(){
   const model=activeModel||profile().model,receipt=activeReceipt?.value||receipts.rows.at(-1)?.receipt;
-  return {model,label:MODEL_LABELS[model]||model,provider:'OpenRouter',selection:profile().model,models:modelChoices(accountHandle),braincells,braincellsError,
+  return {model,label:MODEL_LABELS[model]||model,provider:'OpenRouter',selection:profile().model,models:modelChoices(accountHandle),braincells,braincellsError,threadCost:receipts.cost.snapshot(),
     usage:receipt?{inputTokens:receipt.rounds.reduce((n,r)=>n+(r.usage?.inputTokens||0),0),outputTokens:receipt.rounds.reduce((n,r)=>n+(r.usage?.outputTokens||0),0),rounds:receipt.rounds.length,repairs:receipt.repairs,status:receipt.status}:null};
 }
 function paintHandle(handle,colors=handleCharacterColors('@'+handle)){
@@ -574,12 +574,12 @@ if(versions&&!window.__walkiewareSequence&&!window.__walkiewareBenchmark&&!windo
   };
   // Every piece on this phone: the open one plus the archives "New piece" left.
   // Opening another swaps archives, so the current one is never lost.
-  const ARCHIVE='walkieware-archive-',ARCHIVE_SUFFIXES=['-cloud-revision','-cloud-ledger','-receipts'];
+  const ARCHIVE='walkieware-archive-',ARCHIVE_SUFFIXES=['-cloud-revision','-cloud-ledger','-receipts','-receipt-cost'];
   function archiveCurrentPiece(){
     const extras={};for(const suffix of ARCHIVE_SUFFIXES){const v=localStorage.getItem(storageKey+suffix);if(v!==null)extras[suffix]=v;}
     localStorage.setItem(ARCHIVE+thread.identity.id,JSON.stringify({identity:thread.identity,ledger:versions.value,source,extras,archivedAt:new Date().toISOString()}));
     thread.suspend();
-    for(const suffix of ['', '-versions','-thread','-cloud-revision','-cloud-ledger','-attempt','-inflight','-receipts'])localStorage.removeItem(storageKey+suffix);
+    for(const suffix of ['', '-versions','-thread','-cloud-revision','-cloud-ledger','-attempt','-inflight','-receipts','-receipt-cost'])localStorage.removeItem(storageKey+suffix);
   }
   function pieceSummary(id,identity,ledger,current){
     const made=(ledger?.versions||[]).filter(v=>v.id>0),last=made.at(-1);
