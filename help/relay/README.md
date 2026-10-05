@@ -35,6 +35,21 @@ Every private request needs `Authorization: Bearer <AC access token>`.
 - `GET /api/aesel/sessions/:id?after=<sequence>`: events (up to 500), pending approvals, request statuses.
 - `POST /api/aesel/sessions/:id/respond`: `{id, result}` matching an outstanding engine request.
 - `POST /api/aesel/sessions/:id/interrupt`: `{}`.
+- `POST /api/aesel/transcription-session`: a 60-second OpenAI client secret for
+  `gpt-live-transcribe`, 24 kHz mono PCM, with manual commit. The phone streams
+  microphone chunks immediately and displays deltas during recording.
+- `POST /api/aesel/transcribe`: `{audio:<base64 mono 16 kHz PCM WAV>}`, at most
+  46 seconds. Whisper returns final text and measured word timestamps after a
+  performance or when on-device recognition has no words. Audio is transient
+  here; the original recording remains on the phone.
+
+Speech uses the separate `WHISTLEGRAPH_TRANSCRIPTION_KEY` server credential
+and the OpenAI API, independently of personal Claude/Codex subscriptions.
+The key is captured in the speech handlers and removed from the environment
+before any provider CLI can inherit it. Neither API keys nor recordings are
+stored in speech session logs. Both speech routes use the same verified-owner
+gate. Live text is provisional; network arrival times are never used as word
+timestamps. Validate with `node --test help/relay/transcription.test.mjs`.
 
 Submit each attempt with a stable request UUID. Retries with the same UUID
 return its status without executing again. The full input, including image

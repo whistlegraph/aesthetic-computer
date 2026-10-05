@@ -6,6 +6,7 @@ import {join} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {ClaudeServer} from '../../aesel/src/claude-server.mjs';
 import {AppServer} from '../../aesel/src/app-server.mjs';
+import {createTranscriber,createSpeechSession} from './transcription.mjs';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const fail = (status, message) => Object.assign(new Error(message), {status});
@@ -33,7 +34,7 @@ export function ownerAuth({adminSub, domain='aesthetic.us.auth0.com', fetch=glob
   };
 }
 
-export function createRelay({root, authorize, factory, maxActive=2}={}) {
+export function createRelay({root, authorize, factory, transcribe, speechSession, maxActive=2}={}) {
   if (!root || !authorize) throw Error('State directory and authorization are required');
   mkdirSync(root,{recursive:true,mode:0o700});
   const sessions=new Map();
@@ -136,6 +137,14 @@ export function createRelay({root, authorize, factory, maxActive=2}={}) {
         toolReplies.set(id,{s,res,timer});res.on('close',()=>{clearTimeout(timer);toolReplies.delete(id);s.pending.delete(id);});return;
       }
       await authorize(req.headers.authorization);
+      if(url.pathname==='/api/aesel/transcription-session' && req.method==='POST') {
+        if(!speechSession)throw fail(503,'Live speech is unavailable');
+        return json(res,200,await speechSession());
+      }
+      if(url.pathname==='/api/aesel/transcribe' && req.method==='POST') {
+        if(!transcribe)throw fail(503,'Speech transcription is unavailable');
+        return json(res,200,await transcribe(await body(req)));
+      }
       if(url.pathname==='/api/aesel/sessions' && req.method==='POST') {
         const input=await body(req);
         if(!['claude','codex'].includes(input.provider))throw fail(400,'Choose claude or codex');
@@ -205,9 +214,12 @@ export function createRelay({root, authorize, factory, maxActive=2}={}) {
 }
 
 if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) {
+  const transcribe=createTranscriber({apiKey:process.env.WHISTLEGRAPH_TRANSCRIPTION_KEY});
+  const speechSession=createSpeechSession({apiKey:process.env.WHISTLEGRAPH_TRANSCRIPTION_KEY});
+  delete process.env.WHISTLEGRAPH_TRANSCRIPTION_KEY;
   // A private subscription relay must never silently fall through to paid API keys.
   for(const key of ['ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN','OPENAI_API_KEY','OPENROUTER_API_KEY'])delete process.env[key];
-  const server=createRelay({root:process.env.AESEL_RELAY_STATE||'/var/lib/aesel-relay',authorize:ownerAuth({adminSub:process.env.ADMIN_SUB,domain:process.env.AUTH0_DOMAIN})});
+  const server=createRelay({root:process.env.AESEL_RELAY_STATE||'/var/lib/aesel-relay',transcribe,speechSession,authorize:ownerAuth({adminSub:process.env.ADMIN_SUB,domain:process.env.AUTH0_DOMAIN})});
   server.listen(Number(process.env.AESEL_RELAY_PORT||3006),'127.0.0.1',()=>console.log('Aesel relay listening on loopback'));
   for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>{server.close();setTimeout(()=>process.exit(0),1000).unref();});
 }
