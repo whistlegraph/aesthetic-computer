@@ -167,6 +167,13 @@
     .feed-media > img, .feed-media > video, .feed-media > iframe.doc { display: block; width: 100%; height: 100%; object-fit: contain; border: 0; }
     .feed-media > audio { width: calc(100% - 32px); }
     .feed-media > pre.textfile { width: 100%; height: 100%; margin: 0; padding: 18px; overflow: auto; font-size: 14px; white-space: pre-wrap; background: var(--card); }
+    /* Text and HTML flow: the frame takes the document's full height, so the page's own scroll reads it. */
+    .feed-media.media-flow, .post.media-post:has(> .media-flow) { overflow: clip; } /* clip, not hidden: no scroll container, so the toggle can stick */
+    .feed-media.media-flow { aspect-ratio: auto; display: flex; flex-direction: column; }
+    .feed-media.media-flow > pre.textfile { height: auto; overflow: visible; }
+    .feed-media.media-flow > iframe.doc { height: 240px; background: var(--card); }
+    .feed-media.media-flow > .media-toggle { position: sticky; bottom: 84px; align-self: flex-end; margin: -42px 10px 10px 0; } /* rides along a tall document, clear of the account bar */
+    .feed-media.media-page { aspect-ratio: 17 / 22; max-height: 85vh; } /* a PDF sits in a letter-shaped box; its viewer pages inside */
     .piece-preview { position: relative; width: 100%; height: 100%; display: grid; place-items: center; }
     .piece-preview > img, .piece-preview > iframe { width: 100%; height: 100%; object-fit: contain; border: 0; }
     .piece-preview > iframe { position: absolute; inset: 0; background: var(--media); }
@@ -698,9 +705,33 @@ function renderFile(file) {
       if (file.poster) media.poster = file.poster;
       media.src = file.url;
     });
-  } else if (file.type === "application/pdf" || file.type === "text/html") {
+  } else if (file.type === "text/html") {
+    // Same-origin srcdoc with scripts still off, so the frame can be measured and
+    // grown to its full height: the feed scrolls through it, nothing scrolls inside.
     media = el("iframe", "doc");
-    media.setAttribute("sandbox", ""); // markup renders, scripts never run
+    media.dataset.flow = "";
+    media.setAttribute("sandbox", "allow-same-origin");
+    media.title = file.name;
+    const fit = () => {
+      const doc = media.contentDocument;
+      if (doc?.documentElement) media.style.height = doc.documentElement.scrollHeight + "px";
+    };
+    media.addEventListener("load", () => {
+      fit();
+      // Images, fonts and anything else that lands late re-fit the frame.
+      const win = media.contentWindow, root = media.contentDocument?.documentElement;
+      if (win?.ResizeObserver && root) new win.ResizeObserver(fit).observe(root);
+    });
+    nearViewport(media, () => fetch(file.url).then((r) => { if (!r.ok) throw new Error("File unavailable"); return r.text(); }).then((html) => {
+      media.srcdoc = `<base href="${file.url.replace(/"/g, "&quot;")}">` + html;
+    }).catch(() => { media.srcdoc = "file unavailable"; }));
+  } else if (file.type === "application/pdf") {
+    // The browser's PDF viewer can't be measured from outside, so it keeps a
+    // page-shaped box and scrolls its own pages once the viewer has Interact.
+    // No sandbox attribute: Chrome refuses to show a PDF in a sandboxed frame.
+    // The file endpoint's Content-Security-Policy: sandbox header still applies.
+    media = el("iframe", "doc");
+    media.dataset.page = "";
     media.loading = "lazy";
     nearViewport(media, () => { media.src = file.url; });
     media.title = file.name;
@@ -887,7 +918,11 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
       fit();
     }
     if (file.tagName === "AUDIO") frame.classList.add("media-audio");
-    shieldMedia(frame, file, Boolean(frame.dataset.tape) || runnable || ["IFRAME", "VIDEO", "AUDIO", "PRE", "A"].includes(file.tagName));
+    // Text and HTML take their full height, so the feed's own scroll reads them.
+    if (file.tagName === "PRE" || "flow" in file.dataset) frame.classList.add("media-flow");
+    if ("page" in file.dataset) frame.classList.add("media-page");
+    // Plain text has nothing to shield; it reads and selects in place.
+    if (file.tagName !== "PRE") shieldMedia(frame, file, Boolean(frame.dataset.tape) || runnable || ["IFRAME", "VIDEO", "AUDIO", "A"].includes(file.tagName));
     div.append(frame);
   }
   if (post.text) div.append(renderText(post.text));
