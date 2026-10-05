@@ -90,7 +90,7 @@
 #include "sailor-chart.h"
 
 #define SR 48000
-#define VERSION "v114"
+#define VERSION "v115"
 #define EAGER 0.009          // v73: "eager" placement — percussion pushes ~9 ms ahead of the grid
 #define PIANO_ON 1          // v112: ON — "I wanted the piano" (v71 had turned it off)
 #define SHIFT27 0.0          // v53: how much earlier everything after bar 27 plays, now that the regularizer fits it to four beats
@@ -966,7 +966,7 @@ int main(void) {
     // v36: the held "long"s RISE an octave and keep going (bin/pitch-fx.py: f0 cleaned, the vowel extended on her own frames);
     // the engine replaces her lead with the rise, and lays a gliding sine + bells on every scale step the glide crosses (the .curve)
     // v55: a fourth: "kiss" itself, placed a beat and a bit before where it was sung and held to "me" (60.84) — only the start of the word moves
-    static struct { const char *name; double t0, t1, orig; int slide; } FX[4] = { { "rise-long-1", 86.40, 0, 90.95, 1 }, { "rise-long-2", 132.68, 0, 0, 1 }, { "hold-out-OFF", 159.40, 0, 0, 1 }, { "kiss-hold-OFF", 60.07, 0, 60.84, 1 } };   // v94: the warped words carry her own ending (orig 0 = to the file's end); v96: her "out" as she sang it — the ghosts extend it   // v57: off — her timing
+    static struct { const char *name; double t0, t1, orig; int slide; } FX[4] = { { "rise-long-1", 86.40, 0, 90.95, 1 }, { "rise-long-2", 132.68, 0, 0, 1 }, { "hold-out-OFF", 159.40, 0, 0, 1 }, { "kiss-hold", 60.50, 0, 60.84, 1 } };   // v115: ON again, placed at 60.50 (right after her k-), her vowel stretched to end where it ended   // v94: the warped words carry her own ending (orig 0 = to the file's end); v96: her "out" as she sang it — the ghosts extend it   // v57: off — her timing
     Stereo fxS[4]; int nfx = 0; for (int q = 0; q < 4; q++) { snprintf(pth, sizeof pth, LANE "/src/vox/fx/%s.wav", FX[q].name); fxS[q] = access(pth, F_OK) == 0 ? load_wav(pth) : (Stereo){ 0 }; nfx += !!fxS[q].L;
         if (fxS[q].L && FX[q].t1 == 0) FX[q].t1 = FX[q].t0 + (double)fxS[q].n / SR; if (fxS[q].L && FX[q].orig == 0) FX[q].orig = FX[q].t1 - 0.06; }
     int ntom = 0; for (int q = 0; q < 4; q++) { snprintf(pth, sizeof pth, LANE "/src/kit/tom-%d.wav", q + 1); TOM_S[q] = access(pth, F_OK) == 0 ? load_wav(pth) : (Stereo){ 0 };
@@ -1399,6 +1399,10 @@ int main(void) {
     // v88: at 1:10 — a deep FEM gong, G#2, with a slow vibrato, ringing eight seconds (the downbeat nearest 70 s of the record)
     { const ChartBar *gb = bar_n(44); gong_deep(gb->t, 44, 0.75, 4.6, 14); }   // v101: on bar 44's downbeat — her first rise lands on the deep bell
     // v103: the "wrong" exception (v86: reverse kick + bell frill + her third) is gone — "those exceptions feel like bugs now"
+    // v115: the stems made from her voice (halo, harm, choir, sister) still carry "kiss" at 60.675 — they go quiet 60.44–0.86 while
+    // the warped lead carries the word (the v55 trick, now live)
+    { Stereo *dv[16]; int nd = 0; dv[nd++] = &halo; for (int h = 0; h < NHARM; h++) dv[nd++] = &harm[h]; for (int c = 0; c < 3; c++) dv[nd++] = &choir[c]; dv[nd++] = &sisHi; dv[nd++] = &sisLo; dv[nd++] = &sisHum;
+      for (int q = 0; q < nd; q++) { Stereo *st = dv[q]; if (!st->L) continue; for (long i = at(60.42); i < at(60.88) && i < st->n; i++) { double t = (double)i / SR, g = t < 60.44 ? (60.44 - t) / 0.02 : t > 60.86 ? fmin(1, (t - 60.86) / 0.02) : 0; st->L[i] *= (float)g; if (st->R) st->R[i] *= (float)g; } } }
     // v24: THE STUTTER — "the k-kiss hiccup should be musically recovered": the first 90 ms of her own
     // "kiss" (the chorus downbeat word) repeated on 16ths across the last two beats of the bar before
     // each chorus and the bridge, rising, a trap hat under each — the hiccup becomes the pickup
@@ -1424,7 +1428,7 @@ int main(void) {
 #define KI_GRAIN(T, RATIO, G) do { long a_ = at(T); int n_ = (int)(GL * SR); for (int i = 0; i < n_; i++) { double pp = src0 + i * (RATIO); long j = (long)pp; double f = pp - j; \
             double v = sample(vox.L, vox.n, j) * (1 - f) + sample(vox.L, vox.n, j + 1) * f; double w = fmin(1, i / (0.003 * SR)) * fmin(1, (n_ - i) / (0.010 * SR)); add(stM, a_ + i, v * w * (G)); } } while (0)
         for (int q = 0; q < 3; q++) { double t = runT0 - beat + q * s32, ratio = pow(2, ST[q] / 12.0) * 0.5; KI_GRAIN(t, ratio, 0.45); ev(t, "stutter", GL, 0.45, -1); }
-        int h = 0; for (double t = runT0; t < down - 0.015 && h < 6; t += s32, h++) {
+        int h = 0; for (double t = runT0; t < 60.49 && h < 6; t += s32, h++) {   // v115: the run ends where the stretched "kiss" begins (60.50)
             double ratio = pow(2, ST[h] / 12.0) * 0.5, g = (0.5 + 0.5 * h / 5.0) * 1.6;
             KI_GRAIN(t, ratio, g);
             trap_hat(t, 0.06 * g, h % 2 ? 0.45 : -0.45); ev(t, "stutter", GL, g, -1); }

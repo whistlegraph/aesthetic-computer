@@ -20,6 +20,7 @@ OUT = os.path.join(LANE, "src/vox/fx"); os.makedirs(OUT, exist_ok=True)
 FRAME_MS = 5.0
 
 # the windows (stem seconds, from src/words-record.json + startSec): her two held "long"s, and her first line
+np.random.seed(7)   # v115: deterministic drift — re-rendering one word must not move the others
 FX = [
     # v36: the held "long"s RISE an octave and keep going — f0 cleaned, the vowel extended on her own frames, a curve for the engine
     # v37: QUANTIZED — after the hold the pitch climbs the scale one degree per 8th (seven to the octave), each step snapped flat
@@ -29,7 +30,7 @@ FX = [
     {"name": "hold-out", "t0": 159.40, "t1": 160.97, "mode": "hold", "semis": 0, "hold": 1.0, "extend": 2.6},
     # v55: "only the start of 'kiss'" — the word itself (60.675–60.84) placed where "you" ends (60.07, the strip's 27.4) and its vowel
     # held until "me" (60.84): extend = 0.77 − 0.165. The engine places it at `place` and replaces her lead from there to `orig`.
-    {"name": "kiss-hold", "t0": 60.675, "t1": 60.84, "mode": "hold", "semis": 0, "hold": 1.0, "extend": 0.605, "place": 60.07},   # v56: where "you" ends, held to "me"
+    {"name": "kiss-hold", "t0": 60.675, "t1": 60.84, "mode": "hold", "semis": 0, "hold": 1.0, "extend": 0.175, "place": 60.50},   # v115: "start kiss earlier but end it at the same time" — placed right after her k-, the i vowel stretched 0.175 s, ends where it ended   # v56: where "you" ends, held to "me"
 ]
 
 x, fs = sf.read(SRC, dtype="float64", always_2d=True); x = x[:, 0]
