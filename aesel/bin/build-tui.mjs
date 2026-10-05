@@ -8,9 +8,17 @@ import {createHash} from 'node:crypto';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const source=resolve(root,'src');
 const digest=value=>createHash('sha256').update(value).digest('hex');
+// esbuild is pinned by aesel/web's lockfile, which lith installs before packing.
+// system/ only carries it as a Netlify dev dependency, so it is the fallback.
+function loadEsbuild(){
+  for(const manifest of [resolve(root,'web/package.json'),resolve(root,'../system/package.json')]){
+    try{return createRequire(manifest)('esbuild')}
+    catch(error){if(error.code!=='MODULE_NOT_FOUND')throw error}
+  }
+  throw new Error('esbuild not found: run npm ci in aesel/web');
+}
 export async function buildTui(){
-  const require=createRequire(resolve(root,'../system/package.json'));
-  const {build}=require('esbuild');
+  const {build}=loadEsbuild();
   // These objects are also used by the host and integration fixtures. Preserve
   // their module identity; provider implementations remain lazy imports.
   const shared=new Set(['ac-session.mjs','backends.mjs','audience.mjs','diagnostics.mjs','frame-diff.mjs','turn-recovery.mjs','startup-trace.mjs']);
