@@ -125,3 +125,22 @@ cost, never a fabricated zero. The current provider stays selected after upgrade
 Story playback owns a separate WebKit runtime so it can play during generation
 without replacing the pixels under visual review. The wood frame belongs to the
 phone's chrome and is excluded from the piece, TV output, and story exports.
+
+## Tezos and cost units (build 104)
+
+Brain settings remembers Braincells / USD / Tezos and applies it to balances,
+request costs and the thread meter. Balance value uses the existing $5 per
+million pack. Inference meters keep provider cost; equivalent braincells are
+not wallet deductions. Hosted AC inference charges twice provider cost, drawing
+from free allowance first. Tezos conversions use an expiring, timestamped TzKT
+rate from `/api/easel-tezos`; an unavailable rate is never replaced with zero.
+
+Buy braincells with tez opens an AC checkout in the browser, where Beacon pairs
+with Temple or another Tezos wallet. The user signs and approves in their wallet.
+The app stores only a checkout capability bound to the signed-in handle and
+reconciles on return; credit is granted by server verification. The production
+purchase link is limited to the US App Store storefront; Debug permits device
+testing. The API flag `AC_TEZOS_CREDITS_ENABLED` controls new purchases.
+
+`HeaderSheetsTests/testPhoneCostUnitToggle` checks all three units and persistence
+on the paired phone without initiating a purchase.

@@ -4,6 +4,32 @@ import XCTest
 // the pieces sheet with a way to start a new piece. Runs on the simulator
 // against the "history" fixture, which signs nothing in and reaches no cloud.
 final class HeaderSheetsTests: XCTestCase {
+    // Uses the paired phone's current workspace; only changes display units.
+    func testPhoneCostUnitToggle() {
+        let app = XCUIApplication()
+        app.launch()
+        let brain = app.buttons["brain-settings"]
+        XCTAssertTrue(brain.waitForExistence(timeout: 30))
+        brain.tap()
+        app.swipeUp()
+        let units = app.segmentedControls["brain-cost-unit"]
+        XCTAssertTrue(units.waitForExistence(timeout: 15))
+        for unit in ["Braincells", "USD", "Tezos"] {
+            units.buttons[unit].tap()
+            XCTAssertTrue(units.buttons[unit].isSelected)
+            let image = XCTAttachment(screenshot: app.screenshot())
+            image.name = "Brain cost in " + unit; image.lifetime = .keepAlways; add(image)
+        }
+        XCTAssertTrue(app.buttons["brain-buy-tezos"].exists)
+        app.buttons["Done"].tap()
+        app.terminate(); app.launch()
+        XCTAssertTrue(brain.waitForExistence(timeout: 30))
+        brain.tap(); app.swipeUp()
+        XCTAssertTrue(units.waitForExistence(timeout: 15))
+        XCTAssertTrue(units.buttons["Tezos"].isSelected, "unit survives relaunch")
+        app.buttons["Done"].tap()
+    }
+
     func testPieceAudioStartsWithoutTouch() {
         let app = XCUIApplication()
         app.launchEnvironment["WALKIE_NATIVE_SCREEN_FIXTURE"] = "audio"

@@ -64,7 +64,7 @@ async function refreshBraincells(){
 function inferenceSnapshot(){
   const model=activeModel||profile().model,receipt=activeReceipt?.value||receipts.rows.at(-1)?.receipt;
   return {model,label:MODEL_LABELS[model]||model,provider:profile().personalRelay?(model.startsWith('openai/')?'Personal Codex':'Personal Claude'):'OpenRouter',selection:profile().model,models:modelChoices(accountHandle),braincells,braincellsError,threadCost:receipts.cost.snapshot(),
-    usage:receipt?{inputTokens:receipt.rounds.reduce((n,r)=>n+(r.usage?.inputTokens||0),0),outputTokens:receipt.rounds.reduce((n,r)=>n+(r.usage?.outputTokens||0),0),rounds:receipt.rounds.length,repairs:receipt.repairs,status:receipt.status}:null};
+    usage:receipt?{inputTokens:receipt.rounds.reduce((n,r)=>n+(r.usage?.inputTokens||0),0),outputTokens:receipt.rounds.reduce((n,r)=>n+(r.usage?.outputTokens||0),0),rounds:receipt.rounds.length,repairs:receipt.repairs,status:receipt.status,cost:{usd:receipt.rounds.reduce((n,r)=>n+(r.usage?.costUSD||0),0),partial:receipt.rounds.some(r=>r.usage?.costUSD==null && (r.httpStatus==null || r.httpStatus<400)),estimated:receipt.rounds.some(r=>r.usage?.estimated)}}:null};
 }
 function paintHandle(handle,colors=handleCharacterColors('@'+handle)){
   accountPalette=colors;

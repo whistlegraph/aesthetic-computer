@@ -38,6 +38,12 @@ struct WhistlegraphApp: App {
             .onChange(of: phase) { _, value in
                 if value == .background { voice.cancelHold() }
                 if value == .active && voice.capturePhase == .idle { voice.resumePieceAudio() }
+                if value == .active { Task { await voice.tezosBraincells.refresh(session: voice) } }
+            }
+            .onOpenURL { url in
+                if url.scheme == "whistlegraph" && url.host == "braincells" {
+                    Task { await voice.tezosBraincells.refresh(session: voice) }
+                }
             }
         }
     }
@@ -302,6 +308,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         else { startupFailure = "The workspace stopped. Tap Reload to reopen it." }
     }
     let account = WhistlegraphAccount()
+    let tezosBraincells = TezosBraincells()
     // The microphone, recognizer and release timing live in SpeechCapture; this
     // class only turns its events into screen state and bridge messages.
     private let capture = SpeechCapture()

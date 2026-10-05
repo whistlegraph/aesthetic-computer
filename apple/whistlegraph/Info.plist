@@ -6,5 +6,6 @@
 <key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string></array><key>UIUserInterfaceStyle</key><string>Dark</string><key>ITSAppUsesNonExemptEncryption</key><false/>
 <key>NSLocalNetworkUsageDescription</key><string>Find AC OS devices on your Wi-Fi and project your Whistlegraph piece to them.</string>
 <key>NSBonjourServices</key><array><string>_http._tcp</string></array>
+<key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>computer.aesthetic.walkieware.braincells</string><key>CFBundleURLSchemes</key><array><string>whistlegraph</string></array></dict></array>
 <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
 </dict></plist>

@@ -16,6 +16,7 @@ struct InferenceSnapshot: Decodable {
         let rounds: Int
         let repairs: Int
         let status: String
+        let cost: ThreadCost?
     }
     let model: String
     let label: String
@@ -49,8 +50,11 @@ struct BrainButton: View {
 struct BrainSettings: View {
     @ObservedObject var session: WhistlegraphSession
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(CostUnit.preference) private var costUnit: CostUnit = .usd
+    @ObservedObject private var prices = TezDisplayRate.shared
     private var disabled: Bool { session.snapshot.busy || session.capturePhase != .idle }
-    private func cells(_ number: Double) -> String { number.formatted(.number.precision(.fractionLength(0))) }
+    private func cells(_ number: Double) -> String { costUnit.amount(usd: number / CostUnit.cellsPerUSD, rate: prices.rate) }
     var body: some View {
         NavigationStack {
             List {
@@ -67,7 +71,8 @@ struct BrainSettings: View {
                         LabeledContent("Service provider", value: inference.provider)
                         if session.snapshot.busy { LabeledContent("Running", value: inference.label) }
                     }
-                    Section("Braincells") {
+                    Section("Balance") {
+                        CostUnitPicker()
                         if let balance = inference.braincells {
                             if balance.unlimited == true {
                                 LabeledContent("Allowance", value: "Unlimited")
@@ -87,14 +92,22 @@ struct BrainSettings: View {
                             Text(inference.braincellsError).foregroundStyle(.secondary)
                         }
                         Button("Refresh") { session.command("refreshBraincells") }
+                        TezosPurchaseButton(session: session, purchase: session.tezosBraincells)
                     }
                     if let usage = inference.usage {
                         Section(session.snapshot.busy ? "This request" : "Last request") {
+                            if let cost = usage.cost {
+                                LabeledContent("Provider cost") { ThreadCostLabel(cost: cost) }
+                            }
                             LabeledContent("Input tokens", value: usage.inputTokens.formatted())
                             LabeledContent("Output tokens", value: usage.outputTokens.formatted())
                             LabeledContent("Inference calls", value: usage.rounds.formatted())
                             LabeledContent("Repairs", value: usage.repairs.formatted())
                         }
+                    }
+                    Section {
+                        Text("Inference costs show provider value in the selected unit. Hosted AC inference charges twice provider cost in braincells; free allowance is used first.")
+                            .font(.footnote).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -102,6 +115,25 @@ struct BrainSettings: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }.presentationDetents([.medium, .large])
+            .task { await prices.refresh(); await session.tezosBraincells.prepare(); await session.tezosBraincells.refresh(session: session) }
+            .task(id: costUnit) { if costUnit == .tezos { await prices.refresh() } }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { Task { await prices.refresh(); await session.tezosBraincells.refresh(session: session) } }
+            }
+    }
+}
+
+private struct TezosPurchaseButton: View {
+    @ObservedObject var session: WhistlegraphSession
+    @ObservedObject var purchase: TezosBraincells
+    var body: some View {
+        if purchase.available {
+            Button { Task { await purchase.buy(session: session) } } label: {
+                Label(purchase.busy ? "Checking payment…" : "Buy braincells with tez", systemImage: "arrow.up.right.square")
+            }.disabled(purchase.busy || session.snapshot.handle.isEmpty)
+                .accessibilityIdentifier("brain-buy-tezos")
+        }
+        if !purchase.notice.isEmpty { Text(purchase.notice).font(.footnote).foregroundStyle(.secondary) }
     }
 }
 
@@ -115,16 +147,16 @@ private extension ISO8601DateFormatter {
 
 struct ThreadCostLabel: View {
     let cost: InferenceSnapshot.ThreadCost
-    private var amount: String {
-        cost.partial ? (floor(cost.usd * 100) / 100).formatted(.currency(code: "USD")) :
-            (cost.usd > 0 && cost.usd < 0.01 ? "< $0.01" : cost.usd.formatted(.currency(code: "USD")))
-    }
+    @AppStorage(CostUnit.preference) private var unit: CostUnit = .usd
+    @ObservedObject private var prices = TezDisplayRate.shared
+    private var amount: String { unit.amount(usd: cost.usd, rate: prices.rate, partial: cost.partial) }
     var body: some View {
-        Text((cost.estimated == true ? "≈ " : cost.partial ? "≥ " : "") + amount)
+        Text((cost.partial ? "≥ " : "") + (cost.estimated == true || unit == .tezos ? "≈ " : "") + amount)
             .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             .lineLimit(1).fixedSize(horizontal: true, vertical: false)
-            .accessibilityLabel(cost.estimated == true ? "Estimated thread inference value, USD" : "Thread inference cost, USD")
+            .accessibilityLabel("Provider inference value, " + unit.label)
             .accessibilityValue((cost.partial ? "At least " : "") + amount)
             .accessibilityIdentifier("thread-cost")
+            .task(id: unit) { if unit == .tezos { await prices.refresh() } }
     }
 }
