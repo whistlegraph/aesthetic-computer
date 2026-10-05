@@ -8,15 +8,16 @@ import {randomUUID} from 'node:crypto';
 import {createRelay,ownerAuth} from './service.mjs';
 import {RemoteServer} from '../../aesel/src/remote-server.mjs';
 class Engine extends EventEmitter {
+  constructor(phone=false){super();this.phone=phone;}
   async connect(){this.threadId=randomUUID();return {thread:{id:this.threadId}};}
-  async startTurn(text){this.starts=(this.starts||0)+1;this.text=text;this.emit('notification',{method:'turn/started',params:{turn:{id:'turn-1'}}});this.emit('request',{id:'approval-1',method:'item/commandExecution/requestApproval',params:{command:'edit piece'}});}
+  async startTurn(text){this.starts=(this.starts||0)+1;this.text=text;this.emit('notification',{method:'turn/started',params:{turn:{id:'turn-1'}}});if(!this.phone)this.emit('request',{id:'approval-1',method:'item/commandExecution/requestApproval',params:{command:'edit piece'}});}
   respond(id,result){this.decision=result.decision;this.emit('notification',{method:'item/agentMessage/delta',params:{delta:'Saved.'}});this.emit('notification',{method:'turn/completed',params:{turn:{id:'turn-1',status:'completed'}}});}
   close(){this.closed=true;}
 }
 async function setup(t){
  const root=mkdtempSync(join(tmpdir(),'aesel-relay-'));let engine;
  const authorize=async header=>{if(header!=='Bearer owner')throw Object.assign(Error('Private'),{status:403});};
- const start=async()=>{const server=createRelay({root,authorize,factory:()=>engine=new Engine()});server.listen(0,'127.0.0.1');await once(server,'listening');return server;};
+ const start=async()=>{const server=createRelay({root,authorize,factory:(_provider,options)=>engine=new Engine(!!options.clientMcp)});server.listen(0,'127.0.0.1');await once(server,'listening');return server;};
  let server=await start();
  const url=()=>`http://127.0.0.1:${server.address().port}`;
  const call=async(path,data,token='owner')=>{const r=await fetch(url()+path,{method:data?'POST':'GET',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},...(data?{body:JSON.stringify(data)}:{})});return {status:r.status,...await r.json()};};
@@ -64,4 +65,24 @@ test('lost acknowledgement retries the same request without starting twice',asyn
  }});t.after(()=>remote.close());await remote.connect();
  const result=await remote.startTurn('Exactly once');assert.equal(result.turn.status,'inProgress');assert.equal(f.engine().starts,1);
  const state=await f.call(`${base}/${remote.threadId}`);assert.equal(state.events[0].value.params.turn.id,result.turn.id);
+});
+test('phone MCP only exposes declared tools and returns the owner response',async t=>{
+ const f=await setup(t);
+ const tools=[{name:'write_piece',description:'Save a piece',inputSchema:{type:'object'}}];
+ const {thread}=await f.call(base,{provider:'claude',clientTools:tools});
+ const meta=JSON.parse(readFileSync(join(f.root,thread.id,'session.json')));
+ const internal=f.url()+'/internal/phone/'+thread.id;
+ assert.equal((await fetch(internal+'/tools')).status,403);
+ const headers={authorization:'Bearer '+meta.phoneSecret,'content-type':'application/json'};
+ assert.deepEqual(await(await fetch(internal+'/tools',{headers})).json(),{tools});
+ await f.call(`${base}/${thread.id}/turn`,{requestId:randomUUID(),text:'Draw'});
+ const denied=await fetch(internal+'/call',{method:'POST',headers,body:JSON.stringify({name:'Bash',arguments:{command:'no'}})});assert.equal(denied.status,400);
+ const result=fetch(internal+'/call',{method:'POST',headers,body:JSON.stringify({name:'write_piece',arguments:{source:'paint'}})});
+ let pending;for(let i=0;i<20&&!pending;i++){await new Promise(r=>setTimeout(r,5));pending=(await f.call(`${base}/${thread.id}`)).pending.find(p=>p.method==='phone/tool');}
+ assert.equal(pending.params.name,'write_piece');
+ const output={content:[{type:'text',text:'Saved locally'}]};
+ await f.call(`${base}/${thread.id}/respond`,{id:pending.id,result:output});
+ assert.deepEqual(await(await result).json(),output);
+ const preflight=await fetch(f.url()+base,{method:'OPTIONS',headers:{origin:'walkieware://app'}});
+ assert.equal(preflight.headers.get('access-control-allow-origin'),'walkieware://app');
 });

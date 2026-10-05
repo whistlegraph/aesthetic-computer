@@ -90,11 +90,15 @@ export class ClaudeServer extends EventEmitter {
     recoveryInstructions = "",
     // aesel's native tools (ac_api, ac_examples, ac_outline, ac_symbol).
     tools = true,
+    clientMcp = null,
+    persistSession = true,
     passthrough = false,
   }) {
     super();
     this.cwd = cwd;
     this.tools = tools;
+    this.clientMcp = clientMcp;
+    this.persistSession = persistSession;
     this.command = command;
     this.args = args;
     this.environment = environment;
@@ -121,7 +125,7 @@ export class ClaudeServer extends EventEmitter {
     // Text streaming state for the message being written right now.
     this.messageId = "";
     this.textItems = new Map();
-    this.codeItems = new Set();
+    this.codeItems = new Map();
     this.streamedText = false;
   }
 
@@ -262,6 +266,7 @@ export class ClaudeServer extends EventEmitter {
   #launchArguments(resume) {
     const args = [
       "--print",
+      ...(this.persistSession ? [] : ["--no-session-persistence"]),
       "--input-format",
       "stream-json",
       "--output-format",
@@ -292,7 +297,9 @@ export class ClaudeServer extends EventEmitter {
     // nothing else, so they are allowed up front — an approval prompt for
     // "what does circle take?" would cost the round trip the tool exists to
     // save.
-    if (this.tools) {
+    if (this.clientMcp) {
+      args.push("--tools", "", "--mcp-config", JSON.stringify(this.clientMcp), "--allowedTools", "mcp__phone");
+    } else if (this.tools) {
       args.push("--mcp-config", JSON.stringify(mcpConfig(this.cwd,this.environment)));
       args.push("--allowedTools", `mcp__${SERVER_NAME}`, 'mcp__easel-media');
     }
@@ -473,9 +480,13 @@ export class ClaudeServer extends EventEmitter {
       this.streamedText = false;
       return;
     }
-    if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use' && ['Write','Edit','MultiEdit','write_piece'].includes(event.content_block.name)) this.codeItems.add(event.index);
+    if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
+      const tool=event.content_block.name.replace(/^mcp__phone__/, '');
+      if (['Write','Edit','MultiEdit','write_piece','edit_piece'].includes(tool))
+        this.codeItems.set(event.index,{tool,itemId:event.content_block.id});
+    }
     if (event.type === 'content_block_delta' && event.delta?.type === 'input_json_delta' && this.codeItems.has(event.index)) {
-      this.emit('notification',{method:'item/modelCode/delta',params:{delta:event.delta.partial_json || ''}});
+      this.emit('notification',{method:'item/modelCode/delta',params:{...this.codeItems.get(event.index),delta:event.delta.partial_json || ''}});
     }
     if (event.type === 'content_block_stop') this.codeItems.delete(event.index);
     if (event.type === "content_block_start" && event.content_block?.type === "text") {

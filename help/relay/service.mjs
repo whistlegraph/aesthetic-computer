@@ -3,7 +3,7 @@ import http from 'node:http';
 import {randomUUID, createHash} from 'node:crypto';
 import {mkdirSync, readFileSync, writeFileSync, appendFileSync, renameSync, existsSync} from 'node:fs';
 import {join} from 'node:path';
-import {pathToFileURL} from 'node:url';
+import {fileURLToPath, pathToFileURL} from 'node:url';
 import {ClaudeServer} from '../../aesel/src/claude-server.mjs';
 import {AppServer} from '../../aesel/src/app-server.mjs';
 
@@ -37,6 +37,7 @@ export function createRelay({root, authorize, factory, maxActive=2}={}) {
   if (!root || !authorize) throw Error('State directory and authorization are required');
   mkdirSync(root,{recursive:true,mode:0o700});
   const sessions=new Map();
+  const toolReplies=new Map();
   function persist(s) {save(join(s.dir,'session.json'),s.meta);}
   function event(s,type,value) {
     const entry={seq:++s.seq,at:new Date().toISOString(),type,value};
@@ -66,7 +67,8 @@ export function createRelay({root, authorize, factory, maxActive=2}={}) {
     if(s.opening) return s.opening;
     s.opening=(async()=>{
       const options={cwd:join(s.dir,'workspace'),resumeThreadId:s.meta.engineThreadId||'',model:s.meta.model,effort:s.meta.effort,
-        developerInstructions:s.meta.instructions,tools:true};
+        developerInstructions:s.meta.instructions,tools:!s.meta.clientTools,persistSession:s.meta.clientTools?.length!==0,
+        ...(s.meta.clientTools?{clientMcp:{mcpServers:{phone:{command:process.execPath,args:[fileURLToPath(new URL('./phone-tools.mjs',import.meta.url))],env:{AESEL_PHONE_URL:`http://127.0.0.1:${server.address().port}/internal/phone/${s.meta.id}`,AESEL_PHONE_SECRET:s.meta.phoneSecret}}}}}:{})};
       // Only the service's subscription credentials reach the child. Never
       // forward HTTP credentials, client environment, commands or local paths.
       const e=factory?factory(s.meta.provider,options):s.meta.provider==='claude'
@@ -90,7 +92,7 @@ export function createRelay({root, authorize, factory, maxActive=2}={}) {
         }
         event(s,'notification',value);persist(s);
       });
-      e.on('request',value=>{s.pending.set(String(value.id),value);event(s,'request',value);});
+      e.on('request',value=>{if(s.meta.clientTools){e.respond(value.id,{decision:'decline'});return;}s.pending.set(String(value.id),value);event(s,'request',value);});
       e.on('fatal',()=>{
         s.meta.busy=false;
         const request=s.meta.requests[s.meta.currentRequest];if(request)request.status='failed';
@@ -106,15 +108,36 @@ export function createRelay({root, authorize, factory, maxActive=2}={}) {
     try {
       const url=new URL(req.url,'http://localhost');
       if(url.pathname==='/health' && req.method==='GET') return json(res,200,{ok:true,service:'aesel-relay',version:1,busy:[...sessions.values()].filter(s=>s.meta.busy).length});
+      const origin=req.headers.origin;
+      if(origin && (['null','walkieware://app','https://aesthetic.computer'].includes(origin) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))) {
+        res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');
+        res.setHeader('Access-Control-Allow-Headers','Authorization,Content-Type');res.setHeader('Access-Control-Allow-Methods','GET,POST,OPTIONS');
+      }
+      if(req.method==='OPTIONS') {res.writeHead(204);res.end();return;}
+      const internal=url.pathname.match(/^\/internal\/phone\/([^/]+)\/(tools|call)$/);
+      if(internal) {
+        const s=load(internal[1]);
+        if(!s.meta.phoneSecret || req.headers.authorization!==`Bearer ${s.meta.phoneSecret}`)throw fail(403,'Private tool channel');
+        if(internal[2]==='tools')return json(res,200,{tools:s.meta.clientTools});
+        const input=await body(req);
+        if(!s.meta.busy || !s.meta.clientTools.some(t=>t.name===input.name))throw fail(400,'Tool unavailable');
+        const id=randomUUID(),request={id,method:'phone/tool',params:{name:input.name,input:input.arguments||{}}};
+        s.pending.set(id,request);event(s,'request',request);
+        const timer=setTimeout(()=>{s.pending.delete(id);toolReplies.delete(id);json(res,200,{isError:true,content:[{type:'text',text:'Phone tool timed out; reconnect the phone.'}]});},180000);
+        toolReplies.set(id,{s,res,timer});res.on('close',()=>{clearTimeout(timer);toolReplies.delete(id);s.pending.delete(id);});return;
+      }
       await authorize(req.headers.authorization);
       if(url.pathname==='/api/aesel/sessions' && req.method==='POST') {
         const input=await body(req);
         if(!['claude','codex'].includes(input.provider))throw fail(400,'Choose claude or codex');
         if(input.provider==='codex' && !factory && process.env.CODEX_ENABLED!=='1') throw fail(503,'Codex needs a server-side login');
-        for(const key of ['model','effort','instructions'])if(input[key]!=null && (typeof input[key]!=='string'||input[key].length>(key==='instructions'?64000:100)))throw fail(400,`Invalid ${key}`);
+        for(const key of ['model','effort','instructions'])if(input[key]!=null && (typeof input[key]!=='string'||input[key].length>(key==='instructions'?512000:100)))throw fail(400,`Invalid ${key}`);
+        if(input.clientTools!==undefined) {
+          if(input.provider!=='claude' || !Array.isArray(input.clientTools) || input.clientTools.length>4 || input.clientTools.some(t=>!t||!['write_piece','edit_piece','ac_preview','ac_api'].includes(t.name)||typeof t.description!=='string'||!t.inputSchema||typeof t.inputSchema!=='object'))throw fail(400,'Invalid phone tools');
+        }
         const id=randomUUID(),dir=join(root,id);
         mkdirSync(join(dir,'workspace'),{recursive:true,mode:0o700});
-        const meta={id,provider:input.provider,model:input.model||undefined,effort:input.effort||'',instructions:input.instructions||'',requests:{},busy:false,created:new Date().toISOString()};
+        const meta={id,provider:input.provider,model:input.model||undefined,effort:input.effort||'',instructions:input.instructions||'',...(input.clientTools?{clientTools:input.clientTools,phoneSecret:randomUUID()+randomUUID()}:{}),requests:{},busy:false,created:new Date().toISOString()};
         save(join(dir,'session.json'),meta);
         return json(res,201,{thread:{id},provider:meta.provider});
       }
@@ -138,7 +161,7 @@ export function createRelay({root, authorize, factory, maxActive=2}={}) {
         if([...sessions.values()].filter(v=>v.meta.busy).length>=maxActive)throw fail(429,'Relay is busy; retry shortly');
         // Save the complete request before spawning or acknowledging it. Losing
         // a network connection never loses an accepted drawing or repeats a turn.
-        save(join(s.dir,input.requestId+'.json'),input);
+        save(join(s.dir,input.requestId+'.json'),s.meta.clientTools?.length===0?{...input,images:[],transientImageCount:images.length}:input);
         s.meta.busy=true;s.meta.currentRequest=input.requestId;
         s.meta.requests[input.requestId]={requestId:input.requestId,status:'running'};persist(s);
         json(res,202,s.meta.requests[input.requestId]);
@@ -153,14 +176,19 @@ export function createRelay({root, authorize, factory, maxActive=2}={}) {
         const pending=s.pending.get(String(input.id));
         if(!input.result || typeof input.result!=='object' || Array.isArray(input.result))throw fail(400,'Invalid response');
         if(pending.method.endsWith('/requestApproval')&&!['accept','acceptForSession','decline','cancel'].includes(input.result.decision))throw fail(400,'Invalid approval decision');
-        s.engine.respond(input.id,input.result);s.pending.delete(String(input.id));
+        if(pending.method==='phone/tool') {
+          const reply=toolReplies.get(String(input.id));if(!reply || reply.s!==s)throw fail(409,'Tool is no longer pending');
+          if(!Array.isArray(input.result.content)||input.result.content.some(b=>b.type!=='text'||typeof b.text!=='string'))throw fail(400,'Invalid tool result');
+          clearTimeout(reply.timer);toolReplies.delete(String(input.id));json(reply.res,200,input.result);
+        } else s.engine.respond(input.id,input.result);
+        s.pending.delete(String(input.id));
         event(s,'approval',{id:input.id,decision:input.result.decision});return json(res,200,{ok:true});
       }
       if(action==='interrupt') {await s.engine?.interrupt();return json(res,200,{ok:true});}
       throw fail(404,'Not found');
     } catch(error) {if(!res.headersSent)json(res,error.status||500,{error:error.status?error.message:'Relay request failed'});else res.end();}
   });
-  server.on('close',()=>{for(const s of sessions.values()){clearTimeout(s.idleTimer);s.engine?.close();}});
+  server.on('close',()=>{for(const {res,timer} of toolReplies.values()){clearTimeout(timer);res.end();}toolReplies.clear();for(const s of sessions.values()){clearTimeout(s.idleTimer);s.engine?.close();}});
   return server;
 }
 

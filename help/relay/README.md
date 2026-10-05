@@ -17,13 +17,20 @@ Work runs in a separate directory on the VPS, not the client's local checkout.
 Tool approvals return to the terminal. Closing the client detaches without
 cancelling the turn. `--resume <relay-session-uuid>` reconnects; the relay replays
 its saved events and only unresolved approvals. No filesystem synchronization
-or phone integration is implicit in this backend.
+is implicit in this terminal backend.
+
+Whistlegraph's verified Jeffrey account uses a separate phone adapter with
+Claude Opus 5. Its four permitted tools (`write_piece`, `edit_piece`,
+`ac_preview`, `ac_api`) execute on the phone; built-in server tools are disabled.
+The phone journals request IDs and tool results so reconnecting can recover
+accepted work. Generation and four-frame visual review both use the relay.
+Unsent chalk is saved atomically in the native app's local storage.
 
 ## Protocol
 
 Every private request needs `Authorization: Bearer <AC access token>`.
 
-- `POST /api/aesel/sessions`: `{provider:"claude"|"codex", model?, effort?, instructions?}`.
+- `POST /api/aesel/sessions`: `{provider:"claude"|"codex", model?, effort?, instructions?, clientTools?}`.
 - `POST /api/aesel/sessions/:id/turn`: `{requestId:<UUID>, text, images?:[{mimeType,data:<base64>}]}`.
 - `GET /api/aesel/sessions/:id?after=<sequence>`: events (up to 500), pending approvals, request statuses.
 - `POST /api/aesel/sessions/:id/respond`: `{id, result}` matching an outstanding engine request.
@@ -35,7 +42,10 @@ bytes, is written before acknowledgement. Events are appended as they arrive;
 a service restart marks unfinished attempts interrupted and preserves input.
 A new request UUID is an explicit retry. State lives under
 `/var/lib/aesel-relay/sessions`, private to the service account. Nothing deletes
-saved drawings automatically. This does not save an unsent phone draft.
+saved drawings automatically. Tool-free phone review (`clientTools: []`)
+keeps image bytes transient and disables Claude session persistence. Its
+request record retains only the image count. Native local draft storage is
+independent of the relay.
 
 ## Host setup
 
@@ -76,5 +86,6 @@ handle {
 
 Validate with `node --test help/relay/service.test.mjs` and the existing Aesel
 provider adapter tests. Production checks must include unauthorized rejection
-and a real authenticated model turn. Whistlegraph still uses the messages API;
-it needs a client adapter for this session protocol before switching traffic.
+and a real authenticated model turn. In the phone checkout, run
+`node apple/whistlegraph/Tests/personal-relay-live.mjs` after bundling to check
+real runtime generation and four-frame review without the messages API.
