@@ -51,3 +51,13 @@ test('sends actual PNG frames in order and parses split SSE; truncated verdicts 
     if(stop==='end_turn')assert.equal((await call).passed,true);else await assert.rejects(call,/did not finish/);
   }
 });
+test('personal visual review sends all four images through the private relay only',async()=>{
+ let submitted;
+ const result=await reviewVisualResult({evidence:evidence(),sourceHash:'hash',renderID:7,source:'source',request:'spin it',history:[],model:'anthropic/claude-opus-5',token:'owner',personalRelay:true,fetch:async(url,options)=>{
+  assert.ok(url.startsWith('https://help.aesthetic.computer/api/aesel/'));
+  if(url.endsWith('/sessions')){const create=JSON.parse(options.body);assert.deepEqual(create.clientTools,[]);return Response.json({thread:{id:'session'}});}
+  if(url.endsWith('/turn')){submitted=JSON.parse(options.body);return Response.json({status:'running'});}
+  return Response.json({pending:[],events:[{seq:1,type:'notification',value:{method:'item/agentMessage/delta',params:{delta:JSON.stringify(pass)}}},{seq:2,type:'notification',value:{method:'turn/completed',params:{turn:{status:'completed'}}}}]});
+ }});
+ assert.equal(result.passed,true);assert.equal(submitted.images.length,4);assert.deepEqual(submitted.images.map(i=>i.data),[png,png,png,png]);
+});

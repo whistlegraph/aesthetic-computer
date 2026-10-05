@@ -87,6 +87,20 @@ final class HeaderSheetsTests: XCTestCase {
         image.name = "Thread cost left of brain"; image.lifetime = .keepAlways; add(image)
     }
 
+    func testUnsentDrawingSurvivesRelaunch() {
+        let app = launch()
+        if app.buttons["drawing-clear"].exists { app.buttons["drawing-clear"].tap() }
+        app.buttons["draw-control"].tap()
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.35))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.65, dy: 0.45))
+        start.press(forDuration: 0.15, thenDragTo: end)
+        XCTAssertTrue(app.buttons["drawing-undo"].waitForExistence(timeout: 5))
+        app.terminate(); app.launch()
+        XCTAssertTrue(app.buttons["drawing-undo"].waitForExistence(timeout: 25))
+        app.buttons["drawing-clear"].tap()
+        XCTAssertFalse(app.buttons["drawing-undo"].exists)
+    }
+
     func testPixelSizePersistsAcrossLaunches() {
         let app = launch()
         let code = app.buttons["brain-settings"]

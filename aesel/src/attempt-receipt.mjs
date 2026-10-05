@@ -54,7 +54,7 @@ export class AttemptReceipt {
     if (round && method === 'turn/usage') {
       const u = params.usage || {};
       // Replace the round receipt; duplicate delivery never doubles totals.
-      round.usage = {inputTokens: number(u.input_tokens), outputTokens: number(u.output_tokens), costUSD: number(u.cost),
+      round.usage = {inputTokens: number(u.input_tokens), outputTokens: number(u.output_tokens), costUSD: number(u.cost) ?? number(u.cost_estimate_usd), estimated: number(u.cost) === null && number(u.cost_estimate_usd) !== null,
         cacheReadTokens: number(u.cache_read_input_tokens), cacheWriteTokens: number(u.cache_creation_input_tokens),
         thinkingTokens: number(u.output_tokens_details?.thinking_tokens)};
     }

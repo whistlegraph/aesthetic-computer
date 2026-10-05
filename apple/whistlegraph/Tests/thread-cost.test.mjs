@@ -41,3 +41,9 @@ test('live receipt usage reaches cost without waiting for successful completion'
  r.notify('turn/usage',{usage:{cost:0.25}});
  assert.deepEqual(j.cost.snapshot(),{usd:0.25,partial:false});
 });
+test('subscription list-price usage is explicitly estimated and survives reload',()=>{
+ const s=storage(),j=new ReceiptJournal(s,'a');
+ const r=new AttemptReceipt({requestID:'personal',parent:0,parentHash:null,path:'compiled',model:'claude-opus-5',journal:j});
+ r.request();r.notify('turn/usage',{usage:{cost:null,cost_estimate_usd:0.25,input_tokens:100,output_tokens:20}});
+ assert.deepEqual(new ReceiptJournal(s,'a').cost.snapshot(),{usd:0.25,partial:false,estimated:true});
+});

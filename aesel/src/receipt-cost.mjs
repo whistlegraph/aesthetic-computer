@@ -3,7 +3,7 @@
 export class ReceiptCost {
   constructor(storage, key, rows, limit) {
     this.storage = storage; this.key = key + '-receipt-cost';
-    this.value = {usd: 0, missing: 0, partial: rows.length >= limit, recent: {}};
+    this.value = {usd: 0, missing: 0, partial: rows.length >= limit, estimated: false, recent: {}};
     try {
       const saved = JSON.parse(storage.getItem(this.key));
       if (saved && Number.isFinite(saved.usd) && saved.usd >= 0 && Number.isInteger(saved.missing) && saved.missing >= 0 && saved.recent && typeof saved.recent === 'object') this.value = saved;
@@ -14,6 +14,7 @@ export class ReceiptCost {
     const next = {usd: 0, missing: 0};
     for (const round of receipt.rounds) {
       const cost = round.usage?.costUSD;
+      if(round.usage?.estimated)this.value.estimated=true;
       if (Number.isFinite(cost) && cost >= 0) next.usd += cost;
       else if (round.httpStatus === null || round.httpStatus === undefined || round.httpStatus < 400) next.missing++;
     }
@@ -25,5 +26,5 @@ export class ReceiptCost {
     for (const id of Object.keys(this.value.recent)) if (!retained.has(id)) delete this.value.recent[id];
     try { this.storage.setItem(this.key, JSON.stringify(this.value)); } catch {}
   }
-  snapshot() { return {usd: this.value.usd, partial: !!this.value.partial || this.value.missing > 0}; }
+  snapshot() { return {...(this.value.estimated?{estimated:true}:{}),usd: this.value.usd, partial: !!this.value.partial || this.value.missing > 0}; }
 }

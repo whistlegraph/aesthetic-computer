@@ -25,7 +25,7 @@ struct InferenceSnapshot: Decodable {
     let braincells: Braincells?
     let braincellsError: String
     let usage: Usage?
-    struct ThreadCost: Decodable { let usd: Double; let partial: Bool }
+    struct ThreadCost: Decodable { let usd: Double; let partial: Bool; let estimated: Bool? }
     let threadCost: ThreadCost?
 }
 
@@ -120,10 +120,10 @@ struct ThreadCostLabel: View {
             (cost.usd > 0 && cost.usd < 0.01 ? "< $0.01" : cost.usd.formatted(.currency(code: "USD")))
     }
     var body: some View {
-        Text((cost.partial ? "≥ " : "") + amount)
+        Text((cost.estimated == true ? "≈ " : cost.partial ? "≥ " : "") + amount)
             .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             .lineLimit(1).fixedSize(horizontal: true, vertical: false)
-            .accessibilityLabel("Thread inference cost, USD")
+            .accessibilityLabel(cost.estimated == true ? "Estimated thread inference value, USD" : "Thread inference cost, USD")
             .accessibilityValue((cost.partial ? "At least " : "") + amount)
             .accessibilityIdentifier("thread-cost")
     }

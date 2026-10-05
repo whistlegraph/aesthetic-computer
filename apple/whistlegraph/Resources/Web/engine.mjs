@@ -19,6 +19,7 @@ import {musicalPrompt} from './musical-input.mjs';
 import {PieceVersions} from './piece-versions.mjs';
 // The same inference/tool loop as Aesel, with a piece-first streaming renderer.
 import {AcServer} from '/easel/src/ac-server.mjs';
+import {RelayPieceServer} from '/easel/src/relay-piece-server.mjs';
 import {DEFAULT_MODEL,generationProfile,modelChoices,MODEL_LABELS,GENERATION_INSTRUCTIONS} from './generation-policy.mjs';
 import {runnablePrefix,partialString,streamedEdits,streamedCode} from './stream-preview.mjs';
 import * as vfs from '/easel/phone/shim/fs.mjs';
@@ -62,7 +63,7 @@ async function refreshBraincells(){
 }
 function inferenceSnapshot(){
   const model=activeModel||profile().model,receipt=activeReceipt?.value||receipts.rows.at(-1)?.receipt;
-  return {model,label:MODEL_LABELS[model]||model,provider:'OpenRouter',selection:profile().model,models:modelChoices(accountHandle),braincells,braincellsError,threadCost:receipts.cost.snapshot(),
+  return {model,label:MODEL_LABELS[model]||model,provider:profile().personalRelay?'Personal Claude':'OpenRouter',selection:profile().model,models:modelChoices(accountHandle),braincells,braincellsError,threadCost:receipts.cost.snapshot(),
     usage:receipt?{inputTokens:receipt.rounds.reduce((n,r)=>n+(r.usage?.inputTokens||0),0),outputTokens:receipt.rounds.reduce((n,r)=>n+(r.usage?.outputTokens||0),0),rounds:receipt.rounds.length,repairs:receipt.repairs,status:receipt.status}:null};
 }
 function paintHandle(handle,colors=handleCharacterColors('@'+handle)){
@@ -246,7 +247,7 @@ async function checkVisualResult() {
         const reviewUsage={};
         const verdict=await reviewVisualResult({evidence,sourceHash:hash,renderID:id,source:target,
           request:inferenceRequest(turnRequest),history:selectedBranch(versions.value),drawing:chalk,
-          model:window.__walkiewareModel||profile().model,token,signal,
+          model:window.__walkiewareModel||profile().model,token,signal,personalRelay:profile().personalRelay,
           onHeaders:response=>{if(round)activeReceipt?.headers(round,response);},
           onEvent:e=>{
             if(e.message?.model||e.model)activeReceipt?.notify('model/reported',{reported:e.message?.model||e.model});
@@ -303,8 +304,12 @@ vfs.setWriteHandler((path,value)=>{
 const guides = vfs.preload(['pieces.md','screen.md','hand.md','kidlisp.md','api.json'].map(name=>'/easel/context/'+name));
 function makeServer({repair=false}={}){
   const settings=profile(repair);activeModel=(repair?window.__walkiewareRepairModel:window.__walkiewareModel)||settings.model;nativeSnapshot();
-  const value=new AcServer({cwd:'/piece',piece:{file,checkpoint:async()=>{const target=source;for(let i=0;i<100;i++){if(painted&&lastPaintedSource===target)return;await new Promise(resolve=>setTimeout(resolve,20));}}},frameCapture:false,layeredEdits:true,token:()=>token,model:activeModel,
-    fetch:async(url,options)=>{
+  let relayRound;
+  const Engine=settings.personalRelay?RelayPieceServer:AcServer;
+  const value=new Engine({relayStorage:localStorage,relayKey:storageKey+'-personal-'+activeAttempt?.id,
+    onRelayRequest:()=>{relayRound=activeReceipt?.request();benchmark('requestDispatched');},
+    onRelayHeaders:response=>{if(relayRound)activeReceipt?.headers(relayRound,response);},cwd:'/piece',piece:{file,checkpoint:async()=>{const target=source;for(let i=0;i<100;i++){if(painted&&lastPaintedSource===target)return;await new Promise(resolve=>setTimeout(resolve,20));}}},frameCapture:false,layeredEdits:true,token:()=>token,model:activeModel,
+    fetch:settings.personalRelay?globalThis.fetch.bind(globalThis):async(url,options)=>{
       benchmark('requestDispatched');const recorder=activeReceipt,round=recorder?.request();
       const body=JSON.parse(options.body);body.max_tokens=settings.maxTokens;options={...options,body:JSON.stringify(body)};
       const response=await globalThis.fetch(url,options);if(round)recorder.headers(round,response);

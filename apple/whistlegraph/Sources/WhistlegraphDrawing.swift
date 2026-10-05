@@ -12,6 +12,34 @@ final class DrawingDraft: ObservableObject {
     private var active = false
     var hasInk: Bool { !strokes.isEmpty }
     var full: Bool { strokes.count >= 32 || strokes.reduce(0) { $0 + $1.count } >= 1200 }
+    private struct Saved: Codable {
+        let id: String
+        let revision: Int
+        let aspect: Double
+        let strokes: [[[Double]]]
+    }
+    private var draftURL: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("whistlegraph-drawing-draft.json")
+    }
+    init() {
+        guard let data = try? Data(contentsOf: draftURL),
+              let saved = try? JSONDecoder().decode(Saved.self, from: data),
+              saved.aspect.isFinite, saved.aspect > 0, saved.revision >= 0,
+              saved.strokes.count <= 32,
+              saved.strokes.reduce(0, { $0 + $1.count }) <= 1200,
+              saved.strokes.allSatisfy({ $0.allSatisfy { $0.count >= 3 && $0.allSatisfy(\.isFinite) } }) else { return }
+        id = saved.id; revision = saved.revision; aspect = saved.aspect; strokes = saved.strokes
+        enabled = !strokes.isEmpty
+        startedAt = ProcessInfo.processInfo.systemUptime - (strokes.last?.last?[2] ?? 0) / 1000
+    }
+    private func persist() {
+        do {
+            try FileManager.default.createDirectory(at: draftURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let data = try JSONEncoder().encode(Saved(id: id, revision: revision, aspect: aspect, strokes: strokes))
+            try data.write(to: draftURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        } catch { NSLog("Drawing draft save failed: %@", error.localizedDescription) }
+    }
     func begin(_ point: CGPoint, in size: CGSize, pressure: Double?) {
         guard !full, size.width > 0, size.height > 0 else { return }
         if !hasInk { startedAt = ProcessInfo.processInfo.systemUptime; aspect = size.width / size.height }
@@ -28,11 +56,11 @@ final class DrawingDraft: ObservableObject {
            hypot(x - previous[0], y - previous[1]) < 3, time - previous[2] < 40 { return }
         var sample = [x, y, time]
         if let pressure { sample.append((min(1, max(0, pressure)) * 1000).rounded()) }
-        strokes[strokes.count - 1].append(sample); revision += 1
+        strokes[strokes.count - 1].append(sample); revision += 1; persist()
     }
     func end() { active = false }
-    func undo() { active = false; if hasInk { strokes.removeLast(); revision += 1 } }
-    func clear() { active = false; strokes = []; revision += 1; id = UUID().uuidString; startedAt = 0 }
+    func undo() { active = false; if hasInk { strokes.removeLast(); revision += 1; persist() } }
+    func clear() { active = false; strokes = []; revision += 1; id = UUID().uuidString; startedAt = 0; persist() }
     func consume(id: String, revision: Int) { if self.id == id && self.revision == revision { clear() } }
     func payload(speechStart: TimeInterval? = nil) -> [String: Any]? {
         guard hasInk else { return nil }

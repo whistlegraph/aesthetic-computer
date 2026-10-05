@@ -15,3 +15,6 @@ console.log('PASS personal demo profile; other handles retain existing limits.')
 assert.equal(generationProfile('fixture',{model:'anthropic/claude-opus-5'}).model,DEFAULT_MODEL);
 assert.equal(generationProfile('jeffrey',{model:DEFAULT_MODEL}).model,DEFAULT_MODEL);
 assert.equal(generationProfile('jeffrey',{model:DEFAULT_MODEL,repair:true}).model,REPAIR_MODEL);
+assert.equal(generationProfile('jeffrey').personalRelay,true);
+assert.equal(!!generationProfile('fixture').personalRelay,false);
+assert.equal(generationProfile('jeffrey',{model:DEFAULT_MODEL}).personalRelay,false);
