@@ -21,7 +21,8 @@
 //   … --from 36 --to 48 --out X.mp4  → just that stretch of the record, as a clip (a preview)
 //   … --lyric-only --small --from 36 --to 48 → the words and ball alone over the picture at 960×540, fast — the timing loop
 //   … --no-lyric                      → the room and her, no words
-//   … --fia                           → Fia's Cut: the sung nouns get eyecons over their words in the captions (src/eyecons, bin/eyecons.py) → <stem>-relight-fia.mp4
+//   … --fia                           → Fia's Cut: the sung nouns get eyecons (src/eyecons, bin/eyecons.py) → <stem>-relight-fia.mp4; --eyecons caption|float
+//   … --vertical --fia --captions center --fade --from 37.45 --to 69.2 --out X  → the chorus reel: 9:16, the captions mid-frame, the eyecons floating up from the bottom
 import { readFileSync, writeFileSync, existsSync, openSync, readSync, closeSync, unlinkSync, mkdtempSync, readdirSync, statSync } from "node:fs";
 import { spawn, execFileSync, spawnSync } from "node:child_process";
 import { dirname, resolve, basename, join } from "node:path";
@@ -53,16 +54,21 @@ const VERTICAL = !!arg("vertical"), VIEW = VERTICAL ? { x: 218, y: 0, w: 304, h:
 const JOBS = Number(arg("jobs", 0)), NO_AUDIO = !!arg("no-audio"), X264 = !!arg("x264");   // the Mac's VideoToolbox encodes by default (libx264 at 1080p60 was the clock); --x264 for the software path   // --no-lyric: the room and her, no words
 const W = VERTICAL ? (SMALL ? 540 : 1080) : SMALL ? 960 : +probe[0], H = VERTICAL ? (SMALL ? 960 : 1920) : SMALL ? 540 : +probe[1], FPS = eval(probe[2]), NF = +probe[3] || 0;
 const FROM = Number(arg("from", 0)), TO = arg("to") ? Number(arg("to")) : null;
+// --captions center: the caption row mid-frame (the reel); --fade: the audio in over 0.3 s and out over the last 1.5 s of the window, the picture
+// dipping to black with it (the --jobs children are told the whole window with --fade-from/--fade-to, so only the ends fade)
+const CAPTIONS = arg("captions", "bottom"), FADE = !!arg("fade"), FADE_IN = 0.3, FADE_OUT = 1.5;
+const FADE_A = arg("fade-from") ? Number(arg("fade-from")) : FROM, FADE_B = arg("fade-to") ? Number(arg("fade-to")) : (TO ?? (FADE ? Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", AUDIO]).toString()) : null));
+const AFADE = FADE ? ["-af", `afade=t=in:st=0:d=${FADE_IN},afade=t=out:st=${Math.max(0, FADE_B - FADE_A - FADE_OUT).toFixed(3)}:d=${FADE_OUT}`] : [];
 if (JOBS > 1) {                                                             // the conductor: N of this script, then one concat
   const dur = TO ?? Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", BASE]).toString());
   const out = resolve(arg("out") || resolve(OUT, `${stem}-relight${VERTICAL ? "-reel" : ""}${FIA ? "-fia" : ""}.mp4`)), tmp = mkdtempSync(join(tmpdir(), "relight-jobs-")), step = Math.ceil((dur - FROM) / JOBS);
   const skip = ["--jobs", "--out", "--from", "--to"], pass = process.argv.slice(2).filter((a, i, A) => !skip.includes(a) && !skip.includes(A[i - 1]));
   const kids = [], segs = [];
   for (let k = 0; k < JOBS; k++) { const a = FROM + k * step, b = Math.min(dur, a + step); if (a >= dur) break; const seg = join(tmp, `seg-${k}.mp4`); segs.push(seg);
-    kids.push(new Promise((res, rej) => { const c = spawn(process.execPath, [fileURLToPath(import.meta.url), ...pass, "--from", String(a), "--to", String(b), "--no-audio", "--out", seg], { stdio: ["ignore", k ? "ignore" : "inherit", "inherit"] }); c.on("close", (code) => code ? rej(new Error(`job ${k} exited ${code}`)) : res()); })); }
+    kids.push(new Promise((res, rej) => { const c = spawn(process.execPath, [fileURLToPath(import.meta.url), ...pass, "--from", String(a), "--to", String(b), ...(FADE ? ["--fade-from", String(FROM), "--fade-to", String(dur)] : []), "--no-audio", "--out", seg], { stdio: ["ignore", k ? "ignore" : "inherit", "inherit"] }); c.on("close", (code) => code ? rej(new Error(`job ${k} exited ${code}`)) : res()); })); }
   await Promise.all(kids);
   const list = join(tmp, "list.txt"); writeFileSync(list, segs.map((f) => `file '${f}'`).join("\n") + "\n");
-  const mux = spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", list, ...(FROM ? ["-ss", String(FROM)] : []), ...(TO ? ["-to", String(TO)] : []), "-i", AUDIO, "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", "-movflags", "+faststart", "-shortest", out], { stdio: "inherit" });
+  const mux = spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", list, ...(FROM ? ["-ss", String(FROM)] : []), ...(TO ? ["-to", String(TO)] : []), "-i", AUDIO, "-map", "0:v", "-map", "1:a", ...AFADE, "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", "-movflags", "+faststart", "-shortest", out], { stdio: "inherit" });
   for (const f of segs) try { unlinkSync(f); } catch {} try { unlinkSync(list); } catch {}
   console.log(`${mux.status ? "✗" : "✓"} ${out}  (${JOBS} jobs)`); process.exit(mux.status || 0);
 }
@@ -246,7 +252,7 @@ const CHUNKS = []; for (const L of LINES) { const n = L.words.length, parts = Ma
     else cuts = Array.from({ length: parts - 1 }, (_, k) => Math.round((k + 1) * n / parts)); }
   let prev = 0; for (const c of [...cuts, n]) { const words = L.words.slice(prev, c), timed = words.filter((g) => g.w); prev = c;
     if (timed.length) CHUNKS.push({ words, a: timed[0].w.a, b: timed.at(-1).w.b }); } }
-const SC_MAX = (VERTICAL ? 0.19 : 0.4) * osx * (72 / GA.px) /* the finer atlas draws the same size */, ROW = VERTICAL ? OH * 0.555 : OH * 0.88, GAP = SPACE * 1.7, GRAV = 1400 * osy, SLIDE = 0.22 * OW;   // v103: smaller, higher, words further apart; the reel a size smaller, between her face and the guitar
+const SC_MAX = (VERTICAL ? (CAPTIONS === "center" ? 0.3 : 0.19) : 0.4) * osx * (72 / GA.px) /* the reel's centred row is the point: bigger */ /* the finer atlas draws the same size */, ROW = CAPTIONS === "center" ? OH * 0.5 + GA.ascent * 0.36 * SC_MAX /* the cap centre on the frame's centre */ : VERTICAL ? OH * 0.555 : OH * 0.88, GAP = SPACE * 1.7, GRAV = 1400 * osy, SLIDE = 0.22 * OW;   // v103: smaller, higher, words further apart; the reel a size smaller, between her face and the guitar
 for (const C of CHUNKS) { const tw = C.words.reduce((a, g) => a + g.adv, 0) + GAP * (C.words.length - 1);
   C.sc = Math.min(SC_MAX, (OW * 0.86) / tw); let pen = (OW - tw * C.sc) / 2; for (const g of C.words) { g.x = pen; g.base = ROW; pen += (g.adv + GAP) * C.sc; } }
 // the switch between chunks (v103: "the prior opacities off to the left, the next shifts in to centre and opacities in"):
@@ -292,6 +298,7 @@ const EYE_MAP = [[/^saw$/, "eyes"], [/^anne$/, "hathaway", { size: 1.3, span: 2 
   [/^mom$/, "mom"], [/^worried$/, "worried"], [/^sleep$/, "sleep"], [/^wait$/, "hourglass"], [/^sting$/, "bee"], [/^bleeding$/, "blood"], [/^run$/, "runner", { span: 2 }],
   [/^walls$/, "bricks"], [/^house$/, "house"], [/^cat$/, "cat"], [/^mouse$/, "mouse"], [/^forever$/, "infinity"], [/^sit$/, "chair", { span: 3 }]];
 const EYE_DIR = resolve(LANE, "src/eyecons"), EYE_IMG = {}, CUES = [];
+const EYE_MODE = arg("eyecons", VERTICAL ? "float" : "caption");           // caption: over its word in the row (the 16:9 cut); float: up from the bottom like a balloon (the reel)
 const EYE = { cap: 1.5, gap: 0.25, rise: 0.5, vis: 352 / 512 };            // the picture's height in cap heights; the gap above the glyph tops in em; the spring's length in s; the picture's share of the sticker canvas (bin/eyecons.py)
 if (FIA) {
   // the stickers, decoded by ffmpeg to rgba and premultiplied (so the bilinear blit never pulls dark fringe out of the transparent pixels),
@@ -310,7 +317,12 @@ if (FIA) {
   // each chunk's annotations: the cue, and where it sits over the chunk's words of its span (the chunk's own x, before the slide)
   for (const C of CHUNKS) { C.eyes = []; for (const cue of CUES) { const mine = C.words.filter((g) => g.w && cue.ws.has(g.w)); if (!mine.length) continue;
     const x0 = Math.min(...mine.map((g) => g.x)), x1 = Math.max(...mine.map((g) => g.x + g.adv * C.sc)); C.eyes.push({ cue, x: (x0 + x1) / 2 }); } C.eyes.sort((p, q) => p.x - q.x); }
-  console.log(`  Fia's Cut: ${CUES.length} eyecon cues from ${Object.keys(EYE_IMG).length} stickers, on ${CHUNKS.filter((C) => C.eyes.length).length} caption rows`); }
+  // the float's x per cue: its word's place on the row, jittered a little; two cues within 1.5 s are pushed apart so they never stack
+  for (const [i, c] of CUES.entries()) { let fx = OW / 2; for (const C of CHUNKS) { const e = C.eyes.find((e) => e.cue === c); if (e) { fx = e.x; break; } }
+    fx += (((c.h >>> 8) % 100) / 100 - 0.5) * 0.08 * OW; const p = CUES[i - 1];
+    if (p && c.a - p.a < 1.5 && Math.abs(fx - p.fx) < 0.22 * OW) fx = p.fx + (p.fx < OW / 2 ? 1 : -1) * 0.24 * OW;
+    c.fx = Math.min(OW * 0.86, Math.max(OW * 0.14, fx)); }
+  console.log(`  Fia's Cut (${EYE_MODE}): ${CUES.length} eyecon cues from ${Object.keys(EYE_IMG).length} stickers, on ${CHUNKS.filter((C) => C.eyes.length).length} caption rows`); }
 const easeOutBack = (p, c1 = 1.4) => { const c3 = c1 + 1; return 1 + c3 * (p - 1) ** 3 + c1 * (p - 1) ** 2; };   // c1 1.4 → ~8 % overshoot
 const pickMip = (im, px_) => { let L = im; while (L.next && L.next.w >= px_) L = L.next; return L; };                // the smallest level still at least the drawn size
 // a premultiplied rgba sticker blitted onto the output buffer, scaled and tilted about its centre (bilinear)
@@ -335,6 +347,19 @@ const drawEyeconsOn = (C, st, now) => { if (!C.eyes || !C.eyes.length) return; c
     const rot = settle * 0.17 * Math.sin(2 * Math.PI * 4.5 * u + ph) + 0.035 * Math.sin(2 * Math.PI * 2 * u + ph), al = st.al * Math.min(1, u / 0.1);   // ~10° wiggle on the way up, 2° wobble at 2 Hz after
     if (Math.hypot(xx - FCX, y - FCY) < FR + canvas / 2) continue;                                                       // the shield: never over her face (moot on the caption row, kept)
     const L = pickMip(im, canvas); spriteO(L, xx, y, (0.7 + 0.3 * f) * canvas / L.w, rot, al); } };                   // the scale is the LEVEL's
+// the reel's eyecons (jeffrey: "the emoji can float up from the bottom and sway when the word is mentioned, and fade away by the
+// time it reaches the centre of the screen / a bit above the captions"): when the noun is sung its sticker enters from under the
+// frame at its word's x, rises steadily like a bubble to just above the caption row (≈ 44 % of the height; never into the face
+// the caption row is the barrier) over 2.5 s, swaying ±3.5 % of the width at 0.5 Hz with a tilt that follows the sway, at full alpha for two thirds of
+// the climb and gone by the top; ~13 % of the width (the Hathaway cutout a touch more); as many in flight as the lyric sends.
+// Drawn before the words.
+const FLOAT = { dur: 2.5, top: 0.40, size: 0.13, sway: 0.035, hz: 0.5, tilt: 0.09, hold: 0.62, done: 0.93 };   // the climb's end as a share of OH; alpha 1 until `hold` of the climb, 0 by `done` (its bottom then just under the glyph tops)
+const drawEyeconsFloat = (now) => {
+  for (const c of CUES) { const u = now - c.a; if (u < 0 || u > FLOAT.dur) continue; const im = EYE_IMG[c.name], canvas = FLOAT.size * OW * c.size / EYE.vis, ph = (c.h % 1000) / 1000 * Math.PI * 2;
+    const p = u / FLOAT.dur, yEnd = FLOAT.top * OH, y0 = OH + canvas * 0.6, y = y0 + (yEnd - y0) * p;   // a steady climb to just under the caption row (the face is above the row; the matte's faceY sits too low in the portrait crop to be a guide here)
+    const sw = Math.sin(2 * Math.PI * FLOAT.hz * u + ph), x = c.fx + FLOAT.sway * OW * sw, rot = FLOAT.tilt * Math.cos(2 * Math.PI * FLOAT.hz * u + ph);   // the tilt follows the sway's direction
+    const fo = p <= FLOAT.hold ? 1 : Math.max(0, 1 - (p - FLOAT.hold) / (FLOAT.done - FLOAT.hold)), al = fo * fo * (3 - 2 * fo), sc = 0.85 + 0.15 * Math.min(1, u / 0.4);
+    if (al <= 0.004) continue; const L = pickMip(im, canvas); spriteO(L, x, y, sc * canvas / L.w, rot, al); } };
 
 // ── drawing on the rgb24 frame buffer ──
 let fb = null;
@@ -485,7 +510,7 @@ function drawFrame(fi) {
   // when the kick lands, half at chorus 1, full from chorus 2, resting in the break, back up through the bridge
   const rn = now - T0, dance = danceAt(rn);
   const lightsOn = arriveS * (1 - Math.min(1, Math.max(0, (take - (CAM_MOVE - 2.3)) / 2.0)));
-  const toBlack = 0;                                                                                  // no dip to black: jeffrey likes her moving the camera; the effects just dissolve off first
+  const toBlack = FADE ? 1 - Math.min(1, (rn - FADE_A) / FADE_IN) * (1 - Math.min(1, Math.max(0, (rn - (FADE_B - FADE_OUT)) / FADE_OUT))) : 0;   // --fade: in and out with the audio; else no dip to black (jeffrey likes her moving the camera; the effects just dissolve off first)
   const room = 1 + (0.72 + 0.28 * amb - 1) * lightsOn;                    // v103: a simple grade — the room breathes with the sections, never goes out; gone by the end
   const lampBloom = Math.min(0.5, env(KICKS, now, 0.08, 0.03)) * lightsOn, lampOn = (0.12 * amb + 0.2 * lampBloom) * lightsOn;      // a burst, not a whiteout
   const bellRaw = env(BELLS, now, 1.4, 0.1), windowGlow = Math.min(0.15, 0.08 * bellRaw) * lightsOn, windowOn = (0.15 + 0.1 * amb) * lightsOn;
@@ -531,6 +556,7 @@ function drawFrame(fi) {
   //    syllable pops, the sung word a touch larger, a held syllable kerns outward and sways; the ball rides its one path.
   splitAt(now - T0); longAt(now, beatOf.f); if (LONG.k > 0) { const th = now * 0.7, m = 4 * LONG.k * (0.4 + 0.6 * Math.cos(Math.PI * beatOf.f) ** 2); SPLIT = { dx: SPLIT.dx + m * Math.cos(th), dy: SPLIT.dy + m * Math.sin(th) }; }   // the long's split: up to 4 px, breathing with the beat, turning
   rippleAt(now); upscale(fi); sharpen();                                       // the room is done at the base size, upscaled (the twangs' ripple, the kiss's split, the long's swim), SHARPENED, then the words go on
+  if (FIA && EYE_MODE === "float") drawEyeconsFloat(now);                     // the reel's eyecons, under the words
   if (!NO_LYRIC) { const k = Math.min(1, 0.3 + 0.7 * amb) * (1 + 0.5 * lampBloom), fl = Math.min(1, bellRaw) * 120, SH = hue.map((h) => Math.min(255, (h * k + fl) * dance)), off = 0.07 * GA.px * (CHUNKS[0]?.sc ?? SC_MAX);   // the shadow tight under the glyph (v103: "too far from the captions")
     // the "longs" (v103: "when arpeggiating should blink colors rapidly — psychic effects"): a held syllable's letters run
     // the hue wheel, each letter a step behind the last, blinking at 6 Hz, 16 Hz with the arp under it
@@ -541,7 +567,7 @@ function drawFrame(fi) {
     const easeIn = CHUNKS.length ? Math.min(1, Math.max(0, (now - CHUNKS[0].inA) / 2.5)) : 1;          // the captions ease in over their first line
     const states = new Map(); for (const C of CHUNKS) { const st = chunkState(C, now); if (st) states.set(C, { al: st.al * easeIn, dx: st.dx }); }
     for (const [C, st] of states) { const al = st.al, sc = C.sc, em = GA.px * sc;
-      if (FIA) drawEyeconsOn(C, st, now);                                                 // Fia's Cut: the row's eyecons, under its letters
+      if (FIA && EYE_MODE === "caption") drawEyeconsOn(C, st, now);                      // Fia's Cut: the row's eyecons, under its letters
       // the words stay put (v103: "the other words need to stay put"); a held word kerns out about its own centre, by the dance
       const wildOf = (w) => w.w ? dance * Math.max(0, ...w.w.syl.map((t) => now >= t.a && now < t.b && t.b - t.a > 0.6 && now - t.a > 0.25 ? Math.abs(Math.sin(Math.PI * (now - t.a - 0.25) * 3.2)) : 0)) : 0;
       for (const [wi, w] of C.words.entries()) { const timed = !!w.w, wordOn = timed && now >= w.w.a, cur = wordOn && now < w.w.b + 0.1;
@@ -582,7 +608,7 @@ const VF = [UP_CHAIN, arg("vhs") ? VHS_CHAIN : ""].filter(Boolean); const VHS = 
 const frameBytes = W * H * 3;
 const ONLY = arg("only") ? String(arg("only")).split(",").map((t) => Math.round((Number(t) - FROM) * FPS)) : null, PNG = arg("png") ? resolve(arg("png")) : OUT;
 const dec = spawn("ffmpeg", ["-v", "error", ...(FROM ? ["-ss", String(FROM)] : []), ...(TO ? ["-to", String(TO)] : []), "-i", BASE, "-vf", VERTICAL ? `crop=iw*${VIEW.w / 960}:ih:iw*${VIEW.x / 960}:0,scale=${W}:${H}:flags=lanczos` : SMALL ? "scale=960:540" : "null", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { stdio: ["ignore", "pipe", "inherit"] });
-const enc = ONLY ? null : spawn("ffmpeg", ["-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", `${OW}x${OH}`, "-r", String(FPS), "-i", "-", ...(NO_AUDIO ? [] : [...(FROM ? ["-ss", String(FROM)] : []), ...(TO ? ["-to", String(TO)] : []), "-i", AUDIO, "-map", "0:v", "-map", "1:a"]), ...VHS,
+const enc = ONLY ? null : spawn("ffmpeg", ["-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", `${OW}x${OH}`, "-r", String(FPS), "-i", "-", ...(NO_AUDIO ? [] : [...(FROM ? ["-ss", String(FROM)] : []), ...(TO ? ["-to", String(TO)] : []), "-i", AUDIO, "-map", "0:v", "-map", "1:a", ...AFADE]), ...VHS,
   ...(X264 || LYRIC_ONLY ? ["-c:v", "libx264", "-crf", LYRIC_ONLY ? "20" : "15", "-preset", LYRIC_ONLY ? "veryfast" : "medium"] : ["-c:v", "h264_videotoolbox", "-b:v", OH >= 1080 ? "16M" : "8M", "-profile:v", "high", "-allow_sw", "1"]), "-pix_fmt", "yuv420p", ...(NO_AUDIO ? [] : ["-c:a", "aac", "-b:a", "256k", "-shortest"]), "-movflags", "+faststart", outPath], { stdio: ["pipe", "inherit", "inherit"] });
 let pending = Buffer.alloc(0), fi = 0;
 dec.stdout.on("data", (chunk) => { pending = pending.length ? Buffer.concat([pending, chunk]) : chunk;
