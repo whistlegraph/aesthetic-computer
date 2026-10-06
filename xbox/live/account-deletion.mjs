@@ -2,11 +2,40 @@
 const endpoint = 'https://aesthetic.computer/api/delete-erase-and-forget-me';
 
 export function mountAccountDeletion({ account, onDeleted }) {
+  const row = document.querySelector('#account');
+  const handle = document.querySelector('#account-handle');
+  const logout = document.querySelector('#logout');
+  const settings = document.createElement('dialog');
+  settings.id = 'account-settings';
+  settings.setAttribute('aria-labelledby', 'account-settings-title');
+  settings.innerHTML = '<h2 id="account-settings-title"></h2><div id="account-settings-actions"><button id="account-settings-close" type="button">Done</button></div>';
+  document.body.append(settings);
+  const settingsTitle = settings.querySelector('h2');
+  const settingsActions = settings.querySelector('div');
+  const done = settings.querySelector('button');
+  function syncSettings() {
+    settingsTitle.textContent = handle.textContent;
+    if (account.signedIn && account.handle) settingsActions.prepend(logout);
+    else { row.append(logout); settings.close(); }
+  }
+  function openSettings() {
+    if (!account.signedIn) return;
+    syncSettings();
+    globalThis.__oskiewarAccountOpen = true;
+    settings.showModal();
+    done.focus();
+  }
+  handle.addEventListener('click', openSettings);
+  done.addEventListener('click', () => settings.close());
+  settings.addEventListener('close', () => {
+    if (!dialog.open) globalThis.__oskiewarAccountOpen = false;
+  });
   const button = document.createElement('button');
   button.type = 'button'; button.textContent = 'delete account';
   button.id = 'account-delete'; button.hidden = !account.signedIn;
-  document.querySelector('#account').append(button);
+  settings.append(button);
   const dialog = document.createElement('dialog');
+  dialog.id = 'account-deletion';
   dialog.setAttribute('aria-labelledby', 'account-deletion-title');
   dialog.style.cssText = 'box-sizing:border-box;width:calc(100% - 32px);max-width:26rem;max-height:90vh;overflow:auto;padding:24px;background:#f5f5f0;color:#111;border:1px solid #555;font:18px/1.5 sans-serif';
   dialog.innerHTML = `<form>
@@ -32,15 +61,17 @@ export function mountAccountDeletion({ account, onDeleted }) {
   dialog.addEventListener('close', () => {
     revision++; ready = false;
     globalThis.__oskiewarAccountOpen = false;
-    if (!button.hidden) button.focus();
+    if (account.signedIn) openSettings();
   });
   dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
   cancel.addEventListener('click', close);
   field.addEventListener('input', refresh);
   addEventListener('oskiewar:account-change', () => {
+    syncSettings();
     button.hidden = !account.signedIn;
     if (!account.signedIn && !completed) close();
   });
+  syncSettings();
   async function request(method, token) {
     const response = await fetch(endpoint + (method === 'GET' ? '?preview' : ''), {
       method, headers: { authorization: 'Bearer ' + token },
@@ -56,6 +87,7 @@ export function mountAccountDeletion({ account, onDeleted }) {
     ready = false; completed = false; field.value = ''; refresh();
     label.hidden = false; submit.hidden = false; cancel.textContent = 'Cancel';
     note.textContent = 'Loading your account…';
+    settings.close();
     globalThis.__oskiewarAccountOpen = true; dialog.showModal();
     try {
       const token = await account.bearer();

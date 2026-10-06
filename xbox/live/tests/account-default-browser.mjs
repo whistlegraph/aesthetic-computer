@@ -38,9 +38,10 @@ async function open(path, { phone = false, failed = false, roomStatus = null, as
       getUser: async () => signed ? { sub: 'test-user' } : undefined,
       getTokenSilently: async () => 'test-token',
     }) };
+    window.__sockets = [];
     window.WebSocket = class {
       static OPEN = 1; static CONNECTING = 0; static CLOSED = 3;
-      constructor() { this.readyState = 0; }
+      constructor(url) { this.readyState = 0; window.__sockets.push(url); }
       send() {} close() {} removeEventListener() {}
       addEventListener(type, listener) {
         if (type === 'message' && roomStatus !== null) setTimeout(() => listener({
@@ -121,37 +122,58 @@ try {
     assert.equal(await page.evaluate(()=>__oskiewarLocalPractice),true);
     assert.equal(await page.evaluate(()=>__oskiewarFighterAppearance.appearance.shirt.join(',')),'240,240,240');
     assert.equal((await state(page)).signedIn,true);
-    assert.equal(await page.$eval('#account-delete',e=>e.hidden),false);
+    assert.equal(await page.$eval('#account-delete',e=>e.getClientRects().length),0,'deletion is absent from the game screen');
+    assert.equal(await page.evaluate(()=>location.search.includes('practice')),false,'default keeps the current front door');
+    await page.click('#game-menu');
+    await page.waitForFunction(()=>__oskiewarTouch.menu==='level');
+    await page.click('#account-handle');
+    await page.waitForFunction(()=>document.querySelector('#account-settings').open);
+    assert.equal(await page.$eval('#account-delete',e=>e.getClientRects().length>0),true);
+    assert.equal(await page.evaluate(()=>__oskiewarAccountOpen),true);
+    assert.deepEqual(deletionRequests,[],'opening account actions does not request deletion');
+    await page.screenshot({path:`${output}/account-${phone?'ios':'web'}.png`});
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(()=>!__oskiewarAccountOpen);
     if(phone) assert.equal(await page.evaluate(()=>sessionStorage.getItem('oskiewar-app')),'ios');
-    const start = await page.evaluate(() => {
-      const b = __oskiewarTouch.titleButton, view = __fightHost.gameView();
-      return {x:(b.x+b.width/2)/view.width*innerWidth,y:(b.y+b.height/2)/view.height*innerHeight};
-    });
-    await page.mouse.click(start.x,start.y);
+    await page.click('#game-menu');
+    await page.waitForFunction(()=>__oskiewarTouch.menu===null);
+    await pause(250); // Let the menu button's synthetic press release before another key.
     await page.waitForFunction(()=>__oskiewarTouch.screen==='game' && __oskiewarTouch.practiceFighter==='@tester' && __oskiewarTouch.practiceModel?.parts>0);
+    assert.equal(await page.evaluate(()=>__oskiewarTouch.level),'desert');
+    assert.deepEqual(await page.evaluate(()=>__sockets),[],'saved likeness stays local');
     await page.screenshot({path:`${output}/saved-${phone?'ios':'web'}.png`});
+    async function press(key) { await page.keyboard.down(key); await pause(150); await page.keyboard.up(key); await pause(150); }
+    await press('Escape');
+    await page.waitForFunction(()=>__oskiewarTouch.menu==='level');
+    await page.screenshot({path:`${output}/menu-${phone?'ios':'web'}.png`});
+    await press('KeyD'); await press('Enter');
+    await page.waitForFunction(()=>__oskiewarTouch.level==='pool' && __oskiewarTouch.menu===null && __oskiewarTouch.practiceModel?.parts>0);
+    assert.equal(await page.evaluate(()=>__oskiewarTouch.practiceFighter),'@tester','level switch keeps the saved fighter');
     await page.reload({waitUntil:'domcontentloaded'});
     await page.waitForFunction(()=>globalThis.__oskiewarFighterAppearance?.handle==='@tester');
     assert.equal(await page.evaluate(()=>__oskiewarLocalPractice),true);
     if(phone) {
+      await page.click('#game-menu');
+      await page.waitForFunction(()=>__oskiewarTouch.menu==='level');
+      await page.click('#account-handle');
       await page.click('#account-delete');
-      await page.waitForFunction(()=>document.querySelector('dialog p').textContent.includes('7 days'));
+      await page.waitForFunction(()=>document.querySelector('#account-deletion p').textContent.includes('7 days'));
       assert.deepEqual(deletionRequests,['GET']);
-      assert.equal(await page.$eval('dialog [type="submit"]',e=>e.disabled),true);
+      assert.equal(await page.$eval('#account-deletion [type="submit"]',e=>e.disabled),true);
       await page.screenshot({path:`${output}/delete-ios.png`});
-      await page.click('dialog [type="button"]');
+      await page.click('#account-deletion [type="button"]');
       assert.deepEqual(deletionRequests,['GET'],'cancel does not delete');
       if(path.includes('code=')) {
         failDeletion(); await page.click('#account-delete');
-        await page.waitForFunction(()=>document.querySelector('dialog p').textContent.includes('Service unavailable'));
-        await page.type('dialog input','DELETE');
-        assert.equal(await page.$eval('dialog [type="submit"]',e=>e.disabled),true,'failed preview cannot submit');
+        await page.waitForFunction(()=>document.querySelector('#account-deletion p').textContent.includes('Service unavailable'));
+        await page.type('#account-deletion input','DELETE');
+        assert.equal(await page.$eval('#account-deletion [type="submit"]',e=>e.disabled),true,'failed preview cannot submit');
       } else {
         await page.click('#account-delete');
-        await page.waitForFunction(()=>document.querySelector('dialog p').textContent.includes('7 days'));
-        await page.type('dialog input','DELETE');
-        await page.click('dialog [type="submit"]');
-        await page.waitForFunction(()=>document.querySelector('dialog p').textContent.includes('account is locked'));
+        await page.waitForFunction(()=>document.querySelector('#account-deletion p').textContent.includes('7 days'));
+        await page.type('#account-deletion input','DELETE');
+        await page.click('#account-deletion [type="submit"]');
+        await page.waitForFunction(()=>document.querySelector('#account-deletion p').textContent.includes('account is locked'));
         assert.deepEqual(deletionRequests,['GET','GET','POST']);
         assert.equal((await state(page)).signedIn,false);
         assert.equal(await page.evaluate(()=>globalThis.__oskiewarFighterAppearance),null);

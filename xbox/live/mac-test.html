@@ -39,6 +39,7 @@
     {
       const harness = new URLSearchParams(location.search);
       globalThis.__oskiewarLocalPractice = harness.has("practice");
+      globalThis.__oskiewarPracticeOpponent = harness.has("practice") ? "dummy" : "freeskate";
       globalThis.__oskiewarVersusCapable = !offlineRuntime && !harness.has("social-preview") &&
         !harness.has("practice") && !harness.has("replay-oven") && !harness.has("self-play") && !harness.has("workshop") && !harness.has("map");
     }
@@ -143,12 +144,22 @@
     /* The silent auth check answers well after the first paint. In a row that
        is fine — the handle appears to the left of a button that has not moved
        — where the old stacked layout made the door jump a second in. */
-    #account-handle { white-space: nowrap;
+    #account-handle { appearance: none; border: 0; background: transparent; padding: 7px 0; cursor: pointer; white-space: nowrap;
       font: 700 19px/1 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
       color: #f3f6ff; text-shadow: 2px 3px 0 rgba(4, 7, 18, .65); }
     #account-handle[hidden] { display: none; }
-    #account-delete { padding: 7px; border: 0; background: transparent;
-      color: #303849; font: 14px/1.3 Arial, sans-serif; text-decoration: underline; cursor: pointer; }
+    #account-handle:focus-visible { outline: 3px solid #e6cd5c; outline-offset: 3px; }
+    #account-settings { width: calc(100% - 32px); max-width: 25rem; padding: 22px;
+      border: 3px solid #6e768d; border-radius: 14px; background: #171b28;
+      color: #f3f6ff; font: 17px/1.35 "Comic Relief", Arial, sans-serif; }
+    #account-settings::backdrop { background: rgba(4, 7, 18, .82); }
+    #account-settings h2 { margin: 0 0 22px; font-size: 26px; }
+    #account-settings-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; }
+    #account-settings button { font: inherit; cursor: pointer; }
+    #account-settings-close { margin-left: auto; padding: 7px 11px; border: 1px solid #6e768d;
+      border-radius: 8px; background: #3b4256; color: #f3f6ff; }
+    #account-delete { display: block; margin-top: 28px; padding: 8px 0; border: 0;
+      background: transparent; color: #ffb7ad; text-decoration: underline; }
     #logout { appearance: none; padding: 7px 11px; border: 2px solid #6e768d;
       border-radius: 8px; background: #b0b8ca; color: #171b28;
       font: 700 15px/1 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
@@ -166,9 +177,14 @@
       box-shadow: 4px 6px 0 rgba(20, 25, 38, .4); }
     #logout:active { transform: translate(1px, 2px);
       box-shadow: 1px 1px 0 rgba(20, 25, 38, .35); }
-    body:not(.title-open) #account, body.social-preview #account { display: none; }
+    body:not(.title-open):not(.menu-open) #account, body.social-preview #account { display: none; }
     body.midi-out #account { display: none; }
-    body:not(.title-open) #logout, body.social-preview #logout { display: none; }
+    body.social-preview #logout { display: none; }
+    #game-menu { position: fixed; z-index: 6; left: 50%; transform: translateX(-50%);
+      bottom: max(14px, env(safe-area-inset-bottom)); padding: 9px 14px;
+      border: 2px solid #6e768d; border-radius: 9px; background: #b0b8ca;
+      color: #171b28; font: 700 15px/1.3 "Comic Relief", Arial, sans-serif; }
+    body:not(.game-open) #game-menu, body.social-preview #game-menu { display: none; }
     /* Scoring from a DAW is anonymous dummy play, so the account door is shut
        and the corner it occupied is free for the midi lamp. */
     body.midi-out #logout { display: none; }
@@ -228,14 +244,15 @@
 <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
-  <canvas id="screen" width="1920" height="1080" aria-label="oskiewar stick fight and lava climb"></canvas>
+  <canvas id="screen" width="1920" height="1080" tabindex="-1" aria-label="oskiewar stick fight and lava climb"></canvas>
   <canvas id="scene" width="1920" height="1080" aria-hidden="true"></canvas>
   <canvas id="text" width="1920" height="1080" aria-hidden="true"></canvas>
   <div id="inset-probe" aria-hidden="true"></div>
   <button id="theme-toggle" type="button">Auto theme</button>
+  <button id="game-menu" type="button" aria-label="Pause menu">menu</button>
   <div id="status" role="alert" aria-live="polite"></div>
   <div id="account">
-    <span id="account-handle" hidden></span>
+    <button id="account-handle" type="button" aria-haspopup="dialog" aria-controls="account-settings" hidden></button>
     <button id="logout" type="button">log in</button>
   </div>
   <div id="account-panel" hidden>
@@ -336,6 +353,13 @@
     // `__oskiewarVersusCapable` is raised in the head, beside the fetches
     // that depend on it.
     let titleOpen = true;
+    const gameMenuButton = document.querySelector("#game-menu");
+    gameMenuButton.addEventListener("click", () => {
+      if (globalThis.__oskiewarAccountOpen) return;
+      canvas.focus();
+      keys[0].add("Menu");
+      setTimeout(() => keys[0].delete("Menu"), 120);
+    });
     const keyMap = new Map([
       ["KeyW", [0, "ArrowUp"]], ["KeyS", [0, "ArrowDown"]],
       ["BracketLeft", [0, "LeftShoulder"]], ["BracketRight", [0, "RightShoulder"]],
@@ -1804,16 +1828,15 @@
         defaultHandle: () => globalThis.__oskiewarAccount.handle.toLowerCase(),
         onDefault: () => {
           if (defaultCharacterEntry && !globalThis.__oskiewarLocalPractice) {
-            // During initial loading, select the private lane before the game
-            // or a room bridge boots. A later sign-in starts a fresh page.
+            // Keep the current freeskate game and its level menu. The saved
+            // likeness is local-only, so disable sharing before the game boots.
+            // A mid-game sign-in restarts here to close any existing room.
             if (globalThis.__oskiewarTouch?.screen === "game") {
-              location.replace(practiceUrl());
+              location.reload();
               return;
             }
             globalThis.__oskiewarLocalPractice = true;
             globalThis.__oskiewarVersusCapable = false;
-            globalThis.__oskiewarOpponent = "dummy";
-            history.replaceState(null, "", practiceUrl());
           }
         },
         enterPractice: () => {
@@ -2086,6 +2109,10 @@
       };
       const syncSelectionCursor = () => {
         const pieceScreen = globalThis.__oskiewarTouch?.screen || "";
+        const menuOpen = Boolean(globalThis.__oskiewarTouch?.menu);
+        document.body.classList.toggle("menu-open", menuOpen);
+        document.body.classList.toggle("game-open", pieceScreen === "game");
+        gameMenuButton.textContent = menuOpen ? "resume" : "menu";
         if (pieceScreen === "title" && previousPieceScreen !== "title") {
           if (updateAvailable) {
             document.querySelector("#status").textContent = "updating";

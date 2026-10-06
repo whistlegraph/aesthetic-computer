@@ -1,5 +1,5 @@
 // @bundle-qr
-globalThis.__oskiewarOpponent = globalThis.__oskiewarLocalPractice ? "dummy" : "freeskate";
+globalThis.__oskiewarOpponent = globalThis.__oskiewarPracticeOpponent || "freeskate";
 // @bundle-qr
 // The console's monotonic clock can hand back a negative number: App.cpp
 // converts QPC ticks with `counter * 1000000`, which overflows int64 past
@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 263;
+const buildVersion = 264;
 const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
@@ -4560,7 +4560,7 @@ function drawAeselFairy(t){
   }
 }
 function drawAeselConnect(){
-  if(!poolOnly()||!sessionName)return;
+  if(!poolOnly()||!sessionName||globalThis.__oskiewarLocalPractice)return;
   const {safe,room:label,roomX,roomSize:size}=parkTopRail();
   const saved=triangleDepth;triangleDepth=-1.49;
   const qr=shellMode==='MENU'?spectatorQrBox():null;
@@ -6769,8 +6769,7 @@ function updateFreeskateMenu(now) {
 
 function drawFreeskateMenu(ink) {
   if (!freeskateMenu) return;
-  const size = compactLayout() ? 34 : 50;
-  const gap = Math.round(size * 1.35);
+  let size = compactLayout() ? 34 : 50;
   const speedLabel = (speed) => speed === 1 ? "\u00d71" : speed === .5 ? "\u00d7\u00bd" : "\u00d7\u00bc";
   const candidate = freeskateLevels[freeskateMenu.level];
   const rows = [
@@ -6780,7 +6779,13 @@ function drawFreeskateMenu(ink) {
     "resume", "back to title",
   ];
   const heading = "paused";
+  const widest = Math.max(...rows.map(row => handleWidth("> " + row, size)));
+  size = Math.min(size, size * (viewWidth() - 70) / widest);
+  const gap = Math.round(size * 1.5);
   let y = Math.round(viewHeight * .32);
+  const width = Math.max(...rows.map(row => handleWidth("> " + row, size))) + 40;
+  hudBox(viewCenterX() - width / 2, y - 18, width, gap * 5 + 28, 20, 28, 56);
+  ink = [245, 248, 255];
   typeWrite(heading, viewCenterX() - handleWidth(heading, size * .7) / 2 + 3, y + 4,
     Math.round(size * .7), ...contrastShadow(ink));
   typeWrite(heading, viewCenterX() - handleWidth(heading, size * .7) / 2, y,
@@ -9709,7 +9714,7 @@ function parkTopRail(){
  return {safe,ping,pingText,countText,countX,room,roomX,roomSize,verb};
 }
 function drawParkConnection(){
- if(!poolOnly()||shellMode!=='GAME')return;
+ if(!poolOnly()||shellMode!=='GAME'||globalThis.__oskiewarLocalPractice)return;
  const {safe,ping,pingText,countText,countX}=parkTopRail();
  const bars=ping===null?0:ping<100?4:ping<200?2:1;
  const color=bars===4?[103,231,151]:bars===2?[255,180,77]:[255,100,111];
@@ -21255,7 +21260,9 @@ function drawGeneratedRunner(player, world, appearance, t, geometry) {
   const renderer = globalThis.__oskiewarFighterModel;
   if (!renderer) return false;
   const model = renderer.build(appearance);
-  const yaw = Math.PI - (player.facing || 1) * .38 + (player.spin?.angle || 0);
+  const yaw = poolOnly() && !parkFightRival(player)
+    ? Math.PI / 2 - (player.poolYaw || 0) - (player.spin?.angle || 0)
+    : Math.PI - (player.facing || 1) * .38 + (player.spin?.angle || 0);
   const instances = renderer.pose(model, world, { yaw, headless: player.headless,
     hasPart: part => hasPart(player, part) });
   if (player.skateboard) drawSkateboard(player);
@@ -24499,6 +24506,7 @@ function drawDebugBug(x, y, scale = 1) {
 
 // The title owns the share code; active maps keep the corner clear.
 function spectatorQrBox() {
+  if (globalThis.__oskiewarLocalPractice) return null;
   if (shellMode === "GAME"&&!poolOnly()) return null;
   if (typeof capabilities === "function" && capabilities().socialPreview)
     return null;
@@ -25010,6 +25018,8 @@ function gamePaint() {
   if (globalThis.__oskiewarTouch) {
     globalThis.__oskiewarTouch.practiceFighter = null;
     globalThis.__oskiewarTouch.practiceModel = null;
+    globalThis.__oskiewarTouch.level = freeskateActive() ? freeskateCourseNow() : null;
+    globalThis.__oskiewarTouch.menu = freeskateMenu ? freeskateMenuRows[freeskateMenu.row] : null;
     globalThis.__oskiewarTouch.screen = shellMode === "MENU"
       ? titleTransitionAt !== null ? "title-transition" : "title"
       : selecting ? "select" : "game";
@@ -27518,6 +27528,7 @@ function drawGoKartBody(place,body){
  }
 }
 function drawParkPickupLabels(){
+ if(freeskateMenu)return;
  if(!poolOnly())return;
  const rider=players[0],items=[...gunPickups.filter(i=>i.active).map(i=>({...i,label:i.kind==='RUBBER SMG'?'SMG':'pistol',ink:[120,215,255]})),...parkAxes.filter(i=>i.active).map(i=>({...i,label:'axe',ink:[255,168,102]})),...chalkPickups.filter(i=>i.active).map(i=>({...i,label:i.color.name.toLowerCase()+' chalk',ink:i.color.rgb})),...paintCans.filter(i=>i.active).map(i=>({...i,label:i.color.name.toLowerCase()+' paint'+(i.tipped?' (tipped)':''),ink:i.color.rgb})),...parkKarts.filter(i=>i.active).map(i=>({...i,label:'go-kart',ink:i.color}))];
  if(axePickup.active)items.push({...axePickup,label:'axe',ink:[255,168,102]});
