@@ -4,11 +4,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { gunzipSync, gzipSync } from "node:zlib";
-import { artifactMode, tokenMetadata, crawlBundle, checkBundle, CRAWL_STYLE } from "../lib/artifact.mjs";
+import { artifactMode, tokenMetadata, crawlBundle, checkBundle, crawlPackage, checkPinnedArtifact, CRAWL_STYLE } from "../lib/artifact.mjs";
+import AdmZip from "adm-zip";
 import { crawlLayout, crawlPiece, readablePeriod } from "../lib/crawl.mjs";
 
 const SIGNER = "tz1gkf8EexComFBJvjtT1zdsisdah791KwBE";
-const uris = { html: "ipfs://QmHtml", gif: "ipfs://QmGif", thumb: "ipfs://QmThumb" };
+const uris = { directory: "ipfs://QmDirectory", gif: "ipfs://QmGif", thumb: "ipfs://QmThumb" };
 const episode = {
   title: "a door; (for letters)",
   body: `It said "hello", then (quietly) left; a colon: fine?`,
@@ -19,21 +20,21 @@ const episode = {
   uris,
 };
 
-test("the switch: html by default, gif on request, anything else refused", () => {
-  assert.equal(artifactMode({}), "html");
+test("the switch: ZIP by default and for legacy HTML configs, GIF on request", () => {
+  assert.equal(artifactMode({}), "zip");
+  assert.equal(artifactMode({ DAILY_ARTIFACT: "zip" }), "zip");
   assert.equal(artifactMode({ DAILY_ARTIFACT: "gif" }), "gif");
-  assert.equal(artifactMode({ DAILY_ARTIFACT: " HTML " }), "html");
-  assert.throws(() => artifactMode({ DAILY_ARTIFACT: "svg" }), /html or gif/);
+  assert.equal(artifactMode({ DAILY_ARTIFACT: " HTML " }), "zip");
+  assert.throws(() => artifactMode({ DAILY_ARTIFACT: "svg" }), /zip or gif/);
 });
 
-test("html metadata: the bundle is the artifact, the GIF the display", () => {
-  const m = tokenMetadata({ ...episode, artifact: "html" });
-  assert.equal(m.artifactUri, uris.html);
+test("HEN metadata selects the directory viewer, with the GIF as display", () => {
+  const m = tokenMetadata(episode);
+  assert.equal(m.artifactUri, uris.directory);
   assert.equal(m.displayUri, uris.gif);
   assert.equal(m.thumbnailUri, uris.thumb);
-  // The HTML format entry is a Keep's, field for field.
   assert.deepEqual(m.formats, [
-    { uri: uris.html, mimeType: "text/html", dimensions: { value: "responsive", unit: "viewport" } },
+    { uri: uris.directory, mimeType: "application/x-directory", dimensions: { value: "responsive", unit: "viewport" } },
     { uri: uris.gif, mimeType: "image/gif", dimensions: { value: "512x512", unit: "px" } },
   ]);
   assert.deepEqual(m.creators, [SIGNER]);
@@ -41,6 +42,21 @@ test("html metadata: the bundle is the artifact, the GIF the display", () => {
   assert.equal(m.symbol, "OBJKT");
   assert.ok(m.description.startsWith(episode.body));
   assert.equal(m.date, "2026-09-29T00:30:00.000Z");
+});
+
+test("bare HTML cannot be passed as a directory; old configs use the new format", () => {
+  assert.throws(() => tokenMetadata({ ...episode, uris: { html: "ipfs://QmHtml" } }), /directory URI/);
+  assert.equal(tokenMetadata({ ...episode, artifact: "html" }).formats[0].mimeType, "application/x-directory");
+});
+
+test("an unminted legacy receipt cannot resume into another HTML mint", () => {
+  const legacy = { artifact: "html", metadataUri: "ipfs://QmMetadata" };
+  assert.throws(() => checkPinnedArtifact(legacy, "zip"), /Unminted receipt/);
+  assert.throws(() => checkPinnedArtifact({ ...legacy, artifact: "zip" }, "zip"), /Unminted receipt/);
+  assert.doesNotThrow(() => checkPinnedArtifact({ ...legacy, mintOp: "opPending" }, "zip"));
+  assert.doesNotThrow(() => checkPinnedArtifact({ ...legacy, tokenId: "885470" }, "zip"));
+  assert.doesNotThrow(() => checkPinnedArtifact({}, "zip"));
+  assert.doesNotThrow(() => checkPinnedArtifact({ artifact: "zip", artifactMimeType: "application/x-directory", metadataUri: "ipfs://QmNew" }, "zip"));
 });
 
 test("gif metadata is exactly what the daily minted before the switch", () => {
@@ -94,6 +110,12 @@ test("the bundle is one offline, self-extracting PACK-mode page", async () => {
 
   // The gate daily-token runs before pinning: this bundle passes it...
   assert.deepEqual(checkBundle(outer, { code: "dly", source }), []);
+  const packed = crawlPackage(outer, { gif: Buffer.from("gif"), thumbnail: Buffer.from("png"), frames: 300 });
+  const zip = new AdmZip(packed.zip);
+  assert.deepEqual(zip.getEntries().map(entry => entry.entryName).sort(), ["cover.gif", "index.html", "thumbnail.png"]);
+  for (const file of packed.files) assert.deepEqual(zip.readFile(file.name), file.content, "IPFS gets the exact ZIP contents");
+  assert.deepEqual(checkBundle(zip.readAsText("index.html"), { code: "dly", source }), []);
+  assert.match(zip.readAsText("index.html"), /property="og:image" content="cover.gif"/);
   assert.deepEqual(checkBundle(outer, { code: "xyz", source }), ["doesn't start $xyz"]);
   // ...and one packed from a runtime without the highlighter fixes fails it.
   const stale = { ...vfs, "lib/kidlisp.mjs": { ...vfs["lib/kidlisp.mjs"], content: vfs["lib/kidlisp.mjs"].content.replace(/tokenScan\(/g, "scan(").replace(/window\.acPACK_MODE\s*&&\s*!window\.acKEEP_LABEL\)\s*return/g, "") } };

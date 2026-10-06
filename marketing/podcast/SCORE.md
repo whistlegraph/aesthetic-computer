@@ -56,6 +56,14 @@ Kubo node Keeps uses) with TZIP-21 metadata (the script as description, links
 to the episode and the live $code), `mint_OBJKT` mints `DAILY_EDITIONS` (1, a
 daily unique) and an objkt ask lists it at `DAILY_PRICE_XTZ` (3). HEN
 metadata is immutable, so a minted day can't be renamed or re-imaged.
+Interactive dailies use `DAILY_ARTIFACT=zip` by default (`html` in an older env
+also selects ZIP). The offline crawl is packaged as `index.html`, `cover.gif`
+and `thumbnail.png` in `out/daily/<slug>.zip`; `/api/ipfs-add` pins those files
+as a directory. The artifact URI is the directory root with MIME type
+`application/x-directory`, as HEN/Teia require, while the GIF remains the
+display image. Never mint a bare HTML or ZIP file CID as the interactive
+artifact. `DAILY_ARTIFACT=gif` retains the GIF-only option. An unminted receipt
+with previously pinned metadata in another format stops for inspection.
 Stages resume from `out/daily/<slug>.token.json`; it refuses to sign with any
 key but aesthetic.tez or below 0.15 XTZ (each day burns ~0.06). Needs
 `AESTHETIC_KEY` in the appliance env (jasellite: `~/.config/ac/tezos-daily.env`,

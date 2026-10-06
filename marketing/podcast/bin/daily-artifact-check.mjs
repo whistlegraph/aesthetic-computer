@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// daily-artifact-check.mjs — watch a daily bundle run the way objkt holds it.
+// daily-artifact-check.mjs — watch a daily package in the HEN/objkt sandbox.
 //
 // Serves the bundle to a sandboxed iframe (allow-scripts, opaque origin) and
 // aborts every other request, then screenshots it for a few seconds: it
@@ -7,7 +7,7 @@
 // half of the gate; daily-token.mjs runs the static half (checkBundle) itself,
 // since jasellite has no Chrome. Needs puppeteer (oven/node_modules or root).
 //
-//   node bin/daily-artifact-check.mjs out/daily/daily-2026-09-29.html [--shots dir]
+//   node bin/daily-artifact-check.mjs out/daily/daily-2026-10-06.zip [--shots dir]
 
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname, basename } from "node:path";
@@ -25,9 +25,11 @@ const need = (m) => {
 const puppeteer = need("puppeteer"), sharp = need("sharp");
 
 const [file, ...rest] = process.argv.slice(2);
-if (!file) { console.error("usage: daily-artifact-check.mjs <bundle.html> [--shots dir]"); process.exit(2); }
+if (!file) { console.error("usage: daily-artifact-check.mjs <package.zip|bundle.html> [--shots dir]"); process.exit(2); }
 const shotsDir = rest.includes("--shots") ? rest[rest.indexOf("--shots") + 1] : null;
-const bundle = readFileSync(file);
+const zip = file.endsWith(".zip") ? new (need("adm-zip"))(readFileSync(file)) : null;
+const bundle = zip ? zip.readFile("index.html") : readFileSync(file);
+if (!bundle) throw new Error("ZIP is missing root index.html");
 const ART = "https://art.test/index.html", HOST = "https://host.test/";
 const host = `<!doctype html><body style="margin:0;background:#222"><iframe sandbox="allow-scripts" src="${ART}" style="border:0;width:512px;height:512px"></iframe>`;
 
@@ -40,6 +42,10 @@ page.on("request", (r) => {
   const u = r.url();
   if (u === ART) return r.respond({ status: 200, contentType: "text/html", body: bundle });
   if (u === HOST) return r.respond({ status: 200, contentType: "text/html", body: host });
+  if (zip && ["https://art.test/cover.gif", "https://art.test/thumbnail.png"].includes(u)) {
+    const name = new URL(u).pathname.slice(1);
+    return r.respond({ status: 200, contentType: name.endsWith("gif") ? "image/gif" : "image/png", body: zip.readFile(name) });
+  }
   if (u.startsWith("blob:") || u.startsWith("data:")) return r.continue();
   if (!u.endsWith("/favicon.ico")) leaked.push(u);
   r.abort();

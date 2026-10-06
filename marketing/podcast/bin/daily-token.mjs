@@ -5,9 +5,9 @@
 //             here (lib/crawl.mjs), and the same crawl as a live KidLisp
 //             $code on AC; the thumbnail is one of the GIF's frames
 //   bundle  — the $code packed as a Keep is (oven/bundler.mjs, PACK mode):
-//             one self-extracting HTML that runs offline in objkt's sandbox
-//   pin     — bundle, GIF, thumb and TZIP-21 metadata to AC's IPFS node
-//             (/api/ipfs-add); the bundle is the artifact, the GIF the display
+//             index.html + covers in a HEN/Teia ZIP, with an offline runtime
+//   pin     — the ZIP's contents as an IPFS directory, plus GIF, thumb and
+//             TZIP-21 metadata (/api/ipfs-add); the GIF stays the display
 //   mint    — mint_OBJKT on the hic et nunc minter, signed by aesthetic.tez
 //   list    — an objkt ask for the whole edition
 //
@@ -23,7 +23,7 @@
 //   AESTHETIC_KEY, AESTHETIC_ADDRESS   the signer (must be aesthetic.tez)
 //   AC_TOKEN or ~/.ac-token            an @jeffrey AC session, for /api/ipfs-add
 // Tuning: DAILY_EDITIONS (1), DAILY_PRICE_XTZ (3), DAILY_ROYALTIES_PERMILLE (150),
-//         DAILY_ARTIFACT (html | gif: what the artifactUri is; see lib/artifact.mjs).
+//         DAILY_ARTIFACT (zip | gif; legacy html also uses ZIP packaging).
 
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -73,7 +73,7 @@ const PRICE_XTZ = Number(process.env.DAILY_PRICE_XTZ || 3);
 const ROYALTIES = Number(process.env.DAILY_ROYALTIES_PERMILLE || 150); // HEN is per-mille
 const MIN_BALANCE_XTZ = 0.15; // a mint + a listing burn ~0.06
 
-const { artifactMode, crawlBundle, checkBundle, tokenMetadata } = await import(resolve(ROOT, "lib", "artifact.mjs"));
+const { artifactMode, crawlBundle, checkBundle, crawlPackage, checkPinnedArtifact, tokenMetadata, TEIA_FORMAT } = await import(resolve(ROOT, "lib", "artifact.mjs"));
 let ARTIFACT;
 try { ARTIFACT = artifactMode(); } catch (err) { console.error(`✗ ${err.message}`); process.exit(1); }
 
@@ -101,6 +101,7 @@ if (receipt.listed) {
   console.log(`✓ ${slug} already minted and listed: ${receipt.objktUrl}`);
   process.exit(0);
 }
+checkPinnedArtifact(receipt, ARTIFACT);
 
 // ── 0. the episode ───────────────────────────────────────────────────────
 // The script daily.mjs wrote is the material; its redaction guard already
@@ -161,7 +162,8 @@ if (!receipt.code) {
 // that fails is rebuilt once from this checkout's runtime, and if it still
 // fails the night refuses to mint HTML rather than mint a broken artifact.
 const htmlPath = resolve(dailyDir, `${slug}.html`);
-if (ARTIFACT === "html") {
+let packaged;
+if (ARTIFACT === "zip") {
   const pack = async () => {
     const html = await crawlBundle(receipt.code, receipt.source);
     writeFileSync(htmlPath, html);
@@ -183,13 +185,20 @@ if (ARTIFACT === "html") {
     process.exit(1);
   }
   console.log("  ✓ bundle checks out: PACK mode, offline, source intact, runtime current");
+  packaged = crawlPackage(readFileSync(htmlPath, "utf8"), {
+    gif: readFileSync(resolve(dailyDir, `${slug}.gif`)),
+    thumbnail: readFileSync(resolve(dailyDir, `${slug}-thumb.png`)),
+    frames: receipt.frames,
+  });
+  writeFileSync(resolve(dailyDir, `${slug}.zip`), packaged.zip);
+  console.log(`  ✓ HEN/Teia package → out/daily/${slug}.zip (index.html + covers)`);
 }
 
 const metadataFor = (uris) => tokenMetadata({ title, body, date, episodeUrl, code: receipt.code, creator: SIGNER, artifact: ARTIFACT, uris, ac: AC });
 
 if (flags.dry) {
   const dry = (f) => `ipfs://<${f}>`;
-  const metadata = metadataFor({ html: dry(`${slug}.html`), gif: dry(`${slug}.gif`), thumb: dry(`${slug}-thumb.png`) });
+  const metadata = metadataFor({ directory: dry(`${slug}-directory`), gif: dry(`${slug}.gif`), thumb: dry(`${slug}-thumb.png`) });
   writeFileSync(resolve(dailyDir, `${slug}.metadata.json`), JSON.stringify(metadata, null, 2) + "\n");
   console.log(`✓ dry run (${ARTIFACT}): $${receipt.code} rendered; metadata → out/daily/${slug}.metadata.json; nothing pinned or minted.`);
   process.exit(0);
@@ -215,13 +224,13 @@ const pinFile = (path, name, mimeType) => pin({ name, mimeType, base64: readFile
 
 if (!receipt.metadataUri) {
   const uris = {
-    html: ARTIFACT === "html" ? await pinFile(htmlPath, `${slug}.html`, "text/html") : undefined,
+    directory: packaged ? await pin({ files: packaged.files.map(({ name, mime, content }) => ({ name, mimeType: mime, base64: content.toString("base64") })) }) : undefined,
     gif: await pinFile(resolve(dailyDir, `${slug}.gif`), `${slug}.gif`, "image/gif"),
     thumb: await pinFile(resolve(dailyDir, `${slug}-thumb.png`), `${slug}-thumb.png`, "image/png"),
   };
   const metadata = metadataFor(uris);
   const metadataUri = await pin({ name: `${slug}.json`, json: metadata });
-  Object.assign(receipt, { artifact: ARTIFACT, artifactUri: metadata.artifactUri, displayUri: metadata.displayUri, thumbnailUri: metadata.thumbnailUri, metadataUri });
+  Object.assign(receipt, { artifact: ARTIFACT, artifactMimeType: ARTIFACT === "zip" ? TEIA_FORMAT : "image/gif", artifactUri: metadata.artifactUri, displayUri: metadata.displayUri, thumbnailUri: metadata.thumbnailUri, metadataUri });
   save();
   console.log(`  ✓ pinned ${receipt.metadataUri}`);
 }

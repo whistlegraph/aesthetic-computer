@@ -1,25 +1,37 @@
 // artifact.mjs — the daily token's live artifact and its TZIP-21 metadata.
 //
 // The crawl's KidLisp $code, packed by the oven's own bundler exactly as a
-// Keep is: one self-extracting text/html file in PACK mode (the runtime, fonts
-// and source inlined as a VFS; fetch() answered from it), so it runs in
-// objkt's sandbox with no network. The GIF stays on as the displayUri, for
-// wallets and feeds that don't run HTML.
+// Keep is: one self-extracting page in PACK mode (runtime, fonts and source
+// inlined). Package it as index.html + covers in a ZIP, and pin those files
+// as an IPFS directory so HEN/Teia select their interactive viewer.
 
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
+import { teiaPackage, TEIA_FORMAT } from "../../../system/backend/whistlegraph-teia.mjs";
+
+export { teiaPackage as crawlPackage, TEIA_FORMAT };
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..", "..");
 
-export const ARTIFACTS = ["html", "gif"];
+export const ARTIFACTS = ["zip", "gif"];
 
-// DAILY_ARTIFACT=html|gif; anything else is a mistake worth stopping for.
+// Older appliance configs may still say html; they get the corrected package.
 export function artifactMode(env = process.env) {
-  const mode = (env.DAILY_ARTIFACT || "html").trim().toLowerCase();
+  const mode = (env.DAILY_ARTIFACT || "zip").trim().toLowerCase();
+  if (mode === "html") return "zip";
   if (!ARTIFACTS.includes(mode)) throw new Error(`DAILY_ARTIFACT must be ${ARTIFACTS.join(" or ")}, not "${mode}"`);
   return mode;
+}
+
+// A saved metadata URI is immutable once submitted. Never resume an unminted
+// legacy receipt into another bare-HTML mint, or change a submitted operation.
+export function checkPinnedArtifact(receipt, artifact) {
+  if (receipt.metadataUri && !receipt.mintOp && receipt.tokenId === undefined &&
+      (receipt.artifact !== artifact || (artifact === "zip" && receipt.artifactMimeType !== TEIA_FORMAT))) {
+    throw new Error("Unminted receipt has a different artifact format; inspect its pinned metadata before retrying");
+  }
 }
 
 // The crawl sizes itself from the live screen, but AC still offsets its
@@ -71,20 +83,21 @@ export function checkBundle(html, { code, source }) {
   return problems;
 }
 
-export function tokenMetadata({ title, body, date, episodeUrl, code, creator, artifact = "html", uris, ac = "https://aesthetic.computer", size = 512 }) {
+export function tokenMetadata({ title, body, date, episodeUrl, code, creator, artifact = "zip", uris, ac = "https://aesthetic.computer", size = 512 }) {
+  const live = artifactMode({ DAILY_ARTIFACT: artifact }) === "zip";
+  if (live && !uris.directory) throw new Error("Interactive artifact needs an IPFS directory URI");
   const gif = { uri: uris.gif, mimeType: "image/gif", dimensions: { value: `${size}x${size}`, unit: "px" } };
-  const html = { uri: uris.html, mimeType: "text/html", dimensions: { value: "responsive", unit: "viewport" } };
-  const live = artifact === "html";
+  const directory = { uri: uris.directory, mimeType: TEIA_FORMAT, dimensions: { value: "responsive", unit: "viewport" } };
   return {
     name: title,
     description: `${body}\n\n— Aesthetic Dot Computer, ${date}. Listen: ${episodeUrl}\nThe page as a live KidLisp piece: ${ac}/${code}`,
     tags: ["aesthetic.computer", "kidlisp", "podcast", "devlog", "pixelfont"],
     symbol: "OBJKT",
-    artifactUri: live ? uris.html : uris.gif,
+    artifactUri: live ? uris.directory : uris.gif,
     displayUri: uris.gif,
     thumbnailUri: uris.thumb,
     creators: [creator],
-    formats: live ? [html, gif] : [{ uri: uris.gif, mimeType: "image/gif" }],
+    formats: live ? [directory, gif] : [{ uri: uris.gif, mimeType: "image/gif" }],
     decimals: 0,
     isBooleanAmount: false,
     shouldPreferSymbol: false,
