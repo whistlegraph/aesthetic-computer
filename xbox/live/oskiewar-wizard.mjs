@@ -39,16 +39,17 @@ export function scopeForMedia({ photo, voice }) {
 
 const STYLE = `
 #wizard-panel { position:fixed; inset:0; z-index:21; display:grid; place-items:center;
-  padding:20px; background:rgba(18,28,45,.48); backdrop-filter:blur(12px); }
+  padding:20px; background:radial-gradient(ellipse at 50% 15%,#739adb38,transparent 65%),rgba(13,24,43,.58); backdrop-filter:blur(18px) saturate(1.2); }
 #wizard-panel[hidden] { display:none; }
 #wizard-card { box-sizing:border-box; width:100%; max-width:480px; max-height:calc(100dvh - 40px);
   overflow:auto; display:flex; flex-direction:column; gap:20px; padding:28px;
-  border:1px solid #ffffffa8; border-radius:28px; background:#fff; color:#182638;
-  box-shadow:0 24px 80px #081b3d40; font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+  border:1px solid #ffffffd9; border-radius:30px; background:linear-gradient(145deg,#fff 15%,#f6f9ff 65%,#edf3fd); color:#182638;
+  box-shadow:0 32px 100px #03133166,0 8px 24px #09245524,inset 0 2px 0 #fff,inset 0 -1px 0 #cbdaf180; font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
   scrollbar-width:thin; scrollbar-color:#ccd5df transparent; }
 #wizard-card > * { flex-shrink:0; }
 #wizard-brand { align-self:flex-start; display:flex; align-items:center; gap:7px;
-  padding:6px 11px; border:1px solid #e1e7ee; border-radius:99px; background:#f6f8fb;
+  padding:7px 12px; border:1px solid #d5dfed; border-radius:99px; background:linear-gradient(170deg,#fff 20%,#e6edf8 95%);
+  box-shadow:0 2px 4px #243e6512,inset 0 1px 0 #fff,inset 0 -1px 0 #c8d5e780;
   color:#33445a; font-size:15px; font-weight:650; line-height:1; letter-spacing:-.03em; }
 #wizard-brand svg { width:19px; height:19px; }
 #wizard-card h2 { margin:0; font-size:29px; font-weight:700; line-height:1.15; letter-spacing:-.045em; }
@@ -56,7 +57,7 @@ const STYLE = `
 #wizard-card fieldset { border:0; margin:0; padding:0; display:grid; gap:12px; }
 #wizard-card legend { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
 #wizard-card label.row { display:flex; gap:12px; align-items:center; padding:16px;
-  border:1px solid #d7e3f3; border-radius:16px; cursor:pointer; font-size:16px; font-weight:600; background:#f4f8fe; }
+  border:1px solid #d7e3f3; border-radius:16px; cursor:pointer; font-size:16px; font-weight:600; background:linear-gradient(135deg,#fff,#eaf2ff); box-shadow:inset 0 1px 0 #fff,0 2px 6px #1c437508; }
 #wizard-card label.row input { width:20px; height:20px; margin:0; accent-color:#0866ff; }
 #wizard-upload { min-width:0; }
 #wizard-upload:empty { display:none; }
@@ -77,16 +78,18 @@ const STYLE = `
 #wizard-actions { display:flex; gap:10px; }
 #wizard-panel button { flex:1; min-height:48px; padding:12px 16px; border:1px solid transparent;
   border-radius:14px; font:600 15px/1.25 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
-  background:#0866ff; color:#fff; cursor:pointer; transition:background .15s,transform .15s; }
-#wizard-panel button:hover { background:#0059e0; }
+  background:linear-gradient(180deg,#358cff,#0866f5 60%,#0759d9); color:#fff; cursor:pointer;
+  border-color:#1268dd; box-shadow:inset 0 1px 0 #ffffff66,0 3px 7px #0866ff29;
+  text-shadow:0 1px 1px #004aaa50; transition:filter .15s,transform .15s,box-shadow .15s; }
+#wizard-panel button:hover { filter:brightness(1.055); box-shadow:inset 0 1px 0 #ffffff66,0 4px 12px #0866ff38; }
 #wizard-panel button:active { transform:scale(.98); }
 #wizard-panel button:focus-visible, #wizard-panel input:focus-visible, #wizard-proof summary:focus-visible {
   outline:3px solid #88b7ff; outline-offset:3px; }
 #wizard-panel button[disabled] { opacity:.45; cursor:default; }
-#wizard-panel #wizard-back { background:#edf1f6; color:#33445a; }
+#wizard-panel #wizard-back { background:linear-gradient(#fff,#e9eef6); border-color:#d5dfec; color:#33445a; text-shadow:none; box-shadow:inset 0 1px 0 #fff,0 2px 3px #1b365a0c; }
 #wizard-panel #wizard-back:hover { background:#e2e8f0; }
 #wizard-panel #wizard-withdraw { flex:none; min-height:36px; padding:8px; background:transparent;
-  color:#9a3346; font-size:13px; font-weight:500; }
+  border-color:transparent; box-shadow:none; text-shadow:none; color:#9a3346; font-size:13px; font-weight:500; }
 #wizard-panel #wizard-withdraw:hover { background:#fff1f3; }
 #wizard-panel.working #wizard-card { cursor:progress; }
 #wizard-panel.working #wizard-go { background:#5a91e6; }

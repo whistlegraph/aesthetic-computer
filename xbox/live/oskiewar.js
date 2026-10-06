@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 259;
+const buildVersion = 260;
 const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
@@ -20620,8 +20620,9 @@ function characterMesh(key,build,origin,axes){
     for(const face of mesh.faces){
       const n=face.normal,light=n[0]*.35-n[1]*.8-n[2]*.45;
       const faceSurface=key.includes(':head:');
+      const generated=key.startsWith('generated:');
       const blend=clamp((light+.35)/.85,0,1);
-      const band=faceSurface?.87+.13*blend*blend*(3-2*blend):light>.35?1:light>-.25?.8:.55;
+      const band=generated?.7+.3*blend:faceSurface?.87+.13*blend*blend*(3-2*blend):light>.35?1:light>-.25?.8:.55;
       face.color=face.color.map(c=>Math.round(c*band));face.normal=[0,0,1];
     }
     if(characterMeshes.size>=192){const oldest=characterMeshes.keys().next().value;releaseQuadMesh(characterMeshes.get(oldest));characterMeshes.delete(oldest);}
@@ -21250,6 +21251,34 @@ function drawRunnerFlat(player, t) {
   }
   return true;
 }
+function drawGeneratedRunner(player, world, appearance, t, geometry) {
+  const renderer = globalThis.__oskiewarFighterModel;
+  if (!renderer) return false;
+  const model = renderer.build(appearance);
+  const yaw = Math.PI - (player.facing || 1) * .38 + (player.spin?.angle || 0);
+  const instances = renderer.pose(model, world, { yaw, headless: player.headless,
+    hasPart: part => hasPart(player, part) });
+  if (player.skateboard) drawSkateboard(player);
+  for (const instance of instances) {
+    characterMesh('generated:' + model.version + ':' + model.key + ':' + instance.name, () => {
+      for (const face of instance.faces) {
+        const points = face.points.map(([x,y,z]) => ({x,y,z}));
+        worldQuad(points[0], points[1], points[2], points[3], face.color);
+      }
+    }, instance.origin, instance.axes);
+  }
+  if (globalThis.__oskiewarTouch) {
+    globalThis.__oskiewarTouch.practiceFighter = globalThis.__oskiewarFighterAppearance.handle;
+    globalThis.__oskiewarTouch.practiceModel = { version: model.version, parts: instances.length };
+  }
+  drawInventory(player, player.frozenAt || runtime().monotonicUs, geometry);
+  drawHeldAxe(player, t);
+  if (player.blocking && !poolOnly()) {
+    const shield = shieldGeometry(player), p = projectPoint(shield.x, shield.y, shield.z);
+    drawBubble(player, p.x, p.y, Math.max(18, shield.radius * cameraScale()), t);
+  }
+  return true;
+}
 function drawRunnerAtScale(player, t, showLabel = true) {
   if (!generatedAppearance(player) && flatFiguresOn() && drawRunnerFlat(player, t)) return;
   const fallen=ragdollBodies.get(player);if(fallen&&!player.alive){drawLooseRunner(player,fallen.pose,t,0);if(player.headless&&player.looseHead)drawCivilianLooseHead(player);return;}
@@ -21309,6 +21338,9 @@ function drawRunnerAtScale(player, t, showLabel = true) {
   }
   const flatFight=!!parkFightRival(player);
   const appearance = generatedAppearance(player);
+  if (appearance && drawGeneratedRunner(player,
+      player.replayGeometry || player.frozenGeometry || runnerWorldGeometry(player, t),
+      appearance, t, geometry)) return;
   const lod = appearance || flatFight?0:poolOnly()&&player.civilian?Math.max(geometry.head.radius<12?2:1,figureLod(player,geometry)):figureLod(player, geometry);
   if(poolOnly()&&player.alive&&!player.dummy&&!flatFight){
     const world=player.replayGeometry||player.frozenGeometry||runnerWorldGeometry(player,t);
@@ -24977,6 +25009,7 @@ function gamePaint() {
   const run = runtime();
   if (globalThis.__oskiewarTouch) {
     globalThis.__oskiewarTouch.practiceFighter = null;
+    globalThis.__oskiewarTouch.practiceModel = null;
     globalThis.__oskiewarTouch.screen = shellMode === "MENU"
       ? titleTransitionAt !== null ? "title-transition" : "title"
       : selecting ? "select" : "game";

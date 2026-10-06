@@ -29,7 +29,15 @@ try {
   await page.evaluate(()=>{globalThis.__oskiewarFighterAppearance={handle:'@fixture',validUntil:Date.now()+600000,appearance:{skin:[217,164,126],hair:[54,42,34],shirt:[54,95,144],pants:[24,55,104],shoes:[235,235,235],hairStyle:'short',beard:false,glasses:false,sleeves:'long'}};});
   await page.keyboard.down('Enter'); await new Promise(r=>setTimeout(r,300)); await page.keyboard.up('Enter');
   await page.waitForFunction(()=>globalThis.__oskiewarTouch?.practiceFighter==='@fixture',{timeout:30000});
+  await page.waitForFunction(()=>globalThis.__oskiewarTouch?.practiceModel?.version===2);
+  assert.ok(await page.evaluate(()=>globalThis.__oskiewarTouch.practiceModel.parts>=12));
   await page.screenshot({path:dir+'/practice.png'});
+  await page.keyboard.down('ArrowRight'); await new Promise(r=>setTimeout(r,500)); await page.keyboard.up('ArrowRight');
+  await page.keyboard.press('Space'); await new Promise(r=>setTimeout(r,250));
+  await page.screenshot({path:dir+'/moving.png'});
+  await page.evaluate(()=>{globalThis.__oskiewarFighterAppearance.validUntil=1;});
+  await page.waitForFunction(()=>!globalThis.__oskiewarTouch?.practiceModel);
+
   await page.evaluate(()=>{globalThis.__oskiewarFighterAppearance=null;});
   await page.waitForFunction(()=>!globalThis.__oskiewarTouch?.practiceFighter);
   assert.deepEqual(errors,[]); assert.deepEqual(sockets,[]); assert.deepEqual(replays,[]);
