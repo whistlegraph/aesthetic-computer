@@ -7,6 +7,15 @@ const catalog = JSON.parse(await readFile(new URL("../../system/public/papers.ae
 const find = (id) => catalog.opportunities.find((x) => x.id === id);
 const now = new Date("2026-10-06T19:00:00Z");
 
+test("page assets and feeds work on the existing route without a trailing slash", async () => {
+  const html = await readFile(new URL("./template.html", import.meta.url), "utf8");
+  const assets = [...html.matchAll(/(?:href|src)="([^"\s]+\.(?:mjs|css|json|ics|xml|svg))"/g)].map((x) => x[1]);
+  assert(assets.length >= 8);
+  for (const base of ["https://papers.aesthetic.computer/deadlines", "https://papers.aesthetic.computer/deadlines/"]) {
+    for (const asset of assets) assert(new URL(asset, base).pathname.startsWith("/deadlines/"), asset);
+  }
+});
+
 test("public schema rejects private fields, paths and malformed dates", () => {
   assert.equal(validateCatalog(catalog), catalog);
   for (const mutate of [
