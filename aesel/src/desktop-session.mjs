@@ -8,7 +8,7 @@ const LIMIT = 32 * 1024 * 1024;
 export function desktopSnapshot({ cwd, backend, model, effort = "", live, state, options, engine, handoff = "", archivedConversation = [] }) {
   return clone({ schema: 1, cwd: resolve(cwd), savedAt: new Date().toISOString(), backend, model, effort,
     live: { file: live.file, runtime: live.runtime?.id || live.runtime, channel: live.fallbackChannel || live.channel, genre: live.genre?.id || "piece" },
-    ui: Object.fromEntries(["entries", "input", "cursor", "history", "historyIndex", "queued", "medium", "livePaused", "showQr", "autoAllow", "scrollOffset", "pieceSlug", "media", "spend"].map((key) => [key, state[key]]).filter(([, value]) => value !== undefined)),
+    ui: Object.fromEntries(["entries", "input", "cursor", "history", "historyIndex", "queued", "medium", "livePaused", "showQr", "autoAllow", "scrollOffset", "pieceSlug", "media", "mediaRecent", "subject", "spend"].map((key) => [key, state[key]]).filter(([, value]) => value !== undefined)),
     options: { autopublish: options.autopublish, mouseEnabled: options.mouseEnabled },
     engine: { threadId: engine.threadId || "", ...(backend === "relay" ? {relayCursor: engine.cursor || 0} : {}), ...(Number.isSafeInteger(engine.turns) ? {turns: engine.turns} : {}), ...(["ac", "open"].includes(backend) ? { messages: engine.messages || [], turns: engine.turns || 0 } : {}) }, handoff, archivedConversation });
 }

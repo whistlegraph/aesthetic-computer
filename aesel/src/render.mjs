@@ -830,7 +830,10 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     } else {
       const input = Array.from(cleanText(state.input || ""));
       const cursor = Math.max(0, Math.min(state.cursor ?? input.length, input.length));
-      const room = Math.max(1, width - 2);
+      // The file the next message is about, as a chip at the head of the
+      // line: picked from the media list, sent with the message, then gone.
+      const chip = state.subject ? `${state.subject.glyph} ${clipText(state.subject.name, Math.max(8, Math.floor(width / 4)))} › ` : "";
+      const room = Math.max(1, width - 2 - textWidth(chip));
       const start = Math.max(0, cursor - room + 1);
       const shown = input.slice(start, start + room);
       const at = cursor - start;
@@ -839,8 +842,8 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
       // ground after it, and the bar has to run to the edge.
       // No painted block: the terminal's own cursor stands here and blinks
       // the way it does everywhere else. The frame says where it goes.
-      const lead = `${shape.prompt ? `${shape.prompt} ` : ""}${start > 0 ? "‹" : ""}`;
-      inner = `${shape.prompt ? `${ink(palette.prompt)}${shape.prompt}${ink(palette.text)} ` : ""}${start > 0 ? "‹" : ""}${shown.slice(0, at).join("")}${under === " " && at >= shown.length ? "" : under}${shown.slice(at + 1).join("")}`;
+      const lead = `${chip}${shape.prompt ? `${shape.prompt} ` : ""}${start > 0 ? "‹" : ""}`;
+      inner = `${chip ? `${ink(palette.highlight)}${chip}${ink(palette.text)}` : ""}${shape.prompt ? `${ink(palette.prompt)}${shape.prompt}${ink(palette.text)} ` : ""}${start > 0 ? "‹" : ""}${shown.slice(0, at).join("")}${under === " " && at >= shown.length ? "" : under}${shown.slice(at + 1).join("")}`;
       state.cursorCell = { row: height - shape.bottom.length + shape.bottom.indexOf("bar") + 1, col: 1 + textWidth(lead) + textWidth(shown.slice(0, at).join("")) };
     }
     // The words start on the bar's first cell: the purple is the margin.
@@ -996,7 +999,7 @@ export function dropdownGeometry(state, width, height, shape = state.layout || {
   // The anchor row is the status line; without one, the bar.
   const anchor = height - bottom.length + (statusRow >= 0 ? statusRow : Math.max(0, bottom.lastIndexOf("bar")));
   const facts = proStatus(state, width, false, shape).spans;
-  const span = facts.find((s) => s.name === "model") || facts.find((s) => s.name === "engine");
+  const span = drop.kind === "media" ? facts.find((s) => s.name === "media") : facts.find((s) => s.name === "model") || facts.find((s) => s.name === "engine");
   const items = drop.loading ? [{ id: "", label: "loading…", detail: "" }] : drop.items.length ? drop.items : [{ id: "", label: "nothing to choose", detail: "" }];
   const count = Math.max(1, Math.min(items.length, 10, anchor - 2));
   const index = Math.max(0, Math.min(drop.index || 0, items.length - 1));
@@ -1276,8 +1279,8 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
       x += textWidth(separator);
     }
     spans.push({ name, x, width: textWidth(text) });
-    // The model underlines under the mouse: it is the one fact that is a control.
-    const hovered = (name === "model" && state.hover === "model") || (name === "engine" && state.hover === "provider");
+    // The controls underline under the mouse: the model, and the media file.
+    const hovered = (name === "model" && state.hover === "model") || (name === "engine" && state.hover === "provider") || (name === "media" && state.hover === "media");
     // While the machine works the handle breathes: bright, then muted, on the
     // dance clock — a pulse you can see from across the room.
     let fact;
@@ -1357,8 +1360,8 @@ export function headerAction(state, columns, rows, x, y) {
     if (banner && y - 1 >= banner.top && y - 1 < banner.top + banner.height && x - 1 >= banner.x && x - 1 < banner.x + banner.inner) return "update";
     const row = shape.bottom.lastIndexOf("status");
     if (row < 0 || y !== rows - (shape.bottom.length - 1 - row)) return "";
-    const hit = proStatus(state, Math.max(32, columns), false, shape).spans.find((span) => (span.name === "model" || span.name === "engine") && x >= span.x + 1 && x <= span.x + span.width);
-    return hit ? (hit.name === "engine" ? "provider" : "model") : "";
+    const hit = proStatus(state, Math.max(32, columns), false, shape).spans.find((span) => ["model", "engine", "media"].includes(span.name) && x >= span.x + 1 && x <= span.x + span.width);
+    return hit ? (hit.name === "engine" ? "provider" : hit.name) : "";
   }
   if(y===rows-2){const hit=modelControls(state,columns).find(c=>x>=c.x&&x<c.x+c.width);return hit?.action||"";}
   if(state.settings){

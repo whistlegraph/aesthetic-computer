@@ -48,7 +48,7 @@ import { EASEL_HEIGHT, aeselFrame, aeselNextFrame, aeselWidth } from "./easel.mj
 import { Energy, energyReport } from "./energy.mjs";
 import {pickerModels,drawerKey,drawerIndex,normalizeSettings} from "./provider-picker.mjs";
 import { cachedCatalog, loadCatalog, newestModel, preferNewer } from "./model-catalog.mjs";
-import { providerLabel } from "./render.mjs";
+import { providerLabel, fishPath } from "./render.mjs";
 import { backendFor, backendMenu, DEFAULT_BACKEND, hostedModel } from "./backends.mjs";
 import {OPEN_MODEL_INFO} from './open-models.mjs';
 import {openRouterKey} from './open-key.mjs';
@@ -69,6 +69,7 @@ import { DEFAULT_RUNTIME, runtimeMenu } from "./runtimes.mjs";
 import { SlabSession } from "./slab-session.mjs";
 import { mediaPaths, mediaFile, watchMedia, itemText, mediaChanged } from "./media.mjs";
 import { watchSource } from "./source-watch.mjs";
+import { planMime, postMime, MAX_BYTES } from "./mime.mjs";
 import { Artifacts, MEDIA } from './artifacts.mjs';
 import { desktopSnapshot, readDesktopSession, writeDesktopSession, restoreDesktopEngine, writeDesktopControl, readDesktopIntent } from "./desktop-session.mjs";
 import { archiveThread, replaceWork } from './new-work.mjs';
@@ -906,6 +907,7 @@ async function chooseDropdown(index = state.dropdown?.index) {
   if (!drop) return;
   const item = drop.items[index];
   if (!item || item.header || item.muted) return redraw();
+  if (drop.kind === "media") return chooseMedia(item);
   if (item.back) return backDropdown();
   if (item.next) {
     drop.level = "model"; drop.provider = item.provider; fillModelDropdown(); return redraw();
@@ -1593,6 +1595,7 @@ function noteMedia(item) {
   const next = mediaPaths(itemText(item), cwd)[0];
   if (!mediaChanged(state.media, next)) return;
   state.media = { ...next, source: "tool-input", version: (state.media?.version || 0) + 1 };
+  rememberMedia(next);
   transcript.event("media", { path: next.path, mime: next.mime, kind: next.kind });
   if (profile.private) return;
   slabSession.artifact(next.kind, { path: next.path, mime: next.mime, name: next.name, version: state.media.version, artifactId: slabSession.sessionId });
@@ -1606,6 +1609,7 @@ let unwatchMedia = () => {};
 function pinMedia(media) {
   unwatchMedia();
   state.media = { ...media, source: "pinned", version: (state.media?.version || 0) + 1 };
+  rememberMedia(media);
   const show = () => {
     if (profile.private) return;
     const { kind, path, mime, name, version } = state.media;
@@ -1618,6 +1622,92 @@ function pinMedia(media) {
     show();
     redraw();
   });
+}
+// The files this session's card has shown, newest first, for the list the
+// media name opens on the status line.
+function rememberMedia(media) {
+  const recent = (state.mediaRecent || []).filter((path) => path !== media.path);
+  state.mediaRecent = [media.path, ...recent].slice(0, 8);
+}
+// Click the media name: the files the card has shown, to put one back on it
+// and keep it there, then what can be done with the one showing now.
+function openMediaDropdown() {
+  const current = state.media?.path;
+  const paths = [...new Set([current, ...(state.mediaRecent || [])].filter(Boolean))];
+  const files = paths.map((file) => mediaFile(file, cwd)).filter(Boolean);
+  const items = files.map((media) => ({
+    file: media.path,
+    label: `${media.path === current ? "● " : "  "}${media.glyph} ${media.name}`,
+    detail: fishPath(path.dirname(media.path)),
+  }));
+  if (state.subject) items.push({ act: "unsubject", label: "  ✕ not about it", detail: `the next message drops ${state.subject.name}` });
+  if (current && mediaFile(current, cwd)) {
+    if (state.media.source === "pinned") items.push({ act: "unpin", label: "  ⊘ unpin", detail: "the card follows the tools again" });
+    else items.push({ act: "pin", file: current, label: "  ⦿ pin", detail: "hold it on the card, reload on every write" });
+    // Public, so it asks once more before anything leaves the machine.
+    if (session.handle && (state.media.size || 0) <= MAX_BYTES) items.push({ act: "mime", label: "  ⇪ post to mime.ac", detail: `public, as @${session.handle}` });
+    items.push(
+      { act: "open", label: "  ↗ open", detail: "in its own app" },
+      { act: "reveal", label: "  ⌕ reveal", detail: "in Finder" },
+      { act: "copy", label: "  ⧉ copy path", detail: "" },
+    );
+  }
+  state.dropdown = { kind: "media", title: "media", items, index: Math.max(0, items.findIndex((item) => item.file === current && !item.act)), loading: false };
+  redraw();
+}
+function chooseMedia(item) {
+  const current = state.media?.path;
+  if (item.act === "mime" && current) {
+    state.dropdown = { kind: "media", title: "post to mime.ac?", index: 0, loading: false, items: [
+      { act: "mime-yes", file: current, label: `  ⇪ yes, post ${path.basename(current)}`, detail: `public on mime.ac as @${session.handle}` },
+      { act: "cancel", label: "  cancel", detail: "" },
+    ] };
+    return redraw();
+  }
+  state.dropdown = null;
+  if (item.act === "mime-yes") { void postToMime(item.file); return redraw(); }
+  if (item.act === "cancel") return redraw();
+  if (item.file && (!item.act || item.act === "pin")) {
+    const media = mediaFile(item.file, cwd);
+    if (!media) { addEntry("error", `${path.basename(item.file)} is gone`); return redraw(); }
+    slabSession.preview("");
+    pinMedia(media);
+    // Picking a file is also saying what the next message is about, so the
+    // message can be short: "louder in the lift".
+    if (!item.act) state.subject = { path: media.path, name: media.name, glyph: media.glyph, mime: media.mime };
+    flash(item.act ? `${media.name} pinned · reloads on every write` : `next message is about ${media.name} · backspace drops it`);
+  } else if (item.act === "unsubject") {
+    state.subject = null;
+  } else if (item.act === "unpin") {
+    unpinMedia();
+    flash("unpinned");
+  } else if (current && (item.act === "open" || item.act === "reveal")) {
+    const child = spawn("open", item.act === "reveal" ? ["-R", current] : [current], { stdio: "ignore", detached: true });
+    child.on("error", (error) => { addEntry("error", errorText(error)); redraw(); });
+    child.unref();
+  } else if (current && item.act === "copy") {
+    const child = spawn("pbcopy", [], { stdio: ["pipe", "ignore", "ignore"] });
+    child.on("error", (error) => { addEntry("error", errorText(error)); redraw(); });
+    child.stdin.end(current);
+    flash("path copied");
+  }
+  return redraw();
+}
+// The confirmed post: the file as an opening post on mime.ac, the thread's
+// address in the transcript, where it can be opened or copied.
+async function postToMime(file) {
+  let plan;
+  try { plan = planMime(file); } catch (error) { addEntry("error", errorText(error)); return redraw(); }
+  flash(`posting ${plan.name} to mime.ac…`, 8000);
+  redraw();
+  try {
+    const posted = await postMime(plan, { session });
+    addEntry("notice", `Posted ${plan.name} to mime.ac as @${session.handle} · ${posted.board}\n${posted.url}`);
+    transcript.event("mime", { path: plan.path, code: posted.code, board: posted.board });
+  } catch (error) {
+    addEntry("error", `mime.ac: ${errorText(error)}`);
+  }
+  redraw();
 }
 function unpinMedia() {
   unwatchMedia();
@@ -2828,8 +2918,13 @@ async function startTurn(text, { from = "", recovery = false } = {}) {
     state.queued = [];
     return finish();
   }
+  // A typed message carries the file it is about; a retry carries it again.
+  const about = recovery ? recoveryRequest?.about : !from ? state.subject : null;
   if (!from && !recovery) {
-    transcript.event("user", { text });
+    state.subject = null;
+    if (about) flash(`sent about ${about.name}`);
+    if (recoveryRequest) recoveryRequest.about = about;
+    transcript.event("user", { text, ...(about ? { about: about.path } : {}) });
     // The first thing asked is what the session was about.
     if (!subject) {
       subject = text.slice(0, 140);
@@ -2857,7 +2952,7 @@ async function startTurn(text, { from = "", recovery = false } = {}) {
       state.activityStage='';redraw();
     }
     if(recoveryRequest)recoveryRequest.submitted=true;
-    await engine.startTurn(text+runtimeFeedbackContext(observed)+pixels.context,{images:pixels.images});
+    await engine.startTurn(text+aboutContext(about)+runtimeFeedbackContext(observed)+pixels.context,{images:pixels.images});
   } catch (error) {
     state.busy = false;
     state.status = "failed";
@@ -2870,6 +2965,11 @@ async function startTurn(text, { from = "", recovery = false } = {}) {
     drainQueue();
   }
 }
+
+// What a chip on the prompt adds to the message: which file "this" is.
+const aboutContext = (about) => about
+  ? `\n\n[This message is about ${about.path} (${about.mime}), the file picked from the media list and showing on the Slab card.]`
+  : "";
 
 function replaceInput(value) {
   state.input = value;
@@ -3069,7 +3169,8 @@ function handleKey(input) {
   } else if (input === "\x1b[D") state.cursor = Math.max(0, state.cursor - 1);
   else if (input === "\x1b[C") state.cursor = Math.min(Array.from(state.input).length, state.cursor + 1);
   else if (input === "\x7f" || input === "\b") {
-    if (state.cursor > 0) {
+    if (state.cursor === 0 && state.subject) state.subject = null;
+    else if (state.cursor > 0) {
       const characters = Array.from(state.input);
       characters.splice(--state.cursor, 1);
       state.input = characters.join("");
@@ -3154,6 +3255,7 @@ function decodeKeys(buffer) {
         if (mouse.click && action === "profile") openProfile();
         if (mouse.click && action === "update") { void submitInput("/update"); return; }
         if (mouse.click && (action === "model" || action === "provider")) { if (pro) openDropdown(); else openSettings(); }
+        if (mouse.click && action === "media") { if (state.dropdown?.kind === "media") closeDropdown(); else openMediaDropdown(); }
         if (mouse.click && action === "dismiss") closeDropdown();
         if (action.startsWith("pick:") && state.dropdown) { const index = Number(action.slice(5)); if (mouse.click) void chooseDropdown(index); else if (state.dropdown.index !== index) { state.dropdown.index = index; redraw(); } }
         if(mouse.click&&action.startsWith('settings:')){
