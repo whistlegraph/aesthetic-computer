@@ -2,8 +2,16 @@
 // ac-deploy — the one command any harness (Claude, Codex, Aesel) calls to
 // ship lith, and the only thing it needs to know about deploying.
 //
-//   ac-deploy            deploy the knot's main to lith, then prove it
-//   ac-deploy --verify   only prove what production is serving
+//   ac-deploy                  deploy the knot's main to lith, then prove it
+//   ac-deploy --verify         only prove what production is serving
+//   ac-deploy aesel            release Aesel alone from the knot's main
+//   ac-deploy aesel --verify   only prove what Aesel release is served
+//
+// Aesel is released on its own clock. A lith deploy no longer packs it, so
+// shipping a site change never re-releases Aesel, and releasing Aesel never
+// moves lith's checkout: `ac-deploy aesel` packs aesel/ from the knot's main
+// in a scratch directory on lith and swaps the tarballs and manifest into
+// system/public, manifest last.
 //
 // Deploying lith is @jeffrey's alone, so before anything moves this checks
 // that it is him: the git identity must be @jeffrey AND his git credentials
@@ -11,15 +19,19 @@
 // Production serves the knot's main and nothing else, so local main must be
 // pushed; deploy.fish is always told DEPLOY_BRANCH=main, which makes this
 // safe from a worktree or a feature branch. Afterwards it compares the bytes
-// production serves against the commit and the Aesel version it shipped.
+// production serves against the commit it shipped.
 import { execFileSync, spawnSync } from "node:child_process";
-import { realpathSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(realpathSync(fileURLToPath(import.meta.url))), "../..");
 const SITE = "https://aesthetic.computer";
 const verifyOnly = process.argv.includes("--verify");
+const aeselOnly = process.argv[2] === "aesel";
 
 const git = (...args) => execFileSync("git", ["-C", ROOT, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 const say = (mark, text) => console.log(`${mark} ${text}`);
@@ -43,16 +55,91 @@ async function verify(sha) {
   const served = (await get("/.commit-ref")).trim();
   if (served === sha) say("✓", `serving ${sha.slice(0, 10)}`);
   else { ok = false; say("✕", `serving ${served.slice(0, 10) || "nothing"}, expected ${sha.slice(0, 10)}`); }
+  // Aesel ships separately (`ac-deploy aesel`); here it is only reported.
   const want = JSON.parse(git("show", `${sha}:aesel/package.json`)).version;
   const have = JSON.parse(await get("/aesel.json")).version;
-  if (have === want) say("✓", `Aesel ${have}`);
-  else { ok = false; say("✕", `Aesel ${have} served, ${want} expected`); }
+  say("·", have === want ? `Aesel ${have}` : `Aesel ${have} served · main has ${want} · release it with ac-deploy aesel`);
   return ok;
+}
+
+// The Aesel release as served: the manifest's version is main's, and the
+// tarball it names hashes to what the manifest says.
+async function verifyAesel(sha) {
+  const want = JSON.parse(git("show", `${sha}:aesel/package.json`)).version;
+  const manifest = await (await fetch(`${SITE}/aesel.json?t=${Date.now()}`, { headers: { "cache-control": "no-cache" } })).json();
+  let ok = true;
+  if (manifest.version === want) say("✓", `aesel.json ${manifest.version}`);
+  else { ok = false; say("✕", `aesel.json ${manifest.version}, expected ${want}`); }
+  const tarball = Buffer.from(await (await fetch(`${SITE}${manifest.tarball}?t=${Date.now()}`, { headers: { "cache-control": "no-cache" } })).arrayBuffer());
+  const sum = createHash("sha256").update(tarball).digest("hex");
+  if (sum === manifest.sha256 && tarball.length === manifest.bytes) say("✓", `${manifest.tarball} ${(tarball.length / 1024).toFixed(0)} KB · sha256 matches`);
+  else { ok = false; say("✕", `${manifest.tarball} does not match its manifest`); }
+  return ok;
+}
+
+// The same key deploy.fish uses: the vault's plaintext copy, or its GPG copy
+// opened with the passphrase the slab daemon hands over.
+function lithKey() {
+  const key = join(ROOT, "aesthetic-computer-vault/home/.ssh/id_rsa");
+  if (existsSync(key)) return { key, done: () => {} };
+  const gpg = `${key}.gpg`;
+  if (!existsSync(gpg)) fail(`no lith SSH key at ${key}`);
+  const passphrase = execFileSync(join(ROOT, "slab/bin/ac-passphrase"), ["vault", "600"], { encoding: "utf8" }).trim();
+  if (!passphrase) fail("no vault passphrase");
+  const dir = mkdtempSync(join(tmpdir(), "ac-lith-")), file = join(dir, "key");
+  const out = spawnSync("gpg", ["--batch", "--pinentry-mode", "loopback", "--passphrase-fd", "0", "--decrypt", gpg], { input: passphrase, encoding: "buffer" });
+  if (out.status !== 0) fail(`could not decrypt ${gpg}`);
+  writeFileSync(file, out.stdout, { mode: 0o600 });
+  return { key: file, done: () => rmSync(dir, { recursive: true, force: true }) };
+}
+
+// Packed on lith from a `git archive` of aesel/ at the commit, never from the
+// served checkout, so lith's tree and every other site stay where they are.
+// aesel/web's node_modules are kept per lockfile hash and reused.
+function releaseAesel(sha) {
+  const host = process.env.LITH_HOST || "lith.aesthetic.computer";
+  const script = `set -euo pipefail
+SHA=${sha}; R=/tmp/aesel-release-$SHA; PUB=/opt/ac/system/public; KEEP=/opt/ac-aesel-release
+cd /opt/ac && git fetch -q origin main && git cat-file -e "$SHA^{commit}"
+rm -rf "$R" && mkdir -p "$R/system/public" "$KEEP"
+git archive "$SHA" aesel | tar -x -C "$R"
+LOCK=$(git show "$SHA:aesel/web/package-lock.json" | sha256sum | cut -c1-16)
+# Named node_modules inside a per-lockfile folder: esbuild finds its native
+# binary by walking up to a directory called exactly that.
+rm -rf "$KEEP"/node_modules-*
+if [ ! -d "$KEEP/$LOCK/node_modules" ]; then
+  (cd "$R/aesel/web" && npm ci --no-audit --no-fund --loglevel=error) && mkdir -p "$KEEP/$LOCK" && mv "$R/aesel/web/node_modules" "$KEEP/$LOCK/node_modules"
+fi
+ln -sfn "$KEEP/$LOCK/node_modules" "$R/aesel/web/node_modules"
+# pack.mjs writes beside the copy it packs: $R/system/public.
+node "$R/aesel/bin/pack.mjs" > "$R/pack.log" || { cat "$R/pack.log"; exit 1; }
+head -1 "$R/pack.log"
+for f in aesel.tar.gz easel.tar.gz aesel.json easel.json; do test -s "$R/system/public/$f" || { echo "pack made no $f"; exit 1; }; done
+for f in aesel.tar.gz easel.tar.gz aesel.json easel.json; do
+  cp "$R/system/public/$f" "$PUB/.$f.new" || exit 1
+  mv -f "$PUB/.$f.new" "$PUB/$f" || exit 1
+done
+rm -rf "$R"
+`;
+  const { key, done } = lithKey();
+  try {
+    const run = spawnSync("ssh", ["-i", key, "-o", "BatchMode=yes", `root@${host}`, "bash", "-s"], { input: script, stdio: ["pipe", "inherit", "inherit"] });
+    if (run.status !== 0) fail(`the Aesel pack on ${host} exited ${run.status}`);
+  } finally { done(); }
 }
 
 whoami();
 git("fetch", "-q", "origin", "main");
 const sha = git("rev-parse", "origin/main");
+
+if (aeselOnly) {
+  if (!verifyOnly) {
+    const version = JSON.parse(git("show", `${sha}:aesel/package.json`)).version;
+    say("→", `releasing Aesel ${version} from ${sha.slice(0, 10)} (lith's checkout stays put)`);
+    releaseAesel(sha);
+  }
+  process.exit((await verifyAesel(sha)) ? 0 : 1);
+}
 
 if (!verifyOnly) {
   const ahead = git("rev-list", "--count", "origin/main..main");
