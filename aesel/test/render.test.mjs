@@ -16,8 +16,8 @@ test("the footer meters the active provider and fits Codex usage in a narrow ter
     assert.match(line, /12\.3k tok/);
     if (backend === "codex") assert.match(line, /codex 5h 23% · 7d 61% used/);
     else assert.doesNotMatch(line, /codex.*used/);
-    if (backend === "ac") assert.match(line, /500\.0k braincells/);
-    else assert.doesNotMatch(line, /braincells/);
+    if (backend === "ac") assert.match(line, /500\.0k 🧠/);
+    else assert.doesNotMatch(line, /🧠/);
   }
   const codex = { ...base, providerSettings: { backend: "codex" } };
   for (const width of [32, 60, 100]) {

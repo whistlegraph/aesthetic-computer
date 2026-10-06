@@ -1,7 +1,7 @@
 import {EDIT_PIECE,applyPieceEdits} from './piece-edits.mjs';
 import {withNetworkDeadline, isTransientNetworkError} from "./network.mjs";
 import {bundledContext} from './piece-context.mjs';
-import {PIECE_VISUAL,PIECE_RESPONSIVE,PIECE_CLOCK,PIECE_SOUND} from './piece-prompt.mjs';
+import {PIECE_VISUAL,PIECE_RESPONSIVE,PIECE_CLOCK,PIECE_SOUND,PIECE_REPLY} from './piece-prompt.mjs';
 import {SETTINGS_TOOL,PIECE_INSTRUCTIONS} from './harness-contract.mjs';
 import {captureFrame,FRAME_TOOL} from "./preview-frame.mjs";
 // The Aesthetic Computer bridge — inference without a vendor CLI.
@@ -207,6 +207,9 @@ export class AcServer extends EventEmitter {
     if (this.developerInstructions) {
       blocks.push({ type: "text", text: this.developerInstructions });
     }
+    // The GUI's direct AC session supplies no developer instructions. Give it
+    // the same prose contract as the TUI and native Codex/Claude bridges.
+    if (!this.developerInstructions.includes(PIECE_REPLY)) blocks.push({type:'text',text:PIECE_REPLY});
     if (this.artifactContext) blocks.push({type:'text',text:this.artifactContext});
     if (!this.artifactContext && this.piece?.file && existsSync(this.piece.file)) {
       blocks.push({ type: "text", text: `Current piece (${this.piece.file})${this.layeredEdits ? '; revision '+this.revisionForSource(readFileSync(this.piece.file,'utf8')) : ''}; preserve the user's existing work unless asked to change it:\n\n${readFileSync(this.piece.file, "utf8")}` });

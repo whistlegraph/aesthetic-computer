@@ -23,11 +23,21 @@ final class AeselAutomation {
     private var sequence = 0
     private var events: [[String: Any]] = []
     private let instance = UUID().uuidString
-    private let buildSha256: String
+    // Fingerprinting is only needed by automation, never by opening a notebook.
+    // Share one lazy background task across windows instead of reading the
+    // entire signed app bundle synchronously on the main actor in every init.
+    private static var fingerprintTask: Task<String, Never>?
 
-    init(windowID: String = "main") {
-        var hash = SHA256()
+    private static func buildFingerprint() async -> String {
+        if let task = fingerprintTask { return await task.value }
         let bundle = Bundle.main.bundleURL
+        let task = Task.detached(priority: .utility) { hashBundle(bundle) }
+        fingerprintTask = task
+        return await task.value
+    }
+
+    nonisolated static func hashBundle(_ bundle: URL) -> String {
+        var hash = SHA256()
         func visit(_ folder: URL) {
             let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey])) ?? []
             for file in files.sorted(by: { $0.lastPathComponent.utf8.lexicographicallyPrecedes($1.lastPathComponent.utf8) }) {
@@ -42,7 +52,10 @@ final class AeselAutomation {
             }
         }
         visit(bundle)
-        buildSha256 = hash.finalize().map { String(format: "%02x", $0) }.joined()
+        return hash.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    init(windowID: String = "main") {
         let requested = ProcessInfo.processInfo.environment["AESEL_AUTOMATION_NAMESPACE"] ?? ""
         let namespace = requested.range(of: "^[a-z0-9-]{1,32}$", options: .regularExpression) != nil ? "-" + requested : ""
         let windowSuffix = windowID == "main" ? "" : "-window-" + windowID
@@ -116,6 +129,7 @@ final class AeselAutomation {
     private func handle(_ method: String, _ params: [String: Any]) async throws -> [String: Any] {
         switch method {
         case "state", "map":
+            let buildSha256 = await Self.buildFingerprint()
             var state = inspect?() ?? [:]
             state["instance"] = instance
             state["buildSha256"] = buildSha256

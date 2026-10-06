@@ -332,16 +332,6 @@ struct ContentView: View {
     private var sheet: some View {
         VStack(spacing: 0) {
             notebookHeader
-            HStack(spacing: 12) {
-                Button { openSettings() } label: {
-                    Text(session.braincells.map { $0.formatted(.number.precision(.fractionLength(0))) + " braincells" } ?? session.creditsStatus)
-                }
-                Spacer(minLength: 8)
-                Text(session.reportedModel.isEmpty ? (session.provider == "ac" ? "AC · automatic model" : session.model) : session.reportedModel)
-                    .lineLimit(1).truncationMode(.middle)
-            }
-            .font(Paint.font(12)).foregroundStyle(paint.dim)
-            .buttonStyle(AeselButtonStyle()).padding(.horizontal, edgeInset).padding(.vertical, 4)
             GeometryReader { geometry in
                 ScrollViewReader { proxy in
                     ScrollView {
@@ -669,6 +659,10 @@ struct ContentView: View {
                                     settingsField("Model") { AeselModelPicker(session: session, host: host) }
                                 }
                             }
+                            if !session.reportedModel.isEmpty {
+                                Text(session.reportedModel).font(Paint.font(13)).foregroundStyle(paint.dim)
+                                    .textSelection(.enabled)
+                            }
                             if !session.providerNotice.isEmpty {
                                 Text(session.providerNotice).font(Paint.font(13)).foregroundStyle(paint.dim)
                             }
@@ -695,6 +689,36 @@ struct ContentView: View {
                                 settingsItem("Sign in to Aesthetic Computer") { closeSettings { host.signIn() } }
                             }
                             if !session.accountNotice.isEmpty { Text(session.accountNotice).font(Paint.font(13)) }
+                            if session.signedIn {
+                                Rectangle().fill(paint.ink.opacity(0.16)).frame(height: 1)
+                                VStack(alignment: .leading, spacing: 8) {
+                                    if let balance = session.braincells {
+                                        HStack(spacing: 8) {
+                                            Text("🧠").accessibilityHidden(true)
+                                            Text(balance.formatted(.number.precision(.fractionLength(0))))
+                                        }
+                                        .font(Paint.font(24))
+                                        .accessibilityElement(children: .ignore)
+                                        .accessibilityLabel("\(balance.formatted(.number.precision(.fractionLength(0)))) braincells remaining")
+                                        if let dollars = session.braincellDollars {
+                                            Text("\(usd(dollars)) equivalent").font(Paint.font(13)).foregroundStyle(paint.dim)
+                                        }
+                                        if let daily = session.freeDollars, let purchased = session.purchasedDollars {
+                                            Text("Daily \(usd(daily)) · Purchased \(usd(purchased))")
+                                                .font(Paint.font(13)).foregroundStyle(paint.dim)
+                                        }
+                                    } else {
+                                        Text(session.creditsStatus).foregroundStyle(paint.dim)
+                                    }
+                                    buyButton
+                                    if !braincells.storeStatus.isEmpty {
+                                        Text(braincells.storeStatus).font(Paint.font(13)).foregroundStyle(paint.dim)
+                                    }
+                                    if !braincells.notice.isEmpty {
+                                        Text(braincells.notice).font(Paint.font(13))
+                                    }
+                                }
+                            }
                             Rectangle().fill(paint.ink.opacity(0.16)).frame(height: 1)
                             AeselVersionList(session: session, host: host, onSelect: { closeSettings() })
                         }.padding(.horizontal, 20).padding(.bottom, 20)
@@ -715,9 +739,9 @@ struct ContentView: View {
             Task { await braincells.buy() }
         } label: {
             HStack(spacing: 10) {
-                Image("braincell").resizable().scaledToFit().frame(width: 28, height: 28)
+                Text("🧠").font(.system(size: 28)).accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(braincells.busy ? "Opening the App Store…" : "Add 1,000,000 braincells")
+                    Text(braincells.busy ? "Opening the App Store…" : "Add 1,000,000")
                         .font(Paint.font(18)).fontWeight(.semibold)
                     Text(braincells.busy ? "" : "\(braincells.price) · App Store").font(Paint.font(13)).opacity(0.85)
                 }

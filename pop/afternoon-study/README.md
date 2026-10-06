@@ -1,5 +1,24 @@
 # afternoon-study
 
+## Morning Study
+
+A gentle wake-up companion: 4:00 at 80 BPM, using the same three September 26
+voice banks and Salamander grand piano. The afternoon E–G–A–G gesture opens
+on soft piano; wordless vocals gradually enter, with a few wooden mallet
+notes after the first minute. Warm sixths and ninths, a brief clearing, and
+a quiet return. No drum build or drop. Mastering targets −20 LUFS with static
+gain so the gradual lift remains intact. The second listening draft fills
+the first minute's piano gaps and brings the voice in at 0:13 (previously
+0:25). The first draft is retained in `out/morning/versions/v1/`.
+
+```sh
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 nice -n 10 pop/.venv/bin/python pop/afternoon-study/bin/render-morning.py
+```
+
+Master: `out/morning/morning-study.{wav,mp3}`. Vocal events, harmonic map,
+source references, loudness measurements and hashes are in `receipts.json`;
+individual buses are in `stems/`. A listening copy is on the Desktop.
+
 ## Nighttime Study — Ringing Voice
 
 The latest 9:48 revision turns measured vowels from all three takes into
