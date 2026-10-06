@@ -197,7 +197,36 @@ function world() {
       { user: OTHER, code: "theirs", source: "(embed $shared)" },
     ],
     "ac-credit-wallets": [{ _id: SUB, balance: 5 }],
+    "walkieware-threads": [
+      { _id: "my-thread", owner: SUB, code: "wgMine", ledger: { head: 1, versions: [{ id: 1, source: "(wipe red)", request: "red please" }] } },
+      { _id: "their-thread", owner: OTHER, code: "wgOther", ledger: { head: 1, versions: [{ id: 1, source: "(wipe blue)", request: "blue please" }] } },
+    ],
+    "whistlegraph-roblox-rooms": [
+      { _id: SUB, revision: 1, room: { name: "my room" } },
+      { _id: OTHER, revision: 3, room: { name: "their room" } },
+    ],
     boots: [{ meta: { user: { sub: SUB, handle: "@me" } }, server: { ip: "1.2.3.4", country: "US" } }],
+  };
+}
+
+function purchaseWorld() {
+  const receipt = (who, transactionId) => ({
+    _id: `apple:whistlegraph:Production:${transactionId}`,
+    user: who,
+    appAccountToken: who === SUB ? "4adcdf8d-d1cb-4e68-a965-c6c4f0a57375" : "dd9d7e65-ef88-4c93-b279-5d072a5ad1f6",
+    transactionId, productId: "computer.aesthetic.walkieware.braincells.1m",
+    credits: 1_000_000, environment: "Production", createdAt: T0, deliveredAt: T0,
+  });
+  const purchases = [receipt(SUB, "1001"), receipt(OTHER, "1002")];
+  return {
+    ...world(),
+    "whistlegraph-iap-accounts": purchases.map(p => ({ _id: p.user, appAccountToken: p.appAccountToken, createdAt: T0 })),
+    "whistlegraph-iap-purchases": purchases,
+    "whistlegraph-iap-notifications": purchases.map(p => ({
+      _id: `Production:${p.transactionId}`, purchaseId: p._id, user: p.user,
+      type: "REFUND_REVERSED", signedPayload: `private-jws-${p.transactionId}`,
+      receivedAt: T0, status: "pending",
+    })),
   };
 }
 
@@ -264,11 +293,13 @@ test("the purge removes the account everywhere and keeps only what it must, with
   const results = await runDueDeletions(deps, { now: later(GRACE_MS) });
   assert.deepEqual(results, [{ state: "completed" }]);
 
-  for (const name of ["paintings", "moods", "tapes", "chat-system", "chat-clock", "logs", "users", "@handles"]) {
+  for (const name of ["paintings", "moods", "tapes", "chat-system", "chat-clock", "logs", "users", "@handles", "walkieware-threads", "whistlegraph-roblox-rooms"]) {
     assert.ok(!JSON.stringify(db.all(name)).includes(SUB), `${name} still names the account`);
   }
   assert.equal(db.all("paintings").length, 1, "other people's work stays");
   assert.equal(db.all("chat-system").length, 1);
+  assert.equal(db.all("walkieware-threads").length, 1, "other people's Whistlegraph drafts stay");
+  assert.deepEqual(db.all("whistlegraph-roblox-rooms"), [{ _id: OTHER, revision: 3, room: { name: "their room" } }]);
   assert.deepEqual(db.all("account-activity"), [{ user: OTHER, tenant: "aesthetic", action: "piece_opened" }, { user: SUB, tenant: "sotce", action: "piece_opened" }]);
   assert.equal(db.all("device-creds").length, 0, "saved device secrets are deleted");
 
@@ -300,6 +331,75 @@ test("the purge removes the account everywhere and keeps only what it must, with
   assert.equal(await handleQuarantined(db, "@ME", later(GRACE_MS + DAY)), true);
   assert.equal(await handleQuarantined(db, "me", later(GRACE_MS + HANDLE_QUARANTINE_MS + DAY)), false);
   assert.equal(await handleQuarantined(db, "them", later(GRACE_MS)), false);
+});
+
+test("Apple account links and signed notifications are deleted but transaction anti-replay claims remain", async () => {
+  const seed = purchaseWorld();
+  const db = fakeDb(seed), deps = fakeDeps(db);
+  await requestDeletion(deps, { user, now: T0 });
+  assert.deepEqual(await runDueDeletions(deps, { now: later(GRACE_MS - 1) }), []);
+  assert.deepEqual(db.all("whistlegraph-iap-accounts"), seed["whistlegraph-iap-accounts"], "the grace period preserves restorable purchases");
+  assert.deepEqual(await runDueDeletions(deps, { now: later(GRACE_MS) }), [{ state: "completed" }]);
+
+  assert.deepEqual(db.all("whistlegraph-iap-accounts"), [seed["whistlegraph-iap-accounts"][1]]);
+  assert.deepEqual(db.all("whistlegraph-iap-notifications"), [seed["whistlegraph-iap-notifications"][1]]);
+  const [deleted, other] = db.all("whistlegraph-iap-purchases");
+  const { user: removedUser, appAccountToken, ...receipt } = seed["whistlegraph-iap-purchases"][0];
+  assert.deepEqual(deleted, { ...receipt, deletedAt: later(GRACE_MS), userHash: hash(SUB) });
+  assert.deepEqual(other, seed["whistlegraph-iap-purchases"][1]);
+  assert.equal(await db.collection("ac-credit-wallets").findOne({ _id: SUB }), null);
+  assert.deepEqual(db.all(TOMBSTONES), [{ _id: hash(SUB), completedAt: later(GRACE_MS) }]);
+});
+
+test("a purchase cleanup failure keeps the deletion retryable before removing the wallet", async () => {
+  const db = fakeDb(purchaseWorld()), deps = fakeDeps(db);
+  const collection = db.collection;
+  let unavailable = true;
+  db.collection = name => {
+    const result = collection(name);
+    if (name === "whistlegraph-iap-purchases") {
+      const update = result.updateMany;
+      result.updateMany = async (...args) => {
+        if (unavailable) throw new Error("purchase ledger unavailable");
+        return update(...args);
+      };
+    }
+    return result;
+  };
+  await requestDeletion(deps, { user, now: T0 });
+  assert.deepEqual(await runDueDeletions(deps, { now: later(GRACE_MS) }), [{ state: "failed", step: "whistlegraph-purchases" }]);
+  assert.equal(await db.collection("whistlegraph-iap-accounts").findOne({ _id: SUB }), null);
+  assert.equal((await db.collection("ac-credit-wallets").findOne({ _id: SUB })).balance, 5);
+  assert.ok(!deps.calls.some(call => call[0] === "identity"));
+  unavailable = false;
+  assert.deepEqual(await runDueDeletions(deps, { now: later(GRACE_MS + DAY) }), [{ state: "completed" }]);
+  assert.equal(db.all("whistlegraph-iap-purchases")[0].userHash, hash(SUB));
+  assert.ok(!db.all("whistlegraph-iap-notifications").some(row => row.user === SUB));
+});
+
+test("Whistlegraph mint drafts export without capabilities and retire without personal data", async () => {
+  const seed = world();
+  seed["whistlegraph-mints"] = [
+    { _id: "draft-capability-hash", user: SUB, handle: "me", source: "(wipe red)", cover: "private-png", nonce: "secret-nonce", status: "packing", title: "my draft" },
+    { _id: "minted-capability-hash", user: SUB, handle: "me", sender: "tz1MyWallet", status: "minted", artifactUri: "ipfs://QmMinted", operationHash: "ooMinted", tokenId: "77", title: "my artwork" },
+    { _id: "their-capability-hash", user: OTHER, handle: "them", source: "(wipe blue)", status: "packing" },
+  ];
+  const db = fakeDb(seed), deps = fakeDeps(db);
+  const copy = await exportAccount(deps, { user, now: T0 });
+  assert.deepEqual(copy.records["whistlegraph-mints"], [
+    { source: "(wipe red)", status: "packing", title: "my draft" },
+    { sender: "tz1MyWallet", status: "minted", artifactUri: "ipfs://QmMinted", operationHash: "ooMinted", tokenId: "77", title: "my artwork" },
+  ]);
+  assert.ok(!JSON.stringify(copy).includes("capability-hash"));
+  assert.ok(!JSON.stringify(copy).includes("secret-nonce"));
+  await requestDeletion(deps, { user, now: T0 });
+  assert.deepEqual(await runDueDeletions(deps, { now: later(GRACE_MS) }), [{ state: "completed" }]);
+  assert.deepEqual(db.all("whistlegraph-mints"), [
+    { _id: "draft-capability-hash", status: "deleted", deletedAt: later(GRACE_MS) },
+    { _id: "minted-capability-hash", status: "deleted", deletedAt: later(GRACE_MS), operationHash: "ooMinted", tokenId: "77" },
+    seed["whistlegraph-mints"][2],
+  ]);
+  assert.ok(!deps.calls.some(call => call[0] === "unpin" && call[1] === "QmMinted"), "on-chain artwork is left intact");
 });
 
 test("a failed step stops before the identity and resumes there after a backoff", async () => {
@@ -542,7 +642,7 @@ test("the preview names what goes, what stays and the braincells lost, and chang
     handleHoldDays: 90,
     handleGoesToSotce: false,
     braincells: 5,
-    counts: { paintings: 1, pieces: 0, moods: 1, tapes: 1, news: 1, chat: 2, kidlispDeleted: 1, kidlispKept: 2 },
+    counts: { paintings: 1, pieces: 0, whistlegraphs: 1, moods: 1, tapes: 1, news: 1, chat: 2, kidlispDeleted: 1, kidlispKept: 2 },
   });
   assert.deepEqual(deps.calls, []);
   assert.deepEqual(db.all(LEDGER), []);
@@ -577,9 +677,36 @@ test("the export holds what the account made and nobody else's, and changes noth
   assert.equal(copy.account.handle, "me");
   assert.deepEqual(copy.records.paintings.map((p) => p.code), ["p1"]);
   assert.deepEqual(copy.records["chat-system"].map((m) => m.text), ["hello"]);
+  assert.deepEqual(copy.records["walkieware-threads"].map(row => row.code), ["wgMine"]);
+  assert.equal(copy.records["walkieware-threads"][0].ledger.versions[0].request, "red please");
+  assert.deepEqual(copy.records["whistlegraph-roblox-rooms"], [{ _id: SUB, revision: 1, room: { name: "my room" } }]);
   assert.ok(!JSON.stringify(copy).includes(OTHER), "no one else's records");
   assert.equal(copy.files[0].key, `${SUB}/painting/p1.png`);
   assert.deepEqual(deps.calls, []);
+});
+
+test("billing exports include only the account's receipts and status, without replayable tokens", async () => {
+  const seed = purchaseWorld();
+  seed["whistlegraph-iap-purchases"][0].futureProviderCredential = "secret-future-field";
+  seed["whistlegraph-iap-purchases"][0].state = { signedDate: +T0, refundedCredits: 250_000, type: "REFUND", futureProviderCredential: "secret-nested-field" };
+  Object.assign(seed["whistlegraph-iap-notifications"][0], { signedDate: +T0, refundedCredits: 0 });
+  const db = fakeDb(seed), deps = fakeDeps(db);
+  const copy = await exportAccount(deps, { user, now: T0 });
+  assert.deepEqual(copy.records["whistlegraph-iap-accounts"], [{ createdAt: T0 }]);
+  assert.deepEqual(copy.records["ac-credit-wallets"], [{ balance: 5 }]);
+  const [purchase] = copy.records["whistlegraph-iap-purchases"];
+  assert.equal(purchase.transactionId, "1001");
+  assert.equal(purchase.credits, 1_000_000);
+  assert.deepEqual(purchase.state, { signedDate: +T0, refundedCredits: 250_000, type: "REFUND" });
+  assert.deepEqual(copy.records["whistlegraph-iap-notifications"], [{
+    _id: "Production:1001", type: "REFUND_REVERSED", purchaseId: purchase._id,
+    signedDate: +T0, refundedCredits: 0, receivedAt: T0, status: "pending",
+  }]);
+  const serialized = JSON.stringify(copy);
+  for (const secret of [OTHER, "private-jws-", "secret-future-field", "secret-nested-field", seed["whistlegraph-iap-accounts"][0].appAccountToken]) {
+    assert.ok(!serialized.includes(secret), `${secret} should not be exported`);
+  }
+  assert.deepEqual(db.all("whistlegraph-iap-purchases"), seed["whistlegraph-iap-purchases"], "export does not mutate billing records");
 });
 
 test("the export is a signed-in download", async () => {

@@ -1510,6 +1510,23 @@ if (!DEV) {
   setInterval(reconcileCredits,60_000).unref();
 }
 
+// Refund retries remain active even when new App Store sales are paused.
+if (!DEV) {
+  let reconcilingWhistlegraph = false;
+  const reconcileWhistlegraph = async () => {
+    if (reconcilingWhistlegraph) return;
+    reconcilingWhistlegraph = true;
+    try {
+      const { reconcileWhistlegraphPurchases } = await import(pathToFileURL(join(SYSTEM, "backend", "whistlegraph-iap-store.mjs")).href);
+      const result = await reconcileWhistlegraphPurchases();
+      if (result.applied) console.log("[lith] reconciled Whistlegraph purchases:", result.applied);
+    } catch { console.error("[lith] Whistlegraph purchase reconciliation failed; will retry"); }
+    finally { reconcilingWhistlegraph = false; }
+  };
+  setTimeout(reconcileWhistlegraph, 45_000).unref();
+  setInterval(reconcileWhistlegraph, 60_000).unref();
+}
+
 // --- Daily metrics ---
 // Folds each finished day of visits, downloads and app opens into
 // `metrics-daily` (system/backend/metrics-daily.mjs). Idempotent, so an

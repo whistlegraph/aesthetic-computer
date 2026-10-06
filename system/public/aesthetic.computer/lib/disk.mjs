@@ -1131,6 +1131,9 @@ import { setPackMode, getPackMode, checkPackMode } from "./pack-mode.mjs";
 // Captures console output during a piece's lifetime. Each piece load
 // gets a fresh pieceId; events are batched and flushed every 2s.
 const previewEvidence = createPreviewEvidence(message => send(message));
+// Whistlegraph drafts use local preview evidence. Do not upload their console
+// content or create IP/geography-linked public piece-run telemetry.
+const privateWhistlegraphPreview = new URLSearchParams(location.search).get("preview") === "walkieware";
 const pieceRuns = (() => {
   let current = null;
   const startPerf = performance.now();
@@ -1151,6 +1154,7 @@ const pieceRuns = (() => {
   }
 
   function post(phase, pieceId, body = {}) {
+    if (privateWhistlegraphPreview) return;
     try {
       fetch("/api/piece-log", {
         method: "POST",
@@ -1192,6 +1196,7 @@ const pieceRuns = (() => {
 
   return {
     start({ slug, params, colon, host, user }) {
+      if (privateWhistlegraphPreview) return null;
       const prev = current;
       const pieceId =
         (typeof crypto !== "undefined" && crypto.randomUUID?.()) ||

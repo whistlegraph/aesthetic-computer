@@ -133,7 +133,42 @@ const EXPORT = [
   ["chat-clock", "user"],
   ["tells", "from"],
   ["calendar", "user"],
+  ["walkieware-threads", "owner"],
+  ["whistlegraph-roblox-rooms", "_id"],
 ];
+
+// Export receipts, mint artwork and delivery state without Apple account
+// tokens, signed payloads or mint capabilities. An allowlist also keeps
+// future provider credentials out of this download.
+const PRIVATE_EXPORT = [
+  ["whistlegraph-iap-accounts", "_id", ["createdAt"]],
+  ["whistlegraph-iap-purchases", "user", [
+    "_id", "transactionId", "productId", "credits", "environment", "createdAt",
+    "deliveredAt", "refundedAt", "refundAppliedAt", "reconciliationRequired",
+    ["state", ["signedDate", "refundedCredits", "type"]],
+  ]],
+  ["whistlegraph-iap-notifications", "user", [
+    "_id", "type", "purchaseId", "signedDate", "refundedCredits", "receivedAt", "status", "appliedAt",
+  ]],
+  ["ac-credit-wallets", "_id", ["balance", "spent", "createdAt", "updatedAt"]],
+  ["whistlegraph-mints", "user", [
+    "code", "version", "source", "sourceHash", "density", "aspect", "title",
+    "description", "editions", "royalties", "createdAt", "status", "sender",
+    "artifactUri", "htmlUri", "zipUri", "coverUri", "thumbnailUri", "metadataUri",
+    "artifactMimeType", "packageVersion", "operationHash", "tokenId", "mintedAt",
+  ]],
+];
+
+function exportFields(doc, fields) {
+  const selected = {};
+  for (const field of fields) {
+    const [key, nested] = Array.isArray(field) ? field : [field];
+    if (!Object.hasOwn(doc, key)) continue;
+    if (nested && (!doc[key] || typeof doc[key] !== "object" || Array.isArray(doc[key]))) continue;
+    selected[key] = nested ? exportFields(doc[key], nested) : doc[key];
+  }
+  return selected;
+}
 
 export async function exportAccount(deps, { user, now = new Date() }) {
   const sub = user?.sub;
@@ -143,6 +178,12 @@ export async function exportAccount(deps, { user, now = new Date() }) {
   for (const [name, field] of EXPORT) {
     const docs = await deps.db.collection(name).find({ [field]: sub }).toArray();
     if (docs.length) records[name] = docs;
+  }
+  for (const [name, field, fields] of PRIVATE_EXPORT) {
+    const docs = await deps.db.collection(name).find({ [field]: sub }).toArray();
+    if (docs.length) {
+      records[name] = docs.map(doc => exportFields(doc, fields));
+    }
   }
   const files = await deps.storage.list("user", `${sub}/`);
   return {
@@ -295,6 +336,8 @@ const DELETE = [
   ["moods", (sub) => ({ user: sub })],
   ["push-tokens", (sub) => ({ user: sub })],
   ["easel-transcripts-private", (sub) => ({ owner: sub })],
+  ["walkieware-threads", (sub) => ({ owner: sub })],
+  ["whistlegraph-roblox-rooms", (sub) => ({ _id: sub })],
   ["tells", (sub) => ({ $or: [{ to: sub }, { from: sub }] })],
   ["tapes", (sub) => ({ user: sub })],
   ["tape-drafts", (sub) => ({ user: sub })],
@@ -413,6 +456,7 @@ async function survey(deps, sub, snap) {
     counts: {
       paintings: await count(db, "paintings", { user: sub }),
       pieces: await count(db, "pieces", { user: sub }),
+      whistlegraphs: await count(db, "walkieware-threads", { owner: sub }),
       moods: moods.length,
       tapes: inv.tapeCodes.length,
       news: inv.newsCodes.length,
@@ -444,6 +488,43 @@ export const STEPS = [
         kidlispDeleted: inv.kidlispDelete.length,
         kidlispKept: inv.kidlispKeep.length,
       };
+    },
+  },
+  {
+    // Remove the Apple account mapping before touching the balance. The IAP
+    // service also checks this deletion job/tombstone, so a late notification
+    // cannot recreate the deleted wallet. Keep transaction IDs as immutable
+    // anti-replay claims, with a hash instead of an account or Apple token.
+    name: "whistlegraph-purchases",
+    async run({ db, sub, now }) {
+      await db.collection("whistlegraph-iap-accounts").deleteOne({ _id: sub });
+      await db.collection("whistlegraph-iap-purchases").updateMany(
+        { user: sub },
+        {
+          $set: { deletedAt: now, userHash: hash(sub) },
+          $unset: { user: "", appAccountToken: "", signedPayload: "" },
+        },
+      );
+      const notifications = await db.collection("whistlegraph-iap-notifications").deleteMany({ user: sub });
+      return { notifications: notifications?.deletedCount || 0 };
+    },
+  },
+  {
+    // Mint links are bearer capabilities. Retire their hashed IDs so old links
+    // cannot resume a mint or be reused, while removing drafts, wallet links,
+    // personal metadata and previews. The artwork already on chain/IPFS stays.
+    name: "whistlegraph-mints",
+    async run({ db, sub, now }) {
+      const collection = db.collection("whistlegraph-mints");
+      const rows = await collection.find({ user: sub }).toArray();
+      for (const row of rows) {
+        const retired = { _id: row._id, status: "deleted", deletedAt: now };
+        for (const key of ["operationHash", "tokenId"]) {
+          if (typeof row[key] === "string") retired[key] = row[key];
+        }
+        await collection.replaceOne({ _id: row._id, user: sub }, retired);
+      }
+      return { retired: rows.length };
     },
   },
   {
