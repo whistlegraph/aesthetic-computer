@@ -53,6 +53,8 @@ export function fighterParts(a) {
     rings([[0,5.8,5.8],[.25,6.7,6.5],[.78,5.3,5.2],[.94,4.8,4.8],[1,4.8,4.8]],color);
     if(a.sleeves==='long') rings([[.88,5.5,5.4],[.98,5.3,5.3]],tint(color,-.1));
   });
+  part('elbow',()=>ellipsoid([0,0,0],[6.2,6.2,6.2],a.sleeves==='long'?a.shirt:a.skin,10,6));
+  part('knee',()=>ellipsoid([0,0,0],[7.8,7.8,7.8],a.pants,10,6));
   part('hand',()=>{ellipsoid([0,3,0],[5.4,7.2,4],a.skin,10,6);ellipsoid([4,1,2],[2.5,4,2.5],a.skin,8,4);});
   part('thigh',()=>rings([[0,8,9],[.1,10,11],[.5,9.7,10],[.9,7.8,8],[1,7.5,8]],a.pants));
   part('shin',()=>{
@@ -137,6 +139,8 @@ export function poseFighter(model, world, {yaw=0,headless=false,hasPart=()=>true
     if(!model.parts[name])continue;
     add(name,endpoint(bone,1),frame(bone));
     if(name==='torso')add('pelvis',endpoint(bone,2),rigid);
+    if(name==='upper-arm')add('elbow',endpoint(bone,2),rigid);
+    if(name==='thigh')add('knee',endpoint(bone,2),rigid);
     if(name==='forearm')add('hand',endpoint(bone,2),[...frame(bone).map(unit)]);
     if(name==='shin')add('shoe',endpoint(bone,2),rigid);
   }

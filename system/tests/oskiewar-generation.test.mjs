@@ -165,11 +165,11 @@ test('shared character follows the game bones without mutating physics or restor
   world.segments.find(b=>b.role==='left-upper-arm').role='attack-upper-arm';
   before.segments = structuredClone(world.segments);
   const instances = poseFighter(model, world);
-  assert.equal(instances.length, 16);
+  assert.equal(instances.length, 20);
   assert.equal(instances.find(i=>i.name==='head').faces,model.parts.head);
   assert.deepEqual(world,before);
   const missing = poseFighter(model,world,{headless:true,hasPart:part=>part!=='left-arm'});
-  assert.equal(missing.length,12);
+  assert.equal(missing.length,15);
   assert.ok(!missing.some(i=>i.name==='head'));
   const arm = world.segments.find(b=>b.role==='right-forearm');
   Object.assign(arm,{x2:arm.x1,y2:arm.y1,z2:arm.z1+32});
