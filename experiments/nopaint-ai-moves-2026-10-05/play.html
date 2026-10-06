@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>No / Paint</title>
+<style>
+:root{color-scheme:light;font-family:system-ui,sans-serif;background:#eee9df;color:#202019}
+*{box-sizing:border-box}body{margin:0;min-height:100svh;display:grid;place-items:start center;padding:0}
+main{width:min(512px,100%)}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+button,select,a{font:inherit;color:inherit}button{cursor:pointer;border:1px solid #89877d;background:transparent;border-radius:0;padding:9px 14px;touch-action:manipulation}
+button:disabled{opacity:.35;cursor:default}button:focus-visible,a:focus-visible,summary:focus-visible,select:focus-visible{outline:3px solid #da3d70;outline-offset:4px}
+header button,header a{font-size:14px;border:0;padding:4px 0}header a{text-decoration:none;border-bottom:1px solid #89877d}
+.canvas{position:relative;aspect-ratio:1;background:#ddd8ce}#canvas{display:block;width:100%;height:100%;image-rendering:pixelated;object-fit:contain}
+#activity{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#progress{position:absolute;bottom:0;left:0;right:0;height:4px;background:#ffffff80;overflow:hidden}#progress[hidden]{display:none}#progress span{display:block;width:30%;height:100%;background:#da3d70;animation:working 1.2s ease-in-out infinite alternate}@keyframes working{from{transform:translateX(-100%)}to{transform:translateX(333%)}}@media(prefers-reduced-motion:reduce){#progress span{animation:none;width:100%}}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:0}.actions button{font-size:clamp(24px,6vw,34px);font-weight:600;padding:14px}
+#paint{background:#202019;color:#fff;border-color:#202019}.actions button:not(:disabled):active{transform:translateY(2px)}
+#account{display:block;max-width:100%;border:0;margin:3px auto 0;padding:4px;font-size:13px}#account:disabled{opacity:1}#charge{font-size:12px;text-align:center;margin:6px 0}#account-error{font-size:13px;text-align:center;color:#a42626}
+#model{display:block;width:100%;margin:0;border:1px solid #89877d;border-radius:0;background:#2020190f;font-size:13px;padding:6px;text-align:center;cursor:pointer}#model:disabled{opacity:.7}
+#status{height:26px;margin:12px 0 0;font-size:14px;text-align:center}footer{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-top:12px;font-size:14px}
+#before{border:0;padding:0;text-decoration:underline;text-underline-offset:3px;user-select:none;-webkit-user-select:none}
+summary{cursor:pointer;list-style:none;text-align:right;text-decoration:underline;text-underline-offset:3px}summary::-webkit-details-marker{display:none}
+.options{padding-top:14px;display:grid;gap:10px}.options button,.options select{font-size:14px;padding:7px}label{display:flex;gap:10px;align-items:center;justify-content:space-between}
+#retry{display:none;margin:0 auto}#error{color:#a42626;max-width:512px;font-size:14px;overflow-wrap:anywhere}
+@media(max-height:760px) and (min-width:600px){main{width:min(440px,100%)}body{padding:0}.actions button{padding:10px}}
+</style>
+<main>
+
+  <div class="canvas"><img id="canvas" alt="The proposed next painting"><canvas id="activity" width="512" height="512" aria-hidden="true"></canvas>
+    <div id="progress" role="progressbar" aria-label="Image generation" hidden><span></span></div>
+  </div>
+  <div class="actions"><button id="no" disabled title="Step backward (N)">No</button><button id="paint" disabled title="Confirm one generation (P)">Paint</button></div>
+  <select id="model" aria-label="Image model" title="Choose the model for the next move" disabled></select>
+  <p id="status" role="timer" aria-label="Generation time and cost" aria-live="off"></p>
+  <button id="account" title="Sign in with Aesthetic Computer">Sign in</button>
+  <p id="charge" hidden></p><p id="account-error" hidden></p>
+  <button id="retry">Retry</button><p id="error" role="alert" hidden></p>
+  <footer>
+    <details id="file-menu"><summary>File</summary><div class="options"><button data-start="noise" disabled>Fresh</button><a href="/download" download>Save Painting</a><button id="done" disabled>Done</button><a id="published" hidden target="_blank" rel="noopener">Open Last Painting</a></div></details>
+    <button id="before" title="Hold to see the accepted canvas (Space)">Before</button>
+    <details><summary>Options</summary><div class="options">
+      <label>Change <select id="strength"><option value="0.25">Small</option><option value="0.5">Medium</option><option value="0.75">Large</option></select></label>
+      <a href="https://openrouter.ai/models?output_modalities=image" target="_blank" rel="noopener">Browse OpenRouter</a>
+      <button id="disconnect" hidden>Sign out of No Paint</button>
+    </div></details>
+  </footer>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let state=null,sending=false,polling=false,peek=false,loaded=null,renderVersion=0;
+let progressStarted=null,disconnected=false,actionError='';
+const ctx=$('activity').getContext('2d');
+const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
+const imageCache=new Map();
+let baseImage=null,imageBlend=null,animation=null;
+function layer(){const c=document.createElement('canvas');c.width=c.height=512;return c}
+const ease=t=>t*t*(3-2*t);
+function animate(now){
+  animation=null;ctx.clearRect(0,0,512,512);
+  let moving=false;
+  if(imageBlend){
+    const t=reducedMotion.matches?1:ease(Math.min(1,(now-imageBlend.started)/imageBlend.duration));
+    ctx.save();ctx.globalAlpha=1-t;ctx.drawImage(imageBlend.from,0,0,512,512);ctx.restore();
+    if(t<1)moving=true;else{imageBlend=null;controls()}
+  }
+  if(moving)renderAnimation();
+}
+function renderAnimation(){if(animation===null)animation=document.hidden?setTimeout(()=>animate(performance.now()),100):requestAnimationFrame(animate)}
+function loadImage(url){
+  if(!imageCache.has(url))imageCache.set(url,new Promise((resolve,reject)=>{
+    const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>{imageCache.delete(url);reject(new Error('Image unavailable'))};im.src=url;
+  }));
+  while(imageCache.size>12)imageCache.delete(imageCache.keys().next().value);
+  return imageCache.get(url);
+}
+function receive(next){
+  if(state?.generation!==next.generation)progressStarted=null;
+  state=next;disconnected=false;
+  if(next.busy){if(progressStarted===null)progressStarted=performance.now()-(next.elapsed||0)*1000}
+  else progressStarted=null;
+}
+function showProgress(){
+  const working=sending||state?.busy||state?.publication?.busy;
+  $('progress').hidden=!working||disconnected||!!state?.error;
+  if(disconnected){$('status').textContent='Disconnected — retrying…';return}
+  if(actionError){$('status').textContent=actionError;return}
+  if(state?.publication?.busy){$('status').textContent='Publishing…';return}
+  if(working){
+    const seconds=Math.max(0,(performance.now()-(progressStarted??performance.now()))/1000).toFixed(1);
+    const label=state?.ready?'Generating':'Loading model';
+    $('status').textContent=`${seconds}s`;
+    $('progress').setAttribute('aria-valuetext',`${label}, ${seconds} seconds elapsed`);
+  }else if(state?.quote&&!state.error){
+    $('status').textContent=state.quote.estimated_seconds==null?'— s':`~${state.quote.estimated_seconds.toFixed(1)}s`;
+  }else $('status').textContent=state?.error?'Generation failed':state?'Unavailable':'';
+  if(state?.cost && state.cost.status!=='unavailable'){
+    const cost=state.cost.braincells==null?'braincells pending':`${state.cost.braincells.toLocaleString()} braincells${state.cost.status==='quoted'?' quoted':''}`;
+    $('status').textContent+=($('status').textContent?' · ':'')+cost;
+  }
+  $('paint').textContent=$('status').textContent||'Paint';
+  $('paint').setAttribute('aria-label','Paint: confirm one generation, '+$('status').textContent);
+}
+function controls(){
+  const locked=state?.publication?.pending;
+  const choosing=!locked&&state&&!state.busy&&!state.error&&state.quote&&loaded===state.accepted&&!peek&&!sending&&!disconnected&&!imageBlend;
+  $('paint').disabled=!choosing;
+  $('no').disabled=!(state?.can_reject&&!peek&&!sending&&!disconnected);
+  $('model').disabled=!state||state.busy||sending||disconnected;
+  $('account').disabled=!state||state.account?.working||state.account?.connected||disconnected;
+  $('disconnect').disabled=!state||state.busy||sending;
+  $('done').disabled=!state?.account?.connected||state?.busy||sending||state?.publication?.busy;
+  for(const id of ['no','model'])if(locked)$(id).disabled=true;
+  $('strength').disabled=!state||state.busy||sending||locked;
+  document.querySelectorAll('[data-start]').forEach(b=>b.disabled=!state||state.busy||sending||state.publication?.busy);
+  $('retry').disabled=sending;
+}
+async function display(immediate=false){
+  if(!state)return;
+  const version=++renderVersion,url=peek?(state.before||state.accepted):state.publication?.pending?state.accepted:state.busy?(state.trace?.latest?.url||state.accepted):state.accepted;
+  const models=JSON.stringify([state.models,state.engine,state.selection]);
+  if($('model').dataset.models!==models){
+    const random=document.createElement('option');random.value='random';
+    random.textContent=state.selection==='random'?`Random · ${state.model.name} · ${state.model.location}`:'Random';
+    $('model').replaceChildren(random,...(state.models||[]).map(model=>{
+      const option=document.createElement('option');option.value=model.id;
+      option.textContent=`${model.name} · ${model.location}${model.braincells?' · '+model.braincells.toLocaleString()+' braincells':''}${model.available?'':' (unavailable)'}`;
+      return option;
+    }));
+    $('model').dataset.models=models;
+  }
+  $('model').value=state.selection||state.engine;
+  $('model').title=state.model?.model||'Choose the model for the next move';
+  const account=state.account||{};
+  $('account').textContent=account.working&&!account.connected?'Signing in…':account.connected?`${account.handle} · ${(account.remaining+account.purchased).toLocaleString()} braincells`:'Sign in';
+  $('disconnect').hidden=!account.connected;
+  $('account-error').hidden=!account.error;$('account-error').textContent=account.error||'';
+  $('charge').hidden=!state.engine.startsWith('ac-')&&!account.remote_status;
+  $('charge').textContent=account.remote_status?`AC cloud unavailable: ${account.remote_status}`:'Paint confirms the cost. Stepping back does not refund completed work.';
+  controls();showProgress();
+  if($('canvas').getAttribute('src')!==url){
+    let im;try{im=await loadImage(url)}catch{return}
+    if(version!==renderVersion)return;
+    let from=null;
+    const sequence=(state.busy||state.candidate)?`move:${state.generation}`:`canvas:${state.accepted}`;
+    if(baseImage&&!immediate&&!reducedMotion.matches&&$('canvas').dataset.sequence===sequence){
+      from=layer();const previous=from.getContext('2d');
+      previous.drawImage(baseImage,0,0,512,512);previous.drawImage($('activity'),0,0);
+    }
+    imageBlend=from?{from,started:performance.now(),duration:state.busy?220:400}:null;
+    $('canvas').dataset.sequence=sequence;
+    baseImage=im;
+    $('canvas').src=url;loaded=url;
+    renderAnimation();
+  }
+  $('canvas').alt=peek?'Accepted painting':state.busy&&state.trace?.latest?.url?'Image forming':'Current painting';
+  showProgress();
+  const error=state.publication?.error||state.error;
+  $('error').hidden=!error;$('error').textContent=error||'';
+  $('retry').textContent=state.publication?.error?'Retry Done':'Retry';
+  $('published').hidden=!state.publication?.url;if(state.publication?.url)$('published').href=state.publication.url;
+  $('retry').style.display=error?'block':'none';$('strength').value=String(state.strength);
+  controls();
+}
+async function poll(){
+  if(polling||sending)return;polling=true;
+  try{const r=await fetch('/api/state');if(!r.ok)throw new Error('Server unavailable');const next=await r.json();if(sending||state&&next.revision<state.revision)return;receive(next);await display()}
+  catch(e){disconnected=true;showProgress();$('no').disabled=$('paint').disabled=true}
+  finally{polling=false}
+}
+async function act(action,extra={}){
+  if(sending||!state)return;
+  sending=true;progressStarted=performance.now();actionError='';controls();showProgress();
+  try{const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,revision:state.revision,quote:state.quote?.id,generation:state.generation,...extra})});const data=await r.json();if(!r.ok)throw new Error(data.error);receive(data);await display()}
+  catch(e){actionError=e.message;showProgress()}
+  finally{sending=false;controls();showProgress();await poll()}
+}
+$('no').onclick=()=>act('no');$('paint').onclick=()=>act('paint');$('retry').onclick=()=>state?.publication?.error?done():act('retry');
+async function done(){
+  if(sending||!state)return;sending=true;actionError='';controls();
+  try{const r=await fetch('/api/done',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision:state.revision,accepted:state.accepted})});const data=await r.json();if(!r.ok)throw Error(data.error);receive(data);await display()}
+  catch(e){actionError=e.message}finally{sending=false;controls();showProgress()}
+}
+$('done').onclick=done;
+async function accountAction(action){
+  try{const r=await fetch('/api/account',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action})});const data=await r.json();if(!r.ok)throw Error(data.error);if(!state||data.revision>=state.revision){receive(data);await display()}}
+  catch(error){$('account-error').hidden=false;$('account-error').textContent=error.message}
+}
+$('account').onclick=()=>accountAction('connect');
+$('disconnect').onclick=()=>accountAction('disconnect');
+setInterval(()=>{if(state?.account?.connected||state?.account?.reconnecting)accountAction('refresh')},30000);
+$('model').onchange=e=>act('engine',{engine:e.target.value});
+$('strength').onchange=e=>act('strength',{strength:Number(e.target.value)});
+document.querySelectorAll('[data-start]').forEach(b=>b.onclick=()=>{document.querySelector('details').open=false;act('restart',{start:b.dataset.start})});
+function showBefore(value){peek=value;imageBlend=null;display(true)}
+$('before').onpointerdown=e=>{e.preventDefault();$('before').setPointerCapture(e.pointerId);showBefore(true)};
+$('before').onpointerup=$('before').onpointercancel=()=>showBefore(false);
+document.addEventListener('keydown',e=>{
+  if(e.target.matches('select,input')||e.ctrlKey||e.metaKey||e.altKey)return;
+  if(e.code==='Space'){e.preventDefault();if(!e.repeat)showBefore(true);return}
+  if(e.repeat)return;
+  const id={n:'no',p:'paint'}[e.key.toLowerCase()];if(id&&!$(id).disabled&&$(id).getClientRects().length){e.preventDefault();$(id).click()}
+});
+document.addEventListener('keyup',e=>{if(e.code==='Space'){e.preventDefault();showBefore(false)}});
+window.addEventListener('blur',()=>showBefore(false));
+poll();setInterval(poll,250);setInterval(showProgress,100);
+</script>
+</html>

@@ -18,7 +18,7 @@ export function assetFile(url,root=repoRoot){
 }
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 export function runtimeManifest(root=repoRoot){
- const files={},pending=['/mac-test.html','/oskiewar.js','/aesthetic.computer/dep/auth0-spa-js.production.js',...Object.keys(externalAssets),'/aesthetic.computer/cursors/precise.svg','/aesthetic.computer/cursors/active.svg'];
+ const files={},pending=['/mac-test.html','/oskiewar.js','/native-account.mjs','/aesthetic.computer/dep/auth0-spa-js.production.js',...Object.keys(externalAssets),'/aesthetic.computer/cursors/precise.svg','/aesthetic.computer/cursors/active.svg'];
  while(pending.length){
   const url=pending.shift();if(files[url])continue;
   const bytes=readFileSync(assetFile(url,root));files[url]={sha256:hash(bytes),bytes:bytes.length};

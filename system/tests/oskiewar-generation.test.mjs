@@ -38,7 +38,7 @@ function collection(name) {
   if (!stores.has(name)) stores.set(name, new Map());
   const rows = stores.get(name);
   return {
-    createIndex: async () => {}, findOne: async q => rows.get(q._id),
+    createIndex: async () => {}, findOne: async q => [...rows.values()].find(row => Object.entries(q).every(([key,value]) => row[key] === value)),
     deleteOne: async q => { const row = rows.get(q._id); if (row && (!q['fighter.hash'] || row.fighter?.hash === q['fighter.hash'])) rows.delete(q._id); },
     deleteMany: async q => { for (const [id, row] of rows) if (row.owner === q.owner) rows.delete(id); },
     insertOne: async row => { if(rows.has(row._id)) throw Object.assign(Error('duplicate'),{code:11000}); rows.set(row._id, row); },
@@ -52,7 +52,13 @@ function collection(name) {
     },
   };
 }
-mock.module('../backend/authorization.mjs', { exports: { authorize: async headers => headers?.authorization ? { sub: headers.authorization === 'Bearer other' ? 'auth0|other' : 'auth0|fixture' } : null } });
+const aliases = new Map();
+mock.module('../backend/authorization.mjs', { exports: {
+  handleFor: async sub => aliases.get(sub),
+  userEmailFromID: async sub => ({ email: sub === 'auth0|other' ? 'other@example.test' : 'fixture@example.test', email_verified: true }),
+  authorize: async headers => headers?.authorization ? { sub: headers.authorization === 'Bearer other' ? 'auth0|other' : headers.authorization === 'Bearer otp' ? 'email|fixture' : 'auth0|fixture' } : null,
+} });
+mock.module('../backend/account-lock.mjs', { exports: { accountLocked: async () => false } });
 mock.module('../backend/database.mjs', { exports: { connect: async () => ({ db: { collection } }) } });
 const { handler } = await import('../netlify/functions/oskiewar-generation.mjs');
 const { pseudonym } = await import('../netlify/functions/oskiewar-consent.mjs');
@@ -108,6 +114,18 @@ test('real bridge releases one result, refuses revoked grants, and never regener
     assert.equal(restored.handle, '@renamed');
     assert.equal(restored.fighter.hash, fighter.hash, 'handle rename preserves ownership');
     assert.equal(modelCalls, 1, 'restoring an accepted fighter never calls the model');
+    aliases.set('email|fixture', 'renamed');
+    const aliasRestored = JSON.parse((await handler({...accountEvent, headers:{authorization:'Bearer otp'}})).body);
+    assert.equal(aliasRestored.handle, '@renamed', 'handle lookup matches the sign-in shell');
+    assert.equal(aliasRestored.fighter.hash, fighter.hash, 'alias retains the same consent owner');
+    assert.equal((await handler({...event('status'), headers:{authorization:'Bearer otp'}})).statusCode, 200, 'generation status shares the same consent identity');
+    aliases.set('auth0|other', 'renamed');
+    const otherProfile = stores.get('@handles').get('auth0|other');
+    stores.get('@handles').delete('auth0|other');
+    assert.equal((await handler({...accountEvent,headers:{authorization:'Bearer other'}})).statusCode, 403, 'a shared handle label never shares a fighter');
+    stores.get('@handles').set('auth0|fixture', profile);
+    stores.get('@handles').set('auth0|other', otherProfile);
+    aliases.clear();
     delete process.env.OPENAI_API_KEY;
     assert.equal((await handler(accountEvent)).statusCode, 200, 'recovery needs no model credentials');
     process.env.OPENAI_API_KEY = 'fixture';
@@ -148,14 +166,18 @@ test('withdrawal uses the signed-in subject and works without a generation token
   const saved={...process.env}, originalFetch=globalThis.fetch;
   Object.assign(process.env,{REGARDE_GATEWAY_URL:'https://gate.invalid/v0/gateway',REGARDE_SUBJECT_SALT:'fixture',REGARDE_GATEWAY_TOKEN:'deployer'});
   delete process.env.OPENAI_API_KEY;
-  let sent;
-  globalThis.fetch=async(url,options)=>{assert.equal(String(url),'https://gate.invalid/v0/withdraw');sent=JSON.parse(options.body);return Response.json({outcome:'withdrawn'});};
+  const sent=[];
+  globalThis.fetch=async(url,options)=>{assert.equal(String(url),'https://gate.invalid/v0/withdraw');sent.push(JSON.parse(options.body));return Response.json({outcome:'withdrawn'});};
   try {
     const result=await handler({httpMethod:'POST',headers:{authorization:'Bearer fixture'},body:JSON.stringify({action:'withdraw',subject:'another-person'})});
     assert.equal(result.statusCode,200);
-    assert.equal(sent.subject,pseudonym('auth0|fixture','fixture'));
-    assert.equal(sent.frozen_fields.operation_kind,'WITHDRAW_CONSENT');
-  }finally{globalThis.fetch=originalFetch;for(const key of ['REGARDE_GATEWAY_URL','REGARDE_SUBJECT_SALT','REGARDE_GATEWAY_TOKEN','OPENAI_API_KEY']){if(saved[key]===undefined)delete process.env[key];else process.env[key]=saved[key];}}
+    assert.equal(sent[0].subject,pseudonym('auth0|fixture','fixture'));
+    assert.equal(sent[0].frozen_fields.operation_kind,'WITHDRAW_CONSENT');
+    aliases.set('email|fixture','fixture');
+    const linked=await handler({httpMethod:'POST',headers:{authorization:'Bearer otp'},body:JSON.stringify({action:'withdraw'})});
+    assert.equal(linked.statusCode,200);
+    assert.deepEqual(sent.slice(1).map(r=>r.subject),['auth0|fixture','email|fixture'].map(sub=>pseudonym(sub,'fixture')),'withdrawal covers both the handle owner and legacy email-code material');
+  }finally{aliases.clear();globalThis.fetch=originalFetch;for(const key of ['REGARDE_GATEWAY_URL','REGARDE_SUBJECT_SALT','REGARDE_GATEWAY_TOKEN','OPENAI_API_KEY']){if(saved[key]===undefined)delete process.env[key];else process.env[key]=saved[key];}}
 });
 
 test('shared character follows the game bones without mutating physics or restoring missing limbs', async () => {

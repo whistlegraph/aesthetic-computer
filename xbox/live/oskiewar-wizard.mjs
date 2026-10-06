@@ -442,9 +442,10 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null,
   });
   // A default is an already accepted account result, never a new grant or
   // acceptance. Fetch live authority before equipping; don't retain a photo or
-  // fighter across pages. Only the explicitly configured pilot handle opts in.
+  // fighter across pages. The current account supplies the expected handle.
   async function restoreSaved() {
-    if (!defaultHandle) return false;
+    const handle = typeof defaultHandle === "function" ? defaultHandle() : defaultHandle;
+    if (!handle) return false;
     const revision = ++authority;
     try {
       const token = await bearer();
@@ -452,7 +453,7 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null,
       if (!token) { clearFighter(); return false; }
       const result = await generationRequest(token, "account", {}, { silent: true });
       if (revision !== authority) return false;
-      if (result.status !== "accepted" || result.handle !== defaultHandle ||
+      if (result.status !== "accepted" || result.handle?.toLowerCase() !== handle.toLowerCase() ||
           !Number.isFinite(result.validUntil) || result.validUntil <= Date.now()) {
         clearFighter(); return false;
       }

@@ -79,7 +79,7 @@ const forgetful = true;
 
 const BARE_KIDLISP_CODE = /^[0-9A-Za-z]{3,64}$/;
 
-import { Android, MacOS, MetaBrowser, iOS } from "../lib/platform.mjs";
+import { AestheticIOSApp, Android, MacOS, MetaBrowser, iOS } from "../lib/platform.mjs";
 import { validateHandle } from "../lib/text.mjs";
 import { commandDescriptions } from "../lib/prompt-commands.mjs";
 import { nopaint_adjust } from "../systems/nopaint.mjs";
@@ -2458,6 +2458,23 @@ async function halt($, text) {
     send({ type: "notifications:web", content: { enable: true } });
     flashColor = [0, 0, 255];
     makeFlash($);
+    return true;
+  } else if (slug === "pop") {
+    // 🎵 Every /pop track. The iPhone app plays them natively (lock screen,
+    // AirPlay, background); elsewhere `pop <slug>` opens that track's piece.
+    if (AestheticIOSApp) {
+      send({ type: "ios:send", content: { type: "pop:open", body: params[0] || "" } });
+      flashColor = [255, 200, 0];
+      makeFlash($);
+      return true;
+    }
+    if (params[0]) {
+      jump(params[0]);
+      return true;
+    }
+    const popUrl = "https://pop.aesthetic.computer";
+    if (openExternalFromIframe(popUrl)) return true;
+    jump(`out:${popUrl}`);
     return true;
   } else if (slug === "selfie") {
     jump("camera~me");

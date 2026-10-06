@@ -1,5 +1,6 @@
 // Authenticated transport only. REGARDE owns capability and retention checks.
 import { authorize } from '../../backend/authorization.mjs';
+import { fighterIdentity } from '../../backend/oskiewar-identity.mjs';
 import { pseudonym } from './oskiewar-consent.mjs';
 
 const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
@@ -17,12 +18,13 @@ export async function handler(event) {
     REGARDE_GATEWAY_TOKEN: token } = process.env;
   if (!gateway || !salt || !token) return fail(503, 'The submission desk is unavailable.');
   try {
+    const identity = await fighterIdentity(user.sub);
     const url = new URL(gateway);
     url.pathname = url.pathname.replace(/\/gateway\/?$/, body.action === 'status' ? '/manifest' : '/submission');
     if (!url.pathname.endsWith(body.action === 'status' ? '/manifest' : '/submission')) return fail(503, 'The submission desk is unconfigured.');
     const upstream = await fetch(url, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ capability: body.capability, subject: pseudonym(user.sub, salt),
+      body: JSON.stringify({ capability: body.capability, subject: pseudonym(identity.sub, salt),
         ...(body.action === 'status' ? {} : { files: body.files.map(file => ({ source: file?.source, base64: file?.base64 })) }) }),
       signal: AbortSignal.timeout(10000),
     });
@@ -30,5 +32,5 @@ export async function handler(event) {
     if (!upstream.ok) return fail(upstream.status, result.error || 'Submission refused.');
     return { statusCode: body.action === 'status' ? 200 : 201, headers, body: JSON.stringify({ manifest: result.manifest,
       retention: result.retention, purge_at: result.purge_at }) };
-  } catch { return fail(502, 'Submission did not complete. Check your connection before trying again.'); }
+  } catch (error) { return fail(error.status || 502, error.status ? error.message : 'Submission did not complete. Check your connection before trying again.'); }
 }

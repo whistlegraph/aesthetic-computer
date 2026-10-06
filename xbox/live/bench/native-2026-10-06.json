@@ -1,0 +1,364 @@
+{
+  "date": "2026-10-06",
+  "target": {
+    "device": "Xbox Series X",
+    "bios": "1.0.0.62",
+    "surface": [
+      1920,
+      1080
+    ],
+    "aa": "geometry-fxaa"
+  },
+  "protocol": {
+    "course": "desert",
+    "seed": 7341,
+    "position": [
+      2840,
+      0
+    ],
+    "input": "neutral during each 56-second run; live controller resumes automatically",
+    "phases": [
+      {
+        "debug": true,
+        "warmupSeconds": 14,
+        "sampleSeconds": 14
+      },
+      {
+        "debug": false,
+        "warmupSeconds": 14,
+        "sampleSeconds": 14
+      }
+    ],
+    "windowFrames": 120,
+    "clock": "Native AC_NATIVE_PROFILE averages; host/JS includes lifecycle and native primitive execution, not a JS-only or GPU timer."
+  },
+  "baseline": {
+    "revision": "4d73f4c9fc",
+    "gameVersion": 264,
+    "sourceHash": "a25e727b44e9e9809466a99986065c2afd6823e8af350b83cc84202b7c3f374b"
+  },
+  "candidate": {
+    "gameVersion": 265,
+    "sourceHash": "c7cf4d38d33789bbb01472602ed12b14260f3644d34d89bd681705ae7f576992"
+  },
+  "cases": [
+    {
+      "debug": true,
+      "baseline": {
+        "windows": 3,
+        "fps": {
+          "min": 28.841709490641907,
+          "median": 29.075107290633508,
+          "max": 29.109253462827983
+        },
+        "frameMs": {
+          "min": 34.353337205194315,
+          "median": 34.39368219707819,
+          "max": 34.672008617397104
+        },
+        "hostJsMs": {
+          "min": 31.72481734937459,
+          "median": 31.82486403131862,
+          "max": 31.981382913205376
+        },
+        "samples": [
+          {
+            "debug": true,
+            "elapsedMs": 17621,
+            "frameMs": 34.353337205194315,
+            "renderCpuMs": 1.7363125560966302,
+            "presentMs": 0.8922072997230972,
+            "hz": 29.109253462827983,
+            "x": 2840,
+            "z": 0
+          },
+          {
+            "debug": true,
+            "elapsedMs": 21786,
+            "frameMs": 34.39368219707819,
+            "renderCpuMs": 1.6858030220567175,
+            "presentMs": 0.8830151437028552,
+            "hz": 29.075107290633508,
+            "x": 2840,
+            "z": 0
+          },
+          {
+            "debug": true,
+            "elapsedMs": 25905,
+            "frameMs": 34.672008617397104,
+            "renderCpuMs": 1.7496648238327128,
+            "presentMs": 0.9409608803590187,
+            "hz": 28.841709490641907,
+            "x": 2840,
+            "z": 0
+          }
+        ]
+      },
+      "candidate": {
+        "windows": 5,
+        "fps": {
+          "min": 41.6723841601501,
+          "median": 41.832139338074974,
+          "max": 42.63957966706056
+        },
+        "frameMs": {
+          "min": 23.452388785448292,
+          "median": 23.905064761768358,
+          "max": 23.99670717559439
+        },
+        "hostJsMs": {
+          "min": 20.919519755561918,
+          "median": 21.31302020910914,
+          "max": 21.395301289028925
+        },
+        "samples": [
+          {
+            "debug": true,
+            "elapsedMs": 15645,
+            "frameMs": 23.715872190394343,
+            "renderCpuMs": 1.683653088895255,
+            "presentMs": 0.9436467822018525,
+            "hz": 42.16585382025421,
+            "x": 2840,
+            "z": 0
+          },
+          {
+            "debug": true,
+            "elapsedMs": 18518,
+            "frameMs": 23.99670717559439,
+            "renderCpuMs": 1.6985696123364837,
+            "presentMs": 0.9380344791368282,
+            "hz": 41.6723841601501,
+            "x": 2840,
+            "z": 0
+          },
+          {
+            "debug": true,
+            "elapsedMs": 21398,
+            "frameMs": 23.905064761768358,
+            "renderCpuMs": 1.6774462570419173,
+            "presentMs": 0.9145982956173011,
+            "hz": 41.832139338074974,
+            "x": 2840,
+            "z": 0
+          },
+          {
+            "debug": true,
+            "elapsedMs": 24216,
+            "frameMs": 23.966784908813132,
+            "renderCpuMs": 1.669517984340686,
+            "presentMs": 0.9019656354435212,
+            "hz": 41.724411672434094,
+            "x": 2840,
+            "z": 0
+          },
+          {
+            "debug": true,
+            "elapsedMs": 27047,
+            "frameMs": 23.452388785448292,
+            "renderCpuMs": 1.6465476176835665,
+            "presentMs": 0.8863214122028075,
+            "hz": 42.63957966706056,
+            "x": 2840,
+            "z": 0
+          }
+        ]
+      },
+      "fpsGainPercent": 43.87613060176436
+    },
+    {
+      "debug": false,
+      "baseline": {
+        "windows": 5,
+        "fps": {
+          "min": 41.084445196970144,
+          "median": 41.59463792032711,
+          "max": 41.91464338013467
+        },
+        "frameMs": {
+          "min": 23.858010455456892,
+          "median": 24.041560402940892,
+          "max": 24.340112059581784
+        },
+        "hostJsMs": {
+          "min": 22.460232521722528,
+          "median": 22.64886120022916,
+          "max": 22.948161629905474
+        },
+        "samples": [
+          {
+            "debug": false,
+            "elapsedMs": 43956,
+            "frameMs": 23.858010455456892,
+            "renderCpuMs": 0.8104084264298673,
+            "presentMs": 0.5873695073044971,
+            "hz": 41.91464338013467,
+            "x": 2840,
+            "z": 0
+          },
+          {
+            "debug": false,
+            "elapsedMs": 46850,
+            "frameMs": 24.340112059581784,
+            "renderCpuMs": 0.7992329084312041,
+            "presentMs": 0.5927175212451063,
+            "hz": 41.084445196970144,
+            "x": 2840,
+            "z": 0
+          },
+          {
+            "debug": false,
+            "elapsedMs": 49733,
+            "frameMs": 24.083538465578155,
+            "renderCpuMs": 0.8048014513510929,
+            "presentMs": 0.5941474171679556,
+            "hz": 41.522137680443784,
+            "x": 2840,
+            "z": 0
+          },
+          {
+            "debug": false,
+            "elapsedMs": 52622,
+            "frameMs": 24.002983901460905,
+            "renderCpuMs": 0.8040681800821158,
+            "presentMs": 0.5877116346796522,
+            "hz": 41.661486926179066,
+            "x": 2840,
+            "z": 0
+          },
+          {
+            "debug": false,
+            "elapsedMs": 55568,
+            "frameMs": 24.041560402940892,
+            "renderCpuMs": 0.8093707390432543,
+            "presentMs": 0.5833284636684809,
+            "hz": 41.59463792032711,
+            "x": 2840,
+            "z": 0
+          }
+        ]
+      },
+      "candidate": {
+        "windows": 7,
+        "fps": {
+          "min": 55.05511270293722,
+          "median": 55.54635960311658,
+          "max": 55.798286760676326
+        },
+        "frameMs": {
+          "min": 17.921697207103982,
+          "median": 18.002979981858115,
+          "max": 18.163617344600393
+        },
+        "hostJsMs": {
+          "min": 16.481702931347275,
+          "median": 16.58493340972024,
+          "max": 16.719983385849332
+        },
+        "samples": [
+          {
+            "debug": false,
+            "elapsedMs": 42479,
+            "frameMs": 18.12923979280054,
+            "renderCpuMs": 0.7901766685763388,
+            "presentMs": 0.6190797383748688,
+            "hz": 55.1595109022232,
+            "x": 2840,
+            "z": 0
+          },
+          {
+            "debug": false,
+            "elapsedMs": 44662,
+            "frameMs": 17.921697207103982,
+            "renderCpuMs": 0.7903748543874725,
+            "presentMs": 0.6437477991024539,
+            "hz": 55.798286760676326,
+            "x": 2840,
+            "z": 0
+          },
+          {
+            "debug": false,
+            "elapsedMs": 46824,
+            "frameMs": 18.163617344600393,
+            "renderCpuMs": 0.7879733361978418,
+            "presentMs": 0.672822390909959,
+            "hz": 55.05511270293722,
+            "x": 2840,
+            "z": 0
+          },
+          {
+            "debug": false,
+            "elapsedMs": 48988,
+            "frameMs": 17.98792034278621,
+            "renderCpuMs": 0.797772982908431,
+            "presentMs": 0.6799361262293516,
+            "hz": 55.592863485246376,
+            "x": 2840,
+            "z": 0
+          },
+          {
+            "debug": false,
+            "elapsedMs": 51161,
+            "frameMs": 18.002979981858115,
+            "renderCpuMs": 0.791692838728158,
+            "presentMs": 0.6263537334097201,
+            "hz": 55.54635960311658,
+            "x": 2840,
+            "z": 0
+          },
+          {
+            "debug": false,
+            "elapsedMs": 53319,
+            "frameMs": 18.074282531270892,
+            "renderCpuMs": 0.794982006110952,
+            "presentMs": 0.6723034660555716,
+            "hz": 55.327230736261214,
+            "x": 2840,
+            "z": 0
+          },
+          {
+            "debug": false,
+            "elapsedMs": 55511,
+            "frameMs": 17.95889271937363,
+            "renderCpuMs": 0.7921096438460804,
+            "presentMs": 0.6850801441802731,
+            "hz": 55.68272028938753,
+            "x": 2840,
+            "z": 0
+          }
+        ]
+      },
+      "fpsGainPercent": 33.54211595618031
+    }
+  ],
+  "liveObservation": {
+    "original": {
+      "fps": [
+        23.55,
+        23.7
+      ],
+      "hostJsMs": [
+        40.23,
+        40.49
+      ]
+    },
+    "optimizedMoving": {
+      "fps": [
+        60.02,
+        60.2
+      ],
+      "hostJsMs": [
+        12.79,
+        13.21
+      ]
+    },
+    "comparable": false,
+    "reason": "Different positions, debug settings and session ages; these are live observations, not the measured speedup."
+  },
+  "limits": [
+    "An idle, fixed-camera scene does not represent every map or multiplayer scene.",
+    "60fps was observed while riding, but is not sustained in the close-up idle or full debug cases.",
+    "No GPU hardware timestamp is exposed by this host.",
+    "Native circle/capsule edge tessellation uses the existing host quality; gameplay and render resolution are unchanged."
+  ]
+}

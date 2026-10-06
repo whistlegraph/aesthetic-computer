@@ -33,6 +33,7 @@
 
 import { createHash } from "node:crypto";
 import { authorize } from "../../backend/authorization.mjs";
+import { fighterIdentity } from "../../backend/oskiewar-identity.mjs";
 
 const GATEWAY_TIMEOUT_MS = 6000;
 const SCHEMA_VERSION = 1;
@@ -157,16 +158,20 @@ export async function handler(event) {
   if (!gateway || !salt || !gatewayToken)
     return fail(503, "The consent desk is not reachable right now.");
 
+  let identity;
+  try { identity = await fighterIdentity(user.sub); }
+  catch (error) { return fail(error.status || 503, error.status ? error.message : 'Could not verify your AC account. Try again.'); }
+
   const request = {
     venue: "oskiewar",
-    subject: pseudonym(user.sub, salt),
+    subject: pseudonym(identity.sub, salt),
     operation_type: "DATA_OPERATION",
     frozen_fields: frozenFields(scope),
     // One explicit choice may retry safely. A new choice gets a new requestId,
     // so consent after withdrawal cannot revive the retired receipt.
     // Older clients retain their subject/scope idempotency.
     idempotency_key: createHash("sha256")
-      .update(JSON.stringify([pseudonym(user.sub, salt), frozenFields(scope), ...(body.requestId ? [body.requestId] : [])]))
+      .update(JSON.stringify([pseudonym(identity.sub, salt), frozenFields(scope), ...(body.requestId ? [body.requestId] : [])]))
       .digest("hex").slice(0, 32),
     operation_descriptor: {
       purpose: PURPOSE,

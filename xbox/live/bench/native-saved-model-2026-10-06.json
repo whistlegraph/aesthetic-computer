@@ -1,0 +1,232 @@
+{
+  "date": "2026-10-06",
+  "target": {
+    "device": "Xbox Series X",
+    "bios": "1.0.0.64",
+    "surface": [
+      1920,
+      1080
+    ],
+    "aa": "geometry-fxaa"
+  },
+  "source": {
+    "revision": "a97ce473ab",
+    "gameVersion": 266,
+    "sourceHash": "5059efd3c549c94c9ed3d2bd0ffac763b4b997d70fac4926102a73a7bb6d682b"
+  },
+  "proof": {
+    "originalFighterMatch": true,
+    "modelVersion": 2,
+    "generatedParts": 20,
+    "privateLocal": true
+  },
+  "protocol": {
+    "course": "desert",
+    "seed": 7341,
+    "position": [
+      2840,
+      0
+    ],
+    "input": "neutral during 56-second run; live controller resumes automatically",
+    "phases": [
+      {
+        "debug": true,
+        "warmupSeconds": 14,
+        "sampleSeconds": 14
+      },
+      {
+        "debug": false,
+        "warmupSeconds": 14,
+        "sampleSeconds": 14
+      }
+    ],
+    "windowFrames": 120,
+    "clock": "Native AC_NATIVE_PROFILE averages; host/JS includes lifecycle and native primitive execution, not a JS-only or GPU timer.",
+    "visualInspection": "Console screenshots inspected with debug enabled and disabled; kept locally."
+  },
+  "cases": [
+    {
+      "debug": true,
+      "windows": 6,
+      "fps": {
+        "min": 46.15162578502473,
+        "median": 46.95762341892504,
+        "max": 47.838769768494586
+      },
+      "frameMs": {
+        "min": 20.903547579490116,
+        "median": 21.29611762866419,
+        "max": 21.66770905662179
+      },
+      "hostJsMs": {
+        "min": 18.885495149431872,
+        "median": 19.254646137687395,
+        "max": 19.461894762723194
+      },
+      "samples": [
+        {
+          "debug": true,
+          "elapsedMs": 14803,
+          "frameMs": 21.070221631815148,
+          "renderCpuMs": 1.3111398023488967,
+          "presentMs": 0.698119521627041,
+          "hz": 47.460345575579616,
+          "x": 2840,
+          "z": 0
+        },
+        {
+          "debug": true,
+          "elapsedMs": 17352,
+          "frameMs": 21.47692897450587,
+          "renderCpuMs": 1.3394561443712403,
+          "presentMs": 0.6908464862026166,
+          "hz": 46.561591798671365,
+          "x": 2840,
+          "z": 0
+        },
+        {
+          "debug": true,
+          "elapsedMs": 19921,
+          "frameMs": 21.213441325312715,
+          "renderCpuMs": 1.3287010885133204,
+          "presentMs": 0.6872231118113247,
+          "hz": 47.139923441217455,
+          "x": 2840,
+          "z": 0
+        },
+        {
+          "debug": true,
+          "elapsedMs": 22525,
+          "frameMs": 21.37879393201567,
+          "renderCpuMs": 1.3532545450205287,
+          "presentMs": 0.7137642366084214,
+          "hz": 46.775323396632615,
+          "x": 2840,
+          "z": 0
+        },
+        {
+          "debug": true,
+          "elapsedMs": 25037,
+          "frameMs": 21.66770905662179,
+          "renderCpuMs": 1.3559379165473124,
+          "presentMs": 0.8498763773512843,
+          "hz": 46.15162578502473,
+          "x": 2840,
+          "z": 0
+        },
+        {
+          "debug": true,
+          "elapsedMs": 27534,
+          "frameMs": 20.903547579490116,
+          "renderCpuMs": 1.3339603265539959,
+          "presentMs": 0.6840921035042489,
+          "hz": 47.838769768494586,
+          "x": 2840,
+          "z": 0
+        }
+      ]
+    },
+    {
+      "debug": false,
+      "windows": 7,
+      "fps": {
+        "min": 59.05521231603178,
+        "median": 60.04096692690545,
+        "max": 60.28230174277472
+      },
+      "frameMs": {
+        "min": 16.588616743053567,
+        "median": 16.655294729303932,
+        "max": 16.93330632101595
+      },
+      "hostJsMs": {
+        "min": 13.876323121359686,
+        "median": 14.085703805022447,
+        "max": 14.152645636398356
+      },
+      "samples": [
+        {
+          "debug": false,
+          "elapsedMs": 43634,
+          "frameMs": 16.654920548076007,
+          "renderCpuMs": 0.8118902511219327,
+          "presentMs": 1.9367470877494504,
+          "hz": 60.04231584974574,
+          "x": 2840,
+          "z": 0
+        },
+        {
+          "debug": false,
+          "elapsedMs": 45627,
+          "frameMs": 16.717038050224385,
+          "renderCpuMs": 0.8096750167096346,
+          "presentMs": 1.7547173971163945,
+          "hz": 59.81920941949267,
+          "x": 2840,
+          "z": 0
+        },
+        {
+          "debug": false,
+          "elapsedMs": 47663,
+          "frameMs": 16.588616743053567,
+          "renderCpuMs": 0.8124960183328557,
+          "presentMs": 1.8079625083548172,
+          "hz": 60.28230174277472,
+          "x": 2840,
+          "z": 0
+        },
+        {
+          "debug": false,
+          "elapsedMs": 49665,
+          "frameMs": 16.93330632101595,
+          "renderCpuMs": 0.8247948486584552,
+          "presentMs": 1.9571229494891635,
+          "hz": 59.05521231603178,
+          "x": 2840,
+          "z": 0
+        },
+        {
+          "debug": false,
+          "elapsedMs": 51667,
+          "frameMs": 16.650398157166045,
+          "renderCpuMs": 0.8141490356153914,
+          "presentMs": 1.7481594862980994,
+          "hz": 60.058623857569266,
+          "x": 2840,
+          "z": 0
+        },
+        {
+          "debug": false,
+          "elapsedMs": 53670,
+          "frameMs": 16.655294729303932,
+          "renderCpuMs": 0.8168941420796333,
+          "presentMs": 1.7526967822018527,
+          "hz": 60.04096692690545,
+          "x": 2840,
+          "z": 0
+        },
+        {
+          "debug": false,
+          "elapsedMs": 55671,
+          "frameMs": 16.66368780196696,
+          "renderCpuMs": 0.8171145946720137,
+          "presentMs": 1.9702500859352625,
+          "hz": 60.01072582996672,
+          "x": 2840,
+          "z": 0
+        }
+      ]
+    }
+  ],
+  "comparison": {
+    "priorReport": "native-2026-10-06.json",
+    "directBeforeAfter": false,
+    "reason": "The prior report uses a stock flat figure on BIOS62. This follow-up uses the accepted saved model on BIOS64; no optimization percentage is inferred between them."
+  },
+  "limits": [
+    "The fixed idle scene reached approximately 60 fps with debug disabled; full debug rendering remained below 60 fps.",
+    "This does not measure sustained riding, every map, or later BIOS65.",
+    "No pairing, logout, consent changes, generation, or account mutation was performed.",
+    "The exact uninstrumented v266 source was restored after measurement."
+  ]
+}

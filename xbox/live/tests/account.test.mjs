@@ -16,6 +16,8 @@ function fixture({ url = 'https://oskiewar.com/', callback, native = null,
   const account = { ready: false, signedIn: false, handle: '', colors: [] };
   const context = vm.createContext({
     URL, console, location,
+    dispatchEvent: event => calls.push(["change", event.detail]),
+    CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
     history: { replaceState(_state, _title, path) { location.href = new URL(path, location).href; } },
     document: { querySelector(selector) {
       if (!elements.has(selector)) elements.set(selector, {
@@ -29,6 +31,7 @@ function fixture({ url = 'https://oskiewar.com/', callback, native = null,
     otpSignIn: () => ({
       session() { calls.push('otp'); if (failNative) throw new Error('storage unavailable'); return native; },
       token: async () => 'native-token',
+      forget: () => calls.push('forget'),
     }),
     auth0: { createAuth0Client: async () => ({
       checkSession: async () => { calls.push('silent'); },
@@ -109,7 +112,7 @@ test('normal restoration keeps the OTP session and does not handle a callback', 
   await f.door.ready;
   assert.equal(f.door.redirectPending, false);
   assert.equal(f.account.handle, '@TESTER');
-  assert.equal(f.calls.length, 1);
+  assert.equal(f.calls.filter(call => typeof call === 'string').length, 1);
   assert.equal(f.calls[0], 'otp');
 });
 
@@ -137,4 +140,15 @@ test('sign-in from the title returns home even with a legacy room address', asyn
   await f.elements.get('#account-redirect').handlers.click();
   const options = f.calls.find(call => call[0] === 'redirect')[1];
   assert.equal(options.appState.returnTo, '/');
+});
+
+
+test('clearing a deleted account immediately drops identity and announces sign-out', async () => {
+  const f = fixture({ native: { sub: 'native-user' } });
+  await f.door.ready;
+  f.door.clearSession();
+  assert.equal(f.account.signedIn, false);
+  assert.equal(f.account.handle, '');
+  assert.equal(f.calls.includes('forget'), true);
+  assert.equal(f.calls.at(-1)[1].signedIn, false);
 });

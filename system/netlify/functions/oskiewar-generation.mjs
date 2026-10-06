@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { authorize } from '../../backend/authorization.mjs';
+import { fighterIdentity } from '../../backend/oskiewar-identity.mjs';
 import { connect } from '../../backend/database.mjs';
 import { pseudonym, frozenFields } from './oskiewar-consent.mjs';
 import { gateRoutes, verifyGenerationCapability, readGrantedPhoto, generateAppearance, RECIPE } from '../../backend/oskiewar-generation.mjs';
@@ -8,10 +9,10 @@ const SAVED_MS = 24 * 60 * 60 * 1000;
 
 // AC owns the account binding. Handles are labels and may change; neither
 // handles nor Auth0 subjects are sent to REGARDE or the appearance model.
-async function fighterAccount(userSub) {
+async function fighterAccount(identity) {
   const { db } = await connect();
-  const profile = await db.collection('@handles').findOne({ _id: userSub });
-  const handle = profile?.handle ? '@' + profile.handle.replace(/^@/, '') : null;
+  const name = identity.handle;
+  const handle = name ? '@' + name.replace(/^@/, '') : null;
   const fighters = db.collection('oskiewar-fighters');
   await fighters.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
   return { db, handle, fighters };
@@ -54,24 +55,35 @@ export async function handler(event) {
 // Trusted host entry point for recovering an authenticated player's own job.
 export async function generateForUser(input, userSub) {
   if (!userSub) return respond(401, { message: 'Sign in to generate your fighter.' });
+  const signInSub = userSub;
+  let identity;
+  try { identity = await fighterIdentity(userSub); userSub = identity.sub; }
+  catch (error) { return respond(error.status || 503, { message: error.status ? error.message : 'Could not verify your AC account. Try again.' }); }
   if (input?.action === 'withdraw') {
     const { REGARDE_GATEWAY_URL: gateway, REGARDE_SUBJECT_SALT: salt, REGARDE_GATEWAY_TOKEN: token } = process.env;
     if (!gateway || !salt || !token) return respond(503, { message: 'REGARDE is unavailable.' });
     try {
       const url = new URL(gateRoutes(gateway).media); url.pathname = url.pathname.replace(/media$/, 'withdraw');
       const ff = frozenFields({ source: ['appearance'], outputs: ['fighter_mesh'], distribution: ['private_preview', 'local_gameplay'], retention: 'bound_to_purpose_scope' });
-      const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ subject: pseudonym(userSub, salt), venue: 'oskiewar', operation_type: 'DATA_OPERATION',
-          idempotency_key: randomUUID(), operation_descriptor: { purpose: 'oskiewar_fighter_generation', description: 'Withdraw my Oskiewar material.' },
-          frozen_fields: { ...ff, operation_kind: 'WITHDRAW_CONSENT', retention_constraint: 'propagate_to_named_processors', data_handling_chain: ['oskiewar'] } }),
-        signal: AbortSignal.timeout(10000) });
-      const result = await response.json();
-      if (!response.ok || !['withdrawn', 'nothing-to-withdraw'].includes(result.outcome)) return respond(502, { message: 'Withdrawal was not confirmed. Try again.' });
+      const owners = [...new Set([userSub, signInSub])];
+      let outcome = 'nothing-to-withdraw';
+      // Also retire material submitted by this sign-in before account linking.
+      for (const owner of owners) {
+        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ subject: pseudonym(owner, salt), venue: 'oskiewar', operation_type: 'DATA_OPERATION',
+            idempotency_key: randomUUID(), operation_descriptor: { purpose: 'oskiewar_fighter_generation', description: 'Withdraw my Oskiewar material.' },
+            frozen_fields: { ...ff, operation_kind: 'WITHDRAW_CONSENT', retention_constraint: 'propagate_to_named_processors', data_handling_chain: ['oskiewar'] } }),
+          signal: AbortSignal.timeout(10000) });
+        const result = await response.json();
+        if (!response.ok || !['withdrawn', 'nothing-to-withdraw'].includes(result.outcome)) return respond(502, { message: 'Withdrawal was not confirmed. Try again.' });
+        if (result.outcome === 'withdrawn') outcome = 'withdrawn';
+      }
       const { db } = await connect();
-      const subject = pseudonym(userSub, salt);
-      await db.collection('oskiewar-fighters').deleteOne({ _id: subject });
-      await db.collection('oskiewar-generation-jobs').deleteMany({ owner: userSub });
-      return respond(200, { status: result.outcome });
+      for (const owner of owners) {
+        await db.collection('oskiewar-fighters').deleteOne({ _id: pseudonym(owner, salt) });
+        await db.collection('oskiewar-generation-jobs').deleteMany({ owner });
+      }
+      return respond(200, { status: outcome });
     } catch { return respond(502, { message: 'Withdrawal was not confirmed. Try again.' }); }
   }
   if (!['generate', 'status', 'accept', 'account'].includes(input?.action) ||
@@ -82,7 +94,7 @@ export async function generateForUser(input, userSub) {
   let jobs, id;
   try {
     const subject = pseudonym(userSub, salt), routes = gateRoutes(gateway);
-    const account = await fighterAccount(userSub);
+    const account = await fighterAccount(identity);
     if (!account.handle) return respond(409, { code: 'handle_required', message: 'Choose your AC handle before making a fighter.' });
     if (input.action === 'account') return await restoreFighter(account, subject, routes, token);
     const keysResponse = await fetch(routes.jwks, { signal: AbortSignal.timeout(10000) });

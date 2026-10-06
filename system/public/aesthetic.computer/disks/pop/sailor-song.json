@@ -1,0 +1,64 @@
+{
+  "slug": "sailor-song",
+  "title": "sailor song",
+  "artist": "sage oc",
+  "album": "sailor song",
+  "bpm": 120,
+  "key": "G# minor",
+  "meter": "4/4",
+  "duration": 152.53,
+  "audio": "/assets/pop/sailor-song.mp3",
+  "cover": "/assets/pop/sailor-song.jpg",
+  "sections": [
+    {
+      "name": "strums",
+      "t": 0,
+      "illy": "/assets/pop/sailor-song/sec-0.jpg",
+      "code": "a"
+    },
+    {
+      "name": "verse 1",
+      "t": 2.105,
+      "illy": "/assets/pop/sailor-song/sec-1.jpg",
+      "code": "b"
+    },
+    {
+      "name": "chorus 1",
+      "t": 38.444,
+      "illy": "/assets/pop/sailor-song/sec-2.jpg",
+      "code": "c"
+    },
+    {
+      "name": "verse 2",
+      "t": 69.124,
+      "illy": "/assets/pop/sailor-song/sec-3.jpg",
+      "code": "d"
+    },
+    {
+      "name": "chorus 2",
+      "t": 84.898,
+      "illy": "/assets/pop/sailor-song/sec-4.jpg",
+      "code": "e"
+    },
+    {
+      "name": "break",
+      "t": 115.313,
+      "illy": "/assets/pop/sailor-song/sec-5.jpg",
+      "code": "f"
+    },
+    {
+      "name": "bridge",
+      "t": 124.783,
+      "illy": "/assets/pop/sailor-song/sec-6.jpg",
+      "code": "g"
+    },
+    {
+      "name": "outro",
+      "t": 139.914,
+      "illy": "/assets/pop/sailor-song/sec-7.jpg",
+      "code": "h"
+    }
+  ],
+  "links": {},
+  "credits": "sage oc — vocals + nylon guitar. song by Gigi Perez (\"Sailor Song\"). produced, engineered + arranged under her take by Aesthetic Dot Computer."
+}

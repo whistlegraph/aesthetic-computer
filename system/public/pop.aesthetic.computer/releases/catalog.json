@@ -121,6 +121,22 @@
       "releaseData": "/releases/marimbaba"
     },
     {
+      "slug": "sailor-song",
+      "title": "sailor song",
+      "artist": "sage oc",
+      "album": "sailor song",
+      "bpm": 120,
+      "key": "G# minor",
+      "meter": "4/4",
+      "duration": 152.53,
+      "cover": "https://assets.aesthetic.computer/pop/sailor-song.jpg",
+      "audio": "https://assets.aesthetic.computer/pop/sailor-song.mp3",
+      "piece": "https://aesthetic.computer/sailor-song",
+      "links": {},
+      "credits": "sage oc — vocals + nylon guitar. song by Gigi Perez (\"Sailor Song\"). produced, engineered + arranged under her take by Aesthetic Dot Computer.",
+      "releaseData": null
+    },
+    {
       "slug": "trancenwaltz",
       "title": "trancenwaltz",
       "artist": "Aesthetic Dot Computer",

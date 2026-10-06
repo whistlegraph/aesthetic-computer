@@ -7,7 +7,7 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 
 ---
 
-## sailor song (sage oc) — HOLD · awaiting Sage's word (delivered to her 2026-10-04)
+## sailor song (sage oc) — RELEASED on AC 2026-10-06 (self-hosted, not on DistroKid)
 
 - **What:** @jeffrey's niece Sage (**sage oc**, O'Connor) singing Gigi Perez's *Sailor Song* with
   nylon guitar on a phone, remixed *under* her take by Aesthetic Dot Computer. **A cover** — not ours
@@ -27,9 +27,13 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
   syllable captions, strum ripple, kiss-glitch RGB split, held-"long" event; `--fia` stickers
   (Noto emoji, Apache-2.0; Anne Hathaway head CC BY-SA 2.0 — credit in `EYECONS-CREDITS.md` must
   accompany any public post of Fia's Cut or the reel).
-- **Before any submission:** Sage's reply · parental consent (she is a minor) · mechanical licence ·
-  decide the release artist (DistroKid artist "sage oc" vs. a feature) · brighten check per
-  MASTERING.md phone-proxy rule (v119 fixed the 52 Hz lane; re-measure).
+- **Release (2026-10-06):** Sage + parents said yes (via @jeffrey). @jeffrey chose AC self-hosting over
+  DistroKid/Spotify. Live: https://assets.aesthetic.computer/pop/sailor-song.mp3 (the tagged v120 mp3 —
+  Sage performer, Gigi Perez composer, Aesthetic Dot Computer producer/engineer) + `pop/sailor-song.jpg`
+  (cover v120-video), sha256-verified against the CDN. Video not yet hosted (main cut is 312 MB).
+  **Open:** a cover still needs a mechanical licence for self-hosted streams/downloads — DistroKid's only
+  covers its own stores. Lossless master kept: `out/sage oc - sailor song.flac` (16/44.1, −11.6 LUFS,
+  phone loss −5.4 dB).
 
 ---
 

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f5f3ef">
+  <title>Deadlines · Aesthetic Computer</title>
+  <meta name="description" content="New media opportunities: artist commissions, residencies, experimental music, creative coding and open-source funding. Reviewed deadlines, fees and eligibility.">
+  <meta property="og:title" content="Deadlines · Aesthetic Computer">
+  <meta property="og:description" content="Find your next open call. New media opportunities, with funding, eligibility and deadlines in one place.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://papers.aesthetic.computer/deadlines/">
+  <link rel="canonical" href="https://papers.aesthetic.computer/deadlines/">
+  <link rel="alternate" type="application/rss+xml" title="AC — New media deadlines" href="/deadlines/feed.xml">
+  <link rel="alternate" type="text/calendar" title="AC — New media deadlines" href="/deadlines/calendar.ics">
+  <link rel="icon" type="image/svg+xml" href="/deadlines/icon.svg">
+  <link rel="stylesheet" href="/deadlines/style.css">
+  <script type="module" src="/deadlines/app.mjs"></script>
+</head>
+<body>
+  <a class="skip" href="#opportunities">Skip to opportunities</a>
+  <div class="page">
+    <header>
+      <div class="topline"><a class="brand" href="https://aesthetic.computer"><img src="/deadlines/icon.svg" width="28" height="28" alt="">aesthetic.computer</a><a class="suggest" href="mailto:mail@aesthetic.computer?subject=Deadline%20suggestion&amp;body=Official%20call%20URL%3A%20%0ADeadline%20and%20time%20zone%3A%20%0AFunding%20and%20application%20fee%3A%20%0AEligibility%3A%20">Suggest a call <span aria-hidden="true">↗</span></a></div>
+      <div class="masthead"><div><h1>deadlines<span>.</span></h1><p class="intro">New media opportunities.</p></div><div class="subscribe"><a href="/deadlines/feed.xml">RSS ↗</a><a href="webcal://papers.aesthetic.computer/deadlines/calendar.ics">Subscribe to calendar ↗</a><a class="download-calendar" href="/deadlines/calendar.ics" download="ac-deadlines.ics">Download .ics ↓</a></div></div>
+    </header>
+    <main>
+      <form id="filters" class="filters" role="search" aria-label="Filter opportunities" hidden>
+        <div class="search-row"><label class="search-label"><span class="sr-only">Search opportunities</span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6.5"/><path d="m15 15 5 5"/></svg><input name="q" type="search" placeholder="Search sound, software, a city…" autocomplete="off"></label>
+          <label class="select-wrap"><span class="sr-only">Discipline</span><select name="discipline"><option value="">All disciplines</option><!-- DISCIPLINES --></select></label>
+          <label class="select-wrap"><span class="sr-only">Opportunity type</span><select name="kind"><option value="">All types</option><!-- KINDS --></select></label>
+        </div>
+        <div class="filter-row"><div class="checks"><label><input type="checkbox" name="paid"> Pays artists</label><label><input type="checkbox" name="free"> Free to apply</label><label><input type="checkbox" name="remote"> Remote</label><label><input type="checkbox" name="international"> International</label></div><button type="reset" class="reset">Reset</button></div>
+      </form>
+      <div class="list-toolbar"><nav aria-label="Opportunity status" id="views"><a href="?view=upcoming" data-view="upcoming" aria-current="page">Upcoming</a><a href="?view=rolling" data-view="rolling">Rolling</a><a href="?view=archive" data-view="archive">Archive</a></nav><div class="list-info"><span id="result-count" role="status" aria-live="polite">{{COUNT}} opportunities</span><label id="sort-label" hidden><span class="sr-only">Sort opportunities</span><select name="sort" form="filters"><option value="deadline">Soonest first</option><option value="newest">Newest added</option></select></label></div></div>
+      <p id="load-error" class="notice" role="status" hidden>Live filters couldn’t load. The reviewed listings below and subscription feeds are still available. <button type="button" id="retry">Try again</button></p>
+      <noscript><p class="notice">This edition was built on {{UPDATED}}. Enable JavaScript for filters and automatic expiry; always check the official cutoff.</p></noscript>
+      <div id="opportunities" tabindex="-1"><!-- CARDS --></div>
+      <div id="empty" class="empty" hidden><p>No calls match these filters.</p><button type="button" id="clear-empty">Clear filters</button></div>
+    </main>
+    <footer><p>Reviewed {{UPDATED}} <span aria-hidden="true">·</span> <a href="/deadlines/opportunities.json">Open data</a> <span aria-hidden="true">·</span> <a href="https://papers.aesthetic.computer/">Papers</a></p><p>Sources checked by Aesthetic Computer. Confirm terms with the organizer.<br>“Free to apply” includes confirmed free applications only. Exact cutoff times display in your time zone.</p></footer>
+  </div>
+</body>
+</html>

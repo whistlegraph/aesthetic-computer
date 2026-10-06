@@ -108,8 +108,22 @@ export function probeDevicePortal({ host, port }, timeout = 2000) {
     socket.once("connect", () => done(true, ""));
     socket.once("timeout", () => done(false,
       `${host}:${port} did not answer within ${timeout}ms`));
-    socket.once("error", (error) => done(false,
-      `${host}:${port} ${error.code || error.message}`));
+    socket.once("error", (error) => {
+      // macOS can deny Node's LAN connection while the curl transport used
+      // by live.mjs still reaches the console. Check that transport, bounded
+      // and without credentials, before declaring the console offline.
+      if (process.platform === "darwin" && error.code === "EHOSTUNREACH") {
+        socket.destroy();
+        const seconds = String(timeout / 1000);
+        const probe = spawnSync("curl", ["--insecure", "--silent",
+          "--connect-timeout", seconds, "--max-time", seconds,
+          "--output", "/dev/null", "--write-out", "%{http_code}",
+          `https://${host}:${port}/`], { encoding: "utf8", timeout: timeout + 250 });
+        if (probe.status === 0 && /^[1-5]\d\d$/.test(probe.stdout.trim()))
+          return done(true, "");
+      }
+      done(false, `${host}:${port} ${error.code || error.message}`);
+    });
   });
 }
 function readReceipt() {
@@ -236,7 +250,7 @@ async function reconcile(receipt, { dryRun = false } = {}) {
   if (receipt.channels.web.status !== "current") {
     if (dryRun) console.log("would deploy web");
     else try {
-      run("fish", ["lith/deploy.fish"]);
+      run("node", ["slab/bin/ac-deploy"]);
       await verifyWeb(hash, receipt.desired.runtimeHash);
       mark(receipt, "web", "current", "verified production bytes");
     } catch (error) { mark(receipt, "web", "failed", error.message); }

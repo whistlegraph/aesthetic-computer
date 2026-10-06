@@ -1,0 +1,37 @@
+{
+  "canvas": [
+    256,
+    256
+  ],
+  "provider": "fal",
+  "models": {
+    "klein": {
+      "endpoint": "fal-ai/flux-2/klein/4b/edit",
+      "steps": 4
+    },
+    "kontext": {
+      "endpoint": "fal-ai/flux-kontext/dev",
+      "steps": 28
+    }
+  },
+  "starts": {
+    "blank": "white RGB",
+    "noise": "grayscale uniform noise, numpy seed 20261005",
+    "base": {
+      "source": "papers/nopaint-3-full-shape/assets/archive-l4f0ipzy.png",
+      "crop": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "public_record": "https://nopaint.art/l4f0ipzy"
+    }
+  },
+  "prompts": {
+    "autonomous": "Continue this exact image by making exactly one small, deliberate painting move. Choose the move yourself in response to the existing composition: add one simple mark, extend one existing shape, or change one small region of color. Keep the change within a single area occupying at most one tenth of the canvas. Preserve every other part of the input image, including its colors, texture, softness, edges, empty areas, and framing. If the image is blank or noise, add just one small mark and preserve the rest. Return only the complete updated image. Do not finish the painting, add a scene, enhance detail, sharpen, relight, add lettering, or change the overall style.",
+    "specified": "Add exactly one small solid magenta circle to this exact image. Its center must be at 25 percent of the image width from the left and 75 percent of the image height from the top. Its diameter must be 8 percent of the image width. Use flat color #ff00ff with no outline or shadow. Preserve all pixels outside this small circle, including all existing colors, texture, softness, composition, and framing. Return the complete updated image."
+  },
+  "protocol": "Every request receives a complete current PNG; no conversation history. Autonomous means the model selects the move under a fixed instruction, not prompt-free. Chain mode automatically adopts outputs for a stress test; no public painting is changed.",
+  "postprocess": "Convert RGB and resize to canonical 256x256 with LANCZOS only when needed. Keep native provider output. Never mask or composite outputs to hide drift."
+}

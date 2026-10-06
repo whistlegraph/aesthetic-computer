@@ -1,5 +1,6 @@
 // @bundle-qr
-globalThis.__oskiewarOpponent = globalThis.__oskiewarLocalPractice ? "dummy" : "freeskate";
+// @bundle-native-account
+globalThis.__oskiewarOpponent = globalThis.__oskiewarPracticeOpponent || "freeskate";
 // @bundle-qr
 // The console's monotonic clock can hand back a negative number: App.cpp
 // converts QPC ticks with `counter * 1000000`, which overflows int64 past
@@ -100,9 +101,34 @@ if (hostAnalytics)
   };
 // The account feed (fighters, moods, who is signed in), read by gamePaint.
 const hostAc = typeof ac === "function" ? ac : null;
+const nativeAccount = typeof globalThis.accountState === "function" &&
+  typeof globalThis.accountAction === "function" && globalThis.__oskiewarCreateNativeAccount &&
+  globalThis.__oskiewarFighterModel?.validate
+  ? globalThis.__oskiewarCreateNativeAccount({ read: globalThis.accountState,
+      act: globalThis.accountAction, validate: globalThis.__oskiewarFighterModel.validate }) : null;
+let nativeAccountPublic = { status: "signed-out" }, nativeAccountMark = "";
+function syncNativeAccount() {
+  if (!nativeAccount) return;
+  const { state, fighter } = nativeAccount.refresh();
+  nativeAccountPublic = state;
+  const handle = state.status === "signed-in" && state.handle
+    ? "@" + state.handle.replace(/^@/, "").toUpperCase() : "";
+  globalThis.__oskiewarAccount = { ready: true, signedIn: !!handle, handle, colors: [] };
+  globalThis.__oskiewarFighterAppearance = fighter;
+  globalThis.__oskiewarLocalPractice = !!fighter;
+  if (fighter) {
+    globalThis.__oskiewarVersus = false;
+    parkPeers.clear(); Object.assign(parkConnection, { at: 0, ping: null, count: 1 });
+  }
+  const mark = [state.status, handle, state.code || "", !!fighter].join(" ");
+  if (mark !== nativeAccountMark) {
+    nativeAccountMark = mark;
+    if (hostTelemetry) hostTelemetry("OSKIEWAR_ACCOUNT", mark);
+  }
+}
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 263;
+const buildVersion = 266;
 const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
@@ -2889,6 +2915,36 @@ function flatTriangle(x1, y1, x2, y2, x3, y3, depth, r, g, b) {
 // Sides that keep chords within 2 px of the curve, as frame-vm.mjs picks them.
 const flatSides = (radius) => radius < 3 ? 4 : radius < 6 ? 5
   : Math.max(6, Math.min(24, Math.ceil(Math.PI / Math.acos(Math.max(-1, 1 - 2 / radius)))));
+// Unit fans are shared by every flat ellipse. The existing retained mesh
+// host applies its two screen axes natively instead of QuickJS rebuilding
+// and handing over every triangle on every frame.
+const flatEllipseMeshes = new Map();
+const flatEllipseCamera = new Float32Array([0,0,0, 1,0,0, 0,1,0, 0,0,1,
+  0,0, 1,1,0,.5, -32200,-32200,32200,32200, 0,0, 0,0,1]);
+function nativeFlatEllipse(n, x, y, depth, ax, ay, bx, by, r, g, b) {
+  if (!nativeRetainedMeshes || clipView || programBuffered ||
+      !Number.isFinite(x+y+depth+ax+ay+bx+by+r+g+b)) return false;
+  let handle = flatEllipseMeshes.get(n);
+  if (handle === undefined) {
+    const vertices = new Float32Array((n + 1) * 3), faces = new Float32Array(Math.ceil(n / 2) * 10);
+    vertices[2] = 1;
+    for (let i = 0; i < n; i++) {
+      const t = i / n * Math.PI * 2, at = (i + 1) * 3;
+      vertices[at] = Math.cos(t); vertices[at + 1] = Math.sin(t); vertices[at + 2] = 1;
+    }
+    for (let i = 0; i < n; i += 2) {
+      const at = i / 2 * 10, end = (i + 1) % n + 1;
+      faces.set([0,i+1,end,i+1<n?(i+2)%n+1:end,255,255,255,0,0,-1], at);
+    }
+    handle = nativeMeshUpload(vertices, faces);
+    flatEllipseMeshes.set(n, handle);
+  }
+  if (handle < 0) return false;
+  const m = flatEllipseCamera;
+  m[3]=ax; m[4]=bx; m[6]=-ay; m[7]=-by; m[12]=x; m[13]=y; m[22]=depth;
+  nativeMeshDraw(handle,m,0,r/255+1e-10,g/255+1e-10,b/255+1e-10);
+  return true;
+}
 function flatEllipse(x, y, depth, ax, ay, bx, by, r, g, b, grow = 0) {
   if (grow) {
     const ka = 1 + grow / (Math.hypot(ax, ay) || 1), kb = 1 + grow / (Math.hypot(bx, by) || 1);
@@ -2896,7 +2952,12 @@ function flatEllipse(x, y, depth, ax, ay, bx, by, r, g, b, grow = 0) {
   }
   const reach = Math.max(Math.hypot(ax, ay), Math.hypot(bx, by));
   if (reach < .75) return;
+  if (nativeDisc && !clipView && !programBuffered && ay === 0 && bx === 0 && ax === by && ax > 0 && Number.isFinite(x+y+depth+ax+r+g+b)) {
+    nativeDisc(x, y, depth, ax, r, g, b);
+    return;
+  }
   const n = flatSides(Math.max(Math.sqrt(Math.abs(ax * by - ay * bx)), reach * .35));
+  if (nativeFlatEllipse(n,x,y,depth,ax,ay,bx,by,r,g,b)) return;
   let lx = x + ax, ly = y + ay;
   for (let i = 1; i <= n; i++) {
     const t = i / n * Math.PI * 2, nx = x + ax * Math.cos(t) + bx * Math.sin(t), ny = y + ay * Math.cos(t) + by * Math.sin(t);
@@ -2917,6 +2978,13 @@ function flatPlate(n, points, depth, r, g, b, grow = 0) {
     flatTriangle(corner(0, 0), corner(0, 1), corner(i - 1, 0), corner(i - 1, 1), corner(i, 0), corner(i, 1), depth, r, g, b);
 }
 function flatCapsule(x1, y1, x2, y2, depth, width, r, g, b) {
+  // Native capsules already own tessellation. Keep the JS path for inset
+  // clipping; sending a full capsule there would draw outside its viewport.
+  if (nativeCapsule && !clipView && !programBuffered &&
+      Number.isFinite(x1+y1+x2+y2+depth+width+r+g+b)) {
+    nativeCapsule(x1, y1, x2, y2, depth, width, r, g, b);
+    return;
+  }
   const dx = x2 - x1, dy = y2 - y1, length = Math.hypot(dx, dy), radius = width / 2;
   flatEllipse(x1, y1, depth, radius, 0, 0, radius, r, g, b);
   if (length < .001) return;
@@ -4560,7 +4628,7 @@ function drawAeselFairy(t){
   }
 }
 function drawAeselConnect(){
-  if(!poolOnly()||!sessionName)return;
+  if(!poolOnly()||!sessionName||globalThis.__oskiewarLocalPractice)return;
   const {safe,room:label,roomX,roomSize:size}=parkTopRail();
   const saved=triangleDepth;triangleDepth=-1.49;
   const qr=shellMode==='MENU'?spectatorQrBox():null;
@@ -5006,7 +5074,7 @@ function spectatorState(now, nextRoundId = "") {
 
 function publishSpectator(now, { target = matchName, nextRoundId = "",
   force = false } = {}) {
-  if (!roundIsTimed() || !target || livePublishFailed ||
+  if (globalThis.__oskiewarLocalPractice || !roundIsTimed() || !target || livePublishFailed ||
       typeof publishLive !== "function" ||
       (!force && now < liveNextAt)) return;
   liveNextAt = now + liveSnapshotIntervalUs;
@@ -5031,6 +5099,7 @@ function publishSpectator(now, { target = matchName, nextRoundId = "",
 // which both points any watcher at the fight and retires this room's publisher
 // so the native shell's single socket is free to follow.
 function publishSession(now) {
+  if (globalThis.__oskiewarLocalPractice) return;
   if ((!poolOnly() && !debugHitboxes && !globalThis.__oskiewarWorkshopEnabled) ||
       !sessionName || livePublishFailed ||
       typeof publishLive !== "function") return;
@@ -5513,7 +5582,7 @@ function uploadRoundReplay(now) {
   // A dense reel demo is fat by design and never leaves the local shell; the
   // half-megabyte gate is for demos headed to the production store.
   const payloadLimit = globalThis.__oskiewarDenseReplay ? 8388608 : 524288;
-  if (payload.length <= payloadLimit && typeof saveReplay === "function") {
+  if (!globalThis.__oskiewarLocalPractice && payload.length <= payloadLimit && typeof saveReplay === "function") {
     const upload = saveReplay(payload);
     // Only promise-returning hosts can prove the upload completed. The web
     // host does; older native hosts keep saving silently until they adopt the
@@ -5964,8 +6033,11 @@ function fighterProfile(handle) {
 
 function syncSignedInFighter() {
   if (localVersusActive()) return;
-  const identity = acFeed?.player;
-  if (!identity?.handle || players[0].npc) return;
+  const identity = nativeAccount ? globalThis.__oskiewarAccount : acFeed?.player;
+  if (!identity?.handle || players[0].npc) {
+    if (nativeAccount && !players[0].npc && players[0].name.startsWith("@")) applyRoster(players[0], players[0].rosterIndex || 0);
+    return;
+  }
   const handle = String(identity.handle).toUpperCase();
   if (players[0].name !== handle) players[0].name = handle;
   const colors = Array.isArray(identity.colors)
@@ -6723,7 +6795,7 @@ function drawAltitudeGauge(altitude, safe, ink, small) {
 // full, half and quarter, for working a trick through slowly.
 let freeskateMenu = null;
 const freeskateSpeeds = [1, .5, .25];
-const freeskateMenuRows = ["level", "speed", "resume", "back to title"];
+const freeskateMenuRows = ["level", "speed", "resume", "back to title", ...(nativeAccount ? ["account"] : [])];
 function updateFreeskateMenu(now) {
   const down = padSnapshots[0]?.down || [];
   const pad = padSnapshots[0] || {};
@@ -6732,6 +6804,18 @@ function updateFreeskateMenu(now) {
     : pad.leftX > .5 ? "ArrowRight" : pad.leftX < -.5 ? "ArrowLeft" : "";
   const held = stick ? [...down, stick] : down;
   const pressed = (button) => held.includes(button) && !menu.previous.includes(button);
+  if (menu.account) {
+    if (pressed("B")) {
+      if (["waiting", "creating"].includes(nativeAccountPublic.status)) nativeAccount.action("cancel");
+      menu.account = false;
+    } else if (pressed("A")) {
+      if (nativeAccountPublic.status === "signed-in") {
+        nativeAccount.action("logout"); menu.account = false;
+      } else if (!["waiting", "creating"].includes(nativeAccountPublic.status)) nativeAccount.action("login");
+    }
+    menu.previous = held.slice();
+    return;
+  }
   if (pressed("ArrowUp")) menu.row = (menu.row + freeskateMenuRows.length - 1) % freeskateMenuRows.length;
   if (pressed("ArrowDown")) menu.row = (menu.row + 1) % freeskateMenuRows.length;
   const step = pressed("ArrowRight") ? 1 : pressed("ArrowLeft") ? -1 : 0;
@@ -6756,6 +6840,10 @@ function updateFreeskateMenu(now) {
     }
     else if (menu.row === 2) freeskateMenu = null;
     else if (menu.row === 3) { freeskateMenu = null; returnToTitle(now, "menu"); }
+    else if (menu.row === 4 && nativeAccount) {
+      menu.account = true;
+      if (["signed-out", "error", "unavailable"].includes(nativeAccountPublic.status)) nativeAccount.action("login");
+    }
     else {
       const index = Math.max(0, freeskateSpeeds.indexOf(gameSpeed));
       gameSpeed = freeskateSpeeds[(index + 1) % freeskateSpeeds.length];
@@ -6767,10 +6855,44 @@ function updateFreeskateMenu(now) {
   if (freeskateMenu) freeskateMenu.previous = held.slice();
 }
 
+let nativeLoginQrUrl = "", nativeLoginQr = null;
+function drawNativeAccountMenu() {
+  const state = nativeAccountPublic, center = viewCenterX();
+  const size = Math.min(32, viewWidth() / 22), gap = size * 1.5;
+  const top = Math.max(30, viewHeight * .14), white = [245, 248, 255];
+  const width = Math.min(720, viewWidth() - 50);
+  hudBox(center - width / 2, top - 20, width, viewHeight * .72, 20, 28, 56);
+  const label = (text, y, color = white, scale = size) =>
+    typeWrite(text, center - handleWidth(text, scale) / 2, y, scale, ...color);
+  if (state.status === "signed-in") {
+    label(accountHandle().toLowerCase(), top + gap);
+    label(globalThis.__oskiewarFighterAppearance ? "saved character loaded" : "signed in", top + gap * 3, white, size * .8);
+    label("A  log out", top + gap * 5, [255, 176, 48]);
+  } else if (state.status === "waiting" && state.pairUrl) {
+    label("scan to sign in", top);
+    if (nativeLoginQrUrl !== state.pairUrl && typeof qrcode === "function") {
+      nativeLoginQrUrl = state.pairUrl;
+      nativeLoginQr = qrcode(state.pairUrl, { errorCorrectLevel: 1 });
+    }
+    if (nativeLoginQr) {
+      const count = nativeLoginQr.getModuleCount();
+      const cell = Math.max(1, Math.floor(Math.min(width - 60, viewHeight * .37) / (count + 8)));
+      const span = (count + 8) * cell, left = center - span / 2, y = top + gap;
+      hudBox(left, y, span, span, 255, 255, 255);
+      for (let row = 0; row < count; row++) for (let col = 0; col < count; col++)
+        if (nativeLoginQr.isDark(row, col)) hudBox(left + (col + 4) * cell, y + (row + 4) * cell, cell, cell, 0, 0, 0);
+      label(String(state.code || ""), y + span + size * .6);
+    }
+  } else {
+    label(state.status === "creating" ? "creating sign-in code..." : "A  sign in", top + gap * 3);
+    if (state.status === "error") label("Sign-in unavailable. Try again.", top + gap * 5, [255, 176, 48], size * .7);
+  }
+  label("B  back", top + viewHeight * .63, [170, 178, 198], size * .75);
+}
 function drawFreeskateMenu(ink) {
   if (!freeskateMenu) return;
-  const size = compactLayout() ? 34 : 50;
-  const gap = Math.round(size * 1.35);
+  if (freeskateMenu.account && nativeAccount) { drawNativeAccountMenu(); return; }
+  let size = compactLayout() ? 34 : 50;
   const speedLabel = (speed) => speed === 1 ? "\u00d71" : speed === .5 ? "\u00d7\u00bd" : "\u00d7\u00bc";
   const candidate = freeskateLevels[freeskateMenu.level];
   const rows = [
@@ -6778,9 +6900,16 @@ function drawFreeskateMenu(ink) {
     "speed  " + freeskateSpeeds.map((speed) =>
       speed === gameSpeed ? "[" + speedLabel(speed) + "]" : speedLabel(speed)).join("  "),
     "resume", "back to title",
+    ...(nativeAccount ? [accountHandle().toLowerCase() || "sign in"] : []),
   ];
   const heading = "paused";
+  const widest = Math.max(...rows.map(row => handleWidth("> " + row, size)));
+  size = Math.min(size, size * (viewWidth() - 70) / widest);
+  const gap = Math.round(size * 1.5);
   let y = Math.round(viewHeight * .32);
+  const width = Math.max(...rows.map(row => handleWidth("> " + row, size))) + 40;
+  hudBox(viewCenterX() - width / 2, y - 18, width, gap * (rows.length + 1) + 28, 20, 28, 56);
+  ink = [245, 248, 255];
   typeWrite(heading, viewCenterX() - handleWidth(heading, size * .7) / 2 + 3, y + 4,
     Math.round(size * .7), ...contrastShadow(ink));
   typeWrite(heading, viewCenterX() - handleWidth(heading, size * .7) / 2, y,
@@ -7335,6 +7464,7 @@ function dressVersusRival() {
 // title screen on — a friend can arrive while the host is still reading the
 // wordmark — and rides the same publisher socket the round rooms use.
 function publishVersus(now) {
+  if (globalThis.__oskiewarLocalPractice) return;
   // Both seats simulate, but only the host narrates: the grandstand keeps
   // the stream it always had, and the challenger never races the host for
   // the room's one publisher socket.
@@ -8773,7 +8903,7 @@ function sendChallengerInput(now) {
   // nothing about it, so a lost edge used to be invisible for a quarter of a
   // second; one cheap echo closes that window without adding a protocol.
   versusInputNextAt = now + (edge ? 50000 : 250000);
-  const identity = acFeed?.player;
+  const identity = nativeAccount ? globalThis.__oskiewarAccount : acFeed?.player;
   const colors = (Array.isArray(identity?.colors) ? identity.colors : [])
     .map((entry) => Array.isArray(entry)
       ? entry.slice(0, 3) : [entry.r, entry.g, entry.b])
@@ -9050,7 +9180,7 @@ function netStateHash() {
 // The local seat's handle and wardrobe, in the shape the pad frames already
 // carry, so the host can dress both fighters the same way on both screens.
 function netLocalIdentity() {
-  const identity = acFeed?.player;
+  const identity = nativeAccount ? globalThis.__oskiewarAccount : acFeed?.player;
   const colors = (Array.isArray(identity?.colors) ? identity.colors : [])
     .map((entry) => Array.isArray(entry)
       ? entry.slice(0, 3) : [entry.r, entry.g, entry.b])
@@ -9632,7 +9762,7 @@ const parkConnection={at:0,ping:null,count:1};
 // counted, whatever id the relay gave it.
 const parkClientTag=Math.random().toString(36).slice(2,10);
 function receiveParkPeers(packet){
- if(!poolOnly()||!Array.isArray(packet.peers)||packet.peers.length>16)return;
+ if(globalThis.__oskiewarLocalPractice||!poolOnly()||!Array.isArray(packet.peers)||packet.peers.length>16)return;
  const now=Date.now(),keep=new Set();parkConnection.at=now;
  const others=packet.peers.filter(f=>f.id!==packet.self&&f.tag!==parkClientTag);
  parkConnection.count=others.length+1;
@@ -9709,7 +9839,7 @@ function parkTopRail(){
  return {safe,ping,pingText,countText,countX,room,roomX,roomSize,verb};
 }
 function drawParkConnection(){
- if(!poolOnly()||shellMode!=='GAME')return;
+ if(!poolOnly()||shellMode!=='GAME'||globalThis.__oskiewarLocalPractice)return;
  const {safe,ping,pingText,countText,countX}=parkTopRail();
  const bars=ping===null?0:ping<100?4:ping<200?2:1;
  const color=bars===4?[103,231,151]:bars===2?[255,180,77]:[255,100,111];
@@ -15157,7 +15287,7 @@ function survivalBotPad(player, now) {
 // explicit prevents a `?replay-oven` URL typed in a normal browser from
 // turning an anonymous climb into stored match data.
 function captureSurvivalRun(now, result) {
-  if (globalThis.__oskiewarCaptureSurvival !== true ||
+  if (globalThis.__oskiewarLocalPractice || globalThis.__oskiewarCaptureSurvival !== true ||
       typeof saveReplay !== "function") return;
   const tickUs = 1000000 / 60;
   const durationTicks = Math.max(1,
@@ -20783,6 +20913,15 @@ function updatePonytail(player,world,dt){
 }
 function updatePonytails(dt,now){
   if(!poolOnly())return;
+  // Flat figures and generated block models do not render these springs.
+  // Drop their old state so switching back to the spatial rig starts at its
+  // current pose instead of reusing an invisible, stale cloth simulation.
+  if(flatFiguresOn()){
+    for(const p of [...activePlayers(),...parkKids]){
+      ponytailStates.delete(p);garmentStates.delete(p);
+    }
+    return;
+  }
   const t=(now-startedAt)/1e6;
   for(const player of activePlayers()){const pose=runnerWorldGeometry(player,t);updatePonytail(player,pose,dt);updateGarments(player,pose,dt);}
   for(const kid of parkKids){
@@ -21255,7 +21394,9 @@ function drawGeneratedRunner(player, world, appearance, t, geometry) {
   const renderer = globalThis.__oskiewarFighterModel;
   if (!renderer) return false;
   const model = renderer.build(appearance);
-  const yaw = Math.PI - (player.facing || 1) * .38 + (player.spin?.angle || 0);
+  const yaw = poolOnly() && !parkFightRival(player)
+    ? Math.PI / 2 - (player.poolYaw || 0) - (player.spin?.angle || 0)
+    : Math.PI - (player.facing || 1) * .38 + (player.spin?.angle || 0);
   const instances = renderer.pose(model, world, { yaw, headless: player.headless,
     hasPart: part => hasPart(player, part) });
   if (player.skateboard) drawSkateboard(player);
@@ -21519,6 +21660,11 @@ const debugArcs = [3, 4, 6, 8, 10].map((steps) =>
     Math.sin(Math.PI / 2 + i * Math.PI / steps),
   ]));
 function debugCapsule(x1, y1, x2, y2, width, color) {
+  if (nativeCapsule && !clipView && !programBuffered &&
+      Number.isFinite(x1+y1+x2+y2+triangleDepth+width+color[0]+color[1]+color[2])) {
+    nativeCapsule(x1, y1, x2, y2, triangleDepth, width, color[0], color[1], color[2]);
+    return;
+  }
   const dx = x2 - x1, dy = y2 - y1;
   const length = Math.hypot(dx, dy);
   const c = length ? dx / length : 1, sn = length ? dy / length : 0;
@@ -24499,6 +24645,7 @@ function drawDebugBug(x, y, scale = 1) {
 
 // The title owns the share code; active maps keep the corner clear.
 function spectatorQrBox() {
+  if (globalThis.__oskiewarLocalPractice || freeskateMenu?.account) return null;
   if (shellMode === "GAME"&&!poolOnly()) return null;
   if (typeof capabilities === "function" && capabilities().socialPreview)
     return null;
@@ -25002,6 +25149,7 @@ function steerPostEffects() {
 }
 
 function gamePaint() {
+  syncNativeAccount();
   governFigureLod(runtime().monotonicUs);
   syncGameView();
   if (shellMode !== "GAME" || selecting) steerPostEffects();
@@ -25010,6 +25158,8 @@ function gamePaint() {
   if (globalThis.__oskiewarTouch) {
     globalThis.__oskiewarTouch.practiceFighter = null;
     globalThis.__oskiewarTouch.practiceModel = null;
+    globalThis.__oskiewarTouch.level = freeskateActive() ? freeskateCourseNow() : null;
+    globalThis.__oskiewarTouch.menu = freeskateMenu ? freeskateMenuRows[freeskateMenu.row] : null;
     globalThis.__oskiewarTouch.screen = shellMode === "MENU"
       ? titleTransitionAt !== null ? "title-transition" : "title"
       : selecting ? "select" : "game";
@@ -27518,6 +27668,7 @@ function drawGoKartBody(place,body){
  }
 }
 function drawParkPickupLabels(){
+ if(freeskateMenu)return;
  if(!poolOnly())return;
  const rider=players[0],items=[...gunPickups.filter(i=>i.active).map(i=>({...i,label:i.kind==='RUBBER SMG'?'SMG':'pistol',ink:[120,215,255]})),...parkAxes.filter(i=>i.active).map(i=>({...i,label:'axe',ink:[255,168,102]})),...chalkPickups.filter(i=>i.active).map(i=>({...i,label:i.color.name.toLowerCase()+' chalk',ink:i.color.rgb})),...paintCans.filter(i=>i.active).map(i=>({...i,label:i.color.name.toLowerCase()+' paint'+(i.tipped?' (tipped)':''),ink:i.color.rgb})),...parkKarts.filter(i=>i.active).map(i=>({...i,label:'go-kart',ink:i.color}))];
  if(axePickup.active)items.push({...axePickup,label:'axe',ink:[255,168,102]});

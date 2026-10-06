@@ -3,6 +3,27 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {noPaintBilling,ensureNoPaintBillingIndexes} from '../backend/nopaint-billing.mjs';
 
+test('a zero-price hosted model gets a receipt without debiting daily or purchased Braincells',async()=>{
+  const rows=new Map(),usage={tokens:1000000},writes=[];
+  const db={client:{startSession:()=>({withTransaction:async work=>work(),endSession:async()=>{}})},
+    collection(name) {
+      if(name==='ac-credit-wallets')throw Error('A free move must not reserve a wallet');
+      if(name==='ai-usage')return {
+        findOne:async()=>usage,
+        updateOne:async(filter,update)=>{writes.push(update);assert.equal(update.$inc?.tokens,undefined);},
+      };
+      return {find:()=>[],findOne:async({_id})=>rows.get(_id),
+        insertOne:async row=>rows.set(row._id,row),
+        updateOne:async({_id},update)=>Object.assign(rows.get(_id),update.$set)};
+    }};
+  const billing=noPaintBilling(db,{limit:0});
+  const receipt=await billing.begin({user:'user',handle:'user',requestId:randomUUID(),hash:'hash',braincells:0,model:'free-image'});
+  assert.deepEqual([receipt.braincells,receipt.free,receipt.paid],[0,0,0]);
+  assert.equal(await billing.finish(receipt.id,true),true);
+  assert.equal(rows.get(receipt.id).charged,0);
+  assert.ok(writes.some(update=>update.$inc?.asks===1));
+});
+
 // Financial integration tests opt into Mongo and use only randomly named test
 // collections. No real account, wallet, artwork or token is read or modified.
 test('No Paint reserves free credits then paid credits; settlement, replay and recovery are atomic',
