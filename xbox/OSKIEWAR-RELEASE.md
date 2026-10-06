@@ -9,13 +9,16 @@ yourself restores it without another model call. Handle changes retain ownership
 Withdrawal removes the account's saved fighter and source material. While equipped,
 authority is checked every 15 seconds; a failed check clears the selection,
 and its current expiry is also enforced at render time. Presentation is
-limited to local practice; online play uses the standard fighter. The REGARDE
+limited to local practice: acceptance opens `/?practice`, restores the accepted
+fighter against its live grant, and disables game broadcasts and replay uploads.
+Online play uses the standard fighter. The REGARDE
 gate still signs with its documented demo key.
 
 Run browser checks on Poorslice under Node 24:
 
 ```sh
 node system/tests/oskiewar-turnstile.browser.mjs
+node system/tests/oskiewar-practice.browser.mjs
 ```
 
 That browser regression uses synthetic API fixtures. A live test must also

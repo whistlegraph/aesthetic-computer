@@ -75,7 +75,7 @@ const STYLE = `
 #wizard-panel.working #wizard-card { opacity: .7; }
 `;
 
-export default function mountWizard({ sfx = () => {}, bearer = async () => null } = {}) {
+export default function mountWizard({ sfx = () => {}, bearer = async () => null, enterPractice = () => {} } = {}) {
   const style = document.createElement("style");
   style.textContent = STYLE;
   document.head.append(style);
@@ -152,7 +152,7 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
     note.className = tone;
   }
 
-  async function open() {
+  async function open({ useSaved = false } = {}) {
     if (!panel.hidden) return;
     if (busy) { panel.hidden = false; globalThis.__oskiewarWizardOpen = true; return; }
     reviewSession++;
@@ -186,6 +186,7 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
       if (result.status === "accepted") showCandidate(result, true);
     } catch (error) { say(error.message, "trouble"); }
     finally { if (session === reviewSession) working(false); }
+    if (useSaved && session === reviewSession && candidate?.saved) card.requestSubmit();
   }
 
   function close() {
@@ -225,6 +226,7 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
           handle: result.handle, validUntil: result.validUntil };
         say(`Saved to ${result.handle}. Ready for local practice.`, "settled");
         working(false); go.disabled = true; back.textContent = "Done";
+        enterPractice();
       } catch (error) { clearFighter(); working(false); say(error.message, "trouble"); }
       return;
     }

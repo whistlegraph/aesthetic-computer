@@ -13,7 +13,7 @@ let saved = false, denied = false, missingHandle = false, modelCalls = 0, accept
 const result = status => ({status,handle:'@fixture',fighter,validUntil:Date.now()+600000});
 const server = createServer(async (req,res) => {
   const send = (body,status=200,type='application/json') => {res.writeHead(status,{'content-type':type});res.end(type==='application/json'?JSON.stringify(body):body);};
-  if(req.url === '/') return send(`<button id="open">Add yourself</button><script type="module">
+  if(req.url === '/') return send(`<style>canvas{position:fixed;inset:0;width:100vw;height:100vh}</style><button id="open">Add yourself</button><script type="module">
     import mount from '/oskiewar-wizard.mjs'; window.signedIn=true;
     window.wizard=mount({bearer:async()=>window.signedIn?'fixture-token':null});
     document.querySelector('#open').onclick=()=>wizard.open();</script>`,200,'text/html');
@@ -47,6 +47,7 @@ try {
   const upload=await page.$('input[type=file]');await upload.uploadFile(new URL('./oskiewar-generation.test.mjs',import.meta.url).pathname);
   await page.click('#wizard-go');await wait(()=>document.querySelector('#wizard-go').textContent==='Accept & use in practice');
   assert.equal(saved,false);assert.equal(await page.evaluate(()=>!!globalThis.__oskiewarFighterAppearance),false);
+  assert.equal(await page.$eval('#wizard-card canvas',el=>getComputedStyle(el).position),'static');
   await page.screenshot({path:shotDir+'/01-review.png'});
   await page.click('#wizard-go');await wait(()=>!!globalThis.__oskiewarFighterAppearance);
   assert.equal(acceptedCalls,1);assert.equal(saved,true);assert.match(await note(),/@fixture/);
