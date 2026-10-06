@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 264;
+const buildVersion = 265;
 const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
@@ -2889,6 +2889,36 @@ function flatTriangle(x1, y1, x2, y2, x3, y3, depth, r, g, b) {
 // Sides that keep chords within 2 px of the curve, as frame-vm.mjs picks them.
 const flatSides = (radius) => radius < 3 ? 4 : radius < 6 ? 5
   : Math.max(6, Math.min(24, Math.ceil(Math.PI / Math.acos(Math.max(-1, 1 - 2 / radius)))));
+// Unit fans are shared by every flat ellipse. The existing retained mesh
+// host applies its two screen axes natively instead of QuickJS rebuilding
+// and handing over every triangle on every frame.
+const flatEllipseMeshes = new Map();
+const flatEllipseCamera = new Float32Array([0,0,0, 1,0,0, 0,1,0, 0,0,1,
+  0,0, 1,1,0,.5, -32200,-32200,32200,32200, 0,0, 0,0,1]);
+function nativeFlatEllipse(n, x, y, depth, ax, ay, bx, by, r, g, b) {
+  if (!nativeRetainedMeshes || clipView || programBuffered ||
+      !Number.isFinite(x+y+depth+ax+ay+bx+by+r+g+b)) return false;
+  let handle = flatEllipseMeshes.get(n);
+  if (handle === undefined) {
+    const vertices = new Float32Array((n + 1) * 3), faces = new Float32Array(Math.ceil(n / 2) * 10);
+    vertices[2] = 1;
+    for (let i = 0; i < n; i++) {
+      const t = i / n * Math.PI * 2, at = (i + 1) * 3;
+      vertices[at] = Math.cos(t); vertices[at + 1] = Math.sin(t); vertices[at + 2] = 1;
+    }
+    for (let i = 0; i < n; i += 2) {
+      const at = i / 2 * 10, end = (i + 1) % n + 1;
+      faces.set([0,i+1,end,i+1<n?(i+2)%n+1:end,255,255,255,0,0,-1], at);
+    }
+    handle = nativeMeshUpload(vertices, faces);
+    flatEllipseMeshes.set(n, handle);
+  }
+  if (handle < 0) return false;
+  const m = flatEllipseCamera;
+  m[3]=ax; m[4]=bx; m[6]=-ay; m[7]=-by; m[12]=x; m[13]=y; m[22]=depth;
+  nativeMeshDraw(handle,m,0,r/255+1e-10,g/255+1e-10,b/255+1e-10);
+  return true;
+}
 function flatEllipse(x, y, depth, ax, ay, bx, by, r, g, b, grow = 0) {
   if (grow) {
     const ka = 1 + grow / (Math.hypot(ax, ay) || 1), kb = 1 + grow / (Math.hypot(bx, by) || 1);
@@ -2896,7 +2926,12 @@ function flatEllipse(x, y, depth, ax, ay, bx, by, r, g, b, grow = 0) {
   }
   const reach = Math.max(Math.hypot(ax, ay), Math.hypot(bx, by));
   if (reach < .75) return;
+  if (nativeDisc && !clipView && !programBuffered && ay === 0 && bx === 0 && ax === by && ax > 0 && Number.isFinite(x+y+depth+ax+r+g+b)) {
+    nativeDisc(x, y, depth, ax, r, g, b);
+    return;
+  }
   const n = flatSides(Math.max(Math.sqrt(Math.abs(ax * by - ay * bx)), reach * .35));
+  if (nativeFlatEllipse(n,x,y,depth,ax,ay,bx,by,r,g,b)) return;
   let lx = x + ax, ly = y + ay;
   for (let i = 1; i <= n; i++) {
     const t = i / n * Math.PI * 2, nx = x + ax * Math.cos(t) + bx * Math.sin(t), ny = y + ay * Math.cos(t) + by * Math.sin(t);
@@ -2917,6 +2952,13 @@ function flatPlate(n, points, depth, r, g, b, grow = 0) {
     flatTriangle(corner(0, 0), corner(0, 1), corner(i - 1, 0), corner(i - 1, 1), corner(i, 0), corner(i, 1), depth, r, g, b);
 }
 function flatCapsule(x1, y1, x2, y2, depth, width, r, g, b) {
+  // Native capsules already own tessellation. Keep the JS path for inset
+  // clipping; sending a full capsule there would draw outside its viewport.
+  if (nativeCapsule && !clipView && !programBuffered &&
+      Number.isFinite(x1+y1+x2+y2+depth+width+r+g+b)) {
+    nativeCapsule(x1, y1, x2, y2, depth, width, r, g, b);
+    return;
+  }
   const dx = x2 - x1, dy = y2 - y1, length = Math.hypot(dx, dy), radius = width / 2;
   flatEllipse(x1, y1, depth, radius, 0, 0, radius, r, g, b);
   if (length < .001) return;
@@ -20788,6 +20830,15 @@ function updatePonytail(player,world,dt){
 }
 function updatePonytails(dt,now){
   if(!poolOnly())return;
+  // Flat figures and generated block models do not render these springs.
+  // Drop their old state so switching back to the spatial rig starts at its
+  // current pose instead of reusing an invisible, stale cloth simulation.
+  if(flatFiguresOn()){
+    for(const p of [...activePlayers(),...parkKids]){
+      ponytailStates.delete(p);garmentStates.delete(p);
+    }
+    return;
+  }
   const t=(now-startedAt)/1e6;
   for(const player of activePlayers()){const pose=runnerWorldGeometry(player,t);updatePonytail(player,pose,dt);updateGarments(player,pose,dt);}
   for(const kid of parkKids){
@@ -21526,6 +21577,11 @@ const debugArcs = [3, 4, 6, 8, 10].map((steps) =>
     Math.sin(Math.PI / 2 + i * Math.PI / steps),
   ]));
 function debugCapsule(x1, y1, x2, y2, width, color) {
+  if (nativeCapsule && !clipView && !programBuffered &&
+      Number.isFinite(x1+y1+x2+y2+triangleDepth+width+color[0]+color[1]+color[2])) {
+    nativeCapsule(x1, y1, x2, y2, triangleDepth, width, color[0], color[1], color[2]);
+    return;
+  }
   const dx = x2 - x1, dy = y2 - y1;
   const length = Math.hypot(dx, dy);
   const c = length ? dx / length : 1, sn = length ? dy / length : 0;

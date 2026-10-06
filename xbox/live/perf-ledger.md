@@ -6,6 +6,43 @@ flips render flags over the live relay (`npm run oskiewar:ablate <session>`)
 and prices each layer in the fps the session itself reports. Workstation
 profiles guide, the console decides.
 
+## 2026-10-06 — native Xbox BIOS 62, v264 → v265
+
+A matched desert close-up at 1920×1080, fixed appearance seed 7341 and neutral
+input. Each debug setting warms for 14 seconds, then samples 14 seconds of
+native 120-frame averages. [Raw samples and protocol](bench/native-2026-10-06.json).
+
+| HUD | v264 median fps | v265 median fps | gain |
+|---|---:|---:|---:|
+| debug on | 29.08 | 41.83 | 43.9% |
+| debug off | 41.59 | 55.55 | 33.5% |
+
+The flat character and debug capsules now use the host's existing capsule and
+disc primitives. Other flat ellipses reuse bounded unit meshes; their projection
+runs in the native retained-mesh path. Flat figures no longer simulate invisible
+cloth and ponytail springs. The body, collisions, camera and render resolution
+are unchanged. Inset clipping and hosts without these primitives keep the JS path.
+
+A separate played session reached 60.02–60.20 fps while riding. The original
+reported slowdown measured 23.55–23.70 fps with about 40.3 ms in host/JS work;
+those two observations have different views and debug state and are **not** the
+before/after comparison. The close-up and full debug cases still fall below 60.
+Native host/JS timing includes native primitive execution and host polling;
+there is no GPU timestamp measurement here.
+
+Reproduce each source revision separately:
+
+```sh
+node xbox/tools/benchmark-native.mjs --source /path/to/oskiewar.js --label baseline --out /tmp/oskiewar-benchmark.js
+node xbox/tools/live.mjs deploy /tmp/oskiewar-benchmark.js
+# Wait for BENCH_END (56 seconds), then retain the bounded diagnostic rows.
+node xbox/tools/live.mjs logs 400
+```
+
+The prepared file holds controller input only during the two cases, then restores
+live input. Restore the ordinary game after collecting the run. The benchmark
+is temporary instrumentation and must not be published as a release.
+
 ## 2026-08-18 — rounds one and two (v79–v81, title screen, debug lit)
 
 Round one, session `lippa60` (steady state, ~22 fps):
