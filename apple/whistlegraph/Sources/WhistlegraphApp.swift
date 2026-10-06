@@ -54,6 +54,9 @@ struct WhistlegraphApp: App {
                 WhistlegraphAIConsentSheet(canAllow: voice.canAllowAIConsent,
                     allow: voice.allowAIConsent, decline: voice.declineAIConsent)
             }
+            .sheet(isPresented: $voice.showingSpeechConsent) {
+                WhistlegraphSpeechConsentSheet(choose: voice.chooseCloudSpeech)
+            }
             .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
             .onChange(of: phase) { _, value in
                 DeviceActionLog.shared.record(.lifecycle, value == .active ? .active : value == .background ? .background : .inactive)
@@ -221,6 +224,9 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     @Published var layout = NativeLayout()
     @Published var snapshot = PieceSnapshot()
     @Published var showingAIConsent = false
+    @Published var showingSpeechConsent = false
+    @Published var speechNotice: String?
+    private var speechConsentAccount: (subject: String, handle: String, generation: Int)?
     @Published private(set) var verifyingAIAccount = false
     @Published var actionError: String?
     @Published var typedDraft = ""
@@ -385,6 +391,13 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         // Permission does not start a microphone after the finger has lifted.
         guard aiConsent.creation else { requestAIConsent(); return }
         if isConsentFixture { return }
+        if !aiConsent.cloudSpeech && aiConsent.record.cloudSpeechChoice == nil, let subject = aiConsent.subject {
+            speechConsentAccount = (subject, snapshot.handle, account.generation)
+            showingSpeechConsent = true
+            DeviceActionLog.shared.record(.consent, .presented, control: .cloudSpeech)
+            return
+        }
+        speechNotice = nil
         performanceTurn = false
         captureError = nil; transcript = ""; speechStartedAt = nil; capturePhase = .opening
         webView?.evaluateJavaScript("voiceStart()") { [weak self] _, error in
@@ -393,6 +406,13 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             self?.cancel()
             self?.reportActionFailure("Recording could not start. Try holding Talk again.", reason: .failed)
         }
+    }
+    func chooseCloudSpeech(_ enabled: Bool) {
+        defer { showingSpeechConsent = false; speechConsentAccount = nil }
+        guard let pending = speechConsentAccount, pending.subject == aiConsent.subject,
+              pending.handle == snapshot.handle, pending.generation == account.generation else { return }
+        aiConsent.set(\.cloudSpeech, enabled)
+        // A choice never starts recording after the finger has lifted.
     }
     func latchPerformance() {
         DeviceActionLog.shared.record(.talkLatch, .requested)
@@ -489,6 +509,8 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         }
     }
     private func applyAIConsent() {
+        if showingSpeechConsent, let pending = speechConsentAccount,
+           pending.subject != aiConsent.subject || pending.handle != snapshot.handle || pending.generation != account.generation { showingSpeechConsent = false; speechConsentAccount = nil }
         if showingAIConsent && !canAllowAIConsent { declineAIConsent() }
         if !aiConsent.creation { command("stop"); cancelHold() }
         if !aiConsent.cloudSpeech { cancelHold() }
@@ -601,8 +623,11 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         #endif
         aiConsent.changed = { [weak self] in self?.applyAIConsent() }
         capture.hasVisualInput = { [weak self] in self?.drawing.hasInk == true }
+        capture.cloudSpeechEnabled = { [weak self] in self?.aiConsent.cloudSpeech == true }
+        capture.onSpeechNotice = { [weak self] text in self?.speechNotice = text }
+        capture.onSpeechCharge = { [weak self] in self?.command("refreshBraincells") }
         capture.speechToken = { [weak self] in
-            guard let self, self.snapshot.handle == "jeffrey", self.aiConsent.cloudSpeech else { return nil }
+            guard let self, self.aiConsent.cloudSpeech else { return nil }
             let generation = self.account.generation
             let token = try await self.account.token()
             guard !Task.isCancelled, generation == self.account.generation, self.aiConsent.cloudSpeech else { return nil }

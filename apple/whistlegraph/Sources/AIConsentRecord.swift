@@ -6,6 +6,7 @@ struct AIConsentRecord: Codable, Equatable {
     var version = Self.version
     var creation = false
     var cloudSpeech = false
+    var cloudSpeechChoice: Bool? = nil
     var cloudNarration = false
     var updatedAt = Date()
     static func key(subject: String) -> String {

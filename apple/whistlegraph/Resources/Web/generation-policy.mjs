@@ -6,13 +6,13 @@ export const MODEL_LABELS = {
   'anthropic/claude-opus-5':'Claude Opus 5 · personal',
   'openai/gpt-6-astra':'GPT-6 Astra · personal',
 };
-export function modelChoices(handle) {
-  return Object.entries(MODEL_LABELS).filter(([id])=>handle==='jeffrey'||(!id.startsWith('anthropic/')&&!id.startsWith('openai/'))).map(([id,label])=>({id,label}));
+export function modelChoices(handle, {personalAccess=false}={}) {
+  return Object.entries(MODEL_LABELS).filter(([id])=>(handle==='jeffrey'||personalAccess)||(!id.startsWith('anthropic/')&&!id.startsWith('openai/'))).map(([id,label])=>({id,label}));
 }
 // The handle comes from verifyAccount, never from a preference or command.
-export function generationProfile(handle, {repair=false,model=''}={}) {
-  const personal=handle==='jeffrey';
-  const selected=modelChoices(handle).some(option=>option.id===model)?model:'';
+export function generationProfile(handle, {repair=false,model='',personalAccess=false}={}) {
+  const personal=handle==='jeffrey'||personalAccess;
+  const selected=modelChoices(handle,{personalAccess}).some(option=>option.id===model)?model:'';
   const chosen=selected||(personal?'anthropic/claude-opus-5':DEFAULT_MODEL);
   const resolved=repair&&chosen===DEFAULT_MODEL?REPAIR_MODEL:chosen;
   if(personal)return {personalRelay:resolved.startsWith('anthropic/')||resolved.startsWith('openai/'),model:resolved,maxTokens:16384,rounds:repair?4:12,outputContinuations:repair?1:2,reasoning:{max_tokens:4096},thinking:{type:'enabled',budget_tokens:4096}};

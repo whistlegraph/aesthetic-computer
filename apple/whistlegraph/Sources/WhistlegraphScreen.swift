@@ -213,6 +213,7 @@ struct WhistlegraphScreen: View {
             .frame(height: narrator.isPlaying ? UIScreen.main.bounds.width * 16 / 9 : nil)
             .background(narrator.isPlaying ? storyBackground : Color.clear)
             if !narrator.error.isEmpty && !narrator.isPlaying { Text(narrator.error).foregroundStyle(.orange) }
+            if let notice = session.speechNotice { Text(notice).font(.body).foregroundStyle(.orange).frame(maxWidth: .infinity, alignment: .leading).accessibilityIdentifier("speech-fallback-notice") }
             if let failure = session.captureError, !narrator.isPlaying { Text(failure).font(.body).foregroundStyle(.orange).frame(maxWidth: .infinity, alignment: .leading) }
             if !session.snapshot.error.isEmpty && !narrator.isPlaying { Text(session.snapshot.error).font(.body).foregroundStyle(.orange).accessibilityIdentifier("workspace-error") }
             if session.verifyingAIAccount { ProgressView("Checking your account…").accessibilityIdentifier("account-verifying") }
