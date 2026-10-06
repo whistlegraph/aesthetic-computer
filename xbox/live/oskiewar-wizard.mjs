@@ -21,7 +21,7 @@ import { mountFighterPreview, validateFighter } from "./oskiewar-fighter.mjs";
 
 const ENDPOINT = "/api/oskiewar-consent";
 
-// The pilot offers just two materials. The remaining scope is narrow and
+// The pilot offers a photo. The remaining scope is narrow and
 // stated on the card, not an unseen expansion of permission.
 const MATERIALS = [
   { value: "appearance", label: "Photo", on: true },
@@ -38,41 +38,64 @@ export function scopeForMedia({ photo, voice }) {
 }
 
 const STYLE = `
-#wizard-panel { position: fixed; inset: 0; z-index: 21; display: grid;
-  place-items: center; padding: 20px; background: rgba(0,0,0,.65); }
-#wizard-panel[hidden] { display: none; }
-#wizard-card { box-sizing: border-box; width: 100%; max-width: 26rem;
-  max-height: 88vh; overflow: auto; display: flex; flex-direction: column;
-  gap: 20px; padding: 28px; border: 1px solid #777; border-radius: 0;
-  background: #f5f5f0; color: #090909;
-  box-shadow: 0 12px 60px #0006; font: 16px/1.45 Arial, Helvetica, sans-serif; }
-#wizard-brand { font-size: 21px; font-weight: 700; letter-spacing: -.04em; }
-#wizard-brand::after { content: ""; display: inline-block; width: 9px;
-  height: 9px; margin-left: 7px; background: #e31b23; }
-#wizard-card h2 { margin: 0; font-size: 30px; line-height: 1.1; letter-spacing: -.03em; }
-#wizard-bargain { margin: 0; color: #444; }
-#wizard-card fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 12px; }
-#wizard-card legend { position: absolute; width: 1px; height: 1px; overflow: hidden;
-  clip-path: inset(50%); }
-#wizard-card label.row { display: flex; gap: 12px; align-items: center;
-  padding: 14px; border: 1px solid #777; cursor: pointer; font-size: 19px; }
-#wizard-card label.row input { width: 22px; height: 22px; margin: 0; accent-color: #090909; }
-#wizard-note, #wizard-receipt { margin: 0; font-size: 14px; }
-#wizard-note:empty, #wizard-receipt:empty { display: none; }
-#wizard-note.trouble { color: #b00014; }
-#wizard-note.settled { color: #006b3c; }
-#wizard-receipt { color: #555; overflow-wrap: anywhere; }
-#wizard-actions { display: flex; gap: 10px; }
-#wizard-panel button { flex: 1; padding: 12px; border: 1px solid #090909;
-  border-radius: 0; font: 700 16px/1.2 Arial, Helvetica, sans-serif;
-  background: #090909; color: #f5f5f0; cursor: pointer; }
-#wizard-panel button:hover { background: #333; }
-#wizard-panel button:focus-visible, #wizard-panel input:focus-visible {
-  outline: 3px solid #003399; outline-offset: 3px; }
-#wizard-panel button[disabled] { opacity: .5; cursor: default; }
-#wizard-panel #wizard-back { background: transparent; color: #090909; }
-#wizard-panel #wizard-back:hover { background: #e4e4df; }
-#wizard-panel.working #wizard-card { opacity: .7; }
+#wizard-panel { position:fixed; inset:0; z-index:21; display:grid; place-items:center;
+  padding:20px; background:rgba(18,28,45,.48); backdrop-filter:blur(12px); }
+#wizard-panel[hidden] { display:none; }
+#wizard-card { box-sizing:border-box; width:100%; max-width:480px; max-height:calc(100dvh - 40px);
+  overflow:auto; display:flex; flex-direction:column; gap:20px; padding:28px;
+  border:1px solid #ffffffa8; border-radius:28px; background:#fff; color:#182638;
+  box-shadow:0 24px 80px #081b3d40; font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+  scrollbar-width:thin; scrollbar-color:#ccd5df transparent; }
+#wizard-card > * { flex-shrink:0; }
+#wizard-brand { align-self:flex-start; display:flex; align-items:center; gap:7px;
+  padding:6px 11px; border:1px solid #e1e7ee; border-radius:99px; background:#f6f8fb;
+  color:#33445a; font-size:15px; font-weight:650; line-height:1; letter-spacing:-.03em; }
+#wizard-brand svg { width:19px; height:19px; }
+#wizard-card h2 { margin:0; font-size:29px; font-weight:700; line-height:1.15; letter-spacing:-.045em; }
+#wizard-bargain { margin:0; color:#526174; text-wrap:pretty; }
+#wizard-card fieldset { border:0; margin:0; padding:0; display:grid; gap:12px; }
+#wizard-card legend { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+#wizard-card label.row { display:flex; gap:12px; align-items:center; padding:16px;
+  border:1px solid #d7e3f3; border-radius:16px; cursor:pointer; font-size:16px; font-weight:600; background:#f4f8fe; }
+#wizard-card label.row input { width:20px; height:20px; margin:0; accent-color:#0866ff; }
+#wizard-upload { min-width:0; }
+#wizard-upload:empty { display:none; }
+#wizard-upload p { margin:0 0 12px; color:#526174; }
+#wizard-upload input[type=file] { width:100%; font:inherit; font-size:13px; color:#526174;
+  padding:10px; border:1px dashed #b7c9e2; border-radius:14px; background:#f4f8fe; }
+#wizard-upload input::file-selector-button { border:0; border-radius:9px; padding:10px 13px;
+  margin-right:10px; background:#fff; color:#0866dd; font-weight:600; cursor:pointer; }
+#wizard-note { margin:0; font-size:14px; }
+#wizard-note:empty { display:none; }
+#wizard-note.trouble { color:#a42135; background:#fff0f2; padding:12px 14px; border-radius:12px; }
+#wizard-note.settled { color:#34634e; }
+#wizard-proof { color:#627184; font-size:12px; }
+#wizard-proof:has(#wizard-receipt:empty) { display:none; }
+#wizard-proof summary { cursor:pointer; }
+#wizard-receipt { margin:8px 0 0; padding:10px; background:#f4f6f9; border-radius:10px;
+  font:11px/1.5 ui-monospace,monospace; overflow-wrap:anywhere; }
+#wizard-actions { display:flex; gap:10px; }
+#wizard-panel button { flex:1; min-height:48px; padding:12px 16px; border:1px solid transparent;
+  border-radius:14px; font:600 15px/1.25 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+  background:#0866ff; color:#fff; cursor:pointer; transition:background .15s,transform .15s; }
+#wizard-panel button:hover { background:#0059e0; }
+#wizard-panel button:active { transform:scale(.98); }
+#wizard-panel button:focus-visible, #wizard-panel input:focus-visible, #wizard-proof summary:focus-visible {
+  outline:3px solid #88b7ff; outline-offset:3px; }
+#wizard-panel button[disabled] { opacity:.45; cursor:default; }
+#wizard-panel #wizard-back { background:#edf1f6; color:#33445a; }
+#wizard-panel #wizard-back:hover { background:#e2e8f0; }
+#wizard-panel #wizard-withdraw { flex:none; min-height:36px; padding:8px; background:transparent;
+  color:#9a3346; font-size:13px; font-weight:500; }
+#wizard-panel #wizard-withdraw:hover { background:#fff1f3; }
+#wizard-panel.working #wizard-card { cursor:progress; }
+#wizard-panel.working #wizard-go { background:#5a91e6; }
+@media(max-width:480px) {
+  #wizard-panel { padding:12px; }
+  #wizard-card { padding:24px; gap:18px; max-height:calc(100dvh - 24px); border-radius:24px; }
+  #wizard-card h2 { font-size:26px; }
+}
+@media(prefers-reduced-motion:reduce) { #wizard-panel button { transition:none; } }
 `;
 
 export default function mountWizard({ sfx = () => {}, bearer = async () => null, enterPractice = () => {} } = {}) {
@@ -85,12 +108,12 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null,
   panel.hidden = true;
   panel.innerHTML = `
     <form id="wizard-card" role="dialog" aria-modal="true" aria-labelledby="wizard-title" novalidate>
-      <div id="wizard-brand" aria-label="REGARDE">regarde</div>
+      <div id="wizard-brand" aria-label="REGARDE"><svg viewBox="0 0 240 240" aria-hidden="true"><polygon points="103,29.82 33.4,70 33.4,170 103,210.18" fill="currentColor"/><polygon points="137,29.82 206.6,70 206.6,170 137,210.18" fill="currentColor"/><circle cx="120" cy="120" r="15" fill="currentColor"/></svg>regarde</div>
       <h2 id="wizard-title">Add yourself</h2>
-      <p id="wizard-bargain">Make a fighter from your own photo for private preview and local practice. OpenAI reads the photo to choose its appearance. Accept it to save it to your AC handle for 24 hours while your grant stands. Withdraw to remove your material and stop future use.</p>
+      <p id="wizard-bargain">Make a fighter from your own photo for private preview and local practice. OpenAI chooses its colors, hair and accessories. Accept it to save it to your AC handle for 24 hours while your permission stays active. Withdraw anytime to remove your material and stop future use.</p>
       <div id="wizard-sections"></div>
       <p id="wizard-note" role="status" aria-live="polite"></p>
-      <p id="wizard-receipt"></p>
+      <details id="wizard-proof"><summary>Consent receipt</summary><p id="wizard-receipt"></p></details>
       <div id="wizard-actions">
         <button id="wizard-go" type="submit">Allow</button>
         <button id="wizard-back" type="button">Not now</button>
@@ -114,6 +137,7 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null,
   let reviewSession = 0;
   const clearFighter = () => { accepted = null; globalThis.__oskiewarFighterAppearance = null; };
   const upload = document.createElement("div");
+  upload.id = "wizard-upload";
   sections.after(upload);
 
   const row = (name, kind, { value, label, note: hint, on }) => {
@@ -398,7 +422,7 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null,
   const withdraw = document.createElement("button");
   withdraw.type = "button";
   withdraw.textContent = "Withdraw my material";
-  withdraw.style.cssText = "flex:none;background:transparent;color:#900;border:0;padding:4px;font-size:14px;text-decoration:underline";
+  withdraw.id = "wizard-withdraw";
   card.append(withdraw);
   withdraw.addEventListener("click", async () => {
     if (busy) return;
