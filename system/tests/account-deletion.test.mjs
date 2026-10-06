@@ -718,3 +718,19 @@ test("the export is a signed-in download", async () => {
   assert.match(response.headers["Content-Disposition"], /attachment/);
   assert.deepEqual(e.calls, ["export", "disconnect"]);
 });
+
+
+test("speech billing receipts export without audio digests and disappear with the account", async () => {
+  const seed = world();
+  seed["whistlegraph-speech-requests"] = [
+    {_id:"speech-mine",user:SUB,braincells:320,charged:320,status:"complete",hash:"private-audio-digest",startedAt:T0},
+    {_id:"speech-other",user:OTHER,braincells:40,status:"complete"},
+  ];
+  const db=fakeDb(seed),deps=fakeDeps(db);
+  const copy=await exportAccount(deps,{user,now:T0});
+  assert.deepEqual(copy.records["whistlegraph-speech-requests"],[{_id:"speech-mine",braincells:320,charged:320,status:"complete",startedAt:T0}]);
+  assert.ok(!JSON.stringify(copy).includes("private-audio-digest"));
+  await requestDeletion(deps,{user,now:T0});
+  await runDueDeletions(deps,{now:later(GRACE_MS)});
+  assert.deepEqual(db.all("whistlegraph-speech-requests"),[seed["whistlegraph-speech-requests"][1]]);
+});

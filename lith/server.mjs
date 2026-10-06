@@ -1501,6 +1501,9 @@ if (!DEV) {
     reconcilingCredits=true;
     try {
       const paid=await import(pathToFileURL(join(SYSTEM,"backend","easel-paid-credits.mjs")).href);
+      const {connect}=await import(pathToFileURL(join(SYSTEM,"backend","database.mjs")).href);
+      const {speechBilling}=await import(pathToFileURL(join(SYSTEM,"backend","whistlegraph-speech-billing.mjs")).href);
+      await speechBilling((await connect()).db).reconcile();
       const count=await paid.withWallets(w=>paid.reconcilePaidHolds(w));
       if(count)console.log("[lith] recovered credit holds:",count);
     } catch { console.error("[lith] credit reconciliation failed; will retry"); }
