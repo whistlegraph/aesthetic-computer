@@ -24,7 +24,7 @@ app, root = map(Path, sys.argv[1:])
     'CFBundleExecutable':'NoPaint', 'CFBundleIdentifier':'computer.aesthetic.nopaint',
     'CFBundleName':'No Paint', 'CFBundleDisplayName':'No Paint',
     'CFBundleIconFile':'NoPaint.icns',
-    'CFBundlePackageType':'APPL', 'CFBundleVersion':'1', 'CFBundleShortVersionString':'0.1.0',
+    'CFBundlePackageType':'APPL', 'CFBundleVersion':'2', 'CFBundleShortVersionString':'0.1.0',
     'LSMinimumSystemVersion':'14.0', 'NSHighResolutionCapable':True,
     'NSAppTransportSecurity':{'NSAllowsLocalNetworking':True},
     'NoPaintBackend':os.environ.get('NOPAINT_BACKEND', str(root/'start-backend.sh')),

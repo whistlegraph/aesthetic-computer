@@ -16,6 +16,8 @@ certificate name before running `native/build.zsh`; this enables hardened
 runtime signing with a timestamp. Without that setting, builds are ad hoc.
 `python3 native/add-to-dock.py "$HOME/Applications/No Paint.app"` pins the app,
 preserving existing Dock entries and backing up the preferences first.
+After replacing an installed bundle, add `--refresh` to renew its Dock bookmark;
+otherwise macOS can keep showing the earlier development app's blank icon.
 
 Fleet installs can run independently of a working checkout. Run
 `python3 native/package-runtime.py <new-directory>` to collect only the public

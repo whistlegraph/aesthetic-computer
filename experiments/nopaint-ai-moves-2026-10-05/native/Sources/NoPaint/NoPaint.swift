@@ -675,6 +675,13 @@ struct CloudNotice: View {
     var window: NSWindow!
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
+        // This app starts AppKit directly rather than through a storyboard.
+        // Load the bundled artwork explicitly so the running Dock tile updates
+        // even when Launch Services cached an earlier icon-less development app.
+        if let url = Bundle.main.url(forResource: "NoPaint", withExtension: "icns"),
+           let icon = NSImage(contentsOf: url) {
+            NSApp.applicationIconImage = icon
+        }
         let menu = NSMenu()
         let appItem = NSMenuItem(); menu.addItem(appItem)
         let appMenu = NSMenu(); appItem.submenu = appMenu
