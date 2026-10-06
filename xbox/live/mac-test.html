@@ -370,7 +370,7 @@
       ["ShiftLeft", [0, "A"]], ["ShiftRight", [0, "A"]],
       ["Space", [0, "B"]], ["Enter", [0, "A"]], ["KeyR", [0, "KeyQ"]],
       ["Escape", [0, "Menu"]], ["Backspace", [0, "Menu"]],
-      ["Tab", [0, "View"]],
+      ["Tab", [0, "View"]], ["KeyC", [0, "RightStick"]],
       // Pace keys: the piece steps its own clock on these and never reads
       // them as "start". +/- reach double speed on the title; , and . are
       // the same keys, and mid-fight the piece caps them at full speed and
@@ -1062,7 +1062,7 @@
           analogTriggers: hasAnalogTriggers(source) };
       const spatial = ['desert','pool','painting'].includes(globalThis.__oskiewarTouch?.level);
       const down = new Set([...keys[seat]].map(key => spatial && !globalThis.__oskiewarTouch?.menu
-        ? ({ X:'RightTrigger', Y:'RightTrigger', A:'LeftStick', B:'A', KeyQ:'Y' }[key] || key) : key));
+        ? ({ X:'LeftTrigger', Y:'RightTrigger', A:'LeftStick', B:'A', KeyQ:'Y' }[key] || key) : key));
       // Enter remains confirmation; Space is jump. Touch action pads use
       // the same action translation, while physical pads stay unmodified.
       if (spatial && titleOpen && keys[seat].has('A')) { down.delete('LeftStick'); down.add('A'); }
@@ -1626,6 +1626,11 @@
       // lowest and rightmost discs stay whole on a short, wide phone.
       const cy = logicalHeight - 56 - spread - logicalInset.bottom;
       const cx = logicalWidth - 56 - spread - logicalInset.right;
+      if(['desert','pool','painting'].includes(globalThis.__oskiewarTouch?.level))
+        for(const [offset,key] of [[-1.25,'LeftShoulder'],[0,'RightStick'],[1.25,'RightShoulder']]){
+          const x=cx+offset*spread-spread*.58,y=cy-spread*3.2;
+          if(point.x>=x&&point.x<=x+spread*1.16&&point.y>=y&&point.y<=y+spread*.64)return key;
+        }
       for (const [dx, dy, key] of [[0, -1, "Y"], [0, 1, "A"], [-1, 0, "X"], [1, 0, "B"]])
         if (Math.hypot(point.x - (cx + dx * spread), point.y - (cy + dy * spread)) <= spread * .74) return key;
       return null;

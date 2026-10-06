@@ -128,7 +128,7 @@ function syncNativeAccount() {
 }
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 267;
+const buildVersion = 268;
 const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
@@ -888,7 +888,31 @@ function drawIndoorHallGeometry(ground) {
   drawRoofShards(glass);
 }
 
+function chalkStrokePatches(d){
+ const dx=(d.x2??d.x)-d.x,dz=(d.z2??d.z)-d.z,length=Math.hypot(dx,dz),fx=length?dx/length:1,fz=length?dz/length:0;
+ const patches=[],radius=d.size,style=d.brush||'MARKER';
+ const point=(along,across)=>{let x=d.x+fx*along-fz*across,z=d.z+fz*along+fx*across;
+  if(poolPainting){const b=paintingBounds();x=clamp(x,b.left,b.right);z=clamp(z,b.near,b.far);}
+  return {x,z,y:terrainFloorAt(x,z)-.9};};
+ const patch=(coords,color=d.color)=>patches.push({uv:[0,0,1,1],points:coords.map(([a,b])=>point(a,b)),color});
+ const base=style==='CHALK'?mixColor(d.color,paintingCanvasColor,.18):style==='PASTEL'?mixColor(d.color,paintingCanvasColor,.09):d.color;
+ if(length)patch([[0,-radius],[length,-radius],[length,radius],[0,radius]],base);
+ // Octagonal round caps cover corners without miter spikes or gaps.
+ for(const end of length?[0,length]:[0])for(let i=0;i<4;i++){
+  const a=i*Math.PI/2,b=a+Math.PI/4,c=a+Math.PI/2;
+  patch([[end,0],[end+Math.cos(a)*radius,Math.sin(a)*radius],[end+Math.cos(b)*radius,Math.sin(b)*radius],[end+Math.cos(c)*radius,Math.sin(c)*radius]],base);
+ }
+ if(length&&['CHALK','PASTEL'].includes(style)){
+  const grain=Math.sin(d.x*1.37+d.z*.71),r=radius*(style==='PASTEL'?.1:.16);
+  for(const lane of [-.56,.1,.57]){
+   const offset=radius*(lane+grain*.06),ink=mixColor(d.color,paintingCanvasColor,(lane<0?.04:.3)+(grain+1)*.06);
+   patch([[0,offset-r],[length,offset-r],[length,offset+r],[0,offset+r]],ink);
+  }
+ }
+ return patches;
+}
 function rasterDecalPatches(decal) {
+  if(decal.kind==='chalk'&&decal.color)return chalkStrokePatches(decal);
   const skid = decal.kind === "skid" || decal.kind === "chalk", arc = decal.kind === "arc";
   const cell = skid || arc || decal.kind === "wheelmark" ? 0
     : decal.kind === "chip" || decal.kind === "ding" ? 2 : decal.kind === "blood" ? 3 : 1;
@@ -957,13 +981,34 @@ function drawDecals(surface) {
   const raster = typeof themeQuad === "function" && hostThemeAssetReady && hostThemeAssetReady(5);
   const persistent = poolOnly();
   let drawn = 0;
-  for (let index = decals.length - 1; index >= 0 && (persistent || drawn < 45); index--) {
-    const decal = decals[index];
+  for (let step = 0; step < decals.length && (persistent || drawn < 45); step++) {
+    const index=persistent?step:decals.length-1-step,decal=decals[index];
     // The pool camera can turn through 360 degrees, so horizontal distance
     // from its target is not a visibility test. Cull projected patches instead.
     if (!persistent && Math.abs(decal.x - cameraCenter) > reach) continue;
     if (!persistent && lod > 1 && decal.size < 5 && decal.kind !== "skid") continue;
     drawn++;
+    if (decal.kind === 'chalk' && decal.color) {
+      setWorldDepth(2, -.002);
+      try {
+        // Completed runs cross the web frame bridge as retained meshes.
+        // Old marks are not projected and re-emitted one patch at a time.
+        const count=32,last=decals[index+count-1];
+        if(persistent&&last&&decals.slice(index,index+count).every(d=>d.kind==='chalk'&&d.color)){
+          if(decal.chalkBatch?.last!==last){
+            const mesh=captureQuadMesh(()=>{for(let i=index;i<index+count;i++){
+              const d=decals[i];d.rasterPatches ||= rasterDecalPatches(d);
+              for(const patch of d.rasterPatches)worldQuad(...patch.points,patch.color||d.color);
+            }});decal.chalkBatch={last,mesh};
+          }
+          drawQuadMesh(decal.chalkBatch.mesh);step+=count-1;
+        }else{
+          decal.rasterPatches ||= rasterDecalPatches(decal);
+          for(const patch of decal.rasterPatches)worldQuad(...patch.points,patch.color||decal.color);
+        }
+      }finally { setWorldDepth(0); }
+      continue;
+    }
     if (raster) { drawRasterDecal(decal); continue; }
     const age = persistent ? 0 : (now - decal.at) / 1e6;
     decal.shape ||= decalShape(decal);
@@ -1737,6 +1782,7 @@ function poolFloorAt(x,z=0){
 }
 // The far-right bowl is milk; its rim and floor still use the park's collision surface.
 function milkAt(x,z){
+ if(poolPainting)return null;
  // The desert ends in the sea: the same water the milk bowl is, everywhere
  // the island's floor is under it.
  if(poolDesert){const y=desertSeaY();return desertFloorAt(x,z)>y?{y,bowl:null}:null;}
@@ -1792,6 +1838,7 @@ function drawCerealMilk(t){
 }
 let cerealMilkMesh=null;
 function poolSlopeAt(x,z){
+  if(poolPainting)return {x:0,z:0};
   const {d,nx,nz,bowl}=poolDistance(x,z);
   if(d<bowl.radius){
     const slope=-bowl.depth*Math.PI/(2*bowl.radius)*Math.sin(d/bowl.radius*Math.PI);
@@ -1855,6 +1902,7 @@ function parkWallContact(from,to,radius=25){
   return contacts;
 }
 function boundParkBody(p,previous={x:p.x,z:p.z||0}){
+  if(poolPainting)return;
   boundKartTrack(p,previous);
   const tunnel=outdoorTunnelAt(p.x,p.z||0);
   if(tunnel!==null&&p.y<tunnel+180&&(p.previousY??p.y)>=tunnel+180){p.y=tunnel+180;p.vy=Math.max(0,p.vy);}
@@ -3709,7 +3757,7 @@ function addDecal(decal) {
     if(poolDecalsNative){
       for(const patch of rasterDecalPatches(decal)){
         const args=[...patch.uv,...patch.points.flatMap(p=>[(p.x-gridLeft+parkLotMargin)/(gridWidth+parkLotMargin*2)*parkDecalResolution,(p.z-worldNear+parkLotMargin)/(roomDepth+parkLotMargin*2)*parkDecalResolution])];
-        if(decal.color&&typeof decalTint==='function')decalTint(...args,...decal.color);else decalStamp(...args);
+        if(decal.color&&typeof decalTint==='function')decalTint(...args,...(patch.color||decal.color));else decalStamp(...args);
       }
       poolDecalCount++;
       return decal;
@@ -6185,7 +6233,9 @@ const localVersusActive = () => fightOpponent === "local";
 let nativeControllerCount = 0;
 let nativeControllerPolls = 0;
 function samplePad(index) {
-  const pad = gamepad(index);
+  // A render frame can contain multiple sim ticks. Never translate the host
+  // snapshot in place or the second tick loses R3 and remaps the face buttons.
+  const raw=gamepad(index),pad=raw?{...raw,down:raw.down?.slice()}:raw;
   // Analog triggers read as buttons past half pull, so they strafe like the
   // bumpers and travel over netplay the way every other button does.
   // The console's native pad reports trigger values without an
@@ -6193,8 +6243,9 @@ function samplePad(index) {
   // aliases (a small web pad) is left alone.
   if (pad && pad.analogTriggers !== false && typeof pad.leftTrigger === "number" &&
       Array.isArray(pad.down)) {
-    if ((Number(pad.leftTrigger) || 0) > .5 && !pad.down.includes("LeftTrigger")) pad.down = [...pad.down, "LeftTrigger"];
-    if ((Number(pad.rightTrigger) || 0) > .5 && !pad.down.includes("RightTrigger")) pad.down = [...pad.down, "RightTrigger"];
+    const threshold=poolOnly()?.15:.5;
+    if ((Number(pad.leftTrigger) || 0) > threshold && !pad.down.includes("LeftTrigger")) pad.down = [...pad.down, "LeftTrigger"];
+    if ((Number(pad.rightTrigger) || 0) > threshold && !pad.down.includes("RightTrigger")) pad.down = [...pad.down, "RightTrigger"];
   }
   if (pad && pad.localController === undefined && pad.connected === true &&
       typeof controllers === "function") {
@@ -6231,16 +6282,18 @@ const buttonChords = [];
 function translateButtons(index, down, seat = index) {
   if(poolOnly()){
     const p=players[seat]||players[0],vehicle=p.skateboard||p.onewheel||p.goKart;
-    const out=down.filter(b=>!['A','B','X','Y','LeftStick','RightStick','LeftTrigger','RightTrigger'].includes(b));
+    const out=down.filter(b=>!['A','B','X','Y','LeftStick','RightStick','LeftTrigger','RightTrigger','LeftShoulder','RightShoulder'].includes(b));
     const add=b=>{if(!out.includes(b))out.push(b);};
     if(down.includes('A'))add('A'); // jump
     if(down.includes('B'))add('X'); // crouch
     if(down.includes('X'))add('Grab');
     if(down.includes('Y'))add('KeyQ'); // drop / switch tool
     if(down.includes('LeftStick'))add('LeftShoulder');
-    if(down.includes('RightStick'))add('B'); // melee
-    if(down.includes('LeftTrigger'))add('Aim');
-    if(down.includes('RightTrigger'))add(vehicle?'ArrowUp':p.gunAmmo>0?'Y':'B');
+    // R3 is consumed by the camera; clicking it never uses a held tool.
+    if(down.includes('LeftShoulder'))add('DropLeft');
+    if(down.includes('RightShoulder'))add('DropRight');
+    if(down.includes('LeftTrigger'))add(chalkAtHand(p,'left-arm')?'DrawLeft':'Aim');
+    if(down.includes('RightTrigger'))add(chalkAtHand(p,'right-arm')?'DrawRight':vehicle?'ArrowUp':p.gunAmmo>0?'Y':'B');
     return out;
   }
   const s = buttonChords[index] ||= { a: 0, x: 0, y: 0, holdA: 0, holdX: 0, holdY: 0, latch: "" };
@@ -7276,7 +7329,7 @@ function swapCourse(course, now) {
   if (!freeskateLevels.includes(course)) throw new Error(`no such course: ${course}`);
   const rider = players[0];
   const keep = { skateboard: rider.skateboard, onewheel: rider.onewheel, goKart: rider.goKart,
-    skateVx: rider.skateVx || 0, skatePitch: rider.skatePitch || 0, chalkColor: rider.chalkColor,
+    skateVx: rider.skateVx || 0, skatePitch: rider.skatePitch || 0, chalkColor: rider.chalkColor, chalkOffhand: rider.chalkOffhand,
     axeHeld: rider.axeHeld, handItems: { ...(rider.handItems || {}) }, gunAmmo: rider.gunAmmo,
     gunMode: rider.gunMode, spin: rider.spin, poolYaw: rider.poolYaw || 0, facing: rider.facing || 1 };
   globalThis.__oskiewarFreeskateMap = course;   // the title and the next freeskate keep it
@@ -7300,7 +7353,7 @@ function swapCourse(course, now) {
   resetMonowheel(); resetParkSupply(now); resetParkKids(); resetParkWindows();
   const kart = keep.goKart && poolOnly() ? keep.goKart : null;
   Object.assign(rider, { skateboard: keep.skateboard && (kart !== null || !keep.goKart), onewheel: keep.onewheel,
-    goKart: kart, skateVx: keep.skateVx, skatePitch: poolOnly() ? keep.skatePitch : 0, chalkColor: keep.chalkColor,
+    goKart: kart, skateVx: keep.skateVx, skatePitch: poolOnly() ? keep.skatePitch : 0, chalkColor: keep.chalkColor, chalkOffhand: keep.chalkOffhand,
     axeHeld: keep.axeHeld, handItems: keep.handItems, gunAmmo: keep.gunAmmo, gunMode: keep.gunMode, spin: keep.spin });
   givePaintingChalk(rider);
   if (kart) kart.active = false;
@@ -7653,7 +7706,7 @@ function resetParkSession(now){
  for(const p of [...players,...parkKids,...parkPeers.values()]){
    garmentStates.delete(p);ponytailStates.delete(p);seatHudReadouts.delete(p);
    Object.assign(p,{sparringPartner:undefined,sparringStartedAt:0,poolFightAxis:null,parkEntrance:null,
-    chalkColor:null,chalkPrevious:null,chalkDrawing:false,kartTrailPrevious:null,handItems:{},
+    chalkColor:null,chalkOffhand:null,chalkPrevious:null,chalkPreviousHands:{},chalkDrawingHands:[],chalkDrawing:false,kartTrailPrevious:null,handItems:{},
     poolPipeLocked:false,poolPipeEscapeUntil:0,poolTap:null,poolAnalogTap:null,poolAnalogKey:'',poolRunTime:0,
     raceLoop:null,raceLoopCooldown:0,heartRate:62+(p.pad*7%19),heartPhase:0,heartDanger:0,
     breathPhase:0,breathRate:11,health:4,headless:false,looseHead:null});
@@ -7910,12 +7963,11 @@ function trackResimDrift(now) {
 function consumeSystemButtons(now) {
   let pressed = false;
   for (let index = 0; index < padSnapshots.length; index++) {
-    const down = padSnapshots[index]?.down || [];
+    const down = padSnapshots[index]?.pressed || padSnapshots[index]?.down || [];
     const previous = navigationPrevious[index];
     if (down.includes("RightStick") && !previous.includes("RightStick")) {
-      playerCameraYaw = 0;
-      playerCameraPitch = 0;
-      playerCameraZoom = 1;
+      if(poolOnly()&&shellMode==='GAME'&&!freeskateMenu&&!selecting)cyclePoolZoom();
+      else if(!poolOnly()){playerCameraYaw=0;playerCameraPitch=0;playerCameraZoom=1;}
     }
     if (down.includes("View") && !previous.includes("View")) {
       debugHitboxes = !debugHitboxes;
@@ -9788,7 +9840,7 @@ function receiveParkPeers(packet){
  for(const f of others){
   if(![f.x,f.y,f.z,f.yaw].every(Number.isFinite))continue;
   keep.add(f.id);let peer=parkPeers.get(f.id);
-  if(!peer){peer={...players[0],pad:32+f.id,removedParts:[],partDamage:{},previous:[],spin:null,goKart:null,gunAmmo:0,grenadeAmmo:0,axeHeld:false,chalkColor:null,skateboard:false,dummy:false,npc:true,remote:true,rig:null,hair:null,skirtCloth:null};parkPeers.set(f.id,peer);}
+  if(!peer){peer={...players[0],pad:32+f.id,removedParts:[],partDamage:{},previous:[],spin:null,goKart:null,gunAmmo:0,grenadeAmmo:0,axeHeld:false,chalkColor:null,chalkOffhand:null,skateboard:false,dummy:false,npc:true,remote:true,rig:null,hair:null,skirtCloth:null};parkPeers.set(f.id,peer);}
   peer.samples ||= [];
   // How far apart samples really arrive sets how far behind the peer is
   // drawn (interpolateParkPeer): a smoothed gap, not a house number.
@@ -10581,26 +10633,31 @@ function poolMoveVector(held, pad) {
   if(length>.001){fx/=length;fz/=length;}else{fx=Math.cos(poolCameraYaw);fz=Math.sin(poolCameraYaw);}
   return {x:fx*y+fz*x,z:fz*y-fx*x,magnitude,forwardX:fx,forwardZ:fz};
 }
+const poolZoomSteps=[1.65,1,.32],poolZoomLabels=['FAR','NEAR','SUPER NEAR'];
+function poolZoomIndex(){return poolZoomSteps.reduce((best,z,i)=>Math.abs(z-playerCameraZoom)<Math.abs(poolZoomSteps[best]-playerCameraZoom)?i:best,0);}
+function cyclePoolZoom(){playerCameraZoom=poolZoomSteps[(poolZoomIndex()+1)%poolZoomSteps.length];}
 function updateLookInput(x,y,orbit,dt) {
   if(freeskateMenu || selecting){if(orbit)orbit.yaw=orbit.pitch=orbit.zoom=0;return;}
   const axis=value=>Math.abs(value)>.12?Math.sign(value)*clamp((Math.abs(value)-.12)/.88,0,1):0;
   if(poolOnly()&&freeskateActive()) {
-    poolCameraYaw-=axis(x)*dt*(players[0].aiming?1.2:2.4);
+    const precision=players[0].aiming?.5:playerCameraZoom<.5?.6:1;
+    poolCameraYaw-=axis(x)*dt*2.4*precision;
     poolCameraYaw+=orbit?.yaw||0;
     poolCameraYaw=Math.atan2(Math.sin(poolCameraYaw),Math.cos(poolCameraYaw));
-    playerCameraPitch=clamp(playerCameraPitch+axis(y)*dt*(players[0].aiming?.75:1.5)+(orbit?.pitch||0),-.9,.85);
+    playerCameraPitch=clamp(playerCameraPitch+axis(y)*dt*1.5*precision+(orbit?.pitch||0),-.95,1.05);
   } else {
     playerCameraYaw=clamp(playerCameraYaw+axis(x)*dt*1.15+(orbit?.yaw||0),-.62,.62);
     playerCameraPitch=clamp(playerCameraPitch+axis(y)*dt*.72+(orbit?.pitch||0),-.24,.28);
   }
-  if(orbit?.zoom)playerCameraZoom=clamp(playerCameraZoom*Math.exp(orbit.zoom),.55,1.9);
+  if(orbit?.zoom)playerCameraZoom=clamp(playerCameraZoom*Math.exp(orbit.zoom),poolOnly()?.24:.55,2.1);
   if(orbit)orbit.yaw=orbit.pitch=orbit.zoom=0;
 }
 function trackPoolFreeCamera(p,dt) {
   const drawing=p.chalkDrawing,zoom=playerCameraZoom*(p.aiming?.72:1);
-  const pitch=clamp((drawing?1.32:.28)-playerCameraPitch,-.55,1.48);
-  const radius=(drawing?1050:680)*zoom,flat=Math.cos(pitch)*radius;
-  const target=drawing?chalkTip(p):{x:p.x+Math.sin(poolCameraYaw)*85,y:p.y-115,z:(p.z||0)-Math.cos(poolCameraYaw)*85};
+  const pitch=clamp(.72-playerCameraPitch,-.3,1.48);
+  const radius=(drawing?620:680)*zoom,flat=Math.cos(pitch)*radius;
+  const shoulder=85*Math.min(1,zoom);
+  const target=drawing?chalkTip(p):{x:p.x+Math.sin(poolCameraYaw)*shoulder,y:p.y-115,z:(p.z||0)-Math.cos(poolCameraYaw)*shoulder};
   const subject={x:p.x,y:p.y-20,z:p.z||0};
   const position=clearPoolCamera({x:target.x-Math.cos(poolCameraYaw)*flat,
     y:target.y-Math.sin(pitch)*radius,z:target.z-Math.sin(poolCameraYaw)*flat},subject);
@@ -10612,6 +10669,7 @@ function trackPoolFreeCamera(p,dt) {
 
 // Keep the line from the lens to the rider above the coping and curved walls.
 function clearPoolCamera(position, subject) {
+  if(poolPainting)return {...position,y:Math.min(position.y,parkDeckY-18)};
   // Follow the rider into the lot without putting a solid wall between
   // the lens and the body. Terrain still clears the entire sightline.
   const outside=!insidePark(subject.x,subject.z);
@@ -12094,7 +12152,7 @@ const availableArm = (player) => {
   const other = lead === "right-arm" ? "left-arm" : "right-arm";
   return hasPart(player, other) ? other : "";
 };
-function heldHandItems(p){return [p.gunAmmo>0?'gun':null,p.axeHeld?'axe':null,p.chalkColor?'chalk':null,p.swordHeld?'sword':null,p.grenadeAmmo>0?'grenade':null,p.heldBall>=0?'ball':null].filter(Boolean);}
+function heldHandItems(p){return [p.gunAmmo>0?'gun':null,p.axeHeld?'axe':null,p.chalkColor?'chalk':null,p.chalkOffhand?'chalkOffhand':null,p.swordHeld?'sword':null,p.grenadeAmmo>0?'grenade':null,p.heldBall>=0?'ball':null].filter(Boolean);}
 function assignedItemArm(p,kind){
  const items=heldHandItems(p);p.handItems ||= {};
  for(const key of Object.keys(p.handItems))if(!items.includes(key)||!hasPart(p,p.handItems[key]))delete p.handItems[key];
@@ -13678,6 +13736,7 @@ function updateTurn(player, now) {
 }
 
 function updatePoolPlayer(p, pad, dt, now) {
+  if(resetPaintingFall(p,now)){p.previous=pad.down.slice();return;}
   if(updateParkEntrance(p,pad,dt,now))return;
   if(p.heldBy!==undefined){
     const holder=players[p.heldBy];
@@ -13693,6 +13752,8 @@ function updatePoolPlayer(p, pad, dt, now) {
   const held=combatMode?pad.down.filter(k=>k!=='ArrowUp'&&k!=='ArrowDown').concat(pad.down.includes('ArrowUp')?['A']:[],pad.down.includes('ArrowDown')?['X']:[]):pad.down;
   const pressed=key=>held.includes(key)&&!p.previous.includes(key);
   if(pressed('LeftStick')||pressed('KeyQ'))dropParkItem(p,now);
+  if(pressed('DropLeft'))dropParkItem(p,now,'left-arm');
+  if(pressed('DropRight'))dropParkItem(p,now,'right-arm');
   const axis=value=>Math.abs(value)>.18?Math.sign(value)*(Math.abs(value)-.18)/.82:0;
   let turn=Number(held.includes('ArrowRight'))-Number(held.includes('ArrowLeft')) || axis(pad.leftX||0);
   let throttle=Number(held.includes('ArrowUp'))-Number(held.includes('ArrowDown')) || axis(pad.leftY||0);
@@ -13719,11 +13780,14 @@ function updatePoolPlayer(p, pad, dt, now) {
   // B + directions never enters the steering/double-tap dash recognizer.
   // On a board, B draws without stepping off: the ride carries on below and
   // updateChalk lays the line wherever the wheels take the tip.
-  if(!combatMode&&p.chalkColor&&held.includes('B')&&p.grounded&&!p.swimming&&!p.skateboard&&!p.onewheel&&!p.goKart){
+  if(!combatMode&&chalkHands(p).some(h=>chalkUsing(p,h,held))&&p.grounded&&!p.swimming&&!p.skateboard&&!p.onewheel&&!p.goKart&&!pressed('A')){
     const before={x:p.x,z:p.z||0},length=Math.max(1,Math.hypot(turn,throttle));
-    p.vx=(movement?movement.x:-turn/length)*360;p.vz=(movement?movement.z:throttle/length)*360;p.vy=0;
+    const speed=360*clamp(playerCameraZoom,.28,1);
+    p.vx=(movement?movement.x:-turn/length)*speed;p.vz=(movement?movement.z:throttle/length)*speed;p.vy=0;
     p.x+=p.vx*dt;p.z=(p.z||0)+p.vz*dt;
-    boundParkBody(p,before);p.y=poolFloorAt(p.x,p.z);
+    boundParkBody(p,before);
+    if(poolPainting&&!onPaintingCanvas(p.x,p.z))p.grounded=false;
+    else p.y=poolFloorAt(p.x,p.z);
     p.poolTap=p.poolAnalogTap=null;p.poolAnalogKey='';p.poolLastSteer=0;p.poolRunTime=0;
     p.poolPipeLocked=false;p.poolVert=null;p.dashUntil=0;p.attackKind='';p.blocking=false;
     p.inputX=turn;p.inputZ=throttle;p.chalkDrawing=true;
@@ -17538,7 +17602,7 @@ function updateSpineBodies(now) {
     input.reach = false; input.grab = false;
     if (p.chalkDrawing) {
       const tip = chalkTip(p);
-      input.reach = true; input.hand = assignedItemArm(p, "chalk") === "left-arm" ? -1 : 1;
+      input.reach = true; input.hand = (p.chalkDrawingHands?.[0]||assignedItemArm(p,"chalk")) === "left-arm" ? -1 : 1;
       // The body stands on a flat floor at the feet; in a bowl the ground under
       // the tip can be far above or below that, so the reach is kept to where
       // a hand could go.
@@ -19574,7 +19638,7 @@ function drawPadButton(label, x, y, size, pressed, fade = 1, display = null) {
   filledDisc(cx, cy + sink + radius * .08, radius * .7, veil(face));
   if (pressed) filledRing(cx, cy + sink, radius, radius - border, veil([245, 248, 255]));
   const text = display ?? (padGlyph[label] || label).toUpperCase();
-  const glyphSize = Math.round(size * .82);
+  const glyphSize = Math.round(size * .82 * (display?Math.min(1,2 / text.length):1));
   if (label === "STICK_UP" || label === "DOWN" ||
       label === "LEFT" || label === "RIGHT") {
     const arrowInk = veil([12, 14, 26]);
@@ -19911,11 +19975,16 @@ function drawTouchControls() {
   filledDisc(knobX, knobY, knob, leaning ? live : idle);
   filledDisc(knobX, knobY - knob * .27, knob * .62, mixColor(leaning ? live : idle, [255, 255, 255], .22));
   const actionX = viewWidth() - 56 - spread - viewInset.right;
-  const commandGlyph = { A: "/", B: "*", X: ")", Y: "+" };
+  const commandGlyph = poolOnly()?{A:'RUN',B:'JUMP',X:'L',Y:'R'}:{A:'/',B:'*',X:')',Y:'+'};
   for (const [dx, dy, key] of [[0, -1, "Y"], [0, 1, "A"],
       [-1, 0, "X"], [1, 0, "B"]])
     drawPadButton(key, actionX + dx * spread - Math.round(spread * .48),
-      cy + dy * spread - Math.round(spread * .45), Math.round(spread * .62), held.includes(key), 1, commandGlyph[key]);
+      cy + dy * spread - Math.round(spread * .45), Math.round(spread * .62), held.includes(key)||poolOnly()&&held.includes(key==='X'?'DrawLeft':key==='Y'?'DrawRight':key==='B'?'A':'LeftShoulder'), 1, commandGlyph[key]);
+  if(poolOnly())for(const [offset,key,label] of [[-1.25,'LeftShoulder','DROP L'],[0,'RightStick','ZOOM'],[1.25,'RightShoulder','DROP R']]){
+    const x=actionX+offset*spread-spread*.58,y=cy-spread*3.2;
+    hudBox(x,y,spread*1.16,spread*.64,...ground);
+    const size=spread*.23;seatHudText(label,x+(spread*1.16-handleWidth(label,size))/2,y+spread*.15,size,idle);
+  }
 }
 
 function keycapRunWidth(entries, size) {
@@ -21383,7 +21452,11 @@ function drawSpatialRunner(player,world,t,lod=0){
   drawHeldAxe(player,t);drawHeldChalk(player,t);triangleDepth=saved;
 }
 
+function closeDrawingView(p){return poolOnly()&&p===players[0]&&p.chalkDrawing&&playerCameraZoom<.5;}
 function drawRunner(player,t,showLabel=true){
+  // At the closest drawing distance the torso would cover the contact point.
+  // Keep the held tools visible, like a first-person drawing view.
+  if(closeDrawingView(player)){drawHeldChalk(player,t);return;}
   if(player===players[0]&&player.parkEntrance?.progress<.73)return;
   const previous=figureDrawScale;
   const world=player.replayGeometry||player.frozenGeometry||runnerWorldGeometry(player,t);
@@ -22627,7 +22700,7 @@ const desertParams=()=>desertLevel||(desertLevel=gameObjects.ow.islandParams(nul
 function desertHome(){return poolPainting?{x:gridLeft+gridWidth/2,z:0}:desertParams().home;}
 const desertSeaY=()=>parkDeckY+desertParams().island.sea;
 function desertFloorAt(x,z){
-  if(poolPainting)return parkDeckY;
+  if(poolPainting)return onPaintingCanvas(x,z)?parkDeckY:paintingLavaY()+400;
   const {home,middle,island,dunes}=desertParams(),d=Math.hypot(x-home.x,z-home.z),m=Math.hypot(x-middle.x,z-middle.z);
   const away=clamp((d-700)/1400,0,1),ease=away*away*(3-2*away);
   const beach=clamp((m-(island.radius-island.shore))/island.shore,0,1);
@@ -22649,12 +22722,38 @@ function desertGrid(){
   const {middle,island}=desertParams(),sea=1500;
   return {cols:Math.ceil((middle.x+island.radius+sea-gridLeft)/tileSize),depth:2*Math.ceil((Math.abs(middle.z)+island.radius+sea)/100)*100};
 }
+const paintingCanvasColor=[174,175,178];
+function paintingBounds(){return {left:gridLeft+720,right:gridLeft+gridWidth-720,near:worldNear+720,far:worldFar-720};}
+function onPaintingCanvas(x,z){const b=paintingBounds();return x>=b.left&&x<=b.right&&z>=b.near&&z<=b.far;}
+function paintingLavaY(){return parkDeckY+260;}
+function resetPaintingFall(p,now){
+ if(!poolPainting||onPaintingCanvas(p.x,p.z||0)||p.y<paintingLavaY()-8)return false;
+ const home=desertHome();
+ Object.assign(p,{x:home.x,z:home.z,y:parkDeckY,vx:0,vy:0,vz:0,grounded:true,swimming:false,spin:null,
+  poolVert:null,poolPipeLocked:false,dashUntil:0,attackKind:'',chalkDrawing:false,chalkDrawingHands:[],chalkPrevious:null,
+  chalkPreviousHands:{},skatePitch:0,stance:'NEUTRAL',lastButton:'LAVA RESET',lastButtonAt:now});
+ p.lavaResets=(p.lavaResets||0)+1;playDrum('whoosh',.35,panPlayer(p));return true;
+}
+function drawPaintingGeometry(){
+ const b=paintingBounds(),y=parkDeckY,lava=paintingLavaY(),m=2400;
+ const quad=(l,n,r,f,h,color)=>worldQuad({x:l,y:h,z:n},{x:r,y:h,z:n},{x:r,y:h,z:f},{x:l,y:h,z:f},color);
+ // The canvas has thickness and an unrailed edge; lava sits below it.
+ quad(b.left-m,b.near-m,b.right+m,b.far+m,lava,[151,43,23]);
+ for(let z=b.near-m;z<b.far+m;z+=420)for(let x=b.left-m;x<b.right+m;x+=420){
+  if(onPaintingCanvas(x,z)&&onPaintingCanvas(x+420,z+420))continue;
+  const n=Math.sin(x*.017+z*.031)*.5+.5,ox=40+n*60,oz=40+(1-n)*65;
+  quad(x+ox,z+oz,x+390,z+370,lava-1,mixColor([222,65,21],[255,172,43],n));
+ }
+ const top=[{x:b.left,y,z:b.near},{x:b.right,y,z:b.near},{x:b.right,y,z:b.far},{x:b.left,y,z:b.far}];
+ for(let i=0;i<4;i++){const a=top[i],c=top[(i+1)%4];worldQuad(a,c,{...c,y:y+120},{...a,y:y+120},[83,85,89]);}
+ quad(b.left,b.near,b.right,b.far,y,paintingCanvasColor);
+ const edge=[220,220,222],w=14;
+ quad(b.left,b.near,b.right,b.near+w,y-.5,edge);quad(b.left,b.far-w,b.right,b.far,y-.5,edge);
+ quad(b.left,b.near,b.left+w,b.far,y-.5,edge);quad(b.right-w,b.near,b.right,b.far,y-.5,edge);
+}
 const desertPalette={sand:[232,203,148],shade:[206,168,118],crest:[246,226,178],sea:[86,164,210],shallows:[128,196,214]};
 function drawDesertGeometry(){
-  if(poolPainting){
-    const l=gridLeft-parkLotMargin,r=gridLeft+gridWidth+parkLotMargin,n=worldNear-parkLotMargin,f=worldFar+parkLotMargin,y=parkDeckY;
-    worldQuad({x:l,y,z:n},{x:r,y,z:n},{x:r,y,z:f},{x:l,y,z:f},[255,255,255]);return;
-  }
+  if(poolPainting){drawPaintingGeometry();return;}
   const step=240,left=gridLeft-parkLotMargin,right=gridLeft+gridWidth+parkLotMargin,near=worldNear-parkLotMargin,far=worldFar+parkLotMargin,sea=desertSeaY();
   // The sea first, one sheet: a host that paints in order (the web) then
   // lays the island over it; a host with depth cuts the shore exactly.
@@ -25319,7 +25418,7 @@ function gamePaint() {
   const menuInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
   renderFlags = globalThis.__oskiewarRenderFlags || renderFlags;
   updateSceneLighting(run.monotonicUs);
-  wipe(...(poolPainting?[255,255,255]:outside));
+  wipe(...(poolPainting?[108,111,117]:outside));
   // A plain sky behind every theme. The underpass photograph was busy behind
   // the fighters and painted its own floor wherever a course had none.
   if (nativeSceneCamera) {
@@ -25414,7 +25513,7 @@ function gamePaint() {
     visualTheme.light * .72);
   if (renderFlags.shadows !== false) {
     for (const player of activePlayers())
-      if (player.alive || roundResult || deathCinematic) {
+      if (!closeDrawingView(player)&&(player.alive || roundResult || deathCinematic)) {
         if (renderFlags.poseShadows !== false && !consoleHost()) drawPoseShadow(player, t, shadowInk);
         drawSpotShadow(player.x, player.y, player.z, player.ducking ? 52 : 64,
           shadowInk);
@@ -27464,15 +27563,30 @@ function drawPaintCan(can){
 function resetPaintingSupply(){
  const home=desertHome(),colors=[{name:'BLACK',rgb:[24,24,28]},...chalkColors,{name:'WHITE',rgb:[245,245,245]}];
  for(let row=0;row<3;row++)colors.forEach((color,i)=>{
-   const x=home.x-420+row*95,z=home.z+(i-3.5)*100;
+   const x=home.x+(i-3.5)*230,z=home.z-950-row*430;
    chalkPickups.push({x,z,y:parkDeckY-12,color:{...color,tool:row===1?'MARKER':row===2?'PASTEL':'CHALK',width:row===1?12:row===2?24:6},active:true});
  });
- for(let row=0;row<3;row++)paintColors.forEach((color,i)=>placePaintCan(home.x+400+row*90,home.z+(i-(paintColors.length-1)/2)*100,color,paintCanSpill*8));
+ for(let row=0;row<3;row++)paintColors.forEach((color,i)=>placePaintCan(home.x+(i-(paintColors.length-1)/2)*290,home.z+950+row*380,color,paintCanSpill*8));
+}
+function chalkHands(p){
+ return [['chalk',p.chalkColor],['chalkOffhand',p.chalkOffhand]].filter(([,color])=>color)
+   .map(([kind,color])=>({kind,color,arm:assignedItemArm(p,kind)})).filter(h=>h.arm);
+}
+function chalkAtHand(p,arm){return chalkHands(p).find(h=>h.arm===arm);}
+function chalkUsing(p,hand,held){
+ return held.includes(hand.arm==='left-arm'?'DrawLeft':'DrawRight') ||
+   hand.kind==='chalk'&&held.includes('B');
+}
+function chalkPickupSlot(p){return p.chalkColor?'chalkOffhand':'chalk';}
+function takeChalk(p,color){
+ const kind=chalkPickupSlot(p),arm=freeItemArm(p,kind);if(!arm)return false;
+ p.handItems ||= {};p.handItems[kind]=arm;p[kind==='chalk'?'chalkColor':'chalkOffhand']={...color};
+ p.chalkPreviousHands ||= {};delete p.chalkPreviousHands[arm];return true;
 }
 function givePaintingChalk(p){
- if(!poolPainting||p.chalkColor||!freeItemArm(p,'chalk'))return;
- p.handItems ||= {};p.handItems.chalk=freeItemArm(p,'chalk');
- p.chalkColor={name:'BLACK',rgb:[24,24,28],tool:'CHALK',width:6};
+ if(!poolPainting)return;
+ if(!p.chalkColor)takeChalk(p,{name:'BLACK',rgb:[24,24,28],tool:'CHALK',width:6});
+ if(!p.chalkOffhand)takeChalk(p,{...chalkColors[0],tool:'CHALK',width:6});
 }
 function resetDesertSupply(now){
  if(poolPainting){resetPaintingSupply();return;}
@@ -27484,8 +27598,10 @@ function resetDesertSupply(now){
 // that hand's side (+z is the right arm in the rig), wider out of a go-kart
 // so the reach clears its side. Local x is forward along the rig's facing.
 const chalkStick=14;
-function chalkTip(p){
- const a=(p.poolYaw||0)+(p.spin?.angle||0),side=assignedItemArm(p,'chalk')==='left-arm'?-1:1;
+function chalkTip(p,arm){
+ const drawing=p.chalkDrawingHands||[];
+ const chosen=arm||drawing[0]||chalkHands(p)[0]?.arm;
+ const a=(p.poolYaw||0)+(p.spin?.angle||0),side=!arm&&drawing.length===2?0:chosen==='left-arm'?-1:1;
  const facing=p.skateboard||p.onewheel||p.goKart?(p.facing||1):1;
  // A spine body draws closer in: it reaches down with a real bend, where
  // the old rig just stretched a stick.
@@ -27499,13 +27615,13 @@ function chalkTip(p){
 // lands the stick on the ground at chalkTip. Runs last, in world space, so
 // it is the same on foot, on a board, a onewheel or in a kart.
 function chalkReach(p,pose){
- const armPart=assignedItemArm(p,'chalk');
+ const armPart=p.chalkDrawingHands?.[0]||assignedItemArm(p,'chalk');
  const upper=pose.segments.find(s=>s.part===armPart&&/upper-arm$/.test(s.role||''));
  const lower=pose.segments.find(s=>s.part===armPart&&/forearm$/.test(s.role||''));
  const torso=pose.segments.find(s=>s.role==='torso');
  if(!upper||!lower||!torso)return;
  const scale=p.civilian?(p.bodyScale||1):1,l1=33*scale,l2=32*scale,reach=(l1+l2)*.96;
- const tip=chalkTip(p),hand={x:tip.x,y:tip.y-chalkStick,z:tip.z};
+ const tip=chalkTip(p,armPart),hand={x:tip.x,y:tip.y-chalkStick,z:tip.z};
  const a=(p.poolYaw||0)+(p.spin?.angle||0),facing=p.skateboard||p.onewheel||p.goKart?(p.facing||1):1;
  const fwd={x:Math.cos(a)*facing,z:Math.sin(a)*facing};
  const legs=pose.segments.filter(s=>/thigh$|shin$/.test(s.role||''));
@@ -27535,10 +27651,17 @@ function chalkReach(p,pose){
   upperBody(q=>{const w=(q.x-hip.x)*out.x+(q.z-hip.z)*out.z,u=hip.y-q.y;
    const w2=w*c+u*sn,u2=-w*sn+u*c;return {x:q.x+out.x*(w2-w),y:hip.y-u2,z:q.z+out.z*(w2-w)};});
  }
- // The chalk arm: elbow bows outward on its own side.
- const root=shoulder(),elbow=solveLimb(root,hand,l1,l2,out),d=Math.hypot(hand.x-root.x,hand.y-root.y,hand.z-root.z)||1,k=Math.min(1,(l1+l2-.01)/d);
- upper.x2=lower.x1=elbow.x;upper.y2=lower.y1=elbow.y;upper.z2=lower.z1=elbow.z;
- lower.x2=root.x+(hand.x-root.x)*k;lower.y2=root.y+(hand.y-root.y)*k;lower.z2=root.z+(hand.z-root.z)*k;
+ // Both arms meet their own tips after the shared torso bend.
+ for(const part of p.chalkDrawingHands?.length?p.chalkDrawingHands:[armPart]){
+  const up=pose.segments.find(b=>b.part===part&&/upper-arm$/.test(b.role||''));
+  const low=pose.segments.find(b=>b.part===part&&/forearm$/.test(b.role||''));if(!up||!low)continue;
+  const tip=chalkTip(p,part),end={x:tip.x,y:tip.y-chalkStick,z:tip.z};
+  const root={x:up.x1,y:up.y1,z:up.z1},sign=part==='left-arm'?-1:1;
+  const elbow=solveLimb(root,end,l1,l2,{x:-fwd.z*sign,y:.4,z:fwd.x*sign});
+  const d=Math.hypot(end.x-root.x,end.y-root.y,end.z-root.z)||1,k=Math.min(1,(l1+l2-.01)/d);
+  up.x2=low.x1=elbow.x;up.y2=low.y1=elbow.y;up.z2=low.z1=elbow.z;
+  low.x2=root.x+(end.x-root.x)*k;low.y2=root.y+(end.y-root.y)*k;low.z2=root.z+(end.z-root.z)*k;
+ }
 }
 // Two bones from root toward end, the joint bowed toward `pole`.
 function solveLimb(root,end,l1,l2,pole){
@@ -27548,19 +27671,37 @@ function solveLimb(root,end,l1,l2,pole){
  return {x:root.x+ax*along+px/pl*bend,y:root.y+ay*along+py/pl*bend,z:root.z+az*along+pz/pl*bend};
 }
 function updateChalk(p,held,now){
- p.chalkDrawing=!!p.chalkColor&&held.includes('B')&&p.grounded&&!p.swimming;
- if(!p.chalkDrawing){p.chalkPrevious=null;return;}
- const tip=chalkTip(p),previous=p.chalkPrevious;
- if(previous){const distance=Math.hypot(tip.x-previous.x,tip.z-previous.z);
-  // A stroke is at least ~1.6 texels of the pool surface wide, or it breaks
-  // into dots on the coarser console texture.
-  const paint=p.chalkColor.paint,dry=paint&&p.chalkColor.spill<=0;
-  if(paint&&!dry)p.chalkColor.spill-=distance;
-  if(distance>=2&&distance<180&&!dry){addDecal({kind:'chalk',x:previous.x,z:previous.z,x2:tip.x,z2:tip.z,size:p.chalkColor.width||Math.max(4,chalkTexel()*(paint?2.4:.8)),color:p.chalkColor.rgb});if(now>=(p.nextChalkSound||0)){playDrum('hat',.025+Math.min(.025,distance/1000),panPlayer(p));p.nextChalkSound=now+90000;}}
+ const hands=chalkHands(p),previous=p.chalkPreviousHands ||= {};
+ p.chalkDrawingHands=[];
+ for(const hand of hands){
+  if(!chalkUsing(p,hand,held)||!p.grounded||p.swimming){delete previous[hand.arm];continue;}
+  const tip=chalkTip(p,hand.arm),color=hand.color;
+  if(poolPainting&&!onPaintingCanvas(tip.x,tip.z)){delete previous[hand.arm];continue;}
+  p.chalkDrawingHands.push(hand.arm);
+  const last=previous[hand.arm],distance=last?Math.hypot(tip.x-last.x,tip.z-last.z):0,dry=color.paint&&color.spill<=0;
+  const trigger=padSnapshots[p.pad]?.[hand.arm==='left-arm'?'leftTrigger':'rightTrigger'];
+  const pressure=Number(trigger)>0?clamp(trigger,.15,1):1;
+  const size=Math.max(chalkTexel()*.8,(color.paint?19:color.width||6)*(.35+.65*pressure));
+  const stamp=(a,b,r)=>addDecal({kind:'chalk',brush:color.paint?'PAINT':color.tool||'CHALK',x:a.x,z:a.z,x2:b.x,z2:b.z,size:r,color:color.rgb});
+  if(!dry){
+   if(!last)stamp(tip,tip,size);
+   else if(distance>=1&&distance<180){
+    // Split long input steps by distance, so fast movement is continuous.
+    const steps=Math.ceil(distance/12);
+    for(let i=0;i<steps;i++)stamp({x:lerp(last.x,tip.x,i/steps),z:lerp(last.z,tip.z,i/steps)},
+      {x:lerp(last.x,tip.x,(i+1)/steps),z:lerp(last.z,tip.z,(i+1)/steps)},size);
+    if(now>=(p.nextChalkSound||0)){playDrum('hat',.025+Math.min(.025,distance/1000),panPlayer(p));p.nextChalkSound=now+90000;}
+   }else if(color.paint&&distance<1&&now-(last.at||0)>150000){
+    const radius=Math.min(size*2.5,(last.radius||size)+size*.12);stamp(tip,tip,radius);last.radius=radius;last.at=now;color.spill=Math.max(0,color.spill-8);
+   }
+   if(color.paint)color.spill=Math.max(0,color.spill-Math.min(distance,180));
+  }
+  // A released hand, a teleport or a lava reset never bridges two strokes.
+  if(!last||distance>=1)previous[hand.arm]={...tip,at:now,radius:size};
  }
- // The stroke only advances when it lands. Moving the start point on a
- // skipped (too short) segment left gaps whenever the chalk moved slowly.
- if(!previous||Math.hypot(tip.x-previous.x,tip.z-previous.z)>=2)p.chalkPrevious=tip;
+ for(const arm of Object.keys(previous))if(!hands.some(h=>h.arm===arm))delete previous[arm];
+ p.chalkDrawing=p.chalkDrawingHands.length>0;
+ p.chalkPrevious=previous[p.handItems?.chalk]||null;
 }
 function chalkTexel(){return (gridWidth+parkLotMargin*2)/parkDecalResolution;}
 function updateFootprints(p,now){
@@ -27575,20 +27716,24 @@ function updateFootprints(p,now){
  addDecal({kind:'footprint',x:foot.x2,z:foot.z2,size:7,stretch:1.8,angle:(p.poolYaw||0)+(p.spin?.angle||0),color:[65,68,74]});
 }
 function drawHeldChalk(p,t){
- if(!p.chalkColor||!p.alive)return;
- const world=runnerWorldGeometry(p,t),arm=world.segments.find(s=>s.part===assignedItemArm(p,'chalk')&&/forearm$/.test(s.role));if(!arm)return;
- const hand={x:arm.x2,y:arm.y2,z:arm.z2},aim=p.chalkDrawing?chalkTip(p):{x:hand.x+8,y:hand.y+16,z:hand.z};
- if(p.chalkColor.paint){
+ if(!p.alive)return;
+ const hands=chalkHands(p);if(!hands.length)return;
+ const world=runnerWorldGeometry(p,t);
+ for(const {color,arm:part} of hands){
+ const arm=world.segments.find(s=>s.part===part&&/forearm$/.test(s.role));if(!arm)continue;
+ const hand={x:arm.x2,y:arm.y2,z:arm.z2},aim=p.chalkDrawingHands?.includes(part)?chalkTip(p,part):{x:hand.x+8,y:hand.y+16,z:hand.z};
+ if(color.paint){
   // A can hangs from the hand, and tips toward the ground as it pours.
   const d=Math.hypot(aim.x-hand.x,aim.y-hand.y,aim.z-hand.z)||1,k=paintCanHeight/d;
   const base={x:hand.x+(aim.x-hand.x)*k,y:hand.y+(aim.y-hand.y)*k,z:hand.z+(aim.z-hand.z)*k};
-  worldCapsule(hand.x,hand.y,hand.z,base.x,base.y,base.z,Math.max(2,paintCanRadius*projectionScaleAt(hand)),p.chalkColor.rgb);
-  return;
+  worldCapsule(hand.x,hand.y,hand.z,base.x,base.y,base.z,Math.max(2,paintCanRadius*projectionScaleAt(hand)),color.rgb);
+  continue;
  }
  // The stick is a stick: it points where it should but never stretches.
  const d=Math.hypot(aim.x-hand.x,aim.y-hand.y,aim.z-hand.z)||1,k=chalkStick/d;
  const tip={x:hand.x+(aim.x-hand.x)*k,y:hand.y+(aim.y-hand.y)*k,z:hand.z+(aim.z-hand.z)*k};
- worldCapsule(hand.x,hand.y,hand.z,tip.x,tip.y,tip.z,6*projectionScaleAt(tip),p.chalkColor.rgb);
+ worldCapsule(hand.x,hand.y,hand.z,tip.x,tip.y,tip.z,6*projectionScaleAt(tip),color.rgb);
+ }
 }
 function seedStreetTexture(){
  if(poolPainting)return;
@@ -27613,7 +27758,7 @@ function seedStreetTexture(){
 function resetParkSupply(now){
  for(const chunk of kartTrailChunks.values())for(const mesh of chunk.batches)releaseQuadMesh(mesh);kartTrailChunks.clear();
  parkKarts.length=0;for(const p of players)p.goKart=null;
- chalkPickups.length=0;parkAxes.length=0;for(const p of players){p.chalkColor=null;p.chalkPrevious=null;p.chalkDrawing=false;}
+ chalkPickups.length=0;parkAxes.length=0;for(const p of players){p.chalkColor=p.chalkOffhand=null;p.chalkPrevious=null;p.chalkPreviousHands={};p.chalkDrawingHands=[];p.chalkDrawing=false;}
  paintCans.length=0;
  if(poolOnly()&&poolDesert)resetDesertSupply(now);
  else if(poolOnly()){
@@ -27646,8 +27791,8 @@ function updateParkSupply(dt,now){
  if(!freeskateActive())return;
  if(poolOnly()){
   for(const kart of parkKarts)if(kart.active&&now>=kart.safeUntil)for(const p of activePlayers())if(p.alive&&!p.skateboard&&Math.hypot(p.x-kart.x,(p.z||0)-kart.z)<75&&Math.abs(p.y-kart.y)<100){p.goKart=kart;p.skateboard=true;p.onewheel=false;p.poolYaw=kart.poolYaw; kart.active=false;break;}
-  for(const chalk of chalkPickups)if(chalk.active&&now>=(chalk.safeUntil||0))for(const p of activePlayers())if(p.alive&&freeItemArm(p,'chalk')&&Math.hypot(p.x-chalk.x,(p.z||0)-chalk.z)<35&&Math.abs(p.y-chalk.y)<70){p.handItems ||= {};p.handItems.chalk=freeItemArm(p,'chalk');p.chalkColor=chalk.color;chalk.active=false;playDrum('hat',.25,panPlayer(p));break;}
-  for(const can of paintCans)if(can.active&&now>=(can.safeUntil||0))for(const p of activePlayers())if(p.alive&&!p.skateboard&&!p.onewheel&&!p.goKart&&Math.hypot(p.vx,p.vz||0)<140&&freeItemArm(p,'chalk')&&Math.hypot(p.x-can.x,(p.z||0)-can.z)<38&&Math.abs(p.y-can.y)<70){p.handItems ||= {};p.handItems.chalk=freeItemArm(p,'chalk');p.chalkColor={name:can.color.name,rgb:can.color.rgb,paint:true,spill:can.spill};can.active=false;playDrum('block',.3,panPlayer(p));break;}
+  for(const chalk of chalkPickups)if(chalk.active&&now>=(chalk.safeUntil||0))for(const p of activePlayers())if(p.alive&&freeItemArm(p,chalkPickupSlot(p))&&Math.hypot(p.x-chalk.x,(p.z||0)-chalk.z)<35&&Math.abs(p.y-chalk.y)<70){takeChalk(p,chalk.color);chalk.active=false;playDrum('hat',.25,panPlayer(p));break;}
+  for(const can of paintCans)if(can.active&&now>=(can.safeUntil||0))for(const p of activePlayers())if(p.alive&&!p.skateboard&&!p.onewheel&&!p.goKart&&Math.hypot(p.vx,p.vz||0)<140&&freeItemArm(p,chalkPickupSlot(p))&&Math.hypot(p.x-can.x,(p.z||0)-can.z)<38&&Math.abs(p.y-can.y)<70){takeChalk(p,{name:can.color.name,rgb:can.color.rgb,paint:true,spill:can.spill});can.active=false;playDrum('block',.3,panPlayer(p));break;}
   updatePaintCans(dt,now);
   for(const axe of parkAxes)if(axe.active&&now>=(axe.safeUntil||0))for(const p of activePlayers())if(p.alive&&freeItemArm(p,'axe')&&Math.hypot(p.x-axe.x,(p.z||0)-axe.z)<55&&Math.abs(p.y-axe.y-65)<100){p.handItems ||= {};p.handItems.axe=freeItemArm(p,'axe')||availableArm(p);p.axeHeld=true;axe.active=false;break;}
   if(axePickup.active)for(const p of activePlayers())if(p.alive&&freeItemArm(p,'axe')&&
@@ -27679,15 +27824,21 @@ function updateParkSupply(dt,now){
   }
  }
 }
-function parkDropName(p){return p.axeHeld?'axe':p.gunAmmo>0?(p.gunMode==='RUBBER SMG'?'smg':'pistol'):p.chalkColor?(p.chalkColor.paint?'paint':'chalk'):'';}
-function dropParkItem(p,now){
- const name=parkDropName(p);if(!name)return false;
- const yaw=p.poolYaw||0,x=p.x+Math.cos(yaw)*65,z=(p.z||0)+Math.sin(yaw)*65,y=poolFloorAt(x,z);
- if(p.axeHeld){parkAxes.push({x,z,y:y-65,active:true,safeUntil:now+1200000});p.axeHeld=false;}
- else if(p.gunAmmo>0){gunPickups.push({kind:p.gunMode,amount:p.gunAmmo,x,z,y:y-65,active:true,parkScatter:true,safeUntil:now+1200000});p.gunAmmo=0;}
- else if(p.chalkColor.paint){placePaintCan(x,z,p.chalkColor,p.chalkColor.spill??paintCanSpill,now+1200000);p.chalkColor=null;}
- else{chalkPickups.push({x,z,y:y-12,color:p.chalkColor,active:true,safeUntil:now+1200000});p.chalkColor=null;}
- p.lastButton='DROPPED '+name.toUpperCase();p.lastButtonAt=now;return true;
+function parkDropName(p){return p.axeHeld?'axe':p.gunAmmo>0?(p.gunMode==='RUBBER SMG'?'smg':'pistol'):(p.chalkColor||p.chalkOffhand)?'chalk':'';}
+function dropParkItem(p,now,arm){
+ const kind=heldHandItems(p).find(k=>['axe','gun','chalk','chalkOffhand'].includes(k)&&(!arm||assignedItemArm(p,k)===arm));
+ if(!kind)return false;
+ const side=(arm||assignedItemArm(p,kind))==='left-arm'?-1:1,yaw=p.poolYaw||0;
+ const x=p.x+Math.cos(yaw)*65-Math.sin(yaw)*side*45,z=(p.z||0)+Math.sin(yaw)*65+Math.cos(yaw)*side*45,y=poolFloorAt(x,z);
+ if(kind==='axe'){parkAxes.push({x,z,y:y-65,active:true,safeUntil:now+1200000});p.axeHeld=false;}
+ else if(kind==='gun'){gunPickups.push({kind:p.gunMode,amount:p.gunAmmo,x,z,y:y-65,active:true,parkScatter:true,safeUntil:now+1200000});p.gunAmmo=0;}
+ else{
+  const field=kind==='chalk'?'chalkColor':'chalkOffhand',color=p[field];
+  if(color.paint)placePaintCan(x,z,color,color.spill??paintCanSpill,now+1200000);
+  else chalkPickups.push({x,z,y:y-12,color,active:true,safeUntil:now+1200000});
+  delete p.chalkPreviousHands?.[assignedItemArm(p,kind)];p[field]=null;
+ }
+ delete p.handItems?.[kind];p.lastButton='DROPPED '+(kind==='chalkOffhand'?'CHALK':kind.toUpperCase());p.lastButtonAt=now;return true;
 }
 const kartTrailChunks=new Map();
 function updateKartTireTracks(p){
@@ -28029,13 +28180,18 @@ function drawXboxController(p,safe){
    filledDisc(x+dx,y+dy,12,held.includes(key)?col:[60,65,74]);
    typeWrite(key,x+dx-6,y+dy-10,18,...col);
  }
- for(const [label,dx,value] of [['LT',48,pad.leftTrigger],['RT',222,pad.rightTrigger]]){
+ for(const [label,dx,value,arm] of [['LT',48,pad.leftTrigger,'left-arm'],['RT',222,pad.rightTrigger,'right-arm']]){
    hudBox(x+dx,y,40,16,...edge);hudBox(x+dx,y,40*clamp(Number(value)||0,0,1),16,...active);
-   seatHudText(label,x+dx,y-24,20,[230,237,246]);
+   const tool=chalkAtHand(p,arm);
+   seatHudText(label,x+dx,y-24,20,tool?.color.rgb||[230,237,246]);
+   const bumper=arm==='left-arm'?'LeftShoulder':'RightShoulder';
+   hudBox(x+dx-5,y+24,50,8,...(held.includes(bumper)?active:edge));
+   if(tool)seatHudText(tool.color.name,x+dx-10,y-49,18,tool.color.rgb);
  }
  seatHudText('MOVE',x+26,y+h-15,20,edge);seatHudText('LOOK',x+155,y+h-15,20,edge);
- const action=p.chalkColor?'RT draw':p.gunAmmo>0?'LT aim   RT fire':'RT use   A jump';
- seatHudText(action,x,y-58,24,[219,229,240]);
+ seatHudText('R3 '+poolZoomLabels[poolZoomIndex()],x+65,y-112,20,[219,229,240]);
+ const action=chalkHands(p).length?'triggers draw · bumpers drop':p.gunAmmo>0?'LT aim   RT fire':'RT use   A jump';
+ seatHudText(action,x-70,y-82,22,[219,229,240]);
  if(p.gunAmmo>0&&!freeskateMenu){
    const cx=viewCenterX(),cy=viewHeight/2,ink=[240,248,255];
    for(const [dx,dy] of [[-10,0],[10,0],[0,-10],[0,10]])filledDisc(cx+dx,cy+dy,3,[20,25,32]);
@@ -28075,14 +28231,14 @@ function seatActionText(p,now){
  if(p.chalkDrawing)states.push('DRAWING');
  if(p.sparringPartner!==undefined)states.push('SPARRING');
  if(now<(p.dashUntil||0))states.push(now<(p.poolPipeEscapeUntil||0)&&p.skateboard?'DASHING OUT':'DASHING');
- if(Math.abs(p.inputX||0)>.18)states.push(p.inputX>0?'TURNING RIGHT':'TURNING LEFT');
+ if(Math.abs(p.inputX||0)>.18)states.push(p.skateboard||p.onewheel||p.goKart?(p.inputX>0?'TURNING RIGHT':'TURNING LEFT'):(p.inputX>0?'STRAFING RIGHT':'STRAFING LEFT'));
  if(p.spin)states.push('SPINNING');
  if(p.wheelTurbo)states.push('SUPER TURBO');
  const recent=now-(p.lastButtonAt||0)<850000?p.lastButton:'';
  if(recent&&!['NONE','LEFT','RIGHT','UP','DOWN','SPIN','SUPER TURBO','SKATEBOARD','MONOWHEEL','DASH','DASH OUT'].includes(recent)&&!states.includes(recent))states.push(recent);
  const held=[];
  if(p.axeHeld)held.push('AXE');if(p.swordHeld)held.push('SWORD');if(p.gunAmmo>0)held.push(p.gunMode==='RUBBER SMG'?'SMG':'PISTOL');
- if(p.chalkColor)held.push(p.chalkColor.name+' '+(p.chalkColor.paint?'PAINT':p.chalkColor.tool||'CHALK'));
+ for(const {color} of chalkHands(p))held.push(color.name+' '+(color.paint?'PAINT':color.tool||'CHALK'));
  if(p.heldBall>=0)held.push('BALL');if(p.heldPlayer>=0)held.push('PARTNER');
  return states.join(' + ')+(held.length?' W/ '+held.join(' + '):'');
 }

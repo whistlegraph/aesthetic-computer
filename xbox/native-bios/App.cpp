@@ -924,9 +924,11 @@ private:
     const D3D11_VIEWPORT viewport{0, 0, static_cast<float>(m_frameWidth),
       static_cast<float>(m_frameHeight), 0, 1};
     m_context->RSSetViewports(1, &viewport);
-    m_context->OMSetDepthStencilState(m_triangleDepthState.Get(), 1);
+    // Screen UI is composited after the world and must not inherit terrain
+    // depth. Draw HUD triangles in authored order without a depth attachment.
+    m_context->OMSetDepthStencilState(hud ? nullptr : m_triangleDepthState.Get(), 1);
     auto* target = hud ? m_target.Get() : m_sceneTarget.Get();
-    m_context->OMSetRenderTargets(1, &target, m_triangleDepthView.Get());
+    m_context->OMSetRenderTargets(1, &target, hud ? nullptr : m_triangleDepthView.Get());
     m_context->Draw(static_cast<UINT>(count), 0);
     return true;
   }
