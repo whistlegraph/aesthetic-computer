@@ -11,6 +11,7 @@ const { join, resolve } = require("node:path");
 const staged = join(process.resourcesPath || "", "staged");
 const live = existsSync(staged) ? staged : resolve(__dirname, "../../live");
 
+contextBridge.exposeInMainWorld("__oskiewarPackaged", true);
 try {
   contextBridge.exposeInMainWorld(
     "__fightPieceSource",

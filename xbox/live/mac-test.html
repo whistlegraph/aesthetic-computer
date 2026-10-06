@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <script>
+    const offlineRuntime = !["https:", "http:"].includes(location.protocol);
+    const inPackagedApp = globalThis.__oskiewarPackaged === true;
     const jevDemo = new URLSearchParams(location.search).has('jev-vs-jev');
     // The iOS app (apple/oskiewar) loads `?touch&app=ios`, and there the shell
     // offers no sign-in and no "add yourself": App Store guideline 5.1.1(v)
@@ -42,7 +44,7 @@
     {
       const harness = new URLSearchParams(location.search);
       globalThis.__oskiewarLocalPractice = harness.has("practice");
-      globalThis.__oskiewarVersusCapable = !harness.has("social-preview") &&
+      globalThis.__oskiewarVersusCapable = !offlineRuntime && !harness.has("social-preview") &&
         !harness.has("practice") && !harness.has("replay-oven") && !harness.has("self-play") && !harness.has("workshop") && !harness.has("map");
     }
   </script>
@@ -318,7 +320,7 @@
     document.body.classList.add("title-open");
     // No door in the app build (see `inIOSApp`): the corner button and its
     // panel leave the document, so nothing can focus, tab to or raise them.
-    if (inIOSApp)
+    if (inIOSApp || inPackagedApp || offlineRuntime)
       for (const furniture of document.querySelectorAll("#account, #account-panel"))
         furniture.remove();
     document.body.classList.toggle("social-preview",
@@ -1356,7 +1358,7 @@
     }
 
     async function saveReplay(payload) {
-      if (globalThis.__oskiewarLocalPractice) return false;
+      if (globalThis.__oskiewarLocalPractice || offlineRuntime) return false;
       if (jevDemo) return true;
       try {
         const response = await fetch("https://aesthetic.computer/api/oskiewar-replays?surface=web", {
@@ -1397,7 +1399,7 @@
     const liveFrame = (payload) =>
       '{"type":"oskiewar:state","content":' + payload + "}";
     function publishLive(matchId, payload) {
-      if (globalThis.__oskiewarLocalPractice) return;
+      if (globalThis.__oskiewarLocalPractice || offlineRuntime) return;
       if (jevDemo) { parent.__jevArena?.frame(JSON.parse(payload)); return; }
       const retiresRoom = /"nextRoundId":"ow-/.test(payload);
       let state = liveSockets.get(matchId);
@@ -1751,6 +1753,8 @@
     import createPhotoTheme from "/photo-theme.mjs";
     import mountAccount from "/account.mjs";
     import mountWizard from "/oskiewar-wizard.mjs";
+    import { defaultCharacterEntry as isDefaultCharacterEntry, readRelease } from "/release-client.mjs";
+    const releaseAtLoad = readRelease();
     import { mountWorkshop } from "/oskiewar-workshop.mjs";
     if (!socialPreview) await mountWorkshop();
     import { qrcode } from "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs";
@@ -1775,7 +1779,7 @@
     globalThis.__oskiewarInsetsChanged();
     // The app build mounts neither door (see `inIOSApp`); the game already
     // plays a shell without them as anonymous.
-    const accountDoor = inIOSApp ? null : mountAccount({
+    const accountDoor = inIOSApp || inPackagedApp || offlineRuntime ? null : mountAccount({
       sfx: (name, amount, pan) => oskiewarSfx.drum(name, amount, pan),
       probe: !socialPreview,
     });
@@ -1784,8 +1788,8 @@
     // social-preview render for the same reason the account probe is: that pass
     // draws a picture of the title and must not grow furniture a viewer of the
     // picture could never press.
-    const defaultCharacterEntry = location.pathname === "/" && !location.search && !location.hash;
-    if (!socialPreview && !inIOSApp)
+    const defaultCharacterEntry = isDefaultCharacterEntry(new URL(location.href));
+    if (!socialPreview && !inIOSApp && !inPackagedApp && !offlineRuntime)
       globalThis.__oskiewarWizard = mountWizard({
         sfx: (name, amount, pan) => oskiewarSfx.drum(name, amount, pan),
         bearer: () => globalThis.__oskiewarAccount.bearer(),
@@ -1805,7 +1809,7 @@
           }
         },
         enterPractice: () => {
-          if (globalThis.__oskiewarLocalPractice) return;
+          if (globalThis.__oskiewarLocalPractice || offlineRuntime) return;
           sessionStorage.setItem("oskiewar-enter-practice", "1");
           location.assign("/?practice");
         },
@@ -1928,7 +1932,7 @@
     // it as soon as the game mints one — copying the URL is sharing the
     // fight.
     setInterval(() => {
-      if (globalThis.__oskiewarLocalPractice) return;
+      if (globalThis.__oskiewarLocalPractice || offlineRuntime) return;
       if (globalThis.__oskiewarTouch?.screen === "title") {
         if (globalThis.__oskiewarRoomUnavailable && !workshopRoute) {
           history.replaceState(null, "", "/" + location.search);
@@ -1958,16 +1962,24 @@
     }, 1000);
 
     let loadedVersion = "";
+    const loadedRelease = await releaseAtLoad;
+    globalThis.__oskiewarRelease = loadedRelease;
     const responseVersion = (response) => response.headers.get("etag") ||
       [response.headers.get("last-modified"), response.headers.get("content-length")]
         .filter(Boolean).join(":");
     async function checkForUpdate() {
-      if (!loadedVersion || updateAvailable) return;
+      if ((!loadedVersion && !loadedRelease) || updateAvailable) return;
       try {
-        const response = await fetch(`/oskiewar.js?update-check=${Date.now()}`,
-          { method: "HEAD", cache: "no-store" });
-        const availableVersion = responseVersion(response);
-        if (response.ok && availableVersion && availableVersion !== loadedVersion) {
+        const availableRelease = await readRelease();
+        let changed = loadedRelease && availableRelease &&
+          availableRelease.release !== loadedRelease.release;
+        if (!loadedRelease || !availableRelease) {
+          const response = await fetch(`/oskiewar.js?update-check=${Date.now()}`,
+            { method: "HEAD", cache: "no-store" });
+          const availableVersion = responseVersion(response);
+          changed = response.ok && availableVersion && availableVersion !== loadedVersion;
+        }
+        if (changed) {
           if (globalThis.__oskiewarTouch?.screen === "title") {
             document.querySelector("#status").textContent = "updating";
             location.reload();
@@ -2021,7 +2033,9 @@
         const response = await pieceSourceFetch;
         loadedVersion = responseVersion(response);
         source = await response.text();
-        setInterval(checkForUpdate, 2000);
+        setInterval(checkForUpdate, 10000);
+        addEventListener("pageshow", checkForUpdate);
+        document.addEventListener("visibilitychange", () => { if (!document.hidden) void checkForUpdate(); });
       }
       performance.mark("oskiewar:source");
       const piece = new Function(

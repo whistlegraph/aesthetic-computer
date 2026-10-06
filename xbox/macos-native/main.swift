@@ -704,6 +704,11 @@ private final class NativeGameHost {
     deinit { if let displayLink { CVDisplayLinkStop(displayLink) } }
 
     func start() {
+        if let url = Bundle.main.resourceURL?.appendingPathComponent("live/oskiewar-release.json"),
+           let data = try? Data(contentsOf: url),
+           let release = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            print("[oskiewar release] build=\(release["build"] ?? "?") runtime=\(release["release"] ?? "?")")
+        }
         GCController.startWirelessControllerDiscovery(completionHandler: nil)
         guard let resources = Bundle.main.resourceURL,
               let hello = try? String(contentsOf:
@@ -748,16 +753,16 @@ private final class NativeGameHost {
         """)
         // The photographic theme rides the same atlases the website and the
         // Xbox use. It turns on only if the core pair loaded; otherwise the
-        // engine keeps its vectors. OSKIEWAR_GRAPHICS=flat asks for vectors.
+        // engine keeps its vectors. Photographic materials are an explicit opt-in.
         let theme = resources.appendingPathComponent("live/themes/photorealistic/assets")
         view.scene.loadTheme(["underpass.png", "props.png", "explosions-v1.png", "weapons-v2.png"]
             .map { name -> URL? in
                 let url = theme.appendingPathComponent(name)
                 return FileManager.default.fileExists(atPath: url.path) ? url : nil
             })
-        let wantsFlat = ProcessInfo.processInfo.environment["OSKIEWAR_GRAPHICS"] == "flat"
-        // The desk build boots into freeskate while the skating is being
-        // worked on. OSKIEWAR_OPPONENT picks another door (empty = the usual).
+        let wantsPhoto = ProcessInfo.processInfo.environment["OSKIEWAR_GRAPHICS"] == "photorealistic"
+        // Match the web front door. Development routes remain explicit through
+        // OSKIEWAR_OPPONENT rather than changing the installed app's default.
         if let start = ProcessInfo.processInfo.environment["OSKIEWAR_START_X"], let x = Double(start) {
             javascript.evaluateScript("globalThis.__oskiewarFreeskateStart = \(x);")
         }
@@ -767,12 +772,12 @@ private final class NativeGameHost {
            let literal = String(data: encoded, encoding: .utf8) {
             javascript.evaluateScript("globalThis.__oskiewarSessionName = \(literal)[0];")
         }
-        let opponent = ProcessInfo.processInfo.environment["OSKIEWAR_OPPONENT"] ?? "freeskate"
+        let opponent = ProcessInfo.processInfo.environment["OSKIEWAR_OPPONENT"] ?? ""
         if let encoded = try? JSONSerialization.data(withJSONObject: [opponent]),
            let literal = String(data: encoded, encoding: .utf8) {
             javascript.evaluateScript("globalThis.__oskiewarOpponent = \(literal)[0];")
         }
-        if view.scene.themeReady && !wantsFlat {
+        if view.scene.themeReady && wantsPhoto {
             javascript.evaluateScript("globalThis.__oskiewarGraphicsTheme = 'photorealistic';")
         }
         javascript.evaluateScript(qr + "\n" + hello,

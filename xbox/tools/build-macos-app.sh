@@ -31,7 +31,7 @@ swiftc -swift-version 5 -O -import-objc-header "$repo_root/xbox/macos-native/Poo
   -framework Metal -framework MetalKit -framework CoreText \
   -o "$contents/MacOS/oskiewar"
 cp "$repo_root/xbox/macos-native/Info.plist" "$contents/Info.plist"
-cp "$repo_root/xbox/live/oskiewar.js" "$contents/Resources/live/oskiewar.js"
+node "$repo_root/xbox/tools/oskiewar-manifest.mjs" --stage "$contents/Resources/live"
 mkdir -p "$contents/Resources/live/themes/photorealistic/assets"
 cp "$repo_root"/xbox/live/themes/photorealistic/assets/*.png \
   "$contents/Resources/live/themes/photorealistic/assets/"

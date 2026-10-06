@@ -23,7 +23,7 @@ positionally through `new Function`. So the shell supplies a host, not a port.
   encoder, analytics, two cursors, Comic Relief). **Keep the two maps in step.**
 - **`preload.js`** reads the game source and exposes it as
   `__fightPieceSource`, the branch `mac-test.html` checks before it fetches
-  `/oskiewar.js`. Taking it also skips the two-second update poller behind it,
+  `/oskiewar.js`. Taking it also skips the website update poller,
   which is a live-reload affordance a shipped build has no use for.
 - The window is pinned to 16:9 via `setAspectRatio`. The game fixes vertical to
   1080 logical units and derives width from the box aspect, so a 16:9 window
@@ -43,19 +43,11 @@ box). `build:linux` and `build:win` produce `dir` outputs from macOS too.
 `OSKIEWAR_SHELL_SHOT=/path.png` makes a packaged build write what its window
 shows after eight seconds and quit — the smoke test, with no screen recorder.
 
-The staged page is trimmed at stage time (see `trim()` in `stage.mjs`; every
-cut is an exact-match edit that throws when the live page moves): no Open
-Graph meta, no Auth0 preload, the account corner hidden, the FPS governor
-pinned at full resolution, `qrcode` undefined so the four QR sites collapse,
-the `?midi` lane off, and **not versus-capable** — the web front door opens a
-relay room and prints `fight a friend oskiewar.com/<room>`, which a Steam
-player cannot use, so the Steam build keeps the local front the native shell
-gets. The page's console errors and its `[boot]` line are mirrored to stdout.
-
-Two staging lessons that cost a blank window: `account.mjs` imports
-`auth0-otp.mjs` statically (unstaged, the whole module graph fails), and the
-page prefers the woff2 face since v118. Both are in the maps now, which the
-header comment counts as eight.
+Staging copies the complete shared runtime through `oskiewar-manifest.mjs`,
+including the unchanged web shell, account module dependencies, fonts, and theme
+assets. `oskiewar-release.json` identifies every asset by SHA-256. The shell's
+packaged/offline mode disables web accounts and relay publishing; it does not
+rewrite a second version of the page. Regenerate with `node stage.mjs`.
 
 ## Still owed
 

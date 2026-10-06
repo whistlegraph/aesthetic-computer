@@ -607,3 +607,10 @@ slab/menubar-swift/dist/
 
 # App Review contact phone stays out of the public mirror.
 apple/oskiewar/fastlane/metadata/*/review_information/phone_number.txt
+
+# Generated from the complete shared Oskiewar runtime at deploy/package time.
+xbox/live/oskiewar-release.json
+
+# Native app bundles are rebuilt from xbox/live, never a second source tree.
+xbox/builds/macos/
+xbox/builds/ios/

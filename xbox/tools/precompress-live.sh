@@ -10,6 +10,7 @@
 # unchanged module keeps its mtime, its ETag, and the open title screens
 # that would otherwise reload for no reason.
 set -e
+node "$(dirname "$0")/oskiewar-manifest.mjs" --write
 cd "$(dirname "$0")/../live"
 for f in *.js *.mjs *.html; do
   [ -f "$f" ] || continue
