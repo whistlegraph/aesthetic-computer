@@ -210,6 +210,7 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
     handleLabel.textContent = handle ? "@" + handle : "";
     handleLabel.hidden = !handle;
     logout.textContent = signedIn ? "log out" : "log in";
+    dispatchEvent(new CustomEvent("oskiewar:account-change", { detail: { signedIn } }));
   }
 
   // 🤚 Who this sub is, as the rest of AC already answers it. Two requests

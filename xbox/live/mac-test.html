@@ -1784,16 +1784,34 @@
     // social-preview render for the same reason the account probe is: that pass
     // draws a picture of the title and must not grow furniture a viewer of the
     // picture could never press.
+    const defaultCharacterEntry = location.pathname === "/" && !location.search && !location.hash;
     if (!socialPreview && !inIOSApp)
       globalThis.__oskiewarWizard = mountWizard({
         sfx: (name, amount, pan) => oskiewarSfx.drum(name, amount, pan),
         bearer: () => globalThis.__oskiewarAccount.bearer(),
+        defaultHandle: "@jeffrey",
+        onDefault: () => {
+          if (defaultCharacterEntry && !globalThis.__oskiewarLocalPractice) {
+            // During initial loading, select the private lane before the game
+            // or a room bridge boots. A later sign-in starts a fresh page.
+            if (globalThis.__oskiewarTouch?.screen === "game") {
+              location.replace("/?practice");
+              return;
+            }
+            globalThis.__oskiewarLocalPractice = true;
+            globalThis.__oskiewarVersusCapable = false;
+            globalThis.__oskiewarOpponent = "dummy";
+            history.replaceState(null, "", "/?practice");
+          }
+        },
         enterPractice: () => {
           if (globalThis.__oskiewarLocalPractice) return;
           sessionStorage.setItem("oskiewar-enter-practice", "1");
           location.assign("/?practice");
         },
       });
+    const defaultFighterReady = Promise.resolve(accountDoor?.ready)
+      .then(() => globalThis.__oskiewarWizard?.restoreSaved());
     if (globalThis.__oskiewarLocalPractice && sessionStorage.getItem("oskiewar-enter-practice")) {
       sessionStorage.removeItem("oskiewar-enter-practice");
       Promise.resolve(accountDoor?.ready).then(() => globalThis.__oskiewarWizard?.open({ useSaved: true }));
@@ -1882,6 +1900,7 @@
     // Finish a web sign-in before matchmaking or room URL updates can consume
     // its callback URL. Ordinary anonymous visits still boot immediately.
     if (accountDoor?.redirectPending) await accountDoor.ready;
+    if (defaultCharacterEntry) await defaultFighterReady;
     const workshopRoute = /^\/workshop\/?$/.test(location.pathname);
     const roundName = roundNameFromPath(location.pathname) || (workshopRoute
       ? roundNameFromPath("/" + (new URLSearchParams(location.search).get("room") || "")) : "");

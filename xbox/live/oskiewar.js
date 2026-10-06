@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 261;
+const buildVersion = 262;
 const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
@@ -15847,7 +15847,7 @@ function damagedPartColor(color, player, part) {
 
 function generatedAppearance(player) {
   const selected = globalThis.__oskiewarFighterAppearance;
-  if (!selected || Date.now() >= selected.validUntil || player?.pad !== 0 || player.npc ||
+  if (!globalThis.__oskiewarLocalPractice || !selected || Date.now() >= selected.validUntil || player?.pad !== 0 || player.npc ||
       netSession || roundViewer || versusLane() || survivalActive() || shellMode !== "GAME") return null;
   return selected.appearance;
 }
