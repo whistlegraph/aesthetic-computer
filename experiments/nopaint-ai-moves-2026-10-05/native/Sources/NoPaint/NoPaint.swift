@@ -607,8 +607,6 @@ struct HintField: View {
     @FocusState private var focused: Bool
     var body: some View {
         HStack(spacing: 5) {
-            Image(systemName: "sparkle").font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(focused ? Color(red: 0.85, green: 0.24, blue: 0.44) : .secondary)
             TextField("", text: $game.hint, prompt: Text(game.hintable ? "hint" : "hint · cloud only"))
                 .textFieldStyle(.plain).font(.system(size: 12, weight: .medium)).focused($focused)
                 .onSubmit { if game.canPaint && !game.pendingDone { game.act("paint") }; focused = false }
@@ -618,10 +616,7 @@ struct HintField: View {
                     .buttonStyle(.plain).foregroundStyle(.tertiary).help("Clear hint")
             }
         }
-        .padding(.horizontal, 9).frame(height: 22)
-        .background(Capsule().fill(Color.primary.opacity(focused ? 0.1 : 0.05)))
-        .overlay(Capsule().strokeBorder(Color.primary.opacity(focused ? 0.4 : 0.18), lineWidth: 1))
-        .padding(.leading, 6).padding(.trailing, 2)
+        .padding(.leading, 12).padding(.trailing, 4)
         .disabled(!game.hintable)
         .help("A word or phrase to steer the next cloud Paint along with your image. Return paints.")
     }
