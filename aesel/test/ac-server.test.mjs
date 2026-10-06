@@ -4,6 +4,24 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { AcServer } from "../src/ac-server.mjs";
+import {wareControls} from '../../apple/whistlegraph/Resources/Web/wares.mjs';
+
+test('hosted brain advertises and dispatches ware controls without writing the piece',async t=>{
+  const dir=await mkdtemp(join(tmpdir(),'ac-ware-'));t.after(()=>rm(dir,{recursive:true,force:true}));
+  const file=join(dir,'piece.mjs'),source='// existing work\n';await writeFile(file,source);
+  const controls=wareControls('piece'),requests=[];
+  const serve=serving([
+    {type:'content_block_start',index:0,content_block:{type:'tool_use',id:'ware-1',name:'whistlegraph_ware'}},
+    {type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:JSON.stringify({action:'switch',ware:'roblox'})}},
+    {type:'content_block_stop',index:0},
+    {type:'message_delta',delta:{stop_reason:'tool_use'}},
+  ],say('Opening your Roblox room.'));
+  const engine=new AcServer({piece:{file},controls,token:async()=>'fixture',fetch:async(url,options)=>{requests.push(JSON.parse(options.body));return serve();}});
+  await engine.startTurn('Let me work in my Roblox room');
+  assert.ok(requests[0].tools.some(t=>t.name==='whistlegraph_ware'));
+  assert.equal(controls.pending,'roblox');assert.equal(await readFile(file,'utf8'),source);
+  assert.ok(JSON.stringify(requests[1].messages).includes('queued'));
+});
 
 // A stand-in for the endpoint: hands back whatever SSE the test wants, so the
 // loop can be driven through paths a live server would be slow or costly to

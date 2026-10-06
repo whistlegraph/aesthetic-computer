@@ -1,0 +1,3 @@
+{
+  "include": ["references.tex", "notes.md", "api-audit.json", "evidence.json", "example-room.json", "README.md"]
+}

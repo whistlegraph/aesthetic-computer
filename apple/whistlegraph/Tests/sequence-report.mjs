@@ -1,0 +1,17 @@
+import {readFile,writeFile,readdir} from 'node:fs/promises';
+import {join} from 'node:path';
+const root=process.argv[2];if(!root)throw Error('Run directory required');
+const folder=join(root,'device');
+const names=(await readdir(folder)).filter(n=>/^move-\d\d\.json$/.test(n)).sort();
+const records=await Promise.all(names.map(n=>readFile(join(folder,n),'utf8').then(JSON.parse)));
+const planned=records[0]?.total||32;
+const first=(r,event)=>r.events.find(e=>e.event===event)?.ms??null;
+const rows=records.map(r=>({move:r.index,passed:r.passed,sourceBytes:Buffer.byteLength(r.source),firstOutputMs:first(r,'firstModelOutput'),firstPaintMs:first(r,'painted'),firstIncrementalCompileMs:first(r,'firstIncrementalCompile'),generationFinishedMs:first(r,'generationFinished'),requests:r.events.filter(e=>e.event==='requestDispatched').length,checks:r.checks,featureErrors:r.featureTests?.errors||[]}));
+const values=rows.filter(r=>r.passed&&r.firstPaintMs!==null).map(r=>r.firstPaintMs).sort((a,b)=>a-b);
+const percentile=p=>values.length?values[Math.max(0,Math.ceil(values.length*p)-1)]:null;
+const summary={runID:records[0]?.runID,totalMoves:rows.length,passedMoves:rows.filter(r=>r.passed).length,complete:rows.length===planned&&rows.every(r=>r.passed),firstPaintMs:{min:values[0]??null,median:percentile(.5),p95:percentile(.95),max:values.at(-1)??null},scope:`Physical iPhone, ${rows.length} of ${planned} planned successive text edits in one model session. Audio excluded. First paint includes incremental previews; final source must also paint. Each move checked at 240×180 and 320×240 over 720 simulation frames, plus three native preview screenshots. This is one serial run, not a latency distribution across users.`,rows};
+await writeFile(join(root,'summary.json'),JSON.stringify(summary,null,2)+'\n');
+const escape=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
+const html=`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Whistlegraph · ${planned} moves</title><style>body{background:#171429;color:#f5eedc;font:20px system-ui;margin:32px;max-width:1300px}h1{font-size:40px}article{margin:40px 0;border-top:2px solid #625676;padding-top:20px}img{width:32%;height:auto}p{max-width:850px}pre{white-space:pre-wrap;font-size:15px}a{color:#ffa2db}.pass{color:#b4f18a}.fail{color:#ff947e}</style><h1>Whistlegraph · ${summary.passedMoves}/${summary.totalMoves} moves passed</h1><p>First visible update: median ${summary.firstPaintMs.median} ms · p95 ${summary.firstPaintMs.p95} ms.</p><p>${escape(summary.scope)}</p><a href="summary.json">Timing data</a>${records.map((r,i)=>`<article><h2 class="${r.passed?'pass':'fail'}">${r.index}. ${r.passed?'Pass':'Fail'}</h2><p>${escape(r.prompt)}</p><p>First code: ${rows[i].firstOutputMs} ms · first frame: ${rows[i].firstPaintMs} ms · source: ${rows[i].sourceBytes} bytes</p>${[0,1,2].map(f=>`<img alt="Move ${r.index}, frame ${f+1}" src="device/move-${String(r.index).padStart(2,'0')}-frame-${f}.png">`).join('')}<details><summary>Checks and source</summary><pre>${escape(JSON.stringify(r.checks,null,2))}\n${escape(JSON.stringify(r.featureTests,null,2))}\n\n${escape(r.source)}</pre></details></article>`).join('')}`;
+await writeFile(join(root,'report.html'),html);
+console.log(JSON.stringify({...summary,rows:undefined},null,2));

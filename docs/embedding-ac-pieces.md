@@ -107,8 +107,8 @@ Existing integrations:
 - [Shared “Try” page](../system/public/aesthetic.computer/lib/try/shared-page.mjs):
   constructs embedded URLs with `nogap`, `nolabel`, and `noauth`.
 - [Aesel phone sessions](../aesel/phone/session.mjs): published-piece preview URLs.
-- [Walkieware host](../apple/walkieware/Resources/Web/engine.mjs),
-  [native source bridge](../apple/walkieware/Sources/WalkiewareAccount.swift).
+- [Whistlegraph host](../apple/whistlegraph/Resources/Web/engine.mjs),
+  [native source bridge](../apple/whistlegraph/Sources/WhistlegraphAccount.swift).
 
 ## Diagnose an unwanted gap
 
@@ -136,13 +136,17 @@ that have no normal query string. BIOS honors it on every reframe, including
 explicit nonzero gap requests. It is not a URL parameter, and an ordinary web
 embed should use `nogap=true` rather than depend on script injection.
 
-## Iterate on Walkieware layout without restarting
+## Iterate on Whistlegraph layout without restarting
 
-For a running Walkieware app with the live-layout bridge, send a CSS file through
+Whistlegraph lives in `apple/whistlegraph` (formerly `apple/walkieware`). The installed bundle identifier, Keychain service, and WebKit storage origin retain their legacy identifiers so updates preserve sign-in and artwork. Local storage is copied once to `whistlegraph-*` keys; saved source and history remain intact. Existing `ww…` piece codes, API routes, module imports, and the `ww.mjs` CLI remain compatibility aliases. New codes use `wg…`; the primary CLI is `slab/bin/whistlegraph.mjs`.
+
+The Ware picker defaults to **Aesthetic.Computer Piece** and also offers **Roblox Room**. Each has separate saved versions. The brain can queue a ware switch; explicit requests such as “switch to Roblox” also work locally. The room editor and private service setup are described in [`roblox/rooms/README.md`](../roblox/rooms/README.md).
+
+For a running Whistlegraph app with the live-layout bridge, send a CSS file through
 its existing owner-authenticated thread socket:
 
 ```sh
-node slab/bin/ww.mjs layout wwRuboh /tmp/walkieware-layout.css
+node slab/bin/whistlegraph.mjs layout wwRuboh /tmp/whistlegraph-layout.css
 ```
 
 The stylesheet replaces the previous live override and persists locally across
@@ -153,8 +157,8 @@ returns an acknowledgement after applying the override. CSS is limited to 100 KB
 Native Swift changes still require an app build/install; this is a CSS iteration
 path, not Swift code hot reload.
 
-Walkieware's native shell keeps its `Workspace` WebView at one stable SwiftUI
-position. `WalkiewareScreen.swift` owns the preview card, trailing caption,
+Whistlegraph's native shell keeps its `Workspace` WebView at one stable SwiftUI
+position. `WhistlegraphScreen.swift` owns the preview card, trailing caption,
 version feed, and talk dock. `engine.mjs` remains the authority for versions
 and generation; it sends typed, throttled display snapshots and accepts native
 checkout/new-piece/stop commands. The engine document is the dedicated

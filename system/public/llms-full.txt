@@ -587,7 +587,7 @@ prompt invocation.
 - [wobbo](https://aesthetic.computer/wobbo) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/wobbo.mjs)): wobbo, 26.07.12
 - [word](https://aesthetic.computer/word) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/word.mjs)): Word, 23.02.11.13.38
 - [words](https://aesthetic.computer/words) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/words.mjs)): A Word Munchers-style educational word game.
-- [ww](https://aesthetic.computer/ww) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/ww.mjs)): Walkieware, 26.09.30
+- [ww](https://aesthetic.computer/ww) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/ww.mjs)): Whistlegraph, 26.09.30
 - [x](https://aesthetic.computer/x) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/x.mjs)): x.mjs - The letter X
 - [y](https://aesthetic.computer/y) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/y.mjs)): y.mjs - The letter Y
 - [z](https://aesthetic.computer/z) ([source](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/z.mjs)): z.mjs - The letter Z

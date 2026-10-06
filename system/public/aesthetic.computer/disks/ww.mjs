@@ -1,14 +1,14 @@
-// Walkieware, 26.09.30
-// Open your running Walkieware piece by its ww code.
+// Whistlegraph, 26.09.30
+// Open your running Whistlegraph piece by its code.
 let socket,child,api,problem='Connecting…',generation=0,stopped=false;
 export function boot($) {api=$;void connect($).catch(error=>problem=error.message);}
 async function connect($) {
   api=$;const code=$.params[0];
-  if(!/^ww[a-z]{5,12}$/i.test(code||'')){problem='Enter a ww code';return;}
+  if(!/^(?:wg|ww)[a-z]{5,12}$/i.test(code||'')){problem='Enter a Whistlegraph code';return;}
   let token;try{token=await $.authorize?.();}catch{}
   if(stopped)return;
-  if(!token){problem='Sign in to open your Walkieware piece';return;}
-  socket=new WebSocket('wss://aesthetic.computer/api/walkieware-stream');
+  if(!token){problem='Sign in to open your Whistlegraph piece';return;}
+  socket=new WebSocket('wss://aesthetic.computer/api/whistlegraph-stream');
   socket.onopen=()=>socket.send(JSON.stringify({type:'authenticate',role:'agent',token,code}));
   let current='';
   socket.onmessage=async event=>{

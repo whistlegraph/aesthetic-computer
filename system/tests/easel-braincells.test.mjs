@@ -65,7 +65,7 @@ test('the six open models are allowed, flash is the default, and workspace turns
 test('a reasoning object passes through in the documented shapes only',()=>{
  const messages=[{role:'user',content:'hi'}];
  assert.equal(inferenceRequest({messages}).reasoning,null,'absent stays absent');
- assert.deepEqual(inferenceRequest({messages,reasoning:{effort:'none'}}).reasoning,{effort:'none'},'Walkieware turns thinking off');
+ assert.deepEqual(inferenceRequest({messages,reasoning:{effort:'none'}}).reasoning,{effort:'none'},'Whistlegraph turns thinking off');
  assert.deepEqual(inferenceRequest({messages,reasoning:{effort:'low',max_tokens:512,exclude:true,enabled:true,tone:'x'}}).reasoning,{effort:'low',max_tokens:512,enabled:true,exclude:true},'unknown keys are dropped');
  assert.throws(()=>inferenceRequest({messages,reasoning:{effort:'maximum'}}),/reasoning\.effort/);
  assert.throws(()=>inferenceRequest({messages,reasoning:{max_tokens:-1}}),/reasoning\.max_tokens/);
@@ -76,7 +76,7 @@ test('a reasoning object passes through in the documented shapes only',()=>{
 test('Anthropic-style thinking passes through as disabled or a bounded budget',()=>{
  const messages=[{role:'user',content:'hi'}];
  assert.equal(inferenceRequest({messages}).thinking,null);
- assert.deepEqual(inferenceRequest({messages,thinking:{type:'disabled',extra:1}}).thinking,{type:'disabled'},'Walkieware turns thinking off');
+ assert.deepEqual(inferenceRequest({messages,thinking:{type:'disabled',extra:1}}).thinking,{type:'disabled'},'Whistlegraph turns thinking off');
  assert.deepEqual(inferenceRequest({messages,thinking:{type:'enabled',budget_tokens:2048}}).thinking,{type:'enabled',budget_tokens:2048});
  assert.throws(()=>inferenceRequest({messages,thinking:{type:'enabled',budget_tokens:10}}),/budget_tokens/);
  assert.throws(()=>inferenceRequest({messages,thinking:{type:'sometimes'}}),/thinking\.type/);

@@ -103,6 +103,8 @@ export class AcServer extends EventEmitter {
     piece = null,
     artifacts = null,
     settings = null,
+    // Optional surface controls: tools(), has(name), run(name, input).
+    controls = null,
     token = null,
     fetch = globalThis.fetch,
     site = SITE,
@@ -130,7 +132,7 @@ export class AcServer extends EventEmitter {
     outputContinuations = 0,
     // OpenRouter's `reasoning` object, forwarded as given. A surface that shows
     // the piece being written wants {effort:"none"}: a reasoning model's
-    // hidden thinking streams nothing visible, and on Walkieware it measured
+    // hidden thinking streams nothing visible, and on Whistlegraph it measured
     // as two thirds of all output tokens and ten seconds before the first line.
     reasoning = null,
     // Anthropic's `thinking` field, forwarded as given; the relay bounds it.
@@ -158,6 +160,7 @@ export class AcServer extends EventEmitter {
     this.piece = piece;
     this.artifacts = artifacts;
     this.settings = settings;
+    this.controls = controls;
     this.artifactContext = '';
     this.apiMap = loadMap();
     this.token = token;
@@ -371,6 +374,7 @@ export class AcServer extends EventEmitter {
     const tools = this.workspace ? [...WORKSPACE_TOOLS, CLOSE_TOOL, ...(()=>{const api=TOOLS.find(t=>t.name==='ac_api');return api?[{name:api.name,description:api.description,input_schema:api.inputSchema}]:[];})(), ...(await this.extensions?.tools().catch(() => []) ?? [])] : [...(this.artifactContext ? await this.artifacts.tools() : [WRITE_PIECE,...(this.layeredEdits?[EDIT_PIECE]:[])]),
       ...(previewing ? [{name:PREVIEW_TOOL.name,description:PREVIEW_TOOL.description,input_schema:PREVIEW_TOOL.inputSchema}] : [])];
     if(this.settings)tools.push({name:SETTINGS_TOOL.name,description:SETTINGS_TOOL.description,input_schema:SETTINGS_TOOL.inputSchema});
+    if(this.controls)tools.push(...await this.controls.tools());
     if(this.javascriptPiece && !this.workspace) {
       const api=TOOLS.find(tool=>tool.name==='ac_api');
       if(previewing && this.frameCapture)tools.push({name:FRAME_TOOL.name,description:FRAME_TOOL.description+' Hosted mode returns local analysis/OCR only; pixels are not sent to this hosted model.',input_schema:{...FRAME_TOOL.inputSchema,properties:{...FRAME_TOOL.inputSchema.properties,image:{type:'boolean',enum:[false]}}}});
@@ -594,6 +598,15 @@ export class AcServer extends EventEmitter {
   async #runTool(block) {
     const signal = this.controller?.signal;
     const itemId = `tool-${block.id}`;
+    if(this.controls?.has(block.name)) {
+      try {
+        signal?.throwIfAborted();
+        const result=await this.controls.run(block.name,block.input||{});
+        return {type:'tool_result',tool_use_id:block.id,content:JSON.stringify(result)};
+      } catch(error) {
+        return {type:'tool_result',tool_use_id:block.id,is_error:true,content:error.message};
+      }
+    }
     if(this.workspace && WORKSPACE_TOOL_NAMES.has(block.name)) return this.#runWorkspaceTool(block, itemId, signal);
     if(this.workspace && this.extensions?.has(block.name)) {
       const item = { id: itemId, type: "dynamicToolCall", tool: this.extensions.describe(block.name, block.input || {}) };

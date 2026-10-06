@@ -1,0 +1,10 @@
+{
+  "name": "Whistlegraph Rooms",
+  "tree": {
+    "$className": "DataModel",
+    "Workspace": {"$properties": {"FallenPartsDestroyHeight": -60}},
+    "HttpService": {"$className": "HttpService", "$properties": {"HttpEnabled": true}},
+    "ServerScriptService": {"WhistlegraphRooms": {"$path": "src/server"}},
+    "Lighting": {"$properties": {"ClockTime": 14, "Brightness": 2}}
+  }
+}

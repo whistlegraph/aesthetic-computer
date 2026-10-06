@@ -1,0 +1,14 @@
+Resources/Web/index.html
+Resources/Web/ComicRelief-Regular.ttf
+Resources/Web/easel/
+# Generated test evidence (screenshots, audio renders, device frames); the
+# checks ledger in Tests/checks.json cites them by path, which is enough.
+Tests/screenshots/
+Tests/audio/*/
+Tests/sequences/
+Tests/threads/
+Tests/native-shell/
+Tests/scenes/
+Tests/spaces/
+Resources/Web/room-schema.mjs
+Resources/Web/roblox-runtime.mjs

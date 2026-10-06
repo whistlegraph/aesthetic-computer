@@ -131,8 +131,8 @@ function parse(text, location = self?.location) {
       .pop();
   }
   text = text.trim(); // Clear any spaces.  
-  // Walkieware codes retain their stable identity when opened from the prompt or URL.
-  if (/^ww[a-z]{5,12}$/i.test(text)) text = "ww~" + text;
+  // Whistlegraph codes retain their stable identity when opened from the prompt or URL.
+  if (/^(?:wg|ww)[a-z]{5,12}$/i.test(text)) text = "ww~" + text;
   
   // 🚨 Special case for prompt~ slugs - ALWAYS route to prompt piece
   // This prevents prompt~(wipe blue) from being treated as kidlisp function call

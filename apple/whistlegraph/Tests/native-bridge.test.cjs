@@ -1,0 +1,222 @@
+const assert = require('node:assert/strict');
+const {resolve, extname} = require('node:path');
+const {readFile} = require('node:fs/promises');
+const http = require('node:http');
+const puppeteer = require('puppeteer');
+const root = resolve(__dirname, '../Resources/Web');
+const pause = ms => new Promise(r => setTimeout(r, ms));
+const inferenceBodies=[];
+let requests = 0, releaseAt = 0, submittedAt = 0;
+const server = http.createServer(async (req, res) => {
+  if(req.url === '/mock-inference') {
+    requests++; if(requests===1) submittedAt = Date.now();
+    let incoming="";for await(const chunk of req)incoming+=chunk;inferenceBodies.push(JSON.parse(incoming));
+    res.writeHead(200, {'Content-Type':'text/event-stream'});
+    const send = event => res.write('data: '+JSON.stringify(event)+'\n\n');
+    if(requests === 1 || (process.argv.includes("--native-shell") && requests === 2)) {
+      send({type:'content_block_start',index:0,content_block:{type:'tool_use',id:'checkpoint-1',name:'write_piece'}});
+      const body=JSON.stringify({source:'export function paint({wipe}) { wipe("purple"); }'});
+      send({type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:body.slice(0,38)}});
+      await pause(300);
+      send({type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:body.slice(38)}});
+      await pause(180); // A complete source string may run before the tool closes.
+      send({type:'content_block_stop',index:0});
+      await pause(300);
+      send({type:'content_block_start',index:1,content_block:{type:'tool_use',id:'checkpoint-2',name:'write_piece'}});
+      send({type:'content_block_delta',index:1,delta:{type:'input_json_delta',partial_json:JSON.stringify({source:'export function paint({wipe,ink}) { wipe("navy"); ink("pink").circle(30,30,12); }'})}});
+      send({type:'content_block_stop',index:1});
+      send({type:'message_delta',delta:{stop_reason:'end_turn'}});
+    } else if(requests===6) {
+      send({type:'content_block_start',index:0,content_block:{type:'tool_use',id:'refined',name:'write_piece'}});
+      send({type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:JSON.stringify({source:'// refined circle\nexport function paint({wipe,ink}) {wipe("navy");ink("pink").circle(40,40,20,true);}'})}});
+      send({type:'content_block_stop',index:0});
+      send({type:'message_delta',delta:{stop_reason:'end_turn'}});
+    } else if(requests===3) {
+      send({type:'content_block_start',index:0,content_block:{type:'tool_use',id:'failed-layer',name:'write_piece'}});
+      send({type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:JSON.stringify({source:'export function paint({wipe}) {wipe("blue");}'})}});
+      send({type:'content_block_stop',index:0});
+      send({type:'error',error:{message:'Failure after preview layer'}});
+    } else {send({type:'error',error:{message:'Fixture provider unavailable'}});}
+    res.end();return;
+  }
+  try {
+    const path=resolve(root,'.'+new URL(req.url,'http://local').pathname);
+    if(!path.startsWith(root+'/'))throw Error('bad path');
+    const data=await readFile(path);
+    res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.json':'application/json'})[extname(path)]||'application/octet-stream');res.end(data);
+  }catch {res.writeHead(404);res.end();}
+});
+(async()=>{
+  await new Promise(r=>server.listen(0,'127.0.0.1',r));
+  const browser=await puppeteer.launch({headless:true,executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+  try {
+    const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+    await page.setViewport({width:430,height:850});
+    await page.setRequestInterception(true);page.on('request',r=>r.isNavigationRequest()&&r.url().startsWith('https://aesthetic.computer/')?r.respond({status:200,contentType:'text/html',body:'<body style="background:#19172e;color:#f4efdd">Preview fixture</body>'}):r.continue());
+    const guideSeed=Object.fromEntries(await Promise.all(['pieces.md','screen.md','hand.md','kidlisp.md','api.json'].map(async name=>['/easel/context/'+name,await readFile(resolve(root,'easel/context',name),'utf8')])));
+    await page.evaluateOnNewDocument((seed,nativeShell)=>{
+      window.__whistlegraphNativeShell=nativeShell;
+      window.__aeselGuides=seed;
+      window.__whistlegraphDisableThread=true;
+      window.__guideFetches=0;
+      const fetchOriginal=window.fetch.bind(window);
+      window.fetch=(url,init)=>{if(String(url).includes('/api/handle-colors'))return Promise.resolve(Response.json({colors:[{r:200,g:100,b:255}]}));if(String(url).includes('/userinfo'))return Promise.resolve(Response.json({sub:'fixture-user'}));if(String(url).includes('/handle?for='))return Promise.resolve(Response.json({handle:'fixture'}));if(String(url).includes('/api/easel-musical-jev')){const b=JSON.parse(init.body);return Promise.resolve(Response.json({schema:'whistlegraph-decision/v1',sessionId:b.sessionId,sequence:b.sequence,choice:'follow_speech',confidence:.95}));}if(String(url).startsWith('/easel/context/')){window.__guideFetches++;return Promise.resolve({ok:false,status:0});}return fetchOriginal(String(url).includes('/api/easel-inference')?'/mock-inference':url,init);};
+      window.__nativeMessages=[];
+      window.webkit={messageHandlers:{whistlegraph:{postMessage:m=>{window.__nativeMessages.push(m);if(m.action==='render')setTimeout(()=>window.whistlegraphEngineEvent({kind:'previewEvent',event:{kind:'painted'}}),20);}}}};
+    },guideSeed,process.argv.includes('--native-shell'));
+    await page.goto('http://127.0.0.1:'+server.address().port+'/index.html?whistlegraph=1');
+    await page.waitForFunction(()=>typeof window.whistlegraphAsk==='function');
+    assert.deepEqual(errors,[]);
+    if(process.argv.includes('--native-shell')) {
+      await page.waitForFunction(()=>__nativeMessages.some(m=>m.action==='snapshot'));
+      assert.equal(await page.$eval('.top',e=>getComputedStyle(e).display),'none','Swift owns visible chrome');
+      await page.evaluate(()=>whistlegraphEngineEvent({kind:'account',token:'fixture-only'}));
+      await page.evaluate(()=>whistlegraphNativeCommand({action:'ask',text:'x'.repeat(97)}));
+      await pause(100);assert.equal(requests,0,'native typed bridge rejects requests longer than 96 characters');
+      await page.evaluate(()=>whistlegraphAskSound({transcript:'A night garden',words:[{text:'garden',atMs:0,durationMs:500}],sound:{schema:'whistlegraph-sound/v1',durationMs:1000,audibleMs:500,frames:[{atMs:0,rms:.2,pitchHz:1777}],onsetsMs:[],recordingID:'7f936621-9d84-42aa-923a-85e258f8b0a0'}}));
+      await page.waitForFunction(()=>__nativeMessages.some(m=>m.action==='snapshot'&&m.snapshot.head===1&&!m.snapshot.busy));
+      const sent=JSON.stringify(inferenceBodies[0]);assert.ok(sent.includes('A night garden'));assert.ok(!sent.includes('7f936621-9d84-42aa-923a-85e258f8b0a0')&&!sent.includes('INPUT DATA:'),'ordinary spoken request excludes recording context at provider boundary');
+      const snapshots=await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='snapshot').map(m=>m.snapshot));
+      assert.ok(snapshots.some(s=>s.hasPreview&&s.busy&&s.head===0),'provisional preview reaches Swift before commit');
+      assert.ok(snapshots.some(s=>s.busy&&s.output?.includes('paint')),'live output reaches Swift during generation');
+      assert.ok(snapshots.every(s=>(s.output?.length||0)<=6000),'live output stays bounded');
+      assert.ok(snapshots.filter(s=>s.versions).length<=3,'history only sent when changed');
+      assert.ok(snapshots.every(s=>!('source' in s)&&!('token' in s)),'snapshots contain presentation only');
+      await page.evaluate(()=>whistlegraphNativeCommand({action:'checkout',version:0}));
+      await page.waitForFunction(()=>{const s=__nativeMessages.filter(m=>m.action==='snapshot').at(-1)?.snapshot;return s?.head===0&&!s.hasPreview;});
+      assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('whistlegraph-source-versions')).versions.length),2);
+      await page.evaluate(()=>whistlegraphApplyLayout(':root {--ww-spacing:16;--ww-title-size:32}'));
+      assert.equal(await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='layout').at(-1).layout.spacing),16);
+      await page.evaluate(()=>{
+        whistlegraphNativeCommand({action:'checkout',version:1});
+        const key='whistlegraph-source',ledger=JSON.parse(localStorage.getItem(key+'-versions'));
+        localStorage.setItem(key+'-inflight',JSON.stringify({id:'recovery-fixture',checkpoint:'// resumed-checkpoint-fixture\nexport function paint({wipe}) {wipe("teal");}',text:'Add moonlight',displayText:'Add moonlight',localText:'Add moonlight',parent:1,baseSource:ledger.versions[1].source,status:'working',retries:0}));
+        localStorage.setItem(key+'-attempt',JSON.stringify({request:'Add moonlight',parent:1,status:'working'}));
+      });
+      await page.reload();await page.waitForFunction(()=>typeof whistlegraphAsk==='function');
+      await page.evaluate(()=>{whistlegraphEngineEvent({kind:'previewReady'});whistlegraphEngineEvent({kind:'account',token:'fixture-only'});});
+      await page.waitForFunction(()=>JSON.parse(localStorage.getItem('whistlegraph-source-versions')).head===2&&!whistlegraphIsBusy(),{timeout:10000}).catch(async error=>{console.error(await page.evaluate(()=>({head:JSON.parse(localStorage.getItem('whistlegraph-source-versions')).head,attempt:localStorage.getItem('whistlegraph-source-attempt'),journal:localStorage.getItem('whistlegraph-source-inflight'),messages:__nativeMessages.slice(-6)})));throw error;});
+      assert.ok(JSON.stringify(inferenceBodies[1]).includes('resumed-checkpoint-fixture'),'recovery sends saved partial work as current source');
+      assert.equal(await page.evaluate(()=>localStorage.getItem('whistlegraph-source-inflight')),null,'successful crash recovery clears its journal');
+      const ledgerBeforeStory=await page.evaluate(()=>localStorage.getItem('whistlegraph-source-versions'));
+      await page.evaluate(()=>whistlegraphNativeCommand({action:'presentVersion',version:1}));
+      await page.waitForFunction(()=>__nativeMessages.some(m=>m.action==='narrationReady'&&m.version===1));
+      assert.equal(await page.evaluate(()=>localStorage.getItem('whistlegraph-source-versions')),ledgerBeforeStory,'story playback must not change the saved head or ledger');
+      await page.evaluate(()=>whistlegraphNativeCommand({action:'endPresentation'}));
+      assert.equal(await page.evaluate(()=>localStorage.getItem('whistlegraph-source-versions')),ledgerBeforeStory);
+      const afterRecovery=requests;
+      await page.reload();await page.waitForFunction(()=>typeof whistlegraphAsk==='function');
+      await page.evaluate(()=>{whistlegraphEngineEvent({kind:'previewReady'});whistlegraphEngineEvent({kind:'account',token:'fixture-only'});});
+      await pause(300);assert.equal(requests,afterRecovery,'another launch must not repeat a committed request');
+      assert.deepEqual(errors,[]);console.log('PASS: native shell hides web chrome, sends bounded snapshots and early previews, checks out versions without erasing history, and emits live native layout tokens');return;
+    }
+
+    assert.equal(await page.$('.stage-top'),null,'fresh screen has no prototype piece controls');
+    assert.equal(await page.$eval('#live-preview-box',e=>getComputedStyle(e).visibility),'hidden','fresh screen has no leftover preview caption');
+    await page.evaluate(()=>whistlegraphApplyLayout('#live-work {--live-layout-test: applied}'));
+    assert.match(await page.evaluate(()=>localStorage.getItem('whistlegraph-layout-css')),/live-layout-test/);
+    assert.equal(await page.$eval('#live-work',e=>getComputedStyle(e).getPropertyValue('--live-layout-test').trim()),'applied');
+    await page.evaluate(()=>whistlegraphApplyLayout(''));
+
+    assert.equal(await page.$eval('#speak-label',e=>getComputedStyle(e).webkitUserSelect),'none');
+    assert.equal(await page.$eval('#words',e=>getComputedStyle(e).webkitUserSelect),'text');
+    await page.setViewport({width:430,height:600});
+    assert.ok(await page.$eval('#live-piece',e=>e.getBoundingClientRect().height>=120),'small viewport retains a nonzero runtime surface');
+    await page.setViewport({width:430,height:850});
+    await page.evaluate(()=>{voiceStart();whistlegraphNativeEvent({id:__nativeMessages.at(-1).id,kind:'listening'});});
+    const heldAt=Date.now();
+    await page.waitForFunction(()=>__nativeMessages.some(m=>m.action==='stop'),{timeout:10000});
+    assert.ok(Date.now()-heldAt>=7800&&Date.now()-heldAt<9500,'hold submits automatically at eight seconds');
+    await page.evaluate(()=>voiceEnd());
+    assert.equal(await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='stop').length),1,'release after deadline does not submit twice');
+    await page.evaluate(()=>{whistlegraphWorkFinished();__nativeMessages.length=0;});
+    await page.evaluate(()=>whistlegraphEngineEvent({kind:'account',token:'fixture-only'}));
+    await page.waitForFunction(()=>document.querySelector('#connect-ac').textContent==='@fixture');
+    assert.equal(await page.$eval('.voice-note',e=>getComputedStyle(e).display),'none');
+    const box=await page.$eval('#speak',e=>{const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}});
+    await page.mouse.move(box.x,box.y);await page.mouse.down();
+    const id=await page.evaluate(()=>__nativeMessages.at(-1).id);
+    await page.evaluate(id=>whistlegraphNativeEvent({id,kind:'listening'}),id);
+    for(const text of ['A','A night','A night garden']) {
+      await page.evaluate(({id,text})=>whistlegraphNativeEvent({id,kind:'partial',text}),{id,text});
+      assert.equal(await page.$eval('#voice-transcript',e=>e.textContent),text);
+      assert.equal(await page.evaluate(()=>__nativeMessages.some(m=>m.action==='stop')),false);
+    }
+    await page.screenshot({path:resolve(__dirname,'screenshots/live-words.png')});
+    releaseAt=Date.now();await page.mouse.up();
+    if(process.argv.includes('--musical')) {
+      await page.evaluate(id=>whistlegraphNativeEvent({id,kind:'mixedFinal',text:JSON.stringify({transcript:'A night garden',words:[{text:'garden',atMs:500,durationMs:250}],sound:{schema:'whistlegraph-sound/v1',durationMs:1500,audibleMs:1200,frames:[{atMs:900,rms:.2,pitchHz:880}],onsetsMs:[900]}})}),id);
+    }else await page.evaluate(id=>whistlegraphNativeEvent({id,kind:'final',text:'A night garden'}),id);
+    await page.waitForFunction(()=>document.querySelector('#live-code').textContent.includes('export function'));
+    assert.equal(await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='render').length),0,'code must arrive before complete checkpoint');
+    await page.waitForFunction(()=>__nativeMessages.some(m=>m.action==='benchmark'&&m.event==='firstIncrementalCompile'));
+    assert.equal(await page.evaluate(()=>__nativeMessages.some(m=>m.action==='benchmark'&&m.event==='firstCheckpoint')),false,'streamed prefix should run before tool completion');
+    await page.waitForFunction(()=>!window.whistlegraphIsBusy() && JSON.parse(localStorage.getItem('whistlegraph-source-versions')||'{}').head===1);
+    assert.equal(await page.evaluate(()=>__guideFetches),0,'native guide seed avoids status-0 custom scheme fetch');
+    const ledger=await page.evaluate(()=>JSON.parse(localStorage.getItem('whistlegraph-source-versions')));assert.equal(ledger.versions.length,2,'two preview layers create exactly one ask version');assert.equal(ledger.versions[1].layers,2);
+    if(process.argv.includes('--musical')){assert.match(ledger.versions[1].request,/pitchHz/);assert.match(ledger.versions[1].request,/garden/);assert.equal(await page.$eval('#live-request',e=>e.textContent.includes('INPUT DATA')),false);}
+    assert.equal(await page.$eval('#version-feed [aria-current] span+span',e=>e.textContent),'A night garden');
+    assert.equal(await page.$eval('#live-phase',e=>e.hidden),true);
+    assert.equal(await page.$eval('#live-details',e=>e.hidden),true);
+    assert.equal(requests,1);assert.ok(submittedAt-releaseAt<500,'no artificial release delay');
+    assert.equal(await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='render').length),2);
+    await page.evaluate(()=>whistlegraphEngineEvent({kind:'previewEvent',event:{kind:'painted'}}));
+    await page.screenshot({path:resolve(__dirname,'screenshots/live-stream.png')});
+    if(process.argv.includes('--musical'))assert.equal(await page.$eval('#version-feed svg',e=>e.getAttribute('role')),'img');
+    assert.equal(await page.$eval('#version-feed time',e=>e.textContent),'just now');
+    await page.evaluate(()=>whistlegraphUndo());
+    await page.click('#version-feed li');
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('whistlegraph-source-versions')).head),1,'tap returns to saved version');
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('whistlegraph-source-versions')).versions.length),2,'jump does not create another version');
+    await page.evaluate(()=>whistlegraphUndo());
+    assert.equal(await page.evaluate(()=>__nativeMessages.at(-1).source),'export function paint({wipe}) {wipe("black");}');
+    assert.equal(await page.$eval('#speak',e=>e.disabled),false);
+    const beforeFailure=await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='render').length);
+    await page.evaluate(() => openWords());await page.type('#words','Make it warmer');await page.click('#words-form button');
+    await page.waitForFunction(()=>document.querySelector('#live-events').textContent.includes('Fixture provider unavailable'));
+    assert.equal(await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='render').length),beforeFailure,'provider errors preserve preview');
+    await page.waitForFunction(()=>!document.querySelector('#speak').disabled);
+    await page.evaluate(()=>whistlegraphAsk('Fail after a preview layer'));
+    const failedLedger=await page.evaluate(()=>JSON.parse(localStorage.getItem('whistlegraph-source-versions')));
+    assert.equal(failedLedger.versions.length,2,'failed ask adds no version');assert.equal(failedLedger.head,0);
+    assert.equal(await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='render').at(-1).source),'export function paint({wipe}) {wipe("black");}');
+    await page.evaluate(()=>whistlegraphAsk('Make a pink circle with a glow'));
+    const starterLedger=await page.evaluate(()=>JSON.parse(localStorage.getItem('whistlegraph-source-versions')));
+    assert.equal(starterLedger.versions.length,3,'failed refinement still saves exactly one useful starter version');
+    assert.match(starterLedger.versions.at(-1).source,/Whistlegraph starter: pink circle/);
+    assert.equal(await page.evaluate(()=>__nativeMessages.some(m=>m.event==='starterPainted')),true);
+    assert.equal(await page.evaluate(()=>__nativeMessages.some(m=>m.event==='refinementFailed')),true);
+    const kept=starterLedger.versions.at(-1).source;
+    await page.evaluate(()=>whistlegraphAsk('Make a blue square'));
+    const afterEdit=await page.evaluate(()=>JSON.parse(localStorage.getItem('whistlegraph-source-versions')));
+    assert.equal(afterEdit.versions.length,3,'later asks must not replace an existing piece with a starter');
+    assert.equal(afterEdit.versions.at(-1).source,kept);
+    await page.evaluate(()=>whistlegraphUndo());
+    await page.evaluate(()=>whistlegraphAsk('Make a pink circle with a glow'));
+    const refined=await page.evaluate(()=>JSON.parse(localStorage.getItem('whistlegraph-source-versions')));
+    assert.equal(refined.versions.length,4,'starter and refinement share one ask version');
+    assert.equal(refined.versions.at(-1).layers,2);
+    assert.match(refined.versions.at(-1).source,/refined circle/);
+    await page.evaluate(()=>whistlegraphUndo());
+    await page.evaluate(async()=>{const ask=whistlegraphAsk('Make a blue square with a glow','Make a blue square with a glow',new Promise(r=>setTimeout(()=>r(null),150)));setTimeout(()=>document.querySelector('#live-stop').click(),30);await ask;});
+    const cancelled=await page.evaluate(()=>JSON.parse(localStorage.getItem('whistlegraph-source-versions')));
+    assert.equal(cancelled.versions.length,4,'cancel during interpretation creates no version');assert.equal(cancelled.head,0);
+    assert.equal(requests,6,'cancel before advice prevents model dispatch');
+    const localRun=await page.evaluate(async()=>{
+      const {localMoves}=await import('./local-moves.mjs');const {readScene}=await import('./local-scene.mjs');let expected={};const results=[];
+      for(const [text,change] of localMoves){
+        const before=JSON.parse(localStorage.getItem('whistlegraph-source-versions'));expected={...expected,...change};const began=performance.now();await whistlegraphAsk(text);
+        const after=JSON.parse(localStorage.getItem('whistlegraph-source-versions')),current=after.versions.find(v=>v.id===after.head);
+        const ms=performance.now()-began;whistlegraphUndo();await new Promise(r=>setTimeout(r,30));
+        const undone=JSON.parse(localStorage.getItem('whistlegraph-source-versions'));await whistlegraphAsk(text);
+        results.push({text,ms,properties:JSON.stringify(readScene(current.source))===JSON.stringify(expected),oneVersion:after.versions.length===before.versions.length+1,undo:undone.head===before.head});
+      }return results;
+    });
+    assert.equal(localRun.length,32);assert.ok(localRun.every(r=>r.properties&&r.oneVersion&&r.undo));assert.equal(requests,6,'32 local edits and replays dispatch zero model requests');
+    assert.equal(await page.$eval('#speak',e=>e.disabled),false,'next ask does not require Keep first');
+    console.log('PASS: 32 local browser edits plus undo/replay each; zero inference; next ask enabled. Mock painted-frame acknowledgements.');
+    assert.deepEqual(errors,[]);
+    console.log('PASS: instant source is painted and retained if refinement fails; subsequent edits preserve the existing piece.');
+    console.log('PASS: live words before release; release-to-request '+(submittedAt-releaseAt)+'ms (fixture); streamed code before checkpoints; two progressive renders; Undo; selection disabled on controls only; typed revision; provider failure preserves preview; two layers commit one version; failure after painting rolls back without committing. Speech and inference mocked.');
+  }finally {await browser.close();await new Promise(r=>server.close(r));}
+})().catch(e=>{console.error(e);server.close();process.exitCode=1;});

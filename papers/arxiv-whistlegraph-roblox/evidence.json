@@ -1,0 +1,198 @@
+{
+  "asOf": "2026-10-05",
+  "recordedAt": "2026-10-06T00:00:10.176444+00:00",
+  "repositoryBaseRevision": "f02e8f09dc0be8b69769b45e3f8cf3f08a0bf7e4",
+  "workingTree": "Contains unrelated changes; inspected file hashes specify the observed source.",
+  "localTests": {
+    "command": "node --test toolchain/robloxplorer/robloxplorer.test.mjs",
+    "passed": 4,
+    "failed": 0,
+    "scope": "CLI validation, offline plan, redacted errors, mocked publish; no live authenticated publication"
+  },
+  "capabilities": {
+    "publishingCredentialConfigured": false,
+    "studioMCPBinaryAtDocumentedPath": false,
+    "studioMCPExercised": false,
+    "iphoneBinaryInspected": false,
+    "endToEndIntegrationTested": false
+  },
+  "sourceFiles": [
+    {
+      "path": "apple/walkieware/Sources/WalkiewareApp.swift",
+      "sha256": "350d8bf94a1d1d3b801afd1d9d9599fc15fcf4e66be38698143579b0f38a635f"
+    },
+    {
+      "path": "apple/walkieware/Sources/WalkiewareScreen.swift",
+      "sha256": "165e77c333752777b714c800d811f8e9b36a3f05864cc84f23413054e7087d7d"
+    },
+    {
+      "path": "apple/walkieware/Resources/Web/engine.mjs",
+      "sha256": "be385f9e49cda59cbf1d63e317e24e0113fb05253fb3785c1438a0f2b8060e54"
+    },
+    {
+      "path": "apple/walkieware/Resources/Web/piece-versions.mjs",
+      "sha256": "1b468e65ad35af62eda4fc27027edb740a560aaf8645c54ec1532fd689b1a4ce"
+    },
+    {
+      "path": "system/backend/walkieware.mjs",
+      "sha256": "ff86f8d8b4a4d5f31736bd76c46a38180ec7136b23afa40d5d618d53e751d203"
+    },
+    {
+      "path": "system/netlify/functions/whistlegraph-mint.mjs",
+      "sha256": "e7947ea7ca633808310376f26a9dfb5fc296c198316a3de3c20b56257cbd615e"
+    },
+    {
+      "path": "system/backend/whistlegraph-pack.mjs",
+      "sha256": "c33e4393dd123dcc00592df2e2fd77082f3228de090e2886d544843be37f9115"
+    },
+    {
+      "path": "system/public/whistlegraph.app/index.html",
+      "sha256": "eb81fa32be11b0dde093d265b5c2179045030772258873fe5b8f4b1773399bcb"
+    },
+    {
+      "path": "toolchain/robloxplorer/robloxplorer.mjs",
+      "sha256": "2b4c65351f5ca9ff4b67e25a1c7613c4a22831694e42e2a808d9401d8f77489c"
+    },
+    {
+      "path": "toolchain/robloxplorer/robloxplorer.test.mjs",
+      "sha256": "56c5c4a9af0ef1b3b68852e674f6806ab0263341aea2fa28f5575f8b48a1e972"
+    },
+    {
+      "path": "roblox/arena/evidence.json",
+      "sha256": "c6167b685d596adbc63759b08dc3d126c497a50747919ae25695ac0dbe3c04a1"
+    },
+    {
+      "path": "roblox/notepat/evidence.json",
+      "sha256": "0aa52b98d76249d5e33b1f85f043f4fc281134f7ead6d6ce5aed8379450ddc3e"
+    },
+    {
+      "path": "roblox/bridge/evidence.json",
+      "sha256": "11038129795c178b3bf299fd443e6ca092111692b9adde84dd6fafde328bb819"
+    },
+    {
+      "path": "roblox/arena/src/server/MediaBridge.luau",
+      "sha256": "f7d333fd17c2bfa034367baf1ab8c75a070e9cf114afa758c9dbf3e215492d0f"
+    },
+    {
+      "path": "roblox/arena/src/server/Updates.luau",
+      "sha256": "8c8b5835b6a36186287c9fa333042122c27eb9107756cf10c877095fa4f3bc0c"
+    }
+  ],
+  "documentationSnapshots": [
+    {
+      "id": "http",
+      "sha256": "009cc53f56b33dcbafae47194a22d0652cf417977047e8debec92150e81a6e33",
+      "bytes": 18638
+    },
+    {
+      "id": "share",
+      "sha256": "1edbd5db20b75b9017607f7e42d1bdf18cda90e70686a96dc5c9518e543c23b3",
+      "bytes": 1793
+    },
+    {
+      "id": "publishing",
+      "sha256": "62ccd4a216058cf60c409c8834edfbc3fadef49bdbcdc55670bad51a5062ac21",
+      "bytes": 4217
+    },
+    {
+      "id": "luau",
+      "sha256": "6312c26979d92354558a3e9efc54ae7b56942d9ba4d771a3bcb9f088c117ecba",
+      "bytes": 20109
+    },
+    {
+      "id": "messaging",
+      "sha256": "33434c8af6fa62e73161cd8aa10fbeb2f28418c5b844e322054b9d599ca02967",
+      "bytes": 8142
+    },
+    {
+      "id": "oauth",
+      "sha256": "3d717407f6d3b93438faf2c48c0e8e510450a13823c06055692ce2b81555a828",
+      "bytes": 6742
+    },
+    {
+      "id": "universes",
+      "sha256": "c9752131f92f240862aaf72aca132cdd5fba747c9037f8eba12819f1c6764880",
+      "bytes": 86226
+    },
+    {
+      "id": "teleport",
+      "sha256": "805fb749be318afc04b03719f1b66866c9f2526a30658a8ad70659aec0607599",
+      "bytes": 12370
+    },
+    {
+      "id": "studio-mcp",
+      "sha256": "660968d0f78dcbd0cbca47919b82e5db0115f1c74168746221663abcbbd972f6",
+      "bytes": 10077
+    },
+    {
+      "id": "instances",
+      "sha256": "ca9771bee957a1c2f7a913c2ca0b1e77c1c19644b359a460ce56e9f06419bdf3",
+      "bytes": 15212
+    },
+    {
+      "id": "places",
+      "sha256": "1ed4f13985e52f295db8006200828ce9f547300e57e6a1a53098353522b3ed1c",
+      "bytes": 42132
+    },
+    {
+      "id": "ai",
+      "sha256": "e99a4eb1082f9485fdba834ef3125c4fd3abfaa76df6070efa2aa26827839b1b",
+      "bytes": 5338
+    },
+    {
+      "id": "assistant",
+      "sha256": "ef35aa8c1640e90f397f372b44735ca2cffe7096ad56ec4839a70bc46bb1d9aa",
+      "bytes": 15105
+    }
+  ],
+  "publicProbes": [
+    {
+      "label": "whistlegraph-profile",
+      "url": "https://users.roblox.com/v1/users/1366409382",
+      "status": 200,
+      "sha256": "823397b31b5278419b8370d59f71cb3af7a00e43d54f840d967d384ae7c5869f",
+      "observation": {
+        "userId": 1366409382,
+        "username": "whistlegraph"
+      }
+    },
+    {
+      "label": "public-games",
+      "url": "https://games.roblox.com/v2/users/1366409382/games?accessFilter=Public&limit=50&sortOrder=Asc",
+      "status": 200,
+      "sha256": "ff7360ba2bc3f5adfb77d252a1cd082c27ce4ca248c3fd02c5254e5bd967c5cd",
+      "observation": {
+        "games": [
+          {
+            "name": "Sky Pool",
+            "universeId": 1650467744
+          }
+        ],
+        "privateInventoryNotInspected": true
+      }
+    },
+    {
+      "label": "media-manifest",
+      "url": "https://assets.aesthetic.computer/roblox/manifest.json",
+      "errorType": "HTTPError",
+      "status": 403
+    }
+  ],
+  "historicalRecords": {
+    "arena": {
+      "version": 18,
+      "headlessTaskRecordedState": "PROCESSING",
+      "lastCompletedPassReportedVersion": 16,
+      "lastCompletedPassReportedChecks": 68
+    },
+    "media": {
+      "imageAssetId": "85149608937004",
+      "recordedModerationState": "Approved",
+      "recordedClientLoaded": true
+    },
+    "notepat": {
+      "published": false,
+      "localLogicChecksRecorded": 19
+    }
+  }
+}

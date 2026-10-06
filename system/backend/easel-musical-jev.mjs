@@ -22,7 +22,7 @@ export function createMusicalHandler({authenticate,budget,evaluate=evaluateChoic
   if(!event.headers?.authorization)return reply(401,{error:'Sign in first'});
   if(typeof event.body!=='string'||event.body.length>2048)return reply(400,{error:'Invalid observation'});
   let body,request;
-  try{body=JSON.parse(event.body);if(body.schema!=='walkieware-input/v1'||! /^[a-f0-9-]{36}$/i.test(body.sessionId)||!Number.isInteger(body.sequence)||body.sequence<1||body.sequence>1000||Object.keys(body).some(k=>!['schema','sessionId','sequence','features'].includes(k)))throw Error();request=musicalDecisionRequest(body.features);}catch{return reply(400,{error:'Invalid observation'});}
+  try{body=JSON.parse(event.body);if(!['whistlegraph-input/v1','walkieware-input/v1'].includes(body.schema)||! /^[a-f0-9-]{36}$/i.test(body.sessionId)||!Number.isInteger(body.sequence)||body.sequence<1||body.sequence>1000||Object.keys(body).some(k=>!['schema','sessionId','sequence','features'].includes(k)))throw Error();request=musicalDecisionRequest(body.features);}catch{return reply(400,{error:'Invalid observation'});}
   let subject;try{subject=trustedSubject??await authenticate(event.headers);}catch{return reply(503,{error:'Account check unavailable'});}
   if(!subject)return reply(401,{error:'A valid account with a handle is required'});
   if(busy.has(subject)||busy.size>=8)return reply(429,{error:'Decision already running'});
@@ -34,7 +34,7 @@ export function createMusicalHandler({authenticate,budget,evaluate=evaluateChoic
    const result=await evaluate(request,{signal:signal?AbortSignal.any([signal,deadline]):deadline});
    const answer=result.answers?.mapping, confidence=answer?.probabilities?.[answer.choice];
    if(!Object.hasOwn(MUSICAL_CHOICES,answer?.choice)||!Number.isFinite(confidence)||confidence<0||confidence>1)throw Error('Invalid answer');
-   return reply(200,{schema:'walkieware-decision/v1',sessionId:body.sessionId,sequence:body.sequence,choice:answer.choice,confidence,elapsedMs:Math.round(performance.now()-started)});
+   return reply(200,{schema:body.schema.replace('-input/','-decision/'),sessionId:body.sessionId,sequence:body.sequence,choice:answer.choice,confidence,elapsedMs:Math.round(performance.now()-started)});
   }catch{return reply(503,{error:'Musical advice unavailable; continue without it'});}
   finally{busy.delete(subject);}
  };

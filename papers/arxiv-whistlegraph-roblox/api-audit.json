@@ -1,0 +1,113 @@
+{
+  "asOf": "2026-10-05",
+  "scope": "Official API documentation plus repository inspection. No authenticated requests or Studio tool execution.",
+  "interfaces": [
+    {
+      "id": "studio-mcp",
+      "status": "documented",
+      "auth": "Local desktop stdio; chosen open Studio instance",
+      "operations": [
+        "script_read",
+        "multi_edit (Edit)",
+        "execute_luau (Edit/Client/Server)",
+        "screen_capture",
+        "start_stop_play"
+      ],
+      "url": "https://create.roblox.com/docs/studio/mcp",
+      "limit": "Not a public-server API. Play-mode mutations do not by themselves establish saved project edits."
+    },
+    {
+      "id": "place-publish",
+      "status": "documented; historical local release record",
+      "method": "POST",
+      "path": "/universes/v1/{universeId}/places/{placeId}/versions",
+      "auth": [
+        "API key"
+      ],
+      "scope": "universe-places:write",
+      "url": "https://create.roblox.com/docs/cloud/reference/features/places",
+      "limit": "Existing target IDs. OAuth not listed for this endpoint."
+    },
+    {
+      "id": "universe-management",
+      "status": "documented",
+      "auth": [
+        "API key",
+        "OAuth"
+      ],
+      "url": "https://create.roblox.com/docs/cloud/reference/features/universes",
+      "limit": "No complete new-universe provisioning route established in this audit; absence in this audit is not proof that every other route is impossible."
+    },
+    {
+      "id": "assets",
+      "status": "documented; prior image import recorded",
+      "auth": [
+        "API key",
+        "OAuth"
+      ],
+      "url": "https://create.roblox.com/docs/cloud/guides/usage-assets",
+      "limit": "Type-specific formats, quotas, moderation and permissions; upload is not a Marketplace listing."
+    },
+    {
+      "id": "messaging",
+      "status": "documented",
+      "method": "POST",
+      "path": "/cloud/v2/universes/{universe_id}:publishMessage",
+      "auth": [
+        "API key",
+        "OAuth"
+      ],
+      "url": "https://create.roblox.com/docs/cloud/guides/usage-messaging",
+      "limit": "Notify installed subscribers; does not install or replace running code."
+    },
+    {
+      "id": "server-http",
+      "status": "documented; prior image-fetch implementation inspected",
+      "auth": "Server-side HttpService; enabled in experience",
+      "url": "https://create.roblox.com/docs/cloud-services/http-service",
+      "limit": "HTTP fetch plus application-specific validation; not arbitrary inbound HTTP hosting."
+    },
+    {
+      "id": "web-stream",
+      "status": "documented",
+      "url": "https://create.roblox.com/docs/reference/engine/classes/HttpService",
+      "limit": "CreateWebStreamClient is Studio-only in the inspected reference."
+    },
+    {
+      "id": "instances",
+      "status": "documented beta",
+      "auth": [
+        "API key"
+      ],
+      "url": "https://create.roblox.com/docs/cloud/guides/instance",
+      "limit": "Script objects; collaborative session; excludes open and packaged scripts; 200 KB request body."
+    },
+    {
+      "id": "luau-tasks",
+      "status": "documented",
+      "auth": [
+        "API key"
+      ],
+      "url": "https://create.roblox.com/docs/cloud/reference/features/luau-execution",
+      "limit": "Specific place version; no physics; embedded scripts do not automatically run; task data-model changes cannot persist."
+    },
+    {
+      "id": "oauth-identity",
+      "status": "documented",
+      "url": "https://create.roblox.com/docs/cloud/auth/oauth2-overview",
+      "limit": "13+ to authorize; developer ID verification to register and publish app; mobile PKCE required. Identity consent is not all API permissions."
+    },
+    {
+      "id": "share-link",
+      "status": "documented",
+      "url": "https://create.roblox.com/docs/production/promotion/share-links",
+      "limit": "Creation routing; no authority from launchData; Dashboard creation documented, per-creation programmatic link provisioning not proven."
+    },
+    {
+      "id": "teleport",
+      "status": "documented",
+      "url": "https://create.roblox.com/docs/projects/teleport",
+      "limit": "Access controls, third-party settings, failure handling; test in actual Roblox client."
+    }
+  ]
+}

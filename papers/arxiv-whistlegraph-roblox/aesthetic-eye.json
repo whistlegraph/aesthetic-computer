@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "paper": "Whistlegraph in Roblox: Making Games While Playing",
+  "pdf": "whistlegraph-roblox.pdf",
+  "expectedFigures": 0,
+  "expectedDiagrams": 2,
+  "visualInference": true,
+  "reviewer": {
+    "kind": "visual-inference",
+    "agent": "Codex"
+  },
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    }
+  },
+  "figures": [],
+  "diagrams": [
+    {
+      "id": "integration-routes",
+      "page": 2,
+      "crop": [
+        0.08,
+        0.055,
+        0.41,
+        0.265
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Inspected final page 2, prepared crop and contact sheet. Two peer routes have matching widths, aligned baselines and a visible gutter. Fork and join arrows are separated from labels; labels and caption read at normal paper scale."
+    },
+    {
+      "id": "revision-protocol",
+      "page": 4,
+      "crop": [
+        0.08,
+        0.055,
+        0.41,
+        0.27
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Inspected final page 4, prepared crop and contact sheet. Equal-width nodes, consistent gaps and downward arrows; the final applied state is distinct in text and tint. No collisions or clipped labels."
+    }
+  ],
+  "pdfSha256": "c7e12df39281d2f5f4f2d9d8fbd0ebe2cd0244f104c0ff392c9ed5e28e561a62",
+  "reviewedAt": "2026-10-06T00:06:45.763345+00:00",
+  "pageReview": {
+    "pages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "design": "pass",
+    "notes": "Inspected all six page rasters, final all-page contact sheet, both diagram crops and the final API table page. After the table-width correction, pages 1, 2, 4, 5 and 6 have byte-identical rasters to the fully inspected previous build. Page 3 was inspected again. Text and references remain legible at normal reading scale, no overflowing columns or sparse interior pages. Final source-attachment block stays within the right column."
+  },
+  "tables": [
+    {
+      "id": "api-boundaries",
+      "page": 3,
+      "design": "pass",
+      "notes": "Full-width table; header and four columns align, Dashboard fits, all rows visible and readable."
+    },
+    {
+      "id": "evidence",
+      "page": 5,
+      "design": "pass",
+      "notes": "Ragged short evidence labels and wrapped conclusions remain within the column; historical records are visibly distinguished from current tests."
+    }
+  ]
+}

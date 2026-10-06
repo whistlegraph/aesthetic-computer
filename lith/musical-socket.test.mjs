@@ -9,7 +9,7 @@ import {MusicalInputSocket} from '../aesel/src/musical-input-socket.mjs';
 import {MusicalInputAdvisor} from '../aesel/src/musical-input-advisor.mjs';
 const input={transcript:'Private words',words:[],sound:{frames:[1,2,3].map(i=>({atMs:i*100,pitchHz:440,rms:.2})),onsetsMs:[]}};
 const features={hasSpeech:true,hasTonalSound:true,soundAfterSpeech:false,contour:'steady',attacks:0,rhythm:'unknown',energy:'steady'};
-const body=(sequence=1)=>({schema:'walkieware-input/v1',sessionId:'12345678-1234-1234-1234-123456789012',sequence,features});
+const body=(sequence=1)=>({schema:'whistlegraph-input/v1',sessionId:'12345678-1234-1234-1234-123456789012',sequence,features});
 const answer={answers:{mapping:{choice:'follow_speech',probabilities:{follow_speech:.95}}}};
 async function fixture(t,overrides={}){
  let auths=0,calls=0,quotas=0;
@@ -38,7 +38,7 @@ test('unauthenticated, malformed and expired connections are closed', {timeout:3
 });
 test('slow inference keeps newest pending observation; cancel aborts active work', {timeout:3000},async t=>{
  const started=[],releases=[];
- const f=await fixture(t,{decide:(event,{signal})=>new Promise(resolve=>{const b=JSON.parse(event.body);started.push(b.sequence);const release=()=>resolve({statusCode:200,body:JSON.stringify({...b,schema:'walkieware-decision/v1',choice:'sustain',confidence:.95})});releases.push(release);signal.addEventListener('abort',release);})});
+ const f=await fixture(t,{decide:(event,{signal})=>new Promise(resolve=>{const b=JSON.parse(event.body);started.push(b.sequence);const release=()=>resolve({statusCode:200,body:JSON.stringify({...b,schema:'whistlegraph-decision/v1',choice:'sustain',confidence:.95})});releases.push(release);signal.addEventListener('abort',release);})});
  const c=await client(f.url);c.send({type:'authenticate',token:'valid'});await c.next('ready');
  c.send({type:'observation',body:body(1)});await c.next('received');
  c.send({type:'observation',body:body(2)});await c.next('received');

@@ -1,0 +1,255 @@
+% !TEX program = xelatex
+% Design study, not a report of an implemented integration. See notes.md.
+\documentclass[10pt,letterpaper,twocolumn]{article}
+\usepackage[margin=.72in,footskip=20pt]{geometry}
+\usepackage{fontspec}
+\setmainfont{Latin Modern Roman}[Extension=.otf,UprightFont=lmroman10-regular,BoldFont=lmroman10-bold,ItalicFont=lmroman10-italic,BoldItalicFont=lmroman10-bolditalic]
+\setsansfont{Latin Modern Sans}[Extension=.otf,UprightFont=lmsans10-regular,BoldFont=lmsans10-bold,ItalicFont=lmsans10-oblique]
+\setmonofont{Latin Modern Mono}[Extension=.otf,UprightFont=lmmono10-regular,Scale=.9]
+\usepackage{graphicx,xcolor,booktabs,tabularx,array,ragged2e,microtype,amsmath}
+\usepackage{../ac-paper-layout}
+\ClearShipoutPictureBG
+\fancyhead{}
+\renewcommand{\ac}{Aesthetic\acdot Computer}
+\usepackage[font=small,labelfont=bf]{caption}
+\usetikzlibrary{arrows.meta,positioning,calc}
+\hypersetup{pdftitle={Whistlegraph in Roblox: Making Games While Playing},pdfauthor={@jeffrey},pdfsubject={Design study and API audit, 5 October 2026}}
+\newcolumntype{Y}{>{\RaggedRight\arraybackslash}X}
+\newcommand{\pc}[1]{{\ttfamily\small\path{#1}}}
+\setlength{\emergencystretch}{2em}
+\setlength{\parskip}{.15em}
+\setlength{\textfloatsep}{12pt}
+\setlength{\floatsep}{10pt}
+\begin{document}
+\twocolumn[{
+\begin{center}
+{\acbold\fontsize{27}{31}\selectfont Whistlegraph in Roblox}\par
+\vspace{.35em}{\Large Making Games While Playing}\par
+\vspace{.6em}\href{https://prompt.ac/@jeffrey}{@jeffrey}\quad\ac\quad 5 October 2026
+\end{center}
+\begin{abstract}
+Can a Roblox player become a game maker by speaking and drawing into Whistlegraph, then exhibit a playable creation inside a shared Roblox world? This design study evaluates that proposal against the current maker app, existing Roblox prototypes, and Roblox documentation inspected on 5 October 2026. Two integration paths emerge. A desktop companion can connect the phone to Roblox Studio's built-in Model Context Protocol server for editing, runtime inspection, and playtesting. A public experience can accept bounded creation data through a purpose-built Luau runtime, allowing selected changes while players remain in a session. These paths have different authority, persistence, and audience boundaries. We specify a revision protocol, a gallery of playable works, and an evaluation plan. Existing evidence establishes app-side versioning, place publication, and an image bridge; it does not establish the proposed integration, live-edit latency, or user outcomes. The recommended first experiment is one room edited from a phone, played by a second person, and restored from an acknowledged revision.
+\end{abstract}\vspace{.6em}
+}]
+
+\section{The question}
+A person playing Roblox sees a room they would like to change. They open Whistlegraph on a phone, draw a bridge, and say: ``Make this bridge bounce when I land on it.'' The room changes, the person tries it, and a friend enters through a gallery showing the creator's work. Making, playing, and showing become one activity.
+
+This is the intended integration. It contains three separate commitments: a comprehensible authoring instrument; a playable translation into Roblox; and a social destination where the result remains attributable and discoverable. An image on a wall satisfies only the exhibition part. A generated script satisfies only part of authoring. A successful upload does not establish that another person can play.
+
+We use \emph{vibe coding} to mean requesting software changes through ordinary language and judging them through use. The design must preserve a recoverable artifact beneath that conversational surface. Its central question is therefore: what can a user change during play, what can be saved, and who is allowed to publish the result?
+
+\section{Context and method}
+Whistlegraph's prior practice couples a drawing with the performance that produces it~\cite{whistlegraph}. This suggests an authoring interface where marks and sound remain meaningful inputs. The local piece research treats a small, versioned, performable work as a useful creative unit~\cite{pieces}. The proposed Roblox room applies that unit to a shared spatial setting.
+
+The earlier Robloxplorer study mapped discovery, place publishing, assets, and a possible art network~\cite{robloxplorer}. Its September account of unbuilt game directories is historical: the current repository contains Arena, Notepat, and an image bridge. This paper updates that baseline and asks a narrower question about creation during play.
+
+Roblox already supplies an AI Assistant in Studio for changing objects and scripts and inspecting results~\cite{assistant}. The contribution proposed here is a phone-based instrument and an exhibition network linked to those capabilities. We make no claim that natural-language Roblox development itself is new.
+
+The method combines source inspection, official documentation, four rerun local CLI tests, and bounded public reads. The source ledger records the repository revision, hashes of inspected files, documentation access dates, and limits of each observation. We distinguish \emph{observed now}, \emph{historically recorded}, \emph{documented}, and \emph{proposed}. Documentation establishes an available contract, not a successful account operation.
+
+\section{The existing seam}
+The public \url{https://whistlegraph.app/} page describes an invitation-only iPhone maker using speech, typing, and drawing~\cite{app}. The inspected implementation remains internally named Walkieware. Its Swift shell uses \pc{WKWebView}; its web engine edits a JavaScript piece and previews it in the \ac{} runtime. A version ledger, failed-attempt recovery, and thread synchronization already exist. The Whistlegraph mint backend consumes the same thread collection. These links support treating the code as the relevant maker pipeline, but this study did not inspect an installed iPhone release.
+
+No Roblox exporter was found in the inspected app source. Its JavaScript piece and packaged HTML output are not Roblox place files. A Roblox target needs a new representation or generation backend; changing the destination URL is insufficient.
+
+The Arena evidence ledger records publication of place version 18 and a client observation of an imported Pals image. Its version-18 headless task remains recorded as processing; the last reported completed pass belongs to version 16. Notepat records 19 local logic checks and no Roblox publication or perceptual playtest. A current unauthenticated request to the bridge manifest returned HTTP 403 from the research host; present accessibility is not established. These are useful components with different verification levels, not an integrated product.
+
+The image bridge is the most direct precedent. Server Luau fetches a versioned manifest, accepts approved numeric asset IDs, and retains the last valid image after a fetch failure. It polls once per minute and displays one image. It has no creation catalog, user account linking, or live room editor. Its existing revision check allows equal revisions; immutable content and idempotent operations must be added for editing.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,
+box/.style={draw=acdark,rounded corners=2pt,align=center,inner sep=7pt},
+link/.style={-{Stealth[length=2mm]},thick,draw=acdark}]
+\node[box,text width=6.8cm] (app) at (0,0) {Whistlegraph app\\Request + drawing + revision history};
+\node[box,text width=6.8cm] (route) at (0,-1.25) {Authenticated project service};
+\node[box,text width=3cm,fill=acpink!8] (studio) at (-1.95,-2.65) {Studio companion\\Scripts + playtest};
+\node[box,text width=3cm,fill=acpurple!8] (live) at (1.95,-2.65) {Public experience\\Bounded room data};
+\node[box,text width=6.8cm] (gallery) at (0,-4.05) {Reviewed creation in a shared gallery};
+\draw[link] (app)--(route);
+\draw[thick,draw=acdark] (route.south)--(0,-1.95);
+\draw[link] (0,-1.95)-|(studio.north);
+\draw[link] (0,-1.95)-|(live.north);
+\draw[thick,draw=acdark] (studio.south)|-(0,-3.45);
+\draw[thick,draw=acdark] (live.south)|-(0,-3.45);
+\draw[link] (0,-3.45)--(gallery.north);
+\end{tikzpicture}
+\caption{Proposed integration. Studio output reaches the gallery through a release; room data reaches it through catalog review. The two routes share an authoring surface but grant different capabilities.}
+\label{fig:routes}
+\end{figure}
+
+\section{Where the APIs are}
+Figure~\ref{fig:routes} separates two execution environments. Table~\ref{tab:api} maps the relevant interfaces, their authentication, and their limits as inspected on 5 October 2026. Endpoint-level contracts take precedence over generic authentication boilerplate on reference pages.
+
+\subsection{Studio is an actionable route}
+Roblox documents a built-in Studio MCP server, exposed locally through stdio. Its tools include script reads and edits, data-model inspection, Luau execution in Edit, Client, or Server contexts, viewport capture, play-mode control, and simulated inputs. Calls name a specific Studio instance. Script editing through \pc{multi_edit} targets the Edit data model~\cite{mcp}.
+
+That provides a documented foundation for a phone companion. An authenticated desktop bridge would connect Whistlegraph to the user's chosen Studio project. The phone could request a change and receive a screenshot, error, or test result. The app would not need to reproduce Studio's engine. This bridge is proposed; the documented MCP executable was absent from the inspected host, and no MCP session was exercised.
+
+\subsection{Cloud access is not uniform}
+The place-version upload endpoint accepts RBXL or RBXLX with an API key and a target universe and place~\cite{publishing,places}. The audited endpoint does not list OAuth. Assets and messaging do document delegated OAuth support~\cite{assets,messaging}. An identity connection therefore cannot be advertised as universal publishing authority.
+
+Roblox requires a 13+ account to authorize OAuth applications, and an ID-verified developer to register and publish an OAuth app~\cite{oauth}. Mobile clients use authorization code flow with PKCE~\cite{pkce}. These are material limits to the phrase ``any Roblox player.'' A younger player's ability to play or create inside a permitted experience is distinct from permission to connect an external app.
+
+The current universe reference provides management and messaging endpoints, but this audit did not establish a documented Open Cloud route that provisions a new universe and all required publishing settings in one operation~\cite{universes}. Arena's recorded bootstrap used an authenticated browser endpoint. That historical operation is not a delegated mobile API contract.
+
+\subsection{Three tempting category errors}
+First, the Engine Instances API is a beta interface for reading and updating script objects in collaborative sessions. It requires API-key authorization and excludes scripts open in Studio or inside packages~\cite{instances}. It is not a general editor of any running public server.
+
+Second, cloud Luau execution runs against a place version. The inspected model description says physics does not run, embedded scripts do not automatically start, and data-model changes cannot persist~\cite{luau}. It is useful for assertions. It is not the session where a player is currently jumping. The older Robloxplorer note about a possible save route should not be carried forward as current evidence.
+
+Third, \pc{HttpService:CreateWebStreamClient()} supports streaming protocols in Studio, but the current reference restricts it to Studio~\cite{httpclass}. We cannot assume that the app's streaming transport can simply be moved into a published game. The initial public runtime should use ordinary server HTTP requests and messaging notifications.
+
+\begin{table*}[t]
+\centering\small
+\caption{API boundary at 5 October 2026. All rows describe documented capabilities; proposed app integrations were not exercised. K = scoped API key; O = delegated OAuth; L = local Studio process; S = game-server code.}
+\label{tab:api}
+\begin{tabularx}{\textwidth}{@{}p{.21\textwidth}p{.085\textwidth}YY@{}}
+\toprule
+Interface & Access & Integration use & Boundary \\
+\midrule
+Studio MCP~\cite{mcp} & L & Read/edit project; inspect and playtest & Desktop Studio session; runtime and saved edits differ. \\
+Place versions~\cite{places,publishing} & K & Publish a built place artifact & Existing IDs; OAuth not listed for this endpoint. \\
+Universe management~\cite{universes} & K, O & Read/update supported settings; restart servers & Permissions and audience eligibility still apply. \\
+Assets API~\cite{assets} & K, O & Import images, audio, supported models & Type-specific limits, moderation, and usage permissions. \\
+Cloud messaging~\cite{messaging} & K, O & Notify a subscribed server of a revision & Small message; durable content fetched separately. \\
+Server HTTP~\cite{http} & S & Fetch approved room data; report applied revision & Must be enabled; rate limits and failures need handling. \\
+Engine Instances~\cite{instances} & K & Read/update scripts in collaborative editing & Beta restrictions; not public-session hot reload. \\
+Cloud Luau tasks~\cite{luau} & K & Assert structure and logic on a place version & No physics; task changes do not persist. \\
+Share links~\cite{share} & Dashboard & Enter from app; carry a creation reference & Launch data is routing input, not proof of ownership. \\
+TeleportService~\cite{teleport} & S & Move visitors to published places or games & Destination access and cross-owner settings; client test required. \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\section{Making while playing}
+There are two meanings of ``live'' that the interface must show separately: a change visible in the current simulation, and a saved change that survives the next session. A third state, public availability, requires its own decision. Conflating these states would make an apparently successful demo lose the user's work.
+
+\subsection{Desktop companion}
+The companion path is intended for a creator with access to Studio. The phone submits a request with the project, selected object, and base revision. A desktop service authenticates the request, selects the explicit Studio instance, and invokes the appropriate tools. Its access is limited to the chosen project; a raw desktop MCP endpoint is not exposed to public app users.
+
+During play, changing an object's size or position in the server data model can provide immediate experimental feedback. The corresponding design change must also be recorded in the Edit model or in a replayable source operation. A live server adjustment alone is not a saved release. Changes that require scripts to reinitialize may require stopping and restarting the playtest. The product should show ``preview applied'' and ``saved'' as different acknowledgments.
+
+For example, ``make the bridge wider'' could update a selected part in the test session and record the same intended dimensions in the project. ``Replace the jumping system'' should enter a script-edit and retest cycle. A failed change restores the previous design revision; transient gameplay state needs a separate reset policy. No blanket guarantee of uninterrupted arbitrary code replacement follows from the MCP tool list.
+
+This path is the shortest credible experiment for the studio's own use. It depends on an available desktop and a new app-to-desktop connector. Hosting desktop Studio sessions for every phone user would be a separate infrastructure product; this paper does not assume that service exists or is authorized.
+
+\subsection{Public creation runtime}
+The public path serves players inside a Whistlegraph-owned experience. A stable Luau interpreter constructs rooms from bounded data: authored curves, primitive objects, colors, spawn points, named goals, and selected behavior components. The maker generates that data instead of arbitrary executable source. Supported behaviors might include a moving platform, a musical trigger, a bounce surface, and a timed goal.
+
+This is expressive only within the grammar we implement. A request outside it must say what is unsupported or become a proposed runtime feature. A browser preview approximates the design; the Roblox client remains the authority for actual movement, collision, and multiplayer behavior.
+
+A first grammar should preserve the drawn mark. A stroke can define a walkway; its timing can define a sequence of notes; a closed shape can become an area to reach. The generator interprets these inputs, but the user can inspect and revise the resulting objects. A generic asset generator would not by itself preserve this relationship between gesture and play.
+
+Changes are scoped to the author's editable room. A global property such as \pc{Workspace.Gravity} affects the entire server: independent per-room gravity would require a custom movement implementation or separate servers. The initial grammar should omit that promise. Public visitors play a reviewed revision while the maker edits a draft session, so an experiment cannot unexpectedly alter every visitor's game.
+
+\subsection{Revision protocol}
+The proposed revision tuple is
+\[
+R=(c,r,p,v,h),
+\]
+where $c$ is the creation ID, $r$ the revision, $p$ its parent, $v$ the required runtime version, and $h$ a hash of canonical content. The backend owns authorship and visibility records. A user's uploaded JSON cannot declare itself approved or change its creator.
+
+An edit request also carries an idempotency key and the expected base revision. The service validates authorization, schema, references, object counts, coordinate bounds, and cost budgets before atomically advancing the draft pointer. A stale base returns a conflict; the system must not silently overwrite another edit.
+
+An Open Cloud message tells subscribed servers that a creation revision is available~\cite{messaging}. It carries a reference rather than the room. A server retrieves the authenticated snapshot, checks compatibility, and stages it away from active play. It applies the validated change at a safe boundary and reports the revision and outcome. The app labels a change applied only after that acknowledgment. Figure~\ref{fig:revision} shows the proposed sequence.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[font=\sffamily\small,node distance=4mm,
+box/.style={draw=acdark,rounded corners=2pt,text width=6.7cm,align=center,inner sep=6pt},
+link/.style={-{Stealth[length=2mm]},thick,draw=acdark}]
+\node[box] (request) {Request against revision 7};
+\node[box,below=of request] (check) {Authorize + validate + save revision 8};
+\node[box,below=of check] (hint) {Notify server: revision 8 available};
+\node[box,below=of hint] (fetch) {Fetch snapshot + stage room};
+\node[box,below=of fetch,fill=acpink!8] (apply) {Apply at safe boundary + acknowledge};
+\draw[link] (request)--(check);
+\draw[link] (check)--(hint);
+\draw[link] (hint)--(fetch);
+\draw[link] (fetch)--(apply);
+\end{tikzpicture}
+\caption{Proposed public-runtime edit protocol. Stored, delivered, applied, and publicly listed are distinct states. Lost notifications are recovered by fetching the durable revision pointer.}
+\label{fig:revision}
+\end{figure}
+
+Duplicate notifications must not repeat effects. Missing notifications trigger bounded polling with backoff. Unsupported runtime versions leave the current room intact. A rollback creates a new revision restoring earlier content, preserving history and monotonic revision numbers. A separate takedown flag overrides cached availability; known removal is never treated as an ordinary fetch failure.
+
+Object construction should be staged before replacing a room, with a known spawn and a recovery position for players affected by changed geometry. This does not make arbitrary physics transitions atomic. The implementation must define when an edit waits for the next round and when it may apply immediately.
+
+\subsection{What the phone sees}
+A second-screen prototype is straightforward to specify: Roblox runs on a computer while Whistlegraph runs on a phone. Studio's documented capture tool can supply viewport evidence through the companion. No equivalent general-purpose public-server video stream was established by this audit.
+
+On one iPhone, the user would move between two apps. The integration must tolerate suspension, reconnection, and an expired session. The app should show its last acknowledged creation revision and pending edits, without pretending that a local thumbnail is the current Roblox framebuffer. Embedding or continuously streaming the Roblox player inside Whistlegraph is outside the verified API surface.
+
+\section{A world that shows their work}
+The public destination is a gallery of playable creations. Each entry binds a creation ID, reviewed revision, creator credit, preview asset, and playable destination. A personal room can display several works; a shared directory can expose recent, curated, or explicitly remixed works. Ranking should begin with transparent curation rather than an untested popularity algorithm.
+
+For the first release, entering a creation can load its room inside the same place. The work remains a catalog entry, so a new user does not require a new Roblox universe. When isolation or scale demands it, a shared play place or separate published game can become a destination. Roblox's teleport service supports travel between places and games, but cross-owner settings, destination permissions, failure handling, and real-client tests matter~\cite{teleport}.
+
+An external share link can carry a creation reference into the experience~\cite{share}. The server resolves that reference against its approved catalog. Launch data must never establish authorship, grant edit access, or carry an account token. A separate identity flow binds an eligible app user to a stable Roblox user ID. Display names alone are not proof.
+
+Making a room inside Whistlegraph's experience gives a user authorship of a work within that product. It does not give them ownership of the Roblox experience, a separate discovery listing, an inventory item, or a revenue entitlement. These distinctions should be visible in the publication action and creator agreement.
+
+Exporting an independent game is a later capability. The author would need an authorized target and would still face Roblox's audience-dependent age checks, content questionnaire, and further all-ages publishing requirements~\cite{eligibility}. OAuth login cannot waive them. The proposed first release should say ``Publish to Whistlegraph World,'' with the destination named, rather than imply ownership of a new Roblox experience.
+
+\section{Implementation agenda}
+Reuse the app's version history, but add a target field identifying an \ac{} piece, a Roblox room recipe, or a Studio project. Preserve the original input and its resulting artifact relationship. Reuse existing asset-import records and source hashes; do not pass arbitrary remote media URLs straight through to clients.
+
+The first public runtime needs a schema validator, a bounded object builder, behavior modules, a server-side edit authority, a catalog reader, and an acknowledgment channel. The service needs immutable creation snapshots, draft and public pointers, moderation state, and per-author resource limits. The app needs target selection, a diff the user can understand, a pending/applied/error state, and undo.
+
+The first Studio connector needs project pairing, explicit instance selection, a bounded request queue, tool-result handling, and a saved-versus-preview ledger. It should preserve the developer's source repository as a recoverable authority. This connector should be tested independently of the public room interpreter; each has a different failure surface.
+
+Maintain three version identities: app document revision, Roblox runtime release, and Roblox place version. A release record should bind the runtime source hash, generated artifact hash, selected target, returned place version, and test evidence. A room revision can change without a place upload only when its required behavior already exists in that runtime. New behavior modules require a tested code release.
+
+\section{Evidence and evaluation}
+Table~\ref{tab:evidence} states what this study can currently establish. Public discovery still exposes Sky Pool for the Whistlegraph account. That read does not show the account's private inventory. The local credential check reported no configured publishing key, so this study performed no authenticated cloud test, upload, or configuration change.
+
+\begin{table}[t]
+\centering\small
+\caption{Evidence at the time of writing. A historical record is not a newly repeated test.}
+\label{tab:evidence}
+\begin{tabularx}{\columnwidth}{@{}>{\RaggedRight\arraybackslash}p{.29\columnwidth}Y@{}}
+\toprule
+Evidence & Supported conclusion \\
+\midrule
+App source & Piece generation and revision infrastructure exist; Roblox target absent in inspected files. \\
+CLI checks & Four tests rerun and passed, including a mocked upload; no live publish tested. \\
+Arena ledger & Version 18 upload recorded; its headless task is not recorded complete. \\
+Image ledger & Approved image ID and prior client display recorded; current manifest probe returned 403. \\
+Public API & Whistlegraph profile and public Sky Pool listing resolve. \\
+Studio docs & Capabilities documented; no local MCP execution in this study. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The next experiment should answer a concrete question: can a novice change one playable room, see the intended effect, recover a prior version, and invite another player? Start with a trusted adult creator pilot. Do not recruit children or claim a broadly accessible public workflow before age, consent, moderation, and account requirements are resolved.
+
+The minimum demonstration has six observable events: create a room; apply a supported edit during play; acknowledge the exact revision; reject an invalid edit without damaging the room; restore earlier content; and let a second player enter the reviewed result. A video should show the phone request and the Roblox effect with synchronized timestamps. A log should bind those frames to the same revision, without recording speech or chat by default.
+
+Measure separate intervals for input processing, model generation, validation, delivery, application, and acknowledgment. Report median and tail latency, failures, and reconnect behavior. An initial engineering target might be a median under three seconds and a 95th percentile under ten seconds \emph{from accepted patch to visible application}, excluding model generation and asset moderation. These are proposed targets, not observed performance or a promise about total request time.
+
+Test dropped and duplicate notifications, expired authorization, stale parents, incompatible runtime versions, mid-edit disconnects, invalid object references, resource exhaustion, and takedown propagation. Test that one creator cannot edit another room. Human playtests must check touch controls, legible gallery entries, collision changes, and whether users understand when work is saved. Headless success cannot replace these observations.
+
+Only after the loop works should a study measure how often visitors become makers, whether makers publish a second revision, and whether friends return to creations. Report denominators and observation windows. The study currently has no participant results, retention measurements, revenue observations, or comparison against Studio alone.
+
+\section{Governance and sustainability}
+Generated and imported works remain subject to Roblox's content rules. The operator needs review before public listing, reporting and removal tools, author attribution, and explicit remix permissions~\cite{safety}. The first experiment can use creator-owned shapes and preapproved audio, avoiding an assumption that every recording or drawing can be uploaded instantly. Audio and model use also require the appropriate asset permissions~\cite{assets}.
+
+Roblox's generative-AI guidance addresses content moderation, disclosure, and maturity classification; extended chatbot-style interactions receive additional restrictions~\cite{ai}. The app's off-platform generation and the in-game runtime must be assessed as the actual product flow. Moving an AI call to an external service is not an established exemption from the experience's obligations.
+
+Raw voice, drawings, prompts, and account-link records should remain private unless the creator intentionally publishes the relevant artifact. The gallery needs an approved output and attribution, not the conversation that produced it. An edit log can record creation ID, revision, action category, timing, and result without copying private input to analytics. Pairing must not become an alternate path around an OAuth age restriction.
+
+The ``turnstile'' hypothesis is a repeatable passage from making to showing to playing to revision. Its commercial value remains unmeasured. Costs include generation, asset handling, moderation, hosting, and support. Roblox Creator Rewards have qualification and engagement conditions~\cite{rewards}; they are not a payment for each catalog entry or click. Any creator revenue share would require its own accounting and terms. A gallery alone does not establish a sustainable business.
+
+\section{Limits and next decision}
+This is a design and documentation study. It has not established end-to-end app integration, a working Studio connector, cross-platform preview fidelity, multiplayer edit consistency, or public publishing eligibility. API availability and policy can change after the inspection date. The host lacked the documented Studio MCP executable and an available publishing credential, limiting direct verification.
+
+The recommended sequence is to prove the desktop companion with one owned project, then prove one bounded public room and its gallery entry. The companion tests the immediate experience of speaking while playing; the room runtime tests whether the idea can serve players without requiring each to operate Studio. Success on either path does not certify the other.
+
+\section{Conclusion}
+Roblox's current interfaces support a credible integration, provided its boundaries remain explicit. Studio MCP supplies a documented route for an AI client to inspect, edit, and playtest a creator's desktop project. A published Whistlegraph experience can support live creation through a runtime designed for versioned data. The phone app supplies the authoring instrument; the Roblox world supplies shared play and exhibition. The next proof is small: one authored room, one acknowledged live edit, one recoverable revision, and one other person playing the result.
+
+\input{references}
+\end{document}
