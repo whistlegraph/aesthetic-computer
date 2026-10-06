@@ -349,7 +349,7 @@ const server = http.createServer(async (req, res) => {
     await page.waitForFunction(()=>document.querySelector('#live-code').textContent.includes('export function'));
     assert.equal(await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='render').length),0,'code must arrive before complete checkpoint');
     await page.waitForFunction(()=>__nativeMessages.some(m=>m.action==='benchmark'&&m.event==='firstIncrementalCompile'));
-    assert.equal(await page.evaluate(()=>__nativeMessages.some(m=>m.action==='benchmark'&&m.event==='firstCheckpoint')),false,'streamed prefix should run before tool completion');
+    assert.equal(await page.evaluate(()=>{const events=__nativeMessages.filter(m=>m.action==='benchmark').map(m=>m.event);const compiled=events.indexOf('firstIncrementalCompile'),checkpoint=events.indexOf('firstCheckpoint');return compiled>=0&&(checkpoint<0||compiled<checkpoint);}),true,'streamed prefix should run before tool completion');
     await page.waitForFunction(()=>!window.whistlegraphIsBusy() && JSON.parse(localStorage.getItem('whistlegraph-source-versions')||'{}').head===1);
     assert.equal(await page.evaluate(()=>__guideFetches),0,'native guide seed avoids status-0 custom scheme fetch');
     const ledger=await page.evaluate(()=>JSON.parse(localStorage.getItem('whistlegraph-source-versions')));assert.equal(ledger.versions.length,2,'two preview layers create exactly one ask version');assert.equal(ledger.versions[1].layers,2);

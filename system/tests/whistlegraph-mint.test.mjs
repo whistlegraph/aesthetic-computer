@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { InMemorySigner } from '@taquito/signer';
-import { b58cencode, prefix } from '@taquito/utils';
+import { b58Encode, PrefixV2 } from '@taquito/utils';
 import sharp from 'sharp';
 import { whistlegraphMints, hash, mintPayload, verifyMintWallet, matchingMint, mintOperation, HEN_MINTER, HEN_OBJKTS } from '../backend/whistlegraph-mint.mjs';
 import { normalizeMintCover, pinMintDirectory } from '../backend/whistlegraph-pack.mjs';
@@ -102,7 +102,7 @@ test('packing is claimed once and publishes a Teia directory, ZIP, HTML, GIF and
   assert.equal(i.previewFrames, 48);
 });
 test('real signed ownership proof binds account, source, version and mint nonce', async () => {
-  const signer = new InMemorySigner(b58cencode(randomBytes(32), prefix.edsk2));
+  const signer = new InMemorySigner(b58Encode(randomBytes(32), PrefixV2.Ed25519Seed));
   const i = { _id:'mint', handle:'test', code:'wgDefen', version:7, sourceHash:'hash', nonce:'nonce' };
   const signature = (await signer.sign(mintPayload(i))).prefixSig;
   const proof = { address:await signer.publicKeyHash(), publicKey:await signer.publicKey(), signature };
