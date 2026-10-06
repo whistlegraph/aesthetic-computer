@@ -2728,7 +2728,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // when silent they fall to a flat/short floor instead of
         // vanishing, so the menubar still looks "alive."
         let frameRate: CGFloat = 24
-        let timer = Timer(timeInterval: TimeInterval(1.0 / frameRate), repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: TimeInterval(1.0 / frameRate), repeats: true) { [weak self] timer in
             guard let self = self else { return }
             let now = CACurrentMediaTime()
             let tapeActive = self.menuBand.tape.state == .recording
@@ -2743,6 +2743,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // One second preserves the meter's release tail, then lets the
                 // synth remove its tap and suspend the otherwise-idle engine.
                 self.setVisualizerWaveformCaptureEnabled(false)
+            }
+            // Once all release tails are invisible, skip the RMS/filter work
+            // and back off this visual-only clock. Note handling never waits
+            // on it; updateIcon wakes it on the next input/state change.
+            let meterAtRest = !audioActive && !self.visualizerWaveformCaptureEnabled
+                && self.visualizerSmoothedLevel < 0.001
+                && self.visualizerBars.allSatisfy { $0 < 0.001 }
+                && KeyboardIconRenderer.midiActivityFlash == 0
+                && KeyboardIconRenderer.metronomeFlash == 0
+                && !self.menuBand.percussionSplit
+            if meterAtRest {
+                timer.fireDate = Date(timeIntervalSinceNow: 0.25)
+                return
             }
             // Two RMS sources, one consumer:
             //   • While the user is recording (holding `), the bars
@@ -3647,6 +3660,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func updateIcon() {
+        if let timer = visualizerAnimTimer,
+           timer.fireDate.timeIntervalSinceNow > 1.0 / 24.0 {
+            timer.fireDate = Date()
+        }
         guard let button = statusItem.button else { return }
         // Keep the renderer's drum-zone coloring in sync with the live split.
         KeyboardIconRenderer.percussionLeftActive = menuBand.percussionLeft

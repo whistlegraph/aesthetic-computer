@@ -28,6 +28,7 @@ rm "$MODEL_DIR/pals-mesh-nat-amethyst.usdc"
 cp "$PALS_GLB" "$APP/Contents/Resources/pals-mesh.glb"
 
 swiftc -O \
+    -target "$(uname -m)-apple-macos14.0" \
     -framework AppKit \
     -framework QuartzCore \
     -framework SceneKit \

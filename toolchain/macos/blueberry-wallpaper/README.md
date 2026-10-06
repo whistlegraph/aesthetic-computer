@@ -5,13 +5,14 @@ Meshy v6 AC Pals model recovered for the Xbox native app:
 `xbox/assets/pals-mesh-nat-amethyst.glb`.
 
 The app bundles the original GLB and a SceneKit-readable USD conversion of the
-same mesh. SceneKit renders that geometry live at each display's native backing
-resolution. Varied-size Pals marks rotate independently while buoyant
+same mesh. SceneKit renders that geometry at 30 FPS at each display's native
+backing resolution, with 2× MSAA and two drawable buffers. Varied-size Pals marks rotate independently while buoyant
 acceleration and a gentle sway carry them upward. Every instance uses shared
-live mesh data rather than a bitmap sprite; its triangle topology is drawn as a
-translucent system-accent wireframe without surface textures or lighting.
+live mesh data rather than a bitmap sprite. One imported prototype and its
+geometry/materials are shared across displays and appearance rebuilds. Imported
+texture maps are discarded; the field uses a single opaque accent material.
 
-The model keeps its original amethyst textures over a blueberry field that
+The accent-shaded model floats over a blueberry field that
 responds to macOS appearance. The window sits beneath Finder's desktop icons,
 ignores input, joins every Space, and pauses while the display sleeps.
 
