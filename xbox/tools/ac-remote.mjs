@@ -29,7 +29,7 @@ async function main(){
   function curl(args){const r=spawnSync('curl',['-ksSf','--connect-timeout','3','--max-time','5',...args],{encoding:'utf8'});if(r.status)throw Error('Xbox Device Portal unavailable');return r.stdout;}
   const packages=JSON.parse(curl(['-u',auth,`${base}/api/app/packagemanager/packages`]));
   const pkg=packages.InstalledPackages.filter(p=>p.PackageFamilyName==='AestheticComputer.NativeBios').sort((a,b)=>b.Version.Revision-a.Version.Revision)[0];
-  if(!pkg||pkg.Version.Revision<66)throw Error('Xbox needs Native BIOS 66 or newer');
+  if(!pkg||pkg.Version.Revision<68)throw Error('Xbox needs Native BIOS 68 or newer');
   const token=randomBytes(32).toString('hex'),dir=mkdtempSync(join(tmpdir(),'ac-remote-'));
   try{
     const path=join(dir,'ac-remote.txt');writeFileSync(path,`${token}\n${Math.floor(Date.now()/1000)+7200}\n`,{mode:0o600});

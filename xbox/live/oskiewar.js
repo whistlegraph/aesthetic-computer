@@ -128,7 +128,7 @@ function syncNativeAccount() {
 }
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 268;
+const buildVersion = 269;
 const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
@@ -10633,7 +10633,7 @@ function poolMoveVector(held, pad) {
   if(length>.001){fx/=length;fz/=length;}else{fx=Math.cos(poolCameraYaw);fz=Math.sin(poolCameraYaw);}
   return {x:fx*y+fz*x,z:fz*y-fx*x,magnitude,forwardX:fx,forwardZ:fz};
 }
-const poolZoomSteps=[1.65,1,.32],poolZoomLabels=['FAR','NEAR','SUPER NEAR'];
+const poolZoomSteps=[4.2,1.65,1,.32],poolZoomLabels=['SUPER FAR','FAR','NEAR','SUPER NEAR'];
 function poolZoomIndex(){return poolZoomSteps.reduce((best,z,i)=>Math.abs(z-playerCameraZoom)<Math.abs(poolZoomSteps[best]-playerCameraZoom)?i:best,0);}
 function cyclePoolZoom(){playerCameraZoom=poolZoomSteps[(poolZoomIndex()+1)%poolZoomSteps.length];}
 function updateLookInput(x,y,orbit,dt) {
@@ -10649,7 +10649,7 @@ function updateLookInput(x,y,orbit,dt) {
     playerCameraYaw=clamp(playerCameraYaw+axis(x)*dt*1.15+(orbit?.yaw||0),-.62,.62);
     playerCameraPitch=clamp(playerCameraPitch+axis(y)*dt*.72+(orbit?.pitch||0),-.24,.28);
   }
-  if(orbit?.zoom)playerCameraZoom=clamp(playerCameraZoom*Math.exp(orbit.zoom),poolOnly()?.24:.55,2.1);
+  if(orbit?.zoom)playerCameraZoom=clamp(playerCameraZoom*Math.exp(orbit.zoom),poolOnly()?.24:.55,poolOnly()?4.2:2.1);
   if(orbit)orbit.yaw=orbit.pitch=orbit.zoom=0;
 }
 function trackPoolFreeCamera(p,dt) {
@@ -28192,11 +28192,15 @@ function drawXboxController(p,safe){
  seatHudText('R3 '+poolZoomLabels[poolZoomIndex()],x+65,y-112,20,[219,229,240]);
  const action=chalkHands(p).length?'triggers draw · bumpers drop':p.gunAmmo>0?'LT aim   RT fire':'RT use   A jump';
  seatHudText(action,x-70,y-82,22,[219,229,240]);
- if(p.gunAmmo>0&&!freeskateMenu){
-   const cx=viewCenterX(),cy=viewHeight/2,ink=[240,248,255];
-   for(const [dx,dy] of [[-10,0],[10,0],[0,-10],[0,10]])filledDisc(cx+dx,cy+dy,3,[20,25,32]);
-   for(const [dx,dy] of [[-10,0],[10,0],[0,-10],[0,10]])filledDisc(cx+dx,cy+dy,1.7,ink);
+}
+function drawWeaponCrosshair(p){
+ if(p.gunAmmo<=0||!p.alive||freeskateMenu||selecting)return;
+ const cx=viewCenterX(),cy=viewHeight/2,gap=p.aiming?5:9,length=10,ink=[250,252,255],outline=[12,16,23];
+ for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]){
+   const x=cx+dx*gap,y=cy+dy*gap,ex=cx+dx*(gap+length),ey=cy+dy*(gap+length);
+   filledCapsule(x,y,ex,ey,3.6,outline);filledCapsule(x,y,ex,ey,1.6,ink);
  }
+ filledDisc(cx,cy,3,outline);filledDisc(cx,cy,1.5,ink);
 }
 function drawSeatPlayerHud(ink){
  drawSeatFirstPerson();
@@ -28205,7 +28209,7 @@ function drawSeatPlayerHud(ink){
  for(const p of activePlayers()){
   if(p.dummy)continue;
   const i=p.pad,{idle,measure,metrics}=seatHudReadout(p,now);
-  if(poolOnly()&&i===0)drawParkControls(p,safe);
+  if(poolOnly()&&i===0){drawParkControls(p,safe);drawWeaponCrosshair(p);}
   const accent=p.wheelTurbo?[209,129,255]:i?[174,161,255]:[255,144,188];
   const size=42;
   const heartRadius=size*.23,heartSpace=heartRadius*3+18;

@@ -6,7 +6,7 @@
          IgnorableNamespaces="uap mp rescap">
   <Identity Name="AestheticComputer.NativeBios"
             Publisher="CN=AestheticComputerDev"
-            Version="1.0.0.67" />
+            Version="1.0.0.68" />
   <mp:PhoneIdentity PhoneProductId="892d830b-d069-4770-ad28-33d1d9bdd856"
                     PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>
@@ -50,6 +50,7 @@
   </Applications>
   <Capabilities>
     <Capability Name="internetClient" />
+    <Capability Name="internetClientServer" />
     <Capability Name="privateNetworkClientServer" />
     <rescap:Capability Name="hevcPlayback" />
     <uap:Capability Name="removableStorage" />

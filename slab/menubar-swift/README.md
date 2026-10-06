@@ -364,12 +364,12 @@ Uninstall is handled by `slab/uninstall.sh`, which removes `computer.slab.menuba
 - First-class callers: `devault.fish`, `lith/deploy.fish`, npm session scripts.
 - Richer status: lid sensor sparkline, ambient-synth peak, SSH session count.
 
-AC Remote also supports the developer Xbox build (Native BIOS 66+). Right-click
+AC Remote also supports the developer Xbox build (Native BIOS 68+). Right-click
 **AC** and select **Xbox · Oskiewar**, then click or press **Command–Option–L**.
 Use WASD to move, the mouse to look, left-click to use the right hand, right-click to use the left hand (or aim a gun),
 Space to jump, Shift to crouch, E to interact, Q to drop, and Escape for the menu.
 IJKL can move the camera without a mouse; X/R use the triggers, Control/F drop
-the left/right tool, and C cycles far, near, and super-near zoom. Press
+the left/right tool, and C cycles super-far, far, near, and super-near zoom. Press
 **Command–Option–L** to return both keyboard and pointer to the Mac.
 
 Install `xbox/tools/ac-remote.mjs` as `~/.local/bin/ac-xbox-remote.mjs` and retain

@@ -2210,7 +2210,10 @@ private:
     m_api->gamepad.down.clear();
     m_api->gamepad.pads.clear();
     PadState remote;
-    if(m_remotePad.read(remote)){
+    const bool remoteActive=m_remotePad.read(remote);
+    const auto remoteStatus=m_remotePad.takeStatus();
+    if(!remoteStatus.empty())LogTelemetry("AC_NATIVE_REMOTE"+remoteStatus);
+    if(remoteActive){
       static_cast<PadState&>(m_api->gamepad)=remote;
       m_api->gamepad.pads.push_back(remote);
       m_previousButtons=0;

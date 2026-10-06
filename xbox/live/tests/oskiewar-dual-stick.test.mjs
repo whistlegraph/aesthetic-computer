@@ -83,18 +83,18 @@ test('both hands draw independent colors; releasing and dropping one preserves t
  assert.equal(a.chalkAtHand(p,'left-arm').color.name,left.color.name);
  a.dropParkItem(p,2e6,'left-arm');assert.equal(a.chalkAtHand(p,'right-arm').color.name,'BLUE');
 });
-test('right-stick clicks cycle three zoom distances once per press and preserve orbit',()=>{
+test('right-stick clicks cycle four zoom distances once per press and preserve orbit',()=>{
  const {api:a}=fixture(),p=a.players[0];a.updateLookInput(.6,.3,null,.3);
  const yaw=a.yaw,pitch=a.pitch,distances=[];
- for(let i=0;i<3;i++){
+ for(let i=0;i<4;i++){
   a.systemButtons(['RightStick']);const z=a.zoom;a.systemButtons(['RightStick']);assert.equal(a.zoom,z);
   a.systemButtons([]);distances.push(z);assert.equal(a.yaw,yaw);assert.equal(a.pitch,pitch);
  }
- assert.deepEqual(distances,[.32,1.65,1]);
+ assert.deepEqual(distances,[.32,4.2,1.65,1]);
  p.chalkDrawing=true;p.chalkDrawingHands=['left-arm','right-arm'];
  const distances3d=[];
- for(let i=0;i<3;i++){a.cyclePoolZoom();a.trackPoolFreeCamera(p,10);const c=a.cameraDoll;distances3d.push(Math.hypot(c.position.x-c.target.x,c.position.y-c.target.y,c.position.z-c.target.z));}
- assert.ok(distances3d[0]<distances3d[2]*.4);assert.ok(distances3d[1]>distances3d[2]*1.5);
+ for(let i=0;i<4;i++){a.cyclePoolZoom();a.trackPoolFreeCamera(p,10);const c=a.cameraDoll;distances3d.push(Math.hypot(c.position.x-c.target.x,c.position.y-c.target.y,c.position.z-c.target.z));}
+ assert.ok(distances3d[0]<distances3d[2]*.4);assert.ok(distances3d[1]>distances3d[2]*2);
 });
 test('Painting supplies are separated; walking or chalking off the edge falls and resets without erasing art',()=>{
  const f=fixture(),a=f.api,p=a.players[0],b=a.paintingBounds();
