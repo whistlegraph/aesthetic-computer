@@ -1,9 +1,9 @@
 // The same account requirement applies to every Aesel interface and provider.
-export async function verifyAccount(token, {fetch = globalThis.fetch, site = 'https://aesthetic.computer', authDomain = 'hi.aesthetic.computer', userAgent} = {}) {
+export async function verifyAccount(token, {fetch = globalThis.fetch, site = 'https://aesthetic.computer', authDomain = 'hi.aesthetic.computer', userAgent, timeoutMs = 8000} = {}) {
   if (!token) throw Object.assign(new Error('Sign in to Aesthetic Computer to use Aesel.'), {code:'sign-in'});
   const json = async (url, headers, allowMissing = false) => {
     let response;
-    try { response = await fetch(url, {headers, signal:AbortSignal.timeout(8000)}); }
+    try { response = await fetch(url, {headers, signal:AbortSignal.timeout(timeoutMs)}); }
     catch (error) { throw offlineError(error); }
     if (allowMissing && response.status === 404) return {handle:""};
     if (!response.ok) throw Object.assign(new Error(`Could not verify your AC account (HTTP ${response.status}). Sign in again or retry.`), {status:response.status, code:'account-unverified'});

@@ -1,0 +1,43 @@
+{
+  "identity": {
+    "model": "fal-ai/flux-kontext/dev",
+    "input_sha256": "73d7ed9877bc3b373ef42a3cec0d2e94ee1b2f32c7296c6067032d2b3b949d3e",
+    "prompt_sha256": "9662cbd6fc45bf4cdbe4a9c4bf77f73ba27560e0329b4ffa81f0fb15e573374e",
+    "seed": 20261022,
+    "inference_size": 256
+  },
+  "provider": "fal",
+  "model": "fal-ai/flux-kontext/dev",
+  "start": "blank",
+  "kind": "autonomous",
+  "step": 1,
+  "input": "starts/blank.png",
+  "sent_size": [
+    256,
+    256
+  ],
+  "prompt": "Continue this exact image by making exactly one small, deliberate painting move. Choose the move yourself in response to the existing composition: add one simple mark, extend one existing shape, or change one small region of color. Keep the change within a single area occupying at most one tenth of the canvas. Preserve every other part of the input image, including its colors, texture, softness, edges, empty areas, and framing. If the image is blank or noise, add just one small mark and preserve the rest. Return only the complete updated image. Do not finish the painting, add a scene, enhance detail, sharpen, relight, add lettering, or change the overall style.",
+  "parameters": {
+    "seed": 20261022,
+    "num_inference_steps": 28,
+    "num_images": 1,
+    "output_format": "png",
+    "sync_mode": true,
+    "enable_safety_checker": true,
+    "resolution_mode": "match_input",
+    "guidance_scale": 2.5,
+    "acceleration": "none"
+  },
+  "created_at": "2026-10-05T22:45:00.257782+00:00",
+  "status": "failed",
+  "api_network": {
+    "connect_tcp_seconds": 0.3015927090018522,
+    "start_tls_seconds": 0.08024237499921583,
+    "response_headers_seconds": 0.4682057089958107,
+    "http_version": "HTTP/2",
+    "status_code": 403,
+    "total_seconds": 0.4687584999919636
+  },
+  "failed_after_seconds": 0.46965337501023896,
+  "error": "HTTP 403"
+}

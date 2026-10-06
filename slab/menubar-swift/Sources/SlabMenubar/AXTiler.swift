@@ -126,6 +126,7 @@ enum AXTiler {
             terminal: windowRefs(bundleId: "com.apple.Terminal", liveWindows: liveWindows),
             acPanes: windowRefs(bundleId: "computer.aesthetic.app",
                                 requireStandardSubrole: false, liveWindows: liveWindows)
+                + windowRefs(bundleId: "computer.aesthetic.nopaint", liveWindows: liveWindows)
                 + easelWindowRefs(liveWindows: liveWindows),
             chrome: windowRefs(bundleId: "com.google.Chrome", liveWindows: liveWindows),
             stage: stageBundleIDs.flatMap {
@@ -149,6 +150,8 @@ enum AXTiler {
             + windowRefs(bundleId: "computer.aesthetic.app", requireStandardSubrole: false,
                          liveWindows: liveWindows, requireGeometry: false)
             + easelWindowRefs(liveWindows: liveWindows, requireGeometry: false)
+            + windowRefs(bundleId: "computer.aesthetic.nopaint", liveWindows: liveWindows,
+                         requireGeometry: false)
             + windowRefs(bundleId: "com.google.Chrome", liveWindows: liveWindows,
                          requireGeometry: false)
             + wizardWindowRefs(liveWindows: liveWindows, requireGeometry: false)
