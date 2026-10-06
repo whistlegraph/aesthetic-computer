@@ -56,13 +56,9 @@ private enum Emblem {
 }
 
 private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
-    private struct Placement {
-        let model: SCNNode
-        var x: CGFloat
-        var y: CGFloat
-        let width: CGFloat
-        let height: CGFloat
-    }
+    // SCNNode.clone shares geometry/materials. Keep one imported prototype
+    // across displays and appearance rebuilds, not one import per window.
+    private static var sharedPrototype: SCNNode?
 
     private static let stageHalfHeight: CGFloat = 2.35
     // Tiny drifting glyphs: roughly quarter-icon to half-icon height on the
@@ -129,8 +125,8 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         // instead of against a transparent surface composited later — the
         // latter left tinted alpha fringes along every silhouette.
         sceneView.backgroundColor = .black
-        sceneView.antialiasingMode = .multisampling4X
-        sceneView.preferredFramesPerSecond = 60
+        sceneView.antialiasingMode = .multisampling2X
+        sceneView.preferredFramesPerSecond = 30
         sceneView.rendersContinuously = true
         sceneView.isPlaying = true
         addSubview(sceneView)
@@ -158,10 +154,14 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         super.viewDidMoveToWindow()
         updateAppearance(animated: false)
         guard let scale = window?.backingScaleFactor else { return }
-        // Render at no less than 2× and let the compositor downsample: on a
-        // 1× display 4× MSAA alone still shows stair-steps along the
-        // silhouettes, and supersampling on top of it smooths them out.
-        sceneView.layer?.contentsScale = max(scale, 2)
+        // Native backing resolution avoids quadrupling render-target memory
+        // on 1× external displays. MSAA still smooths the geometry edges.
+        sceneView.layer?.contentsScale = scale
+        // The slow desktop field needs only a front/back drawable pair.
+        // A third full-screen Retina IOSurface costs ~19 MB on Blueberry.
+        if let metalLayer = sceneView.layer as? CAMetalLayer {
+            metalLayer.maximumDrawableCount = 2
+        }
     }
 
     /// Posted after the system appearance flips. macOS keeps a light/dark
@@ -266,7 +266,17 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
 
     private func loadModel() {
         let prototype: SCNNode
-        if let emblemPath = Emblem.path, !Emblem.isModel {
+        if let shared = Self.sharedPrototype {
+            prototype = shared
+            prototype.enumerateChildNodes { node, _ in
+                for material in node.geometry?.materials ?? [] {
+                    if !materials.contains(where: { $0 === material }) {
+                        materials.append(material)
+                    }
+                }
+            }
+            applyAccentColor(animated: false)
+        } else if let emblemPath = Emblem.path, !Emblem.isModel {
             guard let emblem = emblemPrototype(path: emblemPath) else {
                 fputs("could not load emblem image at \(emblemPath)\n", stderr)
                 return
@@ -301,16 +311,13 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
             (lo.x + hi.x) * 0.5,
             (lo.y + hi.y) * 0.5,
             (lo.z + hi.z) * 0.5)
+        Self.sharedPrototype = prototype
 
         for spec in Self.specs {
             let model = prototype.clone()
             let scale = spec.scale * Self.markScale
             model.scale = SCNVector3(scale, scale, scale)
             model.eulerAngles = SCNVector3(-0.055, spec.phase * .pi * 2, 0)
-            let angle = (spec.reverse ? -1 : 1) * CGFloat.pi * 2
-            let turn = SCNAction.rotateBy(x: 0, y: angle, z: 0, duration: spec.turnSeconds)
-            turn.timingMode = .linear
-            model.runAction(.repeatForever(turn), forKey: "fullResolutionTurn")
             scene.rootNode.addChildNode(model)
             models.append(model)
         }
@@ -325,9 +332,11 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         // side deliberately overscan by almost half their width so the live
         // field reads full-bleed instead of as an inset/letterboxed stage.
         let padding: CGFloat = 0.13
-        var candidates: [Placement] = []
 
         for (model, spec) in zip(models, Self.specs) {
+            let turn = CGFloat(elapsed / spec.turnSeconds) * .pi * 2
+            model.eulerAngles = SCNVector3(-0.055,
+                spec.phase * .pi * 2 + (spec.reverse ? -turn : turn), 0)
             let raw = CGFloat(elapsed / spec.riseSeconds) + spec.phase
             let progress = raw - floor(raw)
             let scale = spec.scale * Self.markScale
@@ -343,16 +352,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
             let overscanWidth = halfWidth + width * 0.45
             let desiredX = spec.x * overscanWidth
                 + sin(progress * .pi * 2 + spec.phase * .pi) * halfWidth * spec.sway
-            candidates.append(Placement(
-                model: model, x: desiredX, y: low + (high - low) * buoyant,
-                width: width, height: height))
-        }
-
-        // Do not solve collisions frame-by-frame: a change in vertical order
-        // makes that solver jump an entire mark in one frame.  Overlap is part
-        // of the field; independent continuous paths keep every edge stable.
-        for placement in candidates {
-            placement.model.position = SCNVector3(placement.x, placement.y, 0)
+            model.position = SCNVector3(desiredX, low + (high - low) * buoyant, 0)
         }
     }
 
@@ -383,25 +383,20 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
     }
 
     private func applyOriginalGLBMaterials(to model: SCNNode) {
+        // The field is accent shaded, so retain none of the imported model's
+        // texture maps. All mesh instances and displays share this material.
+        let material = SCNMaterial()
+        material.lightingModel = .lambert
+        material.diffuse.contents = NSColor.controlAccentColor
+        material.metalness.contents = 0.0
+        material.roughness.contents = 1.0
+        material.specular.contents = NSColor.black
         model.enumerateChildNodes { node, _ in
-            for material in node.geometry?.materials ?? [] {
-                material.fillMode = .fill
-                material.lightingModel = .lambert
-                material.diffuse.contents = NSColor.controlAccentColor
-                material.emission.contents = nil
-                material.multiply.contents = nil
-                material.normal.contents = nil
-                material.metalness.contents = 0.0
-                material.roughness.contents = 1.0
-                material.specular.contents = NSColor.black
-                // Opaque surfaces avoid SceneKit's transparency sorting and
-                // the stippled/dancing silhouettes it produces at the crop.
-                material.transparency = 1.0
-                if !materials.contains(where: { $0 === material }) {
-                    materials.append(material)
-                }
+            if let geometry = node.geometry {
+                geometry.materials = [material]
             }
         }
+        materials = [material]
         applyAccentColor(animated: false)
     }
 

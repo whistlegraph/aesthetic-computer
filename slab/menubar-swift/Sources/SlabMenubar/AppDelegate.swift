@@ -777,25 +777,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // awaiting brightness and stale blink). When the polygon goes away
         // entirely, stop the timer and reset phases.
         if !state.claudeSessions.isEmpty || state.idleResting {
+            let interval: TimeInterval = state.idleResting ? 0.5 : 0.08
+            if let timer = animTimer, timer.timeInterval != interval {
+                timer.invalidate()
+                animTimer = nil
+            }
             if animTimer == nil {
-                let t = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
+                let t = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
                     guard let self = self else { return }
+                    let phaseStep = CGFloat(interval / 0.08)
                     // Idle rests at a gentle hue flow; active states cycle
                     // faster (the awaiting throb reads off this phase).
                     let rainbowStep: CGFloat = self.state.idleResting ? 0.006 : 0.025
-                    self.rainbowPhase = (self.rainbowPhase + rainbowStep).truncatingRemainder(dividingBy: 1.0)
+                    self.rainbowPhase = (self.rainbowPhase + rainbowStep * phaseStep).truncatingRemainder(dividingBy: 1.0)
                     if self.state.anyActive {
                         let rotSpeed = 0.004 + 0.012 * CGFloat(self.state.awaitingCount)
                         self.rotationPhase = (self.rotationPhase + rotSpeed)
                             .truncatingRemainder(dividingBy: .pi * 2)
                     } else if self.state.idleResting {
                         // Slow spin — ~50 s per revolution. Enticing, not busy.
-                        self.rotationPhase = (self.rotationPhase + 0.010)
+                        self.rotationPhase = (self.rotationPhase + 0.010 * phaseStep)
                             .truncatingRemainder(dividingBy: .pi * 2)
                     }
                     self.updateIcon()
                 }
                 RunLoop.main.add(t, forMode: .common)
+                t.tolerance = interval * 0.15
                 animTimer = t
             }
         } else if let t = animTimer {

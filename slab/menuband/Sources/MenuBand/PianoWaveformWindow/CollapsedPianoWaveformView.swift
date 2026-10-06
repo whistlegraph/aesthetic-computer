@@ -106,6 +106,10 @@ final class CollapsedPianoWaveformView: NSView {
         arrowsCluster.setHighlight(direction: direction, on: on)
     }
 
+    func setPresented(_ presented: Bool) {
+        waveformStrip.isLive = presented
+    }
+
     private static let arrowsRowHeight: CGFloat = 34
     private static let modeRowHeight: CGFloat = 22
     private static let edgePadding: CGFloat = 6
@@ -337,6 +341,9 @@ final class CollapsedPianoWaveformView: NSView {
             ])
         keymapButton.toolTip = "Open the full-screen keymap (piano + QWERTY)"
 
+        // Panels are prebuilt while hidden. Their attached views must not
+        // acquire an audio-capture lease until their host presents them.
+        waveformStrip.isLive = false
         waveformStrip.menuBand = menuBand
         // Clicking the live scope blows it up to the full-screen LED wall —
         // the same display, nothing else on screen. Where no visualizer is

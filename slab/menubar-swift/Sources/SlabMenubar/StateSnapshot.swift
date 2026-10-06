@@ -398,6 +398,10 @@ struct StateSnapshot {
     /// prints — and swap comes from vm.swapusage; both are in-process
     /// sysctls. The hogs list is one `ps` fork (memory-sorted), which is
     /// in line with the ioreg/pmset/pgrep forks gather() already pays.
+    private static let hogCacheLock = NSLock()
+    private static var cachedHogs: [SystemHog] = []
+    private static var hogsReadAt: TimeInterval = -.infinity
+
     private static func readSystemStats() -> SystemStats {
         var stats = SystemStats()
 
@@ -419,6 +423,15 @@ struct StateSnapshot {
             stats.loadAvg = loads[0]
         }
 
+        // The memory-ranked process submenu does not need a full process
+        // census on every fleet refresh. Pressure/load remain live above.
+        hogCacheLock.lock()
+        defer { hogCacheLock.unlock() }
+        let now = ProcessInfo.processInfo.systemUptime
+        if now - hogsReadAt < 30 {
+            stats.hogs = cachedHogs
+            return stats
+        }
         if let out = ShellRunner.output(
             "/bin/ps", args: ["axm", "-o", "rss=,pcpu=,pid=,comm="], timeout: 2) {
             for line in out.split(separator: "\n").prefix(6) {
@@ -433,6 +446,8 @@ struct StateSnapshot {
                 stats.hogs.append(SystemHog(
                     pid: pid, rssMB: rssKB / 1024, cpu: cpu, name: name))
             }
+            cachedHogs = stats.hogs
+            hogsReadAt = now
         }
         return stats
     }

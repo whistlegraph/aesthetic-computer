@@ -208,14 +208,14 @@ final class ResourceGraph: NSObject {
     private var hoverGlobalMonitor: Any?
     private var hoverLocalMonitor: Any?
 
-    private let sampleInterval: TimeInterval = 1.0 / 4.0
+    private let sampleInterval: TimeInterval = 1.0
     private let barSectionBaseWidth: CGFloat = 13.5
     private let graphInset: CGFloat = 2
     private let graphGap: CGFloat = 1
-    private let historyLimit = 60        // 15 seconds at 4 Hz.
-    private let networkStride = 2        // Network reads at 2 Hz to calm short bursts.
-    private let gpuStride = 8            // IOKit once per two seconds.
-    private let diskStride = 40          // statfs once per ten seconds.
+    private let historyLimit = 15        // Keep the same 15-second window at 1 Hz.
+    private let networkStride = 1        // Network deltas cover a full second.
+    private let gpuStride = 2            // IOKit once per two seconds.
+    private let diskStride = 10          // statfs once per ten seconds.
 
     /// MenuBand scales its 13.5pt semitone keys with this same factor.
     private var displayScale: CGFloat {
@@ -352,7 +352,6 @@ final class ResourceGraph: NSObject {
         button.contentTintColor = nil
         // The same local panel serves hover and click; there is deliberately no
         // second click-only menu or tooltip path.
-        guard tickCount == 1 || tickCount % 4 == 0 else { return }
         button.toolTip = nil
         refreshHoverCard()
     }
