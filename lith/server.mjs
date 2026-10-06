@@ -1504,6 +1504,8 @@ if (!DEV) {
       const {connect}=await import(pathToFileURL(join(SYSTEM,"backend","database.mjs")).href);
       const {speechBilling}=await import(pathToFileURL(join(SYSTEM,"backend","whistlegraph-speech-billing.mjs")).href);
       await speechBilling((await connect()).db).reconcile();
+      const {noPaintBilling}=await import(pathToFileURL(join(SYSTEM,"backend","nopaint-billing.mjs")).href);
+      await noPaintBilling((await connect()).db).reconcile();
       const count=await paid.withWallets(w=>paid.reconcilePaidHolds(w));
       if(count)console.log("[lith] recovered credit holds:",count);
     } catch { console.error("[lith] credit reconciliation failed; will retry"); }
