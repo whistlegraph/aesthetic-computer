@@ -27,23 +27,29 @@ export function fighterMesh(appearance) {
     }
   }
   const a = appearance;
-  ellipsoid([0, 0.45, 0], [.34, .54, .23], a.shirt);
-  ellipsoid([0, .97, 0], [.13, .18, .13], a.skin);
-  ellipsoid([0, -.12, 0], [.34, .18, .22], a.pants);
+  ellipsoid([0, 0.45, 0], [.15, .54, .14], a.shirt);
+  ellipsoid([0, .97, 0], [.08, .18, .08], a.skin);
+  ellipsoid([0, -.12, 0], [.19, .14, .14], a.pants);
   ellipsoid([0, 1.27, 0], [.31, .36, .29], a.skin);
   for (const side of [-1, 1]) {
-    ellipsoid([side * .35, .7, 0], [.22, .16, .17], a.shirt);
-    ellipsoid([side * .5, .48, 0], [.14, .35, .15], a.shirt);
-    ellipsoid([side * .6, -.02, .03], [.12, .26, .13], a.sleeves === 'long' ? a.shirt : a.skin);
-    ellipsoid([side * .61, -.3, .04], [.13, .14, .14], a.skin);
-    ellipsoid([side * .2, -.53, 0], [.18, .5, .18], a.pants);
-    ellipsoid([side * .21, -1.15, 0], [.14, .31, .15], a.pants);
-    ellipsoid([side * .21, -1.46, .1], [.16, .11, .27], a.shoes);
-    ellipsoid([side * .105, 1.3, .268], [.034, .035, .018], [20, 20, 25]);
+    ellipsoid([side * .25, .78, 0], [.17, .075, .08], a.shirt);
+    ellipsoid([side * .4, .48, 0], [.075, .33, .08], a.shirt);
+    ellipsoid([side * .44, -.04, .03], [.07, .26, .075], a.sleeves === 'long' ? a.shirt : a.skin);
+    ellipsoid([side * .44, -.3, .04], [.085, .10, .09], a.skin);
+    ellipsoid([side * .14, -.53, 0], [.095, .5, .10], a.pants);
+    ellipsoid([side * .17, -1.15, 0], [.075, .31, .08], a.pants);
+    ellipsoid([side * .17, -1.46, .08], [.10, .08, .20], a.shoes);
+    ellipsoid([side * .105, 1.3, .268], [.052, .062, .024], [250, 252, 255]);
+    ellipsoid([side * .105, 1.3, .291], [.023, .030, .013], [30, 39, 50]);
   }
+  ellipsoid([0, 1.18, .285], [.047, .067, .053], a.skin);
+  ellipsoid([0, 1.08, .252], [.065, .018, .017], [100, 63, 58]);
   if (a.hairStyle !== 'none') {
     ellipsoid([0, 1.51, -.025], [.325, a.hairStyle === 'curly' ? .21 : .14, .3], a.hair);
-    if (a.hairStyle === 'long') ellipsoid([0, 1.23, -.15], [.34, .44, .18], a.hair);
+    if (a.hairStyle === 'long') {
+      ellipsoid([0, 1.23, -.15], [.34, .44, .18], a.hair);
+      for (const side of [-1, 1]) ellipsoid([side * .29, 1.25, .06], [.07, .29, .16], a.hair);
+    }
   }
   if (a.beard) ellipsoid([0, 1.04, .165], [.22, .16, .14], a.hair);
   if (a.glasses) for (const side of [-1, 1]) ellipsoid([side * .115, 1.31, .29], [.09, .065, .02], [18, 20, 28]);
@@ -53,17 +59,17 @@ export function mountFighterPreview(host, fighter) {
   const appearance = validateFighter(fighter), mesh = fighterMesh(appearance);
   const canvas = document.createElement('canvas');
   canvas.width = 640; canvas.height = 760;
-  canvas.style.cssText = 'position:static;inset:auto;width:100%;height:auto;max-height:38vh;object-fit:contain;background:#deded5';
+  canvas.style.cssText = 'position:static;inset:auto;width:100%;height:auto;max-height:38vh;object-fit:contain;background:#f2f6fc;border-radius:20px';
   canvas.setAttribute('aria-label', 'Generated fighter preview. Use the rotation slider to inspect all sides.');
   const slider = document.createElement('input');
   slider.type = 'range'; slider.min = '-180'; slider.max = '180'; slider.value = '-20';
-  slider.setAttribute('aria-label', 'Rotate fighter'); slider.style.width = '100%';
+  slider.setAttribute('aria-label', 'Rotate fighter'); slider.style.cssText = 'width:100%;margin:14px 0 0;accent-color:#0866ff';
   host.replaceChildren(canvas, slider);
   const ctx = canvas.getContext('2d');
   function paint() {
     const angle = Number(slider.value) * Math.PI / 180, c = Math.cos(angle), s = Math.sin(angle);
-    ctx.fillStyle = '#deded5'; ctx.fillRect(0, 0, 640, 760);
-    ctx.fillStyle = '#0002'; ctx.beginPath(); ctx.ellipse(320, 699, 130, 22, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#f2f6fc'; ctx.fillRect(0, 0, 640, 760);
+    ctx.fillStyle = '#294b7a1c'; ctx.beginPath(); ctx.ellipse(320, 699, 100, 16, 0, 0, Math.PI * 2); ctx.fill();
     const rotate = ([x, y, z]) => [x * c + z * s, y, z * c - x * s];
     const projected = mesh.map(face => ({ color: face.color, points: face.points.map(rotate) }));
     projected.sort((a, b) => a.points.reduce((n, p) => n + p[2], 0) - b.points.reduce((n, p) => n + p[2], 0));
