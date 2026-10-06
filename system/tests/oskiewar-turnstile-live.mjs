@@ -71,11 +71,16 @@ try {
   assert.equal(await page.$eval('#wizard-go',el=>el.textContent),'Accept & use in practice',await page.$eval('#wizard-note',el=>el.textContent));
   assert.equal(await page.evaluate(()=>!!globalThis.__oskiewarFighterAppearance),false,'review cannot equip before acceptance');
   await page.screenshot({path:dir+'/02-generated.png'});
-  await page.click('#wizard-go');await wait(()=>!!globalThis.__oskiewarFighterAppearance);
+  assert.equal(await page.$eval('#wizard-card canvas',el=>getComputedStyle(el).position),'static');
+  await Promise.all([page.waitForNavigation({waitUntil:'domcontentloaded'}),page.click('#wizard-go')]);
+  await wait(()=>!!globalThis.__oskiewarFighterAppearance);
+  assert.ok(new URL(page.url()).searchParams.has('practice'));
   const account=await post({action:'account'});assert.equal(account.status,200);assert.equal(account.body.status,'accepted');
   assert.equal(account.body.handle.toLowerCase(),handle.toLowerCase());acceptedHash=account.body.fighter.hash;
   await page.click('#wizard-back');await page.keyboard.press('Space');
   await wait(()=>globalThis.__oskiewarTouch?.screen==='game');
+  await wait(()=>!!globalThis.__oskiewarTouch?.practiceFighter);
+  assert.equal(await page.evaluate(()=>globalThis.__oskiewarTouch.practiceFighter.toLowerCase()),handle.toLowerCase());
   await page.keyboard.down('ArrowRight');await new Promise(r=>setTimeout(r,1000));await page.keyboard.up('ArrowRight');
   assert.ok(await page.evaluate(()=>Array.isArray(globalThis.__oskiewarFighterAppearance?.appearance.skin)));
   await page.screenshot({path:dir+'/03-local-practice.png'});
@@ -87,6 +92,7 @@ try {
   assert.equal((await post({action:'status',hash:source,capability:grant.slice(0,-4)+'AAAA'})).status,403,'tampered capability refused');
   await page.click('button::-p-text(Withdraw my material)');await wait(()=>document.querySelector('#wizard-note').textContent.startsWith('Withdrawn.'));
   assert.equal(await page.evaluate(()=>!!globalThis.__oskiewarFighterAppearance),false);
+  await wait(()=>!globalThis.__oskiewarTouch?.practiceFighter);
   assert.equal((await post({action:'account'})).body.status,'empty');
   assert.equal((await post({action:'status',hash:source,capability:grant})).status,403,'withdrawn grant refuses old preview');
   await page.screenshot({path:dir+'/05-withdrawn.png'});

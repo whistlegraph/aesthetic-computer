@@ -53,7 +53,7 @@ export function mountFighterPreview(host, fighter) {
   const appearance = validateFighter(fighter), mesh = fighterMesh(appearance);
   const canvas = document.createElement('canvas');
   canvas.width = 640; canvas.height = 760;
-  canvas.style.cssText = 'width:100%;max-height:45vh;object-fit:contain;background:#deded5';
+  canvas.style.cssText = 'position:static;inset:auto;width:100%;height:auto;max-height:38vh;object-fit:contain;background:#deded5';
   canvas.setAttribute('aria-label', 'Generated fighter preview. Use the rotation slider to inspect all sides.');
   const slider = document.createElement('input');
   slider.type = 'range'; slider.min = '-180'; slider.max = '180'; slider.value = '-20';

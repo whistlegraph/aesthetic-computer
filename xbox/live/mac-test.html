@@ -41,8 +41,9 @@
     // self-play casts all want the fronts they were built against.
     {
       const harness = new URLSearchParams(location.search);
+      globalThis.__oskiewarLocalPractice = harness.has("practice");
       globalThis.__oskiewarVersusCapable = !harness.has("social-preview") &&
-        !harness.has("replay-oven") && !harness.has("self-play") && !harness.has("workshop") && !harness.has("map");
+        !harness.has("practice") && !harness.has("replay-oven") && !harness.has("self-play") && !harness.has("workshop") && !harness.has("map");
     }
   </script>
   <!-- The whole module graph, two levels deep, fetched from the head in one
@@ -1355,6 +1356,7 @@
     }
 
     async function saveReplay(payload) {
+      if (globalThis.__oskiewarLocalPractice) return false;
       if (jevDemo) return true;
       try {
         const response = await fetch("https://aesthetic.computer/api/oskiewar-replays?surface=web", {
@@ -1395,6 +1397,7 @@
     const liveFrame = (payload) =>
       '{"type":"oskiewar:state","content":' + payload + "}";
     function publishLive(matchId, payload) {
+      if (globalThis.__oskiewarLocalPractice) return;
       if (jevDemo) { parent.__jevArena?.frame(JSON.parse(payload)); return; }
       const retiresRoom = /"nextRoundId":"ow-/.test(payload);
       let state = liveSockets.get(matchId);
@@ -1785,7 +1788,16 @@
       globalThis.__oskiewarWizard = mountWizard({
         sfx: (name, amount, pan) => oskiewarSfx.drum(name, amount, pan),
         bearer: () => globalThis.__oskiewarAccount.bearer(),
+        enterPractice: () => {
+          if (globalThis.__oskiewarLocalPractice) return;
+          sessionStorage.setItem("oskiewar-enter-practice", "1");
+          location.assign("/?practice");
+        },
       });
+    if (globalThis.__oskiewarLocalPractice && sessionStorage.getItem("oskiewar-enter-practice")) {
+      sessionStorage.removeItem("oskiewar-enter-practice");
+      Promise.resolve(accountDoor?.ready).then(() => globalThis.__oskiewarWizard?.open({ useSaved: true }));
+    }
 
     // The fighters' throats and the announcer. Same context, same signal bus,
     // separate bank — the drums are the room and the voice is the person in
@@ -1884,7 +1896,7 @@
     // background discovery must not turn a visit or sign-in into a match.
     const parkName=roundNameFromPath('/'+(new URLSearchParams(location.search).get('park')||''));
     if(parkName){globalThis.__oskiewarSessionName=parkName;globalThis.__oskiewarOpponent='freeskate';}
-    const joinName = parkName?'':roundName;
+    const joinName = globalThis.__oskiewarLocalPractice || parkName ? '' : roundName;
     // A visitor arriving through a shared address asks for the second chair
     // — first to open the link fights the host, everybody after watches.
     // Harness lanes stay pure spectators.
@@ -1897,6 +1909,7 @@
     // it as soon as the game mints one — copying the URL is sharing the
     // fight.
     setInterval(() => {
+      if (globalThis.__oskiewarLocalPractice) return;
       if (globalThis.__oskiewarTouch?.screen === "title") {
         if (globalThis.__oskiewarRoomUnavailable && !workshopRoute) {
           history.replaceState(null, "", "/" + location.search);

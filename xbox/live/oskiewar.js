@@ -1,5 +1,5 @@
 // @bundle-qr
-globalThis.__oskiewarOpponent = "freeskate";
+globalThis.__oskiewarOpponent = globalThis.__oskiewarLocalPractice ? "dummy" : "freeskate";
 // @bundle-qr
 // The console's monotonic clock can hand back a negative number: App.cpp
 // converts QPC ticks with `counter * 1000000`, which overflows int64 past
@@ -102,7 +102,7 @@ if (hostAnalytics)
 const hostAc = typeof ac === "function" ? ac : null;
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 258;
+const buildVersion = 259;
 const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
@@ -16020,13 +16020,14 @@ function drawCurvedLimbs(segments, color, outline, edge, player) {
 }
 
 function drawSkeletonSegments(segments, color, outline, player = null) {
-  if (photoThemeActive && player && !player.skin) {
+  const appearance = generatedAppearance(player);
+  if (photoThemeActive && player && !player.skin && !appearance) {
     for (const segment of segments)
       if (!segment.hitboxOnly) photoLimb(segment, player.pad);
     return;
   }
   const edge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
-  if (player?.skin) { drawCurvedLimbs(segments, color, outline, edge, player); return; }
+  if (player?.skin && !appearance) { drawCurvedLimbs(segments, color, outline, edge, player); return; }
   if (player?.skateboard) segments = segments.slice().sort((a, b) => b.depth - a.depth);
   for (const segment of segments) {
     if (segment.hitboxOnly) continue;
@@ -16035,7 +16036,6 @@ function drawSkeletonSegments(segments, color, outline, player = null) {
   }
   for (const [index, segment] of segments.entries()) {
     if (segment.hitboxOnly) continue;
-    const appearance = generatedAppearance(player);
     drawPaletteCapsule(segment, appearance || player?.skin ? null : player && !player.npc
       ? player.handleColors : null, index, appearance ? generatedPartColor(appearance, segment) : color, player);
   }
@@ -16092,7 +16092,7 @@ function drawPaletteCapsule(segment, colors, coordinate, fallback, player = null
 
 function drawFighterSilhouette(geometry, color, outline, player = null) {
   drawSkeletonSegments(player?.spin ? geometry.segments.filter(s=> !/arm$/.test(s.role||"")) : geometry.segments, color, outline, player);
-  if (photoThemeActive && player && !player.skin) {
+  if (photoThemeActive && player && !player.skin && !generatedAppearance(player)) {
     const head = geometry.head, seat = player.pad === 0 ? 0 : 1;
     const radius = Math.max(2, head.radius);
     photoSprite(seat ? "xboxHead" : "acHead", head.x, head.y,
@@ -21251,7 +21251,7 @@ function drawRunnerFlat(player, t) {
   return true;
 }
 function drawRunnerAtScale(player, t, showLabel = true) {
-  if (flatFiguresOn() && drawRunnerFlat(player, t)) return;
+  if (!generatedAppearance(player) && flatFiguresOn() && drawRunnerFlat(player, t)) return;
   const fallen=ragdollBodies.get(player);if(fallen&&!player.alive){drawLooseRunner(player,fallen.pose,t,0);if(player.headless&&player.looseHead)drawCivilianLooseHead(player);return;}
   if(player.civilian && player.headless){drawCivilianDebris(player);return;}
   if(player.dummy)player=dummyView(player);
@@ -21308,7 +21308,8 @@ function drawRunnerAtScale(player, t, showLabel = true) {
     }
   }
   const flatFight=!!parkFightRival(player);
-  const lod = flatFight?0:poolOnly()&&player.civilian?Math.max(geometry.head.radius<12?2:1,figureLod(player,geometry)):figureLod(player, geometry);
+  const appearance = generatedAppearance(player);
+  const lod = appearance || flatFight?0:poolOnly()&&player.civilian?Math.max(geometry.head.radius<12?2:1,figureLod(player,geometry)):figureLod(player, geometry);
   if(poolOnly()&&player.alive&&!player.dummy&&!flatFight){
     const world=player.replayGeometry||player.frozenGeometry||runnerWorldGeometry(player,t);
     if(looseCartoonEnabled())drawLooseRunner(player,world,t,lod);
@@ -21324,16 +21325,18 @@ function drawRunnerAtScale(player, t, showLabel = true) {
     : [8, 12, 24];
   const displayNow = player.frozenAt || runtime().monotonicUs;
   if (player.skateboard) drawSkateboard(player);
-  if (!player.dummy && (player.skin || player.pad === 0)) {
+  if (!appearance && !player.dummy && (player.skin || player.pad === 0)) {
     drawPonytail(player, player.replayGeometry ||
       player.frozenGeometry || runnerWorldGeometry(player, t));
     drawBow(player, "tails");
   }
   if(player.spin)drawSpinArms(player,t,geometry,false,color,outline);
   drawFighterSilhouette(geometry, color, outline, player);
+  if (appearance && globalThis.__oskiewarTouch)
+    globalThis.__oskiewarTouch.practiceFighter = globalThis.__oskiewarFighterAppearance.handle;
   drawScars(player, geometry);
-  if (player.skin && !player.dummy) drawOutfit(player, geometry);
-  if (!player.dummy && (player.skin || player.pad === 0)) { drawHairline(player, geometry.head); drawBow(player, "loops"); }
+  if (!appearance && player.skin && !player.dummy) drawOutfit(player, geometry);
+  if (!appearance && !player.dummy && (player.skin || player.pad === 0)) { drawHairline(player, geometry.head); drawBow(player, "loops"); }
   const hitNow = runtime().monotonicUs;
   if (player.hitSegment >= 0 && hitNow < player.hitSegmentUntil &&
       Math.floor(hitNow / 45000) % 2 === 0) {
@@ -24973,6 +24976,7 @@ function gamePaint() {
   globalThis.__oskiewarLocalVersus = localVersusActive();
   const run = runtime();
   if (globalThis.__oskiewarTouch) {
+    globalThis.__oskiewarTouch.practiceFighter = null;
     globalThis.__oskiewarTouch.screen = shellMode === "MENU"
       ? titleTransitionAt !== null ? "title-transition" : "title"
       : selecting ? "select" : "game";
