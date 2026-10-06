@@ -22,3 +22,15 @@ assert.equal(generationProfile('jeffrey',{model:DEFAULT_MODEL}).personalRelay,fa
 assert.equal(generationProfile('jeffrey',{model:'openai/gpt-6-astra'}).personalRelay,true);
 assert.equal(generationProfile('jeffrey',{model:'openai/gpt-6-astra'}).model,'openai/gpt-6-astra');
 for (const handle of ['', 'fixture', 'Jeffrey', 'jeffrey-other']) assert.equal(generationProfile(handle,{model:'openai/gpt-6-astra'}).model,DEFAULT_MODEL);
+const trial={personalAccess:true};
+assert.equal(generationProfile('fifi',trial).model,'anthropic/claude-opus-5');
+assert.equal(generationProfile('fifi',{...trial,model:'openai/gpt-6-astra'}).personalRelay,true);
+assert.equal(generationProfile('fifi',{...trial,model:DEFAULT_MODEL}).personalRelay,false);
+assert.equal(generationProfile('fifi',{model:'anthropic/claude-opus-5'}).model,DEFAULT_MODEL);
+const {hasPersonalAccess,fetchPersonalAccess}=await import('../Resources/Web/personal-access.mjs');
+const access={personal:true,providers:['claude','codex'],expiresAt:new Date(2000).toISOString()};
+assert.equal(hasPersonalAccess(access,1999),true);assert.equal(hasPersonalAccess(access,2000),false);
+assert.equal(hasPersonalAccess({personal:true}),false);
+assert.equal(await fetchPersonalAccess('x',{fetch:async()=>({ok:false})}),null);
+assert.equal(await fetchPersonalAccess('x',{fetch:async()=>{throw Error('offline')}}),null);
+console.log('PASS verified trial capability, expiry and fail-closed discovery.');

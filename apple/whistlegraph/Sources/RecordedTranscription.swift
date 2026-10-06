@@ -3,23 +3,43 @@ import AVFoundation
 
 struct TimedTranscript: Decodable {
     struct Word: Decodable { let text: String; let atMs: Double; let durationMs: Double }
+    struct Billing: Decodable { let braincells: Int; let durationMs: Double }
+    let billing: Billing?
     let transcript: String
     let words: [Word]
     var timeline: [[String: Any]] { words.map { ["text": $0.text, "atMs": $0.atMs, "durationMs": $0.durationMs] } }
+}
+
+struct SpeechFailure: LocalizedError {
+    let status: Int
+    var errorDescription: String? {
+        switch status {
+        case 402: return "Not enough braincells for Whisper. Using device speech."
+        case 401, 403: return "Sign in again for Whisper. Using device speech."
+        case 429: return "Whisper is busy. Using device speech."
+        default: return "Whisper is unavailable. Using device speech."
+        }
+    }
 }
 
 enum RecordedTranscription {
     static func recover(_ id: String, token: String) async throws -> TimedTranscript {
         let audio = try await Task.detached(priority: .utility) { try wav(id) }.value
         try Task.checkCancellation()
-        var request = URLRequest(url: URL(string: "https://help.aesthetic.computer/api/aesel/transcribe")!)
-        request.httpMethod = "POST"; request.timeoutInterval = 15
+        var request = URLRequest(url: URL(string: "https://aesthetic.computer/api/whistlegraph-transcribe")!)
+        request.httpMethod = "POST"; request.timeoutInterval = 25
         request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["audio": audio.base64EncodedString()])
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["requestId": id, "audio": audio.base64EncodedString()])
+        DeviceActionLog.shared.record(.speech, .started, control: .cloudSpeech)
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
-        return try JSONDecoder().decode(TimedTranscript.self, from: data)
+        try Task.checkCancellation()
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        DeviceActionLog.shared.record(.speech, status == 200 ? .succeeded : .httpError, control: .cloudSpeech, [.status: status])
+        guard status == 200 else { throw SpeechFailure(status: status) }
+        let result = try JSONDecoder().decode(TimedTranscript.self, from: data)
+        if let cost = result.billing { DeviceActionLog.shared.record(.speech, .committed, control: .cloudSpeech, [.used: cost.braincells, .durationMs: Int(cost.durationMs)]) }
+        return result
     }
     static func wav(_ id: String) throws -> Data {
         guard let url = UtteranceRecording.url(id) else { throw URLError(.badURL) }
