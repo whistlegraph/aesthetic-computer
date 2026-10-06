@@ -1060,7 +1060,13 @@
           leftX: 0, leftY: 0, rightX: 0, rightY: 0,
           leftTrigger: 0, rightTrigger: 0,
           analogTriggers: hasAnalogTriggers(source) };
-      const down = new Set(keys[seat]);
+      const spatial = ['desert','pool','painting'].includes(globalThis.__oskiewarTouch?.level);
+      const down = new Set([...keys[seat]].map(key => spatial && !globalThis.__oskiewarTouch?.menu
+        ? ({ X:'RightTrigger', Y:'RightTrigger', A:'LeftStick', B:'A', KeyQ:'Y' }[key] || key) : key));
+      // Enter remains confirmation; Space is jump. Touch action pads use
+      // the same action translation, while physical pads stay unmodified.
+      if (spatial && titleOpen && keys[seat].has('A')) { down.delete('LeftStick'); down.add('A'); }
+
       const analog = hasAnalogTriggers(source);
       if (source) source.buttons.forEach((button, buttonIndex) => {
         const name = padButtons[buttonIndex];
@@ -1068,7 +1074,7 @@
         down.add(name);
         // A trigger that zooms must not also punch.
         if (analog && (name === "LeftTrigger" || name === "RightTrigger")) return;
-        if (padAliases[name]) down.add(padAliases[name]);
+        if (!spatial && padAliases[name]) down.add(padAliases[name]);
       });
       return {
         connected: Boolean(source) || down.size > 0 || seat === 0,

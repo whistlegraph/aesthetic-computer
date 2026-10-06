@@ -87,10 +87,7 @@ enum MenuBuilder {
         work.addItem(buildAsana(state: asana, target: target))
         work.addItem(buildDeploy(state: deploy, target: target))
         work.addItem(buildIris(state: iris, target: target))
-        let irisIcon = item("Iris Icon", selector: #selector(AppDelegate.toggleIrisIcon), target: target)
-        irisIcon.state = UserDefaults.standard.bool(forKey: Paths.irisIconDefaultsKey) ? .on : .off
-        irisIcon.toolTip = "Show the Iris avatar as its own menubar icon (hover for fleet status, click for this menu)."
-        work.addItem(irisIcon)
+
         appendOvertime(to: work, target: target)
         menu.addItem(section("Work", symbol: "checkmark.circle.fill", submenu: work))
 

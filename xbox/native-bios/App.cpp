@@ -4,6 +4,7 @@
 #include "PhotoDiscService.hpp"
 #include "OskiewarLivePublisher.hpp"
 #include "OskiewarAccountService.hpp"
+#include "RemotePad.hpp"
 #include "../runtime/include/ac/image_effects.hpp"
 #include "../runtime/include/ac/glass_sound.hpp"
 #include "../runtime/include/ac/skate_sound.hpp"
@@ -2206,6 +2207,13 @@ private:
     const auto pads = Gamepad::Gamepads;
     m_api->gamepad.down.clear();
     m_api->gamepad.pads.clear();
+    PadState remote;
+    if(m_remotePad.read(remote)){
+      static_cast<PadState&>(m_api->gamepad)=remote;
+      m_api->gamepad.pads.push_back(remote);
+      m_previousButtons=0;
+      return;
+    }
     if (pads->Size == 0) {
       m_previousButtons = 0;
       m_previousLatencyButtons.fill(0);
@@ -3302,6 +3310,7 @@ private:
   std::unique_ptr<PhotoDiscService> m_photoDisc;
   std::unique_ptr<OskiewarLivePublisher> m_oskiewarLive;
   std::shared_ptr<OskiewarAccountService> m_oskiewarAccount;
+  RemotePad m_remotePad;
 };
 
 ref class AppSource sealed : public IFrameworkViewSource {

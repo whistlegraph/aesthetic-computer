@@ -244,7 +244,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ResourceGraph.shared.syncEnabled()
         irisIconMenu.autoenablesItems = false
         irisIconMenu.delegate = self
-        if UserDefaults.standard.bool(forKey: Paths.irisIconDefaultsKey) { showIrisIcon() }
+        // The standalone Iris icon is retired; keep mission status in Work.
+        UserDefaults.standard.removeObject(forKey: Paths.irisIconDefaultsKey)
 
         // A Slab that arrived as a download has no hooks behind it, so it
         // would sit in the menu bar watching nothing. Offer to finish the

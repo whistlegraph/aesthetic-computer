@@ -128,7 +128,7 @@ function syncNativeAccount() {
 }
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 266;
+const buildVersion = 267;
 const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
@@ -303,6 +303,7 @@ let skateCourse = "park";
 // building, karts or kids; a monowheel, chalk and paint cans. Freeskate's
 // default course; __oskiewarFreeskateMap = "pool" brings the park back.
 let poolDesert = false;
+let poolPainting = false;
 const parkLoops = [
   { x: 6300, radius: 320 }, { x: 15300, radius: 420 },
   { x: 24300, radius: 500 },
@@ -440,14 +441,15 @@ const pondAt = (x) => parkSegments.find((segment) => segment.kind === "pond" &&
 
 // The default course is the one running, desert included: callers that only
 // name the map ("skatepark") must not drop the rider back into the park.
-function configureWorldMap(name, course = poolDesert ? "desert" : skateCourse) {
+function configureWorldMap(name, course = poolPainting ? "painting" : poolDesert ? "desert" : skateCourse) {
   // A normal round keeps its current workshop/local variant. Only entering
   // or leaving the long course needs to replace the world dimensions.
   if (name !== "skatepark" && !skateparkMap) return;
-  const previousMap = skateparkMap + "/" + skateCourse + (poolDesert ? "/desert" : "");
+  const previousMap = skateparkMap + "/" + skateCourse + (poolPainting ? "/painting" : poolDesert ? "/desert" : "");
   skateparkMap = name === "skatepark";
-  skateCourse = course === "pool" || course === "desert" ? "pool" : course === "halfpipe" ? "halfpipe" : course === "indoor" ? "indoor" : "park";
-  poolDesert = skateparkMap && course === "desert";
+  skateCourse = ["pool", "desert", "painting"].includes(course) ? "pool" : course === "halfpipe" ? "halfpipe" : course === "indoor" ? "indoor" : "park";
+  poolPainting = skateparkMap && course === "painting";
+  poolDesert = skateparkMap && (course === "desert" || poolPainting);
   roomDepth = poolOnly() ? (poolDesert ? desertGrid().depth : 6000) : 900;
   worldNear = -roomDepth / 2; worldFar = roomDepth / 2;
   // The seeded park layout and the doorway walk-in belong to the park; the
@@ -458,7 +460,7 @@ function configureWorldMap(name, course = poolDesert ? "desert" : skateCourse) {
   }
   // The marks on the ground belong to the ground: kept through resets,
   // cleared only when the map itself changes.
-  if (previousMap !== skateparkMap + "/" + skateCourse + (poolDesert ? "/desert" : "")) {
+  if (previousMap !== skateparkMap + "/" + skateCourse + (poolPainting ? "/painting" : poolDesert ? "/desert" : "")) {
     releaseQuadMesh(poolSurfaceMesh); poolSurfaceMesh = null;
     decals.length = 0;
     clearPoolDecals();
@@ -6227,6 +6229,20 @@ function livePlayButtons() {
 // punch; a tap shorter than the wait still arrives, as a four-sample press.
 const buttonChords = [];
 function translateButtons(index, down, seat = index) {
+  if(poolOnly()){
+    const p=players[seat]||players[0],vehicle=p.skateboard||p.onewheel||p.goKart;
+    const out=down.filter(b=>!['A','B','X','Y','LeftStick','RightStick','LeftTrigger','RightTrigger'].includes(b));
+    const add=b=>{if(!out.includes(b))out.push(b);};
+    if(down.includes('A'))add('A'); // jump
+    if(down.includes('B'))add('X'); // crouch
+    if(down.includes('X'))add('Grab');
+    if(down.includes('Y'))add('KeyQ'); // drop / switch tool
+    if(down.includes('LeftStick'))add('LeftShoulder');
+    if(down.includes('RightStick'))add('B'); // melee
+    if(down.includes('LeftTrigger'))add('Aim');
+    if(down.includes('RightTrigger'))add(vehicle?'ArrowUp':p.gunAmmo>0?'Y':'B');
+    return out;
+  }
   const s = buttonChords[index] ||= { a: 0, x: 0, y: 0, holdA: 0, holdX: 0, holdY: 0, latch: "" };
   const A = down.includes("A"), X = down.includes("X"), Y = down.includes("Y");
   if (!s.latch) {
@@ -7068,22 +7084,22 @@ function freeskateCourse() {
   const requested = String(globalThis.__oskiewarFreeskateMap || "").trim().toLowerCase();
   return requested === "skatepark" || requested === "park" ? "park"
     : requested === "indoor" ? "indoor" : requested === "halfpipe" ? "halfpipe"
-    : requested === "pool" ? "pool" : "desert";
+    : requested === "pool" ? "pool" : requested === "painting" ? "painting" : "desert";
 }
 // What the mode is called on the title and the HUD: the course, not the verb.
 const freeskateModeName = () => courseTitle(freeskateCourse());
 // The freeskate courses, in the order the pause menu steps through them, and
 // what each is called. The running one is `freeskateCourseNow()`.
-const freeskateLevels = ["desert", "pool", "indoor", "halfpipe", "park"];
-const courseTitle = (course) => course === "desert" ? desertTitle : course === "pool" ? "the park"
+const freeskateLevels = ["desert", "pool", "painting", "indoor", "halfpipe", "park"];
+const courseTitle = (course) => course === "painting" ? "Painting" : course === "desert" ? desertTitle : course === "pool" ? "the park"
   : course === "indoor" ? "indoor" : course === "halfpipe" ? "halfpipe" : course === "park" ? "long park" : "freeskate";
-const freeskateCourseNow = () => !skateparkMap ? "station" : poolDesert ? "desert" : skateCourse;
+const freeskateCourseNow = () => !skateparkMap ? "station" : poolPainting ? "painting" : poolDesert ? "desert" : skateCourse;
 // Everyone on a course shares one public park room, so friends meet without
 // a link, from the website and the Xbox alike: the room is named by the
 // course, in the speakable-id shape every host and the relay accept. A
 // ?park=<name> link (or OSKIEWAR_ROOM) picks a private room instead, and a
 // public room's name picks its course for whoever follows the link.
-const publicParkRooms = { desert: "desert1", pool: "park1", indoor: "indoor1", halfpipe: "pipe1", park: "long1" };
+const publicParkRooms = { painting: "paint1", desert: "desert1", pool: "park1", indoor: "indoor1", halfpipe: "pipe1", park: "long1" };
 const courseForParkRoom = (name) => Object.keys(publicParkRooms).find((course) => publicParkRooms[course] === name) || "";
 const requestedParkRoom = () => /^[a-z0-9-]{5,24}$/.test(globalThis.__oskiewarParkRoom || "") ? globalThis.__oskiewarParkRoom : "";
 const parkRoomFor = (course) => requestedParkRoom() || publicParkRooms[course] || publicParkRooms.desert;
@@ -7286,6 +7302,7 @@ function swapCourse(course, now) {
   Object.assign(rider, { skateboard: keep.skateboard && (kart !== null || !keep.goKart), onewheel: keep.onewheel,
     goKart: kart, skateVx: keep.skateVx, skatePitch: poolOnly() ? keep.skatePitch : 0, chalkColor: keep.chalkColor,
     axeHeld: keep.axeHeld, handItems: keep.handItems, gunAmmo: keep.gunAmmo, gunMode: keep.gunMode, spin: keep.spin });
+  givePaintingChalk(rider);
   if (kart) kart.active = false;
   if (keep.onewheel) monowheel.active = false;
   ensureFreeskateBoards();
@@ -10552,6 +10569,47 @@ function deathOrbitShot(target, width, progress) {
 
 let poolCameraYaw = 0, poolCameraDip = 0, poolCameraReturnYaw = null;
 let poolIdleSeconds=0,poolIdleClose=0;
+// Ground-plane movement follows the view the player actually sees, including
+// the drawing camera's transition. Stick diagonals have the same top speed.
+function poolMoveVector(held, pad) {
+  let x=Number(held.includes('ArrowRight'))-Number(held.includes('ArrowLeft')) || clamp(Number(pad.leftX)||0,-1,1);
+  let y=Number(held.includes('ArrowUp'))-Number(held.includes('ArrowDown')) || clamp(Number(pad.leftY)||0,-1,1);
+  const raw=Math.hypot(x,y),magnitude=clamp((raw-.18)/.82,0,1);
+  if(raw>0){x=x/raw*magnitude;y=y/raw*magnitude;}
+  let fx=cameraDoll.target.x-cameraDoll.position.x,fz=cameraDoll.target.z-cameraDoll.position.z;
+  const length=Math.hypot(fx,fz);
+  if(length>.001){fx/=length;fz/=length;}else{fx=Math.cos(poolCameraYaw);fz=Math.sin(poolCameraYaw);}
+  return {x:fx*y+fz*x,z:fz*y-fx*x,magnitude,forwardX:fx,forwardZ:fz};
+}
+function updateLookInput(x,y,orbit,dt) {
+  if(freeskateMenu || selecting){if(orbit)orbit.yaw=orbit.pitch=orbit.zoom=0;return;}
+  const axis=value=>Math.abs(value)>.12?Math.sign(value)*clamp((Math.abs(value)-.12)/.88,0,1):0;
+  if(poolOnly()&&freeskateActive()) {
+    poolCameraYaw-=axis(x)*dt*(players[0].aiming?1.2:2.4);
+    poolCameraYaw+=orbit?.yaw||0;
+    poolCameraYaw=Math.atan2(Math.sin(poolCameraYaw),Math.cos(poolCameraYaw));
+    playerCameraPitch=clamp(playerCameraPitch+axis(y)*dt*(players[0].aiming?.75:1.5)+(orbit?.pitch||0),-.9,.85);
+  } else {
+    playerCameraYaw=clamp(playerCameraYaw+axis(x)*dt*1.15+(orbit?.yaw||0),-.62,.62);
+    playerCameraPitch=clamp(playerCameraPitch+axis(y)*dt*.72+(orbit?.pitch||0),-.24,.28);
+  }
+  if(orbit?.zoom)playerCameraZoom=clamp(playerCameraZoom*Math.exp(orbit.zoom),.55,1.9);
+  if(orbit)orbit.yaw=orbit.pitch=orbit.zoom=0;
+}
+function trackPoolFreeCamera(p,dt) {
+  const drawing=p.chalkDrawing,zoom=playerCameraZoom*(p.aiming?.72:1);
+  const pitch=clamp((drawing?1.32:.28)-playerCameraPitch,-.55,1.48);
+  const radius=(drawing?1050:680)*zoom,flat=Math.cos(pitch)*radius;
+  const target=drawing?chalkTip(p):{x:p.x+Math.sin(poolCameraYaw)*85,y:p.y-115,z:(p.z||0)-Math.cos(poolCameraYaw)*85};
+  const subject={x:p.x,y:p.y-20,z:p.z||0};
+  const position=clearPoolCamera({x:target.x-Math.cos(poolCameraYaw)*flat,
+    y:target.y-Math.sin(pitch)*radius,z:target.z-Math.sin(poolCameraYaw)*flat},subject);
+  cameraCenter=target.x;cameraCenterY=target.y;cameraWidth=(drawing?1400:1100)*zoom;
+  cameraDoll.track({target,position,width:cameraWidth,perspective:1,fov:p.aiming?48:62,roll:0},dt,drawing?9:14);
+  Object.assign(cameraDoll.position,clearPoolCamera(cameraDoll.position,subject));
+  cameraDoll.dirty=true;poolIdleSeconds=poolIdleClose=0;
+}
+
 // Keep the line from the lens to the rider above the coping and curved walls.
 function clearPoolCamera(position, subject) {
   // Follow the rider into the lot without putting a solid wall between
@@ -10677,9 +10735,8 @@ function updateCameraDoll(dt, now) {
       const position={x:p.x-fx*ease*380,y:p.y-lerp(145,245,ease),z:(p.z||0)-fz*ease*380};
       cameraDoll.track({target,position,width:700,perspective:1,fov:65,roll:0},dt,12);poolIdleSeconds=poolIdleClose=0;return;
     }
-    if(p.chalkDrawing){
-      const tip=chalkTip(p),target={x:(p.x+tip.x)*.5,y:poolFloorAt(p.x,p.z||0),z:((p.z||0)+tip.z)*.5};
-      cameraDoll.track({target,position:{x:target.x,y:target.y-1150,z:target.z-180},width:1400,perspective:.65,fov:62,roll:0},dt,4);poolIdleSeconds=poolIdleClose=0;return;
+    if(!parkFightRival(p)&&!p.raceLoop&&!p.poolPipeLocked){
+      trackPoolFreeCamera(p,dt);return;
     }
     if(p.goKart){
       const look=450+Math.min(750,speed*.13),distance=1000+Math.min(550,speed*.09);
@@ -11265,7 +11322,7 @@ function fireGun(player, input) {
   const laser = player.gunMode === "SPACE LASER";
   if (rocket) {
     grenades.push({ x: pose.muzzle.x, y: pose.muzzle.y, z: pose.muzzle.z,
-      vx: pose.dx * 2850, vy: pose.dy * 2850, owner: player.pad,
+      vx: pose.dx * 2850, vy: pose.dy * 2850, vz: (pose.dz||0)*2850, owner: player.pad,
       fuse: 3.2, alive: true, exploding: false, blastAge: 0, blastRadius: 0,
       hitPlayers: 0, rocket: true });
     while (grenades.length > 12) grenades.shift();
@@ -11649,7 +11706,7 @@ function updatePoolBullets(dt,now,combat){
       if(b.y>=floor){
         const slope=poolSlopeAt(b.x,b.z);b.y=floor-.1;
         ricochetPoolBullet(b,slope.x,-1,slope.z,now);
-      }else if(insidePark(b.x,b.z)&&b.y<parkDeckY-parkBuildingHeight){
+      }else if(!poolDesert&&insidePark(b.x,b.z)&&b.y<parkDeckY-parkBuildingHeight){
         b.y=parkDeckY-parkBuildingHeight+2;ricochetPoolBullet(b,0,1,0,now);
       }
       // The open parking-lot horizon has no invisible ricochet wall.
@@ -12141,11 +12198,23 @@ function itemHandTarget(player, now) {
     y: player.y - 115, z: player.z };
 }
 
+function poolAimDirection(hand){
+  const c=cameraDoll.position,t=cameraDoll.target;
+  const length=Math.hypot(t.x-c.x,t.y-c.y,t.z-c.z)||1;
+  // Converge from the muzzle onto the centre camera ray at useful range.
+  const reach=4000/length;
+  let dx=c.x+(t.x-c.x)*reach-hand.x,dy=c.y+(t.y-c.y)*reach-hand.y,dz=c.z+(t.z-c.z)*reach-hand.z;
+  const d=Math.hypot(dx,dy,dz)||1;return {dx:dx/d,dy:dy/d,dz:dz/d};
+}
 function gunPose(player, now, input = null) {
   if(poolOnly()){
     const pose=runnerWorldGeometry(player,(now-startedAt)/1e6),arm=itemForearm(player,pose);
     const hand=arm?{x:arm.x2,y:arm.y2,z:arm.z2}:{x:player.x,y:player.y-110,z:player.z||0};
     const yaw=(player.poolYaw||0)+(player.spin?.angle||0),dx=Math.cos(yaw),dz=Math.sin(yaw);
+    if(!player.npc&&!player.remote&&!parkFightRival(player)){
+      const aim=poolAimDirection(hand);
+      return {hand,...aim,muzzle:{x:hand.x+aim.dx*54,y:hand.y+aim.dy*54,z:hand.z+aim.dz*54}};
+    }
     return {hand,dx,dy:0,dz,muzzle:{x:hand.x+dx*54,y:hand.y,z:hand.z+dz*54}};
   }
   let aimX = input?.horizontal || player.facing;
@@ -13641,13 +13710,18 @@ function updatePoolPlayer(p, pad, dt, now) {
     parkRecord.needle=clamp(parkRecord.needle+turn*dt*.3,.05,.95);
     parkRecord.phase=parkRecord.needle*32;parkRecord.wobble=.12;turn=throttle=0;
   }
+  const foot=!combatMode&&!p.npc&&!p.civilian&&!p.skateboard&&!p.onewheel&&!p.goKart;
+  const movement=foot?poolMoveVector(held,pad):null;
+  p.aiming=foot&&p.gunAmmo>0&&held.includes('Aim');
+  // Drawing uses the same camera-relative axes as walking. Keep the body's
+  // heading while the chalk is down so strafing cannot swing the tip sideways.
   // Drawing has Cartesian controls, independent of the rider's heading.
   // B + directions never enters the steering/double-tap dash recognizer.
   // On a board, B draws without stepping off: the ride carries on below and
   // updateChalk lays the line wherever the wheels take the tip.
   if(!combatMode&&p.chalkColor&&held.includes('B')&&p.grounded&&!p.swimming&&!p.skateboard&&!p.onewheel&&!p.goKart){
     const before={x:p.x,z:p.z||0},length=Math.max(1,Math.hypot(turn,throttle));
-    p.vx=-turn/length*360;p.vz=throttle/length*360;p.vy=0;
+    p.vx=(movement?movement.x:-turn/length)*360;p.vz=(movement?movement.z:throttle/length)*360;p.vy=0;
     p.x+=p.vx*dt;p.z=(p.z||0)+p.vz*dt;
     boundParkBody(p,before);p.y=poolFloorAt(p.x,p.z);
     p.poolTap=p.poolAnalogTap=null;p.poolAnalogKey='';p.poolLastSteer=0;p.poolRunTime=0;
@@ -13659,10 +13733,10 @@ function updatePoolPlayer(p, pad, dt, now) {
     p.poolStridePhase=(p.poolStridePhase||0)+Math.hypot(p.vx,p.vz)*dt/240;
     p.stance=Math.hypot(p.vx,p.vz)>1?'WALK':'NEUTRAL';p.previous=held.slice();return;
   }
-  const tapKey=['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].find(pressed);
+  const tapKey=foot?null:['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].find(pressed);
   let directionDash=false;
   if(tapKey){directionDash=p.poolTap?.key===tapKey&&now-p.poolTap.at<280000;p.poolTap=directionDash?null:{key:tapKey,at:now};}
-  const analogKey=Math.abs(turn)>.6?(turn>0?'right':'left'):Math.abs(throttle)>.6?(throttle>0?'forward':'back'):'';
+  const analogKey=foot?'':Math.abs(turn)>.6?(turn>0?'right':'left'):Math.abs(throttle)>.6?(throttle>0?'forward':'back'):'';
   if(analogKey&&analogKey!==p.poolAnalogKey){if(p.poolAnalogTap?.key===analogKey&&now-p.poolAnalogTap.at<280000){directionDash=true;p.poolAnalogTap=null;}else p.poolAnalogTap={key:analogKey,at:now};}
   p.poolAnalogKey=analogKey;
   if(directionDash){
@@ -13677,7 +13751,7 @@ function updatePoolPlayer(p, pad, dt, now) {
   }
   if(updateRaceLoop(p,dt,now,throttle)){p.inputX=turn;p.inputZ=throttle;p.previous=held.slice();return;}
   const steer=Math.sign(turn);
-  if(steer&&steer!==p.poolLastSteer){
+  if(!foot&&steer&&steer!==p.poolLastSteer){
     noteDirectionChange(p,now);
     p.poolLastSteer=steer;
   }
@@ -13687,11 +13761,11 @@ function updatePoolPlayer(p, pad, dt, now) {
   const speedBefore=Math.hypot(p.vx,p.vz||0);
   const turnRate=p.goKart?lerp(2.4,1.2,clamp(speedBefore/3400,0,1)):p.onewheel?lerp(2.8,1.9,clamp(speedBefore/3000,0,1)):parkFootTurnRate;
   // Steering changes the rider's heading. Forward always pushes along that heading.
-  p.poolYaw=oldHeading-turn*turnRate*dt;
+  p.poolYaw=foot?Math.atan2(movement.forwardZ,movement.forwardX):oldHeading-turn*turnRate*dt;
   const bank=turn*(p.skateboard?.34:.18)*clamp(speedBefore/1400,0,1);
   p.poolLean=((p.poolLean||0)+(bank-(p.poolLean||0))*(1-Math.exp(-dt*8)));
   const headingDelta=p.poolYaw-oldHeading;
-  if(p.grounded&&headingDelta){
+  if(!foot&&p.grounded&&headingDelta){
     const vx=p.vx,vz=p.vz||0,c=Math.cos(headingDelta),sn=Math.sin(headingDelta);
     p.vx=vx*c-vz*sn;p.vz=vx*sn+vz*c;
   }
@@ -13703,7 +13777,12 @@ function updatePoolPlayer(p, pad, dt, now) {
     p.poolPipeLocked=true;p.poolYaw=Math.cos(p.poolYaw)>=0?0:Math.PI;
     p.vz=0;p.z=p.poolPipeZ;
   }
-  const driveX=Math.cos(p.poolYaw),driveZ=Math.sin(p.poolYaw);
+  let driveX=Math.cos(p.poolYaw),driveZ=Math.sin(p.poolYaw);
+  if(foot){
+    throttle=movement.magnitude;
+    const length=movement.magnitude || speedBefore;
+    if(length>.001){driveX=(movement.magnitude?movement.x:p.vx)/length;driveZ=(movement.magnitude?movement.z:(p.vz||0))/length;}
+  }
   p.previousY=p.y; p.inputX=turn; p.inputZ=throttle; p.inputY=held.includes('X')?-1:held.includes('A')?1:0;
   p.ducking=held.includes('X')||!!p.goKart; p.crouchBlend+=(Number(p.ducking)-(p.crouchBlend||0))*(1-Math.exp(-dt*14));
   p.facing=1; p.turnAt=-1e12; p.footSurf=false; p.strafe=null; p.grabHeld=false;
@@ -13716,7 +13795,7 @@ function updatePoolPlayer(p, pad, dt, now) {
   if(p.itemAction&&now>=p.itemActionUntil)p.itemAction='';
   if(!blocking){
     if(pressed('B')&&(!p.chalkColor||combatMode)){p.punchArm=pad.down.includes('PunchL')?'left-arm':'right-arm';startMelee(p,'PUNCH',now);}
-    if(pressed('Y')||(held.includes('Y')&&p.gunMode==='RUBBER SMG')){
+    if(pressed('Y')||(held.includes('Y')&&p.gunAmmo>0)){
       if(p.gunAmmo>0&&now>=(p.nextGunShotAt||0)&&availableArm(p))fireGun(p,{horizontal:1,vertical:0});
       else if(!p.gunAmmo)startMelee(p,'KICK',now);
     }
@@ -13822,7 +13901,7 @@ function updatePoolPlayer(p, pad, dt, now) {
   updateChalk(p,held,now);
   const horizontal=Math.hypot(p.vx,p.vz||0);
   if(p.grounded&&!p.skateboard){
-    const forward=p.vx*driveX+(p.vz||0)*driveZ;
+    const forward=foot?p.vx*movement.forwardX+(p.vz||0)*movement.forwardZ:p.vx*driveX+(p.vz||0)*driveZ;
     p.poolStridePhase=(p.poolStridePhase||0)+forward*dt/240;
   }
   if(combatMode&&now>=(p.poolPipeEscapeUntil||0)){
@@ -15442,33 +15521,7 @@ function gameSim() {
     sum + (Number(pad?.rightX) || 0), 0), -1, 1);
   const cameraY = clamp(cameraPads.reduce((sum, pad) =>
     sum + (Number(pad?.rightY) || 0), 0), -1, 1);
-  if (Math.abs(cameraX) > .08)
-    playerCameraYaw = clamp(playerCameraYaw + cameraX * dt * 1.15, -.62, .62);
-  if (Math.abs(cameraY) > .08)
-    playerCameraPitch = clamp(playerCameraPitch + cameraY * dt * .72, -.24, .28);
-  // Triggers zoom, but only on a pad whose triggers are analog -- on anything
-  // else the shell is still aliasing them to A and X, and stealing those two
-  // buttons would cost a small pad its item and shield.
-  // Either couch seat can steer the shared camera. Digital M30 shoulders
-  // remain combat buttons, even beside a controller with analog triggers.
-  // The triggers strafe now (see `updateStrafe`), so they no longer zoom.
-  const push = 0;
-  if (Math.abs(push) > .08)
-    playerCameraZoom = clamp(playerCameraZoom + push * dt * .9, .55, 1.9);
-  // A mouse or a finger on the shell's canvas orbits the same lens the
-  // right stick does: a drag turns yaw and pitch, the wheel or a pinch
-  // dollies. The shell banks the gesture between ticks and this drains it,
-  // so a fast flick is not lost to a slow frame.
-  const orbit = globalThis.__oskiewarTouch?.orbit;
-  if (orbit) {
-    if (orbit.yaw)
-      playerCameraYaw = clamp(playerCameraYaw + orbit.yaw, -.62, .62);
-    if (orbit.pitch)
-      playerCameraPitch = clamp(playerCameraPitch + orbit.pitch, -.24, .28);
-    if (orbit.zoom)
-      playerCameraZoom = clamp(playerCameraZoom * Math.exp(orbit.zoom), .55, 1.9);
-    orbit.yaw = orbit.pitch = orbit.zoom = 0;
-  }
+  updateLookInput(cameraX,cameraY,globalThis.__oskiewarTouch?.orbit,dt);
   // A tap anywhere on the wordmark screen is a start press — read before
   // the tap queue is wiped for the tick. The shell already turns first-visit
   // taps into a button; this catches every visit after that.
@@ -22571,9 +22624,10 @@ function parkSurfaceColor(base,x,z){
 // HUD call the course. Read lazily: gameObjects is defined further down.
 let desertLevel=null,desertTitle="monowheel desert";
 const desertParams=()=>desertLevel||(desertLevel=gameObjects.ow.islandParams(null));
-function desertHome(){return desertParams().home;}
+function desertHome(){return poolPainting?{x:gridLeft+gridWidth/2,z:0}:desertParams().home;}
 const desertSeaY=()=>parkDeckY+desertParams().island.sea;
 function desertFloorAt(x,z){
+  if(poolPainting)return parkDeckY;
   const {home,middle,island,dunes}=desertParams(),d=Math.hypot(x-home.x,z-home.z),m=Math.hypot(x-middle.x,z-middle.z);
   const away=clamp((d-700)/1400,0,1),ease=away*away*(3-2*away);
   const beach=clamp((m-(island.radius-island.shore))/island.shore,0,1);
@@ -22591,11 +22645,16 @@ function desertFloorAt(x,z){
 // The desert's grid holds the whole island and a stretch of sea round it:
 // columns to the right of the origin, depth either side of z = 0.
 function desertGrid(){
+  if(poolPainting)return {cols:80,depth:7200};
   const {middle,island}=desertParams(),sea=1500;
   return {cols:Math.ceil((middle.x+island.radius+sea-gridLeft)/tileSize),depth:2*Math.ceil((Math.abs(middle.z)+island.radius+sea)/100)*100};
 }
 const desertPalette={sand:[232,203,148],shade:[206,168,118],crest:[246,226,178],sea:[86,164,210],shallows:[128,196,214]};
 function drawDesertGeometry(){
+  if(poolPainting){
+    const l=gridLeft-parkLotMargin,r=gridLeft+gridWidth+parkLotMargin,n=worldNear-parkLotMargin,f=worldFar+parkLotMargin,y=parkDeckY;
+    worldQuad({x:l,y,z:n},{x:r,y,z:n},{x:r,y,z:f},{x:l,y,z:f},[255,255,255]);return;
+  }
   const step=240,left=gridLeft-parkLotMargin,right=gridLeft+gridWidth+parkLotMargin,near=worldNear-parkLotMargin,far=worldFar+parkLotMargin,sea=desertSeaY();
   // The sea first, one sheet: a host that paints in order (the web) then
   // lays the island over it; a host with depth cuts the shore exactly.
@@ -25260,13 +25319,13 @@ function gamePaint() {
   const menuInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
   renderFlags = globalThis.__oskiewarRenderFlags || renderFlags;
   updateSceneLighting(run.monotonicUs);
-  wipe(...outside);
+  wipe(...(poolPainting?[255,255,255]:outside));
   // A plain sky behind every theme. The underpass photograph was busy behind
   // the fighters and painted its own floor wherever a course had none.
   if (nativeSceneCamera) {
     try { nativeSceneCamera(mainNativeCamera(), runtime().monotonicUs / 1e6); } catch {}
   }
-  if (renderFlags.sky !== false) drawSkyAtmosphere(sky, arena);
+  if (!poolPainting && renderFlags.sky !== false) drawSkyAtmosphere(sky, arena);
   if (PAL_SELECT && selecting) {
     box(0, 0, viewWidth(), viewHeight, ...menuArena);
     drawSelectionScreen(t, menuInk, menuPanel);
@@ -25499,7 +25558,7 @@ function gamePaint() {
       drawRunner(renderable.item, t, showRunnerLabels);
     }
   }
-  if(poolOnly()){for(const peer of parkPeers.values()){interpolateParkPeer(peer,Date.now());if(Date.now()-peer.receivedAt<3000&&parkActorVisible(peer))drawRunner(peer,t,true);}if(!poolDesert){drawCerealMilk(t);drawParkStereo();}drawAeselFairy(t);{const saved=triangleDepth;drawParkSupply();triangleDepth=saved;}}
+  if(poolOnly()){for(const peer of parkPeers.values()){interpolateParkPeer(peer,Date.now());if(Date.now()-peer.receivedAt<3000&&parkActorVisible(peer))drawRunner(peer,t,true);}if(!poolDesert){drawCerealMilk(t);drawParkStereo();}if(!poolPainting)drawAeselFairy(t);{const saved=triangleDepth;drawParkSupply();triangleDepth=saved;}}
   if(poolOnly())drawLensBlood();
   // Debug geometry shares the unfiltered overlay pass, behind screen UI.
   triangleDepth = -1.465;
@@ -25826,7 +25885,7 @@ const monowheel={active:false,x:0,y:0,z:0,vx:0,vy:0,safeUntil:0};
 const parkSupply={nextAt:0,drone:null,drop:null,ko:null};
 function resetMonowheel(){
  const x=poolOnly()?(poolDesert?desertHome().x+desertParams().supply.monowheel:7600):halfpipeOnly()?clamp(players[0].x+170,gridLeft+60,gridLeft+gridWidth-60):tileCenterX(37);
- Object.assign(monowheel,{active:true,x,y:terrainFloorAt(x),z:0,vx:0,vy:0,vz:0,poolYaw:0,skatePitch:0,safeUntil:0});
+ Object.assign(monowheel,{active:!poolPainting,x,y:terrainFloorAt(x),z:0,vx:0,vy:0,vz:0,poolYaw:0,skatePitch:0,safeUntil:0});
 }
 function monowheelFrame(p, local=false){
  const pitch=p.skatePitch||0,c=Math.cos(pitch),s=Math.sin(pitch);
@@ -27402,7 +27461,21 @@ function drawPaintCan(can){
 }
 // The desert's supplies: chalk in a ring round home, paint cans in a wider
 // one, the monowheel beside you (resetMonowheel).
+function resetPaintingSupply(){
+ const home=desertHome(),colors=[{name:'BLACK',rgb:[24,24,28]},...chalkColors,{name:'WHITE',rgb:[245,245,245]}];
+ for(let row=0;row<3;row++)colors.forEach((color,i)=>{
+   const x=home.x-420+row*95,z=home.z+(i-3.5)*100;
+   chalkPickups.push({x,z,y:parkDeckY-12,color:{...color,tool:row===1?'MARKER':row===2?'PASTEL':'CHALK',width:row===1?12:row===2?24:6},active:true});
+ });
+ for(let row=0;row<3;row++)paintColors.forEach((color,i)=>placePaintCan(home.x+400+row*90,home.z+(i-(paintColors.length-1)/2)*100,color,paintCanSpill*8));
+}
+function givePaintingChalk(p){
+ if(!poolPainting||p.chalkColor||!freeItemArm(p,'chalk'))return;
+ p.handItems ||= {};p.handItems.chalk=freeItemArm(p,'chalk');
+ p.chalkColor={name:'BLACK',rgb:[24,24,28],tool:'CHALK',width:6};
+}
 function resetDesertSupply(now){
+ if(poolPainting){resetPaintingSupply();return;}
  const home=desertHome(),{supply}=desertParams();
  chalkColors.forEach((color,i)=>{const a=i/chalkColors.length*Math.PI*2+.4,x=home.x+Math.cos(a)*supply.chalk,z=home.z+Math.sin(a)*supply.chalk;chalkPickups.push({x,z,y:poolFloorAt(x,z)-12,color,active:true});});
  paintColors.forEach((color,i)=>{const a=i/paintColors.length*Math.PI*2+.9,x=home.x+Math.cos(a)*supply.paint,z=home.z+Math.sin(a)*supply.paint;placePaintCan(x,z,color);});
@@ -27483,7 +27556,7 @@ function updateChalk(p,held,now){
   // into dots on the coarser console texture.
   const paint=p.chalkColor.paint,dry=paint&&p.chalkColor.spill<=0;
   if(paint&&!dry)p.chalkColor.spill-=distance;
-  if(distance>=2&&distance<180&&!dry){addDecal({kind:'chalk',x:previous.x,z:previous.z,x2:tip.x,z2:tip.z,size:Math.max(4,chalkTexel()*(paint?2.4:.8)),color:p.chalkColor.rgb});if(now>=(p.nextChalkSound||0)){playDrum('hat',.025+Math.min(.025,distance/1000),panPlayer(p));p.nextChalkSound=now+90000;}}
+  if(distance>=2&&distance<180&&!dry){addDecal({kind:'chalk',x:previous.x,z:previous.z,x2:tip.x,z2:tip.z,size:p.chalkColor.width||Math.max(4,chalkTexel()*(paint?2.4:.8)),color:p.chalkColor.rgb});if(now>=(p.nextChalkSound||0)){playDrum('hat',.025+Math.min(.025,distance/1000),panPlayer(p));p.nextChalkSound=now+90000;}}
  }
  // The stroke only advances when it lands. Moving the start point on a
  // skipped (too short) segment left gaps whenever the chalk moved slowly.
@@ -27491,6 +27564,7 @@ function updateChalk(p,held,now){
 }
 function chalkTexel(){return (gridWidth+parkLotMargin*2)/parkDecalResolution;}
 function updateFootprints(p,now){
+ if(poolPainting)return;
  const step=Math.floor((p.poolStridePhase||0)*2);
  const previous=p.footprintStep;p.footprintStep=step;
  if(previous===undefined||step===previous||!p.alive||!p.grounded||p.skateboard||p.onewheel||p.swimming||Math.hypot(p.vx,p.vz||0)<25)return;
@@ -27517,6 +27591,7 @@ function drawHeldChalk(p,t){
  worldCapsule(hand.x,hand.y,hand.z,tip.x,tip.y,tip.z,6*projectionScaleAt(tip),p.chalkColor.rgb);
 }
 function seedStreetTexture(){
+ if(poolPainting)return;
  if(typeof decalTint!=='function'||!poolDecalsNative)return;
  const bounds={x:gridLeft-parkLotMargin,z:worldNear-parkLotMargin,w:gridWidth+parkLotMargin*2,h:roomDepth+parkLotMargin*2};
  const pix=(x,z)=>[(x-bounds.x)/bounds.w*parkDecalResolution,(z-bounds.z)/bounds.h*parkDecalResolution];
@@ -27548,15 +27623,16 @@ function resetParkSupply(now){
   for(const [x,z,kind] of [[7100,-1800,'RUBBER SMG'],[4800,1600,'HANDGUN']])gunPickups.push({parkScatter:true,kind,x,z,y:poolFloorAt(x,z)-65,amount:kind==='RUBBER SMG'?90:24,active:true,startsActive:false,respawnAt:Infinity});
   for(const [x,z] of [[6500,700]])parkAxes.push({x,z,y:poolFloorAt(x,z)-65,active:true});
  }
- if(halfpipeOnly()){
+ if(halfpipeOnly()||poolPainting){
   for(const p of [...gunPickups,...saberPickups,...grenadePickups])p.active=false;
   axePickup.active=false;for(const p of players){p.axeHeld=false;p.underPipe=false;}
-  if(poolOnly()){
+  if(poolOnly()&&!poolPainting){
     for(const pickup of gunPickups)if(pickup.parkScatter)pickup.active=true;
 
   }
   bottomGlass.fill(false);turboParticles.length=0;
   Object.assign(parkSupply,{nextAt:Infinity,drone:null,drop:null,ko:null});
+  if(poolPainting)givePaintingChalk(players[0]);
   return;
  }
  let smg=gunPickups.find(p=>p.seatSmg);if(!smg){smg={seatSmg:true,startsActive:false,cycle:false};gunPickups.push(smg);}
@@ -27670,11 +27746,11 @@ function drawGoKartBody(place,body){
 function drawParkPickupLabels(){
  if(freeskateMenu)return;
  if(!poolOnly())return;
- const rider=players[0],items=[...gunPickups.filter(i=>i.active).map(i=>({...i,label:i.kind==='RUBBER SMG'?'SMG':'pistol',ink:[120,215,255]})),...parkAxes.filter(i=>i.active).map(i=>({...i,label:'axe',ink:[255,168,102]})),...chalkPickups.filter(i=>i.active).map(i=>({...i,label:i.color.name.toLowerCase()+' chalk',ink:i.color.rgb})),...paintCans.filter(i=>i.active).map(i=>({...i,label:i.color.name.toLowerCase()+' paint'+(i.tipped?' (tipped)':''),ink:i.color.rgb})),...parkKarts.filter(i=>i.active).map(i=>({...i,label:'go-kart',ink:i.color}))];
+ const rider=players[0],items=[...gunPickups.filter(i=>i.active).map(i=>({...i,label:i.kind==='RUBBER SMG'?'SMG':'pistol',ink:[120,215,255]})),...parkAxes.filter(i=>i.active).map(i=>({...i,label:'axe',ink:[255,168,102]})),...chalkPickups.filter(i=>i.active).map(i=>({...i,label:i.color.name.toLowerCase()+' '+(i.color.tool||'chalk').toLowerCase(),ink:i.color.rgb})),...paintCans.filter(i=>i.active).map(i=>({...i,label:i.color.name.toLowerCase()+' paint'+(i.tipped?' (tipped)':''),ink:i.color.rgb})),...parkKarts.filter(i=>i.active).map(i=>({...i,label:'go-kart',ink:i.color}))];
  if(axePickup.active)items.push({...axePickup,label:'axe',ink:[255,168,102]});
  if(monowheel.active)items.push({...monowheel,label:'monowheel',ink:[205,169,255]});
  for(const b of balls)if(b.active&&b.type==='skateboard'&&b.heldBy<0)items.push({...b,label:'skateboard',ink:[158,225,173]});
- const candidates=items.map(i=>({...i,d:Math.hypot(i.x-rider.x,(i.z||0)-(rider.z||0))})).filter(i=>i.d<1100).sort((a,b)=>a.d-b.d).slice(0,5);
+ const candidates=items.map(i=>({...i,d:Math.hypot(i.x-rider.x,(i.z||0)-(rider.z||0))})).filter(i=>i.d<1100).sort((a,b)=>a.d-b.d).slice(0,poolPainting?1:5);
  const old=triangleDepth;triangleDepth=hudDepth;
  for(const i of candidates){const p=projectPoint(i.x,i.y+28,i.z||0);if(p.behind||p.x<60||p.x>viewWidth()-60||p.y<100||p.y>viewHeight-160)continue;seatHudText(i.label,p.x-handleWidth(i.label,42)/2,p.y,42,i.ink);}
  triangleDepth=old;
@@ -27935,26 +28011,35 @@ function parkControlCaps(){
 // naming X, Y, A and B pointed at letters no button there wears — the same
 // call drawControlLegend makes. It also stood exactly where the pad does.
 function drawParkControls(p,safe){
- if(touchPadShown())return;
- const pad=inputPads[p.pad],fighting=!!parkFightRival(p),size=28,c=parkControlCaps();
- // The caps are the keys as pressed (Q/E, Shift, Space), so they light from
- // the untranslated buttons, where Q and E are still two different keys.
- // The local snapshot keeps them even when netplay rebuilds inputPads.
- const held=[...(padSnapshots[p.pad]?.pressed||pad?.pressed||pad?.down||[])];
- if((inputPads[p.pad]?.leftY||0)>.48)held.push('ArrowUp');
- const ink=[200,215,232];
- const drop=parkDropName(p);
- if(drop)drawKeycapRun([[c.drop,'drop '+drop,'KeyQ']],safe.left,safe.bottom-size*1.6,size,held,[255,186,126]);
- const vehicle=p.skateboard||p.goKart||p.onewheel,gun=p.gunAmmo>0;
- const rows=[
-  // The buttons each cap sends: Q/E are X/Y, Shift is A, Space is B, and
-  // the bubble is Shift+Q (A+X) — the same layout the hosts map keys to.
-  [[c.punch,p.chalkColor&&!fighting?'draw':p.axeHeld?'swing':gun?'shoot':'punch/hold',['X','Y']],
-   [c.kick,vehicle?'gas':'kick','A']],
-  [[c.jump,p.skateboard&&!fighting?'off':'jump','B'],[c.bubble,'bubble',['A','X']]]];
- for(const [row,entries] of rows.entries()){
-  const y=safe.bottom-size*3.4+row*size*1.8;
-  drawKeycapRun(entries,safe.right-keycapRunWidth(entries,size),y,size,held,ink);
+ if(!touchPadShown())drawXboxController(p,safe);
+}
+function drawXboxController(p,safe){
+ const pad=padSnapshots[p.pad]||inputPads[p.pad]||{},held=pad.pressed||pad.down||[];
+ const w=300,h=172,x=safe.right-w,y=safe.bottom-h,edge=[158,171,188],base=[25,29,38],active=[100,240,185];
+ filledCapsule(x+55,y+78,x+35,y+135,33,base);filledCapsule(x+w-55,y+78,x+w-35,y+135,33,base);
+ filledCapsule(x+65,y+77,x+w-65,y+77,54,base);
+ const stick=(cx,cy,sx,sy)=>{
+   filledDisc(cx,cy,24,edge);filledDisc(cx,cy,21,[9,12,18]);
+   const ax=clamp(Number(sx)||0,-1,1),ay=clamp(Number(sy)||0,-1,1);
+   filledDisc(cx+ax*13,cy-ay*13,11,Math.hypot(ax,ay)>.18?active:[209,220,231]);
+ };
+ stick(x+64,y+63,pad.leftX,pad.leftY);stick(x+181,y+114,pad.rightX,pad.rightY);
+ filledCapsule(x+101,y+106,x+101,y+132,6,edge);filledCapsule(x+88,y+119,x+114,y+119,6,edge);
+ for(const [key,dx,dy,col] of [['Y',236,43,[240,209,85]],['B',258,65,[239,106,109]],['A',236,87,[108,220,145]],['X',214,65,[104,171,242]]]){
+   filledDisc(x+dx,y+dy,12,held.includes(key)?col:[60,65,74]);
+   typeWrite(key,x+dx-6,y+dy-10,18,...col);
+ }
+ for(const [label,dx,value] of [['LT',48,pad.leftTrigger],['RT',222,pad.rightTrigger]]){
+   hudBox(x+dx,y,40,16,...edge);hudBox(x+dx,y,40*clamp(Number(value)||0,0,1),16,...active);
+   seatHudText(label,x+dx,y-24,20,[230,237,246]);
+ }
+ seatHudText('MOVE',x+26,y+h-15,20,edge);seatHudText('LOOK',x+155,y+h-15,20,edge);
+ const action=p.chalkColor?'RT draw':p.gunAmmo>0?'LT aim   RT fire':'RT use   A jump';
+ seatHudText(action,x,y-58,24,[219,229,240]);
+ if(p.gunAmmo>0&&!freeskateMenu){
+   const cx=viewCenterX(),cy=viewHeight/2,ink=[240,248,255];
+   for(const [dx,dy] of [[-10,0],[10,0],[0,-10],[0,10]])filledDisc(cx+dx,cy+dy,3,[20,25,32]);
+   for(const [dx,dy] of [[-10,0],[10,0],[0,-10],[0,10]])filledDisc(cx+dx,cy+dy,1.7,ink);
  }
 }
 function drawSeatPlayerHud(ink){
@@ -27997,7 +28082,7 @@ function seatActionText(p,now){
  if(recent&&!['NONE','LEFT','RIGHT','UP','DOWN','SPIN','SUPER TURBO','SKATEBOARD','MONOWHEEL','DASH','DASH OUT'].includes(recent)&&!states.includes(recent))states.push(recent);
  const held=[];
  if(p.axeHeld)held.push('AXE');if(p.swordHeld)held.push('SWORD');if(p.gunAmmo>0)held.push(p.gunMode==='RUBBER SMG'?'SMG':'PISTOL');
- if(p.chalkColor)held.push(p.chalkColor.name+' CHALK');
+ if(p.chalkColor)held.push(p.chalkColor.name+' '+(p.chalkColor.paint?'PAINT':p.chalkColor.tool||'CHALK'));
  if(p.heldBall>=0)held.push('BALL');if(p.heldPlayer>=0)held.push('PARTNER');
  return states.join(' + ')+(held.length?' W/ '+held.join(' + '):'');
 }

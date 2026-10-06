@@ -74,6 +74,19 @@ extension ACKeyboardRemote {
         assert(heartbeat.lastPong > 0 && heartbeat.outstandingPings.isEmpty)
         heartbeat.disconnect()
         assert(drain(heartbeatPipe) == "R\n")
+        let (xbox, xboxPipe) = fixture()
+        xbox.xboxTarget = true
+        let mouse = event(0, .mouseMoved)
+        mouse.setIntegerValueField(.mouseEventDeltaX, value: 12)
+        mouse.setIntegerValueField(.mouseEventDeltaY, value: -6)
+        assert(xbox.handle(.mouseMoved, mouse))
+        assert(xbox.handle(.leftMouseDown, mouse))
+        assert(xbox.handle(.leftMouseUp, mouse))
+        assert(xbox.handle(.rightMouseDown, mouse))
+        assert(xbox.handle(.rightMouseUp, mouse))
+        assert(drain(xboxPipe) == "M 12 -6\nB 0 1\nB 0 0\nB 1 1\nB 1 0\n")
+        xbox.disconnect()
+        assert(drain(xboxPipe) == "R\n")
         print("AC remote tests passed: key lifecycle, modifier overlap, escape, local exit, arming, disabled tap, nonblocking backpressure, heartbeat framing.")
     }
 }

@@ -42,6 +42,8 @@ final class ACKeyboardRemote: NSObject {
     var onCaptureChanged: ((Bool) -> Void)?
     var canConnect: (() -> Bool)?
     private var configuration = Configuration()
+    private var xboxTarget = UserDefaults.standard.bool(forKey: "slab.acRemoteXbox")
+    private var pointerHidden = false
     private var hotkey: GlobalHotkey?
     private var item: NSStatusItem?
     private var process: Process?
@@ -66,10 +68,11 @@ final class ACKeyboardRemote: NSObject {
         let status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item = status
         status.button?.target = self
-        status.button?.action = #selector(toggle)
+        status.button?.action = #selector(clicked)
+        status.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         status.button?.image = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "AC keyboard remote")
         status.button?.imagePosition = .imageLeading
-        show("AC", detail: "AC keyboard remote · ⌘⌥L to connect")
+        show(xboxTarget ? "AC Xbox" : "AC", detail: "AC Remote · ⌘⌥L to connect · right-click to choose target")
         setPerformanceFocused(!(canConnect?() ?? true))
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(suspend),
             name: NSWorkspace.willSleepNotification, object: nil)
@@ -103,6 +106,21 @@ final class ACKeyboardRemote: NSObject {
 
     @objc private func suspend() { disconnect() }
 
+    @objc private func clicked() {
+        if NSApp.currentEvent?.type == .rightMouseUp || NSApp.currentEvent?.modifierFlags.contains(.option) == true {
+            let menu=NSMenu()
+            for (label, xbox) in [("AC laptop", false), ("Xbox · Oskiewar", true)] {
+                let entry=NSMenuItem(title: label, action: #selector(selectTarget(_:)), keyEquivalent: "")
+                entry.target=self;entry.tag=xbox ? 1 : 0;entry.state=xboxTarget == xbox ? .on : .off;menu.addItem(entry)
+            }
+            if let button=item?.button { menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height), in: button) }
+        } else { toggle() }
+    }
+    @objc private func selectTarget(_ sender: NSMenuItem) {
+        disconnect();xboxTarget=sender.tag == 1
+        UserDefaults.standard.set(xboxTarget, forKey: "slab.acRemoteXbox")
+        show(xboxTarget ? "AC Xbox" : "AC", detail: "Click or ⌘⌥L to connect. Right-click to choose AC or Xbox.")
+    }
     @objc private func toggle() {
         if process != nil { disconnect(); return }
         guard canConnect?() ?? true else {
@@ -132,6 +150,14 @@ final class ACKeyboardRemote: NSObject {
         task.arguments = ["-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=4",
             "-o", "ServerAliveInterval=2", "-o", "ServerAliveCountMax=2",
             configuration.host, "/mnt/tools/ac-keyboard-remote"]
+        if xboxTarget {
+            configuration.label="Xbox"
+            task.executableURL=URL(fileURLWithPath: "/usr/bin/env")
+            task.arguments=["node", FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin/ac-xbox-remote.mjs").path]
+            var environment=ProcessInfo.processInfo.environment
+            environment["PATH"]="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+            task.environment=environment
+        }
         task.standardInput = stdinPipe
         task.standardOutput = stdoutPipe
         task.standardError = FileHandle.nullDevice // No remote output or input is logged.
@@ -163,7 +189,7 @@ final class ACKeyboardRemote: NSObject {
         let heartbeat = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             guard let self else { return }
             if !self.capturing {
-                if self.now - self.startedAt > 6 { self.fail("AC receiver did not become ready.") }
+                if self.now - self.startedAt > (self.xboxTarget ? 20 : 6) { self.fail("AC receiver did not become ready.") }
                 return
             }
             guard self.now - self.lastPong < 3 else { self.fail("AC connection lost; keyboard returned to this Mac."); return }
@@ -196,8 +222,11 @@ final class ACKeyboardRemote: NSObject {
     }
 
     private func beginCapture() -> Bool {
-        let mask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue)
+        var mask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue)
             | (1 << CGEventType.flagsChanged.rawValue)
+        if xboxTarget {
+            for type in [CGEventType.mouseMoved, .leftMouseDragged, .rightMouseDragged, .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp] { mask |= 1 << type.rawValue }
+        }
         guard let port = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap,
             options: .defaultTap, eventsOfInterest: CGEventMask(mask), callback: { _, type, event, context in
                 guard let context else { return Unmanaged.passUnretained(event) }
@@ -210,6 +239,7 @@ final class ACKeyboardRemote: NSObject {
         waitingForModifiers = !CGEventSource.flagsState(.combinedSessionState)
             .intersection([.maskCommand, .maskAlternate, .maskShift, .maskControl]).isEmpty
         capturing = true
+        if xboxTarget { CGAssociateMouseAndMouseCursorPosition(0); NSCursor.hide(); pointerHidden=true }
         onCaptureChanged?(true)
         CGEvent.tapEnable(tap: port, enable: true)
         return true
@@ -222,6 +252,18 @@ final class ACKeyboardRemote: NSObject {
             return false
         }
         guard capturing else { return false }
+        if xboxTarget {
+            if [.mouseMoved, .leftMouseDragged, .rightMouseDragged].contains(type) {
+                if !waitingForModifiers { send("M \(event.getIntegerValueField(.mouseEventDeltaX)) \(event.getIntegerValueField(.mouseEventDeltaY))\n") }
+                return true
+            }
+            if [.leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp].contains(type) {
+                let right = type == .rightMouseDown || type == .rightMouseUp
+                let down = type == .leftMouseDown || type == .rightMouseDown
+                if !waitingForModifiers { send("B \(right ? 1 : 0) \(down ? 1 : 0)\n") }
+                return true
+            }
+        }
         let key = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
         if type == .keyDown && ACRemoteKeys.isToggle(key, event.flags) {
             disconnect()
@@ -267,6 +309,7 @@ final class ACKeyboardRemote: NSObject {
         if let source { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
         tap = nil
         source = nil
+        if pointerHidden { CGAssociateMouseAndMouseCursorPosition(1); NSCursor.unhide(); pointerHidden=false }
         let wasCapturing = capturing
         capturing = false
         send("R\n")
@@ -289,7 +332,7 @@ final class ACKeyboardRemote: NSObject {
         }
         process = nil
         if wasCapturing { onCaptureChanged?(false) }
-        show("AC", detail: "AC keyboard remote · ⌘⌥L to connect")
+        show(xboxTarget ? "AC Xbox" : "AC", detail: "AC Remote · ⌘⌥L to connect · right-click to choose target")
         stopping = false
     }
 
