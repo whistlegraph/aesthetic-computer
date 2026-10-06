@@ -57,7 +57,7 @@ class Account:
 
 
 def move(pipe, embed, before, folder, step, strength, seed, cold=False, observe=None,
-         cancel=None, account=None, identity=None, engine="ac-klein"):
+         cancel=None, account=None, identity=None, engine="ac-klein", hint=None):
     identity = identity or account.snapshot()
     offer = next((item for item in identity.get("models", []) if item["id"] == engine), None) or (identity.get("remote") if engine == "ac-klein" else None) or {}
     if not identity.get("connected") or not offer.get("available"):
@@ -71,12 +71,14 @@ def move(pipe, embed, before, folder, step, strength, seed, cold=False, observe=
     row = {"status": "running", "request_id": request_id, "handle": identity["handle"],
            "quoted_braincells": offer["braincells"],
            "identity": {"model": offer["model"], "input_sha256": sha(before),
-                        "seed": seed, "strength": strength, "quote": offer["quote"], "size": [256, 256]}}
+                        "seed": seed, "strength": strength, "quote": offer["quote"], "size": [256, 256],
+                        **({"hint": hint} if hint else {})}}
     write(receipt, row)
     started = time.monotonic()
     request = {"action": "move", "before": str(before), "requestId": request_id,
                           "seed": seed, "strength": strength, "quote": offer["quote"],
-                          "account_id": identity["account_id"], "model": engine}
+                          "account_id": identity["account_id"], "model": engine,
+                          **({"hint": hint} if hint else {})}
     try:
         result = bridge(request, timeout=260, cancel=cancel)
         check_cancel(cancel)

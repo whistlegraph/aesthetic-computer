@@ -31,6 +31,14 @@ test('only bounded complete 256 RGB images and valid settings reach generation',
   const other=Buffer.from(image,'base64');other.writeUInt32BE(1024,16);
   assert.throws(()=>moveInput({...input,image:other.toString('base64')}),{status:400});
 });
+test('a hint is bounded, changes the move identity, and steers the prompt',async()=>{
+  const {movePrompt}=await import('../backend/nopaint-move-prompt.mjs');
+  const input=JSON.parse(event().body), plain=moveInput(input), hinted=moveInput({...input,hint:'  more  moss '});
+  assert.equal(hinted.hint,'more moss');assert.notEqual(hinted.hash,plain.hash);
+  for(const hint of [7,'x'.repeat(201)]) assert.throws(()=>moveInput({...input,hint}),{status:400});
+  assert.match(movePrompt(hinted),/painter's hint: "more moss"/);
+  assert.doesNotMatch(movePrompt(plain),/hint/);
+});
 test('identity and price come from the server; replay never charges or generates twice',async()=>{
   const {handler,calls}=fixture();
   const input=event({handle:'@victim',user:'victim',braincells:1});

@@ -18,12 +18,14 @@ export function moveInput(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw fail(400, 'Expected a move');
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.requestId || '')) throw fail(400, 'Move ID must be a UUID');
   if (![.25,.5,.75].includes(body.strength) || !Number.isInteger(body.seed) || body.seed < 0 || body.seed >= 2**31) throw fail(400, 'Invalid move settings');
+  if (body.hint !== undefined && (typeof body.hint !== 'string' || body.hint.length > 200)) throw fail(400, 'Hint must be text under 200 characters');
+  const hint = body.hint?.replace(/\s+/g,' ').trim() || undefined;
   try { imageInputBound({messages:[{type:'image',source:{type:'base64',media_type:'image/png',data:body.image}}]}); }
   catch { throw fail(400, 'Expected a complete PNG image'); }
   const png = Buffer.from(body.image,'base64');
   if (png.readUInt32BE(16)!==256 || png.readUInt32BE(20)!==256 || png[24]!==8 || ![2,6].includes(png[25])) throw fail(400, 'Expected a 256×256 RGB PNG');
-  const hash = createHash('sha256').update(png).update(JSON.stringify([body.seed,body.strength,body.quote])).digest('hex');
-  return {...body, hash};
+  const hash = createHash('sha256').update(png).update(JSON.stringify([body.seed,body.strength,body.quote,hint ?? null])).digest('hex');
+  return {...body, hint, hash};
 }
 
 export function createNoPaintProvider({key, fetch=globalThis.fetch, sleep=ms=>new Promise(r=>setTimeout(r,ms))}) {

@@ -15,7 +15,7 @@ import SwiftUI
     func testConnectionDetailsStayOutOfPaintAndDoNotResizeTheCanvas() async throws {
         let game=GameStore();game.state=try state("Timed out")
         game.imagePath="/image/input.png";game.imageSettled=true
-        XCTAssertEqual(game.generationStatus(Date()),["~4.0s","0 braincells"])
+        XCTAssertEqual(game.generationStatus(Date()),["~4.0s","free"])
         XCTAssertTrue(game.canPaint)
         XCTAssertFalse(game.canDone)
         XCTAssertEqual(game.statusIssue?.title,"AC offline")
@@ -23,10 +23,10 @@ import SwiftUI
         let before=view.canvasSide(size,status:view.status(Date()),compact:false)
         game.state=try state(String(repeating:"Long network error details. ",count:80))
         XCTAssertEqual(view.canvasSide(size,status:view.status(Date()),compact:false),before)
-        XCTAssertEqual(game.generationStatus(Date()),["~4.0s","0 braincells"])
+        XCTAssertEqual(game.generationStatus(Date()),["~4.0s","free"])
         game.actionError="An action failed with a detailed explanation"
         XCTAssertEqual(game.statusIssue?.title,"Action failed")
-        XCTAssertEqual(game.generationStatus(Date()),["~4.0s","0 braincells"])
+        XCTAssertEqual(game.generationStatus(Date()),["~4.0s","free"])
     }
 
     func testSmallSlabTileKeepsOneStatusLineAndRoomForThePainting() async throws {

@@ -336,7 +336,7 @@ class Game:
         amount = row.get("quoted_braincells", quoted)
         return {"braincells": amount, "status": "quoted" if amount is not None else "pending"}
 
-    def begin(self, quote_id):
+    def begin(self, quote_id, hint=None):
         """Only Paint can confirm the exact displayed offer and start work."""
         if self.busy or not self.quote or quote_id != self.quote["id"]:
             raise Conflict("The move changed. Review the current cost before painting.")
@@ -360,7 +360,7 @@ class Game:
         self.job = {"number": self.attempt, "engine": self.engine,
                     "before": self.history[-1], "strength": quote["strength"],
                     "mask": self.mask, "seed": quote["seed"], "cancel": threading.Event(),
-                    "started": False, "cost": self.cost.copy()}
+                    "started": False, "cost": self.cost.copy(), "hint": hint}
         if self.engine.startswith("ac-"):
             self.job["account"] = self.quote_identity
         self.quote = self.quote_identity = None
@@ -399,7 +399,7 @@ class Game:
                     output = self.move(self.pipe, self.embed, *args, cold=number == 1,
                                        observe=observe, cancel=job["cancel"],
                                        **region.kwargs,
-                                       **({"account": self.account, "identity": job["account"], "engine": job["engine"]} if job["engine"].startswith("ac-") else {}))
+                                       **({"account": self.account, "identity": job["account"], "engine": job["engine"], "hint": job["hint"]} if job["engine"].startswith("ac-") else {}))
                 output = region.finish(output)
                 with self.lock:
                     check_cancel(job["cancel"])
@@ -549,7 +549,11 @@ class Game:
                 self.mask = save_mask(data.get("mask"), self.folder / "masks")
                 self.mask_bits = encode_mask(self.mask) if self.mask else None
             elif action == "paint":
-                self.begin(data.get("quote"))
+                # A hint steers cloud moves; local engines ignore it.
+                hint = data.get("hint")
+                if hint is not None and (not isinstance(hint, str) or len(hint) > 200):
+                    raise ValueError("Keep the hint under 200 characters.")
+                self.begin(data.get("quote"), (hint or "").strip() or None)
                 return self.state()
             elif action == "no":
                 if self.busy:

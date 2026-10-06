@@ -87,7 +87,8 @@ export function createAccountBridge({session=new ACSession(), site=SITE, fetch=g
       if (input.account_id !== id) throw Error('Your AC account changed. Sign in again before generating.');
       const image = (await readFile(input.before)).toString('base64');
       return request('/api/nopaint-inference', token, {requestId:input.requestId,
-        image, seed:input.seed, strength:input.strength, quote:input.quote, model:input.model});
+        image, seed:input.seed, strength:input.strength, quote:input.quote, model:input.model,
+        ...(input.hint ? {hint:input.hint} : {})});
     }
     throw Error('Unknown AC account action');
   };

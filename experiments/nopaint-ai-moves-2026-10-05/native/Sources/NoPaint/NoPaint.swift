@@ -109,6 +109,7 @@ struct StatusIssue {
 
 @MainActor final class GameStore: ObservableObject {
     @Published var state: GameState?
+    @Published var hint = ""
     @Published var image: NSImage?
     @Published var imagePath = ""
     @Published var imageSequence = ""
@@ -187,7 +188,7 @@ struct StatusIssue {
         guard pollTask == nil else { return }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
             guard let self, NSApp.keyWindow?.identifier?.rawValue == "NoPaintMain",
-                  !self.showModels, !self.showHistory,
+                  !self.showModels, !self.showHistory, !(NSApp.keyWindow?.firstResponder is NSTextView),
                   event.modifierFlags.intersection([.command,.control,.option]).isEmpty else { return event }
             let key = event.charactersIgnoringModifiers?.lowercased()
             if key == " " { self.peek(event.type == .keyDown); return nil }
@@ -259,10 +260,20 @@ struct StatusIssue {
             if state.engine.hasPrefix("ac-"), state.models.first(where: { $0.id == state.engine })?.braincells == nil { return ["Not enabled", "Choose a model"] }
             return ["Unavailable", "Choose a model below"]
         }
-        let time = generationTime(date)
         let amount = state?.quote?.braincells ?? state?.cost?.braincells
-        let cost = amount.map { "\($0.formatted()) braincells" } ?? "braincells pending"
-        return [time, cost]
+        return [generationTime(date), amount.map(Self.braincellCost) ?? "braincells pending"]
+    }
+
+    // Only AC cloud models read the hint; local engines paint without words.
+    var hintable: Bool { state?.engine.hasPrefix("ac-") == true }
+
+    // AC sells 1,000,000 braincells for $5, so the dollar figure is that pack's rate.
+    static let braincellsPerUSD = 200_000.0
+    static func braincells(_ amount: Int) -> String { "🧠 " + amount.formatted(.number.notation(.compactName)) }
+    static func braincellCost(_ amount: Int) -> String {
+        guard amount > 0 else { return "free" }
+        let usd = Double(amount) / braincellsPerUSD
+        return braincells(amount) + " · " + String(format: usd < 0.01 ? "$%.4f" : "$%.2f", usd)
     }
 
     func generationTime(_ date: Date) -> String {
@@ -346,6 +357,7 @@ struct StatusIssue {
         if let candidate = state.candidate { body["candidate"] = candidate.id }
         if let generation = state.generation { body["generation"] = generation }
         if action == "paint", let quote = state.quote { body["quote"] = quote.id }
+        if action == "paint", hintable, !hint.trimmingCharacters(in: .whitespaces).isEmpty { body["hint"] = hint }
         body.merge(extra) { _, new in new }
         Task {
             defer { sending = false }
@@ -530,13 +542,17 @@ struct ContentView: View {
         let identity: [StatusBand.Field]
         if account?.connected == true {
             let balance = (account?.remaining ?? 0) + (account?.purchased ?? 0)
-            identity = [.init(text: account?.handle ?? "", weight: .medium), .init(text: "\(balance.formatted()) \(account?.stale == true ? "last known" : "left")", numeric: true)]
+            identity = [.init(text: account?.handle ?? "", weight: .medium), .init(text: (account?.stale == true ? "~" : "") + GameStore.braincells(balance), numeric: true)]
         } else { identity = [.init(text: account?.reconnecting == true ? "Reconnecting…" : account?.working == true ? "Signing in…" : "Sign in", weight: .medium)] }
         let serviceText = game.statusIssue?.title ?? (game.cloudUnavailable ? "AC cloud unavailable" : nil)
         let service: [StatusBand.Field] = serviceText.map { [.init(text: $0, size: 11, weight: .medium)] } ?? []
         let price = game.state?.quote?.braincells ?? model?.paintPrice
-        let capacity: [StatusBand.Field] = price.map { [.init(text: "\(game.paintsLeft($0)) paints left", size: 11, numeric: true)] } ?? []
-        return StatusBand.Content(groups: [modelFields, service, identity, capacity], context: game.upscaling ? "Local · 0 Braincells" : model?.location)
+        let capacity: [StatusBand.Field] = price.map { [.init(text: "×\(game.paintsLeft($0))", size: 11, numeric: true)] } ?? []
+        let details = game.generationStatus(date)
+        // The bar speaks up only when Paint can't run or something else is working.
+        let move: [StatusBand.Field] = details.first == game.generationTime(date) ? []
+            : [.init(text: details.joined(separator: " "), size: 11, weight: .medium)]
+        return StatusBand.Content(groups: [modelFields, move, service, identity, capacity], context: game.upscaling ? "Local · 0 Braincells" : model?.location)
     }
     func canvasSide(_ size: CGSize, status: StatusBand.Content, compact: Bool) -> CGFloat {
         let reserved: CGFloat = compact ? 52 : 76
@@ -565,16 +581,15 @@ struct ContentView: View {
                             .onHover { game.hoverNo($0) }
                             .help("Hover to preview going back. Click to go back one move or cancel an unfinished move. (N)")
                         Button { game.act("paint") } label: {
-                            VStack(spacing: max(3, min(8, buttonHeight / 16))) {
-                                let details = game.generationStatus(time.date)
-                                Text(details.first ?? "— s").font(.system(size: buttonFont, weight: .semibold).monospacedDigit()).lineLimit(1).minimumScaleFactor(0.5)
-                                if details.count > 1 { Text(details[1]).font(.system(size: max(10, min(15, side / 18))).monospacedDigit()).lineLimit(1).minimumScaleFactor(0.7) }
-                            }.padding(.horizontal, 5).frame(width: side / 2, height: buttonHeight).contentShape(Rectangle())
+                            Text("Paint").frame(width: side / 2, height: buttonHeight).contentShape(Rectangle())
                         }.buttonStyle(PaintButton(dark: true, height: buttonHeight, fontSize: buttonFont)).disabled(!game.canPaint || game.pendingDone)
                             .accessibilityLabel("Paint: confirm one generation").accessibilityValue(game.generationStatus(time.date).joined(separator: ", "))
                             .help(game.busy ? "Generating this confirmed move" : game.state?.quote == nil ? (game.state?.account.remote_status ?? "Choose an available model below.") : "Confirm this move and Braincell cost. ~ means estimated time; — means not measured yet. (P)")
                     }.frame(width: side)
-                    StatusBand(game: game, content: label).frame(width: geometry.size.width, height: bandHeight)
+                    HStack(spacing: 0) {
+                        HintField(game: game).frame(width: min(240, geometry.size.width * 0.36))
+                        StatusBand(game: game, content: label)
+                    }.frame(width: geometry.size.width, height: bandHeight)
                         .background(Color.primary.opacity(0.06))
                         .overlay(Rectangle().strokeBorder(Color.primary.opacity(0.35), lineWidth: 1).allowsHitTesting(false))
                 }.frame(width: geometry.size.width).frame(maxHeight: .infinity, alignment: .top)
@@ -584,6 +599,31 @@ struct ContentView: View {
         .sheet(isPresented: $game.showModels) { ModelBrowserView(game: game) }
         .sheet(isPresented: $game.showHistory) { PaintingHistoryView(game: game) }
         .onAppear { game.start() }
+    }
+}
+
+struct HintField: View {
+    @ObservedObject var game: GameStore
+    @FocusState private var focused: Bool
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "sparkle").font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(focused ? Color(red: 0.85, green: 0.24, blue: 0.44) : .secondary)
+            TextField("", text: $game.hint, prompt: Text(game.hintable ? "hint" : "hint · cloud only"))
+                .textFieldStyle(.plain).font(.system(size: 12, weight: .medium)).focused($focused)
+                .onSubmit { if game.canPaint && !game.pendingDone { game.act("paint") }; focused = false }
+                .onExitCommand { focused = false }
+            if !game.hint.isEmpty {
+                Button { game.hint = "" } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 10)) }
+                    .buttonStyle(.plain).foregroundStyle(.tertiary).help("Clear hint")
+            }
+        }
+        .padding(.horizontal, 9).frame(height: 22)
+        .background(Capsule().fill(Color.primary.opacity(focused ? 0.1 : 0.05)))
+        .overlay(Capsule().strokeBorder(Color.primary.opacity(focused ? 0.4 : 0.18), lineWidth: 1))
+        .padding(.leading, 6).padding(.trailing, 2)
+        .disabled(!game.hintable)
+        .help("A word or phrase to steer the next cloud Paint along with your image. Return paints.")
     }
 }
 

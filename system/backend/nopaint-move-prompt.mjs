@@ -19,7 +19,7 @@ const operations = [
   'Turn the affected region into a dense stipple pattern of small dots, sampled from its original colors and brightness.',
 ];
 
-export function movePrompt({seed, strength, model}) {
+export function movePrompt({seed, strength, model, hint}) {
   // Integer mixing spreads neighboring seeds across the operation palette.
   let value=(seed ^ 0x9e3779b9) >>> 0;
   value=Math.imul(value ^ (value >>> 16),0x21f0aaad) >>> 0;
@@ -28,6 +28,8 @@ export function movePrompt({seed, strength, model}) {
   const region = strength===.75 ? 'the entire image' : strength===.5
     ? ['the left half','the right half','the upper half','the lower half'][(value >>> 8)%4] + ' of the image'
     : ['upper-left','upper-right','lower-left','lower-right'][(value >>> 8)%4] + ' quarter of the image';
+  // A painter's hint replaces the seeded operation but keeps the same frame.
+  if (hint) return `Transform this input bitmap by one move, guided by the painter's hint: "${hint}". The affected region is ${region}. Apply a clearly visible transformation, not a subtle touch-up. Keep pixels outside the affected region unchanged. Retain the existing rendering style and source material unless the hint asks otherwise. Do not add a border. Return one complete transformed image at the original composition and aspect ratio.`;
   let operation=value%operations.length;
   // These editors copied the input under exact strip/permutation instructions
   // in live checks. Give them visual edits rather than pixel arithmetic.
