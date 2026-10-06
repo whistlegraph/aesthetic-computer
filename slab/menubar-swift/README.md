@@ -330,17 +330,6 @@ On Macs using the sandboxed Tailscale app, installation also provisions a
 user-local CLI wrapper so the fleet ledger can discover and bind its tailnet IP.
 
 Loopboy's iMessage watcher also needs one macOS privacy grant for the stable
-To see a change running, `./dev.sh` builds debug and hands the binary to
-`install.sh` (`SLAB_PREBUILT`), which signs it with the stable identity and
-relaunches the agent in place; `./dev.sh --watch` repeats that on every save
-under `Sources/` (fswatch). A one-file change is live in seconds. The live
-menubar is then the debug build until `./install.sh` restores release.
-
-Run `./install.sh` once when the change is ready to install.
-On Macs using the sandboxed Tailscale app, installation also provisions a
-user-local CLI wrapper so the fleet ledger can discover and bind its tailnet IP.
-
-Loopboy's iMessage watcher also needs one macOS privacy grant for the stable
 signed app at `~/Applications/SlabMenubar.app`: System Settings → Privacy &
 Security → Full Disk Access. The menu and logs report an authorization error
 instead of emitting a false quiet heartbeat when that grant is absent. The
