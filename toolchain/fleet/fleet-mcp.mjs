@@ -200,6 +200,20 @@ async function toolCleaner({ apply = true, thinSnapshots = false, remoteBacked =
   });
 }
 
+// MacPal fleet deploy — wraps macpal/bin/fleet-deploy.sh (public-safe; host lists stay in config/env).
+function toolMacpalDeploy({ hosts = [], dryRun = false, statusOnly = false, force = false } = {}) {
+  const script = join(REPO, "macpal", "bin", "fleet-deploy.sh");
+  if (!existsSync(script)) throw new Error(`missing ${script}`);
+  const args = [...(dryRun ? ["--dry-run"] : []), ...(statusOnly ? ["--status"] : []), ...hosts.map(String)];
+  return new Promise((resolve, reject) => {
+    execFile(script, args, { timeout: 15 * 60_000, maxBuffer: 8 * 1024 * 1024, env: { ...process.env, FORCE: force ? "1" : "0" } }, (error, stdout, stderr) => {
+      const text = [stdout, stderr].filter(Boolean).join("\n").trim();
+      if (error) return reject(new Error(text || error.message));
+      resolve([{ type: "text", text }]);
+    });
+  });
+}
+
 const TOOLS = [
   {
     name: "fleet_list",
@@ -222,6 +236,16 @@ const TOOLS = [
     inputSchema: { type: "object", properties: {} },
   },
   {
+    name: "fleet_macpal_deploy",
+    description: "Deploy this checkout's MacPal (the desktop pal/badge app) to fleet Macs and relaunch it there: streams macpal/ over ssh, builds on the target, installs with ditto, re-signs ad-hoc, bootstraps/kickstarts the launchd agent, and verifies the installed version matches Resources/Info.plist. Runs hosts in parallel. hosts default to $MACPAL_FLEET or ~/.config/macpal/fleet. dryRun shows the plan; statusOnly reports installed vs source version.",
+    inputSchema: { type: "object", properties: {
+      hosts: { type: "array", items: { type: "string" }, description: "ssh host aliases, e.g. [\"panda\",\"chicken\"]. Omit to use the configured fleet list." },
+      dryRun: { type: "boolean", description: "Plan only, change nothing (default false)." },
+      statusOnly: { type: "boolean", description: "Only report installed version + running state per host (default false)." },
+      force: { type: "boolean", description: "Redeploy even if the host already runs the source version (default false)." },
+    } },
+  },
+  {
     name: "fleet_cleaner",
     description: "Call the Cleaner on the local fleet Mac. By default applies canonical safe caches; set apply=false for a full storage-surface inventory. It protects repositories, worktrees, node_modules, Downloads, models, agent state, and active-app caches. APFS snapshots and verified remote-backed AC media are separately opt-in.",
     inputSchema: { type: "object", properties: {
@@ -238,6 +262,7 @@ const HANDLERS = {
   fleet_find: toolFind,
   fleet_designations: toolDesignations,
   fleet_cleaner: toolCleaner,
+  fleet_macpal_deploy: toolMacpalDeploy,
 };
 
 async function handleMessage(message) {
@@ -272,7 +297,7 @@ async function handleMessage(message) {
 // Allow a quick CLI smoke test: `node fleet-mcp.mjs list|find <cap>|machine <name>`.
 if (process.argv[2] && process.argv[2] !== "--http") {
   const [cmd, arg] = process.argv.slice(2);
-  const map = { list: () => toolList(), find: () => toolFind({ capability: arg }), machine: () => toolMachine({ name: arg }), designations: () => toolDesignations(), cleaner: () => toolCleaner({ apply: arg !== "report" }) };
+  const map = { list: () => toolList(), find: () => toolFind({ capability: arg }), machine: () => toolMachine({ name: arg }), designations: () => toolDesignations(), cleaner: () => toolCleaner({ apply: arg !== "report" }), "macpal-deploy": () => toolMacpalDeploy({ hosts: process.argv.slice(3).filter(a=>!a.startsWith("--")), dryRun: process.argv.includes("--dry-run"), statusOnly: process.argv.includes("--status") }) };
   const fn = map[cmd];
   if (!fn) {
     console.error("usage: fleet-mcp.mjs [list | find <capability> | machine <name> | designations | cleaner [report]]");
@@ -282,5 +307,5 @@ if (process.argv[2] && process.argv[2] !== "--http") {
 } else {
   const port = httpPort(process.argv, 7776);
   if (port) serveHttp({ handleMessage, port, banner: "🛰  fleet-mcp shared daemon" });
-  else serveStdio({ handleMessage, banner: "🛰  fleet-mcp server started (fleet_list, fleet_machine, fleet_find, fleet_designations, fleet_cleaner)" });
+  else serveStdio({ handleMessage, banner: "🛰  fleet-mcp server started (fleet_list, fleet_machine, fleet_find, fleet_designations, fleet_cleaner, fleet_macpal_deploy)" });
 }

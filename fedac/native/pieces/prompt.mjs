@@ -825,12 +825,12 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
     }
   }
 
-  const charW = 6; // 6x10 font
-  const charH = 10;
-  const lineH = 12;
+  const charW = 8; // GNU Unifont's native 8x16 cells
+  const charH = 16;
+  const lineH = 18;
   const x0 = 4;
   const y0 = 4;
-  const font = "6x10";
+  const font = "unifont";
 
   // Cursor blink
   cursorFrame++;
@@ -887,7 +887,7 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
 
   // History below input (also syntax highlighted)
   let hy = y0 + lineH + 4 + completionH;
-  for (let i = 0; i < history.length && hy < H - 20; i++) {
+  for (let i = 0; i < history.length && hy < H - charH - 6; i++) {
     // Dim the history entries
     const entry = history[i];
     const lower = entry.toLowerCase();
@@ -907,7 +907,7 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
   // Message (bottom)
   if (message.length > 0) {
     ink(T.fgDim, T.fgDim - 10, T.fgDim + 20);
-    write(message, { x: x0, y: H - 14, size: 1, font });
+    write(message, { x: x0, y: H - charH - 4, size: 1, font });
   }
 }
 

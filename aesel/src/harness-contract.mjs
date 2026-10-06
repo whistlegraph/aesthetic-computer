@@ -4,7 +4,7 @@ export const SETTINGS_TOOL={
  description:'Read Aesel’s settings, open Settings, update provider/model/reasoning effort/auto-publish, or reify Aesel after editing its code. Reify reloads the TUI in place with its conversation, draft, queue and settings preserved. Changes and reification requested during a reply wait for that reply to finish; report queued actions as pending. Use these direct controls when the user asks, without shell commands or UI automation. This never edits the artwork.',
  inputSchema:{type:'object',properties:{
   action:{type:'string',enum:['read','open','update','reify']},
-  provider:{type:'string',enum:['ac','claude','codex','open']},
+  provider:{type:'string',enum:['ac','claude','codex','open','relay']},
   model:{type:'string',maxLength:160},
   effort:{type:'string',enum:['','none','minimal','low','medium','high','xhigh','max','ultra']},
   autopublish:{type:'boolean'},
@@ -19,7 +19,7 @@ export function validateSettingsRequest(value){
  if(Object.keys(value).some(key=>!keys.includes(key))||!['read','open','update','reify'].includes(value.action))throw Error('Unsupported settings action');
  if(value.action!=='update'&&Object.keys(value).length!==1)throw Error('Only update accepts setting values');
  if(value.action==='update'&&Object.keys(value).length===1)throw Error('Choose a setting to update');
- if(value.provider!==undefined&&!['ac','claude','codex','open'].includes(value.provider))throw Error('Unknown provider');
+ if(value.provider!==undefined&&!['ac','claude','codex','open','relay'].includes(value.provider))throw Error('Unknown provider');
  if(value.model!==undefined&&(typeof value.model!=='string'||value.model.length>160||/[\x00-\x1f\x7f]/.test(value.model)))throw Error('Invalid model');
  if(value.effort!==undefined&&!SETTINGS_TOOL.inputSchema.properties.effort.enum.includes(value.effort))throw Error('Invalid reasoning effort');
  if(value.autopublish!==undefined&&typeof value.autopublish!=='boolean')throw Error('Invalid auto-publish setting');

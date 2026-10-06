@@ -22,7 +22,7 @@ input=$(cat)
 rm -f /tmp/slab-ambient-paused
 
 # keep the machine awake while this new prompt runs
-"$SLAB_BIN/claude-sleep" awake >/dev/null 2>&1 &
+"$SLAB_BIN/claude-sleep" work >/dev/null 2>&1 &
 
 if [[ -n "$input" ]]; then
     mkdir -p "$ACTIVE_DIR" "$AWAITING_DIR"

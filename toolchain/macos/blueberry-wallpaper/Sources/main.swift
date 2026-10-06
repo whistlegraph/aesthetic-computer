@@ -112,6 +112,18 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         "computer.aesthetic.slab.desktop-tint.changed")
     private var statusTint: NSColor?
 
+    // ── beat ──────────────────────────────────────────────────────────────
+    // A listener (beat-listener.swift, or anything else that hears the room)
+    // publishes {bpm, beatAt, energy, updatedAt} as beat.json plus a
+    // distributed notification; the marks swell on each beat and settle back
+    // when the beat goes quiet. Nothing listens here; this only follows.
+    private static let beatFile = NSString(
+        string: "~/.local/share/slab/wallpaper/beat.json").expandingTildeInPath
+    private static let beatNote = Notification.Name("computer.aesthetic.slab.beat.changed")
+    private struct Beat { let bpm: Double; let beatAt: Double; let energy: Double; let updatedAt: Double }
+    private var beat: Beat?
+    private var pulse: CGFloat = 0
+
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
@@ -141,6 +153,10 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         DistributedNotificationCenter.default().addObserver(
             self, selector: #selector(tintDidChange(_:)),
             name: Self.tintNote, object: nil)
+        beat = Self.readBeatFile()
+        DistributedNotificationCenter.default().addObserver(
+            self, selector: #selector(beatDidChange(_:)),
+            name: Self.beatNote, object: nil)
 
         loadModel()
         buildCameraAndLights()
@@ -182,6 +198,40 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
 
     @objc private func systemColorsDidChange() {
         applyAccentColor(animated: true)
+    }
+
+    @objc private func beatDidChange(_ note: Notification) {
+        beat = Self.beat(from: note.userInfo) ?? Self.readBeatFile()
+    }
+
+    private static func readBeatFile() -> Beat? {
+        guard let data = FileManager.default.contents(atPath: beatFile),
+              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        else { return nil }
+        return beat(from: obj)
+    }
+
+    private static func beat(from info: [AnyHashable: Any]?) -> Beat? {
+        guard let bpm = (info?["bpm"] as? NSNumber)?.doubleValue, bpm > 30, bpm < 300,
+              let beatAt = (info?["beatAt"] as? NSNumber)?.doubleValue
+        else { return nil }
+        let energy = (info?["energy"] as? NSNumber)?.doubleValue ?? 1
+        let updatedAt = (info?["updatedAt"] as? NSNumber)?.doubleValue ?? beatAt
+        return Beat(bpm: bpm, beatAt: beatAt, energy: min(max(energy, 0), 1), updatedAt: updatedAt)
+    }
+
+    /// 0 when the room is quiet; otherwise a swell that peaks on each beat and
+    /// decays through the bar. Smoothed so a dropped frame never snaps a mark.
+    private func beatPulse(now: Double) -> CGFloat {
+        var target: CGFloat = 0
+        if let beat, now - beat.updatedAt < 4 {
+            let period = 60 / beat.bpm
+            var phase = (now - beat.beatAt).truncatingRemainder(dividingBy: period) / period
+            if phase < 0 { phase += 1 }
+            target = CGFloat(exp(-phase * 6) * beat.energy) * 0.38
+        }
+        pulse += (target - pulse) * (target > pulse ? 0.55 : 0.12)
+        return pulse
     }
 
     @objc private func tintDidChange(_ note: Notification) {
@@ -290,9 +340,6 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
                 prototype.addChildNode(child)
             }
             applyOriginalGLBMaterials(to: prototype)
-            if Emblem.isModel, Emblem.scale != 1 {
-                prototype.scale = SCNVector3(Emblem.scale, Emblem.scale, Emblem.scale)
-            }
         }
         let (lo, hi) = prototype.boundingBox
         modelWidth = max(CGFloat(hi.x - lo.x), 0.001)
@@ -326,11 +373,14 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         // field reads full-bleed instead of as an inset/letterboxed stage.
         let padding: CGFloat = 0.13
         var candidates: [Placement] = []
+        let swell = 1 + beatPulse(now: Date().timeIntervalSince1970)
 
         for (model, spec) in zip(models, Self.specs) {
             let raw = CGFloat(elapsed / spec.riseSeconds) + spec.phase
             let progress = raw - floor(raw)
             let scale = spec.scale * Self.markScale
+            let shown = scale * swell * (Emblem.isModel ? Emblem.scale : 1)
+            model.scale = SCNVector3(shown, shown, shown)
             let width = modelWidth * scale * 1.08
             let height = modelHeight * scale * 1.08
             // Use the full rotating footprint, not just a fraction of model

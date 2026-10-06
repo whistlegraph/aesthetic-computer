@@ -1,0 +1,67 @@
+{
+  "_note": "HAND-WRITTEN DEMO FIXTURE, used only with --fixture. Products from the brand's public site (areaware.com). Captions are our descriptions, NOT real post captions. Counts null, permalinks null: a human confirms the real post before any board is built.",
+  "profile": {
+    "username": "areaware",
+    "name": "Areaware",
+    "kind": "brand",
+    "address_as": "Areaware",
+    "biography": null,
+    "website": "https://www.areaware.com",
+    "followers_count": null,
+    "media_count": null,
+    "contact": "(wholesale/press contact on areaware.com; never a DM)"
+  },
+  "media": [
+    {
+      "id": "fixture-gradient-puzzle",
+      "media_type": "IMAGE",
+      "fixture_kind": "product",
+      "product": "Gradient Puzzle",
+      "caption": "Fixture: the Gradient Puzzle by Bryce Wilner, top-down, pieces mid-assembly beside its box. Product-only shot.",
+      "permalink": null,
+      "media_url": null,
+      "like_count": null,
+      "comments_count": null,
+      "timestamp": "2026-05-01T00:00:00+0000",
+      "aspect": "1:1"
+    },
+    {
+      "id": "fixture-cubebot",
+      "media_type": "IMAGE",
+      "fixture_kind": "product",
+      "product": "Cubebot",
+      "caption": "Fixture: Cubebot by David Weeks, the wooden robot toy folded into its cube, on a plain surface.",
+      "permalink": null,
+      "media_url": null,
+      "like_count": null,
+      "comments_count": null,
+      "timestamp": "2026-02-01T00:00:00+0000",
+      "aspect": "4:5"
+    },
+    {
+      "id": "fixture-blockitecture",
+      "media_type": "CAROUSEL_ALBUM",
+      "fixture_kind": "product",
+      "product": "Blockitecture",
+      "caption": "Fixture: Blockitecture by James Paulius, a stacked set of the wooden blocks with its box.",
+      "permalink": null,
+      "media_url": null,
+      "like_count": null,
+      "comments_count": null,
+      "timestamp": "2025-12-01T00:00:00+0000",
+      "aspect": "1:1"
+    },
+    {
+      "id": "fixture-team",
+      "media_type": "IMAGE",
+      "fixture_kind": "person",
+      "caption": "Fixture: the team at a trade fair booth. People, never a source; here so the ranker demotes it.",
+      "permalink": null,
+      "media_url": null,
+      "like_count": null,
+      "comments_count": null,
+      "timestamp": "2026-04-01T00:00:00+0000",
+      "aspect": "4:5"
+    }
+  ]
+}

@@ -143,7 +143,8 @@ enum MenuBuilder {
         mac.addItem(.separator())
 
         let stayAwake = item("Stay awake (lid closed)", selector: #selector(AppDelegate.toggleStayAwake), target: target)
-        stayAwake.state = state.sleepDisabled ? .on : .off
+        stayAwake.state = state.stayAwake ? (state.sleepDisabled ? .on : .mixed) : .off
+        stayAwake.toolTip = "Keep awake until you turn this off or choose Sleep now, including after agent work finishes."
         mac.addItem(stayAwake)
         mac.addItem(item("Sleep now", selector: #selector(AppDelegate.sleepNow), target: target))
 
@@ -1389,6 +1390,8 @@ enum MenuBuilder {
 
         let sub = NSMenu()
         let start = item("Start", selector: #selector(AppDelegate.deskflowStart), target: target)
+        sub.addItem(item("Desktop Layout…", selector: #selector(AppDelegate.openDisplayLayout), target: target))
+        sub.addItem(.separator())
         start.isEnabled = !d.running
         sub.addItem(start)
         let stop = item("Stop", selector: #selector(AppDelegate.deskflowStop), target: target)

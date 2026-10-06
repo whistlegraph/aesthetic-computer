@@ -252,6 +252,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // install or has answered this before.
         FirstRun.offerIfNeeded()
         LaunchPing.send()
+        restoreStayAwake()
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self, selector: #selector(restoreStayAwake(_:)),
+            name: NSWorkspace.didWakeNotification, object: nil
+        )
 
         DistributedNotificationCenter.default().addObserver(
             self,
@@ -1727,6 +1732,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: - Deskflow KVM
 
+    @objc func openDisplayLayout() { DisplayLayoutWindow.show() }
+
     /// Read the launchd agent label from the untracked deskflow config.
     /// Machine role/label/agent live there, never in tracked code.
     private func deskflowAgent() -> String? {
@@ -1950,9 +1957,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc func toggleStayAwake() {
-        let arg = state.sleepDisabled ? "auto" : "awake"
-        ShellRunner.runAsync(Paths.claudeSleep, args: [arg]) { [weak self] in
-            DispatchQueue.main.async { self?.refresh() }
+        let held = FileManager.default.fileExists(atPath: Paths.stayAwakeFlag)
+        runSleepControl(held ? "auto" : "awake")
+    }
+
+    @objc private func restoreStayAwake(_ notification: Notification? = nil) {
+        guard FileManager.default.fileExists(atPath: Paths.stayAwakeFlag) else { return }
+        runSleepControl("restore")
+    }
+
+    private func runSleepControl(_ command: String) {
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let result = ShellRunner.run(Paths.claudeSleep, args: [command])
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.refresh()
+                if result.status != 0 {
+                    let alert = NSAlert()
+                    alert.messageText = "Could not change sleep protection"
+                    let detail = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
+                    alert.informativeText = detail.isEmpty
+                        ? "Check Slab's sleep-control permission and try again." : detail
+                    alert.alertStyle = .warning
+                    alert.runModal()
+                }
+            }
         }
     }
 
@@ -1999,7 +2028,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc func sleepNow() {
-        ShellRunner.runAsync(Paths.claudeSleep, args: ["now"])
+        runSleepControl("now")
     }
 
     /// Kick off the currently-selected screen saver now (the Slab Status
