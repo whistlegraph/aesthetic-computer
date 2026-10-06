@@ -6,6 +6,7 @@ import { ACSession } from "./ac-session.mjs";
 import { planPublish, publishPiece } from "./publish.mjs";
 import { handleColorPlan } from "./handle-colors.mjs";
 import { SITE } from "./ac-session.mjs";
+import { planMime, postMime } from "./mime.mjs";
 
 const [command = "", ...rest] = process.argv.slice(2);
 const session = new ACSession();
@@ -51,6 +52,21 @@ try {
       const result = await publishPiece({ file, slug, session, onStep: (step) => note(`${step}…`) });
       out(result.route);
       if (!result.verified) note("published, but the live file did not read back yet");
+    }
+  } else if (command === "mime") {
+    // A file you made, posted to mime.ac as an opening post under your
+    // @handle; its MIME type picks the board. Anything after the file is the
+    // caption. Prints the thread's address.
+    const [file, ...words] = rest.filter((argument) => !argument.startsWith("--"));
+    if (!file) fail('usage: ac mime <file> ["caption"]');
+    const plan = planMime(file, { caption: words.join(" ") });
+    if (process.env.AESEL_DRY_RUN === "1") {
+      out(`would post ${plan.name} (${plan.type}, ${(plan.size / 1024).toFixed(0)} KB) to mime.ac as @${session.handle || "handle"}${plan.caption ? ` · "${plan.caption}"` : ""}`);
+    } else {
+      if (!session.handle) fail("sign in first: ac login");
+      note(`posting ${plan.name} as @${session.handle}…`);
+      const posted = await postMime(plan, { session });
+      out(posted.url);
     }
   } else if (command === "check") {
     // Run a piece for real (headless Chrome) and print its errors: a local
