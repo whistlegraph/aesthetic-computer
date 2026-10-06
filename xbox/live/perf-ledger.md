@@ -30,6 +30,15 @@ before/after comparison. The close-up and full debug cases still fall below 60.
 Native host/JS timing includes native primitive execution and host polling;
 there is no GPU timestamp measurement here.
 
+The saved-model follow-up on BIOS **1.0.0.64**, game **v266**, verifies the
+original accepted fighter locally, model v2, and all 20 generated mesh parts.
+With the same fixed desert scene, debug off measured **60.04 fps median**
+(59.06–60.28 over seven 120-frame windows); debug on measured **46.96 fps median**
+(46.15–47.84 over six windows). The account remained paired and the ordinary
+source was restored. [Sanitized saved-model evidence](bench/native-saved-model-2026-10-06.json).
+This is a different model and host version from the table above, so it is not
+another before/after speedup comparison.
+
 Reproduce each source revision separately:
 
 ```sh
