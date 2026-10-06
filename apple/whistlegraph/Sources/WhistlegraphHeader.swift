@@ -22,22 +22,37 @@ struct PieceSummary: Decodable, Identifiable {
 struct PiecesSheet: View {
     let pieces: [PieceSummary]
     let colors: [[Double]]
+    let inference: InferenceSnapshot?
     let disabled: Bool
     let open: (String) -> Void
     let newPiece: () -> Void
+    var mintSession: WhistlegraphSession? = nil
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    Button { newPiece(); dismiss() } label: {
+                    Button { ButtonSounds.play(.pop); newPiece(); dismiss() } label: {
                         Label("New piece", systemImage: "plus")
                             .font(.custom("ComicRelief-Bold", size: 20, relativeTo: .title3))
                     }.disabled(disabled).accessibilityIdentifier("pieces-new")
                 }
+                if let inference {
+                    Section { LabeledContent(inference.label, value: inference.provider) }
+                }
+                #if WHISTLEGRAPH_INTERNAL_PAYMENTS && DEBUG
+                if let session = mintSession, session.snapshot.handle == "jeffrey", session.snapshot.hasPiece {
+                    Section {
+                        NavigationLink { WhistlegraphMintSheet(session: session) } label: {
+                            Label("Mint on HEN", systemImage: "seal")
+                        }.disabled(disabled).accessibilityIdentifier("pieces-mint")
+                    }
+                }
+                #endif
                 Section(pieces.count == 1 ? "Your piece" : "Your pieces") {
                     ForEach(pieces) { piece in
                         Button {
+                            ButtonSounds.play(piece.current ? .tick : .pop)
                             if !piece.current { open(piece.id) }
                             dismiss()
                         } label: {
@@ -77,14 +92,16 @@ struct AccountSheet: View {
     @Binding var appearance: String
     let signIn: () -> Void
     let signOut: () -> Void
+    var session: WhistlegraphSession? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var confirmingSignOut = false
+    @AppStorage(ButtonSounds.settingKey) private var sounds = true
     var body: some View {
         NavigationStack {
             List {
                 Section {
                     if handle.isEmpty {
-                        Button { signIn(); dismiss() } label: { Label("Log in to Aesthetic Computer", systemImage: "person") }
+                        Button { ButtonSounds.play(.press); signIn(); dismiss() } label: { Label("Log in to Aesthetic Computer", systemImage: "person") }
                     } else {
                         HStack {
                             ComicTitle(text: "@" + handle, colors: colors, size: 26)
@@ -100,21 +117,34 @@ struct AccountSheet: View {
                         Text("Dark").tag("dark")
                     }.pickerStyle(.segmented)
                 }
+                Section {
+                    Toggle("Interface sounds", isOn: $sounds).accessibilityIdentifier("account-sounds")
+                        .onChange(of: sounds) { _, on in DeviceActionLog.shared.record(.setting, on ? .enabled : .disabled, control: .sounds); if on { ButtonSounds.play(.tick) } }
+                } footer: { Text("Keys and buttons respect silent mode. Haptics stay on.") }
+                if let session {
+                    Section {
+                        NavigationLink { WhistlegraphDebugLog() } label: { Label("Debug log", systemImage: "list.bullet.rectangle") }.accessibilityIdentifier("account-debug-log")
+                        NavigationLink { WhistlegraphPrivacySheet(session: session) } label: { Label("AI & privacy", systemImage: "hand.raised") }
+                        NavigationLink { WhistlegraphDeleteAccountSheet(session: session) } label: { Label("Delete AC account", systemImage: "trash") }
+                            .disabled(handle.isEmpty).accessibilityIdentifier("account-delete")
+                    }
+                }
                 if !handle.isEmpty {
                     Section {
                         Button(role: .destructive) { confirmingSignOut = true } label: { Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right") }
                             .accessibilityIdentifier("account-sign-out")
-                    } footer: { Text("Your pieces stay on this phone. Making new versions needs a signed-in handle.") }
+                    } footer: { Text("Your pieces stay on this phone. AI-generated versions need a signed-in handle; local source edits do not.") }
                 }
             }
             .navigationTitle(handle.isEmpty ? "Account" : "@" + handle)
+            .onChange(of: appearance) { _, value in DeviceActionLog.shared.record(.setting, .succeeded, control: .appearance, [.selection: ["system", "light", "dark"].firstIndex(of: value) ?? -1]) }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .confirmationDialog("Sign out of @" + handle + "?", isPresented: $confirmingSignOut, titleVisibility: .visible) {
-                Button("Sign out", role: .destructive) { signOut(); dismiss() }
+                Button("Sign out", role: .destructive) { ButtonSounds.play(.stop); signOut(); dismiss() }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
     }
 }
 
@@ -134,26 +164,29 @@ struct IdentityHeader: View {
             // Signed out, the whole corner is one plain "Log in" that starts the
             // login; the piece code and the account sheet wait for a handle.
             Button {
-                beforeOpening()
+                beforeOpening(); ButtonSounds.play(signedIn ? .pop : .press)
                 if signedIn { showingAccount = true } else { session.command("signIn") }
             } label: {
                 ComicTitle(text: handleText, colors: session.snapshot.colors, size: size)
             }.buttonStyle(.plain).accessibilityLabel(signedIn ? handleText + ", account" : "Log in").accessibilityIdentifier("workspace-account")
             if session.snapshot.wareID == "piece" && signedIn && !session.snapshot.code.isEmpty {
-                Button { beforeOpening(); showingPieces = true } label: {
+                Button { beforeOpening(); ButtonSounds.play(.pop); showingPieces = true } label: {
                     ComicTitle(text: "/" + session.snapshot.code, size: size)
                 }.buttonStyle(.plain).accessibilityLabel(session.snapshot.code + ", pieces").accessibilityIdentifier("workspace-settings")
             }
         }
+        .onChange(of: showingAccount) { _, open in DeviceActionLog.shared.record(.screen, open ? .presented : .dismissed, control: .account) }
+        .onChange(of: showingPieces) { _, open in DeviceActionLog.shared.record(.screen, open ? .presented : .dismissed, control: .pieces) }
         .sheet(isPresented: $showingPieces) {
             PiecesSheet(pieces: session.pieces, colors: session.snapshot.colors,
+                        inference: session.snapshot.inference,
                         disabled: session.snapshot.busy || session.capturePhase != .idle,
                         open: { session.command("openPiece", piece: $0) },
-                        newPiece: { session.command("newPiece") })
+                        newPiece: { session.command("newPiece") }, mintSession: session)
         }
         .sheet(isPresented: $showingAccount) {
             AccountSheet(handle: session.snapshot.handle, colors: session.snapshot.colors, appearance: $appearance,
-                         signIn: { session.command("signIn") }, signOut: { session.signOut() })
+                         signIn: { session.command("signIn") }, signOut: { session.signOut() }, session: session)
         }
     }
 }

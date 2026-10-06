@@ -6,6 +6,8 @@ import AVFoundation
 final class MusicalInput {
     private let queue = DispatchQueue(label: "computer.whistlegraph.sound", qos: .userInitiated)
     private let recording = UtteranceRecording()
+    private let speechPCM = SpeechPCM()
+    var onPCM: ((Data) -> Void)?
     private var carry: [Double] = []
     private var offset = 0
     private var decimationSum = 0.0
@@ -26,6 +28,7 @@ final class MusicalInput {
         queue.async { [self] in
             guard frames.count < 1500 else { return }
             recording.append(samples, rate: originalRate)
+            onPCM?(speechPCM.append(samples, rate: originalRate))
             rate = sampleRate
             // Keep decimation phase across input buffers; average before sampling.
             for sample in samples {

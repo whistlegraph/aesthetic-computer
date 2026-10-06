@@ -8,32 +8,73 @@
 
 /* Begin PBXBuildFile section */
 		0300D7A47360F4B79AB5B31F /* SwipeToTypeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 212791F2E33DED2E1C368651 /* SwipeToTypeTests.swift */; };
+		03C5B25FC742430AFD02AD1E /* StoryMovieSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 250E0B1999C7810299ACB7A9 /* StoryMovieSheet.swift */; };
 		03E98142C86DBC2104F5DF1F /* WaresTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA82C05C15B77B528BFFA05F /* WaresTests.swift */; };
+		0438F503606B4A37262B7CCC /* BrainSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E61EF96840670F2F894F970 /* BrainSettings.swift */; };
+		08B1D8E0B17FC2AD2643193B /* WhistlegraphDeleteAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = C534DE3AC6E813F8BDFE5244 /* WhistlegraphDeleteAccount.swift */; };
+		09EF064DE749131E69700C96 /* PreviewNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1916E8033C031E046E760C /* PreviewNavigation.swift */; };
 		10C0A16D4803EC60EAC29531 /* RecordingTrim.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1EFF8BAE7678E320E3DCA0 /* RecordingTrim.swift */; };
 		123228FADA6696AB354306C7 /* InputButtonLabels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35643029A3E82EEDEAC8DED6 /* InputButtonLabels.swift */; };
 		13604BE92157CDBFDD32AA19 /* WorkspaceCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147EAC245AD250B9B652F903 /* WorkspaceCoordinator.swift */; };
 		14FFBE48767E2576693FB7B3 /* MusicalInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D233DBB6F87184A91C13D41 /* MusicalInput.swift */; };
+		15EE658816EEA4B8BE6AAF5A /* StoryVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49854384EFBA11ABDE4F70C6 /* StoryVoice.swift */; };
 		19717448D7598ADAABBF739E /* HeaderSheetsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F98F7D3CE551FC6458D1F37 /* HeaderSheetsTests.swift */; };
+		24D22223CEEE7F360CEAEADC /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FCE365B860DBD53E42DB2824 /* PrivacyInfo.xcprivacy */; };
 		26D07334E2DEBA6705671BB0 /* WhistlegraphApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA5F188938A81E704BB7F9F9 /* WhistlegraphApp.swift */; };
 		275555C74507A6F62B0F037B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FF5F023E15041FF61F9FD358 /* Assets.xcassets */; };
+		2D8D89A7A8C4657353319EBE /* WhistlegraphSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AB3C6140E5D943C3363C353 /* WhistlegraphSource.swift */; };
+		2F01E350A7FF55359B002344 /* ButtonSounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ABFC6C11146A1540B635EE6 /* ButtonSounds.swift */; };
 		2F15D5A580A90A18E92D90F1 /* AudioBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CC14C186FE1CB5B19AD1D72 /* AudioBenchmark.swift */; };
+		3459C827F644F26BCABD5534 /* AIConsentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FB1D789A7001E472597133B /* AIConsentTests.swift */; };
+		3CF6178F7BA1702ADFA457B7 /* StoryControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C42750EF4F7E96146B03585 /* StoryControls.swift */; };
 		41FC24FA4CF0D6C4D0C9E7C3 /* WhistlegraphTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D25F85E540016CEBC3A6BC09 /* WhistlegraphTheme.swift */; };
+		45228E0CFD91217E60751356 /* WhistlegraphMintTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19C05FBB23D515547035D490 /* WhistlegraphMintTests.swift */; };
+		461CDD30BD59491846FCFBF6 /* StoryPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65C2FC346829168FF4AEEED3 /* StoryPreview.swift */; };
+		47DADA794ABD0CD203CFF48C /* StoryExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88B494AD8CD86FCC5DE0E4CC /* StoryExport.swift */; };
 		49D6E6ED3128002039D4F931 /* UtteranceRecording.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F9B92C3457F07429C8C2600 /* UtteranceRecording.swift */; };
+		4A8B9BCE5403659FFB71EA65 /* AccountDeletionClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 725C2A9ACD0323F49EFFDFC1 /* AccountDeletionClient.swift */; };
 		4B35B066F49BDD9BD8B90B5A /* WhistlegraphScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E66B3ADC4D6D837FABC53B8F /* WhistlegraphScreen.swift */; };
+		55A7061DE3B5F747C7BE96CE /* WhistlegraphBraincells.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10BFA0F39F2F514E799291F6 /* WhistlegraphBraincells.swift */; };
+		561DCBD95EB8AECF60476DE7 /* WhistlegraphTV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DACE2604B34CCB5EB3EE8AC /* WhistlegraphTV.swift */; };
 		5646BD41AA620CC47BF89361 /* Web in Resources */ = {isa = PBXBuildFile; fileRef = 4BA75145769FC4401A11BBE8 /* Web */; };
 		59B407AEBB9E1CF1BA6D436C /* WhistlegraphWare.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA986555CACCC8B8B978CFB5 /* WhistlegraphWare.swift */; };
+		5D29324F2AF09B53070D7644 /* LiveTranscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7848DB9FED6B955BC193F650 /* LiveTranscription.swift */; };
+		6037259BAADEA55B4760A19A /* DeviceActionLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367C82326F5862EB85ED3260 /* DeviceActionLog.swift */; };
+		603B85FC4E28D17FF1E5F457 /* StoryCardStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 477B640525BC627AFB40D7A7 /* StoryCardStyle.swift */; };
+		6122FB433EC952206856DEBD /* WhistlegraphPrivacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30AAFA5A6A0627C23CA67DA4 /* WhistlegraphPrivacy.swift */; };
+		620B74996F82DC86FA07B6DB /* CodeSyntax.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C2AB1140648295BB7905317 /* CodeSyntax.swift */; };
+		63AC2EF656BB908FC6B195DA /* WhistlegraphMint.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95FEBB51736F61D93DD1A7A /* WhistlegraphMint.swift */; };
+		67D674B7AF9E1E056C10BEDF /* PreviewFormatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85CE7F71D92E8328A7BDA44D /* PreviewFormatTests.swift */; };
+		6AB03522A9C86406EB456624 /* AIConsentRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD07129E1ECC6AC505F2FD72 /* AIConsentRecord.swift */; };
 		73873BDDC483417E2F6E1143 /* WhistlegraphHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BC2C1DC5E036F689EA59561 /* WhistlegraphHeader.swift */; };
+		749AC25AE02AAE4BCDA5683A /* VisualCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DF0A171A5771A7A1FD56852 /* VisualCapture.swift */; };
 		77291EEE768914D5F5EDB84B /* PlaybackWord.swift in Sources */ = {isa = PBXBuildFile; fileRef = E97104E13862EE30444D07C9 /* PlaybackWord.swift */; };
 		77EC5FCFB7F9BF4A6BD4F94B /* NativeSignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21D4A924CCE7B4BEC62E98A9 /* NativeSignIn.swift */; };
+		7C8A0DCC5322399983CC8E43 /* StoryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = E86622F951A1F67F055D69F9 /* StoryCache.swift */; };
+		86581AE590F8A301268220CA /* CostDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 919CF3F0659F42F321B22145 /* CostDisplay.swift */; };
+		87EDDAE34B992D308236F1A9 /* StoryCardsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8B4655A00B6DC810F7203D1 /* StoryCardsTests.swift */; };
 		8A9F944BA95C971D70ADDF6B /* VersionNarrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D137824491A01D4C19417B8 /* VersionNarrator.swift */; };
+		938427295F53A8EC1E70C0A9 /* PreviewFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 478EF62AE288CE06A64A3EA4 /* PreviewFormat.swift */; };
+		9BCDA054A876F147E2022B66 /* StoreCreditDelivery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D7D7F240AB7ADAA1340FE5C /* StoreCreditDelivery.swift */; };
 		9DBA1AF2AD7E3EDF69C8132A /* CodeTicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10E2AAA0A3F2BA1A5AEBED58 /* CodeTicker.swift */; };
+		9E5F0B7DC1CB3E9F4FBE9B90 /* WhistlegraphWoodFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = E14D13AF43AD0C735B4EA3CB /* WhistlegraphWoodFrame.swift */; };
+		9E961DFF3A1C8C9BD8E57866 /* PieceAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31AAC74C07F21688CEFF544F /* PieceAudio.swift */; };
+		A028C6EA0D6572E890932C2D /* PromptKeySounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F9A906C6B2232BD07BEFE5 /* PromptKeySounds.swift */; };
 		A570F13C0C8CA571474ED406 /* NetworkBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BBA0E45689010CB41A6A8FF /* NetworkBenchmark.swift */; };
 		AF90A4AEA7F08A553D48A9AB /* Fixtures in Resources */ = {isa = PBXBuildFile; fileRef = E38DD74717D0CE306D97D1CC /* Fixtures */; };
 		AFDE98CF6460438CE2205674 /* WhistlegraphAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 060870DF76C6FC078A48A276 /* WhistlegraphAccount.swift */; };
 		B35A82E6CD62E5D1D9460EE3 /* NativeScreenFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B20A9A8612C57068C67239A /* NativeScreenFixture.swift */; };
 		C4390906B03E8E8666BC54A3 /* SequenceBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = B55FB4AA387E716F9FEE0F83 /* SequenceBenchmark.swift */; };
+		D11B40EF1D4055DB59CC565D /* VerifiedAccountIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8056005299D13BFB52B7D3E4 /* VerifiedAccountIdentity.swift */; };
 		D3D16A0333764D0E5C3B620D /* SpeechCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7A25F803FAC121BFECC1AD7 /* SpeechCapture.swift */; };
+		D8E8FFEA41DF3B0073DC5373 /* TalkHoldInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4728CB634CB3E4AED4F4D353 /* TalkHoldInput.swift */; };
 		D9E54D2F66B9FC35483A8F45 /* PlaybackCaption.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D3B156A3435E646EE0E6EEA /* PlaybackCaption.swift */; };
+		E55F422280707B98E1D3E842 /* StoryTape.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03AEEA7D7E12C650CB618757 /* StoryTape.swift */; };
+		E5B597B1518B1DB4512EBF31 /* TezosBraincells.swift in Sources */ = {isa = PBXBuildFile; fileRef = 458C9CB2E8C0FD09BF96501D /* TezosBraincells.swift */; };
+		E81F2B275AC7E65EC667E67F /* RecordedTranscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB5E6AF3AF51BAA89BAC231E /* RecordedTranscription.swift */; };
+		E9F24EB7F859B4C869009F26 /* PaymentBuild.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ED23B0C39652687E9ECFFAF /* PaymentBuild.swift */; };
+		F160CBA0E689C1B29B1C38FB /* WhistlegraphDebugLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15699BE38BA8C0B44DDABDD3 /* WhistlegraphDebugLog.swift */; };
+		FAC2911EFFCA887527D2415F /* WhistlegraphDrawing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D9A8C801D3B9D1192D1143 /* WhistlegraphDrawing.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -47,34 +88,75 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		03AEEA7D7E12C650CB618757 /* StoryTape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryTape.swift; sourceTree = "<group>"; };
 		060870DF76C6FC078A48A276 /* WhistlegraphAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphAccount.swift; sourceTree = "<group>"; };
+		10BFA0F39F2F514E799291F6 /* WhistlegraphBraincells.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphBraincells.swift; sourceTree = "<group>"; };
 		10E2AAA0A3F2BA1A5AEBED58 /* CodeTicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeTicker.swift; sourceTree = "<group>"; };
 		147EAC245AD250B9B652F903 /* WorkspaceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceCoordinator.swift; sourceTree = "<group>"; };
+		15699BE38BA8C0B44DDABDD3 /* WhistlegraphDebugLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphDebugLog.swift; sourceTree = "<group>"; };
+		19C05FBB23D515547035D490 /* WhistlegraphMintTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphMintTests.swift; sourceTree = "<group>"; };
 		1BC2C1DC5E036F689EA59561 /* WhistlegraphHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphHeader.swift; sourceTree = "<group>"; };
 		1CC14C186FE1CB5B19AD1D72 /* AudioBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioBenchmark.swift; sourceTree = "<group>"; };
+		1ED23B0C39652687E9ECFFAF /* PaymentBuild.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentBuild.swift; sourceTree = "<group>"; };
 		212791F2E33DED2E1C368651 /* SwipeToTypeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeToTypeTests.swift; sourceTree = "<group>"; };
 		21D4A924CCE7B4BEC62E98A9 /* NativeSignIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSignIn.swift; sourceTree = "<group>"; };
+		250E0B1999C7810299ACB7A9 /* StoryMovieSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryMovieSheet.swift; sourceTree = "<group>"; };
+		2AB3C6140E5D943C3363C353 /* WhistlegraphSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphSource.swift; sourceTree = "<group>"; };
+		30AAFA5A6A0627C23CA67DA4 /* WhistlegraphPrivacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphPrivacy.swift; sourceTree = "<group>"; };
+		31AAC74C07F21688CEFF544F /* PieceAudio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PieceAudio.swift; sourceTree = "<group>"; };
 		35643029A3E82EEDEAC8DED6 /* InputButtonLabels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputButtonLabels.swift; sourceTree = "<group>"; };
+		367C82326F5862EB85ED3260 /* DeviceActionLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceActionLog.swift; sourceTree = "<group>"; };
 		3F98F7D3CE551FC6458D1F37 /* HeaderSheetsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderSheetsTests.swift; sourceTree = "<group>"; };
+		458C9CB2E8C0FD09BF96501D /* TezosBraincells.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TezosBraincells.swift; sourceTree = "<group>"; };
+		4728CB634CB3E4AED4F4D353 /* TalkHoldInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkHoldInput.swift; sourceTree = "<group>"; };
+		477B640525BC627AFB40D7A7 /* StoryCardStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryCardStyle.swift; sourceTree = "<group>"; };
+		478EF62AE288CE06A64A3EA4 /* PreviewFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewFormat.swift; sourceTree = "<group>"; };
+		49854384EFBA11ABDE4F70C6 /* StoryVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryVoice.swift; sourceTree = "<group>"; };
 		4BA75145769FC4401A11BBE8 /* Web */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Web; path = Resources/Web; sourceTree = SOURCE_ROOT; };
 		4BBA0E45689010CB41A6A8FF /* NetworkBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkBenchmark.swift; sourceTree = "<group>"; };
 		4D3B156A3435E646EE0E6EEA /* PlaybackCaption.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackCaption.swift; sourceTree = "<group>"; };
+		4E61EF96840670F2F894F970 /* BrainSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrainSettings.swift; sourceTree = "<group>"; };
+		5ABFC6C11146A1540B635EE6 /* ButtonSounds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ButtonSounds.swift; sourceTree = "<group>"; };
 		5B20A9A8612C57068C67239A /* NativeScreenFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeScreenFixture.swift; sourceTree = "<group>"; };
 		5D233DBB6F87184A91C13D41 /* MusicalInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicalInput.swift; sourceTree = "<group>"; };
+		5DACE2604B34CCB5EB3EE8AC /* WhistlegraphTV.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphTV.swift; sourceTree = "<group>"; };
+		5DF0A171A5771A7A1FD56852 /* VisualCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualCapture.swift; sourceTree = "<group>"; };
+		65C2FC346829168FF4AEEED3 /* StoryPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryPreview.swift; sourceTree = "<group>"; };
 		6D137824491A01D4C19417B8 /* VersionNarrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionNarrator.swift; sourceTree = "<group>"; };
+		6D7D7F240AB7ADAA1340FE5C /* StoreCreditDelivery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreCreditDelivery.swift; sourceTree = "<group>"; };
+		6FB1D789A7001E472597133B /* AIConsentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIConsentTests.swift; sourceTree = "<group>"; };
+		725C2A9ACD0323F49EFFDFC1 /* AccountDeletionClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionClient.swift; sourceTree = "<group>"; };
+		7848DB9FED6B955BC193F650 /* LiveTranscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTranscription.swift; sourceTree = "<group>"; };
+		8056005299D13BFB52B7D3E4 /* VerifiedAccountIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerifiedAccountIdentity.swift; sourceTree = "<group>"; };
+		85CE7F71D92E8328A7BDA44D /* PreviewFormatTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewFormatTests.swift; sourceTree = "<group>"; };
+		88B494AD8CD86FCC5DE0E4CC /* StoryExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryExport.swift; sourceTree = "<group>"; };
+		8C2AB1140648295BB7905317 /* CodeSyntax.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeSyntax.swift; sourceTree = "<group>"; };
+		8C42750EF4F7E96146B03585 /* StoryControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryControls.swift; sourceTree = "<group>"; };
 		8F9B92C3457F07429C8C2600 /* UtteranceRecording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtteranceRecording.swift; sourceTree = "<group>"; };
+		919CF3F0659F42F321B22145 /* CostDisplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CostDisplay.swift; sourceTree = "<group>"; };
+		99D9A8C801D3B9D1192D1143 /* WhistlegraphDrawing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphDrawing.swift; sourceTree = "<group>"; };
 		A542DD3D25782F331540474E /* Whistlegraph.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Whistlegraph.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5904655414F61AE746DF6D5 /* WhistlegraphUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = WhistlegraphUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A95FEBB51736F61D93DD1A7A /* WhistlegraphMint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphMint.swift; sourceTree = "<group>"; };
 		AA82C05C15B77B528BFFA05F /* WaresTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaresTests.swift; sourceTree = "<group>"; };
 		AA986555CACCC8B8B978CFB5 /* WhistlegraphWare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphWare.swift; sourceTree = "<group>"; };
+		B4F9A906C6B2232BD07BEFE5 /* PromptKeySounds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptKeySounds.swift; sourceTree = "<group>"; };
 		B55FB4AA387E716F9FEE0F83 /* SequenceBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SequenceBenchmark.swift; sourceTree = "<group>"; };
 		B7A25F803FAC121BFECC1AD7 /* SpeechCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechCapture.swift; sourceTree = "<group>"; };
+		B8B4655A00B6DC810F7203D1 /* StoryCardsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryCardsTests.swift; sourceTree = "<group>"; };
 		BA5F188938A81E704BB7F9F9 /* WhistlegraphApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphApp.swift; sourceTree = "<group>"; };
+		C534DE3AC6E813F8BDFE5244 /* WhistlegraphDeleteAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphDeleteAccount.swift; sourceTree = "<group>"; };
+		CB5E6AF3AF51BAA89BAC231E /* RecordedTranscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordedTranscription.swift; sourceTree = "<group>"; };
 		CC1EFF8BAE7678E320E3DCA0 /* RecordingTrim.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingTrim.swift; sourceTree = "<group>"; };
 		D25F85E540016CEBC3A6BC09 /* WhistlegraphTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphTheme.swift; sourceTree = "<group>"; };
+		E14D13AF43AD0C735B4EA3CB /* WhistlegraphWoodFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphWoodFrame.swift; sourceTree = "<group>"; };
 		E38DD74717D0CE306D97D1CC /* Fixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fixtures; path = Resources/Fixtures; sourceTree = SOURCE_ROOT; };
 		E66B3ADC4D6D837FABC53B8F /* WhistlegraphScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphScreen.swift; sourceTree = "<group>"; };
+		E86622F951A1F67F055D69F9 /* StoryCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryCache.swift; sourceTree = "<group>"; };
 		E97104E13862EE30444D07C9 /* PlaybackWord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackWord.swift; sourceTree = "<group>"; };
+		EF1916E8033C031E046E760C /* PreviewNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewNavigation.swift; sourceTree = "<group>"; };
+		FCE365B860DBD53E42DB2824 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		FD07129E1ECC6AC505F2FD72 /* AIConsentRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIConsentRecord.swift; sourceTree = "<group>"; };
 		FF5F023E15041FF61F9FD358 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -83,6 +165,7 @@
 			isa = PBXGroup;
 			children = (
 				FF5F023E15041FF61F9FD358 /* Assets.xcassets */,
+				FCE365B860DBD53E42DB2824 /* PrivacyInfo.xcprivacy */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -103,25 +186,61 @@
 		90190872F8D95875E1FFF827 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				725C2A9ACD0323F49EFFDFC1 /* AccountDeletionClient.swift */,
+				FD07129E1ECC6AC505F2FD72 /* AIConsentRecord.swift */,
 				1CC14C186FE1CB5B19AD1D72 /* AudioBenchmark.swift */,
+				4E61EF96840670F2F894F970 /* BrainSettings.swift */,
+				5ABFC6C11146A1540B635EE6 /* ButtonSounds.swift */,
+				8C2AB1140648295BB7905317 /* CodeSyntax.swift */,
 				10E2AAA0A3F2BA1A5AEBED58 /* CodeTicker.swift */,
+				919CF3F0659F42F321B22145 /* CostDisplay.swift */,
+				367C82326F5862EB85ED3260 /* DeviceActionLog.swift */,
 				35643029A3E82EEDEAC8DED6 /* InputButtonLabels.swift */,
+				7848DB9FED6B955BC193F650 /* LiveTranscription.swift */,
 				5D233DBB6F87184A91C13D41 /* MusicalInput.swift */,
 				5B20A9A8612C57068C67239A /* NativeScreenFixture.swift */,
 				4BBA0E45689010CB41A6A8FF /* NetworkBenchmark.swift */,
+				1ED23B0C39652687E9ECFFAF /* PaymentBuild.swift */,
+				31AAC74C07F21688CEFF544F /* PieceAudio.swift */,
 				4D3B156A3435E646EE0E6EEA /* PlaybackCaption.swift */,
 				E97104E13862EE30444D07C9 /* PlaybackWord.swift */,
+				478EF62AE288CE06A64A3EA4 /* PreviewFormat.swift */,
+				EF1916E8033C031E046E760C /* PreviewNavigation.swift */,
+				B4F9A906C6B2232BD07BEFE5 /* PromptKeySounds.swift */,
+				CB5E6AF3AF51BAA89BAC231E /* RecordedTranscription.swift */,
 				CC1EFF8BAE7678E320E3DCA0 /* RecordingTrim.swift */,
 				B55FB4AA387E716F9FEE0F83 /* SequenceBenchmark.swift */,
 				B7A25F803FAC121BFECC1AD7 /* SpeechCapture.swift */,
+				6D7D7F240AB7ADAA1340FE5C /* StoreCreditDelivery.swift */,
+				E86622F951A1F67F055D69F9 /* StoryCache.swift */,
+				477B640525BC627AFB40D7A7 /* StoryCardStyle.swift */,
+				8C42750EF4F7E96146B03585 /* StoryControls.swift */,
+				88B494AD8CD86FCC5DE0E4CC /* StoryExport.swift */,
+				250E0B1999C7810299ACB7A9 /* StoryMovieSheet.swift */,
+				65C2FC346829168FF4AEEED3 /* StoryPreview.swift */,
+				03AEEA7D7E12C650CB618757 /* StoryTape.swift */,
+				49854384EFBA11ABDE4F70C6 /* StoryVoice.swift */,
+				4728CB634CB3E4AED4F4D353 /* TalkHoldInput.swift */,
+				458C9CB2E8C0FD09BF96501D /* TezosBraincells.swift */,
 				8F9B92C3457F07429C8C2600 /* UtteranceRecording.swift */,
+				8056005299D13BFB52B7D3E4 /* VerifiedAccountIdentity.swift */,
 				6D137824491A01D4C19417B8 /* VersionNarrator.swift */,
+				5DF0A171A5771A7A1FD56852 /* VisualCapture.swift */,
 				060870DF76C6FC078A48A276 /* WhistlegraphAccount.swift */,
 				BA5F188938A81E704BB7F9F9 /* WhistlegraphApp.swift */,
+				10BFA0F39F2F514E799291F6 /* WhistlegraphBraincells.swift */,
+				15699BE38BA8C0B44DDABDD3 /* WhistlegraphDebugLog.swift */,
+				C534DE3AC6E813F8BDFE5244 /* WhistlegraphDeleteAccount.swift */,
+				99D9A8C801D3B9D1192D1143 /* WhistlegraphDrawing.swift */,
 				1BC2C1DC5E036F689EA59561 /* WhistlegraphHeader.swift */,
+				A95FEBB51736F61D93DD1A7A /* WhistlegraphMint.swift */,
+				30AAFA5A6A0627C23CA67DA4 /* WhistlegraphPrivacy.swift */,
 				E66B3ADC4D6D837FABC53B8F /* WhistlegraphScreen.swift */,
+				2AB3C6140E5D943C3363C353 /* WhistlegraphSource.swift */,
 				D25F85E540016CEBC3A6BC09 /* WhistlegraphTheme.swift */,
+				5DACE2604B34CCB5EB3EE8AC /* WhistlegraphTV.swift */,
 				AA986555CACCC8B8B978CFB5 /* WhistlegraphWare.swift */,
+				E14D13AF43AD0C735B4EA3CB /* WhistlegraphWoodFrame.swift */,
 				147EAC245AD250B9B652F903 /* WorkspaceCoordinator.swift */,
 			);
 			path = Sources;
@@ -130,9 +249,13 @@
 		A8D1DCE6550AE55C396F659B /* UITests */ = {
 			isa = PBXGroup;
 			children = (
+				6FB1D789A7001E472597133B /* AIConsentTests.swift */,
 				3F98F7D3CE551FC6458D1F37 /* HeaderSheetsTests.swift */,
+				85CE7F71D92E8328A7BDA44D /* PreviewFormatTests.swift */,
+				B8B4655A00B6DC810F7203D1 /* StoryCardsTests.swift */,
 				212791F2E33DED2E1C368651 /* SwipeToTypeTests.swift */,
 				AA82C05C15B77B528BFFA05F /* WaresTests.swift */,
+				19C05FBB23D515547035D490 /* WhistlegraphMintTests.swift */,
 			);
 			path = UITests;
 			sourceTree = "<group>";
@@ -162,6 +285,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = D078E2B73D1D33A6ECCB8348 /* Build configuration list for PBXNativeTarget "Whistlegraph" */;
 			buildPhases = (
+				A546C79E4679B373B57A7AE0 /* Reject internal payment archives */,
 				08FE7DA642D63309620A8BA1 /* Sources */,
 				75BBEA53DD88C313F97FB28E /* Resources */,
 			);
@@ -241,37 +365,96 @@
 			files = (
 				275555C74507A6F62B0F037B /* Assets.xcassets in Resources */,
 				AF90A4AEA7F08A553D48A9AB /* Fixtures in Resources */,
+				24D22223CEEE7F360CEAEADC /* PrivacyInfo.xcprivacy in Resources */,
 				5646BD41AA620CC47BF89361 /* Web in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		A546C79E4679B373B57A7AE0 /* Reject internal payment archives */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Reject internal payment archives";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"$CONFIGURATION\" = \"Internal\" ] && [ \"$ACTION\" = \"install\" ]; then\n  echo \"error: Internal wallet testing cannot be archived. Use Release for distribution.\"\n  exit 1\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		08FE7DA642D63309620A8BA1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6AB03522A9C86406EB456624 /* AIConsentRecord.swift in Sources */,
+				4A8B9BCE5403659FFB71EA65 /* AccountDeletionClient.swift in Sources */,
 				2F15D5A580A90A18E92D90F1 /* AudioBenchmark.swift in Sources */,
+				0438F503606B4A37262B7CCC /* BrainSettings.swift in Sources */,
+				2F01E350A7FF55359B002344 /* ButtonSounds.swift in Sources */,
+				620B74996F82DC86FA07B6DB /* CodeSyntax.swift in Sources */,
 				9DBA1AF2AD7E3EDF69C8132A /* CodeTicker.swift in Sources */,
+				86581AE590F8A301268220CA /* CostDisplay.swift in Sources */,
+				6037259BAADEA55B4760A19A /* DeviceActionLog.swift in Sources */,
 				123228FADA6696AB354306C7 /* InputButtonLabels.swift in Sources */,
+				5D29324F2AF09B53070D7644 /* LiveTranscription.swift in Sources */,
 				14FFBE48767E2576693FB7B3 /* MusicalInput.swift in Sources */,
 				B35A82E6CD62E5D1D9460EE3 /* NativeScreenFixture.swift in Sources */,
 				77EC5FCFB7F9BF4A6BD4F94B /* NativeSignIn.swift in Sources */,
 				A570F13C0C8CA571474ED406 /* NetworkBenchmark.swift in Sources */,
+				E9F24EB7F859B4C869009F26 /* PaymentBuild.swift in Sources */,
+				9E961DFF3A1C8C9BD8E57866 /* PieceAudio.swift in Sources */,
 				D9E54D2F66B9FC35483A8F45 /* PlaybackCaption.swift in Sources */,
 				77291EEE768914D5F5EDB84B /* PlaybackWord.swift in Sources */,
+				938427295F53A8EC1E70C0A9 /* PreviewFormat.swift in Sources */,
+				09EF064DE749131E69700C96 /* PreviewNavigation.swift in Sources */,
+				A028C6EA0D6572E890932C2D /* PromptKeySounds.swift in Sources */,
+				E81F2B275AC7E65EC667E67F /* RecordedTranscription.swift in Sources */,
 				10C0A16D4803EC60EAC29531 /* RecordingTrim.swift in Sources */,
 				C4390906B03E8E8666BC54A3 /* SequenceBenchmark.swift in Sources */,
 				D3D16A0333764D0E5C3B620D /* SpeechCapture.swift in Sources */,
+				9BCDA054A876F147E2022B66 /* StoreCreditDelivery.swift in Sources */,
+				7C8A0DCC5322399983CC8E43 /* StoryCache.swift in Sources */,
+				603B85FC4E28D17FF1E5F457 /* StoryCardStyle.swift in Sources */,
+				3CF6178F7BA1702ADFA457B7 /* StoryControls.swift in Sources */,
+				47DADA794ABD0CD203CFF48C /* StoryExport.swift in Sources */,
+				03C5B25FC742430AFD02AD1E /* StoryMovieSheet.swift in Sources */,
+				461CDD30BD59491846FCFBF6 /* StoryPreview.swift in Sources */,
+				E55F422280707B98E1D3E842 /* StoryTape.swift in Sources */,
+				15EE658816EEA4B8BE6AAF5A /* StoryVoice.swift in Sources */,
+				D8E8FFEA41DF3B0073DC5373 /* TalkHoldInput.swift in Sources */,
+				E5B597B1518B1DB4512EBF31 /* TezosBraincells.swift in Sources */,
 				49D6E6ED3128002039D4F931 /* UtteranceRecording.swift in Sources */,
+				D11B40EF1D4055DB59CC565D /* VerifiedAccountIdentity.swift in Sources */,
 				8A9F944BA95C971D70ADDF6B /* VersionNarrator.swift in Sources */,
+				749AC25AE02AAE4BCDA5683A /* VisualCapture.swift in Sources */,
 				AFDE98CF6460438CE2205674 /* WhistlegraphAccount.swift in Sources */,
 				26D07334E2DEBA6705671BB0 /* WhistlegraphApp.swift in Sources */,
+				55A7061DE3B5F747C7BE96CE /* WhistlegraphBraincells.swift in Sources */,
+				F160CBA0E689C1B29B1C38FB /* WhistlegraphDebugLog.swift in Sources */,
+				08B1D8E0B17FC2AD2643193B /* WhistlegraphDeleteAccount.swift in Sources */,
+				FAC2911EFFCA887527D2415F /* WhistlegraphDrawing.swift in Sources */,
 				73873BDDC483417E2F6E1143 /* WhistlegraphHeader.swift in Sources */,
+				63AC2EF656BB908FC6B195DA /* WhistlegraphMint.swift in Sources */,
+				6122FB433EC952206856DEBD /* WhistlegraphPrivacy.swift in Sources */,
 				4B35B066F49BDD9BD8B90B5A /* WhistlegraphScreen.swift in Sources */,
+				2D8D89A7A8C4657353319EBE /* WhistlegraphSource.swift in Sources */,
+				561DCBD95EB8AECF60476DE7 /* WhistlegraphTV.swift in Sources */,
 				41FC24FA4CF0D6C4D0C9E7C3 /* WhistlegraphTheme.swift in Sources */,
 				59B407AEBB9E1CF1BA6D436C /* WhistlegraphWare.swift in Sources */,
+				9E5F0B7DC1CB3E9F4FBE9B90 /* WhistlegraphWoodFrame.swift in Sources */,
 				13604BE92157CDBFDD32AA19 /* WorkspaceCoordinator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -280,9 +463,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3459C827F644F26BCABD5534 /* AIConsentTests.swift in Sources */,
 				19717448D7598ADAABBF739E /* HeaderSheetsTests.swift in Sources */,
+				67D674B7AF9E1E056C10BEDF /* PreviewFormatTests.swift in Sources */,
+				87EDDAE34B992D308236F1A9 /* StoryCardsTests.swift in Sources */,
 				0300D7A47360F4B79AB5B31F /* SwipeToTypeTests.swift in Sources */,
 				03E98142C86DBC2104F5DF1F /* WaresTests.swift in Sources */,
+				45228E0CFD91217E60751356 /* WhistlegraphMintTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -297,6 +484,41 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		705782A745A264DF1E9255C5 /* Internal */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.walkieware.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Whistlegraph;
+			};
+			name = Internal;
+		};
+		9A5BCF9CC2FE71CE97306D40 /* Internal */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.walkieware;
+				PRODUCT_NAME = Whistlegraph;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Internal;
+		};
 		A4F9F566CE43BDCE24ADFC22 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -384,7 +606,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 83;
+				CURRENT_PROJECT_VERSION = 109;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -469,7 +691,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 83;
+				CURRENT_PROJECT_VERSION = 109;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -494,6 +716,73 @@
 			};
 			name = Release;
 		};
+		F3D994D2DE10605B32F33A2D /* Internal */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 109;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = FB5948YR3S;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG WHISTLEGRAPH_INTERNAL_PAYMENTS";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Internal;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -501,6 +790,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				BCA778403189480DF26581DD /* Debug */,
+				F3D994D2DE10605B32F33A2D /* Internal */,
 				E9F6ECF0F5885FE9BAC20620 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -510,6 +800,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				AD4B90D6D3584CAD888031A3 /* Debug */,
+				705782A745A264DF1E9255C5 /* Internal */,
 				A9A9486226BC03219DE1297E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -519,6 +810,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A4F9F566CE43BDCE24ADFC22 /* Debug */,
+				9A5BCF9CC2FE71CE97306D40 /* Internal */,
 				DF6FB2365BDDD57C0133CB5D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;

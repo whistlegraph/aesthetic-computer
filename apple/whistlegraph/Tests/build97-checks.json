@@ -1,0 +1,13 @@
+{
+  "build": 97,
+  "date": "2026-10-03",
+  "deviceBuild": "Signed iOS build passed and installed on paired iPhone.",
+  "renderer": "All eight backgrounds rendered with the actual story-tape compositor and bundled regular/bold Comic fonts. Contact sheet and full-size card visually inspected; no browser client errors.",
+  "screenshots": [
+    "Tests/screenshots/build97-colors.png",
+    "Tests/screenshots/build97-comic-version.png"
+  ],
+  "regression": "Three story-tape lifecycle checks passed.",
+  "cache": "Card cache format bumped to v3-comic; existing black-background exports are not reused. Repeated native composition check cancelled under host load; earlier build96 checks remain recorded separately.",
+  "nativeUI": "Not exercised on the physical phone for this change."
+}

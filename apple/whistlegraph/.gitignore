@@ -12,3 +12,4 @@ Tests/scenes/
 Tests/spaces/
 Resources/Web/room-schema.mjs
 Resources/Web/roblox-runtime.mjs
+Resources/Web/canvas-tape.mjs

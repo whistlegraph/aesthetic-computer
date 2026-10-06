@@ -7,26 +7,45 @@ import UIKit
 @MainActor final class WhistlegraphAccount: NSObject, WKNavigationDelegate, UIAdaptivePresentationControllerDelegate {
     private let key: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
         kSecAttrService as String: "computer.aesthetic.walkieware", kSecAttrAccount as String: "ac"]
+    private(set) var generation = 0
     private var attempt: NativeSignIn?
     private var completion: ((Result<String, Error>) -> Void)?
     private var controller: UIViewController?
     private var exchange: Task<Void, Never>?
+    private let identity = VerifiedAccountIdentity()
 
     func token() async throws -> String? {
+        let expectedGeneration = generation
         var query = key; query[kSecReturnData as String] = true
         var result: CFTypeRef?
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data else { return nil }
+              let data = result as? Data else { DeviceActionLog.shared.record(.accountToken, .notSignedIn); return nil }
         var tokens = try JSONDecoder().decode(NativeSignIn.Tokens.self, from: data)
         if tokens.expiresAt.timeIntervalSinceNow < 60 {
+            DeviceActionLog.shared.record(.accountToken, .started)
             guard let refresh = tokens.refreshToken else { return nil }
             tokens = try await NativeSignIn.refresh(refresh)
+            guard generation == expectedGeneration else { return nil }
             try save(tokens)
+            DeviceActionLog.shared.record(.accountToken, .succeeded)
         }
         return tokens.accessToken
     }
+    // The server still authenticates every request. This subject only scopes
+    // local preferences to the account instead of a mutable public handle.
+    func subject() async throws -> String? {
+        let expected = generation
+        guard let token = try await token() else { return nil }
+        guard generation == expected else { throw VerifiedAccountIdentity.Failure.changed }
+        let subject = try await identity.subject(token: token, generation: expected)
+        guard generation == expected else { throw VerifiedAccountIdentity.Failure.changed }
+        return subject
+    }
     /// Forgets the stored sign-in. The thread history stays on the device.
     func signOut() {
+        DeviceActionLog.shared.record(.signOut, .succeeded)
+        generation += 1
+        identity.invalidate()
         SecItemDelete(key as CFDictionary)
     }
     private func save(_ tokens: NativeSignIn.Tokens) throws {
@@ -41,7 +60,10 @@ import UIKit
         guard status == errSecSuccess else { throw NativeSignIn.failure("Could not save sign-in securely.") }
     }
     func signIn(from view: WKWebView?, completion: @escaping (Result<String, Error>) -> Void) {
-        guard controller == nil, let host = view?.window?.rootViewController else { return }
+        DeviceActionLog.shared.record(.signIn, .requested)
+        guard controller == nil, let host = view?.window?.rootViewController else {
+            completion(.failure(NativeSignIn.failure("Sign-in could not open. Close any open sheet and try again."))); return
+        }
         do {
             attempt = try NativeSignIn(); self.completion = completion
             let config = WKWebViewConfiguration(); config.websiteDataStore = .nonPersistent()
@@ -49,6 +71,7 @@ import UIKit
             let page = UIViewController(); page.view = web; page.title = "Sign in to Aesthetic Computer"
             page.navigationItem.leftBarButtonItem = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(cancel))
             let navigation = UINavigationController(rootViewController: page); controller = navigation
+            ActionTouchProbe.TouchObserver.authenticationPresented = true
             host.present(navigation, animated: true)
             navigation.presentationController?.delegate = self
             web.load(URLRequest(url: attempt!.url))
@@ -57,6 +80,11 @@ import UIKit
     @objc private func cancel() { finish(.failure(NativeSignIn.failure("Sign-in cancelled. Your words are still here."))) }
     func presentationControllerDidDismiss(_ presentationController: UIPresentationController) { cancel() }
     private func finish(_ result: Result<String, Error>) {
+        ActionTouchProbe.TouchObserver.authenticationPresented = false
+        switch result {
+        case .success: DeviceActionLog.shared.record(.signIn, .succeeded)
+        case .failure(let error): DeviceActionLog.shared.recordError(.signIn, error)
+        }
         exchange?.cancel(); exchange = nil
         let done = completion; completion = nil; attempt = nil
         controller?.dismiss(animated: true); controller = nil; done?(result)
@@ -71,7 +99,7 @@ import UIKit
                 exchange = Task {
                     do {
                         let tokens = try await NativeSignIn.exchange(body)
-                        try Task.checkCancellation(); try save(tokens)
+                        try Task.checkCancellation(); generation += 1; identity.invalidate(); try save(tokens)
                         finish(.success(tokens.accessToken))
                     } catch { if !Task.isCancelled { finish(.failure(error)) } }
                 }
@@ -104,14 +132,40 @@ final class WhistlegraphBundle: NSObject, WKURLSchemeHandler {
 }
 
 struct WhistlegraphPreview {
+    static let pixelSizeKey = "walkieware-pixel-size"
+    // bios.mjs defaults to two CSS points per framebuffer pixel on iPhone.
+    static var savedPixelSize: Int {
+        let saved = UserDefaults.standard.integer(forKey: pixelSizeKey)
+        return (1...4).contains(saved) ? saved : 2
+    }
     static let script = """
     (() => {
       if (window === window.top || location.origin !== 'https://aesthetic.computer') return;
       window.acFORCE_NOGAP = true;
+      window.whistlegraphSetPixelSize = size => {
+        if (!Number.isInteger(size) || size < 1 || size > 4) return;
+        window.__whistlegraphPixelSize = size;
+        window.acPACK_DENSITY = size;
+        window.acAutoDensityOverride = true;
+        try { localStorage.setItem('ac-density', String(size)); } catch {}
+        window.postMessage({type:'ac-density-change', density:size}, location.origin);
+      };
+      window.whistlegraphSetPixelSize(window.__whistlegraphPixelSize ?? 2);
       let ready = false, revision = 0, paintedRevision = 0, sessionID = '';
       const post = body => window.webkit.messageHandlers.whistlegraph.postMessage(body);
-      window.whistlegraphRender = async (source, threadID) => {
+      if (window.__whistlegraphAudioTest) {
+        let gestures = 0, checks = 0;
+        window.addEventListener('pointerdown', () => gestures++);
+        const probe = setInterval(() => {
+          const waveform = window.AC?.readOutputWaveform?.() || [];
+          const peak = waveform.reduce((value,sample) => Math.max(value,Math.abs(sample)),0);
+          post({action:'audioProbe',peak,gestures,state:window.AC?.startAudio?.().state || 'unavailable',ready:!!window.audioWorkletReady});
+          if (peak > 0.001 || ++checks > 240) clearInterval(probe);
+        },250);
+      }
+      window.whistlegraphRender = async (source, threadID, renderID) => {
         if (!ready) return;
+        window.AC?.startAudio?.();
         sessionID = threadID;
         const current = ++revision;
         const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
@@ -119,7 +173,7 @@ struct WhistlegraphPreview {
         const hash = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2,'0')).join('');
         window.acSEND({type:'dropped:piece',content:{name:'whistlegraph-preview',source,
           search:'noauth=true&noplot=true&nogap=true&nolabel=true',isKidLisp:false,
-          aeselPreview:{sessionID,revision:current,sourceHash:hash,requestID:current}}});
+          aeselPreview:{sessionID,revision:current,sourceHash:hash,requestID:Number.isSafeInteger(renderID)?renderID:current}}});
       };
       window.addEventListener('aesel-preview', e => {
         if (e.detail?.sessionID !== sessionID || e.detail?.revision !== revision) return;
@@ -128,7 +182,7 @@ struct WhistlegraphPreview {
       });
       const poll = setInterval(() => {
         if (!window.preloaded || !window.acSEND) return;
-        clearInterval(poll); ready = true; post({action:'previewReady'});
+        clearInterval(poll); ready = true; window.AC?.startAudio?.(); post({action:'previewReady'});
       }, 100);
     })();
     """

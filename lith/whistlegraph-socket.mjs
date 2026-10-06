@@ -35,7 +35,7 @@ export function attachWhistlegraphSocket(server,{authenticate,store,authMs=5000,
         if(!room){room={clients:new Set(),device:null,state:null,commands:new Map()};rooms.set(row._id,room);}
         if(role==='device'&&room.device)throw Error('This thread is running on another device');
         room.clients.add(ws);if(role==='device')room.device=ws;
-        send(ws,{type:'ready',thread:publicThread(row),online:!!room.device,state:room.state});
+        send(ws,{type:'ready',thread:publicThread(row),online:!!room.device,state:room.state,capabilities:['attempt-receipts-v1']});
         if(role==='device')broadcast({type:'presence',online:true});
         return;
       }
@@ -45,6 +45,11 @@ export function attachWhistlegraphSocket(server,{authenticate,store,authMs=5000,
         row=saved;broadcast({type:'saved',thread:publicThread(row)});return;
       }
       if(m.type==='ping'){send(ws,{type:'pong',online:!!room.device,role,peers:room.clients.size,attached:rooms.get(row._id)===room});return;}
+      if(m.type==='receipt'&&role==='device') {
+        try { const id=await (await store()).receipt(owner,row._id,m.receipt);send(ws,{type:'receiptSaved',id}); }
+        catch { send(ws,{type:'receiptError',id:m.receipt?.id}); }
+        return;
+      }
       if(m.type==='state'&&role==='device') {
         const state=m.state;
         if(!state||JSON.stringify(state).length>525000)throw Error('Invalid state');

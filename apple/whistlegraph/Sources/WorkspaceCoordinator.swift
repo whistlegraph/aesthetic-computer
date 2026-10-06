@@ -9,6 +9,14 @@ final class WorkspaceCoordinator: NSObject, WKScriptMessageHandler, WKNavigation
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         session?.userContentController(controller, didReceive: message)
     }
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        decisionHandler(PreviewNavigation.allows(navigationAction.request.url,
+            mainFrame: navigationAction.targetFrame?.isMainFrame, document: .workspace) ? .allow : .cancel)
+    }
+    func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+        decisionHandler(PreviewNavigation.allows(navigationResponse.response.url,
+            mainFrame: navigationResponse.isForMainFrame, document: .workspace) ? .allow : .cancel)
+    }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { session?.webView(webView, didFinish: navigation) }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { session?.webView(webView, didFailProvisionalNavigation: navigation, withError: error) }
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { session?.webView(webView, didFail: navigation, withError: error) }

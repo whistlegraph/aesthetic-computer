@@ -252,6 +252,19 @@ export class AcServer extends EventEmitter {
     }catch{return null;}
   }
 
+  // The phone keeps the same validated tools when the agent loop runs remotely.
+  relayContext() {
+    if(this.workspace || this.artifactContext)throw Error('Personal relay supports pieces only');
+    const tools=[WRITE_PIECE,...(this.layeredEdits?[EDIT_PIECE]:[])];
+    if(this.previewing)tools.push({name:PREVIEW_TOOL.name,description:PREVIEW_TOOL.description,input_schema:PREVIEW_TOOL.inputSchema});
+    if(this.javascriptPiece){const api=TOOLS.find(t=>t.name==='ac_api');tools.push({name:api.name,description:api.description,input_schema:api.inputSchema});}
+    return {instructions:this.#system.map(b=>b.text).join('\n\n'),tools:tools.map(t=>({name:t.name,description:t.description,inputSchema:t.input_schema}))};
+  }
+  runRelayTool(block) {
+    if(!this.relayContext().tools.some(t=>t.name===block.name))throw Error('Unknown phone tool');
+    return this.#runTool(block);
+  }
+
   async connect() {
     if (!this.threadId) this.threadId = randomUUID();
     return { model: this.model };
@@ -479,7 +492,7 @@ export class AcServer extends EventEmitter {
 
           const reportedModel = event.message?.model || event.model;
           if (typeof reportedModel === "string" && reportedModel) {
-            this.emit("notification", { method: "model/reported", params: { requested: this.model, reported: reportedModel } });
+            this.emit("notification", { method: "model/reported", params: { requested: this.model, reported: reportedModel, ...(event.message?.id ? {providerRequestID: event.message.id} : {}) } });
           }
           const counts = event.usage || event.message?.usage;
           if (counts) Object.assign(usage, counts);

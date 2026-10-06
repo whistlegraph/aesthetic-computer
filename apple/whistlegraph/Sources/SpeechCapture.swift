@@ -10,6 +10,8 @@ import Speech
 // session maps those onto published state and the JavaScript bridge.
 @MainActor final class SpeechCapture {
     /// listening · partial · sound · musicalObservation · processing · mixedFinal · error
+    var hasVisualInput: () -> Bool = { false }
+    var speechToken: () async throws -> String? = { nil }
     var onEvent: (_ kind: String, _ text: String, _ id: String) -> Void = { _, _, _ in }
     /// Latest microphone energy, for the live waveform.
     var onLevel: (_ rms: Double) -> Void = { _ in }
@@ -24,6 +26,20 @@ import Speech
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
     private var held = false
+    private var maxDuration = 8.0
+    func latchPerformance() {
+        maxDuration = 45
+        if listeningSince != nil { scheduleDeadline() }
+    }
+    private func scheduleDeadline() {
+        deadline?.cancel()
+        let id = turn, remaining = max(0, maxDuration - (listeningSince.map { Date().timeIntervalSince($0) } ?? 0))
+        deadline = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(remaining))
+            guard !Task.isCancelled, let self, self.turn == id else { return }
+            self.stop()
+        }
+    }
     private var tapped = false
     private var listeningSince: Date?
     private var latest = ""
@@ -35,6 +51,12 @@ import Speech
     private var replayTask: Task<Void, Never>?
     private var finishing: Task<Void, Never>?
     private var deadline: Task<Void, Never>?
+    private var live: LiveTranscription?
+    private var liveText = "", liveFinal = false, recognitionGraceExpired = false
+    private var finalSound: [String: Any]?
+    private var alignment: Task<Void, Never>?
+    private var alignmentPending = false
+    private var aligned: TimedTranscript?
 
     private func emit(_ kind: String, text: String = "", id: String? = nil) {
         if kind == "listening" { listeningSince = Date() }
@@ -48,6 +70,27 @@ import Speech
         if NativeScreenFixture.enabled && NativeScreenFixture.mode == "gestures" { emit("listening"); return }
         #endif
         musicalInput = MusicalInput()
+        if !AudioBenchmark.enabled {
+            let stream = LiveTranscription(); live = stream
+            stream.onText = { [weak self] text, final in
+                guard let self, self.turn == id else { return }
+                self.liveText = text; self.liveFinal = final
+                self.emit("partial", text: text)
+                if final && self.audioEnded { self.deliver() }
+            }
+            stream.onFailure = { [weak self] in
+                guard let self, self.turn == id else { return }
+                self.liveFinal = true
+                if !self.latest.isEmpty { self.emit("partial", text: self.latest) }
+                self.deliver()
+            }
+            // This starts before microphone permission/session setup. Initial
+            // chunks queue until the short-lived socket is ready.
+            stream.start(token: speechToken)
+            musicalInput.onPCM = { [weak stream] data in
+                DispatchQueue.main.async { stream?.append(data) }
+            }
+        }
         musicalInput.onUpdate = { [weak self] pitch, rms in
             Task { @MainActor in
                 guard let self, self.turn == id, self.held else { return }
@@ -109,10 +152,11 @@ import Speech
                     Task { @MainActor in
                         guard let self, self.turn == id else { return }
                         if let segments { self.wordSegments = Array(segments.prefix(256)) }
-                        if let text { self.latest = text; self.emit("partial", text: text) }
+                        if let text { self.latest = text; if self.liveText.isEmpty { self.emit("partial", text: text) } }
                         if isFinal { self.recognitionFinal = true; AudioBenchmark.mark("recognitionFinal") }
                         if self.audioEnded && isFinal { self.deliver() }
                         else if self.audioEnded && message != nil && self.latest.isEmpty {
+                            self.recognitionFinal = true
                             self.deliver() // Sound remains useful when speech finds no words.
                         }
                     }
@@ -125,11 +169,7 @@ import Speech
                         } catch { if !Task.isCancelled { self?.fail("Audio fixture replay failed.") } }
                     }
                 }
-                self.deadline = Task { [weak self] in
-                    try? await Task.sleep(for: .seconds(8))
-                    guard !Task.isCancelled, let self, self.turn == id else { return }
-                    self.stop()
-                }
+                self.scheduleDeadline()
             } catch { self.fail("Could not start the microphone. Please try again.") }
         }
     }
@@ -138,7 +178,7 @@ import Speech
         engine.stop()
         if tapped { engine.inputNode.removeTap(onBus: 0); tapped = false }
         request?.endAudio()
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        PieceAudio.activate()
     }
 
     /// The thumb lifted. Ignored when `id` names a hold that is no longer this one.
@@ -151,7 +191,7 @@ import Speech
         // Capture a release tail, within the eight-second recording budget. A
         // thumb lifts a beat before the last word lands; 0.25 s clipped endings.
         let elapsed = listeningSince.map { Date().timeIntervalSince($0) } ?? 8
-        let tail = min(0.45, max(0, 8 - elapsed))
+        let tail = min(0.45, max(0, maxDuration - elapsed))
         emit("processing")
         finishing?.cancel()
         let id = turn
@@ -161,37 +201,59 @@ import Speech
             self.stopAudio()
             self.audioEnded = true
             AudioBenchmark.mark("audioDrained")
-            if self.recognitionFinal { self.deliver(); return }
+            let sound = await withCheckedContinuation { continuation in self.musicalInput.finish { continuation.resume(returning: $0) } }
+            guard !Task.isCancelled, self.turn == id else { return }
+            // MusicalInput's serial queue has drained all PCM callbacks before
+            // this continuation, so commit follows the last recorded sample.
+            await withCheckedContinuation { continuation in
+                DispatchQueue.main.async { self.live?.finish(); continuation.resume() }
+            }
+            guard !Task.isCancelled, self.turn == id else { return }
+            self.finalSound = sound
+            if !AudioBenchmark.enabled, let recording = sound["recordingID"] as? String,
+               self.maxDuration > 8 || self.latest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                self.alignmentPending = true
+                self.alignment = Task { [weak self] in
+                    guard let self else { return }
+                    var result: TimedTranscript?
+                    do { if let token = try await self.speechToken() { result = try await RecordedTranscription.recover(recording, token: token) } }
+                    catch { /* Live/on-device words and the original recording survive a network failure. */ }
+                    guard !Task.isCancelled, self.turn == id else { return }
+                    self.aligned = result; self.alignmentPending = false; self.deliver()
+                }
+            }
+            self.deliver()
             // endAudio lets recognition consume every queued buffer and finalize.
             // If it never does, the partial transcript is still the person's
             // words: send what was heard rather than throw the utterance away.
             try? await Task.sleep(for: .seconds(3))
             guard !Task.isCancelled, self.turn == id, !self.delivering else { return }
+            self.recognitionGraceExpired = true
             AudioBenchmark.mark("recognitionTimedOut", fields: ["recognizedCharacters": self.latest.count])
             self.deliver()
         }
     }
 
     private func deliver() {
-        guard !delivering, !turn.isEmpty else { return }
+        guard !delivering, !turn.isEmpty, audioEnded, let sound = finalSound, !alignmentPending,
+              aligned != nil || liveFinal || recognitionFinal || recognitionGraceExpired else { return }
         delivering = true
-        let text = latest.trimmingCharacters(in: .whitespacesAndNewlines)
-        let id = turn, words = wordSegments
+        let recovered = aligned?.transcript.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let text = !recovered.isEmpty ? recovered : (!liveText.isEmpty ? liveText : latest).trimmingCharacters(in: .whitespacesAndNewlines)
+        // Stream arrival times are not word timestamps. Only use measured
+        // alignment from the same transcript; never invent timing for deltas.
+        let words = !recovered.isEmpty ? aligned!.timeline : (text == latest.trimmingCharacters(in: .whitespacesAndNewlines) ? wordSegments : [])
+        let id = turn
         stopAudio()
-        musicalInput.finish { [weak self] sound in
-            Task { @MainActor in
-                guard let self, self.turn == id else { return }
-                guard !text.isEmpty || (sound["audibleMs"] as? Double ?? 0) >= 150 else {
-                    self.fail("I didn’t hear words or a sound. Hold to try again."); return
-                }
-                let value: [String: Any] = ["transcript":text,"words":words,"sound":sound]
-                guard let data = try? JSONSerialization.data(withJSONObject:value), let json = String(data:data,encoding:.utf8) else { self.fail("Could not read sound input."); return }
-                AudioBenchmark.checkTranscript(text)
-                AudioBenchmark.mark("soundSubmitted", fields: value)
-                self.cancel()
-                self.emit("mixedFinal", text:json, id:id)
-            }
+        guard !text.isEmpty || (sound["audibleMs"] as? Double ?? 0) >= 150 || hasVisualInput() else {
+            fail("I didn’t hear words or a sound. Hold to try again."); return
         }
+        let value: [String: Any] = ["transcript":text,"words":words,"sound":sound]
+        guard let data = try? JSONSerialization.data(withJSONObject:value), let json = String(data:data,encoding:.utf8) else { fail("Could not read sound input."); return }
+        AudioBenchmark.checkTranscript(text)
+        AudioBenchmark.mark("soundSubmitted", fields: value)
+        cancel()
+        emit("mixedFinal", text:json, id:id)
     }
 
     private func fail(_ message: String) {
@@ -202,7 +264,9 @@ import Speech
     }
 
     func cancel() {
-        turn = ""; held = false; listeningSince = nil
+        live?.close(); live = nil; alignment?.cancel(); alignment = nil
+        liveText = ""; liveFinal = false; finalSound = nil; aligned = nil; alignmentPending = false; recognitionGraceExpired = false
+        turn = ""; held = false; listeningSince = nil; maxDuration = 8
         replayTask?.cancel(); replayTask = nil
         finishing?.cancel(); finishing = nil
         deadline?.cancel(); deadline = nil

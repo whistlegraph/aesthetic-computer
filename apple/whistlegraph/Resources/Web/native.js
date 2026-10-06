@@ -102,8 +102,8 @@
   note.textContent = '';
   const blocked = () => window.whistlegraphIsBusy ? window.whistlegraphIsBusy() : gameMode === 'review';
   $('info').querySelector('h2').textContent = 'Whistlegraph';
-  $('info').querySelectorAll('p')[0].textContent = 'Hold to talk. Release to make. Your words are transcribed on the iPhone; recordings stay on this phone. Allow Speech and Microphone access the first time, then hold again.';
-  $('info').querySelectorAll('p')[1].textContent = 'Your code identifies this piece. Source, versions, and live errors sync privately to your AC account so your other devices and agents can inspect and edit it. Audio stays on this phone.';
+  $('info').querySelectorAll('p')[0].textContent = 'Hold to talk. Release to make. Device speech is the default. Optional cloud speech sends audio to OpenAI only after you allow it in AI & privacy. Recordings are saved on this phone for playback. Allow Speech and Microphone access the first time, then hold again.';
+  $('info').querySelectorAll('p')[1].textContent = 'Your code identifies this piece. Source, versions, and live errors sync privately to your AC account so your other devices and agents can inspect and edit it. Drawings and measured sound cues travel with your requests. Each generated edit also sends cropped, timed preview frames to AC for a visual check before saving. Raw recordings leave this phone only when cloud speech is enabled.';
   $('speak').setAttribute('aria-label', 'Hold to talk to Whistlegraph');
   $('export').hidden = true;
   $('reset').hidden = true;
@@ -112,10 +112,12 @@
     $('more-menu').hidden = true;
     window.webkit.messageHandlers.whistlegraph.postMessage({action: 'share', id: 'image', data: canvas.toDataURL('image/png')});
   };
-  let id = '', starting = false, completing = false, voiceClock;
+  let id = '', starting = false, completing = false, performanceCapture = false, voiceClock;
+  window.whistlegraphLatchPerformance = () => { performanceCapture = true; clearClock(); $('speak-label').textContent='Draw + talk · Send when done'; };
+
   const clearClock=()=>{clearInterval(voiceClock);voiceClock=null;};
   const send = action => window.webkit.messageHandlers.whistlegraph.postMessage({action, id});
-  function clearVoice() { window.webkit.messageHandlers.whistlegraph.postMessage({action:'voiceIdle',id:'engine'}); clearClock(); talking = false; voiceBusy = false; starting = false; completing = false; $('voice-state').hidden = true; $('speak').classList.remove('holding'); document.body.classList.remove('making'); $('speak').disabled = blocked(); $('speak-label').textContent = blocked() ? 'Working…' : 'Hold to talk'; }
+  function clearVoice() { performanceCapture = false; window.webkit.messageHandlers.whistlegraph.postMessage({action:'voiceIdle',id:'engine'}); clearClock(); talking = false; voiceBusy = false; starting = false; completing = false; $('voice-state').hidden = true; $('speak').classList.remove('holding'); document.body.classList.remove('making'); $('speak').disabled = blocked(); $('speak-label').textContent = blocked() ? 'Working…' : 'Hold to talk'; }
   voiceStart = () => {
     if (talking || voiceBusy || blocked()) return;
     window.webkit.messageHandlers.whistlegraph.postMessage({action:'account',id:'engine'});
@@ -133,14 +135,14 @@
     $('speak-label').textContent = 'Finishing…'; $('voice-heading').textContent = 'Finishing…';
     send('stop');
   };
-  async function makeFromWords(text, sound=false) {
+  async function makeFromWords(text, sound=false, drawing=null, performance=false) {
     if (completing) return;
     clearClock(); completing = true; voiceBusy = true; $('speak').disabled = true;
     $('voice-state').hidden = true;
     $('speak-label').textContent = 'Working…';
     if (!window.whistlegraphAsk) { id = ''; clearVoice(); toast('Generation is still loading. Please try again.'); return; }
     id = '';
-    try { await (sound ? window.whistlegraphAskSound(JSON.parse(text)) : window.whistlegraphAsk(text)); }
+    try { await (sound ? window.whistlegraphAskSound({...JSON.parse(text),drawing,...(performance?{performance:{schema:"whistlegraph-performance/v1",timeline:"audio-start"}}:{})}) : window.whistlegraphAskDrawing(text,drawing)); }
     catch { clearVoice(); toast("Could not interpret this sound. Please try again."); }
   }
   window.whistlegraphRecording=()=>talking||voiceBusy||starting||completing;
@@ -149,12 +151,12 @@
 
   window.whistlegraphNativeEvent = event => {
     if (event.id !== id || !id) return;
-    if (event.kind === 'listening') { starting = false; clearClock(); const began=performance.now(); $('speak-label').textContent='8s · Release to send'; voiceClock=setInterval(()=>{const left=Math.max(0,8-(performance.now()-began)/1000);$('speak-label').textContent=Math.ceil(left)+'s · Release to send';if(left<=0)voiceEnd();},100); $('voice-heading').textContent = 'Listening…'; $('voice-transcript').textContent = ''; }
+    if (event.kind === 'listening') { starting = false; clearClock(); const began=performance.now(); $('speak-label').textContent='8s · Release to send'; voiceClock=setInterval(()=>{if(performanceCapture){clearClock();return;}const left=Math.max(0,8-(performance.now()-began)/1000);$('speak-label').textContent=Math.ceil(left)+'s · Release to send';if(left<=0)voiceEnd();},100); $('voice-heading').textContent = 'Listening…'; $('voice-transcript').textContent = ''; }
     if (event.kind === 'partial') { $('voice-transcript').textContent = event.text; $('voice-transcript').scrollTop = $('voice-transcript').scrollHeight; requestAnimationFrame(()=>window.webkit.messageHandlers.whistlegraph.postMessage({action:'benchmark',id:'engine',event:'transcriptPainted'})); }
     if (event.kind === 'musicalObservation') { try { window.whistlegraphObserveSound?.(JSON.parse(event.text)); } catch {} }
     if (event.kind === 'sound') { $('voice-heading').textContent = 'Listening · '+event.text; }
-    if (event.kind === 'mixedFinal') { talking = false; makeFromWords(event.text, true); }
-    if (event.kind === 'final') { talking = false; makeFromWords(event.text); }
+    if (event.kind === 'mixedFinal') { talking = false; makeFromWords(event.text, true, event.drawing, event.performance===true); }
+    if (event.kind === 'final') { talking = false; makeFromWords(event.text, false, event.drawing); }
     if (event.kind === 'error') { const message = event.text; id = ''; clearVoice(); toast(message); }
   };
   $('words-form').onsubmit = event => {

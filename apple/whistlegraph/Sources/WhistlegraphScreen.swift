@@ -7,6 +7,7 @@ struct PieceSnapshot: Decodable {
     var code = ""
     var caption: String?
     var output: String?
+    var inference: InferenceSnapshot?
     var handle = ""
     var colors: [[Double]] = []
     var head = 0
@@ -18,7 +19,7 @@ struct PieceSnapshot: Decodable {
     var attempt: PieceAttempt?
     var revisions: [PieceRevision]? = []
     var versions: [PieceRevision] { get { revisions ?? [] } set { revisions = newValue } }
-    enum CodingKeys: String, CodingKey { case ware, roblox, code, caption, output, handle, colors, head, hasPiece, hasPreview, error, busy, phase, attempt; case revisions = "versions" }
+    enum CodingKeys: String, CodingKey { case ware, roblox, code, caption, output, inference, handle, colors, head, hasPiece, hasPreview, error, busy, phase, attempt; case revisions = "versions" }
     var hasHistory: Bool { versions.count > 1 }
 }
 struct PieceAttempt: Decodable { let request: String; let status: String; let error: String }
@@ -30,6 +31,7 @@ struct PieceRevision: Decodable, Identifiable {
     let utterance: String
     let createdAt: String
     let sound: PieceSound?
+    var hasDrawing: Bool? = nil
     var date: Date? {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -62,11 +64,16 @@ struct NativeLayout {
 
 struct WhistlegraphScreen: View {
     @ObservedObject var session: WhistlegraphSession
+    @ObservedObject private var drawing: DrawingDraft
+    init(session: WhistlegraphSession) { self.session = session; self.drawing = session.drawing }
     @StateObject private var narrator = VersionNarrator()
+    @StateObject private var exporter = StoryExport()
     @Environment(\.scenePhase) private var scenePhase
     @State private var held = false
-    @GestureState private var touching = false
+    @State private var chalkDrag: CGFloat = 0
+    private var chalkReveal: CGFloat { session.performanceCapture ? 1 : min(1, chalkDrag / 80) }
     @State private var showComposer = false
+    @State private var showTV = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage("whistlegraph-appearance") private var appearance = "system"
@@ -80,19 +87,32 @@ struct WhistlegraphScreen: View {
     private var theme: WhistlegraphTheme { WhistlegraphTheme(phase: themePhase, dark: colorScheme == .dark) }
     private var paper: Color { theme.foreground }
     private var accent: Color { theme.accent }
+    private var storyBackground: Color {
+        let rgb = StoryCardStyle.background(code: session.snapshot.code, version: session.snapshot.head)
+        return Color(red: Double(rgb[0]) / 255, green: Double(rgb[1]) / 255, blue: Double(rgb[2]) / 255)
+    }
+    private var chalkActive: Bool { drawing.enabled || held || session.capturePhase == .opening || session.capturePhase == .recording }
+    private var previewSize: CGSize {
+        session.previewFormat.fit(width: UIScreen.main.bounds.width - session.layout.pageInset * 2 - 12,
+                                  height: min(380, UIScreen.main.bounds.height * 0.4))
+    }
     var body: some View {
-        VStack(spacing: session.layout.spacing) {
+        VStack(spacing: narrator.isPlaying ? 0 : session.layout.spacing) {
             HStack {
                 IdentityHeader(session: session, appearance: $appearance, size: session.layout.historySize) { narrator.stop(); showComposer = false }
                 Spacer()
-                if session.snapshot.wareID == "piece" { Button {
+                if session.snapshot.wareID == "piece" {
+                Button { showTV = true } label: {
+                    Image(systemName: "tv").font(.system(size: 26, weight: .bold)).frame(width: 44, height: 44)
+                }.accessibilityLabel("Project to TV").accessibilityIdentifier("project-tv")
+                Button {
                     showComposer = false
-                    narrator.play(session)
+                    ButtonSounds.play(.play); openStory()
                 } label: {
-                    Image(systemName: "play.fill").font(.system(size: 28, weight: .bold)).frame(width: 44, height: 44)
+                    Image(systemName: "rectangle.stack.fill").font(.system(size: 28, weight: .bold)).frame(width: 44, height: 44)
                 }
-                .disabled(session.snapshot.busy || session.capturePhase != .idle || !session.engineReady || !session.snapshot.versions.contains(where: { $0.id > 0 }))
-                .accessibilityLabel("Play version story").accessibilityIdentifier("play-versions")
+                .disabled(session.capturePhase != .idle || !session.engineReady || !session.snapshot.versions.contains(where: { $0.id > 0 }))
+                .accessibilityLabel("Open story cards").accessibilityIdentifier("play-versions")
                 }
             }.frame(height: narrator.isPlaying ? 0 : nil).clipped().accessibilityHidden(narrator.isPlaying)
             if !narrator.isPlaying {
@@ -101,50 +121,104 @@ struct WhistlegraphScreen: View {
                     Spacer(minLength: 0)
                 }
             }
-            VStack(spacing: 4) {
+            VStack(spacing: narrator.isPlaying ? 12 : 4) {
             // This representable never changes identity when cards or versions change.
+            GeometryReader { geometry in
             ZStack {
                 Workspace(voice: session)
                     .opacity(session.snapshot.hasPreview ? 1 : 0)
                     .allowsHitTesting(session.snapshot.hasPreview && session.capturePhase == .idle)
-                    .accessibilityHidden(!session.snapshot.hasPreview)
+                    .accessibilityHidden(!session.snapshot.hasPreview || narrator.isPlaying)
+                if narrator.isPlaying { StoryWorkspace(player: session.storyPreview) }
                 if !session.snapshot.hasPreview && !session.engineReady { ProgressView() }
-                if session.capturePhase == .recording || session.capturePhase == .opening {
-                    ScrollView {
-                        Text(session.transcript.isEmpty ? (session.capturePhase == .opening ? "Opening microphone…" : "Listening…") : session.transcript)
-                            .font(.custom("ComicRelief-Regular", size: 30, relativeTo: .title)).frame(maxWidth: .infinity, alignment: .leading).padding(18)
-                    }.background(theme.background.opacity(0.95))
+                if !narrator.isPlaying && (chalkActive || drawing.hasInk) {
+                    DrawingPad(draft: drawing, interactive: chalkActive && canTalk)
+                        .accessibilityIdentifier("drawing-pad")
+                        .background(chalkActive ? Color.black.opacity(0.16) : Color.clear)
+                        .allowsHitTesting(chalkActive && canTalk)
                 }
                 if let failure = session.startupFailure {
                     VStack(spacing: 12) { Text(failure); Button("Reload") { session.reloadWorkspace() } }.padding().background(.black.opacity(0.85))
                 }
             }
-            .aspectRatio(narrator.isPlaying ? nil : 4 / 3, contentMode: .fit)
-            .frame(maxHeight: narrator.isPlaying ? .infinity : nil)
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            }
+            .frame(width: narrator.isPlaying ? nil : previewSize.width,
+                   height: narrator.isPlaying ? max(1, (UIScreen.main.bounds.width - 12) * 3 / 4) : previewSize.height)
+            .overlay { WhistlegraphPreviewInset() }
+            .padding(6)
+            .background(WhistlegraphWoodFrame())
+            .accessibilityIdentifier("story-picture")
             .overlay {
-                if narrator.isPlaying { Rectangle().strokeBorder(paper.opacity(0.8), lineWidth: 2).allowsHitTesting(false) }
-            }
-            .overlay(alignment: .topTrailing) {
-                if narrator.isPlaying { Button { narrator.stop() } label: { Image(systemName: "xmark.circle.fill").font(.largeTitle).padding(16).background(.black.opacity(0.5), in: Circle()) }.accessibilityLabel("Close version story") }
-            }
-            if narrator.isPlaying && (session.snapshot.hasPreview || session.snapshot.hasHistory) {
-                HStack(alignment: .bottom) {
-                    ComicTitle(text: "v\(session.snapshot.head)", size: session.layout.historySize)
-                        .accessibilityLabel("Running version \(session.snapshot.head)")
-                    Spacer(minLength: 0)
-                    PlaybackCaption(text: narrator.utterance, spokenRange: narrator.spokenRange, accent: accent)
-                        .font(.custom("ComicRelief-Regular", size: session.layout.historySize, relativeTo: .title3))
-                        .multilineTextAlignment(.trailing)
-                        .accessibilityIdentifier("spoken-word")
-
+                if narrator.isPlaying && !exporter.requested {
+                    HStack {
+                        Color.clear.contentShape(Rectangle()).frame(width: 28).onTapGesture { narrator.previous() }
+                        Spacer().allowsHitTesting(false)
+                        Color.clear.contentShape(Rectangle()).frame(width: 28).onTapGesture { narrator.next() }
+                    }.accessibilityHidden(true)
                 }
             }
+            .frame(maxWidth: .infinity)
+            if !narrator.isPlaying {
+                HStack(spacing: 18) {
+                    if session.performanceCapture {
+                        Button { session.cancelHold() } label: { Image(systemName: "xmark") }
+                            .accessibilityLabel("Cancel recording, keep drawing")
+                    }
+                    Button { ButtonSounds.play(.tick); drawing.enabled.toggle() } label: {
+                        Label("Chalk", systemImage: drawing.enabled ? "pencil.tip.crop.circle.fill" : "pencil.tip.crop.circle")
+                    }.accessibilityIdentifier("draw-control").accessibilityValue(drawing.enabled ? "On" : "Off")
+                        .disabled(!canTalk)
+                    if drawing.hasInk {
+                        Button { drawing.undo() } label: { Image(systemName: "arrow.uturn.backward") }
+                            .accessibilityLabel("Undo stroke").accessibilityIdentifier("drawing-undo").disabled(!canTalk)
+                        Button { drawing.clear() } label: { Image(systemName: "trash") }
+                            .accessibilityLabel("Clear chalk").accessibilityIdentifier("drawing-clear").disabled(!canTalk)
+                    }
+                    Spacer(minLength: 0)
+                    if drawing.hasInk && !showComposer {
+                        Button("Send") { ButtonSounds.play(.sent); session.command("ask", text: "") }
+                            .accessibilityLabel("Send chalk").accessibilityIdentifier("drawing-send")
+                            .disabled(!canTalk || session.capturePhase != .idle)
+                    }
+                    HStack(spacing: 6) {
+                        if let cost = session.snapshot.inference?.threadCost { ThreadCostLabel(cost: cost) }
+                        BrainButton(session: session) { showComposer = false }
+                    }
+                }.font(.title3).buttonStyle(.plain).frame(minHeight: 44)
+                if drawing.full { Text("Chalk full · send or undo a stroke").font(.caption) }
+                if session.capturePhase == .recording || session.capturePhase == .opening {
+                    Text(session.transcript.isEmpty ? "Listening…" : session.transcript)
+                        .font(.custom("ComicRelief-Regular", size: 20)).lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading).allowsHitTesting(false)
+                }
             }
+            if narrator.isPlaying {
+                VStack(alignment: .leading, spacing: 6) {
+                    ComicTitle(text: "v\(narrator.currentVersion ?? session.snapshot.head)", size: 22)
+                        .accessibilityLabel("Running version \(narrator.currentVersion ?? session.snapshot.head)")
+                        .accessibilityIdentifier("story-version")
+                    PlaybackCaption(text: narrator.utterance, spokenRange: narrator.spokenRange, accent: .yellow)
+                        .font(.custom("ComicRelief-Regular", size: 22, relativeTo: .title3))
+                        .lineLimit(3).multilineTextAlignment(.leading)
+                        .accessibilityIdentifier("spoken-word")
+                }.frame(maxWidth: .infinity, minHeight: 82, alignment: .topLeading).foregroundStyle(.white)
+                Spacer(minLength: 0)
+            }
+            }
+            .padding(.horizontal, narrator.isPlaying ? 28 : 0)
+            .padding(.top, narrator.isPlaying ? 100 : 0)
+            .padding(.bottom, narrator.isPlaying ? 150 : 0)
+            .frame(maxWidth: .infinity)
+            .frame(height: narrator.isPlaying ? UIScreen.main.bounds.width * 16 / 9 : nil)
+            .background(narrator.isPlaying ? storyBackground : Color.clear)
+            if !narrator.error.isEmpty && !narrator.isPlaying { Text(narrator.error).foregroundStyle(.orange) }
+            if let failure = session.captureError, !narrator.isPlaying { Text(failure).font(.body).foregroundStyle(.orange).frame(maxWidth: .infinity, alignment: .leading) }
+            if !session.snapshot.error.isEmpty && !narrator.isPlaying { Text(session.snapshot.error).font(.body).foregroundStyle(.orange).accessibilityIdentifier("workspace-error") }
+            if session.verifyingAIAccount { ProgressView("Checking your account…").accessibilityIdentifier("account-verifying") }
             if !narrator.isPlaying && session.snapshot.wareID == "roblox" { RobloxRoomControls(session: session) }
-            if !narrator.error.isEmpty { Text(narrator.error).foregroundStyle(.orange) }
-            if let failure = session.captureError { Text(failure).font(.body).foregroundStyle(.orange).frame(maxWidth: .infinity, alignment: .leading) }
             if !narrator.isPlaying && (session.snapshot.hasPiece || session.snapshot.hasHistory || session.snapshot.busy || session.snapshot.attempt?.status == "failed") {
-                VersionFeed(snapshot: session.snapshot, foreground: paper, selectionColor: paper, textSize: session.layout.historySize, disabled: session.snapshot.busy || session.capturePhase != .idle, stop: { session.command("stop") }, retry: { session.command("retry") }) { narrator.select($0, session: session) }
+                VersionFeed(snapshot: session.snapshot, foreground: paper, selectionColor: paper, textSize: session.layout.historySize, disabled: session.snapshot.busy || session.capturePhase != .idle, holdSelection: drawing.hasInk, stop: { session.command("stop") }, retry: { session.command("retry") }) { narrator.select($0, session: session) }
             } else if !narrator.isPlaying { Spacer(minLength: 0) }
         }
         .padding(.horizontal, narrator.isPlaying ? 0 : session.layout.pageInset)
@@ -152,72 +226,130 @@ struct WhistlegraphScreen: View {
         .safeAreaInset(edge: .bottom, spacing: 8) {
             Group {
                 if narrator.isPlaying { EmptyView() } else if showComposer {
-                    InlineRequestComposer(theme: theme, disabled: session.snapshot.busy, cancel: { showComposer = false }) { text in
-                        session.command("ask", text: text); showComposer = false
+                    InlineRequestComposer(theme: theme, disabled: session.snapshot.busy || session.verifyingAIAccount, hasDrawing: drawing.hasInk, text: $session.typedDraft, cancel: { ButtonSounds.play(.pop); session.typedDraft = ""; showComposer = false }) { text in
+                        session.requestAIConsent {
+                            session.command("ask", text: text) { ButtonSounds.play(.sent); session.typedDraft = ""; showComposer = false }
+                        }
                     }
                 } else {
-                    HStack(spacing: 12) {
-                        Button { showComposer = true } label: {
+                    HStack(spacing: 12 * (1 - chalkReveal)) {
+                        Button { ButtonSounds.play(.key); showComposer = true } label: {
                             TypingButtonLabel()
                                 .frame(maxWidth: .infinity, minHeight: session.layout.talkHeight)
                                 .foregroundStyle(theme.buttonInk)
                                 .background(Color(red: 0.40, green: 0.83, blue: 0.95), in: RoundedRectangle(cornerRadius: 34, style: .continuous))
                                 .overlay(RoundedRectangle(cornerRadius: 34, style: .continuous).strokeBorder(paper, lineWidth: 3))
                         }.buttonStyle(.plain).disabled(!canTalk || session.capturePhase != .idle).accessibilityLabel("Type").accessibilityIdentifier("type-control")
+                        .frame(width: max(0, (UIScreen.main.bounds.width - session.layout.pageInset * 2 - 12) / 2 * (1 - chalkReveal)))
+                        .clipped().opacity(1 - chalkReveal).allowsHitTesting(chalkReveal == 0).accessibilityHidden(chalkReveal > 0.9)
                         talkControl
                     }
                 }
             }.padding(.horizontal, session.layout.pageInset).foregroundStyle(paper)
-                .background(theme.background)
+                .background(narrator.isPlaying ? storyBackground : theme.background)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay {
+            if narrator.isPlaying {
+                StoryControls(narrator: narrator, exporter: exporter, export: exportStory, close: { exporter.cancel(); narrator.stop() })
+                    .opacity(exporter.requested ? 0 : 1).allowsHitTesting(!exporter.requested)
+                if exporter.requested {
+                    VStack { Spacer(); StoryExportProgress(narrator: narrator, exporter: exporter) { exporter.cancel(); narrator.setPaused(true) } }
+                }
+            }
+        }
+        .alert("Could not export", isPresented: Binding(get: { !exporter.error.isEmpty }, set: { if !$0 { exporter.error = "" } })) {
+            Button("OK") { exporter.error = "" }
+        } message: { Text(exporter.error) }
         .statusBarHidden(narrator.isPlaying)
+        .alert("Could not continue", isPresented: Binding(get: { session.actionError != nil }, set: { if !$0 { session.actionError = nil } })) {
+            Button("OK") { session.actionError = nil }
+        } message: { Text(session.actionError ?? "") }
+        .sheet(isPresented: $showTV) { WhistlegraphTVSheet(tv: session.tv) }
+        .onChange(of: showComposer) { _, open in DeviceActionLog.shared.record(.screen, open ? .presented : .dismissed, control: .type) }
+        .onChange(of: showTV) { _, open in DeviceActionLog.shared.record(.screen, open ? .presented : .dismissed, control: .tv) }
+        .onChange(of: narrator.isPlaying) { _, playing in if !playing { exporter.cancel() } }
+        .onChange(of: session.localDataRevision) { _, _ in exporter.cancel(); narrator.stop(); showComposer = false }
         .onChange(of: session.narratedFrame) { _, _ in narrator.painted(session.narratedVersion) }
-        .onChange(of: scenePhase) { _, value in if value != .active { narrator.stop() } }
-        .onChange(of: session.capturePhase) { _, value in if value != .idle { narrator.stop() } }
-        .onDisappear { narrator.stop() }
-        .background(theme.background.ignoresSafeArea())
+        .onChange(of: exporter.movie?.id) { _, value in if value != nil { narrator.setPaused(true) } }
+        .onChange(of: scenePhase) { _, value in if value == .background { exporter.cancel(); narrator.stop() } else if value == .inactive { narrator.setPaused(true) } }
+        .onChange(of: session.capturePhase) { _, value in if value != .idle { narrator.stop() }; if value == .idle || value == .processing { chalkDrag = 0; held = false } }
+        .onDisappear { exporter.cancel(); narrator.stop() }
+        .background((narrator.isPlaying ? storyBackground : theme.background).ignoresSafeArea())
         .tint(paper)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: themePhase)
+    }
+    private func openStory() {
+        DeviceActionLog.shared.record(.story, .presented)
+        narrator.onNarration = { row, audio in await exporter.startCard(row, audio: audio) }
+        narrator.onCardComplete = { await exporter.finishCard() }
+        narrator.onSkip = { exporter.skipCard() }
+        narrator.onPause = { exporter.pause($0) }
+        narrator.shouldPlay = { !exporter.requested || exporter.needsCard(at: $0) }
+        narrator.play(session)
+        exporter.prepare(session: session, rows: narrator.branch)
+    }
+    private func exportStory() {
+        DeviceActionLog.shared.record(.share, .requested, control: .story)
+        if exporter.readyURL != nil { narrator.setPaused(true); exporter.request(); return }
+        let restart = exporter.needsRestart(before: narrator.index)
+        exporter.request()
+        if restart, let missing = exporter.firstMissingIndex { narrator.jump(to: missing) } else { narrator.setPaused(false) }
     }
     private var canTalk: Bool { session.workspaceReady && session.engineReady && !session.snapshot.busy && session.capturePhase != .processing }
     private var talkControl: some View {
         TimelineView(.animation(minimumInterval: 1 / 30, paused: session.capturePhase != .recording)) { context in
-            let progress = session.captureStarted.map { min(1, max(0, context.date.timeIntervalSince($0) / 8)) } ?? 0
+            let duration = session.performanceCapture ? 45.0 : 8.0
+            let progress = session.captureStarted.map { min(1, max(0, context.date.timeIntervalSince($0) / duration)) } ?? 0
             VStack(spacing: 10) {
-                if session.capturePhase == .recording {
-                    Text("Talk").font(.custom("ComicRelief-Bold", size: 30, relativeTo: .title2))
+                if session.capturePhase == .recording || chalkReveal > 0.5 {
+                    Text(session.performanceCapture ? "Send" : chalkReveal > 0.5 ? "Chalk" : "Talk").font(.custom("ComicRelief-Bold", size: 30, relativeTo: .title2))
                     MicrophoneWaveform(levels: session.microphoneLevels).frame(height: 22)
                 } else { ShoutButtonLabel() }
                 if session.capturePhase == .recording {
                     ProgressView(value: progress).tint(theme.buttonInk)
-                        .accessibilityLabel("Recording time").accessibilityValue("\(Int(progress * 8)) of 8 seconds")
+                        .accessibilityLabel("Recording time").accessibilityValue("\(Int(progress * duration)) of \(Int(duration)) seconds")
                 }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, minHeight: session.layout.talkHeight)
             .foregroundStyle(theme.buttonInk)
-            .background(Color(red: 1, green: 0.64, blue: 0.43).opacity(canTalk ? 1 : 0.55))
+            .background((chalkReveal > 0.5 ? Color(red: 0.94, green: 0.88, blue: 0.79) : Color(red: 1, green: 0.64, blue: 0.43)).opacity(canTalk ? 1 : 0.55))
             .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 34, style: .continuous).strokeBorder(paper, lineWidth: 3))
             .contentShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
-            .gesture(DragGesture(minimumDistance: 0).updating($touching) { _, state, _ in state = true }.onChanged { value in
-                guard canTalk || held else { return }
-                guard !held, session.capturePhase == .idle else { return }
-                held = true; session.beginHold()
-            }.onEnded { value in
-                if held { session.endHold() }
-                held = false
-            })
-            .onChange(of: touching) { _, active in
-                if !active && held { held = false; session.cancelHold() }
+            .overlay {
+                TalkHoldInput(enabled: canTalk || held, began: {
+                    if session.performanceCapture { held = true; return }
+                    guard canTalk, !held, session.capturePhase == .idle else { return }
+                    chalkDrag = 0; held = true; ButtonSounds.play(.press); session.beginHold()
+                }, moved: { delta in
+                    guard held, !session.performanceCapture else { return }
+                    chalkDrag = max(0, -delta)
+                }, ended: {
+                    guard held else { return }
+                    held = false
+                    if chalkDrag >= 48 && !session.performanceCapture {
+                        session.latchPerformance(); chalkDrag = 0; ButtonSounds.play(.tick); return
+                    }
+                    chalkDrag = 0
+                    if session.capturePhase == .opening || session.capturePhase == .recording {
+                        ButtonSounds.play(.release); session.endHold()
+                    }
+                }, cancelled: {
+                    guard held else { return }
+                    held = false; chalkDrag = 0
+                    if session.capturePhase == .opening || session.capturePhase == .recording { session.cancelHold() }
+                }).accessibilityHidden(true)
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Talk")
-            .accessibilityHint("Hold to record, release to send. Up to eight seconds.")
+            .accessibilityLabel(session.performanceCapture ? "Send performance" : "Talk")
+            .accessibilityHint(session.performanceCapture ? "Drawing and microphone are recording together. Tap to send. Up to 45 seconds." : "Hold to record. Swipe left and release to draw and record together. Release without swiping to send.")
             .accessibilityIdentifier("talk-control")
             .accessibilityAddTraits(.isButton)
-            .accessibilityAction(named: Text("Type a request")) { if canTalk { session.cancelHold(); showComposer = true } }
+            .accessibilityAction(named: Text("Draw and record")) { if canTalk { session.beginHold(); session.latchPerformance() } }
+            .accessibilityAction(named: Text("Type a request")) { if canTalk { session.cancelHold(); ButtonSounds.play(.key); showComposer = true } }
             .accessibilityAction { if session.capturePhase == .recording { session.endHold() } else if canTalk { session.beginHold() } }
         }
     }
@@ -229,6 +361,7 @@ struct VersionFeed: View {
     var selectionColor: Color
     var textSize: CGFloat = 22
     let disabled: Bool
+    var holdSelection = false
     let stop: () -> Void
     let retry: () -> Void
     let select: (Int) -> Void
@@ -242,10 +375,10 @@ struct VersionFeed: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(snapshot.versions.filter { $0.id > 0 }.reversed()) { version in
                     Button {
-                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { focusedVersion = version.id }
+                        ButtonSounds.play(.tick); withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { focusedVersion = version.id }
                     } label: {
                         VersionRow(version: version, foreground: foreground, selected: version.id == snapshot.head, textSize: textSize, rowHeight: rowHeight)
-                    }.buttonStyle(.plain).disabled(disabled)
+                    }.buttonStyle(.plain).disabled(disabled || holdSelection)
                         .id(version.id)
                         .visualEffect { content, geometry in
                             let distance = max(0, geometry.frame(in: .scrollView(axis: .vertical)).minY)
@@ -272,7 +405,12 @@ struct VersionFeed: View {
             if let attempt = snapshot.attempt, ["working", "failed", "unchanged", "interrupted"].contains(attempt.status) {
                 HStack(spacing: 12) {
                     if snapshot.busy { ProgressView().frame(width: 48) }
-                    if snapshot.busy, let output = snapshot.output, !output.isEmpty {
+                    if snapshot.busy && snapshot.phase.hasPrefix("Checking picture") {
+                        Text("Checking picture…")
+                            .font(.custom("ComicRelief-Regular", size: textSize, relativeTo: .title3))
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .accessibilityIdentifier("generation-phase")
+                    } else if snapshot.busy, let output = snapshot.output, !output.isEmpty {
                         CodeTicker(output: output, thinking: snapshot.phase.hasPrefix("Thinking"))
                     } else {
                     Text(attempt.request.replacingOccurrences(of: #" · [0-9.]+ seconds$"#, with: "", options: .regularExpression))
@@ -280,19 +418,19 @@ struct VersionFeed: View {
                         .lineLimit(1).truncationMode(.tail).frame(maxWidth: .infinity, alignment: .trailing)
                     }
                     if snapshot.busy {
-                        Button(action: stop) { KidlispStopMark() }.buttonStyle(KidlispStopStyle()).accessibilityLabel("Stop generation")
+                        Button { ButtonSounds.play(.stop); stop() } label: { KidlispStopMark() }.buttonStyle(KidlispStopStyle()).accessibilityLabel("Stop generation")
                     } else if attempt.status == "interrupted" || attempt.status == "failed" {
-                        Button("Try again", action: retry).disabled(disabled)
+                        Button("Try again") { ButtonSounds.play(.press); retry() }.disabled(disabled)
                     }
                 }.frame(height: rowHeight).padding(.horizontal, 10)
             }
         }
-        .scrollDisabled(disabled)
+        .scrollDisabled(disabled || holdSelection)
         .onAppear { focusedVersion = snapshot.head > 0 ? snapshot.head : nil }
         .onChange(of: snapshot.versions.count) { _, _ in focusedVersion = snapshot.head }
         .task(id: focusedVersion) {
             try? await Task.sleep(for: .milliseconds(320))
-            guard !Task.isCancelled, !disabled, let focusedVersion, focusedVersion != snapshot.head else { return }
+            guard !Task.isCancelled, !disabled, !holdSelection, let focusedVersion, focusedVersion != snapshot.head else { return }
             select(focusedVersion)
         }
         .accessibilityLabel("Version history").accessibilityIdentifier("version-rolodex")
@@ -309,6 +447,7 @@ private struct VersionRow: View {
     var body: some View {
                         HStack(spacing: 12) {
                             ComicTitle(text: "v\(version.id)", size: textSize).frame(width: 48, alignment: .leading)
+                            if version.hasDrawing == true { Image(systemName: "pencil.tip").accessibilityLabel("With chalk") }
                             Text(version.utterance).lineLimit(1).truncationMode(.tail)
                                 .frame(maxWidth: .infinity, alignment: .trailing)
                         }
@@ -399,27 +538,54 @@ struct ComicTitle: View {
 struct InlineRequestComposer: View {
     let theme: WhistlegraphTheme
     var disabled: Bool
+    var hasDrawing = false
+    @Binding var text: String
     let cancel: () -> Void
     let send: (String) -> Void
     @FocusState private var focused: Bool
-    @State private var text = ""
+    @StateObject private var keySounds = PromptKeySounds()
+    private var prompt: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private func submit() {
+        DeviceActionLog.shared.record(.typeSend, .requested, [.characters: prompt.count])
+        guard !disabled, !prompt.isEmpty || hasDrawing else { return }
+        send(prompt)
+    }
+    private func singleLine(_ value: String) -> String {
+        String(value.components(separatedBy: .newlines).joined(separator: " ").prefix(96))
+    }
+    private func edited(from old: String, to value: String) {
+        let previous = singleLine(old), next = singleLine(value)
+        if next != value { text = next }
+        guard next != previous else { return }
+        DeviceActionLog.shared.record(.typeEdit, nil, [.characters: next.count])
+        // One click per edit, including delete/paste; never a burst for pasted text
+        // or a second click when the length/newline correction updates the field.
+        let inserted = next.difference(from: previous).compactMap { change -> Character? in
+            if case let .insert(_, character, _) = change { return character }
+            return nil
+        }
+        keySounds.play(key: inserted.count == 1 ? inserted.first : nil)
+    }
     var body: some View {
         VStack(spacing: 8) {
-            TextField("What happens next?", text: $text, axis: .vertical)
+            TextField("What happens next?", text: $text)
                 .font(.custom("ComicRelief-Regular", size: 26, relativeTo: .title2))
-                .lineLimit(1...3).focused($focused)
+                .lineLimit(1).focused($focused)
+                .submitLabel(.send).onSubmit(submit)
+                .onChange(of: text) { old, value in edited(from: old, to: value) }
                 .accessibilityLabel("Request, up to 96 characters").accessibilityIdentifier("typed-request")
-                .onChange(of: text) { _, value in if value.count > 96 { text = String(value.prefix(96)) } }
             HStack {
-                Button("Cancel") { cancel() }
+                Button("Cancel") { DeviceActionLog.shared.record(.typeSend, .cancelled); cancel() }.accessibilityIdentifier("request-cancel")
                 Spacer()
                 Text("\(text.count) / 96").accessibilityIdentifier("request-count").monospacedDigit().foregroundStyle(.secondary)
                 Spacer()
-                Button("Send") { send(text.trimmingCharacters(in: .whitespacesAndNewlines)) }
-                    .disabled(disabled || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Button("Send", action: submit)
+                    .accessibilityIdentifier("request-send")
+                    .disabled(disabled || (prompt.isEmpty && !hasDrawing))
             }.font(.title3)
         }.padding(14)
             .background(theme.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .task { focused = true }
+            .task { keySounds.prepare(); focused = true }
+            .onDisappear { keySounds.stop() }
     }
 }

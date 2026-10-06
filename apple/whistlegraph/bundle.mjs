@@ -16,3 +16,5 @@ for(const tree of ["src","phone","context"]) {
 }
 
 await copyFile(new URL('apple/aesel/Resources/ComicRelief-Bold.ttf',root),new URL('Resources/Web/ComicRelief-Bold.ttf',base));
+
+await copyFile(new URL('system/public/aesthetic.computer/lib/canvas-tape.mjs',root),new URL('Resources/Web/canvas-tape.mjs',base));

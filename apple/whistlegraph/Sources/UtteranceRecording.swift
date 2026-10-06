@@ -1,7 +1,7 @@
 import Foundation
 import AVFoundation
 
-// Original microphone samples stay in Application Support, outside model requests.
+// Microphone samples stay in Application Support; cloud transcription requires separate consent.
 // Called only on MusicalInput's serial queue; finish closes the file before playback.
 final class UtteranceRecording {
     let id = UUID().uuidString
@@ -14,14 +14,14 @@ final class UtteranceRecording {
             .appendingPathComponent("Utterances", isDirectory: true).appendingPathComponent(id + ".caf")
     }
     func append(_ samples: [Double], rate: Double) {
-        guard !failed, rate > 0, count < Int(rate * 9), let url = Self.url(id),
+        guard !failed, rate > 0, count < Int(rate * 46), let url = Self.url(id),
               let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 1) else { return }
         do {
             if file == nil {
                 try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
                 file = try AVAudioFile(forWriting: url, settings: format.settings)
             }
-            let length = min(samples.count, Int(rate * 9) - count)
+            let length = min(samples.count, Int(rate * 46) - count)
             guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(length)),
                   let channel = buffer.floatChannelData?[0] else { return }
             buffer.frameLength = AVAudioFrameCount(length)

@@ -1,5 +1,13 @@
+import {createAIConsentGate} from './ai-consent.mjs';
+import {SourceEditor} from './source-editor.mjs';
+import {inferenceError} from './inference-error.mjs';
+import {withDrawing,inputData,drawingImage,drawingContent} from './drawing-input.mjs';
+import {checkedPrompt} from './prompt-limit.mjs';
+import {reviewVisualResult,reviewWithRepair} from './visual-review.mjs';
 import {inferenceRequest,wantsSoundEvidence} from './inference-input.mjs';
-import {contextualRequest} from './branch-context.mjs';
+import {contextualRequest,selectedBranch} from './branch-context.mjs';
+import {compileEditContract,sourceChecks,validateCandidate,runEditExperiment} from '/easel/src/edit-contract.mjs';
+import {ReceiptJournal,AttemptReceipt,hashSource} from '/easel/src/attempt-receipt.mjs';
 import {pieceCaption} from './piece-caption.mjs';
 import {readAttempt,saveAttempt,claimAttempt} from './attempt-recovery.mjs';
 import {initializeBasePiece,isBasePiece} from './base-piece.mjs';
@@ -16,14 +24,30 @@ import {wareControls,WARE_INSTRUCTIONS,requestedWare} from './wares.mjs';
 const wares=wareControls('piece');
 // The same inference/tool loop as Aesel, with a piece-first streaming renderer.
 import {AcServer} from '/easel/src/ac-server.mjs';
-import {DEFAULT_MODEL,GENERATION_INSTRUCTIONS} from './generation-policy.mjs';
-import {runnablePrefix} from './stream-preview.mjs';
+import {RelayPieceServer} from '/easel/src/relay-piece-server.mjs';
+import {DEFAULT_MODEL,generationProfile,modelChoices,MODEL_LABELS,GENERATION_INSTRUCTIONS} from './generation-policy.mjs';
+import {runnablePrefix,partialString,streamedEdits,streamedCode} from './stream-preview.mjs';
 import * as vfs from '/easel/phone/shim/fs.mjs';
 
 const post = body => window.webkit.messageHandlers.whistlegraph.postMessage({id:'engine',...body});
+let consentState = window.__whistlegraphAIConsent || {};
+const aiConsent = createAIConsentGate({fetch: globalThis.fetch.bind(globalThis), onRequired: () => post({action:'aiConsent'})});
+globalThis.fetch = aiConsent.fetch;
+function syncAIConsent() {
+  const allowed = consentState.creation === true && !!accountHandle && consentState.handle === accountHandle && accountToken === token;
+  aiConsent.setAllowed(allowed);
+  if (!allowed) {
+    turnCancelled = true; visualController?.abort(); server?.interrupt();
+    musicalAdvisor.cancel(); musicalSocket.suspend();
+  } else { musicalSocket.resume(); }
+}
+
 const benchmark=(event,fields={})=>{post({action:'benchmark',event,fields});window.__whistlegraphSequenceEvent?.(event,fields);};
 const file = '/piece/whistlegraph.mjs';
-const storageKey=window.__whistlegraphSpace?'whistlegraph-space-source':window.__whistlegraphLocalSequence?'whistlegraph-local-source':window.__whistlegraphSequence?'whistlegraph-sequence-source':window.__whistlegraphBenchmark?'whistlegraph-benchmark-source':'whistlegraph-source';
+const storageKey=window.__whistlegraphFixture?'whistlegraph-fixture-source':window.__whistlegraphSpace?'whistlegraph-space-source':window.__whistlegraphLocalSequence?'whistlegraph-local-source':window.__whistlegraphSequence?'whistlegraph-sequence-source':window.__whistlegraphBenchmark?'whistlegraph-benchmark-source':'whistlegraph-source';
+const receipts=new ReceiptJournal(localStorage,storageKey);
+let activeReceipt=null,renderID=0,previewHash=null,validationChecks=[];
+let visualController=null,pendingCapture=null;
 let turnStarter='',starterPainted=false,turnCancelled=false;
 let thread=null,threadTimer=null;
 const runtimeErrors=[];
@@ -32,17 +56,42 @@ try{lastAttempt=JSON.parse(localStorage.getItem(storageKey+'-attempt')||'null');
 let versions=null,turnSucceeded=false,turnRequest='',turnParent=null,turnRuntimeFailed=false,turnError='';
 let token = '', busy = false, server, source = '', previous = '', pending = '', checkpoints = 0;
 let feedback = null, lastPaintedSource = '', previewSource = '', provisional = '', compileTimer = null;
+let streamTool='',streamBase='',streamRevision='',rejectedPreview='';
 let outputStream='',reasoningStream='',code = '', codeItem = '', firstDelta = false, started = 0, timer, ready = false, painted = false;
 const events = [];
 const signIn=document.createElement('button');signIn.id='connect-ac';signIn.textContent='Account';signIn.onclick=()=>post({action:'signIn'});const identity=document.createElement('div');identity.id='whistlegraph-identity';const codeLabel=document.createElement('span');codeLabel.id='whistlegraph-thread';identity.append(signIn,codeLabel);document.body.append(identity);
-let accountToken='',accountHandle='',accountPalette=[];
+let accountToken='',accountHandle='',accountPalette=[],accountVerification=Promise.resolve();
+let turnHandle='',turnModel='',activeModel='',braincells=null,braincellsError='',creditsRequest=0;
+function selectedModel(handle=accountHandle){try{return localStorage.getItem('whistlegraph-model-'+handle)||'';}catch{return '';}}
+function profile(repair=false){return generationProfile(busy?turnHandle:accountHandle,{repair,model:busy?turnModel:selectedModel()});}
+async function refreshBraincells(){
+  benchmark('braincellsRequest');
+  const currentToken=token,request=++creditsRequest;
+  if(!currentToken){braincells=null;braincellsError='Sign in to view braincells';nativeSnapshot();return;}
+  braincellsError='';nativeSnapshot();
+  try{
+    const response=await fetch('https://aesthetic.computer/api/easel-credits',{headers:{Authorization:'Bearer '+currentToken},signal:AbortSignal.timeout(8000)});
+    benchmark('braincellsHeaders',{status:response.status});
+    if(!response.ok)throw Error('Braincells unavailable');
+    const value=await response.json();
+    if(![value.remaining,value.used,value.limit,value.purchased].every(v=>Number.isFinite(v)&&v>=0))throw Error('Braincells unavailable');
+    if(token!==currentToken||request!==creditsRequest)return;
+    braincells=value;braincellsError='';benchmark('braincellsLoaded');
+  }catch{if(token!==currentToken||request!==creditsRequest)return;braincells=null;braincellsError='Could not load braincells. Check your connection and tap Refresh.';benchmark('braincellsFailed');}
+  nativeSnapshot();
+}
+function inferenceSnapshot(){
+  const model=activeModel||profile().model,receipt=activeReceipt?.value||receipts.rows.at(-1)?.receipt;
+  return {model,label:MODEL_LABELS[model]||model,provider:profile().personalRelay?(model.startsWith('openai/')?'Personal Codex':'Personal Claude'):'OpenRouter',selection:profile().model,models:modelChoices(accountHandle),braincells,braincellsError,threadCost:receipts.cost.snapshot(),
+    usage:receipt?{inputTokens:receipt.rounds.reduce((n,r)=>n+(r.usage?.inputTokens||0),0),outputTokens:receipt.rounds.reduce((n,r)=>n+(r.usage?.outputTokens||0),0),rounds:receipt.rounds.length,repairs:receipt.repairs,status:receipt.status,cost:{usd:receipt.rounds.reduce((n,r)=>n+(r.usage?.costUSD||0),0),partial:receipt.rounds.some(r=>r.usage?.costUSD==null && (r.httpStatus==null || r.httpStatus<400)),estimated:receipt.rounds.some(r=>r.usage?.estimated)}}:null};
+}
 function paintHandle(handle,colors=handleCharacterColors('@'+handle)){
   accountPalette=colors;
   signIn.replaceChildren(...Array.from('@'+handle,(character,index)=>{const span=document.createElement('span');span.textContent=character;span.style.color='rgb('+colors[index].join(',')+')';return span;}));nativeSnapshot();
 }
 function accountIdentity(value){
-  if(value===accountToken)return;accountToken=value;accountHandle='';signIn.textContent=value?'…':'Sign in';
-  if(value)void verifyAccount(value).then(account=>{if(accountToken!==value)return;accountHandle=account.handle;if(!accountHandle){signIn.textContent='Set handle';return;}paintHandle(accountHandle);const handle=accountHandle;void fetchHandleColors('@'+handle).then(colors=>{if(accountToken===value&&accountHandle===handle)paintHandle(handle,colors);}).catch(()=>{});}).catch(()=>{if(accountToken===value)signIn.textContent='Retry sign-in';});
+  if(value===accountToken)return;accountToken=value;accountHandle='';syncAIConsent();braincells=null;braincellsError='';signIn.textContent=value?'…':'Sign in';
+  accountVerification=value?verifyAccount(value).then(account=>{if(accountToken!==value)return;accountHandle=account.handle;syncAIConsent();if(!accountHandle){signIn.textContent='Set handle';return;}paintHandle(accountHandle);void refreshBraincells();const handle=accountHandle;void fetchHandleColors('@'+handle).then(colors=>{if(accountToken===value&&accountHandle===handle)paintHandle(handle,colors);}).catch(()=>{});}).catch(()=>{if(accountToken===value)signIn.textContent='Retry sign-in';}):Promise.resolve();
 }
 const $ = id => document.getElementById(id);
 const ui = document.createElement('section'); ui.id = 'live-work'; ui.hidden = true;
@@ -67,7 +116,7 @@ function phase(text) { $('live-phase').textContent = text; updateFeed(); threadU
 function musicalData(request) {
   try{return JSON.parse(request.split('\nINPUT DATA:\n')[1]);}catch{return null;}
 }
-function utterance(request) {return musicalData(request)?.transcript|| (musicalData(request)?'Sound':request)||'Starting piece';}
+function utterance(request) {return musicalData(request)?.transcript|| (musicalData(request)?.drawing?'Drawing':musicalData(request)?'Sound':request)||'Starting piece';}
 function relativeTime(date) {
   const seconds=Math.max(0,Math.floor((Date.now()-Date.parse(date))/1000));
   if(!Number.isFinite(seconds))return '';
@@ -108,11 +157,11 @@ function nativeSnapshot(){
   nativeTimer=setTimeout(()=>{
     nativeTimer=null;
     const historyChanged=nativeLedger!==versions?.value;
-    if(historyChanged){nativeLedger=versions?.value;nativeRevisions=(versions?.value.versions||[]).map(v=>{const sound=musicalData(v.request)?.sound;return {id:v.id,parent:v.parent,utterance:(v.id===0&&!v.request?'':utterance(v.request)).slice(0,1000),createdAt:v.createdAt,recordingID:sound?.recordingID||null,words:(musicalData(v.request)?.words||[]).slice(0,256),sound:sound?{durationMs:sound.durationMs,frames:sound.frames.filter((_,i)=>i%Math.max(1,Math.ceil(sound.frames.length/64))===0)}:null};});}
+    if(historyChanged){nativeLedger=versions?.value;nativeRevisions=(versions?.value.versions||[]).map(v=>{const sound=musicalData(v.request)?.sound;return {id:v.id,parent:v.parent,hasDrawing:!!musicalData(v.request)?.drawing,utterance:(v.id===0&&!v.request?'':utterance(v.request)).slice(0,1000),createdAt:v.createdAt,recordingID:sound?.recordingID||null,words:(musicalData(v.request)?.words||[]).slice(0,256),sound:sound?{durationMs:sound.durationMs,frames:sound.frames.filter((_,i)=>i%Math.max(1,Math.ceil(sound.frames.length/64))===0)}:null};});}
     const displayVersion=presentedVersion===null?versions?.head:versions?.value.versions.find(v=>v.id===presentedVersion);
     if(captionSource!==displayVersion?.source){captionSource=displayVersion?.source;caption=pieceCaption(captionSource||'');}
     const phaseText=$('live-phase').textContent;
-    const snapshot={ware:'piece',output:outputStream,caption,code:thread?.identity.code||'',handle:accountHandle,colors:accountPalette,head:displayVersion?.id||0,hasPiece:!!source.trim(),hasPreview:!!source.trim()||!!provisional.trim(),busy,phase:phaseText,error:!busy&&/error|unavailable|could not|sign.in|loading|no piece/i.test(phaseText)?phaseText:'',attempt:lastAttempt?{request:lastAttempt.request.slice(0,1000),status:lastAttempt.status,error:lastAttempt.error||''}:null};
+    const snapshot={ware:'piece',inference:inferenceSnapshot(),output:outputStream,caption,code:thread?.identity.code||'',handle:accountHandle,colors:accountPalette,head:displayVersion?.id||0,hasPiece:!!source.trim(),hasPreview:!!source.trim()||!!provisional.trim(),busy,phase:phaseText,error:!busy&&/error|unavailable|could not|sign.in|loading|no piece/i.test(phaseText)?phaseText:'',attempt:lastAttempt?{request:lastAttempt.request.slice(0,1000),status:lastAttempt.status,error:lastAttempt.error||''}:null};
     const serialized=JSON.stringify(snapshot);if(serialized===nativeLast&&!historyChanged)return;nativeLast=serialized;
     if(historyChanged)snapshot.versions=nativeRevisions;
     post({action:'snapshot',snapshot});
@@ -121,18 +170,32 @@ function nativeSnapshot(){
 }
 window.whistlegraphNativeCommand=command=>{
   if(command.action==='setWare'&&!busy)window.whistlegraphSelectWare?.(command.ware);
-  if(command.action==='ask'&&typeof command.text==='string'&&command.text.trim()&&Array.from(new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(command.text)).length<=96&&!busy)void ask(command.text.trim());
-  if(command.action==='checkout'&&!busy){presentedVersion=null;narrationPending=command.version;jumpVersion(command.version);}
-  if(command.action==='presentVersion'&&!busy){
-    const version=versions?.value.versions.find(v=>v.id===command.version);
-    if(version){presentedVersion=version.id;narrationPending=version.id;render(version.source||'export function paint({wipe}){wipe("black");}');nativeSnapshot();}
+  if(['ask','retry'].includes(command.action)) {
+    if(busy)return {accepted:false,reason:'busy'};
+    if(!versions||(command.action==='retry'&&(!ready||!painted)))return {accepted:false,reason:'notReady'};
+    if(!accountHandle||accountToken!==token)return {accepted:false,reason:'authentication'};
+    if(!aiConsent.allowed)return {accepted:false,reason:'permission'};
+    if(command.action==='ask'&&(typeof command.text!=='string'||(!command.text.trim()&&!command.drawing)))return {accepted:false,reason:'emptyInput'};
+    if(command.action==='ask'&&Array.from(new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(command.text)).length>96)return {accepted:false,reason:'inputTooLong'};
   }
-  if(command.action==='endPresentation'){presentedVersion=null;narrationPending=null;render(source);nativeSnapshot();}
+  if(command.action==='refreshBraincells')void refreshBraincells();
+  if(command.action==='setModel'&&!busy&&accountHandle&&modelChoices(accountHandle).some(m=>m.id===command.text)){
+    try{localStorage.setItem('whistlegraph-model-'+accountHandle,command.text);}catch{return;}
+    server?.close();server=null;activeModel='';nativeSnapshot();
+  }
+  if(command.action==='ask'&&typeof command.text==='string'&&(command.text.trim()||command.drawing)&&Array.from(new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(command.text)).length<=96&&!busy)void window.whistlegraphAskDrawing(command.text.trim(),command.drawing);
+  if(command.action==='checkout'&&!busy){presentedVersion=null;narrationPending=command.version;jumpVersion(command.version);}
+  if(command.action==='presentVersion'){
+    const version=versions?.value.versions.find(v=>v.id===command.version);
+    if(version)post({action:'presentation',version:version.id,source:version.source||'export function paint({wipe}){wipe("black");}'});
+  }
+  if(command.action==='endPresentation'){presentedVersion=null;narrationPending=null;}
   if(command.action==='newPiece'&&!busy)window.whistlegraphNewPiece?.();
   if(command.action==='openPiece'&&!busy&&typeof command.piece==='string')window.whistlegraphOpenPiece?.(command.piece);
   if(command.action==='retry'&&!busy)void resumeAttempt(true);
   if(command.action==='stop')$('live-stop').click();
   if(command.action==='signIn')post({action:'signIn'});
+  return {accepted:true};
 };
 function updateFeed() {
   if(!versions)return;
@@ -161,61 +224,139 @@ function updateFeed() {
   $('live-time').hidden=!busy;nativeSnapshot();
 }
 
-function render(value) { previewSource=value; painted=false; feedback=null; post({action:'render',source:value,threadID:thread?.identity.id}); }
+function render(value) {
+  previewSource=value;painted=false;feedback=null;previewHash=null;
+  const id=++renderID;
+  void hashSource(value).then(hash=>{
+    if(id!==renderID)return;
+    previewHash=hash;
+    feedback={rendered:false,sourceHash:hash,revision:hash,requestID:id,logs:sourceChecks(value).map(f=>({level:'error',text:f.message,code:f.code})),updatedAt:new Date().toISOString()};
+    post({action:'render',source:value,threadID:thread?.identity.id,renderID:id});
+  }).catch(()=>{if(id===renderID){turnRuntimeFailed=true;turnError='Could not identify preview source';phase(turnError);}});
+}
+async function finishReceipt(status) {
+  if(!activeReceipt)return;
+  activeReceipt.value.checkpoints=checkpoints;
+  activeReceipt.finish(status,await hashSource(source).catch(()=>null),validationChecks);
+  activeReceipt=null;thread?.flushReceipts();
+}
+function captureVisual(sourceHash, expectedRenderID, signal) {
+  return new Promise((resolve,reject)=>{
+    const captureID=crypto.randomUUID();
+    const finish=(error,value)=>{clearTimeout(timer);signal.removeEventListener('abort',abort);if(pendingCapture?.id===captureID)pendingCapture=null;error?reject(error):resolve(value);};
+    const abort=()=>{post({action:'cancelVisualCapture'});finish(Error('Visual capture stopped'));};
+    const timer=setTimeout(()=>{post({action:'cancelVisualCapture'});finish(Error('Visual capture unavailable'));},12000);
+    pendingCapture={id:captureID,finish};
+    signal.addEventListener('abort',abort,{once:true});
+    if(signal.aborted){abort();return;}
+    const r=frame.getBoundingClientRect();
+    post({action:'visualCapture',captureID,sourceHash,renderID:expectedRenderID,viewport:{width:window.innerWidth,height:window.innerHeight},rect:{x:r.x,y:r.y,width:r.width,height:r.height}});
+  });
+}
+async function checkVisualResult() {
+  clearTimeout(compileTimer);compileTimer=null;provisional='';
+  visualController=new AbortController();
+  const signal=visualController.signal;
+  // Allow two personal reviews plus a repair; each review has its own deadline.
+  let timedOut=false;
+  const deadline=setTimeout(()=>{timedOut=true;visualController?.abort();server?.interrupt();},profile().personalRelay?900000:90000);
+  const task=contextualRequest(versions.value,inferenceRequest(turnRequest));
+  const drawing=inputData(turnRequest)?.drawing;
+  const chalk=drawing?drawingImage(drawing):null;
+  try {
+    return await reviewWithRepair({cancelled:()=>turnCancelled||signal.aborted,
+      inspect:async()=>{
+        phase('Checking picture…');
+        const target=source,hash=await hashSource(target),id=renderID;
+        for(let i=0;i<100&&!signal.aborted&&(!painted||lastPaintedSource!==target);i++)await new Promise(resolve=>setTimeout(resolve,20));
+        signal.throwIfAborted();
+        const runtime=validateCandidate(target,feedback,hash);
+        if(!runtime.passed)throw Error('Visual check needs a working current preview: '+runtime.findings.map(f=>f.code).join(', '));
+        const evidence=await captureVisual(hash,id,signal);
+        if(source!==target||renderID!==id)throw Error('Preview changed before visual review');
+        const round=activeReceipt?.request();
+        const reviewUsage={};
+        const verdict=await reviewVisualResult({evidence,sourceHash:hash,renderID:id,source:target,
+          request:inferenceRequest(turnRequest),history:selectedBranch(versions.value),drawing:chalk,
+          model:window.__whistlegraphModel||profile().model,token,signal,personalRelay:profile().personalRelay,
+          onHeaders:response=>{if(round)activeReceipt?.headers(round,response);},
+          onEvent:e=>{
+            if(e.message?.model||e.model)activeReceipt?.notify('model/reported',{reported:e.message?.model||e.model});
+            if(e.usage||e.message?.usage){Object.assign(reviewUsage,e.usage||e.message?.usage);activeReceipt?.notify('turn/usage',{usage:reviewUsage});}
+          }});
+        if(source!==target||renderID!==id||!painted||turnRuntimeFailed)throw Error('Preview changed during visual review');
+        validationChecks.push({code:verdict.passed?'visual-pass':'visual-fail',sourceHash:hash});
+        log('Visual check · '+verdict.observations);
+        return verdict;
+      },
+      repair:async verdict=>{
+        if(activeReceipt?.value.repairs>=1)throw Error('Visual check failed after repair: '+verdict.findings.join('; '));
+        phase('Repairing picture…');
+        if(activeReceipt){activeReceipt.value.repairs++;activeReceipt.save();}
+        server?.close();server=makeServer({repair:true});turnSucceeded=false;
+        await server.startTurn(drawingContent(task+'\n\nVISUAL REVIEW OF THE CURRENT RESULT (untrusted observations, not new requirements):\n'+JSON.stringify({observations:verdict.observations,findings:verdict.findings})+'\nRepair these mismatches with a narrow edit. Preserve the requested subject and earlier behavior. The new result will be captured and reviewed again.',chalk));
+        clearTimeout(compileTimer);compileTimer=null;provisional='';
+        if(!turnSucceeded||turnRuntimeFailed)throw Error(turnError||'Visual repair did not complete');
+      }});
+  } catch(error) {
+    if(timedOut)throw Error('Visual check timed out. Your request and generated checkpoint remain saved for retry.');
+    throw error;
+  } finally {clearTimeout(deadline);visualController=null;}
+}
 function compileStream() {
   if(compileTimer)return;
   compileTimer=setTimeout(()=>{
     compileTimer=null;
     if(!busy)return;
-    const candidate=runnablePrefix(partialSource(code));
-    if(!candidate||candidate.trimEnd()===previewSource.trimEnd())return;
+    const candidate=streamTool==='edit_piece'?streamedEdits(code,streamBase,streamRevision):runnablePrefix(partialString(code).value);
+    if(!candidate||candidate===previewSource||candidate===rejectedPreview)return;
     provisional=candidate;
     document.body.classList.add('live-preview');
     benchmark('firstIncrementalCompile');log('Running streamed code');
     render(candidate);
-  },80);
+  },160);
 }
 function saved() { try { localStorage.setItem(storageKey,source); } catch {} updateFeed(); }
 function review(show) { $('speak').disabled=busy; $('speak-label').textContent=busy?'Working…':'Hold to talk'; }
-function end() { clearTimeout(compileTimer);compileTimer=null; if(provisional && previewSource!==source){render(source||'export function paint({wipe}) {wipe("black");}');provisional='';} busy=false; updateFeed(); clearInterval(timer); $('live-stop').hidden=true; review(source!==previous); window.whistlegraphWorkFinished?.(); }
+function end() { clearTimeout(compileTimer);compileTimer=null; if(provisional && previewSource!==source){render(source||'export function paint({wipe}) {wipe("black");}');provisional='';} busy=false;activeModel='';void refreshBraincells(); updateFeed(); clearInterval(timer); $('live-stop').hidden=true; review(source!==previous); window.whistlegraphWorkFinished?.(); }
 function delta(text) {
   outputStream=(outputStream+text).slice(-6000);
   if (!firstDelta) {firstDelta=true; log('First model output');benchmark('firstModelOutput');}
   phase('Writing…');
 }
-function partialSource(json,field='source') {
-  const start=json.match(field==='replace'?/"replace"\s*:\s*"/:/"source"\s*:\s*"/);if(!start)return '';
-  const raw=json.slice(start.index+start[0].length);
-  let out='';for(let i=0;i<raw.length;i++){
-    const c=raw[i];if(c==='"')break;
-    if(c!=='\\'){out+=c;continue;}
-    const next=raw[++i];if(next===undefined)break;
-    if(next==='u'){const hex=raw.slice(i+1,i+5);if(!/^[0-9a-f]{4}$/i.test(hex))break;out+=String.fromCharCode(parseInt(hex,16));i+=4;}
-    else out+=({n:'\n',r:'\r',t:'\t',b:'\b',f:'\f','"':'"','\\':'\\','/':'/'})[next]??'';
-  }return out;
-}
 vfs.setWriteHandler((path,value)=>{
   if(path!==file)return;
-  clearTimeout(compileTimer);compileTimer=null;provisional='';
+  clearTimeout(compileTimer);compileTimer=null;const wasProvisional=!!provisional;provisional='';rejectedPreview='';
   source=value;checkpoints++;benchmark('firstCheckpoint');
   turnRuntimeFailed=false;
   document.body.classList.add('live-preview'); $('initial').hidden=true;
   $('play-deck').hidden=true;
   $('live-code').textContent=value;
   phase(ready?'Evaluating…':'Loading preview…'); log(`Checkpoint ${checkpoints} · valid JavaScript`);
-  if(value.trimEnd()!==previewSource.trimEnd())render(value);
+  if(wasProvisional||value!==previewSource)render(value);
 });
 const guides = vfs.preload(['pieces.md','screen.md','hand.md','kidlisp.md','api.json'].map(name=>'/easel/context/'+name));
-function makeServer(){
-  const value=new AcServer({cwd:'/piece',piece:{file,checkpoint:async()=>{const target=source.trimEnd();for(let i=0;i<100;i++){if(painted&&lastPaintedSource.trimEnd()===target)return;await new Promise(resolve=>setTimeout(resolve,20));}}},frameCapture:false,layeredEdits:true,token:()=>token,model:window.__whistlegraphModel||DEFAULT_MODEL,
-    fetch:async(...args)=>{benchmark('requestDispatched');const response=await globalThis.fetch(...args);benchmark('inferenceHeaders',{status:response.status});return response;},preview:true,rounds:12,outputContinuations:4,reasoning:{effort:'none'},thinking:{type:'disabled'},
+function makeServer({repair=false}={}){
+  const settings=profile(repair);activeModel=(repair?window.__whistlegraphRepairModel:window.__whistlegraphModel)||settings.model;nativeSnapshot();
+  let relayRound;
+  const Engine=settings.personalRelay?RelayPieceServer:AcServer;
+  const value=new Engine({relayStorage:localStorage,relayKey:storageKey+'-personal-'+activeAttempt?.id,
+    onRelayRequest:()=>{relayRound=activeReceipt?.request();benchmark('requestDispatched');},
+    onRelayHeaders:response=>{if(relayRound)activeReceipt?.headers(relayRound,response);},cwd:'/piece',piece:{file,checkpoint:async()=>{const target=source.trimEnd();for(let i=0;i<100;i++){if(painted&&lastPaintedSource.trimEnd()===target)return;await new Promise(resolve=>setTimeout(resolve,20));}}},frameCapture:false,layeredEdits:true,token:()=>token,model:activeModel,
+    fetch:settings.personalRelay?globalThis.fetch.bind(globalThis):async(url,options)=>{
+      benchmark('requestDispatched');const recorder=activeReceipt,round=recorder?.request();
+      const body=JSON.parse(options.body);body.max_tokens=settings.maxTokens;options={...options,body:JSON.stringify(body)};
+      const response=await globalThis.fetch(url,options);if(round)recorder.headers(round,response);
+      benchmark('inferenceHeaders',{status:response.status});return response;
+    },preview:true,rounds:settings.rounds,outputContinuations:settings.outputContinuations,reasoning:settings.reasoning,thinking:settings.thinking,
     controls:wares,developerInstructions:GENERATION_INSTRUCTIONS+'\n'+WARE_INSTRUCTIONS});
   value.runtimeFeedback=()=>feedback;
   value.on('notification',({method,params})=>{
+    activeReceipt?.notify(method,params);
     if(method==='turn/progress' && !firstDelta) phase(params.phase==='connecting'?'Connecting…':'Waiting for model…');
     if(method==='item/modelCode/delta'){
-      delta('');if(codeItem!==params.itemId){benchmark('layerStarted',{tool:params.tool||'write_piece'});code='';codeItem=params.itemId;}
-      code+=params.delta;const visibleCode=params.tool==='edit_piece'?partialSource(code,'replace'):partialSource(code);$('live-code').textContent=visibleCode;outputStream=visibleCode.slice(-6000);nativeSnapshot();if(params.tool!=='edit_piece')compileStream();else phase('Editing…');
+      delta('');if(codeItem!==params.itemId){benchmark('layerStarted',{tool:params.tool||'write_piece'});code='';codeItem=params.itemId;streamTool=params.tool||'write_piece';streamBase=source;streamRevision=value.revisionForSource(source);rejectedPreview='';}
+      code+=params.delta;const visibleCode=streamedCode(code,params.tool);$('live-code').textContent=visibleCode;outputStream=visibleCode.slice(-6000);nativeSnapshot();compileStream();if(params.tool==='edit_piece')phase('Editing…');
       $('live-details').open=true;
     }
     if(method==='item/agentMessage/delta'){delta(params.delta);$('live-request').textContent+=params.delta;}
@@ -224,11 +365,11 @@ function makeServer(){
     if(method==='item/reasoning/delta'){reasoningStream=(reasoningStream+params.delta).slice(-6000);if(!firstDelta){benchmark('firstReasoning');log('Model thinking');}if(!code)outputStream=reasoningStream;phase('Thinking…');nativeSnapshot();}
     if(method==='item/started')benchmark('toolStarted',{tool:params.item?.tool||params.item?.type});
     if(method==='item/completed' && params.item?.status?.startsWith('failed')) {log(params.item.status);benchmark('toolFailed',{message:params.item.status});}
-    if(method==='turn/usage') log('Usage · '+(params.usage.output_tokens??0)+' output tokens');
-    if(method==='turn/completed'){turnSucceeded=!params.turn.error&&params.turn.status==='completed';turnError=params.turn.error?.message||(params.turn.status==='interrupted'?'Stopped':'');
-      if(params.turn.error){phase('Could not finish');log(params.turn.error.message);}
+    if(method==='turn/usage'){log('Usage · '+(params.usage.output_tokens??0)+' output tokens');nativeSnapshot();}
+    if(method==='turn/completed'){turnSucceeded=!params.turn.error&&params.turn.status==='completed';turnError=inferenceError(params.turn.error)||(params.turn.status==='interrupted'?'Stopped':'');
+      if(params.turn.error){phase('Could not finish');log(turnError);}
       else if(params.turn.status==='interrupted'){phase('Stopped');log('Stopped by you');}
-      else {phase(painted?'Ready to play':source?'Waiting for preview…':'No piece written');log('Model finished');}
+      else {phase(painted?'Checking picture…':source?'Waiting for preview…':'No piece written');log('Model finished');}
     }
   });return value;
 }
@@ -242,7 +383,8 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
   document.body.classList.add('live-mode');
   pending=text;ui.hidden=false;$('live-request').textContent=displayText;started=performance.now();events.length=0;
   $('live-stop').hidden=false;$('live-details').open=false;
-  if(!token){phase('Sign in to make software');log('Uses your AC braincells. Speech stays on device; submitted words go to AC.');post({action:'signIn'});return;}
+  if(!token){phase('Sign in to make software');log('AI permissions are managed in AI & privacy.');post({action:'signIn'});return;}
+  if(!aiConsent.allowed){pending='';phase('Allow AI creation in AI & privacy');post({action:'aiConsent'});return;}
   try {
     activeAttempt=saveAttempt(localStorage,storageKey,recovered||{id:crypto.randomUUID(),text,displayText,localText,parent:versions.head.id,baseSource:versions.head.source,retries:0,status:'working'});
   } catch { phase('Could not save request for recovery');return; }
@@ -252,12 +394,18 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
   document.body.classList.add('live-mode');phase('Sending…');log('Submitted');
   timer=setInterval(()=>$('live-time').textContent=((performance.now()-started)/1000).toFixed(1)+'s',100);
   let noChange=false;
+  validationChecks=[];runtimeErrors.length=0;
   try{
+    await accountVerification;if(turnCancelled)throw Error('Stopped');turnHandle=accountToken===token?accountHandle:'';turnModel=selectedModel(turnHandle);
+    activeReceipt=new AttemptReceipt({requestID:activeAttempt.id,parent:turnParent,parentHash:await hashSource(previous),path:'compiled',model:window.__whistlegraphModel||profile().model,journal:receipts});
+    const drawing=inputData(text)?.drawing;
+    const chalkImage=drawing?drawingImage(drawing):null;
     text=inferenceRequest(text);
     if(recovered?.checkpoint){source=recovered.checkpoint;vfs.mount(file,source);render(source);text+='\nContinue the unfinished request from this saved checkpoint. Preserve its completed edits.';}
 
-    const local=recovered?.checkpoint?null:localEdit(source,localText);
+    const local=recovered?.checkpoint||inputData(turnRequest)?.drawing?null:localEdit(source,localText);
     if(local){
+      activeReceipt.value.path='local';activeReceipt.value.model=null;activeReceipt.save();
       if(!local.changed){noChange=true;return;}
       server?.close();server=null;source=local.source;vfs.mount(file,source);checkpoints=1;
       document.body.classList.add('live-preview');$('initial').hidden=true;$('play-deck').hidden=true;
@@ -267,7 +415,7 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
       if(turnSucceeded)benchmark('localEditPainted',{action:local.action});
       return;
     }
-    if(!source||isBasePiece(source)){
+    if(!inputData(turnRequest)?.drawing&&(!source||isBasePiece(source))){
       turnStarter=starter||instantPiece(text)||'';
       if(turnStarter){
         source=turnStarter;vfs.mount(file,source);checkpoints=1;
@@ -290,10 +438,30 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
     const missing=await guides;if(missing.length)throw Error('Bundled piece guides are unavailable: '+missing.join(', '));
     benchmark('guidesReady');
     vfs.mount(file,source||'export function paint({wipe}) { wipe("black"); }');
-    server??=makeServer();await server.startTurn(contextualRequest(versions.value,text));
-  }catch(error){turnError=error.message;phase('Could not start');log(error.message);}
+    const viewport=frame.getBoundingClientRect();
+    const prompt=compileEditContract({request:text,...selectedBranch(versions.value),source})+
+      `\nCurrent preview: ${Math.round(viewport.width)} × ${Math.round(viewport.height)} CSS points. Compose for this shape using screen.width and screen.height; keep subjects within the canvas and remain responsive when it resizes.`;
+    // Jeffrey's personal turns may keep working until completion or explicit Stop.
+    const deadline=turnHandle==='jeffrey'?null:setTimeout(()=>{turnCancelled=true;turnError='Edit check timed out';server?.interrupt();},75000);
+    try{
+      const result=await runEditExperiment({prompt,cancelled:()=>turnCancelled,
+        onRepair:()=>{activeReceipt.value.repairs=1;activeReceipt.save();phase('Repairing…');},
+        generate:async(task,repair)=>{server?.close();server=makeServer({repair});turnSucceeded=false;await server.startTurn(drawingContent(task,chalkImage));return turnSucceeded;},
+        inspect:async()=>{
+          const target=source,hash=await hashSource(target);
+          for(let i=0;i<100&&!turnCancelled&&(!painted||lastPaintedSource!==target);i++)await new Promise(resolve=>setTimeout(resolve,20));
+          return validateCandidate(target,feedback,hash);
+        }});
+      if(result.validation){
+        validationChecks=result.validation.findings.map(f=>({code:f.code,sourceHash:result.validation.sourceHash}));
+        if(!result.validation.passed){turnSucceeded=false;turnRuntimeFailed=true;turnError='Edit check failed: '+result.validation.findings.map(f=>f.code).join(', ');}
+      }
+    }finally{clearTimeout(deadline);}
+
+  }catch(error){turnError=inferenceError(error);phase('Could not start');log(turnError);}
   finally{
     if(wares.pending){
+      await finishReceipt(turnSucceeded?'success':'failed');
       const target=wares.pending;wares.clear();
       source=previous;vfs.mount(file,source);saved();
       localStorage.removeItem(storageKey+'-inflight');activeAttempt=null;lastAttempt=null;
@@ -302,8 +470,8 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
       if(!turnCancelled&&turnSucceeded)window.whistlegraphSelectWare?.(target);
       return;
     }
-    if(noChange){localStorage.removeItem(storageKey+'-inflight');activeAttempt=null;lastAttempt={...lastAttempt,status:'unchanged'};end();phase('Already there');benchmark('localEditUnchanged');return;}
-    if(!turnSucceeded&&!turnCancelled&&turnStarter&&starterPainted){
+    if(noChange){await finishReceipt('unchanged');localStorage.removeItem(storageKey+'-inflight');activeAttempt=null;lastAttempt={...lastAttempt,status:'unchanged'};end();phase('Already there');benchmark('localEditUnchanged');return;}
+    if(!turnSucceeded&&!turnRuntimeFailed&&!turnCancelled&&turnStarter&&starterPainted){
       // A failed refinement must not erase the useful, verified first drawing.
       source=turnStarter;vfs.mount(file,source);
       if(previewSource!==source)render(source);
@@ -311,13 +479,22 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
       turnSucceeded=painted&&lastPaintedSource===source;turnRuntimeFailed=false;
       if(turnSucceeded){benchmark('refinementFailed',{message:turnError||'Refinement unavailable'});log('Refinement failed; kept the starter');server?.close();server=null;}
     }
-    if(turnSucceeded&&!turnRuntimeFailed&&painted&&lastPaintedSource.trimEnd()===source.trimEnd()){
-      try {const version=versions.commit({source,request:turnRequest,layers:checkpoints,parent:turnParent,requestID:activeAttempt?.id});saved();phase(`v${version.id} · Ready to play`);log(`Saved v${version.id} · ${checkpoints} layers`);benchmark('versionCommitted',{version:version.id,layers:checkpoints});}
+    // All generation paths, including local edits and starter recovery, inspect
+    // the exact candidate's pixels before adding a saved version.
+    if(turnSucceeded&&!turnCancelled&&!turnRuntimeFailed){
+      try {
+        const verdict=await checkVisualResult();
+        if(!verdict.passed)throw Error('Visual check failed: '+verdict.findings.join('; '));
+      } catch(error) {turnSucceeded=false;turnError=error.message;phase('Could not verify picture');log(turnError);}
+    }
+    if(turnSucceeded&&!turnCancelled&&!turnRuntimeFailed&&painted&&lastPaintedSource===source){
+      try {const version=versions.commit({source,request:turnRequest,layers:checkpoints,parent:turnParent,requestID:activeAttempt?.id});saved();phase(`v${version.id} · Ready to play`);log(`Saved v${version.id} · ${checkpoints} layers`);const drawing=inputData(turnRequest)?.drawing;if(drawing)post({action:'drawingCommitted',drawingID:drawing.id,revision:drawing.revision});benchmark('versionCommitted',{version:version.id,layers:checkpoints});}
       catch(error){turnSucceeded=false;turnError=error.message;phase('Could not save version');log(error.message);benchmark('generationFailed',{message:error.message});}
     }else turnSucceeded=false;
-    if(!turnSucceeded){source=previous;vfs.mount(file,source);saved();const restored=source||'export function paint({wipe}) {wipe("black");}';if(previewSource.trimEnd()!==restored.trimEnd())render(restored);server?.close();server=null;log('Restored previous version');}
+    if(!turnSucceeded){source=previous;vfs.mount(file,source);saved();const restored=source||'export function paint({wipe}) {wipe("black");}';if(previewSource!==restored)render(restored);server?.close();server=null;log('Restored previous version');}
     benchmark(turnSucceeded?'generationFinished':'generationFailed',{message:turnSucceeded?'':turnError||'No verified version was committed'});
     lastAttempt={...lastAttempt,status:turnSucceeded?'completed':'failed',error:turnError||(!turnSucceeded?'No verified version was committed':''),runtimeErrors:[...runtimeErrors],finishedAt:new Date().toISOString()};threadUpdate();
+    await finishReceipt(turnCancelled?'interrupted':turnSucceeded?'completed':'failed');
     if(activeAttempt){
       if(turnSucceeded||turnCancelled)localStorage.removeItem(storageKey+'-inflight');
       else saveAttempt(localStorage,storageKey,{...activeAttempt,status:'failed'});
@@ -328,6 +505,9 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
 }
 async function resumeAttempt(manual=false){
   if(busy||!token||!ready||!painted||!versions||(!manual&&!recoveryPending))return;
+  const expectedToken=token;
+  await accountVerification;
+  if(busy||token!==expectedToken||!aiConsent.allowed||(!manual&&!recoveryPending))return;
   recoveryPending=false;
   const attempt=claimAttempt(localStorage,storageKey,versions.value,manual);
   if(!attempt){if(manual)phase('Could not resume: version changed or request unavailable');return;}
@@ -335,35 +515,59 @@ async function resumeAttempt(manual=false){
   await ask(attempt.text,attempt.displayText,null,null,attempt.localText,attempt);
 }
 window.whistlegraphEngineEvent=event=>{
-  if(event.kind==='account') {token=event.token;if(token){musicalSocket.resume();thread?.resume();}else{musicalSocket.suspend();thread?.suspend();}window.whistlegraphAccountReady=!!token;accountIdentity(token);if(token&&pending)void ask(pending);else void resumeAttempt();}
+  if(event.kind==='visualCapture'){
+    if(pendingCapture?.id===event.captureID)pendingCapture.finish(event.error?Error(event.error):null,event);
+    return;
+  }
+  if(event.kind==='account') {token=event.token;if(token){if(aiConsent.allowed)musicalSocket.resume();thread?.resume();}else{musicalSocket.suspend();thread?.suspend();}window.whistlegraphAccountReady=!!token;accountIdentity(token);if(token&&pending)void ask(pending);else void resumeAttempt();}
   if(event.kind==='error'){phase('Sign-in needed');log(event.text);window.whistlegraphWorkFinished?.();}
   if(event.kind==='previewReady'){ready=true;log('AC runtime ready');}
   if(event.kind==='previewEvent'){
-    if(event.event.kind==='painted'){if(turnStarter&&previewSource===turnStarter&&!starterPainted){starterPainted=true;benchmark('starterPainted');}if(previewSource.trimEnd()!==previous.trimEnd())window.__whistlegraphSequenceEvent?.('painted');painted=true;lastPaintedSource=previewSource;if(busy&&activeAttempt&&source===previewSource&&!turnRuntimeFailed){activeAttempt={...activeAttempt,checkpoint:source};try{saveAttempt(localStorage,storageKey,activeAttempt);}catch(error){log('Could not persist checkpoint: '+error.message);}}feedback={rendered:true,logs:[],updatedAt:new Date().toISOString()};log('Checkpoint painted');phase(busy?'Building…':'Ready to play');if(narrationPending!==null){post({action:'narrationReady',version:narrationPending});narrationPending=null;}void resumeAttempt();}
-    if(event.event.kind==='invalidated'){turnRuntimeFailed=true;window.__whistlegraphSequenceEvent?.('runtimeError',{message:'Preview invalidated'});painted=false;feedback={rendered:false,logs:[{level:'error',text:'Preview invalidated'}],updatedAt:new Date().toISOString()};log('Preview failed; inspect activity');phase('Preview error');if(lastPaintedSource && lastPaintedSource!==previewSource){render(lastPaintedSource);log('Restored last painted checkpoint');}}
+    if(event.event?.sourceHash!==previewHash||event.event?.requestID!==renderID)return;
+    const streamingPreview=!!provisional&&previewSource===provisional;
+    if(streamingPreview&&(event.event.kind==='invalidated'||event.event.kind==='console'&&(event.event.event?.level==='error'||/\b(?:Paint|Sim|Boot) failure\b/i.test(event.event.event?.message||'')))){
+      rejectedPreview=provisional;log('Waiting for more source');
+      const fallback=lastPaintedSource!==previewSource?lastPaintedSource:source;
+      if(fallback&&fallback!==previewSource)render(fallback);
+      return;
+    }
+    if(!streamingPreview)activeReceipt?.observe(event.event);
+    if(event.event.kind==='painted'){if(turnStarter&&previewSource===turnStarter&&!starterPainted){starterPainted=true;benchmark('starterPainted');}if(previewSource.trimEnd()!==previous.trimEnd())window.__whistlegraphSequenceEvent?.('painted');painted=true;lastPaintedSource=previewSource;if(busy&&activeAttempt&&source===previewSource&&!turnRuntimeFailed){activeAttempt={...activeAttempt,checkpoint:source};try{saveAttempt(localStorage,storageKey,activeAttempt);}catch(error){log('Could not persist checkpoint: '+error.message);}}feedback={...feedback,rendered:true,updatedAt:new Date().toISOString()};if(!streamingPreview&&activeReceipt&&previewSource.trimEnd()!==previous.trimEnd())activeReceipt.painted();log('Checkpoint painted');phase(busy?'Building…':lastAttempt?.status==='failed'?'Could not finish · previous version restored':'Ready to play');if(narrationPending!==null){post({action:'narrationReady',version:narrationPending});narrationPending=null;}void resumeAttempt();}
+    if(event.event.kind==='invalidated'){turnRuntimeFailed=true;window.__whistlegraphSequenceEvent?.('runtimeError',{message:'Preview invalidated'});painted=false;feedback={...feedback,rendered:false,logs:[...(feedback?.logs||[]),{level:'error',text:'Preview invalidated'}],updatedAt:new Date().toISOString()};log('Preview failed; inspect activity');phase('Preview error');if(lastPaintedSource && lastPaintedSource!==previewSource){render(lastPaintedSource);log('Restored last painted checkpoint');}}
     if(event.event.kind==='console'&&['error','warn'].includes(event.event.event?.level)){
       const entry={level:event.event.event.level,text:event.event.event.message||'Runtime error'};
       if(/\b(?:Paint|Sim|Boot) failure\b/i.test(entry.text))entry.level='error';
       log(entry.text);runtimeErrors.push(entry.text);if(runtimeErrors.length>20)runtimeErrors.shift();
-      feedback={rendered:painted,logs:[...(feedback?.logs||[]),entry].slice(-20),updatedAt:new Date().toISOString()};
+      feedback={...feedback,rendered:painted,logs:[...(feedback?.logs||[]),entry].slice(-20),updatedAt:new Date().toISOString()};
       if(entry.level==='error'){turnRuntimeFailed=true;turnError=entry.text;window.__whistlegraphSequenceEvent?.('runtimeError',{message:entry.text});}
       threadUpdate();
     }
   }
 };
-$('live-stop').onclick=()=>{turnCancelled=true;pending='';server?.interrupt();if(!busy){end();phase('Stopped');}};
+$('live-stop').onclick=()=>{turnCancelled=true;pending='';visualController?.abort();server?.interrupt();if(!busy){end();phase('Stopped');}};
 window.whistlegraphUndo=()=>{try{source=versions.undo().source;}catch(error){log(error.message);return;}previous=source;vfs.mount(file,source);saved();server?.close();server=null;render(source||'export function paint({wipe}) {wipe("black");}');review(false);phase('Undone');};
 window.whistlegraphAsk=ask;
+window.whistlegraphAskDrawing=(text,drawing)=>{
+  try{return ask(withDrawing(text,drawing),text||(drawing?'Drawing':''),null,null,drawing?'':text);}
+  catch(error){phase('Could not read drawing');log(error.message);return Promise.resolve();}
+};
 let musicalTurn=0;
-const musicalSocket=new MusicalInputSocket({token:()=>token,onEvent:benchmark});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){musicalSocket.suspend();thread?.suspend();}else{musicalSocket.resume();thread?.resume();}});
-const musicalAdvisor=new MusicalInputAdvisor({fetchImpl:musicalSocket.fetch,token:()=>token,onEvent:(event,fields)=>{benchmark(event,fields);if(event==='jevDecision')log('Jev · '+fields.choice);}});
+const musicalSocket=new MusicalInputSocket({token:()=>aiConsent.allowed?token:null,onEvent:benchmark});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){musicalSocket.suspend();thread?.suspend();}else{if(aiConsent.allowed)musicalSocket.resume();thread?.resume();}});
+const musicalAdvisor=new MusicalInputAdvisor({fetchImpl:(...args)=>{aiConsent.require();return musicalSocket.fetch(...args);},token:()=>aiConsent.allowed?token:null,onEvent:(event,fields)=>{benchmark(event,fields);if(event==='jevDecision')log('Jev · '+fields.choice);}});
 window.whistlegraphInputStart=()=>{musicalTurn++;musicalAdvisor.reset();};
 window.whistlegraphInputCancel=()=>{musicalTurn++;musicalAdvisor.cancel();};
-window.whistlegraphObserveSound=input=>{musicalPrompt(input);if(wantsSoundEvidence(input.transcript))musicalAdvisor.observe(input);};
+window.whistlegraphObserveSound=input=>{musicalPrompt(input);if(aiConsent.allowed&&wantsSoundEvidence(input.transcript))musicalAdvisor.observe(input);};
 window.whistlegraphAskSound=async input=>{
- const prompt=musicalPrompt(input);const useSound=wantsSoundEvidence(input.transcript);if(!useSound)musicalAdvisor.cancel();phase(useSound?'Interpreting sound…':'Sending…');
- return ask(prompt,`${input.transcript||'Sound'} · ${(input.sound.durationMs/1000).toFixed(1)} seconds`,!useSound||localEdit(source,input.transcript)?null:musicalAdvisor.finish(input),instantPiece(input.transcript),input.transcript);
+ if(!aiConsent.allowed){post({action:'aiConsent'});return;}
+ const prompt=withDrawing(musicalPrompt(input),input.drawing);const useSound=!!input.drawing||wantsSoundEvidence(input.transcript);if(!useSound)musicalAdvisor.cancel();phase(useSound?'Interpreting sound…':'Sending…');
+ return ask(prompt,`${input.transcript||'Sound'} · ${(input.sound.durationMs/1000).toFixed(1)} seconds`,input.drawing||!useSound||localEdit(source,input.transcript)?null:musicalAdvisor.finish(input),input.drawing?null:instantPiece(input.transcript),input.drawing?'':input.transcript);
+};
+window.whistlegraphSetAIConsent = value => { consentState = value || {}; syncAIConsent(); };
+window.whistlegraphForgetLocalData = () => {
+  consentState={}; aiConsent.setAllowed(false); turnCancelled=true;
+  visualController?.abort(); server?.interrupt(); musicalAdvisor.cancel(); musicalSocket.suspend(); thread?.suspend();
+  token=accountToken=accountHandle=''; localStorage.clear();
 };
 window.whistlegraphIsBusy=()=>busy;
 window.whistlegraphHasReview=()=>false;
@@ -395,10 +599,49 @@ if(typeof window.__whistlegraphFixtureBusy==='string'){
   outputStream='export function paint({ wipe, ink, circle, screen }) {\n  wipe("#151838");\n  ink("#4653c6");\n  circle(screen.width / 2, screen.height / 2, 40, true);';
   $('live-code').textContent=outputStream;phase('Writing…');$('live-stop').hidden=false;review(false);
 }
+window.whistlegraphSourceEditor = new SourceEditor({
+  state: () => {
+    if (!versions) throw Error('The piece is still loading.');
+    return {piece: thread?.identity.id || storageKey, code: thread?.identity.code || '',
+      version: versions.head.id, source: versions.head.source, busy,
+      recording: !!window.whistlegraphRecording?.()};
+  },
+  checks: sourceChecks,
+  hash: hashSource,
+  begin: () => {
+    busy = true; previous = source; recoveryPending = false;
+    turnRuntimeFailed = false; turnCancelled = false; turnError = '';
+    clearTimeout(compileTimer); compileTimer = null; provisional = '';
+    server?.close(); server = null; review(false); phase('Checking source edit…');
+  },
+  render: value => { render(value); return renderID; },
+  inspect: () => ({requestID: renderID, sourceHash: previewHash,
+    rendered: painted && lastPaintedSource === previewSource,
+    logs: feedback?.logs || [], runtimeFailed: turnRuntimeFailed, cancelled: turnCancelled}),
+  commit: value => {
+    const version = versions.commit(value);
+    source = previous = version.source; lastAttempt = null;
+    vfs.mount(file, source); saved();
+    return version;
+  },
+  restore: () => {
+    // Read the current durable head, so even a concurrent checkout is preserved.
+    source = previous = versions.head.source;
+    turnRuntimeFailed = false; turnCancelled = false;
+    vfs.mount(file, source);
+    render(source || 'export function paint({wipe}) {wipe("black");}');
+  },
+  finish: committed => {
+    busy = false; review(false);
+    phase(committed ? `v${versions.head.id} · Ready to play` : 'Could not apply source edit');
+    updateFeed(); window.whistlegraphWorkFinished?.();
+  },
+});
+
 updateFeed();
 if(versions&&!window.__whistlegraphSequence&&!window.__whistlegraphBenchmark&&!window.__whistlegraphDisableThread) {
   const label=codeLabel;label.setAttribute('aria-live','polite');
-  thread=new WhistlegraphThread({storage:localStorage,key:storageKey,token:()=>token,ledger:()=>versions.value,
+  thread=new WhistlegraphThread({storage:localStorage,key:storageKey,receipts,token:()=>token,ledger:()=>versions.value,
     state:()=>({busy,phase:$('live-phase').textContent,head:versions.head.id,source:versions.head.source,errors:runtimeErrors,attempt:lastAttempt}),
     onStatus:(code,status)=>{label.textContent=code?'/'+code:'';label.title=status;label.dataset.status=status;post({action:'threadStatus',code:code||'',threadID:thread.identity.id,status});nativeSnapshot();},
     onCommand:async command=>{
@@ -409,16 +652,19 @@ if(versions&&!window.__whistlegraphSequence&&!window.__whistlegraphBenchmark&&!w
       }
       await verifyThreadRevision(command,()=>({busy,head:versions.head.id,source:versions.head.source}));
       const before=versions.head.id;
-      if(command.action==='ask')await ask(command.text);
+      if(command.action==='ask')await ask(checkedPrompt(command.text));
       else if(command.action==='undo')window.whistlegraphUndo();
       else if(command.action==='edit') {
+        const request=checkedPrompt(command.text||'Remote source edit');
+        const findings=sourceChecks(command.source);
+        if(findings.length)throw Error('Source check failed: '+findings.map(f=>f.message).join('; '));
         busy=true;previous=source;turnRuntimeFailed=false;turnCancelled=false;checkpoints=1;server?.close();server=null;review(false);
         source=command.source;vfs.mount(file,source);phase('Applying remote edit…');render(source);
         try {
           for(let i=0;i<500&&!painted&&!turnRuntimeFailed&&!turnCancelled;i++)await new Promise(r=>setTimeout(r,10));
           await new Promise(r=>setTimeout(r,250));
           if(!painted||lastPaintedSource!==source||turnRuntimeFailed||turnCancelled)throw Error('Remote edit did not paint cleanly');
-          versions.commit({source,request:'Remote source edit',layers:1,parent:before});saved();phase('Ready to play');
+          versions.commit({source,request,layers:1,parent:before});saved();phase('Ready to play');
         }catch(error){source=previous;vfs.mount(file,source);render(source);throw error;}
         finally{end();}
       }
@@ -433,12 +679,12 @@ if(versions&&!window.__whistlegraphSequence&&!window.__whistlegraphBenchmark&&!w
   };
   // Every piece on this phone: the open one plus the archives "New piece" left.
   // Opening another swaps archives, so the current one is never lost.
-  const ARCHIVE='whistlegraph-archive-',ARCHIVE_SUFFIXES=['-cloud-revision','-cloud-ledger'];
+  const ARCHIVE='whistlegraph-archive-',ARCHIVE_SUFFIXES=['-cloud-revision','-cloud-ledger','-receipts','-receipt-cost','-attempt','-inflight'];
   function archiveCurrentPiece(){
     const extras={};for(const suffix of ARCHIVE_SUFFIXES){const v=localStorage.getItem(storageKey+suffix);if(v!==null)extras[suffix]=v;}
     localStorage.setItem(ARCHIVE+thread.identity.id,JSON.stringify({identity:thread.identity,ledger:versions.value,source,extras,archivedAt:new Date().toISOString()}));
     thread.suspend();
-    for(const suffix of ['', '-versions','-thread','-cloud-revision','-cloud-ledger','-attempt','-inflight'])localStorage.removeItem(storageKey+suffix);
+    for(const suffix of ['', '-versions','-thread','-cloud-revision','-cloud-ledger','-attempt','-inflight','-receipts','-receipt-cost'])localStorage.removeItem(storageKey+suffix);
   }
   function pieceSummary(id,identity,ledger,current){
     const made=(ledger?.versions||[]).filter(v=>v.id>0),last=made.at(-1);
@@ -469,15 +715,23 @@ if(versions&&!window.__whistlegraphSequence&&!window.__whistlegraphBenchmark&&!w
   $('info').append(newPiece);
 }
 post({action:'account'});
+// Opt-in capture smoke test: replay the current piece without generating,
+// reviewing, checking out or committing anything. Native debug code saves proof.
+if(window.__whistlegraphVisualCaptureTest)void(async()=>{
+  for(let i=0;i<300&&(!ready||!painted||busy);i++)await new Promise(r=>setTimeout(r,100));
+  if(!ready||!painted||busy)return;
+  try {await captureVisual(previewHash,renderID,new AbortController().signal);}
+  catch(error){log(error.message);}
+})();
 setTimeout(()=>{if(!ready){ui.hidden=false;phase('Preview still loading');log('AC runtime has not reported ready. Check your connection.');}},20000);
 
-if(window.__whistlegraphSequence && !window.__whistlegraphLocalSequence && window.__whistlegraphReviewVersion===undefined) import("./sequence-benchmark.mjs").then(({runSequence})=>runSequence({ask,ready:()=>ready,source:()=>source,painted:()=>painted&&lastPaintedSource.trimEnd()===source.trimEnd(),interrupt:()=>server?.interrupt(),model:window.__whistlegraphModel||DEFAULT_MODEL}));
+if(window.__whistlegraphSequence && !window.__whistlegraphLocalSequence && window.__whistlegraphReviewVersion===undefined) import("./sequence-benchmark.mjs").then(({runSequence})=>runSequence({ask,ready:()=>ready,source:()=>source,painted:()=>painted&&lastPaintedSource===source,interrupt:()=>server?.interrupt(),model:window.__whistlegraphModel||DEFAULT_MODEL}));
 
 if(window.__whistlegraphSequence && Number.isInteger(window.__whistlegraphReviewVersion)) void (async()=>{
   const revision=versions.value.versions.find(v=>v.id===window.__whistlegraphReviewVersion);
   if(!revision){phase('Review version unavailable');return;}
   source=revision.source;render(source);
-  for(let i=0;i<300&&!(ready&&painted&&lastPaintedSource.trimEnd()===source.trimEnd());i++)await new Promise(r=>setTimeout(r,100));
+  for(let i=0;i<300&&!(ready&&painted&&lastPaintedSource===source);i++)await new Promise(r=>setTimeout(r,100));
   if(!painted){phase('Review preview unavailable');return;}
   phase(`Reviewing v${revision.id}`);
   const r=frame.getBoundingClientRect();
