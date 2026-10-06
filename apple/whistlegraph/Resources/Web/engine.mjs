@@ -1,3 +1,4 @@
+import {fetchPersonalAccess,hasPersonalAccess} from './personal-access.mjs';
 import {createAIConsentGate} from './ai-consent.mjs';
 import {SourceEditor} from './source-editor.mjs';
 import {inferenceError} from './inference-error.mjs';
@@ -59,9 +60,10 @@ let outputStream='',reasoningStream='',code = '', codeItem = '', firstDelta = fa
 const events = [];
 const signIn=document.createElement('button');signIn.id='connect-ac';signIn.textContent='Account';signIn.onclick=()=>post({action:'signIn'});const identity=document.createElement('div');identity.id='walkieware-identity';const codeLabel=document.createElement('span');codeLabel.id='walkieware-thread';identity.append(signIn,codeLabel);document.body.append(identity);
 let accountToken='',accountHandle='',accountPalette=[],accountVerification=Promise.resolve();
+let personalAccess=null,turnPersonalAccess=false;
 let turnHandle='',turnModel='',activeModel='',braincells=null,braincellsError='',creditsRequest=0;
 function selectedModel(handle=accountHandle){try{return localStorage.getItem('whistlegraph-model-'+handle)||'';}catch{return '';}}
-function profile(repair=false){return generationProfile(busy?turnHandle:accountHandle,{repair,model:busy?turnModel:selectedModel()});}
+function profile(repair=false){return generationProfile(busy?turnHandle:accountHandle,{repair,personalAccess:busy?turnPersonalAccess:hasPersonalAccess(personalAccess),model:busy?turnModel:selectedModel()});}
 async function refreshBraincells(){
   benchmark('braincellsRequest');
   const currentToken=token,request=++creditsRequest;
@@ -80,7 +82,7 @@ async function refreshBraincells(){
 }
 function inferenceSnapshot(){
   const model=activeModel||profile().model,receipt=activeReceipt?.value||receipts.rows.at(-1)?.receipt;
-  return {model,label:MODEL_LABELS[model]||model,provider:profile().personalRelay?(model.startsWith('openai/')?'Personal Codex':'Personal Claude'):'OpenRouter',selection:profile().model,models:modelChoices(accountHandle),braincells,braincellsError,threadCost:receipts.cost.snapshot(),
+  return {model,label:MODEL_LABELS[model]||model,provider:profile().personalRelay?(model.startsWith('openai/')?'Personal Codex':'Personal Claude'):'OpenRouter',selection:profile().model,models:modelChoices(accountHandle,{personalAccess:hasPersonalAccess(personalAccess)}),braincells,braincellsError,threadCost:receipts.cost.snapshot(),
     usage:receipt?{inputTokens:receipt.rounds.reduce((n,r)=>n+(r.usage?.inputTokens||0),0),outputTokens:receipt.rounds.reduce((n,r)=>n+(r.usage?.outputTokens||0),0),rounds:receipt.rounds.length,repairs:receipt.repairs,status:receipt.status,cost:{usd:receipt.rounds.reduce((n,r)=>n+(r.usage?.costUSD||0),0),partial:receipt.rounds.some(r=>r.usage?.costUSD==null && (r.httpStatus==null || r.httpStatus<400)),estimated:receipt.rounds.some(r=>r.usage?.estimated)}}:null};
 }
 function paintHandle(handle,colors=handleCharacterColors('@'+handle)){
@@ -88,8 +90,8 @@ function paintHandle(handle,colors=handleCharacterColors('@'+handle)){
   signIn.replaceChildren(...Array.from('@'+handle,(character,index)=>{const span=document.createElement('span');span.textContent=character;span.style.color='rgb('+colors[index].join(',')+')';return span;}));nativeSnapshot();
 }
 function accountIdentity(value){
-  if(value===accountToken)return;accountToken=value;accountHandle='';syncAIConsent();braincells=null;braincellsError='';signIn.textContent=value?'…':'Sign in';
-  accountVerification=value?verifyAccount(value).then(account=>{if(accountToken!==value)return;accountHandle=account.handle;syncAIConsent();if(!accountHandle){signIn.textContent='Set handle';return;}paintHandle(accountHandle);void refreshBraincells();const handle=accountHandle;void fetchHandleColors('@'+handle).then(colors=>{if(accountToken===value&&accountHandle===handle)paintHandle(handle,colors);}).catch(()=>{});}).catch(()=>{if(accountToken===value)signIn.textContent='Retry sign-in';}):Promise.resolve();
+  if(value===accountToken)return;accountToken=value;accountHandle='';personalAccess=null;syncAIConsent();braincells=null;braincellsError='';signIn.textContent=value?'…':'Sign in';
+  accountVerification=value?verifyAccount(value).then(async account=>{if(accountToken!==value)return;accountHandle=account.handle;syncAIConsent();if(!accountHandle){signIn.textContent='Set handle';return;}const access=await fetchPersonalAccess(value);if(accountToken!==value)return;personalAccess=access;paintHandle(accountHandle);void refreshBraincells();const handle=accountHandle;void fetchHandleColors('@'+handle).then(colors=>{if(accountToken===value&&accountHandle===handle)paintHandle(handle,colors);}).catch(()=>{});}).catch(()=>{if(accountToken===value)signIn.textContent='Retry sign-in';}):Promise.resolve();
 }
 const $ = id => document.getElementById(id);
 const ui = document.createElement('section'); ui.id = 'live-work'; ui.hidden = true;
@@ -176,7 +178,7 @@ window.walkiewareNativeCommand=command=>{
     if(command.action==='ask'&&Array.from(new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(command.text)).length>96)return {accepted:false,reason:'inputTooLong'};
   }
   if(command.action==='refreshBraincells')void refreshBraincells();
-  if(command.action==='setModel'&&!busy&&accountHandle&&modelChoices(accountHandle).some(m=>m.id===command.text)){
+  if(command.action==='setModel'&&!busy&&accountHandle&&modelChoices(accountHandle,{personalAccess:hasPersonalAccess(personalAccess)}).some(m=>m.id===command.text)){
     try{localStorage.setItem('whistlegraph-model-'+accountHandle,command.text);}catch{return;}
     server?.close();server=null;activeModel='';nativeSnapshot();
   }
@@ -390,7 +392,7 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
   let noChange=false;
   validationChecks=[];runtimeErrors.length=0;
   try{
-    await accountVerification;if(turnCancelled)throw Error('Stopped');turnHandle=accountToken===token?accountHandle:'';turnModel=selectedModel(turnHandle);
+    await accountVerification;if(turnCancelled)throw Error('Stopped');turnHandle=accountToken===token?accountHandle:'';turnPersonalAccess=!!turnHandle&&hasPersonalAccess(personalAccess);turnModel=selectedModel(turnHandle);
     activeReceipt=new AttemptReceipt({requestID:activeAttempt.id,parent:turnParent,parentHash:await hashSource(previous),path:'compiled',model:window.__walkiewareModel||profile().model,journal:receipts});
     const drawing=inputData(text)?.drawing;
     const chalkImage=drawing?drawingImage(drawing):null;

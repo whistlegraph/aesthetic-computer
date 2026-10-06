@@ -20,6 +20,13 @@ import Foundation
         precondition(allOff(AIConsentRecord.read(subject: "alice", defaults: defaults)), "Changed disclosure needs fresh permission")
         defaults.set(Data("invalid".utf8), forKey: AIConsentRecord.key(subject: "alice"))
         precondition(allOff(AIConsentRecord.read(subject: "alice", defaults: defaults)))
-        print("AIConsentRecordCheck passed (7 cases)")
+        record = AIConsentRecord(); record.creation = true; record.cloudSpeechChoice = false
+        record.save(subject: "alice", defaults: defaults)
+        precondition(AIConsentRecord.read(subject: "alice", defaults: defaults).cloudSpeechChoice == false, "Device speech choice persists")
+        precondition(AIConsentRecord.read(subject: "bob", defaults: defaults).cloudSpeechChoice == nil, "Speech choice stays with the account")
+        let old = #"{"version":1,"creation":true,"cloudSpeech":false,"cloudNarration":false,"updatedAt":0}"#
+        defaults.set(Data(old.utf8), forKey: AIConsentRecord.key(subject: "legacy"))
+        precondition(AIConsentRecord.read(subject: "legacy", defaults: defaults).creation, "Existing creation consent survives the optional speech choice")
+        print("AIConsentRecordCheck passed (10 cases)")
     }
 }

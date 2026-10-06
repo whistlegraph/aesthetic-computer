@@ -21,6 +21,7 @@ import SwiftUI
         guard let subject, signedIn else { return }
         DeviceActionLog.shared.record(.setting, value ? .enabled : .disabled,
             control: key == \.creation ? .creation : key == \.cloudSpeech ? .cloudSpeech : .cloudNarration)
+        if key == \.cloudSpeech { record.cloudSpeechChoice = value }
         record[keyPath: key] = value; record.updatedAt = Date()
         record.save(subject: subject); changed()
     }
@@ -102,7 +103,7 @@ struct WhistlegraphPrivacySheet: View {
                         .disabled(!consent.signedIn).accessibilityIdentifier("privacy-ai-creation")
                 }
                 Section("Cloud speech") {
-                    Text("Optional OpenAI transcription sends microphone audio through AC or directly to OpenAI during recording and for word timing. It currently requires an eligible personal account. With this off, speech recognition stays on the device.")
+                    Text("Whisper sends each finished recording through AC to OpenAI for transcription and word timing. AC pays OpenAI and charges 40 braincells per recorded second, using your daily allowance first, then purchased braincells. Failed transcriptions are refunded. AC keeps billing receipts, not audio or transcripts; a retry result may remain in memory for one minute. With this off, speech recognition stays on the device.")
                     Toggle("Allow audio to OpenAI", isOn: Binding(get: { consent.cloudSpeech }, set: { consent.set(\.cloudSpeech, $0) }))
                         .disabled(!consent.signedIn).accessibilityIdentifier("privacy-cloud-speech")
                 }
@@ -123,5 +124,23 @@ struct WhistlegraphPrivacySheet: View {
             .onAppear { DeviceActionLog.shared.record(.screen, .presented, control: .privacy) }
             .onDisappear { DeviceActionLog.shared.record(.screen, .dismissed, control: .privacy) }
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+    }
+}
+
+struct WhistlegraphSpeechConsentSheet: View {
+    let choose: (Bool) -> Void
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Use Whisper for speech?").font(.title.bold()).accessibilityAddTraits(.isHeader)
+                Text("After you release Talk, AC sends the recording to OpenAI for transcription and word timing. Live captions stay on your device.")
+                Text("40 braincells per recorded second — 320 for eight seconds. Your daily allowance is used first, then purchased braincells. Failed transcriptions are refunded.")
+                Text("AC keeps billing receipts, not recordings or transcripts. Retry results stay in memory for up to one minute. Change this in Brain → AI & privacy.")
+                Button("Allow Whisper") { choose(true) }.buttonStyle(.borderedProminent).accessibilityIdentifier("speech-consent-allow")
+                Button("Use device speech") { choose(false) }.buttonStyle(.bordered).accessibilityIdentifier("speech-consent-device")
+                Link("Privacy policy", destination: URL(string: "https://aesthetic.computer/privacy-policy.html")!)
+            }.font(.body).padding(24)
+        }
+        .presentationDetents([.large]).presentationDragIndicator(.visible)
     }
 }
