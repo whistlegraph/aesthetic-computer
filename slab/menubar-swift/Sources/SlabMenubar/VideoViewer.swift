@@ -12,6 +12,12 @@
 // writes either form. Re-requesting the same source brings its window forward
 // and restarts playback. Single-video windows watch their file and reload on
 // rewrite, so a render loop (build.mjs → same mp4 path) feels live.
+//
+// Managing a wall of them: touching $SLAB_HOME/state/close-video closes every
+// panel, $SLAB_HOME/state/tile-video re-grids them; opening a second panel
+// grids them automatically (the ImageGroupPreview layout). A playlist panel
+// carries its queue as a list beside the picture — click a row to jump, the
+// playing row is highlighted, and the queue advances on its own.
 import AppKit
 import AVKit
 import AVFoundation
@@ -24,6 +30,9 @@ extension Paths {
     static var videoPlaylistRequestDirectory: String {
         "\(slabHome)/state/open-video-playlists"
     }
+    /// Sentinels: their presence is the ask; consumed (deleted) each tick.
+    static var videoCloseFile: String { "\(slabHome)/state/close-video" }
+    static var videoTileFile: String { "\(slabHome)/state/tile-video" }
 }
 
 struct OpenVideoItem {
@@ -48,6 +57,17 @@ final class VideoViewer {
     /// `emojiFor` maps a live Claude session to its sticky TitleEmoji so the
     /// chip wears the mark of the prompt that asked.
     func consumeRequests(emojiFor: (String) -> String = { _ in "" }) {
+        if FileManager.default.fileExists(atPath: Paths.videoCloseFile) {
+            try? FileManager.default.removeItem(atPath: Paths.videoCloseFile)
+            closeAll()
+        }
+        if FileManager.default.fileExists(atPath: Paths.videoTileFile) {
+            try? FileManager.default.removeItem(atPath: Paths.videoTileFile)
+            tile()
+        }
+        let before = controllers.count
+        defer { if controllers.count > before, controllers.count > 1 { tile() } }
+
         let file = Paths.videoRequestFile
         if FileManager.default.fileExists(atPath: file) {
             let text = (try? String(contentsOfFile: file, encoding: .utf8)) ?? ""
@@ -106,6 +126,30 @@ final class VideoViewer {
 
     func focus(_ id: String) { controllers[id]?.focus() }
 
+    /// Grid every open panel across the main screen's visible frame, each
+    /// aspect-fit inside its cell (same layout as ImageGroupPreview).
+    func tile() {
+        let ordered = controllers.values.sorted {
+            $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending
+        }
+        let n = ordered.count
+        guard n > 0 else { return }
+        let screen = NSScreen.main?.visibleFrame
+            ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let cols = Int(ceil(Double(n).squareRoot()))
+        let rows = Int(ceil(Double(n) / Double(cols)))
+        let gap: CGFloat = 16
+        let cellW = (screen.width - gap * CGFloat(cols + 1)) / CGFloat(cols)
+        let cellH = (screen.height - gap * CGFloat(rows + 1)) / CGFloat(rows)
+        for (i, c) in ordered.enumerated() {
+            let col = i % cols
+            let row = i / cols
+            let x = screen.minX + gap + CGFloat(col) * (cellW + gap)
+            let yTop = screen.maxY - gap - CGFloat(row) * (cellH + gap)
+            c.fit(in: NSRect(x: x, y: yTop - cellH, width: cellW, height: cellH))
+        }
+    }
+
     func closeAll() {
         // close() triggers onClose which mutates the dictionary — iterate a copy.
         for controller in Array(controllers.values) { controller.close() }
@@ -125,6 +169,11 @@ private final class VideoWindowController: NSObject, NSWindowDelegate {
     private var reloadPending = false
     private var currentItemObservation: NSKeyValueObservation?
     private var currentIndex = 0
+    /// Picture aspect (w/h) of the first movie, for grid fitting.
+    private let aspect: CGFloat
+    /// The queue beside the picture — only for playlists.
+    private let playlist: PlaylistList?
+    private static let playlistWidth: CGFloat = 220
 
     var displayName: String {
         if sourcePaths.count == 1 { return (sourcePaths[0] as NSString).lastPathComponent }
@@ -143,8 +192,13 @@ private final class VideoWindowController: NSObject, NSWindowDelegate {
         self.onClose = onClose
 
         let asset = AVURLAsset(url: URL(fileURLWithPath: firstPath))
+        let pictureSize = VideoWindowController.naturalSize(of: asset)
+        aspect = pictureSize.width / max(pictureSize.height, 1)
+        var frame = VideoWindowController.idealFrame(for: pictureSize)
+        if paths.count > 1 { frame.size.width += Self.playlistWidth }
+        playlist = paths.count > 1 ? PlaylistList(paths: paths) : nil
         panel = VideoPanel(
-            contentRect: VideoWindowController.idealFrame(for: asset),
+            contentRect: frame,
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered, defer: false)
         super.init()
@@ -173,12 +227,26 @@ private final class VideoWindowController: NSObject, NSWindowDelegate {
         playerView.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(playerView)
 
-        NSLayoutConstraint.activate([
+        var constraints = [
             playerView.topAnchor.constraint(equalTo: content.topAnchor),
             playerView.bottomAnchor.constraint(equalTo: content.bottomAnchor),
             playerView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            playerView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-        ])
+        ]
+        if let playlist {
+            playlist.translatesAutoresizingMaskIntoConstraints = false
+            playlist.onSelect = { [weak self] index in self?.playFrom(index: index) }
+            content.addSubview(playlist)
+            constraints += [
+                playlist.topAnchor.constraint(equalTo: content.topAnchor),
+                playlist.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+                playlist.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+                playlist.widthAnchor.constraint(equalToConstant: Self.playlistWidth),
+                playerView.trailingAnchor.constraint(equalTo: playlist.leadingAnchor),
+            ]
+        } else {
+            constraints.append(playerView.trailingAnchor.constraint(equalTo: content.trailingAnchor))
+        }
+        NSLayoutConstraint.activate(constraints)
         panel.onNext = { [weak self] in self?.next() }
         panel.onPrevious = { [weak self] in self?.previous() }
         currentItemObservation = player.observe(\.currentItem, options: [.new]) { [weak self] _, _ in
@@ -291,6 +359,22 @@ private final class VideoWindowController: NSObject, NSWindowDelegate {
         let position = sourcePaths.count > 1 ? " — \(currentIndex + 1)/\(sourcePaths.count)" : ""
         panel.title = (emoji.isEmpty ? "" : emoji + " ")
             + (currentPath as NSString).lastPathComponent + position
+        playlist?.highlight(index: currentIndex)
+    }
+
+    /// Aspect-fit the panel inside a grid cell (the playlist column, when
+    /// present, rides along at its fixed width).
+    func fit(in cell: NSRect) {
+        let extra = playlist == nil ? 0 : Self.playlistWidth
+        var width = cell.width
+        var height = (width - extra) / max(aspect, 0.001)
+        if height > cell.height {
+            height = cell.height
+            width = height * aspect + extra
+        }
+        let frame = NSRect(x: cell.midX - width / 2, y: cell.midY - height / 2,
+                           width: width, height: height)
+        panel.setFrame(frame, display: true, animate: false)
     }
 
     // MARK: live reload — render loops rewrite the mp4 in place
@@ -344,16 +428,21 @@ private final class VideoWindowController: NSObject, NSWindowDelegate {
         onClose()
     }
 
-    /// Size the window to the video's aspect, ~3/4 of the screen tall for
-    /// portrait, ~2/3 wide for landscape.
-    private static func idealFrame(for asset: AVURLAsset) -> NSRect {
-        let screen = NSScreen.main?.visibleFrame
-            ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+    /// The movie's displayed pixel size (portrait default when unreadable).
+    private static func naturalSize(of asset: AVURLAsset) -> NSSize {
         var size = NSSize(width: 1080, height: 1920)
         if let track = asset.tracks(withMediaType: .video).first {
             let natural = track.naturalSize.applying(track.preferredTransform)
             size = NSSize(width: abs(natural.width), height: abs(natural.height))
         }
+        return size
+    }
+
+    /// Size the window to the video's aspect, ~3/4 of the screen tall for
+    /// portrait, ~2/3 wide for landscape.
+    private static func idealFrame(for size: NSSize) -> NSRect {
+        let screen = NSScreen.main?.visibleFrame
+            ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let aspect = size.width / max(size.height, 1)
         var height = min(screen.height * 0.78, 980)
         var width = height * aspect
@@ -363,6 +452,104 @@ private final class VideoWindowController: NSObject, NSWindowDelegate {
         }
         return NSRect(x: screen.midX - width / 2, y: screen.midY - height / 2,
                       width: width, height: height)
+    }
+}
+
+/// The queue beside a playlist's picture: one row per movie, the playing row
+/// highlighted, a click jumps. Glass column so it reads as part of the panel.
+private final class PlaylistList: NSView, NSTableViewDataSource, NSTableViewDelegate {
+    var onSelect: ((Int) -> Void)?
+    private let names: [String]
+    private let table = NSTableView()
+    private var syncing = false
+
+    init(paths: [String]) {
+        names = paths.map { ($0 as NSString).lastPathComponent }
+        super.init(frame: .zero)
+        let glass = NSVisualEffectView()
+        glass.material = .hudWindow
+        glass.blendingMode = .behindWindow
+        glass.state = .active
+        glass.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(glass)
+
+        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("name"))
+        column.resizingMask = .autoresizingMask
+        table.addTableColumn(column)
+        table.headerView = nil
+        table.rowHeight = 26
+        table.backgroundColor = .clear
+        table.selectionHighlightStyle = .regular
+        table.allowsEmptySelection = false
+        table.dataSource = self
+        table.delegate = self
+        table.target = self
+        table.action = #selector(rowClicked)
+        let scroll = NSScrollView()
+        scroll.documentView = table
+        scroll.drawsBackground = false
+        scroll.hasVerticalScroller = true
+        scroll.autohidesScrollers = true
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(scroll)
+
+        NSLayoutConstraint.activate([
+            glass.topAnchor.constraint(equalTo: topAnchor),
+            glass.bottomAnchor.constraint(equalTo: bottomAnchor),
+            glass.leadingAnchor.constraint(equalTo: leadingAnchor),
+            glass.trailingAnchor.constraint(equalTo: trailingAnchor),
+            // Clear the hidden title bar's traffic lights.
+            scroll.topAnchor.constraint(equalTo: topAnchor, constant: 30),
+            scroll.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
+            scroll.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
+            scroll.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
+        ])
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    func highlight(index: Int) {
+        guard names.indices.contains(index) else { return }
+        syncing = true
+        table.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
+        table.scrollRowToVisible(index)
+        syncing = false
+    }
+
+    @objc private func rowClicked() {
+        let row = table.clickedRow
+        guard row >= 0 else { return }
+        onSelect?(row)
+    }
+
+    func numberOfRows(in tableView: NSTableView) -> Int { names.count }
+
+    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        let id = NSUserInterfaceItemIdentifier("row")
+        let cell = (tableView.makeView(withIdentifier: id, owner: nil) as? NSTableCellView) ?? {
+            let cell = NSTableCellView()
+            cell.identifier = id
+            let label = NSTextField(labelWithString: "")
+            label.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+            label.lineBreakMode = .byTruncatingMiddle
+            label.translatesAutoresizingMaskIntoConstraints = false
+            cell.addSubview(label)
+            cell.textField = label
+            NSLayoutConstraint.activate([
+                label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 6),
+                label.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
+                label.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            ])
+            return cell
+        }()
+        cell.textField?.stringValue = "\(row + 1). \(names[row])"
+        return cell
+    }
+
+    func tableViewSelectionDidChange(_ notification: Notification) {
+        // Keyboard selection in the list also jumps; programmatic sync doesn't.
+        guard !syncing, table.selectedRow >= 0 else { return }
+        onSelect?(table.selectedRow)
     }
 }
 
@@ -406,6 +593,7 @@ extension AppDelegate {
     }
 
     @objc func closeAllVideos() { VideoViewer.shared.closeAll() }
+    @objc func tileAllVideos() { VideoViewer.shared.tile() }
 
     @objc func openVideoFromPanel() {
         NSApp.activate(ignoringOtherApps: true)

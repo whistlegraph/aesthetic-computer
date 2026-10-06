@@ -12,6 +12,49 @@ private struct PalsSpec {
     let reverse: Bool
 }
 
+/// Optional emblem in place of the bundled Pals mesh, tinted and lit exactly
+/// like it: a model file (obj, usdz, usdc, usda, dae, scn) drifts as geometry;
+/// a PNG (alpha = the mark) drifts as a flat plane. Resolved from, in order,
+/// `--emblem <file>`, `$BLUEBERRY_WALLPAPER_EMBLEM`, then the first of
+/// `~/.config/blueberry-wallpaper/emblem.{obj,usdz,usdc,usda,dae,scn,png}`;
+/// `--emblem-scale <factor>` (or `$BLUEBERRY_WALLPAPER_EMBLEM_SCALE`) sizes
+/// the marks relative to the Pals field. Nothing else about the field changes.
+private enum Emblem {
+    static let modelExtensions = ["obj", "usdz", "usdc", "usda", "dae", "scn"]
+
+    static let path: String? = {
+        let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "--emblem"), i + 1 < args.count { return args[i + 1] }
+        if let env = ProcessInfo.processInfo.environment["BLUEBERRY_WALLPAPER_EMBLEM"], !env.isEmpty {
+            return env
+        }
+        let dir = NSString(string: "~/.config/blueberry-wallpaper").expandingTildeInPath
+        for ext in modelExtensions + ["png"] {
+            let candidate = "\(dir)/emblem.\(ext)"
+            if FileManager.default.fileExists(atPath: candidate) { return candidate }
+        }
+        return nil
+    }()
+
+    static var isModel: Bool {
+        guard let path else { return false }
+        return modelExtensions.contains((path as NSString).pathExtension.lowercased())
+    }
+
+    static let scale: CGFloat = {
+        let args = CommandLine.arguments
+        var raw: String?
+        if let i = args.firstIndex(of: "--emblem-scale"), i + 1 < args.count { raw = args[i + 1] }
+        raw = raw ?? ProcessInfo.processInfo.environment["BLUEBERRY_WALLPAPER_EMBLEM_SCALE"]
+        guard let raw, let value = Double(raw), value > 0 else { return 1 }
+        return CGFloat(value)
+    }()
+
+    static var renderer: String {
+        path == nil ? "live-glb" : (isModel ? "emblem-model" : "emblem-image")
+    }
+}
+
 private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
     private struct Placement {
         let model: SCNNode
@@ -81,9 +124,13 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         sceneView.autoresizingMask = [.width, .height]
         sceneView.scene = scene
         sceneView.delegate = self
-        sceneView.backgroundColor = .clear
+        // The backdrop is drawn by SceneKit itself (scene.background), so the
+        // view is opaque and mark edges resolve against the real backdrop
+        // instead of against a transparent surface composited later — the
+        // latter left tinted alpha fringes along every silhouette.
+        sceneView.backgroundColor = .black
         sceneView.antialiasingMode = .multisampling4X
-        sceneView.preferredFramesPerSecond = 30
+        sceneView.preferredFramesPerSecond = 60
         sceneView.rendersContinuously = true
         sceneView.isPlaying = true
         addSubview(sceneView)
@@ -111,7 +158,10 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         super.viewDidMoveToWindow()
         updateAppearance(animated: false)
         guard let scale = window?.backingScaleFactor else { return }
-        sceneView.layer?.contentsScale = scale
+        // Render at no less than 2× and let the compositor downsample: on a
+        // 1× display 4× MSAA alone still shows stair-steps along the
+        // silhouettes, and supersampling on top of it smooths them out.
+        sceneView.layer?.contentsScale = max(scale, 2)
     }
 
     /// Posted after the system appearance flips. macOS keeps a light/dark
@@ -154,7 +204,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         return NSColor(srgbRed: r / 65535, green: g / 65535, blue: b / 65535, alpha: 1)
     }
 
-    /// The live flat backdrop: slab's status tint when published, otherwise
+    /// The live backdrop tone: slab's status tint when published, otherwise
     /// the accent-tinted wash.
     private func backdropColor() -> NSColor {
         if let tint = statusTint { return tint }
@@ -164,6 +214,32 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
             ? NSColor(srgbRed: 0.028, green: 0.072, blue: 0.225, alpha: 1)
             : NSColor(srgbRed: 0.74, green: 0.84, blue: 0.96, alpha: 1)
         return base.blended(withFraction: dark ? 0.12 : 0.13, of: accent) ?? base
+    }
+
+    /// The backdrop as a soft vertical gradient around that tone. The top
+    /// keeps the mode's own direction — lightest up top in light mode,
+    /// darkest in dark mode — so the translucent menu bar sits on the tone
+    /// macOS expects; the field eases the other way toward the bottom.
+    private func backdropGradient() -> (top: NSColor, bottom: NSColor) {
+        let tone = backdropColor().usingColorSpace(.sRGB) ?? backdropColor()
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        if dark {
+            return (tone.blended(withFraction: 0.22, of: .black) ?? tone,
+                    tone.blended(withFraction: 0.14, of: .white) ?? tone)
+        }
+        return (tone.blended(withFraction: 0.16, of: .white) ?? tone,
+                tone.blended(withFraction: 0.12, of: .black) ?? tone)
+    }
+
+    /// A tall, narrow gradient image; SceneKit stretches it over the view.
+    private static func gradientImage(top: NSColor, bottom: NSColor) -> NSImage {
+        let size = NSSize(width: 4, height: 512)
+        let image = NSImage(size: size)
+        image.lockFocus()
+        NSGradient(starting: bottom, ending: top)?
+            .draw(in: NSRect(origin: .zero, size: size), angle: 90)
+        image.unlockFocus()
+        return image
     }
 
     override func layout() {
@@ -189,21 +265,35 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
     }
 
     private func loadModel() {
-        guard let url = Bundle.main.url(
-                  forResource: "pals-mesh", withExtension: "usdc",
-                  subdirectory: "PalsModel"),
-              let imported = try? SCNScene(url: url, options: nil)
-        else {
-            fputs("could not load bundled Pals GLB geometry\n", stderr)
-            return
+        let prototype: SCNNode
+        if let emblemPath = Emblem.path, !Emblem.isModel {
+            guard let emblem = emblemPrototype(path: emblemPath) else {
+                fputs("could not load emblem image at \(emblemPath)\n", stderr)
+                return
+            }
+            prototype = emblem
+        } else {
+            let url: URL?
+            if let emblemPath = Emblem.path {
+                url = URL(fileURLWithPath: emblemPath)
+            } else {
+                url = Bundle.main.url(forResource: "pals-mesh", withExtension: "usdc",
+                                      subdirectory: "PalsModel")
+            }
+            guard let url, let imported = try? SCNScene(url: url, options: nil) else {
+                fputs("could not load geometry at \(url?.path ?? "bundled Pals GLB")\n", stderr)
+                return
+            }
+            prototype = SCNNode()
+            for child in imported.rootNode.childNodes {
+                child.removeFromParentNode()
+                prototype.addChildNode(child)
+            }
+            applyOriginalGLBMaterials(to: prototype)
+            if Emblem.isModel, Emblem.scale != 1 {
+                prototype.scale = SCNVector3(Emblem.scale, Emblem.scale, Emblem.scale)
+            }
         }
-
-        let prototype = SCNNode()
-        for child in imported.rootNode.childNodes {
-            child.removeFromParentNode()
-            prototype.addChildNode(child)
-        }
-        applyOriginalGLBMaterials(to: prototype)
         let (lo, hi) = prototype.boundingBox
         modelWidth = max(CGFloat(hi.x - lo.x), 0.001)
         modelHeight = max(CGFloat(hi.y - lo.y), 0.001)
@@ -264,6 +354,32 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         for placement in candidates {
             placement.model.position = SCNVector3(placement.x, placement.y, 0)
         }
+    }
+
+    /// A flat, double-sided plane carrying the emblem's alpha as its mask.
+    /// Unlit, so it reads as one flat tone — the same accent/backdrop blend
+    /// the mesh wears — and turns like the mesh does.
+    private func emblemPrototype(path: String) -> SCNNode? {
+        guard let image = NSImage(contentsOfFile: path), image.size.height > 0 else { return nil }
+        let aspect = image.size.width / image.size.height
+        // The Pals mesh spans 1.9 × 1.24 model units before `markScale`; a
+        // 1.6-unit-tall emblem covers about the same footprint, so the specs'
+        // sizes carry over unchanged.
+        let height: CGFloat = 1.6 * Emblem.scale
+        let plane = SCNPlane(width: height * aspect, height: height)
+        let material = SCNMaterial()
+        material.lightingModel = .constant
+        material.diffuse.contents = NSColor.controlAccentColor
+        material.transparent.contents = image
+        material.transparencyMode = .aOne
+        material.isDoubleSided = true
+        material.writesToDepthBuffer = false
+        plane.materials = [material]
+        materials.append(material)
+        let node = SCNNode()
+        node.addChildNode(SCNNode(geometry: plane))
+        applyAccentColor(animated: false)
+        return node
     }
 
     private func applyOriginalGLBMaterials(to model: SCNNode) {
@@ -329,12 +445,13 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
 
     private func updateAppearance(animated: Bool) {
         applyAccentColor(animated: animated)
-        let color = backdropColor()
+        let gradient = backdropGradient()
+        scene.background.contents = Self.gradientImage(top: gradient.top, bottom: gradient.bottom)
         // macOS uses the opaque desktop window's backing color when choosing
-        // menu-bar contrast. Keep it in sync with the visible layer, including
-        // appearance flips after launch; a stale light backing creates a pale
-        // top scrim with black menu text over an otherwise dark desktop.
-        window?.backgroundColor = color
+        // menu-bar contrast. Keep it on the top tone, including appearance
+        // flips after launch; a stale light backing creates a pale top scrim
+        // with black menu text over an otherwise dark desktop.
+        window?.backgroundColor = gradient.top
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         let flipped = lastDark != nil && lastDark != dark
         lastDark = dark
@@ -346,7 +463,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         }
         CATransaction.begin()
         CATransaction.setAnimationDuration(animated ? 0.65 : 0)
-        background.backgroundColor = color.cgColor
+        background.backgroundColor = gradient.top.cgColor
         CATransaction.commit()
     }
 }
@@ -412,7 +529,7 @@ private final class WallpaperDelegate: NSObject, NSApplicationDelegate {
             let pixelsWide = Int(screen.frame.width * screen.backingScaleFactor)
             let pixelsHigh = Int(screen.frame.height * screen.backingScaleFactor)
             print("screen=\(pixelsWide)x\(pixelsHigh) scale=\(screen.backingScaleFactor) " +
-                  "window=\(window.windowNumber) level=\(window.level.rawValue) renderer=live-glb")
+                  "window=\(window.windowNumber) level=\(window.level.rawValue) renderer=\(Emblem.renderer)")
             fflush(stdout)
             windows.append(window)
             views.append(view)

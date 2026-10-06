@@ -1,17 +1,30 @@
 #!/usr/bin/env bash
 # slab-video [--playlist] <file.mp4> [more.mov …] — open videos in slab's
 # minimal player. Without --playlist, appends absolute paths to
-# $SLAB_HOME/state/open-video and raises one chromeless AVKit panel per movie.
-# With --playlist, writes one atomic ordered queue request and raises one panel
-# that advances through every movie (left/right changes tracks). Re-asking for
-# an open source brings its window forward and restarts playback. Single-video
-# panels watch the file and reload on rewrite. See
-# slab/menubar-swift/Sources/SlabMenubar/VideoViewer.swift.
+# $SLAB_HOME/state/open-video and raises one chromeless AVKit panel per movie;
+# a second open panel grids the wall automatically. With --playlist, writes one
+# atomic ordered queue request and raises one panel with the queue listed
+# beside the picture (click a row to jump; left/right also change tracks; it
+# advances on its own). Re-asking for an open source brings its window forward
+# and restarts playback. Single-video panels watch the file and reload on
+# rewrite.
+#
+#   slab-video --close-all   close every open panel
+#   slab-video --tile        re-grid the open panels
+#
+# See slab/menubar-swift/Sources/SlabMenubar/VideoViewer.swift.
 set -euo pipefail
 
 SLAB_HOME="${SLAB_HOME:-$HOME/.local/share/slab}"
 REQUEST="$SLAB_HOME/state/open-video"
 PLAYLIST_REQUESTS="$SLAB_HOME/state/open-video-playlists"
+
+mkdir -p "$SLAB_HOME/state" "$PLAYLIST_REQUESTS"
+
+case "${1:-}" in
+    --close-all) touch "$SLAB_HOME/state/close-video"; exit 0 ;;
+    --tile)      touch "$SLAB_HOME/state/tile-video"; exit 0 ;;
+esac
 
 playlist=false
 if [ "${1:-}" = "--playlist" ]; then
@@ -20,11 +33,9 @@ if [ "${1:-}" = "--playlist" ]; then
 fi
 
 if [ $# -eq 0 ]; then
-    echo "usage: slab-video [--playlist] <file.mp4> [more.mov …]" >&2
+    echo "usage: slab-video [--playlist] <file.mp4> [more.mov …] | --close-all | --tile" >&2
     exit 1
 fi
-
-mkdir -p "$SLAB_HOME/state" "$PLAYLIST_REQUESTS"
 
 # Which Claude session asked? Walk up the process tree to the claude pid
 # (same loop as claude-prompt-log.sh) and match it against the live

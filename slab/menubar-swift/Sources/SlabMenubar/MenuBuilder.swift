@@ -938,6 +938,7 @@ enum MenuBuilder {
                 sub.addItem(row)
             }
             sub.addItem(.separator())
+            sub.addItem(item("Tile all", selector: #selector(AppDelegate.tileAllVideos), target: target))
             sub.addItem(item("Close all", selector: #selector(AppDelegate.closeAllVideos), target: target))
         }
         parent.submenu = sub
