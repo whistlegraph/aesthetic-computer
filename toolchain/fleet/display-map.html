@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Desktop map</title>
+<style>
+  :root { color-scheme: dark; font: 16px/1.4 system-ui, sans-serif; background:#111415; color:#f2f4f1 }
+  * { box-sizing: border-box }
+  body { margin:0; padding:32px; max-width:1500px; margin-inline:auto }
+  header { display:flex; gap:16px; align-items:center; flex-wrap:wrap }
+  h1 { font-size:28px; font-weight:600; margin:0 auto 0 0 }
+  button,input { font:inherit; color:inherit; border:1px solid #515b56; background:#222a26; border-radius:6px; padding:9px 14px }
+  button { cursor:pointer } button:disabled { opacity:.4; cursor:default }
+  button.primary { background:#bbf77d; border-color:#bbf77d; color:#17220d; font-weight:600 }
+  #note { color:#bac4bd; margin:14px 0 20px }
+  #map { display:block; width:100%; height:min(64vh,690px); min-height:320px; background:#191e1b; border-radius:12px; touch-action:none }
+  .panel { cursor:grab; outline:none } .panel:active { cursor:grabbing }
+  .panel rect { fill:#303f37; stroke:#677c6d; stroke-width:2 }
+  .panel.selected rect,.panel:focus rect { fill:#3b533d; stroke:#bbf77d; stroke-width:4 }
+  .panel text { fill:#f2f4f1; text-anchor:middle; pointer-events:none; user-select:none }
+  .panel .number { font-size:92px; font-weight:650 }
+  .panel .address { font-size:23px; fill:#d3e4d4 }
+  form { display:flex; align-items:end; gap:12px; flex-wrap:wrap; margin:22px 0 12px }
+  label { display:flex; flex-direction:column; gap:5px; font-size:13px; color:#b9c7bf }
+  input { width:102px; font-size:16px; color:#f2f4f1 }
+  #address { width:190px }
+  #selected { font-weight:600; font-size:20px; padding-bottom:9px; margin-right:10px }
+  #status { min-height:24px; color:#bbf77d }
+  #connections { color:#bac4bd; font-variant-numeric:tabular-nums; margin-top:8px }
+  .help { color:#8fa496; font-size:14px }
+  @media(max-width:650px) { body{padding:18px} #map{height:48vh} h1{width:100%} }
+</style>
+<header><h1>Desktop map</h1><button id="reset">Reset</button><button id="save" class="primary">Save map</button></header>
+<p id="note"></p>
+<svg id="map" role="group" aria-label="Monitor arrangement. Select a screen to edit its position and address."></svg>
+<form id="editor">
+  <div id="selected"></div>
+  <label>Machine:display<input id="address" placeholder="neo:1" autocomplete="off" list="known-displays"></label>
+  <datalist id="known-displays"></datalist>
+  <label>X<input id="x" type="number" step="1" required></label>
+  <label>Y<input id="y" type="number" step="1" required></label>
+  <label>Width<input id="width" type="number" min="1" step="1" required></label>
+  <label>Height<input id="height" type="number" min="1" step="1" required></label>
+  <button type="submit">Update</button>
+</form>
+<div id="status" role="status" aria-live="polite"></div>
+<div id="connections"></div>
+<p class="help">Drag to arrange; nearby edges snap together. Arrow keys move the selected screen (Shift = 10). These are seat coordinates. Saving exports JSON; it does not change displays or pointer routing.</p>
+<script>
+const initial = /*SEAT_DATA*/ null;
+let seat = structuredClone(initial), selected = seat.screens[0].number, drag;
+const $ = id => document.getElementById(id), ns = 'http://www.w3.org/2000/svg';
+$('note').textContent = seat.note || 'Estimated physical arrangement. Assign each number to a machine and display.';
+for (const d of seat.availableDisplays || []) { const option=document.createElement('option');option.value=d.address;option.label=`${d.name} · ${d.width} × ${d.height}`;$('known-displays').append(option); }
+function element(tag, attributes) { const e=document.createElementNS(ns,tag); for(const [k,v] of Object.entries(attributes))e.setAttribute(k,v);return e; }
+function current() { return seat.screens.find(s=>s.number===selected); }
+function fit() {
+  const left=Math.min(...seat.screens.map(s=>s.x)), top=Math.min(...seat.screens.map(s=>s.y));
+  const right=Math.max(...seat.screens.map(s=>s.x+s.width)), bottom=Math.max(...seat.screens.map(s=>s.y+s.height));
+  $('map').setAttribute('viewBox',`${left-30} ${top-30} ${right-left+60} ${bottom-top+60}`);
+}
+function edges() {
+  const out=[];
+  for(const a of seat.screens)for(const b of seat.screens)if(a!==b){
+    let side,lo,hi,start,size,startB,sizeB;
+    if(a.x+a.width===b.x||b.x+b.width===a.x){side=a.x+a.width===b.x?'right':'left';lo=Math.max(a.y,b.y);hi=Math.min(a.y+a.height,b.y+b.height);start=a.y;size=a.height;startB=b.y;sizeB=b.height;}
+    else if(a.y+a.height===b.y||b.y+b.height===a.y){side=a.y+a.height===b.y?'down':'up';lo=Math.max(a.x,b.x);hi=Math.min(a.x+a.width,b.x+b.width);start=a.x;size=a.width;startB=b.x;sizeB=b.width;}
+    if(side&&hi>lo)out.push({from:a.number,to:b.number,side,source:[(lo-start)/size,(hi-start)/size],destination:[(lo-startB)/sizeB,(hi-startB)/sizeB]});
+  }
+  return out;
+}
+function invalid() {
+  const addresses=new Set();
+  for(const a of seat.screens){
+    if(!['x','y','width','height'].every(k=>Number.isInteger(a[k])&&Math.abs(a[k])<=100000)||a.width<=0||a.height<=0)return 'Use positive sizes and integer coordinates within ±100000.';
+    if(a.address){if(!/^[a-zA-Z0-9][a-zA-Z0-9.-]*:[1-9][0-9]*$/.test(a.address))return 'Use an address such as neo:1.';if(addresses.has(a.address))return 'Each address can be assigned once.';addresses.add(a.address);}
+    for(const b of seat.screens)if(a.number<b.number&&Math.min(a.x+a.width,b.x+b.width)>Math.max(a.x,b.x)&&Math.min(a.y+a.height,b.y+b.height)>Math.max(a.y,b.y))return `Screens ${a.number} and ${b.number} overlap.`;
+  }
+  return '';
+}
+function details() {
+  const s=current();$('selected').textContent=`Screen ${s.number}`;
+  for(const k of ['address','x','y','width','height'])$(k).value=s[k]??'';
+  const error=invalid();$('save').disabled=!!error;
+  $('status').textContent=error|| (seat.screens.some(s=>!s.address)?'Machine assignments are still needed.':'Ready to save.');
+  $('connections').textContent=edges().filter(e=>e.from===selected).map(e=>`${e.side} ${Math.round(e.source[0]*100)}–${Math.round(e.source[1]*100)}% → ${e.to}`).join('   ·   ')||'No touching edges.';
+}
+function draw() {
+  $('map').replaceChildren();
+  for(const s of seat.screens){
+    const g=element('g',{class:`panel${s.number===selected?' selected':''}`,tabindex:0,role:'button','aria-label':`Screen ${s.number}, ${s.address||'unassigned'}`,transform:`translate(${s.x} ${s.y})`});g.dataset.number=s.number;
+    g.append(element('rect',{x:4,y:4,width:Math.max(1,s.width-8),height:Math.max(1,s.height-8),rx:10}));
+    const number=element('text',{x:s.width/2,y:s.height/2+15,class:'number'});number.textContent=s.number;g.append(number);
+    const address=element('text',{x:s.width/2,y:s.height/2+59,class:'address'});address.textContent=s.address||'Unassigned';g.append(address);
+    $('map').append(g);
+  }
+  details();
+}
+function point(event){return new DOMPoint(event.clientX,event.clientY).matrixTransform($('map').getScreenCTM().inverse());}
+$('map').addEventListener('pointerdown',event=>{
+  const g=event.target.closest('.panel');if(!g)return;
+  selected=Number(g.dataset.number);const p=point(event),s=current();drag={x:p.x-s.x,y:p.y-s.y,id:event.pointerId};
+  $('map').setPointerCapture(event.pointerId);draw();event.preventDefault();
+});
+$('map').addEventListener('pointermove',event=>{
+  if(!drag||drag.id!==event.pointerId)return;const p=point(event),s=current();
+  s.x=Math.round(p.x-drag.x);s.y=Math.round(p.y-drag.y);
+  let bestX=13,bestY=13,dx=0,dy=0;
+  for(const b of seat.screens)if(b!==s){
+    for(const difference of [b.x-s.x,b.x+b.width-s.x,b.x-s.width-s.x,b.x+b.width-s.width-s.x])if(Math.abs(difference)<bestX){bestX=Math.abs(difference);dx=difference;}
+    for(const difference of [b.y-s.y,b.y+b.height-s.y,b.y-s.height-s.y,b.y+b.height-s.height-s.y])if(Math.abs(difference)<bestY){bestY=Math.abs(difference);dy=difference;}
+  }
+  s.x+=dx;s.y+=dy;draw();
+});
+function endDrag(){if(!drag)return;drag=null;fit();}
+$('map').addEventListener('pointerup',endDrag);$('map').addEventListener('pointercancel',endDrag);
+$('map').addEventListener('keydown',event=>{
+  const g=event.target.closest('.panel');if(!g)return;selected=Number(g.dataset.number);
+  const moves={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
+  if(moves[event.key]){const [x,y]=moves[event.key],step=event.shiftKey?10:1;current().x+=x*step;current().y+=y*step;event.preventDefault();fit();draw();$('map').querySelector(`[data-number="${selected}"]`).focus();}
+  else if(event.key==='Enter'||event.key===' '){event.preventDefault();draw();$('address').focus();}
+});
+$('editor').addEventListener('submit',event=>{
+  event.preventDefault();const s=current();s.address=$('address').value.trim()||null;
+  for(const k of ['x','y','width','height'])s[k]=Number($(k).value);
+  if(['x','y','width','height'].every(k=>Number.isFinite(s[k])))fit();draw();
+});
+$('reset').onclick=()=>{seat=structuredClone(initial);selected=seat.screens[0].number;fit();draw();};
+$('save').onclick=()=>{
+  if(invalid())return;const data={...seat,edges:edges()},url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)+'\n'],{type:'application/json'}));
+  const a=document.createElement('a');a.href=url;a.download='desktop-map.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
+fit();draw();
+</script>
+</html>

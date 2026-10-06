@@ -48,6 +48,49 @@ receiver over authenticated SSH; see [AC keyboard remote](../../../slab/menubar-
 for the Command–Option–L shortcut and per-host configuration. Helpers are
 installed separately; the image builders do not install these binaries yet.
 
+## Starfighter
+
+`starfighter` automatically flies and fights in third person. A/RT fires,
+B shields, X launches a missile, RB boosts, LB rolls, Y restarts, and Menu
+switches autopilot. Manual input overrides autopilot for four seconds.
+Keyboard: arrows/Space, B/X/Shift/L, R/P; M mutes immediately; Escape opens
+prompt. Audio uses at most 16 sine voices for descending lasers, bass
+explosions and a 96 BPM score. Rocks are visual geometry, without collisions.
+
+`api.raycast(shapes, count, uniforms, depth)` draws lit ellipsoids into the
+native framebuffer. Reuse Float64Array shape/uniform buffers and a
+Float32Array depth buffer. The layouts are documented in `src/raycast.h`;
+the binding checks dimensions, lengths, finite values and overlapping inputs.
+It retains backing buffers only during the call. At 640×360, the piece casts
+320×180 environment rays and full-resolution ship rays, with per-pixel depth
+compositing. Older runtimes use the adaptive JavaScript renderer.
+
+A 35-second live sample with audio measured 1–3 ms raycast time (median 2 ms),
+56–60.2 FPS (median 60), and 1–9 active voices. The sample is evidence for this
+device and scene, not a guaranteed frame rate. C tests cover intersections,
+occlusion, clipping and framebuffer stride; live binding probes reject short,
+wrong-size, nonfinite and overlapping arrays. Run the model/audio tests with
+`node --test tests/starfighter.test.mjs` and the renderer test with
+`cc -O2 -Wall -Wextra -Werror tests/raycast.c -lm -o /tmp/raycast-test`.
+
+The native prompt now uses GNU Unifont at 8×16 with 18-pixel line spacing.
+
+## Bunny Hop
+
+`bunny-hop` is a 3D platformer with a camera that follows and swings around
+the route, lifting during jumps. Water shadows anchor turtles and trees; a
+depth-tested bunny shadow marks its landing spot. Controls are D-pad plus A
+only (arrows/Space on a keyboard); hold A for a higher hop. Autoplay starts
+immediately, manual input takes over, and eight idle seconds resume the demo.
+Visit twelve turtle backs to reach Fia's island. Falling returns the bunny to
+its last turtle. A restarts after winning; the demo also restarts automatically.
+
+Orchard apples grow sequentially, ripen at seven seconds and fall at twelve.
+Occasional birds land and shake ripe apples down early. Fruit lands on the
+turtle shells and can be collected. The demo hops in place at orchard turtles.
+Run the six gameplay/fruit checks with `node --test tests/bunny-hop.test.mjs`.
+The piece needs the native `api.raycast` build installed during this session.
+
 ## Pieces
 
 - `little-platformer`: side-scrolling physics at a fixed 120 Hz simulation

@@ -12,8 +12,8 @@
 # bar for the live thread) and just flip its state to awaiting.
 #   others > 0 → N distinct ascending pentatonic beeps (capped at 8).
 #   others = 0 → "all done" chime (lid open) OR TTS "i'm tired" with fade-out
-#                tail → `pmset sleepnow` (lid closed: stops ambient first, so
-#                the transition to sleep is a gentle dissolve instead of a cut).
+#                tail → automatic sleep (lid closed, unless manually held awake;
+#                stops ambient first so the transition is a gentle dissolve).
 # A Claude that Aesel is driving is that session's engine, not a rock of its
 # own; Aesel keeps the marker, so this hook has nothing to say. (EASEL_ is the
 # name an Aesel from before the rename exports.)
@@ -114,13 +114,14 @@ if [[ -e "$MUTE_FLAG" ]]; then
     # daemon-restarted pad doesn't sneak back on while muted.
     stop_ambient
     if (( others == 0 )) && [[ "$lid" == "Yes" ]]; then
-        "$SLAB_BIN/claude-sleep" now
+        "$SLAB_BIN/claude-sleep" idle
     fi
 elif (( others == 0 )); then
     if [[ "$lid" == "Yes" ]]; then
         stop_ambient
-        tired_stinger
-        "$SLAB_BIN/claude-sleep" now
+        # A manual stay-awake choice also suppresses the sleep announcement.
+        [[ -f "$SLAB_HOME/state/stay-awake" ]] || tired_stinger
+        "$SLAB_BIN/claude-sleep" idle
     else
         # Lid open + everything settled → Jeffrey "i'm all done".
         done_stinger

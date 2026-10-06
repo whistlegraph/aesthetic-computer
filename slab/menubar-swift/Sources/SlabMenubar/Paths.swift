@@ -149,6 +149,7 @@ enum Paths {
     static var daemonPlist: String { "\(home)/Library/LaunchAgents/computer.slab.daemon.plist" }
     static var menubarPlist: String { "\(home)/Library/LaunchAgents/computer.slab.menubar.plist" }
     static var claudeSleep: String { "\(slabBin)/claude-sleep" }
+    static var stayAwakeFlag: String { "\(slabHome)/state/stay-awake" }
 
     /// "Start Call" recorder + state file. The shell wrapper at
     /// slab/bin/slab-call-record owns the ffmpeg subprocess and writes the

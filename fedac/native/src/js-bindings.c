@@ -51,6 +51,7 @@ static JSValue js_usb_midi_all_notes_off(JSContext *ctx, JSValueConst this_val, 
 static JSClassID form_class_id = 0;
 static JSClassID painting_class_id = 0;
 
+#include "raycast-js.h"
 #include "screen-triangle.h"
 #include "screen-gpu.h"
 #include "comic-font.h"
@@ -8516,6 +8517,7 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
 
     // painting(w, h, callback) — creates a stub painting object with width/height
     JS_SetPropertyStr(ctx, api, "painting", JS_NewCFunction(ctx, js_painting, "painting", 3));
+    JS_SetPropertyStr(ctx, api, "raycast", JS_NewCFunction(ctx, js_raycast, "raycast", 4));
 
     // paste, page (real implementations), layer, sharpen (stubs)
     JS_SetPropertyStr(ctx, api, "paste", JS_NewCFunction(ctx, js_paste, "paste", 7));

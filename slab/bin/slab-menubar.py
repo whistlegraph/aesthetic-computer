@@ -26,6 +26,7 @@ SLAB_BIN = Path(os.environ.get("SLAB_BIN", os.path.expanduser("~/.local/bin")))
 
 ACTIVE_DIR = SLAB_HOME / "state" / "active-prompts"
 SUBAGENT_DIR = SLAB_HOME / "state" / "active-subagents"
+STAY_AWAKE_FLAG = SLAB_HOME / "state" / "stay-awake"
 AMBIENT_FLAG = Path("/tmp/slab-ambient-active")
 LID_LOG = SLAB_HOME / "logs" / "lidalive.log"
 DAEMON_PLIST = Path.home() / "Library/LaunchAgents/computer.slab.daemon.plist"
@@ -211,7 +212,7 @@ class SlabApp(rumps.App):
         self.status_item.title = f"Status: {status}"
         self.prompts_item.title = f"Prompts in flight: {prompts}"
         self.subs_item.title = f"Subagents in flight: {subs}"
-        self.awake_item.state = 1 if sd else 0
+        self.awake_item.state = 1 if STAY_AWAKE_FLAG.exists() else 0
         self.refresh_tailnet()
         self.refresh_mail()
 
@@ -263,7 +264,7 @@ class SlabApp(rumps.App):
             rumps.notification("slab", "Mail sync", "No sync log yet.")
 
     def toggle_awake(self, sender):
-        cmd = "auto" if sender.state else "awake"
+        cmd = "auto" if STAY_AWAKE_FLAG.exists() else "awake"
         subprocess.run([str(SLAB_BIN / "claude-sleep"), cmd], check=False)
 
     def sleep_now(self, _):

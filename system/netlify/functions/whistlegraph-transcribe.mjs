@@ -1,6 +1,6 @@
 import {createHash} from 'node:crypto';
 import {wavInput,createTranscriber} from '../../backend/whistlegraph-whisper.mjs';
-import {speechBilling,speechRequestKey} from '../../backend/whistlegraph-speech-billing.mjs';
+import {speechBilling,speechRequestKey,ensureSpeechBillingIndexes} from '../../backend/whistlegraph-speech-billing.mjs';
 const reply=(statusCode,value)=>({statusCode,headers:{'Content-Type':'application/json','Cache-Control':'private, no-store','Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'Authorization,Content-Type'},body:JSON.stringify(value)});
 export function createHandler({authorize,getHandleOrEmail,billing,transcribe,enabled=true,now=Date.now}) {
   // Retry results live only in memory for one minute. Durable receipts contain
@@ -46,6 +46,7 @@ export async function handler(event) {
   if(!live)live=(async()=>{
     const [{authorize,getHandleOrEmail},{connect}]=await Promise.all([import('../../backend/authorization.mjs'),import('../../backend/database.mjs')]);
     const {db}=await connect(),key=process.env.WHISTLEGRAPH_TRANSCRIPTION_KEY;
+    await ensureSpeechBillingIndexes(db);
     return createHandler({authorize,getHandleOrEmail,billing:speechBilling(db),transcribe:createTranscriber({apiKey:key}),enabled:!!key});
   })().catch(error=>{live=null;throw error;});
   try{return await(await live)(event);}catch{return reply(503,{error:'OpenAI speech unavailable'});}

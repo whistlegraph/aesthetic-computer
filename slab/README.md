@@ -62,7 +62,7 @@ Active work is tracked as marker files in two directories:
 
 The daemon treats the total file count as "active work". When the Stop
 hook runs with zero remaining markers and the lid is closed, ambient
-stops, the all-done chime plays, and the Mac sleeps.
+stops. Unless manually held awake, the sleep chime plays and the Mac sleeps.
 
 ## What it does
 
@@ -76,8 +76,8 @@ stops, the all-done chime plays, and the Mac sleeps.
 | Subagent finishes (Task tool) | single ping |
 | Claude Stop, **other active work remaining** | N ascending beeps (C6 D6 E6 G6 A6 C7 D7 E7) |
 | Claude Stop, all work done, lid open | "all-done" chime |
-| Claude Stop, all work done, lid closed | TTS "i'm tired" with cosine fade-out tail → `pmset sleepnow` |
-| User submits new prompt | touches active-prompts marker, sets `disablesleep=1` |
+| Claude Stop, all work done, lid closed | Sleep announcement and automatic sleep, unless manually held awake |
+| User submits new prompt | touches active-prompts marker, enables temporary sleep protection |
 
 ## Install
 
@@ -165,13 +165,20 @@ prompts are the two things no check here can prove.
 ## Usage
 
 ```sh
-claude-sleep awake     # disable all sleep (stay awake with lid closed)
-claude-sleep auto      # restore normal sleep behavior
-claude-sleep now       # sleep the Mac immediately
-claude-sleep status    # show SleepDisabled state
+claude-sleep awake     # stay awake until explicitly released
+claude-sleep auto      # release the hold and allow normal sleep
+claude-sleep now       # release the hold and sleep immediately
+claude-sleep status    # show SleepDisabled and the manual StayAwake preference
 ```
 
 Before using lid-closed ambient mode: `claude-sleep awake`. The first time the mic listener runs you'll get a macOS microphone permission prompt.
+
+The menu's **Stay awake (lid closed)** choice is saved in
+`$SLAB_HOME/state/stay-awake` and reapplied when the menubar starts or the Mac
+wakes. Automatic completion and delayed sleep respect this choice. Hooks use
+`claude-sleep work` for temporary protection and `claude-sleep idle` for automatic
+sleep; neither changes the manual preference. `auto` and **Sleep now** explicitly
+release it. Transitions are recorded in `$SLAB_HOME/logs/sleep-control.log`.
 
 ## Uninstall
 

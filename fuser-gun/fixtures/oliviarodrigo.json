@@ -1,0 +1,92 @@
+{
+  "_note": "HAND-WRITTEN FIXTURE. A person is not a product, so the gun never calls the API for a pop star's account; it works from the objects they sell. Captions below are our descriptions of public objects, NOT the real post captions. Counts are null because nothing here came from the API. Permalinks are null: a human confirms the actual post URL before any board is built.",
+  "profile": {
+    "username": "oliviarodrigo",
+    "name": "Olivia Rodrigo",
+    "kind": "creator",
+    "address_as": "Olivia",
+    "biography": null,
+    "website": "https://www.oliviarodrigo.com",
+    "followers_count": null,
+    "media_count": null,
+    "contact": "(management or label business contact from the official site; never a DM)"
+  },
+  "media": [
+    {
+      "id": "fixture-guts-vinyl",
+      "media_type": "IMAGE",
+      "fixture_kind": "product",
+      "product": "GUTS vinyl",
+      "caption": "Fixture: the GUTS LP, purple record half out of its sleeve, flat-lay on a plain surface. Sleeve art and lettering as published. New pressing, available in the official store.",
+      "permalink": null,
+      "media_url": null,
+      "like_count": null,
+      "comments_count": null,
+      "timestamp": "2026-06-01T00:00:00+0000",
+      "aspect": "1:1"
+    },
+    {
+      "id": "fixture-sour-vinyl",
+      "media_type": "IMAGE",
+      "fixture_kind": "product",
+      "product": "SOUR vinyl",
+      "caption": "Fixture: the SOUR LP on a table, sleeve and record, product-only shot. Edition available in the shop.",
+      "permalink": null,
+      "media_url": null,
+      "like_count": null,
+      "comments_count": null,
+      "timestamp": "2025-11-01T00:00:00+0000",
+      "aspect": "4:5"
+    },
+    {
+      "id": "fixture-tour-hoodie",
+      "media_type": "CAROUSEL_ALBUM",
+      "fixture_kind": "product",
+      "product": "GUTS World Tour hoodie",
+      "caption": "Fixture: tour merch flat-lay, hoodie and tee with the tour print, no model wearing them. Merch restock, link in bio.",
+      "permalink": null,
+      "media_url": null,
+      "like_count": null,
+      "comments_count": null,
+      "timestamp": "2026-03-01T00:00:00+0000",
+      "aspect": "4:5"
+    },
+    {
+      "id": "fixture-guts-cd",
+      "media_type": "IMAGE",
+      "fixture_kind": "product",
+      "product": "GUTS CD",
+      "caption": "Fixture: the GUTS CD, jewel case and booklet, product-only.",
+      "permalink": null,
+      "media_url": null,
+      "like_count": null,
+      "comments_count": null,
+      "timestamp": "2025-09-01T00:00:00+0000",
+      "aspect": "1:1"
+    },
+    {
+      "id": "fixture-portrait",
+      "media_type": "IMAGE",
+      "fixture_kind": "person",
+      "caption": "Fixture: a portrait of the artist. A person is never a generation input; this row exists to show the ranker demoting it.",
+      "permalink": null,
+      "media_url": null,
+      "like_count": null,
+      "comments_count": null,
+      "timestamp": "2026-07-01T00:00:00+0000",
+      "aspect": "4:5"
+    },
+    {
+      "id": "fixture-concert-reel",
+      "media_type": "VIDEO",
+      "fixture_kind": "person",
+      "caption": "Fixture: on stage tonight with the crowd. A concert reel is people and motion, never a source.",
+      "permalink": null,
+      "media_url": null,
+      "like_count": null,
+      "comments_count": null,
+      "timestamp": "2026-08-01T00:00:00+0000",
+      "aspect": "9:16"
+    }
+  ]
+}
