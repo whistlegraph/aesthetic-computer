@@ -110,7 +110,7 @@ async function stripeClient() {
   const key = dev ? process.env.STRIPE_API_TEST_PRIV_KEY : process.env.STRIPE_API_PRIV_KEY;
   if (!key) return null;
   const { default: Stripe } = await import("stripe");
-  const stripe = Stripe(key);
+  const stripe = new Stripe(key);
   return {
     async forget(address) {
       const customers = await stripe.customers.list({ email: address, limit: 100 });
