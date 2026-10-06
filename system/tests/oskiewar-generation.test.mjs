@@ -154,3 +154,33 @@ test('withdrawal uses the signed-in subject and works without a generation token
     assert.equal(sent.frozen_fields.operation_kind,'WITHDRAW_CONSENT');
   }finally{globalThis.fetch=originalFetch;for(const key of ['REGARDE_GATEWAY_URL','REGARDE_SUBJECT_SALT','REGARDE_GATEWAY_TOKEN','OPENAI_API_KEY']){if(saved[key]===undefined)delete process.env[key];else process.env[key]=saved[key];}}
 });
+
+test('shared character follows the game bones without mutating physics or restoring missing limbs', async () => {
+  const { fighterParts, poseFighter, previewPose } = await import('../../xbox/live/oskiewar-fighter.mjs');
+  const a = validateFighter({version:1,recipe:RECIPE,hash:'a'.repeat(64),appearance});
+  const model = fighterParts(a), world = previewPose(), before = structuredClone(world);
+  // Combat changes role prefixes while preserving the anatomical part.
+  world.segments.find(b=>b.role==='left-thigh').role='lead-thigh';
+  world.segments.find(b=>b.role==='right-thigh').role='rear-thigh';
+  world.segments.find(b=>b.role==='left-upper-arm').role='attack-upper-arm';
+  before.segments = structuredClone(world.segments);
+  const instances = poseFighter(model, world);
+  assert.equal(instances.length, 16);
+  assert.equal(instances.find(i=>i.name==='head').faces,model.parts.head);
+  assert.deepEqual(world,before);
+  const missing = poseFighter(model,world,{headless:true,hasPart:part=>part!=='left-arm'});
+  assert.equal(missing.length,12);
+  assert.ok(!missing.some(i=>i.name==='head'));
+  const arm = world.segments.find(b=>b.role==='right-forearm');
+  Object.assign(arm,{x2:arm.x1,y2:arm.y1,z2:arm.z1+32});
+  const posed = poseFighter(model,world,{yaw:0});
+  for(const {axes,faces,origin} of posed) {
+    assert.ok(axes.every(v=>Object.values(v).every(Number.isFinite)));
+    assert.ok(faces.every(f=>f.points.flat().every(Number.isFinite)));
+    assert.ok([origin.x,origin.y,origin.z].every(Number.isFinite));
+  }
+  const rightForearm = posed.filter(i=>i.name==='forearm')[1];
+  assert.deepEqual(rightForearm.axes[1],{x:0,y:0,z:32});
+  assert.ok(Math.hypot(...Object.values(rightForearm.axes[0]))>.99);
+  assert.equal(fighterParts(a),model,'geometry is cached across animation frames');
+});
