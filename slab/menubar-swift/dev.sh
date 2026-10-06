@@ -51,7 +51,7 @@ debug_bin() {
     local a="${DIR}/.build/out/Products/Debug/slab-menubar-swift" b="${DIR}/.build/debug/slab-menubar-swift"
     if [[ -x "$a" && ( ! -x "$b" || "$a" -nt "$b" ) ]]; then echo "$a"
     elif [[ -x "$b" ]]; then echo "$b"
-    else echo "$(cd "${DIR}" && swift build -c debug --show-bin-path)/slab-menubar-swift"; fi
+    else echo "$(cd "${DIR}" && /usr/bin/swift build -c debug --show-bin-path)/slab-menubar-swift"; fi
 }
 
 # 0 relaunched · 1 failed · 75 the host's performance guard deferred the build

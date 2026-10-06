@@ -142,6 +142,7 @@ const EXPORT = [
 // future provider credentials out of this download.
 const PRIVATE_EXPORT = [
   ["oskiewar-fighters", "owner", ["fighter", "acceptedAt", "expiresAt"]],
+  ["nopaint-move-requests", "user", ["_id", "model", "braincells", "charged", "free", "paid", "status", "startedAt", "finishedAt"]],
   ["whistlegraph-speech-requests", "user", ["_id", "braincells", "charged", "free", "paid", "status", "startedAt", "finishedAt"]],
   ["whistlegraph-iap-accounts", "_id", ["createdAt"]],
   ["whistlegraph-iap-purchases", "user", [
@@ -334,6 +335,7 @@ export async function handleQuarantined(db, handle, now = new Date()) {
 // [collection, query(sub, ctx)]
 const DELETE = [
   ["whistlegraph-speech-requests", (sub) => ({ user: sub })],
+  ["nopaint-move-requests", (sub) => ({ user: sub })],
   ["paintings", (sub) => ({ user: sub })],
   ["pieces", (sub) => ({ user: sub })],
   ["moods", (sub) => ({ user: sub })],

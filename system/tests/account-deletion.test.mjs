@@ -734,3 +734,18 @@ test("speech billing receipts export without audio digests and disappear with th
   await runDueDeletions(deps,{now:later(GRACE_MS)});
   assert.deepEqual(db.all("whistlegraph-speech-requests"),[seed["whistlegraph-speech-requests"][1]]);
 });
+
+test("No Paint billing exports exclude image digests and deletion preserves other accounts", async () => {
+  const seed = world();
+  seed["nopaint-move-requests"] = [
+    {_id:"move-mine",user:SUB,model:"test-model",braincells:4000,charged:4000,status:"complete",hash:"private-painting-digest",startedAt:T0},
+    {_id:"move-other",user:OTHER,braincells:4000,status:"complete"},
+  ];
+  const db=fakeDb(seed),deps=fakeDeps(db);
+  const copy=await exportAccount(deps,{user,now:T0});
+  assert.deepEqual(copy.records["nopaint-move-requests"],[{_id:"move-mine",model:"test-model",braincells:4000,charged:4000,status:"complete",startedAt:T0}]);
+  assert.ok(!JSON.stringify(copy).includes("private-painting-digest"));
+  await requestDeletion(deps,{user,now:T0});
+  await runDueDeletions(deps,{now:later(GRACE_MS)});
+  assert.deepEqual(db.all("nopaint-move-requests"),[seed["nopaint-move-requests"][1]]);
+});
