@@ -91,6 +91,17 @@ Legacy piece records without an extension retain the existing JavaScript
 default. Both upload paths now preserve the extension for future records.
 Rate limiting and moderation tools for anonymous replies remain follow-up work.
 
+## Posting from a terminal
+
+`ac mime <file> ["caption"]` posts a file as an opening post under the
+signed-in @handle (`~/.ac-token`), on the board of its MIME type, and prints
+`https://mime.ac/#/t/<code>`. `AESEL_DRY_RUN=1` shows what would be posted.
+In Aesel, the media name on the status line opens a list with
+"post to mime.ac", which asks once more before posting. The client is
+`aesel/src/mime.mjs`; it checks size and type before any bytes leave. Files
+over 8 MiB are refused until opening posts can carry a storage URL rather
+than inline bytes.
+
 ## Validation
 
 Use a disposable loopback MongoDB; the tests refuse remote hosts and create

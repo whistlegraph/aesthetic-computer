@@ -65,6 +65,7 @@ enum DeskflowSpatialNav {
 
         let carryZoom = ZoomLens.isEngaged
         let zoomRevision = ZoomLens.revision
+        let startedAt = Date().timeIntervalSince1970
         DispatchQueue.global(qos: .userInteractive).async {
             // The controller acknowledges as soon as its edge moves are queued.
             // Queue the destination immediately too, with only enough delay for
@@ -76,6 +77,7 @@ enum DeskflowSpatialNav {
                 "alignment": Double(alignment),
                 "delayMs": max(10, (path.count - 1) * 28 + 10),
                 "zoom": carryZoom,
+                "startedAt": startedAt,
             ])
             if accepted && carryZoom {
                 DispatchQueue.main.async {
@@ -94,8 +96,14 @@ enum DeskflowSpatialNav {
         let alignment = CGFloat((body["alignment"] as? NSNumber)?.doubleValue ?? 0.5)
         let zoom = body["zoom"] as? Bool ?? false
         let delay = min(max((body["delayMs"] as? NSNumber)?.doubleValue ?? 0, 0), 250) / 1000
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            WindowNav.accept(direction, alignment: alignment, zoom: zoom)
+        DispatchQueue.main.async {
+            let revision = ZoomEscape.revision
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                let canZoom = ZoomEscape.allowsRemoteZoom(
+                    startedAt: (body["startedAt"] as? NSNumber)?.doubleValue,
+                    revision: revision)
+                WindowNav.accept(direction, alignment: alignment, zoom: zoom && canZoom)
+            }
         }
         return true
     }

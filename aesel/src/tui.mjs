@@ -69,6 +69,7 @@ import { DEFAULT_RUNTIME, runtimeMenu } from "./runtimes.mjs";
 import { SlabSession } from "./slab-session.mjs";
 import { mediaPaths, mediaFile, watchMedia, itemText, mediaChanged } from "./media.mjs";
 import { watchSource } from "./source-watch.mjs";
+import { planMime, postMime, MAX_BYTES } from "./mime.mjs";
 import { Artifacts, MEDIA } from './artifacts.mjs';
 import { desktopSnapshot, readDesktopSession, writeDesktopSession, restoreDesktopEngine, writeDesktopControl, readDesktopIntent } from "./desktop-session.mjs";
 import { archiveThread, replaceWork } from './new-work.mjs';
@@ -1643,6 +1644,8 @@ function openMediaDropdown() {
   if (current && mediaFile(current, cwd)) {
     if (state.media.source === "pinned") items.push({ act: "unpin", label: "  ⊘ unpin", detail: "the card follows the tools again" });
     else items.push({ act: "pin", file: current, label: "  ⦿ pin", detail: "hold it on the card, reload on every write" });
+    // Public, so it asks once more before anything leaves the machine.
+    if (session.handle && (state.media.size || 0) <= MAX_BYTES) items.push({ act: "mime", label: "  ⇪ post to mime.ac", detail: `public, as @${session.handle}` });
     items.push(
       { act: "open", label: "  ↗ open", detail: "in its own app" },
       { act: "reveal", label: "  ⌕ reveal", detail: "in Finder" },
@@ -1653,8 +1656,17 @@ function openMediaDropdown() {
   redraw();
 }
 function chooseMedia(item) {
-  state.dropdown = null;
   const current = state.media?.path;
+  if (item.act === "mime" && current) {
+    state.dropdown = { kind: "media", title: "post to mime.ac?", index: 0, loading: false, items: [
+      { act: "mime-yes", file: current, label: `  ⇪ yes, post ${path.basename(current)}`, detail: `public on mime.ac as @${session.handle}` },
+      { act: "cancel", label: "  cancel", detail: "" },
+    ] };
+    return redraw();
+  }
+  state.dropdown = null;
+  if (item.act === "mime-yes") { void postToMime(item.file); return redraw(); }
+  if (item.act === "cancel") return redraw();
   if (item.file && (!item.act || item.act === "pin")) {
     const media = mediaFile(item.file, cwd);
     if (!media) { addEntry("error", `${path.basename(item.file)} is gone`); return redraw(); }
@@ -1680,6 +1692,22 @@ function chooseMedia(item) {
     flash("path copied");
   }
   return redraw();
+}
+// The confirmed post: the file as an opening post on mime.ac, the thread's
+// address in the transcript, where it can be opened or copied.
+async function postToMime(file) {
+  let plan;
+  try { plan = planMime(file); } catch (error) { addEntry("error", errorText(error)); return redraw(); }
+  flash(`posting ${plan.name} to mime.ac…`, 8000);
+  redraw();
+  try {
+    const posted = await postMime(plan, { session });
+    addEntry("notice", `Posted ${plan.name} to mime.ac as @${session.handle} · ${posted.board}\n${posted.url}`);
+    transcript.event("mime", { path: plan.path, code: posted.code, board: posted.board });
+  } catch (error) {
+    addEntry("error", `mime.ac: ${errorText(error)}`);
+  }
+  redraw();
 }
 function unpinMedia() {
   unwatchMedia();

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { AcServer } from "../src/ac-server.mjs";
+import { PIECE_REPLY } from "../src/piece-prompt.mjs";
 
 // A stand-in for the endpoint: hands back whatever SSE the test wants, so the
 // loop can be driven through paths a live server would be slow or costly to
@@ -163,6 +164,20 @@ test("the guides travel in the prompt, because this bridge has no file tools", a
     sent.system.indexOf(guides) < sent.system.indexOf(instructions),
     "the stable prefix comes first, or the cache breaks on every session",
   );
+});
+
+test("direct GUI AC requests carry the shared reply contract without duplicating caller instructions", async () => {
+  for (const developerInstructions of ["", PIECE_REPLY]) {
+    let sent;
+    const engine = new AcServer({ developerInstructions, token: async () => "tok", fetch: async (_url, options) => {
+      sent = JSON.parse(options.body);
+      return serving(say("Done."))();
+    }});
+    await engine.connect();
+    await engine.startTurn("hi");
+    const prompt = sent.system.map(block => block.text).join("\n");
+    assert.equal(prompt.split(PIECE_REPLY).length - 1, 1);
+  }
 });
 
 test("a completed piece checkpoint saves before the response ends", async (t) => {

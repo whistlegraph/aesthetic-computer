@@ -314,6 +314,27 @@ are not cleared. Claude uses `--bare`; Codex uses `--no-daemon`. The direct
 Aesel target uses its real agent loop with only the inference endpoint replaced.
 For a narrow run: `python3 bin/bench-tui.py --columns 40 --runs 5 --compare`.
 
+To compare actual hosted inference, run from `aesel/`:
+
+```sh
+npm run bench:providers -- --live --task ping --runs 3 --out ../tmp/provider-speed/ping.json
+npm run bench:providers -- --live --task sequence --runs 3 --out ../tmp/provider-speed/sequence.json
+npm run bench:providers -- --live --task coding --runs 3 --out ../tmp/provider-speed/coding.json
+```
+
+`--live` spends the signed-in AC and Codex accounts' allowance. Each sample uses
+a fresh temporary workspace and thread with a synthetic prompt; the report omits
+reply text and credentials. Runs alternate provider order and record connection,
+first text, completion, model, reasoning, usage, and validation. The coding task
+checks an interval merger against seven cases, including input preservation.
+Timeouts and incorrect answers fail instead of counting as fast responses.
+`--targets ac` or `--targets codex` limits the comparison; `--ac-model` and
+`--codex-model` override defaults. Different models, system prompts, tool
+configuration, and cache histories make this a product comparison, not an
+equal-quality model evaluation. With three samples, p95 is simply the maximum.
+Engine events do not measure GUI paint latency. Native launch/control timing has
+a separate [debug-app benchmark](../apple/aesel/README.md).
+
 ## Aesel pro modules
 
 Three dependency-free modules under `src/` carry the pro (terminal harness)

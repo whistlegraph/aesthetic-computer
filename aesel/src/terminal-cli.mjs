@@ -38,7 +38,7 @@ if(['--help','-h','help'].includes(args[0])){
   out(`account: ${session.label()}`);
 }else if(args[0]==='history'){
   await run('history-cli.mjs',args.slice(1));
-}else if(['login','logout','whoami','publish','colors','profile','mood','handle','check'].includes(args[0])){
+}else if(['login','logout','whoami','publish','colors','profile','mood','handle','check','mime'].includes(args[0])){
   await run('cli.mjs',args);
 }else{
   const {BACKENDS,BACKEND_ALIASES}=await import('./backends.mjs');
