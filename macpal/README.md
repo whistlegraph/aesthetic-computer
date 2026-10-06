@@ -70,7 +70,7 @@ One binary, two lives, chosen by launch profile:
 - **(no args)** → the **star**, for Fía, with the **affirmations** plugin (a
   caption @jeffrey can change remotely — see below). This is the App-Store build.
 - **`--profile fuser --name panda --corner TL [--repo …]`** → the **fuser badge**
-  for the fleet (neo / panda / chicken / blueberry): git status, Asana tasks,
+  for the fleet (neo / panda / chicken / blueberry): git status, mission tasks,
   ⚡OVERTIME, and a live terminal pane, via the **fuser** plugin.
 
 Add **`--loopboy <machine>`** to either profile to enter machine-addressed
@@ -103,6 +103,11 @@ sets `{"bounded":true,"progress":0…1}`. Unbounded work never implies a
 completion percentage. Prompt rocks are one input to whole-host state, not the
 identity of the heartbeat itself. Panda/Iris is the first use; the resolver and
 aggregation contract are machine-generic.
+
+Fleet mission rows have no panel background. Their lettering follows the system
+appearance with a small contrasting halo for desktop readability. The provider
+mark sits to the avatar’s left, opposite the resident agent’s contact disc;
+`mission.json` replaces the retired nine-point `tasks` row.
 
 The avatar (float, poses, name wiggle, hover, drag-to-corner, collapse, Menu
 Band sing) lives in `PalCore.swift` and is shared. Everything that stacks

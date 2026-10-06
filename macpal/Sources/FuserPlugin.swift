@@ -1,12 +1,12 @@
 // FuserPlugin — the machine-badge features that stack beneath the pal on the
 // fuser fleet (neo / panda / chicken / blueberry): a color-coded git status
-// line (marquee when it overflows), the machine's current Asana tasks, an
+// line (marquee when it overflows), the machine's current mission, an
 // ⚡OVERTIME alarm + work queue, and a live ANSI "terminal" pane tailing a log.
 //
 // Every input is a plain file polled at runtime, so content updates never need
 // a recompile:
 //   <home>/gitstatus        "<ahead> <behind>" (badge-git-sync.sh) or "local"
-//   <home>/tasks            Asana task lines    (badge-asana-sync.sh on neo)
+//   <home>/tasks            retired; mission.json owns the task list
 //   <home>/mission.json     the machine's mission — emoji + title, agent
 //                           attribution, ✓/▸/○ todo items; each item may add
 //                           detail (sub-line), progress (0…1 bar), flag
@@ -14,7 +14,7 @@
 //                           time of its latest activity, shown as "8m ago",
 //                           falling back to updatedAt). Items are shown
 //                           active → pending → done, done newest first; the
-//                           agent line carries the agent's mark (staged
+//                           avatar carries the provider's mark (staged
 //                           <home>/agent-<name>.png, else the installed
 //                           Claude/Codex app icon, else a built-in vector
 //                           mark) — 0.2.11. Written live by
@@ -57,10 +57,6 @@ final class MissionHeadingField: NSTextField {
             y: (bounds.height - height) / 2, width: area.width, height: height),
             options: [.usesLineFragmentOrigin, .usesFontLeading])
     }
-    override func hitTest(_ p: NSPoint) -> NSView? { nil }
-}
-
-final class MissionSurface: NSVisualEffectView {
     override func hitTest(_ p: NSPoint) -> NSView? { nil }
 }
 
@@ -455,24 +451,21 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
 
     private var statusFile: String { home + "/gitstatus" }
     private var paneLog: String { home + "/pane.log" }
-    private var tasksFile: String { home + "/tasks" }
     private var missionFile: String { home + "/mission.json" }
     private var overtimeFlag: String { home + "/overtime" }
     private var overtimeStatusFile: String { home + "/overtime-status" }
 
     let statusField = MarqueeField()
-    let tasksField = NSTextField(labelWithString: "")
     let overtimeChip = NSTextField(labelWithString: "")
     let overtimeField = NSTextField(labelWithString: "")
-    // Mission block: title + agent attribution + one field per todo item.
+    // Mission block: title + one field per todo item. The provider mark lives
+    // beside the avatar, opposite the resident agent's contact disc.
     // Fields are (re)built on data change; layout measures + places them.
     var mission: Mission?
     let missionTitleField = MissionHeadingField(labelWithString: "")
-    let missionAgentField = MissionHeadingField(labelWithString: "")
-    let missionSurface = MissionSurface()
+    let providerChip = GhostImageView()
     var lastMissionDark: Bool?
     var missionItemFields: [NSTextField] = []
-    var taskLines: [String] = []
     var overtimeOn = false
     var overtimeLines: [String] = []
 
@@ -547,8 +540,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     // ── PalPlugin ──────────────────────────────────────────────────────────
     func attach(to controller: PalController) {
         c = controller
-        controller.styleField(tasksField); controller.styleField(overtimeField)
-        tasksField.maximumNumberOfLines = 3
+        controller.styleField(overtimeField)
         overtimeField.maximumNumberOfLines = 4
         overtimeChip.isBordered = false
         overtimeChip.drawsBackground = false
@@ -561,16 +553,11 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         chipShadow.shadowOffset = NSSize(width: 2, height: -2)
         overtimeChip.shadow = chipShadow
 
-        // Native material supplies a readable surface in either appearance.
-        missionSurface.material = .popover
-        missionSurface.blendingMode = .behindWindow
-        missionSurface.state = .active
-        missionSurface.wantsLayer = true
-        missionSurface.layer?.cornerRadius = 14
-        missionSurface.layer?.masksToBounds = true
-        missionSurface.isHidden = true
-        controller.content.addSubview(missionSurface)
-        for f in [missionTitleField, missionAgentField] {
+        // Keep the mission as lettering on the desktop, without a backplate.
+        providerChip.imageScaling = .scaleProportionallyUpOrDown
+        providerChip.isHidden = true
+        controller.content.addSubview(providerChip)
+        for f in [missionTitleField] {
             f.isBordered = false; f.drawsBackground = false
             f.alignment = .left
             f.maximumNumberOfLines = 0
@@ -582,7 +569,6 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         }
 
         controller.content.addSubview(statusField)
-        controller.content.addSubview(tasksField)
         controller.content.addSubview(overtimeChip)
         controller.content.addSubview(overtimeField)
 
@@ -596,7 +582,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             container.layer?.masksToBounds = false
             let scroll = NSScrollView(frame: container.bounds)
             scroll.autoresizingMask = [.width, .height]
-            scroll.drawsBackground = true
+            scroll.drawsBackground = false
             scroll.hasVerticalScroller = true
             scroll.scrollerStyle = .overlay
             scroll.autohidesScrollers = true
@@ -634,13 +620,12 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     // item so the active row can breathe on its own. Layout measures and
     // places everything, so a width change just re-wraps.
 
-    // Sharp dark drop shadow — the whole block's readability rides on this,
-    // so it's one shared recipe, not per-field tweaks.
-    static func missionShadow() -> NSShadow {
+    // Transparent lettering needs a small contrasting halo over other windows.
+    static func missionShadow(dark: Bool) -> NSShadow {
         let sh = NSShadow()
-        sh.shadowColor = NSColor.black
-        sh.shadowBlurRadius = 0
-        sh.shadowOffset = NSSize(width: 2, height: -2)
+        sh.shadowColor = dark ? NSColor.black : NSColor.white.withAlphaComponent(0.7)
+        sh.shadowBlurRadius = dark ? 2 : 1
+        sh.shadowOffset = .zero
         return sh
     }
 
@@ -723,9 +708,8 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         missionItemFields.forEach { $0.removeFromSuperview() }
         missionItemFields = []
         guard let m = mission, let c = c else {
-            missionSurface.isHidden = true
             missionTitleField.isHidden = true
-            missionAgentField.isHidden = true
+            providerChip.isHidden = true
             return
         }
         let para = NSMutableParagraphStyle()
@@ -733,6 +717,8 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         let dark = paneIsDark()
         let primary = NSColor.labelColor
         let secondary = NSColor.secondaryLabelColor
+        let textShadow = Self.missionShadow(dark: dark)
+        missionTitleField.shadow = textShadow
         let green = dark ? hexColor(0x7EE787) : hexColor(0x237A37)
         let amber = dark ? hexColor(0xFFD66B) : hexColor(0x865800)
         let red = dark ? hexColor(0xFF8585) : hexColor(0xB32626)
@@ -759,39 +745,13 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         titleLine.addAttributes([.font: titleFont, .paragraphStyle: para],
                                range: NSRange(location: 0, length: titleLine.length))
         missionTitleField.attributedStringValue = titleLine
-        // A provider seal has its own color and silhouette, separate from the
-        // mission heading and the progress rows.
-        if m.agent.isEmpty || (irisHeading && m.agent.lowercased() == "iris") {
-            missionAgentField.attributedStringValue = NSAttributedString()
-        } else {
-            let agentFont = NSFont.systemFont(ofSize: 13, weight: .bold)
-            let line = NSMutableAttributedString()
-            let provider = m.agent.lowercased()
-            let tint = provider.contains("claude") ? (dark ? hexColor(0xEAA18B) : hexColor(0xA34429))
-                : provider.contains("iris") ? (dark ? hexColor(0xBAA7FF) : hexColor(0x6640BE))
-                : (dark ? hexColor(0x8EDFD0) : hexColor(0x23695D))
-            missionAgentField.wantsLayer = true
-            missionAgentField.layer?.backgroundColor = tint.withAlphaComponent(dark ? 0.16 : 0.09).cgColor
-            missionAgentField.layer?.borderColor = tint.withAlphaComponent(0.55).cgColor
-            missionAgentField.layer?.borderWidth = 1
-            missionAgentField.layer?.cornerRadius = 12
-            missionAgentField.shadow = nil
-            if let icon = agentIcon(for: m.agent) {
-                let att = NSTextAttachment()
-                let side: CGFloat = 28
-                att.image = icon
-                att.bounds = CGRect(x: 0, y: (agentFont.capHeight - side) / 2, width: side, height: side)
-                line.append(NSAttributedString(attachment: att))
-                line.append(NSAttributedString(string: "  ", attributes: [.font: agentFont]))
-            } else {
-                line.append(NSAttributedString(string: "⇢ ", attributes: [
-                    .font: agentFont, .foregroundColor: tint]))
-            }
-            line.append(NSAttributedString(string: m.agent, attributes: [
-                .font: agentFont, .foregroundColor: tint]))
-            line.addAttributes([.font: agentFont, .paragraphStyle: para], range: NSRange(location: 0, length: line.length))
-            missionAgentField.attributedStringValue = line
-        }
+        // Match the contact disc on the other side of the avatar. The mark
+        // identifies the provider without repeating its name in the todo list.
+        let provider = m.agent.trimmingCharacters(in: .whitespacesAndNewlines)
+        let repeatsResidentAgent = provider.caseInsensitiveCompare(c.agentName) == .orderedSame
+        providerChip.image = provider.isEmpty || repeatsResidentAgent ? nil : agentIcon(for: provider)
+        providerChip.toolTip = provider.isEmpty ? nil : provider
+        providerChip.setAccessibilityLabel(provider.isEmpty ? nil : provider + " provider")
         let now = Date()
         for item in m.items {
             let f = NSTextField(labelWithString: "")
@@ -800,7 +760,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             f.cell?.wraps = true
             f.cell?.lineBreakMode = .byWordWrapping
             f.wantsLayer = true
-            f.shadow = nil
+            f.shadow = textShadow
             let ip = NSMutableParagraphStyle()
             ip.alignment = .left; ip.lineBreakMode = .byWordWrapping
             ip.headIndent = 19   // wrapped lines tuck under the text, past the square
@@ -888,16 +848,13 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
 
     // Measured height of the whole mission block at the badge width.
     private func missionMetrics(width: CGFloat)
-        -> (title: CGFloat, agent: CGFloat, items: [CGFloat], total: CGFloat) {
-        guard mission != nil else { return (0, 0, [], 0) }
+        -> (title: CGFloat, items: [CGFloat], total: CGFloat) {
+        guard mission != nil else { return (0, [], 0) }
         let t = max(44, fieldHeight(missionTitleField, width: width - 12) + 10)
-        let a = missionAgentField.attributedStringValue.length > 0
-            ? max(44, fieldHeight(missionAgentField, width: width - 24) + 12) : 0
         let its = missionItemFields.map { fieldHeight($0, width: width) }
-        let total = t + (a > 0 ? a + 8 : 0)
-            + its.reduce(0, +) + CGFloat(max(0, its.count - 1)) * 8
+        let total = t + its.reduce(0, +) + CGFloat(max(0, its.count - 1)) * 8
             + (its.isEmpty ? 0 : 12)
-        return (t, a, its, total)
+        return (t, its, total)
     }
 
     // Reserved height from the y=12 baseline up to where the name sits — the
@@ -913,18 +870,17 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         // mission goes stale or is cleared.
         let off = (hasPane && curPaneH > 0 && mission == nil) ? curPaneH + 8 : 0
         let missionH = missionMetrics(width: controller.fullWidth - 14).total
-        let tasksH: CGFloat = taskLines.isEmpty ? 0 : CGFloat(taskLines.count) * 13 + 3
         let chipH: CGFloat = overtimeOn ? 36 : 0
         let queueH: CGFloat = (overtimeOn && !overtimeLines.isEmpty)
             ? CGFloat(overtimeLines.count) * 16 + 3 : 0
         let overtimeH: CGFloat = overtimeOn ? chipH + (queueH > 0 ? queueH + 4 : 0) : 0
-        return off + (missionH > 0 ? missionH + 6 : 0) + (tasksH > 0 ? tasksH + 5 : 0)
+        return off + (missionH > 0 ? missionH + 6 : 0)
             + 18 + (overtimeH > 0 ? 4 : 0) + overtimeH + 14
     }
 
     func layoutRows(in controller: PalController, originY: CGFloat) {
         if minimal {
-            statusField.isHidden = true; tasksField.isHidden = true
+            statusField.isHidden = true
             overtimeField.isHidden = true; overtimeChip.isHidden = true
             paneContainer?.isHidden = true
             let mm = missionMetrics(width: controller.fullWidth - 14)
@@ -937,17 +893,15 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         let missionW = W - 14
         let mm = missionMetrics(width: missionW)
         let missionH = mm.total
-        let tasksH: CGFloat = taskLines.isEmpty ? 0 : CGFloat(taskLines.count) * 13 + 3
         let chipH: CGFloat = overtimeOn ? 36 : 0
         let queueH: CGFloat = (overtimeOn && !overtimeLines.isEmpty)
             ? CGFloat(overtimeLines.count) * 16 + 3 : 0
         let overtimeH: CGFloat = overtimeOn ? chipH + (queueH > 0 ? queueH + 4 : 0) : 0
-        // Stack, bottom-up: mission (in the pane's slot) · tasks · git
+        // Stack, bottom-up: mission (in the pane's slot) · git
         // status · overtime queue · sticker. The mission block rides at the
         // bottom so the badge just grows down its screen edge.
         let missionY = base + off
-        let tasksY = missionY + (missionH > 0 ? missionH + 6 : 0)
-        let statusY = tasksY + (tasksH > 0 ? tasksH + 5 : 0)
+        let statusY = missionY + (missionH > 0 ? missionH + 6 : 0)
         let overtimeY = statusY + 22 + (overtimeH > 0 ? 4 : 0)
 
         statusField.isHidden = false
@@ -961,8 +915,6 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         overtimeChip.frame = NSRect(x: (W - chipW) / 2,
                                     y: overtimeY + queueH + (queueH > 0 ? 4 : 0),
                                     width: chipW, height: chipH)
-        tasksField.isHidden = tasksH <= 0
-        tasksField.frame = NSRect(x: 6, y: tasksY, width: W - 12, height: tasksH)
 
         if let c = paneContainer {
             c.isHidden = curPaneH <= 0 || mission != nil
@@ -971,24 +923,24 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         }
     }
 
-    // Mission block: title, agent line, then items, top-down within its
+    // Mission block: title, then items, top-down within its
     // slot. Display-only — clicks pass through.
     private func layoutMission(y missionY: CGFloat, width missionW: CGFloat,
-                               mm: (title: CGFloat, agent: CGFloat, items: [CGFloat], total: CGFloat)) {
+                               mm: (title: CGFloat, items: [CGFloat], total: CGFloat)) {
         let missionVisible = mission != nil && mm.total > 0
-        missionSurface.isHidden = !missionVisible
-        missionSurface.frame = NSRect(x: 0, y: missionY - 8, width: missionW + 14, height: mm.total + 16)
         missionTitleField.isHidden = !missionVisible
-        missionAgentField.isHidden = !(missionVisible && mm.agent > 0)
+        providerChip.isHidden = !missionVisible || providerChip.image == nil
+        if let c = c, !providerChip.isHidden {
+            let side: CGFloat = 32
+            providerChip.frame = NSRect(x: c.glyphView.frame.minX - 8,
+                                       y: c.glyphView.frame.minY + 2,
+                                       width: side, height: side)
+            c.content.addSubview(providerChip, positioned: .above, relativeTo: c.glyphView)
+        }
         missionItemFields.forEach { $0.isHidden = !missionVisible }
         guard missionVisible else { return }
         var my = missionY + mm.total - mm.title
         missionTitleField.frame = NSRect(x: 7, y: my, width: missionW, height: mm.title)
-        if mm.agent > 0 {
-            my -= mm.agent + 8
-            let sealWidth = min(missionW, missionAgentField.attributedStringValue.size().width + 24)
-            missionAgentField.frame = NSRect(x: 7 + (missionW - sealWidth) / 2, y: my, width: sealWidth, height: mm.agent)
-        }
         my -= 12
         for (i, f) in missionItemFields.enumerated() {
             my -= mm.items[i]
@@ -998,24 +950,20 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     }
 
     func setCollapsed(_ collapsed: Bool) {
-        missionSurface.isHidden = collapsed || mission == nil
         if minimal {
-            statusField.isHidden = true; tasksField.isHidden = true
+            statusField.isHidden = true
             overtimeField.isHidden = true; overtimeChip.isHidden = true
             paneContainer?.isHidden = true
             missionTitleField.isHidden = collapsed || mission == nil
-            missionAgentField.isHidden = collapsed || mission == nil
-                || missionAgentField.attributedStringValue.length == 0
+            providerChip.isHidden = collapsed || mission == nil || providerChip.image == nil
             missionItemFields.forEach { $0.isHidden = collapsed || mission == nil }
             return
         }
         let hide = collapsed
         statusField.isHidden = hide
         missionTitleField.isHidden = hide || mission == nil
-        missionAgentField.isHidden = hide || mission == nil
-            || missionAgentField.attributedStringValue.length == 0
+        providerChip.isHidden = hide || mission == nil || providerChip.image == nil
         missionItemFields.forEach { $0.isHidden = hide || mission == nil }
-        tasksField.isHidden = hide || taskLines.isEmpty
         overtimeField.isHidden = hide || !overtimeOn || overtimeLines.isEmpty
         overtimeChip.isHidden = hide || !overtimeOn
         paneContainer?.isHidden = hide || curPaneH <= 0
@@ -1072,9 +1020,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
 
     func applyPaneTheme() {
         guard let scroll = paneScroll else { return }
-        scroll.backgroundColor = paneIsDark()
-            ? NSColor.black.withAlphaComponent(0.58)
-            : NSColor.white.withAlphaComponent(0.90)
+        scroll.backgroundColor = .clear
     }
 
     func measurePaneH() -> CGFloat {
@@ -1123,7 +1069,6 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             let branch = doGit ? self.git(["branch", "--show-current"]) : self.lastBranch
             let dirty = doGit ? !self.git(["status", "--porcelain"]).isEmpty : self.lastDirty
             let syncRaw = (try? String(contentsOfFile: self.statusFile, encoding: .utf8)) ?? ""
-            let rawTasks = (try? String(contentsOfFile: self.tasksFile, encoding: .utf8)) ?? ""
             let missionNow = loadMission(self.missionFile)   // tolerant: nil hides the block
             let otOn = FileManager.default.fileExists(atPath: self.overtimeFlag)
             let otRaw = otOn
@@ -1133,7 +1078,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
                 self.refreshing = false
                 self.lastBranch = branch; self.lastDirty = dirty
                 self.applyStatus(branch: branch, dirty: dirty,
-                                 syncRaw: syncRaw, rawTasks: rawTasks,
+                                 syncRaw: syncRaw,
                                  mission: missionNow,
                                  otOn: otOn, otRaw: otRaw)
             }
@@ -1143,7 +1088,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     private var lastDirty = false
     private var lastAgeKey = ""
 
-    func applyStatus(branch: String, dirty: Bool, syncRaw: String, rawTasks: String,
+    func applyStatus(branch: String, dirty: Bool, syncRaw: String,
                      mission missionNow: Mission?, otOn: Bool, otRaw: String) {
         guard let c = c else { return }
         var sync: String
@@ -1177,21 +1122,6 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             line.append(seg("uncommitted", hexColor(0xffaa33)))
         }
         statusField.setText(line)
-
-        let lines = Array(rawTasks.split(separator: "\n")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-            .prefix(3))
-        if lines != taskLines {
-            taskLines = lines
-            let para = NSMutableParagraphStyle()
-            para.alignment = .center; para.lineBreakMode = .byTruncatingTail
-            tasksField.attributedStringValue = NSAttributedString(
-                string: lines.joined(separator: "\n"),
-                attributes: [.font: monoFont(9), .foregroundColor: NSColor.white,
-                             .paragraphStyle: para])
-            if !c.collapsed { c.layout() }
-        }
 
         // Re-bake on a data change, or when any row's "Nm ago" label ticked
         // over — the ages ride the existing poll, at minute granularity.
