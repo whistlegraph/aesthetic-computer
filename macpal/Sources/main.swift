@@ -39,7 +39,9 @@ let want3D = argv.contains("--model3d")
 let model3DArg = argValue("--model3d")
 
 let starSupport = NSString(string: "~/Library/Application Support/MacPal").expandingTildeInPath
-let fuserHome = NSString(string: "~/.local/share/desktop-badge").expandingTildeInPath
+// --home <dir> points the fuser state dir elsewhere (QA against a sample
+// mission.json without touching the live badge's files).
+let fuserHome = argValue("--home") ?? NSString(string: "~/.local/share/desktop-badge").expandingTildeInPath
 // Menu Band's "now playing" signal dir — the existing cross-app protocol, the
 // same path for both profiles so the two ship independently and just work.
 let noteDir = fuserHome
@@ -245,6 +247,11 @@ if argv.contains("--test-trackdrum") {
 }
 
 let app = NSApplication.shared
+// Optional per-process appearance for previewing both native themes. Omitted
+// in normal launches, so the app follows macOS without changing system settings.
+if let mode = argValue("--appearance"), ["light", "dark"].contains(mode) {
+    app.appearance = NSAppearance(named: mode == "dark" ? .darkAqua : .aqua)
+}
 app.setActivationPolicy(.accessory)   // no Dock icon, no menu bar item
 
 // First-run (star only): add MacPal to Login Items so the pal is always there.

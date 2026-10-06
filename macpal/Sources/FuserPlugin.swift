@@ -8,7 +8,16 @@
 //   <home>/gitstatus        "<ahead> <behind>" (badge-git-sync.sh) or "local"
 //   <home>/tasks            Asana task lines    (badge-asana-sync.sh on neo)
 //   <home>/mission.json     the machine's mission — emoji + title, agent
-//                           attribution, ✓/▸/○ todo items. Written live by
+//                           attribution, ✓/▸/○ todo items; each item may add
+//                           detail (sub-line), progress (0…1 bar), flag
+//                           (green/red/yellow glyph) — 0.2.10; and at (ISO
+//                           time of its latest activity, shown as "8m ago",
+//                           falling back to updatedAt). Items are shown
+//                           active → pending → done, done newest first; the
+//                           agent line carries the agent's mark (staged
+//                           <home>/agent-<name>.png, else the installed
+//                           Claude/Codex app icon, else a built-in vector
+//                           mark) — 0.2.11. Written live by
 //                           whichever agent is working the machine, or
 //                           seeded from the Asana task tagged "mission"
 //                           (badge-asana-sync.sh, which never overwrites a
@@ -36,6 +45,25 @@ final class GhostView: NSView {
     override func hitTest(_ p: NSPoint) -> NSView? { nil }
 }
 
+// AppKit's label cell pins attachments to the top of a taller field. Draw the
+// measured icon + text line in the center of its padded badge instead.
+final class MissionHeadingField: NSTextField {
+    override func draw(_ dirtyRect: NSRect) {
+        let area = bounds.insetBy(dx: 6, dy: 0)
+        let height = ceil(attributedStringValue.boundingRect(
+            with: NSSize(width: area.width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading]).height)
+        attributedStringValue.draw(with: NSRect(x: area.minX,
+            y: (bounds.height - height) / 2, width: area.width, height: height),
+            options: [.usesLineFragmentOrigin, .usesFontLeading])
+    }
+    override func hitTest(_ p: NSPoint) -> NSView? { nil }
+}
+
+final class MissionSurface: NSVisualEffectView {
+    override func hitTest(_ p: NSPoint) -> NSView? { nil }
+}
+
 // ── mission todo list ─────────────────────────────────────────────────────
 // Same file-driven contract as everything else on the badge: a plain JSON
 // file an agent rewrites whole, polled on the existing refresh cadence.
@@ -45,6 +73,36 @@ final class GhostView: NSView {
 struct MissionItem: Equatable {
     let text: String
     let status: String   // "done" | "in_progress" | "pending"
+    // Optional per-item telemetry (0.2.10): a one-line inferred subtask shown
+    // under the text, a 0…1 progress fraction drawn as a bar, and a flag that
+    // overrides the checkbox glyph — "green"/"ok", "red"/"fail", "yellow"/"warn".
+    var detail: String? = nil
+    var progress: Double? = nil
+    var flag: String? = nil
+    // When this item last moved (0.2.11): its own `at`, else the mission's
+    // updatedAt. Drives the "8m ago" age and the done-newest-first order.
+    var at: Date? = nil
+}
+
+// Sort rank: active rows first, then pending, then done.
+func missionStatusRank(_ status: String) -> Int {
+    switch status {
+    case "in_progress": return 0
+    case "done": return 2
+    default: return 1
+    }
+}
+
+// "just now" / "8m ago" / "2h ago" / "3d ago" — minute granularity so the
+// badge only re-bakes its rows when the label actually changes.
+func relativeAge(_ d: Date, now: Date = Date()) -> String {
+    let s = max(0, now.timeIntervalSince(d))
+    if s < 45 { return "just now" }
+    let m = Int((s / 60).rounded())
+    if m < 90 { return "\(max(1, m))m ago" }
+    let h = Int((s / 3600).rounded())
+    if h < 36 { return "\(h)h ago" }
+    return "\(Int((s / 86400).rounded()))d ago"
 }
 struct Mission: Equatable {
     let title: String
@@ -62,16 +120,32 @@ func loadMission(_ path: String) -> Mission? {
     // the mission is over (or its author crashed) — either way, hide it.
     guard let ts = obj["updatedAt"] as? String else { return nil }
     let iso = ISO8601DateFormatter()
-    var date = iso.date(from: ts)
-    if date == nil {
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        date = iso.date(from: ts)
-    }
-    guard let d = date, Date().timeIntervalSince(d) < 24 * 3600 else { return nil }
-    let items = ((obj["items"] as? [[String: Any]]) ?? []).compactMap { it -> MissionItem? in
+    let isoFrac = ISO8601DateFormatter()
+    isoFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    func parseDate(_ s: String) -> Date? { iso.date(from: s) ?? isoFrac.date(from: s) }
+    guard let d = parseDate(ts), Date().timeIntervalSince(d) < 24 * 3600 else { return nil }
+    let parsed = ((obj["items"] as? [[String: Any]]) ?? []).compactMap { it -> MissionItem? in
         guard let t = it["text"] as? String, !t.isEmpty else { return nil }
-        return MissionItem(text: t, status: (it["status"] as? String) ?? "pending")
+        var item = MissionItem(text: t, status: (it["status"] as? String) ?? "pending")
+        item.at = ((it["at"] as? String).flatMap(parseDate)) ?? d
+        if let d = it["detail"] as? String, !d.isEmpty { item.detail = d }
+        if let p = it["progress"] as? Double {          // accepts 0…1 or 0…100
+            item.progress = min(1, max(0, p > 1 ? p / 100 : p))
+        } else if let p = it["progress"] as? Int {
+            item.progress = min(1, max(0, Double(p) / 100))
+        }
+        if let f = it["flag"] as? String, !f.isEmpty { item.flag = f.lowercased() }
+        return item
     }
+    // Active on top, pending next, done underneath with the most recently
+    // completed first (directly under the active rows). Index breaks ties so
+    // the feeder's order survives within a group.
+    let items = parsed.enumerated().sorted { a, b in
+        let ra = missionStatusRank(a.element.status), rb = missionStatusRank(b.element.status)
+        if ra != rb { return ra < rb }
+        if ra == 2, let ta = a.element.at, let tb = b.element.at, ta != tb { return ta > tb }
+        return a.offset < b.offset
+    }.map { $0.element }
     return Mission(title: title,
                    agent: (obj["agent"] as? String) ?? "",
                    emoji: (obj["emoji"] as? String) ?? "",
@@ -393,8 +467,10 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     // Mission block: title + agent attribution + one field per todo item.
     // Fields are (re)built on data change; layout measures + places them.
     var mission: Mission?
-    let missionTitleField = NSTextField(labelWithString: "")
-    let missionAgentField = NSTextField(labelWithString: "")
+    let missionTitleField = MissionHeadingField(labelWithString: "")
+    let missionAgentField = MissionHeadingField(labelWithString: "")
+    let missionSurface = MissionSurface()
+    var lastMissionDark: Bool?
     var missionItemFields: [NSTextField] = []
     var taskLines: [String] = []
     var overtimeOn = false
@@ -485,17 +561,22 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         chipShadow.shadowOffset = NSSize(width: 2, height: -2)
         overtimeChip.shadow = chipShadow
 
-        // Mission block fields — hidden until a fresh mission.json shows up.
-        // Light text over a sharp dark drop shadow (no stroke outline) — the
-        // outlined treatment smeared on light wallpapers; this stays legible
-        // (and OCR-able) on light and dark alike.
+        // Native material supplies a readable surface in either appearance.
+        missionSurface.material = .popover
+        missionSurface.blendingMode = .behindWindow
+        missionSurface.state = .active
+        missionSurface.wantsLayer = true
+        missionSurface.layer?.cornerRadius = 14
+        missionSurface.layer?.masksToBounds = true
+        missionSurface.isHidden = true
+        controller.content.addSubview(missionSurface)
         for f in [missionTitleField, missionAgentField] {
             f.isBordered = false; f.drawsBackground = false
             f.alignment = .left
             f.maximumNumberOfLines = 0
             f.cell?.wraps = true
             f.cell?.lineBreakMode = .byWordWrapping
-            f.shadow = Self.missionShadow()
+            f.shadow = nil
             f.isHidden = true
             controller.content.addSubview(f)
         }
@@ -563,30 +644,155 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         return sh
     }
 
+    // ── agent mark ────────────────────────────────────────────────────────
+    // The inferrer's logo beside its name. Staged <home>/agent-<name>.png
+    // wins (updatable over the wire), then the installed app's icon
+    // (Claude.app / Codex.app), then a small built-in vector mark so the
+    // minis — which have neither app — still show who is working.
+    private var agentIconCache: [String: NSImage] = [:]
+    func agentIcon(for agent: String) -> NSImage? {
+        let key = agent.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !key.isEmpty else { return nil }
+        if let hit = agentIconCache[key] { return hit }
+        var img: NSImage?
+        if let path = resolveAgentAvatar(name: key, supportDir: home) {
+            img = NSImage(contentsOfFile: path)
+        }
+        if img == nil {
+            let apps: [String]
+            switch key {
+            case "claude": apps = ["/Applications/Claude.app", NSHomeDirectory() + "/Applications/Claude.app"]
+            case "codex":  apps = ["/Applications/Codex.app", NSHomeDirectory() + "/Applications/Codex.app"]
+            default: apps = []
+            }
+            if let app = apps.first(where: { FileManager.default.fileExists(atPath: $0) }) {
+                img = NSWorkspace.shared.icon(forFile: app)
+            }
+        }
+        if img == nil { img = Self.builtInAgentMark(key) }
+        if let i = img { agentIconCache[key] = i }
+        return img
+    }
+
+    // Vector fallbacks drawn at any size: Claude = terracotta tile with the
+    // white starburst; Codex = black tile with the white hexagonal knot.
+    static func builtInAgentMark(_ key: String) -> NSImage? {
+        let tile: NSColor
+        switch key {
+        case "claude": tile = hexColor(0xD97757)
+        case "codex", "openai", "chatgpt": tile = hexColor(0x111111)
+        default: return nil
+        }
+        let S: CGFloat = 64
+        return NSImage(size: NSSize(width: S, height: S), flipped: false) { r in
+            tile.setFill()
+            NSBezierPath(roundedRect: r, xRadius: S * 0.22, yRadius: S * 0.22).fill()
+            NSColor.white.setStroke()
+            let c = NSPoint(x: S / 2, y: S / 2)
+            if key == "claude" {
+                // Eight tapered spokes, the longer four on the diagonals.
+                for i in 0..<8 {
+                    let ang = CGFloat(i) * .pi / 4 + .pi / 8
+                    let len: CGFloat = (i % 2 == 0) ? S * 0.30 : S * 0.24
+                    let p = NSBezierPath()
+                    p.lineWidth = S * 0.085; p.lineCapStyle = .round
+                    p.move(to: NSPoint(x: c.x + cos(ang) * S * 0.06, y: c.y + sin(ang) * S * 0.06))
+                    p.line(to: NSPoint(x: c.x + cos(ang) * len, y: c.y + sin(ang) * len))
+                    p.stroke()
+                }
+            } else {
+                // Hexagonal knot: an outer hexagon ring and an inner rotated one.
+                func hex(_ rad: CGFloat, _ rot: CGFloat) -> NSBezierPath {
+                    let p = NSBezierPath()
+                    for i in 0..<6 {
+                        let a = CGFloat(i) * .pi / 3 + rot
+                        let pt = NSPoint(x: c.x + cos(a) * rad, y: c.y + sin(a) * rad)
+                        if i == 0 { p.move(to: pt) } else { p.line(to: pt) }
+                    }
+                    p.close(); p.lineWidth = S * 0.075; p.lineJoinStyle = .round
+                    return p
+                }
+                hex(S * 0.34, .pi / 6).stroke()
+                hex(S * 0.18, 0).stroke()
+            }
+            return true
+        }
+    }
+
     func rebuildMissionFields() {
         missionItemFields.forEach { $0.removeFromSuperview() }
         missionItemFields = []
         guard let m = mission, let c = c else {
+            missionSurface.isHidden = true
             missionTitleField.isHidden = true
             missionAgentField.isHidden = true
             return
         }
         let para = NSMutableParagraphStyle()
-        para.alignment = .left; para.lineBreakMode = .byWordWrapping
-        let titleText = (m.emoji.isEmpty ? "" : m.emoji + " ") + m.title
-        missionTitleField.attributedStringValue = NSAttributedString(
-            string: titleText, attributes: [
-                .font: playfulFont(15, bold: true),
-                .foregroundColor: NSColor.white,
+        para.alignment = .center; para.lineBreakMode = .byWordWrapping
+        let dark = paneIsDark()
+        let primary = NSColor.labelColor
+        let secondary = NSColor.secondaryLabelColor
+        let green = dark ? hexColor(0x7EE787) : hexColor(0x237A37)
+        let amber = dark ? hexColor(0xFFD66B) : hexColor(0x865800)
+        let red = dark ? hexColor(0xFF8585) : hexColor(0xB32626)
+        let titleFont = playfulFont(15, bold: true)
+        let irisHeading = m.title.lowercased().contains("iris lanes")
+        let titleLine = NSMutableAttributedString()
+        if irisHeading, let icon = agentIcon(for: "iris") {
+            let art = NSTextAttachment()
+            art.image = NSImage(size: NSSize(width: 64, height: 64), flipped: false) { rect in
+                NSBezierPath(ovalIn: rect).addClip()
+                icon.draw(in: rect)
+                return true
+            }
+            art.bounds = CGRect(x: 0, y: (titleFont.capHeight - 32) / 2, width: 32, height: 32)
+            titleLine.append(NSAttributedString(attachment: art))
+            titleLine.append(NSAttributedString(string: "  "))
+        }
+        let titleText = (!irisHeading && !m.emoji.isEmpty ? m.emoji + " " : "") + m.title
+        titleLine.append(NSAttributedString(string: titleText, attributes: [
+                .font: titleFont,
+                .foregroundColor: primary,
                 .paragraphStyle: para,
-            ])
-        missionAgentField.attributedStringValue = m.agent.isEmpty
-            ? NSAttributedString()
-            : NSAttributedString(string: "⇢ " + m.agent, attributes: [
-                .font: monoFont(11),
-                .foregroundColor: NSColor.white.withAlphaComponent(0.85),
-                .paragraphStyle: para,
-            ])
+            ]))
+        titleLine.addAttributes([.font: titleFont, .paragraphStyle: para],
+                               range: NSRange(location: 0, length: titleLine.length))
+        missionTitleField.attributedStringValue = titleLine
+        // A provider seal has its own color and silhouette, separate from the
+        // mission heading and the progress rows.
+        if m.agent.isEmpty || (irisHeading && m.agent.lowercased() == "iris") {
+            missionAgentField.attributedStringValue = NSAttributedString()
+        } else {
+            let agentFont = NSFont.systemFont(ofSize: 13, weight: .bold)
+            let line = NSMutableAttributedString()
+            let provider = m.agent.lowercased()
+            let tint = provider.contains("claude") ? (dark ? hexColor(0xEAA18B) : hexColor(0xA34429))
+                : provider.contains("iris") ? (dark ? hexColor(0xBAA7FF) : hexColor(0x6640BE))
+                : (dark ? hexColor(0x8EDFD0) : hexColor(0x23695D))
+            missionAgentField.wantsLayer = true
+            missionAgentField.layer?.backgroundColor = tint.withAlphaComponent(dark ? 0.16 : 0.09).cgColor
+            missionAgentField.layer?.borderColor = tint.withAlphaComponent(0.55).cgColor
+            missionAgentField.layer?.borderWidth = 1
+            missionAgentField.layer?.cornerRadius = 12
+            missionAgentField.shadow = nil
+            if let icon = agentIcon(for: m.agent) {
+                let att = NSTextAttachment()
+                let side: CGFloat = 28
+                att.image = icon
+                att.bounds = CGRect(x: 0, y: (agentFont.capHeight - side) / 2, width: side, height: side)
+                line.append(NSAttributedString(attachment: att))
+                line.append(NSAttributedString(string: "  ", attributes: [.font: agentFont]))
+            } else {
+                line.append(NSAttributedString(string: "⇢ ", attributes: [
+                    .font: agentFont, .foregroundColor: tint]))
+            }
+            line.append(NSAttributedString(string: m.agent, attributes: [
+                .font: agentFont, .foregroundColor: tint]))
+            line.addAttributes([.font: agentFont, .paragraphStyle: para], range: NSRange(location: 0, length: line.length))
+            missionAgentField.attributedStringValue = line
+        }
+        let now = Date()
         for item in m.items {
             let f = NSTextField(labelWithString: "")
             f.alignment = .left
@@ -594,23 +800,30 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             f.cell?.wraps = true
             f.cell?.lineBreakMode = .byWordWrapping
             f.wantsLayer = true
-            f.shadow = Self.missionShadow()
+            f.shadow = nil
             let ip = NSMutableParagraphStyle()
             ip.alignment = .left; ip.lineBreakMode = .byWordWrapping
             ip.headIndent = 19   // wrapped lines tuck under the text, past the square
             // Square checkboxes on the left: filled = done, half = active,
             // empty = pending.
-            let mark: String, markColor: NSColor, textColor: NSColor
+            var mark: String, markColor: NSColor, textColor: NSColor
             switch item.status {
             case "done":
-                mark = "■"; markColor = hexColor(0x7ee787)
-                textColor = NSColor.white.withAlphaComponent(0.6)   // done = dimmed
+                mark = "■"; markColor = green
+                textColor = secondary
             case "in_progress":
-                mark = "▣"; markColor = hexColor(0xffd66b)
-                textColor = NSColor.white
+                mark = "▣"; markColor = amber
+                textColor = primary
             default:
-                mark = "□"; markColor = NSColor.white.withAlphaComponent(0.75)
-                textColor = NSColor.white.withAlphaComponent(0.95)
+                mark = "□"; markColor = secondary
+                textColor = primary
+            }
+            // A flag wins over the status glyph: green ✔, red ✖, yellow ⚠.
+            switch item.flag {
+            case "green", "ok", "pass":   mark = "✔"; markColor = green
+            case "red", "fail", "error":  mark = "✖"; markColor = red; textColor = primary
+            case "yellow", "warn":        mark = "⚠"; markColor = amber
+            default: break
             }
             let a = NSMutableAttributedString()
             a.append(NSAttributedString(string: mark + " ", attributes: [
@@ -619,6 +832,37 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             a.append(NSAttributedString(string: item.text, attributes: [
                 .font: monoFont(13), .foregroundColor: textColor,
                 .paragraphStyle: ip]))
+            // Age: when this row last moved, dim and small, trailing the text
+            // (wraps under the indent with it rather than truncating anything).
+            if let at = item.at {
+                a.append(NSAttributedString(string: " · " + relativeAge(at, now: now), attributes: [
+                    .font: monoFont(11),
+                    .foregroundColor: secondary,
+                    .paragraphStyle: ip]))
+            }
+            // Sub-line: the inferred subtask, dimmer and smaller, tucked under the text.
+            if let d = item.detail {
+                a.append(NSAttributedString(string: "\n↳ " + d, attributes: [
+                    .font: monoFont(11),
+                    .foregroundColor: secondary,
+                    .paragraphStyle: ip]))
+            }
+            // Progress bar: ten cells of ▰/▱ plus the percentage, coloured by the
+            // flag (red/green) or the status (yellow while in progress).
+            if let p = item.progress {
+                let cells = 10, filled = Int((p * Double(cells)).rounded())
+                let bar = String(repeating: "▰", count: filled)
+                    + String(repeating: "▱", count: max(0, cells - filled))
+                let barColor: NSColor
+                switch item.flag {
+                case "red", "fail", "error": barColor = red
+                case "green", "ok", "pass":  barColor = green
+                default: barColor = p >= 1 ? green : amber
+                }
+                a.append(NSAttributedString(string: "\n" + bar + " " + String(Int((p * 100).rounded())) + "%", attributes: [
+                    .font: monoFont(11), .foregroundColor: barColor,
+                    .paragraphStyle: ip]))
+            }
             f.attributedStringValue = a
             if item.status == "in_progress" {
                 // Subtle breathing on the active row — opacity only, so it's
@@ -646,12 +890,13 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     private func missionMetrics(width: CGFloat)
         -> (title: CGFloat, agent: CGFloat, items: [CGFloat], total: CGFloat) {
         guard mission != nil else { return (0, 0, [], 0) }
-        let t = fieldHeight(missionTitleField, width: width)
-        let a = fieldHeight(missionAgentField, width: width)
+        let t = max(44, fieldHeight(missionTitleField, width: width - 12) + 10)
+        let a = missionAgentField.attributedStringValue.length > 0
+            ? max(44, fieldHeight(missionAgentField, width: width - 24) + 12) : 0
         let its = missionItemFields.map { fieldHeight($0, width: width) }
-        let total = t + (a > 0 ? a + 1 : 0)
-            + its.reduce(0, +) + CGFloat(max(0, its.count - 1)) * 3
-            + (its.isEmpty ? 0 : 5)
+        let total = t + (a > 0 ? a + 8 : 0)
+            + its.reduce(0, +) + CGFloat(max(0, its.count - 1)) * 8
+            + (its.isEmpty ? 0 : 12)
         return (t, a, its, total)
     }
 
@@ -731,6 +976,8 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     private func layoutMission(y missionY: CGFloat, width missionW: CGFloat,
                                mm: (title: CGFloat, agent: CGFloat, items: [CGFloat], total: CGFloat)) {
         let missionVisible = mission != nil && mm.total > 0
+        missionSurface.isHidden = !missionVisible
+        missionSurface.frame = NSRect(x: 0, y: missionY - 8, width: missionW + 14, height: mm.total + 16)
         missionTitleField.isHidden = !missionVisible
         missionAgentField.isHidden = !(missionVisible && mm.agent > 0)
         missionItemFields.forEach { $0.isHidden = !missionVisible }
@@ -738,18 +985,20 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         var my = missionY + mm.total - mm.title
         missionTitleField.frame = NSRect(x: 7, y: my, width: missionW, height: mm.title)
         if mm.agent > 0 {
-            my -= mm.agent + 1
-            missionAgentField.frame = NSRect(x: 7, y: my, width: missionW, height: mm.agent)
+            my -= mm.agent + 8
+            let sealWidth = min(missionW, missionAgentField.attributedStringValue.size().width + 24)
+            missionAgentField.frame = NSRect(x: 7 + (missionW - sealWidth) / 2, y: my, width: sealWidth, height: mm.agent)
         }
-        my -= 5
+        my -= 12
         for (i, f) in missionItemFields.enumerated() {
             my -= mm.items[i]
             f.frame = NSRect(x: 7, y: my, width: missionW, height: mm.items[i])
-            my -= 3   // breathing room between rows
+            my -= 8
         }
     }
 
     func setCollapsed(_ collapsed: Bool) {
+        missionSurface.isHidden = collapsed || mission == nil
         if minimal {
             statusField.isHidden = true; tasksField.isHidden = true
             overtimeField.isHidden = true; overtimeChip.isHidden = true
@@ -892,6 +1141,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     }
     private var lastBranch = ""
     private var lastDirty = false
+    private var lastAgeKey = ""
 
     func applyStatus(branch: String, dirty: Bool, syncRaw: String, rawTasks: String,
                      mission missionNow: Mission?, otOn: Bool, otRaw: String) {
@@ -943,8 +1193,15 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             if !c.collapsed { c.layout() }
         }
 
-        if missionNow != mission {
+        // Re-bake on a data change, or when any row's "Nm ago" label ticked
+        // over — the ages ride the existing poll, at minute granularity.
+        let now = Date()
+        let ageKey = (missionNow?.items ?? []).map { $0.at.map { relativeAge($0, now: now) } ?? "" }.joined(separator: "|")
+        let missionDark = paneIsDark()
+        if missionNow != mission || ageKey != lastAgeKey || missionDark != lastMissionDark {
             mission = missionNow
+            lastAgeKey = ageKey
+            lastMissionDark = missionDark
             rebuildMissionFields()
             if !c.collapsed { c.layout() }
         }
