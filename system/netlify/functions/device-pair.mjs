@@ -8,6 +8,7 @@ import { authorize } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { getDeviceCreds } from "../../backend/device-creds.mjs";
+import { fighterIdentity } from "../../backend/oskiewar-identity.mjs";
 import crypto from "node:crypto";
 
 function generateCode() {
@@ -144,19 +145,26 @@ export async function handler(event) {
         const user = await authorize(event.headers);
         if (!user) return respond(401, { message: "unauthorized" });
 
-        // Look up handle (for display) + device creds (from the dedicated store)
-        const handleDoc = await database.db
-          .collection("@handles")
-          .findOne({ _id: user.sub }, { projection: { handle: 1 } });
-        if (!handleDoc)
-          return respond(404, { message: "No handle found for this account" });
-
         const pair = await pairs.findOne({ _id: code });
         if (!pair) return respond(404, { message: "Code not found or expired" });
+        // Browser pairing carries only this sign-in's token. An email-code
+        // identity may display its verified handle without acquiring native
+        // device credentials belonging to a different Auth0 subject.
+        let handleDoc;
+        if (pair.kind === "browser") {
+          try { handleDoc = await fighterIdentity(user.sub); }
+          catch (error) { return respond(error.status || 503, { message: error.message }); }
+        } else {
+          handleDoc = await database.db.collection("@handles")
+            .findOne({ _id: user.sub }, { projection: { handle: 1 } });
+        }
+        if (!handleDoc?.handle)
+          return respond(404, { message: "No handle found for this account" });
+
         const creds = pair.kind === "browser" ? null : await getDeviceCreds(database.db, user.sub);
 
         // Get the auth token from the request (pass it through to the device)
-        const authHeader = event.headers.authorization || "";
+        const authHeader = event.headers.authorization || event.headers.Authorization || "";
         const authToken = authHeader.startsWith("Bearer ")
           ? authHeader.slice(7).trim()
           : "";
