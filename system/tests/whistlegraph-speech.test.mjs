@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {speechCost,speechBilling} from '../backend/whistlegraph-speech-billing.mjs';
+import {speechCost,speechBilling,ensureSpeechBillingIndexes} from '../backend/whistlegraph-speech-billing.mjs';
 import {wavInput,createTranscriber} from '../backend/whistlegraph-whisper.mjs';
 import {createHandler} from '../netlify/functions/whistlegraph-transcribe.mjs';
 function wav(ms=1000) {
@@ -45,6 +45,7 @@ test('Mongo transactions fence concurrent spending, replay, failure and crash re
  const request=(user='test-user')=>({user,handle:user,requestId:randomUUID(),audio:wav(),durationMs:1000});
  try {
   // Materialize the three isolated collections before transactional DDL.
+  await ensureSpeechBillingIndexes(isolated);
   for(const name of ['ai-usage','ac-credit-wallets','whistlegraph-speech-requests'])await isolated.collection(name).insertOne({_id:'fixture'});
   const wallets=isolated.collection('ac-credit-wallets'),usage=isolated.collection('ai-usage'),receipts=isolated.collection('whistlegraph-speech-requests');
   await wallets.insertOne({_id:'test-user',balance:100});

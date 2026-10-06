@@ -10,6 +10,11 @@ export const speechRequestKey=(user,id)=>createHash('sha256').update(user+'\0'+i
 const walletIn=(db,session)=>({
   updateOne:(filter,update,options={})=>db.collection('ac-credit-wallets').updateOne(filter,update,{...options,session}),
 });
+export async function ensureSpeechBillingIndexes(db) {
+  const receipts=db.collection('whistlegraph-speech-requests');
+  await receipts.createIndex({status:1,expiresAt:1},{name:'pending_recovery'});
+  await receipts.createIndex({user:1},{name:'account_receipts'});
+}
 export function speechBilling(db,{now=()=>new Date(),limit=DAILY_TOKEN_BUDGET}={}) {
   const receipts=db.collection('whistlegraph-speech-requests'),usage=db.collection('ai-usage');
   async function transaction(fn) {
