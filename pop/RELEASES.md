@@ -225,7 +225,7 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 
 ---
 
-## wannadash — SUBMITTED-READY (DistroKid form filled 2026-09-01; @jeffrey ticks the attestations + Continue)
+## wannadash — RELEASED (confirmed by @jeffrey 2026-10-05; Spotify link not yet recorded here)
 
 - **Artist:** Whistlegraph Dot Org · **title:** `wannadash` (all lowercase, preserve-caps
   ticked; no featured artist in the title) · label Aesthetic Dot Computer · Electronic /

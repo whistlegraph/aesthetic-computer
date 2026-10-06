@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, utimesSync, mkdirSync } from "node:fs";
+import { mkdtempSync, writeFileSync, utimesSync, mkdirSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { mediaPaths, itemText, mediaChanged, MEDIA_TYPES } from "../src/media.mjs";
+import { mediaPaths, mediaFile, watchMedia, itemText, mediaChanged, MEDIA_TYPES } from "../src/media.mjs";
 
 const root = mkdtempSync(path.join(tmpdir(), "easel-media-"));
 const png = path.join(root, "frame.png");
@@ -61,6 +61,38 @@ test("a sighting replaces the current one only when the file or its write time d
   assert.equal(mediaChanged(a, { path: png, mtimeMs: 2 }), true);
   assert.equal(mediaChanged(a, { path: mov, mtimeMs: 1 }), true);
   assert.equal(mediaChanged(a, undefined), false);
+});
+
+test("takes one path whole, spaces included", () => {
+  const spaced = path.join(root, "my track.mp3");
+  writeFileSync(spaced, "ID3");
+  assert.equal(mediaFile("my track.mp3", root)?.mime, "audio/mpeg");
+  assert.equal(mediaFile("~/frame.png", "/", { home: root })?.path, png);
+  assert.equal(mediaFile("empty.png", root), null);
+  assert.equal(mediaFile("notes.txt", root), null);
+  assert.equal(mediaFile("", root), null);
+});
+
+test("follows a file that is rewritten in place or replaced by a rename", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "easel-watch-"));
+  const mp3 = path.join(dir, "now.mp3");
+  writeFileSync(mp3, "one");
+  utimesSync(mp3, new Date(1000), new Date(1000));
+  const seen = [];
+  const stop = watchMedia(mediaFile(mp3, dir), (next) => seen.push(next.size), { settleMs: 30 });
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 250));
+  writeFileSync(path.join(dir, "other.mp3"), "ignored");
+  await settle();
+  assert.deepEqual(seen, []);
+  writeFileSync(mp3, "two!");
+  await settle();
+  writeFileSync(path.join(dir, ".tmp.mp3"), "three");
+  renameSync(path.join(dir, ".tmp.mp3"), mp3);
+  await settle();
+  stop();
+  writeFileSync(mp3, "four!!");
+  await settle();
+  assert.deepEqual(seen, [4, 5]);
 });
 
 test("every kind the card can show has a glyph and a mime", () => {
