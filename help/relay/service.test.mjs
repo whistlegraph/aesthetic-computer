@@ -16,7 +16,7 @@ class Engine extends EventEmitter {
 }
 async function setup(t){
  const root=mkdtempSync(join(tmpdir(),'aesel-relay-'));let engine;
- const authorize=async header=>{if(header!=='Bearer owner')throw Object.assign(Error('Private'),{status:403});};
+ const authorize=async header=>{if(!['Bearer owner','Bearer trial','Bearer outsider'].includes(header))throw Object.assign(Error('Private'),{status:403});return {sub:header.slice(7),owner:header==='Bearer owner',personal:header!=='Bearer outsider',providers:['claude','codex']};};
  const start=async()=>{const server=createRelay({root,authorize,factory:(_provider,options)=>engine=new Engine(!!options.clientMcp)});server.listen(0,'127.0.0.1');await once(server,'listening');return server;};
  let server=await start();
  const url=()=>`http://127.0.0.1:${server.address().port}`;
@@ -28,7 +28,7 @@ const base='/api/aesel/sessions';
 test('only the verified owner can enter, with no token cached in plaintext',async()=>{
  let calls=0;const auth=ownerAuth({adminSub:'owner',fetch:async()=>{calls++;return {ok:true,json:async()=>({sub:'owner',email_verified:true})};}});
  await assert.rejects(auth(),{status:401});await auth('Bearer ok');await auth('Bearer ok');assert.equal(calls,1);
- const denied=ownerAuth({adminSub:'owner',fetch:async()=>({ok:true,json:async()=>({sub:'someone-else',email_verified:true})})});await assert.rejects(denied('Bearer bad'),{status:403});
+ const denied=ownerAuth({adminSub:'owner',fetch:async()=>({ok:true,json:async()=>({sub:'someone-else',email_verified:true})})});assert.equal((await denied('Bearer bad')).personal,false);
 });
 test('saved drawing, idempotent submission, approvals and restart recovery',async t=>{
  const f=await setup(t);assert.equal((await f.call(base,{provider:'claude'},'other')).status,403);
@@ -103,4 +103,37 @@ test('Astra phone tools use the same owner gate and preserve dynamic tool result
  e.emit('request',{id:102,method:'item/tool/call',params:{tool:'Bash',arguments:{}}});
  assert.equal(response.result.success,false);
  assert.equal((await f.call(`${base}/${thread.id}`)).pending.length,0);
+});
+
+test('trial grants expire and revoke even with cached verified identity',async()=>{
+ let clock=100000, grants=[{sub:'fifi',expiresAt:new Date(101000).toISOString()}], calls=0;
+ const auth=ownerAuth({adminSub:'owner',now:()=>clock,trials:()=>grants,fetch:async()=>{calls++;return {ok:true,json:async()=>({sub:'fifi',email_verified:true})}}});
+ assert.equal((await auth('Bearer trial')).personal,true);
+ grants=[];assert.equal((await auth('Bearer trial')).personal,false);
+ grants=[{sub:'fifi',expiresAt:new Date(101000).toISOString()}];clock=101000;
+ assert.equal((await auth('Bearer trial')).personal,false);assert.equal(calls,1);
+ const unverified=ownerAuth({adminSub:'owner',trials:()=>grants,fetch:async()=>({ok:true,json:async()=>({sub:'fifi',email_verified:false})})});
+ await assert.rejects(unverified('Bearer trial'),{status:403});
+});
+test('trial phone access cannot enter terminal sessions or another account session',async t=>{
+ const f=await setup(t);
+ assert.equal((await f.call('/api/aesel/access',null,'trial')).personal,true);
+ assert.equal((await f.call('/api/aesel/access',null,'outsider')).personal,false);
+ assert.equal((await f.call(base,{provider:'claude'},'trial')).status,403);
+ assert.equal((await f.call(base,{provider:'codex',model:'gpt-6-astra',clientTools:[]},'outsider')).status,403);
+ const owner=await f.call(base,{provider:'claude'});
+ const trial=await f.call(base,{provider:'claude',model:'claude-opus-5',clientTools:[]},'trial');
+ assert.equal(trial.status,201);
+ for(const [id,who] of [[owner.thread.id,'trial'],[trial.thread.id,'owner']]){
+  assert.equal((await f.call(`${base}/${id}`,null,who)).status,404);
+  for(const action of ['turn','respond','interrupt'])assert.equal((await f.call(`${base}/${id}/${action}`,{requestId:randomUUID(),text:'no'},who)).status,404);
+ }
+ const state=await f.call(`${base}/${trial.thread.id}`,null,'trial');
+ assert.equal(state.status,200);assert.ok(!JSON.stringify(state).includes('ownerSub'));assert.ok(!JSON.stringify(state).includes('phoneSecret'));
+ // Existing files without an owner remain owner-only after deployment.
+ const path=join(f.root,owner.thread.id,'session.json'), meta=JSON.parse(readFileSync(path));delete meta.ownerSub;
+ const {writeFileSync}=await import('node:fs');writeFileSync(path,JSON.stringify(meta));await f.restart();
+ assert.equal((await f.call(`${base}/${owner.thread.id}`,null,'trial')).status,404);
+ assert.equal((await f.call(`${base}/${owner.thread.id}`)).status,200);
+ for(const route of ['transcribe','transcription-session'])assert.equal((await f.call('/api/aesel/'+route,{},'trial')).status,403);
 });

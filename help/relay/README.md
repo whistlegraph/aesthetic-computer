@@ -104,3 +104,20 @@ provider adapter tests. Production checks must include unauthorized rejection
 and a real authenticated model turn. In the phone checkout, run
 `node apple/whistlegraph/Tests/personal-relay-live.mjs` after bundling to check
 real runtime generation and four-frame review without the messages API.
+
+
+## Whistlegraph trials
+
+`AESEL_RELAY_TRIALS_FILE` points to a mode-0640 root:aesel JSON file containing
+`[{"sub":"verified Auth0 subject","expiresAt":"ISO-8601 UTC expiry"}]`.
+Resolve subjects from the account database; handles supplied by a client are
+never grants. Remove the entry to revoke immediately. Identity lookups cache
+for one minute, but grants and expiry are checked on every request.
+
+`GET /api/aesel/access` returns personal-model capabilities to a verified account.
+Trial access permits only Claude Opus 5 / GPT-6 Astra with declared phone tools,
+including an empty list for visual review. Sessions belong to the creating
+subject; legacy sessions belong only to the owner. Trial access never permits
+terminal tools or the unmetered speech endpoints. The service Codex config must
+remain free of MCP servers; phone sessions do not inject AC/media MCPs.
+Whisper speech uses Lith's separately metered `/api/whistlegraph-transcribe`.

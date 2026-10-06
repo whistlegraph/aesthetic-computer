@@ -123,3 +123,10 @@ test("a message typed mid-turn steers the running Codex turn", async (t) => {
   await completed;
   assert.deepEqual(deltas, ["heard:also lint ", "Tests pass."]);
 });
+
+test("phone dynamic tools never start server-side AC or media MCPs", () => {
+  const phone = new AppServer({cwd:directory,dynamicTools:[]});
+  assert.deepEqual(phone.args,["app-server","--listen","stdio://"]);
+  const desktop = new AppServer({cwd:directory});
+  assert.ok(desktop.args.some(arg=>arg.startsWith("mcp_servers.ac.command=")));
+});

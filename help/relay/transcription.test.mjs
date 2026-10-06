@@ -25,7 +25,7 @@ test('ephemeral sessions use live transcription with manual end-of-take commit',
 });
 test('both speech routes require owner auth and leave no recording/session files',async t=>{
  const root=mkdtempSync(join(tmpdir(),'speech-'));let calls=0;
- const server=createRelay({root,authorize:async h=>{if(h!=='Bearer owner')throw Object.assign(Error('Private'),{status:403});},speechSession:async()=>{calls++;return {value:'ephemeral'}},transcribe:async()=>{calls++;return {transcript:'hello',words:[]}}});
+ const server=createRelay({root,authorize:async h=>{if(h!=='Bearer owner')throw Object.assign(Error('Private'),{status:403});return {sub:'owner',owner:true,personal:true};},speechSession:async()=>{calls++;return {value:'ephemeral'}},transcribe:async()=>{calls++;return {transcript:'hello',words:[]}}});
  server.listen(0,'127.0.0.1');await once(server,'listening');t.after(()=>{server.closeAllConnections();server.close();rmSync(root,{recursive:true,force:true});});
  for(const route of ['transcribe','transcription-session']){
   const url=`http://127.0.0.1:${server.address().port}/api/aesel/${route}`;

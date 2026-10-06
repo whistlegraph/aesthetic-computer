@@ -27,7 +27,7 @@ export class AppServer extends EventEmitter {
     this.cwd = cwd;
     this.dynamicTools = dynamicTools;
     this.command = command;
-    this.args = args.includes("app-server") ? [...args, ...codexMcpArgs(cwd,environment)] : args;
+    this.args = args.includes("app-server") && !dynamicTools ? [...args, ...codexMcpArgs(cwd,environment)] : args;
     this.environment = environment;
     this.resumeThreadId = resumeThreadId;
     this.developerInstructions = developerInstructions;

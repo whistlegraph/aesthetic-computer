@@ -18,20 +18,30 @@ async function body(req) {
   try {return JSON.parse(text || '{}');} catch {throw fail(400,'Invalid JSON');}
 }
 
-export function ownerAuth({adminSub, domain='aesthetic.us.auth0.com', fetch=globalThis.fetch}) {
+// Cache identity verification only. Re-read grants on every request so removal
+// or expiry revokes access even while the Auth0 cache is warm.
+export function ownerAuth({adminSub, domain='aesthetic.us.auth0.com', fetch=globalThis.fetch, trials=()=>[], now=Date.now}) {
   if (!adminSub) throw Error('ADMIN_SUB is required');
   const cache = new Map();
   return async header => {
     if (!/^Bearer \S+$/.test(header || '')) throw fail(401,'Sign in to Aesthetic Computer');
     const key=createHash('sha256').update(header).digest('hex');
-    if ((cache.get(key)||0)>Date.now()) return;
-    const response=await fetch(`https://${domain}/userinfo`, {headers:{authorization:header},signal:AbortSignal.timeout(10000)});
-    if (!response.ok) throw fail(401,'Session expired');
-    const user=await response.json();
-    if (user.sub!==adminSub || user.email_verified!==true) throw fail(403,'This relay is private');
-    if (cache.size>=100) cache.clear();
-    cache.set(key,Date.now()+60000);
+    let user=cache.get(key)?.until>now()?cache.get(key).user:null;
+    if(!user) {
+      const response=await fetch(`https://${domain}/userinfo`, {headers:{authorization:header},signal:AbortSignal.timeout(10000)});
+      if (!response.ok) throw fail(401,'Session expired');
+      user=await response.json();
+      if(typeof user.sub!=='string'||!user.sub||user.email_verified!==true)throw fail(403,'Verify your email first');
+      if (cache.size>=100) cache.clear();
+      cache.set(key,{user:{sub:user.sub,email_verified:true},until:now()+60000});
+    }
+    if(user.sub===adminSub)return {sub:user.sub,owner:true,personal:true,providers:['claude','codex'],expiresAt:null};
+    const grant=(await trials()).find(g=>g.sub===user.sub&&Date.parse(g.expiresAt)>now());
+    return {sub:user.sub,owner:false,personal:!!grant,providers:grant?['claude','codex']:[],expiresAt:grant?.expiresAt||null};
   };
+}
+export function trialFile(path) {
+  return ()=>{if(!path)return [];try {const value=JSON.parse(readFileSync(path,'utf8'));return Array.isArray(value)?value:[];}catch{return [];}};
 }
 
 export function createRelay({root, authorize, factory, transcribe, speechSession, maxActive=2}={}) {
@@ -45,12 +55,15 @@ export function createRelay({root, authorize, factory, transcribe, speechSession
     appendFileSync(join(s.dir,'events.jsonl'),JSON.stringify(entry)+'\n',{mode:0o600});
     s.events.push(entry);
   }
-  function load(id) {
+  function owns(meta,principal) {
+    if(principal && (meta.ownerSub?meta.ownerSub!==principal.sub:!principal.owner))throw fail(404,'Session not found');
+  }
+  function load(id,principal) {
     if (!uuid.test(id)) throw fail(400,'Invalid session id');
-    if (sessions.has(id)) return sessions.get(id);
+    if (sessions.has(id)) {const s=sessions.get(id);owns(s.meta,principal);return s;}
     const dir=join(root,id);
     if (!existsSync(join(dir,'session.json'))) throw fail(404,'Session not found');
-    const meta=JSON.parse(readFileSync(join(dir,'session.json'),'utf8'));
+    const meta=JSON.parse(readFileSync(join(dir,'session.json'),'utf8'));owns(meta,principal);
     const events=existsSync(join(dir,'events.jsonl'))?readFileSync(join(dir,'events.jsonl'),'utf8').trim().split('\n').filter(Boolean).map(line=>JSON.parse(line)):[];
     const s={dir,meta,events,seq:events.at(-1)?.seq||0,engine:null,pending:new Map()};
     sessions.set(id,s);
@@ -136,18 +149,24 @@ export function createRelay({root, authorize, factory, transcribe, speechSession
         const timer=setTimeout(()=>{s.pending.delete(id);toolReplies.delete(id);json(res,200,{isError:true,content:[{type:'text',text:'Phone tool timed out; reconnect the phone.'}]});},180000);
         toolReplies.set(id,{s,res,timer});res.on('close',()=>{clearTimeout(timer);toolReplies.delete(id);s.pending.delete(id);});return;
       }
-      await authorize(req.headers.authorization);
+      const principal=await authorize(req.headers.authorization);
+      if(!principal?.sub)throw fail(403,'This relay is private');
+      if(url.pathname==='/api/aesel/access'&&req.method==='GET')return json(res,200,{personal:principal.personal,providers:principal.providers,expiresAt:principal.expiresAt});
+      if(!principal.personal)throw fail(403,'Personal relay access is unavailable or expired');
       if(url.pathname==='/api/aesel/transcription-session' && req.method==='POST') {
+        if(!principal.owner)throw fail(403,'Use AC metered speech');
         if(!speechSession)throw fail(503,'Live speech is unavailable');
         return json(res,200,await speechSession());
       }
       if(url.pathname==='/api/aesel/transcribe' && req.method==='POST') {
+        if(!principal.owner)throw fail(403,'Use AC metered speech');
         if(!transcribe)throw fail(503,'Speech transcription is unavailable');
         return json(res,200,await transcribe(await body(req)));
       }
       if(url.pathname==='/api/aesel/sessions' && req.method==='POST') {
         const input=await body(req);
         if(!['claude','codex'].includes(input.provider))throw fail(400,'Choose claude or codex');
+        if(!principal.owner && (!Array.isArray(input.clientTools) || !['claude-opus-5','gpt-6-astra'].includes(input.model) || input.model!==({claude:'claude-opus-5',codex:'gpt-6-astra'})[input.provider]))throw fail(403,'Trial access is for Whistlegraph phone tools');
         if(input.provider==='codex' && !factory && process.env.CODEX_ENABLED!=='1') throw fail(503,'Codex needs a server-side login');
         for(const key of ['model','effort','instructions'])if(input[key]!=null && (typeof input[key]!=='string'||input[key].length>(key==='instructions'?512000:100)))throw fail(400,`Invalid ${key}`);
         if(input.clientTools!==undefined) {
@@ -155,13 +174,13 @@ export function createRelay({root, authorize, factory, transcribe, speechSession
         }
         const id=randomUUID(),dir=join(root,id);
         mkdirSync(join(dir,'workspace'),{recursive:true,mode:0o700});
-        const meta={id,provider:input.provider,model:input.model||undefined,effort:input.effort||'',instructions:input.instructions||'',...(input.clientTools?{clientTools:input.clientTools,phoneSecret:randomUUID()+randomUUID()}:{}),requests:{},busy:false,created:new Date().toISOString()};
+        const meta={id,ownerSub:principal.sub,provider:input.provider,model:input.model||undefined,effort:input.effort||'',instructions:input.instructions||'',...(input.clientTools?{clientTools:input.clientTools,phoneSecret:randomUUID()+randomUUID()}:{}),requests:{},busy:false,created:new Date().toISOString()};
         save(join(dir,'session.json'),meta);
         return json(res,201,{thread:{id},provider:meta.provider});
       }
       const match=url.pathname.match(/^\/api\/aesel\/sessions\/([^/]+)(?:\/(turn|respond|interrupt))?$/);
       if(!match)throw fail(404,'Not found');
-      const s=load(match[1]),action=match[2];
+      const s=load(match[1],principal),action=match[2];
       if(req.method==='GET' && !action) {
         const after=Number(url.searchParams.get('after')||0);
         if(!Number.isSafeInteger(after)||after<0)throw fail(400,'Invalid event cursor');
@@ -219,7 +238,7 @@ if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) {
   delete process.env.WHISTLEGRAPH_TRANSCRIPTION_KEY;
   // A private subscription relay must never silently fall through to paid API keys.
   for(const key of ['ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN','OPENAI_API_KEY','OPENROUTER_API_KEY'])delete process.env[key];
-  const server=createRelay({root:process.env.AESEL_RELAY_STATE||'/var/lib/aesel-relay',transcribe,speechSession,authorize:ownerAuth({adminSub:process.env.ADMIN_SUB,domain:process.env.AUTH0_DOMAIN})});
+  const server=createRelay({root:process.env.AESEL_RELAY_STATE||'/var/lib/aesel-relay',transcribe,speechSession,authorize:ownerAuth({adminSub:process.env.ADMIN_SUB,domain:process.env.AUTH0_DOMAIN,trials:trialFile(process.env.AESEL_RELAY_TRIALS_FILE)})});
   server.listen(Number(process.env.AESEL_RELAY_PORT||3006),'127.0.0.1',()=>console.log('Aesel relay listening on loopback'));
   for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>{server.close();setTimeout(()=>process.exit(0),1000).unref();});
 }
