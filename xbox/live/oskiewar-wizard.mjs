@@ -191,6 +191,7 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null,
 
   function close() {
     if (panel.hidden) return;
+    if (panel.contains(document.activeElement)) document.activeElement.blur();
     panel.hidden = true;
     globalThis.__oskiewarWizardOpen = false;
   }

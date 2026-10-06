@@ -78,6 +78,7 @@ try {
   const account=await post({action:'account'});assert.equal(account.status,200);assert.equal(account.body.status,'accepted');
   assert.equal(account.body.handle.toLowerCase(),handle.toLowerCase());acceptedHash=account.body.fighter.hash;
   await page.click('#wizard-back');
+  await page.click('#screen', {offset:{x:20,y:20}});
   await page.keyboard.down('Enter');await new Promise(r=>setTimeout(r,300));await page.keyboard.up('Enter');
   await wait(()=>globalThis.__oskiewarTouch?.screen==='game');
   await wait(()=>!!globalThis.__oskiewarTouch?.practiceFighter);

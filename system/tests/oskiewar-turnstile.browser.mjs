@@ -51,6 +51,8 @@ try {
   await page.screenshot({path:shotDir+'/01-review.png'});
   await page.click('#wizard-go');await wait(()=>!!globalThis.__oskiewarFighterAppearance);
   assert.equal(acceptedCalls,1);assert.equal(saved,true);assert.match(await note(),/@fixture/);
+  await page.click('#wizard-back');
+  assert.equal(await page.evaluate(()=>document.activeElement?.id==='wizard-back'),false,'closing returns keyboard input to the game');
   await page.reload();await open();
   await wait(()=>document.querySelector('#wizard-go').textContent==='Use in practice');
   await page.click('#wizard-go');await wait(()=>!!globalThis.__oskiewarFighterAppearance);
