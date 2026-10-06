@@ -749,6 +749,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         // identifies the provider without repeating its name in the todo list.
         let provider = m.agent.trimmingCharacters(in: .whitespacesAndNewlines)
         let repeatsResidentAgent = provider.caseInsensitiveCompare(c.agentName) == .orderedSame
+            || (irisHeading && provider.lowercased() == "iris")
         providerChip.image = provider.isEmpty || repeatsResidentAgent ? nil : agentIcon(for: provider)
         providerChip.toolTip = provider.isEmpty ? nil : provider
         providerChip.setAccessibilityLabel(provider.isEmpty ? nil : provider + " provider")
