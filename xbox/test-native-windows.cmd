@@ -14,7 +14,7 @@ node --check "%ROOT%\xbox\live\controller-probe.js" || exit /b 1
 node --check "%ROOT%\xbox\live\oskiewar.js" || exit /b 1
 node "%ROOT%\xbox\tools\oskiewar-native-source.mjs" "%BUILD%\oskiewar.js" || exit /b 1
 node --check "%BUILD%\oskiewar.js" || exit /b 1
-node --test "%ROOT%\xbox\live\tests\native-account.test.mjs" "%ROOT%\xbox\live\tests\native-flat-primitives.test.mjs" || exit /b 1
+node --test "%ROOT%\xbox\live\tests\native-account.test.mjs" "%ROOT%\xbox\live\tests\native-flat-primitives.test.mjs" "%ROOT%\xbox\live\tests\oskiewar-dual-stick.test.mjs" || exit /b 1
 node --check "%ROOT%\xbox\live\native-showcase.js" || exit /b 1
 node --check "%ROOT%\xbox\live\photo-disc.js" || exit /b 1
 node "%ROOT%\xbox\live\tests\controller-probe.test.mjs" || exit /b 1
@@ -42,6 +42,12 @@ cl /nologo /std:c++20 /EHsc /W4 ^
   "%ROOT%\xbox\runtime\tests\image_effects_contract.cpp" ^
   /Fe:"%BUILD%\image-effects-contract.exe" || exit /b 1
 "%BUILD%\image-effects-contract.exe" || exit /b 1
+
+cl /nologo /std:c++17 /EHsc /W4 ^
+  /I"%ROOT%\xbox\runtime\include" ^
+  "%ROOT%\xbox\runtime\tests\remote_pad_contract.cpp" ^
+  /Fe:"%BUILD%\remote-pad-contract.exe" || exit /b 1
+"%BUILD%\remote-pad-contract.exe" || exit /b 1
 
 set "QJS=%ROOT%\xbox\native-bios\third_party\quickjs-ng"
 for %%f in (quickjs dtoa libregexp libunicode) do (

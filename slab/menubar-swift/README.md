@@ -363,3 +363,18 @@ Uninstall is handled by `slab/uninstall.sh`, which removes `computer.slab.menuba
 - Hot reload via [Inject](https://github.com/krzysztofzablocki/Inject): split into host exec + dylib so edits land in-process.
 - First-class callers: `devault.fish`, `lith/deploy.fish`, npm session scripts.
 - Richer status: lid sensor sparkline, ambient-synth peak, SSH session count.
+
+AC Remote also supports the developer Xbox build (Native BIOS 66+). Right-click
+**AC** and select **Xbox · Oskiewar**, then click or press **Command–Option–L**.
+Use WASD to move, the mouse to look, left-click to fire/draw, right-click to aim,
+Space to jump, Shift to crouch, E to interact, Q to drop, and Escape for the menu.
+IJKL can move the camera without a mouse; X aims and R fires. Press
+**Command–Option–L** to return both keyboard and pointer to the Mac.
+
+Install `xbox/tools/ac-remote.mjs` as `~/.local/bin/ac-xbox-remote.mjs` and retain
+the existing private Xbox Device Portal configuration. The helper pairs through
+Device Portal, sends complete pad snapshots on LAN UDP 51339, and requires
+acknowledgements before capture starts. The Xbox releases input after 250 ms
+without a packet; the helper and menu bar also release on disconnect. Pairing
+keys expire after two hours. This receiver is disabled in production builds.
+The standalone Iris icon is retired; mission status remains under Work.
