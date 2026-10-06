@@ -57,6 +57,15 @@ test('insufficient balance never calls the provider; failure refunds the reserva
   const broken=fixture({generate:async()=>{throw Object.assign(Error('Provider unavailable'),{status:502});}});
   assert.equal((await broken.handler(event())).statusCode,502);assert.deepEqual(broken.calls.finish,[['receipt',false]]);
 });
+test('catalog exposes provider funding and blocks generation before reserving Braincells',async()=>{
+  const service={available:false,code:'provider_funding',message:'AC cloud unavailable',detail:'AC needs to fund OpenRouter.'};
+  const {handler,calls}=fixture({status:async()=>service});
+  const catalog=JSON.parse((await handler({httpMethod:'GET'})).body);
+  assert.deepEqual(catalog.service,service);assert.equal(catalog.models[0].available,false);
+  const response=await handler(event());assert.equal(response.statusCode,503);
+  assert.equal(JSON.parse(response.body).code,'provider_funding');
+  assert.equal(calls.generate,0);assert.equal(calls.begin.length,0);
+});
 test('concurrent replay joins the same pending move',async()=>{
   let release;const gate=new Promise(r=>release=r);let generated=0;
   const {handler,calls}=fixture({generate:async()=>{generated++;await gate;return {image};}});

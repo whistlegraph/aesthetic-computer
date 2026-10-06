@@ -1,6 +1,7 @@
 import {requestKey, noPaintBilling, ensureNoPaintBillingIndexes} from '../../backend/nopaint-billing.mjs';
 import {moveOffer, moveInput, createNoPaintProvider} from '../../backend/nopaint-provider.mjs';
 import {openRouterOffers, createOpenRouterProvider} from '../../backend/nopaint-openrouter.mjs';
+import {createCloudStatus} from '../../backend/nopaint-status.mjs';
 
 const reply = (statusCode, value) => ({statusCode, headers:{
   'Content-Type':'application/json', 'Cache-Control':'private, no-store',
@@ -8,11 +9,14 @@ const reply = (statusCode, value) => ({statusCode, headers:{
   'Access-Control-Allow-Headers':'Authorization, Content-Type',
 }, body:JSON.stringify(value)});
 
-export function createHandler({authorize, getHandleOrEmail, billing, generate, offer=null, offers=offer?[offer]:[], enabled=false, now=Date.now}) {
+export function createHandler({authorize, getHandleOrEmail, billing, generate, offer=null, offers=offer?[offer]:[], enabled=false, status, now=Date.now}) {
   const results = new Map(), pending = new Map();
   return async event => {
     if (event.httpMethod === 'OPTIONS') return reply(204, null);
-    if (event.httpMethod === 'GET') return reply(200, {models:offers.map(item=>({...item,available:enabled}))});
+    if (event.httpMethod === 'GET') {
+      const service=status ? await status({enabled,offers}) : null;
+      return reply(200, {models:offers.map(item=>({...item,available:enabled && service?.available!==false && !service?.unavailable_models?.includes(item.id)})), ...(service?{service}:{})});
+    }
     if (event.httpMethod !== 'POST') return reply(405, {error:'POST only'});
     if (!event.headers?.authorization) return reply(401, {error:'Sign in with AC for remote moves'});
     let user;
@@ -20,6 +24,10 @@ export function createHandler({authorize, getHandleOrEmail, billing, generate, o
     if (!user?.sub) return reply(401, {error:'Sign in again with AC'});
     if (user.email_verified !== true) return reply(403, {error:'Verify your AC email first'});
     if (!enabled || !offers.length) return reply(503, {error:'AC remote images are not enabled yet'});
+    if (status) {
+      const service=await status({enabled,offers});
+      if (!service.available) return reply(503, {error:service.detail, code:service.code, service});
+    }
     try {
       const handle = await getHandleOrEmail(user.sub);
       if (typeof handle !== 'string' || !handle.startsWith('@')) return reply(403, {error:'Choose an AC handle first'});
@@ -29,6 +37,10 @@ export function createHandler({authorize, getHandleOrEmail, billing, generate, o
       const input = moveInput(body), id = requestKey(user.sub, input.requestId);
       const offer = offers.find(item=>item.quote===input.quote && (!input.model || input.model===item.id));
       if (!offer) return reply(409, {error:'The remote price changed. Refresh before generating.'});
+      if (status) {
+        const service=await status({enabled,offers:[offer]});
+        if (!service.available) return reply(503, {error:service.detail, code:service.code, service});
+      }
       for (const [key,value] of results) if (value.until <= now()) results.delete(key);
       const prior = results.get(id) || pending.get(id);
       if (prior && prior.hash !== input.hash) return reply(409, {error:'Move ID already used for different image or settings'});
@@ -58,23 +70,31 @@ export function createHandler({authorize, getHandleOrEmail, billing, generate, o
   };
 }
 
-let live;
+let live, cloudStatus;
 export async function handler(event) {
   const falOffer = moveOffer(Number(process.env.NOPAINT_FAL_USD_PER_MOVE));
   const offers = [...(process.env.FAL_KEY && falOffer ? [falOffer] : []),
     ...(process.env.OPENROUTER_API_KEY ? openRouterOffers(process.env.NOPAINT_OPENROUTER_OFFERS) : [])];
   const enabled = process.env.NOPAINT_REMOTE_ENABLED === 'true' && offers.length>0;
-  // Public catalog and a disabled gateway need neither a DB nor provider call.
-  if (event.httpMethod === 'GET') return reply(200, {models:offers.map(item=>({...item,available:enabled}))});
+  cloudStatus ||= createCloudStatus({key:process.env.OPENROUTER_API_KEY,
+    minimum:Number(process.env.NOPAINT_OPENROUTER_MIN_BALANCE_USD) || 1});
+  // Catalog health uses a cached, read-only balance request; no DB or inference.
+  if (event.httpMethod === 'GET') {
+    const service=await cloudStatus({enabled,offers});
+    return reply(200, {models:offers.map(item=>({...item,available:enabled && service.available && !service.unavailable_models?.includes(item.id)})), service});
+  }
   if (event.httpMethod === 'OPTIONS') return reply(204, null);
-  if (!enabled) return reply(503, {error:'AC remote images are not enabled yet'});
+  if (!enabled) {
+    const service=await cloudStatus({enabled,offers});
+    return reply(503, {error:service.detail, code:service.code, service});
+  }
   if (!live) live = (async()=>{
     const [{authorize,getHandleOrEmail},{connect}] = await Promise.all([
       import('../../backend/authorization.mjs'), import('../../backend/database.mjs'),
     ]);
     const {db} = await connect();
     await ensureNoPaintBillingIndexes(db);
-    return createHandler({authorize, getHandleOrEmail, billing:noPaintBilling(db), offers, enabled,
+    return createHandler({authorize, getHandleOrEmail, billing:noPaintBilling(db), offers, enabled, status:cloudStatus,
       generate:(input,offer)=> offer.provider==='openrouter'
         ? createOpenRouterProvider({key:process.env.OPENROUTER_API_KEY})(input,offer)
         : createNoPaintProvider({key:process.env.FAL_KEY})(input)});
