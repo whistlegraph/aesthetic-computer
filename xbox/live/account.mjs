@@ -451,5 +451,14 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
   if (!probe) account.ready = true;
   const ready = probe ? restore() : Promise.resolve();
 
-  return { restore, ready, redirectPending };
+  function clearSession() {
+    otp.forget();
+    source = ""; who = "";
+    publish({ signedIn: false });
+    shut();
+    // Clear the SPA cache without navigating away from the deletion receipt.
+    void spa?.logout?.({ openUrl: false })?.catch(() => {});
+  }
+
+  return { restore, ready, redirectPending, clearSession };
 }

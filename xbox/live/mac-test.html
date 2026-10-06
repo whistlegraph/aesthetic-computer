@@ -7,13 +7,8 @@
     const offlineRuntime = !["https:", "http:"].includes(location.protocol);
     const inPackagedApp = globalThis.__oskiewarPackaged === true;
     const jevDemo = new URLSearchParams(location.search).has('jev-vs-jev');
-    // The iOS app (apple/oskiewar) loads `?touch&app=ios`, and there the shell
-    // offers no sign-in and no "add yourself": App Store guideline 5.1.1(v)
-    // wants any app that makes an account to delete one in the app too, and
-    // that path does not exist yet. Sign-in comes back in a later version,
-    // with deletion beside it. Read once, from the address or from this tab's
-    // memory of it, because the room updater rewrites the address and a link
-    // followed inside the web view never carried the query to begin with.
+    // Keep the iOS host marker across room links and authentication redirects.
+    // Online iOS uses the same account and saved fighter as the website.
     const inIOSApp = (() => {
       let remembered = false;
       try { remembered = sessionStorage.getItem("oskiewar-app") === "ios"; } catch {}
@@ -140,7 +135,7 @@
     #account { position: fixed; z-index: 6;
       left: max(14px, env(safe-area-inset-left), var(--inset-left, 0px));
       bottom: max(14px, env(safe-area-inset-bottom), var(--inset-bottom, 0px));
-      display: flex; flex-direction: row; align-items: center; gap: 10px; }
+      display: flex; flex-direction: row; flex-wrap: wrap; max-width: calc(100% - 28px); align-items: center; gap: 10px; }
     .touch-enabled #account {
       top: max(12px, env(safe-area-inset-top), var(--inset-top, 0px));
       bottom: auto;
@@ -152,6 +147,8 @@
       font: 700 19px/1 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
       color: #f3f6ff; text-shadow: 2px 3px 0 rgba(4, 7, 18, .65); }
     #account-handle[hidden] { display: none; }
+    #account-delete { padding: 7px; border: 0; background: transparent;
+      color: #303849; font: 14px/1.3 Arial, sans-serif; text-decoration: underline; cursor: pointer; }
     #logout { appearance: none; padding: 7px 11px; border: 2px solid #6e768d;
       border-radius: 8px; background: #b0b8ca; color: #171b28;
       font: 700 15px/1 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
@@ -318,9 +315,8 @@
       navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches;
     document.body.classList.toggle("touch-enabled", touchEnabled);
     document.body.classList.add("title-open");
-    // No door in the app build (see `inIOSApp`): the corner button and its
-    // panel leave the document, so nothing can focus, tab to or raise them.
-    if (inIOSApp || inPackagedApp || offlineRuntime)
+    // Offline and packaged runtimes remove account controls.
+    if (inPackagedApp || offlineRuntime)
       for (const furniture of document.querySelectorAll("#account, #account-panel"))
         furniture.remove();
     document.body.classList.toggle("social-preview",
@@ -381,11 +377,9 @@
     // `ready` says the shell has finished asking who is here — success or not.
     // Until then a piece should say nothing about accounts rather than guess
     // that nobody is signed in.
-    // The app build has no one to ask, so it is ready from the start: netplay
-    // waits on `ready` before it deals names, and nobody-signed-in is the
-    // whole answer there.
+    // Offline and packaged runtimes are ready as guests from the start.
     globalThis.__oskiewarAccount = {
-      ready: inIOSApp, signedIn: false, handle: "", colors: [],
+      ready: inPackagedApp || offlineRuntime, signedIn: false, handle: "", colors: [],
       // Replaced by `account.mjs` with the real token accessor. Answering null
       // until then is the honest state: nobody is signed in yet.
       bearer: async () => null,
@@ -1753,6 +1747,7 @@
     import createPhotoTheme from "/photo-theme.mjs";
     import mountAccount from "/account.mjs";
     import mountWizard from "/oskiewar-wizard.mjs";
+    import { mountAccountDeletion } from "/account-deletion.mjs";
     import { defaultCharacterEntry as isDefaultCharacterEntry, readRelease } from "/release-client.mjs";
     const releaseAtLoad = readRelease();
     import { mountWorkshop } from "/oskiewar-workshop.mjs";
@@ -1777,41 +1772,54 @@
     globalThis.__oskiewarRenderSurface = renderSurface;
     globalThis.__oskiewarNextResolutionScale = nextResolutionScale;
     globalThis.__oskiewarInsetsChanged();
-    // The app build mounts neither door (see `inIOSApp`); the game already
-    // plays a shell without them as anonymous.
-    const accountDoor = inIOSApp || inPackagedApp || offlineRuntime ? null : mountAccount({
+    // Offline and packaged runtimes have no account service.
+    const accountDoor = inPackagedApp || offlineRuntime ? null : mountAccount({
       sfx: (name, amount, pan) => oskiewarSfx.drum(name, amount, pan),
       probe: !socialPreview,
     });
+
+    if (accountDoor && !socialPreview)
+      mountAccountDeletion({ account: globalThis.__oskiewarAccount,
+        onDeleted: () => accountDoor.clearSession() });
 
     // 🚪 The consent wall, mounted after the door it depends on. Kept out of a
     // social-preview render for the same reason the account probe is: that pass
     // draws a picture of the title and must not grow furniture a viewer of the
     // picture could never press.
+    if (accountDoor?.redirectPending) await accountDoor.ready;
     const defaultCharacterEntry = isDefaultCharacterEntry(new URL(location.href));
-    if (!socialPreview && !inIOSApp && !inPackagedApp && !offlineRuntime)
+    const practiceUrl = () => {
+      const url = new URL(location.href);
+      url.pathname = "/"; url.hash = "";
+      for (const key of [...url.searchParams.keys()])
+        if (!["touch", "app", "renderer", "graphics", "frame", "voice"].includes(key))
+          url.searchParams.delete(key);
+      url.searchParams.set("practice", "");
+      return url.pathname + url.search;
+    };
+    if (!socialPreview && !inPackagedApp && !offlineRuntime)
       globalThis.__oskiewarWizard = mountWizard({
         sfx: (name, amount, pan) => oskiewarSfx.drum(name, amount, pan),
         bearer: () => globalThis.__oskiewarAccount.bearer(),
-        defaultHandle: "@jeffrey",
+        defaultHandle: () => globalThis.__oskiewarAccount.handle.toLowerCase(),
         onDefault: () => {
           if (defaultCharacterEntry && !globalThis.__oskiewarLocalPractice) {
             // During initial loading, select the private lane before the game
             // or a room bridge boots. A later sign-in starts a fresh page.
             if (globalThis.__oskiewarTouch?.screen === "game") {
-              location.replace("/?practice");
+              location.replace(practiceUrl());
               return;
             }
             globalThis.__oskiewarLocalPractice = true;
             globalThis.__oskiewarVersusCapable = false;
             globalThis.__oskiewarOpponent = "dummy";
-            history.replaceState(null, "", "/?practice");
+            history.replaceState(null, "", practiceUrl());
           }
         },
         enterPractice: () => {
           if (globalThis.__oskiewarLocalPractice || offlineRuntime) return;
           sessionStorage.setItem("oskiewar-enter-practice", "1");
-          location.assign("/?practice");
+          location.assign(practiceUrl());
         },
       });
     const defaultFighterReady = Promise.resolve(accountDoor?.ready)

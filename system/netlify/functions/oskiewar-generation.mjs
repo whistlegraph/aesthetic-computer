@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { authorize } from '../../backend/authorization.mjs';
+import { authorize, handleFor } from '../../backend/authorization.mjs';
 import { connect } from '../../backend/database.mjs';
 import { pseudonym, frozenFields } from './oskiewar-consent.mjs';
 import { gateRoutes, verifyGenerationCapability, readGrantedPhoto, generateAppearance, RECIPE } from '../../backend/oskiewar-generation.mjs';
@@ -11,7 +11,10 @@ const SAVED_MS = 24 * 60 * 60 * 1000;
 async function fighterAccount(userSub) {
   const { db } = await connect();
   const profile = await db.collection('@handles').findOne({ _id: userSub });
-  const handle = profile?.handle ? '@' + profile.handle.replace(/^@/, '') : null;
+  // Match the sign-in shell's handle lookup, including established aliases.
+  // The fighter and its consent still belong to the authenticated subject.
+  const name = profile?.handle || await handleFor(userSub);
+  const handle = name ? '@' + name.replace(/^@/, '') : null;
   const fighters = db.collection('oskiewar-fighters');
   await fighters.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
   return { db, handle, fighters };

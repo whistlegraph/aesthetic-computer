@@ -52,7 +52,8 @@ function collection(name) {
     },
   };
 }
-mock.module('../backend/authorization.mjs', { exports: { authorize: async headers => headers?.authorization ? { sub: headers.authorization === 'Bearer other' ? 'auth0|other' : 'auth0|fixture' } : null } });
+const aliases = new Map();
+mock.module('../backend/authorization.mjs', { exports: { handleFor: async sub => aliases.get(sub), authorize: async headers => headers?.authorization ? { sub: headers.authorization === 'Bearer other' ? 'auth0|other' : 'auth0|fixture' } : null } });
 mock.module('../backend/database.mjs', { exports: { connect: async () => ({ db: { collection } }) } });
 const { handler } = await import('../netlify/functions/oskiewar-generation.mjs');
 const { pseudonym } = await import('../netlify/functions/oskiewar-consent.mjs');
@@ -108,6 +109,18 @@ test('real bridge releases one result, refuses revoked grants, and never regener
     assert.equal(restored.handle, '@renamed');
     assert.equal(restored.fighter.hash, fighter.hash, 'handle rename preserves ownership');
     assert.equal(modelCalls, 1, 'restoring an accepted fighter never calls the model');
+    stores.get('@handles').delete('auth0|fixture');
+    aliases.set('auth0|fixture', 'renamed');
+    const aliasRestored = JSON.parse((await handler(accountEvent)).body);
+    assert.equal(aliasRestored.handle, '@renamed', 'handle lookup matches the sign-in shell');
+    assert.equal(aliasRestored.fighter.hash, fighter.hash, 'alias retains the same consent owner');
+    aliases.set('auth0|other', 'renamed');
+    const otherProfile = stores.get('@handles').get('auth0|other');
+    stores.get('@handles').delete('auth0|other');
+    assert.equal(JSON.parse((await handler({...accountEvent,headers:{authorization:'Bearer other'}})).body).status, 'empty', 'a shared handle label never shares a fighter');
+    stores.get('@handles').set('auth0|fixture', profile);
+    stores.get('@handles').set('auth0|other', otherProfile);
+    aliases.clear();
     delete process.env.OPENAI_API_KEY;
     assert.equal((await handler(accountEvent)).statusCode, 200, 'recovery needs no model credentials');
     process.env.OPENAI_API_KEY = 'fixture';

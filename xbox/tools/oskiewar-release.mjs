@@ -236,7 +236,7 @@ async function reconcile(receipt, { dryRun = false } = {}) {
   if (receipt.channels.web.status !== "current") {
     if (dryRun) console.log("would deploy web");
     else try {
-      run("fish", ["lith/deploy.fish"]);
+      run("node", ["slab/bin/ac-deploy"]);
       await verifyWeb(hash, receipt.desired.runtimeHash);
       mark(receipt, "web", "current", "verified production bytes");
     } catch (error) { mark(receipt, "web", "failed", error.message); }
