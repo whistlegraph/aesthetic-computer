@@ -70,6 +70,9 @@ struct CostUnitPicker: View {
         Picker("Cost unit", selection: $unit) {
             ForEach(CostUnit.allCases) { Text($0.label).tag($0) }
         }.pickerStyle(.segmented).accessibilityIdentifier("brain-cost-unit")
+        if unit != .braincells {
+            Text("Estimated service value.").font(.footnote).foregroundStyle(.secondary)
+        }
         if unit == .tezos {
             if let rate = prices.rate, rate.isFresh, let date = rate.date {
                 Text("1 tez = \(rate.usdPerTez.formatted(.currency(code: "USD").precision(.fractionLength(4)))) · \(date.formatted(date: .omitted, time: .shortened)) · TzKT")

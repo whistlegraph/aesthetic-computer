@@ -34,17 +34,30 @@ struct WhistlegraphApp: App {
                     }.padding(30).foregroundStyle(.primary)
                 }
             }
+            .task { await voice.braincells.start(session: voice) }
+            .onChange(of: voice.snapshot.handle) { _, _ in Task { await voice.syncAIAccount(); await voice.braincells.accountChanged() } }
+            .sheet(isPresented: $voice.showingAIConsent) { NavigationStack { WhistlegraphPrivacySheet(session: voice) } }
             .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
             .onChange(of: phase) { _, value in
                 if value == .background { voice.cancelHold() }
                 if value == .active && voice.capturePhase == .idle { voice.resumePieceAudio() }
-                if value == .active { Task { await TezDisplayRate.shared.refresh(); await voice.tezosBraincells.refresh(session: voice) } }
+                if value == .active {
+                    Task {
+                        await TezDisplayRate.shared.refresh()
+                        await voice.braincells.recover()
+                        #if WHISTLEGRAPH_INTERNAL_PAYMENTS && DEBUG
+                        await voice.tezosBraincells.refresh(session: voice)
+                        #endif
+                    }
+                }
             }
+            #if WHISTLEGRAPH_INTERNAL_PAYMENTS && DEBUG
             .onOpenURL { url in
                 if url.scheme == "whistlegraph" && url.host == "braincells" {
                     Task { await voice.tezosBraincells.refresh(session: voice) }
                 }
             }
+            #endif
         }
     }
 }
@@ -55,6 +68,9 @@ struct Workspace: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.userContentController.addUserScript(WKUserScript(source: "window.__walkiewareNativeShell = true;", injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        if let data = try? JSONSerialization.data(withJSONObject: voice.aiConsent.bridge), let json = String(data: data, encoding: .utf8) {
+            config.userContentController.addUserScript(WKUserScript(source: "window.__whistlegraphAIConsent = \(json);", injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
         config.userContentController.add(context.coordinator, name: "walkie")
         config.setURLSchemeHandler(WhistlegraphBundle(), forURLScheme: "walkieware")
         // Custom-scheme fetch responses have status 0 on device. Seed the
@@ -186,6 +202,9 @@ struct Workspace: UIViewRepresentable {
 final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHandler, WKNavigationDelegate {
     @Published var layout = NativeLayout()
     @Published var snapshot = PieceSnapshot()
+    @Published var showingAIConsent = false
+    @Published private(set) var localDataRevision = 0
+    let aiConsent = AIConsent.shared
     @Published var engineReady = false
     private var performanceTurn = false
     @Published var performanceCapture = false
@@ -231,6 +250,9 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
 
     func command(_ action: String, version: Int? = nil, text: String? = nil, piece: String? = nil) {
         guard ["checkout", "newPiece", "openPiece", "stop", "signIn", "ask", "retry", "presentVersion", "endPresentation", "setModel", "refreshBraincells"].contains(action) else { return }
+        if ["ask", "retry"].contains(action), !snapshot.handle.isEmpty, !aiConsent.creation {
+            showingAIConsent = true; return
+        }
         if action == "newPiece" || action == "openPiece" {
             guard engineReady, !snapshot.busy, capturePhase == .idle else { return }
             if action == "openPiece" { guard let piece, pieces.contains(where: { $0.id == piece && !$0.current }) else { return } }
@@ -261,6 +283,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     }
     func beginHold() {
         guard engineReady, !snapshot.busy, capturePhase == .idle else { return }
+        guard aiConsent.creation else { showingAIConsent = true; return }
         performanceTurn = false
         captureError = nil; transcript = ""; speechStartedAt = nil; capturePhase = .opening
         webView?.evaluateJavaScript("voiceStart()")
@@ -271,10 +294,59 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         webView?.evaluateJavaScript("window.walkiewareLatchPerformance?.()")
     }
     func endHold() { webView?.evaluateJavaScript("voiceEnd()") }
+    func syncAIAccount() async {
+        let expected = account.generation
+        let subject = try? await account.subject()
+        guard expected == account.generation else { return }
+        aiConsent.bind(subject: subject ?? nil, handle: snapshot.handle)
+    }
+    private func applyAIConsent() {
+        if !aiConsent.creation { command("stop"); cancelHold() }
+        if !aiConsent.cloudSpeech { cancelHold() }
+        if !aiConsent.cloudNarration { StoryVoice.cancelCloudRequests() }
+        let value = aiConsent.bridge
+        Task { _ = try? await webView?.callAsyncJavaScript("window.__whistlegraphAIConsent = value; window.walkiewareSetAIConsent?.(value);", arguments: ["value": value], in: nil, contentWorld: .page) }
+    }
+    func eraseDeletedAccountLocally() async throws {
+        command("stop"); cancelHold(); storyPreview.stop(); tv.disconnect()
+        localDataRevision += 1
+        aiConsent.forget(); StoryVoice.erasePendingWork()
+        account.signOut()
+        _ = try? await webView?.callAsyncJavaScript("window.walkiewareForgetLocalData?.();", arguments: [:], in: nil, contentWorld: .page)
+        webView?.stopLoading()
+        await WKWebsiteDataStore.default().removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast)
+        let manager = FileManager.default
+        let support = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let caches = manager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        let documents = manager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        var cleanupError: Error?
+        for url in [support.appendingPathComponent("Utterances"), support.appendingPathComponent("whistlegraph-drawing-draft.json"),
+                    caches.appendingPathComponent("StoryVoice"), caches.appendingPathComponent("StoryMovies")] {
+            if manager.fileExists(atPath: url.path) { do { try manager.removeItem(at: url) } catch { cleanupError = error } }
+        }
+        // Documents contains app-created local exports and test artifacts only.
+        do {
+            for url in try manager.contentsOfDirectory(at: documents, includingPropertiesForKeys: nil) {
+                do { try manager.removeItem(at: url) } catch { cleanupError = error }
+            }
+        } catch { cleanupError = error }
+        do {
+            for url in try manager.contentsOfDirectory(at: manager.temporaryDirectory, includingPropertiesForKeys: nil)
+                where ["story-voice-", "story-canvas-", "Whistlegraph-"].contains(where: { url.lastPathComponent.hasPrefix($0) }) {
+                do { try manager.removeItem(at: url) } catch { cleanupError = error }
+            }
+        } catch { cleanupError = error }
+        if let name = Bundle.main.bundleIdentifier { UserDefaults.standard.removePersistentDomain(forName: name) }
+        drawing.clear(); drawing.enabled = false
+        snapshot = PieceSnapshot(); pieces = []; previewSource = ""; engineReady = false
+        reloadWorkspace()
+        if let cleanupError { throw cleanupError }
+    }
     /// Drops the Keychain sign-in and tells the engine, which parks its sockets.
     func signOut() {
         guard capturePhase == .idle else { return }
         account.signOut()
+        aiConsent.bind(subject: nil, handle: "")
         emitEngine(["kind": "account", "token": ""])
     }
     func cancelHold() { performanceCapture = false; webView?.evaluateJavaScript("voiceEnd(true)"); cancel() }
@@ -317,16 +389,23 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         else { startupFailure = "The workspace stopped. Tap Reload to reopen it." }
     }
     let account = WhistlegraphAccount()
+    let braincells = WhistlegraphBraincells()
+    #if WHISTLEGRAPH_INTERNAL_PAYMENTS && DEBUG
     let tezosBraincells = TezosBraincells()
+    #endif
     // The microphone, recognizer and release timing live in SpeechCapture; this
     // class only turns its events into screen state and bridge messages.
     private let capture = SpeechCapture()
     override init() {
         super.init()
+        aiConsent.changed = { [weak self] in self?.applyAIConsent() }
         capture.hasVisualInput = { [weak self] in self?.drawing.hasInk == true }
         capture.speechToken = { [weak self] in
-            guard let self, self.snapshot.handle == "jeffrey" else { return nil }
-            return try await self.account.token()
+            guard let self, self.snapshot.handle == "jeffrey", self.aiConsent.cloudSpeech else { return nil }
+            let generation = self.account.generation
+            let token = try await self.account.token()
+            guard !Task.isCancelled, generation == self.account.generation, self.aiConsent.cloudSpeech else { return nil }
+            return token
         }
         capture.onEvent = { [weak self] kind, text, id in self?.emit(kind, text: text, id: id) }
         capture.onLevel = { [weak self] rms in guard let self else { return }; self.microphoneLevels = Array(self.microphoneLevels.dropFirst()) + [rms] }
@@ -348,6 +427,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     private var visualCaptureTask: Task<Void, Never>?
     private var previewThreadID = UUID().uuidString
 
+    #if WHISTLEGRAPH_INTERNAL_PAYMENTS && DEBUG
     func mintCapture() async throws -> (hash: String, png: String) {
         guard let webView, !snapshot.busy, !presentingStory, !previewSource.isEmpty,
               paintedPreviewHash == VisualCapture.hash(previewSource) else {
@@ -363,11 +443,10 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         guard let png = frames.first?["png"] as? String else { throw NativeSignIn.failure("Could not capture the artwork cover.") }
         return (hash, png)
     }
+    #endif
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        if !message.frameInfo.isMainFrame,
-           message.frameInfo.request.url?.host == "aesthetic.computer",
-           message.frameInfo.request.url?.scheme == "https",
+        if PreviewNavigation.bridge(message.frameInfo.request.url, mainFrame: message.frameInfo.isMainFrame, document: .workspace) == .artwork,
            let body = message.body as? [String: Any] {
             #if DEBUG
             if NativeScreenFixture.mode == "audio", body["action"] as? String == "audioProbe" {
@@ -406,9 +485,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             }
             return
         }
-        guard message.frameInfo.isMainFrame,
-              message.frameInfo.request.url?.scheme == "walkieware",
-              message.frameInfo.request.url?.host == "app",
+        guard PreviewNavigation.bridge(message.frameInfo.request.url, mainFrame: message.frameInfo.isMainFrame, document: .workspace) == .workspace,
               let body = message.body as? [String: Any],
               let action = body["action"] as? String,
               let id = body["id"] as? String, id.count <= 100 else { return }
@@ -499,6 +576,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         case "account":
             Task { do { emitEngine(["kind": "account", "token": try await account.token() ?? ""]) }
                 catch { emitEngine(["kind": "account", "token": ""]) } }
+        case "aiConsent": showingAIConsent = true
         case "signIn":
             account.signIn(from: webView) { [weak self] result in
                 switch result {

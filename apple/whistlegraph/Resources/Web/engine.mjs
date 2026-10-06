@@ -1,3 +1,6 @@
+import {createAIConsentGate} from './ai-consent.mjs';
+import {SourceEditor} from './source-editor.mjs';
+import {inferenceError} from './inference-error.mjs';
 import {withDrawing,inputData,drawingImage,drawingContent} from './drawing-input.mjs';
 import {checkedPrompt} from './prompt-limit.mjs';
 import {reviewVisualResult,reviewWithRepair} from './visual-review.mjs';
@@ -25,6 +28,18 @@ import {runnablePrefix,partialString,streamedEdits,streamedCode} from './stream-
 import * as vfs from '/easel/phone/shim/fs.mjs';
 
 const post = body => window.webkit.messageHandlers.walkie.postMessage({id:'engine',...body});
+let consentState = window.__whistlegraphAIConsent || {};
+const aiConsent = createAIConsentGate({fetch: globalThis.fetch.bind(globalThis), onRequired: () => post({action:'aiConsent'})});
+globalThis.fetch = aiConsent.fetch;
+function syncAIConsent() {
+  const allowed = consentState.creation === true && !!accountHandle && consentState.handle === accountHandle && accountToken === token;
+  aiConsent.setAllowed(allowed);
+  if (!allowed) {
+    turnCancelled = true; visualController?.abort(); server?.interrupt();
+    musicalAdvisor.cancel(); musicalSocket.suspend();
+  } else { musicalSocket.resume(); }
+}
+
 const benchmark=(event,fields={})=>{post({action:'benchmark',event,fields});window.__walkiewareSequenceEvent?.(event,fields);};
 const file = '/piece/walkieware.mjs';
 const storageKey=window.__whistlegraphFixture?'whistlegraph-fixture-source':window.__walkiewareSpace?'walkieware-space-source':window.__walkiewareLocalSequence?'walkieware-local-source':window.__walkiewareSequence?'walkieware-sequence-source':window.__walkiewareBenchmark?'walkieware-benchmark-source':'walkieware-source';
@@ -71,8 +86,8 @@ function paintHandle(handle,colors=handleCharacterColors('@'+handle)){
   signIn.replaceChildren(...Array.from('@'+handle,(character,index)=>{const span=document.createElement('span');span.textContent=character;span.style.color='rgb('+colors[index].join(',')+')';return span;}));nativeSnapshot();
 }
 function accountIdentity(value){
-  if(value===accountToken)return;accountToken=value;accountHandle='';braincells=null;braincellsError='';signIn.textContent=value?'…':'Sign in';
-  accountVerification=value?verifyAccount(value).then(account=>{if(accountToken!==value)return;accountHandle=account.handle;if(!accountHandle){signIn.textContent='Set handle';return;}paintHandle(accountHandle);void refreshBraincells();const handle=accountHandle;void fetchHandleColors('@'+handle).then(colors=>{if(accountToken===value&&accountHandle===handle)paintHandle(handle,colors);}).catch(()=>{});}).catch(()=>{if(accountToken===value)signIn.textContent='Retry sign-in';}):Promise.resolve();
+  if(value===accountToken)return;accountToken=value;accountHandle='';syncAIConsent();braincells=null;braincellsError='';signIn.textContent=value?'…':'Sign in';
+  accountVerification=value?verifyAccount(value).then(account=>{if(accountToken!==value)return;accountHandle=account.handle;syncAIConsent();if(!accountHandle){signIn.textContent='Set handle';return;}paintHandle(accountHandle);void refreshBraincells();const handle=accountHandle;void fetchHandleColors('@'+handle).then(colors=>{if(accountToken===value&&accountHandle===handle)paintHandle(handle,colors);}).catch(()=>{});}).catch(()=>{if(accountToken===value)signIn.textContent='Retry sign-in';}):Promise.resolve();
 }
 const $ = id => document.getElementById(id);
 const ui = document.createElement('section'); ui.id = 'live-work'; ui.hidden = true;
@@ -337,8 +352,8 @@ function makeServer({repair=false}={}){
     if(method==='item/started')benchmark('toolStarted',{tool:params.item?.tool||params.item?.type});
     if(method==='item/completed' && params.item?.status?.startsWith('failed')) {log(params.item.status);benchmark('toolFailed',{message:params.item.status});}
     if(method==='turn/usage'){log('Usage · '+(params.usage.output_tokens??0)+' output tokens');nativeSnapshot();}
-    if(method==='turn/completed'){turnSucceeded=!params.turn.error&&params.turn.status==='completed';turnError=params.turn.error?.message||(params.turn.status==='interrupted'?'Stopped':'');
-      if(params.turn.error){phase('Could not finish');log(params.turn.error.message);}
+    if(method==='turn/completed'){turnSucceeded=!params.turn.error&&params.turn.status==='completed';turnError=inferenceError(params.turn.error)||(params.turn.status==='interrupted'?'Stopped':'');
+      if(params.turn.error){phase('Could not finish');log(turnError);}
       else if(params.turn.status==='interrupted'){phase('Stopped');log('Stopped by you');}
       else {phase(painted?'Checking picture…':source?'Waiting for preview…':'No piece written');log('Model finished');}
     }
@@ -351,7 +366,8 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
   document.body.classList.add('live-mode');
   pending=text;ui.hidden=false;$('live-request').textContent=displayText;started=performance.now();events.length=0;
   $('live-stop').hidden=false;$('live-details').open=false;
-  if(!token){phase('Sign in to make software');log('Uses your AC braincells. Speech stays on device; submitted words go to AC.');post({action:'signIn'});return;}
+  if(!token){phase('Sign in to make software');log('AI permissions are managed in AI & privacy.');post({action:'signIn'});return;}
+  if(!aiConsent.allowed){pending='';phase('Allow AI creation in AI & privacy');post({action:'aiConsent'});return;}
   try {
     activeAttempt=saveAttempt(localStorage,storageKey,recovered||{id:crypto.randomUUID(),text,displayText,localText,parent:versions.head.id,baseSource:versions.head.source,retries:0,status:'working'});
   } catch { phase('Could not save request for recovery');return; }
@@ -425,7 +441,7 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
       }
     }finally{clearTimeout(deadline);}
 
-  }catch(error){turnError=error.message;phase('Could not start');log(error.message);}
+  }catch(error){turnError=inferenceError(error);phase('Could not start');log(turnError);}
   finally{
     if(noChange){await finishReceipt('unchanged');localStorage.removeItem(storageKey+'-inflight');activeAttempt=null;lastAttempt={...lastAttempt,status:'unchanged'};end();phase('Already there');benchmark('localEditUnchanged');return;}
     if(!turnSucceeded&&!turnRuntimeFailed&&!turnCancelled&&turnStarter&&starterPainted){
@@ -462,6 +478,9 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
 }
 async function resumeAttempt(manual=false){
   if(busy||!token||!ready||!painted||!versions||(!manual&&!recoveryPending))return;
+  const expectedToken=token;
+  await accountVerification;
+  if(busy||token!==expectedToken||!aiConsent.allowed||(!manual&&!recoveryPending))return;
   recoveryPending=false;
   const attempt=claimAttempt(localStorage,storageKey,versions.value,manual);
   if(!attempt){if(manual)phase('Could not resume: version changed or request unavailable');return;}
@@ -473,7 +492,7 @@ window.walkiewareEngineEvent=event=>{
     if(pendingCapture?.id===event.captureID)pendingCapture.finish(event.error?Error(event.error):null,event);
     return;
   }
-  if(event.kind==='account') {token=event.token;if(token){musicalSocket.resume();thread?.resume();}else{musicalSocket.suspend();thread?.suspend();}window.walkiewareAccountReady=!!token;accountIdentity(token);if(token&&pending)void ask(pending);else void resumeAttempt();}
+  if(event.kind==='account') {token=event.token;if(token){if(aiConsent.allowed)musicalSocket.resume();thread?.resume();}else{musicalSocket.suspend();thread?.suspend();}window.walkiewareAccountReady=!!token;accountIdentity(token);if(token&&pending)void ask(pending);else void resumeAttempt();}
   if(event.kind==='error'){phase('Sign-in needed');log(event.text);window.walkiewareWorkFinished?.();}
   if(event.kind==='previewReady'){ready=true;log('AC runtime ready');}
   if(event.kind==='previewEvent'){
@@ -506,15 +525,22 @@ window.walkiewareAskDrawing=(text,drawing)=>{
   catch(error){phase('Could not read drawing');log(error.message);return Promise.resolve();}
 };
 let musicalTurn=0;
-const musicalSocket=new MusicalInputSocket({token:()=>token,onEvent:benchmark});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){musicalSocket.suspend();thread?.suspend();}else{musicalSocket.resume();thread?.resume();}});
-const musicalAdvisor=new MusicalInputAdvisor({fetchImpl:musicalSocket.fetch,token:()=>token,onEvent:(event,fields)=>{benchmark(event,fields);if(event==='jevDecision')log('Jev · '+fields.choice);}});
+const musicalSocket=new MusicalInputSocket({token:()=>aiConsent.allowed?token:null,onEvent:benchmark});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){musicalSocket.suspend();thread?.suspend();}else{if(aiConsent.allowed)musicalSocket.resume();thread?.resume();}});
+const musicalAdvisor=new MusicalInputAdvisor({fetchImpl:(...args)=>{aiConsent.require();return musicalSocket.fetch(...args);},token:()=>aiConsent.allowed?token:null,onEvent:(event,fields)=>{benchmark(event,fields);if(event==='jevDecision')log('Jev · '+fields.choice);}});
 window.walkiewareInputStart=()=>{musicalTurn++;musicalAdvisor.reset();};
 window.walkiewareInputCancel=()=>{musicalTurn++;musicalAdvisor.cancel();};
-window.walkiewareObserveSound=input=>{musicalPrompt(input);if(wantsSoundEvidence(input.transcript))musicalAdvisor.observe(input);};
+window.walkiewareObserveSound=input=>{musicalPrompt(input);if(aiConsent.allowed&&wantsSoundEvidence(input.transcript))musicalAdvisor.observe(input);};
 window.walkiewareAskSound=async input=>{
+ if(!aiConsent.allowed){post({action:'aiConsent'});return;}
  const prompt=withDrawing(musicalPrompt(input),input.drawing);const useSound=!!input.drawing||wantsSoundEvidence(input.transcript);if(!useSound)musicalAdvisor.cancel();phase(useSound?'Interpreting sound…':'Sending…');
  return ask(prompt,`${input.transcript||'Sound'} · ${(input.sound.durationMs/1000).toFixed(1)} seconds`,input.drawing||!useSound||localEdit(source,input.transcript)?null:musicalAdvisor.finish(input),input.drawing?null:instantPiece(input.transcript),input.drawing?'':input.transcript);
+};
+window.walkiewareSetAIConsent = value => { consentState = value || {}; syncAIConsent(); };
+window.walkiewareForgetLocalData = () => {
+  consentState={}; aiConsent.setAllowed(false); turnCancelled=true;
+  visualController?.abort(); server?.interrupt(); musicalAdvisor.cancel(); musicalSocket.suspend(); thread?.suspend();
+  token=accountToken=accountHandle=''; localStorage.clear();
 };
 window.walkiewareIsBusy=()=>busy;
 window.walkiewareHasReview=()=>false;
@@ -546,6 +572,45 @@ if(typeof window.__walkiewareFixtureBusy==='string'){
   outputStream='export function paint({ wipe, ink, circle, screen }) {\n  wipe("#151838");\n  ink("#4653c6");\n  circle(screen.width / 2, screen.height / 2, 40, true);';
   $('live-code').textContent=outputStream;phase('Writing…');$('live-stop').hidden=false;review(false);
 }
+window.walkiewareSourceEditor = new SourceEditor({
+  state: () => {
+    if (!versions) throw Error('The piece is still loading.');
+    return {piece: thread?.identity.id || storageKey, code: thread?.identity.code || '',
+      version: versions.head.id, source: versions.head.source, busy,
+      recording: !!window.walkiewareRecording?.()};
+  },
+  checks: sourceChecks,
+  hash: hashSource,
+  begin: () => {
+    busy = true; previous = source; recoveryPending = false;
+    turnRuntimeFailed = false; turnCancelled = false; turnError = '';
+    clearTimeout(compileTimer); compileTimer = null; provisional = '';
+    server?.close(); server = null; review(false); phase('Checking source edit…');
+  },
+  render: value => { render(value); return renderID; },
+  inspect: () => ({requestID: renderID, sourceHash: previewHash,
+    rendered: painted && lastPaintedSource === previewSource,
+    logs: feedback?.logs || [], runtimeFailed: turnRuntimeFailed, cancelled: turnCancelled}),
+  commit: value => {
+    const version = versions.commit(value);
+    source = previous = version.source; lastAttempt = null;
+    vfs.mount(file, source); saved();
+    return version;
+  },
+  restore: () => {
+    // Read the current durable head, so even a concurrent checkout is preserved.
+    source = previous = versions.head.source;
+    turnRuntimeFailed = false; turnCancelled = false;
+    vfs.mount(file, source);
+    render(source || 'export function paint({wipe}) {wipe("black");}');
+  },
+  finish: committed => {
+    busy = false; review(false);
+    phase(committed ? `v${versions.head.id} · Ready to play` : 'Could not apply source edit');
+    updateFeed(); window.walkiewareWorkFinished?.();
+  },
+});
+
 updateFeed();
 if(versions&&!window.__walkiewareSequence&&!window.__walkiewareBenchmark&&!window.__walkiewareDisableThread) {
   const label=codeLabel;label.setAttribute('aria-live','polite');

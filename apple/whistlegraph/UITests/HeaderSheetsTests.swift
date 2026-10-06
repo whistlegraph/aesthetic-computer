@@ -20,7 +20,11 @@ final class HeaderSheetsTests: XCTestCase {
             let image = XCTAttachment(screenshot: app.screenshot())
             image.name = "Brain cost in " + unit; image.lifetime = .keepAlways; add(image)
         }
+        #if WHISTLEGRAPH_INTERNAL_PAYMENTS && DEBUG
         XCTAssertTrue(app.buttons["brain-buy-tezos"].exists)
+        #else
+        XCTAssertFalse(app.buttons["brain-buy-tezos"].exists)
+        #endif
         app.buttons["Done"].tap()
         app.terminate(); app.launch()
         XCTAssertTrue(brain.waitForExistence(timeout: 30))
@@ -30,6 +34,7 @@ final class HeaderSheetsTests: XCTestCase {
         app.buttons["Done"].tap()
     }
 
+    #if WHISTLEGRAPH_INTERNAL_PAYMENTS && DEBUG
     // Opens Temple; never approves a wallet connection, signature or payment.
     func testPhoneLiveTezosCheckout() {
         let app = XCUIApplication()
@@ -112,6 +117,8 @@ final class HeaderSheetsTests: XCTestCase {
         let screen = XCTAttachment(screenshot: wallet.screenshot()); screen.name = "Temple handoff screen"; screen.lifetime = .keepAlways; add(screen)
     }
 
+    #endif
+
     func testPieceAudioStartsWithoutTouch() {
         let app = XCUIApplication()
         app.launchEnvironment["WALKIE_NATIVE_SCREEN_FIXTURE"] = "audio"
@@ -159,6 +166,26 @@ final class HeaderSheetsTests: XCTestCase {
         XCTAssertTrue(account.waitForExistence(timeout: 25), "the signed-in fixture is ready")
         return app
     }
+
+    #if !WHISTLEGRAPH_INTERNAL_PAYMENTS
+    func testAppStoreMonetizationControls() {
+        let app = launch()
+        app.buttons["brain-settings"].tap()
+        app.swipeUp()
+        let units = app.segmentedControls["brain-cost-unit"]
+        XCTAssertTrue(units.waitForExistence(timeout: 15))
+        for unit in ["Braincells", "USD", "Tezos"] { XCTAssertTrue(units.buttons[unit].exists) }
+        let store = app.descendants(matching: .any).matching(NSPredicate(format:
+            "identifier == %@ OR identifier == %@", "brain-buy-app-store", "brain-app-store-status")).firstMatch
+        XCTAssertTrue(store.waitForExistence(timeout: 15), "App Store product or honest unavailable state")
+        XCTAssertFalse(app.buttons["brain-buy-tezos"].exists)
+        app.buttons["Done"].tap()
+        XCTAssertTrue(waitForDisappearance(of: units))
+        app.buttons["workspace-settings"].tap()
+        XCTAssertTrue(app.buttons["pieces-new"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["pieces-mint"].exists)
+    }
+    #endif
 
     // Read-only inspection of the installed phone account and its current piece.
     func testPhoneBrainPanelAndPieceMenu() {

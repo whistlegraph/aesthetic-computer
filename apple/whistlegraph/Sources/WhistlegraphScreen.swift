@@ -213,6 +213,7 @@ struct WhistlegraphScreen: View {
             Group {
                 if narrator.isPlaying { EmptyView() } else if showComposer {
                     InlineRequestComposer(theme: theme, disabled: session.snapshot.busy, hasDrawing: drawing.hasInk, cancel: { ButtonSounds.play(.pop); showComposer = false }) { text in
+                        guard session.aiConsent.creation || session.snapshot.handle.isEmpty else { session.showingAIConsent = true; return }
                         ButtonSounds.play(.sent); session.command("ask", text: text); showComposer = false
                     }
                 } else {
@@ -248,6 +249,7 @@ struct WhistlegraphScreen: View {
         .statusBarHidden(narrator.isPlaying)
         .sheet(isPresented: $showTV) { WhistlegraphTVSheet(tv: session.tv) }
         .onChange(of: narrator.isPlaying) { _, playing in if !playing { exporter.cancel() } }
+        .onChange(of: session.localDataRevision) { _, _ in exporter.cancel(); narrator.stop(); showComposer = false }
         .onChange(of: session.narratedFrame) { _, _ in narrator.painted(session.narratedVersion) }
         .onChange(of: exporter.movie?.id) { _, value in if value != nil { narrator.setPaused(true) } }
         .onChange(of: scenePhase) { _, value in if value == .background { exporter.cancel(); narrator.stop() } else if value == .inactive { narrator.setPaused(true) } }

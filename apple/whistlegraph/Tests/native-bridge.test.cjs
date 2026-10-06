@@ -92,6 +92,7 @@ const server = http.createServer(async (req, res) => {
     const guideSeed=Object.fromEntries(await Promise.all(['pieces.md','screen.md','hand.md','kidlisp.md','api.json'].map(async name=>['/easel/context/'+name,await readFile(resolve(root,'easel/context',name),'utf8')])));
     await page.evaluateOnNewDocument((seed,nativeShell,personal)=>{
       window.__walkiewareNativeShell=nativeShell;
+      window.__whistlegraphAIConsent={handle:personal?'jeffrey':'fixture',creation:true};
       window.__aeselGuides=seed;
       window.__walkiewareDisableThread=true;
       window.__guideFetches=0;
@@ -290,7 +291,8 @@ const server = http.createServer(async (req, res) => {
       assert.equal(await page.evaluate(()=>localStorage.getItem('walkieware-source-inflight')),null,'successful crash recovery clears its journal');
       const ledgerBeforeStory=await page.evaluate(()=>localStorage.getItem('walkieware-source-versions'));
       await page.evaluate(()=>walkiewareNativeCommand({action:'presentVersion',version:1}));
-      await page.waitForFunction(()=>__nativeMessages.some(m=>m.action==='narrationReady'&&m.version===1));
+      await page.waitForFunction(()=>__nativeMessages.some(m=>m.action==='presentation'&&m.version===1));
+      assert.equal(await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='presentation'&&m.version===1).at(-1).source),JSON.parse(ledgerBeforeStory).versions.find(v=>v.id===1).source,'separate native story runtime receives the selected source');
       assert.equal(await page.evaluate(()=>localStorage.getItem('walkieware-source-versions')),ledgerBeforeStory,'story playback must not change the saved head or ledger');
       await page.evaluate(()=>walkiewareNativeCommand({action:'endPresentation'}));
       assert.equal(await page.evaluate(()=>localStorage.getItem('walkieware-source-versions')),ledgerBeforeStory);

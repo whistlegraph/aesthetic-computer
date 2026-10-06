@@ -1,7 +1,7 @@
 import Foundation
 import AVFoundation
 
-// Original microphone samples stay in Application Support, outside model requests.
+// Microphone samples stay in Application Support; cloud transcription requires separate consent.
 // Called only on MusicalInput's serial queue; finish closes the file before playback.
 final class UtteranceRecording {
     let id = UUID().uuidString

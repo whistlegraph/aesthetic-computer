@@ -3,13 +3,20 @@ options:
   bundleIdPrefix: computer.aesthetic
   deploymentTarget:
     iOS: "17.0"
+configs:
+  Debug: debug
+  Internal: debug
+  Release: release
 settings:
+  configs:
+    Internal:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG WHISTLEGRAPH_INTERNAL_PAYMENTS"
   base:
     DEVELOPMENT_TEAM: FB5948YR3S
     CODE_SIGN_STYLE: Automatic
     SWIFT_VERSION: "5.0"
     MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "106"
+    CURRENT_PROJECT_VERSION: "107"
 targets:
   Whistlegraph:
     type: application
@@ -17,6 +24,8 @@ targets:
     sources:
       - Sources
       - ../aesel/Sources/NativeSignIn.swift
+      - path: Resources/PrivacyInfo.xcprivacy
+        buildPhase: resources
       - path: Resources/Assets.xcassets
       - path: Resources/Fixtures
         type: folder
@@ -32,6 +41,14 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         SUPPORTS_MACCATALYST: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    preBuildScripts:
+      - name: Reject internal payment archives
+        script: |
+          if [ "$CONFIGURATION" = "Internal" ] && [ "$ACTION" = "install" ]; then
+            echo "error: Internal wallet testing cannot be archived. Use Release for distribution."
+            exit 1
+          fi
+        basedOnDependencyAnalysis: false
     scheme:
       gatherCoverageData: false
 
@@ -49,3 +66,18 @@ targets:
     scheme:
       testTargets:
         - WhistlegraphUITests
+
+schemes:
+  WhistlegraphInternal:
+    build:
+      targets:
+        Whistlegraph: all
+        WhistlegraphUITests: [test]
+    run:
+      config: Internal
+    test:
+      config: Internal
+      targets:
+        - WhistlegraphUITests
+    archive:
+      config: Release

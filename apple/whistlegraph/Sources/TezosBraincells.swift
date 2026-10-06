@@ -1,5 +1,5 @@
+#if WHISTLEGRAPH_INTERNAL_PAYMENTS && DEBUG
 import SwiftUI
-import StoreKit
 
 /// A checkout capability can only buy credit for its already-bound AC account.
 /// The app never handles a wallet key or treats a wallet callback as payment.
@@ -17,12 +17,7 @@ import StoreKit
         let error: String?
     }
     func prepare() async {
-        #if DEBUG
         available = true
-        #else
-        // External digital-goods checkout links are available in the US store.
-        available = await Storefront.current?.countryCode == "USA"
-        #endif
     }
     private var pending: Pending? {
         guard let data = UserDefaults.standard.data(forKey: storageKey) else { return nil }
@@ -84,3 +79,5 @@ import StoreKit
         } catch { notice = error.localizedDescription }
     }
 }
+
+#endif

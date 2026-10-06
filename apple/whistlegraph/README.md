@@ -139,9 +139,11 @@ Buy braincells with tez opens an AC checkout in the browser, where Beacon pairs
 with Temple or another Tezos wallet. Choose $3 / 600,000 or $5 / 1,000,000 braincells in checkout before connecting.
 The user signs and approves in their wallet.
 The app stores only a checkout capability bound to the signed-in handle and
-reconciles on return; credit is granted by server verification. The production
-purchase link is limited to the US App Store storefront; Debug permits device
-testing. The API flag `AC_TEZOS_CREDITS_ENABLED` controls new purchases.
+reconciles on return; credit is granted by server verification. These experimental
+purchase and mint flows are compiled only into the explicit `Internal`
+configuration for direct Xcode device testing. Default `Debug` and `Release`
+builds use StoreKit. The API flag `AC_TEZOS_CREDITS_ENABLED` controls new web
+purchases; it cannot enable native checkout in a distributed build.
 
 `HeaderSheetsTests/testPhoneCostUnitToggle` checks all three units and persistence
 on the paired phone without initiating a purchase.
@@ -160,12 +162,15 @@ and preserves the selected version. Generation receives the actual preview
 size. The preference affects the working preview; story-card output retains its
 existing format.
 
-Debug builds signed in as @jeffrey expose Pieces → Mint on HEN. Choose the title,
-editions and royalties, then pack the saved version and review the single HTML
-file inside the app. A Tezos wallet signs an ownership message before minting.
+The explicit `Internal` configuration, signed in as @jeffrey, exposes Pieces →
+Mint on HEN. Choose the title, editions and royalties, then pack the saved
+version. The corrected Teia package is a ZIP with `index.html`, an animated GIF
+preview, and a still PNG thumbnail, pinned as an IPFS directory. Review the
+artwork and both previews before minting. The standalone HTML remains available
+as an export. A Tezos wallet signs an ownership message before minting.
 The pilot API requires `WHISTLEGRAPH_MINT_PILOT=true` and checks cloud ownership,
 version and source hash. AC login tokens stay out of mint links. Artwork and
-metadata are public on IPFS; wallet ownership gates minting, not viewing.
+metadata are public on IPFS; the wallet authorizes the on-chain mint.
 
 A pending wallet request cannot be dispatched again or discarded. Reopening the
 preview checks the unique metadata URI on mainnet, requires three confirmations
@@ -187,3 +192,153 @@ version, verifies the tree renders, and stops before wallet connection or signin
 `WhistlegraphMintTests/testPhoneSpinningTreeTempleHandoff` opens the installed
 Temple app and stops before wallet approval or signing. The mint preview uses
 AC's IPFS gateway; its sandbox cannot access the mint page or wallet storage.
+
+
+## App Store monetization
+
+The first global release uses StoreKit consumables for hosted AC inference.
+`computer.aesthetic.walkieware.braincells.1m` grants 1,000,000 nonexpiring
+braincells to the signed-in AC account. Its button uses Apple's localized
+`Product.displayPrice`; an unavailable product shows an unavailable state.
+The live and story previews allow only their bundled root page and the AC
+artwork runtime; document navigation into Aesel, remote checkout, wallet app
+schemes, or new windows is denied. Runtime resource requests, the separate
+sign-in browser, and exported artwork remain unchanged. Exhausted-credit errors
+direct users to Brain settings, rather than another client's payment flow.
+The Braincells / USD / Tezos selector remains a usage-cost conversion. It does
+not transfer money, redeem credits for currency, or prove wallet ownership.
+Its historical USD conversion is not a quote for the App Store purchase price.
+
+Before presenting Apple's purchase sheet, the app obtains its account's stable
+UUID from authenticated `POST /api/whistlegraph-iap` with `action: "account"` and
+passes it through StoreKit's `appAccountToken`. It sends a verified transaction's
+signed JWS with `action: "redeem"`. AC verifies the purchase and grants credits;
+the client finishes only after the matching transaction, account, environment,
+and credit amount have been acknowledged. Pending approvals, offline deliveries,
+account switches, and mismatched receipts remain unfinished for retry. A retry
+uses the same transaction rather than purchasing again. Credits remain in the
+AC account after reinstall; Check pending purchases recovers undelivered
+consumables, rather than claiming that StoreKit restores already consumed packs.
+
+Temple checkout and NFT minting are development experiments. Select
+`WhistlegraphInternal` in Xcode or run `CONFIGURATION=Internal ./run.sh device`
+to test them. This configuration retains the existing app container, so it
+replaces the installed development build. It cannot be archived; every shared
+scheme archives `Release`. The implementation and callback handlers are compiled
+out of default Debug and Release. No server flag, account role, receipt check,
+or reviewer detection can turn those native paths back on. Neither a Tezos
+wallet nor an NFT unlocks creation, formats, export, or inference. A future
+minting service needs a separately reviewed payment design; a wallet used to
+sign an authorized transaction is not an entitlement to app features.
+
+Apple's current [payment rules](https://developer.apple.com/app-store/review/guidelines/#payments)
+require IAP for in-app digital functionality and prohibit wallet/NFT ownership
+from unlocking app functionality. They allow U.S. storefront external-purchase
+links without an entitlement. That is a possible later storefront-specific web
+checkout path, not permission to enable every Temple/NFT operation globally.
+Other storefront programs have separate agreements and requirements. This
+release chooses one StoreKit purchase flow across storefronts. It does not rely
+on being a reader app or a free companion exemption. App Review decides approval.
+
+Before submission:
+
+1. Confirm the existing App Store Connect record's bundle ID is
+   `computer.aesthetic.walkieware` and obtain its real numeric Apple ID. Create
+   the consumable `computer.aesthetic.walkieware.braincells.1m`, set availability
+   and price tiers, add localization and the purchase screenshot, and complete
+   the paid-app agreement, tax and banking requirements. No product or app ID is
+   provisioned by this code. Keep App Store promotion for this consumable off
+   until `PurchaseIntent` can establish the AC account before purchase.
+2. Deploy the reviewed `/api/whistlegraph-iap` backend and configure
+   `WHISTLEGRAPH_APPLE_ID` and `WHISTLEGRAPH_IAP_ENABLED=true`. The sales flag
+   controls preparation for new purchases; valid existing transactions and
+   refund notifications remain redeemable/reconcilable when sales are paused.
+   Deploy the shared artwork runtime update that suppresses remote preview
+   console logs while retaining local render evidence. Keep Sandbox
+   redemption restricted to explicitly allowlisted AC test/review accounts with
+   `WHISTLEGRAPH_IAP_ALLOW_SANDBOX=true` and `WHISTLEGRAPH_IAP_SANDBOX_USERS`.
+   Configure App Store Server Notifications V2 for production and sandbox at
+   `https://aesthetic.computer/api/whistlegraph-iap`; verify signed refund events
+   reverse the grant correctly, including refunds before client redemption.
+3. Run an App Store sandbox purchase on a device, pending approval, cancellation,
+   network failure after payment, relaunch/redelivery, account switching,
+   duplicate redemption, reinstall, full/partial refund and refund-reversal tests.
+   The backend orders verified refund state by Apple [signedDate](https://developer.apple.com/documentation/appstoreservernotifications/signeddate),
+   updates the credit wallet idempotently and restores reversed refunds. The
+   scheduled recovery worker retries pending verified notifications every minute
+   with a 15-minute failure backoff. Verify production and
+   sandbox cannot share transaction claims or leak free test credits to normal
+   accounts. Xcode local StoreKit signatures are not production purchase proof.
+4. Supply App Review a working AC account on the sandbox allowlist and explain
+   Brain → 1,000,000 braincells, consumption by hosted inference, nonexpiring paid
+   balance, and the display-only currencies. State that distributed builds have
+   no wallet purchases, NFT mint/list/transfer service, or token-gated features.
+   Submit the consumable with the app and test the exact Release archive.
+5. Complete App Store Connect privacy responses from the shipped data flows,
+   including optional cloud audio and images, account-linked content and purchase
+   records. Verify the privacy policy URL, in-app deletion/recovery, consent
+   revocation and source editor on the exact device build. Apple must still
+   assess generated-code execution under 2.5.2 and 4.7; a source editor alone
+   does not establish eligibility. The distributed app has private creation and
+   system export, with no community feed. Adding hosted third-party browsing,
+   public posts or an in-app catalog requires its own content controls, reporting,
+   blocking and age-rating review.
+
+Local delivery-state check, from `apple/whistlegraph` (does not buy or submit anything):
+
+```sh
+xcrun swiftc -j 2 Sources/StoreCreditDelivery.swift Tests/StoreCreditDeliveryCheck.swift -o /tmp/whistlegraph-store-credit-check
+/tmp/whistlegraph-store-credit-check
+xcrun swiftc -j 2 Sources/PreviewNavigation.swift Tests/PreviewNavigationCheck.swift -o /tmp/whistlegraph-preview-navigation-check
+/tmp/whistlegraph-preview-navigation-check
+node --test Tests/inference-error.test.mjs
+```
+
+
+## AI permissions, source and account deletion (build 107)
+
+Brain → AI & privacy discloses the text, source/history, drawings, cropped preview
+images and sound measurements used for AI creation, with an explicit opt-in.
+Permissions are versioned and stored per AC account on this device. Generation,
+visual review, musical interpretation and personal-provider sessions wait for
+permission; revocation cancels active sending. Cloud OpenAI audio transcription
+and ElevenLabs caption narration have separate opt-ins, both off by default.
+Without them, transcription and synthesized narration stay on-device. Saved
+recordings still supply the user's original story audio. Data already received
+by a provider cannot be recalled by the switch.
+
+Brain → View and edit source opens the complete selected revision, supports
+copy/share and saves a local draft. Applying an edit validates source and runtime
+feedback before saving a new child version; failure restores the previous
+preview. Manual edits use no AI or credits and work signed out. The preview
+bridge gives generated frames only artwork/render/export feedback; account
+credentials, sign-in and native share actions require the bundled main document.
+
+Account → Delete account first reads the account-wide loss preview. Confirmation
+locks the AC account and schedules its server purge after the grace period.
+Only a successful schedule acknowledgement clears the local sign-in, web data,
+source drafts, recordings, drawing and story caches. App-created local exports
+are removed; copies saved to Photos or shared elsewhere remain. A partial local
+filesystem failure is reported separately from the successful server schedule.
+No live deletion is exercised by the automated tests.
+
+`Resources/PrivacyInfo.xcprivacy` ships in the app bundle. Required-reason APIs
+are own-container UserDefaults (`CA92.1`), own-container file timestamps
+(`C617.1`) and elapsed in-app uptime (`35F9.1`), following Apple's
+[required-reason API documentation](https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api).
+It declares no tracking and account-linked functionality data for email/user ID,
+content, drawn/preview images, optional cloud audio, purchase history and
+generation diagnostics. This manifest does not provision App Store Connect
+privacy answers. The embedded artwork runtime skips Google/PostHog analytics;
+its local preview evidence remains available for correctness checks.
+
+Additional local checks:
+
+```sh
+xcrun swiftc -j 2 Sources/AIConsentRecord.swift Tests/AIConsentRecordCheck.swift -o /tmp/whistlegraph-ai-consent-check
+/tmp/whistlegraph-ai-consent-check
+xcrun swiftc -j 2 Sources/AccountDeletionClient.swift Tests/AccountDeletionClientCheck.swift -o /tmp/whistlegraph-account-deletion-check
+/tmp/whistlegraph-account-deletion-check
+node --test Tests/ai-consent.test.mjs Tests/source-editor.test.mjs
+node Tests/source-editor-bridge.test.cjs
+```

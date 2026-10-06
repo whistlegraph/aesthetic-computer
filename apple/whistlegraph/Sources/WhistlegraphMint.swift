@@ -1,3 +1,4 @@
+#if WHISTLEGRAPH_INTERNAL_PAYMENTS && DEBUG
 import SwiftUI
 import SafariServices
 
@@ -134,3 +135,5 @@ struct WhistlegraphMintSheet: View {
         } catch { notice = error.localizedDescription }
     }
 }
+
+#endif

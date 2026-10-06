@@ -2,7 +2,7 @@ import SwiftUI
 import WebKit
 
 // Story playback owns its runtime so a slide cannot replace generation/review pixels.
-@MainActor final class StoryPreview: NSObject, WKScriptMessageHandler {
+@MainActor final class StoryPreview: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
     weak var session: WhistlegraphSession?
     private(set) var view: WKWebView!
     private var frame: WKFrameInfo?
@@ -24,10 +24,19 @@ import WebKit
         config.userContentController.addUserScript(WKUserScript(source: WhistlegraphPreview.script, injectionTime: .atDocumentStart, forMainFrameOnly: false))
         config.userContentController.addUserScript(WKUserScript(source: StoryTape.script, injectionTime: .atDocumentStart, forMainFrameOnly: false))
         view = WKWebView(frame: .zero, configuration: config)
+        view.navigationDelegate = self
         view.isOpaque = false; view.backgroundColor = .clear
         view.scrollView.isScrollEnabled = false
         view.scrollView.contentInsetAdjustmentBehavior = .never
         view.load(URLRequest(url: URL(string: "walkieware://app/story.html")!))
+    }
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        decisionHandler(PreviewNavigation.allows(navigationAction.request.url,
+            mainFrame: navigationAction.targetFrame?.isMainFrame, document: .story) ? .allow : .cancel)
+    }
+    func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+        decisionHandler(PreviewNavigation.allows(navigationResponse.response.url,
+            mainFrame: navigationResponse.isForMainFrame, document: .story) ? .allow : .cancel)
     }
     func present(version: Int, source: String) {
         self.version = version; self.source = source; request += 1; session?.storyStatus = "Loading story runtime"; render()
@@ -50,8 +59,7 @@ import WebKit
         _ = try await view.callAsyncJavaScript("if (!window.whistlegraphStoryTape) throw Error('Canvas tape is unavailable'); await window.whistlegraphStoryTape[action](value ?? id);", arguments: ["action":action,"value":arguments["value"] ?? NSNull(),"id":arguments["id"] ?? NSNull()], in: frame, contentWorld: .page)
     }
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard !message.frameInfo.isMainFrame, message.frameInfo.request.url?.host == "aesthetic.computer",
-              message.frameInfo.request.url?.scheme == "https", let body = message.body as? [String: Any] else { return }
+        guard PreviewNavigation.bridge(message.frameInfo.request.url, mainFrame: message.frameInfo.isMainFrame, document: .story) == .artwork, let body = message.body as? [String: Any] else { return }
         if body["action"] as? String == "previewReady" { frame = message.frameInfo; session?.storyStatus = "Story runtime ready"; render() }
         if body["action"] as? String == "storyTape" { session?.storyTapeEvent?(body) }
         if body["action"] as? String == "previewEvent", let event = body["event"] as? [String: Any],

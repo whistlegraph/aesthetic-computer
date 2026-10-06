@@ -66,6 +66,14 @@ struct BrainSettings: View {
                         ForEach(PreviewFormat.allCases) { Text($0.rawValue).tag($0) }
                     }.pickerStyle(.segmented).disabled(disabled).accessibilityIdentifier("brain-preview-format")
                 } header: { Label("Preview", systemImage: "eye") }
+                Section {
+                    NavigationLink { WhistlegraphSourceSheet(session: session) } label: {
+                        Label("View and edit source", systemImage: "curlybraces")
+                    }.disabled(!session.engineReady).accessibilityIdentifier("brain-source")
+                    NavigationLink { WhistlegraphPrivacySheet(session: session) } label: {
+                        Label("AI & privacy", systemImage: "hand.raised")
+                    }.accessibilityIdentifier("brain-privacy")
+                }
                 if let inference = session.snapshot.inference {
                     Section {
                         Picker("Model", selection: Binding(get: { inference.selection }, set: { session.command("setModel", text: $0) })) {
@@ -95,7 +103,10 @@ struct BrainSettings: View {
                             Text(inference.braincellsError).foregroundStyle(.secondary)
                         }
                         Button("Refresh") { session.command("refreshBraincells"); Task { await prices.refresh() } }
+                        BraincellPurchase(purchase: session.braincells, signedIn: !session.snapshot.handle.isEmpty)
+                        #if WHISTLEGRAPH_INTERNAL_PAYMENTS && DEBUG
                         TezosPurchaseButton(session: session, purchase: session.tezosBraincells)
+                        #endif
                     }
                     if let usage = inference.usage {
                         Section(session.snapshot.busy ? "This request" : "Last request") {
@@ -118,14 +129,28 @@ struct BrainSettings: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }.presentationDetents([.medium, .large])
-            .task { await prices.refresh(); await session.tezosBraincells.prepare(); await session.tezosBraincells.refresh(session: session) }
+            .task {
+                await prices.refresh()
+                #if WHISTLEGRAPH_INTERNAL_PAYMENTS && DEBUG
+                await session.tezosBraincells.prepare()
+                await session.tezosBraincells.refresh(session: session)
+                #endif
+            }
             .task(id: costUnit) { if costUnit == .tezos { await prices.refresh() } }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .active { Task { await prices.refresh(); await session.tezosBraincells.refresh(session: session) } }
+                if phase == .active {
+                    Task {
+                        await prices.refresh()
+                        #if WHISTLEGRAPH_INTERNAL_PAYMENTS && DEBUG
+                        await session.tezosBraincells.refresh(session: session)
+                        #endif
+                    }
+                }
             }
     }
 }
 
+#if WHISTLEGRAPH_INTERNAL_PAYMENTS && DEBUG
 private struct TezosPurchaseButton: View {
     @ObservedObject var session: WhistlegraphSession
     @ObservedObject var purchase: TezosBraincells
@@ -139,6 +164,8 @@ private struct TezosPurchaseButton: View {
         if !purchase.notice.isEmpty { Text(purchase.notice).font(.footnote).foregroundStyle(.secondary) }
     }
 }
+
+#endif
 
 private extension ISO8601DateFormatter {
     static var fullPrecision: ISO8601DateFormatter {

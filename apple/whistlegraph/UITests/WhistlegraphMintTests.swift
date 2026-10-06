@@ -1,3 +1,4 @@
+#if WHISTLEGRAPH_INTERNAL_PAYMENTS && DEBUG
 import XCTest
 import UIKit
 
@@ -84,3 +85,5 @@ final class WhistlegraphMintTests: XCTestCase {
         }
     }
 }
+
+#endif

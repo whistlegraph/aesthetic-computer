@@ -40,15 +40,15 @@ struct PiecesSheet: View {
                 if let inference {
                     Section { LabeledContent(inference.label, value: inference.provider) }
                 }
+                #if WHISTLEGRAPH_INTERNAL_PAYMENTS && DEBUG
                 if let session = mintSession, session.snapshot.handle == "jeffrey", session.snapshot.hasPiece {
-                    #if DEBUG
                     Section {
                         NavigationLink { WhistlegraphMintSheet(session: session) } label: {
                             Label("Mint on HEN", systemImage: "seal")
                         }.disabled(disabled).accessibilityIdentifier("pieces-mint")
                     }
-                    #endif
                 }
+                #endif
                 Section(pieces.count == 1 ? "Your piece" : "Your pieces") {
                     ForEach(pieces) { piece in
                         Button {
@@ -92,6 +92,7 @@ struct AccountSheet: View {
     @Binding var appearance: String
     let signIn: () -> Void
     let signOut: () -> Void
+    var session: WhistlegraphSession? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var confirmingSignOut = false
     @AppStorage(ButtonSounds.settingKey) private var sounds = true
@@ -120,11 +121,18 @@ struct AccountSheet: View {
                     Toggle("Interface sounds", isOn: $sounds).accessibilityIdentifier("account-sounds")
                         .onChange(of: sounds) { _, on in if on { ButtonSounds.play(.tick) } }
                 } footer: { Text("Keys and buttons respect silent mode. Haptics stay on.") }
+                if let session {
+                    Section {
+                        NavigationLink { WhistlegraphPrivacySheet(session: session) } label: { Label("AI & privacy", systemImage: "hand.raised") }
+                        NavigationLink { WhistlegraphDeleteAccountSheet(session: session) } label: { Label("Delete AC account", systemImage: "trash") }
+                            .disabled(handle.isEmpty).accessibilityIdentifier("account-delete")
+                    }
+                }
                 if !handle.isEmpty {
                     Section {
                         Button(role: .destructive) { confirmingSignOut = true } label: { Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right") }
                             .accessibilityIdentifier("account-sign-out")
-                    } footer: { Text("Your pieces stay on this phone. Making new versions needs a signed-in handle.") }
+                    } footer: { Text("Your pieces stay on this phone. AI-generated versions need a signed-in handle; local source edits do not.") }
                 }
             }
             .navigationTitle(handle.isEmpty ? "Account" : "@" + handle)
@@ -134,7 +142,7 @@ struct AccountSheet: View {
                 Button("Sign out", role: .destructive) { ButtonSounds.play(.stop); signOut(); dismiss() }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
     }
 }
 
@@ -174,7 +182,7 @@ struct IdentityHeader: View {
         }
         .sheet(isPresented: $showingAccount) {
             AccountSheet(handle: session.snapshot.handle, colors: session.snapshot.colors, appearance: $appearance,
-                         signIn: { session.command("signIn") }, signOut: { session.signOut() })
+                         signIn: { session.command("signIn") }, signOut: { session.signOut() }, session: session)
         }
     }
 }

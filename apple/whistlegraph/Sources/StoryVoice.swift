@@ -9,7 +9,8 @@ struct StoryAudio {
 
 @MainActor enum StoryVoice {
     static let cache = StoryCache(name: "StoryVoice", limit: 32_000_000)
-    private static var pending: [String: Task<URL, Error>] = [:]
+    private static var erasureGeneration = 0
+    private static var pending: [String: (id: UUID, task: Task<URL, Error>)] = [:]
 
     static func audio(for row: PieceRevision) async throws -> StoryAudio? {
         if let id = row.recordingID, let url = UtteranceRecording.url(id), FileManager.default.fileExists(atPath: url.path), let trim = try? RecordingTrim.read(url) {
@@ -25,16 +26,32 @@ struct StoryAudio {
         return StoryAudio(url: url, start: 0, end: try AVAudioPlayer(contentsOf: url).duration, original: false)
     }
 
+    static func cancelCloudRequests() {
+        for work in pending.values { work.task.cancel() }
+        pending.removeAll()
+    }
+    static func erasePendingWork() {
+        erasureGeneration += 1
+        cancelCloudRequests()
+        DeviceStorySpeech.cancelAll()
+    }
     static func rendered(_ text: String) async throws -> URL {
+        let generation = erasureGeneration
+        guard AIConsent.shared.cloudNarration else { return try await DeviceStorySpeech.render(text) }
         let key = StoryCache.key(["jeffrey-pvc-v1", text])
         if let url = cache.find(key, ext: "mp3") { return url }
-        if let task = pending[key] { return try await task.value }
+        if let work = pending[key] { return try await work.task.value }
+        let requestID = UUID()
         let task = Task<URL, Error> {
+            try Task.checkCancellation()
+            guard generation == erasureGeneration, AIConsent.shared.cloudNarration else { throw VoiceError.unavailable }
             var request = URLRequest(url: URL(string: "https://aesthetic.computer/api/say")!)
             request.httpMethod = "POST"; request.timeoutInterval = 20
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try JSONSerialization.data(withJSONObject: ["from": text, "provider": "jeffrey", "voice": "neutral:0", "speed": 1])
             let (data, response) = try await URLSession.shared.data(for: request)
+            try Task.checkCancellation()
+            guard generation == erasureGeneration, AIConsent.shared.cloudNarration else { throw CancellationError() }
             guard let response = response as? HTTPURLResponse, response.statusCode == 200, data.count > 0, data.count < 8_000_000 else { throw VoiceError.unavailable }
             let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mp3")
             defer { try? FileManager.default.removeItem(at: temporary) }
@@ -42,10 +59,11 @@ struct StoryAudio {
             guard try AVAudioPlayer(contentsOf: temporary).duration > 0 else { throw VoiceError.unavailable }
             return try cache.store(temporary, key: key, ext: "mp3")
         }
-        pending[key] = task
-        defer { pending[key] = nil }
+        pending[key] = (requestID, task)
+        defer { if pending[key]?.id == requestID { pending[key] = nil } }
         do { return try await task.value }
         catch {
+            guard generation == erasureGeneration, !Task.isCancelled else { throw CancellationError() }
             // Offline exports remain usable. Never cache the fallback as Jeffrey:
             // reconnecting must retry the requested voice.
             return try await DeviceStorySpeech.render(text)
@@ -55,14 +73,27 @@ struct StoryAudio {
 }
 
 @MainActor private final class DeviceStorySpeech {
+    private static var active: [UUID: DeviceStorySpeech] = [:]
+    private let identifier = UUID()
     private let voice = AVSpeechSynthesizer()
+    static func cancelAll() {
+        for speech in Array(active.values) { speech.cancel() }
+    }
+    private func cancel() {
+        timeout?.cancel(); voice.stopSpeaking(at: .immediate); file = nil
+        let pending = continuation; continuation = nil
+        pending?.resume(throwing: CancellationError())
+        try? FileManager.default.removeItem(at: url)
+    }
     private var file: AVAudioFile?
     private var continuation: CheckedContinuation<URL, Error>?
     private var timeout: Task<Void, Never>?
     private let url = FileManager.default.temporaryDirectory.appendingPathComponent("story-voice-\(UUID()).caf")
     static func render(_ text: String) async throws -> URL { try await DeviceStorySpeech().render(text) }
     private func render(_ text: String) async throws -> URL {
-        try await withCheckedThrowingContinuation { continuation in
+        Self.active[identifier] = self
+        defer { Self.active[identifier] = nil }
+        return try await withCheckedThrowingContinuation { continuation in
             self.continuation = continuation
             timeout = Task {
                 try? await Task.sleep(for: .seconds(15))

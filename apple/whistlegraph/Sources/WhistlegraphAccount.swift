@@ -7,12 +7,14 @@ import UIKit
 @MainActor final class WhistlegraphAccount: NSObject, WKNavigationDelegate, UIAdaptivePresentationControllerDelegate {
     private let key: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
         kSecAttrService as String: "computer.aesthetic.walkieware", kSecAttrAccount as String: "ac"]
+    private(set) var generation = 0
     private var attempt: NativeSignIn?
     private var completion: ((Result<String, Error>) -> Void)?
     private var controller: UIViewController?
     private var exchange: Task<Void, Never>?
 
     func token() async throws -> String? {
+        let expectedGeneration = generation
         var query = key; query[kSecReturnData as String] = true
         var result: CFTypeRef?
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
@@ -21,12 +23,26 @@ import UIKit
         if tokens.expiresAt.timeIntervalSinceNow < 60 {
             guard let refresh = tokens.refreshToken else { return nil }
             tokens = try await NativeSignIn.refresh(refresh)
+            guard generation == expectedGeneration else { return nil }
             try save(tokens)
         }
         return tokens.accessToken
     }
+    // The server still authenticates every request. This subject only scopes
+    // local preferences to the account instead of a mutable public handle.
+    func subject() async throws -> String? {
+        guard let token = try await token() else { return nil }
+        let parts = token.split(separator: ".")
+        guard parts.count == 3 else { return nil }
+        var payload = String(parts[1]).replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        payload += String(repeating: "=", count: (4 - payload.count % 4) % 4)
+        guard let data = Data(base64Encoded: payload), let claims = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let subject = claims["sub"] as? String, !subject.isEmpty else { return nil }
+        return subject
+    }
     /// Forgets the stored sign-in. The thread history stays on the device.
     func signOut() {
+        generation += 1
         SecItemDelete(key as CFDictionary)
     }
     private func save(_ tokens: NativeSignIn.Tokens) throws {
@@ -71,7 +87,7 @@ import UIKit
                 exchange = Task {
                     do {
                         let tokens = try await NativeSignIn.exchange(body)
-                        try Task.checkCancellation(); try save(tokens)
+                        try Task.checkCancellation(); generation += 1; try save(tokens)
                         finish(.success(tokens.accessToken))
                     } catch { if !Task.isCancelled { finish(.failure(error)) } }
                 }
