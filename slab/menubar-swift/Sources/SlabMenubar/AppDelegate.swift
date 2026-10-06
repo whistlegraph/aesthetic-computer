@@ -424,6 +424,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // window follows and reframes it; ⌃⌃ again zooms back out.
         // The tap listens always — the flag is checked at fire time, not here, so
         // toggling the feature from the menu doesn't need to tear a tap down.
+        // Clear compositor zoom left behind by a crash or forced upgrade.
+        ZoomLens.zoomOut()
         let lensTap = CtrlDoubleTap(
             onDoubleTap: { [weak self] in
                 guard let self = self, self.state.zoomLens else { return }
@@ -432,7 +434,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             onPointerMove: { [weak self] point in
                 guard let self = self, self.state.zoomLens else { return }
                 ZoomLens.followCursor(to: point)
-            })
+            },
+            onEscape: { ZoomEscape.cancelFleet() })
+        ZoomEscape.cancelPendingInput = { [weak lensTap] in lensTap?.cancelPendingInput() }
         if lensTap.start() { zoomLensTap = lensTap }
 
         // setDesktopImageURL only writes the wallpaper on the active Space of

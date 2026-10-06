@@ -70,6 +70,11 @@ Double-tap Control over a window to zoom; repeat to exit. Command–Option–arr
 focuses the neighboring prompt and smoothly refits the lens, including across
 Deskflow hosts. Move the pointer deliberately to resume mouse following.
 Full-height windows keep the lens active at 1×. Reduce Motion skips animation.
+Escape immediately clears zoom on this Mac and every reachable Slab peer,
+even with stuck modifiers or the lens preference off. It also cancels queued
+Control taps and delayed zoom handoffs; the foreground app still receives Escape.
+Slab resets leftover compositor zoom at launch. The tailnet ledger exposes
+`POST /zoom/reset` for recovery and `GET /zoom` to verify the actual factor.
 Holding Command–Option outlines the current pane and shows one arrow on each
 destination reachable with the next keypress. Zoom entry and arrow jumps retain
 their edge flash and particle burst.
@@ -313,6 +318,12 @@ competing release compiles. During iteration, use the cheaper debug-only path:
 ```
 ./build-dev.sh
 ```
+
+To see a change running, `./dev.sh` builds debug and hands the binary to
+`install.sh` (`SLAB_PREBUILT`), which signs it with the stable identity and
+relaunches the agent in place; `./dev.sh --watch` repeats that on every save
+under `Sources/` (fswatch). A one-file change is live in seconds. The live
+menubar is then the debug build until `./install.sh` restores release.
 
 Run `./install.sh` once when the change is ready to install.
 On Macs using the sandboxed Tailscale app, installation also provisions a

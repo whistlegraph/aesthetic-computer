@@ -46,8 +46,8 @@ import CoreGraphics
 ///     wasn't engaged by CloseView itself. We set the origin directly instead.
 ///
 /// The zoom is compositor state, so it OUTLIVES this process: quit while zoomed
-/// and the screen stays zoomed. Hence `zoomOut()` on terminate. (A user is never
-/// truly stuck — ⌃+scroll still gets them out — but they shouldn't have to.)
+/// and the screen stays zoomed. Reset on launch and termination; Escape also
+/// resets every reachable Slab peer through the ledger, independent of Deskflow.
 enum ZoomLens {
     /// How much of the screen to leave around the window. 1.1 → the window fills
     /// ~90% of the screen's tighter axis, and the 10% left over is the context
@@ -82,6 +82,10 @@ enum ZoomLens {
     static var isZoomed: Bool { current().factor > zoomedThreshold }
     static var isEngaged: Bool { activeTarget != nil }
     static var targetWindowID: CGWindowID? { activeTarget?.id }
+    static var status: [String: Any] {
+        ["factor": Double(current().factor), "engaged": isEngaged,
+         "animating": panTimer != nil]
+    }
 
     /// Keyboard navigation owns the camera until the pointer deliberately moves.
     @discardableResult

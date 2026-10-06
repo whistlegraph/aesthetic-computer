@@ -425,8 +425,34 @@ final class PromptPreview {
 
     /// Stage only the nominated output. HTML is generated here, never loaded
     /// from an authored project, and the WebKit read grant covers this copy only.
+    /// The latest sound's measurements, by artifact key; nil inside means the
+    /// file could not be read and the card falls back to plain controls.
+    private var sketches: [String: SoundSketch?] = [:]
+    private var sketching: String?
+
     func loadArtifact(_ artifact: LocalArtifactPreview) {
         guard artifact.key != loadedURL else { return }
+        // A sound is measured before its page is written (decode and FFT, about
+        // a second for a whole song in a debug build), off the main thread.
+        // The card says it is loading meanwhile and comes back here when done.
+        if artifact.kind == "sound", sketches[artifact.key] == nil {
+            requestedArtifact = artifact
+            artifactFailed = false
+            artifactLoading = true
+            guard sketching != artifact.key else { return }
+            sketching = artifact.key
+            let url = URL(fileURLWithPath: artifact.path)
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let sketch = SoundSketch(url: url)
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    if self.sketching == artifact.key { self.sketching = nil }
+                    self.sketches = [artifact.key: sketch]
+                    if self.requestedArtifact == artifact { self.loadArtifact(artifact) }
+                }
+            }
+            return
+        }
         loadedURL = artifact.key
         requestedArtifact = artifact
         artifactFailed = false
@@ -461,8 +487,9 @@ final class PromptPreview {
                     try bytes.write(to: directory.appendingPathComponent("artifact"), options: .atomic)
                 }
                 target = directory.appendingPathComponent("index.html")
-                let waveform = artifact.kind == "sound" ? LocalArtifactPreview.waveform(bytes) : nil
-                try artifact.html(text: text, waveform: waveform, nonce: nonce).write(to: target, atomically: true, encoding: .utf8)
+                let sketch = artifact.kind == "sound" ? (sketches[artifact.key] ?? nil) : nil
+                let waveform = artifact.kind == "sound" && sketch == nil ? LocalArtifactPreview.waveform(bytes) : nil
+                try artifact.html(text: text, waveform: waveform, sketch: sketch, nonce: nonce).write(to: target, atomically: true, encoding: .utf8)
             }
             let start = { [weak self] in
                 guard let self, self.requestedArtifact == artifact else {
@@ -502,7 +529,8 @@ final class PromptPreview {
         artifactFailed = false
         cover.isHidden = true
         cover.image = nil
-        state.version = artifact.version
+        state.version = 0
+        state.working = false
         state.piece = artifact.kind.capitalized
         state.previewError = false
         celebrateRefresh()
@@ -519,9 +547,13 @@ final class PromptPreview {
     func setState(_ next: PromptPreviewState) {
         var resolved = next
         if requestedArtifact != nil {
-            resolved.version = readyArtifact?.version ?? 0
+            // A file on the card is not the turn's work in progress: the agent
+            // being busy changes nothing about an mp3 already playing, and the
+            // version is only how many times it was written. The chip speaks
+            // for the file alone — while it loads, or when it fails.
+            resolved.version = 0
             resolved.piece = (readyArtifact ?? requestedArtifact)?.kind.capitalized ?? next.piece
-            resolved.working = next.working || artifactLoading
+            resolved.working = artifactLoading
             resolved.previewError = artifactFailed
         }
         state = resolved

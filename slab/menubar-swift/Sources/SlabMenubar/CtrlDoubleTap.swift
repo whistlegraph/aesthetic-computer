@@ -31,16 +31,21 @@ final class CtrlDoubleTap {
 
     private let onDoubleTap: () -> Void
     private let onPointerMove: (CGPoint) -> Void
+    private let onEscape: () -> Void
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private var lastTapAt: CFTimeInterval = 0
     private var pendingPointerLocation: CGPoint?
     private var pointerDeliveryScheduled = false
+    private var controlDown = false
+    private var generation: UInt64 = 0
 
     init(onDoubleTap: @escaping () -> Void,
-         onPointerMove: @escaping (CGPoint) -> Void = { _ in }) {
+         onPointerMove: @escaping (CGPoint) -> Void = { _ in },
+         onEscape: @escaping () -> Void = {}) {
         self.onDoubleTap = onDoubleTap
         self.onPointerMove = onPointerMove
+        self.onEscape = onEscape
     }
 
     /// Returns false if the tap couldn't be created — which in practice always
@@ -97,15 +102,33 @@ final class CtrlDoubleTap {
     }
 
     func stop() {
+        cancelPendingInput()
         if let src = source { CFRunLoopRemoveSource(CFRunLoopGetMain(), src, .commonModes) }
         if let port = tap { CGEvent.tapEnable(tap: port, enable: false) }
         source = nil
         tap = nil
     }
 
+    func cancelPendingInput() {
+        lastTapAt = 0
+        controlDown = false
+        pendingPointerLocation = nil
+        generation &+= 1
+    }
+
     private func handle(type: CGEventType, event: CGEvent) {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            cancelPendingInput()
+            onEscape()
             if let port = tap { CGEvent.tapEnable(tap: port, enable: true) }
+            return
+        }
+
+        // Escape is an emergency exit even with stuck Deskflow modifiers or
+        // the lens preference off. Listen-only leaves the app's Escape intact.
+        if type == .keyDown && event.getIntegerValueField(.keyboardEventKeycode) == 53 {
+            cancelPendingInput()
+            if event.getIntegerValueField(.keyboardEventAutorepeat) == 0 { onEscape() }
             return
         }
 
@@ -134,7 +157,13 @@ final class CtrlDoubleTap {
 
         // .maskControl is set on the press edge and cleared on release; we only
         // want the press.
-        guard event.flags.contains(.maskControl) else { return }
+        guard event.flags.contains(.maskControl) else {
+            controlDown = false
+            return
+        }
+        // Deskflow can duplicate press flags; a release must separate taps.
+        guard !controlDown else { return }
+        controlDown = true
 
         // Bare ⌃ only. A ⌃⌘ press is a chord in progress, and letting it arm a
         // tap would make the *next* bare ⌃ fire the lens.
@@ -148,7 +177,11 @@ final class CtrlDoubleTap {
         let now = CACurrentMediaTime()
         if now - lastTapAt <= Self.window {
             lastTapAt = 0
-            DispatchQueue.main.async { [weak self] in self?.onDoubleTap() }
+            let queuedGeneration = generation
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.generation == queuedGeneration else { return }
+                self.onDoubleTap()
+            }
         } else {
             lastTapAt = now
         }

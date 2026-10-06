@@ -1324,7 +1324,7 @@ function spendText(state, width) {
   }
   const backend = providerSettings?.backend;
   const account = backend === "codex" ? codexUsageText(codexRateLimits)
-    : backend === "ac" && Number.isFinite(braincells) ? `${compact(Math.max(0, Math.round(braincells)))} braincells` : "";
+    : backend === "ac" && Number.isFinite(braincells) ? `${compact(Math.max(0, Math.round(braincells)))} 🧠` : "";
   if (account) {
     // Keep the account meter when the terminal cannot fit both counters.
     if (textWidth([...parts, account].join(" · ")) > width) return account;

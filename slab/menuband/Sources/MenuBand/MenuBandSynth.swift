@@ -383,7 +383,7 @@ final class MenuBandSynth {
     private var configChangeObserver: NSObjectProtocol?
 
     /// Master output gain on the pre-limiter sum bus, 0.0…1.0. Applied
-    /// to `preLimiterMixer.outputVolume` so every backend (MIDISynth,
+    /// to `postFxMixer.outputVolume` so every backend (MIDISynth,
     /// sampler, radio, sample voice, plugin) scales together. Sitting
     /// BEFORE the limiter means lowering the slider also pulls the
     /// peak-limit threshold down proportionally — the slider is the
@@ -395,6 +395,8 @@ final class MenuBandSynth {
     private var melodicDuckTarget: Float = 1
     private var melodicDuckHoldUntil: CFTimeInterval = 0
     private var melodicDuckTimer: Timer?
+    private let melodicHeadroom = MelodicHeadroom()
+    private var melodicHeadroomTimer: Timer?
 
     /// External callers (the controller's hover-preview path) read this
     /// to decide whether they need to wait for the bank-swap settle delay
@@ -2275,6 +2277,28 @@ final class MenuBandSynth {
         tonesFader.outputVolume = max(0, min(1, value))
     }
 
+    /// Reserve headroom before dry/wet summing and compression, independently
+    /// of the user's tones trim and the percussion sidechain. Mixer parameter
+    /// ramps smooth attenuation; the model supplies a slower gain recovery.
+    private func updateMelodicHeadroom() {
+        let update = { [weak self] in
+            guard let self, self.started else { return }
+            self.preLimiterMixer.outputVolume = self.melodicHeadroom.nextGain(at: CACurrentMediaTime())
+            guard self.melodicHeadroomTimer == nil else { return }
+            let timer = Timer(timeInterval: 1.0 / 120, repeats: true) { [weak self] timer in
+                guard let self, self.started else { timer.invalidate(); return }
+                self.preLimiterMixer.outputVolume = self.melodicHeadroom.nextGain(at: CACurrentMediaTime())
+                if self.melodicHeadroom.isIdle {
+                    timer.invalidate()
+                    self.melodicHeadroomTimer = nil
+                }
+            }
+            self.melodicHeadroomTimer = timer
+            RunLoop.main.add(timer, forMode: .common)
+        }
+        if Thread.isMainThread { update() } else { DispatchQueue.main.async(execute: update) }
+    }
+
     /// The monitor is audible only while Menu Band has performance focus:
     /// defocus (Esc) mutes it, the Command gesture / focus shortcut brings it
     /// back. The graph stays wired and the tape keeps its dry stem.
@@ -2756,6 +2780,10 @@ final class MenuBandSynth {
         // ours-but-idle, and Music.app etc. tend to give up retrying.
         releaseHogModeIfNeeded()
         engine.stop()
+        melodicHeadroomTimer?.invalidate()
+        melodicHeadroomTimer = nil
+        melodicHeadroom.reset()
+        preLimiterMixer.outputVolume = 1
         // Unwire the duplex input before the engine goes away so the private
         // aggregate is torn down deliberately, not by process exit — a
         // dangling input registration wedges the Scarlett for every client.
@@ -2972,6 +3000,8 @@ final class MenuBandSynth {
         // first note so it can't sound as the default sine.
         reassertMIDISynthBankIfDirty()
         activeNotes.insert(noteKey(midi, channel: channel))
+        melodicHeadroom.noteOn(midi, velocity: velocity, channel: channel, at: CACurrentMediaTime())
+        updateMelodicHeadroom()
         // Plugin instrument wins on melodic — picked deliberately via the
         // About → Plugins picker, so it overrides every other melodic
         // backend. Drums (ch 9) still flow to GM below.
@@ -3130,7 +3160,14 @@ final class MenuBandSynth {
     /// audibly over the tail instead of holding at full volume and
     /// then snapping silent at the cleanup noteOff.
     func sendExpression(value: UInt8, channel: UInt8 = 0) {
-        guard started, midiSynthReady, let au = midiSynth?.audioUnit else { return }
+        guard started else { return }
+        // These backends do not receive this CC; don't release their
+        // headroom as if their voices had audibly faded.
+        if !usingPluginInstrument && !usingFluoddityVoice && !gmRoutable(currentMelodicProgram),
+           midiSynthReady || usingSampleBackend {
+            melodicHeadroom.setExpression(value, channel: channel)
+        }
+        guard midiSynthReady, let au = midiSynth?.audioUnit else { return }
         sendMIDIEvent(au, status: 0xB0 | (channel & 0x0F),
                       data1: 11, data2: value & 0x7F)
     }
@@ -3154,6 +3191,7 @@ final class MenuBandSynth {
         DMXOut.shared.noteOff(midi: Int(midi))
         let key = noteKey(midi, channel: channel)
         activeNotes.remove(key)
+        melodicHeadroom.noteOff(midi, channel: channel, at: CACurrentMediaTime())
         defer { scheduleIdleSuspendIfNeeded() }
         // Release an AC GM voice if this exact note was routed there on
         // press — independent of the current toggle / program so it can't
@@ -3198,6 +3236,8 @@ final class MenuBandSynth {
     func panic() {
         guard started else { return }
         DMXOut.shared.blackout()
+        melodicHeadroom.reset()
+        preLimiterMixer.outputVolume = 1
         activeNotes.removeAll()
         gmRoutedNotes.removeAll()
         if gmSynthEnabled { gmSynth.panic() }
