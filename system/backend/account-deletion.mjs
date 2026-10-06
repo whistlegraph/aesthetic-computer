@@ -141,6 +141,7 @@ const EXPORT = [
 // tokens, signed payloads or mint capabilities. An allowlist also keeps
 // future provider credentials out of this download.
 const PRIVATE_EXPORT = [
+  ["whistlegraph-speech-requests", "user", ["_id", "braincells", "charged", "free", "paid", "status", "startedAt", "finishedAt"]],
   ["whistlegraph-iap-accounts", "_id", ["createdAt"]],
   ["whistlegraph-iap-purchases", "user", [
     "_id", "transactionId", "productId", "credits", "environment", "createdAt",
@@ -331,6 +332,7 @@ export async function handleQuarantined(db, handle, now = new Date()) {
 // Records keyed to the account that are deleted outright.
 // [collection, query(sub, ctx)]
 const DELETE = [
+  ["whistlegraph-speech-requests", (sub) => ({ user: sub })],
   ["paintings", (sub) => ({ user: sub })],
   ["pieces", (sub) => ({ user: sub })],
   ["moods", (sub) => ({ user: sub })],
