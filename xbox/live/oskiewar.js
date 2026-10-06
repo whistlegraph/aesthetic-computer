@@ -128,7 +128,7 @@ function syncNativeAccount() {
 }
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 269;
+const buildVersion = 270;
 const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
@@ -27902,8 +27902,13 @@ function drawParkPickupLabels(){
  if(monowheel.active)items.push({...monowheel,label:'monowheel',ink:[205,169,255]});
  for(const b of balls)if(b.active&&b.type==='skateboard'&&b.heldBy<0)items.push({...b,label:'skateboard',ink:[158,225,173]});
  const candidates=items.map(i=>({...i,d:Math.hypot(i.x-rider.x,(i.z||0)-(rider.z||0))})).filter(i=>i.d<1100).sort((a,b)=>a.d-b.d).slice(0,poolPainting?1:5);
- const old=triangleDepth;triangleDepth=hudDepth;
- for(const i of candidates){const p=projectPoint(i.x,i.y+28,i.z||0);if(p.behind||p.x<60||p.x>viewWidth()-60||p.y<100||p.y>viewHeight-160)continue;seatHudText(i.label,p.x-handleWidth(i.label,42)/2,p.y,42,i.ink);}
+ const old=triangleDepth,safe=hudSafeRect(),controllerShown=!touchPadShown();triangleDepth=hudDepth;
+ for(const i of candidates){
+  const p=projectPoint(i.x,i.y+28,i.z||0),width=handleWidth(i.label,42),x=p.x-width/2;
+  if(p.behind||p.x<60||p.x>viewWidth()-60||p.y<100||p.y>viewHeight-160)continue;
+  if(controllerShown&&x+width>safe.right-390&&p.y+42>safe.bottom-300)continue;
+  seatHudText(i.label,x,p.y,42,i.ink);
+ }
  triangleDepth=old;
 }
 function drawParkSupply(){

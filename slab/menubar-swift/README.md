@@ -364,7 +364,7 @@ Uninstall is handled by `slab/uninstall.sh`, which removes `computer.slab.menuba
 - First-class callers: `devault.fish`, `lith/deploy.fish`, npm session scripts.
 - Richer status: lid sensor sparkline, ambient-synth peak, SSH session count.
 
-AC Remote also supports the developer Xbox build (Native BIOS 68+). Right-click
+AC Remote has a developer Xbox target (Native BIOS 68+). Right-click
 **AC** and select **Xbox · Oskiewar**, then click or press **Command–Option–L**.
 Use WASD to move, the mouse to look, left-click to use the right hand, right-click to use the left hand (or aim a gun),
 Space to jump, Shift to crouch, E to interact, Q to drop, and Escape for the menu.
@@ -378,4 +378,6 @@ Device Portal, sends complete pad snapshots on LAN UDP 51339, and requires
 acknowledgements before capture starts. The Xbox releases input after 250 ms
 without a packet; the helper and menu bar also release on disconnect. Pairing
 keys expire after two hours. This receiver is disabled in production builds.
+macOS Local Network access must allow the launching app; a failed UDP send is
+reported before keyboard or pointer capture begins.
 The standalone Iris icon is retired; mission status remains under Work.

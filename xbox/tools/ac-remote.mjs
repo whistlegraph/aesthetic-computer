@@ -38,9 +38,10 @@ async function main(){
   }finally{rmSync(dir,{recursive:true,force:true});}
   const socket=createSocket('udp4'),keys=new Set(),mouse={x:0,y:0,left:false,right:false};
   let sequence=0,lastAck=0,ready=false,stopping=false,lastInput=Date.now(),started=Date.now(),lastAckSeq=0;
-  const send=()=>{const values=remoteSnapshot(keys,mouse);mouse.x=mouse.y=0;socket.send(`ACR1 ${token} ${++sequence} ${values.join(' ')}`,51339,host);};
+  const fail=error=>{if(stopping)return;console.error(`Xbox remote UDP failed (${error.code||'network error'}). Check macOS Local Network access for the launching app.`);stop();};
+  const send=()=>{const values=remoteSnapshot(keys,mouse);mouse.x=mouse.y=0;socket.send(`ACR1 ${token} ${++sequence} ${values.join(' ')}`,51339,host,error=>{if(error)fail(error);});};
   const stop=()=>{if(stopping)return;stopping=true;clearInterval(timer);keys.clear();Object.assign(mouse,{x:0,y:0,left:false,right:false});send();setTimeout(()=>{socket.close();process.exit(0);},80);};
-  socket.on('error',stop);
+  socket.on('error',fail);
   socket.on('message',(message,peer)=>{
     if(peer.address!==host||peer.port!==51339)return;
     const m=message.toString().match(/^ACR1 (\d+)\n?$/);if(!m)return;
