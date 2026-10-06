@@ -12,6 +12,9 @@ mkdir "%BUILD%" || exit /b 2
 
 node --check "%ROOT%\xbox\live\controller-probe.js" || exit /b 1
 node --check "%ROOT%\xbox\live\oskiewar.js" || exit /b 1
+node "%ROOT%\xbox\tools\oskiewar-native-source.mjs" "%BUILD%\oskiewar.js" || exit /b 1
+node --check "%BUILD%\oskiewar.js" || exit /b 1
+node --test "%ROOT%\xbox\live\tests\native-account.test.mjs" "%ROOT%\xbox\live\tests\native-flat-primitives.test.mjs" || exit /b 1
 node --check "%ROOT%\xbox\live\native-showcase.js" || exit /b 1
 node --check "%ROOT%\xbox\live\photo-disc.js" || exit /b 1
 node "%ROOT%\xbox\live\tests\controller-probe.test.mjs" || exit /b 1
