@@ -6,9 +6,9 @@
 // rather than pass through. See the working proposal (vault:
 // regarde/proposals/oskiewar-regarde) for the grant these fields become.
 import assert from "node:assert/strict";
-import test from "node:test";
-import { readScope, frozenFields, SEPARATE }
-  from "../netlify/functions/oskiewar-consent.mjs";
+import test, { mock } from "node:test";
+mock.module('../backend/authorization.mjs', { exports: { authorize: async () => ({ sub: 'auth0|fixture' }) } });
+const { readScope, frozenFields, SEPARATE, handler } = await import("../netlify/functions/oskiewar-consent.mjs");
 
 // The narrowest answer the wall can send: look at me, make a picture, show
 // nobody. Every test below is this with one thing changed.
@@ -23,6 +23,28 @@ test("the minimal answer is a grant", () => {
   const { scope, error } = readScope(minimal);
   assert.equal(error, undefined);
   assert.deepEqual(scope.source, ["appearance"]);
+});
+
+test('explicit consent choices retry identically but a new choice gets a new receipt key', async () => {
+  const saved = {...process.env}, originalFetch = globalThis.fetch, sent = [];
+  Object.assign(process.env, {REGARDE_GATEWAY_URL:'https://gate.invalid/v0/gateway', REGARDE_SUBJECT_SALT:'fixture', REGARDE_GATEWAY_TOKEN:'fixture'});
+  globalThis.fetch = async (url, options) => { sent.push(JSON.parse(options.body)); return Response.json({outcome:'refuse'}); };
+  const ask = requestId => handler({httpMethod:'POST',headers:{},body:JSON.stringify({...minimal, requestId})});
+  try {
+    await ask('11111111-1111-1111-1111-111111111111');
+    await ask('11111111-1111-1111-1111-111111111111');
+    await ask('22222222-2222-2222-2222-222222222222');
+    assert.equal(sent[0].idempotency_key, sent[1].idempotency_key);
+    assert.notEqual(sent[0].idempotency_key, sent[2].idempotency_key);
+    assert.equal((await ask('bad')).statusCode, 400);
+    assert.equal(sent.length, 3);
+    assert.ok(!JSON.stringify(sent).includes('auth0|fixture'));
+  } finally {
+    globalThis.fetch = originalFetch;
+    for (const key of ['REGARDE_GATEWAY_URL','REGARDE_SUBJECT_SALT','REGARDE_GATEWAY_TOKEN']) {
+      if (saved[key] === undefined) delete process.env[key]; else process.env[key] = saved[key];
+    }
+  }
 });
 
 test("nothing defaults on", () => {

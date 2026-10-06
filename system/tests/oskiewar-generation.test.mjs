@@ -32,11 +32,15 @@ test('malformed pictures never reach the model; appearance has no programmable c
   assert.ok(fighterMesh(a).every(face => face.points.flat().every(Number.isFinite)));
 });
 const stores = new Map();
+stores.set('@handles', new Map([['auth0|fixture', { _id: 'auth0|fixture', handle: 'fixture' }],
+  ['auth0|other', { _id: 'auth0|other', handle: 'other' }]]));
 function collection(name) {
   if (!stores.has(name)) stores.set(name, new Map());
   const rows = stores.get(name);
   return {
     createIndex: async () => {}, findOne: async q => rows.get(q._id),
+    deleteOne: async q => { const row = rows.get(q._id); if (row && (!q['fighter.hash'] || row.fighter?.hash === q['fighter.hash'])) rows.delete(q._id); },
+    deleteMany: async q => { for (const [id, row] of rows) if (row.owner === q.owner) rows.delete(id); },
     insertOne: async row => { if(rows.has(row._id)) throw Object.assign(Error('duplicate'),{code:11000}); rows.set(row._id, row); },
     updateOne: async (q, update, options={}) => {
       let row = rows.get(q._id);
@@ -48,7 +52,7 @@ function collection(name) {
     },
   };
 }
-mock.module('../backend/authorization.mjs', { exports: { authorize: async headers => headers?.authorization ? { sub: 'auth0|fixture' } : null } });
+mock.module('../backend/authorization.mjs', { exports: { authorize: async headers => headers?.authorization ? { sub: headers.authorization === 'Bearer other' ? 'auth0|other' : 'auth0|fixture' } : null } });
 mock.module('../backend/database.mjs', { exports: { connect: async () => ({ db: { collection } }) } });
 const { handler } = await import('../netlify/functions/oskiewar-generation.mjs');
 const { pseudonym } = await import('../netlify/functions/oskiewar-consent.mjs');
@@ -61,6 +65,10 @@ test('real bridge releases one result, refuses revoked grants, and never regener
   let modelCalls=0, mediaCalls=0, revoked=false, revokeDuringModel=false;
   globalThis.fetch=async(url,options)=>{
     if(url.endsWith('jwks.json')) return Response.json(jwks);
+    if(url.endsWith('/resume')) {
+      assert.deepEqual(JSON.parse(options.body), { subject, receipt: 'a'.repeat(64) });
+      return revoked ? Response.json({}, {status:403}) : Response.json({capability:{jws:token()}});
+    }
     if(url.endsWith('/media')) {
       mediaCalls++; const body=JSON.parse(options.body);
       assert.equal(body.requireSource,'appearance'); assert.equal(body.requireOutput,'fighter_mesh');
@@ -75,11 +83,42 @@ test('real bridge releases one result, refuses revoked grants, and never regener
   try {
     assert.equal((await handler({...event(),headers:{}})).statusCode,401);
     assert.equal((await handler(event('generate',token({outputs:['portrait']})))).statusCode,403);
+    assert.equal((await handler({...event(),headers:{authorization:'Bearer other'}})).statusCode,403, 'a capability cannot be used by another AC account');
+    const profile = stores.get('@handles').get('auth0|fixture');
+    stores.get('@handles').delete('auth0|fixture');
+    assert.equal((await handler(event())).statusCode,409, 'choose a handle before generation');
+    stores.get('@handles').set('auth0|fixture',profile);
     assert.equal(mediaCalls,0); assert.equal(modelCalls,0);
     const generated=await handler(event()); assert.equal(generated.statusCode,200);
-    assert.equal(JSON.parse(generated.body).fighter.appearance.hairStyle,'short');
+    const fighter = JSON.parse(generated.body).fighter;
+    assert.equal(fighter.appearance.hairStyle,'short');
+    assert.equal(JSON.parse(generated.body).handle, '@fixture');
+    const accept = event('accept');
+    accept.body = JSON.stringify({ ...JSON.parse(accept.body), handle: '@other', fighter: { damage: 999 } });
+    const accepted = await handler(accept);
+    assert.equal(accepted.statusCode, 200);
+    assert.equal(JSON.parse(accepted.body).status, 'accepted');
+    assert.deepEqual(JSON.parse(accepted.body).fighter, fighter);
+    const savedUntil = JSON.parse(accepted.body).savedUntil;
+    assert.equal(JSON.parse((await handler(event('accept'))).body).savedUntil, savedUntil, 'repeat acceptance does not extend retention');
+    const accountEvent = {httpMethod:'POST', headers:{authorization:'Bearer fixture'}, body:JSON.stringify({action:'account'})};
+    assert.equal(JSON.parse((await handler({...accountEvent,headers:{authorization:'Bearer other'}})).body).status, 'empty', 'another account cannot recover this fighter');
+    stores.get('@handles').get('auth0|fixture').handle = 'renamed';
+    const restored = JSON.parse((await handler(accountEvent)).body);
+    assert.equal(restored.handle, '@renamed');
+    assert.equal(restored.fighter.hash, fighter.hash, 'handle rename preserves ownership');
+    assert.equal(modelCalls, 1, 'restoring an accepted fighter never calls the model');
+    delete process.env.OPENAI_API_KEY;
+    assert.equal((await handler(accountEvent)).statusCode, 200, 'recovery needs no model credentials');
+    process.env.OPENAI_API_KEY = 'fixture';
+    stores.get('@handles').get('auth0|fixture').handle = 'fixture';
     assert.equal((await handler(event())).statusCode,200); assert.equal(modelCalls,1);
+    stores.get('oskiewar-fighters').get(subject).expiresAt = new Date(1);
+    assert.equal(JSON.parse((await handler(accountEvent)).body).status, 'empty', 'expired saved fighter is unavailable before TTL cleanup');
+    assert.equal((await handler(event('accept'))).statusCode,200);
     revoked=true; assert.equal((await handler(event('status'))).statusCode,403); assert.equal(modelCalls,1);
+    assert.equal(JSON.parse((await handler(accountEvent)).body).status, 'empty');
+    assert.equal(stores.get('oskiewar-fighters').size, 0, 'revoked fighter is removed');
     revoked=false; revokeDuringModel=true;
     assert.equal((await handler(event('generate',token({receipt:'b'.repeat(64)})))).statusCode,403);
     const jobs=[...stores.get('oskiewar-generation-jobs').values()];

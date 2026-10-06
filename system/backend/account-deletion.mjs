@@ -141,6 +141,7 @@ const EXPORT = [
 // tokens, signed payloads or mint capabilities. An allowlist also keeps
 // future provider credentials out of this download.
 const PRIVATE_EXPORT = [
+  ["oskiewar-fighters", "owner", ["fighter", "acceptedAt", "expiresAt"]],
   ["whistlegraph-speech-requests", "user", ["_id", "braincells", "charged", "free", "paid", "status", "startedAt", "finishedAt"]],
   ["whistlegraph-iap-accounts", "_id", ["createdAt"]],
   ["whistlegraph-iap-purchases", "user", [
@@ -360,6 +361,8 @@ const DELETE = [
   ["nom-scores", (sub) => ({ user: sub })],
   ["cancelok", (sub) => ({ user: sub })],
   ["oskiewar-maps", (sub) => ({ owner: sub })],
+  ["oskiewar-fighters", (sub) => ({ owner: sub })],
+  ["oskiewar-generation-jobs", (sub) => ({ owner: sub })],
   ["easel-image-jobs", (sub) => ({ _id: { $regex: `^${escape(sub)}:` } })],
   ["easel-image-budget", (sub) => ({ _id: { $regex: `^${escape(sub)}:` } })],
   ["ai-usage", (sub, ctx) => ({ handle: { $in: ctx.handles } })],

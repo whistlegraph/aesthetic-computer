@@ -1,5 +1,28 @@
 # Oskiewar release
 
+The web character generator uses an authenticated AC account and its current
+handle. REGARDE receives only a purpose-scoped pseudonym. An explicit Allow
+opens photo upload; generation requires a live, photo-bound capability. Review
+and acceptance are separate: acceptance saves the server's fighter for 24 hours,
+with shorter play authority renewed against the standing grant. Reopening Add
+yourself restores it without another model call. Handle changes retain ownership.
+Withdrawal removes the account's saved fighter and source material. While equipped,
+authority is checked every 15 seconds; a failed check clears the selection,
+and its current expiry is also enforced at render time. Presentation is
+limited to local practice; online play uses the standard fighter. The REGARDE
+gate still signs with its documented demo key.
+
+Run browser checks on Poorslice under Node 24:
+
+```sh
+node system/tests/oskiewar-turnstile.browser.mjs
+```
+
+That browser regression uses synthetic API fixtures. A live test must also
+exercise the deployed AC bridge, REGARDE gate, storage, and generation provider;
+fixture results alone are not proof of the live turnstile. Use a designated test
+account or obtain permission before withdrawing an account's existing material.
+
 `npm run oskiewar:deploy` is the only canonical live release command. It
 fingerprints `xbox/live/oskiewar.js`, refuses uncommitted game source, records
 an obligation for web, iOS, and Xbox, deploys the web first, verifies its
