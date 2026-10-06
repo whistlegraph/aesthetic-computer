@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "units": "seat-units",
+  "note": "Estimated from the photo: two wide monitors above three laptops. Assign each number to its machine; dimensions are approximate.",
+  "screens": [
+    { "number": 1, "address": null, "x": 0, "y": 0, "width": 600, "height": 338 },
+    { "number": 2, "address": null, "x": 600, "y": 0, "width": 600, "height": 338 },
+    { "number": 3, "address": null, "x": 0, "y": 338, "width": 400, "height": 250 },
+    { "number": 4, "address": null, "x": 400, "y": 338, "width": 400, "height": 250 },
+    { "number": 5, "address": null, "x": 800, "y": 338, "width": 400, "height": 250 }
+  ]
+}

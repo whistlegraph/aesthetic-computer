@@ -14,6 +14,11 @@ import {DEFAULT_OPEN_MODEL,OPEN_MODELS} from './open-models.mjs';
 import {deferredEngine} from './deferred-engine.mjs';
 
 export const BACKENDS = {
+  relay: {
+    id: "relay", label: "personal relay", command: "", defaultModel: "",
+    modelSource: "help.aesthetic.computer",
+    Engine: deferredEngine(async()=> (await import('./remote-server.mjs')).RemoteServer),
+  },
   claude: {
     id: "claude",
     label: "claude",

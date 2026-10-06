@@ -138,10 +138,10 @@ const ENRICH = {
   },
   poorslice: {
     designation: "compute-node",
-    capabilities: ["mlx", "macos-automation", "screen-capture", "chromium-pool", "ffmpeg-render", "always-on"],
+    capabilities: ["mlx", "macos-automation", "screen-capture", "chromium-pool", "ffmpeg-render", "always-on", "build-macos", "build-ios"],
     tailscale: { name: "poorslice", ip: "100.86.206.3" },
     status: { source: "tailscale", key: "poorslice" },
-    fleetRole: "Always-on macOS media-gen compute node (M1 Pro/16GB): Chromium pool, MLX local models, screen + native-app automation. Also the strongest agent-endpoint CANDIDATE among the Macs.",
+    fleetRole: "Always-on macOS compute and build node (M1 Pro/16GB): Xcode macOS/iOS builds and tests, Chromium, MLX, and media rendering. Device signing happens on the control Mac.",
   },
 };
 

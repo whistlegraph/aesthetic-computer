@@ -1,0 +1,10 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {createMeadow,meadowStep,bunnyPilot} from '../pieces/bunny-hop.mjs';
+const advance=(s,seconds,input={})=>{for(let i=0;i<seconds*120;i++)meadowStep(s,input);};
+test('autopilot crosses all twelve turtle backs and reaches the island',()=>{const s=createMeadow();for(let i=0;i<120*100&&!s.won;i++)meadowStep(s,bunnyPilot(s));assert.equal(s.visited,12);assert.ok(s.won);assert.equal(s.splashes,0);assert.ok(s.appleCount>0);});
+test('holding hop gives more height than a short tap',()=>{const high=createMeadow(),low=createMeadow();meadowStep(high,{jumpPressed:true,jumpHeld:true});meadowStep(low,{jumpPressed:true});advance(high,.3,{jumpHeld:true});advance(low,.3);assert.ok(high.p.y>low.p.y+2);});
+test('missing a turtle respawns at the last turtle reached',()=>{const s=createMeadow();s.checkpoint=3;s.p.x=300;s.p.y=-40;meadowStep(s,{});assert.equal(s.p.x,s.turtles[3].x);assert.equal(s.p.z,s.turtles[3].z);assert.equal(s.splashes,1);});
+test('apples grow one at a time, ripen, and fall on turtle backs',()=>{const s=createMeadow();s.nextBird=Infinity;advance(s,8);assert.equal(s.apples.filter(a=>a.age<7).length,1);assert.ok(s.apples.some(a=>a.age>=7&&!a.falling));advance(s,6);assert.ok(s.apples.some(a=>a.falling&&a.ground));});
+test('a visiting bird shakes a ripe apple loose before natural falling',()=>{const s=createMeadow();advance(s,11.8);assert.ok(s.bird?.shaken);assert.ok(s.apples.some(a=>a.falling&&a.age<12));});
+test('ripe apples can be collected once',()=>{const s=createMeadow();s.nextApple=Infinity;s.apples=[{id:0,tree:0,x:0,z:0,y:15,age:8,vy:0,falling:true,ground:true}];meadowStep(s,{});assert.equal(s.appleCount,1);assert.equal(s.apples.length,0);meadowStep(s,{});assert.equal(s.appleCount,1);});

@@ -1,0 +1,26 @@
+[Unit]
+Description=Private Aesel provider relay
+After=network-online.target
+Wants=network-online.target
+[Service]
+User=aesel
+Group=aesel
+WorkingDirectory=/opt/aesel-relay/app
+EnvironmentFile=/etc/aesel-relay.env
+Environment=HOME=/var/lib/aesel-relay
+Environment=PATH=/opt/aesel-relay/runtime/node_modules/.bin:/usr/local/bin:/usr/bin:/bin
+Environment=AESEL_RELAY_STATE=/var/lib/aesel-relay/sessions
+Environment=CLAUDE_BIN=/opt/aesel-relay/runtime/node_modules/.bin/claude
+Environment=CODEX_BIN=/opt/aesel-relay/runtime/node_modules/.bin/codex
+ExecStart=/usr/bin/node /opt/aesel-relay/app/help/relay/service.mjs
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/aesel-relay
+StateDirectory=aesel-relay
+[Install]
+WantedBy=multi-user.target

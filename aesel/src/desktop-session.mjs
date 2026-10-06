@@ -10,10 +10,10 @@ export function desktopSnapshot({ cwd, backend, model, effort = "", live, state,
     live: { file: live.file, runtime: live.runtime?.id || live.runtime, channel: live.fallbackChannel || live.channel, genre: live.genre?.id || "piece" },
     ui: Object.fromEntries(["entries", "input", "cursor", "history", "historyIndex", "queued", "medium", "livePaused", "showQr", "autoAllow", "scrollOffset", "pieceSlug", "media", "spend"].map((key) => [key, state[key]]).filter(([, value]) => value !== undefined)),
     options: { autopublish: options.autopublish, mouseEnabled: options.mouseEnabled },
-    engine: { threadId: engine.threadId || "", ...(Number.isSafeInteger(engine.turns) ? {turns: engine.turns} : {}), ...(["ac", "open"].includes(backend) ? { messages: engine.messages || [], turns: engine.turns || 0 } : {}) }, handoff, archivedConversation });
+    engine: { threadId: engine.threadId || "", ...(backend === "relay" ? {relayCursor: engine.cursor || 0} : {}), ...(Number.isSafeInteger(engine.turns) ? {turns: engine.turns} : {}), ...(["ac", "open"].includes(backend) ? { messages: engine.messages || [], turns: engine.turns || 0 } : {}) }, handoff, archivedConversation });
 }
 export function validateDesktopSession(snapshot, cwd) {
-  if (snapshot?.schema !== 1 || snapshot.cwd !== resolve(cwd) || !["ac", "claude", "codex", "open"].includes(snapshot.backend)) throw new Error("Invalid desktop session or workspace mismatch.");
+  if (snapshot?.schema !== 1 || snapshot.cwd !== resolve(cwd) || !["ac", "claude", "codex", "open", "relay"].includes(snapshot.backend)) throw new Error("Invalid desktop session or workspace mismatch.");
   if (typeof snapshot.model !== "string" || typeof snapshot.live?.file !== "string" || !["mjs", "lisp", "lua"].includes(snapshot.live.runtime)) throw new Error("Invalid desktop piece or model.");
   if (snapshot.live.genre !== undefined && (!["piece", "nopaint"].includes(snapshot.live.genre) || (snapshot.live.genre === "nopaint" && snapshot.live.runtime !== "mjs"))) throw new Error("Invalid desktop piece genre.");
   if (snapshot.artifactId !== undefined && (!/^[a-f0-9-]{36}$/.test(snapshot.artifactId) || !Number.isSafeInteger(snapshot.artifactVersion) || snapshot.artifactVersion < 1)) throw new Error("Invalid saved artifact reference.");
@@ -22,6 +22,7 @@ export function validateDesktopSession(snapshot, cwd) {
   const queuedLine = v => typeof v === "string" || (v && v.inbox === true && typeof v.from === "string" && typeof v.text === "string" && Object.keys(v).every(k => ["inbox", "from", "text"].includes(k)));
   if (!ui || !Array.isArray(ui.entries) || !ui.entries.every((e) => e && typeof e.id === "string" && typeof e.kind === "string" && typeof e.text === "string") || typeof ui.input !== "string" || !Array.isArray(ui.history) || !ui.history.every(v => typeof v === "string") || !Array.isArray(ui.queued) || !ui.queued.every(queuedLine) || !Number.isInteger(ui.cursor) || ui.cursor < 0 || ui.cursor > Array.from(ui.input).length) throw new Error("Invalid desktop transcript or draft.");
   if (typeof snapshot.engine?.threadId !== "string" || ((snapshot.backend === "ac" || snapshot.engine?.messages !== undefined) && (!Array.isArray(snapshot.engine.messages) || !Number.isSafeInteger(snapshot.engine.turns) || snapshot.engine.turns < 0))) throw new Error("Invalid desktop engine history.");
+  if (snapshot.engine.relayCursor !== undefined && (!Number.isSafeInteger(snapshot.engine.relayCursor) || snapshot.engine.relayCursor < 0)) throw new Error("Invalid relay cursor.");
   if (typeof snapshot.handoff !== "string" || !Array.isArray(snapshot.archivedConversation)) throw new Error("Invalid desktop handoff context.");
   const recovery = snapshot.recovery;
   if (recovery != null && (typeof recovery.text !== "string" || typeof recovery.from !== "string" ||
@@ -52,6 +53,7 @@ export async function writeDesktopSession(file, snapshot) {
 export function restoreDesktopEngine(engine, snapshot) {
   if (!snapshot) return;
   engine.threadId = snapshot.engine.threadId;
+  if (snapshot.backend === "relay") engine.cursor = snapshot.engine.relayCursor || 0;
   if (Number.isSafeInteger(snapshot.engine.turns)) engine.turns = snapshot.engine.turns;
   if (["ac", "open"].includes(snapshot.backend)) { engine.messages = clone(snapshot.engine.messages || []); engine.turns = snapshot.engine.turns || 0; }
 }

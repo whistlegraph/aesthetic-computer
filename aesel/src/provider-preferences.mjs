@@ -4,7 +4,7 @@ import {configDir} from './paths.mjs';
 import {randomUUID} from 'node:crypto';
 export const preferencesPath=()=>join(configDir(),'provider.json');
 export function providerPreferences(value){
- if(!value||!['ac','claude','codex','open'].includes(value.backend))return null;
+ if(!value||!['ac','claude','codex','open','relay'].includes(value.backend))return null;
  if(typeof value.model!=='string'||value.model.length>200||/[\x00-\x1f]/.test(value.model))return null;
  if(!['','none','minimal','low','medium','high','xhigh','max','ultra'].includes(value.effort||''))return null;
  return {backend:value.backend,model:value.model,effort:value.effort||''};

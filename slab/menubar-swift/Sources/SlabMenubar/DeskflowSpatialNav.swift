@@ -6,15 +6,25 @@ import Foundation
 /// controller is the only host allowed to synthesize edge motion.
 enum DeskflowSpatialNav {
     private struct Geometry {
-        var links: [String: [WindowNav.Direction: String]]
+        var links: [String: [(WindowNav.Direction, String)]]
 
         func positions(from source: String) -> [String: (x: Int, y: Int)] {
+            if let obj = DeskflowSpatialNav.json("\(Paths.home)/.config/slab/displays/routes.json"),
+               let screens = obj["screens"] as? [[String: Any]] {
+                var centers: [String: (x: Int, y: Int)] = [:]
+                for s in screens {
+                    guard let name = s["screenName"] as? String, let x = s["x"] as? Int,
+                          let y = s["y"] as? Int, let w = s["width"] as? Int, let h = s["height"] as? Int else { continue }
+                    centers[name] = (x + w / 2, y + h / 2)
+                }
+                if let origin = centers[source] { return centers.mapValues { ($0.x - origin.x, $0.y - origin.y) } }
+            }
             var result: [String: (x: Int, y: Int)] = [source: (0, 0)]
             var queue = [source]
             while !queue.isEmpty {
                 let here = queue.removeFirst()
                 guard let origin = result[here] else { continue }
-                for (dir, next) in links[here] ?? [:] where result[next] == nil {
+                for (dir, next) in links[here] ?? [] where result[next] == nil {
                     let step = dir.step
                     result[next] = (origin.x + step.x, origin.y + step.y)
                     queue.append(next)
@@ -29,7 +39,7 @@ enum DeskflowSpatialNav {
             while !queue.isEmpty {
                 let (here, path) = queue.removeFirst()
                 if here == target { return path }
-                for (dir, next) in links[here] ?? [:] where seen.insert(next).inserted {
+                for (dir, next) in links[here] ?? [] where seen.insert(next).inserted {
                     queue.append((next, path + [dir]))
                 }
             }
@@ -70,7 +80,7 @@ enum DeskflowSpatialNav {
             // Queue the destination immediately too, with only enough delay for
             // Deskflow to traverse the actual intermediate edges. This removes
             // the old conservative sleep from every cross-host arrow.
-            guard routeOnActiveController(path) else { return }
+            guard routeOnActiveController(path, target: target) else { return }
             let accepted = post(ip: targetLedger.ip, endpoint: "/navigate", body: [
                 "direction": (path.last ?? direction).rawValue,
                 "alignment": Double(alignment),
@@ -108,6 +118,10 @@ enum DeskflowSpatialNav {
             NSLog("slab fleet nav: refused route on non-controller role %@", localRole() ?? "unknown")
             return false
         }
+        if let target = body["target"] as? String, routeKey(target) != nil {
+            DispatchQueue.main.async { directRoute(target) }
+            return true
+        }
         guard let values = body["path"] as? [Any] else {
             NSLog("slab fleet nav: route payload has no path")
             return false
@@ -122,14 +136,32 @@ enum DeskflowSpatialNav {
         return true
     }
 
-    private static func routeOnActiveController(_ path: [WindowNav.Direction]) -> Bool {
+    private static func routeKey(_ target: String) -> Int? {
+        guard let keys = json("\(Paths.home)/.config/slab/displays/routes.json")?["keys"] as? [String: Int],
+              let key = keys[target], [105, 107, 113, 106, 64, 79, 80, 90].contains(key) else { return nil }
+        return key
+    }
+
+    private static func directRoute(_ target: String) {
+        guard let key = routeKey(target) else { return }
+        for down in [true, false] {
+            let event = CGEvent(keyboardEventSource: nil, virtualKey: CGKeyCode(key), keyDown: down)
+            event?.flags = [.maskControl, .maskAlternate, .maskShift]
+            event?.post(tap: .cghidEventTap)
+        }
+    }
+
+    private static func routeOnActiveController(_ path: [WindowNav.Direction], target: String) -> Bool {
         if localRole() == "server" {
-            DispatchQueue.main.async { WindowNav.routeDeskflow(path) }
+            DispatchQueue.main.async {
+                if routeKey(target) != nil { directRoute(target) }
+                else { WindowNav.routeDeskflow(path) }
+            }
             return true
         }
         guard let ip = activeControllerAddress() else { return false }
         return post(ip: ip, endpoint: "/deskflow-route",
-                    body: ["path": path.map(\.rawValue)])
+                    body: ["path": path.map(\.rawValue), "target": target])
     }
 
     private static func targetScreen(from source: String, direction: WindowNav.Direction,
@@ -159,7 +191,7 @@ enum DeskflowSpatialNav {
                                      encoding: .utf8) else { return nil }
         var inLinks = false
         var current = ""
-        var links: [String: [WindowNav.Direction: String]] = [:]
+        var links: [String: [(WindowNav.Direction, String)]] = [:]
         for raw in text.split(separator: "\n", omittingEmptySubsequences: false) {
             let line = raw.trimmingCharacters(in: .whitespaces)
             if line == "section: links" { inLinks = true; continue }
@@ -167,15 +199,15 @@ enum DeskflowSpatialNav {
             guard inLinks, !line.isEmpty else { continue }
             if line.hasSuffix(":"), !line.contains(" = ") {
                 current = String(line.dropLast())
-                links[current, default: [:]] = links[current, default: [:]]
+                links[current, default: []] = links[current, default: []]
                 continue
             }
             let parts = line.split(separator: "=", maxSplits: 1).map {
                 $0.trimmingCharacters(in: .whitespaces)
             }
             guard parts.count == 2, !current.isEmpty,
-                  let dir = WindowNav.Direction(rawValue: parts[0]) else { continue }
-            links[current, default: [:]][dir] = parts[1]
+                  let dir = WindowNav.Direction(rawValue: String(parts[0].prefix(while: { $0 != "(" }))) else { continue }
+            links[current, default: []].append((dir, String(parts[1].prefix(while: { $0 != "(" }))))
         }
         return links.isEmpty ? nil : Geometry(links: links)
     }
