@@ -37,6 +37,22 @@ test('provider errors are not retried; external image URLs are not followed',asy
     await assert.rejects(generate({image,strength:.25,seed:3},offers[0]));assert.equal(calls,1);
   }
 });
+test('GPT Image 2 and Nano Banana 2.1 use their supported edit settings',async()=>{
+  for(const [model,option,value] of [
+    ['openai/gpt-image-2','quality','low'],
+    ['google/gemini-nano-banana-2.1','resolution','1K'],
+  ]) {
+    const [offer]=openRouterOffers(JSON.stringify([{model,usd:.05}]));
+    let request;
+    const generate=createOpenRouterProvider({key:'test-only',fetch:async(url,options)=>{
+      request=JSON.parse(options.body);return Response.json({data:[{b64_json:image}]});
+    }});
+    await generate({image,strength:.5,seed:3},offer);
+    assert.equal(request.model,model);assert.equal(request[option],value);
+    assert.equal(request.aspect_ratio,'1:1');assert.equal(request.n,1);
+    assert.equal(request.input_references.length,1);assert.equal(request.seed,undefined);
+  }
+});
 test('gateway selects and bills by server quote; mismatched model never calls provider',async()=>{
   const billed=[],generated=[];
   const handler=createHandler({authorize:async()=>({sub:'owner',email_verified:true}),getHandleOrEmail:async()=>'@owner',

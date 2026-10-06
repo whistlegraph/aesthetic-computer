@@ -5,6 +5,8 @@ import {braincellsFromCost} from './easel-paid-credits.mjs';
 export const profiles = {
   'black-forest-labs/flux.2-klein-4b': {name:'FLUX.2 Klein 4B', options:{aspect_ratio:'1:1', output_format:'png', seed:true}},
   'google/gemini-3.1-flash-image': {name:'Nano Banana 2', options:{aspect_ratio:'1:1', resolution:'512'}},
+  'google/gemini-nano-banana-2.1': {name:'Nano Banana 2.1', options:{aspect_ratio:'1:1', resolution:'1K'}},
+  'openai/gpt-image-2': {name:'GPT Image 2', options:{aspect_ratio:'1:1', quality:'low'}},
   'openai/gpt-image-1-mini': {name:'GPT Image 1 Mini', options:{aspect_ratio:'1:1', quality:'low'}},
   'openai/gpt-image-2.5-flare': {name:'GPT Image 2.5 Flare', options:{aspect_ratio:'1:1', quality:'low'}},
 };
