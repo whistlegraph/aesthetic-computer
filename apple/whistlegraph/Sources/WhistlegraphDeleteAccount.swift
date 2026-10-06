@@ -56,10 +56,12 @@ struct WhistlegraphDeleteAccountSheet: View {
         }
     }
     private func load() async {
+        DeviceActionLog.shared.record(.screen, .presented, control: .deleteAccount)
         busy = true; notice = ""; defer { busy = false }
         do { preview = try await client?.load() } catch { notice = error.localizedDescription }
     }
     private func confirm() async {
+        DeviceActionLog.shared.record(.deletion, .requested)
         busy = true; notice = ""; defer { busy = false }
         do { schedule = try await client?.confirm() } catch { notice = error.localizedDescription }
     }

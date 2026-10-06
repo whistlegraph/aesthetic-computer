@@ -116,6 +116,7 @@ struct StoryMovie: Identifiable { let id = UUID(); let url: URL }
         }
     }
     func request() {
+        DeviceActionLog.shared.record(.share, .started, control: .story)
         if let readyURL { movie = StoryMovie(url: readyURL); return }
         requested = true; active = true; busy = true; error = ""
         assembleIfReady()
@@ -131,6 +132,7 @@ struct StoryMovie: Identifiable { let id = UUID(); let url: URL }
         reset = Task { await earlier?.value; try? await current?.storyTape("cancel") }
     }
     func cancel() {
+        if requested { DeviceActionLog.shared.record(.share, .cancelled, control: .story) }
         active = false; storyRun = UUID(); assembly?.cancel(); assembly = nil
         discardCard(); busy = false; requested = false
     }
@@ -144,6 +146,7 @@ struct StoryMovie: Identifiable { let id = UUID(); let url: URL }
         completion?.resume(); completion = nil
     }
     private func fail(_ message: String) {
+        DeviceActionLog.shared.record(.share, .failed, control: .story)
         let showError = requested
         cancel()
         // Automatic preparation must not interrupt browsing with a modal alert.

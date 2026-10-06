@@ -37,6 +37,7 @@
 		561DCBD95EB8AECF60476DE7 /* WhistlegraphTV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DACE2604B34CCB5EB3EE8AC /* WhistlegraphTV.swift */; };
 		5646BD41AA620CC47BF89361 /* Web in Resources */ = {isa = PBXBuildFile; fileRef = 4BA75145769FC4401A11BBE8 /* Web */; };
 		5D29324F2AF09B53070D7644 /* LiveTranscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7848DB9FED6B955BC193F650 /* LiveTranscription.swift */; };
+		6037259BAADEA55B4760A19A /* DeviceActionLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367C82326F5862EB85ED3260 /* DeviceActionLog.swift */; };
 		603B85FC4E28D17FF1E5F457 /* StoryCardStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 477B640525BC627AFB40D7A7 /* StoryCardStyle.swift */; };
 		6122FB433EC952206856DEBD /* WhistlegraphPrivacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30AAFA5A6A0627C23CA67DA4 /* WhistlegraphPrivacy.swift */; };
 		620B74996F82DC86FA07B6DB /* CodeSyntax.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C2AB1140648295BB7905317 /* CodeSyntax.swift */; };
@@ -62,6 +63,7 @@
 		AFDE98CF6460438CE2205674 /* WhistlegraphAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 060870DF76C6FC078A48A276 /* WhistlegraphAccount.swift */; };
 		B35A82E6CD62E5D1D9460EE3 /* NativeScreenFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B20A9A8612C57068C67239A /* NativeScreenFixture.swift */; };
 		C4390906B03E8E8666BC54A3 /* SequenceBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = B55FB4AA387E716F9FEE0F83 /* SequenceBenchmark.swift */; };
+		D11B40EF1D4055DB59CC565D /* VerifiedAccountIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8056005299D13BFB52B7D3E4 /* VerifiedAccountIdentity.swift */; };
 		D3D16A0333764D0E5C3B620D /* SpeechCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7A25F803FAC121BFECC1AD7 /* SpeechCapture.swift */; };
 		D8E8FFEA41DF3B0073DC5373 /* TalkHoldInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4728CB634CB3E4AED4F4D353 /* TalkHoldInput.swift */; };
 		D9E54D2F66B9FC35483A8F45 /* PlaybackCaption.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D3B156A3435E646EE0E6EEA /* PlaybackCaption.swift */; };
@@ -69,6 +71,7 @@
 		E5B597B1518B1DB4512EBF31 /* TezosBraincells.swift in Sources */ = {isa = PBXBuildFile; fileRef = 458C9CB2E8C0FD09BF96501D /* TezosBraincells.swift */; };
 		E81F2B275AC7E65EC667E67F /* RecordedTranscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB5E6AF3AF51BAA89BAC231E /* RecordedTranscription.swift */; };
 		E9F24EB7F859B4C869009F26 /* PaymentBuild.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ED23B0C39652687E9ECFFAF /* PaymentBuild.swift */; };
+		F160CBA0E689C1B29B1C38FB /* WhistlegraphDebugLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15699BE38BA8C0B44DDABDD3 /* WhistlegraphDebugLog.swift */; };
 		FAC2911EFFCA887527D2415F /* WhistlegraphDrawing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D9A8C801D3B9D1192D1143 /* WhistlegraphDrawing.swift */; };
 /* End PBXBuildFile section */
 
@@ -88,6 +91,7 @@
 		10BFA0F39F2F514E799291F6 /* WhistlegraphBraincells.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphBraincells.swift; sourceTree = "<group>"; };
 		10E2AAA0A3F2BA1A5AEBED58 /* CodeTicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeTicker.swift; sourceTree = "<group>"; };
 		147EAC245AD250B9B652F903 /* WorkspaceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceCoordinator.swift; sourceTree = "<group>"; };
+		15699BE38BA8C0B44DDABDD3 /* WhistlegraphDebugLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphDebugLog.swift; sourceTree = "<group>"; };
 		19C05FBB23D515547035D490 /* WhistlegraphMintTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphMintTests.swift; sourceTree = "<group>"; };
 		1BC2C1DC5E036F689EA59561 /* WhistlegraphHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphHeader.swift; sourceTree = "<group>"; };
 		1CC14C186FE1CB5B19AD1D72 /* AudioBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioBenchmark.swift; sourceTree = "<group>"; };
@@ -99,6 +103,7 @@
 		30AAFA5A6A0627C23CA67DA4 /* WhistlegraphPrivacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphPrivacy.swift; sourceTree = "<group>"; };
 		31AAC74C07F21688CEFF544F /* PieceAudio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PieceAudio.swift; sourceTree = "<group>"; };
 		35643029A3E82EEDEAC8DED6 /* InputButtonLabels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputButtonLabels.swift; sourceTree = "<group>"; };
+		367C82326F5862EB85ED3260 /* DeviceActionLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceActionLog.swift; sourceTree = "<group>"; };
 		3F98F7D3CE551FC6458D1F37 /* HeaderSheetsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderSheetsTests.swift; sourceTree = "<group>"; };
 		458C9CB2E8C0FD09BF96501D /* TezosBraincells.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TezosBraincells.swift; sourceTree = "<group>"; };
 		4728CB634CB3E4AED4F4D353 /* TalkHoldInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkHoldInput.swift; sourceTree = "<group>"; };
@@ -120,6 +125,7 @@
 		6FB1D789A7001E472597133B /* AIConsentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIConsentTests.swift; sourceTree = "<group>"; };
 		725C2A9ACD0323F49EFFDFC1 /* AccountDeletionClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionClient.swift; sourceTree = "<group>"; };
 		7848DB9FED6B955BC193F650 /* LiveTranscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTranscription.swift; sourceTree = "<group>"; };
+		8056005299D13BFB52B7D3E4 /* VerifiedAccountIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerifiedAccountIdentity.swift; sourceTree = "<group>"; };
 		85CE7F71D92E8328A7BDA44D /* PreviewFormatTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewFormatTests.swift; sourceTree = "<group>"; };
 		88B494AD8CD86FCC5DE0E4CC /* StoryExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryExport.swift; sourceTree = "<group>"; };
 		8C2AB1140648295BB7905317 /* CodeSyntax.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeSyntax.swift; sourceTree = "<group>"; };
@@ -184,6 +190,7 @@
 				8C2AB1140648295BB7905317 /* CodeSyntax.swift */,
 				10E2AAA0A3F2BA1A5AEBED58 /* CodeTicker.swift */,
 				919CF3F0659F42F321B22145 /* CostDisplay.swift */,
+				367C82326F5862EB85ED3260 /* DeviceActionLog.swift */,
 				35643029A3E82EEDEAC8DED6 /* InputButtonLabels.swift */,
 				7848DB9FED6B955BC193F650 /* LiveTranscription.swift */,
 				5D233DBB6F87184A91C13D41 /* MusicalInput.swift */,
@@ -212,11 +219,13 @@
 				4728CB634CB3E4AED4F4D353 /* TalkHoldInput.swift */,
 				458C9CB2E8C0FD09BF96501D /* TezosBraincells.swift */,
 				8F9B92C3457F07429C8C2600 /* UtteranceRecording.swift */,
+				8056005299D13BFB52B7D3E4 /* VerifiedAccountIdentity.swift */,
 				6D137824491A01D4C19417B8 /* VersionNarrator.swift */,
 				5DF0A171A5771A7A1FD56852 /* VisualCapture.swift */,
 				060870DF76C6FC078A48A276 /* WhistlegraphAccount.swift */,
 				BA5F188938A81E704BB7F9F9 /* WhistlegraphApp.swift */,
 				10BFA0F39F2F514E799291F6 /* WhistlegraphBraincells.swift */,
+				15699BE38BA8C0B44DDABDD3 /* WhistlegraphDebugLog.swift */,
 				C534DE3AC6E813F8BDFE5244 /* WhistlegraphDeleteAccount.swift */,
 				99D9A8C801D3B9D1192D1143 /* WhistlegraphDrawing.swift */,
 				1BC2C1DC5E036F689EA59561 /* WhistlegraphHeader.swift */,
@@ -392,6 +401,7 @@
 				620B74996F82DC86FA07B6DB /* CodeSyntax.swift in Sources */,
 				9DBA1AF2AD7E3EDF69C8132A /* CodeTicker.swift in Sources */,
 				86581AE590F8A301268220CA /* CostDisplay.swift in Sources */,
+				6037259BAADEA55B4760A19A /* DeviceActionLog.swift in Sources */,
 				123228FADA6696AB354306C7 /* InputButtonLabels.swift in Sources */,
 				5D29324F2AF09B53070D7644 /* LiveTranscription.swift in Sources */,
 				14FFBE48767E2576693FB7B3 /* MusicalInput.swift in Sources */,
@@ -421,11 +431,13 @@
 				D8E8FFEA41DF3B0073DC5373 /* TalkHoldInput.swift in Sources */,
 				E5B597B1518B1DB4512EBF31 /* TezosBraincells.swift in Sources */,
 				49D6E6ED3128002039D4F931 /* UtteranceRecording.swift in Sources */,
+				D11B40EF1D4055DB59CC565D /* VerifiedAccountIdentity.swift in Sources */,
 				8A9F944BA95C971D70ADDF6B /* VersionNarrator.swift in Sources */,
 				749AC25AE02AAE4BCDA5683A /* VisualCapture.swift in Sources */,
 				AFDE98CF6460438CE2205674 /* WhistlegraphAccount.swift in Sources */,
 				26D07334E2DEBA6705671BB0 /* WhistlegraphApp.swift in Sources */,
 				55A7061DE3B5F747C7BE96CE /* WhistlegraphBraincells.swift in Sources */,
+				F160CBA0E689C1B29B1C38FB /* WhistlegraphDebugLog.swift in Sources */,
 				08B1D8E0B17FC2AD2643193B /* WhistlegraphDeleteAccount.swift in Sources */,
 				FAC2911EFFCA887527D2415F /* WhistlegraphDrawing.swift in Sources */,
 				73873BDDC483417E2F6E1143 /* WhistlegraphHeader.swift in Sources */,
@@ -586,7 +598,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 108;
+				CURRENT_PROJECT_VERSION = 109;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -671,7 +683,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 108;
+				CURRENT_PROJECT_VERSION = 109;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -731,7 +743,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 108;
+				CURRENT_PROJECT_VERSION = 109;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

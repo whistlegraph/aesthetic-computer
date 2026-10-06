@@ -262,8 +262,14 @@ const server = http.createServer(async (req, res) => {
       await page.waitForFunction(()=>__nativeMessages.some(m=>m.action==='snapshot'));
       assert.equal(await page.$eval('.top',e=>getComputedStyle(e).display),'none','Swift owns visible chrome');
       await page.evaluate(()=>walkiewareEngineEvent({kind:'account',token:'fixture-only'}));
-      await page.evaluate(()=>walkiewareNativeCommand({action:'ask',text:'x'.repeat(97)}));
+      await page.waitForFunction(()=>__nativeMessages.some(m=>m.action==='snapshot'&&m.snapshot.handle==='fixture'));
+      assert.deepEqual(await page.evaluate(()=>walkiewareNativeCommand({action:'ask',text:'x'.repeat(97)})),{accepted:false,reason:'inputTooLong'});
       await pause(100);assert.equal(requests,0,'native typed bridge rejects requests longer than 96 characters');
+      assert.deepEqual(await page.evaluate(()=>walkiewareNativeCommand({action:'ask',text:''})),{accepted:false,reason:'emptyInput'});
+      await page.evaluate(()=>walkiewareSetAIConsent({handle:'fixture',creation:false}));
+      assert.deepEqual(await page.evaluate(()=>walkiewareNativeCommand({action:'ask',text:'Keep my draft'})),{accepted:false,reason:'permission'});
+      assert.equal(requests,0,'a denied command returns its reason before dispatch');
+      await page.evaluate(()=>walkiewareSetAIConsent({handle:'fixture',creation:true}));
       await page.evaluate(()=>walkiewareAskSound({transcript:'A night garden',words:[{text:'garden',atMs:0,durationMs:500}],sound:{schema:'walkieware-sound/v1',durationMs:1000,audibleMs:500,frames:[{atMs:0,rms:.2,pitchHz:1777}],onsetsMs:[],recordingID:'7f936621-9d84-42aa-923a-85e258f8b0a0'}}));
       await page.waitForFunction(()=>__nativeMessages.some(m=>m.action==='snapshot'&&m.snapshot.head===1&&!m.snapshot.busy));
       const sent=JSON.stringify(inferenceBodies[0]);assert.ok(sent.includes('A night garden'));assert.ok(!sent.includes('7f936621-9d84-42aa-923a-85e258f8b0a0')&&!sent.includes('INPUT DATA:'),'ordinary spoken request excludes recording context at provider boundary');
@@ -273,6 +279,7 @@ const server = http.createServer(async (req, res) => {
       assert.ok(snapshots.every(s=>(s.output?.length||0)<=6000),'live output stays bounded');
       assert.ok(snapshots.filter(s=>s.versions).length<=3,'history only sent when changed');
       assert.ok(snapshots.every(s=>!('source' in s)&&!('token' in s)),'snapshots contain presentation only');
+      assert.ok(await page.evaluate(()=>__nativeMessages.some(m=>m.action==='benchmark'&&m.event==='braincellsHeaders'&&m.fields.status===200)),'credit response status reaches local diagnostics');
       await page.evaluate(()=>walkiewareNativeCommand({action:'checkout',version:0}));
       await page.waitForFunction(()=>{const s=__nativeMessages.filter(m=>m.action==='snapshot').at(-1)?.snapshot;return s?.head===0&&!s.hasPreview;});
       assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('walkieware-source-versions')).versions.length),2);

@@ -3,7 +3,7 @@ import UIKit
 
 @MainActor
 final class DrawingDraft: ObservableObject {
-    @Published var enabled = false
+    @Published var enabled = false { didSet { if enabled != oldValue { DeviceActionLog.shared.record(.drawing, enabled ? .enabled : .disabled) } } }
     @Published private(set) var strokes: [[[Double]]] = []
     @Published private(set) var revision = 0
     private(set) var id = UUID().uuidString
@@ -58,9 +58,9 @@ final class DrawingDraft: ObservableObject {
         if let pressure { sample.append((min(1, max(0, pressure)) * 1000).rounded()) }
         strokes[strokes.count - 1].append(sample); revision += 1; persist()
     }
-    func end() { active = false }
-    func undo() { active = false; if hasInk { strokes.removeLast(); revision += 1; persist() } }
-    func clear() { active = false; strokes = []; revision += 1; id = UUID().uuidString; startedAt = 0; persist() }
+    func end() { active = false; DeviceActionLog.shared.record(.drawing, .add, [.strokes: strokes.count, .points: strokes.reduce(0) { $0 + $1.count }]) }
+    func undo() { DeviceActionLog.shared.record(.drawing, .undo); active = false; if hasInk { strokes.removeLast(); revision += 1; persist() } }
+    func clear() { DeviceActionLog.shared.record(.drawing, .clear); active = false; strokes = []; revision += 1; id = UUID().uuidString; startedAt = 0; persist() }
     func consume(id: String, revision: Int) { if self.id == id && self.revision == revision { clear() } }
     func payload(speechStart: TimeInterval? = nil) -> [String: Any]? {
         guard hasInk else { return nil }

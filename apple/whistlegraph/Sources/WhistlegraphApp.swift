@@ -10,6 +10,7 @@ struct WhistlegraphApp: App {
     @Environment(\.scenePhase) private var phase
     @AppStorage("walkieware-appearance") private var appearance = "system"
     init() {
+        DeviceActionLog.shared.record(.launch)
         if let root = Bundle.main.url(forResource: "Web", withExtension: nil) {
             for name in ["ComicRelief-Regular.ttf", "ComicRelief-Bold.ttf"] { CTFontManagerRegisterFontsForURL(root.appendingPathComponent(name) as CFURL, .process, nil) }
         }
@@ -38,6 +39,7 @@ struct WhistlegraphApp: App {
                     }.padding(30).foregroundStyle(.primary)
                 }
             }
+            .background(ActionTouchProbe().frame(width: 0, height: 0).allowsHitTesting(false))
             .task { if !voice.isConsentFixture { await voice.braincells.start(session: voice) } }
             .onChange(of: voice.snapshot.handle) { _, _ in Task {
                 await voice.syncAIAccount()
@@ -49,6 +51,7 @@ struct WhistlegraphApp: App {
             }
             .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
             .onChange(of: phase) { _, value in
+                DeviceActionLog.shared.record(.lifecycle, value == .active ? .active : value == .background ? .background : .inactive)
                 if value == .background { voice.cancelHold() }
                 if value == .active && voice.capturePhase == .idle { voice.resumePieceAudio() }
                 if value == .active && !voice.isConsentFixture {
@@ -213,6 +216,9 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     @Published var layout = NativeLayout()
     @Published var snapshot = PieceSnapshot()
     @Published var showingAIConsent = false
+    @Published private(set) var verifyingAIAccount = false
+    @Published var actionError: String?
+    @Published var typedDraft = ""
     private var consentRequest: (subject: String, handle: String, generation: Int, code: String, head: Int)?
     private var afterAIConsent: (() -> Void)?
     private var acceptedAIConsent = false
@@ -232,6 +238,11 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     #if DEBUG
     @Published var audioTestResult = "Waiting for piece audio"
     @Published var consentFixtureRequests = 0
+    private let consentFixtureIdentity = VerifiedAccountIdentity { request in
+        let fails = ProcessInfo.processInfo.environment["WALKIE_IDENTITY_FAILURE"] == "1"
+        return (Data(#"{"sub":"fixture:ai-consent"}"#.utf8),
+            HTTPURLResponse(url: request.url!, statusCode: fails ? 503 : 200, httpVersion: nil, headerFields: nil)!)
+    }
     #endif
     var isConsentFixture: Bool {
         #if DEBUG
@@ -254,6 +265,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     }
 
     func setPixelSize(_ size: Int) {
+        DeviceActionLog.shared.record(.setting, .requested, control: .density, [.pixelSize: size])
         guard (1...4).contains(size), !snapshot.busy, capturePhase == .idle else { return }
         pixelSize = size
         UserDefaults.standard.set(size, forKey: WhistlegraphPreview.pixelSizeKey)
@@ -262,6 +274,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     }
 
     func setPreviewFormat(_ format: PreviewFormat) {
+        DeviceActionLog.shared.record(.setting, .requested, control: .format, [.format: PreviewFormat.allCases.firstIndex(of: format) ?? -1])
         guard !snapshot.busy, capturePhase == .idle else { return }
         previewFormat = format
         UserDefaults.standard.set(format.rawValue, forKey: PreviewFormat.preference)
@@ -269,10 +282,13 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         // and the normalized chalk strokes instead of reloading the runtime.
     }
 
-    func command(_ action: String, version: Int? = nil, text: String? = nil, piece: String? = nil) {
+    func command(_ action: String, version: Int? = nil, text: String? = nil, piece: String? = nil, onAccepted: (() -> Void)? = nil) {
         guard ["checkout", "newPiece", "openPiece", "stop", "signIn", "ask", "retry", "presentVersion", "endPresentation", "setModel", "refreshBraincells"].contains(action) else { return }
+        let control = DeviceActionLog.Control(rawValue: action)
+        DeviceActionLog.shared.record(.command, .requested, control: control,
+            [.characters: text?.count ?? 0, .version: version ?? snapshot.head, .busy: snapshot.busy ? 1 : 0, .engineReady: engineReady ? 1 : 0])
         if ["ask", "retry"].contains(action), !aiConsent.creation {
-            requestAIConsent { [weak self] in self?.command(action, version: version, text: text, piece: piece) }
+            requestAIConsent { [weak self] in self?.command(action, version: version, text: text, piece: piece, onAccepted: onAccepted) }
             return
         }
         if action == "newPiece" || action == "openPiece" {
@@ -292,44 +308,112 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         var value: [String: Any] = ["action": action]
         if action == "setModel" {
             guard !snapshot.busy, capturePhase == .idle, let text else { return }
+            DeviceActionLog.shared.record(.setting, .requested, control: .setModel, [.selection: snapshot.inference?.models.firstIndex(where: { $0.id == text }) ?? -1])
             value["text"] = text
         }
         if let version { value["version"] = version }
         if action == "openPiece", let piece { value["piece"] = piece }
         if action == "ask" {
-            guard engineReady, !snapshot.busy, capturePhase == .idle, let text, (!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || drawing.hasInk), text.count <= 96 else { return }
+            guard canStartAIAction() else { return }
+            guard let text, (!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || drawing.hasInk) else {
+                reportActionFailure("Type a few words or add chalk before sending.", reason: .emptyInput); return
+            }
+            guard text.count <= 96 else { reportActionFailure("Keep your request to 96 characters or fewer.", reason: .inputTooLong); return }
             value["text"] = text
             if let sketch = drawing.payload() { value["drawing"] = sketch }
         }
         #if DEBUG
         if isConsentFixture && ["ask", "retry"].contains(action) {
-            consentFixtureRequests += 1; return // Exercise the native gate without paid inference.
+            consentFixtureRequests += 1; onAccepted?(); return // Exercise the native gate without paid inference.
         }
         #endif
-        Task { _ = try? await webView?.callAsyncJavaScript("window.walkiewareNativeCommand?.(command)", arguments: ["command": value], in: nil, contentWorld: .page) }
+        let commandGeneration = account.generation
+        Task {
+            do {
+                if ["ask", "retry"].contains(action), commandGeneration != account.generation {
+                    reportActionFailure("Your account changed. Try that action again.", reason: .accountChanged); return
+                }
+                guard let webView else { throw NativeSignIn.failure("The workspace is still opening. Try again in a moment.") }
+                let result = try await webView.callAsyncJavaScript("if (!window.walkiewareNativeCommand) throw Error('Workspace not ready'); return window.walkiewareNativeCommand(command);", arguments: ["command": value], in: nil, contentWorld: .page)
+                if let result = result as? [String: Any], result["accepted"] as? Bool == false {
+                    let reason = (result["reason"] as? String).flatMap(DeviceActionLog.Outcome.init(rawValue:)) ?? .failed
+                    let message: String
+                    switch reason {
+                    case .busy: message = "A piece is still being made. Wait or tap Stop, then send again."
+                    case .authentication: message = "Your account is still connecting. Your draft is here; try sending again in a moment."
+                    case .permission: message = "AI permission has not reached the workspace. Your draft is here; try sending again."
+                    default: message = "The workspace is not ready for that request. Your draft is still here. Try again."
+                    }
+                    reportActionFailure(message, reason: reason); return
+                }
+                DeviceActionLog.shared.record(.commandDelivery, .succeeded, control: control)
+                onAccepted?()
+            } catch {
+                DeviceActionLog.shared.recordError(.commandDelivery, error)
+                if ["ask", "retry", "signIn", "newPiece", "openPiece"].contains(action) {
+                    reportActionFailure("The workspace could not receive that action. Your draft is still here. Try again.", reason: .notReady)
+                }
+            }
+        }
+    }
+    private func canStartAIAction() -> Bool {
+        if !engineReady { reportActionFailure("The workspace is still opening. Try again in a moment.", reason: .notReady); return false }
+        if snapshot.busy { reportActionFailure("A piece is still being made. Wait for it to finish or tap Stop.", reason: .busy); return false }
+        if capturePhase != .idle { reportActionFailure("Finish or cancel the current recording first.", reason: .captureActive); return false }
+        return true
+    }
+    func reportActionFailure(_ message: String, reason: DeviceActionLog.Outcome) {
+        DeviceActionLog.shared.record(.command, reason)
+        actionError = message
     }
     func beginHold() {
-        guard engineReady, !snapshot.busy, capturePhase == .idle else { return }
+        DeviceActionLog.shared.record(.talkBegin, .requested)
+        guard canStartAIAction() else { return }
         guard !snapshot.handle.isEmpty else { command("signIn"); return }
         // Permission does not start a microphone after the finger has lifted.
         guard aiConsent.creation else { requestAIConsent(); return }
         if isConsentFixture { return }
         performanceTurn = false
         captureError = nil; transcript = ""; speechStartedAt = nil; capturePhase = .opening
-        webView?.evaluateJavaScript("voiceStart()")
+        webView?.evaluateJavaScript("voiceStart()") { [weak self] _, error in
+            guard let error else { return }
+            DeviceActionLog.shared.recordError(.talkBegin, error)
+            self?.cancel()
+            self?.reportActionFailure("Recording could not start. Try holding Talk again.", reason: .failed)
+        }
     }
     func latchPerformance() {
+        DeviceActionLog.shared.record(.talkLatch, .requested)
         guard capturePhase == .opening || capturePhase == .recording else { return }
         performanceTurn = true; performanceCapture = true; drawing.enabled = true; capture.latchPerformance()
         webView?.evaluateJavaScript("window.walkiewareLatchPerformance?.()")
     }
-    func endHold() { webView?.evaluateJavaScript("voiceEnd()") }
-    func syncAIAccount() async {
-        if isConsentFixture { aiConsent.bind(subject: "fixture:ai-consent", handle: "preview"); return }
+    func endHold() { DeviceActionLog.shared.record(.talkEnd, .requested); webView?.evaluateJavaScript("voiceEnd()") }
+    @discardableResult func syncAIAccount(reportFailure: Bool = false) async -> Bool {
         let expected = account.generation
-        let subject = try? await account.subject()
-        guard expected == account.generation else { return }
-        aiConsent.bind(subject: subject ?? nil, handle: snapshot.handle)
+        do {
+            let subject: String?
+            #if DEBUG
+            if isConsentFixture { subject = try await consentFixtureIdentity.subject(token: "fixture-opaque-token", generation: expected) }
+            else { subject = try await account.subject() }
+            #else
+            subject = try await account.subject()
+            #endif
+            guard expected == account.generation else { return false }
+            aiConsent.bind(subject: subject, handle: snapshot.handle)
+            if subject == nil && reportFailure { reportActionFailure("Your sign-in has expired. Sign out from Account, then log in again. Your draft is still here.", reason: .notSignedIn) }
+            return aiConsent.signedIn
+        } catch {
+            guard expected == account.generation else { return false }
+            DeviceActionLog.shared.recordError(.accountIdentity, error)
+            aiConsent.bind(subject: nil, handle: snapshot.handle)
+            if reportFailure {
+                let expired: Bool
+                if case VerifiedAccountIdentity.Failure.http(401) = error { expired = true } else { expired = false }
+                reportActionFailure(expired ? "Your sign-in has expired. Sign out from Account, then log in again. Your draft is still here." : "Could not verify your account. Check your connection and try again. Your draft is still here.", reason: expired ? .authentication : .networkError)
+            }
+            return false
+        }
     }
     var canAllowAIConsent: Bool {
         guard let request = consentRequest else { return false }
@@ -337,42 +421,55 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             request.handle == snapshot.handle && request.generation == account.generation
     }
     func requestAIConsent(resume: (() -> Void)? = nil) {
+        DeviceActionLog.shared.record(.consent, .requested)
         guard !showingAIConsent else { return }
         if aiConsent.creation { resume?(); return }
         guard !snapshot.handle.isEmpty else { command("signIn"); return }
+        guard !verifyingAIAccount else { return }
+        verifyingAIAccount = true
         let generation = account.generation, handle = snapshot.handle
         let code = snapshot.code, head = snapshot.head
         Task {
-            await syncAIAccount()
+            defer { verifyingAIAccount = false }
+            guard await syncAIAccount(reportFailure: true) else { return }
             guard generation == account.generation, handle == snapshot.handle,
                   code == snapshot.code, head == snapshot.head, !showingAIConsent,
-                  let subject = aiConsent.subject, aiConsent.signedIn else { return }
+                  let subject = aiConsent.subject, aiConsent.signedIn else {
+                reportActionFailure("Your account or piece changed. Try that action again.", reason: .accountChanged); return
+            }
             if aiConsent.creation { resume?(); return }
             consentRequest = (subject, handle, generation, code, head)
             afterAIConsent = resume; acceptedAIConsent = false
             showingAIConsent = true
+            DeviceActionLog.shared.record(.consent, .presented)
         }
     }
     func allowAIConsent() {
+        DeviceActionLog.shared.record(.consent, .succeeded, control: .allow)
         guard canAllowAIConsent else { declineAIConsent(); return }
         aiConsent.set(\.creation, true)
         acceptedAIConsent = true; showingAIConsent = false
     }
     func declineAIConsent() {
+        DeviceActionLog.shared.record(.consent, .declined)
         acceptedAIConsent = false; showingAIConsent = false
     }
     func finishAIConsentPrompt() {
+        DeviceActionLog.shared.record(.consent, .dismissed)
         let request = consentRequest, resume = afterAIConsent
         let accepted = acceptedAIConsent && canAllowAIConsent
         consentRequest = nil; afterAIConsent = nil; acceptedAIConsent = false
         guard accepted, let request, let resume else { return }
         Task {
             // Await the WebView gate before continuing the original action.
-            guard let webView else { return }
+            guard let webView else { reportActionFailure("The workspace is not ready. Try again.", reason: .notReady); return }
             do {
                 _ = try await webView.callAsyncJavaScript("window.__whistlegraphAIConsent = value; window.walkiewareSetAIConsent?.(value);",
                     arguments: ["value": aiConsent.bridge], in: nil, contentWorld: .page)
-            } catch { return }
+            } catch {
+                DeviceActionLog.shared.recordError(.consentBridge, error)
+                reportActionFailure("Could not apply AI permission. Your draft is still here. Try again.", reason: .failed); return
+            }
             guard aiConsent.creation, request.subject == aiConsent.subject,
                   request.handle == snapshot.handle, request.generation == account.generation,
                   request.code == snapshot.code, request.head == snapshot.head else { return }
@@ -418,8 +515,10 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         } catch { cleanupError = error }
         if let name = Bundle.main.bundleIdentifier { UserDefaults.standard.removePersistentDomain(forName: name) }
         drawing.clear(); drawing.enabled = false
+        typedDraft = ""
         snapshot = PieceSnapshot(); pieces = []; previewSource = ""; engineReady = false
         reloadWorkspace()
+        try DeviceActionLog.shared.clear()
         if let cleanupError { throw cleanupError }
     }
     /// Drops the Keychain sign-in and tells the engine, which parks its sockets.
@@ -429,7 +528,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         aiConsent.bind(subject: nil, handle: "")
         emitEngine(["kind": "account", "token": ""])
     }
-    func cancelHold() { performanceCapture = false; webView?.evaluateJavaScript("voiceEnd(true)"); cancel() }
+    func cancelHold() { DeviceActionLog.shared.record(.talkCancel, .requested); performanceCapture = false; webView?.evaluateJavaScript("voiceEnd(true)"); cancel() }
 
     @Published var startupFailure: String?
     private var startupTimeout: Task<Void, Never>?
@@ -437,6 +536,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     weak var webView: WKWebView?
 
     func reloadWorkspace() {
+        DeviceActionLog.shared.record(.workspace, .opening)
         workspaceReady = false; engineReady = false; startupFailure = nil
         startupTimeout?.cancel()
         webView?.load(URLRequest(url: URL(string: "walkieware://app/index.html?walkie=1")!))
@@ -444,6 +544,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             try? await Task.sleep(for: .seconds(12))
             guard !Task.isCancelled, let self, !self.workspaceReady else { return }
             self.startupFailure = "The workspace did not finish opening. Tap Reload to try again."
+            DeviceActionLog.shared.record(.workspace, .failed)
         }
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -453,6 +554,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         }
     }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        DeviceActionLog.shared.recordError(.workspace, error)
         startupFailure = "Could not open the workspace: " + error.localizedDescription
         print("[walkieware] navigation failed: \((error as NSError).code)")
     }
@@ -460,9 +562,11 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         didFailProvisionalNavigation(webView, navigation: navigation, error: error)
     }
     private func didFailProvisionalNavigation(_ view: WKWebView, navigation: WKNavigation!, error: Error) {
+        DeviceActionLog.shared.recordError(.workspace, error)
         startupFailure = "Could not open the workspace: " + error.localizedDescription
     }
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        DeviceActionLog.shared.record(.workspace, .failed)
         cancel(); workspaceReady = false
         print("[walkieware] web content process terminated")
         if recoveryCount < 1 { recoveryCount += 1; reloadWorkspace() }
@@ -544,6 +648,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             #endif
             if body["action"] as? String == "storyTape" { storyTapeEvent?(body); return }
             if body["action"] as? String == "previewReady" {
+                DeviceActionLog.shared.record(.preview, .ready)
                 #if DEBUG
                 print("[walkieware] preview runtime ready")
                 #endif
@@ -554,8 +659,8 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
                 if let event = body["event"] as? [String: Any],
                    event["requestID"] as? Int == previewRequestID,
                    event["sourceHash"] as? String == VisualCapture.hash(previewSource) {
-                    if event["kind"] as? String == "painted" { paintedPreviewHash = event["sourceHash"] as? String; tv.update(previewSource) }
-                    if event["kind"] as? String == "invalidated" { paintedPreviewHash = nil }
+                    if event["kind"] as? String == "painted" { DeviceActionLog.shared.record(.preview, .painted); paintedPreviewHash = event["sourceHash"] as? String; tv.update(previewSource) }
+                    if event["kind"] as? String == "invalidated" { DeviceActionLog.shared.record(.preview, .invalidated); paintedPreviewHash = nil }
                 }
                 #if DEBUG
                 if let event = body["event"] as? [String: Any], event["kind"] as? String == "painted" { print("[walkieware] checkpoint painted"); AudioBenchmark.mark("firstPainted")
@@ -631,6 +736,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
                 }
             }
             #endif
+            traceSnapshot(next)
             snapshot = next; tv.updateProgress(next); engineReady = true
         case "voiceIdle":
             performanceCapture = false
@@ -652,8 +758,13 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             }
             #endif
         case "benchmark":
+            if let name = body["event"] as? String, let stage = DeviceActionLog.Stage(rawValue: name) {
+                let status = (body["fields"] as? [String: Any])?["status"] as? Int
+                DeviceActionLog.shared.record(.inference, nil, status.map { [.status: $0] } ?? [:], stage: stage)
+            }
             if let name = body["event"] as? String, ["requestDispatched", "firstModelOutput", "firstCheckpoint", "generationFinished", "generationFailed", "transcriptPainted", "signedIn", "generationEntered", "guidesReady", "firstIncrementalCompile", "inferenceHeaders", "jevDecision", "jevFallback", "jevCacheHit", "jevApplied", "inputSocketReady", "inputSocketAck", "inputHttpFallback", "starterDispatched", "starterPainted", "refinementFailed", "localEditDispatched", "localEditPainted"].contains(name) { AudioBenchmark.mark(name, fields: body["fields"] as? [String: Any] ?? [:]) }
         case "ready":
+            DeviceActionLog.shared.record(.workspace, .ready)
             workspaceReady = true; startupFailure = nil; startupTimeout?.cancel()
             print("[walkieware] controls ready")
             if AudioBenchmark.enabled || SequenceBenchmark.enabled { UIApplication.shared.isIdleTimerDisabled = true }
@@ -661,16 +772,18 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         case "account":
             if isConsentFixture { emitEngine(["kind": "account", "token": ""]); return }
             Task { do { emitEngine(["kind": "account", "token": try await account.token() ?? ""]) }
-                catch { emitEngine(["kind": "account", "token": ""]) } }
+                catch { DeviceActionLog.shared.recordError(.accountToken, error); emitEngine(["kind": "account", "token": ""]) } }
         case "aiConsent":
             // The network guard can reject background recovery or stale account
             // work. Only native Send/retry/Talk gestures may present permission.
-            break
+            DeviceActionLog.shared.record(.consentBridge, .denied)
         case "signIn":
             if isConsentFixture { return }
             account.signIn(from: webView) { [weak self] result in
                 switch result {
-                case .success(let token): self?.emitEngine(["kind": "account", "token": token])
+                case .success(let token):
+                    self?.aiConsent.bind(subject: nil, handle: "")
+                    self?.emitEngine(["kind": "account", "token": token])
                 case .failure(let error): self?.emitEngine(["kind": "error", "text": error.localizedDescription])
                 }
             }
@@ -683,6 +796,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             previewRequestID = body["renderID"] as? Int ?? 0
             previewSource = source; renderPreview()
         case "start":
+            DeviceActionLog.shared.record(.speech, .opening)
             capturePhase = .opening; captureError = nil; transcript = ""
             microphoneLevels = Array(repeating: 0, count: 28)
             capture.start(id)
@@ -690,6 +804,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         case "stop": capture.stop(matching: id)
         case "cancel": if id == capture.turn { cancel() }
         case "share":
+            DeviceActionLog.shared.record(.share, .requested)
             guard let value = body["data"] as? String, value.count < 10_000_000,
                   value.hasPrefix("data:image/png;base64,"),
                   let data = Data(base64Encoded: String(value.dropFirst(22))),
@@ -699,6 +814,27 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             share.popoverPresentationController?.sourceView = webView
             host.present(share, animated: true)
         default: break
+        }
+    }
+
+    private func traceSnapshot(_ next: PieceSnapshot) {
+        if !engineReady || next.busy != snapshot.busy || next.head != snapshot.head || next.handle != snapshot.handle {
+            DeviceActionLog.shared.record(.snapshot, next.busy ? .processing : .ready,
+                [.version: next.head, .busy: next.busy ? 1 : 0, .enabled: next.handle.isEmpty ? 0 : 1])
+        }
+        let failure = next.attempt?.status == "failed" ? next.attempt?.error ?? next.error : next.error
+        let oldFailure = snapshot.attempt?.status == "failed" ? snapshot.attempt?.error ?? snapshot.error : snapshot.error
+        if !failure.isEmpty && failure != oldFailure {
+            DeviceActionLog.shared.record(.inference, DeviceActionLog.failureKind(failure))
+        }
+        let current = next.inference?.braincells, previous = snapshot.inference?.braincells
+        if let current, current.remaining != previous?.remaining || current.purchased != previous?.purchased || current.used != previous?.used {
+            func count(_ value: Double) -> Int { value.isFinite ? Int(max(-1e12, min(1e12, value))) : 0 }
+            DeviceActionLog.shared.record(.credits, current.remaining + current.purchased <= 0 && current.unlimited != true ? .exhausted : .ready,
+                [.remaining: count(current.remaining), .purchased: count(current.purchased), .used: count(current.used), .limit: count(current.limit)])
+        }
+        if let error = next.inference?.braincellsError, !error.isEmpty, error != snapshot.inference?.braincellsError {
+            DeviceActionLog.shared.record(.credits, DeviceActionLog.failureKind(error))
         }
     }
 
@@ -719,6 +855,9 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     }
 
     private func emit(_ kind: String, text: String = "", id: String? = nil) {
+        let phase: [String: DeviceActionLog.Outcome] = ["listening": .recording, "partial": .partial,
+            "processing": .processing, "mixedFinal": .final, "final": .final, "error": .failed, "sound": .sound, "musicalObservation": .sound]
+        if let outcome = phase[kind] { DeviceActionLog.shared.record(.speech, kind == "error" ? DeviceActionLog.failureKind(text) : outcome, [.characters: text.count]) }
         if ["processing", "mixedFinal", "final", "error"].contains(kind) { resumePieceAudio() }
         if ["processing", "mixedFinal", "final", "error"].contains(kind) { performanceCapture = false }
         switch kind {

@@ -19,6 +19,8 @@ import SwiftUI
     }
     func set(_ key: WritableKeyPath<AIConsentRecord, Bool>, _ value: Bool) {
         guard let subject, signedIn else { return }
+        DeviceActionLog.shared.record(.setting, value ? .enabled : .disabled,
+            control: key == \.creation ? .creation : key == \.cloudSpeech ? .cloudSpeech : .cloudNarration)
         record[keyPath: key] = value; record.updatedAt = Date()
         record.save(subject: subject); changed()
     }
@@ -118,6 +120,8 @@ struct WhistlegraphPrivacySheet: View {
                 }
             }
             .navigationTitle("AI & privacy").navigationBarTitleDisplayMode(.inline)
+            .onAppear { DeviceActionLog.shared.record(.screen, .presented, control: .privacy) }
+            .onDisappear { DeviceActionLog.shared.record(.screen, .dismissed, control: .privacy) }
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
     }
 }

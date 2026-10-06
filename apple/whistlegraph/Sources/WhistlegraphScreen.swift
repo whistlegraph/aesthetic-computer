@@ -203,6 +203,8 @@ struct WhistlegraphScreen: View {
             .background(narrator.isPlaying ? storyBackground : Color.clear)
             if !narrator.error.isEmpty && !narrator.isPlaying { Text(narrator.error).foregroundStyle(.orange) }
             if let failure = session.captureError, !narrator.isPlaying { Text(failure).font(.body).foregroundStyle(.orange).frame(maxWidth: .infinity, alignment: .leading) }
+            if !session.snapshot.error.isEmpty && !narrator.isPlaying { Text(session.snapshot.error).font(.body).foregroundStyle(.orange).accessibilityIdentifier("workspace-error") }
+            if session.verifyingAIAccount { ProgressView("Checking your account…").accessibilityIdentifier("account-verifying") }
             if !narrator.isPlaying && (session.snapshot.hasPiece || session.snapshot.hasHistory || session.snapshot.busy || session.snapshot.attempt?.status == "failed") {
                 VersionFeed(snapshot: session.snapshot, foreground: paper, selectionColor: paper, textSize: session.layout.historySize, disabled: session.snapshot.busy || session.capturePhase != .idle, holdSelection: drawing.hasInk, stop: { session.command("stop") }, retry: { session.command("retry") }) { narrator.select($0, session: session) }
             } else if !narrator.isPlaying { Spacer(minLength: 0) }
@@ -212,9 +214,9 @@ struct WhistlegraphScreen: View {
         .safeAreaInset(edge: .bottom, spacing: 8) {
             Group {
                 if narrator.isPlaying { EmptyView() } else if showComposer {
-                    InlineRequestComposer(theme: theme, disabled: session.snapshot.busy, hasDrawing: drawing.hasInk, cancel: { ButtonSounds.play(.pop); showComposer = false }) { text in
+                    InlineRequestComposer(theme: theme, disabled: session.snapshot.busy || session.verifyingAIAccount, hasDrawing: drawing.hasInk, text: $session.typedDraft, cancel: { ButtonSounds.play(.pop); session.typedDraft = ""; showComposer = false }) { text in
                         session.requestAIConsent {
-                            ButtonSounds.play(.sent); session.command("ask", text: text); showComposer = false
+                            session.command("ask", text: text) { ButtonSounds.play(.sent); session.typedDraft = ""; showComposer = false }
                         }
                     }
                 } else {
@@ -248,7 +250,12 @@ struct WhistlegraphScreen: View {
             Button("OK") { exporter.error = "" }
         } message: { Text(exporter.error) }
         .statusBarHidden(narrator.isPlaying)
+        .alert("Could not continue", isPresented: Binding(get: { session.actionError != nil }, set: { if !$0 { session.actionError = nil } })) {
+            Button("OK") { session.actionError = nil }
+        } message: { Text(session.actionError ?? "") }
         .sheet(isPresented: $showTV) { WhistlegraphTVSheet(tv: session.tv) }
+        .onChange(of: showComposer) { _, open in DeviceActionLog.shared.record(.screen, open ? .presented : .dismissed, control: .type) }
+        .onChange(of: showTV) { _, open in DeviceActionLog.shared.record(.screen, open ? .presented : .dismissed, control: .tv) }
         .onChange(of: narrator.isPlaying) { _, playing in if !playing { exporter.cancel() } }
         .onChange(of: session.localDataRevision) { _, _ in exporter.cancel(); narrator.stop(); showComposer = false }
         .onChange(of: session.narratedFrame) { _, _ in narrator.painted(session.narratedVersion) }
@@ -261,6 +268,7 @@ struct WhistlegraphScreen: View {
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: themePhase)
     }
     private func openStory() {
+        DeviceActionLog.shared.record(.story, .presented)
         narrator.onNarration = { row, audio in await exporter.startCard(row, audio: audio) }
         narrator.onCardComplete = { await exporter.finishCard() }
         narrator.onSkip = { exporter.skipCard() }
@@ -270,6 +278,7 @@ struct WhistlegraphScreen: View {
         exporter.prepare(session: session, rows: narrator.branch)
     }
     private func exportStory() {
+        DeviceActionLog.shared.record(.share, .requested, control: .story)
         if exporter.readyURL != nil { narrator.setPaused(true); exporter.request(); return }
         let restart = exporter.needsRestart(before: narrator.index)
         exporter.request()
@@ -518,13 +527,14 @@ struct InlineRequestComposer: View {
     let theme: WhistlegraphTheme
     var disabled: Bool
     var hasDrawing = false
+    @Binding var text: String
     let cancel: () -> Void
     let send: (String) -> Void
     @FocusState private var focused: Bool
-    @State private var text = ""
     @StateObject private var keySounds = PromptKeySounds()
     private var prompt: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
     private func submit() {
+        DeviceActionLog.shared.record(.typeSend, .requested, [.characters: prompt.count])
         guard !disabled, !prompt.isEmpty || hasDrawing else { return }
         send(prompt)
     }
@@ -535,6 +545,7 @@ struct InlineRequestComposer: View {
         let previous = singleLine(old), next = singleLine(value)
         if next != value { text = next }
         guard next != previous else { return }
+        DeviceActionLog.shared.record(.typeEdit, nil, [.characters: next.count])
         // One click per edit, including delete/paste; never a burst for pasted text
         // or a second click when the length/newline correction updates the field.
         let inserted = next.difference(from: previous).compactMap { change -> Character? in
@@ -552,11 +563,12 @@ struct InlineRequestComposer: View {
                 .onChange(of: text) { old, value in edited(from: old, to: value) }
                 .accessibilityLabel("Request, up to 96 characters").accessibilityIdentifier("typed-request")
             HStack {
-                Button("Cancel") { cancel() }
+                Button("Cancel") { DeviceActionLog.shared.record(.typeSend, .cancelled); cancel() }.accessibilityIdentifier("request-cancel")
                 Spacer()
                 Text("\(text.count) / 96").accessibilityIdentifier("request-count").monospacedDigit().foregroundStyle(.secondary)
                 Spacer()
                 Button("Send", action: submit)
+                    .accessibilityIdentifier("request-send")
                     .disabled(disabled || (prompt.isEmpty && !hasDrawing))
             }.font(.title3)
         }.padding(14)

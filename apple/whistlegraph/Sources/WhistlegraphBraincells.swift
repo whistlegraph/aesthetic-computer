@@ -32,12 +32,15 @@ import StoreKit
 
     func load() async {
         guard !loading else { return }
+        DeviceActionLog.shared.record(.storeCatalog, .started)
         loading = true; defer { loading = false }
         do {
             let products = try await Product.products(for: [StoreCreditDelivery.productID])
             product = products.first { $0.id == StoreCreditDelivery.productID && $0.type == .consumable }
             storeStatus = product == nil ? "Braincell purchases are unavailable in the App Store right now." : ""
+            DeviceActionLog.shared.record(.storeCatalog, product == nil ? .unavailable : .ready)
         } catch {
+            DeviceActionLog.shared.recordError(.storeCatalog, error)
             product = nil
             storeStatus = "Could not load App Store purchases. Try again."
         }
@@ -45,6 +48,7 @@ import StoreKit
 
     func recover() async {
         guard !recovering else { return }
+        DeviceActionLog.shared.record(.storeDelivery, .requested)
         recovering = true; defer { recovering = false }
         for await result in StoreKit.Transaction.unfinished { await settle(result) }
     }
@@ -75,6 +79,8 @@ import StoreKit
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (data, response) = try await URLSession.shared.data(for: request)
+        DeviceActionLog.shared.record(.storeDelivery, (response as? HTTPURLResponse)?.statusCode == 200 ? .succeeded : .httpError,
+            [.status: (response as? HTTPURLResponse)?.statusCode ?? 0])
         guard let response = response as? HTTPURLResponse, response.statusCode == 200 else {
             let body = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
             throw NativeSignIn.failure(body?["error"] as? String ?? "AC could not confirm the purchase.")
@@ -83,10 +89,15 @@ import StoreKit
     }
 
     func buy() async {
-        guard !busy, let product else { return }
+        DeviceActionLog.shared.record(.storePurchase, .requested)
+        guard !busy, let product else {
+            notice = busy ? "A purchase is already in progress." : "Braincell purchases are unavailable in the App Store right now."
+            DeviceActionLog.shared.record(.storePurchase, busy ? .busy : .unavailable); return
+        }
         busy = true; notice = ""; defer { busy = false }
         do {
             guard let auth = try await credential(), isCurrent(auth) else {
+                DeviceActionLog.shared.record(.storePurchase, .notSignedIn)
                 notice = "Sign in to AC before buying braincells."; return
             }
             struct Account: Decodable { let appAccountToken: UUID }
@@ -94,15 +105,16 @@ import StoreKit
             guard isCurrent(auth) else { notice = "Your account changed. Try again."; return }
             switch try await product.purchase(options: [.appAccountToken(account.appAccountToken)]) {
             case .success(let result): await settle(result)
-            case .userCancelled: break
-            case .pending: notice = "Purchase pending approval. Braincells will be added after approval."
+            case .userCancelled: DeviceActionLog.shared.record(.storePurchase, .cancelled)
+            case .pending: DeviceActionLog.shared.record(.storePurchase, .pending); notice = "Purchase pending approval. Braincells will be added after approval."
             @unknown default: notice = "The App Store has not completed this purchase."
             }
-        } catch { notice = error.localizedDescription }
+        } catch { DeviceActionLog.shared.recordError(.storePurchase, error); notice = error.localizedDescription }
     }
 
     private func settle(_ result: VerificationResult<StoreKit.Transaction>) async {
         guard case .verified(let transaction) = result else {
+            DeviceActionLog.shared.record(.storeDelivery, .denied)
             notice = "The App Store could not verify this purchase. It remains saved for retry."; return
         }
         let receipt = StoreCreditDelivery.Receipt(id: String(transaction.id), productID: transaction.productID,
@@ -112,10 +124,10 @@ import StoreKit
             credential: { try await self.credential() }, isCurrent: { self.isCurrent($0) },
             request: { try await self.request($0, $1) }, finish: { await transaction.finish() })
         switch outcome {
-        case .added: notice = "1,000,000 braincells added."; session?.command("refreshBraincells")
-        case .alreadyAdded: notice = "This purchase is already in your balance."; session?.command("refreshBraincells")
-        case .deferred(let reason): notice = reason
-        case .ignored: break
+        case .added: DeviceActionLog.shared.record(.storeDelivery, .succeeded); notice = "1,000,000 braincells added."; session?.command("refreshBraincells")
+        case .alreadyAdded: DeviceActionLog.shared.record(.storeDelivery, .alreadyAdded); notice = "This purchase is already in your balance."; session?.command("refreshBraincells")
+        case .deferred(let reason): DeviceActionLog.shared.record(.storeDelivery, .pending); notice = reason
+        case .ignored: DeviceActionLog.shared.record(.storeDelivery, .ignored)
         }
     }
 }

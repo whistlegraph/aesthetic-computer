@@ -13,10 +13,12 @@ struct WhistlegraphSourceDocument: Decodable {
 
 extension WhistlegraphSession {
     func sourceDocument() async throws -> WhistlegraphSourceDocument {
-        try await sourceOperation("read", arguments: [:])
+        DeviceActionLog.shared.record(.source, .requested)
+        return try await sourceOperation("read", arguments: [:])
     }
 
     func applySource(_ source: String, to document: WhistlegraphSourceDocument) async throws -> WhistlegraphSourceDocument {
+        DeviceActionLog.shared.record(.source, .requested, [.characters: source.count, .version: document.version])
         guard !snapshot.busy, capturePhase == .idle else {
             throw sourceFailure("Finish the current request or recording before editing source.")
         }

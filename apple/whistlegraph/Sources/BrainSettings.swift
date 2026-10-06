@@ -73,6 +73,8 @@ struct BrainSettings: View {
                     NavigationLink { WhistlegraphPrivacySheet(session: session) } label: {
                         Label("AI & privacy", systemImage: "hand.raised")
                     }.accessibilityIdentifier("brain-privacy")
+                    NavigationLink { WhistlegraphDebugLog() } label: { Label("Debug log", systemImage: "list.bullet.rectangle") }
+                        .accessibilityIdentifier("brain-debug-log")
                 }
                 if let inference = session.snapshot.inference {
                     Section {
@@ -129,6 +131,9 @@ struct BrainSettings: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }.presentationDetents([.medium, .large])
+            .onAppear { DeviceActionLog.shared.record(.screen, .presented, control: .brain) }
+            .onDisappear { DeviceActionLog.shared.record(.screen, .dismissed, control: .brain) }
+            .onChange(of: costUnit) { _, value in DeviceActionLog.shared.record(.setting, .succeeded, control: .costUnit, [.format: CostUnit.allCases.firstIndex(of: value) ?? -1]) }
             .task {
                 await prices.refresh()
                 #if WHISTLEGRAPH_INTERNAL_PAYMENTS && DEBUG

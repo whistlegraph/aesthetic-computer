@@ -49,6 +49,7 @@ struct TVDevice: Identifiable, Equatable {
 
     override init() { super.init(); browser.delegate = self }
     func discover() {
+        DeviceActionLog.shared.record(.projection, .started)
         guard !searching else { return }
         searching = true
         browser.searchForServices(ofType: "_http._tcp.", inDomain: "local.")
@@ -81,6 +82,7 @@ struct TVDevice: Identifiable, Equatable {
         return try JSONDecoder().decode(DeviceStatus.self, from: data)
     }
     func connect(_ device: TVDevice) {
+        DeviceActionLog.shared.record(.projection, .requested)
         sending?.cancel(); sending = nil; connection = UUID(); sentSource = ""
         selected = device; connected = false; previousPiece = ""; status = "Connecting…"
         let expected = connection
@@ -136,6 +138,7 @@ struct TVDevice: Identifiable, Equatable {
         guard (reply as? HTTPURLResponse)?.statusCode == 200, bytes == Data(source.utf8) else { throw URLError(.cannotDecodeContentData) }
     }
     func disconnect() {
+        DeviceActionLog.shared.record(.projection, .cancelled)
         progressTask?.cancel(); progressTask = nil
         let device = selected, previous = previousPiece
         connection = UUID(); sending?.cancel(); sending = nil; selected = nil; connected = false; sentSource = ""; status = ""

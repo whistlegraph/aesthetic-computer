@@ -310,6 +310,41 @@ node --test Tests/inference-error.test.mjs
 ```
 
 
+## On-device diagnostics and account verification (build 109)
+
+Account → Debug log (also in Brain) shows recent actions and prepares a JSONL
+export for an explicit Share action. Nothing uploads automatically. Four
+256 KiB files rotate in Application Support/ActionLog, survive relaunch, use
+iOS file protection, and are excluded from backups. Clear log and successful
+account deletion remove the trace and its prepared export.
+
+The trace records native touch begin/end/cancel, screen changes, typed character
+counts, drawing stroke counts, Send/Talk/consent, account verification, engine
+handoffs, inference stages, credit balances/statuses, StoreKit delivery, source
+edits, and story actions. It records no touch coordinates, accessibility labels,
+keystrokes, prompts, source, transcripts, audio, account IDs, tokens, URLs, or
+error descriptions. The native authentication page is excluded from touch
+observation; external wallet/Apple sheets and other apps are outside the trace.
+Events, outcomes, controls and stages use closed enums; metadata is numeric.
+Model selections record an index into the snapshot's model menu, with the app
+build identifying that menu. These logs cannot reconstruct events before 109.
+
+Native identity now resolves the access token through Auth0 userinfo, matching
+the web client and supporting opaque tokens. Concurrent lookups share one
+request; refreshed credentials and account changes invalidate cached identity.
+First-use consent stays off onboarding. Explicit AI attempts show account-check
+progress or a failure message. Send keeps the typed draft until the engine
+accepts it; engine rejections return a reason instead of disappearing.
+
+```sh
+xcrun swiftc -j 2 Sources/DeviceActionLog.swift Sources/VerifiedAccountIdentity.swift Tests/DeviceDiagnosticsCheck.swift -o /tmp/whistlegraph-diagnostics-check
+/tmp/whistlegraph-diagnostics-check
+```
+
+`AIConsentTests` uses an isolated opaque-token identity response and no real
+inference, purchases, or microphone. It covers first Send/Talk, persistence,
+identity lookup failure with draft retention, and local log export/redaction.
+
 ## AI permissions, source and account deletion (build 107)
 
 Brain → AI & privacy discloses the text, source/history, drawings, cropped preview

@@ -12,37 +12,40 @@ import UIKit
     private var completion: ((Result<String, Error>) -> Void)?
     private var controller: UIViewController?
     private var exchange: Task<Void, Never>?
+    private let identity = VerifiedAccountIdentity()
 
     func token() async throws -> String? {
         let expectedGeneration = generation
         var query = key; query[kSecReturnData as String] = true
         var result: CFTypeRef?
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data else { return nil }
+              let data = result as? Data else { DeviceActionLog.shared.record(.accountToken, .notSignedIn); return nil }
         var tokens = try JSONDecoder().decode(NativeSignIn.Tokens.self, from: data)
         if tokens.expiresAt.timeIntervalSinceNow < 60 {
+            DeviceActionLog.shared.record(.accountToken, .started)
             guard let refresh = tokens.refreshToken else { return nil }
             tokens = try await NativeSignIn.refresh(refresh)
             guard generation == expectedGeneration else { return nil }
             try save(tokens)
+            DeviceActionLog.shared.record(.accountToken, .succeeded)
         }
         return tokens.accessToken
     }
     // The server still authenticates every request. This subject only scopes
     // local preferences to the account instead of a mutable public handle.
     func subject() async throws -> String? {
+        let expected = generation
         guard let token = try await token() else { return nil }
-        let parts = token.split(separator: ".")
-        guard parts.count == 3 else { return nil }
-        var payload = String(parts[1]).replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
-        payload += String(repeating: "=", count: (4 - payload.count % 4) % 4)
-        guard let data = Data(base64Encoded: payload), let claims = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let subject = claims["sub"] as? String, !subject.isEmpty else { return nil }
+        guard generation == expected else { throw VerifiedAccountIdentity.Failure.changed }
+        let subject = try await identity.subject(token: token, generation: expected)
+        guard generation == expected else { throw VerifiedAccountIdentity.Failure.changed }
         return subject
     }
     /// Forgets the stored sign-in. The thread history stays on the device.
     func signOut() {
+        DeviceActionLog.shared.record(.signOut, .succeeded)
         generation += 1
+        identity.invalidate()
         SecItemDelete(key as CFDictionary)
     }
     private func save(_ tokens: NativeSignIn.Tokens) throws {
@@ -57,7 +60,10 @@ import UIKit
         guard status == errSecSuccess else { throw NativeSignIn.failure("Could not save sign-in securely.") }
     }
     func signIn(from view: WKWebView?, completion: @escaping (Result<String, Error>) -> Void) {
-        guard controller == nil, let host = view?.window?.rootViewController else { return }
+        DeviceActionLog.shared.record(.signIn, .requested)
+        guard controller == nil, let host = view?.window?.rootViewController else {
+            completion(.failure(NativeSignIn.failure("Sign-in could not open. Close any open sheet and try again."))); return
+        }
         do {
             attempt = try NativeSignIn(); self.completion = completion
             let config = WKWebViewConfiguration(); config.websiteDataStore = .nonPersistent()
@@ -65,6 +71,7 @@ import UIKit
             let page = UIViewController(); page.view = web; page.title = "Sign in to Aesthetic Computer"
             page.navigationItem.leftBarButtonItem = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(cancel))
             let navigation = UINavigationController(rootViewController: page); controller = navigation
+            ActionTouchProbe.TouchObserver.authenticationPresented = true
             host.present(navigation, animated: true)
             navigation.presentationController?.delegate = self
             web.load(URLRequest(url: attempt!.url))
@@ -73,6 +80,11 @@ import UIKit
     @objc private func cancel() { finish(.failure(NativeSignIn.failure("Sign-in cancelled. Your words are still here."))) }
     func presentationControllerDidDismiss(_ presentationController: UIPresentationController) { cancel() }
     private func finish(_ result: Result<String, Error>) {
+        ActionTouchProbe.TouchObserver.authenticationPresented = false
+        switch result {
+        case .success: DeviceActionLog.shared.record(.signIn, .succeeded)
+        case .failure(let error): DeviceActionLog.shared.recordError(.signIn, error)
+        }
         exchange?.cancel(); exchange = nil
         let done = completion; completion = nil; attempt = nil
         controller?.dismiss(animated: true); controller = nil; done?(result)
@@ -87,7 +99,7 @@ import UIKit
                 exchange = Task {
                     do {
                         let tokens = try await NativeSignIn.exchange(body)
-                        try Task.checkCancellation(); generation += 1; try save(tokens)
+                        try Task.checkCancellation(); generation += 1; identity.invalidate(); try save(tokens)
                         finish(.success(tokens.accessToken))
                     } catch { if !Task.isCancelled { finish(.failure(error)) } }
                 }

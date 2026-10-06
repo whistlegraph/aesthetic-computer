@@ -55,16 +55,18 @@ import AVFoundation
         session.command("checkout", version: version)
     }
     func next() {
+        DeviceActionLog.shared.record(.story, .next)
         guard isPlaying else { return }
         onSkip?()
         if index + 1 < count { index += 1; show() }
         else { setPaused(true); progress = 1 }
     }
-    func previous() { guard isPlaying else { return }; onSkip?(); index = max(0, index - 1); show() }
+    func previous() { DeviceActionLog.shared.record(.story, .previous); guard isPlaying else { return }; onSkip?(); index = max(0, index - 1); show() }
     func restart() { guard isPlaying else { return }; onSkip?(); index = 0; isPaused = false; show() }
     func jump(to target: Int) { guard isPlaying, versions.indices.contains(target) else { return }; onSkip?(); index = target; isPaused = false; show() }
     func setPaused(_ paused: Bool) {
         guard isPlaying else { return }
+        DeviceActionLog.shared.record(.story, paused ? .paused : .resumed)
         isPaused = paused
         onPause?(paused)
         if paused { player?.pause() }
@@ -158,6 +160,7 @@ import AVFoundation
         }
     }
     func stop() {
+        if isPlaying { DeviceActionLog.shared.record(.story, .dismissed) }
         let wasPlaying = isPlaying
         clearPlayback(); isPlaying = false; isPaused = false; recordingID = nil
         if wasPlaying { session?.command("endPresentation") }

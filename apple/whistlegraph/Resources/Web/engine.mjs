@@ -63,17 +63,19 @@ let turnHandle='',turnModel='',activeModel='',braincells=null,braincellsError=''
 function selectedModel(handle=accountHandle){try{return localStorage.getItem('whistlegraph-model-'+handle)||'';}catch{return '';}}
 function profile(repair=false){return generationProfile(busy?turnHandle:accountHandle,{repair,model:busy?turnModel:selectedModel()});}
 async function refreshBraincells(){
+  benchmark('braincellsRequest');
   const currentToken=token,request=++creditsRequest;
   if(!currentToken){braincells=null;braincellsError='Sign in to view braincells';nativeSnapshot();return;}
   braincellsError='';nativeSnapshot();
   try{
     const response=await fetch('https://aesthetic.computer/api/easel-credits',{headers:{Authorization:'Bearer '+currentToken},signal:AbortSignal.timeout(8000)});
+    benchmark('braincellsHeaders',{status:response.status});
     if(!response.ok)throw Error('Braincells unavailable');
     const value=await response.json();
     if(![value.remaining,value.used,value.limit,value.purchased].every(v=>Number.isFinite(v)&&v>=0))throw Error('Braincells unavailable');
     if(token!==currentToken||request!==creditsRequest)return;
-    braincells=value;braincellsError='';
-  }catch{if(token!==currentToken||request!==creditsRequest)return;braincells=null;braincellsError='Braincells unavailable';}
+    braincells=value;braincellsError='';benchmark('braincellsLoaded');
+  }catch{if(token!==currentToken||request!==creditsRequest)return;braincells=null;braincellsError='Could not load braincells. Check your connection and tap Refresh.';benchmark('braincellsFailed');}
   nativeSnapshot();
 }
 function inferenceSnapshot(){
@@ -165,6 +167,14 @@ function nativeSnapshot(){
   },80);
 }
 window.walkiewareNativeCommand=command=>{
+  if(['ask','retry'].includes(command.action)) {
+    if(busy)return {accepted:false,reason:'busy'};
+    if(!versions||(command.action==='retry'&&(!ready||!painted)))return {accepted:false,reason:'notReady'};
+    if(!accountHandle||accountToken!==token)return {accepted:false,reason:'authentication'};
+    if(!aiConsent.allowed)return {accepted:false,reason:'permission'};
+    if(command.action==='ask'&&(typeof command.text!=='string'||(!command.text.trim()&&!command.drawing)))return {accepted:false,reason:'emptyInput'};
+    if(command.action==='ask'&&Array.from(new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(command.text)).length>96)return {accepted:false,reason:'inputTooLong'};
+  }
   if(command.action==='refreshBraincells')void refreshBraincells();
   if(command.action==='setModel'&&!busy&&accountHandle&&modelChoices(accountHandle).some(m=>m.id===command.text)){
     try{localStorage.setItem('whistlegraph-model-'+accountHandle,command.text);}catch{return;}
@@ -182,6 +192,7 @@ window.walkiewareNativeCommand=command=>{
   if(command.action==='retry'&&!busy)void resumeAttempt(true);
   if(command.action==='stop')$('live-stop').click();
   if(command.action==='signIn')post({action:'signIn'});
+  return {accepted:true};
 };
 function updateFeed() {
   if(!versions)return;

@@ -119,10 +119,11 @@ struct AccountSheet: View {
                 }
                 Section {
                     Toggle("Interface sounds", isOn: $sounds).accessibilityIdentifier("account-sounds")
-                        .onChange(of: sounds) { _, on in if on { ButtonSounds.play(.tick) } }
+                        .onChange(of: sounds) { _, on in DeviceActionLog.shared.record(.setting, on ? .enabled : .disabled, control: .sounds); if on { ButtonSounds.play(.tick) } }
                 } footer: { Text("Keys and buttons respect silent mode. Haptics stay on.") }
                 if let session {
                     Section {
+                        NavigationLink { WhistlegraphDebugLog() } label: { Label("Debug log", systemImage: "list.bullet.rectangle") }.accessibilityIdentifier("account-debug-log")
                         NavigationLink { WhistlegraphPrivacySheet(session: session) } label: { Label("AI & privacy", systemImage: "hand.raised") }
                         NavigationLink { WhistlegraphDeleteAccountSheet(session: session) } label: { Label("Delete AC account", systemImage: "trash") }
                             .disabled(handle.isEmpty).accessibilityIdentifier("account-delete")
@@ -136,6 +137,7 @@ struct AccountSheet: View {
                 }
             }
             .navigationTitle(handle.isEmpty ? "Account" : "@" + handle)
+            .onChange(of: appearance) { _, value in DeviceActionLog.shared.record(.setting, .succeeded, control: .appearance, [.selection: ["system", "light", "dark"].firstIndex(of: value) ?? -1]) }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .confirmationDialog("Sign out of @" + handle + "?", isPresented: $confirmingSignOut, titleVisibility: .visible) {
@@ -173,6 +175,8 @@ struct IdentityHeader: View {
                 }.buttonStyle(.plain).accessibilityLabel(session.snapshot.code + ", pieces").accessibilityIdentifier("workspace-settings")
             }
         }
+        .onChange(of: showingAccount) { _, open in DeviceActionLog.shared.record(.screen, open ? .presented : .dismissed, control: .account) }
+        .onChange(of: showingPieces) { _, open in DeviceActionLog.shared.record(.screen, open ? .presented : .dismissed, control: .pieces) }
         .sheet(isPresented: $showingPieces) {
             PiecesSheet(pieces: session.pieces, colors: session.snapshot.colors,
                         inference: session.snapshot.inference,
