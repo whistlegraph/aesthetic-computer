@@ -41,12 +41,9 @@ try {
   await page.evaluate(()=>{globalThis.__oskiewarFighterAppearance.validUntil=1;});
   await page.waitForFunction(()=>!globalThis.__oskiewarTouch?.practiceModel);
 
-  // Finish the anonymous account probe before injecting this renderer fixture.
-  await page.waitForFunction(()=>globalThis.__oskiewarAccount?.ready,{timeout:60000});
-  await page.evaluate(()=>globalThis.__oskiewarWizard.restoreSaved());
   await page.evaluate(()=>{globalThis.__oskiewarFighterAppearance=null;});
   await page.waitForFunction(()=>!globalThis.__oskiewarTouch?.practiceFighter);
   assert.deepEqual(errors,[]); assert.deepEqual(sockets,[]); assert.deepEqual(replays,[]);
-  console.log('PASS: actual game renders generated appearance, clears it on withdrawal, and opens no game sockets or replay uploads.');
+  console.log('PASS: actual game renders generated appearance, clears it on expiry, and opens no game sockets or replay uploads.');
 } catch(error) { await page.screenshot({path:dir+'/failure.png'}); throw error; }
 finally { await browser.close(); }
