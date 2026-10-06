@@ -10,6 +10,12 @@ ARC=0 PAD=3 PAD_FADE=1.5 bash pop/notespatial/bin/master-v2.sh out/climbalift-pr
 node pop/notespatial/bin/score-video.mjs --score out/climbalift-score.json --audio out/climbalift-vN.flac --out out/climbalift-vN-score.mp4
 ```
 
+The working loop, in Aesel: `/preview pop/notespatial/out/climbalift-now.mp3` once,
+then `bash pop/notespatial/bin/now.sh [section [to-section]]` after each change
+(~35 s warm; the first run fills the bell cache and takes ~2.5 min). The card reloads
+on every write. A section name renders the whole record but plays only that span, a
+bar either side; `now.sh` prints LUFS, true peak and LRA for the full master.
+
 ## The through line
 
 A chord broken into a line, running the ring, getting faster and higher until it

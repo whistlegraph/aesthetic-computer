@@ -60,6 +60,13 @@ artifact, preview and Slab identity survive. Queued messages continue after the
 reload; the opening prompt is not replayed. Syntax or checkpoint failures leave
 the current session running. Agents can request it through
 `aesel_settings({action: "reify"})`; the response is `queued` until the turn ends.
+`/reify watch` reifies on every save under `aesel/src/` (again to stop); the
+watch survives the reifies it causes, and a save that fails the check leaves the
+window running until the next one. `/preview <file>` pins a picture, sound,
+paper or video to the Slab card and reloads the card each time the file is
+written again, including by rename; a bare `/preview` lets go. Together with
+`slab/menubar-swift/dev.sh --watch` for the card itself, both halves of the
+preview reload on save.
 
 Bun can host the terminal with `AESEL_JS_RUNTIME=bun ac`. Node remains the default. In a checkout, `bun aesel/bin/build-bun.mjs` builds reusable bytecode; source edits or a different Bun version automatically fall back to current JavaScript until rebuilt. `/reify` keeps the selected runtime and launch options. This setting is separate from the piece’s `/runtime` language. The headless `/perf` command uses a permission-restricted Node helper under Bun; Node 24 or newer must be installed.
 

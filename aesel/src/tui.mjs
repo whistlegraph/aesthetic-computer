@@ -67,7 +67,8 @@ import { cleanText, clipText, color, aeselInk, renderBoot, renderFrame, renderGe
 import { mascotNextFrameIn, mascotRowNextFrameIn } from "./mascot.mjs";
 import { DEFAULT_RUNTIME, runtimeMenu } from "./runtimes.mjs";
 import { SlabSession } from "./slab-session.mjs";
-import { mediaPaths, itemText, mediaChanged } from "./media.mjs";
+import { mediaPaths, mediaFile, watchMedia, itemText, mediaChanged } from "./media.mjs";
+import { watchSource } from "./source-watch.mjs";
 import { Artifacts, MEDIA } from './artifacts.mjs';
 import { desktopSnapshot, readDesktopSession, writeDesktopSession, restoreDesktopEngine, writeDesktopControl, readDesktopIntent } from "./desktop-session.mjs";
 import { archiveThread, replaceWork } from './new-work.mjs';
@@ -1196,6 +1197,7 @@ function notePublished(item) {
   state.pieceSlug = slug;
   // A published piece outranks whatever media the tools touched on the way
   // there — often the piece's own check screenshot — so the card plays it.
+  unwatchMedia();
   state.media = null;
   if (!profile.private) slabSession.artifact("piece", null);
   redraw();
@@ -1241,6 +1243,23 @@ function requestReify() {
   if (!reifyTimer) reifyTimer = setTimeout(attempt, 150);
   return "queued";
 }
+// `/reify watch`: every save under src/ reifies the window onto the new code.
+// The flag rides in the environment, which execve hands to the next process,
+// so the watch outlives the reify it causes. A save that fails the reify
+// check is reported and the window keeps running; the next save tries again.
+let stopSourceWatch = null;
+const reifyWatching = () => !!stopSourceWatch;
+function setReifyWatch(on) {
+  stopSourceWatch?.(); stopSourceWatch = null;
+  if (on) stopSourceWatch = watchSource(fileURLToPath(new URL(".", import.meta.url)), (files) => {
+    if (reifyPending) return;
+    flash(`${files[0]}${files.length > 1 ? ` +${files.length - 1}` : ""} saved · reifying`);
+    try { requestReify(); } catch (error) { addEntry("error", errorText(error)); redraw(); }
+  });
+  if (on && !stopSourceWatch) addEntry("error", "Cannot watch aesel/src on this system");
+  if (stopSourceWatch) process.env.AESEL_REIFY_WATCH = "1"; else delete process.env.AESEL_REIFY_WATCH;
+}
+
 async function restartInPlace() {
   if (turnRecovery.active || state.busy || liveOperation || manualPublishInFlight || autopublish.running || live.sending) {
     flash("wait for this turn and uploads to finish, then /restart");
@@ -1570,13 +1589,43 @@ function itemSummary(item) {
 // command is about to write only exists once it has run. A private session
 // keeps the file to itself; the status line still names it.
 function noteMedia(item) {
-  if (!pro) return;
+  if (!pro || state.media?.source === "pinned") return;
   const next = mediaPaths(itemText(item), cwd)[0];
   if (!mediaChanged(state.media, next)) return;
   state.media = { ...next, source: "tool-input", version: (state.media?.version || 0) + 1 };
   transcript.event("media", { path: next.path, mime: next.mime, kind: next.kind });
   if (profile.private) return;
   slabSession.artifact(next.kind, { path: next.path, mime: next.mime, name: next.name, version: state.media.version, artifactId: slabSession.sessionId });
+}
+
+// A file pinned with `/preview out/track.mp3` holds the card until a bare
+// `/preview`, whatever the tools touch meanwhile, and every write to it — a
+// render finishing — reloads the card. Survives a reify: the pin is in
+// state.media and the watch is taken up again at start.
+let unwatchMedia = () => {};
+function pinMedia(media) {
+  unwatchMedia();
+  state.media = { ...media, source: "pinned", version: (state.media?.version || 0) + 1 };
+  const show = () => {
+    if (profile.private) return;
+    const { kind, path, mime, name, version } = state.media;
+    slabSession.artifact(kind, { path, mime, name, version, artifactId: slabSession.sessionId });
+  };
+  show();
+  unwatchMedia = watchMedia(media, (next) => {
+    if (state.media?.source !== "pinned" || state.media.path !== next.path) return;
+    state.media = { ...next, source: "pinned", version: state.media.version + 1 };
+    show();
+    redraw();
+  });
+}
+function unpinMedia() {
+  unwatchMedia();
+  unwatchMedia = () => {};
+  if (state.media?.source !== "pinned") return false;
+  state.media = null;
+  if (!profile.private) slabSession.artifact("piece", null);
+  return true;
 }
 
 function restoreThread(thread) {
@@ -2465,6 +2514,11 @@ async function submitInput(submittedText, submittedMessages = null) {
       return redraw();
     }
     if (command === "/home") return requestDesktop("home");
+    if ((command === "/restart" || command === "/reify") && ["watch", "watch off"].includes(rest.trim())) {
+      setReifyWatch(rest.trim() === "watch" && !reifyWatching());
+      addEntry("notice", reifyWatching() ? "Reifying on every save under aesel/src · /reify watch again to stop" : "Stopped reifying on save");
+      return redraw();
+    }
     if (command === "/restart" || command === "/reify") {
       try { requestReify(); flash("reify queued"); }
       catch (error) { addEntry("error", errorText(error)); }
@@ -2526,7 +2580,7 @@ async function submitInput(submittedText, submittedMessages = null) {
         "notice",
         pro
           ? "/ask [on|off] · /provider · /model [name] · /mouse [on|off] · /layout · /inbox · /mode · /backend [id] · /login · /logout · /whoami · /handle [name] · /reify · /update · /new · /clear · /close · /quit   ctrl-c interrupts a running turn"
-          : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /mode · /mouse [on|off] · /performance [frames] · /energy · /latest · /login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /preview [piece] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /reify · /update · /open · /qr · /new [thread] · /clear · /quit   ctrl-c interrupts a running turn",
+          : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /mode · /mouse [on|off] · /performance [frames] · /energy · /latest · /login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /preview [piece|file] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /reify · /update · /open · /qr · /new [thread] · /clear · /quit   ctrl-c interrupts a running turn",
       );
       return redraw();
     }
@@ -2602,7 +2656,20 @@ async function submitInput(submittedText, submittedMessages = null) {
     // Look at any piece on the rock's card without making it this session's:
     // `/preview notepat`, `/preview @handle/slug`, `/preview $cow`. Bare
     // `/preview` hands the card back to the piece being written here.
+    // A media file — `/preview out/track.mp3` — is pinned and followed: the
+    // card reloads each time the file is written again.
     if (command === "/preview") {
+      const media = rest && mediaFile(rest, cwd);
+      if (media) {
+        slabSession.preview("");
+        pinMedia(media);
+        addEntry("notice", `Previewing ${media.name} · reloads on every write · /preview to come back`);
+        return redraw();
+      }
+      if (!rest && unpinMedia()) {
+        addEntry("notice", "Previewing this session's own piece");
+        return redraw();
+      }
       const shown = slabSession.preview(rest);
       addEntry("notice", shown ? `Previewing ${shown} · /preview to come back` : "Previewing this session's own piece");
       return redraw();
@@ -3174,7 +3241,12 @@ markStartup('account-refreshed');
 slabSession.restore(desktopRestored?.slab);
 // Older auto-selections could come from unrelated paths in command output.
 // Drop those once on reload; explicit piece previews keep their own source.
-if (pro && state.media && state.media.source !== "tool-input") {
+if (process.env.AESEL_REIFY_WATCH === "1") setReifyWatch(true);
+if (state.media?.source === "pinned") {
+  const media = mediaFile(state.media.path, cwd);
+  if (media) pinMedia(media);
+  else state.media = null;
+} else if (pro && state.media && state.media.source !== "tool-input") {
   state.media = null;
   slabSession.artifact("piece", null);
 }
