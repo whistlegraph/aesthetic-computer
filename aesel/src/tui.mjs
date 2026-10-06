@@ -570,7 +570,7 @@ function proInstructions() {
     // nowhere else: a piece author has nothing to deploy, and a model that
     // hears of a deploy command reaches for it.
     ...(session.handle === "jeffrey" && existsSync(path.join(cwd, "slab/bin/ac-deploy"))
-      ? ["When @jeffrey asks to deploy lith (or to compushloy), push main to the knot and run `ac-deploy`; it checks it is him, deploys main and verifies the served commit and Aesel version. `ac-deploy --verify` only checks. Never use it to publish a piece — that is `ac publish`."]
+      ? ["When @jeffrey asks to deploy lith (or to compushloy), push main to the knot and run `ac-deploy`; it checks it is him, deploys main and verifies the served commit. Aesel releases on its own: bump aesel/package.json, push, then `ac-deploy aesel`. `--verify` on either only checks. Never use it to publish a piece — that is `ac publish`."]
       : []),
   ].join("\n");
 }
