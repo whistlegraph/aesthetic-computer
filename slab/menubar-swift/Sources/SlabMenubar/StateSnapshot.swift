@@ -196,6 +196,7 @@ struct IrisState {
 struct StateSnapshot {
     var lidClosed: Bool = false
     var sleepDisabled: Bool = false
+    var stayAwake: Bool = false
     var activePrompts: Int = 0
     var activeSubagents: Int = 0
     var ambientActive: Bool = false
@@ -265,6 +266,7 @@ struct StateSnapshot {
         var s = StateSnapshot()
         s.lidClosed = parseLidState()
         s.sleepDisabled = parseSleepDisabled()
+        s.stayAwake = FileManager.default.fileExists(atPath: Paths.stayAwakeFlag)
         s.activePrompts = countFiles(in: Paths.activePromptsDir)
         s.activeSubagents = countFiles(in: Paths.activeSubagentsDir)
         s.ambientActive = FileManager.default.fileExists(atPath: Paths.ambientFlag)

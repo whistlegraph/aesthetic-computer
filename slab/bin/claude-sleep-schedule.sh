@@ -15,7 +15,7 @@ SLEEP_TONE="$SLAB_HOME/sounds/sleep-tone.wav"
 sleep "$DELAY"
 
 lid=$(ioreg -r -k AppleClamshellState -d 4 | awk '/AppleClamshellState/{print $NF; exit}')
-if [[ "$lid" == "Yes" ]]; then
+if [[ "$lid" == "Yes" && ! -f "$SLAB_HOME/state/stay-awake" ]]; then
     py="$SLAB_HOME/venv/bin/python3"
     helper="$SLAB_BIN/jeffrey-say.py"
     if [[ -x "$py" && -f "$helper" ]]; then
@@ -23,5 +23,5 @@ if [[ "$lid" == "Yes" ]]; then
     else
         "$SLAB_BIN/slab-afplay" "$SLEEP_TONE"
     fi
-    "$SLAB_BIN/claude-sleep" now
+    "$SLAB_BIN/claude-sleep" idle
 fi

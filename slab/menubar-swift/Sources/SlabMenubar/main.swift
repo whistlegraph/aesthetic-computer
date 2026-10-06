@@ -11,6 +11,12 @@ if LedgerCLI.handleIfPresent(CommandLine.arguments) { exit(0) }
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
+// Isolated editor mode is also useful for UI verification without a second menubar daemon.
+if CommandLine.arguments.contains("--display-layout") {
+    DisplayLayoutWindow.show()
+    app.run()
+    exit(0)
+}
 let delegate = AppDelegate()
 app.delegate = delegate
 app.run()
