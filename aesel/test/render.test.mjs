@@ -481,6 +481,35 @@ test("a drop-down stands on the fact that opened it, and a click on one of its r
   assert.match(loading, /loading…/);
 });
 
+test("the media name is a control: a click opens its list, standing on the name", async () => {
+  const { dropdownGeometry, headerAction, proStatus } = await import("../src/render.mjs");
+  const base = {
+    workspace: "/client", mode: "remote", status: "ready", busy: false, input: "",
+    account: "@tester", model: "claude-sonnet-5", providerSettings: { backend: "claude", model: "claude-sonnet-5" },
+    profile: { name: "pro" }, entries: [{ id: "u", kind: "user", text: "hi" }],
+    media: { glyph: "🔊", name: "climbalift-now.mp3", path: "/w/out/climbalift-now.mp3" },
+  };
+  const span = proStatus(base, 100, false).spans.find((s) => s.name === "media");
+  assert.ok(span, "the media file is on the line");
+  const row = 24 - 2 + 2; // the status line, one-based
+  assert.equal(headerAction(base, 100, 24, span.x + 2, row), "media", "clicking the name opens its list");
+  const items = [
+    { file: "/w/out/climbalift-now.mp3", label: "● 🔊 climbalift-now.mp3", detail: "/w/out" },
+    { act: "open", label: "  ↗ open", detail: "in its own app" },
+  ];
+  const state = { ...base, hover: "media", dropdown: { kind: "media", title: "media", items, index: 0, loading: false } };
+  const g = dropdownGeometry(state, 100, 24);
+  assert.equal(g.x, proStatus(state, 100, false).spans.find((s) => s.name === "media").x, "it stands on the media name");
+  const frame = renderFrame(state, 100, 24, false).split("\n");
+  assert.match(frame[g.top], /▾ media/);
+  assert.match(frame[g.top + 1], /climbalift-now\.mp3 {2,}\/w\/out/);
+  assert.equal(headerAction(state, 100, 24, g.x + 2, g.top + 3), "pick:1");
+  const typed = { ...base, input: "louder in the lift", cursor: 18, subject: { glyph: "🔊", name: "climbalift-now.mp3" } };
+  const bar = renderFrame(typed, 100, 24, false).split("\n")[24 - 3];
+  assert.match(bar, /^🔊 climbalift-now\.mp3 › louder in the lift/, "the file the message is about leads the line");
+  assert.equal(typed.cursorCell.col, 1 + "🔊 climbalift-now.mp3 › ".length + 18, "the cursor sits after the chip and the words");
+});
+
 test("a reply's markdown is read, not shown, and pro's page is flush left", async () => {
   const { markdown } = await import("../src/render.mjs");
   const read = markdown("## Plan\n- **Airtable** needs `auth` first\n- see [docs](https://example.com/x)");
