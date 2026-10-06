@@ -82,3 +82,10 @@ reading `out/<slug>.struct.json` + the campaign gens dir.
   `import` a sibling disk to share a wrapper: the loader hands modules a
   non-hierarchical base and `./other.mjs` fails to resolve, so the two names
   are two full wrappers over one manifest.)
+- `sailor-song` ✓ (sage oc's cover, artist `sage oc`. Its section stills are
+  frames of the relit performance video, cropped above the caption row.)
+
+The AC iPhone app plays the whole catalog natively: `pop` (or `pop <slug>`)
+at the prompt opens `apple/aesthetic.computer/PopPlayer.swift`, which reads
+`pop.aesthetic.computer/releases/catalog.json`. A track reaches it once
+`node pop/bin/publish-release-records.mjs` has been re-run with its manifest.

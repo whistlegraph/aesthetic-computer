@@ -222,6 +222,11 @@ class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate, WKNavigationD
                 if enabled { AppDelegate.shared?.triggerSubscribe(in: webView) }
                 else { AppDelegate.shared?.triggerUnsubscribe(in: webView) }
             }
+        case "pop:open":
+            guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https",
+                  message.frameInfo.securityOrigin.host == "aesthetic.computer" else { return }
+            let slug = (dictionary["body"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            Task { @MainActor in PopPlayer.shared.open(slug: slug) }
         case "url":
             if let urlString = dictionary["body"] as? String, let url = URL(string: urlString) {
                 UIApplication.shared.open(url, options: [:], completionHandler: nil)
@@ -384,6 +389,7 @@ struct StalledOverlay: View {
 struct ContentView: View {
     @StateObject private var monitor = AppNetworkMonitor()
     @StateObject private var bootStatus = BootStatus()
+    @ObservedObject private var pop = PopPlayer.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var lastBackgroundedAt: Date? = nil
     @State private var lastForceLiveTrigger: Int = 0
@@ -428,6 +434,7 @@ struct ContentView: View {
             .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 24 : 0)
             .background(Color(red: grey, green: grey, blue: grey))
             .ignoresSafeArea(.keyboard, edges: .bottom)
+            .sheet(isPresented: $pop.isPresented) { PopPlayerView() }
             .onAppear { handleScenePhase(scenePhase) }
             .onDisappear { LaunchPing.remove(scene: usageScene) }
             .onChange(of: scenePhase) { newPhase in
