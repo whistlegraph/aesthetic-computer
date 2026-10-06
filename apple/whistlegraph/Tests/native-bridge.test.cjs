@@ -92,18 +92,28 @@ const server = http.createServer(async (req, res) => {
     const guideSeed=Object.fromEntries(await Promise.all(['pieces.md','screen.md','hand.md','kidlisp.md','api.json'].map(async name=>['/easel/context/'+name,await readFile(resolve(root,'easel/context',name),'utf8')])));
     await page.evaluateOnNewDocument((seed,nativeShell,personal)=>{
       window.__whistlegraphNativeShell=nativeShell;
-      window.__whistlegraphAIConsent={handle:personal?'jeffrey':'fixture',creation:true};
+      window.__whistlegraphAIConsent={handle:personal==='trial'?'fifi':personal?'jeffrey':'fixture',creation:true};
       window.__aeselGuides=seed;
       window.__whistlegraphDisableThread=true;
       window.__guideFetches=0;
       const fetchOriginal=window.fetch.bind(window);
-      window.fetch=(url,init)=>{if(String(url).includes('/api/aesel/access'))return Promise.resolve(Response.json({personal:personal,providers:personal?['claude','codex']:[],expiresAt:null}));if(String(url).includes('/api/easel-credits'))return Promise.resolve(Response.json({remaining:180000,used:20000,limit:200000,purchased:50000}));if(String(url).includes('/api/handle-colors'))return Promise.resolve(Response.json({colors:[{r:200,g:100,b:255}]}));if(String(url).includes('/userinfo'))return Promise.resolve(Response.json({sub:'fixture-user'}));if(String(url).includes('/handle?for='))return Promise.resolve(Response.json({handle:personal?'jeffrey':'fixture'}));if(String(url).includes('/api/easel-musical-jev')){const b=JSON.parse(init.body);return Promise.resolve(Response.json({schema:'whistlegraph-decision/v1',sessionId:b.sessionId,sequence:b.sequence,choice:'follow_speech',confidence:.95}));}if(String(url).startsWith('/easel/context/')){window.__guideFetches++;return Promise.resolve({ok:false,status:0});}return fetchOriginal(String(url).includes('/api/easel-inference')?'/mock-inference':url,init);};
+      window.fetch=(url,init)=>{if(String(url).includes('/api/aesel/access'))return Promise.resolve(Response.json({personal:!!personal,providers:personal?['claude','codex']:[],expiresAt:null}));if(String(url).includes('/api/easel-credits'))return Promise.resolve(Response.json({remaining:180000,used:20000,limit:200000,purchased:50000}));if(String(url).includes('/api/handle-colors'))return Promise.resolve(Response.json({colors:[{r:200,g:100,b:255}]}));if(String(url).includes('/userinfo'))return Promise.resolve(Response.json({sub:'fixture-user'}));if(String(url).includes('/handle?for='))return Promise.resolve(Response.json({handle:personal==='trial'?'fifi':personal?'jeffrey':'fixture'}));if(String(url).includes('/api/easel-musical-jev')){const b=JSON.parse(init.body);return Promise.resolve(Response.json({schema:'whistlegraph-decision/v1',sessionId:b.sessionId,sequence:b.sequence,choice:'follow_speech',confidence:.95}));}if(String(url).startsWith('/easel/context/')){window.__guideFetches++;return Promise.resolve({ok:false,status:0});}return fetchOriginal(String(url).includes('/api/easel-inference')?'/mock-inference':url,init);};
       window.__nativeMessages=[];
       window.webkit={messageHandlers:{whistlegraph:{postMessage:m=>{window.__nativeMessages.push(m);if(m.action==='visualCapture'){const canvas=document.createElement('canvas');canvas.width=32;canvas.height=24;canvas.getContext('2d').fillRect(0,0,32,24);setTimeout(()=>window.whistlegraphEngineEvent({kind:'visualCapture',captureID:m.captureID,sourceHash:window.__staleVisual?'old':m.sourceHash,renderID:m.renderID,frames:[0,800,1600,2400].map(atMs=>({atMs,width:32,height:24,png:canvas.toDataURL('image/png').split(',')[1]}))}),10);}if(m.action==='render')setTimeout(async()=>{const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(m.source));const sourceHash=[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');window.whistlegraphEngineEvent({kind:'previewEvent',event:{kind:'painted',sourceHash,requestID:m.renderID}});},20);}}}};
-    },guideSeed,process.argv.includes('--native-shell'),process.argv.includes('--jeffrey'));
+    },guideSeed,process.argv.includes('--native-shell'),process.argv.includes('--trial')?'trial':process.argv.includes('--jeffrey'));
     await page.goto('http://127.0.0.1:'+server.address().port+'/index.html?walkie=1');
     await page.waitForFunction(()=>typeof window.whistlegraphAsk==='function');
     assert.deepEqual(errors,[]);
+    if(process.argv.includes('--trial')) {
+      await page.evaluate(()=>whistlegraphEngineEvent({kind:'account',token:'fixture-only'}));
+      await page.waitForFunction(()=>__nativeMessages.some(m=>m.action==='snapshot'&&m.snapshot.inference?.provider==='Personal Claude'));
+      const settings=await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1).snapshot.inference);
+      assert.equal(settings.selection,'anthropic/claude-opus-5');
+      assert.ok(settings.models.some(m=>m.id==='openai/gpt-6-astra'));
+      await page.evaluate(()=>whistlegraphNativeCommand({action:'setModel',text:'openai/gpt-6-astra'}));
+      await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1).snapshot.inference.provider==='Personal Codex');
+      console.log('PASS Fifi capability selects personal Opus and offers Codex without owner identity. No provider call.');return;
+    }
     if(process.argv.includes('--streaming')) {
       await page.evaluate(()=>{
         const post=window.webkit.messageHandlers.whistlegraph.postMessage;

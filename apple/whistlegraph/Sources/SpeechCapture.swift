@@ -191,7 +191,10 @@ import Speech
                 self.alignment = Task { [weak self] in
                     guard let self else { return }
                     var result: TimedTranscript?
-                    do { if let token = try await self.speechToken() { result = try await RecordedTranscription.recover(recording, token: token) } }
+                    do {
+                        guard let token = try await self.speechToken() else { throw SpeechFailure(status: 401) }
+                        result = try await RecordedTranscription.recover(recording, token: token)
+                    }
                     catch {
                         guard !Task.isCancelled, self.turn == id else { return }
                         DeviceActionLog.shared.recordError(.speech, error)
