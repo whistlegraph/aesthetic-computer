@@ -104,10 +104,13 @@ struct LocalArtifactPreview: Equatable {
     }
 
     /// No project content is executable. Only the fixed readiness script runs.
-    func html(text: String? = nil, waveform: String? = nil, nonce: String) -> String {
+    func html(text: String? = nil, waveform: String? = nil, sketch: SoundSketch? = nil, nonce: String) -> String {
         let content: String
         let ready: String
-        if kind == "picture" {
+        if kind == "sound", let sketch {
+            content = Self.soundContent
+            ready = Self.soundScript(sketch)
+        } else if kind == "picture" {
             content = "<img id='artifact' src='artifact' alt='Picture preview'>"
             ready = "const a=document.getElementById('artifact'); a.onload=ready; a.onerror=failed; if(a.complete&&a.naturalWidth)ready();"
         } else if kind == "sound" {
@@ -132,6 +135,68 @@ struct LocalArtifactPreview: Equatable {
         <meta name="viewport" content="width=device-width,initial-scale=1">
         <style>html,body{margin:0;width:100%;height:100%;background:#15151a;color:#eee}body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1vh}img,video{flex:1 1 auto;min-height:0;width:100%;object-fit:contain}svg{width:95%;height:65%}audio{width:90%}pre{align-self:stretch;flex:1 1 auto;min-height:0;white-space:pre-wrap;overflow:auto;padding:24px;font:16px/1.5 monospace;width:100%;margin:0;box-sizing:border-box}.name{flex:none;max-width:96%;padding:0 2vw 1.2vh;font:clamp(11px,3.4vw,120px)/1.35 ui-monospace,Menlo,monospace;color:#c9c9d2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}</style></head><body>
         \(content)\(caption)<script nonce="\(nonce)">const ready=()=>window.webkit.messageHandlers.previewReady.postMessage('ready:\(nonce)');const failed=()=>window.webkit.messageHandlers.previewReady.postMessage('failed:\(nonce)');\(ready)</script></body></html>
+        """
+    }
+
+    /// The sound card is the record, not a player: its whole spectrogram,
+    /// lows at the bottom, lit where it has played and dim ahead, with the
+    /// playhead blooming the moment's bands. No button, no transport bar —
+    /// click plays or pauses, drag scrubs, space toggles.
+    static let soundContent = """
+    <style>#deck{flex:1 1 auto;min-height:0;width:100%;position:relative;cursor:pointer;touch-action:none}#deck canvas{position:absolute;inset:0;width:100%;height:100%}</style>
+    <div id='deck' role='button' tabindex='0' aria-label='Sound: click to play or pause, drag to seek'><canvas id='c'></canvas></div>
+    <audio id='artifact' preload='auto' src='artifact'></audio>
+    """
+
+    static func soundScript(_ s: SoundSketch) -> String {
+        """
+        const a=document.getElementById('artifact'),deck=document.getElementById('deck'),c=document.getElementById('c'),g=c.getContext('2d');
+        const q=t=>Array.from(t,ch=>parseInt(ch,36)/35),SP=q('\(s.spectrum)'),PK=q('\(s.peaks)'),B=\(SoundSketch.bands),F=\(SoundSketch.fps),D=\(s.duration),FR=SP.length/B;
+        // Contrast: the quiet two-fifths of the range go to black, the rest curves up.
+        const lv=v=>Math.pow(Math.max(0,(v-.4)/.6),1.5);
+        const col=(k,v,lit)=>`hsl(${330-k*(150/(B-1))},${lit?90:14}%,${lit?4+62*v:5+44*v}%)`;
+        let lit,dim,raf=0,down=null,moved=false;
+        const fmt=t=>{t=Math.max(0,Math.floor(t));return Math.floor(t/60)+':'+String(t%60).padStart(2,'0');};
+        // The spectrogram, drawn once per size: each pixel column the loudest
+        // frame it covers, each band a row, quieter cells darker.
+        function paint(W,H,on){
+          const o=document.createElement('canvas');o.width=W;o.height=H;const x=o.getContext('2d'),bh=H/B;
+          for(let px=0;px<W;px++){
+            const f0=Math.floor(px*FR/W),f1=Math.max(f0+1,Math.floor((px+1)*FR/W)),pk=PK[Math.min(PK.length-1,Math.floor(px*PK.length/W))];
+            const gr=x.createLinearGradient(0,H,0,0);
+            for(let k=0;k<B;k++){let v=0;for(let f=f0;f<f1;f++)v=Math.max(v,SP[f*B+k]);gr.addColorStop((k+.5)/B,col(k,lv(v)*(.6+.4*pk),on));}
+            x.fillStyle=gr;x.fillRect(px,0,1,H);
+          }
+          return o;
+        }
+        function draw(){
+          const W=c.width,H=c.height,t=a.currentTime||0,u=D?Math.min(1,t/D):0,px=u*W,bh=H/B;
+          g.fillStyle='#101014';g.fillRect(0,0,W,H);g.drawImage(dim,0,0);
+          g.save();g.beginPath();g.rect(0,0,px,H);g.clip();g.drawImage(lit,0,0);g.restore();
+          if(t>0||!a.paused){
+            const fi=Math.min(FR-1,Math.floor(t*F)),w=Math.max(3,W*.012);
+            for(let k=0;k<B;k++){const v=lv(SP[fi*B+k]);if(v<.05)continue;
+              g.fillStyle=col(k,Math.min(1,v*1.2),true);g.shadowColor=g.fillStyle;g.shadowBlur=a.paused?0:w*2.5*v;
+              g.fillRect(px-w*v*1.5,H-(k+1)*bh,w*v*3,bh*.92);}
+            g.shadowBlur=0;g.fillStyle='rgba(255,255,255,.9)';g.fillRect(px-Math.max(1,W*.001),0,Math.max(2,W*.002),H);
+          }
+          const fs=Math.max(10,H*.065);g.font=`600 ${fs}px ui-monospace,Menlo,monospace`;g.textAlign='right';g.textBaseline='top';
+          g.fillStyle='rgba(16,16,20,.6)';const label=(t>0||!a.paused?fmt(t)+' / ':'')+fmt(D),tw=g.measureText(label).width;
+          g.fillRect(W-tw-fs*1.1,fs*.4,tw+fs*.8,fs*1.3);g.fillStyle=a.paused?'rgba(255,255,255,.75)':'#f27cad';g.fillText(label,W-fs*.7,fs*.55);
+        }
+        function size(){const r=c.getBoundingClientRect(),d=window.devicePixelRatio||1,W=Math.max(1,Math.round(r.width*d)),H=Math.max(1,Math.round(r.height*d));
+          if(W===c.width&&H===c.height&&lit)return draw();c.width=W;c.height=H;lit=paint(W,H,true);dim=paint(W,H,false);draw();}
+        function loop(){draw();raf=a.paused?0:requestAnimationFrame(loop);}
+        const toggle=()=>{a.paused?a.play():a.pause();};
+        const seek=e=>{const r=deck.getBoundingClientRect();a.currentTime=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*D;draw();};
+        deck.addEventListener('pointerdown',e=>{down=e.clientX;moved=false;deck.setPointerCapture(e.pointerId);});
+        deck.addEventListener('pointermove',e=>{if(down===null)return;if(Math.abs(e.clientX-down)>4)moved=true;if(moved)seek(e);});
+        deck.addEventListener('pointerup',e=>{if(down!==null&&!moved)toggle();down=null;});
+        document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();toggle();}});
+        a.addEventListener('play',()=>{if(!raf)loop();});
+        a.addEventListener('pause',draw);a.addEventListener('ended',draw);a.addEventListener('seeked',draw);
+        new ResizeObserver(size).observe(deck);
+        a.onloadedmetadata=()=>{ready();size();};a.onerror=failed;if(a.readyState>=1){ready();size();}
         """
     }
 
