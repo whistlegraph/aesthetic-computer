@@ -1,0 +1,199 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Aesthetic Computer//Deadlines//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:AC — New media deadlines
+X-PUBLISHED-TTL:PT12H
+BEGIN:VEVENT
+UID:interplay-2027@papers.aesthetic.computer
+DTSTAMP:20261006T000000Z
+LAST-MODIFIED:20261006T000000Z
+DTSTART:20261009T065900Z
+SUMMARY:Interplay 2027 — deadline
+DESCRIPTION:A 15–45 minute live online performance at the intersection of
+  performance and technology.\n\nArtist fee per selected artist or group.\n
+ Application fee not stated\n\nEligibility: International\, all disciplines
+  and career stages. Priority for projects led by women\, femmes and gender
+ -diverse artists.\n\nDeadline: 2026-10-08. 23:59 Pacific\n\nSelected artis
+ ts provide a technical breakdown\, a five-minute highlight edit and develo
+ pment-process documentation. Live performance must be central to the work.
+ \n\nOfficial call: https://interplay-arts.com/open_call.html\nChecked 2026
+ -10-06
+URL:https://interplay-arts.com/open_call.html
+LOCATION:Online
+TRANSP:TRANSPARENT
+END:VEVENT
+BEGIN:VEVENT
+UID:djerassi-2027@papers.aesthetic.computer
+DTSTAMP:20261006T000000Z
+LAST-MODIFIED:20261006T000000Z
+DTSTART;VALUE=DATE:20261009
+DTEND;VALUE=DATE:20261010
+SUMMARY:Djerassi Artist Residencies — deadline (check time)
+DESCRIPTION:One month of studio time in the Santa Cruz Mountains for compos
+ ers\, media artists and other disciplines.\n\nResidency provided at no cos
+ t. Cash stipend not confirmed\; travel is self-funded.\n$35 application fe
+ e · reconfirm in form\n\nEligibility: National and international artists.
+  Apply in one discipline\; attendance for the full residency is required.\
+ n\nDeadline: 2026-10-09. Cutoff time not confirmed. This calendar entry is
+  all-day\; verify the cutoff with the organizer.\n\nNo shortened or partia
+ l residencies. Collaborators and couples must apply individually. Full for
+ m requirements\, including references\, have not been verified.\n\nOfficia
+ l call: https://djerassi.org/apply/application-guidelines/\nChecked 2026-1
+ 0-06
+URL:https://djerassi.org/apply/application-guidelines/
+LOCATION:Woodside\, California\, US
+TRANSP:TRANSPARENT
+END:VEVENT
+BEGIN:VEVENT
+UID:smallforms-2027@papers.aesthetic.computer
+DTSTAMP:20261006T000000Z
+LAST-MODIFIED:20261006T000000Z
+DTSTART;VALUE=DATE:20261011
+DTEND;VALUE=DATE:20261012
+SUMMARY:smallforms — Solo Sets — deadline (check time)
+DESCRIPTION:Solo experimental music and sound performances\, with an option
+ al recording session for a digital release.\n\nConfirmed artist fee. Trave
+ l and accommodation support not stated.\nApplication fee not stated\n\nEli
+ gibility: Musicians\, sound artists and performers. One artist per proposa
+ l\; no geographic restriction stated.\n\nDeadline: 2026-10-11. Cutoff time
+  not stated. This calendar entry is all-day\; verify the cutoff with the o
+ rganizer.\n\nIn-person solo performance. Recording-session releases use th
+ e smallforms label\; confirm release terms if selected.\n\nOfficial call: 
+ https://smallforms.org/open-call-2027/\nChecked 2026-10-06
+URL:https://smallforms.org/open-call-2027/
+LOCATION:Vienna\, Austria
+TRANSP:TRANSPARENT
+END:VEVENT
+BEGIN:VEVENT
+UID:eyebeam-agency-2026@papers.aesthetic.computer
+DTSTAMP:20261006T000000Z
+LAST-MODIFIED:20261006T000000Z
+DTSTART:20261012T035900Z
+SUMMARY:Eyebeam — AGENCY — deadline
+DESCRIPTION:A virtual residency for early-stage work exploring agency throu
+ gh art and technology.\n\nStipend\, mentorship\, technical consultation an
+ d weekly residency programming.\nFree to apply\n\nEligibility: Individuals
+  based in the US outside NYC\, remaining US-based throughout. No full-time
+  degree enrollment or overlapping residency commitments.\n\nDeadline: 2026
+ -10-11. 23:59 Eastern\n\nWeekly cohort participation and independent proje
+ ct work. The live application specifies 3–4 cohort hours weekly plus ind
+ ependent work\; confirm the schedule before accepting.\n\nOfficial call: h
+ ttps://eyebeam.org/articles/agency-virtual-residency\nChecked 2026-10-06
+URL:https://eyebeam.org/articles/agency-virtual-residency
+LOCATION:Online · US outside New York City
+TRANSP:TRANSPARENT
+END:VEVENT
+BEGIN:VEVENT
+UID:music-for-your-inbox-2027@papers.aesthetic.computer
+DTSTAMP:20261006T000000Z
+LAST-MODIFIED:20261006T000000Z
+DTSTART;VALUE=DATE:20261015
+DTEND;VALUE=DATE:20261016
+SUMMARY:Music for Your Inbox — deadline (check time)
+DESCRIPTION:Unpremiered experimental sound and music films for an online se
+ ries and library screenings.\n\nHonorarium. Limited production support is 
+ available for co-produced films.\nApplication fee not stated\n\nEligibilit
+ y: Artists and artist teams\; no geographic restriction stated. Music or s
+ ound must be central. Films must be 10–20 minutes and not previously pre
+ miered.\n\nDeadline: 2026-10-15. 23:59 PST as published\; daylight-saving 
+ ambiguity — submit early. This calendar entry is all-day\; verify the cu
+ toff with the organizer.\n\nOne year of exclusive presentation rights. Ord
+ inary concert documentation is excluded. In-person attendance is not requi
+ red. The organizer discourages creating a new project solely for this call
+ .\n\nOfficial call: https://www.musicforyourinbox.com/apply\nChecked 2026-
+ 10-06
+URL:https://www.musicforyourinbox.com/apply
+LOCATION:Online · Los Angeles screenings
+TRANSP:TRANSPARENT
+END:VEVENT
+BEGIN:VEVENT
+UID:lendhauer-2027@papers.aesthetic.computer
+DTSTAMP:20261006T000000Z
+LAST-MODIFIED:20261006T000000Z
+DTSTART;VALUE=DATE:20261102
+DTEND;VALUE=DATE:20261103
+SUMMARY:Lendhauer — Urban Ecologies — deadline (check time)
+DESCRIPTION:Public artworks exploring coexistence\, control and interdepend
+ ence at Klagenfurt’s Lendhafen.\n\nUp to €2\,500 gross artist fee\, 
+ €4\,000 gross production and €1\,000 travel\, per selected project.\nA
+ pplication fee not stated\n\nEligibility: Individuals and collectives in A
+ ustria and abroad\, including artists\, designers\, performers and interdi
+ sciplinary practitioners.\n\nDeadline: 2026-11-02. Cutoff time not stated.
+  This calendar entry is all-day\; verify the cutoff with the organizer.\n\
+ nThe proposal must engage with the actual harbor and its social\, ecologic
+ al and material conditions. Timing is agreed with selected artists. Fee is
+  per project\, not per collaborator.\n\nOfficial call: https://www.lendhaf
+ en.at/open-call-2027-urban-ecologies-coexistence-and-control/\nChecked 202
+ 6-10-06
+URL:https://www.lendhafen.at/open-call-2027-urban-ecologies-coexistence-and
+ -control/
+LOCATION:Klagenfurt\, Austria
+TRANSP:TRANSPARENT
+END:VEVENT
+BEGIN:VEVENT
+UID:spot-flux-2027@papers.aesthetic.computer
+DTSTAMP:20261006T000000Z
+LAST-MODIFIED:20261006T000000Z
+DTSTART;VALUE=DATE:20261105
+DTEND;VALUE=DATE:20261106
+SUMMARY:SPOT FLUX — Sound Art — deadline (check time)
+DESCRIPTION:Existing sound works\, music films and performances for SPOT Fe
+ stival’s experimental program.\n\nDanish Musicians’ Union rate per per
+ former\, with approved technical and material costs. Exact fee not stated.
+ \nApplication fee not stated\n\nEligibility: The work and/or artists must 
+ have a connection to Denmark. Existing works only\; the artist must attend
+  the presentation.\n\nDeadline: 2026-11-05. 14:00 as published\; time zone
+  not explicitly stated. This calendar entry is all-day\; verify the cutoff
+  with the organizer.\n\nTravel\, accommodation and preparation expenses ar
+ e not covered. The Café Stage is an open\, busy space\; quiet cannot be g
+ uaranteed.\n\nOfficial call: https://spotfestival.dk/spot-flux-2027-open-c
+ all/\nChecked 2026-10-06
+URL:https://spotfestival.dk/spot-flux-2027-open-call/
+LOCATION:Aarhus\, Denmark
+TRANSP:TRANSPARENT
+END:VEVENT
+BEGIN:VEVENT
+UID:amsterdam-light-festival-2027@papers.aesthetic.computer
+DTSTAMP:20261006T000000Z
+LAST-MODIFIED:20261006T000000Z
+DTSTART:20261207T225900Z
+SUMMARY:Amsterdam Light Festival — deadline
+DESCRIPTION:Light artworks for the canals of Amsterdam\, with technical and
+  financial support to realize selected concepts.\n\nArtist fee plus produc
+ tion and travel costs. General-call production ceiling is not specified in
+  the FAQ.\nApplication fee not confirmed\n\nEligibility: The general open 
+ call is worldwide\, including people new to light art. The separate Amarte
+  call is restricted to Netherlands-based makers.\n\nDeadline: 2026-12-07. 
+ 23:59 CET\n\nWork must withstand two months outdoors and avoid nuisance to
+  residents\, including sound\, smoke and lasers. Full briefing and contrac
+ t terms need review.\n\nOfficial call: https://amsterdamlightfestival.com/
+ en/open-call\nChecked 2026-10-06
+URL:https://amsterdamlightfestival.com/en/open-call
+LOCATION:Amsterdam\, Netherlands
+TRANSP:TRANSPARENT
+END:VEVENT
+BEGIN:VEVENT
+UID:openfeed-2026-2027@papers.aesthetic.computer
+DTSTAMP:20261006T000000Z
+LAST-MODIFIED:20261006T000000Z
+DTSTART;VALUE=DATE:20270228
+DTEND;VALUE=DATE:20270301
+SUMMARY:OPENFEED — deadline (check time)
+DESCRIPTION:A virtual residency spanning interactive installations\, softwa
+ re art\, sound\, electronics and participatory work.\n\nHardware\, computi
+ ng\, software and mentorship. Cash support and exact program dates are not
+  confirmed.\nFree to apply · form checked Oct 5\n\nEligibility: Internati
+ onal artists working across digital\, electronic and experimental media. I
+ ndividual and participatory practices welcome.\n\nDeadline: 2027-02-28. Ro
+ lling review within the October 1–February 28 application window. This c
+ alendar entry is all-day\; verify the cutoff with the organizer.\n\nDevelo
+ pment may combine an online edition with an on-site presentation. Confirm 
+ resources\, dates and any attendance requirements before accepting.\n\nOff
+ icial call: https://www.feed.art/open-feed\nChecked 2026-10-06
+URL:https://www.feed.art/open-feed
+LOCATION:Online · FEED Media Art Center\, US
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR

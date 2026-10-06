@@ -2928,7 +2928,7 @@ void draw() {
       },
       deadlines: {
         sig: "deadlines",
-        desc: "Open papers conference & grant deadlines.",
+        desc: "Find new media open calls, residencies & artist funding.",
         url: "https://papers.aesthetic.computer/deadlines",
         done: true,
       },
