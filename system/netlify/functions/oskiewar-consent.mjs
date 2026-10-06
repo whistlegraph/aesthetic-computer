@@ -146,6 +146,8 @@ export async function handler(event) {
 
   const { scope, error } = readScope(body);
   if (error) return fail(400, error);
+  if (body.requestId !== undefined && !/^[a-zA-Z0-9-]{16,64}$/.test(body.requestId))
+    return fail(400, "Invalid consent request ID.");
 
   const gateway = process.env.REGARDE_GATEWAY_URL;
   const salt = process.env.REGARDE_SUBJECT_SALT;
@@ -160,11 +162,11 @@ export async function handler(event) {
     subject: pseudonym(user.sub, salt),
     operation_type: "DATA_OPERATION",
     frozen_fields: frozenFields(scope),
-    // Idempotent per subject per exact scope: asking the same question twice
-    // returns the same receipt instead of littering the chain with duplicates,
-    // while any change to the scope is a genuinely new ask.
+    // One explicit choice may retry safely. A new choice gets a new requestId,
+    // so consent after withdrawal cannot revive the retired receipt.
+    // Older clients retain their subject/scope idempotency.
     idempotency_key: createHash("sha256")
-      .update(JSON.stringify([pseudonym(user.sub, salt), frozenFields(scope)]))
+      .update(JSON.stringify([pseudonym(user.sub, salt), frozenFields(scope), ...(body.requestId ? [body.requestId] : [])]))
       .digest("hex").slice(0, 32),
     operation_descriptor: {
       purpose: PURPOSE,

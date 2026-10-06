@@ -17,7 +17,7 @@
 // retry loop, because asking the same desk the same question until it says yes
 // is how a consent wall becomes a nag screen.
 
-import { mountFighterPreview } from "./oskiewar-fighter.mjs";
+import { mountFighterPreview, validateFighter } from "./oskiewar-fighter.mjs";
 
 const ENDPOINT = "/api/oskiewar-consent";
 
@@ -25,7 +25,6 @@ const ENDPOINT = "/api/oskiewar-consent";
 // stated on the card, not an unseen expansion of permission.
 const MATERIALS = [
   { value: "appearance", label: "Photo", on: true },
-  { value: "voice", label: "Voice" },
 ];
 
 export function scopeForMedia({ photo, voice }) {
@@ -88,7 +87,7 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
     <form id="wizard-card" role="dialog" aria-modal="true" aria-labelledby="wizard-title" novalidate>
       <div id="wizard-brand" aria-label="REGARDE">regarde</div>
       <h2 id="wizard-title">Add yourself</h2>
-      <p id="wizard-bargain">Make a fighter from your photo for private preview and local practice. OpenAI reads the photo to choose its appearance. Your grant controls access; withdraw to stop future use.</p>
+      <p id="wizard-bargain">Make a fighter from your own photo for private preview and local practice. OpenAI reads the photo to choose its appearance. Accept it to save it to your AC handle for 24 hours while your grant stands. Withdraw to remove your material and stop future use.</p>
       <div id="wizard-sections"></div>
       <p id="wizard-note" role="status" aria-live="polite"></p>
       <p id="wizard-receipt"></p>
@@ -110,6 +109,8 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
   let submitted = null;
   let candidate = null;
   let accepted = null;
+  let ownerHandle = null;
+  let requestId = null;
   let reviewSession = 0;
   const clearFighter = () => { accepted = null; globalThis.__oskiewarFighterAppearance = null; };
   const upload = document.createElement("div");
@@ -151,10 +152,11 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
     note.className = tone;
   }
 
-  function open() {
+  async function open() {
     if (!panel.hidden) return;
     if (busy) { panel.hidden = false; globalThis.__oskiewarWizardOpen = true; return; }
     reviewSession++;
+    requestId = crypto.randomUUID();
     capability = null;
     submitted = null;
     candidate = null;
@@ -171,6 +173,19 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
     receiptLine.textContent = "";
     sfx("block", .9, 0);
     card.querySelector("input")?.focus();
+    const session = reviewSession;
+    working(true);
+    try {
+      const token = await bearer();
+      if (session !== reviewSession) return;
+      if (!token) { say("Sign in with your AC account to make your fighter."); return; }
+      const result = await generationRequest(token, "account", {});
+      if (session !== reviewSession) return;
+      ownerHandle = result.handle;
+      panel.querySelector("#wizard-title").textContent = `Add ${ownerHandle}`;
+      if (result.status === "accepted") showCandidate(result, true);
+    } catch (error) { say(error.message, "trouble"); }
+    finally { if (session === reviewSession) working(false); }
   }
 
   function close() {
@@ -200,11 +215,17 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
     }
     if (candidate) {
       if (Date.now() >= candidate.validUntil) { say("This preview expired. Open Add yourself to ask again.", "trouble"); return; }
-      accepted = { ...candidate, token };
-      globalThis.__oskiewarFighterAppearance = { appearance: candidate.appearance, validUntil: candidate.validUntil };
-      say("Ready for local practice. Online matches keep the standard fighter.", "settled");
-      go.disabled = true;
-      back.textContent = "Done";
+      working(true);
+      try {
+        const result = await generationRequest(token, candidate.saved ? "account" : "accept", candidate.source);
+        if (result.status !== "accepted" || result.fighter?.hash !== candidate.fighter.hash)
+          throw new Error("This fighter is no longer available. Open Add yourself to check your account.");
+        accepted = { ...result, token };
+        globalThis.__oskiewarFighterAppearance = { appearance: candidate.appearance,
+          handle: result.handle, validUntil: result.validUntil };
+        say(`Saved to ${result.handle}. Ready for local practice.`, "settled");
+        working(false); go.disabled = true; back.textContent = "Done";
+      } catch (error) { clearFighter(); working(false); say(error.message, "trouble"); }
       return;
     }
     if (submitted) { await generate(token); return; }
@@ -249,16 +270,19 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
     say("Asking REGARDE…");
     let result;
     try {
+      // Ownership comes from the authenticated server lookup, never typed input.
+      const account = await generationRequest(token, "account", {});
+      ownerHandle = account.handle;
       const response = await fetch(ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json",
           authorization: "Bearer " + token },
-        body: JSON.stringify(answer),
+        body: JSON.stringify({ ...answer, requestId }),
       });
       result = await response.json();
-    } catch {
+    } catch (error) {
       working(false);
-      say("The consent desk did not answer. Nothing was collected.", "trouble");
+      say(error.message || "The consent desk did not answer. Nothing was collected.", "trouble");
       return;
     }
     working(false);
@@ -300,6 +324,9 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
             }
           }
         } catch { /* Upload remains available if there is no recoverable manifest. */ }
+      } else {
+        say("The desk returned no upload permission. Nothing was collected.", "trouble");
+        return;
       }
       sfx("hit", .9, 0);
       say("Allowed. Choose your files.", "settled");
@@ -328,8 +355,22 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
       body: JSON.stringify({ ...source, action }), signal: AbortSignal.timeout(100000),
     });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.message || "Fighter generation failed.");
+    if (!response.ok) {
+      if (result.code === "handle_required") {
+        close(); globalThis.__oskiewarAccountDoor = "handle";
+      }
+      throw new Error(result.message || "Fighter generation failed.");
+    }
     return result;
+  }
+  function showCandidate(result, saved = false) {
+    sections.hidden = true;
+    panel.querySelector("#wizard-bargain").hidden = true;
+    panel.querySelector("#wizard-title").textContent = `${result.handle || ownerHandle}'s fighter`;
+    const appearance = mountFighterPreview(upload, result.fighter);
+    candidate = { ...result, appearance, saved, source: { ...submitted } };
+    go.textContent = saved ? "Use in practice" : "Accept & use in practice";
+    say(saved ? "Your saved fighter is ready for local practice." : "Review your fighter. Accept to save it to your AC account for 24 hours.", "settled");
   }
   async function generate(token) {
     const session = reviewSession;
@@ -341,18 +382,14 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
         working(false); go.textContent = "Check generation";
         say("Your fighter is being made. Check again in a moment."); return;
       }
-      panel.querySelector("#wizard-bargain").hidden = true;
-      panel.querySelector("#wizard-title").textContent = "Your fighter";
-      const appearance = mountFighterPreview(upload, result.fighter);
-      candidate = { ...result, appearance, source: { ...submitted } };
-      working(false); go.textContent = "Use in practice";
-      say("Review your fighter before using it. Available for this short practice session.", "settled");
+      showCandidate(result);
+      working(false);
     } catch (error) {
       working(false); go.textContent = "Check generation";
       say(error.message, "trouble");
     }
   }
-  // Keep a granted appearance only in this page's memory. Current authority is
+  // Keep the active play selection only in this page's memory. Current authority is
   // checked while equipped; expiry, sign-out, withdrawal or loss of contact
   // removes it. There is no public asset URL, localStorage copy or replay data.
   const withdraw = document.createElement("button");
@@ -380,8 +417,13 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
     checking = true;
     try {
       const token = await bearer();
-      if (!token || token !== selected.token) { clearFighter(); return; }
-      await generationRequest(token, "status", selected.source);
+      if (!token) { clearFighter(); return; }
+      const result = await generationRequest(token, "account", {});
+      if (accepted !== selected) return;
+      if (result.status !== "accepted" || result.fighter?.hash !== selected.fighter.hash) { clearFighter(); return; }
+      accepted = { ...result, token };
+      globalThis.__oskiewarFighterAppearance = { appearance: validateFighter(result.fighter),
+        handle: result.handle, validUntil: result.validUntil };
     } catch { if (accepted === selected) clearFighter(); }
     finally { checking = false; }
   }, 15000);
