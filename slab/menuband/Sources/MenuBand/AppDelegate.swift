@@ -6745,7 +6745,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             showSystemCursorIfNeeded()
             trackpadPadMode = .mouse
-            updatePitchBendOverlayImage()
+            // Flash the off switch, then get out of the pointer's way.
+            showPitchBendOverlay()
+            pitchBendOverlay?.fadeOut(
+                after: Self.trackpadOverlayIdleHold,
+                duration: Self.trackpadOverlayFadeDuration
+            )
             debugLog("trackpad pad mode = mouse (trackpad released)")
             return
         }
@@ -6804,7 +6809,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 scheduleGraphicEndIfNoKeyHeld()
             }
         }
-        updatePitchBendOverlayImage()
+        // The off page faded the overlay out; coming back needs it re-shown,
+        // not just redrawn.
+        if leavingMouse {
+            showPitchBendOverlay()
+        } else {
+            updatePitchBendOverlayImage()
+        }
         debugLog("trackpad pad mode = \(trackpadPadMode)")
     }
 
@@ -7345,7 +7356,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ? trackpadSurfaceEnergy.snapshot(at: CACurrentMediaTime()) : []
         let momentarySurfaceFx = continuousSurface
             && NSEvent.modifierFlags.contains(.shift)
-        if trackpadPadMode == .kit {
+        if trackpadPadMode == .mouse {
+            return TrackpadOffPad.image()
+        } else if trackpadPadMode == .kit {
             return TrackpadPercussionPad.image(touches: mtTouches,
                                                 state: trackpadPercussionState)
         } else if trackpadPadMode == .skin && !momentarySurfaceFx {

@@ -613,6 +613,81 @@ enum TrackpadDrumSkinPad {
     }
 }
 
+/// The third Tab page: the trackpad handed back to the pointer. A three-stop
+/// switch (drum · slide · off) with the knob parked on off, so the page reads
+/// as "nothing here" instead of borrowing the slider chart it doesn't drive.
+enum TrackpadOffPad {
+    static func image() -> NSImage {
+        let size = NSSize(width: 140, height: 88)
+        let appearance = NSApp.effectiveAppearance
+        let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        return NSImage(size: size, flipped: false) { rect in
+            if #available(macOS 11.0, *) {
+                appearance.performAsCurrentDrawingAppearance {
+                    draw(in: rect, isDark: isDark)
+                }
+            } else {
+                draw(in: rect, isDark: isDark)
+            }
+            return true
+        }
+    }
+
+    private static func draw(in rect: NSRect, isDark: Bool) {
+        let chart = rect.insetBy(dx: 4, dy: 4)
+        let body = NSBezierPath(roundedRect: chart, xRadius: 8, yRadius: 8)
+        let base = isDark
+            ? NSColor(srgbRed: 0.06, green: 0.06, blue: 0.07, alpha: 0.92)
+            : NSColor(srgbRed: 0.93, green: 0.93, blue: 0.94, alpha: 0.92)
+        let ink = isDark ? NSColor.white : NSColor.black
+        base.setFill()
+        body.fill()
+
+        let labels = ["drum", "slide", "off"]
+        let track = NSRect(x: chart.minX + 18, y: chart.midY + 2,
+                           width: chart.width - 36, height: 10)
+        let trackPath = NSBezierPath(roundedRect: track, xRadius: 5, yRadius: 5)
+        ink.withAlphaComponent(0.12).setFill()
+        trackPath.fill()
+        ink.withAlphaComponent(0.30).setStroke()
+        trackPath.lineWidth = 0.8
+        trackPath.stroke()
+
+        let font = NSFont.systemFont(ofSize: 9, weight: .medium)
+        for (index, label) in labels.enumerated() {
+            let x = track.minX + track.width * CGFloat(index) / 2
+            let on = index == labels.count - 1
+            let notch = NSBezierPath(ovalIn: NSRect(x: x - 2, y: track.midY - 2,
+                                                    width: 4, height: 4))
+            ink.withAlphaComponent(0.35).setFill()
+            notch.fill()
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .foregroundColor: ink.withAlphaComponent(on ? 0.85 : 0.38),
+            ]
+            let text = NSAttributedString(string: label, attributes: attrs)
+            let textSize = text.size()
+            text.draw(at: NSPoint(x: x - textSize.width / 2,
+                                  y: track.minY - 8 - textSize.height))
+        }
+
+        let knobRadius: CGFloat = 8
+        let knob = NSBezierPath(ovalIn: NSRect(x: track.maxX - knobRadius,
+                                               y: track.midY - knobRadius,
+                                               width: knobRadius * 2,
+                                               height: knobRadius * 2))
+        NSColor.white.setFill()
+        knob.fill()
+        ink.withAlphaComponent(0.45).setStroke()
+        knob.lineWidth = 1
+        knob.stroke()
+
+        ink.withAlphaComponent(0.35).setStroke()
+        body.lineWidth = 1.5
+        body.stroke()
+    }
+}
+
 /// Electronic surface display: the same physical footprint and inset spatial
 /// grammar as the skin, but a phase grid and inharmonic nodes distinguish it
 /// without borrowing acoustic drum labels.
