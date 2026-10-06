@@ -101,7 +101,7 @@ const STYLE = `
 @media(prefers-reduced-motion:reduce) { #wizard-panel button { transition:none; } }
 `;
 
-export default function mountWizard({ sfx = () => {}, bearer = async () => null, enterPractice = () => {} } = {}) {
+export default function mountWizard({ sfx = () => {}, bearer = async () => null, enterPractice = () => {}, defaultHandle = null, onDefault = () => {} } = {}) {
   const style = document.createElement("style");
   style.textContent = STYLE;
   document.head.append(style);
@@ -138,7 +138,8 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null,
   let ownerHandle = null;
   let requestId = null;
   let reviewSession = 0;
-  const clearFighter = () => { accepted = null; globalThis.__oskiewarFighterAppearance = null; };
+  let authority = 0;
+  const clearFighter = () => { authority++; accepted = null; globalThis.__oskiewarFighterAppearance = null; };
   const upload = document.createElement("div");
   upload.id = "wizard-upload";
   sections.after(upload);
@@ -379,14 +380,14 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null,
   });
 
 
-  async function generationRequest(token, action, source = submitted) {
+  async function generationRequest(token, action, source = submitted, { silent = false } = {}) {
     const response = await fetch("/api/oskiewar-generation", {
       method: "POST", headers: { "Content-Type": "application/json", authorization: "Bearer " + token },
       body: JSON.stringify({ ...source, action }), signal: AbortSignal.timeout(100000),
     });
     const result = await response.json();
     if (!response.ok) {
-      if (result.code === "handle_required") {
+      if (!silent && result.code === "handle_required") {
         close(); globalThis.__oskiewarAccountDoor = "handle";
       }
       throw new Error(result.message || "Fighter generation failed.");
@@ -439,6 +440,34 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null,
       say("Withdrawn. Your stored material is removed and future use is blocked.", "settled");
     } catch (error) { working(false); say(error.message, "trouble"); }
   });
+  // A default is an already accepted account result, never a new grant or
+  // acceptance. Fetch live authority before equipping; don't retain a photo or
+  // fighter across pages. Only the explicitly configured pilot handle opts in.
+  async function restoreSaved() {
+    if (!defaultHandle) return false;
+    const revision = ++authority;
+    try {
+      const token = await bearer();
+      if (revision !== authority) return false;
+      if (!token) { clearFighter(); return false; }
+      const result = await generationRequest(token, "account", {}, { silent: true });
+      if (revision !== authority) return false;
+      if (result.status !== "accepted" || result.handle !== defaultHandle ||
+          !Number.isFinite(result.validUntil) || result.validUntil <= Date.now()) {
+        clearFighter(); return false;
+      }
+      const appearance = validateFighter(result.fighter);
+      accepted = { ...result, token };
+      globalThis.__oskiewarFighterAppearance = { appearance,
+        handle: result.handle, validUntil: result.validUntil };
+      onDefault(result.handle);
+      return true;
+    } catch { if (revision === authority) clearFighter(); return false; }
+  }
+  addEventListener("oskiewar:account-change", event => {
+    clearFighter();
+    if (event.detail?.signedIn) void restoreSaved();
+  });
   let checking = false;
   setInterval(async () => {
     if (!accepted || checking) return;
@@ -448,7 +477,7 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null,
     try {
       const token = await bearer();
       if (!token) { clearFighter(); return; }
-      const result = await generationRequest(token, "account", {});
+      const result = await generationRequest(token, "account", {}, { silent: true });
       if (accepted !== selected) return;
       if (result.status !== "accepted" || result.fighter?.hash !== selected.fighter.hash) { clearFighter(); return; }
       accepted = { ...result, token };
@@ -459,5 +488,5 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null,
   }, 15000);
   addEventListener("pagehide", clearFighter);
 
-  return { open, close, get isOpen() { return !panel.hidden; } };
+  return { open, close, restoreSaved, get isOpen() { return !panel.hidden; } };
 }

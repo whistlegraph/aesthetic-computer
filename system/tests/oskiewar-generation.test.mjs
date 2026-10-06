@@ -132,11 +132,14 @@ test('generated appearance is local practice presentation only, and expires', as
   const source = await readFile(new URL('../../xbox/live/oskiewar.js', import.meta.url), 'utf8');
   const code = source.slice(source.indexOf('function generatedAppearance('), source.indexOf('function generatedPartColor('));
   const read = Function('globalThis','netSession','roundViewer','versusLane','survivalActive','shellMode', code+';return generatedAppearance;');
-  const selected={__oskiewarFighterAppearance:{appearance,validUntil:Date.now()+60000}};
+  const selected={__oskiewarLocalPractice:true,__oskiewarFighterAppearance:{appearance,validUntil:Date.now()+60000}};
   assert.equal(read(selected,null,false,()=>false,()=>false,'GAME')({pad:0}),appearance);
   for(const [net,viewer,versus,survival,mode] of [[{},false,false,false,'GAME'],[null,true,false,false,'GAME'],[null,false,true,false,'GAME'],[null,false,false,true,'GAME'],[null,false,false,false,'MENU']])
     assert.equal(read(selected,net,viewer,()=>versus,()=>survival,mode)({pad:0}),null);
   assert.equal(read(selected,null,false,()=>false,()=>false,'GAME')({pad:1}),null);
+  selected.__oskiewarLocalPractice=false;
+  assert.equal(read(selected,null,false,()=>false,()=>false,'GAME')({pad:0}),null,'online park never uses the private fighter');
+  selected.__oskiewarLocalPractice=true;
   selected.__oskiewarFighterAppearance.validUntil=1;
   assert.equal(read(selected,null,false,()=>false,()=>false,'GAME')({pad:0}),null);
 });
