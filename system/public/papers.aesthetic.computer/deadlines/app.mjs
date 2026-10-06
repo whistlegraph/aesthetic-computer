@@ -65,14 +65,13 @@ function revealHash() {
 function reset() {
   form.reset(); view = "upcoming";
   history.replaceState(null, "", location.pathname);
-  // Reset values are applied after the reset event finishes.
-  queueMicrotask(() => render());
 }
 form.addEventListener("submit", (event) => event.preventDefault());
 form.addEventListener("input", () => render());
 form.addEventListener("change", () => render());
 form.elements.namedItem("sort").addEventListener("change", () => render());
-form.addEventListener("reset", () => { view = "upcoming"; queueMicrotask(() => render()); });
+// Native button resets finish after event microtasks; read the new values next task.
+form.addEventListener("reset", () => { view = "upcoming"; setTimeout(() => render(), 0); });
 document.querySelector("#clear-empty").addEventListener("click", reset);
 for (const link of viewLinks) link.addEventListener("click", (event) => {
   if (!catalog || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;

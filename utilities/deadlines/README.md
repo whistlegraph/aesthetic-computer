@@ -8,6 +8,7 @@ Edit `system/public/papers.aesthetic.computer/deadlines/opportunities.json`, the
 node utilities/deadlines/build.mjs
 node --test utilities/deadlines/core.test.mjs
 node utilities/deadlines/build.mjs --check
+node utilities/deadlines/check-browser.mjs https://papers.aesthetic.computer/deadlines/
 ```
 
 Commit the catalog and generated `index.html`, `feed.xml` and `calendar.ics` together. Publish through the repository's standard lith deployment. `template.html` owns the page shell; `core.mjs` shares validation and formatting between the browser and builder.
