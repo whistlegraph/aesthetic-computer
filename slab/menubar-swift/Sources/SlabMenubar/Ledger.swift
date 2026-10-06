@@ -152,6 +152,13 @@ final class LedgerStore {
         s?.onLaunch = { body in Self.launchPrompt(body) }
         s?.onNavigate = { body in DeskflowSpatialNav.receiveNavigate(body) }
         s?.onDeskflowRoute = { body in DeskflowSpatialNav.receiveRoute(body) }
+        s?.onZoomReset = {
+            DispatchQueue.main.sync {
+                ZoomEscape.cancelLocal()
+                return ZoomLens.status
+            }
+        }
+        s?.onZoomStatus = { DispatchQueue.main.sync { ZoomLens.status } }
         server = s
     }
 
@@ -622,6 +629,8 @@ final class LedgerHTTPServer {
     var onNavigate: (([String: Any]) -> Bool)?
     /// Ask the active Deskflow controller to traverse a validated direction path.
     var onDeskflowRoute: (([String: Any]) -> Bool)?
+    var onZoomReset: (() -> [String: Any])?
+    var onZoomStatus: (() -> [String: Any])?
     private var fd: Int32 = -1
     private let queue = DispatchQueue(label: "slab.ledger.http")
     private var running = false
@@ -759,6 +768,20 @@ final class LedgerHTTPServer {
             let obj = decodedBody(data, bodyStart: bodyStart)
             let ok = onDeskflowRoute?(obj) ?? false
             respond(client, body: Data("{\"ok\":\(ok)}".utf8))
+            return
+        }
+
+        // A reset is terminal: never rebroadcast received requests, or peers
+        // would echo Escape forever. Reply only after the compositor was reset.
+        let request = line.split(separator: " ")
+        if request.count >= 2,
+           (request[0] == "POST" && request[1] == "/zoom/reset"
+            || request[0] == "GET" && request[1] == "/zoom") {
+            let result = request[0] == "POST" ? onZoomReset?() : onZoomStatus?()
+            var object = result ?? [:]
+            object["ok"] = result != nil
+            respond(client, body: (try? JSONSerialization.data(withJSONObject: object))
+                ?? Data("{\"ok\":false}".utf8))
             return
         }
 

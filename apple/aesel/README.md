@@ -9,6 +9,9 @@ pieces and thread changes, and can expand to fill the workspace.
 The animated title and version share a fixed top strip with the Mac window
 controls. A blank notebook starts editing on its first ruled line; the remaining
 paper accepts clicks. Letter animation never changes the title's hit area.
+Click the version to view providers, the reported model, the 🧠 balance and its
+daily/purchased breakdown, purchases, and saved versions. Account costs stay
+inside this panel rather than occupying a row above the notebook.
 
 On Mac, Command-N opens a separate notebook window. Each window keeps its own
 session and draft; saved threads share one store and merge per-thread updates.
@@ -59,6 +62,19 @@ characters. Older runtimes remain unverified; no claim should exceed the evidenc
 ```sh
 ./run.sh mac               # build and open Aesel.app
 ```
+
+To measure a built debug app without inference, run from the repository root:
+
+```sh
+python3 apple/aesel/bin/bench-native.py --app /path/to/Debug/Aesel.app --runs 3 --out tmp/native-speed.json
+```
+
+This launches the empty notebook fixture and measures automation readiness,
+the first state query, and verified composer edits. It refuses an existing draft
+and clears its test input. Control round trips include the 150 ms mailbox timer;
+they do not measure physical keystroke-to-pixel latency. The app fingerprint is
+computed once, off the UI thread, when automation first requests it. Compare
+provider inference separately with `aesel/bin/bench-providers.mjs --live`.
 
 The native Mac target currently supports the shared Piece workflow: AC sign-in,
 hosted inference, drafts, publishing, notebook, saved threads and braincells.

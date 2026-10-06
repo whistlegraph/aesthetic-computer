@@ -7,6 +7,18 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 
 ---
 
+## morning study — RENDER (v2 2026-10-04; first minute tightened, @jeffrey ear-check next)
+
+- **Lane:** `afternoon-study/`. 4:00 · 80 BPM. The original three Menu Band
+  voice banks and Salamander piano, with a spacious E–G–A–G motif, gradual
+  vocal entrance, warm major harmony and soft wooden mallets. No drum build
+  or drop; static-gain master targets −20 LUFS. V2 fills the early piano
+  gaps and moves the first vocal entrance from 0:25 to 0:13.
+- **Source:** `afternoon-study/bin/render-morning.py`.
+- **Master:** `afternoon-study/out/morning/morning-study.{wav,mp3}`; MP3 copy
+  on the Desktop. Stems, event score and measurements beside the master.
+- **Artist:** Aesthetic Dot Computer. Private listening draft; not submitted.
+
 ## nighttime study — RENDER (2026-09-30; Ringing Voice, @jeffrey ear-check next)
 
 - **Latest: Ringing Voice.** 9:48 · 104 BPM. Measured vowel spectra from all

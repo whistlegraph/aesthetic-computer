@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build:bun": "bun bin/build-bun.mjs",
+    "bench:providers": "node bin/bench-providers.mjs",
     "bench:runtimes": "python3 bin/bench-runtimes.py --entry launch --launcher --runs 7 --out ../tmp/tui-latency/runtimes.json",
     "test": "node bin/sync-context.mjs --check && node --test test/*.test.mjs && bash test/cli.sh",
     "context": "node bin/sync-context.mjs",
