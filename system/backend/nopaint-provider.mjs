@@ -1,6 +1,7 @@
 import {createHash} from 'node:crypto';
 import {braincellsFromCost} from './easel-paid-credits.mjs';
 import {imageInputBound} from './easel-input-images.mjs';
+import {movePrompt, PROMPT_VERSION} from './nopaint-move-prompt.mjs';
 
 export const MODEL = 'fal-ai/flux-2/klein/4b/edit';
 const fail = (status, message) => Object.assign(Error(message), {status});
@@ -9,7 +10,7 @@ const fail = (status, message) => Object.assign(Error(message), {status});
 export function moveOffer(usd) {
   if (!Number.isFinite(usd) || usd <= 0 || usd > 1) return null;
   const braincells = braincellsFromCost(usd);
-  const quote = createHash('sha256').update(JSON.stringify([MODEL, '256-rgb-v1', braincells])).digest('hex');
+  const quote = createHash('sha256').update(JSON.stringify([MODEL, '256-rgb-v2', PROMPT_VERSION, braincells])).digest('hex');
   return {id:'ac-klein', name:'FLUX.2 Klein 4B', model:MODEL, location:'AC cloud',
     braincells, quote, size:[256,256], previews:false};
 }
@@ -39,9 +40,8 @@ export function createNoPaintProvider({key, fetch=globalThis.fetch, sleep=ms=>ne
       return response.json();
     };
     try {
-      const amount = {'.25':'small', '.5':'medium', '.75':'large'}[String(input.strength).replace(/^0/,'')];
       handle = await request('https://queue.fal.run/'+MODEL, 'POST', {
-        prompt:`Make exactly one ${amount} abstract painting move on this image: change a texture, color relationship, shape, or spatial arrangement. Preserve most of the existing image. Return the complete updated image. Do not add text, borders, or a depicted scene.`,
+        prompt:movePrompt(input),
         image_urls:['data:image/png;base64,'+input.image], image_size:{width:256,height:256},
         seed:input.seed, num_images:1, num_inference_steps:4, output_format:'png',
         sync_mode:true, enable_safety_checker:true,

@@ -49,7 +49,7 @@ export function noPaintBilling(db, {now=()=>new Date(), limit=DAILY_TOKEN_BUDGET
   }
   async function begin({user, handle, requestId, hash, braincells, model}) {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId || '')) throw fail(400, 'Move ID must be a UUID');
-    if (!Number.isSafeInteger(braincells) || braincells < 1) throw fail(400, 'Invalid move price');
+    if (!Number.isSafeInteger(braincells) || braincells < 0) throw fail(400, 'Invalid move price');
     const id = requestKey(user, requestId), at = now(), day = dayKey(at), usageId = handle+':'+day;
     const holdId = randomUUID();
     await reconcile(user);

@@ -84,7 +84,7 @@ test('provider adapter submits one complete canvas and uses no retries or arbitr
   }});
   const result=await generate(JSON.parse(event().body));assert.equal(result.width,256);assert.equal(result.height,256);
   const payload=JSON.parse(calls[0][1].body);assert.equal(payload.image_urls[0],'data:image/png;base64,'+image);
-  assert.equal(payload.num_images,1);assert.equal(payload.enable_safety_checker,true);assert.match(payload.prompt,/one small/);
+  assert.equal(payload.num_images,1);assert.equal(payload.enable_safety_checker,true);assert.match(payload.prompt,/quarter of the image/);
   assert.equal(calls.filter(([,options])=>options.method==='POST').length,1);
 });
 test('provider callback URLs cannot receive credentials on another host',async()=>{

@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import sharp from 'sharp';
-import {openRouterOffers, createOpenRouterProvider} from '../backend/nopaint-openrouter.mjs';
+import {openRouterOffers, createOpenRouterProvider, profiles} from '../backend/nopaint-openrouter.mjs';
+import {movePrompt} from '../backend/nopaint-move-prompt.mjs';
 import {createHandler} from '../netlify/functions/nopaint-inference.mjs';
 const image=(await sharp({create:{width:256,height:256,channels:3,background:'#74746f'}}).png().toBuffer()).toString('base64');
 const offers=openRouterOffers(JSON.stringify([
@@ -15,6 +16,42 @@ test('only configured reviewed image models receive an explicit Braincells quote
   for(const value of ['bad','null','{}','[null]', '[{"model":"unknown","usd":0.01}]']) assert.deepEqual(openRouterOffers(value),[]);
   assert.equal(offers.length,2);assert.notEqual(offers[0].quote,offers[1].quote);
   assert.equal(offers[0].braincells,8000);assert.equal(offers[0].previews,false);
+});
+test('all enables the complete reviewed image-editing catalog with explicit prices',()=>{
+  const all=openRouterOffers('all');
+  assert.equal(all.length,50);assert.equal(new Set(all.map(item=>item.quote)).size,50);
+  assert.ok(all.every(item=>Number.isSafeInteger(item.braincells)&&item.braincells>=0));
+  assert.equal(all.find(item=>item.model==='openai/gpt-5-image').braincells,8000);
+  assert.equal(all.find(item=>item.model==='openai/gpt-5-image-mini').braincells,6000);
+  assert.equal(all.find(item=>item.model==='inclusionai/ming-image-0.1-design-layer').braincells,0);
+  for(const model of Object.keys(profiles))assert.ok(all.some(offer=>offer.model===model));
+});
+test('every enabled profile sends its own supported settings and one reference without retrying',async()=>{
+  for(const offer of openRouterOffers('all')) {
+    let request, calls=0;
+    const generate=createOpenRouterProvider({key:'test-only',fetch:async(url,options)=>{
+      calls++;request=JSON.parse(options.body);return Response.json({data:[{b64_json:image}]});
+    }});
+    await generate({image,strength:.5,seed:7},offer);
+    assert.equal(calls,1);assert.equal(request.model,offer.model);
+    assert.equal(request.input_references.length,1);
+    assert.equal(request.prompt,movePrompt({strength:.5,seed:7,model:offer.model}));
+    for(const [key,value] of Object.entries(profiles[offer.model].options))
+      assert.equal(request[key],key==='seed'?7:value);
+    if(offer.model.startsWith('krea/'))assert.equal(request.n,undefined);
+    else assert.equal(request.n,1);
+    assert.notEqual(request.output_format,'svg');
+  }
+});
+test('move prompts vary the operation and affected area instead of imposing a painting style',()=>{
+  const small=movePrompt({seed:42,strength:.25});
+  assert.equal(small,movePrompt({seed:42,strength:.25}));
+  assert.match(small,/quarter of the image/);
+  assert.match(movePrompt({seed:42,strength:.5}),/half of the image/);
+  assert.match(movePrompt({seed:42,strength:.75}),/entire image/);
+  assert.doesNotMatch(small,/abstract painting|Preserve most/);
+  assert.ok(new Set(Array.from({length:64},(_,seed)=>movePrompt({seed,strength:.75}))).size>=14);
+  assert.match(movePrompt({seed:22,strength:.5,model:'google/gemini-nano-banana-2.1'}),/crisp geometric/);
 });
 test('OpenRouter receives exactly one full input, the selected model and supported size; output returns to 256',async()=>{
   const calls=[];
