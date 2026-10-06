@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test, { mock } from 'node:test';
 mock.module('../backend/authorization.mjs', { exports: { authorize: async headers => headers?.authorization ? { sub: 'auth0|fixture' } : null } });
+mock.module('../backend/oskiewar-identity.mjs', { exports: { fighterIdentity: async () => ({ sub: 'auth0|primary', handle: 'fixture' }) } });
 const { handler } = await import('../netlify/functions/oskiewar-submission.mjs');
 const { pseudonym } = await import('../netlify/functions/oskiewar-consent.mjs');
 test('submission bridge authenticates, strips filenames/identity/retention, forwards capability, fails closed', async () => {
@@ -15,7 +16,7 @@ test('submission bridge authenticates, strips filenames/identity/retention, forw
     assert.equal(seen, undefined);
     const result = await handler(event); assert.equal(result.statusCode, 201);
     assert.equal(seen.url, 'https://gate.invalid/v0/submission');
-    assert.deepEqual(JSON.parse(seen.body), { subject: pseudonym('auth0|fixture', 'fixture'), capability: 'signed-capability', files: [{source:'appearance', base64:btoa('fixture')}] });
+    assert.deepEqual(JSON.parse(seen.body), { subject: pseudonym('auth0|primary', 'fixture'), capability: 'signed-capability', files: [{source:'appearance', base64:btoa('fixture')}] });
     assert.equal(seen.headers.Authorization, 'Bearer deployer');
     globalThis.fetch = async () => Response.json({error:'expired'}, {status:403});
     assert.equal((await handler(event)).statusCode, 403);

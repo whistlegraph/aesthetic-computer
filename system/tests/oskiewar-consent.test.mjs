@@ -8,7 +8,8 @@
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
 mock.module('../backend/authorization.mjs', { exports: { authorize: async () => ({ sub: 'auth0|fixture' }) } });
-const { readScope, frozenFields, SEPARATE, handler } = await import("../netlify/functions/oskiewar-consent.mjs");
+mock.module('../backend/oskiewar-identity.mjs', { exports: { fighterIdentity: async () => ({ sub: 'auth0|primary', handle: 'fixture' }) } });
+const { readScope, frozenFields, SEPARATE, handler, pseudonym } = await import("../netlify/functions/oskiewar-consent.mjs");
 
 // The narrowest answer the wall can send: look at me, make a picture, show
 // nobody. Every test below is this with one thing changed.
@@ -35,6 +36,7 @@ test('explicit consent choices retry identically but a new choice gets a new rec
     await ask('11111111-1111-1111-1111-111111111111');
     await ask('22222222-2222-2222-2222-222222222222');
     assert.equal(sent[0].idempotency_key, sent[1].idempotency_key);
+    assert.equal(sent[0].subject, pseudonym('auth0|primary', 'fixture'), 'consent uses the verified handle owner');
     assert.notEqual(sent[0].idempotency_key, sent[2].idempotency_key);
     assert.equal((await ask('bad')).statusCode, 400);
     assert.equal(sent.length, 3);
