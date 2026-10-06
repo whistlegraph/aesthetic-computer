@@ -39,6 +39,7 @@ class OskiewarAccountService final : public std::enable_shared_from_this<Oskiewa
       std::lock_guard<std::mutex> lock(m_mutex);
       ++m_generation; generation = m_generation;
       m_busy = false; m_reportBusy = m_leaderboardBusy = false; m_secret.clear(); m_code.clear(); m_error.clear(); m_expires = 0;
+      m_fighterBusy = false; m_fighter = "{}"; m_nextFighter = 0;
       if (action == "logout") {
         // The game's own private account file only. OS/developer credentials
         // and the phone's login session are deliberately outside this scope.
@@ -72,6 +73,7 @@ class OskiewarAccountService final : public std::enable_shared_from_this<Oskiewa
     }
     if (!poll.empty()) request(generation, false, poll);
     if (!queuedReport.empty()) report(queuedReport);
+    refreshFighter();
     std::lock_guard<std::mutex> lock(m_mutex);
     auto json = ref new Windows::Data::Json::JsonObject();
     using Windows::Data::Json::JsonValue;
@@ -83,12 +85,64 @@ class OskiewarAccountService final : public std::enable_shared_from_this<Oskiewa
     json->Insert(L"expiresAt", JsonValue::CreateNumberValue(static_cast<double>(m_expires)));
     json->Insert(L"error", JsonValue::CreateStringValue(wide(m_error)));
     json->Insert(L"reportStatus", JsonValue::CreateStringValue(wide(m_reportStatus)));
+    try { json->Insert(L"savedFighter", Windows::Data::Json::JsonObject::Parse(wide(m_fighter))); } catch (...) {}
     json->Insert(L"leaderboardError", JsonValue::CreateStringValue(wide(m_leaderboardError)));
     try { json->Insert(L"leaderboard", Windows::Data::Json::JsonObject::Parse(wide(m_leaderboard))); } catch (...) {}
     return utf8(json->Stringify());
   }
 
  private:
+  // Only the host holds the paired account credential. The game gets an
+  // expiring appearance, revalidated against the same authority as the web.
+  void refreshFighter() {
+    using namespace Windows::Data::Json;
+    std::string token; unsigned generation;
+    {
+      std::lock_guard<std::mutex> lock(m_mutex);
+      if (m_token.empty() || m_fighterBusy || GetTickCount64() < m_nextFighter) return;
+      token = m_token; generation = m_generation; m_fighterBusy = true;
+      m_nextFighter = GetTickCount64() + 15000;
+    }
+    const auto lifetime = shared_from_this();
+    auto client = ref new Windows::Web::Http::HttpClient();
+    client->DefaultRequestHeaders->Authorization = ref new Windows::Web::Http::Headers::HttpCredentialsHeaderValue(L"Bearer", wide(token));
+    auto uri = ref new Windows::Foundation::Uri(L"https://aesthetic.computer/api/oskiewar-generation");
+    auto content = ref new Windows::Web::Http::HttpStringContent(L"{\"action\":\"account\"}", Windows::Storage::Streams::UnicodeEncoding::Utf8, L"application/json");
+    const auto status = std::make_shared<unsigned>(0);
+    concurrency::create_task(client->PostAsync(uri, content)).then([client, content, lifetime, status](Windows::Web::Http::HttpResponseMessage^ response) {
+      *status = static_cast<unsigned>(response->StatusCode);
+      if (!response->IsSuccessStatusCode) throw ref new Platform::FailureException();
+      return response->Content->ReadAsStringAsync();
+    }).then([this, lifetime, generation, status](concurrency::task<Platform::String^> completed) {
+      try {
+        auto body = completed.get();
+        if (body->Length() > 32768) throw ref new Platform::FailureException();
+        auto json = JsonObject::Parse(body);
+        const auto until = json->GetNamedNumber(L"validUntil", 0);
+        const auto now = unix_ms();
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (generation != m_generation) return;
+        m_fighterBusy = false; m_fighter = "{}";
+        if (json->GetNamedString(L"status", L"") == L"accepted" && std::isfinite(until) && until > now) {
+          // Failed polls cannot leave a long-lived likeness active offline.
+          auto safe = ref new JsonObject();
+          safe->Insert(L"fighter", json->GetNamedObject(L"fighter"));
+          safe->Insert(L"handle", JsonValue::CreateStringValue(json->GetNamedString(L"handle")));
+          safe->Insert(L"validUntil", JsonValue::CreateNumberValue((std::min)(until, static_cast<double>(now + 30000))));
+          m_fighter = utf8(safe->Stringify());
+        }
+      } catch (...) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (generation != m_generation) return;
+        m_fighterBusy = false; m_fighter = "{}";
+        if (*status == 401) {
+          m_handle.clear(); m_token.clear(); m_status = "error"; m_error = "Sign-in expired. Sign in again.";
+          std::ofstream clear(m_path.c_str(), std::ios::binary | std::ios::trunc);
+          if (clear) clear << "{}";
+        }
+      }
+    });
+  }
   static Platform::String^ wide(const std::string& text) {
     const int size = MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), nullptr, 0);
     std::wstring result(size, L'\0');
@@ -283,6 +337,9 @@ class OskiewarAccountService final : public std::enable_shared_from_this<Oskiewa
   std::wstring m_path;
   std::string m_status = "signed-out", m_handle, m_code, m_secret, m_error, m_token;
   std::string m_reportStatus, m_leaderboardError, m_leaderboard = "{}";
+  std::string m_fighter = "{}";
+  bool m_fighterBusy = false;
+  ULONGLONG m_nextFighter = 0;
   bool m_reportBusy = false, m_leaderboardBusy = false;
   ULONGLONG m_lastLeaderboard = 0, m_nextReport = 0;
   unsigned m_reportRetries = 0;

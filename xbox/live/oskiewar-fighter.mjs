@@ -172,7 +172,7 @@ export function fighterMesh(appearance) {
 }
 // The module loads through the wizard before the game boots. Native builds
 // without the account UI retain their existing renderer.
-globalThis.__oskiewarFighterModel={build:fighterParts,pose:poseFighter,version:2};
+globalThis.__oskiewarFighterModel={build:fighterParts,pose:poseFighter,validate:validateFighter,version:2};
 // Use a depth buffer for intersecting sleeves, hair and clothing. Sorting
 // whole faces alone produces spikes at the waist and lets back hair leak through.
 let previewContext;

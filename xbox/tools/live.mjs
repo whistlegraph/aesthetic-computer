@@ -11,6 +11,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { compilePublishedKidLisp } from "./kidlisp-native.mjs";
 import { freshLiveReady } from "./live-reload.mjs";
+import { nativeSource } from "./oskiewar-native-source.mjs";
 
 const defaultEnv = resolve(homedir(),
   "aesthetic-computer/aesthetic-computer-vault/xbox/device-portal.env");
@@ -144,14 +145,16 @@ function publish(sourcePath) {
     throw new Error("canonical Oskiewar deploys must use npm run oskiewar:deploy");
   if (!existsSync(absolute)) throw new Error(`piece not found: ${absolute}`);
   let source = readFileSync(absolute, "utf8");
+  const nativeAccountBundle = source.includes("// @bundle-native-account");
   if (source.startsWith("// @bundle-qr")) {
     const qrPath = resolve(dirname(fileURLToPath(import.meta.url)),
       "../../system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs");
     const qrSource = readFileSync(qrPath, "utf8").replace(
       /\nexport\s*\{[\s\S]*?\};\s*$/, "\n");
-    source = qrSource + "\n" + source;
+    source = qrSource + "\n" + (nativeAccountBundle ? nativeSource(source) : source);
     return publishSource(source, absolute + " + qr");
   }
+  if (nativeAccountBundle) return publishSource(nativeSource(source), absolute + " + account");
   const item = installed();
   curl(["-u", autoAuth, "-X", "POST", "-F",
     `file=@${absolute};filename=live-piece.js`, appFileUrl(item)]);
