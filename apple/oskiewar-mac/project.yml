@@ -105,9 +105,16 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_ENTITLEMENTS: Oskiewar-macOS.entitlements
         ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
         COMBINE_HIDPI_IMAGES: YES
 
     postBuildScripts:
+      - name: Stage shared Oskiewar runtime
+        basedOnDependencyAnalysis: false
+        script: |
+          export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+          node "${SRCROOT}/../../xbox/tools/oskiewar-manifest.mjs" --stage \
+            "${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Resources/live"
       # Info.plist declares CFBundleIconFile = Oskiewar, and main.swift also
       # loads Oskiewar.icns by name to set NSApp.applicationIconImage. Rather
       # than commit a derived binary, render it from the shared master with

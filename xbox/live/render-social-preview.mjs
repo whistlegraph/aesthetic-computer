@@ -1,5 +1,6 @@
 // Burn oskiewar's real title renderer into Open Graph poster/video assets.
 
+import { assetFile, runtimeManifest } from "../tools/oskiewar-manifest.mjs";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { createServer } from "node:http";
@@ -34,40 +35,23 @@ if (process.argv.includes("--check")) {
 
 const mime = new Map([
   [".html", "text/html; charset=utf-8"], [".js", "text/javascript; charset=utf-8"],
-  [".mjs", "text/javascript; charset=utf-8"], [".ttf", "font/ttf"],
+  [".mjs", "text/javascript; charset=utf-8"], [".ttf", "font/ttf"], [".woff2", "font/woff2"],
   [".svg", "image/svg+xml"], [".png", "image/png"],
 ]);
+const runtime = runtimeManifest();
 function fileFor(pathname) {
   if (pathname === "/" || pathname === "/mac-test.html")
     return join(live, "mac-test.html");
-  // Every module the shell imports has to be listed, or the page dies on a 404
-  // and the capture comes out empty rather than loudly wrong.
-  if (["/oskiewar.js", "/oskiewar-sfx.mjs", "/oskiewar-voice.mjs",
-      "/oskiewar-midi.mjs", "/frame-driver.mjs", "/scene3d-webgl.mjs", "/scene3d.mjs", "/frame-vm.mjs",
-      "/render-quality.mjs", "/photo-theme.mjs", "/account.mjs",
-      "/oskiewar-wizard.mjs", "/oskiewar-fighter.mjs", "/oskiewar-workshop.mjs", "/oskiewar-map.mjs",
-      "/round-room.mjs"].includes(pathname)) return join(live, pathname.slice(1));
-  if (["underpass.png", "props.png", "explosions-v1.png", "weapons-v2.png"]
-      .some(name => pathname === "/themes/photorealistic/assets/" + name))
-    return join(live, pathname.slice(1));
-  if (pathname === "/aesthetic.computer/lib/auth0-otp.mjs")
-    return join(repo, "system/public/aesthetic.computer/lib/auth0-otp.mjs");
-  if (pathname === "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs")
-    return join(repo, "system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs");
-  if (pathname === "/aesthetic.computer/lib/product-analytics.mjs")
-    return join(repo, "system/public/aesthetic.computer/lib/product-analytics.mjs");
-  if (pathname === "/aesthetic.computer/lib/oskiewar-analytics.mjs")
-    return join(repo, "system/public/aesthetic.computer/lib/oskiewar-analytics.mjs");
-  if (pathname === "/aesthetic.computer/cursors/precise.svg" ||
-      pathname === "/aesthetic.computer/cursors/active.svg")
-    return join(repo, "system/public", pathname.slice(1));
-  if (pathname === "/ComicRelief-Regular.ttf") return join(repo,
-    "system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf");
+  if (runtime.files[pathname]) return assetFile(pathname);
   return "";
 }
 
 const server = createServer(async (request, response) => {
   const url = new URL(request.url, "http://127.0.0.1");
+  if (url.pathname === "/oskiewar-release.json") {
+    response.writeHead(200, {"content-type":"application/json"});
+    response.end(JSON.stringify(runtime)); return;
+  }
   if (url.pathname === "/api/product-analytics-config") {
     response.writeHead(200, { "content-type": "application/json" });
     response.end("{}");

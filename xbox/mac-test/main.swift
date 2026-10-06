@@ -5,24 +5,7 @@ final class FightAppDelegate: NSObject, NSApplicationDelegate {
     private var window: NSWindow!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        guard let resources = Bundle.main.resourceURL else {
-            fatalError("Missing app resources")
-        }
-        let live = resources.appendingPathComponent("live", isDirectory: true)
-        let html = live.appendingPathComponent("mac-test.html")
-        let piece = live.appendingPathComponent("oskiewar.js")
-        guard let pieceSource = try? String(contentsOf: piece, encoding: .utf8),
-              let encoded = try? JSONSerialization.data(withJSONObject: [pieceSource]),
-              let sourceArray = String(data: encoded, encoding: .utf8) else {
-            fatalError("Missing fight source")
-        }
-
         let configuration = WKWebViewConfiguration()
-        configuration.userContentController.addUserScript(WKUserScript(
-            source: "globalThis.__fightPieceSource = \(sourceArray)[0];",
-            injectionTime: .atDocumentStart,
-            forMainFrameOnly: true
-        ))
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.setValue(false, forKey: "drawsBackground")
 
@@ -38,7 +21,8 @@ final class FightAppDelegate: NSObject, NSApplicationDelegate {
         window.center()
         window.makeKeyAndOrderFront(nil)
         window.makeFirstResponder(webView)
-        webView.loadFileURL(html, allowingReadAccessTo: live)
+        webView.load(URLRequest(url: URL(string: "https://oskiewar.com/")!,
+                                cachePolicy: .reloadIgnoringLocalCacheData))
         NSApp.activate(ignoringOtherApps: true)
     }
 

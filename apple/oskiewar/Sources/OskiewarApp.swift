@@ -64,6 +64,15 @@ struct GameSurface: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--smoke-test") {
+            configuration.userContentController.addUserScript(WKUserScript(source: """
+                globalThis.__oskiewarSmokeErrors = [];
+                addEventListener('error', e => __oskiewarSmokeErrors.push(e.message));
+                addEventListener('unhandledrejection', e => __oskiewarSmokeErrors.push(String(e.reason)));
+                """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
+        #endif
         configuration.allowsInlineMediaPlayback = true
         configuration.mediaTypesRequiringUserActionForPlayback = []
         configuration.setURLSchemeHandler(context.coordinator.handler,
@@ -95,6 +104,12 @@ struct GameSurface: UIViewRepresentable {
         private var usingFallback = false
 
         func loadProduction(in webView: WKWebView) {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--offline") {
+                loadFallback(in: webView, error: NSError(domain: "offline-test", code: 0))
+                return
+            }
+            #endif
             let url = URL(string: "https://oskiewar.com/?touch&app=ios")!
             webView.load(URLRequest(url: url,
                                     cachePolicy: .reloadIgnoringLocalCacheData))
@@ -117,6 +132,22 @@ struct GameSurface: UIViewRepresentable {
             // A fresh page load starts with no injected insets; re-report so
             // the shell lays out clear of the indicator from its first frame.
             (webView as? InsetReportingWebView)?.reportSafeAreaInsets()
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--smoke-test") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 12) { [weak webView] in
+                    webView?.evaluateJavaScript("""
+                        JSON.stringify({url:location.href,screen:globalThis.__oskiewarTouch?.screen,
+                          release:globalThis.__oskiewarRelease,errors:globalThis.__oskiewarSmokeErrors})
+                        """) { value, error in
+                        let result = (value as? String) ?? "{\"error\":\"JavaScript unavailable\"}"
+                        let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                            .appendingPathComponent("runtime-smoke.json")
+                        try? result.write(to: output, atomically: true, encoding: .utf8)
+                        print("oskiewar runtime smoke: \(result)")
+                    }
+                }
+            }
+            #endif
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!,
@@ -128,37 +159,30 @@ struct GameSurface: UIViewRepresentable {
 }
 
 final class BundleSchemeHandler: NSObject, WKURLSchemeHandler {
-    private let routes: [String: (String, String)] = [
-        "/": ("mac-test", "html"),
-        "/mac-test.html": ("mac-test", "html"),
-        "/oskiewar.js": ("oskiewar", "js"),
-        "/oskiewar-sfx.mjs": ("oskiewar-sfx", "mjs"),
-        "/oskiewar-voice.mjs": ("oskiewar-voice", "mjs"),
-        "/oskiewar-midi.mjs": ("oskiewar-midi", "mjs"),
-        "/frame-driver.mjs": ("frame-driver", "mjs"),
-        "/scene3d-webgl.mjs": ("scene3d-webgl", "mjs"),
-        "/scene3d.mjs": ("scene3d", "mjs"),
-        "/frame-vm.mjs": ("frame-vm", "mjs"),
-        "/round-room.mjs": ("round-room", "mjs"),
-        "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs": ("qr", "mjs"),
-        "/aesthetic.computer/lib/product-analytics.mjs": ("product-analytics", "mjs"),
-        "/aesthetic.computer/lib/oskiewar-analytics.mjs": ("oskiewar-analytics", "mjs"),
-        "/ComicRelief-Regular.ttf": ("ComicRelief-Regular", "ttf"),
-    ]
-
     func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
-        guard let url = task.request.url, let resource = routes[url.path],
-              let file = Bundle.main.url(forResource: resource.0, withExtension: resource.1),
+        guard let url = task.request.url,
+              let root = Bundle.main.resourceURL?.appendingPathComponent("Runtime") else {
+            respond(task, url: task.request.url, status: 404,
+                    type: "text/plain", data: Data("not found".utf8))
+            return
+        }
+        let path = url.path == "/" ? "mac-test.html" : String(url.path.dropFirst())
+        let file = root.appendingPathComponent(path).standardizedFileURL
+        guard file.path.hasPrefix(root.standardizedFileURL.path + "/"),
               let data = try? Data(contentsOf: file) else {
             respond(task, url: task.request.url, status: 404,
                     type: "text/plain", data: Data("not found".utf8))
             return
         }
         let type: String
-        switch resource.1 {
+        switch file.pathExtension {
         case "html": type = "text/html"
         case "js", "mjs": type = "text/javascript"
         case "ttf": type = "font/ttf"
+        case "woff2": type = "font/woff2"
+        case "json": type = "application/json"
+        case "png": type = "image/png"
+        case "svg": type = "image/svg+xml"
         default: type = "application/octet-stream"
         }
         respond(task, url: url, status: 200, type: type, data: data)

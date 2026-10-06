@@ -14,33 +14,6 @@ targets:
     platform: iOS
     sources:
       - Sources
-      - path: ../../xbox/live/mac-test.html
-        buildPhase: resources
-      - path: ../../xbox/live/oskiewar.js
-        buildPhase: resources
-      - path: ../../xbox/live/oskiewar-sfx.mjs
-      - path: ../../xbox/live/oskiewar-voice.mjs
-        buildPhase: resources
-      - path: ../../xbox/live/oskiewar-midi.mjs
-        buildPhase: resources
-      - path: ../../xbox/live/frame-driver.mjs
-        buildPhase: resources
-      - path: ../../xbox/live/scene3d-webgl.mjs
-        buildPhase: resources
-      - path: ../../xbox/live/scene3d.mjs
-        buildPhase: resources
-      - path: ../../xbox/live/frame-vm.mjs
-        buildPhase: resources
-      - path: ../../xbox/live/round-room.mjs
-        buildPhase: resources
-      - path: ../../system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs
-        buildPhase: resources
-      - path: ../../system/public/aesthetic.computer/lib/product-analytics.mjs
-        buildPhase: resources
-      - path: ../../system/public/aesthetic.computer/lib/oskiewar-analytics.mjs
-        buildPhase: resources
-      - path: ../../system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf
-        buildPhase: resources
       - path: Assets.xcassets
         buildPhase: resources
       - path: PrivacyInfo.xcprivacy
@@ -53,6 +26,14 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: NO
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
         CODE_SIGN_ENTITLEMENTS: Oskiewar.entitlements
+    postBuildScripts:
+      - name: Stage shared Oskiewar runtime
+        basedOnDependencyAnalysis: false
+        script: |
+          export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+          node "${SRCROOT}/../../xbox/tools/oskiewar-manifest.mjs" --stage \
+            "${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Runtime"
     scheme:
       gatherCoverageData: false

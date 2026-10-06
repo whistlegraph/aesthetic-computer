@@ -4,6 +4,7 @@
 // set oskiewar.com serves, read from disk on every request so a save is a
 // reload rather than a deploy.
 
+import { runtimeManifest } from "./oskiewar-manifest.mjs";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize, resolve } from "node:path";
@@ -58,6 +59,10 @@ function fileFor(pathname) {
 
 const server = createServer(async (request, response) => {
   const { pathname } = new URL(request.url, "http://127.0.0.1");
+  if (pathname === "/oskiewar-release.json") {
+    response.writeHead(200, {"content-type":"application/json","cache-control":"no-store"});
+    response.end(JSON.stringify(runtimeManifest())); return;
+  }
   if (pathname === "/api/product-analytics-config") {
     response.writeHead(200, { "content-type": "application/json" });
     response.end("{}");

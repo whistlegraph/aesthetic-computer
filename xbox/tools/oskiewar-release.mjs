@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // One release receipt for Oskiewar's web, iOS-web, and Xbox live surfaces.
 
+import { runtimeManifest, verifyRuntime, assetFile } from "./oskiewar-manifest.mjs";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -22,28 +23,29 @@ const gitCommonDir = (() => {
   return dir ? resolve(root, dir) : resolve(root, ".git");
 })();
 const receiptPath = resolve(gitCommonDir, "oskiewar-parity.json");
-const channels = ["web", "ios", "xbox"];
+const channels = ["web", "ios-web", "ios", "macos", "steam", "xbox"];
 
 export const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 
 export function classifySeverity(paths) {
-  const iosNative = paths.some((path) => path.startsWith("apple/oskiewar/") &&
-    !path.endsWith("oskiewar.js"));
-  const xboxNative = paths.some((path) => path.startsWith("xbox/native-bios/") ||
-    path.startsWith("xbox/package/"));
-  if (iosNative && xboxNative) return "multi-native";
-  if (iosNative) return "ios-native";
-  if (xboxNative) return "xbox-native";
-  return "live";
+  const hosts = [
+    ["ios", ["apple/oskiewar/"]],
+    ["macos", ["apple/oskiewar-mac/", "xbox/macos-native/", "xbox/mac-test/"]],
+    ["steam", ["xbox/steam/shell/"]],
+    ["xbox", ["xbox/native-bios/", "xbox/package/"]],
+  ].filter(([, roots]) => paths.some(path => roots.some(root => path.startsWith(root)) &&
+    !path.endsWith("oskiewar.js")));
+  return hosts.length > 1 ? "multi-native" : hosts.length ? `${hosts[0][0]}-native` : "live";
 }
 
-export function newRelease(hash, commit, severity, previous = null) {
+export function newRelease(hash, commit, severity, previous = null, runtimeHash = null) {
   const at = new Date().toISOString();
   return {
     format: "computer.aesthetic.oskiewar-parity", version: 1,
-    desired: { hash, commit, severity, createdAt: at },
+    desired: { hash, runtimeHash, commit, severity, createdAt: at },
     channels: Object.fromEntries(channels.map((name) => [name, {
-      status: previous?.channels?.[name]?.hash === hash ? "current" : "pending",
+      status: previous?.channels?.[name]?.hash === hash &&
+        (!runtimeHash || name === "xbox" || previous?.desired?.runtimeHash === runtimeHash) ? "current" : "pending",
       hash: previous?.channels?.[name]?.hash || null, updatedAt: at,
     }])),
   };
@@ -133,27 +135,33 @@ function sourceState(previous = null) {
   const tracked = git("ls-files", "--", "xbox/live/oskiewar.js") !== "";
   const sourceStatus = git("status", "--porcelain", "--", "xbox/live/oskiewar.js");
   const dirty = sourceStatus !== "";
-  const workingChanges = git("status", "--porcelain", "--", "apple/oskiewar",
-    "xbox/live", "xbox/native-bios", "xbox/package")
+  const workingChanges = git("status", "--porcelain", "--", "apple/oskiewar", "apple/oskiewar-mac",
+    "xbox/live", "xbox/macos-native", "xbox/steam/shell", "xbox/native-bios", "xbox/package")
     .split("\n").filter(Boolean).map((line) => line.replace(/^.{1,2}\s+/, ""));
   const baseline = previous?.desired?.commit || `${git("rev-parse", "HEAD")}^`;
   let committedChanges = [];
   try {
     committedChanges = git("diff", "--name-only", `${baseline}..HEAD`, "--",
-      "apple/oskiewar", "xbox/live", "xbox/native-bios", "xbox/package")
+      "apple/oskiewar", "apple/oskiewar-mac", "xbox/live", "xbox/macos-native", "xbox/steam/shell", "xbox/native-bios", "xbox/package")
       .split("\n").filter(Boolean);
   } catch {}
   const changed = [...new Set([...committedChanges, ...workingChanges])];
+  const runtime = runtimeManifest(root);
+  const runtimeDirty = git("status", "--porcelain", "--", ...Object.keys(runtime.files)
+    .map(url => assetFile(url, root))) !== "";
   const buildMatch = bytes.toString("utf8").match(/const buildVersion = (\d+);/);
   const build = buildMatch ? Number(buildMatch[1]) : null;
   const expectedBuild = Number(git("rev-list", "--count", "HEAD", "--",
     "xbox/live/oskiewar.js")) + (dirty ? 1 : 0);
-  return { hash: sha256(bytes), tracked, dirty, changed,
+  return { hash: sha256(bytes), runtimeHash: runtime.release, tracked, dirty, runtimeDirty, changed,
     commit: git("rev-parse", "HEAD"), severity: classifySeverity(changed),
     build, expectedBuild };
 }
 
-async function verifyWeb(hash) {
+async function verifyWeb(hash, runtimeHash) {
+  const manifestResponse = await fetch(`https://oskiewar.com/oskiewar-release.json?verify=${Date.now()}`, {cache:"no-store"});
+  const manifest = manifestResponse.ok ? await manifestResponse.json() : null;
+  if (!manifest || manifest.release !== runtimeHash) throw new Error("web shell/modules differ from the release manifest");
   const response = await fetch(`https://oskiewar.com/oskiewar.js?parity=${Date.now()}`,
     { cache: "no-store" });
   if (!response.ok) throw new Error(`web returned HTTP ${response.status}`);
@@ -229,18 +237,24 @@ async function reconcile(receipt, { dryRun = false } = {}) {
     if (dryRun) console.log("would deploy web");
     else try {
       run("fish", ["lith/deploy.fish"]);
-      await verifyWeb(hash);
+      await verifyWeb(hash, receipt.desired.runtimeHash);
       mark(receipt, "web", "current", "verified production bytes");
     } catch (error) { mark(receipt, "web", "failed", error.message); }
   }
-  // iOS game code is the production web channel; its bundled copy remains the
-  // offline fallback. A native-shell change is deliberately not called live.
-  if (receipt.channels.web.status === "current" &&
-      receipt.desired.severity !== "ios-native" &&
-      receipt.desired.severity !== "multi-native")
-    mark(receipt, "ios", "current", "production web source; bundled fallback retained");
-  else if (!dryRun) mark(receipt, "ios", "pending",
-    receipt.desired.severity.includes("native") ? "native iOS refresh required" : "waiting for web");
+  // A WKWebView reaching the website is not proof that an installed native
+  // package or its offline fallback was updated. Report those separately.
+  if (receipt.channels.web.status === "current")
+    mark(receipt, "ios-web", "current", "same production shell and complete runtime manifest");
+  for (const [channel, directory, staged] of [
+    ["macos", resolve("/Applications/oskiewar.app/Contents/Resources/live"), false],
+    ["ios", resolve(root,"xbox/builds/ios/Build/Products/Debug-iphonesimulator/oskiewar.app/Runtime"), true],
+    ["steam", resolve(root,"xbox/steam/shell/staged"), true],
+  ]) {
+    try {
+      verifyRuntime(directory, runtimeManifest(root));
+      mark(receipt,channel,staged?"staged":"current",staged?"matching local artifact; device/store installation unverified":"installed Mac bundle matches runtime");
+    } catch { mark(receipt,channel,"pending","native package needs build/install verification"); }
+  }
 
   if (receipt.channels.xbox.status !== "current") {
     if (dryRun) console.log("would deploy Xbox live source");
@@ -286,8 +300,8 @@ async function main() {
   let current = sourceState(previous);
   if (command === "status") return print(readReceipt(), current);
   if (command === "deploy") {
-    if (!current.tracked || current.dirty)
-      throw new Error("Oskiewar source must be tracked and committed before a unified release");
+    if (!current.tracked || current.dirty || current.runtimeDirty)
+      throw new Error("Oskiewar runtime must be tracked and committed before a unified release");
     // `--no-bump` keeps the old behaviour: refuse, and let a person decide.
     const stamped = args.includes("--no-bump") ? current
       : dryRun ? current : stampBuildVersion(current, previous);
@@ -296,14 +310,14 @@ async function main() {
         `its committed source revision count v${stamped.expectedBuild}` +
         (args.includes("--no-bump") ? " (drop --no-bump to stamp it)" : ""));
     current = stamped;
-    const receipt = newRelease(current.hash, current.commit, current.severity, previous);
+    const receipt = newRelease(current.hash, current.commit, current.severity, previous, current.runtimeHash);
     save(receipt);
     await reconcile(receipt, { dryRun });
     return print(receipt, current);
   }
   if (command === "deploy-xbox-dev") {
     const receipt = newRelease(current.hash, current.commit,
-      current.severity, previous);
+      current.severity, previous, current.runtimeHash);
     receipt.desired.development = true;
     save(receipt);
     // Asking for the Xbox explicitly and finding it asleep IS a failure of
@@ -329,7 +343,7 @@ async function main() {
   if (command === "reconcile") {
     const receipt = readReceipt();
     if (!receipt) throw new Error("no pending Oskiewar release receipt");
-    if (receipt.desired.hash !== current.hash)
+    if (receipt.desired.hash !== current.hash || receipt.desired.runtimeHash !== current.runtimeHash)
       throw new Error("working source differs from the pending release; deploy the new release first");
     await reconcile(receipt, { dryRun });
     return print(receipt, current);
