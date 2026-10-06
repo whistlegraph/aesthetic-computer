@@ -1,15 +1,15 @@
 #if DEBUG
 import Foundation
 
-// Isolated screen fixtures; only the story export fixture runs on a phone.
+// Isolated screen fixtures; story export and AI permission checks also run on a phone.
 // Never connect a fixture to a cloud thread.
 enum NativeScreenFixture {
     static var mode: String { ProcessInfo.processInfo.environment["WALKIE_NATIVE_SCREEN_FIXTURE"] ?? "" }
     static var enabled: Bool {
         #if targetEnvironment(simulator)
-        return ["history", "recording", "gestures", "working", "story", "audio"].contains(mode)
+        return ["history", "recording", "gestures", "working", "story", "audio", "consent"].contains(mode)
         #else
-        return mode == "story"
+        return mode == "story" || mode == "consent"
         #endif
     }
     static var script: String {

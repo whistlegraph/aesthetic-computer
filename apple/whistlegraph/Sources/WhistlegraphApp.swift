@@ -23,6 +23,10 @@ struct WhistlegraphApp: App {
                 if NativeScreenFixture.mode == "audio" {
                     Text(voice.audioTestResult).accessibilityIdentifier("audio-autoplay-result")
                 }
+                if voice.isConsentFixture {
+                    Text("Requests: \(voice.consentFixtureRequests)")
+                        .accessibilityIdentifier("consent-fixture-requests")
+                }
                 #endif
                 if !voice.workspaceReady {
                     VStack(spacing: 20) {
@@ -34,14 +38,20 @@ struct WhistlegraphApp: App {
                     }.padding(30).foregroundStyle(.primary)
                 }
             }
-            .task { await voice.braincells.start(session: voice) }
-            .onChange(of: voice.snapshot.handle) { _, _ in Task { await voice.syncAIAccount(); await voice.braincells.accountChanged() } }
-            .sheet(isPresented: $voice.showingAIConsent) { NavigationStack { WhistlegraphPrivacySheet(session: voice) } }
+            .task { if !voice.isConsentFixture { await voice.braincells.start(session: voice) } }
+            .onChange(of: voice.snapshot.handle) { _, _ in Task {
+                await voice.syncAIAccount()
+                if !voice.isConsentFixture { await voice.braincells.accountChanged() }
+            } }
+            .sheet(isPresented: $voice.showingAIConsent, onDismiss: voice.finishAIConsentPrompt) {
+                WhistlegraphAIConsentSheet(canAllow: voice.canAllowAIConsent,
+                    allow: voice.allowAIConsent, decline: voice.declineAIConsent)
+            }
             .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
             .onChange(of: phase) { _, value in
                 if value == .background { voice.cancelHold() }
                 if value == .active && voice.capturePhase == .idle { voice.resumePieceAudio() }
-                if value == .active {
+                if value == .active && !voice.isConsentFixture {
                     Task {
                         await TezDisplayRate.shared.refresh()
                         await voice.braincells.recover()
@@ -203,6 +213,9 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     @Published var layout = NativeLayout()
     @Published var snapshot = PieceSnapshot()
     @Published var showingAIConsent = false
+    private var consentRequest: (subject: String, handle: String, generation: Int, code: String, head: Int)?
+    private var afterAIConsent: (() -> Void)?
+    private var acceptedAIConsent = false
     @Published private(set) var localDataRevision = 0
     let aiConsent = AIConsent.shared
     @Published var engineReady = false
@@ -218,7 +231,15 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     @Published var workspaceReady = false
     #if DEBUG
     @Published var audioTestResult = "Waiting for piece audio"
+    @Published var consentFixtureRequests = 0
     #endif
+    var isConsentFixture: Bool {
+        #if DEBUG
+        return NativeScreenFixture.mode == "consent"
+        #else
+        return false
+        #endif
+    }
     @Published var pieces: [PieceSummary] = []
     @Published private(set) var pixelSize = WhistlegraphPreview.savedPixelSize
     @Published private(set) var previewFormat = PreviewFormat.saved
@@ -250,8 +271,9 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
 
     func command(_ action: String, version: Int? = nil, text: String? = nil, piece: String? = nil) {
         guard ["checkout", "newPiece", "openPiece", "stop", "signIn", "ask", "retry", "presentVersion", "endPresentation", "setModel", "refreshBraincells"].contains(action) else { return }
-        if ["ask", "retry"].contains(action), !snapshot.handle.isEmpty, !aiConsent.creation {
-            showingAIConsent = true; return
+        if ["ask", "retry"].contains(action), !aiConsent.creation {
+            requestAIConsent { [weak self] in self?.command(action, version: version, text: text, piece: piece) }
+            return
         }
         if action == "newPiece" || action == "openPiece" {
             guard engineReady, !snapshot.busy, capturePhase == .idle else { return }
@@ -279,11 +301,19 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             value["text"] = text
             if let sketch = drawing.payload() { value["drawing"] = sketch }
         }
+        #if DEBUG
+        if isConsentFixture && ["ask", "retry"].contains(action) {
+            consentFixtureRequests += 1; return // Exercise the native gate without paid inference.
+        }
+        #endif
         Task { _ = try? await webView?.callAsyncJavaScript("window.walkiewareNativeCommand?.(command)", arguments: ["command": value], in: nil, contentWorld: .page) }
     }
     func beginHold() {
         guard engineReady, !snapshot.busy, capturePhase == .idle else { return }
-        guard aiConsent.creation else { showingAIConsent = true; return }
+        guard !snapshot.handle.isEmpty else { command("signIn"); return }
+        // Permission does not start a microphone after the finger has lifted.
+        guard aiConsent.creation else { requestAIConsent(); return }
+        if isConsentFixture { return }
         performanceTurn = false
         captureError = nil; transcript = ""; speechStartedAt = nil; capturePhase = .opening
         webView?.evaluateJavaScript("voiceStart()")
@@ -295,12 +325,62 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     }
     func endHold() { webView?.evaluateJavaScript("voiceEnd()") }
     func syncAIAccount() async {
+        if isConsentFixture { aiConsent.bind(subject: "fixture:ai-consent", handle: "preview"); return }
         let expected = account.generation
         let subject = try? await account.subject()
         guard expected == account.generation else { return }
         aiConsent.bind(subject: subject ?? nil, handle: snapshot.handle)
     }
+    var canAllowAIConsent: Bool {
+        guard let request = consentRequest else { return false }
+        return aiConsent.signedIn && request.subject == aiConsent.subject &&
+            request.handle == snapshot.handle && request.generation == account.generation
+    }
+    func requestAIConsent(resume: (() -> Void)? = nil) {
+        guard !showingAIConsent else { return }
+        if aiConsent.creation { resume?(); return }
+        guard !snapshot.handle.isEmpty else { command("signIn"); return }
+        let generation = account.generation, handle = snapshot.handle
+        let code = snapshot.code, head = snapshot.head
+        Task {
+            await syncAIAccount()
+            guard generation == account.generation, handle == snapshot.handle,
+                  code == snapshot.code, head == snapshot.head, !showingAIConsent,
+                  let subject = aiConsent.subject, aiConsent.signedIn else { return }
+            if aiConsent.creation { resume?(); return }
+            consentRequest = (subject, handle, generation, code, head)
+            afterAIConsent = resume; acceptedAIConsent = false
+            showingAIConsent = true
+        }
+    }
+    func allowAIConsent() {
+        guard canAllowAIConsent else { declineAIConsent(); return }
+        aiConsent.set(\.creation, true)
+        acceptedAIConsent = true; showingAIConsent = false
+    }
+    func declineAIConsent() {
+        acceptedAIConsent = false; showingAIConsent = false
+    }
+    func finishAIConsentPrompt() {
+        let request = consentRequest, resume = afterAIConsent
+        let accepted = acceptedAIConsent && canAllowAIConsent
+        consentRequest = nil; afterAIConsent = nil; acceptedAIConsent = false
+        guard accepted, let request, let resume else { return }
+        Task {
+            // Await the WebView gate before continuing the original action.
+            guard let webView else { return }
+            do {
+                _ = try await webView.callAsyncJavaScript("window.__whistlegraphAIConsent = value; window.walkiewareSetAIConsent?.(value);",
+                    arguments: ["value": aiConsent.bridge], in: nil, contentWorld: .page)
+            } catch { return }
+            guard aiConsent.creation, request.subject == aiConsent.subject,
+                  request.handle == snapshot.handle, request.generation == account.generation,
+                  request.code == snapshot.code, request.head == snapshot.head else { return }
+            resume()
+        }
+    }
     private func applyAIConsent() {
+        if showingAIConsent && !canAllowAIConsent { declineAIConsent() }
         if !aiConsent.creation { command("stop"); cancelHold() }
         if !aiConsent.cloudSpeech { cancelHold() }
         if !aiConsent.cloudNarration { StoryVoice.cancelCloudRequests() }
@@ -398,6 +478,11 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     private let capture = SpeechCapture()
     override init() {
         super.init()
+        #if DEBUG
+        if isConsentFixture, ProcessInfo.processInfo.environment["WALKIE_RESET_AI_CONSENT"] == "1" {
+            UserDefaults.standard.removeObject(forKey: AIConsentRecord.key(subject: "fixture:ai-consent"))
+        }
+        #endif
         aiConsent.changed = { [weak self] in self?.applyAIConsent() }
         capture.hasVisualInput = { [weak self] in self?.drawing.hasInk == true }
         capture.speechToken = { [weak self] in
@@ -574,10 +659,15 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             if AudioBenchmark.enabled || SequenceBenchmark.enabled { UIApplication.shared.isIdleTimerDisabled = true }
             Task { await NetworkBenchmark.run() }
         case "account":
+            if isConsentFixture { emitEngine(["kind": "account", "token": ""]); return }
             Task { do { emitEngine(["kind": "account", "token": try await account.token() ?? ""]) }
                 catch { emitEngine(["kind": "account", "token": ""]) } }
-        case "aiConsent": showingAIConsent = true
+        case "aiConsent":
+            // The network guard can reject background recovery or stale account
+            // work. Only native Send/retry/Talk gestures may present permission.
+            break
         case "signIn":
+            if isConsentFixture { return }
             account.signIn(from: webView) { [weak self] result in
                 switch result {
                 case .success(let token): self?.emitEngine(["kind": "account", "token": token])

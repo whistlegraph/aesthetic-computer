@@ -196,6 +196,21 @@ AC's IPFS gateway; its sandbox cannot access the mint page or wallet storage.
 
 ## App Store monetization
 
+Build 108 asks for AI permission at the first Send, retry, or Talk action. Launch,
+sign-in, typing and drawing do not open the prompt. The compact sheet identifies
+the shared content and providers; Allow remembers the account's choice and
+continues a pending typed/drawing request after the WebView gate is updated.
+Not now or dismissing the sheet preserves the draft. Talk requires a new hold
+after permission, so dismissing a sheet never starts the microphone. Account or
+piece changes discard a pending continuation. Existing permissions are retained.
+Brain → AI & privacy keeps the detailed controls, including the separate,
+optional cloud speech and narration permissions, which remain off by default.
+
+`WhistlegraphUITests/AIConsentTests` exercises first use, cancellation, continuation,
+relaunch and Talk against the `consent` fixture on a simulator or paired phone.
+That fixture has a separate consent identity and source; it never reads the
+real sign-in token, recovers purchases, starts the microphone or calls inference.
+
 The first global release uses StoreKit consumables for hosted AC inference.
 `computer.aesthetic.walkieware.braincells.1m` grants 1,000,000 nonexpiring
 braincells to the signed-in AC account. Its button uses Apple's localized

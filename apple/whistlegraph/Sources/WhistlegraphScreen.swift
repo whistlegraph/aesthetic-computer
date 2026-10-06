@@ -213,8 +213,9 @@ struct WhistlegraphScreen: View {
             Group {
                 if narrator.isPlaying { EmptyView() } else if showComposer {
                     InlineRequestComposer(theme: theme, disabled: session.snapshot.busy, hasDrawing: drawing.hasInk, cancel: { ButtonSounds.play(.pop); showComposer = false }) { text in
-                        guard session.aiConsent.creation || session.snapshot.handle.isEmpty else { session.showingAIConsent = true; return }
-                        ButtonSounds.play(.sent); session.command("ask", text: text); showComposer = false
+                        session.requestAIConsent {
+                            ButtonSounds.play(.sent); session.command("ask", text: text); showComposer = false
+                        }
                     }
                 } else {
                     HStack(spacing: 12 * (1 - chalkReveal)) {

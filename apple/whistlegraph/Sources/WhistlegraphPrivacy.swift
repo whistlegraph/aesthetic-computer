@@ -4,7 +4,7 @@ import SwiftUI
     static let shared = AIConsent()
     @Published private(set) var record = AIConsentRecord()
     @Published private(set) var handle = ""
-    private var subject: String?
+    private(set) var subject: String?
     var changed: () -> Void = {}
     var signedIn: Bool { subject != nil && !handle.isEmpty }
     var creation: Bool { signedIn && record.creation }
@@ -25,6 +25,64 @@ import SwiftUI
     func forget() {
         if let subject { UserDefaults.standard.removeObject(forKey: AIConsentRecord.key(subject: subject)) }
         self.subject = nil; handle = ""; record = AIConsentRecord(); changed()
+    }
+}
+
+// This is presented by an attempted AI action, never by launch or sign-in.
+// The separate settings page below remains available for changing permission.
+struct WhistlegraphAIConsentSheet: View {
+    let canAllow: Bool
+    let allow: () -> Void
+    let decline: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var typeSize
+    private var theme: WhistlegraphTheme { WhistlegraphTheme(phase: .ready, dark: colorScheme == .dark) }
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                ComicTitle(text: "Create with AI?", size: 30)
+                    .accessibilityAddTraits(.isHeader)
+                Text("To make and check your piece, AC shares your typed and spoken words, drawings, code and version history, sound measurements and artwork previews with OpenRouter and your chosen AI provider.")
+                    .font(.custom("ComicRelief-Regular", size: 18, relativeTo: .body))
+                Text("Providers: Anthropic, OpenAI, DeepSeek, Moonshot AI, Alibaba (Qwen), MiniMax and Z.ai. Personal models use Anthropic or OpenAI directly.")
+                    .font(.custom("ComicRelief-Regular", size: 15, relativeTo: .subheadline))
+                Text("Change your choice in Brain → AI & privacy.")
+                    .font(.custom("ComicRelief-Regular", size: 15, relativeTo: .subheadline))
+                HStack(spacing: 12) {
+                    Button("Not now", action: decline)
+                        .accessibilityIdentifier("ai-consent-not-now")
+                        .buttonStyle(ConsentButtonStyle(theme: theme, fill: theme.surface))
+                    Button("Allow", action: allow)
+                        .accessibilityIdentifier("ai-consent-allow")
+                        .buttonStyle(ConsentButtonStyle(theme: theme, fill: Color(red: 0.40, green: 0.83, blue: 0.95), prominent: true))
+                        .disabled(!canAllow)
+                }
+                Link("Privacy policy", destination: URL(string: "https://aesthetic.computer/privacy-policy.html")!)
+                    .font(.custom("ComicRelief-Regular", size: 15, relativeTo: .subheadline))
+                    .frame(maxWidth: .infinity).padding(.top, 2)
+            }.padding(24).padding(.top, 12)
+        }
+        .foregroundStyle(theme.foreground).tint(theme.foreground)
+        .background(theme.background.ignoresSafeArea())
+        .presentationBackground(theme.background)
+        .presentationDetents(typeSize.isAccessibilitySize ? [.large] : [.height(510), .large])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(30)
+    }
+}
+
+private struct ConsentButtonStyle: ButtonStyle {
+    let theme: WhistlegraphTheme
+    let fill: Color
+    var prominent = false
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.custom("ComicRelief-Bold", size: 22, relativeTo: .title3))
+            .frame(maxWidth: .infinity, minHeight: 56)
+            .foregroundStyle(prominent ? theme.buttonInk : theme.foreground)
+            .background(fill, in: RoundedRectangle(cornerRadius: 22))
+            .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(theme.foreground, lineWidth: 2))
+            .opacity(configuration.isPressed ? 0.7 : 1)
     }
 }
 
