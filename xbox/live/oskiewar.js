@@ -5792,6 +5792,9 @@ function restartAfterClientError() {
   bullets.length = 0;
   grenades.length = 0;
   try { telemetry("SHELL", "error->restart"); } catch (_) {}
+  // A host that can rebuild the runtime does: booting again in place kept
+  // whatever filled the heap, and a console looped on the same error.
+  if (typeof pieceReboot === "function") { pieceReboot(); return; }
   boot();
 }
 
@@ -10621,6 +10624,9 @@ function deathOrbitShot(target, width, progress) {
 
 let poolCameraYaw = 0, poolCameraDip = 0, poolCameraReturnYaw = null;
 let poolIdleSeconds=0,poolIdleClose=0;
+// A rider's lens sits behind the heading: it snaps there on mounting and
+// swings back after the right stick lets go, so steering reads as forward.
+let poolLookIdle=0,poolCameraRiding=false;
 // Ground-plane movement follows the view the player actually sees, including
 // the drawing camera's transition. Stick diagonals have the same top speed.
 function poolMoveVector(held, pad) {
@@ -10641,6 +10647,7 @@ function updateLookInput(x,y,orbit,dt) {
   const axis=value=>Math.abs(value)>.12?Math.sign(value)*clamp((Math.abs(value)-.12)/.88,0,1):0;
   if(poolOnly()&&freeskateActive()) {
     const precision=players[0].aiming?.5:playerCameraZoom<.5?.6:1;
+    poolLookIdle=axis(x)||orbit?.yaw?0:poolLookIdle+dt;
     poolCameraYaw-=axis(x)*dt*2.4*precision;
     poolCameraYaw+=orbit?.yaw||0;
     poolCameraYaw=Math.atan2(Math.sin(poolCameraYaw),Math.cos(poolCameraYaw));
@@ -10654,6 +10661,13 @@ function updateLookInput(x,y,orbit,dt) {
 }
 function trackPoolFreeCamera(p,dt) {
   const drawing=p.chalkDrawing,zoom=playerCameraZoom*(p.aiming?.72:1);
+  const riding=!!(p.skateboard||p.goKart)&&!drawing,heading=p.poolYaw||0;
+  if(riding&&!poolCameraRiding)poolCameraYaw=heading;
+  else if(riding&&poolLookIdle>.8){
+    const error=Math.atan2(Math.sin(heading-poolCameraYaw),Math.cos(heading-poolCameraYaw));
+    poolCameraYaw+=error*(1-Math.exp(-dt*4));
+  }
+  poolCameraRiding=riding;
   const pitch=clamp(.72-playerCameraPitch,-.3,1.48);
   const radius=(drawing?620:680)*zoom,flat=Math.cos(pitch)*radius;
   const shoulder=85*Math.min(1,zoom);
@@ -22725,7 +22739,7 @@ function desertGrid(){
 const paintingCanvasColor=[174,175,178];
 function paintingBounds(){return {left:gridLeft+720,right:gridLeft+gridWidth-720,near:worldNear+720,far:worldFar-720};}
 function onPaintingCanvas(x,z){const b=paintingBounds();return x>=b.left&&x<=b.right&&z>=b.near&&z<=b.far;}
-function paintingLavaY(){return parkDeckY+260;}
+function paintingLavaY(){return parkDeckY+900;}
 function resetPaintingFall(p,now){
  if(!poolPainting||onPaintingCanvas(p.x,p.z||0)||p.y<paintingLavaY()-8)return false;
  const home=desertHome();
@@ -22737,12 +22751,14 @@ function resetPaintingFall(p,now){
 function drawPaintingGeometry(){
  const b=paintingBounds(),y=parkDeckY,lava=paintingLavaY(),m=2400;
  const quad=(l,n,r,f,h,color)=>worldQuad({x:l,y:h,z:n},{x:r,y:h,z:n},{x:r,y:h,z:f},{x:l,y:h,z:f},color);
- // The canvas has thickness and an unrailed edge; lava sits below it.
+ // The canvas has thickness and an unrailed edge; lava sits well below it.
+ // The glowing tiles float a hand above the dark sheet: one unit apart the
+ // console's depth buffer cannot tell them apart and the two flicker.
  quad(b.left-m,b.near-m,b.right+m,b.far+m,lava,[151,43,23]);
  for(let z=b.near-m;z<b.far+m;z+=420)for(let x=b.left-m;x<b.right+m;x+=420){
   if(onPaintingCanvas(x,z)&&onPaintingCanvas(x+420,z+420))continue;
   const n=Math.sin(x*.017+z*.031)*.5+.5,ox=40+n*60,oz=40+(1-n)*65;
-  quad(x+ox,z+oz,x+390,z+370,lava-1,mixColor([222,65,21],[255,172,43],n));
+  quad(x+ox,z+oz,x+390,z+370,lava-24,mixColor([222,65,21],[255,172,43],n));
  }
  const top=[{x:b.left,y,z:b.near},{x:b.right,y,z:b.near},{x:b.right,y,z:b.far},{x:b.left,y,z:b.far}];
  for(let i=0;i<4;i++){const a=top[i],c=top[(i+1)%4];worldQuad(a,c,{...c,y:y+120},{...a,y:y+120},[83,85,89]);}

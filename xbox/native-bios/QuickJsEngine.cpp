@@ -20,7 +20,7 @@ struct RetainedMesh;  // ScenePrimitives.inc
 // Meshes the piece uploads once and draws by handle; owned by the piece, so
 // they live exactly as long as its JS context.
 struct SceneStore { std::vector<std::shared_ptr<RetainedMesh>> meshes; };
-struct CallScope { Api* api; SceneStore scene; };
+struct CallScope { Api* api; SceneStore scene; bool rebootRequested = false; };
 #include "ScenePrimitives.inc"
 
 bool ValidOskiewarMatchId(std::string_view value) {
@@ -604,6 +604,15 @@ JSValue Blur(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   return JS_UNDEFINED;
 }
 
+// The piece's own error restart boots again inside the same runtime, so a
+// heap that ran out stays out. pieceReboot asks for a fresh runtime from the
+// same source, built once the current callback returns.
+JSValue PieceReboot(JSContext* context, JSValueConst, int, JSValueConst*) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (scope) scope->rebootRequested = true;
+  return JS_UNDEFINED;
+}
+
 JSValue Telemetry(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
   if (!scope || !scope->api || !scope->api->telemetry || argc < 1) return JS_UNDEFINED;
@@ -991,10 +1000,14 @@ JSValue DiscPhoto(JSContext* context, JSValueConst, int argc, JSValueConst* argv
 class QuickJsPiece final : public JsPiece {
  public:
   QuickJsPiece(const PieceBundle& bundle, const JsLimits& limits, std::string& error)
-      : slug_(bundle.slug), version_(bundle.version) {
+      : slug_(bundle.slug), version_(bundle.version), source_(bundle.source),
+        heapLimit_(limits.max_heap_bytes) {
+    Create(error);
+  }
+  void Create(std::string& error) {
     runtime_ = JS_NewRuntime();
     if (!runtime_) { error = "JS_NewRuntime failed"; return; }
-    JS_SetMemoryLimit(runtime_, limits.max_heap_bytes);
+    JS_SetMemoryLimit(runtime_, heapLimit_);
     JS_SetMaxStackSize(runtime_, 1024 * 1024);
     context_ = JS_NewContext(runtime_);
     if (!context_) { error = "JS_NewContext failed"; return; }
@@ -1042,6 +1055,7 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "stampPainting", JS_NewCFunction(context_, StampPainting, "stampPainting", 4));
     JS_SetPropertyStr(context_, global, "blur", JS_NewCFunction(context_, Blur, "blur", 1));
     JS_SetPropertyStr(context_, global, "telemetry", JS_NewCFunction(context_, Telemetry, "telemetry", 2));
+    JS_SetPropertyStr(context_, global, "pieceReboot", JS_NewCFunction(context_, PieceReboot, "pieceReboot", 0));
     JS_SetPropertyStr(context_, global, "gameSignal", JS_NewCFunction(context_, GameSignal, "gameSignal", 4));
     JS_SetPropertyStr(context_, global, "saveReplay", JS_NewCFunction(context_, SaveReplay, "saveReplay", 1));
     JS_SetPropertyStr(context_, global, "publishLive", JS_NewCFunction(context_, PublishLive, "publishLive", 2));
@@ -1059,19 +1073,37 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "discCopy", JS_NewCFunction(context_, DiscCopy, "discCopy", 0));
     JS_SetPropertyStr(context_, global, "discPhoto", JS_NewCFunction(context_, DiscPhoto, "discPhoto", 4));
     JS_FreeValue(context_, global);
-    JSValue result = JS_Eval(context_, bundle.source.data(), bundle.source.size(),
-                             bundle.slug.c_str(), JS_EVAL_TYPE_GLOBAL);
+    JSValue result = JS_Eval(context_, source_.data(), source_.size(),
+                             slug_.c_str(), JS_EVAL_TYPE_GLOBAL);
     if (JS_IsException(result)) error = ExceptionText();
     else valid_ = true;
     JS_FreeValue(context_, result);
   }
-  ~QuickJsPiece() override { if (context_) JS_FreeContext(context_); if (runtime_) JS_FreeRuntime(runtime_); }
+  ~QuickJsPiece() override { Destroy(); }
+  void Destroy() {
+    if (context_) JS_FreeContext(context_);
+    if (runtime_) JS_FreeRuntime(runtime_);
+    context_ = nullptr; runtime_ = nullptr; valid_ = false;
+  }
   bool valid() const { return valid_; }
   std::string_view slug() const noexcept override { return slug_; }
   std::string_view version() const noexcept override { return version_; }
   void boot(Api& api) override { Call("boot", api); }
-  void sim(Api& api) override { Call("sim", api); }
-  void paint(Api& api) override { Call("paint", api); }
+  void sim(Api& api) override { Call("sim", api); RebootIfRequested(api); }
+  void paint(Api& api) override {
+    Call("paint", api);
+    // One heap reading a minute, so a long session shows what it grew to.
+    if (++paints_ % 1800 == 0 && api.telemetry) {
+      JSMemoryUsage usage{};
+      JS_ComputeMemoryUsage(runtime_, &usage);
+      api.telemetry("JS_HEAP used=" + std::to_string(usage.memory_used_size) +
+        " limit=" + std::to_string(heapLimit_) +
+        " objects=" + std::to_string(usage.obj_count) +
+        " strings=" + std::to_string(usage.str_count) +
+        " arrays=" + std::to_string(usage.array_count));
+    }
+    RebootIfRequested(api);
+  }
   void leave(Api& api) override { Call("leave", api); }
   void act(Api& api, const Event& event) override {
     scope_.api = &api;
@@ -1098,12 +1130,24 @@ class QuickJsPiece final : public JsPiece {
     }
     JS_FreeValue(context_, function); JS_FreeValue(context_, global); scope_.api = nullptr;
   }
+  void RebootIfRequested(Api& api) {
+    if (!scope_.rebootRequested) return;
+    scope_.rebootRequested = false;
+    Destroy();
+    scope_.scene = {};
+    std::string error;
+    Create(error);
+    if (api.telemetry) api.telemetry(error.empty() ? "JS_REBOOT fresh runtime" : "JS_REBOOT failed " + error);
+    if (!valid_) throw std::runtime_error("piece reboot failed: " + error);
+    Call("boot", api);
+  }
   std::string ExceptionText() {
     JSValue exception = JS_GetException(context_); const char* text = JS_ToCString(context_, exception);
     std::string result = text ? text : "JavaScript exception";
     if (text) JS_FreeCString(context_, text); JS_FreeValue(context_, exception); return result;
   }
-  std::string slug_, version_; JSRuntime* runtime_ = nullptr; JSContext* context_ = nullptr;
+  std::string slug_, version_, source_; std::size_t heapLimit_ = 0, paints_ = 0;
+  JSRuntime* runtime_ = nullptr; JSContext* context_ = nullptr;
   CallScope scope_{nullptr}; bool valid_ = false;
 };
 }

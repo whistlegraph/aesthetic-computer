@@ -393,7 +393,12 @@ public:
     m_graphics->on_box = [this](const ac::xbox::Rect& rect) { m_frameRects.push_back(rect); };
     m_graphics->on_line = [this](const ac::xbox::Line& line) { m_frameLines.push_back(line); };
     m_graphics->on_triangle = [this](const ac::xbox::Triangle& triangle) {
-      if (m_frameTriangles.size() < kMaxTriangles) m_frameTriangles.push_back(triangle);
+      // The HUD is authored last, so a full world used to drop it whole (the
+      // debug pad in the park). World triangles stop short of a reserve that
+      // only overlay triangles (z <= -1.46, see DrawGpuTriangles) may use.
+      const bool overlay = triangle.z1 <= -1.46f && triangle.z2 <= -1.46f && triangle.z3 <= -1.46f;
+      const std::size_t cap = overlay ? kMaxTriangles : kMaxTriangles - kOverlayTriangleReserve;
+      if (m_frameTriangles.size() < cap) m_frameTriangles.push_back(triangle);
       else ++m_frameTrianglesDropped;
     };
     m_graphics->on_textured_triangle = [this](const ac::xbox::TexturedTriangle& triangle) {
@@ -554,7 +559,12 @@ public:
     RefreshAcData(true);
     RefreshNetworkClock(true);
     m_engine = std::make_unique<QuickJsEngine>();
-    m_supervisor = std::make_unique<PieceSupervisor>(*m_engine);
+    // The game is ~1.5 MB of source and a long park session holds a lot of
+    // state; 32 MB ran out after a few hours and every restart inside the
+    // same runtime failed again. The Series X has room to spare.
+    JsLimits limits;
+    limits.max_heap_bytes = 128 * 1024 * 1024;
+    m_supervisor = std::make_unique<PieceSupervisor>(*m_engine, limits);
     // The game ships inside the signed package, next to the shaders and the
     // fonts. kSmokePiece is the fallback for a package built without it, not
     // the thing players are meant to get.
@@ -3154,7 +3164,7 @@ private:
   unsigned m_frameHeight = 0;
   unsigned m_frameBlurRadius = 0;
   static constexpr std::size_t kMaxSystemDraws = 128;
-  static constexpr std::size_t kMaxTriangles = 8192;
+  static constexpr std::size_t kMaxTriangles = 8192, kOverlayTriangleReserve = 1536;
   static constexpr std::size_t kMaxTexturedTriangles = 2048;
   static constexpr std::size_t kMaxDecalTriangles = 8192;
   static constexpr std::size_t kMaxSprites = 512;

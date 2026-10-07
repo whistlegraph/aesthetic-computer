@@ -137,6 +137,17 @@ function launch() {
   console.log(`launched ${item.PackageFullName}`);
 }
 
+// Stopping the app drops its QuickJS runtime, which the piece's own
+// error->restart cannot: that boots again inside the same exhausted heap.
+function stop() {
+  const item = installed();
+  const query = new URLSearchParams({
+    package: Buffer.from(item.PackageFullName).toString("base64"),
+  });
+  curl(["-u", autoAuth, "-X", "DELETE", `${base}/api/taskmanager/app?${query}`]);
+  console.log(`stopped ${item.PackageFullName}`);
+}
+
 function publish(sourcePath) {
   if (!sourcePath) throw new Error("usage: xbox-live publish <piece.js>");
   const absolute = resolve(sourcePath);
@@ -376,6 +387,8 @@ async function main() {
   else if (command === "install") install(argument, rest);
   else if (command === "prune") prune();
   else if (command === "launch") launch();
+  else if (command === "stop") stop();
+  else if (command === "restart") { stop(); launch(); }
   else if (command === "publish") publish(argument);
   else if (command === "shader") publishShader(argument);
   else if (command === "shader-reset") publishShader(null, true);
@@ -386,7 +399,7 @@ async function main() {
   else if (command === "deploy") { publish(argument); launch(); logs("20"); }
   else if (command === "hot-deploy") await hotDeploy(argument);
   else if (command === "deploy-kidlisp") await deployKidLisp(argument);
-  else throw new Error("commands: status | install <msix> [deps...] | prune | launch | publish <piece.js> | shader <effect.hlsl> | shader-reset | logs [lines] | frames [output.json] | screenshot [output.png] | video [seconds] [output.mp4] | deploy <piece.js> | hot-deploy <piece.js> | deploy-kidlisp <$code>");
+  else throw new Error("commands: status | install <msix> [deps...] | prune | launch | stop | restart | publish <piece.js> | shader <effect.hlsl> | shader-reset | logs [lines] | frames [output.json] | screenshot [output.png] | video [seconds] [output.mp4] | deploy <piece.js> | hot-deploy <piece.js> | deploy-kidlisp <$code>");
 }
 
 try { await main(); } catch (error) { console.error(error.message); process.exit(1); }

@@ -1,3 +1,5 @@
+#include <vector>
+#include <algorithm>
 #include "ac/chord_sound.hpp"
 #include "QuickJsEngine.hpp"
 #include "ac/relay_endpoint.hpp"
@@ -144,6 +146,24 @@ int main() {
     }function sim(){}function paint(){}
   )JS", "test"}, {}, error);
   assert(scene);{GraphicsProbe sg;SoundProbe ss;Api sa{{},{},{},{},sg,ss,{}};scene->boot(sa);assert(sg.triangles>2);}
+  // pieceReboot rebuilds the runtime from the same source: module state starts
+  // over and boot runs once more, after the callback that asked returns.
+  auto reboot = engine.compile({"reboot", "test", R"JS(
+    let boots = 0, paints = 0;
+    function boot() { boots++; }
+    function sim() {}
+    function paint() {
+      paints++;
+      if (boots !== 1 || paints > 1) throw Error('state survived the reboot');
+      pieceReboot();
+    }
+  )JS", "test"}, {}, error);
+  assert(reboot);
+  { GraphicsProbe rg; SoundProbe rs; Api ra{{},{},{},{},rg,rs,{}};
+    std::vector<std::string> lines;
+    ra.telemetry = [&](std::string_view line) { lines.emplace_back(line); };
+    reboot->boot(ra); reboot->paint(ra); reboot->paint(ra);
+    assert(std::count(lines.begin(), lines.end(), std::string("JS_REBOOT fresh runtime")) == 2); }
   auto network = engine.compile({"net", "test", R"JS(
     function boot() {
       if (!oskiewarNetSend('ow-lantest924', '{}')) throw Error('send');
