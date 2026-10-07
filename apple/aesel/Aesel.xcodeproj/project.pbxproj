@@ -56,6 +56,7 @@
 		928997979C8BC6E92AC2B3A9 /* AeselHoverSound.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2BE7BCB5067054611C54637 /* AeselHoverSound.swift */; };
 		9722A94D57514795BC92F83D /* PreviewResize.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC974F17F071328B039F80B8 /* PreviewResize.swift */; };
 		975A2C86AF7C7B60369819B6 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 505E152C400C5CE69463B39F /* ContentView.swift */; };
+		9A08FC03528AE2D49D0EB889 /* CurtainAccountButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D625DE3459EBE07BAC165C3E /* CurtainAccountButtonStyle.swift */; };
 		9D73D7FD54B29205733E3BC9 /* ApplePlatform.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F4BC5239A9B70F128C1DC84 /* ApplePlatform.swift */; };
 		A10EC17AA74EA9E2FB9495B6 /* AeselProx.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D06A336C257DC6663C0E51 /* AeselProx.swift */; };
 		A2CDE2052DDB891D3A4659D6 /* AeselNotebook.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9C447ACCA3590492C05AC5 /* AeselNotebook.swift */; };
@@ -86,6 +87,7 @@
 		E86DBFD43D2C7D107F428424 /* NativeSignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6975BD799206CFA5D9095BDB /* NativeSignIn.swift */; };
 		E9877D833B3CE6FE4FB14192 /* AeselButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A512F7F818F52E3E58D3B7CB /* AeselButtonStyle.swift */; };
 		EE331E96C91793CBF5E52157 /* COMIC-RELIEF-OFL-1.1.txt in Resources */ = {isa = PBXBuildFile; fileRef = 4A54F121629B5E78C6F46F6A /* COMIC-RELIEF-OFL-1.1.txt */; };
+		F86C53A52DF7CE38C6D7D4CD /* CurtainAccountButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D625DE3459EBE07BAC165C3E /* CurtainAccountButtonStyle.swift */; };
 		FBC8984584385405A83CB639 /* AeselHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2D2E4941E446673BAF4F97 /* AeselHomeView.swift */; };
 /* End PBXBuildFile section */
 
@@ -126,6 +128,7 @@
 		C37CCFBE31D100ED13EF7DAD /* AeselComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselComposer.swift; sourceTree = "<group>"; };
 		CC2D2E4941E446673BAF4F97 /* AeselHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselHomeView.swift; sourceTree = "<group>"; };
 		D182E09559F9A925B015A88C /* AeselTerminal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselTerminal.swift; sourceTree = "<group>"; };
+		D625DE3459EBE07BAC165C3E /* CurtainAccountButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurtainAccountButtonStyle.swift; sourceTree = "<group>"; };
 		E18D254092D8CB3C00DA9756 /* SignInPanelLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInPanelLayout.swift; sourceTree = "<group>"; };
 		E270B97E651FC0013152574F /* AeselAutomation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselAutomation.swift; sourceTree = "<group>"; };
 		EC974F17F071328B039F80B8 /* PreviewResize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewResize.swift; sourceTree = "<group>"; };
@@ -177,6 +180,7 @@
 				7F4BC5239A9B70F128C1DC84 /* ApplePlatform.swift */,
 				5D9AB5CF1D7C27E6930F81B1 /* Braincells.swift */,
 				505E152C400C5CE69463B39F /* ContentView.swift */,
+				D625DE3459EBE07BAC165C3E /* CurtainAccountButtonStyle.swift */,
 				92968DF5C690392605590A85 /* LaunchPing.swift */,
 				9675E31C13077439E6F36AE1 /* NativeHostConnection.swift */,
 				6975BD799206CFA5D9095BDB /* NativeSignIn.swift */,
@@ -375,6 +379,7 @@
 				9D73D7FD54B29205733E3BC9 /* ApplePlatform.swift in Sources */,
 				C27DB5FE92281B28965A6535 /* Braincells.swift in Sources */,
 				1F53641C03321161A7665F3B /* ContentView.swift in Sources */,
+				9A08FC03528AE2D49D0EB889 /* CurtainAccountButtonStyle.swift in Sources */,
 				7179F7E1202917D1C1E57EA1 /* LaunchPing.swift in Sources */,
 				52D74FA73C3384F2C2FF141B /* NativeHostConnection.swift in Sources */,
 				E86DBFD43D2C7D107F428424 /* NativeSignIn.swift in Sources */,
@@ -414,6 +419,7 @@
 				A766FD4831AD3177B8902DA5 /* ApplePlatform.swift in Sources */,
 				466E32FFFB239E88D25A3C66 /* Braincells.swift in Sources */,
 				975A2C86AF7C7B60369819B6 /* ContentView.swift in Sources */,
+				F86C53A52DF7CE38C6D7D4CD /* CurtainAccountButtonStyle.swift in Sources */,
 				11761C5613CB79BA5AD0E801 /* LaunchPing.swift in Sources */,
 				B7FDFEA06B2AF78A0D5E0398 /* NativeHostConnection.swift in Sources */,
 				CC92640C1396E0646F1CDD0F /* NativeSignIn.swift in Sources */,
