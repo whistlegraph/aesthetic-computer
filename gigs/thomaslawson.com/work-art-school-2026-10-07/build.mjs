@@ -1,0 +1,20 @@
+import {readFile, writeFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+
+const [input, output] = process.argv.slice(2);
+assert.ok(input && output && input !== output, 'Usage: node build.mjs fresh-live-backup.php output.php');
+const source = await readFile(input, 'utf8');
+const intro = (await readFile(new URL('./intro.txt', import.meta.url), 'utf8')).trim();
+const pattern = /(json_decode\(<<<'TLFOLLOWDATA'\n)([^]*?)(\nTLFOLLOWDATA)/g;
+const matches = [...source.matchAll(pattern)];
+assert.equal(matches.length, 1, 'Expected one follow-up data block');
+const data = JSON.parse(matches[0][2]);
+const previous = data.intros['/elementor-1878/'];
+assert.equal(typeof previous, 'string', 'Expected current Art School introduction');
+assert.notEqual(previous, intro, 'Introduction already published');
+const oldValue = JSON.stringify(previous);
+assert.equal(matches[0][2].split(oldValue).length, 2, 'Expected one matching introduction');
+const updated = matches[0][2].replace(oldValue, () => JSON.stringify(intro));
+data.intros['/elementor-1878/'] = intro;
+assert.deepEqual(JSON.parse(updated), data, 'Only the Art School introduction may change');
+await writeFile(output, source.replace(pattern, (_, start, body, end) => start + updated + end));
