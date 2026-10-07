@@ -2,6 +2,8 @@ const $ = (id) => document.getElementById(id);
 const api = 'https://aesthetic.computer/api';
 const params = new URLSearchParams(location.search);
 const prefillEmail = params.get('email');
+// Keep attribution to a reviewed placement, never arbitrary query text.
+const source = params.get('source') === 'homepage' ? 'homepage' : undefined;
 if (prefillEmail) {
   const cleanUrl = new URL(location.href);
   cleanUrl.searchParams.delete('email');
@@ -79,6 +81,7 @@ $('form').addEventListener('submit', async (event) => {
   try {
     const payload = { amount: Math.round(Number($('amount').value) * 100), currency: $('currency').value, recurring: monthly() };
     if (prefillEmail) payload.email = prefillEmail;
+    if (source) payload.source = source;
     const res = await fetch(`${api}/give`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload), signal: AbortSignal.timeout(20000),

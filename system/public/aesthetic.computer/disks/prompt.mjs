@@ -6281,7 +6281,7 @@ function paint($) {
   // A steady link to Give, independent of the rotating promotional slot.
   if (showLoginCurtain && !$.system.prompt.input.canType &&
       !$.system.prompt.input.text && activeSubscribers !== null && screen.height >= 280) {
-    const label = `${activeSubscribers.toLocaleString()} monthly subscriber${activeSubscribers === 1 ? "" : "s"}`;
+    const label = `${activeSubscribers.toLocaleString()} monthly supporter${activeSubscribers === 1 ? "" : "s"} · Join`;
     const position = { screen, center: "x", y: Math.floor(screen.height / 2 + 65) };
     if (!subscribersBtn) subscribersBtn = new $.ui.TextButtonSmall(label, position);
     else subscribersBtn.reposition(position, label);
@@ -8833,13 +8833,13 @@ function act({
   }
 
 
-  // Subscriber count opens Give.
+  // Homepage support invitation opens Give.
   if (subscribersBtn && !subscribersBtn.btn.disabled) {
     subscribersBtn.btn.act(e, {
       down: () => downSound(),
       push: () => {
         pushSound();
-        const url = "https://give.aesthetic.computer";
+        const url = "https://give.aesthetic.computer/?source=homepage";
         if (net.iframe) send({ type: "post-to-parent", content: { type: "openExternal", url } });
         else jump(url);
       },

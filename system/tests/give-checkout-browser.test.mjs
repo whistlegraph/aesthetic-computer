@@ -23,13 +23,14 @@ test("Give opens standard and custom Stripe checkout and rejects other destinati
       return route.fulfill({ contentType: "text/html", body: "Checkout destination" });
     });
     const page = await context.newPage();
-    for (const host of ["checkout.stripe.com", "pay.aesthetic.computer"]) {
+    for (const [host, source] of [["checkout.stripe.com", ""], ["pay.aesthetic.computer", "homepage"], ["pay.aesthetic.computer", "unreviewed-private-text"]]) {
       destination = `https://${host}/test-checkout`;
-      await page.goto("https://give.aesthetic.computer/");
+      await page.goto(`https://give.aesthetic.computer/${source ? `?source=${source}` : ""}`);
       await page.locator("#give").click();
       await page.waitForURL(destination);
       assert.equal(submitted.at(-1).amount, 800);
       assert.equal(submitted.at(-1).recurring, true);
+      assert.equal(submitted.at(-1).source, source === "homepage" ? "homepage" : undefined);
     }
     for (const rejected of ["https://pay.aesthetic.computer.evil.test/", "http://pay.aesthetic.computer/"]) {
       destination = rejected;
