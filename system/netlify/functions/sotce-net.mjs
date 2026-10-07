@@ -98,6 +98,7 @@ import { broadcastToTopic, sendToUser } from "../../../shared/push.mjs";
 import Stripe from "stripe";
 import crypto from "node:crypto";
 import { notificationChoiceUpdate } from "../../backend/notification-choice.mjs";
+import { sotceBanned } from "../../../shared/sotce-ban.mjs";
 
 // The HTML shell is identical for every request to a given path (auth and all
 // dynamic content happen client-side), so render it once per title and serve
@@ -10364,9 +10365,10 @@ export const handler = async (event, context) => {
                   ? SOTCE_STRIPE_API_TEST_PUB_KEY
                   : SOTCE_STRIPE_API_PUB_KEY}",
               );
+              const token = window.sotceTOKEN || (await auth0Client.getTokenSilently());
               const response = await fetch("/sotce-net/subscribe", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
                 body: JSON.stringify({ email: user.email, sub: user.sub }),
               });
               if (response.ok) {
@@ -10952,7 +10954,15 @@ export const handler = async (event, context) => {
         redirectPath,
       );
 
-      const { email, sub } = JSON.parse(event.body);
+      const user = await authorize(event.headers, "sotce");
+      if (!user?.email_verified) {
+        return respond(401, { message: "Please login with a verified email." });
+      }
+      const { email, sub } = user;
+      const { db } = await connect();
+      if (await sotceBanned(db, { email, sub })) {
+        return respond(403, { message: "Access unavailable." });
+      }
 
       // Search for the customer by the metadata field 'sub'
 

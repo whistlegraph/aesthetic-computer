@@ -13,6 +13,7 @@ import { redact, unredact } from "./redact.mjs";
 import { ensureIndexes as ensureHeartsIndexes, toggleHeart, countHearts } from "./hearts.mjs";
 
 import { MongoClient, ObjectId } from "mongodb";
+import { sotceBanned } from "../shared/sotce-ban.mjs";
 import { broadcastToTopic } from "../shared/push.mjs"; // Standard push (no Firebase).
 import {
   MAX_CHARS,
@@ -381,6 +382,26 @@ export class ChatManager {
     }
 
     msg.id = id;
+
+    // Check the authoritative identity on every Sotce mutation, including
+    // sockets authorized before a ban. Never trust the client-supplied sub.
+    if (instance.config.name === "chat-sotce" &&
+        ["chat:message", "chat:delete", "chat:edit", "chat:heart"].includes(msg.type)) {
+      const token = msg.content?.token;
+      const cached = instance.authorizedConnections[id];
+      const user = typeof token === "string" && token
+        ? (cached?.token === token ? cached.user : await this.authorize(instance, token))
+        : undefined;
+      if (!user?.sub || (msg.content?.sub !== undefined && msg.content.sub !== user.sub) ||
+          (await sotceBanned(this.db, user)) || (await this.accountLocked(user.sub))) {
+        delete instance.authorizedConnections[id];
+        if (user?.sub) delete instance.subsToSubscribers[user.sub];
+        ws.send(this.pack("unauthorized", { message: "Access unavailable." }, id));
+        return;
+      }
+      msg.content.sub = user.sub;
+      instance.authorizedConnections[id] = { ...cached, token, user };
+    }
 
     if (msg.type === "logout") {
       console.log(`💬 [${instance.config.name}] User logged out`);

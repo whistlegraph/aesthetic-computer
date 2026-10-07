@@ -8,6 +8,16 @@ import { connect } from "./database.mjs";
 import * as KeyValue from "./kv.mjs";
 import { shell } from "./shell.mjs";
 import { accountLocked } from "./account-lock.mjs";
+import { sotceBanned } from "../../shared/sotce-ban.mjs";
+
+async function sotceAccessDenied(user) {
+  try {
+    const { db } = await connect();
+    return await sotceBanned(db, user);
+  } catch {
+    return true;
+  }
+}
 const dev = process.env.CONTEXT === "dev";
 
 const aestheticBaseURI = "https://aesthetic.us.auth0.com";
@@ -35,6 +45,10 @@ export async function authorize({ authorization }, tenant = "aesthetic") {
       userinfoCache.delete(cacheKey);
       return undefined;
     }
+    if (tenant === "sotce" && (await sotceAccessDenied(cached.user))) {
+      userinfoCache.delete(cacheKey);
+      return undefined;
+    }
     return { ...cached.user }; // Shallow copy so callers can't mutate the cache.
   }
   if (cached) userinfoCache.delete(cacheKey);
@@ -55,6 +69,7 @@ export async function authorize({ authorization }, tenant = "aesthetic") {
       shell.log(`🔒 Refused locked account: ${result.sub}`);
       return undefined;
     }
+    if (tenant === "sotce" && (await sotceAccessDenied(result))) return undefined;
     if (result?.sub) {
       if (userinfoCache.size >= USERINFO_CACHE_MAX) {
         userinfoCache.delete(userinfoCache.keys().next().value); // Drop oldest.
