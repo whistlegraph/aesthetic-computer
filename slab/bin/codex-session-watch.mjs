@@ -162,6 +162,14 @@ async function updateMarker(patch) {
   };
   try { Object.assign(obj, JSON.parse(await readFile(ACTIVE, "utf8"))); } catch {}
   Object.assign(obj, patch, { updated: nowISO() });
+  try {
+    const mode = JSON.parse(await readFile(join(SLAB_HOME, "state", "loopboy-modes", `${sid}.json`), "utf8"));
+    if (mode.sessionId === sid) {
+      obj.loopboy_contact = mode.contact || "";
+      if (!mode.contact) { obj.loopboy_state = ""; obj.loopboy_response = ""; }
+    }
+  } catch {}
+
   try { await writeFile(ACTIVE, JSON.stringify(obj)); } catch {}
 }
 const rm = async (p) => { try { await unlink(p); } catch {} };

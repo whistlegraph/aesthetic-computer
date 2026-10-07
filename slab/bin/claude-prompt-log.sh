@@ -46,10 +46,13 @@ if [[ -n "$input" ]]; then
         ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
         started_at=$(jq -r '.started_at // empty' "$ACTIVE_DIR/$session_id" 2>/dev/null || true)
         [[ -n "$started_at" ]] || started_at=$ts
-        # A launched Loopboy carries its contact in the environment; an
-        # adopted one (prox_bind_notification adopt=true) carries it only on
-        # this marker, so keep the stamped value across rewrites.
-        contact=${SLAB_LOOPBOY_CONTACT:-$(jq -r '.loopboy_contact // empty' "$ACTIVE_DIR/$session_id" 2>/dev/null || true)}
+        # An explicit mode (including OFF) wins over immutable launch env.
+        mode_file="$SLAB_HOME/state/loopboy-modes/$session_id.json"
+        if [[ -f "$mode_file" ]]; then
+            contact=$(jq -r --arg sid "$session_id" 'if .sessionId == $sid then .contact // "" else "" end' "$mode_file" 2>/dev/null || true)
+        else
+            contact=${SLAB_LOOPBOY_CONTACT:-$(jq -r '.loopboy_contact // empty' "$ACTIVE_DIR/$session_id" 2>/dev/null || true)}
+        fi
 
         # 4–8 word summary used as the live Terminal title and the menubar's
         # short subject. We collapse whitespace, take the first 7 words, and

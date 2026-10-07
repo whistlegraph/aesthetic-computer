@@ -59,6 +59,9 @@ enum SigilRenderer {
     /// wrapper is reopened around the same provider thread. Ordinary prompts
     /// still derive their name from the ephemeral Slab session id.
     static func name(for session: ClaudeSession) -> String {
+        if let name = LoopboyRoutes.mode(for: session.sessionId)?["name"] as? String,
+           !name.isEmpty { return name }
+
         if let data = FileManager.default.contents(atPath: Paths.loopboyConfig),
            let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
            let loops = obj["loops"] as? [String: Any] {

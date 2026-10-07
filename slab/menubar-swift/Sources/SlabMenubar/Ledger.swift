@@ -89,7 +89,7 @@ final class LedgerStore {
     static let observedNote = Notification.Name("slab.ledger.observed")
     /// Posted on the main queue when prox asks this host to re-enter a live
     /// prompt. AppDelegate handles it through the exact same guarded terminal
-    /// wake primitive used by Loopboy heartbeats.
+    /// wake primitive used only for explicit prox_wake requests.
     static let wakeNote = Notification.Name("slab.ledger.wake")
     /// Posted after Terminal accepts a prox/Loopboy prompt launch. The app
     /// waits briefly for the new window, then normalizes the wall so Terminal's
@@ -118,6 +118,16 @@ final class LedgerStore {
             try? fm.createDirectory(atPath: d, withIntermediateDirectories: true)
         }
         queue.async { [weak self] in self?.ensureServer() }
+    }
+
+    /// Share the existing socket/file inbox delivery with passive notifications.
+    func queueInbox(_ message: [String: Any]) {
+        queue.async {
+            let result = LedgerHTTPServer.inboxSend(message)
+            if (result["ok"] as? Bool) != true {
+                NSLog("💬 [loopboy] inbox delivery failed: \(result["error"] ?? "unknown")")
+            }
+        }
     }
 
     func stop() { queue.async { [weak self] in self?.server?.stop(); self?.server = nil } }
@@ -348,7 +358,7 @@ final class LedgerStore {
 
     /// Validate and enqueue a bounded prox continuation. The HTTP server never
     /// touches Accessibility, the pasteboard, or Terminal directly; all UX is
-    /// owned by AppDelegate's shared Loopboy re-entry path on the main queue.
+    /// owned by AppDelegate's explicit prox wake path on the main queue.
     private func receiveWake(_ body: [String: Any]) -> [String: Any] {
         let sid = ((body["id"] as? String) ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -419,7 +429,7 @@ final class LedgerStore {
                 memoir: ProxMemoirs.shared.text(for: s.sessionId),
                 agentType: s.agentType,
                 platformTarget: s.platformTarget.isEmpty ? nil : s.platformTarget,
-                loopboyContact: s.loopboyContact.isEmpty ? nil : s.loopboyContact,
+                loopboyContact: LoopboyRoutes.verifiedContact(for: s),
                 scanURL: s.scanURL.isEmpty ? nil : s.scanURL)
         }
         // The Easel address is the rock's own name, never the piece's, so
@@ -620,7 +630,7 @@ final class LedgerHTTPServer {
     /// referenced handle "observed".
     var onPoke: (([String: Any]) -> Void)?
     /// Called on POST /wake after JSON framing. The owner validates and queues
-    /// re-entry through the menubar's shared Loopboy wake path.
+    /// re-entry through the menubar's explicit prox wake path.
     var onWake: (([String: Any]) -> [String: Any])?
     /// Called on POST /launch. The callback owns validation and returns a
     /// compact JSON-safe result dictionary.
@@ -720,7 +730,7 @@ final class LedgerHTTPServer {
         // POST /send — a message for one of our sessions' inboxes. Written to
         // disk (socket first when a harness listens), never typed anywhere.
         if line.hasPrefix("POST"), line.contains("/send") {
-            let result = inboxSend(decodedBody(data, bodyStart: bodyStart))
+            let result = Self.inboxSend(decodedBody(data, bodyStart: bodyStart))
             let body = (try? JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]))
                 ?? Data("{\"ok\":false,\"error\":\"encoding failed\"}".utf8)
             respond(client, body: body)
@@ -811,7 +821,7 @@ final class LedgerHTTPServer {
     // messages.jsonl (dir 0700, file 0600) for the session's next turn.
     private static let inboxIdChars = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
 
-    private func inboxSend(_ obj: [String: Any]) -> [String: Any] {
+    static func inboxSend(_ obj: [String: Any]) -> [String: Any] {
         let toId = (obj["to_id"] as? String) ?? ""
         let text = (obj["text"] as? String) ?? ""
         let from = ((obj["from"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
@@ -859,7 +869,7 @@ final class LedgerHTTPServer {
 
     // One line out, one JSON line back; anything but {"ok":true} within the
     // window is a miss and the caller falls through to the file.
-    private func inboxSocketDeliver(path: String, line: String) -> Bool {
+    private static func inboxSocketDeliver(path: String, line: String) -> Bool {
         guard FileManager.default.fileExists(atPath: path) else { return false }
         let s = socket(AF_UNIX, SOCK_STREAM, 0)
         guard s >= 0 else { return false }

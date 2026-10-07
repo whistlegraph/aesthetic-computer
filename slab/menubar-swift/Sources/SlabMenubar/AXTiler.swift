@@ -44,6 +44,9 @@ enum AXTiler {
         let terminal: [Window]
         let acPanes: [Window]
         let chrome: [Window]
+        /// Messenger windows (Signal Desktop): ordinary grid cells, found
+        /// by bundle id like Chrome.
+        let messengers: [Window]
         /// Stage windows: a game stream (GeForce NOW) that wants one big
         /// column of its own rather than a grid cell. Only the first stage
         /// window is staged; any extra ones fall into the ordinary grid.
@@ -53,7 +56,7 @@ enum AXTiler {
         /// binaries with no bundle identifier.
         let wizards: [Window]
 
-        var all: [Window] { iterm + terminal + acPanes + chrome + wizards + stage }
+        var all: [Window] { iterm + terminal + acPanes + chrome + messengers + wizards + stage }
         var signature: [CGWindowID] { all.map(\.id).sorted() }
     }
 
@@ -62,6 +65,9 @@ enum AXTiler {
     /// (`nv-min-window-size` in the bundle's GeForceNOW.json) is honored by
     /// measuring what the window accepted rather than assuming.
     static let stageBundleIDs = [GameMode.gfnBundleID]
+
+    /// Messenger apps that tile as equal grid cells beside the terminals.
+    static let messengerBundleIDs = ["org.whispersystems.signal-desktop"]
 
     /// The wizard roster (date-wizard/…/WizardRoster.swift plus the wizards
     /// it omits), by executable name. `swift build` products carry no
@@ -129,6 +135,9 @@ enum AXTiler {
                 + windowRefs(bundleId: "computer.aesthetic.nopaint", liveWindows: liveWindows)
                 + easelWindowRefs(liveWindows: liveWindows),
             chrome: windowRefs(bundleId: "com.google.Chrome", liveWindows: liveWindows),
+            messengers: messengerBundleIDs.flatMap {
+                windowRefs(bundleId: $0, liveWindows: liveWindows)
+            },
             stage: stageBundleIDs.flatMap {
                 windowRefs(bundleId: $0, liveWindows: liveWindows)
             },
@@ -154,6 +163,9 @@ enum AXTiler {
                          requireGeometry: false)
             + windowRefs(bundleId: "com.google.Chrome", liveWindows: liveWindows,
                          requireGeometry: false)
+            + messengerBundleIDs.flatMap {
+                windowRefs(bundleId: $0, liveWindows: liveWindows, requireGeometry: false)
+            }
             + wizardWindowRefs(liveWindows: liveWindows, requireGeometry: false)
             + stageBundleIDs.flatMap {
                 windowRefs(bundleId: $0, liveWindows: liveWindows, requireGeometry: false)

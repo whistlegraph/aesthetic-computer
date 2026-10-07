@@ -195,7 +195,7 @@ enum MenuBuilder {
         let activeContacts = Set(verified.values)
         for key in routes.keys.sorted() where activeContacts.contains(key) {
             guard let route = routes[key] else { continue }
-            sub.addItem(info("\(route.wake ? "↻" : "◌") \(key) → \(route.host):\(route.name)"))
+            sub.addItem(info("\(key) → \(route.host):\(route.name)"))
         }
         if activeContacts.isEmpty { sub.addItem(info("No active client loops")) }
         let inactive = routes.keys.filter { !activeContacts.contains($0) }.sorted()

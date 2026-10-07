@@ -137,16 +137,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var imsgStatus = "—"
     private var imsgConfigured = false
     private var imsgUnread = 0
-    /// Contact-keyed Loopboy heartbeat state. Unlike the global inbox accent,
-    /// this colors and wakes only the session bound to that contact.
+    /// Loopboy notifications are passive: pulse the rock and queue arrivals.
     private var loopboyPendingContacts = Set<String>()
-    private var loopboyHeartbeatAt: [String: Date] = [:]
-    /// Last context actually handed to each Loopboy evaluator. Unchanged
-    /// unresolved work receives only a slow retry lease; ordinary heartbeats
-    /// become observation-only and spend no agent turn/tokens.
-    private var loopboyEvaluatedFingerprint: [String: String] = [:]
-    private var loopboyEvaluatedAt: [String: Date] = [:]
-    private var loopboyWakeInFlight = Set<String>()
     private var lastLoopboyFleetHeartbeat = Date.distantPast
     private var loopboyHeartbeatVisibleUntil = Date.distantPast
     private var signalPending = false
@@ -941,10 +933,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.imsgUnread = contactPending.reduce(0) {
                     $0 + (($1["pending"] as? Int) ?? 0)
                 }
-                // A callback handles the edge immediately; this heartbeat also
-                // re-steers an idle/completed client loop while work remains.
-                // Bound the cadence so a persistent pending thread cannot
-                // flood the TTY with prompts.
+                // The heartbeat is visual only. It never creates an agent turn.
                 let heartbeatNow = Date()
                 let fleetBeatDue = heartbeatNow.timeIntervalSince(
                     self.lastLoopboyFleetHeartbeat) >= 60
@@ -957,61 +946,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         guard let self = self else { return }
                         self.applyTerminalDecor()
                     }
-                }
-                let bindings = self.loopboySessionLabels()
-                let autoRespondContacts = self.loopboyAutoRespondContacts()
-                let heartbeatContacts = Set(contactPending.compactMap { row -> String? in
-                    guard fleetBeatDue, ((row["pending"] as? Int) ?? 0) > 0,
-                          let contact = row["contact"] as? String,
-                          let sid = bindings.first(where: { $0.value == contact })?.key,
-                          let session = self.state.claudeSessions.first(where: {
-                              $0.sessionId == sid
-                          }) else { return nil }
-                    let threadFingerprint = (row["contextFingerprint"] as? String) ?? ""
-                    let fingerprint = "\(threadFingerprint)|\(session.titleString)"
-                    let changed = self.loopboyEvaluatedFingerprint[contact] != fingerprint
-                    let retryDue = heartbeatNow.timeIntervalSince(
-                        self.loopboyEvaluatedAt[contact] ?? .distantPast) >= 300
-                    guard changed || retryDue else { return nil }
-                    switch session.state {
-                    case .working, .rendering:
-                        // A crashed/finished native resume can leave its marker
-                        // saying WORKING. Fresh activity is protected; a full
-                        // heartbeat with no update means the loop is halted.
-                        return heartbeatNow.timeIntervalSince(session.updated) >= 60
-                            ? contact : nil
-                    case .blank, .complete, .awaiting, .interrupted, .stale:
-                        return session.loopboyState == "responding"
-                            && !autoRespondContacts.contains(contact) ? nil : contact
-                    }
-                })
-                for contact in heartbeatContacts {
-                    guard let row = contactPending.first(where: {
-                        ($0["contact"] as? String) == contact
-                    }) else { continue }
-                    let display = (row["displayName"] as? String) ?? contact
-                    let last = row["last"] as? [String: Any]
-                    self.bumpBoundProx(contact: contact, displayLabel: display,
-                                       message: (last?["text"] as? String) ?? "",
-                                       fromMe: (last?["fromMe"] as? Bool) ?? false,
-                                       heartbeat: true)
-                    self.loopboyHeartbeatAt[contact] = heartbeatNow
-                    let threadFingerprint = (row["contextFingerprint"] as? String) ?? ""
-                    let sid = bindings.first(where: { $0.value == contact })?.key
-                    let topic = sid.flatMap { id in
-                        self.state.claudeSessions.first(where: { $0.sessionId == id })
-                    }?.titleString ?? ""
-                    self.loopboyEvaluatedFingerprint[contact] = "\(threadFingerprint)|\(topic)"
-                    self.loopboyEvaluatedAt[contact] = heartbeatNow
-                }
-                self.loopboyHeartbeatAt = self.loopboyHeartbeatAt.filter {
-                    pendingNow.contains($0.key)
-                }
-                self.loopboyEvaluatedFingerprint = self.loopboyEvaluatedFingerprint.filter {
-                    pendingNow.contains($0.key)
-                }
-                self.loopboyEvaluatedAt = self.loopboyEvaluatedAt.filter {
-                    pendingNow.contains($0.key)
                 }
                 if newSinceLast || !arrivals.isEmpty {
                     self.imsgArrivalVisibleUntil = Date().addingTimeInterval(15)
@@ -1096,81 +1030,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             || Date() < imsgArrivalVisibleUntil
     }
 
-    /// Poke the prox explicitly assigned to iMessage awareness and optionally
-    /// submit a small steering prompt to its live TTY. This is deliberately
-    /// opt-in via an untracked binding file; Slab never guesses which agent to
-    /// wake. A route may separately opt into a validated automatic response.
+    /// Arrivals use the prox inbox; no focus changes, typing, Return, or resume.
+    /// Legacy wake/autoRespond flags cannot enable terminal input here.
     private func bumpBoundProx(contact: String, displayLabel: String, message: String,
-                               fromMe: Bool = false, heartbeat: Bool = false) {
-        guard let data = FileManager.default.contents(atPath: Paths.loopboyConfig),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let loops = obj["loops"] as? [String: Any],
-              let loop = loops[contact] as? [String: Any],
-              let sid = loop["sessionId"] as? String, !sid.isEmpty else { return }
-        let wake = (loop["wake"] as? Bool) ?? false
-        let autoRespond = (loop["autoRespond"] as? Bool) ?? false
-        LedgerStore.shared.pokeLocal(sessionId: sid, by: "loopboy:\(contact)")
-        guard wake else { return }
-
-        let clean = message.replacingOccurrences(of: "\n", with: " ")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let excerpt = String(clean.prefix(240))
-        let direction = fromMe ? "outgoing to" : "incoming from"
-        let boundSession = state.claudeSessions.first(where: { $0.sessionId == sid })
-        let prompt: String
-        if heartbeat {
-            // This is a stable conversation, not a stateless cron job. Route
-            // setup and actual message callbacks carry policy/context. Reuse
-            // the prompt hook's inferred title so each heartbeat names this
-            // prox's actual mission instead of asking a context-free "what's
-            // next?" every minute.
-            let topic = boundSession?.titleString
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            prompt = topic.isEmpty || topic == "(no subject)"
-                ? "Re-read the latest thread with \(displayLabel), infer the next concrete action, and do it."
-                : "Continue \(topic) for \(displayLabel): infer the next concrete action from the latest thread, then do it."
-        } else {
-            let update = excerpt.isEmpty
-                ? "Loopboy detected a thread update with \(displayLabel). Read the latest incoming and outgoing messages, then continue the client loop."
-                : "Loopboy detected a new \(direction) \(displayLabel): \(excerpt) — read the latest incoming and outgoing messages, then continue the client loop."
-            prompt = autoRespond
-                ? update + " This route explicitly authorizes automatic responses: after completing and validating any work, reread the newest thread context, discard stale drafts, send one appropriate reply using `node slab/bin/imsg.mjs send <reply> --to \(contact)`, and verify it appears outbound. Never duplicate a response."
-                : update + " Do not send or react automatically."
-        }
-        let providerId = boundSession?.providerSessionId ?? ""
-        let nudgeScreen = boundSession?.nudgeScreen ?? ""
-        let sessionCwd = boundSession?.cwd ?? Paths.acRepo
-        let agentType = boundSession?.agentType ?? "claude"
-        guard let tty = ttyForSession(sid) else {
-            NSLog("💬 [loopboy] \(contact) prox \(sid.prefix(8)) has no live tty")
-            return
-        }
-        guard !loopboyWakeInFlight.contains(contact) else {
-            NSLog("💬 [loopboy] \(contact) wake already in flight; coalescing")
-            return
-        }
-        loopboyWakeInFlight.insert(contact)
-        if heartbeat {
-            PromptSigilOverlayController.shared.flyPrompt(sessionId: sid, text: prompt)
-        }
-        wakeTerminal(tty: tty, prompt: prompt, providerSessionId: providerId,
-                     nudgeScreen: nudgeScreen, cwd: sessionCwd,
-                     agentType: agentType) { [weak self] status in
-            DispatchQueue.main.async {
-                self?.loopboyWakeInFlight.remove(contact)
-                NSLog("💬 [loopboy] \(contact) wake finished status=\(status) prox=\(sid.prefix(8))")
-                if status == 2 || status == 3 {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-                        self?.bumpBoundProx(contact: contact,
-                                            displayLabel: displayLabel,
-                                            message: message,
-                                            fromMe: fromMe,
-                                            heartbeat: heartbeat)
-                    }
-                }
-            }
-        }
-        NSLog("💬 [loopboy] \(contact) poked + starting wake prox \(sid.prefix(8)) on \(tty)")
+                               fromMe: Bool = false) {
+        guard let route = LoopboyRoutes.all()[contact],
+              let session = state.claudeSessions.first(where: { $0.sessionId == route.sessionId }),
+              LoopboyRoutes.verifiedContact(for: session) == contact else { return }
+        LedgerStore.shared.pokeLocal(sessionId: session.sessionId, by: "loopboy:\(contact)")
+        let direction = fromMe ? "outgoing" : "incoming"
+        let excerpt = String(message.prefix(500))
+        LedgerStore.shared.queueInbox([
+            "from": "loopboy:\(contact)", "to_id": session.sessionId,
+            "text": "iMessage update with \(displayLabel) (\(direction)).\nPreview: \(excerpt)\nThis notification does not authorize sending or reacting.",
+            "urgency": "queue",
+        ])
     }
 
     private func ttyForSession(_ sid: String) -> String? {
@@ -1209,7 +1083,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Easel owns an embedded PTY, not a Terminal.app window. Focus the exact
     /// desktop host process advertised by its marker, then use the same trusted
-    /// keyboard event path as Loopboy/prox terminal wakes.
+    /// keyboard event path as explicit prox terminal wakes.
     private func wakeEasel(pid: Int, windowID: Int, prompt: String,
                            completion: @escaping (Int32) -> Void) {
         let previousApp = NSWorkspace.shared.frontmostApplication
@@ -1245,27 +1119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// visually different from an ordinary manually-launched prox even while
     /// both agents share the same working/awaiting state.
     private func loopboySessionLabels() -> [String: String] {
-        guard let data = FileManager.default.contents(atPath: Paths.loopboyConfig),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let loops = obj["loops"] as? [String: Any] else { return [:] }
-        var labels: [String: String] = [:]
-        for (contact, value) in loops {
-            guard let loop = value as? [String: Any],
-                  let sid = loop["sessionId"] as? String, !sid.isEmpty else { continue }
-            labels[sid] = contact
-        }
-        return labels
-    }
-
-    private func loopboyAutoRespondContacts() -> Set<String> {
-        guard let data = FileManager.default.contents(atPath: Paths.loopboyConfig),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let loops = obj["loops"] as? [String: Any] else { return [] }
-        return Set(loops.compactMap { contact, value in
-            guard let loop = value as? [String: Any],
-                  (loop["autoRespond"] as? Bool) == true else { return nil }
-            return contact
-        })
+        LoopboyRoutes.verifiedBySession(state.claudeSessions)
     }
 
     private func wakeTerminal(tty: String, prompt: String,
@@ -4051,11 +3905,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @discardableResult
     private static func axTilePass(snapshot: AXTiler.Snapshot,
                                    geom: ScreenGeom, textSize: TextSize) -> AXPass? {
-        NSLog("🧩 [tile] windows=%d ids=%@ iterm=%d term=%d acpane=%d chrome=%d wizard=%d stage=%d",
+        NSLog("🧩 [tile] windows=%d ids=%@ iterm=%d term=%d acpane=%d chrome=%d messenger=%d wizard=%d stage=%d",
               snapshot.all.count,
               snapshot.signature.map(String.init).joined(separator: ","),
               snapshot.iterm.count, snapshot.terminal.count, snapshot.acPanes.count,
-              snapshot.chrome.count, snapshot.wizards.count, snapshot.stage.count)
+              snapshot.chrome.count, snapshot.messengers.count, snapshot.wizards.count,
+              snapshot.stage.count)
         // A stage window (GeForce NOW) is an ordinary, equal grid cell first.
         // Only when the app clamps above its cell — its configured floor is
         // bigger than the grid can offer — does it get a column of its own,

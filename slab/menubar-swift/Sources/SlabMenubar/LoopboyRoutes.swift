@@ -1,17 +1,13 @@
 import Foundation
 
-/// Saved Loopboy routing and the live session identity are deliberately
-/// separate. A route is operational only when both agree: editing the JSON
-/// registry alone never badges a session. The marker's `loopboy_contact`
-/// is set at process launch (SLAB_LOOPBOY_CONTACT) or stamped in place by
-/// `prox_bind_notification adopt=true`, which the prompt hook then preserves.
+/// Routes must agree with the session's mutable mode (or a legacy marker).
+/// A persisted OFF mode overrides old launch environments and marker writers.
 struct LoopboyRoute {
     let contact: String
     let channel: String
     let sessionId: String
     let host: String
     let name: String
-    let wake: Bool
 }
 
 enum LoopboyRoutes {
@@ -34,17 +30,28 @@ enum LoopboyRoutes {
                 channel: channel,
                 sessionId: sid,
                 host: (loop["host"] as? String) ?? "?",
-                name: (loop["name"] as? String) ?? "?",
-                wake: (loop["wake"] as? Bool) ?? false)
+                name: (loop["name"] as? String) ?? "?")
         }
         return routes
     }
 
-    /// Return the contact only when the saved route and immutable launch-time
-    /// marker agree on this exact session.
+    static func mode(for sessionId: String) -> [String: Any]? {
+        guard sessionId.range(of: "^[A-Za-z0-9._-]{1,180}$", options: .regularExpression) != nil,
+              sessionId != ".", sessionId != ".." else { return ["contact": ""] }
+        let path = "\(Paths.slabHome)/state/loopboy-modes/\(sessionId).json"
+        guard FileManager.default.fileExists(atPath: path) else { return nil }
+        guard let data = FileManager.default.contents(atPath: path),
+              let mode = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              (mode["sessionId"] as? String) == sessionId,
+              mode["contact"] is String else { return ["contact": ""] }
+        return mode
+    }
+
+    /// No launch-time contact or provider restart is required for adoption.
     static func verifiedContact(for session: ClaudeSession,
                                 routes: [String: LoopboyRoute]? = nil) -> String? {
-        let contact = session.loopboyContact.trimmingCharacters(in: .whitespacesAndNewlines)
+        let contact = ((mode(for: session.sessionId)?["contact"] as? String)
+            ?? session.loopboyContact).trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
         guard !contact.isEmpty,
               let route = (routes ?? all())[contact],
