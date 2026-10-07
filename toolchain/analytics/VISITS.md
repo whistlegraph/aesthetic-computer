@@ -156,6 +156,33 @@ The tool reads existing data; it adds no browser identifiers or new retention.
 
 ## Coverage
 
+### Whistlegraph app referral route
+
+Whistlegraph.org → whistlegraph.app records `whistlegraph_app_clicked` on a
+trusted activation of an HTTPS app link (including keyboard and middle-click).
+Whistlegraph.app records `whistlegraph_access_clicked` when its reviewed mailto
+access link is activated. This means opening a mail draft, not sending email,
+joining a waitlist, installing the app, or paying. Both are boolean per visit.
+No destination, subject, message, or email identity is collected.
+
+The app uses the same visit collector, automation classification and privacy
+opt-outs as the studio sites. Referral hostnames show app arrivals from the org;
+the two sites' ephemeral visit IDs are never joined. `linkVersion: 1` marks
+visits whose page contains a reviewed link and loads the new measurement.
+Old visits and pages without those links are excluded from the click-rate
+denominator. Coverage starts with the October 7 deployment; no backfill.
+
+On Lith, from `/opt/ac/system`:
+
+```sh
+node --env-file=.env ../toolchain/analytics/whistlegraph-report.mjs --hours 24
+```
+
+The report separates automation, org click-through, app arrivals with an org
+referrer, and access-link clicks (including those within referred app visits).
+Privacy settings or browser link handling can omit referrers; these counts are
+not a cross-domain conversion funnel. All counts are grouped by visit start.
+
 ### Account activity and referrers
 
 `POST /api/account-activity` verifies a bearer token through the existing

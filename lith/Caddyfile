@@ -1522,7 +1522,7 @@ whistlegraph.app {
     root * /opt/ac/system/public/whistlegraph.app
     header X-Content-Type-Options nosniff
     header Referrer-Policy strict-origin-when-cross-origin
-    header Content-Security-Policy "default-src 'none'; img-src 'self'; style-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    header Content-Security-Policy "default-src 'none'; script-src https://aesthetic.computer/aesthetic.computer/lib/; connect-src https://aesthetic.computer/api/visit-track; img-src 'self'; style-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
     header Cache-Control "no-cache"
     file_server
 }

@@ -1,4 +1,4 @@
-import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface, visitReferrer } from "./visit-model.mjs";
+import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface, visitReferrer, visitLinkAction } from "./visit-model.mjs?v=20261007-whistlegraph";
 
 const ENDPOINT = "https://aesthetic.computer/api/visit-track";
 
@@ -22,8 +22,10 @@ export function startVisitTracker(win = window, doc = document) {
   const reset = () => {
     path = win.location.pathname;
     const surface = visitSurface(path);
+    const linkMeasured = ["whistlegraph.org", "whistlegraph.app"].includes(visitProperty(win.location.hostname)) &&
+      [...doc.querySelectorAll("a[href]")].some(link => visitLinkAction(win.location.hostname, link.href));
     state = surface === null ? null : {
-      version: 1, id: win.crypto.randomUUID(), surface,
+      version: 1, ...(linkMeasured ? { linkVersion: 1 } : {}), id: win.crypto.randomUUID(), surface,
       automated: automatedVisit(nav, win.location.search, win.acAutomation === true),
       interacted: false, activeSeconds: 0, inputs: [], actions: [],
       referrerHost: visitReferrer(doc.referrer),
@@ -108,17 +110,22 @@ export function startVisitTracker(win = window, doc = document) {
       }
     }, true);
   }
-  on(win, "click", e => {
+  const followLink = e => {
     if (!e.isTrusted || e.target?.closest?.("[data-ac-no-track]")) return;
+    if (e.type === "auxclick" && e.button !== 1) return;
     const link = e.target?.closest?.("a[href]");
     if (!link) return;
     interact(e.detail === 0 ? "keyboard" : "pointer");
     let url;
     try { url = new URL(link.href, win.location.href); } catch { return; }
+    const milestone = visitLinkAction(win.location.hostname, url.href);
+    if (milestone) action(milestone);
     if (!/^https?:$/.test(url.protocol)) return;
     action(link.hasAttribute("download") || /\.(?:dmg|zip|pdf|amxd|exe|apk)$/i.test(url.pathname)
       ? "download_clicked" : "link_followed");
-  }, true);
+  };
+  on(win, "click", followLink, true);
+  on(win, "auxclick", followLink, true);
   on(doc, "playing", e => {
     if (["AUDIO", "VIDEO"].includes(e.target?.tagName)) action("media_started");
   }, true);
