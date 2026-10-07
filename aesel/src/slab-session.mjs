@@ -115,7 +115,9 @@ export class SlabSession {
       // what it is showing is the current save, a save still on its way, or a
       // push in flight. Without them a frozen frame and a live one look alike.
       flow: "live",
-      provider_agent_type: "codex",
+      // Which engine answers this rock: claude, codex, ac or open. Set on
+      // connect, because /backend can swap it mid-session.
+      provider_agent_type: "",
       provider_session_id: "",
       updated: now(),
       started_at: now(),
@@ -140,8 +142,8 @@ export class SlabSession {
     return this.sessionId;
   }
 
-  connected(providerSessionId) {
-    this.#update({ provider_session_id: providerSessionId || "" });
+  connected(providerSessionId, providerAgentType = "") {
+    this.#update({ provider_session_id: providerSessionId || "", provider_agent_type: providerAgentType });
   }
 
   snapshot() {

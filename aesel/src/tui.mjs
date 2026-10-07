@@ -2222,7 +2222,7 @@ async function restartEngine(note, nextBackend = backend, nextModel = model, nex
     if(nextBackend.id === "ac" && previousBackend.id === "ac") { engine.messages = structuredClone(previous.messages); engine.turns = previous.turns; }
     const connection = await engine.connect();
     previous.close();
-    slabSession.connected(engine.threadId);
+    slabSession.connected(engine.threadId, backend.id);
     state.model = connection?.model || model;
     await rememberProvider();
     saveDesktopIdle();
@@ -2374,7 +2374,7 @@ async function commandNew(rest) {
     });
     state.entries=[];
     state.input='';state.cursor=0;state.queued=[];state.scrollOffset=0;
-    slabSession.connected(engine.threadId);
+    slabSession.connected(engine.threadId, backend.id);
     if(state.medium==='piece') {
       live.watch(liveError);refreshQr();live.push().catch(liveError);
       if(rest!=='thread') { blankPublished=false;autopublish.published=null;publishBlankOnce(); }
@@ -3478,7 +3478,7 @@ try {
   await inboxReady;
   markStartup('engine-connected');flushStartupTrace();
   bootDone();
-  slabSession.connected(connection?.thread?.id || engine.threadId);
+  slabSession.connected(connection?.thread?.id || engine.threadId, backend.id);
   state.status = "ready";
   state.model = connection?.model || model;
   // The bottom line names the model properly once the provider's list is

@@ -48,10 +48,11 @@ test("publishes the full Slab prompt lifecycle", async (context) => {
   assert.equal(marker.agent_type, "aesel");
   assert.equal(marker.state, "blank");
 
-  session.connected("00000000-0000-0000-0000-000000000001");
+  session.connected("00000000-0000-0000-0000-000000000001", "claude");
   session.working("make this window visible to prox");
   marker = await readJson(active);
   assert.equal(marker.provider_session_id, "00000000-0000-0000-0000-000000000001");
+  assert.equal(marker.provider_agent_type, "claude");
   assert.equal(marker.subject, "make this window visible to prox");
   assert.equal(marker.state, "working");
   assert.equal(await exists(running), true);
