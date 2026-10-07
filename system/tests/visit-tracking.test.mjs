@@ -1,12 +1,28 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { validateVisit, visitUpdate, visitProperty, visitSurface, automatedVisit, visitMediaAction, VISIT_ACTIONS } from "../public/aesthetic.computer/lib/visit-model.mjs";
+import { validateVisit, visitUpdate, visitProperty, visitSurface, automatedVisit, visitMediaAction, visitLinkAction, VISIT_ACTIONS } from "../public/aesthetic.computer/lib/visit-model.mjs";
 import { handler } from "../netlify/functions/visit-track.mjs";
 
 const snapshot = () => ({ version: 1, id: randomUUID(), surface: "home",
   activeSeconds: 10, interacted: true, automated: false,
   inputs: ["pointer"], actions: ["link_followed"] });
+
+test("Whistlegraph link milestones retain only reviewed actions and measurement coverage", () => {
+  assert.equal(visitProperty("www.whistlegraph.app"), "whistlegraph.app");
+  assert.equal(visitLinkAction("www.whistlegraph.org", "https://whistlegraph.app/"), "whistlegraph_app_clicked");
+  assert.equal(visitLinkAction("whistlegraph.app", "mailto:mail@aesthetic.computer?body=private"), "whistlegraph_access_clicked");
+  for (const href of ["https://whistlegraph.app.evil.test", "http://whistlegraph.app", "https://whistlegraph.app:1234", "https://secret@whistlegraph.app", "https://aesthetic.computer/", "invalid"])
+    assert.equal(visitLinkAction("whistlegraph.org", href), null);
+  assert.equal(visitLinkAction("jas.life", "https://whistlegraph.app"), null);
+  assert.equal(visitLinkAction("whistlegraph.app", "mailto:other@example.com"), null);
+  const visit = validateVisit({ ...snapshot(), linkVersion: 1, actions: ["whistlegraph_access_clicked"] }, "https://whistlegraph.app");
+  assert.equal(visitUpdate(visit).$max.linkVersion, 1);
+  assert.equal(visitUpdate(visit).$max["actions.whistlegraph_access_clicked"], true);
+  assert.equal(visitUpdate(validateVisit(snapshot(), "https://whistlegraph.org")).$max.linkVersion, undefined,
+    "old visits without link measurement must not enter a click-rate denominator");
+  assert.equal(validateVisit({ ...snapshot(), linkVersion: 2 }, "https://whistlegraph.app"), null);
+});
 
 test("creation milestones require a confirmed media record and carry no content", () => {
   for (const result of [null, {}, { slug: "upload-only" }, { code: "" }, { code: 123 }, { code: "abc", error: "failed" }])

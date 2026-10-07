@@ -9,6 +9,7 @@ export const VISIT_PROPERTIES = Object.freeze({
   "oskiewar.com": ["www.oskiewar.com", "midi.oskiewar.com"],
   "nopaint.art": ["www.nopaint.art"],
   "whistlegraph.org": ["www.whistlegraph.org", "tv.whistlegraph.org"],
+  "whistlegraph.app": ["www.whistlegraph.app"],
   "jas.life": ["www.jas.life", "rdp.jas.life"],
   "kidlisp.com": ["www.kidlisp.com", "learn.kidlisp.com", "keep.kidlisp.com", "buy.kidlisp.com", "pj.kidlisp.com", "top.kidlisp.com", "calm.kidlisp.com"],
   "notepat.com": ["www.notepat.com"],
@@ -39,7 +40,22 @@ export const VISIT_ACTIONS = Object.freeze([
   "mime_interact", "mime_scroll_feed", "mime_original_open",
   "note_played", "painting_edited", "recording_started",
   "painting_saved", "tape_saved",
+  "whistlegraph_app_clicked", "whistlegraph_access_clicked",
 ]);
+
+// Reviewed link milestones only; never retain destinations or mailto contents.
+export function visitLinkAction(hostname, href) {
+  let url;
+  try { url = new URL(href); } catch { return null; }
+  const property = visitProperty(hostname);
+  if (property === "whistlegraph.org" && url.protocol === "https:" &&
+      !url.port && !url.username && !url.password && visitProperty(url.hostname) === "whistlegraph.app")
+    return "whistlegraph_app_clicked";
+  if (property === "whistlegraph.app" && url.protocol === "mailto:" &&
+      url.pathname.toLowerCase() === "mail@aesthetic.computer")
+    return "whistlegraph_access_clicked";
+  return null;
+}
 export const VISIT_DEPTHS = Object.freeze([30, 60, 180, 600]);
 // Public upload milestones require a returned record code, never a click.
 export function visitMediaAction(extension, result) {
@@ -113,6 +129,7 @@ export function validateVisit(body, origin, userAgent = "") {
       !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(body.id || "") ||
       !SURFACES.includes(body.surface) || !ACTIVE_BUCKETS.includes(body.activeSeconds) ||
       typeof body.interacted !== "boolean" || typeof body.automated !== "boolean" ||
+      (body.linkVersion !== undefined && body.linkVersion !== 1) ||
       !Array.isArray(body.inputs) || body.inputs.length > INPUTS.length ||
       body.inputs.some(value => !INPUTS.includes(value)) ||
       !Array.isArray(body.actions) || body.actions.length > VISIT_ACTIONS.length ||
@@ -124,12 +141,14 @@ export function validateVisit(body, origin, userAgent = "") {
     automated: body.automated || automatedVisit({ userAgent }),
     inputs: [...new Set(body.inputs)], actions: [...new Set(body.actions)],
     referrerHost: typeof body.referrerHost === "string" ? visitReferrer(body.referrerHost) : null,
+    ...(body.linkVersion === 1 ? { linkVersion: 1 } : {}),
   };
 }
 
 export function visitUpdate(visit, now = new Date()) {
   const max = { activeSeconds: visit.activeSeconds, interacted: visit.interacted,
     automated: visit.automated, engaged: visit.interacted && visit.activeSeconds >= 10 };
+  if (visit.linkVersion === 1) max.linkVersion = 1;
   for (const input of visit.inputs) max[`inputs.${input}`] = true;
   for (const action of visit.actions) max[`actions.${action}`] = true;
   return {

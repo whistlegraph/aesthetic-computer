@@ -3,6 +3,84 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { chromium } from "playwright";
 
+test("Whistlegraph org-to-app link, referral and mail draft work under the deployed CSP", async () => {
+  const browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL });
+  try {
+    const context = await browser.newContext();
+    const received = [];
+    const orgHtml = await readFile(new URL("../public/whistlegraph.org/index.html", import.meta.url), "utf8");
+    const appHtml = await readFile(new URL("../public/whistlegraph.app/index.html", import.meta.url), "utf8");
+    const caddy = await readFile(new URL("../../lith/Caddyfile", import.meta.url), "utf8");
+    const csp = caddy.split("\nwhistlegraph.app {")[1].match(/header Content-Security-Policy "([^"]+)"/)[1];
+    const bumper = orgHtml.match(/<a class="bumper"[^>]*>[\s\S]*?<\/a>/)[0];
+    const tracker = orgHtml.match(/<script type="module" src="[^"]*visit-tracker[^>]*><\/script>/)[0];
+    await context.route("**/*", async route => {
+      const request = route.request(), url = new URL(request.url());
+      if (url.pathname === "/api/visit-track") {
+        received.push({ origin: request.headers().origin, ...JSON.parse(request.postData()) });
+        return route.fulfill({ status: 204, headers: { "Access-Control-Allow-Origin": "*" } });
+      }
+      if (/\/visit-(tracker|model)\.mjs$/.test(url.pathname)) {
+        return route.fulfill({ contentType: "text/javascript", body: await readFile(new URL(`../public/aesthetic.computer/lib/${url.pathname.split("/").at(-1)}`, import.meta.url), "utf8"), headers: { "Access-Control-Allow-Origin": "*" } });
+      }
+      if (url.hostname === "whistlegraph.app" && url.pathname === "/")
+        return route.fulfill({ contentType: "text/html", body: appHtml, headers: { "Content-Security-Policy": csp, "Referrer-Policy": "strict-origin-when-cross-origin" } });
+      if (url.hostname === "whistlegraph.org")
+        return route.fulfill({ contentType: "text/html", body: bumper + tracker + '<a id="unrelated" href="https://aesthetic.computer">AC</a>' });
+      return route.fulfill({ status: 200, body: "" });
+    });
+    const page = await context.newPage();
+    const violations = [];
+    await page.exposeFunction("recordCspViolation", value => violations.push(value));
+    await page.addInitScript(() => document.addEventListener("securitypolicyviolation", e => window.recordCspViolation(e.blockedURI)));
+    await page.goto("https://whistlegraph.org/");
+    await page.waitForFunction(() => !!window.acVisits);
+    await page.locator(".bumper").evaluate(link => link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true })));
+    // A synthetic click may navigate, but must not be counted. Reload the source.
+    await page.goto("https://whistlegraph.org/");
+    await page.waitForFunction(() => !!window.acVisits);
+    assert.ok(!received.some(row => row.actions.includes("whistlegraph_app_clicked")));
+    await page.locator(".bumper").click();
+    await page.waitForURL("https://whistlegraph.app/");
+    await page.waitForFunction(() => !!window.acVisits);
+    await page.waitForTimeout(100);
+    assert.ok(received.some(row => row.origin === "https://whistlegraph.org" && row.linkVersion === 1 && row.actions.includes("whistlegraph_app_clicked")));
+    assert.ok(received.some(row => row.origin === "https://whistlegraph.app" && row.referrerHost === "whistlegraph.org" && row.linkVersion === 1));
+    // Keep the browser test from launching a mail application; activation stays trusted.
+    await page.evaluate(() => document.addEventListener("click", e => e.preventDefault()));
+    await page.locator("#get-app").click();
+    await page.waitForTimeout(100);
+    const requests = received.length;
+    await page.locator("#get-app").click();
+    await page.waitForTimeout(100);
+    assert.equal(received.length, requests, "repeat activation is once per visit");
+    assert.ok(received.some(row => row.origin === "https://whistlegraph.app" && row.actions.includes("whistlegraph_access_clicked")));
+    assert.ok(!JSON.stringify(received).includes("mailto:"));
+    assert.deepEqual(violations, [], "the app CSP permits the tracker and collector");
+    for (const input of ["keyboard", "middle"]) {
+      await page.goto("https://whistlegraph.org/");
+      await page.waitForFunction(() => !!window.acVisits);
+      await page.evaluate(() => {
+        document.addEventListener("click", e => e.preventDefault());
+        document.addEventListener("auxclick", e => e.preventDefault());
+      });
+      const before = received.filter(row => row.actions.includes("whistlegraph_app_clicked")).length;
+      await page.locator("#unrelated").click();
+      await page.locator(".bumper").click({ button: "right" });
+      await page.waitForTimeout(50);
+      assert.equal(received.filter(row => row.actions.includes("whistlegraph_app_clicked")).length, before);
+      if (input === "keyboard") {
+        await page.locator(".bumper").focus();
+        await page.keyboard.press("Enter");
+      } else await page.locator(".bumper").click({ button: "middle" });
+      await page.waitForTimeout(100);
+      assert.ok(received.filter(row => row.actions.includes("whistlegraph_app_clicked")).length > before, input);
+    }
+    assert.ok(received.every(row => row.automated), "browser QA stays classified as automation");
+    await context.close();
+  } finally { await browser.close(); }
+});
+
 test("browser funnel, automation, privacy opt-out, private SPA routes and duplicate installation", async () => {
   const browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL });
   try {
